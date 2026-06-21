@@ -51,6 +51,18 @@ function ProjectSetup() {
     );
 
   const save = () => {
+    const missing: string[] = [];
+    if (!form.name.trim()) missing.push("Project name");
+    if (!form.businessName.trim()) missing.push("Business name");
+    if (!form.description.trim()) missing.push("Business description");
+    if (form.websiteUrl.trim() && !/^https?:\/\/\S+\.\S+/.test(form.websiteUrl.trim())) {
+      toast.error("Website URL must start with http:// or https://");
+      return;
+    }
+    if (missing.length) {
+      toast.error(`Missing required field${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}`);
+      return;
+    }
     if (creating) {
       addProject(form);
       toast.success("Project created");
