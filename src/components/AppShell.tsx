@@ -11,14 +11,21 @@ import {
   Building2,
 } from "lucide-react";
 
-const NAV = [
+type NavItem = {
+  to: "/" | "/setup" | "/services" | "/opportunities" | "/calendar" | "/editor";
+  label: string;
+  icon: typeof LayoutDashboard;
+  exact?: boolean;
+};
+
+const NAV: NavItem[] = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/setup", label: "Project Setup", icon: FolderCog },
   { to: "/services", label: "Services & Products", icon: Package },
   { to: "/opportunities", label: "SEO Opportunities", icon: Sparkles },
   { to: "/calendar", label: "Content Calendar", icon: CalendarDays },
   { to: "/editor", label: "Content Editor", icon: FileText },
-] as const;
+];
 
 export function AppShell({
   title,
