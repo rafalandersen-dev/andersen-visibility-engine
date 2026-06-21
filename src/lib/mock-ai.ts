@@ -1,7 +1,7 @@
 import {
   getState,
-  addOpportunities,
-  addCalendarItems,
+  replaceNewOpportunities,
+  replacePlannedCalendar,
   upsertContent,
   uid,
 } from "./store";
@@ -10,8 +10,6 @@ import type {
   CalendarItem,
   ContentAsset,
   Language,
-  ContentType,
-  SearchIntent,
 } from "./types";
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));

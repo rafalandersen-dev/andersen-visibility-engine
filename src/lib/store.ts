@@ -112,8 +112,28 @@ export const updateOpportunity = (id: string, patch: Partial<Opportunity>) =>
 export const addOpportunities = (items: Opportunity[]) =>
   setState((s) => ({ ...s, opportunities: [...s.opportunities, ...items] }));
 
+// Replace project's "New" opportunities (preserve briefed/drafting/linked/discarded)
+export const replaceNewOpportunities = (projectId: string, items: Opportunity[]) =>
+  setState((s) => ({
+    ...s,
+    opportunities: [
+      ...s.opportunities.filter((o) => o.projectId !== projectId || o.status !== "New"),
+      ...items,
+    ],
+  }));
+
 export const addCalendarItems = (items: CalendarItem[]) =>
   setState((s) => ({ ...s, calendar: [...s.calendar, ...items] }));
+
+// Replace project's planned calendar items (preserve In Progress / Done)
+export const replacePlannedCalendar = (projectId: string, items: CalendarItem[]) =>
+  setState((s) => ({
+    ...s,
+    calendar: [
+      ...s.calendar.filter((c) => c.projectId !== projectId || c.status !== "Planned"),
+      ...items,
+    ],
+  }));
 
 export const updateCalendarItem = (id: string, patch: Partial<CalendarItem>) =>
   setState((s) => ({
