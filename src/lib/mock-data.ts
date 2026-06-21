@@ -67,10 +67,11 @@ export const seedServices: ServiceItem[] = [
   { id: "l2", projectId: "si-longevity", name: "NMN Capsules 500mg", kind: "Product", description: "Pharmaceutical-grade NMN, 60 capsules.", targetAudience: "Longevity-focused 40+", locationRelevance: "EU", priority: "Medium" },
 ];
 
-const today = new Date();
+// Fixed seed anchor so SSR and client snapshots match (no Date.now() at module init).
+const SEED_ANCHOR = "2026-06-21T09:00:00.000Z";
 const dayOffset = (n: number) => {
-  const d = new Date(today);
-  d.setDate(d.getDate() + n);
+  const d = new Date(SEED_ANCHOR);
+  d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
 };
 
@@ -125,6 +126,6 @@ export const seedContent: ContentAsset[] = [
     schemaSuggestions: ["LocalBusiness", "Service", "FAQPage"],
     editorNotes: "Lägg till bild från behandlingsrum innan publicering.",
     status: "In Review",
-    updatedAt: new Date().toISOString(),
+    updatedAt: SEED_ANCHOR,
   },
 ];

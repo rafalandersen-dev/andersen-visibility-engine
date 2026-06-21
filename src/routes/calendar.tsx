@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useStore, updateCalendarItem } from "@/lib/store";
+import { formatDateShort } from "@/lib/format";
 import { generateContentCalendar } from "@/lib/mock-ai";
 import type { CalendarItem } from "@/lib/types";
 import { useMemo, useState } from "react";
@@ -91,7 +92,7 @@ function CalendarPage() {
                     {list.map((c) => (
                       <tr key={c.id} className="hover:bg-secondary/40">
                         <td className="px-5 py-3 font-mono text-xs">
-                          {new Date(c.plannedDate).toLocaleDateString(undefined, { month: "short", day: "2-digit", weekday: "short" })}
+                          {formatDateShort(c.plannedDate)}
                         </td>
                         <td className="px-5 py-3"><div className="font-medium truncate max-w-md">{c.topicTitle}</div></td>
                         <td className="px-5 py-3 text-muted-foreground">{c.language}</td>

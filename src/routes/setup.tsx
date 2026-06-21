@@ -15,8 +15,10 @@ import { useStore, updateProject, addProject } from "@/lib/store";
 import type { Language, Project } from "@/lib/types";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 
 export const Route = createFileRoute("/setup")({
+  validateSearch: z.object({ new: z.coerce.boolean().optional() }),
   head: () => ({
     meta: [
       { title: "Project Setup — Andersen Visibility Engine" },
@@ -32,12 +34,35 @@ function ProjectSetup() {
   const projects = useStore((s) => s.projects);
   const activeProjectId = useStore((s) => s.activeProjectId);
   const active = projects.find((p) => p.id === activeProjectId)!;
+  const search = Route.useSearch();
   const [form, setForm] = useState<Project>(active);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState(Boolean(search.new));
 
   useEffect(() => {
-    setForm(active);
-  }, [active.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!creating) setForm(active);
+  }, [active.id, creating]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (search.new) {
+      setCreating(true);
+      setForm({
+        id: "",
+        name: "",
+        websiteUrl: "",
+        businessName: "",
+        businessType: "",
+        primaryLanguage: "English",
+        additionalLanguages: [],
+        mainLocation: "",
+        targetLocations: [],
+        description: "",
+        targetAudience: "",
+        toneOfVoice: "",
+        uniqueSellingPoints: "",
+        brandNotes: "",
+      });
+    }
+  }, [search.new]);
 
   const update = <K extends keyof Project>(k: K, v: Project[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
@@ -51,6 +76,18 @@ function ProjectSetup() {
     );
 
   const save = () => {
+    const missing: string[] = [];
+    if (!form.name.trim()) missing.push("Project name");
+    if (!form.businessName.trim()) missing.push("Business name");
+    if (!form.description.trim()) missing.push("Business description");
+    if (form.websiteUrl.trim() && !/^https?:\/\/\S+\.\S+/.test(form.websiteUrl.trim())) {
+      toast.error("Website URL must start with http:// or https://");
+      return;
+    }
+    if (missing.length) {
+      toast.error(`Missing required field${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}`);
+      return;
+    }
     if (creating) {
       addProject(form);
       toast.success("Project created");

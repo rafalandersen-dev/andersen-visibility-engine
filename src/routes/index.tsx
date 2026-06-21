@@ -6,6 +6,7 @@ import { generateSeoOpportunities } from "@/lib/mock-ai";
 import { ArrowUpRight, Plus, Sparkles, FileText, CheckCircle2, Upload, FileEdit } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
+import { formatDate } from "@/lib/format";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -85,7 +86,7 @@ function Dashboard() {
             <Sparkles className="h-4 w-4" />
             Generate SEO Opportunities
           </Button>
-          <Button onClick={() => navigate({ to: "/setup" })}>
+          <Button onClick={() => navigate({ to: "/setup", search: { new: true } })}>
             <Plus className="h-4 w-4" />
             Create New Project
           </Button>
@@ -122,7 +123,7 @@ function Dashboard() {
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium text-foreground">{c.title}</div>
                     <div className="mt-0.5 text-xs text-muted-foreground">
-                      {c.status} · updated {new Date(c.updatedAt).toLocaleDateString()}
+                      {c.status} · updated {formatDate(c.updatedAt)}
                     </div>
                   </div>
                   <Button variant="outline" size="sm" onClick={() => navigate({ to: "/editor", search: { id: c.id } as never })}>

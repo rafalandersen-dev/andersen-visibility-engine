@@ -20,6 +20,7 @@ import {
 import { useStore, upsertContent } from "@/lib/store";
 import { generateMetadata, generateFaq, generateCta } from "@/lib/mock-ai";
 import type { ContentAsset, ContentStatus } from "@/lib/types";
+import { formatDateTime } from "@/lib/format";
 import { useEffect, useMemo, useState } from "react";
 import { Check, Copy, Download, FileEdit, FileX, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
@@ -238,7 +239,7 @@ function Editor({ asset }: { asset: ContentAsset }) {
         <Button size="sm" variant="outline" onClick={() => exportText("md")}><Download className="h-3.5 w-3.5" /> Export Markdown</Button>
         <Button size="sm" variant="outline" onClick={() => exportText("html")}><Download className="h-3.5 w-3.5" /> Export HTML</Button>
         <Button size="sm" variant="ghost" onClick={copy}><Copy className="h-3.5 w-3.5" /> Copy Markdown</Button>
-        <div className="ml-auto text-xs text-muted-foreground">Updated {new Date(f.updatedAt).toLocaleString()}</div>
+        <div className="ml-auto text-xs text-muted-foreground">Updated {formatDateTime(f.updatedAt)}</div>
       </div>
     </div>
   );

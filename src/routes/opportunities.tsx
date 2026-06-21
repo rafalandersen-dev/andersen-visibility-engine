@@ -104,8 +104,30 @@ function OpportunitiesPage() {
 
       <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
         {items.length === 0 ? (
-          <div className="col-span-full rounded-lg border border-dashed border-border p-10 text-center text-muted-foreground">
-            No opportunities match these filters.
+          <div className="col-span-full rounded-lg border border-dashed border-border p-12 text-center">
+            {all.length === 0 ? (
+              <>
+                <div className="font-display text-lg mb-1">No opportunities yet</div>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                  Generate a first batch of structured SEO opportunities, ranked by language, intent and business value for this project.
+                </p>
+                <Button
+                  className="mt-4"
+                  onClick={async () => {
+                    setGenerating(true);
+                    await generateSeoOpportunities(activeProjectId);
+                    setGenerating(false);
+                    toast.success("Generated opportunities");
+                  }}
+                  disabled={generating}
+                >
+                  {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  Generate opportunities
+                </Button>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">No opportunities match these filters.</p>
+            )}
           </div>
         ) : items.map((o) => (
           <article key={o.id} className="rounded-lg border border-border bg-card p-5 flex flex-col">
