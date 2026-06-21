@@ -41,15 +41,23 @@ export async function generateSeoOpportunities(projectId: string) {
     projectId,
     status: "New",
   }));
-  addOpportunities(items);
+  replaceNewOpportunities(projectId, items);
   return items;
 }
 
 export async function generateContentCalendar(projectId: string) {
   await wait(800);
-  const opps = getState().opportunities.filter((o) => o.projectId === projectId).slice(0, 8);
+  // Prefer high-priority opportunities first, then medium, then others; cap at 8.
+  const ranked = getState()
+    .opportunities.filter((o) => o.projectId === projectId && o.status !== "Discarded")
+    .slice()
+    .sort((a, b) => {
+      const order = { High: 0, Medium: 1, Low: 2 } as const;
+      return order[a.priority] - order[b.priority];
+    })
+    .slice(0, 8);
   const today = new Date();
-  const items: CalendarItem[] = opps.map((o, i) => {
+  const items: CalendarItem[] = ranked.map((o, i) => {
     const d = new Date(today);
     d.setDate(d.getDate() + (i + 1) * 3);
     return {
@@ -65,7 +73,7 @@ export async function generateContentCalendar(projectId: string) {
       status: "Planned",
     };
   });
-  addCalendarItems(items);
+  replacePlannedCalendar(projectId, items);
   return items;
 }
 
