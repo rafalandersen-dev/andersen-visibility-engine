@@ -69,7 +69,15 @@ function ServicesPage() {
           </thead>
           <tbody className="divide-y divide-border">
             {items.length === 0 ? (
-              <tr><td colSpan={6} className="px-5 py-10 text-center text-muted-foreground">No services or products yet.</td></tr>
+              <tr><td colSpan={6} className="px-5 py-12">
+                <div className="text-center">
+                  <div className="font-display text-lg mb-1">No services or products yet</div>
+                  <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                    Add what this business actually sells. The AI uses this catalog to ground every brief, draft and CTA it generates for this project.
+                  </p>
+                  <Button className="mt-4" onClick={startCreate}><Plus className="h-4 w-4" /> Add first item</Button>
+                </div>
+              </td></tr>
             ) : items.map((s) => (
               <tr key={s.id} className="hover:bg-secondary/40">
                 <td className="px-5 py-3">
