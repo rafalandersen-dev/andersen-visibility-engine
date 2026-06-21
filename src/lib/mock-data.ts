@@ -1,3 +1,9 @@
+/**
+ * Seed data for the demo brands (Synergy Massage, Andersen Innovations,
+ * SI Longevity). All timestamps are pinned to `SEED_ANCHOR` so SSR and
+ * client snapshots match. This file is the single source of fixtures —
+ * no other module should hard-code demo content.
+ */
 import type { Project, ServiceItem, Opportunity, CalendarItem, ContentAsset } from "./types";
 
 export const seedProjects: Project[] = [
