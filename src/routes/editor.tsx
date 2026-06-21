@@ -102,9 +102,6 @@ function Editor({ asset }: { asset: ContentAsset }) {
     setBusy(name);
     await fn();
     setBusy(null);
-    // pull fresh from store
-    const fresh = useStore.length; // noop
-    void fresh;
     toast.success(`Regenerated ${name}`);
   };
 
