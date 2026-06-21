@@ -86,7 +86,7 @@ function Dashboard() {
             <Sparkles className="h-4 w-4" />
             Generate SEO Opportunities
           </Button>
-          <Button onClick={() => navigate({ to: "/setup" })}>
+          <Button onClick={() => navigate({ to: "/setup", search: { new: true } })}>
             <Plus className="h-4 w-4" />
             Create New Project
           </Button>
