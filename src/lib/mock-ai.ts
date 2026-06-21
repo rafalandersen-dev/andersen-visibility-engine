@@ -1,3 +1,23 @@
+/**
+ * Mock AI generation layer.
+ *
+ * Every async function in this file is a stand-in for a future LLM call.
+ * They are deliberately the ONLY place that fabricates SEO opportunities,
+ * briefs, drafts, metadata, FAQs and CTAs. When real providers are wired
+ * in (OpenAI / Anthropic / Lovable AI Gateway), replace the bodies of
+ * these functions while keeping the signatures identical:
+ *
+ *   generateSeoOpportunities(projectId)
+ *   generateContentCalendar(projectId)
+ *   generateLandingPageBrief(opportunityId)
+ *   generateArticleDraft(opportunityId)
+ *   generateMetadata(contentAssetId)
+ *   generateFaq(contentAssetId)
+ *   generateCta(contentAssetId)
+ *
+ * The UI never imports prompt strings, model names or fixtures directly —
+ * it only calls these functions and reads results back from the store.
+ */
 import {
   getState,
   replaceNewOpportunities,

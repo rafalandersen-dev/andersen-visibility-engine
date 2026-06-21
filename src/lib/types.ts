@@ -1,3 +1,7 @@
+/**
+ * Canonical domain types for the Andersen Visibility Engine.
+ * All store entities, mock-AI generators and UI components import from here.
+ */
 export type Language = "Polish" | "Swedish" | "English";
 
 export type ContentType =

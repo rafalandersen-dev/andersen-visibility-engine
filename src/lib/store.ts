@@ -1,3 +1,19 @@
+/**
+ * Andersen Visibility Engine — global app store.
+ *
+ * Tiny reactive store built on `useSyncExternalStore` + `localStorage`. No
+ * external state library on purpose — the MVP is a clickable shell and we
+ * want zero hidden magic for reviewers.
+ *
+ * Data model lives in ./types. Seed data lives in ./mock-data. Mock AI
+ * generators in ./mock-ai call the action helpers below (e.g.
+ * `replaceNewOpportunities`, `upsertContent`) to mutate the store.
+ *
+ * Project context: every entity carries a `projectId`. The UI reads
+ * `activeProjectId` and filters client-side. When real persistence lands,
+ * swap the body of `setState` / initial hydration for an API call — the
+ * action surface and selectors stay the same.
+ */
 import { useSyncExternalStore } from "react";
 import type {
   Project,
