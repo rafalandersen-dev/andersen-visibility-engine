@@ -14,7 +14,7 @@
  * swap the body of `setState` / initial hydration for an API call — the
  * action surface and selectors stay the same.
  */
-import { useSyncExternalStore } from "react";
+import { useRef, useSyncExternalStore } from "react";
 import type {
   Project,
   ServiceItem,
@@ -81,12 +81,46 @@ const subscribe = (l: () => void) => {
   return () => listeners.delete(l);
 };
 
+const shallowEqual = (a: unknown, b: unknown): boolean => {
+  if (Object.is(a, b)) return true;
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (!Object.is(a[i], b[i])) return false;
+    return true;
+  }
+  if (a && b && typeof a === "object" && typeof b === "object") {
+    const ak = Object.keys(a as object);
+    const bk = Object.keys(b as object);
+    if (ak.length !== bk.length) return false;
+    for (const k of ak) {
+      if (!Object.is((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k])) return false;
+    }
+    return true;
+  }
+  return false;
+};
+
 export function useStore<T>(selector: (s: State) => T): T {
-  return useSyncExternalStore(
-    subscribe,
-    () => selector(state),
-    () => selector(initialState),
-  );
+  const cache = useRef<{ state: State | null; value: T }>({ state: null, value: undefined as unknown as T });
+  const getSnap = () => {
+    const cur = state;
+    if (cache.current.state === cur) return cache.current.value;
+    const next = selector(cur);
+    if (cache.current.state !== null && shallowEqual(cache.current.value, next)) {
+      cache.current = { state: cur, value: cache.current.value };
+      return cache.current.value;
+    }
+    cache.current = { state: cur, value: next };
+    return next;
+  };
+  const serverCache = useRef<{ done: boolean; value: T }>({ done: false, value: undefined as unknown as T });
+  const getServerSnap = () => {
+    if (!serverCache.current.done) {
+      serverCache.current = { done: true, value: selector(initialState) };
+    }
+    return serverCache.current.value;
+  };
+  return useSyncExternalStore(subscribe, getSnap, getServerSnap);
 }
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
