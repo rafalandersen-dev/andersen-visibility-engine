@@ -238,7 +238,7 @@ export const generateOpportunitiesFn = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const project = data.project as Project;
     const services = data.services as ServiceItem[];
     const brief = projectBrief(project, services);
@@ -248,12 +248,18 @@ export const generateOpportunitiesFn = createServerFn({ method: "POST" })
 
     try {
       const gateway = getGateway();
-      const { output } = await generateText({
+      console.info("[ai.functions] opportunities reached", {
+        userIdPresent: Boolean(context.userId),
+        projectId: project.id,
+        projectName: project.businessName || project.name,
+        serviceCount: services.length,
+      });
+      const { text } = await generateText({
         model: gateway(MODEL),
-        output: Output.object({ schema: OpportunitiesEnvelopeSchema }),
         prompt: `You are an SEO and AI-visibility strategist for small businesses.
 
 Generate 6 high-quality content opportunities for this business and return them as { "opportunities": [...] }.
+Return JSON only. No markdown fences. No commentary.
 
 ${brief}
 ${existing}
@@ -262,7 +268,18 @@ Mix content types (landing/service/blog/guide/location/comparison) and languages
 ${sharedRules}`,
       });
 
-      return OpportunityOutputSchema.parse(extractArray(output, ["opportunities"]));
+      console.info("[ai.functions] opportunities AI response received", { length: text.length });
+      const raw = parseJsonFromText(text);
+      const normalized = (extractArray(raw, ["opportunities", "ideas", "topics", "recommendations"]) as unknown[])
+        .map(normalizeOpportunityItem);
+      const parsed = OpportunityOutputSchema.safeParse(normalized);
+      if (!parsed.success) {
+        logZodError("opportunities", parsed.error);
+        throw parsed.error;
+      }
+      if (parsed.data.length === 0) throw new Error("AI returned no opportunities.");
+      console.info("[ai.functions] opportunities parsed", { count: parsed.data.length });
+      return parsed.data;
     } catch (e) {
       throw mapGatewayError(e);
     }
@@ -282,7 +299,7 @@ export const generateCalendarFn = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const project = data.project as Project;
     const opps = data.opportunities as Opportunity[];
 
@@ -293,10 +310,16 @@ export const generateCalendarFn = createServerFn({ method: "POST" })
 
     try {
       const gateway = getGateway();
-      const { output } = await generateText({
+      console.info("[ai.functions] calendar reached", {
+        userIdPresent: Boolean(context.userId),
+        projectId: project.id,
+        projectName: project.businessName || project.name,
+        opportunityCount: opps.length,
+      });
+      const { text } = await generateText({
         model: gateway(MODEL),
-        output: Output.object({ schema: CalendarEnvelopeSchema }),
         prompt: `Build a realistic 1-month content calendar for "${project.businessName || project.name}" in ${project.primaryLanguage}.
+Return JSON only as { "calendar_items": [...] }. No markdown fences. No commentary.
 
 Pick the strongest opportunities below and schedule them with sensible cadence (every 3–5 days, no clustering on one date). Prefer high-priority items first.
 
@@ -307,7 +330,18 @@ For each scheduled item, return the 1-based opportunityIndex it derives from.
 ${sharedRules}`,
       });
 
-      return CalendarOutputSchema.parse(extractArray(output, ["calendar_items", "items", "calendar", "calendarItems"]));
+      console.info("[ai.functions] calendar AI response received", { length: text.length });
+      const raw = parseJsonFromText(text);
+      const normalized = (extractArray(raw, ["calendar_items", "items", "calendar", "calendarItems"]) as unknown[])
+        .map(normalizeCalendarItem);
+      const parsed = CalendarOutputSchema.safeParse(normalized);
+      if (!parsed.success) {
+        logZodError("calendar", parsed.error);
+        throw parsed.error;
+      }
+      if (parsed.data.length === 0) throw new Error("AI returned no calendar items.");
+      console.info("[ai.functions] calendar parsed", { count: parsed.data.length });
+      return parsed.data;
     } catch (e) {
       throw mapGatewayError(e);
     }
