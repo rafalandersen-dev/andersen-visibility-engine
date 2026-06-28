@@ -270,8 +270,9 @@ ${sharedRules}`,
 
       console.info("[ai.functions] opportunities AI response received", { length: text.length });
       const raw = parseJsonFromText(text);
-      const normalized = (extractArray(raw, ["opportunities", "ideas", "topics", "recommendations"]) as unknown[])
-        .map(normalizeOpportunityItem);
+      const extracted = extractArray(raw, ["opportunities", "ideas", "topics", "recommendations"]);
+      if (!Array.isArray(extracted)) throw new Error("AI returned no opportunities.");
+      const normalized = extracted.map(normalizeOpportunityItem);
       const parsed = OpportunityOutputSchema.safeParse(normalized);
       if (!parsed.success) {
         logZodError("opportunities", parsed.error);
@@ -332,8 +333,9 @@ ${sharedRules}`,
 
       console.info("[ai.functions] calendar AI response received", { length: text.length });
       const raw = parseJsonFromText(text);
-      const normalized = (extractArray(raw, ["calendar_items", "items", "calendar", "calendarItems"]) as unknown[])
-        .map(normalizeCalendarItem);
+      const extracted = extractArray(raw, ["calendar_items", "items", "calendar", "calendarItems"]);
+      if (!Array.isArray(extracted)) throw new Error("AI returned no calendar items.");
+      const normalized = extracted.map(normalizeCalendarItem);
       const parsed = CalendarOutputSchema.safeParse(normalized);
       if (!parsed.success) {
         logZodError("calendar", parsed.error);
