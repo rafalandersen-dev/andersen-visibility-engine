@@ -1,18 +1,20 @@
 /**
  * Andersen Visibility Engine — global app store.
  *
- * Tiny reactive store built on `useSyncExternalStore` + `localStorage`. No
- * external state library on purpose — the MVP is a clickable shell and we
- * want zero hidden magic for reviewers.
+ * Reactive store built on `useSyncExternalStore`. Persistence is now backed by
+ * the Lovable Cloud `workspaces` table (one row per signed-in user, JSON blob).
  *
- * Data model lives in ./types. Seed data lives in ./mock-data. Mock AI
- * generators in ./mock-ai call the action helpers below (e.g.
- * `replaceNewOpportunities`, `upsertContent`) to mutate the store.
+ * Lifecycle:
+ *   1. On sign-in the `_authenticated` layout calls `hydrateForUser(userId)`.
+ *      - Fetches `workspaces.data` for the user.
+ *      - If no row exists yet, seeds the user's workspace from `mock-data` so
+ *        the Free Preview / first-run demo is immediately useful.
+ *   2. Every action goes through `setState`, which debounces a server upsert.
+ *   3. On sign-out the layout calls `resetStore()` so the next user does not
+ *      see the previous user's data while their workspace is loading.
  *
- * Project context: every entity carries a `projectId`. The UI reads
- * `activeProjectId` and filters client-side. When real persistence lands,
- * swap the body of `setState` / initial hydration for an API call — the
- * action surface and selectors stay the same.
+ * Project-limit enforcement (`addProject`) reads `isOwner` from the caller —
+ * owner bypass logic lives in `src/lib/auth.tsx`.
  */
 import { useRef, useSyncExternalStore } from "react";
 import type {
@@ -29,6 +31,8 @@ import {
   seedCalendar,
   seedContent,
 } from "./mock-data";
+import { supabase } from "@/integrations/supabase/client";
+import { MAX_PROJECTS_PER_USER } from "./pricing";
 
 interface State {
   projects: Project[];
@@ -37,68 +41,173 @@ interface State {
   calendar: CalendarItem[];
   content: ContentAsset[];
   activeProjectId: string;
+  /** Whether the active user's workspace has been loaded from Cloud. */
+  hydrated: boolean;
+  /** The user whose workspace is currently in memory (null = signed out). */
+  userId: string | null;
 }
 
-const STORAGE_KEY = "ave-store-v2";
+const emptyState: State = {
+  projects: [],
+  services: [],
+  opportunities: [],
+  calendar: [],
+  content: [],
+  activeProjectId: "",
+  hydrated: false,
+  userId: null,
+};
 
-const initialState: State = {
+// SSR / first-render snapshot uses the seed demo so public-side prerender and
+// the brief moment before hydration still render a coherent shell.
+const ssrSnapshot: State = {
   projects: seedProjects,
   services: seedServices,
   opportunities: seedOpportunities,
   calendar: seedCalendar,
   content: seedContent,
-  activeProjectId: "synergy",
+  activeProjectId: seedProjects[0]?.id ?? "",
+  hydrated: false,
+  userId: null,
 };
 
-let state: State = initialState;
+let state: State = ssrSnapshot;
 const listeners = new Set<() => void>();
 
-if (typeof window !== "undefined") {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const persisted = JSON.parse(raw) as Partial<State>;
-      // Merge seed entities for any seeded id not yet in localStorage so
-      // newly-added demo brands appear without wiping user edits.
-      const mergeById = <T extends { id: string }>(seed: T[], saved: T[] | undefined): T[] => {
-        if (!saved) return seed;
-        const savedIds = new Set(saved.map((x) => x.id));
-        return [...saved, ...seed.filter((x) => !savedIds.has(x.id))];
-      };
-      state = {
-        ...initialState,
-        ...persisted,
-        projects: mergeById(seedProjects, persisted.projects),
-        services: mergeById(seedServices, persisted.services),
-        opportunities: mergeById(seedOpportunities, persisted.opportunities),
-        calendar: mergeById(seedCalendar, persisted.calendar),
-        content: mergeById(seedContent, persisted.content),
-      };
-    }
-  } catch {}
-}
+const notify = () => listeners.forEach((l) => l());
 
+// ---- Cloud persistence (debounced) ----
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+const SAVE_DEBOUNCE_MS = 600;
 
-const persist = () => {
-  if (typeof window !== "undefined") {
+function scheduleSave() {
+  if (typeof window === "undefined") return;
+  if (!state.hydrated || !state.userId) return;
+  if (saveTimer) clearTimeout(saveTimer);
+  const userId = state.userId;
+  saveTimer = setTimeout(async () => {
+    saveTimer = null;
+    const snapshot = {
+      projects: state.projects,
+      services: state.services,
+      opportunities: state.opportunities,
+      calendar: state.calendar,
+      content: state.content,
+      activeProjectId: state.activeProjectId,
+    };
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {}
-  }
-};
+      await supabase
+        .from("workspaces")
+        .upsert(
+          { user_id: userId, data: snapshot as unknown as Record<string, unknown> },
+          { onConflict: "user_id" },
+        );
+    } catch (e) {
+      // Silent — UI keeps in-memory state; next action will retry the save.
+      console.warn("[workspace] save failed", e);
+    }
+  }, SAVE_DEBOUNCE_MS);
+}
 
 export const setState = (updater: (s: State) => State) => {
   state = updater(state);
-  persist();
-  listeners.forEach((l) => l());
+  scheduleSave();
+  notify();
 };
 
 export const getState = () => state;
 
 const subscribe = (l: () => void) => {
   listeners.add(l);
-  return () => listeners.delete(l);
+  return () => {
+    listeners.delete(l);
+  };
 };
+
+// ---- Hydration lifecycle ----
+
+/**
+ * Load the workspace for `userId` from Cloud, seeding from mock-data if the
+ * user has no row yet. Idempotent per (userId).
+ */
+export async function hydrateForUser(userId: string): Promise<void> {
+  if (state.userId === userId && state.hydrated) return;
+
+  // Reset visible state to a clean loading shell scoped to this user.
+  state = { ...emptyState, userId };
+  notify();
+
+  try {
+    const { data: row, error } = await supabase
+      .from("workspaces")
+      .select("data")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error) throw error;
+
+    if (row?.data && typeof row.data === "object") {
+      const d = row.data as Partial<State>;
+      state = {
+        projects: d.projects ?? [],
+        services: d.services ?? [],
+        opportunities: d.opportunities ?? [],
+        calendar: d.calendar ?? [],
+        content: d.content ?? [],
+        activeProjectId: d.activeProjectId ?? (d.projects?.[0]?.id ?? ""),
+        hydrated: true,
+        userId,
+      };
+    } else {
+      // First-run: seed the workspace with the demo so the user lands on
+      // something useful, then persist.
+      state = {
+        projects: seedProjects,
+        services: seedServices,
+        opportunities: seedOpportunities,
+        calendar: seedCalendar,
+        content: seedContent,
+        activeProjectId: seedProjects[0]?.id ?? "",
+        hydrated: true,
+        userId,
+      };
+      await supabase.from("workspaces").insert({
+        user_id: userId,
+        data: {
+          projects: state.projects,
+          services: state.services,
+          opportunities: state.opportunities,
+          calendar: state.calendar,
+          content: state.content,
+          activeProjectId: state.activeProjectId,
+        } as unknown as Record<string, unknown>,
+      });
+    }
+  } catch (e) {
+    console.warn("[workspace] hydrate failed, falling back to seed", e);
+    state = {
+      projects: seedProjects,
+      services: seedServices,
+      opportunities: seedOpportunities,
+      calendar: seedCalendar,
+      content: seedContent,
+      activeProjectId: seedProjects[0]?.id ?? "",
+      hydrated: true,
+      userId,
+    };
+  }
+  notify();
+}
+
+export function resetStore(): void {
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+  state = ssrSnapshot;
+  notify();
+}
+
+// ---- React hook ----
 
 const shallowEqual = (a: unknown, b: unknown): boolean => {
   if (Object.is(a, b)) return true;
@@ -135,7 +244,7 @@ export function useStore<T>(selector: (s: State) => T): T {
   const serverCache = useRef<{ done: boolean; value: T }>({ done: false, value: undefined as unknown as T });
   const getServerSnap = () => {
     if (!serverCache.current.done) {
-      serverCache.current = { done: true, value: selector(initialState) };
+      serverCache.current = { done: true, value: selector(ssrSnapshot) };
     }
     return serverCache.current.value;
   };
@@ -148,7 +257,21 @@ export const uid = () => Math.random().toString(36).slice(2, 10);
 export const setActiveProject = (id: string) =>
   setState((s) => ({ ...s, activeProjectId: id }));
 
-export const addProject = (p: Omit<Project, "id">) => {
+export class ProjectLimitError extends Error {
+  constructor(public readonly max: number) {
+    super(`Project limit reached (${max}). Upgrade your plan to add more projects.`);
+    this.name = "ProjectLimitError";
+  }
+}
+
+/**
+ * Create a project. Non-owner accounts are capped at MAX_PROJECTS_PER_USER.
+ * Owners (role = 'owner') bypass the cap — pass `isOwner: true` from the caller.
+ */
+export const addProject = (p: Omit<Project, "id">, opts: { isOwner: boolean }) => {
+  if (!opts.isOwner && state.projects.length >= MAX_PROJECTS_PER_USER) {
+    throw new ProjectLimitError(MAX_PROJECTS_PER_USER);
+  }
   const id = uid();
   setState((s) => ({ ...s, projects: [...s.projects, { ...p, id }], activeProjectId: id }));
   return id;
@@ -181,7 +304,6 @@ export const updateOpportunity = (id: string, patch: Partial<Opportunity>) =>
 export const addOpportunities = (items: Opportunity[]) =>
   setState((s) => ({ ...s, opportunities: [...s.opportunities, ...items] }));
 
-// Replace project's "New" opportunities (preserve briefed/drafting/linked/discarded)
 export const replaceNewOpportunities = (projectId: string, items: Opportunity[]) =>
   setState((s) => ({
     ...s,
@@ -194,7 +316,6 @@ export const replaceNewOpportunities = (projectId: string, items: Opportunity[])
 export const addCalendarItems = (items: CalendarItem[]) =>
   setState((s) => ({ ...s, calendar: [...s.calendar, ...items] }));
 
-// Replace project's planned calendar items (preserve In Progress / Done)
 export const replacePlannedCalendar = (projectId: string, items: CalendarItem[]) =>
   setState((s) => ({
     ...s,
