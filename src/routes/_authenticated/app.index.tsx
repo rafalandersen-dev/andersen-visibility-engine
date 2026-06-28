@@ -51,8 +51,14 @@ function Dashboard() {
   const navigate = useNavigate();
   const activeProjectId = useStore((s) => s.activeProjectId);
   const projects = useStore((s) => s.projects);
+  const services = useStore((s) =>
+    s.services.filter((x) => x.projectId === activeProjectId),
+  );
   const opportunities = useStore((s) =>
     s.opportunities.filter((o) => o.projectId === activeProjectId),
+  );
+  const calendar = useStore((s) =>
+    s.calendar.filter((c) => c.projectId === activeProjectId),
   );
   const content = useStore((s) =>
     s.content.filter((c) => c.projectId === activeProjectId),
