@@ -9,7 +9,7 @@ export const Route = createFileRoute("/pricing")({
       { title: "Pricing — Milo Growth" },
       {
         name: "description",
-        content: "Simple per-project pricing in PLN. Start free, add brands as you grow.",
+        content: "Choose a simple self-service plan for monthly AI growth, SEO and visibility planning.",
       },
     ],
   }),
