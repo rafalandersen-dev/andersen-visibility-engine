@@ -99,10 +99,11 @@ function scheduleSave() {
       await supabase
         .from("workspaces")
         .upsert(
-          { user_id: userId, data: snapshot as unknown as Record<string, unknown> },
+          { user_id: userId, data: snapshot as never },
           { onConflict: "user_id" },
         );
     } catch (e) {
+
       // Silent — UI keeps in-memory state; next action will retry the save.
       console.warn("[workspace] save failed", e);
     }
@@ -179,8 +180,9 @@ export async function hydrateForUser(userId: string): Promise<void> {
           calendar: state.calendar,
           content: state.content,
           activeProjectId: state.activeProjectId,
-        } as unknown as Record<string, unknown>,
+        } as never,
       });
+
     }
   } catch (e) {
     console.warn("[workspace] hydrate failed, falling back to seed", e);
