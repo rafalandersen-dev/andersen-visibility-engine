@@ -1,6 +1,7 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { useStore, setActiveProject } from "@/lib/store";
+import { useAuth } from "@/lib/auth";
 import {
   LayoutDashboard,
   FolderCog,
@@ -9,22 +10,26 @@ import {
   CalendarDays,
   FileText,
   Building2,
+  CreditCard,
+  LogOut,
+  Crown,
 } from "lucide-react";
 
 type NavItem = {
-  to: "/" | "/setup" | "/services" | "/opportunities" | "/calendar" | "/editor";
+  to: string;
   label: string;
   icon: typeof LayoutDashboard;
   exact?: boolean;
 };
 
 const NAV: NavItem[] = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { to: "/app", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/app/setup", label: "Project Setup", icon: FolderCog },
   { to: "/app/services", label: "Services & Products", icon: Package },
   { to: "/app/opportunities", label: "SEO Opportunities", icon: Sparkles },
   { to: "/app/calendar", label: "Content Calendar", icon: CalendarDays },
   { to: "/app/editor", label: "Content Editor", icon: FileText },
+  { to: "/app/billing", label: "Billing", icon: CreditCard },
 ];
 
 export function AppShell({
@@ -42,12 +47,19 @@ export function AppShell({
   const projects = useStore((s) => s.projects);
   const activeProjectId = useStore((s) => s.activeProjectId);
   const active = projects.find((p) => p.id === activeProjectId) ?? projects[0];
+  const { user, isOwner, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  async function handleSignOut() {
+    await signOut();
+    navigate({ to: "/", replace: true });
+  }
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
       {/* Sidebar */}
       <aside className="hidden md:flex w-64 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
-        <div className="px-6 py-7 border-b border-sidebar-border">
+        <Link to="/" className="px-6 py-7 border-b border-sidebar-border block">
           <div className="text-[10px] uppercase tracking-[0.22em] text-sidebar-foreground/55">
             Andersen Innovations
           </div>
@@ -55,7 +67,7 @@ export function AppShell({
             Visibility Engine
           </div>
           <div className="mt-3 h-px bg-gradient-to-r from-transparent via-gold/60 to-transparent" />
-        </div>
+        </Link>
 
         <div className="px-3 py-4">
           <div className="px-3 pb-2 text-[10px] uppercase tracking-[0.22em] text-sidebar-foreground/45">
@@ -70,7 +82,7 @@ export function AppShell({
               return (
                 <Link
                   key={item.to}
-                  to={item.to}
+                  to={item.to as never}
                   className={
                     "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors " +
                     (isActive
@@ -86,27 +98,48 @@ export function AppShell({
           </nav>
         </div>
 
+        {projects.length > 0 ? (
+          <div className="p-3 border-t border-sidebar-border">
+            <div className="px-3 pb-2 text-[10px] uppercase tracking-[0.22em] text-sidebar-foreground/45">
+              Active project
+            </div>
+            <div className="space-y-1">
+              {projects.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setActiveProject(p.id)}
+                  className={
+                    "w-full flex items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors " +
+                    (p.id === activeProjectId
+                      ? "bg-sidebar-accent text-sidebar-foreground"
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60")
+                  }
+                >
+                  <Building2 className="h-3.5 w-3.5 text-gold/80" strokeWidth={1.6} />
+                  <span className="truncate">{p.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         <div className="mt-auto p-3 border-t border-sidebar-border">
-          <div className="px-3 pb-2 text-[10px] uppercase tracking-[0.22em] text-sidebar-foreground/45">
-            Active project
+          <div className="px-3 py-2">
+            <div className="text-[10px] uppercase tracking-[0.22em] text-sidebar-foreground/45">
+              Account
+            </div>
+            <div className="mt-1.5 flex items-center gap-2 text-sm text-sidebar-foreground/85 truncate">
+              {isOwner ? <Crown className="h-3.5 w-3.5 text-gold" /> : null}
+              <span className="truncate">{user?.email ?? "—"}</span>
+            </div>
           </div>
-          <div className="space-y-1">
-            {projects.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => setActiveProject(p.id)}
-                className={
-                  "w-full flex items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors " +
-                  (p.id === activeProjectId
-                    ? "bg-sidebar-accent text-sidebar-foreground"
-                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60")
-                }
-              >
-                <Building2 className="h-3.5 w-3.5 text-gold/80" strokeWidth={1.6} />
-                <span className="truncate">{p.name}</span>
-              </button>
-            ))}
-          </div>
+          <button
+            onClick={handleSignOut}
+            className="mt-1 w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
+          >
+            <LogOut className="h-4 w-4 text-gold/80" strokeWidth={1.6} />
+            <span>Sign out</span>
+          </button>
         </div>
       </aside>
 
@@ -116,7 +149,7 @@ export function AppShell({
           <div className="px-6 md:px-10 py-6 flex flex-wrap items-end justify-between gap-4">
             <div>
               <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-                {active?.name}
+                {active?.name ?? "Workspace"}
               </div>
               <h1 className="mt-1 font-display text-2xl md:text-3xl text-foreground">
                 {title}
