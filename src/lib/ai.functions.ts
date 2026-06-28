@@ -106,6 +106,59 @@ function extractArray(value: unknown, keys: string[]): unknown {
   return value;
 }
 
+function parseJsonFromText(text: string): unknown {
+  const trimmed = text.trim();
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)?.[1];
+  const source = fenced?.trim() || trimmed;
+  try {
+    return JSON.parse(source);
+  } catch {
+    const firstObject = source.indexOf("{");
+    const firstArray = source.indexOf("[");
+    const first = [firstObject, firstArray].filter((i) => i >= 0).sort((a, b) => a - b)[0];
+    const last = Math.max(source.lastIndexOf("}"), source.lastIndexOf("]"));
+    if (first >= 0 && last > first) return JSON.parse(source.slice(first, last + 1));
+    throw new Error("AI response was not valid JSON.");
+  }
+}
+
+const pickString = (object: Record<string, unknown>, keys: string[]) => {
+  for (const key of keys) {
+    const value = object[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return undefined;
+};
+
+function normalizeOpportunityItem(item: unknown): unknown {
+  const object = getObject(item);
+  if (!object) return item;
+  return {
+    title: pickString(object, ["title", "topicTitle", "topic", "name", "targetKeyword", "target_keyword"]),
+    language: pickString(object, ["language", "lang"]),
+    contentType: pickString(object, ["contentType", "content_type", "type", "format"]),
+    searchIntent: pickString(object, ["searchIntent", "search_intent", "intent"]),
+    targetAudience: pickString(object, ["targetAudience", "target_audience", "audience"]),
+    businessValue: pickString(object, ["businessValue", "business_value", "value", "why", "rationale", "strategy"]),
+    recommendedCta: pickString(object, ["recommendedCta", "recommended_cta", "cta", "callToAction", "call_to_action"]),
+    priority: pickString(object, ["priority", "importance"]),
+  };
+}
+
+function normalizeCalendarItem(item: unknown): unknown {
+  const object = getObject(item);
+  if (!object) return item;
+  return {
+    opportunityIndex: object.opportunityIndex ?? object.opportunity_index ?? object.index,
+    daysFromToday: object.daysFromToday ?? object.days_from_today ?? object.dayOffset ?? object.day_offset,
+    topicTitle: pickString(object, ["topicTitle", "topic_title", "title", "topic"]),
+    language: pickString(object, ["language", "lang"]),
+    contentType: pickString(object, ["contentType", "content_type", "type", "format"]),
+    searchIntent: pickString(object, ["searchIntent", "search_intent", "intent"]),
+    recommendedCta: pickString(object, ["recommendedCta", "recommended_cta", "cta", "callToAction", "call_to_action"]),
+  };
+}
+
 function getGateway() {
   const key = process.env.LOVABLE_API_KEY;
   if (!key) throw new Error("AI Gateway is not configured.");
@@ -122,7 +175,17 @@ function mapGatewayError(e: unknown): Error {
     return new Error("AI response was cut short. Please try again — it usually works on retry.");
   if (/schema|validation|zod|invalid_type|too_small|too_big|unrecognized/i.test(msg))
     return new Error("AI returned an unexpected format. Please try again.");
+  if (/not valid JSON|unexpected token|no opportunities|no calendar/i.test(msg))
+    return new Error("AI returned an unexpected format. Please try again.");
   return new Error("AI generation failed. Please try again.");
+}
+
+function logZodError(label: string, error: unknown) {
+  if (error instanceof z.ZodError) {
+    console.error(`[ai.functions] ${label} parse failed`, error.issues);
+  } else {
+    console.error(`[ai.functions] ${label} parse failed`, error);
+  }
 }
 
 function projectBrief(p: Project, services: ServiceItem[]) {
