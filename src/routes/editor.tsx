@@ -100,6 +100,11 @@ function Editor({ asset }: { asset: ContentAsset }) {
   };
 
   const aiAction = async (name: string, fn: () => Promise<void>) => {
+    // Persist current in-flight edits BEFORE the AI reads from the store,
+    // so regenerating one field never wipes other unsaved changes.
+    const snapshot = { ...f, updatedAt: new Date().toISOString() };
+    upsertContent(snapshot);
+    setF(snapshot);
     setBusy(name);
     await fn();
     setBusy(null);
