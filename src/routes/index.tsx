@@ -68,19 +68,19 @@ function Hero() {
       <div className="mx-auto max-w-6xl px-6 pt-20 pb-16 lg:pt-28 lg:pb-24">
         <div className="max-w-3xl">
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-            <Sparkles className="h-3 w-3 text-gold" /> AI SEO workspace · MVP 0.1
+            <Sparkles className="h-3 w-3 text-gold" /> Milo Growth · for small businesses
           </div>
           <h1 className="mt-6 font-display text-4xl md:text-6xl leading-[1.05] tracking-tight">
-            Structured SEO content for Google <span className="text-gold">and</span> AI search.
+            Your monthly AI growth planner <span className="text-gold">for small businesses.</span>
           </h1>
           <p className="mt-6 max-w-2xl text-lg text-muted-foreground">
-            Andersen Visibility Engine is a calm, focused workspace for small businesses to plan,
-            draft and approve content that ranks on Google and gets cited by AI answers.
+            Get visibility ideas, content briefs, FAQ, service-page improvements and a clear monthly
+            action plan — without hiring an agency.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link to="/auth">
               <Button size="lg" className="gap-2">
-                Start free preview <ArrowRight className="h-4 w-4" />
+                Start free <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
             <Link to="/pricing">
@@ -88,7 +88,7 @@ function Hero() {
             </Link>
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
-            No credit card. Free Preview is read-only on demo data.
+            Self-service software. No credit card. No agency call.
           </p>
         </div>
       </div>
