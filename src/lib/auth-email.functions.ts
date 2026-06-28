@@ -49,7 +49,7 @@ function absoluteActionLink(actionLink: string, supabaseUrl: string) {
 }
 
 async function logEmail(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   messageId: string,
   templateName: string,
   recipientEmail: string,
@@ -72,6 +72,7 @@ async function sendDirectAuthEmail(args: {
   html: string;
   text: string;
   supabase: ReturnType<typeof createClient>;
+  supabase: any;
 }) {
   const apiKey = getEmailApiKey();
   const messageId = crypto.randomUUID();
