@@ -55,7 +55,7 @@ function PricingPage() {
           </div>
           <div className="rounded-lg border border-gold/40 bg-gold/5 px-4 py-3">
             <div className="text-[10px] uppercase tracking-[0.18em] text-gold">Growth · recommended</div>
-            <div className="mt-1 text-foreground/85">For the full monthly workflow across one or two brands.</div>
+            <div className="mt-1 text-foreground/85">For the full monthly workflow for one growing business — add more brands as an add-on.</div>
           </div>
         </div>
 
