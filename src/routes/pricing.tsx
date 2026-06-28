@@ -44,7 +44,22 @@ function PricingPage() {
           </p>
         </div>
 
-        <div className="mt-12 grid gap-6 md:grid-cols-3">
+        <div className="mt-8 grid gap-3 md:grid-cols-3 text-sm">
+          <div className="rounded-lg border border-border bg-card/60 px-4 py-3">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Free Preview</div>
+            <div className="mt-1 text-foreground/85">For trying the workflow before committing.</div>
+          </div>
+          <div className="rounded-lg border border-border bg-card/60 px-4 py-3">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Starter</div>
+            <div className="mt-1 text-foreground/85">For one business that wants a simple monthly visibility plan.</div>
+          </div>
+          <div className="rounded-lg border border-gold/40 bg-gold/5 px-4 py-3">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-gold">Growth · recommended</div>
+            <div className="mt-1 text-foreground/85">For the full monthly workflow across one or two brands.</div>
+          </div>
+        </div>
+
+        <div className="mt-10 grid gap-6 md:grid-cols-3">
           {PLANS.map((p) => (
             <div
               key={p.id}
@@ -101,6 +116,13 @@ function PricingPage() {
           Hard cap: {MAX_PROJECTS_PER_USER} projects per account.
         </p>
       </section>
+
+      <footer className="border-t border-border bg-card/40">
+        <div className="mx-auto max-w-6xl px-6 py-8 flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+          <span>Milo Growth — built by Andersen Innovations</span>
+          <Link to="/" className="hover:text-foreground">Back to home</Link>
+        </div>
+      </footer>
     </div>
   );
 }
