@@ -11,7 +11,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "A calm, focused AI SEO and AI-visibility workspace. Plan, draft and approve content for Google and AI search.",
+          "Generate visibility ideas, content briefs, FAQ, service-page improvements and monthly action plans for your small business — without hiring an agency.",
       },
     ],
   }),
