@@ -138,9 +138,9 @@ function HowItWorks() {
 }
 
 function DemoPreview() {
-  const demoProject = SEED_PROJECTS[0];
-  const opps = SEED_OPPORTUNITIES.filter((o) => o.projectId === demoProject.id).slice(0, 3);
-  const content = SEED_CONTENT.filter((c) => c.projectId === demoProject.id).slice(0, 3);
+  const demoProject = seedProjects[0];
+  const opps = seedOpportunities.filter((o) => o.projectId === demoProject.id).slice(0, 3);
+  const content = seedContent.filter((c) => c.projectId === demoProject.id).slice(0, 3);
   return (
     <section id="preview" className="border-t border-border">
       <div className="mx-auto max-w-6xl px-6 py-20">
