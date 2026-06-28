@@ -1,5 +1,5 @@
 /**
- * Single source of truth for Andersen Visibility Engine pricing & project limits.
+ * Single source of truth for Milo Growth pricing & project limits.
  *
  * Pricing is intentionally not wired to Stripe yet — billing buttons in the app
  * should treat these values as the canonical display values and the `MAX_PROJECTS_PER_USER`

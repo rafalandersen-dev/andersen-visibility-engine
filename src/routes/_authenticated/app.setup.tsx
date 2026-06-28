@@ -23,7 +23,7 @@ export const Route = createFileRoute("/_authenticated/app/setup")({
   validateSearch: z.object({ new: z.coerce.boolean().optional() }),
   head: () => ({
     meta: [
-      { title: "Project Setup — Andersen Visibility Engine" },
+      { title: "Project Setup — Milo Growth" },
       { name: "description", content: "Define the brand context the AI uses to generate visibility opportunities." },
     ],
   }),

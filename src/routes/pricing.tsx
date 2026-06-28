@@ -6,10 +6,10 @@ import { ShieldCheck } from "lucide-react";
 export const Route = createFileRoute("/pricing")({
   head: () => ({
     meta: [
-      { title: "Pricing — Andersen Visibility Engine" },
+      { title: "Pricing — Milo Growth" },
       {
         name: "description",
-        content: "Simple per-project pricing in PLN. Start free, add brands as you grow.",
+        content: "Choose a simple self-service plan for monthly AI growth, SEO and visibility planning.",
       },
     ],
   }),
@@ -22,10 +22,10 @@ function PricingPage() {
       <header className="border-b border-border bg-background/85 backdrop-blur">
         <div className="mx-auto max-w-6xl flex items-center justify-between px-6 py-4">
           <Link to="/" className="flex flex-col">
+            <span className="font-display text-lg leading-tight">Milo Growth</span>
             <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-              Andersen Innovations
+              Monthly AI growth planner
             </span>
-            <span className="font-display text-lg leading-tight">Visibility Engine</span>
           </Link>
           <div className="flex items-center gap-2">
             <Link to="/"><Button variant="ghost" size="sm">Home</Button></Link>
@@ -37,10 +37,10 @@ function PricingPage() {
       <section className="mx-auto max-w-6xl px-6 py-16">
         <div className="max-w-2xl">
           <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Pricing</div>
-          <h1 className="mt-2 font-display text-4xl md:text-5xl">One workspace. Pay per project.</h1>
+          <h1 className="mt-2 font-display text-4xl md:text-5xl">Milo Growth Pricing</h1>
           <p className="mt-3 text-muted-foreground">
-            Start with the Free Preview. Move to Starter or Growth when you're ready to create real projects.
-            Add brands as you grow — up to {MAX_PROJECTS_PER_USER} projects per account.
+            Simple self-service pricing for small businesses that want a monthly growth, SEO and
+            visibility workflow. Add brands as you grow — up to {MAX_PROJECTS_PER_USER} projects per account.
           </p>
         </div>
 

@@ -1,5 +1,5 @@
 /**
- * AI generation layer for the Visibility Engine.
+ * AI generation layer for the Milo Growth.
  *
  * Real generation via the Lovable AI Gateway (see src/lib/ai.functions.ts).
  * This module is the single import surface the UI uses; it handles store

@@ -19,7 +19,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/_authenticated/app/calendar")({
   head: () => ({
     meta: [
-      { title: "Content Calendar — Andersen Visibility Engine" },
+      { title: "Content Calendar — Milo Growth" },
       { name: "description", content: "30-day planning view for AI-generated content." },
     ],
   }),

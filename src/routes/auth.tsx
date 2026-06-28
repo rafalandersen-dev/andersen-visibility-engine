@@ -18,8 +18,8 @@ export const Route = createFileRoute("/auth")({
   validateSearch: searchSchema,
   head: () => ({
     meta: [
-      { title: "Sign in — Andersen Visibility Engine" },
-      { name: "description", content: "Sign in or create your Andersen Visibility Engine account." },
+      { title: "Sign in — Milo Growth" },
+      { name: "description", content: "Sign in or create your Milo Growth account to plan your monthly business visibility workflow." },
     ],
   }),
   component: AuthPage,
@@ -119,22 +119,22 @@ function AuthPage() {
       {/* Visual side */}
       <aside className="hidden lg:flex flex-col justify-between p-12 bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
         <Link to="/" className="block">
-          <div className="text-[10px] uppercase tracking-[0.22em] text-sidebar-foreground/55">
-            Andersen Innovations
+          <div className="font-display text-2xl">Milo Growth</div>
+          <div className="mt-1 text-[10px] uppercase tracking-[0.22em] text-sidebar-foreground/55">
+            Monthly AI growth planner
           </div>
-          <div className="mt-1 font-display text-2xl">Visibility Engine</div>
         </Link>
         <div className="space-y-6 max-w-md">
           <div className="h-px bg-gradient-to-r from-transparent via-gold/60 to-transparent" />
           <p className="font-display text-2xl leading-snug">
-            A calm workspace for AI-era SEO — opportunities, calendar and editor in one place.
+            Your monthly AI growth planner — visibility ideas, content briefs and a clear action plan.
           </p>
           <p className="text-sm text-sidebar-foreground/70">
             Sign in to your workspace or create a new account to start a project.
           </p>
         </div>
         <div className="text-[10px] uppercase tracking-[0.22em] text-sidebar-foreground/45">
-          © Andersen Innovations
+          Built by Andersen Innovations
         </div>
       </aside>
 

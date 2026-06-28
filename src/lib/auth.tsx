@@ -1,5 +1,5 @@
 /**
- * Client-side auth context for Andersen Visibility Engine.
+ * Client-side auth context for Milo Growth.
  *
  * Wraps the app in __root.tsx and exposes the current Supabase session,
  * the user's profile row, and whether they hold the database-driven `owner` role.

@@ -7,11 +7,11 @@ import { Sparkles, CalendarDays, FileText, ShieldCheck, ArrowRight } from "lucid
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Andersen Visibility Engine — AI SEO workspace for small businesses" },
+      { title: "Milo Growth — Monthly AI Growth Planner for Small Businesses" },
       {
         name: "description",
         content:
-          "A calm, focused AI SEO and AI-visibility workspace. Plan, draft and approve content for Google and AI search.",
+          "Generate visibility ideas, content briefs, FAQ, service-page improvements and monthly action plans for your small business — without hiring an agency.",
       },
     ],
   }),
@@ -37,10 +37,10 @@ function PublicHeader() {
     <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur">
       <div className="mx-auto max-w-6xl flex items-center justify-between px-6 py-4">
         <Link to="/" className="flex flex-col">
+          <span className="font-display text-lg leading-tight">Milo Growth</span>
           <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-            Andersen Innovations
+            Monthly AI growth planner
           </span>
-          <span className="font-display text-lg leading-tight">Visibility Engine</span>
         </Link>
         <nav className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
           <a href="#how" className="hover:text-foreground">How it works</a>
@@ -68,19 +68,19 @@ function Hero() {
       <div className="mx-auto max-w-6xl px-6 pt-20 pb-16 lg:pt-28 lg:pb-24">
         <div className="max-w-3xl">
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-            <Sparkles className="h-3 w-3 text-gold" /> AI SEO workspace · MVP 0.1
+            <Sparkles className="h-3 w-3 text-gold" /> Milo Growth · for small businesses
           </div>
           <h1 className="mt-6 font-display text-4xl md:text-6xl leading-[1.05] tracking-tight">
-            Structured SEO content for Google <span className="text-gold">and</span> AI search.
+            Your monthly AI growth planner <span className="text-gold">for small businesses.</span>
           </h1>
           <p className="mt-6 max-w-2xl text-lg text-muted-foreground">
-            Andersen Visibility Engine is a calm, focused workspace for small businesses to plan,
-            draft and approve content that ranks on Google and gets cited by AI answers.
+            Get visibility ideas, content briefs, FAQ, service-page improvements and a clear monthly
+            action plan — without hiring an agency.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link to="/auth">
               <Button size="lg" className="gap-2">
-                Start free preview <ArrowRight className="h-4 w-4" />
+                Start free <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
             <Link to="/pricing">
@@ -88,7 +88,7 @@ function Hero() {
             </Link>
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
-            No credit card. Free Preview is read-only on demo data.
+            Self-service software. No credit card. No agency call.
           </p>
         </div>
       </div>
@@ -261,7 +261,7 @@ function FAQ() {
   const items = [
     {
       q: "Is this a clone of Surfer, Jasper or Semrush?",
-      a: "No. Andersen Visibility Engine is built around a calm, opinionated workflow for small businesses — opportunities, calendar, editor, approval and export.",
+      a: "No. Milo Growth is built around a calm, opinionated monthly workflow for small businesses — opportunities, calendar, editor, approval and export.",
     },
     {
       q: "Does it publish to my website automatically?",
@@ -302,9 +302,11 @@ function Footer() {
     <footer className="border-t border-border bg-card/40">
       <div className="mx-auto max-w-6xl px-6 py-10 flex flex-wrap items-center justify-between gap-4 text-sm text-muted-foreground">
         <div>
-          <span className="font-display text-base text-foreground">Andersen Visibility Engine</span>
+          <span className="font-display text-base text-foreground">Milo Growth</span>
+          <span className="mx-2">—</span>
+          <span>built by Andersen Innovations</span>
           <span className="mx-2">·</span>
-          <span>© {new Date().getUTCFullYear()} Andersen Innovations</span>
+          <span>© {new Date().getUTCFullYear()}</span>
         </div>
         <div className="flex items-center gap-5">
           <Link to="/pricing" className="hover:text-foreground">Pricing</Link>

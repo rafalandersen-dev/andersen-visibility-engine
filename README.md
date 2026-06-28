@@ -1,8 +1,9 @@
-# Andersen Visibility Engine
+# Milo Growth
 
-AI SEO & AI-visibility tool by **Andersen Innovations**. Helps small businesses
-plan, brief, draft and approve structured SEO content for both Google and
-AI-overview style answers.
+Milo Growth is a monthly AI growth planner for small businesses, built by
+**Andersen Innovations**. It helps small businesses generate visibility ideas,
+content briefs, FAQ, service-page improvements and clear monthly action plans
+— without hiring an agency.
 
 This repository is **MVP 0.1** — a polished, clickable shell with mocked AI
 generation. It is intended for internal demos and external code review before

@@ -27,7 +27,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/_authenticated/app/opportunities")({
   head: () => ({
     meta: [
-      { title: "SEO Opportunities — Andersen Visibility Engine" },
+      { title: "SEO Opportunities — Milo Growth" },
       { name: "description", content: "AI-generated visibility opportunities ranked by business value." },
     ],
   }),

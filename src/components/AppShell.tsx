@@ -61,11 +61,11 @@ export function AppShell({
       {/* Sidebar */}
       <aside className="hidden md:flex w-64 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
         <Link to="/" className="px-6 py-7 border-b border-sidebar-border block">
-          <div className="text-[10px] uppercase tracking-[0.22em] text-sidebar-foreground/55">
-            Andersen Innovations
+          <div className="font-display text-xl leading-tight text-sidebar-foreground">
+            Milo Growth
           </div>
-          <div className="mt-1.5 font-display text-xl leading-tight text-sidebar-foreground">
-            Visibility Engine
+          <div className="mt-1 text-[10px] uppercase tracking-[0.22em] text-sidebar-foreground/55">
+            Monthly AI growth planner
           </div>
           <div className="mt-3 h-px bg-gradient-to-r from-transparent via-gold/60 to-transparent" />
         </Link>
