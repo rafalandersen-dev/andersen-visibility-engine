@@ -75,6 +75,7 @@ async function sendDirectAuthEmail(args: {
 }) {
   const apiKey = getEmailApiKey();
   const messageId = crypto.randomUUID();
+  const unsubscribeToken = await getOrCreateUnsubscribeToken(args.supabase, args.to);
   await logEmail(args.supabase, messageId, args.templateName, args.to, "pending");
   try {
     await sendLovableEmail(
@@ -89,6 +90,7 @@ async function sendDirectAuthEmail(args: {
         label: args.templateName,
         message_id: messageId,
         idempotency_key: `${args.templateName}:${args.to}:${messageId}`,
+        unsubscribe_token: unsubscribeToken,
       },
       { apiKey, sendUrl: process.env.LOVABLE_SEND_URL },
     );
@@ -98,6 +100,40 @@ async function sendDirectAuthEmail(args: {
     await logEmail(args.supabase, messageId, args.templateName, args.to, "failed", message.slice(0, 1000));
     throw new Error("We could not send the email right now. Please try again in a moment.");
   }
+}
+
+async function getOrCreateUnsubscribeToken(supabase: any, email: string): Promise<string> {
+  const normalized = email.trim().toLowerCase();
+  const { data: existing, error: selectError } = await supabase
+    .from("email_unsubscribe_tokens")
+    .select("token")
+    .eq("email", normalized)
+    .maybeSingle();
+
+  if (selectError) {
+    console.error("[auth-email] unsubscribe token lookup failed", selectError.message);
+    throw new Error("Email service is not configured correctly.");
+  }
+
+  if (existing?.token) return existing.token;
+
+  const token = crypto.randomUUID();
+  const { error: insertError } = await supabase
+    .from("email_unsubscribe_tokens")
+    .insert({ email: normalized, token } as never);
+
+  if (!insertError) return token;
+
+  // Race-safe fallback if another request inserted the row first.
+  const { data: raced, error: racedError } = await supabase
+    .from("email_unsubscribe_tokens")
+    .select("token")
+    .eq("email", normalized)
+    .maybeSingle();
+
+  if (raced?.token && !racedError) return raced.token;
+  console.error("[auth-email] unsubscribe token create failed", insertError.message);
+  throw new Error("Email service is not configured correctly.");
 }
 
 export const signupWithBrandedEmailFn = createServerFn({ method: "POST" })
@@ -126,7 +162,7 @@ export const signupWithBrandedEmailFn = createServerFn({ method: "POST" })
     await sendDirectAuthEmail({
       templateName: "signup",
       to: email,
-      subject: "Confirm your email",
+      subject: "Confirm your Milo Growth account",
       html: await render(element),
       text: await render(element, { plainText: true }),
       supabase,
@@ -157,7 +193,7 @@ export const requestPasswordResetWithBrandedEmailFn = createServerFn({ method: "
     await sendDirectAuthEmail({
       templateName: "recovery",
       to: email,
-      subject: "Reset your password",
+      subject: "Reset your Milo Growth password",
       html: await render(element),
       text: await render(element, { plainText: true }),
       supabase,
