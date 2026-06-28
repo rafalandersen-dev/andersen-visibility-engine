@@ -21,7 +21,7 @@ import { useStore, upsertContent } from "@/lib/store";
 import { generateMetadata, generateFaq, generateCta } from "@/lib/mock-ai";
 import type { ContentAsset, ContentStatus } from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { Check, Copy, Download, FileEdit, FileX, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
