@@ -9,153 +9,162 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SetupRouteImport } from './routes/setup'
-import { Route as ServicesRouteImport } from './routes/services'
-import { Route as OpportunitiesRouteImport } from './routes/opportunities'
-import { Route as EditorRouteImport } from './routes/editor'
-import { Route as CalendarRouteImport } from './routes/calendar'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app.index'
+import { Route as AuthenticatedAppSetupRouteImport } from './routes/_authenticated/app.setup'
+import { Route as AuthenticatedAppServicesRouteImport } from './routes/_authenticated/app.services'
+import { Route as AuthenticatedAppOpportunitiesRouteImport } from './routes/_authenticated/app.opportunities'
+import { Route as AuthenticatedAppEditorRouteImport } from './routes/_authenticated/app.editor'
+import { Route as AuthenticatedAppCalendarRouteImport } from './routes/_authenticated/app.calendar'
 
-const SetupRoute = SetupRouteImport.update({
-  id: '/setup',
-  path: '/setup',
+const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
+  id: '/_authenticated/app/',
+  path: '/app/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ServicesRoute = ServicesRouteImport.update({
-  id: '/services',
-  path: '/services',
+const AuthenticatedAppSetupRoute = AuthenticatedAppSetupRouteImport.update({
+  id: '/_authenticated/app/setup',
+  path: '/app/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
-const OpportunitiesRoute = OpportunitiesRouteImport.update({
-  id: '/opportunities',
-  path: '/opportunities',
+const AuthenticatedAppServicesRoute =
+  AuthenticatedAppServicesRouteImport.update({
+    id: '/_authenticated/app/services',
+    path: '/app/services',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedAppOpportunitiesRoute =
+  AuthenticatedAppOpportunitiesRouteImport.update({
+    id: '/_authenticated/app/opportunities',
+    path: '/app/opportunities',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedAppEditorRoute = AuthenticatedAppEditorRouteImport.update({
+  id: '/_authenticated/app/editor',
+  path: '/app/editor',
   getParentRoute: () => rootRouteImport,
 } as any)
-const EditorRoute = EditorRouteImport.update({
-  id: '/editor',
-  path: '/editor',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CalendarRoute = CalendarRouteImport.update({
-  id: '/calendar',
-  path: '/calendar',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
+const AuthenticatedAppCalendarRoute =
+  AuthenticatedAppCalendarRouteImport.update({
+    id: '/_authenticated/app/calendar',
+    path: '/app/calendar',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/calendar': typeof CalendarRoute
-  '/editor': typeof EditorRoute
-  '/opportunities': typeof OpportunitiesRoute
-  '/services': typeof ServicesRoute
-  '/setup': typeof SetupRoute
+  '/app/calendar': typeof AuthenticatedAppCalendarRoute
+  '/app/editor': typeof AuthenticatedAppEditorRoute
+  '/app/opportunities': typeof AuthenticatedAppOpportunitiesRoute
+  '/app/services': typeof AuthenticatedAppServicesRoute
+  '/app/setup': typeof AuthenticatedAppSetupRoute
+  '/app/': typeof AuthenticatedAppIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/calendar': typeof CalendarRoute
-  '/editor': typeof EditorRoute
-  '/opportunities': typeof OpportunitiesRoute
-  '/services': typeof ServicesRoute
-  '/setup': typeof SetupRoute
+  '/app/calendar': typeof AuthenticatedAppCalendarRoute
+  '/app/editor': typeof AuthenticatedAppEditorRoute
+  '/app/opportunities': typeof AuthenticatedAppOpportunitiesRoute
+  '/app/services': typeof AuthenticatedAppServicesRoute
+  '/app/setup': typeof AuthenticatedAppSetupRoute
+  '/app': typeof AuthenticatedAppIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/calendar': typeof CalendarRoute
-  '/editor': typeof EditorRoute
-  '/opportunities': typeof OpportunitiesRoute
-  '/services': typeof ServicesRoute
-  '/setup': typeof SetupRoute
+  '/_authenticated/app/calendar': typeof AuthenticatedAppCalendarRoute
+  '/_authenticated/app/editor': typeof AuthenticatedAppEditorRoute
+  '/_authenticated/app/opportunities': typeof AuthenticatedAppOpportunitiesRoute
+  '/_authenticated/app/services': typeof AuthenticatedAppServicesRoute
+  '/_authenticated/app/setup': typeof AuthenticatedAppSetupRoute
+  '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/'
-    | '/calendar'
-    | '/editor'
-    | '/opportunities'
-    | '/services'
-    | '/setup'
+    | '/app/calendar'
+    | '/app/editor'
+    | '/app/opportunities'
+    | '/app/services'
+    | '/app/setup'
+    | '/app/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/calendar' | '/editor' | '/opportunities' | '/services' | '/setup'
+  to:
+    | '/app/calendar'
+    | '/app/editor'
+    | '/app/opportunities'
+    | '/app/services'
+    | '/app/setup'
+    | '/app'
   id:
     | '__root__'
-    | '/'
-    | '/calendar'
-    | '/editor'
-    | '/opportunities'
-    | '/services'
-    | '/setup'
+    | '/_authenticated/app/calendar'
+    | '/_authenticated/app/editor'
+    | '/_authenticated/app/opportunities'
+    | '/_authenticated/app/services'
+    | '/_authenticated/app/setup'
+    | '/_authenticated/app/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  CalendarRoute: typeof CalendarRoute
-  EditorRoute: typeof EditorRoute
-  OpportunitiesRoute: typeof OpportunitiesRoute
-  ServicesRoute: typeof ServicesRoute
-  SetupRoute: typeof SetupRoute
+  AuthenticatedAppCalendarRoute: typeof AuthenticatedAppCalendarRoute
+  AuthenticatedAppEditorRoute: typeof AuthenticatedAppEditorRoute
+  AuthenticatedAppOpportunitiesRoute: typeof AuthenticatedAppOpportunitiesRoute
+  AuthenticatedAppServicesRoute: typeof AuthenticatedAppServicesRoute
+  AuthenticatedAppSetupRoute: typeof AuthenticatedAppSetupRoute
+  AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/setup': {
-      id: '/setup'
-      path: '/setup'
-      fullPath: '/setup'
-      preLoaderRoute: typeof SetupRouteImport
+    '/_authenticated/app/': {
+      id: '/_authenticated/app/'
+      path: '/app'
+      fullPath: '/app/'
+      preLoaderRoute: typeof AuthenticatedAppIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/services': {
-      id: '/services'
-      path: '/services'
-      fullPath: '/services'
-      preLoaderRoute: typeof ServicesRouteImport
+    '/_authenticated/app/setup': {
+      id: '/_authenticated/app/setup'
+      path: '/app/setup'
+      fullPath: '/app/setup'
+      preLoaderRoute: typeof AuthenticatedAppSetupRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/opportunities': {
-      id: '/opportunities'
-      path: '/opportunities'
-      fullPath: '/opportunities'
-      preLoaderRoute: typeof OpportunitiesRouteImport
+    '/_authenticated/app/services': {
+      id: '/_authenticated/app/services'
+      path: '/app/services'
+      fullPath: '/app/services'
+      preLoaderRoute: typeof AuthenticatedAppServicesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/editor': {
-      id: '/editor'
-      path: '/editor'
-      fullPath: '/editor'
-      preLoaderRoute: typeof EditorRouteImport
+    '/_authenticated/app/opportunities': {
+      id: '/_authenticated/app/opportunities'
+      path: '/app/opportunities'
+      fullPath: '/app/opportunities'
+      preLoaderRoute: typeof AuthenticatedAppOpportunitiesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/calendar': {
-      id: '/calendar'
-      path: '/calendar'
-      fullPath: '/calendar'
-      preLoaderRoute: typeof CalendarRouteImport
+    '/_authenticated/app/editor': {
+      id: '/_authenticated/app/editor'
+      path: '/app/editor'
+      fullPath: '/app/editor'
+      preLoaderRoute: typeof AuthenticatedAppEditorRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/_authenticated/app/calendar': {
+      id: '/_authenticated/app/calendar'
+      path: '/app/calendar'
+      fullPath: '/app/calendar'
+      preLoaderRoute: typeof AuthenticatedAppCalendarRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  CalendarRoute: CalendarRoute,
-  EditorRoute: EditorRoute,
-  OpportunitiesRoute: OpportunitiesRoute,
-  ServicesRoute: ServicesRoute,
-  SetupRoute: SetupRoute,
+  AuthenticatedAppCalendarRoute: AuthenticatedAppCalendarRoute,
+  AuthenticatedAppEditorRoute: AuthenticatedAppEditorRoute,
+  AuthenticatedAppOpportunitiesRoute: AuthenticatedAppOpportunitiesRoute,
+  AuthenticatedAppServicesRoute: AuthenticatedAppServicesRoute,
+  AuthenticatedAppSetupRoute: AuthenticatedAppSetupRoute,
+  AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
