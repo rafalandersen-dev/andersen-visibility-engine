@@ -222,7 +222,7 @@ const ContentAssetSchema = z.object({
   outline: z.array(z.string().min(3).max(140)).min(4).max(10),
   faq: z
     .array(z.object({ q: z.string().min(5).max(140), a: z.string().min(10).max(400) }))
-    .min(2)
+    .min(1)
     .max(6),
   cta: z.string().min(2).max(60),
   markdown: z.string().min(120).max(6000),
