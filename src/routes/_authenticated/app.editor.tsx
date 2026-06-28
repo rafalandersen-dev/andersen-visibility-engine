@@ -30,7 +30,7 @@ export const Route = createFileRoute("/_authenticated/app/editor")({
   validateSearch: z.object({ id: z.string().optional() }),
   head: () => ({
     meta: [
-      { title: "Content Editor — Andersen Visibility Engine" },
+      { title: "Content Editor — Milo Growth" },
       { name: "description", content: "Refine AI-drafted content, manage metadata and export." },
     ],
   }),

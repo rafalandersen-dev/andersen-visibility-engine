@@ -1,5 +1,5 @@
 /**
- * Canonical domain types for the Andersen Visibility Engine.
+ * Canonical domain types for the Milo Growth.
  * All store entities, mock-AI generators and UI components import from here.
  */
 export type Language = "Polish" | "Swedish" | "English";

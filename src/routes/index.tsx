@@ -7,7 +7,7 @@ import { Sparkles, CalendarDays, FileText, ShieldCheck, ArrowRight } from "lucid
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Andersen Visibility Engine — AI SEO workspace for small businesses" },
+      { title: "Milo Growth — Monthly AI Growth Planner for Small Businesses" },
       {
         name: "description",
         content:

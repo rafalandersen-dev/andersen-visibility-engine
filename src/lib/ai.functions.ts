@@ -1,5 +1,5 @@
 /**
- * Server functions wrapping Lovable AI Gateway for the Visibility Engine.
+ * Server functions wrapping Lovable AI Gateway for the Milo Growth.
  *
  * These return plain DTOs matching the shape the client store expects.
  * Auth is required (requireSupabaseAuth) so generation is scoped to

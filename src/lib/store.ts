@@ -1,5 +1,5 @@
 /**
- * Andersen Visibility Engine — global app store.
+ * Milo Growth — global app store.
  *
  * Reactive store built on `useSyncExternalStore`. Persistence is now backed by
  * the Lovable Cloud `workspaces` table (one row per signed-in user, JSON blob).

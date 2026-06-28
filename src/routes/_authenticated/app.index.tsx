@@ -11,7 +11,7 @@ import { formatDate } from "@/lib/format";
 export const Route = createFileRoute("/_authenticated/app/")({
   head: () => ({
     meta: [
-      { title: "Dashboard — Andersen Visibility Engine" },
+      { title: "Dashboard — Milo Growth" },
       {
         name: "description",
         content:

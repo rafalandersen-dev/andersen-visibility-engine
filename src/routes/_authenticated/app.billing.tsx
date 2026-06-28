@@ -8,7 +8,7 @@ import { ShieldCheck, Crown } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/app/billing")({
   head: () => ({
-    meta: [{ title: "Billing — Andersen Visibility Engine" }],
+    meta: [{ title: "Billing — Milo Growth" }],
   }),
   component: BillingPage,
 });

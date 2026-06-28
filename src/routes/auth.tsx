@@ -18,8 +18,8 @@ export const Route = createFileRoute("/auth")({
   validateSearch: searchSchema,
   head: () => ({
     meta: [
-      { title: "Sign in — Andersen Visibility Engine" },
-      { name: "description", content: "Sign in or create your Andersen Visibility Engine account." },
+      { title: "Sign in — Milo Growth" },
+      { name: "description", content: "Sign in or create your Milo Growth account." },
     ],
   }),
   component: AuthPage,

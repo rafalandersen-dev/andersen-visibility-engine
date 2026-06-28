@@ -6,7 +6,7 @@ import { ShieldCheck } from "lucide-react";
 export const Route = createFileRoute("/pricing")({
   head: () => ({
     meta: [
-      { title: "Pricing — Andersen Visibility Engine" },
+      { title: "Pricing — Milo Growth" },
       {
         name: "description",
         content: "Simple per-project pricing in PLN. Start free, add brands as you grow.",
