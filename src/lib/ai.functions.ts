@@ -71,8 +71,6 @@ const OpportunityOutputSchema = z
   .min(1)
   .max(8);
 
-const OpportunitiesEnvelopeSchema = z.object({ opportunities: OpportunityOutputSchema });
-
 const CalendarOutputSchema = z
   .array(
     z.object({
@@ -87,8 +85,6 @@ const CalendarOutputSchema = z
   )
   .min(1)
   .max(8);
-
-const CalendarEnvelopeSchema = z.object({ calendar_items: CalendarOutputSchema });
 
 function getObject(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
