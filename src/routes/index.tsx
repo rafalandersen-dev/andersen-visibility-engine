@@ -393,12 +393,16 @@ function PricingTeaser() {
 function FAQ() {
   const items = [
     {
-      q: "Is this a clone of Surfer, Jasper or Semrush?",
-      a: "No. Milo Growth is built around a calm, opinionated monthly workflow for small businesses — opportunities, calendar, editor, approval and export.",
+      q: "Will Milo Growth guarantee rankings or traffic?",
+      a: "No. No honest SEO tool can. Milo helps you ship a steady stream of structured, well-grounded content — but rankings depend on your site, market and execution.",
     },
     {
       q: "Does it publish to my website automatically?",
       a: "No. The workspace stops at approved, exportable Markdown or HTML. You stay in control of publishing.",
+    },
+    {
+      q: "Does it replace an SEO agency?",
+      a: "Not for every use case. It replaces the monthly planning, ideation and briefing work many small businesses pay an agency for. It does not do rank tracking, backlinks or competitor scraping.",
     },
     {
       q: "What is the Free Preview?",
