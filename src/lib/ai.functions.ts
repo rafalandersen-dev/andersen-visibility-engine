@@ -126,18 +126,47 @@ const pickString = (object: Record<string, unknown>, keys: string[]) => {
   return undefined;
 };
 
+const normalizeLanguage = (value: string | undefined) => {
+  const v = value?.toLowerCase() || "";
+  if (v === "pl" || v.includes("pol")) return "Polish";
+  if (v === "sv" || v.includes("swe") || v.includes("swed")) return "Swedish";
+  if (v === "en" || v.includes("eng")) return "English";
+  return value;
+};
+
+const normalizeContentType = (value: string | undefined) => {
+  const v = value?.toLowerCase() || "";
+  if (v.includes("landing")) return "Landing Page";
+  if (v.includes("service")) return "Service Page";
+  if (v.includes("blog") || v.includes("article") || v.includes("post")) return "Blog Article";
+  if (v.includes("guide") || v.includes("how to")) return "Guide";
+  if (v.includes("faq") || v.includes("question")) return "FAQ Page";
+  if (v.includes("compar")) return "Comparison";
+  if (v.includes("location") || v.includes("local") || v.includes("city")) return "Location Page";
+  if (v.includes("page")) return "Service Page";
+  return value;
+};
+
+const normalizePriority = (value: string | undefined) => {
+  const v = value?.toLowerCase() || "";
+  if (v.includes("high") || v.includes("urgent") || v.includes("critical")) return "High";
+  if (v.includes("low")) return "Low";
+  if (v.includes("medium") || v.includes("mid")) return "Medium";
+  return value;
+};
+
 function normalizeOpportunityItem(item: unknown): unknown {
   const object = getObject(item);
   if (!object) return item;
   return {
     title: pickString(object, ["title", "topicTitle", "topic", "name", "targetKeyword", "target_keyword"]),
-    language: pickString(object, ["language", "lang"]),
-    contentType: pickString(object, ["contentType", "content_type", "type", "format"]),
+    language: normalizeLanguage(pickString(object, ["language", "lang"])),
+    contentType: normalizeContentType(pickString(object, ["contentType", "content_type", "type", "format"])),
     searchIntent: pickString(object, ["searchIntent", "search_intent", "intent"]),
     targetAudience: pickString(object, ["targetAudience", "target_audience", "audience"]),
     businessValue: pickString(object, ["businessValue", "business_value", "value", "why", "rationale", "strategy"]),
     recommendedCta: pickString(object, ["recommendedCta", "recommended_cta", "cta", "callToAction", "call_to_action"]),
-    priority: pickString(object, ["priority", "importance"]),
+    priority: normalizePriority(pickString(object, ["priority", "importance"])),
   };
 }
 
@@ -148,8 +177,8 @@ function normalizeCalendarItem(item: unknown): unknown {
     opportunityIndex: object.opportunityIndex ?? object.opportunity_index ?? object.index,
     daysFromToday: object.daysFromToday ?? object.days_from_today ?? object.dayOffset ?? object.day_offset,
     topicTitle: pickString(object, ["topicTitle", "topic_title", "title", "topic"]),
-    language: pickString(object, ["language", "lang"]),
-    contentType: pickString(object, ["contentType", "content_type", "type", "format"]),
+    language: normalizeLanguage(pickString(object, ["language", "lang"])),
+    contentType: normalizeContentType(pickString(object, ["contentType", "content_type", "type", "format"])),
     searchIntent: pickString(object, ["searchIntent", "search_intent", "intent"]),
     recommendedCta: pickString(object, ["recommendedCta", "recommended_cta", "cta", "callToAction", "call_to_action"]),
   };
