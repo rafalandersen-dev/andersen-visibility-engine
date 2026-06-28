@@ -80,7 +80,14 @@ function EditorPage() {
           </ul>
         </aside>
 
-        {asset ? <Editor key={asset.id} asset={asset} /> : <div className="rounded-lg border border-dashed border-border p-12 text-center text-muted-foreground">Select an asset.</div>}
+        {asset ? <Editor key={asset.id} asset={asset} /> : (
+          <div className="rounded-lg border border-dashed border-border p-12 text-center">
+            <div className="font-display text-lg mb-1">No asset selected</div>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+              Open the Opportunities page and click <span className="font-medium text-foreground">Brief</span> or <span className="font-medium text-foreground">Draft</span> on any card to create your first content asset. It will appear in this editor.
+            </p>
+          </div>
+        )}
       </div>
     </AppShell>
   );
