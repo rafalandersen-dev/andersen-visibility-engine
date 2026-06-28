@@ -19,7 +19,7 @@ export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
       { title: "Sign in — Milo Growth" },
-      { name: "description", content: "Sign in or create your Milo Growth account." },
+      { name: "description", content: "Sign in or create your Milo Growth account to plan your monthly business visibility workflow." },
     ],
   }),
   component: AuthPage,
