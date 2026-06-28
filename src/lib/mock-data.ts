@@ -89,6 +89,9 @@ export const seedServices: ServiceItem[] = [
   { id: "a2", projectId: "andersen", name: "MVP Build", kind: "Service", description: "8–12 week lean engineering build of a launchable MVP.", targetAudience: "Funded startups", locationRelevance: "EU", priority: "High" },
   { id: "l1", projectId: "si-longevity", name: "H2 Hydrogen Bottle Pro", kind: "Product", description: "Portable molecular hydrogen bottle, 3-min cycle.", targetAudience: "Daily wellness users", locationRelevance: "EU", priority: "High" },
   { id: "l2", projectId: "si-longevity", name: "NMN Capsules 500mg", kind: "Product", description: "Pharmaceutical-grade NMN, 60 capsules.", targetAudience: "Longevity-focused 40+", locationRelevance: "EU", priority: "Medium" },
+  { id: "bw1", projectId: "butelki-wodorowe", name: "Butelka wodorowa H2 Pro", kind: "Product", description: "Przenośna butelka z generatorem wody wodorowej, technologia SPE/PEM, cykl 3 min, do 3000 ppb.", targetAudience: "Osoby dbające o zdrowie i regenerację", locationRelevance: "Polska", priority: "High" },
+  { id: "bw2", projectId: "butelki-wodorowe", name: "Butelka wodorowa H2 Sport", kind: "Product", description: "Wzmocniona wersja dla sportowców, większa pojemność 420 ml, szybki cykl 5 min.", targetAudience: "Biegacze, kolarze, crossfitowcy", locationRelevance: "Polska", priority: "High" },
+  { id: "bw3", projectId: "butelki-wodorowe", name: "Inhalator wodorowy domowy", kind: "Product", description: "Stacjonarny generator wodoru do inhalacji, 150 ml/min H2, zastosowanie domowe.", targetAudience: "Osoby 45+ zainteresowane długowiecznością", locationRelevance: "Polska", priority: "Medium" },
 ];
 
 // Fixed seed anchor so SSR and client snapshots match (no Date.now() at module init).
