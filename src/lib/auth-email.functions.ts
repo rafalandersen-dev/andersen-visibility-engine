@@ -71,7 +71,6 @@ async function sendDirectAuthEmail(args: {
   subject: string;
   html: string;
   text: string;
-  supabase: ReturnType<typeof createClient>;
   supabase: any;
 }) {
   const apiKey = getEmailApiKey();
