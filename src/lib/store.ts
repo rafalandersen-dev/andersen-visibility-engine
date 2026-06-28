@@ -96,14 +96,22 @@ function scheduleSave() {
       activeProjectId: state.activeProjectId,
     };
     try {
-      await supabase
+      const { error } = await supabase
         .from("workspaces")
         .upsert(
           { user_id: userId, data: snapshot as never },
           { onConflict: "user_id" },
         );
+      if (error) {
+        // Server-side project cap trigger raises check_violation
+        if (/Project limit reached/i.test(error.message)) {
+          const { toast } = await import("sonner");
+          toast.error(error.message);
+        } else {
+          console.warn("[workspace] save failed", error);
+        }
+      }
     } catch (e) {
-
       // Silent — UI keeps in-memory state; next action will retry the save.
       console.warn("[workspace] save failed", e);
     }
