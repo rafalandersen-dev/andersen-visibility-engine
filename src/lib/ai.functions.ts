@@ -105,9 +105,9 @@ export const generateOpportunitiesFn = createServerFn({ method: "POST" })
 
     try {
       const gateway = getGateway();
-      const { experimental_output: output } = await generateText({
+      const { output } = await generateText({
         model: gateway(MODEL),
-        experimental_output: Output.object({
+        output: Output.object({
           schema: z.object({
             opportunities: z
               .array(
@@ -168,9 +168,9 @@ export const generateCalendarFn = createServerFn({ method: "POST" })
 
     try {
       const gateway = getGateway();
-      const { experimental_output: output } = await generateText({
+      const { output } = await generateText({
         model: gateway(MODEL),
-        experimental_output: Output.object({
+        output: Output.object({
           schema: z.object({
             items: z
               .array(
@@ -250,9 +250,9 @@ export const generateContentAssetFn = createServerFn({ method: "POST" })
 
     try {
       const gateway = getGateway();
-      const { experimental_output: output } = await generateText({
+      const { output } = await generateText({
         model: gateway(MODEL),
-        experimental_output: Output.object({ schema: ContentAssetSchema }),
+        output: Output.object({ schema: ContentAssetSchema }),
         prompt: `${kindInstruction}
 
 Topic: ${opp.title}
@@ -299,9 +299,9 @@ export const regenerateMetadataFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     try {
       const gateway = getGateway();
-      const { experimental_output: output } = await generateText({
+      const { output } = await generateText({
         model: gateway(MODEL),
-        experimental_output: Output.object({
+        output: Output.object({
           schema: z.object({
             metaTitle: z.string().min(10).max(65),
             metaDescription: z.string().min(50).max(165),
@@ -330,9 +330,9 @@ export const regenerateFaqFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     try {
       const gateway = getGateway();
-      const { experimental_output: output } = await generateText({
+      const { output } = await generateText({
         model: gateway(MODEL),
-        experimental_output: Output.object({
+        output: Output.object({
           schema: z.object({
             faq: z
               .array(z.object({ q: z.string().min(5).max(140), a: z.string().min(10).max(400) }))
@@ -363,9 +363,9 @@ export const regenerateCtaFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     try {
       const gateway = getGateway();
-      const { experimental_output: output } = await generateText({
+      const { output } = await generateText({
         model: gateway(MODEL),
-        experimental_output: Output.object({
+        output: Output.object({
           schema: z.object({ cta: z.string().min(2).max(50) }),
         }),
         prompt: `Suggest ONE short, action-oriented CTA button label in ${data.language} for a ${data.intent.toLowerCase()} page about "${data.topic}" for "${data.businessName}". 2–5 words. No emojis, no quotes.${sharedRules}`,
