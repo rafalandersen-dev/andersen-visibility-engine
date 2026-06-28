@@ -175,13 +175,13 @@ function Editor({ asset }: { asset: ContentAsset }) {
         </TabsList>
 
         <TabsContent value="content" className="space-y-4 py-5">
-          <Field label="Title"><Input value={f.title} onChange={(e) => upd("title", e.target.value)} /></Field>
-          <Field label="H1"><Input value={f.h1} onChange={(e) => upd("h1", e.target.value)} /></Field>
+          <Field label="Title">{(id) => <Input id={id} value={f.title} onChange={(e) => upd("title", e.target.value)} />}</Field>
+          <Field label="H1">{(id) => <Input id={id} value={f.h1} onChange={(e) => upd("h1", e.target.value)} />}</Field>
           <Field label="Markdown content">
-            <Textarea rows={16} className="font-mono text-xs" value={f.markdown} onChange={(e) => upd("markdown", e.target.value)} />
+            {(id) => <Textarea id={id} rows={16} className="font-mono text-xs" value={f.markdown} onChange={(e) => upd("markdown", e.target.value)} />}
           </Field>
           <Field label="Editor notes">
-            <Textarea rows={3} value={f.editorNotes} onChange={(e) => upd("editorNotes", e.target.value)} />
+            {(id) => <Textarea id={id} rows={3} value={f.editorNotes} onChange={(e) => upd("editorNotes", e.target.value)} />}
           </Field>
         </TabsContent>
 
