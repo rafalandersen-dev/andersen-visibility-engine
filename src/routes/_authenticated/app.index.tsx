@@ -61,32 +61,43 @@ function Dashboard() {
   const [busy, setBusy] = useState(false);
 
   if (!active) {
+    const steps = [
+      "Create your first project — name your business and define brand context.",
+      "Add the services or products you actually sell.",
+      "Generate your first batch of SEO opportunities.",
+      "Plan the month in the content calendar.",
+      "Draft, approve and export your first asset.",
+    ];
     return (
       <AppShell
-        title="Welcome"
-        description="Your workspace is ready. Create your first visibility project to get started."
+        title="Welcome to Milo Growth"
+        description="Your workspace is empty. Create your first project to start your monthly growth plan."
       >
-        <div className="mx-auto max-w-2xl mt-10 rounded-xl border border-border bg-card p-10 text-center">
+        <div className="mx-auto max-w-2xl mt-6 rounded-xl border border-border bg-card p-8 md:p-10">
           <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
             Get started
           </div>
-          <h2 className="mt-2 font-display text-3xl">
-            Create your first visibility project
-          </h2>
+          <h2 className="mt-2 font-display text-3xl">Create your first project</h2>
           <p className="mt-3 text-sm text-muted-foreground">
-            Set up your business, services and monthly AI SEO workflow. You can run up to five
-            projects on a single account.
+            A project represents one business, brand or website. You can run up to {" "}
+            five projects on a single account.
           </p>
-          <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+          <ol className="mt-7 space-y-3">
+            {steps.map((s, i) => (
+              <li key={s} className="flex gap-3 text-sm">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-gold/40 bg-gold/10 text-[11px] font-medium text-gold">
+                  {i + 1}
+                </span>
+                <span className="pt-0.5 text-foreground/85">{s}</span>
+              </li>
+            ))}
+          </ol>
+          <div className="mt-8 flex flex-wrap items-center gap-3">
             <Button onClick={() => navigate({ to: "/app/setup", search: { new: true } })}>
               <Plus className="h-4 w-4" />
-              New project
+              Create first project
             </Button>
-            <Button variant="outline" asChild>
-              <a href="/" target="_blank" rel="noreferrer">
-                View demo preview
-              </a>
-            </Button>
+            <span className="text-xs text-muted-foreground">Takes about 2 minutes.</span>
           </div>
         </div>
       </AppShell>
