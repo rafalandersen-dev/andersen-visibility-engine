@@ -15,7 +15,7 @@ import { useStore, updateProject, addProject, ProjectLimitError } from "@/lib/st
 import { useAuth } from "@/lib/auth";
 
 import type { Language, Project } from "@/lib/types";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
