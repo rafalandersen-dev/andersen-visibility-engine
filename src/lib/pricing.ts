@@ -69,7 +69,7 @@ export const PLANS: Plan[] = [
 export const EXTRA_PROJECT = {
   name: "Extra Project",
   pricePerMonth: 99,
-  description: "Add another brand or market to your workspace.",
+  description: "Add another business, brand or website to your workspace.",
 } as const;
 
 /** Hard cap of projects per normal (non-owner) account, regardless of plan + add-ons. */
