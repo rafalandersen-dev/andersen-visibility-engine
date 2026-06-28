@@ -210,9 +210,10 @@ function Editor({ asset }: { asset: ContentAsset }) {
         <TabsContent value="structure" className="space-y-5 py-5">
           <div>
             <div className="flex items-center justify-between">
-              <Label className="text-xs">Outline</Label>
+              <Label htmlFor={outlineId} className="text-xs">Outline</Label>
             </div>
             <Textarea
+              id={outlineId}
               rows={6}
               value={f.outline.join("\n")}
               onChange={(e) => upd("outline", e.target.value.split("\n").filter(Boolean))}
