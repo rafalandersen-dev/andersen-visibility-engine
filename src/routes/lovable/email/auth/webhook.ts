@@ -31,10 +31,7 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
 }
 
 // Configuration
-// These constants are used by the Lovable Cloud auth-email webhook. If the
-// project email integration is disabled in Cloud, Supabase will bypass this
-// file and send its default auth email instead.
-const SITE_NAME = "Milo Growth"
+const SITE_NAME = "andersen-visibility-engine"
 const SENDER_DOMAIN = "notify.milogrowth.com"
 const ROOT_DOMAIN = "milogrowth.com"
 const FROM_DOMAIN = "milogrowth.com"
