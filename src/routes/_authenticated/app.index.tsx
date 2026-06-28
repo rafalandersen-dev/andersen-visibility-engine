@@ -57,8 +57,41 @@ function Dashboard() {
   const content = useStore((s) =>
     s.content.filter((c) => c.projectId === activeProjectId),
   );
-  const active = projects.find((p) => p.id === activeProjectId)!;
+  const active = projects.find((p) => p.id === activeProjectId) ?? projects[0];
   const [busy, setBusy] = useState(false);
+
+  if (!active) {
+    return (
+      <AppShell
+        title="Welcome"
+        description="Your workspace is ready. Create your first visibility project to get started."
+      >
+        <div className="mx-auto max-w-2xl mt-10 rounded-xl border border-border bg-card p-10 text-center">
+          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+            Get started
+          </div>
+          <h2 className="mt-2 font-display text-3xl">
+            Create your first visibility project
+          </h2>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Set up your business, services and monthly AI SEO workflow. You can run up to five
+            projects on a single account.
+          </p>
+          <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+            <Button onClick={() => navigate({ to: "/app/setup", search: { new: true } })}>
+              <Plus className="h-4 w-4" />
+              New project
+            </Button>
+            <Button variant="outline" asChild>
+              <a href="/" target="_blank" rel="noreferrer">
+                View demo preview
+              </a>
+            </Button>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
 
   const drafts = content.filter((c) => c.status === "Draft" || c.status === "In Review").length;
   const approved = content.filter((c) => c.status === "Approved").length;
