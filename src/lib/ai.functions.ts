@@ -128,7 +128,7 @@ export const generateOpportunitiesFn = createServerFn({ method: "POST" })
                   priority: PriorityEnum,
                 }),
               )
-              .min(4)
+              .min(1)
               .max(8),
           }),
         }),
