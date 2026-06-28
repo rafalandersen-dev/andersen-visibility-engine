@@ -28,7 +28,7 @@ const CONTENT_TYPES = [
   "FAQ Page",
   "Comparison",
   "Location Page",
-];
+] as const;
 const SEARCH_INTENTS = ["Informational", "Commercial", "Transactional", "Navigational"] as const;
 const PRIORITIES = ["Low", "Medium", "High"] as const;
 
@@ -183,24 +183,10 @@ export const generateOpportunitiesFn = createServerFn({ method: "POST" })
       const gateway = getGateway();
       const { output } = await generateText({
         model: gateway(MODEL),
-        output: Output.object({
-          schema: z.object({
-            opportunities: z
-              .array(
-                z.object({
-                  title: z.string().min(4).max(120),
-                  language: LanguageEnum,
-                  contentType: ContentTypeEnum,
-                  searchIntent: SearchIntentEnum,
-                  targetAudience: z.string().min(2).max(160),
-                  businessValue: z.string().min(2).max(200),
-                  recommendedCta: z.string().min(2).max(60),
-                  priority: PriorityEnum,
-                }),
-              )
-              .min(1)
-              .max(8),
-          }),
+        output: Output.array({
+          element: OpportunityOutputSchema.element,
+          name: "opportunities",
+          description: "A JSON array of structured SEO opportunities.",
         }),
         prompt: `You are an SEO and AI-visibility strategist for small businesses.
 
@@ -213,7 +199,7 @@ Mix content types (landing/service/blog/guide/location/comparison) and languages
 ${sharedRules}`,
       });
 
-      return output.opportunities;
+      return OpportunityOutputSchema.parse(extractArray(output, ["opportunities"]));
     } catch (e) {
       throw mapGatewayError(e);
     }
@@ -246,23 +232,10 @@ export const generateCalendarFn = createServerFn({ method: "POST" })
       const gateway = getGateway();
       const { output } = await generateText({
         model: gateway(MODEL),
-        output: Output.object({
-          schema: z.object({
-            items: z
-              .array(
-                z.object({
-                  opportunityIndex: z.number().int().min(1),
-                  daysFromToday: z.number().int().min(1).max(60),
-                  topicTitle: z.string().min(4).max(140),
-                  language: LanguageEnum,
-                  contentType: ContentTypeEnum,
-                  searchIntent: SearchIntentEnum,
-                  recommendedCta: z.string().min(2).max(60),
-                }),
-              )
-              .min(1)
-              .max(8),
-          }),
+        output: Output.array({
+          element: CalendarOutputSchema.element,
+          name: "calendar_items",
+          description: "A JSON array of scheduled content calendar items.",
         }),
         prompt: `Build a realistic 1-month content calendar for "${project.businessName || project.name}" in ${project.primaryLanguage}.
 
@@ -275,7 +248,7 @@ For each scheduled item, return the 1-based opportunityIndex it derives from.
 ${sharedRules}`,
       });
 
-      return output.items;
+      return CalendarOutputSchema.parse(extractArray(output, ["items", "calendar", "calendarItems"]));
     } catch (e) {
       throw mapGatewayError(e);
     }
