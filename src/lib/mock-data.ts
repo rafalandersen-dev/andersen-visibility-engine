@@ -60,6 +60,23 @@ export const seedProjects: Project[] = [
     uniqueSellingPoints:
       "Third-party tested, medical-grade titanium electrolysis, 2-year warranty, EU shipping.",
     brandNotes: "Cite mechanism, not hype. Compliant with EU health claims regulation.",
+  {
+    id: "butelki-wodorowe",
+    name: "Butelki Wodorowe",
+    websiteUrl: "https://butelkiwodorowe.pl",
+    businessName: "Butelki Wodorowe",
+    businessType: "Sklep e-commerce z butelkami wodorowymi",
+    primaryLanguage: "Polish",
+    additionalLanguages: [],
+    mainLocation: "Polska",
+    targetLocations: ["Warszawa", "Kraków", "Wrocław", "Poznań", "Gdańsk", "Polska"],
+    description:
+      "Polski sklep internetowy oferujący przenośne butelki z wodą wodorową dla osób dbających o zdrowie, regenerację i długowieczność. Produkty oparte na elektrolizie SPE/PEM z certyfikatami jakości.",
+    targetAudience: "Świadomi konsumenci 30–60 lat, sportowcy amatorzy, biohakerzy, osoby zainteresowane wellness i długowiecznością",
+    toneOfVoice: "Rzeczowy, oparty na faktach, przyjazny. Bez przesadnych obietnic zdrowotnych.",
+    uniqueSellingPoints:
+      "Technologia SPE/PEM, wysokie stężenie wodoru (do 3000 ppb), gwarancja 24 miesiące, wysyłka z Polski w 24h, polska obsługa klienta.",
+    brandNotes: "Zgodność z polskimi i unijnymi przepisami dot. oświadczeń zdrowotnych. Tłumaczyć mechanizm działania, nie obiecywać cudów. Język polski naturalny, bez kalek z angielskiego.",
   },
 ];
 
