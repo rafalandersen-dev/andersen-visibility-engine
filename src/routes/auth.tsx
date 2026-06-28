@@ -97,22 +97,24 @@ function AuthPage() {
     }
   }
 
-  async function handleGoogle() {
+  async function handleOAuth(provider: "google" | "apple") {
     if (busy) return;
     setBusy(true);
     try {
-      const result = await lovable.auth.signInWithOAuth("google", {
+      const result = await lovable.auth.signInWithOAuth(provider, {
         redirect_uri: `${window.location.origin}/app`,
       });
       if (result && "error" in result && result.error) {
         throw result.error;
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Google sign-in is unavailable right now.";
+      const label = provider === "apple" ? "Apple" : "Google";
+      const msg = err instanceof Error ? err.message : `${label} sign-in is unavailable right now.`;
       toast.error(msg);
       setBusy(false);
     }
   }
+
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2 bg-background text-foreground">
@@ -215,9 +217,22 @@ function AuthPage() {
                 or
                 <div className="h-px flex-1 bg-border" />
               </div>
-              <Button type="button" variant="outline" className="w-full" onClick={handleGoogle} disabled={busy}>
+              <Button type="button" variant="outline" className="w-full" onClick={() => handleOAuth("google")} disabled={busy}>
                 Continue with Google
               </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-2 w-full bg-black text-white hover:bg-black/90 hover:text-white border-black"
+                onClick={() => handleOAuth("apple")}
+                disabled={busy}
+              >
+                <svg viewBox="0 0 384 512" className="mr-2 h-4 w-4" fill="currentColor" aria-hidden="true">
+                  <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zM256.6 84.8C283 53 281 24.4 280.3 13.3 256.5 14.7 229 29.5 213.4 47.7c-17.2 19.5-27.3 43.6-25.1 71.5 25.7 2 49.1-11.2 68.3-34.4z" />
+                </svg>
+                Continue with Apple
+              </Button>
+
             </>
           ) : null}
 
