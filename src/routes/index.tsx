@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { PLANS, EXTRA_PROJECT, formatPrice, MAX_PROJECTS_PER_USER } from "@/lib/pricing";
 import { seedProjects, seedOpportunities, seedContent } from "@/lib/mock-data";
-import { Sparkles, CalendarDays, FileText, ShieldCheck, ArrowRight } from "lucide-react";
+import { Sparkles, CalendarDays, FileText, ShieldCheck, ArrowRight, Store, Building2, MapPin, FileSearch, ListChecks, MessageSquareQuote, Wrench, Layers, XCircle, CheckCircle2 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
