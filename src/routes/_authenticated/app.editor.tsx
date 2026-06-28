@@ -241,12 +241,12 @@ function Editor({ asset }: { asset: ContentAsset }) {
 
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <Label className="text-xs">Internal link suggestions</Label>
-              <Textarea rows={4} className="mt-1.5 font-mono text-xs" value={f.internalLinks.join("\n")} onChange={(e) => upd("internalLinks", e.target.value.split("\n").filter(Boolean))} />
+              <Label htmlFor={internalLinksId} className="text-xs">Internal link suggestions</Label>
+              <Textarea id={internalLinksId} rows={4} className="mt-1.5 font-mono text-xs" value={f.internalLinks.join("\n")} onChange={(e) => upd("internalLinks", e.target.value.split("\n").filter(Boolean))} />
             </div>
             <div>
-              <Label className="text-xs">Schema suggestions</Label>
-              <Textarea rows={4} className="mt-1.5 font-mono text-xs" value={f.schemaSuggestions.join("\n")} onChange={(e) => upd("schemaSuggestions", e.target.value.split("\n").filter(Boolean))} />
+              <Label htmlFor={schemaId} className="text-xs">Schema suggestions</Label>
+              <Textarea id={schemaId} rows={4} className="mt-1.5 font-mono text-xs" value={f.schemaSuggestions.join("\n")} onChange={(e) => upd("schemaSuggestions", e.target.value.split("\n").filter(Boolean))} />
             </div>
           </div>
         </TabsContent>
