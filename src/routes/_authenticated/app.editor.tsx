@@ -196,12 +196,12 @@ function Editor({ asset }: { asset: ContentAsset }) {
               Regenerate CTA
             </Button>
           </div>
-          <Field label="Slug"><Input value={f.slug} onChange={(e) => upd("slug", e.target.value)} /></Field>
-          <Field label={`Meta title (${f.metaTitle.length}/60)`}><Input value={f.metaTitle} onChange={(e) => upd("metaTitle", e.target.value)} /></Field>
+          <Field label="Slug">{(id) => <Input id={id} value={f.slug} onChange={(e) => upd("slug", e.target.value)} />}</Field>
+          <Field label={`Meta title (${f.metaTitle.length}/60)`}>{(id) => <Input id={id} value={f.metaTitle} onChange={(e) => upd("metaTitle", e.target.value)} />}</Field>
           <Field label={`Meta description (${f.metaDescription.length}/160)`}>
-            <Textarea rows={3} value={f.metaDescription} onChange={(e) => upd("metaDescription", e.target.value)} />
+            {(id) => <Textarea id={id} rows={3} value={f.metaDescription} onChange={(e) => upd("metaDescription", e.target.value)} />}
           </Field>
-          <Field label="Primary CTA"><Input value={f.cta} onChange={(e) => upd("cta", e.target.value)} /></Field>
+          <Field label="Primary CTA">{(id) => <Input id={id} value={f.cta} onChange={(e) => upd("cta", e.target.value)} />}</Field>
         </TabsContent>
 
         <TabsContent value="structure" className="space-y-5 py-5">
