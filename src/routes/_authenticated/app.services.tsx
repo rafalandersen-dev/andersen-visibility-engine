@@ -20,7 +20,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/_authenticated/app/services")({
   head: () => ({
     meta: [
-      { title: "Services Services & Products — Andersen Visibility Engine Products — Milo Growth" },
+      { title: "Services & Products — Milo Growth" },
       { name: "description", content: "Catalog of services and products the AI uses to ground content." },
     ],
   }),
