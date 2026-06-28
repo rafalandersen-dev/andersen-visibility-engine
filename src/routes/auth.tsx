@@ -7,8 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { z } from "zod";
+
+const searchSchema = z.object({
+  mode: z.enum(["login", "register", "reset"]).optional(),
+  message: z.string().optional(),
+});
 
 export const Route = createFileRoute("/auth")({
+  validateSearch: searchSchema,
   head: () => ({
     meta: [
       { title: "Sign in — Andersen Visibility Engine" },
@@ -19,6 +26,12 @@ export const Route = createFileRoute("/auth")({
 });
 
 type Mode = "signin" | "signup" | "reset";
+
+function modeFromParam(p: string | undefined): Mode {
+  if (p === "register") return "signup";
+  if (p === "reset") return "reset";
+  return "signin";
+}
 
 function AuthPage() {
   const { session, loading } = useAuth();
