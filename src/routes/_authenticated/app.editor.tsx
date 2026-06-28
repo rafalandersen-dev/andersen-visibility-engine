@@ -96,6 +96,9 @@ function EditorPage() {
 function Editor({ asset }: { asset: ContentAsset }) {
   const [f, setF] = useState<ContentAsset>(asset);
   const [busy, setBusy] = useState<string | null>(null);
+  const outlineId = useId();
+  const internalLinksId = useId();
+  const schemaId = useId();
   const upd = <K extends keyof ContentAsset>(k: K, v: ContentAsset[K]) =>
     setF((p) => ({ ...p, [k]: v }));
 
