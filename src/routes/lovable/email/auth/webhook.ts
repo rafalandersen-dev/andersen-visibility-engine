@@ -31,7 +31,7 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
 }
 
 // Configuration
-const SITE_NAME = "andersen-visibility-engine"
+const SITE_NAME = "Milo Growth"
 const SENDER_DOMAIN = "notify.milogrowth.com"
 const ROOT_DOMAIN = "milogrowth.com"
 const FROM_DOMAIN = "milogrowth.com"
