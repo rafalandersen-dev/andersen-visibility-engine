@@ -1,5 +1,7 @@
 import * as React from 'react'
-import { createFileRoute, useSearch } from '@tanstack/react-router'
+import { createFileRoute, Link, useSearch } from '@tanstack/react-router'
+import { CheckCircle2, AlertCircle, Loader2, MailX } from 'lucide-react'
+import { toast } from 'sonner'
 
 type Status = 'loading' | 'ready' | 'confirming' | 'success' | 'already' | 'invalid' | 'error'
 
@@ -19,6 +21,7 @@ export const Route = createFileRoute('/unsubscribe')({
 function UnsubscribePage() {
   const { token } = useSearch({ from: '/unsubscribe' })
   const [status, setStatus] = React.useState<Status>('loading')
+  const [email, setEmail] = React.useState<string | null>(null)
   const [error, setError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
@@ -31,6 +34,7 @@ function UnsubscribePage() {
       .then(async (r) => {
         const data = await r.json().catch(() => ({}))
         if (cancelled) return
+        if (typeof data.email === 'string') setEmail(data.email)
         if (!r.ok) {
           setStatus('invalid')
           return
@@ -42,7 +46,9 @@ function UnsubscribePage() {
         setStatus('ready')
       })
       .catch(() => !cancelled && setStatus('error'))
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [token])
 
   async function confirm() {
@@ -55,18 +61,31 @@ function UnsubscribePage() {
         body: JSON.stringify({ token }),
       })
       const data = await res.json().catch(() => ({}))
+      if (typeof data.email === 'string') setEmail(data.email)
       if (!res.ok) {
         setStatus('error')
         setError(data.error ?? 'Something went wrong.')
+        toast.error('Unsubscribe failed', {
+          description: 'Please try again, or reply to one of our emails and we\'ll handle it.',
+        })
         return
       }
       if (data.success === false && data.reason === 'already_unsubscribed') {
         setStatus('already')
+        toast('Already unsubscribed', {
+          description: 'No further emails will be sent to this address.',
+        })
         return
       }
       setStatus('success')
+      toast.success('You\'ve been unsubscribed', {
+        description: email ?? 'No further emails will be sent to this address.',
+      })
     } catch {
       setStatus('error')
+      toast.error('Unsubscribe failed', {
+        description: 'Check your connection and try again.',
+      })
     }
   }
 
@@ -76,18 +95,30 @@ function UnsubscribePage() {
         <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-3">
           Milo Growth
         </p>
-        <h1 className="text-2xl font-semibold text-foreground mb-4">
-          Email preferences
+        <h1 className="text-2xl font-semibold text-foreground mb-2">
+          {status === 'success' || status === 'already'
+            ? 'You\'re unsubscribed'
+            : status === 'invalid'
+            ? 'Link no longer valid'
+            : status === 'error'
+            ? 'Something went wrong'
+            : 'Email preferences'}
         </h1>
 
+        {email && (status === 'ready' || status === 'success' || status === 'already') && (
+          <p className="text-sm text-muted-foreground mb-6 break-all">{email}</p>
+        )}
+
         {status === 'loading' && (
-          <p className="text-sm text-muted-foreground">Checking your unsubscribe link…</p>
+          <StatusRow icon={<Loader2 className="w-4 h-4 animate-spin" />}>
+            Checking your unsubscribe link…
+          </StatusRow>
         )}
 
         {status === 'ready' && (
           <>
             <p className="text-sm text-muted-foreground mb-6">
-              Click the button below to confirm you no longer want to receive emails from Milo Growth at this address.
+              Click below to confirm you no longer want to receive emails from Milo Growth at this address.
             </p>
             <button
               onClick={confirm}
@@ -99,31 +130,51 @@ function UnsubscribePage() {
         )}
 
         {status === 'confirming' && (
-          <p className="text-sm text-muted-foreground">Updating your preferences…</p>
+          <StatusRow icon={<Loader2 className="w-4 h-4 animate-spin" />}>
+            Updating your preferences…
+          </StatusRow>
         )}
 
-        {status === 'success' && (
-          <p className="text-sm text-foreground">
-            You're unsubscribed. You won't receive any further emails from Milo Growth at this address.
-          </p>
-        )}
-
-        {status === 'already' && (
-          <p className="text-sm text-foreground">
-            This address is already unsubscribed. No further action needed.
-          </p>
+        {(status === 'success' || status === 'already') && (
+          <>
+            <StatusRow
+              tone="success"
+              icon={<CheckCircle2 className="w-5 h-5" />}
+            >
+              {status === 'success'
+                ? 'We\'ve removed this address from our mailing list. It may take a few minutes for any already-queued emails to stop.'
+                : 'This address was already unsubscribed. No further action is needed.'}
+            </StatusRow>
+            <p className="mt-6 text-xs text-muted-foreground">
+              Changed your mind? Reply to any past email from us and we\'ll resubscribe you manually.
+            </p>
+            <Link
+              to="/"
+              className="mt-6 inline-block text-sm text-foreground underline underline-offset-4 hover:opacity-80"
+            >
+              Back to Milo Growth
+            </Link>
+          </>
         )}
 
         {status === 'invalid' && (
-          <p className="text-sm text-muted-foreground">
-            This unsubscribe link is invalid or has expired. If you're still receiving unwanted emails, please reply to one of them and we'll handle it manually.
-          </p>
+          <StatusRow tone="muted" icon={<MailX className="w-5 h-5" />}>
+            This unsubscribe link is invalid or has expired. If you're still receiving unwanted emails, reply to one of them and we'll handle it manually.
+          </StatusRow>
         )}
 
         {status === 'error' && (
-          <p className="text-sm text-destructive">
-            {error ?? 'Something went wrong. Please try again in a moment.'}
-          </p>
+          <>
+            <StatusRow tone="error" icon={<AlertCircle className="w-5 h-5" />}>
+              {error ?? 'Something went wrong. Please try again in a moment.'}
+            </StatusRow>
+            <button
+              onClick={confirm}
+              className="mt-6 w-full rounded-lg border border-border bg-card py-3 text-sm font-medium hover:bg-muted transition"
+            >
+              Try again
+            </button>
+          </>
         )}
 
         <p className="mt-8 text-xs text-muted-foreground">
@@ -131,5 +182,28 @@ function UnsubscribePage() {
         </p>
       </div>
     </main>
+  )
+}
+
+function StatusRow({
+  icon,
+  tone = 'muted',
+  children,
+}: {
+  icon: React.ReactNode
+  tone?: 'success' | 'error' | 'muted'
+  children: React.ReactNode
+}) {
+  const toneClass =
+    tone === 'success'
+      ? 'text-foreground'
+      : tone === 'error'
+      ? 'text-destructive'
+      : 'text-muted-foreground'
+  return (
+    <div className={`flex items-start gap-3 text-sm ${toneClass}`}>
+      <span className="mt-0.5 shrink-0">{icon}</span>
+      <span className="leading-relaxed">{children}</span>
+    </div>
   )
 }
