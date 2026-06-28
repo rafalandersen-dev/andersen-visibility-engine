@@ -262,11 +262,12 @@ function Editor({ asset }: { asset: ContentAsset }) {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: (id: string) => React.ReactNode }) {
+  const id = useId();
   return (
     <div>
-      <Label className="text-xs text-muted-foreground">{label}</Label>
-      <div className="mt-1.5">{children}</div>
+      <Label htmlFor={id} className="text-xs text-muted-foreground">{label}</Label>
+      <div className="mt-1.5">{children(id)}</div>
     </div>
   );
 }
