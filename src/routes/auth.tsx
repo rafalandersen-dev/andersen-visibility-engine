@@ -97,22 +97,24 @@ function AuthPage() {
     }
   }
 
-  async function handleGoogle() {
+  async function handleOAuth(provider: "google" | "apple") {
     if (busy) return;
     setBusy(true);
     try {
-      const result = await lovable.auth.signInWithOAuth("google", {
+      const result = await lovable.auth.signInWithOAuth(provider, {
         redirect_uri: `${window.location.origin}/app`,
       });
       if (result && "error" in result && result.error) {
         throw result.error;
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Google sign-in is unavailable right now.";
+      const label = provider === "apple" ? "Apple" : "Google";
+      const msg = err instanceof Error ? err.message : `${label} sign-in is unavailable right now.`;
       toast.error(msg);
       setBusy(false);
     }
   }
+
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2 bg-background text-foreground">
