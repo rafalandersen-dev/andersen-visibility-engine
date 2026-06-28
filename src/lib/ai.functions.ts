@@ -19,8 +19,8 @@ import type {
 
 const MODEL = "google/gemini-3-flash-preview";
 
-const LanguageEnum = z.enum(["Polish", "Swedish", "English"]);
-const ContentTypeEnum = z.enum([
+const LANGUAGES = ["Polish", "Swedish", "English"] as const;
+const CONTENT_TYPES = [
   "Landing Page",
   "Service Page",
   "Blog Article",
@@ -28,9 +28,83 @@ const ContentTypeEnum = z.enum([
   "FAQ Page",
   "Comparison",
   "Location Page",
-]);
-const SearchIntentEnum = z.enum(["Informational", "Commercial", "Transactional", "Navigational"]);
-const PriorityEnum = z.enum(["Low", "Medium", "High"]);
+] as const;
+const SEARCH_INTENTS = ["Informational", "Commercial", "Transactional", "Navigational"] as const;
+const PRIORITIES = ["Low", "Medium", "High"] as const;
+
+function normalizedEnum<const T extends readonly [string, ...string[]]>(values: T) {
+  const key = (value: string) => value.toLowerCase().replace(/[^a-z]/g, "");
+  return z.preprocess((value) => {
+    if (typeof value !== "string") return value;
+    const input = key(value);
+    return (
+      values.find((option) => key(option) === input) ??
+      values.find((option) => input.includes(key(option))) ??
+      value
+    );
+  }, z.enum(values));
+}
+
+const cleanString = (min: number, max: number) =>
+  z
+    .preprocess((value) => (typeof value === "string" ? value.trim() : value), z.string().min(min))
+    .transform((value) => (value.length > max ? value.slice(0, max).trim() : value));
+
+const LanguageEnum = normalizedEnum(LANGUAGES);
+const ContentTypeEnum = normalizedEnum(CONTENT_TYPES);
+const SearchIntentEnum = normalizedEnum(SEARCH_INTENTS);
+const PriorityEnum = normalizedEnum(PRIORITIES);
+
+const OpportunityOutputSchema = z
+  .array(
+    z.object({
+      title: cleanString(4, 120),
+      language: LanguageEnum,
+      contentType: ContentTypeEnum,
+      searchIntent: SearchIntentEnum,
+      targetAudience: cleanString(2, 160),
+      businessValue: cleanString(2, 200),
+      recommendedCta: cleanString(2, 60),
+      priority: PriorityEnum,
+    }),
+  )
+  .min(1)
+  .max(8);
+
+const OpportunitiesEnvelopeSchema = z.object({ opportunities: OpportunityOutputSchema });
+
+const CalendarOutputSchema = z
+  .array(
+    z.object({
+      opportunityIndex: z.coerce.number().int().min(1),
+      daysFromToday: z.coerce.number().int().min(1).max(60),
+      topicTitle: cleanString(4, 140),
+      language: LanguageEnum,
+      contentType: ContentTypeEnum,
+      searchIntent: SearchIntentEnum,
+      recommendedCta: cleanString(2, 60),
+    }),
+  )
+  .min(1)
+  .max(8);
+
+const CalendarEnvelopeSchema = z.object({ calendar_items: CalendarOutputSchema });
+
+function getObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function extractArray(value: unknown, keys: string[]): unknown {
+  if (Array.isArray(value)) return value;
+  const object = getObject(value);
+  if (!object) return value;
+  for (const key of [...keys, "items", "elements", "data"]) {
+    if (Array.isArray(object[key])) return object[key];
+  }
+  return value;
+}
 
 function getGateway() {
   const key = process.env.LOVABLE_API_KEY;
@@ -113,28 +187,10 @@ export const generateOpportunitiesFn = createServerFn({ method: "POST" })
       const gateway = getGateway();
       const { output } = await generateText({
         model: gateway(MODEL),
-        output: Output.object({
-          schema: z.object({
-            opportunities: z
-              .array(
-                z.object({
-                  title: z.string().min(4).max(120),
-                  language: LanguageEnum,
-                  contentType: ContentTypeEnum,
-                  searchIntent: SearchIntentEnum,
-                  targetAudience: z.string().min(2).max(160),
-                  businessValue: z.string().min(2).max(200),
-                  recommendedCta: z.string().min(2).max(60),
-                  priority: PriorityEnum,
-                }),
-              )
-              .min(1)
-              .max(8),
-          }),
-        }),
+        output: Output.object({ schema: OpportunitiesEnvelopeSchema }),
         prompt: `You are an SEO and AI-visibility strategist for small businesses.
 
-Generate 6 high-quality content opportunities for this business.
+Generate 6 high-quality content opportunities for this business and return them as { "opportunities": [...] }.
 
 ${brief}
 ${existing}
@@ -143,7 +199,7 @@ Mix content types (landing/service/blog/guide/location/comparison) and languages
 ${sharedRules}`,
       });
 
-      return output.opportunities;
+      return OpportunityOutputSchema.parse(extractArray(output, ["opportunities"]));
     } catch (e) {
       throw mapGatewayError(e);
     }
@@ -176,24 +232,7 @@ export const generateCalendarFn = createServerFn({ method: "POST" })
       const gateway = getGateway();
       const { output } = await generateText({
         model: gateway(MODEL),
-        output: Output.object({
-          schema: z.object({
-            items: z
-              .array(
-                z.object({
-                  opportunityIndex: z.number().int().min(1),
-                  daysFromToday: z.number().int().min(1).max(60),
-                  topicTitle: z.string().min(4).max(140),
-                  language: LanguageEnum,
-                  contentType: ContentTypeEnum,
-                  searchIntent: SearchIntentEnum,
-                  recommendedCta: z.string().min(2).max(60),
-                }),
-              )
-              .min(1)
-              .max(8),
-          }),
-        }),
+        output: Output.object({ schema: CalendarEnvelopeSchema }),
         prompt: `Build a realistic 1-month content calendar for "${project.businessName || project.name}" in ${project.primaryLanguage}.
 
 Pick the strongest opportunities below and schedule them with sensible cadence (every 3–5 days, no clustering on one date). Prefer high-priority items first.
@@ -205,7 +244,7 @@ For each scheduled item, return the 1-based opportunityIndex it derives from.
 ${sharedRules}`,
       });
 
-      return output.items;
+      return CalendarOutputSchema.parse(extractArray(output, ["calendar_items", "items", "calendar", "calendarItems"]));
     } catch (e) {
       throw mapGatewayError(e);
     }

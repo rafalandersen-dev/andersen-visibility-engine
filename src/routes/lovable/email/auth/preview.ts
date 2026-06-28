@@ -18,6 +18,7 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
 }
 
 // Configuration
+// Keep preview data in sync with the live auth webhook branding.
 const SITE_NAME = "Milo Growth"
 const ROOT_DOMAIN = "milogrowth.com"
 

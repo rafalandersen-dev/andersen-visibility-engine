@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
+import { signupWithBrandedEmailFn, requestPasswordResetWithBrandedEmailFn } from "@/lib/auth-email.functions";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,15 +66,14 @@ function AuthPage() {
     setBusy(true);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/app`,
-            data: { display_name: displayName || email.split("@")[0] },
+        await signupWithBrandedEmailFn({
+          data: {
+            email,
+            password,
+            displayName: displayName || email.split("@")[0],
+            redirectTo: `${window.location.origin}/app`,
           },
         });
-        if (error) throw error;
         toast.success("Account created. Check your inbox to confirm your email.");
         setMode("signin");
       } else if (mode === "signin") {
@@ -82,10 +82,12 @@ function AuthPage() {
         toast.success("Welcome back.");
         navigate({ to: "/app", replace: true });
       } else {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/reset-password`,
+        await requestPasswordResetWithBrandedEmailFn({
+          data: {
+            email,
+            redirectTo: `${window.location.origin}/reset-password`,
+          },
         });
-        if (error) throw error;
         toast.success("Password reset email sent.");
         setMode("signin");
       }

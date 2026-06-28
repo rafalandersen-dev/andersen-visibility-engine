@@ -80,40 +80,46 @@ const notify = () => listeners.forEach((l) => l());
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 const SAVE_DEBOUNCE_MS = 600;
 
+export async function saveWorkspaceNow(): Promise<void> {
+  if (typeof window === "undefined") return;
+  if (!state.hydrated || !state.userId) return;
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+  const userId = state.userId;
+  const snapshot = {
+    projects: state.projects,
+    services: state.services,
+    opportunities: state.opportunities,
+    calendar: state.calendar,
+    content: state.content,
+    activeProjectId: state.activeProjectId,
+  };
+  const { error } = await supabase
+    .from("workspaces")
+    .upsert(
+      { user_id: userId, data: snapshot as never },
+      { onConflict: "user_id" },
+    );
+  if (error) throw error;
+}
+
 function scheduleSave() {
   if (typeof window === "undefined") return;
   if (!state.hydrated || !state.userId) return;
   if (saveTimer) clearTimeout(saveTimer);
-  const userId = state.userId;
   saveTimer = setTimeout(async () => {
-    saveTimer = null;
-    const snapshot = {
-      projects: state.projects,
-      services: state.services,
-      opportunities: state.opportunities,
-      calendar: state.calendar,
-      content: state.content,
-      activeProjectId: state.activeProjectId,
-    };
     try {
-      const { error } = await supabase
-        .from("workspaces")
-        .upsert(
-          { user_id: userId, data: snapshot as never },
-          { onConflict: "user_id" },
-        );
-      if (error) {
-        // Server-side project cap trigger raises check_violation
-        if (/Project limit reached/i.test(error.message)) {
-          const { toast } = await import("sonner");
-          toast.error(error.message);
-        } else {
-          console.warn("[workspace] save failed", error);
-        }
-      }
+      await saveWorkspaceNow();
     } catch (e) {
-      // Silent — UI keeps in-memory state; next action will retry the save.
-      console.warn("[workspace] save failed", e);
+      const message = e instanceof Error ? e.message : String(e);
+      if (/Project limit reached/i.test(message)) {
+        const { toast } = await import("sonner");
+        toast.error(message);
+      } else {
+        console.warn("[workspace] save failed", e);
+      }
     }
   }, SAVE_DEBOUNCE_MS);
 }

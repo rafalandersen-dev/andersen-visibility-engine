@@ -31,6 +31,9 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
 }
 
 // Configuration
+// Used by the Lovable Cloud auth email hook. If live emails show default
+// Supabase/Lovable wording, the Cloud email integration is not invoking this
+// route yet (Cloud → Emails must be enabled for auth emails).
 const SITE_NAME = "Milo Growth"
 const SENDER_DOMAIN = "notify.milogrowth.com"
 const ROOT_DOMAIN = "milogrowth.com"
