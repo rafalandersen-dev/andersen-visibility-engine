@@ -115,6 +115,64 @@ export const Route = createFileRoute("/lovable/email/transactional/send")({
           )
         }
 
+        // Validate recipient email format
+        const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        if (!emailRe.test(effectiveRecipient)) {
+          return Response.json({ error: 'Invalid recipient email' }, { status: 400 })
+        }
+
+        // Authorization: only owners may send to arbitrary recipients.
+        // Non-owners may only send to their own account email, and never to
+        // templates that pin a fixed `to` address (e.g. site-owner notifications).
+        const { data: isOwner } = await supabase.rpc('has_role', {
+          _user_id: user.id,
+          _role: 'owner',
+        })
+
+        if (!isOwner) {
+          if (template.to) {
+            return Response.json({ error: 'Forbidden' }, { status: 403 })
+          }
+          const callerEmail = user.email?.toLowerCase()
+          if (!callerEmail || callerEmail !== effectiveRecipient.toLowerCase()) {
+            return Response.json(
+              { error: 'You may only send emails to your own account address' },
+              { status: 403 }
+            )
+          }
+
+          // Sanitize user-controlled URL fields in templateData to block
+          // phishing links rendered via templates like `notification`.
+          const urlFields = ['actionUrl', 'action_url', 'url', 'link', 'href']
+          const allowedOrigins = new Set<string>(
+            [
+              process.env.SITE_URL,
+              `https://${FROM_DOMAIN}`,
+              `https://www.${FROM_DOMAIN}`,
+            ].filter(Boolean) as string[]
+          )
+          for (const key of urlFields) {
+            const val = templateData[key]
+            if (typeof val !== 'string' || val.length === 0) continue
+            try {
+              const u = new URL(val)
+              const isHttps = u.protocol === 'https:'
+              const isMailto = u.protocol === 'mailto:'
+              if (!isHttps && !isMailto) {
+                delete templateData[key]
+                continue
+              }
+              if (isHttps && allowedOrigins.size > 0 && !allowedOrigins.has(u.origin)) {
+                delete templateData[key]
+              }
+            } catch {
+              delete templateData[key]
+            }
+          }
+        }
+
+
+
         // 2. Check suppression list (fail-closed: if we can't verify, don't send)
         const { data: suppressed, error: suppressionError } = await supabase
           .from('suppressed_emails')
