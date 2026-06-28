@@ -17,7 +17,7 @@ import { Plus, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/services")({
+export const Route = createFileRoute("/_authenticated/app/services")({
   head: () => ({
     meta: [
       { title: "Services & Products — Andersen Visibility Engine" },

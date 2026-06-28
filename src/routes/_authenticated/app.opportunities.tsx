@@ -24,7 +24,7 @@ import { Sparkles, FileText, FileEdit, X, Loader2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/opportunities")({
+export const Route = createFileRoute("/_authenticated/app/opportunities")({
   head: () => ({
     meta: [
       { title: "SEO Opportunities — Andersen Visibility Engine" },
@@ -64,7 +64,7 @@ function OpportunitiesPage() {
     updateOpportunity(id, { status: "In Brief" });
     setBusyId(null);
     toast.success("Landing page brief created");
-    navigate({ to: "/editor", search: { id: a.id } as never });
+    navigate({ to: "/app/editor", search: { id: a.id } as never });
   };
 
   const doDraft = async (id: string) => {
@@ -73,7 +73,7 @@ function OpportunitiesPage() {
     updateOpportunity(id, { status: "Drafting" });
     setBusyId(null);
     toast.success("Article draft created");
-    navigate({ to: "/editor", search: { id: a.id } as never });
+    navigate({ to: "/app/editor", search: { id: a.id } as never });
   };
 
   return (

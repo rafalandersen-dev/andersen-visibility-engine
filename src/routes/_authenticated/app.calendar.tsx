@@ -16,7 +16,7 @@ import { useMemo, useState } from "react";
 import { CalendarDays, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/calendar")({
+export const Route = createFileRoute("/_authenticated/app/calendar")({
   head: () => ({
     meta: [
       { title: "Content Calendar — Andersen Visibility Engine" },
