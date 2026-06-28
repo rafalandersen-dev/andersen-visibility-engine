@@ -100,6 +100,135 @@ function Hero() {
   );
 }
 
+function WhatYouCreate() {
+  const items = [
+    { icon: FileSearch, title: "Visibility ideas", body: "Structured SEO opportunities ranked by intent, language and business value — not a keyword dump." },
+    { icon: FileText, title: "Content briefs", body: "Outline, H1, meta, internal links and schema suggestions ready for a writer or the built-in editor." },
+    { icon: MessageSquareQuote, title: "FAQ sections", body: "Question-and-answer blocks designed for both Google snippets and AI search citations." },
+    { icon: Wrench, title: "Service-page improvements", body: "Concrete rewrites for existing service pages so they rank and convert better." },
+    { icon: ListChecks, title: "Monthly action plans", body: "A clear 30-day plan grouped by ISO week, so you always know what to ship next." },
+    { icon: Layers, title: "Markdown / HTML exports", body: "Approved assets you can paste into WordPress, Webflow, Shopify or hand to your developer." },
+  ];
+  return (
+    <section id="create" className="border-t border-border bg-card/30">
+      <div className="mx-auto max-w-6xl px-6 py-20">
+        <div className="max-w-2xl">
+          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">What Milo helps you create</div>
+          <h2 className="mt-2 font-display text-3xl md:text-4xl">Six concrete outputs, every month.</h2>
+          <p className="mt-3 text-sm text-muted-foreground">Milo Growth is a planner, not a publisher. It gives you the artefacts an in-house marketer or freelance writer would produce — without the agency price tag.</p>
+        </div>
+        <div className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          {items.map((i) => (
+            <div key={i.title} className="rounded-xl border border-border bg-card p-6">
+              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-gold/10 text-gold">
+                <i.icon className="h-4 w-4" strokeWidth={1.6} />
+              </div>
+              <h3 className="mt-4 font-display text-lg">{i.title}</h3>
+              <p className="mt-1.5 text-sm text-muted-foreground">{i.body}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function WhoItsFor() {
+  const groups = [
+    { icon: Store, title: "Local service businesses", body: "Clinics, salons, studios, contractors and trades that want to be found in their city or region." },
+    { icon: Building2, title: "Small B2B & SaaS teams", body: "Founders and solo marketers who need a steady content rhythm without a full agency retainer." },
+    { icon: MapPin, title: "Multi-location & multi-brand owners", body: "Owners running two or three small businesses who want one calm planning workspace." },
+  ];
+  return (
+    <section id="who" className="border-t border-border">
+      <div className="mx-auto max-w-6xl px-6 py-20">
+        <div className="max-w-2xl">
+          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Who it is for</div>
+          <h2 className="mt-2 font-display text-3xl md:text-4xl">Built for small businesses, not enterprise SEO teams.</h2>
+        </div>
+        <div className="mt-10 grid gap-5 md:grid-cols-3">
+          {groups.map((g) => (
+            <div key={g.title} className="rounded-xl border border-border bg-card p-6">
+              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-gold/10 text-gold">
+                <g.icon className="h-4 w-4" strokeWidth={1.6} />
+              </div>
+              <h3 className="mt-4 font-display text-lg">{g.title}</h3>
+              <p className="mt-1.5 text-sm text-muted-foreground">{g.body}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function WhatYouGet() {
+  const rows = [
+    "A fresh batch of SEO opportunities, ranked by priority",
+    "A 30-day content calendar grouped by week",
+    "Briefs, drafts, FAQ and metadata you can approve in one place",
+    "Service-page improvement suggestions tied to what you actually sell",
+    "Markdown and HTML exports for your CMS or developer",
+  ];
+  return (
+    <section id="monthly" className="border-t border-border bg-card/30">
+      <div className="mx-auto max-w-6xl px-6 py-20 grid gap-10 lg:grid-cols-[1.1fr,1fr] lg:items-center">
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">What you get every month</div>
+          <h2 className="mt-2 font-display text-3xl md:text-4xl">One calm monthly rhythm.</h2>
+          <p className="mt-3 text-sm text-muted-foreground max-w-xl">
+            Each month, Milo refreshes your visibility plan so you always have something concrete to ship — without scrambling for ideas or paying for a full agency retainer.
+          </p>
+          <div className="mt-7">
+            <Link to="/auth">
+              <Button className="gap-2">Start free <ArrowRight className="h-4 w-4" /></Button>
+            </Link>
+          </div>
+        </div>
+        <ul className="rounded-xl border border-border bg-card divide-y divide-border">
+          {rows.map((r) => (
+            <li key={r} className="flex items-start gap-3 px-5 py-4 text-sm">
+              <CheckCircle2 className="h-4 w-4 mt-0.5 text-gold shrink-0" />
+              <span>{r}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+function WhatItIsnt() {
+  const items = [
+    "It does not auto-publish content to your website",
+    "It does not guarantee rankings or traffic",
+    "It does not replace every SEO agency use case",
+    "It does not do rank tracking, backlinks or competitor scraping",
+  ];
+  return (
+    <section className="border-t border-border">
+      <div className="mx-auto max-w-6xl px-6 py-20">
+        <div className="max-w-2xl">
+          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">What Milo is not</div>
+          <h2 className="mt-2 font-display text-3xl md:text-4xl">Honest about scope.</h2>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Milo Growth is a focused planning tool, not an all-in-one SEO suite. We tell you upfront what is out of scope so you can choose with eyes open.
+          </p>
+        </div>
+        <ul className="mt-8 grid gap-3 md:grid-cols-2">
+          {items.map((i) => (
+            <li key={i} className="flex items-start gap-3 rounded-lg border border-border bg-card/60 px-5 py-4 text-sm">
+              <XCircle className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+              <span>{i}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+
 function HowItWorks() {
   const steps = [
     {
