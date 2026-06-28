@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { PLANS, EXTRA_PROJECT, formatPrice, MAX_PROJECTS_PER_USER } from "@/lib/pricing";
-import { SEED_PROJECTS, SEED_OPPORTUNITIES, SEED_CONTENT } from "@/lib/mock-data";
+import { seedProjects, seedOpportunities, seedContent } from "@/lib/mock-data";
 import { Sparkles, CalendarDays, FileText, ShieldCheck, ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/")({
