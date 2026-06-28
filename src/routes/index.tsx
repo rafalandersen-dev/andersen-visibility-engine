@@ -167,9 +167,9 @@ function DemoPreview() {
                 <div key={o.id} className="rounded-lg border border-border/70 bg-background/50 p-4">
                   <div className="flex items-center justify-between gap-3">
                     <h4 className="font-medium">{o.title}</h4>
-                    <span className="text-[10px] uppercase tracking-[0.18em] text-gold">{o.intent}</span>
+                    <span className="text-[10px] uppercase tracking-[0.18em] text-gold">{o.searchIntent}</span>
                   </div>
-                  <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{o.rationale}</p>
+                  <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{o.businessValue}</p>
                 </div>
               ))}
             </div>
