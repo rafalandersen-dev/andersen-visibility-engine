@@ -271,9 +271,54 @@ function HowItWorks() {
 }
 
 function DemoPreview() {
-  const demoProject = seedProjects[0];
-  const opps = seedOpportunities.filter((o) => o.projectId === demoProject.id).slice(0, 3);
-  const content = seedContent.filter((c) => c.projectId === demoProject.id).slice(0, 3);
+  const demoOpportunities = [
+    {
+      id: "demo-o-1",
+      title: "Best espresso machines for small cafés under $2,000",
+      searchIntent: "Commercial",
+      businessValue:
+        "Captures owners actively comparing entry-level commercial machines — high purchase intent and strong fit for product pages.",
+    },
+    {
+      id: "demo-o-2",
+      title: "How to clean a steam wand without damaging the seals",
+      searchIntent: "Informational",
+      businessValue:
+        "Builds trust with existing customers and earns long-tail visibility in AI answers about espresso machine maintenance.",
+    },
+    {
+      id: "demo-o-3",
+      title: "Single boiler vs dual boiler espresso machines explained",
+      searchIntent: "Comparison",
+      businessValue:
+        "Helps undecided buyers choose a category — a natural lead-in to your product line and a strong internal-link hub.",
+    },
+  ];
+
+  const demoContent = [
+    {
+      id: "demo-c-1",
+      title: "Best espresso machines for small cafés under $2,000",
+      status: "Draft",
+      metaDescription:
+        "A practical shortlist of reliable commercial espresso machines under $2,000, with notes on workflow, durability and service.",
+    },
+    {
+      id: "demo-c-2",
+      title: "How to clean a steam wand the right way",
+      status: "In review",
+      metaDescription:
+        "A simple weekly routine to keep your steam wand clean, hygienic and free of milk build-up — without damaging the seals.",
+    },
+    {
+      id: "demo-c-3",
+      title: "Single boiler vs dual boiler: which one fits your café?",
+      status: "Approved",
+      metaDescription:
+        "Plain-language comparison of single and dual boiler espresso machines, with guidance on volume, milk drinks and budget.",
+    },
+  ];
+
   return (
     <section id="preview" className="border-t border-border">
       <div className="mx-auto max-w-6xl px-6 py-20">
@@ -293,10 +338,10 @@ function DemoPreview() {
         <div className="mt-10 grid gap-6 lg:grid-cols-2">
           <div className="rounded-xl border border-border bg-card p-6">
             <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-              SEO Opportunities · {demoProject.name}
+              SEO Opportunities · Northbound Coffee Co.
             </div>
             <div className="mt-4 space-y-3">
-              {opps.map((o) => (
+              {demoOpportunities.map((o) => (
                 <div key={o.id} className="rounded-lg border border-border/70 bg-background/50 p-4">
                   <div className="flex items-center justify-between gap-3">
                     <h4 className="font-medium">{o.title}</h4>
@@ -313,7 +358,7 @@ function DemoPreview() {
               Content in progress
             </div>
             <div className="mt-4 space-y-3">
-              {content.map((c) => (
+              {demoContent.map((c) => (
                 <div key={c.id} className="rounded-lg border border-border/70 bg-background/50 p-4">
                   <div className="flex items-center justify-between gap-3">
                     <h4 className="font-medium">{c.title}</h4>
@@ -322,7 +367,7 @@ function DemoPreview() {
                     </span>
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
-                    {c.metaDescription || "Draft in progress."}
+                    {c.metaDescription}
                   </p>
                 </div>
               ))}
