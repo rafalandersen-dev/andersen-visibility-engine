@@ -20,11 +20,11 @@ type NavItem = {
 
 const NAV: NavItem[] = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { to: "/setup", label: "Project Setup", icon: FolderCog },
-  { to: "/services", label: "Services & Products", icon: Package },
-  { to: "/opportunities", label: "SEO Opportunities", icon: Sparkles },
-  { to: "/calendar", label: "Content Calendar", icon: CalendarDays },
-  { to: "/editor", label: "Content Editor", icon: FileText },
+  { to: "/app/setup", label: "Project Setup", icon: FolderCog },
+  { to: "/app/services", label: "Services & Products", icon: Package },
+  { to: "/app/opportunities", label: "SEO Opportunities", icon: Sparkles },
+  { to: "/app/calendar", label: "Content Calendar", icon: CalendarDays },
+  { to: "/app/editor", label: "Content Editor", icon: FileText },
 ];
 
 export function AppShell({

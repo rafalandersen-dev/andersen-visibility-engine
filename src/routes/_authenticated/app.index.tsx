@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { useState } from "react";
 import { formatDate } from "@/lib/format";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/_authenticated/app/")({
   head: () => ({
     meta: [
       { title: "Dashboard — Andersen Visibility Engine" },
@@ -79,14 +79,14 @@ function Dashboard() {
               await generateSeoOpportunities(activeProjectId);
               setBusy(false);
               toast.success("New SEO opportunities generated");
-              navigate({ to: "/opportunities" });
+              navigate({ to: "/app/opportunities" });
             }}
             disabled={busy}
           >
             <Sparkles className="h-4 w-4" />
             Generate SEO Opportunities
           </Button>
-          <Button onClick={() => navigate({ to: "/setup", search: { new: true } })}>
+          <Button onClick={() => navigate({ to: "/app/setup", search: { new: true } })}>
             <Plus className="h-4 w-4" />
             Create New Project
           </Button>
@@ -108,7 +108,7 @@ function Dashboard() {
               <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Recent content</div>
               <h2 className="font-display text-lg mt-0.5">Latest assets</h2>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/editor" })}>
+            <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/app/editor" })}>
               Open editor <ArrowUpRight className="h-3.5 w-3.5" />
             </Button>
           </div>
@@ -126,7 +126,7 @@ function Dashboard() {
                       {c.status} · updated {formatDate(c.updatedAt)}
                     </div>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => navigate({ to: "/editor", search: { id: c.id } as never })}>
+                  <Button variant="outline" size="sm" onClick={() => navigate({ to: "/app/editor", search: { id: c.id } as never })}>
                     Open
                   </Button>
                 </li>
@@ -155,7 +155,7 @@ function Dashboard() {
             </li>
           </ul>
           <div className="my-5 gold-rule" />
-          <Button variant="outline" className="w-full" onClick={() => navigate({ to: "/calendar" })}>
+          <Button variant="outline" className="w-full" onClick={() => navigate({ to: "/app/calendar" })}>
             <FileText className="h-4 w-4" /> Review content calendar
           </Button>
         </div>

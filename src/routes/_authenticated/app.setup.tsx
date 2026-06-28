@@ -17,7 +17,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
-export const Route = createFileRoute("/setup")({
+export const Route = createFileRoute("/_authenticated/app/setup")({
   validateSearch: z.object({ new: z.coerce.boolean().optional() }),
   head: () => ({
     meta: [

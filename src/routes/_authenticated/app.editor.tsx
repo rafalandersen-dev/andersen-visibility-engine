@@ -26,7 +26,7 @@ import { Check, Copy, Download, FileEdit, FileX, Loader2, Sparkles } from "lucid
 import { toast } from "sonner";
 import { z } from "zod";
 
-export const Route = createFileRoute("/editor")({
+export const Route = createFileRoute("/_authenticated/app/editor")({
   validateSearch: z.object({ id: z.string().optional() }),
   head: () => ({
     meta: [
