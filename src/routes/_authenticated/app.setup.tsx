@@ -219,6 +219,26 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+function blankProject(): Project {
+  return {
+    id: "",
+    name: "",
+    websiteUrl: "",
+    businessName: "",
+    businessType: "",
+    primaryLanguage: "English",
+    additionalLanguages: [],
+    mainLocation: "",
+    targetLocations: [],
+    description: "",
+    targetAudience: "",
+    toneOfVoice: "",
+    uniqueSellingPoints: "",
+    brandNotes: "",
+  };
+}
+
+
 function Field({ label, children, full }: { label: string; children: React.ReactNode; full?: boolean }) {
   return (
     <div className={full ? "md:col-span-2" : ""}>
