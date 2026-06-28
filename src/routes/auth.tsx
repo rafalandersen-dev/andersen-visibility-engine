@@ -36,11 +36,22 @@ function modeFromParam(p: string | undefined): Mode {
 function AuthPage() {
   const { session, loading } = useAuth();
   const navigate = useNavigate();
-  const [mode, setMode] = useState<Mode>("signin");
+  const search = Route.useSearch();
+  const [mode, setMode] = useState<Mode>(() => modeFromParam(search.mode));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setMode(modeFromParam(search.mode));
+  }, [search.mode]);
+
+  useEffect(() => {
+    if (search.message) toast.success(search.message);
+    // only on first mount for the flash message
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!loading && session) {
