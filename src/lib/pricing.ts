@@ -28,7 +28,7 @@ export const PLANS: Plan[] = [
     name: "Free Preview",
     pricePerMonth: 0,
     projectsIncluded: 0,
-    tagline: "Explore the workspace with read-only demo data.",
+    tagline: "Try the workflow on a read-only demo project.",
     features: [
       "Browse a fully populated demo project",
       "Preview opportunities, calendar and editor",
@@ -40,10 +40,11 @@ export const PLANS: Plan[] = [
     name: "Starter",
     pricePerMonth: 149,
     projectsIncluded: 1,
-    tagline: "One brand, the full workflow.",
+    tagline: "One simple monthly visibility plan for one business.",
     features: [
       "1 active project",
-      "SEO opportunities & content calendar",
+      "Monthly SEO opportunities & content calendar",
+      "Briefs, drafts, FAQ and metadata",
       "Markdown & HTML export",
       "Email support",
     ],
@@ -54,7 +55,7 @@ export const PLANS: Plan[] = [
     pricePerMonth: 249,
     projectsIncluded: 2,
     recommended: true,
-    tagline: "For owners running two brands or markets.",
+    tagline: "The recommended full monthly workflow, for one or two brands.",
     features: [
       "2 active projects",
       "Everything in Starter",
