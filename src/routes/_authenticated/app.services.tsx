@@ -14,7 +14,7 @@ import {
 import { useStore, addService, updateService, deleteService } from "@/lib/store";
 import type { Priority, ServiceItem } from "@/lib/types";
 import { Plus, Pencil, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/app/services")({
