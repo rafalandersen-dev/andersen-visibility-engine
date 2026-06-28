@@ -77,6 +77,10 @@ export async function generateSeoOpportunities(projectId: string) {
     const result = await generateOpportunitiesFn({
       data: { project, services, existingTitles },
     });
+    console.info("[ai.client] opportunities received", {
+      projectId,
+      count: Array.isArray(result) ? result.length : 0,
+    });
 
     const items: Opportunity[] = (result as Array<Omit<Opportunity, "id" | "projectId" | "status">>).map((r) => ({
       ...r,
@@ -88,6 +92,7 @@ export async function generateSeoOpportunities(projectId: string) {
     if (items.length === 0) throw new Error("AI returned no opportunities. Please try again.");
     replaceNewOpportunities(projectId, items);
     await saveWorkspaceNow();
+    console.info("[ai.client] opportunities saved", { projectId, count: items.length });
     return items;
   });
 }
@@ -116,6 +121,10 @@ export async function generateContentCalendar(projectId: string) {
       searchIntent: CalendarItem["searchIntent"];
       recommendedCta: string;
     }>;
+    console.info("[ai.client] calendar received", {
+      projectId,
+      count: Array.isArray(result) ? result.length : 0,
+    });
 
     const today = new Date();
     const items: CalendarItem[] = result.map((r) => {
@@ -139,6 +148,7 @@ export async function generateContentCalendar(projectId: string) {
     if (items.length === 0) throw new Error("AI returned no calendar items. Please try again.");
     replacePlannedCalendar(projectId, items);
     await saveWorkspaceNow();
+    console.info("[ai.client] calendar saved", { projectId, count: items.length });
     return items;
   });
 }
