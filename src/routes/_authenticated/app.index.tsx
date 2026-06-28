@@ -109,10 +109,15 @@ function Dashboard() {
             variant="outline"
             onClick={async () => {
               setBusy(true);
-              await generateSeoOpportunities(activeProjectId);
-              setBusy(false);
-              toast.success("New SEO opportunities generated");
-              navigate({ to: "/app/opportunities" });
+              try {
+                await generateSeoOpportunities(activeProjectId);
+                toast.success("New SEO opportunities generated");
+                navigate({ to: "/app/opportunities" });
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : "Generation failed");
+              } finally {
+                setBusy(false);
+              }
             }}
             disabled={busy}
           >

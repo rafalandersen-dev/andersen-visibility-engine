@@ -106,9 +106,14 @@ function Editor({ asset }: { asset: ContentAsset }) {
     upsertContent(snapshot);
     setF(snapshot);
     setBusy(name);
-    await fn();
-    setBusy(null);
-    toast.success(`Regenerated ${name}`);
+    try {
+      await fn();
+      toast.success(`Regenerated ${name}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Regeneration failed");
+    } finally {
+      setBusy(null);
+    }
   };
 
   // sync with store after AI updates

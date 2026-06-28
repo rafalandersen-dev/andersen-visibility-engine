@@ -60,20 +60,30 @@ function OpportunitiesPage() {
 
   const doBrief = async (id: string) => {
     setBusyId(id);
-    const a = await generateLandingPageBrief(id);
-    updateOpportunity(id, { status: "In Brief" });
-    setBusyId(null);
-    toast.success("Landing page brief created");
-    navigate({ to: "/app/editor", search: { id: a.id } as never });
+    try {
+      const a = await generateLandingPageBrief(id);
+      updateOpportunity(id, { status: "In Brief" });
+      toast.success("Landing page brief created");
+      navigate({ to: "/app/editor", search: { id: a.id } as never });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Generation failed");
+    } finally {
+      setBusyId(null);
+    }
   };
 
   const doDraft = async (id: string) => {
     setBusyId(id);
-    const a = await generateArticleDraft(id);
-    updateOpportunity(id, { status: "Drafting" });
-    setBusyId(null);
-    toast.success("Article draft created");
-    navigate({ to: "/app/editor", search: { id: a.id } as never });
+    try {
+      const a = await generateArticleDraft(id);
+      updateOpportunity(id, { status: "Drafting" });
+      toast.success("Article draft created");
+      navigate({ to: "/app/editor", search: { id: a.id } as never });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Generation failed");
+    } finally {
+      setBusyId(null);
+    }
   };
 
   return (
@@ -84,9 +94,14 @@ function OpportunitiesPage() {
         <Button
           onClick={async () => {
             setGenerating(true);
-            await generateSeoOpportunities(activeProjectId);
-            setGenerating(false);
-            toast.success("Generated new opportunities");
+            try {
+              await generateSeoOpportunities(activeProjectId);
+              toast.success("Generated new opportunities");
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Generation failed");
+            } finally {
+              setGenerating(false);
+            }
           }}
           disabled={generating}
         >
@@ -115,9 +130,14 @@ function OpportunitiesPage() {
                   className="mt-4"
                   onClick={async () => {
                     setGenerating(true);
-                    await generateSeoOpportunities(activeProjectId);
-                    setGenerating(false);
-                    toast.success("Generated opportunities");
+                    try {
+                      await generateSeoOpportunities(activeProjectId);
+                      toast.success("Generated opportunities");
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "Generation failed");
+                    } finally {
+                      setGenerating(false);
+                    }
                   }}
                   disabled={generating}
                 >
