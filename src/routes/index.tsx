@@ -23,8 +23,12 @@ function Landing() {
     <div className="min-h-screen bg-background text-foreground">
       <PublicHeader />
       <Hero />
+      <WhatYouCreate />
+      <WhoItsFor />
+      <WhatYouGet />
       <HowItWorks />
       <DemoPreview />
+      <WhatItIsnt />
       <PricingTeaser />
       <FAQ />
       <Footer />
