@@ -40,8 +40,14 @@ function getGateway() {
 
 function mapGatewayError(e: unknown): Error {
   const msg = e instanceof Error ? e.message : String(e);
+  // Surface real cause to server logs so we can debug schema/truncation issues.
+  console.error("[ai.functions] gateway/validation error:", msg);
   if (/429|rate limit/i.test(msg)) return new Error("AI is busy right now — please retry in a moment.");
-  if (/402|credit/i.test(msg)) return new Error("AI credits exhausted. Please top up in workspace billing.");
+  if (/402|credit|insufficient/i.test(msg)) return new Error("AI credits exhausted. Please top up in workspace billing.");
+  if (/max_tokens|length|truncat/i.test(msg))
+    return new Error("AI response was cut short. Please try again — it usually works on retry.");
+  if (/schema|validation|zod|invalid_type|too_small|too_big|unrecognized/i.test(msg))
+    return new Error("AI returned an unexpected format. Please try again.");
   return new Error("AI generation failed. Please try again.");
 }
 
@@ -122,7 +128,7 @@ export const generateOpportunitiesFn = createServerFn({ method: "POST" })
                   priority: PriorityEnum,
                 }),
               )
-              .min(4)
+              .min(1)
               .max(8),
           }),
         }),
@@ -184,7 +190,7 @@ export const generateCalendarFn = createServerFn({ method: "POST" })
                   recommendedCta: z.string().min(2).max(60),
                 }),
               )
-              .min(3)
+              .min(1)
               .max(8),
           }),
         }),
@@ -216,7 +222,7 @@ const ContentAssetSchema = z.object({
   outline: z.array(z.string().min(3).max(140)).min(4).max(10),
   faq: z
     .array(z.object({ q: z.string().min(5).max(140), a: z.string().min(10).max(400) }))
-    .min(2)
+    .min(1)
     .max(6),
   cta: z.string().min(2).max(60),
   markdown: z.string().min(120).max(6000),
@@ -336,7 +342,7 @@ export const regenerateFaqFn = createServerFn({ method: "POST" })
           schema: z.object({
             faq: z
               .array(z.object({ q: z.string().min(5).max(140), a: z.string().min(10).max(400) }))
-              .min(3)
+              .min(1)
               .max(5),
           }),
         }),
