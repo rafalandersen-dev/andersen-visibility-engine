@@ -116,6 +116,13 @@ function PricingPage() {
           Hard cap: {MAX_PROJECTS_PER_USER} projects per account.
         </p>
       </section>
+
+      <footer className="border-t border-border bg-card/40">
+        <div className="mx-auto max-w-6xl px-6 py-8 flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+          <span>Milo Growth — built by Andersen Innovations</span>
+          <Link to="/" className="hover:text-foreground">Back to home</Link>
+        </div>
+      </footer>
     </div>
   );
 }
