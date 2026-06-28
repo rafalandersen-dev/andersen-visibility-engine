@@ -125,6 +125,23 @@ export function AppShell({
         ) : null}
 
         <div className="mt-auto p-3 border-t border-sidebar-border">
+          {!isOwner ? (
+            <Link
+              to="/app/billing"
+              className="block px-3 py-2 mb-1 rounded-md hover:bg-sidebar-accent/60"
+            >
+              <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.22em] text-sidebar-foreground/45">
+                <span>Projects</span>
+                <span>{projects.length}/{MAX_PROJECTS_PER_USER}</span>
+              </div>
+              <div className="mt-1.5 h-1 rounded-full bg-sidebar-accent overflow-hidden">
+                <div
+                  className="h-full bg-gold/80 transition-all"
+                  style={{ width: `${Math.min(100, (projects.length / MAX_PROJECTS_PER_USER) * 100)}%` }}
+                />
+              </div>
+            </Link>
+          ) : null}
           <div className="px-3 py-2">
             <div className="text-[10px] uppercase tracking-[0.22em] text-sidebar-foreground/45">
               Account
