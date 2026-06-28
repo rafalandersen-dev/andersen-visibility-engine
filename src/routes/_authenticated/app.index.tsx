@@ -148,6 +148,30 @@ function Dashboard() {
         </>
       }
     >
+      {(() => {
+        const next = services.length === 0
+          ? { label: "Add services or products", body: "Tell the AI what this business actually sells so opportunities stay grounded.", to: "/app/services" as const, cta: "Open services" }
+          : opportunities.length === 0
+          ? { label: "Generate SEO opportunities", body: "Get your first batch of structured visibility ideas for this project.", to: "/app/opportunities" as const, cta: "Open opportunities" }
+          : calendar.length === 0
+          ? { label: "Plan the month", body: "Turn opportunities into a 30-day content calendar grouped by week.", to: "/app/calendar" as const, cta: "Open calendar" }
+          : content.length === 0
+          ? { label: "Draft your first asset", body: "Generate a brief or draft from one of your opportunities.", to: "/app/opportunities" as const, cta: "Open opportunities" }
+          : approved === 0
+          ? { label: "Approve a draft", body: "Review a draft in the editor and mark it Approved when it is ready.", to: "/app/editor" as const, cta: "Open editor" }
+          : null;
+        if (!next) return null;
+        return (
+          <div className="mb-6 rounded-lg border border-gold/40 bg-gold/5 px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[10px] uppercase tracking-[0.22em] text-gold">Next recommended step</div>
+              <div className="mt-1 font-medium text-foreground">{next.label}</div>
+              <div className="text-sm text-muted-foreground">{next.body}</div>
+            </div>
+            <Button size="sm" onClick={() => navigate({ to: next.to })}>{next.cta}</Button>
+          </div>
+        );
+      })()}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <StatCard label="Active project" value={active.name} icon={Sparkles} hint={active.primaryLanguage} />
         <StatCard label="SEO opportunities" value={opportunities.length} icon={Sparkles} hint={`${opportunities.filter(o => o.priority === "High").length} high priority`} />
