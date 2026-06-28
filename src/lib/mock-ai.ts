@@ -20,6 +20,7 @@ import {
   getState,
   replaceNewOpportunities,
   replacePlannedCalendar,
+  saveWorkspaceNow,
   upsertContent,
   uid,
 } from "./store";
@@ -86,6 +87,7 @@ export async function generateSeoOpportunities(projectId: string) {
 
     if (items.length === 0) throw new Error("AI returned no opportunities. Please try again.");
     replaceNewOpportunities(projectId, items);
+    await saveWorkspaceNow();
     return items;
   });
 }
@@ -136,6 +138,7 @@ export async function generateContentCalendar(projectId: string) {
 
     if (items.length === 0) throw new Error("AI returned no calendar items. Please try again.");
     replacePlannedCalendar(projectId, items);
+    await saveWorkspaceNow();
     return items;
   });
 }
@@ -187,6 +190,7 @@ async function generateAsset(opportunityId: string, kind: "landing" | "article")
       updatedAt: new Date().toISOString(),
     };
     upsertContent(asset);
+    await saveWorkspaceNow();
     return asset;
   });
 }
@@ -223,6 +227,7 @@ export async function generateMetadata(contentAssetId: string) {
       metaDescription: result.metaDescription,
       updatedAt: new Date().toISOString(),
     });
+    await saveWorkspaceNow();
   });
 }
 
@@ -241,6 +246,7 @@ export async function generateFaq(contentAssetId: string) {
       },
     })) as { q: string; a: string }[];
     upsertContent({ ...a, faq: result, updatedAt: new Date().toISOString() });
+    await saveWorkspaceNow();
   });
 }
 
@@ -262,5 +268,6 @@ export async function generateCta(contentAssetId: string) {
       },
     })) as string;
     upsertContent({ ...a, cta, updatedAt: new Date().toISOString() });
+    await saveWorkspaceNow();
   });
 }
