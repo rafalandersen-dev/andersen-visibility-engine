@@ -39,7 +39,7 @@ interface State {
   activeProjectId: string;
 }
 
-const STORAGE_KEY = "ave-store-v1";
+const STORAGE_KEY = "ave-store-v2";
 
 const initialState: State = {
   projects: seedProjects,
@@ -56,9 +56,28 @@ const listeners = new Set<() => void>();
 if (typeof window !== "undefined") {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) state = { ...initialState, ...JSON.parse(raw) };
+    if (raw) {
+      const persisted = JSON.parse(raw) as Partial<State>;
+      // Merge seed entities for any seeded id not yet in localStorage so
+      // newly-added demo brands appear without wiping user edits.
+      const mergeById = <T extends { id: string }>(seed: T[], saved: T[] | undefined): T[] => {
+        if (!saved) return seed;
+        const savedIds = new Set(saved.map((x) => x.id));
+        return [...saved, ...seed.filter((x) => !savedIds.has(x.id))];
+      };
+      state = {
+        ...initialState,
+        ...persisted,
+        projects: mergeById(seedProjects, persisted.projects),
+        services: mergeById(seedServices, persisted.services),
+        opportunities: mergeById(seedOpportunities, persisted.opportunities),
+        calendar: mergeById(seedCalendar, persisted.calendar),
+        content: mergeById(seedContent, persisted.content),
+      };
+    }
   } catch {}
 }
+
 
 const persist = () => {
   if (typeof window !== "undefined") {
