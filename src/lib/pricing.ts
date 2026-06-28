@@ -53,14 +53,14 @@ export const PLANS: Plan[] = [
     id: "growth",
     name: "Growth",
     pricePerMonth: 249,
-    projectsIncluded: 2,
+    projectsIncluded: 1,
     recommended: true,
-    tagline: "The recommended full monthly workflow, for one or two brands.",
+    tagline: "Recommended full monthly workflow for one growing business.",
     features: [
-      "2 active projects",
+      "1 active project",
       "Everything in Starter",
       "Priority email support",
-      "Add more projects at 99 PLN each",
+      "Add more brands with the Extra Project add-on (99 PLN/month each)",
     ],
   },
 ];
@@ -69,7 +69,7 @@ export const PLANS: Plan[] = [
 export const EXTRA_PROJECT = {
   name: "Extra Project",
   pricePerMonth: 99,
-  description: "Add another business, brand or website to your workspace.",
+  description: "Add another business, brand or website for 99 PLN/month.",
 } as const;
 
 /** Hard cap of projects per normal (non-owner) account, regardless of plan + add-ons. */
