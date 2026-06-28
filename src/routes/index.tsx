@@ -261,7 +261,7 @@ function FAQ() {
   const items = [
     {
       q: "Is this a clone of Surfer, Jasper or Semrush?",
-      a: "No. Andersen Visibility Engine is built around a calm, opinionated workflow for small businesses — opportunities, calendar, editor, approval and export.",
+      a: "No. Milo Growth is built around a calm, opinionated monthly workflow for small businesses — opportunities, calendar, editor, approval and export.",
     },
     {
       q: "Does it publish to my website automatically?",
