@@ -14,7 +14,7 @@ import {
 import { useStore, addService, updateService, deleteService } from "@/lib/store";
 import type { Priority, ServiceItem } from "@/lib/types";
 import { Plus, Pencil, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/app/services")({
@@ -141,19 +141,25 @@ function Editor({
 }) {
   const [f, setF] = useState(value);
   const upd = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((p) => ({ ...p, [k]: v }));
+  const nameId = useId();
+  const typeId = useId();
+  const priorityId = useId();
+  const descId = useId();
+  const audienceId = useId();
+  const locationId = useId();
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4" onClick={onClose}>
       <div className="bg-card border border-border rounded-lg w-full max-w-xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
         <div className="font-display text-xl">{"id" in f && f.id ? "Edit item" : "Add item"}</div>
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
-            <Label className="text-xs">Name</Label>
-            <Input value={f.name} onChange={(e) => upd("name", e.target.value)} />
+            <Label htmlFor={nameId} className="text-xs">Name</Label>
+            <Input id={nameId} value={f.name} onChange={(e) => upd("name", e.target.value)} />
           </div>
           <div>
-            <Label className="text-xs">Type</Label>
+            <Label htmlFor={typeId} className="text-xs">Type</Label>
             <Select value={f.kind} onValueChange={(v) => upd("kind", v as "Service" | "Product")}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger id={typeId}><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="Service">Service</SelectItem>
                 <SelectItem value="Product">Product</SelectItem>
@@ -161,25 +167,25 @@ function Editor({
             </Select>
           </div>
           <div>
-            <Label className="text-xs">Priority</Label>
+            <Label htmlFor={priorityId} className="text-xs">Priority</Label>
             <Select value={f.priority} onValueChange={(v) => upd("priority", v as Priority)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger id={priorityId}><SelectValue /></SelectTrigger>
               <SelectContent>
                 {(["High","Medium","Low"] as Priority[]).map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div className="col-span-2">
-            <Label className="text-xs">Description</Label>
-            <Textarea rows={2} value={f.description} onChange={(e) => upd("description", e.target.value)} />
+            <Label htmlFor={descId} className="text-xs">Description</Label>
+            <Textarea id={descId} rows={2} value={f.description} onChange={(e) => upd("description", e.target.value)} />
           </div>
           <div className="col-span-2">
-            <Label className="text-xs">Target audience</Label>
-            <Input value={f.targetAudience} onChange={(e) => upd("targetAudience", e.target.value)} />
+            <Label htmlFor={audienceId} className="text-xs">Target audience</Label>
+            <Input id={audienceId} value={f.targetAudience} onChange={(e) => upd("targetAudience", e.target.value)} />
           </div>
           <div className="col-span-2">
-            <Label className="text-xs">Location relevance</Label>
-            <Input value={f.locationRelevance} onChange={(e) => upd("locationRelevance", e.target.value)} />
+            <Label htmlFor={locationId} className="text-xs">Location relevance</Label>
+            <Input id={locationId} value={f.locationRelevance} onChange={(e) => upd("locationRelevance", e.target.value)} />
           </div>
         </div>
         <div className="flex justify-end gap-2 pt-2">

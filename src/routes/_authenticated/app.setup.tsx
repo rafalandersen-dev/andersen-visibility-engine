@@ -15,7 +15,7 @@ import { useStore, updateProject, addProject, ProjectLimitError } from "@/lib/st
 import { useAuth } from "@/lib/auth";
 
 import type { Language, Project } from "@/lib/types";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -132,76 +132,84 @@ function ProjectSetup() {
       <div className="max-w-4xl space-y-10">
         <Section title="Identity">
           <Field label="Project name">
-            <Input value={form.name} onChange={(e) => update("name", e.target.value)} />
+            {(id) => <Input id={id} value={form.name} onChange={(e) => update("name", e.target.value)} />}
           </Field>
           <Field label="Website URL">
-            <Input value={form.websiteUrl} onChange={(e) => update("websiteUrl", e.target.value)} placeholder="https://" />
+            {(id) => <Input id={id} value={form.websiteUrl} onChange={(e) => update("websiteUrl", e.target.value)} placeholder="https://" />}
           </Field>
           <Field label="Business name">
-            <Input value={form.businessName} onChange={(e) => update("businessName", e.target.value)} />
+            {(id) => <Input id={id} value={form.businessName} onChange={(e) => update("businessName", e.target.value)} />}
           </Field>
           <Field label="Business type">
-            <Input value={form.businessType} onChange={(e) => update("businessType", e.target.value)} />
+            {(id) => <Input id={id} value={form.businessType} onChange={(e) => update("businessType", e.target.value)} />}
           </Field>
         </Section>
 
         <Section title="Markets & language">
           <Field label="Primary language">
-            <Select value={form.primaryLanguage} onValueChange={(v) => update("primaryLanguage", v as Language)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {LANGS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            {(id) => (
+              <Select value={form.primaryLanguage} onValueChange={(v) => update("primaryLanguage", v as Language)}>
+                <SelectTrigger id={id}><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {LANGS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
           </Field>
           <Field label="Additional languages">
-            <div className="flex gap-2 flex-wrap pt-1.5">
-              {LANGS.filter((l) => l !== form.primaryLanguage).map((l) => {
-                const on = form.additionalLanguages.includes(l);
-                return (
-                  <button
-                    key={l}
-                    type="button"
-                    onClick={() => toggleAdditional(l)}
-                    className={
-                      "px-3 py-1.5 rounded-full text-xs border transition-colors " +
-                      (on
-                        ? "bg-accent text-accent-foreground border-accent"
-                        : "border-border text-muted-foreground hover:border-accent")
-                    }
-                  >
-                    {l}
-                  </button>
-                );
-              })}
-            </div>
+            {(id) => (
+              <div id={id} role="group" className="flex gap-2 flex-wrap pt-1.5">
+                {LANGS.filter((l) => l !== form.primaryLanguage).map((l) => {
+                  const on = form.additionalLanguages.includes(l);
+                  return (
+                    <button
+                      key={l}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => toggleAdditional(l)}
+                      className={
+                        "px-3 py-1.5 rounded-full text-xs border transition-colors " +
+                        (on
+                          ? "bg-accent text-accent-foreground border-accent"
+                          : "border-border text-muted-foreground hover:border-accent")
+                      }
+                    >
+                      {l}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </Field>
           <Field label="Main location">
-            <Input value={form.mainLocation} onChange={(e) => update("mainLocation", e.target.value)} />
+            {(id) => <Input id={id} value={form.mainLocation} onChange={(e) => update("mainLocation", e.target.value)} />}
           </Field>
           <Field label="Target locations (comma separated)">
-            <Input
-              value={form.targetLocations.join(", ")}
-              onChange={(e) => update("targetLocations", e.target.value.split(",").map((s) => s.trim()).filter(Boolean))}
-            />
+            {(id) => (
+              <Input
+                id={id}
+                value={form.targetLocations.join(", ")}
+                onChange={(e) => update("targetLocations", e.target.value.split(",").map((s) => s.trim()).filter(Boolean))}
+              />
+            )}
           </Field>
         </Section>
 
         <Section title="Positioning">
           <Field label="Business description" full>
-            <Textarea rows={3} value={form.description} onChange={(e) => update("description", e.target.value)} />
+            {(id) => <Textarea id={id} rows={3} value={form.description} onChange={(e) => update("description", e.target.value)} />}
           </Field>
           <Field label="Target audience" full>
-            <Textarea rows={2} value={form.targetAudience} onChange={(e) => update("targetAudience", e.target.value)} />
+            {(id) => <Textarea id={id} rows={2} value={form.targetAudience} onChange={(e) => update("targetAudience", e.target.value)} />}
           </Field>
           <Field label="Tone of voice" full>
-            <Textarea rows={2} value={form.toneOfVoice} onChange={(e) => update("toneOfVoice", e.target.value)} />
+            {(id) => <Textarea id={id} rows={2} value={form.toneOfVoice} onChange={(e) => update("toneOfVoice", e.target.value)} />}
           </Field>
           <Field label="Unique selling points" full>
-            <Textarea rows={3} value={form.uniqueSellingPoints} onChange={(e) => update("uniqueSellingPoints", e.target.value)} />
+            {(id) => <Textarea id={id} rows={3} value={form.uniqueSellingPoints} onChange={(e) => update("uniqueSellingPoints", e.target.value)} />}
           </Field>
           <Field label="Brand notes (what to avoid, words to never use)" full>
-            <Textarea rows={3} value={form.brandNotes} onChange={(e) => update("brandNotes", e.target.value)} />
+            {(id) => <Textarea id={id} rows={3} value={form.brandNotes} onChange={(e) => update("brandNotes", e.target.value)} />}
           </Field>
         </Section>
       </div>
@@ -239,11 +247,12 @@ function blankProject(): Project {
 }
 
 
-function Field({ label, children, full }: { label: string; children: React.ReactNode; full?: boolean }) {
+function Field({ label, children, full }: { label: string; children: (id: string) => React.ReactNode; full?: boolean }) {
+  const id = useId();
   return (
     <div className={full ? "md:col-span-2" : ""}>
-      <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
-      <div className="mt-1.5">{children}</div>
+      <Label htmlFor={id} className="text-xs font-medium text-muted-foreground">{label}</Label>
+      <div className="mt-1.5">{children(id)}</div>
     </div>
   );
 }

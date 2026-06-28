@@ -21,7 +21,7 @@ import { useStore, upsertContent } from "@/lib/store";
 import { generateMetadata, generateFaq, generateCta } from "@/lib/mock-ai";
 import type { ContentAsset, ContentStatus } from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { Check, Copy, Download, FileEdit, FileX, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -96,6 +96,9 @@ function EditorPage() {
 function Editor({ asset }: { asset: ContentAsset }) {
   const [f, setF] = useState<ContentAsset>(asset);
   const [busy, setBusy] = useState<string | null>(null);
+  const outlineId = useId();
+  const internalLinksId = useId();
+  const schemaId = useId();
   const upd = <K extends keyof ContentAsset>(k: K, v: ContentAsset[K]) =>
     setF((p) => ({ ...p, [k]: v }));
 
@@ -175,13 +178,13 @@ function Editor({ asset }: { asset: ContentAsset }) {
         </TabsList>
 
         <TabsContent value="content" className="space-y-4 py-5">
-          <Field label="Title"><Input value={f.title} onChange={(e) => upd("title", e.target.value)} /></Field>
-          <Field label="H1"><Input value={f.h1} onChange={(e) => upd("h1", e.target.value)} /></Field>
+          <Field label="Title">{(id) => <Input id={id} value={f.title} onChange={(e) => upd("title", e.target.value)} />}</Field>
+          <Field label="H1">{(id) => <Input id={id} value={f.h1} onChange={(e) => upd("h1", e.target.value)} />}</Field>
           <Field label="Markdown content">
-            <Textarea rows={16} className="font-mono text-xs" value={f.markdown} onChange={(e) => upd("markdown", e.target.value)} />
+            {(id) => <Textarea id={id} rows={16} className="font-mono text-xs" value={f.markdown} onChange={(e) => upd("markdown", e.target.value)} />}
           </Field>
           <Field label="Editor notes">
-            <Textarea rows={3} value={f.editorNotes} onChange={(e) => upd("editorNotes", e.target.value)} />
+            {(id) => <Textarea id={id} rows={3} value={f.editorNotes} onChange={(e) => upd("editorNotes", e.target.value)} />}
           </Field>
         </TabsContent>
 
@@ -196,20 +199,21 @@ function Editor({ asset }: { asset: ContentAsset }) {
               Regenerate CTA
             </Button>
           </div>
-          <Field label="Slug"><Input value={f.slug} onChange={(e) => upd("slug", e.target.value)} /></Field>
-          <Field label={`Meta title (${f.metaTitle.length}/60)`}><Input value={f.metaTitle} onChange={(e) => upd("metaTitle", e.target.value)} /></Field>
+          <Field label="Slug">{(id) => <Input id={id} value={f.slug} onChange={(e) => upd("slug", e.target.value)} />}</Field>
+          <Field label={`Meta title (${f.metaTitle.length}/60)`}>{(id) => <Input id={id} value={f.metaTitle} onChange={(e) => upd("metaTitle", e.target.value)} />}</Field>
           <Field label={`Meta description (${f.metaDescription.length}/160)`}>
-            <Textarea rows={3} value={f.metaDescription} onChange={(e) => upd("metaDescription", e.target.value)} />
+            {(id) => <Textarea id={id} rows={3} value={f.metaDescription} onChange={(e) => upd("metaDescription", e.target.value)} />}
           </Field>
-          <Field label="Primary CTA"><Input value={f.cta} onChange={(e) => upd("cta", e.target.value)} /></Field>
+          <Field label="Primary CTA">{(id) => <Input id={id} value={f.cta} onChange={(e) => upd("cta", e.target.value)} />}</Field>
         </TabsContent>
 
         <TabsContent value="structure" className="space-y-5 py-5">
           <div>
             <div className="flex items-center justify-between">
-              <Label className="text-xs">Outline</Label>
+              <Label htmlFor={outlineId} className="text-xs">Outline</Label>
             </div>
             <Textarea
+              id={outlineId}
               rows={6}
               value={f.outline.join("\n")}
               onChange={(e) => upd("outline", e.target.value.split("\n").filter(Boolean))}
@@ -237,12 +241,12 @@ function Editor({ asset }: { asset: ContentAsset }) {
 
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <Label className="text-xs">Internal link suggestions</Label>
-              <Textarea rows={4} className="mt-1.5 font-mono text-xs" value={f.internalLinks.join("\n")} onChange={(e) => upd("internalLinks", e.target.value.split("\n").filter(Boolean))} />
+              <Label htmlFor={internalLinksId} className="text-xs">Internal link suggestions</Label>
+              <Textarea id={internalLinksId} rows={4} className="mt-1.5 font-mono text-xs" value={f.internalLinks.join("\n")} onChange={(e) => upd("internalLinks", e.target.value.split("\n").filter(Boolean))} />
             </div>
             <div>
-              <Label className="text-xs">Schema suggestions</Label>
-              <Textarea rows={4} className="mt-1.5 font-mono text-xs" value={f.schemaSuggestions.join("\n")} onChange={(e) => upd("schemaSuggestions", e.target.value.split("\n").filter(Boolean))} />
+              <Label htmlFor={schemaId} className="text-xs">Schema suggestions</Label>
+              <Textarea id={schemaId} rows={4} className="mt-1.5 font-mono text-xs" value={f.schemaSuggestions.join("\n")} onChange={(e) => upd("schemaSuggestions", e.target.value.split("\n").filter(Boolean))} />
             </div>
           </div>
         </TabsContent>
@@ -262,11 +266,12 @@ function Editor({ asset }: { asset: ContentAsset }) {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: (id: string) => React.ReactNode }) {
+  const id = useId();
   return (
     <div>
-      <Label className="text-xs text-muted-foreground">{label}</Label>
-      <div className="mt-1.5">{children}</div>
+      <Label htmlFor={id} className="text-xs text-muted-foreground">{label}</Label>
+      <div className="mt-1.5">{children(id)}</div>
     </div>
   );
 }
