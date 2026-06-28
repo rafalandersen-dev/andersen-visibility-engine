@@ -7,8 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { z } from "zod";
+
+const searchSchema = z.object({
+  mode: z.enum(["login", "register", "reset"]).optional(),
+  message: z.string().optional(),
+});
 
 export const Route = createFileRoute("/auth")({
+  validateSearch: searchSchema,
   head: () => ({
     meta: [
       { title: "Sign in — Andersen Visibility Engine" },
@@ -20,14 +27,31 @@ export const Route = createFileRoute("/auth")({
 
 type Mode = "signin" | "signup" | "reset";
 
+function modeFromParam(p: string | undefined): Mode {
+  if (p === "register") return "signup";
+  if (p === "reset") return "reset";
+  return "signin";
+}
+
 function AuthPage() {
   const { session, loading } = useAuth();
   const navigate = useNavigate();
-  const [mode, setMode] = useState<Mode>("signin");
+  const search = Route.useSearch();
+  const [mode, setMode] = useState<Mode>(() => modeFromParam(search.mode));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setMode(modeFromParam(search.mode));
+  }, [search.mode]);
+
+  useEffect(() => {
+    if (search.message) toast.success(search.message);
+    // only on first mount for the flash message
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!loading && session) {
@@ -59,7 +83,7 @@ function AuthPage() {
         navigate({ to: "/app", replace: true });
       } else {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/auth`,
+          redirectTo: `${window.location.origin}/reset-password`,
         });
         if (error) throw error;
         toast.success("Password reset email sent.");

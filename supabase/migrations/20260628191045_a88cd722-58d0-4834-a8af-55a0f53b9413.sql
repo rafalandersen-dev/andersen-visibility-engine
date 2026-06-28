@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.enforce_workspace_project_cap() FROM PUBLIC, anon, authenticated;
