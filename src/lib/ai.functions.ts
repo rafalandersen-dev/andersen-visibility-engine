@@ -71,6 +71,8 @@ const OpportunityOutputSchema = z
   .min(1)
   .max(8);
 
+const OpportunitiesEnvelopeSchema = z.object({ opportunities: OpportunityOutputSchema });
+
 const CalendarOutputSchema = z
   .array(
     z.object({
@@ -85,6 +87,8 @@ const CalendarOutputSchema = z
   )
   .min(1)
   .max(8);
+
+const CalendarEnvelopeSchema = z.object({ calendar_items: CalendarOutputSchema });
 
 function getObject(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -183,14 +187,10 @@ export const generateOpportunitiesFn = createServerFn({ method: "POST" })
       const gateway = getGateway();
       const { output } = await generateText({
         model: gateway(MODEL),
-        output: Output.array({
-          element: OpportunityOutputSchema.element,
-          name: "opportunities",
-          description: "A JSON array of structured SEO opportunities.",
-        }),
+        output: Output.object({ schema: OpportunitiesEnvelopeSchema }),
         prompt: `You are an SEO and AI-visibility strategist for small businesses.
 
-Generate 6 high-quality content opportunities for this business.
+Generate 6 high-quality content opportunities for this business and return them as { "opportunities": [...] }.
 
 ${brief}
 ${existing}
@@ -232,11 +232,7 @@ export const generateCalendarFn = createServerFn({ method: "POST" })
       const gateway = getGateway();
       const { output } = await generateText({
         model: gateway(MODEL),
-        output: Output.array({
-          element: CalendarOutputSchema.element,
-          name: "calendar_items",
-          description: "A JSON array of scheduled content calendar items.",
-        }),
+        output: Output.object({ schema: CalendarEnvelopeSchema }),
         prompt: `Build a realistic 1-month content calendar for "${project.businessName || project.name}" in ${project.primaryLanguage}.
 
 Pick the strongest opportunities below and schedule them with sensible cadence (every 3–5 days, no clustering on one date). Prefer high-priority items first.
@@ -248,7 +244,7 @@ For each scheduled item, return the 1-based opportunityIndex it derives from.
 ${sharedRules}`,
       });
 
-      return CalendarOutputSchema.parse(extractArray(output, ["items", "calendar", "calendarItems"]));
+      return CalendarOutputSchema.parse(extractArray(output, ["calendar_items", "items", "calendar", "calendarItems"]));
     } catch (e) {
       throw mapGatewayError(e);
     }
