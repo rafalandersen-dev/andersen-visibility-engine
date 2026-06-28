@@ -159,40 +159,40 @@ export async function hydrateForUser(userId: string): Promise<void> {
         userId,
       };
     } else {
-      // First-run: seed the workspace with the demo so the user lands on
-      // something useful, then persist.
+      // First-run: authenticated users start with an EMPTY workspace.
+      // Demo seed data is only used for the public landing preview (ssrSnapshot).
       state = {
-        projects: seedProjects,
-        services: seedServices,
-        opportunities: seedOpportunities,
-        calendar: seedCalendar,
-        content: seedContent,
-        activeProjectId: seedProjects[0]?.id ?? "",
+        projects: [],
+        services: [],
+        opportunities: [],
+        calendar: [],
+        content: [],
+        activeProjectId: "",
         hydrated: true,
         userId,
       };
       await supabase.from("workspaces").insert({
         user_id: userId,
         data: {
-          projects: state.projects,
-          services: state.services,
-          opportunities: state.opportunities,
-          calendar: state.calendar,
-          content: state.content,
-          activeProjectId: state.activeProjectId,
+          projects: [],
+          services: [],
+          opportunities: [],
+          calendar: [],
+          content: [],
+          activeProjectId: "",
         } as never,
       });
 
     }
   } catch (e) {
-    console.warn("[workspace] hydrate failed, falling back to seed", e);
+    console.warn("[workspace] hydrate failed, falling back to empty", e);
     state = {
-      projects: seedProjects,
-      services: seedServices,
-      opportunities: seedOpportunities,
-      calendar: seedCalendar,
-      content: seedContent,
-      activeProjectId: seedProjects[0]?.id ?? "",
+      projects: [],
+      services: [],
+      opportunities: [],
+      calendar: [],
+      content: [],
+      activeProjectId: "",
       hydrated: true,
       userId,
     };
