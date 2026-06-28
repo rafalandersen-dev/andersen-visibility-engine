@@ -53,9 +53,14 @@ function CalendarPage() {
         <Button
           onClick={async () => {
             setBusy(true);
-            await generateContentCalendar(activeProjectId);
-            setBusy(false);
-            toast.success("Calendar refreshed");
+            try {
+              await generateContentCalendar(activeProjectId);
+              toast.success("Calendar refreshed");
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Generation failed");
+            } finally {
+              setBusy(false);
+            }
           }}
           disabled={busy}
         >
