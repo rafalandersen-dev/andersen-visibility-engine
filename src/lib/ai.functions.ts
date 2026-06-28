@@ -19,8 +19,8 @@ import type {
 
 const MODEL = "google/gemini-3-flash-preview";
 
-const LanguageEnum = z.enum(["Polish", "Swedish", "English"]);
-const ContentTypeEnum = z.enum([
+const LANGUAGES = ["Polish", "Swedish", "English"] as const;
+const CONTENT_TYPES = [
   "Landing Page",
   "Service Page",
   "Blog Article",
@@ -28,9 +28,79 @@ const ContentTypeEnum = z.enum([
   "FAQ Page",
   "Comparison",
   "Location Page",
-]);
-const SearchIntentEnum = z.enum(["Informational", "Commercial", "Transactional", "Navigational"]);
-const PriorityEnum = z.enum(["Low", "Medium", "High"]);
+];
+const SEARCH_INTENTS = ["Informational", "Commercial", "Transactional", "Navigational"] as const;
+const PRIORITIES = ["Low", "Medium", "High"] as const;
+
+function normalizedEnum<const T extends readonly [string, ...string[]]>(values: T) {
+  const key = (value: string) => value.toLowerCase().replace(/[^a-z]/g, "");
+  return z.preprocess((value) => {
+    if (typeof value !== "string") return value;
+    const input = key(value);
+    return (
+      values.find((option) => key(option) === input) ??
+      values.find((option) => input.includes(key(option))) ??
+      value
+    );
+  }, z.enum(values));
+}
+
+const cleanString = (min: number, max: number) =>
+  z
+    .preprocess((value) => (typeof value === "string" ? value.trim() : value), z.string().min(min))
+    .transform((value) => (value.length > max ? value.slice(0, max).trim() : value));
+
+const LanguageEnum = normalizedEnum(LANGUAGES);
+const ContentTypeEnum = normalizedEnum(CONTENT_TYPES);
+const SearchIntentEnum = normalizedEnum(SEARCH_INTENTS);
+const PriorityEnum = normalizedEnum(PRIORITIES);
+
+const OpportunityOutputSchema = z
+  .array(
+    z.object({
+      title: cleanString(4, 120),
+      language: LanguageEnum,
+      contentType: ContentTypeEnum,
+      searchIntent: SearchIntentEnum,
+      targetAudience: cleanString(2, 160),
+      businessValue: cleanString(2, 200),
+      recommendedCta: cleanString(2, 60),
+      priority: PriorityEnum,
+    }),
+  )
+  .min(1)
+  .max(8);
+
+const CalendarOutputSchema = z
+  .array(
+    z.object({
+      opportunityIndex: z.coerce.number().int().min(1),
+      daysFromToday: z.coerce.number().int().min(1).max(60),
+      topicTitle: cleanString(4, 140),
+      language: LanguageEnum,
+      contentType: ContentTypeEnum,
+      searchIntent: SearchIntentEnum,
+      recommendedCta: cleanString(2, 60),
+    }),
+  )
+  .min(1)
+  .max(8);
+
+function getObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function extractArray(value: unknown, keys: string[]): unknown {
+  if (Array.isArray(value)) return value;
+  const object = getObject(value);
+  if (!object) return value;
+  for (const key of [...keys, "items", "elements", "data"]) {
+    if (Array.isArray(object[key])) return object[key];
+  }
+  return value;
+}
 
 function getGateway() {
   const key = process.env.LOVABLE_API_KEY;
