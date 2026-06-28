@@ -2,6 +2,7 @@ import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { useStore, setActiveProject } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
+import { MAX_PROJECTS_PER_USER } from "@/lib/pricing";
 import {
   LayoutDashboard,
   FolderCog,
