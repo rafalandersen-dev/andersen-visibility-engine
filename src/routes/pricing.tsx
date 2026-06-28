@@ -44,7 +44,22 @@ function PricingPage() {
           </p>
         </div>
 
-        <div className="mt-12 grid gap-6 md:grid-cols-3">
+        <div className="mt-8 grid gap-3 md:grid-cols-3 text-sm">
+          <div className="rounded-lg border border-border bg-card/60 px-4 py-3">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Free Preview</div>
+            <div className="mt-1 text-foreground/85">For trying the workflow before committing.</div>
+          </div>
+          <div className="rounded-lg border border-border bg-card/60 px-4 py-3">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Starter</div>
+            <div className="mt-1 text-foreground/85">For one business that wants a simple monthly visibility plan.</div>
+          </div>
+          <div className="rounded-lg border border-gold/40 bg-gold/5 px-4 py-3">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-gold">Growth · recommended</div>
+            <div className="mt-1 text-foreground/85">For the full monthly workflow across one or two brands.</div>
+          </div>
+        </div>
+
+        <div className="mt-10 grid gap-6 md:grid-cols-3">
           {PLANS.map((p) => (
             <div
               key={p.id}
