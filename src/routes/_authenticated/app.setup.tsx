@@ -79,14 +79,23 @@ function ProjectSetup() {
       return;
     }
     if (creating) {
-      addProject(form);
-      toast.success("Project created");
-    } else {
+      try {
+        addProject(form, { isOwner });
+        toast.success("Project created");
+      } catch (e) {
+        if (e instanceof ProjectLimitError) {
+          toast.error(e.message);
+          return;
+        }
+        throw e;
+      }
+    } else if (active) {
       updateProject(active.id, form);
       toast.success("Project saved");
     }
     setCreating(false);
   };
+
 
   return (
     <AppShell
@@ -112,7 +121,7 @@ function ProjectSetup() {
               New project
             </Button>
           ) : (
-            <Button variant="ghost" onClick={() => { setCreating(false); setForm(active); }}>
+            <Button variant="ghost" onClick={() => { setCreating(false); if (active) setForm(active); }}>
               Cancel
             </Button>
           )}
