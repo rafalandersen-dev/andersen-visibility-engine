@@ -302,9 +302,11 @@ function Footer() {
     <footer className="border-t border-border bg-card/40">
       <div className="mx-auto max-w-6xl px-6 py-10 flex flex-wrap items-center justify-between gap-4 text-sm text-muted-foreground">
         <div>
-          <span className="font-display text-base text-foreground">Andersen Visibility Engine</span>
+          <span className="font-display text-base text-foreground">Milo Growth</span>
+          <span className="mx-2">—</span>
+          <span>built by Andersen Innovations</span>
           <span className="mx-2">·</span>
-          <span>© {new Date().getUTCFullYear()} Andersen Innovations</span>
+          <span>© {new Date().getUTCFullYear()}</span>
         </div>
         <div className="flex items-center gap-5">
           <Link to="/pricing" className="hover:text-foreground">Pricing</Link>
