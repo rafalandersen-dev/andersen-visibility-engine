@@ -182,6 +182,10 @@ export function AppShell({
           </div>
         </header>
         <div className="px-6 md:px-10 py-8">{children}</div>
+        <footer className="px-6 md:px-10 py-6 border-t border-border text-[11px] text-muted-foreground flex flex-wrap items-center justify-between gap-2">
+          <span>Milo Growth — built by Andersen Innovations</span>
+          <span>© {new Date().getUTCFullYear()}</span>
+        </footer>
       </main>
     </div>
   );
