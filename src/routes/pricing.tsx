@@ -37,10 +37,10 @@ function PricingPage() {
       <section className="mx-auto max-w-6xl px-6 py-16">
         <div className="max-w-2xl">
           <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Pricing</div>
-          <h1 className="mt-2 font-display text-4xl md:text-5xl">One workspace. Pay per project.</h1>
+          <h1 className="mt-2 font-display text-4xl md:text-5xl">Milo Growth Pricing</h1>
           <p className="mt-3 text-muted-foreground">
-            Start with the Free Preview. Move to Starter or Growth when you're ready to create real projects.
-            Add brands as you grow — up to {MAX_PROJECTS_PER_USER} projects per account.
+            Simple self-service pricing for small businesses that want a monthly growth, SEO and
+            visibility workflow. Add brands as you grow — up to {MAX_PROJECTS_PER_USER} projects per account.
           </p>
         </div>
 
