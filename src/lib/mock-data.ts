@@ -60,6 +60,7 @@ export const seedProjects: Project[] = [
     uniqueSellingPoints:
       "Third-party tested, medical-grade titanium electrolysis, 2-year warranty, EU shipping.",
     brandNotes: "Cite mechanism, not hype. Compliant with EU health claims regulation.",
+  },
   {
     id: "butelki-wodorowe",
     name: "Butelki Wodorowe",
