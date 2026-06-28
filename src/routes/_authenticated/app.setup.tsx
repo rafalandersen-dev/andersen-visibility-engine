@@ -247,11 +247,12 @@ function blankProject(): Project {
 }
 
 
-function Field({ label, children, full }: { label: string; children: React.ReactNode; full?: boolean }) {
+function Field({ label, children, full }: { label: string; children: (id: string) => React.ReactNode; full?: boolean }) {
+  const id = useId();
   return (
     <div className={full ? "md:col-span-2" : ""}>
-      <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
-      <div className="mt-1.5">{children}</div>
+      <Label htmlFor={id} className="text-xs font-medium text-muted-foreground">{label}</Label>
+      <div className="mt-1.5">{children(id)}</div>
     </div>
   );
 }
