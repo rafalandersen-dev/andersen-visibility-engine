@@ -37,10 +37,10 @@ function PublicHeader() {
     <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur">
       <div className="mx-auto max-w-6xl flex items-center justify-between px-6 py-4">
         <Link to="/" className="flex flex-col">
+          <span className="font-display text-lg leading-tight">Milo Growth</span>
           <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-            Andersen Innovations
+            Monthly AI growth planner
           </span>
-          <span className="font-display text-lg leading-tight">Visibility Engine</span>
         </Link>
         <nav className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
           <a href="#how" className="hover:text-foreground">How it works</a>
