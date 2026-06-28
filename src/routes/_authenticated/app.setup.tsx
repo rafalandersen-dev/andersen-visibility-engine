@@ -11,7 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useStore, updateProject, addProject } from "@/lib/store";
+import { useStore, updateProject, addProject, ProjectLimitError } from "@/lib/store";
+import { useAuth } from "@/lib/auth";
+
 import type { Language, Project } from "@/lib/types";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -33,36 +35,24 @@ const LANGS: Language[] = ["Polish", "Swedish", "English"];
 function ProjectSetup() {
   const projects = useStore((s) => s.projects);
   const activeProjectId = useStore((s) => s.activeProjectId);
-  const active = projects.find((p) => p.id === activeProjectId)!;
+  const active = projects.find((p) => p.id === activeProjectId);
+  const { isOwner } = useAuth();
   const search = Route.useSearch();
-  const [form, setForm] = useState<Project>(active);
-  const [creating, setCreating] = useState(Boolean(search.new));
+  const [form, setForm] = useState<Project>(active ?? blankProject());
+  const [creating, setCreating] = useState(Boolean(search.new) || !active);
 
   useEffect(() => {
-    if (!creating) setForm(active);
-  }, [active.id, creating]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!creating && active) setForm(active);
+  }, [active?.id, creating]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   useEffect(() => {
     if (search.new) {
       setCreating(true);
-      setForm({
-        id: "",
-        name: "",
-        websiteUrl: "",
-        businessName: "",
-        businessType: "",
-        primaryLanguage: "English",
-        additionalLanguages: [],
-        mainLocation: "",
-        targetLocations: [],
-        description: "",
-        targetAudience: "",
-        toneOfVoice: "",
-        uniqueSellingPoints: "",
-        brandNotes: "",
-      });
+      setForm(blankProject());
     }
   }, [search.new]);
+
 
   const update = <K extends keyof Project>(k: K, v: Project[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
@@ -89,14 +79,23 @@ function ProjectSetup() {
       return;
     }
     if (creating) {
-      addProject(form);
-      toast.success("Project created");
-    } else {
+      try {
+        addProject(form, { isOwner });
+        toast.success("Project created");
+      } catch (e) {
+        if (e instanceof ProjectLimitError) {
+          toast.error(e.message);
+          return;
+        }
+        throw e;
+      }
+    } else if (active) {
       updateProject(active.id, form);
       toast.success("Project saved");
     }
     setCreating(false);
   };
+
 
   return (
     <AppShell
@@ -122,7 +121,7 @@ function ProjectSetup() {
               New project
             </Button>
           ) : (
-            <Button variant="ghost" onClick={() => { setCreating(false); setForm(active); }}>
+            <Button variant="ghost" onClick={() => { setCreating(false); if (active) setForm(active); }}>
               Cancel
             </Button>
           )}
@@ -219,6 +218,26 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     </section>
   );
 }
+
+function blankProject(): Project {
+  return {
+    id: "",
+    name: "",
+    websiteUrl: "",
+    businessName: "",
+    businessType: "",
+    primaryLanguage: "English",
+    additionalLanguages: [],
+    mainLocation: "",
+    targetLocations: [],
+    description: "",
+    targetAudience: "",
+    toneOfVoice: "",
+    uniqueSellingPoints: "",
+    brandNotes: "",
+  };
+}
+
 
 function Field({ label, children, full }: { label: string; children: React.ReactNode; full?: boolean }) {
   return (
