@@ -190,7 +190,7 @@ export const generateCalendarFn = createServerFn({ method: "POST" })
                   recommendedCta: z.string().min(2).max(60),
                 }),
               )
-              .min(3)
+              .min(1)
               .max(8),
           }),
         }),
