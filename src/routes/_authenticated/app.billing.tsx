@@ -50,9 +50,29 @@ function BillingPage() {
           </div>
           <div className="text-right">
             <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Plan</div>
-            <div className="mt-1 font-display text-xl">Free Preview</div>
+            <div className="mt-1 font-display text-xl">
+              {isOwner ? "Owner" : projects.length === 0 ? "Free Preview" : projects.length === 1 ? "Starter" : "Growth"}
+            </div>
           </div>
         </div>
+        {!isOwner ? (
+          <div className="mt-5">
+            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full bg-gold/80 transition-all"
+                style={{ width: `${Math.min(100, (projects.length / MAX_PROJECTS_PER_USER) * 100)}%` }}
+              />
+            </div>
+            <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+              <span>{projects.length} of {MAX_PROJECTS_PER_USER} projects used</span>
+              <span>
+                {projects.length >= MAX_PROJECTS_PER_USER
+                  ? "Account cap reached"
+                  : `${MAX_PROJECTS_PER_USER - projects.length} slot${MAX_PROJECTS_PER_USER - projects.length === 1 ? "" : "s"} remaining`}
+              </span>
+            </div>
+          </div>
+        ) : null}
       </section>
 
       <h2 className="mt-12 font-display text-2xl">Plans</h2>
