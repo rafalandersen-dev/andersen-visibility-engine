@@ -7,7 +7,7 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { generateText, Output } from "ai";
+import { generateText } from "ai";
 import { z } from "zod";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 import type {
@@ -17,7 +17,7 @@ import type {
   ContentAsset,
 } from "./types";
 
-const MODEL = "openai/gpt-5-mini";
+const MODEL = "google/gemini-3-flash-preview";
 
 const LANGUAGES = ["Polish", "Swedish", "English"] as const;
 const CONTENT_TYPES = [
@@ -47,7 +47,11 @@ function normalizedEnum<const T extends readonly [string, ...string[]]>(values: 
 
 const cleanString = (max: number) =>
   z
-    .preprocess((value) => (typeof value === "string" ? value.trim() : value), z.string().min(1))
+    .preprocess((value) => {
+      if (typeof value === "string") return value.trim();
+      if (typeof value === "number" || typeof value === "boolean") return String(value);
+      return "";
+    }, z.string())
     .transform((value) => (value.length > max ? value.slice(0, max).trim() : value));
 
 const LanguageEnum = normalizedEnum(LANGUAGES);
@@ -93,6 +97,224 @@ function getGateway() {
   return createLovableAiGatewayProvider(key);
 }
 
+type UnknownRecord = Record<string, unknown>;
+
+const isRecord = (value: unknown): value is UnknownRecord =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+const asString = (value: unknown, fallback = "") => {
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" || typeof value === "boolean") return String(value).trim();
+  return fallback;
+};
+
+const pickString = (record: UnknownRecord, keys: string[], fallback = "") => {
+  for (const key of keys) {
+    const value = asString(record[key]);
+    if (value) return value;
+  }
+  return fallback;
+};
+
+function normalizeValue<const T extends readonly [string, ...string[]]>(
+  value: unknown,
+  values: T,
+  fallback: T[number],
+) {
+  const normalize = (input: string) => input.toLowerCase().replace(/[^a-z]/g, "");
+  const raw = asString(value);
+  if (!raw) return fallback;
+  const input = normalize(raw);
+  return (
+    values.find((option) => normalize(option) === input) ??
+    values.find((option) => input.includes(normalize(option)) || normalize(option).includes(input)) ??
+    fallback
+  );
+}
+
+function normalizeLanguage(value: unknown, project?: Project) {
+  return normalizeValue(
+    value,
+    LANGUAGES,
+    project?.primaryLanguage && LANGUAGES.includes(project.primaryLanguage) ? project.primaryLanguage : "English",
+  );
+}
+
+function normalizeContentType(value: unknown) {
+  const raw = asString(value).toLowerCase();
+  if (/blog|article|post/.test(raw)) return "Blog Article";
+  if (/landing/.test(raw)) return "Landing Page";
+  if (/service/.test(raw)) return "Service Page";
+  if (/faq|question/.test(raw)) return "FAQ Page";
+  if (/location|local|city|area/.test(raw)) return "Location Page";
+  if (/compare|comparison|versus|vs/.test(raw)) return "Comparison";
+  if (/guide|how|manual/.test(raw)) return "Guide";
+  return normalizeValue(value, CONTENT_TYPES, "Blog Article");
+}
+
+function normalizeSearchIntent(value: unknown) {
+  const raw = asString(value).toLowerCase();
+  if (/transaction|buy|book|order|quote|hire/.test(raw)) return "Transactional";
+  if (/commercial|compare|best|pricing|cost|service/.test(raw)) return "Commercial";
+  if (/navigation|brand|contact|address/.test(raw)) return "Navigational";
+  return normalizeValue(value, SEARCH_INTENTS, "Informational");
+}
+
+function normalizePriority(value: unknown) {
+  const raw = asString(value).toLowerCase();
+  if (/urgent|high|strong|top|1/.test(raw)) return "High";
+  if (/low|later|3/.test(raw)) return "Low";
+  return normalizeValue(value, PRIORITIES, "Medium");
+}
+
+function parseJsonFromText(text: string): unknown {
+  const cleaned = text
+    .replace(/```json\s*/gi, "")
+    .replace(/```\s*/g, "")
+    .trim();
+
+  const firstObject = cleaned.indexOf("{");
+  const firstArray = cleaned.indexOf("[");
+  const starts = [firstObject, firstArray].filter((index) => index >= 0);
+  if (!starts.length) throw new Error("AI returned no JSON payload.");
+
+  const start = Math.min(...starts);
+  const opener = cleaned[start];
+  const closer = opener === "[" ? "]" : "}";
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = start; i < cleaned.length; i += 1) {
+    const char = cleaned[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (char === opener) depth += 1;
+    if (char === closer) depth -= 1;
+    if (depth === 0) {
+      const candidate = cleaned.slice(start, i + 1);
+      try {
+        return JSON.parse(candidate);
+      } catch {
+        return JSON.parse(
+          candidate
+            .replace(/,\s*}/g, "}")
+            .replace(/,\s*]/g, "]")
+            .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ""),
+        );
+      }
+    }
+  }
+
+  throw new Error("AI response appears truncated before valid JSON ended.");
+}
+
+function extractArray(payload: unknown, keys: string[]): unknown[] {
+  if (Array.isArray(payload)) return payload;
+  if (!isRecord(payload)) return [];
+  for (const key of keys) {
+    const value = payload[key];
+    if (Array.isArray(value)) return value;
+  }
+  for (const value of Object.values(payload)) {
+    if (Array.isArray(value)) return value;
+    if (isRecord(value)) {
+      const nested = extractArray(value, keys);
+      if (nested.length) return nested;
+    }
+  }
+  return [];
+}
+
+function normalizeOpportunityItem(value: unknown, project: Project, index: number) {
+  const item = isRecord(value) ? value : {};
+  const title = pickString(item, ["title", "topicTitle", "topic", "name", "headline"], `SEO opportunity ${index + 1}`);
+  return OpportunityItemSchema.parse({
+    title,
+    language: normalizeLanguage(item.language ?? item.lang, project),
+    contentType: normalizeContentType(item.contentType ?? item.type ?? item.format ?? item.assetType),
+    searchIntent: normalizeSearchIntent(item.searchIntent ?? item.intent),
+    targetAudience: pickString(item, ["targetAudience", "audience", "who"], project.targetAudience || "Potential customers"),
+    businessValue: pickString(item, ["businessValue", "value", "why", "rationale", "strategy"], "Build qualified search visibility for the business."),
+    recommendedCta: pickString(item, ["recommendedCta", "cta", "callToAction"], "Contact us"),
+    priority: normalizePriority(item.priority ?? item.impact),
+  });
+}
+
+function normalizeCalendarItem(value: unknown, project: Project, index: number) {
+  const item = isRecord(value) ? value : {};
+  return CalendarItemSchema.parse({
+    opportunityIndex: item.opportunityIndex ?? item.sourceIndex ?? item.index ?? index + 1,
+    daysFromToday: item.daysFromToday ?? item.dayOffset ?? item.day ?? (index + 1) * 4,
+    topicTitle: pickString(item, ["topicTitle", "title", "topic", "name"], `Planned content ${index + 1}`),
+    language: normalizeLanguage(item.language ?? item.lang, project),
+    contentType: normalizeContentType(item.contentType ?? item.type ?? item.format),
+    searchIntent: normalizeSearchIntent(item.searchIntent ?? item.intent),
+    recommendedCta: pickString(item, ["recommendedCta", "cta", "callToAction"], "Contact us"),
+  });
+}
+
+function normalizeStringArray(value: unknown, fallback: string[]) {
+  const source = Array.isArray(value) ? value : [];
+  const items = source.map((item) => asString(item)).filter(Boolean);
+  return items.length ? items : fallback;
+}
+
+function normalizeFaq(value: unknown) {
+  const source = Array.isArray(value) ? value : [];
+  const items = source
+    .map((item, index) => {
+      if (!isRecord(item)) return null;
+      const q = pickString(item, ["q", "question", "title"], `Question ${index + 1}`);
+      const a = pickString(item, ["a", "answer", "response"], "Contact the business for details.");
+      return { q, a };
+    })
+    .filter((item): item is { q: string; a: string } => Boolean(item));
+  return items.length ? items : [{ q: "How can I get started?", a: "Contact the team to discuss your needs and the next practical step." }];
+}
+
+function normalizeContentAsset(payload: unknown, project: Project, opp: Opportunity) {
+  const item = isRecord(payload) ? payload : {};
+  const markdown = pickString(
+    item,
+    ["markdown", "content", "body", "draft", "article", "pageDraft"],
+    `## ${opp.title}\n\nCreate a focused page for ${project.businessName || project.name} that answers the search intent clearly and guides readers toward ${opp.recommendedCta}.`,
+  );
+  return ContentAssetSchema.parse({
+    metaTitle: pickString(item, ["metaTitle", "seoTitle", "title"], opp.title),
+    metaDescription: pickString(item, ["metaDescription", "seoDescription", "description"], opp.businessValue),
+    h1: pickString(item, ["h1", "headline", "pageTitle"], opp.title),
+    outline: normalizeStringArray(item.outline ?? item.sections, ["Introduction", "Key information", "Next step"]),
+    faq: normalizeFaq(item.faq ?? item.faqs ?? item.questions),
+    cta: pickString(item, ["cta", "recommendedCta", "callToAction"], opp.recommendedCta || "Contact us"),
+    markdown,
+    internalLinks: normalizeStringArray(item.internalLinks ?? item.links, []),
+    schemaSuggestions: normalizeStringArray(item.schemaSuggestions ?? item.schema ?? item.structuredData, []),
+    editorNotes: pickString(item, ["editorNotes", "notes"], ""),
+  });
+}
+
+async function generateJsonText(prompt: string, maxOutputTokens = 5000) {
+  const gateway = getGateway();
+  const { text } = await generateText({
+    model: gateway(MODEL),
+    maxOutputTokens,
+    prompt,
+  });
+  return parseJsonFromText(text);
+}
+
 function mapGatewayError(e: unknown): Error {
   const msg = e instanceof Error ? e.message : String(e);
   // Surface real cause to server logs so we can debug schema/truncation issues.
@@ -106,7 +328,7 @@ function mapGatewayError(e: unknown): Error {
     return new Error("AI response was cut short. Please try again — it usually works on retry.");
   if (/schema|validation|zod|invalid_type|too_small|too_big|unrecognized|did not match/i.test(msg))
     return new Error("AI returned an unexpected format. Please try again.");
-  if (/not valid JSON|unexpected token|no opportunities|no calendar/i.test(msg))
+  if (/not valid JSON|unexpected token|no JSON|truncated|no opportunities|no calendar/i.test(msg))
     return new Error("AI returned an unexpected format. Please try again.");
   return new Error("AI generation failed. Please try again.");
 }
@@ -137,7 +359,7 @@ function projectBrief(p: Project, services: ServiceItem[]) {
 
 const sharedRules = `
 RULES:
-- Output MUST match the requested JSON schema exactly.
+- Output ONLY valid JSON. No markdown fences, no prose before or after JSON.
 - Do NOT claim you analyzed the website. Base recommendations only on the provided context.
 - Do NOT invent metrics, search volumes, ranking guarantees, competitor data or external sources.
 - Be specific to the given business — no generic SEO platitudes.
@@ -170,28 +392,27 @@ export const generateOpportunitiesFn = createServerFn({ method: "POST" })
       : "";
 
     try {
-      const gateway = getGateway();
       console.info("[ai.functions] opportunities reached", {
         userIdPresent: Boolean(context.userId),
         projectId: project.id,
         projectName: project.businessName || project.name,
         serviceCount: services.length,
       });
-      const { output } = await generateText({
-        model: gateway(MODEL),
-        output: Output.object({ schema: OpportunitiesResultSchema }),
-        prompt: `You are an SEO and AI-visibility strategist for small businesses.
+      const payload = await generateJsonText(`You are an SEO and AI-visibility strategist for small businesses.
 
-Generate 6 high-quality content opportunities for this business as an "opportunities" array.
+Generate 6 high-quality content opportunities for this business.
+Return exactly this JSON shape:
+{"opportunities":[{"title":"","language":"Polish|Swedish|English","contentType":"Landing Page|Service Page|Blog Article|Guide|FAQ Page|Comparison|Location Page","searchIntent":"Informational|Commercial|Transactional|Navigational","targetAudience":"","businessValue":"","recommendedCta":"","priority":"Low|Medium|High"}]}
 
 ${brief}
 ${existing}
 
 Mix content types (landing/service/blog/guide/location/comparison) and languages (use primary + additional). Each opportunity should be a specific, search-driven topic — not a vague theme. Each title should read like a real page or article a user could search for.
 ${sharedRules}`,
-      });
+      3000);
 
-      const opportunities = output?.opportunities ?? [];
+      const opportunities = extractArray(payload, ["opportunities", "ideas", "topics", "items", "results"])
+        .map((item, index) => normalizeOpportunityItem(item, project, index));
       if (opportunities.length === 0) throw new Error("AI returned no opportunities.");
       console.info("[ai.functions] opportunities parsed", { count: opportunities.length });
       return { opportunities };
@@ -224,17 +445,15 @@ export const generateCalendarFn = createServerFn({ method: "POST" })
       .join("\n");
 
     try {
-      const gateway = getGateway();
       console.info("[ai.functions] calendar reached", {
         userIdPresent: Boolean(context.userId),
         projectId: project.id,
         projectName: project.businessName || project.name,
         opportunityCount: opps.length,
       });
-      const { output } = await generateText({
-        model: gateway(MODEL),
-        output: Output.object({ schema: CalendarResultSchema }),
-        prompt: `Build a realistic 1-month content calendar for "${project.businessName || project.name}" in ${project.primaryLanguage} as a "calendarItems" array.
+      const payload = await generateJsonText(`Build a realistic 1-month content calendar for "${project.businessName || project.name}" in ${project.primaryLanguage}.
+Return exactly this JSON shape:
+{"calendarItems":[{"opportunityIndex":1,"daysFromToday":4,"topicTitle":"","language":"Polish|Swedish|English","contentType":"Landing Page|Service Page|Blog Article|Guide|FAQ Page|Comparison|Location Page","searchIntent":"Informational|Commercial|Transactional|Navigational","recommendedCta":""}]}
 
 Pick the strongest opportunities below and schedule them with sensible cadence (every 3–5 days, no clustering on one date). Prefer high-priority items first.
 
@@ -243,9 +462,10 @@ ${oppLines}
 
 For each scheduled item, return the 1-based opportunityIndex it derives from.
 ${sharedRules}`,
-      });
+      3000);
 
-      const calendarItems = output?.calendarItems ?? [];
+      const calendarItems = extractArray(payload, ["calendarItems", "calendar", "items", "schedule", "contentCalendar"])
+        .map((item, index) => normalizeCalendarItem(item, project, index));
       if (calendarItems.length === 0) throw new Error("AI returned no calendar items.");
       console.info("[ai.functions] calendar parsed", { count: calendarItems.length });
       return { calendarItems };
@@ -297,11 +517,10 @@ export const generateContentAssetFn = createServerFn({ method: "POST" })
         : `Generate a BLOG ARTICLE draft. Lead with a 2–3 sentence direct answer (AI-overview friendly), then context, key factors, what to do next, and FAQ. Markdown should be the article body in ${opp.language}.`;
 
     try {
-      const gateway = getGateway();
-      const { output } = await generateText({
-        model: gateway(MODEL),
-        output: Output.object({ schema: ContentAssetSchema }),
-        prompt: `${kindInstruction}
+      const payload = await generateJsonText(`${kindInstruction}
+
+Return exactly this JSON shape:
+{"metaTitle":"","metaDescription":"","h1":"","outline":[""],"faq":[{"q":"","a":""}],"cta":"","markdown":"","internalLinks":[""],"schemaSuggestions":[""],"editorNotes":""}
 
 Topic: ${opp.title}
 Search intent: ${opp.searchIntent}
@@ -319,9 +538,9 @@ Markdown rules:
 - Internal links: relative paths like "/services" or "/contact" only.
 - schemaSuggestions: schema.org types only (e.g. "Service", "FAQPage").
 ${sharedRules}`,
-      });
+      8000);
 
-      return output;
+      return normalizeContentAsset(payload, project, opp);
     } catch (e) {
       throw mapGatewayError(e);
     }
