@@ -565,18 +565,24 @@ export const regenerateMetadataFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     try {
-      const gateway = getGateway();
-      const { output } = await generateText({
-        model: gateway(MODEL),
-        output: Output.object({
-          schema: z.object({
-            metaTitle: z.string().min(10).max(65),
-            metaDescription: z.string().min(50).max(165),
-          }),
-        }),
-        prompt: `Write an SEO meta title (≤60 chars) and meta description (≤160 chars) in ${data.language} for the page titled "${data.title}" about "${data.topic}" for "${data.businessName}". One calm sentence for the description, including a soft next step toward "${data.cta}". No quotes, no emojis.${sharedRules}`,
-      });
-      return output;
+      const payload = await generateJsonText(
+        `Write an SEO meta title (≤60 chars) and meta description (≤160 chars) in ${data.language} for the page titled "${data.title}" about "${data.topic}" for "${data.businessName}". One calm sentence for the description, including a soft next step toward "${data.cta}". No quotes, no emojis.
+
+Return exactly this JSON shape:
+{"metaTitle":"","metaDescription":""}
+${sharedRules}`,
+        1000,
+      );
+      const item = isRecord(payload) ? payload : {};
+      return z
+        .object({
+          metaTitle: cleanString(65),
+          metaDescription: cleanString(165),
+        })
+        .parse({
+          metaTitle: pickString(item, ["metaTitle", "title", "seoTitle"], data.title),
+          metaDescription: pickString(item, ["metaDescription", "description", "seoDescription"], data.topic),
+        });
     } catch (e) {
       throw mapGatewayError(e);
     }
@@ -596,20 +602,16 @@ export const regenerateFaqFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     try {
-      const gateway = getGateway();
-      const { output } = await generateText({
-        model: gateway(MODEL),
-        output: Output.object({
-          schema: z.object({
-            faq: z
-              .array(z.object({ q: z.string().min(5).max(140), a: z.string().min(10).max(400) }))
-              .min(1)
-              .max(5),
-          }),
-        }),
-        prompt: `Write 4 realistic FAQ entries in ${data.language} that real customers of "${data.businessName}" would ask about "${data.topic}". Answers must be concrete, 2–4 sentences. No invented prices, no guarantees.${sharedRules}`,
-      });
-      return output.faq;
+      const payload = await generateJsonText(
+        `Write 4 realistic FAQ entries in ${data.language} that real customers of "${data.businessName}" would ask about "${data.topic}". Answers must be concrete, 2–4 sentences. No invented prices, no guarantees.
+
+Return exactly this JSON shape:
+{"faq":[{"q":"","a":""}]}
+${sharedRules}`,
+        1800,
+      );
+      const faq = normalizeFaq(isRecord(payload) ? payload.faq : payload);
+      return z.array(z.object({ q: cleanString(140), a: cleanString(400) })).parse(faq).slice(0, 5);
     } catch (e) {
       throw mapGatewayError(e);
     }
@@ -629,15 +631,16 @@ export const regenerateCtaFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     try {
-      const gateway = getGateway();
-      const { output } = await generateText({
-        model: gateway(MODEL),
-        output: Output.object({
-          schema: z.object({ cta: z.string().min(2).max(50) }),
-        }),
-        prompt: `Suggest ONE short, action-oriented CTA button label in ${data.language} for a ${data.intent.toLowerCase()} page about "${data.topic}" for "${data.businessName}". 2–5 words. No emojis, no quotes.${sharedRules}`,
-      });
-      return output.cta;
+      const payload = await generateJsonText(
+        `Suggest ONE short, action-oriented CTA button label in ${data.language} for a ${data.intent.toLowerCase()} page about "${data.topic}" for "${data.businessName}". 2–5 words. No emojis, no quotes.
+
+Return exactly this JSON shape:
+{"cta":""}
+${sharedRules}`,
+        700,
+      );
+      const item = isRecord(payload) ? payload : {};
+      return cleanString(50).parse(pickString(item, ["cta", "label", "button"], "Contact us"));
     } catch (e) {
       throw mapGatewayError(e);
     }
