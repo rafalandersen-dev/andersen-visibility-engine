@@ -45,9 +45,9 @@ function normalizedEnum<const T extends readonly [string, ...string[]]>(values: 
   }, z.enum(values));
 }
 
-const cleanString = (min: number, max: number) =>
+const cleanString = (max: number) =>
   z
-    .preprocess((value) => (typeof value === "string" ? value.trim() : value), z.string().min(min))
+    .preprocess((value) => (typeof value === "string" ? value.trim() : value), z.string().min(1))
     .transform((value) => (value.length > max ? value.slice(0, max).trim() : value));
 
 const LanguageEnum = normalizedEnum(LANGUAGES);
@@ -55,38 +55,36 @@ const ContentTypeEnum = normalizedEnum(CONTENT_TYPES);
 const SearchIntentEnum = normalizedEnum(SEARCH_INTENTS);
 const PriorityEnum = normalizedEnum(PRIORITIES);
 
-// Structured-output schemas. The top-level is an OBJECT (required by the
-// gateway's structured-output mode) wrapping a non-empty array — mirroring the
-// working content-asset path (Output.object({ schema })). The normalizedEnum /
-// cleanString preprocessors still run on validation, so they safely coerce
-// near-miss enum casing and trim/clip oversized strings.
+// Structured-output schemas. Keep them loose — strict min/max on every string
+// makes the model fail validation often; we clip oversized strings in the
+// transform instead.
 const OpportunityItemSchema = z.object({
-  title: cleanString(4, 120),
+  title: cleanString(120),
   language: LanguageEnum,
   contentType: ContentTypeEnum,
   searchIntent: SearchIntentEnum,
-  targetAudience: cleanString(2, 160),
-  businessValue: cleanString(2, 200),
-  recommendedCta: cleanString(2, 60),
+  targetAudience: cleanString(160),
+  businessValue: cleanString(200),
+  recommendedCta: cleanString(60),
   priority: PriorityEnum,
 });
 
 const OpportunitiesResultSchema = z.object({
-  opportunities: z.array(OpportunityItemSchema).min(1).max(8),
+  opportunities: z.array(OpportunityItemSchema),
 });
 
 const CalendarItemSchema = z.object({
   opportunityIndex: z.coerce.number().int().min(1),
   daysFromToday: z.coerce.number().int().min(1).max(60),
-  topicTitle: cleanString(4, 140),
+  topicTitle: cleanString(140),
   language: LanguageEnum,
   contentType: ContentTypeEnum,
   searchIntent: SearchIntentEnum,
-  recommendedCta: cleanString(2, 60),
+  recommendedCta: cleanString(60),
 });
 
 const CalendarResultSchema = z.object({
-  calendarItems: z.array(CalendarItemSchema).min(1).max(8),
+  calendarItems: z.array(CalendarItemSchema),
 });
 
 function getGateway() {
