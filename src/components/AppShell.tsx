@@ -11,6 +11,7 @@ import {
   Swords,
   Award,
   Radar,
+  BarChart3,
   Sparkles,
   CalendarDays,
   FileText,
@@ -38,6 +39,7 @@ const NAV: NavItem[] = [
   { to: "/app/opportunities", label: "SEO Opportunities", icon: Sparkles },
   { to: "/app/calendar", label: "Content Calendar", icon: CalendarDays },
   { to: "/app/editor", label: "Content Editor", icon: FileText },
+  { to: "/app/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/app/billing", label: "Billing", icon: CreditCard },
 ];
 

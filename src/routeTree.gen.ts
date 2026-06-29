@@ -13,6 +13,7 @@ import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PricingRouteImport } from './routes/pricing'
+import { Route as MiloAnalyticsDotjsRouteImport } from './routes/milo-analytics[.]js'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
@@ -20,6 +21,7 @@ import { Route as EmailUnsubscribeRouteImport } from './routes/email/unsubscribe
 import { Route as BlogLocalSeoGuideRouteImport } from './routes/blog.local-seo-guide'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app.index'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
+import { Route as ApiAnalyticsTrackRouteImport } from './routes/api.analytics.track'
 import { Route as AuthenticatedAppSetupRouteImport } from './routes/_authenticated/app.setup'
 import { Route as AuthenticatedAppServicesRouteImport } from './routes/_authenticated/app.services'
 import { Route as AuthenticatedAppOpportunitiesRouteImport } from './routes/_authenticated/app.opportunities'
@@ -29,6 +31,7 @@ import { Route as AuthenticatedAppCalendarRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAppBillingRouteImport } from './routes/_authenticated/app.billing'
 import { Route as AuthenticatedAppAuthorityRouteImport } from './routes/_authenticated/app.authority'
 import { Route as AuthenticatedAppAuditRouteImport } from './routes/_authenticated/app.audit'
+import { Route as AuthenticatedAppAnalyticsRouteImport } from './routes/_authenticated/app.analytics'
 import { Route as AuthenticatedAppAiVisibilityRouteImport } from './routes/_authenticated/app.ai-visibility'
 import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lovable/email/transactional/send'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
@@ -54,6 +57,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const PricingRoute = PricingRouteImport.update({
   id: '/pricing',
   path: '/pricing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MiloAnalyticsDotjsRoute = MiloAnalyticsDotjsRouteImport.update({
+  id: '/milo-analytics.js',
+  path: '/milo-analytics.js',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -88,6 +96,11 @@ const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
 const LovableEmailSuppressionRoute = LovableEmailSuppressionRouteImport.update({
   id: '/lovable/email/suppression',
   path: '/lovable/email/suppression',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAnalyticsTrackRoute = ApiAnalyticsTrackRouteImport.update({
+  id: '/api/analytics/track',
+  path: '/api/analytics/track',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAppSetupRoute = AuthenticatedAppSetupRouteImport.update({
@@ -140,6 +153,12 @@ const AuthenticatedAppAuditRoute = AuthenticatedAppAuditRouteImport.update({
   path: '/app/audit',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAppAnalyticsRoute =
+  AuthenticatedAppAnalyticsRouteImport.update({
+    id: '/app/analytics',
+    path: '/app/analytics',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAppAiVisibilityRoute =
   AuthenticatedAppAiVisibilityRouteImport.update({
     id: '/app/ai-visibility',
@@ -178,6 +197,7 @@ const LovableEmailAuthPreviewRoute = LovableEmailAuthPreviewRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/milo-analytics.js': typeof MiloAnalyticsDotjsRoute
   '/pricing': typeof PricingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -185,6 +205,7 @@ export interface FileRoutesByFullPath {
   '/blog/local-seo-guide': typeof BlogLocalSeoGuideRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/app/ai-visibility': typeof AuthenticatedAppAiVisibilityRoute
+  '/app/analytics': typeof AuthenticatedAppAnalyticsRoute
   '/app/audit': typeof AuthenticatedAppAuditRoute
   '/app/authority': typeof AuthenticatedAppAuthorityRoute
   '/app/billing': typeof AuthenticatedAppBillingRoute
@@ -194,6 +215,7 @@ export interface FileRoutesByFullPath {
   '/app/opportunities': typeof AuthenticatedAppOpportunitiesRoute
   '/app/services': typeof AuthenticatedAppServicesRoute
   '/app/setup': typeof AuthenticatedAppSetupRoute
+  '/api/analytics/track': typeof ApiAnalyticsTrackRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/app/': typeof AuthenticatedAppIndexRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -205,6 +227,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/milo-analytics.js': typeof MiloAnalyticsDotjsRoute
   '/pricing': typeof PricingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -212,6 +235,7 @@ export interface FileRoutesByTo {
   '/blog/local-seo-guide': typeof BlogLocalSeoGuideRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/app/ai-visibility': typeof AuthenticatedAppAiVisibilityRoute
+  '/app/analytics': typeof AuthenticatedAppAnalyticsRoute
   '/app/audit': typeof AuthenticatedAppAuditRoute
   '/app/authority': typeof AuthenticatedAppAuthorityRoute
   '/app/billing': typeof AuthenticatedAppBillingRoute
@@ -221,6 +245,7 @@ export interface FileRoutesByTo {
   '/app/opportunities': typeof AuthenticatedAppOpportunitiesRoute
   '/app/services': typeof AuthenticatedAppServicesRoute
   '/app/setup': typeof AuthenticatedAppSetupRoute
+  '/api/analytics/track': typeof ApiAnalyticsTrackRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/app': typeof AuthenticatedAppIndexRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -234,6 +259,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/milo-analytics.js': typeof MiloAnalyticsDotjsRoute
   '/pricing': typeof PricingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -241,6 +267,7 @@ export interface FileRoutesById {
   '/blog/local-seo-guide': typeof BlogLocalSeoGuideRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/_authenticated/app/ai-visibility': typeof AuthenticatedAppAiVisibilityRoute
+  '/_authenticated/app/analytics': typeof AuthenticatedAppAnalyticsRoute
   '/_authenticated/app/audit': typeof AuthenticatedAppAuditRoute
   '/_authenticated/app/authority': typeof AuthenticatedAppAuthorityRoute
   '/_authenticated/app/billing': typeof AuthenticatedAppBillingRoute
@@ -250,6 +277,7 @@ export interface FileRoutesById {
   '/_authenticated/app/opportunities': typeof AuthenticatedAppOpportunitiesRoute
   '/_authenticated/app/services': typeof AuthenticatedAppServicesRoute
   '/_authenticated/app/setup': typeof AuthenticatedAppSetupRoute
+  '/api/analytics/track': typeof ApiAnalyticsTrackRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -263,6 +291,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/milo-analytics.js'
     | '/pricing'
     | '/reset-password'
     | '/sitemap.xml'
@@ -270,6 +299,7 @@ export interface FileRouteTypes {
     | '/blog/local-seo-guide'
     | '/email/unsubscribe'
     | '/app/ai-visibility'
+    | '/app/analytics'
     | '/app/audit'
     | '/app/authority'
     | '/app/billing'
@@ -279,6 +309,7 @@ export interface FileRouteTypes {
     | '/app/opportunities'
     | '/app/services'
     | '/app/setup'
+    | '/api/analytics/track'
     | '/lovable/email/suppression'
     | '/app/'
     | '/lovable/email/auth/preview'
@@ -290,6 +321,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/milo-analytics.js'
     | '/pricing'
     | '/reset-password'
     | '/sitemap.xml'
@@ -297,6 +329,7 @@ export interface FileRouteTypes {
     | '/blog/local-seo-guide'
     | '/email/unsubscribe'
     | '/app/ai-visibility'
+    | '/app/analytics'
     | '/app/audit'
     | '/app/authority'
     | '/app/billing'
@@ -306,6 +339,7 @@ export interface FileRouteTypes {
     | '/app/opportunities'
     | '/app/services'
     | '/app/setup'
+    | '/api/analytics/track'
     | '/lovable/email/suppression'
     | '/app'
     | '/lovable/email/auth/preview'
@@ -318,6 +352,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/milo-analytics.js'
     | '/pricing'
     | '/reset-password'
     | '/sitemap.xml'
@@ -325,6 +360,7 @@ export interface FileRouteTypes {
     | '/blog/local-seo-guide'
     | '/email/unsubscribe'
     | '/_authenticated/app/ai-visibility'
+    | '/_authenticated/app/analytics'
     | '/_authenticated/app/audit'
     | '/_authenticated/app/authority'
     | '/_authenticated/app/billing'
@@ -334,6 +370,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/opportunities'
     | '/_authenticated/app/services'
     | '/_authenticated/app/setup'
+    | '/api/analytics/track'
     | '/lovable/email/suppression'
     | '/_authenticated/app/'
     | '/lovable/email/auth/preview'
@@ -347,12 +384,14 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  MiloAnalyticsDotjsRoute: typeof MiloAnalyticsDotjsRoute
   PricingRoute: typeof PricingRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   UnsubscribeRoute: typeof UnsubscribeRoute
   BlogLocalSeoGuideRoute: typeof BlogLocalSeoGuideRoute
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
+  ApiAnalyticsTrackRoute: typeof ApiAnalyticsTrackRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
@@ -389,6 +428,13 @@ declare module '@tanstack/react-router' {
       path: '/pricing'
       fullPath: '/pricing'
       preLoaderRoute: typeof PricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/milo-analytics.js': {
+      id: '/milo-analytics.js'
+      path: '/milo-analytics.js'
+      fullPath: '/milo-analytics.js'
+      preLoaderRoute: typeof MiloAnalyticsDotjsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -438,6 +484,13 @@ declare module '@tanstack/react-router' {
       path: '/lovable/email/suppression'
       fullPath: '/lovable/email/suppression'
       preLoaderRoute: typeof LovableEmailSuppressionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/analytics/track': {
+      id: '/api/analytics/track'
+      path: '/api/analytics/track'
+      fullPath: '/api/analytics/track'
+      preLoaderRoute: typeof ApiAnalyticsTrackRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/app/setup': {
@@ -503,6 +556,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppAuditRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/app/analytics': {
+      id: '/_authenticated/app/analytics'
+      path: '/app/analytics'
+      fullPath: '/app/analytics'
+      preLoaderRoute: typeof AuthenticatedAppAnalyticsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/app/ai-visibility': {
       id: '/_authenticated/app/ai-visibility'
       path: '/app/ai-visibility'
@@ -550,6 +610,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppAiVisibilityRoute: typeof AuthenticatedAppAiVisibilityRoute
+  AuthenticatedAppAnalyticsRoute: typeof AuthenticatedAppAnalyticsRoute
   AuthenticatedAppAuditRoute: typeof AuthenticatedAppAuditRoute
   AuthenticatedAppAuthorityRoute: typeof AuthenticatedAppAuthorityRoute
   AuthenticatedAppBillingRoute: typeof AuthenticatedAppBillingRoute
@@ -564,6 +625,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppAiVisibilityRoute: AuthenticatedAppAiVisibilityRoute,
+  AuthenticatedAppAnalyticsRoute: AuthenticatedAppAnalyticsRoute,
   AuthenticatedAppAuditRoute: AuthenticatedAppAuditRoute,
   AuthenticatedAppAuthorityRoute: AuthenticatedAppAuthorityRoute,
   AuthenticatedAppBillingRoute: AuthenticatedAppBillingRoute,
@@ -583,12 +645,14 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  MiloAnalyticsDotjsRoute: MiloAnalyticsDotjsRoute,
   PricingRoute: PricingRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   UnsubscribeRoute: UnsubscribeRoute,
   BlogLocalSeoGuideRoute: BlogLocalSeoGuideRoute,
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
+  ApiAnalyticsTrackRoute: ApiAnalyticsTrackRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
