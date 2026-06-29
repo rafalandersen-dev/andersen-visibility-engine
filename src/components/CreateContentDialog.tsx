@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Loader2, Sparkles } from "lucide-react";
-import { useStore } from "@/lib/store";
+import { getState } from "@/lib/store";
 import { generateContentForOpportunity } from "@/lib/mock-ai";
 import type { AssetType } from "@/lib/types";
 
@@ -49,7 +49,11 @@ export function CreateContentDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const navigate = useNavigate();
-  const opp = useStore((s) => s.opportunities.find((o) => o.id === opportunityId));
+  // Look up via getState() (not useStore): the selector depends on the
+  // opportunityId prop, and this app's useStore only re-runs selectors when the
+  // store state itself changes — it would return a stale value here. The opp is
+  // static while the dialog is open, so a non-reactive read is correct.
+  const opp = opportunityId ? getState().opportunities.find((o) => o.id === opportunityId) : undefined;
   const [assetType, setAssetType] = useState<AssetType>("brief");
   const [generating, setGenerating] = useState(false);
 
