@@ -45,9 +45,9 @@ function normalizedEnum<const T extends readonly [string, ...string[]]>(values: 
   }, z.enum(values));
 }
 
-const cleanString = (min: number, max: number) =>
+const cleanString = (max: number) =>
   z
-    .preprocess((value) => (typeof value === "string" ? value.trim() : value), z.string().min(min))
+    .preprocess((value) => (typeof value === "string" ? value.trim() : value), z.string().min(1))
     .transform((value) => (value.length > max ? value.slice(0, max).trim() : value));
 
 const LanguageEnum = normalizedEnum(LANGUAGES);
@@ -55,38 +55,36 @@ const ContentTypeEnum = normalizedEnum(CONTENT_TYPES);
 const SearchIntentEnum = normalizedEnum(SEARCH_INTENTS);
 const PriorityEnum = normalizedEnum(PRIORITIES);
 
-// Structured-output schemas. The top-level is an OBJECT (required by the
-// gateway's structured-output mode) wrapping a non-empty array — mirroring the
-// working content-asset path (Output.object({ schema })). The normalizedEnum /
-// cleanString preprocessors still run on validation, so they safely coerce
-// near-miss enum casing and trim/clip oversized strings.
+// Structured-output schemas. Keep them loose — strict min/max on every string
+// makes the model fail validation often; we clip oversized strings in the
+// transform instead.
 const OpportunityItemSchema = z.object({
-  title: cleanString(4, 120),
+  title: cleanString(120),
   language: LanguageEnum,
   contentType: ContentTypeEnum,
   searchIntent: SearchIntentEnum,
-  targetAudience: cleanString(2, 160),
-  businessValue: cleanString(2, 200),
-  recommendedCta: cleanString(2, 60),
+  targetAudience: cleanString(160),
+  businessValue: cleanString(200),
+  recommendedCta: cleanString(60),
   priority: PriorityEnum,
 });
 
 const OpportunitiesResultSchema = z.object({
-  opportunities: z.array(OpportunityItemSchema).min(1).max(8),
+  opportunities: z.array(OpportunityItemSchema),
 });
 
 const CalendarItemSchema = z.object({
   opportunityIndex: z.coerce.number().int().min(1),
   daysFromToday: z.coerce.number().int().min(1).max(60),
-  topicTitle: cleanString(4, 140),
+  topicTitle: cleanString(140),
   language: LanguageEnum,
   contentType: ContentTypeEnum,
   searchIntent: SearchIntentEnum,
-  recommendedCta: cleanString(2, 60),
+  recommendedCta: cleanString(60),
 });
 
 const CalendarResultSchema = z.object({
-  calendarItems: z.array(CalendarItemSchema).min(1).max(8),
+  calendarItems: z.array(CalendarItemSchema),
 });
 
 function getGateway() {
@@ -98,12 +96,15 @@ function getGateway() {
 function mapGatewayError(e: unknown): Error {
   const msg = e instanceof Error ? e.message : String(e);
   // Surface real cause to server logs so we can debug schema/truncation issues.
-  console.error("[ai.functions] gateway/validation error:", msg);
+  const anyErr = e as { cause?: unknown; text?: unknown };
+  const cause = anyErr?.cause instanceof Error ? anyErr.cause.message : anyErr?.cause;
+  const text = typeof anyErr?.text === "string" ? anyErr.text.slice(0, 800) : undefined;
+  console.error("[ai.functions] gateway/validation error:", msg, { cause, text });
   if (/429|rate limit/i.test(msg)) return new Error("AI is busy right now — please retry in a moment.");
   if (/402|credit|insufficient/i.test(msg)) return new Error("AI credits exhausted. Please top up in workspace billing.");
   if (/max_tokens|length|truncat/i.test(msg))
     return new Error("AI response was cut short. Please try again — it usually works on retry.");
-  if (/schema|validation|zod|invalid_type|too_small|too_big|unrecognized/i.test(msg))
+  if (/schema|validation|zod|invalid_type|too_small|too_big|unrecognized|did not match/i.test(msg))
     return new Error("AI returned an unexpected format. Please try again.");
   if (/not valid JSON|unexpected token|no opportunities|no calendar/i.test(msg))
     return new Error("AI returned an unexpected format. Please try again.");
@@ -258,19 +259,18 @@ ${sharedRules}`,
 // ============================================================
 
 const ContentAssetSchema = z.object({
-  metaTitle: z.string().min(10).max(70),
-  metaDescription: z.string().min(40).max(170),
-  h1: z.string().min(4).max(120),
-  outline: z.array(z.string().min(3).max(140)).min(4).max(10),
-  faq: z
-    .array(z.object({ q: z.string().min(5).max(140), a: z.string().min(10).max(400) }))
-    .min(1)
-    .max(6),
-  cta: z.string().min(2).max(60),
-  markdown: z.string().min(120).max(6000),
-  internalLinks: z.array(z.string().min(1).max(80)).max(8),
-  schemaSuggestions: z.array(z.string().min(2).max(40)).max(8),
-  editorNotes: z.string().max(400),
+  metaTitle: cleanString(70),
+  metaDescription: cleanString(170),
+  h1: cleanString(120),
+  outline: z.array(cleanString(140)),
+  faq: z.array(z.object({ q: cleanString(140), a: cleanString(400) })),
+  cta: cleanString(60),
+  markdown: cleanString(8000),
+  internalLinks: z.array(cleanString(80)).default([]),
+  schemaSuggestions: z.array(cleanString(40)).default([]),
+  editorNotes: z
+    .preprocess((v) => (typeof v === "string" ? v.trim() : v ?? ""), z.string())
+    .transform((v) => (v.length > 400 ? v.slice(0, 400) : v)),
 });
 
 export const generateContentAssetFn = createServerFn({ method: "POST" })
