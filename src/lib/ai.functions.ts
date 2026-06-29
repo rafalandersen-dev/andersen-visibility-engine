@@ -16,7 +16,7 @@ import type {
   Opportunity,
 } from "./types";
 
-const MODEL = "google/gemini-3-flash-preview";
+const MODEL = "openai/gpt-5-mini";
 
 const LANGUAGES = ["Polish", "Swedish", "English"] as const;
 const CONTENT_TYPES = [
@@ -345,20 +345,40 @@ async function generateJsonText(prompt: string, maxOutputTokens = 5000) {
 }
 
 function mapGatewayError(e: unknown): Error {
-  const msg = e instanceof Error ? e.message : String(e);
-  // Surface real cause to server logs so we can debug schema/truncation issues.
-  const anyErr = e as { cause?: unknown; text?: unknown };
-  const cause = anyErr?.cause instanceof Error ? anyErr.cause.message : anyErr?.cause;
+  const raw = e instanceof Error ? e.message : String(e);
+  // Surface real cause to server logs so we can debug. The actionable signal
+  // (429, 402, finish_reason=length, schema details) frequently lives on the
+  // error's `cause` or `statusCode`, not the top-level message — so detect
+  // across all of them. Never logs secrets (AI SDK errors omit the API key).
+  const anyErr = e as { cause?: unknown; text?: unknown; statusCode?: unknown; status?: unknown };
+  const causeMsg = anyErr?.cause instanceof Error ? anyErr.cause.message : anyErr?.cause;
   const text = typeof anyErr?.text === "string" ? anyErr.text.slice(0, 800) : undefined;
-  console.error("[ai.functions] gateway/validation error:", msg, { cause, text });
-  if (/429|rate limit/i.test(msg)) return new Error("AI is busy right now — please retry in a moment.");
-  if (/402|credit|insufficient/i.test(msg)) return new Error("AI credits exhausted. Please top up in workspace billing.");
-  if (/max_tokens|length|truncat/i.test(msg))
-    return new Error("AI response was cut short. Please try again — it usually works on retry.");
-  if (/schema|validation|zod|invalid_type|too_small|too_big|unrecognized|did not match/i.test(msg))
+  const status = anyErr?.statusCode ?? anyErr?.status;
+  const msg = [raw, typeof causeMsg === "string" ? causeMsg : "", status ? `status ${status}` : ""].join(" ");
+  console.error("[ai.functions] gateway/validation error:", raw, { cause: causeMsg, status, text });
+
+  // 1. Rate limit — transient, retry shortly.
+  if (/\b429\b|rate.?limit|too many requests|overloaded/i.test(msg))
+    return new Error("AI is busy right now (rate limit). Please retry in a moment.");
+
+  // 2. Credits / billing / quota — needs account action, not a retry.
+  if (/\b402\b|credit|insufficient|quota|billing|payment required|out of funds|exceeded your/i.test(msg))
+    return new Error("AI credits/quota exhausted. Please check your AI billing balance.");
+
+  // 3. Truncation / incomplete — check BEFORE schema/JSON, since a cut-off
+  //    response usually also fails those checks but the real cause is length.
+  if (/max_?tokens|max output|length limit|truncat|incomplete|finish.?reason\W*length|unexpected end of (json|input|data)/i.test(msg))
+    return new Error("AI response was cut short (incomplete). Please try again.");
+
+  // 4. Schema / structured-output validation — model returned the wrong shape.
+  if (/schema|validation|zod|invalid_type|too_small|too_big|unrecognized|did not match|no object generated/i.test(msg))
+    return new Error("AI returned data in an unexpected structure. Please try again.");
+
+  // 4b. JSON parse / empty payload — couldn't read the model output at all.
+  if (/not valid json|unexpected token|no json|no opportunities|no calendar|empty/i.test(msg))
     return new Error("AI returned an unexpected format. Please try again.");
-  if (/not valid JSON|unexpected token|no JSON|truncated|no opportunities|no calendar/i.test(msg))
-    return new Error("AI returned an unexpected format. Please try again.");
+
+  // 5. Generic / unknown provider failure.
   return new Error("AI generation failed. Please try again.");
 }
 
