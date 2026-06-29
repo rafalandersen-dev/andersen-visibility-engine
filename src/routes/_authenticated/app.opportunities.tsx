@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,12 +15,9 @@ import type {
   OpportunityStatus,
   Priority,
 } from "@/lib/types";
-import {
-  generateSeoOpportunities,
-  generateLandingPageBrief,
-  generateArticleDraft,
-} from "@/lib/mock-ai";
-import { Sparkles, FileText, FileEdit, X, Loader2 } from "lucide-react";
+import { generateSeoOpportunities } from "@/lib/mock-ai";
+import { CreateContentDialog } from "@/components/CreateContentDialog";
+import { Sparkles, FilePlus2, X, Loader2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -35,7 +32,6 @@ export const Route = createFileRoute("/_authenticated/app/opportunities")({
 });
 
 function OpportunitiesPage() {
-  const navigate = useNavigate();
   const activeProjectId = useStore((s) => s.activeProjectId);
   const all = useStore((s) => s.opportunities.filter((o) => o.projectId === activeProjectId));
 
@@ -43,7 +39,7 @@ function OpportunitiesPage() {
   const [fType, setFType] = useState<string>("all");
   const [fStatus, setFStatus] = useState<string>("all");
   const [fPrio, setFPrio] = useState<string>("all");
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const [contentOppId, setContentOppId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
 
   const items = useMemo(
@@ -57,34 +53,6 @@ function OpportunitiesPage() {
       ),
     [all, fLang, fType, fStatus, fPrio],
   );
-
-  const doBrief = async (id: string) => {
-    setBusyId(id);
-    try {
-      const a = await generateLandingPageBrief(id);
-      updateOpportunity(id, { status: "In Brief" });
-      toast.success("Landing page brief created");
-      navigate({ to: "/app/editor", search: { id: a.id } as never });
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Generation failed");
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const doDraft = async (id: string) => {
-    setBusyId(id);
-    try {
-      const a = await generateArticleDraft(id);
-      updateOpportunity(id, { status: "Drafting" });
-      toast.success("Article draft created");
-      navigate({ to: "/app/editor", search: { id: a.id } as never });
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Generation failed");
-    } finally {
-      setBusyId(null);
-    }
-  };
 
   return (
     <AppShell
@@ -167,12 +135,8 @@ function OpportunitiesPage() {
               <Row k="CTA" v={o.recommendedCta} />
             </dl>
             <div className="mt-5 flex gap-2 flex-wrap pt-4 border-t border-border">
-              <Button size="sm" variant="outline" disabled={busyId === o.id} onClick={() => doBrief(o.id)}>
-                <FileText className="h-3.5 w-3.5" /> Brief
-              </Button>
-              <Button size="sm" disabled={busyId === o.id} onClick={() => doDraft(o.id)}>
-                {busyId === o.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileEdit className="h-3.5 w-3.5" />}
-                Draft
+              <Button size="sm" onClick={() => setContentOppId(o.id)}>
+                <FilePlus2 className="h-3.5 w-3.5" /> Create content
               </Button>
               <Button
                 size="sm"
@@ -186,6 +150,12 @@ function OpportunitiesPage() {
           </article>
         ))}
       </div>
+
+      <CreateContentDialog
+        opportunityId={contentOppId}
+        open={contentOppId !== null}
+        onOpenChange={(o) => { if (!o) setContentOppId(null); }}
+      />
     </AppShell>
   );
 }

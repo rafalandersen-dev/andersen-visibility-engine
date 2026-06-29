@@ -19,10 +19,11 @@ import {
 } from "@/components/ui/tabs";
 import { useStore, upsertContent } from "@/lib/store";
 import { generateMetadata, generateFaq, generateCta } from "@/lib/mock-ai";
+import { CreateContentDialog, ASSET_TYPE_LABELS } from "@/components/CreateContentDialog";
 import type { ContentAsset, ContentStatus } from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
 import { useEffect, useId, useMemo, useState } from "react";
-import { Check, Copy, Download, FileEdit, FileX, Loader2, Sparkles } from "lucide-react";
+import { Check, Copy, Download, FileEdit, FilePlus2, FileX, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -61,7 +62,7 @@ function EditorPage() {
           <ul className="mt-1 space-y-0.5">
             {assets.length === 0 ? (
               <li className="px-2 py-6 text-xs text-muted-foreground">
-                Generate a brief or draft from the Opportunities page.
+                Use “Create content” on any opportunity to generate your first asset.
               </li>
             ) : assets.map((a) => (
               <li key={a.id}>
@@ -73,7 +74,9 @@ function EditorPage() {
                   }
                 >
                   <div className="text-sm font-medium truncate">{a.title}</div>
-                  <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mt-0.5">{a.status}</div>
+                  <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mt-0.5">
+                    {a.assetType ? `${ASSET_TYPE_LABELS[a.assetType]} · ` : ""}{a.status}
+                  </div>
                 </button>
               </li>
             ))}
@@ -84,7 +87,7 @@ function EditorPage() {
           <div className="rounded-lg border border-dashed border-border p-12 text-center">
             <div className="font-display text-lg mb-1">No asset selected</div>
             <p className="text-sm text-muted-foreground max-w-md mx-auto">
-              Open the Opportunities page and click <span className="font-medium text-foreground">Brief</span> or <span className="font-medium text-foreground">Draft</span> on any card to create your first content asset. It will appear in this editor.
+              Open the Opportunities page and click <span className="font-medium text-foreground">Create content</span> on any card to generate your first asset. It will appear in this editor.
             </p>
           </div>
         )}
@@ -96,6 +99,8 @@ function EditorPage() {
 function Editor({ asset }: { asset: ContentAsset }) {
   const [f, setF] = useState<ContentAsset>(asset);
   const [busy, setBusy] = useState<string | null>(null);
+  const [contentOpen, setContentOpen] = useState(false);
+  const sourceOppId = asset.sourceOpportunityId ?? asset.opportunityId ?? null;
   const outlineId = useId();
   const internalLinksId = useId();
   const schemaId = useId();
@@ -151,6 +156,29 @@ function Editor({ asset }: { asset: ContentAsset }) {
 
   return (
     <div className="rounded-lg border border-border bg-card">
+      {/* Asset metadata header (Content Engine 2.0) */}
+      <div className="px-5 py-4 border-b border-border">
+        <div className="flex flex-wrap items-center gap-2">
+          {f.assetType ? (
+            <span className="text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full border bg-accent/30 border-accent/40 text-accent-foreground">
+              {ASSET_TYPE_LABELS[f.assetType]}
+            </span>
+          ) : null}
+          <h2 className="font-display text-lg text-foreground">{f.title}</h2>
+        </div>
+        <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          {f.sourceOpportunityTitle ? (
+            <span>
+              Source: <span className="text-foreground/75">{f.sourceOpportunityTitle}</span>
+              {f.sourceType && f.sourceType !== "opportunity" ? ` (${f.sourceType})` : ""}
+            </span>
+          ) : null}
+          {f.language ? <span>Language: {f.language}</span> : null}
+          <span>Created: {formatDateTime(f.createdAt ?? f.updatedAt)}</span>
+          <span>Status: {f.status}</span>
+        </div>
+      </div>
+
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-border">
         <div className="flex items-center gap-3">
           <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Status</span>
@@ -162,12 +190,23 @@ function Editor({ asset }: { asset: ContentAsset }) {
           </Select>
         </div>
         <div className="flex flex-wrap gap-2">
+          {sourceOppId ? (
+            <Button size="sm" variant="outline" onClick={() => setContentOpen(true)}>
+              <FilePlus2 className="h-3.5 w-3.5" /> Create content
+            </Button>
+          ) : null}
           <Button size="sm" variant="ghost" onClick={() => save("Draft")}><FileEdit className="h-3.5 w-3.5" /> Save draft</Button>
           <Button size="sm" variant="outline" onClick={() => save("In Review")}>Mark in review</Button>
           <Button size="sm" variant="outline" onClick={() => save("Approved")}><Check className="h-3.5 w-3.5" /> Approve</Button>
           <Button size="sm" variant="ghost" onClick={() => save("Rejected")}><FileX className="h-3.5 w-3.5" /> Reject</Button>
         </div>
       </div>
+
+      <CreateContentDialog
+        opportunityId={contentOpen ? sourceOppId : null}
+        open={contentOpen}
+        onOpenChange={setContentOpen}
+      />
 
       <Tabs defaultValue="content" className="px-5 pt-3">
         <TabsList>

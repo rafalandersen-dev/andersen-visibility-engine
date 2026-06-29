@@ -11,9 +11,10 @@ import {
 import { useStore, updateCalendarItem } from "@/lib/store";
 import { formatDateShort } from "@/lib/format";
 import { generateContentCalendar } from "@/lib/mock-ai";
+import { CreateContentDialog } from "@/components/CreateContentDialog";
 import type { CalendarItem } from "@/lib/types";
 import { useMemo, useState } from "react";
-import { CalendarDays, Loader2 } from "lucide-react";
+import { CalendarDays, FilePlus2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/app/calendar")({
@@ -35,6 +36,7 @@ function CalendarPage() {
       .sort((a, b) => a.plannedDate.localeCompare(b.plannedDate)),
   );
   const [busy, setBusy] = useState(false);
+  const [contentOppId, setContentOppId] = useState<string | null>(null);
 
   const grouped = useMemo(() => {
     const m = new Map<string, CalendarItem[]>();
@@ -91,6 +93,7 @@ function CalendarPage() {
                       <th className="text-left px-5 py-3 font-medium w-32">Intent</th>
                       <th className="text-left px-5 py-3 font-medium w-44">CTA</th>
                       <th className="text-left px-5 py-3 font-medium w-40">Status</th>
+                      <th className="text-left px-5 py-3 font-medium w-36">Content</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -114,6 +117,17 @@ function CalendarPage() {
                             </SelectContent>
                           </Select>
                         </td>
+                        <td className="px-5 py-3">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={!c.opportunityId}
+                            title={c.opportunityId ? "Create content from the source opportunity" : "No linked opportunity"}
+                            onClick={() => c.opportunityId && setContentOppId(c.opportunityId)}
+                          >
+                            <FilePlus2 className="h-3.5 w-3.5" /> Create
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -123,6 +137,12 @@ function CalendarPage() {
           ))}
         </div>
       )}
+
+      <CreateContentDialog
+        opportunityId={contentOppId}
+        open={contentOppId !== null}
+        onOpenChange={(o) => { if (!o) setContentOppId(null); }}
+      />
     </AppShell>
   );
 }

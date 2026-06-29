@@ -21,6 +21,23 @@ export type OpportunityStatus = "New" | "In Brief" | "Drafting" | "Discarded" | 
 
 export type ContentStatus = "Draft" | "In Review" | "Approved" | "Rejected" | "Exported";
 
+/** Where a Linked opportunity originated (Content Engine 2.0 source context). */
+export type OpportunitySource = "audit" | "competitor" | "manual";
+
+/** Content asset types Milo can generate from an opportunity (Content Engine 2.0). */
+export type AssetType =
+  | "brief"
+  | "article"
+  | "servicePage"
+  | "landingPage"
+  | "faq"
+  | "comparison"
+  | "gbpPost"
+  | "meta"
+  | "socialPack";
+
+export type ContentSourceType = "opportunity" | "audit" | "competitor" | "manual" | "unknown";
+
 export interface Project {
   id: string;
   name: string;
@@ -61,6 +78,8 @@ export interface Opportunity {
   recommendedCta: string;
   priority: Priority;
   status: OpportunityStatus;
+  /** Origin of the opportunity (set for audit/competitor-derived ones). */
+  source?: OpportunitySource;
 }
 
 export interface CalendarItem {
@@ -94,6 +113,13 @@ export interface ContentAsset {
   editorNotes: string;
   status: ContentStatus;
   updatedAt: string;
+  // ---- Content Engine 2.0 (all optional → existing assets keep loading) ----
+  assetType?: AssetType;
+  sourceOpportunityId?: string;
+  sourceOpportunityTitle?: string;
+  sourceType?: ContentSourceType;
+  language?: Language;
+  createdAt?: string;
 }
 
 // ---- Site Audit v1 ----

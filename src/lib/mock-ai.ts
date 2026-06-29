@@ -27,6 +27,7 @@ import {
   upsertCompetitorAnalysis,
   markGapsConverted,
   addOpportunities,
+  updateOpportunity,
   updateProject,
   uid,
 } from "./store";
@@ -41,11 +42,14 @@ import type {
   CompetitorGap,
   Project,
   Priority,
+  AssetType,
+  ContentSourceType,
 } from "./types";
 import {
   generateOpportunitiesFn,
   generateCalendarFn,
   generateContentAssetFn,
+  generateContentFn,
   generateAuditFn,
   generateCompetitorGapFn,
   regenerateMetadataFn,
@@ -315,6 +319,7 @@ function opportunityFromFinding(finding: AuditFinding, project: Project): Opport
     recommendedCta: finding.suggestedCta || "Contact us",
     priority: finding.priority,
     status: "Linked",
+    source: "audit",
   };
 }
 
@@ -428,6 +433,7 @@ function opportunityFromGap(gap: CompetitorGap, project: Project): Opportunity {
     recommendedCta: gap.suggestedCta || "Contact us",
     priority: gap.priority,
     status: "Linked",
+    source: "competitor",
   };
 }
 
@@ -518,5 +524,88 @@ export async function createOpportunitiesFromTopGaps(projectId: string) {
     await saveWorkspaceNow();
     console.info("[ai.client] top-gap opportunities created", { projectId, count: opps.length });
     return opps;
+  });
+}
+
+// ============================================================
+// Content Engine 2.0
+// ============================================================
+
+function sourceTypeForOpportunity(opp: Opportunity): ContentSourceType {
+  if (opp.source === "audit") return "audit";
+  if (opp.source === "competitor") return "competitor";
+  if (opp.source === "manual") return "manual";
+  return "opportunity";
+}
+
+type GeneratedContent = {
+  metaTitle: string;
+  metaDescription: string;
+  h1: string;
+  outline: string[];
+  faq: { q: string; a: string }[];
+  cta: string;
+  markdown: string;
+  internalLinks: string[];
+  schemaSuggestions: string[];
+  editorNotes: string;
+};
+
+/**
+ * Generate a content asset of `assetType` from an opportunity (Content Engine 2.0).
+ * Reuses the existing content-asset shape so the current editor renders/edits it
+ * unchanged; adds asset-type + source metadata.
+ */
+export async function generateContentForOpportunity(opportunityId: string, assetType: AssetType) {
+  return once(`content:${opportunityId}:${assetType}`, async () => {
+    const s = getState();
+    const opp = s.opportunities.find((o) => o.id === opportunityId);
+    if (!opp) throw new Error("Opportunity not found.");
+    const { project, services } = requireProject(opp.projectId);
+
+    const result = (await generateContentFn({
+      data: { project, services, opportunity: opp, assetType },
+    })) as GeneratedContent;
+
+    if (!result || !result.markdown) {
+      throw new Error("AI returned empty content. Please try again.");
+    }
+
+    const now = new Date().toISOString();
+    const asset: ContentAsset = {
+      id: uid(),
+      projectId: opp.projectId,
+      opportunityId: opp.id,
+      title: opp.title,
+      slug: slugify(opp.title),
+      metaTitle: result.metaTitle,
+      metaDescription: result.metaDescription,
+      h1: result.h1 || opp.title,
+      outline: result.outline ?? [],
+      faq: result.faq ?? [],
+      cta: result.cta || opp.recommendedCta,
+      markdown: result.markdown,
+      internalLinks: result.internalLinks ?? [],
+      schemaSuggestions: result.schemaSuggestions ?? [],
+      editorNotes: result.editorNotes ?? "",
+      status: "Draft",
+      updatedAt: now,
+      assetType,
+      sourceOpportunityId: opp.id,
+      sourceOpportunityTitle: opp.title,
+      sourceType: sourceTypeForOpportunity(opp),
+      language: opp.language,
+      createdAt: now,
+    };
+
+    // Promote fresh opportunities to "Drafting"; never overwrite Linked/other states.
+    if (opp.status === "New" || opp.status === "In Brief") {
+      updateOpportunity(opp.id, { status: "Drafting" });
+    }
+
+    upsertContent(asset);
+    await saveWorkspaceNow();
+    console.info("[ai.client] content asset created", { projectId: opp.projectId, assetType });
+    return asset;
   });
 }

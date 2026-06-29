@@ -1084,6 +1084,92 @@ ${sharedRules}`,
   });
 
 // ============================================================
+// Content Engine 2.0 — multi-type content generation from an opportunity
+// ============================================================
+
+const CONTENT_ASSET_TYPES = [
+  "brief",
+  "article",
+  "servicePage",
+  "landingPage",
+  "faq",
+  "comparison",
+  "gbpPost",
+  "meta",
+  "socialPack",
+] as const;
+
+const ASSET_INSTRUCTIONS: Record<(typeof CONTENT_ASSET_TYPES)[number], string> = {
+  brief:
+    "Generate a CONTENT BRIEF for a writer. In `markdown`, include clearly-headed sections: Target audience, Search intent, Angle, Suggested H1, Outline (bulleted), Key points, FAQs to answer, Internal link ideas, CTA, and Notes for human review. Also fill: h1 (suggested H1), outline (outline headings), faq (FAQs to answer with a short suggested answer direction), cta, editorNotes.",
+  article:
+    "Generate a FULL ARTICLE. In `markdown`, write the complete article body in real markdown (##/###, short paragraphs): open with a 2–3 sentence direct answer (AI-overview friendly), then context, key factors, what to do next, an FAQ section, and a closing CTA section. Also fill: metaTitle (≤60 chars), metaDescription (≤160 chars), h1, outline (section headings), faq, cta, internalLinks (relative paths like /services).",
+  servicePage:
+    "Generate a SERVICE PAGE section. In `markdown`, include: H1 and H2 suggestions, Service description, Who it is for, Benefits (bulleted), Process / what to expect, FAQ, CTA. Also fill: h1, outline (section headings), faq, cta.",
+  landingPage:
+    "Generate a LANDING PAGE draft. In `markdown`, include: Hero headline, Subheadline, Problem section, Solution section, Benefits (bulleted), Trust signals, FAQ, CTA. Also fill: h1 (hero headline), faq, cta.",
+  faq:
+    "Generate an FAQ SECTION with 6–10 concise, genuinely helpful FAQs. In `markdown`, render each as a `## question` followed by a short answer (schema-ready). Also fill: faq (the 6–10 q/a entries), h1, cta.",
+  comparison:
+    "Generate a COMPARISON PAGE section. In `markdown`, include: a comparison title, a framing paragraph, a markdown TABLE comparing the options across key points, a 'When to choose each option' section, a recommendation, and a CTA. Also fill: h1, cta.",
+  gbpPost:
+    "Generate a concise GOOGLE BUSINESS PROFILE post (offer/update/event style if relevant). In `markdown`, write the short post text (keep under ~1500 characters), a clear CTA line, and a few optional relevant hashtags. Keep it concise and local. Also fill: cta.",
+  meta:
+    "Generate META TITLE + META DESCRIPTION options. In `markdown`, list 3 title options and 3 meta-description options, then state the recommended pairing and one line on why it fits. Also fill: metaTitle (the recommended title, ≤60 chars), metaDescription (the recommended description, ≤160 chars).",
+  socialPack:
+    "Generate a SOCIAL POST PACK. In `markdown`, include clearly-headed sections: LinkedIn post, Facebook post, Instagram caption, a short CTA, and optional hashtags. Tailor tone per platform. Also fill: cta.",
+};
+
+export const generateContentFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        project: z.any(),
+        services: z.array(z.any()).default([]),
+        opportunity: z.any(),
+        assetType: z.enum(CONTENT_ASSET_TYPES),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const project = data.project as Project;
+    const services = data.services as ServiceItem[];
+    const opp = data.opportunity as Opportunity;
+    const brief = projectBrief(project, services);
+    const instruction = ASSET_INSTRUCTIONS[data.assetType] ?? ASSET_INSTRUCTIONS.article;
+    const sourceLine = opp.source
+      ? `Source: this opportunity came from ${opp.source === "audit" ? "a Site Audit finding" : opp.source === "competitor" ? "a Competitor Gap" : "manual planning"} — keep that intent in mind.`
+      : "";
+
+    try {
+      const payload = await generateJsonText(
+        `${instruction}
+
+Return exactly this JSON shape. "markdown" is REQUIRED and must contain the full, formatted content for this asset type; fill the other fields that are relevant.
+{"metaTitle":"","metaDescription":"","h1":"","outline":[""],"faq":[{"q":"","a":""}],"cta":"","markdown":"","internalLinks":[""],"schemaSuggestions":[""],"editorNotes":""}
+
+Topic: ${opp.title}
+Language: ${opp.language} (write ALL output in this language)
+Search intent: ${opp.searchIntent}
+Content type: ${opp.contentType}
+Suggested CTA: ${opp.recommendedCta}
+Audience: ${opp.targetAudience}
+${sourceLine}
+
+Business context:
+${brief}
+${sharedRules}`,
+        8000,
+      );
+
+      return normalizeContentAsset(payload, project, opp);
+    } catch (e) {
+      throw mapGatewayError(e);
+    }
+  });
+
+// ============================================================
 // Small editor regen helpers (metadata / faq / cta)
 // ============================================================
 
