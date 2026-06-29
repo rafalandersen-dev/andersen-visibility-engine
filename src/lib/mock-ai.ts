@@ -74,15 +74,15 @@ export async function generateSeoOpportunities(projectId: string) {
       .opportunities.filter((o) => o.projectId === projectId)
       .map((o) => o.title);
 
-    const result = await generateOpportunitiesFn({
+    const { opportunities } = await generateOpportunitiesFn({
       data: { project, services, existingTitles },
     });
     console.info("[ai.client] opportunities received", {
       projectId,
-      count: Array.isArray(result) ? result.length : 0,
+      count: opportunities.length,
     });
 
-    const items: Opportunity[] = (result as Array<Omit<Opportunity, "id" | "projectId" | "status">>).map((r) => ({
+    const items: Opportunity[] = opportunities.map((r) => ({
       ...r,
       id: uid(),
       projectId,
@@ -110,24 +110,16 @@ export async function generateContentCalendar(projectId: string) {
       throw new Error("Generate opportunities first — the calendar builds on them.");
     }
 
-    const result = (await generateCalendarFn({
+    const { calendarItems } = await generateCalendarFn({
       data: { project, opportunities: opps },
-    })) as Array<{
-      opportunityIndex: number;
-      daysFromToday: number;
-      topicTitle: string;
-      language: Language;
-      contentType: CalendarItem["contentType"];
-      searchIntent: CalendarItem["searchIntent"];
-      recommendedCta: string;
-    }>;
+    });
     console.info("[ai.client] calendar received", {
       projectId,
-      count: Array.isArray(result) ? result.length : 0,
+      count: calendarItems.length,
     });
 
     const today = new Date();
-    const items: CalendarItem[] = result.map((r) => {
+    const items: CalendarItem[] = calendarItems.map((r) => {
       const source = opps[Math.max(0, Math.min(opps.length - 1, (r.opportunityIndex ?? 1) - 1))];
       const d = new Date(today);
       d.setDate(d.getDate() + Math.max(1, r.daysFromToday));

@@ -55,134 +55,39 @@ const ContentTypeEnum = normalizedEnum(CONTENT_TYPES);
 const SearchIntentEnum = normalizedEnum(SEARCH_INTENTS);
 const PriorityEnum = normalizedEnum(PRIORITIES);
 
-const OpportunityOutputSchema = z
-  .array(
-    z.object({
-      title: cleanString(4, 120),
-      language: LanguageEnum,
-      contentType: ContentTypeEnum,
-      searchIntent: SearchIntentEnum,
-      targetAudience: cleanString(2, 160),
-      businessValue: cleanString(2, 200),
-      recommendedCta: cleanString(2, 60),
-      priority: PriorityEnum,
-    }),
-  )
-  .min(1)
-  .max(8);
+// Structured-output schemas. The top-level is an OBJECT (required by the
+// gateway's structured-output mode) wrapping a non-empty array — mirroring the
+// working content-asset path (Output.object({ schema })). The normalizedEnum /
+// cleanString preprocessors still run on validation, so they safely coerce
+// near-miss enum casing and trim/clip oversized strings.
+const OpportunityItemSchema = z.object({
+  title: cleanString(4, 120),
+  language: LanguageEnum,
+  contentType: ContentTypeEnum,
+  searchIntent: SearchIntentEnum,
+  targetAudience: cleanString(2, 160),
+  businessValue: cleanString(2, 200),
+  recommendedCta: cleanString(2, 60),
+  priority: PriorityEnum,
+});
 
-const CalendarOutputSchema = z
-  .array(
-    z.object({
-      opportunityIndex: z.coerce.number().int().min(1),
-      daysFromToday: z.coerce.number().int().min(1).max(60),
-      topicTitle: cleanString(4, 140),
-      language: LanguageEnum,
-      contentType: ContentTypeEnum,
-      searchIntent: SearchIntentEnum,
-      recommendedCta: cleanString(2, 60),
-    }),
-  )
-  .min(1)
-  .max(8);
+const OpportunitiesResultSchema = z.object({
+  opportunities: z.array(OpportunityItemSchema).min(1).max(8),
+});
 
-function getObject(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
+const CalendarItemSchema = z.object({
+  opportunityIndex: z.coerce.number().int().min(1),
+  daysFromToday: z.coerce.number().int().min(1).max(60),
+  topicTitle: cleanString(4, 140),
+  language: LanguageEnum,
+  contentType: ContentTypeEnum,
+  searchIntent: SearchIntentEnum,
+  recommendedCta: cleanString(2, 60),
+});
 
-function extractArray(value: unknown, keys: string[]): unknown {
-  if (Array.isArray(value)) return value;
-  const object = getObject(value);
-  if (!object) return value;
-  for (const key of [...keys, "items", "elements", "data"]) {
-    if (Array.isArray(object[key])) return object[key];
-  }
-  return value;
-}
-
-function parseJsonFromText(text: string): unknown {
-  const trimmed = text.trim();
-  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)?.[1];
-  const source = fenced?.trim() || trimmed;
-  try {
-    return JSON.parse(source);
-  } catch {
-    const firstObject = source.indexOf("{");
-    const firstArray = source.indexOf("[");
-    const first = [firstObject, firstArray].filter((i) => i >= 0).sort((a, b) => a - b)[0];
-    const last = Math.max(source.lastIndexOf("}"), source.lastIndexOf("]"));
-    if (first >= 0 && last > first) return JSON.parse(source.slice(first, last + 1));
-    throw new Error("AI response was not valid JSON.");
-  }
-}
-
-const pickString = (object: Record<string, unknown>, keys: string[]) => {
-  for (const key of keys) {
-    const value = object[key];
-    if (typeof value === "string" && value.trim()) return value.trim();
-  }
-  return undefined;
-};
-
-const normalizeLanguage = (value: string | undefined) => {
-  const v = value?.toLowerCase() || "";
-  if (v === "pl" || v.includes("pol")) return "Polish";
-  if (v === "sv" || v.includes("swe") || v.includes("swed")) return "Swedish";
-  if (v === "en" || v.includes("eng")) return "English";
-  return value;
-};
-
-const normalizeContentType = (value: string | undefined) => {
-  const v = value?.toLowerCase() || "";
-  if (v.includes("landing")) return "Landing Page";
-  if (v.includes("service")) return "Service Page";
-  if (v.includes("blog") || v.includes("article") || v.includes("post")) return "Blog Article";
-  if (v.includes("guide") || v.includes("how to")) return "Guide";
-  if (v.includes("faq") || v.includes("question")) return "FAQ Page";
-  if (v.includes("compar")) return "Comparison";
-  if (v.includes("location") || v.includes("local") || v.includes("city")) return "Location Page";
-  if (v.includes("page")) return "Service Page";
-  return value;
-};
-
-const normalizePriority = (value: string | undefined) => {
-  const v = value?.toLowerCase() || "";
-  if (v.includes("high") || v.includes("urgent") || v.includes("critical")) return "High";
-  if (v.includes("low")) return "Low";
-  if (v.includes("medium") || v.includes("mid")) return "Medium";
-  return value;
-};
-
-function normalizeOpportunityItem(item: unknown): unknown {
-  const object = getObject(item);
-  if (!object) return item;
-  return {
-    title: pickString(object, ["title", "topicTitle", "topic", "name", "targetKeyword", "target_keyword"]),
-    language: normalizeLanguage(pickString(object, ["language", "lang"])),
-    contentType: normalizeContentType(pickString(object, ["contentType", "content_type", "type", "format"])),
-    searchIntent: pickString(object, ["searchIntent", "search_intent", "intent"]),
-    targetAudience: pickString(object, ["targetAudience", "target_audience", "audience"]),
-    businessValue: pickString(object, ["businessValue", "business_value", "value", "why", "rationale", "strategy"]),
-    recommendedCta: pickString(object, ["recommendedCta", "recommended_cta", "cta", "callToAction", "call_to_action"]),
-    priority: normalizePriority(pickString(object, ["priority", "importance"])),
-  };
-}
-
-function normalizeCalendarItem(item: unknown): unknown {
-  const object = getObject(item);
-  if (!object) return item;
-  return {
-    opportunityIndex: object.opportunityIndex ?? object.opportunity_index ?? object.index,
-    daysFromToday: object.daysFromToday ?? object.days_from_today ?? object.dayOffset ?? object.day_offset,
-    topicTitle: pickString(object, ["topicTitle", "topic_title", "title", "topic"]),
-    language: normalizeLanguage(pickString(object, ["language", "lang"])),
-    contentType: normalizeContentType(pickString(object, ["contentType", "content_type", "type", "format"])),
-    searchIntent: pickString(object, ["searchIntent", "search_intent", "intent"]),
-    recommendedCta: pickString(object, ["recommendedCta", "recommended_cta", "cta", "callToAction", "call_to_action"]),
-  };
-}
+const CalendarResultSchema = z.object({
+  calendarItems: z.array(CalendarItemSchema).min(1).max(8),
+});
 
 function getGateway() {
   const key = process.env.LOVABLE_API_KEY;
@@ -203,14 +108,6 @@ function mapGatewayError(e: unknown): Error {
   if (/not valid JSON|unexpected token|no opportunities|no calendar/i.test(msg))
     return new Error("AI returned an unexpected format. Please try again.");
   return new Error("AI generation failed. Please try again.");
-}
-
-function logZodError(label: string, error: unknown) {
-  if (error instanceof z.ZodError) {
-    console.error(`[ai.functions] ${label} parse failed`, error.issues);
-  } else {
-    console.error(`[ai.functions] ${label} parse failed`, error);
-  }
 }
 
 function projectBrief(p: Project, services: ServiceItem[]) {
@@ -279,12 +176,12 @@ export const generateOpportunitiesFn = createServerFn({ method: "POST" })
         projectName: project.businessName || project.name,
         serviceCount: services.length,
       });
-      const { text } = await generateText({
+      const { output } = await generateText({
         model: gateway(MODEL),
+        output: Output.object({ schema: OpportunitiesResultSchema }),
         prompt: `You are an SEO and AI-visibility strategist for small businesses.
 
-Generate 6 high-quality content opportunities for this business and return them as { "opportunities": [...] }.
-Return JSON only. No markdown fences. No commentary.
+Generate 6 high-quality content opportunities for this business as an "opportunities" array.
 
 ${brief}
 ${existing}
@@ -293,19 +190,10 @@ Mix content types (landing/service/blog/guide/location/comparison) and languages
 ${sharedRules}`,
       });
 
-      console.info("[ai.functions] opportunities AI response received", { length: text.length });
-      const raw = parseJsonFromText(text);
-      const extracted = extractArray(raw, ["opportunities", "ideas", "topics", "recommendations"]);
-      if (!Array.isArray(extracted)) throw new Error("AI returned no opportunities.");
-      const normalized = extracted.map(normalizeOpportunityItem);
-      const parsed = OpportunityOutputSchema.safeParse(normalized);
-      if (!parsed.success) {
-        logZodError("opportunities", parsed.error);
-        throw parsed.error;
-      }
-      if (parsed.data.length === 0) throw new Error("AI returned no opportunities.");
-      console.info("[ai.functions] opportunities parsed", { count: parsed.data.length });
-      return parsed.data;
+      const opportunities = output?.opportunities ?? [];
+      if (opportunities.length === 0) throw new Error("AI returned no opportunities.");
+      console.info("[ai.functions] opportunities parsed", { count: opportunities.length });
+      return { opportunities };
     } catch (e) {
       throw mapGatewayError(e);
     }
@@ -342,10 +230,10 @@ export const generateCalendarFn = createServerFn({ method: "POST" })
         projectName: project.businessName || project.name,
         opportunityCount: opps.length,
       });
-      const { text } = await generateText({
+      const { output } = await generateText({
         model: gateway(MODEL),
-        prompt: `Build a realistic 1-month content calendar for "${project.businessName || project.name}" in ${project.primaryLanguage}.
-Return JSON only as { "calendar_items": [...] }. No markdown fences. No commentary.
+        output: Output.object({ schema: CalendarResultSchema }),
+        prompt: `Build a realistic 1-month content calendar for "${project.businessName || project.name}" in ${project.primaryLanguage} as a "calendarItems" array.
 
 Pick the strongest opportunities below and schedule them with sensible cadence (every 3–5 days, no clustering on one date). Prefer high-priority items first.
 
@@ -356,19 +244,10 @@ For each scheduled item, return the 1-based opportunityIndex it derives from.
 ${sharedRules}`,
       });
 
-      console.info("[ai.functions] calendar AI response received", { length: text.length });
-      const raw = parseJsonFromText(text);
-      const extracted = extractArray(raw, ["calendar_items", "items", "calendar", "calendarItems"]);
-      if (!Array.isArray(extracted)) throw new Error("AI returned no calendar items.");
-      const normalized = extracted.map(normalizeCalendarItem);
-      const parsed = CalendarOutputSchema.safeParse(normalized);
-      if (!parsed.success) {
-        logZodError("calendar", parsed.error);
-        throw parsed.error;
-      }
-      if (parsed.data.length === 0) throw new Error("AI returned no calendar items.");
-      console.info("[ai.functions] calendar parsed", { count: parsed.data.length });
-      return parsed.data;
+      const calendarItems = output?.calendarItems ?? [];
+      if (calendarItems.length === 0) throw new Error("AI returned no calendar items.");
+      console.info("[ai.functions] calendar parsed", { count: calendarItems.length });
+      return { calendarItems };
     } catch (e) {
       throw mapGatewayError(e);
     }
