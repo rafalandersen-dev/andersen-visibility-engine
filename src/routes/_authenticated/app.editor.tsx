@@ -49,6 +49,13 @@ function EditorPage() {
     if (!selectedId && assets[0]) setSelectedId(assets[0].id);
   }, [assets, selectedId]);
 
+  // Follow ?id changes (e.g. generating from the Editor entry point, which
+  // navigates to the same route) so the newly created asset opens immediately.
+  useEffect(() => {
+    if (search.id && search.id !== selectedId) setSelectedId(search.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.id]);
+
   const asset = useMemo(() => assets.find((a) => a.id === selectedId), [assets, selectedId]);
 
   return (
