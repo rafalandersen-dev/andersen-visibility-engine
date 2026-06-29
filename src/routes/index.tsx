@@ -49,7 +49,7 @@ export const Route = createFileRoute("/")({
 
 function Landing() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <main className="min-h-screen bg-background text-foreground">
       <PublicHeader />
       <Hero />
       <WhatYouCreate />
