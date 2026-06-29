@@ -133,6 +133,7 @@ function PricingPage() {
           <Link to="/" className="hover:text-foreground">Back to home</Link>
         </div>
       </footer>
-    </div>
+    </main>
+
   );
 }

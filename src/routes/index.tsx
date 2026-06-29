@@ -61,7 +61,8 @@ function Landing() {
       <PricingTeaser />
       <FAQ />
       <Footer />
-    </div>
+    </main>
+
   );
 }
 
