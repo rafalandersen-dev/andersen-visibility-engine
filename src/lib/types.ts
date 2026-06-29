@@ -95,3 +95,45 @@ export interface ContentAsset {
   status: ContentStatus;
   updatedAt: string;
 }
+
+// ---- Site Audit v1 ----
+export type AuditCategory =
+  | "Business Clarity"
+  | "SEO Basics"
+  | "Local Visibility"
+  | "AI Readiness"
+  | "Conversion & Trust";
+
+export interface AuditFinding {
+  id: string;
+  title: string;
+  category: AuditCategory;
+  severity: Priority;
+  explanation: string;
+  recommendation: string;
+  suggestedOpportunityTitle: string;
+  suggestedContentType: ContentType;
+  suggestedSearchIntent: SearchIntent;
+  suggestedCta: string;
+  priority: Priority;
+}
+
+export interface AuditResult {
+  id: string;
+  projectId: string;
+  websiteUrl: string;
+  /** false when the homepage could not be fetched (audit then uses project context only). */
+  fetchedWebsite: boolean;
+  note?: string;
+  overallScore: number;
+  seoScore: number;
+  localScore: number;
+  aiReadinessScore: number;
+  conversionScore: number;
+  summary: string;
+  topFixes: string[];
+  findings: AuditFinding[];
+  /** Finding ids already turned into Opportunities (dedup for the convert action). */
+  convertedFindingIds: string[];
+  createdAt: string;
+}

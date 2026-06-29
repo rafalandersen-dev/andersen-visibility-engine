@@ -22,13 +22,27 @@ import {
   replacePlannedCalendar,
   saveWorkspaceNow,
   upsertContent,
+  upsertAudit,
+  markFindingsConverted,
+  addOpportunities,
+  updateProject,
   uid,
 } from "./store";
-import type { Opportunity, CalendarItem, ContentAsset, Language } from "./types";
+import type {
+  Opportunity,
+  CalendarItem,
+  ContentAsset,
+  Language,
+  AuditResult,
+  AuditFinding,
+  Project,
+  Priority,
+} from "./types";
 import {
   generateOpportunitiesFn,
   generateCalendarFn,
   generateContentAssetFn,
+  generateAuditFn,
   regenerateMetadataFn,
   regenerateFaqFn,
   regenerateCtaFn,
@@ -271,5 +285,122 @@ export async function generateCta(contentAssetId: string) {
     })) as string;
     upsertContent({ ...a, cta, updatedAt: new Date().toISOString() });
     await saveWorkspaceNow();
+  });
+}
+
+// ============================================================
+// Site Audit v1
+// ============================================================
+
+const priorityRank: Record<Priority, number> = { High: 3, Medium: 2, Low: 1 };
+
+/** Build a "New"-equivalent Opportunity from an audit finding.
+ *  Status is "Linked" so a later opportunities re-generation
+ *  (which replaces only "New" items) never wipes audit-derived ones. */
+function opportunityFromFinding(finding: AuditFinding, project: Project): Opportunity {
+  return {
+    id: uid(),
+    projectId: project.id,
+    title: finding.suggestedOpportunityTitle || finding.title,
+    language: project.primaryLanguage,
+    contentType: finding.suggestedContentType,
+    searchIntent: finding.suggestedSearchIntent,
+    targetAudience: project.targetAudience || "Potential customers",
+    businessValue: finding.recommendation || finding.explanation,
+    recommendedCta: finding.suggestedCta || "Contact us",
+    priority: finding.priority,
+    status: "Linked",
+  };
+}
+
+export async function runSiteAudit(projectId: string, websiteUrl?: string) {
+  return once(`audit:${projectId}`, async () => {
+    const { project, services } = requireProject(projectId);
+    const url = (websiteUrl ?? project.websiteUrl ?? "").trim();
+
+    const res = await generateAuditFn({ data: { project, services, websiteUrl: url } });
+    if (!res || !Array.isArray(res.findings) || res.findings.length === 0) {
+      throw new Error("AI returned no audit findings. Please try again.");
+    }
+    console.info("[ai.client] audit received", {
+      projectId,
+      findings: res.findings.length,
+      fetched: res.fetchedWebsite,
+    });
+
+    // Persist a confirmed/edited URL back onto the project so it sticks.
+    if (url && url !== project.websiteUrl) {
+      updateProject(projectId, { websiteUrl: url });
+    }
+
+    const audit: AuditResult = {
+      id: uid(),
+      projectId,
+      websiteUrl: url,
+      fetchedWebsite: Boolean(res.fetchedWebsite),
+      note: res.note || undefined,
+      overallScore: res.overallScore,
+      seoScore: res.seoScore,
+      localScore: res.localScore,
+      aiReadinessScore: res.aiReadinessScore,
+      conversionScore: res.conversionScore,
+      summary: res.summary,
+      topFixes: Array.isArray(res.topFixes) ? res.topFixes : [],
+      findings: res.findings.map((f) => ({ ...f, id: uid() })),
+      convertedFindingIds: [],
+      createdAt: new Date().toISOString(),
+    };
+    upsertAudit(audit);
+    await saveWorkspaceNow();
+    console.info("[ai.client] audit saved", { projectId, findings: audit.findings.length });
+    return audit;
+  });
+}
+
+/** Convert a single finding into an Opportunity (idempotent per finding). */
+export async function createOpportunityFromFinding(projectId: string, findingId: string) {
+  const s = getState();
+  const audit = s.audits.find((a) => a.projectId === projectId);
+  if (!audit) throw new Error("Run a site audit first.");
+  const finding = audit.findings.find((f) => f.id === findingId);
+  if (!finding) throw new Error("Finding not found.");
+  if (audit.convertedFindingIds.includes(findingId)) {
+    throw new Error("This finding is already an opportunity.");
+  }
+  const { project } = requireProject(projectId);
+  const opp = opportunityFromFinding(finding, project);
+  addOpportunities([opp]);
+  markFindingsConverted(audit.id, [findingId]);
+  await saveWorkspaceNow();
+  return opp;
+}
+
+/** Bulk: create opportunities from the top 3–5 High/Medium findings not yet converted. */
+export async function createOpportunitiesFromTopFixes(projectId: string) {
+  return once(`audit-bulk:${projectId}`, async () => {
+    const s = getState();
+    const audit = s.audits.find((a) => a.projectId === projectId);
+    if (!audit) throw new Error("Run a site audit first.");
+    const { project } = requireProject(projectId);
+
+    const candidates = audit.findings
+      .filter((f) => !audit.convertedFindingIds.includes(f.id))
+      .filter((f) => f.priority === "High" || f.priority === "Medium")
+      .sort((a, b) => priorityRank[b.priority] - priorityRank[a.priority])
+      .slice(0, 5);
+
+    if (candidates.length === 0) {
+      throw new Error("No remaining high or medium priority findings to convert.");
+    }
+
+    const opps = candidates.map((f) => opportunityFromFinding(f, project));
+    addOpportunities(opps);
+    markFindingsConverted(
+      audit.id,
+      candidates.map((f) => f.id),
+    );
+    await saveWorkspaceNow();
+    console.info("[ai.client] top-fix opportunities created", { projectId, count: opps.length });
+    return opps;
   });
 }

@@ -53,10 +53,19 @@ const cleanString = (max: number) =>
     }, z.string())
     .transform((value) => (value.length > max ? value.slice(0, max).trim() : value));
 
+const AUDIT_CATEGORIES = [
+  "Business Clarity",
+  "SEO Basics",
+  "Local Visibility",
+  "AI Readiness",
+  "Conversion & Trust",
+] as const;
+
 const LanguageEnum = normalizedEnum(LANGUAGES);
 const ContentTypeEnum = normalizedEnum(CONTENT_TYPES);
 const SearchIntentEnum = normalizedEnum(SEARCH_INTENTS);
 const PriorityEnum = normalizedEnum(PRIORITIES);
+const AuditCategoryEnum = normalizedEnum(AUDIT_CATEGORIES);
 
 // Structured-output schemas. Keep them loose — strict min/max on every string
 // makes the model fail validation often; we clip oversized strings in the
@@ -90,6 +99,20 @@ const CalendarResultSchema = z.object({
   calendarItems: z.array(CalendarItemSchema),
 });
 
+// Site Audit finding (id assigned client-side, like opportunities/calendar).
+const AuditFindingOutputSchema = z.object({
+  title: cleanString(120),
+  category: AuditCategoryEnum,
+  severity: PriorityEnum,
+  explanation: cleanString(400),
+  recommendation: cleanString(400),
+  suggestedOpportunityTitle: cleanString(120),
+  suggestedContentType: ContentTypeEnum,
+  suggestedSearchIntent: SearchIntentEnum,
+  suggestedCta: cleanString(60),
+  priority: PriorityEnum,
+});
+
 function getGateway() {
   const key = process.env.LOVABLE_API_KEY;
   if (!key) throw new Error("AI Gateway is not configured.");
@@ -113,6 +136,22 @@ const pickString = (record: UnknownRecord, keys: string[], fallback = "") => {
     if (value) return value;
   }
   return fallback;
+};
+
+const pickNumber = (record: UnknownRecord, keys: string[]): unknown => {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string" && value.trim() && Number.isFinite(parseFloat(value))) return value;
+  }
+  return undefined;
+};
+
+const clampScore = (value: unknown, fallback = 60): number => {
+  const n =
+    typeof value === "number" ? value : typeof value === "string" ? parseFloat(value) : NaN;
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(0, Math.min(100, Math.round(n)));
 };
 
 function normalizeValue<const T extends readonly [string, ...string[]]>(
@@ -334,6 +373,33 @@ function normalizeContentAsset(payload: unknown, project: Project, opp: Opportun
   });
 }
 
+function normalizeAuditCategory(value: unknown) {
+  const raw = asString(value).toLowerCase();
+  if (/local|near me|map|gbp|google business|directory/.test(raw)) return "Local Visibility";
+  if (/conver|trust|cta|testimonial|review|booking|pricing|offer/.test(raw)) return "Conversion & Trust";
+  if (/\bai\b|geo|answer|generative|llm|cited|citation|overview/.test(raw)) return "AI Readiness";
+  if (/seo|search engine|on-?page|technical|meta|title|heading|keyword|internal link/.test(raw)) return "SEO Basics";
+  if (/clarity|business|messaging|value prop|positioning|who|what/.test(raw)) return "Business Clarity";
+  return normalizeValue(value, AUDIT_CATEGORIES, "SEO Basics");
+}
+
+function normalizeAuditFinding(value: unknown, index: number) {
+  const item = isRecord(value) ? value : {};
+  const title = pickString(item, ["title", "name", "issue", "heading", "finding"], `Finding ${index + 1}`);
+  return AuditFindingOutputSchema.parse({
+    title,
+    category: normalizeAuditCategory(item.category ?? item.area ?? item.group ?? item.section),
+    severity: normalizePriority(item.severity ?? item.impact ?? item.priority),
+    explanation: pickString(item, ["explanation", "detail", "details", "why", "description", "problem", "issue"], "This area could be clearer for both search engines and AI answers."),
+    recommendation: pickString(item, ["recommendation", "fix", "action", "suggestion", "howToFix", "how_to_fix", "recommendedAction", "remedy"], "Add a focused page or section that addresses this directly."),
+    suggestedOpportunityTitle: pickString(item, ["suggestedOpportunityTitle", "suggested_opportunity_title", "opportunityTitle", "suggestedTitle", "contentTitle", "pageTitle"], title),
+    suggestedContentType: normalizeContentType(item.suggestedContentType ?? item.contentType ?? item.content_type ?? item.type ?? item.format),
+    suggestedSearchIntent: normalizeSearchIntent(item.suggestedSearchIntent ?? item.searchIntent ?? item.search_intent ?? item.intent),
+    suggestedCta: pickString(item, ["suggestedCta", "suggested_cta", "cta", "callToAction", "call_to_action"], "Contact us"),
+    priority: normalizePriority(item.priority ?? item.severity ?? item.impact),
+  });
+}
+
 // NOTE: GPT-5-class models are reasoning models — they spend output-token
 // budget on internal reasoning before emitting the answer, so the cap must
 // cover reasoning + the JSON payload or the response truncates mid-JSON.
@@ -420,6 +486,213 @@ RULES:
 - Tone: professional, calm, clear.
 - Write all generated text in the requested language. Do not mix languages.
 `;
+
+// ============================================================
+// Site Audit v1 — safe, limited homepage fetch + AI audit
+// ============================================================
+
+function stripTags(html: string): string {
+  return html
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#\d+;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Fetch a single URL as text with a hard timeout. Returns "" on any failure. */
+async function fetchHtml(url: string, timeoutMs: number): Promise<string> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      redirect: "follow",
+      headers: { "User-Agent": "MiloGrowthAuditBot/1.0 (+https://milogrowth.com)" },
+    });
+    if (!res.ok) return "";
+    const ct = res.headers.get("content-type") ?? "";
+    if (ct && !/text\/html|application\/xhtml|text\/plain/i.test(ct)) return "";
+    const body = await res.text();
+    return body.slice(0, 300_000);
+  } catch {
+    return "";
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+interface SiteContext {
+  ok: boolean;
+  title: string;
+  metaDescription: string;
+  text: string;
+  links: string[];
+}
+
+/**
+ * Best-effort, limited homepage read for the audit. Fetches ONLY the homepage,
+ * extracts title/meta/visible text and discovers up to 5 same-domain internal
+ * links (path + anchor text). Never throws — returns ok:false on any problem.
+ */
+async function fetchSiteContext(rawUrl: string): Promise<SiteContext> {
+  const empty: SiteContext = { ok: false, title: "", metaDescription: "", text: "", links: [] };
+  let url = (rawUrl || "").trim();
+  if (!url) return empty;
+  if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+  let base: URL;
+  try {
+    base = new URL(url);
+  } catch {
+    return empty;
+  }
+  if (base.protocol !== "http:" && base.protocol !== "https:") return empty;
+
+  const html = await fetchHtml(base.toString(), 8000);
+  if (!html) return empty;
+
+  const title = stripTags(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "").slice(0, 200);
+  const metaDescription = (
+    html.match(/<meta[^>]+name=["']description["'][^>]*content=["']([^"']*)["']/i)?.[1] ??
+    html.match(/<meta[^>]+content=["']([^"']*)["'][^>]*name=["']description["']/i)?.[1] ??
+    ""
+  )
+    .trim()
+    .slice(0, 320);
+
+  const links: string[] = [];
+  const seen = new Set<string>();
+  const linkRe = /<a[^>]+href=["']([^"'#]+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = linkRe.exec(html)) && links.length < 5) {
+    try {
+      const u = new URL(match[1], base);
+      if (u.hostname !== base.hostname) continue;
+      const path = u.pathname.replace(/\/+$/, "") || "/";
+      if (path === "/" || seen.has(path)) continue;
+      seen.add(path);
+      const anchor = stripTags(match[2]).slice(0, 60);
+      links.push(anchor ? `${path} (${anchor})` : path);
+    } catch {
+      /* skip malformed href */
+    }
+  }
+
+  const text = stripTags(
+    html.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " "),
+  ).slice(0, 3500);
+
+  return { ok: true, title, metaDescription, text, links };
+}
+
+export const generateAuditFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        project: z.any(),
+        services: z.array(z.any()).default([]),
+        websiteUrl: z.string().default(""),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const project = data.project as Project;
+    const services = data.services as ServiceItem[];
+    const url = (data.websiteUrl || project.websiteUrl || "").trim();
+    const brief = projectBrief(project, services);
+
+    // Limited, safe homepage read (never throws).
+    const site = await fetchSiteContext(url);
+    const websiteBlock = site.ok
+      ? `WEBSITE CONTENT (fetched from ${url}):
+Title: ${site.title || "(none)"}
+Meta description: ${site.metaDescription || "(none)"}
+Internal links discovered: ${site.links.length ? site.links.join(", ") : "(none found on homepage)"}
+Visible homepage text (excerpt):
+${site.text || "(no readable text extracted)"}`
+      : `WEBSITE: could not be fetched${url ? ` (${url})` : " (no URL provided)"}. Base the audit ONLY on the business context below.`;
+
+    try {
+      console.info("[ai.functions] audit reached", {
+        userIdPresent: Boolean(context.userId),
+        projectId: project.id,
+        projectName: project.businessName || project.name,
+        websiteFetched: site.ok,
+      });
+
+      const payload = await generateJsonText(
+        `You are a senior SEO, local-SEO and AI-visibility (GEO) auditor for small and medium businesses.
+
+Produce a prioritized visibility audit across these five areas: Business Clarity, SEO Basics, Local Visibility, AI Readiness, Conversion & Trust.
+
+Return exactly this JSON shape:
+{"overallScore":0,"seoScore":0,"localScore":0,"aiReadinessScore":0,"conversionScore":0,"summary":"","topFixes":[""],"findings":[{"title":"","category":"Business Clarity|SEO Basics|Local Visibility|AI Readiness|Conversion & Trust","severity":"Low|Medium|High","explanation":"","recommendation":"","suggestedOpportunityTitle":"","suggestedContentType":"Landing Page|Service Page|Blog Article|Guide|FAQ Page|Comparison|Location Page","suggestedSearchIntent":"Informational|Commercial|Transactional|Navigational","suggestedCta":"","priority":"Low|Medium|High"}]}
+
+Scoring: 0–100 where higher is better (well-optimized). Be realistic, not generous.
+Findings: provide 8–12 findings spread across ALL five categories. Each "suggestedOpportunityTitle" must read like a real page or article that would fix the gap and could feed a content plan.
+topFixes: 3–5 short strings naming the highest-impact actions.
+
+${websiteBlock}
+
+BUSINESS CONTEXT:
+${brief}
+${sharedRules}`,
+        7000,
+      );
+
+      const root = isRecord(payload) ? payload : {};
+      const findings = extractArray(root, ["findings", "issues", "items", "audit", "results"]).map(
+        (f, i) => normalizeAuditFinding(f, i),
+      );
+      if (findings.length === 0) throw new Error("AI returned no audit findings.");
+
+      const seoScore = clampScore(pickNumber(root, ["seoScore", "seo_score", "seo"]));
+      const localScore = clampScore(pickNumber(root, ["localScore", "local_score", "local"]));
+      const aiReadinessScore = clampScore(
+        pickNumber(root, ["aiReadinessScore", "ai_readiness_score", "aiReadiness", "geoScore", "geo"]),
+      );
+      const conversionScore = clampScore(
+        pickNumber(root, ["conversionScore", "conversion_score", "conversion"]),
+      );
+      const overallScore = clampScore(
+        pickNumber(root, ["overallScore", "overall_score", "overall", "score"]),
+        Math.round((seoScore + localScore + aiReadinessScore + conversionScore) / 4),
+      );
+      const summary = pickString(
+        root,
+        ["summary", "overview", "analysis", "assessment"],
+        "Audit complete — review the findings below and turn the top fixes into opportunities.",
+      );
+      const topFixes = normalizeStringArray(
+        root.topFixes ?? root.top_fixes ?? root.priorities ?? root.quickWins ?? root.quick_wins,
+        findings.slice(0, 3).map((f) => f.title),
+      ).slice(0, 5);
+
+      console.info("[ai.functions] audit parsed", { findings: findings.length, fetched: site.ok });
+
+      return {
+        fetchedWebsite: site.ok,
+        note: site.ok
+          ? ""
+          : "Website could not be fetched, so this audit is based on your project details.",
+        overallScore,
+        seoScore,
+        localScore,
+        aiReadinessScore,
+        conversionScore,
+        summary,
+        topFixes,
+        findings,
+      };
+    } catch (e) {
+      throw mapGatewayError(e);
+    }
+  });
 
 // ============================================================
 // generateOpportunities

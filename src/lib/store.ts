@@ -23,6 +23,7 @@ import type {
   Opportunity,
   CalendarItem,
   ContentAsset,
+  AuditResult,
 } from "./types";
 import {
   seedProjects,
@@ -40,6 +41,7 @@ interface State {
   opportunities: Opportunity[];
   calendar: CalendarItem[];
   content: ContentAsset[];
+  audits: AuditResult[];
   activeProjectId: string;
   /** Whether the active user's workspace has been loaded from Cloud. */
   hydrated: boolean;
@@ -53,6 +55,7 @@ const emptyState: State = {
   opportunities: [],
   calendar: [],
   content: [],
+  audits: [],
   activeProjectId: "",
   hydrated: false,
   userId: null,
@@ -66,6 +69,7 @@ const ssrSnapshot: State = {
   opportunities: seedOpportunities,
   calendar: seedCalendar,
   content: seedContent,
+  audits: [],
   activeProjectId: seedProjects[0]?.id ?? "",
   hydrated: false,
   userId: null,
@@ -94,6 +98,7 @@ export async function saveWorkspaceNow(): Promise<void> {
     opportunities: state.opportunities,
     calendar: state.calendar,
     content: state.content,
+    audits: state.audits,
     activeProjectId: state.activeProjectId,
   };
   const { error } = await supabase
@@ -168,6 +173,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
         opportunities: d.opportunities ?? [],
         calendar: d.calendar ?? [],
         content: d.content ?? [],
+        audits: d.audits ?? [],
         activeProjectId: d.activeProjectId ?? (d.projects?.[0]?.id ?? ""),
         hydrated: true,
         userId,
@@ -181,6 +187,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
         opportunities: [],
         calendar: [],
         content: [],
+        audits: [],
         activeProjectId: "",
         hydrated: true,
         userId,
@@ -206,6 +213,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
       opportunities: [],
       calendar: [],
       content: [],
+      audits: [],
       activeProjectId: "",
       hydrated: true,
       userId,
@@ -357,3 +365,23 @@ export const upsertContent = (asset: ContentAsset) =>
         : [...s.content, asset],
     };
   });
+
+// ---- Site Audit ----
+
+/** Store the latest audit for a project (one audit per project — replaces any prior). */
+export const upsertAudit = (audit: AuditResult) =>
+  setState((s) => ({
+    ...s,
+    audits: [...s.audits.filter((a) => a.projectId !== audit.projectId), audit],
+  }));
+
+/** Mark finding ids as already converted into Opportunities (dedup). */
+export const markFindingsConverted = (auditId: string, findingIds: string[]) =>
+  setState((s) => ({
+    ...s,
+    audits: s.audits.map((a) =>
+      a.id === auditId
+        ? { ...a, convertedFindingIds: Array.from(new Set([...a.convertedFindingIds, ...findingIds])) }
+        : a,
+    ),
+  }));
