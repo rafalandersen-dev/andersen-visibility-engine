@@ -114,8 +114,8 @@ function CalendarPage() {
               <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-3">
                 Week {week}
               </div>
-              <div className="rounded-lg border border-border bg-card overflow-hidden">
-                <table className="w-full text-sm">
+              <div className="rounded-lg border border-border bg-card overflow-x-auto">
+                <table className="w-full min-w-[1040px] text-sm">
                   <thead className="bg-secondary/60 text-xs uppercase tracking-[0.14em] text-muted-foreground">
                     <tr>
                       <th className="text-left px-5 py-3 font-medium w-32">Date</th>
