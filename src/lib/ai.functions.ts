@@ -7,17 +7,16 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { generateText, Output } from "ai";
+import { generateText } from "ai";
 import { z } from "zod";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 import type {
   Project,
   ServiceItem,
   Opportunity,
-  ContentAsset,
 } from "./types";
 
-const MODEL = "openai/gpt-5-mini";
+const MODEL = "google/gemini-3-flash-preview";
 
 const LANGUAGES = ["Polish", "Swedish", "English"] as const;
 const CONTENT_TYPES = [
@@ -47,7 +46,11 @@ function normalizedEnum<const T extends readonly [string, ...string[]]>(values: 
 
 const cleanString = (max: number) =>
   z
-    .preprocess((value) => (typeof value === "string" ? value.trim() : value), z.string().min(1))
+    .preprocess((value) => {
+      if (typeof value === "string") return value.trim();
+      if (typeof value === "number" || typeof value === "boolean") return String(value);
+      return "";
+    }, z.string())
     .transform((value) => (value.length > max ? value.slice(0, max).trim() : value));
 
 const LanguageEnum = normalizedEnum(LANGUAGES);
@@ -93,6 +96,254 @@ function getGateway() {
   return createLovableAiGatewayProvider(key);
 }
 
+type UnknownRecord = Record<string, unknown>;
+
+const isRecord = (value: unknown): value is UnknownRecord =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+const asString = (value: unknown, fallback = "") => {
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" || typeof value === "boolean") return String(value).trim();
+  return fallback;
+};
+
+const pickString = (record: UnknownRecord, keys: string[], fallback = "") => {
+  for (const key of keys) {
+    const value = asString(record[key]);
+    if (value) return value;
+  }
+  return fallback;
+};
+
+function normalizeValue<const T extends readonly [string, ...string[]]>(
+  value: unknown,
+  values: T,
+  fallback: T[number],
+) {
+  const normalize = (input: string) => input.toLowerCase().replace(/[^a-z]/g, "");
+  const raw = asString(value);
+  if (!raw) return fallback;
+  const input = normalize(raw);
+  return (
+    values.find((option) => normalize(option) === input) ??
+    values.find((option) => input.includes(normalize(option)) || normalize(option).includes(input)) ??
+    fallback
+  );
+}
+
+function normalizeLanguage(value: unknown, project?: Project) {
+  const raw = asString(value).toLowerCase();
+  if (/svensk|svenska|swedish|sverige|sweden/.test(raw)) return "Swedish";
+  if (/polsk|polska|polski|polish|poland|polska/.test(raw)) return "Polish";
+  if (/engelsk|english|angielski/.test(raw)) return "English";
+  return normalizeValue(
+    value,
+    LANGUAGES,
+    project?.primaryLanguage && LANGUAGES.includes(project.primaryLanguage) ? project.primaryLanguage : "English",
+  );
+}
+
+function normalizeContentType(value: unknown) {
+  const raw = asString(value).toLowerCase();
+  if (/blog|article|post/.test(raw)) return "Blog Article";
+  if (/landing/.test(raw)) return "Landing Page";
+  if (/service/.test(raw)) return "Service Page";
+  if (/faq|question/.test(raw)) return "FAQ Page";
+  if (/location|local|city|area/.test(raw)) return "Location Page";
+  if (/compare|comparison|versus|vs/.test(raw)) return "Comparison";
+  if (/guide|how|manual/.test(raw)) return "Guide";
+  return normalizeValue(value, CONTENT_TYPES, "Blog Article");
+}
+
+function normalizeSearchIntent(value: unknown) {
+  const raw = asString(value).toLowerCase();
+  if (/transaction|transaktion|buy|köp|kop|book|boka|bokning|order|quote|offert|hire/.test(raw)) return "Transactional";
+  if (/commercial|kommersi|compare|jämför|jamfor|best|pricing|price|pris|cost|service|tjänst|tjanst/.test(raw)) return "Commercial";
+  if (/navigation|brand|contact|kontakt|address|adress/.test(raw)) return "Navigational";
+  return normalizeValue(value, SEARCH_INTENTS, "Informational");
+}
+
+function normalizePriority(value: unknown) {
+  const raw = asString(value).toLowerCase();
+  if (/urgent|high|strong|top|1/.test(raw)) return "High";
+  if (/low|later|3/.test(raw)) return "Low";
+  return normalizeValue(value, PRIORITIES, "Medium");
+}
+
+function parseJsonFromText(text: string): unknown {
+  const cleaned = text
+    .replace(/```json\s*/gi, "")
+    .replace(/```\s*/g, "")
+    .trim();
+
+  const firstObject = cleaned.indexOf("{");
+  const firstArray = cleaned.indexOf("[");
+  const starts = [firstObject, firstArray].filter((index) => index >= 0);
+  if (!starts.length) throw new Error("AI returned no JSON payload.");
+
+  const tryParse = (candidate: string) => {
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      return JSON.parse(
+        candidate
+          .replace(/,\s*}/g, "}")
+          .replace(/,\s*]/g, "]")
+          .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ""),
+      );
+    }
+  };
+
+  for (const start of starts.sort((a, b) => a - b)) {
+    const stack: string[] = [];
+    let inString = false;
+    let escaped = false;
+
+    for (let i = start; i < cleaned.length; i += 1) {
+      const char = cleaned[i];
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (char === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (char === '"') {
+        inString = !inString;
+        continue;
+      }
+      if (inString) continue;
+
+      if (char === "{") stack.push("}");
+      if (char === "[") stack.push("]");
+      if ((char === "}" || char === "]") && stack.pop() !== char) break;
+
+      if (stack.length === 0) {
+        try {
+          return tryParse(cleaned.slice(start, i + 1));
+        } catch {
+          break;
+        }
+      }
+    }
+  }
+
+  throw new Error("AI response appears truncated before valid JSON ended.");
+}
+
+function extractArray(payload: unknown, keys: string[]): unknown[] {
+  if (Array.isArray(payload)) return payload;
+  if (!isRecord(payload)) return [];
+  for (const key of keys) {
+    const value = payload[key];
+    if (Array.isArray(value)) return value;
+  }
+  for (const value of Object.values(payload)) {
+    if (Array.isArray(value)) return value;
+    if (isRecord(value)) {
+      const nested = extractArray(value, keys);
+      if (nested.length) return nested;
+    }
+  }
+  return [];
+}
+
+function normalizeOpportunityItem(value: unknown, project: Project, index: number) {
+  const item = isRecord(value) ? value : {};
+  const title = pickString(item, ["title", "topicTitle", "topic_title", "topic", "name", "headline", "primary_keyword"], `SEO opportunity ${index + 1}`);
+  return OpportunityItemSchema.parse({
+    title,
+    language: normalizeLanguage(item.language ?? item.lang, project),
+    contentType: normalizeContentType(item.contentType ?? item.content_type ?? item.type ?? item.format ?? item.assetType ?? item.asset_type),
+    searchIntent: normalizeSearchIntent(item.searchIntent ?? item.search_intent ?? item.intent),
+    targetAudience: pickString(item, ["targetAudience", "target_audience", "audience", "who", "persona"], project.targetAudience || "Potential customers"),
+    businessValue: pickString(item, ["businessValue", "business_value", "value", "why", "why_it_works", "rationale", "strategy"], "Build qualified search visibility for the business."),
+    recommendedCta: pickString(item, ["recommendedCta", "recommended_cta", "suggested_cta", "cta", "callToAction", "call_to_action"], "Contact us"),
+    priority: normalizePriority(item.priority ?? item.impact),
+  });
+}
+
+function normalizeCalendarItem(value: unknown, project: Project, index: number) {
+  const item = isRecord(value) ? value : {};
+  return CalendarItemSchema.parse({
+    opportunityIndex: item.opportunityIndex ?? item.sourceIndex ?? item.index ?? index + 1,
+    daysFromToday: item.daysFromToday ?? item.days_from_today ?? item.dayOffset ?? item.day_offset ?? item.day ?? (index + 1) * 4,
+    topicTitle: pickString(item, ["topicTitle", "topic_title", "title", "topic", "name"], `Planned content ${index + 1}`),
+    language: normalizeLanguage(item.language ?? item.lang, project),
+    contentType: normalizeContentType(item.contentType ?? item.content_type ?? item.type ?? item.format),
+    searchIntent: normalizeSearchIntent(item.searchIntent ?? item.search_intent ?? item.intent),
+    recommendedCta: pickString(item, ["recommendedCta", "recommended_cta", "suggested_cta", "cta", "callToAction", "call_to_action"], "Contact us"),
+  });
+}
+
+function normalizeStringArray(value: unknown, fallback: string[]) {
+  const source = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(/\n|,|;/)
+      : [];
+  const items = source
+    .map((item) => (isRecord(item) ? pickString(item, ["title", "text", "label", "name"]) : asString(item)))
+    .filter(Boolean);
+  return items.length ? items : fallback;
+}
+
+function normalizeFaq(value: unknown) {
+  const source = isRecord(value) && Array.isArray(value.faq)
+    ? value.faq
+    : isRecord(value) && Array.isArray(value.faqs)
+      ? value.faqs
+      : isRecord(value) && Array.isArray(value.questions)
+        ? value.questions
+        : Array.isArray(value)
+          ? value
+          : [];
+  const items = source
+    .map((item, index) => {
+      if (!isRecord(item)) return null;
+      const q = pickString(item, ["q", "question", "title", "heading"], `Question ${index + 1}`);
+      const a = pickString(item, ["a", "answer", "response", "body", "text"], "Contact the business for details.");
+      return { q, a };
+    })
+    .filter((item): item is { q: string; a: string } => Boolean(item));
+  return items.length ? items : [{ q: "How can I get started?", a: "Contact the team to discuss your needs and the next practical step." }];
+}
+
+function normalizeContentAsset(payload: unknown, project: Project, opp: Opportunity) {
+  const root = isRecord(payload) ? payload : {};
+  const item = ["contentAsset", "content_asset", "asset", "page", "article", "draft"]
+    .map((key) => root[key])
+    .find(isRecord) ?? root;
+  const markdown = pickString(
+    item,
+    ["markdown", "content", "body", "draftMarkdown", "draft_markdown", "article", "pageDraft", "page_draft"],
+    `## ${opp.title}\n\nCreate a focused page for ${project.businessName || project.name} that answers the search intent clearly and guides readers toward ${opp.recommendedCta}.`,
+  );
+  return ContentAssetSchema.parse({
+    metaTitle: pickString(item, ["metaTitle", "meta_title", "seoTitle", "seo_title", "title"], opp.title),
+    metaDescription: pickString(item, ["metaDescription", "meta_description", "seoDescription", "seo_description", "description"], opp.businessValue),
+    h1: pickString(item, ["h1", "headline", "pageTitle"], opp.title),
+    outline: normalizeStringArray(item.outline ?? item.sections, ["Introduction", "Key information", "Next step"]),
+    faq: normalizeFaq(item.faq ?? item.faqs ?? item.questions),
+    cta: pickString(item, ["cta", "recommendedCta", "recommended_cta", "callToAction", "call_to_action"], opp.recommendedCta || "Contact us"),
+    markdown,
+    internalLinks: normalizeStringArray(item.internalLinks ?? item.internal_links ?? item.links, []),
+    schemaSuggestions: normalizeStringArray(item.schemaSuggestions ?? item.schema_suggestions ?? item.schema ?? item.structuredData ?? item.structured_data, []),
+    editorNotes: pickString(item, ["editorNotes", "editor_notes", "notes"], ""),
+  });
+}
+
+async function generateJsonText(prompt: string, maxOutputTokens = 5000) {
+  const gateway = getGateway();
+  const { text } = await generateText({
+    model: gateway(MODEL),
+    maxOutputTokens,
+    prompt,
+  });
+  return parseJsonFromText(text);
+}
+
 function mapGatewayError(e: unknown): Error {
   const msg = e instanceof Error ? e.message : String(e);
   // Surface real cause to server logs so we can debug schema/truncation issues.
@@ -106,7 +357,7 @@ function mapGatewayError(e: unknown): Error {
     return new Error("AI response was cut short. Please try again — it usually works on retry.");
   if (/schema|validation|zod|invalid_type|too_small|too_big|unrecognized|did not match/i.test(msg))
     return new Error("AI returned an unexpected format. Please try again.");
-  if (/not valid JSON|unexpected token|no opportunities|no calendar/i.test(msg))
+  if (/not valid JSON|unexpected token|no JSON|truncated|no opportunities|no calendar/i.test(msg))
     return new Error("AI returned an unexpected format. Please try again.");
   return new Error("AI generation failed. Please try again.");
 }
@@ -137,7 +388,7 @@ function projectBrief(p: Project, services: ServiceItem[]) {
 
 const sharedRules = `
 RULES:
-- Output MUST match the requested JSON schema exactly.
+- Output ONLY valid JSON. No markdown fences, no prose before or after JSON.
 - Do NOT claim you analyzed the website. Base recommendations only on the provided context.
 - Do NOT invent metrics, search volumes, ranking guarantees, competitor data or external sources.
 - Be specific to the given business — no generic SEO platitudes.
@@ -170,28 +421,27 @@ export const generateOpportunitiesFn = createServerFn({ method: "POST" })
       : "";
 
     try {
-      const gateway = getGateway();
       console.info("[ai.functions] opportunities reached", {
         userIdPresent: Boolean(context.userId),
         projectId: project.id,
         projectName: project.businessName || project.name,
         serviceCount: services.length,
       });
-      const { output } = await generateText({
-        model: gateway(MODEL),
-        output: Output.object({ schema: OpportunitiesResultSchema }),
-        prompt: `You are an SEO and AI-visibility strategist for small businesses.
+      const payload = await generateJsonText(`You are an SEO and AI-visibility strategist for small businesses.
 
-Generate 6 high-quality content opportunities for this business as an "opportunities" array.
+Generate 6 high-quality content opportunities for this business.
+Return exactly this JSON shape:
+{"opportunities":[{"title":"","language":"Polish|Swedish|English","contentType":"Landing Page|Service Page|Blog Article|Guide|FAQ Page|Comparison|Location Page","searchIntent":"Informational|Commercial|Transactional|Navigational","targetAudience":"","businessValue":"","recommendedCta":"","priority":"Low|Medium|High"}]}
 
 ${brief}
 ${existing}
 
 Mix content types (landing/service/blog/guide/location/comparison) and languages (use primary + additional). Each opportunity should be a specific, search-driven topic — not a vague theme. Each title should read like a real page or article a user could search for.
 ${sharedRules}`,
-      });
+      3000);
 
-      const opportunities = output?.opportunities ?? [];
+      const opportunities = extractArray(payload, ["opportunities", "ideas", "topics", "items", "results"])
+        .map((item, index) => normalizeOpportunityItem(item, project, index));
       if (opportunities.length === 0) throw new Error("AI returned no opportunities.");
       console.info("[ai.functions] opportunities parsed", { count: opportunities.length });
       return { opportunities };
@@ -224,17 +474,15 @@ export const generateCalendarFn = createServerFn({ method: "POST" })
       .join("\n");
 
     try {
-      const gateway = getGateway();
       console.info("[ai.functions] calendar reached", {
         userIdPresent: Boolean(context.userId),
         projectId: project.id,
         projectName: project.businessName || project.name,
         opportunityCount: opps.length,
       });
-      const { output } = await generateText({
-        model: gateway(MODEL),
-        output: Output.object({ schema: CalendarResultSchema }),
-        prompt: `Build a realistic 1-month content calendar for "${project.businessName || project.name}" in ${project.primaryLanguage} as a "calendarItems" array.
+      const payload = await generateJsonText(`Build a realistic 1-month content calendar for "${project.businessName || project.name}" in ${project.primaryLanguage}.
+Return exactly this JSON shape:
+{"calendarItems":[{"opportunityIndex":1,"daysFromToday":4,"topicTitle":"","language":"Polish|Swedish|English","contentType":"Landing Page|Service Page|Blog Article|Guide|FAQ Page|Comparison|Location Page","searchIntent":"Informational|Commercial|Transactional|Navigational","recommendedCta":""}]}
 
 Pick the strongest opportunities below and schedule them with sensible cadence (every 3–5 days, no clustering on one date). Prefer high-priority items first.
 
@@ -243,9 +491,10 @@ ${oppLines}
 
 For each scheduled item, return the 1-based opportunityIndex it derives from.
 ${sharedRules}`,
-      });
+      3000);
 
-      const calendarItems = output?.calendarItems ?? [];
+      const calendarItems = extractArray(payload, ["calendarItems", "calendar", "items", "schedule", "contentCalendar"])
+        .map((item, index) => normalizeCalendarItem(item, project, index));
       if (calendarItems.length === 0) throw new Error("AI returned no calendar items.");
       console.info("[ai.functions] calendar parsed", { count: calendarItems.length });
       return { calendarItems };
@@ -297,11 +546,10 @@ export const generateContentAssetFn = createServerFn({ method: "POST" })
         : `Generate a BLOG ARTICLE draft. Lead with a 2–3 sentence direct answer (AI-overview friendly), then context, key factors, what to do next, and FAQ. Markdown should be the article body in ${opp.language}.`;
 
     try {
-      const gateway = getGateway();
-      const { output } = await generateText({
-        model: gateway(MODEL),
-        output: Output.object({ schema: ContentAssetSchema }),
-        prompt: `${kindInstruction}
+      const payload = await generateJsonText(`${kindInstruction}
+
+Return exactly this JSON shape:
+{"metaTitle":"","metaDescription":"","h1":"","outline":[""],"faq":[{"q":"","a":""}],"cta":"","markdown":"","internalLinks":[""],"schemaSuggestions":[""],"editorNotes":""}
 
 Topic: ${opp.title}
 Search intent: ${opp.searchIntent}
@@ -319,9 +567,9 @@ Markdown rules:
 - Internal links: relative paths like "/services" or "/contact" only.
 - schemaSuggestions: schema.org types only (e.g. "Service", "FAQPage").
 ${sharedRules}`,
-      });
+      8000);
 
-      return output;
+      return normalizeContentAsset(payload, project, opp);
     } catch (e) {
       throw mapGatewayError(e);
     }
@@ -346,18 +594,24 @@ export const regenerateMetadataFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     try {
-      const gateway = getGateway();
-      const { output } = await generateText({
-        model: gateway(MODEL),
-        output: Output.object({
-          schema: z.object({
-            metaTitle: z.string().min(10).max(65),
-            metaDescription: z.string().min(50).max(165),
-          }),
-        }),
-        prompt: `Write an SEO meta title (≤60 chars) and meta description (≤160 chars) in ${data.language} for the page titled "${data.title}" about "${data.topic}" for "${data.businessName}". One calm sentence for the description, including a soft next step toward "${data.cta}". No quotes, no emojis.${sharedRules}`,
-      });
-      return output;
+      const payload = await generateJsonText(
+        `Write an SEO meta title (≤60 chars) and meta description (≤160 chars) in ${data.language} for the page titled "${data.title}" about "${data.topic}" for "${data.businessName}". One calm sentence for the description, including a soft next step toward "${data.cta}". No quotes, no emojis.
+
+Return exactly this JSON shape:
+{"metaTitle":"","metaDescription":""}
+${sharedRules}`,
+        1000,
+      );
+      const item = isRecord(payload) ? payload : {};
+      return z
+        .object({
+          metaTitle: cleanString(65),
+          metaDescription: cleanString(165),
+        })
+        .parse({
+          metaTitle: pickString(item, ["metaTitle", "title", "seoTitle"], data.title),
+          metaDescription: pickString(item, ["metaDescription", "description", "seoDescription"], data.topic),
+        });
     } catch (e) {
       throw mapGatewayError(e);
     }
@@ -377,20 +631,18 @@ export const regenerateFaqFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     try {
-      const gateway = getGateway();
-      const { output } = await generateText({
-        model: gateway(MODEL),
-        output: Output.object({
-          schema: z.object({
-            faq: z
-              .array(z.object({ q: z.string().min(5).max(140), a: z.string().min(10).max(400) }))
-              .min(1)
-              .max(5),
-          }),
-        }),
-        prompt: `Write 4 realistic FAQ entries in ${data.language} that real customers of "${data.businessName}" would ask about "${data.topic}". Answers must be concrete, 2–4 sentences. No invented prices, no guarantees.${sharedRules}`,
-      });
-      return output.faq;
+      const payload = await generateJsonText(
+        `Write 4 realistic FAQ entries in ${data.language} that real customers of "${data.businessName}" would ask about "${data.topic}". Answers must be concrete, 2–4 sentences. No invented prices, no guarantees.
+
+Return exactly this JSON shape:
+{"faq":[{"q":"","a":""}]}
+${sharedRules}`,
+        1800,
+      );
+      const faq = normalizeFaq(
+        isRecord(payload) ? payload.faq ?? payload.faqs ?? payload.questions ?? payload.items : payload,
+      );
+      return z.array(z.object({ q: cleanString(140), a: cleanString(400) })).parse(faq).slice(0, 5);
     } catch (e) {
       throw mapGatewayError(e);
     }
@@ -410,15 +662,16 @@ export const regenerateCtaFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     try {
-      const gateway = getGateway();
-      const { output } = await generateText({
-        model: gateway(MODEL),
-        output: Output.object({
-          schema: z.object({ cta: z.string().min(2).max(50) }),
-        }),
-        prompt: `Suggest ONE short, action-oriented CTA button label in ${data.language} for a ${data.intent.toLowerCase()} page about "${data.topic}" for "${data.businessName}". 2–5 words. No emojis, no quotes.${sharedRules}`,
-      });
-      return output.cta;
+      const payload = await generateJsonText(
+        `Suggest ONE short, action-oriented CTA button label in ${data.language} for a ${data.intent.toLowerCase()} page about "${data.topic}" for "${data.businessName}". 2–5 words. No emojis, no quotes.
+
+Return exactly this JSON shape:
+{"cta":""}
+${sharedRules}`,
+        700,
+      );
+      const item = isRecord(payload) ? payload : {};
+      return cleanString(50).parse(pickString(item, ["cta", "label", "button"], "Contact us"));
     } catch (e) {
       throw mapGatewayError(e);
     }
