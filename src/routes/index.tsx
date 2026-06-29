@@ -4,19 +4,48 @@ import { PLANS, EXTRA_PROJECT, formatPrice, MAX_PROJECTS_PER_USER } from "@/lib/
 import { seedProjects, seedOpportunities, seedContent } from "@/lib/mock-data";
 import { Sparkles, CalendarDays, FileText, ShieldCheck, ArrowRight, Store, Building2, MapPin, FileSearch, ListChecks, MessageSquareQuote, Wrench, Layers, XCircle, CheckCircle2 } from "lucide-react";
 
+const HOME_FAQ = [
+  { q: "Will Milo Growth guarantee rankings or traffic?", a: "No. No honest SEO tool can. Milo helps you ship a steady stream of structured, well-grounded content — but rankings depend on your site, market and execution." },
+  { q: "Does it publish to my website automatically?", a: "No. The workspace stops at approved, exportable Markdown or HTML. You stay in control of publishing." },
+  { q: "Does it replace an SEO agency?", a: "Not for every use case. It replaces the monthly planning, ideation and briefing work many small businesses pay an agency for. It does not do rank tracking, backlinks or competitor scraping." },
+  { q: "What is the Free Preview?", a: "A read-only tour of a fully populated demo project so you can see the workflow before creating your own." },
+  { q: "When can I pay?", a: "Billing is coming soon. Today you can create up to your plan's project limit, and we'll enable paid upgrades shortly." },
+];
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Milo Growth — Monthly AI Growth Planner for Small Businesses" },
+      { title: "Milo Growth — AI Growth Planner for Small Businesses" },
       {
         name: "description",
         content:
-          "Generate visibility ideas, content briefs, FAQ, service-page improvements and monthly action plans for your small business — without hiring an agency.",
+          "Generate visibility ideas, content briefs, FAQ and monthly action plans for your small business — without hiring an agency.",
+      },
+      { property: "og:title", content: "Milo Growth — AI Growth Planner for Small Businesses" },
+      { property: "og:description", content: "Your monthly AI growth planner for small businesses. Visibility ideas, content briefs, FAQ and clear monthly action plans." },
+      { property: "og:url", content: "https://milogrowth.com/" },
+      { name: "twitter:title", content: "Milo Growth — AI Growth Planner for Small Businesses" },
+      { name: "twitter:description", content: "Your monthly AI growth planner for small businesses — without hiring an agency." },
+    ],
+    links: [{ rel: "canonical", href: "https://milogrowth.com/" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: HOME_FAQ.map((it) => ({
+            "@type": "Question",
+            name: it.q,
+            acceptedAnswer: { "@type": "Answer", text: it.a },
+          })),
+        }),
       },
     ],
   }),
   component: Landing,
 });
+
 
 function Landing() {
   return (
@@ -436,41 +465,19 @@ function PricingTeaser() {
 }
 
 function FAQ() {
-  const items = [
-    {
-      q: "Will Milo Growth guarantee rankings or traffic?",
-      a: "No. No honest SEO tool can. Milo helps you ship a steady stream of structured, well-grounded content — but rankings depend on your site, market and execution.",
-    },
-    {
-      q: "Does it publish to my website automatically?",
-      a: "No. The workspace stops at approved, exportable Markdown or HTML. You stay in control of publishing.",
-    },
-    {
-      q: "Does it replace an SEO agency?",
-      a: "Not for every use case. It replaces the monthly planning, ideation and briefing work many small businesses pay an agency for. It does not do rank tracking, backlinks or competitor scraping.",
-    },
-    {
-      q: "What is the Free Preview?",
-      a: "A read-only tour of a fully populated demo project so you can see the workflow before creating your own.",
-    },
-    {
-      q: "When can I pay?",
-      a: "Billing is coming soon. Today you can create up to your plan's project limit, and we'll enable paid upgrades shortly.",
-    },
-  ];
   return (
     <section id="faq" className="border-t border-border">
       <div className="mx-auto max-w-3xl px-6 py-20">
         <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">FAQ</div>
         <h2 className="mt-2 font-display text-3xl md:text-4xl">Questions, answered.</h2>
         <div className="mt-10 divide-y divide-border border-y border-border">
-          {items.map((it) => (
+          {HOME_FAQ.map((it) => (
             <details key={it.q} className="group py-5">
               <summary className="cursor-pointer list-none flex items-center justify-between gap-4">
-                <span className="font-medium">{it.q}</span>
+                <span className="font-medium text-foreground">{it.q}</span>
                 <span className="text-gold transition-transform group-open:rotate-45">+</span>
               </summary>
-              <p className="mt-3 text-sm text-muted-foreground">{it.a}</p>
+              <p className="mt-3 text-sm text-foreground/80">{it.a}</p>
             </details>
           ))}
         </div>
@@ -478,6 +485,7 @@ function FAQ() {
     </section>
   );
 }
+
 
 function Footer() {
   return (
