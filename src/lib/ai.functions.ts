@@ -16,7 +16,7 @@ import type {
   Opportunity,
 } from "./types";
 
-const MODEL = "openai/gpt-5-mini";
+const MODEL = "google/gemini-3-flash-preview";
 
 const LANGUAGES = ["Polish", "Swedish", "English"] as const;
 const CONTENT_TYPES = [
