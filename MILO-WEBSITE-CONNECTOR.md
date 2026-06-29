@@ -329,6 +329,120 @@ after refresh; auto-publish only fires on **Approve** (never Draft/In Review/Rej
 
 ---
 
+## 9. Optional Milo Analytics Setup
+
+Independent of publishing, you can add **Milo Analytics** to a connected website
+so Milo can show whether the site is growing after content is planned, created and
+published. It is first-party, anonymous, and lightweight — not Google Analytics.
+This section is optional and can be added with or without the publishing endpoints.
+
+### 9a. Analytics snippet
+
+Add this **once, globally** to the client website — preferably in the shared
+head/body layout so it loads on every page:
+
+```html
+<script src="https://milogrowth.com/milo-analytics.js" data-project-id="PROJECT_ID"></script>
+```
+
+- `PROJECT_ID` comes from **Milo → Analytics → Setup** (the snippet there is
+  pre-filled with the correct id; copy it from the project you're connecting).
+- Tracks **anonymous page views** automatically on load.
+- **Supports SPA route changes** (history navigation), so single-page sites still
+  record each view.
+- Stores **no names, emails or full IP addresses** — anonymous visitor/session
+  ids only.
+- Dependency-free; safe to load once site-wide.
+
+### 9b. CTA / booking click tracking
+
+The snippet exposes a tiny global helper, `window.miloTrack(eventType, metadata)`.
+Use optional chaining (`?.`) so calls are safe even if the script hasn't loaded:
+
+```js
+window.miloTrack?.('cta_click', {
+  label: 'Book now',
+  location: 'Header'
+})
+```
+
+```js
+window.miloTrack?.('booking_click', {
+  label: 'Book appointment',
+  location: 'Service page CTA'
+})
+```
+
+Recommended actions to track (wire `miloTrack` to the click handler / `onClick`):
+
+- **Book now** → `cta_click`
+- **Book appointment** → `booking_click`
+- **Contact** → `cta_click`
+- **Membership CTA** → `cta_click`
+- **Gift card CTA** → `cta_click`
+- **Published page CTA block** → `cta_click`
+
+`metadata` is free-form (e.g. `label`, `location`) and shown for context in Milo;
+keep it small and free of personal data. Valid `eventType` values:
+`page_view`, `content_view`, `cta_click`, `booking_click`.
+
+### 9c. Published content performance
+
+Milo links visits to the content it published by **matching the page's path to the
+live URL stored on the content asset**:
+
+- When you publish live (section 2b), Milo stores the `liveUrl` you return.
+- Milo compares each analytics event's `path` to the **path of that `liveUrl`**.
+- So public pages must be served at the **same route Milo recorded** — i.e. the
+  connector route convention from section 3 (`/blog/:slug`, `/services/:slug`,
+  `/guides/:slug`, `/pages/:slug`). If your public routes match the returned
+  `liveUrl`, Milo shows **views and CTA/booking clicks per published page**
+  automatically — no extra wiring.
+
+> No per-asset id needs to be embedded in the page for v1 — path matching is
+> enough. Just keep public routes consistent with the `liveUrl` you return.
+
+### 9d. AI-related signals
+
+Milo flags traffic that **appears** to come from AI tools, using referrer and
+user-agent detection only. Use cautious wording on the client side too:
+
+- **AI-related visits**
+- **Possible AI referral** (e.g. a visitor arriving from chatgpt.com, perplexity.ai, …)
+- **AI crawler activity** (e.g. GPTBot, ClaudeBot, PerplexityBot, …)
+- **AI/search bot signal** (e.g. Bingbot, Applebot)
+
+Important framing:
+
+- These signals are **inferred from referrer or user agent** — nothing more.
+- They do **not** mean the business ranks in, or is recommended by, any AI tool.
+- **Do not** market this as guaranteed "AI visibility ranking" or "AI Overview
+  ranking". Keep claims to readiness/observed-signal language.
+- Note: AI crawlers usually don't run JavaScript, so the most common real signal
+  is a **Possible AI referral** (a human arriving from an AI tool).
+
+### 9e. Privacy note
+
+Show this (or equivalent) wherever analytics is described to the client:
+
+> Milo Analytics uses anonymous visit and event tracking. It does not store names,
+> emails or full IP addresses.
+
+### 9f. Per-site analytics verification checklist
+
+1. **Snippet loads** — `/milo-analytics.js` returns 200 and runs (no errors in console).
+2. **page_view appears** — open a few pages, then check Milo → Analytics (visits / top pages update).
+3. **CTA click appears** — trigger a `cta_click` action → it shows in Milo (CTA/booking card, page row).
+4. **booking_click appears** — trigger a `booking_click` → it shows in Milo.
+5. **Published content links correctly** — visit a published page at its `liveUrl`
+   route → views appear under **Published content performance** for that asset.
+6. **AI referrer detection** — if testable, arrive at the site from an AI tool (or
+   simulate the referrer) → it appears under **AI-related signals** as a Possible AI referral.
+7. **No console errors** — on the client site or in Milo Analytics.
+8. **Privacy copy acceptable** — the anonymous-tracking note is acceptable for the client site.
+
+---
+
 *Reference: verified live against the Synergy site (Supabase functions
 `milo-publish` + `milo-publish-live`, shared `MILO_PUBLISH_SECRET`) on 2026-06-29.
 Milo-side connector code lives in `src/lib/publish.functions.ts` (server),
