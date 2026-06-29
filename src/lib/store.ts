@@ -379,6 +379,18 @@ export const updateCalendarItem = (id: string, patch: Partial<CalendarItem>) =>
     calendar: s.calendar.map((c) => (c.id === id ? { ...c, ...patch } : c)),
   }));
 
+/** Edit only the planned (publish) date of a calendar item. Does not touch
+ *  topic/type/intent/CTA/status/content linkage. */
+export const updateCalendarItemDate = (id: string, plannedDate: string) =>
+  setState((s) => ({
+    ...s,
+    calendar: s.calendar.map((c) => (c.id === id ? { ...c, plannedDate } : c)),
+  }));
+
+/** Remove a single calendar item. Linked content assets are NOT deleted. */
+export const deleteCalendarItem = (id: string) =>
+  setState((s) => ({ ...s, calendar: s.calendar.filter((c) => c.id !== id) }));
+
 export const upsertContent = (asset: ContentAsset) =>
   setState((s) => {
     const exists = s.content.some((c) => c.id === asset.id);
@@ -389,6 +401,11 @@ export const upsertContent = (asset: ContentAsset) =>
         : [...s.content, asset],
     };
   });
+
+/** Permanently remove a content asset. Source opportunity and calendar item
+ *  are left untouched. */
+export const deleteContentAsset = (id: string) =>
+  setState((s) => ({ ...s, content: s.content.filter((c) => c.id !== id) }));
 
 // ---- Site Audit ----
 

@@ -8,13 +8,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useStore, updateCalendarItem } from "@/lib/store";
-import { formatDateShort } from "@/lib/format";
+import {
+  useStore,
+  updateCalendarItem,
+  updateCalendarItemDate,
+  deleteCalendarItem,
+  saveWorkspaceNow,
+} from "@/lib/store";
+import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { generateContentCalendar } from "@/lib/mock-ai";
 import { CreateContentDialog } from "@/components/CreateContentDialog";
 import type { CalendarItem } from "@/lib/types";
 import { useMemo, useState } from "react";
-import { CalendarDays, FilePlus2, Loader2 } from "lucide-react";
+import { CalendarDays, FilePlus2, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/app/calendar")({
@@ -37,6 +53,22 @@ function CalendarPage() {
   );
   const [busy, setBusy] = useState(false);
   const [contentOppId, setContentOppId] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  async function changeDate(id: string, value: string) {
+    if (!value) return; // ignore a cleared date input
+    updateCalendarItemDate(id, value);
+    await saveWorkspaceNow();
+    toast.success("Date updated");
+  }
+
+  async function confirmDelete() {
+    if (!deleteId) return;
+    deleteCalendarItem(deleteId);
+    setDeleteId(null);
+    await saveWorkspaceNow();
+    toast.success("Calendar item deleted");
+  }
 
   const grouped = useMemo(() => {
     const m = new Map<string, CalendarItem[]>();
@@ -94,13 +126,20 @@ function CalendarPage() {
                       <th className="text-left px-5 py-3 font-medium w-44">CTA</th>
                       <th className="text-left px-5 py-3 font-medium w-40">Status</th>
                       <th className="text-left px-5 py-3 font-medium w-36">Content</th>
+                      <th className="px-5 py-3 font-medium w-12 sr-only">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     {list.map((c) => (
                       <tr key={c.id} className="hover:bg-secondary/40">
-                        <td className="px-5 py-3 font-mono text-xs">
-                          {formatDateShort(c.plannedDate)}
+                        <td className="px-5 py-3">
+                          <Input
+                            type="date"
+                            value={c.plannedDate}
+                            onChange={(e) => changeDate(c.id, e.target.value)}
+                            className="h-8 w-36 text-xs"
+                            aria-label="Publish date"
+                          />
                         </td>
                         <td className="px-5 py-3"><div className="font-medium truncate max-w-md">{c.topicTitle}</div></td>
                         <td className="px-5 py-3 text-muted-foreground">{c.language}</td>
@@ -128,6 +167,18 @@ function CalendarPage() {
                             <FilePlus2 className="h-3.5 w-3.5" /> Create
                           </Button>
                         </td>
+                        <td className="px-5 py-3 text-right">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            title="Delete calendar item"
+                            aria-label="Delete calendar item"
+                            onClick={() => setDeleteId(c.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -143,6 +194,22 @@ function CalendarPage() {
         open={contentOppId !== null}
         onOpenChange={(o) => { if (!o) setContentOppId(null); }}
       />
+
+      <AlertDialog open={deleteId !== null} onOpenChange={(o) => { if (!o) setDeleteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete calendar item?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the item from your content calendar. Any content asset already created
+              from it will stay in the editor.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Delete item</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppShell>
   );
 }

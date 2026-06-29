@@ -17,13 +17,23 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { useStore, upsertContent } from "@/lib/store";
+import { useStore, upsertContent, deleteContentAsset, saveWorkspaceNow } from "@/lib/store";
 import { generateMetadata, generateFaq, generateCta } from "@/lib/mock-ai";
 import { CreateContentDialog, ASSET_TYPE_LABELS } from "@/components/CreateContentDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import type { ContentAsset, ContentStatus } from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
 import { useEffect, useId, useMemo, useState } from "react";
-import { Check, Copy, Download, FileEdit, FilePlus2, FileX, Loader2, Sparkles } from "lucide-react";
+import { Check, Copy, Download, FileEdit, FilePlus2, FileX, Loader2, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -44,10 +54,26 @@ function EditorPage() {
   const search = Route.useSearch();
   const initialId = search.id ?? assets[0]?.id;
   const [selectedId, setSelectedId] = useState<string | undefined>(initialId);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!selectedId && assets[0]) setSelectedId(assets[0].id);
   }, [assets, selectedId]);
+
+  async function confirmDelete() {
+    const id = deleteId;
+    if (!id) return;
+    // Choose the asset to open next: the one that takes this row's place,
+    // else the previous one, else none (empty editor state).
+    const idx = assets.findIndex((a) => a.id === id);
+    const remaining = assets.filter((a) => a.id !== id);
+    const next = remaining[idx] ?? remaining[idx - 1];
+    deleteContentAsset(id);
+    setDeleteId(null);
+    if (id === selectedId) setSelectedId(next?.id);
+    await saveWorkspaceNow();
+    toast.success("Content asset deleted");
+  }
 
   // Follow ?id changes (e.g. generating from the Editor entry point, which
   // navigates to the same route) so the newly created asset opens immediately.
@@ -90,7 +116,7 @@ function EditorPage() {
           </ul>
         </aside>
 
-        {asset ? <Editor key={asset.id} asset={asset} /> : (
+        {asset ? <Editor key={asset.id} asset={asset} onRequestDelete={() => setDeleteId(asset.id)} /> : (
           <div className="rounded-lg border border-dashed border-border p-12 text-center">
             <div className="font-display text-lg mb-1">No asset selected</div>
             <p className="text-sm text-muted-foreground max-w-md mx-auto">
@@ -99,11 +125,27 @@ function EditorPage() {
           </div>
         )}
       </div>
+
+      <AlertDialog open={deleteId !== null} onOpenChange={(o) => { if (!o) setDeleteId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete content asset?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes this draft from the editor. The original opportunity and
+              calendar item will stay.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Delete asset</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppShell>
   );
 }
 
-function Editor({ asset }: { asset: ContentAsset }) {
+function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDelete: () => void }) {
   const [f, setF] = useState<ContentAsset>(asset);
   const [busy, setBusy] = useState<string | null>(null);
   const [contentOpen, setContentOpen] = useState(false);
@@ -206,6 +248,7 @@ function Editor({ asset }: { asset: ContentAsset }) {
           <Button size="sm" variant="outline" onClick={() => save("In Review")}>Mark in review</Button>
           <Button size="sm" variant="outline" onClick={() => save("Approved")}><Check className="h-3.5 w-3.5" /> Approve</Button>
           <Button size="sm" variant="ghost" onClick={() => save("Rejected")}><FileX className="h-3.5 w-3.5" /> Reject</Button>
+          <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={onRequestDelete}><Trash2 className="h-3.5 w-3.5" /> Delete</Button>
         </div>
       </div>
 
