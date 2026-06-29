@@ -70,12 +70,24 @@ const COMPETITOR_GAP_CATEGORIES = [
   "Content Themes",
 ] as const;
 
+const AUTHORITY_CATEGORIES = [
+  "Local Directories & Citations",
+  "Industry Directories",
+  "Review & Reputation",
+  "Partner & Supplier Links",
+  "Associations & Communities",
+  "PR & Story",
+  "Trust Signals",
+  "Outreach",
+] as const;
+
 const LanguageEnum = normalizedEnum(LANGUAGES);
 const ContentTypeEnum = normalizedEnum(CONTENT_TYPES);
 const SearchIntentEnum = normalizedEnum(SEARCH_INTENTS);
 const PriorityEnum = normalizedEnum(PRIORITIES);
 const AuditCategoryEnum = normalizedEnum(AUDIT_CATEGORIES);
 const CompetitorGapCategoryEnum = normalizedEnum(COMPETITOR_GAP_CATEGORIES);
+const AuthorityCategoryEnum = normalizedEnum(AUTHORITY_CATEGORIES);
 
 // Structured-output schemas. Keep them loose — strict min/max on every string
 // makes the model fail validation often; we clip oversized strings in the
@@ -144,6 +156,23 @@ const CompetitorSnapshotOutputSchema = z.object({
   detectedPositioning: cleanString(300),
   notableStrengths: z.array(cleanString(160)),
   fetchStatus: z.enum(["fetched", "failed"]),
+});
+
+// Authority item (id assigned client-side).
+const AuthorityItemOutputSchema = z.object({
+  title: cleanString(120),
+  category: AuthorityCategoryEnum,
+  priority: PriorityEnum,
+  effort: PriorityEnum,
+  expectedImpact: PriorityEnum,
+  explanation: cleanString(400),
+  recommendation: cleanString(400),
+  suggestedPlatformOrTarget: cleanString(200),
+  outreachAngle: cleanString(300),
+  suggestedOpportunityTitle: cleanString(120),
+  suggestedContentType: ContentTypeEnum,
+  suggestedSearchIntent: SearchIntentEnum,
+  suggestedCta: cleanString(60),
 });
 
 function getGateway() {
@@ -470,6 +499,39 @@ function normalizeCompetitorSnapshot(value: unknown, fallbackUrl: string, fetche
     detectedPositioning: pickString(item, ["detectedPositioning", "detected_positioning", "positioning", "summary", "description"], fetched ? "Positioning not clearly detected." : "Could not read this competitor's site."),
     notableStrengths: normalizeStringArray(item.notableStrengths ?? item.notable_strengths ?? item.strengths ?? item.highlights, []),
     fetchStatus: fetched ? "fetched" : "failed",
+  });
+}
+
+function normalizeAuthorityCategory(value: unknown) {
+  const raw = asString(value).toLowerCase();
+  if (/local.*(direct|citation|listing)|citation|nap|map|gbp|google business|yelp|near me/.test(raw)) return "Local Directories & Citations";
+  if (/industry|niche|professional director|marketplace|vertical|trade director|profile director/.test(raw)) return "Industry Directories";
+  if (/review|reputation|testimonial|rating|trustpilot|feedback/.test(raw)) return "Review & Reputation";
+  if (/partner|supplier|manufacturer|collab|reseller|stockist|vendor/.test(raw)) return "Partner & Supplier Links";
+  if (/association|community|chamber|membership|guild|group|society|club|network/.test(raw)) return "Associations & Communities";
+  if (/\bpr\b|press|story|media|news|journalist|founder story|event|seasonal|commentary|publicity/.test(raw)) return "PR & Story";
+  if (/trust|credential|certification|accreditation|case study|proof|award|badge|about|guarantee/.test(raw)) return "Trust Signals";
+  if (/outreach|contact|pitch|email|reach out|approach/.test(raw)) return "Outreach";
+  return normalizeValue(value, AUTHORITY_CATEGORIES, "Local Directories & Citations");
+}
+
+function normalizeAuthorityItem(value: unknown, index: number) {
+  const item = isRecord(value) ? value : {};
+  const title = pickString(item, ["title", "name", "opportunity", "heading", "action"], `Authority opportunity ${index + 1}`);
+  return AuthorityItemOutputSchema.parse({
+    title,
+    category: normalizeAuthorityCategory(item.category ?? item.area ?? item.group ?? item.section ?? item.type),
+    priority: normalizePriority(item.priority ?? item.impact ?? item.severity),
+    effort: normalizePriority(item.effort ?? item.difficulty ?? item.work),
+    expectedImpact: normalizePriority(item.expectedImpact ?? item.expected_impact ?? item.impact ?? item.value),
+    explanation: pickString(item, ["explanation", "detail", "details", "why", "description", "rationale"], "Building presence here can strengthen the business's credibility and discoverability."),
+    recommendation: pickString(item, ["recommendation", "action", "suggestion", "howTo", "how_to", "steps", "nextStep"], "Claim or build a presence here, keeping business details consistent."),
+    suggestedPlatformOrTarget: pickString(item, ["suggestedPlatformOrTarget", "suggested_platform_or_target", "platform", "target", "where", "site", "directory", "publication"], "Relevant platform or directory"),
+    outreachAngle: pickString(item, ["outreachAngle", "outreach_angle", "angle", "pitch", "why_they_care", "whyTheyCare", "hook"], "Lead with what makes the business genuinely useful or interesting to their audience."),
+    suggestedOpportunityTitle: pickString(item, ["suggestedOpportunityTitle", "suggested_opportunity_title", "opportunityTitle", "suggestedTitle", "contentTitle", "pageTitle"], title),
+    suggestedContentType: normalizeContentType(item.suggestedContentType ?? item.contentType ?? item.content_type ?? item.type ?? item.format),
+    suggestedSearchIntent: normalizeSearchIntent(item.suggestedSearchIntent ?? item.searchIntent ?? item.search_intent ?? item.intent),
+    suggestedCta: pickString(item, ["suggestedCta", "suggested_cta", "cta", "callToAction", "call_to_action"], "Contact us"),
   });
 }
 
@@ -906,6 +968,120 @@ ${sharedRules}`,
   });
 
 // ============================================================
+// Authority v1 — authority-building opportunity planner (no scraping)
+// ============================================================
+
+export const generateAuthorityFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        project: z.any(),
+        services: z.array(z.any()).default([]),
+        auditSummary: z.string().default(""),
+        competitorSummary: z.string().default(""),
+        competitorStrengths: z.array(z.string()).default([]),
+        existingOpportunityTitles: z.array(z.string()).default([]),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const project = data.project as Project;
+    const services = data.services as ServiceItem[];
+    const brief = projectBrief(project, services);
+
+    const auditBlock = data.auditSummary
+      ? `EXISTING SITE AUDIT SUMMARY (the business's own known gaps):\n${data.auditSummary}\n`
+      : "";
+    const competitorBlock = data.competitorSummary
+      ? `EXISTING COMPETITOR ANALYSIS SUMMARY:\n${data.competitorSummary}\n`
+      : "";
+    const competitorStrengthsBlock = data.competitorStrengths.length
+      ? `Competitor strengths observed (inspiration only — do not invent new data):\n- ${data.competitorStrengths.slice(0, 12).join("\n- ")}\n`
+      : "";
+    const oppBlock = data.existingOpportunityTitles.length
+      ? `Existing content opportunities (avoid duplicating these as authority items):\n- ${data.existingOpportunityTitles.slice(0, 20).join("\n- ")}\n`
+      : "";
+
+    try {
+      console.info("[ai.functions] authority reached", {
+        userIdPresent: Boolean(context.userId),
+        projectId: project.id,
+        projectName: project.businessName || project.name,
+        serviceCount: services.length,
+      });
+
+      const payload = await generateJsonText(
+        `You are an off-site authority and digital-PR strategist for small and medium businesses.
+
+Help this business build credibility BEYOND its own website: local directories & citations, industry directories, review & reputation platforms, partner & supplier links, associations & communities, PR & story angles, on-site trust signals, and outreach. This is opportunity PLANNING — do NOT claim any listing, link or contact has been created, and do NOT invent backlink counts, domain authority, traffic numbers or guaranteed rankings.
+
+Return exactly this JSON shape:
+{"overallAuthorityScore":0,"localCitationScore":0,"industryPresenceScore":0,"reputationScore":0,"partnerLinkScore":0,"prOpportunityScore":0,"trustSignalScore":0,"summary":"","topAuthorityActions":[""],"authorityItems":[{"title":"","category":"Local Directories & Citations|Industry Directories|Review & Reputation|Partner & Supplier Links|Associations & Communities|PR & Story|Trust Signals|Outreach","priority":"Low|Medium|High","effort":"Low|Medium|High","expectedImpact":"Low|Medium|High","explanation":"","recommendation":"","suggestedPlatformOrTarget":"","outreachAngle":"","suggestedOpportunityTitle":"","suggestedContentType":"Landing Page|Service Page|Blog Article|Guide|FAQ Page|Comparison|Location Page","suggestedSearchIntent":"Informational|Commercial|Transactional|Navigational","suggestedCta":""}]}
+
+Scoring: 0–100 where HIGHER means STRONGER existing authority in that area. Be realistic for a small business with limited off-site presence.
+authorityItems: provide 10–14 items spread across ALL eight categories. Each "suggestedPlatformOrTarget" should name a realistic type of platform, directory, association or contact relevant to this business and location (e.g. "Local chamber of commerce", "Industry trade directory", "Google Business Profile", "Regional news outlet") — never fabricate exact URLs or claim specific sites accept the business. Each "outreachAngle" should be a short, honest reason the target might care. Each "suggestedOpportunityTitle" must read like a real task/page that could enter the content plan.
+topAuthorityActions: 3–5 short strings naming the highest-impact authority moves.
+
+THIS BUSINESS:
+${brief}
+${auditBlock}${competitorBlock}${competitorStrengthsBlock}${oppBlock}${sharedRules}`,
+        7000,
+      );
+
+      const root = isRecord(payload) ? payload : {};
+      const authorityItems = extractArray(root, [
+        "authorityItems",
+        "authority_items",
+        "items",
+        "opportunities",
+        "actions",
+        "results",
+      ]).map((it, i) => normalizeAuthorityItem(it, i));
+      if (authorityItems.length === 0) throw new Error("AI returned no authority items.");
+
+      const localCitationScore = clampScore(pickNumber(root, ["localCitationScore", "local_citation_score", "localCitation", "local"]));
+      const industryPresenceScore = clampScore(pickNumber(root, ["industryPresenceScore", "industry_presence_score", "industryPresence", "industry"]));
+      const reputationScore = clampScore(pickNumber(root, ["reputationScore", "reputation_score", "reputation", "review"]));
+      const partnerLinkScore = clampScore(pickNumber(root, ["partnerLinkScore", "partner_link_score", "partnerLink", "partner"]));
+      const prOpportunityScore = clampScore(pickNumber(root, ["prOpportunityScore", "pr_opportunity_score", "prOpportunity", "pr"]));
+      const trustSignalScore = clampScore(pickNumber(root, ["trustSignalScore", "trust_signal_score", "trustSignal", "trust"]));
+      const overallAuthorityScore = clampScore(
+        pickNumber(root, ["overallAuthorityScore", "overall_authority_score", "overall", "score"]),
+        Math.round(
+          (localCitationScore + industryPresenceScore + reputationScore + partnerLinkScore + prOpportunityScore + trustSignalScore) / 6,
+        ),
+      );
+      const summary = pickString(
+        root,
+        ["summary", "overview", "analysis", "assessment"],
+        "Authority analysis complete — review the opportunities below and turn the top ones into opportunities.",
+      );
+      const topAuthorityActions = normalizeStringArray(
+        root.topAuthorityActions ?? root.top_authority_actions ?? root.topActions ?? root.priorities ?? root.quickWins,
+        authorityItems.slice(0, 3).map((it) => it.title),
+      ).slice(0, 5);
+
+      console.info("[ai.functions] authority parsed", { items: authorityItems.length });
+
+      return {
+        overallAuthorityScore,
+        localCitationScore,
+        industryPresenceScore,
+        reputationScore,
+        partnerLinkScore,
+        prOpportunityScore,
+        trustSignalScore,
+        summary,
+        topAuthorityActions,
+        authorityItems,
+      };
+    } catch (e) {
+      throw mapGatewayError(e);
+    }
+  });
+
+// ============================================================
 // generateOpportunities
 // ============================================================
 
@@ -1139,7 +1315,7 @@ export const generateContentFn = createServerFn({ method: "POST" })
     const brief = projectBrief(project, services);
     const instruction = ASSET_INSTRUCTIONS[data.assetType] ?? ASSET_INSTRUCTIONS.article;
     const sourceLine = opp.source
-      ? `Source: this opportunity came from ${opp.source === "audit" ? "a Site Audit finding" : opp.source === "competitor" ? "a Competitor Gap" : "manual planning"} — keep that intent in mind.`
+      ? `Source: this opportunity came from ${opp.source === "audit" ? "a Site Audit finding" : opp.source === "competitor" ? "a Competitor Gap" : opp.source === "authority" ? "an Authority-building action" : "manual planning"} — keep that intent in mind.`
       : "";
 
     try {

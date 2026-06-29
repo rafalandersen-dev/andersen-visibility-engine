@@ -22,7 +22,7 @@ export type OpportunityStatus = "New" | "In Brief" | "Drafting" | "Discarded" | 
 export type ContentStatus = "Draft" | "In Review" | "Approved" | "Rejected" | "Exported";
 
 /** Where a Linked opportunity originated (Content Engine 2.0 source context). */
-export type OpportunitySource = "audit" | "competitor" | "manual";
+export type OpportunitySource = "audit" | "competitor" | "manual" | "authority";
 
 /** Content asset types Milo can generate from an opportunity (Content Engine 2.0). */
 export type AssetType =
@@ -213,5 +213,52 @@ export interface CompetitorAnalysisResult {
   gaps: CompetitorGap[];
   /** Gap ids already turned into Opportunities (dedup for the convert action). */
   convertedGapIds: string[];
+  createdAt: string;
+}
+
+// ---- Authority v1 ----
+export type AuthorityCategory =
+  | "Local Directories & Citations"
+  | "Industry Directories"
+  | "Review & Reputation"
+  | "Partner & Supplier Links"
+  | "Associations & Communities"
+  | "PR & Story"
+  | "Trust Signals"
+  | "Outreach";
+
+export interface AuthorityItem {
+  id: string;
+  title: string;
+  category: AuthorityCategory;
+  priority: Priority;
+  effort: Priority;
+  expectedImpact: Priority;
+  explanation: string;
+  recommendation: string;
+  suggestedPlatformOrTarget: string;
+  outreachAngle: string;
+  suggestedOpportunityTitle: string;
+  suggestedContentType: ContentType;
+  suggestedSearchIntent: SearchIntent;
+  suggestedCta: string;
+}
+
+export interface AuthorityAnalysisResult {
+  id: string;
+  projectId: string;
+  note?: string;
+  overallAuthorityScore: number;
+  localCitationScore: number;
+  industryPresenceScore: number;
+  reputationScore: number;
+  partnerLinkScore: number;
+  prOpportunityScore: number;
+  trustSignalScore: number;
+  summary: string;
+  topAuthorityActions: string[];
+  authorityItems: AuthorityItem[];
+  /** Item ids already turned into Opportunities (dedup for the convert action). */
+  convertedItemIds: string[];
   createdAt: string;
 }

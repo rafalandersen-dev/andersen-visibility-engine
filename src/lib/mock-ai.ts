@@ -26,6 +26,8 @@ import {
   markFindingsConverted,
   upsertCompetitorAnalysis,
   markGapsConverted,
+  upsertAuthorityAnalysis,
+  markAuthorityItemsConverted,
   addOpportunities,
   updateOpportunity,
   updateProject,
@@ -40,6 +42,8 @@ import type {
   AuditFinding,
   CompetitorAnalysisResult,
   CompetitorGap,
+  AuthorityAnalysisResult,
+  AuthorityItem,
   Project,
   Priority,
   AssetType,
@@ -52,6 +56,7 @@ import {
   generateContentFn,
   generateAuditFn,
   generateCompetitorGapFn,
+  generateAuthorityFn,
   regenerateMetadataFn,
   regenerateFaqFn,
   regenerateCtaFn,
@@ -523,6 +528,128 @@ export async function createOpportunitiesFromTopGaps(projectId: string) {
     );
     await saveWorkspaceNow();
     console.info("[ai.client] top-gap opportunities created", { projectId, count: opps.length });
+    return opps;
+  });
+}
+
+// ============================================================
+// Authority v1
+// ============================================================
+
+/** Build a "Linked" Opportunity from an authority item (survives opportunity regeneration). */
+function opportunityFromAuthorityItem(item: AuthorityItem, project: Project): Opportunity {
+  return {
+    id: uid(),
+    projectId: project.id,
+    title: item.suggestedOpportunityTitle || item.title,
+    language: project.primaryLanguage,
+    contentType: item.suggestedContentType,
+    searchIntent: item.suggestedSearchIntent,
+    targetAudience: project.targetAudience || "Potential customers",
+    businessValue: item.recommendation || item.explanation,
+    recommendedCta: item.suggestedCta || "Contact us",
+    priority: item.priority,
+    status: "Linked",
+    source: "authority",
+  };
+}
+
+export async function runAuthorityAnalysis(projectId: string) {
+  return once(`authority:${projectId}`, async () => {
+    const { project, services } = requireProject(projectId);
+
+    // Reuse existing audit / competitor context (if any) for a richer plan.
+    const s = getState();
+    const audit = s.audits.find((a) => a.projectId === projectId);
+    const competitor = s.competitorAnalyses.find((a) => a.projectId === projectId);
+    const competitorStrengths = (competitor?.competitorSnapshots ?? [])
+      .flatMap((c) => c.notableStrengths ?? []);
+    const existingOpportunityTitles = s.opportunities
+      .filter((o) => o.projectId === projectId)
+      .map((o) => o.title);
+
+    const res = await generateAuthorityFn({
+      data: {
+        project,
+        services,
+        auditSummary: audit?.summary ?? "",
+        competitorSummary: competitor?.summary ?? "",
+        competitorStrengths,
+        existingOpportunityTitles,
+      },
+    });
+    if (!res || !Array.isArray(res.authorityItems) || res.authorityItems.length === 0) {
+      throw new Error("AI returned no authority opportunities. Please try again.");
+    }
+    console.info("[ai.client] authority received", { projectId, items: res.authorityItems.length });
+
+    const analysis: AuthorityAnalysisResult = {
+      id: uid(),
+      projectId,
+      overallAuthorityScore: res.overallAuthorityScore,
+      localCitationScore: res.localCitationScore,
+      industryPresenceScore: res.industryPresenceScore,
+      reputationScore: res.reputationScore,
+      partnerLinkScore: res.partnerLinkScore,
+      prOpportunityScore: res.prOpportunityScore,
+      trustSignalScore: res.trustSignalScore,
+      summary: res.summary,
+      topAuthorityActions: Array.isArray(res.topAuthorityActions) ? res.topAuthorityActions : [],
+      authorityItems: res.authorityItems.map((it) => ({ ...it, id: uid() })),
+      convertedItemIds: [],
+      createdAt: new Date().toISOString(),
+    };
+    upsertAuthorityAnalysis(analysis);
+    await saveWorkspaceNow();
+    console.info("[ai.client] authority saved", { projectId, items: analysis.authorityItems.length });
+    return analysis;
+  });
+}
+
+/** Convert a single authority item into an Opportunity (idempotent per item). */
+export async function createOpportunityFromAuthorityItem(projectId: string, itemId: string) {
+  const s = getState();
+  const analysis = s.authorityAnalyses.find((a) => a.projectId === projectId);
+  if (!analysis) throw new Error("Run an authority analysis first.");
+  const item = analysis.authorityItems.find((i) => i.id === itemId);
+  if (!item) throw new Error("Authority item not found.");
+  if (analysis.convertedItemIds.includes(itemId)) {
+    throw new Error("This authority item is already an opportunity.");
+  }
+  const { project } = requireProject(projectId);
+  const opp = opportunityFromAuthorityItem(item, project);
+  addOpportunities([opp]);
+  markAuthorityItemsConverted(analysis.id, [itemId]);
+  await saveWorkspaceNow();
+  return opp;
+}
+
+/** Bulk: create opportunities from the top 3–5 High/Medium authority items not yet converted. */
+export async function createOpportunitiesFromTopAuthority(projectId: string) {
+  return once(`authority-bulk:${projectId}`, async () => {
+    const s = getState();
+    const analysis = s.authorityAnalyses.find((a) => a.projectId === projectId);
+    if (!analysis) throw new Error("Run an authority analysis first.");
+    const { project } = requireProject(projectId);
+
+    const candidates = analysis.authorityItems
+      .filter((i) => !analysis.convertedItemIds.includes(i.id))
+      .filter((i) => i.priority === "High" || i.priority === "Medium")
+      .sort((a, b) => priorityRank[b.priority] - priorityRank[a.priority])
+      .slice(0, 5);
+
+    if (candidates.length === 0) {
+      throw new Error("No remaining high or medium priority authority items to convert.");
+    }
+
+    const opps = candidates.map((i) => opportunityFromAuthorityItem(i, project));
+    addOpportunities(opps);
+    markAuthorityItemsConverted(
+      analysis.id,
+      candidates.map((i) => i.id),
+    );
+    await saveWorkspaceNow();
+    console.info("[ai.client] top-authority opportunities created", { projectId, count: opps.length });
     return opps;
   });
 }

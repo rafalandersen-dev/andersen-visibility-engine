@@ -27,6 +27,7 @@ import { Route as AuthenticatedAppEditorRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAppCompetitorsRouteImport } from './routes/_authenticated/app.competitors'
 import { Route as AuthenticatedAppCalendarRouteImport } from './routes/_authenticated/app.calendar'
 import { Route as AuthenticatedAppBillingRouteImport } from './routes/_authenticated/app.billing'
+import { Route as AuthenticatedAppAuthorityRouteImport } from './routes/_authenticated/app.authority'
 import { Route as AuthenticatedAppAuditRouteImport } from './routes/_authenticated/app.audit'
 import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lovable/email/transactional/send'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
@@ -127,6 +128,12 @@ const AuthenticatedAppBillingRoute = AuthenticatedAppBillingRouteImport.update({
   path: '/app/billing',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAppAuthorityRoute =
+  AuthenticatedAppAuthorityRouteImport.update({
+    id: '/app/authority',
+    path: '/app/authority',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAppAuditRoute = AuthenticatedAppAuditRouteImport.update({
   id: '/app/audit',
   path: '/app/audit',
@@ -171,6 +178,7 @@ export interface FileRoutesByFullPath {
   '/blog/local-seo-guide': typeof BlogLocalSeoGuideRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/app/audit': typeof AuthenticatedAppAuditRoute
+  '/app/authority': typeof AuthenticatedAppAuthorityRoute
   '/app/billing': typeof AuthenticatedAppBillingRoute
   '/app/calendar': typeof AuthenticatedAppCalendarRoute
   '/app/competitors': typeof AuthenticatedAppCompetitorsRoute
@@ -196,6 +204,7 @@ export interface FileRoutesByTo {
   '/blog/local-seo-guide': typeof BlogLocalSeoGuideRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/app/audit': typeof AuthenticatedAppAuditRoute
+  '/app/authority': typeof AuthenticatedAppAuthorityRoute
   '/app/billing': typeof AuthenticatedAppBillingRoute
   '/app/calendar': typeof AuthenticatedAppCalendarRoute
   '/app/competitors': typeof AuthenticatedAppCompetitorsRoute
@@ -223,6 +232,7 @@ export interface FileRoutesById {
   '/blog/local-seo-guide': typeof BlogLocalSeoGuideRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/_authenticated/app/audit': typeof AuthenticatedAppAuditRoute
+  '/_authenticated/app/authority': typeof AuthenticatedAppAuthorityRoute
   '/_authenticated/app/billing': typeof AuthenticatedAppBillingRoute
   '/_authenticated/app/calendar': typeof AuthenticatedAppCalendarRoute
   '/_authenticated/app/competitors': typeof AuthenticatedAppCompetitorsRoute
@@ -250,6 +260,7 @@ export interface FileRouteTypes {
     | '/blog/local-seo-guide'
     | '/email/unsubscribe'
     | '/app/audit'
+    | '/app/authority'
     | '/app/billing'
     | '/app/calendar'
     | '/app/competitors'
@@ -275,6 +286,7 @@ export interface FileRouteTypes {
     | '/blog/local-seo-guide'
     | '/email/unsubscribe'
     | '/app/audit'
+    | '/app/authority'
     | '/app/billing'
     | '/app/calendar'
     | '/app/competitors'
@@ -301,6 +313,7 @@ export interface FileRouteTypes {
     | '/blog/local-seo-guide'
     | '/email/unsubscribe'
     | '/_authenticated/app/audit'
+    | '/_authenticated/app/authority'
     | '/_authenticated/app/billing'
     | '/_authenticated/app/calendar'
     | '/_authenticated/app/competitors'
@@ -463,6 +476,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppBillingRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/app/authority': {
+      id: '/_authenticated/app/authority'
+      path: '/app/authority'
+      fullPath: '/app/authority'
+      preLoaderRoute: typeof AuthenticatedAppAuthorityRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/app/audit': {
       id: '/_authenticated/app/audit'
       path: '/app/audit'
@@ -510,6 +530,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppAuditRoute: typeof AuthenticatedAppAuditRoute
+  AuthenticatedAppAuthorityRoute: typeof AuthenticatedAppAuthorityRoute
   AuthenticatedAppBillingRoute: typeof AuthenticatedAppBillingRoute
   AuthenticatedAppCalendarRoute: typeof AuthenticatedAppCalendarRoute
   AuthenticatedAppCompetitorsRoute: typeof AuthenticatedAppCompetitorsRoute
@@ -522,6 +543,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppAuditRoute: AuthenticatedAppAuditRoute,
+  AuthenticatedAppAuthorityRoute: AuthenticatedAppAuthorityRoute,
   AuthenticatedAppBillingRoute: AuthenticatedAppBillingRoute,
   AuthenticatedAppCalendarRoute: AuthenticatedAppCalendarRoute,
   AuthenticatedAppCompetitorsRoute: AuthenticatedAppCompetitorsRoute,
@@ -555,3 +577,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

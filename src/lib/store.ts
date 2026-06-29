@@ -25,6 +25,7 @@ import type {
   ContentAsset,
   AuditResult,
   CompetitorAnalysisResult,
+  AuthorityAnalysisResult,
 } from "./types";
 import {
   seedProjects,
@@ -44,6 +45,7 @@ interface State {
   content: ContentAsset[];
   audits: AuditResult[];
   competitorAnalyses: CompetitorAnalysisResult[];
+  authorityAnalyses: AuthorityAnalysisResult[];
   activeProjectId: string;
   /** Whether the active user's workspace has been loaded from Cloud. */
   hydrated: boolean;
@@ -59,6 +61,7 @@ const emptyState: State = {
   content: [],
   audits: [],
   competitorAnalyses: [],
+  authorityAnalyses: [],
   activeProjectId: "",
   hydrated: false,
   userId: null,
@@ -74,6 +77,7 @@ const ssrSnapshot: State = {
   content: seedContent,
   audits: [],
   competitorAnalyses: [],
+  authorityAnalyses: [],
   activeProjectId: seedProjects[0]?.id ?? "",
   hydrated: false,
   userId: null,
@@ -104,6 +108,7 @@ export async function saveWorkspaceNow(): Promise<void> {
     content: state.content,
     audits: state.audits,
     competitorAnalyses: state.competitorAnalyses,
+    authorityAnalyses: state.authorityAnalyses,
     activeProjectId: state.activeProjectId,
   };
   const { error } = await supabase
@@ -180,6 +185,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
         content: d.content ?? [],
         audits: d.audits ?? [],
         competitorAnalyses: d.competitorAnalyses ?? [],
+        authorityAnalyses: d.authorityAnalyses ?? [],
         activeProjectId: d.activeProjectId ?? (d.projects?.[0]?.id ?? ""),
         hydrated: true,
         userId,
@@ -195,6 +201,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
         content: [],
         audits: [],
         competitorAnalyses: [],
+        authorityAnalyses: [],
         activeProjectId: "",
         hydrated: true,
         userId,
@@ -222,6 +229,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
       content: [],
       audits: [],
       competitorAnalyses: [],
+      authorityAnalyses: [],
       activeProjectId: "",
       hydrated: true,
       userId,
@@ -413,6 +421,29 @@ export const markGapsConverted = (analysisId: string, gapIds: string[]) =>
     competitorAnalyses: s.competitorAnalyses.map((a) =>
       a.id === analysisId
         ? { ...a, convertedGapIds: Array.from(new Set([...a.convertedGapIds, ...gapIds])) }
+        : a,
+    ),
+  }));
+
+// ---- Authority ----
+
+/** Store the latest authority analysis for a project (one per project — replaces any prior). */
+export const upsertAuthorityAnalysis = (analysis: AuthorityAnalysisResult) =>
+  setState((s) => ({
+    ...s,
+    authorityAnalyses: [
+      ...s.authorityAnalyses.filter((a) => a.projectId !== analysis.projectId),
+      analysis,
+    ],
+  }));
+
+/** Mark authority item ids as already converted into Opportunities (dedup). */
+export const markAuthorityItemsConverted = (analysisId: string, itemIds: string[]) =>
+  setState((s) => ({
+    ...s,
+    authorityAnalyses: s.authorityAnalyses.map((a) =>
+      a.id === analysisId
+        ? { ...a, convertedItemIds: Array.from(new Set([...a.convertedItemIds, ...itemIds])) }
         : a,
     ),
   }));
