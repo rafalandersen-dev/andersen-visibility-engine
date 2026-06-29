@@ -259,19 +259,18 @@ ${sharedRules}`,
 // ============================================================
 
 const ContentAssetSchema = z.object({
-  metaTitle: z.string().min(10).max(70),
-  metaDescription: z.string().min(40).max(170),
-  h1: z.string().min(4).max(120),
-  outline: z.array(z.string().min(3).max(140)).min(4).max(10),
-  faq: z
-    .array(z.object({ q: z.string().min(5).max(140), a: z.string().min(10).max(400) }))
-    .min(1)
-    .max(6),
-  cta: z.string().min(2).max(60),
-  markdown: z.string().min(120).max(6000),
-  internalLinks: z.array(z.string().min(1).max(80)).max(8),
-  schemaSuggestions: z.array(z.string().min(2).max(40)).max(8),
-  editorNotes: z.string().max(400),
+  metaTitle: cleanString(70),
+  metaDescription: cleanString(170),
+  h1: cleanString(120),
+  outline: z.array(cleanString(140)),
+  faq: z.array(z.object({ q: cleanString(140), a: cleanString(400) })),
+  cta: cleanString(60),
+  markdown: cleanString(8000),
+  internalLinks: z.array(cleanString(80)).default([]),
+  schemaSuggestions: z.array(cleanString(40)).default([]),
+  editorNotes: z
+    .preprocess((v) => (typeof v === "string" ? v.trim() : v ?? ""), z.string())
+    .transform((v) => (v.length > 400 ? v.slice(0, 400) : v)),
 });
 
 export const generateContentAssetFn = createServerFn({ method: "POST" })
