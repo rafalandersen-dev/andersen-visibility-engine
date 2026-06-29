@@ -30,7 +30,7 @@ export const PLANS: Plan[] = [
     projectsIncluded: 0,
     tagline: "Try the workflow on a read-only demo project.",
     features: [
-      "Browse a fully populated demo project",
+      "Explore Milo Growth during private beta — no credit card required",
       "Preview opportunities, calendar and editor",
       "No project creation, no exports",
     ],
