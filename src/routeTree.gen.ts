@@ -29,6 +29,7 @@ import { Route as AuthenticatedAppCalendarRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAppBillingRouteImport } from './routes/_authenticated/app.billing'
 import { Route as AuthenticatedAppAuthorityRouteImport } from './routes/_authenticated/app.authority'
 import { Route as AuthenticatedAppAuditRouteImport } from './routes/_authenticated/app.audit'
+import { Route as AuthenticatedAppAiVisibilityRouteImport } from './routes/_authenticated/app.ai-visibility'
 import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lovable/email/transactional/send'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
@@ -139,6 +140,12 @@ const AuthenticatedAppAuditRoute = AuthenticatedAppAuditRouteImport.update({
   path: '/app/audit',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAppAiVisibilityRoute =
+  AuthenticatedAppAiVisibilityRouteImport.update({
+    id: '/app/ai-visibility',
+    path: '/app/ai-visibility',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const LovableEmailTransactionalSendRoute =
   LovableEmailTransactionalSendRouteImport.update({
     id: '/lovable/email/transactional/send',
@@ -177,6 +184,7 @@ export interface FileRoutesByFullPath {
   '/unsubscribe': typeof UnsubscribeRoute
   '/blog/local-seo-guide': typeof BlogLocalSeoGuideRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
+  '/app/ai-visibility': typeof AuthenticatedAppAiVisibilityRoute
   '/app/audit': typeof AuthenticatedAppAuditRoute
   '/app/authority': typeof AuthenticatedAppAuthorityRoute
   '/app/billing': typeof AuthenticatedAppBillingRoute
@@ -203,6 +211,7 @@ export interface FileRoutesByTo {
   '/unsubscribe': typeof UnsubscribeRoute
   '/blog/local-seo-guide': typeof BlogLocalSeoGuideRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
+  '/app/ai-visibility': typeof AuthenticatedAppAiVisibilityRoute
   '/app/audit': typeof AuthenticatedAppAuditRoute
   '/app/authority': typeof AuthenticatedAppAuthorityRoute
   '/app/billing': typeof AuthenticatedAppBillingRoute
@@ -231,6 +240,7 @@ export interface FileRoutesById {
   '/unsubscribe': typeof UnsubscribeRoute
   '/blog/local-seo-guide': typeof BlogLocalSeoGuideRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
+  '/_authenticated/app/ai-visibility': typeof AuthenticatedAppAiVisibilityRoute
   '/_authenticated/app/audit': typeof AuthenticatedAppAuditRoute
   '/_authenticated/app/authority': typeof AuthenticatedAppAuthorityRoute
   '/_authenticated/app/billing': typeof AuthenticatedAppBillingRoute
@@ -259,6 +269,7 @@ export interface FileRouteTypes {
     | '/unsubscribe'
     | '/blog/local-seo-guide'
     | '/email/unsubscribe'
+    | '/app/ai-visibility'
     | '/app/audit'
     | '/app/authority'
     | '/app/billing'
@@ -285,6 +296,7 @@ export interface FileRouteTypes {
     | '/unsubscribe'
     | '/blog/local-seo-guide'
     | '/email/unsubscribe'
+    | '/app/ai-visibility'
     | '/app/audit'
     | '/app/authority'
     | '/app/billing'
@@ -312,6 +324,7 @@ export interface FileRouteTypes {
     | '/unsubscribe'
     | '/blog/local-seo-guide'
     | '/email/unsubscribe'
+    | '/_authenticated/app/ai-visibility'
     | '/_authenticated/app/audit'
     | '/_authenticated/app/authority'
     | '/_authenticated/app/billing'
@@ -490,6 +503,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppAuditRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/app/ai-visibility': {
+      id: '/_authenticated/app/ai-visibility'
+      path: '/app/ai-visibility'
+      fullPath: '/app/ai-visibility'
+      preLoaderRoute: typeof AuthenticatedAppAiVisibilityRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/lovable/email/transactional/send': {
       id: '/lovable/email/transactional/send'
       path: '/lovable/email/transactional/send'
@@ -529,6 +549,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAppAiVisibilityRoute: typeof AuthenticatedAppAiVisibilityRoute
   AuthenticatedAppAuditRoute: typeof AuthenticatedAppAuditRoute
   AuthenticatedAppAuthorityRoute: typeof AuthenticatedAppAuthorityRoute
   AuthenticatedAppBillingRoute: typeof AuthenticatedAppBillingRoute
@@ -542,6 +563,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAppAiVisibilityRoute: AuthenticatedAppAiVisibilityRoute,
   AuthenticatedAppAuditRoute: AuthenticatedAppAuditRoute,
   AuthenticatedAppAuthorityRoute: AuthenticatedAppAuthorityRoute,
   AuthenticatedAppBillingRoute: AuthenticatedAppBillingRoute,

@@ -22,7 +22,7 @@ export type OpportunityStatus = "New" | "In Brief" | "Drafting" | "Discarded" | 
 export type ContentStatus = "Draft" | "In Review" | "Approved" | "Rejected" | "Exported";
 
 /** Where a Linked opportunity originated (Content Engine 2.0 source context). */
-export type OpportunitySource = "audit" | "competitor" | "manual" | "authority";
+export type OpportunitySource = "audit" | "competitor" | "manual" | "authority" | "aiVisibility";
 
 /** Content asset types Milo can generate from an opportunity (Content Engine 2.0). */
 export type AssetType =
@@ -260,5 +260,65 @@ export interface AuthorityAnalysisResult {
   authorityItems: AuthorityItem[];
   /** Item ids already turned into Opportunities (dedup for the convert action). */
   convertedItemIds: string[];
+  createdAt: string;
+}
+
+// ---- AI Visibility v1 ----
+// Planning / readiness module — NOT live AI rank tracking. No external AI engine
+// is queried; everything is framed as likely gaps and readiness, not live results.
+export type AiVisibilityCategory =
+  | "Discovery Prompts"
+  | "Comparison Prompts"
+  | "Problem / Solution Prompts"
+  | "Local-Intent Prompts"
+  | "Trust & Citation Readiness"
+  | "Content Gaps for AI Answers"
+  | "Authority Gaps for AI Answers";
+
+export interface AiVisibilityPromptSet {
+  id: string;
+  category: AiVisibilityCategory;
+  prompt: string;
+  language: Language;
+  intent: SearchIntent;
+  targetAudience: string;
+  whyItMatters: string;
+  /** How ready the business likely is to be cited for this prompt today. */
+  readiness: Priority;
+  recommendedSourcePageOrAsset: string;
+}
+
+export interface AiVisibilityGap {
+  id: string;
+  title: string;
+  category: AiVisibilityCategory;
+  priority: Priority;
+  explanation: string;
+  likelyReason: string;
+  recommendation: string;
+  suggestedPrompt: string;
+  suggestedOpportunityTitle: string;
+  suggestedContentType: ContentType;
+  suggestedSearchIntent: SearchIntent;
+  suggestedCta: string;
+}
+
+export interface AiVisibilityAnalysisResult {
+  id: string;
+  projectId: string;
+  note?: string;
+  overallAiVisibilityScore: number;
+  promptCoverageScore: number;
+  answerReadinessScore: number;
+  localAiReadinessScore: number;
+  trustCitationScore: number;
+  contentGapScore: number;
+  authorityGapScore: number;
+  summary: string;
+  topAiVisibilityActions: string[];
+  promptSets: AiVisibilityPromptSet[];
+  visibilityGaps: AiVisibilityGap[];
+  /** Gap ids already turned into Opportunities (dedup for the convert action). */
+  convertedGapIds: string[];
   createdAt: string;
 }

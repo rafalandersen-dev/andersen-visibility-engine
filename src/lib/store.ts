@@ -26,6 +26,7 @@ import type {
   AuditResult,
   CompetitorAnalysisResult,
   AuthorityAnalysisResult,
+  AiVisibilityAnalysisResult,
 } from "./types";
 import {
   seedProjects,
@@ -46,6 +47,7 @@ interface State {
   audits: AuditResult[];
   competitorAnalyses: CompetitorAnalysisResult[];
   authorityAnalyses: AuthorityAnalysisResult[];
+  aiVisibilityAnalyses: AiVisibilityAnalysisResult[];
   activeProjectId: string;
   /** Whether the active user's workspace has been loaded from Cloud. */
   hydrated: boolean;
@@ -62,6 +64,7 @@ const emptyState: State = {
   audits: [],
   competitorAnalyses: [],
   authorityAnalyses: [],
+  aiVisibilityAnalyses: [],
   activeProjectId: "",
   hydrated: false,
   userId: null,
@@ -78,6 +81,7 @@ const ssrSnapshot: State = {
   audits: [],
   competitorAnalyses: [],
   authorityAnalyses: [],
+  aiVisibilityAnalyses: [],
   activeProjectId: seedProjects[0]?.id ?? "",
   hydrated: false,
   userId: null,
@@ -109,6 +113,7 @@ export async function saveWorkspaceNow(): Promise<void> {
     audits: state.audits,
     competitorAnalyses: state.competitorAnalyses,
     authorityAnalyses: state.authorityAnalyses,
+    aiVisibilityAnalyses: state.aiVisibilityAnalyses,
     activeProjectId: state.activeProjectId,
   };
   const { error } = await supabase
@@ -186,6 +191,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
         audits: d.audits ?? [],
         competitorAnalyses: d.competitorAnalyses ?? [],
         authorityAnalyses: d.authorityAnalyses ?? [],
+        aiVisibilityAnalyses: d.aiVisibilityAnalyses ?? [],
         activeProjectId: d.activeProjectId ?? (d.projects?.[0]?.id ?? ""),
         hydrated: true,
         userId,
@@ -202,6 +208,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
         audits: [],
         competitorAnalyses: [],
         authorityAnalyses: [],
+        aiVisibilityAnalyses: [],
         activeProjectId: "",
         hydrated: true,
         userId,
@@ -230,6 +237,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
       audits: [],
       competitorAnalyses: [],
       authorityAnalyses: [],
+      aiVisibilityAnalyses: [],
       activeProjectId: "",
       hydrated: true,
       userId,
@@ -444,6 +452,29 @@ export const markAuthorityItemsConverted = (analysisId: string, itemIds: string[
     authorityAnalyses: s.authorityAnalyses.map((a) =>
       a.id === analysisId
         ? { ...a, convertedItemIds: Array.from(new Set([...a.convertedItemIds, ...itemIds])) }
+        : a,
+    ),
+  }));
+
+// ---- AI Visibility ----
+
+/** Store the latest AI Visibility analysis for a project (one per project — replaces any prior). */
+export const upsertAiVisibilityAnalysis = (analysis: AiVisibilityAnalysisResult) =>
+  setState((s) => ({
+    ...s,
+    aiVisibilityAnalyses: [
+      ...s.aiVisibilityAnalyses.filter((a) => a.projectId !== analysis.projectId),
+      analysis,
+    ],
+  }));
+
+/** Mark visibility gap ids as already converted into Opportunities (dedup). */
+export const markVisibilityGapsConverted = (analysisId: string, gapIds: string[]) =>
+  setState((s) => ({
+    ...s,
+    aiVisibilityAnalyses: s.aiVisibilityAnalyses.map((a) =>
+      a.id === analysisId
+        ? { ...a, convertedGapIds: Array.from(new Set([...a.convertedGapIds, ...gapIds])) }
         : a,
     ),
   }));

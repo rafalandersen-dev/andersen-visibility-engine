@@ -81,6 +81,16 @@ const AUTHORITY_CATEGORIES = [
   "Outreach",
 ] as const;
 
+const AI_VISIBILITY_CATEGORIES = [
+  "Discovery Prompts",
+  "Comparison Prompts",
+  "Problem / Solution Prompts",
+  "Local-Intent Prompts",
+  "Trust & Citation Readiness",
+  "Content Gaps for AI Answers",
+  "Authority Gaps for AI Answers",
+] as const;
+
 const LanguageEnum = normalizedEnum(LANGUAGES);
 const ContentTypeEnum = normalizedEnum(CONTENT_TYPES);
 const SearchIntentEnum = normalizedEnum(SEARCH_INTENTS);
@@ -88,6 +98,7 @@ const PriorityEnum = normalizedEnum(PRIORITIES);
 const AuditCategoryEnum = normalizedEnum(AUDIT_CATEGORIES);
 const CompetitorGapCategoryEnum = normalizedEnum(COMPETITOR_GAP_CATEGORIES);
 const AuthorityCategoryEnum = normalizedEnum(AUTHORITY_CATEGORIES);
+const AiVisibilityCategoryEnum = normalizedEnum(AI_VISIBILITY_CATEGORIES);
 
 // Structured-output schemas. Keep them loose — strict min/max on every string
 // makes the model fail validation often; we clip oversized strings in the
@@ -169,6 +180,32 @@ const AuthorityItemOutputSchema = z.object({
   recommendation: cleanString(400),
   suggestedPlatformOrTarget: cleanString(200),
   outreachAngle: cleanString(300),
+  suggestedOpportunityTitle: cleanString(120),
+  suggestedContentType: ContentTypeEnum,
+  suggestedSearchIntent: SearchIntentEnum,
+  suggestedCta: cleanString(60),
+});
+
+// AI Visibility (ids assigned client-side). Planning/readiness only — never live AI results.
+const AiVisibilityPromptSetOutputSchema = z.object({
+  category: AiVisibilityCategoryEnum,
+  prompt: cleanString(200),
+  language: LanguageEnum,
+  intent: SearchIntentEnum,
+  targetAudience: cleanString(160),
+  whyItMatters: cleanString(300),
+  readiness: PriorityEnum,
+  recommendedSourcePageOrAsset: cleanString(200),
+});
+
+const AiVisibilityGapOutputSchema = z.object({
+  title: cleanString(120),
+  category: AiVisibilityCategoryEnum,
+  priority: PriorityEnum,
+  explanation: cleanString(400),
+  likelyReason: cleanString(400),
+  recommendation: cleanString(400),
+  suggestedPrompt: cleanString(200),
   suggestedOpportunityTitle: cleanString(120),
   suggestedContentType: ContentTypeEnum,
   suggestedSearchIntent: SearchIntentEnum,
@@ -528,6 +565,50 @@ function normalizeAuthorityItem(value: unknown, index: number) {
     recommendation: pickString(item, ["recommendation", "action", "suggestion", "howTo", "how_to", "steps", "nextStep"], "Claim or build a presence here, keeping business details consistent."),
     suggestedPlatformOrTarget: pickString(item, ["suggestedPlatformOrTarget", "suggested_platform_or_target", "platform", "target", "where", "site", "directory", "publication"], "Relevant platform or directory"),
     outreachAngle: pickString(item, ["outreachAngle", "outreach_angle", "angle", "pitch", "why_they_care", "whyTheyCare", "hook"], "Lead with what makes the business genuinely useful or interesting to their audience."),
+    suggestedOpportunityTitle: pickString(item, ["suggestedOpportunityTitle", "suggested_opportunity_title", "opportunityTitle", "suggestedTitle", "contentTitle", "pageTitle"], title),
+    suggestedContentType: normalizeContentType(item.suggestedContentType ?? item.contentType ?? item.content_type ?? item.type ?? item.format),
+    suggestedSearchIntent: normalizeSearchIntent(item.suggestedSearchIntent ?? item.searchIntent ?? item.search_intent ?? item.intent),
+    suggestedCta: pickString(item, ["suggestedCta", "suggested_cta", "cta", "callToAction", "call_to_action"], "Contact us"),
+  });
+}
+
+function normalizeAiVisibilityCategory(value: unknown) {
+  const raw = asString(value).toLowerCase();
+  if (/discover|best .* in|where can|recommend|near|find a|looking for/.test(raw)) return "Discovery Prompts";
+  if (/compar|vs\b|versus|which|choose|best option|alternative/.test(raw)) return "Comparison Prompts";
+  if (/problem|solution|how to|what helps|what should|fix|solve|troubleshoot/.test(raw)) return "Problem / Solution Prompts";
+  if (/local|city|neighbo|area|near me|geo|location|language/.test(raw)) return "Local-Intent Prompts";
+  if (/trust|citation|cite|proof|fact|credential|source readiness|verif/.test(raw)) return "Trust & Citation Readiness";
+  if (/content gap|missing faq|missing service|missing comparison|missing content|expert content|helpful content/.test(raw)) return "Content Gaps for AI Answers";
+  if (/authority gap|third.?party|review|testimonial|director|external proof|profile/.test(raw)) return "Authority Gaps for AI Answers";
+  return normalizeValue(value, AI_VISIBILITY_CATEGORIES, "Discovery Prompts");
+}
+
+function normalizePromptSet(value: unknown, project: Project) {
+  const item = isRecord(value) ? value : {};
+  return AiVisibilityPromptSetOutputSchema.parse({
+    category: normalizeAiVisibilityCategory(item.category ?? item.type ?? item.group ?? item.section),
+    prompt: pickString(item, ["prompt", "question", "query", "text", "title"], `What is the best option for ${project.businessType || "this business"}?`),
+    language: normalizeLanguage(item.language ?? item.lang, project),
+    intent: normalizeSearchIntent(item.intent ?? item.searchIntent ?? item.search_intent),
+    targetAudience: pickString(item, ["targetAudience", "target_audience", "audience", "who", "persona"], project.targetAudience || "Potential customers"),
+    whyItMatters: pickString(item, ["whyItMatters", "why_it_matters", "why", "rationale", "reason", "importance"], "Customers ask AI assistants this kind of question when choosing who to buy from."),
+    readiness: normalizePriority(item.readiness ?? item.answerReadiness ?? item.answer_readiness ?? item.status),
+    recommendedSourcePageOrAsset: pickString(item, ["recommendedSourcePageOrAsset", "recommended_source_page_or_asset", "sourcePage", "source", "recommendedSource", "page", "asset"], "A clear, factual page that answers this directly"),
+  });
+}
+
+function normalizeVisibilityGap(value: unknown, index: number) {
+  const item = isRecord(value) ? value : {};
+  const title = pickString(item, ["title", "name", "gap", "heading"], `AI visibility gap ${index + 1}`);
+  return AiVisibilityGapOutputSchema.parse({
+    title,
+    category: normalizeAiVisibilityCategory(item.category ?? item.area ?? item.group ?? item.section),
+    priority: normalizePriority(item.priority ?? item.severity ?? item.impact),
+    explanation: pickString(item, ["explanation", "detail", "details", "description", "gap", "why"], "The business may not yet have a clear source AI assistants could use to answer this."),
+    likelyReason: pickString(item, ["likelyReason", "likely_reason", "reason", "cause", "rootCause", "root_cause", "why"], "There is likely no dedicated, factual page or proof source covering this topic yet."),
+    recommendation: pickString(item, ["recommendation", "fix", "action", "suggestion", "howToClose", "how_to_close", "remedy"], "Create a focused, factual page or proof source that answers this clearly."),
+    suggestedPrompt: pickString(item, ["suggestedPrompt", "suggested_prompt", "prompt", "question", "examplePrompt"], title),
     suggestedOpportunityTitle: pickString(item, ["suggestedOpportunityTitle", "suggested_opportunity_title", "opportunityTitle", "suggestedTitle", "contentTitle", "pageTitle"], title),
     suggestedContentType: normalizeContentType(item.suggestedContentType ?? item.contentType ?? item.content_type ?? item.type ?? item.format),
     suggestedSearchIntent: normalizeSearchIntent(item.suggestedSearchIntent ?? item.searchIntent ?? item.search_intent ?? item.intent),
@@ -1082,6 +1163,129 @@ ${auditBlock}${competitorBlock}${competitorStrengthsBlock}${oppBlock}${sharedRul
   });
 
 // ============================================================
+// AI Visibility v1 — readiness + prompt planner (NO live AI checks)
+// ============================================================
+
+export const generateAiVisibilityFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        project: z.any(),
+        services: z.array(z.any()).default([]),
+        auditSummary: z.string().default(""),
+        competitorSummary: z.string().default(""),
+        authoritySummary: z.string().default(""),
+        existingOpportunityTitles: z.array(z.string()).default([]),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const project = data.project as Project;
+    const services = data.services as ServiceItem[];
+    const brief = projectBrief(project, services);
+
+    const auditBlock = data.auditSummary
+      ? `EXISTING SITE AUDIT SUMMARY:\n${data.auditSummary}\n`
+      : "";
+    const competitorBlock = data.competitorSummary
+      ? `EXISTING COMPETITOR ANALYSIS SUMMARY:\n${data.competitorSummary}\n`
+      : "";
+    const authorityBlock = data.authoritySummary
+      ? `EXISTING AUTHORITY ANALYSIS SUMMARY:\n${data.authoritySummary}\n`
+      : "";
+    const oppBlock = data.existingOpportunityTitles.length
+      ? `Existing content opportunities (avoid duplicating these as gaps):\n- ${data.existingOpportunityTitles.slice(0, 20).join("\n- ")}\n`
+      : "";
+
+    try {
+      console.info("[ai.functions] ai-visibility reached", {
+        userIdPresent: Boolean(context.userId),
+        projectId: project.id,
+        projectName: project.businessName || project.name,
+        serviceCount: services.length,
+      });
+
+      const payload = await generateJsonText(
+        `You are an AI-search readiness strategist for small and medium businesses. AI assistants (ChatGPT, Perplexity, Gemini, Google AI Overviews) answer user questions by drawing on clear, factual, well-sourced content. Your job is to plan how this business can become the kind of clear, citable source those assistants would draw from.
+
+CRITICAL FRAMING — this is PLANNING and READINESS only. You have NOT checked any live AI engine. Never claim the business is currently mentioned, cited, ranked or shown by ChatGPT, Perplexity, Gemini or Google AI Overviews, and never invent citation positions or live results. Use only language like "likely gap", "readiness", "recommended prompt", "AI-answer opportunity", "content that could help AI understand or cite the business". Frame everything as opportunities, not measured facts.
+
+Produce: (a) prompt SETS — the AI-search questions this business should be ready to be a good answer for, and (b) likely visibility GAPS — why it may not yet be a strong AI answer, and what to do.
+
+Cover these categories: Discovery Prompts, Comparison Prompts, Problem / Solution Prompts, Local-Intent Prompts, Trust & Citation Readiness, Content Gaps for AI Answers, Authority Gaps for AI Answers.
+
+Return exactly this JSON shape:
+{"overallAiVisibilityScore":0,"promptCoverageScore":0,"answerReadinessScore":0,"localAiReadinessScore":0,"trustCitationScore":0,"contentGapScore":0,"authorityGapScore":0,"summary":"","topAiVisibilityActions":[""],"promptSets":[{"category":"Discovery Prompts|Comparison Prompts|Problem / Solution Prompts|Local-Intent Prompts|Trust & Citation Readiness|Content Gaps for AI Answers|Authority Gaps for AI Answers","prompt":"","language":"Polish|Swedish|English","intent":"Informational|Commercial|Transactional|Navigational","targetAudience":"","whyItMatters":"","readiness":"Low|Medium|High","recommendedSourcePageOrAsset":""}],"visibilityGaps":[{"title":"","category":"Discovery Prompts|Comparison Prompts|Problem / Solution Prompts|Local-Intent Prompts|Trust & Citation Readiness|Content Gaps for AI Answers|Authority Gaps for AI Answers","priority":"Low|Medium|High","explanation":"","likelyReason":"","recommendation":"","suggestedPrompt":"","suggestedOpportunityTitle":"","suggestedContentType":"Landing Page|Service Page|Blog Article|Guide|FAQ Page|Comparison|Location Page","suggestedSearchIntent":"Informational|Commercial|Transactional|Navigational","suggestedCta":""}]}
+
+Scores are 0–100 where HIGHER means BETTER current readiness (more likely to be a good AI answer). Be realistic for a small business.
+promptSets: provide 10–14 realistic prompts a real person would type into an AI assistant, spread across the prompt-style categories (Discovery, Comparison, Problem/Solution, Local-Intent), using the business's real services, audience and location. "readiness" = how ready the business likely is to be cited for that prompt today. Use the primary language plus additional languages where relevant.
+visibilityGaps: provide 8–12 likely gaps spread across the readiness/content/authority categories. Each "suggestedOpportunityTitle" must read like a real page/article that would make the business a better AI answer. Each "suggestedPrompt" is the AI-search question the gap is about.
+topAiVisibilityActions: 3–5 short strings naming the highest-impact readiness moves.
+
+THIS BUSINESS:
+${brief}
+${auditBlock}${competitorBlock}${authorityBlock}${oppBlock}${sharedRules}`,
+        8000,
+      );
+
+      const root = isRecord(payload) ? payload : {};
+      const promptSets = extractArray(root, ["promptSets", "prompt_sets", "prompts", "promptSet", "questions"]).map(
+        (p) => normalizePromptSet(p, project),
+      );
+      const visibilityGaps = extractArray(root, ["visibilityGaps", "visibility_gaps", "gaps", "items", "results"]).map(
+        (g, i) => normalizeVisibilityGap(g, i),
+      );
+      if (promptSets.length === 0 && visibilityGaps.length === 0) {
+        throw new Error("AI returned no AI-visibility results.");
+      }
+
+      const promptCoverageScore = clampScore(pickNumber(root, ["promptCoverageScore", "prompt_coverage_score", "promptCoverage", "coverage"]));
+      const answerReadinessScore = clampScore(pickNumber(root, ["answerReadinessScore", "answer_readiness_score", "answerReadiness", "readiness"]));
+      const localAiReadinessScore = clampScore(pickNumber(root, ["localAiReadinessScore", "local_ai_readiness_score", "localAiReadiness", "local"]));
+      const trustCitationScore = clampScore(pickNumber(root, ["trustCitationScore", "trust_citation_score", "trustCitation", "trust", "citation"]));
+      const contentGapScore = clampScore(pickNumber(root, ["contentGapScore", "content_gap_score", "contentGap", "content"]));
+      const authorityGapScore = clampScore(pickNumber(root, ["authorityGapScore", "authority_gap_score", "authorityGap", "authority"]));
+      const overallAiVisibilityScore = clampScore(
+        pickNumber(root, ["overallAiVisibilityScore", "overall_ai_visibility_score", "overall", "score"]),
+        Math.round(
+          (promptCoverageScore + answerReadinessScore + localAiReadinessScore + trustCitationScore + contentGapScore + authorityGapScore) / 6,
+        ),
+      );
+      const summary = pickString(
+        root,
+        ["summary", "overview", "analysis", "assessment"],
+        "AI visibility readiness analyzed — review the prompts and likely gaps below and turn the top ones into opportunities.",
+      );
+      const topAiVisibilityActions = normalizeStringArray(
+        root.topAiVisibilityActions ?? root.top_ai_visibility_actions ?? root.topActions ?? root.priorities ?? root.quickWins,
+        visibilityGaps.slice(0, 3).map((g) => g.title),
+      ).slice(0, 5);
+
+      console.info("[ai.functions] ai-visibility parsed", {
+        prompts: promptSets.length,
+        gaps: visibilityGaps.length,
+      });
+
+      return {
+        overallAiVisibilityScore,
+        promptCoverageScore,
+        answerReadinessScore,
+        localAiReadinessScore,
+        trustCitationScore,
+        contentGapScore,
+        authorityGapScore,
+        summary,
+        topAiVisibilityActions,
+        promptSets,
+        visibilityGaps,
+      };
+    } catch (e) {
+      throw mapGatewayError(e);
+    }
+  });
+
+// ============================================================
 // generateOpportunities
 // ============================================================
 
@@ -1315,7 +1519,7 @@ export const generateContentFn = createServerFn({ method: "POST" })
     const brief = projectBrief(project, services);
     const instruction = ASSET_INSTRUCTIONS[data.assetType] ?? ASSET_INSTRUCTIONS.article;
     const sourceLine = opp.source
-      ? `Source: this opportunity came from ${opp.source === "audit" ? "a Site Audit finding" : opp.source === "competitor" ? "a Competitor Gap" : opp.source === "authority" ? "an Authority-building action" : "manual planning"} — keep that intent in mind.`
+      ? `Source: this opportunity came from ${opp.source === "audit" ? "a Site Audit finding" : opp.source === "competitor" ? "a Competitor Gap" : opp.source === "authority" ? "an Authority-building action" : opp.source === "aiVisibility" ? "an AI Visibility gap" : "manual planning"} — keep that intent in mind.`
       : "";
 
     try {

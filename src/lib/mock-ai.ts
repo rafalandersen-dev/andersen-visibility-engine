@@ -28,6 +28,8 @@ import {
   markGapsConverted,
   upsertAuthorityAnalysis,
   markAuthorityItemsConverted,
+  upsertAiVisibilityAnalysis,
+  markVisibilityGapsConverted,
   addOpportunities,
   updateOpportunity,
   updateProject,
@@ -44,6 +46,8 @@ import type {
   CompetitorGap,
   AuthorityAnalysisResult,
   AuthorityItem,
+  AiVisibilityAnalysisResult,
+  AiVisibilityGap,
   Project,
   Priority,
   AssetType,
@@ -57,6 +61,7 @@ import {
   generateAuditFn,
   generateCompetitorGapFn,
   generateAuthorityFn,
+  generateAiVisibilityFn,
   regenerateMetadataFn,
   regenerateFaqFn,
   regenerateCtaFn,
@@ -650,6 +655,140 @@ export async function createOpportunitiesFromTopAuthority(projectId: string) {
     );
     await saveWorkspaceNow();
     console.info("[ai.client] top-authority opportunities created", { projectId, count: opps.length });
+    return opps;
+  });
+}
+
+// ============================================================
+// AI Visibility v1 (planning/readiness — no live AI checks)
+// ============================================================
+
+/** Build a "Linked" Opportunity from an AI-visibility gap (survives opportunity regeneration). */
+function opportunityFromVisibilityGap(gap: AiVisibilityGap, project: Project): Opportunity {
+  return {
+    id: uid(),
+    projectId: project.id,
+    title: gap.suggestedOpportunityTitle || gap.title,
+    language: project.primaryLanguage,
+    contentType: gap.suggestedContentType,
+    searchIntent: gap.suggestedSearchIntent,
+    targetAudience: project.targetAudience || "Potential customers",
+    businessValue: gap.recommendation || gap.explanation,
+    recommendedCta: gap.suggestedCta || "Contact us",
+    priority: gap.priority,
+    status: "Linked",
+    source: "aiVisibility",
+  };
+}
+
+export async function runAiVisibilityAnalysis(projectId: string) {
+  return once(`aivis:${projectId}`, async () => {
+    const { project, services } = requireProject(projectId);
+
+    // Reuse existing audit / competitor / authority context (if any).
+    const s = getState();
+    const audit = s.audits.find((a) => a.projectId === projectId);
+    const competitor = s.competitorAnalyses.find((a) => a.projectId === projectId);
+    const authority = s.authorityAnalyses.find((a) => a.projectId === projectId);
+    const existingOpportunityTitles = s.opportunities
+      .filter((o) => o.projectId === projectId)
+      .map((o) => o.title);
+
+    const res = await generateAiVisibilityFn({
+      data: {
+        project,
+        services,
+        auditSummary: audit?.summary ?? "",
+        competitorSummary: competitor?.summary ?? "",
+        authoritySummary: authority?.summary ?? "",
+        existingOpportunityTitles,
+      },
+    });
+    if (
+      !res ||
+      ((!Array.isArray(res.promptSets) || res.promptSets.length === 0) &&
+        (!Array.isArray(res.visibilityGaps) || res.visibilityGaps.length === 0))
+    ) {
+      throw new Error("AI returned no AI-visibility results. Please try again.");
+    }
+    console.info("[ai.client] ai-visibility received", {
+      projectId,
+      prompts: res.promptSets?.length ?? 0,
+      gaps: res.visibilityGaps?.length ?? 0,
+    });
+
+    const analysis: AiVisibilityAnalysisResult = {
+      id: uid(),
+      projectId,
+      overallAiVisibilityScore: res.overallAiVisibilityScore,
+      promptCoverageScore: res.promptCoverageScore,
+      answerReadinessScore: res.answerReadinessScore,
+      localAiReadinessScore: res.localAiReadinessScore,
+      trustCitationScore: res.trustCitationScore,
+      contentGapScore: res.contentGapScore,
+      authorityGapScore: res.authorityGapScore,
+      summary: res.summary,
+      topAiVisibilityActions: Array.isArray(res.topAiVisibilityActions) ? res.topAiVisibilityActions : [],
+      promptSets: (Array.isArray(res.promptSets) ? res.promptSets : []).map((p) => ({ ...p, id: uid() })),
+      visibilityGaps: (Array.isArray(res.visibilityGaps) ? res.visibilityGaps : []).map((g) => ({ ...g, id: uid() })),
+      convertedGapIds: [],
+      createdAt: new Date().toISOString(),
+    };
+    upsertAiVisibilityAnalysis(analysis);
+    await saveWorkspaceNow();
+    console.info("[ai.client] ai-visibility saved", {
+      projectId,
+      prompts: analysis.promptSets.length,
+      gaps: analysis.visibilityGaps.length,
+    });
+    return analysis;
+  });
+}
+
+/** Convert a single AI-visibility gap into an Opportunity (idempotent per gap). */
+export async function createOpportunityFromVisibilityGap(projectId: string, gapId: string) {
+  const s = getState();
+  const analysis = s.aiVisibilityAnalyses.find((a) => a.projectId === projectId);
+  if (!analysis) throw new Error("Run an AI visibility analysis first.");
+  const gap = analysis.visibilityGaps.find((g) => g.id === gapId);
+  if (!gap) throw new Error("AI visibility gap not found.");
+  if (analysis.convertedGapIds.includes(gapId)) {
+    throw new Error("This AI visibility gap is already an opportunity.");
+  }
+  const { project } = requireProject(projectId);
+  const opp = opportunityFromVisibilityGap(gap, project);
+  addOpportunities([opp]);
+  markVisibilityGapsConverted(analysis.id, [gapId]);
+  await saveWorkspaceNow();
+  return opp;
+}
+
+/** Bulk: create opportunities from the top 3–5 High/Medium visibility gaps not yet converted. */
+export async function createOpportunitiesFromTopAiActions(projectId: string) {
+  return once(`aivis-bulk:${projectId}`, async () => {
+    const s = getState();
+    const analysis = s.aiVisibilityAnalyses.find((a) => a.projectId === projectId);
+    if (!analysis) throw new Error("Run an AI visibility analysis first.");
+    const { project } = requireProject(projectId);
+
+    const candidates = analysis.visibilityGaps
+      .filter((g) => !analysis.convertedGapIds.includes(g.id))
+      .filter((g) => g.priority === "High" || g.priority === "Medium")
+      .sort((a, b) => priorityRank[b.priority] - priorityRank[a.priority])
+      .slice(0, 5);
+
+    if (candidates.length === 0) {
+      throw new Error("No remaining high or medium priority AI visibility gaps to convert.");
+    }
+
+    const opps = candidates.map((g) => opportunityFromVisibilityGap(g, project));
+    addOpportunities(opps);
+    markVisibilityGapsConverted(
+      analysis.id,
+      candidates.map((g) => g.id),
+    );
+    await saveWorkspaceNow();
+    console.info("[ai.client] top-ai-visibility opportunities created", { projectId, count: opps.length });
     return opps;
   });
 }
