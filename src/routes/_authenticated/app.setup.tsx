@@ -21,7 +21,7 @@ import {
 } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 
-import type { Language, Project, PublishDestinationType } from "@/lib/types";
+import type { Language, Project, PublishDestinationType, PublishMode } from "@/lib/types";
 import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -233,30 +233,46 @@ const DEST_LABELS: { value: PublishDestinationType; label: string }[] = [
   { value: "landingPage", label: "Landing page" },
 ];
 
+const MODE_OPTIONS: { value: PublishMode; label: string }[] = [
+  { value: "draftOnly", label: "Draft only" },
+  { value: "manualLive", label: "Manual publish live" },
+  { value: "autoPublishApproved", label: "Auto-publish approved content" },
+];
+
 function PublishingCard({ project }: { project: Project }) {
   const [endpoint, setEndpoint] = useState(project.publishEndpoint ?? "");
+  const [liveEndpoint, setLiveEndpoint] = useState(project.livePublishEndpoint ?? "");
   const [secret, setSecret] = useState(project.publishSecret ?? "");
   const [destination, setDestination] = useState<PublishDestinationType>(
     project.defaultDestinationType ?? "blogPost",
   );
+  const [mode, setMode] = useState<PublishMode>(project.publishMode ?? "draftOnly");
   const [saving, setSaving] = useState(false);
   const endpointId = useId();
+  const liveEndpointId = useId();
   const secretId = useId();
 
+  const urlOk = (v: string) => !v.trim() || /^https?:\/\/\S+\.\S+/.test(v.trim());
+
   async function save() {
-    const trimmed = endpoint.trim();
-    if (trimmed && !/^https?:\/\/\S+\.\S+/.test(trimmed)) {
+    if (!urlOk(endpoint)) {
       toast.error("Publish endpoint must start with http:// or https://");
+      return;
+    }
+    if (!urlOk(liveEndpoint)) {
+      toast.error("Live publish endpoint must start with http:// or https://");
       return;
     }
     setSaving(true);
     try {
       updateProjectPublishingSettings(project.id, {
         publishingPlatform: "lovableCustomEndpoint",
-        publishEndpoint: trimmed,
+        publishEndpoint: endpoint.trim(),
+        livePublishEndpoint: liveEndpoint.trim(),
         publishSecret: secret,
         defaultPublishMode: "draft",
         defaultDestinationType: destination,
+        publishMode: mode,
       });
       await saveWorkspaceNow();
       toast.success("Publishing settings saved");
@@ -272,9 +288,10 @@ function PublishingCard({ project }: { project: Project }) {
       <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Publishing</div>
       <div className="my-4 gold-rule" />
       <p className="text-sm text-muted-foreground max-w-2xl">
-        Connect a Lovable/custom website endpoint so Milo can send approved content as website{" "}
-        <span className="text-foreground/80">drafts</span>. Milo only creates drafts — it never
-        publishes live content automatically.
+        Connect a Lovable/custom website endpoint so Milo can send content as website{" "}
+        <span className="text-foreground/80">drafts</span> and, when you choose, publish them{" "}
+        <span className="text-foreground/80">live</span> — all controlled from Milo. You never need
+        to publish from the website itself.
       </p>
 
       <div className="mt-5 grid md:grid-cols-2 gap-5">
@@ -302,6 +319,22 @@ function PublishingCard({ project }: { project: Project }) {
               placeholder="https://yourwebsite.com/api/milo/publish"
             />
           </div>
+        </div>
+        <div className="md:col-span-2">
+          <Label htmlFor={liveEndpointId} className="text-xs font-medium text-muted-foreground">
+            Live publish endpoint
+          </Label>
+          <div className="mt-1.5">
+            <Input
+              id={liveEndpointId}
+              value={liveEndpoint}
+              onChange={(e) => setLiveEndpoint(e.target.value)}
+              placeholder="https://yourwebsite.com/api/milo/publish-live"
+            />
+          </div>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Separate route Milo calls to publish a reviewed draft live. Uses the same publish secret.
+          </p>
         </div>
         <div className="md:col-span-2">
           <Label htmlFor={secretId} className="text-xs font-medium text-muted-foreground">
@@ -335,7 +368,27 @@ function PublishingCard({ project }: { project: Project }) {
             </Select>
           </div>
         </div>
+        <div>
+          <Label className="text-xs font-medium text-muted-foreground">Publishing mode</Label>
+          <div className="mt-1.5">
+            <Select value={mode} onValueChange={(v) => setMode(v as PublishMode)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {MODE_OPTIONS.map((m) => (
+                  <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </div>
+
+      {mode === "autoPublishApproved" ? (
+        <div className="mt-4 rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-xs text-foreground/80">
+          Auto-publish only publishes content assets marked <span className="font-medium">Approved</span>.
+          Draft, In Review and Rejected assets will not be published automatically.
+        </div>
+      ) : null}
 
       <div className="mt-5 flex justify-end">
         <Button onClick={save} disabled={saving}>

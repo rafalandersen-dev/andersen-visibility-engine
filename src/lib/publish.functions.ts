@@ -142,3 +142,108 @@ export const publishContentFn = createServerFn({ method: "POST" })
 
     return { ok: true as const, draftUrl, externalId, sentAt };
   });
+
+// ============================================================
+// Publishing v1.1 — publish an existing draft LIVE on the website
+// ============================================================
+
+const PublishLiveInputSchema = z.object({
+  endpoint: z.string().default(""),
+  secret: z.string().default(""),
+  projectId: z.string().default(""),
+  assetId: z.string().default(""),
+  externalId: z.string().default(""),
+  slug: z.string().default(""),
+  destinationType: z.enum(DESTINATION_TYPES),
+});
+
+export const publishLiveFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => PublishLiveInputSchema.parse(input))
+  .handler(async ({ data }) => {
+    const endpoint = data.endpoint.trim();
+    const secret = data.secret.trim();
+
+    if (!endpoint) throw new Error("No live-publish endpoint configured. Add one in Project Setup.");
+    if (!secret) throw new Error("No publish secret configured. Add one in Project Setup.");
+
+    let url: URL;
+    try {
+      url = new URL(endpoint);
+    } catch {
+      throw new Error("The live-publish endpoint is not a valid URL.");
+    }
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      throw new Error("The live-publish endpoint must start with http:// or https://.");
+    }
+
+    const payload = {
+      source: "milo-growth",
+      projectId: data.projectId,
+      assetId: data.assetId,
+      externalId: data.externalId,
+      slug: data.slug,
+      destinationType: data.destinationType,
+    };
+
+    console.info("[publish.functions] publishing live", {
+      host: url.host,
+      assetId: data.assetId,
+      destinationType: data.destinationType,
+    });
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10_000);
+
+    let res: Response;
+    try {
+      res = await fetch(url.toString(), {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          "x-milo-publish-secret": secret,
+        },
+        body: JSON.stringify(payload),
+      });
+    } catch {
+      throw new Error("Could not reach the live-publish endpoint. Check the URL and try again.");
+    } finally {
+      clearTimeout(timer);
+    }
+
+    const rawText = await res.text().catch(() => "");
+    let body: unknown = undefined;
+    if (rawText) {
+      try {
+        body = JSON.parse(rawText);
+      } catch {
+        body = undefined;
+      }
+    }
+
+    if (!res.ok) {
+      const apiError = isRecord(body) ? asString(body.error) : "";
+      throw new Error(
+        apiError
+          ? `Website rejected the publish: ${apiError}`
+          : `Website returned an error (status ${res.status}).`,
+      );
+    }
+
+    if (isRecord(body) && body.ok === false) {
+      const apiError = asString(body.error);
+      throw new Error(apiError ? `Website rejected the publish: ${apiError}` : "Website rejected the publish.");
+    }
+
+    const liveUrl = isRecord(body) ? asString(body.liveUrl) : "";
+    const externalId = isRecord(body) ? asString(body.externalId) : "";
+    if (!liveUrl) {
+      throw new Error("Website published but did not return a live URL.");
+    }
+
+    const publishedAt = new Date().toISOString();
+    console.info("[publish.functions] live publish accepted", { host: url.host, assetId: data.assetId });
+
+    return { ok: true as const, liveUrl, externalId, publishedAt };
+  });

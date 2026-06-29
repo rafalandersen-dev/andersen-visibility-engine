@@ -412,7 +412,13 @@ export const deleteContentAsset = (id: string) =>
 type ProjectPublishingSettings = Partial<
   Pick<
     Project,
-    "publishingPlatform" | "publishEndpoint" | "publishSecret" | "defaultPublishMode" | "defaultDestinationType"
+    | "publishingPlatform"
+    | "publishEndpoint"
+    | "publishSecret"
+    | "defaultPublishMode"
+    | "defaultDestinationType"
+    | "livePublishEndpoint"
+    | "publishMode"
   >
 >;
 
@@ -430,6 +436,7 @@ export const markContentAssetSent = (
     publishDestinationType: ContentAsset["publishDestinationType"];
     publishSlug: string;
     publishedDraftUrl?: string;
+    publishExternalId?: string;
     lastPublishedAt: string;
   },
 ) =>
@@ -443,6 +450,7 @@ export const markContentAssetSent = (
             publishDestinationType: data.publishDestinationType,
             publishSlug: data.publishSlug,
             publishedDraftUrl: data.publishedDraftUrl,
+            publishExternalId: data.publishExternalId ?? c.publishExternalId,
             lastPublishedAt: data.lastPublishedAt,
             lastPublishError: undefined,
           }
@@ -468,6 +476,52 @@ export const resetContentAssetPublishStatus = (assetId: string) =>
     content: s.content.map((c) =>
       c.id === assetId
         ? { ...c, publishStatus: "notSent" as const, lastPublishError: undefined }
+        : c,
+    ),
+  }));
+
+// ---- Publishing v1.1 (live publishing) ----
+
+/** Mark a content asset as published live on the connected website. */
+export const markContentAssetPublishedLive = (
+  assetId: string,
+  data: { liveUrl: string; livePublishedAt: string; publishExternalId?: string },
+) =>
+  setState((s) => ({
+    ...s,
+    content: s.content.map((c) =>
+      c.id === assetId
+        ? {
+            ...c,
+            livePublishStatus: "published" as const,
+            liveUrl: data.liveUrl,
+            livePublishedAt: data.livePublishedAt,
+            livePublishError: undefined,
+            autoPublishError: undefined,
+            publishExternalId: data.publishExternalId ?? c.publishExternalId,
+          }
+        : c,
+    ),
+  }));
+
+/** Mark a content asset's live-publish attempt as failed (content + draft state preserved). */
+export const markContentAssetLivePublishFailed = (
+  assetId: string,
+  error: string,
+  attemptedAt: string,
+  opts?: { auto?: boolean },
+) =>
+  setState((s) => ({
+    ...s,
+    content: s.content.map((c) =>
+      c.id === assetId
+        ? {
+            ...c,
+            livePublishStatus: "failed" as const,
+            livePublishError: error,
+            livePublishedAt: attemptedAt,
+            ...(opts?.auto ? { autoPublishAttemptedAt: attemptedAt, autoPublishError: error } : {}),
+          }
         : c,
     ),
   }));

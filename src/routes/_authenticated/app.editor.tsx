@@ -26,7 +26,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { useStore, upsertContent, deleteContentAsset, saveWorkspaceNow } from "@/lib/store";
-import { generateMetadata, generateFaq, generateCta, sendContentToWebsite } from "@/lib/mock-ai";
+import { generateMetadata, generateFaq, generateCta, sendContentToWebsite, publishContentLive, runAutoPublishOnApprove } from "@/lib/mock-ai";
 import { CreateContentDialog, ASSET_TYPE_LABELS } from "@/components/CreateContentDialog";
 import {
   AlertDialog,
@@ -38,10 +38,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import type { ContentAsset, ContentStatus, PublishDestinationType, PublishStatus } from "@/lib/types";
+import type { ContentAsset, ContentStatus, PublishDestinationType, PublishStatus, LivePublishStatus } from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
 import { useEffect, useId, useMemo, useState } from "react";
-import { Check, Copy, Download, ExternalLink, FileEdit, FilePlus2, FileX, Globe, Loader2, Send, Sparkles, Trash2 } from "lucide-react";
+import { Check, Copy, Download, ExternalLink, FileEdit, FilePlus2, FileX, Globe, Loader2, Rocket, Send, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -168,6 +168,12 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     project?.defaultDestinationType ?? "blogPost",
   );
   const [publishSlug, setPublishSlug] = useState(asset.slug);
+  // ---- Publishing v1.1 (live + auto-publish) ----
+  const publishMode = project?.publishMode ?? "draftOnly";
+  const liveConfigured = Boolean(project?.livePublishEndpoint && project?.publishSecret);
+  const [liveConfirmOpen, setLiveConfirmOpen] = useState(false);
+  const [publishingLive, setPublishingLive] = useState(false);
+  const [autoBusy, setAutoBusy] = useState(false);
   const outlineId = useId();
   const internalLinksId = useId();
   const schemaId = useId();
@@ -245,6 +251,36 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     }
   }
 
+  // Approve, and — only in autoPublishApproved mode — run the auto-publish flow
+  // once on this explicit transition (never on render).
+  async function approve() {
+    save("Approved");
+    if (publishMode !== "autoPublishApproved") return;
+    setAutoBusy(true);
+    try {
+      const r = await runAutoPublishOnApprove(asset.id);
+      if (r) toast.success("Approved and published live");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Auto-publish failed — you can retry with Publish live");
+    } finally {
+      setAutoBusy(false);
+    }
+  }
+
+  async function doPublishLive() {
+    setPublishingLive(true);
+    try {
+      await publishContentLive(asset.id);
+      toast.success("Published live");
+      setLiveConfirmOpen(false);
+    } catch (e) {
+      // Status stored as "failed"; keep draft state + content intact for retry.
+      toast.error(e instanceof Error ? e.message : "Could not publish live");
+    } finally {
+      setPublishingLive(false);
+    }
+  }
+
   return (
     <div className="rounded-lg border border-border bg-card">
       {/* Asset metadata header (Content Engine 2.0) */}
@@ -273,7 +309,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-border">
         <div className="flex items-center gap-3">
           <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Status</span>
-          <Select value={f.status} onValueChange={(v) => save(v as ContentStatus)}>
+          <Select value={f.status} onValueChange={(v) => (v === "Approved" ? approve() : save(v as ContentStatus))}>
             <SelectTrigger className="h-8 w-36 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               {(["Draft","In Review","Approved","Rejected","Exported"] as ContentStatus[]).map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
@@ -288,7 +324,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           ) : null}
           <Button size="sm" variant="ghost" onClick={() => save("Draft")}><FileEdit className="h-3.5 w-3.5" /> Save draft</Button>
           <Button size="sm" variant="outline" onClick={() => save("In Review")}>Mark in review</Button>
-          <Button size="sm" variant="outline" onClick={() => save("Approved")}><Check className="h-3.5 w-3.5" /> Approve</Button>
+          <Button size="sm" variant="outline" onClick={approve} disabled={autoBusy}>{autoBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Approve</Button>
           <Button size="sm" variant="ghost" onClick={() => save("Rejected")}><FileX className="h-3.5 w-3.5" /> Reject</Button>
           <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={onRequestDelete}><Trash2 className="h-3.5 w-3.5" /> Delete</Button>
         </div>
@@ -306,30 +342,67 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
             to send drafts directly from Milo.
           </p>
         ) : (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <Button size="sm" variant="outline" onClick={openSend}>
-              <Send className="h-3.5 w-3.5" />
-              {live.publishStatus === "sent" ? "Re-send to website" : "Send to website"}
-            </Button>
-            <PublishStatusBadge status={live.publishStatus} />
-            {live.lastPublishedAt ? (
-              <span className="text-xs text-muted-foreground">
-                {live.publishStatus === "failed" ? "Last attempt" : "Sent"}{" "}
-                {formatDateTime(live.lastPublishedAt)}
-              </span>
-            ) : null}
-            {live.publishedDraftUrl ? (
-              <a
-                href={live.publishedDraftUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-foreground/80 underline underline-offset-4 inline-flex items-center gap-1"
-              >
-                <ExternalLink className="h-3 w-3" /> View website draft
-              </a>
-            ) : null}
-            {live.publishStatus === "failed" && live.lastPublishError ? (
-              <span className="text-xs text-destructive">{live.lastPublishError}</span>
+          <div className="space-y-2.5">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <Button size="sm" variant="outline" onClick={openSend}>
+                <Send className="h-3.5 w-3.5" />
+                {live.publishStatus === "sent" ? "Re-send to website" : "Send to website"}
+              </Button>
+              <PublishStatusBadge status={live.publishStatus} />
+              {live.lastPublishedAt ? (
+                <span className="text-xs text-muted-foreground">
+                  {live.publishStatus === "failed" ? "Last attempt" : "Sent"}{" "}
+                  {formatDateTime(live.lastPublishedAt)}
+                </span>
+              ) : null}
+              {live.publishedDraftUrl ? (
+                <a
+                  href={live.publishedDraftUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-foreground/80 underline underline-offset-4 inline-flex items-center gap-1"
+                >
+                  <ExternalLink className="h-3 w-3" /> View website draft
+                </a>
+              ) : null}
+              {live.publishStatus === "failed" && live.lastPublishError ? (
+                <span className="text-xs text-destructive">{live.lastPublishError}</span>
+              ) : null}
+            </div>
+
+            {live.publishStatus === "sent" && publishMode !== "draftOnly" ? (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-2.5 border-t border-border/60">
+                <Button size="sm" onClick={() => setLiveConfirmOpen(true)} disabled={!liveConfigured || publishingLive}>
+                  {publishingLive ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Rocket className="h-3.5 w-3.5" />}
+                  {live.livePublishStatus === "published" ? "Re-publish live" : "Publish live"}
+                </Button>
+                <LivePublishStatusBadge status={live.livePublishStatus} />
+                {live.livePublishedAt ? (
+                  <span className="text-xs text-muted-foreground">
+                    {live.livePublishStatus === "failed" ? "Last attempt" : "Published"}{" "}
+                    {formatDateTime(live.livePublishedAt)}
+                  </span>
+                ) : null}
+                {live.liveUrl ? (
+                  <a
+                    href={live.liveUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-foreground/80 underline underline-offset-4 inline-flex items-center gap-1"
+                  >
+                    <ExternalLink className="h-3 w-3" /> View live page
+                  </a>
+                ) : null}
+                {!liveConfigured ? (
+                  <span className="text-xs text-muted-foreground">
+                    Add a live publish endpoint in{" "}
+                    <Link to="/app/setup" className="underline underline-offset-4 hover:text-foreground">Project Setup</Link>.
+                  </span>
+                ) : null}
+                {live.livePublishStatus === "failed" && live.livePublishError ? (
+                  <span className="text-xs text-destructive">{live.livePublishError}</span>
+                ) : null}
+              </div>
             ) : null}
           </div>
         )}
@@ -387,6 +460,27 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={liveConfirmOpen} onOpenChange={(o) => { if (!publishingLive) setLiveConfirmOpen(o); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Publish this draft live?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will make the website draft publicly available on the connected website. You
+              should only publish after reviewing the draft.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={publishingLive}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); doPublishLive(); }}
+              disabled={publishingLive}
+            >
+              {publishingLive ? "Publishing…" : "Publish live"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Tabs defaultValue="content" className="px-5 pt-3">
         <TabsList>
@@ -502,6 +596,20 @@ function PublishStatusBadge({ status }: { status?: PublishStatus }) {
     notSent: { label: "Not sent", cls: "bg-muted border-border text-muted-foreground" },
   } as const;
   const { label, cls } = map[status ?? "notSent"];
+  return (
+    <span className={`text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full border ${cls}`}>
+      {label}
+    </span>
+  );
+}
+
+function LivePublishStatusBadge({ status }: { status?: LivePublishStatus }) {
+  const map = {
+    published: { label: "Published live", cls: "bg-emerald-500/15 border-emerald-500/40 text-emerald-600" },
+    failed: { label: "Live failed", cls: "bg-destructive/10 border-destructive/30 text-destructive" },
+    notPublished: { label: "Not published", cls: "bg-muted border-border text-muted-foreground" },
+  } as const;
+  const { label, cls } = map[status ?? "notPublished"];
   return (
     <span className={`text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full border ${cls}`}>
       {label}

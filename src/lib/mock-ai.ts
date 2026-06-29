@@ -32,6 +32,8 @@ import {
   markVisibilityGapsConverted,
   markContentAssetSent,
   markContentAssetPublishFailed,
+  markContentAssetPublishedLive,
+  markContentAssetLivePublishFailed,
   addOpportunities,
   updateOpportunity,
   updateProject,
@@ -69,7 +71,7 @@ import {
   regenerateFaqFn,
   regenerateCtaFn,
 } from "./ai.functions";
-import { publishContentFn } from "./publish.functions";
+import { publishContentFn, publishLiveFn } from "./publish.functions";
 
 function slugify(s: string) {
   return s
@@ -935,6 +937,7 @@ export async function sendContentToWebsite(
         publishDestinationType: destinationType,
         publishSlug: finalSlug,
         publishedDraftUrl: res.draftUrl || undefined,
+        publishExternalId: res.externalId || undefined,
         lastPublishedAt: res.sentAt,
       });
       await saveWorkspaceNow();
@@ -947,4 +950,92 @@ export async function sendContentToWebsite(
       throw e instanceof Error ? e : new Error(msg);
     }
   });
+}
+
+/**
+ * Publish an already-sent draft LIVE on the connected website (Publishing v1.1).
+ * Requires the draft to have been sent first and a live-publish endpoint + secret.
+ * Stores published/failed status; preserves draft state + content on failure.
+ */
+export async function publishContentLive(assetId: string) {
+  return once(`publish-live:${assetId}`, async () => {
+    const s = getState();
+    const asset = s.content.find((c) => c.id === assetId);
+    if (!asset) throw new Error("Content asset not found.");
+    const project = s.projects.find((p) => p.id === asset.projectId);
+    if (!project) throw new Error("Project not found.");
+
+    const liveEndpoint = (project.livePublishEndpoint ?? "").trim();
+    const secret = (project.publishSecret ?? "").trim();
+    if (!liveEndpoint) throw new Error("Add a live-publish endpoint in Project Setup first.");
+    if (!secret) throw new Error("Add a publish secret in Project Setup first.");
+    if (asset.publishStatus !== "sent") {
+      throw new Error("Send the draft to the website before publishing it live.");
+    }
+
+    try {
+      const res = await publishLiveFn({
+        data: {
+          endpoint: liveEndpoint,
+          secret,
+          projectId: project.id,
+          assetId: asset.id,
+          externalId: asset.publishExternalId ?? "",
+          slug: asset.publishSlug ?? asset.slug,
+          destinationType: asset.publishDestinationType ?? project.defaultDestinationType ?? "blogPost",
+        },
+      });
+      markContentAssetPublishedLive(assetId, {
+        liveUrl: res.liveUrl,
+        livePublishedAt: res.publishedAt,
+        publishExternalId: res.externalId || undefined,
+      });
+      await saveWorkspaceNow();
+      console.info("[ai.client] published live", { projectId: project.id });
+      return res;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Live publish failed. Please try again.";
+      markContentAssetLivePublishFailed(assetId, msg, new Date().toISOString());
+      await saveWorkspaceNow();
+      throw e instanceof Error ? e : new Error(msg);
+    }
+  });
+}
+
+/**
+ * Auto-publish hook — call once, right after an asset transitions to "Approved".
+ * No-ops (returns null) unless the project is in autoPublishApproved mode, the
+ * asset is Approved, and draft+live endpoints+secret are all configured. Sends
+ * the draft first if needed, then publishes live. Throws on failure (status is
+ * also stored) so the caller can surface it; the asset stays Approved for retry.
+ * Triggered only by the explicit Approve transition — never on render.
+ */
+export async function runAutoPublishOnApprove(assetId: string): Promise<{ liveUrl: string } | null> {
+  const s = getState();
+  const asset = s.content.find((c) => c.id === assetId);
+  if (!asset || asset.status !== "Approved") return null;
+  const project = s.projects.find((p) => p.id === asset.projectId);
+  if (!project || project.publishMode !== "autoPublishApproved") return null;
+
+  const endpoint = (project.publishEndpoint ?? "").trim();
+  const secret = (project.publishSecret ?? "").trim();
+  const liveEndpoint = (project.livePublishEndpoint ?? "").trim();
+  // Missing configuration → do not attempt auto-publish (no error, no status change).
+  if (!endpoint || !secret || !liveEndpoint) return null;
+
+  try {
+    // 1. Ensure a draft exists on the website.
+    if (asset.publishStatus !== "sent") {
+      const dest = asset.publishDestinationType ?? project.defaultDestinationType ?? "blogPost";
+      await sendContentToWebsite(assetId, dest, asset.publishSlug ?? asset.slug);
+    }
+    // 2. Publish it live.
+    const res = await publishContentLive(assetId);
+    return { liveUrl: res.liveUrl };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Auto-publish failed.";
+    markContentAssetLivePublishFailed(assetId, msg, new Date().toISOString(), { auto: true });
+    await saveWorkspaceNow();
+    throw e instanceof Error ? e : new Error(msg);
+  }
 }

@@ -43,6 +43,11 @@ export type PublishingPlatform = "lovableCustomEndpoint";
 export type PublishDestinationType = "blogPost" | "servicePage" | "faq" | "landingPage";
 export type PublishStatus = "notSent" | "sent" | "failed";
 
+// ---- Publishing v1.1 (manual publish-live + auto-publish) ----
+/** How Milo handles publishing for a connected website. */
+export type PublishMode = "draftOnly" | "manualLive" | "autoPublishApproved";
+export type LivePublishStatus = "notPublished" | "published" | "failed";
+
 export interface Project {
   id: string;
   name: string;
@@ -64,6 +69,11 @@ export interface Project {
   publishSecret?: string;
   defaultPublishMode?: "draft";
   defaultDestinationType?: PublishDestinationType;
+  // ---- Publishing v1.1 ----
+  /** Live-publish endpoint (separate route from the draft endpoint). */
+  livePublishEndpoint?: string;
+  /** Workflow mode: draft only, manual publish-live, or auto-publish on Approve. */
+  publishMode?: PublishMode;
 }
 
 export interface ServiceItem {
@@ -138,6 +148,15 @@ export interface ContentAsset {
   publishedDraftUrl?: string;
   lastPublishedAt?: string;
   lastPublishError?: string;
+  /** Identifier returned by the website when the draft was created (for upsert/publish). */
+  publishExternalId?: string;
+  // ---- Publishing v1.1 (live publishing — all optional) ----
+  livePublishStatus?: LivePublishStatus;
+  liveUrl?: string;
+  livePublishedAt?: string;
+  livePublishError?: string;
+  autoPublishAttemptedAt?: string;
+  autoPublishError?: string;
 }
 
 // ---- Site Audit v1 ----
