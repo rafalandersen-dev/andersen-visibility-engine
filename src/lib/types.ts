@@ -38,6 +38,11 @@ export type AssetType =
 
 export type ContentSourceType = "opportunity" | "audit" | "competitor" | "manual" | "unknown";
 
+// ---- Publishing v1 (Lovable / custom website connector) ----
+export type PublishingPlatform = "lovableCustomEndpoint";
+export type PublishDestinationType = "blogPost" | "servicePage" | "faq" | "landingPage";
+export type PublishStatus = "notSent" | "sent" | "failed";
+
 export interface Project {
   id: string;
   name: string;
@@ -53,6 +58,12 @@ export interface Project {
   toneOfVoice: string;
   uniqueSellingPoints: string;
   brandNotes: string;
+  // ---- Publishing v1 (all optional → existing projects keep loading) ----
+  publishingPlatform?: PublishingPlatform;
+  publishEndpoint?: string;
+  publishSecret?: string;
+  defaultPublishMode?: "draft";
+  defaultDestinationType?: PublishDestinationType;
 }
 
 export interface ServiceItem {
@@ -120,6 +131,13 @@ export interface ContentAsset {
   sourceType?: ContentSourceType;
   language?: Language;
   createdAt?: string;
+  // ---- Publishing v1 (all optional → existing assets keep loading) ----
+  publishStatus?: PublishStatus;
+  publishDestinationType?: PublishDestinationType;
+  publishSlug?: string;
+  publishedDraftUrl?: string;
+  lastPublishedAt?: string;
+  lastPublishError?: string;
 }
 
 // ---- Site Audit v1 ----

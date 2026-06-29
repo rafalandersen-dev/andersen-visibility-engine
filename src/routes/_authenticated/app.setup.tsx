@@ -11,10 +11,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useStore, updateProject, addProject, ProjectLimitError } from "@/lib/store";
+import {
+  useStore,
+  updateProject,
+  addProject,
+  ProjectLimitError,
+  updateProjectPublishingSettings,
+  saveWorkspaceNow,
+} from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 
-import type { Language, Project } from "@/lib/types";
+import type { Language, Project, PublishDestinationType } from "@/lib/types";
 import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -212,8 +219,130 @@ function ProjectSetup() {
             {(id) => <Textarea id={id} rows={3} value={form.brandNotes} onChange={(e) => update("brandNotes", e.target.value)} />}
           </Field>
         </Section>
+
+        {!creating && active ? <PublishingCard key={active.id} project={active} /> : null}
       </div>
     </AppShell>
+  );
+}
+
+const DEST_LABELS: { value: PublishDestinationType; label: string }[] = [
+  { value: "blogPost", label: "Blog post" },
+  { value: "servicePage", label: "Service page" },
+  { value: "faq", label: "FAQ section" },
+  { value: "landingPage", label: "Landing page" },
+];
+
+function PublishingCard({ project }: { project: Project }) {
+  const [endpoint, setEndpoint] = useState(project.publishEndpoint ?? "");
+  const [secret, setSecret] = useState(project.publishSecret ?? "");
+  const [destination, setDestination] = useState<PublishDestinationType>(
+    project.defaultDestinationType ?? "blogPost",
+  );
+  const [saving, setSaving] = useState(false);
+  const endpointId = useId();
+  const secretId = useId();
+
+  async function save() {
+    const trimmed = endpoint.trim();
+    if (trimmed && !/^https?:\/\/\S+\.\S+/.test(trimmed)) {
+      toast.error("Publish endpoint must start with http:// or https://");
+      return;
+    }
+    setSaving(true);
+    try {
+      updateProjectPublishingSettings(project.id, {
+        publishingPlatform: "lovableCustomEndpoint",
+        publishEndpoint: trimmed,
+        publishSecret: secret,
+        defaultPublishMode: "draft",
+        defaultDestinationType: destination,
+      });
+      await saveWorkspaceNow();
+      toast.success("Publishing settings saved");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save publishing settings");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="rounded-lg border border-border bg-card p-6">
+      <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Publishing</div>
+      <div className="my-4 gold-rule" />
+      <p className="text-sm text-muted-foreground max-w-2xl">
+        Connect a Lovable/custom website endpoint so Milo can send approved content as website{" "}
+        <span className="text-foreground/80">drafts</span>. Milo only creates drafts — it never
+        publishes live content automatically.
+      </p>
+
+      <div className="mt-5 grid md:grid-cols-2 gap-5">
+        <div>
+          <Label className="text-xs font-medium text-muted-foreground">Website platform</Label>
+          <div className="mt-1.5 flex h-9 items-center rounded-md border border-border bg-secondary/40 px-3 text-sm text-foreground/80">
+            Lovable / Custom endpoint
+          </div>
+        </div>
+        <div>
+          <Label className="text-xs font-medium text-muted-foreground">Default publish mode</Label>
+          <div className="mt-1.5 flex h-9 items-center rounded-md border border-border bg-secondary/40 px-3 text-sm text-foreground/80">
+            Draft
+          </div>
+        </div>
+        <div className="md:col-span-2">
+          <Label htmlFor={endpointId} className="text-xs font-medium text-muted-foreground">
+            Publish endpoint
+          </Label>
+          <div className="mt-1.5">
+            <Input
+              id={endpointId}
+              value={endpoint}
+              onChange={(e) => setEndpoint(e.target.value)}
+              placeholder="https://yourwebsite.com/api/milo/publish"
+            />
+          </div>
+        </div>
+        <div className="md:col-span-2">
+          <Label htmlFor={secretId} className="text-xs font-medium text-muted-foreground">
+            Publish secret
+          </Label>
+          <div className="mt-1.5">
+            <Input
+              id={secretId}
+              type="password"
+              value={secret}
+              onChange={(e) => setSecret(e.target.value)}
+              placeholder="••••••••"
+              autoComplete="off"
+            />
+          </div>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Stored privately and sent only as a request header. The same secret must be configured on
+            your target website.
+          </p>
+        </div>
+        <div>
+          <Label className="text-xs font-medium text-muted-foreground">Default destination</Label>
+          <div className="mt-1.5">
+            <Select value={destination} onValueChange={(v) => setDestination(v as PublishDestinationType)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {DEST_LABELS.map((d) => (
+                  <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 flex justify-end">
+        <Button onClick={save} disabled={saving}>
+          {saving ? "Saving…" : "Save publishing settings"}
+        </Button>
+      </div>
+    </section>
   );
 }
 

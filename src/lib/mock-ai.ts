@@ -30,6 +30,8 @@ import {
   markAuthorityItemsConverted,
   upsertAiVisibilityAnalysis,
   markVisibilityGapsConverted,
+  markContentAssetSent,
+  markContentAssetPublishFailed,
   addOpportunities,
   updateOpportunity,
   updateProject,
@@ -48,6 +50,7 @@ import type {
   AuthorityItem,
   AiVisibilityAnalysisResult,
   AiVisibilityGap,
+  PublishDestinationType,
   Project,
   Priority,
   AssetType,
@@ -66,6 +69,7 @@ import {
   regenerateFaqFn,
   regenerateCtaFn,
 } from "./ai.functions";
+import { publishContentFn } from "./publish.functions";
 
 function slugify(s: string) {
   return s
@@ -873,5 +877,74 @@ export async function generateContentForOpportunity(opportunityId: string, asset
     await saveWorkspaceNow();
     console.info("[ai.client] content asset created", { projectId: opp.projectId, assetType });
     return asset;
+  });
+}
+
+// ============================================================
+// Publishing v1 — send a content asset to the connected website as a draft
+// ============================================================
+
+/**
+ * Send a content asset to the project's connected website endpoint as a DRAFT.
+ * The secret never leaves the server function (it is forwarded as a header
+ * there, not from the browser). On failure the asset content is preserved and a
+ * "failed" status + error message are stored.
+ */
+export async function sendContentToWebsite(
+  assetId: string,
+  destinationType: PublishDestinationType,
+  slug: string,
+) {
+  return once(`publish:${assetId}`, async () => {
+    const s = getState();
+    const asset = s.content.find((c) => c.id === assetId);
+    if (!asset) throw new Error("Content asset not found.");
+    const project = s.projects.find((p) => p.id === asset.projectId);
+    if (!project) throw new Error("Project not found.");
+
+    const endpoint = (project.publishEndpoint ?? "").trim();
+    const secret = (project.publishSecret ?? "").trim();
+    if (!endpoint || !secret) {
+      throw new Error("Connect a website in Project Setup before sending drafts.");
+    }
+
+    const finalSlug = (slug || asset.slug || "").trim();
+
+    try {
+      const res = await publishContentFn({
+        data: {
+          endpoint,
+          secret,
+          projectId: project.id,
+          assetId: asset.id,
+          title: asset.title,
+          slug: finalSlug,
+          assetType: asset.assetType ?? "article",
+          destinationType,
+          language: asset.language ?? project.primaryLanguage,
+          markdown: asset.markdown,
+          metaTitle: asset.metaTitle,
+          metaDescription: asset.metaDescription,
+          sourceOpportunityTitle: asset.sourceOpportunityTitle ?? asset.title,
+          sourceType: asset.sourceType ?? "unknown",
+          createdAt: asset.createdAt ?? asset.updatedAt,
+        },
+      });
+
+      markContentAssetSent(assetId, {
+        publishDestinationType: destinationType,
+        publishSlug: finalSlug,
+        publishedDraftUrl: res.draftUrl || undefined,
+        lastPublishedAt: res.sentAt,
+      });
+      await saveWorkspaceNow();
+      console.info("[ai.client] draft sent to website", { projectId: project.id, destinationType });
+      return res;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Publishing failed. Please try again.";
+      markContentAssetPublishFailed(assetId, msg, new Date().toISOString());
+      await saveWorkspaceNow();
+      throw e instanceof Error ? e : new Error(msg);
+    }
   });
 }

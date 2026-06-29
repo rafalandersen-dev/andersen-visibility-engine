@@ -1,9 +1,17 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -18,7 +26,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { useStore, upsertContent, deleteContentAsset, saveWorkspaceNow } from "@/lib/store";
-import { generateMetadata, generateFaq, generateCta } from "@/lib/mock-ai";
+import { generateMetadata, generateFaq, generateCta, sendContentToWebsite } from "@/lib/mock-ai";
 import { CreateContentDialog, ASSET_TYPE_LABELS } from "@/components/CreateContentDialog";
 import {
   AlertDialog,
@@ -30,10 +38,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import type { ContentAsset, ContentStatus } from "@/lib/types";
+import type { ContentAsset, ContentStatus, PublishDestinationType, PublishStatus } from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
 import { useEffect, useId, useMemo, useState } from "react";
-import { Check, Copy, Download, FileEdit, FilePlus2, FileX, Loader2, Sparkles, Trash2 } from "lucide-react";
+import { Check, Copy, Download, ExternalLink, FileEdit, FilePlus2, FileX, Globe, Loader2, Send, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -150,6 +158,16 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   const [busy, setBusy] = useState<string | null>(null);
   const [contentOpen, setContentOpen] = useState(false);
   const sourceOppId = asset.sourceOpportunityId ?? asset.opportunityId ?? null;
+
+  // ---- Publishing v1 ----
+  const project = useStore((s) => s.projects.find((p) => p.id === asset.projectId));
+  const publishConfigured = Boolean(project?.publishEndpoint && project?.publishSecret);
+  const [sendOpen, setSendOpen] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [destType, setDestType] = useState<PublishDestinationType>(
+    project?.defaultDestinationType ?? "blogPost",
+  );
+  const [publishSlug, setPublishSlug] = useState(asset.slug);
   const outlineId = useId();
   const internalLinksId = useId();
   const schemaId = useId();
@@ -203,6 +221,30 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     toast.success("Copied Markdown to clipboard");
   };
 
+  // Publish status reads from the live store value (publish actions don't bump
+  // updatedAt, so the local `f` copy would otherwise show a stale status).
+  const live = fromStore ?? asset;
+
+  function openSend() {
+    setPublishSlug(f.slug || asset.slug);
+    setDestType(project?.defaultDestinationType ?? "blogPost");
+    setSendOpen(true);
+  }
+
+  async function doSend() {
+    setSending(true);
+    try {
+      await sendContentToWebsite(asset.id, destType, publishSlug);
+      toast.success("Draft sent to website");
+      setSendOpen(false);
+    } catch (e) {
+      // Status is now stored as "failed" with the error; keep the modal open for retry.
+      toast.error(e instanceof Error ? e.message : "Could not send draft to website");
+    } finally {
+      setSending(false);
+    }
+  }
+
   return (
     <div className="rounded-lg border border-border bg-card">
       {/* Asset metadata header (Content Engine 2.0) */}
@@ -252,11 +294,99 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         </div>
       </div>
 
+      {/* Publishing v1 — send approved content to the connected website as a draft */}
+      <div className="px-5 py-3 border-b border-border">
+        {!publishConfigured ? (
+          <p className="text-sm text-muted-foreground inline-flex items-center gap-1.5">
+            <Globe className="h-3.5 w-3.5 text-gold/80" />
+            Connect a website in{" "}
+            <Link to="/app/setup" className="underline underline-offset-4 hover:text-foreground">
+              Project Setup
+            </Link>{" "}
+            to send drafts directly from Milo.
+          </p>
+        ) : (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <Button size="sm" variant="outline" onClick={openSend}>
+              <Send className="h-3.5 w-3.5" />
+              {live.publishStatus === "sent" ? "Re-send to website" : "Send to website"}
+            </Button>
+            <PublishStatusBadge status={live.publishStatus} />
+            {live.lastPublishedAt ? (
+              <span className="text-xs text-muted-foreground">
+                {live.publishStatus === "failed" ? "Last attempt" : "Sent"}{" "}
+                {formatDateTime(live.lastPublishedAt)}
+              </span>
+            ) : null}
+            {live.publishedDraftUrl ? (
+              <a
+                href={live.publishedDraftUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-foreground/80 underline underline-offset-4 inline-flex items-center gap-1"
+              >
+                <ExternalLink className="h-3 w-3" /> View website draft
+              </a>
+            ) : null}
+            {live.publishStatus === "failed" && live.lastPublishError ? (
+              <span className="text-xs text-destructive">{live.lastPublishError}</span>
+            ) : null}
+          </div>
+        )}
+      </div>
+
       <CreateContentDialog
         opportunityId={contentOpen ? sourceOppId : null}
         open={contentOpen}
         onOpenChange={setContentOpen}
       />
+
+      <Dialog open={sendOpen} onOpenChange={(o) => (!sending ? setSendOpen(o) : null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="font-display">Send draft to website?</DialogTitle>
+            <DialogDescription>
+              Milo will send this content asset to your connected website as a draft. It will not be
+              published live automatically.
+            </DialogDescription>
+          </DialogHeader>
+
+          {f.status !== "Approved" ? (
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-foreground/80">
+              This asset is not approved yet. Send it as a draft anyway?
+            </div>
+          ) : null}
+
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                Destination type
+              </label>
+              <Select value={destType} onValueChange={(v) => setDestType(v as PublishDestinationType)} disabled={sending}>
+                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="blogPost">Blog post</SelectItem>
+                  <SelectItem value="servicePage">Service page</SelectItem>
+                  <SelectItem value="faq">FAQ section</SelectItem>
+                  <SelectItem value="landingPage">Landing page</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Slug</label>
+              <Input className="mt-1.5" value={publishSlug} onChange={(e) => setPublishSlug(e.target.value)} disabled={sending} />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setSendOpen(false)} disabled={sending}>Cancel</Button>
+            <Button onClick={doSend} disabled={sending}>
+              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {sending ? "Sending…" : "Send draft"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Tabs defaultValue="content" className="px-5 pt-3">
         <TabsList>
@@ -362,6 +492,20 @@ function Field({ label, children }: { label: string; children: (id: string) => R
       <Label htmlFor={id} className="text-xs text-muted-foreground">{label}</Label>
       <div className="mt-1.5">{children(id)}</div>
     </div>
+  );
+}
+
+function PublishStatusBadge({ status }: { status?: PublishStatus }) {
+  const map = {
+    sent: { label: "Sent to website", cls: "bg-accent/30 border-accent/40 text-accent-foreground" },
+    failed: { label: "Failed", cls: "bg-destructive/10 border-destructive/30 text-destructive" },
+    notSent: { label: "Not sent", cls: "bg-muted border-border text-muted-foreground" },
+  } as const;
+  const { label, cls } = map[status ?? "notSent"];
+  return (
+    <span className={`text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full border ${cls}`}>
+      {label}
+    </span>
   );
 }
 

@@ -407,6 +407,71 @@ export const upsertContent = (asset: ContentAsset) =>
 export const deleteContentAsset = (id: string) =>
   setState((s) => ({ ...s, content: s.content.filter((c) => c.id !== id) }));
 
+// ---- Publishing v1 (Lovable / custom website connector) ----
+
+type ProjectPublishingSettings = Partial<
+  Pick<
+    Project,
+    "publishingPlatform" | "publishEndpoint" | "publishSecret" | "defaultPublishMode" | "defaultDestinationType"
+  >
+>;
+
+/** Merge publishing settings into a project (leaves all other project fields intact). */
+export const updateProjectPublishingSettings = (projectId: string, settings: ProjectPublishingSettings) =>
+  setState((s) => ({
+    ...s,
+    projects: s.projects.map((p) => (p.id === projectId ? { ...p, ...settings } : p)),
+  }));
+
+/** Mark a content asset as successfully sent to the website as a draft. */
+export const markContentAssetSent = (
+  assetId: string,
+  data: {
+    publishDestinationType: ContentAsset["publishDestinationType"];
+    publishSlug: string;
+    publishedDraftUrl?: string;
+    lastPublishedAt: string;
+  },
+) =>
+  setState((s) => ({
+    ...s,
+    content: s.content.map((c) =>
+      c.id === assetId
+        ? {
+            ...c,
+            publishStatus: "sent" as const,
+            publishDestinationType: data.publishDestinationType,
+            publishSlug: data.publishSlug,
+            publishedDraftUrl: data.publishedDraftUrl,
+            lastPublishedAt: data.lastPublishedAt,
+            lastPublishError: undefined,
+          }
+        : c,
+    ),
+  }));
+
+/** Mark a content asset's publish attempt as failed (keeps all content intact). */
+export const markContentAssetPublishFailed = (assetId: string, error: string, attemptedAt: string) =>
+  setState((s) => ({
+    ...s,
+    content: s.content.map((c) =>
+      c.id === assetId
+        ? { ...c, publishStatus: "failed" as const, lastPublishError: error, lastPublishedAt: attemptedAt }
+        : c,
+    ),
+  }));
+
+/** Reset a content asset's publish status back to "not sent". */
+export const resetContentAssetPublishStatus = (assetId: string) =>
+  setState((s) => ({
+    ...s,
+    content: s.content.map((c) =>
+      c.id === assetId
+        ? { ...c, publishStatus: "notSent" as const, lastPublishError: undefined }
+        : c,
+    ),
+  }));
+
 // ---- Site Audit ----
 
 /** Store the latest audit for a project (one audit per project — replaces any prior). */
