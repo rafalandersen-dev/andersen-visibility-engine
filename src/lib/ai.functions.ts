@@ -61,11 +61,21 @@ const AUDIT_CATEGORIES = [
   "Conversion & Trust",
 ] as const;
 
+const COMPETITOR_GAP_CATEGORIES = [
+  "Service Coverage",
+  "FAQ & Answers",
+  "Local Positioning",
+  "Trust & Authority",
+  "Conversion & Offer",
+  "Content Themes",
+] as const;
+
 const LanguageEnum = normalizedEnum(LANGUAGES);
 const ContentTypeEnum = normalizedEnum(CONTENT_TYPES);
 const SearchIntentEnum = normalizedEnum(SEARCH_INTENTS);
 const PriorityEnum = normalizedEnum(PRIORITIES);
 const AuditCategoryEnum = normalizedEnum(AUDIT_CATEGORIES);
+const CompetitorGapCategoryEnum = normalizedEnum(COMPETITOR_GAP_CATEGORIES);
 
 // Structured-output schemas. Keep them loose — strict min/max on every string
 // makes the model fail validation often; we clip oversized strings in the
@@ -111,6 +121,29 @@ const AuditFindingOutputSchema = z.object({
   suggestedSearchIntent: SearchIntentEnum,
   suggestedCta: cleanString(60),
   priority: PriorityEnum,
+});
+
+// Competitor Gap (id assigned client-side).
+const CompetitorGapOutputSchema = z.object({
+  title: cleanString(120),
+  category: CompetitorGapCategoryEnum,
+  severity: PriorityEnum,
+  competitorEvidence: cleanString(400),
+  explanation: cleanString(400),
+  recommendation: cleanString(400),
+  suggestedOpportunityTitle: cleanString(120),
+  suggestedContentType: ContentTypeEnum,
+  suggestedSearchIntent: SearchIntentEnum,
+  suggestedCta: cleanString(60),
+  priority: PriorityEnum,
+});
+
+const CompetitorSnapshotOutputSchema = z.object({
+  competitorUrl: cleanString(300),
+  title: cleanString(200),
+  detectedPositioning: cleanString(300),
+  notableStrengths: z.array(cleanString(160)),
+  fetchStatus: z.enum(["fetched", "failed"]),
 });
 
 function getGateway() {
@@ -397,6 +430,46 @@ function normalizeAuditFinding(value: unknown, index: number) {
     suggestedSearchIntent: normalizeSearchIntent(item.suggestedSearchIntent ?? item.searchIntent ?? item.search_intent ?? item.intent),
     suggestedCta: pickString(item, ["suggestedCta", "suggested_cta", "cta", "callToAction", "call_to_action"], "Contact us"),
     priority: normalizePriority(item.priority ?? item.severity ?? item.impact),
+  });
+}
+
+function normalizeCompetitorGapCategory(value: unknown) {
+  const raw = asString(value).toLowerCase();
+  if (/service|offering|product/.test(raw)) return "Service Coverage";
+  if (/faq|question|answer/.test(raw)) return "FAQ & Answers";
+  if (/local|location|area|city|neighbo|near me|geo/.test(raw)) return "Local Positioning";
+  if (/trust|authority|review|testimonial|credential|about|founder|guarantee|proof/.test(raw)) return "Trust & Authority";
+  if (/conver|offer|cta|booking|pricing|package|subscription|checkout/.test(raw)) return "Conversion & Offer";
+  if (/content|blog|topic|theme|educational|seasonal|guide/.test(raw)) return "Content Themes";
+  return normalizeValue(value, COMPETITOR_GAP_CATEGORIES, "Service Coverage");
+}
+
+function normalizeCompetitorGap(value: unknown, index: number) {
+  const item = isRecord(value) ? value : {};
+  const title = pickString(item, ["title", "name", "gap", "heading"], `Competitor gap ${index + 1}`);
+  return CompetitorGapOutputSchema.parse({
+    title,
+    category: normalizeCompetitorGapCategory(item.category ?? item.area ?? item.group ?? item.section),
+    severity: normalizePriority(item.severity ?? item.impact ?? item.priority),
+    competitorEvidence: pickString(item, ["competitorEvidence", "competitor_evidence", "evidence", "whatTheyDo", "observed", "example"], "A competitor covers this more clearly than the business does."),
+    explanation: pickString(item, ["explanation", "detail", "details", "why", "description", "gap"], "Competitors address this and the business currently does not."),
+    recommendation: pickString(item, ["recommendation", "fix", "action", "suggestion", "howToClose", "how_to_close", "remedy"], "Create a focused page or section that closes this gap."),
+    suggestedOpportunityTitle: pickString(item, ["suggestedOpportunityTitle", "suggested_opportunity_title", "opportunityTitle", "suggestedTitle", "contentTitle", "pageTitle"], title),
+    suggestedContentType: normalizeContentType(item.suggestedContentType ?? item.contentType ?? item.content_type ?? item.type ?? item.format),
+    suggestedSearchIntent: normalizeSearchIntent(item.suggestedSearchIntent ?? item.searchIntent ?? item.search_intent ?? item.intent),
+    suggestedCta: pickString(item, ["suggestedCta", "suggested_cta", "cta", "callToAction", "call_to_action"], "Contact us"),
+    priority: normalizePriority(item.priority ?? item.severity ?? item.impact),
+  });
+}
+
+function normalizeCompetitorSnapshot(value: unknown, fallbackUrl: string, fetched: boolean) {
+  const item = isRecord(value) ? value : {};
+  return CompetitorSnapshotOutputSchema.parse({
+    competitorUrl: pickString(item, ["competitorUrl", "competitor_url", "url", "website"], fallbackUrl),
+    title: pickString(item, ["title", "name", "businessName"], fetched ? "Competitor" : "Competitor (not fetched)"),
+    detectedPositioning: pickString(item, ["detectedPositioning", "detected_positioning", "positioning", "summary", "description"], fetched ? "Positioning not clearly detected." : "Could not read this competitor's site."),
+    notableStrengths: normalizeStringArray(item.notableStrengths ?? item.notable_strengths ?? item.strengths ?? item.highlights, []),
+    fetchStatus: fetched ? "fetched" : "failed",
   });
 }
 
@@ -688,6 +761,144 @@ ${sharedRules}`,
         summary,
         topFixes,
         findings,
+      };
+    } catch (e) {
+      throw mapGatewayError(e);
+    }
+  });
+
+// ============================================================
+// Competitor Gap v1 — fetch 1–3 competitor homepages + AI gap analysis
+// ============================================================
+
+export const generateCompetitorGapFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        project: z.any(),
+        services: z.array(z.any()).default([]),
+        competitorUrls: z.array(z.string()).default([]),
+        auditSummary: z.string().default(""),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const project = data.project as Project;
+    const services = data.services as ServiceItem[];
+    const brief = projectBrief(project, services);
+
+    const urls = data.competitorUrls.map((u) => u.trim()).filter(Boolean).slice(0, 3);
+    if (urls.length === 0) throw new Error("Add at least one competitor URL to run the analysis.");
+
+    // Fetch competitor homepages in parallel; one failure must not sink the rest.
+    const fetches = await Promise.all(
+      urls.map(async (url) => ({ url, ctx: await fetchSiteContext(url) })),
+    );
+    const fetchedCount = fetches.filter((f) => f.ctx.ok).length;
+    if (fetchedCount === 0) {
+      // Clear, friendly error (thrown before the AI call — never a silent empty).
+      throw new Error(
+        "Could not fetch any of the competitor websites. Please check the URLs and try again.",
+      );
+    }
+
+    const competitorBlocks = fetches
+      .map((f, i) =>
+        f.ctx.ok
+          ? `Competitor ${i + 1} (${f.url}):
+Title: ${f.ctx.title || "(none)"}
+Meta description: ${f.ctx.metaDescription || "(none)"}
+Internal links: ${f.ctx.links.length ? f.ctx.links.join(", ") : "(none found)"}
+Homepage text (excerpt):
+${f.ctx.text || "(no readable text)"}`
+          : `Competitor ${i + 1} (${f.url}): could not be fetched — ignore for evidence.`,
+      )
+      .join("\n\n");
+
+    const auditBlock = data.auditSummary
+      ? `EXISTING SITE AUDIT SUMMARY for the business (its own known gaps):\n${data.auditSummary}\n`
+      : "";
+
+    try {
+      console.info("[ai.functions] competitor-gap reached", {
+        userIdPresent: Boolean(context.userId),
+        projectId: project.id,
+        competitors: urls.length,
+        fetched: fetchedCount,
+      });
+
+      const payload = await generateJsonText(
+        `You are a competitive SEO and AI-visibility strategist for small and medium businesses.
+
+Compare THIS business against the competitor websites and produce prioritized, actionable gaps the business should close. Compare across: Service Coverage, FAQ & Answers, Local Positioning, Trust & Authority, Conversion & Offer, Content Themes.
+
+Return exactly this JSON shape:
+{"overallGapScore":0,"serviceGapScore":0,"contentGapScore":0,"localGapScore":0,"trustGapScore":0,"conversionGapScore":0,"summary":"","competitorSnapshots":[{"competitorUrl":"","title":"","detectedPositioning":"","notableStrengths":[""]}],"topGaps":[""],"gaps":[{"title":"","category":"Service Coverage|FAQ & Answers|Local Positioning|Trust & Authority|Conversion & Offer|Content Themes","severity":"Low|Medium|High","competitorEvidence":"","explanation":"","recommendation":"","suggestedOpportunityTitle":"","suggestedContentType":"Landing Page|Service Page|Blog Article|Guide|FAQ Page|Comparison|Location Page","suggestedSearchIntent":"Informational|Commercial|Transactional|Navigational","suggestedCta":"","priority":"Low|Medium|High"}]}
+
+Scores are 0–100 where HIGHER means a BIGGER gap vs competitors (more for the business to gain). Provide one competitorSnapshot per fetched competitor. Provide 8–12 gaps spread across the categories. Each "competitorEvidence" must reference what a competitor actually does (only for fetched competitors — never invent data for ones that failed to fetch). Each "suggestedOpportunityTitle" must read like a real page/article that closes the gap. topGaps: 3–5 short strings naming the highest-impact gaps.
+
+THIS BUSINESS:
+${brief}
+${auditBlock}
+COMPETITORS:
+${competitorBlocks}
+${sharedRules}`,
+        7000,
+      );
+
+      const root = isRecord(payload) ? payload : {};
+      const gaps = extractArray(root, ["gaps", "competitorGaps", "findings", "items", "results"]).map(
+        (g, i) => normalizeCompetitorGap(g, i),
+      );
+      if (gaps.length === 0) throw new Error("AI returned no competitor gaps.");
+
+      const aiSnapshots = extractArray(root, ["competitorSnapshots", "competitors", "snapshots"]);
+      const competitorSnapshots = fetches.map((f, i) =>
+        normalizeCompetitorSnapshot(aiSnapshots[i] ?? { competitorUrl: f.url, title: f.ctx.title }, f.url, f.ctx.ok),
+      );
+
+      const serviceGapScore = clampScore(pickNumber(root, ["serviceGapScore", "service_gap_score", "service"]));
+      const contentGapScore = clampScore(pickNumber(root, ["contentGapScore", "content_gap_score", "content"]));
+      const localGapScore = clampScore(pickNumber(root, ["localGapScore", "local_gap_score", "local"]));
+      const trustGapScore = clampScore(pickNumber(root, ["trustGapScore", "trust_gap_score", "trust"]));
+      const conversionGapScore = clampScore(
+        pickNumber(root, ["conversionGapScore", "conversion_gap_score", "conversion"]),
+      );
+      const overallGapScore = clampScore(
+        pickNumber(root, ["overallGapScore", "overall_gap_score", "overall", "score"]),
+        Math.round((serviceGapScore + contentGapScore + localGapScore + trustGapScore + conversionGapScore) / 5),
+      );
+      const summary = pickString(
+        root,
+        ["summary", "overview", "analysis", "assessment"],
+        "Competitor analysis complete — review the gaps below and turn the top ones into opportunities.",
+      );
+      const topGaps = normalizeStringArray(
+        root.topGaps ?? root.top_gaps ?? root.priorities ?? root.quickWins,
+        gaps.slice(0, 3).map((g) => g.title),
+      ).slice(0, 5);
+
+      const failedCount = urls.length - fetchedCount;
+      const note =
+        failedCount > 0
+          ? `${failedCount} of ${urls.length} competitor site${urls.length > 1 ? "s" : ""} could not be fetched — analysis used the ones that loaded plus your project details.`
+          : "";
+
+      console.info("[ai.functions] competitor-gap parsed", { gaps: gaps.length, fetched: fetchedCount });
+
+      return {
+        note,
+        overallGapScore,
+        serviceGapScore,
+        contentGapScore,
+        localGapScore,
+        trustGapScore,
+        conversionGapScore,
+        summary,
+        competitorSnapshots,
+        topGaps,
+        gaps,
       };
     } catch (e) {
       throw mapGatewayError(e);

@@ -24,6 +24,8 @@ import {
   upsertContent,
   upsertAudit,
   markFindingsConverted,
+  upsertCompetitorAnalysis,
+  markGapsConverted,
   addOpportunities,
   updateProject,
   uid,
@@ -35,6 +37,8 @@ import type {
   Language,
   AuditResult,
   AuditFinding,
+  CompetitorAnalysisResult,
+  CompetitorGap,
   Project,
   Priority,
 } from "./types";
@@ -43,6 +47,7 @@ import {
   generateCalendarFn,
   generateContentAssetFn,
   generateAuditFn,
+  generateCompetitorGapFn,
   regenerateMetadataFn,
   regenerateFaqFn,
   regenerateCtaFn,
@@ -401,6 +406,117 @@ export async function createOpportunitiesFromTopFixes(projectId: string) {
     );
     await saveWorkspaceNow();
     console.info("[ai.client] top-fix opportunities created", { projectId, count: opps.length });
+    return opps;
+  });
+}
+
+// ============================================================
+// Competitor Gap v1
+// ============================================================
+
+/** Build a "Linked" Opportunity from a competitor gap (survives opportunity regeneration). */
+function opportunityFromGap(gap: CompetitorGap, project: Project): Opportunity {
+  return {
+    id: uid(),
+    projectId: project.id,
+    title: gap.suggestedOpportunityTitle || gap.title,
+    language: project.primaryLanguage,
+    contentType: gap.suggestedContentType,
+    searchIntent: gap.suggestedSearchIntent,
+    targetAudience: project.targetAudience || "Potential customers",
+    businessValue: gap.recommendation || gap.explanation,
+    recommendedCta: gap.suggestedCta || "Contact us",
+    priority: gap.priority,
+    status: "Linked",
+  };
+}
+
+export async function runCompetitorGap(projectId: string, competitorUrls: string[]) {
+  return once(`competitors:${projectId}`, async () => {
+    const { project, services } = requireProject(projectId);
+    const urls = competitorUrls.map((u) => u.trim()).filter(Boolean).slice(0, 3);
+    if (urls.length === 0) throw new Error("Add at least one competitor URL.");
+
+    // Pass the existing Site Audit summary (if any) for richer comparison context.
+    const audit = getState().audits.find((a) => a.projectId === projectId);
+
+    const res = await generateCompetitorGapFn({
+      data: { project, services, competitorUrls: urls, auditSummary: audit?.summary ?? "" },
+    });
+    if (!res || !Array.isArray(res.gaps) || res.gaps.length === 0) {
+      throw new Error("AI returned no competitor gaps. Please try again.");
+    }
+    console.info("[ai.client] competitor-gap received", { projectId, gaps: res.gaps.length });
+
+    const analysis: CompetitorAnalysisResult = {
+      id: uid(),
+      projectId,
+      competitorUrls: urls,
+      note: res.note || undefined,
+      overallGapScore: res.overallGapScore,
+      serviceGapScore: res.serviceGapScore,
+      contentGapScore: res.contentGapScore,
+      localGapScore: res.localGapScore,
+      trustGapScore: res.trustGapScore,
+      conversionGapScore: res.conversionGapScore,
+      summary: res.summary,
+      competitorSnapshots: Array.isArray(res.competitorSnapshots) ? res.competitorSnapshots : [],
+      topGaps: Array.isArray(res.topGaps) ? res.topGaps : [],
+      gaps: res.gaps.map((g) => ({ ...g, id: uid() })),
+      convertedGapIds: [],
+      createdAt: new Date().toISOString(),
+    };
+    upsertCompetitorAnalysis(analysis);
+    await saveWorkspaceNow();
+    console.info("[ai.client] competitor-gap saved", { projectId, gaps: analysis.gaps.length });
+    return analysis;
+  });
+}
+
+/** Convert a single competitor gap into an Opportunity (idempotent per gap). */
+export async function createOpportunityFromGap(projectId: string, gapId: string) {
+  const s = getState();
+  const analysis = s.competitorAnalyses.find((a) => a.projectId === projectId);
+  if (!analysis) throw new Error("Run a competitor analysis first.");
+  const gap = analysis.gaps.find((g) => g.id === gapId);
+  if (!gap) throw new Error("Gap not found.");
+  if (analysis.convertedGapIds.includes(gapId)) {
+    throw new Error("This gap is already an opportunity.");
+  }
+  const { project } = requireProject(projectId);
+  const opp = opportunityFromGap(gap, project);
+  addOpportunities([opp]);
+  markGapsConverted(analysis.id, [gapId]);
+  await saveWorkspaceNow();
+  return opp;
+}
+
+/** Bulk: create opportunities from the top 3–5 High/Medium gaps not yet converted. */
+export async function createOpportunitiesFromTopGaps(projectId: string) {
+  return once(`competitors-bulk:${projectId}`, async () => {
+    const s = getState();
+    const analysis = s.competitorAnalyses.find((a) => a.projectId === projectId);
+    if (!analysis) throw new Error("Run a competitor analysis first.");
+    const { project } = requireProject(projectId);
+
+    const candidates = analysis.gaps
+      .filter((g) => !analysis.convertedGapIds.includes(g.id))
+      .filter((g) => g.priority === "High" || g.priority === "Medium")
+      .sort((a, b) => priorityRank[b.priority] - priorityRank[a.priority])
+      .slice(0, 5);
+
+    if (candidates.length === 0) {
+      throw new Error("No remaining high or medium priority gaps to convert.");
+    }
+
+    const opps = candidates.map((g) => opportunityFromGap(g, project));
+    addOpportunities(opps);
+    markGapsConverted(
+      analysis.id,
+      candidates.map((g) => g.id),
+    );
+    await saveWorkspaceNow();
+    console.info("[ai.client] top-gap opportunities created", { projectId, count: opps.length });
     return opps;
   });
 }

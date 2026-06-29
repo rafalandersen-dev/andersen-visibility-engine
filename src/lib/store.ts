@@ -24,6 +24,7 @@ import type {
   CalendarItem,
   ContentAsset,
   AuditResult,
+  CompetitorAnalysisResult,
 } from "./types";
 import {
   seedProjects,
@@ -42,6 +43,7 @@ interface State {
   calendar: CalendarItem[];
   content: ContentAsset[];
   audits: AuditResult[];
+  competitorAnalyses: CompetitorAnalysisResult[];
   activeProjectId: string;
   /** Whether the active user's workspace has been loaded from Cloud. */
   hydrated: boolean;
@@ -56,6 +58,7 @@ const emptyState: State = {
   calendar: [],
   content: [],
   audits: [],
+  competitorAnalyses: [],
   activeProjectId: "",
   hydrated: false,
   userId: null,
@@ -70,6 +73,7 @@ const ssrSnapshot: State = {
   calendar: seedCalendar,
   content: seedContent,
   audits: [],
+  competitorAnalyses: [],
   activeProjectId: seedProjects[0]?.id ?? "",
   hydrated: false,
   userId: null,
@@ -99,6 +103,7 @@ export async function saveWorkspaceNow(): Promise<void> {
     calendar: state.calendar,
     content: state.content,
     audits: state.audits,
+    competitorAnalyses: state.competitorAnalyses,
     activeProjectId: state.activeProjectId,
   };
   const { error } = await supabase
@@ -174,6 +179,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
         calendar: d.calendar ?? [],
         content: d.content ?? [],
         audits: d.audits ?? [],
+        competitorAnalyses: d.competitorAnalyses ?? [],
         activeProjectId: d.activeProjectId ?? (d.projects?.[0]?.id ?? ""),
         hydrated: true,
         userId,
@@ -188,6 +194,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
         calendar: [],
         content: [],
         audits: [],
+        competitorAnalyses: [],
         activeProjectId: "",
         hydrated: true,
         userId,
@@ -214,6 +221,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
       calendar: [],
       content: [],
       audits: [],
+      competitorAnalyses: [],
       activeProjectId: "",
       hydrated: true,
       userId,
@@ -382,6 +390,29 @@ export const markFindingsConverted = (auditId: string, findingIds: string[]) =>
     audits: s.audits.map((a) =>
       a.id === auditId
         ? { ...a, convertedFindingIds: Array.from(new Set([...a.convertedFindingIds, ...findingIds])) }
+        : a,
+    ),
+  }));
+
+// ---- Competitor Gap ----
+
+/** Store the latest competitor analysis for a project (one per project — replaces any prior). */
+export const upsertCompetitorAnalysis = (analysis: CompetitorAnalysisResult) =>
+  setState((s) => ({
+    ...s,
+    competitorAnalyses: [
+      ...s.competitorAnalyses.filter((a) => a.projectId !== analysis.projectId),
+      analysis,
+    ],
+  }));
+
+/** Mark gap ids as already converted into Opportunities (dedup). */
+export const markGapsConverted = (analysisId: string, gapIds: string[]) =>
+  setState((s) => ({
+    ...s,
+    competitorAnalyses: s.competitorAnalyses.map((a) =>
+      a.id === analysisId
+        ? { ...a, convertedGapIds: Array.from(new Set([...a.convertedGapIds, ...gapIds])) }
         : a,
     ),
   }));

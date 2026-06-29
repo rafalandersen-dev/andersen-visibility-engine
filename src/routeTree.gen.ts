@@ -24,6 +24,7 @@ import { Route as AuthenticatedAppSetupRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAppServicesRouteImport } from './routes/_authenticated/app.services'
 import { Route as AuthenticatedAppOpportunitiesRouteImport } from './routes/_authenticated/app.opportunities'
 import { Route as AuthenticatedAppEditorRouteImport } from './routes/_authenticated/app.editor'
+import { Route as AuthenticatedAppCompetitorsRouteImport } from './routes/_authenticated/app.competitors'
 import { Route as AuthenticatedAppCalendarRouteImport } from './routes/_authenticated/app.calendar'
 import { Route as AuthenticatedAppBillingRouteImport } from './routes/_authenticated/app.billing'
 import { Route as AuthenticatedAppAuditRouteImport } from './routes/_authenticated/app.audit'
@@ -109,6 +110,12 @@ const AuthenticatedAppEditorRoute = AuthenticatedAppEditorRouteImport.update({
   path: '/app/editor',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAppCompetitorsRoute =
+  AuthenticatedAppCompetitorsRouteImport.update({
+    id: '/app/competitors',
+    path: '/app/competitors',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAppCalendarRoute =
   AuthenticatedAppCalendarRouteImport.update({
     id: '/app/calendar',
@@ -166,6 +173,7 @@ export interface FileRoutesByFullPath {
   '/app/audit': typeof AuthenticatedAppAuditRoute
   '/app/billing': typeof AuthenticatedAppBillingRoute
   '/app/calendar': typeof AuthenticatedAppCalendarRoute
+  '/app/competitors': typeof AuthenticatedAppCompetitorsRoute
   '/app/editor': typeof AuthenticatedAppEditorRoute
   '/app/opportunities': typeof AuthenticatedAppOpportunitiesRoute
   '/app/services': typeof AuthenticatedAppServicesRoute
@@ -190,6 +198,7 @@ export interface FileRoutesByTo {
   '/app/audit': typeof AuthenticatedAppAuditRoute
   '/app/billing': typeof AuthenticatedAppBillingRoute
   '/app/calendar': typeof AuthenticatedAppCalendarRoute
+  '/app/competitors': typeof AuthenticatedAppCompetitorsRoute
   '/app/editor': typeof AuthenticatedAppEditorRoute
   '/app/opportunities': typeof AuthenticatedAppOpportunitiesRoute
   '/app/services': typeof AuthenticatedAppServicesRoute
@@ -216,6 +225,7 @@ export interface FileRoutesById {
   '/_authenticated/app/audit': typeof AuthenticatedAppAuditRoute
   '/_authenticated/app/billing': typeof AuthenticatedAppBillingRoute
   '/_authenticated/app/calendar': typeof AuthenticatedAppCalendarRoute
+  '/_authenticated/app/competitors': typeof AuthenticatedAppCompetitorsRoute
   '/_authenticated/app/editor': typeof AuthenticatedAppEditorRoute
   '/_authenticated/app/opportunities': typeof AuthenticatedAppOpportunitiesRoute
   '/_authenticated/app/services': typeof AuthenticatedAppServicesRoute
@@ -242,6 +252,7 @@ export interface FileRouteTypes {
     | '/app/audit'
     | '/app/billing'
     | '/app/calendar'
+    | '/app/competitors'
     | '/app/editor'
     | '/app/opportunities'
     | '/app/services'
@@ -266,6 +277,7 @@ export interface FileRouteTypes {
     | '/app/audit'
     | '/app/billing'
     | '/app/calendar'
+    | '/app/competitors'
     | '/app/editor'
     | '/app/opportunities'
     | '/app/services'
@@ -291,6 +303,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/audit'
     | '/_authenticated/app/billing'
     | '/_authenticated/app/calendar'
+    | '/_authenticated/app/competitors'
     | '/_authenticated/app/editor'
     | '/_authenticated/app/opportunities'
     | '/_authenticated/app/services'
@@ -429,6 +442,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppEditorRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/app/competitors': {
+      id: '/_authenticated/app/competitors'
+      path: '/app/competitors'
+      fullPath: '/app/competitors'
+      preLoaderRoute: typeof AuthenticatedAppCompetitorsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/app/calendar': {
       id: '/_authenticated/app/calendar'
       path: '/app/calendar'
@@ -492,6 +512,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppAuditRoute: typeof AuthenticatedAppAuditRoute
   AuthenticatedAppBillingRoute: typeof AuthenticatedAppBillingRoute
   AuthenticatedAppCalendarRoute: typeof AuthenticatedAppCalendarRoute
+  AuthenticatedAppCompetitorsRoute: typeof AuthenticatedAppCompetitorsRoute
   AuthenticatedAppEditorRoute: typeof AuthenticatedAppEditorRoute
   AuthenticatedAppOpportunitiesRoute: typeof AuthenticatedAppOpportunitiesRoute
   AuthenticatedAppServicesRoute: typeof AuthenticatedAppServicesRoute
@@ -503,6 +524,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppAuditRoute: AuthenticatedAppAuditRoute,
   AuthenticatedAppBillingRoute: AuthenticatedAppBillingRoute,
   AuthenticatedAppCalendarRoute: AuthenticatedAppCalendarRoute,
+  AuthenticatedAppCompetitorsRoute: AuthenticatedAppCompetitorsRoute,
   AuthenticatedAppEditorRoute: AuthenticatedAppEditorRoute,
   AuthenticatedAppOpportunitiesRoute: AuthenticatedAppOpportunitiesRoute,
   AuthenticatedAppServicesRoute: AuthenticatedAppServicesRoute,

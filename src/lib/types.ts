@@ -137,3 +137,55 @@ export interface AuditResult {
   convertedFindingIds: string[];
   createdAt: string;
 }
+
+// ---- Competitor Gap v1 ----
+export type CompetitorGapCategory =
+  | "Service Coverage"
+  | "FAQ & Answers"
+  | "Local Positioning"
+  | "Trust & Authority"
+  | "Conversion & Offer"
+  | "Content Themes";
+
+export interface CompetitorSnapshot {
+  competitorUrl: string;
+  title: string;
+  detectedPositioning: string;
+  notableStrengths: string[];
+  fetchStatus: "fetched" | "failed";
+}
+
+export interface CompetitorGap {
+  id: string;
+  title: string;
+  category: CompetitorGapCategory;
+  severity: Priority;
+  competitorEvidence: string;
+  explanation: string;
+  recommendation: string;
+  suggestedOpportunityTitle: string;
+  suggestedContentType: ContentType;
+  suggestedSearchIntent: SearchIntent;
+  suggestedCta: string;
+  priority: Priority;
+}
+
+export interface CompetitorAnalysisResult {
+  id: string;
+  projectId: string;
+  competitorUrls: string[];
+  note?: string;
+  overallGapScore: number;
+  serviceGapScore: number;
+  contentGapScore: number;
+  localGapScore: number;
+  trustGapScore: number;
+  conversionGapScore: number;
+  summary: string;
+  competitorSnapshots: CompetitorSnapshot[];
+  topGaps: string[];
+  gaps: CompetitorGap[];
+  /** Gap ids already turned into Opportunities (dedup for the convert action). */
+  convertedGapIds: string[];
+  createdAt: string;
+}
