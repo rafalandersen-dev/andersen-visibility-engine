@@ -132,6 +132,10 @@ function normalizeValue<const T extends readonly [string, ...string[]]>(
 }
 
 function normalizeLanguage(value: unknown, project?: Project) {
+  const raw = asString(value).toLowerCase();
+  if (/svensk|svenska|swedish|sverige|sweden/.test(raw)) return "Swedish";
+  if (/polsk|polska|polski|polish|poland|polska/.test(raw)) return "Polish";
+  if (/engelsk|english|angielski/.test(raw)) return "English";
   return normalizeValue(
     value,
     LANGUAGES,
@@ -153,9 +157,9 @@ function normalizeContentType(value: unknown) {
 
 function normalizeSearchIntent(value: unknown) {
   const raw = asString(value).toLowerCase();
-  if (/transaction|buy|book|order|quote|hire/.test(raw)) return "Transactional";
-  if (/commercial|compare|best|pricing|cost|service/.test(raw)) return "Commercial";
-  if (/navigation|brand|contact|address/.test(raw)) return "Navigational";
+  if (/transaction|transaktion|buy|köp|kop|book|boka|bokning|order|quote|offert|hire/.test(raw)) return "Transactional";
+  if (/commercial|kommersi|compare|jämför|jamfor|best|pricing|price|pris|cost|service|tjänst|tjanst/.test(raw)) return "Commercial";
+  if (/navigation|brand|contact|kontakt|address|adress/.test(raw)) return "Navigational";
   return normalizeValue(value, SEARCH_INTENTS, "Informational");
 }
 
@@ -177,41 +181,50 @@ function parseJsonFromText(text: string): unknown {
   const starts = [firstObject, firstArray].filter((index) => index >= 0);
   if (!starts.length) throw new Error("AI returned no JSON payload.");
 
-  const start = Math.min(...starts);
-  const opener = cleaned[start];
-  const closer = opener === "[" ? "]" : "}";
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
+  const tryParse = (candidate: string) => {
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      return JSON.parse(
+        candidate
+          .replace(/,\s*}/g, "}")
+          .replace(/,\s*]/g, "]")
+          .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ""),
+      );
+    }
+  };
 
-  for (let i = start; i < cleaned.length; i += 1) {
-    const char = cleaned[i];
-    if (escaped) {
-      escaped = false;
-      continue;
-    }
-    if (char === "\\") {
-      escaped = true;
-      continue;
-    }
-    if (char === '"') {
-      inString = !inString;
-      continue;
-    }
-    if (inString) continue;
-    if (char === opener) depth += 1;
-    if (char === closer) depth -= 1;
-    if (depth === 0) {
-      const candidate = cleaned.slice(start, i + 1);
-      try {
-        return JSON.parse(candidate);
-      } catch {
-        return JSON.parse(
-          candidate
-            .replace(/,\s*}/g, "}")
-            .replace(/,\s*]/g, "]")
-            .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ""),
-        );
+  for (const start of starts.sort((a, b) => a - b)) {
+    const stack: string[] = [];
+    let inString = false;
+    let escaped = false;
+
+    for (let i = start; i < cleaned.length; i += 1) {
+      const char = cleaned[i];
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (char === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (char === '"') {
+        inString = !inString;
+        continue;
+      }
+      if (inString) continue;
+
+      if (char === "{") stack.push("}");
+      if (char === "[") stack.push("]");
+      if ((char === "}" || char === "]") && stack.pop() !== char) break;
+
+      if (stack.length === 0) {
+        try {
+          return tryParse(cleaned.slice(start, i + 1));
+        } catch {
+          break;
+        }
       }
     }
   }
@@ -238,15 +251,15 @@ function extractArray(payload: unknown, keys: string[]): unknown[] {
 
 function normalizeOpportunityItem(value: unknown, project: Project, index: number) {
   const item = isRecord(value) ? value : {};
-  const title = pickString(item, ["title", "topicTitle", "topic", "name", "headline"], `SEO opportunity ${index + 1}`);
+  const title = pickString(item, ["title", "topicTitle", "topic_title", "topic", "name", "headline", "primary_keyword"], `SEO opportunity ${index + 1}`);
   return OpportunityItemSchema.parse({
     title,
     language: normalizeLanguage(item.language ?? item.lang, project),
-    contentType: normalizeContentType(item.contentType ?? item.type ?? item.format ?? item.assetType),
-    searchIntent: normalizeSearchIntent(item.searchIntent ?? item.intent),
-    targetAudience: pickString(item, ["targetAudience", "audience", "who"], project.targetAudience || "Potential customers"),
-    businessValue: pickString(item, ["businessValue", "value", "why", "rationale", "strategy"], "Build qualified search visibility for the business."),
-    recommendedCta: pickString(item, ["recommendedCta", "cta", "callToAction"], "Contact us"),
+    contentType: normalizeContentType(item.contentType ?? item.content_type ?? item.type ?? item.format ?? item.assetType ?? item.asset_type),
+    searchIntent: normalizeSearchIntent(item.searchIntent ?? item.search_intent ?? item.intent),
+    targetAudience: pickString(item, ["targetAudience", "target_audience", "audience", "who", "persona"], project.targetAudience || "Potential customers"),
+    businessValue: pickString(item, ["businessValue", "business_value", "value", "why", "why_it_works", "rationale", "strategy"], "Build qualified search visibility for the business."),
+    recommendedCta: pickString(item, ["recommendedCta", "recommended_cta", "suggested_cta", "cta", "callToAction", "call_to_action"], "Contact us"),
     priority: normalizePriority(item.priority ?? item.impact),
   });
 }
@@ -255,28 +268,42 @@ function normalizeCalendarItem(value: unknown, project: Project, index: number) 
   const item = isRecord(value) ? value : {};
   return CalendarItemSchema.parse({
     opportunityIndex: item.opportunityIndex ?? item.sourceIndex ?? item.index ?? index + 1,
-    daysFromToday: item.daysFromToday ?? item.dayOffset ?? item.day ?? (index + 1) * 4,
-    topicTitle: pickString(item, ["topicTitle", "title", "topic", "name"], `Planned content ${index + 1}`),
+    daysFromToday: item.daysFromToday ?? item.days_from_today ?? item.dayOffset ?? item.day_offset ?? item.day ?? (index + 1) * 4,
+    topicTitle: pickString(item, ["topicTitle", "topic_title", "title", "topic", "name"], `Planned content ${index + 1}`),
     language: normalizeLanguage(item.language ?? item.lang, project),
-    contentType: normalizeContentType(item.contentType ?? item.type ?? item.format),
-    searchIntent: normalizeSearchIntent(item.searchIntent ?? item.intent),
-    recommendedCta: pickString(item, ["recommendedCta", "cta", "callToAction"], "Contact us"),
+    contentType: normalizeContentType(item.contentType ?? item.content_type ?? item.type ?? item.format),
+    searchIntent: normalizeSearchIntent(item.searchIntent ?? item.search_intent ?? item.intent),
+    recommendedCta: pickString(item, ["recommendedCta", "recommended_cta", "suggested_cta", "cta", "callToAction", "call_to_action"], "Contact us"),
   });
 }
 
 function normalizeStringArray(value: unknown, fallback: string[]) {
-  const source = Array.isArray(value) ? value : [];
-  const items = source.map((item) => asString(item)).filter(Boolean);
+  const source = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(/\n|,|;/)
+      : [];
+  const items = source
+    .map((item) => (isRecord(item) ? pickString(item, ["title", "text", "label", "name"]) : asString(item)))
+    .filter(Boolean);
   return items.length ? items : fallback;
 }
 
 function normalizeFaq(value: unknown) {
-  const source = Array.isArray(value) ? value : [];
+  const source = isRecord(value) && Array.isArray(value.faq)
+    ? value.faq
+    : isRecord(value) && Array.isArray(value.faqs)
+      ? value.faqs
+      : isRecord(value) && Array.isArray(value.questions)
+        ? value.questions
+        : Array.isArray(value)
+          ? value
+          : [];
   const items = source
     .map((item, index) => {
       if (!isRecord(item)) return null;
-      const q = pickString(item, ["q", "question", "title"], `Question ${index + 1}`);
-      const a = pickString(item, ["a", "answer", "response"], "Contact the business for details.");
+      const q = pickString(item, ["q", "question", "title", "heading"], `Question ${index + 1}`);
+      const a = pickString(item, ["a", "answer", "response", "body", "text"], "Contact the business for details.");
       return { q, a };
     })
     .filter((item): item is { q: string; a: string } => Boolean(item));
@@ -284,23 +311,26 @@ function normalizeFaq(value: unknown) {
 }
 
 function normalizeContentAsset(payload: unknown, project: Project, opp: Opportunity) {
-  const item = isRecord(payload) ? payload : {};
+  const root = isRecord(payload) ? payload : {};
+  const item = ["contentAsset", "content_asset", "asset", "page", "article", "draft"]
+    .map((key) => root[key])
+    .find(isRecord) ?? root;
   const markdown = pickString(
     item,
-    ["markdown", "content", "body", "draft", "article", "pageDraft"],
+    ["markdown", "content", "body", "draftMarkdown", "draft_markdown", "article", "pageDraft", "page_draft"],
     `## ${opp.title}\n\nCreate a focused page for ${project.businessName || project.name} that answers the search intent clearly and guides readers toward ${opp.recommendedCta}.`,
   );
   return ContentAssetSchema.parse({
-    metaTitle: pickString(item, ["metaTitle", "seoTitle", "title"], opp.title),
-    metaDescription: pickString(item, ["metaDescription", "seoDescription", "description"], opp.businessValue),
+    metaTitle: pickString(item, ["metaTitle", "meta_title", "seoTitle", "seo_title", "title"], opp.title),
+    metaDescription: pickString(item, ["metaDescription", "meta_description", "seoDescription", "seo_description", "description"], opp.businessValue),
     h1: pickString(item, ["h1", "headline", "pageTitle"], opp.title),
     outline: normalizeStringArray(item.outline ?? item.sections, ["Introduction", "Key information", "Next step"]),
     faq: normalizeFaq(item.faq ?? item.faqs ?? item.questions),
-    cta: pickString(item, ["cta", "recommendedCta", "callToAction"], opp.recommendedCta || "Contact us"),
+    cta: pickString(item, ["cta", "recommendedCta", "recommended_cta", "callToAction", "call_to_action"], opp.recommendedCta || "Contact us"),
     markdown,
-    internalLinks: normalizeStringArray(item.internalLinks ?? item.links, []),
-    schemaSuggestions: normalizeStringArray(item.schemaSuggestions ?? item.schema ?? item.structuredData, []),
-    editorNotes: pickString(item, ["editorNotes", "notes"], ""),
+    internalLinks: normalizeStringArray(item.internalLinks ?? item.internal_links ?? item.links, []),
+    schemaSuggestions: normalizeStringArray(item.schemaSuggestions ?? item.schema_suggestions ?? item.schema ?? item.structuredData ?? item.structured_data, []),
+    editorNotes: pickString(item, ["editorNotes", "editor_notes", "notes"], ""),
   });
 }
 
