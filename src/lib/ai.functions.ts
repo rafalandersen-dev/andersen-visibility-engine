@@ -96,12 +96,15 @@ function getGateway() {
 function mapGatewayError(e: unknown): Error {
   const msg = e instanceof Error ? e.message : String(e);
   // Surface real cause to server logs so we can debug schema/truncation issues.
-  console.error("[ai.functions] gateway/validation error:", msg);
+  const anyErr = e as { cause?: unknown; text?: unknown };
+  const cause = anyErr?.cause instanceof Error ? anyErr.cause.message : anyErr?.cause;
+  const text = typeof anyErr?.text === "string" ? anyErr.text.slice(0, 800) : undefined;
+  console.error("[ai.functions] gateway/validation error:", msg, { cause, text });
   if (/429|rate limit/i.test(msg)) return new Error("AI is busy right now — please retry in a moment.");
   if (/402|credit|insufficient/i.test(msg)) return new Error("AI credits exhausted. Please top up in workspace billing.");
   if (/max_tokens|length|truncat/i.test(msg))
     return new Error("AI response was cut short. Please try again — it usually works on retry.");
-  if (/schema|validation|zod|invalid_type|too_small|too_big|unrecognized/i.test(msg))
+  if (/schema|validation|zod|invalid_type|too_small|too_big|unrecognized|did not match/i.test(msg))
     return new Error("AI returned an unexpected format. Please try again.");
   if (/not valid JSON|unexpected token|no opportunities|no calendar/i.test(msg))
     return new Error("AI returned an unexpected format. Please try again.");
