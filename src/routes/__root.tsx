@@ -79,24 +79,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Milo Growth — Monthly AI Growth Planner for Small Businesses" },
-      {
-        name: "description",
-        content:
-          "Generate visibility ideas, content briefs, FAQ, service-page improvements and monthly action plans for your small business — without hiring an agency.",
-      },
       { name: "author", content: "Andersen Innovations" },
-      { property: "og:title", content: "Milo Growth — Monthly AI Growth Planner for Small Businesses" },
-      {
-        property: "og:description",
-        content:
-          "Your monthly AI growth planner for small businesses. Visibility ideas, content briefs, FAQ and clear monthly action plans.",
-      },
       { property: "og:type", content: "website" },
       { property: "og:site_name", content: "Milo Growth" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "Milo Growth — Monthly AI Growth Planner for Small Businesses" },
-      { name: "twitter:description", content: "Your monthly AI growth planner for small businesses — without hiring an agency." },
       { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/d9fb25dc-4910-49d5-ae5e-51ef0b30f33b/id-preview-8776fd09--06b696f6-c02b-468f-b0a0-7ab8af92d6a0.lovable.app-1782164686620.png" },
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/d9fb25dc-4910-49d5-ae5e-51ef0b30f33b/id-preview-8776fd09--06b696f6-c02b-468f-b0a0-7ab8af92d6a0.lovable.app-1782164686620.png" },
     ],
@@ -111,12 +97,35 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { rel: "stylesheet", href: appCss },
     ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@graph": [
+            {
+              "@type": "Organization",
+              name: "Milo Growth",
+              url: "https://milogrowth.com",
+              logo: "https://milogrowth.com/favicon.svg",
+              founder: { "@type": "Organization", name: "Andersen Innovations" },
+            },
+            {
+              "@type": "WebSite",
+              name: "Milo Growth",
+              url: "https://milogrowth.com",
+            },
+          ],
+        }),
+      },
+    ],
   }),
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
   errorComponent: ErrorComponent,
 });
+
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
@@ -138,10 +147,14 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <Outlet />
+        <div id="app-root">
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <Outlet />
+        </div>
+
         <Toaster position="top-right" />
       </AuthProvider>
     </QueryClientProvider>
   );
 }
+

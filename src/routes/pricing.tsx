@@ -9,16 +9,23 @@ export const Route = createFileRoute("/pricing")({
       { title: "Pricing — Milo Growth" },
       {
         name: "description",
-        content: "Choose a simple self-service plan for monthly AI growth, SEO and visibility planning.",
+        content: "Simple per-project pricing for Milo Growth — free preview, Starter and Growth plans for small business visibility planning.",
       },
+      { property: "og:title", content: "Pricing — Milo Growth" },
+      { property: "og:description", content: "Simple per-project pricing for Milo Growth — free preview, Starter and Growth plans for small businesses." },
+      { property: "og:url", content: "https://milogrowth.com/pricing" },
+      { name: "twitter:title", content: "Pricing — Milo Growth" },
+      { name: "twitter:description", content: "Simple per-project pricing for Milo Growth — free preview, Starter and Growth plans." },
     ],
+    links: [{ rel: "canonical", href: "https://milogrowth.com/pricing" }],
   }),
   component: PricingPage,
 });
 
+
 function PricingPage() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <main className="min-h-screen bg-background text-foreground">
       <header className="border-b border-border bg-background/85 backdrop-blur">
         <div className="mx-auto max-w-6xl flex items-center justify-between px-6 py-4">
           <Link to="/" className="flex flex-col">
@@ -59,7 +66,10 @@ function PricingPage() {
           </div>
         </div>
 
-        <div className="mt-10 grid gap-6 md:grid-cols-3">
+        <h2 className="mt-12 font-display text-2xl md:text-3xl">Choose the right plan for your business</h2>
+
+        <div className="mt-6 grid gap-6 md:grid-cols-3">
+
           {PLANS.map((p) => (
             <div
               key={p.id}
@@ -123,6 +133,7 @@ function PricingPage() {
           <Link to="/" className="hover:text-foreground">Back to home</Link>
         </div>
       </footer>
-    </div>
+    </main>
+
   );
 }

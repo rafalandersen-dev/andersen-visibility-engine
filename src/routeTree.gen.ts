@@ -10,12 +10,14 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as EmailUnsubscribeRouteImport } from './routes/email/unsubscribe'
+import { Route as BlogLocalSeoGuideRouteImport } from './routes/blog.local-seo-guide'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app.index'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
 import { Route as AuthenticatedAppSetupRouteImport } from './routes/_authenticated/app.setup'
@@ -33,6 +35,11 @@ import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/em
 const UnsubscribeRoute = UnsubscribeRouteImport.update({
   id: '/unsubscribe',
   path: '/unsubscribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -62,6 +69,11 @@ const IndexRoute = IndexRouteImport.update({
 const EmailUnsubscribeRoute = EmailUnsubscribeRouteImport.update({
   id: '/email/unsubscribe',
   path: '/email/unsubscribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogLocalSeoGuideRoute = BlogLocalSeoGuideRouteImport.update({
+  id: '/blog/local-seo-guide',
+  path: '/blog/local-seo-guide',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
@@ -141,7 +153,9 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/pricing': typeof PricingRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/unsubscribe': typeof UnsubscribeRoute
+  '/blog/local-seo-guide': typeof BlogLocalSeoGuideRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/app/billing': typeof AuthenticatedAppBillingRoute
   '/app/calendar': typeof AuthenticatedAppCalendarRoute
@@ -162,7 +176,9 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/pricing': typeof PricingRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/unsubscribe': typeof UnsubscribeRoute
+  '/blog/local-seo-guide': typeof BlogLocalSeoGuideRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/app/billing': typeof AuthenticatedAppBillingRoute
   '/app/calendar': typeof AuthenticatedAppCalendarRoute
@@ -185,7 +201,9 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/pricing': typeof PricingRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/unsubscribe': typeof UnsubscribeRoute
+  '/blog/local-seo-guide': typeof BlogLocalSeoGuideRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/_authenticated/app/billing': typeof AuthenticatedAppBillingRoute
   '/_authenticated/app/calendar': typeof AuthenticatedAppCalendarRoute
@@ -208,7 +226,9 @@ export interface FileRouteTypes {
     | '/auth'
     | '/pricing'
     | '/reset-password'
+    | '/sitemap.xml'
     | '/unsubscribe'
+    | '/blog/local-seo-guide'
     | '/email/unsubscribe'
     | '/app/billing'
     | '/app/calendar'
@@ -229,7 +249,9 @@ export interface FileRouteTypes {
     | '/auth'
     | '/pricing'
     | '/reset-password'
+    | '/sitemap.xml'
     | '/unsubscribe'
+    | '/blog/local-seo-guide'
     | '/email/unsubscribe'
     | '/app/billing'
     | '/app/calendar'
@@ -251,7 +273,9 @@ export interface FileRouteTypes {
     | '/auth'
     | '/pricing'
     | '/reset-password'
+    | '/sitemap.xml'
     | '/unsubscribe'
+    | '/blog/local-seo-guide'
     | '/email/unsubscribe'
     | '/_authenticated/app/billing'
     | '/_authenticated/app/calendar'
@@ -274,7 +298,9 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   PricingRoute: typeof PricingRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   UnsubscribeRoute: typeof UnsubscribeRoute
+  BlogLocalSeoGuideRoute: typeof BlogLocalSeoGuideRoute
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
@@ -291,6 +317,13 @@ declare module '@tanstack/react-router' {
       path: '/unsubscribe'
       fullPath: '/unsubscribe'
       preLoaderRoute: typeof UnsubscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -333,6 +366,13 @@ declare module '@tanstack/react-router' {
       path: '/email/unsubscribe'
       fullPath: '/email/unsubscribe'
       preLoaderRoute: typeof EmailUnsubscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog/local-seo-guide': {
+      id: '/blog/local-seo-guide'
+      path: '/blog/local-seo-guide'
+      fullPath: '/blog/local-seo-guide'
+      preLoaderRoute: typeof BlogLocalSeoGuideRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/app/': {
@@ -458,7 +498,9 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   PricingRoute: PricingRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   UnsubscribeRoute: UnsubscribeRoute,
+  BlogLocalSeoGuideRoute: BlogLocalSeoGuideRoute,
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
