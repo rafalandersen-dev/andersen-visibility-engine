@@ -21,8 +21,14 @@ export const Route = createFileRoute("/auth")({
     meta: [
       { title: "Sign in — Milo Growth" },
       { name: "description", content: "Sign in or create your Milo Growth account to plan your monthly business visibility workflow." },
+      { property: "og:title", content: "Sign in — Milo Growth" },
+      { property: "og:description", content: "Sign in or create your Milo Growth account to plan your monthly business visibility workflow." },
+      { property: "og:url", content: "https://milogrowth.com/auth" },
+      { name: "robots", content: "noindex" },
     ],
+    links: [{ rel: "canonical", href: "https://milogrowth.com/auth" }],
   }),
+
   component: AuthPage,
 });
 

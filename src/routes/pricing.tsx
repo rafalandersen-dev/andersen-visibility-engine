@@ -9,12 +9,19 @@ export const Route = createFileRoute("/pricing")({
       { title: "Pricing — Milo Growth" },
       {
         name: "description",
-        content: "Choose a simple self-service plan for monthly AI growth, SEO and visibility planning.",
+        content: "Simple per-project pricing for Milo Growth — free preview, Starter and Growth plans for small business visibility planning.",
       },
+      { property: "og:title", content: "Pricing — Milo Growth" },
+      { property: "og:description", content: "Simple per-project pricing for Milo Growth — free preview, Starter and Growth plans for small businesses." },
+      { property: "og:url", content: "https://milogrowth.com/pricing" },
+      { name: "twitter:title", content: "Pricing — Milo Growth" },
+      { name: "twitter:description", content: "Simple per-project pricing for Milo Growth — free preview, Starter and Growth plans." },
     ],
+    links: [{ rel: "canonical", href: "https://milogrowth.com/pricing" }],
   }),
   component: PricingPage,
 });
+
 
 function PricingPage() {
   return (
@@ -59,7 +66,10 @@ function PricingPage() {
           </div>
         </div>
 
-        <div className="mt-10 grid gap-6 md:grid-cols-3">
+        <h2 className="mt-12 font-display text-2xl md:text-3xl">Choose the right plan for your business</h2>
+
+        <div className="mt-6 grid gap-6 md:grid-cols-3">
+
           {PLANS.map((p) => (
             <div
               key={p.id}

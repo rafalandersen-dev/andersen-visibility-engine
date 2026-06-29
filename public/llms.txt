@@ -1,0 +1,15 @@
+# Milo Growth
+
+> Monthly AI growth planner for small businesses — visibility ideas, content briefs, FAQ, service-page improvements and clear 30-day action plans, without hiring an agency.
+
+Milo Growth is a self-service planning workspace built by Andersen Innovations. It helps owners of small service businesses, B2B and SaaS teams, and multi-brand owners ship a steady rhythm of SEO and content work each month. Milo is a planner, not a publisher: outputs are exportable Markdown or HTML the user pastes into their CMS.
+
+## Pages
+
+- [Home](/): What Milo Growth is, who it's for, how it works, and the monthly outputs.
+- [Pricing](/pricing): Free Preview, Starter and Growth plans, plus per-project add-ons.
+- [Local SEO strategy guide](/blog/local-seo-guide): How small service businesses can win local search with Google Business Profile and local keyword targeting.
+
+## Optional
+
+- [Sign in](/auth): Account access for existing customers.
