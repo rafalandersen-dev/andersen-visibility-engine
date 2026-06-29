@@ -14,7 +14,6 @@ import type {
   Project,
   ServiceItem,
   Opportunity,
-  ContentAsset,
 } from "./types";
 
 const MODEL = "google/gemini-3-flash-preview";
@@ -610,7 +609,9 @@ Return exactly this JSON shape:
 ${sharedRules}`,
         1800,
       );
-      const faq = normalizeFaq(isRecord(payload) ? payload.faq : payload);
+      const faq = normalizeFaq(
+        isRecord(payload) ? payload.faq ?? payload.faqs ?? payload.questions ?? payload.items : payload,
+      );
       return z.array(z.object({ q: cleanString(140), a: cleanString(400) })).parse(faq).slice(0, 5);
     } catch (e) {
       throw mapGatewayError(e);
