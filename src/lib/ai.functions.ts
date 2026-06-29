@@ -334,7 +334,11 @@ function normalizeContentAsset(payload: unknown, project: Project, opp: Opportun
   });
 }
 
-async function generateJsonText(prompt: string, maxOutputTokens = 5000) {
+// NOTE: GPT-5-class models are reasoning models — they spend output-token
+// budget on internal reasoning before emitting the answer, so the cap must
+// cover reasoning + the JSON payload or the response truncates mid-JSON.
+// 16k leaves ample headroom for our small JSON/markdown outputs.
+async function generateJsonText(prompt: string, maxOutputTokens = 16000) {
   const gateway = getGateway();
   const { text } = await generateText({
     model: gateway(MODEL),
