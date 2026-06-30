@@ -10,6 +10,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { normalizePath } from "./analytics";
+import { computeGrowthProof } from "./analytics.compute";
 import type { Project, ContentAsset } from "./types";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -162,6 +163,9 @@ export const getAnalyticsSummaryFn = createServerFn({ method: "POST" })
       })
       .sort((a, b) => b.views - a.views);
 
+    // ---- Analytics v2 — Growth Proof (pure, testable aggregation). ----
+    const v2 = computeGrowthProof(events, content, now);
+
     return {
       hasData: events.length > 0,
       visits30,
@@ -175,6 +179,8 @@ export const getAnalyticsSummaryFn = createServerFn({ method: "POST" })
       topPages,
       aiSignals,
       publishedContent,
+      // ---- Analytics v2 ----
+      ...v2,
     };
   });
 
