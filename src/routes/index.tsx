@@ -499,8 +499,13 @@ function Footer() {
           <span className="mx-2">·</span>
           <span>© {new Date().getUTCFullYear()}</span>
         </div>
-        <div className="flex items-center gap-5">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
           <Link to="/pricing" className="hover:text-foreground">Pricing</Link>
+          <Link to="/terms" className="hover:text-foreground">Terms</Link>
+          <Link to="/privacy" className="hover:text-foreground">Privacy</Link>
+          <Link to="/security" className="hover:text-foreground">Security</Link>
+          <Link to="/cookies" className="hover:text-foreground">Cookies</Link>
+          <Link to="/ai-disclaimer" className="hover:text-foreground">AI disclaimer</Link>
           <Link to="/auth" className="hover:text-foreground">Sign in</Link>
         </div>
       </div>

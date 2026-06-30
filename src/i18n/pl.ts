@@ -146,6 +146,7 @@ export const pl: Record<string, string> = {
   "editor.title": "Edytor treści",
   "editor.subtitle": "Dopracuj, zatwierdź i eksportuj materiały przygotowane przez AI.",
   "editor.assets": "Materiały",
+  "editor.aiReviewNote": "Wersja robocza przygotowana przez AI. Sprawdź ją przed publikacją — zwłaszcza twierdzenia, ceny, kwestie medyczne/prawne/finansowe oraz lokalne przepisy.",
   "editor.noAssetSelectedTitle": "Nie wybrano materiału",
   "editor.status": "Status",
   "status.Draft": "Wersja robocza",

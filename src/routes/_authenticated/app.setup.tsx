@@ -462,8 +462,14 @@ function PublishingCard({ project }: { project: Project }) {
         </div>
       </div>
 
+      <p className="mt-4 text-xs text-muted-foreground max-w-2xl">
+        Auto-publish is optional. Only enable it when you are comfortable publishing approved content
+        automatically. You remain responsible for reviewing content and claims before publishing. See the{" "}
+        <a href="/ai-disclaimer" className="underline underline-offset-4 hover:text-foreground">AI Content Disclaimer</a>.
+      </p>
+
       {mode === "autoPublishApproved" ? (
-        <div className="mt-4 rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-xs text-foreground/80">
+        <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-xs text-foreground/80">
           Auto-publish only publishes content assets marked <span className="font-medium">Approved</span>.
           Draft, In Review and Rejected assets will not be published automatically.
         </div>

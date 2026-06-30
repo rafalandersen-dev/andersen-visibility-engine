@@ -155,6 +155,7 @@ export const en: Record<string, string> = {
   "editor.title": "Content editor",
   "editor.subtitle": "Refine, approve and export AI-drafted assets.",
   "editor.assets": "Assets",
+  "editor.aiReviewNote": "AI-assisted draft. Review before publishing, especially claims, prices, medical/legal/financial statements and local regulations.",
   "editor.noAssetSelectedTitle": "No asset selected",
   "editor.status": "Status",
   "status.Draft": "Draft",

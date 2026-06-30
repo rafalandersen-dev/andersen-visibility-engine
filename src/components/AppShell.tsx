@@ -196,7 +196,13 @@ export function AppShell({
         <div className="px-6 md:px-10 py-8">{children}</div>
         <footer className="px-6 md:px-10 py-6 border-t border-border text-[11px] text-muted-foreground flex flex-wrap items-center justify-between gap-2">
           <span>Milo Growth — built by Andersen Innovations</span>
-          <span>© {new Date().getUTCFullYear()}</span>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <Link to="/terms" className="hover:text-foreground">Terms</Link>
+            <Link to="/privacy" className="hover:text-foreground">Privacy</Link>
+            <Link to="/security" className="hover:text-foreground">Security</Link>
+            <Link to="/ai-disclaimer" className="hover:text-foreground">AI disclaimer</Link>
+            <span>© {new Date().getUTCFullYear()}</span>
+          </div>
         </footer>
       </main>
     </div>

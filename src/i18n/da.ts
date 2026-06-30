@@ -146,6 +146,7 @@ export const da: Record<string, string> = {
   "editor.title": "Indholdsredigering",
   "editor.subtitle": "Forfin, godkend og eksportér AI-kladder.",
   "editor.assets": "Materialer",
+  "editor.aiReviewNote": "AI-genereret kladde. Gennemgå før udgivelse — især påstande, priser, medicinske/juridiske/finansielle oplysninger og lokale regler.",
   "editor.noAssetSelectedTitle": "Intet materiale valgt",
   "editor.status": "Status",
   "status.Draft": "Kladde",

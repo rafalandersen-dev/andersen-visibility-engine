@@ -307,6 +307,10 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           <span>{formatDateTime(f.createdAt ?? f.updatedAt)}</span>
           <span>{t("editor.status")}: {t(`status.${f.status}`)}</span>
         </div>
+        <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-foreground/80">
+          <Sparkles className="h-3.5 w-3.5 shrink-0 text-gold/80 mt-0.5" />
+          <span>{t("editor.aiReviewNote")}</span>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-border">

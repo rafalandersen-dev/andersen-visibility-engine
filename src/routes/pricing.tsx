@@ -130,7 +130,12 @@ function PricingPage() {
       <footer className="border-t border-border bg-card/40">
         <div className="mx-auto max-w-6xl px-6 py-8 flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
           <span>Milo Growth — built by Andersen Innovations</span>
-          <Link to="/" className="hover:text-foreground">Back to home</Link>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            <Link to="/terms" className="hover:text-foreground">Terms</Link>
+            <Link to="/privacy" className="hover:text-foreground">Privacy</Link>
+            <Link to="/security" className="hover:text-foreground">Security</Link>
+            <Link to="/" className="hover:text-foreground">Back to home</Link>
+          </div>
         </div>
       </footer>
     </main>

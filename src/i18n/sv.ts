@@ -146,6 +146,7 @@ export const sv: Record<string, string> = {
   "editor.title": "Innehållsredigerare",
   "editor.subtitle": "Förfina, godkänn och exportera AI-utkast.",
   "editor.assets": "Material",
+  "editor.aiReviewNote": "AI-genererat utkast. Granska före publicering — särskilt påståenden, priser, medicinska/juridiska/ekonomiska uppgifter och lokala regler.",
   "editor.noAssetSelectedTitle": "Inget material valt",
   "editor.status": "Status",
   "status.Draft": "Utkast",
