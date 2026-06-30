@@ -18,6 +18,7 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as MiloAnalyticsDotjsRouteImport } from './routes/milo-analytics[.]js'
+import { Route as FreeAiVisibilityAuditRouteImport } from './routes/free-ai-visibility-audit'
 import { Route as DpaRouteImport } from './routes/dpa'
 import { Route as CookiesRouteImport } from './routes/cookies'
 import { Route as AuthRouteImport } from './routes/auth'
@@ -91,6 +92,11 @@ const PricingRoute = PricingRouteImport.update({
 const MiloAnalyticsDotjsRoute = MiloAnalyticsDotjsRouteImport.update({
   id: '/milo-analytics.js',
   path: '/milo-analytics.js',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FreeAiVisibilityAuditRoute = FreeAiVisibilityAuditRouteImport.update({
+  id: '/free-ai-visibility-audit',
+  path: '/free-ai-visibility-audit',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DpaRoute = DpaRouteImport.update({
@@ -256,6 +262,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/cookies': typeof CookiesRoute
   '/dpa': typeof DpaRoute
+  '/free-ai-visibility-audit': typeof FreeAiVisibilityAuditRoute
   '/milo-analytics.js': typeof MiloAnalyticsDotjsRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
@@ -295,6 +302,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/cookies': typeof CookiesRoute
   '/dpa': typeof DpaRoute
+  '/free-ai-visibility-audit': typeof FreeAiVisibilityAuditRoute
   '/milo-analytics.js': typeof MiloAnalyticsDotjsRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
@@ -336,6 +344,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/cookies': typeof CookiesRoute
   '/dpa': typeof DpaRoute
+  '/free-ai-visibility-audit': typeof FreeAiVisibilityAuditRoute
   '/milo-analytics.js': typeof MiloAnalyticsDotjsRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
@@ -377,6 +386,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/cookies'
     | '/dpa'
+    | '/free-ai-visibility-audit'
     | '/milo-analytics.js'
     | '/pricing'
     | '/privacy'
@@ -416,6 +426,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/cookies'
     | '/dpa'
+    | '/free-ai-visibility-audit'
     | '/milo-analytics.js'
     | '/pricing'
     | '/privacy'
@@ -456,6 +467,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/cookies'
     | '/dpa'
+    | '/free-ai-visibility-audit'
     | '/milo-analytics.js'
     | '/pricing'
     | '/privacy'
@@ -497,6 +509,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   CookiesRoute: typeof CookiesRoute
   DpaRoute: typeof DpaRoute
+  FreeAiVisibilityAuditRoute: typeof FreeAiVisibilityAuditRoute
   MiloAnalyticsDotjsRoute: typeof MiloAnalyticsDotjsRoute
   PricingRoute: typeof PricingRoute
   PrivacyRoute: typeof PrivacyRoute
@@ -580,6 +593,13 @@ declare module '@tanstack/react-router' {
       path: '/milo-analytics.js'
       fullPath: '/milo-analytics.js'
       preLoaderRoute: typeof MiloAnalyticsDotjsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/free-ai-visibility-audit': {
+      id: '/free-ai-visibility-audit'
+      path: '/free-ai-visibility-audit'
+      fullPath: '/free-ai-visibility-audit'
+      preLoaderRoute: typeof FreeAiVisibilityAuditRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dpa': {
@@ -832,6 +852,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   CookiesRoute: CookiesRoute,
   DpaRoute: DpaRoute,
+  FreeAiVisibilityAuditRoute: FreeAiVisibilityAuditRoute,
   MiloAnalyticsDotjsRoute: MiloAnalyticsDotjsRoute,
   PricingRoute: PricingRoute,
   PrivacyRoute: PrivacyRoute,

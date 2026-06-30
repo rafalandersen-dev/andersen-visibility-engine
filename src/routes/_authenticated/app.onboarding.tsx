@@ -114,15 +114,33 @@ function OnboardingWizard() {
   const [generating, setGenerating] = useState(false);
   const [genStatus, setGenStatus] = useState("");
 
-  // Restore draft (resilient to refresh mid-wizard).
+  // Restore draft (resilient to refresh mid-wizard), then apply any handoff from
+  // the public Free AI Visibility Audit (prefill website + business name).
   useEffect(() => {
+    let restored = false;
     try {
       const raw = sessionStorage.getItem(DRAFT_KEY);
       if (raw) {
         const saved = JSON.parse(raw) as { step?: number; data?: WizardData };
-        if (saved.data) setW({ ...initialData(), ...saved.data });
+        if (saved.data) { setW({ ...initialData(), ...saved.data }); restored = true; }
         if (saved.step) setStep(Math.min(7, Math.max(1, saved.step)));
       }
+    } catch {
+      /* ignore */
+    }
+    try {
+      const auditRaw = sessionStorage.getItem("milo_free_audit");
+      if (auditRaw && !restored) {
+        const audit = JSON.parse(auditRaw) as { url?: string; businessName?: string };
+        if (audit.url || audit.businessName) {
+          setW((p) => ({
+            ...p,
+            websiteUrl: p.websiteUrl || audit.url || "",
+            businessName: p.businessName || audit.businessName || "",
+          }));
+        }
+      }
+      sessionStorage.removeItem("milo_free_audit");
     } catch {
       /* ignore */
     }

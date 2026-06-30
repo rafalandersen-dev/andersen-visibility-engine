@@ -14,6 +14,12 @@ import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 import { normalizeQualityScore } from "./quality";
 import { brandIntelligenceBlock } from "./brand";
 import { candidateUsesOpenRouter, getRouterStatus } from "./ai-router";
+import {
+  extractAuditSignals,
+  normalizePublicAudit,
+  deterministicFallbackAudit,
+  normalizeAuditUrl,
+} from "./public-audit";
 import type {
   Project,
   ServiceItem,
@@ -2023,3 +2029,66 @@ ${existingBlock}${liveBlock}${sharedRules}`,
 export const getAiRouterStatusFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async () => getRouterStatus());
+
+// ============================================================
+// Free AI Visibility Readiness Audit (PUBLIC — no auth)
+// ============================================================
+
+export const runPublicAiVisibilityAuditFn = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z.object({ url: z.string(), language: z.string().optional() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const normalizedUrl = normalizeAuditUrl(data.url);
+    if (!normalizedUrl) throw new Error("Please enter a valid website URL (for example: yourbusiness.com).");
+
+    const html = await fetchHtml(normalizedUrl, 8000);
+    if (!html) {
+      throw new Error("Couldn’t read that website. Check the URL is public and reachable, then try again.");
+    }
+
+    const { signals, text } = extractAuditSignals(html);
+    const id = `audit_${Date.now().toString(36)}`;
+    const auditedAt = new Date().toISOString();
+    const lang = data.language?.trim() || "English";
+
+    try {
+      const payload = await generateJsonText(
+        `You are a website readiness reviewer for small businesses. Using ONLY the extracted homepage content below, estimate how READY this website is for modern search and AI-assisted discovery. This is a readiness estimate based on public content — do NOT claim live rankings, do NOT claim visibility inside specific AI tools, and do NOT invent facts that are not present in the content.
+
+Score each category 0–100 (higher = clearer/more ready), with one short explanation and up to 3 practical suggestions:
+- entityClarity: does the page clearly say who the business is (name, what it is)?
+- serviceClarity: does it clearly explain what it offers and for whom?
+- localRelevance: is location/market and contact info clear (if relevant)?
+- answerReadiness: does it directly answer likely customer questions (FAQ, concise answers)?
+- trustSignals: visible reviews, credentials, guarantees, proof?
+- searchStructure: title, meta description, clear headings?
+- contentDepth: enough useful, specific content (not thin/generic)?
+- technicalBasics: basic on-page essentials present (title, description, H1)?
+
+Also return topIssues (max 5), quickWins (max 5), recommendedActions (max 5), a summary (max 320 chars) written for a small-business owner, and extractedSignals with detectedBusinessName, detectedServices (array), detectedLocations (array) inferred only from the content.
+Write all explanations, suggestions, issues, wins, actions and summary in ${lang}.
+
+Return EXACTLY this JSON shape (numbers 0–100):
+{"categories":{"entityClarity":{"score":0,"explanation":"","suggestions":[""]},"serviceClarity":{"score":0,"explanation":"","suggestions":[""]},"localRelevance":{"score":0,"explanation":"","suggestions":[""]},"answerReadiness":{"score":0,"explanation":"","suggestions":[""]},"trustSignals":{"score":0,"explanation":"","suggestions":[""]},"searchStructure":{"score":0,"explanation":"","suggestions":[""]},"contentDepth":{"score":0,"explanation":"","suggestions":[""]},"technicalBasics":{"score":0,"explanation":"","suggestions":[""]}},"topIssues":[""],"quickWins":[""],"recommendedActions":[""],"summary":"","extractedSignals":{"detectedBusinessName":"","detectedServices":[""],"detectedLocations":[""]}}
+
+EXTRACTED HOMEPAGE CONTENT (${normalizedUrl}):
+Title: ${signals.title || "(none)"}
+Meta description: ${signals.metaDescription || "(none)"}
+H1: ${signals.h1 || "(none)"}
+Headings: ${(signals.headings ?? []).join(" | ") || "(none)"}
+FAQ signals: ${signals.hasFaqSignals ? "yes" : "no"} · Contact signals: ${signals.hasContactSignals ? "yes" : "no"} · Trust signals: ${signals.hasTrustSignals ? "yes" : "no"}
+Visible text (truncated):
+"""
+${text}
+"""
+${sharedRules}`,
+        4000,
+      );
+      return normalizePublicAudit(payload, { id, url: data.url, normalizedUrl, auditedAt, extractedSignals: signals });
+    } catch (e) {
+      // AI failed — return a conservative deterministic estimate instead of crashing.
+      console.warn("[ai.functions] public audit AI failed, using deterministic fallback:", e instanceof Error ? e.message : e);
+      return deterministicFallbackAudit(signals, { id, url: data.url, normalizedUrl, auditedAt });
+    }
+  });
