@@ -29,6 +29,7 @@ import { useStore, upsertContent, deleteContentAsset, saveWorkspaceNow } from "@
 import { useT } from "@/i18n";
 import { generateMetadata, generateFaq, generateCta, sendContentToWebsite, publishContentLive, runAutoPublishOnApprove } from "@/lib/mock-ai";
 import { CreateContentDialog, ASSET_TYPE_LABELS } from "@/components/CreateContentDialog";
+import { MiloScorePanel } from "@/components/MiloScorePanel";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,7 +42,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { ContentAsset, ContentStatus, PublishDestinationType, PublishStatus, LivePublishStatus } from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Check, Copy, Download, ExternalLink, FileEdit, FilePlus2, FileX, Globe, Loader2, Rocket, Send, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -183,8 +184,28 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   const upd = <K extends keyof ContentAsset>(k: K, v: ContentAsset[K]) =>
     setF((p) => ({ ...p, [k]: v }));
 
+  // Mirror of the stored asset, read inside save() to detect content changes
+  // since the last Milo Score (kept in sync by the fromStore effect below).
+  const fromStoreRef = useRef<ContentAsset | undefined>(asset);
+
   const save = (status?: ContentStatus) => {
-    const next = { ...f, status: status ?? f.status, updatedAt: new Date().toISOString() };
+    // If content changed since the last Milo Score, mark the score stale so the
+    // panel prompts a re-evaluation (status-only saves don't mark it stale).
+    const stored = fromStoreRef.current;
+    const contentChanged =
+      !!stored &&
+      (stored.markdown !== f.markdown ||
+        stored.title !== f.title ||
+        stored.h1 !== f.h1 ||
+        stored.metaTitle !== f.metaTitle ||
+        stored.metaDescription !== f.metaDescription ||
+        stored.cta !== f.cta);
+    const next = {
+      ...f,
+      status: status ?? f.status,
+      updatedAt: new Date().toISOString(),
+      qualityScoreStale: f.qualityScore ? f.qualityScoreStale || contentChanged : f.qualityScoreStale,
+    };
     setF(next);
     upsertContent(next);
     toast.success(status ? `Marked ${status}` : "Saved");
@@ -209,6 +230,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
 
   // sync with store after AI updates
   const fromStore = useStore((s) => s.content.find((c) => c.id === asset.id));
+  fromStoreRef.current = fromStore ?? fromStoreRef.current;
   useEffect(() => {
     if (fromStore) setF(fromStore);
   }, [fromStore?.updatedAt]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -413,6 +435,11 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         )}
       </div>
 
+      {/* Milo Score — publishing readiness (Content Quality Engine v1) */}
+      <div className="px-5 py-4 border-b border-border">
+        <MiloScorePanel asset={live} />
+      </div>
+
       <CreateContentDialog
         opportunityId={contentOpen ? sourceOppId : null}
         open={contentOpen}
@@ -431,6 +458,16 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           {f.status !== "Approved" ? (
             <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-foreground/80">
               {t("editor.sendModal.unapproved")}
+            </div>
+          ) : null}
+
+          {live.qualityScore?.publishingRecommendation === "notReady" ? (
+            <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-foreground/80">
+              {t("quality.publishWarnNotReady")}
+            </div>
+          ) : !live.qualityScore ? (
+            <div className="rounded-md border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
+              {t("quality.publishWarnNoScore")}
             </div>
           ) : null}
 
@@ -471,6 +508,11 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
             <AlertDialogTitle>{t("editor.liveModal.title")}</AlertDialogTitle>
             <AlertDialogDescription>
               {t("editor.liveModal.body")}
+              {live.qualityScore?.publishingRecommendation === "notReady" ? (
+                <span className="mt-2 block font-medium text-destructive">{t("quality.publishWarnNotReady")}</span>
+              ) : !live.qualityScore ? (
+                <span className="mt-2 block text-muted-foreground">{t("quality.publishWarnNoScore")}</span>
+              ) : null}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

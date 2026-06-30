@@ -171,6 +171,43 @@ export interface ContentAsset {
   livePublishError?: string;
   autoPublishAttemptedAt?: string;
   autoPublishError?: string;
+  // ---- Content Quality Engine / Milo Score v1 (all optional) ----
+  qualityScore?: QualityScore;
+  /** True when the draft changed after the last evaluation (prompts a re-evaluate). */
+  qualityScoreStale?: boolean;
+}
+
+// ---- Content Quality Engine / Milo Score v1 ----
+export type QualityStatus = "strong" | "okay" | "needsWork";
+export type PublishingRecommendation = "ready" | "reviewFirst" | "notReady";
+
+export type QualityCategoryKey =
+  | "structure"
+  | "searchReadiness"
+  | "aiAnswerReadiness"
+  | "brandFit"
+  | "localRelevance"
+  | "conversion"
+  | "trustSafety"
+  | "internalLinks";
+
+export interface QualityCategoryScore {
+  score: number; // 0–100
+  status: QualityStatus;
+  explanation: string;
+  suggestions: string[];
+}
+
+export interface QualityScore {
+  overall: number; // 0–100
+  status: QualityStatus;
+  evaluatedAt: string;
+  model?: string;
+  categories: Record<QualityCategoryKey, QualityCategoryScore>;
+  topIssues: string[];
+  quickWins: string[];
+  publishingRecommendation: PublishingRecommendation;
+  summary: string;
 }
 
 // ---- Site Audit v1 ----

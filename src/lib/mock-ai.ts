@@ -71,8 +71,11 @@ import {
   regenerateMetadataFn,
   regenerateFaqFn,
   regenerateCtaFn,
+  evaluateContentQualityFn,
+  improveContentDraftFn,
 } from "./ai.functions";
 import { publishContentFn, publishLiveFn } from "./publish.functions";
+import { tooShortScore, draftWordCount, MIN_EVALUABLE_WORDS } from "./quality";
 
 function slugify(s: string) {
   return s
@@ -311,6 +314,98 @@ export async function generateCta(contentAssetId: string) {
     })) as string;
     upsertContent({ ...a, cta, updatedAt: new Date().toISOString() });
     await saveWorkspaceNow();
+  });
+}
+
+// ============================================================
+// Content Quality Engine / Milo Score v1
+// ============================================================
+
+/** Human label for the content/explanation language. */
+function languageLabel(lang: Language | undefined, fallback: Language): Language {
+  return lang ?? fallback;
+}
+
+/**
+ * Evaluate a content asset and store its Milo Score. Empty/too-short drafts get
+ * a conservative low score without an AI call. Failures throw a friendly error
+ * and leave any existing score intact (the caller keeps the editor alive).
+ */
+export async function evaluateContentQuality(contentAssetId: string) {
+  return once(`quality:${contentAssetId}`, async () => {
+    const a = getState().content.find((c) => c.id === contentAssetId);
+    if (!a) throw new Error("Content not found.");
+    const { project, services } = requireProject(a.projectId);
+
+    const evaluatedAt = new Date().toISOString();
+
+    // Short-circuit empty/too-short drafts — conservative score, no AI call.
+    if (draftWordCount(a.markdown || "") < MIN_EVALUABLE_WORDS) {
+      upsertContent({ ...a, qualityScore: tooShortScore(evaluatedAt), qualityScoreStale: false, updatedAt: evaluatedAt });
+      await saveWorkspaceNow();
+      return;
+    }
+
+    const contentLanguage = languageLabel(a.language, contentLangToProjectLanguage(project.primaryContentLanguage ?? "en"));
+    const explanationLanguage = contentLangToProjectLanguage(project.appLanguage ?? "en");
+
+    const score = await evaluateContentQualityFn({
+      data: {
+        project,
+        services,
+        title: a.title,
+        markdown: a.markdown || "",
+        assetType: a.assetType ?? "article",
+        destinationType: a.publishDestinationType ?? "",
+        metaTitle: a.metaTitle ?? "",
+        metaDescription: a.metaDescription ?? "",
+        contentLanguage,
+        explanationLanguage,
+      },
+    });
+
+    upsertContent({ ...a, qualityScore: score, qualityScoreStale: false, updatedAt: evaluatedAt });
+    await saveWorkspaceNow();
+    console.info("[ai.client] milo score evaluated", { assetId: contentAssetId, overall: score.overall });
+    return score;
+  });
+}
+
+/**
+ * Improve the draft markdown using the current score suggestions. Updates only
+ * the markdown body, marks the score stale (publish/live status untouched).
+ */
+export async function improveContentDraft(contentAssetId: string) {
+  return once(`improve:${contentAssetId}`, async () => {
+    const a = getState().content.find((c) => c.id === contentAssetId);
+    if (!a) throw new Error("Content not found.");
+    const { project, services } = requireProject(a.projectId);
+
+    const suggestions = [
+      ...(a.qualityScore?.topIssues ?? []),
+      ...(a.qualityScore?.quickWins ?? []),
+      ...Object.values(a.qualityScore?.categories ?? {}).flatMap((c) => c.suggestions),
+    ];
+    const contentLanguage = languageLabel(a.language, contentLangToProjectLanguage(project.primaryContentLanguage ?? "en"));
+
+    const { markdown } = await improveContentDraftFn({
+      data: {
+        project,
+        services,
+        title: a.title,
+        markdown: a.markdown || "",
+        assetType: a.assetType ?? "article",
+        contentLanguage,
+        suggestions,
+      },
+    });
+
+    if (!markdown || !markdown.trim()) throw new Error("AI returned empty content. Please try again.");
+    // Keep title/metadata/publish status; only the body changes. Score becomes stale.
+    upsertContent({ ...a, markdown, qualityScoreStale: a.qualityScore ? true : a.qualityScoreStale, updatedAt: new Date().toISOString() });
+    await saveWorkspaceNow();
+    console.info("[ai.client] draft improved", { assetId: contentAssetId });
+    return markdown;
   });
 }
 

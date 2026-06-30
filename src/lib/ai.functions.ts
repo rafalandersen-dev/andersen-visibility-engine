@@ -10,6 +10,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { generateText } from "ai";
 import { z } from "zod";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
+import { normalizeQualityScore } from "./quality";
 import type {
   Project,
   ServiceItem,
@@ -1745,6 +1746,130 @@ ${sharedRules}`,
       );
       const item = isRecord(payload) ? payload : {};
       return cleanString(50).parse(pickString(item, ["cta", "label", "button"], "Contact us"));
+    } catch (e) {
+      throw mapGatewayError(e);
+    }
+  });
+
+// ============================================================
+// Content Quality Engine / Milo Score v1
+// ============================================================
+
+/** The production model id, exposed so the client can stamp it onto the score. */
+export const QUALITY_MODEL = MODEL;
+
+export const evaluateContentQualityFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        project: z.any(),
+        services: z.array(z.any()).default([]),
+        title: z.string().default(""),
+        markdown: z.string().default(""),
+        assetType: z.string().default("article"),
+        destinationType: z.string().default(""),
+        metaTitle: z.string().default(""),
+        metaDescription: z.string().default(""),
+        contentLanguage: z.string().default("English"),
+        explanationLanguage: z.string().default("English"),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const project = data.project as Project;
+    const services = data.services as ServiceItem[];
+    const brief = projectBrief(project, services);
+
+    try {
+      const payload = await generateJsonText(
+        `You are a careful content reviewer for a small-business website. Evaluate the DRAFT below and produce a practical PUBLISHING READINESS assessment — NOT an SEO ranking guarantee. Be conservative: do not inflate scores, and never imply guaranteed Google or AI rankings.
+
+Score each of these 8 categories from 0–100 with a one-sentence explanation and up to 3 concrete suggestions:
+- structure: clear title, logical H2/H3 sections, intro, conclusion/next step, scannable formatting.
+- searchReadiness: clear topic, keyword/topic coverage, local/service intent where relevant, useful headings, meta title/description.
+- aiAnswerReadiness: concise answer summary, FAQ coverage, direct answers to likely questions, entity clarity (who/what/where), avoids vague generic content.
+- brandFit: matches project tone, reflects the business description, uses the services/products correctly, avoids forbidden/unsafe claims from brand notes.
+- localRelevance: location/market relevance where applicable, local service/business context, correct country/language assumptions, local trust signals.
+- conversion: clear CTA, booking/contact/product next step, offer relevance, benefit clarity, not overly salesy.
+- trustSafety: no unsupported guarantees, no risky medical/legal/financial claims, appropriate caveats, professional tone, no exaggerated AI/search ranking claims.
+- internalLinks: suggests links to relevant services/products/pages, uses existing project services/products where possible, includes related next reading/service, does not force irrelevant links.
+
+Also provide: topIssues (max 5 short bullets), quickWins (max 5 short bullets) and a summary (max 280 chars).
+Write all explanations, suggestions, topIssues, quickWins and summary in ${data.explanationLanguage}.
+The draft content is written in ${data.contentLanguage}.
+
+Return EXACTLY this JSON shape (numbers are 0–100):
+{"categories":{"structure":{"score":0,"explanation":"","suggestions":[""]},"searchReadiness":{"score":0,"explanation":"","suggestions":[""]},"aiAnswerReadiness":{"score":0,"explanation":"","suggestions":[""]},"brandFit":{"score":0,"explanation":"","suggestions":[""]},"localRelevance":{"score":0,"explanation":"","suggestions":[""]},"conversion":{"score":0,"explanation":"","suggestions":[""]},"trustSafety":{"score":0,"explanation":"","suggestions":[""]},"internalLinks":{"score":0,"explanation":"","suggestions":[""]}},"topIssues":[""],"quickWins":[""],"summary":""}
+
+Asset type: ${data.assetType}${data.destinationType ? ` · destination: ${data.destinationType}` : ""}
+Title: ${data.title}
+Meta title: ${data.metaTitle}
+Meta description: ${data.metaDescription}
+
+Business context:
+${brief}
+
+DRAFT (markdown):
+"""
+${data.markdown.slice(0, 12000)}
+"""
+${sharedRules}`,
+        4000,
+      );
+      // Normalize server-side so the return type is a concrete, serializable
+      // QualityScore (defensive: clamps, recomputes overall, fills fallbacks).
+      return normalizeQualityScore(payload, new Date().toISOString(), MODEL);
+    } catch (e) {
+      throw mapGatewayError(e);
+    }
+  });
+
+export const improveContentDraftFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        project: z.any(),
+        services: z.array(z.any()).default([]),
+        title: z.string().default(""),
+        markdown: z.string().default(""),
+        assetType: z.string().default("article"),
+        contentLanguage: z.string().default("English"),
+        suggestions: z.array(z.string()).default([]),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const project = data.project as Project;
+    const services = data.services as ServiceItem[];
+    const brief = projectBrief(project, services);
+    const suggestionList = data.suggestions.filter(Boolean).slice(0, 12).map((s) => `- ${s}`).join("\n");
+
+    try {
+      const payload = await generateJsonText(
+        `Improve the DRAFT below using the improvement suggestions. Keep the same topic, intent and language (${data.contentLanguage}). Keep the heading structure but improve clarity, structure, answer-readiness and a clear next step. Do NOT invent statistics, prices, guarantees or fake citations. Do NOT add exaggerated SEO/AI ranking claims. Return ONLY the improved markdown body.
+
+Improvement suggestions:
+${suggestionList || "- Improve overall clarity, structure and a clear call to action."}
+
+Return EXACTLY this JSON shape:
+{"markdown":""}
+
+Title: ${data.title}
+Business context:
+${brief}
+
+CURRENT DRAFT (markdown):
+"""
+${data.markdown.slice(0, 12000)}
+"""
+${sharedRules}`,
+        8000,
+      );
+      const item = isRecord(payload) ? payload : {};
+      const markdown = pickString(item, ["markdown", "content", "body", "draft"], data.markdown);
+      return { markdown };
     } catch (e) {
       throw mapGatewayError(e);
     }
