@@ -121,9 +121,12 @@ function Hero() {
               <Button size="lg" variant="outline">See pricing</Button>
             </Link>
           </div>
-          <div className="mt-3">
+          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1">
             <Link to="/free-ai-visibility-audit" className="text-sm text-foreground/70 underline underline-offset-4 hover:text-foreground">
               Run free AI visibility audit →
+            </Link>
+            <Link to="/beta" className="text-sm text-foreground/70 underline underline-offset-4 hover:text-foreground">
+              Milo Assisted Beta →
             </Link>
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
@@ -506,6 +509,8 @@ function Footer() {
         </div>
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
           <Link to="/free-ai-visibility-audit" className="hover:text-foreground">Free audit</Link>
+          <Link to="/beta" className="hover:text-foreground">Beta</Link>
+          <Link to="/case-studies" className="hover:text-foreground">Case studies</Link>
           <Link to="/pricing" className="hover:text-foreground">Pricing</Link>
           <Link to="/terms" className="hover:text-foreground">Terms</Link>
           <Link to="/privacy" className="hover:text-foreground">Privacy</Link>

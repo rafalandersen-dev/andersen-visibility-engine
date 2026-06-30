@@ -132,6 +132,7 @@ function PricingPage() {
           <span>Milo Growth — built by Andersen Innovations</span>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
             <Link to="/free-ai-visibility-audit" className="hover:text-foreground">Free audit</Link>
+            <Link to="/beta" className="hover:text-foreground">Beta</Link>
             <Link to="/terms" className="hover:text-foreground">Terms</Link>
             <Link to="/privacy" className="hover:text-foreground">Privacy</Link>
             <Link to="/security" className="hover:text-foreground">Security</Link>

@@ -20,7 +20,10 @@ import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as MiloAnalyticsDotjsRouteImport } from './routes/milo-analytics[.]js'
 import { Route as FreeAiVisibilityAuditRouteImport } from './routes/free-ai-visibility-audit'
 import { Route as DpaRouteImport } from './routes/dpa'
+import { Route as DemoScriptRouteImport } from './routes/demo-script'
 import { Route as CookiesRouteImport } from './routes/cookies'
+import { Route as CaseStudiesRouteImport } from './routes/case-studies'
+import { Route as BetaRouteImport } from './routes/beta'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AiDisclaimerRouteImport } from './routes/ai-disclaimer'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
@@ -104,9 +107,24 @@ const DpaRoute = DpaRouteImport.update({
   path: '/dpa',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DemoScriptRoute = DemoScriptRouteImport.update({
+  id: '/demo-script',
+  path: '/demo-script',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CookiesRoute = CookiesRouteImport.update({
   id: '/cookies',
   path: '/cookies',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CaseStudiesRoute = CaseStudiesRouteImport.update({
+  id: '/case-studies',
+  path: '/case-studies',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BetaRoute = BetaRouteImport.update({
+  id: '/beta',
+  path: '/beta',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -260,7 +278,10 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/ai-disclaimer': typeof AiDisclaimerRoute
   '/auth': typeof AuthRoute
+  '/beta': typeof BetaRoute
+  '/case-studies': typeof CaseStudiesRoute
   '/cookies': typeof CookiesRoute
+  '/demo-script': typeof DemoScriptRoute
   '/dpa': typeof DpaRoute
   '/free-ai-visibility-audit': typeof FreeAiVisibilityAuditRoute
   '/milo-analytics.js': typeof MiloAnalyticsDotjsRoute
@@ -300,7 +321,10 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/ai-disclaimer': typeof AiDisclaimerRoute
   '/auth': typeof AuthRoute
+  '/beta': typeof BetaRoute
+  '/case-studies': typeof CaseStudiesRoute
   '/cookies': typeof CookiesRoute
+  '/demo-script': typeof DemoScriptRoute
   '/dpa': typeof DpaRoute
   '/free-ai-visibility-audit': typeof FreeAiVisibilityAuditRoute
   '/milo-analytics.js': typeof MiloAnalyticsDotjsRoute
@@ -342,7 +366,10 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/ai-disclaimer': typeof AiDisclaimerRoute
   '/auth': typeof AuthRoute
+  '/beta': typeof BetaRoute
+  '/case-studies': typeof CaseStudiesRoute
   '/cookies': typeof CookiesRoute
+  '/demo-script': typeof DemoScriptRoute
   '/dpa': typeof DpaRoute
   '/free-ai-visibility-audit': typeof FreeAiVisibilityAuditRoute
   '/milo-analytics.js': typeof MiloAnalyticsDotjsRoute
@@ -384,7 +411,10 @@ export interface FileRouteTypes {
     | '/'
     | '/ai-disclaimer'
     | '/auth'
+    | '/beta'
+    | '/case-studies'
     | '/cookies'
+    | '/demo-script'
     | '/dpa'
     | '/free-ai-visibility-audit'
     | '/milo-analytics.js'
@@ -424,7 +454,10 @@ export interface FileRouteTypes {
     | '/'
     | '/ai-disclaimer'
     | '/auth'
+    | '/beta'
+    | '/case-studies'
     | '/cookies'
+    | '/demo-script'
     | '/dpa'
     | '/free-ai-visibility-audit'
     | '/milo-analytics.js'
@@ -465,7 +498,10 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/ai-disclaimer'
     | '/auth'
+    | '/beta'
+    | '/case-studies'
     | '/cookies'
+    | '/demo-script'
     | '/dpa'
     | '/free-ai-visibility-audit'
     | '/milo-analytics.js'
@@ -507,7 +543,10 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AiDisclaimerRoute: typeof AiDisclaimerRoute
   AuthRoute: typeof AuthRoute
+  BetaRoute: typeof BetaRoute
+  CaseStudiesRoute: typeof CaseStudiesRoute
   CookiesRoute: typeof CookiesRoute
+  DemoScriptRoute: typeof DemoScriptRoute
   DpaRoute: typeof DpaRoute
   FreeAiVisibilityAuditRoute: typeof FreeAiVisibilityAuditRoute
   MiloAnalyticsDotjsRoute: typeof MiloAnalyticsDotjsRoute
@@ -609,11 +648,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DpaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/demo-script': {
+      id: '/demo-script'
+      path: '/demo-script'
+      fullPath: '/demo-script'
+      preLoaderRoute: typeof DemoScriptRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/cookies': {
       id: '/cookies'
       path: '/cookies'
       fullPath: '/cookies'
       preLoaderRoute: typeof CookiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/case-studies': {
+      id: '/case-studies'
+      path: '/case-studies'
+      fullPath: '/case-studies'
+      preLoaderRoute: typeof CaseStudiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/beta': {
+      id: '/beta'
+      path: '/beta'
+      fullPath: '/beta'
+      preLoaderRoute: typeof BetaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -850,7 +910,10 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AiDisclaimerRoute: AiDisclaimerRoute,
   AuthRoute: AuthRoute,
+  BetaRoute: BetaRoute,
+  CaseStudiesRoute: CaseStudiesRoute,
   CookiesRoute: CookiesRoute,
+  DemoScriptRoute: DemoScriptRoute,
   DpaRoute: DpaRoute,
   FreeAiVisibilityAuditRoute: FreeAiVisibilityAuditRoute,
   MiloAnalyticsDotjsRoute: MiloAnalyticsDotjsRoute,
