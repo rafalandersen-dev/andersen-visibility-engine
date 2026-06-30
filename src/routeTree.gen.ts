@@ -59,6 +59,7 @@ import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/l
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
+import { Route as ApiGoogleSearchConsoleCallbackRouteImport } from './routes/api.google.search-console.callback'
 
 const UnsubscribeRoute = UnsubscribeRouteImport.update({
   id: '/unsubscribe',
@@ -324,6 +325,12 @@ const LovableEmailAuthPreviewRoute = LovableEmailAuthPreviewRouteImport.update({
   path: '/lovable/email/auth/preview',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiGoogleSearchConsoleCallbackRoute =
+  ApiGoogleSearchConsoleCallbackRouteImport.update({
+    id: '/api/google/search-console/callback',
+    path: '/api/google/search-console/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -370,6 +377,7 @@ export interface FileRoutesByFullPath {
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/app/': typeof AuthenticatedAppIndexRoute
+  '/api/google/search-console/callback': typeof ApiGoogleSearchConsoleCallbackRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -421,6 +429,7 @@ export interface FileRoutesByTo {
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/app': typeof AuthenticatedAppIndexRoute
+  '/api/google/search-console/callback': typeof ApiGoogleSearchConsoleCallbackRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -474,6 +483,7 @@ export interface FileRoutesById {
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
+  '/api/google/search-console/callback': typeof ApiGoogleSearchConsoleCallbackRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -527,6 +537,7 @@ export interface FileRouteTypes {
     | '/api/analytics/track'
     | '/lovable/email/suppression'
     | '/app/'
+    | '/api/google/search-console/callback'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -578,6 +589,7 @@ export interface FileRouteTypes {
     | '/api/analytics/track'
     | '/lovable/email/suppression'
     | '/app'
+    | '/api/google/search-console/callback'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -630,6 +642,7 @@ export interface FileRouteTypes {
     | '/api/analytics/track'
     | '/lovable/email/suppression'
     | '/_authenticated/app/'
+    | '/api/google/search-console/callback'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -666,6 +679,7 @@ export interface RootRouteChildren {
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
   ApiAnalyticsTrackRoute: typeof ApiAnalyticsTrackRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
+  ApiGoogleSearchConsoleCallbackRoute: typeof ApiGoogleSearchConsoleCallbackRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
@@ -1025,6 +1039,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LovableEmailAuthPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/google/search-console/callback': {
+      id: '/api/google/search-console/callback'
+      path: '/api/google/search-console/callback'
+      fullPath: '/api/google/search-console/callback'
+      preLoaderRoute: typeof ApiGoogleSearchConsoleCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -1100,6 +1121,7 @@ const rootRouteChildren: RootRouteChildren = {
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
   ApiAnalyticsTrackRoute: ApiAnalyticsTrackRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
+  ApiGoogleSearchConsoleCallbackRoute: ApiGoogleSearchConsoleCallbackRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,

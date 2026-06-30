@@ -158,6 +158,8 @@ export interface Project {
   brandIntelligence?: BrandIntelligence;
   // ---- GSC Lite / SEO Proof Import v1 (all optional) ----
   gscLite?: GscLite;
+  // ---- GSC OAuth / API Sync v1 (safe metadata only — no tokens) ----
+  gscOAuth?: GscOAuthMetadata;
 }
 
 // ---- GSC Lite / SEO Proof Import v1 ----
@@ -183,22 +185,65 @@ export interface GscImportSummary {
   topPage?: string;
 }
 
+/** Where a GSC import came from. Legacy CSV imports use "manual_csv". */
+export type GscImportSource = "manual_csv" | "api";
+
 export interface GscImport {
   id: string;
   importedAt: string;
-  source: "manual_csv";
+  source: GscImportSource;
   importType: "queries" | "pages" | "dates" | "mixed" | "unknown";
   fileName?: string;
   dateRange?: { start?: string; end?: string; label?: string };
   rows: GscRow[];
   summary: GscImportSummary;
-  /** True when the CSV had more rows than the per-import cap. */
+  /** True when the source had more rows than the per-import cap. */
   truncated?: boolean;
+  /** Search Console property this import was synced from (API imports). */
+  selectedSiteUrl?: string;
 }
 
 export interface GscLite {
   imports: GscImport[];
   latestImportId?: string;
+}
+
+// ---- GSC OAuth / API Sync v1 (Sprint 17) ----
+// Only SAFE metadata lives here (workspace/project JSONB). Refresh/access tokens
+// are NEVER stored in JSONB — they live server-side only (google_connections).
+export type GscConnectionStatus =
+  | "notConfigured"
+  | "disconnected"
+  | "connected"
+  | "expired"
+  | "error";
+
+export interface GscSelectedSite {
+  siteUrl: string;
+  permissionLevel?: string;
+  selectedAt?: string;
+}
+
+export interface GscSyncSummary {
+  lastSyncedAt?: string;
+  lastSyncRange?: "28d" | "90d" | "custom";
+  lastSyncStartDate?: string;
+  lastSyncEndDate?: string;
+  lastRowCount?: number;
+  lastError?: string;
+}
+
+export interface GscOAuthMetadata {
+  status?: GscConnectionStatus;
+  googleAccountEmail?: string;
+  selectedSite?: GscSelectedSite;
+  sync?: GscSyncSummary;
+}
+
+/** A verified Search Console property returned by the sites list. */
+export interface GscSiteEntry {
+  siteUrl: string;
+  permissionLevel?: string;
 }
 
 export interface MatchedGscPagePerformance {

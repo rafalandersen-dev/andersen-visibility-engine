@@ -14,6 +14,7 @@ import {
 import { getAnalyticsSummaryFn } from "@/lib/analytics.functions";
 import { getPaddleStatusFn } from "@/lib/billing.functions";
 import { getAiRouterStatusFn } from "@/lib/ai.functions";
+import { getGscOAuthStatusFn, type GscOAuthStatus } from "@/lib/gsc.functions";
 import { CheckCircle2, Circle, MinusCircle, ArrowUpRight, BookOpen, Wrench } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -204,11 +205,13 @@ function OwnerQaPanel({ inputs }: { inputs: LaunchInputs }) {
   const t = useT();
   const [paddle, setPaddle] = useState<{ configured: boolean; environment: string } | null>(null);
   const [ai, setAi] = useState<{ candidateConfigured: boolean; candidateModel?: string | null } | null>(null);
+  const [gsc, setGsc] = useState<GscOAuthStatus | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     getPaddleStatusFn().then((r) => !cancelled && setPaddle(r)).catch(() => {});
     getAiRouterStatusFn().then((r) => !cancelled && setAi(r)).catch(() => {});
+    getGscOAuthStatusFn().then((r) => !cancelled && setGsc(r)).catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -228,6 +231,11 @@ function OwnerQaPanel({ inputs }: { inputs: LaunchInputs }) {
     { label: t("launch.qa.live"), value: String(liveCount) },
     { label: t("launch.qa.analyticsEvents"), value: inputs.analyticsEventCount === undefined ? "—" : String(inputs.analyticsEventCount) },
     { label: t("launch.qa.gscImports"), value: String(gscImports) },
+    { label: t("launch.qa.gscOAuth"), value: gsc ? (gsc.configured ? t("launch.qa.yes") : t("launch.qa.no")) : "…" },
+    { label: t("launch.qa.gscConnected"), value: gsc ? t(`gsc.oauth.status.${gsc.status}`) : "…" },
+    { label: t("launch.qa.gscSite"), value: p.gscOAuth?.selectedSite?.siteUrl ?? "—" },
+    { label: t("launch.qa.gscSyncRows"), value: p.gscOAuth?.sync?.lastRowCount != null ? String(p.gscOAuth.sync.lastRowCount) : "—" },
+    { label: t("launch.qa.gscSyncDate"), value: p.gscOAuth?.sync?.lastSyncedAt?.slice(0, 10) ?? "—" },
     { label: t("launch.qa.authorityCount"), value: String(inputs.authorityOpportunities.length) },
     { label: t("launch.qa.contentCount"), value: String(inputs.content.length) },
     { label: t("launch.qa.aiCandidate"), value: ai ? (ai.candidateConfigured ? `${t("launch.qa.yes")} (${ai.candidateModel ?? "?"})` : t("launch.qa.no")) : "…" },

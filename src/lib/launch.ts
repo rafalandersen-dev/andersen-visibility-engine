@@ -390,6 +390,25 @@ export function computeConnectionStatuses(input: LaunchInputs): ConnectionStatus
   const hasAuthority = input.authorityOpportunities.length > 0;
   const billing = input.billingProfile;
 
+  // GSC: distinguish CSV-only / OAuth connected / synced / not configured.
+  const oauthStatus = p.gscOAuth?.status;
+  const hasApiImport = (p.gscLite?.imports ?? []).some((i) => i.source === "api");
+  let gscLevel: ConnectionStatusCard["level"];
+  let gscDetailKey: string;
+  if (gscImports > 0) {
+    gscLevel = "ok";
+    gscDetailKey = hasApiImport ? "launch.conn.gsc.synced" : "launch.conn.gsc.csvOnly";
+  } else if (oauthStatus === "connected") {
+    gscLevel = "partial";
+    gscDetailKey = "launch.conn.gsc.connectedNotSynced";
+  } else if (oauthStatus === "expired" || oauthStatus === "error") {
+    gscLevel = "partial";
+    gscDetailKey = "launch.conn.gsc.reconnect";
+  } else {
+    gscLevel = "none";
+    gscDetailKey = "launch.conn.gsc.none";
+  }
+
   // Publishing connector
   let connLevel: ConnectionStatusCard["level"] = "none";
   let connDetailKey = "launch.conn.connector.none";
@@ -457,8 +476,8 @@ export function computeConnectionStatuses(input: LaunchInputs): ConnectionStatus
     {
       key: "gsc",
       labelKey: "launch.conn.gsc",
-      level: gscImports > 0 ? "ok" : "none",
-      detailKey: gscImports > 0 ? "launch.conn.gsc.ok" : "launch.conn.gsc.none",
+      level: gscLevel,
+      detailKey: gscDetailKey,
       to: "/app/analytics",
     },
     {

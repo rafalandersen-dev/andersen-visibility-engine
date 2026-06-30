@@ -1,6 +1,13 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useStore, updateProject, saveWorkspaceNow } from "@/lib/store";
 import { useT } from "@/i18n";
 import {
@@ -10,8 +17,17 @@ import {
   GscParseError,
   MAX_IMPORTS,
 } from "@/lib/gsc";
-import type { Project } from "@/lib/types";
-import { Search, Loader2, Upload, ExternalLink, Trash2 } from "lucide-react";
+import {
+  getGscOAuthStatusFn,
+  startGscOAuthFn,
+  listGscSitesFn,
+  selectGscSiteFn,
+  syncGscSearchAnalyticsFn,
+  disconnectGscFn,
+  type GscOAuthStatus,
+} from "@/lib/gsc.functions";
+import type { Project, GscSiteEntry, GscOAuthMetadata } from "@/lib/types";
+import { Search, Loader2, Upload, ExternalLink, Trash2, Link2, Link2Off, RefreshCw, Plug } from "lucide-react";
 import { toast } from "sonner";
 
 type OnsitePerf = {
@@ -104,8 +120,15 @@ export function GscLiteSection({ project, onsite }: { project: Project; onsite?:
       </div>
       <p className="mt-1 text-sm text-muted-foreground max-w-3xl">{t("gsc.subtitle")}</p>
 
+      {/* OAuth / API sync connection */}
+      <GscConnectionCard project={project} />
+
+      {/* Manual CSV import (always available) */}
+      <div className="mt-6 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">{t("gsc.csvHeading")}</div>
+      <p className="mt-1 text-xs text-muted-foreground max-w-3xl">{t("gsc.csvFallbackNote")}</p>
+
       {/* Import controls */}
-      <div className="mt-4 flex flex-wrap items-end gap-3">
+      <div className="mt-3 flex flex-wrap items-end gap-3">
         <div>
           <label className="text-xs uppercase tracking-[0.16em] text-muted-foreground">{t("gsc.file")}</label>
           <input ref={fileRef} type="file" accept=".csv,text/csv" className="mt-1.5 block text-sm file:mr-3 file:rounded-md file:border file:border-border file:bg-secondary/60 file:px-3 file:py-1.5 file:text-sm" />
@@ -220,6 +243,9 @@ export function GscLiteSection({ project, onsite }: { project: Project; onsite?:
                   <li key={imp.id} className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-sm">
                     <div className="min-w-0">
                       <span className="font-medium">{imp.dateRange?.label || imp.fileName || imp.importType}</span>
+                      <span className={`ml-2 rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wider ${imp.source === "api" ? "border-emerald-500/40 text-emerald-600" : "border-border text-muted-foreground"}`}>
+                        {imp.source === "api" ? t("gsc.sourceApi") : t("gsc.sourceCsv")}
+                      </span>
                       <span className="text-xs text-muted-foreground ml-2">{imp.importedAt.slice(0, 10)} · {imp.summary.rowCount} rows · {imp.summary.totalClicks} clicks</span>
                     </div>
                     <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => deleteImport(imp.id)} aria-label={t("gsc.delete")}><Trash2 className="h-4 w-4" /></Button>
@@ -232,6 +258,290 @@ export function GscLiteSection({ project, onsite }: { project: Project; onsite?:
       )}
     </section>
   );
+}
+
+function GscConnectionCard({ project }: { project: Project }) {
+  const t = useT();
+  const [status, setStatus] = useState<GscOAuthStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<"connect" | "sites" | "select" | "sync28" | "sync90" | "disconnect" | null>(null);
+  const [sites, setSites] = useState<GscSiteEntry[]>([]);
+  const meta = project.gscOAuth;
+  const selectedSiteUrl = meta?.selectedSite?.siteUrl ?? "";
+
+  // Persist safe metadata only (never tokens) into the workspace JSONB.
+  async function persistMeta(patch: Partial<GscOAuthMetadata>) {
+    const next: GscOAuthMetadata = { ...(project.gscOAuth ?? {}), ...patch };
+    updateProject(project.id, { gscOAuth: next });
+    await saveWorkspaceNow();
+  }
+
+  async function refreshStatus() {
+    try {
+      const s = await getGscOAuthStatusFn();
+      setStatus(s);
+      // Mirror connection status into metadata so the launch checklist sees it.
+      if (s.status !== project.gscOAuth?.status || (s.googleAccountEmail && s.googleAccountEmail !== project.gscOAuth?.googleAccountEmail)) {
+        await persistMeta({ status: s.status, googleAccountEmail: s.googleAccountEmail });
+      }
+    } catch {
+      setStatus(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Initial status + handle the OAuth callback redirect (?gsc=...).
+  useEffect(() => {
+    refreshStatus();
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const gsc = params.get("gsc");
+    if (gsc) {
+      if (gsc === "connected") toast.success(t("gsc.oauth.connectedToast"));
+      else if (gsc === "denied") toast.message(t("gsc.oauth.deniedToast"));
+      else if (gsc === "error") toast.error(t("gsc.oauth.errorToast"));
+      params.delete("gsc");
+      const qs = params.toString();
+      window.history.replaceState({}, "", window.location.pathname + (qs ? `?${qs}` : ""));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function onConnect() {
+    setBusy("connect");
+    try {
+      const res = await startGscOAuthFn({ data: { projectId: project.id } });
+      if (res.configured && res.url) {
+        window.location.href = res.url;
+        return;
+      }
+      toast.message(res.message || t("gsc.oauth.notConfigured"));
+    } catch {
+      toast.error(t("gsc.oauth.errorToast"));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function onLoadSites() {
+    setBusy("sites");
+    try {
+      const res = await listGscSitesFn();
+      setStatus((s) => (s ? { ...s, status: res.status } : s));
+      if (res.status !== "connected") {
+        await persistMeta({ status: res.status });
+        if (res.error) toast.error(res.error);
+        return;
+      }
+      setSites(res.sites);
+      if (!res.sites.length) toast.message(t("gsc.oauth.noSites"));
+    } catch {
+      toast.error(t("gsc.oauth.sitesError"));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function onSelect(siteUrl: string) {
+    setBusy("select");
+    try {
+      const site = sites.find((s) => s.siteUrl === siteUrl);
+      const res = await selectGscSiteFn({ data: { siteUrl, permissionLevel: site?.permissionLevel } });
+      if (!res.success) {
+        toast.error(res.error || t("gsc.oauth.selectError"));
+        return;
+      }
+      await persistMeta({
+        status: "connected",
+        selectedSite: { siteUrl: res.siteUrl!, permissionLevel: res.permissionLevel, selectedAt: new Date().toISOString() },
+      });
+      toast.success(t("gsc.oauth.selected"));
+    } catch {
+      toast.error(t("gsc.oauth.selectError"));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function onSync(range: "28d" | "90d") {
+    if (!selectedSiteUrl) return;
+    setBusy(range === "28d" ? "sync28" : "sync90");
+    try {
+      const res = await syncGscSearchAnalyticsFn({ data: { siteUrl: selectedSiteUrl, range } });
+      if (!res.success || !res.import) {
+        if (res.status) setStatus((s) => (s ? { ...s, status: res.status! } : s));
+        await persistMeta({ status: res.status, sync: { ...(project.gscOAuth?.sync ?? {}), lastError: res.error } });
+        toast.error(res.error || t("gsc.oauth.syncError"));
+        return;
+      }
+      const imp = res.import;
+      const existing = project.gscLite?.imports ?? [];
+      const imports = [imp, ...existing].slice(0, MAX_IMPORTS);
+      updateProject(project.id, {
+        gscLite: { imports, latestImportId: imp.id },
+        gscOAuth: {
+          ...(project.gscOAuth ?? {}),
+          status: "connected",
+          sync: {
+            lastSyncedAt: imp.importedAt,
+            lastSyncRange: range,
+            lastSyncStartDate: imp.dateRange?.start,
+            lastSyncEndDate: imp.dateRange?.end,
+            lastRowCount: imp.summary.rowCount,
+            lastError: undefined,
+          },
+        },
+      });
+      await saveWorkspaceNow();
+      toast.success(t("gsc.oauth.syncToast", { rows: imp.summary.rowCount }));
+    } catch {
+      toast.error(t("gsc.oauth.syncError"));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function onDisconnect() {
+    setBusy("disconnect");
+    try {
+      await disconnectGscFn();
+      setSites([]);
+      setStatus((s) => (s ? { ...s, status: "disconnected", googleAccountEmail: undefined } : s));
+      await persistMeta({ status: "disconnected", googleAccountEmail: undefined, selectedSite: undefined });
+      toast.success(t("gsc.oauth.disconnected"));
+    } catch {
+      toast.error(t("gsc.oauth.errorToast"));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const box = "mt-4 rounded-lg border border-border bg-background/40 p-4";
+
+  if (loading) {
+    return (
+      <div className={box}>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> {t("gsc.oauth.title")}
+        </div>
+      </div>
+    );
+  }
+
+  const connStatus = status?.status ?? "notConfigured";
+
+  return (
+    <div className={box}>
+      <div className="flex items-center gap-2">
+        <Plug className="h-4 w-4 text-gold/80" />
+        <span className="text-sm font-medium text-foreground">{t("gsc.oauth.title")}</span>
+        <StatusPill status={connStatus} />
+      </div>
+
+      {/* Not configured */}
+      {connStatus === "notConfigured" ? (
+        <p className="mt-2 text-sm text-muted-foreground">{t("gsc.oauth.notConfigured")}</p>
+      ) : null}
+
+      {/* Disconnected */}
+      {connStatus === "disconnected" ? (
+        <div className="mt-2 space-y-2">
+          <p className="text-sm text-muted-foreground">{t("gsc.oauth.consent")}</p>
+          <Button size="sm" onClick={onConnect} disabled={busy === "connect"}>
+            {busy === "connect" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+            {t("gsc.oauth.connect")}
+          </Button>
+        </div>
+      ) : null}
+
+      {/* Error / expired */}
+      {connStatus === "error" || connStatus === "expired" ? (
+        <div className="mt-2 space-y-2">
+          <p className="text-sm text-amber-600">{t(connStatus === "expired" ? "gsc.oauth.expired" : "gsc.oauth.errorState")}</p>
+          <Button size="sm" variant="outline" onClick={onConnect} disabled={busy === "connect"}>
+            {busy === "connect" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            {t("gsc.oauth.reconnect")}
+          </Button>
+        </div>
+      ) : null}
+
+      {/* Connected */}
+      {connStatus === "connected" ? (
+        <div className="mt-3 space-y-3">
+          {status?.googleAccountEmail ? (
+            <div className="text-xs text-muted-foreground">{t("gsc.oauth.account")}: <span className="font-mono text-foreground/80">{status.googleAccountEmail}</span></div>
+          ) : null}
+
+          {selectedSiteUrl ? (
+            <>
+              <div className="text-sm">
+                <span className="text-muted-foreground">{t("gsc.oauth.selectedProperty")}: </span>
+                <span className="font-mono text-foreground/90">{selectedSiteUrl}</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button size="sm" onClick={() => onSync("28d")} disabled={busy !== null}>
+                  {busy === "sync28" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  {t("gsc.oauth.sync28")}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => onSync("90d")} disabled={busy !== null}>
+                  {busy === "sync90" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  {t("gsc.oauth.sync90")}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={onLoadSites} disabled={busy !== null}>{t("gsc.oauth.changeProperty")}</Button>
+              </div>
+              {meta?.sync?.lastSyncedAt ? (
+                <div className="text-xs text-muted-foreground">
+                  {t("gsc.oauth.lastSync")}: {meta.sync.lastSyncedAt.slice(0, 10)} · {meta.sync.lastRowCount ?? 0} {t("gsc.oauth.rows")}
+                  {meta.sync.lastSyncStartDate ? ` · ${meta.sync.lastSyncStartDate} → ${meta.sync.lastSyncEndDate}` : ""}
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">{t("gsc.oauth.chooseProperty")}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button size="sm" variant="outline" onClick={onLoadSites} disabled={busy === "sites"}>
+                  {busy === "sites" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  {t("gsc.oauth.loadSites")}
+                </Button>
+                {sites.length > 0 ? (
+                  <Select onValueChange={onSelect} disabled={busy === "select"}>
+                    <SelectTrigger className="w-72"><SelectValue placeholder={t("gsc.oauth.selectProperty")} /></SelectTrigger>
+                    <SelectContent>
+                      {sites.map((s) => (
+                        <SelectItem key={s.siteUrl} value={s.siteUrl}>{s.siteUrl}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : null}
+              </div>
+            </div>
+          )}
+
+          <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={onDisconnect} disabled={busy === "disconnect"}>
+            {busy === "disconnect" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2Off className="h-4 w-4" />}
+            {t("gsc.oauth.disconnect")}
+          </Button>
+        </div>
+      ) : null}
+
+      <p className="mt-3 text-xs text-muted-foreground">{t("gsc.oauth.readOnlyNote")}</p>
+    </div>
+  );
+}
+
+function StatusPill({ status }: { status: string }) {
+  const t = useT();
+  const map: Record<string, { cls: string; key: string }> = {
+    connected: { cls: "border-emerald-500/40 text-emerald-600", key: "gsc.oauth.status.connected" },
+    disconnected: { cls: "border-border text-muted-foreground", key: "gsc.oauth.status.disconnected" },
+    expired: { cls: "border-amber-500/40 text-amber-600", key: "gsc.oauth.status.expired" },
+    error: { cls: "border-destructive/40 text-destructive", key: "gsc.oauth.status.error" },
+    notConfigured: { cls: "border-border text-muted-foreground", key: "gsc.oauth.status.notConfigured" },
+  };
+  const m = map[status] ?? map.notConfigured;
+  return <span className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wider ${m.cls}`}>{t(m.key)}</span>;
 }
 
 function Card({ label, value, small }: { label: string; value: string | number; small?: boolean }) {
