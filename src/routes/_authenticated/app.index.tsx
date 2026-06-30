@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store";
+import { useT } from "@/i18n";
 import { generateSeoOpportunities } from "@/lib/mock-ai";
 import { ArrowUpRight, Plus, Sparkles, FileText, CheckCircle2, Upload, FileEdit } from "lucide-react";
 import { toast } from "sonner";
@@ -49,6 +50,7 @@ function StatCard({
 
 function Dashboard() {
   const navigate = useNavigate();
+  const t = useT();
   const activeProjectId = useStore((s) => s.activeProjectId);
   const projects = useStore((s) => s.projects);
   const services = useStore((s) =>
@@ -76,14 +78,14 @@ function Dashboard() {
     ];
     return (
       <AppShell
-        title="Welcome to Milo Growth"
-        description="Your workspace is empty. Create your first project to start your monthly growth plan."
+        title={t("dashboard.welcomeTitle")}
+        description={t("dashboard.welcomeDesc")}
       >
         <div className="mx-auto max-w-2xl mt-6 rounded-xl border border-border bg-card p-8 md:p-10">
           <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-            Get started
+            {t("onboarding.getStarted")}
           </div>
-          <h2 className="mt-2 font-display text-3xl">Create your first project</h2>
+          <h2 className="mt-2 font-display text-3xl">{t("dashboard.createFirst")}</h2>
           <p className="mt-3 text-sm text-muted-foreground">
             A project represents one business, brand or website. You can run up to {" "}
             five projects on a single account.
@@ -101,7 +103,7 @@ function Dashboard() {
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <Button onClick={() => navigate({ to: "/app/setup", search: { new: true } })}>
               <Plus className="h-4 w-4" />
-              Create first project
+              {t("dashboard.createFirst")}
             </Button>
             <span className="text-xs text-muted-foreground">Takes about 2 minutes.</span>
           </div>
@@ -118,8 +120,8 @@ function Dashboard() {
 
   return (
     <AppShell
-      title="Dashboard"
-      description={`Visibility programme for ${active.businessName} · ${active.mainLocation}`}
+      title={t("dashboard.title")}
+      description={`${active.businessName} · ${active.mainLocation}`}
       actions={
         <>
           <Button
@@ -139,11 +141,11 @@ function Dashboard() {
             disabled={busy}
           >
             <Sparkles className="h-4 w-4" />
-            Generate SEO Opportunities
+            {t("dashboard.generateOpps")}
           </Button>
           <Button onClick={() => navigate({ to: "/app/setup", search: { new: true } })}>
             <Plus className="h-4 w-4" />
-            Create New Project
+            {t("dashboard.createNew")}
           </Button>
         </>
       }
@@ -164,7 +166,7 @@ function Dashboard() {
         return (
           <div className="mb-6 rounded-lg border border-gold/40 bg-gold/5 px-5 py-4 flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
-              <div className="text-[10px] uppercase tracking-[0.22em] text-gold">Next recommended step</div>
+              <div className="text-[10px] uppercase tracking-[0.22em] text-gold">{t("dashboard.nextStep")}</div>
               <div className="mt-1 font-medium text-foreground">{next.label}</div>
               <div className="text-sm text-muted-foreground">{next.body}</div>
             </div>
@@ -173,28 +175,28 @@ function Dashboard() {
         );
       })()}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <StatCard label="Active project" value={active.name} icon={Sparkles} hint={active.primaryLanguage} />
-        <StatCard label="SEO opportunities" value={opportunities.length} icon={Sparkles} hint={`${opportunities.filter(o => o.priority === "High").length} high priority`} />
-        <StatCard label="Drafts in progress" value={drafts} icon={FileEdit} />
-        <StatCard label="Approved" value={approved} icon={CheckCircle2} />
-        <StatCard label="Exported" value={exported} icon={Upload} />
+        <StatCard label={t("dashboard.stat.activeProject")} value={active.name} icon={Sparkles} hint={active.primaryLanguage} />
+        <StatCard label={t("dashboard.stat.seoOpportunities")} value={opportunities.length} icon={Sparkles} hint={`${opportunities.filter(o => o.priority === "High").length} high priority`} />
+        <StatCard label={t("dashboard.stat.drafts")} value={drafts} icon={FileEdit} />
+        <StatCard label={t("dashboard.stat.approved")} value={approved} icon={CheckCircle2} />
+        <StatCard label={t("dashboard.stat.exported")} value={exported} icon={Upload} />
       </div>
 
       <section className="mt-10 grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 rounded-lg border border-border bg-card">
           <div className="flex items-center justify-between px-5 py-4 border-b border-border">
             <div>
-              <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Recent content</div>
-              <h2 className="font-display text-lg mt-0.5">Latest assets</h2>
+              <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">{t("dashboard.recentContent")}</div>
+              <h2 className="font-display text-lg mt-0.5">{t("dashboard.latestAssets")}</h2>
             </div>
             <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/app/editor" })}>
-              Open editor <ArrowUpRight className="h-3.5 w-3.5" />
+              {t("dashboard.openEditor")} <ArrowUpRight className="h-3.5 w-3.5" />
             </Button>
           </div>
           <ul className="divide-y divide-border">
             {recent.length === 0 ? (
               <li className="px-5 py-8 text-sm text-muted-foreground">
-                No content yet. Generate an opportunity and create a brief or draft to get started.
+                {t("dashboard.noContent")}
               </li>
             ) : (
               recent.map((c) => (
@@ -202,11 +204,11 @@ function Dashboard() {
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium text-foreground">{c.title}</div>
                     <div className="mt-0.5 text-xs text-muted-foreground">
-                      {c.status} · updated {formatDate(c.updatedAt)}
+                      {t(`status.${c.status}`)} · {formatDate(c.updatedAt)}
                     </div>
                   </div>
                   <Button variant="outline" size="sm" onClick={() => navigate({ to: "/app/editor", search: { id: c.id } as never })}>
-                    Open
+                    {t("dashboard.openEditor")}
                   </Button>
                 </li>
               ))
@@ -218,24 +220,24 @@ function Dashboard() {
           <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
             Programme snapshot
           </div>
-          <h2 className="mt-0.5 font-display text-lg">This week</h2>
+          <h2 className="mt-0.5 font-display text-lg">{t("dashboard.thisWeek")}</h2>
           <ul className="mt-4 space-y-3 text-sm">
             <li className="flex justify-between">
-              <span className="text-muted-foreground">Languages</span>
+              <span className="text-muted-foreground">{t("dashboard.languages")}</span>
               <span>{[active.primaryLanguage, ...active.additionalLanguages].join(", ")}</span>
             </li>
             <li className="flex justify-between">
-              <span className="text-muted-foreground">Target locations</span>
+              <span className="text-muted-foreground">{t("dashboard.targetLocations")}</span>
               <span className="text-right">{active.targetLocations.slice(0, 3).join(", ")}</span>
             </li>
             <li className="flex justify-between">
-              <span className="text-muted-foreground">Tone</span>
+              <span className="text-muted-foreground">{t("dashboard.tone")}</span>
               <span className="text-right">{active.toneOfVoice.split(".")[0]}</span>
             </li>
           </ul>
           <div className="my-5 gold-rule" />
           <Button variant="outline" className="w-full" onClick={() => navigate({ to: "/app/calendar" })}>
-            <FileText className="h-4 w-4" /> Review content calendar
+            <FileText className="h-4 w-4" /> {t("dashboard.reviewCalendar")}
           </Button>
         </div>
       </section>

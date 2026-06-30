@@ -668,7 +668,29 @@ function mapGatewayError(e: unknown): Error {
   return new Error("AI generation failed. Please try again.");
 }
 
+/**
+ * Human-readable language for AI content generation. Prefers the project's
+ * `primaryContentLanguage` (en/pl/sv/da, incl. Danish), then the legacy
+ * `primaryLanguage` enum, then English. Used to tell generators which language
+ * to write in — separate from the app UI language.
+ */
+export function contentLanguageLabel(p: Project): string {
+  switch (p.primaryContentLanguage) {
+    case "pl":
+      return "Polish";
+    case "sv":
+      return "Swedish";
+    case "da":
+      return "Danish";
+    case "en":
+      return "English";
+    default:
+      return p.primaryLanguage || "English";
+  }
+}
+
 function projectBrief(p: Project, services: ServiceItem[]) {
+  const contentLang = contentLanguageLabel(p);
   return [
     `Business: ${p.businessName || p.name}`,
     p.websiteUrl ? `Website: ${p.websiteUrl} (NOT crawled — base recommendations only on the context below)` : null,
@@ -678,6 +700,7 @@ function projectBrief(p: Project, services: ServiceItem[]) {
     p.mainLocation ? `Main location: ${p.mainLocation}` : null,
     p.targetLocations?.length ? `Target locations: ${p.targetLocations.join(", ")}` : null,
     `Primary language: ${p.primaryLanguage}`,
+    `Content language (write ALL generated content in this language): ${contentLang}`,
     p.additionalLanguages?.length ? `Additional languages: ${p.additionalLanguages.join(", ")}` : null,
     p.toneOfVoice ? `Tone of voice: ${p.toneOfVoice}` : null,
     p.uniqueSellingPoints ? `USPs: ${p.uniqueSellingPoints}` : null,
@@ -1498,11 +1521,14 @@ export const generateContentAssetFn = createServerFn({ method: "POST" })
     const services = data.services as ServiceItem[];
     const opp = data.opportunity as Opportunity;
     const brief = projectBrief(project, services);
+    // Generate in the project's primary content language (covers Danish too),
+    // falling back to the opportunity's language if none is set.
+    const contentLang = contentLanguageLabel(project) || opp.language;
 
     const kindInstruction =
       data.kind === "landing"
-        ? `Generate a LANDING / SERVICE page brief. Outline should follow: problem → approach → what you get → proof → pricing/timing → FAQ → single CTA. Markdown should be a draft of the page in ${opp.language}.`
-        : `Generate a BLOG ARTICLE draft. Lead with a 2–3 sentence direct answer (AI-overview friendly), then context, key factors, what to do next, and FAQ. Markdown should be the article body in ${opp.language}.`;
+        ? `Generate a LANDING / SERVICE page brief. Outline should follow: problem → approach → what you get → proof → pricing/timing → FAQ → single CTA. Markdown should be a draft of the page in ${contentLang}.`
+        : `Generate a BLOG ARTICLE draft. Lead with a 2–3 sentence direct answer (AI-overview friendly), then context, key factors, what to do next, and FAQ. Markdown should be the article body in ${contentLang}.`;
 
     try {
       const payload = await generateJsonText(`${kindInstruction}
@@ -1514,7 +1540,7 @@ Topic: ${opp.title}
 Search intent: ${opp.searchIntent}
 Audience: ${opp.targetAudience}
 Suggested CTA: ${opp.recommendedCta}
-Language: ${opp.language}
+Language: ${contentLang}
 
 Business context:
 ${brief}
@@ -1588,6 +1614,7 @@ export const generateContentFn = createServerFn({ method: "POST" })
     const services = data.services as ServiceItem[];
     const opp = data.opportunity as Opportunity;
     const brief = projectBrief(project, services);
+    const contentLang = contentLanguageLabel(project) || opp.language;
     const instruction = ASSET_INSTRUCTIONS[data.assetType] ?? ASSET_INSTRUCTIONS.article;
     const sourceLine = opp.source
       ? `Source: this opportunity came from ${opp.source === "audit" ? "a Site Audit finding" : opp.source === "competitor" ? "a Competitor Gap" : opp.source === "authority" ? "an Authority-building action" : opp.source === "aiVisibility" ? "an AI Visibility gap" : "manual planning"} — keep that intent in mind.`
@@ -1601,7 +1628,7 @@ Return exactly this JSON shape. "markdown" is REQUIRED and must contain the full
 {"metaTitle":"","metaDescription":"","h1":"","outline":[""],"faq":[{"q":"","a":""}],"cta":"","markdown":"","internalLinks":[""],"schemaSuggestions":[""],"editorNotes":""}
 
 Topic: ${opp.title}
-Language: ${opp.language} (write ALL output in this language)
+Language: ${contentLang} (write ALL output in this language)
 Search intent: ${opp.searchIntent}
 Content type: ${opp.contentType}
 Suggested CTA: ${opp.recommendedCta}

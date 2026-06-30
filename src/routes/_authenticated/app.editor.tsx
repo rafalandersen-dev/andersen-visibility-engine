@@ -26,6 +26,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { useStore, upsertContent, deleteContentAsset, saveWorkspaceNow } from "@/lib/store";
+import { useT } from "@/i18n";
 import { generateMetadata, generateFaq, generateCta, sendContentToWebsite, publishContentLive, runAutoPublishOnApprove } from "@/lib/mock-ai";
 import { CreateContentDialog, ASSET_TYPE_LABELS } from "@/components/CreateContentDialog";
 import {
@@ -57,6 +58,7 @@ export const Route = createFileRoute("/_authenticated/app/editor")({
 });
 
 function EditorPage() {
+  const t = useT();
   const activeProjectId = useStore((s) => s.activeProjectId);
   const assets = useStore((s) => s.content.filter((c) => c.projectId === activeProjectId));
   const search = Route.useSearch();
@@ -94,12 +96,12 @@ function EditorPage() {
 
   return (
     <AppShell
-      title="Content editor"
-      description="Refine, approve and export AI-drafted assets."
+      title={t("editor.title")}
+      description={t("editor.subtitle")}
     >
       <div className="grid lg:grid-cols-[260px,1fr] gap-6">
         <aside className="rounded-lg border border-border bg-card p-3 h-fit">
-          <div className="px-2 py-1 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Assets</div>
+          <div className="px-2 py-1 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">{t("editor.assets")}</div>
           <ul className="mt-1 space-y-0.5">
             {assets.length === 0 ? (
               <li className="px-2 py-6 text-xs text-muted-foreground">
@@ -116,7 +118,7 @@ function EditorPage() {
                 >
                   <div className="text-sm font-medium truncate">{a.title}</div>
                   <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mt-0.5">
-                    {a.assetType ? `${ASSET_TYPE_LABELS[a.assetType]} · ` : ""}{a.status}
+                    {a.assetType ? `${ASSET_TYPE_LABELS[a.assetType]} · ` : ""}{t(`status.${a.status}`)}
                   </div>
                 </button>
               </li>
@@ -126,7 +128,7 @@ function EditorPage() {
 
         {asset ? <Editor key={asset.id} asset={asset} onRequestDelete={() => setDeleteId(asset.id)} /> : (
           <div className="rounded-lg border border-dashed border-border p-12 text-center">
-            <div className="font-display text-lg mb-1">No asset selected</div>
+            <div className="font-display text-lg mb-1">{t("editor.noAssetSelectedTitle")}</div>
             <p className="text-sm text-muted-foreground max-w-md mx-auto">
               Open the Opportunities page and click <span className="font-medium text-foreground">Create content</span> on any card to generate your first asset. It will appear in this editor.
             </p>
@@ -137,15 +139,15 @@ function EditorPage() {
       <AlertDialog open={deleteId !== null} onOpenChange={(o) => { if (!o) setDeleteId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete content asset?</AlertDialogTitle>
+            <AlertDialogTitle>{t("editor.action.delete")}</AlertDialogTitle>
             <AlertDialogDescription>
               This permanently removes this draft from the editor. The original opportunity and
               calendar item will stay.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>Delete asset</AlertDialogAction>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>{t("editor.action.delete")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -154,6 +156,7 @@ function EditorPage() {
 }
 
 function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDelete: () => void }) {
+  const t = useT();
   const [f, setF] = useState<ContentAsset>(asset);
   const [busy, setBusy] = useState<string | null>(null);
   const [contentOpen, setContentOpen] = useState(false);
@@ -300,33 +303,33 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               {f.sourceType && f.sourceType !== "opportunity" ? ` (${f.sourceType})` : ""}
             </span>
           ) : null}
-          {f.language ? <span>Language: {f.language}</span> : null}
-          <span>Created: {formatDateTime(f.createdAt ?? f.updatedAt)}</span>
-          <span>Status: {f.status}</span>
+          {f.language ? <span>{t("onboarding.summary.language")}: {f.language}</span> : null}
+          <span>{formatDateTime(f.createdAt ?? f.updatedAt)}</span>
+          <span>{t("editor.status")}: {t(`status.${f.status}`)}</span>
         </div>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-border">
         <div className="flex items-center gap-3">
-          <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Status</span>
+          <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">{t("editor.status")}</span>
           <Select value={f.status} onValueChange={(v) => (v === "Approved" ? approve() : save(v as ContentStatus))}>
             <SelectTrigger className="h-8 w-36 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {(["Draft","In Review","Approved","Rejected","Exported"] as ContentStatus[]).map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              {(["Draft","In Review","Approved","Rejected","Exported"] as ContentStatus[]).map((s) => <SelectItem key={s} value={s}>{t(`status.${s}`)}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
         <div className="flex flex-wrap gap-2">
           {sourceOppId ? (
             <Button size="sm" variant="outline" onClick={() => setContentOpen(true)}>
-              <FilePlus2 className="h-3.5 w-3.5" /> Create content
+              <FilePlus2 className="h-3.5 w-3.5" /> {t("editor.action.createContent")}
             </Button>
           ) : null}
-          <Button size="sm" variant="ghost" onClick={() => save("Draft")}><FileEdit className="h-3.5 w-3.5" /> Save draft</Button>
-          <Button size="sm" variant="outline" onClick={() => save("In Review")}>Mark in review</Button>
-          <Button size="sm" variant="outline" onClick={approve} disabled={autoBusy}>{autoBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Approve</Button>
-          <Button size="sm" variant="ghost" onClick={() => save("Rejected")}><FileX className="h-3.5 w-3.5" /> Reject</Button>
-          <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={onRequestDelete}><Trash2 className="h-3.5 w-3.5" /> Delete</Button>
+          <Button size="sm" variant="ghost" onClick={() => save("Draft")}><FileEdit className="h-3.5 w-3.5" /> {t("editor.action.saveDraft")}</Button>
+          <Button size="sm" variant="outline" onClick={() => save("In Review")}>{t("editor.action.markInReview")}</Button>
+          <Button size="sm" variant="outline" onClick={approve} disabled={autoBusy}>{autoBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} {t("editor.action.approve")}</Button>
+          <Button size="sm" variant="ghost" onClick={() => save("Rejected")}><FileX className="h-3.5 w-3.5" /> {t("editor.action.reject")}</Button>
+          <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={onRequestDelete}><Trash2 className="h-3.5 w-3.5" /> {t("editor.action.delete")}</Button>
         </div>
       </div>
 
@@ -335,18 +338,16 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         {!publishConfigured ? (
           <p className="text-sm text-muted-foreground inline-flex items-center gap-1.5">
             <Globe className="h-3.5 w-3.5 text-gold/80" />
-            Connect a website in{" "}
             <Link to="/app/setup" className="underline underline-offset-4 hover:text-foreground">
-              Project Setup
-            </Link>{" "}
-            to send drafts directly from Milo.
+              {t("editor.publish.connectHint")}
+            </Link>
           </p>
         ) : (
           <div className="space-y-2.5">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               <Button size="sm" variant="outline" onClick={openSend}>
                 <Send className="h-3.5 w-3.5" />
-                {live.publishStatus === "sent" ? "Re-send to website" : "Send to website"}
+                {live.publishStatus === "sent" ? t("editor.publish.reSendToWebsite") : t("editor.publish.sendToWebsite")}
               </Button>
               <PublishStatusBadge status={live.publishStatus} />
               {live.lastPublishedAt ? (
@@ -362,7 +363,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                   rel="noopener noreferrer"
                   className="text-xs text-foreground/80 underline underline-offset-4 inline-flex items-center gap-1"
                 >
-                  <ExternalLink className="h-3 w-3" /> View website draft
+                  <ExternalLink className="h-3 w-3" /> {t("editor.publish.viewDraft")}
                 </a>
               ) : null}
               {live.publishStatus === "failed" && live.lastPublishError ? (
@@ -374,7 +375,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-2.5 border-t border-border/60">
                 <Button size="sm" onClick={() => setLiveConfirmOpen(true)} disabled={!liveConfigured || publishingLive}>
                   {publishingLive ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Rocket className="h-3.5 w-3.5" />}
-                  {live.livePublishStatus === "published" ? "Re-publish live" : "Publish live"}
+                  {live.livePublishStatus === "published" ? t("editor.publish.rePublishLive") : t("editor.publish.publishLive")}
                 </Button>
                 <LivePublishStatusBadge status={live.livePublishStatus} />
                 {live.livePublishedAt ? (
@@ -390,7 +391,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                     rel="noopener noreferrer"
                     className="text-xs text-foreground/80 underline underline-offset-4 inline-flex items-center gap-1"
                   >
-                    <ExternalLink className="h-3 w-3" /> View live page
+                    <ExternalLink className="h-3 w-3" /> {t("editor.publish.viewLive")}
                   </a>
                 ) : null}
                 {!liveConfigured ? (
@@ -417,23 +418,22 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       <Dialog open={sendOpen} onOpenChange={(o) => (!sending ? setSendOpen(o) : null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="font-display">Send draft to website?</DialogTitle>
+            <DialogTitle className="font-display">{t("editor.sendModal.title")}</DialogTitle>
             <DialogDescription>
-              Milo will send this content asset to your connected website as a draft. It will not be
-              published live automatically.
+              {t("editor.sendModal.body")}
             </DialogDescription>
           </DialogHeader>
 
           {f.status !== "Approved" ? (
             <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-foreground/80">
-              This asset is not approved yet. Send it as a draft anyway?
+              {t("editor.sendModal.unapproved")}
             </div>
           ) : null}
 
           <div className="space-y-3">
             <div>
               <label className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                Destination type
+                {t("editor.sendModal.destinationType")}
               </label>
               <Select value={destType} onValueChange={(v) => setDestType(v as PublishDestinationType)} disabled={sending}>
                 <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
@@ -446,16 +446,16 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               </Select>
             </div>
             <div>
-              <label className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Slug</label>
+              <label className="text-xs uppercase tracking-[0.16em] text-muted-foreground">{t("editor.sendModal.slug")}</label>
               <Input className="mt-1.5" value={publishSlug} onChange={(e) => setPublishSlug(e.target.value)} disabled={sending} />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setSendOpen(false)} disabled={sending}>Cancel</Button>
+            <Button variant="ghost" onClick={() => setSendOpen(false)} disabled={sending}>{t("common.cancel")}</Button>
             <Button onClick={doSend} disabled={sending}>
               {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              {sending ? "Sending…" : "Send draft"}
+              {sending ? t("editor.sendModal.sending") : t("editor.sendModal.send")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -464,19 +464,18 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       <AlertDialog open={liveConfirmOpen} onOpenChange={(o) => { if (!publishingLive) setLiveConfirmOpen(o); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Publish this draft live?</AlertDialogTitle>
+            <AlertDialogTitle>{t("editor.liveModal.title")}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will make the website draft publicly available on the connected website. You
-              should only publish after reviewing the draft.
+              {t("editor.liveModal.body")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={publishingLive}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={publishingLive}>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => { e.preventDefault(); doPublishLive(); }}
               disabled={publishingLive}
             >
-              {publishingLive ? "Publishing…" : "Publish live"}
+              {publishingLive ? t("editor.liveModal.publishing") : t("editor.liveModal.publish")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -590,29 +589,31 @@ function Field({ label, children }: { label: string; children: (id: string) => R
 }
 
 function PublishStatusBadge({ status }: { status?: PublishStatus }) {
+  const t = useT();
   const map = {
-    sent: { label: "Sent to website", cls: "bg-accent/30 border-accent/40 text-accent-foreground" },
-    failed: { label: "Failed", cls: "bg-destructive/10 border-destructive/30 text-destructive" },
-    notSent: { label: "Not sent", cls: "bg-muted border-border text-muted-foreground" },
+    sent: { key: "editor.publish.sent", cls: "bg-accent/30 border-accent/40 text-accent-foreground" },
+    failed: { key: "editor.publish.failed", cls: "bg-destructive/10 border-destructive/30 text-destructive" },
+    notSent: { key: "editor.publish.notSent", cls: "bg-muted border-border text-muted-foreground" },
   } as const;
-  const { label, cls } = map[status ?? "notSent"];
+  const { key, cls } = map[status ?? "notSent"];
   return (
     <span className={`text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full border ${cls}`}>
-      {label}
+      {t(key)}
     </span>
   );
 }
 
 function LivePublishStatusBadge({ status }: { status?: LivePublishStatus }) {
+  const t = useT();
   const map = {
-    published: { label: "Published live", cls: "bg-emerald-500/15 border-emerald-500/40 text-emerald-600" },
-    failed: { label: "Live failed", cls: "bg-destructive/10 border-destructive/30 text-destructive" },
-    notPublished: { label: "Not published", cls: "bg-muted border-border text-muted-foreground" },
+    published: { key: "editor.publish.published", cls: "bg-emerald-500/15 border-emerald-500/40 text-emerald-600" },
+    failed: { key: "editor.publish.liveFailed", cls: "bg-destructive/10 border-destructive/30 text-destructive" },
+    notPublished: { key: "editor.publish.notPublished", cls: "bg-muted border-border text-muted-foreground" },
   } as const;
-  const { label, cls } = map[status ?? "notPublished"];
+  const { key, cls } = map[status ?? "notPublished"];
   return (
     <span className={`text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full border ${cls}`}>
-      {label}
+      {t(key)}
     </span>
   );
 }

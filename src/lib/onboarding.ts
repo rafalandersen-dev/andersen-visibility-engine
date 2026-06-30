@@ -39,6 +39,26 @@ export const GROWTH_GOALS = [
   "More trust and authority",
 ] as const;
 
+/**
+ * Maps each canonical (English, stored verbatim) growth goal to a translation
+ * key, so the UI can render a localized label without changing what is stored.
+ */
+export const GOAL_KEYS: Record<string, string> = {
+  "More website visits": "goal.visits",
+  "More local leads": "goal.localLeads",
+  "More bookings": "goal.bookings",
+  "More product sales": "goal.productSales",
+  "Better Google visibility": "goal.googleVisibility",
+  "Better AI/search readiness": "goal.aiReadiness",
+  "Better content quality": "goal.contentQuality",
+  "More trust and authority": "goal.trustAuthority",
+};
+
+/** Translation key for a market value (e.g. "PL" → "market.PL"). */
+export function marketKey(market: Market): string {
+  return `market.${market}`;
+}
+
 export function marketDefaults(market: Market) {
   const m = MARKETS.find((x) => x.value === market) ?? MARKETS[4];
   return { currency: m.currency, appLanguage: m.appLanguage, primaryContentLanguage: m.primaryContentLanguage };

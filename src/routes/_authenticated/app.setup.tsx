@@ -22,7 +22,8 @@ import {
 import { useAuth } from "@/lib/auth";
 
 import type { Language, Project, PublishDestinationType, PublishMode, Market, OnboardingLanguage } from "@/lib/types";
-import { MARKETS, LANGUAGE_OPTIONS, GROWTH_GOALS, marketDefaults } from "@/lib/onboarding";
+import { MARKETS, LANGUAGE_OPTIONS, GROWTH_GOALS, GOAL_KEYS, marketKey, marketDefaults } from "@/lib/onboarding";
+import { useT } from "@/i18n";
 import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -45,6 +46,7 @@ function ProjectSetup() {
   const activeProjectId = useStore((s) => s.activeProjectId);
   const active = projects.find((p) => p.id === activeProjectId);
   const { isOwner } = useAuth();
+  const t = useT();
   const search = Route.useSearch();
   const [form, setForm] = useState<Project>(active ?? blankProject());
   const [creating, setCreating] = useState(Boolean(search.new) || !active);
@@ -89,7 +91,7 @@ function ProjectSetup() {
     if (creating) {
       try {
         addProject(form, { isOwner });
-        toast.success("Project created");
+        toast.success(t("setup.toast.created"));
       } catch (e) {
         if (e instanceof ProjectLimitError) {
           toast.error(e.message);
@@ -99,7 +101,7 @@ function ProjectSetup() {
       }
     } else if (active) {
       updateProject(active.id, form);
-      toast.success("Project saved");
+      toast.success(t("setup.toast.saved"));
     }
     setCreating(false);
   };
@@ -107,8 +109,8 @@ function ProjectSetup() {
 
   return (
     <AppShell
-      title={creating ? "Create new project" : "Project setup"}
-      description="The richer this context, the sharper your AI-generated opportunities will be."
+      title={creating ? t("setup.createTitle") : t("setup.title")}
+      description={t("setup.subtitle")}
       actions={
         <>
           {!creating ? (
@@ -126,34 +128,34 @@ function ProjectSetup() {
                 });
               }}
             >
-              New project
+              {t("setup.newProject")}
             </Button>
           ) : (
             <Button variant="ghost" onClick={() => { setCreating(false); if (active) setForm(active); }}>
-              Cancel
+              {t("common.cancel")}
             </Button>
           )}
-          <Button onClick={save}>{creating ? "Create project" : "Save changes"}</Button>
+          <Button onClick={save}>{creating ? t("setup.createProject") : t("setup.saveChanges")}</Button>
         </>
       }
     >
       <div className="max-w-4xl space-y-10">
-        <Section title="Identity">
-          <Field label="Project name">
+        <Section title={t("setup.section.identity")}>
+          <Field label={t("setup.projectName")}>
             {(id) => <Input id={id} value={form.name} onChange={(e) => update("name", e.target.value)} />}
           </Field>
-          <Field label="Website URL">
+          <Field label={t("onboarding.websiteUrl")}>
             {(id) => <Input id={id} value={form.websiteUrl} onChange={(e) => update("websiteUrl", e.target.value)} placeholder="https://" />}
           </Field>
-          <Field label="Business name">
+          <Field label={t("onboarding.businessName")}>
             {(id) => <Input id={id} value={form.businessName} onChange={(e) => update("businessName", e.target.value)} />}
           </Field>
-          <Field label="Business type">
+          <Field label={t("onboarding.businessType")}>
             {(id) => <Input id={id} value={form.businessType} onChange={(e) => update("businessType", e.target.value)} />}
           </Field>
         </Section>
 
-        <Section title="Markets & language">
+        <Section title={t("setup.section.markets")}>
           <Field label="Primary language">
             {(id) => (
               <Select value={form.primaryLanguage} onValueChange={(v) => update("primaryLanguage", v as Language)}>
@@ -189,10 +191,10 @@ function ProjectSetup() {
               </div>
             )}
           </Field>
-          <Field label="Main location">
+          <Field label={t("onboarding.mainLocation")}>
             {(id) => <Input id={id} value={form.mainLocation} onChange={(e) => update("mainLocation", e.target.value)} />}
           </Field>
-          <Field label="Target locations (comma separated)">
+          <Field label={t("onboarding.targetLocations")}>
             {(id) => (
               <Input
                 id={id}
@@ -203,26 +205,26 @@ function ProjectSetup() {
           </Field>
         </Section>
 
-        <Section title="Positioning">
-          <Field label="Business description" full>
+        <Section title={t("setup.section.positioning")}>
+          <Field label={t("onboarding.description")} full>
             {(id) => <Textarea id={id} rows={3} value={form.description} onChange={(e) => update("description", e.target.value)} />}
           </Field>
-          <Field label="Target audience" full>
+          <Field label={t("onboarding.targetAudience")} full>
             {(id) => <Textarea id={id} rows={2} value={form.targetAudience} onChange={(e) => update("targetAudience", e.target.value)} />}
           </Field>
-          <Field label="Tone of voice" full>
+          <Field label={t("onboarding.toneOfVoice")} full>
             {(id) => <Textarea id={id} rows={2} value={form.toneOfVoice} onChange={(e) => update("toneOfVoice", e.target.value)} />}
           </Field>
           <Field label="Unique selling points" full>
             {(id) => <Textarea id={id} rows={3} value={form.uniqueSellingPoints} onChange={(e) => update("uniqueSellingPoints", e.target.value)} />}
           </Field>
-          <Field label="Brand notes (what to avoid, words to never use)" full>
+          <Field label={t("onboarding.brandNotes")} full>
             {(id) => <Textarea id={id} rows={3} value={form.brandNotes} onChange={(e) => update("brandNotes", e.target.value)} />}
           </Field>
         </Section>
 
-        <Section title="Markets & goals">
-          <Field label="Market / country">
+        <Section title={t("setup.section.marketsGoals")}>
+          <Field label={t("setup.markets.market")}>
             {(id) => (
               <Select
                 value={form.market ?? ""}
@@ -231,41 +233,41 @@ function ProjectSetup() {
                   setForm((f) => ({ ...f, market: v as Market, currency: d.currency, appLanguage: d.appLanguage, primaryContentLanguage: d.primaryContentLanguage }));
                 }}
               >
-                <SelectTrigger id={id}><SelectValue placeholder="Select market" /></SelectTrigger>
+                <SelectTrigger id={id}><SelectValue placeholder={t("setup.markets.selectMarket")} /></SelectTrigger>
                 <SelectContent>
-                  {MARKETS.map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+                  {MARKETS.map((m) => <SelectItem key={m.value} value={m.value}>{t(marketKey(m.value))}</SelectItem>)}
                 </SelectContent>
               </Select>
             )}
           </Field>
-          <Field label="Currency">
+          <Field label={t("setup.markets.currency")}>
             {(id) => (
               <div id={id} className="flex h-9 items-center rounded-md border border-border bg-secondary/40 px-3 text-sm text-foreground/80">
                 {form.currency ?? "—"}
               </div>
             )}
           </Field>
-          <Field label="App language">
+          <Field label={t("setup.markets.appLanguage")}>
             {(id) => (
               <Select value={form.appLanguage ?? ""} onValueChange={(v) => update("appLanguage", v as OnboardingLanguage)}>
-                <SelectTrigger id={id}><SelectValue placeholder="Select language" /></SelectTrigger>
+                <SelectTrigger id={id}><SelectValue placeholder={t("setup.markets.selectLanguage")} /></SelectTrigger>
                 <SelectContent>
-                  {LANGUAGE_OPTIONS.map((l) => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
+                  {LANGUAGE_OPTIONS.map((l) => <SelectItem key={l.value} value={l.value}>{t(`lang.${l.value}`)}</SelectItem>)}
                 </SelectContent>
               </Select>
             )}
           </Field>
-          <Field label="Primary content language">
+          <Field label={t("setup.markets.contentLanguage")}>
             {(id) => (
               <Select value={form.primaryContentLanguage ?? ""} onValueChange={(v) => update("primaryContentLanguage", v as OnboardingLanguage)}>
-                <SelectTrigger id={id}><SelectValue placeholder="Select language" /></SelectTrigger>
+                <SelectTrigger id={id}><SelectValue placeholder={t("setup.markets.selectLanguage")} /></SelectTrigger>
                 <SelectContent>
-                  {LANGUAGE_OPTIONS.map((l) => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
+                  {LANGUAGE_OPTIONS.map((l) => <SelectItem key={l.value} value={l.value}>{t(`lang.${l.value}`)}</SelectItem>)}
                 </SelectContent>
               </Select>
             )}
           </Field>
-          <Field label="Growth goals" full>
+          <Field label={t("setup.markets.growthGoals")} full>
             {(id) => (
               <div id={id} role="group" className="flex flex-wrap gap-2 pt-1.5">
                 {GROWTH_GOALS.map((goal) => {
@@ -288,7 +290,7 @@ function ProjectSetup() {
                         (on ? "bg-accent text-accent-foreground border-accent" : "border-border text-muted-foreground hover:border-accent")
                       }
                     >
-                      {goal}
+                      {t(GOAL_KEYS[goal] ?? goal)}
                     </button>
                   );
                 })}

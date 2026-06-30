@@ -24,10 +24,13 @@ import {
   MARKETS,
   LANGUAGE_OPTIONS,
   GROWTH_GOALS,
+  GOAL_KEYS,
+  marketKey,
   marketDefaults,
   contentLangToProjectLanguage,
   isProjectSetupComplete,
 } from "@/lib/onboarding";
+import { translate } from "@/i18n";
 import { scanWebsiteFn } from "@/lib/ai.functions";
 import {
   generateSeoOpportunities,
@@ -67,16 +70,6 @@ type WizardData = {
   scan?: Record<string, unknown>;
 };
 
-const STEP_TITLES = [
-  "Where should Milo help you grow?",
-  "What website should Milo work on?",
-  "Confirm your business profile",
-  "What do you sell?",
-  "Who are your competitors?",
-  "What should Milo focus on first?",
-  "Your first growth project is ready",
-];
-
 const DRAFT_KEY = "milo_onboarding_draft_v1";
 
 function initialData(): WizardData {
@@ -114,6 +107,9 @@ function OnboardingWizard() {
   const { isOwner } = useAuth();
   const [step, setStep] = useState(1);
   const [w, setW] = useState<WizardData>(initialData);
+  // Translate using the language picked in the wizard so the UI updates live as
+  // the user changes "App language" in step 1 (no project exists in the store yet).
+  const t = (key: string, vars?: Record<string, string | number>) => translate(w.appLanguage, key, vars);
   const [scanning, setScanning] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [genStatus, setGenStatus] = useState("");
@@ -167,12 +163,12 @@ function OnboardingWizard() {
               : (res.services ?? []).map((s) => ({ name: s.name, kind: s.kind, priority: "Medium" as Priority, description: s.description })),
           scan: { title: res.title, metaDescription: res.metaDescription, businessName: res.businessName, businessType: res.businessType, primaryLanguage: res.primaryLanguage },
         }));
-        toast.success("Scanned your website — review the details");
+        toast.success(t("onboarding.toast.scanned"));
       } else {
-        toast.message("Couldn’t read that website — fill the details manually");
+        toast.message(t("onboarding.toast.scanFailed"));
       }
     } catch {
-      toast.message("Couldn’t scan the website — you can fill the details manually");
+      toast.message(t("onboarding.toast.scanFailed"));
     } finally {
       setScanning(false);
     }
@@ -233,7 +229,7 @@ function OnboardingWizard() {
 
   async function handleGenerate() {
     setGenerating(true);
-    setGenStatus("Saving your project…");
+    setGenStatus(t("onboarding.genStatus.saving"));
     let projectId = "";
     try {
       const payload = buildProjectPayload();
@@ -265,14 +261,14 @@ function OnboardingWizard() {
         setGenerating(false);
         return;
       }
-      toast.error("Could not save your project. Please try again.");
+      toast.error(t("onboarding.toast.saveError"));
       setGenerating(false);
       return;
     }
 
     // Best-effort foundation — each independent and non-fatal.
     try {
-      setGenStatus("Generating opportunities & calendar…");
+      setGenStatus(t("onboarding.genStatus.foundation"));
       const tasks: Promise<unknown>[] = [];
       tasks.push(
         (async () => {
@@ -292,9 +288,9 @@ function OnboardingWizard() {
         tasks.push(runCompetitorGap(projectId, comps).catch(() => {}));
       }
       await Promise.allSettled(tasks);
-      toast.success("Your first growth plan is ready");
+      toast.success(t("onboarding.toast.ready"));
     } catch {
-      toast.message("Setup saved. Some AI steps didn’t finish — you can run them from each module.");
+      toast.message(t("onboarding.toast.partial"));
     } finally {
       try {
         sessionStorage.removeItem(DRAFT_KEY);
@@ -314,9 +310,9 @@ function OnboardingWizard() {
       <header className="px-6 md:px-10 py-6 border-b border-border flex items-center justify-between">
         <div>
           <div className="font-display text-xl leading-tight">Milo Growth</div>
-          <div className="mt-0.5 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Get started</div>
+          <div className="mt-0.5 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">{t("onboarding.getStarted")}</div>
         </div>
-        <div className="text-xs text-muted-foreground">Step {step} of 7</div>
+        <div className="text-xs text-muted-foreground">{t("onboarding.stepOf", { step })}</div>
       </header>
 
       {/* Progress */}
@@ -326,34 +322,34 @@ function OnboardingWizard() {
 
       <main className="flex-1 px-6 md:px-10 py-10">
         <div className="mx-auto max-w-2xl">
-          <h1 className="font-display text-2xl md:text-3xl">{STEP_TITLES[step - 1]}</h1>
+          <h1 className="font-display text-2xl md:text-3xl">{t(`onboarding.step${step}.title`)}</h1>
 
           <div className="mt-7 space-y-6">
             {step === 1 && (
               <>
-                <Field label="Market / country">
+                <Field label={t("onboarding.market")}>
                   <Select value={w.market} onValueChange={(v) => setMarket(v as Market)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {MARKETS.map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+                      {MARKETS.map((m) => <SelectItem key={m.value} value={m.value}>{t(marketKey(m.value))}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                  <Helper>Sets sensible defaults: currency {w.currency}.</Helper>
+                  <Helper>{t("onboarding.marketHint", { currency: w.currency })}</Helper>
                 </Field>
                 <div className="grid md:grid-cols-2 gap-5">
-                  <Field label="App language">
+                  <Field label={t("onboarding.appLanguage")}>
                     <Select value={w.appLanguage} onValueChange={(v) => set("appLanguage", v as OnboardingLanguage)}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {LANGUAGE_OPTIONS.map((l) => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
+                        {LANGUAGE_OPTIONS.map((l) => <SelectItem key={l.value} value={l.value}>{t(`lang.${l.value}`)}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </Field>
-                  <Field label="Primary content language">
+                  <Field label={t("onboarding.contentLanguage")}>
                     <Select value={w.primaryContentLanguage} onValueChange={(v) => set("primaryContentLanguage", v as OnboardingLanguage)}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {LANGUAGE_OPTIONS.map((l) => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
+                        {LANGUAGE_OPTIONS.map((l) => <SelectItem key={l.value} value={l.value}>{t(`lang.${l.value}`)}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </Field>
@@ -362,12 +358,12 @@ function OnboardingWizard() {
             )}
 
             {step === 2 && (
-              <Field label="Website URL">
+              <Field label={t("onboarding.websiteUrl")}>
                 <Input value={w.websiteUrl} onChange={(e) => set("websiteUrl", e.target.value)} placeholder="https://yourbusiness.com" disabled={scanning} />
-                <Helper>Milo will try to read your homepage to pre-fill the next steps. You can also skip and fill manually.</Helper>
+                <Helper>{t("onboarding.websiteHint")}</Helper>
                 {scanning ? (
                   <div className="mt-2 inline-flex items-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Reading your website…
+                    <Loader2 className="h-4 w-4 animate-spin" /> {t("onboarding.reading")}
                   </div>
                 ) : null}
               </Field>
@@ -377,35 +373,35 @@ function OnboardingWizard() {
               <>
                 {w.scan ? (
                   <div className="rounded-md border border-gold/30 bg-gold/5 px-3 py-2 text-xs text-foreground/80 inline-flex items-center gap-1.5">
-                    <Globe className="h-3.5 w-3.5 text-gold/80" /> Pre-filled from your website — edit anything below.
+                    <Globe className="h-3.5 w-3.5 text-gold/80" /> {t("onboarding.prefilled")}
                   </div>
                 ) : null}
                 <div className="grid md:grid-cols-2 gap-5">
-                  <Field label="Business name *">
+                  <Field label={`${t("onboarding.businessName")} *`}>
                     <Input value={w.businessName} onChange={(e) => set("businessName", e.target.value)} />
                   </Field>
-                  <Field label="Business type">
+                  <Field label={t("onboarding.businessType")}>
                     <Input value={w.businessType} onChange={(e) => set("businessType", e.target.value)} placeholder="e.g. bakery, law firm" />
                   </Field>
                 </div>
-                <Field label="Business description">
+                <Field label={t("onboarding.description")}>
                   <Textarea rows={3} value={w.description} onChange={(e) => set("description", e.target.value)} />
                 </Field>
-                <Field label="Target audience">
+                <Field label={t("onboarding.targetAudience")}>
                   <Textarea rows={2} value={w.targetAudience} onChange={(e) => set("targetAudience", e.target.value)} />
                 </Field>
                 <div className="grid md:grid-cols-2 gap-5">
-                  <Field label="Main location">
+                  <Field label={t("onboarding.mainLocation")}>
                     <Input value={w.mainLocation} onChange={(e) => set("mainLocation", e.target.value)} placeholder="City / area" />
                   </Field>
-                  <Field label="Target locations (comma separated)">
+                  <Field label={t("onboarding.targetLocations")}>
                     <Input value={w.targetLocations} onChange={(e) => set("targetLocations", e.target.value)} />
                   </Field>
                 </div>
-                <Field label="Tone of voice">
+                <Field label={t("onboarding.toneOfVoice")}>
                   <Input value={w.toneOfVoice} onChange={(e) => set("toneOfVoice", e.target.value)} placeholder="e.g. warm, expert, concise" />
                 </Field>
-                <Field label="Brand notes (what to avoid)">
+                <Field label={t("onboarding.brandNotes")}>
                   <Textarea rows={2} value={w.brandNotes} onChange={(e) => set("brandNotes", e.target.value)} />
                 </Field>
               </>
@@ -414,13 +410,13 @@ function OnboardingWizard() {
             {step === 4 && (
               <div className="space-y-3">
                 {w.services.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Add the services or products you sell. You can refine these later.</p>
+                  <p className="text-sm text-muted-foreground">{t("onboarding.servicesIntro")}</p>
                 ) : null}
                 {w.services.map((sv, i) => (
                   <div key={i} className="rounded-lg border border-border bg-card p-3 space-y-2">
                     <div className="flex gap-2">
-                      <Input className="flex-1" placeholder="Name" value={sv.name} onChange={(e) => updateServiceRow(i, { name: e.target.value })} />
-                      <Button size="icon" variant="ghost" className="h-9 w-9 text-muted-foreground hover:text-destructive" onClick={() => removeServiceRow(i)} aria-label="Remove">
+                      <Input className="flex-1" placeholder={t("onboarding.serviceName")} value={sv.name} onChange={(e) => updateServiceRow(i, { name: e.target.value })} />
+                      <Button size="icon" variant="ghost" className="h-9 w-9 text-muted-foreground hover:text-destructive" onClick={() => removeServiceRow(i)} aria-label={t("common.delete")}>
                         <X className="h-4 w-4" />
                       </Button>
                     </div>
@@ -428,29 +424,29 @@ function OnboardingWizard() {
                       <Select value={sv.kind} onValueChange={(v) => updateServiceRow(i, { kind: v as "Service" | "Product" })}>
                         <SelectTrigger className="h-9 w-32 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="Service">Service</SelectItem>
-                          <SelectItem value="Product">Product</SelectItem>
+                          <SelectItem value="Service">{t("common.service")}</SelectItem>
+                          <SelectItem value="Product">{t("common.product")}</SelectItem>
                         </SelectContent>
                       </Select>
                       <Select value={sv.priority} onValueChange={(v) => updateServiceRow(i, { priority: v as Priority })}>
                         <SelectTrigger className="h-9 w-32 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="High">High</SelectItem>
-                          <SelectItem value="Medium">Medium</SelectItem>
-                          <SelectItem value="Low">Low</SelectItem>
+                          <SelectItem value="High">{t("common.high")}</SelectItem>
+                          <SelectItem value="Medium">{t("common.medium")}</SelectItem>
+                          <SelectItem value="Low">{t("common.low")}</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Input className="flex-1 text-xs" placeholder="Short description (optional)" value={sv.description} onChange={(e) => updateServiceRow(i, { description: e.target.value })} />
+                      <Input className="flex-1 text-xs" placeholder={t("onboarding.serviceDesc")} value={sv.description} onChange={(e) => updateServiceRow(i, { description: e.target.value })} />
                     </div>
                   </div>
                 ))}
-                <Button variant="outline" size="sm" onClick={addServiceRow}><Plus className="h-3.5 w-3.5" /> Add service / product</Button>
+                <Button variant="outline" size="sm" onClick={addServiceRow}><Plus className="h-3.5 w-3.5" /> {t("onboarding.addService")}</Button>
               </div>
             )}
 
             {step === 5 && (
               <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">Optional but recommended — add up to 3 competitor websites Milo can compare you against.</p>
+                <p className="text-sm text-muted-foreground">{t("onboarding.competitorsIntro")}</p>
                 {[0, 1, 2].map((i) => (
                   <Input
                     key={i}
@@ -463,6 +459,8 @@ function OnboardingWizard() {
             )}
 
             {step === 6 && (
+              <>
+              <p className="text-sm text-muted-foreground mb-4">{t("onboarding.goalsHint")}</p>
               <div className="grid sm:grid-cols-2 gap-2.5">
                 {GROWTH_GOALS.map((goal) => {
                   const on = w.growthGoals.includes(goal);
@@ -481,25 +479,26 @@ function OnboardingWizard() {
                         <span className={"h-4 w-4 rounded-sm border flex items-center justify-center " + (on ? "bg-accent border-accent" : "border-border")}>
                           {on ? <Check className="h-3 w-3 text-accent-foreground" /> : null}
                         </span>
-                        {goal}
+                        {t(GOAL_KEYS[goal] ?? goal)}
                       </span>
                     </button>
                   );
                 })}
               </div>
+              </>
             )}
 
             {step === 7 && (
               <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">Review your setup. Milo will create your project and generate a first foundation.</p>
+                <p className="text-sm text-muted-foreground">{t("onboarding.summaryIntro")}</p>
                 <div className="rounded-lg border border-border bg-card p-5 space-y-2 text-sm">
-                  <Summary k="Market" v={`${MARKETS.find((m) => m.value === w.market)?.label ?? w.market} · ${w.currency}`} />
-                  <Summary k="Language" v={`App ${w.appLanguage.toUpperCase()} · Content ${w.primaryContentLanguage.toUpperCase()}`} />
-                  <Summary k="Website" v={w.websiteUrl || "—"} />
-                  <Summary k="Business" v={w.businessName || "—"} />
-                  <Summary k="Services / products" v={`${w.services.filter((s) => s.name.trim()).length}`} />
-                  <Summary k="Competitors" v={`${w.competitorUrls.filter((c) => c.trim()).length}`} />
-                  <Summary k="Goals" v={w.growthGoals.length ? w.growthGoals.join(", ") : "—"} />
+                  <Summary k={t("onboarding.summary.market")} v={`${t(marketKey(w.market))} · ${w.currency}`} />
+                  <Summary k={t("onboarding.summary.language")} v={`${t("onboarding.appLanguage")} ${w.appLanguage.toUpperCase()} · ${t("onboarding.contentLanguage")} ${w.primaryContentLanguage.toUpperCase()}`} />
+                  <Summary k={t("onboarding.summary.website")} v={w.websiteUrl || "—"} />
+                  <Summary k={t("onboarding.summary.business")} v={w.businessName || "—"} />
+                  <Summary k={t("onboarding.summary.services")} v={`${w.services.filter((s) => s.name.trim()).length}`} />
+                  <Summary k={t("onboarding.summary.competitors")} v={`${w.competitorUrls.filter((c) => c.trim()).length}`} />
+                  <Summary k={t("onboarding.summary.goals")} v={w.growthGoals.length ? w.growthGoals.map((g) => t(GOAL_KEYS[g] ?? g)).join(", ") : "—"} />
                 </div>
                 {generating ? (
                   <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
@@ -513,17 +512,17 @@ function OnboardingWizard() {
           {/* Footer */}
           <div className="mt-9 flex items-center justify-between">
             <Button variant="ghost" onClick={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1 || generating}>
-              <ArrowLeft className="h-4 w-4" /> Back
+              <ArrowLeft className="h-4 w-4" /> {t("common.back")}
             </Button>
             {step < 7 ? (
               <Button onClick={handleContinue} disabled={scanning || !canContinue}>
                 {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Continue <ArrowRight className="h-4 w-4" />
+                {t("common.continue")} <ArrowRight className="h-4 w-4" />
               </Button>
             ) : (
               <Button onClick={handleGenerate} disabled={generating}>
                 {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                {generating ? "Generating…" : "Generate my first growth plan"}
+                {generating ? t("onboarding.generating") : t("onboarding.generate")}
               </Button>
             )}
           </div>

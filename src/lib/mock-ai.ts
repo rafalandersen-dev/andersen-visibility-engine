@@ -16,6 +16,7 @@
  * Filename retained as "mock-ai.ts" so existing call sites and history
  * keep working — the behavior is no longer mocked.
  */
+import { contentLangToProjectLanguage } from "./onboarding";
 import {
   getState,
   replaceNewOpportunities,
@@ -866,7 +867,11 @@ export async function generateContentForOpportunity(opportunityId: string, asset
       sourceOpportunityId: opp.id,
       sourceOpportunityTitle: opp.title,
       sourceType: sourceTypeForOpportunity(opp),
-      language: opp.language,
+      // Store the asset's language: prefer the project's primary content language
+      // (what we now generate in), falling back to the opportunity's language.
+      language: project.primaryContentLanguage
+        ? contentLangToProjectLanguage(project.primaryContentLanguage)
+        : opp.language,
       createdAt: now,
     };
 
