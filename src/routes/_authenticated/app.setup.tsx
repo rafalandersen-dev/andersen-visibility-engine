@@ -21,7 +21,8 @@ import {
 } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 
-import type { Language, Project, PublishDestinationType, PublishMode } from "@/lib/types";
+import type { Language, Project, PublishDestinationType, PublishMode, Market, OnboardingLanguage } from "@/lib/types";
+import { MARKETS, LANGUAGE_OPTIONS, GROWTH_GOALS, marketDefaults } from "@/lib/onboarding";
 import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -217,6 +218,82 @@ function ProjectSetup() {
           </Field>
           <Field label="Brand notes (what to avoid, words to never use)" full>
             {(id) => <Textarea id={id} rows={3} value={form.brandNotes} onChange={(e) => update("brandNotes", e.target.value)} />}
+          </Field>
+        </Section>
+
+        <Section title="Markets & goals">
+          <Field label="Market / country">
+            {(id) => (
+              <Select
+                value={form.market ?? ""}
+                onValueChange={(v) => {
+                  const d = marketDefaults(v as Market);
+                  setForm((f) => ({ ...f, market: v as Market, currency: d.currency, appLanguage: d.appLanguage, primaryContentLanguage: d.primaryContentLanguage }));
+                }}
+              >
+                <SelectTrigger id={id}><SelectValue placeholder="Select market" /></SelectTrigger>
+                <SelectContent>
+                  {MARKETS.map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+          </Field>
+          <Field label="Currency">
+            {(id) => (
+              <div id={id} className="flex h-9 items-center rounded-md border border-border bg-secondary/40 px-3 text-sm text-foreground/80">
+                {form.currency ?? "—"}
+              </div>
+            )}
+          </Field>
+          <Field label="App language">
+            {(id) => (
+              <Select value={form.appLanguage ?? ""} onValueChange={(v) => update("appLanguage", v as OnboardingLanguage)}>
+                <SelectTrigger id={id}><SelectValue placeholder="Select language" /></SelectTrigger>
+                <SelectContent>
+                  {LANGUAGE_OPTIONS.map((l) => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+          </Field>
+          <Field label="Primary content language">
+            {(id) => (
+              <Select value={form.primaryContentLanguage ?? ""} onValueChange={(v) => update("primaryContentLanguage", v as OnboardingLanguage)}>
+                <SelectTrigger id={id}><SelectValue placeholder="Select language" /></SelectTrigger>
+                <SelectContent>
+                  {LANGUAGE_OPTIONS.map((l) => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+          </Field>
+          <Field label="Growth goals" full>
+            {(id) => (
+              <div id={id} role="group" className="flex flex-wrap gap-2 pt-1.5">
+                {GROWTH_GOALS.map((goal) => {
+                  const on = (form.growthGoals ?? []).includes(goal);
+                  return (
+                    <button
+                      key={goal}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          growthGoals: (f.growthGoals ?? []).includes(goal)
+                            ? (f.growthGoals ?? []).filter((g) => g !== goal)
+                            : [...(f.growthGoals ?? []), goal],
+                        }))
+                      }
+                      className={
+                        "px-3 py-1.5 rounded-full text-xs border transition-colors " +
+                        (on ? "bg-accent text-accent-foreground border-accent" : "border-border text-muted-foreground hover:border-accent")
+                      }
+                    >
+                      {goal}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </Field>
         </Section>
 

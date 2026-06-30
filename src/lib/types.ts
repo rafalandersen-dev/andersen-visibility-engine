@@ -48,6 +48,11 @@ export type PublishStatus = "notSent" | "sent" | "failed";
 export type PublishMode = "draftOnly" | "manualLive" | "autoPublishApproved";
 export type LivePublishStatus = "notPublished" | "published" | "failed";
 
+// ---- Onboarding Wizard v1 ----
+export type Market = "PL" | "SE" | "DK" | "UK" | "EU";
+export type Currency = "PLN" | "SEK" | "DKK" | "GBP" | "EUR";
+export type OnboardingLanguage = "en" | "pl" | "sv" | "da";
+
 export interface Project {
   id: string;
   name: string;
@@ -74,6 +79,15 @@ export interface Project {
   livePublishEndpoint?: string;
   /** Workflow mode: draft only, manual publish-live, or auto-publish on Approve. */
   publishMode?: PublishMode;
+  // ---- Onboarding Wizard v1 (all optional → existing projects keep loading) ----
+  setupComplete?: boolean;
+  market?: Market;
+  currency?: Currency;
+  appLanguage?: OnboardingLanguage;
+  primaryContentLanguage?: OnboardingLanguage;
+  growthGoals?: string[];
+  onboardingCompletedAt?: string;
+  onboardingSourceData?: Record<string, unknown>;
 }
 
 export interface ServiceItem {
