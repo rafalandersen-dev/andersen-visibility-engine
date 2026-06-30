@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { DISPLAY_REGIONS, REGION_SELECTOR_LABELS } from "@/lib/markets";
 
 /**
  * Shared public (no-auth) chrome for marketing/sales pages: /beta,
@@ -27,17 +28,25 @@ export function MarketingShell({ children }: { children: ReactNode }) {
       {children}
 
       <footer className="border-t border-border bg-card/40">
-        <div className="mx-auto max-w-6xl px-6 py-8 flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
-          <span>Milo Growth — built by Andersen Innovations</span>
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-            <Link to="/free-ai-visibility-audit" className="hover:text-foreground">Free audit</Link>
-            <Link to="/beta" className="hover:text-foreground">Beta</Link>
-            <Link to="/case-studies" className="hover:text-foreground">Case studies</Link>
-            <Link to="/pricing" className="hover:text-foreground">Pricing</Link>
-            <Link to="/terms" className="hover:text-foreground">Terms</Link>
-            <Link to="/privacy" className="hover:text-foreground">Privacy</Link>
-            <Link to="/ai-disclaimer" className="hover:text-foreground">AI disclaimer</Link>
-            <Link to="/" className="hover:text-foreground">Home</Link>
+        <div className="mx-auto max-w-6xl px-6 py-8 space-y-3 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>Milo Growth — built by Andersen Innovations</span>
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+              <Link to="/free-ai-visibility-audit" className="hover:text-foreground">Free audit</Link>
+              <Link to="/beta" className="hover:text-foreground">Beta</Link>
+              <Link to="/case-studies" className="hover:text-foreground">Case studies</Link>
+              <Link to="/pricing" className="hover:text-foreground">Pricing</Link>
+              <Link to="/terms" className="hover:text-foreground">Terms</Link>
+              <Link to="/privacy" className="hover:text-foreground">Privacy</Link>
+              <Link to="/ai-disclaimer" className="hover:text-foreground">AI disclaimer</Link>
+              <Link to="/" className="hover:text-foreground">Home</Link>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+            <span className="uppercase tracking-[0.18em]">Markets:</span>
+            {DISPLAY_REGIONS.map((r) => (
+              <Link key={r} to={`/${r}` as never} className="hover:text-foreground">{REGION_SELECTOR_LABELS[r]}</Link>
+            ))}
           </div>
         </div>
       </footer>

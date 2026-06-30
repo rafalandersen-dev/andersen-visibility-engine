@@ -2,6 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { PLANS, EXTRA_PROJECT, formatPrice, MAX_PROJECTS_PER_USER } from "@/lib/pricing";
 import { seedProjects, seedOpportunities, seedContent } from "@/lib/mock-data";
+import { RegionSuggestionBanner } from "@/components/RegionSuggestionBanner";
+import { DISPLAY_REGIONS, REGION_SELECTOR_LABELS } from "@/lib/markets";
 import { Sparkles, CalendarDays, FileText, ShieldCheck, ArrowRight, Store, Building2, MapPin, FileSearch, ListChecks, MessageSquareQuote, Wrench, Layers, XCircle, CheckCircle2 } from "lucide-react";
 
 const HOME_FAQ = [
@@ -50,6 +52,7 @@ export const Route = createFileRoute("/")({
 function Landing() {
   return (
     <main className="min-h-screen bg-background text-foreground">
+      <RegionSuggestionBanner />
       <PublicHeader />
       <Hero />
       <WhatYouCreate />
@@ -128,6 +131,14 @@ function Hero() {
             <Link to="/beta" className="text-sm text-foreground/70 underline underline-offset-4 hover:text-foreground">
               Milo Assisted Beta →
             </Link>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            <span className="uppercase tracking-[0.18em]">Your region:</span>
+            {DISPLAY_REGIONS.map((r) => (
+              <Link key={r} to={`/${r}` as never} className="underline underline-offset-4 hover:text-foreground">
+                {REGION_SELECTOR_LABELS[r]}
+              </Link>
+            ))}
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
             Self-service software. No credit card. No agency call.

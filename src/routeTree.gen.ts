@@ -10,16 +10,21 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
+import { Route as UkRouteImport } from './routes/uk'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SubprocessorsRouteImport } from './routes/subprocessors'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SecurityRouteImport } from './routes/security'
+import { Route as SeRouteImport } from './routes/se'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PricingRouteImport } from './routes/pricing'
+import { Route as PlRouteImport } from './routes/pl'
 import { Route as MiloAnalyticsDotjsRouteImport } from './routes/milo-analytics[.]js'
 import { Route as FreeAiVisibilityAuditRouteImport } from './routes/free-ai-visibility-audit'
+import { Route as EuRouteImport } from './routes/eu'
 import { Route as DpaRouteImport } from './routes/dpa'
+import { Route as DkRouteImport } from './routes/dk'
 import { Route as DemoScriptRouteImport } from './routes/demo-script'
 import { Route as CookiesRouteImport } from './routes/cookies'
 import { Route as CaseStudiesRouteImport } from './routes/case-studies'
@@ -57,6 +62,11 @@ const UnsubscribeRoute = UnsubscribeRouteImport.update({
   path: '/unsubscribe',
   getParentRoute: () => rootRouteImport,
 } as any)
+const UkRoute = UkRouteImport.update({
+  id: '/uk',
+  path: '/uk',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
@@ -77,6 +87,11 @@ const SecurityRoute = SecurityRouteImport.update({
   path: '/security',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SeRoute = SeRouteImport.update({
+  id: '/se',
+  path: '/se',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
@@ -92,6 +107,11 @@ const PricingRoute = PricingRouteImport.update({
   path: '/pricing',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PlRoute = PlRouteImport.update({
+  id: '/pl',
+  path: '/pl',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MiloAnalyticsDotjsRoute = MiloAnalyticsDotjsRouteImport.update({
   id: '/milo-analytics.js',
   path: '/milo-analytics.js',
@@ -102,9 +122,19 @@ const FreeAiVisibilityAuditRoute = FreeAiVisibilityAuditRouteImport.update({
   path: '/free-ai-visibility-audit',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EuRoute = EuRouteImport.update({
+  id: '/eu',
+  path: '/eu',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DpaRoute = DpaRouteImport.update({
   id: '/dpa',
   path: '/dpa',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DkRoute = DkRouteImport.update({
+  id: '/dk',
+  path: '/dk',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DemoScriptRoute = DemoScriptRouteImport.update({
@@ -282,16 +312,21 @@ export interface FileRoutesByFullPath {
   '/case-studies': typeof CaseStudiesRoute
   '/cookies': typeof CookiesRoute
   '/demo-script': typeof DemoScriptRoute
+  '/dk': typeof DkRoute
   '/dpa': typeof DpaRoute
+  '/eu': typeof EuRoute
   '/free-ai-visibility-audit': typeof FreeAiVisibilityAuditRoute
   '/milo-analytics.js': typeof MiloAnalyticsDotjsRoute
+  '/pl': typeof PlRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/se': typeof SeRoute
   '/security': typeof SecurityRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/subprocessors': typeof SubprocessorsRoute
   '/terms': typeof TermsRoute
+  '/uk': typeof UkRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/blog/local-seo-guide': typeof BlogLocalSeoGuideRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
@@ -325,16 +360,21 @@ export interface FileRoutesByTo {
   '/case-studies': typeof CaseStudiesRoute
   '/cookies': typeof CookiesRoute
   '/demo-script': typeof DemoScriptRoute
+  '/dk': typeof DkRoute
   '/dpa': typeof DpaRoute
+  '/eu': typeof EuRoute
   '/free-ai-visibility-audit': typeof FreeAiVisibilityAuditRoute
   '/milo-analytics.js': typeof MiloAnalyticsDotjsRoute
+  '/pl': typeof PlRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/se': typeof SeRoute
   '/security': typeof SecurityRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/subprocessors': typeof SubprocessorsRoute
   '/terms': typeof TermsRoute
+  '/uk': typeof UkRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/blog/local-seo-guide': typeof BlogLocalSeoGuideRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
@@ -370,16 +410,21 @@ export interface FileRoutesById {
   '/case-studies': typeof CaseStudiesRoute
   '/cookies': typeof CookiesRoute
   '/demo-script': typeof DemoScriptRoute
+  '/dk': typeof DkRoute
   '/dpa': typeof DpaRoute
+  '/eu': typeof EuRoute
   '/free-ai-visibility-audit': typeof FreeAiVisibilityAuditRoute
   '/milo-analytics.js': typeof MiloAnalyticsDotjsRoute
+  '/pl': typeof PlRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/se': typeof SeRoute
   '/security': typeof SecurityRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/subprocessors': typeof SubprocessorsRoute
   '/terms': typeof TermsRoute
+  '/uk': typeof UkRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/blog/local-seo-guide': typeof BlogLocalSeoGuideRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
@@ -415,16 +460,21 @@ export interface FileRouteTypes {
     | '/case-studies'
     | '/cookies'
     | '/demo-script'
+    | '/dk'
     | '/dpa'
+    | '/eu'
     | '/free-ai-visibility-audit'
     | '/milo-analytics.js'
+    | '/pl'
     | '/pricing'
     | '/privacy'
     | '/reset-password'
+    | '/se'
     | '/security'
     | '/sitemap.xml'
     | '/subprocessors'
     | '/terms'
+    | '/uk'
     | '/unsubscribe'
     | '/blog/local-seo-guide'
     | '/email/unsubscribe'
@@ -458,16 +508,21 @@ export interface FileRouteTypes {
     | '/case-studies'
     | '/cookies'
     | '/demo-script'
+    | '/dk'
     | '/dpa'
+    | '/eu'
     | '/free-ai-visibility-audit'
     | '/milo-analytics.js'
+    | '/pl'
     | '/pricing'
     | '/privacy'
     | '/reset-password'
+    | '/se'
     | '/security'
     | '/sitemap.xml'
     | '/subprocessors'
     | '/terms'
+    | '/uk'
     | '/unsubscribe'
     | '/blog/local-seo-guide'
     | '/email/unsubscribe'
@@ -502,16 +557,21 @@ export interface FileRouteTypes {
     | '/case-studies'
     | '/cookies'
     | '/demo-script'
+    | '/dk'
     | '/dpa'
+    | '/eu'
     | '/free-ai-visibility-audit'
     | '/milo-analytics.js'
+    | '/pl'
     | '/pricing'
     | '/privacy'
     | '/reset-password'
+    | '/se'
     | '/security'
     | '/sitemap.xml'
     | '/subprocessors'
     | '/terms'
+    | '/uk'
     | '/unsubscribe'
     | '/blog/local-seo-guide'
     | '/email/unsubscribe'
@@ -547,16 +607,21 @@ export interface RootRouteChildren {
   CaseStudiesRoute: typeof CaseStudiesRoute
   CookiesRoute: typeof CookiesRoute
   DemoScriptRoute: typeof DemoScriptRoute
+  DkRoute: typeof DkRoute
   DpaRoute: typeof DpaRoute
+  EuRoute: typeof EuRoute
   FreeAiVisibilityAuditRoute: typeof FreeAiVisibilityAuditRoute
   MiloAnalyticsDotjsRoute: typeof MiloAnalyticsDotjsRoute
+  PlRoute: typeof PlRoute
   PricingRoute: typeof PricingRoute
   PrivacyRoute: typeof PrivacyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  SeRoute: typeof SeRoute
   SecurityRoute: typeof SecurityRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   SubprocessorsRoute: typeof SubprocessorsRoute
   TermsRoute: typeof TermsRoute
+  UkRoute: typeof UkRoute
   UnsubscribeRoute: typeof UnsubscribeRoute
   BlogLocalSeoGuideRoute: typeof BlogLocalSeoGuideRoute
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
@@ -576,6 +641,13 @@ declare module '@tanstack/react-router' {
       path: '/unsubscribe'
       fullPath: '/unsubscribe'
       preLoaderRoute: typeof UnsubscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/uk': {
+      id: '/uk'
+      path: '/uk'
+      fullPath: '/uk'
+      preLoaderRoute: typeof UkRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/terms': {
@@ -606,6 +678,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SecurityRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/se': {
+      id: '/se'
+      path: '/se'
+      fullPath: '/se'
+      preLoaderRoute: typeof SeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reset-password': {
       id: '/reset-password'
       path: '/reset-password'
@@ -627,6 +706,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PricingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pl': {
+      id: '/pl'
+      path: '/pl'
+      fullPath: '/pl'
+      preLoaderRoute: typeof PlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/milo-analytics.js': {
       id: '/milo-analytics.js'
       path: '/milo-analytics.js'
@@ -641,11 +727,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FreeAiVisibilityAuditRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/eu': {
+      id: '/eu'
+      path: '/eu'
+      fullPath: '/eu'
+      preLoaderRoute: typeof EuRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dpa': {
       id: '/dpa'
       path: '/dpa'
       fullPath: '/dpa'
       preLoaderRoute: typeof DpaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dk': {
+      id: '/dk'
+      path: '/dk'
+      fullPath: '/dk'
+      preLoaderRoute: typeof DkRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/demo-script': {
@@ -914,16 +1014,21 @@ const rootRouteChildren: RootRouteChildren = {
   CaseStudiesRoute: CaseStudiesRoute,
   CookiesRoute: CookiesRoute,
   DemoScriptRoute: DemoScriptRoute,
+  DkRoute: DkRoute,
   DpaRoute: DpaRoute,
+  EuRoute: EuRoute,
   FreeAiVisibilityAuditRoute: FreeAiVisibilityAuditRoute,
   MiloAnalyticsDotjsRoute: MiloAnalyticsDotjsRoute,
+  PlRoute: PlRoute,
   PricingRoute: PricingRoute,
   PrivacyRoute: PrivacyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  SeRoute: SeRoute,
   SecurityRoute: SecurityRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   SubprocessorsRoute: SubprocessorsRoute,
   TermsRoute: TermsRoute,
+  UkRoute: UkRoute,
   UnsubscribeRoute: UnsubscribeRoute,
   BlogLocalSeoGuideRoute: BlogLocalSeoGuideRoute,
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
