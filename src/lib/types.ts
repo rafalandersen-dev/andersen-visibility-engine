@@ -88,6 +88,68 @@ export interface Project {
   growthGoals?: string[];
   onboardingCompletedAt?: string;
   onboardingSourceData?: Record<string, unknown>;
+  // ---- Brand Intelligence / Content Memory v1 (all optional) ----
+  brandIntelligence?: BrandIntelligence;
+}
+
+// ---- Brand Intelligence / Content Memory v1 ----
+export interface BrandOffer {
+  name: string;
+  type: "service" | "product" | "package" | "membership" | "other";
+  priority: "high" | "medium" | "low";
+  description?: string;
+  url?: string;
+  targetAudience?: string;
+  notes?: string;
+}
+
+export interface BrandInternalLink {
+  label: string;
+  url: string;
+  type: "service" | "product" | "article" | "booking" | "contact" | "other";
+  priority: "high" | "medium" | "low";
+  notes?: string;
+}
+
+export interface BrandMarketLanguageRule {
+  market?: string;
+  language?: string;
+  notes?: string;
+}
+
+export interface BrandIntelligence {
+  voice?: {
+    tone?: string;
+    styleNotes?: string;
+    wordsToUse?: string[];
+    wordsToAvoid?: string[];
+  };
+  claims?: {
+    allowedClaims?: string[];
+    forbiddenClaims?: string[];
+    requiredCaveats?: string[];
+  };
+  offers?: {
+    primaryOffers?: BrandOffer[];
+    secondaryOffers?: BrandOffer[];
+  };
+  proof?: {
+    proofPoints?: string[];
+    credentials?: string[];
+    testimonialsNotes?: string;
+    trustSignals?: string[];
+  };
+  ctas?: {
+    primaryCtaLabel?: string;
+    primaryCtaUrl?: string;
+    secondaryCtaLabel?: string;
+    secondaryCtaUrl?: string;
+    ctaStyleNotes?: string;
+  };
+  internalLinks?: BrandInternalLink[];
+  marketLanguageRules?: BrandMarketLanguageRule[];
+  avoid?: string[];
+  updatedAt?: string;
 }
 
 export interface ServiceItem {

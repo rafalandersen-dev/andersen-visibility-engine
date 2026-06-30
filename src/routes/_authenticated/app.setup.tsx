@@ -24,6 +24,7 @@ import { useAuth } from "@/lib/auth";
 import type { Language, Project, PublishDestinationType, PublishMode, Market, OnboardingLanguage } from "@/lib/types";
 import { MARKETS, LANGUAGE_OPTIONS, GROWTH_GOALS, GOAL_KEYS, marketKey, marketDefaults } from "@/lib/onboarding";
 import { useT } from "@/i18n";
+import { BrandIntelligenceCard } from "@/components/BrandIntelligenceCard";
 import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -100,7 +101,9 @@ function ProjectSetup() {
         throw e;
       }
     } else if (active) {
-      updateProject(active.id, form);
+      // Preserve Brand Intelligence (saved separately via its own card) so a
+      // plain identity/positioning save never clobbers it with stale form data.
+      updateProject(active.id, { ...form, brandIntelligence: active.brandIntelligence ?? form.brandIntelligence });
       toast.success(t("setup.toast.saved"));
     }
     setCreating(false);
@@ -298,6 +301,8 @@ function ProjectSetup() {
             )}
           </Field>
         </Section>
+
+        {!creating && active ? <BrandIntelligenceCard key={active.id} project={active} /> : null}
 
         {!creating && active ? <PublishingCard key={active.id} project={active} /> : null}
       </div>

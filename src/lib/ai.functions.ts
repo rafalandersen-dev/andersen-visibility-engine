@@ -11,6 +11,7 @@ import { generateText } from "ai";
 import { z } from "zod";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 import { normalizeQualityScore } from "./quality";
+import { brandIntelligenceBlock } from "./brand";
 import type {
   Project,
   ServiceItem,
@@ -712,6 +713,7 @@ function projectBrief(p: Project, services: ServiceItem[]) {
           .map((s) => `- [${s.kind}] ${s.name}${s.description ? ` — ${s.description}` : ""}${s.locationRelevance ? ` (loc: ${s.locationRelevance})` : ""}`)
           .join("\n")}`
       : "Services/products: (none provided)",
+    brandIntelligenceBlock(p) || null,
   ]
     .filter(Boolean)
     .join("\n");
@@ -1795,6 +1797,8 @@ Score each of these 8 categories from 0–100 with a one-sentence explanation an
 - trustSafety: no unsupported guarantees, no risky medical/legal/financial claims, appropriate caveats, professional tone, no exaggerated AI/search ranking claims.
 - internalLinks: suggests links to relevant services/products/pages, uses existing project services/products where possible, includes related next reading/service, does not force irrelevant links.
 
+If the Business context includes a Brand Intelligence block, use it: lower trustSafety and brandFit when the draft uses any forbidden claim or breaks the avoid list, or is missing a required caveat; reward correct use of the preferred CTAs (conversion), the listed internal link targets (internalLinks) and the market/language rules (localRelevance).
+
 Also provide: topIssues (max 5 short bullets), quickWins (max 5 short bullets) and a summary (max 280 chars).
 Write all explanations, suggestions, topIssues, quickWins and summary in ${data.explanationLanguage}.
 The draft content is written in ${data.contentLanguage}.
@@ -1848,7 +1852,7 @@ export const improveContentDraftFn = createServerFn({ method: "POST" })
 
     try {
       const payload = await generateJsonText(
-        `Improve the DRAFT below using the improvement suggestions. Keep the same topic, intent and language (${data.contentLanguage}). Keep the heading structure but improve clarity, structure, answer-readiness and a clear next step. Do NOT invent statistics, prices, guarantees or fake citations. Do NOT add exaggerated SEO/AI ranking claims. Return ONLY the improved markdown body.
+        `Improve the DRAFT below using the improvement suggestions. Keep the same topic, intent and language (${data.contentLanguage}). Keep the heading structure but improve clarity, structure, answer-readiness and a clear next step. Do NOT invent statistics, prices, guarantees or fake citations. Do NOT add exaggerated SEO/AI ranking claims. If the business context includes a Brand Intelligence block, follow it: improve tone to match the brand voice, remove any forbidden claims and avoid-list wording, add required caveats where appropriate, use the preferred CTA, prefer the listed internal link targets where relevant, and never invent proof points. Return ONLY the improved markdown body.
 
 Improvement suggestions:
 ${suggestionList || "- Improve overall clarity, structure and a clear call to action."}
