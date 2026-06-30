@@ -32,6 +32,7 @@ import type {
   PublishingConnectorType,
   WordPressPublishingSettings,
 } from "./types";
+import type { BillingProfile, SubscriptionPlan } from "./billing";
 import {
   seedProjects,
   seedServices,
@@ -56,6 +57,9 @@ interface State {
   authorityOpportunities: AuthorityOpportunity[];
   /** AI Provider Router — internal model evaluation runs (latest 20). */
   aiEvaluationRuns: AiEvaluationRun[];
+  /** Billing v1 — workspace-level billing profile + subscription (optional). */
+  billingProfile?: BillingProfile;
+  subscription?: SubscriptionPlan;
   activeProjectId: string;
   /** Whether the active user's workspace has been loaded from Cloud. */
   hydrated: boolean;
@@ -128,6 +132,8 @@ export async function saveWorkspaceNow(): Promise<void> {
     aiVisibilityAnalyses: state.aiVisibilityAnalyses,
     authorityOpportunities: state.authorityOpportunities,
     aiEvaluationRuns: state.aiEvaluationRuns,
+    billingProfile: state.billingProfile,
+    subscription: state.subscription,
     activeProjectId: state.activeProjectId,
   };
   const { error } = await supabase
@@ -208,6 +214,8 @@ export async function hydrateForUser(userId: string): Promise<void> {
         aiVisibilityAnalyses: d.aiVisibilityAnalyses ?? [],
         authorityOpportunities: d.authorityOpportunities ?? [],
         aiEvaluationRuns: d.aiEvaluationRuns ?? [],
+        billingProfile: d.billingProfile,
+        subscription: d.subscription,
         activeProjectId: d.activeProjectId ?? (d.projects?.[0]?.id ?? ""),
         hydrated: true,
         userId,
@@ -677,6 +685,14 @@ export const updateAiEvaluationRun = (id: string, patch: Partial<AiEvaluationRun
     ...s,
     aiEvaluationRuns: s.aiEvaluationRuns.map((r) => (r.id === id ? { ...r, ...patch } : r)),
   }));
+
+// ---- Billing (workspace-level) ----
+
+export const setBillingProfile = (profile: BillingProfile) =>
+  setState((s) => ({ ...s, billingProfile: profile }));
+
+export const setSubscription = (sub: SubscriptionPlan | undefined) =>
+  setState((s) => ({ ...s, subscription: sub }));
 
 // ---- AI Visibility ----
 

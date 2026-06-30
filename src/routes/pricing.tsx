@@ -1,7 +1,24 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { PLANS, EXTRA_PROJECT, formatPrice, MAX_PROJECTS_PER_USER } from "@/lib/pricing";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  PLAN_IDS,
+  PLAN_META,
+  MARKET_CURRENCY,
+  BILLING_MARKETS,
+  planPrice,
+  addOnPrice,
+  formatMoney,
+  type BillingMarket,
+} from "@/lib/billing";
 import { ShieldCheck } from "lucide-react";
+import { useState } from "react";
 
 export const Route = createFileRoute("/pricing")({
   head: () => ({
@@ -41,91 +58,7 @@ function PricingPage() {
         </div>
       </header>
 
-      <section className="mx-auto max-w-6xl px-6 py-16">
-        <div className="max-w-2xl">
-          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Pricing</div>
-          <h1 className="mt-2 font-display text-4xl md:text-5xl">Milo Growth Pricing</h1>
-          <p className="mt-3 text-muted-foreground">
-            Simple self-service pricing for small businesses that want a monthly growth, SEO and
-            visibility workflow. Add brands as you grow — up to {MAX_PROJECTS_PER_USER} projects per account.
-          </p>
-        </div>
-
-        <div className="mt-8 grid gap-3 md:grid-cols-3 text-sm">
-          <div className="rounded-lg border border-border bg-card/60 px-4 py-3">
-            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Free Preview</div>
-            <div className="mt-1 text-foreground/85">For trying the workflow before committing.</div>
-          </div>
-          <div className="rounded-lg border border-border bg-card/60 px-4 py-3">
-            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Starter</div>
-            <div className="mt-1 text-foreground/85">For one business that wants a simple monthly visibility plan.</div>
-          </div>
-          <div className="rounded-lg border border-gold/40 bg-gold/5 px-4 py-3">
-            <div className="text-[10px] uppercase tracking-[0.18em] text-gold">Growth · recommended</div>
-            <div className="mt-1 text-foreground/85">For the full monthly workflow for one growing business — add more brands as an add-on.</div>
-          </div>
-        </div>
-
-        <h2 className="mt-12 font-display text-2xl md:text-3xl">Choose the right plan for your business</h2>
-
-        <div className="mt-6 grid gap-6 md:grid-cols-3">
-
-          {PLANS.map((p) => (
-            <div
-              key={p.id}
-              className={
-                "rounded-xl border p-6 bg-card flex flex-col " +
-                (p.recommended ? "border-gold shadow-[0_0_0_1px_hsl(var(--gold)/0.45)]" : "border-border")
-              }
-            >
-              {p.recommended ? (
-                <div className="mb-3 inline-block self-start rounded-full bg-gold/15 px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-gold">
-                  Recommended
-                </div>
-              ) : null}
-              <h3 className="font-display text-2xl">{p.name}</h3>
-              <div className="mt-2 flex items-baseline gap-1">
-                <span className="font-display text-4xl">{formatPrice(p.pricePerMonth)}</span>
-                <span className="text-sm text-muted-foreground">/month</span>
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">{p.tagline}</p>
-              <ul className="mt-6 space-y-2 text-sm flex-1">
-                {p.features.map((f) => (
-                  <li key={f} className="flex gap-2">
-                    <ShieldCheck className="h-4 w-4 mt-0.5 text-gold/80" />
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-6">
-                <Link to="/auth">
-                  <Button className="w-full" variant={p.recommended ? "default" : "outline"}>
-                    {p.id === "free" ? "Start free preview" : "Get started"}
-                  </Button>
-                </Link>
-                <p className="mt-2 text-[11px] text-muted-foreground text-center">
-                  {p.id === "free" ? "No credit card required" : "Paid upgrades coming soon"}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-10 rounded-xl border border-border bg-card p-6 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h3 className="font-display text-xl">{EXTRA_PROJECT.name}</h3>
-            <p className="mt-1 text-sm text-muted-foreground">{EXTRA_PROJECT.description}</p>
-          </div>
-          <div className="text-right">
-            <div className="font-display text-2xl">{formatPrice(EXTRA_PROJECT.pricePerMonth)}</div>
-            <div className="text-xs text-muted-foreground">per project / month</div>
-          </div>
-        </div>
-
-        <p className="mt-6 text-sm text-muted-foreground">
-          Hard cap: {MAX_PROJECTS_PER_USER} projects per account.
-        </p>
-      </section>
+      <PricingBody />
 
       <footer className="border-t border-border bg-card/40">
         <div className="mx-auto max-w-6xl px-6 py-8 flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
@@ -142,5 +75,81 @@ function PricingPage() {
       </footer>
     </main>
 
+  );
+}
+
+const PRICING_MARKETS: BillingMarket[] = ["Poland", "Sweden", "Denmark", "United Kingdom", "European Union"];
+
+function PricingBody() {
+  const [market, setMarket] = useState<BillingMarket>("European Union");
+  const currency = MARKET_CURRENCY[market];
+  return (
+    <section className="mx-auto max-w-6xl px-6 py-16">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="max-w-2xl">
+          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Pricing</div>
+          <h1 className="mt-2 font-display text-4xl md:text-5xl">Milo Growth Pricing</h1>
+          <p className="mt-3 text-muted-foreground">
+            Self-service plans for small businesses that want a monthly growth, SEO and visibility workflow.
+            Prices below are shown for the selected market — your final price is based on your business/billing country.
+          </p>
+        </div>
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">Market</div>
+          <Select value={market} onValueChange={(v) => setMarket(v as BillingMarket)}>
+            <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {PRICING_MARKETS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {PLAN_IDS.map((pid) => {
+          const meta = PLAN_META[pid];
+          return (
+            <div key={pid} className={"rounded-xl border p-6 bg-card flex flex-col " + (meta.recommended ? "border-gold shadow-[0_0_0_1px_hsl(var(--gold)/0.45)]" : "border-border")}>
+              {meta.recommended ? <div className="mb-3 inline-block self-start rounded-full bg-gold/15 px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-gold">Recommended</div> : null}
+              <h3 className="font-display text-xl">{meta.name}</h3>
+              <div className="mt-2 flex items-baseline gap-1">
+                <span className="font-display text-3xl">{formatMoney(planPrice(market, pid), currency)}</span>
+                {pid !== "freePreview" ? <span className="text-sm text-muted-foreground">/month</span> : null}
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">{meta.tagline}</p>
+              <ul className="mt-5 space-y-2 text-sm flex-1">
+                {meta.features.map((f) => (
+                  <li key={f} className="flex gap-2"><ShieldCheck className="h-4 w-4 mt-0.5 text-gold/80" /><span>{f}</span></li>
+                ))}
+              </ul>
+              <Link to="/auth" className="mt-6">
+                <Button className="w-full" variant={meta.recommended ? "default" : "outline"}>
+                  {pid === "freePreview" ? "Start free preview" : "Get started"}
+                </Button>
+              </Link>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Add-ons */}
+      <div className="mt-10 grid sm:grid-cols-2 gap-4">
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h3 className="font-display text-lg">Assisted Setup</h3>
+          <div className="mt-1 font-display text-2xl">{formatMoney(addOnPrice(market, "assistedSetup"), currency)} <span className="text-sm text-muted-foreground">one-time</span></div>
+          <p className="mt-1 text-sm text-muted-foreground">Guided setup, Brand Intelligence, connector and first content.</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h3 className="font-display text-lg">Monthly Care</h3>
+          <div className="mt-1 font-display text-2xl">{formatMoney(addOnPrice(market, "monthlyCare"), currency)} <span className="text-sm text-muted-foreground">/month</span></div>
+          <p className="mt-1 text-sm text-muted-foreground">Monthly review, content, publishing and analytics support.</p>
+        </div>
+      </div>
+
+      <p className="mt-6 text-sm text-muted-foreground max-w-3xl">
+        Your billing market is based on your business/billing country. Changing the website language or public region
+        does not change pricing eligibility. No rankings, traffic, revenue or AI citations are guaranteed.
+      </p>
+    </section>
   );
 }

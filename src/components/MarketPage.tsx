@@ -2,7 +2,8 @@ import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { MarketingShell } from "@/components/MarketingShell";
 import { RegionSelector } from "@/components/RegionSelector";
-import type { MarketConfig } from "@/lib/markets";
+import { type MarketConfig, regionToBillingMarket } from "@/lib/markets";
+import { PLAN_IDS, PLAN_META, MARKET_CURRENCY, planPrice, addOnPrice, formatMoney } from "@/lib/billing";
 import { ArrowRight, Check } from "lucide-react";
 
 const SELECTOR_NOTE =
@@ -10,6 +11,8 @@ const SELECTOR_NOTE =
 
 export function MarketPage({ config }: { config: MarketConfig }) {
   const betaHref = `/auth?source=market-beta&market=${config.region}`;
+  const billingMarket = regionToBillingMarket(config.region);
+  const currency = MARKET_CURRENCY[billingMarket];
   return (
     <MarketingShell>
       {/* Hero */}
@@ -53,16 +56,20 @@ export function MarketPage({ config }: { config: MarketConfig }) {
         </div>
       </section>
 
-      {/* Pricing */}
+      {/* Pricing — final plans in this market's currency */}
       <section className="mx-auto max-w-5xl px-6 pb-12">
         <h2 className="font-display text-2xl md:text-3xl">{config.pricingHeading}</h2>
-        <div className="mt-6 grid sm:grid-cols-2 gap-4 max-w-2xl">
-          <div className="rounded-lg border border-gold/40 bg-gold/5 p-5">
-            <div className="font-display text-lg">{config.betaPrice}</div>
-          </div>
-          <div className="rounded-lg border border-border bg-card p-5">
-            <div className="font-display text-lg">{config.monthlyPrice}</div>
-          </div>
+        <div className="mt-6 grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {PLAN_IDS.map((pid) => (
+            <div key={pid} className={"rounded-lg border p-4 " + (PLAN_META[pid].recommended ? "border-gold/40 bg-gold/5" : "border-border bg-card")}>
+              <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{PLAN_META[pid].name}</div>
+              <div className="mt-1 font-display text-xl">{formatMoney(planPrice(billingMarket, pid), currency)}{pid !== "freePreview" ? <span className="text-xs text-muted-foreground"> /mo</span> : null}</div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 grid sm:grid-cols-2 gap-3 max-w-2xl text-sm text-muted-foreground">
+          <div className="rounded-md border border-border bg-card px-3 py-2">Assisted Setup: {formatMoney(addOnPrice(billingMarket, "assistedSetup"), currency)} one-time</div>
+          <div className="rounded-md border border-border bg-card px-3 py-2">Monthly Care: {formatMoney(addOnPrice(billingMarket, "monthlyCare"), currency)} /month</div>
         </div>
         <p className="mt-3 text-xs text-muted-foreground">{config.pricingNote}</p>
         <p className="mt-2 text-xs text-muted-foreground max-w-3xl">{config.eligibility}</p>

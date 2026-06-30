@@ -266,6 +266,15 @@ export const REGION_SELECTOR_LABELS: Record<DisplayRegion, string> = {
   eu: "EU / English",
 };
 
+/** Map a display region to its billing market (for displaying local plan prices). */
+export function regionToBillingMarket(region: DisplayRegion): "Poland" | "Sweden" | "Denmark" | "United Kingdom" | "European Union" {
+  if (region === "pl") return "Poland";
+  if (region === "se") return "Sweden";
+  if (region === "dk") return "Denmark";
+  if (region === "uk") return "United Kingdom";
+  return "European Union";
+}
+
 /** Suggest a display region from a browser language code. Defaults to "eu". */
 export function suggestRegionFromLanguage(navLang: string | undefined): DisplayRegion {
   const l = (navLang || "").slice(0, 2).toLowerCase();
