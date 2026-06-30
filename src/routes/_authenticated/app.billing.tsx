@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -139,6 +139,14 @@ function BillingPage() {
 
   return (
     <AppShell title={t("billing.title")} description={t("billing.subtitle")}>
+      <Link
+        to="/app/beta-notes"
+        className="mb-6 flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3 text-sm transition-colors hover:border-foreground/30"
+      >
+        <span className="text-foreground/85">{t("beta.limit.paddle")}</span>
+        <span className="shrink-0 text-xs text-accent">{t("launch.betaNotesCta")} →</span>
+      </Link>
+
       {isOwner ? (
         <div className="mb-8 rounded-xl border border-gold/40 bg-gold/5 p-5 flex items-start gap-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-md bg-gold/15 text-gold"><Crown className="h-4 w-4" /></div>

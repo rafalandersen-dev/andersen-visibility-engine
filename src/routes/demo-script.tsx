@@ -50,6 +50,28 @@ function DemoScriptPage() {
           ))}
         </ol>
 
+        <div className="mt-10 rounded-lg border border-border bg-card p-5">
+          <div className="text-[10px] uppercase tracking-[0.22em] text-gold">Demo-safe notes</div>
+          <ul className="mt-3 space-y-2 text-sm text-foreground/85">
+            <li className="flex gap-2">
+              <span className="mt-2 h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+              Do not promise rankings, traffic or guaranteed AI citations — Milo is AI-assisted and human-reviewed.
+            </li>
+            <li className="flex gap-2">
+              <span className="mt-2 h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+              Payments are architecture-ready, but live activation is pending company and Paddle setup.
+            </li>
+            <li className="flex gap-2">
+              <span className="mt-2 h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+              The WordPress and Shopify connectors require live end-to-end testing per site.
+            </li>
+            <li className="flex gap-2">
+              <span className="mt-2 h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+              Analytics and GSC proof depend on data availability for the demo project.
+            </li>
+          </ul>
+        </div>
+
         <div className="mt-8 flex flex-wrap gap-2">
           <Link to="/free-ai-visibility-audit"><Button>Start with the free audit</Button></Link>
           <Link to="/beta"><Button variant="outline">See the beta offer</Button></Link>

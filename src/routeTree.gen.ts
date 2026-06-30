@@ -42,10 +42,12 @@ import { Route as AuthenticatedAppSetupRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAppServicesRouteImport } from './routes/_authenticated/app.services'
 import { Route as AuthenticatedAppOpportunitiesRouteImport } from './routes/_authenticated/app.opportunities'
 import { Route as AuthenticatedAppOnboardingRouteImport } from './routes/_authenticated/app.onboarding'
+import { Route as AuthenticatedAppLaunchChecklistRouteImport } from './routes/_authenticated/app.launch-checklist'
 import { Route as AuthenticatedAppEditorRouteImport } from './routes/_authenticated/app.editor'
 import { Route as AuthenticatedAppCompetitorsRouteImport } from './routes/_authenticated/app.competitors'
 import { Route as AuthenticatedAppCalendarRouteImport } from './routes/_authenticated/app.calendar'
 import { Route as AuthenticatedAppBillingRouteImport } from './routes/_authenticated/app.billing'
+import { Route as AuthenticatedAppBetaNotesRouteImport } from './routes/_authenticated/app.beta-notes'
 import { Route as AuthenticatedAppAuthorityRouteImport } from './routes/_authenticated/app.authority'
 import { Route as AuthenticatedAppAuditRouteImport } from './routes/_authenticated/app.audit'
 import { Route as AuthenticatedAppAnalyticsRouteImport } from './routes/_authenticated/app.analytics'
@@ -224,6 +226,12 @@ const AuthenticatedAppOnboardingRoute =
     path: '/app/onboarding',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAppLaunchChecklistRoute =
+  AuthenticatedAppLaunchChecklistRouteImport.update({
+    id: '/app/launch-checklist',
+    path: '/app/launch-checklist',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAppEditorRoute = AuthenticatedAppEditorRouteImport.update({
   id: '/app/editor',
   path: '/app/editor',
@@ -246,6 +254,12 @@ const AuthenticatedAppBillingRoute = AuthenticatedAppBillingRouteImport.update({
   path: '/app/billing',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAppBetaNotesRoute =
+  AuthenticatedAppBetaNotesRouteImport.update({
+    id: '/app/beta-notes',
+    path: '/app/beta-notes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAppAuthorityRoute =
   AuthenticatedAppAuthorityRouteImport.update({
     id: '/app/authority',
@@ -335,10 +349,12 @@ export interface FileRoutesByFullPath {
   '/app/analytics': typeof AuthenticatedAppAnalyticsRoute
   '/app/audit': typeof AuthenticatedAppAuditRoute
   '/app/authority': typeof AuthenticatedAppAuthorityRoute
+  '/app/beta-notes': typeof AuthenticatedAppBetaNotesRoute
   '/app/billing': typeof AuthenticatedAppBillingRoute
   '/app/calendar': typeof AuthenticatedAppCalendarRoute
   '/app/competitors': typeof AuthenticatedAppCompetitorsRoute
   '/app/editor': typeof AuthenticatedAppEditorRoute
+  '/app/launch-checklist': typeof AuthenticatedAppLaunchChecklistRoute
   '/app/onboarding': typeof AuthenticatedAppOnboardingRoute
   '/app/opportunities': typeof AuthenticatedAppOpportunitiesRoute
   '/app/services': typeof AuthenticatedAppServicesRoute
@@ -383,10 +399,12 @@ export interface FileRoutesByTo {
   '/app/analytics': typeof AuthenticatedAppAnalyticsRoute
   '/app/audit': typeof AuthenticatedAppAuditRoute
   '/app/authority': typeof AuthenticatedAppAuthorityRoute
+  '/app/beta-notes': typeof AuthenticatedAppBetaNotesRoute
   '/app/billing': typeof AuthenticatedAppBillingRoute
   '/app/calendar': typeof AuthenticatedAppCalendarRoute
   '/app/competitors': typeof AuthenticatedAppCompetitorsRoute
   '/app/editor': typeof AuthenticatedAppEditorRoute
+  '/app/launch-checklist': typeof AuthenticatedAppLaunchChecklistRoute
   '/app/onboarding': typeof AuthenticatedAppOnboardingRoute
   '/app/opportunities': typeof AuthenticatedAppOpportunitiesRoute
   '/app/services': typeof AuthenticatedAppServicesRoute
@@ -433,10 +451,12 @@ export interface FileRoutesById {
   '/_authenticated/app/analytics': typeof AuthenticatedAppAnalyticsRoute
   '/_authenticated/app/audit': typeof AuthenticatedAppAuditRoute
   '/_authenticated/app/authority': typeof AuthenticatedAppAuthorityRoute
+  '/_authenticated/app/beta-notes': typeof AuthenticatedAppBetaNotesRoute
   '/_authenticated/app/billing': typeof AuthenticatedAppBillingRoute
   '/_authenticated/app/calendar': typeof AuthenticatedAppCalendarRoute
   '/_authenticated/app/competitors': typeof AuthenticatedAppCompetitorsRoute
   '/_authenticated/app/editor': typeof AuthenticatedAppEditorRoute
+  '/_authenticated/app/launch-checklist': typeof AuthenticatedAppLaunchChecklistRoute
   '/_authenticated/app/onboarding': typeof AuthenticatedAppOnboardingRoute
   '/_authenticated/app/opportunities': typeof AuthenticatedAppOpportunitiesRoute
   '/_authenticated/app/services': typeof AuthenticatedAppServicesRoute
@@ -483,10 +503,12 @@ export interface FileRouteTypes {
     | '/app/analytics'
     | '/app/audit'
     | '/app/authority'
+    | '/app/beta-notes'
     | '/app/billing'
     | '/app/calendar'
     | '/app/competitors'
     | '/app/editor'
+    | '/app/launch-checklist'
     | '/app/onboarding'
     | '/app/opportunities'
     | '/app/services'
@@ -531,10 +553,12 @@ export interface FileRouteTypes {
     | '/app/analytics'
     | '/app/audit'
     | '/app/authority'
+    | '/app/beta-notes'
     | '/app/billing'
     | '/app/calendar'
     | '/app/competitors'
     | '/app/editor'
+    | '/app/launch-checklist'
     | '/app/onboarding'
     | '/app/opportunities'
     | '/app/services'
@@ -580,10 +604,12 @@ export interface FileRouteTypes {
     | '/_authenticated/app/analytics'
     | '/_authenticated/app/audit'
     | '/_authenticated/app/authority'
+    | '/_authenticated/app/beta-notes'
     | '/_authenticated/app/billing'
     | '/_authenticated/app/calendar'
     | '/_authenticated/app/competitors'
     | '/_authenticated/app/editor'
+    | '/_authenticated/app/launch-checklist'
     | '/_authenticated/app/onboarding'
     | '/_authenticated/app/opportunities'
     | '/_authenticated/app/services'
@@ -867,6 +893,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppOnboardingRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/app/launch-checklist': {
+      id: '/_authenticated/app/launch-checklist'
+      path: '/app/launch-checklist'
+      fullPath: '/app/launch-checklist'
+      preLoaderRoute: typeof AuthenticatedAppLaunchChecklistRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/app/editor': {
       id: '/_authenticated/app/editor'
       path: '/app/editor'
@@ -893,6 +926,13 @@ declare module '@tanstack/react-router' {
       path: '/app/billing'
       fullPath: '/app/billing'
       preLoaderRoute: typeof AuthenticatedAppBillingRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/app/beta-notes': {
+      id: '/_authenticated/app/beta-notes'
+      path: '/app/beta-notes'
+      fullPath: '/app/beta-notes'
+      preLoaderRoute: typeof AuthenticatedAppBetaNotesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/app/authority': {
@@ -974,10 +1014,12 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppAnalyticsRoute: typeof AuthenticatedAppAnalyticsRoute
   AuthenticatedAppAuditRoute: typeof AuthenticatedAppAuditRoute
   AuthenticatedAppAuthorityRoute: typeof AuthenticatedAppAuthorityRoute
+  AuthenticatedAppBetaNotesRoute: typeof AuthenticatedAppBetaNotesRoute
   AuthenticatedAppBillingRoute: typeof AuthenticatedAppBillingRoute
   AuthenticatedAppCalendarRoute: typeof AuthenticatedAppCalendarRoute
   AuthenticatedAppCompetitorsRoute: typeof AuthenticatedAppCompetitorsRoute
   AuthenticatedAppEditorRoute: typeof AuthenticatedAppEditorRoute
+  AuthenticatedAppLaunchChecklistRoute: typeof AuthenticatedAppLaunchChecklistRoute
   AuthenticatedAppOnboardingRoute: typeof AuthenticatedAppOnboardingRoute
   AuthenticatedAppOpportunitiesRoute: typeof AuthenticatedAppOpportunitiesRoute
   AuthenticatedAppServicesRoute: typeof AuthenticatedAppServicesRoute
@@ -991,10 +1033,12 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppAnalyticsRoute: AuthenticatedAppAnalyticsRoute,
   AuthenticatedAppAuditRoute: AuthenticatedAppAuditRoute,
   AuthenticatedAppAuthorityRoute: AuthenticatedAppAuthorityRoute,
+  AuthenticatedAppBetaNotesRoute: AuthenticatedAppBetaNotesRoute,
   AuthenticatedAppBillingRoute: AuthenticatedAppBillingRoute,
   AuthenticatedAppCalendarRoute: AuthenticatedAppCalendarRoute,
   AuthenticatedAppCompetitorsRoute: AuthenticatedAppCompetitorsRoute,
   AuthenticatedAppEditorRoute: AuthenticatedAppEditorRoute,
+  AuthenticatedAppLaunchChecklistRoute: AuthenticatedAppLaunchChecklistRoute,
   AuthenticatedAppOnboardingRoute: AuthenticatedAppOnboardingRoute,
   AuthenticatedAppOpportunitiesRoute: AuthenticatedAppOpportunitiesRoute,
   AuthenticatedAppServicesRoute: AuthenticatedAppServicesRoute,

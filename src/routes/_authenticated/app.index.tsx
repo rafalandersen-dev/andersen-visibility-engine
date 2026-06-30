@@ -1,10 +1,12 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store";
+import { useAuth } from "@/lib/auth";
 import { useT } from "@/i18n";
 import { generateSeoOpportunities } from "@/lib/mock-ai";
-import { ArrowUpRight, Plus, Sparkles, FileText, CheckCircle2, Upload, FileEdit } from "lucide-react";
+import { computeLaunchChecklist } from "@/lib/launch";
+import { ArrowUpRight, Plus, Sparkles, FileText, CheckCircle2, Upload, FileEdit, Rocket } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
 import { formatDate } from "@/lib/format";
@@ -65,6 +67,13 @@ function Dashboard() {
   const content = useStore((s) =>
     s.content.filter((c) => c.projectId === activeProjectId),
   );
+  const audits = useStore((s) => s.audits.filter((a) => a.projectId === activeProjectId));
+  const authorityOpportunities = useStore((s) =>
+    s.authorityOpportunities.filter((a) => a.projectId === activeProjectId),
+  );
+  const billingProfile = useStore((s) => s.billingProfile);
+  const subscription = useStore((s) => s.subscription);
+  const { isOwner } = useAuth();
   const active = projects.find((p) => p.id === activeProjectId) ?? projects[0];
   const [busy, setBusy] = useState(false);
 
@@ -172,6 +181,43 @@ function Dashboard() {
             </div>
             <Button size="sm" onClick={() => navigate({ to: next.to })}>{next.cta}</Button>
           </div>
+        );
+      })()}
+      {(() => {
+        const { progress } = computeLaunchChecklist({
+          project: active,
+          services,
+          opportunities,
+          content,
+          audits,
+          authorityOpportunities,
+          billingProfile,
+          subscription,
+          isOwner,
+        });
+        return (
+          <Link
+            to="/app/launch-checklist"
+            className="mb-6 block rounded-lg border border-border bg-card px-5 py-4 transition-colors hover:border-foreground/30"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <Rocket className="h-4 w-4 text-accent shrink-0" />
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-foreground">{t("launch.title")}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {progress.requiredDone}/{progress.requiredTotal} {t("launch.essentialsDone")} · {progress.percent}%
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="hidden sm:block h-2 w-32 overflow-hidden rounded-full bg-border">
+                  <div className="h-full rounded-full bg-gold" style={{ width: `${progress.percent}%` }} />
+                </div>
+                <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
+              </div>
+            </div>
+          </Link>
         );
       })()}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">

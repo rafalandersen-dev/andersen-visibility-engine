@@ -19,6 +19,7 @@ import {
   Building2,
   CreditCard,
   FlaskConical,
+  Rocket,
   LogOut,
   Crown,
 } from "lucide-react";
@@ -32,6 +33,7 @@ type NavItem = {
 
 const NAV: NavItem[] = [
   { to: "/app", tKey: "nav.dashboard", icon: LayoutDashboard, exact: true },
+  { to: "/app/launch-checklist", tKey: "nav.launchChecklist", icon: Rocket },
   { to: "/app/setup", tKey: "nav.setup", icon: FolderCog },
   { to: "/app/services", tKey: "nav.services", icon: Package },
   { to: "/app/audit", tKey: "nav.audit", icon: Gauge },
