@@ -470,6 +470,71 @@ export interface AuthorityAnalysisResult {
   createdAt: string;
 }
 
+// ---- Authority Builder v2 / Safe Backlinks ----
+export type AuthorityOpportunityType =
+  | "localDirectory"
+  | "industryDirectory"
+  | "reviewProfile"
+  | "citationNap"
+  | "partnerLink"
+  | "supplierLink"
+  | "association"
+  | "localPr"
+  | "guestContribution"
+  | "resourcePage"
+  | "community"
+  | "trustSignal"
+  | "other";
+
+export type AuthorityStatus =
+  | "suggested"
+  | "planned"
+  | "contacted"
+  | "submitted"
+  | "live"
+  | "rejected"
+  | "notRelevant";
+
+export type AuthorityPriority = "high" | "medium" | "low";
+
+export interface AuthorityOpportunity {
+  id: string;
+  projectId: string;
+  type: AuthorityOpportunityType;
+  title: string;
+  description: string;
+  priority: AuthorityPriority;
+  status: AuthorityStatus;
+
+  targetUrl?: string;
+  contactName?: string;
+  contactEmail?: string;
+  contactPageUrl?: string;
+  submissionUrl?: string;
+  liveLinkUrl?: string;
+
+  anchorOrListingText?: string;
+  suggestedPageToLink?: string;
+  relatedServiceOrOffer?: string;
+
+  outreachNote?: string;
+  outreachTemplate?: string;
+  requirements?: string[];
+  nextStep?: string;
+
+  estimatedValue?: "high" | "medium" | "low";
+  difficulty?: "easy" | "medium" | "hard";
+  relevanceReason?: string;
+  safetyNotes?: string;
+
+  /** Set when this item has been turned into a (Linked) Opportunity. */
+  linkedOpportunityId?: string;
+
+  createdAt: string;
+  updatedAt?: string;
+  liveAt?: string;
+}
+
 // ---- AI Visibility v1 ----
 // Planning / readiness module — NOT live AI rank tracking. No external AI engine
 // is queried; everything is framed as likely gaps and readiness, not live results.

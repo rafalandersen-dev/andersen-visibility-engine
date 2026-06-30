@@ -29,6 +29,8 @@ import {
   markGapsConverted,
   upsertAuthorityAnalysis,
   markAuthorityItemsConverted,
+  addAuthorityOpportunities,
+  updateAuthorityOpportunity,
   upsertAiVisibilityAnalysis,
   markVisibilityGapsConverted,
   markContentAssetSent,
@@ -51,6 +53,9 @@ import type {
   CompetitorGap,
   AuthorityAnalysisResult,
   AuthorityItem,
+  AuthorityOpportunity,
+  AuthorityOpportunityType,
+  AuthorityCategory,
   AiVisibilityAnalysisResult,
   AiVisibilityGap,
   PublishDestinationType,
@@ -67,6 +72,7 @@ import {
   generateAuditFn,
   generateCompetitorGapFn,
   generateAuthorityFn,
+  generateAuthorityOpportunitiesFn,
   generateAiVisibilityFn,
   regenerateMetadataFn,
   regenerateFaqFn,
@@ -759,6 +765,141 @@ export async function createOpportunitiesFromTopAuthority(projectId: string) {
     console.info("[ai.client] top-authority opportunities created", { projectId, count: opps.length });
     return opps;
   });
+}
+
+// ============================================================
+// Authority Builder v2 / Safe Backlinks
+// ============================================================
+
+const LEGACY_CATEGORY_TO_TYPE: Record<AuthorityCategory, AuthorityOpportunityType> = {
+  "Local Directories & Citations": "localDirectory",
+  "Industry Directories": "industryDirectory",
+  "Review & Reputation": "reviewProfile",
+  "Partner & Supplier Links": "partnerLink",
+  "Associations & Communities": "association",
+  "PR & Story": "localPr",
+  "Trust Signals": "trustSignal",
+  "Outreach": "other",
+};
+
+function legacyToAuthorityOpportunity(item: AuthorityItem, projectId: string): AuthorityOpportunity {
+  const prio = item.priority === "High" ? "high" : item.priority === "Low" ? "low" : "medium";
+  return {
+    id: uid(),
+    projectId,
+    type: LEGACY_CATEGORY_TO_TYPE[item.category] ?? "other",
+    title: item.title,
+    description: item.explanation || item.recommendation || "",
+    priority: prio,
+    status: "suggested",
+    relatedServiceOrOffer: item.suggestedPlatformOrTarget || undefined,
+    outreachNote: item.outreachAngle || undefined,
+    nextStep: item.recommendation || undefined,
+    estimatedValue: item.expectedImpact === "High" ? "high" : item.expectedImpact === "Low" ? "low" : "medium",
+    difficulty: item.effort === "High" ? "hard" : item.effort === "Low" ? "easy" : "medium",
+    createdAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * One-time, lossless migration of legacy Authority v1 items into the v2 tracker.
+ * Runs only when the project has a legacy analysis but no v2 opportunities yet,
+ * so existing data shows up without a DB migration. Old analysis is left intact.
+ */
+export async function migrateLegacyAuthority(projectId: string): Promise<number> {
+  const s = getState();
+  const already = s.authorityOpportunities.some((a) => a.projectId === projectId);
+  if (already) return 0;
+  const analysis = s.authorityAnalyses.find((a) => a.projectId === projectId);
+  if (!analysis || !analysis.authorityItems.length) return 0;
+  const migrated = analysis.authorityItems.map((it) => legacyToAuthorityOpportunity(it, projectId));
+  addAuthorityOpportunities(migrated);
+  await saveWorkspaceNow();
+  console.info("[ai.client] authority legacy migrated", { projectId, count: migrated.length });
+  return migrated.length;
+}
+
+const normKey = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+
+/** Generate v2 authority opportunities (Brand-Intelligence aware), deduped + appended. */
+export async function generateAuthorityOpportunities(projectId: string) {
+  return once(`authority2:${projectId}`, async () => {
+    const { project, services } = requireProject(projectId);
+    const s = getState();
+    const existing = s.authorityOpportunities.filter((a) => a.projectId === projectId);
+    const existingTitles = existing.map((a) => a.title);
+    const livePages = s.content
+      .filter((c) => c.projectId === projectId && c.livePublishStatus === "published" && c.liveUrl)
+      .map((c) => c.liveUrl as string);
+    const explanationLanguage = contentLangToProjectLanguage(project.appLanguage ?? "en");
+
+    const { opportunities } = await generateAuthorityOpportunitiesFn({
+      data: { project, services, existingTitles, livePages, explanationLanguage },
+    });
+    if (!opportunities.length) throw new Error("AI returned no authority opportunities. Please try again.");
+
+    // Dedup against existing (title+type, or shared target/live URL).
+    const seenTitleType = new Set(existing.map((a) => `${normKey(a.title)}|${a.type}`));
+    const seenUrl = new Set(existing.flatMap((a) => [a.targetUrl, a.liveLinkUrl].filter(Boolean).map((u) => normKey(u as string))));
+    const fresh: AuthorityOpportunity[] = [];
+    for (const o of opportunities) {
+      const tt = `${normKey(o.title)}|${o.type}`;
+      const url = o.targetUrl ? normKey(o.targetUrl) : "";
+      if (seenTitleType.has(tt)) continue;
+      if (url && seenUrl.has(url)) continue;
+      seenTitleType.add(tt);
+      if (url) seenUrl.add(url);
+      fresh.push({
+        ...o,
+        id: uid(),
+        projectId,
+        status: "suggested",
+        targetUrl: o.targetUrl || undefined,
+        suggestedPageToLink: o.suggestedPageToLink || undefined,
+        relatedServiceOrOffer: o.relatedServiceOrOffer || undefined,
+        anchorOrListingText: o.anchorOrListingText || undefined,
+        outreachNote: o.outreachNote || undefined,
+        outreachTemplate: o.outreachTemplate || undefined,
+        relevanceReason: o.relevanceReason || undefined,
+        nextStep: o.nextStep || undefined,
+        safetyNotes: o.safetyNotes || undefined,
+        requirements: o.requirements.length ? o.requirements : undefined,
+        createdAt: new Date().toISOString(),
+      });
+    }
+    if (!fresh.length) throw new Error("No new authority opportunities — all suggestions already exist.");
+    addAuthorityOpportunities(fresh);
+    await saveWorkspaceNow();
+    console.info("[ai.client] authority v2 generated", { projectId, added: fresh.length });
+    return fresh;
+  });
+}
+
+/** Convert a v2 authority opportunity into a Linked Opportunity (idempotent per item). */
+export async function convertAuthorityOpportunityToOpportunity(projectId: string, id: string) {
+  const s = getState();
+  const item = s.authorityOpportunities.find((a) => a.id === id);
+  if (!item) throw new Error("Authority opportunity not found.");
+  if (item.linkedOpportunityId) throw new Error("This item is already an opportunity.");
+  const { project } = requireProject(projectId);
+  const opp: Opportunity = {
+    id: uid(),
+    projectId,
+    title: `Create/submit listing for ${item.title}`,
+    language: project.primaryLanguage,
+    contentType: "Service Page",
+    searchIntent: "Navigational",
+    targetAudience: project.targetAudience || "Potential customers",
+    businessValue: item.description || item.relevanceReason || "Build trust and authority signals.",
+    recommendedCta: "Contact us",
+    priority: item.priority === "high" ? "High" : item.priority === "low" ? "Low" : "Medium",
+    status: "Linked",
+    source: "authority",
+  };
+  addOpportunities([opp]);
+  updateAuthorityOpportunity(id, { linkedOpportunityId: opp.id });
+  await saveWorkspaceNow();
+  return opp;
 }
 
 // ============================================================

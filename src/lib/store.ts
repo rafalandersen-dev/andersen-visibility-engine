@@ -26,6 +26,7 @@ import type {
   AuditResult,
   CompetitorAnalysisResult,
   AuthorityAnalysisResult,
+  AuthorityOpportunity,
   AiVisibilityAnalysisResult,
 } from "./types";
 import {
@@ -48,6 +49,8 @@ interface State {
   competitorAnalyses: CompetitorAnalysisResult[];
   authorityAnalyses: AuthorityAnalysisResult[];
   aiVisibilityAnalyses: AiVisibilityAnalysisResult[];
+  /** Authority Builder v2 — trackable authority opportunities. */
+  authorityOpportunities: AuthorityOpportunity[];
   activeProjectId: string;
   /** Whether the active user's workspace has been loaded from Cloud. */
   hydrated: boolean;
@@ -65,6 +68,7 @@ const emptyState: State = {
   competitorAnalyses: [],
   authorityAnalyses: [],
   aiVisibilityAnalyses: [],
+  authorityOpportunities: [],
   activeProjectId: "",
   hydrated: false,
   userId: null,
@@ -82,6 +86,7 @@ const ssrSnapshot: State = {
   competitorAnalyses: [],
   authorityAnalyses: [],
   aiVisibilityAnalyses: [],
+  authorityOpportunities: [],
   activeProjectId: seedProjects[0]?.id ?? "",
   hydrated: false,
   userId: null,
@@ -114,6 +119,7 @@ export async function saveWorkspaceNow(): Promise<void> {
     competitorAnalyses: state.competitorAnalyses,
     authorityAnalyses: state.authorityAnalyses,
     aiVisibilityAnalyses: state.aiVisibilityAnalyses,
+    authorityOpportunities: state.authorityOpportunities,
     activeProjectId: state.activeProjectId,
   };
   const { error } = await supabase
@@ -192,6 +198,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
         competitorAnalyses: d.competitorAnalyses ?? [],
         authorityAnalyses: d.authorityAnalyses ?? [],
         aiVisibilityAnalyses: d.aiVisibilityAnalyses ?? [],
+        authorityOpportunities: d.authorityOpportunities ?? [],
         activeProjectId: d.activeProjectId ?? (d.projects?.[0]?.id ?? ""),
         hydrated: true,
         userId,
@@ -209,6 +216,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
         competitorAnalyses: [],
         authorityAnalyses: [],
         aiVisibilityAnalyses: [],
+        authorityOpportunities: [],
         activeProjectId: "",
         hydrated: true,
         userId,
@@ -238,6 +246,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
       competitorAnalyses: [],
       authorityAnalyses: [],
       aiVisibilityAnalyses: [],
+      authorityOpportunities: [],
       activeProjectId: "",
       hydrated: true,
       userId,
@@ -590,6 +599,25 @@ export const markAuthorityItemsConverted = (analysisId: string, itemIds: string[
         ? { ...a, convertedItemIds: Array.from(new Set([...a.convertedItemIds, ...itemIds])) }
         : a,
     ),
+  }));
+
+// ---- Authority Builder v2 ----
+
+export const addAuthorityOpportunities = (items: AuthorityOpportunity[]) =>
+  setState((s) => ({ ...s, authorityOpportunities: [...items, ...s.authorityOpportunities] }));
+
+export const updateAuthorityOpportunity = (id: string, patch: Partial<AuthorityOpportunity>) =>
+  setState((s) => ({
+    ...s,
+    authorityOpportunities: s.authorityOpportunities.map((a) =>
+      a.id === id ? { ...a, ...patch, updatedAt: new Date().toISOString() } : a,
+    ),
+  }));
+
+export const removeAuthorityOpportunity = (id: string) =>
+  setState((s) => ({
+    ...s,
+    authorityOpportunities: s.authorityOpportunities.filter((a) => a.id !== id),
   }));
 
 // ---- AI Visibility ----

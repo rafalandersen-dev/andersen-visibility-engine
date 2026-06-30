@@ -1878,3 +1878,113 @@ ${sharedRules}`,
       throw mapGatewayError(e);
     }
   });
+
+// ============================================================
+// Authority Builder v2 / Safe Backlinks
+// ============================================================
+
+const AUTHORITY_TYPES = [
+  "localDirectory",
+  "industryDirectory",
+  "reviewProfile",
+  "citationNap",
+  "partnerLink",
+  "supplierLink",
+  "association",
+  "localPr",
+  "guestContribution",
+  "resourcePage",
+  "community",
+  "trustSignal",
+  "other",
+] as const;
+const PRIORITY_LMH = ["high", "medium", "low"] as const;
+const DIFFICULTY = ["easy", "medium", "hard"] as const;
+
+function normalizeAuthorityOpportunity(value: unknown) {
+  const it = isRecord(value) ? value : {};
+  const lower = (v: unknown, fallback: string) => {
+    const raw = asString(v).toLowerCase().replace(/[^a-z]/g, "");
+    return raw || fallback;
+  };
+  const typeRaw = lower(it.type ?? it.category, "other");
+  const type = AUTHORITY_TYPES.find((t) => t.toLowerCase() === typeRaw) ?? "other";
+  const prio = PRIORITY_LMH.find((p) => p === lower(it.priority, "medium")) ?? "medium";
+  const value3 = PRIORITY_LMH.find((p) => p === lower(it.estimatedValue ?? it.value, "medium")) ?? "medium";
+  const diff = DIFFICULTY.find((d) => d === lower(it.difficulty, "medium")) ?? "medium";
+  return {
+    type,
+    title: pickString(it, ["title", "name"], "Authority opportunity").slice(0, 160),
+    description: pickString(it, ["description", "explanation", "detail"], "").slice(0, 600),
+    priority: prio,
+    estimatedValue: value3,
+    difficulty: diff,
+    relevanceReason: pickString(it, ["relevanceReason", "relevance", "why"], "").slice(0, 400),
+    nextStep: pickString(it, ["nextStep", "next_step", "action"], "").slice(0, 300),
+    requirements: normalizeStringArray(it.requirements ?? it.requires, []).slice(0, 6),
+    targetUrl: pickString(it, ["targetUrl", "target_url", "url"], "").slice(0, 400),
+    suggestedPageToLink: pickString(it, ["suggestedPageToLink", "suggested_page_to_link", "pageToLink", "linkTo"], "").slice(0, 400),
+    relatedServiceOrOffer: pickString(it, ["relatedServiceOrOffer", "relatedService", "offer"], "").slice(0, 200),
+    anchorOrListingText: pickString(it, ["anchorOrListingText", "anchorText", "listingText"], "").slice(0, 200),
+    outreachNote: pickString(it, ["outreachNote", "outreach_note", "note"], "").slice(0, 600),
+    outreachTemplate: pickString(it, ["outreachTemplate", "outreach_template", "template", "message"], "").slice(0, 1200),
+    safetyNotes: pickString(it, ["safetyNotes", "safety_notes", "safety"], "").slice(0, 400),
+  };
+}
+
+export const generateAuthorityOpportunitiesFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        project: z.any(),
+        services: z.array(z.any()).default([]),
+        existingTitles: z.array(z.string()).default([]),
+        livePages: z.array(z.string()).default([]),
+        explanationLanguage: z.string().default("English"),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    const project = data.project as Project;
+    const services = data.services as ServiceItem[];
+    const brief = projectBrief(project, services);
+    const existingBlock = data.existingTitles.length
+      ? `Existing authority opportunities (DO NOT duplicate these):\n- ${data.existingTitles.slice(0, 40).join("\n- ")}\n`
+      : "";
+    const liveBlock = data.livePages.length
+      ? `Published live pages that could be linked to where genuinely relevant:\n- ${data.livePages.slice(0, 20).join("\n- ")}\n`
+      : "";
+
+    try {
+      const payload = await generateJsonText(
+        `You are a safe, ethical off-site authority and local-SEO strategist for a small business. Suggest TRUSTWORTHY authority-building opportunities — local directories, industry directories, review profiles, citation/NAP consistency, partner links, supplier listings, associations, local PR/story angles, guest contributions, resource pages, community pages and on-site trust signals.
+
+STRICT SAFETY RULES:
+- This is planning. Do NOT claim any listing, link or contact has been created.
+- Do NOT invent live link URLs, specific email addresses, or that the business is certified/accredited/awarded unless the business context explicitly says so.
+- Prefer local and genuinely relevant opportunities. If you are unsure of a specific website, describe a category-level opportunity instead of a fabricated URL.
+- NEVER suggest buying backlinks, link exchanges/PBNs, blog-comment spam, fake reviews, paid review incentives that break platform rules, or adult/gambling/casino/crypto/spam targets.
+- Do NOT promise rankings, traffic or revenue.
+- Respect any Brand Intelligence block (forbidden claims, avoid list, tone, offers, CTAs).
+Write all text fields in ${data.explanationLanguage}.
+
+Generate 8–15 opportunities. Return EXACTLY this JSON shape:
+{"opportunities":[{"type":"${AUTHORITY_TYPES.join("|")}","title":"","description":"","priority":"high|medium|low","estimatedValue":"high|medium|low","difficulty":"easy|medium|hard","relevanceReason":"","nextStep":"","requirements":[""],"targetUrl":"","suggestedPageToLink":"","relatedServiceOrOffer":"","anchorOrListingText":"","outreachNote":"","outreachTemplate":"","safetyNotes":""}]}
+
+"outreachTemplate" must be a short, honest, human, specific message (no spam, no hype, no ranking claims). Leave "targetUrl" empty unless an obvious, generic, real platform applies (e.g. Google Business Profile). Use "suggestedPageToLink" only when a relevant service or live page exists.
+
+THIS BUSINESS:
+${brief}
+${existingBlock}${liveBlock}${sharedRules}`,
+        7000,
+      );
+      const root = isRecord(payload) ? payload : {};
+      const opportunities = extractArray(root, ["opportunities", "authorityOpportunities", "items", "results", "actions"]).map(
+        normalizeAuthorityOpportunity,
+      );
+      return { opportunities };
+    } catch (e) {
+      throw mapGatewayError(e);
+    }
+  });

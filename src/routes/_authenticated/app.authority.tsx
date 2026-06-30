@@ -1,130 +1,110 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
-import { useStore } from "@/lib/store";
-import type { AuthorityCategory, AuthorityItem } from "@/lib/types";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
-  runAuthorityAnalysis,
-  createOpportunityFromAuthorityItem,
-  createOpportunitiesFromTopAuthority,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useStore, updateAuthorityOpportunity, removeAuthorityOpportunity } from "@/lib/store";
+import { useT } from "@/i18n";
+import {
+  generateAuthorityOpportunities,
+  convertAuthorityOpportunityToOpportunity,
+  migrateLegacyAuthority,
 } from "@/lib/mock-ai";
-import { Award, Loader2, Plus, Check, AlertTriangle, RefreshCw, Target } from "lucide-react";
-import { useMemo, useState } from "react";
+import type {
+  AuthorityOpportunity,
+  AuthorityOpportunityType,
+  AuthorityStatus,
+  AuthorityPriority,
+} from "@/lib/types";
+import { Award, Loader2, RefreshCw, Plus, Check, ExternalLink, Copy, Trash2, Rocket, ChevronDown } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/app/authority")({
   head: () => ({
     meta: [
       { title: "Authority — Milo Growth" },
-      {
-        name: "description",
-        content: "Find places and angles that build your business credibility beyond your website.",
-      },
+      { name: "description", content: "Find and track safe, relevant authority-building opportunities." },
     ],
   }),
   component: AuthorityPage,
 });
 
-const CATEGORY_ORDER: AuthorityCategory[] = [
-  "Local Directories & Citations",
-  "Industry Directories",
-  "Review & Reputation",
-  "Partner & Supplier Links",
-  "Associations & Communities",
-  "PR & Story",
-  "Trust Signals",
-  "Outreach",
+const TYPES: AuthorityOpportunityType[] = [
+  "localDirectory", "industryDirectory", "reviewProfile", "citationNap", "partnerLink",
+  "supplierLink", "association", "localPr", "guestContribution", "resourcePage", "community", "trustSignal", "other",
 ];
+const STATUSES: AuthorityStatus[] = ["suggested", "planned", "contacted", "submitted", "live", "rejected", "notRelevant"];
+const PRIORITIES: AuthorityPriority[] = ["high", "medium", "low"];
 
 function AuthorityPage() {
   const navigate = useNavigate();
-  const project = useStore((s) => s.projects.find((p) => p.id === s.activeProjectId));
+  const t = useT();
   const activeProjectId = useStore((s) => s.activeProjectId);
-  const analysis = useStore((s) => s.authorityAnalyses.find((a) => a.projectId === s.activeProjectId));
-  const hasAudit = useStore((s) => s.audits.some((a) => a.projectId === s.activeProjectId));
-  const hasCompetitor = useStore((s) =>
-    s.competitorAnalyses.some((a) => a.projectId === s.activeProjectId),
-  );
+  const project = useStore((s) => s.projects.find((p) => p.id === s.activeProjectId));
+  const items = useStore((s) => s.authorityOpportunities.filter((a) => a.projectId === s.activeProjectId));
 
-  const [running, setRunning] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [busyItemId, setBusyItemId] = useState<string | null>(null);
-  const [bulkBusy, setBulkBusy] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [fStatus, setFStatus] = useState<string>("all");
+  const [fType, setFType] = useState<string>("all");
+  const [fPriority, setFPriority] = useState<string>("all");
+  const [search, setSearch] = useState("");
 
-  const grouped = useMemo(() => {
-    const map = new Map<AuthorityCategory, AuthorityItem[]>();
-    (analysis?.authorityItems ?? []).forEach((it) => {
-      map.set(it.category, [...(map.get(it.category) ?? []), it]);
+  // One-time migration of legacy Authority v1 items into the v2 tracker.
+  useEffect(() => {
+    if (activeProjectId) migrateLegacyAuthority(activeProjectId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProjectId]);
+
+  const summary = useMemo(() => ({
+    total: items.length,
+    live: items.filter((i) => i.status === "live").length,
+    inProgress: items.filter((i) => ["planned", "contacted", "submitted"].includes(i.status)).length,
+    high: items.filter((i) => i.priority === "high").length,
+    partner: items.filter((i) => i.type === "partnerLink" || i.type === "supplierLink").length,
+    review: items.filter((i) => i.type === "reviewProfile" || i.type === "citationNap").length,
+  }), [items]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return items.filter((i) => {
+      if (fStatus !== "all" && i.status !== fStatus) return false;
+      if (fType !== "all" && i.type !== fType) return false;
+      if (fPriority !== "all" && i.priority !== fPriority) return false;
+      if (q && !(`${i.title} ${i.description} ${i.type}`.toLowerCase().includes(q))) return false;
+      return true;
     });
-    return CATEGORY_ORDER.map((c) => [c, map.get(c) ?? []] as const).filter(([, list]) => list.length);
-  }, [analysis]);
+  }, [items, fStatus, fType, fPriority, search]);
 
-  const remainingTop = useMemo(
-    () =>
-      (analysis?.authorityItems ?? []).filter(
-        (i) =>
-          !analysis?.convertedItemIds.includes(i.id) &&
-          (i.priority === "High" || i.priority === "Medium"),
-      ).length,
-    [analysis],
-  );
+  const liveItems = useMemo(() => items.filter((i) => i.status === "live"), [items]);
 
-  async function runAnalysis() {
+  async function generate() {
     if (!activeProjectId) return;
-    setRunning(true);
-    setError(null);
+    setGenerating(true);
     try {
-      await runAuthorityAnalysis(activeProjectId);
-      toast.success("Authority analysis complete");
+      const fresh = await generateAuthorityOpportunities(activeProjectId);
+      toast.success(t("authority.toast.generated", { count: fresh.length }));
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Analysis failed. Please try again.";
-      setError(msg);
-      toast.error(msg);
+      toast.error(e instanceof Error ? e.message : "Generation failed");
     } finally {
-      setRunning(false);
-    }
-  }
-
-  async function convertOne(itemId: string) {
-    setBusyItemId(itemId);
-    try {
-      await createOpportunityFromAuthorityItem(activeProjectId, itemId);
-      toast.success("Opportunity created");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not create opportunity");
-    } finally {
-      setBusyItemId(null);
-    }
-  }
-
-  async function convertTop() {
-    setBulkBusy(true);
-    try {
-      const opps = await createOpportunitiesFromTopAuthority(activeProjectId);
-      toast.success(`Created ${opps.length} ${opps.length === 1 ? "opportunity" : "opportunities"} from top actions`);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not create opportunities");
-    } finally {
-      setBulkBusy(false);
+      setGenerating(false);
     }
   }
 
   if (!project) {
     return (
-      <AppShell
-        title="Authority"
-        description="Find places and angles that can build your business credibility beyond your website."
-      >
+      <AppShell title={t("authority.title")} description={t("authority.subtitle")}>
         <div className="rounded-lg border border-dashed border-border p-12 text-center">
           <Award className="mx-auto h-8 w-8 text-gold/70" strokeWidth={1.4} />
-          <div className="mt-3 font-display text-lg">Set up a project first</div>
-          <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">
-            Authority analysis plans credibility-building moves for one business. Create a project
-            with your business details first.
-          </p>
-          <Button className="mt-4" onClick={() => navigate({ to: "/app/setup" })}>
-            Go to Project Setup
-          </Button>
+          <div className="mt-3 font-display text-lg">{t("analytics.setupFirst")}</div>
+          <Button className="mt-4" onClick={() => navigate({ to: "/app/setup" })}>{t("nav.setup")}</Button>
         </div>
       </AppShell>
     );
@@ -132,257 +112,215 @@ function AuthorityPage() {
 
   return (
     <AppShell
-      title="Authority"
-      description="Find places and angles that can build your business credibility beyond your website."
+      title={t("authority.title")}
+      description={t("authority.subtitle")}
+      actions={
+        <Button onClick={generate} disabled={generating}>
+          {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : items.length ? <RefreshCw className="h-4 w-4" /> : <Award className="h-4 w-4" />}
+          {generating ? t("authority.generating") : items.length ? t("authority.regenerate") : t("authority.generate")}
+        </Button>
+      }
     >
-      {/* Input card */}
-      <div className="rounded-lg border border-border bg-card p-5 mb-6">
-        <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-          Authority analysis
-        </div>
-        <p className="mt-2 text-sm text-muted-foreground max-w-2xl">
-          Milo plans authority-building moves for{" "}
-          <span className="text-foreground/80">{project.businessName || project.name}</span>
-          {project.mainLocation ? ` · ${project.mainLocation}` : ""} using your project details,
-          services{hasAudit ? ", your Site Audit" : ""}
-          {hasCompetitor ? ", your Competitor analysis" : ""} and existing opportunities. It suggests
-          directories, profiles, review platforms, partnerships, associations, PR angles and trust
-          signals — these are recommendations, not actions Milo performs on your behalf.
-        </p>
-        <div className="mt-4 flex justify-end">
-          <Button onClick={runAnalysis} disabled={running}>
-            {running ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : analysis ? (
-              <RefreshCw className="h-4 w-4" />
-            ) : (
-              <Award className="h-4 w-4" />
-            )}
-            {running ? "Analyzing…" : analysis ? "Re-run analysis" : "Run authority analysis"}
-          </Button>
-        </div>
+      <p className="text-xs text-muted-foreground max-w-3xl mb-5">{t("authority.disclaimer")}</p>
+
+      {/* Section 1 — Summary */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <Stat label={t("authority.summary.total")} value={summary.total} />
+        <Stat label={t("authority.summary.live")} value={summary.live} />
+        <Stat label={t("authority.summary.inProgress")} value={summary.inProgress} />
+        <Stat label={t("authority.summary.highPriority")} value={summary.high} />
+        <Stat label={t("authority.summary.partner")} value={summary.partner} />
+        <Stat label={t("authority.summary.review")} value={summary.review} />
       </div>
+      <p className="mt-3 text-xs text-muted-foreground">{t("authority.safeNote")}</p>
 
-      {/* Error state */}
-      {error && !running ? (
-        <div className="rounded-lg border border-border bg-card p-8 text-center">
-          <AlertTriangle className="mx-auto h-7 w-7 text-amber-500" strokeWidth={1.5} />
-          <div className="mt-2 font-display text-lg">Analysis didn’t complete</div>
-          <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">{error}</p>
-          <Button className="mt-4" variant="outline" onClick={runAnalysis}>
-            <RefreshCw className="h-4 w-4" /> Try again
-          </Button>
-        </div>
-      ) : null}
-
-      {/* Empty explainer */}
-      {!analysis && !error ? (
-        <div className="rounded-lg border border-dashed border-border p-12 text-center">
+      {items.length === 0 ? (
+        <div className="mt-8 rounded-lg border border-dashed border-border p-12 text-center">
           <Award className="mx-auto h-8 w-8 text-gold/70" strokeWidth={1.4} />
-          <div className="mt-3 font-display text-lg">Run your first authority analysis</div>
-          <p className="mt-1 text-sm text-muted-foreground max-w-lg mx-auto">
-            Milo reviews your business and finds credibility-building opportunities beyond your
-            website — local directories & citations, industry profiles, review platforms, partner
-            links, associations, PR & story angles, trust signals and outreach — then hands you
-            prioritized actions you can turn into opportunities in one click.
-          </p>
+          <div className="mt-3 font-display text-lg">{t("authority.generate")}</div>
+          <p className="mt-1 text-sm text-muted-foreground max-w-lg mx-auto">{t("authority.empty")}</p>
         </div>
-      ) : null}
-
-      {/* Results */}
-      {analysis && !error ? (
-        <div className="space-y-8">
-          {analysis.note ? (
-            <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-foreground/80 flex items-start gap-2">
-              <AlertTriangle className="h-4 w-4 mt-0.5 text-amber-500 shrink-0" />
-              <span>{analysis.note}</span>
-            </div>
-          ) : null}
-
-          {/* Score cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-            <ScoreCard label="Overall Authority" score={analysis.overallAuthorityScore} primary />
-            <ScoreCard label="Local Citations" score={analysis.localCitationScore} />
-            <ScoreCard label="Industry Presence" score={analysis.industryPresenceScore} />
-            <ScoreCard label="Reputation" score={analysis.reputationScore} />
-            <ScoreCard label="Partner Links" score={analysis.partnerLinkScore} />
-            <ScoreCard label="PR Opportunities" score={analysis.prOpportunityScore} />
-            <ScoreCard label="Trust Signals" score={analysis.trustSignalScore} />
-          </div>
-
-          {analysis.summary ? (
-            <p className="text-sm text-muted-foreground max-w-3xl">{analysis.summary}</p>
-          ) : null}
-
-          {/* Top authority actions */}
-          {analysis.topAuthorityActions.length ? (
-            <section className="rounded-lg border border-border bg-card p-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-                    Priority
+      ) : (
+        <>
+          {/* Live authority signals */}
+          {liveItems.length > 0 ? (
+            <section className="mt-8 rounded-lg border-2 border-emerald-500/30 bg-card p-5">
+              <h2 className="font-display text-lg">{t("authority.liveSignals")}</h2>
+              <div className="mt-3 grid sm:grid-cols-2 gap-3">
+                {liveItems.map((i) => (
+                  <div key={i.id} className="rounded-md border border-border p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium truncate">{i.title}</span>
+                      <span className="shrink-0 text-[10px] uppercase tracking-[0.12em] px-2 py-0.5 rounded-full border border-emerald-500/40 text-emerald-600">{t(`authority.type.${i.type}`)}</span>
+                    </div>
+                    {i.relatedServiceOrOffer ? <div className="mt-0.5 text-xs text-muted-foreground">{i.relatedServiceOrOffer}</div> : null}
+                    <div className="mt-1.5 flex items-center gap-3 text-xs">
+                      {i.liveLinkUrl ? <a href={i.liveLinkUrl} target="_blank" rel="noopener noreferrer" className="text-foreground/80 underline underline-offset-4 inline-flex items-center gap-1"><ExternalLink className="h-3 w-3" />{t("authority.viewLive")}</a> : null}
+                      {i.liveAt ? <span className="text-muted-foreground">{i.liveAt.slice(0, 10)}</span> : null}
+                    </div>
                   </div>
-                  <h2 className="font-display text-lg">Top authority actions</h2>
-                </div>
-                <Button size="sm" onClick={convertTop} disabled={bulkBusy || remainingTop === 0}>
-                  {bulkBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-                  Create opportunities from top actions
-                </Button>
-              </div>
-              <ul className="mt-4 space-y-2">
-                {analysis.topAuthorityActions.map((a, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-foreground/85">
-                    <span className="mt-0.5 h-5 w-5 shrink-0 rounded-full bg-accent/30 text-[11px] flex items-center justify-center text-accent-foreground">
-                      {i + 1}
-                    </span>
-                    <span>{a}</span>
-                  </li>
                 ))}
-              </ul>
-              {remainingTop === 0 ? (
-                <p className="mt-3 text-xs text-muted-foreground">
-                  All high/medium authority items have been turned into opportunities.
-                </p>
-              ) : null}
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">{t("authority.liveNote")}</p>
             </section>
           ) : null}
 
-          {/* Items grouped by category */}
-          <div className="space-y-8">
-            {grouped.map(([category, list]) => (
-              <section key={category}>
-                <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-3">
-                  {category}
-                </div>
-                <div className="grid md:grid-cols-2 gap-4">
-                  {list.map((it) => {
-                    const converted = analysis.convertedItemIds.includes(it.id);
-                    return (
-                      <article key={it.id} className="rounded-lg border border-border bg-card p-5 flex flex-col">
-                        <div className="flex items-start justify-between gap-3">
-                          <h3 className="font-display text-base leading-snug text-foreground">{it.title}</h3>
-                          <PriorityBadge priority={it.priority} />
-                        </div>
-                        <p className="mt-2 text-sm text-muted-foreground">{it.explanation}</p>
+          {/* Section — Tracker */}
+          <section className="mt-8">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+              <h2 className="font-display text-lg">{t("authority.tracker")}</h2>
+              <div className="flex flex-wrap gap-2">
+                <FilterSelect value={fStatus} onChange={setFStatus} allLabel={t("authority.filter.allStatuses")} options={STATUSES.map((s) => ({ value: s, label: t(`authority.status.${s}`) }))} />
+                <FilterSelect value={fType} onChange={setFType} allLabel={t("authority.filter.allTypes")} options={TYPES.map((s) => ({ value: s, label: t(`authority.type.${s}`) }))} />
+                <FilterSelect value={fPriority} onChange={setFPriority} allLabel={t("authority.filter.allPriorities")} options={PRIORITIES.map((s) => ({ value: s, label: t(`common.${s}`) }))} />
+                <Input className="h-9 w-40" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("authority.search")} />
+              </div>
+            </div>
+            {filtered.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t("authority.none")}</p>
+            ) : (
+              <div className="space-y-3">
+                {filtered.map((i) => <AuthorityCard key={i.id} item={i} projectId={activeProjectId} t={t} />)}
+              </div>
+            )}
+          </section>
 
-                        <div className="mt-3 rounded-md bg-secondary/40 border border-border p-3 text-sm">
-                          <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground flex items-center gap-1.5">
-                            <Target className="h-3 w-3 text-gold/80" /> Where / who
-                          </div>
-                          <div className="mt-1 text-foreground/85">{it.suggestedPlatformOrTarget}</div>
-                        </div>
-
-                        <div className="mt-3 rounded-md bg-secondary/50 border border-border p-3 text-sm">
-                          <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                            Recommendation
-                          </div>
-                          <div className="mt-1 text-foreground/85">{it.recommendation}</div>
-                        </div>
-
-                        {it.outreachAngle ? (
-                          <div className="mt-3 text-sm">
-                            <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                              Outreach angle:{" "}
-                            </span>
-                            <span className="text-foreground/80">{it.outreachAngle}</span>
-                          </div>
-                        ) : null}
-
-                        <div className="mt-3 text-xs text-muted-foreground space-y-1">
-                          <div>
-                            <span className="text-foreground/70">Suggested:</span> {it.suggestedOpportunityTitle}
-                          </div>
-                          <div className="flex flex-wrap gap-1.5">
-                            <Tag>{it.suggestedContentType}</Tag>
-                            <Tag>{it.suggestedSearchIntent}</Tag>
-                            <Tag tone={it.priority === "High" ? "gold" : "muted"}>Priority {it.priority}</Tag>
-                            <Tag>Effort {it.effort}</Tag>
-                            <Tag>Impact {it.expectedImpact}</Tag>
-                          </div>
-                        </div>
-
-                        <div className="mt-4 pt-4 border-t border-border">
-                          {converted ? (
-                            <Button size="sm" variant="ghost" disabled className="text-muted-foreground">
-                              <Check className="h-3.5 w-3.5" /> Opportunity created
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={busyItemId === it.id}
-                              onClick={() => convertOne(it.id)}
-                            >
-                              {busyItemId === it.id ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <Plus className="h-3.5 w-3.5" />
-                              )}
-                              Create opportunity
-                            </Button>
-                          )}
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              </section>
-            ))}
-          </div>
-
-          <div className="pt-2">
-            <Link
-              to="/app/opportunities"
-              className="text-sm text-foreground/70 underline underline-offset-4 hover:text-foreground"
-            >
-              View opportunities →
+          <div className="pt-6">
+            <Link to="/app/opportunities" className="text-sm text-foreground/70 underline underline-offset-4 hover:text-foreground">
+              {t("nav.opportunities")} →
             </Link>
           </div>
-        </div>
-      ) : null}
+        </>
+      )}
     </AppShell>
   );
 }
 
-function ScoreCard({ label, score, primary }: { label: string; score: number; primary?: boolean }) {
+function AuthorityCard({ item, projectId, t }: { item: AuthorityOpportunity; projectId: string; t: (k: string, v?: Record<string, string | number>) => string }) {
+  const [open, setOpen] = useState(false);
+  const [converting, setConverting] = useState(false);
+  const upd = (patch: Partial<AuthorityOpportunity>) => updateAuthorityOpportunity(item.id, patch);
+
+  function changeStatus(next: AuthorityStatus) {
+    const patch: Partial<AuthorityOpportunity> = { status: next };
+    if (next === "live" && !item.liveAt) patch.liveAt = new Date().toISOString();
+    upd(patch);
+    toast.success(t("authority.toast.statusChanged"));
+  }
+
+  async function copyTemplate() {
+    const text = item.outreachTemplate || item.outreachNote || "";
+    if (!text) return;
+    try { await navigator.clipboard.writeText(text); toast.success(t("authority.copied")); } catch { toast.error("Could not copy"); }
+  }
+
+  async function convert() {
+    setConverting(true);
+    try {
+      await convertAuthorityOpportunityToOpportunity(projectId, item.id);
+      toast.success(t("authority.toast.converted"));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not create opportunity");
+    } finally {
+      setConverting(false);
+    }
+  }
+
   return (
-    <div className={"rounded-lg border bg-card p-4 " + (primary ? "border-accent/40" : "border-border")}>
-      <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
-      <div className="mt-1.5 font-display text-3xl text-foreground">
-        {score}
-        <span className="text-base text-muted-foreground">/100</span>
+    <article className="rounded-lg border border-border bg-card p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="font-medium text-foreground">{item.title}</h3>
+            <Tag>{t(`authority.type.${item.type}`)}</Tag>
+            <Tag tone={item.priority === "high" ? "gold" : "muted"}>{t(`common.${item.priority}`)}</Tag>
+            {item.estimatedValue ? <Tag>{t("authority.value")}: {t(`common.${item.estimatedValue}`)}</Tag> : null}
+            {item.difficulty ? <Tag>{t("authority.difficulty")}: {t(`authority.diff.${item.difficulty}`)}</Tag> : null}
+          </div>
+          {item.description ? <p className="mt-1.5 text-sm text-muted-foreground">{item.description}</p> : null}
+          {item.nextStep ? <p className="mt-1.5 text-sm"><span className="text-muted-foreground">{t("authority.field.nextStep")}: </span>{item.nextStep}</p> : null}
+        </div>
+        <Select value={item.status} onValueChange={(v) => changeStatus(v as AuthorityStatus)}>
+          <SelectTrigger className="h-8 w-36 text-xs shrink-0"><SelectValue /></SelectTrigger>
+          <SelectContent>{STATUSES.map((s) => <SelectItem key={s} value={s}>{t(`authority.status.${s}`)}</SelectItem>)}</SelectContent>
+        </Select>
       </div>
-      <div className="mt-2 h-1.5 rounded-full bg-secondary overflow-hidden">
-        <div className="h-full bg-gold/80 transition-all" style={{ width: `${Math.max(0, Math.min(100, score))}%` }} />
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Button size="sm" variant="ghost" onClick={() => setOpen((o) => !o)}><ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} /> {open ? t("authority.action.done") : t("authority.action.edit")}</Button>
+        {item.outreachTemplate || item.outreachNote ? <Button size="sm" variant="ghost" onClick={copyTemplate}><Copy className="h-3.5 w-3.5" /> {t("authority.copyTemplate")}</Button> : null}
+        {item.status !== "live" ? <Button size="sm" variant="ghost" onClick={() => changeStatus("live")}><Rocket className="h-3.5 w-3.5" /> {t("authority.action.markLive")}</Button> : null}
+        {item.linkedOpportunityId ? (
+          <Button size="sm" variant="ghost" disabled className="text-muted-foreground"><Check className="h-3.5 w-3.5" /> {t("authority.action.converted")}</Button>
+        ) : (
+          <Button size="sm" variant="ghost" onClick={convert} disabled={converting}>{converting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />} {t("authority.action.convert")}</Button>
+        )}
+        <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-destructive ml-auto" onClick={() => { removeAuthorityOpportunity(item.id); toast.success(t("authority.toast.deleted")); }}><Trash2 className="h-3.5 w-3.5" /> {t("authority.action.delete")}</Button>
       </div>
+
+      {open ? (
+        <div className="mt-3 pt-3 border-t border-border space-y-3">
+          {item.relevanceReason ? <p className="text-xs text-muted-foreground"><span className="font-medium text-foreground/70">{t("authority.relevance")}: </span>{item.relevanceReason}</p> : null}
+          {item.requirements?.length ? <p className="text-xs text-muted-foreground"><span className="font-medium text-foreground/70">{t("authority.requirements")}: </span>{item.requirements.join(", ")}</p> : null}
+          {item.safetyNotes ? <p className="text-xs text-amber-600">{item.safetyNotes}</p> : null}
+
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Field label={t("authority.field.targetUrl")} value={item.targetUrl ?? ""} onChange={(v) => upd({ targetUrl: v })} placeholder="https://" />
+            <Field label={t("authority.field.submissionUrl")} value={item.submissionUrl ?? ""} onChange={(v) => upd({ submissionUrl: v })} placeholder="https://" />
+            <Field label={t("authority.field.contactName")} value={item.contactName ?? ""} onChange={(v) => upd({ contactName: v })} />
+            <Field label={t("authority.field.contactEmail")} value={item.contactEmail ?? ""} onChange={(v) => upd({ contactEmail: v })} />
+            <Field label={t("authority.field.contactPageUrl")} value={item.contactPageUrl ?? ""} onChange={(v) => upd({ contactPageUrl: v })} placeholder="https://" />
+            <Field label={t("authority.field.liveLinkUrl")} value={item.liveLinkUrl ?? ""} onChange={(v) => upd({ liveLinkUrl: v })} placeholder="https://" />
+            <Field label={t("authority.field.suggestedPageToLink")} value={item.suggestedPageToLink ?? ""} onChange={(v) => upd({ suggestedPageToLink: v })} />
+            <Field label={t("authority.field.relatedServiceOrOffer")} value={item.relatedServiceOrOffer ?? ""} onChange={(v) => upd({ relatedServiceOrOffer: v })} />
+            <Field label={t("authority.field.anchor")} value={item.anchorOrListingText ?? ""} onChange={(v) => upd({ anchorOrListingText: v })} />
+            <Field label={t("authority.field.nextStep")} value={item.nextStep ?? ""} onChange={(v) => upd({ nextStep: v })} />
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">{t("authority.outreachTemplate")}</label>
+            <Textarea className="mt-1.5 text-sm" rows={4} value={item.outreachTemplate ?? ""} onChange={(e) => upd({ outreachTemplate: e.target.value })} />
+          </div>
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function Field({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
+  return (
+    <div>
+      <label className="text-xs font-medium text-muted-foreground">{label}</label>
+      <Input className="mt-1.5 h-9 text-sm" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
     </div>
   );
 }
 
-function PriorityBadge({ priority }: { priority: "High" | "Medium" | "Low" }) {
-  const cls =
-    priority === "High"
-      ? "bg-accent/30 border-accent/40 text-accent-foreground"
-      : priority === "Medium"
-        ? "bg-secondary border-border text-secondary-foreground"
-        : "bg-muted border-border text-muted-foreground";
+function FilterSelect({ value, onChange, allLabel, options }: { value: string; onChange: (v: string) => void; allLabel: string; options: { value: string; label: string }[] }) {
   return (
-    <span className={`shrink-0 text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full border ${cls}`}>
-      {priority}
-    </span>
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="h-9 w-40 text-xs"><SelectValue /></SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">{allLabel}</SelectItem>
+        {options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border border-border bg-card p-4">
+      <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
+      <div className="mt-1.5 font-display text-3xl text-foreground">{value}</div>
+    </div>
   );
 }
 
 function Tag({ children, tone = "default" }: { children: React.ReactNode; tone?: "default" | "gold" | "muted" }) {
   const cls =
-    tone === "gold"
-      ? "bg-accent/30 border-accent/40 text-accent-foreground"
-      : tone === "muted"
-        ? "bg-muted text-muted-foreground border-border"
-        : "bg-secondary border-border text-secondary-foreground";
-  return (
-    <span className={`text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full border ${cls}`}>
-      {children}
-    </span>
-  );
+    tone === "gold" ? "bg-accent/30 border-accent/40 text-accent-foreground"
+      : tone === "muted" ? "bg-muted text-muted-foreground border-border"
+      : "bg-secondary border-border text-secondary-foreground";
+  return <span className={`text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full border ${cls}`}>{children}</span>;
 }
