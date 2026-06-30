@@ -38,6 +38,7 @@ export const en: Record<string, string> = {
   "nav.analytics": "Analytics",
   "nav.aiEvaluation": "AI Evaluation",
   "nav.billing": "Billing",
+  "nav.betaValidation": "Beta validation",
 
   // ---- Markets / languages / goals (shared) ----
   "market.PL": "Poland",

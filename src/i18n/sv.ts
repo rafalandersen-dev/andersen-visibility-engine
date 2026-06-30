@@ -34,6 +34,7 @@ export const sv: Record<string, string> = {
   "nav.analytics": "Analys",
   "nav.aiEvaluation": "AI-utvärdering",
   "nav.billing": "Fakturering",
+  "nav.betaValidation": "Betavalidering",
 
   "market.PL": "Polen",
   "market.SE": "Sverige",

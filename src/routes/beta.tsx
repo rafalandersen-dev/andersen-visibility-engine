@@ -186,6 +186,7 @@ function BetaPage() {
         </div>
         <p className="mt-4 text-xs text-muted-foreground">
           Final pricing may vary based on website size, connector setup and support level. No checkout — beta is invoiced manually.
+          A founding-beta price is available for the first pilot businesses only.
         </p>
       </section>
 

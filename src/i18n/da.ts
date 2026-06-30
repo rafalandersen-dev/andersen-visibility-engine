@@ -34,6 +34,7 @@ export const da: Record<string, string> = {
   "nav.analytics": "Analyse",
   "nav.aiEvaluation": "AI-evaluering",
   "nav.billing": "Betaling",
+  "nav.betaValidation": "Betavalidering",
 
   "market.PL": "Polen",
   "market.SE": "Sverige",

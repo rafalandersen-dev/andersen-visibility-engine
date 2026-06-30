@@ -20,6 +20,7 @@ import {
   CreditCard,
   FlaskConical,
   Rocket,
+  ClipboardList,
   LogOut,
   Crown,
 } from "lucide-react";
@@ -29,6 +30,8 @@ type NavItem = {
   tKey: string;
   icon: typeof LayoutDashboard;
   exact?: boolean;
+  /** Only shown to workspace owners (internal tools). */
+  ownerOnly?: boolean;
 };
 
 const NAV: NavItem[] = [
@@ -46,6 +49,7 @@ const NAV: NavItem[] = [
   { to: "/app/analytics", tKey: "nav.analytics", icon: BarChart3 },
   { to: "/app/ai-evaluation", tKey: "nav.aiEvaluation", icon: FlaskConical },
   { to: "/app/billing", tKey: "nav.billing", icon: CreditCard },
+  { to: "/app/beta-validation", tKey: "nav.betaValidation", icon: ClipboardList, ownerOnly: true },
 ];
 
 export function AppShell({
@@ -91,7 +95,7 @@ export function AppShell({
             {t("appShell.workspace")}
           </div>
           <nav className="space-y-0.5">
-            {NAV.map((item) => {
+            {NAV.filter((item) => !item.ownerOnly || isOwner).map((item) => {
               const isActive = item.exact
                 ? pathname === item.to
                 : pathname.startsWith(item.to);
