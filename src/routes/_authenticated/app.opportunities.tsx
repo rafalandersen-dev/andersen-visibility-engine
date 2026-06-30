@@ -79,7 +79,7 @@ function OpportunitiesPage() {
       }
     >
       <div className="flex flex-wrap gap-2 mb-6">
-        <Filter label="Language" value={fLang} onChange={setFLang} options={["Polish","Swedish","English"]} />
+        <Filter label="Language" value={fLang} onChange={setFLang} options={["Polish","Swedish","English","Danish"]} />
         <Filter label="Content type" value={fType} onChange={setFType} options={["Landing Page","Service Page","Blog Article","Guide","FAQ Page","Comparison","Location Page"]} />
         <Filter label="Status" value={fStatus} onChange={setFStatus} options={["New","In Brief","Drafting","Discarded","Linked"]} />
         <Filter label="Priority" value={fPrio} onChange={setFPrio} options={["High","Medium","Low"]} />

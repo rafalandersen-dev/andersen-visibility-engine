@@ -65,14 +65,15 @@ export function marketDefaults(market: Market) {
 }
 
 /**
- * Map an onboarding content language to the Project.primaryLanguage enum used by
- * the AI generators. The enum supports Polish/Swedish/English only, so Danish
- * falls back to English for generation (content language is still stored as "da").
+ * Map an onboarding content language to the Project.primaryLanguage / content
+ * asset Language enum used by the AI generators. The enum now supports
+ * Polish/Swedish/English/Danish.
  */
 export function contentLangToProjectLanguage(lang: OnboardingLanguage): Language {
   if (lang === "pl") return "Polish";
   if (lang === "sv") return "Swedish";
-  return "English"; // en, da → English (enum has no Danish in v1)
+  if (lang === "da") return "Danish";
+  return "English"; // en → English
 }
 
 /**

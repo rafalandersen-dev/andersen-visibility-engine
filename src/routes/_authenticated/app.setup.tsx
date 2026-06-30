@@ -39,7 +39,7 @@ export const Route = createFileRoute("/_authenticated/app/setup")({
   component: ProjectSetup,
 });
 
-const LANGS: Language[] = ["Polish", "Swedish", "English"];
+const LANGS: Language[] = ["Polish", "Swedish", "English", "Danish"];
 
 function ProjectSetup() {
   const projects = useStore((s) => s.projects);
