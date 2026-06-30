@@ -31,6 +31,7 @@ import type {
   AiVisibilityAnalysisResult,
   PublishingConnectorType,
   WordPressPublishingSettings,
+  ShopifyPublishingSettings,
 } from "./types";
 import type { BillingProfile, SubscriptionPlan } from "./billing";
 import {
@@ -460,7 +461,11 @@ export const updateProjectPublishingSettings = (projectId: string, settings: Pro
 /** Set the project's connector type and/or WordPress settings (merges wordpress fields). */
 export const updateProjectConnector = (
   projectId: string,
-  settings: { connectorType?: PublishingConnectorType; wordpress?: Partial<WordPressPublishingSettings> },
+  settings: {
+    connectorType?: PublishingConnectorType;
+    wordpress?: Partial<WordPressPublishingSettings>;
+    shopify?: Partial<ShopifyPublishingSettings>;
+  },
 ) =>
   setState((s) => ({
     ...s,
@@ -470,6 +475,7 @@ export const updateProjectConnector = (
             ...p,
             connectorType: settings.connectorType ?? p.connectorType,
             wordpress: settings.wordpress ? { ...p.wordpress, ...settings.wordpress } : p.wordpress,
+            shopify: settings.shopify ? { ...p.shopify, ...settings.shopify } : p.shopify,
           }
         : p,
     ),
@@ -487,6 +493,7 @@ export const markContentAssetSent = (
     publishPlatform?: ContentAsset["publishPlatform"];
     wordpressPostId?: number;
     wordpressPostType?: ContentAsset["wordpressPostType"];
+    shopify?: Partial<Pick<ContentAsset, "shopifyArticleId" | "shopifyArticleGid" | "shopifyBlogId" | "shopifyBlogGid" | "shopifyHandle" | "shopifyStatus">>;
   },
 ) =>
   setState((s) => ({
@@ -505,6 +512,7 @@ export const markContentAssetSent = (
             publishPlatform: data.publishPlatform ?? c.publishPlatform,
             wordpressPostId: data.wordpressPostId ?? c.wordpressPostId,
             wordpressPostType: data.wordpressPostType ?? c.wordpressPostType,
+            ...(data.shopify ?? {}),
           }
         : c,
     ),
@@ -544,6 +552,7 @@ export const markContentAssetPublishedLive = (
     publishPlatform?: ContentAsset["publishPlatform"];
     wordpressPostId?: number;
     wordpressPostType?: ContentAsset["wordpressPostType"];
+    shopify?: Partial<Pick<ContentAsset, "shopifyArticleId" | "shopifyArticleGid" | "shopifyBlogId" | "shopifyBlogGid" | "shopifyHandle" | "shopifyStatus">>;
   },
 ) =>
   setState((s) => ({
@@ -561,6 +570,7 @@ export const markContentAssetPublishedLive = (
             publishPlatform: data.publishPlatform ?? c.publishPlatform,
             wordpressPostId: data.wordpressPostId ?? c.wordpressPostId,
             wordpressPostType: data.wordpressPostType ?? c.wordpressPostType,
+            ...(data.shopify ?? {}),
             // A published asset is implicitly "sent" too (covers create-and-publish).
             publishStatus: c.publishStatus === "notSent" ? ("sent" as const) : c.publishStatus,
           }

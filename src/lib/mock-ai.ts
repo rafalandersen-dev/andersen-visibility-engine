@@ -87,6 +87,12 @@ import {
   sendContentToWordPressDraftFn,
   publishWordPressContentFn,
 } from "./wordpress.functions";
+import {
+  testShopifyConnectionFn,
+  listShopifyBlogsFn,
+  sendContentToShopifyDraftFn,
+  publishShopifyContentFn,
+} from "./shopify.functions";
 import { tooShortScore, draftWordCount, MIN_EVALUABLE_WORDS } from "./quality";
 
 function slugify(s: string) {
@@ -1242,6 +1248,123 @@ async function publishToWordPressLive(asset: ContentAsset, project: Project) {
 }
 
 // ============================================================
+// Shopify Connector v1
+// ============================================================
+
+function isShopify(project: Project): boolean {
+  return project.connectorType === "shopify";
+}
+
+function shopifyCreds(project: Project): { shopDomain: string; adminAccessToken: string } {
+  const sh = project.shopify ?? {};
+  const shopDomain = (sh.shopDomain ?? "").trim();
+  const adminAccessToken = sh.adminAccessToken ?? "";
+  if (!shopDomain || !adminAccessToken.trim()) {
+    throw new Error("Connect Shopify in Project Setup (shop domain and Admin API access token) first.");
+  }
+  return { shopDomain, adminAccessToken };
+}
+
+/** Test the project's Shopify connection and persist the result. */
+export async function testShopifyConnection(projectId: string) {
+  const s = getState();
+  const project = s.projects.find((p) => p.id === projectId);
+  if (!project) throw new Error("Project not found.");
+  const creds = shopifyCreds(project);
+  const res = await testShopifyConnectionFn({ data: creds });
+  updateProjectConnector(projectId, {
+    shopify: {
+      lastTestedAt: new Date().toISOString(),
+      lastTestStatus: res.success ? "success" : "error",
+      lastTestMessage: res.success ? res.message : res.error,
+    },
+  });
+  await saveWorkspaceNow();
+  return res;
+}
+
+/** Fetch the store's blogs for the blog selector. */
+export async function listShopifyBlogs(projectId: string) {
+  const s = getState();
+  const project = s.projects.find((p) => p.id === projectId);
+  if (!project) throw new Error("Project not found.");
+  const creds = shopifyCreds(project);
+  return listShopifyBlogsFn({ data: creds });
+}
+
+function shopifyArticleArgs(asset: ContentAsset, project: Project) {
+  const sh = project.shopify ?? {};
+  return {
+    ...shopifyCreds(project),
+    blogGid: asset.shopifyBlogGid || sh.defaultBlogId || "",
+    blogHandle: sh.defaultBlogHandle || "",
+    articleGid: asset.shopifyArticleGid,
+    title: asset.title,
+    contentMarkdown: asset.markdown,
+    handle: asset.slug || "",
+    summary: asset.metaDescription ?? "",
+    tags: sh.defaultTags ?? [],
+    author: sh.defaultAuthorName ?? "",
+  };
+}
+
+async function sendToShopifyDraft(asset: ContentAsset, project: Project) {
+  const res = await sendContentToShopifyDraftFn({ data: shopifyArticleArgs(asset, project) });
+  if (!res.success) {
+    const msg = res.error || "Shopify article failed. Please try again.";
+    markContentAssetPublishFailed(asset.id, msg, new Date().toISOString());
+    await saveWorkspaceNow();
+    throw new Error(msg);
+  }
+  markContentAssetSent(asset.id, {
+    publishDestinationType: asset.publishDestinationType ?? "blogPost",
+    publishSlug: res.handle || asset.slug || "",
+    publishedDraftUrl: res.editUrl || res.liveUrl || undefined,
+    publishExternalId: res.articleId || undefined,
+    lastPublishedAt: new Date().toISOString(),
+    publishPlatform: "shopify",
+    shopify: {
+      shopifyArticleId: res.articleId,
+      shopifyArticleGid: res.articleGid,
+      shopifyBlogId: res.blogId,
+      shopifyBlogGid: res.blogGid,
+      shopifyHandle: res.handle,
+      shopifyStatus: res.status,
+    },
+  });
+  await saveWorkspaceNow();
+  console.info("[ai.client] Shopify article draft sent", { projectId: project.id });
+  return res;
+}
+
+async function publishToShopifyLive(asset: ContentAsset, project: Project) {
+  const res = await publishShopifyContentFn({ data: shopifyArticleArgs(asset, project) });
+  if (!res.success || !res.liveUrl) {
+    const msg = res.error || "Shopify published but did not return a live URL.";
+    markContentAssetLivePublishFailed(asset.id, msg, new Date().toISOString());
+    await saveWorkspaceNow();
+    throw new Error(msg);
+  }
+  markContentAssetPublishedLive(asset.id, {
+    liveUrl: res.liveUrl,
+    livePublishedAt: new Date().toISOString(),
+    publishExternalId: res.articleId || undefined,
+    publishPlatform: "shopify",
+    shopify: {
+      shopifyArticleId: res.articleId,
+      shopifyArticleGid: res.articleGid,
+      shopifyBlogId: res.blogId,
+      shopifyBlogGid: res.blogGid,
+      shopifyHandle: res.handle,
+      shopifyStatus: "published",
+    },
+  });
+  await saveWorkspaceNow();
+  console.info("[ai.client] Shopify published live", { projectId: project.id });
+  return res;
+}
+
+// ============================================================
 // Publishing v1 — send a content asset to the connected website as a draft
 // ============================================================
 
@@ -1266,6 +1389,10 @@ export async function sendContentToWebsite(
     // WordPress connector branch — create/update a WordPress draft.
     if (isWordPress(project)) {
       return sendToWordPressDraft(asset, project, slug);
+    }
+    // Shopify connector branch — create/update an unpublished article.
+    if (isShopify(project)) {
+      return sendToShopifyDraft(asset, project);
     }
 
     const endpoint = (project.publishEndpoint ?? "").trim();
@@ -1333,6 +1460,10 @@ export async function publishContentLive(assetId: string) {
     if (isWordPress(project)) {
       return publishToWordPressLive(asset, project);
     }
+    // Shopify connector branch — publish/update the article live (create if needed).
+    if (isShopify(project)) {
+      return publishToShopifyLive(asset, project);
+    }
 
     const liveEndpoint = (project.livePublishEndpoint ?? "").trim();
     const secret = (project.publishSecret ?? "").trim();
@@ -1387,10 +1518,15 @@ export async function runAutoPublishOnApprove(assetId: string): Promise<{ liveUr
   if (!project || project.publishMode !== "autoPublishApproved") return null;
 
   const wp = isWordPress(project);
+  const shop = isShopify(project);
   if (wp) {
     // WordPress: require credentials; live publish creates the post if needed.
     const w = project.wordpress ?? {};
     if (!(w.siteUrl?.trim() && w.username?.trim() && (w.applicationPassword ?? "").trim())) return null;
+  } else if (shop) {
+    // Shopify: require credentials; live publish creates the article if needed.
+    const sh = project.shopify ?? {};
+    if (!(sh.shopDomain?.trim() && (sh.adminAccessToken ?? "").trim())) return null;
   } else {
     const endpoint = (project.publishEndpoint ?? "").trim();
     const secret = (project.publishSecret ?? "").trim();
@@ -1400,8 +1536,8 @@ export async function runAutoPublishOnApprove(assetId: string): Promise<{ liveUr
   }
 
   try {
-    // 1. Custom connector: ensure a draft exists first. WordPress publish creates as needed.
-    if (!wp && asset.publishStatus !== "sent") {
+    // 1. Custom connector: ensure a draft exists first. WordPress/Shopify publish creates as needed.
+    if (!wp && !shop && asset.publishStatus !== "sent") {
       const dest = asset.publishDestinationType ?? project.defaultDestinationType ?? "blogPost";
       await sendContentToWebsite(assetId, dest, asset.publishSlug ?? asset.slug);
     }

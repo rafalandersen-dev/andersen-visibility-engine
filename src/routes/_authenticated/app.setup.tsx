@@ -21,9 +21,10 @@ import {
   saveWorkspaceNow,
 } from "@/lib/store";
 import { testWordPressConnectionFn } from "@/lib/wordpress.functions";
+import { testShopifyConnectionFn, listShopifyBlogsFn } from "@/lib/shopify.functions";
 import { useAuth } from "@/lib/auth";
 
-import type { Language, Project, PublishDestinationType, PublishMode, Market, OnboardingLanguage, PublishingConnectorType } from "@/lib/types";
+import type { Language, Project, PublishDestinationType, PublishMode, Market, OnboardingLanguage, PublishingConnectorType, ShopifyBlogOption } from "@/lib/types";
 import { MARKETS, LANGUAGE_OPTIONS, GROWTH_GOALS, GOAL_KEYS, marketKey, marketDefaults } from "@/lib/onboarding";
 import { useT } from "@/i18n";
 import { BrandIntelligenceCard } from "@/components/BrandIntelligenceCard";
@@ -349,7 +350,76 @@ function PublishingCard({ project }: { project: Project }) {
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const hasSavedWpPassword = Boolean(project.wordpress?.applicationPassword);
 
+  // ---- Shopify connector state ----
+  const [shopDomain, setShopDomain] = useState(project.shopify?.shopDomain ?? "");
+  const [shopToken, setShopToken] = useState(""); // never pre-filled
+  const [shopAuthor, setShopAuthor] = useState(project.shopify?.defaultAuthorName ?? "");
+  const [shopTags, setShopTags] = useState((project.shopify?.defaultTags ?? []).join(", "));
+  const [shopBlogId, setShopBlogId] = useState(project.shopify?.defaultBlogId ?? "");
+  const [shopBlogHandle, setShopBlogHandle] = useState(project.shopify?.defaultBlogHandle ?? "");
+  const [shopBlogs, setShopBlogs] = useState<ShopifyBlogOption[]>([]);
+  const [shopBlogGid, setShopBlogGid] = useState(
+    project.shopify?.defaultBlogId ? `gid://shopify/Blog/${project.shopify.defaultBlogId}` : "",
+  );
+  const [loadingBlogs, setLoadingBlogs] = useState(false);
+  const hasSavedShopToken = Boolean(project.shopify?.adminAccessToken);
+
   const urlOk = (v: string) => !v.trim() || /^https?:\/\/\S+\.\S+/.test(v.trim());
+
+  function shopTokenForCall(): string {
+    return shopToken.trim() || project.shopify?.adminAccessToken || "";
+  }
+
+  async function testShopify() {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await testShopifyConnectionFn({
+        data: { shopDomain: shopDomain.trim(), adminAccessToken: shopTokenForCall() },
+      });
+      setTestResult({ ok: res.success, message: res.success ? res.message || t("shopify.testOk") : res.error || t("shopify.testFail") });
+    } catch (e) {
+      setTestResult({ ok: false, message: e instanceof Error ? e.message : t("shopify.testFail") });
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  async function refreshShopifyBlogs() {
+    setLoadingBlogs(true);
+    try {
+      const res = await listShopifyBlogsFn({
+        data: { shopDomain: shopDomain.trim(), adminAccessToken: shopTokenForCall() },
+      });
+      if (res.success) {
+        setShopBlogs(res.blogs);
+        if (!res.blogs.length) toast.message(t("shopify.noBlogs"));
+        // Keep current selection if still present; otherwise default to first.
+        const current = res.blogs.find((b) => b.gid === shopBlogGid || b.id === shopBlogId);
+        const pick = current ?? res.blogs[0];
+        if (pick) {
+          setShopBlogGid(pick.gid);
+          setShopBlogId(pick.id);
+          setShopBlogHandle(pick.handle);
+        }
+      } else {
+        toast.error(res.error || t("shopify.testFail"));
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t("shopify.testFail"));
+    } finally {
+      setLoadingBlogs(false);
+    }
+  }
+
+  function onPickBlog(gid: string) {
+    const b = shopBlogs.find((x) => x.gid === gid);
+    setShopBlogGid(gid);
+    if (b) {
+      setShopBlogId(b.id);
+      setShopBlogHandle(b.handle);
+    }
+  }
 
   async function testWp() {
     setTesting(true);
@@ -384,6 +454,22 @@ function PublishingCard({ project }: { project: Project }) {
           },
         });
         updateProjectPublishingSettings(project.id, { publishMode: mode });
+      } else if (connectorType === "shopify") {
+        const tags = shopTags.split(",").map((s) => s.trim()).filter(Boolean);
+        updateProjectConnector(project.id, {
+          connectorType: "shopify",
+          shopify: {
+            enabled: true,
+            shopDomain: shopDomain.trim(),
+            defaultBlogId: shopBlogId.trim(),
+            defaultBlogHandle: shopBlogHandle.trim(),
+            defaultAuthorName: shopAuthor.trim(),
+            defaultTags: tags,
+            // Only overwrite the saved token when a new one is typed.
+            ...(shopToken.trim() ? { adminAccessToken: shopToken } : {}),
+          },
+        });
+        updateProjectPublishingSettings(project.id, { publishMode: mode });
       } else {
         if (!urlOk(endpoint)) { toast.error("Publish endpoint must start with http:// or https://"); setSaving(false); return; }
         if (!urlOk(liveEndpoint)) { toast.error("Live publish endpoint must start with http:// or https://"); setSaving(false); return; }
@@ -400,6 +486,7 @@ function PublishingCard({ project }: { project: Project }) {
       }
       await saveWorkspaceNow();
       setWpAppPassword("");
+      setShopToken("");
       toast.success("Publishing settings saved");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not save publishing settings");
@@ -423,6 +510,7 @@ function PublishingCard({ project }: { project: Project }) {
               <SelectContent>
                 <SelectItem value="custom">{t("wp.custom")}</SelectItem>
                 <SelectItem value="wordpress">{t("wp.wordpress")}</SelectItem>
+                <SelectItem value="shopify">{t("shopify.shopify")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -482,6 +570,68 @@ function PublishingCard({ project }: { project: Project }) {
               {testResult ? (
                 <span className={`text-sm ${testResult.ok ? "text-emerald-600" : "text-destructive"}`}>{testResult.message}</span>
               ) : null}
+            </div>
+          </>
+        ) : connectorType === "shopify" ? (
+          <>
+            <div className="md:col-span-2">
+              <p className="text-xs text-muted-foreground">{t("shopify.intro")}</p>
+            </div>
+            <div className="md:col-span-2">
+              <Label className="text-xs font-medium text-muted-foreground">{t("shopify.shopDomain")}</Label>
+              <Input className="mt-1.5" value={shopDomain} onChange={(e) => setShopDomain(e.target.value)} placeholder="mystore.myshopify.com" autoComplete="off" />
+              <p className="mt-1.5 text-xs text-muted-foreground">{t("shopify.shopDomainHelp")}</p>
+            </div>
+            <div className="md:col-span-2">
+              <Label className="text-xs font-medium text-muted-foreground">{t("shopify.token")}</Label>
+              <Input
+                className="mt-1.5"
+                type="password"
+                value={shopToken}
+                onChange={(e) => setShopToken(e.target.value)}
+                placeholder={hasSavedShopToken ? t("shopify.tokenSaved") : "shpat_xxxxxxxxxxxxxxxxxxxxxxxx"}
+                autoComplete="off"
+              />
+              <p className="mt-1.5 text-xs text-muted-foreground">{t("shopify.tokenHelp")}</p>
+              <p className="text-xs text-muted-foreground">{t("shopify.security")}</p>
+              <p className="text-xs text-muted-foreground">{t("shopify.minPerms")}</p>
+            </div>
+            <div className="md:col-span-2 flex flex-wrap items-center gap-3">
+              <Button type="button" size="sm" variant="outline" onClick={testShopify} disabled={testing || !shopDomain.trim() || (!shopToken.trim() && !hasSavedShopToken)}>
+                {testing ? t("shopify.testing") : t("shopify.test")}
+              </Button>
+              <Button type="button" size="sm" variant="outline" onClick={refreshShopifyBlogs} disabled={loadingBlogs || !shopDomain.trim() || (!shopToken.trim() && !hasSavedShopToken)}>
+                {loadingBlogs ? t("shopify.loadingBlogs") : t("shopify.refreshBlogs")}
+              </Button>
+              {testResult ? (
+                <span className={`text-sm ${testResult.ok ? "text-emerald-600" : "text-destructive"}`}>{testResult.message}</span>
+              ) : null}
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-muted-foreground">{t("shopify.blog")}</Label>
+              {shopBlogs.length ? (
+                <Select value={shopBlogGid} onValueChange={onPickBlog}>
+                  <SelectTrigger className="mt-1.5"><SelectValue placeholder={t("shopify.selectBlog")} /></SelectTrigger>
+                  <SelectContent>
+                    {shopBlogs.map((b) => (
+                      <SelectItem key={b.gid} value={b.gid}>{b.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  {shopBlogHandle ? t("shopify.currentBlog", { handle: shopBlogHandle }) : t("shopify.blogHelp")}
+                </p>
+              )}
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-muted-foreground">{t("shopify.author")}</Label>
+              <Input className="mt-1.5" value={shopAuthor} onChange={(e) => setShopAuthor(e.target.value)} placeholder="Milo" autoComplete="off" />
+            </div>
+            <div className="md:col-span-2">
+              <Label className="text-xs font-medium text-muted-foreground">{t("shopify.tags")}</Label>
+              <Input className="mt-1.5" value={shopTags} onChange={(e) => setShopTags(e.target.value)} placeholder="seo, growth" autoComplete="off" />
+              <p className="mt-1.5 text-xs text-muted-foreground">{t("shopify.tagsHelp")}</p>
             </div>
           </>
         ) : (

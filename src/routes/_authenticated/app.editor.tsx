@@ -166,10 +166,18 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   // ---- Publishing v1 ----
   const project = useStore((s) => s.projects.find((p) => p.id === asset.projectId));
   const isWordPress = project?.connectorType === "wordpress";
+  const isShopify = project?.connectorType === "shopify";
   const wpConfigured = Boolean(
     project?.wordpress?.siteUrl && project?.wordpress?.username && project?.wordpress?.applicationPassword,
   );
-  const publishConfigured = isWordPress ? wpConfigured : Boolean(project?.publishEndpoint && project?.publishSecret);
+  const shopifyConfigured = Boolean(
+    project?.shopify?.shopDomain && project?.shopify?.adminAccessToken && project?.shopify?.defaultBlogId,
+  );
+  const publishConfigured = isWordPress
+    ? wpConfigured
+    : isShopify
+      ? shopifyConfigured
+      : Boolean(project?.publishEndpoint && project?.publishSecret);
   const [sendOpen, setSendOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [destType, setDestType] = useState<PublishDestinationType>(
@@ -178,7 +186,11 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   const [publishSlug, setPublishSlug] = useState(asset.slug);
   // ---- Publishing v1.1 (live + auto-publish) ----
   const publishMode = project?.publishMode ?? "draftOnly";
-  const liveConfigured = isWordPress ? wpConfigured : Boolean(project?.livePublishEndpoint && project?.publishSecret);
+  const liveConfigured = isWordPress
+    ? wpConfigured
+    : isShopify
+      ? shopifyConfigured
+      : Boolean(project?.livePublishEndpoint && project?.publishSecret);
   const [liveConfirmOpen, setLiveConfirmOpen] = useState(false);
   const [publishingLive, setPublishingLive] = useState(false);
   const [autoBusy, setAutoBusy] = useState(false);
@@ -383,6 +395,12 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               {live.publishPlatform === "wordpress" && live.wordpressPostId ? (
                 <span className="text-xs text-muted-foreground">WordPress #{live.wordpressPostId} · {live.wordpressPostType}</span>
               ) : null}
+              {live.publishPlatform === "shopify" && live.shopifyArticleId ? (
+                <span className="text-xs text-muted-foreground">
+                  Shopify #{live.shopifyArticleId} · {live.shopifyStatus === "published" ? t("shopify.statusPublished") : t("shopify.statusDraft")}
+                  {live.shopifyHandle ? ` · ${live.shopifyHandle}` : ""}
+                </span>
+              ) : null}
               {live.lastPublishedAt ? (
                 <span className="text-xs text-muted-foreground">
                   {live.publishStatus === "failed" ? "Last attempt" : "Sent"}{" "}
@@ -492,6 +510,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                   <SelectItem value="landingPage">Landing page</SelectItem>
                 </SelectContent>
               </Select>
+              {isShopify && destType !== "blogPost" ? (
+                <p className="mt-1.5 text-xs text-amber-600">{t("shopify.blogOnly")}</p>
+              ) : null}
             </div>
             <div>
               <label className="text-xs uppercase tracking-[0.16em] text-muted-foreground">{t("editor.sendModal.slug")}</label>

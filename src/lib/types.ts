@@ -49,7 +49,7 @@ export type PublishMode = "draftOnly" | "manualLive" | "autoPublishApproved";
 export type LivePublishStatus = "notPublished" | "published" | "failed";
 
 // ---- WordPress Connector v1 ----
-export type PublishingConnectorType = "custom" | "wordpress";
+export type PublishingConnectorType = "custom" | "wordpress" | "shopify";
 
 export interface WordPressPublishingSettings {
   enabled?: boolean;
@@ -68,6 +68,41 @@ export interface WordPressPublishResult {
   postId?: number;
   postType?: "post" | "page";
   status?: "draft" | "publish";
+  editUrl?: string;
+  liveUrl?: string;
+  message?: string;
+  error?: string;
+}
+
+// ---- Shopify Connector v1 ----
+export interface ShopifyPublishingSettings {
+  enabled?: boolean;
+  shopDomain?: string;
+  adminAccessToken?: string;
+  defaultBlogId?: string;
+  defaultBlogHandle?: string;
+  defaultAuthorName?: string;
+  defaultTags?: string[];
+  lastTestedAt?: string;
+  lastTestStatus?: "success" | "error";
+  lastTestMessage?: string;
+}
+
+export interface ShopifyBlogOption {
+  gid: string;
+  id: string;
+  handle: string;
+  title: string;
+}
+
+export interface ShopifyPublishResult {
+  success: boolean;
+  articleId?: string;
+  articleGid?: string;
+  blogId?: string;
+  blogGid?: string;
+  handle?: string;
+  status?: "draft" | "published";
   editUrl?: string;
   liveUrl?: string;
   message?: string;
@@ -109,6 +144,7 @@ export interface Project {
   /** Which publishing connector this project uses (defaults to "custom"). */
   connectorType?: PublishingConnectorType;
   wordpress?: WordPressPublishingSettings;
+  shopify?: ShopifyPublishingSettings;
   // ---- Onboarding Wizard v1 (all optional → existing projects keep loading) ----
   setupComplete?: boolean;
   market?: Market;
@@ -325,6 +361,13 @@ export interface ContentAsset {
   publishPlatform?: PublishingConnectorType;
   wordpressPostId?: number;
   wordpressPostType?: "post" | "page";
+  // ---- Shopify Connector v1 (all optional) ----
+  shopifyArticleId?: string;
+  shopifyArticleGid?: string;
+  shopifyBlogId?: string;
+  shopifyBlogGid?: string;
+  shopifyHandle?: string;
+  shopifyStatus?: "draft" | "published";
   // ---- Content Quality Engine / Milo Score v1 (all optional) ----
   qualityScore?: QualityScore;
   /** True when the draft changed after the last evaluation (prompts a re-evaluate). */
