@@ -90,6 +90,63 @@ export interface Project {
   onboardingSourceData?: Record<string, unknown>;
   // ---- Brand Intelligence / Content Memory v1 (all optional) ----
   brandIntelligence?: BrandIntelligence;
+  // ---- GSC Lite / SEO Proof Import v1 (all optional) ----
+  gscLite?: GscLite;
+}
+
+// ---- GSC Lite / SEO Proof Import v1 ----
+export interface GscRow {
+  type: "query" | "page" | "date" | "unknown";
+  query?: string;
+  page?: string;
+  path?: string;
+  date?: string;
+  clicks: number;
+  impressions: number;
+  ctr: number; // 0–100
+  position: number;
+}
+
+export interface GscImportSummary {
+  totalClicks: number;
+  totalImpressions: number;
+  averageCtr: number;
+  averagePosition: number;
+  rowCount: number;
+  topQuery?: string;
+  topPage?: string;
+}
+
+export interface GscImport {
+  id: string;
+  importedAt: string;
+  source: "manual_csv";
+  importType: "queries" | "pages" | "dates" | "mixed" | "unknown";
+  fileName?: string;
+  dateRange?: { start?: string; end?: string; label?: string };
+  rows: GscRow[];
+  summary: GscImportSummary;
+  /** True when the CSV had more rows than the per-import cap. */
+  truncated?: boolean;
+}
+
+export interface GscLite {
+  imports: GscImport[];
+  latestImportId?: string;
+}
+
+export interface MatchedGscPagePerformance {
+  assetId: string;
+  title: string;
+  liveUrl: string;
+  path: string;
+  publishedAt?: string;
+  gscClicks: number;
+  gscImpressions: number;
+  gscCtr: number;
+  gscPosition: number;
+  topQueries: { query: string; clicks: number; impressions: number; ctr: number; position: number }[];
+  hasGscData: boolean;
 }
 
 // ---- Brand Intelligence / Content Memory v1 ----

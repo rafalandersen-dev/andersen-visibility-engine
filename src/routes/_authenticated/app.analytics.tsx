@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store";
 import { useT } from "@/i18n";
 import { getAnalyticsSummaryFn, type AnalyticsSummary } from "@/lib/analytics.functions";
+import { GscLiteSection } from "@/components/GscLiteSection";
 import { BarChart3, Loader2, RefreshCw, AlertTriangle, Copy, ExternalLink, Bot } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -98,7 +99,10 @@ function AnalyticsPage() {
           <Button className="mt-4" variant="outline" onClick={load}><RefreshCw className="h-4 w-4" /> {t("common.retry")}</Button>
         </div>
       ) : data && !data.hasData ? (
-        <EmptyState snippet={snippet} onCopy={copySnippet} />
+        <div className="space-y-8">
+          <EmptyState snippet={snippet} onCopy={copySnippet} />
+          <GscLiteSection project={project} />
+        </div>
       ) : data ? (
         <div className="space-y-8">
           {/* Section 1 — Growth proof summary */}
@@ -188,7 +192,10 @@ function AnalyticsPage() {
             )}
           </section>
 
-          {/* Section 3 — Top growing pages */}
+          {/* Section 3 — Search Console Lite / SEO Proof */}
+          <GscLiteSection project={project} onsite={data.publishedContentPerformance} />
+
+          {/* Section 4 — Top growing pages */}
           <section>
             <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-3">{t("analytics.v2.topGrowing")}</div>
             {data.topGrowingPages.length === 0 ? (
