@@ -535,6 +535,50 @@ export interface AuthorityOpportunity {
   liveAt?: string;
 }
 
+// ---- AI Provider Router / Evaluation v1 ----
+export type AiTaskType =
+  | "websiteScan"
+  | "opportunityGeneration"
+  | "contentGeneration"
+  | "contentImprove"
+  | "contentQualityScore"
+  | "authorityGeneration"
+  | "auditAnalysis"
+  | "competitorGap"
+  | "aiVisibility"
+  | "analyticsSummary"
+  | "brandIntelligenceSuggestion";
+
+export interface AiEvaluationRating {
+  quality?: number;
+  brandFit?: number;
+  languageQuality?: number;
+  usefulness?: number;
+  safetyTrust?: number;
+}
+
+export interface AiEvaluationRun {
+  id: string;
+  createdAt: string;
+  projectId: string;
+  taskType: AiTaskType;
+  existingModel: string;
+  candidateModel?: string;
+  existingStatus: "success" | "error";
+  candidateStatus: "success" | "error" | "notConfigured";
+  existingLatencyMs?: number;
+  candidateLatencyMs?: number;
+  existingOutputPreview?: string;
+  candidateOutputPreview?: string;
+  existingError?: string;
+  candidateError?: string;
+  ratings?: {
+    existing?: AiEvaluationRating;
+    candidate?: AiEvaluationRating;
+  };
+  notes?: string;
+}
+
 // ---- AI Visibility v1 ----
 // Planning / readiness module — NOT live AI rank tracking. No external AI engine
 // is queried; everything is framed as likely gaps and readiness, not live results.

@@ -27,6 +27,7 @@ import type {
   CompetitorAnalysisResult,
   AuthorityAnalysisResult,
   AuthorityOpportunity,
+  AiEvaluationRun,
   AiVisibilityAnalysisResult,
 } from "./types";
 import {
@@ -51,6 +52,8 @@ interface State {
   aiVisibilityAnalyses: AiVisibilityAnalysisResult[];
   /** Authority Builder v2 — trackable authority opportunities. */
   authorityOpportunities: AuthorityOpportunity[];
+  /** AI Provider Router — internal model evaluation runs (latest 20). */
+  aiEvaluationRuns: AiEvaluationRun[];
   activeProjectId: string;
   /** Whether the active user's workspace has been loaded from Cloud. */
   hydrated: boolean;
@@ -69,6 +72,7 @@ const emptyState: State = {
   authorityAnalyses: [],
   aiVisibilityAnalyses: [],
   authorityOpportunities: [],
+  aiEvaluationRuns: [],
   activeProjectId: "",
   hydrated: false,
   userId: null,
@@ -87,6 +91,7 @@ const ssrSnapshot: State = {
   authorityAnalyses: [],
   aiVisibilityAnalyses: [],
   authorityOpportunities: [],
+  aiEvaluationRuns: [],
   activeProjectId: seedProjects[0]?.id ?? "",
   hydrated: false,
   userId: null,
@@ -120,6 +125,7 @@ export async function saveWorkspaceNow(): Promise<void> {
     authorityAnalyses: state.authorityAnalyses,
     aiVisibilityAnalyses: state.aiVisibilityAnalyses,
     authorityOpportunities: state.authorityOpportunities,
+    aiEvaluationRuns: state.aiEvaluationRuns,
     activeProjectId: state.activeProjectId,
   };
   const { error } = await supabase
@@ -199,6 +205,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
         authorityAnalyses: d.authorityAnalyses ?? [],
         aiVisibilityAnalyses: d.aiVisibilityAnalyses ?? [],
         authorityOpportunities: d.authorityOpportunities ?? [],
+        aiEvaluationRuns: d.aiEvaluationRuns ?? [],
         activeProjectId: d.activeProjectId ?? (d.projects?.[0]?.id ?? ""),
         hydrated: true,
         userId,
@@ -217,6 +224,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
         authorityAnalyses: [],
         aiVisibilityAnalyses: [],
         authorityOpportunities: [],
+        aiEvaluationRuns: [],
         activeProjectId: "",
         hydrated: true,
         userId,
@@ -247,6 +255,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
       authorityAnalyses: [],
       aiVisibilityAnalyses: [],
       authorityOpportunities: [],
+      aiEvaluationRuns: [],
       activeProjectId: "",
       hydrated: true,
       userId,
@@ -618,6 +627,17 @@ export const removeAuthorityOpportunity = (id: string) =>
   setState((s) => ({
     ...s,
     authorityOpportunities: s.authorityOpportunities.filter((a) => a.id !== id),
+  }));
+
+// ---- AI evaluation runs (latest 20) ----
+
+export const addAiEvaluationRun = (run: AiEvaluationRun) =>
+  setState((s) => ({ ...s, aiEvaluationRuns: [run, ...s.aiEvaluationRuns].slice(0, 20) }));
+
+export const updateAiEvaluationRun = (id: string, patch: Partial<AiEvaluationRun>) =>
+  setState((s) => ({
+    ...s,
+    aiEvaluationRuns: s.aiEvaluationRuns.map((r) => (r.id === id ? { ...r, ...patch } : r)),
   }));
 
 // ---- AI Visibility ----

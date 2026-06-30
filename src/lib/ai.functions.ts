@@ -9,9 +9,11 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { generateText } from "ai";
 import { z } from "zod";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 import { normalizeQualityScore } from "./quality";
 import { brandIntelligenceBlock } from "./brand";
+import { candidateUsesOpenRouter, getRouterStatus } from "./ai-router";
 import type {
   Project,
   ServiceItem,
@@ -218,6 +220,27 @@ function getGateway() {
   const key = process.env.LOVABLE_API_KEY;
   if (!key) throw new Error("AI Gateway is not configured.");
   return createLovableAiGatewayProvider(key);
+}
+
+/**
+ * Resolve the AI SDK model callable for a request. With no override → the
+ * production model via the Lovable gateway (unchanged). With a candidate model
+ * id → OpenRouter when its key is set, otherwise the same gateway with that id.
+ * Secrets are read server-side only and never returned or logged.
+ */
+function modelFor(modelId?: string) {
+  if (!modelId || modelId === MODEL) return getGateway()(MODEL);
+  if (candidateUsesOpenRouter()) {
+    const key = (process.env.OPENROUTER_API_KEY ?? "").trim();
+    if (!key) throw new Error("Candidate model is not configured.");
+    const provider = createOpenAICompatible({
+      name: "openrouter",
+      baseURL: "https://openrouter.ai/api/v1",
+      headers: { Authorization: `Bearer ${key}` },
+    });
+    return provider(modelId);
+  }
+  return getGateway()(modelId);
 }
 
 type UnknownRecord = Record<string, unknown>;
@@ -623,10 +646,9 @@ function normalizeVisibilityGap(value: unknown, index: number) {
 // budget on internal reasoning before emitting the answer, so the cap must
 // cover reasoning + the JSON payload or the response truncates mid-JSON.
 // 16k leaves ample headroom for our small JSON/markdown outputs.
-async function generateJsonText(prompt: string, maxOutputTokens = 16000) {
-  const gateway = getGateway();
+async function generateJsonText(prompt: string, maxOutputTokens = 16000, modelId?: string) {
   const { text } = await generateText({
-    model: gateway(MODEL),
+    model: modelFor(modelId),
     maxOutputTokens,
     prompt,
   });
@@ -1610,6 +1632,7 @@ export const generateContentFn = createServerFn({ method: "POST" })
         services: z.array(z.any()).default([]),
         opportunity: z.any(),
         assetType: z.enum(CONTENT_ASSET_TYPES),
+        modelOverride: z.string().optional(),
       })
       .parse(input),
   )
@@ -1643,6 +1666,7 @@ Business context:
 ${brief}
 ${sharedRules}`,
         8000,
+        data.modelOverride,
       );
 
       return normalizeContentAsset(payload, project, opp);
@@ -1775,6 +1799,7 @@ export const evaluateContentQualityFn = createServerFn({ method: "POST" })
         metaDescription: z.string().default(""),
         contentLanguage: z.string().default("English"),
         explanationLanguage: z.string().default("English"),
+        modelOverride: z.string().optional(),
       })
       .parse(input),
   )
@@ -1820,10 +1845,11 @@ ${data.markdown.slice(0, 12000)}
 """
 ${sharedRules}`,
         4000,
+        data.modelOverride,
       );
       // Normalize server-side so the return type is a concrete, serializable
       // QualityScore (defensive: clamps, recomputes overall, fills fallbacks).
-      return normalizeQualityScore(payload, new Date().toISOString(), MODEL);
+      return normalizeQualityScore(payload, new Date().toISOString(), data.modelOverride || MODEL);
     } catch (e) {
       throw mapGatewayError(e);
     }
@@ -1841,6 +1867,7 @@ export const improveContentDraftFn = createServerFn({ method: "POST" })
         assetType: z.string().default("article"),
         contentLanguage: z.string().default("English"),
         suggestions: z.array(z.string()).default([]),
+        modelOverride: z.string().optional(),
       })
       .parse(input),
   )
@@ -1870,6 +1897,7 @@ ${data.markdown.slice(0, 12000)}
 """
 ${sharedRules}`,
         8000,
+        data.modelOverride,
       );
       const item = isRecord(payload) ? payload : {};
       const markdown = pickString(item, ["markdown", "content", "body", "draft"], data.markdown);
@@ -1942,6 +1970,7 @@ export const generateAuthorityOpportunitiesFn = createServerFn({ method: "POST" 
         existingTitles: z.array(z.string()).default([]),
         livePages: z.array(z.string()).default([]),
         explanationLanguage: z.string().default("English"),
+        modelOverride: z.string().optional(),
       })
       .parse(input),
   )
@@ -1978,6 +2007,7 @@ THIS BUSINESS:
 ${brief}
 ${existingBlock}${liveBlock}${sharedRules}`,
         7000,
+        data.modelOverride,
       );
       const root = isRecord(payload) ? payload : {};
       const opportunities = extractArray(root, ["opportunities", "authorityOpportunities", "items", "results", "actions"]).map(
@@ -1988,3 +2018,8 @@ ${existingBlock}${liveBlock}${sharedRules}`,
       throw mapGatewayError(e);
     }
   });
+
+/** UI-safe AI router status (no secrets) for the internal evaluation page. */
+export const getAiRouterStatusFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => getRouterStatus());

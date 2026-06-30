@@ -18,6 +18,7 @@ import {
   FileText,
   Building2,
   CreditCard,
+  FlaskConical,
   LogOut,
   Crown,
 } from "lucide-react";
@@ -41,6 +42,7 @@ const NAV: NavItem[] = [
   { to: "/app/calendar", tKey: "nav.calendar", icon: CalendarDays },
   { to: "/app/editor", tKey: "nav.editor", icon: FileText },
   { to: "/app/analytics", tKey: "nav.analytics", icon: BarChart3 },
+  { to: "/app/ai-evaluation", tKey: "nav.aiEvaluation", icon: FlaskConical },
   { to: "/app/billing", tKey: "nav.billing", icon: CreditCard },
 ];
 
