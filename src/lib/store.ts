@@ -29,6 +29,8 @@ import type {
   AuthorityOpportunity,
   AiEvaluationRun,
   AiVisibilityAnalysisResult,
+  PublishingConnectorType,
+  WordPressPublishingSettings,
 } from "./types";
 import {
   seedProjects,
@@ -447,6 +449,24 @@ export const updateProjectPublishingSettings = (projectId: string, settings: Pro
     projects: s.projects.map((p) => (p.id === projectId ? { ...p, ...settings } : p)),
   }));
 
+/** Set the project's connector type and/or WordPress settings (merges wordpress fields). */
+export const updateProjectConnector = (
+  projectId: string,
+  settings: { connectorType?: PublishingConnectorType; wordpress?: Partial<WordPressPublishingSettings> },
+) =>
+  setState((s) => ({
+    ...s,
+    projects: s.projects.map((p) =>
+      p.id === projectId
+        ? {
+            ...p,
+            connectorType: settings.connectorType ?? p.connectorType,
+            wordpress: settings.wordpress ? { ...p.wordpress, ...settings.wordpress } : p.wordpress,
+          }
+        : p,
+    ),
+  }));
+
 /** Mark a content asset as successfully sent to the website as a draft. */
 export const markContentAssetSent = (
   assetId: string,
@@ -456,6 +476,9 @@ export const markContentAssetSent = (
     publishedDraftUrl?: string;
     publishExternalId?: string;
     lastPublishedAt: string;
+    publishPlatform?: ContentAsset["publishPlatform"];
+    wordpressPostId?: number;
+    wordpressPostType?: ContentAsset["wordpressPostType"];
   },
 ) =>
   setState((s) => ({
@@ -471,6 +494,9 @@ export const markContentAssetSent = (
             publishExternalId: data.publishExternalId ?? c.publishExternalId,
             lastPublishedAt: data.lastPublishedAt,
             lastPublishError: undefined,
+            publishPlatform: data.publishPlatform ?? c.publishPlatform,
+            wordpressPostId: data.wordpressPostId ?? c.wordpressPostId,
+            wordpressPostType: data.wordpressPostType ?? c.wordpressPostType,
           }
         : c,
     ),
@@ -503,7 +529,14 @@ export const resetContentAssetPublishStatus = (assetId: string) =>
 /** Mark a content asset as published live on the connected website. */
 export const markContentAssetPublishedLive = (
   assetId: string,
-  data: { liveUrl: string; livePublishedAt: string; publishExternalId?: string },
+  data: {
+    liveUrl: string;
+    livePublishedAt: string;
+    publishExternalId?: string;
+    publishPlatform?: ContentAsset["publishPlatform"];
+    wordpressPostId?: number;
+    wordpressPostType?: ContentAsset["wordpressPostType"];
+  },
 ) =>
   setState((s) => ({
     ...s,
@@ -517,6 +550,11 @@ export const markContentAssetPublishedLive = (
             livePublishError: undefined,
             autoPublishError: undefined,
             publishExternalId: data.publishExternalId ?? c.publishExternalId,
+            publishPlatform: data.publishPlatform ?? c.publishPlatform,
+            wordpressPostId: data.wordpressPostId ?? c.wordpressPostId,
+            wordpressPostType: data.wordpressPostType ?? c.wordpressPostType,
+            // A published asset is implicitly "sent" too (covers create-and-publish).
+            publishStatus: c.publishStatus === "notSent" ? ("sent" as const) : c.publishStatus,
           }
         : c,
     ),

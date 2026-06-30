@@ -165,7 +165,11 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
 
   // ---- Publishing v1 ----
   const project = useStore((s) => s.projects.find((p) => p.id === asset.projectId));
-  const publishConfigured = Boolean(project?.publishEndpoint && project?.publishSecret);
+  const isWordPress = project?.connectorType === "wordpress";
+  const wpConfigured = Boolean(
+    project?.wordpress?.siteUrl && project?.wordpress?.username && project?.wordpress?.applicationPassword,
+  );
+  const publishConfigured = isWordPress ? wpConfigured : Boolean(project?.publishEndpoint && project?.publishSecret);
   const [sendOpen, setSendOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [destType, setDestType] = useState<PublishDestinationType>(
@@ -174,7 +178,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   const [publishSlug, setPublishSlug] = useState(asset.slug);
   // ---- Publishing v1.1 (live + auto-publish) ----
   const publishMode = project?.publishMode ?? "draftOnly";
-  const liveConfigured = Boolean(project?.livePublishEndpoint && project?.publishSecret);
+  const liveConfigured = isWordPress ? wpConfigured : Boolean(project?.livePublishEndpoint && project?.publishSecret);
   const [liveConfirmOpen, setLiveConfirmOpen] = useState(false);
   const [publishingLive, setPublishingLive] = useState(false);
   const [autoBusy, setAutoBusy] = useState(false);
@@ -376,6 +380,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 {live.publishStatus === "sent" ? t("editor.publish.reSendToWebsite") : t("editor.publish.sendToWebsite")}
               </Button>
               <PublishStatusBadge status={live.publishStatus} />
+              {live.publishPlatform === "wordpress" && live.wordpressPostId ? (
+                <span className="text-xs text-muted-foreground">WordPress #{live.wordpressPostId} · {live.wordpressPostType}</span>
+              ) : null}
               {live.lastPublishedAt ? (
                 <span className="text-xs text-muted-foreground">
                   {live.publishStatus === "failed" ? "Last attempt" : "Sent"}{" "}

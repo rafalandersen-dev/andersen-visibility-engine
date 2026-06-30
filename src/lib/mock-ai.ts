@@ -40,6 +40,7 @@ import {
   addOpportunities,
   updateOpportunity,
   updateProject,
+  updateProjectConnector,
   uid,
 } from "./store";
 import type {
@@ -81,6 +82,11 @@ import {
   improveContentDraftFn,
 } from "./ai.functions";
 import { publishContentFn, publishLiveFn } from "./publish.functions";
+import {
+  testWordPressConnectionFn,
+  sendContentToWordPressDraftFn,
+  publishWordPressContentFn,
+} from "./wordpress.functions";
 import { tooShortScore, draftWordCount, MIN_EVALUABLE_WORDS } from "./quality";
 
 function slugify(s: string) {
@@ -1124,6 +1130,118 @@ export async function generateContentForOpportunity(opportunityId: string, asset
 }
 
 // ============================================================
+// WordPress Connector v1
+// ============================================================
+
+function isWordPress(project: Project): boolean {
+  return project.connectorType === "wordpress";
+}
+
+function wpPostTypeFor(asset: ContentAsset, project: Project): "post" | "page" {
+  if (asset.wordpressPostType) return asset.wordpressPostType;
+  const at = (asset.assetType ?? "").toLowerCase();
+  if (/service|landing|location/.test(at)) return "page";
+  return project.wordpress?.defaultPostType ?? "post";
+}
+
+function wpCreds(project: Project): { siteUrl: string; username: string; applicationPassword: string } {
+  const wp = project.wordpress ?? {};
+  const siteUrl = (wp.siteUrl ?? "").trim();
+  const username = (wp.username ?? "").trim();
+  const applicationPassword = wp.applicationPassword ?? "";
+  if (!siteUrl || !username || !applicationPassword.trim()) {
+    throw new Error("Connect WordPress in Project Setup (site URL, username and application password) first.");
+  }
+  return { siteUrl, username, applicationPassword };
+}
+
+/** Test the project's WordPress connection and persist the result (no secrets stored beyond settings). */
+export async function testWordPressConnection(projectId: string) {
+  const s = getState();
+  const project = s.projects.find((p) => p.id === projectId);
+  if (!project) throw new Error("Project not found.");
+  const creds = wpCreds(project);
+  const res = await testWordPressConnectionFn({ data: creds });
+  updateProjectConnector(projectId, {
+    wordpress: {
+      lastTestedAt: new Date().toISOString(),
+      lastTestStatus: res.success ? "success" : "error",
+      lastTestMessage: res.success ? res.message : res.error,
+    },
+  });
+  await saveWorkspaceNow();
+  return res;
+}
+
+async function sendToWordPressDraft(asset: ContentAsset, project: Project, slug: string) {
+  const creds = wpCreds(project);
+  const postType = wpPostTypeFor(asset, project);
+  const res = await sendContentToWordPressDraftFn({
+    data: {
+      ...creds,
+      postType,
+      postId: asset.wordpressPostId,
+      title: asset.title,
+      contentMarkdown: asset.markdown,
+      slug: (slug || asset.slug || "").trim(),
+      excerpt: asset.metaDescription ?? "",
+    },
+  });
+  if (!res.success) {
+    const msg = res.error || "WordPress draft failed. Please try again.";
+    markContentAssetPublishFailed(asset.id, msg, new Date().toISOString());
+    await saveWorkspaceNow();
+    throw new Error(msg);
+  }
+  markContentAssetSent(asset.id, {
+    publishDestinationType: asset.publishDestinationType ?? "blogPost",
+    publishSlug: (slug || asset.slug || "").trim(),
+    publishedDraftUrl: res.editUrl || res.liveUrl || undefined,
+    publishExternalId: res.postId ? String(res.postId) : undefined,
+    lastPublishedAt: new Date().toISOString(),
+    publishPlatform: "wordpress",
+    wordpressPostId: res.postId,
+    wordpressPostType: res.postType,
+  });
+  await saveWorkspaceNow();
+  console.info("[ai.client] WordPress draft sent", { projectId: project.id, postType });
+  return res;
+}
+
+async function publishToWordPressLive(asset: ContentAsset, project: Project) {
+  const creds = wpCreds(project);
+  const postType = wpPostTypeFor(asset, project);
+  const res = await publishWordPressContentFn({
+    data: {
+      ...creds,
+      postType,
+      postId: asset.wordpressPostId,
+      title: asset.title,
+      contentMarkdown: asset.markdown,
+      slug: (asset.publishSlug || asset.slug || "").trim(),
+      excerpt: asset.metaDescription ?? "",
+    },
+  });
+  if (!res.success || !res.liveUrl) {
+    const msg = res.error || "WordPress published but did not return a live URL.";
+    markContentAssetLivePublishFailed(asset.id, msg, new Date().toISOString());
+    await saveWorkspaceNow();
+    throw new Error(msg);
+  }
+  markContentAssetPublishedLive(asset.id, {
+    liveUrl: res.liveUrl,
+    livePublishedAt: new Date().toISOString(),
+    publishExternalId: res.postId ? String(res.postId) : undefined,
+    publishPlatform: "wordpress",
+    wordpressPostId: res.postId,
+    wordpressPostType: res.postType,
+  });
+  await saveWorkspaceNow();
+  console.info("[ai.client] WordPress published live", { projectId: project.id, postType });
+  return res;
+}
+
+// ============================================================
 // Publishing v1 — send a content asset to the connected website as a draft
 // ============================================================
 
@@ -1144,6 +1262,11 @@ export async function sendContentToWebsite(
     if (!asset) throw new Error("Content asset not found.");
     const project = s.projects.find((p) => p.id === asset.projectId);
     if (!project) throw new Error("Project not found.");
+
+    // WordPress connector branch — create/update a WordPress draft.
+    if (isWordPress(project)) {
+      return sendToWordPressDraft(asset, project, slug);
+    }
 
     const endpoint = (project.publishEndpoint ?? "").trim();
     const secret = (project.publishSecret ?? "").trim();
@@ -1206,6 +1329,11 @@ export async function publishContentLive(assetId: string) {
     const project = s.projects.find((p) => p.id === asset.projectId);
     if (!project) throw new Error("Project not found.");
 
+    // WordPress connector branch — publish/update the post live (create if needed).
+    if (isWordPress(project)) {
+      return publishToWordPressLive(asset, project);
+    }
+
     const liveEndpoint = (project.livePublishEndpoint ?? "").trim();
     const secret = (project.publishSecret ?? "").trim();
     if (!liveEndpoint) throw new Error("Add a live-publish endpoint in Project Setup first.");
@@ -1258,21 +1386,28 @@ export async function runAutoPublishOnApprove(assetId: string): Promise<{ liveUr
   const project = s.projects.find((p) => p.id === asset.projectId);
   if (!project || project.publishMode !== "autoPublishApproved") return null;
 
-  const endpoint = (project.publishEndpoint ?? "").trim();
-  const secret = (project.publishSecret ?? "").trim();
-  const liveEndpoint = (project.livePublishEndpoint ?? "").trim();
-  // Missing configuration → do not attempt auto-publish (no error, no status change).
-  if (!endpoint || !secret || !liveEndpoint) return null;
+  const wp = isWordPress(project);
+  if (wp) {
+    // WordPress: require credentials; live publish creates the post if needed.
+    const w = project.wordpress ?? {};
+    if (!(w.siteUrl?.trim() && w.username?.trim() && (w.applicationPassword ?? "").trim())) return null;
+  } else {
+    const endpoint = (project.publishEndpoint ?? "").trim();
+    const secret = (project.publishSecret ?? "").trim();
+    const liveEndpoint = (project.livePublishEndpoint ?? "").trim();
+    // Missing configuration → do not attempt auto-publish (no error, no status change).
+    if (!endpoint || !secret || !liveEndpoint) return null;
+  }
 
   try {
-    // 1. Ensure a draft exists on the website.
-    if (asset.publishStatus !== "sent") {
+    // 1. Custom connector: ensure a draft exists first. WordPress publish creates as needed.
+    if (!wp && asset.publishStatus !== "sent") {
       const dest = asset.publishDestinationType ?? project.defaultDestinationType ?? "blogPost";
       await sendContentToWebsite(assetId, dest, asset.publishSlug ?? asset.slug);
     }
     // 2. Publish it live.
     const res = await publishContentLive(assetId);
-    return { liveUrl: res.liveUrl };
+    return { liveUrl: res.liveUrl ?? "" };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Auto-publish failed.";
     markContentAssetLivePublishFailed(assetId, msg, new Date().toISOString(), { auto: true });

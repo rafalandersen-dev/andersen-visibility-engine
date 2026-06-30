@@ -569,6 +569,26 @@ export const en: Record<string, string> = {
   "publicAudit.cat.searchStructure": "Search structure",
   "publicAudit.cat.contentDepth": "Content depth",
   "publicAudit.cat.technicalBasics": "Technical basics",
+
+  // ---- WordPress Connector ----
+  "wp.connectorType": "Connector type",
+  "wp.custom": "Custom Milo Connector",
+  "wp.wordpress": "WordPress",
+  "wp.siteUrl": "WordPress site URL",
+  "wp.username": "Username",
+  "wp.defaultPostType": "Default content type",
+  "wp.post": "Post",
+  "wp.page": "Page",
+  "wp.appPassword": "Application password",
+  "wp.appPasswordSaved": "•••••• saved — leave blank to keep",
+  "wp.appPasswordHelp": "Create an Application Password in your WordPress user profile and paste it here. Milo uses it server-side to create drafts and publish through the WordPress REST API.",
+  "wp.security": "Your application password is never shown again after saving. You can replace it at any time.",
+  "wp.minPerms": "Use a dedicated WordPress user or application password with the minimum permissions needed to create and publish content.",
+  "wp.test": "Test connection",
+  "wp.testing": "Testing…",
+  "wp.testOk": "Connected to WordPress.",
+  "wp.testFail": "Could not connect to WordPress. Check the site URL and application password.",
+  "wp.reviewNote": "Review all content before publishing. Milo can send drafts to WordPress, but you remain responsible for checking accuracy, claims, formatting, links and compliance.",
 };
 
 export type Dict = typeof en;

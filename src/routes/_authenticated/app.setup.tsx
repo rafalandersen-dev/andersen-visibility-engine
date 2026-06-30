@@ -17,11 +17,13 @@ import {
   addProject,
   ProjectLimitError,
   updateProjectPublishingSettings,
+  updateProjectConnector,
   saveWorkspaceNow,
 } from "@/lib/store";
+import { testWordPressConnectionFn } from "@/lib/wordpress.functions";
 import { useAuth } from "@/lib/auth";
 
-import type { Language, Project, PublishDestinationType, PublishMode, Market, OnboardingLanguage } from "@/lib/types";
+import type { Language, Project, PublishDestinationType, PublishMode, Market, OnboardingLanguage, PublishingConnectorType } from "@/lib/types";
 import { MARKETS, LANGUAGE_OPTIONS, GROWTH_GOALS, GOAL_KEYS, marketKey, marketDefaults } from "@/lib/onboarding";
 import { useT } from "@/i18n";
 import { BrandIntelligenceCard } from "@/components/BrandIntelligenceCard";
@@ -324,6 +326,8 @@ const MODE_OPTIONS: { value: PublishMode; label: string }[] = [
 ];
 
 function PublishingCard({ project }: { project: Project }) {
+  const t = useT();
+  const [connectorType, setConnectorType] = useState<PublishingConnectorType>(project.connectorType ?? "custom");
   const [endpoint, setEndpoint] = useState(project.publishEndpoint ?? "");
   const [liveEndpoint, setLiveEndpoint] = useState(project.livePublishEndpoint ?? "");
   const [secret, setSecret] = useState(project.publishSecret ?? "");
@@ -336,29 +340,66 @@ function PublishingCard({ project }: { project: Project }) {
   const liveEndpointId = useId();
   const secretId = useId();
 
+  // ---- WordPress connector state ----
+  const [wpSiteUrl, setWpSiteUrl] = useState(project.wordpress?.siteUrl ?? "");
+  const [wpUsername, setWpUsername] = useState(project.wordpress?.username ?? "");
+  const [wpAppPassword, setWpAppPassword] = useState(""); // never pre-filled
+  const [wpPostType, setWpPostType] = useState<"post" | "page">(project.wordpress?.defaultPostType ?? "post");
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const hasSavedWpPassword = Boolean(project.wordpress?.applicationPassword);
+
   const urlOk = (v: string) => !v.trim() || /^https?:\/\/\S+\.\S+/.test(v.trim());
 
+  async function testWp() {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const applicationPassword = wpAppPassword.trim() || project.wordpress?.applicationPassword || "";
+      const res = await testWordPressConnectionFn({
+        data: { siteUrl: wpSiteUrl.trim(), username: wpUsername.trim(), applicationPassword },
+      });
+      setTestResult({ ok: res.success, message: res.success ? res.message || t("wp.testOk") : res.error || t("wp.testFail") });
+    } catch (e) {
+      setTestResult({ ok: false, message: e instanceof Error ? e.message : t("wp.testFail") });
+    } finally {
+      setTesting(false);
+    }
+  }
+
   async function save() {
-    if (!urlOk(endpoint)) {
-      toast.error("Publish endpoint must start with http:// or https://");
-      return;
-    }
-    if (!urlOk(liveEndpoint)) {
-      toast.error("Live publish endpoint must start with http:// or https://");
-      return;
-    }
     setSaving(true);
     try {
-      updateProjectPublishingSettings(project.id, {
-        publishingPlatform: "lovableCustomEndpoint",
-        publishEndpoint: endpoint.trim(),
-        livePublishEndpoint: liveEndpoint.trim(),
-        publishSecret: secret,
-        defaultPublishMode: "draft",
-        defaultDestinationType: destination,
-        publishMode: mode,
-      });
+      if (connectorType === "wordpress") {
+        updateProjectConnector(project.id, {
+          connectorType: "wordpress",
+          wordpress: {
+            enabled: true,
+            siteUrl: wpSiteUrl.trim(),
+            username: wpUsername.trim(),
+            defaultPostType: wpPostType,
+            defaultStatus: "draft",
+            // Only overwrite the saved password when a new one is typed.
+            ...(wpAppPassword.trim() ? { applicationPassword: wpAppPassword } : {}),
+          },
+        });
+        updateProjectPublishingSettings(project.id, { publishMode: mode });
+      } else {
+        if (!urlOk(endpoint)) { toast.error("Publish endpoint must start with http:// or https://"); setSaving(false); return; }
+        if (!urlOk(liveEndpoint)) { toast.error("Live publish endpoint must start with http:// or https://"); setSaving(false); return; }
+        updateProjectConnector(project.id, { connectorType: "custom" });
+        updateProjectPublishingSettings(project.id, {
+          publishingPlatform: "lovableCustomEndpoint",
+          publishEndpoint: endpoint.trim(),
+          livePublishEndpoint: liveEndpoint.trim(),
+          publishSecret: secret,
+          defaultPublishMode: "draft",
+          defaultDestinationType: destination,
+          publishMode: mode,
+        });
+      }
       await saveWorkspaceNow();
+      setWpAppPassword("");
       toast.success("Publishing settings saved");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not save publishing settings");
@@ -371,83 +412,17 @@ function PublishingCard({ project }: { project: Project }) {
     <section className="rounded-lg border border-border bg-card p-6">
       <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Publishing</div>
       <div className="my-4 gold-rule" />
-      <p className="text-sm text-muted-foreground max-w-2xl">
-        Connect a Lovable/custom website endpoint so Milo can send content as website{" "}
-        <span className="text-foreground/80">drafts</span> and, when you choose, publish them{" "}
-        <span className="text-foreground/80">live</span> — all controlled from Milo. You never need
-        to publish from the website itself.
-      </p>
+      <p className="text-sm text-muted-foreground max-w-2xl">{t("wp.reviewNote")}</p>
 
       <div className="mt-5 grid md:grid-cols-2 gap-5">
         <div>
-          <Label className="text-xs font-medium text-muted-foreground">Website platform</Label>
-          <div className="mt-1.5 flex h-9 items-center rounded-md border border-border bg-secondary/40 px-3 text-sm text-foreground/80">
-            Lovable / Custom endpoint
-          </div>
-        </div>
-        <div>
-          <Label className="text-xs font-medium text-muted-foreground">Default publish mode</Label>
-          <div className="mt-1.5 flex h-9 items-center rounded-md border border-border bg-secondary/40 px-3 text-sm text-foreground/80">
-            Draft
-          </div>
-        </div>
-        <div className="md:col-span-2">
-          <Label htmlFor={endpointId} className="text-xs font-medium text-muted-foreground">
-            Publish endpoint
-          </Label>
+          <Label className="text-xs font-medium text-muted-foreground">{t("wp.connectorType")}</Label>
           <div className="mt-1.5">
-            <Input
-              id={endpointId}
-              value={endpoint}
-              onChange={(e) => setEndpoint(e.target.value)}
-              placeholder="https://yourwebsite.com/api/milo/publish"
-            />
-          </div>
-        </div>
-        <div className="md:col-span-2">
-          <Label htmlFor={liveEndpointId} className="text-xs font-medium text-muted-foreground">
-            Live publish endpoint
-          </Label>
-          <div className="mt-1.5">
-            <Input
-              id={liveEndpointId}
-              value={liveEndpoint}
-              onChange={(e) => setLiveEndpoint(e.target.value)}
-              placeholder="https://yourwebsite.com/api/milo/publish-live"
-            />
-          </div>
-          <p className="mt-1.5 text-xs text-muted-foreground">
-            Separate route Milo calls to publish a reviewed draft live. Uses the same publish secret.
-          </p>
-        </div>
-        <div className="md:col-span-2">
-          <Label htmlFor={secretId} className="text-xs font-medium text-muted-foreground">
-            Publish secret
-          </Label>
-          <div className="mt-1.5">
-            <Input
-              id={secretId}
-              type="password"
-              value={secret}
-              onChange={(e) => setSecret(e.target.value)}
-              placeholder="••••••••"
-              autoComplete="off"
-            />
-          </div>
-          <p className="mt-1.5 text-xs text-muted-foreground">
-            Stored privately and sent only as a request header. The same secret must be configured on
-            your target website.
-          </p>
-        </div>
-        <div>
-          <Label className="text-xs font-medium text-muted-foreground">Default destination</Label>
-          <div className="mt-1.5">
-            <Select value={destination} onValueChange={(v) => setDestination(v as PublishDestinationType)}>
+            <Select value={connectorType} onValueChange={(v) => setConnectorType(v as PublishingConnectorType)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {DEST_LABELS.map((d) => (
-                  <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
-                ))}
+                <SelectItem value="custom">{t("wp.custom")}</SelectItem>
+                <SelectItem value="wordpress">{t("wp.wordpress")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -465,6 +440,98 @@ function PublishingCard({ project }: { project: Project }) {
             </Select>
           </div>
         </div>
+
+        {connectorType === "wordpress" ? (
+          <>
+            <div className="md:col-span-2">
+              <Label className="text-xs font-medium text-muted-foreground">{t("wp.siteUrl")}</Label>
+              <Input className="mt-1.5" value={wpSiteUrl} onChange={(e) => setWpSiteUrl(e.target.value)} placeholder="https://yourwordpresssite.com" />
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-muted-foreground">{t("wp.username")}</Label>
+              <Input className="mt-1.5" value={wpUsername} onChange={(e) => setWpUsername(e.target.value)} autoComplete="off" />
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-muted-foreground">{t("wp.defaultPostType")}</Label>
+              <Select value={wpPostType} onValueChange={(v) => setWpPostType(v as "post" | "page")}>
+                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="post">{t("wp.post")}</SelectItem>
+                  <SelectItem value="page">{t("wp.page")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-2">
+              <Label className="text-xs font-medium text-muted-foreground">{t("wp.appPassword")}</Label>
+              <Input
+                className="mt-1.5"
+                type="password"
+                value={wpAppPassword}
+                onChange={(e) => setWpAppPassword(e.target.value)}
+                placeholder={hasSavedWpPassword ? t("wp.appPasswordSaved") : "xxxx xxxx xxxx xxxx xxxx xxxx"}
+                autoComplete="off"
+              />
+              <p className="mt-1.5 text-xs text-muted-foreground">{t("wp.appPasswordHelp")}</p>
+              <p className="text-xs text-muted-foreground">{t("wp.security")}</p>
+              <p className="text-xs text-muted-foreground">{t("wp.minPerms")}</p>
+            </div>
+            <div className="md:col-span-2 flex flex-wrap items-center gap-3">
+              <Button type="button" size="sm" variant="outline" onClick={testWp} disabled={testing || !wpSiteUrl.trim() || !wpUsername.trim()}>
+                {testing ? t("wp.testing") : t("wp.test")}
+              </Button>
+              {testResult ? (
+                <span className={`text-sm ${testResult.ok ? "text-emerald-600" : "text-destructive"}`}>{testResult.message}</span>
+              ) : null}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="md:col-span-2">
+              <Label htmlFor={endpointId} className="text-xs font-medium text-muted-foreground">
+                Publish endpoint
+              </Label>
+              <div className="mt-1.5">
+                <Input id={endpointId} value={endpoint} onChange={(e) => setEndpoint(e.target.value)} placeholder="https://yourwebsite.com/api/milo/publish" />
+              </div>
+            </div>
+            <div className="md:col-span-2">
+              <Label htmlFor={liveEndpointId} className="text-xs font-medium text-muted-foreground">
+                Live publish endpoint
+              </Label>
+              <div className="mt-1.5">
+                <Input id={liveEndpointId} value={liveEndpoint} onChange={(e) => setLiveEndpoint(e.target.value)} placeholder="https://yourwebsite.com/api/milo/publish-live" />
+              </div>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Separate route Milo calls to publish a reviewed draft live. Uses the same publish secret.
+              </p>
+            </div>
+            <div className="md:col-span-2">
+              <Label htmlFor={secretId} className="text-xs font-medium text-muted-foreground">
+                Publish secret
+              </Label>
+              <div className="mt-1.5">
+                <Input id={secretId} type="password" value={secret} onChange={(e) => setSecret(e.target.value)} placeholder="••••••••" autoComplete="off" />
+              </div>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Stored privately and sent only as a request header. The same secret must be configured on
+                your target website.
+              </p>
+            </div>
+            <div>
+              <Label className="text-xs font-medium text-muted-foreground">Default destination</Label>
+              <div className="mt-1.5">
+                <Select value={destination} onValueChange={(v) => setDestination(v as PublishDestinationType)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {DEST_LABELS.map((d) => (
+                      <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       <p className="mt-4 text-xs text-muted-foreground max-w-2xl">

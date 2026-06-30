@@ -48,6 +48,32 @@ export type PublishStatus = "notSent" | "sent" | "failed";
 export type PublishMode = "draftOnly" | "manualLive" | "autoPublishApproved";
 export type LivePublishStatus = "notPublished" | "published" | "failed";
 
+// ---- WordPress Connector v1 ----
+export type PublishingConnectorType = "custom" | "wordpress";
+
+export interface WordPressPublishingSettings {
+  enabled?: boolean;
+  siteUrl?: string;
+  username?: string;
+  applicationPassword?: string;
+  defaultPostType?: "post" | "page";
+  defaultStatus?: "draft";
+  lastTestedAt?: string;
+  lastTestStatus?: "success" | "error";
+  lastTestMessage?: string;
+}
+
+export interface WordPressPublishResult {
+  success: boolean;
+  postId?: number;
+  postType?: "post" | "page";
+  status?: "draft" | "publish";
+  editUrl?: string;
+  liveUrl?: string;
+  message?: string;
+  error?: string;
+}
+
 // ---- Onboarding Wizard v1 ----
 export type Market = "PL" | "SE" | "DK" | "UK" | "EU";
 export type Currency = "PLN" | "SEK" | "DKK" | "GBP" | "EUR";
@@ -79,6 +105,10 @@ export interface Project {
   livePublishEndpoint?: string;
   /** Workflow mode: draft only, manual publish-live, or auto-publish on Approve. */
   publishMode?: PublishMode;
+  // ---- WordPress Connector v1 (all optional → existing projects keep loading) ----
+  /** Which publishing connector this project uses (defaults to "custom"). */
+  connectorType?: PublishingConnectorType;
+  wordpress?: WordPressPublishingSettings;
   // ---- Onboarding Wizard v1 (all optional → existing projects keep loading) ----
   setupComplete?: boolean;
   market?: Market;
@@ -290,6 +320,11 @@ export interface ContentAsset {
   livePublishError?: string;
   autoPublishAttemptedAt?: string;
   autoPublishError?: string;
+  // ---- WordPress Connector v1 (all optional) ----
+  /** Which connector last published this asset. */
+  publishPlatform?: PublishingConnectorType;
+  wordpressPostId?: number;
+  wordpressPostType?: "post" | "page";
   // ---- Content Quality Engine / Milo Score v1 (all optional) ----
   qualityScore?: QualityScore;
   /** True when the draft changed after the last evaluation (prompts a re-evaluate). */
