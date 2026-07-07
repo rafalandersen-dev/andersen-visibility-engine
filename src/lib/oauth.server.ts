@@ -284,9 +284,25 @@ export async function processClientRegistration(
 }
 
 // ---- DB helpers (service role; lazy import keeps client bundle clean) ----
-async function admin(): Promise<{ from: (t: string) => { insert: (r: unknown) => Promise<{ error: { message: string } | null }> } }> {
+type Row = Record<string, unknown>;
+type SelectChain = {
+  eq: (k: string, v: string) => SelectChain;
+  is: (k: string, v: null) => SelectChain;
+  maybeSingle: () => Promise<{ data: Row | null; error: unknown }>;
+};
+type UpdateChain = {
+  eq: (k: string, v: string) => UpdateChain;
+  is: (k: string, v: null) => UpdateChain;
+} & Promise<{ error: unknown }>;
+type Table = {
+  select: (c: string) => SelectChain;
+  insert: (r: unknown) => Promise<{ error: { message: string } | null }>;
+  update: (r: unknown) => UpdateChain;
+};
+
+async function admin(): Promise<{ from: (t: string) => Table }> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return supabaseAdmin as unknown as { from: (t: string) => { insert: (r: unknown) => Promise<{ error: { message: string } | null }> } };
+  return supabaseAdmin as unknown as { from: (t: string) => Table };
 }
 
 /** Persist a registered client. Throws on failure (route maps to 500). */
@@ -294,6 +310,225 @@ export async function insertOAuthClient(row: Record<string, unknown>): Promise<v
   const db = await admin();
   const { error } = await db.from("oauth_clients").insert(row);
   if (error) throw new Error("client_insert_failed");
+}
+
+/** Load a registered client (safe subset). Returns null if unknown. */
+export interface OAuthClientRow {
+  client_id: string;
+  redirect_uris: string[];
+  scope: string | null;
+  disabled_at: string | null;
+}
+export async function getOAuthClient(clientId: string): Promise<OAuthClientRow | null> {
+  if (!clientId) return null;
+  const db = await admin();
+  const { data } = await db.from("oauth_clients").select("client_id,redirect_uris,scope,disabled_at").eq("client_id", clientId).maybeSingle();
+  if (!data) return null;
+  return {
+    client_id: String(data.client_id ?? ""),
+    redirect_uris: Array.isArray(data.redirect_uris) ? (data.redirect_uris as string[]) : [],
+    scope: (data.scope as string | null) ?? null,
+    disabled_at: (data.disabled_at as string | null) ?? null,
+  };
+}
+
+export async function insertAuthorizationRequest(row: Record<string, unknown>): Promise<void> {
+  const db = await admin();
+  const { error } = await db.from("oauth_authorization_requests").insert(row);
+  if (error) throw new Error("auth_request_insert_failed");
+}
+
+export async function getAuthorizationRequest(id: string): Promise<Row | null> {
+  if (!id) return null;
+  const db = await admin();
+  const { data } = await db.from("oauth_authorization_requests").select("*").eq("id", id).maybeSingle();
+  return data ?? null;
+}
+
+/** Mark a pending request consumed (only if not already). */
+export async function consumeAuthorizationRequest(id: string): Promise<void> {
+  const db = await admin();
+  await db.from("oauth_authorization_requests").update({ consumed_at: new Date().toISOString() }).eq("id", id).is("consumed_at", null);
+}
+
+export async function insertAuthorizationCode(row: Record<string, unknown>): Promise<void> {
+  const db = await admin();
+  const { error } = await db.from("oauth_authorization_codes").insert(row);
+  if (error) throw new Error("auth_code_insert_failed");
+}
+
+// ===========================================================================
+// Phase 2B — authorization request validation + pending request + code issuance
+// Pure helpers (DB-free) are unit-tested; the route/consent supply DB + ids.
+// ===========================================================================
+
+export const AUTH_REQUEST_TTL_MS = 10 * 60 * 1000; // pending request lives 10 min
+export const AUTH_CODE_TTL_MS = 5 * 60 * 1000; // issued code lives 5 min
+
+export interface AuthorizeParams {
+  response_type?: string;
+  client_id?: string;
+  redirect_uri?: string;
+  scope?: string;
+  code_challenge?: string;
+  code_challenge_method?: string;
+  resource?: string;
+  state?: string;
+}
+
+export interface NormalizedAuthorize {
+  clientId: string;
+  redirectUri: string;
+  scope: string;
+  codeChallenge: string;
+  codeChallengeMethod: string;
+  resource: string;
+  state?: string;
+}
+
+export type AuthorizeOutcome =
+  | { kind: "invalid_client" } // do NOT redirect — client unknown/disabled
+  | { kind: "invalid_redirect" } // do NOT redirect — redirect_uri untrusted
+  | { kind: "redirect_error"; redirectUri: string; error: string; description: string; state?: string }
+  | { kind: "ok"; normalized: NormalizedAuthorize };
+
+/**
+ * Classify an authorization request against a (already-loaded) client. Pure.
+ * Security: client + redirect_uri are validated FIRST; only once redirect_uri is
+ * confirmed against the registered set do we emit redirect-based errors.
+ */
+export function classifyAuthorizeRequest(
+  params: AuthorizeParams,
+  client: { redirect_uris: string[]; scope?: string | null; disabled_at?: string | null } | null,
+): AuthorizeOutcome {
+  if (!params.client_id || !client || client.disabled_at) return { kind: "invalid_client" };
+
+  const redirectUri = typeof params.redirect_uri === "string" ? params.redirect_uri.trim() : "";
+  if (!redirectUri || !client.redirect_uris.includes(redirectUri)) return { kind: "invalid_redirect" };
+
+  const state = typeof params.state === "string" && params.state ? params.state : undefined;
+  const rerr = (error: string, description: string): AuthorizeOutcome => ({ kind: "redirect_error", redirectUri, error, description, state });
+
+  if (params.response_type !== "code") return rerr("unsupported_response_type", "response_type must be 'code'.");
+  if (typeof params.code_challenge !== "string" || !params.code_challenge.trim()) return rerr("invalid_request", "code_challenge is required (PKCE).");
+  if (params.code_challenge_method !== "S256") return rerr("invalid_request", "code_challenge_method must be S256.");
+  if (params.resource !== MCP_RESOURCE_URL) return rerr("invalid_target", "resource must be the Milo MCP URL.");
+
+  let scopes: string[];
+  const reqScope = typeof params.scope === "string" ? params.scope.trim() : "";
+  if (!reqScope) {
+    scopes = client.scope ? parseScopes(client.scope) : [...OAUTH_SCOPES];
+  } else {
+    const v = validateScopes(parseScopes(reqScope));
+    if (!v.ok) return rerr("invalid_scope", `Unknown or disallowed scope(s): ${v.invalid.join(", ")}`);
+    scopes = v.scopes;
+  }
+
+  return {
+    kind: "ok",
+    normalized: {
+      clientId: params.client_id,
+      redirectUri,
+      scope: scopes.join(" "),
+      codeChallenge: params.code_challenge.trim(),
+      codeChallengeMethod: "S256",
+      resource: MCP_RESOURCE_URL,
+      state,
+    },
+  };
+}
+
+/** Append an OAuth error (+state) to a validated redirect_uri. Pure. */
+export function buildRedirectError(redirectUri: string, error: string, description?: string, state?: string): string {
+  const u = new URL(redirectUri);
+  u.searchParams.set("error", error);
+  if (description) u.searchParams.set("error_description", description);
+  if (state) u.searchParams.set("state", state);
+  return u.toString();
+}
+
+/** Append the authorization code (+state) to a validated redirect_uri. Pure. */
+export function buildCodeRedirect(redirectUri: string, code: string, state?: string): string {
+  const u = new URL(redirectUri);
+  u.searchParams.set("code", code);
+  if (state) u.searchParams.set("state", state);
+  return u.toString();
+}
+
+/** The stable internal consent redirect target. Phase 3 renders this page. */
+export function consentRedirectPath(requestId: string): string {
+  return `/app/connect?req=${encodeURIComponent(requestId)}`;
+}
+
+/** DB row for a pending authorization request. Pure. */
+export function buildPendingRequestRow(n: NormalizedAuthorize, id: string, expiresAtIso: string): Record<string, unknown> {
+  return {
+    id,
+    client_id: n.clientId,
+    redirect_uri: n.redirectUri,
+    scope: n.scope,
+    code_challenge: n.codeChallenge,
+    code_challenge_method: n.codeChallengeMethod,
+    resource: n.resource,
+    state: n.state ?? null,
+    expires_at: expiresAtIso,
+  };
+}
+
+/** DB row for an issued authorization code (hash only). Pure. */
+export function buildAuthCodeRow(pending: Row, userId: string, codeHash: string, expiresAtIso: string): Record<string, unknown> {
+  return {
+    code_hash: codeHash,
+    client_id: String(pending.client_id ?? ""),
+    user_id: userId,
+    redirect_uri: String(pending.redirect_uri ?? ""),
+    scope: String(pending.scope ?? ""),
+    code_challenge: String(pending.code_challenge ?? ""),
+    code_challenge_method: String(pending.code_challenge_method ?? "S256"),
+    resource: (pending.resource as string | null) ?? null,
+    expires_at: expiresAtIso,
+  };
+}
+
+export type IssueCodeResult =
+  | { ok: true; redirectUrl: string }
+  | { ok: false; reason: "not_found" | "already_used" | "expired" };
+
+/**
+ * Convert an APPROVED pending request into a single-use authorization code.
+ * Requires an authenticated user id (supplied by the consent server fn). The
+ * plaintext code is only used here to build the redirect; only its hash is
+ * stored. DB access is injected so the core is unit-testable.
+ */
+export async function issueAuthorizationCode(
+  requestId: string,
+  userId: string,
+  deps: {
+    loadRequest: (id: string) => Promise<Row | null>;
+    consumeRequest: (id: string) => Promise<void>;
+    insertCode: (row: Record<string, unknown>) => Promise<void>;
+    generateCode: () => string;
+    hash: (s: string) => Promise<string>;
+    nowMs: number;
+  },
+): Promise<IssueCodeResult> {
+  if (!userId) return { ok: false, reason: "not_found" };
+  const req = await deps.loadRequest(requestId);
+  if (!req) return { ok: false, reason: "not_found" };
+  if (req.consumed_at) return { ok: false, reason: "already_used" };
+  const expiresAt = typeof req.expires_at === "string" ? Date.parse(req.expires_at) : 0;
+  if (!expiresAt || expiresAt < deps.nowMs) return { ok: false, reason: "expired" };
+
+  // Consume first so a race cannot mint two codes from one request.
+  await deps.consumeRequest(requestId);
+
+  const code = deps.generateCode();
+  const codeHash = await deps.hash(code);
+  const codeExpiresIso = new Date(deps.nowMs + AUTH_CODE_TTL_MS).toISOString();
+  await deps.insertCode(buildAuthCodeRow(req, userId, codeHash, codeExpiresIso));
+
+  const state = typeof req.state === "string" && req.state ? req.state : undefined;
+  return { ok: true, redirectUrl: buildCodeRedirect(String(req.redirect_uri ?? ""), code, state) };
 }
 
 /** Best-effort audit log (no secrets). Never throws. */

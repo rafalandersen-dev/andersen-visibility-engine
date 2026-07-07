@@ -41,6 +41,7 @@ import { Route as DotwellKnownOauthAuthorizationServerRouteImport } from './rout
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app.index'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
 import { Route as ApiOauthRegisterRouteImport } from './routes/api.oauth.register'
+import { Route as ApiOauthAuthorizeRouteImport } from './routes/api.oauth.authorize'
 import { Route as ApiAnalyticsTrackRouteImport } from './routes/api.analytics.track'
 import { Route as AuthenticatedAppSetupRouteImport } from './routes/_authenticated/app.setup'
 import { Route as AuthenticatedAppServicesRouteImport } from './routes/_authenticated/app.services'
@@ -226,6 +227,11 @@ const ApiOauthRegisterRoute = ApiOauthRegisterRouteImport.update({
   path: '/api/oauth/register',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiOauthAuthorizeRoute = ApiOauthAuthorizeRouteImport.update({
+  id: '/api/oauth/authorize',
+  path: '/api/oauth/authorize',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAnalyticsTrackRoute = ApiAnalyticsTrackRouteImport.update({
   id: '/api/analytics/track',
   path: '/api/analytics/track',
@@ -404,6 +410,7 @@ export interface FileRoutesByFullPath {
   '/app/services': typeof AuthenticatedAppServicesRoute
   '/app/setup': typeof AuthenticatedAppSetupRoute
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
+  '/api/oauth/authorize': typeof ApiOauthAuthorizeRoute
   '/api/oauth/register': typeof ApiOauthRegisterRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/app/': typeof AuthenticatedAppIndexRoute
@@ -460,6 +467,7 @@ export interface FileRoutesByTo {
   '/app/services': typeof AuthenticatedAppServicesRoute
   '/app/setup': typeof AuthenticatedAppSetupRoute
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
+  '/api/oauth/authorize': typeof ApiOauthAuthorizeRoute
   '/api/oauth/register': typeof ApiOauthRegisterRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/app': typeof AuthenticatedAppIndexRoute
@@ -518,6 +526,7 @@ export interface FileRoutesById {
   '/_authenticated/app/services': typeof AuthenticatedAppServicesRoute
   '/_authenticated/app/setup': typeof AuthenticatedAppSetupRoute
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
+  '/api/oauth/authorize': typeof ApiOauthAuthorizeRoute
   '/api/oauth/register': typeof ApiOauthRegisterRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
@@ -576,6 +585,7 @@ export interface FileRouteTypes {
     | '/app/services'
     | '/app/setup'
     | '/api/analytics/track'
+    | '/api/oauth/authorize'
     | '/api/oauth/register'
     | '/lovable/email/suppression'
     | '/app/'
@@ -632,6 +642,7 @@ export interface FileRouteTypes {
     | '/app/services'
     | '/app/setup'
     | '/api/analytics/track'
+    | '/api/oauth/authorize'
     | '/api/oauth/register'
     | '/lovable/email/suppression'
     | '/app'
@@ -689,6 +700,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/services'
     | '/_authenticated/app/setup'
     | '/api/analytics/track'
+    | '/api/oauth/authorize'
     | '/api/oauth/register'
     | '/lovable/email/suppression'
     | '/_authenticated/app/'
@@ -731,6 +743,7 @@ export interface RootRouteChildren {
   BlogLocalSeoGuideRoute: typeof BlogLocalSeoGuideRoute
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
   ApiAnalyticsTrackRoute: typeof ApiAnalyticsTrackRoute
+  ApiOauthAuthorizeRoute: typeof ApiOauthAuthorizeRoute
   ApiOauthRegisterRoute: typeof ApiOauthRegisterRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
   ApiGoogleSearchConsoleCallbackRoute: typeof ApiGoogleSearchConsoleCallbackRoute
@@ -965,6 +978,13 @@ declare module '@tanstack/react-router' {
       path: '/api/oauth/register'
       fullPath: '/api/oauth/register'
       preLoaderRoute: typeof ApiOauthRegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/oauth/authorize': {
+      id: '/api/oauth/authorize'
+      path: '/api/oauth/authorize'
+      fullPath: '/api/oauth/authorize'
+      preLoaderRoute: typeof ApiOauthAuthorizeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/analytics/track': {
@@ -1207,6 +1227,7 @@ const rootRouteChildren: RootRouteChildren = {
   BlogLocalSeoGuideRoute: BlogLocalSeoGuideRoute,
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
   ApiAnalyticsTrackRoute: ApiAnalyticsTrackRoute,
+  ApiOauthAuthorizeRoute: ApiOauthAuthorizeRoute,
   ApiOauthRegisterRoute: ApiOauthRegisterRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
   ApiGoogleSearchConsoleCallbackRoute: ApiGoogleSearchConsoleCallbackRoute,
