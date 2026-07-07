@@ -38,18 +38,37 @@ export const Route = createFileRoute("/api/mcp")({
         try {
           const token = bearer(request);
           const { resolveUser, handleMcpMessage } = await import("@/lib/mcp.server");
-          const userId = token ? await resolveUser(token) : null;
-          if (!userId) {
-            // Phase 1: when the OAuth connector flag is on, advertise the
-            // protected-resource metadata so Claude.ai can begin the OAuth flow.
-            // Flag off preserves the original plain "Bearer" value. Token
-            // validation itself is unchanged (developer tokens only for now).
-            const { isOAuthEnabled, mcpWwwAuthenticate } = await import("@/lib/oauth.server");
+          const { isOAuthEnabled, mcpWwwAuthenticate, resolveAccessToken, parseScopes, logOAuthEvent } = await import("@/lib/oauth.server");
+          const oauthEnabled = isOAuthEnabled();
+
+          // Phase 4: when the flag is on, try to resolve an OAuth access token
+          // first (scoped grant); otherwise fall back to the legacy developer
+          // token (full read access). Flag off = developer tokens only.
+          let grant: { userId: string; scopes: string[] | null } | null = null;
+          let oauthClientId: string | undefined;
+          if (oauthEnabled && token) {
+            const at = await resolveAccessToken(token);
+            if (at) {
+              grant = { userId: at.userId, scopes: parseScopes(at.scope) };
+              oauthClientId = at.clientId;
+            }
+          }
+          if (!grant) {
+            const userId = token ? await resolveUser(token) : null;
+            if (userId) grant = { userId, scopes: null };
+          }
+
+          if (!grant) {
+            // Missing/invalid token → uniform 401. Flag on advertises the
+            // protected-resource metadata so Claude.ai can begin the OAuth flow;
+            // flag off preserves the original plain "Bearer" value.
             return new Response(
               JSON.stringify({ jsonrpc: "2.0", id: null, error: { code: -32001, message: "Unauthorized. Provide a valid Milo MCP connection token as a Bearer token." } }),
-              { status: 401, headers: { "Content-Type": "application/json", "WWW-Authenticate": mcpWwwAuthenticate(isOAuthEnabled()), ...CORS } },
+              { status: 401, headers: { "Content-Type": "application/json", "WWW-Authenticate": mcpWwwAuthenticate(oauthEnabled), ...CORS } },
             );
           }
+          // Best-effort audit for OAuth grants (no token/secret material).
+          if (oauthClientId) void logOAuthEvent("mcp_call", { clientId: oauthClientId, userId: grant.userId });
 
           const raw = await request.text();
           if (!raw || raw.length > MAX_BODY) return json({ jsonrpc: "2.0", id: null, error: { code: -32600, message: "Invalid request." } }, 400);
@@ -62,10 +81,10 @@ export const Route = createFileRoute("/api/mcp")({
 
           // Batch or single message.
           if (Array.isArray(parsed)) {
-            const responses = (await Promise.all(parsed.map((m) => handleMcpMessage(userId, m)))).filter(Boolean);
+            const responses = (await Promise.all(parsed.map((m) => handleMcpMessage(grant, m)))).filter(Boolean);
             return responses.length ? json(responses) : new Response(null, { status: 202, headers: CORS });
           }
-          const response = await handleMcpMessage(userId, parsed as Record<string, unknown>);
+          const response = await handleMcpMessage(grant, parsed as Record<string, unknown>);
           return response ? json(response) : new Response(null, { status: 202, headers: CORS });
         } catch (e) {
           console.error("[api.mcp] error:", e instanceof Error ? e.message : String(e));

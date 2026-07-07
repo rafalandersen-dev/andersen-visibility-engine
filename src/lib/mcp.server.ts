@@ -351,15 +351,45 @@ function rpcError(id: JsonRpcMessage["id"], code: number, message: string) {
   return { jsonrpc: "2.0", id: id ?? null, error: { code, message } };
 }
 
-function toolDefs() {
-  return TOOLS.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema }));
+/** Required read scope per MCP tool (Phase 4 OAuth scope enforcement). */
+export const TOOL_SCOPES: Record<string, string> = {
+  list_projects: "milo.projects.read",
+  get_project_brief: "milo.projects.read",
+  list_opportunities: "milo.content.read",
+  list_content: "milo.content.read",
+  get_content: "milo.content.read",
+  get_latest_audit: "milo.insights.read",
+  get_gsc_summary: "milo.insights.read",
+  list_authority_opportunities: "milo.authority.read",
+};
+
+/**
+ * A resolved caller. `scopes: null` means a legacy developer token (full
+ * read-only access to every tool). An array is an OAuth grant's scopes.
+ */
+export interface McpGrant {
+  userId: string;
+  scopes: string[] | null;
+}
+
+/** Whether a tool is callable under the given scopes (null = developer = all). */
+export function toolAllowed(name: string, scopes: string[] | null): boolean {
+  if (scopes === null) return true;
+  const required = TOOL_SCOPES[name];
+  return required ? scopes.includes(required) : false;
+}
+
+function toolDefs(scopes: string[] | null) {
+  return TOOLS.filter((t) => toolAllowed(t.name, scopes)).map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema }));
 }
 
 /**
- * Handle one JSON-RPC message for an authenticated user. Returns the response
- * object, or null for notifications (no id → no reply).
+ * Handle one JSON-RPC message for a resolved grant. `tools/list` is filtered to
+ * the grant's scopes and `tools/call` rejects tools the grant lacks scope for
+ * with a JSON-RPC error (the token is valid but unauthorized — not a 401).
+ * Returns the response object, or null for notifications (no id → no reply).
  */
-export async function handleMcpMessage(userId: string, msg: JsonRpcMessage): Promise<object | null> {
+export async function handleMcpMessage(grant: McpGrant, msg: JsonRpcMessage): Promise<object | null> {
   const { method, id } = msg;
   const isNotification = id === undefined || id === null;
 
@@ -377,15 +407,18 @@ export async function handleMcpMessage(userId: string, msg: JsonRpcMessage): Pro
     return result(id, {});
   }
   if (method === "tools/list") {
-    return result(id, { tools: toolDefs() });
+    return result(id, { tools: toolDefs(grant.scopes) });
   }
   if (method === "tools/call") {
     const name = typeof msg.params?.name === "string" ? msg.params.name : "";
     const args = (msg.params?.arguments as Record<string, unknown>) ?? {};
     const tool = TOOLS.find((t) => t.name === name);
     if (!tool) return rpcError(id, -32602, `Unknown tool: ${name}`);
+    // Valid token but missing scope → JSON-RPC error, not 401. Message is
+    // deliberately generic (does not reveal which scope would be needed).
+    if (!toolAllowed(name, grant.scopes)) return rpcError(id, -32002, "Insufficient scope for this tool.");
     try {
-      const ws = await loadWorkspace(userId);
+      const ws = await loadWorkspace(grant.userId);
       const out = tool.run(ws, args);
       return result(id, { content: [{ type: "text", text: JSON.stringify(out, null, 2) }] });
     } catch {

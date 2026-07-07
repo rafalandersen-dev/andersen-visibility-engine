@@ -387,6 +387,52 @@ export async function insertAccessToken(row: Record<string, unknown>): Promise<v
   if (error) throw new Error("access_token_insert_failed");
 }
 
+export interface ResolvedAccessToken {
+  userId: string;
+  clientId: string;
+  scope: string;
+  resource: string | null;
+}
+
+/**
+ * Validate a fetched oauth_tokens row (Phase 4). Pure. Returns null for any
+ * failure — unknown (null), revoked, expired, or wrong audience — so callers
+ * give a uniform 401 without leaking which condition occurred.
+ */
+export function validateAccessTokenRow(row: Row | null, nowMs: number): ResolvedAccessToken | null {
+  if (!row) return null;
+  if (row.revoked_at) return null;
+  const exp = typeof row.access_expires_at === "string" ? Date.parse(row.access_expires_at) : 0;
+  if (!exp || exp < nowMs) return null;
+  if (String(row.resource ?? "") !== MCP_RESOURCE_URL) return null;
+  return {
+    userId: String(row.user_id ?? ""),
+    clientId: String(row.client_id ?? ""),
+    scope: String(row.scope ?? ""),
+    resource: (row.resource as string | null) ?? null,
+  };
+}
+
+/**
+ * Resolve a bearer as an OAuth access token. Fetches by hash, validates, and
+ * best-effort updates last_used_at (fire-and-forget). Never logs the token.
+ */
+export async function resolveAccessToken(token: string): Promise<ResolvedAccessToken | null> {
+  if (!token) return null;
+  const hash = await sha256Hex(token);
+  const db = await admin();
+  const { data } = await db
+    .from("oauth_tokens")
+    .select("user_id,client_id,scope,resource,access_expires_at,revoked_at")
+    .eq("access_token_hash", hash)
+    .maybeSingle();
+  const resolved = validateAccessTokenRow(data, Date.now());
+  if (!resolved) return null;
+  // best-effort touch (not awaited)
+  db.from("oauth_tokens").update({ last_used_at: new Date().toISOString() }).eq("access_token_hash", hash);
+  return resolved;
+}
+
 // ===========================================================================
 // Phase 2B — authorization request validation + pending request + code issuance
 // Pure helpers (DB-free) are unit-tested; the route/consent supply DB + ids.
