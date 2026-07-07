@@ -40,6 +40,7 @@ import { Route as DotwellKnownOauthProtectedResourceRouteImport } from './routes
 import { Route as DotwellKnownOauthAuthorizationServerRouteImport } from './routes/[.]well-known.oauth-authorization-server'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app.index'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
+import { Route as ApiOauthTokenRouteImport } from './routes/api.oauth.token'
 import { Route as ApiOauthRegisterRouteImport } from './routes/api.oauth.register'
 import { Route as ApiOauthAuthorizeRouteImport } from './routes/api.oauth.authorize'
 import { Route as ApiAnalyticsTrackRouteImport } from './routes/api.analytics.track'
@@ -220,6 +221,11 @@ const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
 const LovableEmailSuppressionRoute = LovableEmailSuppressionRouteImport.update({
   id: '/lovable/email/suppression',
   path: '/lovable/email/suppression',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiOauthTokenRoute = ApiOauthTokenRouteImport.update({
+  id: '/api/oauth/token',
+  path: '/api/oauth/token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiOauthRegisterRoute = ApiOauthRegisterRouteImport.update({
@@ -412,6 +418,7 @@ export interface FileRoutesByFullPath {
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
   '/api/oauth/authorize': typeof ApiOauthAuthorizeRoute
   '/api/oauth/register': typeof ApiOauthRegisterRoute
+  '/api/oauth/token': typeof ApiOauthTokenRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/app/': typeof AuthenticatedAppIndexRoute
   '/api/google/search-console/callback': typeof ApiGoogleSearchConsoleCallbackRoute
@@ -469,6 +476,7 @@ export interface FileRoutesByTo {
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
   '/api/oauth/authorize': typeof ApiOauthAuthorizeRoute
   '/api/oauth/register': typeof ApiOauthRegisterRoute
+  '/api/oauth/token': typeof ApiOauthTokenRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/app': typeof AuthenticatedAppIndexRoute
   '/api/google/search-console/callback': typeof ApiGoogleSearchConsoleCallbackRoute
@@ -528,6 +536,7 @@ export interface FileRoutesById {
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
   '/api/oauth/authorize': typeof ApiOauthAuthorizeRoute
   '/api/oauth/register': typeof ApiOauthRegisterRoute
+  '/api/oauth/token': typeof ApiOauthTokenRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
   '/api/google/search-console/callback': typeof ApiGoogleSearchConsoleCallbackRoute
@@ -587,6 +596,7 @@ export interface FileRouteTypes {
     | '/api/analytics/track'
     | '/api/oauth/authorize'
     | '/api/oauth/register'
+    | '/api/oauth/token'
     | '/lovable/email/suppression'
     | '/app/'
     | '/api/google/search-console/callback'
@@ -644,6 +654,7 @@ export interface FileRouteTypes {
     | '/api/analytics/track'
     | '/api/oauth/authorize'
     | '/api/oauth/register'
+    | '/api/oauth/token'
     | '/lovable/email/suppression'
     | '/app'
     | '/api/google/search-console/callback'
@@ -702,6 +713,7 @@ export interface FileRouteTypes {
     | '/api/analytics/track'
     | '/api/oauth/authorize'
     | '/api/oauth/register'
+    | '/api/oauth/token'
     | '/lovable/email/suppression'
     | '/_authenticated/app/'
     | '/api/google/search-console/callback'
@@ -745,6 +757,7 @@ export interface RootRouteChildren {
   ApiAnalyticsTrackRoute: typeof ApiAnalyticsTrackRoute
   ApiOauthAuthorizeRoute: typeof ApiOauthAuthorizeRoute
   ApiOauthRegisterRoute: typeof ApiOauthRegisterRoute
+  ApiOauthTokenRoute: typeof ApiOauthTokenRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
   ApiGoogleSearchConsoleCallbackRoute: typeof ApiGoogleSearchConsoleCallbackRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
@@ -971,6 +984,13 @@ declare module '@tanstack/react-router' {
       path: '/lovable/email/suppression'
       fullPath: '/lovable/email/suppression'
       preLoaderRoute: typeof LovableEmailSuppressionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/oauth/token': {
+      id: '/api/oauth/token'
+      path: '/api/oauth/token'
+      fullPath: '/api/oauth/token'
+      preLoaderRoute: typeof ApiOauthTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/oauth/register': {
@@ -1229,6 +1249,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAnalyticsTrackRoute: ApiAnalyticsTrackRoute,
   ApiOauthAuthorizeRoute: ApiOauthAuthorizeRoute,
   ApiOauthRegisterRoute: ApiOauthRegisterRoute,
+  ApiOauthTokenRoute: ApiOauthTokenRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
   ApiGoogleSearchConsoleCallbackRoute: ApiGoogleSearchConsoleCallbackRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,

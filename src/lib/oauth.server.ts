@@ -357,6 +357,25 @@ export async function insertAuthorizationCode(row: Record<string, unknown>): Pro
   if (error) throw new Error("auth_code_insert_failed");
 }
 
+export async function getAuthorizationCodeByHash(codeHash: string): Promise<Row | null> {
+  if (!codeHash) return null;
+  const db = await admin();
+  const { data } = await db.from("oauth_authorization_codes").select("*").eq("code_hash", codeHash).maybeSingle();
+  return data ?? null;
+}
+
+/** Mark an authorization code consumed (only if not already). */
+export async function consumeAuthorizationCode(codeHash: string): Promise<void> {
+  const db = await admin();
+  await db.from("oauth_authorization_codes").update({ consumed_at: new Date().toISOString() }).eq("code_hash", codeHash).is("consumed_at", null);
+}
+
+export async function insertAccessToken(row: Record<string, unknown>): Promise<void> {
+  const db = await admin();
+  const { error } = await db.from("oauth_tokens").insert(row);
+  if (error) throw new Error("access_token_insert_failed");
+}
+
 // ===========================================================================
 // Phase 2B — authorization request validation + pending request + code issuance
 // Pure helpers (DB-free) are unit-tested; the route/consent supply DB + ids.
@@ -529,6 +548,137 @@ export async function issueAuthorizationCode(
 
   const state = typeof req.state === "string" && req.state ? req.state : undefined;
   return { ok: true, redirectUrl: buildCodeRedirect(String(req.redirect_uri ?? ""), code, state) };
+}
+
+// ===========================================================================
+// Phase 2C — token endpoint (authorization_code grant + PKCE S256).
+// Access token only; no refresh token this phase. Hash-only storage.
+// ===========================================================================
+
+export const ACCESS_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
+export const ACCESS_TOKEN_PREFIX = "milo_at_";
+
+/** BASE64URL(SHA256(verifier)) — the PKCE S256 transform (RFC 7636). */
+export async function pkceChallengeS256(verifier: string): Promise<string> {
+  const data = new TextEncoder().encode(verifier);
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", data.buffer.slice(0) as ArrayBuffer);
+  return b64url(new Uint8Array(digest));
+}
+
+/** Constant-time-ish S256 verification. */
+export async function verifyPkceS256(verifier: string, challenge: string): Promise<boolean> {
+  if (!verifier || !challenge) return false;
+  const computed = await pkceChallengeS256(verifier);
+  if (computed.length !== challenge.length) return false;
+  let diff = 0;
+  for (let i = 0; i < computed.length; i++) diff |= computed.charCodeAt(i) ^ challenge.charCodeAt(i);
+  return diff === 0;
+}
+
+export interface TokenParams {
+  grant_type?: string;
+  client_id?: string;
+  client_secret?: string;
+  code?: string;
+  redirect_uri?: string;
+  code_verifier?: string;
+  resource?: string;
+}
+
+/** DB row for an issued access token (hash only, no refresh token this phase). */
+export function buildAccessTokenRow(codeRow: Row, accessHash: string, scope: string, expiresAtIso: string): Record<string, unknown> {
+  return {
+    user_id: String(codeRow.user_id ?? ""),
+    client_id: String(codeRow.client_id ?? ""),
+    access_token_hash: accessHash,
+    refresh_token_hash: null, // Phase 2C: no refresh token
+    refresh_family_id: null,
+    scope,
+    resource: (codeRow.resource as string | null) ?? null,
+    access_expires_at: expiresAtIso,
+    refresh_expires_at: null,
+  };
+}
+
+export function tokenSuccessResponse(accessToken: string, scope: string, expiresInSec: number): Record<string, unknown> {
+  return { access_token: accessToken, token_type: "Bearer", expires_in: expiresInSec, scope };
+}
+
+export interface TokenDeps {
+  getClient: (clientId: string) => Promise<OAuthClientRow | null>;
+  getCodeByHash: (codeHash: string) => Promise<Row | null>;
+  consumeCode: (codeHash: string) => Promise<void>;
+  insertToken: (row: Record<string, unknown>) => Promise<void>;
+  hash: (s: string) => Promise<string>;
+  generateToken: () => string;
+  nowMs: number;
+}
+
+/**
+ * Process an OAuth token request (authorization_code grant only). PKCE S256 is
+ * required. Returns the HTTP status + JSON body. The plaintext access token is
+ * only in the returned body — never stored or logged. DB access is injected so
+ * the core is unit-testable.
+ */
+export async function processTokenRequest(
+  enabled: boolean,
+  params: TokenParams,
+  deps: TokenDeps,
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  if (!enabled) return { status: 404, body: oauthErrorBody("not_found") };
+
+  const err = (error: string, description: string, status = 400) => ({ status, body: oauthErrorBody(error, description) });
+
+  // ---- param presence + grant type ----
+  if (!params.grant_type) return err("invalid_request", "grant_type is required.");
+  if (params.grant_type !== "authorization_code") return err("unsupported_grant_type", "Only authorization_code is supported.");
+  if (!params.client_id) return err("invalid_request", "client_id is required.");
+  if (!params.code) return err("invalid_request", "code is required.");
+  if (!params.redirect_uri) return err("invalid_request", "redirect_uri is required.");
+  if (!params.code_verifier) return err("invalid_request", "code_verifier is required (PKCE).");
+  // Public/PKCE clients must not present a secret.
+  if (params.client_secret) return err("invalid_client", "This is a public client; do not send a client secret.", 401);
+
+  // ---- resource (if provided) must be the MCP URL ----
+  if (params.resource !== undefined && params.resource !== MCP_RESOURCE_URL) {
+    return err("invalid_target", "resource must be the Milo MCP URL.");
+  }
+
+  // ---- client ----
+  const client = await deps.getClient(params.client_id);
+  if (!client || client.disabled_at) return err("invalid_client", "Unknown or disabled client.", 401);
+
+  // ---- authorization code (uniform invalid_grant to avoid existence leaks) ----
+  const badGrant = err("invalid_grant", "The authorization code is invalid, expired, or already used.");
+  const codeHash = await deps.hash(params.code);
+  const codeRow = await deps.getCodeByHash(codeHash);
+  if (!codeRow) return badGrant;
+  if (codeRow.consumed_at) return badGrant;
+  const codeExp = typeof codeRow.expires_at === "string" ? Date.parse(codeRow.expires_at) : 0;
+  if (!codeExp || codeExp < deps.nowMs) return badGrant;
+  if (String(codeRow.client_id ?? "") !== params.client_id) return badGrant;
+  if (String(codeRow.redirect_uri ?? "") !== params.redirect_uri) return badGrant;
+  // resource binding: if the request supplied one it must equal the code's.
+  if (params.resource !== undefined && String(codeRow.resource ?? "") !== params.resource) return badGrant;
+
+  // ---- PKCE S256 ----
+  if (String(codeRow.code_challenge_method ?? "") !== "S256") return badGrant;
+  const pkceOk = await verifyPkceS256(params.code_verifier, String(codeRow.code_challenge ?? ""));
+  if (!pkceOk) return err("invalid_grant", "PKCE verification failed.");
+
+  // ---- consume (single-use) then issue ----
+  await deps.consumeCode(codeHash);
+
+  // offline_access has no effect this phase (no refresh token); drop it from the
+  // access token's effective + returned scope to avoid implying refresh support.
+  const tokenScope = parseScopes(String(codeRow.scope ?? "")).filter((s) => s !== "offline_access").join(" ");
+
+  const accessToken = deps.generateToken();
+  const accessHash = await deps.hash(accessToken);
+  const expiresAtIso = new Date(deps.nowMs + ACCESS_TOKEN_TTL_MS).toISOString();
+  await deps.insertToken(buildAccessTokenRow(codeRow, accessHash, tokenScope, expiresAtIso));
+
+  return { status: 200, body: tokenSuccessResponse(accessToken, tokenScope, Math.floor(ACCESS_TOKEN_TTL_MS / 1000)) };
 }
 
 /** Best-effort audit log (no secrets). Never throws. */
