@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS public.oauth_audit_log (
 CREATE INDEX IF NOT EXISTS idx_oauth_codes_expires ON public.oauth_authorization_codes (expires_at);
 CREATE INDEX IF NOT EXISTS idx_oauth_tokens_user ON public.oauth_tokens (user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_oauth_tokens_refresh_family ON public.oauth_tokens (refresh_family_id);
-CREATE INDEX IF NOT EXISTS idx_oauth_consents_user ON public.oauth_consents (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_oauth_consents_user ON public.oauth_consents (user_id, granted_at DESC);
 CREATE INDEX IF NOT EXISTS idx_oauth_audit_user ON public.oauth_audit_log (user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_oauth_audit_client ON public.oauth_audit_log (client_id, created_at DESC);
 
