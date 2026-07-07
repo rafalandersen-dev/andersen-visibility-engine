@@ -28,6 +28,7 @@ import type { Language, Project, PublishDestinationType, PublishMode, Market, On
 import { MARKETS, LANGUAGE_OPTIONS, GROWTH_GOALS, GOAL_KEYS, marketKey, marketDefaults } from "@/lib/onboarding";
 import { useT } from "@/i18n";
 import { BrandIntelligenceCard } from "@/components/BrandIntelligenceCard";
+import { ClaudeConnectorCard } from "@/components/ClaudeConnectorCard";
 import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -308,6 +309,8 @@ function ProjectSetup() {
         {!creating && active ? <BrandIntelligenceCard key={active.id} project={active} /> : null}
 
         {!creating && active ? <PublishingCard key={active.id} project={active} /> : null}
+
+        {!creating && active ? <ClaudeConnectorCard /> : null}
       </div>
     </AppShell>
   );

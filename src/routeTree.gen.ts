@@ -35,6 +35,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as EmailUnsubscribeRouteImport } from './routes/email/unsubscribe'
 import { Route as BlogLocalSeoGuideRouteImport } from './routes/blog.local-seo-guide'
+import { Route as ApiMcpRouteImport } from './routes/api.mcp'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app.index'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
 import { Route as ApiAnalyticsTrackRouteImport } from './routes/api.analytics.track'
@@ -188,6 +189,11 @@ const EmailUnsubscribeRoute = EmailUnsubscribeRouteImport.update({
 const BlogLocalSeoGuideRoute = BlogLocalSeoGuideRouteImport.update({
   id: '/blog/local-seo-guide',
   path: '/blog/local-seo-guide',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMcpRoute = ApiMcpRouteImport.update({
+  id: '/api/mcp',
+  path: '/api/mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
@@ -356,6 +362,7 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/uk': typeof UkRoute
   '/unsubscribe': typeof UnsubscribeRoute
+  '/api/mcp': typeof ApiMcpRoute
   '/blog/local-seo-guide': typeof BlogLocalSeoGuideRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/app/ai-evaluation': typeof AuthenticatedAppAiEvaluationRoute
@@ -408,6 +415,7 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/uk': typeof UkRoute
   '/unsubscribe': typeof UnsubscribeRoute
+  '/api/mcp': typeof ApiMcpRoute
   '/blog/local-seo-guide': typeof BlogLocalSeoGuideRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/app/ai-evaluation': typeof AuthenticatedAppAiEvaluationRoute
@@ -462,6 +470,7 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/uk': typeof UkRoute
   '/unsubscribe': typeof UnsubscribeRoute
+  '/api/mcp': typeof ApiMcpRoute
   '/blog/local-seo-guide': typeof BlogLocalSeoGuideRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/_authenticated/app/ai-evaluation': typeof AuthenticatedAppAiEvaluationRoute
@@ -516,6 +525,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/uk'
     | '/unsubscribe'
+    | '/api/mcp'
     | '/blog/local-seo-guide'
     | '/email/unsubscribe'
     | '/app/ai-evaluation'
@@ -568,6 +578,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/uk'
     | '/unsubscribe'
+    | '/api/mcp'
     | '/blog/local-seo-guide'
     | '/email/unsubscribe'
     | '/app/ai-evaluation'
@@ -621,6 +632,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/uk'
     | '/unsubscribe'
+    | '/api/mcp'
     | '/blog/local-seo-guide'
     | '/email/unsubscribe'
     | '/_authenticated/app/ai-evaluation'
@@ -675,6 +687,7 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   UkRoute: typeof UkRoute
   UnsubscribeRoute: typeof UnsubscribeRoute
+  ApiMcpRoute: typeof ApiMcpRoute
   BlogLocalSeoGuideRoute: typeof BlogLocalSeoGuideRoute
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
   ApiAnalyticsTrackRoute: typeof ApiAnalyticsTrackRoute
@@ -869,6 +882,13 @@ declare module '@tanstack/react-router' {
       path: '/blog/local-seo-guide'
       fullPath: '/blog/local-seo-guide'
       preLoaderRoute: typeof BlogLocalSeoGuideRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/mcp': {
+      id: '/api/mcp'
+      path: '/api/mcp'
+      fullPath: '/api/mcp'
+      preLoaderRoute: typeof ApiMcpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/app/': {
@@ -1117,6 +1137,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   UkRoute: UkRoute,
   UnsubscribeRoute: UnsubscribeRoute,
+  ApiMcpRoute: ApiMcpRoute,
   BlogLocalSeoGuideRoute: BlogLocalSeoGuideRoute,
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
   ApiAnalyticsTrackRoute: ApiAnalyticsTrackRoute,
