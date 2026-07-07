@@ -18,14 +18,25 @@ export const OAUTH_TOKEN_ENDPOINT = `${OAUTH_BASE_URL}/api/oauth/token`;
 export const OAUTH_REGISTRATION_ENDPOINT = `${OAUTH_BASE_URL}/api/oauth/register`;
 export const OAUTH_REVOCATION_ENDPOINT = `${OAUTH_BASE_URL}/api/oauth/revoke`;
 
-/** v1 scopes — read-only + offline_access. No write/publish/billing scopes. */
+/**
+ * v1 advertised + effective scopes — read-only only. No write/publish/billing.
+ *
+ * offline_access is intentionally NOT advertised or issued: refresh tokens are
+ * not implemented yet, so advertising it would make Claude expect a refresh
+ * token it never receives. It is tolerated on INPUT (so a Claude request that
+ * includes it does not fail) but is dropped from effective/issued scopes and
+ * never appears in metadata, consent, or access tokens. Re-add it here only
+ * once refresh-token support exists.
+ */
 export const OAUTH_SCOPES = [
   "milo.projects.read",
   "milo.content.read",
   "milo.insights.read",
   "milo.authority.read",
-  "offline_access",
 ] as const;
+
+/** Scopes accepted on incoming requests but never advertised or issued. */
+const TOLERATED_INPUT_SCOPES = ["offline_access"];
 
 /** Whether the OAuth connector is enabled. Off ⇒ production behaves as today. */
 export function isOAuthEnabled(): boolean {
@@ -55,7 +66,9 @@ export function authorizationServerMetadata(): Record<string, unknown> {
     scopes_supported: [...OAUTH_SCOPES],
     response_types_supported: ["code"],
     response_modes_supported: ["query"],
-    grant_types_supported: ["authorization_code", "refresh_token"],
+    // Only authorization_code is implemented (no refresh tokens yet), so we do
+    // not advertise refresh_token to avoid a metadata/behaviour mismatch.
+    grant_types_supported: ["authorization_code"],
     token_endpoint_auth_methods_supported: ["none"],
     code_challenge_methods_supported: ["S256"],
   };
@@ -76,7 +89,6 @@ export function mcpWwwAuthenticate(enabled: boolean): string {
 // ===========================================================================
 
 export const CLIENT_ID_PREFIX = "milo_client_";
-const READ_SCOPES = OAUTH_SCOPES.filter((s) => s !== "offline_access");
 const ALLOWED_GRANT_TYPES = ["authorization_code", "refresh_token"];
 const ALLOWED_RESPONSE_TYPES = ["code"];
 
@@ -117,10 +129,20 @@ export function isAllowedScope(s: string): boolean {
   return (OAUTH_SCOPES as readonly string[]).includes(s);
 }
 
-/** Validate requested scopes ⊆ allowed v1 read scopes (+offline_access). */
+/** Tolerated on input (e.g. offline_access) — accepted but stripped, never issued. */
+export function isToleratedScope(s: string): boolean {
+  return TOLERATED_INPUT_SCOPES.includes(s);
+}
+
+/**
+ * Validate requested scopes. Unknown scopes fail. Tolerated scopes (offline_access)
+ * are accepted for Claude compatibility but stripped from the effective set, so
+ * they are never bound to codes/tokens or shown in consent.
+ */
 export function validateScopes(requested: string[]): { ok: true; scopes: string[] } | { ok: false; invalid: string[] } {
-  const invalid = requested.filter((s) => !isAllowedScope(s));
-  return invalid.length ? { ok: false, invalid } : { ok: true, scopes: requested };
+  const invalid = requested.filter((s) => !isAllowedScope(s) && !isToleratedScope(s));
+  if (invalid.length) return { ok: false, invalid };
+  return { ok: true, scopes: requested.filter(isAllowedScope) };
 }
 
 // ---- redirect URI validation ----
@@ -187,8 +209,10 @@ export function validateRegistration(input: unknown): RegOk | RegErr {
     return err("invalid_client_metadata", "Only public clients (token_endpoint_auth_method \"none\") are supported.");
   }
 
-  // grant_types — subset of allowed; must include authorization_code.
-  const grant_types = b.grant_types === undefined ? ["authorization_code", "refresh_token"] : b.grant_types;
+  // grant_types — must include authorization_code. Default is authorization_code
+  // only (we don't advertise/encourage refresh). An explicit refresh_token is
+  // still TOLERATED for client compatibility but is never fulfilled.
+  const grant_types = b.grant_types === undefined ? ["authorization_code"] : b.grant_types;
   if (!Array.isArray(grant_types) || grant_types.some((g) => !ALLOWED_GRANT_TYPES.includes(g as string))) {
     return err("invalid_client_metadata", "Unsupported grant_types. Allowed: authorization_code, refresh_token.");
   }
@@ -488,7 +512,9 @@ export function classifyAuthorizeRequest(
   if (params.response_type !== "code") return rerr("unsupported_response_type", "response_type must be 'code'.");
   if (typeof params.code_challenge !== "string" || !params.code_challenge.trim()) return rerr("invalid_request", "code_challenge is required (PKCE).");
   if (params.code_challenge_method !== "S256") return rerr("invalid_request", "code_challenge_method must be S256.");
-  if (params.resource !== MCP_RESOURCE_URL) return rerr("invalid_target", "resource must be the Milo MCP URL.");
+  // resource: if supplied it must be the MCP URL; if omitted, default to it.
+  const providedResource = typeof params.resource === "string" ? params.resource.trim() : "";
+  if (providedResource && providedResource !== MCP_RESOURCE_URL) return rerr("invalid_target", "resource must be the Milo MCP URL.");
 
   let scopes: string[];
   const reqScope = typeof params.scope === "string" ? params.scope.trim() : "";
@@ -696,8 +722,9 @@ export async function processTokenRequest(
   // Public/PKCE clients must not present a secret.
   if (params.client_secret) return err("invalid_client", "This is a public client; do not send a client secret.", 401);
 
-  // ---- resource (if provided) must be the MCP URL ----
-  if (params.resource !== undefined && params.resource !== MCP_RESOURCE_URL) {
+  // ---- resource: if supplied it must be the MCP URL; if omitted, default to it.
+  const providedResource = typeof params.resource === "string" ? params.resource.trim() : "";
+  if (providedResource && providedResource !== MCP_RESOURCE_URL) {
     return err("invalid_target", "resource must be the Milo MCP URL.");
   }
 
@@ -715,8 +742,9 @@ export async function processTokenRequest(
   if (!codeExp || codeExp < deps.nowMs) return badGrant;
   if (String(codeRow.client_id ?? "") !== params.client_id) return badGrant;
   if (String(codeRow.redirect_uri ?? "") !== params.redirect_uri) return badGrant;
-  // resource binding: if the request supplied one it must equal the code's.
-  if (params.resource !== undefined && String(codeRow.resource ?? "") !== params.resource) return badGrant;
+  // resource binding: if the request supplied one it must equal the code's
+  // (codes are always bound to the default MCP resource; omitted → no check).
+  if (providedResource && String(codeRow.resource ?? "") !== providedResource) return badGrant;
 
   // ---- PKCE S256 ----
   if (String(codeRow.code_challenge_method ?? "") !== "S256") return badGrant;
@@ -742,13 +770,12 @@ export async function processTokenRequest(
 // Phase 3 — consent screen helpers (pure). The consent server fns supply DB.
 // ===========================================================================
 
-/** Human-readable scope labels for the consent UI. */
+/** Human-readable scope labels for the consent UI (read-only v1; no offline_access). */
 export const SCOPE_LABELS: Record<string, string> = {
   "milo.projects.read": "See your projects and brand profile",
   "milo.content.read": "Read your opportunities, drafts and Milo Scores",
   "milo.insights.read": "Read your audits and Search Console summaries",
   "milo.authority.read": "Read your authority opportunities",
-  offline_access: "Stay connected without re-approving each time",
 };
 
 export function scopeConsentItems(scope: string): { scope: string; label: string }[] {
