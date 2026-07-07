@@ -55,13 +55,13 @@ MCP_OAUTH_ENABLED=true
 
 Run these from a terminal once the flag is on + migrations applied. They exercise the whole server side without a browser except where noted.
 
-1. **PRM:** `GET /.well-known/oauth-protected-resource` → 200; JSON `resource` = `https://milogrowth.com/api/mcp`, `authorization_servers` = `["https://milogrowth.com"]`, `scopes_supported` lists the 4 reads + `offline_access`.
-2. **AS metadata:** `GET /.well-known/oauth-authorization-server` → 200; `issuer` = `https://milogrowth.com`, endpoints point to `/api/oauth/{authorize,token,register,revoke}`, `code_challenge_methods_supported` = `["S256"]`, `token_endpoint_auth_methods_supported` = `["none"]`.
+1. **PRM:** `GET /.well-known/oauth-protected-resource` → 200; JSON `resource` = `https://milogrowth.com/api/mcp`, `authorization_servers` = `["https://milogrowth.com"]`, `scopes_supported` lists **only the 4 read scopes** (`milo.projects.read`, `milo.content.read`, `milo.insights.read`, `milo.authority.read`) — **no `offline_access`**.
+2. **AS metadata:** `GET /.well-known/oauth-authorization-server` → 200; `issuer` = `https://milogrowth.com`, endpoints point to `/api/oauth/{authorize,token,register,revoke}`, `scopes_supported` = the 4 read scopes, `response_types_supported` = `["code"]`, **`grant_types_supported` = `["authorization_code"]`** (no `refresh_token`), `code_challenge_methods_supported` = `["S256"]`, `token_endpoint_auth_methods_supported` = `["none"]`.
 3. **DCR:** `POST /api/oauth/register` with `{"redirect_uris":["https://claude.ai/api/mcp/auth_callback"]}` → 201; capture `client_id`; assert **no** `client_secret`.
 4. **PKCE pair:** generate `code_verifier` + `code_challenge = BASE64URL(SHA256(verifier))`.
-5. **Authorize (browser, logged in):** open `GET /api/oauth/authorize?response_type=code&client_id=…&redirect_uri=https://claude.ai/api/mcp/auth_callback&scope=milo.projects.read%20milo.content.read%20milo.insights.read%20milo.authority.read%20offline_access&code_challenge=…&code_challenge_method=S256&resource=https://milogrowth.com/api/mcp&state=xyz` → should **302 → `/app/connect?req=…`**.
+5. **Authorize (browser, logged in):** open `GET /api/oauth/authorize?response_type=code&client_id=…&redirect_uri=https://claude.ai/api/mcp/auth_callback&scope=milo.projects.read%20milo.content.read%20milo.insights.read%20milo.authority.read&code_challenge=…&code_challenge_method=S256&resource=https://milogrowth.com/api/mcp&state=xyz` → should **302 → `/app/connect?req=…`**. (Do **not** request `offline_access`. The compatibility patch makes `resource` optional: if omitted it defaults internally to `https://milogrowth.com/api/mcp`; if present it must equal that URL.)
 6. **Consent page:** `/app/connect?req=…` shows title "Connect Milo Growth to Claude", read-only badge, the scope list, and the can/cannot lists. Click **Allow** → browser redirects to `redirect_uri?code=…&state=xyz`. Capture the `code`.
-7. **Token:** `POST /api/oauth/token` (form-encoded) `grant_type=authorization_code&client_id=…&code=…&redirect_uri=…&code_verifier=…&resource=https://milogrowth.com/api/mcp` → 200; assert `token_type=Bearer`, `expires_in=3600`, `scope` present, **no `refresh_token`**. Capture `access_token`.
+7. **Token:** `POST /api/oauth/token` (form-encoded) `grant_type=authorization_code&client_id=…&code=…&redirect_uri=…&code_verifier=…&resource=https://milogrowth.com/api/mcp` → 200; assert `token_type=Bearer`, `expires_in=3600`, `scope` = the 4 reads (no `offline_access`), **no `refresh_token`** in the response. (`resource` may be omitted here too — the code is bound to the default MCP resource.) Capture `access_token`.
 8. **MCP with OAuth token:** `POST /api/mcp` `Authorization: Bearer <access_token>` `{"jsonrpc":"2.0","id":1,"method":"tools/list"}` → 200; tool list present.
 9. **Scope-filtered list:** repeat step 3–8 requesting only `scope=milo.projects.read`; `tools/list` returns **only** `list_projects`, `get_project_brief`.
 10. **Blocked call:** with that projects-only token, `tools/call` `list_content` → JSON-RPC **error `-32002`** ("Insufficient scope for this tool."), **not** 401, no result.
@@ -91,7 +91,7 @@ Run these from a terminal once the flag is on + migrations applied. They exercis
 - [ ] "List my authority opportunities." → `list_authority_opportunities`.
 
 **Expected failures / edges**
-- [ ] After ~1 hour the access token expires; with **no refresh token**, Claude must re-run consent. If Claude instead attempts a `refresh_token` grant, `/token` returns `unsupported_grant_type` → connection drops until re-auth (see §6 risk).
+- [ ] After ~1 hour the access token expires; with **no refresh token issued** (`offline_access` is no longer advertised or requested), Claude must **re-run the consent flow** to reconnect. The token endpoint still rejects `grant_type=refresh_token` with `unsupported_grant_type`, but Claude has no refresh token to try, so this should not occur in practice.
 - [ ] "Publish this / edit this / delete this" → no such tool exists (read-only); Claude should decline.
 - [ ] Cancelling consent → `access_denied` back to Claude; connection not established.
 
@@ -111,16 +111,17 @@ Run these from a terminal once the flag is on + migrations applied. They exercis
 ## 6. Must-fix blockers before public launch
 
 **Hard blockers**
-- **Refresh tokens / re-auth.** `offline_access` is advertised and requested, but no refresh token is issued and the `refresh_token` grant isn't implemented — connections die at 1h. Either implement refresh (rotation + reuse detection, per blueprint) **or** stop advertising `refresh_token`/`offline_access` in AS metadata so Claude doesn't expect it. (Currently a **metadata/behavior mismatch**.)
+- **Refresh tokens / re-auth.** No refresh token is issued and the `refresh_token` grant isn't implemented, so a connection stops working after the ~1h access-token lifetime and the user must re-run consent. This is now a **missing feature, not a metadata mismatch** — the compatibility patch removed `offline_access` and `refresh_token` from the advertised metadata, so Claude no longer expects a refresh token. Before public launch, implement refresh (rotation + reuse detection, per blueprint) so connections persist without repeated re-auth.
 - **`/api/oauth/revoke`** (RFC 7009) — users/Claude expect to disconnect; only the developer-token revoke exists today.
 - **Connected-apps UI** — no way for a user to see or revoke an active Claude grant from Milo.
+- **Rate limiting** — none on `/register`, `/authorize`, `/token`, `/api/mcp` yet (DCR abuse, token brute-force).
 - **Apply migrations** as a first-class deploy step (they don't auto-apply from the repo).
 
-**Compatibility risk to verify in E2E (could become a blocker)**
-- **`resource` parameter requirement.** Authorize + token currently **require** `resource == https://milogrowth.com/api/mcp`. If the current Claude.ai client omits the RFC 8707 `resource` param, `/authorize` returns `invalid_target` and consent never appears. If E2E shows this, relax to "if present, must match; if absent, default to the MCP URL." This is the single most likely cause of a failed first connection.
+**Resolved by the compatibility patch (no longer an E2E risk)**
+- **`resource` handling.** Previously authorize + token strictly required `resource == https://milogrowth.com/api/mcp`, which risked failing the first connection if Claude omitted the param. The patch now **defaults `resource` to the MCP URL when omitted** (and still rejects a mismatched value), so a Claude client that does not send `resource` is handled gracefully.
+- **`offline_access` / `refresh_token` advertising.** No longer advertised, so the earlier metadata/behaviour mismatch is gone (see the hard blocker above for the remaining missing-feature work).
 
 **Should-fix**
-- **Rate limiting** on `/register`, `/authorize`, `/token`, `/api/mcp` (DCR abuse, token brute-force).
 - **Audit log surfacing / last-used display** (rows are written; no UI/owner-QA view yet).
 - **Docs + user-facing setup copy** — a "Add Milo to Claude.ai" guide + the connector-card copy distinguishing the OAuth connector from the developer token.
 - **Project-level scoping** (fast-follow) — grants are workspace-wide read; add the project selector from the blueprint.
@@ -128,4 +129,4 @@ Run these from a terminal once the flag is on + migrations applied. They exercis
 ---
 
 ### Bottom line
-The server-side OAuth flow is code-complete through Phase 4 and safely flag-gated, but it is **not testable in production yet**: the OAuth tables are unapplied, and there are two behavioral gaps that will surface immediately in a Claude.ai E2E — the **`resource`-required** compatibility risk and the **advertised-but-missing refresh token**. Recommended order: (1) apply the migrations, (2) run the §3 scripted smoke test, (3) only then attempt the Claude.ai §4 flow, watching those two risks.
+The server-side OAuth flow is code-complete through Phase 4 plus the compatibility patch, and safely flag-gated. The two earlier E2E risks — the **`resource`-required** behaviour and the **advertised-but-missing refresh token** (`offline_access`/`refresh_token`) — are **resolved**: `resource` now defaults to the MCP URL when omitted, and neither `offline_access` nor `refresh_token` is advertised. The remaining pre-launch gap is a **missing feature, not an inconsistency**: no refresh token means a connection needs re-auth after ~1h. Recommended order: (1) ensure the migrations are applied (§0/§2), (2) run the §3 scripted smoke test, (3) then attempt the Claude.ai §4 flow.
