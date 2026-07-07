@@ -40,9 +40,14 @@ export const Route = createFileRoute("/api/mcp")({
           const { resolveUser, handleMcpMessage } = await import("@/lib/mcp.server");
           const userId = token ? await resolveUser(token) : null;
           if (!userId) {
+            // Phase 1: when the OAuth connector flag is on, advertise the
+            // protected-resource metadata so Claude.ai can begin the OAuth flow.
+            // Flag off preserves the original plain "Bearer" value. Token
+            // validation itself is unchanged (developer tokens only for now).
+            const { isOAuthEnabled, mcpWwwAuthenticate } = await import("@/lib/oauth.server");
             return new Response(
               JSON.stringify({ jsonrpc: "2.0", id: null, error: { code: -32001, message: "Unauthorized. Provide a valid Milo MCP connection token as a Bearer token." } }),
-              { status: 401, headers: { "Content-Type": "application/json", "WWW-Authenticate": "Bearer", ...CORS } },
+              { status: 401, headers: { "Content-Type": "application/json", "WWW-Authenticate": mcpWwwAuthenticate(isOAuthEnabled()), ...CORS } },
             );
           }
 

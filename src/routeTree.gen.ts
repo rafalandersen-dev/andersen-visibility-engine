@@ -36,6 +36,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as EmailUnsubscribeRouteImport } from './routes/email/unsubscribe'
 import { Route as BlogLocalSeoGuideRouteImport } from './routes/blog.local-seo-guide'
 import { Route as ApiMcpRouteImport } from './routes/api.mcp'
+import { Route as DotwellKnownOauthProtectedResourceRouteImport } from './routes/[.]well-known.oauth-protected-resource'
+import { Route as DotwellKnownOauthAuthorizationServerRouteImport } from './routes/[.]well-known.oauth-authorization-server'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app.index'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
 import { Route as ApiAnalyticsTrackRouteImport } from './routes/api.analytics.track'
@@ -196,6 +198,18 @@ const ApiMcpRoute = ApiMcpRouteImport.update({
   path: '/api/mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DotwellKnownOauthProtectedResourceRoute =
+  DotwellKnownOauthProtectedResourceRouteImport.update({
+    id: '/.well-known/oauth-protected-resource',
+    path: '/.well-known/oauth-protected-resource',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const DotwellKnownOauthAuthorizationServerRoute =
+  DotwellKnownOauthAuthorizationServerRouteImport.update({
+    id: '/.well-known/oauth-authorization-server',
+    path: '/.well-known/oauth-authorization-server',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
   id: '/app/',
   path: '/app/',
@@ -362,6 +376,8 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/uk': typeof UkRoute
   '/unsubscribe': typeof UnsubscribeRoute
+  '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
+  '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
   '/api/mcp': typeof ApiMcpRoute
   '/blog/local-seo-guide': typeof BlogLocalSeoGuideRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
@@ -415,6 +431,8 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/uk': typeof UkRoute
   '/unsubscribe': typeof UnsubscribeRoute
+  '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
+  '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
   '/api/mcp': typeof ApiMcpRoute
   '/blog/local-seo-guide': typeof BlogLocalSeoGuideRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
@@ -470,6 +488,8 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/uk': typeof UkRoute
   '/unsubscribe': typeof UnsubscribeRoute
+  '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
+  '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRoute
   '/api/mcp': typeof ApiMcpRoute
   '/blog/local-seo-guide': typeof BlogLocalSeoGuideRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
@@ -525,6 +545,8 @@ export interface FileRouteTypes {
     | '/terms'
     | '/uk'
     | '/unsubscribe'
+    | '/.well-known/oauth-authorization-server'
+    | '/.well-known/oauth-protected-resource'
     | '/api/mcp'
     | '/blog/local-seo-guide'
     | '/email/unsubscribe'
@@ -578,6 +600,8 @@ export interface FileRouteTypes {
     | '/terms'
     | '/uk'
     | '/unsubscribe'
+    | '/.well-known/oauth-authorization-server'
+    | '/.well-known/oauth-protected-resource'
     | '/api/mcp'
     | '/blog/local-seo-guide'
     | '/email/unsubscribe'
@@ -632,6 +656,8 @@ export interface FileRouteTypes {
     | '/terms'
     | '/uk'
     | '/unsubscribe'
+    | '/.well-known/oauth-authorization-server'
+    | '/.well-known/oauth-protected-resource'
     | '/api/mcp'
     | '/blog/local-seo-guide'
     | '/email/unsubscribe'
@@ -687,6 +713,8 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   UkRoute: typeof UkRoute
   UnsubscribeRoute: typeof UnsubscribeRoute
+  DotwellKnownOauthAuthorizationServerRoute: typeof DotwellKnownOauthAuthorizationServerRoute
+  DotwellKnownOauthProtectedResourceRoute: typeof DotwellKnownOauthProtectedResourceRoute
   ApiMcpRoute: typeof ApiMcpRoute
   BlogLocalSeoGuideRoute: typeof BlogLocalSeoGuideRoute
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
@@ -889,6 +917,20 @@ declare module '@tanstack/react-router' {
       path: '/api/mcp'
       fullPath: '/api/mcp'
       preLoaderRoute: typeof ApiMcpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.well-known/oauth-protected-resource': {
+      id: '/.well-known/oauth-protected-resource'
+      path: '/.well-known/oauth-protected-resource'
+      fullPath: '/.well-known/oauth-protected-resource'
+      preLoaderRoute: typeof DotwellKnownOauthProtectedResourceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.well-known/oauth-authorization-server': {
+      id: '/.well-known/oauth-authorization-server'
+      path: '/.well-known/oauth-authorization-server'
+      fullPath: '/.well-known/oauth-authorization-server'
+      preLoaderRoute: typeof DotwellKnownOauthAuthorizationServerRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/app/': {
@@ -1137,6 +1179,10 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   UkRoute: UkRoute,
   UnsubscribeRoute: UnsubscribeRoute,
+  DotwellKnownOauthAuthorizationServerRoute:
+    DotwellKnownOauthAuthorizationServerRoute,
+  DotwellKnownOauthProtectedResourceRoute:
+    DotwellKnownOauthProtectedResourceRoute,
   ApiMcpRoute: ApiMcpRoute,
   BlogLocalSeoGuideRoute: BlogLocalSeoGuideRoute,
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
