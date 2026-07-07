@@ -315,6 +315,7 @@ export async function insertOAuthClient(row: Record<string, unknown>): Promise<v
 /** Load a registered client (safe subset). Returns null if unknown. */
 export interface OAuthClientRow {
   client_id: string;
+  client_name: string | null;
   redirect_uris: string[];
   scope: string | null;
   disabled_at: string | null;
@@ -322,14 +323,24 @@ export interface OAuthClientRow {
 export async function getOAuthClient(clientId: string): Promise<OAuthClientRow | null> {
   if (!clientId) return null;
   const db = await admin();
-  const { data } = await db.from("oauth_clients").select("client_id,redirect_uris,scope,disabled_at").eq("client_id", clientId).maybeSingle();
+  const { data } = await db.from("oauth_clients").select("client_id,client_name,redirect_uris,scope,disabled_at").eq("client_id", clientId).maybeSingle();
   if (!data) return null;
   return {
     client_id: String(data.client_id ?? ""),
+    client_name: (data.client_name as string | null) ?? null,
     redirect_uris: Array.isArray(data.redirect_uris) ? (data.redirect_uris as string[]) : [],
     scope: (data.scope as string | null) ?? null,
     disabled_at: (data.disabled_at as string | null) ?? null,
   };
+}
+
+export async function insertConsent(userId: string, clientId: string, scope: string): Promise<void> {
+  try {
+    const db = await admin();
+    await db.from("oauth_consents").insert({ user_id: userId, client_id: clientId, scope, granted_at: new Date().toISOString() });
+  } catch {
+    /* consent record is best-effort (drives the connected-apps list later) */
+  }
 }
 
 export async function insertAuthorizationRequest(row: Record<string, unknown>): Promise<void> {
@@ -679,6 +690,55 @@ export async function processTokenRequest(
   await deps.insertToken(buildAccessTokenRow(codeRow, accessHash, tokenScope, expiresAtIso));
 
   return { status: 200, body: tokenSuccessResponse(accessToken, tokenScope, Math.floor(ACCESS_TOKEN_TTL_MS / 1000)) };
+}
+
+// ===========================================================================
+// Phase 3 — consent screen helpers (pure). The consent server fns supply DB.
+// ===========================================================================
+
+/** Human-readable scope labels for the consent UI. */
+export const SCOPE_LABELS: Record<string, string> = {
+  "milo.projects.read": "See your projects and brand profile",
+  "milo.content.read": "Read your opportunities, drafts and Milo Scores",
+  "milo.insights.read": "Read your audits and Search Console summaries",
+  "milo.authority.read": "Read your authority opportunities",
+  offline_access: "Stay connected without re-approving each time",
+};
+
+export function scopeConsentItems(scope: string): { scope: string; label: string }[] {
+  return parseScopes(scope).map((s) => ({ scope: s, label: SCOPE_LABELS[s] ?? s }));
+}
+
+export type ConsentReason = "not_found" | "expired" | "already_used" | "invalid_client";
+export type ConsentClassification =
+  | { ok: true; normalized: { clientId: string; redirectUri: string; scope: string; state?: string } }
+  | { ok: false; reason: ConsentReason };
+
+/** Validate a pending request + its client for the consent screen. Pure. */
+export function classifyConsentRequest(
+  requestRow: Row | null,
+  client: { disabled_at?: string | null } | null,
+  nowMs: number,
+): ConsentClassification {
+  if (!requestRow) return { ok: false, reason: "not_found" };
+  if (requestRow.consumed_at) return { ok: false, reason: "already_used" };
+  const exp = typeof requestRow.expires_at === "string" ? Date.parse(requestRow.expires_at) : 0;
+  if (!exp || exp < nowMs) return { ok: false, reason: "expired" };
+  if (!client || client.disabled_at) return { ok: false, reason: "invalid_client" };
+  return {
+    ok: true,
+    normalized: {
+      clientId: String(requestRow.client_id ?? ""),
+      redirectUri: String(requestRow.redirect_uri ?? ""),
+      scope: String(requestRow.scope ?? ""),
+      state: typeof requestRow.state === "string" && requestRow.state ? requestRow.state : undefined,
+    },
+  };
+}
+
+/** access_denied redirect for the Cancel action (redirect_uri already trusted). */
+export function buildDenyRedirect(redirectUri: string, state?: string): string {
+  return buildRedirectError(redirectUri, "access_denied", undefined, state);
 }
 
 /** Best-effort audit log (no secrets). Never throws. */

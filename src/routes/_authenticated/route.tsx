@@ -19,12 +19,14 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 const ONBOARDING_PATH = "/app/onboarding";
+const CONNECT_PATH = "/app/connect";
 
 function AuthenticatedLayout() {
   const { loading, session, isOwner } = useAuth();
   const navigate = useNavigate();
   const [hydrating, setHydrating] = useState(true);
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const location = useRouterState({ select: (s) => s.location });
+  const pathname = location.pathname;
   const projects = useStore((s) => s.projects);
   const activeProjectId = useStore((s) => s.activeProjectId);
 
@@ -32,7 +34,10 @@ function AuthenticatedLayout() {
     if (loading) return;
     if (!session) {
       resetStore();
-      navigate({ to: "/auth", search: { redirect: "/app" } as never, replace: true });
+      // Preserve where the user was headed so login can return them there
+      // (e.g. the /app/connect consent page for the Claude OAuth flow).
+      const redirect = `${location.pathname}${location.searchStr}`;
+      navigate({ to: "/auth", search: { redirect } as never, replace: true });
       return;
     }
     let cancelled = false;
@@ -49,7 +54,9 @@ function AuthenticatedLayout() {
   // onboarding route itself.
   useEffect(() => {
     if (loading || !session || hydrating || isOwner) return;
-    if (pathname === ONBOARDING_PATH) return;
+    // The consent page must render for any authenticated user regardless of
+    // onboarding state, so it is exempt from the onboarding guard.
+    if (pathname === ONBOARDING_PATH || pathname === CONNECT_PATH) return;
     const active = projects.find((p) => p.id === activeProjectId) ?? projects[0];
     const needsOnboarding = projects.length === 0 || !isProjectSetupComplete(active);
     if (needsOnboarding) {

@@ -50,6 +50,7 @@ import { Route as AuthenticatedAppOpportunitiesRouteImport } from './routes/_aut
 import { Route as AuthenticatedAppOnboardingRouteImport } from './routes/_authenticated/app.onboarding'
 import { Route as AuthenticatedAppLaunchChecklistRouteImport } from './routes/_authenticated/app.launch-checklist'
 import { Route as AuthenticatedAppEditorRouteImport } from './routes/_authenticated/app.editor'
+import { Route as AuthenticatedAppConnectRouteImport } from './routes/_authenticated/app.connect'
 import { Route as AuthenticatedAppCompetitorsRouteImport } from './routes/_authenticated/app.competitors'
 import { Route as AuthenticatedAppCalendarRouteImport } from './routes/_authenticated/app.calendar'
 import { Route as AuthenticatedAppBillingRouteImport } from './routes/_authenticated/app.billing'
@@ -277,6 +278,11 @@ const AuthenticatedAppEditorRoute = AuthenticatedAppEditorRouteImport.update({
   path: '/app/editor',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAppConnectRoute = AuthenticatedAppConnectRouteImport.update({
+  id: '/app/connect',
+  path: '/app/connect',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAppCompetitorsRoute =
   AuthenticatedAppCompetitorsRouteImport.update({
     id: '/app/competitors',
@@ -409,6 +415,7 @@ export interface FileRoutesByFullPath {
   '/app/billing': typeof AuthenticatedAppBillingRoute
   '/app/calendar': typeof AuthenticatedAppCalendarRoute
   '/app/competitors': typeof AuthenticatedAppCompetitorsRoute
+  '/app/connect': typeof AuthenticatedAppConnectRoute
   '/app/editor': typeof AuthenticatedAppEditorRoute
   '/app/launch-checklist': typeof AuthenticatedAppLaunchChecklistRoute
   '/app/onboarding': typeof AuthenticatedAppOnboardingRoute
@@ -467,6 +474,7 @@ export interface FileRoutesByTo {
   '/app/billing': typeof AuthenticatedAppBillingRoute
   '/app/calendar': typeof AuthenticatedAppCalendarRoute
   '/app/competitors': typeof AuthenticatedAppCompetitorsRoute
+  '/app/connect': typeof AuthenticatedAppConnectRoute
   '/app/editor': typeof AuthenticatedAppEditorRoute
   '/app/launch-checklist': typeof AuthenticatedAppLaunchChecklistRoute
   '/app/onboarding': typeof AuthenticatedAppOnboardingRoute
@@ -527,6 +535,7 @@ export interface FileRoutesById {
   '/_authenticated/app/billing': typeof AuthenticatedAppBillingRoute
   '/_authenticated/app/calendar': typeof AuthenticatedAppCalendarRoute
   '/_authenticated/app/competitors': typeof AuthenticatedAppCompetitorsRoute
+  '/_authenticated/app/connect': typeof AuthenticatedAppConnectRoute
   '/_authenticated/app/editor': typeof AuthenticatedAppEditorRoute
   '/_authenticated/app/launch-checklist': typeof AuthenticatedAppLaunchChecklistRoute
   '/_authenticated/app/onboarding': typeof AuthenticatedAppOnboardingRoute
@@ -587,6 +596,7 @@ export interface FileRouteTypes {
     | '/app/billing'
     | '/app/calendar'
     | '/app/competitors'
+    | '/app/connect'
     | '/app/editor'
     | '/app/launch-checklist'
     | '/app/onboarding'
@@ -645,6 +655,7 @@ export interface FileRouteTypes {
     | '/app/billing'
     | '/app/calendar'
     | '/app/competitors'
+    | '/app/connect'
     | '/app/editor'
     | '/app/launch-checklist'
     | '/app/onboarding'
@@ -704,6 +715,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/billing'
     | '/_authenticated/app/calendar'
     | '/_authenticated/app/competitors'
+    | '/_authenticated/app/connect'
     | '/_authenticated/app/editor'
     | '/_authenticated/app/launch-checklist'
     | '/_authenticated/app/onboarding'
@@ -1056,6 +1068,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppEditorRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/app/connect': {
+      id: '/_authenticated/app/connect'
+      path: '/app/connect'
+      fullPath: '/app/connect'
+      preLoaderRoute: typeof AuthenticatedAppConnectRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/app/competitors': {
       id: '/_authenticated/app/competitors'
       path: '/app/competitors'
@@ -1182,6 +1201,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppBillingRoute: typeof AuthenticatedAppBillingRoute
   AuthenticatedAppCalendarRoute: typeof AuthenticatedAppCalendarRoute
   AuthenticatedAppCompetitorsRoute: typeof AuthenticatedAppCompetitorsRoute
+  AuthenticatedAppConnectRoute: typeof AuthenticatedAppConnectRoute
   AuthenticatedAppEditorRoute: typeof AuthenticatedAppEditorRoute
   AuthenticatedAppLaunchChecklistRoute: typeof AuthenticatedAppLaunchChecklistRoute
   AuthenticatedAppOnboardingRoute: typeof AuthenticatedAppOnboardingRoute
@@ -1202,6 +1222,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppBillingRoute: AuthenticatedAppBillingRoute,
   AuthenticatedAppCalendarRoute: AuthenticatedAppCalendarRoute,
   AuthenticatedAppCompetitorsRoute: AuthenticatedAppCompetitorsRoute,
+  AuthenticatedAppConnectRoute: AuthenticatedAppConnectRoute,
   AuthenticatedAppEditorRoute: AuthenticatedAppEditorRoute,
   AuthenticatedAppLaunchChecklistRoute: AuthenticatedAppLaunchChecklistRoute,
   AuthenticatedAppOnboardingRoute: AuthenticatedAppOnboardingRoute,

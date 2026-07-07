@@ -13,7 +13,14 @@ import { z } from "zod";
 const searchSchema = z.object({
   mode: z.enum(["login", "register", "reset"]).optional(),
   message: z.string().optional(),
+  redirect: z.string().optional(),
 });
+
+/** Only allow internal app paths as a post-login target (prevents open redirect). */
+function safeRedirect(r: string | undefined): string {
+  if (r && r.startsWith("/app") && !r.startsWith("//")) return r;
+  return "/app";
+}
 
 export const Route = createFileRoute("/auth")({
   validateSearch: searchSchema,
@@ -60,10 +67,20 @@ function AuthPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Navigate to the post-login target: the validated internal redirect when
+  // present (e.g. /app/connect?req=…), otherwise the dashboard. A redirect that
+  // carries a query uses a full navigation so the search params are preserved.
+  function goAfterAuth() {
+    const dest = safeRedirect(search.redirect);
+    if (dest !== "/app") window.location.assign(dest);
+    else navigate({ to: "/app", replace: true });
+  }
+
   useEffect(() => {
     if (!loading && session) {
-      navigate({ to: "/app", replace: true });
+      goAfterAuth();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, session, navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -86,7 +103,7 @@ function AuthPage() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast.success("Welcome back.");
-        navigate({ to: "/app", replace: true });
+        goAfterAuth();
       } else {
         await requestPasswordResetWithBrandedEmailFn({
           data: {
