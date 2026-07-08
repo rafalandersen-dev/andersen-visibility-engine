@@ -10,6 +10,7 @@ import {
 } from "@/lib/mcp.functions";
 import { Bot, Copy, KeyRound, Loader2, Trash2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
+import { ConnectedAppsSection } from "@/components/ConnectedAppsSection";
 
 async function copy(text: string, msg: string) {
   try {
@@ -183,6 +184,9 @@ export function ClaudeConnectorCard() {
           <p className="mt-1.5 text-xs text-muted-foreground">{t("claude.security")}</p>
         </div>
       </div>
+
+      {/* Connected apps (Claude.ai OAuth grants) — hidden when there are none */}
+      <ConnectedAppsSection />
     </section>
   );
 }

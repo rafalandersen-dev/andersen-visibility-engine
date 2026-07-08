@@ -675,6 +675,22 @@ export const sv: Record<string, string> = {
   "claude.securityTitle": "Säkerhet",
   "claude.security": "Skrivskyddad åtkomst till dina Milo-data. Tokens lagras hashade, visas aldrig igen efter skapande och loggas aldrig. Återkalla en token när som helst för att koppla från.",
 
+  // ---- Claude connected apps (OAuth) ----
+  "claude.apps.title": "Anslutna appar",
+  "claude.apps.subtitle": "Appar anslutna till ditt Milo Growth-konto via Claude.ai. Du kan återkalla åtkomsten när som helst.",
+  "claude.apps.status.active": "Aktiv",
+  "claude.apps.status.expired": "Utgången",
+  "claude.apps.status.revoked": "Återkallad",
+  "claude.apps.connected": "Ansluten",
+  "claude.apps.expires": "token går ut",
+  "claude.apps.unnamed": "Okänd app",
+  "claude.apps.revoke": "Återkalla åtkomst",
+  "claude.apps.revokeTitle": "Koppla från Claude?",
+  "claude.apps.revokeBody": "Claude förlorar omedelbart åtkomsten till dina Milo Growth-data. Dina projekt och ditt innehåll påverkas inte — inget raderas. Du kan ansluta igen från Claude.ai när som helst.",
+  "claude.apps.revoked": "Åtkomst återkallad.",
+  "claude.apps.revokeError": "Det gick inte att återkalla åtkomsten. Försök igen.",
+  "claude.apps.loadError": "Det gick inte att läsa in anslutna appar.",
+
   // ---- Claude OAuth consent (Phase 3) ----
   "connect.loading": "Laddar auktoriseringsbegäran…",
   "connect.badge": "Claude-anslutning",

@@ -685,6 +685,22 @@ export const en: Record<string, string> = {
   "claude.securityTitle": "Security",
   "claude.security": "Read-only access to your Milo data. Tokens are stored hashed, never shown again after creation, and never logged. Revoke a token at any time to disconnect.",
 
+  // ---- Claude connected apps (OAuth) ----
+  "claude.apps.title": "Connected apps",
+  "claude.apps.subtitle": "Apps connected to your Milo Growth account via Claude.ai. You can revoke access at any time.",
+  "claude.apps.status.active": "Active",
+  "claude.apps.status.expired": "Expired",
+  "claude.apps.status.revoked": "Revoked",
+  "claude.apps.connected": "Connected",
+  "claude.apps.expires": "token expires",
+  "claude.apps.unnamed": "Unknown app",
+  "claude.apps.revoke": "Revoke access",
+  "claude.apps.revokeTitle": "Disconnect Claude?",
+  "claude.apps.revokeBody": "Claude will immediately lose access to your Milo Growth data. Your projects and content stay untouched — nothing is deleted. You can reconnect from Claude.ai at any time.",
+  "claude.apps.revoked": "Access revoked.",
+  "claude.apps.revokeError": "Could not revoke access. Please try again.",
+  "claude.apps.loadError": "Could not load connected apps.",
+
   // ---- Claude OAuth consent (Phase 3) ----
   "connect.loading": "Loading authorization request…",
   "connect.badge": "Claude connector",

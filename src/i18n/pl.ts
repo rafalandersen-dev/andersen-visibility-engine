@@ -675,6 +675,22 @@ export const pl: Record<string, string> = {
   "claude.securityTitle": "Bezpieczeństwo",
   "claude.security": "Dostęp tylko do odczytu do danych Milo. Tokeny są przechowywane w postaci skrótu, nigdy nie są pokazywane ponownie po utworzeniu i nigdy nie są logowane. Unieważnij token w dowolnym momencie, aby się rozłączyć.",
 
+  // ---- Claude connected apps (OAuth) ----
+  "claude.apps.title": "Połączone aplikacje",
+  "claude.apps.subtitle": "Aplikacje połączone z Twoim kontem Milo Growth przez Claude.ai. Dostęp możesz odebrać w każdej chwili.",
+  "claude.apps.status.active": "Aktywne",
+  "claude.apps.status.expired": "Wygasłe",
+  "claude.apps.status.revoked": "Odebrane",
+  "claude.apps.connected": "Połączono",
+  "claude.apps.expires": "token wygasa",
+  "claude.apps.unnamed": "Nieznana aplikacja",
+  "claude.apps.revoke": "Odbierz dostęp",
+  "claude.apps.revokeTitle": "Odłączyć Claude?",
+  "claude.apps.revokeBody": "Claude natychmiast utraci dostęp do Twoich danych Milo Growth. Twoje projekty i treści pozostaną nietknięte — nic nie zostanie usunięte. Możesz połączyć się ponownie z Claude.ai w dowolnym momencie.",
+  "claude.apps.revoked": "Dostęp odebrany.",
+  "claude.apps.revokeError": "Nie udało się odebrać dostępu. Spróbuj ponownie.",
+  "claude.apps.loadError": "Nie udało się wczytać połączonych aplikacji.",
+
   // ---- Claude OAuth consent (Phase 3) ----
   "connect.loading": "Ładowanie żądania autoryzacji…",
   "connect.badge": "Konektor Claude",

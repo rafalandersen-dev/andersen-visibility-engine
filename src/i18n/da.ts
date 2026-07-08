@@ -675,6 +675,22 @@ export const da: Record<string, string> = {
   "claude.securityTitle": "Sikkerhed",
   "claude.security": "Skrivebeskyttet adgang til dine Milo-data. Tokens gemmes hashet, vises aldrig igen efter oprettelse og logges aldrig. Tilbagekald en token når som helst for at afbryde.",
 
+  // ---- Claude connected apps (OAuth) ----
+  "claude.apps.title": "Forbundne apps",
+  "claude.apps.subtitle": "Apps forbundet til din Milo Growth-konto via Claude.ai. Du kan til enhver tid tilbagekalde adgangen.",
+  "claude.apps.status.active": "Aktiv",
+  "claude.apps.status.expired": "Udløbet",
+  "claude.apps.status.revoked": "Tilbagekaldt",
+  "claude.apps.connected": "Forbundet",
+  "claude.apps.expires": "token udløber",
+  "claude.apps.unnamed": "Ukendt app",
+  "claude.apps.revoke": "Tilbagekald adgang",
+  "claude.apps.revokeTitle": "Afbryd Claude?",
+  "claude.apps.revokeBody": "Claude mister øjeblikkeligt adgangen til dine Milo Growth-data. Dine projekter og dit indhold påvirkes ikke — intet slettes. Du kan altid forbinde igen fra Claude.ai.",
+  "claude.apps.revoked": "Adgang tilbagekaldt.",
+  "claude.apps.revokeError": "Adgangen kunne ikke tilbagekaldes. Prøv igen.",
+  "claude.apps.loadError": "Forbundne apps kunne ikke indlæses.",
+
   // ---- Claude OAuth consent (Phase 3) ----
   "connect.loading": "Indlæser autorisationsanmodning…",
   "connect.badge": "Claude-forbindelse",
