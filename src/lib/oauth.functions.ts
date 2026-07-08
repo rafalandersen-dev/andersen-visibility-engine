@@ -3,9 +3,13 @@
  *
  * These run only for an authenticated Milo user (requireSupabaseAuth →
  * context.userId). The server-only oauth module is lazy-imported per handler.
- * Everything is gated by MCP_OAUTH_ENABLED; with the flag off they behave as if
- * no pending request exists (production-neutral). Plaintext authorization codes
- * are only ever in the returned redirect URL — never logged.
+ * Consent fns are gated by MCP_OAUTH_ENABLED; with the flag off they behave as
+ * if no pending request exists (production-neutral). Plaintext authorization
+ * codes are only ever in the returned redirect URL — never logged.
+ *
+ * The connected-apps fns (getConnectedAppsFn / revokeConnectedAppFn) are
+ * deliberately NOT flag-gated: after a rollback users must still be able to
+ * see and revoke grants made while the connector was enabled.
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -63,6 +67,33 @@ export const approveOAuthConsentFn = createServerFn({ method: "POST" })
     await oauth.insertConsent(context.userId, c.normalized.clientId, c.normalized.scope);
     await oauth.logOAuthEvent("consent_granted", { clientId: c.normalized.clientId, userId: context.userId });
     return { ok: true, redirectUrl: res.redirectUrl };
+  });
+
+/** One connected-app card (display-safe fields only — see ConnectedAppView). */
+export type { ConnectedAppView } from "./oauth.server";
+
+export const getConnectedAppsFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const oauth = await import("./oauth.server");
+    // Not flag-gated (see module docstring): grants stay visible after rollback.
+    return { apps: await oauth.listGrantsForUser(context.userId) };
+  });
+
+export const revokeConnectedAppFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ clientId: z.string().min(1).max(300) }).parse(input))
+  .handler(async ({ data, context }): Promise<{ ok: true }> => {
+    const oauth = await import("./oauth.server");
+    // Scoped to the caller's own grants; a client_id the user has no grants
+    // for is a safe no-op (no cross-user reach, no existence leak).
+    await oauth.revokeGrantsForUserClient(context.userId, data.clientId, new Date().toISOString());
+    await oauth.logOAuthEvent("revoked", {
+      clientId: data.clientId,
+      userId: context.userId,
+      detail: { source: "connected_apps", client_id: data.clientId },
+    });
+    return { ok: true };
   });
 
 export const denyOAuthConsentFn = createServerFn({ method: "POST" })

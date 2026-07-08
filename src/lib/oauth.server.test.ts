@@ -52,11 +52,14 @@ import {
   classifyConsentRequest,
   buildDenyRedirect,
   processRevocationRequest,
+  buildConnectedApps,
   type AuthorizeParams,
   type TokenParams,
   type TokenDeps,
   type RevocationDeps,
   type RevokedTokenInfo,
+  type TokenGrantRow,
+  type ConsentRow,
 } from "./oauth.server";
 
 const NOW = 1_700_000_000_000;
@@ -794,6 +797,99 @@ describe("processRevocationRequest", () => {
       nowMs: NOW,
     };
     await expect(processRevocationRequest(true, { token: "milo_at_x" }, deps)).rejects.toThrow("revoke_failed");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Connected apps aggregation (pure)
+// ---------------------------------------------------------------------------
+
+describe("buildConnectedApps", () => {
+  const token = (over: Partial<TokenGrantRow>): TokenGrantRow => ({
+    client_id: "client1",
+    scope: "milo.projects.read",
+    created_at: new Date(NOW - 3_600_000).toISOString(),
+    access_expires_at: new Date(NOW + 3_600_000).toISOString(),
+    last_used_at: null,
+    revoked_at: null,
+    ...over,
+  });
+  const consent = (over: Partial<ConsentRow>): ConsentRow => ({
+    client_id: "client1",
+    scope: "milo.projects.read milo.content.read",
+    granted_at: new Date(NOW - 3_600_000).toISOString(),
+    revoked_at: null,
+    ...over,
+  });
+
+  it("returns one card per distinct client with display-safe fields only", () => {
+    const apps = buildConnectedApps(
+      [token({}), token({ client_id: "client2" })],
+      [consent({}), consent({ client_id: "client3" })],
+      { client1: "Claude", client2: null },
+      NOW,
+    );
+    expect(apps.map((a) => a.clientId).sort()).toEqual(["client1", "client2", "client3"]);
+    for (const app of apps) {
+      expect(Object.keys(app).sort()).toEqual(
+        ["clientId", "clientName", "scopes", "grantedAt", "status", "activeTokenCount", "latestTokenCreatedAt", "latestTokenExpiresAt", "latestTokenLastUsedAt"].sort(),
+      );
+    }
+    expect(JSON.stringify(apps)).not.toMatch(/hash|secret|token_hash/i);
+    expect(apps.find((a) => a.clientId === "client1")?.clientName).toBe("Claude");
+    expect(apps.find((a) => a.clientId === "client3")?.clientName).toBeNull();
+  });
+
+  it("picks the NEWEST token's dates and counts only live tokens", () => {
+    const older = token({ created_at: new Date(NOW - 7_200_000).toISOString(), last_used_at: new Date(NOW - 7_000_000).toISOString() });
+    const newest = token({ created_at: new Date(NOW - 60_000).toISOString(), access_expires_at: new Date(NOW + 60_000).toISOString(), last_used_at: new Date(NOW - 30_000).toISOString() });
+    const revoked = token({ created_at: new Date(NOW - 3_600_000).toISOString(), revoked_at: new Date(NOW - 1_000_000).toISOString() });
+    const expired = token({ created_at: new Date(NOW - 5_000_000).toISOString(), access_expires_at: new Date(NOW - 1).toISOString() });
+    const [app] = buildConnectedApps([older, newest, revoked, expired], [consent({})], {}, NOW);
+    expect(app.latestTokenCreatedAt).toBe(newest.created_at);
+    expect(app.latestTokenExpiresAt).toBe(newest.access_expires_at);
+    expect(app.latestTokenLastUsedAt).toBe(newest.last_used_at);
+    expect(app.activeTokenCount).toBe(2); // older + newest live; revoked + expired excluded
+    expect(app.status).toBe("active");
+  });
+
+  it("derives status: expired when consent stands without live tokens, revoked when neither", () => {
+    const dead = token({ access_expires_at: new Date(NOW - 1).toISOString() });
+    const [expired] = buildConnectedApps([dead], [consent({})], {}, NOW);
+    expect(expired.status).toBe("expired");
+    const [revoked] = buildConnectedApps([dead], [consent({ revoked_at: new Date(NOW - 1).toISOString() })], {}, NOW);
+    expect(revoked.status).toBe("revoked");
+    expect(revoked.activeTokenCount).toBe(0);
+  });
+
+  it("uses the earliest consent as grantedAt and labels the live token's scopes", () => {
+    const first = consent({ granted_at: new Date(NOW - 9_000_000).toISOString() });
+    const second = consent({ granted_at: new Date(NOW - 1_000_000).toISOString() });
+    const [app] = buildConnectedApps([token({ scope: "milo.projects.read" })], [first, second], {}, NOW);
+    expect(app.grantedAt).toBe(first.granted_at);
+    expect(app.scopes).toEqual([{ scope: "milo.projects.read", label: "See your projects and brand profile" }]);
+  });
+
+  it("sorts clients with active tokens first, then by newest token", () => {
+    const apps = buildConnectedApps(
+      [
+        token({ client_id: "deadClient", access_expires_at: new Date(NOW - 1).toISOString(), created_at: new Date(NOW - 100).toISOString() }),
+        token({ client_id: "oldActive", created_at: new Date(NOW - 5_000_000).toISOString() }),
+        token({ client_id: "newActive", created_at: new Date(NOW - 60_000).toISOString() }),
+      ],
+      [],
+      {},
+      NOW,
+    );
+    expect(apps.map((a) => a.clientId)).toEqual(["newActive", "oldActive", "deadClient"]);
+  });
+
+  it("consent-only grants (no tokens yet) render with null token fields", () => {
+    const [app] = buildConnectedApps([], [consent({})], { client1: "Claude" }, NOW);
+    expect(app.status).toBe("expired");
+    expect(app.activeTokenCount).toBe(0);
+    expect(app.latestTokenCreatedAt).toBeNull();
+    expect(app.scopes.map((s) => s.scope)).toEqual(["milo.projects.read", "milo.content.read"]);
   });
 });
 

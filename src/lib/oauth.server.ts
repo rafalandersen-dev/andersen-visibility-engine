@@ -309,11 +309,14 @@ export async function processClientRegistration(
 
 // ---- DB helpers (service role; lazy import keeps client bundle clean) ----
 type Row = Record<string, unknown>;
+// Awaiting the chain directly yields the multi-row result (supabase builder
+// is thenable); maybeSingle() yields a single row.
 type SelectChain = {
   eq: (k: string, v: string) => SelectChain;
   is: (k: string, v: null) => SelectChain;
+  in: (k: string, v: string[]) => SelectChain;
   maybeSingle: () => Promise<{ data: Row | null; error: unknown }>;
-};
+} & PromiseLike<{ data: Row[] | null; error: unknown }>;
 type UpdateChain = {
   eq: (k: string, v: string) => UpdateChain;
   is: (k: string, v: null) => UpdateChain;
@@ -838,6 +841,134 @@ export async function revokeAccessTokenByHash(tokenHash: string, nowIso: string)
     userId: (data.user_id as string | null) ?? null,
     clientId: (data.client_id as string | null) ?? null,
   };
+}
+
+// ===========================================================================
+// Phase 0 (trust foundation) — connected apps: list + revoke a user's grants.
+// Display-safe data only: no token hashes, no codes, no secrets. Deliberately
+// usable with the flag OFF so users can inspect/revoke grants after rollback.
+// ===========================================================================
+
+/** Safe subset of an oauth_tokens row used for the connected-apps view. */
+export interface TokenGrantRow {
+  client_id: string;
+  scope: string | null;
+  created_at: string | null;
+  access_expires_at: string | null;
+  last_used_at: string | null;
+  revoked_at: string | null;
+}
+
+/** Safe subset of an oauth_consents row. */
+export interface ConsentRow {
+  client_id: string;
+  scope: string | null;
+  granted_at: string | null;
+  revoked_at: string | null;
+}
+
+/** One connected-app card: display-safe fields only. */
+export interface ConnectedAppView {
+  clientId: string;
+  clientName: string | null;
+  scopes: { scope: string; label: string }[];
+  grantedAt: string | null;
+  status: "active" | "expired" | "revoked";
+  activeTokenCount: number;
+  latestTokenCreatedAt: string | null;
+  latestTokenExpiresAt: string | null;
+  latestTokenLastUsedAt: string | null;
+}
+
+/**
+ * Aggregate a user's token + consent rows into one card per client. Pure.
+ * status: "active" (≥1 live token) · "expired" (consent stands, no live token)
+ * · "revoked" (no live token, no active consent). Sorted active-first, then by
+ * newest token.
+ */
+export function buildConnectedApps(
+  tokens: TokenGrantRow[],
+  consents: ConsentRow[],
+  clientNames: Record<string, string | null>,
+  nowMs: number,
+): ConnectedAppView[] {
+  const byNewest = (a: string | null, b: string | null) => String(b ?? "").localeCompare(String(a ?? ""));
+  const ids = [...new Set([...tokens.map((t) => t.client_id), ...consents.map((c) => c.client_id)].filter(Boolean))];
+
+  const apps = ids.map((clientId): ConnectedAppView => {
+    const ts = tokens.filter((t) => t.client_id === clientId).sort((a, b) => byNewest(a.created_at, b.created_at));
+    const latest = ts[0];
+    const live = ts.filter((t) => !t.revoked_at && t.access_expires_at && Date.parse(t.access_expires_at) > nowMs);
+    const cs = consents.filter((c) => c.client_id === clientId).sort((a, b) => byNewest(a.granted_at, b.granted_at));
+    const activeConsent = cs.find((c) => !c.revoked_at);
+    const scopeSource = live[0]?.scope ?? activeConsent?.scope ?? latest?.scope ?? cs[0]?.scope ?? "";
+    return {
+      clientId,
+      clientName: clientNames[clientId] ?? null,
+      scopes: scopeConsentItems(scopeSource),
+      grantedAt: cs.length ? cs[cs.length - 1].granted_at : (ts.length ? ts[ts.length - 1].created_at : null),
+      status: live.length > 0 ? "active" : activeConsent ? "expired" : "revoked",
+      activeTokenCount: live.length,
+      latestTokenCreatedAt: latest?.created_at ?? null,
+      latestTokenExpiresAt: latest?.access_expires_at ?? null,
+      latestTokenLastUsedAt: latest?.last_used_at ?? null,
+    };
+  });
+
+  return apps.sort(
+    (a, b) => (b.activeTokenCount > 0 ? 1 : 0) - (a.activeTokenCount > 0 ? 1 : 0) || byNewest(a.latestTokenCreatedAt, b.latestTokenCreatedAt),
+  );
+}
+
+/**
+ * Load the connected-apps view for a user. Selects display-safe columns only
+ * (never token hashes). One card per distinct client_id across tokens+consents.
+ */
+export async function listGrantsForUser(userId: string): Promise<ConnectedAppView[]> {
+  if (!userId) return [];
+  const db = await admin();
+  const { data: tokens } = await db
+    .from("oauth_tokens")
+    .select("client_id,scope,created_at,access_expires_at,last_used_at,revoked_at")
+    .eq("user_id", userId);
+  const { data: consents } = await db.from("oauth_consents").select("client_id,scope,granted_at,revoked_at").eq("user_id", userId);
+
+  const t = (tokens ?? []) as unknown as TokenGrantRow[];
+  const c = (consents ?? []) as unknown as ConsentRow[];
+  const ids = [...new Set([...t.map((r) => r.client_id), ...c.map((r) => r.client_id)].filter(Boolean))];
+
+  const names: Record<string, string | null> = {};
+  if (ids.length) {
+    const { data: clients } = await db.from("oauth_clients").select("client_id,client_name").in("client_id", ids);
+    for (const row of clients ?? []) names[String(row.client_id ?? "")] = (row.client_name as string | null) ?? null;
+  }
+  return buildConnectedApps(t, c, names, Date.now());
+}
+
+/**
+ * Revoke ALL of one user's grants for one client: every live oauth_tokens row
+ * and every active oauth_consents row gets revoked_at. Both updates filter by
+ * user_id, so another user's grants are unreachable; a client_id the user has
+ * no grants for simply matches zero rows (safe no-op — no existence leak).
+ * Throws if a write fails so callers never report success on a failed revoke.
+ */
+export async function revokeGrantsForUserClient(userId: string, clientId: string, nowIso: string): Promise<void> {
+  if (!userId || !clientId) return;
+  const db = await admin();
+  const { error: tokenErr } = await db
+    .from("oauth_tokens")
+    .update({ revoked_at: nowIso })
+    .eq("user_id", userId)
+    .eq("client_id", clientId)
+    .is("revoked_at", null);
+  if (tokenErr) throw new Error("revoke_tokens_failed");
+  const { error: consentErr } = await db
+    .from("oauth_consents")
+    .update({ revoked_at: nowIso })
+    .eq("user_id", userId)
+    .eq("client_id", clientId)
+    .is("revoked_at", null);
+  if (consentErr) throw new Error("revoke_consents_failed");
 }
 
 // ===========================================================================

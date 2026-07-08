@@ -25,7 +25,7 @@ import {
   buildMcpAuditEvent,
   resolveUser,
 } from "./mcp.server";
-import { resolveAccessToken, revokeAccessTokenByHash, MCP_RESOURCE_URL } from "./oauth.server";
+import { resolveAccessToken, revokeAccessTokenByHash, listGrantsForUser, revokeGrantsForUserClient, MCP_RESOURCE_URL } from "./oauth.server";
 
 // ---- supabase chain fakes -------------------------------------------------
 
@@ -334,5 +334,134 @@ describe("revokeAccessTokenByHash", () => {
     const state = { updateCalled: false, updatedWith: null as Record<string, unknown> | null };
     h.from = revocationFake(liveRow, state, { message: "db_down" });
     await expect(revokeAccessTokenByHash("somehash", "2026-07-08T00:00:00.000Z")).rejects.toThrow("revoke_failed");
+  });
+});
+
+// ---- connected apps DB helpers (share the supabase mock) ----------------------
+
+interface QueryLog {
+  table: string;
+  kind: "select" | "update";
+  columnsOrPayload: unknown;
+  filters: { op: string; key: string; value: unknown }[];
+}
+
+/** Multi-table fake: records every select/update + filter, serves list results. */
+function multiTableFake(data: Record<string, unknown[]>, log: QueryLog[], updateError: unknown = null) {
+  return (table: string) => {
+    const listChain = (entry: QueryLog, result: () => { data: unknown; error: unknown }) => {
+      const chain: Record<string, unknown> = {};
+      chain.eq = (key: string, value: unknown) => {
+        entry.filters.push({ op: "eq", key, value });
+        return chain;
+      };
+      chain.is = (key: string, value: unknown) => {
+        entry.filters.push({ op: "is", key, value });
+        return chain;
+      };
+      chain.in = (key: string, value: unknown) => {
+        entry.filters.push({ op: "in", key, value });
+        return chain;
+      };
+      chain.maybeSingle = async () => result();
+      chain.then = (res: (v: unknown) => unknown) => Promise.resolve(result()).then(res);
+      return chain;
+    };
+    return {
+      select: (columns: string) => {
+        const entry: QueryLog = { table, kind: "select", columnsOrPayload: columns, filters: [] };
+        log.push(entry);
+        return listChain(entry, () => ({ data: data[table] ?? [], error: null }));
+      },
+      update: (payload: Record<string, unknown>) => {
+        const entry: QueryLog = { table, kind: "update", columnsOrPayload: payload, filters: [] };
+        log.push(entry);
+        return listChain(entry, () => ({ data: null, error: updateError }));
+      },
+    };
+  };
+}
+
+describe("listGrantsForUser", () => {
+  const NOWISH = Date.now();
+  const tokenRow = {
+    client_id: "client1",
+    scope: "milo.projects.read",
+    created_at: new Date(NOWISH - 60_000).toISOString(),
+    access_expires_at: new Date(NOWISH + 60_000).toISOString(),
+    last_used_at: new Date(NOWISH - 30_000).toISOString(),
+    revoked_at: null,
+  };
+  const consentRow = { client_id: "client1", scope: "milo.projects.read", granted_at: new Date(NOWISH - 60_000).toISOString(), revoked_at: null };
+
+  it("selects display-safe columns only and scopes every query to the user", async () => {
+    const log: QueryLog[] = [];
+    h.from = multiTableFake({ oauth_tokens: [tokenRow], oauth_consents: [consentRow], oauth_clients: [{ client_id: "client1", client_name: "Claude" }] }, log);
+    const apps = await listGrantsForUser("user1");
+
+    expect(apps).toHaveLength(1);
+    expect(apps[0].clientId).toBe("client1");
+    expect(apps[0].clientName).toBe("Claude");
+    expect(apps[0].status).toBe("active");
+    expect(apps[0].activeTokenCount).toBe(1);
+    expect(apps[0].latestTokenLastUsedAt).toBe(tokenRow.last_used_at);
+
+    const selects = log.filter((l) => l.kind === "select");
+    expect(selects.map((s) => s.table).sort()).toEqual(["oauth_clients", "oauth_consents", "oauth_tokens"]);
+    for (const s of selects) {
+      expect(String(s.columnsOrPayload)).not.toMatch(/hash|code|secret|\*/i);
+    }
+    const tokenSelect = selects.find((s) => s.table === "oauth_tokens");
+    expect(tokenSelect?.filters).toEqual([{ op: "eq", key: "user_id", value: "user1" }]);
+    const consentSelect = selects.find((s) => s.table === "oauth_consents");
+    expect(consentSelect?.filters).toEqual([{ op: "eq", key: "user_id", value: "user1" }]);
+    const clientSelect = selects.find((s) => s.table === "oauth_clients");
+    expect(clientSelect?.filters).toEqual([{ op: "in", key: "client_id", value: ["client1"] }]);
+    expect(JSON.stringify(apps)).not.toMatch(/hash|secret/i);
+  });
+
+  it("empty user id → [] with no DB access; no grants → [] without a clients lookup", async () => {
+    h.from = () => {
+      throw new Error("no DB for empty user");
+    };
+    expect(await listGrantsForUser("")).toEqual([]);
+
+    const log: QueryLog[] = [];
+    h.from = multiTableFake({ oauth_tokens: [], oauth_consents: [] }, log);
+    expect(await listGrantsForUser("user1")).toEqual([]);
+    expect(log.filter((l) => l.table === "oauth_clients")).toHaveLength(0);
+  });
+});
+
+describe("revokeGrantsForUserClient", () => {
+  it("revokes live tokens AND active consents, always filtered to user + client", async () => {
+    const log: QueryLog[] = [];
+    h.from = multiTableFake({}, log);
+    await revokeGrantsForUserClient("user1", "client1", "2026-07-08T00:00:00.000Z");
+
+    const updates = log.filter((l) => l.kind === "update");
+    expect(updates.map((u) => u.table)).toEqual(["oauth_tokens", "oauth_consents"]);
+    for (const u of updates) {
+      expect(u.columnsOrPayload).toEqual({ revoked_at: "2026-07-08T00:00:00.000Z" });
+      expect(u.filters).toEqual([
+        { op: "eq", key: "user_id", value: "user1" },
+        { op: "eq", key: "client_id", value: "client1" },
+        { op: "is", key: "revoked_at", value: null },
+      ]);
+    }
+  });
+
+  it("missing user or client → no-op without DB access", async () => {
+    h.from = () => {
+      throw new Error("no DB for blank ids");
+    };
+    await revokeGrantsForUserClient("", "client1", "now");
+    await revokeGrantsForUserClient("user1", "", "now");
+  });
+
+  it("throws when a revocation write fails", async () => {
+    const log: QueryLog[] = [];
+    h.from = multiTableFake({}, log, { message: "db_down" });
+    await expect(revokeGrantsForUserClient("user1", "client1", "now")).rejects.toThrow("revoke_tokens_failed");
   });
 });
