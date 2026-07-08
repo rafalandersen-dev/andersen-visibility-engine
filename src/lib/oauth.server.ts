@@ -327,9 +327,14 @@ type Table = {
   update: (r: unknown) => UpdateChain;
 };
 
-async function admin(): Promise<{ from: (t: string) => Table }> {
+type AdminDb = {
+  from: (t: string) => Table;
+  rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
+};
+
+async function admin(): Promise<AdminDb> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return supabaseAdmin as unknown as { from: (t: string) => Table };
+  return supabaseAdmin as unknown as AdminDb;
 }
 
 /** Persist a registered client. Throws on failure (route maps to 500). */
@@ -772,6 +777,97 @@ export async function processTokenRequest(
   await deps.insertToken(buildAccessTokenRow(codeRow, accessHash, tokenScope, expiresAtIso));
 
   return { status: 200, body: tokenSuccessResponse(accessToken, tokenScope, Math.floor(ACCESS_TOKEN_TTL_MS / 1000)) };
+}
+
+// ===========================================================================
+// Phase 0 (trust foundation) — DB-backed fixed-window rate limiting.
+// Counters live in oauth_rate_limits (Workers isolates share no memory).
+// Keys are SHA-256 of a per-bucket salt prefix + identifier — raw IPs/tokens
+// never reach the table, and the salt prefixes keep mcp bearer-token keys
+// unjoinable against oauth_tokens.access_token_hash. Increment-then-check;
+// FAIL-OPEN on any DB error (availability over strictness for an abuse guard).
+// ===========================================================================
+
+export interface RateBucket {
+  bucket: string;
+  limit: number;
+  windowSec: number;
+  saltPrefix: string;
+}
+
+/** Approved Phase 0 limits. Constants — tune here, redeploy to change. */
+export const RATE_BUCKETS = {
+  register: { bucket: "register", limit: 10, windowSec: 3600, saltPrefix: "rl:reg:" },
+  tokenIp: { bucket: "token_ip", limit: 30, windowSec: 3600, saltPrefix: "rl:tok:" },
+  tokenClient: { bucket: "token_client", limit: 15, windowSec: 3600, saltPrefix: "rl:tok:c:" },
+  mcpToken: { bucket: "mcp", limit: 120, windowSec: 300, saltPrefix: "rl:mcp:" },
+  mcpAnon: { bucket: "mcp_anon", limit: 30, windowSec: 300, saltPrefix: "rl:mcpa:" },
+} as const;
+
+/** Fixed-window boundary + seconds until the window rolls over. Pure. */
+export function rateWindowStart(nowMs: number, windowSec: number): { startIso: string; retryAfterSec: number } {
+  const windowMs = windowSec * 1000;
+  const startMs = Math.floor(nowMs / windowMs) * windowMs;
+  return {
+    startIso: new Date(startMs).toISOString(),
+    retryAfterSec: Math.max(1, Math.ceil((startMs + windowMs - nowMs) / 1000)),
+  };
+}
+
+/** Salted hash key for a bucket. Empty identifier (no CF header, local dev) → shared "noip" key. */
+export async function rateLimitKey(bucket: RateBucket, identifier: string): Promise<string> {
+  return sha256Hex(bucket.saltPrefix + (identifier || "noip"));
+}
+
+export interface RateLimitResult {
+  allowed: boolean;
+  /** Seconds until the window resets (for Retry-After). */
+  retryAfterSec: number;
+  /** True exactly when this request is the FIRST over-limit one in its window
+   * (count == limit + 1) — the caller writes one rate_limited audit event. */
+  shouldAudit: boolean;
+  windowStartIso: string;
+}
+
+export interface RateLimitDeps {
+  /** Atomically increment (bucket,key,window) and return the new count. */
+  bump: (bucket: string, key: string, windowStartIso: string) => Promise<number>;
+  nowMs: number;
+}
+
+/** Increment-then-check. A bump failure fails OPEN (request allowed). */
+export async function checkRateLimit(bucket: RateBucket, identifier: string, deps: RateLimitDeps): Promise<RateLimitResult> {
+  const { startIso, retryAfterSec } = rateWindowStart(deps.nowMs, bucket.windowSec);
+  const key = await rateLimitKey(bucket, identifier);
+  let count: number;
+  try {
+    count = await deps.bump(bucket.bucket, key, startIso);
+  } catch (e) {
+    console.error("[rate-limit] bump failed (fail-open):", e instanceof Error ? e.message : String(e));
+    return { allowed: true, retryAfterSec: 0, shouldAudit: false, windowStartIso: startIso };
+  }
+  return {
+    allowed: count <= bucket.limit,
+    retryAfterSec,
+    shouldAudit: count === bucket.limit + 1,
+    windowStartIso: startIso,
+  };
+}
+
+/** DB bump via the bump_rate_limit RPC (single atomic statement), with
+ * opportunistic best-effort cleanup of >24h-old windows (~2% of requests). */
+export async function bumpRateLimit(bucket: string, key: string, windowStartIso: string): Promise<number> {
+  const db = await admin();
+  const { data, error } = await db.rpc("bump_rate_limit", { p_bucket: bucket, p_key: key, p_window_start: windowStartIso });
+  if (error || typeof data !== "number") throw new Error("rate_limit_bump_failed");
+  if (Math.floor(Date.now() / 1000) % 50 === 0) {
+    try {
+      await db.rpc("cleanup_rate_limits", { p_before: new Date(Date.now() - 24 * 3600 * 1000).toISOString() });
+    } catch {
+      /* best-effort */
+    }
+  }
+  return data;
 }
 
 // ===========================================================================

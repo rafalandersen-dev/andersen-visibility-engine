@@ -28,9 +28,22 @@ export const Route = createFileRoute("/api/oauth/register")({
           insertOAuthClient,
           generateClientId,
           logOAuthEvent,
+          RATE_BUCKETS,
+          checkRateLimit,
+          bumpRateLimit,
         } = await import("@/lib/oauth.server");
 
         if (!isOAuthEnabled()) return json({ error: "not_found" }, 404);
+
+        // Rate limit per hashed IP, before reading the body. Fail-open.
+        const rl = await checkRateLimit(RATE_BUCKETS.register, request.headers.get("cf-connecting-ip") ?? "", { bump: bumpRateLimit, nowMs: Date.now() });
+        if (rl.shouldAudit) await logOAuthEvent("rate_limited", { detail: { bucket: RATE_BUCKETS.register.bucket, window_start: rl.windowStartIso } });
+        if (!rl.allowed) {
+          return new Response(JSON.stringify({ error: "slow_down", error_description: "Too many requests. Try again shortly." }), {
+            status: 429,
+            headers: { "Content-Type": "application/json", "Retry-After": String(rl.retryAfterSec), ...CORS },
+          });
+        }
 
         let body: unknown = null;
         try {

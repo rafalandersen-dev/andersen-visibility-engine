@@ -53,6 +53,11 @@ import {
   buildDenyRedirect,
   processRevocationRequest,
   buildConnectedApps,
+  RATE_BUCKETS,
+  rateWindowStart,
+  rateLimitKey,
+  checkRateLimit,
+  type RateLimitDeps,
   type AuthorizeParams,
   type TokenParams,
   type TokenDeps,
@@ -718,6 +723,104 @@ describe("classifyConsentRequest", () => {
       ok: true,
       normalized: { clientId: "c", redirectUri: CALLBACK, scope: "milo.projects.read", state: "xyz" },
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Rate limiting (fixed window, DB-backed, fail-open)
+// ---------------------------------------------------------------------------
+
+describe("RATE_BUCKETS (approved Phase 0 limits)", () => {
+  it("encodes exactly the approved limits and windows", () => {
+    expect(RATE_BUCKETS.register).toMatchObject({ limit: 10, windowSec: 3600 });
+    expect(RATE_BUCKETS.tokenIp).toMatchObject({ limit: 30, windowSec: 3600 });
+    expect(RATE_BUCKETS.tokenClient).toMatchObject({ limit: 15, windowSec: 3600 });
+    expect(RATE_BUCKETS.mcpToken).toMatchObject({ limit: 120, windowSec: 300 });
+    expect(RATE_BUCKETS.mcpAnon).toMatchObject({ limit: 30, windowSec: 300 });
+    const prefixes = Object.values(RATE_BUCKETS).map((b) => b.saltPrefix);
+    expect(new Set(prefixes).size).toBe(prefixes.length); // distinct salts per bucket
+  });
+});
+
+describe("rateWindowStart", () => {
+  const H = 3600;
+  it("floors to the window boundary and reports seconds to rollover", () => {
+    const boundary = 1_700_000_400_000; // any ms value; make it an exact hour boundary below
+    const exact = Math.floor(boundary / (H * 1000)) * H * 1000;
+    const atStart = rateWindowStart(exact, H);
+    expect(atStart.startIso).toBe(new Date(exact).toISOString());
+    expect(atStart.retryAfterSec).toBe(H);
+    const midway = rateWindowStart(exact + 1800_000, H);
+    expect(midway.startIso).toBe(atStart.startIso);
+    expect(midway.retryAfterSec).toBe(1800);
+    const nearEnd = rateWindowStart(exact + H * 1000 - 500, H);
+    expect(nearEnd.startIso).toBe(atStart.startIso);
+    expect(nearEnd.retryAfterSec).toBe(1); // ceil, min 1
+    const nextWindow = rateWindowStart(exact + H * 1000, H);
+    expect(nextWindow.startIso).not.toBe(atStart.startIso);
+  });
+});
+
+describe("rateLimitKey", () => {
+  it("hashes with the bucket salt — raw value never appears, buckets never collide", async () => {
+    const ip = "203.0.113.7";
+    const k = await rateLimitKey(RATE_BUCKETS.register, ip);
+    expect(k).toMatch(/^[0-9a-f]{64}$/);
+    expect(k).not.toContain(ip);
+    expect(await rateLimitKey(RATE_BUCKETS.tokenIp, ip)).not.toBe(k); // different salt, same value
+    expect(await rateLimitKey(RATE_BUCKETS.register, ip)).toBe(k); // deterministic
+  });
+  it("uses a shared fallback key for a missing identifier", async () => {
+    expect(await rateLimitKey(RATE_BUCKETS.register, "")).toBe(await rateLimitKey(RATE_BUCKETS.register, ""));
+  });
+  it("mcp bearer keys are not the oauth token hash", async () => {
+    const bearer = "milo_at_sometoken";
+    expect(await rateLimitKey(RATE_BUCKETS.mcpToken, bearer)).not.toBe(await sha256Hex(bearer));
+  });
+});
+
+describe("checkRateLimit", () => {
+  const bucket = { bucket: "test", limit: 3, windowSec: 60, saltPrefix: "rl:test:" };
+  const deps = (count: number | Error): RateLimitDeps => ({
+    bump: async () => {
+      if (count instanceof Error) throw count;
+      return count;
+    },
+    nowMs: NOW,
+  });
+
+  it("allows under and AT the limit", async () => {
+    expect((await checkRateLimit(bucket, "x", deps(1))).allowed).toBe(true);
+    expect((await checkRateLimit(bucket, "x", deps(3))).allowed).toBe(true); // at limit
+  });
+  it("denies over the limit with the window's Retry-After", async () => {
+    const r = await checkRateLimit(bucket, "x", deps(4));
+    expect(r.allowed).toBe(false);
+    expect(r.retryAfterSec).toBe(rateWindowStart(NOW, 60).retryAfterSec);
+    expect(r.windowStartIso).toBe(rateWindowStart(NOW, 60).startIso);
+  });
+  it("audits exactly once — only at count == limit + 1", async () => {
+    expect((await checkRateLimit(bucket, "x", deps(3))).shouldAudit).toBe(false);
+    expect((await checkRateLimit(bucket, "x", deps(4))).shouldAudit).toBe(true);
+    expect((await checkRateLimit(bucket, "x", deps(5))).shouldAudit).toBe(false);
+  });
+  it("fails OPEN when the bump errors", async () => {
+    const r = await checkRateLimit(bucket, "x", deps(new Error("db_down")));
+    expect(r.allowed).toBe(true);
+    expect(r.shouldAudit).toBe(false);
+  });
+  it("passes the hashed key (not the raw identifier) to bump", async () => {
+    let seenKey = "";
+    const d: RateLimitDeps = {
+      bump: async (_b, key) => {
+        seenKey = key;
+        return 1;
+      },
+      nowMs: NOW,
+    };
+    await checkRateLimit(bucket, "203.0.113.7", d);
+    expect(seenKey).toMatch(/^[0-9a-f]{64}$/);
+    expect(seenKey).not.toContain("203.0.113.7");
   });
 });
 

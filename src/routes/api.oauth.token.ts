@@ -53,14 +53,36 @@ export const Route = createFileRoute("/api/oauth/token")({
           randomToken,
           ACCESS_TOKEN_PREFIX,
           logOAuthEvent,
+          RATE_BUCKETS,
+          checkRateLimit,
+          bumpRateLimit,
         } = await import("@/lib/oauth.server");
 
         if (!isOAuthEnabled()) return json({ error: "not_found" }, 404);
+
+        const tooMany = (retryAfterSec: number) =>
+          new Response(JSON.stringify({ error: "slow_down", error_description: "Too many requests. Try again shortly." }), {
+            status: 429,
+            headers: { "Content-Type": "application/json", "Cache-Control": "no-store", Pragma: "no-cache", "Retry-After": String(retryAfterSec), ...CORS },
+          });
+
+        // Rate limit per hashed IP before reading the body. Fail-open.
+        const nowMs = Date.now();
+        const rlIp = await checkRateLimit(RATE_BUCKETS.tokenIp, request.headers.get("cf-connecting-ip") ?? "", { bump: bumpRateLimit, nowMs });
+        if (rlIp.shouldAudit) await logOAuthEvent("rate_limited", { detail: { bucket: RATE_BUCKETS.tokenIp.bucket, window_start: rlIp.windowStartIso } });
+        if (!rlIp.allowed) return tooMany(rlIp.retryAfterSec);
 
         try {
           const raw = await request.text();
           if (raw.length > MAX_BODY) return json({ error: "invalid_request", error_description: "Request too large." }, 400);
           const p = parseBody(raw, request.headers.get("content-type") ?? "");
+
+          // Second dimension: per client_id when supplied (covers shared IPs).
+          if (p.client_id) {
+            const rlClient = await checkRateLimit(RATE_BUCKETS.tokenClient, p.client_id, { bump: bumpRateLimit, nowMs });
+            if (rlClient.shouldAudit) await logOAuthEvent("rate_limited", { detail: { bucket: RATE_BUCKETS.tokenClient.bucket, window_start: rlClient.windowStartIso } });
+            if (!rlClient.allowed) return tooMany(rlClient.retryAfterSec);
+          }
 
           const res = await processTokenRequest(true, p, {
             getClient: getOAuthClient,

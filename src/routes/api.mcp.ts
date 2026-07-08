@@ -38,8 +38,19 @@ export const Route = createFileRoute("/api/mcp")({
         try {
           const token = bearer(request);
           const { resolveUser, handleMcpMessage, buildMcpAuditEvent } = await import("@/lib/mcp.server");
-          const { isOAuthEnabled, mcpWwwAuthenticate, resolveAccessToken, parseScopes, logOAuthEvent } = await import("@/lib/oauth.server");
+          const { isOAuthEnabled, mcpWwwAuthenticate, resolveAccessToken, parseScopes, logOAuthEvent, RATE_BUCKETS, checkRateLimit, bumpRateLimit } =
+            await import("@/lib/oauth.server");
           const oauthEnabled = isOAuthEnabled();
+
+          // Rate limit BEFORE token resolution and body read (fail-open):
+          // bearer present → per hashed bearer; absent → per hashed IP. 429 is
+          // transport-level (no body parsed yet, so no JSON-RPC id to echo).
+          const rlBucket = token ? RATE_BUCKETS.mcpToken : RATE_BUCKETS.mcpAnon;
+          const rl = await checkRateLimit(rlBucket, token || (request.headers.get("cf-connecting-ip") ?? ""), { bump: bumpRateLimit, nowMs: Date.now() });
+          if (rl.shouldAudit) await logOAuthEvent("rate_limited", { detail: { bucket: rlBucket.bucket, window_start: rl.windowStartIso } });
+          if (!rl.allowed) {
+            return new Response(null, { status: 429, headers: { "Retry-After": String(rl.retryAfterSec), ...CORS } });
+          }
 
           // Phase 4: when the flag is on, try to resolve an OAuth access token
           // first (scoped grant); otherwise fall back to the legacy developer
