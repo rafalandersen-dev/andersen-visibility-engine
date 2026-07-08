@@ -37,7 +37,7 @@ export const Route = createFileRoute("/api/mcp")({
       POST: async ({ request }) => {
         try {
           const token = bearer(request);
-          const { resolveUser, handleMcpMessage } = await import("@/lib/mcp.server");
+          const { resolveUser, handleMcpMessage, buildMcpAuditEvent } = await import("@/lib/mcp.server");
           const { isOAuthEnabled, mcpWwwAuthenticate, resolveAccessToken, parseScopes, logOAuthEvent } = await import("@/lib/oauth.server");
           const oauthEnabled = isOAuthEnabled();
 
@@ -67,8 +67,17 @@ export const Route = createFileRoute("/api/mcp")({
               { status: 401, headers: { "Content-Type": "application/json", "WWW-Authenticate": mcpWwwAuthenticate(oauthEnabled), ...CORS } },
             );
           }
-          // Best-effort audit for OAuth grants (no token/secret material).
-          if (oauthClientId) void logOAuthEvent("mcp_call", { clientId: oauthClientId, userId: grant.userId });
+          // Audit one handled message for OAuth grants (no token/secret
+          // material; arguments/content are never logged). Awaited so
+          // Cloudflare Workers cannot drop the write after the response;
+          // logOAuthEvent itself never throws, so a DB failure cannot fail
+          // the request.
+          const grantUserId = grant.userId;
+          const audit = async (msg: unknown, response: object | null) => {
+            if (!oauthClientId) return;
+            const { event, detail } = buildMcpAuditEvent(msg as Record<string, unknown> | null, response);
+            await logOAuthEvent(event, { clientId: oauthClientId, userId: grantUserId, detail });
+          };
 
           const raw = await request.text();
           if (!raw || raw.length > MAX_BODY) return json({ jsonrpc: "2.0", id: null, error: { code: -32600, message: "Invalid request." } }, 400);
@@ -81,10 +90,13 @@ export const Route = createFileRoute("/api/mcp")({
 
           // Batch or single message.
           if (Array.isArray(parsed)) {
-            const responses = (await Promise.all(parsed.map((m) => handleMcpMessage(grant, m)))).filter(Boolean);
+            const handled = await Promise.all(parsed.map(async (m) => ({ m, r: await handleMcpMessage(grant, m) })));
+            for (const h of handled) await audit(h.m, h.r);
+            const responses = handled.map((h) => h.r).filter(Boolean);
             return responses.length ? json(responses) : new Response(null, { status: 202, headers: CORS });
           }
           const response = await handleMcpMessage(grant, parsed as Record<string, unknown>);
+          await audit(parsed, response);
           return response ? json(response) : new Response(null, { status: 202, headers: CORS });
         } catch (e) {
           console.error("[api.mcp] error:", e instanceof Error ? e.message : String(e));

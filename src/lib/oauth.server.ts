@@ -439,7 +439,7 @@ export function validateAccessTokenRow(row: Row | null, nowMs: number): Resolved
 
 /**
  * Resolve a bearer as an OAuth access token. Fetches by hash, validates, and
- * best-effort updates last_used_at (fire-and-forget). Never logs the token.
+ * updates last_used_at. Never logs the token.
  */
 export async function resolveAccessToken(token: string): Promise<ResolvedAccessToken | null> {
   if (!token) return null;
@@ -452,8 +452,13 @@ export async function resolveAccessToken(token: string): Promise<ResolvedAccessT
     .maybeSingle();
   const resolved = validateAccessTokenRow(data, Date.now());
   if (!resolved) return null;
-  // best-effort touch (not awaited)
-  db.from("oauth_tokens").update({ last_used_at: new Date().toISOString() }).eq("access_token_hash", hash);
+  // Awaited: Cloudflare Workers may terminate the isolate right after the
+  // response, dropping un-awaited writes. A failed touch must not fail auth.
+  try {
+    await db.from("oauth_tokens").update({ last_used_at: new Date().toISOString() }).eq("access_token_hash", hash);
+  } catch {
+    /* best-effort */
+  }
   return resolved;
 }
 

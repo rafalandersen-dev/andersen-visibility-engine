@@ -110,8 +110,13 @@ export async function resolveUser(token: string): Promise<string | null> {
   const db = await admin();
   const { data } = await db.from("mcp_connections").select("*").eq("token_hash", token_hash).is("revoked_at", null).maybeSingle();
   if (!data) return null;
-  // best-effort touch
-  db.from("mcp_connections").update({ last_used_at: new Date().toISOString() }).eq("id", data.id).eq("user_id", data.user_id);
+  // Awaited: Cloudflare Workers may terminate the isolate right after the
+  // response, dropping un-awaited writes. A failed touch must not fail auth.
+  try {
+    await db.from("mcp_connections").update({ last_used_at: new Date().toISOString() }).eq("id", data.id).eq("user_id", data.user_id);
+  } catch {
+    /* best-effort */
+  }
   return data.user_id;
 }
 
@@ -433,4 +438,27 @@ export async function handleMcpMessage(grant: McpGrant, msg: JsonRpcMessage): Pr
 /** Names of exposed tools (for docs/UI). */
 export function mcpToolNames(): string[] {
   return TOOLS.map((t) => t.name);
+}
+
+/**
+ * Build the audit event for one handled MCP message (pure; the /api/mcp route
+ * persists it). `mcp_denied` for insufficient-scope rejections (-32002),
+ * `mcp_call` otherwise. Detail carries method/tool/outcome only — never
+ * arguments, content, tokens, or response bodies.
+ */
+export interface McpAuditEvent {
+  event: "mcp_call" | "mcp_denied";
+  detail: Record<string, unknown>;
+}
+
+export function buildMcpAuditEvent(msg: Record<string, unknown> | null | undefined, response: object | null): McpAuditEvent {
+  const method = typeof msg?.method === "string" ? msg.method : "unknown";
+  const params = (msg?.params ?? {}) as Record<string, unknown>;
+  const tool = method === "tools/call" && typeof params.name === "string" ? params.name : undefined;
+  const res = response as { error?: { code?: number }; result?: { isError?: boolean } } | null;
+  if (res?.error?.code === -32002 && tool) {
+    return { event: "mcp_denied", detail: { tool, requiredScope: TOOL_SCOPES[tool] ?? null } };
+  }
+  const ok = response === null ? true : !res?.error && !res?.result?.isError;
+  return { event: "mcp_call", detail: { method, ...(tool ? { tool } : {}), ok } };
 }
