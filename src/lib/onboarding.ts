@@ -84,5 +84,8 @@ export function contentLangToProjectLanguage(lang: OnboardingLanguage): Language
 export function isProjectSetupComplete(p: Project | undefined): boolean {
   if (!p) return false;
   if (p.setupComplete === true) return true;
-  return Boolean(p.businessName?.trim() && p.description?.trim());
+  // Legacy projects (pre-onboarding wizard) only required a business name;
+  // description was optional in the old setup form, so don't lock those users
+  // out of their existing workspace.
+  return Boolean(p.businessName?.trim());
 }
