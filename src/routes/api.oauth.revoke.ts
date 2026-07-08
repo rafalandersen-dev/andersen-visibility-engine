@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
 
-// RFC 7009 token revocation (Phase 0 trust foundation). Access tokens only —
-// refresh tokens are not implemented yet. Gated by MCP_OAUTH_ENABLED: flag off
-// → 404. Unknown/already-revoked tokens → empty 200 (no token-existence leak).
-// Never logs token material.
+// RFC 7009 token revocation (Phase 0 trust foundation). Accepts access AND
+// refresh tokens; grants with a refresh family are revoked as a whole family.
+// Gated by MCP_OAUTH_ENABLED: flag off → 404. Unknown/already-revoked tokens
+// → empty 200 (no token-existence leak). Never logs token material.
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -44,7 +44,7 @@ export const Route = createFileRoute("/api/oauth/revoke")({
     handlers: {
       OPTIONS: async () => new Response(null, { status: 204, headers: CORS }),
       POST: async ({ request }) => {
-        const { isOAuthEnabled, processRevocationRequest, revokeAccessTokenByHash, sha256Hex, logOAuthEvent } = await import("@/lib/oauth.server");
+        const { isOAuthEnabled, processRevocationRequest, revokeTokenByHash, sha256Hex, logOAuthEvent } = await import("@/lib/oauth.server");
 
         if (!isOAuthEnabled()) return json({ error: "not_found" }, 404);
 
@@ -54,7 +54,7 @@ export const Route = createFileRoute("/api/oauth/revoke")({
           const p = parseBody(raw, request.headers.get("content-type") ?? "");
 
           const res = await processRevocationRequest(true, p, {
-            revokeAccessTokenByHash,
+            revokeTokenByHash,
             hash: sha256Hex,
             nowMs: Date.now(),
           });
@@ -65,7 +65,11 @@ export const Route = createFileRoute("/api/oauth/revoke")({
             await logOAuthEvent("revoked", {
               clientId: res.revoked.clientId ?? p.client_id,
               userId: res.revoked.userId ?? undefined,
-              detail: { tokenType: "access", source: "revoke_endpoint" },
+              detail: {
+                tokenType: res.revoked.tokenType,
+                source: "revoke_endpoint",
+                ...(res.revoked.familyRevoked !== null ? { familyRevoked: res.revoked.familyRevoked } : {}),
+              },
             });
           }
 

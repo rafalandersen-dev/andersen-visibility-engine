@@ -19,14 +19,8 @@ export const OAUTH_REGISTRATION_ENDPOINT = `${OAUTH_BASE_URL}/api/oauth/register
 export const OAUTH_REVOCATION_ENDPOINT = `${OAUTH_BASE_URL}/api/oauth/revoke`;
 
 /**
- * v1 advertised + effective scopes — read-only only. No write/publish/billing.
- *
- * offline_access is intentionally NOT advertised or issued: refresh tokens are
- * not implemented yet, so advertising it would make Claude expect a refresh
- * token it never receives. It is tolerated on INPUT (so a Claude request that
- * includes it does not fail) but is dropped from effective/issued scopes and
- * never appears in metadata, consent, or access tokens. Re-add it here only
- * once refresh-token support exists.
+ * Resource (tool-enforcement) scopes — read-only only. No write/publish/
+ * billing. This set drives PRM metadata and per-tool scope checks.
  */
 export const OAUTH_SCOPES = [
   "milo.projects.read",
@@ -35,8 +29,15 @@ export const OAUTH_SCOPES = [
   "milo.authority.read",
 ] as const;
 
-/** Scopes accepted on incoming requests but never advertised or issued. */
-const TOLERATED_INPUT_SCOPES = ["offline_access"];
+/** Grants a refresh token (commit 6). AS-level scope, never a resource scope. */
+export const OFFLINE_ACCESS_SCOPE = "offline_access";
+
+/**
+ * Everything the authorization server may grant: the 4 read scopes plus
+ * offline_access. Advertised in AS metadata and used as the default scope set
+ * for registration/authorize, so standard Claude.ai flows get a refresh token.
+ */
+export const OAUTH_ISSUABLE_SCOPES = [...OAUTH_SCOPES, OFFLINE_ACCESS_SCOPE] as const;
 
 /** Whether the OAuth connector is enabled. Off ⇒ production behaves as today. */
 export function isOAuthEnabled(): boolean {
@@ -63,12 +64,12 @@ export function authorizationServerMetadata(): Record<string, unknown> {
     token_endpoint: OAUTH_TOKEN_ENDPOINT,
     registration_endpoint: OAUTH_REGISTRATION_ENDPOINT,
     revocation_endpoint: OAUTH_REVOCATION_ENDPOINT,
-    scopes_supported: [...OAUTH_SCOPES],
+    // AS-level scopes include offline_access (refresh tokens, commit 6); the
+    // PRM keeps only the 4 resource scopes.
+    scopes_supported: [...OAUTH_ISSUABLE_SCOPES],
     response_types_supported: ["code"],
     response_modes_supported: ["query"],
-    // Only authorization_code is implemented (no refresh tokens yet), so we do
-    // not advertise refresh_token to avoid a metadata/behaviour mismatch.
-    grant_types_supported: ["authorization_code"],
+    grant_types_supported: ["authorization_code", "refresh_token"],
     token_endpoint_auth_methods_supported: ["none"],
     code_challenge_methods_supported: ["S256"],
   };
@@ -126,21 +127,16 @@ export function parseScopes(scope: unknown): string[] {
 }
 
 export function isAllowedScope(s: string): boolean {
-  return (OAUTH_SCOPES as readonly string[]).includes(s);
-}
-
-/** Tolerated on input (e.g. offline_access) — accepted but stripped, never issued. */
-export function isToleratedScope(s: string): boolean {
-  return TOLERATED_INPUT_SCOPES.includes(s);
+  return (OAUTH_ISSUABLE_SCOPES as readonly string[]).includes(s);
 }
 
 /**
- * Validate requested scopes. Unknown scopes fail. Tolerated scopes (offline_access)
- * are accepted for Claude compatibility but stripped from the effective set, so
- * they are never bound to codes/tokens or shown in consent.
+ * Validate requested scopes against the issuable set. Unknown scopes fail.
+ * offline_access is a real, kept scope since commit 6 (refresh tokens) — it is
+ * bound to codes/tokens and shown in consent.
  */
 export function validateScopes(requested: string[]): { ok: true; scopes: string[] } | { ok: false; invalid: string[] } {
-  const invalid = requested.filter((s) => !isAllowedScope(s) && !isToleratedScope(s));
+  const invalid = requested.filter((s) => !isAllowedScope(s));
   if (invalid.length) return { ok: false, invalid };
   return { ok: true, scopes: requested.filter(isAllowedScope) };
 }
@@ -229,10 +225,10 @@ export function validateRegistration(input: unknown): RegOk | RegErr {
     return err("invalid_client_metadata", "response_types must include code.");
   }
 
-  // scope — optional; default to all allowed. Reject unknown/write/etc.
+  // scope — optional; default to all issuable (incl. offline_access). Reject unknown/write/etc.
   let scopes: string[];
   if (b.scope === undefined || b.scope === "") {
-    scopes = [...OAUTH_SCOPES];
+    scopes = [...OAUTH_ISSUABLE_SCOPES];
   } else {
     const requested = parseScopes(b.scope);
     const v = validateScopes(requested);
@@ -532,7 +528,7 @@ export function classifyAuthorizeRequest(
   let scopes: string[];
   const reqScope = typeof params.scope === "string" ? params.scope.trim() : "";
   if (!reqScope) {
-    scopes = client.scope ? parseScopes(client.scope) : [...OAUTH_SCOPES];
+    scopes = client.scope ? parseScopes(client.scope) : [...OAUTH_ISSUABLE_SCOPES];
   } else {
     const v = validateScopes(parseScopes(reqScope));
     if (!v.ok) return rerr("invalid_scope", `Unknown or disallowed scope(s): ${v.invalid.join(", ")}`);
@@ -647,12 +643,14 @@ export async function issueAuthorizationCode(
 }
 
 // ===========================================================================
-// Phase 2C — token endpoint (authorization_code grant + PKCE S256).
-// Access token only; no refresh token this phase. Hash-only storage.
+// Token endpoint — authorization_code (+PKCE S256) and, since commit 6,
+// refresh_token with rotation + reuse detection. Hash-only storage.
 // ===========================================================================
 
 export const ACCESS_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 export const ACCESS_TOKEN_PREFIX = "milo_at_";
+export const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days, sliding per rotation
+export const REFRESH_TOKEN_PREFIX = "milo_rt_";
 
 /** BASE64URL(SHA256(verifier)) — the PKCE S256 transform (RFC 7636). */
 export async function pkceChallengeS256(verifier: string): Promise<string> {
@@ -678,26 +676,49 @@ export interface TokenParams {
   code?: string;
   redirect_uri?: string;
   code_verifier?: string;
+  refresh_token?: string;
+  scope?: string;
   resource?: string;
 }
 
-/** DB row for an issued access token (hash only, no refresh token this phase). */
-export function buildAccessTokenRow(codeRow: Row, accessHash: string, scope: string, expiresAtIso: string): Record<string, unknown> {
+/** Refresh-token fields for a new oauth_tokens row (hashes only). */
+export interface RefreshIssue {
+  refreshHash: string;
+  familyId: string;
+  expiresAtIso: string;
+}
+
+/** DB row for an issued access token; refresh columns filled when granted. */
+export function buildAccessTokenRow(codeRow: Row, accessHash: string, scope: string, expiresAtIso: string, refresh?: RefreshIssue): Record<string, unknown> {
   return {
     user_id: String(codeRow.user_id ?? ""),
     client_id: String(codeRow.client_id ?? ""),
     access_token_hash: accessHash,
-    refresh_token_hash: null, // Phase 2C: no refresh token
-    refresh_family_id: null,
+    refresh_token_hash: refresh?.refreshHash ?? null,
+    refresh_family_id: refresh?.familyId ?? null,
     scope,
     resource: (codeRow.resource as string | null) ?? null,
     access_expires_at: expiresAtIso,
-    refresh_expires_at: null,
+    refresh_expires_at: refresh?.expiresAtIso ?? null,
   };
 }
 
-export function tokenSuccessResponse(accessToken: string, scope: string, expiresInSec: number): Record<string, unknown> {
-  return { access_token: accessToken, token_type: "Bearer", expires_in: expiresInSec, scope };
+export function tokenSuccessResponse(accessToken: string, scope: string, expiresInSec: number, refreshToken?: string): Record<string, unknown> {
+  return {
+    access_token: accessToken,
+    token_type: "Bearer",
+    expires_in: expiresInSec,
+    scope,
+    ...(refreshToken ? { refresh_token: refreshToken } : {}),
+  };
+}
+
+/** Audit instruction returned to the route (never contains token material). */
+export interface TokenAudit {
+  event: "token_issued" | "token_refreshed" | "token_reuse_detected";
+  clientId: string;
+  userId?: string;
+  detail: Record<string, unknown>;
 }
 
 export interface TokenDeps {
@@ -707,31 +728,39 @@ export interface TokenDeps {
   insertToken: (row: Record<string, unknown>) => Promise<void>;
   hash: (s: string) => Promise<string>;
   generateToken: () => string;
+  generateRefreshToken: () => string;
+  generateFamilyId: () => string;
+  /** Load an oauth_tokens row by refresh-token hash (any state). */
+  getTokenByRefreshHash: (refreshHash: string) => Promise<Row | null>;
+  /** Atomically mark a LIVE refresh token rotated; false = lost race / dead. */
+  consumeRefreshToken: (refreshHash: string, nowIso: string) => Promise<boolean>;
+  /** Revoke every row in a refresh family; returns how many were live. */
+  revokeFamily: (familyId: string, nowIso: string) => Promise<number>;
   nowMs: number;
 }
 
 /**
- * Process an OAuth token request (authorization_code grant only). PKCE S256 is
- * required. Returns the HTTP status + JSON body. The plaintext access token is
- * only in the returned body — never stored or logged. DB access is injected so
- * the core is unit-testable.
+ * Process an OAuth token request — authorization_code (+PKCE S256) or
+ * refresh_token (rotation + reuse detection). Returns HTTP status + JSON body
+ * plus an optional audit instruction for the route. Plaintext tokens exist
+ * only in the returned body — never stored or logged. DB access is injected
+ * so the core is unit-testable.
  */
 export async function processTokenRequest(
   enabled: boolean,
   params: TokenParams,
   deps: TokenDeps,
-): Promise<{ status: number; body: Record<string, unknown> }> {
+): Promise<{ status: number; body: Record<string, unknown> | null; audit?: TokenAudit }> {
   if (!enabled) return { status: 404, body: oauthErrorBody("not_found") };
 
   const err = (error: string, description: string, status = 400) => ({ status, body: oauthErrorBody(error, description) });
 
   // ---- param presence + grant type ----
   if (!params.grant_type) return err("invalid_request", "grant_type is required.");
-  if (params.grant_type !== "authorization_code") return err("unsupported_grant_type", "Only authorization_code is supported.");
+  if (params.grant_type !== "authorization_code" && params.grant_type !== "refresh_token") {
+    return err("unsupported_grant_type", "Only authorization_code and refresh_token are supported.");
+  }
   if (!params.client_id) return err("invalid_request", "client_id is required.");
-  if (!params.code) return err("invalid_request", "code is required.");
-  if (!params.redirect_uri) return err("invalid_request", "redirect_uri is required.");
-  if (!params.code_verifier) return err("invalid_request", "code_verifier is required (PKCE).");
   // Public/PKCE clients must not present a secret.
   if (params.client_secret) return err("invalid_client", "This is a public client; do not send a client secret.", 401);
 
@@ -744,6 +773,93 @@ export async function processTokenRequest(
   // ---- client ----
   const client = await deps.getClient(params.client_id);
   if (!client || client.disabled_at) return err("invalid_client", "Unknown or disabled client.", 401);
+
+  const nowIso = new Date(deps.nowMs).toISOString();
+
+  /** Issue a new access(+refresh) pair from a source row's grant fields. */
+  const issuePair = async (sourceRow: Row, scope: string, familyId: string | null) => {
+    const accessToken = deps.generateToken();
+    const accessHash = await deps.hash(accessToken);
+    const accessExpiresIso = new Date(deps.nowMs + ACCESS_TOKEN_TTL_MS).toISOString();
+    const wantsRefresh = parseScopes(scope).includes(OFFLINE_ACCESS_SCOPE);
+    let refreshToken: string | undefined;
+    let refresh: RefreshIssue | undefined;
+    if (wantsRefresh) {
+      refreshToken = deps.generateRefreshToken();
+      refresh = {
+        refreshHash: await deps.hash(refreshToken),
+        familyId: familyId ?? deps.generateFamilyId(),
+        expiresAtIso: new Date(deps.nowMs + REFRESH_TOKEN_TTL_MS).toISOString(),
+      };
+    }
+    await deps.insertToken(buildAccessTokenRow(sourceRow, accessHash, scope, accessExpiresIso, refresh));
+    return tokenSuccessResponse(accessToken, scope, Math.floor(ACCESS_TOKEN_TTL_MS / 1000), refreshToken);
+  };
+
+  // =========================================================================
+  // refresh_token grant — rotation + reuse detection
+  // =========================================================================
+  if (params.grant_type === "refresh_token") {
+    if (!params.refresh_token) return err("invalid_request", "refresh_token is required.");
+    // Uniform error: never reveals whether/why a refresh token is dead.
+    const badGrant = err("invalid_grant", "The refresh token is invalid, expired, or already used.");
+
+    const refreshHash = await deps.hash(params.refresh_token);
+    const row = await deps.getTokenByRefreshHash(refreshHash);
+    if (!row) return badGrant;
+    // Wrong client presenting a real token: uniform error, NO family kill (a
+    // client_id is guessable via DCR; don't let guesses nuke real grants).
+    if (String(row.client_id ?? "") !== params.client_id) return badGrant;
+
+    const familyId = (row.refresh_family_id as string | null) ?? null;
+    const reuse = async (): Promise<{ status: number; body: Record<string, unknown> | null; audit?: TokenAudit }> => {
+      let familySize = 0;
+      if (familyId) {
+        try {
+          familySize = await deps.revokeFamily(familyId, nowIso);
+        } catch {
+          /* family revoke is best-effort on the reuse path; the token itself stays dead */
+        }
+      }
+      return {
+        ...badGrant,
+        audit: { event: "token_reuse_detected", clientId: params.client_id!, userId: String(row.user_id ?? ""), detail: { familySize } },
+      };
+    };
+
+    // Already rotated or revoked → theft signal → kill the family.
+    if (row.rotated_at || row.revoked_at) return reuse();
+    // Naturally expired → plain rejection, no family kill.
+    const rExp = typeof row.refresh_expires_at === "string" ? Date.parse(row.refresh_expires_at) : 0;
+    if (!rExp || rExp < deps.nowMs) return badGrant;
+    // Optional scope param must equal the original grant (no narrowing in v1).
+    const originalScope = String(row.scope ?? "");
+    if (typeof params.scope === "string" && params.scope.trim()) {
+      const requested = parseScopes(params.scope).sort().join(" ");
+      if (requested !== parseScopes(originalScope).sort().join(" ")) {
+        return err("invalid_scope", "scope must match the original grant.");
+      }
+    }
+
+    // Atomic consume — losing the race means another isolate already rotated
+    // this token, which is indistinguishable from replay: reuse semantics.
+    const won = await deps.consumeRefreshToken(refreshHash, nowIso);
+    if (!won) return reuse();
+
+    const body = await issuePair(row, originalScope, familyId);
+    return {
+      status: 200,
+      body,
+      audit: { event: "token_refreshed", clientId: params.client_id, userId: String(row.user_id ?? ""), detail: { scope: originalScope } },
+    };
+  }
+
+  // =========================================================================
+  // authorization_code grant (+PKCE S256)
+  // =========================================================================
+  if (!params.code) return err("invalid_request", "code is required.");
+  if (!params.redirect_uri) return err("invalid_request", "redirect_uri is required.");
+  if (!params.code_verifier) return err("invalid_request", "code_verifier is required (PKCE).");
 
   // ---- authorization code (uniform invalid_grant to avoid existence leaks) ----
   const badGrant = err("invalid_grant", "The authorization code is invalid, expired, or already used.");
@@ -767,16 +883,15 @@ export async function processTokenRequest(
   // ---- consume (single-use) then issue ----
   await deps.consumeCode(codeHash);
 
-  // offline_access has no effect this phase (no refresh token); drop it from the
-  // access token's effective + returned scope to avoid implying refresh support.
-  const tokenScope = parseScopes(String(codeRow.scope ?? "")).filter((s) => s !== "offline_access").join(" ");
-
-  const accessToken = deps.generateToken();
-  const accessHash = await deps.hash(accessToken);
-  const expiresAtIso = new Date(deps.nowMs + ACCESS_TOKEN_TTL_MS).toISOString();
-  await deps.insertToken(buildAccessTokenRow(codeRow, accessHash, tokenScope, expiresAtIso));
-
-  return { status: 200, body: tokenSuccessResponse(accessToken, tokenScope, Math.floor(ACCESS_TOKEN_TTL_MS / 1000)) };
+  // Since commit 6, offline_access is kept: it drives refresh-token issuance
+  // inside issuePair and appears in the response scope.
+  const tokenScope = String(codeRow.scope ?? "");
+  const body = await issuePair(codeRow, tokenScope, null);
+  return {
+    status: 200,
+    body,
+    audit: { event: "token_issued", clientId: params.client_id, userId: String(codeRow.user_id ?? ""), detail: { scope: tokenScope } },
+  };
 }
 
 // ===========================================================================
@@ -871,10 +986,10 @@ export async function bumpRateLimit(bucket: string, key: string, windowStartIso:
 }
 
 // ===========================================================================
-// Phase 0 (trust foundation) — RFC 7009 token revocation.
-// Access tokens only: refresh tokens are not implemented yet. When they ship,
-// extend the deps with a refresh-token lookup and revoke the whole
-// refresh_family_id on a refresh-token match (rotation lineage).
+// Phase 0 (trust foundation) — RFC 7009 token revocation. Family-aware since
+// commit 6: revoking either token of a grant that has a refresh family kills
+// the whole family (rotation lineage); pre-refresh rows (null family) keep
+// single-row semantics.
 // ===========================================================================
 
 export interface RevocationParams {
@@ -883,15 +998,18 @@ export interface RevocationParams {
   client_id?: string;
 }
 
-/** Safe context of a revoked token row (for auditing) — never token material. */
+/** Safe context of a revocation (for auditing) — never token material. */
 export interface RevokedTokenInfo {
   userId: string | null;
   clientId: string | null;
+  tokenType: "access" | "refresh";
+  /** Rows killed via the refresh family; null for family-less (pre-refresh) rows. */
+  familyRevoked: number | null;
 }
 
 export interface RevocationDeps {
-  /** Revoke a LIVE access token by hash; null if no live row matched. */
-  revokeAccessTokenByHash: (tokenHash: string, nowIso: string) => Promise<RevokedTokenInfo | null>;
+  /** Find by access OR refresh hash and revoke (family-aware); null if no live match. */
+  revokeTokenByHash: (tokenHash: string, nowIso: string, hint?: string) => Promise<RevokedTokenInfo | null>;
   hash: (s: string) => Promise<string>;
   nowMs: number;
 }
@@ -907,36 +1025,87 @@ export interface RevocationResult {
 /**
  * Process an RFC 7009 revocation request. Unknown and already-revoked tokens
  * return 200 exactly like a successful revocation — the endpoint never reveals
- * whether a token exists. token_type_hint is advisory (§2.1): only access
- * tokens are issued today, so every hint takes the access-token lookup. A DB
- * failure propagates (route → 500) so a client is never told "revoked" when
- * the write did not happen.
+ * whether a token exists. token_type_hint is advisory (§2.1): it only orders
+ * the lookups. A DB failure propagates (route → 500) so a client is never told
+ * "revoked" when the write did not happen.
  */
 export async function processRevocationRequest(enabled: boolean, params: RevocationParams, deps: RevocationDeps): Promise<RevocationResult> {
   if (!enabled) return { status: 404, body: oauthErrorBody("not_found"), revoked: null };
   const token = typeof params.token === "string" ? params.token.trim() : "";
   if (!token) return { status: 400, body: oauthErrorBody("invalid_request", "token is required."), revoked: null };
   const tokenHash = await deps.hash(token);
-  const revoked = await deps.revokeAccessTokenByHash(tokenHash, new Date(deps.nowMs).toISOString());
+  const revoked = await deps.revokeTokenByHash(tokenHash, new Date(deps.nowMs).toISOString(), params.token_type_hint);
   return { status: 200, body: null, revoked };
 }
 
+/** Revoke every live row in a refresh family; returns how many were live. */
+export async function revokeTokenFamily(familyId: string, nowIso: string): Promise<number> {
+  if (!familyId) return 0;
+  const db = await admin();
+  const { data: live } = await db.from("oauth_tokens").select("user_id").eq("refresh_family_id", familyId).is("revoked_at", null);
+  const { error } = await db.from("oauth_tokens").update({ revoked_at: nowIso }).eq("refresh_family_id", familyId).is("revoked_at", null);
+  if (error) throw new Error("revoke_failed");
+  return (live ?? []).length;
+}
+
 /**
- * Revoke a live access token by hash. Returns the row's safe context when a
- * live row was revoked; null for unknown or already-revoked hashes. Throws if
- * the revocation write fails (callers must not report success in that case).
+ * Find a token row by access OR refresh hash and revoke it. If the row belongs
+ * to a refresh family, the WHOLE family is revoked; otherwise single-row (the
+ * pre-refresh behavior). Returns safe context, or null for unknown/already-
+ * revoked hashes. Throws if a revocation write fails.
  */
-export async function revokeAccessTokenByHash(tokenHash: string, nowIso: string): Promise<RevokedTokenInfo | null> {
+export async function revokeTokenByHash(tokenHash: string, nowIso: string, hint?: string): Promise<RevokedTokenInfo | null> {
   if (!tokenHash) return null;
   const db = await admin();
-  const { data } = await db.from("oauth_tokens").select("user_id,client_id,revoked_at").eq("access_token_hash", tokenHash).maybeSingle();
-  if (!data || data.revoked_at) return null;
-  const { error } = await db.from("oauth_tokens").update({ revoked_at: nowIso }).eq("access_token_hash", tokenHash).is("revoked_at", null);
-  if (error) throw new Error("revoke_failed");
+  const lookup = async (column: "access_token_hash" | "refresh_token_hash") =>
+    (await db.from("oauth_tokens").select("user_id,client_id,revoked_at,refresh_family_id").eq(column, tokenHash).maybeSingle()).data;
+
+  const order: ("access_token_hash" | "refresh_token_hash")[] =
+    hint === "refresh_token" ? ["refresh_token_hash", "access_token_hash"] : ["access_token_hash", "refresh_token_hash"];
+  let row = await lookup(order[0]);
+  let tokenType: "access" | "refresh" = order[0] === "access_token_hash" ? "access" : "refresh";
+  if (!row) {
+    row = await lookup(order[1]);
+    tokenType = order[1] === "access_token_hash" ? "access" : "refresh";
+  }
+  if (!row || row.revoked_at) return null;
+
+  const familyId = (row.refresh_family_id as string | null) ?? null;
+  let familyRevoked: number | null = null;
+  if (familyId) {
+    familyRevoked = await revokeTokenFamily(familyId, nowIso);
+  } else {
+    const { error } = await db.from("oauth_tokens").update({ revoked_at: nowIso }).eq("access_token_hash", tokenHash).is("revoked_at", null);
+    if (error) throw new Error("revoke_failed");
+  }
   return {
-    userId: (data.user_id as string | null) ?? null,
-    clientId: (data.client_id as string | null) ?? null,
+    userId: (row.user_id as string | null) ?? null,
+    clientId: (row.client_id as string | null) ?? null,
+    tokenType,
+    familyRevoked,
   };
+}
+
+// ---- refresh-token DB helpers (commit 6) ----
+
+/** Load an oauth_tokens row by refresh-token hash, regardless of state. */
+export async function getTokenRowByRefreshHash(refreshHash: string): Promise<Row | null> {
+  if (!refreshHash) return null;
+  const db = await admin();
+  const { data } = await db
+    .from("oauth_tokens")
+    .select("user_id,client_id,scope,resource,refresh_family_id,refresh_expires_at,rotated_at,revoked_at")
+    .eq("refresh_token_hash", refreshHash)
+    .maybeSingle();
+  return data ?? null;
+}
+
+/** Atomically consume a live refresh token via the consume_refresh_token RPC. */
+export async function consumeRefreshTokenByHash(refreshHash: string, nowIso: string): Promise<boolean> {
+  const db = await admin();
+  const { data, error } = await db.rpc("consume_refresh_token", { p_refresh_hash: refreshHash, p_now: nowIso });
+  if (error) throw new Error("consume_refresh_failed");
+  return data === true;
 }
 
 // ===========================================================================
@@ -1071,12 +1240,13 @@ export async function revokeGrantsForUserClient(userId: string, clientId: string
 // Phase 3 — consent screen helpers (pure). The consent server fns supply DB.
 // ===========================================================================
 
-/** Human-readable scope labels for the consent UI (read-only v1; no offline_access). */
+/** Human-readable scope labels for the consent UI (read-only v1). */
 export const SCOPE_LABELS: Record<string, string> = {
   "milo.projects.read": "See your projects and brand profile",
   "milo.content.read": "Read your opportunities, drafts and Milo Scores",
   "milo.insights.read": "Read your audits and Search Console summaries",
   "milo.authority.read": "Read your authority opportunities",
+  offline_access: "Stay connected without re-approving each time",
 };
 
 export function scopeConsentItems(scope: string): { scope: string; label: string }[] {

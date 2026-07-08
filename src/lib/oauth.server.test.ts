@@ -1,11 +1,12 @@
 /**
  * Regression tests for the OAuth pure/injectable helpers in oauth.server.ts.
  *
- * These lock in CURRENT behavior before Phase 0 touches the module — most
- * importantly: read-only scopes, offline_access tolerated-but-stripped, no
- * refresh tokens, authorization_code-only metadata, PKCE S256, single-use
- * codes, and uniform invalid_grant responses. DB helpers are exercised via
- * their injected-dependency variants only — no database, no network.
+ * Locked-in behavior: read-only resource scopes, PKCE S256, single-use codes,
+ * uniform invalid_grant responses — and, since Phase 0 commit 6, refresh
+ * tokens: offline_access is a real issuable scope, the token endpoint supports
+ * refresh_token with rotation + reuse detection, and revocation is
+ * family-aware. DB helpers are exercised via their injected-dependency
+ * variants only — no database, no network.
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
@@ -13,9 +14,13 @@ import {
   MCP_RESOURCE_URL,
   PROTECTED_RESOURCE_METADATA_URL,
   OAUTH_SCOPES,
+  OAUTH_ISSUABLE_SCOPES,
+  OFFLINE_ACCESS_SCOPE,
   CLIENT_ID_PREFIX,
   ACCESS_TOKEN_PREFIX,
   ACCESS_TOKEN_TTL_MS,
+  REFRESH_TOKEN_PREFIX,
+  REFRESH_TOKEN_TTL_MS,
   AUTH_CODE_TTL_MS,
   isOAuthEnabled,
   protectedResourceMetadata,
@@ -26,7 +31,6 @@ import {
   generateClientId,
   parseScopes,
   isAllowedScope,
-  isToleratedScope,
   validateScopes,
   validateRedirectUri,
   oauthErrorBody,
@@ -69,6 +73,7 @@ import {
 
 const NOW = 1_700_000_000_000;
 const READ_SCOPES = ["milo.projects.read", "milo.content.read", "milo.insights.read", "milo.authority.read"];
+const ISSUABLE_SCOPES = [...READ_SCOPES, "offline_access"];
 const CALLBACK = "https://claude.ai/api/mcp/auth_callback";
 
 afterEach(() => {
@@ -117,12 +122,13 @@ describe("authorizationServerMetadata (RFC 8414)", () => {
     expect(as.registration_endpoint).toBe(`${OAUTH_BASE_URL}/api/oauth/register`);
     expect(as.revocation_endpoint).toBe(`${OAUTH_BASE_URL}/api/oauth/revoke`);
   });
-  it("advertises authorization_code only (no refresh_token) and code only", () => {
-    expect(as.grant_types_supported).toEqual(["authorization_code"]);
+  // Flipped by commit 6 (refresh tokens): refresh_token grant + offline_access.
+  it("advertises authorization_code AND refresh_token, response type code only", () => {
+    expect(as.grant_types_supported).toEqual(["authorization_code", "refresh_token"]);
     expect(as.response_types_supported).toEqual(["code"]);
   });
-  it("advertises the 4 read scopes, S256, and public clients only", () => {
-    expect(as.scopes_supported).toEqual(READ_SCOPES);
+  it("advertises the 4 read scopes plus offline_access, S256, and public clients only", () => {
+    expect(as.scopes_supported).toEqual(ISSUABLE_SCOPES);
     expect(as.code_challenge_methods_supported).toEqual(["S256"]);
     expect(as.token_endpoint_auth_methods_supported).toEqual(["none"]);
   });
@@ -189,22 +195,22 @@ describe("parseScopes", () => {
 });
 
 describe("scope validation", () => {
-  it("accepts each of the 4 read scopes and nothing write-shaped", () => {
+  it("accepts the 4 read scopes + offline_access and nothing write-shaped", () => {
     for (const s of READ_SCOPES) expect(isAllowedScope(s)).toBe(true);
+    expect(isAllowedScope(OFFLINE_ACCESS_SCOPE)).toBe(true); // flipped by commit 6
     expect(isAllowedScope("milo.projects.write")).toBe(false);
-    expect(isAllowedScope("offline_access")).toBe(false);
   });
-  it("tolerates offline_access on input but strips it from the effective set", () => {
-    expect(isToleratedScope("offline_access")).toBe(true);
+  // Flipped by commit 6: offline_access is a real, kept scope now.
+  it("preserves offline_access in the effective set", () => {
     const v = validateScopes(["milo.projects.read", "offline_access"]);
-    expect(v).toEqual({ ok: true, scopes: ["milo.projects.read"] });
+    expect(v).toEqual({ ok: true, scopes: ["milo.projects.read", "offline_access"] });
   });
   it("fails unknown scopes and reports them", () => {
     const v = validateScopes(["milo.projects.read", "milo.content.write", "bogus"]);
     expect(v).toEqual({ ok: false, invalid: ["milo.content.write", "bogus"] });
   });
-  it("passes all 4 read scopes through unchanged", () => {
-    expect(validateScopes([...OAUTH_SCOPES])).toEqual({ ok: true, scopes: READ_SCOPES });
+  it("passes the full issuable set through unchanged", () => {
+    expect(validateScopes([...OAUTH_ISSUABLE_SCOPES])).toEqual({ ok: true, scopes: ISSUABLE_SCOPES });
   });
 });
 
@@ -252,7 +258,8 @@ describe("validateRegistration", () => {
       grant_types: ["authorization_code"],
       response_types: ["code"],
       token_endpoint_auth_method: "none",
-      scope: READ_SCOPES.join(" "),
+      // Commit 6: default registration scope includes offline_access.
+      scope: ISSUABLE_SCOPES.join(" "),
       client_name: "Claude",
       software_id: undefined,
     });
@@ -280,11 +287,12 @@ describe("validateRegistration", () => {
     expect(validateRegistration({ redirect_uris: [CALLBACK], response_types: ["token"] }).ok).toBe(false);
     expect(validateRegistration({ redirect_uris: [CALLBACK], response_types: [] }).ok).toBe(false);
   });
-  it("defaults scope to the 4 reads; strips offline_access; rejects unknown scopes", () => {
+  it("defaults scope to the issuable set; keeps offline_access; rejects unknown scopes", () => {
     const dflt = validateRegistration({ redirect_uris: [CALLBACK], scope: "" });
-    expect(dflt.ok && dflt.normalized.scope).toBe(READ_SCOPES.join(" "));
-    const tolerated = validateRegistration({ redirect_uris: [CALLBACK], scope: "milo.projects.read offline_access" });
-    expect(tolerated.ok && tolerated.normalized.scope).toBe("milo.projects.read");
+    expect(dflt.ok && dflt.normalized.scope).toBe(ISSUABLE_SCOPES.join(" "));
+    // Flipped by commit 6: offline_access is preserved, not stripped.
+    const kept = validateRegistration({ redirect_uris: [CALLBACK], scope: "milo.projects.read offline_access" });
+    expect(kept.ok && kept.normalized.scope).toBe("milo.projects.read offline_access");
     const bad = validateRegistration({ redirect_uris: [CALLBACK], scope: "milo.projects.write" });
     expect(bad.ok).toBe(false);
     if (bad.ok) return;
@@ -370,17 +378,18 @@ describe("classifyAuthorizeRequest", () => {
     const omitted = classifyAuthorizeRequest({ ...good, resource: undefined }, client);
     expect(omitted.kind === "ok" && omitted.normalized.resource).toBe(MCP_RESOURCE_URL);
   });
-  it("redirect-errors unknown scopes and strips offline_access from valid ones", () => {
+  it("redirect-errors unknown scopes and keeps offline_access in valid ones", () => {
     const bad = classifyAuthorizeRequest({ ...good, scope: "milo.projects.write" }, client);
     expect(bad.kind === "redirect_error" && bad.error).toBe("invalid_scope");
-    const tolerated = classifyAuthorizeRequest({ ...good, scope: "milo.projects.read offline_access" }, client);
-    expect(tolerated.kind === "ok" && tolerated.normalized.scope).toBe("milo.projects.read");
+    // Flipped by commit 6: offline_access is preserved, not stripped.
+    const kept = classifyAuthorizeRequest({ ...good, scope: "milo.projects.read offline_access" }, client);
+    expect(kept.kind === "ok" && kept.normalized.scope).toBe("milo.projects.read offline_access");
   });
-  it("defaults omitted scope to the client's registered scope (or all reads)", () => {
+  it("defaults omitted scope to the client's registered scope (or all issuable)", () => {
     const fromClient = classifyAuthorizeRequest({ ...good, scope: undefined }, { ...client, scope: "milo.projects.read" });
     expect(fromClient.kind === "ok" && fromClient.normalized.scope).toBe("milo.projects.read");
     const all = classifyAuthorizeRequest({ ...good, scope: undefined }, { ...client, scope: null });
-    expect(all.kind === "ok" && all.normalized.scope).toBe(READ_SCOPES.join(" "));
+    expect(all.kind === "ok" && all.normalized.scope).toBe(ISSUABLE_SCOPES.join(" "));
   });
   it("returns the normalized request with state preserved on success", () => {
     const ok = classifyAuthorizeRequest(good, client);
@@ -522,77 +531,111 @@ describe("buildPendingRequestRow / buildAuthCodeRow shapes", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Token endpoint (authorization_code + PKCE; NO refresh token this phase)
+// Token endpoint (authorization_code + PKCE; refresh_token since commit 6)
 // ---------------------------------------------------------------------------
 
-describe("processTokenRequest", () => {
-  const VERIFIER = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
-  const CHALLENGE = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
+const VERIFIER = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+const CHALLENGE = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
 
-  const codeRow = {
-    code_hash: "",
-    client_id: "milo_client_t",
-    user_id: "user1",
-    redirect_uri: CALLBACK,
-    scope: READ_SCOPES.join(" "),
-    code_challenge: CHALLENGE,
-    code_challenge_method: "S256",
-    resource: MCP_RESOURCE_URL,
-    expires_at: new Date(NOW + 60_000).toISOString(),
-    consumed_at: null,
+const codeRow = {
+  code_hash: "",
+  client_id: "milo_client_t",
+  user_id: "user1",
+  redirect_uri: CALLBACK,
+  scope: READ_SCOPES.join(" "),
+  code_challenge: CHALLENGE,
+  code_challenge_method: "S256",
+  resource: MCP_RESOURCE_URL,
+  expires_at: new Date(NOW + 60_000).toISOString(),
+  consumed_at: null,
+};
+const clientRow = { client_id: "milo_client_t", client_name: "Claude", redirect_uris: [CALLBACK], scope: READ_SCOPES.join(" "), disabled_at: null as string | null };
+const goodParams: TokenParams = {
+  grant_type: "authorization_code",
+  client_id: "milo_client_t",
+  code: "plaincode",
+  redirect_uri: CALLBACK,
+  code_verifier: VERIFIER,
+  resource: MCP_RESOURCE_URL,
+};
+
+/** A live refresh-token row as stored (hash-only) for refresh-grant tests. */
+const refreshRow = {
+  user_id: "user1",
+  client_id: "milo_client_t",
+  scope: `${READ_SCOPES.join(" ")} offline_access`,
+  resource: MCP_RESOURCE_URL,
+  refresh_family_id: "family-1",
+  refresh_expires_at: new Date(NOW + 10 * 24 * 3600 * 1000).toISOString(),
+  rotated_at: null as string | null,
+  revoked_at: null as string | null,
+};
+
+interface DepsOverrides {
+  code?: Record<string, unknown> | null;
+  client?: typeof clientRow | null;
+  refresh?: Record<string, unknown> | null;
+  consumeWins?: boolean;
+}
+
+function makeDeps(overrides: DepsOverrides = {}) {
+  const calls: string[] = [];
+  const insertedTokens: Record<string, unknown>[] = [];
+  const familyRevokes: string[] = [];
+  const deps: TokenDeps = {
+    getClient: async () => (overrides.client === undefined ? clientRow : overrides.client),
+    getCodeByHash: async () => (overrides.code === undefined ? { ...codeRow } : overrides.code),
+    consumeCode: async () => {
+      calls.push("consumeCode");
+    },
+    insertToken: async (row) => {
+      calls.push("insertToken");
+      insertedTokens.push(row);
+    },
+    hash: sha256Hex,
+    generateToken: () => `${ACCESS_TOKEN_PREFIX}testtoken`,
+    generateRefreshToken: () => `${REFRESH_TOKEN_PREFIX}newrefresh`,
+    generateFamilyId: () => "family-new",
+    getTokenByRefreshHash: async () => (overrides.refresh === undefined ? null : overrides.refresh),
+    consumeRefreshToken: async () => {
+      calls.push("consumeRefresh");
+      return overrides.consumeWins ?? true;
+    },
+    revokeFamily: async (familyId) => {
+      calls.push("revokeFamily");
+      familyRevokes.push(familyId);
+      return 3;
+    },
+    nowMs: NOW,
   };
-  const clientRow = { client_id: "milo_client_t", client_name: "Claude", redirect_uris: [CALLBACK], scope: READ_SCOPES.join(" "), disabled_at: null as string | null };
-  const goodParams: TokenParams = {
-    grant_type: "authorization_code",
-    client_id: "milo_client_t",
-    code: "plaincode",
-    redirect_uri: CALLBACK,
-    code_verifier: VERIFIER,
-    resource: MCP_RESOURCE_URL,
-  };
+  return { deps, calls, insertedTokens, familyRevokes };
+}
 
-  function makeDeps(overrides: { code?: Record<string, unknown> | null; client?: typeof clientRow | null } = {}) {
-    const calls: string[] = [];
-    const insertedTokens: Record<string, unknown>[] = [];
-    const deps: TokenDeps = {
-      getClient: async () => (overrides.client === undefined ? clientRow : overrides.client),
-      getCodeByHash: async () => (overrides.code === undefined ? { ...codeRow } : overrides.code),
-      consumeCode: async () => {
-        calls.push("consumeCode");
-      },
-      insertToken: async (row) => {
-        calls.push("insertToken");
-        insertedTokens.push(row);
-      },
-      hash: sha256Hex,
-      generateToken: () => `${ACCESS_TOKEN_PREFIX}testtoken`,
-      nowMs: NOW,
-    };
-    return { deps, calls, insertedTokens };
-  }
+const body = (r: { body: Record<string, unknown> | null }) => r.body as Record<string, unknown>;
 
+describe("processTokenRequest — authorization_code", () => {
   it("returns 404 not_found when the flag is off", async () => {
     const { deps } = makeDeps();
     expect(await processTokenRequest(false, goodParams, deps)).toEqual({ status: 404, body: { error: "not_found" } });
   });
-  it("rejects missing params and non-authorization_code grants", async () => {
+  it("rejects missing params and unknown grants", async () => {
     const { deps } = makeDeps();
-    expect((await processTokenRequest(true, {}, deps)).body.error).toBe("invalid_request");
-    expect((await processTokenRequest(true, { ...goodParams, grant_type: "refresh_token" }, deps)).body.error).toBe("unsupported_grant_type");
+    expect(body(await processTokenRequest(true, {}, deps)).error).toBe("invalid_request");
+    expect(body(await processTokenRequest(true, { ...goodParams, grant_type: "client_credentials" }, deps)).error).toBe("unsupported_grant_type");
     for (const missing of ["client_id", "code", "redirect_uri", "code_verifier"] as const) {
       const p = { ...goodParams, [missing]: undefined };
-      expect((await processTokenRequest(true, p, deps)).body.error).toBe("invalid_request");
+      expect(body(await processTokenRequest(true, p, deps)).error).toBe("invalid_request");
     }
   });
   it("rejects a client secret from a public client with 401", async () => {
     const { deps } = makeDeps();
     const r = await processTokenRequest(true, { ...goodParams, client_secret: "s3cret" }, deps);
     expect(r.status).toBe(401);
-    expect(r.body.error).toBe("invalid_client");
+    expect(body(r).error).toBe("invalid_client");
   });
   it("rejects a mismatched resource; tolerates an omitted one", async () => {
     const { deps } = makeDeps();
-    expect((await processTokenRequest(true, { ...goodParams, resource: "https://other.example" }, deps)).body.error).toBe("invalid_target");
+    expect(body(await processTokenRequest(true, { ...goodParams, resource: "https://other.example" }, deps)).error).toBe("invalid_target");
     const ok = await processTokenRequest(true, { ...goodParams, resource: undefined }, makeDeps().deps);
     expect(ok.status).toBe(200);
   });
@@ -611,22 +654,22 @@ describe("processTokenRequest", () => {
     for (const code of cases) {
       const r = await processTokenRequest(true, goodParams, makeDeps({ code }).deps);
       expect(r.status).toBe(400);
-      expect(r.body.error).toBe("invalid_grant");
+      expect(body(r).error).toBe("invalid_grant");
     }
   });
   it("fails PKCE verification with a wrong verifier", async () => {
     const r = await processTokenRequest(true, { ...goodParams, code_verifier: `${VERIFIER}x` }, makeDeps().deps);
-    expect(r.body.error).toBe("invalid_grant");
+    expect(body(r).error).toBe("invalid_grant");
   });
-  it("issues a Bearer access token: 1h TTL, hash-only storage, NO refresh token", async () => {
-    const { deps, calls, insertedTokens } = makeDeps();
+  it("without offline_access: access token only, NO refresh token", async () => {
+    const { deps, calls, insertedTokens } = makeDeps(); // codeRow scope = 4 reads only
     const r = await processTokenRequest(true, goodParams, deps);
     expect(r.status).toBe(200);
-    expect(r.body.token_type).toBe("Bearer");
-    expect(r.body.expires_in).toBe(3600);
-    expect(r.body.access_token).toBe(`${ACCESS_TOKEN_PREFIX}testtoken`);
-    expect(r.body.scope).toBe(READ_SCOPES.join(" "));
-    expect(r.body).not.toHaveProperty("refresh_token");
+    expect(body(r).token_type).toBe("Bearer");
+    expect(body(r).expires_in).toBe(3600);
+    expect(body(r).access_token).toBe(`${ACCESS_TOKEN_PREFIX}testtoken`);
+    expect(body(r).scope).toBe(READ_SCOPES.join(" "));
+    expect(body(r)).not.toHaveProperty("refresh_token");
     expect(calls).toEqual(["consumeCode", "insertToken"]);
     const row = insertedTokens[0];
     expect(row.access_token_hash).toBe(await sha256Hex(`${ACCESS_TOKEN_PREFIX}testtoken`));
@@ -634,17 +677,116 @@ describe("processTokenRequest", () => {
     expect(row.refresh_family_id).toBeNull();
     expect(row.access_expires_at).toBe(new Date(NOW + ACCESS_TOKEN_TTL_MS).toISOString());
     expect(JSON.stringify(row)).not.toContain("testtoken");
+    expect(r.audit).toEqual({ event: "token_issued", clientId: "milo_client_t", userId: "user1", detail: { scope: READ_SCOPES.join(" ") } });
   });
-  it("strips offline_access from the issued token's scope", async () => {
-    const code = { ...codeRow, scope: `${READ_SCOPES.join(" ")} offline_access` };
-    const r = await processTokenRequest(true, goodParams, makeDeps({ code }).deps);
+  // Flipped by commit 6: offline_access is kept and drives refresh issuance.
+  it("with offline_access: keeps the scope and issues a refresh token (hash-only, new family, 30d)", async () => {
+    const scoped = `${READ_SCOPES.join(" ")} offline_access`;
+    const { deps, insertedTokens } = makeDeps({ code: { ...codeRow, scope: scoped } });
+    const r = await processTokenRequest(true, goodParams, deps);
     expect(r.status).toBe(200);
-    expect(r.body.scope).toBe(READ_SCOPES.join(" "));
+    expect(body(r).scope).toBe(scoped);
+    expect(body(r).refresh_token).toBe(`${REFRESH_TOKEN_PREFIX}newrefresh`);
+    const row = insertedTokens[0];
+    expect(row.refresh_token_hash).toBe(await sha256Hex(`${REFRESH_TOKEN_PREFIX}newrefresh`));
+    expect(row.refresh_family_id).toBe("family-new");
+    expect(row.refresh_expires_at).toBe(new Date(NOW + REFRESH_TOKEN_TTL_MS).toISOString());
+    expect(JSON.stringify(row)).not.toContain("newrefresh"); // plaintext never stored
+  });
+});
+
+describe("processTokenRequest — refresh_token grant (rotation + reuse detection)", () => {
+  const refreshParams: TokenParams = {
+    grant_type: "refresh_token",
+    client_id: "milo_client_t",
+    refresh_token: "milo_rt_oldrefresh",
+  };
+
+  it("requires the refresh_token param", async () => {
+    const r = await processTokenRequest(true, { ...refreshParams, refresh_token: undefined }, makeDeps().deps);
+    expect(body(r).error).toBe("invalid_request");
+  });
+  it("happy rotation: consumes the old token, issues a new pair, preserves the grant", async () => {
+    const { deps, calls, insertedTokens } = makeDeps({ refresh: { ...refreshRow } });
+    const r = await processTokenRequest(true, refreshParams, deps);
+    expect(r.status).toBe(200);
+    expect(body(r).access_token).toBe(`${ACCESS_TOKEN_PREFIX}testtoken`);
+    expect(body(r).refresh_token).toBe(`${REFRESH_TOKEN_PREFIX}newrefresh`);
+    expect(body(r).expires_in).toBe(3600);
+    expect(body(r).scope).toBe(refreshRow.scope);
+    expect(calls).toEqual(["consumeRefresh", "insertToken"]); // consume BEFORE issue
+    const row = insertedTokens[0];
+    expect(row.user_id).toBe("user1");
+    expect(row.client_id).toBe("milo_client_t");
+    expect(row.resource).toBe(MCP_RESOURCE_URL);
+    expect(row.scope).toBe(refreshRow.scope);
+    expect(row.refresh_family_id).toBe("family-1"); // family preserved, not new
+    expect(row.refresh_expires_at).toBe(new Date(NOW + REFRESH_TOKEN_TTL_MS).toISOString());
+    expect(JSON.stringify(row)).not.toContain("oldrefresh");
+    expect(JSON.stringify(row)).not.toContain("newrefresh");
+    expect(r.audit?.event).toBe("token_refreshed");
+    expect(r.audit?.detail).toEqual({ scope: refreshRow.scope });
+    expect(JSON.stringify(r.audit)).not.toContain("refresh_token");
+  });
+  it("REUSE: an already-rotated token revokes the whole family", async () => {
+    const { deps, familyRevokes } = makeDeps({ refresh: { ...refreshRow, rotated_at: "2026-07-08T00:00:00Z" } });
+    const r = await processTokenRequest(true, refreshParams, deps);
+    expect(r.status).toBe(400);
+    expect(body(r).error).toBe("invalid_grant");
+    expect(familyRevokes).toEqual(["family-1"]);
+    expect(r.audit).toEqual({ event: "token_reuse_detected", clientId: "milo_client_t", userId: "user1", detail: { familySize: 3 } });
+    expect(JSON.stringify(r.audit)).not.toContain("family-1"); // family id never audited
+  });
+  it("REUSE: a revoked token also revokes the family", async () => {
+    const { deps, familyRevokes } = makeDeps({ refresh: { ...refreshRow, revoked_at: "2026-07-08T00:00:00Z" } });
+    const r = await processTokenRequest(true, refreshParams, deps);
+    expect(body(r).error).toBe("invalid_grant");
+    expect(familyRevokes).toEqual(["family-1"]);
+  });
+  it("naturally expired token → invalid_grant WITHOUT family kill", async () => {
+    const { deps, familyRevokes } = makeDeps({ refresh: { ...refreshRow, refresh_expires_at: new Date(NOW - 1).toISOString() } });
+    const r = await processTokenRequest(true, refreshParams, deps);
+    expect(body(r).error).toBe("invalid_grant");
+    expect(familyRevokes).toEqual([]);
+    expect(r.audit).toBeUndefined();
+  });
+  it("unknown token → invalid_grant, no family kill", async () => {
+    const { deps, familyRevokes } = makeDeps({ refresh: null });
+    const r = await processTokenRequest(true, refreshParams, deps);
+    expect(body(r).error).toBe("invalid_grant");
+    expect(familyRevokes).toEqual([]);
+  });
+  it("client mismatch → uniform invalid_grant, no family kill", async () => {
+    const { deps, familyRevokes } = makeDeps({ refresh: { ...refreshRow, client_id: "someone_else" } });
+    const r = await processTokenRequest(true, refreshParams, deps);
+    expect(body(r).error).toBe("invalid_grant");
+    expect(familyRevokes).toEqual([]);
+  });
+  it("scope param must equal the original grant; matching or omitted scope is fine", async () => {
+    const mismatch = await processTokenRequest(true, { ...refreshParams, scope: "milo.projects.read" }, makeDeps({ refresh: { ...refreshRow } }).deps);
+    expect(body(mismatch).error).toBe("invalid_scope");
+    const sameReordered = await processTokenRequest(
+      true,
+      { ...refreshParams, scope: `offline_access ${READ_SCOPES.join(" ")}` },
+      makeDeps({ refresh: { ...refreshRow } }).deps,
+    );
+    expect(sameReordered.status).toBe(200);
+  });
+  it("losing the atomic consume race is treated as reuse (family kill)", async () => {
+    const { deps, familyRevokes } = makeDeps({ refresh: { ...refreshRow }, consumeWins: false });
+    const r = await processTokenRequest(true, refreshParams, deps);
+    expect(body(r).error).toBe("invalid_grant");
+    expect(familyRevokes).toEqual(["family-1"]);
+    expect(r.audit?.event).toBe("token_reuse_detected");
+  });
+  it("rejects a client secret and unknown clients like the code grant", async () => {
+    expect((await processTokenRequest(true, { ...refreshParams, client_secret: "x" }, makeDeps({ refresh: { ...refreshRow } }).deps)).status).toBe(401);
+    expect((await processTokenRequest(true, refreshParams, makeDeps({ client: null, refresh: { ...refreshRow } }).deps)).status).toBe(401);
   });
 });
 
 describe("buildAccessTokenRow / tokenSuccessResponse", () => {
-  it("carries user/client/resource from the code row and never a refresh token", () => {
+  it("carries user/client/resource from the code row; refresh columns null without a refresh grant", () => {
     const row = buildAccessTokenRow(
       { user_id: "user1", client_id: "c", resource: MCP_RESOURCE_URL },
       "hash1",
@@ -663,8 +805,27 @@ describe("buildAccessTokenRow / tokenSuccessResponse", () => {
       refresh_expires_at: null,
     });
   });
-  it("shapes the success body per RFC 6749", () => {
+  it("fills refresh columns (hash only) when a refresh issue is provided", () => {
+    const row = buildAccessTokenRow(
+      { user_id: "user1", client_id: "c", resource: MCP_RESOURCE_URL },
+      "hash1",
+      "scope1",
+      "2026-01-01T00:00:00.000Z",
+      { refreshHash: "rhash1", familyId: "fam1", expiresAtIso: "2026-02-01T00:00:00.000Z" },
+    );
+    expect(row.refresh_token_hash).toBe("rhash1");
+    expect(row.refresh_family_id).toBe("fam1");
+    expect(row.refresh_expires_at).toBe("2026-02-01T00:00:00.000Z");
+  });
+  it("shapes the success body per RFC 6749, with refresh_token only when issued", () => {
     expect(tokenSuccessResponse("tok", "s", 3600)).toEqual({ access_token: "tok", token_type: "Bearer", expires_in: 3600, scope: "s" });
+    expect(tokenSuccessResponse("tok", "s", 3600, "rtok")).toEqual({
+      access_token: "tok",
+      token_type: "Bearer",
+      expires_in: 3600,
+      scope: "s",
+      refresh_token: "rtok",
+    });
   });
 });
 
@@ -825,23 +986,22 @@ describe("checkRateLimit", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Token revocation (RFC 7009) — access tokens only, no refresh tokens yet
+// Token revocation (RFC 7009) — family-aware since commit 6
 // ---------------------------------------------------------------------------
 
 describe("processRevocationRequest", () => {
-  const info: RevokedTokenInfo = { userId: "user1", clientId: "client1" };
+  const info: RevokedTokenInfo = { userId: "user1", clientId: "client1", tokenType: "access", familyRevoked: null };
   function makeDeps(result: RevokedTokenInfo | null) {
-    const hashes: string[] = [];
-    const revokeCalls: { hash: string; nowIso: string }[] = [];
+    const revokeCalls: { hash: string; nowIso: string; hint?: string }[] = [];
     const deps: RevocationDeps = {
-      revokeAccessTokenByHash: async (hash, nowIso) => {
-        revokeCalls.push({ hash, nowIso });
+      revokeTokenByHash: async (hash, nowIso, hint) => {
+        revokeCalls.push({ hash, nowIso, hint });
         return result;
       },
       hash: sha256Hex,
       nowMs: NOW,
     };
-    return { deps, hashes, revokeCalls };
+    return { deps, revokeCalls };
   }
 
   it("returns 404 not_found when the flag is off, without touching deps", async () => {
@@ -882,18 +1042,28 @@ describe("processRevocationRequest", () => {
     expect(r.revoked).toBeNull(); // null → route emits NO audit event (no existence leak)
   });
 
-  it("token_type_hint is advisory: any hint still takes the access-token lookup", async () => {
+  it("token_type_hint is advisory: forwarded to the lookup, works with any value", async () => {
     for (const hint of ["access_token", "refresh_token", "nonsense", undefined]) {
       const { deps, revokeCalls } = makeDeps(info);
       const r = await processRevocationRequest(true, { token: "milo_at_x", token_type_hint: hint }, deps);
       expect(r.status).toBe(200);
       expect(revokeCalls).toHaveLength(1);
+      expect(revokeCalls[0].hint).toBe(hint);
     }
+  });
+
+  it("surfaces family revocation context for auditing (refresh token → family kill)", async () => {
+    const familyInfo: RevokedTokenInfo = { userId: "user1", clientId: "client1", tokenType: "refresh", familyRevoked: 4 };
+    const { deps } = makeDeps(familyInfo);
+    const r = await processRevocationRequest(true, { token: "milo_rt_x", token_type_hint: "refresh_token" }, deps);
+    expect(r.status).toBe(200);
+    expect(r.body).toBeNull();
+    expect(r.revoked).toEqual(familyInfo);
   });
 
   it("a failing revocation write propagates (route → 500) instead of claiming success", async () => {
     const deps: RevocationDeps = {
-      revokeAccessTokenByHash: async () => {
+      revokeTokenByHash: async () => {
         throw new Error("revoke_failed");
       },
       hash: sha256Hex,
@@ -1000,8 +1170,9 @@ describe("scope consent labels", () => {
   it("has a human label for every advertised scope", () => {
     for (const s of OAUTH_SCOPES) expect(SCOPE_LABELS[s]).toBeTruthy();
   });
-  it("does not label offline_access (not issued this phase)", () => {
-    expect(SCOPE_LABELS["offline_access"]).toBeUndefined();
+  // Flipped by commit 6: offline_access is issued and shown in consent.
+  it("labels offline_access for the consent screen", () => {
+    expect(SCOPE_LABELS["offline_access"]).toBe("Stay connected without re-approving each time");
   });
   it("maps scopes to labels and falls back to the raw scope", () => {
     expect(scopeConsentItems("milo.projects.read unknown.scope")).toEqual([

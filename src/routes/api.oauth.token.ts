@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
 
-// OAuth 2.1 token endpoint (Phase 2C). authorization_code grant + PKCE S256 only.
-// Issues a short-lived access token (1h), stored hash-only. No refresh token this
-// phase. Gated by MCP_OAUTH_ENABLED: flag off → 404. Never logs code/verifier/token.
+// OAuth 2.1 token endpoint. authorization_code grant (+PKCE S256) and, since
+// Phase 0 commit 6, refresh_token grant with rotation + reuse detection.
+// Access tokens live 1h; refresh tokens 30d (sliding per rotation); hash-only
+// storage. Gated by MCP_OAUTH_ENABLED: flag off → 404. Never logs code/verifier/token.
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -52,6 +53,10 @@ export const Route = createFileRoute("/api/oauth/token")({
           sha256Hex,
           randomToken,
           ACCESS_TOKEN_PREFIX,
+          REFRESH_TOKEN_PREFIX,
+          getTokenRowByRefreshHash,
+          consumeRefreshTokenByHash,
+          revokeTokenFamily,
           logOAuthEvent,
           RATE_BUCKETS,
           checkRateLimit,
@@ -91,12 +96,18 @@ export const Route = createFileRoute("/api/oauth/token")({
             insertToken: insertAccessToken,
             hash: sha256Hex,
             generateToken: () => randomToken(ACCESS_TOKEN_PREFIX),
+            generateRefreshToken: () => randomToken(REFRESH_TOKEN_PREFIX),
+            generateFamilyId: () => globalThis.crypto.randomUUID(),
+            getTokenByRefreshHash: getTokenRowByRefreshHash,
+            consumeRefreshToken: consumeRefreshTokenByHash,
+            revokeFamily: revokeTokenFamily,
             nowMs: Date.now(),
           });
 
-          if (res.status === 200) {
-            // Audit success without any secret material.
-            await logOAuthEvent("token_issued", { clientId: p.client_id, detail: { scope: (res.body as { scope?: string }).scope ?? "" } });
+          // Audit per the processor's instruction (token_issued / token_refreshed
+          // / token_reuse_detected) — never any secret material.
+          if (res.audit) {
+            await logOAuthEvent(res.audit.event, { clientId: res.audit.clientId, userId: res.audit.userId, detail: res.audit.detail });
           }
           return json(res.body, res.status);
         } catch (e) {

@@ -10,10 +10,14 @@ import { describe, it, expect, vi } from "vitest";
 
 const h = vi.hoisted(() => ({
   from: undefined as unknown as (table: string) => unknown,
+  rpc: undefined as unknown as (fn: string, args: Record<string, unknown>) => unknown,
 }));
 
 vi.mock("@/integrations/supabase/client.server", () => ({
-  supabaseAdmin: { from: (table: string) => h.from(table) },
+  supabaseAdmin: {
+    from: (table: string) => h.from(table),
+    rpc: (fn: string, args: Record<string, unknown>) => h.rpc(fn, args),
+  },
 }));
 
 import {
@@ -25,7 +29,16 @@ import {
   buildMcpAuditEvent,
   resolveUser,
 } from "./mcp.server";
-import { resolveAccessToken, revokeAccessTokenByHash, listGrantsForUser, revokeGrantsForUserClient, MCP_RESOURCE_URL } from "./oauth.server";
+import {
+  resolveAccessToken,
+  revokeTokenByHash,
+  revokeTokenFamily,
+  getTokenRowByRefreshHash,
+  consumeRefreshTokenByHash,
+  listGrantsForUser,
+  revokeGrantsForUserClient,
+  MCP_RESOURCE_URL,
+} from "./oauth.server";
 
 // ---- supabase chain fakes -------------------------------------------------
 
@@ -281,59 +294,173 @@ describe("resolveAccessToken (OAuth) last_used_at", () => {
   });
 });
 
-// ---- revocation DB helper (shares the supabase mock) --------------------------
+// ---- revocation DB helpers (share the supabase mock) --------------------------
 
-describe("revokeAccessTokenByHash", () => {
-  const liveRow = { user_id: "user1", client_id: "client1", revoked_at: null };
+/** Token-table fake: single-row lookups keyed by the filter column, list
+ * selects for family scans, update recording. */
+interface TokenFakeCfg {
+  byAccess?: Record<string, unknown> | null;
+  byRefresh?: Record<string, unknown> | null;
+  familyLive?: number;
+  updateError?: unknown;
+}
+interface TokenFakeLog {
+  singleLookups: string[];
+  listSelects: number;
+  updates: { payload: Record<string, unknown>; filters: { k: string; v: unknown }[] }[];
+}
+const freshLog = (): TokenFakeLog => ({ singleLookups: [], listSelects: 0, updates: [] });
 
-  function revocationFake(selectRow: unknown, state: { updateCalled: boolean; updatedWith: Record<string, unknown> | null }, updateError: unknown = null) {
-    return (table: string) => {
-      expect(table).toBe("oauth_tokens");
-      const chain: Record<string, unknown> = {};
-      chain.eq = () => chain;
-      chain.is = () => chain;
-      chain.maybeSingle = async () => ({ data: selectRow, error: null });
-      chain.then = (res: (v: { error: unknown }) => unknown) => Promise.resolve({ error: updateError }).then(res);
-      return {
-        select: () => chain,
-        update: (r: Record<string, unknown>) => {
-          state.updateCalled = true;
-          state.updatedWith = r;
+function tokenTableFake(cfg: TokenFakeCfg, log: TokenFakeLog) {
+  return (table: string) => {
+    expect(table).toBe("oauth_tokens");
+    return {
+      select: () => {
+        const filters: { k: string; v: unknown }[] = [];
+        const chain: Record<string, unknown> = {};
+        chain.eq = (k: string, v: unknown) => {
+          filters.push({ k, v });
           return chain;
-        },
-      };
+        };
+        chain.is = (k: string, v: unknown) => {
+          filters.push({ k, v });
+          return chain;
+        };
+        chain.maybeSingle = async () => {
+          const key = filters[0]?.k;
+          log.singleLookups.push(String(key));
+          if (key === "access_token_hash") return { data: cfg.byAccess ?? null, error: null };
+          if (key === "refresh_token_hash") return { data: cfg.byRefresh ?? null, error: null };
+          return { data: null, error: null };
+        };
+        chain.then = (res: (v: unknown) => unknown) => {
+          log.listSelects += 1;
+          return Promise.resolve({ data: Array.from({ length: cfg.familyLive ?? 0 }, () => ({ user_id: "user1" })), error: null }).then(res);
+        };
+        return chain;
+      },
+      update: (payload: Record<string, unknown>) => {
+        const filters: { k: string; v: unknown }[] = [];
+        const chain: Record<string, unknown> = {};
+        chain.eq = (k: string, v: unknown) => {
+          filters.push({ k, v });
+          return chain;
+        };
+        chain.is = (k: string, v: unknown) => {
+          filters.push({ k, v });
+          return chain;
+        };
+        chain.then = (res: (v: { error: unknown }) => unknown) => {
+          log.updates.push({ payload, filters });
+          return Promise.resolve({ error: cfg.updateError ?? null }).then(res);
+        };
+        return chain;
+      },
     };
-  }
+  };
+}
 
-  it("revokes a live row and returns its safe context (no token material)", async () => {
-    const state = { updateCalled: false, updatedWith: null as Record<string, unknown> | null };
-    h.from = revocationFake(liveRow, state);
-    const r = await revokeAccessTokenByHash("somehash", "2026-07-08T00:00:00.000Z");
-    expect(r).toEqual({ userId: "user1", clientId: "client1" });
-    expect(state.updateCalled).toBe(true);
-    expect(state.updatedWith).toEqual({ revoked_at: "2026-07-08T00:00:00.000Z" });
+describe("revokeTokenByHash (family-aware)", () => {
+  const NOWISO = "2026-07-08T00:00:00.000Z";
+  const familyLess = { user_id: "user1", client_id: "client1", revoked_at: null, refresh_family_id: null };
+  const familyRow = { user_id: "user1", client_id: "client1", revoked_at: null, refresh_family_id: "fam-1" };
+
+  it("pre-refresh row (null family): single-row revoke, current behavior preserved", async () => {
+    const log = freshLog();
+    h.from = tokenTableFake({ byAccess: familyLess }, log);
+    const r = await revokeTokenByHash("somehash", NOWISO);
+    expect(r).toEqual({ userId: "user1", clientId: "client1", tokenType: "access", familyRevoked: null });
+    expect(log.updates).toHaveLength(1);
+    expect(log.updates[0].payload).toEqual({ revoked_at: NOWISO });
+    expect(log.updates[0].filters).toEqual([
+      { k: "access_token_hash", v: "somehash" },
+      { k: "revoked_at", v: null },
+    ]);
   });
 
-  it("unknown or already-revoked rows → null, no update write", async () => {
-    for (const row of [null, { ...liveRow, revoked_at: "2026-01-01" }]) {
-      const state = { updateCalled: false, updatedWith: null as Record<string, unknown> | null };
-      h.from = revocationFake(row, state);
-      expect(await revokeAccessTokenByHash("somehash", "2026-07-08T00:00:00.000Z")).toBeNull();
-      expect(state.updateCalled).toBe(false);
+  it("access token WITH a family: revokes the whole family and reports the live count", async () => {
+    const log = freshLog();
+    h.from = tokenTableFake({ byAccess: familyRow, familyLive: 3 }, log);
+    const r = await revokeTokenByHash("somehash", NOWISO);
+    expect(r).toEqual({ userId: "user1", clientId: "client1", tokenType: "access", familyRevoked: 3 });
+    expect(log.updates).toHaveLength(1);
+    expect(log.updates[0].filters).toEqual([
+      { k: "refresh_family_id", v: "fam-1" },
+      { k: "revoked_at", v: null },
+    ]);
+  });
+
+  it("refresh-token hash (access miss): tokenType refresh, family kill", async () => {
+    const log = freshLog();
+    h.from = tokenTableFake({ byAccess: null, byRefresh: familyRow, familyLive: 2 }, log);
+    const r = await revokeTokenByHash("refreshhash", NOWISO);
+    expect(r).toEqual({ userId: "user1", clientId: "client1", tokenType: "refresh", familyRevoked: 2 });
+    expect(log.singleLookups).toEqual(["access_token_hash", "refresh_token_hash"]);
+  });
+
+  it("refresh_token hint orders the refresh lookup first", async () => {
+    const log = freshLog();
+    h.from = tokenTableFake({ byRefresh: familyRow, familyLive: 1 }, log);
+    const r = await revokeTokenByHash("refreshhash", NOWISO, "refresh_token");
+    expect(r?.tokenType).toBe("refresh");
+    expect(log.singleLookups).toEqual(["refresh_token_hash"]);
+  });
+
+  it("unknown or already-revoked → null, no update write", async () => {
+    for (const cfg of [{}, { byAccess: { ...familyLess, revoked_at: "2026-01-01" } }] as TokenFakeCfg[]) {
+      const log = freshLog();
+      h.from = tokenTableFake(cfg, log);
+      expect(await revokeTokenByHash("somehash", NOWISO)).toBeNull();
+      expect(log.updates).toHaveLength(0);
     }
   });
 
-  it("empty hash → null without any DB access", async () => {
+  it("empty hash → null without DB; failing write throws", async () => {
     h.from = () => {
       throw new Error("no DB for empty hash");
     };
-    expect(await revokeAccessTokenByHash("", "2026-07-08T00:00:00.000Z")).toBeNull();
+    expect(await revokeTokenByHash("", NOWISO)).toBeNull();
+    const log = freshLog();
+    h.from = tokenTableFake({ byAccess: familyLess, updateError: { message: "db_down" } }, log);
+    await expect(revokeTokenByHash("somehash", NOWISO)).rejects.toThrow("revoke_failed");
+  });
+});
+
+describe("revokeTokenFamily / getTokenRowByRefreshHash / consumeRefreshTokenByHash", () => {
+  it("revokeTokenFamily revokes live family rows and returns the live count", async () => {
+    const log = freshLog();
+    h.from = tokenTableFake({ familyLive: 2 }, log);
+    expect(await revokeTokenFamily("fam-1", "2026-07-08T00:00:00.000Z")).toBe(2);
+    expect(log.updates[0].filters).toEqual([
+      { k: "refresh_family_id", v: "fam-1" },
+      { k: "revoked_at", v: null },
+    ]);
+    expect(await revokeTokenFamily("", "now")).toBe(0); // no family → no DB write needed
   });
 
-  it("throws when the revocation write fails (caller must not report success)", async () => {
-    const state = { updateCalled: false, updatedWith: null as Record<string, unknown> | null };
-    h.from = revocationFake(liveRow, state, { message: "db_down" });
-    await expect(revokeAccessTokenByHash("somehash", "2026-07-08T00:00:00.000Z")).rejects.toThrow("revoke_failed");
+  it("getTokenRowByRefreshHash selects safe columns by refresh hash", async () => {
+    const row = { user_id: "user1", client_id: "client1", scope: "s", refresh_family_id: "fam-1" };
+    const log = freshLog();
+    h.from = tokenTableFake({ byRefresh: row }, log);
+    expect(await getTokenRowByRefreshHash("rhash")).toEqual(row);
+    expect(await getTokenRowByRefreshHash("")).toBeNull();
+  });
+
+  it("consumeRefreshTokenByHash maps the RPC result and throws on RPC error", async () => {
+    const calls: { fn: string; args: Record<string, unknown> }[] = [];
+    h.rpc = (fn, args) => {
+      calls.push({ fn, args });
+      return Promise.resolve({ data: true, error: null });
+    };
+    expect(await consumeRefreshTokenByHash("rhash", "2026-07-08T00:00:00.000Z")).toBe(true);
+    expect(calls[0].fn).toBe("consume_refresh_token");
+    expect(calls[0].args).toEqual({ p_refresh_hash: "rhash", p_now: "2026-07-08T00:00:00.000Z" });
+
+    h.rpc = () => Promise.resolve({ data: null, error: null });
+    expect(await consumeRefreshTokenByHash("rhash", "now")).toBe(false); // lost race / dead token
+
+    h.rpc = () => Promise.resolve({ data: null, error: { message: "db_down" } });
+    await expect(consumeRefreshTokenByHash("rhash", "now")).rejects.toThrow("consume_refresh_failed");
   });
 });
 
