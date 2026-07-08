@@ -772,6 +772,75 @@ export async function processTokenRequest(
 }
 
 // ===========================================================================
+// Phase 0 (trust foundation) — RFC 7009 token revocation.
+// Access tokens only: refresh tokens are not implemented yet. When they ship,
+// extend the deps with a refresh-token lookup and revoke the whole
+// refresh_family_id on a refresh-token match (rotation lineage).
+// ===========================================================================
+
+export interface RevocationParams {
+  token?: string;
+  token_type_hint?: string;
+  client_id?: string;
+}
+
+/** Safe context of a revoked token row (for auditing) — never token material. */
+export interface RevokedTokenInfo {
+  userId: string | null;
+  clientId: string | null;
+}
+
+export interface RevocationDeps {
+  /** Revoke a LIVE access token by hash; null if no live row matched. */
+  revokeAccessTokenByHash: (tokenHash: string, nowIso: string) => Promise<RevokedTokenInfo | null>;
+  hash: (s: string) => Promise<string>;
+  nowMs: number;
+}
+
+export interface RevocationResult {
+  status: number;
+  /** Response body; null means an empty 200 per RFC 7009 §2.2. */
+  body: Record<string, unknown> | null;
+  /** Non-null only when a live token was actually revoked (drives auditing). */
+  revoked: RevokedTokenInfo | null;
+}
+
+/**
+ * Process an RFC 7009 revocation request. Unknown and already-revoked tokens
+ * return 200 exactly like a successful revocation — the endpoint never reveals
+ * whether a token exists. token_type_hint is advisory (§2.1): only access
+ * tokens are issued today, so every hint takes the access-token lookup. A DB
+ * failure propagates (route → 500) so a client is never told "revoked" when
+ * the write did not happen.
+ */
+export async function processRevocationRequest(enabled: boolean, params: RevocationParams, deps: RevocationDeps): Promise<RevocationResult> {
+  if (!enabled) return { status: 404, body: oauthErrorBody("not_found"), revoked: null };
+  const token = typeof params.token === "string" ? params.token.trim() : "";
+  if (!token) return { status: 400, body: oauthErrorBody("invalid_request", "token is required."), revoked: null };
+  const tokenHash = await deps.hash(token);
+  const revoked = await deps.revokeAccessTokenByHash(tokenHash, new Date(deps.nowMs).toISOString());
+  return { status: 200, body: null, revoked };
+}
+
+/**
+ * Revoke a live access token by hash. Returns the row's safe context when a
+ * live row was revoked; null for unknown or already-revoked hashes. Throws if
+ * the revocation write fails (callers must not report success in that case).
+ */
+export async function revokeAccessTokenByHash(tokenHash: string, nowIso: string): Promise<RevokedTokenInfo | null> {
+  if (!tokenHash) return null;
+  const db = await admin();
+  const { data } = await db.from("oauth_tokens").select("user_id,client_id,revoked_at").eq("access_token_hash", tokenHash).maybeSingle();
+  if (!data || data.revoked_at) return null;
+  const { error } = await db.from("oauth_tokens").update({ revoked_at: nowIso }).eq("access_token_hash", tokenHash).is("revoked_at", null);
+  if (error) throw new Error("revoke_failed");
+  return {
+    userId: (data.user_id as string | null) ?? null,
+    clientId: (data.client_id as string | null) ?? null,
+  };
+}
+
+// ===========================================================================
 // Phase 3 — consent screen helpers (pure). The consent server fns supply DB.
 // ===========================================================================
 

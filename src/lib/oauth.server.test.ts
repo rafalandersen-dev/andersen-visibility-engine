@@ -51,9 +51,12 @@ import {
   scopeConsentItems,
   classifyConsentRequest,
   buildDenyRedirect,
+  processRevocationRequest,
   type AuthorizeParams,
   type TokenParams,
   type TokenDeps,
+  type RevocationDeps,
+  type RevokedTokenInfo,
 } from "./oauth.server";
 
 const NOW = 1_700_000_000_000;
@@ -712,6 +715,85 @@ describe("classifyConsentRequest", () => {
       ok: true,
       normalized: { clientId: "c", redirectUri: CALLBACK, scope: "milo.projects.read", state: "xyz" },
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Token revocation (RFC 7009) — access tokens only, no refresh tokens yet
+// ---------------------------------------------------------------------------
+
+describe("processRevocationRequest", () => {
+  const info: RevokedTokenInfo = { userId: "user1", clientId: "client1" };
+  function makeDeps(result: RevokedTokenInfo | null) {
+    const hashes: string[] = [];
+    const revokeCalls: { hash: string; nowIso: string }[] = [];
+    const deps: RevocationDeps = {
+      revokeAccessTokenByHash: async (hash, nowIso) => {
+        revokeCalls.push({ hash, nowIso });
+        return result;
+      },
+      hash: sha256Hex,
+      nowMs: NOW,
+    };
+    return { deps, hashes, revokeCalls };
+  }
+
+  it("returns 404 not_found when the flag is off, without touching deps", async () => {
+    const { deps, revokeCalls } = makeDeps(info);
+    const r = await processRevocationRequest(false, { token: "milo_at_x" }, deps);
+    expect(r).toEqual({ status: 404, body: { error: "not_found" }, revoked: null });
+    expect(revokeCalls).toHaveLength(0);
+  });
+
+  it("returns 400 invalid_request for a missing/blank token, without a lookup", async () => {
+    const { deps, revokeCalls } = makeDeps(info);
+    for (const params of [{}, { token: "" }, { token: "   " }, { token: undefined }]) {
+      const r = await processRevocationRequest(true, params, deps);
+      expect(r.status).toBe(400);
+      expect(r.body?.error).toBe("invalid_request");
+      expect(r.revoked).toBeNull();
+    }
+    expect(revokeCalls).toHaveLength(0);
+  });
+
+  it("revokes a known live token: 200, empty body, hashed lookup (plaintext never reaches the DB layer)", async () => {
+    const { deps, revokeCalls } = makeDeps(info);
+    const r = await processRevocationRequest(true, { token: "milo_at_livetoken" }, deps);
+    expect(r.status).toBe(200);
+    expect(r.body).toBeNull();
+    expect(r.revoked).toEqual(info);
+    expect(revokeCalls).toHaveLength(1);
+    expect(revokeCalls[0].hash).toBe(await sha256Hex("milo_at_livetoken"));
+    expect(revokeCalls[0].nowIso).toBe(new Date(NOW).toISOString());
+    expect(JSON.stringify(r)).not.toContain("milo_at_livetoken");
+  });
+
+  it("unknown or already-revoked tokens are indistinguishable from success (200, empty body)", async () => {
+    const { deps } = makeDeps(null);
+    const r = await processRevocationRequest(true, { token: "milo_at_whoknows" }, deps);
+    expect(r.status).toBe(200);
+    expect(r.body).toBeNull();
+    expect(r.revoked).toBeNull(); // null → route emits NO audit event (no existence leak)
+  });
+
+  it("token_type_hint is advisory: any hint still takes the access-token lookup", async () => {
+    for (const hint of ["access_token", "refresh_token", "nonsense", undefined]) {
+      const { deps, revokeCalls } = makeDeps(info);
+      const r = await processRevocationRequest(true, { token: "milo_at_x", token_type_hint: hint }, deps);
+      expect(r.status).toBe(200);
+      expect(revokeCalls).toHaveLength(1);
+    }
+  });
+
+  it("a failing revocation write propagates (route → 500) instead of claiming success", async () => {
+    const deps: RevocationDeps = {
+      revokeAccessTokenByHash: async () => {
+        throw new Error("revoke_failed");
+      },
+      hash: sha256Hex,
+      nowMs: NOW,
+    };
+    await expect(processRevocationRequest(true, { token: "milo_at_x" }, deps)).rejects.toThrow("revoke_failed");
   });
 });
 

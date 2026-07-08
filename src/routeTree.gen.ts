@@ -41,6 +41,7 @@ import { Route as DotwellKnownOauthAuthorizationServerRouteImport } from './rout
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app.index'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
 import { Route as ApiOauthTokenRouteImport } from './routes/api.oauth.token'
+import { Route as ApiOauthRevokeRouteImport } from './routes/api.oauth.revoke'
 import { Route as ApiOauthRegisterRouteImport } from './routes/api.oauth.register'
 import { Route as ApiOauthAuthorizeRouteImport } from './routes/api.oauth.authorize'
 import { Route as ApiAnalyticsTrackRouteImport } from './routes/api.analytics.track'
@@ -227,6 +228,11 @@ const LovableEmailSuppressionRoute = LovableEmailSuppressionRouteImport.update({
 const ApiOauthTokenRoute = ApiOauthTokenRouteImport.update({
   id: '/api/oauth/token',
   path: '/api/oauth/token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiOauthRevokeRoute = ApiOauthRevokeRouteImport.update({
+  id: '/api/oauth/revoke',
+  path: '/api/oauth/revoke',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiOauthRegisterRoute = ApiOauthRegisterRouteImport.update({
@@ -425,6 +431,7 @@ export interface FileRoutesByFullPath {
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
   '/api/oauth/authorize': typeof ApiOauthAuthorizeRoute
   '/api/oauth/register': typeof ApiOauthRegisterRoute
+  '/api/oauth/revoke': typeof ApiOauthRevokeRoute
   '/api/oauth/token': typeof ApiOauthTokenRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/app/': typeof AuthenticatedAppIndexRoute
@@ -484,6 +491,7 @@ export interface FileRoutesByTo {
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
   '/api/oauth/authorize': typeof ApiOauthAuthorizeRoute
   '/api/oauth/register': typeof ApiOauthRegisterRoute
+  '/api/oauth/revoke': typeof ApiOauthRevokeRoute
   '/api/oauth/token': typeof ApiOauthTokenRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/app': typeof AuthenticatedAppIndexRoute
@@ -545,6 +553,7 @@ export interface FileRoutesById {
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
   '/api/oauth/authorize': typeof ApiOauthAuthorizeRoute
   '/api/oauth/register': typeof ApiOauthRegisterRoute
+  '/api/oauth/revoke': typeof ApiOauthRevokeRoute
   '/api/oauth/token': typeof ApiOauthTokenRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
@@ -606,6 +615,7 @@ export interface FileRouteTypes {
     | '/api/analytics/track'
     | '/api/oauth/authorize'
     | '/api/oauth/register'
+    | '/api/oauth/revoke'
     | '/api/oauth/token'
     | '/lovable/email/suppression'
     | '/app/'
@@ -665,6 +675,7 @@ export interface FileRouteTypes {
     | '/api/analytics/track'
     | '/api/oauth/authorize'
     | '/api/oauth/register'
+    | '/api/oauth/revoke'
     | '/api/oauth/token'
     | '/lovable/email/suppression'
     | '/app'
@@ -725,6 +736,7 @@ export interface FileRouteTypes {
     | '/api/analytics/track'
     | '/api/oauth/authorize'
     | '/api/oauth/register'
+    | '/api/oauth/revoke'
     | '/api/oauth/token'
     | '/lovable/email/suppression'
     | '/_authenticated/app/'
@@ -769,6 +781,7 @@ export interface RootRouteChildren {
   ApiAnalyticsTrackRoute: typeof ApiAnalyticsTrackRoute
   ApiOauthAuthorizeRoute: typeof ApiOauthAuthorizeRoute
   ApiOauthRegisterRoute: typeof ApiOauthRegisterRoute
+  ApiOauthRevokeRoute: typeof ApiOauthRevokeRoute
   ApiOauthTokenRoute: typeof ApiOauthTokenRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
   ApiGoogleSearchConsoleCallbackRoute: typeof ApiGoogleSearchConsoleCallbackRoute
@@ -1003,6 +1016,13 @@ declare module '@tanstack/react-router' {
       path: '/api/oauth/token'
       fullPath: '/api/oauth/token'
       preLoaderRoute: typeof ApiOauthTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/oauth/revoke': {
+      id: '/api/oauth/revoke'
+      path: '/api/oauth/revoke'
+      fullPath: '/api/oauth/revoke'
+      preLoaderRoute: typeof ApiOauthRevokeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/oauth/register': {
@@ -1270,6 +1290,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAnalyticsTrackRoute: ApiAnalyticsTrackRoute,
   ApiOauthAuthorizeRoute: ApiOauthAuthorizeRoute,
   ApiOauthRegisterRoute: ApiOauthRegisterRoute,
+  ApiOauthRevokeRoute: ApiOauthRevokeRoute,
   ApiOauthTokenRoute: ApiOauthTokenRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
   ApiGoogleSearchConsoleCallbackRoute: ApiGoogleSearchConsoleCallbackRoute,
@@ -1282,3 +1303,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

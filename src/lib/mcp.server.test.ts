@@ -25,7 +25,7 @@ import {
   buildMcpAuditEvent,
   resolveUser,
 } from "./mcp.server";
-import { resolveAccessToken, MCP_RESOURCE_URL } from "./oauth.server";
+import { resolveAccessToken, revokeAccessTokenByHash, MCP_RESOURCE_URL } from "./oauth.server";
 
 // ---- supabase chain fakes -------------------------------------------------
 
@@ -278,5 +278,61 @@ describe("resolveAccessToken (OAuth) last_used_at", () => {
       expect(await resolveAccessToken("milo_at_sometoken")).toBeNull();
       expect(state.updateCalled).toBe(false);
     }
+  });
+});
+
+// ---- revocation DB helper (shares the supabase mock) --------------------------
+
+describe("revokeAccessTokenByHash", () => {
+  const liveRow = { user_id: "user1", client_id: "client1", revoked_at: null };
+
+  function revocationFake(selectRow: unknown, state: { updateCalled: boolean; updatedWith: Record<string, unknown> | null }, updateError: unknown = null) {
+    return (table: string) => {
+      expect(table).toBe("oauth_tokens");
+      const chain: Record<string, unknown> = {};
+      chain.eq = () => chain;
+      chain.is = () => chain;
+      chain.maybeSingle = async () => ({ data: selectRow, error: null });
+      chain.then = (res: (v: { error: unknown }) => unknown) => Promise.resolve({ error: updateError }).then(res);
+      return {
+        select: () => chain,
+        update: (r: Record<string, unknown>) => {
+          state.updateCalled = true;
+          state.updatedWith = r;
+          return chain;
+        },
+      };
+    };
+  }
+
+  it("revokes a live row and returns its safe context (no token material)", async () => {
+    const state = { updateCalled: false, updatedWith: null as Record<string, unknown> | null };
+    h.from = revocationFake(liveRow, state);
+    const r = await revokeAccessTokenByHash("somehash", "2026-07-08T00:00:00.000Z");
+    expect(r).toEqual({ userId: "user1", clientId: "client1" });
+    expect(state.updateCalled).toBe(true);
+    expect(state.updatedWith).toEqual({ revoked_at: "2026-07-08T00:00:00.000Z" });
+  });
+
+  it("unknown or already-revoked rows → null, no update write", async () => {
+    for (const row of [null, { ...liveRow, revoked_at: "2026-01-01" }]) {
+      const state = { updateCalled: false, updatedWith: null as Record<string, unknown> | null };
+      h.from = revocationFake(row, state);
+      expect(await revokeAccessTokenByHash("somehash", "2026-07-08T00:00:00.000Z")).toBeNull();
+      expect(state.updateCalled).toBe(false);
+    }
+  });
+
+  it("empty hash → null without any DB access", async () => {
+    h.from = () => {
+      throw new Error("no DB for empty hash");
+    };
+    expect(await revokeAccessTokenByHash("", "2026-07-08T00:00:00.000Z")).toBeNull();
+  });
+
+  it("throws when the revocation write fails (caller must not report success)", async () => {
+    const state = { updateCalled: false, updatedWith: null as Record<string, unknown> | null };
+    h.from = revocationFake(liveRow, state, { message: "db_down" });
+    await expect(revokeAccessTokenByHash("somehash", "2026-07-08T00:00:00.000Z")).rejects.toThrow("revoke_failed");
   });
 });
