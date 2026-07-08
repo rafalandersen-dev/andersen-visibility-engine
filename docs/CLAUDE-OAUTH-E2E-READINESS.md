@@ -5,24 +5,28 @@
 
 **Target deployment:** `465ffa9` (Phase 4), deploy `699f5de5` · **Flag:** `MCP_OAUTH_ENABLED` unset (off) · **MCP resource:** `https://milogrowth.com/api/mcp`
 
-## 0. 🔴 Critical finding — database migrations are NOT applied
+## 0. ✅ Database migrations — applied and verified
 
-A live query of the production database shows the `public` schema contains only:
-`analytics_events, email_send_log, email_send_state, email_unsubscribe_tokens, profiles, suppressed_emails, user_roles, workspaces`.
-
-**Every OAuth/MCP table is missing.** Pushing a migration file to the git repo does **not** auto-apply it to the Lovable-managed Supabase — these must be applied manually before any flag-on test.
+The three required migrations have been **applied to the production Milo database and verified** against the live schema. All seven tables exist, RLS is enabled on each, and each has **zero client-readable RLS policies** (service-role-only, matching the established `analytics_events` pattern — Supabase's default table grants to `anon`/`authenticated` are neutralised by RLS-enabled + no-policies).
 
 | Migration file | Tables | Needed for | Status |
 |---|---|---|---|
-| `20260707130000_oauth_server.sql` | `oauth_clients`, `oauth_authorization_codes`, `oauth_tokens`, `oauth_consents`, `oauth_audit_log` | **OAuth connector (required)** | ❌ pending |
-| `20260707140000_oauth_authorization_requests.sql` | `oauth_authorization_requests` | **OAuth connector (required)** | ❌ pending |
-| `20260707120000_mcp_connections.sql` | `mcp_connections` | Developer-token connector (for the "legacy still works" comparison test) | ❌ pending |
-| `20260630120000_google_connections.sql` | `google_connections` | GSC OAuth sync (unrelated; graceful-off today) | ❌ pending |
+| `20260707120000_mcp_connections.sql` | `mcp_connections` | Developer-token connector | ✅ applied |
+| `20260707130000_oauth_server.sql` | `oauth_clients`, `oauth_authorization_codes`, `oauth_tokens`, `oauth_consents`, `oauth_audit_log` | **OAuth connector (required)** | ✅ applied |
+| `20260707140000_oauth_authorization_requests.sql` | `oauth_authorization_requests` | **OAuth connector (required)** | ✅ applied |
+| `20260630120000_google_connections.sql` | `google_connections` | GSC OAuth sync (unrelated) | ⏸ not applied (out of scope; GSC is graceful-off today) |
 
-**Consequence:** with the flag on but migrations unapplied, `POST /api/oauth/register` → 500 and the whole flow fails. Also note the **developer-token MCP connector is not actually DB-backed in prod today** (its table is missing, so token generation would fail) — it only *appears* unchanged because a missing table makes `resolveUser` return null → 401. Apply `mcp_connections` too if you want the legacy-token comparison to be meaningful.
+**Verified state (per-table):** `mcp_connections`, `oauth_clients`, `oauth_authorization_codes`, `oauth_tokens`, `oauth_consents`, `oauth_audit_log`, `oauth_authorization_requests` — all **exist**, **RLS enabled = true**, **client-readable policies = 0**.
 
-> The migrations are additive, service-role-only, RLS-on, no client policies. They
-> must be applied before a flag-on window.
+**Migration-file bug fixed.** During the apply, `20260707130000_oauth_server.sql` was found to reference a non-existent `created_at` column in the `oauth_consents` index (the column is `granted_at`). The live DB was created with the corrected index, and the repo migration file was fixed in commit **`53a2c27`**, so the file now matches production and is re-applyable in a fresh environment.
+
+> The migrations are additive, service-role-only, RLS-on, with no client policies.
+> They are applied, so this is no longer a pre-flight blocker.
+>
+> **The OAuth connector remains inactive:** `MCP_OAUTH_ENABLED` is unset/off, so
+> every OAuth endpoint still returns 404 and `/api/mcp` still challenges with the
+> plain `Bearer` header. Applying the tables changed no runtime behaviour — an
+> E2E test still requires a deliberate, controlled flag-on window (§2–§5).
 
 ## 1. Environment variables
 
@@ -37,10 +41,8 @@ MCP_OAUTH_ENABLED=true
 
 ## 2. Pre-flight checklist (before enabling the flag)
 
-- [ ] Apply `20260707130000_oauth_server.sql` to prod DB.
-- [ ] Apply `20260707140000_oauth_authorization_requests.sql`.
-- [ ] Apply `20260707120000_mcp_connections.sql` (so the legacy-token comparison test is valid).
-- [ ] Verify the 6 OAuth tables + `mcp_connections` exist and RLS is enabled with no anon/authenticated policies.
+- [x] Apply `20260707130000_oauth_server.sql`, `20260707140000_oauth_authorization_requests.sql`, and `20260707120000_mcp_connections.sql` to the prod DB. **(Done — see §0.)**
+- [x] Verify the 6 OAuth tables + `mcp_connections` exist and RLS is enabled with no anon/authenticated policies. **(Done — verified in §0.)**
 - [ ] Decide the **test window** (short; owner-only) and announce nothing user-facing.
 - [ ] Confirm rollback is one env change (§5).
 - [ ] Pick **test account**: the owner Milo login (`rafal.andersen@gmail.com`), already logged into `milogrowth.com` in the test browser so the consent page renders without a login bounce.
@@ -53,7 +55,7 @@ MCP_OAUTH_ENABLED=true
 
 ## 3. Flag-on smoke test (scriptable, before touching Claude.ai)
 
-Run these from a terminal once the flag is on + migrations applied. They exercise the whole server side without a browser except where noted.
+Run these from a terminal once the flag is on (the migrations are already applied — §0). They exercise the whole server side without a browser except where noted.
 
 1. **PRM:** `GET /.well-known/oauth-protected-resource` → 200; JSON `resource` = `https://milogrowth.com/api/mcp`, `authorization_servers` = `["https://milogrowth.com"]`, `scopes_supported` lists **only the 4 read scopes** (`milo.projects.read`, `milo.content.read`, `milo.insights.read`, `milo.authority.read`) — **no `offline_access`**.
 2. **AS metadata:** `GET /.well-known/oauth-authorization-server` → 200; `issuer` = `https://milogrowth.com`, endpoints point to `/api/oauth/{authorize,token,register,revoke}`, `scopes_supported` = the 4 read scopes, `response_types_supported` = `["code"]`, **`grant_types_supported` = `["authorization_code"]`** (no `refresh_token`), `code_challenge_methods_supported` = `["S256"]`, `token_endpoint_auth_methods_supported` = `["none"]`.
@@ -115,7 +117,7 @@ Run these from a terminal once the flag is on + migrations applied. They exercis
 - **`/api/oauth/revoke`** (RFC 7009) — users/Claude expect to disconnect; only the developer-token revoke exists today.
 - **Connected-apps UI** — no way for a user to see or revoke an active Claude grant from Milo.
 - **Rate limiting** — none on `/register`, `/authorize`, `/token`, `/api/mcp` yet (DCR abuse, token brute-force).
-- **Apply migrations** as a first-class deploy step (they don't auto-apply from the repo).
+- **Migration process** — the current tables are applied (§0), but repo migration files do **not** auto-apply to the Lovable Supabase, so any *future* migration must be applied manually as a first-class deploy step.
 
 **Resolved by the compatibility patch (no longer an E2E risk)**
 - **`resource` handling.** Previously authorize + token strictly required `resource == https://milogrowth.com/api/mcp`, which risked failing the first connection if Claude omitted the param. The patch now **defaults `resource` to the MCP URL when omitted** (and still rejects a mismatched value), so a Claude client that does not send `resource` is handled gracefully.
@@ -129,4 +131,4 @@ Run these from a terminal once the flag is on + migrations applied. They exercis
 ---
 
 ### Bottom line
-The server-side OAuth flow is code-complete through Phase 4 plus the compatibility patch, and safely flag-gated. The two earlier E2E risks — the **`resource`-required** behaviour and the **advertised-but-missing refresh token** (`offline_access`/`refresh_token`) — are **resolved**: `resource` now defaults to the MCP URL when omitted, and neither `offline_access` nor `refresh_token` is advertised. The remaining pre-launch gap is a **missing feature, not an inconsistency**: no refresh token means a connection needs re-auth after ~1h. Recommended order: (1) ensure the migrations are applied (§0/§2), (2) run the §3 scripted smoke test, (3) then attempt the Claude.ai §4 flow.
+The server-side OAuth flow is code-complete through Phase 4 plus the compatibility patch, and safely flag-gated. The two earlier E2E risks — the **`resource`-required** behaviour and the **advertised-but-missing refresh token** (`offline_access`/`refresh_token`) — are **resolved**: `resource` now defaults to the MCP URL when omitted, and neither `offline_access` nor `refresh_token` is advertised. The remaining pre-launch gap is a **missing feature, not an inconsistency**: no refresh token means a connection needs re-auth after ~1h. Migrations are applied and verified (§0); the flag remains off. Recommended order: (1) open a controlled, owner-only flag-on window, (2) run the §3 scripted smoke test, (3) then attempt the Claude.ai §4 flow — and turn the flag back off afterwards (§5).
