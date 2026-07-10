@@ -16,6 +16,11 @@ import {
   OAUTH_SCOPES,
   OAUTH_ISSUABLE_SCOPES,
   OFFLINE_ACCESS_SCOPE,
+  MCP_WRITE_SCOPES,
+  MCP_PUBLISH_SCOPE,
+  issuableScopes,
+  isWriteToolsEnabled,
+  scopeKind,
   CLIENT_ID_PREFIX,
   ACCESS_TOKEN_PREFIX,
   ACCESS_TOKEN_TTL_MS,
@@ -888,6 +893,136 @@ describe("classifyConsentRequest", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Phase 1A — write flag + write scope model (dark: no tools, no metadata change)
+// ---------------------------------------------------------------------------
+
+describe("isWriteToolsEnabled", () => {
+  it("is true only for (trimmed, case-insensitive) 'true', default false", () => {
+    expect(isWriteToolsEnabled()).toBe(false); // unset
+    vi.stubEnv("MCP_WRITE_TOOLS_ENABLED", "true");
+    expect(isWriteToolsEnabled()).toBe(true);
+    vi.stubEnv("MCP_WRITE_TOOLS_ENABLED", " TRUE ");
+    expect(isWriteToolsEnabled()).toBe(true);
+    vi.stubEnv("MCP_WRITE_TOOLS_ENABLED", "1");
+    expect(isWriteToolsEnabled()).toBe(false);
+    vi.stubEnv("MCP_WRITE_TOOLS_ENABLED", "false");
+    expect(isWriteToolsEnabled()).toBe(false);
+  });
+});
+
+describe("issuableScopes / write scope model", () => {
+  const WRITES = ["milo.projects.write", "milo.content.write", "milo.tasks.write"];
+  it("flag off → exactly reads + offline_access; flag on → plus the 3 write scopes", () => {
+    expect(issuableScopes(false)).toEqual(ISSUABLE_SCOPES);
+    expect(issuableScopes(true)).toEqual([...ISSUABLE_SCOPES, ...WRITES]);
+    expect(MCP_WRITE_SCOPES).toEqual(WRITES);
+  });
+  it("the publish scope is reserved and in NEITHER set; no umbrella milo.write anywhere", () => {
+    expect(issuableScopes(false)).not.toContain(MCP_PUBLISH_SCOPE);
+    expect(issuableScopes(true)).not.toContain(MCP_PUBLISH_SCOPE);
+    expect(issuableScopes(true)).not.toContain("milo.write");
+    expect(issuableScopes(true).filter((s) => s.includes("settings") || s.includes("insights.write") || s.includes("authority.write"))).toEqual([]);
+  });
+  it("validateScopes rejects write scopes against the default set, accepts them against issuable(true)", () => {
+    expect(validateScopes(["milo.content.write"])).toEqual({ ok: false, invalid: ["milo.content.write"] });
+    expect(validateScopes(["milo.projects.read", "milo.content.write"], issuableScopes(true))).toEqual({
+      ok: true,
+      scopes: ["milo.projects.read", "milo.content.write"],
+    });
+    expect(validateScopes([MCP_PUBLISH_SCOPE], issuableScopes(true))).toEqual({ ok: false, invalid: [MCP_PUBLISH_SCOPE] });
+  });
+});
+
+describe("DCR with write scopes", () => {
+  const writeScopeStr = "milo.projects.read milo.content.write";
+  it("flag off: an explicit write scope is rejected with invalid_scope", () => {
+    const v = validateRegistration({ redirect_uris: [CALLBACK], scope: writeScopeStr }, false);
+    expect(v.ok).toBe(false);
+    if (v.ok) return;
+    expect(v.body.error).toBe("invalid_scope");
+  });
+  it("flag on: an explicit write scope is accepted and preserved", () => {
+    const v = validateRegistration({ redirect_uris: [CALLBACK], scope: writeScopeStr }, true);
+    expect(v.ok && v.normalized.scope).toBe(writeScopeStr);
+  });
+  it("flag on: the no-scope DEFAULT stays reads + offline_access (writes never default)", () => {
+    const v = validateRegistration({ redirect_uris: [CALLBACK] }, true);
+    expect(v.ok && v.normalized.scope).toBe(ISSUABLE_SCOPES.join(" "));
+  });
+  it("the publish scope is rejected regardless of flag", () => {
+    for (const writeEnabled of [false, true]) {
+      const v = validateRegistration({ redirect_uris: [CALLBACK], scope: MCP_PUBLISH_SCOPE }, writeEnabled);
+      expect(v.ok).toBe(false);
+    }
+  });
+  it("processClientRegistration threads writeEnabled through deps", async () => {
+    const insertClient = vi.fn().mockResolvedValue(undefined);
+    const rejected = await processClientRegistration(true, { redirect_uris: [CALLBACK], scope: "milo.tasks.write" }, { insertClient, clientId: "c1", nowMs: NOW });
+    expect(rejected.status).toBe(400); // deps.writeEnabled defaults false
+    const accepted = await processClientRegistration(
+      true,
+      { redirect_uris: [CALLBACK], scope: "milo.tasks.write milo.projects.read" },
+      { insertClient, clientId: "c2", nowMs: NOW, writeEnabled: true },
+    );
+    expect(accepted.status).toBe(201);
+    expect(accepted.body.scope).toBe("milo.tasks.write milo.projects.read");
+  });
+});
+
+describe("authorize with write scopes", () => {
+  const client = { redirect_uris: [CALLBACK], scope: READ_SCOPES.join(" "), disabled_at: null };
+  const base: AuthorizeParams = {
+    response_type: "code",
+    client_id: "milo_client_t",
+    redirect_uri: CALLBACK,
+    code_challenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+    code_challenge_method: "S256",
+    resource: MCP_RESOURCE_URL,
+  };
+  it("flag off: explicit write scope → invalid_scope redirect error", () => {
+    const r = classifyAuthorizeRequest({ ...base, scope: "milo.content.write" }, client, false);
+    expect(r.kind === "redirect_error" && r.error).toBe("invalid_scope");
+  });
+  it("flag on: explicit write scope is granted", () => {
+    const r = classifyAuthorizeRequest({ ...base, scope: "milo.projects.read milo.content.write" }, client, true);
+    expect(r.kind === "ok" && r.normalized.scope).toBe("milo.projects.read milo.content.write");
+  });
+  it("no-scope default behavior is unchanged (client scope / read+offline fallback), flag on or off", () => {
+    for (const writeEnabled of [false, true]) {
+      const fromClient = classifyAuthorizeRequest({ ...base, scope: undefined }, client, writeEnabled);
+      expect(fromClient.kind === "ok" && fromClient.normalized.scope).toBe(READ_SCOPES.join(" "));
+      const dflt = classifyAuthorizeRequest({ ...base, scope: undefined }, { ...client, scope: null }, writeEnabled);
+      expect(dflt.kind === "ok" && dflt.normalized.scope).toBe(ISSUABLE_SCOPES.join(" "));
+    }
+  });
+  it("a client REGISTERED with write scopes falls back to them when authorize omits scope", () => {
+    const writeClient = { ...client, scope: "milo.projects.read milo.tasks.write" };
+    const r = classifyAuthorizeRequest({ ...base, scope: undefined }, writeClient, true);
+    expect(r.kind === "ok" && r.normalized.scope).toBe("milo.projects.read milo.tasks.write");
+  });
+  it("the publish scope is rejected regardless of flag", () => {
+    for (const writeEnabled of [false, true]) {
+      const r = classifyAuthorizeRequest({ ...base, scope: MCP_PUBLISH_SCOPE }, client, writeEnabled);
+      expect(r.kind === "redirect_error" && r.error).toBe("invalid_scope");
+    }
+  });
+});
+
+describe("metadata stays read-only even with the write flag on", () => {
+  it("PRM and AS metadata never mention write/publish scopes", () => {
+    vi.stubEnv("MCP_WRITE_TOOLS_ENABLED", "true");
+    const prm = protectedResourceMetadata();
+    const as = authorizationServerMetadata();
+    expect(prm.scopes_supported).toEqual(READ_SCOPES); // unchanged
+    expect(as.scopes_supported).toEqual(ISSUABLE_SCOPES); // unchanged
+    expect(as.grant_types_supported).toEqual(["authorization_code", "refresh_token"]); // unchanged
+    const all = JSON.stringify([prm, as]);
+    expect(all).not.toContain(".write");
+    expect(all).not.toContain("publish");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Rate limiting (fixed window, DB-backed, fail-open)
 // ---------------------------------------------------------------------------
 
@@ -1140,7 +1275,7 @@ describe("buildConnectedApps", () => {
     const second = consent({ granted_at: new Date(NOW - 1_000_000).toISOString() });
     const [app] = buildConnectedApps([token({ scope: "milo.projects.read" })], [first, second], {}, NOW);
     expect(app.grantedAt).toBe(first.granted_at);
-    expect(app.scopes).toEqual([{ scope: "milo.projects.read", label: "See your projects and brand profile" }]);
+    expect(app.scopes).toEqual([{ scope: "milo.projects.read", label: "See your projects and brand profile", kind: "read" }]);
   });
 
   it("sorts clients with active tokens first, then by newest token", () => {
@@ -1155,6 +1290,15 @@ describe("buildConnectedApps", () => {
       NOW,
     );
     expect(apps.map((a) => a.clientId)).toEqual(["newActive", "oldActive", "deadClient"]);
+  });
+
+  it("a write-scoped grant renders labeled write scopes without breaking the card shape", () => {
+    const [app] = buildConnectedApps([token({ scope: "milo.projects.read milo.content.write" })], [consent({ scope: "milo.projects.read milo.content.write" })], {}, NOW);
+    expect(app.scopes).toEqual([
+      { scope: "milo.projects.read", label: "See your projects and brand profile", kind: "read" },
+      { scope: "milo.content.write", label: "Create and edit content drafts (never publishes)", kind: "write" },
+    ]);
+    expect(app.status).toBe("active");
   });
 
   it("consent-only grants (no tokens yet) render with null token fields", () => {
@@ -1174,10 +1318,24 @@ describe("scope consent labels", () => {
   it("labels offline_access for the consent screen", () => {
     expect(SCOPE_LABELS["offline_access"]).toBe("Stay connected without re-approving each time");
   });
-  it("maps scopes to labels and falls back to the raw scope", () => {
+  it("maps scopes to labels+kinds and falls back to the raw scope", () => {
     expect(scopeConsentItems("milo.projects.read unknown.scope")).toEqual([
-      { scope: "milo.projects.read", label: "See your projects and brand profile" },
-      { scope: "unknown.scope", label: "unknown.scope" },
+      { scope: "milo.projects.read", label: "See your projects and brand profile", kind: "read" },
+      { scope: "unknown.scope", label: "unknown.scope", kind: "read" },
     ]);
+  });
+  it("classifies read/offline/write kinds and labels the write scopes", () => {
+    expect(scopeKind("milo.projects.read")).toBe("read");
+    expect(scopeKind("offline_access")).toBe("offline");
+    for (const s of MCP_WRITE_SCOPES) {
+      expect(scopeKind(s)).toBe("write");
+      expect(SCOPE_LABELS[s]).toBeTruthy();
+    }
+    expect(scopeKind(MCP_PUBLISH_SCOPE)).toBe("write");
+    expect(SCOPE_LABELS[MCP_PUBLISH_SCOPE]).toBeUndefined(); // not issuable → no consent label yet
+  });
+  it("a read-only consent produces no write-kind items", () => {
+    const items = scopeConsentItems(`${READ_SCOPES.join(" ")} offline_access`);
+    expect(items.some((i) => i.kind === "write")).toBe(false);
   });
 });

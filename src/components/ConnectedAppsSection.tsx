@@ -86,7 +86,14 @@ export function ConnectedAppsSection() {
                     </div>
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
                       {app.scopes.map((s) => (
-                        <span key={s.scope} className="rounded-full border border-border bg-secondary/30 px-2.5 py-0.5 text-xs">
+                        <span
+                          key={s.scope}
+                          className={
+                            s.scope.endsWith(".write") || s.scope.endsWith(".publish")
+                              ? "rounded-full border border-amber-600/40 bg-amber-500/5 px-2.5 py-0.5 text-xs text-amber-700"
+                              : "rounded-full border border-border bg-secondary/30 px-2.5 py-0.5 text-xs"
+                          }
+                        >
                           {s.label}
                         </span>
                       ))}

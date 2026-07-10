@@ -33,15 +33,43 @@ export const OAUTH_SCOPES = [
 export const OFFLINE_ACCESS_SCOPE = "offline_access";
 
 /**
- * Everything the authorization server may grant: the 4 read scopes plus
- * offline_access. Advertised in AS metadata and used as the default scope set
- * for registration/authorize, so standard Claude.ai flows get a refresh token.
+ * The DEFAULT grant set: the 4 read scopes plus offline_access. Advertised in
+ * AS metadata and used as the default scope set for registration/authorize,
+ * so standard Claude.ai flows get a read-only connection with a refresh token.
  */
 export const OAUTH_ISSUABLE_SCOPES = [...OAUTH_SCOPES, OFFLINE_ACCESS_SCOPE] as const;
+
+/**
+ * Phase 1A write scopes — issuable ONLY when MCP_WRITE_TOOLS_ENABLED is true
+ * AND the request names them explicitly. Never part of any default set and
+ * deliberately NOT advertised in PRM/AS metadata yet (Claude.ai requests
+ * everything advertised, which would make writes a default grant). There is
+ * no umbrella milo.write, and settings/insights/authority write scopes are
+ * intentionally undefined so they can never be granted.
+ */
+export const MCP_WRITE_SCOPES = ["milo.projects.write", "milo.content.write", "milo.tasks.write"] as const;
+
+/** Reserved for Phase 1C (approved publishing). NON-ISSUABLE regardless of flags. */
+export const MCP_PUBLISH_SCOPE = "milo.content.publish";
+
+/** The scopes the AS may grant, given the write flag. Publish is never included. */
+export function issuableScopes(writeEnabled: boolean): string[] {
+  return writeEnabled ? [...OAUTH_ISSUABLE_SCOPES, ...MCP_WRITE_SCOPES] : [...OAUTH_ISSUABLE_SCOPES];
+}
 
 /** Whether the OAuth connector is enabled. Off ⇒ production behaves as today. */
 export function isOAuthEnabled(): boolean {
   return (process.env.MCP_OAUTH_ENABLED ?? "").trim().toLowerCase() === "true";
+}
+
+/**
+ * Whether WRITE scopes are issuable (Phase 1A). Default off. Subordinate to
+ * MCP_OAUTH_ENABLED: with OAuth off there is no surface for this flag to act
+ * on. Turning it on does NOT change metadata or defaults — write scopes are
+ * granted only when a request names them explicitly (see issuableScopes).
+ */
+export function isWriteToolsEnabled(): boolean {
+  return (process.env.MCP_WRITE_TOOLS_ENABLED ?? "").trim().toLowerCase() === "true";
 }
 
 /** RFC 9728 — OAuth 2.0 Protected Resource Metadata for the MCP endpoint. */
@@ -131,14 +159,18 @@ export function isAllowedScope(s: string): boolean {
 }
 
 /**
- * Validate requested scopes against the issuable set. Unknown scopes fail.
- * offline_access is a real, kept scope since commit 6 (refresh tokens) — it is
- * bound to codes/tokens and shown in consent.
+ * Validate requested scopes against an allowed set (defaults to the read +
+ * offline_access set; callers issuing under the write flag pass
+ * issuableScopes(true)). Unknown scopes fail — including the reserved publish
+ * scope, which is in no allowed set this phase.
  */
-export function validateScopes(requested: string[]): { ok: true; scopes: string[] } | { ok: false; invalid: string[] } {
-  const invalid = requested.filter((s) => !isAllowedScope(s));
+export function validateScopes(
+  requested: string[],
+  allowed: readonly string[] = OAUTH_ISSUABLE_SCOPES,
+): { ok: true; scopes: string[] } | { ok: false; invalid: string[] } {
+  const invalid = requested.filter((s) => !allowed.includes(s));
   if (invalid.length) return { ok: false, invalid };
-  return { ok: true, scopes: requested.filter(isAllowedScope) };
+  return { ok: true, scopes: requested.filter((s) => allowed.includes(s)) };
 }
 
 // ---- redirect URI validation ----
@@ -180,8 +212,9 @@ export interface NormalizedClient {
 type RegOk = { ok: true; normalized: NormalizedClient };
 type RegErr = { ok: false; status: number; body: { error: string; error_description?: string } };
 
-/** Validate an RFC 7591 registration request. Pure — no DB, no id generation. */
-export function validateRegistration(input: unknown): RegOk | RegErr {
+/** Validate an RFC 7591 registration request. Pure — no DB, no id generation.
+ * writeEnabled widens the ALLOWED set only; the no-scope DEFAULT never widens. */
+export function validateRegistration(input: unknown, writeEnabled = false): RegOk | RegErr {
   const err = (error: string, description: string, status = 400): RegErr => ({ ok: false, status, body: oauthErrorBody(error, description) });
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     return err("invalid_client_metadata", "Request body must be a JSON object.");
@@ -225,13 +258,14 @@ export function validateRegistration(input: unknown): RegOk | RegErr {
     return err("invalid_client_metadata", "response_types must include code.");
   }
 
-  // scope — optional; default to all issuable (incl. offline_access). Reject unknown/write/etc.
+  // scope — optional; DEFAULT is always reads + offline_access (never writes).
+  // Explicit scopes validate against the flag-dependent allowed set.
   let scopes: string[];
   if (b.scope === undefined || b.scope === "") {
     scopes = [...OAUTH_ISSUABLE_SCOPES];
   } else {
     const requested = parseScopes(b.scope);
-    const v = validateScopes(requested);
+    const v = validateScopes(requested, issuableScopes(writeEnabled));
     if (!v.ok) return err("invalid_scope", `Unknown or disallowed scope(s): ${v.invalid.join(", ")}`);
     scopes = v.scopes;
   }
@@ -292,10 +326,10 @@ export function registrationResponse(clientId: string, n: NormalizedClient, issu
 export async function processClientRegistration(
   enabled: boolean,
   input: unknown,
-  deps: { insertClient: (row: Record<string, unknown>) => Promise<void>; clientId: string; nowMs: number },
+  deps: { insertClient: (row: Record<string, unknown>) => Promise<void>; clientId: string; nowMs: number; writeEnabled?: boolean },
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   if (!enabled) return { status: 404, body: oauthErrorBody("not_found") };
-  const v = validateRegistration(input);
+  const v = validateRegistration(input, deps.writeEnabled ?? false);
   if (!v.ok) return { status: v.status, body: v.body };
   const nowIso = new Date(deps.nowMs).toISOString();
   const row = buildClientRow(deps.clientId, v.normalized, nowIso);
@@ -509,6 +543,7 @@ export type AuthorizeOutcome =
 export function classifyAuthorizeRequest(
   params: AuthorizeParams,
   client: { redirect_uris: string[]; scope?: string | null; disabled_at?: string | null } | null,
+  writeEnabled = false,
 ): AuthorizeOutcome {
   if (!params.client_id || !client || client.disabled_at) return { kind: "invalid_client" };
 
@@ -525,12 +560,16 @@ export function classifyAuthorizeRequest(
   const providedResource = typeof params.resource === "string" ? params.resource.trim() : "";
   if (providedResource && providedResource !== MCP_RESOURCE_URL) return rerr("invalid_target", "resource must be the Milo MCP URL.");
 
+  // No-scope requests fall back to the client's REGISTERED scope (validated at
+  // DCR time — a write-scoped registration counts as an explicit request) or
+  // the read+offline default. Explicit scopes validate against the
+  // flag-dependent allowed set; writes never enter via defaults.
   let scopes: string[];
   const reqScope = typeof params.scope === "string" ? params.scope.trim() : "";
   if (!reqScope) {
     scopes = client.scope ? parseScopes(client.scope) : [...OAUTH_ISSUABLE_SCOPES];
   } else {
-    const v = validateScopes(parseScopes(reqScope));
+    const v = validateScopes(parseScopes(reqScope), issuableScopes(writeEnabled));
     if (!v.ok) return rerr("invalid_scope", `Unknown or disallowed scope(s): ${v.invalid.join(", ")}`);
     scopes = v.scopes;
   }
@@ -1240,17 +1279,29 @@ export async function revokeGrantsForUserClient(userId: string, clientId: string
 // Phase 3 — consent screen helpers (pure). The consent server fns supply DB.
 // ===========================================================================
 
-/** Human-readable scope labels for the consent UI (read-only v1). */
+/** Human-readable scope labels for the consent UI. */
 export const SCOPE_LABELS: Record<string, string> = {
   "milo.projects.read": "See your projects and brand profile",
   "milo.content.read": "Read your opportunities, drafts and Milo Scores",
   "milo.insights.read": "Read your audits and Search Console summaries",
   "milo.authority.read": "Read your authority opportunities",
   offline_access: "Stay connected without re-approving each time",
+  "milo.projects.write": "Create and update project details and recommendations",
+  "milo.content.write": "Create and edit content drafts (never publishes)",
+  "milo.tasks.write": "Create and update growth tasks",
 };
 
-export function scopeConsentItems(scope: string): { scope: string; label: string }[] {
-  return parseScopes(scope).map((s) => ({ scope: s, label: SCOPE_LABELS[s] ?? s }));
+export type ScopeKind = "read" | "offline" | "write";
+
+/** Classify a scope for consent/connected-apps rendering. Unknown → read (display-only). */
+export function scopeKind(scope: string): ScopeKind {
+  if (scope === OFFLINE_ACCESS_SCOPE) return "offline";
+  if ((MCP_WRITE_SCOPES as readonly string[]).includes(scope) || scope === MCP_PUBLISH_SCOPE) return "write";
+  return "read";
+}
+
+export function scopeConsentItems(scope: string): { scope: string; label: string; kind: ScopeKind }[] {
+  return parseScopes(scope).map((s) => ({ scope: s, label: SCOPE_LABELS[s] ?? s, kind: scopeKind(s) }));
 }
 
 export type ConsentReason = "not_found" | "expired" | "already_used" | "invalid_client";

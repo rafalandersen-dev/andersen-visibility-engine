@@ -135,6 +135,17 @@ describe("handleMcpMessage", () => {
     expect(unknown.error.code).toBe(-32601);
   });
 
+  it("tools/list stays the same 8 READ tools even with MCP_WRITE_TOOLS_ENABLED on (no phantom write tools)", async () => {
+    vi.stubEnv("MCP_WRITE_TOOLS_ENABLED", "true");
+    try {
+      const all = (await handleMcpMessage(grantAll, { id: 1, method: "tools/list" })) as { result: { tools: { name: string }[] } };
+      expect(all.result.tools).toHaveLength(8);
+      expect(all.result.tools.map((t) => t.name).join(",")).not.toMatch(/create|update|write|publish|delete/);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("tools/list is filtered to the grant's scopes", async () => {
     const all = (await handleMcpMessage(grantAll, { id: 1, method: "tools/list" })) as { result: { tools: { name: string }[] } };
     expect(all.result.tools).toHaveLength(8);

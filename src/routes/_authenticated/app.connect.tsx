@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { useT } from "@/i18n";
 import { getConsentRequestFn, approveOAuthConsentFn, denyOAuthConsentFn, type ConsentView } from "@/lib/oauth.functions";
-import { Bot, Check, Loader2, Lock, ShieldCheck, X } from "lucide-react";
+import { Bot, Check, Loader2, Lock, PenLine, ShieldCheck, X } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/app/connect")({
@@ -102,42 +102,74 @@ function ConnectPage() {
               ) : null}
             </div>
 
-            <div className="mt-5 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/5 px-2.5 py-1 text-xs text-emerald-600">
-              <ShieldCheck className="h-3.5 w-3.5" /> {t("connect.readOnly")}
-            </div>
+            {(() => {
+              const readScopes = (view.scopes ?? []).filter((s) => s.kind !== "write");
+              const writeScopes = (view.scopes ?? []).filter((s) => s.kind === "write");
+              const hasWrite = writeScopes.length > 0;
+              // With write scopes granted, "cannot create/edit" would be false.
+              const cannotKeys = hasWrite ? CANNOT_KEYS.filter((k) => k !== "connect.cannot.create" && k !== "connect.cannot.edit") : CANNOT_KEYS;
+              return (
+                <>
+                  {hasWrite ? (
+                    <div className="mt-5 inline-flex items-center gap-1.5 rounded-full border border-amber-600/40 bg-amber-500/5 px-2.5 py-1 text-xs text-amber-600">
+                      <PenLine className="h-3.5 w-3.5" /> {t("connect.write.badge")}
+                    </div>
+                  ) : (
+                    <div className="mt-5 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/5 px-2.5 py-1 text-xs text-emerald-600">
+                      <ShieldCheck className="h-3.5 w-3.5" /> {t("connect.readOnly")}
+                    </div>
+                  )}
 
-            {view.scopes && view.scopes.length ? (
-              <div className="mt-5">
-                <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">{t("connect.requesting")}</div>
-                <ul className="mt-2 space-y-1.5">
-                  {view.scopes.map((s) => (
-                    <li key={s.scope} className="flex items-start gap-2 text-sm">
-                      <Check className="mt-0.5 h-4 w-4 text-emerald-600 shrink-0" />
-                      <span>{s.label}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
+                  {readScopes.length ? (
+                    <div className="mt-5">
+                      <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">{t("connect.requesting")}</div>
+                      <ul className="mt-2 space-y-1.5">
+                        {readScopes.map((s) => (
+                          <li key={s.scope} className="flex items-start gap-2 text-sm">
+                            <Check className="mt-0.5 h-4 w-4 text-emerald-600 shrink-0" />
+                            <span>{s.label}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
 
-            <div className="mt-5 grid sm:grid-cols-2 gap-4">
-              <div className="rounded-md border border-border p-3">
-                <div className="text-xs font-medium text-foreground">{t("connect.canTitle")}</div>
-                <ul className="mt-2 space-y-1.5">
-                  {CAN_KEYS.map((k) => (
-                    <li key={k} className="flex items-start gap-2 text-xs text-foreground/85"><Check className="mt-0.5 h-3.5 w-3.5 text-emerald-600 shrink-0" />{t(k)}</li>
-                  ))}
-                </ul>
-              </div>
-              <div className="rounded-md border border-border p-3">
-                <div className="text-xs font-medium text-foreground">{t("connect.cannotTitle")}</div>
-                <ul className="mt-2 space-y-1.5">
-                  {CANNOT_KEYS.map((k) => (
-                    <li key={k} className="flex items-start gap-2 text-xs text-muted-foreground"><X className="mt-0.5 h-3.5 w-3.5 text-destructive shrink-0" />{t(k)}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+                  {hasWrite ? (
+                    <div className="mt-4 rounded-md border border-amber-600/40 bg-amber-500/5 p-3">
+                      <div className="text-[10px] uppercase tracking-[0.22em] text-amber-700">{t("connect.write.title")}</div>
+                      <ul className="mt-2 space-y-1.5">
+                        {writeScopes.map((s) => (
+                          <li key={s.scope} className="flex items-start gap-2 text-sm">
+                            <PenLine className="mt-0.5 h-4 w-4 text-amber-600 shrink-0" />
+                            <span>{s.label}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="mt-2 text-xs text-amber-700/90">{t("connect.write.warning")}</p>
+                    </div>
+                  ) : null}
+
+                  <div className="mt-5 grid sm:grid-cols-2 gap-4">
+                    <div className="rounded-md border border-border p-3">
+                      <div className="text-xs font-medium text-foreground">{t("connect.canTitle")}</div>
+                      <ul className="mt-2 space-y-1.5">
+                        {CAN_KEYS.map((k) => (
+                          <li key={k} className="flex items-start gap-2 text-xs text-foreground/85"><Check className="mt-0.5 h-3.5 w-3.5 text-emerald-600 shrink-0" />{t(k)}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="rounded-md border border-border p-3">
+                      <div className="text-xs font-medium text-foreground">{t("connect.cannotTitle")}</div>
+                      <ul className="mt-2 space-y-1.5">
+                        {cannotKeys.map((k) => (
+                          <li key={k} className="flex items-start gap-2 text-xs text-muted-foreground"><X className="mt-0.5 h-3.5 w-3.5 text-destructive shrink-0" />{t(k)}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
 
             <div className="mt-7 flex flex-wrap gap-3">
               <Button onClick={onAllow} disabled={busy !== null}>

@@ -39,7 +39,7 @@ export const Route = createFileRoute("/api/oauth/authorize")({
           };
 
           const client = params.client_id ? await oauth.getOAuthClient(params.client_id) : null;
-          const outcome = oauth.classifyAuthorizeRequest(params, client);
+          const outcome = oauth.classifyAuthorizeRequest(params, client, oauth.isWriteToolsEnabled());
 
           if (outcome.kind === "invalid_client") {
             return htmlError("Unknown or disabled client. Please start again from Claude.");

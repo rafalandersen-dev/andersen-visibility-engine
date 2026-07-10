@@ -24,6 +24,7 @@ export const Route = createFileRoute("/api/oauth/register")({
       POST: async ({ request }) => {
         const {
           isOAuthEnabled,
+          isWriteToolsEnabled,
           processClientRegistration,
           insertOAuthClient,
           generateClientId,
@@ -59,6 +60,7 @@ export const Route = createFileRoute("/api/oauth/register")({
             insertClient: insertOAuthClient,
             clientId,
             nowMs: Date.now(),
+            writeEnabled: isWriteToolsEnabled(),
           });
           if (res.status === 201) {
             await logOAuthEvent("register", { clientId, detail: { client_name: (res.body as { client_name?: string }).client_name ?? null } });
