@@ -38,8 +38,17 @@ export const Route = createFileRoute("/api/mcp")({
         try {
           const token = bearer(request);
           const { resolveUser, handleMcpMessage, buildMcpAuditEvent } = await import("@/lib/mcp.server");
-          const { isOAuthEnabled, mcpWwwAuthenticate, resolveAccessToken, parseScopes, logOAuthEvent, RATE_BUCKETS, checkRateLimit, bumpRateLimit } =
-            await import("@/lib/oauth.server");
+          const {
+            isOAuthEnabled,
+            isWriteToolsEnabled,
+            mcpWwwAuthenticate,
+            resolveAccessToken,
+            parseScopes,
+            logOAuthEvent,
+            RATE_BUCKETS,
+            checkRateLimit,
+            bumpRateLimit,
+          } = await import("@/lib/oauth.server");
           const oauthEnabled = isOAuthEnabled();
 
           // Rate limit BEFORE token resolution and body read (fail-open):
@@ -55,18 +64,21 @@ export const Route = createFileRoute("/api/mcp")({
           // Phase 4: when the flag is on, try to resolve an OAuth access token
           // first (scoped grant); otherwise fall back to the legacy developer
           // token (full read access). Flag off = developer tokens only.
-          let grant: { userId: string; scopes: string[] | null } | null = null;
+          // writeEnabled mirrors MCP_WRITE_TOOLS_ENABLED; per-tool scope checks
+          // still apply (legacy null-scope grants never reach write tools).
+          const writeEnabled = oauthEnabled && isWriteToolsEnabled();
+          let grant: { userId: string; scopes: string[] | null; writeEnabled: boolean } | null = null;
           let oauthClientId: string | undefined;
           if (oauthEnabled && token) {
             const at = await resolveAccessToken(token);
             if (at) {
-              grant = { userId: at.userId, scopes: parseScopes(at.scope) };
+              grant = { userId: at.userId, scopes: parseScopes(at.scope), writeEnabled };
               oauthClientId = at.clientId;
             }
           }
           if (!grant) {
             const userId = token ? await resolveUser(token) : null;
-            if (userId) grant = { userId, scopes: null };
+            if (userId) grant = { userId, scopes: null, writeEnabled };
           }
 
           if (!grant) {
@@ -86,8 +98,18 @@ export const Route = createFileRoute("/api/mcp")({
           const grantUserId = grant.userId;
           const audit = async (msg: unknown, response: object | null) => {
             if (!oauthClientId) return;
-            const { event, detail } = buildMcpAuditEvent(msg as Record<string, unknown> | null, response);
-            await logOAuthEvent(event, { clientId: oauthClientId, userId: grantUserId, detail });
+            const auditEvent = buildMcpAuditEvent(msg as Record<string, unknown> | null, response);
+            if (!auditEvent) return; // write-tool outcomes are logged via hooks (mcp_write)
+            await logOAuthEvent(auditEvent.event, { clientId: oauthClientId, userId: grantUserId, detail: auditEvent.detail });
+          };
+
+          // Hooks for write tools: rate limiting + awaited mcp_write auditing.
+          const hooks = {
+            checkWriteLimit: () => checkRateLimit(RATE_BUCKETS.write, token, { bump: bumpRateLimit, nowMs: Date.now() }),
+            audit: async (event: string, detail: Record<string, unknown>) => {
+              if (!oauthClientId) return;
+              await logOAuthEvent(event, { clientId: oauthClientId, userId: grantUserId, detail });
+            },
           };
 
           const raw = await request.text();
@@ -101,12 +123,12 @@ export const Route = createFileRoute("/api/mcp")({
 
           // Batch or single message.
           if (Array.isArray(parsed)) {
-            const handled = await Promise.all(parsed.map(async (m) => ({ m, r: await handleMcpMessage(grant, m) })));
+            const handled = await Promise.all(parsed.map(async (m) => ({ m, r: await handleMcpMessage(grant, m, hooks) })));
             for (const h of handled) await audit(h.m, h.r);
             const responses = handled.map((h) => h.r).filter(Boolean);
             return responses.length ? json(responses) : new Response(null, { status: 202, headers: CORS });
           }
-          const response = await handleMcpMessage(grant, parsed as Record<string, unknown>);
+          const response = await handleMcpMessage(grant, parsed as Record<string, unknown>, hooks);
           await audit(parsed, response);
           return response ? json(response) : new Response(null, { status: 202, headers: CORS });
         } catch (e) {

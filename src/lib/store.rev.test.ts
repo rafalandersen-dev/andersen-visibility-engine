@@ -146,6 +146,27 @@ describe("save path", () => {
     expect(getState().rev).toBe(2);
   });
 
+  it("tasks[] survives the hydrate → snapshot round trip (server-written tasks are not dropped)", async () => {
+    const task = { id: "t1", projectId: "p-server", title: "server task", status: "open", origin: "claude", createdAt: "x", updatedAt: "x" };
+    h.maybeSingleResult = {
+      data: { data: { projects: [{ id: "p-server" }], tasks: [task], activeProjectId: "p-server" }, rev: 5 },
+      error: null,
+    };
+    await hydrateForUser("user1");
+    expect(getState().tasks).toEqual([task]);
+    h.upsertResult = { data: { rev: 6 }, error: null };
+    await saveWorkspaceNow();
+    const written = h.upsertCalls[0].payload.data as Record<string, unknown>;
+    expect(written.tasks).toEqual([task]); // enumerated snapshot now carries tasks
+    expect(Object.keys(written)).not.toContain("rev");
+  });
+
+  it("workspaces with no tasks key hydrate with tasks []", async () => {
+    h.maybeSingleResult = serverRow(3);
+    await hydrateForUser("user1");
+    expect(getState().tasks).toEqual([]);
+  });
+
   it("setState still schedules a debounced save that echoes the current rev", async () => {
     vi.useFakeTimers();
     h.maybeSingleResult = serverRow(3);

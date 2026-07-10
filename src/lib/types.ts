@@ -22,7 +22,7 @@ export type OpportunityStatus = "New" | "In Brief" | "Drafting" | "Discarded" | 
 export type ContentStatus = "Draft" | "In Review" | "Approved" | "Rejected" | "Exported";
 
 /** Where a Linked opportunity originated (Content Engine 2.0 source context). */
-export type OpportunitySource = "audit" | "competitor" | "manual" | "authority" | "aiVisibility";
+export type OpportunitySource = "audit" | "competitor" | "manual" | "authority" | "aiVisibility" | "claude";
 
 /** Content asset types Milo can generate from an opportunity (Content Engine 2.0). */
 export type AssetType =
@@ -345,6 +345,27 @@ export interface Opportunity {
   status: OpportunityStatus;
   /** Origin of the opportunity (set for audit/competitor-derived ones). */
   source?: OpportunitySource;
+  /** Idempotency key for connector-created opportunities (Phase 1A). */
+  requestId?: string;
+  /** Set for connector-created opportunities (Phase 1A). */
+  createdAt?: string;
+}
+
+/** A lightweight growth task (Phase 1A — created via the Claude connector; UI support follows). */
+export interface GrowthTask {
+  id: string;
+  projectId: string;
+  title: string;
+  description?: string;
+  /** YYYY-MM-DD */
+  dueOn?: string;
+  priority?: Priority;
+  status: "open" | "done";
+  origin: "claude" | "user";
+  /** Idempotency key for connector-created tasks. */
+  requestId?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CalendarItem {

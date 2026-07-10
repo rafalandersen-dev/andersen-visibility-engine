@@ -956,6 +956,8 @@ export const RATE_BUCKETS = {
   tokenClient: { bucket: "token_client", limit: 15, windowSec: 3600, saltPrefix: "rl:tok:c:" },
   mcpToken: { bucket: "mcp", limit: 120, windowSec: 300, saltPrefix: "rl:mcp:" },
   mcpAnon: { bucket: "mcp_anon", limit: 30, windowSec: 300, saltPrefix: "rl:mcpa:" },
+  /** Phase 1A — MCP write tools, per bearer token. */
+  write: { bucket: "write", limit: 30, windowSec: 3600, saltPrefix: "rl:wr:" },
 } as const;
 
 /** Fixed-window boundary + seconds until the window rolls over. Pure. */

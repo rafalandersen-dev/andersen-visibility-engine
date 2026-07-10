@@ -29,6 +29,7 @@ import type {
   AuthorityOpportunity,
   AiEvaluationRun,
   AiVisibilityAnalysisResult,
+  GrowthTask,
   PublishingConnectorType,
   WordPressPublishingSettings,
   ShopifyPublishingSettings,
@@ -58,6 +59,10 @@ interface State {
   authorityOpportunities: AuthorityOpportunity[];
   /** AI Provider Router — internal model evaluation runs (latest 20). */
   aiEvaluationRuns: AiEvaluationRun[];
+  /** Phase 1A — growth tasks (created via the Claude connector; UI follows).
+   * MUST stay in the persisted snapshot: server-written tasks would otherwise
+   * be dropped by the enumerated client save. */
+  tasks: GrowthTask[];
   /** Billing v1 — workspace-level billing profile + subscription (optional). */
   billingProfile?: BillingProfile;
   subscription?: SubscriptionPlan;
@@ -87,6 +92,7 @@ const emptyState: State = {
   aiVisibilityAnalyses: [],
   authorityOpportunities: [],
   aiEvaluationRuns: [],
+  tasks: [],
   activeProjectId: "",
   hydrated: false,
   userId: null,
@@ -107,6 +113,7 @@ const ssrSnapshot: State = {
   aiVisibilityAnalyses: [],
   authorityOpportunities: [],
   aiEvaluationRuns: [],
+  tasks: [],
   activeProjectId: seedProjects[0]?.id ?? "",
   hydrated: false,
   userId: null,
@@ -147,6 +154,7 @@ function stateFromRow(userId: string, d: Partial<State>, rev: number): State {
     aiVisibilityAnalyses: d.aiVisibilityAnalyses ?? [],
     authorityOpportunities: d.authorityOpportunities ?? [],
     aiEvaluationRuns: d.aiEvaluationRuns ?? [],
+    tasks: d.tasks ?? [],
     billingProfile: d.billingProfile,
     subscription: d.subscription,
     activeProjectId: d.activeProjectId ?? (d.projects?.[0]?.id ?? ""),
@@ -203,6 +211,7 @@ export async function saveWorkspaceNow(): Promise<void> {
     aiVisibilityAnalyses: state.aiVisibilityAnalyses,
     authorityOpportunities: state.authorityOpportunities,
     aiEvaluationRuns: state.aiEvaluationRuns,
+    tasks: state.tasks,
     billingProfile: state.billingProfile,
     subscription: state.subscription,
     activeProjectId: state.activeProjectId,
@@ -314,6 +323,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
         aiVisibilityAnalyses: [],
         authorityOpportunities: [],
         aiEvaluationRuns: [],
+        tasks: [],
         activeProjectId: "",
         hydrated: true,
         userId,
@@ -334,6 +344,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
       aiVisibilityAnalyses: [],
       authorityOpportunities: [],
       aiEvaluationRuns: [],
+      tasks: [],
       activeProjectId: "",
       hydrated: true,
       userId,

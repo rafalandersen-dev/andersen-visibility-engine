@@ -11,6 +11,7 @@ import { describe, it, expect, vi } from "vitest";
 const h = vi.hoisted(() => ({
   from: undefined as unknown as (table: string) => unknown,
   rpc: undefined as unknown as (fn: string, args: Record<string, unknown>) => unknown,
+  mutateWorkspace: undefined as unknown as (...args: unknown[]) => unknown,
 }));
 
 vi.mock("@/integrations/supabase/client.server", () => ({
@@ -20,15 +21,28 @@ vi.mock("@/integrations/supabase/client.server", () => ({
   },
 }));
 
+// Keep the REAL error classes (instanceof mapping depends on them); intercept
+// only mutateWorkspace so write-tool tests control the workspace blob.
+vi.mock("./workspace.server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./workspace.server")>();
+  return {
+    ...actual,
+    mutateWorkspace: (...args: unknown[]) => h.mutateWorkspace(...args),
+  };
+});
+
 import {
   MCP_TOKEN_PREFIX,
   TOOL_SCOPES,
+  WRITE_TOOL_NAMES,
   toolAllowed,
   mcpToolNames,
   handleMcpMessage,
   buildMcpAuditEvent,
   resolveUser,
+  type McpHooks,
 } from "./mcp.server";
+import { WorkspaceConflictError } from "./workspace.server";
 import {
   resolveAccessToken,
   revokeTokenByHash,
@@ -95,7 +109,7 @@ const freshTouch = (): TouchState => ({ updateCalled: false, updatedWith: null, 
 // ---- scope map regression ---------------------------------------------------
 
 describe("TOOL_SCOPES / toolAllowed", () => {
-  it("maps all 8 read tools to the 4 read scopes exactly", () => {
+  it("maps the 8 read tools + 2 write tools to their scopes exactly", () => {
     expect(TOOL_SCOPES).toEqual({
       list_projects: "milo.projects.read",
       get_project_brief: "milo.projects.read",
@@ -105,17 +119,23 @@ describe("TOOL_SCOPES / toolAllowed", () => {
       get_latest_audit: "milo.insights.read",
       get_gsc_summary: "milo.insights.read",
       list_authority_opportunities: "milo.authority.read",
+      create_growth_task: "milo.tasks.write",
+      create_project_recommendation: "milo.projects.write",
     });
-    expect(mcpToolNames().sort()).toEqual(Object.keys(TOOL_SCOPES).sort());
+    expect([...mcpToolNames(), ...WRITE_TOOL_NAMES].sort()).toEqual(Object.keys(TOOL_SCOPES).sort());
   });
-  it("null scopes = legacy developer token = every tool", () => {
+  it("null scopes = legacy developer token = every READ tool, NEVER write tools", () => {
     for (const name of mcpToolNames()) expect(toolAllowed(name, null)).toBe(true);
+    for (const name of WRITE_TOOL_NAMES) expect(toolAllowed(name, null)).toBe(false);
   });
   it("scoped grants only reach their tools; unknown tools are never allowed", () => {
     expect(toolAllowed("list_projects", ["milo.projects.read"])).toBe(true);
     expect(toolAllowed("list_content", ["milo.projects.read"])).toBe(false);
     expect(toolAllowed("does_not_exist", ["milo.projects.read"])).toBe(false);
     expect(toolAllowed("list_projects", [])).toBe(false);
+    expect(toolAllowed("create_growth_task", ["milo.tasks.write"])).toBe(true);
+    expect(toolAllowed("create_growth_task", ["milo.projects.write"])).toBe(false);
+    expect(toolAllowed("create_project_recommendation", ["milo.projects.write"])).toBe(true);
   });
 });
 
@@ -210,13 +230,13 @@ describe("buildMcpAuditEvent", () => {
 
   it("marks JSON-RPC errors and isError tool results as ok:false", () => {
     const err = buildMcpAuditEvent({ id: 1, method: "nope" }, { jsonrpc: "2.0", id: 1, error: { code: -32601, message: "x" } });
-    expect(err.detail.ok).toBe(false);
-    expect(err.event).toBe("mcp_call");
+    expect(err?.detail.ok).toBe(false);
+    expect(err?.event).toBe("mcp_call");
     const toolFail = buildMcpAuditEvent(
       { id: 1, method: "tools/call", params: { name: "list_projects" } },
       { jsonrpc: "2.0", id: 1, result: { content: [], isError: true } },
     );
-    expect(toolFail.detail).toEqual({ method: "tools/call", tool: "list_projects", ok: false });
+    expect(toolFail?.detail).toEqual({ method: "tools/call", tool: "list_projects", ok: false });
   });
 
   it("treats notifications (null response) as ok mcp_call and tolerates malformed input", () => {
@@ -229,8 +249,8 @@ describe("buildMcpAuditEvent", () => {
 
   it("a -32002 without a tool name stays mcp_call (denied events always carry the tool)", () => {
     const ev = buildMcpAuditEvent({ id: 1, method: "tools/call", params: {} }, { jsonrpc: "2.0", id: 1, error: { code: -32002, message: "x" } });
-    expect(ev.event).toBe("mcp_call");
-    expect(ev.detail.ok).toBe(false);
+    expect(ev?.event).toBe("mcp_call");
+    expect(ev?.detail.ok).toBe(false);
   });
 });
 
@@ -601,5 +621,259 @@ describe("revokeGrantsForUserClient", () => {
     const log: QueryLog[] = [];
     h.from = multiTableFake({}, log, { message: "db_down" });
     await expect(revokeGrantsForUserClient("user1", "client1", "now")).rejects.toThrow("revoke_tokens_failed");
+  });
+});
+
+// ---- Phase 1A write tools (flag + explicit scope gated) -----------------------
+
+const READ_SCOPES_ALL = ["milo.projects.read", "milo.content.read", "milo.insights.read", "milo.authority.read"];
+const READ_TOOLS_COUNT = 8;
+
+const writeGrant = (scopes: string[] | null, writeEnabled = true) => ({ userId: "user1", scopes, writeEnabled });
+
+/** Workspace blob fixture for write tests (with an unknown key that must survive). */
+const writeBlob = () => ({
+  projects: [{ id: "p1", name: "P1", primaryLanguage: "Swedish", targetAudience: "Local SMBs" }],
+  opportunities: [],
+  tasks: [],
+  unknownFutureKey: { keep: true },
+});
+
+/** mutateWorkspace fake: applies the mutation to `blob`, captures the write. */
+function fakeMutate(blob: Record<string, unknown>) {
+  const captured: { written: Record<string, unknown> | null; calls: number } = { written: null, calls: 0 };
+  h.mutateWorkspace = async (_userId: unknown, mutate: unknown) => {
+    captured.calls += 1;
+    const next = (mutate as (d: Record<string, unknown>) => { data: Record<string, unknown>; result: unknown })(structuredClone(blob));
+    captured.written = next.data;
+    return { result: next.result, rev: 42 };
+  };
+  return captured;
+}
+
+function captureHooks(rl?: { allowed: boolean; shouldAudit: boolean }) {
+  const audits: { event: string; detail: Record<string, unknown> }[] = [];
+  const hooks: McpHooks = {
+    ...(rl
+      ? { checkWriteLimit: async () => ({ ...rl, windowStartIso: "2026-07-10T18:00:00.000Z", retryAfterSec: 60 }) }
+      : {}),
+    audit: async (event, detail) => {
+      audits.push({ event, detail });
+    },
+  };
+  return { audits, hooks };
+}
+
+const parsePayload = (r: object | null) =>
+  JSON.parse((r as { result: { content: { text: string }[] } }).result.content[0].text) as Record<string, unknown>;
+
+describe("write tools — tools/list gating matrix", () => {
+  const listTools = async (scopes: string[] | null, writeEnabled: boolean) => {
+    const r = (await handleMcpMessage(writeGrant(scopes, writeEnabled), { id: 1, method: "tools/list" })) as {
+      result: { tools: { name: string }[] };
+    };
+    return r.result.tools.map((t) => t.name);
+  };
+
+  it("flag off → 8 read tools even with both write scopes", async () => {
+    const names = await listTools([...READ_SCOPES_ALL, "milo.tasks.write", "milo.projects.write"], false);
+    expect(names).toHaveLength(READ_TOOLS_COUNT);
+  });
+  it("flag on + read-only scopes → still 8", async () => {
+    expect(await listTools(READ_SCOPES_ALL, true)).toHaveLength(READ_TOOLS_COUNT);
+  });
+  it("flag on + tasks.write → only create_growth_task appears", async () => {
+    const names = await listTools([...READ_SCOPES_ALL, "milo.tasks.write"], true);
+    expect(names).toHaveLength(READ_TOOLS_COUNT + 1);
+    expect(names).toContain("create_growth_task");
+    expect(names).not.toContain("create_project_recommendation");
+  });
+  it("flag on + projects.write → only create_project_recommendation appears", async () => {
+    const names = await listTools([...READ_SCOPES_ALL, "milo.projects.write"], true);
+    expect(names).toHaveLength(READ_TOOLS_COUNT + 1);
+    expect(names).toContain("create_project_recommendation");
+    expect(names).not.toContain("create_growth_task");
+  });
+  it("flag on + both write scopes → both write tools with write annotations", async () => {
+    const r = (await handleMcpMessage(writeGrant([...READ_SCOPES_ALL, "milo.tasks.write", "milo.projects.write"], true), {
+      id: 1,
+      method: "tools/list",
+    })) as { result: { tools: { name: string; annotations?: Record<string, unknown> }[] } };
+    expect(r.result.tools).toHaveLength(READ_TOOLS_COUNT + 2);
+    const writeDefs = r.result.tools.filter((t) => (WRITE_TOOL_NAMES as readonly string[]).includes(t.name));
+    for (const def of writeDefs) {
+      expect(def.annotations).toEqual({ readOnlyHint: false, destructiveHint: false, idempotentHint: false });
+    }
+  });
+  it("legacy developer token (null scopes) never sees write tools, flag on or off", async () => {
+    expect(await listTools(null, true)).toHaveLength(READ_TOOLS_COUNT);
+    expect(await listTools(null, false)).toHaveLength(READ_TOOLS_COUNT);
+  });
+});
+
+describe("write tools — execution", () => {
+  const fullGrant = writeGrant([...READ_SCOPES_ALL, "milo.tasks.write", "milo.projects.write"], true);
+  const call = (name: string, args: Record<string, unknown>, hooks?: McpHooks, grant = fullGrant) =>
+    handleMcpMessage(grant, { id: 9, method: "tools/call", params: { name, arguments: args } }, hooks);
+
+  it("create_growth_task writes into tasks[] with forced fields and preserves unknown keys", async () => {
+    const captured = fakeMutate(writeBlob());
+    const { audits, hooks } = captureHooks();
+    const r = await call("create_growth_task", { projectId: "p1", title: "SECRET-TITLE-XYZ", description: "SECRET-DESC", dueOn: "2026-08-01", priority: "High", requestId: "req-1" }, hooks);
+    const payload = parsePayload(r);
+    expect(payload.status).toBe("open");
+    expect(payload.projectId).toBe("p1");
+    expect(typeof payload.taskId).toBe("string");
+    expect(payload.deduped).toBeUndefined();
+
+    const tasks = captured.written?.tasks as Record<string, unknown>[];
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0]).toMatchObject({ projectId: "p1", title: "SECRET-TITLE-XYZ", status: "open", origin: "claude", requestId: "req-1", priority: "High", dueOn: "2026-08-01" });
+    expect(typeof tasks[0].createdAt).toBe("string");
+    expect(typeof tasks[0].updatedAt).toBe("string");
+    expect(captured.written?.unknownFutureKey).toEqual({ keep: true });
+
+    // Audit: mcp_write with names/ids only — planted content must NOT leak.
+    const writes = audits.filter((a) => a.event === "mcp_write");
+    expect(writes).toHaveLength(1);
+    expect(writes[0].detail).toEqual({
+      tool: "create_growth_task",
+      projectId: "p1",
+      action: "create",
+      fieldsChanged: ["description", "dueOn", "priority", "title"],
+      requestId: "req-1",
+      entityIds: [payload.taskId],
+      ok: true,
+    });
+    expect(JSON.stringify(audits)).not.toContain("SECRET");
+  });
+
+  it("create_project_recommendation writes a Linked claude-sourced opportunity", async () => {
+    const captured = fakeMutate(writeBlob());
+    const { audits, hooks } = captureHooks();
+    const r = await call("create_project_recommendation", { projectId: "p1", title: "SECRET-REC-TITLE", rationale: "SECRET-RATIONALE", contentType: "Guide", priority: "Low" }, hooks);
+    const payload = parsePayload(r);
+    expect(payload.status).toBe("Linked");
+    expect(typeof payload.opportunityId).toBe("string");
+
+    const opps = captured.written?.opportunities as Record<string, unknown>[];
+    expect(opps).toHaveLength(1);
+    expect(opps[0]).toMatchObject({
+      projectId: "p1",
+      title: "SECRET-REC-TITLE",
+      status: "Linked",
+      source: "claude",
+      contentType: "Guide",
+      priority: "Low",
+      language: "Swedish", // from the project
+      businessValue: "SECRET-RATIONALE",
+    });
+    expect(JSON.stringify(audits)).not.toContain("SECRET");
+    expect(audits.filter((a) => a.event === "mcp_write")).toHaveLength(1);
+  });
+
+  it("idempotent replay by requestId returns the existing id with deduped:true and writes nothing new", async () => {
+    const blob = writeBlob();
+    (blob.tasks as Record<string, unknown>[]).push({ id: "existing1", projectId: "p1", title: "old", status: "open", origin: "claude", requestId: "req-dup", createdAt: "x", updatedAt: "x" });
+    const captured = fakeMutate(blob);
+    const { audits, hooks } = captureHooks();
+    const r = await call("create_growth_task", { projectId: "p1", title: "replayed", requestId: "req-dup" }, hooks);
+    const payload = parsePayload(r);
+    expect(payload.taskId).toBe("existing1");
+    expect(payload.deduped).toBe(true);
+    expect((captured.written?.tasks as unknown[]).length).toBe(1); // unchanged
+    expect(audits.find((a) => a.event === "mcp_write")?.detail.deduped).toBe(true);
+  });
+
+  it("unknown projectId → -32011 Not found (uniform) + failed audit", async () => {
+    fakeMutate(writeBlob());
+    const { audits, hooks } = captureHooks();
+    const r = (await call("create_growth_task", { projectId: "nope", title: "t" }, hooks)) as { error: { code: number; message: string } };
+    expect(r.error.code).toBe(-32011);
+    expect(r.error.message).toBe("Not found.");
+    expect(audits.find((a) => a.event === "mcp_write")?.detail).toMatchObject({ ok: false, error: "not_found" });
+  });
+
+  it("validation failures → -32010 before any workspace access", async () => {
+    h.mutateWorkspace = async () => {
+      throw new Error("must not be called");
+    };
+    const cases: [Record<string, unknown>, string][] = [
+      [{ projectId: "p1" }, "title"],
+      [{ projectId: "p1", title: "" }, "title"],
+      [{ projectId: "p1", title: "x".repeat(201) }, "title"],
+      [{ projectId: "p1", title: "ok", dueOn: "01-08-2026" }, "dueOn"],
+      [{ projectId: "p1", title: "ok", priority: "URGENT" }, "priority"],
+      [{ projectId: "p1", title: "ok", bogusField: 1 }, "bogusField"],
+    ];
+    for (const [args, field] of cases) {
+      const r = (await call("create_growth_task", args)) as { error: { code: number; message: string } };
+      expect(r.error.code).toBe(-32010);
+      expect(r.error.message).toContain(field);
+    }
+    const badType = (await call("create_project_recommendation", { projectId: "p1", title: "ok", contentType: "Poem" })) as { error: { code: number } };
+    expect(badType.error.code).toBe(-32010);
+  });
+
+  it("missing write scope → -32002 and buildMcpAuditEvent yields mcp_denied with the write scope", async () => {
+    const readOnly = writeGrant(READ_SCOPES_ALL, true);
+    const msg = { id: 9, method: "tools/call", params: { name: "create_growth_task", arguments: { projectId: "p1", title: "t" } } };
+    const r = (await handleMcpMessage(readOnly, msg)) as { error: { code: number } };
+    expect(r.error.code).toBe(-32002);
+    expect(buildMcpAuditEvent(msg, r)).toEqual({ event: "mcp_denied", detail: { tool: "create_growth_task", requiredScope: "milo.tasks.write" } });
+  });
+
+  it("flag off → write tools behave as unknown (-32602)", async () => {
+    const grant = writeGrant([...READ_SCOPES_ALL, "milo.tasks.write"], false);
+    const r = (await call("create_growth_task", { projectId: "p1", title: "t" }, undefined, grant)) as { error: { code: number } };
+    expect(r.error.code).toBe(-32602);
+  });
+
+  it("workspace rev conflict → -32012", async () => {
+    h.mutateWorkspace = async () => {
+      throw new WorkspaceConflictError();
+    };
+    const { audits, hooks } = captureHooks();
+    const r = (await call("create_growth_task", { projectId: "p1", title: "t" }, hooks)) as { error: { code: number; message: string } };
+    expect(r.error.code).toBe(-32012);
+    expect(audits.find((a) => a.event === "mcp_write")?.detail).toMatchObject({ ok: false, error: "conflict" });
+  });
+
+  it("write rate limit → -32003 with one rate_limited audit, before validation/mutation", async () => {
+    h.mutateWorkspace = async () => {
+      throw new Error("must not be called");
+    };
+    const { audits, hooks } = captureHooks({ allowed: false, shouldAudit: true });
+    const r = (await call("create_growth_task", { projectId: "p1", title: "t" }, hooks)) as { error: { code: number; message: string } };
+    expect(r.error.code).toBe(-32003);
+    expect(r.error.message).toMatch(/rate limit/i);
+    expect(audits).toEqual([{ event: "rate_limited", detail: { bucket: "write", window_start: "2026-07-10T18:00:00.000Z" } }]);
+    // Subsequent over-limit calls in the same window audit nothing new.
+    const again = captureHooks({ allowed: false, shouldAudit: false });
+    await call("create_growth_task", { projectId: "p1", title: "t" }, again.hooks);
+    expect(again.audits).toEqual([]);
+  });
+
+  it("buildMcpAuditEvent skips generic mcp_call for write-tool outcomes (mcp_write covers them)", async () => {
+    const captured = fakeMutate(writeBlob());
+    const { hooks } = captureHooks();
+    const msg = { id: 9, method: "tools/call", params: { name: "create_growth_task", arguments: { projectId: "p1", title: "t" } } };
+    const r = await handleMcpMessage(fullGrant, msg, hooks);
+    expect(buildMcpAuditEvent(msg, r)).toBeNull();
+    expect(captured.calls).toBe(1);
+  });
+
+  it("read tools are untouched by hooks/write plumbing (no regression)", async () => {
+    h.from = (table: string) => {
+      expect(table).toBe("workspaces");
+      const chain: Record<string, unknown> = {};
+      chain.eq = () => chain;
+      chain.maybeSingle = async () => ({ data: { data: { projects: [{ id: "p1" }] } }, error: null });
+      return { select: () => chain };
+    };
+    const { audits, hooks } = captureHooks();
+    const r = await handleMcpMessage(fullGrant, { id: 1, method: "tools/call", params: { name: "list_projects", arguments: {} } }, hooks);
+    expect(JSON.parse((r as { result: { content: { text: string }[] } }).result.content[0].text)).toHaveLength(1);
+    expect(audits).toEqual([]); // read path never fires write hooks
   });
 });

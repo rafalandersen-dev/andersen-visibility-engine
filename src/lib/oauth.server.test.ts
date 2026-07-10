@@ -1033,6 +1033,7 @@ describe("RATE_BUCKETS (approved Phase 0 limits)", () => {
     expect(RATE_BUCKETS.tokenClient).toMatchObject({ limit: 15, windowSec: 3600 });
     expect(RATE_BUCKETS.mcpToken).toMatchObject({ limit: 120, windowSec: 300 });
     expect(RATE_BUCKETS.mcpAnon).toMatchObject({ limit: 30, windowSec: 300 });
+    expect(RATE_BUCKETS.write).toMatchObject({ bucket: "write", limit: 30, windowSec: 3600 }); // Phase 1A write tools
     const prefixes = Object.values(RATE_BUCKETS).map((b) => b.saltPrefix);
     expect(new Set(prefixes).size).toBe(prefixes.length); // distinct salts per bucket
   });

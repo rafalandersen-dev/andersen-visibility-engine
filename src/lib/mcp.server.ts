@@ -15,6 +15,7 @@ import type {
   AuditResult,
   AuthorityOpportunity,
   ServiceItem,
+  GrowthTask,
 } from "./types";
 
 export const MCP_TOKEN_PREFIX = "milo_mcp_";
@@ -356,7 +357,7 @@ function rpcError(id: JsonRpcMessage["id"], code: number, message: string) {
   return { jsonrpc: "2.0", id: id ?? null, error: { code, message } };
 }
 
-/** Required read scope per MCP tool (Phase 4 OAuth scope enforcement). */
+/** Required scope per MCP tool (reads + Phase 1A writes). */
 export const TOOL_SCOPES: Record<string, string> = {
   list_projects: "milo.projects.read",
   get_project_brief: "milo.projects.read",
@@ -366,37 +367,327 @@ export const TOOL_SCOPES: Record<string, string> = {
   get_latest_audit: "milo.insights.read",
   get_gsc_summary: "milo.insights.read",
   list_authority_opportunities: "milo.authority.read",
+  create_growth_task: "milo.tasks.write",
+  create_project_recommendation: "milo.projects.write",
 };
+
+/** Names of the Phase 1A write tools (flag- and scope-gated). */
+export const WRITE_TOOL_NAMES = ["create_growth_task", "create_project_recommendation"] as const;
+type WriteToolName = (typeof WRITE_TOOL_NAMES)[number];
+
+function isWriteTool(name: string): name is WriteToolName {
+  return (WRITE_TOOL_NAMES as readonly string[]).includes(name);
+}
 
 /**
  * A resolved caller. `scopes: null` means a legacy developer token (full
- * read-only access to every tool). An array is an OAuth grant's scopes.
+ * READ-ONLY access — never write tools). An array is an OAuth grant's scopes.
+ * `writeEnabled` mirrors MCP_WRITE_TOOLS_ENABLED (supplied by the route).
  */
 export interface McpGrant {
   userId: string;
   scopes: string[] | null;
+  writeEnabled?: boolean;
 }
 
-/** Whether a tool is callable under the given scopes (null = developer = all). */
+/** Whether a tool is callable under the given scopes.
+ * Reads: null (developer token) = all; otherwise scope match.
+ * Writes: ALWAYS require an explicit OAuth scope match — null never qualifies. */
 export function toolAllowed(name: string, scopes: string[] | null): boolean {
-  if (scopes === null) return true;
   const required = TOOL_SCOPES[name];
-  return required ? scopes.includes(required) : false;
+  if (!required) return false;
+  if (isWriteTool(name)) return scopes !== null && scopes.includes(required);
+  if (scopes === null) return true;
+  return scopes.includes(required);
 }
 
-function toolDefs(scopes: string[] | null) {
-  return TOOLS.filter((t) => toolAllowed(t.name, scopes)).map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema }));
+function toolDefs(scopes: string[] | null, writeEnabled: boolean) {
+  const reads = TOOLS.filter((t) => toolAllowed(t.name, scopes)).map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema }));
+  if (!writeEnabled) return reads;
+  const writes = WRITE_TOOLS.filter((t) => toolAllowed(t.name, scopes)).map((t) => ({
+    name: t.name,
+    description: t.description,
+    inputSchema: t.inputSchema,
+    annotations: t.annotations,
+  }));
+  return [...reads, ...writes];
+}
+
+// ---------------------------------------------------------------------------
+// Phase 1A write tools — create-only, flag- and scope-gated, all writes via
+// the rev-guarded workspace.server.mutateWorkspace. No deletes, no publish.
+// ---------------------------------------------------------------------------
+
+/** Runtime mirror of the ContentType union (types are erased at runtime). */
+const CONTENT_TYPES = ["Landing Page", "Service Page", "Blog Article", "Guide", "FAQ Page", "Comparison", "Location Page"];
+const PRIORITIES = ["High", "Medium", "Low"];
+const LANGUAGES = ["Polish", "Swedish", "English", "Danish"];
+const MAX_TASKS = 500;
+const MAX_OPPORTUNITIES = 1000;
+
+const WRITE_ANNOTATIONS = { readOnlyHint: false, destructiveHint: false, idempotentHint: false };
+
+interface WriteToolDef {
+  name: WriteToolName;
+  description: string;
+  inputSchema: Record<string, unknown>;
+  annotations: typeof WRITE_ANNOTATIONS;
+}
+
+const WRITE_TOOLS: WriteToolDef[] = [
+  {
+    name: "create_growth_task",
+    description:
+      "Create a growth task in a Milo project (write). Confirm with the user before calling. Pass a stable requestId to make retries safe.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["projectId", "title"],
+      properties: {
+        projectId: { type: "string", description: "Milo project id (from list_projects)" },
+        title: { type: "string", minLength: 1, maxLength: 200 },
+        description: { type: "string", maxLength: 2000 },
+        dueOn: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", description: "YYYY-MM-DD" },
+        priority: { type: "string", enum: PRIORITIES },
+        requestId: { type: "string", maxLength: 100, description: "Idempotency key" },
+      },
+    },
+    annotations: WRITE_ANNOTATIONS,
+  },
+  {
+    name: "create_project_recommendation",
+    description:
+      "Add a growth recommendation (opportunity) to a Milo project (write). Confirm with the user before calling. Pass a stable requestId to make retries safe.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["projectId", "title"],
+      properties: {
+        projectId: { type: "string", description: "Milo project id (from list_projects)" },
+        title: { type: "string", minLength: 1, maxLength: 200 },
+        rationale: { type: "string", maxLength: 2000, description: "Why this matters for the business" },
+        contentType: { type: "string", enum: CONTENT_TYPES },
+        priority: { type: "string", enum: PRIORITIES },
+        requestId: { type: "string", maxLength: 100, description: "Idempotency key" },
+      },
+    },
+    annotations: WRITE_ANNOTATIONS,
+  },
+];
+
+class WriteValidationError extends Error {
+  constructor(
+    public readonly field: string,
+    public readonly reason: string,
+  ) {
+    super(`${field}: ${reason}`);
+    this.name = "WriteValidationError";
+  }
+}
+class EntityNotFoundError extends Error {}
+
+interface WriteInput {
+  projectId: string;
+  title: string;
+  description?: string;
+  dueOn?: string;
+  rationale?: string;
+  contentType?: string;
+  priority?: string;
+  requestId?: string;
+}
+
+/** Validate write-tool args (strict: unknown fields rejected). Throws WriteValidationError. */
+function validateWriteArgs(name: WriteToolName, args: Record<string, unknown>): WriteInput {
+  const allowed = name === "create_growth_task" ? ["projectId", "title", "description", "dueOn", "priority", "requestId"] : ["projectId", "title", "rationale", "contentType", "priority", "requestId"];
+  for (const k of Object.keys(args)) if (!allowed.includes(k)) throw new WriteValidationError(k, "unknown field");
+
+  const str = (k: string, v: unknown, min: number, max: number, required: boolean): string | undefined => {
+    if (v === undefined || v === null) {
+      if (required) throw new WriteValidationError(k, "is required");
+      return undefined;
+    }
+    if (typeof v !== "string") throw new WriteValidationError(k, "must be a string");
+    const t = v.trim();
+    if (t.length < min) throw new WriteValidationError(k, `must be at least ${min} character(s)`);
+    if (t.length > max) throw new WriteValidationError(k, `must be at most ${max} characters`);
+    return t;
+  };
+
+  const input: WriteInput = {
+    projectId: str("projectId", args.projectId, 1, 100, true)!,
+    title: str("title", args.title, 1, 200, true)!,
+    requestId: str("requestId", args.requestId, 1, 100, false),
+  };
+  const priority = str("priority", args.priority, 1, 10, false);
+  if (priority !== undefined && !PRIORITIES.includes(priority)) throw new WriteValidationError("priority", "must be High, Medium or Low");
+  input.priority = priority;
+
+  if (name === "create_growth_task") {
+    input.description = str("description", args.description, 1, 2000, false);
+    const dueOn = str("dueOn", args.dueOn, 1, 10, false);
+    if (dueOn !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(dueOn)) throw new WriteValidationError("dueOn", "must be YYYY-MM-DD");
+    input.dueOn = dueOn;
+  } else {
+    input.rationale = str("rationale", args.rationale, 1, 2000, false);
+    const contentType = str("contentType", args.contentType, 1, 40, false);
+    if (contentType !== undefined && !CONTENT_TYPES.includes(contentType)) throw new WriteValidationError("contentType", "must be a valid Milo content type");
+    input.contentType = contentType;
+  }
+  return input;
+}
+
+/** Hooks the route supplies so this module stays DB/audit-agnostic for writes. */
+export interface McpHooks {
+  /** Rate-limit verdict for a write call (fail-open handled by the limiter). */
+  checkWriteLimit?: () => Promise<{ allowed: boolean; shouldAudit: boolean; windowStartIso: string; retryAfterSec: number }>;
+  /** Awaited audit sink (mcp_write / rate_limited). Must never throw. */
+  audit?: (event: string, detail: Record<string, unknown>) => Promise<void>;
+}
+
+/** Execute a validated write tool via the rev-guarded workspace write layer. */
+async function runWriteTool(userId: string, name: WriteToolName, input: WriteInput): Promise<{ entityId: string; deduped: boolean }> {
+  const { mutateWorkspace } = await import("./workspace.server");
+  // Ids + timestamps minted BEFORE the mutation: rev-conflict retries re-run
+  // the callback and must not generate fresh identity.
+  const entityId = Math.random().toString(36).slice(2, 10);
+  const nowIso = new Date().toISOString();
+
+  const { result } = await mutateWorkspace<{ entityId: string; deduped: boolean }>(userId, (data) => {
+    const projects = ((data.projects as Partial<Project>[] | undefined) ?? []).filter(Boolean);
+    const project = projects.find((p) => p.id === input.projectId);
+    if (!project) throw new EntityNotFoundError();
+
+    if (name === "create_growth_task") {
+      const tasks = ((data.tasks as GrowthTask[] | undefined) ?? []).filter(Boolean);
+      if (input.requestId) {
+        const existing = tasks.find((t) => t.requestId === input.requestId);
+        if (existing) return { data, result: { entityId: String(existing.id), deduped: true } };
+      }
+      if (tasks.length >= MAX_TASKS) throw new WriteValidationError("tasks", "task limit reached for this workspace");
+      const task: GrowthTask = {
+        id: entityId,
+        projectId: input.projectId,
+        title: input.title,
+        ...(input.description ? { description: input.description } : {}),
+        ...(input.dueOn ? { dueOn: input.dueOn } : {}),
+        ...(input.priority ? { priority: input.priority as GrowthTask["priority"] } : {}),
+        status: "open",
+        origin: "claude",
+        ...(input.requestId ? { requestId: input.requestId } : {}),
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+      return { data: { ...data, tasks: [...tasks, task] }, result: { entityId, deduped: false } };
+    }
+
+    const opportunities = ((data.opportunities as Opportunity[] | undefined) ?? []).filter(Boolean);
+    if (input.requestId) {
+      const existing = opportunities.find((o) => o.requestId === input.requestId);
+      if (existing) return { data, result: { entityId: String(existing.id), deduped: true } };
+    }
+    if (opportunities.length >= MAX_OPPORTUNITIES) throw new WriteValidationError("opportunities", "opportunity limit reached for this workspace");
+    const language = LANGUAGES.includes(String(project.primaryLanguage)) ? (project.primaryLanguage as Opportunity["language"]) : "English";
+    const opportunity: Opportunity = {
+      id: entityId,
+      projectId: input.projectId,
+      title: input.title,
+      language,
+      contentType: (input.contentType ?? "Blog Article") as Opportunity["contentType"],
+      searchIntent: "Informational",
+      targetAudience: String(project.targetAudience ?? ""),
+      businessValue: input.rationale ?? "Suggested via the Claude connector",
+      recommendedCta: "",
+      priority: (input.priority ?? "Medium") as Opportunity["priority"],
+      status: "Linked", // regeneration only replaces "New" — Linked survives
+      source: "claude",
+      ...(input.requestId ? { requestId: input.requestId } : {}),
+      createdAt: nowIso,
+    };
+    return { data: { ...data, opportunities: [...opportunities, opportunity] }, result: { entityId, deduped: false } };
+  });
+  return result;
+}
+
+/** Names of the caller-provided fields (for audit fieldsChanged — names only, never values). Sorted for deterministic audits. */
+function providedFieldNames(input: WriteInput): string[] {
+  return (Object.keys(input) as (keyof WriteInput)[])
+    .filter((k) => k !== "projectId" && k !== "requestId" && input[k] !== undefined)
+    .map(String)
+    .sort();
+}
+
+/** Execute one write tool call end-to-end: rate limit → validate → mutate → audit. */
+async function dispatchWriteTool(
+  grant: McpGrant,
+  id: JsonRpcMessage["id"],
+  name: WriteToolName,
+  args: Record<string, unknown>,
+  hooks?: McpHooks,
+): Promise<object> {
+  // Rate limit before validation or any DB work (fail-open inside the limiter).
+  if (hooks?.checkWriteLimit) {
+    const rl = await hooks.checkWriteLimit();
+    if (rl.shouldAudit) await hooks.audit?.("rate_limited", { bucket: "write", window_start: rl.windowStartIso });
+    if (!rl.allowed) return rpcError(id, -32003, "Rate limit reached for this tool — try again later.");
+  }
+
+  let input: WriteInput;
+  try {
+    input = validateWriteArgs(name, args);
+  } catch (e) {
+    if (e instanceof WriteValidationError) return rpcError(id, -32010, `Invalid ${e.field}: ${e.reason}.`);
+    throw e;
+  }
+
+  // Audit detail: names/ids only — titles, descriptions and rationale are user
+  // content and never enter the log.
+  const auditBase: Record<string, unknown> = {
+    tool: name,
+    projectId: input.projectId,
+    action: "create",
+    fieldsChanged: providedFieldNames(input),
+    ...(input.requestId ? { requestId: input.requestId } : {}),
+  };
+
+  try {
+    const { entityId, deduped } = await runWriteTool(grant.userId, name, input);
+    await hooks?.audit?.("mcp_write", { ...auditBase, entityIds: [entityId], ...(deduped ? { deduped: true } : {}), ok: true });
+    const payload =
+      name === "create_growth_task"
+        ? { taskId: entityId, projectId: input.projectId, status: "open", ...(deduped ? { deduped: true } : {}) }
+        : { opportunityId: entityId, projectId: input.projectId, status: "Linked", ...(deduped ? { deduped: true } : {}) };
+    return result(id, { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }] });
+  } catch (e) {
+    const { WorkspaceConflictError, WorkspaceNotFoundError } = await import("./workspace.server");
+    if (e instanceof EntityNotFoundError || e instanceof WorkspaceNotFoundError) {
+      await hooks?.audit?.("mcp_write", { ...auditBase, ok: false, error: "not_found" });
+      // Uniform: unknown project id and foreign user's project id are indistinguishable.
+      return rpcError(id, -32011, "Not found.");
+    }
+    if (e instanceof WriteValidationError) {
+      await hooks?.audit?.("mcp_write", { ...auditBase, ok: false, error: "validation" });
+      return rpcError(id, -32010, `Invalid ${e.field}: ${e.reason}.`);
+    }
+    if (e instanceof WorkspaceConflictError) {
+      await hooks?.audit?.("mcp_write", { ...auditBase, ok: false, error: "conflict" });
+      return rpcError(id, -32012, "Workspace busy — try again.");
+    }
+    await hooks?.audit?.("mcp_write", { ...auditBase, ok: false, error: "internal" });
+    return result(id, { content: [{ type: "text", text: "Milo could not complete that request." }], isError: true });
+  }
 }
 
 /**
  * Handle one JSON-RPC message for a resolved grant. `tools/list` is filtered to
- * the grant's scopes and `tools/call` rejects tools the grant lacks scope for
- * with a JSON-RPC error (the token is valid but unauthorized — not a 401).
- * Returns the response object, or null for notifications (no id → no reply).
+ * the grant's scopes (+ write flag) and `tools/call` rejects tools the grant
+ * lacks scope for with a JSON-RPC error (the token is valid but unauthorized —
+ * not a 401). Returns the response object, or null for notifications.
  */
-export async function handleMcpMessage(grant: McpGrant, msg: JsonRpcMessage): Promise<object | null> {
+export async function handleMcpMessage(grant: McpGrant, msg: JsonRpcMessage, hooks?: McpHooks): Promise<object | null> {
   const { method, id } = msg;
   const isNotification = id === undefined || id === null;
+  const writeEnabled = grant.writeEnabled === true;
 
   if (method === "initialize") {
     return result(id, {
@@ -412,11 +703,19 @@ export async function handleMcpMessage(grant: McpGrant, msg: JsonRpcMessage): Pr
     return result(id, {});
   }
   if (method === "tools/list") {
-    return result(id, { tools: toolDefs(grant.scopes) });
+    return result(id, { tools: toolDefs(grant.scopes, writeEnabled) });
   }
   if (method === "tools/call") {
     const name = typeof msg.params?.name === "string" ? msg.params.name : "";
     const args = (msg.params?.arguments as Record<string, unknown>) ?? {};
+
+    if (isWriteTool(name)) {
+      // Flag off ⇒ write tools are not part of the registry view at all.
+      if (!writeEnabled) return rpcError(id, -32602, `Unknown tool: ${name}`);
+      if (!toolAllowed(name, grant.scopes)) return rpcError(id, -32002, "Insufficient scope for this tool.");
+      return dispatchWriteTool(grant, id, name, args, hooks);
+    }
+
     const tool = TOOLS.find((t) => t.name === name);
     if (!tool) return rpcError(id, -32602, `Unknown tool: ${name}`);
     // Valid token but missing scope → JSON-RPC error, not 401. Message is
@@ -451,7 +750,7 @@ export interface McpAuditEvent {
   detail: Record<string, unknown>;
 }
 
-export function buildMcpAuditEvent(msg: Record<string, unknown> | null | undefined, response: object | null): McpAuditEvent {
+export function buildMcpAuditEvent(msg: Record<string, unknown> | null | undefined, response: object | null): McpAuditEvent | null {
   const method = typeof msg?.method === "string" ? msg.method : "unknown";
   const params = (msg?.params ?? {}) as Record<string, unknown>;
   const tool = method === "tools/call" && typeof params.name === "string" ? params.name : undefined;
@@ -459,6 +758,9 @@ export function buildMcpAuditEvent(msg: Record<string, unknown> | null | undefin
   if (res?.error?.code === -32002 && tool) {
     return { event: "mcp_denied", detail: { tool, requiredScope: TOOL_SCOPES[tool] ?? null } };
   }
+  // Write-tool outcomes are covered by mcp_write / rate_limited from the
+  // dispatch hooks — skip the generic mcp_call to avoid double-logging.
+  if (tool && isWriteTool(tool)) return null;
   const ok = response === null ? true : !res?.error && !res?.result?.isError;
   return { event: "mcp_call", detail: { method, ...(tool ? { tool } : {}), ok } };
 }
