@@ -958,4 +958,23 @@ export const pl: Record<string, string> = {
   "actions.detail.proposed": "Proponowane",
   "actions.detail.preview": "Podgląd",
   "claude.apps.scope.needsApproval": "wymaga Twojej zgody",
+
+  // ---- Pending Actions resolution (Phase 1B.5) ----
+  "actions.resolve.approve": "Zatwierdź i zastosuj",
+  "actions.resolve.approveTitle": "Zatwierdzić tę propozycję?",
+  "actions.resolve.approveBody": "Zatwierdzenie natychmiast zastosuje proponowane zmiany w Twojej przestrzeni. Pola, które się zmienią:",
+  "actions.resolve.reject": "Odrzuć",
+  "actions.resolve.rejectTitle": "Odrzucić tę propozycję?",
+  "actions.resolve.rejectBody": "Nic nie zostanie zastosowane. Propozycja pozostanie w historii jako odrzucona.",
+  "actions.resolve.rejectConfirm": "Odrzuć propozycję",
+  "actions.resolve.notePlaceholder": "Opcjonalna notatka (pozostaje w Twojej przestrzeni, nigdy nie jest udostępniana)",
+  "actions.resolve.appliedToast": "Zatwierdzono i zastosowano.",
+  "actions.resolve.rejectedToast": "Propozycja odrzucona.",
+  "actions.resolve.error.not_found": "Ta propozycja już nie istnieje.",
+  "actions.resolve.error.not_pending": "Ta propozycja została już rozstrzygnięta.",
+  "actions.resolve.error.expired": "Ta propozycja wygasła i nie można jej już zastosować.",
+  "actions.resolve.error.target_missing": "Docelowa szansa już nie istnieje — nic nie zostało zmienione.",
+  "actions.resolve.error.invalid": "Ta propozycja jest już nieaktualna — nic nie zostało zmienione.",
+  "actions.resolve.error.conflict": "Twoja przestrzeń zmieniła się w tym samym czasie — spróbuj ponownie.",
+  "actions.resolve.error.error": "Coś poszło nie tak — nic nie zostało zmienione.",
 };

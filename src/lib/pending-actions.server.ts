@@ -168,6 +168,144 @@ export async function getPendingActionForWorkspace(
 }
 
 // ---------------------------------------------------------------------------
+// Phase 1B.5 — owner-only resolution (approve & apply / reject). NEVER exposed
+// via MCP: the only caller is the authenticated Milo server function, and the
+// workspace row is the caller's own (owner-only by construction).
+// ---------------------------------------------------------------------------
+
+/** Non-exceptional resolve failures — fail closed, nothing is written. */
+export class PendingActionResolveError extends Error {
+  constructor(public readonly reason: "not_pending" | "expired" | "target_missing" | "invalid") {
+    super(reason);
+    this.name = "PendingActionResolveError";
+  }
+}
+
+export interface ResolvePendingActionResult {
+  action: PendingAction;
+  status: "applied" | "rejected";
+  /** Other stale pending items flipped by the sweep that rode this write. */
+  expiredIds: string[];
+  rev: number;
+}
+
+/**
+ * Resolve one pending action in a SINGLE atomic mutation (one rev bump):
+ *
+ * - `approve_apply` (decision §11.5: one owner confirmation, applies
+ *   immediately): re-validate the payload against current state, verify the
+ *   target opportunity still exists, merge ONLY the whitelisted fields, and
+ *   transition pending → approved → applied with resolution metadata.
+ * - `reject`: transition pending → rejected (optional owner note); target
+ *   data untouched.
+ *
+ * Fail-closed semantics: any failure (unknown action, already resolved,
+ *   expired, missing target, invalid payload) throws WITHOUT writing — no
+ *   partial apply, no rev bump, and no persisted sweep. The lazy-expiry sweep
+ *   is persisted only when the resolve itself succeeds; an action past its
+ *   own expiresAt resolves to the `expired` error (its stored flip happens on
+ *   the next successful write, and reads already display it as expired).
+ */
+export async function resolvePendingActionForWorkspace(
+  userId: string,
+  input: { actionId: string; resolution: "approve_apply" | "reject"; note?: string },
+  deps?: { nowIso?: string },
+): Promise<ResolvePendingActionResult> {
+  const { mutateWorkspace } = await import("./workspace.server");
+  const {
+    validatePendingActionPayload,
+    approvePendingAction,
+    rejectPendingAction,
+    markPendingActionApplied,
+    isPendingActionExpired,
+  } = await import("./pending-actions");
+  const nowIso = deps?.nowIso ?? new Date().toISOString();
+
+  const { result, rev } = await mutateWorkspace<Omit<ResolvePendingActionResult, "rev">>(userId, (data) => {
+    const swept = expireStalePendingActions(actionsFrom(data), nowIso);
+    const list = [...swept.actions];
+    const idx = list.findIndex((a) => a.id === input.actionId);
+    if (idx < 0) throw new PendingActionNotFoundError();
+    const action = list[idx];
+    if (action.status !== "pending") {
+      throw new PendingActionResolveError(swept.expiredIds.includes(action.id) ? "expired" : "not_pending");
+    }
+    // Belt-and-braces: the sweep should already have flipped stale items.
+    if (isPendingActionExpired(action, Date.parse(nowIso))) throw new PendingActionResolveError("expired");
+
+    if (input.resolution === "reject") {
+      const rejected = rejectPendingAction(action, nowIso, input.note ? { note: input.note } : undefined);
+      list[idx] = rejected;
+      return {
+        data: { ...data, pendingActions: list },
+        result: { action: rejected, status: "rejected" as const, expiredIds: swept.expiredIds },
+      };
+    }
+
+    // approve_apply — re-validate everything against CURRENT state.
+    let payload: OpportunityUpdatePayload;
+    try {
+      payload = validatePendingActionPayload(action.type, action.payload) as unknown as OpportunityUpdatePayload;
+    } catch {
+      throw new PendingActionResolveError("invalid");
+    }
+    const opportunities = ((data.opportunities as Opportunity[] | undefined) ?? []).filter(Boolean);
+    const oppIdx = opportunities.findIndex((o) => o.id === payload.opportunityId);
+    if (oppIdx < 0) throw new PendingActionResolveError("target_missing");
+
+    // Whitelisted merge only — validatePendingActionPayload guarantees the
+    // updates object contains nothing outside OPPORTUNITY_UPDATE_FIELDS and
+    // that priority/contentType hold valid union members.
+    const nextOpportunities = [...opportunities];
+    nextOpportunities[oppIdx] = { ...opportunities[oppIdx], ...(payload.updates as Partial<Opportunity>) };
+
+    const applied = markPendingActionApplied(approvePendingAction(action, nowIso), nowIso, {
+      appliedEntityIds: [payload.opportunityId],
+    });
+    if (input.note) applied.resolution = { ...applied.resolution!, note: input.note };
+    list[idx] = applied;
+
+    return {
+      data: { ...data, pendingActions: list, opportunities: nextOpportunities },
+      result: { action: applied, status: "applied" as const, expiredIds: swept.expiredIds },
+    };
+  });
+  return { ...result, rev };
+}
+
+/** Lifecycle audit events for owner resolution (names/ids only — never note
+ * text, titles, summaries, payload values, or token material). */
+export type PendingActionLifecycleEvent =
+  | "pending_action_approved"
+  | "pending_action_applied"
+  | "pending_action_rejected"
+  | "pending_action_expired";
+
+export function buildPendingActionResolutionAudit(
+  action: PendingAction,
+  event: Exclude<PendingActionLifecycleEvent, "pending_action_expired">,
+  opts: { ok: boolean; expiredIds?: string[]; appliedAtRev?: number },
+): { event: PendingActionLifecycleEvent; detail: Record<string, unknown> } {
+  const updates = (action.payload as { updates?: Record<string, unknown> }).updates ?? {};
+  return {
+    event,
+    detail: {
+      actionId: action.id,
+      type: action.type,
+      projectId: action.projectId,
+      status: action.status,
+      resolution: event.replace("pending_action_", ""),
+      fieldsChanged: Object.keys(updates).sort(),
+      ...(action.requestId ? { requestId: action.requestId } : {}),
+      ...(opts.expiredIds?.length ? { expiredIds: opts.expiredIds } : {}),
+      ...(opts.appliedAtRev !== undefined ? { appliedAtRev: opts.appliedAtRev } : {}),
+      source: "milo_ui",
+      ok: opts.ok,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Audit event shape (design finalized in 1B.2; persisted by the 1B.3 dispatch
 // hooks alongside the other connector events).
 // ---------------------------------------------------------------------------

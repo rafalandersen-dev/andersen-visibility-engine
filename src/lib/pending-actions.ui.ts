@@ -86,3 +86,8 @@ export function proposedFieldNames(action: PendingAction): string[] {
 export function scopePillTone(scope: string): "amber" | "neutral" {
   return scope.endsWith(".write") || scope.endsWith(".publish") || scope.endsWith(".propose") ? "amber" : "neutral";
 }
+
+/** Owner controls render only for effectively-pending items (1B.5). */
+export function canResolvePendingAction(action: PendingAction, nowMs: number): boolean {
+  return effectivePendingStatus(action, nowMs) === "pending";
+}

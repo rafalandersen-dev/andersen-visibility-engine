@@ -968,6 +968,25 @@ export const en: Record<string, string> = {
   "actions.detail.proposed": "Proposed",
   "actions.detail.preview": "Preview",
   "claude.apps.scope.needsApproval": "needs your approval",
+
+  // ---- Pending Actions resolution (Phase 1B.5) ----
+  "actions.resolve.approve": "Approve & apply",
+  "actions.resolve.approveTitle": "Approve this proposal?",
+  "actions.resolve.approveBody": "Approving applies the proposed changes to your workspace immediately. Fields that will change:",
+  "actions.resolve.reject": "Reject",
+  "actions.resolve.rejectTitle": "Reject this proposal?",
+  "actions.resolve.rejectBody": "Nothing will be applied. The proposal stays in your history as rejected.",
+  "actions.resolve.rejectConfirm": "Reject proposal",
+  "actions.resolve.notePlaceholder": "Optional note (kept in your workspace, never shared)",
+  "actions.resolve.appliedToast": "Approved and applied.",
+  "actions.resolve.rejectedToast": "Proposal rejected.",
+  "actions.resolve.error.not_found": "That proposal no longer exists.",
+  "actions.resolve.error.not_pending": "This proposal was already resolved.",
+  "actions.resolve.error.expired": "This proposal has expired and can no longer be applied.",
+  "actions.resolve.error.target_missing": "The target opportunity no longer exists — nothing was changed.",
+  "actions.resolve.error.invalid": "This proposal is no longer valid — nothing was changed.",
+  "actions.resolve.error.conflict": "Your workspace changed at the same time — please try again.",
+  "actions.resolve.error.error": "Something went wrong — nothing was changed.",
 };
 
 export type Dict = typeof en;

@@ -271,8 +271,10 @@ export function rejectPendingAction(action: PendingAction, nowIso: string, opts?
   });
 }
 
-/** approved → applied, recording what landed and at which workspace rev. */
-export function markPendingActionApplied(action: PendingAction, nowIso: string, applied: { appliedEntityIds: string[]; appliedAtRev: number }): PendingAction {
+/** approved → applied, recording what landed (and, when known, at which rev —
+ * the resolve path can't know the post-mutation rev inside the pure mutation,
+ * so the authoritative rev lives in the audit event instead). */
+export function markPendingActionApplied(action: PendingAction, nowIso: string, applied: { appliedEntityIds: string[]; appliedAtRev?: number }): PendingAction {
   return transition(action, "applied", nowIso, applied);
 }
 

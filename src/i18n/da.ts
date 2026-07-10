@@ -958,4 +958,23 @@ export const da: Record<string, string> = {
   "actions.detail.proposed": "Foreslået",
   "actions.detail.preview": "Forhåndsvisning",
   "claude.apps.scope.needsApproval": "kræver din godkendelse",
+
+  // ---- Pending Actions resolution (Phase 1B.5) ----
+  "actions.resolve.approve": "Godkend & anvend",
+  "actions.resolve.approveTitle": "Godkende dette forslag?",
+  "actions.resolve.approveBody": "Godkendelse anvender de foreslåede ændringer i dit arbejdsområde med det samme. Felter der ændres:",
+  "actions.resolve.reject": "Afvis",
+  "actions.resolve.rejectTitle": "Afvise dette forslag?",
+  "actions.resolve.rejectBody": "Intet anvendes. Forslaget bliver i din historik som afvist.",
+  "actions.resolve.rejectConfirm": "Afvis forslaget",
+  "actions.resolve.notePlaceholder": "Valgfri note (bliver i dit arbejdsområde, deles aldrig)",
+  "actions.resolve.appliedToast": "Godkendt og anvendt.",
+  "actions.resolve.rejectedToast": "Forslaget blev afvist.",
+  "actions.resolve.error.not_found": "Forslaget findes ikke længere.",
+  "actions.resolve.error.not_pending": "Forslaget er allerede afgjort.",
+  "actions.resolve.error.expired": "Forslaget er udløbet og kan ikke længere anvendes.",
+  "actions.resolve.error.target_missing": "Målmuligheden findes ikke længere — intet blev ændret.",
+  "actions.resolve.error.invalid": "Forslaget er ikke længere gyldigt — intet blev ændret.",
+  "actions.resolve.error.conflict": "Dit arbejdsområde blev ændret samtidig — prøv igen.",
+  "actions.resolve.error.error": "Noget gik galt — intet blev ændret.",
 };

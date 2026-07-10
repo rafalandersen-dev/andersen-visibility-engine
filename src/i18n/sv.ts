@@ -958,4 +958,23 @@ export const sv: Record<string, string> = {
   "actions.detail.proposed": "Föreslaget",
   "actions.detail.preview": "Förhandsvisning",
   "claude.apps.scope.needsApproval": "kräver ditt godkännande",
+
+  // ---- Pending Actions resolution (Phase 1B.5) ----
+  "actions.resolve.approve": "Godkänn & tillämpa",
+  "actions.resolve.approveTitle": "Godkänna det här förslaget?",
+  "actions.resolve.approveBody": "Godkännande tillämpar de föreslagna ändringarna i din arbetsyta omedelbart. Fält som ändras:",
+  "actions.resolve.reject": "Avvisa",
+  "actions.resolve.rejectTitle": "Avvisa det här förslaget?",
+  "actions.resolve.rejectBody": "Inget tillämpas. Förslaget stannar i din historik som avvisat.",
+  "actions.resolve.rejectConfirm": "Avvisa förslaget",
+  "actions.resolve.notePlaceholder": "Valfri anteckning (stannar i din arbetsyta, delas aldrig)",
+  "actions.resolve.appliedToast": "Godkänt och tillämpat.",
+  "actions.resolve.rejectedToast": "Förslaget avvisades.",
+  "actions.resolve.error.not_found": "Förslaget finns inte längre.",
+  "actions.resolve.error.not_pending": "Förslaget är redan avgjort.",
+  "actions.resolve.error.expired": "Förslaget har gått ut och kan inte längre tillämpas.",
+  "actions.resolve.error.target_missing": "Målmöjligheten finns inte längre — inget ändrades.",
+  "actions.resolve.error.invalid": "Förslaget är inte längre giltigt — inget ändrades.",
+  "actions.resolve.error.conflict": "Din arbetsyta ändrades samtidigt — försök igen.",
+  "actions.resolve.error.error": "Något gick fel — inget ändrades.",
 };

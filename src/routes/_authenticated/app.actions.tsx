@@ -1,5 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -7,7 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useStore } from "@/lib/store";
+import { useStore, hydrateForUser } from "@/lib/store";
+import { useAuth } from "@/lib/auth";
 import { useT } from "@/i18n";
 import type { Opportunity, PendingAction, PendingActionStatus } from "@/lib/types";
 import {
@@ -15,13 +29,17 @@ import {
   pendingActionDiff,
   proposedFieldNames,
   effectivePendingStatus,
+  canResolvePendingAction,
   type PendingActionsUiFilter,
 } from "@/lib/pending-actions.ui";
-import { Bot, ChevronDown, ChevronUp, Inbox, ShieldCheck, TriangleAlert } from "lucide-react";
+import { resolvePendingActionFn, type ResolvePendingActionReason } from "@/lib/pending-actions.functions";
+import { Bot, Check, ChevronDown, ChevronUp, Inbox, ShieldCheck, TriangleAlert, X } from "lucide-react";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 
-// Phase 1B.4 — READ-ONLY inbox. Approve/reject/apply arrive in 1B.5; this page
-// deliberately performs no mutations and calls no server functions.
+// Phase 1B.5 — owner resolution lives HERE and only here: the authenticated
+// resolve server fn is the single approve/apply/reject path (Claude/MCP has
+// no such tool). Controls render only for effectively-pending items.
 
 export const Route = createFileRoute("/_authenticated/app/actions")({
   head: () => ({
@@ -124,11 +142,32 @@ function PendingActionCard(props: {
   onToggle: () => void;
 }) {
   const t = useT();
+  const { user } = useAuth();
   const { action, nowMs, projectName, opportunities, expanded, onToggle } = props;
   const status = effectivePendingStatus(action, nowMs);
   const fields = proposedFieldNames(action);
   const diff = expanded ? pendingActionDiff(action, opportunities) : null;
   const date = (iso?: string) => (iso ? new Date(iso).toLocaleDateString() : "");
+  const canResolve = canResolvePendingAction(action, nowMs);
+  const [busy, setBusy] = useState<"approve_apply" | "reject" | null>(null);
+  const [note, setNote] = useState("");
+
+  async function resolve(resolution: "approve_apply" | "reject") {
+    setBusy(resolution);
+    try {
+      const res = await resolvePendingActionFn({ data: { actionId: action.id, resolution, ...(resolution === "reject" && note.trim() ? { note: note.trim() } : {}) } });
+      if (res.ok) {
+        toast.success(resolution === "approve_apply" ? t("actions.resolve.appliedToast") : t("actions.resolve.rejectedToast"));
+        if (user?.id) await hydrateForUser(user.id); // reload server-authored state + rev
+      } else {
+        toast.error(t(`actions.resolve.error.${(res.reason ?? "error") as ResolvePendingActionReason}`));
+      }
+    } catch {
+      toast.error(t("actions.resolve.error.error"));
+    } finally {
+      setBusy(null);
+    }
+  }
 
   return (
     <div className="rounded-lg border border-border bg-card p-4">
@@ -149,14 +188,70 @@ function PendingActionCard(props: {
         {action.expiresAt ? <span>{t("actions.card.expires")}: {date(action.expiresAt)}</span> : null}
       </div>
 
-      <button
-        type="button"
-        onClick={onToggle}
-        className="mt-3 inline-flex items-center gap-1 text-xs text-gold hover:underline"
-      >
-        {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-        {expanded ? t("actions.card.hideDetail") : t("actions.card.showDetail")}
-      </button>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="inline-flex items-center gap-1 text-xs text-gold hover:underline"
+        >
+          {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+          {expanded ? t("actions.card.hideDetail") : t("actions.card.showDetail")}
+        </button>
+
+        {canResolve ? (
+          <div className="ml-auto flex gap-2">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button size="sm" disabled={busy !== null}>
+                  <Check className="h-3.5 w-3.5" /> {t("actions.resolve.approve")}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{t("actions.resolve.approveTitle")}</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {t("actions.resolve.approveBody")}
+                    <span className="mt-2 block font-mono text-xs text-foreground/80">{fields.join(", ") || "—"}</span>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => resolve("approve_apply")}>{t("actions.resolve.approve")}</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button size="sm" variant="outline" disabled={busy !== null} className="text-muted-foreground hover:text-destructive">
+                  <X className="h-3.5 w-3.5" /> {t("actions.resolve.reject")}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{t("actions.resolve.rejectTitle")}</AlertDialogTitle>
+                  <AlertDialogDescription>{t("actions.resolve.rejectBody")}</AlertDialogDescription>
+                </AlertDialogHeader>
+                <Textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  maxLength={500}
+                  placeholder={t("actions.resolve.notePlaceholder")}
+                  className="min-h-20"
+                />
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => resolve("reject")}>{t("actions.resolve.rejectConfirm")}</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        ) : action.resolution ? (
+          <span className="ml-auto text-xs text-muted-foreground">
+            {t(`actions.status.${status}`)} · {date(action.resolution.resolvedAt)}
+            {action.resolution.note ? <> · “{action.resolution.note}”</> : null}
+          </span>
+        ) : null}
+      </div>
 
       {expanded && diff ? (
         <div className="mt-3 rounded-md border border-border bg-secondary/30 p-3">

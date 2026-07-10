@@ -15,6 +15,7 @@ import {
   pendingActionDiff,
   proposedFieldNames,
   scopePillTone,
+  canResolvePendingAction,
 } from "./pending-actions.ui";
 import { PENDING_ACTION_TTL_MS } from "./pending-actions";
 
@@ -121,29 +122,52 @@ describe("connected-apps scope pills", () => {
   });
 });
 
-describe("read-only guards on the page source", () => {
+describe("resolution boundary guards on the page source (1B.5)", () => {
   const pageSrc = readFileSync(join(__dirname, "../routes/_authenticated/app.actions.tsx"), "utf8");
 
-  it("performs no mutations and calls no server functions", () => {
+  it("mutates ONLY through the owner-authenticated resolve server fn", () => {
+    // The single allowed mutation path:
+    expect(pageSrc).toContain('from "@/lib/pending-actions.functions"');
+    expect(pageSrc).toContain("resolvePendingActionFn");
+    // Never direct workspace/store mutation or raw lifecycle helpers:
     for (const forbidden of [
-      "approvePendingAction", "rejectPendingAction", "markPendingActionApplied",
-      "mutateWorkspace", "saveWorkspaceNow", "createServerFn",
-      ".functions\"", // no server-fn module imports
-      "setState(",
+      "mutateWorkspace", "saveWorkspaceNow", "createServerFn", "setState(",
+      "resolvePendingActionForWorkspace", // core is server-side only
+      "approvePendingAction(", "rejectPendingAction(", "markPendingActionApplied(",
+      "oauth.functions", "mcp.server", "mcp.functions", "/api/mcp",
     ]) {
       expect(pageSrc, `page must not reference ${forbidden}`).not.toContain(forbidden);
     }
   });
 
-  it("has no approve/reject/apply controls", () => {
-    expect(pageSrc).not.toMatch(/actions\.(approve|reject|apply)/);
-    expect(pageSrc).not.toMatch(/onApprove|onReject|onApply/);
+  it("renders controls only behind the effectively-pending guard", () => {
+    expect(pageSrc).toContain("canResolvePendingAction");
+    expect(pageSrc).toContain("canResolve ?"); // controls branch is gated
   });
 
   it("is registered in the generated route tree", () => {
     const routeTree = readFileSync(join(__dirname, "../routeTree.gen.ts"), "utf8");
     expect(routeTree).toContain("'/app/actions'");
     expect(routeTree).toContain("_authenticated/app.actions");
+  });
+
+  it("MCP tool registry has NO approve/reject/apply tools", async () => {
+    const { TOOL_SCOPES, PENDING_TOOL_NAMES } = await import("./mcp.server");
+    for (const name of [...Object.keys(TOOL_SCOPES), ...PENDING_TOOL_NAMES]) {
+      expect(name).not.toMatch(/approve|reject|apply|resolve/);
+    }
+  });
+});
+
+describe("canResolvePendingAction", () => {
+  it("true only for effectively-pending items", () => {
+    const now = Date.parse(T0);
+    expect(canResolvePendingAction(action(), now)).toBe(true);
+    expect(canResolvePendingAction(action({ status: "applied" }), now)).toBe(false);
+    expect(canResolvePendingAction(action({ status: "rejected" }), now)).toBe(false);
+    expect(canResolvePendingAction(action({ status: "expired" }), now)).toBe(false);
+    // stale pending → effectively expired → not resolvable
+    expect(canResolvePendingAction(action(), Date.parse(T0) + PENDING_ACTION_TTL_MS + 1000)).toBe(false);
   });
 });
 
@@ -167,6 +191,13 @@ describe("i18n coverage", () => {
       "actions.detail.target", "actions.detail.targetMissing", "actions.detail.field", "actions.detail.current",
       "actions.detail.proposed", "actions.detail.preview",
       "claude.apps.scope.needsApproval",
+      "actions.resolve.approve", "actions.resolve.approveTitle", "actions.resolve.approveBody",
+      "actions.resolve.reject", "actions.resolve.rejectTitle", "actions.resolve.rejectBody",
+      "actions.resolve.rejectConfirm", "actions.resolve.notePlaceholder",
+      "actions.resolve.appliedToast", "actions.resolve.rejectedToast",
+      "actions.resolve.error.not_found", "actions.resolve.error.not_pending", "actions.resolve.error.expired",
+      "actions.resolve.error.target_missing", "actions.resolve.error.invalid", "actions.resolve.error.conflict",
+      "actions.resolve.error.error",
     ];
     for (const dict of [en, pl, sv, da]) {
       for (const key of keys) expect(dict[key], key).toBeTruthy();
