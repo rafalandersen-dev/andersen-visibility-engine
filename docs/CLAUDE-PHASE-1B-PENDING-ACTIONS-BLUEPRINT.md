@@ -3,7 +3,7 @@
 > Documentation only. No runtime code, routes, migrations, env vars, or database
 > state are changed by this document. Nothing in it is implemented yet.
 
-**Status:** design blueprint (1B.0) · **Builds on:** Phase 0 (read connector, live), Phase 1 (rev-guarded write foundation, live-proven), Phase 1A (first write tools `create_growth_task` / `create_project_recommendation`, live-proven and darkened — commit `031d69e`, runbook `9353e5f`, results `a861ea7`) · **Current prod:** `MCP_OAUTH_ENABLED=true`, `MCP_WRITE_TOOLS_ENABLED` off/unset, metadata write-free, live Claude.ai read connector untouched.
+**Status:** design blueprint (1B.0) — **owner decisions RESOLVED 2026-07-10, see §11** · **Builds on:** Phase 0 (read connector, live), Phase 1 (rev-guarded write foundation, live-proven), Phase 1A (first write tools `create_growth_task` / `create_project_recommendation`, live-proven and darkened — commit `031d69e`, runbook `9353e5f`, results `a861ea7`) · **Current prod:** `MCP_OAUTH_ENABLED=true`, `MCP_WRITE_TOOLS_ENABLED` off/unset, metadata write-free, live Claude.ai read connector untouched.
 
 **One-sentence goal:** let Claude *propose* structured changes that a Milo owner reviews and approves in the Milo UI before they touch core workspace state — extending the connector from "safe creates" (1A) to "anything sensitive, behind human approval" without ever granting direct mutation power.
 
@@ -76,7 +76,7 @@ Ship **at most three** types in 1B, in this order (first type = open decision §
 
 ## 4. MCP tool design
 
-Four tools, all **write-class**: visible and callable only when `MCP_WRITE_TOOLS_ENABLED=true` (same registry-view gating as 1A — flag off ⇒ `-32602`), and only with the required scope (else `-32002`). Legacy null-scope developer tokens never qualify.
+**Three tools in the first implementation** (`cancel_own_pending_action` deferred — decision §11.7), all **write-class**: visible and callable only when `MCP_WRITE_TOOLS_ENABLED=true` (same registry-view gating as 1A — flag off ⇒ `-32602`), and only with the required scope (else `-32002`). Legacy null-scope developer tokens never qualify.
 
 **Scope: one new write-class scope `milo.actions.propose`.**
 - Added to `MCP_WRITE_SCOPES` (issuable only flag-on **and** explicitly requested; never advertised in PRM/AS metadata; never in the default grant — identical posture to 1A write scopes).
@@ -88,7 +88,7 @@ Four tools, all **write-class**: visible and callable only when `MCP_WRITE_TOOLS
 | `create_pending_action` | `milo.actions.propose` | Validate type + payload strictly → derive riskLevel/preview requirements → insert via `mutateWorkspace` → return `{actionId, status:"pending"}` |
 | `list_pending_actions` | `milo.actions.propose` | Filter by optional `projectId`/`status`; returns id/type/title/summary/status/riskLevel/timestamps — **not** full payloads (bounded output) |
 | `get_pending_action` | `milo.actions.propose` | Full single action incl. payload/preview/resolution |
-| `cancel_own_pending_action` | `milo.actions.propose` | Only actions with `status:"pending"` AND `proposedByClientId == caller's client_id` → status `rejected` with `resolution.note:"cancelled by proposer"`; anything else → uniform `-32011` |
+| `cancel_own_pending_action` | `milo.actions.propose` | **DEFERRED (§11.7 — not in the first implementation.)** When later added: only actions with `status:"pending"` AND `proposedByClientId == caller's client_id` → status `rejected` with `resolution.note:"cancelled by proposer"`; anything else → uniform `-32011` |
 
 **Input schema — `create_pending_action`:**
 
@@ -139,7 +139,7 @@ Approval is a **Milo server function** (`resolvePendingActionFn`, `createServerF
 ## 7. Security and safety
 
 - **Scope checks:** create/list/get/cancel all require `milo.actions.propose` on an OAuth grant; developer tokens (null scope) are excluded by the 1A `toolAllowed` write rule. Double-gated by `MCP_WRITE_TOOLS_ENABLED`.
-- **Owner-only approval:** resolution requires Milo UI auth + workspace ownership; MCP tokens cannot approve, apply, or reject (except proposer-cancel of their own pending item).
+- **Owner-only approval:** resolution requires Milo UI auth + workspace ownership; MCP tokens cannot approve, apply, or reject anything in the first implementation (proposer-cancel is deferred, §11.7).
 - **No publish/delete/settings/billing:** not expressible — no such type, and apply functions are hand-written per type, additive/merge-only.
 - **Payload limits:** payload ≤16KB serialized, preview ≤4KB, `pendingActions[]` hard cap **200** (`-32013` when full; UI nudges the owner to resolve). Batch types capped at 10 items.
 - **Content sanitization:** previews render as markdown with the app's existing safe renderer (no raw HTML); all strings length-clipped and trimmed at validation; payloads never `eval`'d or interpreted — only whitelisted fields are ever read.
@@ -188,14 +188,16 @@ Each code commit lands flag-off-invisible on prod (the 1A "deploy dark, prove by
 7. Live Claude.ai read connector unaffected throughout (fresh-chat forced `list_projects` check, per the 1A soak gotcha).
 8. Full unit suite green; rollback (flag off) leaves proposals and applied entities intact while making the tools vanish.
 
-## 11. Open decisions (owner)
+## 11. Owner decisions — RESOLVED 2026-07-10
 
-1. **Flag:** reuse `MCP_WRITE_TOOLS_ENABLED` (recommended — one env var, one dark switch, less incident-#1 surface) vs. a new `MCP_PENDING_ACTIONS_ENABLED`.
-2. **Proposer cancel:** include `cancel_own_pending_action` in 1B.3 (recommended — cheap, strictly narrowing) or defer.
-3. **Auto-expiry:** keep the 14-day lazy default (recommended), change the horizon, or make proposals non-expiring.
-4. **Approve = apply immediately** (recommended: one click + AlertDialog confirm, atomic) vs. two-step approve-then-apply.
-5. **First shipped type:** `opportunity_update_proposal` (recommended — it introduces the genuinely new capability, guarded updates, that 1A's direct creates don't cover) vs. starting even softer with `content_brief_proposal`.
-6. **Standing item from 1A results §7.3:** whether refresh-issued tokens should degrade write/propose scopes while the flag is off (currently: scope preserved, runtime-gated — acceptable, documented).
+1. **Flag: reuse `MCP_WRITE_TOOLS_ENABLED`.** Fewer env vars, lower operational risk (incident-#1 surface).
+2. **Scope: `milo.actions.propose` confirmed** — weaker than direct write scopes; means "Claude may propose, not apply."
+3. **First proposal type: `opportunity_update_proposal`.** The genuinely new capability — Claude suggests edits, owner approves.
+4. **Claude cannot approve/apply proposals in Phase 1B.** Approval is Milo UI only.
+5. **Approve = apply immediately** after one explicit owner confirmation. No second "are you really sure?" step unless `riskLevel: high` is introduced later.
+6. **Expiry: lazy, 14 days.** No cron in Phase 1B.
+7. **No `cancel_own_pending_action` in the first implementation.** Keep the first cut smaller; the tool spec above is retained for a later commit.
+8. **Refresh behavior stays as-is** (scope preserved on refresh while flag off; runtime gating remains the enforcement). Scope degradation may be revisited later — standing item from 1A results §7.3.
 
 ---
 
