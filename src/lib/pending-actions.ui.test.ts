@@ -1,0 +1,177 @@
+/**
+ * Phase 1B.4 — read-only Pending Actions UI. The repo's test environment is
+ * node-only (no component rendering), so the page's behavior is covered via
+ * its pure presentation module, source-level read-only guards on the page
+ * file, i18n key coverage, and the generated route registration.
+ */
+import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import type { Opportunity, PendingAction } from "./types";
+import {
+  effectivePendingStatus,
+  filterPendingActions,
+  countPendingForBadge,
+  pendingActionDiff,
+  proposedFieldNames,
+  scopePillTone,
+} from "./pending-actions.ui";
+import { PENDING_ACTION_TTL_MS } from "./pending-actions";
+
+const T0 = "2026-07-10T12:00:00.000Z";
+const T1 = "2026-07-11T12:00:00.000Z";
+
+const action = (over: Partial<PendingAction> = {}): PendingAction => ({
+  id: "pa1",
+  type: "opportunity_update_proposal",
+  projectId: "synergy",
+  title: "Sharpen the comparison opportunity",
+  summary: "Claude suggests a clearer title.",
+  status: "pending",
+  source: "claude",
+  createdAt: T0,
+  updatedAt: T0,
+  expiresAt: new Date(Date.parse(T0) + PENDING_ACTION_TTL_MS).toISOString(),
+  requiredScope: "milo.actions.propose",
+  payload: { opportunityId: "o1", updates: { title: "Massage vs physio", priority: "High" } },
+  preview: "- title → Massage vs physio",
+  riskLevel: "medium",
+  ...over,
+});
+
+const OPPS: Opportunity[] = [
+  {
+    id: "o1", projectId: "synergy", title: "Original title", language: "English", contentType: "Blog Article",
+    searchIntent: "Informational", targetAudience: "aud", businessValue: "Original value", recommendedCta: "Original CTA",
+    priority: "Medium", status: "Linked",
+  } as Opportunity,
+];
+
+describe("filtering + effective status", () => {
+  const list = [
+    action(),
+    action({ id: "pa2", projectId: "other", createdAt: T1, updatedAt: T1, expiresAt: new Date(Date.parse(T1) + PENDING_ACTION_TTL_MS).toISOString() }),
+    action({ id: "pa3", status: "rejected" }),
+  ];
+
+  it("filters by status/project/type; 'all' and undefined mean no filter", () => {
+    const now = Date.parse(T0);
+    expect(filterPendingActions(list, {}, now)).toHaveLength(3);
+    expect(filterPendingActions(list, { status: "all", projectId: "all", type: "all" }, now)).toHaveLength(3);
+    expect(filterPendingActions(list, { status: "pending" }, now).map((a) => a.id).sort()).toEqual(["pa1", "pa2"]);
+    expect(filterPendingActions(list, { projectId: "other" }, now).map((a) => a.id)).toEqual(["pa2"]);
+    expect(filterPendingActions(list, { type: "opportunity_update_proposal" }, now)).toHaveLength(3);
+    expect(filterPendingActions(list, { status: "rejected" }, now).map((a) => a.id)).toEqual(["pa3"]);
+  });
+
+  it("sorts newest first and treats stale pending items as expired", () => {
+    const now = Date.parse(T0);
+    expect(filterPendingActions(list, {}, now).map((a) => a.id)).toEqual(["pa2", "pa1", "pa3"]);
+    const staleNow = Date.parse(T0) + PENDING_ACTION_TTL_MS + 1000;
+    expect(effectivePendingStatus(list[0], staleNow)).toBe("expired");
+    expect(effectivePendingStatus(list[1], staleNow)).toBe("pending"); // created a day later
+    expect(filterPendingActions(list, { status: "expired" }, staleNow).map((a) => a.id)).toEqual(["pa1"]);
+    // resolved items never become expired
+    expect(effectivePendingStatus(list[2], staleNow)).toBe("rejected");
+  });
+
+  it("badge counts effectively-pending items only", () => {
+    expect(countPendingForBadge(list, Date.parse(T0))).toBe(2);
+    expect(countPendingForBadge(list, Date.parse(T0) + PENDING_ACTION_TTL_MS + 1000)).toBe(1);
+    expect(countPendingForBadge([], Date.parse(T0))).toBe(0);
+  });
+});
+
+describe("before/after diff", () => {
+  it("builds rows for whitelisted fields with current workspace values", () => {
+    const diff = pendingActionDiff(action(), OPPS)!;
+    expect(diff.opportunityId).toBe("o1");
+    expect(diff.targetExists).toBe(true);
+    expect(diff.rows).toEqual([
+      { field: "title", current: "Original title", proposed: "Massage vs physio" },
+      { field: "priority", current: "Medium", proposed: "High" },
+    ]);
+  });
+
+  it("flags a missing target and leaves current undefined", () => {
+    const diff = pendingActionDiff(action(), [])!;
+    expect(diff.targetExists).toBe(false);
+    expect(diff.rows.every((r) => r.current === undefined)).toBe(true);
+  });
+
+  it("ignores non-string proposed values and unknown types", () => {
+    const weird = action({ payload: { opportunityId: "o1", updates: { title: 42 as never } } });
+    expect(pendingActionDiff(weird, OPPS)!.rows).toEqual([]);
+    expect(pendingActionDiff({ ...action(), type: "other" as never }, OPPS)).toBeNull();
+  });
+
+  it("exposes proposed field names, sorted", () => {
+    expect(proposedFieldNames(action())).toEqual(["priority", "title"]);
+    expect(proposedFieldNames(action({ payload: { opportunityId: "o1" } }))).toEqual([]);
+  });
+});
+
+describe("connected-apps scope pills", () => {
+  it("propose renders amber like the other write-class scopes; reads stay neutral", () => {
+    expect(scopePillTone("milo.actions.propose")).toBe("amber");
+    expect(scopePillTone("milo.tasks.write")).toBe("amber");
+    expect(scopePillTone("milo.content.publish")).toBe("amber");
+    expect(scopePillTone("milo.projects.read")).toBe("neutral");
+    expect(scopePillTone("offline_access")).toBe("neutral");
+  });
+});
+
+describe("read-only guards on the page source", () => {
+  const pageSrc = readFileSync(join(__dirname, "../routes/_authenticated/app.actions.tsx"), "utf8");
+
+  it("performs no mutations and calls no server functions", () => {
+    for (const forbidden of [
+      "approvePendingAction", "rejectPendingAction", "markPendingActionApplied",
+      "mutateWorkspace", "saveWorkspaceNow", "createServerFn",
+      ".functions\"", // no server-fn module imports
+      "setState(",
+    ]) {
+      expect(pageSrc, `page must not reference ${forbidden}`).not.toContain(forbidden);
+    }
+  });
+
+  it("has no approve/reject/apply controls", () => {
+    expect(pageSrc).not.toMatch(/actions\.(approve|reject|apply)/);
+    expect(pageSrc).not.toMatch(/onApprove|onReject|onApply/);
+  });
+
+  it("is registered in the generated route tree", () => {
+    const routeTree = readFileSync(join(__dirname, "../routeTree.gen.ts"), "utf8");
+    expect(routeTree).toContain("'/app/actions'");
+    expect(routeTree).toContain("_authenticated/app.actions");
+  });
+});
+
+describe("i18n coverage", () => {
+  it("all locales carry every Pending Actions key", async () => {
+    const { en } = await import("../i18n/en");
+    const { pl } = await import("../i18n/pl");
+    const { sv } = await import("../i18n/sv");
+    const { da } = await import("../i18n/da");
+    const keys = [
+      "common.loading",
+      "nav.actions",
+      "actions.title", "actions.description", "actions.safety",
+      "actions.filter.status", "actions.filter.allStatuses", "actions.filter.project", "actions.filter.allProjects",
+      "actions.empty.title", "actions.empty.body",
+      "actions.status.pending", "actions.status.approved", "actions.status.applied", "actions.status.rejected", "actions.status.expired",
+      "actions.risk.low", "actions.risk.medium", "actions.risk.high",
+      "actions.type.opportunity_update_proposal",
+      "actions.card.project", "actions.card.type", "actions.card.fields", "actions.card.created", "actions.card.expires",
+      "actions.card.showDetail", "actions.card.hideDetail",
+      "actions.detail.target", "actions.detail.targetMissing", "actions.detail.field", "actions.detail.current",
+      "actions.detail.proposed", "actions.detail.preview",
+      "claude.apps.scope.needsApproval",
+    ];
+    for (const dict of [en, pl, sv, da]) {
+      for (const key of keys) expect(dict[key], key).toBeTruthy();
+    }
+    expect(en["actions.safety"]).toBe("Claude can create proposals for review. Nothing is applied until you approve it.");
+    expect(en["actions.empty.title"]).toBe("No pending actions yet.");
+  });
+});

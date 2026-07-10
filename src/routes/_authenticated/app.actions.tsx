@@ -1,0 +1,199 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { AppShell } from "@/components/AppShell";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useStore } from "@/lib/store";
+import { useT } from "@/i18n";
+import type { Opportunity, PendingAction, PendingActionStatus } from "@/lib/types";
+import {
+  filterPendingActions,
+  pendingActionDiff,
+  proposedFieldNames,
+  effectivePendingStatus,
+  type PendingActionsUiFilter,
+} from "@/lib/pending-actions.ui";
+import { Bot, ChevronDown, ChevronUp, Inbox, ShieldCheck, TriangleAlert } from "lucide-react";
+import { useMemo, useState } from "react";
+
+// Phase 1B.4 — READ-ONLY inbox. Approve/reject/apply arrive in 1B.5; this page
+// deliberately performs no mutations and calls no server functions.
+
+export const Route = createFileRoute("/_authenticated/app/actions")({
+  head: () => ({
+    meta: [
+      { title: "Pending Actions — Milo Growth" },
+      { name: "description", content: "Review changes Claude has proposed. Nothing is applied until you approve it." },
+    ],
+  }),
+  component: PendingActionsPage,
+});
+
+const STATUSES: (PendingActionStatus | "all")[] = ["all", "pending", "approved", "applied", "rejected", "expired"];
+
+const STATUS_TONE: Record<PendingActionStatus, string> = {
+  pending: "border-amber-600/40 bg-amber-500/5 text-amber-700",
+  approved: "border-emerald-500/40 bg-emerald-500/5 text-emerald-600",
+  applied: "border-emerald-500/40 bg-emerald-500/5 text-emerald-600",
+  rejected: "border-border bg-secondary/60 text-muted-foreground",
+  expired: "border-border bg-secondary/60 text-muted-foreground",
+};
+
+function PendingActionsPage() {
+  const t = useT();
+  const pendingActions = useStore((s) => s.pendingActions);
+  const projects = useStore((s) => s.projects);
+  const opportunities = useStore((s) => s.opportunities);
+  const hydrated = useStore((s) => s.hydrated);
+
+  const [status, setStatus] = useState<PendingActionsUiFilter["status"]>("all");
+  const [projectId, setProjectId] = useState<string>("all");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const nowMs = Date.now();
+  const visible = useMemo(
+    () => filterPendingActions(pendingActions, { status, projectId }, nowMs),
+    [pendingActions, status, projectId, nowMs],
+  );
+  const projectName = (id: string) => projects.find((p) => p.id === id)?.businessName ?? id;
+
+  return (
+    <AppShell title={t("actions.title")} description={t("actions.description")}>
+      <div className="mb-4 flex items-start gap-2 rounded-md border border-amber-600/30 bg-amber-500/5 p-3 text-sm text-amber-800/90">
+        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+        <span>{t("actions.safety")}</span>
+      </div>
+
+      <div className="mb-4 flex flex-wrap gap-3">
+        <Select value={status} onValueChange={(v) => setStatus(v as PendingActionsUiFilter["status"])}>
+          <SelectTrigger className="w-40"><SelectValue placeholder={t("actions.filter.status")} /></SelectTrigger>
+          <SelectContent>
+            {STATUSES.map((s) => (
+              <SelectItem key={s} value={s}>{s === "all" ? t("actions.filter.allStatuses") : t(`actions.status.${s}`)}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={projectId} onValueChange={setProjectId}>
+          <SelectTrigger className="w-48"><SelectValue placeholder={t("actions.filter.project")} /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t("actions.filter.allProjects")}</SelectItem>
+            {projects.map((p) => (
+              <SelectItem key={p.id} value={p.id}>{p.businessName}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {!hydrated ? (
+        <div className="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted-foreground">{t("common.loading")}</div>
+      ) : visible.length === 0 ? (
+        <div className="rounded-lg border border-border bg-card p-10 text-center">
+          <Inbox className="mx-auto h-8 w-8 text-muted-foreground/50" strokeWidth={1.4} />
+          <div className="mt-3 text-sm font-medium">{t("actions.empty.title")}</div>
+          <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">{t("actions.empty.body")}</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {visible.map((a) => (
+            <PendingActionCard
+              key={a.id}
+              action={a}
+              nowMs={nowMs}
+              projectName={projectName(a.projectId)}
+              opportunities={opportunities}
+              expanded={expandedId === a.id}
+              onToggle={() => setExpandedId(expandedId === a.id ? null : a.id)}
+            />
+          ))}
+        </div>
+      )}
+    </AppShell>
+  );
+}
+
+function PendingActionCard(props: {
+  action: PendingAction;
+  nowMs: number;
+  projectName: string;
+  opportunities: Opportunity[];
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const t = useT();
+  const { action, nowMs, projectName, opportunities, expanded, onToggle } = props;
+  const status = effectivePendingStatus(action, nowMs);
+  const fields = proposedFieldNames(action);
+  const diff = expanded ? pendingActionDiff(action, opportunities) : null;
+  const date = (iso?: string) => (iso ? new Date(iso).toLocaleDateString() : "");
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Bot className="h-4 w-4 text-gold/80" strokeWidth={1.6} />
+        <span className="font-medium">{action.title}</span>
+        <span className={`rounded-full border px-2 py-0.5 text-[11px] ${STATUS_TONE[status]}`}>{t(`actions.status.${status}`)}</span>
+        <span className="rounded-full border border-amber-600/40 bg-amber-500/5 px-2 py-0.5 text-[11px] text-amber-700">
+          {t(`actions.risk.${action.riskLevel}`)}
+        </span>
+      </div>
+      <p className="mt-1.5 text-sm text-muted-foreground">{action.summary}</p>
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <span>{t("actions.card.project")}: <span className="text-foreground/80">{projectName}</span></span>
+        <span>{t("actions.card.type")}: <span className="text-foreground/80">{t("actions.type.opportunity_update_proposal")}</span></span>
+        <span>{t("actions.card.fields")}: <span className="font-mono text-foreground/80">{fields.join(", ") || "—"}</span></span>
+        <span>{t("actions.card.created")}: {date(action.createdAt)}</span>
+        {action.expiresAt ? <span>{t("actions.card.expires")}: {date(action.expiresAt)}</span> : null}
+      </div>
+
+      <button
+        type="button"
+        onClick={onToggle}
+        className="mt-3 inline-flex items-center gap-1 text-xs text-gold hover:underline"
+      >
+        {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+        {expanded ? t("actions.card.hideDetail") : t("actions.card.showDetail")}
+      </button>
+
+      {expanded && diff ? (
+        <div className="mt-3 rounded-md border border-border bg-secondary/30 p-3">
+          <div className="text-xs text-muted-foreground">
+            {t("actions.detail.target")}: <span className="font-mono text-foreground/80">{diff.opportunityId}</span>
+          </div>
+          {!diff.targetExists ? (
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-700">
+              <TriangleAlert className="h-3.5 w-3.5" /> {t("actions.detail.targetMissing")}
+            </div>
+          ) : null}
+          <table className="mt-2 w-full text-xs">
+            <thead className="text-left uppercase tracking-[0.14em] text-[10px] text-muted-foreground">
+              <tr>
+                <th className="py-1 pr-3 font-medium">{t("actions.detail.field")}</th>
+                <th className="py-1 pr-3 font-medium">{t("actions.detail.current")}</th>
+                <th className="py-1 font-medium">{t("actions.detail.proposed")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {diff.rows.map((r) => (
+                <tr key={r.field} className="border-t border-border/60 align-top">
+                  <td className="py-1.5 pr-3 font-mono">{r.field}</td>
+                  <td className="py-1.5 pr-3 text-muted-foreground">{r.current ?? "—"}</td>
+                  <td className="py-1.5 text-foreground/90">{r.proposed}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {action.preview ? (
+            <div className="mt-3">
+              <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{t("actions.detail.preview")}</div>
+              <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded bg-background/60 p-2 text-xs text-foreground/85">{action.preview}</pre>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}

@@ -21,9 +21,11 @@ import {
   FlaskConical,
   Rocket,
   ClipboardList,
+  Inbox,
   LogOut,
   Crown,
 } from "lucide-react";
+import { countPendingForBadge } from "@/lib/pending-actions.ui";
 
 type NavItem = {
   to: string;
@@ -44,6 +46,7 @@ const NAV: NavItem[] = [
   { to: "/app/authority", tKey: "nav.authority", icon: Award },
   { to: "/app/ai-visibility", tKey: "nav.aiVisibility", icon: Radar },
   { to: "/app/opportunities", tKey: "nav.opportunities", icon: Sparkles },
+  { to: "/app/actions", tKey: "nav.actions", icon: Inbox },
   { to: "/app/calendar", tKey: "nav.calendar", icon: CalendarDays },
   { to: "/app/editor", tKey: "nav.editor", icon: FileText },
   { to: "/app/analytics", tKey: "nav.analytics", icon: BarChart3 },
@@ -66,6 +69,7 @@ export function AppShell({
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const projects = useStore((s) => s.projects);
   const activeProjectId = useStore((s) => s.activeProjectId);
+  const pendingCount = useStore((s) => countPendingForBadge(s.pendingActions, Date.now()));
   const active = projects.find((p) => p.id === activeProjectId) ?? projects[0];
   const { user, isOwner, signOut } = useAuth();
   const navigate = useNavigate();
@@ -113,6 +117,11 @@ export function AppShell({
                 >
                   <Icon className="h-4 w-4 text-gold/80" strokeWidth={1.6} />
                   <span>{t(item.tKey)}</span>
+                  {item.to === "/app/actions" && pendingCount > 0 ? (
+                    <span className="ml-auto rounded-full border border-amber-600/40 bg-amber-500/10 px-1.5 text-[10px] leading-4 text-amber-700">
+                      {pendingCount}
+                    </span>
+                  ) : null}
                 </Link>
               );
             })}

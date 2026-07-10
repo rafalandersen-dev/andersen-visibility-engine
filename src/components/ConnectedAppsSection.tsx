@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useT } from "@/i18n";
 import { getConnectedAppsFn, revokeConnectedAppFn, type ConnectedAppView } from "@/lib/oauth.functions";
+import { scopePillTone } from "@/lib/pending-actions.ui";
 import { Loader2, Unplug } from "lucide-react";
 import { toast } from "sonner";
 
@@ -89,12 +90,13 @@ export function ConnectedAppsSection() {
                         <span
                           key={s.scope}
                           className={
-                            s.scope.endsWith(".write") || s.scope.endsWith(".publish")
+                            scopePillTone(s.scope) === "amber"
                               ? "rounded-full border border-amber-600/40 bg-amber-500/5 px-2.5 py-0.5 text-xs text-amber-700"
                               : "rounded-full border border-border bg-secondary/30 px-2.5 py-0.5 text-xs"
                           }
                         >
                           {s.label}
+                          {s.scope.endsWith(".propose") ? <span className="ml-1 opacity-80">· {t("claude.apps.scope.needsApproval")}</span> : null}
                         </span>
                       ))}
                     </div>

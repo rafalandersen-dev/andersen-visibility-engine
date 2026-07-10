@@ -62,6 +62,7 @@ import { Route as AuthenticatedAppAuditRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAppAnalyticsRouteImport } from './routes/_authenticated/app.analytics'
 import { Route as AuthenticatedAppAiVisibilityRouteImport } from './routes/_authenticated/app.ai-visibility'
 import { Route as AuthenticatedAppAiEvaluationRouteImport } from './routes/_authenticated/app.ai-evaluation'
+import { Route as AuthenticatedAppActionsRouteImport } from './routes/_authenticated/app.actions'
 import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lovable/email/transactional/send'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
@@ -347,6 +348,11 @@ const AuthenticatedAppAiEvaluationRoute =
     path: '/app/ai-evaluation',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAppActionsRoute = AuthenticatedAppActionsRouteImport.update({
+  id: '/app/actions',
+  path: '/app/actions',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const LovableEmailTransactionalSendRoute =
   LovableEmailTransactionalSendRouteImport.update({
     id: '/lovable/email/transactional/send',
@@ -411,6 +417,7 @@ export interface FileRoutesByFullPath {
   '/api/mcp': typeof ApiMcpRoute
   '/blog/local-seo-guide': typeof BlogLocalSeoGuideRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
+  '/app/actions': typeof AuthenticatedAppActionsRoute
   '/app/ai-evaluation': typeof AuthenticatedAppAiEvaluationRoute
   '/app/ai-visibility': typeof AuthenticatedAppAiVisibilityRoute
   '/app/analytics': typeof AuthenticatedAppAnalyticsRoute
@@ -471,6 +478,7 @@ export interface FileRoutesByTo {
   '/api/mcp': typeof ApiMcpRoute
   '/blog/local-seo-guide': typeof BlogLocalSeoGuideRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
+  '/app/actions': typeof AuthenticatedAppActionsRoute
   '/app/ai-evaluation': typeof AuthenticatedAppAiEvaluationRoute
   '/app/ai-visibility': typeof AuthenticatedAppAiVisibilityRoute
   '/app/analytics': typeof AuthenticatedAppAnalyticsRoute
@@ -533,6 +541,7 @@ export interface FileRoutesById {
   '/api/mcp': typeof ApiMcpRoute
   '/blog/local-seo-guide': typeof BlogLocalSeoGuideRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
+  '/_authenticated/app/actions': typeof AuthenticatedAppActionsRoute
   '/_authenticated/app/ai-evaluation': typeof AuthenticatedAppAiEvaluationRoute
   '/_authenticated/app/ai-visibility': typeof AuthenticatedAppAiVisibilityRoute
   '/_authenticated/app/analytics': typeof AuthenticatedAppAnalyticsRoute
@@ -595,6 +604,7 @@ export interface FileRouteTypes {
     | '/api/mcp'
     | '/blog/local-seo-guide'
     | '/email/unsubscribe'
+    | '/app/actions'
     | '/app/ai-evaluation'
     | '/app/ai-visibility'
     | '/app/analytics'
@@ -655,6 +665,7 @@ export interface FileRouteTypes {
     | '/api/mcp'
     | '/blog/local-seo-guide'
     | '/email/unsubscribe'
+    | '/app/actions'
     | '/app/ai-evaluation'
     | '/app/ai-visibility'
     | '/app/analytics'
@@ -716,6 +727,7 @@ export interface FileRouteTypes {
     | '/api/mcp'
     | '/blog/local-seo-guide'
     | '/email/unsubscribe'
+    | '/_authenticated/app/actions'
     | '/_authenticated/app/ai-evaluation'
     | '/_authenticated/app/ai-visibility'
     | '/_authenticated/app/analytics'
@@ -1165,6 +1177,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppAiEvaluationRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/app/actions': {
+      id: '/_authenticated/app/actions'
+      path: '/app/actions'
+      fullPath: '/app/actions'
+      preLoaderRoute: typeof AuthenticatedAppActionsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/lovable/email/transactional/send': {
       id: '/lovable/email/transactional/send'
       path: '/lovable/email/transactional/send'
@@ -1211,6 +1230,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAppActionsRoute: typeof AuthenticatedAppActionsRoute
   AuthenticatedAppAiEvaluationRoute: typeof AuthenticatedAppAiEvaluationRoute
   AuthenticatedAppAiVisibilityRoute: typeof AuthenticatedAppAiVisibilityRoute
   AuthenticatedAppAnalyticsRoute: typeof AuthenticatedAppAnalyticsRoute
@@ -1232,6 +1252,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAppActionsRoute: AuthenticatedAppActionsRoute,
   AuthenticatedAppAiEvaluationRoute: AuthenticatedAppAiEvaluationRoute,
   AuthenticatedAppAiVisibilityRoute: AuthenticatedAppAiVisibilityRoute,
   AuthenticatedAppAnalyticsRoute: AuthenticatedAppAnalyticsRoute,
