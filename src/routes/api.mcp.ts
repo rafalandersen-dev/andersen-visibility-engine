@@ -67,12 +67,14 @@ export const Route = createFileRoute("/api/mcp")({
           // writeEnabled mirrors MCP_WRITE_TOOLS_ENABLED; per-tool scope checks
           // still apply (legacy null-scope grants never reach write tools).
           const writeEnabled = oauthEnabled && isWriteToolsEnabled();
-          let grant: { userId: string; scopes: string[] | null; writeEnabled: boolean } | null = null;
+          let grant: { userId: string; scopes: string[] | null; writeEnabled: boolean; clientId?: string } | null = null;
           let oauthClientId: string | undefined;
           if (oauthEnabled && token) {
             const at = await resolveAccessToken(token);
             if (at) {
-              grant = { userId: at.userId, scopes: parseScopes(at.scope), writeEnabled };
+              // clientId rides the grant: pending-action tools attribute and
+              // visibility-filter proposals by the proposing OAuth client.
+              grant = { userId: at.userId, scopes: parseScopes(at.scope), writeEnabled, clientId: at.clientId };
               oauthClientId = at.clientId;
             }
           }

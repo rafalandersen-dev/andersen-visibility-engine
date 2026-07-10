@@ -92,6 +92,7 @@ export interface PendingActionSummary {
   summary: string;
   status: PendingActionStatus;
   riskLevel: PendingAction["riskLevel"];
+  requiredScope: string;
   createdAt: string;
   updatedAt: string;
   expiresAt?: string;
@@ -102,6 +103,12 @@ export interface ListPendingActionsFilter {
   projectId?: string;
   status?: PendingActionStatus;
   type?: PendingActionType;
+  /**
+   * Own-proposal visibility for MCP callers: exact match on the proposing
+   * client id. An empty string matches nothing (grants without a client id
+   * see no proposals). Omit entirely for owner-side (UI) listings.
+   */
+  proposedByClientId?: string;
 }
 
 /**
@@ -125,6 +132,7 @@ export async function listPendingActionsForWorkspace(
       if (filter?.projectId && a.projectId !== filter.projectId) return false;
       if (filter?.status && status !== filter.status) return false;
       if (filter?.type && a.type !== filter.type) return false;
+      if (filter?.proposedByClientId !== undefined && a.proposedByClientId !== filter.proposedByClientId) return false;
       return true;
     })
     .sort((x, y) => Date.parse(y.a.createdAt) - Date.parse(x.a.createdAt))
@@ -136,6 +144,7 @@ export async function listPendingActionsForWorkspace(
       summary: a.summary,
       status,
       riskLevel: a.riskLevel,
+      requiredScope: a.requiredScope,
       createdAt: a.createdAt,
       updatedAt: a.updatedAt,
       ...(a.expiresAt ? { expiresAt: a.expiresAt } : {}),

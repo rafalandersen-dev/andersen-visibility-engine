@@ -369,6 +369,9 @@ export const TOOL_SCOPES: Record<string, string> = {
   list_authority_opportunities: "milo.authority.read",
   create_growth_task: "milo.tasks.write",
   create_project_recommendation: "milo.projects.write",
+  create_pending_action: "milo.actions.propose",
+  list_pending_actions: "milo.actions.propose",
+  get_pending_action: "milo.actions.propose",
 };
 
 /** Names of the Phase 1A write tools (flag- and scope-gated). */
@@ -377,6 +380,14 @@ type WriteToolName = (typeof WRITE_TOOL_NAMES)[number];
 
 function isWriteTool(name: string): name is WriteToolName {
   return (WRITE_TOOL_NAMES as readonly string[]).includes(name);
+}
+
+/** Phase 1B pending-action tools — write-CLASS gating (flag + explicit scope). */
+export const PENDING_TOOL_NAMES = ["create_pending_action", "list_pending_actions", "get_pending_action"] as const;
+type PendingToolName = (typeof PENDING_TOOL_NAMES)[number];
+
+function isPendingTool(name: string): name is PendingToolName {
+  return (PENDING_TOOL_NAMES as readonly string[]).includes(name);
 }
 
 /**
@@ -388,15 +399,18 @@ export interface McpGrant {
   userId: string;
   scopes: string[] | null;
   writeEnabled?: boolean;
+  /** OAuth client_id (public identifier) — attribution + own-proposal visibility. */
+  clientId?: string;
 }
 
 /** Whether a tool is callable under the given scopes.
  * Reads: null (developer token) = all; otherwise scope match.
- * Writes: ALWAYS require an explicit OAuth scope match — null never qualifies. */
+ * Writes + pending actions: ALWAYS require an explicit OAuth scope match —
+ * null (developer token) never qualifies. */
 export function toolAllowed(name: string, scopes: string[] | null): boolean {
   const required = TOOL_SCOPES[name];
   if (!required) return false;
-  if (isWriteTool(name)) return scopes !== null && scopes.includes(required);
+  if (isWriteTool(name) || isPendingTool(name)) return scopes !== null && scopes.includes(required);
   if (scopes === null) return true;
   return scopes.includes(required);
 }
@@ -410,7 +424,13 @@ function toolDefs(scopes: string[] | null, writeEnabled: boolean) {
     inputSchema: t.inputSchema,
     annotations: t.annotations,
   }));
-  return [...reads, ...writes];
+  const pending = PENDING_TOOLS.filter((t) => toolAllowed(t.name, scopes)).map((t) => ({
+    name: t.name,
+    description: t.description,
+    inputSchema: t.inputSchema,
+    annotations: t.annotations,
+  }));
+  return [...reads, ...writes, ...pending];
 }
 
 // ---------------------------------------------------------------------------
@@ -678,6 +698,229 @@ async function dispatchWriteTool(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Phase 1B pending-action tools — Claude proposes, the owner approves in the
+// Milo UI. Same double-gating as the 1A writes (flag + explicit scope); all
+// mutations go through pending-actions.server over the rev-guarded write
+// layer. list/get are read-shaped but stay behind the propose scope (they
+// expose Claude-authored payloads) and are visibility-filtered to the calling
+// client's own proposals.
+// ---------------------------------------------------------------------------
+
+const PENDING_STATUSES = ["pending", "approved", "rejected", "applied", "expired"];
+const PENDING_TYPES = ["opportunity_update_proposal"];
+const LIST_PENDING_DEFAULT_LIMIT = 50;
+const LIST_PENDING_MAX_LIMIT = 100;
+
+interface PendingToolDef {
+  name: PendingToolName;
+  description: string;
+  inputSchema: Record<string, unknown>;
+  annotations: { readOnlyHint: boolean; destructiveHint: boolean; idempotentHint: boolean };
+}
+
+const PENDING_TOOLS: PendingToolDef[] = [
+  {
+    name: "create_pending_action",
+    description:
+      "Propose a change for the Milo owner to review (write). Nothing is applied until the owner approves it in Milo. Confirm with the user before calling. Pass a stable requestId to make retries safe.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["type", "projectId", "title", "summary", "payload"],
+      properties: {
+        type: { type: "string", enum: PENDING_TYPES },
+        projectId: { type: "string", description: "Milo project id (from list_projects)" },
+        title: { type: "string", minLength: 1, maxLength: 200 },
+        summary: { type: "string", minLength: 1, maxLength: 500, description: "Plain-language description of what this proposal does" },
+        payload: {
+          type: "object",
+          additionalProperties: false,
+          required: ["opportunityId", "updates"],
+          properties: {
+            opportunityId: { type: "string", description: "Target opportunity id (from list_opportunities)" },
+            updates: {
+              type: "object",
+              additionalProperties: false,
+              minProperties: 1,
+              properties: {
+                title: { type: "string", maxLength: 200 },
+                businessValue: { type: "string", maxLength: 2000 },
+                priority: { type: "string", enum: ["High", "Medium", "Low"] },
+                contentType: { type: "string", enum: ["Landing Page", "Service Page", "Blog Article", "Guide", "FAQ Page", "Comparison", "Location Page"] },
+                recommendedCta: { type: "string", maxLength: 200 },
+              },
+            },
+          },
+        },
+        preview: { type: "string", maxLength: 4096, description: "Optional markdown preview shown to the owner; derived from the payload when omitted" },
+        requestId: { type: "string", maxLength: 100, description: "Idempotency key" },
+      },
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+  },
+  {
+    name: "list_pending_actions",
+    description: "List the pending actions this connection has proposed (summaries only — use get_pending_action for full detail).",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        projectId: { type: "string" },
+        status: { type: "string", enum: PENDING_STATUSES },
+        type: { type: "string", enum: PENDING_TYPES },
+        limit: { type: "integer", minimum: 1, maximum: LIST_PENDING_MAX_LIMIT },
+      },
+    },
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
+  },
+  {
+    name: "get_pending_action",
+    description: "Get one pending action this connection proposed, including its payload, preview and resolution.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["actionId"],
+      properties: { actionId: { type: "string" } },
+    },
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
+  },
+];
+
+/** Best-effort human preview when the caller omits one. Clipped to the 4KB cap. */
+function derivePendingPreview(payload: unknown): string {
+  const p = (payload ?? {}) as { opportunityId?: unknown; updates?: Record<string, unknown> };
+  const lines = [`Update opportunity ${typeof p.opportunityId === "string" ? p.opportunityId : "?"}:`];
+  if (p.updates && typeof p.updates === "object" && !Array.isArray(p.updates)) {
+    for (const [k, v] of Object.entries(p.updates)) lines.push(`- ${k} → ${typeof v === "string" ? v : JSON.stringify(v)}`);
+  }
+  const text = lines.join("\n");
+  return text.length > 4000 ? `${text.slice(0, 4000)}…` : text;
+}
+
+/** Execute one pending-action tool call. Scope/flag checks happen in the caller. */
+async function dispatchPendingTool(
+  grant: McpGrant,
+  id: JsonRpcMessage["id"],
+  name: PendingToolName,
+  args: Record<string, unknown>,
+  hooks?: McpHooks,
+): Promise<object> {
+  const {
+    createPendingActionForWorkspace,
+    listPendingActionsForWorkspace,
+    getPendingActionForWorkspace,
+    buildPendingActionCreatedAudit,
+    PendingActionNotFoundError,
+  } = await import("./pending-actions.server");
+  const { PendingActionValidationError, PendingActionCapError, MILO_ACTIONS_PROPOSE_SCOPE } = await import("./pending-actions");
+  const { WorkspaceConflictError, WorkspaceNotFoundError } = await import("./workspace.server");
+
+  if (name === "create_pending_action") {
+    // Mutating: rides the shared write rate bucket, exactly like the 1A tools.
+    if (hooks?.checkWriteLimit) {
+      const rl = await hooks.checkWriteLimit();
+      if (rl.shouldAudit) await hooks.audit?.("rate_limited", { bucket: "write", window_start: rl.windowStartIso });
+      if (!rl.allowed) return rpcError(id, -32003, "Rate limit reached for this tool — try again later.");
+    }
+
+    // Audit base: names/ids only — titles, summaries, previews and payload
+    // values are user content and never enter the log.
+    const updates = (args.payload as { updates?: Record<string, unknown> } | undefined)?.updates;
+    const auditBase: Record<string, unknown> = {
+      type: typeof args.type === "string" ? args.type : "unknown",
+      ...(typeof args.projectId === "string" ? { projectId: args.projectId } : {}),
+      requiredScope: MILO_ACTIONS_PROPOSE_SCOPE,
+      fieldsChanged: updates && typeof updates === "object" && !Array.isArray(updates) ? Object.keys(updates).sort() : [],
+      ...(typeof args.requestId === "string" ? { requestId: args.requestId } : {}),
+    };
+
+    try {
+      const input = {
+        ...(args as object),
+        ...(args.preview === undefined ? { preview: derivePendingPreview(args.payload) } : {}),
+        proposedByClientId: grant.clientId,
+      } as Parameters<typeof createPendingActionForWorkspace>[1];
+      const { action, deduped, expiredIds, rev } = await createPendingActionForWorkspace(grant.userId, input);
+      const audit = buildPendingActionCreatedAudit(action, { ok: true, ...(deduped ? { deduped: true } : {}) });
+      await hooks?.audit?.(audit.event, { ...audit.detail, ...(expiredIds.length ? { expiredIds } : {}) });
+      const payload = {
+        actionId: action.id,
+        type: action.type,
+        projectId: action.projectId,
+        status: action.status,
+        riskLevel: action.riskLevel,
+        requiredScope: action.requiredScope,
+        ...(action.requestId ? { requestId: action.requestId } : {}),
+        deduped,
+        ...(expiredIds.length ? { expiredIds } : {}),
+        rev,
+      };
+      return result(id, { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }] });
+    } catch (e) {
+      if (e instanceof PendingActionValidationError) {
+        await hooks?.audit?.("pending_action_created", { ...auditBase, ok: false, error: "validation" });
+        return rpcError(id, -32010, `Invalid ${e.field}: ${e.reason}.`);
+      }
+      if (e instanceof PendingActionCapError) {
+        await hooks?.audit?.("pending_action_created", { ...auditBase, ok: false, error: "cap" });
+        return rpcError(id, -32013, "Pending action limit reached — resolve some proposals in Milo first.");
+      }
+      if (e instanceof PendingActionNotFoundError || e instanceof WorkspaceNotFoundError) {
+        await hooks?.audit?.("pending_action_created", { ...auditBase, ok: false, error: "not_found" });
+        // Uniform: unknown project/opportunity and foreign ids are indistinguishable.
+        return rpcError(id, -32011, "Not found.");
+      }
+      if (e instanceof WorkspaceConflictError) {
+        await hooks?.audit?.("pending_action_created", { ...auditBase, ok: false, error: "conflict" });
+        return rpcError(id, -32012, "Workspace busy — try again.");
+      }
+      await hooks?.audit?.("pending_action_created", { ...auditBase, ok: false, error: "internal" });
+      return result(id, { content: [{ type: "text", text: "Milo could not complete that request." }], isError: true });
+    }
+  }
+
+  try {
+    if (name === "list_pending_actions") {
+      for (const k of Object.keys(args)) {
+        if (!["projectId", "status", "type", "limit"].includes(k)) return rpcError(id, -32010, `Invalid ${k}: unknown field.`);
+      }
+      if (args.status !== undefined && !PENDING_STATUSES.includes(args.status as string)) return rpcError(id, -32010, "Invalid status: unknown value.");
+      if (args.type !== undefined && !PENDING_TYPES.includes(args.type as string)) return rpcError(id, -32010, "Invalid type: unknown value.");
+      let limit = LIST_PENDING_DEFAULT_LIMIT;
+      if (args.limit !== undefined) {
+        if (typeof args.limit !== "number" || !Number.isInteger(args.limit) || args.limit < 1 || args.limit > LIST_PENDING_MAX_LIMIT) {
+          return rpcError(id, -32010, `Invalid limit: must be an integer between 1 and ${LIST_PENDING_MAX_LIMIT}.`);
+        }
+        limit = args.limit;
+      }
+      const summaries = await listPendingActionsForWorkspace(grant.userId, {
+        ...(typeof args.projectId === "string" ? { projectId: args.projectId } : {}),
+        ...(typeof args.status === "string" ? { status: args.status as never } : {}),
+        ...(typeof args.type === "string" ? { type: args.type as never } : {}),
+        // Own-proposal visibility: this connection sees only what it proposed.
+        proposedByClientId: grant.clientId ?? "",
+      });
+      const actions = summaries.slice(0, limit);
+      return result(id, { content: [{ type: "text", text: JSON.stringify({ actions, count: actions.length }, null, 2) }] });
+    }
+
+    // get_pending_action
+    for (const k of Object.keys(args)) {
+      if (k !== "actionId") return rpcError(id, -32010, `Invalid ${k}: unknown field.`);
+    }
+    if (typeof args.actionId !== "string" || !args.actionId.trim()) return rpcError(id, -32010, "Invalid actionId: is required.");
+    const action = await getPendingActionForWorkspace(grant.userId, args.actionId.trim());
+    // Uniform not-found for other clients' proposals — indistinguishable from missing.
+    if (!grant.clientId || action.proposedByClientId !== grant.clientId) return rpcError(id, -32011, "Not found.");
+    return result(id, { content: [{ type: "text", text: JSON.stringify(action, null, 2) }] });
+  } catch (e) {
+    if (e instanceof PendingActionNotFoundError || e instanceof WorkspaceNotFoundError) return rpcError(id, -32011, "Not found.");
+    if (e instanceof PendingActionValidationError) return rpcError(id, -32010, `Invalid ${e.field}: ${e.reason}.`);
+    return result(id, { content: [{ type: "text", text: "Milo could not complete that request." }], isError: true });
+  }
+}
+
 /**
  * Handle one JSON-RPC message for a resolved grant. `tools/list` is filtered to
  * the grant's scopes (+ write flag) and `tools/call` rejects tools the grant
@@ -714,6 +957,13 @@ export async function handleMcpMessage(grant: McpGrant, msg: JsonRpcMessage, hoo
       if (!writeEnabled) return rpcError(id, -32602, `Unknown tool: ${name}`);
       if (!toolAllowed(name, grant.scopes)) return rpcError(id, -32002, "Insufficient scope for this tool.");
       return dispatchWriteTool(grant, id, name, args, hooks);
+    }
+
+    if (isPendingTool(name)) {
+      // Same registry-view gating as the 1A writes: flag off ⇒ unknown tool.
+      if (!writeEnabled) return rpcError(id, -32602, `Unknown tool: ${name}`);
+      if (!toolAllowed(name, grant.scopes)) return rpcError(id, -32002, "Insufficient scope for this tool.");
+      return dispatchPendingTool(grant, id, name, args, hooks);
     }
 
     const tool = TOOLS.find((t) => t.name === name);
@@ -759,8 +1009,10 @@ export function buildMcpAuditEvent(msg: Record<string, unknown> | null | undefin
     return { event: "mcp_denied", detail: { tool, requiredScope: TOOL_SCOPES[tool] ?? null } };
   }
   // Write-tool outcomes are covered by mcp_write / rate_limited from the
-  // dispatch hooks — skip the generic mcp_call to avoid double-logging.
-  if (tool && isWriteTool(tool)) return null;
+  // dispatch hooks — skip the generic mcp_call to avoid double-logging. Same
+  // for create_pending_action (covered by pending_action_created); the
+  // read-shaped list/get pending tools keep normal mcp_call rows.
+  if (tool && (isWriteTool(tool) || tool === "create_pending_action")) return null;
   const ok = response === null ? true : !res?.error && !res?.result?.isError;
   return { event: "mcp_call", detail: { method, ...(tool ? { tool } : {}), ok } };
 }
