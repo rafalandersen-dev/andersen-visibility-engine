@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { useT } from "@/i18n";
 import { getConsentRequestFn, approveOAuthConsentFn, denyOAuthConsentFn, type ConsentView } from "@/lib/oauth.functions";
-import { Bot, Check, Loader2, Lock, PenLine, ShieldCheck, X } from "lucide-react";
+import { Bot, Check, Lightbulb, Loader2, Lock, PenLine, ShieldCheck, X } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/app/connect")({
@@ -103,16 +103,25 @@ function ConnectPage() {
             </div>
 
             {(() => {
-              const readScopes = (view.scopes ?? []).filter((s) => s.kind !== "write");
+              const readScopes = (view.scopes ?? []).filter((s) => s.kind !== "write" && s.kind !== "propose");
               const writeScopes = (view.scopes ?? []).filter((s) => s.kind === "write");
+              const proposeScopes = (view.scopes ?? []).filter((s) => s.kind === "propose");
               const hasWrite = writeScopes.length > 0;
+              const hasPropose = proposeScopes.length > 0;
               // With write scopes granted, "cannot create/edit" would be false.
-              const cannotKeys = hasWrite ? CANNOT_KEYS.filter((k) => k !== "connect.cannot.create" && k !== "connect.cannot.edit") : CANNOT_KEYS;
+              // Propose alone keeps the full list: proposals create nothing directly.
+              let cannotKeys = hasWrite ? CANNOT_KEYS.filter((k) => k !== "connect.cannot.create" && k !== "connect.cannot.edit") : CANNOT_KEYS;
+              // Proposals are never self-approving — true for mixed grants too.
+              if (hasPropose) cannotKeys = ["connect.cannot.approve", ...cannotKeys];
               return (
                 <>
                   {hasWrite ? (
                     <div className="mt-5 inline-flex items-center gap-1.5 rounded-full border border-amber-600/40 bg-amber-500/5 px-2.5 py-1 text-xs text-amber-600">
                       <PenLine className="h-3.5 w-3.5" /> {t("connect.write.badge")}
+                    </div>
+                  ) : hasPropose ? (
+                    <div className="mt-5 inline-flex items-center gap-1.5 rounded-full border border-amber-600/40 bg-amber-500/5 px-2.5 py-1 text-xs text-amber-600">
+                      <Lightbulb className="h-3.5 w-3.5" /> {t("connect.propose.badge")}
                     </div>
                   ) : (
                     <div className="mt-5 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/5 px-2.5 py-1 text-xs text-emerald-600">
@@ -146,6 +155,21 @@ function ConnectPage() {
                         ))}
                       </ul>
                       <p className="mt-2 text-xs text-amber-700/90">{t("connect.write.warning")}</p>
+                    </div>
+                  ) : null}
+
+                  {hasPropose ? (
+                    <div className="mt-4 rounded-md border border-amber-600/40 bg-amber-500/5 p-3">
+                      <div className="text-[10px] uppercase tracking-[0.22em] text-amber-700">{t("connect.propose.title")}</div>
+                      <ul className="mt-2 space-y-1.5">
+                        {proposeScopes.map((s) => (
+                          <li key={s.scope} className="flex items-start gap-2 text-sm">
+                            <Lightbulb className="mt-0.5 h-4 w-4 text-amber-600 shrink-0" />
+                            <span>{s.label}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="mt-2 text-xs text-amber-700/90">{t("connect.propose.warning")}</p>
                     </div>
                   ) : null}
 

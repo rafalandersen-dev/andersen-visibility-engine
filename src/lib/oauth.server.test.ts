@@ -912,9 +912,9 @@ describe("isWriteToolsEnabled", () => {
 
 describe("issuableScopes / write scope model", () => {
   const WRITES = ["milo.projects.write", "milo.content.write", "milo.tasks.write"];
-  it("flag off → exactly reads + offline_access; flag on → plus the 3 write scopes", () => {
+  it("flag off → exactly reads + offline_access; flag on → plus the 3 write scopes and the propose scope (1B)", () => {
     expect(issuableScopes(false)).toEqual(ISSUABLE_SCOPES);
-    expect(issuableScopes(true)).toEqual([...ISSUABLE_SCOPES, ...WRITES]);
+    expect(issuableScopes(true)).toEqual([...ISSUABLE_SCOPES, ...WRITES, "milo.actions.propose"]);
     expect(MCP_WRITE_SCOPES).toEqual(WRITES);
   });
   it("the publish scope is reserved and in NEITHER set; no umbrella milo.write anywhere", () => {

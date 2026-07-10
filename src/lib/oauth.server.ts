@@ -8,6 +8,7 @@
  * Endpoints referenced here are PLACEHOLDERS advertised in metadata; they are
  * not implemented in Phase 1.
  */
+import { MILO_ACTIONS_PROPOSE_SCOPE } from "./pending-actions";
 
 export const OAUTH_BASE_URL = "https://milogrowth.com";
 export const MCP_RESOURCE_URL = `${OAUTH_BASE_URL}/api/mcp`;
@@ -49,12 +50,21 @@ export const OAUTH_ISSUABLE_SCOPES = [...OAUTH_SCOPES, OFFLINE_ACCESS_SCOPE] as 
  */
 export const MCP_WRITE_SCOPES = ["milo.projects.write", "milo.content.write", "milo.tasks.write"] as const;
 
+/**
+ * Phase 1B propose scope — "Claude may PROPOSE, not apply". Weaker than the
+ * write scopes (proposals only land after owner approval in the Milo UI) but
+ * write-CLASS in gating: explicit-only, issuable only under
+ * MCP_WRITE_TOOLS_ENABLED (decision §11.1 — no separate flag), and never
+ * advertised in PRM/AS metadata.
+ */
+export const MCP_PROPOSE_SCOPE = MILO_ACTIONS_PROPOSE_SCOPE;
+
 /** Reserved for Phase 1C (approved publishing). NON-ISSUABLE regardless of flags. */
 export const MCP_PUBLISH_SCOPE = "milo.content.publish";
 
 /** The scopes the AS may grant, given the write flag. Publish is never included. */
 export function issuableScopes(writeEnabled: boolean): string[] {
-  return writeEnabled ? [...OAUTH_ISSUABLE_SCOPES, ...MCP_WRITE_SCOPES] : [...OAUTH_ISSUABLE_SCOPES];
+  return writeEnabled ? [...OAUTH_ISSUABLE_SCOPES, ...MCP_WRITE_SCOPES, MCP_PROPOSE_SCOPE] : [...OAUTH_ISSUABLE_SCOPES];
 }
 
 /** Whether the OAuth connector is enabled. Off ⇒ production behaves as today. */
@@ -1291,13 +1301,15 @@ export const SCOPE_LABELS: Record<string, string> = {
   "milo.projects.write": "Create and update project details and recommendations",
   "milo.content.write": "Create and edit content drafts (never publishes)",
   "milo.tasks.write": "Create and update growth tasks",
+  "milo.actions.propose": "Suggest changes for your approval (never applies them itself)",
 };
 
-export type ScopeKind = "read" | "offline" | "write";
+export type ScopeKind = "read" | "offline" | "write" | "propose";
 
 /** Classify a scope for consent/connected-apps rendering. Unknown → read (display-only). */
 export function scopeKind(scope: string): ScopeKind {
   if (scope === OFFLINE_ACCESS_SCOPE) return "offline";
+  if (scope === MCP_PROPOSE_SCOPE) return "propose";
   if ((MCP_WRITE_SCOPES as readonly string[]).includes(scope) || scope === MCP_PUBLISH_SCOPE) return "write";
   return "read";
 }

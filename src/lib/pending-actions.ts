@@ -208,10 +208,10 @@ export function findPendingActionByRequestId(actions: readonly PendingAction[], 
  */
 export function createPendingAction(
   existing: readonly PendingAction[],
-  input: CreatePendingActionInput & Record<string, unknown>,
+  input: CreatePendingActionInput,
   deps: { id: string; nowIso: string },
 ): { actions: PendingAction[]; action: PendingAction; deduped: boolean } {
-  for (const k of Object.keys(input)) {
+  for (const k of Object.keys(input as unknown as Record<string, unknown>)) {
     if (!CREATE_INPUT_FIELDS.includes(k)) throw new PendingActionValidationError(k, "unknown field");
   }
   if (!(PENDING_ACTION_TYPES as readonly string[]).includes(input.type)) {

@@ -19,7 +19,7 @@ export interface ConsentView {
   ok: boolean;
   reason?: string;
   clientName?: string;
-  scopes?: { scope: string; label: string; kind: "read" | "offline" | "write" }[];
+  scopes?: { scope: string; label: string; kind: "read" | "offline" | "write" | "propose" }[];
 }
 
 const reqInput = (input: unknown) => z.object({ req: z.string() }).parse(input);
