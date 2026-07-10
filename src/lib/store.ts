@@ -66,6 +66,13 @@ interface State {
   hydrated: boolean;
   /** The user whose workspace is currently in memory (null = signed out). */
   userId: string | null;
+  /**
+   * Optimistic-concurrency counter for the user's workspaces row. Saves ECHO
+   * this value; the DB trigger (workspaces_rev_guard) verifies the echo and
+   * increments. NEVER stored inside the `data` JSONB blob, and rev-only local
+   * updates bypass setState/scheduleSave so they can't trigger another save.
+   */
+  rev: number;
 }
 
 const emptyState: State = {
@@ -83,6 +90,7 @@ const emptyState: State = {
   activeProjectId: "",
   hydrated: false,
   userId: null,
+  rev: 0,
 };
 
 // SSR / first-render snapshot uses the seed demo so public-side prerender and
@@ -102,6 +110,7 @@ const ssrSnapshot: State = {
   activeProjectId: seedProjects[0]?.id ?? "",
   hydrated: false,
   userId: null,
+  rev: 0,
 };
 
 let state: State = ssrSnapshot;
@@ -113,6 +122,64 @@ const notify = () => listeners.forEach((l) => l());
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 const SAVE_DEBOUNCE_MS = 600;
 
+/** True for the workspaces_rev_guard trigger's optimistic-concurrency conflict. */
+function isRevConflict(error: { code?: string; message?: string } | null): boolean {
+  return !!error && (error.code === "40001" || /workspace_conflict/i.test(error.message ?? ""));
+}
+
+/** Store a DB-acknowledged rev locally. Bypasses setState/scheduleSave on purpose. */
+function applyRev(rev: number) {
+  state = { ...state, rev };
+  notify();
+}
+
+/** Build a full hydrated State from a fetched workspaces row (hydrate + conflict rehydrate). */
+function stateFromRow(userId: string, d: Partial<State>, rev: number): State {
+  return {
+    projects: d.projects ?? [],
+    services: d.services ?? [],
+    opportunities: d.opportunities ?? [],
+    calendar: d.calendar ?? [],
+    content: d.content ?? [],
+    audits: d.audits ?? [],
+    competitorAnalyses: d.competitorAnalyses ?? [],
+    authorityAnalyses: d.authorityAnalyses ?? [],
+    aiVisibilityAnalyses: d.aiVisibilityAnalyses ?? [],
+    authorityOpportunities: d.authorityOpportunities ?? [],
+    aiEvaluationRuns: d.aiEvaluationRuns ?? [],
+    billingProfile: d.billingProfile,
+    subscription: d.subscription,
+    activeProjectId: d.activeProjectId ?? (d.projects?.[0]?.id ?? ""),
+    hydrated: true,
+    userId,
+    rev,
+  };
+}
+
+/**
+ * Conflict recovery (v1: server wins). Another writer bumped the row since we
+ * last read it — reload the server's version, tell the user, and DO NOT save:
+ * the next real edit echoes the fresh rev. Never throws.
+ */
+async function rehydrateAfterConflict(userId: string): Promise<void> {
+  try {
+    const { data: row } = await supabase
+      .from("workspaces")
+      .select("data,rev")
+      .eq("user_id", userId)
+      .maybeSingle();
+    const r = row as { data?: unknown; rev?: number } | null;
+    if (r?.data && typeof r.data === "object" && state.userId === userId) {
+      state = stateFromRow(userId, r.data as Partial<State>, Number(r.rev ?? 0));
+      notify();
+    }
+    const { toast } = await import("sonner");
+    toast.info("Your workspace was updated elsewhere — reloaded the latest version.");
+  } catch (e) {
+    console.warn("[workspace] conflict rehydrate failed", e);
+  }
+}
+
 export async function saveWorkspaceNow(): Promise<void> {
   if (typeof window === "undefined") return;
   if (!state.hydrated || !state.userId) return;
@@ -121,6 +188,9 @@ export async function saveWorkspaceNow(): Promise<void> {
     saveTimer = null;
   }
   const userId = state.userId;
+  // Echo the rev this snapshot is based on; the DB trigger does the increment.
+  const revAtSnapshot = state.rev;
+  // Enumerated persisted fields — rev is deliberately NOT part of `data`.
   const snapshot = {
     projects: state.projects,
     services: state.services,
@@ -137,13 +207,23 @@ export async function saveWorkspaceNow(): Promise<void> {
     subscription: state.subscription,
     activeProjectId: state.activeProjectId,
   };
-  const { error } = await supabase
+  const { data: saved, error } = await supabase
     .from("workspaces")
     .upsert(
-      { user_id: userId, data: snapshot as never },
+      { user_id: userId, data: snapshot, rev: revAtSnapshot } as never,
       { onConflict: "user_id" },
-    );
-  if (error) throw error;
+    )
+    .select("rev")
+    .single();
+  if (error) {
+    if (isRevConflict(error)) {
+      await rehydrateAfterConflict(userId);
+      return; // handled: server won; callers see a normal (non-throwing) save
+    }
+    throw error; // project-cap + all other errors keep their existing paths
+  }
+  const newRev = Number((saved as { rev?: number } | null)?.rev ?? revAtSnapshot + 1);
+  if (state.userId === userId) applyRev(newRev);
 }
 
 function scheduleSave() {
@@ -196,34 +276,32 @@ export async function hydrateForUser(userId: string): Promise<void> {
   try {
     const { data: row, error } = await supabase
       .from("workspaces")
-      .select("data")
+      .select("data,rev")
       .eq("user_id", userId)
       .maybeSingle();
     if (error) throw error;
 
-    if (row?.data && typeof row.data === "object") {
-      const d = row.data as Partial<State>;
-      state = {
-        projects: d.projects ?? [],
-        services: d.services ?? [],
-        opportunities: d.opportunities ?? [],
-        calendar: d.calendar ?? [],
-        content: d.content ?? [],
-        audits: d.audits ?? [],
-        competitorAnalyses: d.competitorAnalyses ?? [],
-        authorityAnalyses: d.authorityAnalyses ?? [],
-        aiVisibilityAnalyses: d.aiVisibilityAnalyses ?? [],
-        authorityOpportunities: d.authorityOpportunities ?? [],
-        aiEvaluationRuns: d.aiEvaluationRuns ?? [],
-        billingProfile: d.billingProfile,
-        subscription: d.subscription,
-        activeProjectId: d.activeProjectId ?? (d.projects?.[0]?.id ?? ""),
-        hydrated: true,
-        userId,
-      };
+    const r = row as { data?: unknown; rev?: number } | null;
+    if (r?.data && typeof r.data === "object") {
+      state = stateFromRow(userId, r.data as Partial<State>, Number(r.rev ?? 0));
     } else {
       // First-run: authenticated users start with an EMPTY workspace.
       // Demo seed data is only used for the public landing preview (ssrSnapshot).
+      const { data: inserted } = await supabase
+        .from("workspaces")
+        .insert({
+          user_id: userId,
+          data: {
+            projects: [],
+            services: [],
+            opportunities: [],
+            calendar: [],
+            content: [],
+            activeProjectId: "",
+          } as never,
+        })
+        .select("rev")
+        .single();
       state = {
         projects: [],
         services: [],
@@ -239,19 +317,8 @@ export async function hydrateForUser(userId: string): Promise<void> {
         activeProjectId: "",
         hydrated: true,
         userId,
+        rev: Number((inserted as { rev?: number } | null)?.rev ?? 0),
       };
-      await supabase.from("workspaces").insert({
-        user_id: userId,
-        data: {
-          projects: [],
-          services: [],
-          opportunities: [],
-          calendar: [],
-          content: [],
-          activeProjectId: "",
-        } as never,
-      });
-
     }
   } catch (e) {
     console.warn("[workspace] hydrate failed, falling back to empty", e);
@@ -270,6 +337,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
       activeProjectId: "",
       hydrated: true,
       userId,
+      rev: 0,
     };
   }
   notify();
