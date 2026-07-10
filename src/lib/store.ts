@@ -30,6 +30,7 @@ import type {
   AiEvaluationRun,
   AiVisibilityAnalysisResult,
   GrowthTask,
+  PendingAction,
   PublishingConnectorType,
   WordPressPublishingSettings,
   ShopifyPublishingSettings,
@@ -63,6 +64,10 @@ interface State {
    * MUST stay in the persisted snapshot: server-written tasks would otherwise
    * be dropped by the enumerated client save. */
   tasks: GrowthTask[];
+  /** Phase 1B — proposals created via the Claude connector, resolved in the UI.
+   * MUST stay in the persisted snapshot: server-written proposals would
+   * otherwise be dropped by the enumerated client save. */
+  pendingActions: PendingAction[];
   /** Billing v1 — workspace-level billing profile + subscription (optional). */
   billingProfile?: BillingProfile;
   subscription?: SubscriptionPlan;
@@ -93,6 +98,7 @@ const emptyState: State = {
   authorityOpportunities: [],
   aiEvaluationRuns: [],
   tasks: [],
+  pendingActions: [],
   activeProjectId: "",
   hydrated: false,
   userId: null,
@@ -114,6 +120,7 @@ const ssrSnapshot: State = {
   authorityOpportunities: [],
   aiEvaluationRuns: [],
   tasks: [],
+  pendingActions: [],
   activeProjectId: seedProjects[0]?.id ?? "",
   hydrated: false,
   userId: null,
@@ -155,6 +162,7 @@ function stateFromRow(userId: string, d: Partial<State>, rev: number): State {
     authorityOpportunities: d.authorityOpportunities ?? [],
     aiEvaluationRuns: d.aiEvaluationRuns ?? [],
     tasks: d.tasks ?? [],
+    pendingActions: d.pendingActions ?? [],
     billingProfile: d.billingProfile,
     subscription: d.subscription,
     activeProjectId: d.activeProjectId ?? (d.projects?.[0]?.id ?? ""),
@@ -212,6 +220,7 @@ export async function saveWorkspaceNow(): Promise<void> {
     authorityOpportunities: state.authorityOpportunities,
     aiEvaluationRuns: state.aiEvaluationRuns,
     tasks: state.tasks,
+    pendingActions: state.pendingActions,
     billingProfile: state.billingProfile,
     subscription: state.subscription,
     activeProjectId: state.activeProjectId,
@@ -324,6 +333,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
         authorityOpportunities: [],
         aiEvaluationRuns: [],
         tasks: [],
+  pendingActions: [],
         activeProjectId: "",
         hydrated: true,
         userId,
@@ -345,6 +355,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
       authorityOpportunities: [],
       aiEvaluationRuns: [],
       tasks: [],
+  pendingActions: [],
       activeProjectId: "",
       hydrated: true,
       userId,

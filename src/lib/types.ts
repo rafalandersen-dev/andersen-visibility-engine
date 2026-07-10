@@ -368,6 +368,57 @@ export interface GrowthTask {
   updatedAt: string;
 }
 
+/** Phase 1B — proposal types Claude may create. First implementation ships exactly one. */
+export type PendingActionType = "opportunity_update_proposal";
+
+export type PendingActionStatus = "pending" | "approved" | "rejected" | "applied" | "expired";
+
+/** Derived server-side from the action type — never accepted from a caller. */
+export type PendingActionRiskLevel = "low" | "medium" | "high";
+
+/** Set when a pending action leaves "pending" (approve/reject/apply/expire). */
+export interface PendingActionResolution {
+  resolvedAt: string;
+  /** Only the workspace owner (via the Milo UI) resolves in Phase 1B. */
+  resolvedBy: "owner";
+  note?: string;
+  appliedEntityIds?: string[];
+  appliedAtRev?: number;
+  /** Machine reason when an approved action failed apply-time validation. */
+  error?: string;
+}
+
+/**
+ * Phase 1B — a structured change Claude proposed for owner approval. Lives in
+ * the workspace `pendingActions[]` array; approval/apply is a Milo UI action,
+ * never an MCP one. Payloads are strictly whitelisted per type.
+ */
+export interface PendingAction {
+  id: string;
+  type: PendingActionType;
+  projectId: string;
+  title: string;
+  summary: string;
+  status: PendingActionStatus;
+  source: "claude";
+  createdAt: string;
+  updatedAt: string;
+  /** Lazy expiry horizon (no cron) — checked at read/resolve time. */
+  expiresAt?: string;
+  /** Idempotency key for connector-created proposals. */
+  requestId?: string;
+  /** OAuth client_id (public identifier) for UI attribution. */
+  proposedByClientId?: string;
+  /** The scope that governs proposing this type (informational + enforced at create). */
+  requiredScope: string;
+  /** Type-specific, strictly validated, ≤16KB serialized. */
+  payload: Record<string, unknown>;
+  /** Human-readable markdown rendered in the UI before approval (≤4KB). */
+  preview: string;
+  riskLevel: PendingActionRiskLevel;
+  resolution?: PendingActionResolution;
+}
+
 export interface CalendarItem {
   id: string;
   projectId: string;
