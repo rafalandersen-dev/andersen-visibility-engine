@@ -398,6 +398,27 @@ export type Database = {
         }
         Relationships: []
       }
+      oauth_rate_limits: {
+        Row: {
+          bucket: string
+          count: number
+          key: string
+          window_start: string
+        }
+        Insert: {
+          bucket: string
+          count?: number
+          key: string
+          window_start: string
+        }
+        Update: {
+          bucket?: string
+          count?: number
+          key?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       oauth_tokens: {
         Row: {
           access_expires_at: string
@@ -412,6 +433,7 @@ export type Database = {
           refresh_token_hash: string | null
           resource: string | null
           revoked_at: string | null
+          rotated_at: string | null
           scope: string
           user_id: string
         }
@@ -428,6 +450,7 @@ export type Database = {
           refresh_token_hash?: string | null
           resource?: string | null
           revoked_at?: string | null
+          rotated_at?: string | null
           scope?: string
           user_id: string
         }
@@ -444,6 +467,7 @@ export type Database = {
           refresh_token_hash?: string | null
           resource?: string | null
           revoked_at?: string | null
+          rotated_at?: string | null
           scope?: string
           user_id?: string
         }
@@ -520,6 +544,7 @@ export type Database = {
           created_at: string
           data: Json
           id: string
+          rev: number
           updated_at: string
           user_id: string
         }
@@ -527,6 +552,7 @@ export type Database = {
           created_at?: string
           data?: Json
           id?: string
+          rev?: number
           updated_at?: string
           user_id: string
         }
@@ -534,6 +560,7 @@ export type Database = {
           created_at?: string
           data?: Json
           id?: string
+          rev?: number
           updated_at?: string
           user_id?: string
         }
@@ -544,6 +571,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      bump_rate_limit: {
+        Args: { p_bucket: string; p_key: string; p_window_start: string }
+        Returns: number
+      }
+      cleanup_rate_limits: { Args: { p_before: string }; Returns: undefined }
+      consume_refresh_token: {
+        Args: { p_now: string; p_refresh_hash: string }
+        Returns: boolean
+      }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
