@@ -1,10 +1,10 @@
 /**
- * Phase 1C.2 — server-side apply of project_setup_proposal over an in-memory
- * workspace row. The type is still UNCREATABLE (1C.1 gate), so tests seed
- * pending actions directly — exactly the stored shape 1C.3 will mint. Covers:
- * atomic apply (fields + services + opportunities in one rev bump), whitelist
- * merge, defaults, dedupe/caps/overflow, fail-closed paths, retry purity, and
- * audit metadata redaction.
+ * Phase 1C.2/1C.3 — server-side create + apply of project_setup_proposal over
+ * an in-memory workspace row. Apply tests seed pending actions directly (the
+ * exact stored shape the create path mints). Covers: atomic apply (fields +
+ * services + opportunities in one rev bump), whitelist merge, defaults,
+ * dedupe/caps/overflow, fail-closed paths, retry purity, and audit metadata
+ * redaction.
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import type { Opportunity, PendingAction, Project, ServiceItem } from "./types";
@@ -41,6 +41,7 @@ import {
   resolvePendingActionForWorkspace,
   buildPendingActionCreatedAudit,
   buildPendingActionResolutionAudit,
+  PendingActionNotFoundError,
   PendingActionResolveError,
 } from "./pending-actions.server";
 import { MILO_ACTIONS_PROPOSE_SCOPE, PENDING_ACTION_TTL_MS } from "./pending-actions";
@@ -147,11 +148,26 @@ beforeEach(() => {
   h.retryOnce = false;
 });
 
-describe("create path stays dark in 1C.2", () => {
-  it("createPendingActionForWorkspace rejects the type (1C.1 gate) without writing", async () => {
+describe("internal create path (registered in 1C.3)", () => {
+  it("creates a pending project_setup_proposal when the target project exists", async () => {
+    const out = await createPendingActionForWorkspace(
+      USER,
+      { type: "project_setup_proposal", projectId: "synergy", title: "t", summary: "s", payload: setupPayload(), preview: "p" },
+      { id: "created1", nowIso: T0 },
+    );
+    expect(out.deduped).toBe(false);
+    expect(out.action.status).toBe("pending");
+    expect(h.row!.data.pendingActions).toHaveLength(1);
+  });
+
+  it("unknown target project → uniform not-found, nothing persisted", async () => {
     await expect(
-      createPendingActionForWorkspace(USER, { type: "project_setup_proposal", projectId: "synergy", title: "t", summary: "s", payload: setupPayload(), preview: "p" }, { id: "nope", nowIso: T0 }),
-    ).rejects.toThrowError(/unknown pending action type/);
+      createPendingActionForWorkspace(
+        USER,
+        { type: "project_setup_proposal", projectId: "ghost", title: "t", summary: "s", payload: setupPayload(), preview: "p" },
+        { id: "nope", nowIso: T0 },
+      ),
+    ).rejects.toThrowError(PendingActionNotFoundError);
     expect(h.row!.data.pendingActions).toHaveLength(0);
   });
 });

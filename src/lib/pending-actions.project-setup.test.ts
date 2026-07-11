@@ -1,8 +1,8 @@
 /**
- * Phase 1C.1 — project_setup_proposal schema + validator. Pure tests: fixed
- * clocks and ids, no mocks, no DB, no MCP. Also proves the type is DARK in
- * 1C.1: it has a validator but is NOT creatable (createPendingAction rejects
- * it), so no runtime path — flag on or off — can mint one until 1C.2/1C.3.
+ * Phase 1C.1/1C.3 — project_setup_proposal schema + validator. Pure tests:
+ * fixed clocks and ids, no mocks, no DB, no MCP. The create gate registration
+ * (1C.3) is asserted here; MCP-layer gating lives in mcp.pending-actions
+ * tests, and the flag/scope double-gate keeps everything dark in production.
  */
 import { describe, it, expect } from "vitest";
 import {
@@ -71,26 +71,31 @@ const expectInvalid = (payload: unknown, fieldContains: string) => {
   throw new Error(`expected validation to fail on ${fieldContains}`);
 };
 
-describe("1C.1 darkness — schema exists but the type is not creatable", () => {
-  it("PENDING_ACTION_TYPES (the create gate) still contains only opportunity_update_proposal", () => {
-    expect([...PENDING_ACTION_TYPES]).toEqual(["opportunity_update_proposal"]);
+describe("1C.3 registration — the type is creatable through the pure gate", () => {
+  it("PENDING_ACTION_TYPES (the create gate) lists both proposal types", () => {
+    expect([...PENDING_ACTION_TYPES]).toEqual(["opportunity_update_proposal", "project_setup_proposal"]);
   });
 
-  it("createPendingAction rejects project_setup_proposal as an unknown type, even with a valid payload", () => {
-    expect(() =>
-      createPendingAction(
-        [],
-        {
-          type: "project_setup_proposal",
-          projectId: "synergy",
-          title: "Set up Synergy Massage",
-          summary: "Fill in the project profile from the website.",
-          payload: validPayload(),
-          preview: "- businessName → Synergy Massage",
-        },
-        { id: "pa1", nowIso: T0 },
-      ),
-    ).toThrowError(/unknown pending action type/);
+  it("createPendingAction mints a pending project_setup_proposal with derived risk and propose scope", () => {
+    const { action, deduped } = createPendingAction(
+      [],
+      {
+        type: "project_setup_proposal",
+        projectId: "synergy",
+        title: "Set up Synergy Massage",
+        summary: "Fill in the project profile from the website.",
+        payload: validPayload(),
+        preview: "- businessName → Synergy Massage",
+        requestId: "setup-req-1",
+      },
+      { id: "pa1", nowIso: T0 },
+    );
+    expect(deduped).toBe(false);
+    expect(action.type).toBe("project_setup_proposal");
+    expect(action.status).toBe("pending");
+    expect(action.riskLevel).toBe("medium");
+    expect(action.requiredScope).toBe("milo.actions.propose");
+    expect(action.source).toBe("claude");
   });
 
   it("derives medium risk for project_setup_proposal (decision §12.7)", () => {

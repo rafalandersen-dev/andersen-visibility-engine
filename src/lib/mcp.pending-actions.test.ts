@@ -342,34 +342,220 @@ describe("audit", () => {
   });
 });
 
-describe("1C.1 darkness — project_setup_proposal is not creatable via MCP", () => {
+describe("1C.3 — project_setup_proposal via MCP", () => {
   const g = () => grantOf([...READS, PROPOSE], true, "client_A");
 
-  it("create_pending_action rejects the type with -32010 even flag-on with the propose scope, and audits a validation failure", async () => {
-    const res = await call(g(), "create_pending_action", {
-      type: "project_setup_proposal",
-      projectId: "synergy",
-      title: "Set up Synergy Massage",
-      summary: "Fill in the project profile from the website.",
-      payload: { projectFields: { businessName: "leakXSetupName" } },
-      preview: "- businessName → …",
-      requestId: "setup-dark-req",
+  const setupArgs = (payload: Record<string, unknown>, requestId = "setup-req-1"): Record<string, unknown> => ({
+    type: "project_setup_proposal",
+    projectId: "synergy",
+    title: "Set up Synergy Massage",
+    summary: "Fill the project profile from website research.",
+    payload,
+    requestId,
+  });
+  const compositePayload = () => ({
+    projectFields: { businessName: "LeakXBusiness", description: "LeakXDescription", competitorUrls: ["https://leakx-competitor.example"] },
+    services: [{ name: "LeakXService", kind: "Service", priority: "High" }, { name: "Gift cards", kind: "Product" }],
+    opportunities: [{ title: "LeakXOpportunity", recommendedCta: "LeakXCta", priority: "High" }],
+  });
+  const previewOf = async (actionId: string): Promise<string> => {
+    const res = await call(g(), "get_pending_action", { actionId });
+    return (payloadOf(res) as { preview: string }).preview;
+  };
+  const createOk = async (args: Record<string, unknown>) => {
+    const res = await call(g(), "create_pending_action", args);
+    expect(errOf(res), JSON.stringify(errOf(res))).toBeUndefined();
+    return payloadOf(res) as { actionId: string; type: string; status: string; riskLevel: string; deduped: boolean; rev: number };
+  };
+
+  describe("gating (unchanged double-gate)", () => {
+    it("flag off: tools absent and setup create → -32602 even with the propose scope", async () => {
+      const dark = grantOf([...READS, PROPOSE], false, "client_A");
+      expect((await listTools(dark)).every((t) => !PENDING_TOOL_NAMES.includes(t.name as never))).toBe(true);
+      const res = await call(dark, "create_pending_action", setupArgs(compositePayload()));
+      expect(errOf(res)?.code).toBe(-32602);
+      expect((h.row!.data.pendingActions as unknown[]).length).toBe(0);
     });
-    expect(errOf(res)?.code).toBe(-32010);
-    expect(errOf(res)?.message).toContain("unknown pending action type");
-    const failure = h.events.find((e) => e.event === "pending_action_created");
-    expect(failure?.detail.ok).toBe(false);
-    expect(failure?.detail.error).toBe("validation");
-    expect(JSON.stringify(h.events)).not.toContain("leakXSetupName");
-    // Nothing persisted.
-    expect((h.row!.data.pendingActions as unknown[]).length).toBe(0);
+
+    it("flag on without the propose scope: -32002; dev (null-scope) token: -32002", async () => {
+      expect(errOf(await call(grantOf(READS, true, "client_A"), "create_pending_action", setupArgs(compositePayload())))?.code).toBe(-32002);
+      expect(errOf(await call(grantOf(null, true, "client_A"), "create_pending_action", setupArgs(compositePayload())))?.code).toBe(-32002);
+      expect((h.row!.data.pendingActions as unknown[]).length).toBe(0);
+    });
+
+    it("the advertised schema now enumerates both types; the payload oneOf mirrors the validator", async () => {
+      const tools = (await listTools(g())) as {
+        name: string;
+        inputSchema?: { properties?: { type?: { enum?: string[] }; payload?: { oneOf?: { properties?: Record<string, unknown> }[] } } };
+      }[];
+      const create = tools.find((t) => t.name === "create_pending_action");
+      expect(create?.inputSchema?.properties?.type?.enum).toEqual(["opportunity_update_proposal", "project_setup_proposal"]);
+      const branches = create?.inputSchema?.properties?.payload?.oneOf ?? [];
+      expect(branches).toHaveLength(2);
+      const setupBranch = branches[1]!;
+      expect(Object.keys(setupBranch.properties ?? {})).toEqual(["projectFields", "services", "opportunities"]);
+      // Excluded fields are not advertised anywhere in the setup branch.
+      const flat = JSON.stringify(setupBranch).toLowerCase();
+      for (const banned of ["websiteurl", "setupcomplete", "market", "currency", "applanguage", "publish", "connector", "gsc", "billing", "secret"]) {
+        expect(flat, `schema must not advertise ${banned}`).not.toContain(banned);
+      }
+      const listRes = await call(g(), "list_pending_actions", { type: "project_setup_proposal" });
+      expect(errOf(listRes)).toBeUndefined();
+    });
   });
 
-  it("the advertised create schema and list filter still enumerate only opportunity_update_proposal", async () => {
-    const tools = (await listTools(g())) as { name: string; inputSchema?: { properties?: { type?: { enum?: string[] } } } }[];
-    const create = tools.find((t) => t.name === "create_pending_action");
-    expect(create?.inputSchema?.properties?.type?.enum).toEqual(["opportunity_update_proposal"]);
-    const res = await call(g(), "list_pending_actions", { type: "project_setup_proposal" });
-    expect(errOf(res)?.code).toBe(-32010);
+  describe("creation", () => {
+    it("fields-only, services-only, opportunities-only and composite payloads all create pending actions", async () => {
+      const shapes: Record<string, unknown>[] = [
+        { projectFields: { businessName: "Fields only" } },
+        { services: [{ name: "Solo service", kind: "Service" }] },
+        { opportunities: [{ title: "Solo opportunity" }] },
+        compositePayload(),
+      ];
+      for (const [i, payload] of shapes.entries()) {
+        const out = await createOk(setupArgs(payload, `setup-shape-${i}`));
+        expect(out.type).toBe("project_setup_proposal");
+        expect(out.status).toBe("pending");
+        expect(out.riskLevel).toBe("medium");
+        expect(out.deduped).toBe(false);
+      }
+      expect((h.row!.data.pendingActions as unknown[]).length).toBe(4);
+    });
+
+    it("verbatim requestId replay dedupes; a different requestId creates a distinct action", async () => {
+      const first = await createOk(setupArgs(compositePayload(), "setup-replay"));
+      const replay = await createOk(setupArgs(compositePayload(), "setup-replay"));
+      expect(replay.actionId).toBe(first.actionId);
+      expect(replay.deduped).toBe(true);
+      const other = await createOk(setupArgs(compositePayload(), "setup-other"));
+      expect(other.actionId).not.toBe(first.actionId);
+      expect((h.row!.data.pendingActions as unknown[]).length).toBe(2);
+    });
+
+    it("validation failures → -32010 with nothing persisted: excluded/nested-unknown fields, bad URLs, enums, bounds, caps, empty groups", async () => {
+      const bad: [Record<string, unknown>, string][] = [
+        [{ projectFields: { name: "x" } }, "excluded identity field name"],
+        [{ projectFields: { websiteUrl: "https://x.se" } }, "excluded identity field websiteUrl"],
+        [{ projectFields: { setupComplete: true } }, "excluded field setupComplete"],
+        [{ services: [{ name: "S", kind: "Service", price: 10 }] }, "nested unknown service key"],
+        [{ opportunities: [{ title: "T", publish: true }] }, "nested unknown opportunity key"],
+        [{ projectFields: { competitorUrls: ["http://insecure.se"] } }, "non-https URL"],
+        [{ projectFields: { competitorUrls: ["not a url"] } }, "malformed URL"],
+        [{ projectFields: { primaryLanguage: "German" } }, "invalid enum"],
+        [{ projectFields: { businessName: "x".repeat(201) } }, "bounds"],
+        [{ services: Array.from({ length: 11 }, (_, i) => ({ name: `S${i}`, kind: "Service" })) }, "array cap"],
+        [{}, "empty payload"],
+        [{ projectFields: {} }, "empty group"],
+        [{ opportunities: [] }, "empty array group"],
+      ];
+      for (const [payload, label] of bad) {
+        const res = await call(g(), "create_pending_action", setupArgs(payload, `bad-${label}`));
+        expect(errOf(res)?.code, label).toBe(-32010);
+      }
+      expect((h.row!.data.pendingActions as unknown[]).length).toBe(0);
+    });
+
+    it("unknown target project keeps the uniform -32011", async () => {
+      const res = await call(g(), "create_pending_action", { ...setupArgs(compositePayload()), projectId: "ghost" });
+      expect(errOf(res)?.code).toBe(-32011);
+      expect(errOf(res)?.message).toBe("Not found.");
+    });
+  });
+
+  describe("derived preview", () => {
+    it("contains all four section labels with counts, clipped values, and zero-count sections for omitted groups", async () => {
+      const { actionId } = await createOk(setupArgs({ projectFields: { businessName: "Synergy", description: "d".repeat(300) } }, "preview-sections"));
+      const preview = await previewOf(actionId);
+      expect(preview).toContain("Business profile (2 fields):");
+      expect(preview).toContain("Services to create (0):");
+      expect(preview).toContain("Opportunities to create (0):");
+      expect(preview).toContain("Competitors (0):");
+      expect(preview).toContain(`- description → ${"d".repeat(120)}…`); // deterministic 120-char clip
+      expect(preview).not.toContain("d".repeat(121));
+    });
+
+    it("renders competitor URLs as plain text (no constructed markdown links), flattens control characters, no payload dump", async () => {
+      const { actionId } = await createOk(
+        setupArgs(
+          {
+            projectFields: { businessName: "Line1\nLine2\tTabbed", competitorUrls: ["https://competitor.example/path"] },
+            services: [{ name: "Svc plain", kind: "Service", priority: "High" }],
+            opportunities: [{ title: "Opp title", contentType: "Guide" }],
+          },
+          "preview-safety",
+        ),
+      );
+      const preview = await previewOf(actionId);
+      expect(preview).toContain("- https://competitor.example/path");
+      expect(preview).not.toContain("[https://"); // never a markdown link we constructed
+      expect(preview).not.toContain("](http");
+      expect(preview).toContain("Line1 Line2 Tabbed"); // control chars flattened to spaces
+      expect(preview).toContain("- Svc plain (Service, High)");
+      expect(preview).toContain("- Opp title (Guide)");
+      expect(preview).not.toContain('"projectFields"'); // no raw payload dump
+    });
+
+    it("is deterministic across calls and stays under the 4KB cap for a maximal realistic payload", async () => {
+      const maximal = {
+        projectFields: {
+          businessName: "B".repeat(200),
+          businessType: "T".repeat(200),
+          description: "D".repeat(2000),
+          targetAudience: "A".repeat(500),
+          toneOfVoice: "V".repeat(500),
+          uniqueSellingPoints: "U".repeat(1000),
+          brandNotes: "N".repeat(1000),
+          mainLocation: "L".repeat(120),
+          targetLocations: Array.from({ length: 10 }, (_, i) => `Location-${i}-${"x".repeat(100)}`),
+          primaryLanguage: "Swedish",
+          additionalLanguages: ["English", "Polish", "Danish"],
+          competitorUrls: Array.from({ length: 5 }, (_, i) => `https://competitor-${i}.example/${"p".repeat(280)}`.slice(0, 300)),
+        },
+        services: Array.from({ length: 10 }, (_, i) => ({ name: `Service ${i} ${"s".repeat(100)}`, kind: "Service", priority: "High" })),
+        opportunities: Array.from({ length: 10 }, (_, i) => ({ title: `Opportunity ${i} ${"o".repeat(100)}`, contentType: "Guide", priority: "High" })),
+      };
+      const a = await createOk(setupArgs(maximal, "preview-max-a"));
+      const b = await createOk(setupArgs(maximal, "preview-max-b"));
+      const pa = await previewOf(a.actionId);
+      const pb = await previewOf(b.actionId);
+      expect(pa).toBe(pb); // pure + deterministic
+      expect(new TextEncoder().encode(pa).length).toBeLessThanOrEqual(4096);
+      expect(pa).toContain("Services to create (10):");
+      expect(pa).toContain("Competitors (5):");
+    });
+  });
+
+  describe("audit", () => {
+    it("success audit carries metadata only (counts + whitelisted fieldsChanged); planted values and preview text absent", async () => {
+      await createOk(setupArgs(compositePayload(), "audit-ok"));
+      const created = h.events.find((e) => e.event === "pending_action_created");
+      expect(created?.detail).toMatchObject({
+        type: "project_setup_proposal",
+        projectId: "synergy",
+        riskLevel: "medium",
+        requiredScope: PROPOSE,
+        fieldsChanged: ["businessName", "competitorUrls", "description"],
+        serviceCount: 2,
+        opportunityCount: 1,
+        competitorCount: 1,
+        requestId: "audit-ok",
+        ok: true,
+      });
+      const s = JSON.stringify(h.events);
+      for (const planted of ["LeakXBusiness", "LeakXDescription", "leakx-competitor", "LeakXService", "LeakXOpportunity", "LeakXCta", "Business profile ("]) {
+        expect(s, `audit must not contain "${planted}"`).not.toContain(planted);
+      }
+    });
+
+    it("failure audit intersects fieldsChanged with the setup whitelist (unknown keys never logged)", async () => {
+      const res = await call(g(), "create_pending_action", setupArgs({ projectFields: { seoXKey: "seoXVal", description: "ok" } }, "audit-fail"));
+      expect(errOf(res)?.code).toBe(-32010);
+      const failure = h.events.find((e) => e.event === "pending_action_created");
+      expect(failure?.detail.ok).toBe(false);
+      expect(failure?.detail.error).toBe("validation");
+      expect(failure?.detail.fieldsChanged).toEqual(["description"]);
+      expect(JSON.stringify(h.events)).not.toContain("seoXKey");
+      expect(JSON.stringify(h.events)).not.toContain("seoXVal");
+    });
   });
 });

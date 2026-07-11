@@ -31,12 +31,12 @@ export const MAX_PENDING_ACTION_PREVIEW_BYTES = 4 * 1024;
 export const PENDING_ACTION_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 
 /**
- * Types Claude may CREATE. Deliberately narrower than the PendingActionType
- * union while a type is schema-only: project_setup_proposal (1C.1) has a
- * validator below but stays uncreatable — createPendingAction rejects it —
- * until the apply branch (1C.2) and MCP exposure (1C.3) land.
+ * Types Claude may CREATE (the createPendingAction gate). Keep this list
+ * narrower than the PendingActionType union while a type is schema-only:
+ * project_setup_proposal registered here in 1C.3, once its apply branch
+ * (1C.2) existed — a listed type must be fully resolvable.
  */
-export const PENDING_ACTION_TYPES = ["opportunity_update_proposal"] as const;
+export const PENDING_ACTION_TYPES = ["opportunity_update_proposal", "project_setup_proposal"] as const;
 
 /** The ONLY fields an opportunity_update_proposal may touch. */
 export const OPPORTUNITY_UPDATE_FIELDS = ["title", "businessValue", "priority", "contentType", "recommendedCta"] as const;

@@ -708,9 +708,105 @@ async function dispatchWriteTool(
 // ---------------------------------------------------------------------------
 
 const PENDING_STATUSES = ["pending", "approved", "rejected", "applied", "expired"];
-const PENDING_TYPES = ["opportunity_update_proposal"];
+const PENDING_TYPES = ["opportunity_update_proposal", "project_setup_proposal"];
+const SEARCH_INTENTS = ["Informational", "Commercial", "Transactional", "Navigational"];
 const LIST_PENDING_DEFAULT_LIMIT = 50;
 const LIST_PENDING_MAX_LIMIT = 100;
+
+// Advertised payload shapes (guidance for callers — the runtime validator in
+// pending-actions.ts stays authoritative). Recursively additionalProperties:
+// false; excluded project fields (name, websiteUrl, setupComplete, market/
+// currency/appLanguage, publishing/connectors, GSC, billing, identity) are
+// simply not listed, so they are unknown fields at every layer.
+const OPPORTUNITY_UPDATE_PAYLOAD_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["opportunityId", "updates"],
+  description: "opportunity_update_proposal payload",
+  properties: {
+    opportunityId: { type: "string", description: "Target opportunity id (from list_opportunities)" },
+    updates: {
+      type: "object",
+      additionalProperties: false,
+      minProperties: 1,
+      properties: {
+        title: { type: "string", maxLength: 200 },
+        businessValue: { type: "string", maxLength: 2000 },
+        priority: { type: "string", enum: PRIORITIES },
+        contentType: { type: "string", enum: CONTENT_TYPES },
+        recommendedCta: { type: "string", maxLength: 200 },
+      },
+    },
+  },
+};
+
+const PROJECT_SETUP_PAYLOAD_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  minProperties: 1,
+  description: "project_setup_proposal payload — provide at least one non-empty group; total payload ≤16KB",
+  properties: {
+    projectFields: {
+      type: "object",
+      additionalProperties: false,
+      minProperties: 1,
+      description: "Whitelisted project profile fields to overwrite on approval",
+      properties: {
+        businessName: { type: "string", minLength: 1, maxLength: 200 },
+        businessType: { type: "string", minLength: 1, maxLength: 200 },
+        description: { type: "string", minLength: 1, maxLength: 2000, description: "Business summary" },
+        targetAudience: { type: "string", minLength: 1, maxLength: 500 },
+        toneOfVoice: { type: "string", minLength: 1, maxLength: 500 },
+        uniqueSellingPoints: { type: "string", minLength: 1, maxLength: 1000 },
+        brandNotes: { type: "string", minLength: 1, maxLength: 1000 },
+        mainLocation: { type: "string", minLength: 1, maxLength: 120 },
+        targetLocations: { type: "array", minItems: 1, maxItems: 10, items: { type: "string", minLength: 1, maxLength: 120 } },
+        primaryLanguage: { type: "string", enum: LANGUAGES },
+        additionalLanguages: { type: "array", minItems: 1, maxItems: 3, items: { type: "string", enum: LANGUAGES } },
+        competitorUrls: { type: "array", minItems: 1, maxItems: 5, items: { type: "string", maxLength: 300, pattern: "^https://" }, description: "https:// URLs only" },
+      },
+    },
+    services: {
+      type: "array",
+      minItems: 1,
+      maxItems: 10,
+      description: "Services/products to create for the project",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["name", "kind"],
+        properties: {
+          name: { type: "string", minLength: 1, maxLength: 120 },
+          kind: { type: "string", enum: ["Service", "Product"] },
+          description: { type: "string", maxLength: 400 },
+          targetAudience: { type: "string", maxLength: 200 },
+          locationRelevance: { type: "string", maxLength: 120 },
+          priority: { type: "string", enum: PRIORITIES },
+        },
+      },
+    },
+    opportunities: {
+      type: "array",
+      minItems: 1,
+      maxItems: 10,
+      description: "First content opportunities to create (keyword research lands here)",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["title"],
+        properties: {
+          title: { type: "string", minLength: 1, maxLength: 200 },
+          contentType: { type: "string", enum: CONTENT_TYPES },
+          searchIntent: { type: "string", enum: SEARCH_INTENTS },
+          targetAudience: { type: "string", maxLength: 200 },
+          businessValue: { type: "string", maxLength: 500 },
+          recommendedCta: { type: "string", maxLength: 200 },
+          priority: { type: "string", enum: PRIORITIES },
+        },
+      },
+    },
+  },
+};
 
 interface PendingToolDef {
   name: PendingToolName;
@@ -723,7 +819,8 @@ const PENDING_TOOLS: PendingToolDef[] = [
   {
     name: "create_pending_action",
     description:
-      "Propose a change for the Milo owner to review (write). Nothing is applied until the owner approves it in Milo. Confirm with the user before calling. Pass a stable requestId to make retries safe.",
+      "Propose a change for the Milo owner to review (write). Nothing is applied until the owner approves it in Milo — creating a proposal never means the change happened, so never report it as applied. Confirm with the user before calling. Pass a stable requestId to make retries safe. " +
+      "For project_setup_proposal: the project must already exist (this tool cannot create projects) — read it first with get_project_brief, research the business website yourself (Milo does not fetch or crawl websites), prefer filling empty fields over overwriting ones the owner already set, keep within the documented per-field and 16KB payload limits, and confirm the proposed setup with the user in chat before proposing.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -734,24 +831,8 @@ const PENDING_TOOLS: PendingToolDef[] = [
         title: { type: "string", minLength: 1, maxLength: 200 },
         summary: { type: "string", minLength: 1, maxLength: 500, description: "Plain-language description of what this proposal does" },
         payload: {
-          type: "object",
-          additionalProperties: false,
-          required: ["opportunityId", "updates"],
-          properties: {
-            opportunityId: { type: "string", description: "Target opportunity id (from list_opportunities)" },
-            updates: {
-              type: "object",
-              additionalProperties: false,
-              minProperties: 1,
-              properties: {
-                title: { type: "string", maxLength: 200 },
-                businessValue: { type: "string", maxLength: 2000 },
-                priority: { type: "string", enum: ["High", "Medium", "Low"] },
-                contentType: { type: "string", enum: ["Landing Page", "Service Page", "Blog Article", "Guide", "FAQ Page", "Comparison", "Location Page"] },
-                recommendedCta: { type: "string", maxLength: 200 },
-              },
-            },
-          },
+          description: "Type-specific payload (strictly re-validated server-side)",
+          oneOf: [OPPORTUNITY_UPDATE_PAYLOAD_SCHEMA, PROJECT_SETUP_PAYLOAD_SCHEMA],
         },
         preview: { type: "string", maxLength: 4096, description: "Optional markdown preview shown to the owner; derived from the payload when omitted" },
         requestId: { type: "string", maxLength: 100, description: "Idempotency key" },
@@ -787,8 +868,51 @@ const PENDING_TOOLS: PendingToolDef[] = [
   },
 ];
 
-/** Best-effort human preview when the caller omits one. Clipped to the 4KB cap. */
-function derivePendingPreview(payload: unknown): string {
+/** One safe, single-line, deterministically clipped preview value: control
+ * characters and line breaks collapse to spaces (values can never fabricate
+ * their own preview lines or markdown constructs across lines), then clip. */
+function previewValue(v: unknown, max = 120): string {
+  const raw = typeof v === "string" ? v : JSON.stringify(v);
+  // eslint-disable-next-line no-control-regex
+  const flat = String(raw ?? "")
+    .replace(/[\u0000-\u001f\u007f]+/g, " ")
+    .trim();
+  return flat.length > max ? `${flat.slice(0, max)}…` : flat;
+}
+
+/** Best-effort human preview when the caller omits one. Pure + deterministic,
+ * plain text (the inbox renders previews in a <pre> block — values are never
+ * turned into markdown links, fences or HTML), clipped to the 4KB cap. */
+function derivePendingPreview(type: unknown, payload: unknown): string {
+  if (type === "project_setup_proposal") {
+    const p = (payload ?? {}) as { projectFields?: Record<string, unknown>; services?: unknown[]; opportunities?: unknown[] };
+    const pf = p.projectFields && typeof p.projectFields === "object" && !Array.isArray(p.projectFields) ? p.projectFields : {};
+    const services = Array.isArray(p.services) ? p.services : [];
+    const opportunities = Array.isArray(p.opportunities) ? p.opportunities : [];
+    const competitors = Array.isArray(pf.competitorUrls) ? (pf.competitorUrls as unknown[]) : [];
+    const profileEntries = Object.entries(pf).filter(([k]) => k !== "competitorUrls");
+
+    const lines: string[] = ["Project setup proposal:", ""];
+    lines.push(`Business profile (${profileEntries.length} field${profileEntries.length === 1 ? "" : "s"}):`);
+    for (const [k, v] of profileEntries) lines.push(`- ${previewValue(k, 40)} → ${previewValue(v)}`);
+    lines.push("", `Services to create (${services.length}):`);
+    for (const s of services) {
+      const item = (s ?? {}) as { name?: unknown; kind?: unknown; priority?: unknown };
+      const meta = [item.kind, item.priority].filter((x) => typeof x === "string").map((x) => previewValue(x, 20));
+      lines.push(`- ${previewValue(item.name, 80)}${meta.length ? ` (${meta.join(", ")})` : ""}`);
+    }
+    lines.push("", `Opportunities to create (${opportunities.length}):`);
+    for (const o of opportunities) {
+      const item = (o ?? {}) as { title?: unknown; contentType?: unknown; priority?: unknown };
+      const meta = [item.contentType, item.priority].filter((x) => typeof x === "string").map((x) => previewValue(x, 20));
+      lines.push(`- ${previewValue(item.title, 80)}${meta.length ? ` (${meta.join(", ")})` : ""}`);
+    }
+    lines.push("", `Competitors (${competitors.length}):`);
+    for (const u of competitors) lines.push(`- ${previewValue(u)}`);
+    const text = lines.join("\n");
+    return text.length > 4000 ? `${text.slice(0, 4000)}…` : text;
+  }
+
   const p = (payload ?? {}) as { opportunityId?: unknown; updates?: Record<string, unknown> };
   const lines = [`Update opportunity ${typeof p.opportunityId === "string" ? p.opportunityId : "?"}:`];
   if (p.updates && typeof p.updates === "object" && !Array.isArray(p.updates)) {
@@ -813,7 +937,9 @@ async function dispatchPendingTool(
     buildPendingActionCreatedAudit,
     PendingActionNotFoundError,
   } = await import("./pending-actions.server");
-  const { PendingActionValidationError, PendingActionCapError, MILO_ACTIONS_PROPOSE_SCOPE, OPPORTUNITY_UPDATE_FIELDS } = await import("./pending-actions");
+  const { PendingActionValidationError, PendingActionCapError, MILO_ACTIONS_PROPOSE_SCOPE, OPPORTUNITY_UPDATE_FIELDS, PROJECT_SETUP_PROJECT_FIELDS } = await import(
+    "./pending-actions"
+  );
   const { WorkspaceConflictError, WorkspaceNotFoundError } = await import("./workspace.server");
 
   if (name === "create_pending_action") {
@@ -829,20 +955,26 @@ async function dispatchPendingTool(
     // is intersected with the whitelist so a malformed call's arbitrary unknown
     // update keys (e.g. seoTitle, publish, delete, billing) can NEVER appear;
     // only known field names survive (the success row uses the validated action).
-    const updates = (args.payload as { updates?: Record<string, unknown> } | undefined)?.updates;
-    const rawUpdateKeys = updates && typeof updates === "object" && !Array.isArray(updates) ? Object.keys(updates) : [];
+    const rawGroup = (key: "updates" | "projectFields"): string[] => {
+      const group = (args.payload as Record<string, unknown> | undefined)?.[key];
+      return group && typeof group === "object" && !Array.isArray(group) ? Object.keys(group) : [];
+    };
+    const failureFieldsChanged =
+      args.type === "project_setup_proposal"
+        ? rawGroup("projectFields").filter((k) => (PROJECT_SETUP_PROJECT_FIELDS as readonly string[]).includes(k))
+        : rawGroup("updates").filter((k) => (OPPORTUNITY_UPDATE_FIELDS as readonly string[]).includes(k));
     const auditBase: Record<string, unknown> = {
       type: typeof args.type === "string" ? args.type : "unknown",
       ...(typeof args.projectId === "string" ? { projectId: args.projectId } : {}),
       requiredScope: MILO_ACTIONS_PROPOSE_SCOPE,
-      fieldsChanged: rawUpdateKeys.filter((k) => (OPPORTUNITY_UPDATE_FIELDS as readonly string[]).includes(k)).sort(),
+      fieldsChanged: failureFieldsChanged.sort(),
       ...(typeof args.requestId === "string" ? { requestId: args.requestId } : {}),
     };
 
     try {
       const input = {
         ...(args as object),
-        ...(args.preview === undefined ? { preview: derivePendingPreview(args.payload) } : {}),
+        ...(args.preview === undefined ? { preview: derivePendingPreview(args.type, args.payload) } : {}),
         proposedByClientId: grant.clientId,
       } as Parameters<typeof createPendingActionForWorkspace>[1];
       const { action, deduped, expiredIds, rev } = await createPendingActionForWorkspace(grant.userId, input);
