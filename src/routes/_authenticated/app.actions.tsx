@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useStore, hydrateForUser } from "@/lib/store";
+import { useStore, reloadWorkspaceForUser } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { useT } from "@/i18n";
 import type { Opportunity, PendingAction, PendingActionStatus } from "@/lib/types";
@@ -158,7 +158,10 @@ function PendingActionCard(props: {
       const res = await resolvePendingActionFn({ data: { actionId: action.id, resolution, ...(resolution === "reject" && note.trim() ? { note: note.trim() } : {}) } });
       if (res.ok) {
         toast.success(resolution === "approve_apply" ? t("actions.resolve.appliedToast") : t("actions.resolve.rejectedToast"));
-        if (user?.id) await hydrateForUser(user.id); // reload server-authored state + rev
+        // Reload server-authored state so the card reflects applied/rejected +
+        // the mutated opportunity immediately (hydrateForUser would no-op here
+        // because the user is already hydrated — that was the stuck-card bug).
+        if (user?.id) await reloadWorkspaceForUser(user.id);
       } else {
         toast.error(t(`actions.resolve.error.${(res.reason ?? "error") as ResolvePendingActionReason}`));
       }

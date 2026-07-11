@@ -374,6 +374,34 @@ export function resetStore(): void {
   notify();
 }
 
+/**
+ * Re-fetch the current user's workspace row and replace state IN PLACE (no
+ * loading-shell reset, no save). Unlike hydrateForUser, this has no
+ * already-hydrated early-return — it is for reflecting a SERVER-side mutation
+ * the client didn't make locally (e.g. owner resolution of a pending action)
+ * so the UI shows the new server state + rev immediately. A fresh state object
+ * (and fresh collection arrays via stateFromRow) drives useStore re-renders.
+ * Never throws; a failed reload simply leaves the current state untouched.
+ */
+export async function reloadWorkspaceForUser(userId: string): Promise<void> {
+  if (typeof window === "undefined") return;
+  try {
+    const { data: row } = await supabase
+      .from("workspaces")
+      .select("data,rev")
+      .eq("user_id", userId)
+      .maybeSingle();
+    const r = row as { data?: unknown; rev?: number } | null;
+    // Guard against a user switch mid-flight: only apply if still the same user.
+    if (r?.data && typeof r.data === "object" && state.userId === userId) {
+      state = stateFromRow(userId, r.data as Partial<State>, Number(r.rev ?? 0));
+      notify();
+    }
+  } catch (e) {
+    console.warn("[workspace] reload failed", e);
+  }
+}
+
 // ---- React hook ----
 
 const shallowEqual = (a: unknown, b: unknown): boolean => {

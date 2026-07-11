@@ -140,6 +140,16 @@ describe("resolution boundary guards on the page source (1B.5)", () => {
     }
   });
 
+  it("reloads server state after a successful resolve, gated on res.ok (follow-up A)", () => {
+    // Uses the server RELOAD (no early-return) — not the already-hydrated no-op.
+    expect(pageSrc).toContain("reloadWorkspaceForUser");
+    // hydrateForUser must not be imported or called (it would no-op here).
+    expect(pageSrc).not.toMatch(/hydrateForUser\s*\(/); // no call
+    expect(pageSrc).not.toMatch(/import[\s\S]*hydrateForUser[\s\S]*from "@\/lib\/store"/); // not imported
+    // Reload is inside the success branch, so a failed apply cannot mask state.
+    expect(pageSrc).toMatch(/if \(res\.ok\)[\s\S]*reloadWorkspaceForUser/);
+  });
+
   it("renders controls only behind the effectively-pending guard", () => {
     expect(pageSrc).toContain("canResolvePendingAction");
     expect(pageSrc).toContain("canResolve ?"); // controls branch is gated
@@ -168,6 +178,33 @@ describe("canResolvePendingAction", () => {
     expect(canResolvePendingAction(action({ status: "expired" }), now)).toBe(false);
     // stale pending → effectively expired → not resolvable
     expect(canResolvePendingAction(action(), Date.parse(T0) + PENDING_ACTION_TTL_MS + 1000)).toBe(false);
+  });
+});
+
+describe("card state after a successful resolve (follow-up A)", () => {
+  // The card renders controls when canResolve is true, else a resolution line
+  // when action.resolution exists. These assert the exact branch inputs.
+  const now = Date.parse(T1);
+  const resolvedAt = T1;
+
+  it("applied action: status Applied, controls gone, resolution line present", () => {
+    const applied = action({ status: "applied", resolution: { resolvedAt, resolvedBy: "owner", appliedEntityIds: ["o1"] } });
+    expect(effectivePendingStatus(applied, now)).toBe("applied");
+    expect(canResolvePendingAction(applied, now)).toBe(false); // Approve/Reject controls hidden
+    expect(applied.resolution?.resolvedAt).toBe(resolvedAt); // resolution line data
+  });
+
+  it("rejected action: status Rejected, controls gone, resolution line present", () => {
+    const rejected = action({ status: "rejected", resolution: { resolvedAt, resolvedBy: "owner", note: "not now" } });
+    expect(effectivePendingStatus(rejected, now)).toBe("rejected");
+    expect(canResolvePendingAction(rejected, now)).toBe(false);
+    expect(rejected.resolution?.note).toBe("not now");
+  });
+
+  it("a still-pending action keeps its controls (no false resolution)", () => {
+    const pending = action({ status: "pending" });
+    expect(canResolvePendingAction(pending, now)).toBe(true);
+    expect(pending.resolution).toBeUndefined();
   });
 });
 
