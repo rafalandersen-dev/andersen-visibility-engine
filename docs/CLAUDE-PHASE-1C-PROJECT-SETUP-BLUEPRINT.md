@@ -3,7 +3,7 @@
 > Documentation only. No runtime code, routes, migrations, env vars, or database
 > state are changed by this document. Nothing in it is implemented yet.
 
-**Status:** design blueprint (1C.0) — **owner decisions OPEN, see §12** · **Builds on:** Phase 0 (read connector, live), Phase 1 (rev-guarded write foundation), Phase 1A (direct write tools, live-proven and darkened), Phase 1B (pending actions / proposal workflow, live-proven and darkened — chain `200de5b..006eaf8`, smoke evidence `zo5vhtzp` applied / `y1nztpin` rejected) · **Current prod:** `006eaf8`, `MCP_OAUTH_ENABLED=true`, `MCP_WRITE_TOOLS_ENABLED` off/unset, metadata read-only/write-free/propose-free, live Claude.ai read connector untouched.
+**Status:** design blueprint (1C.0) — **owner decisions RESOLVED 2026-07-11, see §12** · **Builds on:** Phase 0 (read connector, live), Phase 1 (rev-guarded write foundation), Phase 1A (direct write tools, live-proven and darkened), Phase 1B (pending actions / proposal workflow, live-proven and darkened — chain `200de5b..006eaf8`, smoke evidence `zo5vhtzp` applied / `y1nztpin` rejected) · **Current prod:** `006eaf8`, `MCP_OAUTH_ENABLED=true`, `MCP_WRITE_TOOLS_ENABLED` off/unset, metadata read-only/write-free/propose-free, live Claude.ai read connector untouched.
 
 **One-sentence goal:** let a user hand Claude a website URL and get back a complete, reviewable **project setup proposal** — business profile, services, target audience, locations, competitors, and first opportunities — that the owner approves once in the Milo UI and Milo applies atomically, reusing the entire 1B propose→review→apply machinery with **one new pending-action type and zero new tools, scopes, flags, or endpoints**.
 
@@ -73,7 +73,7 @@ interface ProjectSetupProposalPayload {
 ```
 
 - **At least one** of the three groups must be present and non-empty.
-- **Keywords are not a separate concept** — Milo's model for "what to rank for" is the Opportunity, so keyword research lands as `opportunities[]` (and inside `businessValue` rationales). No new keyword field.
+- **Keywords are not a separate concept** — Milo's model for "what to rank for" is the Opportunity, so keyword research lands as `opportunities[]` (and inside `businessValue` rationales). No new keyword field. *(Intentional 1C limitation — see the design note under §12.)*
 - The 16KB payload cap remains the binding envelope; the per-field bounds above keep a realistic full setup at ~6–10KB. A maximal-everything payload can exceed 16KB → `-32010`, and Claude trims (the tool description says so).
 - Validation follows the 1B idiom in `pending-actions.ts` (`str()` bounds, runtime enum mirrors for `Language`/`ContentType`/`SearchIntent`/`Priority`, byte-size cap checked first, unknown keys rejected recursively).
 
@@ -182,16 +182,18 @@ Every code commit lands flag-off-invisible on prod (dark deploy, behavioral fing
 7. Audit: every transition emits exactly its §9 row; planted-string probe (incl. setup-specific values) → 0 hits; token-material probe → 0 hits; `fieldsChanged` never contains a non-whitelisted key.
 8. Full unit suite green; rollback (flag off) leaves proposals and applied setup intact while the tools vanish.
 
-## 12. Owner decisions — OPEN
+## 12. Owner decisions — RESOLVED 2026-07-11
 
-1. **Target model:** fill an **existing** project only (owner creates a stub with name + URL first) — *recommended* — or also support a create-new-project mode. Create-new relaxes the 1B "projectId must exist" invariant, adds apply-time project minting, and touches `MAX_PROJECTS_PER_USER`; recommended as a later increment only if the stub step proves annoying in practice.
-2. **`Project.competitorUrls?: string[]`:** add the field (additive, no migration) — *recommended* — or stash competitors in `onboardingSourceData` (invisible to the UI, dead-ends future competitor-gap reuse).
-3. **Overwrite semantics:** provided fields overwrite current values, with explicit overwrite markers in the diff — *recommended* (1B-consistent; review makes it safe) — or a fill-empty-only mode (safer default, but blocks the "improve my thin setup" use case and complicates apply semantics).
-4. **New opportunities' status:** `"New"` (enters normal triage flow alongside generated opportunities) — *recommended* — or `"Linked"` (1A `create_project_recommendation` parity).
-5. **`setupComplete`:** apply never flips it; the owner finishes/declares setup in the UI — *recommended* — or auto-set when `isProjectSetupComplete()` passes after merge.
-6. **Analysis source:** Claude-side web research only, no MCP-triggered server fetch — *recommended* — or add a Milo-side `analyze_website` read tool in 1C (new fetch/cost/abuse surface; deferred).
-7. **Risk level:** `medium` (static, per `RISK_BY_TYPE`) — *recommended* — matching `opportunity_update_proposal`; `high` would only add a heavier confirm and isn't warranted for an additive/merge apply.
-8. **Composite type confirmed?** One `project_setup_proposal` covering fields + services + opportunities — *recommended* — or split types per fragment (three review moments for one decision; more machinery, no added safety).
+1. **Target model: existing project only.** The owner creates the project with `name` + `websiteUrl` first; MCP does not create projects in the initial 1C implementation. Create-new remains a possible later increment (it would relax the 1B "projectId must exist" invariant, add apply-time project minting, and touch `MAX_PROJECTS_PER_USER`).
+2. **`Project.competitorUrls?: string[]` confirmed** — additive optional field, no migration.
+3. **Overwrite semantics: provided project fields overwrite existing values** — permitted only because the UI shows a clear current → proposed diff and explicitly marks every overwrite of a non-empty value before approval (§6).
+4. **Newly created opportunities use `status: "New"`** (normal triage flow).
+5. **Applying the proposal never changes `setupComplete`.** The owner's wizard/setup page remains the authority.
+6. **Website analysis stays Claude-side only.** No `analyze_website` MCP tool and no new MCP/server fetch surface in Phase 1C.
+7. **`project_setup_proposal` risk level is `"medium"`** (static, per `RISK_BY_TYPE`).
+8. **One composite proposal confirmed** — a single `project_setup_proposal` covers fields + services + opportunities; no per-fragment split.
+
+> **Design note (recorded with these decisions):** mapping keyword research into opportunities is an **intentional Phase 1C limitation**, because Milo has no dedicated keyword model today. Phase 2 (audit engines → opportunities) should **reassess whether a tracked-keyword entity is needed** rather than assuming opportunities and keywords are permanently the same concept.
 
 ---
 
