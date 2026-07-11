@@ -1,18 +1,17 @@
-## Goal
-Close the now-obsolete `.lovable/plan.md` restart plan and take no action against the backend or code.
+## Plan Cancelled — Backend Self-Recovered
 
-## Current state
-- At 13:17Z the Supabase REST API for the project recovered on its own: PostgREST is returning 200, the schema cache reloaded, and PGRST002 503s are gone.
-- The live app at milogrowth.com is verified loading the dashboard and role/workspace queries are succeeding.
-- The restart plan in `.lovable/plan.md` is therefore no longer needed; executing it would cause unnecessary downtime.
+**Status:** CANCELLED. No action taken.
 
-## Action
-1. Update `.lovable/plan.md` to mark the plan as cancelled, noting the self-recovery timestamp and the fact that no restart was performed.
-2. Do NOT run `supabase--restart` or any other backend reboot.
-3. Do NOT change application code, schema, RLS, policies, grants, or migrations.
-4. Report the cancellation to the user.
+**Reason:** At 13:17Z the Supabase REST API for this project recovered on its own. PostgREST is returning HTTP 200, the schema cache reloaded, and PGRST002 503s are gone.
 
-## Explicitly not doing
-- No backend restart or any infrastructure command.
-- No code, schema, migration, or security changes.
-- No further diagnostic commands on the backend.
+**Verification:** The live app at milogrowth.com is loading the dashboard and role/workspace queries are succeeding.
+
+**Decision:** The original restart plan is no longer needed. A restart now would only cause unnecessary downtime on a healthy backend.
+
+## Not performed
+- No `supabase--restart` or backend reboot.
+- No application code, schema, migration, RLS, policy, or grant changes.
+- No further diagnostic or infra commands.
+
+## Preserved context
+If PGRST002 recurs in the future, the previous restart plan can be recreated on demand.
