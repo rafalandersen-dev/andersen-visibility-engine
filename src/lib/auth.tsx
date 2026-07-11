@@ -23,6 +23,14 @@ type AuthState = {
   session: Session | null;
   user: User | null;
   isOwner: boolean;
+  /**
+   * True once the owner-role lookup for the CURRENT session user has resolved.
+   * `isOwner === false` is ambiguous until this is true (not-yet-checked vs
+   * confirmed-not-owner), so owner-bypass guards must wait for it to avoid
+   * misfiring during the async role load (e.g. redirecting an owner into
+   * onboarding before their role comes back).
+   */
+  roleLoaded: boolean;
   signOut: () => Promise<void>;
   refreshRole: () => Promise<void>;
 };
@@ -33,10 +41,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
   const [isOwner, setIsOwner] = useState(false);
+  // The user id whose owner-role result `isOwner` currently reflects. Compared
+  // against the live session user to derive `roleLoaded` — so a stale `isOwner`
+  // from a previous (or not-yet-run) lookup never reads as authoritative.
+  const [roleUserId, setRoleUserId] = useState<string | null>(null);
 
   async function loadRole(userId: string | undefined) {
     if (!userId) {
       setIsOwner(false);
+      setRoleUserId(null);
       return;
     }
     const { data } = await supabase
@@ -46,6 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .eq("role", "owner")
       .maybeSingle();
     setIsOwner(!!data);
+    setRoleUserId(userId);
   }
 
   useEffect(() => {
@@ -73,12 +87,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const currentUserId = session?.user?.id ?? null;
   const value = useMemo<AuthState>(
     () => ({
       loading,
       session,
       user: session?.user ?? null,
       isOwner,
+      // The role result is authoritative only when it belongs to the current
+      // session user (both null when signed out → trivially resolved).
+      roleLoaded: roleUserId === currentUserId,
       signOut: async () => {
         await supabase.auth.signOut();
       },
@@ -86,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await loadRole(session?.user?.id);
       },
     }),
-    [loading, session, isOwner],
+    [loading, session, isOwner, roleUserId, currentUserId],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

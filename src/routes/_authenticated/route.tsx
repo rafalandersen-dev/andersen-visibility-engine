@@ -22,7 +22,7 @@ const ONBOARDING_PATH = "/app/onboarding";
 const CONNECT_PATH = "/app/connect";
 
 function AuthenticatedLayout() {
-  const { loading, session, isOwner } = useAuth();
+  const { loading, session, isOwner, roleLoaded } = useAuth();
   const navigate = useNavigate();
   const [hydrating, setHydrating] = useState(true);
   const location = useRouterState({ select: (s) => s.location });
@@ -50,10 +50,12 @@ function AuthenticatedLayout() {
     };
   }, [loading, session, navigate]);
 
-  // Onboarding redirect — only after hydration, for non-owner users, off the
+  // Onboarding redirect — only after hydration AND once the owner-role lookup
+  // has resolved (otherwise a stale isOwner === false races the async role
+  // load and yanks owners into onboarding), for non-owner users, off the
   // onboarding route itself.
   useEffect(() => {
-    if (loading || !session || hydrating || isOwner) return;
+    if (loading || !session || hydrating || !roleLoaded || isOwner) return;
     // The consent page must render for any authenticated user regardless of
     // onboarding state, so it is exempt from the onboarding guard.
     if (pathname === ONBOARDING_PATH || pathname === CONNECT_PATH) return;
@@ -62,7 +64,7 @@ function AuthenticatedLayout() {
     if (needsOnboarding) {
       navigate({ to: ONBOARDING_PATH, replace: true });
     }
-  }, [loading, session, hydrating, isOwner, pathname, projects, activeProjectId, navigate]);
+  }, [loading, session, hydrating, roleLoaded, isOwner, pathname, projects, activeProjectId, navigate]);
 
   if (loading || !session || hydrating) {
     return (
