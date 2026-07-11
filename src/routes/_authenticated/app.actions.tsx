@@ -33,6 +33,7 @@ import {
   effectivePendingStatus,
   canResolvePendingAction,
   type PendingActionsUiFilter,
+  type ProfileChange,
 } from "@/lib/pending-actions.ui";
 import { resolvePendingActionFn, type ResolvePendingActionReason } from "@/lib/pending-actions.functions";
 import { Bot, Check, ChevronDown, ChevronUp, Inbox, ShieldCheck, TriangleAlert, X } from "lucide-react";
@@ -162,6 +163,9 @@ function PendingActionCard(props: {
     : "";
   const diff = expanded && !isSetup ? pendingActionDiff(action, opportunities) : null;
   const setup = expanded && isSetup ? projectSetupView(action, projects) : null;
+  // The setup target project must exist to apply — block Approve (keep Reject)
+  // when it is gone, rather than encourage an apply the server will reject.
+  const setupTargetMissing = isSetup && !projects.some((p) => p.id === action.projectId);
   const date = (iso?: string) => (iso ? new Date(iso).toLocaleDateString() : "");
   const canResolve = canResolvePendingAction(action, nowMs);
   const [busy, setBusy] = useState<"approve_apply" | "reject" | null>(null);
@@ -224,7 +228,7 @@ function PendingActionCard(props: {
           <div className="ml-auto flex gap-2">
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button size="sm" disabled={busy !== null}>
+                <Button size="sm" disabled={busy !== null || setupTargetMissing} title={setupTargetMissing ? t("actions.detail.projectMissing") : undefined}>
                   <Check className="h-3.5 w-3.5" /> {t("actions.resolve.approve")}
                 </Button>
               </AlertDialogTrigger>
@@ -232,7 +236,7 @@ function PendingActionCard(props: {
                 <AlertDialogHeader>
                   <AlertDialogTitle>{t("actions.resolve.approveTitle")}</AlertDialogTitle>
                   <AlertDialogDescription>
-                    {t("actions.resolve.approveBody")}
+                    {isSetup ? t("actions.resolve.approveBodySetup") : t("actions.resolve.approveBody")}
                     <span className={`mt-2 block text-xs text-foreground/80 ${isSetup ? "" : "font-mono"}`}>
                       {isSetup ? setupSummary : fields.join(", ") || "—"}
                     </span>
@@ -282,41 +286,41 @@ function PendingActionCard(props: {
           {isSetup && setup ? (
             <div className="space-y-3">
               {!setup.targetExists ? (
-                <div className="flex items-center gap-1.5 text-xs text-amber-700">
-                  <TriangleAlert className="h-3.5 w-3.5" /> {t("actions.detail.projectMissing")}
+                <div role="status" className="flex items-center gap-1.5 text-xs text-amber-700">
+                  <TriangleAlert className="h-3.5 w-3.5 shrink-0" /> {t("actions.detail.projectMissing")}
                 </div>
               ) : null}
 
               <SetupSection label={`${t("actions.detail.profile")} (${setup.profile.length})`} empty={setup.profile.length === 0} emptyLabel={t("actions.detail.none")}>
-                <table className="mt-1 w-full text-xs">
-                  <thead className="text-left uppercase tracking-[0.14em] text-[10px] text-muted-foreground">
-                    <tr>
-                      <th className="py-1 pr-3 font-medium">{t("actions.detail.field")}</th>
-                      <th className="py-1 pr-3 font-medium">{t("actions.detail.current")}</th>
-                      <th className="py-1 font-medium">{t("actions.detail.proposed")}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {setup.profile.map((r) => (
-                      <tr key={r.field} className="border-t border-border/60 align-top">
-                        <td className="py-1.5 pr-3 font-mono">
-                          {r.field}
-                          {r.overwrite ? (
-                            <span className="ml-1 rounded bg-amber-500/10 px-1 py-0.5 font-sans text-[9px] text-amber-700">{t("actions.detail.overwrite")}</span>
-                          ) : null}
-                        </td>
-                        <td className="py-1.5 pr-3 text-muted-foreground">{r.current ? r.current : "—"}</td>
-                        <td className="py-1.5 text-foreground/90">{r.proposed}</td>
+                <div className="overflow-x-auto">
+                  <table className="mt-1 w-full text-xs">
+                    <thead className="text-left uppercase tracking-[0.14em] text-[10px] text-muted-foreground">
+                      <tr>
+                        <th className="py-1 pr-3 font-medium">{t("actions.detail.field")}</th>
+                        <th className="py-1 pr-3 font-medium">{t("actions.detail.current")}</th>
+                        <th className="py-1 font-medium">{t("actions.detail.proposed")}</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {setup.profile.map((r) => (
+                        <tr key={r.field} className="border-t border-border/60 align-top">
+                          <td className="py-1.5 pr-3 font-mono">
+                            {r.field}
+                            {setup.targetExists ? <StateMarker change={r.change} t={t} /> : null}
+                          </td>
+                          <td className="py-1.5 pr-3 text-muted-foreground break-words">{r.current ? r.current : "—"}</td>
+                          <td className="py-1.5 text-foreground/90 break-words">{r.proposed}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </SetupSection>
 
               <SetupSection label={`${t("actions.detail.servicesToCreate")} (${setup.services.length})`} empty={setup.services.length === 0} emptyLabel={t("actions.detail.none")}>
                 <ul className="mt-1 space-y-0.5 text-xs text-foreground/85">
                   {setup.services.map((s, i) => (
-                    <li key={i}>
+                    <li key={i} className="break-words">
                       {s.name}
                       {s.kind || s.priority ? <span className="text-muted-foreground"> ({[s.kind, s.priority].filter(Boolean).join(", ")})</span> : null}
                     </li>
@@ -327,7 +331,7 @@ function PendingActionCard(props: {
               <SetupSection label={`${t("actions.detail.opportunitiesToCreate")} (${setup.opportunities.length})`} empty={setup.opportunities.length === 0} emptyLabel={t("actions.detail.none")}>
                 <ul className="mt-1 space-y-0.5 text-xs text-foreground/85">
                   {setup.opportunities.map((o, i) => (
-                    <li key={i}>
+                    <li key={i} className="break-words">
                       {o.title}
                       {o.contentType || o.priority ? <span className="text-muted-foreground"> ({[o.contentType, o.priority].filter(Boolean).join(", ")})</span> : null}
                     </li>
@@ -335,10 +339,19 @@ function PendingActionCard(props: {
                 </ul>
               </SetupSection>
 
-              <SetupSection label={`${t("actions.detail.competitors")} (${setup.competitors.length})`} empty={setup.competitors.length === 0} emptyLabel={t("actions.detail.none")}>
+              {setup.services.length || setup.opportunities.length ? (
+                <p className="text-[11px] text-muted-foreground">{t("actions.detail.createDisclaimer")}</p>
+              ) : null}
+
+              <SetupSection
+                label={`${t("actions.detail.competitors")} (${setup.competitors.urls.length})`}
+                empty={setup.competitors.urls.length === 0}
+                emptyLabel={t("actions.detail.none")}
+                marker={setup.competitors.provided && setup.targetExists ? <StateMarker change={setup.competitors.change} t={t} /> : undefined}
+              >
                 {/* Plain text — untrusted proposal content is never rendered as a link. */}
                 <ul className="mt-1 space-y-0.5 text-xs text-foreground/80">
-                  {setup.competitors.map((u, i) => (
+                  {setup.competitors.urls.map((u, i) => (
                     <li key={i} className="break-all">{u}</li>
                   ))}
                 </ul>
@@ -389,11 +402,26 @@ function PendingActionCard(props: {
 
 /** A labelled section in the project-setup detail; shows an empty label when
  * the group has no items (counts stay visible for omitted/empty sections). */
-function SetupSection(props: { label: string; empty: boolean; emptyLabel: string; children: ReactNode }) {
+function SetupSection(props: { label: string; empty: boolean; emptyLabel: string; marker?: ReactNode; children: ReactNode }) {
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{props.label}</div>
+      <div className="flex flex-wrap items-center gap-1 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+        {props.label}
+        {props.marker}
+      </div>
       {props.empty ? <div className="mt-1 text-xs text-muted-foreground">{props.emptyLabel}</div> : props.children}
     </div>
   );
+}
+
+/** Textual add/overwrite/no-change label (never color-only). Amber = overwrite,
+ * emerald = add, muted = no change. */
+function StateMarker({ change, t }: { change: ProfileChange; t: (k: string) => string }) {
+  const m =
+    change === "overwrite"
+      ? { label: t("actions.detail.overwrite"), cls: "bg-amber-500/10 text-amber-700" }
+      : change === "add"
+        ? { label: t("actions.detail.stateAdd"), cls: "bg-emerald-500/10 text-emerald-600" }
+        : { label: t("actions.detail.stateNone"), cls: "bg-secondary text-muted-foreground" };
+  return <span className={`rounded px-1 py-0.5 font-sans text-[9px] normal-case ${m.cls}`}>{m.label}</span>;
 }

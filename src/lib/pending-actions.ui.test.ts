@@ -153,16 +153,13 @@ describe("project_setup_proposal view (1C.4)", () => {
     expect(projectSetupView(action(), [project()])).toBeNull();
   });
 
-  it("builds a profile diff, marks overwrites, stringifies arrays, and splits competitors out", () => {
+  it("builds a profile diff, stringifies arrays, and splits competitors out", () => {
     const view = projectSetupView(setupAction(full()), [project()])!;
     expect(view.targetExists).toBe(true);
-    // competitorUrls is NOT a profile row — it's the competitors list.
+    // competitorUrls is NOT a profile row — it's the competitors section.
     expect(view.profile.map((r) => r.field)).toEqual(["businessName", "description", "targetLocations"]);
-    expect(view.profile.find((r) => r.field === "businessName")).toEqual({ field: "businessName", current: "Old name", proposed: "New name", overwrite: true });
-    // description was empty → not an overwrite; targetLocations array joined.
-    expect(view.profile.find((r) => r.field === "description")).toMatchObject({ current: "", proposed: "A studio.", overwrite: false });
-    expect(view.profile.find((r) => r.field === "targetLocations")).toMatchObject({ current: "Old town", proposed: "Stockholm, Solna", overwrite: true });
-    expect(view.competitors).toEqual(["https://a.se", "https://b.se"]);
+    expect(view.profile.find((r) => r.field === "targetLocations")).toMatchObject({ current: "Old town", proposed: "Stockholm, Solna" });
+    expect(view.competitors).toEqual({ provided: true, urls: ["https://a.se", "https://b.se"], change: "add" });
     expect(view.services).toEqual([
       { name: "Deep tissue", kind: "Service", priority: "High" },
       { name: "Gift cards", kind: "Product", priority: undefined },
@@ -173,17 +170,70 @@ describe("project_setup_proposal view (1C.4)", () => {
     ]);
   });
 
-  it("flags a missing target project (current undefined, no overwrite) and warns", () => {
+  it("classifies scalar fields: add (empty current), overwrite (differing), none (normalized-equal)", () => {
+    const view = projectSetupView(
+      setupAction({ projectFields: { businessName: "New name", description: "A studio.", toneOfVoice: "  Warm  " } }),
+      [project({ toneOfVoice: "Warm" })], // identical after trim → no change
+    )!;
+    expect(view.profile.find((r) => r.field === "businessName")!.change).toBe("overwrite"); // "Old name" → "New name"
+    expect(view.profile.find((r) => r.field === "description")!.change).toBe("add"); // "" → "A studio."
+    expect(view.profile.find((r) => r.field === "toneOfVoice")!.change).toBe("none"); // "Warm" ≡ "  Warm  "
+  });
+
+  it("normalizes array/set fields — spacing/order/dupes do not count as an overwrite", () => {
+    // Same membership, different order + spacing + a duplicate → no change.
+    const equivalent = projectSetupView(
+      setupAction({ projectFields: { targetLocations: [" Solna ", "Stockholm", "stockholm"] } }),
+      [project({ targetLocations: ["Stockholm", "Solna"] })],
+    )!;
+    expect(equivalent.profile.find((r) => r.field === "targetLocations")!.change).toBe("none");
+    // A real membership change → overwrite.
+    const changed = projectSetupView(
+      setupAction({ projectFields: { targetLocations: ["Stockholm", "Malmö"] } }),
+      [project({ targetLocations: ["Stockholm", "Solna"] })],
+    )!;
+    expect(changed.profile.find((r) => r.field === "targetLocations")!.change).toBe("overwrite");
+    // Empty current set → add.
+    const added = projectSetupView(setupAction({ projectFields: { additionalLanguages: ["English"] } }), [project({ additionalLanguages: [] })])!;
+    expect(added.profile.find((r) => r.field === "additionalLanguages")!.change).toBe("add");
+  });
+
+  it("competitor semantics: add (none current), overwrite/replace (differing), none (equivalent)", () => {
+    const add = projectSetupView(setupAction({ projectFields: { competitorUrls: ["https://a.se"] } }), [project()])!;
+    expect(add.competitors).toMatchObject({ provided: true, change: "add" });
+    const replace = projectSetupView(
+      setupAction({ projectFields: { competitorUrls: ["https://a.se", "https://new.se"] } }),
+      [project({ competitorUrls: ["https://a.se", "https://old.se"] } as Partial<Project>)],
+    )!;
+    expect(replace.competitors.change).toBe("overwrite");
+    const same = projectSetupView(
+      setupAction({ projectFields: { competitorUrls: ["https://A.se", " https://b.se "] } }),
+      [project({ competitorUrls: ["https://b.se", "https://a.se"] } as Partial<Project>)],
+    )!;
+    expect(same.competitors.change).toBe("none");
+    // competitorUrls absent → not provided, neutral, empty.
+    const absent = projectSetupView(setupAction({ projectFields: { businessName: "X" } }), [project()])!;
+    expect(absent.competitors).toEqual({ provided: false, urls: [], change: "none" });
+  });
+
+  it("flags a missing target project (current undefined, markers not meaningful)", () => {
     const view = projectSetupView(setupAction(full()), [])!;
     expect(view.targetExists).toBe(false);
-    expect(view.profile.every((r) => r.current === undefined && r.overwrite === false)).toBe(true);
+    expect(view.profile.every((r) => r.current === undefined)).toBe(true);
+  });
+
+  it("hides malformed / non-provided fields (only whitelisted, present keys become rows)", () => {
+    // A tampered stored payload with an unknown key: view iterates the whitelist,
+    // so unknown keys never surface as rows.
+    const view = projectSetupView(setupAction({ projectFields: { businessName: "X", seoTitle: "leak" } as Record<string, unknown> }), [project()])!;
+    expect(view.profile.map((r) => r.field)).toEqual(["businessName"]);
   });
 
   it("handles single-group payloads (services-only / opportunities-only / fields-only)", () => {
     expect(projectSetupView(setupAction({ services: [{ name: "S", kind: "Service" }] }), [project()])!.profile).toEqual([]);
     expect(projectSetupView(setupAction({ opportunities: [{ title: "T" }] }), [project()])!.services).toEqual([]);
     const fieldsOnly = projectSetupView(setupAction({ projectFields: { businessName: "X" } }), [project()])!;
-    expect(fieldsOnly.competitors).toEqual([]);
+    expect(fieldsOnly.competitors.urls).toEqual([]);
     expect(fieldsOnly.opportunities).toEqual([]);
   });
 
@@ -248,7 +298,23 @@ describe("resolution boundary guards on the page source (1B.5)", () => {
     expect(pageSrc).not.toMatch(/<a\s/); // no anchor elements at all on this page
     expect(pageSrc).not.toContain("href=");
     // The competitors block iterates the plain string list into <li>{u}</li>.
-    expect(pageSrc).toContain("setup.competitors.map");
+    expect(pageSrc).toContain("setup.competitors.urls.map");
+  });
+
+  it("surfaces the 1C.4 review affordances (state markers, disclaimer, setup confirmation, missing-target block)", () => {
+    // Three-state textual markers (not color-only) via the shared helper.
+    expect(pageSrc).toContain("StateMarker");
+    expect(pageSrc).toContain("actions.detail.stateAdd");
+    expect(pageSrc).toContain("actions.detail.stateNone");
+    // Services/opportunities skip-disclaimer is shown.
+    expect(pageSrc).toContain("actions.detail.createDisclaimer");
+    // Setup-specific approval copy (fields + creates + skips + setupComplete + Claude-cannot-apply).
+    expect(pageSrc).toContain("actions.resolve.approveBodySetup");
+    // A deleted target project DISABLES Approve (Reject stays available).
+    expect(pageSrc).toContain("setupTargetMissing");
+    expect(pageSrc).toMatch(/disabled=\{busy !== null \|\| setupTargetMissing\}/);
+    // Missing-target warning uses a semantic status role.
+    expect(pageSrc).toMatch(/role="status"/);
   });
 
   it("is registered in the generated route tree", () => {
@@ -323,10 +389,11 @@ describe("i18n coverage", () => {
       "actions.card.showDetail", "actions.card.hideDetail",
       "actions.detail.target", "actions.detail.targetMissing", "actions.detail.field", "actions.detail.current",
       "actions.detail.proposed", "actions.detail.preview",
-      "actions.detail.profile", "actions.detail.overwrite", "actions.detail.servicesToCreate", "actions.detail.opportunitiesToCreate",
+      "actions.detail.profile", "actions.detail.overwrite", "actions.detail.stateAdd", "actions.detail.stateNone",
+      "actions.detail.servicesToCreate", "actions.detail.opportunitiesToCreate", "actions.detail.createDisclaimer",
       "actions.detail.competitors", "actions.detail.projectMissing", "actions.detail.none",
       "claude.apps.scope.needsApproval",
-      "actions.resolve.approve", "actions.resolve.approveTitle", "actions.resolve.approveBody",
+      "actions.resolve.approve", "actions.resolve.approveTitle", "actions.resolve.approveBody", "actions.resolve.approveBodySetup",
       "actions.resolve.reject", "actions.resolve.rejectTitle", "actions.resolve.rejectBody",
       "actions.resolve.rejectConfirm", "actions.resolve.notePlaceholder",
       "actions.resolve.appliedToast", "actions.resolve.rejectedToast",
