@@ -944,6 +944,7 @@ export const sv: Record<string, string> = {
   "actions.risk.medium": "Medelrisk",
   "actions.risk.high": "Hög risk",
   "actions.type.opportunity_update_proposal": "Uppdatering av möjlighet",
+  "actions.type.project_setup_proposal": "Projektuppsättning",
   "actions.card.project": "Projekt",
   "actions.card.type": "Typ",
   "actions.card.fields": "Föreslagna fält",
@@ -957,6 +958,13 @@ export const sv: Record<string, string> = {
   "actions.detail.current": "Nuvarande",
   "actions.detail.proposed": "Föreslaget",
   "actions.detail.preview": "Förhandsvisning",
+  "actions.detail.profile": "Företagsprofil",
+  "actions.detail.overwrite": "skriver över nuvarande",
+  "actions.detail.servicesToCreate": "Tjänster att skapa",
+  "actions.detail.opportunitiesToCreate": "Möjligheter att skapa",
+  "actions.detail.competitors": "Konkurrenter",
+  "actions.detail.projectMissing": "Detta projekt finns inte längre — förslaget kan inte tillämpas som det är.",
+  "actions.detail.none": "Inga",
   "claude.apps.scope.needsApproval": "kräver ditt godkännande",
 
   // ---- Pending Actions resolution (Phase 1B.5) ----

@@ -8,11 +8,14 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Opportunity, PendingAction } from "./types";
+import type { Project } from "./types";
 import {
   effectivePendingStatus,
   filterPendingActions,
   countPendingForBadge,
   pendingActionDiff,
+  projectSetupView,
+  projectSetupCounts,
   proposedFieldNames,
   scopePillTone,
   canResolvePendingAction,
@@ -112,6 +115,89 @@ describe("before/after diff", () => {
   });
 });
 
+describe("project_setup_proposal view (1C.4)", () => {
+  const setupAction = (payload: Record<string, unknown>, over: Partial<PendingAction> = {}): PendingAction => ({
+    ...action(),
+    id: "ps1",
+    type: "project_setup_proposal",
+    projectId: "synergy",
+    payload,
+    ...over,
+  });
+  const project = (over: Partial<Project> = {}): Project =>
+    ({
+      id: "synergy",
+      name: "Synergy",
+      websiteUrl: "https://synergymassage.se",
+      businessName: "Old name",
+      businessType: "",
+      primaryLanguage: "English",
+      additionalLanguages: [],
+      mainLocation: "",
+      targetLocations: ["Old town"],
+      description: "",
+      targetAudience: "",
+      toneOfVoice: "",
+      uniqueSellingPoints: "",
+      brandNotes: "",
+      ...over,
+    }) as Project;
+
+  const full = () => ({
+    projectFields: { businessName: "New name", description: "A studio.", targetLocations: ["Stockholm", "Solna"], competitorUrls: ["https://a.se", "https://b.se"] },
+    services: [{ name: "Deep tissue", kind: "Service", priority: "High" }, { name: "Gift cards", kind: "Product" }],
+    opportunities: [{ title: "Massage guide", contentType: "Guide", priority: "High" }, { title: "Deep tissue vs classic" }],
+  });
+
+  it("returns null for non-setup actions", () => {
+    expect(projectSetupView(action(), [project()])).toBeNull();
+  });
+
+  it("builds a profile diff, marks overwrites, stringifies arrays, and splits competitors out", () => {
+    const view = projectSetupView(setupAction(full()), [project()])!;
+    expect(view.targetExists).toBe(true);
+    // competitorUrls is NOT a profile row — it's the competitors list.
+    expect(view.profile.map((r) => r.field)).toEqual(["businessName", "description", "targetLocations"]);
+    expect(view.profile.find((r) => r.field === "businessName")).toEqual({ field: "businessName", current: "Old name", proposed: "New name", overwrite: true });
+    // description was empty → not an overwrite; targetLocations array joined.
+    expect(view.profile.find((r) => r.field === "description")).toMatchObject({ current: "", proposed: "A studio.", overwrite: false });
+    expect(view.profile.find((r) => r.field === "targetLocations")).toMatchObject({ current: "Old town", proposed: "Stockholm, Solna", overwrite: true });
+    expect(view.competitors).toEqual(["https://a.se", "https://b.se"]);
+    expect(view.services).toEqual([
+      { name: "Deep tissue", kind: "Service", priority: "High" },
+      { name: "Gift cards", kind: "Product", priority: undefined },
+    ]);
+    expect(view.opportunities).toEqual([
+      { title: "Massage guide", contentType: "Guide", priority: "High" },
+      { title: "Deep tissue vs classic", contentType: undefined, priority: undefined },
+    ]);
+  });
+
+  it("flags a missing target project (current undefined, no overwrite) and warns", () => {
+    const view = projectSetupView(setupAction(full()), [])!;
+    expect(view.targetExists).toBe(false);
+    expect(view.profile.every((r) => r.current === undefined && r.overwrite === false)).toBe(true);
+  });
+
+  it("handles single-group payloads (services-only / opportunities-only / fields-only)", () => {
+    expect(projectSetupView(setupAction({ services: [{ name: "S", kind: "Service" }] }), [project()])!.profile).toEqual([]);
+    expect(projectSetupView(setupAction({ opportunities: [{ title: "T" }] }), [project()])!.services).toEqual([]);
+    const fieldsOnly = projectSetupView(setupAction({ projectFields: { businessName: "X" } }), [project()])!;
+    expect(fieldsOnly.competitors).toEqual([]);
+    expect(fieldsOnly.opportunities).toEqual([]);
+  });
+
+  it("counts groups without needing the project (competitorUrls excluded from field count)", () => {
+    expect(projectSetupCounts(setupAction(full()))).toEqual({ fields: 3, services: 2, opportunities: 2, competitors: 2 });
+    expect(projectSetupCounts(setupAction({ services: [{ name: "S", kind: "Service" }] }))).toEqual({ fields: 0, services: 1, opportunities: 0, competitors: 0 });
+  });
+
+  it("proposedFieldNames returns setup projectFields keys, sorted", () => {
+    expect(proposedFieldNames(setupAction(full()))).toEqual(["businessName", "competitorUrls", "description", "targetLocations"]);
+    expect(proposedFieldNames(setupAction({ services: [{ name: "S", kind: "Service" }] }))).toEqual([]);
+  });
+});
+
 describe("connected-apps scope pills", () => {
   it("propose renders amber like the other write-class scopes; reads stay neutral", () => {
     expect(scopePillTone("milo.actions.propose")).toBe("amber");
@@ -153,6 +239,16 @@ describe("resolution boundary guards on the page source (1B.5)", () => {
   it("renders controls only behind the effectively-pending guard", () => {
     expect(pageSrc).toContain("canResolvePendingAction");
     expect(pageSrc).toContain("canResolve ?"); // controls branch is gated
+  });
+
+  it("renders project-setup proposals via the pure view helper, and competitor URLs as PLAIN TEXT (never links)", () => {
+    expect(pageSrc).toContain("projectSetupView");
+    // Competitor URLs (untrusted proposal content) must not be turned into
+    // anchors or markdown links anywhere on the page.
+    expect(pageSrc).not.toMatch(/<a\s/); // no anchor elements at all on this page
+    expect(pageSrc).not.toContain("href=");
+    // The competitors block iterates the plain string list into <li>{u}</li>.
+    expect(pageSrc).toContain("setup.competitors.map");
   });
 
   it("is registered in the generated route tree", () => {
@@ -222,11 +318,13 @@ describe("i18n coverage", () => {
       "actions.empty.title", "actions.empty.body",
       "actions.status.pending", "actions.status.approved", "actions.status.applied", "actions.status.rejected", "actions.status.expired",
       "actions.risk.low", "actions.risk.medium", "actions.risk.high",
-      "actions.type.opportunity_update_proposal",
+      "actions.type.opportunity_update_proposal", "actions.type.project_setup_proposal",
       "actions.card.project", "actions.card.type", "actions.card.fields", "actions.card.created", "actions.card.expires",
       "actions.card.showDetail", "actions.card.hideDetail",
       "actions.detail.target", "actions.detail.targetMissing", "actions.detail.field", "actions.detail.current",
       "actions.detail.proposed", "actions.detail.preview",
+      "actions.detail.profile", "actions.detail.overwrite", "actions.detail.servicesToCreate", "actions.detail.opportunitiesToCreate",
+      "actions.detail.competitors", "actions.detail.projectMissing", "actions.detail.none",
       "claude.apps.scope.needsApproval",
       "actions.resolve.approve", "actions.resolve.approveTitle", "actions.resolve.approveBody",
       "actions.resolve.reject", "actions.resolve.rejectTitle", "actions.resolve.rejectBody",

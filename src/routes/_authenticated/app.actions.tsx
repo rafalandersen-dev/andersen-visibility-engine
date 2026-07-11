@@ -23,10 +23,12 @@ import {
 import { useStore, reloadWorkspaceForUser } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { useT } from "@/i18n";
-import type { Opportunity, PendingAction, PendingActionStatus } from "@/lib/types";
+import type { Opportunity, PendingAction, PendingActionStatus, Project } from "@/lib/types";
 import {
   filterPendingActions,
   pendingActionDiff,
+  projectSetupView,
+  projectSetupCounts,
   proposedFieldNames,
   effectivePendingStatus,
   canResolvePendingAction,
@@ -34,7 +36,7 @@ import {
 } from "@/lib/pending-actions.ui";
 import { resolvePendingActionFn, type ResolvePendingActionReason } from "@/lib/pending-actions.functions";
 import { Bot, Check, ChevronDown, ChevronUp, Inbox, ShieldCheck, TriangleAlert, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 // Phase 1B.5 — owner resolution lives HERE and only here: the authenticated
@@ -123,6 +125,7 @@ function PendingActionsPage() {
               nowMs={nowMs}
               projectName={projectName(a.projectId)}
               opportunities={opportunities}
+              projects={projects}
               expanded={expandedId === a.id}
               onToggle={() => setExpandedId(expandedId === a.id ? null : a.id)}
             />
@@ -138,15 +141,27 @@ function PendingActionCard(props: {
   nowMs: number;
   projectName: string;
   opportunities: Opportunity[];
+  projects: Project[];
   expanded: boolean;
   onToggle: () => void;
 }) {
   const t = useT();
   const { user } = useAuth();
-  const { action, nowMs, projectName, opportunities, expanded, onToggle } = props;
+  const { action, nowMs, projectName, opportunities, projects, expanded, onToggle } = props;
   const status = effectivePendingStatus(action, nowMs);
+  const isSetup = action.type === "project_setup_proposal";
   const fields = proposedFieldNames(action);
-  const diff = expanded ? pendingActionDiff(action, opportunities) : null;
+  const setupCounts = isSetup ? projectSetupCounts(action) : null;
+  const setupSummary = setupCounts
+    ? [
+        `${t("actions.detail.profile")} (${setupCounts.fields})`,
+        `${t("actions.detail.servicesToCreate")} (${setupCounts.services})`,
+        `${t("actions.detail.opportunitiesToCreate")} (${setupCounts.opportunities})`,
+        ...(setupCounts.competitors ? [`${t("actions.detail.competitors")} (${setupCounts.competitors})`] : []),
+      ].join(" · ")
+    : "";
+  const diff = expanded && !isSetup ? pendingActionDiff(action, opportunities) : null;
+  const setup = expanded && isSetup ? projectSetupView(action, projects) : null;
   const date = (iso?: string) => (iso ? new Date(iso).toLocaleDateString() : "");
   const canResolve = canResolvePendingAction(action, nowMs);
   const [busy, setBusy] = useState<"approve_apply" | "reject" | null>(null);
@@ -185,8 +200,12 @@ function PendingActionCard(props: {
       <p className="mt-1.5 text-sm text-muted-foreground">{action.summary}</p>
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
         <span>{t("actions.card.project")}: <span className="text-foreground/80">{projectName}</span></span>
-        <span>{t("actions.card.type")}: <span className="text-foreground/80">{t("actions.type.opportunity_update_proposal")}</span></span>
-        <span>{t("actions.card.fields")}: <span className="font-mono text-foreground/80">{fields.join(", ") || "—"}</span></span>
+        <span>{t("actions.card.type")}: <span className="text-foreground/80">{t(`actions.type.${action.type}`)}</span></span>
+        {isSetup ? (
+          <span className="text-foreground/80">{setupSummary}</span>
+        ) : (
+          <span>{t("actions.card.fields")}: <span className="font-mono text-foreground/80">{fields.join(", ") || "—"}</span></span>
+        )}
         <span>{t("actions.card.created")}: {date(action.createdAt)}</span>
         {action.expiresAt ? <span>{t("actions.card.expires")}: {date(action.expiresAt)}</span> : null}
       </div>
@@ -214,7 +233,9 @@ function PendingActionCard(props: {
                   <AlertDialogTitle>{t("actions.resolve.approveTitle")}</AlertDialogTitle>
                   <AlertDialogDescription>
                     {t("actions.resolve.approveBody")}
-                    <span className="mt-2 block font-mono text-xs text-foreground/80">{fields.join(", ") || "—"}</span>
+                    <span className={`mt-2 block text-xs text-foreground/80 ${isSetup ? "" : "font-mono"}`}>
+                      {isSetup ? setupSummary : fields.join(", ") || "—"}
+                    </span>
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -256,34 +277,104 @@ function PendingActionCard(props: {
         ) : null}
       </div>
 
-      {expanded && diff ? (
+      {expanded ? (
         <div className="mt-3 rounded-md border border-border bg-secondary/30 p-3">
-          <div className="text-xs text-muted-foreground">
-            {t("actions.detail.target")}: <span className="font-mono text-foreground/80">{diff.opportunityId}</span>
-          </div>
-          {!diff.targetExists ? (
-            <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-700">
-              <TriangleAlert className="h-3.5 w-3.5" /> {t("actions.detail.targetMissing")}
+          {isSetup && setup ? (
+            <div className="space-y-3">
+              {!setup.targetExists ? (
+                <div className="flex items-center gap-1.5 text-xs text-amber-700">
+                  <TriangleAlert className="h-3.5 w-3.5" /> {t("actions.detail.projectMissing")}
+                </div>
+              ) : null}
+
+              <SetupSection label={`${t("actions.detail.profile")} (${setup.profile.length})`} empty={setup.profile.length === 0} emptyLabel={t("actions.detail.none")}>
+                <table className="mt-1 w-full text-xs">
+                  <thead className="text-left uppercase tracking-[0.14em] text-[10px] text-muted-foreground">
+                    <tr>
+                      <th className="py-1 pr-3 font-medium">{t("actions.detail.field")}</th>
+                      <th className="py-1 pr-3 font-medium">{t("actions.detail.current")}</th>
+                      <th className="py-1 font-medium">{t("actions.detail.proposed")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {setup.profile.map((r) => (
+                      <tr key={r.field} className="border-t border-border/60 align-top">
+                        <td className="py-1.5 pr-3 font-mono">
+                          {r.field}
+                          {r.overwrite ? (
+                            <span className="ml-1 rounded bg-amber-500/10 px-1 py-0.5 font-sans text-[9px] text-amber-700">{t("actions.detail.overwrite")}</span>
+                          ) : null}
+                        </td>
+                        <td className="py-1.5 pr-3 text-muted-foreground">{r.current ? r.current : "—"}</td>
+                        <td className="py-1.5 text-foreground/90">{r.proposed}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </SetupSection>
+
+              <SetupSection label={`${t("actions.detail.servicesToCreate")} (${setup.services.length})`} empty={setup.services.length === 0} emptyLabel={t("actions.detail.none")}>
+                <ul className="mt-1 space-y-0.5 text-xs text-foreground/85">
+                  {setup.services.map((s, i) => (
+                    <li key={i}>
+                      {s.name}
+                      {s.kind || s.priority ? <span className="text-muted-foreground"> ({[s.kind, s.priority].filter(Boolean).join(", ")})</span> : null}
+                    </li>
+                  ))}
+                </ul>
+              </SetupSection>
+
+              <SetupSection label={`${t("actions.detail.opportunitiesToCreate")} (${setup.opportunities.length})`} empty={setup.opportunities.length === 0} emptyLabel={t("actions.detail.none")}>
+                <ul className="mt-1 space-y-0.5 text-xs text-foreground/85">
+                  {setup.opportunities.map((o, i) => (
+                    <li key={i}>
+                      {o.title}
+                      {o.contentType || o.priority ? <span className="text-muted-foreground"> ({[o.contentType, o.priority].filter(Boolean).join(", ")})</span> : null}
+                    </li>
+                  ))}
+                </ul>
+              </SetupSection>
+
+              <SetupSection label={`${t("actions.detail.competitors")} (${setup.competitors.length})`} empty={setup.competitors.length === 0} emptyLabel={t("actions.detail.none")}>
+                {/* Plain text — untrusted proposal content is never rendered as a link. */}
+                <ul className="mt-1 space-y-0.5 text-xs text-foreground/80">
+                  {setup.competitors.map((u, i) => (
+                    <li key={i} className="break-all">{u}</li>
+                  ))}
+                </ul>
+              </SetupSection>
             </div>
+          ) : diff ? (
+            <>
+              <div className="text-xs text-muted-foreground">
+                {t("actions.detail.target")}: <span className="font-mono text-foreground/80">{diff.opportunityId}</span>
+              </div>
+              {!diff.targetExists ? (
+                <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-700">
+                  <TriangleAlert className="h-3.5 w-3.5" /> {t("actions.detail.targetMissing")}
+                </div>
+              ) : null}
+              <table className="mt-2 w-full text-xs">
+                <thead className="text-left uppercase tracking-[0.14em] text-[10px] text-muted-foreground">
+                  <tr>
+                    <th className="py-1 pr-3 font-medium">{t("actions.detail.field")}</th>
+                    <th className="py-1 pr-3 font-medium">{t("actions.detail.current")}</th>
+                    <th className="py-1 font-medium">{t("actions.detail.proposed")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {diff.rows.map((r) => (
+                    <tr key={r.field} className="border-t border-border/60 align-top">
+                      <td className="py-1.5 pr-3 font-mono">{r.field}</td>
+                      <td className="py-1.5 pr-3 text-muted-foreground">{r.current ?? "—"}</td>
+                      <td className="py-1.5 text-foreground/90">{r.proposed}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
           ) : null}
-          <table className="mt-2 w-full text-xs">
-            <thead className="text-left uppercase tracking-[0.14em] text-[10px] text-muted-foreground">
-              <tr>
-                <th className="py-1 pr-3 font-medium">{t("actions.detail.field")}</th>
-                <th className="py-1 pr-3 font-medium">{t("actions.detail.current")}</th>
-                <th className="py-1 font-medium">{t("actions.detail.proposed")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {diff.rows.map((r) => (
-                <tr key={r.field} className="border-t border-border/60 align-top">
-                  <td className="py-1.5 pr-3 font-mono">{r.field}</td>
-                  <td className="py-1.5 pr-3 text-muted-foreground">{r.current ?? "—"}</td>
-                  <td className="py-1.5 text-foreground/90">{r.proposed}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+
           {action.preview ? (
             <div className="mt-3">
               <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{t("actions.detail.preview")}</div>
@@ -292,6 +383,17 @@ function PendingActionCard(props: {
           ) : null}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/** A labelled section in the project-setup detail; shows an empty label when
+ * the group has no items (counts stay visible for omitted/empty sections). */
+function SetupSection(props: { label: string; empty: boolean; emptyLabel: string; children: ReactNode }) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{props.label}</div>
+      {props.empty ? <div className="mt-1 text-xs text-muted-foreground">{props.emptyLabel}</div> : props.children}
     </div>
   );
 }

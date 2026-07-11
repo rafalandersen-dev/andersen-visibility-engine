@@ -944,6 +944,7 @@ export const pl: Record<string, string> = {
   "actions.risk.medium": "Średnie ryzyko",
   "actions.risk.high": "Wysokie ryzyko",
   "actions.type.opportunity_update_proposal": "Aktualizacja szansy",
+  "actions.type.project_setup_proposal": "Konfiguracja projektu",
   "actions.card.project": "Projekt",
   "actions.card.type": "Typ",
   "actions.card.fields": "Proponowane pola",
@@ -957,6 +958,13 @@ export const pl: Record<string, string> = {
   "actions.detail.current": "Obecnie",
   "actions.detail.proposed": "Proponowane",
   "actions.detail.preview": "Podgląd",
+  "actions.detail.profile": "Profil firmy",
+  "actions.detail.overwrite": "nadpisuje obecne",
+  "actions.detail.servicesToCreate": "Usługi do utworzenia",
+  "actions.detail.opportunitiesToCreate": "Szanse do utworzenia",
+  "actions.detail.competitors": "Konkurenci",
+  "actions.detail.projectMissing": "Ten projekt już nie istnieje — tej propozycji nie można zastosować w obecnej formie.",
+  "actions.detail.none": "Brak",
   "claude.apps.scope.needsApproval": "wymaga Twojej zgody",
 
   // ---- Pending Actions resolution (Phase 1B.5) ----

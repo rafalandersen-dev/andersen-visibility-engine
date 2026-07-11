@@ -944,6 +944,7 @@ export const da: Record<string, string> = {
   "actions.risk.medium": "Mellem risiko",
   "actions.risk.high": "Høj risiko",
   "actions.type.opportunity_update_proposal": "Opdatering af mulighed",
+  "actions.type.project_setup_proposal": "Projektopsætning",
   "actions.card.project": "Projekt",
   "actions.card.type": "Type",
   "actions.card.fields": "Foreslåede felter",
@@ -957,6 +958,13 @@ export const da: Record<string, string> = {
   "actions.detail.current": "Nuværende",
   "actions.detail.proposed": "Foreslået",
   "actions.detail.preview": "Forhåndsvisning",
+  "actions.detail.profile": "Virksomhedsprofil",
+  "actions.detail.overwrite": "overskriver nuværende",
+  "actions.detail.servicesToCreate": "Tjenester der oprettes",
+  "actions.detail.opportunitiesToCreate": "Muligheder der oprettes",
+  "actions.detail.competitors": "Konkurrenter",
+  "actions.detail.projectMissing": "Dette projekt findes ikke længere — forslaget kan ikke anvendes som det er.",
+  "actions.detail.none": "Ingen",
   "claude.apps.scope.needsApproval": "kræver din godkendelse",
 
   // ---- Pending Actions resolution (Phase 1B.5) ----
