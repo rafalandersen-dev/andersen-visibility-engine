@@ -813,7 +813,7 @@ async function dispatchPendingTool(
     buildPendingActionCreatedAudit,
     PendingActionNotFoundError,
   } = await import("./pending-actions.server");
-  const { PendingActionValidationError, PendingActionCapError, MILO_ACTIONS_PROPOSE_SCOPE } = await import("./pending-actions");
+  const { PendingActionValidationError, PendingActionCapError, MILO_ACTIONS_PROPOSE_SCOPE, OPPORTUNITY_UPDATE_FIELDS } = await import("./pending-actions");
   const { WorkspaceConflictError, WorkspaceNotFoundError } = await import("./workspace.server");
 
   if (name === "create_pending_action") {
@@ -824,14 +824,18 @@ async function dispatchPendingTool(
       if (!rl.allowed) return rpcError(id, -32003, "Rate limit reached for this tool — try again later.");
     }
 
-    // Audit base: names/ids only — titles, summaries, previews and payload
-    // values are user content and never enter the log.
+    // Audit base for FAILURE rows: names/ids only — titles, summaries, previews
+    // and payload values are user content and never enter the log. fieldsChanged
+    // is intersected with the whitelist so a malformed call's arbitrary unknown
+    // update keys (e.g. seoTitle, publish, delete, billing) can NEVER appear;
+    // only known field names survive (the success row uses the validated action).
     const updates = (args.payload as { updates?: Record<string, unknown> } | undefined)?.updates;
+    const rawUpdateKeys = updates && typeof updates === "object" && !Array.isArray(updates) ? Object.keys(updates) : [];
     const auditBase: Record<string, unknown> = {
       type: typeof args.type === "string" ? args.type : "unknown",
       ...(typeof args.projectId === "string" ? { projectId: args.projectId } : {}),
       requiredScope: MILO_ACTIONS_PROPOSE_SCOPE,
-      fieldsChanged: updates && typeof updates === "object" && !Array.isArray(updates) ? Object.keys(updates).sort() : [],
+      fieldsChanged: rawUpdateKeys.filter((k) => (OPPORTUNITY_UPDATE_FIELDS as readonly string[]).includes(k)).sort(),
       ...(typeof args.requestId === "string" ? { requestId: args.requestId } : {}),
     };
 

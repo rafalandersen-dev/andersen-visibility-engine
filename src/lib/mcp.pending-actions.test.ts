@@ -298,6 +298,35 @@ describe("audit", () => {
     expect(s).not.toMatch(/milo_at_|milo_rt_|hash|secret|family/i);
   });
 
+  it("failure audit never echoes caller-supplied unknown update keys in fieldsChanged (follow-up B)", async () => {
+    // Each malformed call: known + unknown update keys mixed. The failure audit
+    // must drop every unknown key AND never contain any value.
+    // Distinctive key names + values so probes can't collide with legitimate
+    // audit content (e.g. "propose" in the scope/type).
+    const cases: { updates: Record<string, unknown>; expectFields: string[]; badTokens: string[] }[] = [
+      { updates: { seoXKey: "seoXVal" }, expectFields: [], badTokens: ["seoXKey", "seoXVal"] }, // the exact §13 nuance
+      { updates: { publishXKey: true }, expectFields: [], badTokens: ["publishXKey"] },
+      { updates: { deleteXKey: true }, expectFields: [], badTokens: ["deleteXKey"] },
+      { updates: { settingsXKey: {} }, expectFields: [], badTokens: ["settingsXKey"] },
+      { updates: { billingXKey: "billingXVal" }, expectFields: [], badTokens: ["billingXKey", "billingXVal"] },
+      { updates: { recommendedCta: "leakXCtaVal", publishNowXKey: true }, expectFields: ["recommendedCta"], badTokens: ["leakXCtaVal", "publishNowXKey"] }, // known name survives, its VALUE and the unknown key are dropped
+    ];
+    for (const c of cases) {
+      h.events = [];
+      const res = await call(g(), "create_pending_action", { ...validArgs(), payload: { opportunityId: "o1", updates: c.updates } });
+      expect(errOf(res)?.code).toBe(-32010); // response unchanged
+      const failure = h.events.find((e) => e.event === "pending_action_created");
+      expect(failure, "failure row must be audited").toBeTruthy();
+      expect(failure!.detail.ok).toBe(false);
+      expect(failure!.detail.error).toBe("validation");
+      expect(failure!.detail.fieldsChanged).toEqual(c.expectFields);
+      const s = JSON.stringify(h.events);
+      for (const bad of c.badTokens) {
+        expect(s, `audit must not contain "${bad}"`).not.toContain(bad);
+      }
+    }
+  });
+
   it("no double-logging: create is excluded from mcp_call; list/get keep mcp_call; denials carry the propose scope", async () => {
     const createMsg = rpc("tools/call", { name: "create_pending_action", arguments: validArgs() });
     const okRes = await call(g(), "create_pending_action", { ...validArgs(), requestId: "audit-req" });
