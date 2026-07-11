@@ -45,21 +45,23 @@ export const resolvePendingActionFn = createServerFn({ method: "POST" })
     const { logOAuthEvent } = await import("./oauth.server");
 
     try {
-      const { action, status, expiredIds, rev } = await server.resolvePendingActionForWorkspace(context.userId, data);
+      const { action, status, expiredIds, rev, applySummary } = await server.resolvePendingActionForWorkspace(context.userId, data);
 
       // Lifecycle audits (awaited; logOAuthEvent never throws). approve_apply
       // records both hops; the sweep that rode the write gets one event.
+      // applySummary (1C setup proposals) is counts-only metadata.
       if (expiredIds.length) {
         await logOAuthEvent("pending_action_expired", { userId: context.userId, detail: { actionIds: expiredIds, source: "milo_ui", ok: true } });
       }
       if (status === "applied") {
         await logOAuthEvent("pending_action_approved", {
           userId: context.userId,
-          detail: server.buildPendingActionResolutionAudit(action, "pending_action_approved", { ok: true }).detail,
+          detail: server.buildPendingActionResolutionAudit(action, "pending_action_approved", { ok: true, ...(applySummary ? { applySummary } : {}) }).detail,
         });
         await logOAuthEvent("pending_action_applied", {
           userId: context.userId,
-          detail: server.buildPendingActionResolutionAudit(action, "pending_action_applied", { ok: true, appliedAtRev: rev }).detail,
+          detail: server.buildPendingActionResolutionAudit(action, "pending_action_applied", { ok: true, appliedAtRev: rev, ...(applySummary ? { applySummary } : {}) })
+            .detail,
         });
       } else {
         await logOAuthEvent("pending_action_rejected", {
