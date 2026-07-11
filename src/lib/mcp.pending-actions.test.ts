@@ -341,3 +341,35 @@ describe("audit", () => {
     expect(buildMcpAuditEvent(denyMsg as never, denyRes)).toEqual({ event: "mcp_denied", detail: { tool: "get_pending_action", requiredScope: TOOL_SCOPES.get_pending_action } });
   });
 });
+
+describe("1C.1 darkness — project_setup_proposal is not creatable via MCP", () => {
+  const g = () => grantOf([...READS, PROPOSE], true, "client_A");
+
+  it("create_pending_action rejects the type with -32010 even flag-on with the propose scope, and audits a validation failure", async () => {
+    const res = await call(g(), "create_pending_action", {
+      type: "project_setup_proposal",
+      projectId: "synergy",
+      title: "Set up Synergy Massage",
+      summary: "Fill in the project profile from the website.",
+      payload: { projectFields: { businessName: "leakXSetupName" } },
+      preview: "- businessName → …",
+      requestId: "setup-dark-req",
+    });
+    expect(errOf(res)?.code).toBe(-32010);
+    expect(errOf(res)?.message).toContain("unknown pending action type");
+    const failure = h.events.find((e) => e.event === "pending_action_created");
+    expect(failure?.detail.ok).toBe(false);
+    expect(failure?.detail.error).toBe("validation");
+    expect(JSON.stringify(h.events)).not.toContain("leakXSetupName");
+    // Nothing persisted.
+    expect((h.row!.data.pendingActions as unknown[]).length).toBe(0);
+  });
+
+  it("the advertised create schema and list filter still enumerate only opportunity_update_proposal", async () => {
+    const tools = (await listTools(g())) as { name: string; inputSchema?: { properties?: { type?: { enum?: string[] } } } }[];
+    const create = tools.find((t) => t.name === "create_pending_action");
+    expect(create?.inputSchema?.properties?.type?.enum).toEqual(["opportunity_update_proposal"]);
+    const res = await call(g(), "list_pending_actions", { type: "project_setup_proposal" });
+    expect(errOf(res)?.code).toBe(-32010);
+  });
+});

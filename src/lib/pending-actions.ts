@@ -30,19 +30,55 @@ export const MAX_PENDING_ACTION_PREVIEW_BYTES = 4 * 1024;
 /** Lazy expiry horizon (decision §11.6): 14 days, no cron. */
 export const PENDING_ACTION_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 
+/**
+ * Types Claude may CREATE. Deliberately narrower than the PendingActionType
+ * union while a type is schema-only: project_setup_proposal (1C.1) has a
+ * validator below but stays uncreatable — createPendingAction rejects it —
+ * until the apply branch (1C.2) and MCP exposure (1C.3) land.
+ */
 export const PENDING_ACTION_TYPES = ["opportunity_update_proposal"] as const;
 
 /** The ONLY fields an opportunity_update_proposal may touch. */
 export const OPPORTUNITY_UPDATE_FIELDS = ["title", "businessValue", "priority", "contentType", "recommendedCta"] as const;
 export type OpportunityUpdateField = (typeof OPPORTUNITY_UPDATE_FIELDS)[number];
 
+// ---- Phase 1C project_setup_proposal whitelists + caps (blueprint §3.2) ----
+// Project identity/ops fields (name, websiteUrl, setupComplete, market,
+// currency, publishing/connector, GSC, billing…) are NOT listed here, so they
+// fail closed as unknown fields at validation — inexpressible by construction.
+export const PROJECT_SETUP_PROJECT_FIELDS = [
+  "businessName",
+  "businessType",
+  "description",
+  "targetAudience",
+  "toneOfVoice",
+  "uniqueSellingPoints",
+  "brandNotes",
+  "mainLocation",
+  "targetLocations",
+  "primaryLanguage",
+  "additionalLanguages",
+  "competitorUrls",
+] as const;
+export const PROJECT_SETUP_SERVICE_FIELDS = ["name", "kind", "description", "targetAudience", "locationRelevance", "priority"] as const;
+export const PROJECT_SETUP_OPPORTUNITY_FIELDS = ["title", "contentType", "searchIntent", "targetAudience", "businessValue", "recommendedCta", "priority"] as const;
+export const MAX_PROJECT_SETUP_SERVICES = 10;
+export const MAX_PROJECT_SETUP_OPPORTUNITIES = 10;
+export const MAX_PROJECT_SETUP_TARGET_LOCATIONS = 10;
+export const MAX_PROJECT_SETUP_ADDITIONAL_LANGUAGES = 3;
+export const MAX_PROJECT_SETUP_COMPETITOR_URLS = 5;
+
 // Runtime mirrors of erased unions (same values as the 1A write tools).
 const PRIORITIES = ["High", "Medium", "Low"];
 const CONTENT_TYPES = ["Landing Page", "Service Page", "Blog Article", "Guide", "FAQ Page", "Comparison", "Location Page"];
+const LANGUAGES = ["Polish", "Swedish", "English", "Danish"];
+const SEARCH_INTENTS = ["Informational", "Commercial", "Transactional", "Navigational"];
+const SERVICE_KINDS = ["Service", "Product"];
 
 /** riskLevel is DERIVED from the type — callers never supply it. */
 const RISK_BY_TYPE: Record<PendingActionType, PendingActionRiskLevel> = {
   opportunity_update_proposal: "medium", // mutates existing owner data on apply
+  project_setup_proposal: "medium", // overwrites project fields on apply (decision 3a8f7aa §12.7)
 };
 
 export function derivePendingActionRisk(type: PendingActionType): PendingActionRiskLevel {
@@ -106,6 +142,41 @@ export interface OpportunityUpdatePayload {
   updates: Partial<Record<OpportunityUpdateField, string>>;
 }
 
+/** Phase 1C — composite setup proposal payload (blueprint §3.2, all groups optional, ≥1 required). */
+export interface ProjectSetupProposalPayload {
+  projectFields?: {
+    businessName?: string;
+    businessType?: string;
+    description?: string;
+    targetAudience?: string;
+    toneOfVoice?: string;
+    uniqueSellingPoints?: string;
+    brandNotes?: string;
+    mainLocation?: string;
+    targetLocations?: string[];
+    primaryLanguage?: string;
+    additionalLanguages?: string[];
+    competitorUrls?: string[];
+  };
+  services?: Array<{
+    name: string;
+    kind: string;
+    description?: string;
+    targetAudience?: string;
+    locationRelevance?: string;
+    priority?: string;
+  }>;
+  opportunities?: Array<{
+    title: string;
+    contentType?: string;
+    searchIntent?: string;
+    targetAudience?: string;
+    businessValue?: string;
+    recommendedCta?: string;
+    priority?: string;
+  }>;
+}
+
 /**
  * Strict per-type payload validation. Unknown keys are rejected at every
  * level, so publish/delete/settings/billing-shaped payloads fail closed as
@@ -118,7 +189,7 @@ export function validatePendingActionPayload(type: PendingActionType, payload: u
     throw new PendingActionValidationError("payload", `must be at most ${MAX_PENDING_ACTION_PAYLOAD_BYTES} bytes`);
   }
 
-  // Single type in the first implementation; extend with a switch when more land.
+  if (type === "project_setup_proposal") return validateProjectSetupPayload(payload) as unknown as Record<string, unknown>;
   if (type !== "opportunity_update_proposal") throw new PendingActionValidationError("type", "unknown pending action type");
 
   for (const k of Object.keys(payload)) {
@@ -155,6 +226,176 @@ export function validatePendingActionPayload(type: PendingActionType, payload: u
 
   const validated: OpportunityUpdatePayload = { opportunityId, updates };
   return validated as unknown as Record<string, unknown>;
+}
+
+/** Bounded string array: rejects empties, enforces per-item bounds, caps length. */
+function strArray(field: string, v: unknown, itemMin: number, itemMax: number, maxItems: number): string[] {
+  if (!Array.isArray(v)) throw new PendingActionValidationError(field, "must be an array");
+  if (v.length === 0) throw new PendingActionValidationError(field, "must contain at least one item");
+  if (v.length > maxItems) throw new PendingActionValidationError(field, `must contain at most ${maxItems} items`);
+  return v.map((item, i) => str(`${field}[${i}]`, item, itemMin, itemMax, true)!);
+}
+
+/** Enum-mirror check for an already-bounded string. */
+function oneOf(field: string, v: string, allowed: readonly string[], label: string): string {
+  if (!allowed.includes(v)) throw new PendingActionValidationError(field, `must be one of: ${label}`);
+  return v;
+}
+
+/** https-only URL (blueprint §3.2): parseable, https protocol, non-empty host. */
+function httpsUrl(field: string, v: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(v);
+  } catch {
+    throw new PendingActionValidationError(field, "must be a valid https URL");
+  }
+  if (parsed.protocol !== "https:" || !parsed.hostname) {
+    throw new PendingActionValidationError(field, "must be a valid https URL");
+  }
+  return v;
+}
+
+/**
+ * Phase 1C — project_setup_proposal payload validation (blueprint §3.2,
+ * decisions 3a8f7aa §12). Same fail-closed discipline as the 1B validator:
+ * unknown keys rejected recursively at every level (project identity/ops
+ * fields are simply not whitelisted, so name/websiteUrl/setupComplete/
+ * publishing/GSC/billing-shaped payloads all die here), string bounds and
+ * array caps enforced, enum-backed fields checked against runtime mirrors.
+ * competitorUrls/additionalLanguages are deduplicated, order-preserving.
+ * NOTE: validation only — apply semantics (defaults, dedupe against existing
+ * entities, status "New", setupComplete untouched) land in 1C.2.
+ */
+export function validateProjectSetupPayload(payload: Record<string, unknown>): ProjectSetupProposalPayload {
+  for (const k of Object.keys(payload)) {
+    if (k !== "projectFields" && k !== "services" && k !== "opportunities") {
+      throw new PendingActionValidationError(`payload.${k}`, "unknown field");
+    }
+  }
+
+  const validated: ProjectSetupProposalPayload = {};
+
+  if (payload.projectFields !== undefined) {
+    const raw = payload.projectFields;
+    if (!isPlainObject(raw)) throw new PendingActionValidationError("payload.projectFields", "must be an object");
+    if (Object.keys(raw).length === 0) throw new PendingActionValidationError("payload.projectFields", "must contain at least one field");
+    for (const k of Object.keys(raw)) {
+      if (!(PROJECT_SETUP_PROJECT_FIELDS as readonly string[]).includes(k)) {
+        throw new PendingActionValidationError(`payload.projectFields.${k}`, "unknown field");
+      }
+    }
+    const f: NonNullable<ProjectSetupProposalPayload["projectFields"]> = {};
+    const businessName = str("payload.projectFields.businessName", raw.businessName, 1, 200, false);
+    if (businessName !== undefined) f.businessName = businessName;
+    const businessType = str("payload.projectFields.businessType", raw.businessType, 1, 200, false);
+    if (businessType !== undefined) f.businessType = businessType;
+    const description = str("payload.projectFields.description", raw.description, 1, 2000, false);
+    if (description !== undefined) f.description = description;
+    const targetAudience = str("payload.projectFields.targetAudience", raw.targetAudience, 1, 500, false);
+    if (targetAudience !== undefined) f.targetAudience = targetAudience;
+    const toneOfVoice = str("payload.projectFields.toneOfVoice", raw.toneOfVoice, 1, 500, false);
+    if (toneOfVoice !== undefined) f.toneOfVoice = toneOfVoice;
+    const uniqueSellingPoints = str("payload.projectFields.uniqueSellingPoints", raw.uniqueSellingPoints, 1, 1000, false);
+    if (uniqueSellingPoints !== undefined) f.uniqueSellingPoints = uniqueSellingPoints;
+    const brandNotes = str("payload.projectFields.brandNotes", raw.brandNotes, 1, 1000, false);
+    if (brandNotes !== undefined) f.brandNotes = brandNotes;
+    const mainLocation = str("payload.projectFields.mainLocation", raw.mainLocation, 1, 120, false);
+    if (mainLocation !== undefined) f.mainLocation = mainLocation;
+    if (raw.targetLocations !== undefined) {
+      f.targetLocations = strArray("payload.projectFields.targetLocations", raw.targetLocations, 1, 120, MAX_PROJECT_SETUP_TARGET_LOCATIONS);
+    }
+    const primaryLanguage = str("payload.projectFields.primaryLanguage", raw.primaryLanguage, 1, 40, false);
+    if (primaryLanguage !== undefined) {
+      f.primaryLanguage = oneOf("payload.projectFields.primaryLanguage", primaryLanguage, LANGUAGES, "Polish, Swedish, English or Danish");
+    }
+    if (raw.additionalLanguages !== undefined) {
+      const langs = strArray("payload.projectFields.additionalLanguages", raw.additionalLanguages, 1, 40, MAX_PROJECT_SETUP_ADDITIONAL_LANGUAGES).map(
+        (l, i) => oneOf(`payload.projectFields.additionalLanguages[${i}]`, l, LANGUAGES, "Polish, Swedish, English or Danish"),
+      );
+      f.additionalLanguages = [...new Set(langs)];
+    }
+    if (raw.competitorUrls !== undefined) {
+      const urls = strArray("payload.projectFields.competitorUrls", raw.competitorUrls, 1, 300, MAX_PROJECT_SETUP_COMPETITOR_URLS).map((u, i) =>
+        httpsUrl(`payload.projectFields.competitorUrls[${i}]`, u),
+      );
+      f.competitorUrls = [...new Set(urls)];
+    }
+    validated.projectFields = f;
+  }
+
+  if (payload.services !== undefined) {
+    const raw = payload.services;
+    if (!Array.isArray(raw)) throw new PendingActionValidationError("payload.services", "must be an array");
+    if (raw.length === 0) throw new PendingActionValidationError("payload.services", "must contain at least one item");
+    if (raw.length > MAX_PROJECT_SETUP_SERVICES) {
+      throw new PendingActionValidationError("payload.services", `must contain at most ${MAX_PROJECT_SETUP_SERVICES} items`);
+    }
+    validated.services = raw.map((item, i) => {
+      const field = `payload.services[${i}]`;
+      if (!isPlainObject(item)) throw new PendingActionValidationError(field, "must be an object");
+      for (const k of Object.keys(item)) {
+        if (!(PROJECT_SETUP_SERVICE_FIELDS as readonly string[]).includes(k)) {
+          throw new PendingActionValidationError(`${field}.${k}`, "unknown field");
+        }
+      }
+      const s: NonNullable<ProjectSetupProposalPayload["services"]>[number] = {
+        name: str(`${field}.name`, item.name, 1, 120, true)!,
+        kind: oneOf(`${field}.kind`, str(`${field}.kind`, item.kind, 1, 20, true)!, SERVICE_KINDS, "Service or Product"),
+      };
+      const description = str(`${field}.description`, item.description, 1, 400, false);
+      if (description !== undefined) s.description = description;
+      const targetAudience = str(`${field}.targetAudience`, item.targetAudience, 1, 200, false);
+      if (targetAudience !== undefined) s.targetAudience = targetAudience;
+      const locationRelevance = str(`${field}.locationRelevance`, item.locationRelevance, 1, 120, false);
+      if (locationRelevance !== undefined) s.locationRelevance = locationRelevance;
+      const priority = str(`${field}.priority`, item.priority, 1, 10, false);
+      if (priority !== undefined) s.priority = oneOf(`${field}.priority`, priority, PRIORITIES, "High, Medium or Low");
+      return s;
+    });
+  }
+
+  if (payload.opportunities !== undefined) {
+    const raw = payload.opportunities;
+    if (!Array.isArray(raw)) throw new PendingActionValidationError("payload.opportunities", "must be an array");
+    if (raw.length === 0) throw new PendingActionValidationError("payload.opportunities", "must contain at least one item");
+    if (raw.length > MAX_PROJECT_SETUP_OPPORTUNITIES) {
+      throw new PendingActionValidationError("payload.opportunities", `must contain at most ${MAX_PROJECT_SETUP_OPPORTUNITIES} items`);
+    }
+    validated.opportunities = raw.map((item, i) => {
+      const field = `payload.opportunities[${i}]`;
+      if (!isPlainObject(item)) throw new PendingActionValidationError(field, "must be an object");
+      for (const k of Object.keys(item)) {
+        if (!(PROJECT_SETUP_OPPORTUNITY_FIELDS as readonly string[]).includes(k)) {
+          throw new PendingActionValidationError(`${field}.${k}`, "unknown field");
+        }
+      }
+      const o: NonNullable<ProjectSetupProposalPayload["opportunities"]>[number] = {
+        title: str(`${field}.title`, item.title, 1, 200, true)!,
+      };
+      const contentType = str(`${field}.contentType`, item.contentType, 1, 40, false);
+      if (contentType !== undefined) o.contentType = oneOf(`${field}.contentType`, contentType, CONTENT_TYPES, "a valid Milo content type");
+      const searchIntent = str(`${field}.searchIntent`, item.searchIntent, 1, 20, false);
+      if (searchIntent !== undefined) {
+        o.searchIntent = oneOf(`${field}.searchIntent`, searchIntent, SEARCH_INTENTS, "Informational, Commercial, Transactional or Navigational");
+      }
+      const targetAudience = str(`${field}.targetAudience`, item.targetAudience, 1, 200, false);
+      if (targetAudience !== undefined) o.targetAudience = targetAudience;
+      const businessValue = str(`${field}.businessValue`, item.businessValue, 1, 500, false);
+      if (businessValue !== undefined) o.businessValue = businessValue;
+      const recommendedCta = str(`${field}.recommendedCta`, item.recommendedCta, 1, 200, false);
+      if (recommendedCta !== undefined) o.recommendedCta = recommendedCta;
+      const priority = str(`${field}.priority`, item.priority, 1, 10, false);
+      if (priority !== undefined) o.priority = oneOf(`${field}.priority`, priority, PRIORITIES, "High, Medium or Low");
+      return o;
+    });
+  }
+
+  if (!validated.projectFields && !validated.services && !validated.opportunities) {
+    throw new PendingActionValidationError("payload", "must contain at least one of projectFields, services or opportunities");
+  }
+
+  return validated;
 }
 
 /** Caller-suppliable creation input. riskLevel/status/source are NOT here — derived. */

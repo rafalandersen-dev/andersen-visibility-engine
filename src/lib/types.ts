@@ -154,6 +154,9 @@ export interface Project {
   growthGoals?: string[];
   onboardingCompletedAt?: string;
   onboardingSourceData?: Record<string, unknown>;
+  // ---- Phase 1C project setup (optional → existing projects keep loading) ----
+  /** Competitor site URLs (https, ≤5) — persisted by the 1C setup proposal flow. */
+  competitorUrls?: string[];
   // ---- Brand Intelligence / Content Memory v1 (all optional) ----
   brandIntelligence?: BrandIntelligence;
   // ---- GSC Lite / SEO Proof Import v1 (all optional) ----
@@ -368,8 +371,13 @@ export interface GrowthTask {
   updatedAt: string;
 }
 
-/** Phase 1B — proposal types Claude may create. First implementation ships exactly one. */
-export type PendingActionType = "opportunity_update_proposal";
+/**
+ * Proposal types Claude may create. opportunity_update_proposal shipped in
+ * Phase 1B; project_setup_proposal is Phase 1C (schema + validator only in
+ * 1C.1 — it is NOT creatable until the server apply branch and MCP exposure
+ * land in 1C.2/1C.3).
+ */
+export type PendingActionType = "opportunity_update_proposal" | "project_setup_proposal";
 
 export type PendingActionStatus = "pending" | "approved" | "rejected" | "applied" | "expired";
 
