@@ -31,9 +31,15 @@ describe("isEncryptionConfigured", () => {
     delete process.env.GSC_TOKEN_ENCRYPTION_KEY;
     expect(isEncryptionConfigured()).toBe(false);
   });
-  it("is false when the key has the wrong length", () => {
-    process.env.GSC_TOKEN_ENCRYPTION_KEY = Buffer.from(new Uint8Array(31)).toString("base64");
+  it("is false when the key is too short", () => {
+    process.env.GSC_TOKEN_ENCRYPTION_KEY = "short-key";
     expect(isEncryptionConfigured()).toBe(false);
+  });
+  it("accepts an arbitrary high-entropy secret of >= 32 chars (SHA-256 derived)", async () => {
+    process.env.GSC_TOKEN_ENCRYPTION_KEY = "platform-generated-secret-0123456789abcdef";
+    expect(isEncryptionConfigured()).toBe(true);
+    const ct = await encryptSecret("value");
+    expect(await decryptSecret(ct)).toBe("value");
   });
 });
 

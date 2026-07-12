@@ -24,11 +24,9 @@ function envKey(): string {
 /** True when a usable encryption key + WebCrypto are available server-side. */
 export function isEncryptionConfigured(): boolean {
   if (!subtle) return false;
-  try {
-    return decodeKeyBytes(envKey()).length === 32;
-  } catch {
-    return false;
-  }
+  // Any secret of >= 32 characters is acceptable: exact 32-byte base64/hex keys
+  // are used as-is, anything else is derived via SHA-256 (see keyBytes()).
+  return envKey().length >= 32;
 }
 
 function b64ToBytes(b64: string): Uint8Array {
@@ -55,10 +53,29 @@ function decodeKeyBytes(raw: string): Uint8Array {
   return b64ToBytes(raw);
 }
 
+/**
+ * Resolve the 32-byte AES key. Exact 32-byte base64 / 64-char hex secrets are
+ * used as-is (backwards compatible). Any other secret of >= 32 characters is
+ * derived with SHA-256 — this lets high-entropy random strings (e.g. generated
+ * by the platform's secret manager) work without a specific encoding, without
+ * weakening the key for proper inputs.
+ */
+async function keyBytes(raw: string): Promise<Uint8Array> {
+  if (!subtle) throw new Error("WebCrypto unavailable");
+  if (raw.length < 32) throw new Error("GSC_TOKEN_ENCRYPTION_KEY must be at least 32 characters.");
+  try {
+    const decoded = decodeKeyBytes(raw);
+    if (decoded.length === 32) return decoded;
+  } catch {
+    // fall through to derivation
+  }
+  const digest = await subtle.digest("SHA-256", ab(new TextEncoder().encode(raw)));
+  return new Uint8Array(digest);
+}
+
 async function importKey(): Promise<CryptoKey> {
   if (!subtle) throw new Error("WebCrypto unavailable");
-  const bytes = decodeKeyBytes(envKey());
-  if (bytes.length !== 32) throw new Error("GSC_TOKEN_ENCRYPTION_KEY must be 32 bytes (base64 or hex).");
+  const bytes = await keyBytes(envKey());
   return subtle.importKey("raw", ab(bytes), { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
 }
 
