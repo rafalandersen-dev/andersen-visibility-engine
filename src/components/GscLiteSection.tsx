@@ -506,8 +506,21 @@ GSC_TOKEN_ENCRYPTION_KEY  (openssl rand -base64 32)`}
                   {busy === "sync90" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                   {t("gsc.oauth.sync90")}
                 </Button>
-                <Button size="sm" variant="ghost" onClick={onLoadSites} disabled={busy !== null}>{t("gsc.oauth.changeProperty")}</Button>
+                <Button size="sm" variant="ghost" onClick={onLoadSites} disabled={busy !== null}>
+                  {busy === "sites" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  {t("gsc.oauth.changeProperty")}
+                </Button>
               </div>
+              {sites.length > 0 ? (
+                <Select onValueChange={onSelect} disabled={busy === "select"}>
+                  <SelectTrigger className="w-72"><SelectValue placeholder={t("gsc.oauth.selectProperty")} /></SelectTrigger>
+                  <SelectContent>
+                    {sites.map((s) => (
+                      <SelectItem key={s.siteUrl} value={s.siteUrl}>{s.siteUrl}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : null}
               {meta?.sync?.lastSyncedAt ? (
                 <div className="text-xs text-muted-foreground">
                   {t("gsc.oauth.lastSync")}: {meta.sync.lastSyncedAt.slice(0, 10)} · {meta.sync.lastRowCount ?? 0} {t("gsc.oauth.rows")}
