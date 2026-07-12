@@ -16,12 +16,9 @@ available as a fallback and needs no setup.
 - OAuth client: **Milo Growth Web** (Web application), client id
   `117784515235-atlddib0j1tqmcnhoaefbt9scal2im6g.apps.googleusercontent.com`,
   single authorised redirect URI (below), no JS origins.
-- Publishing status: **Testing** with `rafal.andersen@gmail.com` as test user.
-  ⚠ In Testing mode Google expires refresh tokens after ~7 days. The E2E flow
-  is proven (connected + synced 2026-07-12) — the owner should click
-  **Google Auth Platform → Audience → Publish app**. The scope is
-  non-sensitive, so no Google verification is required and the consent screen
-  keeps working for any external user.
+- Publishing status: **In production** (published 2026-07-12). Refresh tokens
+  do NOT expire on the 7-day Testing schedule. The scope is non-sensitive, so
+  no Google verification was required; any external Google user can connect.
 - E2E verified 2026-07-12: connect → consent (owner's own browser — passkeys do
   NOT work in embedded browsers), encrypted `v1.` token row in
   `google_connections`, property `https://butelkiwodorowe.pl/` selected, 28d
