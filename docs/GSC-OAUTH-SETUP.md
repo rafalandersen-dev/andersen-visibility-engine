@@ -4,6 +4,35 @@ Milo can pull Search Console performance directly via the Google Search Console
 API (read-only), in addition to manual CSV import. CSV import is always
 available as a fallback and needs no setup.
 
+## Current production state (2026-07-12)
+
+- Google Cloud project: **Milo Growth Integrations**
+  (`my-project-4915-1781031501961`, project number 117784515235).
+- Search Console API: **enabled**.
+- Google Auth Platform: branding "Milo Growth", support email set, homepage /
+  privacy / terms links set, authorised domain `milogrowth.com`, audience
+  **External**, scope `webmasters.readonly` (classified **non-sensitive** —
+  publishing to production does not require full Google verification).
+- OAuth client: **Milo Growth Web** (Web application), client id
+  `117784515235-atlddib0j1tqmcnhoaefbt9scal2im6g.apps.googleusercontent.com`,
+  single authorised redirect URI (below), no JS origins.
+- Publishing status: **Testing** with `rafal.andersen@gmail.com` as test user.
+  ⚠ In Testing mode Google expires refresh tokens after ~7 days — publish the
+  app to production (Audience → Publish app) once the E2E flow is proven.
+- Background sync: pg_cron job `gsc-daily-sync` (05:20 UTC daily) POSTs to
+  `/api/google/search-console/cron-sync` authenticated with a Bearer secret
+  that lives ONLY in Supabase Vault (`gsc_cron_secret`, generated in-database;
+  verified server-side via the service-role-only RPC `public.gsc_cron_secret()`).
+  Applied by migration `20260712130000_gsc_cron_sync.sql`. The job syncs every
+  project with a selected property (28d) at most once per 20 h, isolates
+  per-customer failures, and marks `invalid_grant` as a reconnect-needed state
+  instead of retrying.
+- ButelkiWodorowe: uses the URL-prefix property `https://butelkiwodorowe.pl/`.
+  The preferred Domain property `sc-domain:butelkiwodorowe.pl` does not exist
+  yet (needs a DNS TXT record in the client's Cloudflare zone). When it is
+  created and verified, reconnect is NOT needed — just pick the new property in
+  Analytics → Search Console sync → Load sites and run a sync.
+
 ## What you need (one-time, by the owner)
 
 ### 1. Google Cloud OAuth client
@@ -30,8 +59,14 @@ Generate a 32-byte key (base64). Example:
 ```
 openssl rand -base64 32
 ```
-This encrypts the Google refresh token at rest. Without it, Milo refuses to
-store long-lived tokens and reports "not configured" (CSV still works).
+This encrypts the Google refresh token at rest (AES-256-GCM). Without it, Milo
+refuses to store long-lived tokens and reports "not configured" (CSV still
+works).
+
+⚠ **Rotation warning:** rotating `GSC_TOKEN_ENCRYPTION_KEY` makes every stored
+refresh token undecryptable. There is no re-encryption tool — after a rotation
+every connected user must click **Reconnect Google Search Console** once.
+Rotate only if the key may have leaked.
 
 ### 4. Production environment variables (Lovable Cloud project settings)
 ```
@@ -66,6 +101,31 @@ JSONB and never returned to the browser.
 - Each sync creates an import labelled **API sync** in the import history, with
   a row count, top queries, top pages, and published-content matching — exactly
   like a CSV import.
+
+## Background sync (automatic)
+
+The pg_cron job `gsc-daily-sync` runs daily at 05:20 UTC and POSTs to
+`/api/google/search-console/cron-sync`:
+
+- Auth: `Authorization: Bearer <vault:gsc_cron_secret>`; the route verifies the
+  header against the service-role-only RPC `public.gsc_cron_secret()` with a
+  constant-time compare. The secret was generated inside Postgres and is not
+  known to any human.
+- Scope: every non-revoked connection → every project in that user's workspace
+  with a selected property → `syncSearchAnalytics(28d)` (the same code path as
+  manual sync) → stored through the rev-guarded `mutateWorkspace` writer.
+- Throttle: projects synced (manually or automatically) within the last 20 h
+  are skipped, so repeated invocations are idempotent and quota-friendly.
+- Failures: isolated per customer; a short error code is stored in
+  `project.gscOAuth.sync` (`lastAutoSyncErrorCode`). `invalid_grant` / revoked
+  consent flips the project status to **expired**, which surfaces the
+  "Reconnect Google Search Console" button in Analytics; the run does not keep
+  retrying a dead connection.
+- Observability: the route returns `{connections, synced, skippedFresh,
+  failed, reconnectNeeded}`; pg_cron run history is in `cron.job_run_details`.
+- Manual trigger for testing: re-run the same SQL the job executes (see
+  `supabase/migrations/20260712130000_gsc_cron_sync.sql`) or call the endpoint
+  with the vault secret from SQL.
 
 ## CSV fallback
 Manual CSV import is always shown under the connection card. Export a CSV from
