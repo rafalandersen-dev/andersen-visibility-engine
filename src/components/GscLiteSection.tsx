@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useStore, updateProject, saveWorkspaceNow } from "@/lib/store";
+import { useAuth } from "@/lib/auth";
 import { useT } from "@/i18n";
 import {
   parseGscCsv,
@@ -262,6 +263,7 @@ export function GscLiteSection({ project, onsite }: { project: Project; onsite?:
 
 function GscConnectionCard({ project }: { project: Project }) {
   const t = useT();
+  const { isOwner } = useAuth();
   const [status, setStatus] = useState<GscOAuthStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<"connect" | "sites" | "select" | "sync28" | "sync90" | "disconnect" | null>(null);
@@ -441,7 +443,23 @@ function GscConnectionCard({ project }: { project: Project }) {
 
       {/* Not configured */}
       {connStatus === "notConfigured" ? (
-        <p className="mt-2 text-sm text-muted-foreground">{t("gsc.oauth.notConfigured")}</p>
+        <div className="mt-2 space-y-2">
+          <p className="text-sm text-muted-foreground">{t("gsc.oauth.notConfigured")}</p>
+          {isOwner ? (
+            <div className="rounded-md border border-dashed border-border bg-muted/40 p-3">
+              <p className="text-xs font-medium text-foreground">{t("gsc.oauth.ownerSetup.title")}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{t("gsc.oauth.ownerSetup.intro")}</p>
+              <pre className="mt-2 overflow-x-auto rounded bg-background p-2 text-[11px] leading-5 text-muted-foreground">
+{`GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET
+GOOGLE_OAUTH_REDIRECT_URI=https://milogrowth.com/api/google/search-console/callback
+GOOGLE_OAUTH_SCOPES=https://www.googleapis.com/auth/webmasters.readonly
+GSC_TOKEN_ENCRYPTION_KEY  (openssl rand -base64 32)`}
+              </pre>
+              <p className="mt-1 text-xs text-muted-foreground">{t("gsc.oauth.ownerSetup.docs")}</p>
+            </div>
+          ) : null}
+        </div>
       ) : null}
 
       {/* Disconnected */}
