@@ -17,8 +17,15 @@ available as a fallback and needs no setup.
   `117784515235-atlddib0j1tqmcnhoaefbt9scal2im6g.apps.googleusercontent.com`,
   single authorised redirect URI (below), no JS origins.
 - Publishing status: **Testing** with `rafal.andersen@gmail.com` as test user.
-  ⚠ In Testing mode Google expires refresh tokens after ~7 days — publish the
-  app to production (Audience → Publish app) once the E2E flow is proven.
+  ⚠ In Testing mode Google expires refresh tokens after ~7 days. The E2E flow
+  is proven (connected + synced 2026-07-12) — the owner should click
+  **Google Auth Platform → Audience → Publish app**. The scope is
+  non-sensitive, so no Google verification is required and the consent screen
+  keeps working for any external user.
+- E2E verified 2026-07-12: connect → consent (owner's own browser — passkeys do
+  NOT work in embedded browsers), encrypted `v1.` token row in
+  `google_connections`, property `https://butelkiwodorowe.pl/` selected, 28d
+  sync OK (0 rows — new property), cron endpoint 200/403 auth-tested live.
 - Background sync: pg_cron job `gsc-daily-sync` (05:20 UTC daily) POSTs to
   `/api/google/search-console/cron-sync` authenticated with a Bearer secret
   that lives ONLY in Supabase Vault (`gsc_cron_secret`, generated in-database;
