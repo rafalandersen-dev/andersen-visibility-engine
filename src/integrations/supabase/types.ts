@@ -173,6 +173,48 @@ export type Database = {
         }
         Relationships: []
       }
+      google_connections: {
+        Row: {
+          access_token_expires_at: string | null
+          created_at: string
+          encrypted_refresh_token: string | null
+          google_account_email: string | null
+          id: string
+          provider: string
+          revoked_at: string | null
+          scope: string | null
+          updated_at: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          access_token_expires_at?: string | null
+          created_at?: string
+          encrypted_refresh_token?: string | null
+          google_account_email?: string | null
+          id?: string
+          provider?: string
+          revoked_at?: string | null
+          scope?: string | null
+          updated_at?: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          access_token_expires_at?: string | null
+          created_at?: string
+          encrypted_refresh_token?: string | null
+          google_account_email?: string | null
+          id?: string
+          provider?: string
+          revoked_at?: string | null
+          scope?: string | null
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: []
+      }
       mcp_connections: {
         Row: {
           created_at: string
@@ -589,6 +631,7 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      gsc_cron_secret: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
