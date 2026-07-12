@@ -68,6 +68,7 @@ import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/l
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
+import { Route as ApiGoogleSearchConsoleCronSyncRouteImport } from './routes/api.google.search-console.cron-sync'
 import { Route as ApiGoogleSearchConsoleCallbackRouteImport } from './routes/api.google.search-console.callback'
 
 const UnsubscribeRoute = UnsubscribeRouteImport.update({
@@ -381,6 +382,12 @@ const LovableEmailAuthPreviewRoute = LovableEmailAuthPreviewRouteImport.update({
   path: '/lovable/email/auth/preview',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiGoogleSearchConsoleCronSyncRoute =
+  ApiGoogleSearchConsoleCronSyncRouteImport.update({
+    id: '/api/google/search-console/cron-sync',
+    path: '/api/google/search-console/cron-sync',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiGoogleSearchConsoleCallbackRoute =
   ApiGoogleSearchConsoleCallbackRouteImport.update({
     id: '/api/google/search-console/callback',
@@ -443,6 +450,7 @@ export interface FileRoutesByFullPath {
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/app/': typeof AuthenticatedAppIndexRoute
   '/api/google/search-console/callback': typeof ApiGoogleSearchConsoleCallbackRoute
+  '/api/google/search-console/cron-sync': typeof ApiGoogleSearchConsoleCronSyncRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -504,6 +512,7 @@ export interface FileRoutesByTo {
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/app': typeof AuthenticatedAppIndexRoute
   '/api/google/search-console/callback': typeof ApiGoogleSearchConsoleCallbackRoute
+  '/api/google/search-console/cron-sync': typeof ApiGoogleSearchConsoleCronSyncRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -567,6 +576,7 @@ export interface FileRoutesById {
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
   '/api/google/search-console/callback': typeof ApiGoogleSearchConsoleCallbackRoute
+  '/api/google/search-console/cron-sync': typeof ApiGoogleSearchConsoleCronSyncRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -630,6 +640,7 @@ export interface FileRouteTypes {
     | '/lovable/email/suppression'
     | '/app/'
     | '/api/google/search-console/callback'
+    | '/api/google/search-console/cron-sync'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -691,6 +702,7 @@ export interface FileRouteTypes {
     | '/lovable/email/suppression'
     | '/app'
     | '/api/google/search-console/callback'
+    | '/api/google/search-console/cron-sync'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -753,6 +765,7 @@ export interface FileRouteTypes {
     | '/lovable/email/suppression'
     | '/_authenticated/app/'
     | '/api/google/search-console/callback'
+    | '/api/google/search-console/cron-sync'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -797,6 +810,7 @@ export interface RootRouteChildren {
   ApiOauthTokenRoute: typeof ApiOauthTokenRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
   ApiGoogleSearchConsoleCallbackRoute: typeof ApiGoogleSearchConsoleCallbackRoute
+  ApiGoogleSearchConsoleCronSyncRoute: typeof ApiGoogleSearchConsoleCronSyncRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
@@ -1219,6 +1233,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LovableEmailAuthPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/google/search-console/cron-sync': {
+      id: '/api/google/search-console/cron-sync'
+      path: '/api/google/search-console/cron-sync'
+      fullPath: '/api/google/search-console/cron-sync'
+      preLoaderRoute: typeof ApiGoogleSearchConsoleCronSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/google/search-console/callback': {
       id: '/api/google/search-console/callback'
       path: '/api/google/search-console/callback'
@@ -1315,6 +1336,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiOauthTokenRoute: ApiOauthTokenRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
   ApiGoogleSearchConsoleCallbackRoute: ApiGoogleSearchConsoleCallbackRoute,
+  ApiGoogleSearchConsoleCronSyncRoute: ApiGoogleSearchConsoleCronSyncRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
@@ -1324,3 +1346,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
