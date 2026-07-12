@@ -27,12 +27,14 @@ export const Route = createFileRoute("/api/google/search-console/cron-sync")({
           const presented = auth.slice("Bearer ".length).trim();
 
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          const rpc = (supabaseAdmin as unknown as {
+          // Call rpc as a METHOD on the client (it is exposed through a Proxy —
+          // detaching the function loses `this` and throws at call time).
+          const admin = supabaseAdmin as unknown as {
             rpc: (fn: string) => Promise<{ data: string | null; error: { message: string } | null }>;
-          }).rpc;
-          const { data: expected, error } = await rpc("gsc_cron_secret");
+          };
+          const { data: expected, error } = await admin.rpc("gsc_cron_secret");
           if (error || !expected) {
-            console.error("[gsc-cron] secret lookup failed");
+            console.error("[gsc-cron] secret lookup failed", error?.message ?? "no data");
             return Response.json({ error: "server_configuration" }, { status: 500 });
           }
           if (!timingSafeEqual(presented, expected)) {
