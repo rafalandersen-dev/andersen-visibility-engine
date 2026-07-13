@@ -57,6 +57,7 @@ import { Route as AuthenticatedAppCalendarRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAppBillingRouteImport } from './routes/_authenticated/app.billing'
 import { Route as AuthenticatedAppBetaValidationRouteImport } from './routes/_authenticated/app.beta-validation'
 import { Route as AuthenticatedAppBetaNotesRouteImport } from './routes/_authenticated/app.beta-notes'
+import { Route as AuthenticatedAppBacklinksRouteImport } from './routes/_authenticated/app.backlinks'
 import { Route as AuthenticatedAppAuthorityRouteImport } from './routes/_authenticated/app.authority'
 import { Route as AuthenticatedAppAuditRouteImport } from './routes/_authenticated/app.audit'
 import { Route as AuthenticatedAppAnalyticsRouteImport } from './routes/_authenticated/app.analytics'
@@ -320,6 +321,12 @@ const AuthenticatedAppBetaNotesRoute =
     path: '/app/beta-notes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAppBacklinksRoute =
+  AuthenticatedAppBacklinksRouteImport.update({
+    id: '/app/backlinks',
+    path: '/app/backlinks',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAppAuthorityRoute =
   AuthenticatedAppAuthorityRouteImport.update({
     id: '/app/authority',
@@ -430,6 +437,7 @@ export interface FileRoutesByFullPath {
   '/app/analytics': typeof AuthenticatedAppAnalyticsRoute
   '/app/audit': typeof AuthenticatedAppAuditRoute
   '/app/authority': typeof AuthenticatedAppAuthorityRoute
+  '/app/backlinks': typeof AuthenticatedAppBacklinksRoute
   '/app/beta-notes': typeof AuthenticatedAppBetaNotesRoute
   '/app/beta-validation': typeof AuthenticatedAppBetaValidationRoute
   '/app/billing': typeof AuthenticatedAppBillingRoute
@@ -492,6 +500,7 @@ export interface FileRoutesByTo {
   '/app/analytics': typeof AuthenticatedAppAnalyticsRoute
   '/app/audit': typeof AuthenticatedAppAuditRoute
   '/app/authority': typeof AuthenticatedAppAuthorityRoute
+  '/app/backlinks': typeof AuthenticatedAppBacklinksRoute
   '/app/beta-notes': typeof AuthenticatedAppBetaNotesRoute
   '/app/beta-validation': typeof AuthenticatedAppBetaValidationRoute
   '/app/billing': typeof AuthenticatedAppBillingRoute
@@ -556,6 +565,7 @@ export interface FileRoutesById {
   '/_authenticated/app/analytics': typeof AuthenticatedAppAnalyticsRoute
   '/_authenticated/app/audit': typeof AuthenticatedAppAuditRoute
   '/_authenticated/app/authority': typeof AuthenticatedAppAuthorityRoute
+  '/_authenticated/app/backlinks': typeof AuthenticatedAppBacklinksRoute
   '/_authenticated/app/beta-notes': typeof AuthenticatedAppBetaNotesRoute
   '/_authenticated/app/beta-validation': typeof AuthenticatedAppBetaValidationRoute
   '/_authenticated/app/billing': typeof AuthenticatedAppBillingRoute
@@ -620,6 +630,7 @@ export interface FileRouteTypes {
     | '/app/analytics'
     | '/app/audit'
     | '/app/authority'
+    | '/app/backlinks'
     | '/app/beta-notes'
     | '/app/beta-validation'
     | '/app/billing'
@@ -682,6 +693,7 @@ export interface FileRouteTypes {
     | '/app/analytics'
     | '/app/audit'
     | '/app/authority'
+    | '/app/backlinks'
     | '/app/beta-notes'
     | '/app/beta-validation'
     | '/app/billing'
@@ -745,6 +757,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/analytics'
     | '/_authenticated/app/audit'
     | '/_authenticated/app/authority'
+    | '/_authenticated/app/backlinks'
     | '/_authenticated/app/beta-notes'
     | '/_authenticated/app/beta-validation'
     | '/_authenticated/app/billing'
@@ -1156,6 +1169,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppBetaNotesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/app/backlinks': {
+      id: '/_authenticated/app/backlinks'
+      path: '/app/backlinks'
+      fullPath: '/app/backlinks'
+      preLoaderRoute: typeof AuthenticatedAppBacklinksRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/app/authority': {
       id: '/_authenticated/app/authority'
       path: '/app/authority'
@@ -1257,6 +1277,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppAnalyticsRoute: typeof AuthenticatedAppAnalyticsRoute
   AuthenticatedAppAuditRoute: typeof AuthenticatedAppAuditRoute
   AuthenticatedAppAuthorityRoute: typeof AuthenticatedAppAuthorityRoute
+  AuthenticatedAppBacklinksRoute: typeof AuthenticatedAppBacklinksRoute
   AuthenticatedAppBetaNotesRoute: typeof AuthenticatedAppBetaNotesRoute
   AuthenticatedAppBetaValidationRoute: typeof AuthenticatedAppBetaValidationRoute
   AuthenticatedAppBillingRoute: typeof AuthenticatedAppBillingRoute
@@ -1279,6 +1300,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppAnalyticsRoute: AuthenticatedAppAnalyticsRoute,
   AuthenticatedAppAuditRoute: AuthenticatedAppAuditRoute,
   AuthenticatedAppAuthorityRoute: AuthenticatedAppAuthorityRoute,
+  AuthenticatedAppBacklinksRoute: AuthenticatedAppBacklinksRoute,
   AuthenticatedAppBetaNotesRoute: AuthenticatedAppBetaNotesRoute,
   AuthenticatedAppBetaValidationRoute: AuthenticatedAppBetaValidationRoute,
   AuthenticatedAppBillingRoute: AuthenticatedAppBillingRoute,

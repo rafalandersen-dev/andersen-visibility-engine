@@ -33,6 +33,8 @@ import {
   updateAuthorityOpportunity,
   upsertAiVisibilityAnalysis,
   markVisibilityGapsConverted,
+  upsertBacklinkAnalysis,
+  markBacklinkRecommendationsConverted,
   markContentAssetSent,
   markContentAssetPublishFailed,
   markContentAssetPublishedLive,
@@ -59,6 +61,8 @@ import type {
   AuthorityCategory,
   AiVisibilityAnalysisResult,
   AiVisibilityGap,
+  BacklinkAnalysisResult,
+  BacklinkRecommendation,
   PublishDestinationType,
   Project,
   Priority,
@@ -75,6 +79,8 @@ import {
   generateAuthorityFn,
   generateAuthorityOpportunitiesFn,
   generateAiVisibilityFn,
+  generateBacklinksFn,
+  getBacklinksStatusFn,
   regenerateMetadataFn,
   regenerateFaqFn,
   regenerateCtaFn,
@@ -1044,6 +1050,140 @@ export async function createOpportunitiesFromTopAiActions(projectId: string) {
     );
     await saveWorkspaceNow();
     console.info("[ai.client] top-ai-visibility opportunities created", { projectId, count: opps.length });
+    return opps;
+  });
+}
+
+// ============================================================
+// Backlinks v1 (DataForSEO link profile + link gap)
+// ============================================================
+
+/** Build a "Linked" Opportunity from a backlink recommendation (survives opportunity regeneration). */
+function opportunityFromBacklinkRecommendation(
+  rec: BacklinkRecommendation,
+  project: Project,
+): Opportunity {
+  return {
+    id: uid(),
+    projectId: project.id,
+    title: rec.suggestedOpportunityTitle || rec.title,
+    language: project.primaryLanguage,
+    contentType: rec.suggestedContentType,
+    searchIntent: rec.suggestedSearchIntent,
+    targetAudience: project.targetAudience || "Potential customers",
+    businessValue: rec.recommendation || rec.explanation,
+    recommendedCta: rec.suggestedCta || "Contact us",
+    priority: rec.priority,
+    status: "Linked",
+    source: "backlinks",
+  };
+}
+
+/** UI-safe check: is the DataForSEO integration configured server-side? */
+export async function getBacklinksStatus() {
+  const { configured } = await getBacklinksStatusFn();
+  return { configured };
+}
+
+export async function runBacklinkAnalysis(projectId: string) {
+  return once(`backlinks:${projectId}`, async () => {
+    const { project, services } = requireProject(projectId);
+
+    // Competitor domains: project setup first, then the latest competitor analysis.
+    const s = getState();
+    const competitorUrls = project.competitorUrls?.length
+      ? project.competitorUrls
+      : (s.competitorAnalyses.find((a) => a.projectId === projectId)?.competitorUrls ?? []);
+    const explanationLanguage = contentLangToProjectLanguage(project.appLanguage ?? "en");
+
+    const res = await generateBacklinksFn({
+      data: { project, services, competitorUrls, explanationLanguage },
+    });
+    if (!res || !Array.isArray(res.recommendations) || res.recommendations.length === 0) {
+      throw new Error("AI returned no backlink recommendations. Please try again.");
+    }
+    console.info("[ai.client] backlinks received", {
+      projectId,
+      recommendations: res.recommendations.length,
+      gapDomains: res.gapDomains?.length ?? 0,
+    });
+
+    const analysis: BacklinkAnalysisResult = {
+      id: uid(),
+      projectId,
+      note: res.note || undefined,
+      ownDomain: res.ownDomain,
+      own: res.own,
+      competitors: Array.isArray(res.competitors) ? res.competitors : [],
+      topReferringDomains: Array.isArray(res.topReferringDomains) ? res.topReferringDomains : [],
+      gapDomains: Array.isArray(res.gapDomains) ? res.gapDomains : [],
+      overallLinkScore: res.overallLinkScore,
+      linkProfileScore: res.linkProfileScore,
+      linkGapScore: res.linkGapScore,
+      linkQualityScore: res.linkQualityScore,
+      summary: res.summary,
+      topLinkActions: Array.isArray(res.topLinkActions) ? res.topLinkActions : [],
+      recommendations: res.recommendations.map((r) => ({ ...r, id: uid() })),
+      convertedRecommendationIds: [],
+      createdAt: new Date().toISOString(),
+    };
+    upsertBacklinkAnalysis(analysis);
+    await saveWorkspaceNow();
+    console.info("[ai.client] backlinks saved", {
+      projectId,
+      recommendations: analysis.recommendations.length,
+    });
+    return analysis;
+  });
+}
+
+/** Convert a single backlink recommendation into an Opportunity (idempotent per item). */
+export async function createOpportunityFromBacklinkRecommendation(
+  projectId: string,
+  recommendationId: string,
+) {
+  const s = getState();
+  const analysis = s.backlinkAnalyses.find((a) => a.projectId === projectId);
+  if (!analysis) throw new Error("Run a backlink analysis first.");
+  const rec = analysis.recommendations.find((r) => r.id === recommendationId);
+  if (!rec) throw new Error("Backlink recommendation not found.");
+  if (analysis.convertedRecommendationIds.includes(recommendationId)) {
+    throw new Error("This recommendation is already an opportunity.");
+  }
+  const { project } = requireProject(projectId);
+  const opp = opportunityFromBacklinkRecommendation(rec, project);
+  addOpportunities([opp]);
+  markBacklinkRecommendationsConverted(analysis.id, [recommendationId]);
+  await saveWorkspaceNow();
+  return opp;
+}
+
+/** Bulk: create opportunities from the top 3–5 High/Medium recommendations not yet converted. */
+export async function createOpportunitiesFromTopBacklinkActions(projectId: string) {
+  return once(`backlinks-bulk:${projectId}`, async () => {
+    const s = getState();
+    const analysis = s.backlinkAnalyses.find((a) => a.projectId === projectId);
+    if (!analysis) throw new Error("Run a backlink analysis first.");
+    const { project } = requireProject(projectId);
+
+    const candidates = analysis.recommendations
+      .filter((r) => !analysis.convertedRecommendationIds.includes(r.id))
+      .filter((r) => r.priority === "High" || r.priority === "Medium")
+      .sort((a, b) => priorityRank[b.priority] - priorityRank[a.priority])
+      .slice(0, 5);
+
+    if (candidates.length === 0) {
+      throw new Error("No remaining high or medium priority recommendations to convert.");
+    }
+
+    const opps = candidates.map((r) => opportunityFromBacklinkRecommendation(r, project));
+    addOpportunities(opps);
+    markBacklinkRecommendationsConverted(
+      analysis.id,
+      candidates.map((r) => r.id),
+    );
+    await saveWorkspaceNow();
+    console.info("[ai.client] top-backlink opportunities created", { projectId, count: opps.length });
     return opps;
   });
 }

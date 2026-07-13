@@ -20,6 +20,13 @@ import {
   deterministicFallbackAudit,
   normalizeAuditUrl,
 } from "./public-audit";
+import {
+  isDataForSeoConfigured,
+  extractDomain,
+  fetchBacklinkSummary,
+  fetchTopReferringDomains,
+  fetchBacklinkGap,
+} from "./backlinks.server";
 import type {
   Project,
   ServiceItem,
@@ -2029,6 +2036,248 @@ ${existingBlock}${liveBlock}${sharedRules}`,
 export const getAiRouterStatusFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async () => getRouterStatus());
+
+// ============================================================
+// Backlinks v1 — DataForSEO link profile + link gap, AI-interpreted
+// ============================================================
+
+const BACKLINK_CATEGORIES = [
+  "Link Gap Targets",
+  "Content for Links",
+  "Digital PR",
+  "Partnerships & Sponsorships",
+  "Directories & Profiles",
+  "Link Hygiene",
+] as const;
+
+const BacklinkCategoryEnum = normalizedEnum(BACKLINK_CATEGORIES);
+
+const BacklinkRecommendationOutputSchema = z.object({
+  title: cleanString(120),
+  category: BacklinkCategoryEnum,
+  priority: PriorityEnum,
+  effort: PriorityEnum,
+  explanation: cleanString(400),
+  recommendation: cleanString(400),
+  targetDomainOrPlatform: cleanString(200),
+  suggestedApproach: cleanString(300),
+  suggestedOpportunityTitle: cleanString(120),
+  suggestedContentType: ContentTypeEnum,
+  suggestedSearchIntent: SearchIntentEnum,
+  suggestedCta: cleanString(60),
+});
+
+function normalizeBacklinkCategory(value: unknown) {
+  const raw = asString(value).toLowerCase();
+  if (/gap|competitor.*(link|domain)|intersection|target domain/.test(raw)) return "Link Gap Targets";
+  if (/content|linkable asset|guide|resource|research|study|tool|data/.test(raw)) return "Content for Links";
+  if (/\bpr\b|press|media|news|journalist|story|expert comment/.test(raw)) return "Digital PR";
+  if (/partner|sponsor|supplier|collab|association|community|event/.test(raw)) return "Partnerships & Sponsorships";
+  if (/director|profile|citation|listing|nap/.test(raw)) return "Directories & Profiles";
+  if (/hygiene|broken|toxic|spam|disavow|lost|reclaim|redirect/.test(raw)) return "Link Hygiene";
+  return normalizeValue(value, BACKLINK_CATEGORIES, "Link Gap Targets");
+}
+
+function normalizeBacklinkRecommendation(value: unknown, index: number) {
+  const item = isRecord(value) ? value : {};
+  const title = pickString(item, ["title", "name", "action", "heading"], `Link opportunity ${index + 1}`);
+  return BacklinkRecommendationOutputSchema.parse({
+    title,
+    category: normalizeBacklinkCategory(item.category ?? item.area ?? item.group ?? item.type),
+    priority: normalizePriority(item.priority ?? item.impact ?? item.severity),
+    effort: normalizePriority(item.effort ?? item.difficulty ?? item.work),
+    explanation: pickString(item, ["explanation", "detail", "details", "why", "description", "rationale"], "Earning relevant links here can strengthen the domain's authority."),
+    recommendation: pickString(item, ["recommendation", "action", "suggestion", "howTo", "how_to", "steps", "nextStep"], "Reach out with a genuinely useful, relevant reason to link."),
+    targetDomainOrPlatform: pickString(item, ["targetDomainOrPlatform", "target_domain_or_platform", "targetDomain", "target", "domain", "platform", "site", "where"], "Relevant website or platform"),
+    suggestedApproach: pickString(item, ["suggestedApproach", "suggested_approach", "approach", "method", "tactic", "outreachAngle", "angle"], "Honest outreach with a relevant, useful asset."),
+    suggestedOpportunityTitle: pickString(item, ["suggestedOpportunityTitle", "suggested_opportunity_title", "opportunityTitle", "suggestedTitle", "contentTitle", "pageTitle"], title),
+    suggestedContentType: normalizeContentType(item.suggestedContentType ?? item.contentType ?? item.content_type ?? item.type ?? item.format),
+    suggestedSearchIntent: normalizeSearchIntent(item.suggestedSearchIntent ?? item.searchIntent ?? item.search_intent ?? item.intent),
+    suggestedCta: pickString(item, ["suggestedCta", "suggested_cta", "cta", "callToAction", "call_to_action"], "Contact us"),
+  });
+}
+
+/** UI-safe config check — is the DataForSEO integration ready to use? */
+export const getBacklinksStatusFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => ({ configured: isDataForSeoConfigured() }));
+
+export const generateBacklinksFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        project: z.any(),
+        services: z.array(z.any()).default([]),
+        competitorUrls: z.array(z.string()).default([]),
+        explanationLanguage: z.string().default("English"),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const project = data.project as Project;
+    const services = data.services as ServiceItem[];
+    const brief = projectBrief(project, services);
+
+    if (!isDataForSeoConfigured()) {
+      throw new Error("Backlink data source is not configured yet.");
+    }
+    const ownDomain = extractDomain(project.websiteUrl);
+    if (!ownDomain) {
+      throw new Error("Add your website URL in Project Setup before running the backlink analysis.");
+    }
+    const competitorDomains = Array.from(
+      new Set(data.competitorUrls.map(extractDomain).filter((d) => d && d !== ownDomain)),
+    ).slice(0, 3);
+
+    console.info("[ai.functions] backlinks reached", {
+      userIdPresent: Boolean(context.userId),
+      projectId: project.id,
+      ownDomain,
+      competitors: competitorDomains.length,
+    });
+
+    // 1. Raw index data. Own summary is required; everything else degrades.
+    const own = await fetchBacklinkSummary(ownDomain);
+    const [competitorResults, referringResult, gapResult] = await Promise.all([
+      Promise.all(
+        competitorDomains.map(async (domain) => {
+          try {
+            return await fetchBacklinkSummary(domain);
+          } catch (e) {
+            console.warn("[ai.functions] backlinks competitor summary failed", { domain, e: e instanceof Error ? e.message : e });
+            return {
+              target: domain,
+              fetchStatus: "failed" as const,
+              rank: 0,
+              backlinks: 0,
+              referringDomains: 0,
+              referringMainDomains: 0,
+              brokenBacklinks: 0,
+              spamScore: 0,
+            };
+          }
+        }),
+      ),
+      fetchTopReferringDomains(ownDomain, 25).catch((e) => {
+        console.warn("[ai.functions] backlinks referring domains failed", e instanceof Error ? e.message : e);
+        return [];
+      }),
+      fetchBacklinkGap(ownDomain, competitorDomains, 30).catch((e) => {
+        console.warn("[ai.functions] backlinks gap failed", e instanceof Error ? e.message : e);
+        return [];
+      }),
+    ]);
+
+    const fetchedCompetitors = competitorResults.filter((c) => c.fetchStatus === "fetched");
+    const summaryLine = (s: typeof own) =>
+      `${s.target}: domain rank ${s.rank}, backlinks ${s.backlinks}, referring domains ${s.referringDomains} (main: ${s.referringMainDomains}), broken backlinks ${s.brokenBacklinks}, spam score ${s.spamScore}${s.firstSeen ? `, first link seen ${s.firstSeen}` : ""}`;
+
+    const competitorBlock = competitorResults.length
+      ? `COMPETITOR LINK PROFILES (from the same index):\n${competitorResults
+          .map((c) => (c.fetchStatus === "fetched" ? `- ${summaryLine(c)}` : `- ${c.target}: data could not be fetched — ignore.`))
+          .join("\n")}\n`
+      : "COMPETITOR LINK PROFILES: none provided (no competitor URLs on the project).\n";
+
+    const gapBlock = gapResult.length
+      ? `LINK GAP — domains that link to competitors but NOT to ${ownDomain} (top ${Math.min(gapResult.length, 20)} by overlap/rank):\n${gapResult
+          .slice(0, 20)
+          .map((g) => `- ${g.domain} (rank ${g.rank}) links to: ${g.competitorsLinked.join(", ")}`)
+          .join("\n")}\n`
+      : "LINK GAP: no gap data available (no competitors fetched or no overlap found).\n";
+
+    const referringBlock = referringResult.length
+      ? `TOP REFERRING DOMAINS already linking to ${ownDomain}:\n${referringResult
+          .slice(0, 15)
+          .map((r) => `- ${r.domain} (rank ${r.rank}, links ${r.backlinks}, spam ${r.spamScore})`)
+          .join("\n")}\n`
+      : `TOP REFERRING DOMAINS: none found for ${ownDomain} in the index yet.\n`;
+
+    try {
+      const payload = await generateJsonText(
+        `You are a white-hat link-building and digital-PR strategist for small and medium businesses.
+
+You are given REAL backlink-index data (below). Interpret it and produce prioritized, safe, practical link-building recommendations. STRICT SAFETY RULES: never recommend link exchanges, PBNs, mass directory spam or buying links that pass ranking signals; any paid placement you suggest MUST be described as a sponsored publication that should be clearly labeled. Do NOT invent numbers beyond the data provided. Use the gap domains as inspiration for the TYPE of sites to target — only name a specific domain from the data, never fabricate other specific domains.
+
+Return exactly this JSON shape:
+{"overallLinkScore":0,"linkProfileScore":0,"linkGapScore":0,"linkQualityScore":0,"summary":"","topLinkActions":[""],"recommendations":[{"title":"","category":"Link Gap Targets|Content for Links|Digital PR|Partnerships & Sponsorships|Directories & Profiles|Link Hygiene","priority":"Low|Medium|High","effort":"Low|Medium|High","explanation":"","recommendation":"","targetDomainOrPlatform":"","suggestedApproach":"","suggestedOpportunityTitle":"","suggestedContentType":"Landing Page|Service Page|Blog Article|Guide|FAQ Page|Comparison|Location Page","suggestedSearchIntent":"Informational|Commercial|Transactional|Navigational","suggestedCta":""}]}
+
+Scoring 0–100: linkProfileScore = how strong the business's own link profile is (higher = stronger). linkGapScore = how BIG the gap vs competitors is (higher = bigger gap, more to gain). linkQualityScore = quality/cleanliness of existing links (higher = cleaner, penalize high spam scores and broken backlinks). overallLinkScore = overall link-building position (higher = better). Be realistic given the numbers.
+recommendations: 8–12 items spread across the categories. "Link Gap Targets" items should reference actual gap domains from the data when relevant. Each "suggestedOpportunityTitle" must read like a real linkable page/asset that could enter the content plan.
+topLinkActions: 3–5 short strings naming the highest-impact link moves.
+Write summary, explanations, recommendations and titles in ${data.explanationLanguage}.
+
+BUSINESS LINK PROFILE (real index data for ${ownDomain}):
+${summaryLine(own)}
+
+${competitorBlock}
+${gapBlock}
+${referringBlock}
+THIS BUSINESS:
+${brief}
+${sharedRules}`,
+        8000,
+      );
+
+      const root = isRecord(payload) ? payload : {};
+      const recommendations = extractArray(root, [
+        "recommendations",
+        "items",
+        "actions",
+        "opportunities",
+        "results",
+      ]).map((r, i) => normalizeBacklinkRecommendation(r, i));
+      if (recommendations.length === 0) throw new Error("AI returned no backlink recommendations.");
+
+      const linkProfileScore = clampScore(pickNumber(root, ["linkProfileScore", "link_profile_score", "profile"]));
+      const linkGapScore = clampScore(pickNumber(root, ["linkGapScore", "link_gap_score", "gap"]));
+      const linkQualityScore = clampScore(pickNumber(root, ["linkQualityScore", "link_quality_score", "quality"]));
+      const overallLinkScore = clampScore(
+        pickNumber(root, ["overallLinkScore", "overall_link_score", "overall", "score"]),
+        Math.round((linkProfileScore + (100 - linkGapScore) + linkQualityScore) / 3),
+      );
+      const summary = pickString(
+        root,
+        ["summary", "overview", "analysis", "assessment"],
+        "Backlink analysis complete — review the link gap and recommendations below.",
+      );
+      const topLinkActions = normalizeStringArray(
+        root.topLinkActions ?? root.top_link_actions ?? root.topActions ?? root.priorities ?? root.quickWins,
+        recommendations.slice(0, 3).map((r) => r.title),
+      ).slice(0, 5);
+
+      const failedCompetitors = competitorResults.length - fetchedCompetitors.length;
+      const noteParts: string[] = [];
+      if (!competitorDomains.length)
+        noteParts.push("No competitor URLs on the project — add them in Competitors to unlock the link gap.");
+      if (failedCompetitors > 0)
+        noteParts.push(`${failedCompetitors} competitor domain(s) could not be fetched from the index.`);
+
+      console.info("[ai.functions] backlinks parsed", {
+        recommendations: recommendations.length,
+        gapDomains: gapResult.length,
+        referring: referringResult.length,
+      });
+
+      return {
+        note: noteParts.join(" "),
+        ownDomain,
+        own,
+        competitors: competitorResults,
+        topReferringDomains: referringResult,
+        gapDomains: gapResult,
+        overallLinkScore,
+        linkProfileScore,
+        linkGapScore,
+        linkQualityScore,
+        summary,
+        topLinkActions,
+        recommendations,
+      };
+    } catch (e) {
+      throw mapGatewayError(e);
+    }
+  });
 
 // ============================================================
 // Free AI Visibility Readiness Audit (PUBLIC — no auth)

@@ -29,6 +29,7 @@ import type {
   AuthorityOpportunity,
   AiEvaluationRun,
   AiVisibilityAnalysisResult,
+  BacklinkAnalysisResult,
   GrowthTask,
   PendingAction,
   PublishingConnectorType,
@@ -56,6 +57,8 @@ interface State {
   competitorAnalyses: CompetitorAnalysisResult[];
   authorityAnalyses: AuthorityAnalysisResult[];
   aiVisibilityAnalyses: AiVisibilityAnalysisResult[];
+  /** Backlinks v1 — DataForSEO-powered link profile + gap analyses. */
+  backlinkAnalyses: BacklinkAnalysisResult[];
   /** Authority Builder v2 — trackable authority opportunities. */
   authorityOpportunities: AuthorityOpportunity[];
   /** AI Provider Router — internal model evaluation runs (latest 20). */
@@ -95,6 +98,7 @@ const emptyState: State = {
   competitorAnalyses: [],
   authorityAnalyses: [],
   aiVisibilityAnalyses: [],
+  backlinkAnalyses: [],
   authorityOpportunities: [],
   aiEvaluationRuns: [],
   tasks: [],
@@ -117,6 +121,7 @@ const ssrSnapshot: State = {
   competitorAnalyses: [],
   authorityAnalyses: [],
   aiVisibilityAnalyses: [],
+  backlinkAnalyses: [],
   authorityOpportunities: [],
   aiEvaluationRuns: [],
   tasks: [],
@@ -159,6 +164,7 @@ function stateFromRow(userId: string, d: Partial<State>, rev: number): State {
     competitorAnalyses: d.competitorAnalyses ?? [],
     authorityAnalyses: d.authorityAnalyses ?? [],
     aiVisibilityAnalyses: d.aiVisibilityAnalyses ?? [],
+    backlinkAnalyses: d.backlinkAnalyses ?? [],
     authorityOpportunities: d.authorityOpportunities ?? [],
     aiEvaluationRuns: d.aiEvaluationRuns ?? [],
     tasks: d.tasks ?? [],
@@ -217,6 +223,7 @@ export async function saveWorkspaceNow(): Promise<void> {
     competitorAnalyses: state.competitorAnalyses,
     authorityAnalyses: state.authorityAnalyses,
     aiVisibilityAnalyses: state.aiVisibilityAnalyses,
+    backlinkAnalyses: state.backlinkAnalyses,
     authorityOpportunities: state.authorityOpportunities,
     aiEvaluationRuns: state.aiEvaluationRuns,
     tasks: state.tasks,
@@ -330,6 +337,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
         competitorAnalyses: [],
         authorityAnalyses: [],
         aiVisibilityAnalyses: [],
+        backlinkAnalyses: [],
         authorityOpportunities: [],
         aiEvaluationRuns: [],
         tasks: [],
@@ -352,6 +360,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
       competitorAnalyses: [],
       authorityAnalyses: [],
       aiVisibilityAnalyses: [],
+      backlinkAnalyses: [],
       authorityOpportunities: [],
       aiEvaluationRuns: [],
       tasks: [],
@@ -832,6 +841,34 @@ export const upsertAiVisibilityAnalysis = (analysis: AiVisibilityAnalysisResult)
       ...s.aiVisibilityAnalyses.filter((a) => a.projectId !== analysis.projectId),
       analysis,
     ],
+  }));
+
+// ---- Backlinks v1 ----
+
+/** Store the latest backlink analysis for a project (one per project — replaces any prior). */
+export const upsertBacklinkAnalysis = (analysis: BacklinkAnalysisResult) =>
+  setState((s) => ({
+    ...s,
+    backlinkAnalyses: [
+      ...s.backlinkAnalyses.filter((a) => a.projectId !== analysis.projectId),
+      analysis,
+    ],
+  }));
+
+/** Mark backlink recommendation ids as already converted into Opportunities (dedup). */
+export const markBacklinkRecommendationsConverted = (analysisId: string, recommendationIds: string[]) =>
+  setState((s) => ({
+    ...s,
+    backlinkAnalyses: s.backlinkAnalyses.map((a) =>
+      a.id === analysisId
+        ? {
+            ...a,
+            convertedRecommendationIds: Array.from(
+              new Set([...a.convertedRecommendationIds, ...recommendationIds]),
+            ),
+          }
+        : a,
+    ),
   }));
 
 /** Mark visibility gap ids as already converted into Opportunities (dedup). */

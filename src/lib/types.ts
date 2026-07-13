@@ -22,7 +22,7 @@ export type OpportunityStatus = "New" | "In Brief" | "Drafting" | "Discarded" | 
 export type ContentStatus = "Draft" | "In Review" | "Approved" | "Rejected" | "Exported";
 
 /** Where a Linked opportunity originated (Content Engine 2.0 source context). */
-export type OpportunitySource = "audit" | "competitor" | "manual" | "authority" | "aiVisibility" | "claude";
+export type OpportunitySource = "audit" | "competitor" | "manual" | "authority" | "aiVisibility" | "claude" | "backlinks";
 
 /** Content asset types Milo can generate from an opportunity (Content Engine 2.0). */
 export type AssetType =
@@ -780,6 +780,88 @@ export interface AiEvaluationRun {
     candidate?: AiEvaluationRating;
   };
   notes?: string;
+}
+
+// ---- Backlinks v1 ----
+// Data-driven link profile + link gap powered by an external backlink index
+// (DataForSEO). Raw metrics come from the index; AI only interprets them into
+// prioritized, white-hat recommendations — it never invents link counts.
+export type BacklinkRecommendationCategory =
+  | "Link Gap Targets"
+  | "Content for Links"
+  | "Digital PR"
+  | "Partnerships & Sponsorships"
+  | "Directories & Profiles"
+  | "Link Hygiene";
+
+/** Aggregate backlink metrics for one domain (own site or a competitor). */
+export interface BacklinkTargetSummary {
+  target: string;
+  fetchStatus: "fetched" | "failed";
+  /** DataForSEO domain rank (0–1000 scale, higher is stronger). */
+  rank: number;
+  backlinks: number;
+  referringDomains: number;
+  referringMainDomains: number;
+  brokenBacklinks: number;
+  /** 0–100, higher = more spam signals in the link profile. */
+  spamScore: number;
+  firstSeen?: string;
+}
+
+export interface BacklinkReferringDomain {
+  domain: string;
+  rank: number;
+  backlinks: number;
+  spamScore: number;
+  firstSeen?: string;
+}
+
+/** A domain that links to competitors but NOT to the business (link gap). */
+export interface BacklinkGapDomain {
+  domain: string;
+  rank: number;
+  /** How many of the analyzed competitors this domain links to. */
+  intersections: number;
+  competitorsLinked: string[];
+  totalCompetitorBacklinks: number;
+}
+
+export interface BacklinkRecommendation {
+  id: string;
+  title: string;
+  category: BacklinkRecommendationCategory;
+  priority: Priority;
+  effort: Priority;
+  explanation: string;
+  recommendation: string;
+  targetDomainOrPlatform: string;
+  suggestedApproach: string;
+  suggestedOpportunityTitle: string;
+  suggestedContentType: ContentType;
+  suggestedSearchIntent: SearchIntent;
+  suggestedCta: string;
+}
+
+export interface BacklinkAnalysisResult {
+  id: string;
+  projectId: string;
+  note?: string;
+  ownDomain: string;
+  own: BacklinkTargetSummary;
+  competitors: BacklinkTargetSummary[];
+  topReferringDomains: BacklinkReferringDomain[];
+  gapDomains: BacklinkGapDomain[];
+  overallLinkScore: number;
+  linkProfileScore: number;
+  linkGapScore: number;
+  linkQualityScore: number;
+  summary: string;
+  topLinkActions: string[];
+  recommendations: BacklinkRecommendation[];
+  /** Recommendation ids already turned into Opportunities (dedup for convert). */
+  convertedRecommendationIds: string[];
+  createdAt: string;
 }
 
 // ---- AI Visibility v1 ----
