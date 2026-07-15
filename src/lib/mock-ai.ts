@@ -43,6 +43,7 @@ import {
   updateOpportunity,
   updateProject,
   updateProjectConnector,
+  addOutreachDraft,
   uid,
 } from "./store";
 import type {
@@ -63,6 +64,8 @@ import type {
   AiVisibilityGap,
   BacklinkAnalysisResult,
   BacklinkRecommendation,
+  OutreachDraft,
+  OutreachTargetSource,
   PublishDestinationType,
   Project,
   Priority,
@@ -86,6 +89,7 @@ import {
   regenerateCtaFn,
   evaluateContentQualityFn,
   improveContentDraftFn,
+  generateOutreachDraftFn,
 } from "./ai.functions";
 import { publishContentFn, publishLiveFn } from "./publish.functions";
 import {
@@ -1185,6 +1189,57 @@ export async function createOpportunitiesFromTopBacklinkActions(projectId: strin
     await saveWorkspaceNow();
     console.info("[ai.client] top-backlink opportunities created", { projectId, count: opps.length });
     return opps;
+  });
+}
+
+// ============================================================
+// AI Outreach v1 (draft-only; no external send)
+// ============================================================
+
+export async function generateOutreachDraft(
+  projectId: string,
+  input: {
+    targetDomain: string;
+    contactName?: string;
+    contactEmail?: string;
+    reason?: string;
+    suggestedAsset?: string;
+    source: OutreachTargetSource;
+  },
+) {
+  return once(`outreach:${projectId}:${input.targetDomain.toLowerCase()}`, async () => {
+    const { project, services } = requireProject(projectId);
+    const generated = await generateOutreachDraftFn({
+      data: {
+        project,
+        services,
+        targetDomain: input.targetDomain,
+        contactName: input.contactName ?? "",
+        reason: input.reason ?? "",
+        suggestedAsset: input.suggestedAsset ?? "",
+        language: contentLangToProjectLanguage(project.appLanguage ?? "en"),
+      },
+    });
+    const now = new Date().toISOString();
+    const draft: OutreachDraft = {
+      id: uid(),
+      projectId,
+      targetDomain: input.targetDomain,
+      contactName: input.contactName?.trim() ?? "",
+      contactEmail: input.contactEmail?.trim() ?? "",
+      source: input.source,
+      subject: generated.subject,
+      body: generated.body,
+      suggestedAsset: generated.suggestedAsset,
+      rationale: generated.rationale,
+      status: "Draft",
+      followUps: generated.followUps,
+      createdAt: now,
+      updatedAt: now,
+    };
+    addOutreachDraft(draft);
+    await saveWorkspaceNow();
+    return draft;
   });
 }
 

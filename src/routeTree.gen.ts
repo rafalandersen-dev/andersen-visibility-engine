@@ -47,6 +47,7 @@ import { Route as ApiOauthAuthorizeRouteImport } from './routes/api.oauth.author
 import { Route as ApiAnalyticsTrackRouteImport } from './routes/api.analytics.track'
 import { Route as AuthenticatedAppSetupRouteImport } from './routes/_authenticated/app.setup'
 import { Route as AuthenticatedAppServicesRouteImport } from './routes/_authenticated/app.services'
+import { Route as AuthenticatedAppOutreachRouteImport } from './routes/_authenticated/app.outreach'
 import { Route as AuthenticatedAppOpportunitiesRouteImport } from './routes/_authenticated/app.opportunities'
 import { Route as AuthenticatedAppOnboardingRouteImport } from './routes/_authenticated/app.onboarding'
 import { Route as AuthenticatedAppLinkMarketplaceRouteImport } from './routes/_authenticated/app.link-marketplace'
@@ -265,6 +266,12 @@ const AuthenticatedAppServicesRoute =
     path: '/app/services',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAppOutreachRoute =
+  AuthenticatedAppOutreachRouteImport.update({
+    id: '/app/outreach',
+    path: '/app/outreach',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAppOpportunitiesRoute =
   AuthenticatedAppOpportunitiesRouteImport.update({
     id: '/app/opportunities',
@@ -456,6 +463,7 @@ export interface FileRoutesByFullPath {
   '/app/link-marketplace': typeof AuthenticatedAppLinkMarketplaceRoute
   '/app/onboarding': typeof AuthenticatedAppOnboardingRoute
   '/app/opportunities': typeof AuthenticatedAppOpportunitiesRoute
+  '/app/outreach': typeof AuthenticatedAppOutreachRoute
   '/app/services': typeof AuthenticatedAppServicesRoute
   '/app/setup': typeof AuthenticatedAppSetupRoute
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
@@ -520,6 +528,7 @@ export interface FileRoutesByTo {
   '/app/link-marketplace': typeof AuthenticatedAppLinkMarketplaceRoute
   '/app/onboarding': typeof AuthenticatedAppOnboardingRoute
   '/app/opportunities': typeof AuthenticatedAppOpportunitiesRoute
+  '/app/outreach': typeof AuthenticatedAppOutreachRoute
   '/app/services': typeof AuthenticatedAppServicesRoute
   '/app/setup': typeof AuthenticatedAppSetupRoute
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
@@ -586,6 +595,7 @@ export interface FileRoutesById {
   '/_authenticated/app/link-marketplace': typeof AuthenticatedAppLinkMarketplaceRoute
   '/_authenticated/app/onboarding': typeof AuthenticatedAppOnboardingRoute
   '/_authenticated/app/opportunities': typeof AuthenticatedAppOpportunitiesRoute
+  '/_authenticated/app/outreach': typeof AuthenticatedAppOutreachRoute
   '/_authenticated/app/services': typeof AuthenticatedAppServicesRoute
   '/_authenticated/app/setup': typeof AuthenticatedAppSetupRoute
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
@@ -652,6 +662,7 @@ export interface FileRouteTypes {
     | '/app/link-marketplace'
     | '/app/onboarding'
     | '/app/opportunities'
+    | '/app/outreach'
     | '/app/services'
     | '/app/setup'
     | '/api/analytics/track'
@@ -716,6 +727,7 @@ export interface FileRouteTypes {
     | '/app/link-marketplace'
     | '/app/onboarding'
     | '/app/opportunities'
+    | '/app/outreach'
     | '/app/services'
     | '/app/setup'
     | '/api/analytics/track'
@@ -781,6 +793,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/link-marketplace'
     | '/_authenticated/app/onboarding'
     | '/_authenticated/app/opportunities'
+    | '/_authenticated/app/outreach'
     | '/_authenticated/app/services'
     | '/_authenticated/app/setup'
     | '/api/analytics/track'
@@ -1112,6 +1125,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppServicesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/app/outreach': {
+      id: '/_authenticated/app/outreach'
+      path: '/app/outreach'
+      fullPath: '/app/outreach'
+      preLoaderRoute: typeof AuthenticatedAppOutreachRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/app/opportunities': {
       id: '/_authenticated/app/opportunities'
       path: '/app/opportunities'
@@ -1309,6 +1329,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppLinkMarketplaceRoute: typeof AuthenticatedAppLinkMarketplaceRoute
   AuthenticatedAppOnboardingRoute: typeof AuthenticatedAppOnboardingRoute
   AuthenticatedAppOpportunitiesRoute: typeof AuthenticatedAppOpportunitiesRoute
+  AuthenticatedAppOutreachRoute: typeof AuthenticatedAppOutreachRoute
   AuthenticatedAppServicesRoute: typeof AuthenticatedAppServicesRoute
   AuthenticatedAppSetupRoute: typeof AuthenticatedAppSetupRoute
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
@@ -1333,6 +1354,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppLinkMarketplaceRoute: AuthenticatedAppLinkMarketplaceRoute,
   AuthenticatedAppOnboardingRoute: AuthenticatedAppOnboardingRoute,
   AuthenticatedAppOpportunitiesRoute: AuthenticatedAppOpportunitiesRoute,
+  AuthenticatedAppOutreachRoute: AuthenticatedAppOutreachRoute,
   AuthenticatedAppServicesRoute: AuthenticatedAppServicesRoute,
   AuthenticatedAppSetupRoute: AuthenticatedAppSetupRoute,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,

@@ -1080,6 +1080,23 @@ export const en: Record<string, string> = {
   "marketplace.status.Accepted": "Accepted",
   "marketplace.status.Published": "Published",
   "marketplace.status.Cancelled": "Cancelled",
+  "nav.outreach": "AI Outreach",
+  "outreach.title": "AI Outreach",
+  "outreach.subtitle": "Create personalized, human-reviewed digital-PR emails for targets that require a real conversation.",
+  "outreach.safetyTitle": "Draft-only workflow.",
+  "outreach.safety": "Milo never sends email automatically. Verify the recipient, facts and relevance before copying or marking a message as sent.",
+  "outreach.drafts": "Draft queue", "outreach.empty": "No outreach drafts yet.", "outreach.newDraft": "Create a draft",
+  "outreach.suggestedTargets": "Suggested from backlink data", "outreach.domain": "Target domain", "outreach.contactName": "Contact name",
+  "outreach.contactEmail": "Contact email", "outreach.optional": "Optional", "outreach.reason": "Real reason for contact",
+  "outreach.reasonPlaceholder": "Why this resource may genuinely help their audience", "outreach.asset": "Resource to offer",
+  "outreach.assetPlaceholder": "Guide, original data, expert comment…", "outreach.generate": "Generate draft", "outreach.generating": "Generating…",
+  "outreach.invalidDomain": "Enter a valid target domain.", "outreach.followUps": "Optional follow-ups", "outreach.afterDays": "After {count} days",
+  "outreach.approve": "Approve draft", "outreach.markSent": "Mark as sent", "outreach.pause": "Pause",
+  "outreach.toast.generated": "Outreach draft created.", "outreach.toast.failed": "Could not create the draft.",
+  "outreach.toast.copied": "Email copied.", "outreach.toast.status": "Status changed to {status}.",
+  "outreach.source.linkGap": "Link gap", "outreach.source.marketplace": "Marketplace", "outreach.source.manual": "Manual",
+  "outreach.status.Draft": "Draft", "outreach.status.Approved": "Approved", "outreach.status.Queued": "Queued",
+  "outreach.status.Sent": "Sent", "outreach.status.Replied": "Replied", "outreach.status.Paused": "Paused",
 };
 
 export type Dict = typeof en;

@@ -1058,4 +1058,12 @@ export const pl: Record<string, string> = {
   "marketplace.toast.exists": "Ta oferta ma już aktywne zgłoszenie.", "marketplace.toast.requested": "Zapisano zgłoszenie publikacji do weryfikacji.",
   "marketplace.status.Requested": "Zgłoszono", "marketplace.status.In Review": "W weryfikacji", "marketplace.status.Accepted": "Zaakceptowano",
   "marketplace.status.Published": "Opublikowano", "marketplace.status.Cancelled": "Anulowano",
+  "nav.outreach": "AI Outreach", "outreach.title": "AI Outreach", "outreach.subtitle": "Twórz spersonalizowane, weryfikowane przez człowieka maile digital PR do celów wymagających prawdziwej rozmowy.",
+  "outreach.safetyTitle": "Tylko szkice.", "outreach.safety": "Milo nigdy nie wysyła maili automatycznie. Przed skopiowaniem lub oznaczeniem jako wysłane sprawdź odbiorcę, fakty i trafność.",
+  "outreach.drafts": "Kolejka szkiców", "outreach.empty": "Brak szkiców outreach.", "outreach.newDraft": "Utwórz szkic", "outreach.suggestedTargets": "Sugestie z danych backlinkowych",
+  "outreach.domain": "Domena docelowa", "outreach.contactName": "Imię kontaktu", "outreach.contactEmail": "Email kontaktu", "outreach.optional": "Opcjonalnie",
+  "outreach.reason": "Prawdziwy powód kontaktu", "outreach.reasonPlaceholder": "Dlaczego zasób może realnie pomóc ich odbiorcom", "outreach.asset": "Oferowany zasób", "outreach.assetPlaceholder": "Poradnik, własne dane, komentarz eksperta…",
+  "outreach.generate": "Wygeneruj szkic", "outreach.generating": "Generowanie…", "outreach.invalidDomain": "Podaj prawidłową domenę docelową.", "outreach.followUps": "Opcjonalne follow-upy", "outreach.afterDays": "Po {count} dniach",
+  "outreach.approve": "Zatwierdź szkic", "outreach.markSent": "Oznacz jako wysłany", "outreach.pause": "Wstrzymaj", "outreach.toast.generated": "Utworzono szkic outreach.", "outreach.toast.failed": "Nie udało się utworzyć szkicu.", "outreach.toast.copied": "Skopiowano mail.", "outreach.toast.status": "Status zmieniono na {status}.",
+  "outreach.source.linkGap": "Luka linkowa", "outreach.source.marketplace": "Marketplace", "outreach.source.manual": "Ręcznie", "outreach.status.Draft": "Szkic", "outreach.status.Approved": "Zatwierdzony", "outreach.status.Queued": "W kolejce", "outreach.status.Sent": "Wysłany", "outreach.status.Replied": "Odpowiedź", "outreach.status.Paused": "Wstrzymany",
 };

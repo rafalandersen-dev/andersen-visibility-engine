@@ -31,6 +31,7 @@ import type {
   AiVisibilityAnalysisResult,
   BacklinkAnalysisResult,
   LinkMarketplaceOrder,
+  OutreachDraft,
   GrowthTask,
   PendingAction,
   PublishingConnectorType,
@@ -62,6 +63,8 @@ interface State {
   backlinkAnalyses: BacklinkAnalysisResult[];
   /** Marketplace v1 — reviewable sponsored-publication requests. */
   linkMarketplaceOrders: LinkMarketplaceOrder[];
+  /** AI Outreach v1 — drafts and review queue; sending is a separate integration. */
+  outreachDrafts: OutreachDraft[];
   /** Authority Builder v2 — trackable authority opportunities. */
   authorityOpportunities: AuthorityOpportunity[];
   /** AI Provider Router — internal model evaluation runs (latest 20). */
@@ -103,6 +106,7 @@ const emptyState: State = {
   aiVisibilityAnalyses: [],
   backlinkAnalyses: [],
   linkMarketplaceOrders: [],
+  outreachDrafts: [],
   authorityOpportunities: [],
   aiEvaluationRuns: [],
   tasks: [],
@@ -127,6 +131,7 @@ const ssrSnapshot: State = {
   aiVisibilityAnalyses: [],
   backlinkAnalyses: [],
   linkMarketplaceOrders: [],
+  outreachDrafts: [],
   authorityOpportunities: [],
   aiEvaluationRuns: [],
   tasks: [],
@@ -171,6 +176,7 @@ function stateFromRow(userId: string, d: Partial<State>, rev: number): State {
     aiVisibilityAnalyses: d.aiVisibilityAnalyses ?? [],
     backlinkAnalyses: d.backlinkAnalyses ?? [],
     linkMarketplaceOrders: d.linkMarketplaceOrders ?? [],
+    outreachDrafts: d.outreachDrafts ?? [],
     authorityOpportunities: d.authorityOpportunities ?? [],
     aiEvaluationRuns: d.aiEvaluationRuns ?? [],
     tasks: d.tasks ?? [],
@@ -231,6 +237,7 @@ export async function saveWorkspaceNow(): Promise<void> {
     aiVisibilityAnalyses: state.aiVisibilityAnalyses,
     backlinkAnalyses: state.backlinkAnalyses,
     linkMarketplaceOrders: state.linkMarketplaceOrders,
+    outreachDrafts: state.outreachDrafts,
     authorityOpportunities: state.authorityOpportunities,
     aiEvaluationRuns: state.aiEvaluationRuns,
     tasks: state.tasks,
@@ -346,6 +353,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
         aiVisibilityAnalyses: [],
         backlinkAnalyses: [],
         linkMarketplaceOrders: [],
+        outreachDrafts: [],
         authorityOpportunities: [],
         aiEvaluationRuns: [],
         tasks: [],
@@ -370,6 +378,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
       aiVisibilityAnalyses: [],
       backlinkAnalyses: [],
       linkMarketplaceOrders: [],
+      outreachDrafts: [],
       authorityOpportunities: [],
       aiEvaluationRuns: [],
       tasks: [],
@@ -890,6 +899,19 @@ export const updateLinkMarketplaceOrder = (id: string, patch: Partial<LinkMarket
     ...s,
     linkMarketplaceOrders: s.linkMarketplaceOrders.map((order) =>
       order.id === id ? { ...order, ...patch, updatedAt: new Date().toISOString() } : order,
+    ),
+  }));
+
+// ---- AI Outreach v1 ----
+
+export const addOutreachDraft = (draft: OutreachDraft) =>
+  setState((s) => ({ ...s, outreachDrafts: [...s.outreachDrafts, draft] }));
+
+export const updateOutreachDraft = (id: string, patch: Partial<OutreachDraft>) =>
+  setState((s) => ({
+    ...s,
+    outreachDrafts: s.outreachDrafts.map((draft) =>
+      draft.id === id ? { ...draft, ...patch, updatedAt: new Date().toISOString() } : draft,
     ),
   }));
 

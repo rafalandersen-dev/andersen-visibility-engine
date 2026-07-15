@@ -2341,3 +2341,96 @@ ${sharedRules}`,
       return deterministicFallbackAudit(signals, { id, url: data.url, normalizedUrl, auditedAt });
     }
   });
+
+// ============================================================
+// AI Outreach v1 — draft generation only (never sends email)
+// ============================================================
+
+const OutreachFollowUpSchema = z.object({
+  delayDays: z.coerce.number().int().min(2).max(14),
+  subject: cleanString(160),
+  body: cleanString(2500),
+});
+
+const OutreachDraftOutputSchema = z.object({
+  subject: cleanString(160),
+  body: cleanString(3500),
+  suggestedAsset: cleanString(240),
+  rationale: cleanString(500),
+  followUps: z.array(OutreachFollowUpSchema).max(2),
+});
+
+export const generateOutreachDraftFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        project: z.any(),
+        services: z.array(z.any()).default([]),
+        targetDomain: z.string().trim().min(3).max(253),
+        contactName: z.string().trim().max(100).default(""),
+        reason: z.string().trim().max(600).default(""),
+        suggestedAsset: z.string().trim().max(240).default(""),
+        language: z.string().trim().max(30).default("English"),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const project = data.project as Project;
+    const services = data.services as ServiceItem[];
+    try {
+      console.info("[ai.functions] outreach reached", {
+        userIdPresent: Boolean(context.userId),
+        projectId: project.id,
+        targetDomain: data.targetDomain,
+      });
+      const payload = await generateJsonText(
+        `You are an ethical digital-PR outreach writer. Draft one concise, genuinely personalized email and two optional follow-ups for a potential editorial relationship.
+
+Return exactly this JSON shape:
+{"subject":"","body":"","suggestedAsset":"","rationale":"","followUps":[{"delayDays":4,"subject":"","body":""},{"delayDays":8,"subject":"","body":""}]}
+
+NON-NEGOTIABLE RULES:
+- Write in ${data.language}.
+- Never offer money, reciprocal links, gifts, ranking manipulation or a dofollow link.
+- Never claim you visited or read the target website unless the supplied context explicitly says so.
+- Do not invent a person, article, statistic, relationship, award or fact.
+- Be transparent about the sender and why the proposed resource may help the target's audience.
+- Ask whether the resource is useful; do not demand or pressure for a link.
+- Keep the first email under 160 words and each follow-up under 90 words.
+- Follow-ups must be polite, add no invented facts and make it easy to decline.
+- Do not include tracking language, fake urgency or manipulative phrasing.
+
+BUSINESS:
+${projectBrief(project, services)}
+
+TARGET DOMAIN: ${data.targetDomain}
+CONTACT NAME: ${data.contactName || "Unknown — use a neutral greeting"}
+REAL REASON FOR CONTACT: ${data.reason || "Potentially relevant editorial audience; confirm fit before proposing anything."}
+RESOURCE/ASSET TO OFFER: ${data.suggestedAsset || "Suggest one realistic, useful resource based only on the business context."}
+
+The email must be a draft for human review. It will not be sent automatically.`,
+        4000,
+      );
+      const root = isRecord(payload) ? payload : {};
+      const followUps = extractArray(root, ["followUps", "follow_ups", "followups"])
+        .slice(0, 2)
+        .map((item, index) => {
+          const followUp = isRecord(item) ? item : {};
+          return OutreachFollowUpSchema.parse({
+            delayDays: followUp.delayDays ?? followUp.delay_days ?? (index === 0 ? 4 : 8),
+            subject: pickString(followUp, ["subject", "title"], `Following up: ${data.targetDomain}`),
+            body: pickString(followUp, ["body", "message", "email"], "Just checking whether this resource could be useful for your audience. No worries if it is not a fit."),
+          });
+        });
+      return OutreachDraftOutputSchema.parse({
+        subject: pickString(root, ["subject", "title"], `Resource idea for ${data.targetDomain}`),
+        body: pickString(root, ["body", "message", "email"], ""),
+        suggestedAsset: pickString(root, ["suggestedAsset", "suggested_asset", "asset", "resource"], data.suggestedAsset || "Useful expert resource"),
+        rationale: pickString(root, ["rationale", "reason", "why"], data.reason || "Potential editorial relevance"),
+        followUps,
+      });
+    } catch (e) {
+      throw mapGatewayError(e);
+    }
+  });

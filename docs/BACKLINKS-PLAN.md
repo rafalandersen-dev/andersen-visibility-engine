@@ -51,12 +51,13 @@ Pliki:
 - `src/components/AppShell.tsx` — pozycja w nawigacji (ikona Link2).
 - `src/i18n/{en,pl,sv,da}.ts` — pełne tłumaczenia (klucze `backlinks.*`, `nav.backlinks`).
 
-### ⚠️ BLOKER — czeka na klucze (Rafa)
+### ⚠️ BLOKER — konto założone, czeka na klucze (Rafa)
 Strona pokazuje kartę "Podłącz źródło danych" dopóki nie ma sekretów. Trzeba:
-1. Założyć konto na **app.dataforseo.com**, doładować (min. ~$50).
-2. Skopiować login/hasło API z **app.dataforseo.com/api-access**.
-3. Dodać w **Lovable Cloud → Secrets** (NIE "Build secrets"!): `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD`.
-4. E2E na zalogowanym koncie (dziś niezrobione — wtyczka Chrome odłączona, strona za loginem).
+1. ✅ Konto na **app.dataforseo.com** założone (2026-07-15).
+2. Doładować konto (min. ~$50).
+3. Skopiować login/hasło API z **app.dataforseo.com/api-access**.
+4. Dodać w **Lovable Cloud → Secrets** (NIE "Build secrets"!): `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD`.
+5. Wykonać E2E na zalogowanym koncie.
 
 ---
 
@@ -87,12 +88,26 @@ Następny krok warstwy 2: uzyskać dokumentację/klucze API Linkhouse, zastąpi�
 adapterem produkcyjnym i dodać kontrolowany backendowy flow wyceny/zamówienia. Nie wysyłać
 płatnego zamówienia bez osobnego potwierdzenia użytkownika.
 
-## Warstwa 3 — AI Outreach ⛔ NIE ZBUDOWANE
+## Warstwa 3 — AI Outreach 🟡 MVP ZBUDOWANE
 
 Zamysł: dla celów, których nie da się "kupić" (partnerstwa, PR, katalogi branżowe) —
 AI generuje spersonalizowane maile outreachowe na bazie kontekstu (luka, powód linkowania,
 sugerowany asset). Ewentualnie: kolejka wysyłek, statusy, follow-upy.
 Do przemyślenia integracja z istniejącym connectorem publikacji / Resend.
+
+Stan MVP (Codex, 2026-07-15):
+- `/app/outreach` z celami sugerowanymi z luki linkowej i zgłoszeń marketplace,
+- formularz dla domen manualnych, opcjonalnego kontaktu, realnego powodu i oferowanego assetu,
+- serwerowe generowanie przez istniejący Lovable AI Gateway (`google/gemini-3-flash-preview`),
+- pierwszy mail + maks. 2 follow-upy, kolejka szkiców i statusy realizacji,
+- twarde reguły antyspamowe: zero wymiany/kupowania linku, fake-personalizacji, presji,
+  zmyślonych faktów i obietnic wyników,
+- brak automatycznej wysyłki; szkic wymaga przeglądu, może być skopiowany i ręcznie oznaczony,
+- `outreachDrafts[]` w flat JSONB workspace, i18n en/pl/sv/da i testy helperów.
+
+Następny krok warstwy 3: podłączyć zweryfikowanego nadawcę (np. Resend), dodać zgodę użytkownika
+przy każdym uruchomieniu kampanii, unsubscribe/suppression oraz limity częstotliwości. Nie wysyłać
+wiadomości, dopóki te zabezpieczenia i dane nadawcy nie są gotowe.
 
 ---
 

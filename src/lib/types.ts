@@ -908,6 +908,33 @@ export interface LinkMarketplaceOrder {
   updatedAt: string;
 }
 
+// ---- AI Outreach v1 ----
+export type OutreachTargetSource = "linkGap" | "marketplace" | "manual";
+export type OutreachStatus = "Draft" | "Approved" | "Queued" | "Sent" | "Replied" | "Paused";
+
+export interface OutreachFollowUp {
+  delayDays: number;
+  subject: string;
+  body: string;
+}
+
+export interface OutreachDraft {
+  id: string;
+  projectId: string;
+  targetDomain: string;
+  contactName: string;
+  contactEmail: string;
+  source: OutreachTargetSource;
+  subject: string;
+  body: string;
+  suggestedAsset: string;
+  rationale: string;
+  status: OutreachStatus;
+  followUps: OutreachFollowUp[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ---- AI Visibility v1 ----
 // Planning / readiness module — NOT live AI rank tracking. No external AI engine
 // is queried; everything is framed as likely gaps and readiness, not live results.
