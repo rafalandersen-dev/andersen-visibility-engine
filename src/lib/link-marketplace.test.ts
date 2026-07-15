@@ -10,9 +10,21 @@ import {
 import type { BacklinkAnalysisResult, Project } from "./types";
 
 const project = {
-  id: "p1", name: "Shop", websiteUrl: "https://shop.example", businessName: "Shop", businessType: "ecommerce software",
-  primaryLanguage: "English", additionalLanguages: [], mainLocation: "Stockholm", targetLocations: [], description: "Retail marketing platform",
-  targetAudience: "online retailers", toneOfVoice: "clear", uniqueSellingPoints: "fast", brandNotes: "", market: "SE",
+  id: "p1",
+  name: "Shop",
+  websiteUrl: "https://shop.example",
+  businessName: "Shop",
+  businessType: "ecommerce software",
+  primaryLanguage: "English",
+  additionalLanguages: [],
+  mainLocation: "Stockholm",
+  targetLocations: [],
+  description: "Retail marketing platform",
+  targetAudience: "online retailers",
+  toneOfVoice: "clear",
+  uniqueSellingPoints: "fast",
+  brandNotes: "",
+  market: "SE",
 } as Project;
 
 describe("link marketplace matching", () => {
@@ -24,13 +36,17 @@ describe("link marketplace matching", () => {
 
   it("boosts a domain found in the competitor link gap", () => {
     const analysis = { gapDomains: [{ domain: "localserviceguide.eu" }] } as BacklinkAnalysisResult;
-    const match = matchMarketplaceOffers(DEMO_MARKETPLACE_OFFERS, project, analysis).find((item) => item.domain === "localserviceguide.eu")!;
+    const match = matchMarketplaceOffers(DEMO_MARKETPLACE_OFFERS, project, analysis).find(
+      (item) => item.domain === "localserviceguide.eu",
+    )!;
     expect(match.isGapDomain).toBe(true);
     expect(match.matchReasons).toContain("linkGap");
   });
 
   it("builds a project-specific topic", () => {
-    expect(buildSuggestedTopic(project, DEMO_MARKETPLACE_OFFERS[0])).toContain("ecommerce software");
+    expect(buildSuggestedTopic(project, DEMO_MARKETPLACE_OFFERS[0])).toContain(
+      "ecommerce software",
+    );
   });
 
   it("calculates a transparent provider price, service fee and exact total", () => {
@@ -48,7 +64,9 @@ describe("link marketplace matching", () => {
   });
 
   it("rejects expired and invalid quote timestamps", () => {
-    expect(isMarketplaceQuoteExpired("2026-07-15T12:00:00.000Z", Date.parse("2026-07-15T12:00:00.000Z"))).toBe(true);
+    expect(
+      isMarketplaceQuoteExpired("2026-07-15T12:00:00.000Z", Date.parse("2026-07-15T12:00:00.000Z")),
+    ).toBe(true);
     expect(isMarketplaceQuoteExpired("not-a-date")).toBe(true);
   });
 });

@@ -13,46 +13,37 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useT } from "@/i18n";
+import { translate, useAppLanguage, useT } from "@/i18n";
 import {
   confirmMarketplaceOrderFn,
   createMarketplaceQuoteFn,
+  listMarketplaceOffersFn,
 } from "@/lib/link-marketplace.functions";
 import { addLinkMarketplaceOrder, saveWorkspaceNow, uid, useStore } from "@/lib/store";
 import { buildSuggestedTopic, DEMO_MARKETPLACE_OFFERS, matchMarketplaceOffers } from "@/lib/link-marketplace";
 import type {
   LinkMarketplaceIntegrationStatus,
   LinkMarketplaceMatch,
+  LinkMarketplaceOffer,
   LinkMarketplaceOrder,
   LinkMarketplaceQuote,
 } from "@/lib/types";
 import { CheckCircle2, ExternalLink, Info, Loader2, Search, ShieldCheck, ShoppingBasket, Sparkles } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/app/link-marketplace")({
   head: () => ({ meta: [{ title: "Link Marketplace — Milo Growth" }] }),
   component: LinkMarketplacePage,
-  errorComponent: MarketplaceDiagnosticError,
 });
-
-function MarketplaceDiagnosticError({ error }: { error: Error }) {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-xl rounded-lg border border-border bg-card p-6">
-        <h1 className="text-lg font-semibold">Link Marketplace could not load</h1>
-        <p className="mt-3 break-words font-mono text-xs text-muted-foreground">{error.message}</p>
-      </div>
-    </div>
-  );
-}
 
 function LinkMarketplacePage() {
   const t = useT();
+  const appLanguage = useAppLanguage();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
-  const catalog = DEMO_MARKETPLACE_OFFERS;
-  const integration: LinkMarketplaceIntegrationStatus = {
+  const [catalog, setCatalog] = useState<LinkMarketplaceOffer[]>(DEMO_MARKETPLACE_OFFERS);
+  const [integration, setIntegration] = useState<LinkMarketplaceIntegrationStatus>({
     mode: "demo",
     provider: "linkhouse",
     credentialsPresent: false,
@@ -61,7 +52,7 @@ function LinkMarketplacePage() {
     catalogConnected: false,
     orderingEnabled: false,
     documentationPending: true,
-  };
+  });
   const [quote, setQuote] = useState<LinkMarketplaceQuote | null>(null);
   const [selectedOffer, setSelectedOffer] = useState<LinkMarketplaceMatch | null>(null);
   const [quoteOpen, setQuoteOpen] = useState(false);
@@ -81,6 +72,24 @@ function LinkMarketplacePage() {
       !normalized || [item.domain, item.title, ...item.categories].join(" ").toLowerCase().includes(normalized),
     );
   }, [analysis, catalog, project, query]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadCatalog() {
+      try {
+        const result = await listMarketplaceOffersFn();
+        if (cancelled) return;
+        setCatalog(result.offers);
+        setIntegration(result.status);
+      } catch {
+        if (!cancelled) toast.error(translate(appLanguage, "marketplace.toast.catalogError"));
+      }
+    }
+    void loadCatalog();
+    return () => {
+      cancelled = true;
+    };
+  }, [appLanguage]);
 
   if (!project) {
     return (

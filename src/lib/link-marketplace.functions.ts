@@ -30,7 +30,7 @@ export const listMarketplaceOffersFn = createServerFn({ method: "POST" })
 
 export const createMarketplaceQuoteFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((input: unknown) =>
+  .inputValidator((input: unknown) =>
     z
       .object({ offerId: z.string().min(1).max(300), targetUrl: z.string().url().max(2000) })
       .parse(input),
@@ -46,7 +46,7 @@ export const createMarketplaceQuoteFn = createServerFn({ method: "POST" })
 
 export const confirmMarketplaceOrderFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((input: unknown) =>
+  .inputValidator((input: unknown) =>
     z
       .object({
         confirmationToken: z.string().min(20).max(8000),
@@ -73,7 +73,7 @@ export const confirmMarketplaceOrderFn = createServerFn({ method: "POST" })
 
 export const syncMarketplaceOrderFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((input: unknown) =>
+  .inputValidator((input: unknown) =>
     z.object({ providerOrderId: z.string().min(1).max(300) }).parse(input),
   )
   .handler(async ({ data }): Promise<{ providerStatus: string }> => {
