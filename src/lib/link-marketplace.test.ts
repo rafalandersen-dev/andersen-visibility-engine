@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { DEMO_MARKETPLACE_OFFERS, buildSuggestedTopic, matchMarketplaceOffers } from "./link-marketplace";
+import {
+  DEMO_MARKETPLACE_OFFERS,
+  buildSuggestedTopic,
+  calculateMarketplacePricing,
+  isExactMarketplaceTotal,
+  isMarketplaceQuoteExpired,
+  matchMarketplaceOffers,
+} from "./link-marketplace";
 import type { BacklinkAnalysisResult, Project } from "./types";
 
 const project = {
@@ -24,5 +31,24 @@ describe("link marketplace matching", () => {
 
   it("builds a project-specific topic", () => {
     expect(buildSuggestedTopic(project, DEMO_MARKETPLACE_OFFERS[0])).toContain("ecommerce software");
+  });
+
+  it("calculates a transparent provider price, service fee and exact total", () => {
+    expect(calculateMarketplacePricing(390, 20)).toEqual({
+      basePrice: 390,
+      serviceFee: 78,
+      marginPercent: 20,
+      totalPrice: 468,
+    });
+  });
+
+  it("compares confirmed totals at currency precision", () => {
+    expect(isExactMarketplaceTotal(468, 468.001)).toBe(true);
+    expect(isExactMarketplaceTotal(468, 468.01)).toBe(false);
+  });
+
+  it("rejects expired and invalid quote timestamps", () => {
+    expect(isMarketplaceQuoteExpired("2026-07-15T12:00:00.000Z", Date.parse("2026-07-15T12:00:00.000Z"))).toBe(true);
+    expect(isMarketplaceQuoteExpired("not-a-date")).toBe(true);
   });
 });

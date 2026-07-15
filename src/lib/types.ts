@@ -866,7 +866,14 @@ export interface BacklinkAnalysisResult {
 
 // ---- Sponsored publication marketplace v1 ----
 export type LinkMarketplaceCurrency = "EUR";
-export type LinkMarketplaceOrderStatus = "Requested" | "In Review" | "Accepted" | "Published" | "Cancelled";
+export type LinkMarketplaceOrderStatus =
+  | "Requested"
+  | "In Review"
+  | "Submitted"
+  | "Accepted"
+  | "Published"
+  | "Failed"
+  | "Cancelled";
 
 export interface LinkMarketplaceOffer {
   id: string;
@@ -891,6 +898,41 @@ export interface LinkMarketplaceMatch extends LinkMarketplaceOffer {
   isGapDomain: boolean;
 }
 
+export interface LinkMarketplaceIntegrationStatus {
+  mode: "demo" | "live";
+  provider: "linkhouse";
+  credentialsPresent: boolean;
+  signingReady: boolean;
+  marginConfigured: boolean;
+  catalogConnected: boolean;
+  orderingEnabled: boolean;
+  documentationPending: boolean;
+}
+
+export interface LinkMarketplaceQuote {
+  id: string;
+  offerId: string;
+  provider: LinkMarketplaceOffer["provider"];
+  domain: string;
+  publicationTitle: string;
+  basePrice: number;
+  serviceFee: number;
+  marginPercent: number;
+  totalPrice: number;
+  currency: LinkMarketplaceCurrency;
+  linkAttributes: "sponsored";
+  createdAt: string;
+  expiresAt: string;
+  confirmationToken: string;
+  live: boolean;
+}
+
+export interface LinkMarketplaceOrderEvent {
+  status: LinkMarketplaceOrderStatus;
+  at: string;
+  note: string;
+}
+
 export interface LinkMarketplaceOrder {
   id: string;
   projectId: string;
@@ -900,10 +942,20 @@ export interface LinkMarketplaceOrder {
   publicationTitle: string;
   targetUrl: string;
   suggestedTopic: string;
+  basePrice?: number;
+  serviceFee?: number;
+  marginPercent?: number;
   price: number;
   currency: LinkMarketplaceCurrency;
   status: LinkMarketplaceOrderStatus;
   linkAttributes: "sponsored";
+  quoteId?: string;
+  quoteExpiresAt?: string;
+  confirmedAt?: string;
+  providerOrderId?: string;
+  providerStatus?: string;
+  lastSyncedAt?: string;
+  events?: LinkMarketplaceOrderEvent[];
   createdAt: string;
   updatedAt: string;
 }

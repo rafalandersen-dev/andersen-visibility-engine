@@ -1,6 +1,6 @@
 # Backlinks — plan & status (handoff)
 
-Ostatnia aktualizacja: 2026-07-15. Autor pierwszej warstwy: Claude Code. Kontynuacja: Codex.
+Ostatnia aktualizacja: 2026-07-16. Autor pierwszej warstwy: Claude Code. Kontynuacja: Codex.
 
 ## Cel biznesowy
 
@@ -76,14 +76,23 @@ Do zaprojektowania przez Codex:
 - **Uwaga prawna/jakościowa**: trzymać się oznaczonych publikacji, unikać wszystkiego,
   co Google traktuje jako link scheme.
 
-Stan MVP (Codex, 2026-07-15):
+Stan MVP (Codex, 2026-07-16):
 - `/app/link-marketplace` z katalogiem ofert za interfejsem dostawcy (obecnie adapter demo),
 - scoring dopasowania do rynku, języka, tematyki i domen z luki linkowej warstwy 1,
 - wyszukiwanie, metryki, orientacyjne ceny i czas realizacji,
-- zapis reviewowalnych zgłoszeń do `linkMarketplaceOrders[]` w flat JSONB workspace,
+- backendowa wycena z 15-minutowym TTL, podpisanym tokenem, ceną dostawcy, marżą Milo
+  i dokładną sumą do potwierdzenia,
+- dwustopniowy flow: „sprawdź cenę” → osobne potwierdzenie sponsorowania i dokładnej kwoty,
+- podpis wyceny jest związany z użytkownikiem; backend odrzuca zmianę ceny, wygaśnięcie tokenu,
+  innego użytkownika oraz brak wymaganych potwierdzeń,
+- `quoteId` jest kontraktem idempotency key dla przyszłego wywołania płatnego zamówienia,
+- zapis reviewowalnych zgłoszeń do `linkMarketplaceOrders[]` w flat JSONB workspace wraz
+  z breakdownem ceny, czasem potwierdzenia, statusem dostawcy i historią zdarzeń,
 - deduplikacja aktywnych zgłoszeń oraz lista statusów realizacji,
 - wymuszone `rel="sponsored"`, jawny disclaimer i brak automatycznego zakupu,
-- i18n en/pl/sv/da oraz testy jednostkowe matchingu.
+- kill switch: płatne zamówienia wymagają jednocześnie zweryfikowanego mapowania API,
+  sekretu podpisującego i `LINKHOUSE_ORDERING_ENABLED=true`,
+- i18n en/pl/sv/da oraz testy jednostkowe matchingu, pricingu, TTL i potwierdzeń.
 
 Następny krok warstwy 2: uzyskać dokumentację/klucze API Linkhouse, zastąpić adapter demo
 adapterem produkcyjnym i dodać kontrolowany backendowy flow wyceny/zamówienia. Oficjalna
@@ -91,6 +100,17 @@ strona API (`https://linkhouse.net/api/`) potwierdza wyszukiwanie serwisów, pod
 kontrolę i historię zamówień, eksport oraz informacje o saldzie, ale dokumentację wydaje
 indywidualnie po kontakcie z zespołem Linkhouse. Nie wysyłać płatnego zamówienia bez osobnego
 potwierdzenia użytkownika.
+
+Szkielet produkcyjny oczekuje sekretów (nazwy, bez wartości):
+- `LINKHOUSE_API_BASE_URL`, `LINKHOUSE_API_KEY`, `LINKHOUSE_ACCOUNT_ID`,
+- `LINK_MARKETPLACE_SIGNING_SECRET`, `LINK_MARKETPLACE_MARGIN_PERCENT`,
+- `LINKHOUSE_API_MAPPING_VERIFIED=true` dopiero po implementacji zgodnej z otrzymaną dokumentacją,
+- `LINKHOUSE_ORDERING_ENABLED=true` dopiero po bezpłatnym E2E katalogu i wyceny.
+
+Kontrakt providera ma już finalne metody: katalog ofert, wycena, utworzenie zamówienia i odczyt
+statusu. Ich mapowanie Linkhouse jest celowo fail-closed (`linkhouse_api_mapping_pending`) do
+czasu otrzymania prywatnej dokumentacji. Marża musi być ustawiona jawnie (brak wartości blokuje
+live ordering), a samo dodanie kluczy nie odblokowuje płatnych zleceń.
 
 Do czasu podłączenia API katalog demo jest jawnie oznaczony w UI; domeny, metryki i ceny są
 danymi demonstracyjnymi, a zgłoszenie zapisuje się tylko w Milo i nie tworzy płatności.

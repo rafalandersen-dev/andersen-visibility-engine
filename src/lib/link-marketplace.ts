@@ -2,13 +2,40 @@ import type {
   BacklinkAnalysisResult,
   LinkMarketplaceMatch,
   LinkMarketplaceOffer,
+  LinkMarketplaceQuote,
   Market,
   Project,
 } from "./types";
 
 export interface LinkMarketplaceProvider {
+  readonly id: LinkMarketplaceOffer["provider"];
   listOffers(): Promise<LinkMarketplaceOffer[]>;
+  createQuote(input: { offerId: string; targetUrl: string }): Promise<LinkMarketplaceProviderQuote>;
+  createOrder(input: {
+    providerQuoteId: string;
+    offerId: string;
+    targetUrl: string;
+    confirmedProviderPrice: number;
+    idempotencyKey: string;
+  }): Promise<{
+    providerOrderId: string;
+    providerStatus: string;
+  }>;
+  getOrder(input: { providerOrderId: string }): Promise<{ providerStatus: string }>;
 }
+
+export interface LinkMarketplaceProviderQuote {
+  providerQuoteId: string;
+  offerId: string;
+  domain: string;
+  publicationTitle: string;
+  basePrice: number;
+  currency: LinkMarketplaceQuote["currency"];
+  expiresAt?: string;
+}
+
+export const MARKETPLACE_QUOTE_TTL_MS = 15 * 60 * 1000;
+export const DEFAULT_MARKETPLACE_MARGIN_PERCENT = 20;
 
 export const DEMO_MARKETPLACE_OFFERS: LinkMarketplaceOffer[] = [
   offer("eu-business-review.com", "European business feature", ["business", "consulting", "software"], ["EU", "UK"], 58, 74000, 390, 12),
@@ -50,10 +77,41 @@ function offer(
 }
 
 export const demoMarketplaceProvider: LinkMarketplaceProvider = {
+  id: "demo",
   async listOffers() {
     return DEMO_MARKETPLACE_OFFERS;
   },
+  async createQuote() {
+    throw new Error("Demo quotes are created by the authenticated marketplace backend.");
+  },
+  async createOrder() {
+    throw new Error("Demo mode never creates a provider order.");
+  },
+  async getOrder() {
+    throw new Error("Demo mode has no provider order to sync.");
+  },
 };
+
+export function calculateMarketplacePricing(basePrice: number, marginPercent: number) {
+  const safeBasePrice = Math.round(Math.max(0, basePrice) * 100) / 100;
+  const safeMarginPercent = Math.min(100, Math.max(0, marginPercent));
+  const serviceFee = Math.round(safeBasePrice * (safeMarginPercent / 100) * 100) / 100;
+  return {
+    basePrice: safeBasePrice,
+    serviceFee,
+    marginPercent: safeMarginPercent,
+    totalPrice: Math.round((safeBasePrice + serviceFee) * 100) / 100,
+  };
+}
+
+export function isMarketplaceQuoteExpired(expiresAt: string, now = Date.now()): boolean {
+  const expiry = Date.parse(expiresAt);
+  return !Number.isFinite(expiry) || expiry <= now;
+}
+
+export function isExactMarketplaceTotal(expected: number, confirmed: number): boolean {
+  return Number.isFinite(confirmed) && Math.round(expected * 100) === Math.round(confirmed * 100);
+}
 
 function tokens(value: string): string[] {
   return value.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((part) => part.length > 2);
