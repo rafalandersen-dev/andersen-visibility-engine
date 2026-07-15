@@ -8,7 +8,7 @@ import { useT } from "@/i18n";
 import { addLinkMarketplaceOrder, uid, useStore } from "@/lib/store";
 import { buildSuggestedTopic, DEMO_MARKETPLACE_OFFERS, matchMarketplaceOffers } from "@/lib/link-marketplace";
 import type { LinkMarketplaceMatch, LinkMarketplaceOrder } from "@/lib/types";
-import { CheckCircle2, ExternalLink, Search, ShoppingBasket, Sparkles } from "lucide-react";
+import { CheckCircle2, ExternalLink, Info, Search, ShoppingBasket, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -68,6 +68,10 @@ function LinkMarketplacePage() {
       <div className="mb-5 rounded-lg border border-amber-500/25 bg-amber-500/5 p-4 text-sm text-muted-foreground">
         <strong className="text-foreground">{t("marketplace.disclosureTitle")}</strong>{" "}{t("marketplace.disclosure")}
       </div>
+      <div className="mb-5 flex gap-3 rounded-lg border border-sky-500/25 bg-sky-500/5 p-4 text-sm text-muted-foreground">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-sky-500" />
+        <p><strong className="text-foreground">{t("marketplace.demoNoticeTitle")}</strong>{" "}{t("marketplace.demoNotice")}</p>
+      </div>
 
       <Tabs defaultValue="offers">
         <TabsList>
@@ -101,7 +105,10 @@ function OfferCard({ offer, requested, onRequest, t }: { offer: LinkMarketplaceM
     <article className="rounded-lg border border-border bg-card p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0"><h2 className="font-display text-lg">{offer.domain}</h2><p className="text-sm text-muted-foreground">{offer.title}</p></div>
-        <Badge variant="secondary" className="shrink-0"><Sparkles className="mr-1 h-3 w-3" />{offer.matchScore}%</Badge>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {offer.provider === "demo" ? <Badge variant="outline">{t("marketplace.demoBadge")}</Badge> : null}
+          <Badge variant="secondary"><Sparkles className="mr-1 h-3 w-3" />{offer.matchScore}%</Badge>
+        </div>
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
         {offer.isGapDomain ? <Badge>{t("marketplace.reason.linkGap")}</Badge> : null}

@@ -1,6 +1,6 @@
 # Backlinks — plan & status (handoff)
 
-Ostatnia aktualizacja: 2026-07-13. Autor pierwszej warstwy: Claude Code. Kontynuacja: Codex.
+Ostatnia aktualizacja: 2026-07-15. Autor pierwszej warstwy: Claude Code. Kontynuacja: Codex.
 
 ## Cel biznesowy
 
@@ -8,11 +8,12 @@ Domknąć ofertę Milo Growth pod wzrost pozycji w Google **pełnym cyklem link-
 od zrozumienia profilu linków, przez znalezienie celów, aż po realne pozyskanie linków
 (wymiana / płatna publikacja / outreach) — tak, żeby klient nie musiał iść do zewnętrznej agencji.
 
-Strategia ma **3 warstwy**. Zbudowana jest tylko warstwa 1.
+Strategia ma **3 warstwy**. Warstwa 1 jest zweryfikowana E2E, a warstwy 2 i 3 działają
+na produkcji jako bezpieczne MVP wymagające integracji zewnętrznych.
 
 ---
 
-## Warstwa 1 — Backlink Intelligence ✅ ZBUDOWANE (prod, commit `7a9b6c8`)
+## Warstwa 1 — Backlink Intelligence ✅ ZBUDOWANE I ZWERYFIKOWANE E2E (prod, commit `7a9b6c8`)
 
 Moduł `/app/backlinks` ("Linki zwrotne" w nawigacji, między Authority a AI Visibility).
 Dane: **DataForSEO Backlinks API** (pay-as-you-go, ~$0,12–0,15 / analiza).
@@ -51,13 +52,13 @@ Pliki:
 - `src/components/AppShell.tsx` — pozycja w nawigacji (ikona Link2).
 - `src/i18n/{en,pl,sv,da}.ts` — pełne tłumaczenia (klucze `backlinks.*`, `nav.backlinks`).
 
-### ⚠️ BLOKER — konto założone, czeka na klucze (Rafa)
-Strona pokazuje kartę "Podłącz źródło danych" dopóki nie ma sekretów. Trzeba:
-1. ✅ Konto na **app.dataforseo.com** założone (2026-07-15).
-2. Doładować konto (min. ~$50).
-3. Skopiować login/hasło API z **app.dataforseo.com/api-access**.
-4. Dodać w **Lovable Cloud → Secrets** (NIE "Build secrets"!): `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD`.
-5. Wykonać E2E na zalogowanym koncie.
+### ✅ DataForSEO podłączone i sprawdzone (2026-07-15)
+- `DATAFORSEO_LOGIN` i `DATAFORSEO_PASSWORD` są zapisane w **Lovable Cloud → Secrets**.
+- Produkcyjny test `/app/backlinks` zakończył się sukcesem: profil, top referring domains
+  i rekomendacje AI zostały zapisane i wyrenderowane.
+- Test wykonał 5 wywołań Backlinks API i kosztował **$0.048936** (saldo po teście: `$0.951064`).
+- Projekt smoke użyty do testu ma domenę `example.com`; przed analizą klienta trzeba ustawić
+  prawdziwą domenę i konkurentów w konfiguracji projektu.
 
 ---
 
@@ -85,8 +86,14 @@ Stan MVP (Codex, 2026-07-15):
 - i18n en/pl/sv/da oraz testy jednostkowe matchingu.
 
 Następny krok warstwy 2: uzyskać dokumentację/klucze API Linkhouse, zastąpić adapter demo
-adapterem produkcyjnym i dodać kontrolowany backendowy flow wyceny/zamówienia. Nie wysyłać
-płatnego zamówienia bez osobnego potwierdzenia użytkownika.
+adapterem produkcyjnym i dodać kontrolowany backendowy flow wyceny/zamówienia. Oficjalna
+strona API (`https://linkhouse.net/api/`) potwierdza wyszukiwanie serwisów, podgląd ofert,
+kontrolę i historię zamówień, eksport oraz informacje o saldzie, ale dokumentację wydaje
+indywidualnie po kontakcie z zespołem Linkhouse. Nie wysyłać płatnego zamówienia bez osobnego
+potwierdzenia użytkownika.
+
+Do czasu podłączenia API katalog demo jest jawnie oznaczony w UI; domeny, metryki i ceny są
+danymi demonstracyjnymi, a zgłoszenie zapisuje się tylko w Milo i nie tworzy płatności.
 
 ## Warstwa 3 — AI Outreach 🟡 MVP ZBUDOWANE
 
