@@ -1045,4 +1045,11 @@ export const sv: Record<string, string> = {
   "backlinks.category.partnerships": "Partnerskap & sponsring",
   "backlinks.category.directories": "Kataloger & profiler",
   "backlinks.category.linkHygiene": "Länkhygien",
+  "nav.linkMarketplace": "Länkmarknad",
+  "marketplace.title": "Sponsrade publiceringar", "marketplace.subtitle": "Matcha backlink-möjligheter med transparenta, redaktionellt granskade sponsrade placeringar.",
+  "marketplace.disclosureTitle": "White-hat-marknad.", "marketplace.disclosure": "Varje förfrågan kräver tydlig sponsringsmärkning och rel=\"sponsored\". En förfrågan är inte ett köp och garanterar aldrig ranking, trafik eller intäkter.",
+  "marketplace.offers": "Erbjudanden", "marketplace.orders": "Förfrågningar", "marketplace.search": "Sök domäner eller ämnen…", "marketplace.noAnalysis": "Kör Backlink Intelligence för länkgapssignaler. Ämnes- och marknadsmatchning är redan aktiv.",
+  "marketplace.reason.linkGap": "Konkurrenternas länkgap", "marketplace.rank": "Domänrank", "marketplace.traffic": "Uppsk. trafik", "marketplace.turnaround": "Leveranstid", "marketplace.days": "{count} dagar", "marketplace.price": "Indikativt pris",
+  "marketplace.request": "Begär granskning", "marketplace.requested": "Begärd", "marketplace.ordersEmpty": "Inga publiceringsförfrågningar ännu.", "marketplace.toast.exists": "Erbjudandet har redan en aktiv förfrågan.", "marketplace.toast.requested": "Publiceringsförfrågan sparades för granskning.",
+  "marketplace.status.Requested": "Begärd", "marketplace.status.In Review": "Granskas", "marketplace.status.Accepted": "Godkänd", "marketplace.status.Published": "Publicerad", "marketplace.status.Cancelled": "Avbruten",
 };

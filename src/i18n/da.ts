@@ -1045,4 +1045,11 @@ export const da: Record<string, string> = {
   "backlinks.category.partnerships": "Partnerskaber & sponsorater",
   "backlinks.category.directories": "Kataloger & profiler",
   "backlinks.category.linkHygiene": "Linkhygiejne",
+  "nav.linkMarketplace": "Linkmarkedsplads",
+  "marketplace.title": "Sponsorerede udgivelser", "marketplace.subtitle": "Match backlink-muligheder med transparente, redaktionelt gennemgåede sponsorerede placeringer.",
+  "marketplace.disclosureTitle": "White-hat-markedsplads.", "marketplace.disclosure": "Hver anmodning kræver tydelig sponsormærkning og rel=\"sponsored\". En anmodning er ikke et køb og garanterer aldrig placeringer, trafik eller omsætning.",
+  "marketplace.offers": "Tilbud", "marketplace.orders": "Anmodninger", "marketplace.search": "Søg domæner eller emner…", "marketplace.noAnalysis": "Kør Backlink Intelligence for at tilføje linkgap-signaler. Emne- og markedsmatchning er allerede aktiv.",
+  "marketplace.reason.linkGap": "Konkurrent-linkgap", "marketplace.rank": "Domænerang", "marketplace.traffic": "Est. trafik", "marketplace.turnaround": "Leveringstid", "marketplace.days": "{count} dage", "marketplace.price": "Vejledende pris",
+  "marketplace.request": "Anmod om gennemgang", "marketplace.requested": "Anmodet", "marketplace.ordersEmpty": "Ingen udgivelsesanmodninger endnu.", "marketplace.toast.exists": "Tilbuddet har allerede en aktiv anmodning.", "marketplace.toast.requested": "Udgivelsesanmodningen er gemt til gennemgang.",
+  "marketplace.status.Requested": "Anmodet", "marketplace.status.In Review": "Under gennemgang", "marketplace.status.Accepted": "Accepteret", "marketplace.status.Published": "Udgivet", "marketplace.status.Cancelled": "Annulleret",
 };

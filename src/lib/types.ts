@@ -864,6 +864,50 @@ export interface BacklinkAnalysisResult {
   createdAt: string;
 }
 
+// ---- Sponsored publication marketplace v1 ----
+export type LinkMarketplaceCurrency = "EUR";
+export type LinkMarketplaceOrderStatus = "Requested" | "In Review" | "Accepted" | "Published" | "Cancelled";
+
+export interface LinkMarketplaceOffer {
+  id: string;
+  provider: "demo" | "linkhouse";
+  domain: string;
+  title: string;
+  description: string;
+  categories: string[];
+  markets: Market[];
+  languages: Language[];
+  domainRank: number;
+  estimatedMonthlyTraffic: number;
+  price: number;
+  currency: LinkMarketplaceCurrency;
+  turnaroundDays: number;
+  linkAttributes: "sponsored";
+}
+
+export interface LinkMarketplaceMatch extends LinkMarketplaceOffer {
+  matchScore: number;
+  matchReasons: string[];
+  isGapDomain: boolean;
+}
+
+export interface LinkMarketplaceOrder {
+  id: string;
+  projectId: string;
+  offerId: string;
+  provider: LinkMarketplaceOffer["provider"];
+  domain: string;
+  publicationTitle: string;
+  targetUrl: string;
+  suggestedTopic: string;
+  price: number;
+  currency: LinkMarketplaceCurrency;
+  status: LinkMarketplaceOrderStatus;
+  linkAttributes: "sponsored";
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ---- AI Visibility v1 ----
 // Planning / readiness module — NOT live AI rank tracking. No external AI engine
 // is queried; everything is framed as likely gaps and readiness, not live results.

@@ -30,6 +30,7 @@ import type {
   AiEvaluationRun,
   AiVisibilityAnalysisResult,
   BacklinkAnalysisResult,
+  LinkMarketplaceOrder,
   GrowthTask,
   PendingAction,
   PublishingConnectorType,
@@ -59,6 +60,8 @@ interface State {
   aiVisibilityAnalyses: AiVisibilityAnalysisResult[];
   /** Backlinks v1 — DataForSEO-powered link profile + gap analyses. */
   backlinkAnalyses: BacklinkAnalysisResult[];
+  /** Marketplace v1 — reviewable sponsored-publication requests. */
+  linkMarketplaceOrders: LinkMarketplaceOrder[];
   /** Authority Builder v2 — trackable authority opportunities. */
   authorityOpportunities: AuthorityOpportunity[];
   /** AI Provider Router — internal model evaluation runs (latest 20). */
@@ -99,6 +102,7 @@ const emptyState: State = {
   authorityAnalyses: [],
   aiVisibilityAnalyses: [],
   backlinkAnalyses: [],
+  linkMarketplaceOrders: [],
   authorityOpportunities: [],
   aiEvaluationRuns: [],
   tasks: [],
@@ -122,6 +126,7 @@ const ssrSnapshot: State = {
   authorityAnalyses: [],
   aiVisibilityAnalyses: [],
   backlinkAnalyses: [],
+  linkMarketplaceOrders: [],
   authorityOpportunities: [],
   aiEvaluationRuns: [],
   tasks: [],
@@ -165,6 +170,7 @@ function stateFromRow(userId: string, d: Partial<State>, rev: number): State {
     authorityAnalyses: d.authorityAnalyses ?? [],
     aiVisibilityAnalyses: d.aiVisibilityAnalyses ?? [],
     backlinkAnalyses: d.backlinkAnalyses ?? [],
+    linkMarketplaceOrders: d.linkMarketplaceOrders ?? [],
     authorityOpportunities: d.authorityOpportunities ?? [],
     aiEvaluationRuns: d.aiEvaluationRuns ?? [],
     tasks: d.tasks ?? [],
@@ -224,6 +230,7 @@ export async function saveWorkspaceNow(): Promise<void> {
     authorityAnalyses: state.authorityAnalyses,
     aiVisibilityAnalyses: state.aiVisibilityAnalyses,
     backlinkAnalyses: state.backlinkAnalyses,
+    linkMarketplaceOrders: state.linkMarketplaceOrders,
     authorityOpportunities: state.authorityOpportunities,
     aiEvaluationRuns: state.aiEvaluationRuns,
     tasks: state.tasks,
@@ -338,6 +345,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
         authorityAnalyses: [],
         aiVisibilityAnalyses: [],
         backlinkAnalyses: [],
+        linkMarketplaceOrders: [],
         authorityOpportunities: [],
         aiEvaluationRuns: [],
         tasks: [],
@@ -361,6 +369,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
       authorityAnalyses: [],
       aiVisibilityAnalyses: [],
       backlinkAnalyses: [],
+      linkMarketplaceOrders: [],
       authorityOpportunities: [],
       aiEvaluationRuns: [],
       tasks: [],
@@ -868,6 +877,19 @@ export const markBacklinkRecommendationsConverted = (analysisId: string, recomme
             ),
           }
         : a,
+    ),
+  }));
+
+// ---- Sponsored publication marketplace v1 ----
+
+export const addLinkMarketplaceOrder = (order: LinkMarketplaceOrder) =>
+  setState((s) => ({ ...s, linkMarketplaceOrders: [...s.linkMarketplaceOrders, order] }));
+
+export const updateLinkMarketplaceOrder = (id: string, patch: Partial<LinkMarketplaceOrder>) =>
+  setState((s) => ({
+    ...s,
+    linkMarketplaceOrders: s.linkMarketplaceOrders.map((order) =>
+      order.id === id ? { ...order, ...patch, updatedAt: new Date().toISOString() } : order,
     ),
   }));
 

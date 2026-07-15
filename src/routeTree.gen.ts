@@ -49,6 +49,7 @@ import { Route as AuthenticatedAppSetupRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAppServicesRouteImport } from './routes/_authenticated/app.services'
 import { Route as AuthenticatedAppOpportunitiesRouteImport } from './routes/_authenticated/app.opportunities'
 import { Route as AuthenticatedAppOnboardingRouteImport } from './routes/_authenticated/app.onboarding'
+import { Route as AuthenticatedAppLinkMarketplaceRouteImport } from './routes/_authenticated/app.link-marketplace'
 import { Route as AuthenticatedAppLaunchChecklistRouteImport } from './routes/_authenticated/app.launch-checklist'
 import { Route as AuthenticatedAppEditorRouteImport } from './routes/_authenticated/app.editor'
 import { Route as AuthenticatedAppConnectRouteImport } from './routes/_authenticated/app.connect'
@@ -276,6 +277,12 @@ const AuthenticatedAppOnboardingRoute =
     path: '/app/onboarding',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAppLinkMarketplaceRoute =
+  AuthenticatedAppLinkMarketplaceRouteImport.update({
+    id: '/app/link-marketplace',
+    path: '/app/link-marketplace',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAppLaunchChecklistRoute =
   AuthenticatedAppLaunchChecklistRouteImport.update({
     id: '/app/launch-checklist',
@@ -446,6 +453,7 @@ export interface FileRoutesByFullPath {
   '/app/connect': typeof AuthenticatedAppConnectRoute
   '/app/editor': typeof AuthenticatedAppEditorRoute
   '/app/launch-checklist': typeof AuthenticatedAppLaunchChecklistRoute
+  '/app/link-marketplace': typeof AuthenticatedAppLinkMarketplaceRoute
   '/app/onboarding': typeof AuthenticatedAppOnboardingRoute
   '/app/opportunities': typeof AuthenticatedAppOpportunitiesRoute
   '/app/services': typeof AuthenticatedAppServicesRoute
@@ -509,6 +517,7 @@ export interface FileRoutesByTo {
   '/app/connect': typeof AuthenticatedAppConnectRoute
   '/app/editor': typeof AuthenticatedAppEditorRoute
   '/app/launch-checklist': typeof AuthenticatedAppLaunchChecklistRoute
+  '/app/link-marketplace': typeof AuthenticatedAppLinkMarketplaceRoute
   '/app/onboarding': typeof AuthenticatedAppOnboardingRoute
   '/app/opportunities': typeof AuthenticatedAppOpportunitiesRoute
   '/app/services': typeof AuthenticatedAppServicesRoute
@@ -574,6 +583,7 @@ export interface FileRoutesById {
   '/_authenticated/app/connect': typeof AuthenticatedAppConnectRoute
   '/_authenticated/app/editor': typeof AuthenticatedAppEditorRoute
   '/_authenticated/app/launch-checklist': typeof AuthenticatedAppLaunchChecklistRoute
+  '/_authenticated/app/link-marketplace': typeof AuthenticatedAppLinkMarketplaceRoute
   '/_authenticated/app/onboarding': typeof AuthenticatedAppOnboardingRoute
   '/_authenticated/app/opportunities': typeof AuthenticatedAppOpportunitiesRoute
   '/_authenticated/app/services': typeof AuthenticatedAppServicesRoute
@@ -639,6 +649,7 @@ export interface FileRouteTypes {
     | '/app/connect'
     | '/app/editor'
     | '/app/launch-checklist'
+    | '/app/link-marketplace'
     | '/app/onboarding'
     | '/app/opportunities'
     | '/app/services'
@@ -702,6 +713,7 @@ export interface FileRouteTypes {
     | '/app/connect'
     | '/app/editor'
     | '/app/launch-checklist'
+    | '/app/link-marketplace'
     | '/app/onboarding'
     | '/app/opportunities'
     | '/app/services'
@@ -766,6 +778,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/connect'
     | '/_authenticated/app/editor'
     | '/_authenticated/app/launch-checklist'
+    | '/_authenticated/app/link-marketplace'
     | '/_authenticated/app/onboarding'
     | '/_authenticated/app/opportunities'
     | '/_authenticated/app/services'
@@ -1113,6 +1126,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppOnboardingRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/app/link-marketplace': {
+      id: '/_authenticated/app/link-marketplace'
+      path: '/app/link-marketplace'
+      fullPath: '/app/link-marketplace'
+      preLoaderRoute: typeof AuthenticatedAppLinkMarketplaceRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/app/launch-checklist': {
       id: '/_authenticated/app/launch-checklist'
       path: '/app/launch-checklist'
@@ -1286,6 +1306,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppConnectRoute: typeof AuthenticatedAppConnectRoute
   AuthenticatedAppEditorRoute: typeof AuthenticatedAppEditorRoute
   AuthenticatedAppLaunchChecklistRoute: typeof AuthenticatedAppLaunchChecklistRoute
+  AuthenticatedAppLinkMarketplaceRoute: typeof AuthenticatedAppLinkMarketplaceRoute
   AuthenticatedAppOnboardingRoute: typeof AuthenticatedAppOnboardingRoute
   AuthenticatedAppOpportunitiesRoute: typeof AuthenticatedAppOpportunitiesRoute
   AuthenticatedAppServicesRoute: typeof AuthenticatedAppServicesRoute
@@ -1309,6 +1330,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppConnectRoute: AuthenticatedAppConnectRoute,
   AuthenticatedAppEditorRoute: AuthenticatedAppEditorRoute,
   AuthenticatedAppLaunchChecklistRoute: AuthenticatedAppLaunchChecklistRoute,
+  AuthenticatedAppLinkMarketplaceRoute: AuthenticatedAppLinkMarketplaceRoute,
   AuthenticatedAppOnboardingRoute: AuthenticatedAppOnboardingRoute,
   AuthenticatedAppOpportunitiesRoute: AuthenticatedAppOpportunitiesRoute,
   AuthenticatedAppServicesRoute: AuthenticatedAppServicesRoute,
