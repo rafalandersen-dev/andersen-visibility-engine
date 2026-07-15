@@ -75,15 +75,17 @@ function LinkMarketplacePage() {
 
   useEffect(() => {
     let cancelled = false;
-    void listMarketplaceOffersFn()
-      .then((result) => {
+    async function loadCatalog() {
+      try {
+        const result = await listMarketplaceOffersFn();
         if (cancelled) return;
         setCatalog(result.offers);
         setIntegration(result.status);
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) toast.error(translate(appLanguage, "marketplace.toast.catalogError"));
-      });
+      }
+    }
+    void loadCatalog();
     return () => {
       cancelled = true;
     };
