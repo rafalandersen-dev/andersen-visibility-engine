@@ -13,23 +13,21 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { translate, useAppLanguage, useT } from "@/i18n";
+import { useT } from "@/i18n";
 import {
   confirmMarketplaceOrderFn,
   createMarketplaceQuoteFn,
-  listMarketplaceOffersFn,
 } from "@/lib/link-marketplace.functions";
 import { addLinkMarketplaceOrder, saveWorkspaceNow, uid, useStore } from "@/lib/store";
 import { buildSuggestedTopic, DEMO_MARKETPLACE_OFFERS, matchMarketplaceOffers } from "@/lib/link-marketplace";
 import type {
   LinkMarketplaceIntegrationStatus,
   LinkMarketplaceMatch,
-  LinkMarketplaceOffer,
   LinkMarketplaceOrder,
   LinkMarketplaceQuote,
 } from "@/lib/types";
 import { CheckCircle2, ExternalLink, Info, Loader2, Search, ShieldCheck, ShoppingBasket, Sparkles } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/app/link-marketplace")({
@@ -39,11 +37,10 @@ export const Route = createFileRoute("/_authenticated/app/link-marketplace")({
 
 function LinkMarketplacePage() {
   const t = useT();
-  const appLanguage = useAppLanguage();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
-  const [catalog, setCatalog] = useState<LinkMarketplaceOffer[]>(DEMO_MARKETPLACE_OFFERS);
-  const [integration, setIntegration] = useState<LinkMarketplaceIntegrationStatus>({
+  const catalog = DEMO_MARKETPLACE_OFFERS;
+  const integration: LinkMarketplaceIntegrationStatus = {
     mode: "demo",
     provider: "linkhouse",
     credentialsPresent: false,
@@ -52,7 +49,7 @@ function LinkMarketplacePage() {
     catalogConnected: false,
     orderingEnabled: false,
     documentationPending: true,
-  });
+  };
   const [quote, setQuote] = useState<LinkMarketplaceQuote | null>(null);
   const [selectedOffer, setSelectedOffer] = useState<LinkMarketplaceMatch | null>(null);
   const [quoteOpen, setQuoteOpen] = useState(false);
@@ -63,7 +60,7 @@ function LinkMarketplacePage() {
   const activeProjectId = useStore((state) => state.activeProjectId);
   const project = useStore((state) => state.projects.find((item) => item.id === state.activeProjectId));
   const analysis = useStore((state) => state.backlinkAnalyses.find((item) => item.projectId === state.activeProjectId));
-  const orders = useStore((state) => state.linkMarketplaceOrders.filter((item) => item.projectId === state.activeProjectId));
+  const orders = useStore((state) => (state.linkMarketplaceOrders ?? []).filter((item) => item.projectId === state.activeProjectId));
 
   const offers = useMemo(() => {
     if (!project) return [];
@@ -72,24 +69,6 @@ function LinkMarketplacePage() {
       !normalized || [item.domain, item.title, ...item.categories].join(" ").toLowerCase().includes(normalized),
     );
   }, [analysis, catalog, project, query]);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function loadCatalog() {
-      try {
-        const result = await listMarketplaceOffersFn();
-        if (cancelled) return;
-        setCatalog(result.offers);
-        setIntegration(result.status);
-      } catch {
-        if (!cancelled) toast.error(translate(appLanguage, "marketplace.toast.catalogError"));
-      }
-    }
-    void loadCatalog();
-    return () => {
-      cancelled = true;
-    };
-  }, [appLanguage]);
 
   if (!project) {
     return (
