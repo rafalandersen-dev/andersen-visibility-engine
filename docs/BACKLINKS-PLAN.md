@@ -115,7 +115,7 @@ live ordering), a samo dodanie kluczy nie odblokowuje płatnych zleceń.
 Do czasu podłączenia API katalog demo jest jawnie oznaczony w UI; domeny, metryki i ceny są
 danymi demonstracyjnymi, a zgłoszenie zapisuje się tylko w Milo i nie tworzy płatności.
 
-## Warstwa 3 — AI Outreach 🟡 MVP ZBUDOWANE
+## Warstwa 3 — AI Outreach 🟡 KONTROLOWANA WYSYŁKA ZBUDOWANA
 
 Zamysł: dla celów, których nie da się "kupić" (partnerstwa, PR, katalogi branżowe) —
 AI generuje spersonalizowane maile outreachowe na bazie kontekstu (luka, powód linkowania,
@@ -132,9 +132,34 @@ Stan MVP (Codex, 2026-07-15):
 - brak automatycznej wysyłki; szkic wymaga przeglądu, może być skopiowany i ręcznie oznaczony,
 - `outreachDrafts[]` w flat JSONB workspace, i18n en/pl/sv/da i testy helperów.
 
-Następny krok warstwy 3: podłączyć zweryfikowanego nadawcę (np. Resend), dodać zgodę użytkownika
-przy każdym uruchomieniu kampanii, unsubscribe/suppression oraz limity częstotliwości. Nie wysyłać
-wiadomości, dopóki te zabezpieczenia i dane nadawcy nie są gotowe.
+Rozszerzenie kontrolowanej wysyłki (Codex, 2026-07-16):
+- osobny, fail-closed adapter Resend; szkice nadal działają bez konfiguracji dostawcy,
+- dokładna wiadomość jest zawsze ładowana po stronie serwera z workspace użytkownika — klient
+  przekazuje tylko ID szkicu, krok i dwa potwierdzenia,
+- edycja tematu, treści i odbiorcy automatycznie cofa szkic do ponownej akceptacji,
+- każda pierwsza wiadomość i każdy follow-up mają osobny modal z dokładnym odbiorcą, tematem,
+  pełną treścią oraz dwoma obowiązkowymi potwierdzeniami,
+- żadnych automatycznych kampanii ani automatycznych follow-upów; follow-up można wysłać ręcznie
+  dopiero po upływie zapisanego opóźnienia,
+- limit domyślny 5 wiadomości / 24 h / workspace (konfigurowalny, twardy max 20), blokada ponownej
+  pierwszej wiadomości do tego samego odbiorcy przez 30 dni oraz idempotency key na każdy krok,
+- istniejące `suppressed_emails` i `email_unsubscribe_tokens` są sprawdzane fail-closed przed
+  wysyłką; każda wiadomość ma link wypisu oraz nagłówki RFC 8058 one-click,
+- HTML i plain text, jawny Reply-To, timeout providera, log w `email_send_log`, statusy i historia
+  dostawcy w `outreachDrafts[]`, a po zapisie serwerowym klient przeładowuje aktualny rev workspace,
+- status integracji w UI; przy braku któregokolwiek sekretu przycisk realnej wysyłki jest zablokowany.
+
+Sekrety wymagane do realnej wysyłki (nazwy, bez wartości):
+- `RESEND_API_KEY`,
+- `OUTREACH_FROM_EMAIL` — adres w zweryfikowanej domenie/subdomenie Resend,
+- `OUTREACH_REPLY_TO_EMAIL` oraz opcjonalnie `OUTREACH_FROM_NAME` (domyślnie „Milo Growth Outreach”),
+- `OUTREACH_EMAIL_SENDING_ENABLED=true` dopiero po weryfikacji SPF/DKIM/DMARC i bezpłatnym teście
+  na kontrolowany adres,
+- opcjonalnie `OUTREACH_DAILY_SEND_LIMIT` (1–20, domyślnie 5) i `SITE_URL`.
+
+Następny krok warstwy 3: zweryfikować osobną subdomenę nadawczą w Resend, dodać sekrety,
+przeprowadzić bezpłatny test na adres kontrolowany przez zespół i dopiero potem włączyć kill switch.
+Nie wykonywać realnego outreachu bez każdorazowego potwierdzenia w UI.
 
 ---
 

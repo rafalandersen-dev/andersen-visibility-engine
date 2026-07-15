@@ -1,4 +1,4 @@
-import type { BacklinkAnalysisResult, LinkMarketplaceOrder, OutreachTargetSource } from "./types";
+import type { BacklinkAnalysisResult, LinkMarketplaceOrder, OutreachDraft, OutreachFollowUp, OutreachTargetSource } from "./types";
 
 export interface OutreachTargetSuggestion {
   domain: string;
@@ -36,4 +36,18 @@ export function buildOutreachTargets(
     add({ domain: order.domain, source: "marketplace", reason: `Existing sponsored-publication request: ${order.publicationTitle}.` });
   }
   return result;
+}
+
+export function getOutreachFollowUpDueAt(
+  draft: OutreachDraft,
+  followUp: OutreachFollowUp,
+): string | null {
+  const initialSentAt =
+    (draft.deliveryEvents ?? []).find(
+      (event) => event.kind === "initial" && event.status === "accepted",
+    )?.at ?? draft.sentAt;
+  if (!initialSentAt) return null;
+  const due =
+    Date.parse(initialSentAt) + Math.max(2, followUp.delayDays) * 24 * 60 * 60 * 1000;
+  return Number.isFinite(due) ? new Date(due).toISOString() : null;
 }

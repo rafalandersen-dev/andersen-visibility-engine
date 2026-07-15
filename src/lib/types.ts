@@ -962,12 +962,22 @@ export interface LinkMarketplaceOrder {
 
 // ---- AI Outreach v1 ----
 export type OutreachTargetSource = "linkGap" | "marketplace" | "manual";
-export type OutreachStatus = "Draft" | "Approved" | "Queued" | "Sent" | "Replied" | "Paused";
+export type OutreachStatus = "Draft" | "Approved" | "Queued" | "Sent" | "Replied" | "Paused" | "Failed" | "Suppressed";
 
 export interface OutreachFollowUp {
   delayDays: number;
   subject: string;
   body: string;
+}
+
+export interface OutreachDeliveryEvent {
+  kind: "initial" | "followUp";
+  followUpIndex?: number;
+  status: "accepted" | "failed" | "suppressed";
+  at: string;
+  provider: "resend";
+  providerMessageId?: string;
+  note: string;
 }
 
 export interface OutreachDraft {
@@ -983,6 +993,12 @@ export interface OutreachDraft {
   rationale: string;
   status: OutreachStatus;
   followUps: OutreachFollowUp[];
+  approvedAt?: string;
+  sentAt?: string;
+  provider?: "resend";
+  providerMessageId?: string;
+  deliveryEvents?: OutreachDeliveryEvent[];
+  lastDeliveryError?: string;
   createdAt: string;
   updatedAt: string;
 }
