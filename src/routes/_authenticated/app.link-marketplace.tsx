@@ -33,7 +33,19 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/_authenticated/app/link-marketplace")({
   head: () => ({ meta: [{ title: "Link Marketplace — Milo Growth" }] }),
   component: LinkMarketplacePage,
+  errorComponent: MarketplaceDiagnosticError,
 });
+
+function MarketplaceDiagnosticError({ error }: { error: Error }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <div className="max-w-xl rounded-lg border border-border bg-card p-6">
+        <h1 className="text-lg font-semibold">Link Marketplace could not load</h1>
+        <p className="mt-3 break-words font-mono text-xs text-muted-foreground">{error.message}</p>
+      </div>
+    </div>
+  );
+}
 
 function LinkMarketplacePage() {
   const t = useT();
