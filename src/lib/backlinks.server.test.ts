@@ -7,10 +7,28 @@ import { describe, it, expect } from "vitest";
 import {
   extractDomain,
   isDataForSeoConfigured,
+  assertAccountUsable,
   normalizeSummaryResult,
   normalizeReferringDomainItems,
   normalizeIntersectionItems,
 } from "./backlinks.server";
+
+describe("assertAccountUsable", () => {
+  it("passes through success codes", () => {
+    expect(() => assertAccountUsable(20000, "Ok.")).not.toThrow();
+    expect(() => assertAccountUsable(0, "")).not.toThrow();
+  });
+  it("maps 40200 / payment messages to the balance error", () => {
+    expect(() => assertAccountUsable(40200, "Payment Required.")).toThrow(/remaining balance/);
+    expect(() => assertAccountUsable(0, "not enough funds")).toThrow(/remaining balance/);
+  });
+  it("maps 40201 / paused-account messages to the reactivation error", () => {
+    expect(() => assertAccountUsable(40201, "Account Blocked.")).toThrow(/temporarily paused/);
+    expect(() => assertAccountUsable(0, "paused due to unusual activity")).toThrow(
+      /support@dataforseo\.com/,
+    );
+  });
+});
 
 describe("extractDomain", () => {
   it("extracts the host from a full URL", () => {

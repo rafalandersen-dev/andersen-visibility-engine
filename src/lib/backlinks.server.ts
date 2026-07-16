@@ -53,6 +53,22 @@ const asDate = (value: unknown): string | undefined => {
 };
 
 /**
+ * Map DataForSEO account-level failures (top-level or per-task) to friendly
+ * errors. 40200 = payment required, 40201 = account blocked/paused (e.g. the
+ * "unusual activity" pause on fresh accounts). Exported for unit tests.
+ */
+export function assertAccountUsable(statusCode: number, statusMessage: string): void {
+  if (statusCode === 40200 || /payment|money|funds/i.test(statusMessage))
+    throw new Error(
+      "The backlink data account has no remaining balance. Top up DataForSEO to continue.",
+    );
+  if (statusCode === 40201 || /blocked|paused|suspend|unusual activity/i.test(statusMessage))
+    throw new Error(
+      "The backlink data account is temporarily paused by DataForSEO. Contact support@dataforseo.com to reactivate it, then try again.",
+    );
+}
+
+/**
  * POST one task to a DataForSEO live endpoint and return tasks[0].result.
  * Throws a friendly Error on auth/credit/HTTP/task failures (message is safe
  * to surface — it never contains credentials).
@@ -94,10 +110,7 @@ async function dfsRequest(path: string, payload: UnknownRecord): Promise<unknown
 
   const body = (await res.json().catch(() => null)) as UnknownRecord | null;
   const statusCode = asNumber(body?.status_code, 0);
-  if (statusCode === 40200 || /payment|money|funds/i.test(String(body?.status_message ?? "")))
-    throw new Error(
-      "The backlink data account has no remaining balance. Top up DataForSEO to continue.",
-    );
+  assertAccountUsable(statusCode, String(body?.status_message ?? ""));
 
   const tasks = Array.isArray(body?.tasks) ? body?.tasks : [];
   const task = isRecord(tasks?.[0]) ? (tasks[0] as UnknownRecord) : null;
@@ -105,6 +118,7 @@ async function dfsRequest(path: string, payload: UnknownRecord): Promise<unknown
   if (!task || taskStatus !== 20000) {
     const message = String(task?.status_message ?? body?.status_message ?? "unknown error");
     console.error("[backlinks.server] task failed", { path, taskStatus, message });
+    assertAccountUsable(taskStatus, message);
     throw new Error(`Backlink data request failed: ${message.slice(0, 160)}`);
   }
   return Array.isArray(task.result) ? task.result : [];
