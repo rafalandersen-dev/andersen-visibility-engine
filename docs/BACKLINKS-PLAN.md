@@ -94,6 +94,21 @@ Stan MVP (Codex, 2026-07-16):
   sekretu podpisującego i `LINKHOUSE_ORDERING_ENABLED=true`,
 - i18n en/pl/sv/da oraz testy jednostkowe matchingu, pricingu, TTL i potwierdzeń.
 
+Utwardzenie granicy płatnego zamówienia (Codex, 2026-07-18):
+- wycena jest podpisana także identyfikatorem projektu, a docelowy URL jest pobierany
+  serwerowo z workspace użytkownika — klient nie może podmienić domeny zamówienia,
+- aktywne zamówienia tego samego projektu i oferty są odrzucane również na backendzie,
+- zgłoszenie jest zapisywane serwerowo, z kontrolą `rev`, **przed** płatnym wywołaniem providera;
+  przeglądarka tylko przeładowuje potwierdzony workspace,
+- ponowne potwierdzenie tej samej wyceny używa tego samego `quoteId` i nie tworzy drugiego
+  rekordu; równoległe wywołania providera mają ten sam klucz idempotency,
+- niepewny wynik wywołania providera pozostawia audytowalny status `In Review`, zamiast
+  gubić zamówienie lub sugerować bezpieczny retry,
+- synchronizacja statusu przyjmuje Milo `orderId`, a backend sam rozwiązuje należący do
+  użytkownika `providerOrderId`; identyfikatora dostawcy nie można podać dowolnie z klienta,
+- przy wyłączonym kill switchu live katalog i wycena mogą być testowane, ale backend nie
+  zapisze rezerwacji i UI nie pozwoli potwierdzić płatnego zamówienia.
+
 Następny krok warstwy 2: uzyskać dokumentację/klucze API Linkhouse, zastąpić adapter demo
 adapterem produkcyjnym i dodać kontrolowany backendowy flow wyceny/zamówienia. Oficjalna
 strona API (`https://linkhouse.net/api/`) potwierdza wyszukiwanie serwisów, podgląd ofert,

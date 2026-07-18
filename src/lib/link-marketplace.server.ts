@@ -18,9 +18,12 @@ import {
 import type {
   LinkMarketplaceIntegrationStatus,
   LinkMarketplaceOffer,
+  LinkMarketplaceOrder,
   LinkMarketplaceOrderStatus,
   LinkMarketplaceQuote,
+  Project,
 } from "./types";
+import { mutateWorkspace, readWorkspaceRow, type WorkspaceData } from "./workspace.server";
 
 const DEMO_SIGNING_SECRET = "milo-marketplace-demo-quotes-are-never-provider-orders";
 
@@ -123,6 +126,7 @@ interface QuoteTokenPayload {
   quoteId: string;
   providerQuoteId: string;
   userId: string;
+  projectId: string;
   offerId: string;
   provider: LinkMarketplaceOffer["provider"];
   domain: string;
@@ -206,6 +210,7 @@ function normalizeTargetUrl(value: string): string {
 
 async function buildSignedMarketplaceQuote(input: {
   userId: string;
+  projectId: string;
   targetUrl: string;
   providerQuoteId: string;
   offerId: string;
@@ -240,6 +245,7 @@ async function buildSignedMarketplaceQuote(input: {
     quoteId: crypto.randomUUID(),
     providerQuoteId: input.providerQuoteId,
     userId: input.userId,
+    projectId: input.projectId,
     offerId: input.offerId,
     provider: input.provider,
     domain: input.domain,
@@ -272,11 +278,22 @@ async function buildSignedMarketplaceQuote(input: {
 
 export async function createMarketplaceQuote(input: {
   userId: string;
+  projectId: string;
   offerId: string;
-  targetUrl: string;
   now?: Date;
 }): Promise<LinkMarketplaceQuote> {
-  const targetUrl = normalizeTargetUrl(input.targetUrl);
+  const row = await readWorkspaceRow(input.userId);
+  if (!row) throw new Error("workspace_not_found");
+  const project = marketplaceProject(row.data, input.projectId);
+  const existingOrder = marketplaceOrders(row.data).some(
+    (order) =>
+      order.projectId === input.projectId &&
+      order.offerId === input.offerId &&
+      order.status !== "Cancelled" &&
+      order.status !== "Failed",
+  );
+  if (existingOrder) throw new Error("marketplace_order_exists");
+  const targetUrl = normalizeTargetUrl(project.websiteUrl);
   const status = getMarketplaceIntegrationStatus();
   const now = input.now ?? new Date();
   if (status.catalogConnected) {
@@ -289,6 +306,7 @@ export async function createMarketplaceQuote(input: {
     }
     return buildSignedMarketplaceQuote({
       userId: input.userId,
+      projectId: input.projectId,
       targetUrl,
       providerQuoteId: providerQuote.providerQuoteId,
       offerId: providerQuote.offerId,
@@ -307,6 +325,7 @@ export async function createMarketplaceQuote(input: {
   if (!offer) throw new Error("marketplace_offer_not_found");
   return buildSignedMarketplaceQuote({
     userId: input.userId,
+    projectId: input.projectId,
     offerId: offer.id,
     provider: offer.provider,
     providerQuoteId: `demo:${offer.id}:${crypto.randomUUID()}`,
@@ -328,10 +347,9 @@ export async function confirmMarketplaceOrder(input: {
   acknowledgedPayment: boolean;
   now?: number;
 }): Promise<{
-  status: LinkMarketplaceOrderStatus;
+  order: LinkMarketplaceOrder;
   submitted: boolean;
-  providerOrderId?: string;
-  providerStatus?: string;
+  rev: number;
 }> {
   if (!input.acknowledgedSponsored || !input.acknowledgedPayment) {
     throw new Error("marketplace_confirmation_required");
@@ -344,27 +362,200 @@ export async function confirmMarketplaceOrder(input: {
   if (!isExactMarketplaceTotal(payload.totalPrice, input.confirmedTotalPrice)) {
     throw new Error("marketplace_total_mismatch");
   }
+  if (payload.live && !getMarketplaceIntegrationStatus().orderingEnabled) {
+    throw new Error("marketplace_ordering_disabled");
+  }
 
-  if (!payload.live) return { status: "Requested", submitted: false };
-  const status = getMarketplaceIntegrationStatus();
-  if (!status.orderingEnabled) throw new Error("marketplace_ordering_disabled");
-  const providerOrder = await linkhouseMarketplaceProvider.createOrder({
-    providerQuoteId: payload.providerQuoteId,
-    offerId: payload.offerId,
-    targetUrl: payload.targetUrl,
-    confirmedProviderPrice: payload.basePrice,
-    idempotencyKey: payload.quoteId,
+  const reservedAt = new Date(input.now ?? Date.now()).toISOString();
+  const orderId = crypto.randomUUID();
+  const reserved = await mutateWorkspace(input.userId, (data) => {
+    const orders = marketplaceOrders(data);
+    const existing = orders.find((order) => order.quoteId === payload.quoteId);
+    if (existing) return { data, result: existing };
+
+    const project = marketplaceProject(data, payload.projectId);
+    if (normalizeTargetUrl(project.websiteUrl) !== payload.targetUrl) {
+      throw new Error("marketplace_project_changed");
+    }
+    const duplicate = orders.some(
+      (order) =>
+        order.projectId === payload.projectId &&
+        order.offerId === payload.offerId &&
+        order.status !== "Cancelled" &&
+        order.status !== "Failed",
+    );
+    if (duplicate) throw new Error("marketplace_order_exists");
+
+    const status: LinkMarketplaceOrderStatus = payload.live ? "In Review" : "Requested";
+    const order: LinkMarketplaceOrder = {
+      id: orderId,
+      projectId: payload.projectId,
+      offerId: payload.offerId,
+      provider: payload.provider,
+      domain: payload.domain,
+      publicationTitle: payload.publicationTitle,
+      targetUrl: payload.targetUrl,
+      suggestedTopic: marketplaceSuggestedTopic(project, payload.publicationTitle),
+      basePrice: payload.basePrice,
+      serviceFee: payload.serviceFee,
+      marginPercent: payload.marginPercent,
+      price: payload.totalPrice,
+      currency: payload.currency,
+      status,
+      linkAttributes: "sponsored",
+      quoteId: payload.quoteId,
+      quoteExpiresAt: payload.expiresAt,
+      confirmedAt: reservedAt,
+      events: [
+        {
+          status,
+          at: reservedAt,
+          note: payload.live
+            ? "Order reserved in Milo before provider submission."
+            : "Demo request saved in Milo; no provider order or payment was created.",
+        },
+      ],
+      createdAt: reservedAt,
+      updatedAt: reservedAt,
+    };
+    return { data: { ...data, linkMarketplaceOrders: [...orders, order] }, result: order };
   });
-  return {
-    status: "Submitted",
-    submitted: true,
-    providerOrderId: providerOrder.providerOrderId,
-    providerStatus: providerOrder.providerStatus,
-  };
+
+  if (!payload.live) return { order: reserved.result, submitted: false, rev: reserved.rev };
+  if (reserved.result.providerOrderId) {
+    return { order: reserved.result, submitted: true, rev: reserved.rev };
+  }
+  let providerOrder: { providerOrderId: string; providerStatus: string };
+  try {
+    providerOrder = await linkhouseMarketplaceProvider.createOrder({
+      providerQuoteId: payload.providerQuoteId,
+      offerId: payload.offerId,
+      targetUrl: payload.targetUrl,
+      confirmedProviderPrice: payload.basePrice,
+      idempotencyKey: payload.quoteId,
+    });
+    if (!providerOrder.providerOrderId.trim() || !providerOrder.providerStatus.trim()) {
+      throw new Error("marketplace_provider_order_invalid");
+    }
+  } catch (error) {
+    const failedAt = new Date().toISOString();
+    await mutateWorkspace(input.userId, (data) =>
+      updateMarketplaceOrder(data, payload.quoteId, (order) => ({
+        ...order,
+        events: [
+          ...(order.events ?? []),
+          {
+            status: "In Review",
+            at: failedAt,
+            note: "Provider submission failed or its outcome is unknown; review before retrying.",
+          },
+        ],
+        updatedAt: failedAt,
+      })),
+    );
+    throw error;
+  }
+
+  const submittedAt = new Date().toISOString();
+  const submitted = await mutateWorkspace(input.userId, (data) =>
+    updateMarketplaceOrder(data, payload.quoteId, (order) =>
+      order.providerOrderId
+        ? order
+        : {
+            ...order,
+            status: "Submitted",
+            providerOrderId: providerOrder.providerOrderId,
+            providerStatus: providerOrder.providerStatus.trim().slice(0, 300),
+            events: [
+              ...(order.events ?? []),
+              {
+                status: "Submitted",
+                at: submittedAt,
+                note: "Order submitted to Linkhouse.",
+              },
+            ],
+            updatedAt: submittedAt,
+          },
+    ),
+  );
+  return { order: submitted.result, submitted: true, rev: submitted.rev };
 }
 
-export async function syncMarketplaceProviderOrder(providerOrderId: string) {
+export async function syncMarketplaceProviderOrder(userId: string, orderId: string) {
   const status = getMarketplaceIntegrationStatus();
   if (!status.catalogConnected) throw new Error("marketplace_provider_not_connected");
-  return linkhouseMarketplaceProvider.getOrder({ providerOrderId });
+  const row = await readWorkspaceRow(userId);
+  if (!row) throw new Error("workspace_not_found");
+  const order = marketplaceOrders(row.data).find((item) => item.id === orderId);
+  if (!order) throw new Error("marketplace_order_not_found");
+  if (order.provider !== "linkhouse" || !order.providerOrderId) {
+    throw new Error("marketplace_provider_order_missing");
+  }
+  const provider = await linkhouseMarketplaceProvider.getOrder({
+    providerOrderId: order.providerOrderId,
+  });
+  const providerStatus = provider.providerStatus.trim().slice(0, 300);
+  if (!providerStatus) throw new Error("marketplace_provider_order_invalid");
+  const syncedAt = new Date().toISOString();
+  const synced = await mutateWorkspace(userId, (data) =>
+    updateMarketplaceOrderById(data, orderId, (current) => ({
+      ...current,
+      providerStatus,
+      lastSyncedAt: syncedAt,
+      events: [
+        ...(current.events ?? []),
+        {
+          status: current.status,
+          at: syncedAt,
+          note: `Provider status: ${providerStatus}`,
+        },
+      ],
+      updatedAt: syncedAt,
+    })),
+  );
+  return { order: synced.result, rev: synced.rev };
+}
+
+function marketplaceOrders(data: WorkspaceData): LinkMarketplaceOrder[] {
+  return Array.isArray(data.linkMarketplaceOrders)
+    ? (data.linkMarketplaceOrders as LinkMarketplaceOrder[])
+    : [];
+}
+
+function marketplaceProject(data: WorkspaceData, projectId: string): Project {
+  const projects = Array.isArray(data.projects) ? (data.projects as Project[]) : [];
+  const project = projects.find((item) => item.id === projectId);
+  if (!project) throw new Error("marketplace_project_not_found");
+  return project;
+}
+
+function marketplaceSuggestedTopic(project: Project, publicationTitle: string): string {
+  const subject = project.businessType || project.businessName || project.name;
+  return `${subject}: ${publicationTitle}`;
+}
+
+function updateMarketplaceOrder(
+  data: WorkspaceData,
+  quoteId: string,
+  update: (order: LinkMarketplaceOrder) => LinkMarketplaceOrder,
+) {
+  const order = marketplaceOrders(data).find((item) => item.quoteId === quoteId);
+  if (!order) throw new Error("marketplace_order_not_found");
+  return updateMarketplaceOrderById(data, order.id, update);
+}
+
+function updateMarketplaceOrderById(
+  data: WorkspaceData,
+  orderId: string,
+  update: (order: LinkMarketplaceOrder) => LinkMarketplaceOrder,
+) {
+  const orders = marketplaceOrders(data);
+  const index = orders.findIndex((item) => item.id === orderId);
+  if (index < 0) throw new Error("marketplace_order_not_found");
+  const nextOrders = orders.slice();
+  nextOrders[index] = update(orders[index]);
+  return {
+    data: { ...data, linkMarketplaceOrders: nextOrders },
+    result: nextOrders[index],
+  };
 }

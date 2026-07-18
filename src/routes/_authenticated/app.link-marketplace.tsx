@@ -19,8 +19,8 @@ import {
   createMarketplaceQuoteFn,
   listMarketplaceOffersFn,
 } from "@/lib/link-marketplace.functions";
-import { addLinkMarketplaceOrder, saveWorkspaceNow, uid, useStore } from "@/lib/store";
-import { buildSuggestedTopic, DEMO_MARKETPLACE_OFFERS, matchMarketplaceOffers } from "@/lib/link-marketplace";
+import { reloadWorkspaceForUser, useStore } from "@/lib/store";
+import { DEMO_MARKETPLACE_OFFERS, matchMarketplaceOffers } from "@/lib/link-marketplace";
 import type {
   LinkMarketplaceIntegrationStatus,
   LinkMarketplaceMatch,
@@ -61,6 +61,7 @@ function LinkMarketplacePage() {
   const [acknowledgedSponsored, setAcknowledgedSponsored] = useState(false);
   const [acknowledgedPayment, setAcknowledgedPayment] = useState(false);
   const activeProjectId = useStore((state) => state.activeProjectId);
+  const userId = useStore((state) => state.userId);
   const project = useStore((state) => state.projects.find((item) => item.id === state.activeProjectId));
   const analysis = useStore((state) => state.backlinkAnalyses.find((item) => item.projectId === state.activeProjectId));
   const orders = useStore((state) => (state.linkMarketplaceOrders ?? []).filter((item) => item.projectId === state.activeProjectId));
@@ -111,7 +112,9 @@ function LinkMarketplacePage() {
     }
     setPreparingOfferId(offer.id);
     try {
-      const nextQuote = await createMarketplaceQuoteFn({ data: { offerId: offer.id, targetUrl: project.websiteUrl } });
+      const nextQuote = await createMarketplaceQuoteFn({
+        data: { offerId: offer.id, projectId: activeProjectId },
+      });
       setSelectedOffer(offer);
       setQuote(nextQuote);
       setAcknowledgedSponsored(false);
@@ -125,7 +128,7 @@ function LinkMarketplacePage() {
   }
 
   async function confirmOrder() {
-    if (!project || !activeProjectId || !quote || !selectedOffer || submitting || !acknowledgedSponsored || !acknowledgedPayment) return;
+    if (!project || !activeProjectId || !userId || !quote || !selectedOffer || submitting || !acknowledgedSponsored || !acknowledgedPayment) return;
     setSubmitting(true);
     try {
       const result = await confirmMarketplaceOrderFn({
@@ -136,45 +139,23 @@ function LinkMarketplacePage() {
           acknowledgedPayment,
         },
       });
-      const now = new Date().toISOString();
-      const order: LinkMarketplaceOrder = {
-        id: uid(),
-        projectId: activeProjectId,
-        offerId: selectedOffer.id,
-        provider: selectedOffer.provider,
-        domain: selectedOffer.domain,
-        publicationTitle: selectedOffer.title,
-        targetUrl: project.websiteUrl,
-        suggestedTopic: buildSuggestedTopic(project, selectedOffer),
-        basePrice: quote.basePrice,
-        serviceFee: quote.serviceFee,
-        marginPercent: quote.marginPercent,
-        price: quote.totalPrice,
-        currency: quote.currency,
-        status: result.status,
-        linkAttributes: "sponsored",
-        quoteId: quote.id,
-        quoteExpiresAt: quote.expiresAt,
-        confirmedAt: now,
-        providerOrderId: result.providerOrderId,
-        providerStatus: result.providerStatus,
-        events: [{
-          status: result.status,
-          at: now,
-          note: result.submitted ? "Order submitted to Linkhouse." : "Demo request saved in Milo; no provider order or payment was created.",
-        }],
-        createdAt: now,
-        updatedAt: now,
-      };
-      addLinkMarketplaceOrder(order);
-      await saveWorkspaceNow();
+      await reloadWorkspaceForUser(userId);
       setQuoteOpen(false);
       setQuote(null);
       setSelectedOffer(null);
       toast.success(result.submitted ? t("marketplace.toast.submitted") : t("marketplace.toast.requested"));
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
-      toast.error(message.includes("expired") ? t("marketplace.toast.quoteExpired") : t("marketplace.toast.orderError"));
+      if (quote.live) {
+        await reloadWorkspaceForUser(userId);
+        toast.error(t("marketplace.toast.orderReview"));
+      } else {
+        toast.error(
+          message.includes("expired")
+            ? t("marketplace.toast.quoteExpired")
+            : t("marketplace.toast.orderError"),
+        );
+      }
     } finally {
       setSubmitting(false);
     }
@@ -229,6 +210,7 @@ function LinkMarketplacePage() {
                 offer={offer}
                 requested={orders.some((order) => order.offerId === offer.id && order.status !== "Cancelled")}
                 loading={preparingOfferId === offer.id}
+                quoteReady={integration.mode === "demo" || integration.signingReady}
                 onRequest={() => prepareQuote(offer)}
                 t={t}
               />
@@ -270,9 +252,22 @@ function LinkMarketplacePage() {
           ) : null}
           <DialogFooter>
             <Button variant="outline" onClick={() => setQuoteOpen(false)} disabled={submitting}>{t("common.cancel")}</Button>
-            <Button onClick={confirmOrder} disabled={!quote || !acknowledgedSponsored || !acknowledgedPayment || submitting}>
+            <Button
+              onClick={confirmOrder}
+              disabled={
+                !quote ||
+                !acknowledgedSponsored ||
+                !acknowledgedPayment ||
+                submitting ||
+                (quote.live && !integration.orderingEnabled)
+              }
+            >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-              {quote?.live ? t("marketplace.confirmPurchase") : t("marketplace.confirmDemoRequest")}
+              {quote?.live && !integration.orderingEnabled
+                ? t("marketplace.orderingLocked")
+                : quote?.live
+                  ? t("marketplace.confirmPurchase")
+                  : t("marketplace.confirmDemoRequest")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -283,7 +278,7 @@ function LinkMarketplacePage() {
 
 type Translate = (key: string, vars?: Record<string, string | number>) => string;
 
-function OfferCard({ offer, requested, loading, onRequest, t }: { offer: LinkMarketplaceMatch; requested: boolean; loading: boolean; onRequest: () => void; t: Translate }) {
+function OfferCard({ offer, requested, loading, quoteReady, onRequest, t }: { offer: LinkMarketplaceMatch; requested: boolean; loading: boolean; quoteReady: boolean; onRequest: () => void; t: Translate }) {
   return (
     <article className="rounded-lg border border-border bg-card p-5">
       <div className="flex items-start justify-between gap-3">
@@ -304,9 +299,13 @@ function OfferCard({ offer, requested, loading, onRequest, t }: { offer: LinkMar
       </div>
       <div className="mt-5 flex items-end justify-between gap-3">
         <div><p className="text-xs text-muted-foreground">{t("marketplace.price")}</p><p className="font-display text-2xl">€{offer.price}</p></div>
-        <Button onClick={onRequest} disabled={requested || loading}>
+        <Button onClick={onRequest} disabled={requested || loading || !quoteReady}>
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : requested ? <CheckCircle2 className="h-4 w-4" /> : <ShoppingBasket className="h-4 w-4" />}
-          {requested ? t("marketplace.requested") : t("marketplace.reviewPrice")}
+          {requested
+            ? t("marketplace.requested")
+            : quoteReady
+              ? t("marketplace.reviewPrice")
+              : t("marketplace.quoteLocked")}
         </Button>
       </div>
     </article>

@@ -5,7 +5,7 @@ import { z } from "zod";
 import type {
   LinkMarketplaceIntegrationStatus,
   LinkMarketplaceOffer,
-  LinkMarketplaceOrderStatus,
+  LinkMarketplaceOrder,
   LinkMarketplaceQuote,
 } from "./types";
 
@@ -32,15 +32,15 @@ export const createMarketplaceQuoteFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
     z
-      .object({ offerId: z.string().min(1).max(300), targetUrl: z.string().url().max(2000) })
+      .object({ offerId: z.string().min(1).max(300), projectId: z.string().min(1).max(300) })
       .parse(input),
   )
   .handler(async ({ data, context }): Promise<LinkMarketplaceQuote> => {
     const { createMarketplaceQuote } = await import("./link-marketplace.server");
     return createMarketplaceQuote({
       userId: context.userId,
+      projectId: data.projectId,
       offerId: data.offerId,
-      targetUrl: data.targetUrl,
     });
   });
 
@@ -61,10 +61,9 @@ export const confirmMarketplaceOrderFn = createServerFn({ method: "POST" })
       data,
       context,
     }): Promise<{
-      status: LinkMarketplaceOrderStatus;
+      order: LinkMarketplaceOrder;
       submitted: boolean;
-      providerOrderId?: string;
-      providerStatus?: string;
+      rev: number;
     }> => {
       const { confirmMarketplaceOrder } = await import("./link-marketplace.server");
       return confirmMarketplaceOrder({ userId: context.userId, ...data });
@@ -74,9 +73,9 @@ export const confirmMarketplaceOrderFn = createServerFn({ method: "POST" })
 export const syncMarketplaceOrderFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z.object({ providerOrderId: z.string().min(1).max(300) }).parse(input),
+    z.object({ orderId: z.string().min(1).max(300) }).parse(input),
   )
-  .handler(async ({ data }): Promise<{ providerStatus: string }> => {
+  .handler(async ({ data, context }): Promise<{ order: LinkMarketplaceOrder; rev: number }> => {
     const { syncMarketplaceProviderOrder } = await import("./link-marketplace.server");
-    return syncMarketplaceProviderOrder(data.providerOrderId);
+    return syncMarketplaceProviderOrder(context.userId, data.orderId);
   });
