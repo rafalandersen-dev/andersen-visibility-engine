@@ -124,6 +124,7 @@ function OpportunitiesPage() {
                 <Tag>{o.language as Language}</Tag>
                 <Tag>{o.contentType as ContentType}</Tag>
                 <Tag tone={o.priority === "High" ? "gold" : "muted"}>{o.priority as Priority}</Tag>
+                {o.source === "backlinks" && <Tag tone="muted">Backlinks</Tag>}
               </div>
               <StatusBadge status={o.status} />
             </div>
