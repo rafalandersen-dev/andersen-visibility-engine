@@ -11,6 +11,7 @@ import {
   normalizeSummaryResult,
   normalizeReferringDomainItems,
   normalizeIntersectionItems,
+  normalizeDataForSeoHealth,
 } from "./backlinks.server";
 
 describe("assertAccountUsable", () => {
@@ -57,6 +58,61 @@ describe("isDataForSeoConfigured", () => {
     expect(isDataForSeoConfigured()).toBe(false);
     if (login !== undefined) process.env.DATAFORSEO_LOGIN = login;
     if (password !== undefined) process.env.DATAFORSEO_PASSWORD = password;
+  });
+});
+
+describe("normalizeDataForSeoHealth", () => {
+  const response = (balance: number, expiry: string | null = "2050-01-01 00:00:00 +00:00") => ({
+    status_code: 20000,
+    status_message: "Ok.",
+    tasks: [
+      {
+        status_code: 20000,
+        status_message: "Ok.",
+        result: [
+          {
+            money: { balance },
+            backlinks_subscription_expiry_date: expiry,
+          },
+        ],
+      },
+    ],
+  });
+
+  it("reports an operational account and exposes only the balance", () => {
+    expect(normalizeDataForSeoHealth(response(12.34))).toMatchObject({
+      configured: true,
+      state: "ready",
+      balanceUsd: 12.34,
+    });
+  });
+
+  it("warns when the balance is below one dollar", () => {
+    expect(normalizeDataForSeoHealth(response(0.67))).toMatchObject({
+      state: "low_balance",
+      balanceUsd: 0.67,
+    });
+  });
+
+  it("maps provider pause and payment codes without leaking the raw response", () => {
+    expect(
+      normalizeDataForSeoHealth({
+        status_code: 40201,
+        status_message: "unusual activity",
+        tasks: [],
+      }),
+    ).toMatchObject({ state: "paused" });
+    expect(
+      normalizeDataForSeoHealth({
+        status_code: 40200,
+        status_message: "Payment Required.",
+        tasks: [],
+      }),
+    ).toMatchObject({ state: "low_balance", balanceUsd: 0 });
+  });
+
+  it("reports an explicit inactive Backlinks subscription as an error", () => {
+    expect(normalizeDataForSeoHealth(response(10, null))).toMatchObject({ state: "error" });
   });
 });
 

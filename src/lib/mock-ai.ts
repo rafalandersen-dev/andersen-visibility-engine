@@ -91,6 +91,7 @@ import {
   improveContentDraftFn,
   generateOutreachDraftFn,
 } from "./ai.functions";
+import { resolveBacklinkCompetitors } from "./backlinks";
 import { publishContentFn, publishLiveFn } from "./publish.functions";
 import {
   testWordPressConnectionFn,
@@ -1083,10 +1084,9 @@ function opportunityFromBacklinkRecommendation(
   };
 }
 
-/** UI-safe check: is the DataForSEO integration configured server-side? */
+/** UI-safe check: configuration, account health and remaining provider balance. */
 export async function getBacklinksStatus() {
-  const { configured } = await getBacklinksStatusFn();
-  return { configured };
+  return getBacklinksStatusFn();
 }
 
 export async function runBacklinkAnalysis(projectId: string) {
@@ -1095,9 +1095,10 @@ export async function runBacklinkAnalysis(projectId: string) {
 
     // Competitor domains: project setup first, then the latest competitor analysis.
     const s = getState();
-    const competitorUrls = project.competitorUrls?.length
-      ? project.competitorUrls
-      : (s.competitorAnalyses.find((a) => a.projectId === projectId)?.competitorUrls ?? []);
+    const competitorUrls = resolveBacklinkCompetitors(
+      project.competitorUrls,
+      s.competitorAnalyses.find((a) => a.projectId === projectId)?.competitorUrls,
+    ).urls;
     const explanationLanguage = contentLangToProjectLanguage(project.appLanguage ?? "en");
 
     const res = await generateBacklinksFn({

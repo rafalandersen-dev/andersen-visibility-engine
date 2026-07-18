@@ -26,6 +26,7 @@ import {
   fetchBacklinkSummary,
   fetchTopReferringDomains,
   fetchBacklinkGap,
+  getDataForSeoHealth,
 } from "./backlinks.server";
 import type {
   Project,
@@ -2097,10 +2098,10 @@ function normalizeBacklinkRecommendation(value: unknown, index: number) {
   });
 }
 
-/** UI-safe config check — is the DataForSEO integration ready to use? */
+/** UI-safe, free provider health check. */
 export const getBacklinksStatusFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async () => ({ configured: isDataForSeoConfigured() }));
+  .handler(async () => getDataForSeoHealth());
 
 export const generateBacklinksFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

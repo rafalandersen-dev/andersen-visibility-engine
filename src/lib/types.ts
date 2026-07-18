@@ -786,6 +786,16 @@ export interface AiEvaluationRun {
 // Data-driven link profile + link gap powered by an external backlink index
 // (DataForSEO). Raw metrics come from the index; AI only interprets them into
 // prioritized, white-hat recommendations — it never invents link counts.
+export type BacklinkProviderState = "not_configured" | "ready" | "low_balance" | "paused" | "error";
+
+/** Safe, client-visible health summary for the server-side backlink provider. */
+export interface BacklinkProviderStatus {
+  configured: boolean;
+  state: BacklinkProviderState;
+  balanceUsd?: number;
+  checkedAt?: string;
+}
+
 export type BacklinkRecommendationCategory =
   | "Link Gap Targets"
   | "Content for Links"

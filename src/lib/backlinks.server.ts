@@ -9,10 +9,16 @@
  * The raw index numbers (rank, backlinks, referring domains, spam score) are
  * passed through as-is; interpretation happens in the AI layer.
  */
-import type { BacklinkTargetSummary, BacklinkReferringDomain, BacklinkGapDomain } from "./types";
+import type {
+  BacklinkTargetSummary,
+  BacklinkReferringDomain,
+  BacklinkGapDomain,
+  BacklinkProviderStatus,
+} from "./types";
 
 const DFS_BASE = "https://api.dataforseo.com";
 const DFS_TIMEOUT_MS = 25_000;
+const DFS_LOW_BALANCE_USD = 1;
 
 export function isDataForSeoConfigured(): boolean {
   return Boolean(
@@ -66,6 +72,103 @@ export function assertAccountUsable(statusCode: number, statusMessage: string): 
     throw new Error(
       "The backlink data account is temporarily paused by DataForSEO. Contact support@dataforseo.com to reactivate it, then try again.",
     );
+}
+
+function isPausedAccount(statusCode: number, statusMessage: string): boolean {
+  return statusCode === 40201 || /blocked|paused|suspend|unusual activity/i.test(statusMessage);
+}
+
+function isBalanceFailure(statusCode: number, statusMessage: string): boolean {
+  return statusCode === 40200 || /payment|money|funds/i.test(statusMessage);
+}
+
+/**
+ * Convert the free appendix/user_data response to a small client-safe health
+ * summary. Exported so response/error handling can be covered with fixtures.
+ */
+export function normalizeDataForSeoHealth(body: unknown): BacklinkProviderStatus {
+  const root = isRecord(body) ? body : {};
+  const tasks = Array.isArray(root.tasks) ? root.tasks : [];
+  const task = isRecord(tasks[0]) ? tasks[0] : {};
+  const rootCode = asNumber(root.status_code);
+  const taskCode = asNumber(task.status_code);
+  const statusCode = taskCode || rootCode;
+  const statusMessage = String(task.status_message ?? root.status_message ?? "");
+  const checkedAt = new Date().toISOString();
+
+  if (isPausedAccount(statusCode, statusMessage)) {
+    return { configured: true, state: "paused", checkedAt };
+  }
+  if (isBalanceFailure(statusCode, statusMessage)) {
+    return { configured: true, state: "low_balance", balanceUsd: 0, checkedAt };
+  }
+  if (rootCode !== 20000 || taskCode !== 20000) {
+    return { configured: true, state: "error", checkedAt };
+  }
+
+  const result = Array.isArray(task.result) ? task.result : [];
+  const account = isRecord(result[0]) ? result[0] : {};
+  const money = isRecord(account.money) ? account.money : {};
+  const balance = asNumber(money.balance, Number.NaN);
+  const balanceUsd = Number.isFinite(balance) ? balance : undefined;
+
+  // DataForSEO explicitly returns null when the Backlinks API subscription is
+  // inactive. Older responses may omit the field, so only an explicit null is
+  // treated as an account error.
+  if (
+    Object.prototype.hasOwnProperty.call(account, "backlinks_subscription_expiry_date") &&
+    account.backlinks_subscription_expiry_date === null
+  ) {
+    return { configured: true, state: "error", balanceUsd, checkedAt };
+  }
+
+  return {
+    configured: true,
+    state: balanceUsd !== undefined && balanceUsd < DFS_LOW_BALANCE_USD ? "low_balance" : "ready",
+    balanceUsd,
+    checkedAt,
+  };
+}
+
+/** Free, read-only provider check. Credentials and raw account data stay server-side. */
+export async function getDataForSeoHealth(): Promise<BacklinkProviderStatus> {
+  const login = (process.env.DATAFORSEO_LOGIN ?? "").trim();
+  const password = (process.env.DATAFORSEO_PASSWORD ?? "").trim();
+  if (!login || !password) return { configured: false, state: "not_configured" };
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), DFS_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${DFS_BASE}/v3/appendix/user_data`, {
+      method: "GET",
+      signal: controller.signal,
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${login}:${password}`).toString("base64")}`,
+        "Content-Type": "application/json",
+      },
+    });
+    if (res.status === 401 || res.status === 403) {
+      return { configured: true, state: "error", checkedAt: new Date().toISOString() };
+    }
+    if (!res.ok) {
+      const state = res.status === 402 ? "low_balance" : "error";
+      return {
+        configured: true,
+        state,
+        balanceUsd: res.status === 402 ? 0 : undefined,
+        checkedAt: new Date().toISOString(),
+      };
+    }
+    const body = await res.json().catch(() => null);
+    return normalizeDataForSeoHealth(body);
+  } catch (error) {
+    console.warn("[backlinks.server] provider health check failed", {
+      reason: error instanceof Error && error.name === "AbortError" ? "timeout" : "network",
+    });
+    return { configured: true, state: "error", checkedAt: new Date().toISOString() };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**

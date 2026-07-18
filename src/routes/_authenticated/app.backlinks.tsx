@@ -3,6 +3,7 @@ import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store";
 import { useT } from "@/i18n";
+import { resolveBacklinkCompetitors } from "@/lib/backlinks";
 import {
   getBacklinksStatus,
   runBacklinkAnalysis,
@@ -13,10 +14,20 @@ import type {
   BacklinkAnalysisResult,
   BacklinkRecommendation,
   BacklinkRecommendationCategory,
+  BacklinkProviderStatus,
   BacklinkTargetSummary,
 } from "@/lib/types";
-import { Link2, Loader2, RefreshCw, Plus, Check, PlugZap } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import {
+  Link2,
+  Loader2,
+  RefreshCw,
+  Plus,
+  Check,
+  PlugZap,
+  CircleCheck,
+  TriangleAlert,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/app/backlinks")({
@@ -50,26 +61,54 @@ function BacklinksPage() {
   const analysis = useStore((s) =>
     s.backlinkAnalyses.find((a) => a.projectId === s.activeProjectId),
   );
+  const competitorAnalysis = useStore((s) =>
+    s.competitorAnalyses.find((a) => a.projectId === s.activeProjectId),
+  );
 
-  const [configured, setConfigured] = useState<boolean | null>(null);
+  const [providerStatus, setProviderStatus] = useState<BacklinkProviderStatus | null>(null);
+  const [checkingStatus, setCheckingStatus] = useState(false);
   const [running, setRunning] = useState(false);
   const [convertingTop, setConvertingTop] = useState(false);
+
+  const refreshProviderStatus = useCallback(async () => {
+    setCheckingStatus(true);
+    try {
+      setProviderStatus(await getBacklinksStatus());
+    } catch {
+      setProviderStatus({ configured: true, state: "error" });
+    } finally {
+      setCheckingStatus(false);
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     getBacklinksStatus()
       .then((s) => {
-        if (!cancelled) setConfigured(s.configured);
+        if (!cancelled) setProviderStatus(s);
       })
       .catch(() => {
-        if (!cancelled) setConfigured(false);
+        if (!cancelled) setProviderStatus({ configured: true, state: "error" });
       });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const competitorList = useMemo(() => (project?.competitorUrls ?? []).filter(Boolean), [project]);
+  const competitorContext = useMemo(
+    () => resolveBacklinkCompetitors(project?.competitorUrls, competitorAnalysis?.competitorUrls),
+    [project?.competitorUrls, competitorAnalysis?.competitorUrls],
+  );
+  const competitorList = competitorContext.urls;
+  const usesCompetitorFallback = competitorContext.source === "competitor_analysis";
+  const analyzedCompetitors = useMemo(
+    () => (analysis?.competitors ?? []).map((competitor) => competitor.target).filter(Boolean),
+    [analysis],
+  );
+  const configured = providerStatus?.configured ?? null;
+  const providerBlocksRun =
+    providerStatus?.state === "paused" ||
+    (providerStatus?.state === "low_balance" && providerStatus.balanceUsd === 0);
 
   async function run() {
     if (!activeProjectId) return;
@@ -77,6 +116,7 @@ function BacklinksPage() {
     try {
       await runBacklinkAnalysis(activeProjectId);
       toast.success(t("backlinks.toast.done"));
+      void refreshProviderStatus();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Analysis failed");
     } finally {
@@ -117,7 +157,7 @@ function BacklinksPage() {
       description={t("backlinks.subtitle")}
       actions={
         configured ? (
-          <Button onClick={run} disabled={running}>
+          <Button onClick={run} disabled={running || providerBlocksRun}>
             {running ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : analysis ? (
@@ -136,6 +176,15 @@ function BacklinksPage() {
     >
       <p className="text-xs text-muted-foreground max-w-3xl mb-5">{t("backlinks.disclaimer")}</p>
 
+      {configured && providerStatus ? (
+        <ProviderStatusPanel
+          status={providerStatus}
+          checking={checkingStatus}
+          refresh={refreshProviderStatus}
+          t={t}
+        />
+      ) : null}
+
       {configured === false ? (
         <div className="rounded-lg border-2 border-amber-500/30 bg-card p-6 max-w-2xl">
           <div className="flex items-center gap-2">
@@ -150,7 +199,11 @@ function BacklinksPage() {
         </div>
       ) : !analysis ? (
         <>
-          <CompetitorContextNote competitors={competitorList} t={t} />
+          <CompetitorContextNote
+            competitors={competitorList}
+            fromCompetitorAnalysis={usesCompetitorFallback}
+            t={t}
+          />
           <div className="mt-6 rounded-lg border border-dashed border-border p-12 text-center">
             <Link2 className="mx-auto h-8 w-8 text-gold/70" strokeWidth={1.4} />
             <div className="mt-3 font-display text-lg">{t("backlinks.run")}</div>
@@ -163,7 +216,7 @@ function BacklinksPage() {
         <AnalysisView
           analysis={analysis}
           projectId={activeProjectId}
-          competitors={competitorList}
+          competitors={analyzedCompetitors}
           convertTop={convertTop}
           convertingTop={convertingTop}
           t={t}
@@ -175,10 +228,86 @@ function BacklinksPage() {
 
 type Translate = (k: string, v?: Record<string, string | number>) => string;
 
-function CompetitorContextNote({ competitors, t }: { competitors: string[]; t: Translate }) {
+function ProviderStatusPanel({
+  status,
+  checking,
+  refresh,
+  t,
+}: {
+  status: BacklinkProviderStatus;
+  checking: boolean;
+  refresh: () => Promise<void>;
+  t: Translate;
+}) {
+  const statusKey =
+    status.state === "ready"
+      ? "ready"
+      : status.state === "low_balance"
+        ? "lowBalance"
+        : status.state;
+  const healthy = status.state === "ready";
+  const caution = status.state === "low_balance";
+  const Icon = healthy ? CircleCheck : TriangleAlert;
+
+  return (
+    <div
+      className={`mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-3 ${
+        healthy
+          ? "border-emerald-500/25 bg-emerald-500/5"
+          : caution
+            ? "border-amber-500/30 bg-amber-500/5"
+            : "border-destructive/30 bg-destructive/5"
+      }`}
+    >
+      <div className="flex min-w-0 items-start gap-2.5">
+        <Icon
+          className={`mt-0.5 h-4 w-4 shrink-0 ${
+            healthy ? "text-emerald-600" : caution ? "text-amber-600" : "text-destructive"
+          }`}
+        />
+        <div>
+          <div className="text-sm font-medium">{t(`backlinks.status.${statusKey}.title`)}</div>
+          <p className="text-xs text-muted-foreground">
+            {t(`backlinks.status.${statusKey}.body`)}
+            {status.balanceUsd !== undefined
+              ? ` ${t("backlinks.status.balance", { balance: `$${status.balanceUsd.toFixed(2)}` })}`
+              : ""}
+          </p>
+        </div>
+      </div>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => void refresh()}
+        disabled={checking}
+        aria-label={t("backlinks.status.refresh")}
+      >
+        {checking ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <RefreshCw className="h-3.5 w-3.5" />
+        )}
+        {t("backlinks.status.refresh")}
+      </Button>
+    </div>
+  );
+}
+
+function CompetitorContextNote({
+  competitors,
+  fromCompetitorAnalysis = false,
+  t,
+}: {
+  competitors: string[];
+  fromCompetitorAnalysis?: boolean;
+  t: Translate;
+}) {
   return competitors.length ? (
     <p className="text-xs text-muted-foreground">
-      {t("backlinks.competitorsUsed", { list: competitors.join(", ") })}
+      {t(
+        fromCompetitorAnalysis ? "backlinks.competitorsFromAnalysis" : "backlinks.competitorsUsed",
+        { list: competitors.join(", ") },
+      )}
     </p>
   ) : (
     <p className="text-xs text-amber-600">{t("backlinks.noCompetitors")}</p>
