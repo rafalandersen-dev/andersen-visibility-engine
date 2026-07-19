@@ -1175,6 +1175,30 @@ export const en: Record<string, string> = {
   "editor.schedule.needsApproval": "Mark the article ready before scheduling it.",
   "editor.schedule.overdue": "This should have gone live {when} and did not. Check your connection settings, then schedule it again.",
   "editor.schedule.hint": "Approving never publishes. Nothing goes live until you schedule it or publish it now.",
+
+  // ---- Pipeline vocabulary (increment 3) ----
+  "pipeline.stage.idea": "Idea",
+  "pipeline.stage.queued": "Queued",
+  "pipeline.stage.planned": "Planned",
+  "pipeline.stage.writing": "Writing",
+  "pipeline.stage.in_review": "In review",
+  "pipeline.stage.ready": "Ready",
+  "pipeline.stage.armed": "Scheduled",
+  "pipeline.stage.sent": "Sent to site",
+  "pipeline.stage.live": "Live",
+  "pipeline.stage.needs_fixing": "Needs fixing",
+  "pipeline.stage.parked": "Parked",
+  "pipeline.action.prioritise": "Prioritise it",
+  "pipeline.action.setDate": "Set a target date",
+  "pipeline.action.write": "Write it",
+  "pipeline.action.continueDraft": "Continue the draft",
+  "pipeline.action.review": "Review it",
+  "pipeline.action.schedule": "Set a go-live time",
+  "pipeline.action.viewSchedule": "See the go-live",
+  "pipeline.action.confirmLive": "Confirm it is live",
+  "pipeline.action.viewImpact": "See the impact",
+  "pipeline.action.fix": "Fix it",
+  "pipeline.action.unpark": "Bring it back",
 };
 
 export type Dict = typeof en;
