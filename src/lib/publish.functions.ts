@@ -147,7 +147,7 @@ export const publishContentFn = createServerFn({ method: "POST" })
 // Publishing v1.1 — publish an existing draft LIVE on the website
 // ============================================================
 
-const PublishLiveInputSchema = z.object({
+export const PublishLiveInputSchema = z.object({
   endpoint: z.string().default(""),
   secret: z.string().default(""),
   projectId: z.string().default(""),
@@ -157,10 +157,17 @@ const PublishLiveInputSchema = z.object({
   destinationType: z.enum(DESTINATION_TYPES),
 });
 
-export const publishLiveFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => PublishLiveInputSchema.parse(input))
-  .handler(async ({ data }) => {
+/**
+ * POST a live-publish instruction to a custom website endpoint. Plain function
+ * — no auth middleware — so the scheduled-publish cron runner can call it too.
+ *
+ * The receiving endpoint upserts by slug/assetId (see MILO-WEBSITE-CONNECTOR.md),
+ * so repeating this call updates the same page rather than creating a duplicate.
+ */
+export async function publishLiveDirect(
+  data: z.infer<typeof PublishLiveInputSchema>,
+): Promise<{ ok: true; liveUrl: string; externalId: string; publishedAt: string }> {
+  {
     const endpoint = data.endpoint.trim();
     const secret = data.secret.trim();
 
@@ -246,4 +253,10 @@ export const publishLiveFn = createServerFn({ method: "POST" })
     console.info("[publish.functions] live publish accepted", { host: url.host, assetId: data.assetId });
 
     return { ok: true as const, liveUrl, externalId, publishedAt };
-  });
+  }
+}
+
+export const publishLiveFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => PublishLiveInputSchema.parse(input))
+  .handler(async ({ data }) => publishLiveDirect(data));

@@ -113,7 +113,7 @@ export const testWordPressConnectionFn = createServerFn({ method: "POST" })
     }
   });
 
-const ContentInput = z.object({
+export const ContentInput = z.object({
   siteUrl: z.string(),
   username: z.string(),
   applicationPassword: z.string(),
@@ -173,10 +173,18 @@ export const sendContentToWordPressDraftFn = createServerFn({ method: "POST" })
     }
   });
 
-export const publishWordPressContentFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => ContentInput.parse(input))
-  .handler(async ({ data }): Promise<WordPressPublishResult> => {
+/**
+ * Publish (or update) a WordPress post live. Plain function — no auth
+ * middleware — so both the browser server fn below and the scheduled-publish
+ * cron runner can call it.
+ *
+ * NOTE: idempotent ONLY when `data.postId` is supplied. Without it this CREATES
+ * a new post, which is why interrupted scheduled runs are never blindly retried.
+ */
+export async function publishWordPressLiveDirect(
+  data: z.infer<typeof ContentInput>,
+): Promise<WordPressPublishResult> {
+  {
     try {
       const base = wpBase(data.siteUrl);
       const html = markdownToHtml(data.contentMarkdown);
@@ -214,4 +222,10 @@ export const publishWordPressContentFn = createServerFn({ method: "POST" })
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : FRIENDLY_CONNECT };
     }
-  });
+  }
+}
+
+export const publishWordPressContentFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => ContentInput.parse(input))
+  .handler(async ({ data }): Promise<WordPressPublishResult> => publishWordPressLiveDirect(data));

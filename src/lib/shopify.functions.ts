@@ -124,7 +124,7 @@ export const listShopifyBlogsFn = createServerFn({ method: "POST" })
     }
   });
 
-const ArticleInput = z.object({
+export const ArticleInput = z.object({
   shopDomain: z.string(),
   adminAccessToken: z.string(),
   blogGid: z.string(),
@@ -181,7 +181,12 @@ function readArticleResult(out: unknown, key: "articleCreate" | "articleUpdate")
   return { article: isRecord(node.article) ? (node.article as Record<string, unknown>) : undefined };
 }
 
-async function upsertArticle(data: z.infer<typeof ArticleInput>, isPublished: boolean): Promise<ShopifyPublishResult> {
+/**
+ * Create-or-update a Shopify article. Exported so the scheduled-publish runner
+ * can reuse it: the server fns below carry `requireSupabaseAuth`, which the
+ * cron runner has no session for.
+ */
+export async function upsertArticle(data: z.infer<typeof ArticleInput>, isPublished: boolean): Promise<ShopifyPublishResult> {
   const fields = buildArticleFields(data, isPublished);
   let out: unknown;
   let res: { article?: Record<string, unknown>; error?: string };

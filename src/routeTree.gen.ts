@@ -40,6 +40,7 @@ import { Route as DotwellKnownOauthProtectedResourceRouteImport } from './routes
 import { Route as DotwellKnownOauthAuthorizationServerRouteImport } from './routes/[.]well-known.oauth-authorization-server'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app.index'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
+import { Route as ApiPublishRunScheduledRouteImport } from './routes/api.publish.run-scheduled'
 import { Route as ApiOauthTokenRouteImport } from './routes/api.oauth.token'
 import { Route as ApiOauthRevokeRouteImport } from './routes/api.oauth.revoke'
 import { Route as ApiOauthRegisterRouteImport } from './routes/api.oauth.register'
@@ -229,6 +230,11 @@ const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
 const LovableEmailSuppressionRoute = LovableEmailSuppressionRouteImport.update({
   id: '/lovable/email/suppression',
   path: '/lovable/email/suppression',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublishRunScheduledRoute = ApiPublishRunScheduledRouteImport.update({
+  id: '/api/publish/run-scheduled',
+  path: '/api/publish/run-scheduled',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiOauthTokenRoute = ApiOauthTokenRouteImport.update({
@@ -478,6 +484,7 @@ export interface FileRoutesByFullPath {
   '/api/oauth/register': typeof ApiOauthRegisterRoute
   '/api/oauth/revoke': typeof ApiOauthRevokeRoute
   '/api/oauth/token': typeof ApiOauthTokenRoute
+  '/api/publish/run-scheduled': typeof ApiPublishRunScheduledRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/app/': typeof AuthenticatedAppIndexRoute
   '/api/google/search-console/callback': typeof ApiGoogleSearchConsoleCallbackRoute
@@ -544,6 +551,7 @@ export interface FileRoutesByTo {
   '/api/oauth/register': typeof ApiOauthRegisterRoute
   '/api/oauth/revoke': typeof ApiOauthRevokeRoute
   '/api/oauth/token': typeof ApiOauthTokenRoute
+  '/api/publish/run-scheduled': typeof ApiPublishRunScheduledRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/app': typeof AuthenticatedAppIndexRoute
   '/api/google/search-console/callback': typeof ApiGoogleSearchConsoleCallbackRoute
@@ -612,6 +620,7 @@ export interface FileRoutesById {
   '/api/oauth/register': typeof ApiOauthRegisterRoute
   '/api/oauth/revoke': typeof ApiOauthRevokeRoute
   '/api/oauth/token': typeof ApiOauthTokenRoute
+  '/api/publish/run-scheduled': typeof ApiPublishRunScheduledRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
   '/api/google/search-console/callback': typeof ApiGoogleSearchConsoleCallbackRoute
@@ -680,6 +689,7 @@ export interface FileRouteTypes {
     | '/api/oauth/register'
     | '/api/oauth/revoke'
     | '/api/oauth/token'
+    | '/api/publish/run-scheduled'
     | '/lovable/email/suppression'
     | '/app/'
     | '/api/google/search-console/callback'
@@ -746,6 +756,7 @@ export interface FileRouteTypes {
     | '/api/oauth/register'
     | '/api/oauth/revoke'
     | '/api/oauth/token'
+    | '/api/publish/run-scheduled'
     | '/lovable/email/suppression'
     | '/app'
     | '/api/google/search-console/callback'
@@ -813,6 +824,7 @@ export interface FileRouteTypes {
     | '/api/oauth/register'
     | '/api/oauth/revoke'
     | '/api/oauth/token'
+    | '/api/publish/run-scheduled'
     | '/lovable/email/suppression'
     | '/_authenticated/app/'
     | '/api/google/search-console/callback'
@@ -859,6 +871,7 @@ export interface RootRouteChildren {
   ApiOauthRegisterRoute: typeof ApiOauthRegisterRoute
   ApiOauthRevokeRoute: typeof ApiOauthRevokeRoute
   ApiOauthTokenRoute: typeof ApiOauthTokenRoute
+  ApiPublishRunScheduledRoute: typeof ApiPublishRunScheduledRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
   ApiGoogleSearchConsoleCallbackRoute: typeof ApiGoogleSearchConsoleCallbackRoute
   ApiGoogleSearchConsoleCronSyncRoute: typeof ApiGoogleSearchConsoleCronSyncRoute
@@ -1086,6 +1099,13 @@ declare module '@tanstack/react-router' {
       path: '/lovable/email/suppression'
       fullPath: '/lovable/email/suppression'
       preLoaderRoute: typeof LovableEmailSuppressionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/publish/run-scheduled': {
+      id: '/api/publish/run-scheduled'
+      path: '/api/publish/run-scheduled'
+      fullPath: '/api/publish/run-scheduled'
+      preLoaderRoute: typeof ApiPublishRunScheduledRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/oauth/token': {
@@ -1421,6 +1441,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiOauthRegisterRoute: ApiOauthRegisterRoute,
   ApiOauthRevokeRoute: ApiOauthRevokeRoute,
   ApiOauthTokenRoute: ApiOauthTokenRoute,
+  ApiPublishRunScheduledRoute: ApiPublishRunScheduledRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
   ApiGoogleSearchConsoleCallbackRoute: ApiGoogleSearchConsoleCallbackRoute,
   ApiGoogleSearchConsoleCronSyncRoute: ApiGoogleSearchConsoleCronSyncRoute,

@@ -92,6 +92,34 @@ export type PublishStatus = "notSent" | "sent" | "failed";
 export type PublishMode = "draftOnly" | "manualLive" | "autoPublishApproved";
 export type LivePublishStatus = "notPublished" | "published" | "failed";
 
+/**
+ * Lifecycle of a row in the `scheduled_publishes` queue.
+ * `publishing` is a claimed-but-unfinished state owned by the cron runner; it
+ * is never retried blindly, because the WordPress and Shopify connectors create
+ * a new post when no external id is supplied. An interrupted run is parked as
+ * `failed` for a human decision instead of risking a duplicate live post.
+ */
+export type ScheduledPublishStatus =
+  | "pending"
+  | "publishing"
+  | "published"
+  | "failed"
+  | "cancelled";
+
+/** One queued publish. Mirrors a `scheduled_publishes` row. */
+export interface ScheduledPublish {
+  id: string;
+  projectId: string;
+  assetId: string;
+  /** ISO timestamp — when the runner should publish. */
+  publishAt: string;
+  status: ScheduledPublishStatus;
+  attempts: number;
+  lastError?: string;
+  publishedAt?: string;
+  createdAt: string;
+}
+
 // ---- WordPress Connector v1 ----
 export type PublishingConnectorType = "custom" | "wordpress" | "shopify";
 
@@ -569,6 +597,16 @@ export interface ContentAsset {
   livePublishError?: string;
   autoPublishAttemptedAt?: string;
   autoPublishError?: string;
+  // ---- Scheduled publishing v1 (all optional) ----
+  /**
+   * UI mirror of the asset's row in the `scheduled_publishes` queue. The table
+   * is the source of truth for the cron runner; these fields exist so the
+   * editor can render "Scheduled for …" without a round-trip. Both are written
+   * together by the scheduling server fn and by the runner.
+   */
+  scheduledPublishAt?: string;
+  scheduledPublishStatus?: ScheduledPublishStatus;
+  scheduledPublishError?: string;
   // ---- WordPress Connector v1 (all optional) ----
   /** Which connector last published this asset. */
   publishPlatform?: PublishingConnectorType;

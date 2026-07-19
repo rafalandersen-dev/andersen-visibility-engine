@@ -46,6 +46,14 @@ import {
   addOutreachDraft,
   uid,
 } from "./store";
+import {
+  isWordPress,
+  isShopify,
+  wpCreds,
+  wpPostTypeFor,
+  shopifyCreds,
+  shopifyArticleArgs,
+} from "./publish-targets";
 import type {
   Opportunity,
   DiscoverySuggestion,
@@ -1410,34 +1418,6 @@ export async function generateContentForOpportunity(opportunityId: string, asset
 // WordPress Connector v1
 // ============================================================
 
-function isWordPress(project: Project): boolean {
-  return project.connectorType === "wordpress";
-}
-
-function wpPostTypeFor(asset: ContentAsset, project: Project): "post" | "page" {
-  if (asset.wordpressPostType) return asset.wordpressPostType;
-  const at = (asset.assetType ?? "").toLowerCase();
-  if (/service|landing|location/.test(at)) return "page";
-  return project.wordpress?.defaultPostType ?? "post";
-}
-
-function wpCreds(project: Project): {
-  siteUrl: string;
-  username: string;
-  applicationPassword: string;
-} {
-  const wp = project.wordpress ?? {};
-  const siteUrl = (wp.siteUrl ?? "").trim();
-  const username = (wp.username ?? "").trim();
-  const applicationPassword = wp.applicationPassword ?? "";
-  if (!siteUrl || !username || !applicationPassword.trim()) {
-    throw new Error(
-      "Connect WordPress in Project Setup (site URL, username and application password) first.",
-    );
-  }
-  return { siteUrl, username, applicationPassword };
-}
-
 /** Test the project's WordPress connection and persist the result (no secrets stored beyond settings). */
 export async function testWordPressConnection(projectId: string) {
   const s = getState();
@@ -1528,22 +1508,6 @@ async function publishToWordPressLive(asset: ContentAsset, project: Project) {
 // Shopify Connector v1
 // ============================================================
 
-function isShopify(project: Project): boolean {
-  return project.connectorType === "shopify";
-}
-
-function shopifyCreds(project: Project): { shopDomain: string; adminAccessToken: string } {
-  const sh = project.shopify ?? {};
-  const shopDomain = (sh.shopDomain ?? "").trim();
-  const adminAccessToken = sh.adminAccessToken ?? "";
-  if (!shopDomain || !adminAccessToken.trim()) {
-    throw new Error(
-      "Connect Shopify in Project Setup (shop domain and Admin API access token) first.",
-    );
-  }
-  return { shopDomain, adminAccessToken };
-}
-
 /** Test the project's Shopify connection and persist the result. */
 export async function testShopifyConnection(projectId: string) {
   const s = getState();
@@ -1569,22 +1533,6 @@ export async function listShopifyBlogs(projectId: string) {
   if (!project) throw new Error("Project not found.");
   const creds = shopifyCreds(project);
   return listShopifyBlogsFn({ data: creds });
-}
-
-function shopifyArticleArgs(asset: ContentAsset, project: Project) {
-  const sh = project.shopify ?? {};
-  return {
-    ...shopifyCreds(project),
-    blogGid: asset.shopifyBlogGid || sh.defaultBlogId || "",
-    blogHandle: sh.defaultBlogHandle || "",
-    articleGid: asset.shopifyArticleGid,
-    title: asset.title,
-    contentMarkdown: asset.markdown,
-    handle: asset.slug || "",
-    summary: asset.metaDescription ?? "",
-    tags: sh.defaultTags ?? [],
-    author: sh.defaultAuthorName ?? "",
-  };
 }
 
 async function sendToShopifyDraft(asset: ContentAsset, project: Project) {
