@@ -37,6 +37,7 @@ import {
   publishContentLive,
   runAutoPublishOnApprove,
 } from "@/lib/mock-ai";
+import { cancelScheduledPublishFn } from "@/lib/schedule.functions";
 import { CreateContentDialog, ASSET_TYPE_LABELS } from "@/components/CreateContentDialog";
 import { MiloScorePanel } from "@/components/MiloScorePanel";
 import {
@@ -108,6 +109,21 @@ function EditorPage() {
     const idx = assets.findIndex((a) => a.id === id);
     const remaining = assets.filter((a) => a.id !== id);
     const next = remaining[idx] ?? remaining[idx - 1];
+
+    // Compensating write: a deleted asset must not stay armed in the publish
+    // queue. The runner would otherwise wake up, fail to find it, and park the
+    // row as a failure the user cannot explain. Best-effort — a queue that is
+    // already draining should never block the delete the user asked for.
+    const wasScheduled = assets.find((a) => a.id === id)?.scheduledPublishStatus === "pending";
+    if (wasScheduled) {
+      try {
+        await cancelScheduledPublishFn({ data: { assetId: id } });
+      } catch {
+        // Swallowed deliberately: publish.server refuses to publish a missing
+        // asset anyway, so the worst case is a stale row, not a stray publish.
+      }
+    }
+
     deleteContentAsset(id);
     setDeleteId(null);
     if (id === selectedId) setSelectedId(next?.id);
@@ -134,7 +150,7 @@ function EditorPage() {
           <ul className="mt-1 space-y-0.5">
             {assets.length === 0 ? (
               <li className="px-2 py-6 text-xs text-muted-foreground">
-                Use “Create content” on any opportunity to generate your first asset.
+                Open Plan and use “Create linked draft” on an opportunity to generate your first asset.
               </li>
             ) : (
               assets.map((a) => (
@@ -164,9 +180,9 @@ function EditorPage() {
           <div className="rounded-lg border border-dashed border-border p-12 text-center">
             <div className="font-display text-lg mb-1">{t("editor.noAssetSelectedTitle")}</div>
             <p className="text-sm text-muted-foreground max-w-md mx-auto">
-              Open the Opportunities page and click{" "}
-              <span className="font-medium text-foreground">Create content</span> on any card to
-              generate your first asset. It will appear in this editor.
+              Open <span className="font-medium text-foreground">Plan</span> and click{" "}
+              <span className="font-medium text-foreground">Create linked draft</span> on an
+              opportunity to generate your first asset. It will appear in this editor.
             </p>
           </div>
         )}
@@ -182,8 +198,8 @@ function EditorPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>{t("editor.action.delete")}</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently removes this draft from the editor. The original opportunity and
-              calendar item will stay.
+              This permanently removes this draft from the editor. The opportunity it came from
+              stays, and any scheduled publish for it is cancelled.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -288,12 +304,21 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     toast.success(status ? `Marked ${status}` : "Saved");
   };
 
-  const aiAction = async (name: string, fn: () => Promise<void>) => {
-    // Persist current in-flight edits BEFORE the AI reads from the store,
-    // so regenerating one field never wipes other unsaved changes.
+  /**
+   * Persist in-flight edits BEFORE any AI action reads from the store.
+   * Every AI surface in the editor must call this first: these functions take
+   * an assetId and re-read the asset from the store, so unsaved edits are both
+   * invisible to them and destroyed by whatever they write back.
+   */
+  const flushPendingEdits = () => {
     const snapshot = { ...f, updatedAt: new Date().toISOString() };
     upsertContent(snapshot);
     setF(snapshot);
+    return snapshot;
+  };
+
+  const aiAction = async (name: string, fn: () => Promise<void>) => {
+    flushPendingEdits();
     setBusy(name);
     try {
       await fn();
@@ -607,11 +632,32 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
             ) : null}
           </div>
         )}
+
+        {/*
+          Scheduled-publish outcome. The background runner records failures on
+          the asset, but until now nothing rendered them — a scheduled publish
+          could fail and the only way to find out was to query the database.
+          Shown regardless of connector, since the runner covers all of them.
+        */}
+        {live.scheduledPublishStatus === "failed" && live.scheduledPublishError ? (
+          <div className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2">
+            <div className="text-xs font-medium text-destructive">
+              {t("editor.schedule.failedTitle")}
+            </div>
+            <p className="mt-0.5 text-xs text-destructive/90">{live.scheduledPublishError}</p>
+          </div>
+        ) : live.scheduledPublishStatus === "pending" && live.scheduledPublishAt ? (
+          <div className="mt-3 rounded-md border border-border bg-secondary/40 px-3 py-2">
+            <span className="text-xs text-muted-foreground">
+              {t("editor.schedule.pending", { when: formatDateTime(live.scheduledPublishAt) })}
+            </span>
+          </div>
+        ) : null}
       </div>
 
       {/* Milo Score — publishing readiness (Content Quality Engine v1) */}
       <div className="px-5 py-4 border-b border-border">
-        <MiloScorePanel asset={live} />
+        <MiloScorePanel asset={live} onBeforeAiAction={flushPendingEdits} />
       </div>
 
       <CreateContentDialog

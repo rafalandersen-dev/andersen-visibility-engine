@@ -1091,4 +1091,8 @@ export const da: Record<string, string> = {
   "outreach.toast.followUpSent": "Opfølgningen blev accepteret til levering.", "outreach.toast.suppressed": "Modtageren har afmeldt eller er blokeret.",
   "outreach.toast.limit": "24-timersgrænsen for outreach er nået.", "outreach.toast.notDue": "Opfølgningen skal ikke sendes endnu.",
   "outreach.toast.notConfigured": "Livelevering til outreach er ikke konfigureret.", "outreach.toast.sendFailed": "E-mailen kunne ikke sendes. Gennemgå kladden og prøv igen.",
+
+  // ---- Scheduled publishing ----
+  "editor.schedule.failedTitle": "Den planlagte udgivelse mislykkedes",
+  "editor.schedule.pending": "Planlagt til udgivelse {when}.",
 };

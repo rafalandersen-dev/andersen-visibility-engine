@@ -1157,6 +1157,10 @@ export const en: Record<string, string> = {
   "outreach.toast.followUpSent": "Follow-up accepted for delivery.", "outreach.toast.suppressed": "This recipient has opted out or is suppressed.",
   "outreach.toast.limit": "The 24-hour outreach limit has been reached.", "outreach.toast.notDue": "This follow-up is not due yet.",
   "outreach.toast.notConfigured": "Live outreach delivery is not configured yet.", "outreach.toast.sendFailed": "The email could not be sent. Review the draft and try again.",
+
+  // ---- Scheduled publishing ----
+  "editor.schedule.failedTitle": "Scheduled publishing failed",
+  "editor.schedule.pending": "Scheduled to go live {when}.",
 };
 
 export type Dict = typeof en;

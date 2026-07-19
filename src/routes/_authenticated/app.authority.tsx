@@ -186,7 +186,7 @@ function AuthorityPage() {
           </section>
 
           <div className="pt-6">
-            <Link to="/app/opportunities" className="text-sm text-foreground/70 underline underline-offset-4 hover:text-foreground">
+            <Link to="/app/plan" className="text-sm text-foreground/70 underline underline-offset-4 hover:text-foreground">
               {t("nav.opportunities")} →
             </Link>
           </div>

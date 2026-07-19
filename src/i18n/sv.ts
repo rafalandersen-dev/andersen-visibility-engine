@@ -1091,4 +1091,8 @@ export const sv: Record<string, string> = {
   "outreach.toast.followUpSent": "Uppföljningen accepterades för leverans.", "outreach.toast.suppressed": "Mottagaren har avregistrerat sig eller är spärrad.",
   "outreach.toast.limit": "24-timmarsgränsen för outreach har nåtts.", "outreach.toast.notDue": "Uppföljningen ska inte skickas ännu.",
   "outreach.toast.notConfigured": "Liveleverans för outreach är inte konfigurerad.", "outreach.toast.sendFailed": "Mejlet kunde inte skickas. Granska utkastet och försök igen.",
+
+  // ---- Scheduled publishing ----
+  "editor.schedule.failedTitle": "Den schemalagda publiceringen misslyckades",
+  "editor.schedule.pending": "Schemalagd att publiceras {when}.",
 };

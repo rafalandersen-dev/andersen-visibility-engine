@@ -381,7 +381,7 @@ function AiVisibilityPage() {
 
           <div className="pt-2">
             <Link
-              to="/app/opportunities"
+              to="/app/plan"
               className="text-sm text-foreground/70 underline underline-offset-4 hover:text-foreground"
             >
               View opportunities →

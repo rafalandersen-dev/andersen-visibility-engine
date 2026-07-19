@@ -1112,4 +1112,8 @@ export const pl: Record<string, string> = {
   "outreach.toast.followUpSent": "Follow-up przyjęty do wysyłki.", "outreach.toast.suppressed": "Odbiorca wypisał się lub znajduje się na liście suppression.",
   "outreach.toast.limit": "Osiągnięto limit outreach na 24 godziny.", "outreach.toast.notDue": "Termin tego follow-upu jeszcze nie nadszedł.",
   "outreach.toast.notConfigured": "Realna wysyłka outreach nie jest jeszcze skonfigurowana.", "outreach.toast.sendFailed": "Nie udało się wysłać wiadomości. Sprawdź szkic i spróbuj ponownie.",
+
+  // ---- Scheduled publishing ----
+  "editor.schedule.failedTitle": "Zaplanowana publikacja nie powiodła się",
+  "editor.schedule.pending": "Zaplanowano publikację na {when}.",
 };

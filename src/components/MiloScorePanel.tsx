@@ -33,7 +33,19 @@ function recClasses(rec: PublishingRecommendation) {
     : "bg-destructive/10 border-destructive/30 text-destructive";
 }
 
-export function MiloScorePanel({ asset }: { asset: ContentAsset }) {
+export function MiloScorePanel({
+  asset,
+  onBeforeAiAction,
+}: {
+  asset: ContentAsset;
+  /**
+   * Flush the host editor's unsaved edits to the store before scoring.
+   * Both AI calls below take an assetId and re-read the asset, so without this
+   * the score describes stale text and "Improve" overwrites whatever the user
+   * had just typed. Optional so the panel still works outside the editor.
+   */
+  onBeforeAiAction?: () => void;
+}) {
   const t = useT();
   const [busy, setBusy] = useState<"evaluate" | "improve" | null>(null);
   const [improveOpen, setImproveOpen] = useState(false);
@@ -42,6 +54,7 @@ export function MiloScorePanel({ asset }: { asset: ContentAsset }) {
   const hasBody = draftWordCount(asset.markdown || "") >= 1;
 
   async function runEvaluate() {
+    onBeforeAiAction?.();
     setBusy("evaluate");
     try {
       await evaluateContentQuality(asset.id);
@@ -54,6 +67,7 @@ export function MiloScorePanel({ asset }: { asset: ContentAsset }) {
 
   async function runImprove() {
     setImproveOpen(false);
+    onBeforeAiAction?.();
     setBusy("improve");
     try {
       await improveContentDraft(asset.id);
