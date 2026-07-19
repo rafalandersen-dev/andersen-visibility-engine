@@ -1120,6 +1120,7 @@ export const sv: Record<string, string> = {
   "pipeline.stage.armed": "Schemalagd",
   "pipeline.stage.sent": "Skickad till sajten",
   "pipeline.stage.live": "Live",
+  "pipeline.stage.live_missing": "Live · utkast saknas",
   "pipeline.stage.needs_fixing": "Behöver åtgärd",
   "pipeline.stage.parked": "Parkerad",
   "pipeline.action.prioritise": "Prioritera den",
@@ -1131,6 +1132,7 @@ export const sv: Record<string, string> = {
   "pipeline.action.viewSchedule": "Se publiceringen",
   "pipeline.action.confirmLive": "Bekräfta att den är live",
   "pipeline.action.viewImpact": "Se effekten",
+  "pipeline.action.rewrite": "Skriv om sidan",
   "pipeline.action.fix": "Åtgärda den",
   "pipeline.action.unpark": "Ta tillbaka den",
 };

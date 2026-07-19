@@ -49,6 +49,7 @@ export const PIPELINE_STAGES = [
   "armed",
   "sent",
   "live",
+  "live_missing",
   "needs_fixing",
   "parked",
 ] as const;
@@ -72,12 +73,20 @@ export const STAGE_EXECUTION: Record<PipelineStage, StageExecution> = {
   armed: "armed",
   sent: "inert",
   live: "terminal",
+  // The page is live and fine — the missing draft is a maintenance concern, not
+  // a task. Terminal so Up Next never nags about a working customer page.
+  live_missing: "terminal",
   needs_fixing: "blocked",
   parked: "terminal",
 };
 
 /** Stages that represent an exception rather than forward progress. */
-export const EXCEPTION_STAGES: PipelineStage[] = ["needs_fixing", "parked", "sent"];
+export const EXCEPTION_STAGES: PipelineStage[] = [
+  "needs_fixing",
+  "parked",
+  "sent",
+  "live_missing",
+];
 
 /**
  * A pending schedule this far past its time did not fire. Saying "Scheduled"
@@ -127,9 +136,14 @@ export function pipelineStage(input: StageInput): PipelineStage {
   //    an opportunity that had previously been discarded.
   //
   //    The opportunity side matters too: canonicalUrl can outlive the draft that
-  //    produced it, and that page is still out there.
+  //    produced it, and that page is still out there. When it does and there is
+  //    NO resolvable asset, the stage is "live_missing", not "live": regenerating
+  //    from scratch would let the connector CREATE a second post at a new URL
+  //    (the external id lived on the deleted asset) — self-cannibalising duplicate
+  //    content. Its action carries the prior canonicalUrl into a rewrite so the
+  //    connector updates in place. With an asset present, "live" wins normally.
   if (a?.livePublishStatus === "published" || a?.liveUrl) return "live";
-  if (o && (o.canonicalUrl || o.publishedAt)) return "live";
+  if (o && (o.canonicalUrl || o.publishedAt)) return a ? "live" : "live_missing";
 
   // 2. Put aside by the user. Ahead of every WORKING stage, so archived items are
   //    never resurrected into a column that asks the user to do something.
@@ -201,6 +215,8 @@ export function nextAction(stage: PipelineStage): string {
       return "pipeline.action.confirmLive";
     case "live":
       return "pipeline.action.viewImpact";
+    case "live_missing":
+      return "pipeline.action.rewrite";
     case "needs_fixing":
       return "pipeline.action.fix";
     case "parked":
@@ -261,7 +277,10 @@ export const STAGE_URGENCY: Record<PipelineStage, number> = {
   idea: 7,
   armed: 8,
   live: 9,
-  parked: 10,
+  // A live page with a lost draft is not urgent — it works. It sits below live
+  // and above parked; being terminal, upNext excludes it regardless.
+  live_missing: 10,
+  parked: 11,
 };
 
 export interface UpNextItem<T> {

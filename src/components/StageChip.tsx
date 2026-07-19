@@ -26,6 +26,9 @@ const STAGE_CLASSES: Record<PipelineStage, string> = {
   armed: "border-amber-500/50 bg-amber-500/15 text-amber-800 font-medium",
   sent: "border-sky-500/40 bg-sky-500/10 text-sky-700",
   live: "border-emerald-600/50 bg-emerald-600/15 text-emerald-800",
+  // Live, but the draft is gone. Amber warning, deliberately NOT the green of
+  // live — a page whose editable source is lost must not read as healthy.
+  live_missing: "border-amber-600/50 bg-amber-500/10 text-amber-800",
   needs_fixing: "border-destructive/40 bg-destructive/10 text-destructive",
   parked: "border-border bg-muted text-muted-foreground",
 };

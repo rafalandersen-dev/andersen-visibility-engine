@@ -1141,6 +1141,7 @@ export const pl: Record<string, string> = {
   "pipeline.stage.armed": "Publikacja ustawiona",
   "pipeline.stage.sent": "Wysłane na stronę",
   "pipeline.stage.live": "Live",
+  "pipeline.stage.live_missing": "Live · brak wersji roboczej",
   "pipeline.stage.needs_fixing": "Do naprawy",
   "pipeline.stage.parked": "Odłożone",
   "pipeline.action.prioritise": "Nadaj priorytet",
@@ -1152,6 +1153,7 @@ export const pl: Record<string, string> = {
   "pipeline.action.viewSchedule": "Zobacz publikację",
   "pipeline.action.confirmLive": "Potwierdź, że jest live",
   "pipeline.action.viewImpact": "Zobacz efekty",
+  "pipeline.action.rewrite": "Przepisz tę stronę",
   "pipeline.action.fix": "Napraw",
   "pipeline.action.unpark": "Przywróć",
 };

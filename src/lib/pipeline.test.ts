@@ -81,7 +81,11 @@ describe("legacy statuses observed in production", () => {
     // opportunity that had been discarded. Rendering that as "parked" would hide
     // a live page from every surface that could update or unpublish it.
     expect(stage(opp({ status: "Discarded" }), { liveUrl: "https://x.test/p" })).toBe("live");
-    expect(stage(opp({ status: "Discarded", canonicalUrl: "https://x.test/p" }))).toBe("live");
+    // With the draft gone, the discarded-but-live page is "live_missing" — still
+    // surfaced, never "parked", but flagged as having no editable source.
+    expect(stage(opp({ status: "Discarded", canonicalUrl: "https://x.test/p" }))).toBe(
+      "live_missing",
+    );
   });
 });
 
@@ -92,9 +96,23 @@ describe("publish state dominates asset status", () => {
     expect(stage(opp(), { status: "Rejected", liveUrl: "https://x.test/p" })).toBe("live");
   });
 
-  it("is live from the opportunity when the draft is gone", () => {
-    expect(stage(opp({ canonicalUrl: "https://x.test/p" }), undefined)).toBe("live");
-    expect(stage(opp({ publishedAt: "2026-07-01T00:00:00Z" }), undefined)).toBe("live");
+  it("is live_missing from the opportunity when the draft is gone", () => {
+    // The page is on the site but there is no asset to open or rewrite. Deriving
+    // "live" here would offer "See the impact" for a page with no editable source;
+    // deriving a working stage would regenerate from scratch and let the connector
+    // CREATE a duplicate. live_missing is the distinct stage whose only action is a
+    // rewrite that carries the prior URL forward.
+    expect(stage(opp({ canonicalUrl: "https://x.test/p" }), undefined)).toBe("live_missing");
+    expect(stage(opp({ publishedAt: "2026-07-01T00:00:00Z" }), undefined)).toBe("live_missing");
+  });
+
+  it("is live (not live_missing) once a draft exists again for a published page", () => {
+    // Anti-regression for the rewrite path: an opportunity with canonicalUrl set
+    // and a resolvable asset present derives to "live", NOT "writing" — so the
+    // board never invites "Write it" on a page already on the customer's site.
+    // The fresh rewrite draft carries the prior URL only in republishTargetUrl,
+    // which pipelineStage does not read, so the ASSET alone still derives "writing".
+    expect(stage(opp({ canonicalUrl: "https://x.test/p" }), { status: "Draft" })).toBe("live");
   });
 
   it("reports a failed live publish as needs fixing", () => {

@@ -1120,6 +1120,7 @@ export const da: Record<string, string> = {
   "pipeline.stage.armed": "Planlagt udgivelse",
   "pipeline.stage.sent": "Sendt til sitet",
   "pipeline.stage.live": "Live",
+  "pipeline.stage.live_missing": "Live · udkast mangler",
   "pipeline.stage.needs_fixing": "Skal rettes",
   "pipeline.stage.parked": "Parkeret",
   "pipeline.action.prioritise": "Prioritér den",
@@ -1131,6 +1132,7 @@ export const da: Record<string, string> = {
   "pipeline.action.viewSchedule": "Se udgivelsen",
   "pipeline.action.confirmLive": "Bekræft at den er live",
   "pipeline.action.viewImpact": "Se effekten",
+  "pipeline.action.rewrite": "Omskriv siden",
   "pipeline.action.fix": "Ret den",
   "pipeline.action.unpark": "Hent den tilbage",
 };

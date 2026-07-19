@@ -1186,6 +1186,7 @@ export const en: Record<string, string> = {
   "pipeline.stage.armed": "Scheduled",
   "pipeline.stage.sent": "Sent to site",
   "pipeline.stage.live": "Live",
+  "pipeline.stage.live_missing": "Live · draft missing",
   "pipeline.stage.needs_fixing": "Needs fixing",
   "pipeline.stage.parked": "Parked",
   "pipeline.action.prioritise": "Prioritise it",
@@ -1197,6 +1198,7 @@ export const en: Record<string, string> = {
   "pipeline.action.viewSchedule": "See the go-live",
   "pipeline.action.confirmLive": "Confirm it is live",
   "pipeline.action.viewImpact": "See the impact",
+  "pipeline.action.rewrite": "Rewrite this page",
   "pipeline.action.fix": "Fix it",
   "pipeline.action.unpark": "Bring it back",
 };
