@@ -8,6 +8,7 @@
  * never returned after creation, never logged. All tools are scoped to the
  * resolved user's own workspace. Never import from client code.
  */
+import { newOpportunityRecord } from "./opportunities";
 import type {
   Project,
   Opportunity,
@@ -608,7 +609,9 @@ async function runWriteTool(userId: string, name: WriteToolName, input: WriteInp
     }
     if (opportunities.length >= MAX_OPPORTUNITIES) throw new WriteValidationError("opportunities", "opportunity limit reached for this workspace");
     const language = LANGUAGES.includes(String(project.primaryLanguage)) ? (project.primaryLanguage as Opportunity["language"]) : "English";
-    const opportunity: Opportunity = {
+    // Built through newOpportunityRecord so the connector writes the canonical
+    // lifecycle (captured) rather than minting another legacy "Linked" record.
+    const opportunity: Opportunity = newOpportunityRecord({
       id: entityId,
       projectId: input.projectId,
       title: input.title,
@@ -619,11 +622,10 @@ async function runWriteTool(userId: string, name: WriteToolName, input: WriteInp
       businessValue: input.rationale ?? "Suggested via the Claude connector",
       recommendedCta: "",
       priority: (input.priority ?? "Medium") as Opportunity["priority"],
-      status: "Linked", // regeneration only replaces "New" — Linked survives
       source: "claude",
       ...(input.requestId ? { requestId: input.requestId } : {}),
       createdAt: nowIso,
-    };
+    });
     return { data: { ...data, opportunities: [...opportunities, opportunity] }, result: { entityId, deduped: false } };
   });
   return result;
@@ -676,7 +678,7 @@ async function dispatchWriteTool(
     const payload =
       name === "create_growth_task"
         ? { taskId: entityId, projectId: input.projectId, status: "open", ...(deduped ? { deduped: true } : {}) }
-        : { opportunityId: entityId, projectId: input.projectId, status: "Linked", ...(deduped ? { deduped: true } : {}) };
+        : { opportunityId: entityId, projectId: input.projectId, status: "captured", ...(deduped ? { deduped: true } : {}) };
     return result(id, { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }] });
   } catch (e) {
     const { WorkspaceConflictError, WorkspaceNotFoundError } = await import("./workspace.server");

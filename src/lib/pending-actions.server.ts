@@ -10,6 +10,7 @@
  * display as expired. Approval/reject/apply server functions are deliberately
  * deferred to 1B.5 (owner-UI work).
  */
+import { newOpportunityRecord } from "./opportunities";
 import type { PendingAction, PendingActionStatus, PendingActionType } from "./types";
 import type { Opportunity, Project, ServiceItem } from "./types";
 import {
@@ -368,21 +369,24 @@ export async function resolvePendingActionForWorkspace(
           continue;
         }
         seenTitles.add(key);
-        createdOpportunities.push({
-          id: nextId(),
-          projectId: action.projectId,
-          title: item.title,
-          language,
-          contentType: (item.contentType ?? "Blog Article") as Opportunity["contentType"],
-          searchIntent: (item.searchIntent ?? "Informational") as Opportunity["searchIntent"],
-          targetAudience: item.targetAudience ?? String(project.targetAudience ?? ""),
-          businessValue: item.businessValue ?? "Suggested via the Claude connector",
-          recommendedCta: item.recommendedCta ?? "",
-          priority: (item.priority ?? "Medium") as Opportunity["priority"],
-          status: "New",
-          source: "claude",
-          createdAt: nowIso,
-        });
+        // Canonical lifecycle on write; legacy labels stay read-compatible via
+        // opportunityView but are never persisted again.
+        createdOpportunities.push(
+          newOpportunityRecord({
+            id: nextId(),
+            projectId: action.projectId,
+            title: item.title,
+            language,
+            contentType: (item.contentType ?? "Blog Article") as Opportunity["contentType"],
+            searchIntent: (item.searchIntent ?? "Informational") as Opportunity["searchIntent"],
+            targetAudience: item.targetAudience ?? String(project.targetAudience ?? ""),
+            businessValue: item.businessValue ?? "Suggested via the Claude connector",
+            recommendedCta: item.recommendedCta ?? "",
+            priority: (item.priority ?? "Medium") as Opportunity["priority"],
+            source: "claude",
+            createdAt: nowIso,
+          }),
+        );
       }
 
       const applySummary: ProjectSetupApplySummary = {

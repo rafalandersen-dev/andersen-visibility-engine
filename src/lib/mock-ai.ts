@@ -494,10 +494,12 @@ export async function improveContentDraft(contentAssetId: string) {
 const priorityRank: Record<Priority, number> = { High: 3, Medium: 2, Low: 1 };
 
 /** Build a "New"-equivalent Opportunity from an audit finding.
- *  Status is "Linked" so a later opportunities re-generation
- *  (which replaces only "New" items) never wipes audit-derived ones. */
+ *  Built through newOpportunityRecord so the record carries the canonical
+ *  lifecycle and its provenance fields. Regeneration no longer touches
+ *  opportunities at all (it replaces discoverySuggestions), so nothing here
+ *  depends on the old "Linked survives" trick. */
 function opportunityFromFinding(finding: AuditFinding, project: Project): Opportunity {
-  return {
+  return newOpportunityRecord({
     id: uid(),
     projectId: project.id,
     title: finding.suggestedOpportunityTitle || finding.title,
@@ -508,9 +510,8 @@ function opportunityFromFinding(finding: AuditFinding, project: Project): Opport
     businessValue: finding.recommendation || finding.explanation,
     recommendedCta: finding.suggestedCta || "Contact us",
     priority: finding.priority,
-    status: "Linked",
     source: "audit",
-  };
+  });
 }
 
 export async function runSiteAudit(projectId: string, websiteUrl?: string) {
@@ -609,9 +610,9 @@ export async function createOpportunitiesFromTopFixes(projectId: string) {
 // Competitor Gap v1
 // ============================================================
 
-/** Build a "Linked" Opportunity from a competitor gap (survives opportunity regeneration). */
+/** Build an Opportunity from a competitor gap, with canonical lifecycle + provenance. */
 function opportunityFromGap(gap: CompetitorGap, project: Project): Opportunity {
-  return {
+  return newOpportunityRecord({
     id: uid(),
     projectId: project.id,
     title: gap.suggestedOpportunityTitle || gap.title,
@@ -622,9 +623,8 @@ function opportunityFromGap(gap: CompetitorGap, project: Project): Opportunity {
     businessValue: gap.recommendation || gap.explanation,
     recommendedCta: gap.suggestedCta || "Contact us",
     priority: gap.priority,
-    status: "Linked",
     source: "competitor",
-  };
+  });
 }
 
 export async function runCompetitorGap(projectId: string, competitorUrls: string[]) {
@@ -724,9 +724,9 @@ export async function createOpportunitiesFromTopGaps(projectId: string) {
 // Authority v1
 // ============================================================
 
-/** Build a "Linked" Opportunity from an authority item (survives opportunity regeneration). */
+/** Build an Opportunity from an authority item, with canonical lifecycle + provenance. */
 function opportunityFromAuthorityItem(item: AuthorityItem, project: Project): Opportunity {
-  return {
+  return newOpportunityRecord({
     id: uid(),
     projectId: project.id,
     title: item.suggestedOpportunityTitle || item.title,
@@ -737,9 +737,8 @@ function opportunityFromAuthorityItem(item: AuthorityItem, project: Project): Op
     businessValue: item.recommendation || item.explanation,
     recommendedCta: item.suggestedCta || "Contact us",
     priority: item.priority,
-    status: "Linked",
     source: "authority",
-  };
+  });
 }
 
 export async function runAuthorityAnalysis(projectId: string) {
@@ -967,14 +966,14 @@ export async function generateAuthorityOpportunities(projectId: string) {
   });
 }
 
-/** Convert a v2 authority opportunity into a Linked Opportunity (idempotent per item). */
+/** Convert a v2 authority opportunity into an Opportunity (idempotent per item). */
 export async function convertAuthorityOpportunityToOpportunity(projectId: string, id: string) {
   const s = getState();
   const item = s.authorityOpportunities.find((a) => a.id === id);
   if (!item) throw new Error("Authority opportunity not found.");
   if (item.linkedOpportunityId) throw new Error("This item is already an opportunity.");
   const { project } = requireProject(projectId);
-  const opp: Opportunity = {
+  const opp: Opportunity = newOpportunityRecord({
     id: uid(),
     projectId,
     title: `Create/submit listing for ${item.title}`,
@@ -985,9 +984,8 @@ export async function convertAuthorityOpportunityToOpportunity(projectId: string
     businessValue: item.description || item.relevanceReason || "Build trust and authority signals.",
     recommendedCta: "Contact us",
     priority: item.priority === "high" ? "High" : item.priority === "low" ? "Low" : "Medium",
-    status: "Linked",
     source: "authority",
-  };
+  });
   addOpportunities([opp]);
   updateAuthorityOpportunity(id, { linkedOpportunityId: opp.id });
   await saveWorkspaceNow();
@@ -998,9 +996,9 @@ export async function convertAuthorityOpportunityToOpportunity(projectId: string
 // AI Visibility v1 (planning/readiness — no live AI checks)
 // ============================================================
 
-/** Build a "Linked" Opportunity from an AI-visibility gap (survives opportunity regeneration). */
+/** Build an Opportunity from an AI-visibility gap, with canonical lifecycle + provenance. */
 function opportunityFromVisibilityGap(gap: AiVisibilityGap, project: Project): Opportunity {
-  return {
+  return newOpportunityRecord({
     id: uid(),
     projectId: project.id,
     title: gap.suggestedOpportunityTitle || gap.title,
@@ -1011,9 +1009,8 @@ function opportunityFromVisibilityGap(gap: AiVisibilityGap, project: Project): O
     businessValue: gap.recommendation || gap.explanation,
     recommendedCta: gap.suggestedCta || "Contact us",
     priority: gap.priority,
-    status: "Linked",
     source: "aiVisibility",
-  };
+  });
 }
 
 export async function runAiVisibilityAnalysis(projectId: string) {
@@ -1143,12 +1140,12 @@ export async function createOpportunitiesFromTopAiActions(projectId: string) {
 // Backlinks v1 (DataForSEO link profile + link gap)
 // ============================================================
 
-/** Build a "Linked" Opportunity from a backlink recommendation (survives opportunity regeneration). */
+/** Build an Opportunity from a backlink recommendation, with canonical lifecycle + provenance. */
 function opportunityFromBacklinkRecommendation(
   rec: BacklinkRecommendation,
   project: Project,
 ): Opportunity {
-  return {
+  return newOpportunityRecord({
     id: uid(),
     projectId: project.id,
     title: rec.suggestedOpportunityTitle || rec.title,
@@ -1159,9 +1156,8 @@ function opportunityFromBacklinkRecommendation(
     businessValue: rec.recommendation || rec.explanation,
     recommendedCta: rec.suggestedCta || "Contact us",
     priority: rec.priority,
-    status: "Linked",
     source: "backlinks",
-  };
+  });
 }
 
 /** UI-safe check: configuration, account health and remaining provider balance. */

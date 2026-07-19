@@ -752,12 +752,12 @@ describe("write tools — execution", () => {
     expect(JSON.stringify(audits)).not.toContain("SECRET");
   });
 
-  it("create_project_recommendation writes a Linked claude-sourced opportunity", async () => {
+  it("create_project_recommendation writes a canonical claude-sourced opportunity", async () => {
     const captured = fakeMutate(writeBlob());
     const { audits, hooks } = captureHooks();
     const r = await call("create_project_recommendation", { projectId: "p1", title: "SECRET-REC-TITLE", rationale: "SECRET-RATIONALE", contentType: "Guide", priority: "Low" }, hooks);
     const payload = parsePayload(r);
-    expect(payload.status).toBe("Linked");
+    expect(payload.status).toBe("captured");
     expect(typeof payload.opportunityId).toBe("string");
 
     const opps = captured.written?.opportunities as Record<string, unknown>[];
@@ -765,7 +765,8 @@ describe("write tools — execution", () => {
     expect(opps[0]).toMatchObject({
       projectId: "p1",
       title: "SECRET-REC-TITLE",
-      status: "Linked",
+      // Canonical lifecycle on write; the legacy "Linked" label is read-only history.
+      status: "captured",
       source: "claude",
       contentType: "Guide",
       priority: "Low",

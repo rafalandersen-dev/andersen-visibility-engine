@@ -88,7 +88,7 @@ function AiEvaluationPage() {
         : {
             id: "eval", projectId: p.id, title: topic.trim() || "Evaluation topic", language: p.primaryLanguage,
             contentType: "Blog Article", searchIntent: "Informational", targetAudience: p.targetAudience || "Potential customers",
-            businessValue: "Evaluation", recommendedCta: "Contact us", priority: "Medium", status: "New",
+            businessValue: "Evaluation", recommendedCta: "Contact us", priority: "Medium", status: "captured",
           };
       const res = await generateContentFn({ data: { project: p, services, opportunity: opp, assetType: "article", modelOverride } });
       return res.markdown;

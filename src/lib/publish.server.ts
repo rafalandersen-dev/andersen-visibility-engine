@@ -17,7 +17,13 @@ import { publishLiveDirect } from "./publish.functions";
 import { publishWordPressLiveDirect } from "./wordpress.functions";
 import { upsertArticle } from "./shopify.functions";
 import { isShopify, isWordPress, shopifyArticleArgs, wpPublishArgs } from "./publish-targets";
-import { applyOutcome, findAssetAndProject, PublishNotPossibleError } from "./publish-outcome";
+import {
+  applyAssetPatch,
+  applyPublishSuccess,
+  findAssetAndProject,
+  CLEARED_SCHEDULE_FIELDS,
+  PublishNotPossibleError,
+} from "./publish-outcome";
 import type { ContentAsset, Project } from "./types";
 
 export { PublishNotPossibleError, findAssetAndProject } from "./publish-outcome";
@@ -152,12 +158,14 @@ export async function publishAssetServerSide(
 
   // 2. Record the outcome under the rev guard (retries on a lost race).
   await mutateWorkspace(userId, (data) => ({
-    data: applyOutcome(data, assetId, {
+    data: applyPublishSuccess(data, assetId, {
       ...assetPatch,
       livePublishStatus: "published",
       livePublishError: undefined,
-      scheduledPublishStatus: "published",
       scheduledPublishError: undefined,
+      // The schedule is spent: clear the mirror so the item stops deriving to
+      // "Scheduled" and stops advertising a go-live date that already happened.
+      ...CLEARED_SCHEDULE_FIELDS,
     }),
     result: null,
   }));
@@ -165,16 +173,51 @@ export async function publishAssetServerSide(
   return result;
 }
 
-/** Record a failed scheduled publish on the asset so the editor can show it. */
+/**
+ * Record a failed scheduled publish on the asset so the editor can show it.
+ *
+ * Uses applyAssetPatch, never applyPublishSuccess: an asset that went live in an
+ * earlier run still carries a liveUrl, and promoting its opportunity here would
+ * report a failure as a fresh publication.
+ */
 export async function recordScheduledPublishFailure(
   userId: string,
   assetId: string,
   message: string,
 ): Promise<void> {
   await mutateWorkspace(userId, (data) => ({
-    data: applyOutcome(data, assetId, {
+    data: applyAssetPatch(data, assetId, {
       scheduledPublishStatus: "failed",
       scheduledPublishError: message,
+      // The queue row is terminal, so the armed date is no longer meaningful.
+      scheduledPublishAt: undefined,
+    }),
+    result: null,
+  }));
+}
+
+/** Clear the schedule mirror when a queued publish is cancelled by the user. */
+export async function clearScheduleMirror(userId: string, assetId: string): Promise<void> {
+  await mutateWorkspace(userId, (data) => ({
+    data: applyAssetPatch(data, assetId, {
+      ...CLEARED_SCHEDULE_FIELDS,
+      scheduledPublishError: undefined,
+    }),
+    result: null,
+  }));
+}
+
+/** Mirror a newly armed schedule onto the asset so the UI can render it. */
+export async function writeScheduleMirror(
+  userId: string,
+  assetId: string,
+  publishAt: string,
+): Promise<void> {
+  await mutateWorkspace(userId, (data) => ({
+    data: applyAssetPatch(data, assetId, {
+      scheduledPublishAt: publishAt,
+      scheduledPublishStatus: "pending",
+      scheduledPublishError: undefined,
     }),
     result: null,
   }));

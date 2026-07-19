@@ -732,15 +732,6 @@ export const deleteOpportunityRecoverably = (id: string): Opportunity => {
   return deleted;
 };
 
-export const replaceNewOpportunities = (projectId: string, items: Opportunity[]) =>
-  setState((s) => ({
-    ...s,
-    opportunities: [
-      ...s.opportunities.filter((o) => o.projectId !== projectId || o.status !== "New"),
-      ...items,
-    ],
-  }));
-
 export const addCalendarItems = (items: CalendarItem[]) =>
   setState((s) => ({ ...s, calendar: [...s.calendar, ...items] }));
 

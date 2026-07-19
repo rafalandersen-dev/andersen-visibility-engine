@@ -34,12 +34,24 @@ export function findAssetAndProject(
 }
 
 /**
- * Apply a patch to one asset inside the blob, immutably, and keep the linked
- * opportunity in step when the asset went live — the same bookkeeping the
- * editor does after a manual publish. Without it the Plan board would leave a
- * published item sitting in "Approved".
+ * Fields the scheduling queue mirrors onto the asset. Cleared together whenever
+ * a schedule stops being live (cancelled, published, or failed) — a stale
+ * `scheduledPublishAt` would keep deriving the item to "Scheduled" and keep
+ * promising a go-live that will never happen.
  */
-export function applyOutcome(
+export const CLEARED_SCHEDULE_FIELDS: Partial<ContentAsset> = {
+  scheduledPublishAt: undefined,
+  scheduledPublishStatus: undefined,
+};
+
+/**
+ * Patch one asset inside the blob, immutably. Touches nothing else.
+ *
+ * Use this for every write that is NOT a confirmed successful publish —
+ * failures, cancellations, status mirroring. It deliberately cannot promote an
+ * opportunity: see applyPublishSuccess for why that separation matters.
+ */
+export function applyAssetPatch(
   data: WorkspaceData,
   assetId: string,
   assetPatch: Partial<ContentAsset>,
@@ -47,12 +59,35 @@ export function applyOutcome(
   const content = asArray<ContentAsset>(data.content).map((c) =>
     c?.id === assetId ? { ...c, ...assetPatch } : c,
   );
-  const next: WorkspaceData = { ...data, content };
+  return { ...data, content };
+}
 
+/**
+ * Patch the asset AND promote its linked opportunity to published — the same
+ * bookkeeping the editor does after a manual publish. Without it the Plan board
+ * would leave a shipped item sitting in "Approved".
+ *
+ * Split from applyAssetPatch deliberately. The previous combined version keyed
+ * the opportunity promotion off `asset.liveUrl` being truthy, which meant that
+ * recording a FAILED publish on an asset that had been live since an earlier
+ * run silently re-stamped the opportunity as freshly published — resetting
+ * measurementStatus and overwriting publishedAt with a stale timestamp. The
+ * promotion is now driven by the caller knowing it succeeded, never inferred.
+ */
+export function applyPublishSuccess(
+  data: WorkspaceData,
+  assetId: string,
+  assetPatch: Partial<ContentAsset>,
+): WorkspaceData {
+  const next = applyAssetPatch(data, assetId, assetPatch);
+  const content = asArray<ContentAsset>(next.content);
   const asset = content.find((c) => c?.id === assetId);
   const oppId = asset?.opportunityId ?? asset?.sourceOpportunityId;
-  if (asset?.liveUrl && oppId) {
-    next.opportunities = asArray<Record<string, unknown>>(data.opportunities).map((o) =>
+  if (!asset?.liveUrl || !oppId) return next;
+
+  return {
+    ...next,
+    opportunities: asArray<Record<string, unknown>>(data.opportunities).map((o) =>
       o?.id === oppId
         ? {
             ...o,
@@ -63,7 +98,6 @@ export function applyOutcome(
             measurementStatus: "collecting",
           }
         : o,
-    );
-  }
-  return next;
+    ),
+  };
 }

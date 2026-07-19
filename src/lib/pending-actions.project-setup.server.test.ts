@@ -229,11 +229,11 @@ describe("approve_apply — happy paths", () => {
     expect(out.action.resolution?.appliedEntityIds).toEqual(["id1", "id2"]);
   });
 
-  it("opportunities-only: status New, source claude, project language + 1A defaults, createdAt stamped", async () => {
+  it("opportunities-only: canonical status, source claude, project language + 1A defaults, createdAt stamped", async () => {
     seedAction({ opportunities: [{ title: "Fresh topic" }] });
     await approve();
     const created = storedOpportunities()[1];
-    expect(created).toEqual({
+    expect(created).toMatchObject({
       id: "id1", // first id in the pool — services consumed none
       projectId: "synergy",
       title: "Fresh topic",
@@ -244,10 +244,24 @@ describe("approve_apply — happy paths", () => {
       businessValue: "Suggested via the Claude connector",
       recommendedCta: "",
       priority: "Medium",
-      status: "New",
+      // Canonical lifecycle on write; the legacy "New" label is read-only history.
+      status: "captured",
       source: "claude",
       createdAt: T1,
     });
+    // Routed through newOpportunityRecord, so the record carries the provenance
+    // the lifecycle model depends on instead of being a bare literal.
+    expect(created).toMatchObject({
+      primarySource: "claude",
+      creationMode: "milo_discovery",
+      businessImpact: "medium",
+      measurementStatus: "not_started",
+      measurementWindowDays: 28,
+      reasonDiscovered: "Suggested via the Claude connector",
+      evidence: [],
+      version: 1,
+    });
+    expect(Array.isArray(created.sourceRefs)).toBe(true);
   });
 
   it("falls back to English when the project language is not a valid union member", async () => {
