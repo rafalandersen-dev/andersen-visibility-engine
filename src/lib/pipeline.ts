@@ -233,3 +233,53 @@ export function linkedAssetFor(
     )
   );
 }
+
+/**
+ * How loudly a stage asks for the user's attention.
+ *
+ * Lower sorts first. The ordering encodes a judgement: something BROKEN beats
+ * something merely unfinished, because a failed publish is costing the customer
+ * right now while an unwritten draft is not. `armed` sits low precisely because
+ * it needs nothing — it is going to happen on its own, and surfacing it as a
+ * task would teach the user to ignore the list.
+ */
+export const STAGE_URGENCY: Record<PipelineStage, number> = {
+  needs_fixing: 0,
+  sent: 1,
+  ready: 2,
+  in_review: 3,
+  writing: 4,
+  planned: 5,
+  queued: 6,
+  idea: 7,
+  armed: 8,
+  live: 9,
+  parked: 10,
+};
+
+export interface UpNextItem<T> {
+  item: T;
+  stage: PipelineStage;
+  /** i18n key for the single primary action. */
+  actionKey: string;
+}
+
+/**
+ * The "what needs me now" queue: at most `limit` items, each one thing with one
+ * action.
+ *
+ * Deliberately capped and deliberately not a to-do list of everything. A
+ * non-marketer who opens the app to twenty tasks does none of them; the whole
+ * value is answering "what is the one thing" honestly. Terminal and armed
+ * stages are excluded entirely — nothing there is waiting on a human.
+ */
+export function upNext<T>(
+  entries: Array<{ item: T; stage: PipelineStage }>,
+  limit = 3,
+): Array<UpNextItem<T>> {
+  return entries
+    .filter((e) => STAGE_EXECUTION[e.stage] !== "terminal" && e.stage !== "armed")
+    .sort((a, b) => STAGE_URGENCY[a.stage] - STAGE_URGENCY[b.stage])
+    .slice(0, limit)
+    .map((e) => ({ item: e.item, stage: e.stage, actionKey: nextAction(e.stage) }));
+}

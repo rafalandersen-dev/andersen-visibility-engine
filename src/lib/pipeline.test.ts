@@ -16,6 +16,7 @@ import {
   nextAction,
   linkedAssetFor,
   isDropped,
+  upNext,
   type PipelineStage,
   type StageOpportunity,
 } from "./pipeline";
@@ -243,6 +244,35 @@ describe("linkedAssetFor", () => {
     const viaSource = [asset({ id: "s1", sourceOpportunityId: "o1" })];
     expect(linkedAssetFor(opp(), viaSource)?.id).toBe("s1");
     expect(linkedAssetFor(opp(), [])).toBeUndefined();
+  });
+});
+
+describe("upNext", () => {
+  const entry = (id: string, stage: PipelineStage) => ({ item: { id }, stage });
+
+  it("puts something broken ahead of something merely unfinished", () => {
+    const q = upNext([entry("a", "writing"), entry("b", "needs_fixing"), entry("c", "ready")]);
+    expect(q.map((x) => x.item.id)).toEqual(["b", "c", "a"]);
+  });
+
+  it("excludes armed and terminal work — nothing there waits on a human", () => {
+    const q = upNext([entry("live", "live"), entry("armed", "armed"), entry("parked", "parked")]);
+    expect(q).toEqual([]);
+  });
+
+  it("caps the list, because twenty tasks means none get done", () => {
+    const many = Array.from({ length: 9 }, (_, i) => entry(String(i), "ready"));
+    expect(upNext(many)).toHaveLength(3);
+    expect(upNext(many, 1)).toHaveLength(1);
+  });
+
+  it("carries the single action key for each stage", () => {
+    expect(upNext([entry("a", "ready")])[0].actionKey).toBe("pipeline.action.schedule");
+    expect(upNext([entry("a", "sent")])[0].actionKey).toBe("pipeline.action.confirmLive");
+  });
+
+  it("handles an empty queue", () => {
+    expect(upNext([])).toEqual([]);
   });
 });
 

@@ -5,6 +5,12 @@ import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { computeLaunchChecklist } from "@/lib/launch";
 import { opportunityView } from "@/lib/opportunities";
+import { pipelineStage, linkedAssetFor, upNext, isDropped } from "@/lib/pipeline";
+import { StageChip } from "@/components/StageChip";
+// Home is not localised yet (no useT anywhere in this file); pull the action
+// label straight from the base dictionary so the wording still comes from ONE
+// place and cannot drift from the chip beside it.
+import { en } from "@/i18n/en";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -73,13 +79,21 @@ function Dashboard() {
 
   if (!active) return <FirstProject />;
 
-  const latestAssetByOpportunity = new Map<string, (typeof content)[number]>();
+  // Precedence, not recency — see linkedAssetFor. Picking the newest asset let an
+  // armed one hide behind a later inert draft, so Home would invite the user to
+  // work on something the cron was about to publish.
+  const assetsByOpportunity = new Map<string, (typeof content)[number][]>();
   for (const asset of content) {
     const opportunityId = asset.opportunityId ?? asset.sourceOpportunityId;
     if (!opportunityId) continue;
-    const current = latestAssetByOpportunity.get(opportunityId);
-    if (!current || current.updatedAt < asset.updatedAt)
-      latestAssetByOpportunity.set(opportunityId, asset);
+    const list = assetsByOpportunity.get(opportunityId);
+    if (list) list.push(asset);
+    else assetsByOpportunity.set(opportunityId, [asset]);
+  }
+  const latestAssetByOpportunity = new Map<string, (typeof content)[number]>();
+  for (const [opportunityId, list] of assetsByOpportunity) {
+    const chosen = linkedAssetFor({ id: opportunityId }, list);
+    if (chosen) latestAssetByOpportunity.set(opportunityId, chosen);
   }
   const opportunities = rawOpportunities
     .map((item) => opportunityView(item, latestAssetByOpportunity.get(item.id)))
@@ -106,12 +120,47 @@ function Dashboard() {
     isOwner,
   });
 
-  const nextActions = buildNextActions({
-    suggestions: suggestions.length,
-    opportunities,
-    drafting,
-    inReview,
-  });
+  /**
+   * "Up Next" — at most three items, each one thing with one action, ranked by
+   * the shared urgency order rather than by a hand-rolled list of heuristics.
+   * Broken work outranks unfinished work; armed and finished work is excluded
+   * entirely, because nothing there is waiting on a human.
+   */
+  const upNextItems = upNext(
+    rawOpportunities
+      .filter((item) => !isDropped(item))
+      .map((item) => ({
+        item,
+        stage: pipelineStage({
+          opportunity: item,
+          asset: latestAssetByOpportunity.get(item.id),
+        }),
+      })),
+  );
+  const nextActions = [
+    // Suggestions are not opportunities yet, so they sit outside the pipeline —
+    // but accepting them is genuinely the first thing to do on a fresh workspace.
+    ...(suggestions.length
+      ? [
+          {
+            key: "suggestions",
+            title: `Review ${suggestions.length} discovered suggestion${suggestions.length === 1 ? "" : "s"}`,
+            body: "Nothing enters Plan until you accept it.",
+            to: "/app/plan" as const,
+            search: { view: "discover" } as Record<string, string>,
+            stage: undefined,
+          },
+        ]
+      : []),
+    ...upNextItems.map((entry) => ({
+      key: entry.item.id,
+      title: entry.item.title,
+      body: en[entry.actionKey] ?? "",
+      to: "/app/plan" as const,
+      search: { selected: entry.item.id } as Record<string, string>,
+      stage: entry.stage,
+    })),
+  ].slice(0, 4);
   const recentActivity = [
     ...latestContent.map((asset) => ({
       id: `content-${asset.id}`,
@@ -188,19 +237,22 @@ function Dashboard() {
           }
         >
           <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+            {nextActions.length === 0 ? (
+              <div className="px-4 py-6 text-sm text-muted-foreground">
+                Nothing needs you right now.
+              </div>
+            ) : null}
             {nextActions.map((action) => (
               <button
-                key={action.title}
+                key={action.key}
                 onClick={() => navigate({ to: action.to, search: action.search as never })}
                 className="flex w-full items-center gap-4 px-4 py-4 text-left transition-colors hover:bg-secondary/35"
               >
-                <span
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${action.tone}`}
-                >
-                  <action.icon className="h-5 w-5" />
-                </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium">{action.title}</span>
+                  <span className="flex flex-wrap items-center gap-2">
+                    {action.stage ? <StageChip stage={action.stage} /> : null}
+                    <span className="block truncate text-sm font-medium">{action.title}</span>
+                  </span>
                   <span className="mt-0.5 block truncate text-xs text-muted-foreground">
                     {action.body}
                   </span>
@@ -463,74 +515,6 @@ function EmptyInbox() {
       </p>
     </div>
   );
-}
-
-function buildNextActions({
-  suggestions,
-  opportunities,
-  drafting,
-  inReview,
-}: {
-  suggestions: number;
-  opportunities: ReturnType<typeof opportunityView>[];
-  drafting: number;
-  inReview: number;
-}) {
-  const unscheduled = opportunities.find(
-    (item) => item.status === "captured" || item.status === "prioritized",
-  );
-  const actions = [] as Array<{
-    title: string;
-    body: string;
-    to: "/app/plan" | "/app/editor";
-    search?: Record<string, string>;
-    icon: typeof Sparkles;
-    tone: string;
-  }>;
-  if (suggestions)
-    actions.push({
-      title: `Review ${suggestions} discovered suggestion${suggestions === 1 ? "" : "s"}`,
-      body: "Nothing enters Plan until you accept it.",
-      to: "/app/plan",
-      search: { view: "discover" },
-      icon: Search,
-      tone: "bg-emerald-500/10 text-emerald-700",
-    });
-  if (unscheduled)
-    actions.push({
-      title: `Schedule “${unscheduled.title}”`,
-      body: "Set a date directly from the opportunity or calendar.",
-      to: "/app/plan",
-      search: { view: "calendar", selected: unscheduled.id },
-      icon: CalendarDays,
-      tone: "bg-sky-500/10 text-sky-700",
-    });
-  if (drafting)
-    actions.push({
-      title: `Continue ${drafting} draft${drafting === 1 ? "" : "s"}`,
-      body: "Milo Score evaluates the current content version.",
-      to: "/app/editor",
-      icon: FileEdit,
-      tone: "bg-violet-500/10 text-violet-700",
-    });
-  if (inReview)
-    actions.push({
-      title: `Review ${inReview} content asset${inReview === 1 ? "" : "s"}`,
-      body: "Approve when the content is ready to publish.",
-      to: "/app/editor",
-      icon: CheckCircle2,
-      tone: "bg-amber-500/10 text-amber-700",
-    });
-  if (!actions.length)
-    actions.push({
-      title: "Discover the next growth opportunity",
-      body: "Run Milo across your connected SEO sources.",
-      to: "/app/plan",
-      search: { view: "discover" },
-      icon: Sparkles,
-      tone: "bg-violet-500/10 text-violet-700",
-    });
-  return actions.slice(0, 3);
 }
 
 function greeting() {
