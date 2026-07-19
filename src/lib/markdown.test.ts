@@ -1,0 +1,125 @@
+/**
+ * Tests for the outbound markdown converter.
+ *
+ * This is the last thing that runs before text becomes HTML on a customer's
+ * live site, and publishing is upsert-only with no unpublish — so a rendering
+ * bug here is permanent and visible to their readers.
+ */
+import { describe, it, expect } from "vitest";
+import { markdownToHtml, slugifyForPublish } from "./markdown";
+
+describe("markdownToHtml — structure", () => {
+  it("renders headings, paragraphs and both list types", () => {
+    const html = markdownToHtml("# Title\n\nHello world\n\n- one\n- two\n\n1. first\n2. second");
+    expect(html).toContain("<h1>Title</h1>");
+    expect(html).toContain("<p>Hello world</p>");
+    expect(html).toContain("<ul>\n<li>one</li>\n<li>two</li>\n</ul>");
+    expect(html).toContain("<ol>\n<li>first</li>\n<li>second</li>\n</ol>");
+  });
+
+  it("emits no class or style attributes — the customer's theme owns styling", () => {
+    const html = markdownToHtml(
+      "# T\n\ntext **bold** [x](https://a.test)\n\n| a |\n| --- |\n| 1 |",
+    );
+    expect(html).not.toMatch(/\sclass=/);
+    expect(html).not.toMatch(/\sstyle=/);
+  });
+
+  it("escapes source HTML so markdown cannot inject markup", () => {
+    const html = markdownToHtml("<script>alert(1)</script>");
+    expect(html).toContain("&lt;script&gt;");
+    expect(html).not.toContain("<script>");
+  });
+
+  it("keeps safe link hrefs and neutralises the rest", () => {
+    expect(markdownToHtml("[a](https://x.test/p)")).toContain('<a href="https://x.test/p">a</a>');
+    expect(markdownToHtml("[a](/local)")).toContain('<a href="/local">a</a>');
+    expect(markdownToHtml("[a](javascript:alert(1))")).toContain('<a href="#">a</a>');
+  });
+});
+
+describe("markdownToHtml — images", () => {
+  // The bug this prevents: the link rule matched the "[alt](url)" half of an
+  // image and left a bare "!" as body text on the published page.
+  it("drops image markdown entirely, leaving no stray exclamation mark", () => {
+    const html = markdownToHtml("![A therapist at work](https://x.test/a.jpg)");
+    expect(html).not.toContain("!");
+    expect(html).not.toContain("<img");
+    expect(html).not.toContain("a.jpg");
+  });
+
+  it("drops an image inside a sentence without eating the sentence", () => {
+    const html = markdownToHtml("Before ![alt](https://x.test/a.png) after");
+    expect(html).toContain("Before");
+    expect(html).toContain("after");
+    expect(html).not.toContain("!");
+    expect(html).not.toContain("<img");
+  });
+
+  it("still renders a normal link that follows an image", () => {
+    const html = markdownToHtml("![x](https://x.test/a.png) and [link](https://b.test)");
+    expect(html).toContain('<a href="https://b.test">link</a>');
+    expect(html).not.toContain("<img");
+  });
+});
+
+describe("markdownToHtml — tables", () => {
+  // Comparison assets are explicitly prompted to emit a markdown TABLE
+  // (ai.functions.ts). Without this the pipes published as literal body text.
+  const table = [
+    "| Option | Price | Best for |",
+    "| --- | --- | --- |",
+    "| A | 100 | Beginners |",
+    "| B | 200 | Studios |",
+  ].join("\n");
+
+  it("renders a header row and a body", () => {
+    const html = markdownToHtml(table);
+    expect(html).toContain("<table>");
+    expect(html).toContain("<th>Option</th>");
+    expect(html).toContain("<td>Beginners</td>");
+    expect(html).toContain("</table>");
+    expect(html).not.toContain("|");
+  });
+
+  it("applies inline formatting inside cells", () => {
+    const html = markdownToHtml("| a | b |\n| --- | --- |\n| **bold** | [l](https://x.test) |");
+    expect(html).toContain("<strong>bold</strong>");
+    expect(html).toContain('<a href="https://x.test">l</a>');
+  });
+
+  it("accepts alignment separators and rows without outer pipes", () => {
+    const html = markdownToHtml("a | b\n:--- | ---:\n1 | 2");
+    expect(html).toContain("<th>a</th>");
+    expect(html).toContain("<td>2</td>");
+  });
+
+  it("pads a ragged row instead of producing a broken table", () => {
+    const html = markdownToHtml("| a | b | c |\n| --- | --- | --- |\n| 1 |");
+    expect(html).toContain("<td>1</td><td></td><td></td>");
+  });
+
+  it("resumes normal parsing after the table ends", () => {
+    const html = markdownToHtml(`${table}\n\n## After\n\nA paragraph.`);
+    expect(html).toContain("</table>");
+    expect(html).toContain("<h2>After</h2>");
+    expect(html).toContain("<p>A paragraph.</p>");
+  });
+
+  it("does not treat a lone pipe line as a table", () => {
+    // No separator row → this is prose that happens to contain a pipe.
+    const html = markdownToHtml("Choose A | B depending on budget");
+    expect(html).toContain("<p>");
+    expect(html).not.toContain("<table>");
+  });
+});
+
+describe("slugifyForPublish", () => {
+  it("folds accents, lowercases and dashes", () => {
+    expect(slugifyForPublish("Djupgående Massage i Malmö")).toBe("djupgaende-massage-i-malmo");
+  });
+  it("trims leading and trailing dashes and caps length", () => {
+    expect(slugifyForPublish("  --Hello, World!--  ")).toBe("hello-world");
+    expect(slugifyForPublish("a".repeat(200)).length).toBe(80);
+  });
+});
