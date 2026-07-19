@@ -68,9 +68,16 @@ import type {
   OpportunityLifecycleStatus,
   Project,
 } from "@/lib/types";
-import { pipelineStage, linkedAssetFor, type PipelineStage } from "@/lib/pipeline";
+import {
+  pipelineStage,
+  linkedAssetFor,
+  nextAction,
+  PIPELINE_STAGES,
+  type PipelineStage,
+} from "@/lib/pipeline";
 import { formatDateTime } from "@/lib/format";
 import { StageChip } from "@/components/StageChip";
+import { useT } from "@/i18n";
 import { toast } from "sonner";
 
 const searchSchema = z.object({
@@ -113,6 +120,44 @@ const stageColors: Record<OpportunityLifecycleStatus, string> = {
   published: "#2d7f58",
   archived: "#8d8a84",
 };
+
+/** Top-border accent per pipeline stage — the board's one vocabulary. */
+const pipelineStageColors: Record<PipelineStage, string> = {
+  idea: "#818b96",
+  queued: "#6b7688",
+  planned: "#b5862a",
+  writing: "#377fbd",
+  in_review: "#8965b3",
+  ready: "#398a63",
+  armed: "#d08700",
+  sent: "#0284c7",
+  live: "#2d7f58",
+  live_missing: "#b45309",
+  needs_fixing: "#b91c1c",
+  parked: "#8d8a84",
+};
+
+/**
+ * Board columns are the DERIVED pipeline stages, not the stored lifecycle — this
+ * is what ends the column-vs-chip disagreement (the header said "Scheduled"
+ * while the chip on the card said "Ready"). `parked` is excluded: it only arises
+ * from Discarded/archived/archivedAt, which the active board already filters out,
+ * so a parked column would be permanently empty — parked work lives in Archived.
+ */
+const BOARD_STAGES = PIPELINE_STAGES.filter((stage) => stage !== "parked");
+
+/** Only these two stages are reachable by dragging — everything past them is
+ *  derived from an asset (write/review/schedule/publish), which is the editor's
+ *  job, never a board drop. Maps a drop target to its governed lifecycle move. */
+const BOARD_DROP_TARGETS: Partial<Record<PipelineStage, OpportunityLifecycleStatus>> = {
+  queued: "prioritized",
+  planned: "scheduled",
+};
+
+/** A card can be picked up only from a stage a drop can legitimately move it out
+ *  of. Above all, an armed card cannot be dragged — the thing about to publish
+ *  to a customer's site literally cannot be picked up. */
+const DRAGGABLE_STAGES: PipelineStage[] = ["idea", "queued", "planned"];
 
 function PlanPage() {
   const search = Route.useSearch();
@@ -212,6 +257,52 @@ function PlanPage() {
     window.setTimeout(() => document.getElementById("manual-opportunity")?.focus(), 80);
   }
 
+  /**
+   * The single next action for a card, by derived stage. The most any board path
+   * does inline is prioritise (inert) — "Set a go-live time" and "See the go-live"
+   * ROUTE to the editor; the board never arms and never publishes.
+   */
+  function onPrimaryAction(opportunity: OpportunityView) {
+    const asset = assetsByOpportunity.get(opportunity.id);
+    switch (opportunity.pipeline) {
+      case "idea":
+        try {
+          transitionOpportunity(opportunity.id, "prioritized", { priority: opportunity.priority });
+          toast.success("Prioritised");
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "Could not prioritise");
+        }
+        return;
+      case "queued":
+        selectOpportunity(opportunity.id); // drawer holds the date picker
+        return;
+      case "planned":
+        setContentOpportunityId(opportunity.id); // create the linked draft
+        return;
+      case "writing":
+      case "in_review":
+      case "ready":
+      case "armed":
+      case "sent":
+      case "needs_fixing":
+        if (asset) navigate({ to: "/app/editor", search: { id: asset.id } });
+        else selectOpportunity(opportunity.id);
+        return;
+      case "live":
+        navigate({ to: "/app/analytics" });
+        return;
+      case "live_missing":
+        // The card renders its own "Open live page" link; the gated rewrite lands
+        // in the next commit. Fall back to the drawer for anything else.
+        if (opportunity.canonicalUrl) window.open(opportunity.canonicalUrl, "_blank", "noopener");
+        else selectOpportunity(opportunity.id);
+        return;
+      case "parked":
+        selectOpportunity(opportunity.id);
+        return;
+    }
+  }
+
   return (
     <AppShell
       title={view === "discover" ? "Discover opportunities" : "Plan"}
@@ -279,6 +370,7 @@ function PlanPage() {
               opportunities={opportunities}
               selectedId={selected?.id}
               onSelect={selectOpportunity}
+              onPrimaryAction={onPrimaryAction}
             />
           )}
 
@@ -672,25 +764,52 @@ function BoardView({
   opportunities,
   selectedId,
   onSelect,
+  onPrimaryAction,
 }: {
   opportunities: OpportunityView[];
   selectedId?: string;
   onSelect: (id?: string) => void;
+  onPrimaryAction: (opportunity: OpportunityView) => void;
 }) {
-  const stages = OPPORTUNITY_STAGES.filter((stage) => stage !== "published");
+  const t = useT();
+  const [dragging, setDragging] = useState(false);
 
-  function dropOnStage(event: React.DragEvent, stage: OpportunityLifecycleStatus) {
+  /**
+   * Only two columns take a mutating drop. Every other pipeline stage is derived
+   * from an asset — reached by writing, reviewing, scheduling or publishing in the
+   * editor, never by dropping a card. A drop elsewhere explains itself rather than
+   * silently doing nothing, and nothing on this board can ever arm or publish.
+   */
+  function dropOnColumn(event: React.DragEvent, target: PipelineStage) {
     event.preventDefault();
+    setDragging(false);
     const id = event.dataTransfer.getData("text/opportunity-id");
     const opportunity = opportunities.find((item) => item.id === id);
-    if (!opportunity || !canTransitionOpportunity(opportunity.status, stage)) return;
-    try {
-      transitionOpportunity(
-        id,
-        stage,
-        stage === "scheduled" ? { dueAt: format(addDays(new Date(), 1), "yyyy-MM-dd") } : {},
+    if (!opportunity) return;
+    const to = BOARD_DROP_TARGETS[target];
+    if (!to) {
+      toast.message("That stage is reached by working on the draft, not by dragging a card.");
+      return;
+    }
+    if (!canTransitionOpportunity(opportunity.status, to)) {
+      toast.error(
+        `Can’t move “${opportunity.title}” to ${t(`pipeline.stage.${target}`)} from ${t(`pipeline.stage.${opportunity.pipeline}`)}.`,
       );
-      toast.success(`Moved to ${OPPORTUNITY_STAGE_LABELS[stage]}`);
+      return;
+    }
+    // Demoting to queued must CLEAR dueAt, or pipelineStage keeps deriving
+    // "planned" from the stale date and the drop looks like a no-op.
+    const fields =
+      target === "queued"
+        ? { priority: opportunity.priority, dueAt: undefined }
+        : { dueAt: format(addDays(new Date(), 1), "yyyy-MM-dd") };
+    try {
+      transitionOpportunity(id, to, fields);
+      toast.success(
+        target === "queued"
+          ? "Prioritised"
+          : "Target set for tomorrow — set a go-live time in the editor once the draft is ready",
+      );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not move opportunity");
     }
@@ -701,25 +820,34 @@ function BoardView({
       className={`relative min-h-[calc(100vh-156px)] px-3 py-3 ${selectedId ? "xl:pr-[310px]" : ""}`}
     >
       <div className="overflow-x-auto pb-3">
-        <div className="grid min-w-[900px] grid-cols-6 gap-2.5">
-          {stages.map((stage) => {
-            const cards = opportunities.filter((opportunity) => opportunity.status === stage);
+        <div className="grid min-w-[1480px] grid-cols-[repeat(11,minmax(0,1fr))] gap-2">
+          {BOARD_STAGES.map((stage) => {
+            const cards = opportunities.filter((opportunity) => opportunity.pipeline === stage);
+            const droppable = Boolean(BOARD_DROP_TARGETS[stage]);
             return (
               <section
                 key={stage}
                 onDragOver={(event) => event.preventDefault()}
-                onDrop={(event) => dropOnStage(event, stage)}
-                className="min-h-[calc(100vh-195px)] rounded-lg border border-[#e4ded4] bg-[#f8f6f0]/70 px-1.5 pb-3"
+                onDrop={(event) => dropOnColumn(event, stage)}
+                className={`min-h-[calc(100vh-195px)] rounded-lg border bg-[#f8f6f0]/70 px-1.5 pb-3 transition ${
+                  dragging
+                    ? droppable
+                      ? "border-dashed border-[#b5862a] ring-1 ring-[#b5862a]/40"
+                      : "border-[#e4ded4] opacity-60"
+                    : "border-[#e4ded4]"
+                }`}
               >
                 <header
                   className="-mx-1.5 mb-2.5 grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-t-lg border-b border-[#ddd8cd] border-t-[3px] px-2.5 py-2"
-                  style={{ borderTopColor: stageColors[stage] }}
+                  style={{ borderTopColor: pipelineStageColors[stage] }}
                 >
                   <span
                     className="h-1.5 w-1.5 rounded-full"
-                    style={{ background: stageColors[stage] }}
+                    style={{ background: pipelineStageColors[stage] }}
                   />
-                  <span className="text-[10px] font-medium">{OPPORTUNITY_STAGE_LABELS[stage]}</span>
+                  <span className="truncate text-[10px] font-medium">
+                    {t(`pipeline.stage.${stage}`)}
+                  </span>
                   <span className="text-[10px] text-[#697282]">{cards.length}</span>
                 </header>
                 {cards.map((opportunity) => (
@@ -728,11 +856,13 @@ function BoardView({
                     opportunity={opportunity}
                     selected={selectedId === opportunity.id}
                     onClick={() => onSelect(opportunity.id)}
+                    onPrimaryAction={onPrimaryAction}
+                    onDragStateChange={setDragging}
                   />
                 ))}
                 {cards.length === 0 ? (
-                  <div className="rounded-md border border-dashed border-[#d7d0c4] px-2 py-6 text-center text-[9px] text-[#7b838b]">
-                    No opportunities
+                  <div className="px-2 py-6 text-center text-[9px] text-[#a8a89f]">
+                    Nothing here yet
                   </div>
                 ) : null}
               </section>
@@ -748,18 +878,38 @@ function OpportunityCard({
   opportunity,
   selected,
   onClick,
+  onPrimaryAction,
+  onDragStateChange,
 }: {
   opportunity: OpportunityView;
   selected: boolean;
   onClick: () => void;
+  onPrimaryAction: (opportunity: OpportunityView) => void;
+  onDragStateChange: (dragging: boolean) => void;
 }) {
+  const t = useT();
+  const draggable = DRAGGABLE_STAGES.includes(opportunity.pipeline);
+  // A live page whose draft is gone gets a safe read-only link, not the
+  // "Rewrite this page" action — that arrives, gated, in the next commit.
+  const liveMissing = opportunity.pipeline === "live_missing";
   return (
-    <button
-      type="button"
-      draggable
-      onDragStart={(event) => event.dataTransfer.setData("text/opportunity-id", opportunity.id)}
+    <div
+      role="button"
+      tabIndex={0}
+      draggable={draggable}
+      onDragStart={(event) => {
+        event.dataTransfer.setData("text/opportunity-id", opportunity.id);
+        onDragStateChange(true);
+      }}
+      onDragEnd={() => onDragStateChange(false)}
       onClick={onClick}
-      className={`mb-2 grid w-full gap-2 rounded-md border bg-[#fffdf8] p-2.5 text-left shadow-[0_1px_2px_rgba(24,29,31,.03)] transition hover:border-[#c2b7a7] ${selected ? "border-[#b5862a] ring-1 ring-[#b5862a]" : "border-[#ded8ce]"}`}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+      className={`mb-2 grid w-full cursor-pointer gap-2 rounded-md border bg-[#fffdf8] p-2.5 text-left shadow-[0_1px_2px_rgba(24,29,31,.03)] transition hover:border-[#c2b7a7] ${selected ? "border-[#b5862a] ring-1 ring-[#b5862a]" : "border-[#ded8ce]"}`}
     >
       <strong className="text-[10px] leading-[1.45]">{opportunity.title}</strong>
       <span className="w-max max-w-full rounded-[3px] border border-[#e2ddd4] bg-[#f7f4ed] px-1.5 py-0.5 text-[8px] text-[#727a84]">
@@ -769,10 +919,36 @@ function OpportunityCard({
         <StageChip stage={opportunity.pipeline} detail={opportunity.pipelineDetail} />
         {opportunity.searchIntent}
       </span>
-      <span className="text-right text-[9px] text-[#5f6771]">
-        {opportunity.dueAt ? `Due ${formatDate(opportunity.dueAt)}` : opportunity.priority}
-      </span>
-    </button>
+      <div className="mt-0.5 flex items-center justify-between gap-2">
+        <span className="text-[9px] text-[#5f6771]">
+          {opportunity.dueAt ? `Due ${formatDate(opportunity.dueAt)}` : opportunity.priority}
+        </span>
+        {liveMissing ? (
+          opportunity.canonicalUrl ? (
+            <a
+              href={opportunity.canonicalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(event) => event.stopPropagation()}
+              className="rounded-[4px] border border-[#e2c9a0] bg-[#fbf3e4] px-1.5 py-1 text-[8px] font-medium text-[#8a5a12] hover:bg-[#f6e9d2]"
+            >
+              Open live page
+            </a>
+          ) : null
+        ) : (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onPrimaryAction(opportunity);
+            }}
+            className="rounded-[4px] border border-[#ded8ce] bg-[#f7f4ed] px-1.5 py-1 text-[8px] font-medium text-[#5c6470] hover:border-[#c2b7a7] hover:bg-[#f1ece1]"
+          >
+            {t(nextAction(opportunity.pipeline))}
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
