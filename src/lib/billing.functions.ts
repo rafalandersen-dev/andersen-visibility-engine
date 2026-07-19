@@ -142,7 +142,7 @@ export const createPaddleCheckoutFn = createServerFn({ method: "POST" })
  */
 export const createPaddlePortalSessionFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator((input: unknown) =>
+  .inputValidator((input: unknown) =>
     z
       .object({
         customerId: z.string().min(1),
