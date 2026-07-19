@@ -10,6 +10,8 @@ import {
   applyPublishSuccess,
   findAssetAndProject,
   isPermanentPublishError,
+  classifyHttpFailure,
+  ambiguousTransportFailure,
   CLEARED_SCHEDULE_FIELDS,
   PublishNotPossibleError,
   PublishRecordingFailedError,
@@ -187,6 +189,53 @@ describe("permanent-failure classification", () => {
     const e = new PublishRecordingFailedError("live but unrecorded", "https://x.test/p");
     expect(e.liveUrl).toBe("https://x.test/p");
     expect(e.permanent).toBe(true);
+  });
+});
+
+describe("transport failure classification", () => {
+  // The whole point: a retry is only safe when we can prove nothing was created,
+  // because WordPress and Shopify CREATE a new post when handed no external id.
+  it("treats rotated or rejected credentials as permanent, so they fail on attempt 1", () => {
+    for (const status of [401, 403]) {
+      const e = classifyHttpFailure(status, "rejected");
+      expect(e.retryable).toBe(false);
+      expect(e.permanent).toBe(true);
+      expect(isPermanentPublishError(e)).toBe(true);
+    }
+  });
+
+  it("treats a missing REST API (404) as permanent", () => {
+    expect(classifyHttpFailure(404, "no api").retryable).toBe(false);
+  });
+
+  it("treats other 4xx as retryable — the far end refused before acting", () => {
+    for (const status of [400, 409, 422, 429]) {
+      const e = classifyHttpFailure(status, "refused");
+      expect(e.retryable).toBe(true);
+      expect(e.permanent).toBe(false);
+      expect(isPermanentPublishError(e)).toBe(false);
+    }
+  });
+
+  it("treats 5xx as ambiguous and therefore NOT retryable", () => {
+    // The request may have been applied before the server errored. Retrying
+    // would risk a second live post — park it and tell the user instead.
+    for (const status of [500, 502, 503, 504]) {
+      const e = classifyHttpFailure(status, "server error");
+      expect(e.retryable).toBe(false);
+      expect(isPermanentPublishError(e)).toBe(true);
+    }
+  });
+
+  it("treats a network error or abort as ambiguous", () => {
+    const e = ambiguousTransportFailure("could not reach the site");
+    expect(e.retryable).toBe(false);
+    expect(e.permanent).toBe(true);
+  });
+
+  it("keeps the status for logging", () => {
+    expect(classifyHttpFailure(503, "x").status).toBe(503);
+    expect(ambiguousTransportFailure("x").status).toBeUndefined();
   });
 });
 

@@ -24,6 +24,7 @@ import {
   CLEARED_SCHEDULE_FIELDS,
   PublishNotPossibleError,
   PublishRecordingFailedError,
+  PublishTransportError,
 } from "./publish-outcome";
 import type { ContentAsset, Project } from "./types";
 
@@ -52,13 +53,20 @@ async function runConnectorPublish(
 
   if (isWordPress(project)) {
     const res = await publishWordPressLiveDirect(wpPublishArgs(asset, project));
-    if (!res.success || !res.liveUrl) {
-      throw new Error(res.error || "WordPress published but did not return a live URL.");
+    if (!res.success) {
+      // Retry only when the connector proved nothing was created.
+      throw new PublishTransportError(
+        res.error || "WordPress could not publish the article.",
+        res.retryable === true,
+      );
     }
+    // A missing liveUrl is NOT a failure: the post exists (we have its id), the
+    // API just did not echo a permalink. Throwing here would requeue the row and
+    // publish a second copy on the next tick.
     return {
-      result: { liveUrl: res.liveUrl, publishedAt, platform: "wordpress" },
+      result: { liveUrl: res.liveUrl ?? "", publishedAt, platform: "wordpress" },
       assetPatch: {
-        liveUrl: res.liveUrl,
+        liveUrl: res.liveUrl || undefined,
         livePublishedAt: publishedAt,
         publishExternalId: res.postId ? String(res.postId) : undefined,
         publishPlatform: "wordpress",
@@ -70,13 +78,16 @@ async function runConnectorPublish(
 
   if (isShopify(project)) {
     const res = await upsertArticle(shopifyArticleArgs(asset, project), true);
-    if (!res.success || !res.liveUrl) {
-      throw new Error(res.error || "Shopify published but did not return a live URL.");
+    if (!res.success) {
+      throw new PublishTransportError(
+        res.error || "Shopify could not publish the article.",
+        res.retryable === true,
+      );
     }
     return {
-      result: { liveUrl: res.liveUrl, publishedAt, platform: "shopify" },
+      result: { liveUrl: res.liveUrl ?? "", publishedAt, platform: "shopify" },
       assetPatch: {
-        liveUrl: res.liveUrl,
+        liveUrl: res.liveUrl || undefined,
         livePublishedAt: publishedAt,
         publishExternalId: res.articleId || undefined,
         publishPlatform: "shopify",
@@ -119,7 +130,7 @@ async function runConnectorPublish(
   return {
     result: { liveUrl: res.liveUrl, publishedAt: res.publishedAt, platform: "customEndpoint" },
     assetPatch: {
-      liveUrl: res.liveUrl,
+      liveUrl: res.liveUrl || undefined,
       livePublishedAt: res.publishedAt,
       publishExternalId: res.externalId || asset.publishExternalId,
     },
@@ -202,19 +213,32 @@ export async function publishAssetServerSide(
  * Uses applyAssetPatch, never applyPublishSuccess: an asset that went live in an
  * earlier run still carries a liveUrl, and promoting its opportunity here would
  * report a failure as a fresh publication.
+ *
+ * `terminal` distinguishes the two cases the runner has to represent honestly:
+ *  - terminal  — the row is parked. Status goes to failed and the armed date is
+ *                cleared, because nothing will fire.
+ *  - retryable — the row went back to pending. The error is surfaced so the user
+ *                is not kept in the dark, but the status and the go-live date
+ *                stay put, because the publish is still going to be attempted.
  */
 export async function recordScheduledPublishFailure(
   userId: string,
   assetId: string,
   message: string,
+  terminal = true,
 ): Promise<void> {
   await mutateWorkspace(userId, (data) => ({
-    data: applyAssetPatch(data, assetId, {
-      scheduledPublishStatus: "failed",
-      scheduledPublishError: message,
-      // The queue row is terminal, so the armed date is no longer meaningful.
-      scheduledPublishAt: undefined,
-    }),
+    data: applyAssetPatch(
+      data,
+      assetId,
+      terminal
+        ? {
+            scheduledPublishStatus: "failed",
+            scheduledPublishError: message,
+            scheduledPublishAt: undefined,
+          }
+        : { scheduledPublishError: message },
+    ),
     result: null,
   }));
 }

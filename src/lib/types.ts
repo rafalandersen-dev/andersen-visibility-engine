@@ -144,6 +144,12 @@ export interface WordPressPublishResult {
   liveUrl?: string;
   message?: string;
   error?: string;
+  /**
+   * Set when the call failed and we could PROVE nothing was created on the
+   * site, so another attempt is safe. Absent or false means the outcome is
+   * unknown and the scheduled runner must park rather than republish.
+   */
+  retryable?: boolean;
 }
 
 // ---- Shopify Connector v1 ----
@@ -179,6 +185,8 @@ export interface ShopifyPublishResult {
   liveUrl?: string;
   message?: string;
   error?: string;
+  /** See WordPressPublishResult.retryable — same contract. */
+  retryable?: boolean;
 }
 
 // ---- Onboarding Wizard v1 ----

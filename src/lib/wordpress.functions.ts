@@ -7,6 +7,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import {
+  ambiguousTransportFailure,
+  classifyHttpFailure,
+  PublishTransportError,
+} from "./publish-outcome";
 import { markdownToHtml, slugifyForPublish } from "./markdown";
 import type { WordPressPublishResult } from "./types";
 
@@ -69,7 +74,9 @@ async function wpRequest(
       body: body ? JSON.stringify(body) : undefined,
     });
   } catch {
-    throw new Error(FRIENDLY_CONNECT);
+    // Network error or 12s abort: WordPress may or may not have processed it.
+    // Never retryable — a retry without a postId would CREATE a second post.
+    throw ambiguousTransportFailure(FRIENDLY_CONNECT);
   } finally {
     clearTimeout(timer);
   }
@@ -85,14 +92,23 @@ async function wpRequest(
   }
 
   if (res.status === 401 || res.status === 403) {
-    throw new Error("WordPress rejected the credentials. Check the username and application password and that the user can publish.");
+    throw classifyHttpFailure(
+      res.status,
+      "WordPress rejected the credentials. Check the username and application password and that the user can publish.",
+    );
   }
   if (res.status === 404) {
-    throw new Error("WordPress REST API not found at this site URL. Check the URL and that the REST API is enabled.");
+    throw classifyHttpFailure(
+      res.status,
+      "WordPress REST API not found at this site URL. Check the URL and that the REST API is enabled.",
+    );
   }
   if (!res.ok) {
     const apiMsg = isRecord(parsed) ? asString(parsed.message) : "";
-    throw new Error(apiMsg ? `WordPress error: ${apiMsg}` : `WordPress returned an error (status ${res.status}).`);
+    throw classifyHttpFailure(
+      res.status,
+      apiMsg ? `WordPress error: ${apiMsg}` : `WordPress returned an error (status ${res.status}).`,
+    );
   }
   return parsed;
 }
@@ -109,7 +125,13 @@ export const testWordPressConnectionFn = createServerFn({ method: "POST" })
       const name = isRecord(me) ? asString(me.name) || asString(me.slug) : "";
       return { success: true, message: name ? `Connected as ${name}.` : "Connected to WordPress." };
     } catch (e) {
-      return { success: false, error: e instanceof Error ? e.message : FRIENDLY_CONNECT };
+      // Preserve the transport classification: only a proven-nothing-created
+      // failure may be retried by the scheduled runner.
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : FRIENDLY_CONNECT,
+        retryable: e instanceof PublishTransportError ? e.retryable : false,
+      };
     }
   });
 
@@ -169,7 +191,13 @@ export const sendContentToWordPressDraftFn = createServerFn({ method: "POST" })
         message: "WordPress accepted the content as a draft.",
       };
     } catch (e) {
-      return { success: false, error: e instanceof Error ? e.message : FRIENDLY_CONNECT };
+      // Preserve the transport classification: only a proven-nothing-created
+      // failure may be retried by the scheduled runner.
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : FRIENDLY_CONNECT,
+        retryable: e instanceof PublishTransportError ? e.retryable : false,
+      };
     }
   });
 
@@ -220,7 +248,13 @@ export async function publishWordPressLiveDirect(
         message: "WordPress published the content live.",
       };
     } catch (e) {
-      return { success: false, error: e instanceof Error ? e.message : FRIENDLY_CONNECT };
+      // Preserve the transport classification: only a proven-nothing-created
+      // failure may be retried by the scheduled runner.
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : FRIENDLY_CONNECT,
+        retryable: e instanceof PublishTransportError ? e.retryable : false,
+      };
     }
   }
 }

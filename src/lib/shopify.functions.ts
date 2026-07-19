@@ -10,6 +10,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import {
+  ambiguousTransportFailure,
+  classifyHttpFailure,
+  PublishTransportError,
+} from "./publish-outcome";
 import { markdownToHtml, slugifyForPublish } from "./markdown";
 import type { ShopifyPublishResult, ShopifyBlogOption } from "./types";
 
@@ -53,7 +58,9 @@ async function shopifyGraphQL(shopDomain: string, token: string, query: string, 
       body: JSON.stringify({ query, variables: variables ?? {} }),
     });
   } catch {
-    throw new Error(FRIENDLY_CONNECT);
+    // Network error or abort: Shopify may already have applied the mutation.
+    // Never retryable — a retry without an articleGid would CREATE a second article.
+    throw ambiguousTransportFailure(FRIENDLY_CONNECT);
   } finally {
     clearTimeout(timer);
   }
@@ -61,20 +68,30 @@ async function shopifyGraphQL(shopDomain: string, token: string, query: string, 
   console.info("[shopify.functions] graphql", { host: domain, status: res.status });
 
   if (res.status === 401 || res.status === 403) {
-    throw new Error("Shopify rejected the token. Check the Admin API access token and its content permissions.");
+    throw classifyHttpFailure(
+      res.status,
+      "Shopify rejected the token. Check the Admin API access token and its content permissions.",
+    );
   }
   if (res.status === 404) {
-    throw new Error("Shopify store not found. Check the shop domain (for example mystore.myshopify.com).");
+    throw classifyHttpFailure(
+      res.status,
+      "Shopify store not found. Check the shop domain (for example mystore.myshopify.com).",
+    );
   }
   const raw = await res.text().catch(() => "");
   let parsed: unknown;
   try { parsed = raw ? JSON.parse(raw) : undefined; } catch { parsed = undefined; }
   if (!res.ok) {
-    throw new Error(`Shopify returned an error (status ${res.status}).`);
+    throw classifyHttpFailure(res.status, `Shopify returned an error (status ${res.status}).`);
   }
   if (isRecord(parsed) && Array.isArray(parsed.errors) && parsed.errors.length) {
     const msg = isRecord(parsed.errors[0]) ? asString((parsed.errors[0] as Record<string, unknown>).message) : "";
-    throw new Error(msg ? `Shopify error: ${msg}` : "Shopify rejected the request (check access scopes).");
+    // GraphQL errors arrive with HTTP 200. The mutation may have partially
+    // applied, so treat them as ambiguous rather than safe to repeat.
+    throw ambiguousTransportFailure(
+      msg ? `Shopify error: ${msg}` : "Shopify rejected the request (check access scopes).",
+    );
   }
   return isRecord(parsed) ? parsed.data : undefined;
 }
@@ -97,7 +114,13 @@ export const testShopifyConnectionFn = createServerFn({ method: "POST" })
       const name = asString(shop.name) || asString(shop.myshopifyDomain);
       return { success: true, message: name ? `Connected to ${name}.` : "Connected to Shopify." };
     } catch (e) {
-      return { success: false, error: e instanceof Error ? e.message : FRIENDLY_CONNECT };
+      // Preserve the transport classification: only a proven-nothing-created
+      // failure may be retried by the scheduled runner.
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : FRIENDLY_CONNECT,
+        retryable: e instanceof PublishTransportError ? e.retryable : false,
+      };
     }
   });
 
@@ -226,7 +249,13 @@ export const sendContentToShopifyDraftFn = createServerFn({ method: "POST" })
       if (!data.blogGid) return { success: false, error: "Select a Shopify blog in Project Setup first." };
       return await upsertArticle(data, false);
     } catch (e) {
-      return { success: false, error: e instanceof Error ? e.message : FRIENDLY_CONNECT };
+      // Preserve the transport classification: only a proven-nothing-created
+      // failure may be retried by the scheduled runner.
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : FRIENDLY_CONNECT,
+        retryable: e instanceof PublishTransportError ? e.retryable : false,
+      };
     }
   });
 
@@ -238,6 +267,12 @@ export const publishShopifyContentFn = createServerFn({ method: "POST" })
       if (!data.blogGid && !data.articleGid) return { success: false, error: "Select a Shopify blog in Project Setup first." };
       return await upsertArticle(data, true);
     } catch (e) {
-      return { success: false, error: e instanceof Error ? e.message : FRIENDLY_CONNECT };
+      // Preserve the transport classification: only a proven-nothing-created
+      // failure may be retried by the scheduled runner.
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : FRIENDLY_CONNECT,
+        retryable: e instanceof PublishTransportError ? e.retryable : false,
+      };
     }
   });

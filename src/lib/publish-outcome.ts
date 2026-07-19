@@ -42,6 +42,52 @@ export function isPermanentPublishError(e: unknown): boolean {
   return Boolean(e && typeof e === "object" && (e as { permanent?: unknown }).permanent === true);
 }
 
+/**
+ * A connector call that failed in a way we can classify.
+ *
+ * `retryable` means we can PROVE nothing was created on the customer's site —
+ * only then is another attempt safe, because WordPress and Shopify create a new
+ * post whenever no external id is supplied. Anything ambiguous (a timeout, a
+ * 5xx, an unparseable body) may have been processed by the far end, so it is
+ * permanent by construction: parking the row and telling the user beats risking
+ * a second live copy.
+ */
+export class PublishTransportError extends Error {
+  readonly permanent: boolean;
+  constructor(
+    message: string,
+    readonly retryable: boolean,
+    readonly status?: number,
+  ) {
+    super(message);
+    this.name = "PublishTransportError";
+    this.permanent = !retryable;
+  }
+}
+
+/**
+ * Classify an HTTP response from a publishing connector.
+ *
+ * 401/403 — credentials are wrong or were rotated. Permanent: retrying twice
+ *   more cannot fix it and only delays telling the user, so it fails on the
+ *   first attempt instead of burning the whole budget.
+ * 404 — wrong URL / REST API disabled. Permanent, same reasoning.
+ * other 4xx — the far end rejected the request before acting on it, so nothing
+ *   was created. Safe to retry.
+ * 5xx — the request may have been applied before the error. Ambiguous, park.
+ */
+export function classifyHttpFailure(status: number, message: string): PublishTransportError {
+  if (status === 401 || status === 403) return new PublishTransportError(message, false, status);
+  if (status === 404) return new PublishTransportError(message, false, status);
+  if (status >= 400 && status < 500) return new PublishTransportError(message, true, status);
+  return new PublishTransportError(message, false, status);
+}
+
+/** A network error, abort or unparseable body — outcome unknown, never retried. */
+export function ambiguousTransportFailure(message: string): PublishTransportError {
+  return new PublishTransportError(message, false);
+}
+
 function asArray<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
 }

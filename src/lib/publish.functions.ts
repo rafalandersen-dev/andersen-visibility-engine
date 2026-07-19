@@ -11,6 +11,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { ambiguousTransportFailure, classifyHttpFailure } from "./publish-outcome";
 
 const DESTINATION_TYPES = ["blogPost", "servicePage", "faq", "landingPage"] as const;
 
@@ -149,7 +150,8 @@ export const publishContentFn = createServerFn({ method: "POST" })
 
     if (!res.ok) {
       const apiError = isRecord(body) ? asString(body.error) : "";
-      throw new Error(
+      throw classifyHttpFailure(
+        res.status,
         apiError
           ? `Website rejected the draft: ${apiError}`
           : `Website returned an error (status ${res.status}).`,
@@ -251,7 +253,10 @@ export async function publishLiveDirect(
         body: JSON.stringify(payload),
       });
     } catch {
-      throw new Error("Could not reach the live-publish endpoint. Check the URL and try again.");
+      // Unknown outcome: the site may have published before the connection died.
+    throw ambiguousTransportFailure(
+      "Could not reach the live-publish endpoint. Check the URL and try again.",
+    );
     } finally {
       clearTimeout(timer);
     }
@@ -268,7 +273,8 @@ export async function publishLiveDirect(
 
     if (!res.ok) {
       const apiError = isRecord(body) ? asString(body.error) : "";
-      throw new Error(
+      throw classifyHttpFailure(
+        res.status,
         apiError
           ? `Website rejected the publish: ${apiError}`
           : `Website returned an error (status ${res.status}).`,
@@ -277,14 +283,17 @@ export async function publishLiveDirect(
 
     if (isRecord(body) && body.ok === false) {
       const apiError = asString(body.error);
-      throw new Error(apiError ? `Website rejected the publish: ${apiError}` : "Website rejected the publish.");
+      throw classifyHttpFailure(
+        400,
+        apiError ? `Website rejected the publish: ${apiError}` : "Website rejected the publish.",
+      );
     }
 
     const liveUrl = isRecord(body) ? asString(body.liveUrl) : "";
     const externalId = isRecord(body) ? asString(body.externalId) : "";
-    if (!liveUrl) {
-      throw new Error("Website published but did not return a live URL.");
-    }
+    // Deliberately NOT an error. The publish succeeded; the endpoint simply did
+    // not tell us where it landed. Failing here would send the queue row back to
+    // 'pending' and republish a page that is already live.
 
     const publishedAt = new Date().toISOString();
     console.info("[publish.functions] live publish accepted", { host: url.host, assetId: data.assetId });

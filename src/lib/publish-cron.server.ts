@@ -116,25 +116,31 @@ export async function runScheduledPublishes(batchSize = 20): Promise<RunSummary>
     } catch (e) {
       const message = e instanceof Error ? e.message : "Publishing failed.";
       // Duck-typed rather than instanceof: PublishNotPossibleError (cannot
-      // publish) and PublishRecordingFailedError (published but unrecorded) are
-      // both non-retryable, and instanceof is fragile across module instances.
+      // publish), PublishRecordingFailedError (published but unrecorded) and an
+      // ambiguous PublishTransportError are all non-retryable, and instanceof is
+      // fragile across module instances.
       const permanent = isPermanentPublishError(e);
       // attempts was already incremented by the claim.
       const exhausted = row.attempts >= MAX_PUBLISH_ATTEMPTS;
 
-      if (permanent || exhausted) {
-        await setRow(admin, row.id, { status: "failed", last_error: message });
-        summary.failed += 1;
-        // Surface it on the asset so the editor can explain what happened.
-        await recordScheduledPublishFailure(row.user_id, row.asset_id, message).catch((err) =>
+      // Record on the asset on EVERY attempt, not only the last one. A user
+      // whose credentials were rotated should see why nothing published now,
+      // not after the third silent retry.
+      const terminal = permanent || exhausted;
+      await recordScheduledPublishFailure(row.user_id, row.asset_id, message, terminal).catch(
+        (err) =>
           console.error("[publish-cron] could not record failure on asset", {
             rowId: row.id,
             message: err instanceof Error ? err.message : "error",
           }),
-        );
+      );
+
+      if (terminal) {
+        await setRow(admin, row.id, { status: "failed", last_error: message });
+        summary.failed += 1;
       } else {
-        // Known failure: the connector reported an error, so nothing was
-        // created on the site and another attempt is safe.
+        // Retryable means the connector PROVED nothing was created on the site,
+        // so another attempt cannot produce a duplicate.
         await setRow(admin, row.id, { status: "pending", last_error: message });
         summary.retrying += 1;
       }
