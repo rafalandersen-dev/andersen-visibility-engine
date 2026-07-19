@@ -17,7 +17,7 @@
 import {
   publishAssetServerSide,
   recordScheduledPublishFailure,
-  PublishNotPossibleError,
+  isPermanentPublishError,
 } from "./publish.server";
 
 /** Attempts after which a repeatedly-failing row is parked for good. */
@@ -115,7 +115,10 @@ export async function runScheduledPublishes(batchSize = 20): Promise<RunSummary>
       });
     } catch (e) {
       const message = e instanceof Error ? e.message : "Publishing failed.";
-      const permanent = e instanceof PublishNotPossibleError;
+      // Duck-typed rather than instanceof: PublishNotPossibleError (cannot
+      // publish) and PublishRecordingFailedError (published but unrecorded) are
+      // both non-retryable, and instanceof is fragile across module instances.
+      const permanent = isPermanentPublishError(e);
       // attempts was already incremented by the claim.
       const exhausted = row.attempts >= MAX_PUBLISH_ATTEMPTS;
 

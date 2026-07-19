@@ -17,6 +17,31 @@ export class PublishNotPossibleError extends Error {
   }
 }
 
+/**
+ * Thrown when the connector call SUCCEEDED — the post is live — but recording
+ * that outcome in the workspace failed (rev conflict exhausted, DB error).
+ *
+ * Must never be retried. A retry re-runs the connector call, and because the
+ * returned post id was never persisted, WordPress and Shopify take their CREATE
+ * branch and put a SECOND copy of the article on the customer's site. Parking
+ * the row and telling the user what happened is the only safe outcome.
+ */
+export class PublishRecordingFailedError extends Error {
+  readonly permanent = true;
+  constructor(
+    message: string,
+    readonly liveUrl?: string,
+  ) {
+    super(message);
+    this.name = "PublishRecordingFailedError";
+  }
+}
+
+/** True for any error the runner must not retry, across module boundaries. */
+export function isPermanentPublishError(e: unknown): boolean {
+  return Boolean(e && typeof e === "object" && (e as { permanent?: unknown }).permanent === true);
+}
+
 function asArray<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
 }

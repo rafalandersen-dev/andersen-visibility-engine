@@ -9,8 +9,10 @@ import {
   applyAssetPatch,
   applyPublishSuccess,
   findAssetAndProject,
+  isPermanentPublishError,
   CLEARED_SCHEDULE_FIELDS,
   PublishNotPossibleError,
+  PublishRecordingFailedError,
 } from "./publish-outcome";
 import type { WorkspaceData } from "./workspace.server";
 
@@ -155,6 +157,36 @@ describe("applyAssetPatch", () => {
     const next = applyAssetPatch(blob(), "a1", { scheduledPublishStatus: "pending" });
     expect(next.opportunities).toEqual(blob().opportunities);
     expect(next.backlinkAnalyses).toEqual([{ id: "b1" }]);
+  });
+});
+
+describe("permanent-failure classification", () => {
+  // The runner decides retry-vs-park from this. Getting it wrong on
+  // PublishRecordingFailedError means re-running a connector call for a post
+  // that is already live, with no stored id — i.e. a duplicate on the
+  // customer's site.
+  it("treats both non-retryable errors as permanent", () => {
+    expect(isPermanentPublishError(new PublishNotPossibleError("no endpoint"))).toBe(true);
+    expect(isPermanentPublishError(new PublishRecordingFailedError("live but unrecorded"))).toBe(
+      true,
+    );
+  });
+
+  it("treats an ordinary connector failure as retryable", () => {
+    expect(isPermanentPublishError(new Error("WordPress returned 503"))).toBe(false);
+  });
+
+  it("is safe on non-error values", () => {
+    expect(isPermanentPublishError(undefined)).toBe(false);
+    expect(isPermanentPublishError(null)).toBe(false);
+    expect(isPermanentPublishError("boom")).toBe(false);
+    expect(isPermanentPublishError({})).toBe(false);
+  });
+
+  it("carries the live URL so the user can be told the post is already up", () => {
+    const e = new PublishRecordingFailedError("live but unrecorded", "https://x.test/p");
+    expect(e.liveUrl).toBe("https://x.test/p");
+    expect(e.permanent).toBe(true);
   });
 });
 

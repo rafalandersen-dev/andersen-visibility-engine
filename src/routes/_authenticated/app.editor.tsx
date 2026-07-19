@@ -279,7 +279,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         stored.metaDescription !== f.metaDescription ||
         stored.cta !== f.cta);
     const next = {
-      ...f,
+      // Merge, never replace: saving after a publish must not drop the
+      // publish/schedule fields the form does not own (see mergeEditorEdits).
+      ...mergeEditorEdits(f),
       status: status ?? f.status,
       updatedAt: new Date().toISOString(),
       qualityScoreStale: f.qualityScore
@@ -305,13 +307,47 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   };
 
   /**
+   * Merge the form's own fields onto the CURRENT stored record.
+   *
+   * `upsertContent` replaces the record rather than merging it, and `f` is only
+   * re-synced from the store by an effect keyed on `updatedAt` — but the
+   * publishing writes (markContentAssetPublishedLive, markContentAssetSent) and
+   * the scheduled runner do NOT bump `updatedAt`. So after a publish, `f` still
+   * holds the pre-publish snapshot, and writing it back wholesale would drop
+   * liveUrl, publishExternalId, wordpressPostId and the schedule mirror. Losing
+   * wordpressPostId is the dangerous one: the next publish takes the CREATE
+   * branch and puts a duplicate post on the customer's live site.
+   *
+   * Only these eleven fields belong to the form. Everything else is authored
+   * elsewhere and must survive untouched.
+   */
+  const mergeEditorEdits = (local: ContentAsset): ContentAsset => {
+    const stored = getState().content.find((c) => c.id === local.id);
+    if (!stored) return local;
+    return {
+      ...stored,
+      title: local.title,
+      slug: local.slug,
+      markdown: local.markdown,
+      metaTitle: local.metaTitle,
+      metaDescription: local.metaDescription,
+      h1: local.h1,
+      outline: local.outline,
+      internalLinks: local.internalLinks,
+      schemaSuggestions: local.schemaSuggestions,
+      cta: local.cta,
+      editorNotes: local.editorNotes,
+    };
+  };
+
+  /**
    * Persist in-flight edits BEFORE any AI action reads from the store.
    * Every AI surface in the editor must call this first: these functions take
    * an assetId and re-read the asset from the store, so unsaved edits are both
    * invisible to them and destroyed by whatever they write back.
    */
   const flushPendingEdits = () => {
-    const snapshot = { ...f, updatedAt: new Date().toISOString() };
+    const snapshot = { ...mergeEditorEdits(f), updatedAt: new Date().toISOString() };
     upsertContent(snapshot);
     setF(snapshot);
     return snapshot;

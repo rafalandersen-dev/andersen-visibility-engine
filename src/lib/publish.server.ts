@@ -23,10 +23,16 @@ import {
   findAssetAndProject,
   CLEARED_SCHEDULE_FIELDS,
   PublishNotPossibleError,
+  PublishRecordingFailedError,
 } from "./publish-outcome";
 import type { ContentAsset, Project } from "./types";
 
-export { PublishNotPossibleError, findAssetAndProject } from "./publish-outcome";
+export {
+  PublishNotPossibleError,
+  PublishRecordingFailedError,
+  isPermanentPublishError,
+  findAssetAndProject,
+} from "./publish-outcome";
 
 export interface ServerPublishResult {
   liveUrl: string;
@@ -157,18 +163,35 @@ export async function publishAssetServerSide(
   })();
 
   // 2. Record the outcome under the rev guard (retries on a lost race).
-  await mutateWorkspace(userId, (data) => ({
-    data: applyPublishSuccess(data, assetId, {
-      ...assetPatch,
-      livePublishStatus: "published",
-      livePublishError: undefined,
-      scheduledPublishError: undefined,
-      // The schedule is spent: clear the mirror so the item stops deriving to
-      // "Scheduled" and stops advertising a go-live date that already happened.
-      ...CLEARED_SCHEDULE_FIELDS,
-    }),
-    result: null,
-  }));
+  //
+  //    The post is ALREADY LIVE at this point. If recording it fails we must not
+  //    let the caller treat that as a failed publish: the runner would send the
+  //    row back to 'pending', the next tick would re-run the connector, and
+  //    because the returned post id was never persisted, WordPress and Shopify
+  //    would CREATE a second copy on the customer's site. Rethrow as permanent.
+  try {
+    await mutateWorkspace(userId, (data) => ({
+      data: applyPublishSuccess(data, assetId, {
+        ...assetPatch,
+        livePublishStatus: "published",
+        livePublishError: undefined,
+        scheduledPublishError: undefined,
+        // The schedule is spent: clear the mirror so the item stops deriving to
+        // "Scheduled" and stops advertising a go-live date that already happened.
+        ...CLEARED_SCHEDULE_FIELDS,
+      }),
+      result: null,
+    }));
+  } catch (e) {
+    console.error("[publish.server] published but could not record", {
+      assetId,
+      message: e instanceof Error ? e.message : "error",
+    });
+    throw new PublishRecordingFailedError(
+      `The article was published to your site${result.liveUrl ? ` (${result.liveUrl})` : ""}, but Milo could not record it. It is live — do not publish it again; open it and confirm the details.`,
+      result.liveUrl,
+    );
+  }
 
   return result;
 }
