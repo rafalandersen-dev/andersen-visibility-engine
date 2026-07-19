@@ -217,7 +217,14 @@ describe("nextAction", () => {
 });
 
 describe("linkedAssetFor", () => {
-  const armed = asset({ id: "armed", scheduledPublishStatus: "pending", updatedAt: "2026-01-01" });
+  const armed = asset({
+    id: "armed",
+    scheduledPublishStatus: "pending",
+    // A real armed asset always carries the go-live instant — pipelineStage
+    // requires it to reach "armed", and linkedAssetFor resolves armed by it.
+    scheduledPublishAt: "2026-07-25T09:00:00Z",
+    updatedAt: "2026-01-01",
+  });
   const newerInert = asset({ id: "newer", status: "Draft", updatedAt: "2026-07-19" });
   const live = asset({ id: "live", liveUrl: "https://x.test/p", updatedAt: "2026-02-01" });
 
@@ -228,6 +235,23 @@ describe("linkedAssetFor", () => {
     // The regression this prevents: the board renders "Writing" with no cancel
     // affordance while the cron publishes the armed asset anyway.
     expect(linkedAssetFor(opp(), withOpp([newerInert, armed]))?.id).toBe("armed");
+  });
+
+  it("among two armed assets, picks the one that fires first, not array order", () => {
+    // Otherwise the card advertises the wrong go-live and Cancel targets the
+    // wrong schedule.
+    const late = asset({
+      id: "late",
+      scheduledPublishStatus: "pending",
+      scheduledPublishAt: "2026-08-01T09:00:00Z",
+    });
+    const early = asset({
+      id: "early",
+      scheduledPublishStatus: "pending",
+      scheduledPublishAt: "2026-07-25T09:00:00Z",
+    });
+    expect(linkedAssetFor(opp(), withOpp([late, early]))?.id).toBe("early");
+    expect(linkedAssetFor(opp(), withOpp([early, late]))?.id).toBe("early");
   });
 
   it("prefers a live asset over a newer inert one", () => {

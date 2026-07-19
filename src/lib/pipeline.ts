@@ -223,8 +223,15 @@ export function linkedAssetFor(
   );
   if (mine.length <= 1) return mine[0];
 
+  // Among several armed assets, the one that fires FIRST is the one whose go-live
+  // the card must advertise and whose schedule Cancel must target. Array order is
+  // not a defensible tie-break for a publish time.
+  const armed = mine
+    .filter((a) => a.scheduledPublishStatus === "pending" && a.scheduledPublishAt)
+    .sort((a, b) => (a.scheduledPublishAt ?? "").localeCompare(b.scheduledPublishAt ?? ""));
+  if (armed.length) return armed[0];
+
   return (
-    mine.find((a) => a.scheduledPublishStatus === "pending") ??
     mine.find((a) => a.liveUrl || a.livePublishStatus === "published") ??
     mine.find((a) => a.id === opportunity.currentContentAssetId) ??
     mine.reduce(

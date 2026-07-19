@@ -17,6 +17,7 @@
  * owner bypass logic lives in `src/lib/auth.tsx`.
  */
 import { useRef, useSyncExternalStore } from "react";
+import { linkedAssetFor } from "./pipeline";
 import type {
   Project,
   ServiceItem,
@@ -678,11 +679,12 @@ export const transitionOpportunity = (
     ...s,
     opportunities: s.opportunities.map((opportunity) => {
       if (opportunity.id !== id) return opportunity;
-      const linkedAsset = s.content.find((asset) =>
-        opportunity.currentContentAssetId
-          ? asset.id === opportunity.currentContentAssetId
-          : asset.opportunityId === opportunity.id,
-      );
+      // The SAME resolver the board and Home use. Its own inline find picked the
+      // first asset by opportunityId (ignoring sourceOpportunityId and armed
+      // precedence), so a drag validated against the board's chosen asset could
+      // be re-validated here against a different one and throw on a move the board
+      // itself invited.
+      const linkedAsset = linkedAssetFor(opportunity, s.content);
       updated = transitionOpportunityRecord(opportunity, to, fields, linkedAsset);
       return updated;
     }),

@@ -17,8 +17,20 @@
  *
  * The claim is atomic in Postgres. Read-decide-write in three steps would let
  * two tabs both pass the check at the cap boundary.
+ *
+ * ENFORCEMENT IS GATED. Usage is always RECORDED, but a refusal only fires when
+ * AI_METERING_ENFORCED is set. During the invite-only beta it is off: nobody has
+ * a subscription yet, so enforcing would wall every tester (and the owner) at the
+ * free-preview caps from the moment this shipped. Runaway spend is still bounded
+ * because generation remains an eleven-click gauntlet — the meter had to be READY
+ * before that changes, not enforcing before the plan source is trustworthy.
+ *
+ * The plan source is NOT yet trustworthy: it lives in a client-writable blob (see
+ * resolvePlan). Enforcement must not be switched on until the plan moves to a
+ * service-role-only column written by the Paddle webhook. That is tracked with
+ * the billing fixes that gate the paid launch.
  */
-import { PLAN_LIMITS, getCurrentPlanId, type PlanId, type PlanLimits } from "./billing";
+import { PLAN_LIMITS, isActivePaid, type PlanId, type PlanLimits } from "./billing";
 import type { SubscriptionPlan } from "./billing";
 
 /** Which advertised limit a given AI call draws from. */
@@ -97,18 +109,29 @@ type Claim = { used: number; cap: number; allowed: boolean };
 export async function claimAiUsage(args: {
   userId: string;
   bucket: UsageBucket;
-  isOwner?: boolean;
   units?: number;
   now?: Date;
-  /** Test seam; production resolves the plan from the workspace. */
+  /** Test seams; production resolves both server-side. */
   planOverride?: PlanId;
+  isOwnerOverride?: boolean;
 }): Promise<Claim> {
   const { userId, bucket } = args;
   const units = args.units ?? 1;
-  // The plan is read SERVER-side from the caller's own workspace. Accepting it
-  // as an argument from the browser would let anyone declare themselves Pro.
-  const plan = args.planOverride ?? (await resolvePlan(userId));
-  const cap = capFor(plan, bucket, args.isOwner);
+  // Both resolved SERVER-side. The plan lives in a client-writable blob today, so
+  // this is a mistake-guard, not yet a trust boundary — enforcement stays gated
+  // until it moves off the blob. isOwner comes from the user_roles table, which
+  // the client cannot write.
+  const [plan, isOwner] = await Promise.all([
+    args.planOverride !== undefined ? Promise.resolve(args.planOverride) : resolvePlan(userId),
+    args.isOwnerOverride !== undefined
+      ? Promise.resolve(args.isOwnerOverride)
+      : resolveOwner(userId),
+  ]);
+  const realCap = capFor(plan, bucket, isOwner);
+  // When enforcement is off we still RECORD every claim (pass -1 = never refuse)
+  // but never block. This keeps spend visible during the beta without walling it.
+  const enforcing = (process.env.AI_METERING_ENFORCED ?? "").trim() === "true";
+  const cap = enforcing ? realCap : -1;
 
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   // Proxy — call rpc as a METHOD. PostgREST returns a builder, not a Promise,
@@ -141,22 +164,61 @@ export async function claimAiUsage(args: {
     throw new UsageLimitError(
       bucket,
       row.used,
-      cap,
-      `You have used all ${cap} ${FRIENDLY[bucket]} on your plan this month. They reset on the 1st — or upgrade for more.`,
+      realCap,
+      `You have used all ${realCap} ${FRIENDLY[bucket]} on your plan this month. They reset on the 1st — or upgrade for more.`,
     );
   }
-  return row;
+  return { ...row, cap: realCap };
 }
 
-/** Read the caller's plan from their own workspace blob. Defaults to free. */
+/**
+ * The caller's plan, from their workspace. Only an ACTIVE PAID subscription
+ * grants its caps: a `checkoutPending` status (what the billing page writes on
+ * "Choose Pro" before Paddle confirms) or a self-declared blob resolves to
+ * freePreview. getCurrentPlanId used to ignore status entirely, so clicking
+ * "Choose Pro" with Paddle unconfigured silently granted Pro caps.
+ */
 async function resolvePlan(userId: string): Promise<PlanId> {
   try {
     const { readWorkspaceRow } = await import("./workspace.server");
     const row = await readWorkspaceRow(userId);
     const sub = row?.data?.subscription as SubscriptionPlan | undefined;
-    return getCurrentPlanId(sub);
+    return isActivePaid(sub) && sub ? sub.planId : "freePreview";
   } catch {
     // Unknown plan must not mean "unlimited".
     return "freePreview";
+  }
+}
+
+/** Owner role, from the table the client cannot write. Never trusts a caller. */
+async function resolveOwner(userId: string): Promise<boolean> {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const admin = supabaseAdmin as unknown as {
+      from: (t: string) => {
+        select: (c: string) => {
+          eq: (
+            c: string,
+            v: string,
+          ) => {
+            eq: (
+              c: string,
+              v: string,
+            ) => {
+              maybeSingle: () => PromiseLike<{ data: unknown; error: unknown }>;
+            };
+          };
+        };
+      };
+    };
+    const { data } = await admin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "owner")
+      .maybeSingle();
+    return Boolean(data);
+  } catch {
+    return false;
   }
 }

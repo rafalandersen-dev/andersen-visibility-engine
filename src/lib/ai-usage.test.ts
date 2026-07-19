@@ -9,7 +9,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { capFor, usagePeriod, OWNER_MULTIPLIER, UsageLimitError } from "./ai-usage.server";
-import { PLAN_LIMITS } from "./billing";
+import { PLAN_LIMITS, isActivePaid } from "./billing";
 
 describe("capFor", () => {
   it("draws from the limit the pricing page actually advertises", () => {
@@ -69,6 +69,24 @@ describe("usagePeriod", () => {
     // 2026-07-31T23:00Z is already August in Warsaw. Bucketing on local time
     // would silently hand the user a fresh month a day early.
     expect(usagePeriod(new Date("2026-07-31T23:00:00Z"))).toBe("2026-07");
+  });
+});
+
+describe("resolvePlan honours only active-paid subscriptions", () => {
+  // resolvePlan is not exported (it reads the DB), but its rule is the important
+  // part: isActivePaid must gate the plan. These assert the billing predicate the
+  // gate depends on, so a change to it can't silently re-open the escalation.
+  it("isActivePaid rejects a pending checkout and a self-declared active-free", () => {
+    // Documented in the code: the billing page writes checkoutPending on Choose
+    // Pro before Paddle confirms, and that must not grant paid caps.
+    expect(isActivePaid({ planId: "pro", status: "checkoutPending" } as never)).toBe(false);
+    expect(isActivePaid({ planId: "freePreview", status: "active" } as never)).toBe(false);
+    expect(isActivePaid(undefined)).toBe(false);
+  });
+
+  it("isActivePaid accepts a genuinely active paid plan", () => {
+    expect(isActivePaid({ planId: "pro", status: "active" } as never)).toBe(true);
+    expect(isActivePaid({ planId: "starter", status: "manualBeta" } as never)).toBe(true);
   });
 });
 
