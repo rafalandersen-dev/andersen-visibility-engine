@@ -75,6 +75,7 @@ import {
 } from "@/lib/pipeline";
 import { formatDateTime } from "@/lib/format";
 import { StageChip } from "@/components/StageChip";
+import { OrphanLane } from "@/components/OrphanLane";
 import { useT } from "@/i18n";
 import { toast } from "sonner";
 
@@ -165,6 +166,7 @@ function PlanPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
   const activeProjectId = useStore((state) => state.activeProjectId);
+  const hydrated = useStore((state) => state.hydrated);
   const projects = useStore((state) => state.projects);
   const rawOpportunities = useStore((state) =>
     state.opportunities.filter(
@@ -240,6 +242,20 @@ function PlanPage() {
     () => content.filter((asset) => asset.scheduledPublishStatus === "pending" && asset.scheduledPublishAt),
     [content],
   );
+
+  // Drafts whose opportunity was deleted (deletedAt filters it out of
+  // rawOpportunities) or never existed. They still publish, so they get a lane.
+  // Guarded on `hydrated`: before the store loads, content can be present while
+  // opportunities are not, which would flash every asset as orphaned. An archived
+  // (not deleted) opp stays in rawOpportunities, so archiving never orphans work.
+  const orphans = useMemo(() => {
+    if (!hydrated) return [];
+    const oppIds = new Set(rawOpportunities.map((opportunity) => opportunity.id));
+    return content.filter((asset) => {
+      const oid = asset.opportunityId ?? asset.sourceOpportunityId;
+      return !oid || !oppIds.has(oid);
+    });
+  }, [content, rawOpportunities, hydrated]);
 
   const selected = opportunities.find((opportunity) => opportunity.id === search.selected);
   const view = search.view ?? "board";
@@ -417,9 +433,11 @@ function PlanPage() {
           ) : (
             <BoardView
               opportunities={opportunities}
+              orphans={orphans}
               selectedId={selected?.id}
               onSelect={selectOpportunity}
               onPrimaryAction={onPrimaryAction}
+              onOpenAsset={(assetId) => navigate({ to: "/app/editor", search: { id: assetId } })}
               rewriteEnabled={rewriteEnabled}
             />
           )}
@@ -812,15 +830,19 @@ function ViewTab({
 
 function BoardView({
   opportunities,
+  orphans,
   selectedId,
   onSelect,
   onPrimaryAction,
+  onOpenAsset,
   rewriteEnabled,
 }: {
   opportunities: OpportunityView[];
+  orphans: ContentAsset[];
   selectedId?: string;
   onSelect: (id?: string) => void;
   onPrimaryAction: (opportunity: OpportunityView) => void;
+  onOpenAsset: (assetId: string) => void;
   rewriteEnabled: boolean;
 }) {
   const t = useT();
@@ -923,6 +945,7 @@ function BoardView({
           })}
         </div>
       </div>
+      <OrphanLane orphans={orphans} onOpenAsset={onOpenAsset} />
     </div>
   );
 }
