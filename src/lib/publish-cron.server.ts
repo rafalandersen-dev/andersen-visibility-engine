@@ -39,14 +39,20 @@ export interface RunSummary {
   reaped: number;
 }
 
+/**
+ * PostgREST returns a BUILDER, not a Promise. It is awaitable (thenable) but has
+ * no .catch/.finally, so typing it as Promise invites `rpc(...).catch(...)` —
+ * which compiles and then throws a TypeError at runtime. Declaring PromiseLike
+ * makes that mistake a type error instead of a production incident.
+ */
 type AdminClient = {
   rpc: (
     fn: string,
     args?: Record<string, unknown>,
-  ) => Promise<{ data: unknown; error: { message: string } | null }>;
+  ) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
   from: (table: string) => {
     update: (row: Record<string, unknown>) => {
-      eq: (col: string, val: string) => Promise<{ error: { message: string } | null }>;
+      eq: (col: string, val: string) => PromiseLike<{ error: { message: string } | null }>;
     };
   };
 };
@@ -156,14 +162,19 @@ export async function runScheduledPublishes(batchSize = 20): Promise<RunSummary>
   // Heartbeat last: a dead cron and an empty queue are otherwise
   // indistinguishable — both look like "nothing happened" — while a user's
   // article silently never goes live and the UI still says Scheduled.
-  await admin
-    .rpc("record_cron_heartbeat", {
+  //
+  // try/catch, NOT .catch(): rpc() returns a PostgREST builder, which is a
+  // thenable but not a real Promise, so calling .catch() on it throws a
+  // TypeError that took the whole run down and produced a 500 with no
+  // heartbeat — the exact blind spot this heartbeat exists to remove.
+  try {
+    await admin.rpc("record_cron_heartbeat", {
       job: "scheduled-publish-run",
       summary: summary as unknown as Record<string, unknown>,
-    })
-    .catch((e: unknown) =>
-      console.error("[publish-cron] heartbeat failed", e instanceof Error ? e.message : "error"),
-    );
+    });
+  } catch (e) {
+    console.error("[publish-cron] heartbeat failed", e instanceof Error ? e.message : "error");
+  }
 
   return summary;
 }
