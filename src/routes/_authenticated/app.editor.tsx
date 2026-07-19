@@ -38,6 +38,8 @@ import {
   publishContentLive,
 } from "@/lib/mock-ai";
 import { effectivePublishMode } from "@/lib/publish-targets";
+import { pipelineStage } from "@/lib/pipeline";
+import { StageChip } from "@/components/StageChip";
 import {
   cancelScheduledPublishFn,
   scheduleContentPublishFn,
@@ -411,6 +413,10 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
    * label rendered local time, publishing two hours late for every PL/SE/DK user.
    * We convert to a real instant here and send the IANA zone alongside it.
    */
+  // Derived from the live store copy, not the local form: publish actions do not
+  // bump updatedAt, so `f` can lag behind the real publish state.
+  const editorStage = pipelineStage({ asset: live });
+
   const goLiveInstant = goLiveLocal ? new Date(goLiveLocal) : null;
   const goLiveValid = Boolean(goLiveInstant && !Number.isNaN(goLiveInstant.getTime()));
   const goLiveLabel = goLiveValid ? formatDateTime(goLiveInstant!.toISOString()) : "…";
@@ -561,6 +567,15 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           <span>
             {t("editor.status")}: {t(`status.${f.status}`)}
           </span>
+          {/* Same chip the Plan board renders, so "where is this" reads
+              identically on both screens. It knows things the status alone does
+              not: armed, sent to the site, failed, already live. */}
+          <StageChip
+            stage={editorStage}
+            detail={
+              live.scheduledPublishAt ? formatDateTime(live.scheduledPublishAt) : undefined
+            }
+          />
         </div>
         <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-foreground/80">
           <Sparkles className="h-3.5 w-3.5 shrink-0 text-gold/80 mt-0.5" />

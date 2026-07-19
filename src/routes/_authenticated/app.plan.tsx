@@ -68,6 +68,9 @@ import type {
   OpportunityLifecycleStatus,
   Project,
 } from "@/lib/types";
+import { pipelineStage, linkedAssetFor, type PipelineStage } from "@/lib/pipeline";
+import { formatDateTime } from "@/lib/format";
+import { StageChip } from "@/components/StageChip";
 import { toast } from "sonner";
 
 const searchSchema = z.object({
@@ -93,7 +96,12 @@ export const Route = createFileRoute("/_authenticated/app/plan")({
 
 type PlanView = "discover" | "list" | "board" | "calendar";
 type CalendarScale = "day" | "week" | "month";
-type OpportunityView = ReturnType<typeof opportunityView>;
+type OpportunityView = ReturnType<typeof opportunityView> & {
+  /** Derived pipeline stage — the one vocabulary shared with every other surface. */
+  pipeline: PipelineStage;
+  /** Resolved go-live time, shown beside an armed chip. */
+  pipelineDetail?: string;
+};
 
 const stageColors: Record<OpportunityLifecycleStatus, string> = {
   captured: "#818b96",
@@ -127,13 +135,26 @@ function PlanPage() {
   const [showArchived, setShowArchived] = useState(false);
   const [contentOpportunityId, setContentOpportunityId] = useState<string | null>(null);
 
+  /**
+   * Resolve by PRECEDENCE, not recency. Picking the most recently updated asset
+   * let an armed one hide behind a newer inert one: the card rendered "Writing"
+   * with no cancel affordance while the cron published the other asset anyway.
+   * linkedAssetFor puts an armed asset first, then a live one, then the
+   * opportunity's own pointer, and only then falls back to the newest.
+   */
   const assetsByOpportunity = useMemo(() => {
-    const result = new Map<string, ContentAsset>();
+    const grouped = new Map<string, ContentAsset[]>();
     for (const asset of content) {
       const opportunityId = asset.opportunityId ?? asset.sourceOpportunityId;
       if (!opportunityId) continue;
-      const previous = result.get(opportunityId);
-      if (!previous || previous.updatedAt < asset.updatedAt) result.set(opportunityId, asset);
+      const list = grouped.get(opportunityId);
+      if (list) list.push(asset);
+      else grouped.set(opportunityId, [asset]);
+    }
+    const result = new Map<string, ContentAsset>();
+    for (const [opportunityId, list] of grouped) {
+      const chosen = linkedAssetFor({ id: opportunityId }, list);
+      if (chosen) result.set(opportunityId, chosen);
     }
     return result;
   }, [content]);
@@ -141,7 +162,18 @@ function PlanPage() {
   const opportunities = useMemo(
     () =>
       rawOpportunities
-        .map((opportunity) => opportunityView(opportunity, assetsByOpportunity.get(opportunity.id)))
+        .map((opportunity) => {
+          const asset = assetsByOpportunity.get(opportunity.id);
+          return {
+            ...opportunityView(opportunity, asset),
+            // The one vocabulary. Richer than the stored lifecycle: it knows
+            // about armed schedules, failed publishes and pages already live.
+            pipeline: pipelineStage({ opportunity, asset }),
+            pipelineDetail: asset?.scheduledPublishAt
+              ? formatDateTime(asset.scheduledPublishAt)
+              : undefined,
+          };
+        })
         .filter((opportunity) =>
           showArchived ? opportunity.status === "archived" : opportunity.status !== "archived",
         )
@@ -733,11 +765,8 @@ function OpportunityCard({
       <span className="w-max max-w-full rounded-[3px] border border-[#e2ddd4] bg-[#f7f4ed] px-1.5 py-0.5 text-[8px] text-[#727a84]">
         {opportunitySourceLabel(opportunity)}
       </span>
-      <span className="flex items-center gap-1.5 text-[8px] uppercase text-[#6a7683]">
-        <span
-          className="h-1.5 w-1.5 rounded-full"
-          style={{ background: stageColors[opportunity.status] }}
-        />
+      <span className="flex flex-wrap items-center gap-1.5 text-[8px] uppercase text-[#6a7683]">
+        <StageChip stage={opportunity.pipeline} detail={opportunity.pipelineDetail} />
         {opportunity.searchIntent}
       </span>
       <span className="text-right text-[9px] text-[#5f6771]">
