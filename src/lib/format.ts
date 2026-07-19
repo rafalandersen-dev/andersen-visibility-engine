@@ -25,5 +25,13 @@ export function formatDateShort(input: string | Date): string {
 export function formatDateTime(input: string | Date): string {
   const d = parseISO(input);
   if (Number.isNaN(d.getTime())) return "—";
-  return `${formatDate(d)} · ${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+  return `${formatDate(d)} · ${formatTime(d)}`;
+}
+
+// 14:32 — UTC, matching every other scheduledPublishAt surface (the armed chip,
+// the editor). Rendering local time would drift the calendar cell off the chip.
+export function formatTime(input: string | Date): string {
+  const d = parseISO(input);
+  if (Number.isNaN(d.getTime())) return "—";
+  return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
 }

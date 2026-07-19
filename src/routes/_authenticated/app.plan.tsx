@@ -73,7 +73,7 @@ import {
   PIPELINE_STAGES,
   type PipelineStage,
 } from "@/lib/pipeline";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatTime } from "@/lib/format";
 import { StageChip } from "@/components/StageChip";
 import { OrphanLane } from "@/components/OrphanLane";
 import { StackedDeck } from "@/components/StackedDeck";
@@ -162,6 +162,18 @@ const FLOW_STAGES: PipelineStage[] = [
   "armed",
   "sent",
   "live",
+];
+
+/** Stages whose dueAt is a genuine, not-yet-armed target — the calendar's ghost
+ *  layer. Armed has its own solid layer; live/sent/needs_fixing/live_missing are
+ *  past being a target and must not render as one. */
+const GHOST_STAGES: PipelineStage[] = [
+  "idea",
+  "queued",
+  "planned",
+  "writing",
+  "in_review",
+  "ready",
 ];
 
 function PlanPage() {
@@ -254,13 +266,13 @@ function PlanPage() {
     [assetsByOpportunity, query, rawOpportunities, showArchived],
   );
 
-  // The calendar's solid layer: every armed asset, keyed on the asset itself, so
-  // an armed orphan (its opportunity deleted) still shows its go-live.
+  // The calendar's solid layer: every ARMED asset, keyed on the asset itself, so
+  // an armed orphan (its opportunity deleted) still shows its go-live. Derived
+  // through pipelineStage so it shares ONE definition of "armed" with the board:
+  // an overdue pending schedule is needs_fixing, not armed, and must not render
+  // here as an upcoming go-live (nor double with its ghost).
   const goLives = useMemo(
-    () =>
-      content.filter(
-        (asset) => asset.scheduledPublishStatus === "pending" && asset.scheduledPublishAt,
-      ),
+    () => content.filter((asset) => pipelineStage({ asset }) === "armed"),
     [content],
   );
 
@@ -367,7 +379,11 @@ function PlanPage() {
    * for the WordPress/Shopify connectors whose external id died with the old asset.
    */
   async function rewriteLivePage(opportunity: OpportunityView) {
-    if (!opportunity.canonicalUrl) {
+    // The gate lives HERE, at the single choke point every surface routes through
+    // (board card, calendar ghost, any future caller) — not only in one card's
+    // JSX. Without it, an ungated call site (the calendar) would let a
+    // WordPress/Shopify project start a rewrite that publishes a duplicate post.
+    if (!rewriteEnabled || !opportunity.canonicalUrl) {
       selectOpportunity(opportunity.id);
       return;
     }
@@ -453,6 +469,9 @@ function PlanPage() {
             />
           ) : (
             <BoardView
+              // Remount on project switch so the local selection Set can't carry
+              // ids from the previous project into a bulk action.
+              key={activeProjectId}
               opportunities={opportunities}
               orphans={orphans}
               assetGroups={assetGroups}
@@ -901,10 +920,13 @@ function BoardView({
         continue;
       }
       try {
+        // Prioritise must CLEAR dueAt, or a Planned card keeps deriving Planned
+        // from the stale date and the move looks like a no-op — same reason the
+        // drag path clears it.
         transitionOpportunity(
           id,
           to,
-          to === "prioritized" ? { priority: opportunity.priority } : { dueAt },
+          to === "prioritized" ? { priority: opportunity.priority, dueAt: undefined } : { dueAt },
         );
         done++;
       } catch {
@@ -918,6 +940,13 @@ function BoardView({
     let done = 0;
     let skipped = 0;
     for (const id of selection) {
+      // Membership guard: `selection` can hold ids no longer in view (a project
+      // switch or filter). Without this, a stale id from another project would be
+      // archived invisibly. Only touch opportunities currently on screen.
+      if (!opportunities.some((item) => item.id === id)) {
+        skipped++;
+        continue;
+      }
       try {
         archiveOpportunity(id);
         done++;
@@ -1083,6 +1112,9 @@ function OpportunityCard({
       onDragEnd={() => onDragStateChange(false)}
       onClick={onClick}
       onKeyDown={(event) => {
+        // Ignore key events bubbling up from the checkbox / primary-action buttons,
+        // or activating one of those by keyboard also opens the drawer.
+        if (event.target !== event.currentTarget) return;
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
           onClick();
@@ -1131,7 +1163,7 @@ function OpportunityCard({
                 Open live page
               </a>
             ) : null}
-            {rewriteEnabled ? (
+            {rewriteEnabled && opportunity.canonicalUrl ? (
               <button
                 type="button"
                 onClick={(event) => {
@@ -1292,10 +1324,14 @@ function CalendarView({
   const today = new Date();
   const initial = today.getDay() === 0 ? addDays(today, 1) : today;
   const [anchor, setAnchor] = useState(initial);
-  // Two layers. Ghosts are dueAt TARGETS (not yet armed); armed opportunities are
-  // excluded so their real go-live in the solid layer isn't shadowed by a target.
+  // Two layers. Ghosts are dueAt TARGETS in a pre-armed stage. Restricting to
+  // those stages (rather than merely "not armed") is deliberate: a live, sent or
+  // needs_fixing opportunity can carry a stale dueAt, and rendering it as a dashed
+  // "Target — not scheduled" would mislabel already-done work as unscheduled — and
+  // would put a live_missing card's rewrite affordance on the calendar, outside
+  // the board's connector gate.
   const ghosts = opportunities.filter(
-    (opportunity) => opportunity.dueAt && opportunity.pipeline !== "armed",
+    (opportunity) => opportunity.dueAt && GHOST_STAGES.includes(opportunity.pipeline),
   );
   const unscheduled = opportunities.filter(
     (opportunity) => !opportunity.dueAt && opportunity.pipeline === "queued",
@@ -1500,7 +1536,11 @@ function CalendarDay({
       opportunity.dueAt && isSameDay(new Date(`${opportunity.dueAt.slice(0, 10)}T12:00:00`), date),
   );
   const dayGoLives = goLives.filter(
-    (asset) => asset.scheduledPublishAt && isSameDay(new Date(asset.scheduledPublishAt), date),
+    (asset) =>
+      // Bucket on the UTC calendar day of the instant (matching formatDateTime and
+      // the armed chip, both getUTC*), not the browser-local instant, or the
+      // go-live lands on the wrong cell. Robust to any stored offset, not just Z.
+      asset.scheduledPublishAt && isSameDay(utcDayAnchor(asset.scheduledPublishAt), date),
   );
   return (
     <div
@@ -1524,8 +1564,7 @@ function CalendarDay({
         >
           <span className="flex items-center gap-1 text-[8px] font-medium uppercase tracking-[0.08em] text-amber-800">
             <Clock size={10} />
-            {asset.scheduledPublishAt ? format(new Date(asset.scheduledPublishAt), "HH:mm") : ""} ·
-            Goes live
+            {asset.scheduledPublishAt ? formatTime(asset.scheduledPublishAt) : ""} · Goes live
           </span>
           <strong className="text-[9px] leading-[1.4] text-[#3a2f18]">{asset.title}</strong>
         </button>
@@ -1541,6 +1580,9 @@ function CalendarDay({
           onDragStart={(event) => event.dataTransfer.setData("text/opportunity-id", opportunity.id)}
           onClick={() => onSelect(opportunity.id)}
           onKeyDown={(event) => {
+            // Ignore key events bubbling up from the nested action button, or a
+            // keyboard user activating that button also opens the drawer.
+            if (event.target !== event.currentTarget) return;
             if (event.key === "Enter" || event.key === " ") {
               event.preventDefault();
               onSelect(opportunity.id);
@@ -1812,6 +1854,13 @@ function Detail({ label, value, icon }: { label: string; value: string; icon?: R
 function formatDate(value: string) {
   const date = new Date(value.length <= 10 ? `${value}T12:00:00` : value);
   return Number.isNaN(date.getTime()) ? value : format(date, "MMM d, yyyy");
+}
+
+/** A local-noon Date on the instant's UTC calendar day, so calendar bucketing
+ *  agrees with formatDateTime (UTC) regardless of the stored offset. */
+function utcDayAnchor(iso: string): Date {
+  const d = new Date(iso);
+  return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12, 0, 0);
 }
 
 /** The path portion of a live URL, for seeding a rewrite's publishSlug. */

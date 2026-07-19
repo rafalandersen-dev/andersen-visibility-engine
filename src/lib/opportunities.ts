@@ -17,17 +17,6 @@ export const OPPORTUNITY_STAGES: OpportunityLifecycleStatus[] = [
   "published",
 ];
 
-export const OPPORTUNITY_STAGE_LABELS: Record<OpportunityLifecycleStatus, string> = {
-  captured: "Captured",
-  prioritized: "Prioritized",
-  scheduled: "Scheduled",
-  drafting: "Drafting",
-  in_review: "In review",
-  approved: "Approved",
-  published: "Published",
-  archived: "Archived",
-};
-
 const CANONICAL_STATUSES = new Set<OpportunityLifecycleStatus>([...OPPORTUNITY_STAGES, "archived"]);
 
 const ALLOWED_TRANSITIONS: Record<OpportunityLifecycleStatus, OpportunityLifecycleStatus[]> = {
