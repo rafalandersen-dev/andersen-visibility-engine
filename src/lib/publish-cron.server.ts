@@ -153,5 +153,27 @@ export async function runScheduledPublishes(batchSize = 20): Promise<RunSummary>
     }
   }
 
+  // Heartbeat last: a dead cron and an empty queue are otherwise
+  // indistinguishable — both look like "nothing happened" — while a user's
+  // article silently never goes live and the UI still says Scheduled.
+  await admin
+    .rpc("record_cron_heartbeat", {
+      job: "scheduled-publish-run",
+      summary: summary as unknown as Record<string, unknown>,
+    })
+    .catch((e: unknown) =>
+      console.error("[publish-cron] heartbeat failed", e instanceof Error ? e.message : "error"),
+    );
+
   return summary;
+}
+
+/** Age of the last successful runner tick, in seconds. null when it never ran. */
+export async function scheduledPublishRunnerAgeSeconds(): Promise<number | null> {
+  const admin = await adminClient();
+  const { data, error } = await admin.rpc("cron_heartbeat_age_seconds", {
+    job: "scheduled-publish-run",
+  });
+  if (error) return null;
+  return typeof data === "number" ? data : null;
 }
