@@ -56,7 +56,6 @@ import {
 import { generateSeoOpportunities, generateContentForOpportunity } from "@/lib/mock-ai";
 import {
   OPPORTUNITY_STAGE_LABELS,
-  OPPORTUNITY_STAGES,
   canTransitionOpportunity,
   opportunitySourceLabel,
   opportunityView,
@@ -158,6 +157,21 @@ const BOARD_DROP_TARGETS: Partial<Record<PipelineStage, OpportunityLifecycleStat
  *  of. Above all, an armed card cannot be dragged — the thing about to publish
  *  to a customer's site literally cannot be picked up. */
 const DRAGGABLE_STAGES: PipelineStage[] = ["idea", "queued", "planned"];
+
+/** The linear happy path, for the drawer's progress indicator. Exception stages
+ *  (needs_fixing, live_missing, parked) sit outside it and show their chip
+ *  instead of a step count. */
+const FLOW_STAGES: PipelineStage[] = [
+  "idea",
+  "queued",
+  "planned",
+  "writing",
+  "in_review",
+  "ready",
+  "armed",
+  "sent",
+  "live",
+];
 
 function PlanPage() {
   const search = Route.useSearch();
@@ -1039,7 +1053,7 @@ function ListView({
               className={`grid min-h-14 w-full grid-cols-[2fr_.8fr_.9fr_.7fr_.8fr_80px] items-center gap-3 border-b border-[#e7e1d8] px-4 py-2.5 text-left text-[10px] last:border-b-0 hover:bg-[#faf6ef] ${selectedId === opportunity.id ? "bg-[#faf6ef]" : ""}`}
             >
               <strong className="text-[11px]">{opportunity.title}</strong>
-              <StageBadge status={opportunity.status} />
+              <StageChip stage={opportunity.pipeline} detail={opportunity.pipelineDetail} />
               <span>{opportunitySourceLabel(opportunity)}</span>
               <span className="capitalize">{opportunity.businessImpact}</span>
               <span>{opportunity.dueAt ? formatDate(opportunity.dueAt) : "Unscheduled"}</span>
@@ -1377,11 +1391,15 @@ function OpportunityDrawer({
   onOpenEditor: (assetId: string) => void;
   onOpenInsights: () => void;
 }) {
+  const t = useT();
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [date, setDate] = useState(
     opportunity.dueAt?.slice(0, 10) ?? format(addDays(new Date(), 1), "yyyy-MM-dd"),
   );
   const score = linkedAsset?.qualityScore;
+  const stage = opportunity.pipeline;
+  const flowIndex = FLOW_STAGES.indexOf(stage);
+  const inFlow = flowIndex >= 0;
 
   function prioritize() {
     try {
@@ -1436,7 +1454,7 @@ function OpportunityDrawer({
       >
         <X size={17} />
       </button>
-      <StageBadge status={opportunity.status} />
+      <StageChip stage={stage} detail={opportunity.pipelineDetail} />
       <h2 className="mt-2.5 pr-5 font-display text-xl leading-[1.18]">{opportunity.title}</h2>
       <div className="mt-2 flex items-center gap-1.5 text-[9px] uppercase text-[#687481]">
         <span className="h-1.5 w-1.5 rounded-full bg-[#398a63]" />
@@ -1472,14 +1490,17 @@ function OpportunityDrawer({
 
       <div className="rounded-md border border-[#e3d8c3] bg-[#fbf7ef] p-3">
         <div className="flex items-center justify-between text-[9px]">
-          <span>Opportunity progress</span>
-          <strong>{Math.max(1, OPPORTUNITY_STAGES.indexOf(opportunity.status) + 1)} / 7</strong>
+          <span>Pipeline stage</span>
+          <strong>
+            {inFlow ? `${flowIndex + 1} / ${FLOW_STAGES.length}` : t(`pipeline.stage.${stage}`)}
+          </strong>
         </div>
         <div className="my-2 h-1 overflow-hidden rounded-full bg-[#e7dfd1]">
           <span
-            className="block h-full rounded-full bg-[#b5862a]"
+            className="block h-full rounded-full"
             style={{
-              width: `${Math.max(14, ((OPPORTUNITY_STAGES.indexOf(opportunity.status) + 1) / 7) * 100)}%`,
+              width: `${inFlow ? Math.max(12, ((flowIndex + 1) / FLOW_STAGES.length) * 100) : 100}%`,
+              background: pipelineStageColors[stage],
             }}
           />
         </div>
@@ -1509,39 +1530,47 @@ function OpportunityDrawer({
         Next step
       </div>
       <div className="mt-2 grid gap-2">
-        {opportunity.status === "captured" ? (
+        {stage === "idea" ? (
           <Button onClick={prioritize}>
             <CheckCircle size={16} /> Prioritize opportunity
           </Button>
         ) : null}
-        {opportunity.status === "prioritized" ? (
+        {stage === "queued" ? (
           <Button onClick={() => setScheduleOpen((value) => !value)}>
-            <CalendarBlank size={16} /> Schedule opportunity
+            <CalendarBlank size={16} /> Set a target date
           </Button>
         ) : null}
-        {opportunity.status === "scheduled" ? (
+        {stage === "planned" ? (
           <Button onClick={onCreateContent}>
             <FileText size={16} /> Create linked draft
           </Button>
         ) : null}
-        {opportunity.status === "scheduled" ? (
+        {stage === "planned" ? (
           <Button variant="outline" onClick={unschedule}>
             Unschedule
           </Button>
         ) : null}
-        {(["drafting", "in_review", "approved"] as OpportunityLifecycleStatus[]).includes(
-          opportunity.status,
+        {(["writing", "in_review", "ready", "armed", "sent", "needs_fixing"] as PipelineStage[]).includes(
+          stage,
         ) && linkedAsset ? (
           <Button onClick={() => onOpenEditor(linkedAsset.id)}>
             <FileText size={16} /> Open linked content
           </Button>
         ) : null}
-        {opportunity.status === "published" ? (
+        {stage === "live" ? (
           <Button onClick={onOpenInsights}>
             <ChartLineUp size={16} /> View impact
           </Button>
         ) : null}
-        {opportunity.status !== "archived" ? (
+        {stage === "live_missing" && opportunity.canonicalUrl ? (
+          <Button
+            variant="outline"
+            onClick={() => window.open(opportunity.canonicalUrl, "_blank", "noopener")}
+          >
+            <Globe size={16} /> Open live page
+          </Button>
+        ) : null}
+        {stage !== "parked" ? (
           <Button variant="ghost" className="text-muted-foreground" onClick={archive}>
             <Archive size={15} /> Archive
           </Button>
@@ -1571,21 +1600,6 @@ function OpportunityDrawer({
         </div>
       ) : null}
     </aside>
-  );
-}
-
-function StageBadge({ status }: { status: OpportunityLifecycleStatus }) {
-  return (
-    <span
-      className="inline-flex w-max items-center rounded-full border px-2 py-0.5 text-[8px] font-semibold uppercase tracking-[0.08em]"
-      style={{
-        borderColor: `${stageColors[status]}66`,
-        background: `${stageColors[status]}12`,
-        color: stageColors[status],
-      }}
-    >
-      {OPPORTUNITY_STAGE_LABELS[status]}
-    </span>
   );
 }
 
