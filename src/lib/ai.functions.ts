@@ -34,6 +34,8 @@ import type {
   Opportunity,
 } from "./types";
 
+import { claimAiUsage, type UsageBucket } from "./ai-usage.server";
+
 const MODEL = "google/gemini-3-flash-preview";
 
 const LANGUAGES = ["Polish", "Swedish", "English", "Danish"] as const;
@@ -880,6 +882,8 @@ export const generateAuditFn = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
+    // Spend limit, claimed before any model call so a refusal costs nothing.
+    await claimAiUsage({ userId: context.userId as string, bucket: "audit" });
     const project = data.project as Project;
     const services = data.services as ServiceItem[];
     const url = (data.websiteUrl || project.websiteUrl || "").trim();
@@ -990,6 +994,8 @@ export const generateCompetitorGapFn = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
+    // Spend limit, claimed before any model call so a refusal costs nothing.
+    await claimAiUsage({ userId: context.userId as string, bucket: "aiCredits" });
     const project = data.project as Project;
     const services = data.services as ServiceItem[];
     const brief = projectBrief(project, services);
@@ -1130,6 +1136,8 @@ export const generateAuthorityFn = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
+    // Spend limit, claimed before any model call so a refusal costs nothing.
+    await claimAiUsage({ userId: context.userId as string, bucket: "authority" });
     const project = data.project as Project;
     const services = data.services as ServiceItem[];
     const brief = projectBrief(project, services);
@@ -1244,6 +1252,8 @@ export const generateAiVisibilityFn = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
+    // Spend limit, claimed before any model call so a refusal costs nothing.
+    await claimAiUsage({ userId: context.userId as string, bucket: "aiCredits" });
     const project = data.project as Project;
     const services = data.services as ServiceItem[];
     const brief = projectBrief(project, services);
@@ -1356,6 +1366,7 @@ export const scanWebsiteFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ url: z.string().default("") }).parse(input))
   .handler(async ({ data }) => {
+    // NOT metered. Onboarding website scan: metering it would block signup before the user has a plan.
     const site = await fetchSiteContext(data.url);
     if (!site.ok) {
       return { ok: false as const, title: "", metaDescription: "", businessName: "", businessType: "", description: "", primaryLanguage: "English", services: [] as { name: string; kind: "Service" | "Product"; description: string }[] };
@@ -1435,6 +1446,8 @@ export const generateOpportunitiesFn = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
+    // Spend limit, claimed before any model call so a refusal costs nothing.
+    await claimAiUsage({ userId: context.userId as string, bucket: "aiCredits" });
     const project = data.project as Project;
     const services = data.services as ServiceItem[];
     const brief = projectBrief(project, services);
@@ -1487,6 +1500,8 @@ export const generateCalendarFn = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
+    // Spend limit, claimed before any model call so a refusal costs nothing.
+    await claimAiUsage({ userId: context.userId as string, bucket: "aiCredits" });
     const project = data.project as Project;
     const opps = data.opportunities as Opportunity[];
 
@@ -1556,7 +1571,9 @@ export const generateContentAssetFn = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    // Spend limit, claimed before any model call so a refusal costs nothing.
+    await claimAiUsage({ userId: context.userId as string, bucket: "contentGeneration" });
     const project = data.project as Project;
     const services = data.services as ServiceItem[];
     const opp = data.opportunity as Opportunity;
@@ -1650,7 +1667,9 @@ export const generateContentFn = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    // Spend limit, claimed before any model call so a refusal costs nothing.
+    await claimAiUsage({ userId: context.userId as string, bucket: "contentGeneration" });
     const project = data.project as Project;
     const services = data.services as ServiceItem[];
     const opp = data.opportunity as Opportunity;
@@ -1706,7 +1725,9 @@ export const regenerateMetadataFn = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    // Spend limit, claimed before any model call so a refusal costs nothing.
+    await claimAiUsage({ userId: context.userId as string, bucket: "aiCredits" });
     try {
       const payload = await generateJsonText(
         `Write an SEO meta title (≤60 chars) and meta description (≤160 chars) in ${data.language} for the page titled "${data.title}" about "${data.topic}" for "${data.businessName}". One calm sentence for the description, including a soft next step toward "${data.cta}". No quotes, no emojis.
@@ -1743,7 +1764,9 @@ export const regenerateFaqFn = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    // Spend limit, claimed before any model call so a refusal costs nothing.
+    await claimAiUsage({ userId: context.userId as string, bucket: "aiCredits" });
     try {
       const payload = await generateJsonText(
         `Write 4 realistic FAQ entries in ${data.language} that real customers of "${data.businessName}" would ask about "${data.topic}". Answers must be concrete, 2–4 sentences. No invented prices, no guarantees.
@@ -1774,7 +1797,9 @@ export const regenerateCtaFn = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    // Spend limit, claimed before any model call so a refusal costs nothing.
+    await claimAiUsage({ userId: context.userId as string, bucket: "aiCredits" });
     try {
       const payload = await generateJsonText(
         `Suggest ONE short, action-oriented CTA button label in ${data.language} for a ${data.intent.toLowerCase()} page about "${data.topic}" for "${data.businessName}". 2–5 words. No emojis, no quotes.
@@ -1817,7 +1842,9 @@ export const evaluateContentQualityFn = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    // Spend limit, claimed before any model call so a refusal costs nothing.
+    await claimAiUsage({ userId: context.userId as string, bucket: "miloScore" });
     const project = data.project as Project;
     const services = data.services as ServiceItem[];
     const brief = projectBrief(project, services);
@@ -1885,7 +1912,9 @@ export const improveContentDraftFn = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    // Spend limit, claimed before any model call so a refusal costs nothing.
+    await claimAiUsage({ userId: context.userId as string, bucket: "improveDraft" });
     const project = data.project as Project;
     const services = data.services as ServiceItem[];
     const brief = projectBrief(project, services);
@@ -1988,7 +2017,9 @@ export const generateAuthorityOpportunitiesFn = createServerFn({ method: "POST" 
       })
       .parse(input),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    // Spend limit, claimed before any model call so a refusal costs nothing.
+    await claimAiUsage({ userId: context.userId as string, bucket: "authority" });
     const project = data.project as Project;
     const services = data.services as ServiceItem[];
     const brief = projectBrief(project, services);
@@ -2116,6 +2147,8 @@ export const generateBacklinksFn = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
+    // Spend limit, claimed before any model call so a refusal costs nothing.
+    await claimAiUsage({ userId: context.userId as string, bucket: "aiCredits" });
     const project = data.project as Project;
     const services = data.services as ServiceItem[];
     const brief = projectBrief(project, services);
@@ -2289,6 +2322,7 @@ export const runPublicAiVisibilityAuditFn = createServerFn({ method: "POST" })
     z.object({ url: z.string(), language: z.string().optional() }).parse(input),
   )
   .handler(async ({ data }) => {
+    // NOT metered. Public marketing audit: there is no signed-in user to meter. Rate limiting for this path is tracked separately.
     const normalizedUrl = normalizeAuditUrl(data.url);
     if (!normalizedUrl) throw new Error("Please enter a valid website URL (for example: yourbusiness.com).");
 
@@ -2377,6 +2411,8 @@ export const generateOutreachDraftFn = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
+    // Spend limit, claimed before any model call so a refusal costs nothing.
+    await claimAiUsage({ userId: context.userId as string, bucket: "aiCredits" });
     const project = data.project as Project;
     const services = data.services as ServiceItem[];
     try {
