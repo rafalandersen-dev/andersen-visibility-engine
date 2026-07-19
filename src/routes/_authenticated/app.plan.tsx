@@ -76,6 +76,7 @@ import {
 import { formatDateTime } from "@/lib/format";
 import { StageChip } from "@/components/StageChip";
 import { OrphanLane } from "@/components/OrphanLane";
+import { StackedDeck } from "@/components/StackedDeck";
 import { useT } from "@/i18n";
 import { toast } from "sonner";
 
@@ -206,6 +207,22 @@ function PlanPage() {
       if (chosen) result.set(opportunityId, chosen);
     }
     return result;
+  }, [content]);
+
+  /**
+   * Every asset per opportunity — the disclosure behind the precedence winner, so
+   * the stacked deck can show the drafts the single card doesn't represent.
+   */
+  const assetGroups = useMemo(() => {
+    const grouped = new Map<string, ContentAsset[]>();
+    for (const asset of content) {
+      const opportunityId = asset.opportunityId ?? asset.sourceOpportunityId;
+      if (!opportunityId) continue;
+      const list = grouped.get(opportunityId);
+      if (list) list.push(asset);
+      else grouped.set(opportunityId, [asset]);
+    }
+    return grouped;
   }, [content]);
 
   const opportunities = useMemo(
@@ -434,6 +451,7 @@ function PlanPage() {
             <BoardView
               opportunities={opportunities}
               orphans={orphans}
+              assetGroups={assetGroups}
               selectedId={selected?.id}
               onSelect={selectOpportunity}
               onPrimaryAction={onPrimaryAction}
@@ -831,6 +849,7 @@ function ViewTab({
 function BoardView({
   opportunities,
   orphans,
+  assetGroups,
   selectedId,
   onSelect,
   onPrimaryAction,
@@ -839,6 +858,7 @@ function BoardView({
 }: {
   opportunities: OpportunityView[];
   orphans: ContentAsset[];
+  assetGroups: Map<string, ContentAsset[]>;
   selectedId?: string;
   onSelect: (id?: string) => void;
   onPrimaryAction: (opportunity: OpportunityView) => void;
@@ -928,9 +948,11 @@ function BoardView({
                   <OpportunityCard
                     key={opportunity.id}
                     opportunity={opportunity}
+                    assets={assetGroups.get(opportunity.id) ?? []}
                     selected={selectedId === opportunity.id}
                     onClick={() => onSelect(opportunity.id)}
                     onPrimaryAction={onPrimaryAction}
+                    onOpenAsset={onOpenAsset}
                     onDragStateChange={setDragging}
                     rewriteEnabled={rewriteEnabled}
                   />
@@ -952,16 +974,20 @@ function BoardView({
 
 function OpportunityCard({
   opportunity,
+  assets,
   selected,
   onClick,
   onPrimaryAction,
+  onOpenAsset,
   onDragStateChange,
   rewriteEnabled,
 }: {
   opportunity: OpportunityView;
+  assets: ContentAsset[];
   selected: boolean;
   onClick: () => void;
   onPrimaryAction: (opportunity: OpportunityView) => void;
+  onOpenAsset: (assetId: string) => void;
   onDragStateChange: (dragging: boolean) => void;
   rewriteEnabled: boolean;
 }) {
@@ -1041,6 +1067,7 @@ function OpportunityCard({
           </button>
         )}
       </div>
+      <StackedDeck assets={assets} onOpenAsset={onOpenAsset} />
     </div>
   );
 }
