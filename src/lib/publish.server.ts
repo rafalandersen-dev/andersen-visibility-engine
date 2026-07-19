@@ -13,7 +13,7 @@
  * scheduled publish and a manual one can never diverge.
  */
 import { mutateWorkspace, type WorkspaceData } from "./workspace.server";
-import { publishLiveDirect } from "./publish.functions";
+import { publishDraftDirect, publishLiveDirect } from "./publish.functions";
 import { publishWordPressLiveDirect } from "./wordpress.functions";
 import { upsertArticle } from "./shopify.functions";
 import { isShopify, isWordPress, shopifyArticleArgs, wpPublishArgs } from "./publish-targets";
@@ -111,10 +111,30 @@ async function runConnectorPublish(
   if (!secret) {
     throw new PublishNotPossibleError("No publish secret is configured for this project.");
   }
+  // Send-then-publish, matching the manual path. The custom-endpoint contract
+  // requires the draft to exist on the site before it can be flipped live, and
+  // refusing here meant a scheduled publish failed permanently exactly where the
+  // equivalent manual click would have succeeded.
+  let externalId = asset.publishExternalId ?? "";
   if (asset.publishStatus !== "sent") {
-    throw new PublishNotPossibleError(
-      "The draft was never sent to the website, so it cannot be published live.",
-    );
+    const draft = await publishDraftDirect({
+      endpoint: (project.publishEndpoint ?? "").trim(),
+      secret,
+      projectId: project.id,
+      assetId: asset.id,
+      title: asset.title,
+      slug: asset.publishSlug || asset.slug || "",
+      assetType: asset.assetType ?? "article",
+      destinationType: asset.publishDestinationType ?? project.defaultDestinationType ?? "blogPost",
+      language: asset.language ?? project.primaryLanguage,
+      markdown: asset.markdown,
+      metaTitle: asset.metaTitle ?? "",
+      metaDescription: asset.metaDescription ?? "",
+      sourceOpportunityTitle: asset.sourceOpportunityTitle ?? asset.title,
+      sourceType: asset.sourceType ?? "unknown",
+      createdAt: asset.createdAt ?? asset.updatedAt ?? "",
+    });
+    externalId = draft.externalId || externalId;
   }
 
   const res = await publishLiveDirect({
@@ -122,7 +142,7 @@ async function runConnectorPublish(
     secret,
     projectId: project.id,
     assetId: asset.id,
-    externalId: asset.publishExternalId ?? "",
+    externalId,
     slug: asset.publishSlug || asset.slug || "",
     destinationType: asset.publishDestinationType ?? project.defaultDestinationType ?? "blogPost",
   });
@@ -132,7 +152,10 @@ async function runConnectorPublish(
     assetPatch: {
       liveUrl: res.liveUrl || undefined,
       livePublishedAt: res.publishedAt,
-      publishExternalId: res.externalId || asset.publishExternalId,
+      publishExternalId: res.externalId || externalId || asset.publishExternalId,
+      // If we sent the draft on this run, record that too — otherwise the asset
+      // would still read "not sent" beside a live URL.
+      publishStatus: "sent",
     },
   };
 }
@@ -153,6 +176,18 @@ export async function publishAssetServerSide(
     const row = await readWorkspaceRow(userId);
     if (!row) throw new PublishNotPossibleError("The workspace no longer exists.");
     const { asset, project } = findAssetAndProject(row.data, assetId);
+
+    // Fire-time consent check. The queue row was armed when the draft was ready;
+    // between then and now the user may have sent it back for edits, rejected it
+    // or reverted it to a draft. Nothing else re-reads asset.status, so without
+    // this the runner happily publishes content its author explicitly withdrew.
+    if (asset.status !== "Approved" && asset.status !== "Exported") {
+      throw new PublishNotPossibleError(
+        asset.status === "Rejected"
+          ? "You rejected this draft, so it was not published."
+          : "This draft is no longer approved, so it was not published. Approve it again to schedule it.",
+      );
+    }
 
     if (asset.livePublishStatus === "published" && asset.liveUrl) {
       // Already live (e.g. the user published manually before the slot came up).

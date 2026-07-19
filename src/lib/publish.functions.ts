@@ -44,7 +44,7 @@ async function resolvePublishTarget(
   };
 }
 
-const PublishInputSchema = z.object({
+export const PublishInputSchema = z.object({
   // endpoint/secret deliberately absent — resolved server-side, see resolvePublishTarget.
   projectId: z.string().default(""),
   assetId: z.string().default(""),
@@ -66,15 +66,17 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
 
 const asString = (v: unknown): string => (typeof v === "string" ? v : "");
 
-export const publishContentFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => PublishInputSchema.parse(input))
-  .handler(async ({ data, context }) => {
-    // Target comes from the caller's own workspace, never from the request.
-    const { draftEndpoint: endpoint, secret } = await resolvePublishTarget(
-      context.userId as string,
-      data.projectId,
-    );
+/**
+ * Send a content asset to the website as a DRAFT. Plain function — no auth
+ * middleware — so both the browser server fn below and the scheduled-publish
+ * runner can call it. The runner needs it because the custom-endpoint contract
+ * requires the draft to exist before it can be flipped live.
+ */
+export async function publishDraftDirect(
+  data: z.infer<typeof PublishInputSchema> & { endpoint: string; secret: string },
+): Promise<{ ok: true; draftUrl: string; externalId: string; sentAt: string }> {
+  {
+    const { endpoint, secret } = data;
 
     // ---- Validate configuration (never echo the secret back) ----
     if (!endpoint) throw new Error("No publish endpoint configured. Add one in Project Setup.");
@@ -174,6 +176,19 @@ export const publishContentFn = createServerFn({ method: "POST" })
     });
 
     return { ok: true as const, draftUrl, externalId, sentAt };
+  }
+}
+
+export const publishContentFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => PublishInputSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    // Target comes from the caller's own workspace, never from the request.
+    const { draftEndpoint: endpoint, secret } = await resolvePublishTarget(
+      context.userId as string,
+      data.projectId,
+    );
+    return publishDraftDirect({ ...data, endpoint, secret });
   });
 
 // ============================================================
@@ -254,9 +269,9 @@ export async function publishLiveDirect(
       });
     } catch {
       // Unknown outcome: the site may have published before the connection died.
-    throw ambiguousTransportFailure(
-      "Could not reach the live-publish endpoint. Check the URL and try again.",
-    );
+      throw ambiguousTransportFailure(
+        "Could not reach the live-publish endpoint. Check the URL and try again.",
+      );
     } finally {
       clearTimeout(timer);
     }
