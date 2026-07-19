@@ -14,9 +14,37 @@ import { z } from "zod";
 
 const DESTINATION_TYPES = ["blogPost", "servicePage", "faq", "landingPage"] as const;
 
+/**
+ * Resolve the publish target from the CALLER'S OWN workspace.
+ *
+ * The endpoint and secret used to be sent up in the request body. That made the
+ * server an open forwarder: an authenticated caller could hand it any URL and it
+ * would POST there. It also made any per-domain publishing limit unenforceable,
+ * because the domain the counter would key on came from the same request it was
+ * supposed to constrain. Both are fixed by never trusting the client for this —
+ * the browser now sends only ids, and the target is derived server-side.
+ */
+async function resolvePublishTarget(
+  userId: string,
+  projectId: string,
+): Promise<{ draftEndpoint: string; liveEndpoint: string; secret: string }> {
+  const { readWorkspaceRow } = await import("./workspace.server");
+  const row = await readWorkspaceRow(userId);
+  if (!row) throw new Error("Workspace not found.");
+  const projects = Array.isArray(row.data.projects)
+    ? (row.data.projects as Array<Record<string, unknown>>)
+    : [];
+  const project = projects.find((p) => asString(p?.id) === projectId);
+  if (!project) throw new Error("Project not found in your workspace.");
+  return {
+    draftEndpoint: asString(project.publishEndpoint).trim(),
+    liveEndpoint: asString(project.livePublishEndpoint).trim(),
+    secret: asString(project.publishSecret).trim(),
+  };
+}
+
 const PublishInputSchema = z.object({
-  endpoint: z.string().default(""),
-  secret: z.string().default(""),
+  // endpoint/secret deliberately absent — resolved server-side, see resolvePublishTarget.
   projectId: z.string().default(""),
   assetId: z.string().default(""),
   title: z.string().default(""),
@@ -40,9 +68,12 @@ const asString = (v: unknown): string => (typeof v === "string" ? v : "");
 export const publishContentFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => PublishInputSchema.parse(input))
-  .handler(async ({ data }) => {
-    const endpoint = data.endpoint.trim();
-    const secret = data.secret.trim();
+  .handler(async ({ data, context }) => {
+    // Target comes from the caller's own workspace, never from the request.
+    const { draftEndpoint: endpoint, secret } = await resolvePublishTarget(
+      context.userId as string,
+      data.projectId,
+    );
 
     // ---- Validate configuration (never echo the secret back) ----
     if (!endpoint) throw new Error("No publish endpoint configured. Add one in Project Setup.");
@@ -147,6 +178,12 @@ export const publishContentFn = createServerFn({ method: "POST" })
 // Publishing v1.1 — publish an existing draft LIVE on the website
 // ============================================================
 
+/**
+ * Input to the plain publishLiveDirect transport. endpoint/secret ARE present
+ * here because the server-side callers (the browser server fn below, and the
+ * cron runner via publish.server.ts) both resolve them from the workspace
+ * first. The browser never supplies them.
+ */
 export const PublishLiveInputSchema = z.object({
   endpoint: z.string().default(""),
   secret: z.string().default(""),
@@ -258,5 +295,14 @@ export async function publishLiveDirect(
 
 export const publishLiveFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => PublishLiveInputSchema.parse(input))
-  .handler(async ({ data }) => publishLiveDirect(data));
+  .inputValidator((input: unknown) =>
+    // The browser sends ids only; endpoint/secret are resolved server-side.
+    PublishLiveInputSchema.omit({ endpoint: true, secret: true }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { liveEndpoint, secret } = await resolvePublishTarget(
+      context.userId as string,
+      data.projectId,
+    );
+    return publishLiveDirect({ ...data, endpoint: liveEndpoint, secret });
+  });

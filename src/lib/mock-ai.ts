@@ -1629,8 +1629,8 @@ export async function sendContentToWebsite(
     try {
       const res = await publishContentFn({
         data: {
-          endpoint,
-          secret,
+          // endpoint/secret intentionally not sent: resolved server-side from
+          // this user's own workspace, so the browser cannot retarget a publish.
           projectId: project.id,
           assetId: asset.id,
           title: asset.title,
@@ -1699,8 +1699,7 @@ export async function publishContentLive(assetId: string) {
     try {
       const res = await publishLiveFn({
         data: {
-          endpoint: liveEndpoint,
-          secret,
+          // endpoint/secret intentionally not sent — see publishContentFn above.
           projectId: project.id,
           assetId: asset.id,
           externalId: asset.publishExternalId ?? "",
