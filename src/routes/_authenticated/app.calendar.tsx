@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,6 +34,12 @@ import { CalendarDays, FilePlus2, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/app/calendar")({
+  beforeLoad: () => {
+    throw redirect({
+      to: "/app/plan",
+      search: { view: "calendar", scale: "week", selected: undefined },
+    });
+  },
   head: () => ({
     meta: [
       { title: "Content Calendar — Milo Growth" },
@@ -98,7 +104,11 @@ function CalendarPage() {
           }}
           disabled={busy}
         >
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarDays className="h-4 w-4" />}
+          {busy ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <CalendarDays className="h-4 w-4" />
+          )}
           Generate calendar
         </Button>
       }
@@ -141,14 +151,25 @@ function CalendarPage() {
                             aria-label="Publish date"
                           />
                         </td>
-                        <td className="px-5 py-3"><div className="font-medium truncate max-w-md">{c.topicTitle}</div></td>
+                        <td className="px-5 py-3">
+                          <div className="font-medium truncate max-w-md">{c.topicTitle}</div>
+                        </td>
                         <td className="px-5 py-3 text-muted-foreground">{c.language}</td>
                         <td className="px-5 py-3 text-muted-foreground">{c.contentType}</td>
                         <td className="px-5 py-3 text-muted-foreground">{c.searchIntent}</td>
-                        <td className="px-5 py-3 text-muted-foreground truncate">{c.recommendedCta}</td>
+                        <td className="px-5 py-3 text-muted-foreground truncate">
+                          {c.recommendedCta}
+                        </td>
                         <td className="px-5 py-3">
-                          <Select value={c.status} onValueChange={(v) => updateCalendarItem(c.id, { status: v as CalendarItem["status"] })}>
-                            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <Select
+                            value={c.status}
+                            onValueChange={(v) =>
+                              updateCalendarItem(c.id, { status: v as CalendarItem["status"] })
+                            }
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="Planned">Planned</SelectItem>
                               <SelectItem value="In Progress">In Progress</SelectItem>
@@ -161,7 +182,11 @@ function CalendarPage() {
                             size="sm"
                             variant="outline"
                             disabled={!c.opportunityId}
-                            title={c.opportunityId ? "Create content from the source opportunity" : "No linked opportunity"}
+                            title={
+                              c.opportunityId
+                                ? "Create content from the source opportunity"
+                                : "No linked opportunity"
+                            }
                             onClick={() => c.opportunityId && setContentOppId(c.opportunityId)}
                           >
                             <FilePlus2 className="h-3.5 w-3.5" /> Create
@@ -192,10 +217,17 @@ function CalendarPage() {
       <CreateContentDialog
         opportunityId={contentOppId}
         open={contentOppId !== null}
-        onOpenChange={(o) => { if (!o) setContentOppId(null); }}
+        onOpenChange={(o) => {
+          if (!o) setContentOppId(null);
+        }}
       />
 
-      <AlertDialog open={deleteId !== null} onOpenChange={(o) => { if (!o) setDeleteId(null); }}>
+      <AlertDialog
+        open={deleteId !== null}
+        onOpenChange={(o) => {
+          if (!o) setDeleteId(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete calendar item?</AlertDialogTitle>

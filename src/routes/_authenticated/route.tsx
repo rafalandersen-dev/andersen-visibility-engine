@@ -23,20 +23,28 @@ const CONNECT_PATH = "/app/connect";
 
 function AuthenticatedLayout() {
   const { loading, session, isOwner, roleLoaded } = useAuth();
+  // Screenshot QA can render the seeded workspace locally without weakening
+  // production auth. Vite compiles DEV to false in every production build.
+  const visualQa = import.meta.env.DEV && import.meta.env.VITE_MILO_VISUAL_QA === "true";
   const navigate = useNavigate();
   const [hydrating, setHydrating] = useState(true);
   const location = useRouterState({ select: (s) => s.location });
   const pathname = location.pathname;
+  const searchStr = location.searchStr;
   const projects = useStore((s) => s.projects);
   const activeProjectId = useStore((s) => s.activeProjectId);
 
   useEffect(() => {
+    if (visualQa) {
+      setHydrating(false);
+      return;
+    }
     if (loading) return;
     if (!session) {
       resetStore();
       // Preserve where the user was headed so login can return them there
       // (e.g. the /app/connect consent page for the Claude OAuth flow).
-      const redirect = `${location.pathname}${location.searchStr}`;
+      const redirect = `${pathname}${searchStr}`;
       navigate({ to: "/auth", search: { redirect } as never, replace: true });
       return;
     }
@@ -48,13 +56,14 @@ function AuthenticatedLayout() {
     return () => {
       cancelled = true;
     };
-  }, [loading, session, navigate]);
+  }, [loading, session, navigate, pathname, searchStr, visualQa]);
 
   // Onboarding redirect — only after hydration AND once the owner-role lookup
   // has resolved (otherwise a stale isOwner === false races the async role
   // load and yanks owners into onboarding), for non-owner users, off the
   // onboarding route itself.
   useEffect(() => {
+    if (visualQa) return;
     if (loading || !session || hydrating || !roleLoaded || isOwner) return;
     // The consent page must render for any authenticated user regardless of
     // onboarding state, so it is exempt from the onboarding guard.
@@ -64,9 +73,20 @@ function AuthenticatedLayout() {
     if (needsOnboarding) {
       navigate({ to: ONBOARDING_PATH, replace: true });
     }
-  }, [loading, session, hydrating, roleLoaded, isOwner, pathname, projects, activeProjectId, navigate]);
+  }, [
+    loading,
+    session,
+    hydrating,
+    roleLoaded,
+    isOwner,
+    pathname,
+    projects,
+    activeProjectId,
+    navigate,
+    visualQa,
+  ]);
 
-  if (loading || !session || hydrating) {
+  if (!visualQa && (loading || !session || hydrating)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-sm text-muted-foreground">Loading workspace…</div>

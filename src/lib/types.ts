@@ -17,12 +17,56 @@ export type SearchIntent = "Informational" | "Commercial" | "Transactional" | "N
 
 export type Priority = "Low" | "Medium" | "High";
 
-export type OpportunityStatus = "New" | "In Brief" | "Drafting" | "Discarded" | "Linked";
+/**
+ * Opportunity lifecycle used by the redesigned Plan workspace. Legacy values
+ * remain in the union so existing JSONB workspaces can be read and migrated on
+ * first edit without a destructive, all-at-once data rewrite.
+ */
+export type OpportunityLifecycleStatus =
+  | "captured"
+  | "prioritized"
+  | "scheduled"
+  | "drafting"
+  | "in_review"
+  | "approved"
+  | "published"
+  | "archived";
+
+export type LegacyOpportunityStatus = "New" | "In Brief" | "Drafting" | "Discarded" | "Linked";
+
+export type OpportunityStatus = OpportunityLifecycleStatus | LegacyOpportunityStatus;
 
 export type ContentStatus = "Draft" | "In Review" | "Approved" | "Rejected" | "Exported";
 
 /** Where a Linked opportunity originated (Content Engine 2.0 source context). */
-export type OpportunitySource = "audit" | "competitor" | "manual" | "authority" | "aiVisibility" | "claude" | "backlinks";
+export type OpportunitySource =
+  "audit" | "competitor" | "manual" | "authority" | "aiVisibility" | "claude" | "backlinks";
+
+export type OpportunityCreationMode = "milo_discovery" | "manual" | "system_follow_up";
+
+export type OpportunityPrimarySource =
+  | "site_audit"
+  | "search_console"
+  | "competitor"
+  | "ai_visibility"
+  | "analytics"
+  | "services_products"
+  | "authority"
+  | "backlinks"
+  | "claude"
+  | "manual";
+
+export interface OpportunitySourceRef {
+  sourceType: OpportunityPrimarySource | string;
+  sourceRecordId?: string;
+  capturedAt: string;
+}
+
+export interface OpportunityEvidence {
+  label: string;
+  value: string | number;
+  unit?: string;
+}
 
 /** Content asset types Milo can generate from an opportunity (Content Engine 2.0). */
 export type AssetType =
@@ -215,11 +259,7 @@ export interface GscLite {
 // Only SAFE metadata lives here (workspace/project JSONB). Refresh/access tokens
 // are NEVER stored in JSONB — they live server-side only (google_connections).
 export type GscConnectionStatus =
-  | "notConfigured"
-  | "disconnected"
-  | "connected"
-  | "expired"
-  | "error";
+  "notConfigured" | "disconnected" | "connected" | "expired" | "error";
 
 export interface GscSelectedSite {
   siteUrl: string;
@@ -259,7 +299,13 @@ export interface MatchedGscPagePerformance {
   gscImpressions: number;
   gscCtr: number;
   gscPosition: number;
-  topQueries: { query: string; clicks: number; impressions: number; ctr: number; position: number }[];
+  topQueries: {
+    query: string;
+    clicks: number;
+    impressions: number;
+    ctr: number;
+    position: number;
+  }[];
   hasGscData: boolean;
 }
 
@@ -352,7 +398,49 @@ export interface Opportunity {
   requestId?: string;
   /** Set for connector-created opportunities (Phase 1A). */
   createdAt?: string;
+  // ---- Opportunity System v2 (all optional for legacy workspace safety) ----
+  summary?: string;
+  previousStatus?: OpportunityLifecycleStatus;
+  creationMode?: OpportunityCreationMode;
+  primarySource?: OpportunityPrimarySource;
+  sourceRefs?: OpportunitySourceRef[];
+  reasonDiscovered?: string;
+  evidence?: OpportunityEvidence[];
+  discoveryRunId?: string;
+  businessImpact?: "low" | "medium" | "high";
+  priorityReason?: string;
+  ownerUserId?: string;
+  ownerName?: string;
+  /** ISO date or timestamp. Calendar views use the local calendar day. */
+  dueAt?: string;
+  topicId?: string;
+  targetQuery?: string;
+  currentContentAssetId?: string;
+  approvedContentVersionId?: string;
+  canonicalUrl?: string;
+  publishedAt?: string;
+  measurementStatus?: "not_started" | "collecting" | "ready" | "insufficient_data";
+  measurementWindowDays?: number;
+  baselineSnapshotId?: string;
+  resultSnapshotId?: string;
+  parentOpportunityId?: string;
+  createdByUserId?: string;
+  updatedAt?: string;
+  archivedAt?: string;
+  deletedAt?: string;
+  version?: number;
 }
+
+/**
+ * A Milo discovery result is deliberately not an Opportunity yet. It becomes
+ * one canonical `captured` record only after the user accepts it in Discover.
+ */
+export type DiscoverySuggestion = Omit<Opportunity, "status"> & {
+  status: "suggested" | "accepted" | "dismissed";
+  deduplicationKey: string;
+  generatedAt: string;
+  acceptedOpportunityId?: string;
+};
 
 /** A lightweight growth task (Phase 1A — created via the Claude connector; UI support follows). */
 export interface GrowthTask {
@@ -534,11 +622,7 @@ export interface QualityScore {
 
 // ---- Site Audit v1 ----
 export type AuditCategory =
-  | "Business Clarity"
-  | "SEO Basics"
-  | "Local Visibility"
-  | "AI Readiness"
-  | "Conversion & Trust";
+  "Business Clarity" | "SEO Basics" | "Local Visibility" | "AI Readiness" | "Conversion & Trust";
 
 export interface AuditFinding {
   id: string;
@@ -690,13 +774,7 @@ export type AuthorityOpportunityType =
   | "other";
 
 export type AuthorityStatus =
-  | "suggested"
-  | "planned"
-  | "contacted"
-  | "submitted"
-  | "live"
-  | "rejected"
-  | "notRelevant";
+  "suggested" | "planned" | "contacted" | "submitted" | "live" | "rejected" | "notRelevant";
 
 export type AuthorityPriority = "high" | "medium" | "low";
 
@@ -877,13 +955,7 @@ export interface BacklinkAnalysisResult {
 // ---- Sponsored publication marketplace v1 ----
 export type LinkMarketplaceCurrency = "EUR";
 export type LinkMarketplaceOrderStatus =
-  | "Requested"
-  | "In Review"
-  | "Submitted"
-  | "Accepted"
-  | "Published"
-  | "Failed"
-  | "Cancelled";
+  "Requested" | "In Review" | "Submitted" | "Accepted" | "Published" | "Failed" | "Cancelled";
 
 export interface LinkMarketplaceOffer {
   id: string;
@@ -972,7 +1044,8 @@ export interface LinkMarketplaceOrder {
 
 // ---- AI Outreach v1 ----
 export type OutreachTargetSource = "linkGap" | "marketplace" | "manual";
-export type OutreachStatus = "Draft" | "Approved" | "Queued" | "Sent" | "Replied" | "Paused" | "Failed" | "Suppressed";
+export type OutreachStatus =
+  "Draft" | "Approved" | "Queued" | "Sent" | "Replied" | "Paused" | "Failed" | "Suppressed";
 
 export interface OutreachFollowUp {
   delayDays: number;

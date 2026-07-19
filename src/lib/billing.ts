@@ -11,10 +11,16 @@ export type AddOnId = "assistedSetup" | "monthlyCare";
 export type CustomerType = "business" | "consumer";
 
 export type BillingMarket =
-  | "Poland" | "Sweden" | "Denmark" | "United Kingdom" | "European Union" | "Other";
+  "Poland" | "Sweden" | "Denmark" | "United Kingdom" | "European Union" | "Other";
 
 export type SubscriptionStatus =
-  | "freePreview" | "checkoutPending" | "active" | "pastDue" | "cancelled" | "manualBeta" | "manualComped";
+  | "freePreview"
+  | "checkoutPending"
+  | "active"
+  | "pastDue"
+  | "cancelled"
+  | "manualBeta"
+  | "manualComped";
 
 export interface PlanLimits {
   maxProjects: number;
@@ -66,7 +72,15 @@ export interface SubscriptionPlan {
 }
 
 export const PLAN_IDS: PlanId[] = ["freePreview", "starter", "growth", "pro"];
-export const BILLING_MARKETS: BillingMarket[] = ["Poland", "Sweden", "Denmark", "United Kingdom", "European Union", "Other"];
+export const MAX_PROJECTS_PER_USER = 5;
+export const BILLING_MARKETS: BillingMarket[] = [
+  "Poland",
+  "Sweden",
+  "Denmark",
+  "United Kingdom",
+  "European Union",
+  "Other",
+];
 
 export const MARKET_CURRENCY: Record<BillingMarket, string> = {
   Poland: "PLN",
@@ -97,54 +111,129 @@ export const ADDON_PRICING: Record<BillingMarket, Record<AddOnId, number>> = {
   Other: { assistedSetup: 349, monthlyCare: 149 },
 };
 
-export const PLAN_META: Record<PlanId, { name: string; recommended?: boolean; tagline: string; features: string[] }> = {
+export const PLAN_META: Record<
+  PlanId,
+  { name: string; recommended?: boolean; tagline: string; features: string[] }
+> = {
   freePreview: {
     name: "Free Preview",
     tagline: "Activation and evaluation.",
-    features: ["1 project / 1 website", "Free AI Visibility Audit", "Limited content & Milo Score", "Analytics & GSC Lite", "Authority preview"],
+    features: [
+      "1 project / 1 website",
+      "Free AI Visibility Audit",
+      "Limited content & Milo Score",
+      "Analytics & GSC Lite",
+      "Authority preview",
+    ],
   },
   starter: {
     name: "Starter",
     tagline: "For one small business website.",
-    features: ["1 project / 1 website", "Brand Intelligence & opportunities", "Content + Milo Score", "Publishing (custom & WordPress)", "Analytics v2, GSC Lite, Authority"],
+    features: [
+      "1 project / 1 website",
+      "Brand Intelligence & opportunities",
+      "Content + Milo Score",
+      "Publishing (custom & WordPress)",
+      "Analytics v2, GSC Lite, Authority",
+    ],
   },
   growth: {
     name: "Growth",
     recommended: true,
     tagline: "The full monthly workflow.",
-    features: ["Up to 3 projects / websites", "Higher content & Improve limits", "Publishing + connectors", "Analytics v2, GSC Lite, Authority v2", "AI Visibility planner"],
+    features: [
+      "Up to 3 projects / websites",
+      "Higher content & Improve limits",
+      "Publishing + connectors",
+      "Analytics v2, GSC Lite, Authority v2",
+      "AI Visibility planner",
+    ],
   },
   pro: {
     name: "Pro",
     tagline: "For freelancers, agencies and multi-site businesses.",
-    features: ["Up to 10 projects / websites", "High monthly limits", "More GSC imports & authority", "AI Evaluation (where configured)", "Priority support"],
+    features: [
+      "Up to 5 projects / websites",
+      "High monthly limits",
+      "More GSC imports & authority",
+      "AI Evaluation (where configured)",
+      "Priority support",
+    ],
   },
 };
 
 export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
   freePreview: {
-    maxProjects: 1, maxWebsites: 1, monthlyAiCredits: 50, monthlyContentGenerations: 3, monthlyImproveDrafts: 3,
-    monthlyMiloScores: 5, monthlyAudits: 2, monthlyGscImports: 1, monthlyAuthorityGenerations: 1,
-    publishingEnabled: false, wordpressConnectorEnabled: false, customConnectorEnabled: false,
-    analyticsEnabled: true, gscLiteEnabled: true, authorityBuilderEnabled: true, aiEvaluationEnabled: false,
+    maxProjects: 1,
+    maxWebsites: 1,
+    monthlyAiCredits: 50,
+    monthlyContentGenerations: 3,
+    monthlyImproveDrafts: 3,
+    monthlyMiloScores: 5,
+    monthlyAudits: 2,
+    monthlyGscImports: 1,
+    monthlyAuthorityGenerations: 1,
+    publishingEnabled: false,
+    wordpressConnectorEnabled: false,
+    customConnectorEnabled: false,
+    analyticsEnabled: true,
+    gscLiteEnabled: true,
+    authorityBuilderEnabled: true,
+    aiEvaluationEnabled: false,
   },
   starter: {
-    maxProjects: 1, maxWebsites: 1, monthlyAiCredits: 300, monthlyContentGenerations: 10, monthlyImproveDrafts: 10,
-    monthlyMiloScores: 30, monthlyAudits: 5, monthlyGscImports: 3, monthlyAuthorityGenerations: 3,
-    publishingEnabled: true, wordpressConnectorEnabled: true, customConnectorEnabled: true,
-    analyticsEnabled: true, gscLiteEnabled: true, authorityBuilderEnabled: true, aiEvaluationEnabled: false,
+    maxProjects: 1,
+    maxWebsites: 1,
+    monthlyAiCredits: 300,
+    monthlyContentGenerations: 10,
+    monthlyImproveDrafts: 10,
+    monthlyMiloScores: 30,
+    monthlyAudits: 5,
+    monthlyGscImports: 3,
+    monthlyAuthorityGenerations: 3,
+    publishingEnabled: true,
+    wordpressConnectorEnabled: true,
+    customConnectorEnabled: true,
+    analyticsEnabled: true,
+    gscLiteEnabled: true,
+    authorityBuilderEnabled: true,
+    aiEvaluationEnabled: false,
   },
   growth: {
-    maxProjects: 3, maxWebsites: 3, monthlyAiCredits: 1200, monthlyContentGenerations: 40, monthlyImproveDrafts: 40,
-    monthlyMiloScores: 100, monthlyAudits: 15, monthlyGscImports: 10, monthlyAuthorityGenerations: 10,
-    publishingEnabled: true, wordpressConnectorEnabled: true, customConnectorEnabled: true,
-    analyticsEnabled: true, gscLiteEnabled: true, authorityBuilderEnabled: true, aiEvaluationEnabled: false,
+    maxProjects: 3,
+    maxWebsites: 3,
+    monthlyAiCredits: 1200,
+    monthlyContentGenerations: 40,
+    monthlyImproveDrafts: 40,
+    monthlyMiloScores: 100,
+    monthlyAudits: 15,
+    monthlyGscImports: 10,
+    monthlyAuthorityGenerations: 10,
+    publishingEnabled: true,
+    wordpressConnectorEnabled: true,
+    customConnectorEnabled: true,
+    analyticsEnabled: true,
+    gscLiteEnabled: true,
+    authorityBuilderEnabled: true,
+    aiEvaluationEnabled: false,
   },
   pro: {
-    maxProjects: 10, maxWebsites: 10, monthlyAiCredits: 4000, monthlyContentGenerations: 120, monthlyImproveDrafts: 120,
-    monthlyMiloScores: 300, monthlyAudits: 40, monthlyGscImports: 30, monthlyAuthorityGenerations: 30,
-    publishingEnabled: true, wordpressConnectorEnabled: true, customConnectorEnabled: true,
-    analyticsEnabled: true, gscLiteEnabled: true, authorityBuilderEnabled: true, aiEvaluationEnabled: true,
+    maxProjects: 5,
+    maxWebsites: 5,
+    monthlyAiCredits: 4000,
+    monthlyContentGenerations: 120,
+    monthlyImproveDrafts: 120,
+    monthlyMiloScores: 300,
+    monthlyAudits: 40,
+    monthlyGscImports: 30,
+    monthlyAuthorityGenerations: 30,
+    publishingEnabled: true,
+    wordpressConnectorEnabled: true,
+    customConnectorEnabled: true,
+    analyticsEnabled: true,
+    gscLiteEnabled: true,
+    authorityBuilderEnabled: true,
+    aiEvaluationEnabled: true,
   },
 };
 
@@ -170,7 +259,30 @@ export const COUNTRY_OPTIONS: { code: string; name: string }[] = [
 
 /** EU member ISO-2 codes that map to the generic "European Union" market. */
 const EU_MARKET_COUNTRIES = new Set([
-  "AT","BE","BG","HR","CY","CZ","EE","FI","FR","DE","GR","HU","IE","IT","LV","LT","LU","MT","NL","PT","RO","SK","SI","ES",
+  "AT",
+  "BE",
+  "BG",
+  "HR",
+  "CY",
+  "CZ",
+  "EE",
+  "FI",
+  "FR",
+  "DE",
+  "GR",
+  "HU",
+  "IE",
+  "IT",
+  "LV",
+  "LT",
+  "LU",
+  "MT",
+  "NL",
+  "PT",
+  "RO",
+  "SK",
+  "SI",
+  "ES",
 ]);
 
 /** Map a billing country (ISO-2) to its billing market. Never trusts display region. */
@@ -208,7 +320,8 @@ export function getPlanLimitsFor(sub?: SubscriptionPlan): PlanLimits {
 /** True for a genuinely active paid/manual plan (not free preview). */
 export function isActivePaid(sub?: SubscriptionPlan): boolean {
   if (!sub) return false;
-  const active = sub.status === "active" || sub.status === "manualBeta" || sub.status === "manualComped";
+  const active =
+    sub.status === "active" || sub.status === "manualBeta" || sub.status === "manualComped";
   return active && sub.planId !== "freePreview";
 }
 
@@ -216,7 +329,11 @@ export function isActivePaid(sub?: SubscriptionPlan): boolean {
  * Light feature gate. Owners always pass. Boolean limits gate directly; numeric
  * limits pass when > 0 (detailed monthly metering is deferred — see report).
  */
-export function canUseFeature(opts: { isOwner: boolean; sub?: SubscriptionPlan; feature: keyof PlanLimits }): boolean {
+export function canUseFeature(opts: {
+  isOwner: boolean;
+  sub?: SubscriptionPlan;
+  feature: keyof PlanLimits;
+}): boolean {
   if (opts.isOwner) return true;
   const limits = getPlanLimitsFor(opts.sub);
   const v = limits[opts.feature];

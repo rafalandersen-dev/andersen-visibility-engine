@@ -19,7 +19,7 @@
 import { contentLangToProjectLanguage } from "./onboarding";
 import {
   getState,
-  replaceNewOpportunities,
+  replaceDiscoverySuggestions,
   replacePlannedCalendar,
   saveWorkspaceNow,
   upsertContent,
@@ -48,6 +48,7 @@ import {
 } from "./store";
 import type {
   Opportunity,
+  DiscoverySuggestion,
   CalendarItem,
   ContentAsset,
   Language,
@@ -72,6 +73,7 @@ import type {
   AssetType,
   ContentSourceType,
 } from "./types";
+import { newOpportunityRecord, opportunityDeduplicationKey } from "./opportunities";
 import {
   generateOpportunitiesFn,
   generateCalendarFn,
@@ -154,15 +156,30 @@ export async function generateSeoOpportunities(projectId: string) {
       count: opportunities.length,
     });
 
-    const items: Opportunity[] = opportunities.map((r) => ({
-      ...r,
-      id: uid(),
-      projectId,
-      status: "New",
-    }));
+    const generatedAt = new Date().toISOString();
+    const items: DiscoverySuggestion[] = opportunities.map((r) => {
+      const opportunity = newOpportunityRecord(
+        {
+          ...r,
+          id: uid(),
+          projectId,
+          status: "captured",
+          creationMode: "milo_discovery",
+          primarySource: "services_products",
+          reasonDiscovered: r.businessValue,
+        },
+        generatedAt,
+      );
+      return {
+        ...opportunity,
+        status: "suggested",
+        deduplicationKey: opportunityDeduplicationKey(opportunity),
+        generatedAt,
+      };
+    });
 
     if (items.length === 0) throw new Error("AI returned no opportunities. Please try again.");
-    replaceNewOpportunities(projectId, items);
+    replaceDiscoverySuggestions(projectId, items);
     await saveWorkspaceNow();
     console.info("[ai.client] opportunities saved", { projectId, count: items.length });
     return items;
@@ -263,6 +280,10 @@ async function generateAsset(opportunityId: string, kind: "landing" | "article")
       status: "Draft",
       updatedAt: new Date().toISOString(),
     };
+    updateOpportunity(opp.id, {
+      status: "drafting",
+      currentContentAssetId: asset.id,
+    });
     upsertContent(asset);
     await saveWorkspaceNow();
     return asset;
@@ -370,12 +391,20 @@ export async function evaluateContentQuality(contentAssetId: string) {
 
     // Short-circuit empty/too-short drafts — conservative score, no AI call.
     if (draftWordCount(a.markdown || "") < MIN_EVALUABLE_WORDS) {
-      upsertContent({ ...a, qualityScore: tooShortScore(evaluatedAt), qualityScoreStale: false, updatedAt: evaluatedAt });
+      upsertContent({
+        ...a,
+        qualityScore: tooShortScore(evaluatedAt),
+        qualityScoreStale: false,
+        updatedAt: evaluatedAt,
+      });
       await saveWorkspaceNow();
       return;
     }
 
-    const contentLanguage = languageLabel(a.language, contentLangToProjectLanguage(project.primaryContentLanguage ?? "en"));
+    const contentLanguage = languageLabel(
+      a.language,
+      contentLangToProjectLanguage(project.primaryContentLanguage ?? "en"),
+    );
     const explanationLanguage = contentLangToProjectLanguage(project.appLanguage ?? "en");
 
     const score = await evaluateContentQualityFn({
@@ -395,7 +424,10 @@ export async function evaluateContentQuality(contentAssetId: string) {
 
     upsertContent({ ...a, qualityScore: score, qualityScoreStale: false, updatedAt: evaluatedAt });
     await saveWorkspaceNow();
-    console.info("[ai.client] milo score evaluated", { assetId: contentAssetId, overall: score.overall });
+    console.info("[ai.client] milo score evaluated", {
+      assetId: contentAssetId,
+      overall: score.overall,
+    });
     return score;
   });
 }
@@ -415,7 +447,10 @@ export async function improveContentDraft(contentAssetId: string) {
       ...(a.qualityScore?.quickWins ?? []),
       ...Object.values(a.qualityScore?.categories ?? {}).flatMap((c) => c.suggestions),
     ];
-    const contentLanguage = languageLabel(a.language, contentLangToProjectLanguage(project.primaryContentLanguage ?? "en"));
+    const contentLanguage = languageLabel(
+      a.language,
+      contentLangToProjectLanguage(project.primaryContentLanguage ?? "en"),
+    );
 
     const { markdown } = await improveContentDraftFn({
       data: {
@@ -429,9 +464,15 @@ export async function improveContentDraft(contentAssetId: string) {
       },
     });
 
-    if (!markdown || !markdown.trim()) throw new Error("AI returned empty content. Please try again.");
+    if (!markdown || !markdown.trim())
+      throw new Error("AI returned empty content. Please try again.");
     // Keep title/metadata/publish status; only the body changes. Score becomes stale.
-    upsertContent({ ...a, markdown, qualityScoreStale: a.qualityScore ? true : a.qualityScoreStale, updatedAt: new Date().toISOString() });
+    upsertContent({
+      ...a,
+      markdown,
+      qualityScoreStale: a.qualityScore ? true : a.qualityScoreStale,
+      updatedAt: new Date().toISOString(),
+    });
     await saveWorkspaceNow();
     console.info("[ai.client] draft improved", { assetId: contentAssetId });
     return markdown;
@@ -581,7 +622,10 @@ function opportunityFromGap(gap: CompetitorGap, project: Project): Opportunity {
 export async function runCompetitorGap(projectId: string, competitorUrls: string[]) {
   return once(`competitors:${projectId}`, async () => {
     const { project, services } = requireProject(projectId);
-    const urls = competitorUrls.map((u) => u.trim()).filter(Boolean).slice(0, 3);
+    const urls = competitorUrls
+      .map((u) => u.trim())
+      .filter(Boolean)
+      .slice(0, 3);
     if (urls.length === 0) throw new Error("Add at least one competitor URL.");
 
     // Pass the existing Site Audit summary (if any) for richer comparison context.
@@ -698,8 +742,9 @@ export async function runAuthorityAnalysis(projectId: string) {
     const s = getState();
     const audit = s.audits.find((a) => a.projectId === projectId);
     const competitor = s.competitorAnalyses.find((a) => a.projectId === projectId);
-    const competitorStrengths = (competitor?.competitorSnapshots ?? [])
-      .flatMap((c) => c.notableStrengths ?? []);
+    const competitorStrengths = (competitor?.competitorSnapshots ?? []).flatMap(
+      (c) => c.notableStrengths ?? [],
+    );
     const existingOpportunityTitles = s.opportunities
       .filter((o) => o.projectId === projectId)
       .map((o) => o.title);
@@ -737,7 +782,10 @@ export async function runAuthorityAnalysis(projectId: string) {
     };
     upsertAuthorityAnalysis(analysis);
     await saveWorkspaceNow();
-    console.info("[ai.client] authority saved", { projectId, items: analysis.authorityItems.length });
+    console.info("[ai.client] authority saved", {
+      projectId,
+      items: analysis.authorityItems.length,
+    });
     return analysis;
   });
 }
@@ -785,7 +833,10 @@ export async function createOpportunitiesFromTopAuthority(projectId: string) {
       candidates.map((i) => i.id),
     );
     await saveWorkspaceNow();
-    console.info("[ai.client] top-authority opportunities created", { projectId, count: opps.length });
+    console.info("[ai.client] top-authority opportunities created", {
+      projectId,
+      count: opps.length,
+    });
     return opps;
   });
 }
@@ -802,10 +853,13 @@ const LEGACY_CATEGORY_TO_TYPE: Record<AuthorityCategory, AuthorityOpportunityTyp
   "Associations & Communities": "association",
   "PR & Story": "localPr",
   "Trust Signals": "trustSignal",
-  "Outreach": "other",
+  Outreach: "other",
 };
 
-function legacyToAuthorityOpportunity(item: AuthorityItem, projectId: string): AuthorityOpportunity {
+function legacyToAuthorityOpportunity(
+  item: AuthorityItem,
+  projectId: string,
+): AuthorityOpportunity {
   const prio = item.priority === "High" ? "high" : item.priority === "Low" ? "low" : "medium";
   return {
     id: uid(),
@@ -818,7 +872,8 @@ function legacyToAuthorityOpportunity(item: AuthorityItem, projectId: string): A
     relatedServiceOrOffer: item.suggestedPlatformOrTarget || undefined,
     outreachNote: item.outreachAngle || undefined,
     nextStep: item.recommendation || undefined,
-    estimatedValue: item.expectedImpact === "High" ? "high" : item.expectedImpact === "Low" ? "low" : "medium",
+    estimatedValue:
+      item.expectedImpact === "High" ? "high" : item.expectedImpact === "Low" ? "low" : "medium",
     difficulty: item.effort === "High" ? "hard" : item.effort === "Low" ? "easy" : "medium",
     createdAt: new Date().toISOString(),
   };
@@ -859,11 +914,16 @@ export async function generateAuthorityOpportunities(projectId: string) {
     const { opportunities } = await generateAuthorityOpportunitiesFn({
       data: { project, services, existingTitles, livePages, explanationLanguage },
     });
-    if (!opportunities.length) throw new Error("AI returned no authority opportunities. Please try again.");
+    if (!opportunities.length)
+      throw new Error("AI returned no authority opportunities. Please try again.");
 
     // Dedup against existing (title+type, or shared target/live URL).
     const seenTitleType = new Set(existing.map((a) => `${normKey(a.title)}|${a.type}`));
-    const seenUrl = new Set(existing.flatMap((a) => [a.targetUrl, a.liveLinkUrl].filter(Boolean).map((u) => normKey(u as string))));
+    const seenUrl = new Set(
+      existing.flatMap((a) =>
+        [a.targetUrl, a.liveLinkUrl].filter(Boolean).map((u) => normKey(u as string)),
+      ),
+    );
     const fresh: AuthorityOpportunity[] = [];
     for (const o of opportunities) {
       const tt = `${normKey(o.title)}|${o.type}`;
@@ -890,7 +950,8 @@ export async function generateAuthorityOpportunities(projectId: string) {
         createdAt: new Date().toISOString(),
       });
     }
-    if (!fresh.length) throw new Error("No new authority opportunities — all suggestions already exist.");
+    if (!fresh.length)
+      throw new Error("No new authority opportunities — all suggestions already exist.");
     addAuthorityOpportunities(fresh);
     await saveWorkspaceNow();
     console.info("[ai.client] authority v2 generated", { projectId, added: fresh.length });
@@ -994,9 +1055,17 @@ export async function runAiVisibilityAnalysis(projectId: string) {
       contentGapScore: res.contentGapScore,
       authorityGapScore: res.authorityGapScore,
       summary: res.summary,
-      topAiVisibilityActions: Array.isArray(res.topAiVisibilityActions) ? res.topAiVisibilityActions : [],
-      promptSets: (Array.isArray(res.promptSets) ? res.promptSets : []).map((p) => ({ ...p, id: uid() })),
-      visibilityGaps: (Array.isArray(res.visibilityGaps) ? res.visibilityGaps : []).map((g) => ({ ...g, id: uid() })),
+      topAiVisibilityActions: Array.isArray(res.topAiVisibilityActions)
+        ? res.topAiVisibilityActions
+        : [],
+      promptSets: (Array.isArray(res.promptSets) ? res.promptSets : []).map((p) => ({
+        ...p,
+        id: uid(),
+      })),
+      visibilityGaps: (Array.isArray(res.visibilityGaps) ? res.visibilityGaps : []).map((g) => ({
+        ...g,
+        id: uid(),
+      })),
       convertedGapIds: [],
       createdAt: new Date().toISOString(),
     };
@@ -1054,7 +1123,10 @@ export async function createOpportunitiesFromTopAiActions(projectId: string) {
       candidates.map((g) => g.id),
     );
     await saveWorkspaceNow();
-    console.info("[ai.client] top-ai-visibility opportunities created", { projectId, count: opps.length });
+    console.info("[ai.client] top-ai-visibility opportunities created", {
+      projectId,
+      count: opps.length,
+    });
     return opps;
   });
 }
@@ -1188,7 +1260,10 @@ export async function createOpportunitiesFromTopBacklinkActions(projectId: strin
       candidates.map((r) => r.id),
     );
     await saveWorkspaceNow();
-    console.info("[ai.client] top-backlink opportunities created", { projectId, count: opps.length });
+    console.info("[ai.client] top-backlink opportunities created", {
+      projectId,
+      count: opps.length,
+    });
     return opps;
   });
 }
@@ -1319,10 +1394,10 @@ export async function generateContentForOpportunity(opportunityId: string, asset
       createdAt: now,
     };
 
-    // Promote fresh opportunities to "Drafting"; never overwrite Linked/other states.
-    if (opp.status === "New" || opp.status === "In Brief") {
-      updateOpportunity(opp.id, { status: "Drafting" });
-    }
+    updateOpportunity(opp.id, {
+      status: "drafting",
+      currentContentAssetId: asset.id,
+    });
 
     upsertContent(asset);
     await saveWorkspaceNow();
@@ -1346,13 +1421,19 @@ function wpPostTypeFor(asset: ContentAsset, project: Project): "post" | "page" {
   return project.wordpress?.defaultPostType ?? "post";
 }
 
-function wpCreds(project: Project): { siteUrl: string; username: string; applicationPassword: string } {
+function wpCreds(project: Project): {
+  siteUrl: string;
+  username: string;
+  applicationPassword: string;
+} {
   const wp = project.wordpress ?? {};
   const siteUrl = (wp.siteUrl ?? "").trim();
   const username = (wp.username ?? "").trim();
   const applicationPassword = wp.applicationPassword ?? "";
   if (!siteUrl || !username || !applicationPassword.trim()) {
-    throw new Error("Connect WordPress in Project Setup (site URL, username and application password) first.");
+    throw new Error(
+      "Connect WordPress in Project Setup (site URL, username and application password) first.",
+    );
   }
   return { siteUrl, username, applicationPassword };
 }
@@ -1456,7 +1537,9 @@ function shopifyCreds(project: Project): { shopDomain: string; adminAccessToken:
   const shopDomain = (sh.shopDomain ?? "").trim();
   const adminAccessToken = sh.adminAccessToken ?? "";
   if (!shopDomain || !adminAccessToken.trim()) {
-    throw new Error("Connect Shopify in Project Setup (shop domain and Admin API access token) first.");
+    throw new Error(
+      "Connect Shopify in Project Setup (shop domain and Admin API access token) first.",
+    );
   }
   return { shopDomain, adminAccessToken };
 }
@@ -1678,7 +1761,8 @@ export async function publishContentLive(assetId: string) {
           assetId: asset.id,
           externalId: asset.publishExternalId ?? "",
           slug: asset.publishSlug ?? asset.slug,
-          destinationType: asset.publishDestinationType ?? project.defaultDestinationType ?? "blogPost",
+          destinationType:
+            asset.publishDestinationType ?? project.defaultDestinationType ?? "blogPost",
         },
       });
       markContentAssetPublishedLive(assetId, {
@@ -1706,7 +1790,9 @@ export async function publishContentLive(assetId: string) {
  * also stored) so the caller can surface it; the asset stays Approved for retry.
  * Triggered only by the explicit Approve transition — never on render.
  */
-export async function runAutoPublishOnApprove(assetId: string): Promise<{ liveUrl: string } | null> {
+export async function runAutoPublishOnApprove(
+  assetId: string,
+): Promise<{ liveUrl: string } | null> {
   const s = getState();
   const asset = s.content.find((c) => c.id === assetId);
   if (!asset || asset.status !== "Approved") return null;
@@ -1718,7 +1804,8 @@ export async function runAutoPublishOnApprove(assetId: string): Promise<{ liveUr
   if (wp) {
     // WordPress: require credentials; live publish creates the post if needed.
     const w = project.wordpress ?? {};
-    if (!(w.siteUrl?.trim() && w.username?.trim() && (w.applicationPassword ?? "").trim())) return null;
+    if (!(w.siteUrl?.trim() && w.username?.trim() && (w.applicationPassword ?? "").trim()))
+      return null;
   } else if (shop) {
     // Shopify: require credentials; live publish creates the article if needed.
     const sh = project.shopify ?? {};
