@@ -1,33 +1,76 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import {
+  ArrowRight,
+  CalendarBlank,
+  ChartLineUp,
+  Check,
+  CheckCircle,
+  Compass,
+  FileText,
+  Gauge,
+  Globe,
+  Leaf,
+  LinkSimple,
+  Lock,
+  Medal,
+  PaperPlaneTilt,
+  PencilLine,
+  ShieldCheck,
+  Sparkle,
+  UsersThree,
+  XCircle,
+} from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
-import { PLANS, EXTRA_PROJECT, formatPrice, MAX_PROJECTS_PER_USER } from "@/lib/pricing";
-import { seedProjects, seedOpportunities, seedContent } from "@/lib/mock-data";
 import { RegionSuggestionBanner } from "@/components/RegionSuggestionBanner";
 import { DISPLAY_REGIONS, REGION_SELECTOR_LABELS } from "@/lib/markets";
-import { Sparkles, CalendarDays, FileText, ShieldCheck, ArrowRight, Store, Building2, MapPin, FileSearch, ListChecks, MessageSquareQuote, Wrench, Layers, XCircle, CheckCircle2 } from "lucide-react";
 
 const HOME_FAQ = [
-  { q: "Will Milo Growth guarantee rankings or traffic?", a: "No. No honest SEO tool can. Milo helps you ship a steady stream of structured, well-grounded content — but rankings depend on your site, market and execution." },
-  { q: "Does it publish to my website automatically?", a: "No. The workspace stops at approved, exportable Markdown or HTML. You stay in control of publishing." },
-  { q: "Does it replace an SEO agency?", a: "Not for every use case. It replaces the monthly planning, ideation and briefing work many small businesses pay an agency for. It does not do rank tracking, backlinks or competitor scraping." },
-  { q: "What is the Free Preview?", a: "A read-only tour of a fully populated demo project so you can see the workflow before creating your own." },
-  { q: "When can I pay?", a: "Billing is coming soon. Today you can create up to your plan's project limit, and we'll enable paid upgrades shortly." },
+  {
+    q: "Where do discovered opportunities go?",
+    a: "Discovery results stay as suggestions until you accept them. Accepted ideas enter Plan in Captured, with their source, reason, evidence, owner, status and next action attached.",
+  },
+  {
+    q: "What does Milo Score evaluate?",
+    a: "Milo Score evaluates a specific content version before review. It checks search readiness, brand fit, structure, evidence, conversion and related quality signals. It never ranks Opportunities.",
+  },
+  {
+    q: "Can Milo publish to my website?",
+    a: "Yes. Connected WordPress, Shopify or custom publishing workflows can send approved content as a draft or publish it live, depending on the controls you choose.",
+  },
+  {
+    q: "Are backlinks included?",
+    a: "Backlink intelligence, marketplace purchasing and outreach are a separate paid workspace because external data and placements create additional costs. The add-on is always labeled clearly.",
+  },
+  {
+    q: "Can I cancel without contacting support?",
+    a: "Yes. Manage billing and Cancel subscription are visible inside Settings → Billing. Paid users are sent to an authenticated Paddle portal where they can manage or cancel directly.",
+  },
+  {
+    q: "How many projects can I manage?",
+    a: "Milo supports up to five projects in one account. Each project keeps its own site, services, competitors, opportunities, content, integrations and analytics context.",
+  },
 ];
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Milo Growth — AI Growth Planner for Small Businesses" },
+      { title: "Milo Growth — Your Monthly AI SEO Growth System" },
       {
         name: "description",
         content:
-          "Generate visibility ideas, content briefs, FAQ and monthly action plans for your small business — without hiring an agency.",
+          "Turn site, search, competitor and AI visibility signals into a clear SEO plan, better content and measurable growth — across up to five projects.",
       },
-      { property: "og:title", content: "Milo Growth — AI Growth Planner for Small Businesses" },
-      { property: "og:description", content: "Your monthly AI growth planner for small businesses. Visibility ideas, content briefs, FAQ and clear monthly action plans." },
+      { property: "og:title", content: "Milo Growth — Your Monthly AI SEO Growth System" },
+      {
+        property: "og:description",
+        content: "Discover, plan, create, publish and measure SEO work in one calm system.",
+      },
       { property: "og:url", content: "https://milogrowth.com/" },
-      { name: "twitter:title", content: "Milo Growth — AI Growth Planner for Small Businesses" },
-      { name: "twitter:description", content: "Your monthly AI growth planner for small businesses — without hiring an agency." },
+      { name: "twitter:title", content: "Milo Growth — Your Monthly AI SEO Growth System" },
+      {
+        name: "twitter:description",
+        content: "Turn visibility signals into a clear growth plan and prove what changed.",
+      },
     ],
     links: [{ rel: "canonical", href: "https://milogrowth.com/" }],
     scripts: [
@@ -36,61 +79,75 @@ export const Route = createFileRoute("/")({
         children: JSON.stringify({
           "@context": "https://schema.org",
           "@type": "FAQPage",
-          mainEntity: HOME_FAQ.map((it) => ({
+          mainEntity: HOME_FAQ.map((item) => ({
             "@type": "Question",
-            name: it.q,
-            acceptedAnswer: { "@type": "Answer", text: it.a },
+            name: item.q,
+            acceptedAnswer: { "@type": "Answer", text: item.a },
           })),
         }),
       },
     ],
   }),
-  component: Landing,
+  component: LandingPage,
 });
 
-
-function Landing() {
+function LandingPage() {
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <main className="min-h-screen bg-[#fbfaf6] text-[#202221]">
       <RegionSuggestionBanner />
       <PublicHeader />
       <Hero />
-      <WhatYouCreate />
-      <WhoItsFor />
-      <WhatYouGet />
-      <HowItWorks />
-      <DemoPreview />
-      <WhatItIsnt />
-      <PricingTeaser />
-      <FAQ />
-      <Footer />
+      <ProofStrip />
+      <ConnectedWorkflow />
+      <ProductSystem />
+      <BacklinksAddOn />
+      <TrustAndPricing />
+      <Faq />
+      <PublicFooter />
     </main>
-
   );
 }
 
 function PublicHeader() {
   return (
-    <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur">
-      <div className="mx-auto max-w-6xl flex items-center justify-between px-6 py-4">
+    <header className="sticky top-0 z-40 border-b border-[#e6dfd2] bg-[#fbfaf6]/95 backdrop-blur">
+      <div className="mx-auto flex max-w-[1340px] items-center justify-between px-5 py-4 md:px-8">
         <Link to="/" className="flex flex-col">
-          <span className="font-display text-lg leading-tight">Milo Growth</span>
-          <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+          <span className="font-display text-[21px] leading-tight tracking-[-0.02em]">
+            Milo Growth
+          </span>
+          <span className="text-[9px] uppercase tracking-[0.22em] text-[#697282]">
             Monthly AI growth planner
           </span>
         </Link>
-        <nav className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
-          <a href="#how" className="hover:text-foreground">How it works</a>
-          <a href="#preview" className="hover:text-foreground">Preview</a>
-          <Link to="/pricing" className="hover:text-foreground">Pricing</Link>
-          <a href="#faq" className="hover:text-foreground">FAQ</a>
+        <nav
+          className="hidden items-center gap-8 text-[13px] text-[#333b42] lg:flex"
+          aria-label="Public navigation"
+        >
+          <a href="#product" className="border-b border-[#b5862a] py-2">
+            Product
+          </a>
+          <a href="#how" className="py-2 hover:text-black">
+            How it works
+          </a>
+          <Link to="/pricing" className="py-2 hover:text-black">
+            Pricing
+          </Link>
+          <a href="#backlinks" className="py-2 hover:text-black">
+            Backlinks
+          </a>
+          <a href="#resources" className="py-2 hover:text-black">
+            Resources
+          </a>
         </nav>
         <div className="flex items-center gap-2">
-          <Link to="/auth">
-            <Button variant="ghost" size="sm">Sign in</Button>
+          <Link to="/auth" search={{ mode: "login" }}>
+            <Button variant="ghost" size="sm">
+              Sign in
+            </Button>
           </Link>
-          <Link to="/auth">
-            <Button size="sm">Get started</Button>
+          <Link to="/auth" search={{ mode: "register" }}>
+            <Button size="sm">Start free</Button>
           </Link>
         </div>
       </div>
@@ -100,327 +157,229 @@ function PublicHeader() {
 
 function Hero() {
   return (
-    <section className="relative overflow-hidden">
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_30%_20%,hsl(var(--gold)/0.10),transparent_55%)]" />
-      <div className="mx-auto max-w-6xl px-6 pt-20 pb-16 lg:pt-28 lg:pb-24">
-        <div className="max-w-3xl">
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-            <Sparkles className="h-3 w-3 text-gold" /> Milo Growth · for small businesses
+    <section id="product" className="border-b border-[#e6dfd2]">
+      <div className="mx-auto grid max-w-[1340px] items-center gap-10 px-5 py-12 md:px-8 lg:grid-cols-[430px_minmax(0,1fr)] lg:py-14">
+        <div>
+          <div className="inline-flex items-center gap-2 rounded-full border border-[#ddd8cd] bg-[#fffdf8] px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#697282]">
+            <Sparkle size={13} weight="fill" className="text-[#b5862a]" /> Milo Growth · for small
+            businesses
           </div>
-          <h1 className="mt-6 font-display text-4xl md:text-6xl leading-[1.05] tracking-tight">
-            Your monthly AI growth planner <span className="text-gold">for small businesses.</span>
+          <h1 className="mt-7 font-display text-[46px] leading-[1.08] tracking-[-0.045em] sm:text-[58px]">
+            Your monthly <span className="text-[#bd9250]">AI growth</span> system
           </h1>
-          <p className="mt-6 max-w-2xl text-lg text-muted-foreground">
-            Get visibility ideas, content briefs, FAQ, service-page improvements and a clear monthly
-            action plan — without hiring an agency.
+          <p className="mt-6 text-[19px] leading-8 text-[#647183]">
+            Turn visibility signals into a clear growth plan.
+          </p>
+          <p className="mt-3 max-w-[410px] text-[15px] leading-6 text-[#647183]">
+            Find the right opportunities, schedule the work, create better content and prove what
+            changed — across up to five projects.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link to="/auth">
-              <Button size="lg" className="gap-2">
-                Start free <ArrowRight className="h-4 w-4" />
+            <Link to="/auth" search={{ mode: "register" }}>
+              <Button size="lg" className="min-w-[142px] gap-2">
+                Start free <ArrowRight size={17} />
               </Button>
             </Link>
-            <Link to="/pricing">
-              <Button size="lg" variant="outline">See pricing</Button>
-            </Link>
+            <a href="#how">
+              <Button size="lg" variant="outline">
+                See how Milo works
+              </Button>
+            </a>
           </div>
-          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1">
-            <Link to="/free-ai-visibility-audit" className="text-sm text-foreground/70 underline underline-offset-4 hover:text-foreground">
-              Run free AI visibility audit →
-            </Link>
-            <Link to="/beta" className="text-sm text-foreground/70 underline underline-offset-4 hover:text-foreground">
-              Milo Assisted Beta →
-            </Link>
-          </div>
-          <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-            <span className="uppercase tracking-[0.18em]">Your region:</span>
-            {DISPLAY_REGIONS.map((r) => (
-              <Link key={r} to={`/${r}` as never} className="underline underline-offset-4 hover:text-foreground">
-                {REGION_SELECTOR_LABELS[r]}
-              </Link>
-            ))}
-          </div>
-          <p className="mt-4 text-xs text-muted-foreground">
-            Self-service software. No credit card. No agency call.
-          </p>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function WhatYouCreate() {
-  const items = [
-    { icon: FileSearch, title: "Visibility ideas", body: "Structured SEO opportunities ranked by intent, language and business value — not a keyword dump." },
-    { icon: FileText, title: "Content briefs", body: "Outline, H1, meta, internal links and schema suggestions ready for a writer or the built-in editor." },
-    { icon: MessageSquareQuote, title: "FAQ sections", body: "Question-and-answer blocks designed for both Google snippets and AI search citations." },
-    { icon: Wrench, title: "Service-page improvements", body: "Concrete rewrites for existing service pages so they rank and convert better." },
-    { icon: ListChecks, title: "Monthly action plans", body: "A clear 30-day plan grouped by ISO week, so you always know what to ship next." },
-    { icon: Layers, title: "Markdown / HTML exports", body: "Approved assets you can paste into WordPress, Webflow, Shopify or hand to your developer." },
-  ];
-  return (
-    <section id="create" className="border-t border-border bg-card/30">
-      <div className="mx-auto max-w-6xl px-6 py-20">
-        <div className="max-w-2xl">
-          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">What Milo helps you create</div>
-          <h2 className="mt-2 font-display text-3xl md:text-4xl">Six concrete outputs, every month.</h2>
-          <p className="mt-3 text-sm text-muted-foreground">Milo Growth is a planner, not a publisher. It gives you the artefacts an in-house marketer or freelance writer would produce — without the agency price tag.</p>
-        </div>
-        <div className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {items.map((i) => (
-            <div key={i.title} className="rounded-xl border border-border bg-card p-6">
-              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-gold/10 text-gold">
-                <i.icon className="h-4 w-4" strokeWidth={1.6} />
-              </div>
-              <h3 className="mt-4 font-display text-lg">{i.title}</h3>
-              <p className="mt-1.5 text-sm text-muted-foreground">{i.body}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function WhoItsFor() {
-  const groups = [
-    { icon: Store, title: "Local service businesses", body: "Clinics, salons, studios, contractors and trades that want to be found in their city or region." },
-    { icon: Building2, title: "Small B2B & SaaS teams", body: "Founders and solo marketers who need a steady content rhythm without a full agency retainer." },
-    { icon: MapPin, title: "Multi-location & multi-brand owners", body: "Owners running two or three small businesses who want one calm planning workspace." },
-  ];
-  return (
-    <section id="who" className="border-t border-border">
-      <div className="mx-auto max-w-6xl px-6 py-20">
-        <div className="max-w-2xl">
-          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Who it is for</div>
-          <h2 className="mt-2 font-display text-3xl md:text-4xl">Built for small businesses, not enterprise SEO teams.</h2>
-        </div>
-        <div className="mt-10 grid gap-5 md:grid-cols-3">
-          {groups.map((g) => (
-            <div key={g.title} className="rounded-xl border border-border bg-card p-6">
-              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-gold/10 text-gold">
-                <g.icon className="h-4 w-4" strokeWidth={1.6} />
-              </div>
-              <h3 className="mt-4 font-display text-lg">{g.title}</h3>
-              <p className="mt-1.5 text-sm text-muted-foreground">{g.body}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function WhatYouGet() {
-  const rows = [
-    "A fresh batch of SEO opportunities, ranked by priority",
-    "A 30-day content calendar grouped by week",
-    "Briefs, drafts, FAQ and metadata you can approve in one place",
-    "Service-page improvement suggestions tied to what you actually sell",
-    "Markdown and HTML exports for your CMS or developer",
-  ];
-  return (
-    <section id="monthly" className="border-t border-border bg-card/30">
-      <div className="mx-auto max-w-6xl px-6 py-20 grid gap-10 lg:grid-cols-[1.1fr,1fr] lg:items-center">
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">What you get every month</div>
-          <h2 className="mt-2 font-display text-3xl md:text-4xl">One calm monthly rhythm.</h2>
-          <p className="mt-3 text-sm text-muted-foreground max-w-xl">
-            Each month, Milo refreshes your visibility plan so you always have something concrete to ship — without scrambling for ideas or paying for a full agency retainer.
-          </p>
-          <div className="mt-7">
-            <Link to="/auth">
-              <Button className="gap-2">Start free <ArrowRight className="h-4 w-4" /></Button>
-            </Link>
+          <div className="mt-8 flex flex-wrap items-center gap-x-4 gap-y-3 text-[10px] text-[#647183]">
+            <TrustItem icon={CheckCircle} label="No credit card" />
+            <TrustItem icon={Lock} label="No agency" />
+            <TrustItem icon={Leaf} label="Self-service" />
+            <TrustItem icon={UsersThree} label="Up to 5 projects" />
           </div>
         </div>
-        <ul className="rounded-xl border border-border bg-card divide-y divide-border">
-          {rows.map((r) => (
-            <li key={r} className="flex items-start gap-3 px-5 py-4 text-sm">
-              <CheckCircle2 className="h-4 w-4 mt-0.5 text-gold shrink-0" />
-              <span>{r}</span>
-            </li>
-          ))}
-        </ul>
+
+        <div className="relative overflow-hidden rounded-lg border border-[#d8d2c7] bg-[#fffdf8] shadow-[0_20px_60px_rgba(26,31,34,.12)]">
+          <img
+            src="/images/milo-plan-workspace.png"
+            alt="Milo Growth Plan workspace showing traceable SEO opportunities on a lifecycle board"
+            width={1536}
+            height={1024}
+            loading="eager"
+            fetchPriority="high"
+            className="block aspect-[1.5/1] w-full object-cover object-left-top"
+          />
+        </div>
       </div>
     </section>
   );
 }
 
-function WhatItIsnt() {
-  const items = [
-    "It does not auto-publish content to your website",
-    "It does not guarantee rankings or traffic",
-    "It does not replace every SEO agency use case",
-    "It does not do rank tracking, backlinks or competitor scraping",
+function TrustItem({ icon: Icon, label }: { icon: typeof CheckCircle; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 border-r border-[#ddd8cd] pr-4 last:border-r-0 last:pr-0">
+      <Icon size={15} className="text-[#557786]" /> {label}
+    </span>
+  );
+}
+
+function ProofStrip() {
+  const points = [
+    { icon: CalendarBlank, label: "One clear monthly plan" },
+    { icon: LinkSimple, label: "Five connected steps" },
+    { icon: UsersThree, label: "Human review before publish" },
+    { icon: UsersThree, label: "Up to five projects" },
+    { icon: XCircle, label: "Cancel anytime" },
   ];
   return (
-    <section className="border-t border-border">
-      <div className="mx-auto max-w-6xl px-6 py-20">
-        <div className="max-w-2xl">
-          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">What Milo is not</div>
-          <h2 className="mt-2 font-display text-3xl md:text-4xl">Honest about scope.</h2>
-          <p className="mt-3 text-sm text-muted-foreground">
-            Milo Growth is a focused planning tool, not an all-in-one SEO suite. We tell you upfront what is out of scope so you can choose with eyes open.
-          </p>
+    <section className="border-b border-[#e6dfd2] bg-[#fffdf8]">
+      <div className="mx-auto grid max-w-[1340px] gap-0 px-5 py-6 md:grid-cols-[1.1fr_repeat(5,1fr)] md:px-8">
+        <div className="flex items-center text-[9px] font-semibold uppercase tracking-[0.18em] text-[#647183]">
+          Designed for small businesses
         </div>
-        <ul className="mt-8 grid gap-3 md:grid-cols-2">
-          {items.map((i) => (
-            <li key={i} className="flex items-start gap-3 rounded-lg border border-border bg-card/60 px-5 py-4 text-sm">
-              <XCircle className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-              <span>{i}</span>
-            </li>
-          ))}
-        </ul>
+        {points.map((point) => (
+          <div
+            key={point.label}
+            className="mt-3 flex items-center gap-2 border-l border-[#ddd8cd] px-4 text-[10px] text-[#647183] md:mt-0"
+          >
+            <point.icon size={17} className="shrink-0 text-[#557786]" /> {point.label}
+          </div>
+        ))}
       </div>
     </section>
   );
 }
 
-
-function HowItWorks() {
+function ConnectedWorkflow() {
   const steps = [
     {
-      icon: Sparkles,
-      title: "Find opportunities",
-      body: "Curated SEO ideas grounded in your brand, services and target locations — not generic keyword dumps.",
+      icon: Compass,
+      title: "Discover",
+      body: "Find visibility opportunities from search, competitors and your site.",
     },
     {
-      icon: CalendarDays,
-      title: "Plan the month",
-      body: "A 30-day content calendar grouped by ISO week, with clear status from idea to approved.",
+      icon: CalendarBlank,
+      title: "Plan",
+      body: "Turn accepted ideas into a clear plan with priority, owner and date.",
+    },
+    {
+      icon: PencilLine,
+      title: "Create",
+      body: "Brief and draft content that matches intent and your brand voice.",
+    },
+    {
+      icon: PaperPlaneTilt,
+      title: "Publish",
+      body: "Review, approve and send content through connected workflows.",
+    },
+    {
+      icon: ChartLineUp,
+      title: "Measure",
+      body: "Connect rankings, traffic and conversion impact back to the idea.",
+    },
+  ];
+  return (
+    <section id="how" className="border-b border-[#e6dfd2]">
+      <div className="mx-auto max-w-[1340px] px-5 py-16 md:px-8 lg:py-20">
+        <div className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#647183]">
+          How it works
+        </div>
+        <h2 className="mt-3 max-w-3xl font-display text-3xl tracking-[-0.03em] sm:text-[42px]">
+          One system. Every next step connected.
+        </h2>
+        <div className="mt-10 grid gap-5 md:grid-cols-5">
+          {steps.map((step, index) => (
+            <article
+              key={step.title}
+              className="relative border-t border-[#ddd8cd] pt-5 md:border-t-0 md:pt-0"
+            >
+              <div className="flex items-start gap-3">
+                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-[#ddd8cd] bg-[#fffdf8]">
+                  <step.icon size={18} />
+                </div>
+                <div>
+                  <div className="text-[9px] text-[#7a8390]">
+                    Step {String(index + 1).padStart(2, "0")}
+                  </div>
+                  <h3 className="mt-1 text-sm font-medium">{step.title}</h3>
+                </div>
+              </div>
+              <p className="mt-3 text-[11px] leading-5 text-[#647183]">{step.body}</p>
+              {index < steps.length - 1 ? (
+                <ArrowRight
+                  size={16}
+                  className="absolute -right-3 top-5 hidden text-[#aaa397] md:block"
+                />
+              ) : null}
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ProductSystem() {
+  const capabilities = [
+    {
+      icon: Gauge,
+      title: "Site audit",
+      body: "Turn technical, content and internal-link findings into traceable work — without losing the affected URL or evidence.",
+    },
+    {
+      icon: UsersThree,
+      title: "Competitor gaps",
+      body: "See where competitors cover topics, offers or links that your project does not, then accept only the gaps worth pursuing.",
+    },
+    {
+      icon: Medal,
+      title: "Authority",
+      body: "Plan credible proof, expert contributions, directories, mentions and trust signals alongside content work.",
+    },
+    {
+      icon: Globe,
+      title: "AI visibility",
+      body: "Track how your brand appears in AI answers and convert missing or weak coverage into focused opportunities.",
     },
     {
       icon: FileText,
-      title: "Draft & approve",
-      body: "A clean editor with metadata, outline, FAQ and HTML preview. Export Markdown or HTML when ready.",
+      title: "Content + Milo Score",
+      body: "Create linked briefs and drafts, evaluate a specific version, send it for review and keep its provenance attached.",
+    },
+    {
+      icon: ChartLineUp,
+      title: "Premium analytics",
+      body: "Bring Milo activity, Search Console and site analytics together to show what shipped and what changed afterward.",
     },
   ];
   return (
-    <section id="how" className="border-t border-border bg-card/30">
-      <div className="mx-auto max-w-6xl px-6 py-20">
-        <div className="max-w-2xl">
-          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">How it works</div>
-          <h2 className="mt-2 font-display text-3xl md:text-4xl">Three calm steps, one workspace.</h2>
-        </div>
-        <div className="mt-12 grid gap-6 md:grid-cols-3">
-          {steps.map((s) => (
-            <div key={s.title} className="rounded-xl border border-border bg-card p-6">
-              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-gold/10 text-gold">
-                <s.icon className="h-4 w-4" strokeWidth={1.6} />
-              </div>
-              <h3 className="mt-5 font-display text-xl">{s.title}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">{s.body}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function DemoPreview() {
-  const demoOpportunities = [
-    {
-      id: "demo-o-1",
-      title: "Best espresso machines for small cafés under $2,000",
-      searchIntent: "Commercial",
-      businessValue:
-        "Captures owners actively comparing entry-level commercial machines — high purchase intent and strong fit for product pages.",
-    },
-    {
-      id: "demo-o-2",
-      title: "How to clean a steam wand without damaging the seals",
-      searchIntent: "Informational",
-      businessValue:
-        "Builds trust with existing customers and earns long-tail visibility in AI answers about espresso machine maintenance.",
-    },
-    {
-      id: "demo-o-3",
-      title: "Single boiler vs dual boiler espresso machines explained",
-      searchIntent: "Comparison",
-      businessValue:
-        "Helps undecided buyers choose a category — a natural lead-in to your product line and a strong internal-link hub.",
-    },
-  ];
-
-  const demoContent = [
-    {
-      id: "demo-c-1",
-      title: "Best espresso machines for small cafés under $2,000",
-      status: "Draft",
-      metaDescription:
-        "A practical shortlist of reliable commercial espresso machines under $2,000, with notes on workflow, durability and service.",
-    },
-    {
-      id: "demo-c-2",
-      title: "How to clean a steam wand the right way",
-      status: "In review",
-      metaDescription:
-        "A simple weekly routine to keep your steam wand clean, hygienic and free of milk build-up — without damaging the seals.",
-    },
-    {
-      id: "demo-c-3",
-      title: "Single boiler vs dual boiler: which one fits your café?",
-      status: "Approved",
-      metaDescription:
-        "Plain-language comparison of single and dual boiler espresso machines, with guidance on volume, milk drinks and budget.",
-    },
-  ];
-
-  return (
-    <section id="preview" className="border-t border-border">
-      <div className="mx-auto max-w-6xl px-6 py-20">
-        <div className="flex flex-wrap items-end justify-between gap-4">
+    <section className="border-b border-[#e6dfd2] bg-[#f7f4ed]">
+      <div className="mx-auto max-w-[1340px] px-5 py-16 md:px-8 lg:py-20">
+        <div className="grid gap-8 lg:grid-cols-[.8fr_1.2fr]">
           <div>
-            <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Preview</div>
-            <h2 className="mt-2 font-display text-3xl md:text-4xl">A look at the workspace.</h2>
-            <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-              A static preview of what your dashboard and content cards will look like. Sign in to explore the live demo.
+            <div className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#647183]">
+              Everything retained
+            </div>
+            <h2 className="mt-3 font-display text-3xl tracking-[-0.03em] sm:text-[42px]">
+              Fewer tabs. No missing functionality.
+            </h2>
+            <p className="mt-4 max-w-md text-sm leading-6 text-[#647183]">
+              Audit, competitors, authority and AI visibility now feed one Plan. Project setup,
+              services, connections and billing live together in Settings. Content and Insights each
+              have one clear job.
             </p>
+            <Link to="/auth" search={{ mode: "register" }} className="mt-6 inline-block">
+              <Button>
+                Start with one project <ArrowRight size={16} />
+              </Button>
+            </Link>
           </div>
-          <Link to="/auth">
-            <Button variant="outline">Open the live demo</Button>
-          </Link>
-        </div>
-
-        <div className="mt-10 grid gap-6 lg:grid-cols-2">
-          <div className="rounded-xl border border-border bg-card p-6">
-            <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-              SEO Opportunities · Northbound Coffee Co.
-            </div>
-            <div className="mt-4 space-y-3">
-              {demoOpportunities.map((o) => (
-                <div key={o.id} className="rounded-lg border border-border/70 bg-background/50 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <h4 className="font-medium">{o.title}</h4>
-                    <span className="text-[10px] uppercase tracking-[0.18em] text-gold">{o.searchIntent}</span>
-                  </div>
-                  <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{o.businessValue}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-border bg-card p-6">
-            <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-              Content in progress
-            </div>
-            <div className="mt-4 space-y-3">
-              {demoContent.map((c) => (
-                <div key={c.id} className="rounded-lg border border-border/70 bg-background/50 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <h4 className="font-medium">{c.title}</h4>
-                    <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                      {c.status}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
-                    {c.metaDescription}
-                  </p>
-                </div>
-              ))}
-            </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {capabilities.map((item) => (
+              <article
+                key={item.title}
+                className="rounded-lg border border-[#ddd8cd] bg-[#fffdf8] p-5"
+              >
+                <item.icon size={20} className="text-[#b5862a]" />
+                <h3 className="mt-4 font-display text-lg">{item.title}</h3>
+                <p className="mt-2 text-[11px] leading-5 text-[#647183]">{item.body}</p>
+              </article>
+            ))}
           </div>
         </div>
       </div>
@@ -428,76 +387,119 @@ function DemoPreview() {
   );
 }
 
-function PricingTeaser() {
+function BacklinksAddOn() {
+  const capabilities = [
+    { label: "Link profile & gaps", icon: LinkSimple },
+    { label: "Paid marketplace", icon: ShieldCheck },
+    { label: "Reviewable outreach", icon: PaperPlaneTilt },
+    { label: "Clear cost controls", icon: Lock },
+  ];
+
   return (
-    <section id="pricing-teaser" className="border-t border-border bg-card/30">
-      <div className="mx-auto max-w-6xl px-6 py-20">
-        <div className="max-w-2xl">
-          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Pricing</div>
-          <h2 className="mt-2 font-display text-3xl md:text-4xl">Simple, per project.</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Start free. Upgrade when you're ready to create real projects. Add brands as you grow,
-            up to {MAX_PROJECTS_PER_USER} per account.
+    <section id="backlinks" className="border-b border-[#e6dfd2] bg-[#18232c] text-[#eef0ee]">
+      <div className="mx-auto grid max-w-[1340px] items-center gap-10 px-5 py-16 md:px-8 lg:grid-cols-[1fr_.9fr] lg:py-20">
+        <div>
+          <div className="inline-flex rounded-full border border-[#e0b34e]/35 bg-[#e0b34e]/10 px-3 py-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#e0b34e]">
+            Optional paid add-on
+          </div>
+          <h2 className="mt-5 font-display text-3xl tracking-[-0.03em] sm:text-[42px]">
+            Backlinks deserve their own workspace.
+          </h2>
+          <p className="mt-4 max-w-xl text-sm leading-6 text-[#b9c1c4]">
+            Analyse referring domains, find competitor link gaps, review marketplace offers and
+            prepare outreach without mixing external placement costs into everyday content planning.
           </p>
+          <div className="mt-7 flex flex-wrap gap-3">
+            <Link to="/pricing">
+              <Button className="bg-[#eef0ee] text-[#18232c] hover:bg-white">
+                See add-on pricing
+              </Button>
+            </Link>
+            <Link to="/auth" search={{ mode: "register" }}>
+              <Button
+                variant="outline"
+                className="border-white/25 bg-transparent text-white hover:bg-white/10 hover:text-white"
+              >
+                Explore Milo first
+              </Button>
+            </Link>
+          </div>
         </div>
-        <div className="mt-10 grid gap-6 md:grid-cols-3">
-          {PLANS.map((p) => (
-            <div
-              key={p.id}
-              className={
-                "rounded-xl border p-6 bg-card " +
-                (p.recommended ? "border-gold shadow-[0_0_0_1px_hsl(var(--gold)/0.45)]" : "border-border")
-              }
-            >
-              {p.recommended ? (
-                <div className="mb-3 inline-block rounded-full bg-gold/15 px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-gold">
-                  Recommended
-                </div>
-              ) : null}
-              <h3 className="font-display text-xl">{p.name}</h3>
-              <div className="mt-2 flex items-baseline gap-1">
-                <span className="font-display text-3xl">{formatPrice(p.pricePerMonth)}</span>
-                <span className="text-sm text-muted-foreground">/month</span>
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">{p.tagline}</p>
-              <ul className="mt-5 space-y-2 text-sm">
-                {p.features.map((f) => (
-                  <li key={f} className="flex gap-2">
-                    <ShieldCheck className="h-4 w-4 mt-0.5 text-gold/80" />
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {capabilities.map(({ label, icon: Icon }) => (
+            <div key={label} className="rounded-lg border border-white/10 bg-white/[.04] p-5">
+              <Icon size={20} className="text-[#e0b34e]" />
+              <div className="mt-4 text-sm font-medium">{label}</div>
             </div>
           ))}
         </div>
-        <p className="mt-6 text-sm text-muted-foreground">
-          Need more brands? Add up to {MAX_PROJECTS_PER_USER} projects at {formatPrice(EXTRA_PROJECT.pricePerMonth)}/project/month.
-        </p>
-        <div className="mt-8">
-          <Link to="/pricing">
-            <Button variant="outline">See full pricing</Button>
-          </Link>
-        </div>
       </div>
     </section>
   );
 }
 
-function FAQ() {
+function TrustAndPricing() {
   return (
-    <section id="faq" className="border-t border-border">
-      <div className="mx-auto max-w-3xl px-6 py-20">
-        <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">FAQ</div>
-        <h2 className="mt-2 font-display text-3xl md:text-4xl">Questions, answered.</h2>
-        <div className="mt-10 divide-y divide-border border-y border-border">
-          {HOME_FAQ.map((it) => (
-            <details key={it.q} className="group py-5">
-              <summary className="cursor-pointer list-none flex items-center justify-between gap-4">
-                <span className="font-medium text-foreground">{it.q}</span>
-                <span className="text-gold transition-transform group-open:rotate-45">+</span>
+    <section className="border-b border-[#e6dfd2]">
+      <div className="mx-auto grid max-w-[1340px] gap-8 px-5 py-16 md:px-8 lg:grid-cols-2 lg:py-20">
+        <article className="rounded-lg border border-[#ddd8cd] bg-[#fffdf8] p-7">
+          <ShieldCheck size={24} className="text-[#398a63]" />
+          <h2 className="mt-5 font-display text-3xl">Control stays with you.</h2>
+          <ul className="mt-5 grid gap-3 text-sm text-[#52606c]">
+            {[
+              "Nothing enters Plan until you accept it",
+              "Human review before publication",
+              "Archive and restore instead of disappearing work",
+              "Content score is version-specific and explainable",
+              "Manage or cancel subscription from Billing",
+            ].map((item) => (
+              <li key={item} className="flex gap-2">
+                <Check size={16} className="mt-0.5 shrink-0 text-[#398a63]" />
+                {item}
+              </li>
+            ))}
+          </ul>
+        </article>
+        <article className="rounded-lg border border-[#d7c39c] bg-[#faf6ee] p-7">
+          <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#8b6b2e]">
+            Straightforward plans
+          </div>
+          <h2 className="mt-4 font-display text-3xl">Start small. Grow to five projects.</h2>
+          <p className="mt-4 text-sm leading-6 text-[#647183]">
+            Choose the usage level that fits today. Backlinks remains an explicit add-on, and
+            cancellation stays visible in your account.
+          </p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link to="/pricing">
+              <Button>
+                See pricing <ArrowRight size={16} />
+              </Button>
+            </Link>
+            <Link to="/auth" search={{ mode: "register" }}>
+              <Button variant="outline">Start free</Button>
+            </Link>
+          </div>
+        </article>
+      </div>
+    </section>
+  );
+}
+
+function Faq() {
+  return (
+    <section id="resources" className="border-b border-[#e6dfd2] bg-[#f7f4ed]">
+      <div className="mx-auto max-w-4xl px-5 py-16 md:px-8 lg:py-20">
+        <div className="text-center text-[9px] font-semibold uppercase tracking-[0.2em] text-[#647183]">
+          Plain answers
+        </div>
+        <h2 className="mt-3 text-center font-display text-3xl sm:text-[42px]">Before you start</h2>
+        <div className="mt-9 divide-y divide-[#ddd8cd] rounded-lg border border-[#ddd8cd] bg-[#fffdf8]">
+          {HOME_FAQ.map((item) => (
+            <details key={item.q} className="group px-5 py-4">
+              <summary className="cursor-pointer list-none pr-6 text-sm font-medium marker:hidden">
+                {item.q}
               </summary>
-              <p className="mt-3 text-sm text-foreground/80">{it.a}</p>
+              <p className="mt-3 max-w-3xl text-xs leading-5 text-[#647183]">{item.a}</p>
             </details>
           ))}
         </div>
@@ -506,29 +508,39 @@ function FAQ() {
   );
 }
 
-
-function Footer() {
+function PublicFooter() {
   return (
-    <footer className="border-t border-border bg-card/40">
-      <div className="mx-auto max-w-6xl px-6 py-10 flex flex-wrap items-center justify-between gap-4 text-sm text-muted-foreground">
-        <div>
-          <span className="font-display text-base text-foreground">Milo Growth</span>
-          <span className="mx-2">—</span>
-          <span>built by Andersen Innovations</span>
-          <span className="mx-2">·</span>
-          <span>© {new Date().getUTCFullYear()}</span>
+    <footer className="bg-[#fffdf8]">
+      <div className="mx-auto max-w-[1340px] px-5 py-10 md:px-8">
+        <div className="flex flex-wrap items-start justify-between gap-8">
+          <div>
+            <div className="font-display text-xl">Milo Growth</div>
+            <p className="mt-2 max-w-xs text-xs leading-5 text-[#647183]">
+              A calmer way for small businesses to discover, plan, create, publish and measure SEO
+              growth.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-x-10 gap-y-2 text-xs text-[#52606c] sm:grid-cols-4">
+            <Link to="/pricing">Pricing</Link>
+            <Link to="/free-ai-visibility-audit">Free audit</Link>
+            <Link to="/case-studies">Case studies</Link>
+            <Link to="/beta">Beta</Link>
+            <Link to="/terms">Terms</Link>
+            <Link to="/privacy">Privacy</Link>
+            <Link to="/security">Security</Link>
+            <Link to="/ai-disclaimer">AI disclaimer</Link>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-          <Link to="/free-ai-visibility-audit" className="hover:text-foreground">Free audit</Link>
-          <Link to="/beta" className="hover:text-foreground">Beta</Link>
-          <Link to="/case-studies" className="hover:text-foreground">Case studies</Link>
-          <Link to="/pricing" className="hover:text-foreground">Pricing</Link>
-          <Link to="/terms" className="hover:text-foreground">Terms</Link>
-          <Link to="/privacy" className="hover:text-foreground">Privacy</Link>
-          <Link to="/security" className="hover:text-foreground">Security</Link>
-          <Link to="/cookies" className="hover:text-foreground">Cookies</Link>
-          <Link to="/ai-disclaimer" className="hover:text-foreground">AI disclaimer</Link>
-          <Link to="/auth" className="hover:text-foreground">Sign in</Link>
+        <div className="mt-9 flex flex-wrap items-center justify-between gap-4 border-t border-[#e6dfd2] pt-6 text-[10px] text-[#697282]">
+          <span>© {new Date().getUTCFullYear()} Andersen Innovations</span>
+          <div className="flex flex-wrap gap-3">
+            <span className="uppercase tracking-[0.16em]">Markets</span>
+            {DISPLAY_REGIONS.map((region) => (
+              <Link key={region} to={`/${region}` as never}>
+                {REGION_SELECTOR_LABELS[region]}
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
     </footer>

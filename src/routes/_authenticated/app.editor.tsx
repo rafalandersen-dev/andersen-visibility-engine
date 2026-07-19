@@ -19,15 +19,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-import { useStore, upsertContent, deleteContentAsset, saveWorkspaceNow } from "@/lib/store";
+  useStore,
+  upsertContent,
+  deleteContentAsset,
+  saveWorkspaceNow,
+  updateOpportunity,
+  getState,
+} from "@/lib/store";
 import { useT } from "@/i18n";
-import { generateMetadata, generateFaq, generateCta, sendContentToWebsite, publishContentLive, runAutoPublishOnApprove } from "@/lib/mock-ai";
+import {
+  generateMetadata,
+  generateFaq,
+  generateCta,
+  sendContentToWebsite,
+  publishContentLive,
+  runAutoPublishOnApprove,
+} from "@/lib/mock-ai";
 import { CreateContentDialog, ASSET_TYPE_LABELS } from "@/components/CreateContentDialog";
 import { MiloScorePanel } from "@/components/MiloScorePanel";
 import {
@@ -40,10 +49,30 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import type { ContentAsset, ContentStatus, PublishDestinationType, PublishStatus, LivePublishStatus } from "@/lib/types";
+import type {
+  ContentAsset,
+  ContentStatus,
+  PublishDestinationType,
+  PublishStatus,
+  LivePublishStatus,
+} from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { Check, Copy, Download, ExternalLink, FileEdit, FilePlus2, FileX, Globe, Loader2, Rocket, Send, Sparkles, Trash2 } from "lucide-react";
+import {
+  Check,
+  Copy,
+  Download,
+  ExternalLink,
+  FileEdit,
+  FilePlus2,
+  FileX,
+  Globe,
+  Loader2,
+  Rocket,
+  Send,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -96,48 +125,59 @@ function EditorPage() {
   const asset = useMemo(() => assets.find((a) => a.id === selectedId), [assets, selectedId]);
 
   return (
-    <AppShell
-      title={t("editor.title")}
-      description={t("editor.subtitle")}
-    >
+    <AppShell title={t("editor.title")} description={t("editor.subtitle")}>
       <div className="grid lg:grid-cols-[260px,1fr] gap-6">
         <aside className="rounded-lg border border-border bg-card p-3 h-fit">
-          <div className="px-2 py-1 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">{t("editor.assets")}</div>
+          <div className="px-2 py-1 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+            {t("editor.assets")}
+          </div>
           <ul className="mt-1 space-y-0.5">
             {assets.length === 0 ? (
               <li className="px-2 py-6 text-xs text-muted-foreground">
                 Use “Create content” on any opportunity to generate your first asset.
               </li>
-            ) : assets.map((a) => (
-              <li key={a.id}>
-                <button
-                  onClick={() => setSelectedId(a.id)}
-                  className={
-                    "w-full text-left rounded-md px-3 py-2 transition-colors " +
-                    (selectedId === a.id ? "bg-accent/25" : "hover:bg-secondary/60")
-                  }
-                >
-                  <div className="text-sm font-medium truncate">{a.title}</div>
-                  <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mt-0.5">
-                    {a.assetType ? `${ASSET_TYPE_LABELS[a.assetType]} · ` : ""}{t(`status.${a.status}`)}
-                  </div>
-                </button>
-              </li>
-            ))}
+            ) : (
+              assets.map((a) => (
+                <li key={a.id}>
+                  <button
+                    onClick={() => setSelectedId(a.id)}
+                    className={
+                      "w-full text-left rounded-md px-3 py-2 transition-colors " +
+                      (selectedId === a.id ? "bg-accent/25" : "hover:bg-secondary/60")
+                    }
+                  >
+                    <div className="text-sm font-medium truncate">{a.title}</div>
+                    <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mt-0.5">
+                      {a.assetType ? `${ASSET_TYPE_LABELS[a.assetType]} · ` : ""}
+                      {t(`status.${a.status}`)}
+                    </div>
+                  </button>
+                </li>
+              ))
+            )}
           </ul>
         </aside>
 
-        {asset ? <Editor key={asset.id} asset={asset} onRequestDelete={() => setDeleteId(asset.id)} /> : (
+        {asset ? (
+          <Editor key={asset.id} asset={asset} onRequestDelete={() => setDeleteId(asset.id)} />
+        ) : (
           <div className="rounded-lg border border-dashed border-border p-12 text-center">
             <div className="font-display text-lg mb-1">{t("editor.noAssetSelectedTitle")}</div>
             <p className="text-sm text-muted-foreground max-w-md mx-auto">
-              Open the Opportunities page and click <span className="font-medium text-foreground">Create content</span> on any card to generate your first asset. It will appear in this editor.
+              Open the Opportunities page and click{" "}
+              <span className="font-medium text-foreground">Create content</span> on any card to
+              generate your first asset. It will appear in this editor.
             </p>
           </div>
         )}
       </div>
 
-      <AlertDialog open={deleteId !== null} onOpenChange={(o) => { if (!o) setDeleteId(null); }}>
+      <AlertDialog
+        open={deleteId !== null}
+        onOpenChange={(o) => {
+          if (!o) setDeleteId(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("editor.action.delete")}</AlertDialogTitle>
@@ -148,7 +188,9 @@ function EditorPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>{t("editor.action.delete")}</AlertDialogAction>
+            <AlertDialogAction onClick={confirmDelete}>
+              {t("editor.action.delete")}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -168,10 +210,14 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   const isWordPress = project?.connectorType === "wordpress";
   const isShopify = project?.connectorType === "shopify";
   const wpConfigured = Boolean(
-    project?.wordpress?.siteUrl && project?.wordpress?.username && project?.wordpress?.applicationPassword,
+    project?.wordpress?.siteUrl &&
+    project?.wordpress?.username &&
+    project?.wordpress?.applicationPassword,
   );
   const shopifyConfigured = Boolean(
-    project?.shopify?.shopDomain && project?.shopify?.adminAccessToken && project?.shopify?.defaultBlogId,
+    project?.shopify?.shopDomain &&
+    project?.shopify?.adminAccessToken &&
+    project?.shopify?.defaultBlogId,
   );
   const publishConfigured = isWordPress
     ? wpConfigured
@@ -220,10 +266,25 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       ...f,
       status: status ?? f.status,
       updatedAt: new Date().toISOString(),
-      qualityScoreStale: f.qualityScore ? f.qualityScoreStale || contentChanged : f.qualityScoreStale,
+      qualityScoreStale: f.qualityScore
+        ? f.qualityScoreStale || contentChanged
+        : f.qualityScoreStale,
     };
     setF(next);
     upsertContent(next);
+    const opportunityId = next.opportunityId ?? next.sourceOpportunityId;
+    if (opportunityId) {
+      const opportunityStatus =
+        next.status === "In Review"
+          ? "in_review"
+          : next.status === "Approved" || next.status === "Exported"
+            ? "approved"
+            : "drafting";
+      updateOpportunity(opportunityId, {
+        status: opportunityStatus,
+        currentContentAssetId: next.id,
+      });
+    }
     toast.success(status ? `Marked ${status}` : "Saved");
   };
 
@@ -300,9 +361,24 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     setAutoBusy(true);
     try {
       const r = await runAutoPublishOnApprove(asset.id);
-      if (r) toast.success("Approved and published live");
+      if (r) {
+        const published = getState().content.find((item) => item.id === asset.id);
+        const opportunityId = published?.opportunityId ?? published?.sourceOpportunityId;
+        if (published && opportunityId) {
+          updateOpportunity(opportunityId, {
+            status: "published",
+            currentContentAssetId: published.id,
+            canonicalUrl: published.liveUrl,
+            publishedAt: published.livePublishedAt,
+            measurementStatus: "collecting",
+          });
+        }
+        toast.success("Approved and published live");
+      }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Auto-publish failed — you can retry with Publish live");
+      toast.error(
+        e instanceof Error ? e.message : "Auto-publish failed — you can retry with Publish live",
+      );
     } finally {
       setAutoBusy(false);
     }
@@ -312,6 +388,17 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     setPublishingLive(true);
     try {
       await publishContentLive(asset.id);
+      const published = getState().content.find((item) => item.id === asset.id);
+      const opportunityId = published?.opportunityId ?? published?.sourceOpportunityId;
+      if (published && opportunityId) {
+        updateOpportunity(opportunityId, {
+          status: "published",
+          currentContentAssetId: published.id,
+          canonicalUrl: published.liveUrl,
+          publishedAt: published.livePublishedAt,
+          measurementStatus: "collecting",
+        });
+      }
       toast.success("Published live");
       setLiveConfirmOpen(false);
     } catch (e) {
@@ -341,9 +428,15 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               {f.sourceType && f.sourceType !== "opportunity" ? ` (${f.sourceType})` : ""}
             </span>
           ) : null}
-          {f.language ? <span>{t("onboarding.summary.language")}: {f.language}</span> : null}
+          {f.language ? (
+            <span>
+              {t("onboarding.summary.language")}: {f.language}
+            </span>
+          ) : null}
           <span>{formatDateTime(f.createdAt ?? f.updatedAt)}</span>
-          <span>{t("editor.status")}: {t(`status.${f.status}`)}</span>
+          <span>
+            {t("editor.status")}: {t(`status.${f.status}`)}
+          </span>
         </div>
         <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-foreground/80">
           <Sparkles className="h-3.5 w-3.5 shrink-0 text-gold/80 mt-0.5" />
@@ -353,11 +446,24 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
 
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-border">
         <div className="flex items-center gap-3">
-          <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">{t("editor.status")}</span>
-          <Select value={f.status} onValueChange={(v) => (v === "Approved" ? approve() : save(v as ContentStatus))}>
-            <SelectTrigger className="h-8 w-36 text-xs"><SelectValue /></SelectTrigger>
+          <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+            {t("editor.status")}
+          </span>
+          <Select
+            value={f.status}
+            onValueChange={(v) => (v === "Approved" ? approve() : save(v as ContentStatus))}
+          >
+            <SelectTrigger className="h-8 w-36 text-xs">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
-              {(["Draft","In Review","Approved","Rejected","Exported"] as ContentStatus[]).map((s) => <SelectItem key={s} value={s}>{t(`status.${s}`)}</SelectItem>)}
+              {(["Draft", "In Review", "Approved", "Rejected", "Exported"] as ContentStatus[]).map(
+                (s) => (
+                  <SelectItem key={s} value={s}>
+                    {t(`status.${s}`)}
+                  </SelectItem>
+                ),
+              )}
             </SelectContent>
           </Select>
         </div>
@@ -367,11 +473,31 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               <FilePlus2 className="h-3.5 w-3.5" /> {t("editor.action.createContent")}
             </Button>
           ) : null}
-          <Button size="sm" variant="ghost" onClick={() => save("Draft")}><FileEdit className="h-3.5 w-3.5" /> {t("editor.action.saveDraft")}</Button>
-          <Button size="sm" variant="outline" onClick={() => save("In Review")}>{t("editor.action.markInReview")}</Button>
-          <Button size="sm" variant="outline" onClick={approve} disabled={autoBusy}>{autoBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} {t("editor.action.approve")}</Button>
-          <Button size="sm" variant="ghost" onClick={() => save("Rejected")}><FileX className="h-3.5 w-3.5" /> {t("editor.action.reject")}</Button>
-          <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={onRequestDelete}><Trash2 className="h-3.5 w-3.5" /> {t("editor.action.delete")}</Button>
+          <Button size="sm" variant="ghost" onClick={() => save("Draft")}>
+            <FileEdit className="h-3.5 w-3.5" /> {t("editor.action.saveDraft")}
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => save("In Review")}>
+            {t("editor.action.markInReview")}
+          </Button>
+          <Button size="sm" variant="outline" onClick={approve} disabled={autoBusy}>
+            {autoBusy ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Check className="h-3.5 w-3.5" />
+            )}{" "}
+            {t("editor.action.approve")}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => save("Rejected")}>
+            <FileX className="h-3.5 w-3.5" /> {t("editor.action.reject")}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-muted-foreground hover:text-destructive"
+            onClick={onRequestDelete}
+          >
+            <Trash2 className="h-3.5 w-3.5" /> {t("editor.action.delete")}
+          </Button>
         </div>
       </div>
 
@@ -389,15 +515,22 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               <Button size="sm" variant="outline" onClick={openSend}>
                 <Send className="h-3.5 w-3.5" />
-                {live.publishStatus === "sent" ? t("editor.publish.reSendToWebsite") : t("editor.publish.sendToWebsite")}
+                {live.publishStatus === "sent"
+                  ? t("editor.publish.reSendToWebsite")
+                  : t("editor.publish.sendToWebsite")}
               </Button>
               <PublishStatusBadge status={live.publishStatus} />
               {live.publishPlatform === "wordpress" && live.wordpressPostId ? (
-                <span className="text-xs text-muted-foreground">WordPress #{live.wordpressPostId} · {live.wordpressPostType}</span>
+                <span className="text-xs text-muted-foreground">
+                  WordPress #{live.wordpressPostId} · {live.wordpressPostType}
+                </span>
               ) : null}
               {live.publishPlatform === "shopify" && live.shopifyArticleId ? (
                 <span className="text-xs text-muted-foreground">
-                  Shopify #{live.shopifyArticleId} · {live.shopifyStatus === "published" ? t("shopify.statusPublished") : t("shopify.statusDraft")}
+                  Shopify #{live.shopifyArticleId} ·{" "}
+                  {live.shopifyStatus === "published"
+                    ? t("shopify.statusPublished")
+                    : t("shopify.statusDraft")}
                   {live.shopifyHandle ? ` · ${live.shopifyHandle}` : ""}
                 </span>
               ) : null}
@@ -424,9 +557,19 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
 
             {live.publishStatus === "sent" && publishMode !== "draftOnly" ? (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-2.5 border-t border-border/60">
-                <Button size="sm" onClick={() => setLiveConfirmOpen(true)} disabled={!liveConfigured || publishingLive}>
-                  {publishingLive ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Rocket className="h-3.5 w-3.5" />}
-                  {live.livePublishStatus === "published" ? t("editor.publish.rePublishLive") : t("editor.publish.publishLive")}
+                <Button
+                  size="sm"
+                  onClick={() => setLiveConfirmOpen(true)}
+                  disabled={!liveConfigured || publishingLive}
+                >
+                  {publishingLive ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Rocket className="h-3.5 w-3.5" />
+                  )}
+                  {live.livePublishStatus === "published"
+                    ? t("editor.publish.rePublishLive")
+                    : t("editor.publish.publishLive")}
                 </Button>
                 <LivePublishStatusBadge status={live.livePublishStatus} />
                 {live.livePublishedAt ? (
@@ -448,7 +591,13 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 {!liveConfigured ? (
                   <span className="text-xs text-muted-foreground">
                     Add a live publish endpoint in{" "}
-                    <Link to="/app/setup" className="underline underline-offset-4 hover:text-foreground">Project Setup</Link>.
+                    <Link
+                      to="/app/setup"
+                      className="underline underline-offset-4 hover:text-foreground"
+                    >
+                      Project Setup
+                    </Link>
+                    .
                   </span>
                 ) : null}
                 {live.livePublishStatus === "failed" && live.livePublishError ? (
@@ -475,9 +624,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="font-display">{t("editor.sendModal.title")}</DialogTitle>
-            <DialogDescription>
-              {t("editor.sendModal.body")}
-            </DialogDescription>
+            <DialogDescription>{t("editor.sendModal.body")}</DialogDescription>
           </DialogHeader>
 
           {f.status !== "Approved" ? (
@@ -501,8 +648,14 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               <label className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                 {t("editor.sendModal.destinationType")}
               </label>
-              <Select value={destType} onValueChange={(v) => setDestType(v as PublishDestinationType)} disabled={sending}>
-                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+              <Select
+                value={destType}
+                onValueChange={(v) => setDestType(v as PublishDestinationType)}
+                disabled={sending}
+              >
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="blogPost">Blog post</SelectItem>
                   <SelectItem value="servicePage">Service page</SelectItem>
@@ -515,38 +668,63 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               ) : null}
             </div>
             <div>
-              <label className="text-xs uppercase tracking-[0.16em] text-muted-foreground">{t("editor.sendModal.slug")}</label>
-              <Input className="mt-1.5" value={publishSlug} onChange={(e) => setPublishSlug(e.target.value)} disabled={sending} />
+              <label className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                {t("editor.sendModal.slug")}
+              </label>
+              <Input
+                className="mt-1.5"
+                value={publishSlug}
+                onChange={(e) => setPublishSlug(e.target.value)}
+                disabled={sending}
+              />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setSendOpen(false)} disabled={sending}>{t("common.cancel")}</Button>
+            <Button variant="ghost" onClick={() => setSendOpen(false)} disabled={sending}>
+              {t("common.cancel")}
+            </Button>
             <Button onClick={doSend} disabled={sending}>
-              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {sending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
               {sending ? t("editor.sendModal.sending") : t("editor.sendModal.send")}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={liveConfirmOpen} onOpenChange={(o) => { if (!publishingLive) setLiveConfirmOpen(o); }}>
+      <AlertDialog
+        open={liveConfirmOpen}
+        onOpenChange={(o) => {
+          if (!publishingLive) setLiveConfirmOpen(o);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("editor.liveModal.title")}</AlertDialogTitle>
             <AlertDialogDescription>
               {t("editor.liveModal.body")}
               {live.qualityScore?.publishingRecommendation === "notReady" ? (
-                <span className="mt-2 block font-medium text-destructive">{t("quality.publishWarnNotReady")}</span>
+                <span className="mt-2 block font-medium text-destructive">
+                  {t("quality.publishWarnNotReady")}
+                </span>
               ) : !live.qualityScore ? (
-                <span className="mt-2 block text-muted-foreground">{t("quality.publishWarnNoScore")}</span>
+                <span className="mt-2 block text-muted-foreground">
+                  {t("quality.publishWarnNoScore")}
+                </span>
               ) : null}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={publishingLive}>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={(e) => { e.preventDefault(); doPublishLive(); }}
+              onClick={(e) => {
+                e.preventDefault();
+                doPublishLive();
+              }}
               disabled={publishingLive}
             >
               {publishingLive ? t("editor.liveModal.publishing") : t("editor.liveModal.publish")}
@@ -564,39 +742,99 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         </TabsList>
 
         <TabsContent value="content" className="space-y-4 py-5">
-          <Field label="Title">{(id) => <Input id={id} value={f.title} onChange={(e) => upd("title", e.target.value)} />}</Field>
-          <Field label="H1">{(id) => <Input id={id} value={f.h1} onChange={(e) => upd("h1", e.target.value)} />}</Field>
+          <Field label="Title">
+            {(id) => (
+              <Input id={id} value={f.title} onChange={(e) => upd("title", e.target.value)} />
+            )}
+          </Field>
+          <Field label="H1">
+            {(id) => <Input id={id} value={f.h1} onChange={(e) => upd("h1", e.target.value)} />}
+          </Field>
           <Field label="Markdown content">
-            {(id) => <Textarea id={id} rows={16} className="font-mono text-xs" value={f.markdown} onChange={(e) => upd("markdown", e.target.value)} />}
+            {(id) => (
+              <Textarea
+                id={id}
+                rows={16}
+                className="font-mono text-xs"
+                value={f.markdown}
+                onChange={(e) => upd("markdown", e.target.value)}
+              />
+            )}
           </Field>
           <Field label="Editor notes">
-            {(id) => <Textarea id={id} rows={3} value={f.editorNotes} onChange={(e) => upd("editorNotes", e.target.value)} />}
+            {(id) => (
+              <Textarea
+                id={id}
+                rows={3}
+                value={f.editorNotes}
+                onChange={(e) => upd("editorNotes", e.target.value)}
+              />
+            )}
           </Field>
         </TabsContent>
 
         <TabsContent value="meta" className="space-y-4 py-5">
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" disabled={busy === "metadata"} onClick={() => aiAction("metadata", () => generateMetadata(asset.id))}>
-              {busy === "metadata" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy === "metadata"}
+              onClick={() => aiAction("metadata", () => generateMetadata(asset.id))}
+            >
+              {busy === "metadata" ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="h-3.5 w-3.5" />
+              )}
               Regenerate metadata
             </Button>
-            <Button size="sm" variant="outline" disabled={busy === "cta"} onClick={() => aiAction("cta", () => generateCta(asset.id))}>
-              {busy === "cta" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy === "cta"}
+              onClick={() => aiAction("cta", () => generateCta(asset.id))}
+            >
+              {busy === "cta" ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="h-3.5 w-3.5" />
+              )}
               Regenerate CTA
             </Button>
           </div>
-          <Field label="Slug">{(id) => <Input id={id} value={f.slug} onChange={(e) => upd("slug", e.target.value)} />}</Field>
-          <Field label={`Meta title (${f.metaTitle.length}/60)`}>{(id) => <Input id={id} value={f.metaTitle} onChange={(e) => upd("metaTitle", e.target.value)} />}</Field>
-          <Field label={`Meta description (${f.metaDescription.length}/160)`}>
-            {(id) => <Textarea id={id} rows={3} value={f.metaDescription} onChange={(e) => upd("metaDescription", e.target.value)} />}
+          <Field label="Slug">
+            {(id) => <Input id={id} value={f.slug} onChange={(e) => upd("slug", e.target.value)} />}
           </Field>
-          <Field label="Primary CTA">{(id) => <Input id={id} value={f.cta} onChange={(e) => upd("cta", e.target.value)} />}</Field>
+          <Field label={`Meta title (${f.metaTitle.length}/60)`}>
+            {(id) => (
+              <Input
+                id={id}
+                value={f.metaTitle}
+                onChange={(e) => upd("metaTitle", e.target.value)}
+              />
+            )}
+          </Field>
+          <Field label={`Meta description (${f.metaDescription.length}/160)`}>
+            {(id) => (
+              <Textarea
+                id={id}
+                rows={3}
+                value={f.metaDescription}
+                onChange={(e) => upd("metaDescription", e.target.value)}
+              />
+            )}
+          </Field>
+          <Field label="Primary CTA">
+            {(id) => <Input id={id} value={f.cta} onChange={(e) => upd("cta", e.target.value)} />}
+          </Field>
         </TabsContent>
 
         <TabsContent value="structure" className="space-y-5 py-5">
           <div>
             <div className="flex items-center justify-between">
-              <Label htmlFor={outlineId} className="text-xs">Outline</Label>
+              <Label htmlFor={outlineId} className="text-xs">
+                Outline
+              </Label>
             </div>
             <Textarea
               id={outlineId}
@@ -610,16 +848,44 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           <div>
             <div className="flex items-center justify-between">
               <Label className="text-xs">FAQ</Label>
-              <Button size="sm" variant="ghost" disabled={busy === "faq"} onClick={() => aiAction("faq", () => generateFaq(asset.id))}>
-                {busy === "faq" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={busy === "faq"}
+                onClick={() => aiAction("faq", () => generateFaq(asset.id))}
+              >
+                {busy === "faq" ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5" />
+                )}
                 Regenerate
               </Button>
             </div>
             <div className="mt-2 space-y-3">
               {f.faq.map((q, i) => (
                 <div key={i} className="rounded-md border border-border p-3">
-                  <Input className="font-medium" value={q.q} onChange={(e) => upd("faq", f.faq.map((x, j) => j === i ? { ...x, q: e.target.value } : x))} />
-                  <Textarea rows={2} className="mt-2" value={q.a} onChange={(e) => upd("faq", f.faq.map((x, j) => j === i ? { ...x, a: e.target.value } : x))} />
+                  <Input
+                    className="font-medium"
+                    value={q.q}
+                    onChange={(e) =>
+                      upd(
+                        "faq",
+                        f.faq.map((x, j) => (j === i ? { ...x, q: e.target.value } : x)),
+                      )
+                    }
+                  />
+                  <Textarea
+                    rows={2}
+                    className="mt-2"
+                    value={q.a}
+                    onChange={(e) =>
+                      upd(
+                        "faq",
+                        f.faq.map((x, j) => (j === i ? { ...x, a: e.target.value } : x)),
+                      )
+                    }
+                  />
                 </div>
               ))}
             </div>
@@ -627,26 +893,55 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
 
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor={internalLinksId} className="text-xs">Internal link suggestions</Label>
-              <Textarea id={internalLinksId} rows={4} className="mt-1.5 font-mono text-xs" value={f.internalLinks.join("\n")} onChange={(e) => upd("internalLinks", e.target.value.split("\n").filter(Boolean))} />
+              <Label htmlFor={internalLinksId} className="text-xs">
+                Internal link suggestions
+              </Label>
+              <Textarea
+                id={internalLinksId}
+                rows={4}
+                className="mt-1.5 font-mono text-xs"
+                value={f.internalLinks.join("\n")}
+                onChange={(e) => upd("internalLinks", e.target.value.split("\n").filter(Boolean))}
+              />
             </div>
             <div>
-              <Label htmlFor={schemaId} className="text-xs">Schema suggestions</Label>
-              <Textarea id={schemaId} rows={4} className="mt-1.5 font-mono text-xs" value={f.schemaSuggestions.join("\n")} onChange={(e) => upd("schemaSuggestions", e.target.value.split("\n").filter(Boolean))} />
+              <Label htmlFor={schemaId} className="text-xs">
+                Schema suggestions
+              </Label>
+              <Textarea
+                id={schemaId}
+                rows={4}
+                className="mt-1.5 font-mono text-xs"
+                value={f.schemaSuggestions.join("\n")}
+                onChange={(e) =>
+                  upd("schemaSuggestions", e.target.value.split("\n").filter(Boolean))
+                }
+              />
             </div>
           </div>
         </TabsContent>
 
         <TabsContent value="preview" className="py-5">
-          <div className="rounded-lg border border-border bg-background p-6 prose-preview" dangerouslySetInnerHTML={{ __html: markdownToHtml(f.markdown) }} />
+          <div
+            className="rounded-lg border border-border bg-background p-6 prose-preview"
+            dangerouslySetInnerHTML={{ __html: markdownToHtml(f.markdown) }}
+          />
         </TabsContent>
       </Tabs>
 
       <div className="flex flex-wrap items-center gap-2 px-5 py-4 border-t border-border bg-secondary/30">
-        <Button size="sm" variant="outline" onClick={() => exportText("md")}><Download className="h-3.5 w-3.5" /> Export Markdown</Button>
-        <Button size="sm" variant="outline" onClick={() => exportText("html")}><Download className="h-3.5 w-3.5" /> Export HTML</Button>
-        <Button size="sm" variant="ghost" onClick={copy}><Copy className="h-3.5 w-3.5" /> Copy Markdown</Button>
-        <div className="ml-auto text-xs text-muted-foreground">Updated {formatDateTime(f.updatedAt)}</div>
+        <Button size="sm" variant="outline" onClick={() => exportText("md")}>
+          <Download className="h-3.5 w-3.5" /> Export Markdown
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => exportText("html")}>
+          <Download className="h-3.5 w-3.5" /> Export HTML
+        </Button>
+        <Button size="sm" variant="ghost" onClick={copy}>
+          <Copy className="h-3.5 w-3.5" /> Copy Markdown
+        </Button>
+        <div className="ml-auto text-xs text-muted-foreground">
+          Updated {formatDateTime(f.updatedAt)}
+        </div>
       </div>
     </div>
   );
@@ -656,7 +951,9 @@ function Field({ label, children }: { label: string; children: (id: string) => R
   const id = useId();
   return (
     <div>
-      <Label htmlFor={id} className="text-xs text-muted-foreground">{label}</Label>
+      <Label htmlFor={id} className="text-xs text-muted-foreground">
+        {label}
+      </Label>
       <div className="mt-1.5">{children(id)}</div>
     </div>
   );
@@ -665,13 +962,21 @@ function Field({ label, children }: { label: string; children: (id: string) => R
 function PublishStatusBadge({ status }: { status?: PublishStatus }) {
   const t = useT();
   const map = {
-    sent: { key: "editor.publish.sent", cls: "bg-accent/30 border-accent/40 text-accent-foreground" },
-    failed: { key: "editor.publish.failed", cls: "bg-destructive/10 border-destructive/30 text-destructive" },
+    sent: {
+      key: "editor.publish.sent",
+      cls: "bg-accent/30 border-accent/40 text-accent-foreground",
+    },
+    failed: {
+      key: "editor.publish.failed",
+      cls: "bg-destructive/10 border-destructive/30 text-destructive",
+    },
     notSent: { key: "editor.publish.notSent", cls: "bg-muted border-border text-muted-foreground" },
   } as const;
   const { key, cls } = map[status ?? "notSent"];
   return (
-    <span className={`text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full border ${cls}`}>
+    <span
+      className={`text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full border ${cls}`}
+    >
       {t(key)}
     </span>
   );
@@ -680,13 +985,24 @@ function PublishStatusBadge({ status }: { status?: PublishStatus }) {
 function LivePublishStatusBadge({ status }: { status?: LivePublishStatus }) {
   const t = useT();
   const map = {
-    published: { key: "editor.publish.published", cls: "bg-emerald-500/15 border-emerald-500/40 text-emerald-600" },
-    failed: { key: "editor.publish.liveFailed", cls: "bg-destructive/10 border-destructive/30 text-destructive" },
-    notPublished: { key: "editor.publish.notPublished", cls: "bg-muted border-border text-muted-foreground" },
+    published: {
+      key: "editor.publish.published",
+      cls: "bg-emerald-500/15 border-emerald-500/40 text-emerald-600",
+    },
+    failed: {
+      key: "editor.publish.liveFailed",
+      cls: "bg-destructive/10 border-destructive/30 text-destructive",
+    },
+    notPublished: {
+      key: "editor.publish.notPublished",
+      cls: "bg-muted border-border text-muted-foreground",
+    },
   } as const;
   const { key, cls } = map[status ?? "notPublished"];
   return (
-    <span className={`text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full border ${cls}`}>
+    <span
+      className={`text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full border ${cls}`}
+    >
       {t(key)}
     </span>
   );
@@ -699,17 +1015,40 @@ function markdownToHtml(md: string) {
   let inList = false;
   for (const raw of lines) {
     const line = raw;
-    const closeList = () => { if (inList) { html += "</ul>"; inList = false; } };
-    if (/^# /.test(line)) { closeList(); html += `<h1>${esc(line.slice(2))}</h1>`; continue; }
-    if (/^## /.test(line)) { closeList(); html += `<h2>${esc(line.slice(3))}</h2>`; continue; }
-    if (/^### /.test(line)) { closeList(); html += `<h3>${esc(line.slice(4))}</h3>`; continue; }
+    const closeList = () => {
+      if (inList) {
+        html += "</ul>";
+        inList = false;
+      }
+    };
+    if (/^# /.test(line)) {
+      closeList();
+      html += `<h1>${esc(line.slice(2))}</h1>`;
+      continue;
+    }
+    if (/^## /.test(line)) {
+      closeList();
+      html += `<h2>${esc(line.slice(3))}</h2>`;
+      continue;
+    }
+    if (/^### /.test(line)) {
+      closeList();
+      html += `<h3>${esc(line.slice(4))}</h3>`;
+      continue;
+    }
     if (/^[-*] /.test(line)) {
-      if (!inList) { html += "<ul>"; inList = true; }
+      if (!inList) {
+        html += "<ul>";
+        inList = true;
+      }
       html += `<li>${esc(line.slice(2))}</li>`;
       continue;
     }
     closeList();
-    if (line.trim() === "") { html += ""; continue; }
+    if (line.trim() === "") {
+      html += "";
+      continue;
+    }
     html += `<p>${esc(line).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")}</p>`;
   }
   if (inList) html += "</ul>";

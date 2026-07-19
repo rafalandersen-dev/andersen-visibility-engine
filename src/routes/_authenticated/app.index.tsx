@@ -3,290 +3,539 @@ import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
-import { useT } from "@/i18n";
-import { generateSeoOpportunities } from "@/lib/mock-ai";
 import { computeLaunchChecklist } from "@/lib/launch";
-import { ArrowUpRight, Plus, Sparkles, FileText, CheckCircle2, Upload, FileEdit, Rocket } from "lucide-react";
-import { toast } from "sonner";
-import { useState } from "react";
+import { opportunityView } from "@/lib/opportunities";
+import {
+  ArrowRight,
+  ArrowUpRight,
+  BarChart3,
+  CalendarDays,
+  CheckCircle2,
+  CircleGauge,
+  FileEdit,
+  Inbox,
+  Lightbulb,
+  Plus,
+  Rocket,
+  Search,
+  Settings2,
+  Sparkles,
+} from "lucide-react";
 import { formatDate } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/app/")({
   head: () => ({
     meta: [
-      { title: "Dashboard — Milo Growth" },
+      { title: "Home — Milo Growth" },
       {
         name: "description",
         content:
-          "Overview of your active project, SEO opportunities, drafts, approvals and exported content.",
+          "Your command centre for current SEO priorities, reviews, publishing and measurable growth.",
       },
     ],
   }),
   component: Dashboard,
 });
 
-function StatCard({
-  label,
-  value,
-  icon: Icon,
-  hint,
-}: {
-  label: string;
-  value: string | number;
-  icon: typeof Sparkles;
-  hint?: string;
-}) {
-  return (
-    <div className="rounded-lg border border-border bg-card p-5">
-      <div className="flex items-center justify-between">
-        <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-          {label}
-        </div>
-        <Icon className="h-4 w-4 text-accent" strokeWidth={1.6} />
-      </div>
-      <div className="mt-3 font-display text-3xl text-foreground">{value}</div>
-      {hint ? <div className="mt-1 text-xs text-muted-foreground">{hint}</div> : null}
-    </div>
-  );
-}
-
 function Dashboard() {
   const navigate = useNavigate();
-  const t = useT();
-  const activeProjectId = useStore((s) => s.activeProjectId);
-  const projects = useStore((s) => s.projects);
-  const services = useStore((s) =>
-    s.services.filter((x) => x.projectId === activeProjectId),
+  const activeProjectId = useStore((state) => state.activeProjectId);
+  const projects = useStore((state) => state.projects);
+  const services = useStore((state) =>
+    state.services.filter((item) => item.projectId === activeProjectId),
   );
-  const opportunities = useStore((s) =>
-    s.opportunities.filter((o) => o.projectId === activeProjectId),
+  const rawOpportunities = useStore((state) =>
+    state.opportunities.filter((item) => item.projectId === activeProjectId && !item.deletedAt),
   );
-  const calendar = useStore((s) =>
-    s.calendar.filter((c) => c.projectId === activeProjectId),
+  const content = useStore((state) =>
+    state.content.filter((item) => item.projectId === activeProjectId),
   );
-  const content = useStore((s) =>
-    s.content.filter((c) => c.projectId === activeProjectId),
+  const audits = useStore((state) =>
+    state.audits.filter((item) => item.projectId === activeProjectId),
   );
-  const audits = useStore((s) => s.audits.filter((a) => a.projectId === activeProjectId));
-  const authorityOpportunities = useStore((s) =>
-    s.authorityOpportunities.filter((a) => a.projectId === activeProjectId),
+  const authorityOpportunities = useStore((state) =>
+    state.authorityOpportunities.filter((item) => item.projectId === activeProjectId),
   );
-  const billingProfile = useStore((s) => s.billingProfile);
-  const subscription = useStore((s) => s.subscription);
+  const suggestions = useStore((state) =>
+    state.discoverySuggestions.filter(
+      (item) => item.projectId === activeProjectId && item.status === "suggested",
+    ),
+  );
+  const pendingActions = useStore((state) =>
+    state.pendingActions.filter(
+      (item) => item.projectId === activeProjectId && item.status === "pending",
+    ),
+  );
+  const billingProfile = useStore((state) => state.billingProfile);
+  const subscription = useStore((state) => state.subscription);
   const { isOwner } = useAuth();
-  const active = projects.find((p) => p.id === activeProjectId) ?? projects[0];
-  const [busy, setBusy] = useState(false);
+  const active = projects.find((project) => project.id === activeProjectId) ?? projects[0];
 
-  if (!active) {
-    const steps = [
-      "Create your first project — name your business and define brand context.",
-      "Add the services or products you actually sell.",
-      "Generate your first batch of SEO opportunities.",
-      "Plan the month in the content calendar.",
-      "Draft, approve and export your first asset.",
-    ];
-    return (
-      <AppShell
-        title={t("dashboard.welcomeTitle")}
-        description={t("dashboard.welcomeDesc")}
-      >
-        <div className="mx-auto max-w-2xl mt-6 rounded-xl border border-border bg-card p-8 md:p-10">
-          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-            {t("onboarding.getStarted")}
-          </div>
-          <h2 className="mt-2 font-display text-3xl">{t("dashboard.createFirst")}</h2>
-          <p className="mt-3 text-sm text-muted-foreground">
-            A project represents one business, brand or website. You can run up to {" "}
-            five projects on a single account.
-          </p>
-          <ol className="mt-7 space-y-3">
-            {steps.map((s, i) => (
-              <li key={s} className="flex gap-3 text-sm">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-gold/40 bg-gold/10 text-[11px] font-medium text-gold">
-                  {i + 1}
-                </span>
-                <span className="pt-0.5 text-foreground/85">{s}</span>
-              </li>
-            ))}
-          </ol>
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <Button onClick={() => navigate({ to: "/app/setup", search: { new: true } })}>
-              <Plus className="h-4 w-4" />
-              {t("dashboard.createFirst")}
-            </Button>
-            <span className="text-xs text-muted-foreground">Takes about 2 minutes.</span>
-          </div>
-        </div>
-      </AppShell>
-    );
+  if (!active) return <FirstProject />;
+
+  const latestAssetByOpportunity = new Map<string, (typeof content)[number]>();
+  for (const asset of content) {
+    const opportunityId = asset.opportunityId ?? asset.sourceOpportunityId;
+    if (!opportunityId) continue;
+    const current = latestAssetByOpportunity.get(opportunityId);
+    if (!current || current.updatedAt < asset.updatedAt)
+      latestAssetByOpportunity.set(opportunityId, asset);
   }
+  const opportunities = rawOpportunities
+    .map((item) => opportunityView(item, latestAssetByOpportunity.get(item.id)))
+    .filter((item) => item.status !== "archived");
+  const complete = opportunities.filter(
+    (item) => item.status === "approved" || item.status === "published",
+  ).length;
+  const scheduled = opportunities.filter((item) => item.status === "scheduled").length;
+  const drafting = opportunities.filter((item) => item.status === "drafting").length;
+  const inReview = opportunities.filter((item) => item.status === "in_review").length;
+  const progress = opportunities.length ? Math.round((complete / opportunities.length) * 100) : 0;
+  const latestContent = [...content]
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .slice(0, 4);
+  const checklist = computeLaunchChecklist({
+    project: active,
+    services,
+    opportunities: rawOpportunities,
+    content,
+    audits,
+    authorityOpportunities,
+    billingProfile,
+    subscription,
+    isOwner,
+  });
 
-  const drafts = content.filter((c) => c.status === "Draft" || c.status === "In Review").length;
-  const approved = content.filter((c) => c.status === "Approved").length;
-  const exported = content.filter((c) => c.status === "Exported").length;
-
-  const recent = [...content].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 5);
+  const nextActions = buildNextActions({
+    suggestions: suggestions.length,
+    opportunities,
+    drafting,
+    inReview,
+  });
+  const recentActivity = [
+    ...latestContent.map((asset) => ({
+      id: `content-${asset.id}`,
+      title: `${asset.title} · ${asset.status}`,
+      date: asset.updatedAt,
+      icon: FileEdit,
+      tone: "text-sky-700 bg-sky-500/10",
+    })),
+    ...rawOpportunities.slice(-4).map((opportunity) => ({
+      id: `opportunity-${opportunity.id}`,
+      title: `${opportunity.title} added to Plan`,
+      date: opportunity.updatedAt ?? opportunity.createdAt ?? new Date().toISOString(),
+      icon: Sparkles,
+      tone: "text-violet-700 bg-violet-500/10",
+    })),
+  ]
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 5);
 
   return (
     <AppShell
-      title={t("dashboard.title")}
-      description={`${active.businessName} · ${active.mainLocation}`}
+      title={`${greeting()}, ${active.businessName || active.name}`}
+      description={`${active.name} · ${active.mainLocation}`}
       actions={
         <>
           <Button
             variant="outline"
-            onClick={async () => {
-              setBusy(true);
-              try {
-                await generateSeoOpportunities(activeProjectId);
-                toast.success("New SEO opportunities generated");
-                navigate({ to: "/app/opportunities" });
-              } catch (e) {
-                toast.error(e instanceof Error ? e.message : "Generation failed");
-              } finally {
-                setBusy(false);
-              }
-            }}
-            disabled={busy}
+            onClick={() => navigate({ to: "/app/plan", search: { view: "discover" } })}
           >
-            <Sparkles className="h-4 w-4" />
-            {t("dashboard.generateOpps")}
+            <Search className="h-4 w-4" /> Discover opportunities
           </Button>
-          <Button onClick={() => navigate({ to: "/app/setup", search: { new: true } })}>
-            <Plus className="h-4 w-4" />
-            {t("dashboard.createNew")}
+          <Button onClick={() => navigate({ to: "/app/plan", search: { view: "discover" } })}>
+            <Plus className="h-4 w-4" /> New opportunity
           </Button>
         </>
       }
     >
-      {(() => {
-        const next = services.length === 0
-          ? { label: "Add services or products", body: "Tell the AI what this business actually sells so opportunities stay grounded.", to: "/app/services" as const, cta: "Open services" }
-          : opportunities.length === 0
-          ? { label: "Generate SEO opportunities", body: "Get your first batch of structured visibility ideas for this project.", to: "/app/opportunities" as const, cta: "Open opportunities" }
-          : calendar.length === 0
-          ? { label: "Plan the month", body: "Turn opportunities into a 30-day content calendar grouped by week.", to: "/app/calendar" as const, cta: "Open calendar" }
-          : content.length === 0
-          ? { label: "Draft your first asset", body: "Generate a brief or draft from one of your opportunities.", to: "/app/opportunities" as const, cta: "Open opportunities" }
-          : approved === 0
-          ? { label: "Approve a draft", body: "Review a draft in the editor and mark it Approved when it is ready.", to: "/app/editor" as const, cta: "Open editor" }
-          : null;
-        if (!next) return null;
-        return (
-          <div className="mb-6 rounded-lg border border-gold/40 bg-gold/5 px-5 py-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-[10px] uppercase tracking-[0.22em] text-gold">{t("dashboard.nextStep")}</div>
-              <div className="mt-1 font-medium text-foreground">{next.label}</div>
-              <div className="text-sm text-muted-foreground">{next.body}</div>
-            </div>
-            <Button size="sm" onClick={() => navigate({ to: next.to })}>{next.cta}</Button>
+      <section className="rounded-xl border border-border bg-card p-6">
+        <div className="flex flex-wrap items-center gap-6">
+          <div className="flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-full border-[5px] border-[#b77f1f]/80 bg-[#faf6ec]">
+            <span className="font-display text-xl">{complete}</span>
+            <span className="text-[10px] text-muted-foreground">of {opportunities.length}</span>
           </div>
-        );
-      })()}
-      {(() => {
-        const { progress } = computeLaunchChecklist({
-          project: active,
-          services,
-          opportunities,
-          content,
-          audits,
-          authorityOpportunities,
-          billingProfile,
-          subscription,
-          isOwner,
-        });
-        return (
-          <Link
-            to="/app/launch-checklist"
-            className="mb-6 block rounded-lg border border-border bg-card px-5 py-4 transition-colors hover:border-foreground/30"
+          <div className="min-w-[220px] flex-1">
+            <h2 className="font-display text-2xl">This month’s growth plan</h2>
+            <div className="mt-4 h-2 max-w-md overflow-hidden rounded-full bg-secondary">
+              <div className="h-full rounded-full bg-[#b77f1f]" style={{ width: `${progress}%` }} />
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {complete} of {opportunities.length} actions complete · {scheduled} scheduled
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => navigate({ to: "/app/plan", search: { view: "board" } })}
           >
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <Rocket className="h-4 w-4 text-accent shrink-0" />
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-foreground">{t("launch.title")}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {progress.requiredDone}/{progress.requiredTotal} {t("launch.essentialsDone")} · {progress.percent}%
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="hidden sm:block h-2 w-32 overflow-hidden rounded-full bg-border">
-                  <div className="h-full rounded-full bg-gold" style={{ width: `${progress.percent}%` }} />
-                </div>
-                <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
-              </div>
-            </div>
-          </Link>
-        );
-      })()}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <StatCard label={t("dashboard.stat.activeProject")} value={active.name} icon={Sparkles} hint={active.primaryLanguage} />
-        <StatCard label={t("dashboard.stat.seoOpportunities")} value={opportunities.length} icon={Sparkles} hint={`${opportunities.filter(o => o.priority === "High").length} high priority`} />
-        <StatCard label={t("dashboard.stat.drafts")} value={drafts} icon={FileEdit} />
-        <StatCard label={t("dashboard.stat.approved")} value={approved} icon={CheckCircle2} />
-        <StatCard label={t("dashboard.stat.exported")} value={exported} icon={Upload} />
-      </div>
+            <CalendarDays className="h-4 w-4" /> Open Plan <ArrowRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </section>
 
-      <section className="mt-10 grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 rounded-lg border border-border bg-card">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-            <div>
-              <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">{t("dashboard.recentContent")}</div>
-              <h2 className="font-display text-lg mt-0.5">{t("dashboard.latestAssets")}</h2>
-            </div>
-            <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/app/editor" })}>
-              {t("dashboard.openEditor")} <ArrowUpRight className="h-3.5 w-3.5" />
-            </Button>
+      <section className="mt-5 grid gap-5 xl:grid-cols-2">
+        <DashboardCard
+          title="Next best actions"
+          icon={Lightbulb}
+          footer={
+            <Link
+              to="/app/plan"
+              search={{ view: "board" }}
+              className="inline-flex items-center gap-2 text-sm font-medium text-[#9a6716]"
+            >
+              Open Plan <ArrowRight className="h-4 w-4" />
+            </Link>
+          }
+        >
+          <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+            {nextActions.map((action) => (
+              <button
+                key={action.title}
+                onClick={() => navigate({ to: action.to, search: action.search as never })}
+                className="flex w-full items-center gap-4 px-4 py-4 text-left transition-colors hover:bg-secondary/35"
+              >
+                <span
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${action.tone}`}
+                >
+                  <action.icon className="h-5 w-5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium">{action.title}</span>
+                  <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                    {action.body}
+                  </span>
+                </span>
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              </button>
+            ))}
           </div>
-          <ul className="divide-y divide-border">
-            {recent.length === 0 ? (
-              <li className="px-5 py-8 text-sm text-muted-foreground">
-                {t("dashboard.noContent")}
-              </li>
-            ) : (
-              recent.map((c) => (
-                <li key={c.id} className="px-5 py-4 flex items-center justify-between gap-4">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-medium text-foreground">{c.title}</div>
-                    <div className="mt-0.5 text-xs text-muted-foreground">
-                      {t(`status.${c.status}`)} · {formatDate(c.updatedAt)}
+        </DashboardCard>
+
+        <DashboardCard
+          title="Action inbox"
+          icon={Inbox}
+          subtitle={
+            pendingActions.length
+              ? `${pendingActions.length} Claude proposal${pendingActions.length === 1 ? "" : "s"} need your review`
+              : "Nothing is waiting for approval"
+          }
+          footer={
+            <Link
+              to="/app/actions"
+              className="inline-flex items-center gap-2 text-sm font-medium text-[#9a6716]"
+            >
+              View all proposals <ArrowRight className="h-4 w-4" />
+            </Link>
+          }
+        >
+          {pendingActions.length ? (
+            <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+              {pendingActions.slice(0, 3).map((action) => (
+                <div key={action.id} className="flex items-center gap-4 px-4 py-4">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#faf1df] font-display text-[#9a6716]">
+                    C
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">{action.title}</span>
+                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                      Claude proposal · {action.riskLevel} risk
+                    </span>
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => navigate({ to: "/app/actions" })}
+                  >
+                    Review
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyInbox />
+          )}
+        </DashboardCard>
+      </section>
+
+      <section className="mt-5 grid gap-5 xl:grid-cols-[1.15fr_.75fr_1fr]">
+        <DashboardCard
+          title="What changed"
+          icon={BarChart3}
+          footer={
+            <Link
+              to="/app/analytics"
+              className="inline-flex items-center gap-2 text-sm font-medium text-[#9a6716]"
+            >
+              View Insights <ArrowRight className="h-4 w-4" />
+            </Link>
+          }
+        >
+          <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+            <ChangeRow
+              icon={Sparkles}
+              tone="bg-violet-500/10 text-violet-700"
+              title={`${suggestions.length} discovered suggestion${suggestions.length === 1 ? "" : "s"}`}
+              body="Waiting in Discover until you accept them"
+            />
+            <ChangeRow
+              icon={CalendarDays}
+              tone="bg-sky-500/10 text-sky-700"
+              title={`${scheduled} scheduled opportunit${scheduled === 1 ? "y" : "ies"}`}
+              body="Visible in Day, Week and Month calendar views"
+            />
+            <ChangeRow
+              icon={CheckCircle2}
+              tone="bg-emerald-500/10 text-emerald-700"
+              title={`${complete} approved or published`}
+              body={`${drafting + inReview} still moving through production`}
+            />
+          </div>
+        </DashboardCard>
+
+        <DashboardCard
+          title="Setup health"
+          icon={Settings2}
+          footer={
+            <Link
+              to="/app/launch-checklist"
+              className="inline-flex items-center gap-2 text-sm font-medium text-[#9a6716]"
+            >
+              View checklist <ArrowRight className="h-4 w-4" />
+            </Link>
+          }
+        >
+          <div className="flex min-h-[176px] flex-col items-center justify-center text-center">
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-700">
+              <CircleGauge className="h-9 w-9" />
+            </div>
+            <div className="mt-4 font-display text-2xl">{checklist.progress.percent}% ready</div>
+            <p className="mt-1 max-w-xs text-xs leading-5 text-muted-foreground">
+              {checklist.progress.requiredDone} of {checklist.progress.requiredTotal} essential
+              setup checks complete
+            </p>
+          </div>
+        </DashboardCard>
+
+        <DashboardCard
+          title="Recent activity"
+          icon={Rocket}
+          footer={
+            <Link
+              to="/app/editor"
+              className="inline-flex items-center gap-2 text-sm font-medium text-[#9a6716]"
+            >
+              Open Content <ArrowRight className="h-4 w-4" />
+            </Link>
+          }
+        >
+          {recentActivity.length ? (
+            <div className="divide-y divide-border">
+              {recentActivity.map((item) => (
+                <div key={item.id} className="flex items-start gap-3 py-3 first:pt-0">
+                  <span
+                    className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${item.tone}`}
+                  >
+                    <item.icon className="h-3.5 w-3.5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="line-clamp-2 text-xs font-medium">{item.title}</div>
+                    <div className="mt-0.5 text-[10px] text-muted-foreground">
+                      {formatDate(item.date)}
                     </div>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => navigate({ to: "/app/editor", search: { id: c.id } as never })}>
-                    {t("dashboard.openEditor")}
-                  </Button>
-                </li>
-              ))
-            )}
-          </ul>
-        </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              Activity appears as you plan and publish.
+            </p>
+          )}
+        </DashboardCard>
+      </section>
 
-        <div className="rounded-lg border border-border bg-card p-5">
-          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-            Programme snapshot
+      <section className="mt-5 rounded-xl border border-border bg-card px-5 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-medium">Content production</div>
+            <div className="mt-0.5 text-xs text-muted-foreground">
+              {latestContent.length} recently updated · Milo Score stays attached to each content
+              version
+            </div>
           </div>
-          <h2 className="mt-0.5 font-display text-lg">{t("dashboard.thisWeek")}</h2>
-          <ul className="mt-4 space-y-3 text-sm">
-            <li className="flex justify-between">
-              <span className="text-muted-foreground">{t("dashboard.languages")}</span>
-              <span>{[active.primaryLanguage, ...active.additionalLanguages].join(", ")}</span>
-            </li>
-            <li className="flex justify-between">
-              <span className="text-muted-foreground">{t("dashboard.targetLocations")}</span>
-              <span className="text-right">{active.targetLocations.slice(0, 3).join(", ")}</span>
-            </li>
-            <li className="flex justify-between">
-              <span className="text-muted-foreground">{t("dashboard.tone")}</span>
-              <span className="text-right">{active.toneOfVoice.split(".")[0]}</span>
-            </li>
-          </ul>
-          <div className="my-5 gold-rule" />
-          <Button variant="outline" className="w-full" onClick={() => navigate({ to: "/app/calendar" })}>
-            <FileText className="h-4 w-4" /> {t("dashboard.reviewCalendar")}
+          <Button variant="outline" onClick={() => navigate({ to: "/app/editor" })}>
+            Open Content <ArrowUpRight className="h-4 w-4" />
           </Button>
         </div>
       </section>
     </AppShell>
   );
+}
+
+function FirstProject() {
+  const navigate = useNavigate();
+  return (
+    <AppShell
+      title="Welcome to Milo Growth"
+      description="Create one project to start your monthly growth system."
+    >
+      <div className="mx-auto mt-8 max-w-2xl rounded-xl border border-border bg-card p-8 md:p-10">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#9a6716]">
+          First project
+        </div>
+        <h2 className="mt-3 font-display text-3xl">
+          Set the context once. Edit it whenever you need.
+        </h2>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          Project setup captures your business, website, market and tone. After signup it remains
+          under Settings → Project, and you can add up to five projects from the project switcher.
+        </p>
+        <Button
+          className="mt-7"
+          onClick={() => navigate({ to: "/app/setup", search: { new: true } })}
+        >
+          <Plus className="h-4 w-4" /> Create first project
+        </Button>
+      </div>
+    </AppShell>
+  );
+}
+
+function DashboardCard({
+  title,
+  subtitle,
+  icon: Icon,
+  footer,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  icon: typeof Sparkles;
+  footer?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="flex min-h-0 flex-col rounded-xl border border-border bg-card p-5">
+      <div className="flex items-start gap-2">
+        <Icon className="mt-0.5 h-4 w-4 text-[#b77f1f]" />
+        <div>
+          <h2 className="font-display text-xl">{title}</h2>
+          {subtitle ? <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p> : null}
+        </div>
+      </div>
+      <div className="mt-4 flex-1">{children}</div>
+      {footer ? <div className="mt-5">{footer}</div> : null}
+    </section>
+  );
+}
+
+function ChangeRow({
+  icon: Icon,
+  tone,
+  title,
+  body,
+}: {
+  icon: typeof Sparkles;
+  tone: string;
+  title: string;
+  body: string;
+}) {
+  return (
+    <div className="flex gap-3 px-3 py-4">
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${tone}`}>
+        <Icon className="h-4 w-4" />
+      </span>
+      <div>
+        <div className="text-sm font-medium">{title}</div>
+        <div className="mt-0.5 text-xs text-muted-foreground">{body}</div>
+      </div>
+    </div>
+  );
+}
+
+function EmptyInbox() {
+  return (
+    <div className="flex min-h-[188px] flex-col items-center justify-center rounded-lg border border-dashed border-border px-5 text-center">
+      <CheckCircle2 className="h-8 w-8 text-emerald-600" />
+      <div className="mt-3 font-display text-lg">You are all caught up</div>
+      <p className="mt-1 max-w-xs text-xs leading-5 text-muted-foreground">
+        Claude proposals stay reviewable and never change the workspace until you approve them.
+      </p>
+    </div>
+  );
+}
+
+function buildNextActions({
+  suggestions,
+  opportunities,
+  drafting,
+  inReview,
+}: {
+  suggestions: number;
+  opportunities: ReturnType<typeof opportunityView>[];
+  drafting: number;
+  inReview: number;
+}) {
+  const unscheduled = opportunities.find(
+    (item) => item.status === "captured" || item.status === "prioritized",
+  );
+  const actions = [] as Array<{
+    title: string;
+    body: string;
+    to: "/app/plan" | "/app/editor";
+    search?: Record<string, string>;
+    icon: typeof Sparkles;
+    tone: string;
+  }>;
+  if (suggestions)
+    actions.push({
+      title: `Review ${suggestions} discovered suggestion${suggestions === 1 ? "" : "s"}`,
+      body: "Nothing enters Plan until you accept it.",
+      to: "/app/plan",
+      search: { view: "discover" },
+      icon: Search,
+      tone: "bg-emerald-500/10 text-emerald-700",
+    });
+  if (unscheduled)
+    actions.push({
+      title: `Schedule “${unscheduled.title}”`,
+      body: "Set a date directly from the opportunity or calendar.",
+      to: "/app/plan",
+      search: { view: "calendar", selected: unscheduled.id },
+      icon: CalendarDays,
+      tone: "bg-sky-500/10 text-sky-700",
+    });
+  if (drafting)
+    actions.push({
+      title: `Continue ${drafting} draft${drafting === 1 ? "" : "s"}`,
+      body: "Milo Score evaluates the current content version.",
+      to: "/app/editor",
+      icon: FileEdit,
+      tone: "bg-violet-500/10 text-violet-700",
+    });
+  if (inReview)
+    actions.push({
+      title: `Review ${inReview} content asset${inReview === 1 ? "" : "s"}`,
+      body: "Approve when the content is ready to publish.",
+      to: "/app/editor",
+      icon: CheckCircle2,
+      tone: "bg-amber-500/10 text-amber-700",
+    });
+  if (!actions.length)
+    actions.push({
+      title: "Discover the next growth opportunity",
+      body: "Run Milo across your connected SEO sources.",
+      to: "/app/plan",
+      search: { view: "discover" },
+      icon: Sparkles,
+      tone: "bg-violet-500/10 text-violet-700",
+    });
+  return actions.slice(0, 3);
+}
+
+function greeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
 }

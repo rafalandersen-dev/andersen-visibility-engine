@@ -21,6 +21,8 @@ import type {
   Project,
   ServiceItem,
   Opportunity,
+  DiscoverySuggestion,
+  OpportunityLifecycleStatus,
   CalendarItem,
   ContentAsset,
   AuditResult,
@@ -47,12 +49,20 @@ import {
   seedContent,
 } from "./mock-data";
 import { supabase } from "@/integrations/supabase/client";
-import { MAX_PROJECTS_PER_USER } from "./pricing";
+import { MAX_PROJECTS_PER_USER } from "./billing";
+import {
+  newOpportunityRecord,
+  opportunityDeduplicationKey,
+  opportunityView,
+  restoreOpportunityRecord,
+  transitionOpportunityRecord,
+} from "./opportunities";
 
 interface State {
   projects: Project[];
   services: ServiceItem[];
   opportunities: Opportunity[];
+  discoverySuggestions: DiscoverySuggestion[];
   calendar: CalendarItem[];
   content: ContentAsset[];
   audits: AuditResult[];
@@ -98,6 +108,7 @@ const emptyState: State = {
   projects: [],
   services: [],
   opportunities: [],
+  discoverySuggestions: [],
   calendar: [],
   content: [],
   audits: [],
@@ -123,6 +134,7 @@ const ssrSnapshot: State = {
   projects: seedProjects,
   services: seedServices,
   opportunities: seedOpportunities,
+  discoverySuggestions: [],
   calendar: seedCalendar,
   content: seedContent,
   audits: [],
@@ -168,6 +180,7 @@ function stateFromRow(userId: string, d: Partial<State>, rev: number): State {
     projects: d.projects ?? [],
     services: d.services ?? [],
     opportunities: d.opportunities ?? [],
+    discoverySuggestions: d.discoverySuggestions ?? [],
     calendar: d.calendar ?? [],
     content: d.content ?? [],
     audits: d.audits ?? [],
@@ -183,7 +196,7 @@ function stateFromRow(userId: string, d: Partial<State>, rev: number): State {
     pendingActions: d.pendingActions ?? [],
     billingProfile: d.billingProfile,
     subscription: d.subscription,
-    activeProjectId: d.activeProjectId ?? (d.projects?.[0]?.id ?? ""),
+    activeProjectId: d.activeProjectId ?? d.projects?.[0]?.id ?? "",
     hydrated: true,
     userId,
     rev,
@@ -229,6 +242,7 @@ export async function saveWorkspaceNow(): Promise<void> {
     projects: state.projects,
     services: state.services,
     opportunities: state.opportunities,
+    discoverySuggestions: state.discoverySuggestions,
     calendar: state.calendar,
     content: state.content,
     audits: state.audits,
@@ -248,10 +262,9 @@ export async function saveWorkspaceNow(): Promise<void> {
   };
   const { data: saved, error } = await supabase
     .from("workspaces")
-    .upsert(
-      { user_id: userId, data: snapshot, rev: revAtSnapshot } as never,
-      { onConflict: "user_id" },
-    )
+    .upsert({ user_id: userId, data: snapshot, rev: revAtSnapshot } as never, {
+      onConflict: "user_id",
+    })
     .select("rev")
     .single();
   if (error) {
@@ -334,6 +347,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
             projects: [],
             services: [],
             opportunities: [],
+            discoverySuggestions: [],
             calendar: [],
             content: [],
             activeProjectId: "",
@@ -345,6 +359,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
         projects: [],
         services: [],
         opportunities: [],
+        discoverySuggestions: [],
         calendar: [],
         content: [],
         audits: [],
@@ -357,7 +372,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
         authorityOpportunities: [],
         aiEvaluationRuns: [],
         tasks: [],
-  pendingActions: [],
+        pendingActions: [],
         activeProjectId: "",
         hydrated: true,
         userId,
@@ -370,6 +385,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
       projects: [],
       services: [],
       opportunities: [],
+      discoverySuggestions: [],
       calendar: [],
       content: [],
       audits: [],
@@ -382,7 +398,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
       authorityOpportunities: [],
       aiEvaluationRuns: [],
       tasks: [],
-  pendingActions: [],
+      pendingActions: [],
       activeProjectId: "",
       hydrated: true,
       userId,
@@ -443,7 +459,8 @@ const shallowEqual = (a: unknown, b: unknown): boolean => {
     const bk = Object.keys(b as object);
     if (ak.length !== bk.length) return false;
     for (const k of ak) {
-      if (!Object.is((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k])) return false;
+      if (!Object.is((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]))
+        return false;
     }
     return true;
   }
@@ -451,7 +468,10 @@ const shallowEqual = (a: unknown, b: unknown): boolean => {
 };
 
 export function useStore<T>(selector: (s: State) => T): T {
-  const cache = useRef<{ state: State | null; value: T }>({ state: null, value: undefined as unknown as T });
+  const cache = useRef<{ state: State | null; value: T }>({
+    state: null,
+    value: undefined as unknown as T,
+  });
   const getSnap = () => {
     const cur = state;
     if (cache.current.state === cur) return cache.current.value;
@@ -463,7 +483,10 @@ export function useStore<T>(selector: (s: State) => T): T {
     cache.current = { state: cur, value: next };
     return next;
   };
-  const serverCache = useRef<{ done: boolean; value: T }>({ done: false, value: undefined as unknown as T });
+  const serverCache = useRef<{ done: boolean; value: T }>({
+    done: false,
+    value: undefined as unknown as T,
+  });
   const getServerSnap = () => {
     if (!serverCache.current.done) {
       serverCache.current = { done: true, value: selector(ssrSnapshot) };
@@ -476,8 +499,7 @@ export function useStore<T>(selector: (s: State) => T): T {
 export const uid = () => Math.random().toString(36).slice(2, 10);
 
 // --- actions ---
-export const setActiveProject = (id: string) =>
-  setState((s) => ({ ...s, activeProjectId: id }));
+export const setActiveProject = (id: string) => setState((s) => ({ ...s, activeProjectId: id }));
 
 export class ProjectLimitError extends Error {
   constructor(public readonly max: number) {
@@ -520,11 +542,195 @@ export const deleteService = (id: string) =>
 export const updateOpportunity = (id: string, patch: Partial<Opportunity>) =>
   setState((s) => ({
     ...s,
-    opportunities: s.opportunities.map((o) => (o.id === id ? { ...o, ...patch } : o)),
+    opportunities: s.opportunities.map((o) =>
+      o.id === id
+        ? {
+            ...opportunityView(
+              o,
+              s.content.find((asset) =>
+                o.currentContentAssetId
+                  ? asset.id === o.currentContentAssetId
+                  : asset.opportunityId === o.id,
+              ),
+            ),
+            ...patch,
+            updatedAt: patch.updatedAt ?? new Date().toISOString(),
+            version: patch.version ?? (o.version ?? 1) + 1,
+          }
+        : o,
+    ),
   }));
 
 export const addOpportunities = (items: Opportunity[]) =>
-  setState((s) => ({ ...s, opportunities: [...s.opportunities, ...items] }));
+  setState((s) => ({
+    ...s,
+    opportunities: [...s.opportunities, ...items.map((item) => newOpportunityRecord(item))],
+  }));
+
+export const addOpportunity = (
+  item: Omit<Opportunity, "id" | "status"> & { id?: string; status?: Opportunity["status"] },
+) => {
+  const opportunity = newOpportunityRecord({ ...item, id: item.id ?? uid() });
+  setState((s) => ({ ...s, opportunities: [...s.opportunities, opportunity] }));
+  return opportunity;
+};
+
+/** Store a fresh discovery run without silently turning suggestions into work. */
+export const replaceDiscoverySuggestions = (
+  projectId: string,
+  suggestions: DiscoverySuggestion[],
+) =>
+  setState((s) => ({
+    ...s,
+    discoverySuggestions: [
+      ...s.discoverySuggestions.filter(
+        (item) => item.projectId !== projectId || item.status === "accepted",
+      ),
+      ...suggestions,
+    ],
+  }));
+
+/**
+ * Accept selected suggestions atomically. The destination is always the
+ * canonical Plan `captured` stage and existing active records are deduplicated.
+ */
+export const acceptDiscoverySuggestions = (ids: string[]): Opportunity[] => {
+  const acceptedIds = new Set(ids);
+  const created: Opportunity[] = [];
+  setState((s) => {
+    const existingKeys = new Set(
+      s.opportunities
+        .filter((opportunity) => !opportunity.deletedAt)
+        .map(opportunityDeduplicationKey),
+    );
+    const acceptedBySuggestion = new Map<string, string>();
+
+    for (const suggestion of s.discoverySuggestions) {
+      if (!acceptedIds.has(suggestion.id) || suggestion.status !== "suggested") continue;
+      if (existingKeys.has(suggestion.deduplicationKey)) continue;
+      const {
+        status: _suggestionStatus,
+        deduplicationKey: _deduplicationKey,
+        generatedAt,
+        acceptedOpportunityId: _acceptedOpportunityId,
+        ...base
+      } = suggestion;
+      const opportunity = newOpportunityRecord({
+        ...base,
+        id: uid(),
+        status: "captured",
+        createdAt: generatedAt,
+      });
+      created.push(opportunity);
+      existingKeys.add(suggestion.deduplicationKey);
+      acceptedBySuggestion.set(suggestion.id, opportunity.id);
+    }
+
+    return {
+      ...s,
+      opportunities: [...s.opportunities, ...created],
+      discoverySuggestions: s.discoverySuggestions.map((suggestion) => {
+        if (!acceptedIds.has(suggestion.id) || suggestion.status !== "suggested") return suggestion;
+        return {
+          ...suggestion,
+          status: "accepted" as const,
+          acceptedOpportunityId:
+            acceptedBySuggestion.get(suggestion.id) ??
+            s.opportunities.find(
+              (opportunity) =>
+                opportunityDeduplicationKey(opportunity) === suggestion.deduplicationKey,
+            )?.id,
+        };
+      }),
+    };
+  });
+  return created;
+};
+
+export const dismissDiscoverySuggestion = (id: string) =>
+  setState((s) => ({
+    ...s,
+    discoverySuggestions: s.discoverySuggestions.map((suggestion) =>
+      suggestion.id === id ? { ...suggestion, status: "dismissed" as const } : suggestion,
+    ),
+  }));
+
+export const undoAcceptedDiscoverySuggestions = (opportunityIds: string[]) => {
+  const ids = new Set(opportunityIds);
+  setState((s) => ({
+    ...s,
+    opportunities: s.opportunities.filter((opportunity) => !ids.has(opportunity.id)),
+    discoverySuggestions: s.discoverySuggestions.map((suggestion) =>
+      suggestion.acceptedOpportunityId && ids.has(suggestion.acceptedOpportunityId)
+        ? { ...suggestion, status: "suggested" as const, acceptedOpportunityId: undefined }
+        : suggestion,
+    ),
+  }));
+};
+
+export const transitionOpportunity = (
+  id: string,
+  to: OpportunityLifecycleStatus,
+  fields: Partial<Opportunity> = {},
+): Opportunity => {
+  let updated: Opportunity | undefined;
+  setState((s) => ({
+    ...s,
+    opportunities: s.opportunities.map((opportunity) => {
+      if (opportunity.id !== id) return opportunity;
+      const linkedAsset = s.content.find((asset) =>
+        opportunity.currentContentAssetId
+          ? asset.id === opportunity.currentContentAssetId
+          : asset.opportunityId === opportunity.id,
+      );
+      updated = transitionOpportunityRecord(opportunity, to, fields, linkedAsset);
+      return updated;
+    }),
+  }));
+  if (!updated) throw new Error("Opportunity not found.");
+  return updated;
+};
+
+export const archiveOpportunity = (id: string) => transitionOpportunity(id, "archived");
+
+export const restoreOpportunity = (id: string): Opportunity => {
+  let restored: Opportunity | undefined;
+  setState((s) => ({
+    ...s,
+    opportunities: s.opportunities.map((opportunity) => {
+      if (opportunity.id !== id) return opportunity;
+      restored = restoreOpportunityRecord(opportunity);
+      return restored;
+    }),
+  }));
+  if (!restored) throw new Error("Opportunity not found.");
+  return restored;
+};
+
+/** Recoverable delete marker. A cleanup job may purge it after 30 days. */
+export const deleteOpportunityRecoverably = (id: string): Opportunity => {
+  let deleted: Opportunity | undefined;
+  const now = new Date().toISOString();
+  setState((s) => ({
+    ...s,
+    opportunities: s.opportunities.map((opportunity) => {
+      if (opportunity.id !== id) return opportunity;
+      const current = opportunityView(opportunity);
+      if (current.status !== "archived") {
+        throw new Error("Archive this opportunity before deleting it.");
+      }
+      deleted = {
+        ...current,
+        deletedAt: now,
+        updatedAt: now,
+        version: (current.version ?? 1) + 1,
+      };
+      return deleted;
+    }),
+  }));
+  if (!deleted) throw new Error("Opportunity not found.");
+  return deleted;
+};
 
 export const replaceNewOpportunities = (projectId: string, items: Opportunity[]) =>
   setState((s) => ({
@@ -597,7 +803,10 @@ type ProjectPublishingSettings = Partial<
 >;
 
 /** Merge publishing settings into a project (leaves all other project fields intact). */
-export const updateProjectPublishingSettings = (projectId: string, settings: ProjectPublishingSettings) =>
+export const updateProjectPublishingSettings = (
+  projectId: string,
+  settings: ProjectPublishingSettings,
+) =>
   setState((s) => ({
     ...s,
     projects: s.projects.map((p) => (p.id === projectId ? { ...p, ...settings } : p)),
@@ -638,7 +847,17 @@ export const markContentAssetSent = (
     publishPlatform?: ContentAsset["publishPlatform"];
     wordpressPostId?: number;
     wordpressPostType?: ContentAsset["wordpressPostType"];
-    shopify?: Partial<Pick<ContentAsset, "shopifyArticleId" | "shopifyArticleGid" | "shopifyBlogId" | "shopifyBlogGid" | "shopifyHandle" | "shopifyStatus">>;
+    shopify?: Partial<
+      Pick<
+        ContentAsset,
+        | "shopifyArticleId"
+        | "shopifyArticleGid"
+        | "shopifyBlogId"
+        | "shopifyBlogGid"
+        | "shopifyHandle"
+        | "shopifyStatus"
+      >
+    >;
   },
 ) =>
   setState((s) => ({
@@ -664,12 +883,21 @@ export const markContentAssetSent = (
   }));
 
 /** Mark a content asset's publish attempt as failed (keeps all content intact). */
-export const markContentAssetPublishFailed = (assetId: string, error: string, attemptedAt: string) =>
+export const markContentAssetPublishFailed = (
+  assetId: string,
+  error: string,
+  attemptedAt: string,
+) =>
   setState((s) => ({
     ...s,
     content: s.content.map((c) =>
       c.id === assetId
-        ? { ...c, publishStatus: "failed" as const, lastPublishError: error, lastPublishedAt: attemptedAt }
+        ? {
+            ...c,
+            publishStatus: "failed" as const,
+            lastPublishError: error,
+            lastPublishedAt: attemptedAt,
+          }
         : c,
     ),
   }));
@@ -697,7 +925,17 @@ export const markContentAssetPublishedLive = (
     publishPlatform?: ContentAsset["publishPlatform"];
     wordpressPostId?: number;
     wordpressPostType?: ContentAsset["wordpressPostType"];
-    shopify?: Partial<Pick<ContentAsset, "shopifyArticleId" | "shopifyArticleGid" | "shopifyBlogId" | "shopifyBlogGid" | "shopifyHandle" | "shopifyStatus">>;
+    shopify?: Partial<
+      Pick<
+        ContentAsset,
+        | "shopifyArticleId"
+        | "shopifyArticleGid"
+        | "shopifyBlogId"
+        | "shopifyBlogGid"
+        | "shopifyHandle"
+        | "shopifyStatus"
+      >
+    >;
   },
 ) =>
   setState((s) => ({
@@ -760,7 +998,10 @@ export const markFindingsConverted = (auditId: string, findingIds: string[]) =>
     ...s,
     audits: s.audits.map((a) =>
       a.id === auditId
-        ? { ...a, convertedFindingIds: Array.from(new Set([...a.convertedFindingIds, ...findingIds])) }
+        ? {
+            ...a,
+            convertedFindingIds: Array.from(new Set([...a.convertedFindingIds, ...findingIds])),
+          }
         : a,
     ),
   }));
@@ -874,7 +1115,10 @@ export const upsertBacklinkAnalysis = (analysis: BacklinkAnalysisResult) =>
   }));
 
 /** Mark backlink recommendation ids as already converted into Opportunities (dedup). */
-export const markBacklinkRecommendationsConverted = (analysisId: string, recommendationIds: string[]) =>
+export const markBacklinkRecommendationsConverted = (
+  analysisId: string,
+  recommendationIds: string[],
+) =>
   setState((s) => ({
     ...s,
     backlinkAnalyses: s.backlinkAnalyses.map((a) =>

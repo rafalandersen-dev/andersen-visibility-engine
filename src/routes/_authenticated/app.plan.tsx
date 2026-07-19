@@ -1,0 +1,1348 @@
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { z } from "zod";
+import {
+  addDays,
+  addMonths,
+  eachDayOfInterval,
+  endOfMonth,
+  endOfWeek,
+  format,
+  isSameDay,
+  isSameMonth,
+  startOfMonth,
+  startOfWeek,
+  subDays,
+  subMonths,
+} from "date-fns";
+import {
+  Archive,
+  Binoculars,
+  ArrowLeft,
+  ArrowRight,
+  CalendarBlank,
+  CaretLeft,
+  CaretRight,
+  ChartLineUp,
+  Check,
+  CheckCircle,
+  Clock,
+  DotsThree,
+  FileText,
+  Funnel,
+  Globe,
+  Kanban,
+  ListBullets,
+  MagnifyingGlass,
+  Plus,
+  Sparkle,
+  UserCircle,
+  X,
+} from "@phosphor-icons/react";
+import { AppShell } from "@/components/AppShell";
+import { Button } from "@/components/ui/button";
+import { CreateContentDialog } from "@/components/CreateContentDialog";
+import {
+  acceptDiscoverySuggestions,
+  addOpportunity,
+  archiveOpportunity,
+  restoreOpportunity,
+  saveWorkspaceNow,
+  transitionOpportunity,
+  undoAcceptedDiscoverySuggestions,
+  updateOpportunity,
+  useStore,
+} from "@/lib/store";
+import { generateSeoOpportunities } from "@/lib/mock-ai";
+import {
+  OPPORTUNITY_STAGE_LABELS,
+  OPPORTUNITY_STAGES,
+  canTransitionOpportunity,
+  opportunitySourceLabel,
+  opportunityView,
+} from "@/lib/opportunities";
+import type {
+  ContentAsset,
+  DiscoverySuggestion,
+  Opportunity,
+  OpportunityLifecycleStatus,
+  Project,
+} from "@/lib/types";
+import { toast } from "sonner";
+
+const searchSchema = z.object({
+  view: z.enum(["discover", "list", "board", "calendar"]).optional().catch("board"),
+  scale: z.enum(["day", "week", "month"]).optional().catch("week"),
+  selected: z.string().optional(),
+});
+
+export const Route = createFileRoute("/_authenticated/app/plan")({
+  validateSearch: searchSchema,
+  head: () => ({
+    meta: [
+      { title: "Plan — Milo Growth" },
+      {
+        name: "description",
+        content:
+          "Discover, prioritize, schedule, produce and measure SEO opportunities in one workspace.",
+      },
+    ],
+  }),
+  component: PlanPage,
+});
+
+type PlanView = "discover" | "list" | "board" | "calendar";
+type CalendarScale = "day" | "week" | "month";
+type OpportunityView = ReturnType<typeof opportunityView>;
+
+const stageColors: Record<OpportunityLifecycleStatus, string> = {
+  captured: "#818b96",
+  prioritized: "#b5862a",
+  scheduled: "#4a966e",
+  drafting: "#377fbd",
+  in_review: "#8965b3",
+  approved: "#a59b88",
+  published: "#2d7f58",
+  archived: "#8d8a84",
+};
+
+function PlanPage() {
+  const search = Route.useSearch();
+  const navigate = useNavigate();
+  const activeProjectId = useStore((state) => state.activeProjectId);
+  const projects = useStore((state) => state.projects);
+  const rawOpportunities = useStore((state) =>
+    state.opportunities.filter(
+      (opportunity) => opportunity.projectId === activeProjectId && !opportunity.deletedAt,
+    ),
+  );
+  const content = useStore((state) =>
+    state.content.filter((asset) => asset.projectId === activeProjectId),
+  );
+  const suggestions = useStore((state) =>
+    state.discoverySuggestions.filter((item) => item.projectId === activeProjectId),
+  );
+  const project = projects.find((item) => item.id === activeProjectId) ?? projects[0];
+  const [query, setQuery] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
+  const [contentOpportunityId, setContentOpportunityId] = useState<string | null>(null);
+
+  const assetsByOpportunity = useMemo(() => {
+    const result = new Map<string, ContentAsset>();
+    for (const asset of content) {
+      const opportunityId = asset.opportunityId ?? asset.sourceOpportunityId;
+      if (!opportunityId) continue;
+      const previous = result.get(opportunityId);
+      if (!previous || previous.updatedAt < asset.updatedAt) result.set(opportunityId, asset);
+    }
+    return result;
+  }, [content]);
+
+  const opportunities = useMemo(
+    () =>
+      rawOpportunities
+        .map((opportunity) => opportunityView(opportunity, assetsByOpportunity.get(opportunity.id)))
+        .filter((opportunity) =>
+          showArchived ? opportunity.status === "archived" : opportunity.status !== "archived",
+        )
+        .filter((opportunity) =>
+          query.trim()
+            ? `${opportunity.title} ${opportunity.targetQuery ?? ""} ${opportunitySourceLabel(opportunity)}`
+                .toLocaleLowerCase()
+                .includes(query.trim().toLocaleLowerCase())
+            : true,
+        ),
+    [assetsByOpportunity, query, rawOpportunities, showArchived],
+  );
+
+  const selected = opportunities.find((opportunity) => opportunity.id === search.selected);
+  const view = search.view ?? "board";
+  const scale = search.scale ?? "week";
+
+  function setView(next: PlanView) {
+    navigate({
+      to: "/app/plan",
+      search: { view: next, scale, selected: undefined },
+      replace: true,
+    });
+  }
+
+  function selectOpportunity(id?: string) {
+    navigate({
+      to: "/app/plan",
+      search: { view, scale, selected: id },
+      replace: true,
+    });
+  }
+
+  function openManualForm() {
+    setView("discover");
+    window.setTimeout(() => document.getElementById("manual-opportunity")?.focus(), 80);
+  }
+
+  return (
+    <AppShell
+      title={view === "discover" ? "Discover opportunities" : "Plan"}
+      description={
+        view === "discover"
+          ? "Find new ideas from your site, search signals and business priorities. Nothing becomes work until you accept it."
+          : "Plan SEO work that earns visibility and supports your business goals."
+      }
+      actions={
+        <>
+          <Button variant="outline" onClick={() => setView("discover")}>
+            <MagnifyingGlass size={17} /> Discover opportunities
+          </Button>
+          <Button onClick={openManualForm}>
+            <Plus size={17} /> New opportunity
+          </Button>
+        </>
+      }
+      flush
+    >
+      {view === "discover" ? (
+        <DiscoverView
+          project={project}
+          suggestions={suggestions}
+          onOpenPlan={() => setView("board")}
+        />
+      ) : (
+        <>
+          <PlanToolbar
+            view={view}
+            query={query}
+            showArchived={showArchived}
+            onView={setView}
+            onQuery={setQuery}
+            onToggleArchived={() => setShowArchived((value) => !value)}
+          />
+          {showArchived ? (
+            <ArchivedView
+              opportunities={opportunities}
+              selectedId={selected?.id}
+              onSelect={selectOpportunity}
+            />
+          ) : view === "list" ? (
+            <ListView
+              opportunities={opportunities}
+              selectedId={selected?.id}
+              onSelect={selectOpportunity}
+            />
+          ) : view === "calendar" ? (
+            <CalendarView
+              opportunities={opportunities}
+              scale={scale}
+              selectedId={selected?.id}
+              onScale={(next) =>
+                navigate({
+                  to: "/app/plan",
+                  search: { view: "calendar", scale: next, selected: search.selected },
+                  replace: true,
+                })
+              }
+              onSelect={selectOpportunity}
+            />
+          ) : (
+            <BoardView
+              opportunities={opportunities}
+              selectedId={selected?.id}
+              onSelect={selectOpportunity}
+            />
+          )}
+
+          {selected ? (
+            <OpportunityDrawer
+              opportunity={selected}
+              linkedAsset={assetsByOpportunity.get(selected.id)}
+              onClose={() => selectOpportunity(undefined)}
+              onCreateContent={() => setContentOpportunityId(selected.id)}
+              onOpenEditor={(assetId) => navigate({ to: "/app/editor", search: { id: assetId } })}
+              onOpenInsights={() => navigate({ to: "/app/analytics" })}
+            />
+          ) : null}
+        </>
+      )}
+
+      <CreateContentDialog
+        opportunityId={contentOpportunityId}
+        open={contentOpportunityId !== null}
+        onOpenChange={(open) => {
+          if (!open) setContentOpportunityId(null);
+        }}
+      />
+    </AppShell>
+  );
+}
+
+function DiscoverView({
+  project,
+  suggestions,
+  onOpenPlan,
+}: {
+  project?: Project;
+  suggestions: DiscoverySuggestion[];
+  onOpenPlan: () => void;
+}) {
+  const [selected, setSelected] = useState<Set<string>>(
+    () =>
+      new Set(
+        suggestions
+          .filter((item) => item.status === "suggested")
+          .slice(0, 3)
+          .map((item) => item.id),
+      ),
+  );
+  const [generating, setGenerating] = useState(false);
+  const [title, setTitle] = useState("");
+  const [reason, setReason] = useState("");
+  const [intent, setIntent] = useState<Opportunity["searchIntent"]>("Informational");
+  const [priority, setPriority] = useState<Opportunity["priority"]>("Medium");
+
+  const visible = suggestions.filter((item) => item.status !== "dismissed");
+  const suggested = visible.filter((item) => item.status === "suggested");
+
+  function toggle(id: string) {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function runDiscovery() {
+    if (!project) return;
+    setGenerating(true);
+    try {
+      const generated = await generateSeoOpportunities(project.id);
+      setSelected(new Set(generated.slice(0, 3).map((item) => item.id)));
+      toast.success(`${generated.length} suggestions are ready for review`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Discovery failed");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  async function acceptSelected() {
+    const created = acceptDiscoverySuggestions([...selected]);
+    await saveWorkspaceNow();
+    setSelected(new Set());
+    if (created.length === 0) {
+      toast.message("Those suggestions are already in Plan.");
+      return;
+    }
+    toast.success(`${created.length} opportunities added to Plan → Captured`, {
+      action: { label: "View in Plan", onClick: onOpenPlan },
+      cancel: {
+        label: "Undo",
+        onClick: () => undoAcceptedDiscoverySuggestions(created.map((item) => item.id)),
+      },
+    });
+  }
+
+  async function createManual() {
+    if (!project || !title.trim()) return;
+    const created = addOpportunity({
+      projectId: project.id,
+      title: title.trim(),
+      summary: reason.trim() || undefined,
+      language: project.primaryLanguage,
+      contentType: "Blog Article",
+      searchIntent: intent,
+      targetAudience: project.targetAudience || "Potential customers",
+      businessValue: reason.trim() || "Manually created business opportunity.",
+      recommendedCta: "Contact us",
+      priority,
+      creationMode: "manual",
+      primarySource: "manual",
+      source: "manual",
+      reasonDiscovered: reason.trim() || "Created manually by the project team.",
+      businessImpact: priority.toLowerCase() as "low" | "medium" | "high",
+    });
+    await saveWorkspaceNow();
+    setTitle("");
+    setReason("");
+    toast.success(`“${created.title}” added to Plan → Captured`, {
+      action: { label: "View in Plan", onClick: onOpenPlan },
+    });
+  }
+
+  return (
+    <div className="pb-24">
+      <div className="grid gap-5 px-5 py-5 md:px-9 xl:grid-cols-[minmax(0,2.2fr)_minmax(310px,1fr)]">
+        <section className="rounded-lg border border-[#ddd8cd] bg-[#fffdf8]/75 p-5">
+          <h2 className="font-display text-xl">Run Milo discovery</h2>
+          <p className="mt-1 max-w-3xl text-xs leading-5 text-[#697282]">
+            Milo scans connected sources and proposes traceable opportunities. Discovery never
+            schedules work or creates content automatically.
+          </p>
+          <div className="mt-6 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#647183]">
+            Sources
+          </div>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <SourceCard label="Site audit" status="Ready" to="/app/audit" />
+            <SourceCard
+              label="Search Console"
+              status={project?.gscOAuth?.status === "connected" ? "Connected" : "Connect"}
+              to="/app/setup"
+            />
+            <SourceCard
+              label="Competitors"
+              status={`${project?.competitorUrls?.length ?? 0} tracked`}
+              to="/app/competitors"
+            />
+            <SourceCard label="AI visibility" status="Ready" to="/app/ai-visibility" />
+          </div>
+          <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
+            <ul className="grid gap-1.5 text-[11px] text-[#4f5b68]">
+              <li className="flex items-center gap-2">
+                <Check size={14} className="text-[#398a63]" /> Provenance and evidence stay attached
+              </li>
+              <li className="flex items-center gap-2">
+                <Check size={14} className="text-[#398a63]" /> Existing active work is deduplicated
+              </li>
+              <li className="flex items-center gap-2">
+                <Check size={14} className="text-[#398a63]" /> You choose what enters Plan
+              </li>
+            </ul>
+            <Button onClick={runDiscovery} disabled={generating || !project}>
+              <Sparkle size={17} weight="fill" /> {generating ? "Discovering…" : "Run discovery"}
+            </Button>
+          </div>
+        </section>
+
+        <section className="rounded-lg border border-[#ddd8cd] bg-[#fffdf8]/75 p-5">
+          <h2 className="font-display text-xl">Create manually</h2>
+          <p className="mt-1 text-xs leading-5 text-[#697282]">
+            Add a business idea directly. It will enter Plan → Captured.
+          </p>
+          <label className="mt-4 grid gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#5f6872]">
+            Opportunity title
+            <input
+              id="manual-opportunity"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder="What should Milo help you improve?"
+              className="min-h-10 rounded-md border border-[#ddd8cd] bg-white/70 px-3 text-xs font-normal normal-case tracking-normal outline-none focus:border-[#b5862a]"
+            />
+          </label>
+          <label className="mt-3 grid gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#5f6872]">
+            Why this matters
+            <textarea
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              rows={2}
+              className="resize-y rounded-md border border-[#ddd8cd] bg-white/70 px-3 py-2 text-xs font-normal normal-case tracking-normal outline-none focus:border-[#b5862a]"
+            />
+          </label>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <select
+              value={intent}
+              onChange={(event) => setIntent(event.target.value as Opportunity["searchIntent"])}
+              className="h-9 rounded-md border border-[#ddd8cd] bg-white px-2 text-[11px]"
+            >
+              <option>Informational</option>
+              <option>Commercial</option>
+              <option>Transactional</option>
+              <option>Navigational</option>
+            </select>
+            <select
+              value={priority}
+              onChange={(event) => setPriority(event.target.value as Opportunity["priority"])}
+              className="h-9 rounded-md border border-[#ddd8cd] bg-white px-2 text-[11px]"
+            >
+              <option>High</option>
+              <option>Medium</option>
+              <option>Low</option>
+            </select>
+          </div>
+          <Button
+            className="mt-4 w-full"
+            onClick={createManual}
+            disabled={!title.trim() || !project}
+          >
+            <Plus size={16} /> Add to Plan → Captured
+          </Button>
+        </section>
+      </div>
+
+      <section className="mx-5 overflow-hidden rounded-lg border border-[#ddd8cd] bg-[#fffdf8] md:mx-9">
+        <div className="flex min-h-14 flex-wrap items-center justify-between gap-3 border-b border-[#ddd8cd] px-4 py-3">
+          <div className="flex items-baseline gap-3">
+            <h2 className="font-display text-xl">Discovery suggestions</h2>
+            <span className="text-[10px] text-[#697282]">{suggested.length} awaiting review</span>
+          </div>
+          <Button onClick={acceptSelected} disabled={selected.size === 0}>
+            <CheckCircle size={17} /> Add {selected.size || "selected"} to Plan
+          </Button>
+        </div>
+
+        {visible.length === 0 ? (
+          <div className="grid place-items-center px-6 py-14 text-center">
+            <Binoculars size={28} className="text-[#b5862a]" />
+            <h3 className="mt-3 font-display text-lg">No suggestions waiting</h3>
+            <p className="mt-1 max-w-md text-xs leading-5 text-[#697282]">
+              Run discovery to review new signals. Existing Opportunities stay safely in Plan.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <div className="min-w-[980px]">
+              <div className="grid grid-cols-[32px_2fr_1fr_.8fr_.7fr_1.4fr_.7fr] gap-3 border-b border-[#e8e3db] px-4 py-2.5 text-[8px] font-semibold uppercase tracking-[0.12em] text-[#66707c]">
+                <span />
+                <span>Opportunity</span>
+                <span>Source</span>
+                <span>Intent</span>
+                <span>Impact</span>
+                <span>Why Milo found it</span>
+                <span>State</span>
+              </div>
+              {visible.map((item) => {
+                const checked = selected.has(item.id);
+                return (
+                  <div
+                    key={item.id}
+                    className="grid min-h-14 grid-cols-[32px_2fr_1fr_.8fr_.7fr_1.4fr_.7fr] items-center gap-3 border-b border-[#e8e3db] px-4 py-2 text-[10px] text-[#586371] last:border-b-0"
+                  >
+                    <button
+                      type="button"
+                      aria-label={`Select ${item.title}`}
+                      onClick={() => item.status === "suggested" && toggle(item.id)}
+                      disabled={item.status !== "suggested"}
+                      className={`grid h-4 w-4 place-items-center rounded-[3px] border ${checked ? "border-[#a86f09] bg-[#b87f12] text-white" : "border-[#8e979d] bg-white"}`}
+                    >
+                      {checked ? <Check size={11} /> : null}
+                    </button>
+                    <strong className="text-[11px] leading-4 text-[#20272b]">{item.title}</strong>
+                    <span>{opportunitySourceLabel(item as unknown as Opportunity)}</span>
+                    <span>{item.searchIntent}</span>
+                    <span className="capitalize">{item.businessImpact ?? item.priority}</span>
+                    <span className="leading-4">{item.reasonDiscovered ?? item.businessValue}</span>
+                    <span
+                      className={item.status === "accepted" ? "text-[#398a63]" : "text-[#9a6d16]"}
+                    >
+                      {item.status === "accepted" ? "In Plan" : "Suggested"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function SourceCard({ label, status, to }: { label: string; status: string; to: string }) {
+  return (
+    <Link
+      to={to}
+      className="grid min-h-[74px] grid-cols-[auto_1fr] gap-2 rounded-md border border-[#ddd8cd] bg-[#fffefa] p-3 transition hover:border-[#b9ad9b]"
+    >
+      <CheckCircle size={17} className="text-[#3c966c]" />
+      <strong className="self-center text-[11px]">{label}</strong>
+      <span className="col-span-2 text-[10px] text-[#697282]">{status}</span>
+    </Link>
+  );
+}
+
+function PlanToolbar({
+  view,
+  query,
+  showArchived,
+  onView,
+  onQuery,
+  onToggleArchived,
+}: {
+  view: PlanView;
+  query: string;
+  showArchived: boolean;
+  onView: (view: PlanView) => void;
+  onQuery: (value: string) => void;
+  onToggleArchived: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#ddd8cd] bg-[#fbfaf6] px-5 py-3 md:px-9">
+      <div className="flex items-center gap-1">
+        <ViewTab
+          active={view === "list"}
+          icon={ListBullets}
+          label="List"
+          onClick={() => onView("list")}
+        />
+        <ViewTab
+          active={view === "board"}
+          icon={Kanban}
+          label="Board"
+          onClick={() => onView("board")}
+        />
+        <ViewTab
+          active={view === "calendar"}
+          icon={CalendarBlank}
+          label="Calendar"
+          onClick={() => onView("calendar")}
+        />
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={onToggleArchived}
+          className={`flex h-9 items-center gap-2 rounded-md border px-3 text-[11px] ${showArchived ? "border-[#b5862a] bg-[#f4ead4] text-[#765719]" : "border-[#ddd8cd] bg-[#fffdf8] text-[#667181]"}`}
+        >
+          <Archive size={15} /> {showArchived ? "Active work" : "Archived"}
+        </button>
+        <button
+          type="button"
+          className="grid h-9 w-9 place-items-center rounded-md border border-[#ddd8cd] bg-[#fffdf8] text-[#667181]"
+          aria-label="Filters"
+        >
+          <Funnel size={15} />
+        </button>
+        <label className="flex h-9 w-[260px] max-w-[55vw] items-center gap-2 rounded-md border border-[#ddd8cd] bg-white px-3 text-[#6f7985]">
+          <MagnifyingGlass size={15} />
+          <input
+            value={query}
+            onChange={(event) => onQuery(event.target.value)}
+            placeholder="Search opportunities…"
+            className="min-w-0 flex-1 border-0 bg-transparent text-[11px] outline-none"
+          />
+        </label>
+      </div>
+    </div>
+  );
+}
+
+function ViewTab({
+  active,
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  icon: typeof ListBullets;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex h-9 items-center gap-2 rounded-md border px-3 text-[11px] transition ${active ? "border-[#ddd8cd] bg-white text-[#202221] shadow-sm" : "border-transparent text-[#667181] hover:bg-white/60"}`}
+    >
+      <Icon size={15} /> {label}
+    </button>
+  );
+}
+
+function BoardView({
+  opportunities,
+  selectedId,
+  onSelect,
+}: {
+  opportunities: OpportunityView[];
+  selectedId?: string;
+  onSelect: (id?: string) => void;
+}) {
+  const stages = OPPORTUNITY_STAGES.filter((stage) => stage !== "published");
+
+  function dropOnStage(event: React.DragEvent, stage: OpportunityLifecycleStatus) {
+    event.preventDefault();
+    const id = event.dataTransfer.getData("text/opportunity-id");
+    const opportunity = opportunities.find((item) => item.id === id);
+    if (!opportunity || !canTransitionOpportunity(opportunity.status, stage)) return;
+    try {
+      transitionOpportunity(
+        id,
+        stage,
+        stage === "scheduled" ? { dueAt: format(addDays(new Date(), 1), "yyyy-MM-dd") } : {},
+      );
+      toast.success(`Moved to ${OPPORTUNITY_STAGE_LABELS[stage]}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not move opportunity");
+    }
+  }
+
+  return (
+    <div
+      className={`relative min-h-[calc(100vh-156px)] px-3 py-3 ${selectedId ? "xl:pr-[310px]" : ""}`}
+    >
+      <div className="overflow-x-auto pb-3">
+        <div className="grid min-w-[900px] grid-cols-6 gap-2.5">
+          {stages.map((stage) => {
+            const cards = opportunities.filter((opportunity) => opportunity.status === stage);
+            return (
+              <section
+                key={stage}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => dropOnStage(event, stage)}
+                className="min-h-[calc(100vh-195px)] rounded-lg border border-[#e4ded4] bg-[#f8f6f0]/70 px-1.5 pb-3"
+              >
+                <header
+                  className="-mx-1.5 mb-2.5 grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-t-lg border-b border-[#ddd8cd] border-t-[3px] px-2.5 py-2"
+                  style={{ borderTopColor: stageColors[stage] }}
+                >
+                  <span
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={{ background: stageColors[stage] }}
+                  />
+                  <span className="text-[10px] font-medium">{OPPORTUNITY_STAGE_LABELS[stage]}</span>
+                  <span className="text-[10px] text-[#697282]">{cards.length}</span>
+                </header>
+                {cards.map((opportunity) => (
+                  <OpportunityCard
+                    key={opportunity.id}
+                    opportunity={opportunity}
+                    selected={selectedId === opportunity.id}
+                    onClick={() => onSelect(opportunity.id)}
+                  />
+                ))}
+                {cards.length === 0 ? (
+                  <div className="rounded-md border border-dashed border-[#d7d0c4] px-2 py-6 text-center text-[9px] text-[#7b838b]">
+                    No opportunities
+                  </div>
+                ) : null}
+              </section>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OpportunityCard({
+  opportunity,
+  selected,
+  onClick,
+}: {
+  opportunity: OpportunityView;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      draggable
+      onDragStart={(event) => event.dataTransfer.setData("text/opportunity-id", opportunity.id)}
+      onClick={onClick}
+      className={`mb-2 grid w-full gap-2 rounded-md border bg-[#fffdf8] p-2.5 text-left shadow-[0_1px_2px_rgba(24,29,31,.03)] transition hover:border-[#c2b7a7] ${selected ? "border-[#b5862a] ring-1 ring-[#b5862a]" : "border-[#ded8ce]"}`}
+    >
+      <strong className="text-[10px] leading-[1.45]">{opportunity.title}</strong>
+      <span className="w-max max-w-full rounded-[3px] border border-[#e2ddd4] bg-[#f7f4ed] px-1.5 py-0.5 text-[8px] text-[#727a84]">
+        {opportunitySourceLabel(opportunity)}
+      </span>
+      <span className="flex items-center gap-1.5 text-[8px] uppercase text-[#6a7683]">
+        <span
+          className="h-1.5 w-1.5 rounded-full"
+          style={{ background: stageColors[opportunity.status] }}
+        />
+        {opportunity.searchIntent}
+      </span>
+      <span className="text-right text-[9px] text-[#5f6771]">
+        {opportunity.dueAt ? `Due ${formatDate(opportunity.dueAt)}` : opportunity.priority}
+      </span>
+    </button>
+  );
+}
+
+function ListView({
+  opportunities,
+  selectedId,
+  onSelect,
+}: {
+  opportunities: OpportunityView[];
+  selectedId?: string;
+  onSelect: (id?: string) => void;
+}) {
+  return (
+    <div className={`relative min-h-[calc(100vh-156px)] p-4 ${selectedId ? "xl:pr-[310px]" : ""}`}>
+      <div className="overflow-x-auto rounded-lg border border-[#ddd8cd] bg-[#fffdf8]">
+        <div className="min-w-[920px]">
+          <div className="grid grid-cols-[2fr_.8fr_.9fr_.7fr_.8fr_80px] gap-3 border-b border-[#ddd8cd] bg-[#f7f4ed] px-4 py-2.5 text-[8px] font-semibold uppercase tracking-[0.1em] text-[#697282]">
+            <span>Opportunity</span>
+            <span>Status</span>
+            <span>Source</span>
+            <span>Impact</span>
+            <span>Due date</span>
+            <span>Actions</span>
+          </div>
+          {opportunities.map((opportunity) => (
+            <button
+              key={opportunity.id}
+              type="button"
+              onClick={() => onSelect(opportunity.id)}
+              className={`grid min-h-14 w-full grid-cols-[2fr_.8fr_.9fr_.7fr_.8fr_80px] items-center gap-3 border-b border-[#e7e1d8] px-4 py-2.5 text-left text-[10px] last:border-b-0 hover:bg-[#faf6ef] ${selectedId === opportunity.id ? "bg-[#faf6ef]" : ""}`}
+            >
+              <strong className="text-[11px]">{opportunity.title}</strong>
+              <StageBadge status={opportunity.status} />
+              <span>{opportunitySourceLabel(opportunity)}</span>
+              <span className="capitalize">{opportunity.businessImpact}</span>
+              <span>{opportunity.dueAt ? formatDate(opportunity.dueAt) : "Unscheduled"}</span>
+              <span className="flex items-center gap-2">
+                <DotsThree size={16} />
+                <Archive size={14} />
+              </span>
+            </button>
+          ))}
+          {opportunities.length === 0 ? (
+            <div className="px-5 py-12 text-center text-xs text-[#697282]">
+              No active opportunities match these filters.
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ArchivedView({
+  opportunities,
+  selectedId,
+  onSelect,
+}: {
+  opportunities: OpportunityView[];
+  selectedId?: string;
+  onSelect: (id?: string) => void;
+}) {
+  return (
+    <div
+      className={`relative min-h-[calc(100vh-156px)] p-5 md:p-8 ${selectedId ? "xl:pr-[330px]" : ""}`}
+    >
+      <div className="mx-auto max-w-4xl overflow-hidden rounded-lg border border-[#ddd8cd] bg-[#fffdf8]">
+        <div className="border-b border-[#ddd8cd] px-5 py-4">
+          <h2 className="font-display text-xl">Archived opportunities</h2>
+          <p className="mt-1 text-xs text-[#697282]">
+            Restore active work here. Permanent deletion becomes available inside an archived record
+            and remains recoverable for 30 days.
+          </p>
+        </div>
+        {opportunities.map((opportunity) => (
+          <div
+            key={opportunity.id}
+            className="flex items-center justify-between gap-4 border-b border-[#e7e1d8] px-5 py-4 last:border-b-0"
+          >
+            <button
+              type="button"
+              onClick={() => onSelect(opportunity.id)}
+              className="min-w-0 text-left"
+            >
+              <div className="truncate text-sm font-medium">{opportunity.title}</div>
+              <div className="mt-1 text-[10px] text-[#697282]">
+                Archived {opportunity.archivedAt ? formatDate(opportunity.archivedAt) : "recently"}{" "}
+                · {opportunitySourceLabel(opportunity)}
+              </div>
+            </button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                restoreOpportunity(opportunity.id);
+                toast.success("Opportunity restored");
+              }}
+            >
+              Restore
+            </Button>
+          </div>
+        ))}
+        {opportunities.length === 0 ? (
+          <div className="px-5 py-12 text-center text-xs text-[#697282]">Nothing is archived.</div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function CalendarView({
+  opportunities,
+  scale,
+  selectedId,
+  onScale,
+  onSelect,
+}: {
+  opportunities: OpportunityView[];
+  scale: CalendarScale;
+  selectedId?: string;
+  onScale: (scale: CalendarScale) => void;
+  onSelect: (id?: string) => void;
+}) {
+  const today = new Date();
+  const initial = today.getDay() === 0 ? addDays(today, 1) : today;
+  const [anchor, setAnchor] = useState(initial);
+  const scheduled = opportunities.filter((opportunity) => opportunity.dueAt);
+  const unscheduled = opportunities.filter(
+    (opportunity) => !opportunity.dueAt && opportunity.status === "prioritized",
+  );
+
+  function move(direction: -1 | 1) {
+    if (scale === "month")
+      setAnchor((date) => (direction < 0 ? subMonths(date, 1) : addMonths(date, 1)));
+    else
+      setAnchor((date) =>
+        direction < 0
+          ? subDays(date, scale === "week" ? 7 : 1)
+          : addDays(date, scale === "week" ? 7 : 1),
+      );
+  }
+
+  function scheduleOn(event: React.DragEvent, date: Date) {
+    event.preventDefault();
+    const id = event.dataTransfer.getData("text/opportunity-id");
+    const opportunity = opportunities.find((item) => item.id === id);
+    if (!opportunity) return;
+    const dueAt = format(date, "yyyy-MM-dd");
+    try {
+      if (opportunity.status === "prioritized") transitionOpportunity(id, "scheduled", { dueAt });
+      else
+        updateOpportunity(id, {
+          dueAt,
+          status: opportunity.status === "captured" ? "scheduled" : opportunity.status,
+        });
+      toast.success(`Scheduled for ${format(date, "MMM d")}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not schedule opportunity");
+    }
+  }
+
+  const weekStart = startOfWeek(anchor, { weekStartsOn: 1 });
+  const dayDates =
+    scale === "day"
+      ? [anchor]
+      : eachDayOfInterval({ start: weekStart, end: addDays(weekStart, 6) });
+  const monthStart = startOfWeek(startOfMonth(anchor), { weekStartsOn: 1 });
+  const monthEnd = endOfWeek(endOfMonth(anchor), { weekStartsOn: 1 });
+  const monthDates = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  const heading =
+    scale === "month"
+      ? format(anchor, "MMMM yyyy")
+      : scale === "day"
+        ? format(anchor, "EEEE, MMM d, yyyy")
+        : `${format(weekStart, "MMM d")}–${format(addDays(weekStart, 6), "MMM d, yyyy")}`;
+
+  return (
+    <div
+      className={`relative grid min-h-[calc(100vh-156px)] gap-3 p-3 lg:grid-cols-[minmax(0,1fr)_210px] ${selectedId ? "xl:pr-[310px]" : ""}`}
+    >
+      <section className="overflow-hidden rounded-lg border border-[#ddd8cd] bg-[#fffdf8]">
+        <div className="flex min-h-14 flex-wrap items-center justify-between gap-3 border-b border-[#ddd8cd] px-3 py-2.5">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => move(-1)}
+              className="grid h-9 w-9 place-items-center rounded-md border border-[#ddd8cd]"
+            >
+              <CaretLeft size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => move(1)}
+              className="grid h-9 w-9 place-items-center rounded-md border border-[#ddd8cd]"
+            >
+              <CaretRight size={16} />
+            </button>
+            <strong className="ml-1 font-display text-sm">{heading}</strong>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-md border border-[#ddd8cd] p-0.5">
+              {(["day", "week", "month"] as CalendarScale[]).map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => onScale(item)}
+                  className={`min-h-7 rounded px-2.5 text-[9px] capitalize ${scale === item ? "bg-white shadow-sm" : "text-[#64707e]"}`}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setAnchor(initial)}
+              className="h-8 rounded-md border border-[#ddd8cd] px-3 text-[9px]"
+            >
+              Today
+            </button>
+          </div>
+        </div>
+
+        {scale === "month" ? (
+          <div className="grid grid-cols-7">
+            {monthDates.map((date) => (
+              <CalendarDay
+                key={date.toISOString()}
+                date={date}
+                opportunities={scheduled}
+                selectedId={selectedId}
+                onSelect={onSelect}
+                onDrop={scheduleOn}
+                compact
+                muted={!isSameMonth(date, anchor)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className={`grid ${scale === "day" ? "grid-cols-1" : "min-w-[760px] grid-cols-7"}`}>
+            {dayDates.map((date) => (
+              <CalendarDay
+                key={date.toISOString()}
+                date={date}
+                opportunities={scheduled}
+                selectedId={selectedId}
+                onSelect={onSelect}
+                onDrop={scheduleOn}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <aside className="rounded-lg border border-[#ddd8cd] bg-[#fffdf8] p-3">
+        <div className="flex items-center justify-between">
+          <h3 className="font-display text-base">Unscheduled</h3>
+          <span className="text-[10px] text-[#697282]">{unscheduled.length}</span>
+        </div>
+        <p className="mt-2 text-[10px] leading-4 text-[#697282]">
+          Drag a prioritized opportunity onto the calendar.
+        </p>
+        <div className="mt-4 grid gap-2">
+          {unscheduled.map((opportunity) => (
+            <button
+              key={opportunity.id}
+              type="button"
+              draggable
+              onDragStart={(event) =>
+                event.dataTransfer.setData("text/opportunity-id", opportunity.id)
+              }
+              onClick={() => onSelect(opportunity.id)}
+              className="border-t-[3px] border-[#b5862a] bg-[#fbfaf6] px-2.5 py-3 text-left"
+            >
+              <strong className="text-[10px] leading-4">{opportunity.title}</strong>
+              <span className="mt-2 block text-[8px] text-[#697282]">
+                Source: {opportunitySourceLabel(opportunity)}
+              </span>
+            </button>
+          ))}
+          {unscheduled.length === 0 ? (
+            <div className="rounded-md border border-dashed border-[#ddd8cd] px-3 py-6 text-center text-[10px] text-[#697282]">
+              No prioritized work waiting.
+            </div>
+          ) : null}
+        </div>
+        <div className="mt-5 flex items-center gap-2 border-t border-[#e7e1d8] pt-3 text-[9px] text-[#697282]">
+          <Globe size={14} /> Europe/Stockholm
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function CalendarDay({
+  date,
+  opportunities,
+  selectedId,
+  onSelect,
+  onDrop,
+  compact = false,
+  muted = false,
+}: {
+  date: Date;
+  opportunities: OpportunityView[];
+  selectedId?: string;
+  onSelect: (id?: string) => void;
+  onDrop: (event: React.DragEvent, date: Date) => void;
+  compact?: boolean;
+  muted?: boolean;
+}) {
+  const cards = opportunities.filter(
+    (opportunity) =>
+      opportunity.dueAt && isSameDay(new Date(`${opportunity.dueAt.slice(0, 10)}T12:00:00`), date),
+  );
+  return (
+    <div
+      onDragOver={(event) => event.preventDefault()}
+      onDrop={(event) => onDrop(event, date)}
+      className={`${compact ? "min-h-[118px]" : "min-h-[calc(100vh-238px)]"} border-b border-r border-[#e5dfd6] px-2 pb-3 ${muted ? "bg-[#f7f4ed]/50 text-[#a29d94]" : ""}`}
+    >
+      <header className="-mx-2 mb-3 grid place-items-center border-b border-[#e5dfd6] px-2 py-2">
+        <span className="text-[8px] uppercase text-[#697282]">{format(date, "EEE")}</span>
+        <strong className="font-display text-base">{format(date, "d")}</strong>
+      </header>
+      {cards.map((opportunity) => (
+        <button
+          key={opportunity.id}
+          type="button"
+          draggable
+          onDragStart={(event) => event.dataTransfer.setData("text/opportunity-id", opportunity.id)}
+          onClick={() => onSelect(opportunity.id)}
+          className={`mb-2 grid w-full gap-1.5 rounded-md border border-t-[3px] bg-[#fffdf8] p-2 text-left ${selectedId === opportunity.id ? "border-[#b5862a] ring-1 ring-[#b5862a]" : "border-[#dcd6cc]"}`}
+          style={{ borderTopColor: stageColors[opportunity.status] }}
+        >
+          <strong className="text-[9px] leading-[1.4]">{opportunity.title}</strong>
+          {!compact ? (
+            <>
+              <span className="text-[8px] text-[#697282]">
+                {opportunitySourceLabel(opportunity)}
+              </span>
+              <small className="flex items-center gap-1 text-[8px] text-[#697282]">
+                <span
+                  className="h-1.5 w-1.5 rounded-full"
+                  style={{ background: stageColors[opportunity.status] }}
+                />
+                {OPPORTUNITY_STAGE_LABELS[opportunity.status]}
+              </small>
+            </>
+          ) : null}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function OpportunityDrawer({
+  opportunity,
+  linkedAsset,
+  onClose,
+  onCreateContent,
+  onOpenEditor,
+  onOpenInsights,
+}: {
+  opportunity: OpportunityView;
+  linkedAsset?: ContentAsset;
+  onClose: () => void;
+  onCreateContent: () => void;
+  onOpenEditor: (assetId: string) => void;
+  onOpenInsights: () => void;
+}) {
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [date, setDate] = useState(
+    opportunity.dueAt?.slice(0, 10) ?? format(addDays(new Date(), 1), "yyyy-MM-dd"),
+  );
+  const score = linkedAsset?.qualityScore;
+
+  function prioritize() {
+    try {
+      transitionOpportunity(opportunity.id, "prioritized", {
+        ownerName: opportunity.ownerName ?? "Project owner",
+        priority: opportunity.priority,
+      });
+      toast.success("Opportunity moved to Prioritized");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not prioritize");
+    }
+  }
+
+  function schedule() {
+    try {
+      transitionOpportunity(opportunity.id, "scheduled", { dueAt: date });
+      setScheduleOpen(false);
+      toast.success(`Scheduled for ${formatDate(date)}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not schedule");
+    }
+  }
+
+  function unschedule() {
+    try {
+      transitionOpportunity(opportunity.id, "prioritized", { dueAt: undefined });
+      toast.success("Returned to the unscheduled tray");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not unschedule");
+    }
+  }
+
+  function archive() {
+    try {
+      archiveOpportunity(opportunity.id);
+      toast.success("Opportunity archived", {
+        action: { label: "Undo", onClick: () => restoreOpportunity(opportunity.id) },
+      });
+      onClose();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not archive");
+    }
+  }
+
+  return (
+    <aside className="fixed inset-y-3 right-3 z-30 w-[292px] max-w-[calc(100vw-24px)] overflow-y-auto rounded-lg border border-[#ddd8cd] bg-[#fffdf8] p-4 shadow-[-14px_0_30px_rgba(30,34,32,.08)] lg:top-[116px] lg:bottom-3">
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute right-3 top-3 text-[#65717e]"
+        aria-label="Close opportunity"
+      >
+        <X size={17} />
+      </button>
+      <StageBadge status={opportunity.status} />
+      <h2 className="mt-2.5 pr-5 font-display text-xl leading-[1.18]">{opportunity.title}</h2>
+      <div className="mt-2 flex items-center gap-1.5 text-[9px] uppercase text-[#687481]">
+        <span className="h-1.5 w-1.5 rounded-full bg-[#398a63]" />
+        {opportunity.searchIntent} opportunity
+      </div>
+
+      <dl className="my-5 grid gap-2.5">
+        <Detail label="Source" value={opportunitySourceLabel(opportunity)} />
+        <Detail
+          label="Discovered because"
+          value={opportunity.reasonDiscovered ?? opportunity.businessValue}
+        />
+        <Detail label="Intent" value={opportunity.searchIntent} />
+        <Detail
+          label="Business impact"
+          value={capitalize(opportunity.businessImpact ?? opportunity.priority)}
+        />
+        <Detail
+          label="Owner"
+          value={opportunity.ownerName ?? "Unassigned"}
+          icon={<UserCircle size={14} />}
+        />
+        <Detail
+          label="Target keyword"
+          value={opportunity.targetQuery ?? opportunity.title.toLocaleLowerCase()}
+        />
+        <Detail
+          label="Due date"
+          value={opportunity.dueAt ? formatDate(opportunity.dueAt) : "Not scheduled"}
+          icon={<CalendarBlank size={14} />}
+        />
+      </dl>
+
+      <div className="rounded-md border border-[#e3d8c3] bg-[#fbf7ef] p-3">
+        <div className="flex items-center justify-between text-[9px]">
+          <span>Opportunity progress</span>
+          <strong>{Math.max(1, OPPORTUNITY_STAGES.indexOf(opportunity.status) + 1)} / 7</strong>
+        </div>
+        <div className="my-2 h-1 overflow-hidden rounded-full bg-[#e7dfd1]">
+          <span
+            className="block h-full rounded-full bg-[#b5862a]"
+            style={{
+              width: `${Math.max(14, ((OPPORTUNITY_STAGES.indexOf(opportunity.status) + 1) / 7) * 100)}%`,
+            }}
+          />
+        </div>
+        <p className="text-[8px] leading-4 text-[#69727c]">
+          One record follows the work from discovery to measured result.
+        </p>
+      </div>
+
+      <div className="mt-2.5 flex items-center gap-3 rounded-md border border-[#e3d8c3] bg-[#fbf7ef] p-3">
+        <div className="grid h-9 w-9 place-items-center rounded-full border border-[#d6c9b2] font-display text-sm text-[#765719]">
+          {score?.overall ?? "—"}
+        </div>
+        <div>
+          <strong className="font-display text-sm">Milo Score</strong>
+          <p className="mt-0.5 text-[8px] leading-3 text-[#697282]">
+            {score
+              ? `Content version scored ${formatDate(score.evaluatedAt)}.`
+              : "Available after a content draft is created."}
+          </p>
+        </div>
+      </div>
+      <p className="mt-1.5 text-[8px] text-[#697282]">
+        Milo Score evaluates a content version. It never ranks Opportunities.
+      </p>
+
+      <div className="mt-4 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#647183]">
+        Next step
+      </div>
+      <div className="mt-2 grid gap-2">
+        {opportunity.status === "captured" ? (
+          <Button onClick={prioritize}>
+            <CheckCircle size={16} /> Prioritize opportunity
+          </Button>
+        ) : null}
+        {opportunity.status === "prioritized" ? (
+          <Button onClick={() => setScheduleOpen((value) => !value)}>
+            <CalendarBlank size={16} /> Schedule opportunity
+          </Button>
+        ) : null}
+        {opportunity.status === "scheduled" ? (
+          <Button onClick={onCreateContent}>
+            <FileText size={16} /> Create linked draft
+          </Button>
+        ) : null}
+        {opportunity.status === "scheduled" ? (
+          <Button variant="outline" onClick={unschedule}>
+            Unschedule
+          </Button>
+        ) : null}
+        {(["drafting", "in_review", "approved"] as OpportunityLifecycleStatus[]).includes(
+          opportunity.status,
+        ) && linkedAsset ? (
+          <Button onClick={() => onOpenEditor(linkedAsset.id)}>
+            <FileText size={16} /> Open linked content
+          </Button>
+        ) : null}
+        {opportunity.status === "published" ? (
+          <Button onClick={onOpenInsights}>
+            <ChartLineUp size={16} /> View impact
+          </Button>
+        ) : null}
+        {opportunity.status !== "archived" ? (
+          <Button variant="ghost" className="text-muted-foreground" onClick={archive}>
+            <Archive size={15} /> Archive
+          </Button>
+        ) : null}
+      </div>
+
+      {scheduleOpen ? (
+        <div className="mt-3 rounded-md border border-[#d5c19a] bg-[#fffaf0] p-3 shadow-lg">
+          <div className="flex items-center justify-between text-[11px]">
+            <strong>Schedule this opportunity</strong>
+            <button type="button" onClick={() => setScheduleOpen(false)}>
+              <X size={14} />
+            </button>
+          </div>
+          <p className="my-1 text-[8px] text-[#697282]">
+            The same record will appear in Board, List and Calendar.
+          </p>
+          <input
+            type="date"
+            value={date}
+            onChange={(event) => setDate(event.target.value)}
+            className="my-2 h-9 w-full rounded-md border border-[#ddd8cd] bg-white px-2 text-[10px]"
+          />
+          <Button className="w-full" size="sm" onClick={schedule}>
+            Confirm schedule
+          </Button>
+        </div>
+      ) : null}
+    </aside>
+  );
+}
+
+function StageBadge({ status }: { status: OpportunityLifecycleStatus }) {
+  return (
+    <span
+      className="inline-flex w-max items-center rounded-full border px-2 py-0.5 text-[8px] font-semibold uppercase tracking-[0.08em]"
+      style={{
+        borderColor: `${stageColors[status]}66`,
+        background: `${stageColors[status]}12`,
+        color: stageColors[status],
+      }}
+    >
+      {OPPORTUNITY_STAGE_LABELS[status]}
+    </span>
+  );
+}
+
+function Detail({ label, value, icon }: { label: string; value: string; icon?: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-[92px_1fr] gap-2">
+      <dt className="text-[9px] text-[#707b87]">{label}</dt>
+      <dd className="m-0 flex items-start gap-1.5 text-[9px] leading-[1.45] text-[#333a3e]">
+        {icon}
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+function formatDate(value: string) {
+  const date = new Date(value.length <= 10 ? `${value}T12:00:00` : value);
+  return Number.isNaN(date.getTime()) ? value : format(date, "MMM d, yyyy");
+}
+
+function capitalize(value: string) {
+  return value ? value[0].toUpperCase() + value.slice(1) : value;
+}
