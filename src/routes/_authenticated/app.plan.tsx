@@ -77,6 +77,7 @@ import { formatDateTime } from "@/lib/format";
 import { StageChip } from "@/components/StageChip";
 import { OrphanLane } from "@/components/OrphanLane";
 import { StackedDeck } from "@/components/StackedDeck";
+import { BatchBar } from "@/components/BatchBar";
 import { useT } from "@/i18n";
 import { toast } from "sonner";
 
@@ -867,6 +868,63 @@ function BoardView({
 }) {
   const t = useT();
   const [dragging, setDragging] = useState(false);
+  const [selection, setSelection] = useState<Set<string>>(new Set());
+
+  function toggleSelect(id: string) {
+    setSelection((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+  function clearSelection() {
+    setSelection(new Set());
+  }
+
+  /**
+   * Bulk actions run one governed transition per selected item, skipping any the
+   * lifecycle graph forbids, and report the split. Only inert moves — no bulk
+   * arm, publish or delete — so a batch can never reach a customer's live site.
+   */
+  function runBatch(to: OpportunityLifecycleStatus, verb: string) {
+    const dueAt = to === "scheduled" ? format(addDays(new Date(), 1), "yyyy-MM-dd") : undefined;
+    let done = 0;
+    let skipped = 0;
+    for (const id of selection) {
+      const opportunity = opportunities.find((item) => item.id === id);
+      if (!opportunity || !canTransitionOpportunity(opportunity.status, to)) {
+        skipped++;
+        continue;
+      }
+      try {
+        transitionOpportunity(
+          id,
+          to,
+          to === "prioritized" ? { priority: opportunity.priority } : { dueAt },
+        );
+        done++;
+      } catch {
+        skipped++;
+      }
+    }
+    toast.success(`${verb} ${done}${skipped ? ` · ${skipped} skipped` : ""}`);
+    clearSelection();
+  }
+  function batchArchive() {
+    let done = 0;
+    let skipped = 0;
+    for (const id of selection) {
+      try {
+        archiveOpportunity(id);
+        done++;
+      } catch {
+        skipped++;
+      }
+    }
+    toast.success(`Archived ${done}${skipped ? ` · ${skipped} skipped` : ""}`);
+    clearSelection();
+  }
 
   /**
    * Only two columns take a mutating drop. Every other pipeline stage is derived
@@ -950,6 +1008,8 @@ function BoardView({
                     opportunity={opportunity}
                     assets={assetGroups.get(opportunity.id) ?? []}
                     selected={selectedId === opportunity.id}
+                    checked={selection.has(opportunity.id)}
+                    onToggleCheck={() => toggleSelect(opportunity.id)}
                     onClick={() => onSelect(opportunity.id)}
                     onPrimaryAction={onPrimaryAction}
                     onOpenAsset={onOpenAsset}
@@ -968,6 +1028,13 @@ function BoardView({
         </div>
       </div>
       <OrphanLane orphans={orphans} onOpenAsset={onOpenAsset} />
+      <BatchBar
+        count={selection.size}
+        onPrioritise={() => runBatch("prioritized", "Prioritised")}
+        onSetDate={() => runBatch("scheduled", "Target set for")}
+        onArchive={batchArchive}
+        onClear={clearSelection}
+      />
     </div>
   );
 }
@@ -976,6 +1043,8 @@ function OpportunityCard({
   opportunity,
   assets,
   selected,
+  checked,
+  onToggleCheck,
   onClick,
   onPrimaryAction,
   onOpenAsset,
@@ -985,6 +1054,8 @@ function OpportunityCard({
   opportunity: OpportunityView;
   assets: ContentAsset[];
   selected: boolean;
+  checked: boolean;
+  onToggleCheck: () => void;
   onClick: () => void;
   onPrimaryAction: (opportunity: OpportunityView) => void;
   onOpenAsset: (assetId: string) => void;
@@ -1014,9 +1085,25 @@ function OpportunityCard({
           onClick();
         }
       }}
-      className={`mb-2 grid w-full cursor-pointer gap-2 rounded-md border bg-[#fffdf8] p-2.5 text-left shadow-[0_1px_2px_rgba(24,29,31,.03)] transition hover:border-[#c2b7a7] ${selected ? "border-[#b5862a] ring-1 ring-[#b5862a]" : "border-[#ded8ce]"}`}
+      className={`group relative mb-2 grid w-full cursor-pointer gap-2 rounded-md border bg-[#fffdf8] p-2.5 text-left shadow-[0_1px_2px_rgba(24,29,31,.03)] transition hover:border-[#c2b7a7] ${selected || checked ? "border-[#b5862a] ring-1 ring-[#b5862a]" : "border-[#ded8ce]"}`}
     >
-      <strong className="text-[10px] leading-[1.45]">{opportunity.title}</strong>
+      <button
+        type="button"
+        aria-label={checked ? "Deselect" : "Select"}
+        aria-pressed={checked}
+        onClick={(event) => {
+          event.stopPropagation();
+          onToggleCheck();
+        }}
+        className={`absolute right-1.5 top-1.5 grid h-4 w-4 place-items-center rounded-[3px] border transition ${
+          checked
+            ? "border-[#a86f09] bg-[#b87f12] text-white opacity-100"
+            : "border-[#b3b4b7] bg-white text-transparent opacity-0 group-hover:opacity-100"
+        }`}
+      >
+        <Check size={11} />
+      </button>
+      <strong className="pr-5 text-[10px] leading-[1.45]">{opportunity.title}</strong>
       <span className="w-max max-w-full rounded-[3px] border border-[#e2ddd4] bg-[#f7f4ed] px-1.5 py-0.5 text-[8px] text-[#727a84]">
         {opportunitySourceLabel(opportunity)}
       </span>
