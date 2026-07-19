@@ -55,7 +55,6 @@ import {
 } from "@/lib/store";
 import { generateSeoOpportunities, generateContentForOpportunity } from "@/lib/mock-ai";
 import {
-  OPPORTUNITY_STAGE_LABELS,
   canTransitionOpportunity,
   opportunitySourceLabel,
   opportunityView,
@@ -107,17 +106,6 @@ type OpportunityView = ReturnType<typeof opportunityView> & {
   pipeline: PipelineStage;
   /** Resolved go-live time, shown beside an armed chip. */
   pipelineDetail?: string;
-};
-
-const stageColors: Record<OpportunityLifecycleStatus, string> = {
-  captured: "#818b96",
-  prioritized: "#b5862a",
-  scheduled: "#4a966e",
-  drafting: "#377fbd",
-  in_review: "#8965b3",
-  approved: "#a59b88",
-  published: "#2d7f58",
-  archived: "#8d8a84",
 };
 
 /** Top-border accent per pipeline stage — the board's one vocabulary. */
@@ -244,6 +232,13 @@ function PlanPage() {
             : true,
         ),
     [assetsByOpportunity, query, rawOpportunities, showArchived],
+  );
+
+  // The calendar's solid layer: every armed asset, keyed on the asset itself, so
+  // an armed orphan (its opportunity deleted) still shows its go-live.
+  const goLives = useMemo(
+    () => content.filter((asset) => asset.scheduledPublishStatus === "pending" && asset.scheduledPublishAt),
+    [content],
   );
 
   const selected = opportunities.find((opportunity) => opportunity.id === search.selected);
@@ -405,6 +400,7 @@ function PlanPage() {
           ) : view === "calendar" ? (
             <CalendarView
               opportunities={opportunities}
+              goLives={goLives}
               scale={scale}
               selectedId={selected?.id}
               onScale={(next) =>
@@ -415,6 +411,8 @@ function PlanPage() {
                 })
               }
               onSelect={selectOpportunity}
+              onPrimaryAction={onPrimaryAction}
+              onOpenAsset={(assetId) => navigate({ to: "/app/editor", search: { id: assetId } })}
             />
           ) : (
             <BoardView
@@ -1133,23 +1131,34 @@ function ArchivedView({
 
 function CalendarView({
   opportunities,
+  goLives,
   scale,
   selectedId,
   onScale,
   onSelect,
+  onPrimaryAction,
+  onOpenAsset,
 }: {
   opportunities: OpportunityView[];
+  /** Armed assets, keyed on the asset — the real go-live layer, incl. orphans. */
+  goLives: ContentAsset[];
   scale: CalendarScale;
   selectedId?: string;
   onScale: (scale: CalendarScale) => void;
   onSelect: (id?: string) => void;
+  onPrimaryAction: (opportunity: OpportunityView) => void;
+  onOpenAsset: (assetId: string) => void;
 }) {
   const today = new Date();
   const initial = today.getDay() === 0 ? addDays(today, 1) : today;
   const [anchor, setAnchor] = useState(initial);
-  const scheduled = opportunities.filter((opportunity) => opportunity.dueAt);
+  // Two layers. Ghosts are dueAt TARGETS (not yet armed); armed opportunities are
+  // excluded so their real go-live in the solid layer isn't shadowed by a target.
+  const ghosts = opportunities.filter(
+    (opportunity) => opportunity.dueAt && opportunity.pipeline !== "armed",
+  );
   const unscheduled = opportunities.filter(
-    (opportunity) => !opportunity.dueAt && opportunity.status === "prioritized",
+    (opportunity) => !opportunity.dueAt && opportunity.pipeline === "queued",
   );
 
   function move(direction: -1 | 1) {
@@ -1163,7 +1172,9 @@ function CalendarView({
       );
   }
 
-  function scheduleOn(event: React.DragEvent, date: Date) {
+  // Dropping a card on a day sets its TARGET (dueAt) only. It never arms and never
+  // publishes — a real go-live is set, with a zoned timestamp, in the editor.
+  function retargetOn(event: React.DragEvent, date: Date) {
     event.preventDefault();
     const id = event.dataTransfer.getData("text/opportunity-id");
     const opportunity = opportunities.find((item) => item.id === id);
@@ -1176,9 +1187,9 @@ function CalendarView({
           dueAt,
           status: opportunity.status === "captured" ? "scheduled" : opportunity.status,
         });
-      toast.success(`Scheduled for ${format(date, "MMM d")}`);
+      toast.success(`Target set for ${format(date, "MMM d")}`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not schedule opportunity");
+      toast.error(error instanceof Error ? error.message : "Could not set the target");
     }
   }
 
@@ -1249,10 +1260,13 @@ function CalendarView({
               <CalendarDay
                 key={date.toISOString()}
                 date={date}
-                opportunities={scheduled}
+                ghosts={ghosts}
+                goLives={goLives}
                 selectedId={selectedId}
                 onSelect={onSelect}
-                onDrop={scheduleOn}
+                onPrimaryAction={onPrimaryAction}
+                onOpenAsset={onOpenAsset}
+                onDrop={retargetOn}
                 compact
                 muted={!isSameMonth(date, anchor)}
               />
@@ -1264,10 +1278,13 @@ function CalendarView({
               <CalendarDay
                 key={date.toISOString()}
                 date={date}
-                opportunities={scheduled}
+                ghosts={ghosts}
+                goLives={goLives}
                 selectedId={selectedId}
                 onSelect={onSelect}
-                onDrop={scheduleOn}
+                onPrimaryAction={onPrimaryAction}
+                onOpenAsset={onOpenAsset}
+                onDrop={retargetOn}
               />
             ))}
           </div>
@@ -1280,7 +1297,7 @@ function CalendarView({
           <span className="text-[10px] text-[#697282]">{unscheduled.length}</span>
         </div>
         <p className="mt-2 text-[10px] leading-4 text-[#697282]">
-          Drag a prioritized opportunity onto the calendar.
+          Drag one onto a day to set its target. A real go-live is set in the editor.
         </p>
         <div className="mt-4 grid gap-2">
           {unscheduled.map((opportunity) => (
@@ -1316,24 +1333,34 @@ function CalendarView({
 
 function CalendarDay({
   date,
-  opportunities,
+  ghosts,
+  goLives,
   selectedId,
   onSelect,
+  onPrimaryAction,
+  onOpenAsset,
   onDrop,
   compact = false,
   muted = false,
 }: {
   date: Date;
-  opportunities: OpportunityView[];
+  ghosts: OpportunityView[];
+  goLives: ContentAsset[];
   selectedId?: string;
   onSelect: (id?: string) => void;
+  onPrimaryAction: (opportunity: OpportunityView) => void;
+  onOpenAsset: (assetId: string) => void;
   onDrop: (event: React.DragEvent, date: Date) => void;
   compact?: boolean;
   muted?: boolean;
 }) {
-  const cards = opportunities.filter(
+  const t = useT();
+  const dayGhosts = ghosts.filter(
     (opportunity) =>
       opportunity.dueAt && isSameDay(new Date(`${opportunity.dueAt.slice(0, 10)}T12:00:00`), date),
+  );
+  const dayGoLives = goLives.filter(
+    (asset) => asset.scheduledPublishAt && isSameDay(new Date(asset.scheduledPublishAt), date),
   );
   return (
     <div
@@ -1345,32 +1372,59 @@ function CalendarDay({
         <span className="text-[8px] uppercase text-[#697282]">{format(date, "EEE")}</span>
         <strong className="font-display text-base">{format(date, "d")}</strong>
       </header>
-      {cards.map((opportunity) => (
+
+      {/* SOLID layer — armed go-lives. The real, scheduled events. Read-only here:
+          a go-live is changed or cancelled only from the editor's schedule control. */}
+      {dayGoLives.map((asset) => (
         <button
-          key={opportunity.id}
+          key={asset.id}
           type="button"
+          onClick={() => onOpenAsset(asset.id)}
+          className="mb-2 grid w-full gap-1 rounded-md border border-amber-500/60 bg-amber-500/10 p-2 text-left transition hover:border-amber-600"
+        >
+          <span className="flex items-center gap-1 text-[8px] font-medium uppercase tracking-[0.08em] text-amber-800">
+            <Clock size={10} />
+            {asset.scheduledPublishAt ? format(new Date(asset.scheduledPublishAt), "HH:mm") : ""} ·
+            Goes live
+          </span>
+          <strong className="text-[9px] leading-[1.4] text-[#3a2f18]">{asset.title}</strong>
+        </button>
+      ))}
+
+      {/* GHOST layer — dueAt targets, not yet armed. Dashed, draggable to retarget. */}
+      {dayGhosts.map((opportunity) => (
+        <div
+          key={opportunity.id}
+          role="button"
+          tabIndex={0}
           draggable
           onDragStart={(event) => event.dataTransfer.setData("text/opportunity-id", opportunity.id)}
           onClick={() => onSelect(opportunity.id)}
-          className={`mb-2 grid w-full gap-1.5 rounded-md border border-t-[3px] bg-[#fffdf8] p-2 text-left ${selectedId === opportunity.id ? "border-[#b5862a] ring-1 ring-[#b5862a]" : "border-[#dcd6cc]"}`}
-          style={{ borderTopColor: stageColors[opportunity.status] }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onSelect(opportunity.id);
+            }
+          }}
+          className={`mb-2 grid w-full cursor-pointer gap-1 rounded-md border border-dashed bg-[#fffdf8]/70 p-2 text-left ${selectedId === opportunity.id ? "border-[#b5862a] ring-1 ring-[#b5862a]" : "border-[#cdc5b7]"}`}
         >
+          <span className="text-[7px] font-medium uppercase tracking-[0.1em] text-[#9a927f]">
+            Target — not scheduled
+          </span>
           <strong className="text-[9px] leading-[1.4]">{opportunity.title}</strong>
           {!compact ? (
-            <>
-              <span className="text-[8px] text-[#697282]">
-                {opportunitySourceLabel(opportunity)}
-              </span>
-              <small className="flex items-center gap-1 text-[8px] text-[#697282]">
-                <span
-                  className="h-1.5 w-1.5 rounded-full"
-                  style={{ background: stageColors[opportunity.status] }}
-                />
-                {OPPORTUNITY_STAGE_LABELS[opportunity.status]}
-              </small>
-            </>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onPrimaryAction(opportunity);
+              }}
+              className="mt-0.5 w-max rounded-[4px] border border-[#ded8ce] bg-[#f7f4ed] px-1.5 py-0.5 text-[8px] font-medium text-[#5c6470] hover:border-[#c2b7a7] hover:bg-[#f1ece1]"
+            >
+              {t(nextAction(opportunity.pipeline))}
+            </button>
           ) : null}
-        </button>
+        </div>
       ))}
     </div>
   );
