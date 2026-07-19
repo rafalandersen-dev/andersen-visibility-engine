@@ -82,10 +82,24 @@ async function setRow(
 export async function runScheduledPublishes(batchSize = 20): Promise<RunSummary> {
   const admin = await adminClient();
 
-  // Park anything a dead run left claimed, before taking new work.
+  // Park anything a dead run left claimed, before taking new work — and tell each
+  // asset about it. The reaper used to go terminal in silence, so the editor kept
+  // promising "Goes live Tuesday 09:00" for a publish that had been abandoned.
   const { data: reapedData, error: reapError } = await admin.rpc("reap_stale_scheduled_publishes");
   if (reapError) console.error("[publish-cron] reap failed", reapError.message);
-  const reaped = typeof reapedData === "number" ? reapedData : 0;
+  const reapedRows = Array.isArray(reapedData)
+    ? (reapedData as Array<{ user_id: string; asset_id: string; last_error: string }>)
+    : [];
+  for (const r of reapedRows) {
+    // One bad row must not abort the batch, and the queue row is already parked.
+    await recordScheduledPublishFailure(r.user_id, r.asset_id, r.last_error, true).catch((err) =>
+      console.error("[publish-cron] could not record reaped failure on asset", {
+        assetId: r.asset_id,
+        message: err instanceof Error ? err.message : "error",
+      }),
+    );
+  }
+  const reaped = reapedRows.length;
 
   const { data, error } = await admin.rpc("claim_scheduled_publishes", {
     batch_size: batchSize,

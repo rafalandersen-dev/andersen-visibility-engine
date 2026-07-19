@@ -155,6 +155,28 @@ describe("applyAssetPatch", () => {
     expect(nextContent[0].scheduledPublishStatus).toBe("failed");
   });
 
+  it("lets an explicit undefined CLEAR a field — which is why callers must use conditional spreads", () => {
+    // This is deliberate: CLEARED_SCHEDULE_FIELDS relies on it to clear the
+    // armed date. The consequence is that any caller passing `postId: undefined`
+    // ERASES a stored id. Losing wordpressPostId/shopifyArticleGid is precisely
+    // what makes the next publish take the CREATE branch and duplicate a live
+    // post, so success patches in publish.server.ts spread ids conditionally.
+    const data = blob();
+    const content = data.content as Array<Record<string, unknown>>;
+    content[0].wordpressPostId = 4321;
+
+    const cleared = applyAssetPatch(data, "a1", { wordpressPostId: undefined });
+    expect((cleared.content as Array<Record<string, unknown>>)[0].wordpressPostId).toBeUndefined();
+
+    // The safe shape a caller must use when the connector returned nothing:
+    // omit the key entirely rather than writing undefined over a stored id.
+    const returnedPostId: number | undefined = undefined;
+    const preserved = applyAssetPatch(data, "a1", {
+      ...(returnedPostId ? { wordpressPostId: returnedPostId } : {}),
+    });
+    expect((preserved.content as Array<Record<string, unknown>>)[0].wordpressPostId).toBe(4321);
+  });
+
   it("patches the asset without touching other collections", () => {
     const next = applyAssetPatch(blob(), "a1", { scheduledPublishStatus: "pending" });
     expect(next.opportunities).toEqual(blob().opportunities);

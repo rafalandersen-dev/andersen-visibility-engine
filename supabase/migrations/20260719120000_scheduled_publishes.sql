@@ -114,26 +114,28 @@ GRANT EXECUTE ON FUNCTION public.claim_scheduled_publishes(integer, integer) TO 
 --     mid-flight and we do not know whether the post went live. We deliberately
 --     do NOT republish. The row is parked as 'failed' with an explicit message
 --     so the user checks the site and decides, rather than risking a duplicate.
---     Returns the number of rows parked, for the runner's log line.
+--     Returns the parked rows so the runner can tell each ASSET why its publish
+--     will never fire. Returning only a count meant the queue row went terminal
+--     in silence while the editor kept promising "Goes live Tuesday 09:00".
+DROP FUNCTION IF EXISTS public.reap_stale_scheduled_publishes(interval);
+
 CREATE OR REPLACE FUNCTION public.reap_stale_scheduled_publishes(
   stale_after interval DEFAULT '15 minutes'
 )
-RETURNS integer
+RETURNS TABLE (user_id uuid, asset_id text, last_error text)
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
-DECLARE
-  reaped integer;
 BEGIN
+  RETURN QUERY
   UPDATE public.scheduled_publishes sp
   SET status     = 'failed',
       last_error = 'Publishing was interrupted and the outcome is unknown. Check whether the post went live before scheduling it again.',
       updated_at = now()
   WHERE sp.status = 'publishing'
-    AND sp.claimed_at < now() - stale_after;
-  GET DIAGNOSTICS reaped = ROW_COUNT;
-  RETURN reaped;
+    AND sp.claimed_at < now() - stale_after
+  RETURNING sp.user_id, sp.asset_id, sp.last_error;
 END;
 $$;
 

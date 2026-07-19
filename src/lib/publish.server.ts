@@ -48,6 +48,7 @@ export interface ServerPublishResult {
 async function runConnectorPublish(
   asset: ContentAsset,
   project: Project,
+  userId: string,
 ): Promise<{ result: ServerPublishResult; assetPatch: Partial<ContentAsset> }> {
   const publishedAt = new Date().toISOString();
 
@@ -65,13 +66,21 @@ async function runConnectorPublish(
     // publish a second copy on the next tick.
     return {
       result: { liveUrl: res.liveUrl ?? "", publishedAt, platform: "wordpress" },
+      // Conditional spreads, NOT explicit undefined. applyAssetPatch merges with a
+      // raw spread, so `wordpressPostId: undefined` OVERWRITES a known id — and a
+      // 2xx whose body fails to parse yields exactly that (wpRequest sets
+      // parsed=undefined, so asNumber(r.id) is undefined). Erasing the post id is
+      // the precondition for the CREATE branch on the next publish, i.e. a
+      // duplicate post on the customer's live site. The client store already
+      // guards this with `?? c.wordpressPostId`; the server must too.
       assetPatch: {
-        liveUrl: res.liveUrl || undefined,
+        ...(res.liveUrl ? { liveUrl: res.liveUrl } : {}),
         livePublishedAt: publishedAt,
-        publishExternalId: res.postId ? String(res.postId) : undefined,
+        ...(res.postId
+          ? { publishExternalId: String(res.postId), wordpressPostId: res.postId }
+          : {}),
+        ...(res.postType ? { wordpressPostType: res.postType } : {}),
         publishPlatform: "wordpress",
-        wordpressPostId: res.postId,
-        wordpressPostType: res.postType,
       },
     };
   }
@@ -86,16 +95,19 @@ async function runConnectorPublish(
     }
     return {
       result: { liveUrl: res.liveUrl ?? "", publishedAt, platform: "shopify" },
+      // Same reasoning as WordPress: articleGid is what keeps upsertArticle from
+      // creating a second article, so it must never be cleared by a success.
       assetPatch: {
-        liveUrl: res.liveUrl || undefined,
+        ...(res.liveUrl ? { liveUrl: res.liveUrl } : {}),
         livePublishedAt: publishedAt,
-        publishExternalId: res.articleId || undefined,
+        ...(res.articleId
+          ? { publishExternalId: res.articleId, shopifyArticleId: res.articleId }
+          : {}),
+        ...(res.articleGid ? { shopifyArticleGid: res.articleGid } : {}),
+        ...(res.blogId ? { shopifyBlogId: res.blogId } : {}),
+        ...(res.blogGid ? { shopifyBlogGid: res.blogGid } : {}),
+        ...(res.handle ? { shopifyHandle: res.handle } : {}),
         publishPlatform: "shopify",
-        shopifyArticleId: res.articleId,
-        shopifyArticleGid: res.articleGid,
-        shopifyBlogId: res.blogId,
-        shopifyBlogGid: res.blogGid,
-        shopifyHandle: res.handle,
         shopifyStatus: "published",
       },
     };
@@ -135,6 +147,27 @@ async function runConnectorPublish(
       createdAt: asset.createdAt ?? asset.updatedAt ?? "",
     });
     externalId = draft.externalId || externalId;
+
+    // Persist the draft the moment it exists, BEFORE the live call. These are two
+    // separate side effects on the customer's site; if the live step then fails,
+    // without this the asset still reads "never sent" while a real draft sits
+    // there — and the manual recovery path refuses to act on exactly that state.
+    await mutateWorkspace(userId, (data) => ({
+      data: applyAssetPatch(data, asset.id, {
+        publishStatus: "sent",
+        ...(draft.externalId ? { publishExternalId: draft.externalId } : {}),
+        ...(draft.draftUrl ? { publishedDraftUrl: draft.draftUrl } : {}),
+        lastPublishedAt: draft.sentAt,
+      }),
+      result: null,
+    })).catch((e) =>
+      // Best effort: the draft exists either way, and failing here must not
+      // requeue a publish whose draft step already succeeded.
+      console.error("[publish.server] could not record the sent draft", {
+        assetId: asset.id,
+        message: e instanceof Error ? e.message : "error",
+      }),
+    );
   }
 
   const res = await publishLiveDirect({
@@ -150,9 +183,11 @@ async function runConnectorPublish(
   return {
     result: { liveUrl: res.liveUrl, publishedAt: res.publishedAt, platform: "customEndpoint" },
     assetPatch: {
-      liveUrl: res.liveUrl || undefined,
+      ...(res.liveUrl ? { liveUrl: res.liveUrl } : {}),
       livePublishedAt: res.publishedAt,
-      publishExternalId: res.externalId || externalId || asset.publishExternalId,
+      ...(res.externalId || externalId || asset.publishExternalId
+        ? { publishExternalId: res.externalId || externalId || asset.publishExternalId }
+        : {}),
       // If we sent the draft on this run, record that too — otherwise the asset
       // would still read "not sent" beside a live URL.
       publishStatus: "sent",
@@ -189,12 +224,18 @@ export async function publishAssetServerSide(
       );
     }
 
-    if (asset.livePublishStatus === "published" && asset.liveUrl) {
+    // Recognise "already live" even when we never learned the URL: a publish can
+    // legitimately succeed with an unknown permalink, and requiring liveUrl here
+    // would send such an asset back through the connector and duplicate it.
+    if (
+      asset.livePublishStatus === "published" &&
+      (asset.liveUrl || asset.publishExternalId || asset.wordpressPostId || asset.shopifyArticleGid)
+    ) {
       // Already live (e.g. the user published manually before the slot came up).
       // Treat as success rather than publishing a second time.
       return {
         result: {
-          liveUrl: asset.liveUrl,
+          liveUrl: asset.liveUrl ?? "",
           publishedAt: asset.livePublishedAt ?? new Date().toISOString(),
           platform: (asset.publishPlatform === "wordpress"
             ? "wordpress"
@@ -205,7 +246,7 @@ export async function publishAssetServerSide(
         assetPatch: {} as Partial<ContentAsset>,
       };
     }
-    return runConnectorPublish(asset, project);
+    return runConnectorPublish(asset, project, userId);
   })();
 
   // 2. Record the outcome under the rev guard (retries on a lost race).

@@ -114,6 +114,54 @@ describe("markdownToHtml — tables", () => {
   });
 });
 
+describe("markdownToHtml — adversarial input a model actually writes", () => {
+  it("keeps an escaped pipe inside a cell instead of eating the rest of it", () => {
+    // GFM's only way to write "|" in a table. Splitting on it deleted the tail.
+    const html = markdownToHtml("| Plan | Note |\n| --- | --- |\n| A | 10 \\| 20 sessions |");
+    expect(html).toContain("<td>10 | 20 sessions</td>");
+  });
+
+  it("keeps every column when a body row is wider than the header", () => {
+    const html = markdownToHtml("| a | b |\n| --- | --- |\n| 1 | 2 | 3 |");
+    expect(html).toContain("<td>1</td><td>2</td><td>3</td>");
+    // The header is padded rather than the row being trimmed.
+    expect(html).toContain("<th>a</th><th>b</th><th></th>");
+  });
+
+  it("strips an image whose alt text contains brackets", () => {
+    const html = markdownToHtml("![a [nested] label](https://x.test/a.png)");
+    expect(html).not.toContain("!");
+    expect(html).not.toContain("a.png");
+  });
+
+  it("strips an image carrying a title attribute", () => {
+    const html = markdownToHtml('![alt](https://x.test/a.png "A title")');
+    expect(html).not.toContain("!");
+    expect(html).not.toContain("A title");
+  });
+
+  it("strips a destination containing parentheses", () => {
+    const html = markdownToHtml("![alt](https://x.test/a_(1).png)");
+    expect(html).not.toContain("!");
+    expect(html).not.toContain("a_(1)");
+  });
+
+  it("strips reference-style images and their definitions", () => {
+    const html = markdownToHtml("![alt][hero]\n\n[hero]: https://x.test/h.png");
+    expect(html).not.toContain("!");
+    expect(html).not.toContain("h.png");
+  });
+
+  it("leaves a legitimate exclamation mark alone", () => {
+    expect(markdownToHtml("Book today!")).toContain("Book today!");
+  });
+
+  it("does not mistake a row of dashes without pipes for a table separator", () => {
+    const html = markdownToHtml("Intro\n\n-----\n\nMore");
+    expect(html).not.toContain("<table>");
+  });
+});
+
 describe("slugifyForPublish", () => {
   it("folds accents, lowercases and dashes", () => {
     expect(slugifyForPublish("Djupgående Massage i Malmö")).toBe("djupgaende-massage-i-malmo");

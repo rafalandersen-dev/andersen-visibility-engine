@@ -27,7 +27,16 @@ function escapeHtml(s: string): string {
  * arrive with the image increment, restricted to origins we control.
  */
 function stripImages(s: string): string {
-  return s.replace(/!\[[^\]]*\]\([^)\s]*\)/g, "");
+  return (
+    s
+      // Tolerates one level of bracket nesting in the alt text, a parenthesised
+      // segment inside the destination, and an optional "title". The narrower
+      // original missed all three and republished raw markdown as body text.
+      .replace(/!\[(?:[^\][]|\[[^\]]*\])*\]\((?:[^()\s]|\([^)]*\))*(?:\s+"[^"]*")?\s*\)/g, "")
+      // Reference-style images and their definitions.
+      .replace(/!\[(?:[^\][]|\[[^\]]*\])*\]\[[^\]]*\]/g, "")
+      .replace(/^\s*\[[^\]]+\]:\s*\S+.*$/gm, "")
+  );
 }
 
 /** Inline formatting: links, bold, italic — applied to already-escaped text. */
@@ -43,11 +52,16 @@ function inline(s: string): string {
 
 /** Split a markdown table row into cells, tolerating optional outer pipes. */
 function tableCells(line: string): string[] {
-  return line
-    .replace(/^\s*\|/, "")
-    .replace(/\|\s*$/, "")
-    .split("|")
-    .map((c) => c.trim());
+  return (
+    line
+      .replace(/^\s*\|/, "")
+      .replace(/\|\s*$/, "")
+      // A backslash-escaped pipe is GFM's only way to put a "|" inside a cell.
+      // Splitting on it silently deleted the rest of the cell — and comparison
+      // tables are exactly where a model writes one.
+      .split(/(?<!\\)\|/)
+      .map((c) => c.trim().replace(/\\\|/g, "|"))
+  );
 }
 
 /** True for a `| --- | :--: |` style separator, which is what makes a table a table. */
@@ -100,14 +114,24 @@ export function markdownToHtml(md: string): string {
         body.push(tableCells(row));
       }
       const cell = (c: string) => inline(escapeHtml(c));
+      // Width comes from the WIDEST row, not the header: trimming to the header
+      // silently dropped columns a model had written into the body.
+      const width = Math.max(headers.length, ...body.map((r) => r.length));
+      const pad = (row: string[]) => Array.from({ length: width }, (_, k) => row[k] ?? "");
       out.push("<table>");
-      out.push(`<thead><tr>${headers.map((c) => `<th>${cell(c)}</th>`).join("")}</tr></thead>`);
+      out.push(
+        `<thead><tr>${pad(headers)
+          .map((c) => `<th>${cell(c)}</th>`)
+          .join("")}</tr></thead>`,
+      );
       if (body.length) {
         out.push("<tbody>");
         for (const row of body) {
-          // Pad or trim to the header width so a ragged row cannot break the table.
-          const cells = Array.from({ length: headers.length }, (_, k) => row[k] ?? "");
-          out.push(`<tr>${cells.map((c) => `<td>${cell(c)}</td>`).join("")}</tr>`);
+          out.push(
+            `<tr>${pad(row)
+              .map((c) => `<td>${cell(c)}</td>`)
+              .join("")}</tr>`,
+          );
         }
         out.push("</tbody>");
       }
