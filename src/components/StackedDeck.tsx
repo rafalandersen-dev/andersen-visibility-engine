@@ -59,7 +59,8 @@ export function StackedDeck({
                 <StageChip stage={stage} />
                 {stage === "armed" && asset.scheduledPublishAt ? (
                   <span className="flex items-center gap-0.5 text-[7px] font-medium text-amber-800">
-                    <Clock className="h-2 w-2" /> {format(new Date(asset.scheduledPublishAt), "MMM d")}
+                    <Clock className="h-2 w-2" />{" "}
+                    {format(new Date(asset.scheduledPublishAt), "MMM d")}
                   </span>
                 ) : null}
               </span>

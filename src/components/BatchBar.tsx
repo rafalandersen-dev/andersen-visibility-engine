@@ -24,7 +24,11 @@ export function BatchBar({
     <div className="fixed bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-[#ddd8cd] bg-white px-3 py-2 shadow-[0_8px_24px_rgba(30,34,32,.16)]">
       <span className="px-1 text-[11px] font-medium text-[#3a3a3a]">{count} selected</span>
       <span className="mx-0.5 h-4 w-px bg-[#e4ded4]" />
-      <BatchButton icon={<Check className="h-3.5 w-3.5" />} label="Prioritise" onClick={onPrioritise} />
+      <BatchButton
+        icon={<Check className="h-3.5 w-3.5" />}
+        label="Prioritise"
+        onClick={onPrioritise}
+      />
       <BatchButton
         icon={<CalendarPlus className="h-3.5 w-3.5" />}
         label="Set target date"

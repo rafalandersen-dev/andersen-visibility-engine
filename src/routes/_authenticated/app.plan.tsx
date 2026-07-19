@@ -257,7 +257,10 @@ function PlanPage() {
   // The calendar's solid layer: every armed asset, keyed on the asset itself, so
   // an armed orphan (its opportunity deleted) still shows its go-live.
   const goLives = useMemo(
-    () => content.filter((asset) => asset.scheduledPublishStatus === "pending" && asset.scheduledPublishAt),
+    () =>
+      content.filter(
+        (asset) => asset.scheduledPublishStatus === "pending" && asset.scheduledPublishAt,
+      ),
     [content],
   );
 
@@ -1741,9 +1744,9 @@ function OpportunityDrawer({
             Unschedule
           </Button>
         ) : null}
-        {(["writing", "in_review", "ready", "armed", "sent", "needs_fixing"] as PipelineStage[]).includes(
-          stage,
-        ) && linkedAsset ? (
+        {(
+          ["writing", "in_review", "ready", "armed", "sent", "needs_fixing"] as PipelineStage[]
+        ).includes(stage) && linkedAsset ? (
           <Button onClick={() => onOpenEditor(linkedAsset.id)}>
             <FileText size={16} /> Open linked content
           </Button>

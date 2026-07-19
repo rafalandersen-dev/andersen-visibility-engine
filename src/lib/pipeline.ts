@@ -81,12 +81,7 @@ export const STAGE_EXECUTION: Record<PipelineStage, StageExecution> = {
 };
 
 /** Stages that represent an exception rather than forward progress. */
-export const EXCEPTION_STAGES: PipelineStage[] = [
-  "needs_fixing",
-  "parked",
-  "sent",
-  "live_missing",
-];
+export const EXCEPTION_STAGES: PipelineStage[] = ["needs_fixing", "parked", "sent", "live_missing"];
 
 /**
  * A pending schedule this far past its time did not fire. Saying "Scheduled"
