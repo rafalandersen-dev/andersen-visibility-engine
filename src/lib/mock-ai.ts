@@ -1352,7 +1352,17 @@ type GeneratedContent = {
  * Reuses the existing content-asset shape so the current editor renders/edits it
  * unchanged; adds asset-type + source metadata.
  */
-export async function generateContentForOpportunity(opportunityId: string, assetType: AssetType) {
+export async function generateContentForOpportunity(
+  opportunityId: string,
+  assetType: AssetType,
+  /**
+   * Rewrite seed. When a live page's draft was lost, the prior URL is carried in
+   * republishTargetUrl (+ publishSlug) so the connector updates in place. Limited
+   * by Pick to fields pipelineStage ignores — never liveUrl — so the fresh draft
+   * still correctly derives to "writing".
+   */
+  seed?: Pick<ContentAsset, "publishSlug" | "republishTargetUrl">,
+) {
   return once(`content:${opportunityId}:${assetType}`, async () => {
     const s = getState();
     const opp = s.opportunities.find((o) => o.id === opportunityId);
@@ -1396,6 +1406,9 @@ export async function generateContentForOpportunity(opportunityId: string, asset
         ? contentLangToProjectLanguage(project.primaryContentLanguage)
         : opp.language,
       createdAt: now,
+      // Rewrite provenance, if any. Pick keeps this to publishSlug +
+      // republishTargetUrl — never a field pipelineStage reads.
+      ...(seed ?? {}),
     };
 
     updateOpportunity(opp.id, {

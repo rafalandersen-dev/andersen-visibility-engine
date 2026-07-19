@@ -615,6 +615,14 @@ export interface ContentAsset {
   scheduledPublishAt?: string;
   scheduledPublishStatus?: ScheduledPublishStatus;
   scheduledPublishError?: string;
+  /**
+   * Set when this draft is a rewrite of a page already live whose original asset
+   * was lost. Carries the prior canonical URL forward so the connector UPDATES the
+   * page in place instead of CREATING a duplicate. Deliberately NOT `liveUrl`:
+   * pipelineStage and contentStatus both read liveUrl and would mis-derive an
+   * empty rewrite draft as already-live, hiding the writing-in-progress.
+   */
+  republishTargetUrl?: string;
   // ---- WordPress Connector v1 (all optional) ----
   /** Which connector last published this asset. */
   publishPlatform?: PublishingConnectorType;

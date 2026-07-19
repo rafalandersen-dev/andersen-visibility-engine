@@ -53,7 +53,7 @@ import {
   updateOpportunity,
   useStore,
 } from "@/lib/store";
-import { generateSeoOpportunities } from "@/lib/mock-ai";
+import { generateSeoOpportunities, generateContentForOpportunity } from "@/lib/mock-ai";
 import {
   OPPORTUNITY_STAGE_LABELS,
   OPPORTUNITY_STAGES,
@@ -236,6 +236,17 @@ function PlanPage() {
   const view = search.view ?? "board";
   const scale = search.scale ?? "week";
 
+  // A rewrite of a live-but-draftless page can only be offered where updating in
+  // place is inherently safe: manual publishing or a custom endpoint, where the
+  // owner controls the URL. WordPress/Shopify would CREATE a duplicate until
+  // publish.server upserts by republishTargetUrl (the old asset's external id is
+  // gone), so those projects see "Open live page" only.
+  const rewriteEnabled =
+    !!project &&
+    (project.publishMode === "manualLive" ||
+      !project.connectorType ||
+      project.connectorType === "custom");
+
   function setView(next: PlanView) {
     navigate({
       to: "/app/plan",
@@ -292,14 +303,40 @@ function PlanPage() {
         navigate({ to: "/app/analytics" });
         return;
       case "live_missing":
-        // The card renders its own "Open live page" link; the gated rewrite lands
-        // in the next commit. Fall back to the drawer for anything else.
-        if (opportunity.canonicalUrl) window.open(opportunity.canonicalUrl, "_blank", "noopener");
-        else selectOpportunity(opportunity.id);
+        void rewriteLivePage(opportunity);
         return;
       case "parked":
         selectOpportunity(opportunity.id);
         return;
+    }
+  }
+
+  /**
+   * Start a rewrite of a page that is live but whose draft was lost. The prior
+   * canonical URL is carried into the new draft (republishTargetUrl + publishSlug)
+   * so the connector UPDATES the page instead of CREATING a duplicate — the
+   * self-cannibalising bug this whole stage exists to prevent. Only offered where
+   * an update-in-place is inherently safe (manual-publish or custom endpoint,
+   * where the owner controls the URL) until publish.server learns upsert-by-URL
+   * for the WordPress/Shopify connectors whose external id died with the old asset.
+   */
+  async function rewriteLivePage(opportunity: OpportunityView) {
+    if (!opportunity.canonicalUrl) {
+      selectOpportunity(opportunity.id);
+      return;
+    }
+    const ok = window.confirm(
+      "This page is already live. Rewriting updates it in place — it will not create a second post.",
+    );
+    if (!ok) return;
+    try {
+      const asset = await generateContentForOpportunity(opportunity.id, "article", {
+        republishTargetUrl: opportunity.canonicalUrl,
+        publishSlug: pathFromUrl(opportunity.canonicalUrl),
+      });
+      navigate({ to: "/app/editor", search: { id: asset.id } });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not start the rewrite");
     }
   }
 
@@ -371,6 +408,7 @@ function PlanPage() {
               selectedId={selected?.id}
               onSelect={selectOpportunity}
               onPrimaryAction={onPrimaryAction}
+              rewriteEnabled={rewriteEnabled}
             />
           )}
 
@@ -765,11 +803,13 @@ function BoardView({
   selectedId,
   onSelect,
   onPrimaryAction,
+  rewriteEnabled,
 }: {
   opportunities: OpportunityView[];
   selectedId?: string;
   onSelect: (id?: string) => void;
   onPrimaryAction: (opportunity: OpportunityView) => void;
+  rewriteEnabled: boolean;
 }) {
   const t = useT();
   const [dragging, setDragging] = useState(false);
@@ -858,6 +898,7 @@ function BoardView({
                     onClick={() => onSelect(opportunity.id)}
                     onPrimaryAction={onPrimaryAction}
                     onDragStateChange={setDragging}
+                    rewriteEnabled={rewriteEnabled}
                   />
                 ))}
                 {cards.length === 0 ? (
@@ -880,17 +921,20 @@ function OpportunityCard({
   onClick,
   onPrimaryAction,
   onDragStateChange,
+  rewriteEnabled,
 }: {
   opportunity: OpportunityView;
   selected: boolean;
   onClick: () => void;
   onPrimaryAction: (opportunity: OpportunityView) => void;
   onDragStateChange: (dragging: boolean) => void;
+  rewriteEnabled: boolean;
 }) {
   const t = useT();
   const draggable = DRAGGABLE_STAGES.includes(opportunity.pipeline);
-  // A live page whose draft is gone gets a safe read-only link, not the
-  // "Rewrite this page" action — that arrives, gated, in the next commit.
+  // A live page whose draft is gone: always a safe read-only "Open live page"
+  // link, plus the "Rewrite this page" action only where an update-in-place is
+  // safe (manual/custom publishing) — never a WordPress/Shopify duplicate.
   const liveMissing = opportunity.pipeline === "live_missing";
   return (
     <div
@@ -924,17 +968,31 @@ function OpportunityCard({
           {opportunity.dueAt ? `Due ${formatDate(opportunity.dueAt)}` : opportunity.priority}
         </span>
         {liveMissing ? (
-          opportunity.canonicalUrl ? (
-            <a
-              href={opportunity.canonicalUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(event) => event.stopPropagation()}
-              className="rounded-[4px] border border-[#e2c9a0] bg-[#fbf3e4] px-1.5 py-1 text-[8px] font-medium text-[#8a5a12] hover:bg-[#f6e9d2]"
-            >
-              Open live page
-            </a>
-          ) : null
+          <span className="flex items-center gap-1.5">
+            {opportunity.canonicalUrl ? (
+              <a
+                href={opportunity.canonicalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(event) => event.stopPropagation()}
+                className="rounded-[4px] border border-[#e2c9a0] bg-[#fbf3e4] px-1.5 py-1 text-[8px] font-medium text-[#8a5a12] hover:bg-[#f6e9d2]"
+              >
+                Open live page
+              </a>
+            ) : null}
+            {rewriteEnabled ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onPrimaryAction(opportunity);
+                }}
+                className="rounded-[4px] border border-[#e2c9a0] bg-[#f6e9d2] px-1.5 py-1 text-[8px] font-medium text-[#8a5a12] hover:bg-[#efdcbb]"
+              >
+                {t(nextAction(opportunity.pipeline))}
+              </button>
+            ) : null}
+          </span>
         ) : (
           <button
             type="button"
@@ -1546,6 +1604,16 @@ function Detail({ label, value, icon }: { label: string; value: string; icon?: R
 function formatDate(value: string) {
   const date = new Date(value.length <= 10 ? `${value}T12:00:00` : value);
   return Number.isNaN(date.getTime()) ? value : format(date, "MMM d, yyyy");
+}
+
+/** The path portion of a live URL, for seeding a rewrite's publishSlug. */
+function pathFromUrl(url?: string): string | undefined {
+  if (!url) return undefined;
+  try {
+    return new URL(url).pathname.replace(/^\//, "") || undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function capitalize(value: string) {
