@@ -12,7 +12,7 @@
  *
  * No I/O, no store access — only (asset, project) → arguments.
  */
-import type { ContentAsset, Project } from "./types";
+import type { ContentAsset, Project, PublishMode } from "./types";
 
 export function isWordPress(project: Project): boolean {
   return project.connectorType === "wordpress";
@@ -84,4 +84,30 @@ export function wpPublishArgs(asset: ContentAsset, project: Project) {
     slug: (asset.publishSlug || asset.slug || "").trim(),
     excerpt: asset.metaDescription ?? "",
   };
+}
+
+/**
+ * The publish mode actually in force, which is not always the stored one.
+ *
+ * `autoPublishApproved` is RETIRED. It is coerced here at READ time rather than
+ * migrated, so nothing is written to any workspace blob and no tester's stored
+ * config becomes invalid. Reinterpreting it instead — say, as "arm at the next
+ * free slot" — would have armed a project's whole historical backlog of
+ * Approved-but-never-published assets onto a live site the moment it shipped,
+ * because approval is a state, not an event we can hook.
+ *
+ * The value stays in the PublishMode union so old blobs keep parsing.
+ */
+export function effectivePublishMode(
+  project: Pick<Project, "publishMode"> | undefined,
+): PublishMode {
+  const stored = project?.publishMode ?? "draftOnly";
+  return stored === "autoPublishApproved" ? "manualLive" : stored;
+}
+
+/** True when this project's stored mode is the retired one (drives the one-time notice). */
+export function hasRetiredAutoPublishMode(
+  project: Pick<Project, "publishMode"> | undefined,
+): boolean {
+  return project?.publishMode === "autoPublishApproved";
 }

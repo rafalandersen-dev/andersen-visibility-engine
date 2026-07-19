@@ -1116,4 +1116,18 @@ export const pl: Record<string, string> = {
   // ---- Scheduled publishing ----
   "editor.schedule.failedTitle": "Zaplanowana publikacja nie powiodła się",
   "editor.schedule.pending": "Zaplanowano publikację na {when}.",
+
+  // ---- Go-live scheduling (increment 2) ----
+  "editor.approve.readyToast": "Gotowe. Nic jeszcze nie zostało opublikowane.",
+  "editor.schedule.title": "Publikacja",
+  "editor.schedule.pickLabel": "Data i godzina publikacji",
+  "editor.schedule.arm": "Zaplanuj na {when}",
+  "editor.schedule.arming": "Planuję…",
+  "editor.schedule.cancel": "Anuluj publikację",
+  "editor.schedule.cancelled": "Publikacja anulowana. Wersja robocza została nietknięta.",
+  "editor.schedule.armed": "Zaplanowane. Wyjdzie {when}.",
+  "editor.schedule.inFlight": "Ten artykuł właśnie jest publikowany i nie da się go już zatrzymać — możesz go zdjąć ze swojej strony.",
+  "editor.schedule.needsApproval": "Oznacz artykuł jako gotowy, zanim zaplanujesz publikację.",
+  "editor.schedule.overdue": "To miało wyjść {when} i nie wyszło. Sprawdź ustawienia połączenia i zaplanuj ponownie.",
+  "editor.schedule.hint": "Zatwierdzenie nigdy nie publikuje. Nic nie wyjdzie na żywo, dopóki tego nie zaplanujesz albo nie opublikujesz teraz.",
 };

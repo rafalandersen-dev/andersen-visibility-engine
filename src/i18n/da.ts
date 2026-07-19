@@ -1095,4 +1095,18 @@ export const da: Record<string, string> = {
   // ---- Scheduled publishing ----
   "editor.schedule.failedTitle": "Den planlagte udgivelse mislykkedes",
   "editor.schedule.pending": "Planlagt til udgivelse {when}.",
+
+  // ---- Go-live scheduling (increment 2) ----
+  "editor.approve.readyToast": "Klar. Intet er udgivet endnu.",
+  "editor.schedule.title": "Udgivelse",
+  "editor.schedule.pickLabel": "Dato og tidspunkt for udgivelse",
+  "editor.schedule.arm": "Planlæg til {when}",
+  "editor.schedule.arming": "Planlægger…",
+  "editor.schedule.cancel": "Annullér udgivelsen",
+  "editor.schedule.cancelled": "Udgivelsen blev annulleret. Udkastet er urørt.",
+  "editor.schedule.armed": "Planlagt. Den udgives {when}.",
+  "editor.schedule.inFlight": "Den er ved at blive udgivet nu og kan ikke længere stoppes — du kan fjerne den fra dit websted.",
+  "editor.schedule.needsApproval": "Markér artiklen som klar, før du planlægger den.",
+  "editor.schedule.overdue": "Den skulle være udgivet {when}, men blev det ikke. Tjek dine forbindelsesindstillinger, og planlæg igen.",
+  "editor.schedule.hint": "Godkendelse udgiver aldrig. Intet går live, før du planlægger det eller udgiver det nu.",
 };

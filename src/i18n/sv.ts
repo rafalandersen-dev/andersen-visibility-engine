@@ -1095,4 +1095,18 @@ export const sv: Record<string, string> = {
   // ---- Scheduled publishing ----
   "editor.schedule.failedTitle": "Den schemalagda publiceringen misslyckades",
   "editor.schedule.pending": "Schemalagd att publiceras {when}.",
+
+  // ---- Go-live scheduling (increment 2) ----
+  "editor.approve.readyToast": "Klar. Ingenting är publicerat ännu.",
+  "editor.schedule.title": "Publicering",
+  "editor.schedule.pickLabel": "Datum och tid för publicering",
+  "editor.schedule.arm": "Schemalägg till {when}",
+  "editor.schedule.arming": "Schemalägger…",
+  "editor.schedule.cancel": "Avbryt publiceringen",
+  "editor.schedule.cancelled": "Publiceringen avbröts. Utkastet är orört.",
+  "editor.schedule.armed": "Schemalagd. Den publiceras {when}.",
+  "editor.schedule.inFlight": "Den publiceras just nu och kan inte längre stoppas — du kan avpublicera den från din sajt.",
+  "editor.schedule.needsApproval": "Markera artikeln som klar innan du schemalägger den.",
+  "editor.schedule.overdue": "Den skulle ha publicerats {when} men gjorde det inte. Kontrollera dina anslutningsinställningar och schemalägg igen.",
+  "editor.schedule.hint": "Att godkänna publicerar aldrig. Ingenting går live förrän du schemalägger eller publicerar det.",
 };

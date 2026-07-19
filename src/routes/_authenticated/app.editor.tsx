@@ -27,6 +27,7 @@ import {
   saveWorkspaceNow,
   updateOpportunity,
   getState,
+  reloadWorkspaceForUser,
 } from "@/lib/store";
 import { useT } from "@/i18n";
 import {
@@ -35,9 +36,13 @@ import {
   generateCta,
   sendContentToWebsite,
   publishContentLive,
-  runAutoPublishOnApprove,
 } from "@/lib/mock-ai";
-import { cancelScheduledPublishFn } from "@/lib/schedule.functions";
+import { effectivePublishMode } from "@/lib/publish-targets";
+import {
+  cancelScheduledPublishFn,
+  scheduleContentPublishFn,
+  SCHEDULE_TICK_MS,
+} from "@/lib/schedule.functions";
 import { CreateContentDialog, ASSET_TYPE_LABELS } from "@/components/CreateContentDialog";
 import { MiloScorePanel } from "@/components/MiloScorePanel";
 import {
@@ -73,6 +78,7 @@ import {
   Send,
   Sparkles,
   Trash2,
+  CalendarClock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -150,7 +156,8 @@ function EditorPage() {
           <ul className="mt-1 space-y-0.5">
             {assets.length === 0 ? (
               <li className="px-2 py-6 text-xs text-muted-foreground">
-                Open Plan and use “Create linked draft” on an opportunity to generate your first asset.
+                Open Plan and use “Create linked draft” on an opportunity to generate your first
+                asset.
               </li>
             ) : (
               assets.map((a) => (
@@ -219,6 +226,10 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   const [f, setF] = useState<ContentAsset>(asset);
   const [busy, setBusy] = useState<string | null>(null);
   const [contentOpen, setContentOpen] = useState(false);
+  // ---- Go-live scheduling (increment 2) ----
+  const goLiveId = useId();
+  const [goLiveLocal, setGoLiveLocal] = useState("");
+  const [scheduling, setScheduling] = useState(false);
   const sourceOppId = asset.sourceOpportunityId ?? asset.opportunityId ?? null;
 
   // ---- Publishing v1 ----
@@ -247,7 +258,8 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   );
   const [publishSlug, setPublishSlug] = useState(asset.slug);
   // ---- Publishing v1.1 (live + auto-publish) ----
-  const publishMode = project?.publishMode ?? "draftOnly";
+  // Coerced, not stored: the retired autoPublishApproved reads as manualLive.
+  const publishMode = effectivePublishMode(project);
   const liveConfigured = isWordPress
     ? wpConfigured
     : isShopify
@@ -255,7 +267,6 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       : Boolean(project?.livePublishEndpoint && project?.publishSecret);
   const [liveConfirmOpen, setLiveConfirmOpen] = useState(false);
   const [publishingLive, setPublishingLive] = useState(false);
-  const [autoBusy, setAutoBusy] = useState(false);
   const outlineId = useId();
   const internalLinksId = useId();
   const schemaId = useId();
@@ -394,6 +405,74 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   // updatedAt, so the local `f` copy would otherwise show a stale status).
   const live = fromStore ?? asset;
 
+  /**
+   * A datetime-local input yields a ZONELESS string ("2026-07-21T09:00"), which
+   * the server rejects outright — it would otherwise be read as UTC while the
+   * label rendered local time, publishing two hours late for every PL/SE/DK user.
+   * We convert to a real instant here and send the IANA zone alongside it.
+   */
+  const goLiveInstant = goLiveLocal ? new Date(goLiveLocal) : null;
+  const goLiveValid = Boolean(goLiveInstant && !Number.isNaN(goLiveInstant.getTime()));
+  const goLiveLabel = goLiveValid ? formatDateTime(goLiveInstant!.toISOString()) : "…";
+  // The runner ticks every five minutes, so a nearer slot would render a
+  // minute-precise promise on a five-minute grid.
+  const minGoLiveLocal = new Date(Date.now() + SCHEDULE_TICK_MS).toISOString().slice(0, 16);
+  const scheduleOverdue =
+    live.scheduledPublishStatus === "pending" &&
+    Boolean(live.scheduledPublishAt) &&
+    Date.now() - new Date(live.scheduledPublishAt!).getTime() > 15 * 60_000;
+  // Only a ready article, on a connector that can publish, offers scheduling.
+  const canSchedule =
+    live.status === "Approved" &&
+    publishMode !== "draftOnly" &&
+    live.livePublishStatus !== "published";
+
+  async function refreshWorkspace() {
+    const uid = getState().userId;
+    if (uid) await reloadWorkspaceForUser(uid);
+  }
+
+  async function armSchedule() {
+    if (!goLiveValid) return;
+    setScheduling(true);
+    try {
+      await scheduleContentPublishFn({
+        data: {
+          assetId: asset.id,
+          publishAt: goLiveInstant!.toISOString(),
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        },
+      });
+      // The mirror is written SERVER-side by the scheduling fn, so the client has
+      // to re-read the workspace or the editor would keep showing the old state.
+      await refreshWorkspace();
+      toast.success(t("editor.schedule.armed", { when: goLiveLabel }));
+      setGoLiveLocal("");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not schedule the publish");
+    } finally {
+      setScheduling(false);
+    }
+  }
+
+  async function cancelSchedule() {
+    setScheduling(true);
+    try {
+      const res = await cancelScheduledPublishFn({ data: { assetId: asset.id } });
+      if (!res.cancelled) {
+        // Honest refusal: the row is already claimed and the article is going out.
+        toast.error(t("editor.schedule.inFlight"));
+        return;
+      }
+      await refreshWorkspace();
+      toast.success(t("editor.schedule.cancelled"));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not cancel the go-live");
+    } finally {
+      setScheduling(false);
+    }
+  }
+
   function openSend() {
     setPublishSlug(f.slug || asset.slug);
     setDestType(project?.defaultDestinationType ?? "blogPost");
@@ -414,35 +493,19 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     }
   }
 
-  // Approve, and — only in autoPublishApproved mode — run the auto-publish flow
-  // once on this explicit transition (never on render).
-  async function approve() {
+  /**
+   * "Looks good" — an EDITORIAL VERDICT with zero distribution side effect, in
+   * every mode, with no setting that changes it.
+   *
+   * This used to call runAutoPublishOnApprove, so in autoPublishApproved mode
+   * approving an article published it to the customer's live site immediately —
+   * ignoring the go-live date the same UI had just required. That was the
+   * owner's reported surprise, and it is now structurally impossible: approving
+   * and publishing are different verbs and this one never distributes.
+   */
+  function approve() {
     save("Approved");
-    if (publishMode !== "autoPublishApproved") return;
-    setAutoBusy(true);
-    try {
-      const r = await runAutoPublishOnApprove(asset.id);
-      if (r) {
-        const published = getState().content.find((item) => item.id === asset.id);
-        const opportunityId = published?.opportunityId ?? published?.sourceOpportunityId;
-        if (published && opportunityId) {
-          updateOpportunity(opportunityId, {
-            status: "published",
-            currentContentAssetId: published.id,
-            canonicalUrl: published.liveUrl,
-            publishedAt: published.livePublishedAt,
-            measurementStatus: "collecting",
-          });
-        }
-        toast.success("Approved and published live");
-      }
-    } catch (e) {
-      toast.error(
-        e instanceof Error ? e.message : "Auto-publish failed — you can retry with Publish live",
-      );
-    } finally {
-      setAutoBusy(false);
-    }
+    toast.success(t("editor.approve.readyToast"));
   }
 
   async function doPublishLive() {
@@ -512,7 +575,11 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           </span>
           <Select
             value={f.status}
-            onValueChange={(v) => (v === "Approved" ? approve() : save(v as ContentStatus))}
+            // Plain status write. Selecting "Approved" here used to invoke approve(),
+            // which published live with no confirmation — an irreversible act on a
+            // control that reads as reversible. Approving never distributes now, so
+            // this is a straightforward save either way.
+            onValueChange={(v) => save(v as ContentStatus)}
           >
             <SelectTrigger className="h-8 w-36 text-xs">
               <SelectValue />
@@ -540,13 +607,10 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           <Button size="sm" variant="outline" onClick={() => save("In Review")}>
             {t("editor.action.markInReview")}
           </Button>
-          <Button size="sm" variant="outline" onClick={approve} disabled={autoBusy}>
-            {autoBusy ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Check className="h-3.5 w-3.5" />
-            )}{" "}
-            {t("editor.action.approve")}
+          {/* No busy state: approving is a local status write now, not a network
+              publish. The spinner existed only for the auto-publish call. */}
+          <Button size="sm" variant="outline" onClick={approve}>
+            <Check className="h-3.5 w-3.5" /> {t("editor.action.approve")}
           </Button>
           <Button size="sm" variant="ghost" onClick={() => save("Rejected")}>
             <FileX className="h-3.5 w-3.5" /> {t("editor.action.reject")}
@@ -683,10 +747,66 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
             <p className="mt-0.5 text-xs text-destructive/90">{live.scheduledPublishError}</p>
           </div>
         ) : live.scheduledPublishStatus === "pending" && live.scheduledPublishAt ? (
-          <div className="mt-3 rounded-md border border-border bg-secondary/40 px-3 py-2">
-            <span className="text-xs text-muted-foreground">
-              {t("editor.schedule.pending", { when: formatDateTime(live.scheduledPublishAt) })}
-            </span>
+          <div
+            className={
+              "mt-3 rounded-md border px-3 py-2 " +
+              (scheduleOverdue
+                ? "border-amber-500/40 bg-amber-500/5"
+                : "border-border bg-secondary/40")
+            }
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span
+                className={
+                  "text-xs " + (scheduleOverdue ? "text-amber-700" : "text-muted-foreground")
+                }
+              >
+                {/* Overdue is not "still scheduled". A pending row well past its
+                    time means nothing fired, and saying "Scheduled" there is the
+                    exact lie this increment exists to remove. */}
+                {scheduleOverdue
+                  ? t("editor.schedule.overdue", { when: formatDateTime(live.scheduledPublishAt) })
+                  : t("editor.schedule.pending", { when: formatDateTime(live.scheduledPublishAt) })}
+              </span>
+              <Button size="sm" variant="ghost" onClick={cancelSchedule} disabled={scheduling}>
+                {t("editor.schedule.cancel")}
+              </Button>
+            </div>
+            {live.scheduledPublishError ? (
+              <p className="mt-1 text-xs text-amber-700">{live.scheduledPublishError}</p>
+            ) : null}
+          </div>
+        ) : canSchedule ? (
+          <div className="mt-3 rounded-md border border-border bg-card px-3 py-3">
+            <div className="text-xs font-medium text-foreground">{t("editor.schedule.title")}</div>
+            <p className="mt-0.5 text-xs text-muted-foreground">{t("editor.schedule.hint")}</p>
+            <div className="mt-2 flex flex-wrap items-end gap-2">
+              <div>
+                <Label htmlFor={goLiveId} className="text-[10px] uppercase tracking-[0.14em]">
+                  {t("editor.schedule.pickLabel")}
+                </Label>
+                <Input
+                  id={goLiveId}
+                  type="datetime-local"
+                  className="h-8 w-56 text-xs"
+                  value={goLiveLocal}
+                  min={minGoLiveLocal}
+                  onChange={(e) => setGoLiveLocal(e.target.value)}
+                />
+              </div>
+              {/* Picking a date is inert. Only this press arms anything, and its
+                  label states the consequence in the user's own timezone. */}
+              <Button size="sm" onClick={armSchedule} disabled={!goLiveLocal || scheduling}>
+                {scheduling ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <CalendarClock className="h-3.5 w-3.5" />
+                )}
+                {scheduling
+                  ? t("editor.schedule.arming")
+                  : t("editor.schedule.arm", { when: goLiveLabel })}
+              </Button>
+            </div>
           </div>
         ) : null}
       </div>

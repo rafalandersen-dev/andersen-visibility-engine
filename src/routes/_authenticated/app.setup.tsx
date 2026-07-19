@@ -26,6 +26,7 @@ import { useAuth } from "@/lib/auth";
 
 import type { Language, Project, PublishDestinationType, PublishMode, Market, OnboardingLanguage, PublishingConnectorType, ShopifyBlogOption } from "@/lib/types";
 import { MARKETS, LANGUAGE_OPTIONS, GROWTH_GOALS, GOAL_KEYS, marketKey, marketDefaults } from "@/lib/onboarding";
+import { effectivePublishMode, hasRetiredAutoPublishMode } from "@/lib/publish-targets";
 import { useT } from "@/i18n";
 import { BrandIntelligenceCard } from "@/components/BrandIntelligenceCard";
 import { ClaudeConnectorCard } from "@/components/ClaudeConnectorCard";
@@ -323,10 +324,13 @@ const DEST_LABELS: { value: PublishDestinationType; label: string }[] = [
   { value: "landingPage", label: "Landing page" },
 ];
 
+// "autoPublishApproved" is RETIRED and deliberately absent: approving is an
+// editorial verdict and must never distribute. Stored values are coerced at read
+// time by effectivePublishMode, so existing projects keep working — they simply
+// behave as manualLive and see the notice below once.
 const MODE_OPTIONS: { value: PublishMode; label: string }[] = [
   { value: "draftOnly", label: "Draft only" },
   { value: "manualLive", label: "Manual publish live" },
-  { value: "autoPublishApproved", label: "Auto-publish approved content" },
 ];
 
 function PublishingCard({ project }: { project: Project }) {
@@ -338,7 +342,7 @@ function PublishingCard({ project }: { project: Project }) {
   const [destination, setDestination] = useState<PublishDestinationType>(
     project.defaultDestinationType ?? "blogPost",
   );
-  const [mode, setMode] = useState<PublishMode>(project.publishMode ?? "draftOnly");
+  const [mode, setMode] = useState<PublishMode>(effectivePublishMode(project));
   const [saving, setSaving] = useState(false);
   const endpointId = useId();
   const liveEndpointId = useId();
@@ -688,15 +692,18 @@ function PublishingCard({ project }: { project: Project }) {
       </div>
 
       <p className="mt-4 text-xs text-muted-foreground max-w-2xl">
-        Auto-publish is optional. Only enable it when you are comfortable publishing approved content
-        automatically. You remain responsible for reviewing content and claims before publishing. See the{" "}
+        Approving an article never publishes it. Publishing is always a separate, deliberate step —
+        either “Publish now” or a scheduled go-live time you set yourself. You remain responsible for
+        reviewing content and claims before publishing. See the{" "}
         <a href="/ai-disclaimer" className="underline underline-offset-4 hover:text-foreground">AI Content Disclaimer</a>.
       </p>
 
-      {mode === "autoPublishApproved" ? (
+      {hasRetiredAutoPublishMode(project) ? (
         <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-xs text-foreground/80">
-          Auto-publish only publishes content assets marked <span className="font-medium">Approved</span>.
-          Draft, In Review and Rejected assets will not be published automatically.
+          <span className="font-medium">Auto-publish on approval has been removed.</span> This project
+          used it, so it now behaves as “Manual publish live”: approving marks an article ready, and
+          nothing goes live until you publish or schedule it. Any article you approved earlier and
+          expected to be live may still be a draft — worth checking before you schedule anything new.
         </div>
       ) : null}
 
