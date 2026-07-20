@@ -49,12 +49,37 @@ export interface MarkdownRenderOptions {
    * invented internal URL. External absolute URLs are unaffected.
    */
   knownInternalPaths?: Set<string>;
+  /**
+   * Keep ALL relative internal links active without an inventory check. Used only
+   * for the custom-endpoint preview, where Milo sends RAW markdown downstream and
+   * the customer's own connector renders the links — so our converter must not
+   * strip what will publish there.
+   */
+  keepAllInternalLinks?: boolean;
 }
 
 /** Normalise an internal href to a comparable path (strip query/hash, trailing slash). */
 export function normalizeInternalPath(href: string): string {
   const path = href.split(/[?#]/)[0].replace(/\/+$/, "");
   return path === "" ? "/" : path;
+}
+
+/**
+ * The relative internal links written into a markdown body, as normalised paths.
+ * Used to flag which in-body links cannot be resolved against the inventory and
+ * will therefore publish as plain text (never silently).
+ */
+export function extractInternalLinkPaths(md: string): string[] {
+  const paths = new Set<string>();
+  const re = /\[[^\]]+\]\((\/[^)\s]*)\)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(md || ""))) paths.add(normalizeInternalPath(m[1]));
+  return [...paths];
+}
+
+/** Which of a body's relative internal links are NOT in the known inventory. */
+export function unresolvedInternalLinks(md: string, known: Set<string>): string[] {
+  return extractInternalLinkPaths(md).filter((p) => !known.has(p));
 }
 
 /** Inline formatting: links, bold, italic — applied to already-escaped text. */
@@ -66,9 +91,10 @@ function inline(s: string, opts?: MarkdownRenderOptions): string {
         return `<a href="${href.replace(/"/g, "%22")}">${text}</a>`;
       }
       // Relative internal link — publish as active ONLY if it resolves against a
-      // known URL inventory; otherwise keep the text and drop the link (P0.4).
+      // known URL inventory (or the custom-endpoint keep-all case); otherwise keep
+      // the text and drop the link (P0.4).
       if (/^\//.test(href)) {
-        if (opts?.knownInternalPaths?.has(normalizeInternalPath(href))) {
+        if (opts?.keepAllInternalLinks || opts?.knownInternalPaths?.has(normalizeInternalPath(href))) {
           return `<a href="${href.replace(/"/g, "%22")}">${text}</a>`;
         }
         return text;

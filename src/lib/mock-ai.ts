@@ -53,6 +53,8 @@ import {
   wpPostTypeFor,
   shopifyCreds,
   shopifyArticleArgs,
+  buildKnownInternalPaths,
+  contentStructuredData,
 } from "./publish-targets";
 import type {
   Opportunity,
@@ -1450,6 +1452,14 @@ export async function testWordPressConnection(projectId: string) {
   return res;
 }
 
+/** The project's deterministic internal-path inventory (Milo-published + root). */
+function knownPathsForProject(project: Project): string[] {
+  return buildKnownInternalPaths(
+    project,
+    getState().content.filter((c) => c.projectId === project.id),
+  );
+}
+
 async function sendToWordPressDraft(asset: ContentAsset, project: Project, slug: string) {
   const creds = wpCreds(project);
   const postType = wpPostTypeFor(asset, project);
@@ -1460,6 +1470,10 @@ async function sendToWordPressDraft(asset: ContentAsset, project: Project, slug:
       postId: asset.wordpressPostId,
       title: asset.title,
       contentMarkdown: asset.markdown,
+      // Manual == scheduled: emit the same structured data (B2) and resolve
+      // internal links against the same inventory (B1) as the cron path.
+      jsonLd: contentStructuredData(asset, project),
+      knownInternalPaths: knownPathsForProject(project),
       slug: (slug || asset.slug || "").trim(),
       excerpt: asset.metaDescription ?? "",
     },
@@ -1495,6 +1509,10 @@ async function publishToWordPressLive(asset: ContentAsset, project: Project) {
       postId: asset.wordpressPostId,
       title: asset.title,
       contentMarkdown: asset.markdown,
+      // Manual == scheduled: emit the same structured data (B2) and resolve
+      // internal links against the same inventory (B1) as the cron path.
+      jsonLd: contentStructuredData(asset, project),
+      knownInternalPaths: knownPathsForProject(project),
       slug: (asset.publishSlug || asset.slug || "").trim(),
       excerpt: asset.metaDescription ?? "",
     },
@@ -1550,7 +1568,7 @@ export async function listShopifyBlogs(projectId: string) {
 }
 
 async function sendToShopifyDraft(asset: ContentAsset, project: Project) {
-  const res = await sendContentToShopifyDraftFn({ data: shopifyArticleArgs(asset, project) });
+  const res = await sendContentToShopifyDraftFn({ data: shopifyArticleArgs(asset, project, knownPathsForProject(project)) });
   if (!res.success) {
     const msg = res.error || "Shopify article failed. Please try again.";
     markContentAssetPublishFailed(asset.id, msg, new Date().toISOString());
@@ -1579,7 +1597,7 @@ async function sendToShopifyDraft(asset: ContentAsset, project: Project) {
 }
 
 async function publishToShopifyLive(asset: ContentAsset, project: Project) {
-  const res = await publishShopifyContentFn({ data: shopifyArticleArgs(asset, project) });
+  const res = await publishShopifyContentFn({ data: shopifyArticleArgs(asset, project, knownPathsForProject(project)) });
   if (!res.success || !res.liveUrl) {
     const msg = res.error || "Shopify published but did not return a live URL.";
     markContentAssetLivePublishFailed(asset.id, msg, new Date().toISOString());

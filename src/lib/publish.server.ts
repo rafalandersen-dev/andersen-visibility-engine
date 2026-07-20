@@ -16,7 +16,13 @@ import { mutateWorkspace, type WorkspaceData } from "./workspace.server";
 import { publishDraftDirect, publishLiveDirect } from "./publish.functions";
 import { publishWordPressLiveDirect } from "./wordpress.functions";
 import { upsertArticle } from "./shopify.functions";
-import { isShopify, isWordPress, shopifyArticleArgs, wpPublishArgs } from "./publish-targets";
+import {
+  buildKnownInternalPaths,
+  isShopify,
+  isWordPress,
+  shopifyArticleArgs,
+  wpPublishArgs,
+} from "./publish-targets";
 import {
   applyAssetPatch,
   applyPublishSuccess,
@@ -49,11 +55,12 @@ async function runConnectorPublish(
   asset: ContentAsset,
   project: Project,
   userId: string,
+  knownInternalPaths: string[] = [],
 ): Promise<{ result: ServerPublishResult; assetPatch: Partial<ContentAsset> }> {
   const publishedAt = new Date().toISOString();
 
   if (isWordPress(project)) {
-    const res = await publishWordPressLiveDirect(wpPublishArgs(asset, project));
+    const res = await publishWordPressLiveDirect(wpPublishArgs(asset, project, knownInternalPaths));
     if (!res.success) {
       // Retry only when the connector proved nothing was created.
       throw new PublishTransportError(
@@ -86,7 +93,7 @@ async function runConnectorPublish(
   }
 
   if (isShopify(project)) {
-    const res = await upsertArticle(shopifyArticleArgs(asset, project), true);
+    const res = await upsertArticle(shopifyArticleArgs(asset, project, knownInternalPaths), true);
     if (!res.success) {
       throw new PublishTransportError(
         res.error || "Shopify could not publish the article.",
@@ -246,7 +253,11 @@ export async function publishAssetServerSide(
         assetPatch: {} as Partial<ContentAsset>,
       };
     }
-    return runConnectorPublish(asset, project, userId);
+    const knownInternalPaths = buildKnownInternalPaths(
+      project,
+      (row.data.content as ContentAsset[]).filter((c) => c.projectId === project.id),
+    );
+    return runConnectorPublish(asset, project, userId, knownInternalPaths);
   })();
 
   // 2. Record the outcome under the rev guard (retries on a lost race).

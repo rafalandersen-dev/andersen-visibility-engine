@@ -67,7 +67,10 @@ import type {
 import { formatDateTime } from "@/lib/format";
 // P0.3 — Preview and Export use the SAME canonical converter as publishing, so
 // what you see is what publishes (tables, links, bold, ordered lists included).
-import { markdownToHtml } from "@/lib/markdown";
+// P0.4 — resolve internal links against the same inventory the publisher uses,
+// so preview parity holds and dropped links can be flagged.
+import { markdownToHtml, unresolvedInternalLinks } from "@/lib/markdown";
+import { buildKnownInternalPaths } from "@/lib/publish-targets";
 
 /** Presentation-only styling for the preview's canonical semantic HTML. */
 const PREVIEW_STYLE = `
@@ -257,8 +260,26 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
 
   // ---- Publishing v1 ----
   const project = useStore((s) => s.projects.find((p) => p.id === asset.projectId));
+  const projectContent = useStore((s) => s.content.filter((c) => c.projectId === asset.projectId));
   const isWordPress = project?.connectorType === "wordpress";
   const isShopify = project?.connectorType === "shopify";
+  // The same deterministic internal-path inventory the publisher uses, so Preview
+  // and Export match what actually publishes (P0.4). Custom-endpoint projects send
+  // raw markdown downstream (links kept), so preview keeps them too.
+  const renderOpts = useMemo(() => {
+    if (project?.connectorType === "custom") return { keepAllInternalLinks: true };
+    if (project) return { knownInternalPaths: new Set(buildKnownInternalPaths(project, projectContent)) };
+    return {};
+  }, [project, projectContent]);
+  // In-body internal links that won't publish as active links because they can't
+  // be verified against the inventory — surfaced so the drop is never silent.
+  const droppedInternalLinks = useMemo(
+    () =>
+      renderOpts.knownInternalPaths
+        ? unresolvedInternalLinks(f.markdown, renderOpts.knownInternalPaths)
+        : [],
+    [f.markdown, renderOpts],
+  );
   const wpConfigured = Boolean(
     project?.wordpress?.siteUrl &&
     project?.wordpress?.username &&
@@ -408,7 +429,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   }, [fromStore?.updatedAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const exportText = (type: "md" | "html") => {
-    const body = type === "md" ? f.markdown : markdownToHtml(f.markdown);
+    const body = type === "md" ? f.markdown : markdownToHtml(f.markdown, renderOpts);
     const blob = new Blob([body], { type: type === "md" ? "text/markdown" : "text/html" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1173,9 +1194,20 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               This <style> just makes the bare semantic tags readable here, the
               way a customer's theme styles them on the live site. */}
           <style>{PREVIEW_STYLE}</style>
+          {droppedInternalLinks.length > 0 ? (
+            <div className="mb-3 rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-xs text-foreground/80">
+              {droppedInternalLinks.length} internal link
+              {droppedInternalLinks.length === 1 ? "" : "s"} won&apos;t publish as{" "}
+              {droppedInternalLinks.length === 1 ? "a link" : "links"} because we can&apos;t confirm{" "}
+              {droppedInternalLinks.length === 1 ? "it points" : "they point"} to a real page on your
+              site: <span className="font-mono">{droppedInternalLinks.join(", ")}</span>. The text
+              stays; the link is removed. Publish {droppedInternalLinks.length === 1 ? "it" : "them"}{" "}
+              first, or link to a page Milo has already published.
+            </div>
+          ) : null}
           <div
             className="milo-preview rounded-lg border border-border bg-background p-6"
-            dangerouslySetInnerHTML={{ __html: markdownToHtml(f.markdown) }}
+            dangerouslySetInnerHTML={{ __html: markdownToHtml(f.markdown, renderOpts) }}
           />
         </TabsContent>
       </Tabs>

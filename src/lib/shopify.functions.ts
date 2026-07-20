@@ -158,6 +158,9 @@ export const ArticleInput = z.object({
   // Deterministic Article/FAQPage JSON-LD <script>, appended to the article body
   // at publish (P0.5). Empty string when there's nothing to emit.
   jsonLd: z.string().default(""),
+  // Internal paths known to resolve on the site — relative in-body links publish
+  // as active links only if in this set (P0.4). Others render as plain text.
+  knownInternalPaths: z.array(z.string()).default([]),
   handle: z.string().default(""),
   summary: z.string().default(""),
   tags: z.array(z.string()).default([]),
@@ -173,7 +176,10 @@ export function liveUrlFor(shopDomain: string, blogHandle: string, articleHandle
 function buildArticleFields(data: z.infer<typeof ArticleInput>, isPublished: boolean) {
   const fields: Record<string, unknown> = {
     title: data.title,
-    body: markdownToHtml(data.contentMarkdown) + data.jsonLd,
+    body:
+      markdownToHtml(data.contentMarkdown, {
+        knownInternalPaths: new Set(data.knownInternalPaths),
+      }) + data.jsonLd,
     isPublished,
   };
   if (data.handle || data.title) fields.handle = slugifyForPublish(data.handle || data.title);

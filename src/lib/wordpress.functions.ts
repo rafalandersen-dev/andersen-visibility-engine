@@ -146,6 +146,9 @@ export const ContentInput = z.object({
   // Deterministic Article/FAQPage JSON-LD <script>, appended to the post content
   // at publish (P0.5). Empty string when there's nothing to emit.
   jsonLd: z.string().default(""),
+  // Internal paths known to resolve on the site — relative in-body links publish
+  // as active links only if in this set (P0.4). Others render as plain text.
+  knownInternalPaths: z.array(z.string()).default([]),
   slug: z.string().default(""),
   excerpt: z.string().default(""),
 });
@@ -163,7 +166,10 @@ export const sendContentToWordPressDraftFn = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<WordPressPublishResult> => {
     try {
       const base = wpBase(data.siteUrl);
-      const html = markdownToHtml(data.contentMarkdown) + data.jsonLd;
+      const html =
+        markdownToHtml(data.contentMarkdown, {
+          knownInternalPaths: new Set(data.knownInternalPaths),
+        }) + data.jsonLd;
       const type = restType(data.postType);
       let result: unknown;
       if (data.postId) {
@@ -218,7 +224,10 @@ export async function publishWordPressLiveDirect(
   {
     try {
       const base = wpBase(data.siteUrl);
-      const html = markdownToHtml(data.contentMarkdown) + data.jsonLd;
+      const html =
+        markdownToHtml(data.contentMarkdown, {
+          knownInternalPaths: new Set(data.knownInternalPaths),
+        }) + data.jsonLd;
       const type = restType(data.postType);
       let result: unknown;
       if (data.postId) {

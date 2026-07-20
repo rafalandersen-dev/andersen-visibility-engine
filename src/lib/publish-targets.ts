@@ -14,6 +14,41 @@
  */
 import type { ContentAsset, Project, PublishMode } from "./types";
 import { contentJsonLdScript } from "./structured-data";
+import { normalizeInternalPath } from "./markdown";
+
+/**
+ * A deterministic, non-paid inventory of internal paths KNOWN to exist on the
+ * project's site: the site root, and the paths of this project's own
+ * Milo-published articles (we published them, so they resolve). A relative
+ * internal link is only published as an active link when its path is in here
+ * (P0.4); anything else is unverified and must not publish as a live link. This
+ * is the lightweight inventory — a full site inventory (sitemap crawl) is P1.
+ */
+export function buildKnownInternalPaths(project: Project, content: ContentAsset[]): string[] {
+  const paths = new Set<string>();
+  const site = (project.websiteUrl || "").trim();
+  let origin = "";
+  if (site) {
+    try {
+      const u = new URL(/^https?:\/\//i.test(site) ? site : `https://${site}`);
+      origin = u.origin;
+      paths.add("/");
+    } catch {
+      /* ignore an unparseable site URL */
+    }
+  }
+  for (const asset of content) {
+    const live = (asset.liveUrl || "").trim();
+    if (!live) continue;
+    try {
+      const u = new URL(live);
+      if (!origin || u.origin === origin) paths.add(normalizeInternalPath(u.pathname));
+    } catch {
+      /* ignore an unparseable live URL */
+    }
+  }
+  return [...paths];
+}
 
 /**
  * Deterministic Article + FAQPage JSON-LD for an asset, built from the VISIBLE
@@ -75,7 +110,11 @@ export function shopifyCreds(project: Project): { shopDomain: string; adminAcces
   return { shopDomain, adminAccessToken };
 }
 
-export function shopifyArticleArgs(asset: ContentAsset, project: Project) {
+export function shopifyArticleArgs(
+  asset: ContentAsset,
+  project: Project,
+  knownInternalPaths: string[] = [],
+) {
   const sh = project.shopify ?? {};
   return {
     ...shopifyCreds(project),
@@ -85,6 +124,7 @@ export function shopifyArticleArgs(asset: ContentAsset, project: Project) {
     title: asset.title,
     contentMarkdown: asset.markdown,
     jsonLd: contentStructuredData(asset, project),
+    knownInternalPaths,
     handle: asset.slug || "",
     summary: asset.metaDescription ?? "",
     tags: sh.defaultTags ?? [],
@@ -92,7 +132,11 @@ export function shopifyArticleArgs(asset: ContentAsset, project: Project) {
   };
 }
 
-export function wpPublishArgs(asset: ContentAsset, project: Project) {
+export function wpPublishArgs(
+  asset: ContentAsset,
+  project: Project,
+  knownInternalPaths: string[] = [],
+) {
   return {
     ...wpCreds(project),
     postType: wpPostTypeFor(asset, project),
@@ -100,6 +144,7 @@ export function wpPublishArgs(asset: ContentAsset, project: Project) {
     title: asset.title,
     contentMarkdown: asset.markdown,
     jsonLd: contentStructuredData(asset, project),
+    knownInternalPaths,
     slug: (asset.publishSlug || asset.slug || "").trim(),
     excerpt: asset.metaDescription ?? "",
   };
