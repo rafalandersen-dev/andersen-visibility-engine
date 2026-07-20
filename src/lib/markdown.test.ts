@@ -31,10 +31,45 @@ describe("markdownToHtml — structure", () => {
     expect(html).not.toContain("<script>");
   });
 
-  it("keeps safe link hrefs and neutralises the rest", () => {
+  it("keeps external links, gates internal links on a known inventory, drops unsafe schemes (P0.4)", () => {
+    // External absolute URLs stay active.
     expect(markdownToHtml("[a](https://x.test/p)")).toContain('<a href="https://x.test/p">a</a>');
-    expect(markdownToHtml("[a](/local)")).toContain('<a href="/local">a</a>');
-    expect(markdownToHtml("[a](javascript:alert(1))")).toContain('<a href="#">a</a>');
+
+    // An UNRESOLVED internal link must never publish as an active link — the
+    // invented/unverified internal URL is dropped and only the text remains.
+    const unresolved = markdownToHtml("[a](/local)");
+    expect(unresolved).not.toContain("href=");
+    expect(unresolved).toContain("<p>a</p>");
+
+    // A RESOLVED internal link (present in the known URL inventory) is active.
+    const resolved = markdownToHtml("[a](/local)", { knownInternalPaths: new Set(["/local"]) });
+    expect(resolved).toContain('<a href="/local">a</a>');
+
+    // Unsafe schemes are dropped, text kept — no dead href="#".
+    const unsafe = markdownToHtml("[a](javascript:alert(1))");
+    expect(unsafe).not.toContain("href=");
+    expect(unsafe).not.toContain("javascript");
+  });
+});
+
+describe("markdownToHtml — internal-link resolution (P0.4)", () => {
+  it("resolves against the inventory ignoring trailing slash, query and hash", () => {
+    const inv = new Set(["/services"]);
+    expect(markdownToHtml("[s](/services/)", { knownInternalPaths: inv })).toContain(
+      '<a href="/services/">s</a>',
+    );
+    expect(markdownToHtml("[s](/services?utm=1)", { knownInternalPaths: inv })).toContain(
+      '<a href="/services?utm=1">s</a>',
+    );
+    expect(markdownToHtml("[s](/services#top)", { knownInternalPaths: inv })).toContain(
+      '<a href="/services#top">s</a>',
+    );
+  });
+
+  it("still drops an internal link that is NOT in the inventory", () => {
+    const html = markdownToHtml("[x](/made-up-path)", { knownInternalPaths: new Set(["/real"]) });
+    expect(html).not.toContain("href=");
+    expect(html).toContain("<p>x</p>");
   });
 });
 

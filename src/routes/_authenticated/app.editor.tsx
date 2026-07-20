@@ -26,6 +26,7 @@ import {
   deleteContentAsset,
   saveWorkspaceNow,
   updateOpportunity,
+  approveProjectInternalPath,
   getState,
   reloadWorkspaceForUser,
 } from "@/lib/store";
@@ -65,8 +66,40 @@ import type {
   LivePublishStatus,
 } from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
+// P0.3 — Preview and Export use the SAME canonical converter as publishing, so
+// what you see is what publishes (tables, links, bold, ordered lists included).
+// P0.4 — resolve internal links against the same inventory the publisher uses,
+// so preview parity holds and dropped links can be flagged.
+import {
+  markdownToHtml,
+  classifyInternalLinks,
+  linkPathToText,
+  removeLinkByPath,
+  replaceLinkPath,
+  type ClassifiedInternalLink,
+} from "@/lib/markdown";
+import { buildKnownInternalPaths, buildActiveInternalPaths } from "@/lib/publish-targets";
+
+/** Presentation-only styling for the preview's canonical semantic HTML. */
+const PREVIEW_STYLE = `
+.milo-preview{color:var(--foreground);line-height:1.65;font-size:.95rem}
+.milo-preview h1{font-family:Fraunces,serif;font-size:1.875rem;margin:0 0 .75rem;letter-spacing:-.015em}
+.milo-preview h2{font-family:Fraunces,serif;font-size:1.35rem;margin:1.5rem 0 .5rem}
+.milo-preview h3{font-family:Fraunces,serif;font-size:1.1rem;margin:1.25rem 0 .4rem}
+.milo-preview h4,.milo-preview h5,.milo-preview h6{font-family:Fraunces,serif;margin:1rem 0 .35rem}
+.milo-preview p{margin:.5rem 0}
+.milo-preview ul,.milo-preview ol{padding-left:1.3rem;margin:.5rem 0}
+.milo-preview li{margin:.2rem 0}
+.milo-preview a{color:#9a6716;text-decoration:underline}
+.milo-preview strong{font-weight:600}
+.milo-preview em{font-style:italic}
+.milo-preview table{border-collapse:collapse;margin:.75rem 0;width:100%;font-size:.9rem}
+.milo-preview th,.milo-preview td{border:1px solid var(--border);padding:.4rem .6rem;text-align:left}
+.milo-preview thead th{background:var(--secondary)}
+`;
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
+  AlertTriangle,
   Check,
   Copy,
   Download,
@@ -236,8 +269,63 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
 
   // ---- Publishing v1 ----
   const project = useStore((s) => s.projects.find((p) => p.id === asset.projectId));
+  const projectContent = useStore((s) => s.content.filter((c) => c.projectId === asset.projectId));
   const isWordPress = project?.connectorType === "wordpress";
   const isShopify = project?.connectorType === "shopify";
+  // Three-state internal-link model (link-safety P0), applied to EVERY connector
+  // including the custom endpoint:
+  //   VERIFIED      — root + a page Milo has published (deterministic inventory)
+  //   USER_APPROVED — a path the user explicitly approved for this project
+  //   UNRESOLVED    — anything else; publishing is BLOCKED until it is resolved.
+  const verifiedPaths = useMemo(
+    () => (project ? buildKnownInternalPaths(project, projectContent) : []),
+    [project, projectContent],
+  );
+  const approvedPaths = useMemo(() => project?.approvedInternalPaths ?? [], [project]);
+  // The ACTIVE set (verified ∪ approved) is what publishes as a live link, and is
+  // exactly what Preview/Export/publish all pass to the converter — so what you
+  // see is what publishes, on every connector.
+  const activePaths = useMemo(
+    () => (project ? buildActiveInternalPaths(project, projectContent) : []),
+    [project, projectContent],
+  );
+  const renderOpts = useMemo(() => ({ knownInternalPaths: new Set(activePaths) }), [activePaths]);
+  const classifiedLinks = useMemo(
+    () => classifyInternalLinks(f.markdown, new Set(verifiedPaths), new Set(approvedPaths)),
+    [f.markdown, verifiedPaths, approvedPaths],
+  );
+  const unresolvedLinks = useMemo(
+    () => classifiedLinks.filter((l) => l.state === "UNRESOLVED"),
+    [classifiedLinks],
+  );
+  const hasUnresolvedLinks = unresolvedLinks.length > 0;
+
+  // ---- Link-safety resolver actions (one explicit choice per unresolved link) ----
+  async function persistMarkdown(nextMarkdown: string, successMsg: string) {
+    const merged = mergeEditorEdits({ ...f, markdown: nextMarkdown });
+    const next = {
+      ...merged,
+      updatedAt: new Date().toISOString(),
+      // Body changed → the Milo Score no longer reflects it.
+      qualityScoreStale: f.qualityScore ? true : f.qualityScoreStale,
+    };
+    setF(next);
+    upsertContent(next);
+    await saveWorkspaceNow();
+    toast.success(successMsg);
+  }
+  async function approveLinkPath(path: string) {
+    if (!project) return;
+    approveProjectInternalPath(project.id, path);
+    await saveWorkspaceNow();
+    toast.success(`Approved ${path} — it will now publish as a link.`);
+  }
+  const replaceLink = (oldPath: string, newPath: string) =>
+    persistMarkdown(replaceLinkPath(f.markdown, oldPath, newPath), `Repointed to ${newPath}`);
+  const linkToText = (path: string) =>
+    persistMarkdown(linkPathToText(f.markdown, path), "Converted to plain text");
+  const removeLink = (path: string) =>
+    persistMarkdown(removeLinkByPath(f.markdown, path), "Removed the link and its text");
   const wpConfigured = Boolean(
     project?.wordpress?.siteUrl &&
     project?.wordpress?.username &&
@@ -387,7 +475,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   }, [fromStore?.updatedAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const exportText = (type: "md" | "html") => {
-    const body = type === "md" ? f.markdown : markdownToHtml(f.markdown);
+    const body = type === "md" ? f.markdown : markdownToHtml(f.markdown, renderOpts);
     const blob = new Blob([body], { type: type === "md" ? "text/markdown" : "text/html" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -572,9 +660,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               not: armed, sent to the site, failed, already live. */}
           <StageChip
             stage={editorStage}
-            detail={
-              live.scheduledPublishAt ? formatDateTime(live.scheduledPublishAt) : undefined
-            }
+            detail={live.scheduledPublishAt ? formatDateTime(live.scheduledPublishAt) : undefined}
           />
         </div>
         <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-foreground/80">
@@ -641,6 +727,21 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         </div>
       </div>
 
+      {/* Link-safety resolver — every unresolved internal link must be given one
+          explicit state before this article can be sent or published anywhere. */}
+      {hasUnresolvedLinks ? (
+        <div className="px-5 py-3 border-b border-border">
+          <LinkSafetyPanel
+            links={unresolvedLinks}
+            replaceOptions={activePaths}
+            onApprove={approveLinkPath}
+            onReplace={replaceLink}
+            onTextOnly={linkToText}
+            onRemove={removeLink}
+          />
+        </div>
+      ) : null}
+
       {/* Publishing v1 — send approved content to the connected website as a draft */}
       <div className="px-5 py-3 border-b border-border">
         {!publishConfigured ? (
@@ -653,13 +754,20 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         ) : (
           <div className="space-y-2.5">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <Button size="sm" variant="outline" onClick={openSend}>
+              <Button size="sm" variant="outline" onClick={openSend} disabled={hasUnresolvedLinks}>
                 <Send className="h-3.5 w-3.5" />
                 {live.publishStatus === "sent"
                   ? t("editor.publish.reSendToWebsite")
                   : t("editor.publish.sendToWebsite")}
               </Button>
               <PublishStatusBadge status={live.publishStatus} />
+              {hasUnresolvedLinks ? (
+                <span className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-500">
+                  <AlertTriangle className="h-3 w-3" />
+                  Resolve {unresolvedLinks.length} internal link
+                  {unresolvedLinks.length === 1 ? "" : "s"} above to send or publish.
+                </span>
+              ) : null}
               {live.publishPlatform === "wordpress" && live.wordpressPostId ? (
                 <span className="text-xs text-muted-foreground">
                   WordPress #{live.wordpressPostId} · {live.wordpressPostType}
@@ -700,7 +808,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 <Button
                   size="sm"
                   onClick={() => setLiveConfirmOpen(true)}
-                  disabled={!liveConfigured || publishingLive}
+                  disabled={!liveConfigured || publishingLive || hasUnresolvedLinks}
                 >
                   {publishingLive ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -811,7 +919,11 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               </div>
               {/* Picking a date is inert. Only this press arms anything, and its
                   label states the consequence in the user's own timezone. */}
-              <Button size="sm" onClick={armSchedule} disabled={!goLiveLocal || scheduling}>
+              <Button
+                size="sm"
+                onClick={armSchedule}
+                disabled={!goLiveLocal || scheduling || hasUnresolvedLinks}
+              >
                 {scheduling ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
@@ -1123,11 +1235,34 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
             </div>
             <div>
               <Label htmlFor={schemaId} className="text-xs">
-                Schema suggestions
+                Schema notes
               </Label>
+              <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+                {isWordPress || isShopify ? (
+                  <>
+                    When you publish to {isWordPress ? "WordPress" : "Shopify"}, Milo includes valid
+                    Article and FAQ structured data (schema.org JSON-LD) built from this
+                    article&apos;s title and the FAQ written into the body. Whether your site keeps
+                    inline structured data depends on your CMS setup (for example, a WordPress user
+                    without the <span className="font-mono">unfiltered_html</span> capability, or an
+                    SEO plugin that already outputs schema), so Milo can&apos;t confirm it was
+                    retained — check with Google&apos;s Rich Results Test after publishing. Even
+                    when retained, this makes the page <strong>eligible</strong> for rich results
+                    where it qualifies; it does not guarantee a rich result <strong>appears</strong>{" "}
+                    (the search engine decides that).
+                  </>
+                ) : (
+                  <>
+                    Structured data (schema.org JSON-LD) is generated for this article, but Milo
+                    does not yet send it to a custom endpoint — your connector would need to add it.
+                    Milo never guarantees a rich result appears; the search engine decides that.
+                  </>
+                )}{" "}
+                The notes below are for your own reference and are not published.
+              </p>
               <Textarea
                 id={schemaId}
-                rows={4}
+                rows={3}
                 className="mt-1.5 font-mono text-xs"
                 value={f.schemaSuggestions.join("\n")}
                 onChange={(e) =>
@@ -1139,9 +1274,24 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         </TabsContent>
 
         <TabsContent value="preview" className="py-5">
+          {/* Presentation only — the HTML comes from the canonical publish
+              converter (markdown.ts), so the STRUCTURE matches what publishes.
+              This <style> just makes the bare semantic tags readable here, the
+              way a customer's theme styles them on the live site. */}
+          <style>{PREVIEW_STYLE}</style>
+          {hasUnresolvedLinks ? (
+            <div className="mb-3 rounded-md border border-amber-500/40 bg-amber-500/5 px-4 py-3 text-xs text-foreground/80">
+              This is exactly how the article publishes. {unresolvedLinks.length} internal link
+              {unresolvedLinks.length === 1 ? "" : "s"} can&apos;t be confirmed to point to a real
+              page on your site, so {unresolvedLinks.length === 1 ? "it shows" : "they show"} as
+              plain text here and <strong>publishing is blocked</strong> until{" "}
+              {unresolvedLinks.length === 1 ? "it is" : "they are"} resolved. Use the link-safety
+              panel below the tabs to approve, replace, keep as text, or remove each one.
+            </div>
+          ) : null}
           <div
-            className="rounded-lg border border-border bg-background p-6 prose-preview"
-            dangerouslySetInnerHTML={{ __html: markdownToHtml(f.markdown) }}
+            className="milo-preview rounded-lg border border-border bg-background p-6"
+            dangerouslySetInnerHTML={{ __html: markdownToHtml(f.markdown, renderOpts) }}
           />
         </TabsContent>
       </Tabs>
@@ -1160,6 +1310,114 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           Updated {formatDateTime(f.updatedAt)}
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Repoint control — a plain select of the paths Milo can vouch for (verified +
+ * already-approved). Kept separate so choosing a target is one deliberate action
+ * and the control resets itself afterwards.
+ */
+function ReplaceControl({
+  options,
+  onReplace,
+}: {
+  options: string[];
+  onReplace: (to: string) => void;
+}) {
+  const id = useId();
+  return (
+    <select
+      id={id}
+      aria-label="Replace with a verified page"
+      className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground"
+      defaultValue=""
+      onChange={(e) => {
+        const to = e.target.value;
+        e.target.value = "";
+        if (to) onReplace(to);
+      }}
+    >
+      <option value="">Replace with…</option>
+      {options.map((o) => (
+        <option key={o} value={o}>
+          {o}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+/**
+ * Link-safety resolver (link-safety P0). Lists every UNRESOLVED internal link —
+ * anchor text, the path as written, the source section and why it's unresolved —
+ * and forces one explicit choice per link before the article can be sent or
+ * published: approve this exact URL, replace it with a verified page, keep the
+ * text without the link, or remove it. There is deliberately NO "approve all".
+ */
+function LinkSafetyPanel({
+  links,
+  replaceOptions,
+  onApprove,
+  onReplace,
+  onTextOnly,
+  onRemove,
+}: {
+  links: ClassifiedInternalLink[];
+  replaceOptions: string[];
+  onApprove: (path: string) => void;
+  onReplace: (oldPath: string, newPath: string) => void;
+  onTextOnly: (path: string) => void;
+  onRemove: (path: string) => void;
+}) {
+  return (
+    <div className="rounded-md border border-amber-500/40 bg-amber-500/5 px-4 py-3">
+      <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+        <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+        {links.length} unresolved internal link{links.length === 1 ? "" : "s"} — publishing is
+        blocked
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Each link below points to a path Milo can&apos;t confirm exists on your site. Nothing sends
+        or publishes — on any connector — until every one is resolved. Choose an action per link.
+      </p>
+      <ul className="mt-3 space-y-2.5">
+        {links.map((l, i) => (
+          <li
+            key={`${l.path}-${i}`}
+            className="rounded-md border border-border bg-background px-3 py-2 text-xs"
+          >
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="font-medium text-foreground">“{l.anchor}”</span>
+              <span className="font-mono text-foreground/70">{l.href}</span>
+              {l.section ? (
+                <span className="text-muted-foreground">
+                  in “<span className="text-foreground/80">{l.section}</span>”
+                </span>
+              ) : null}
+            </div>
+            <p className="mt-1 text-muted-foreground">{l.reason}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <Button size="sm" variant="outline" onClick={() => onApprove(l.path)}>
+                <Check className="h-3 w-3" /> Approve this URL
+              </Button>
+              {replaceOptions.length ? (
+                <ReplaceControl
+                  options={replaceOptions}
+                  onReplace={(to) => onReplace(l.path, to)}
+                />
+              ) : null}
+              <Button size="sm" variant="ghost" onClick={() => onTextOnly(l.path)}>
+                Keep as text
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => onRemove(l.path)}>
+                <Trash2 className="h-3 w-3" /> Remove
+              </Button>
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -1223,58 +1481,4 @@ function LivePublishStatusBadge({ status }: { status?: LivePublishStatus }) {
       {t(key)}
     </span>
   );
-}
-
-function markdownToHtml(md: string) {
-  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const lines = md.split("\n");
-  let html = "";
-  let inList = false;
-  for (const raw of lines) {
-    const line = raw;
-    const closeList = () => {
-      if (inList) {
-        html += "</ul>";
-        inList = false;
-      }
-    };
-    if (/^# /.test(line)) {
-      closeList();
-      html += `<h1>${esc(line.slice(2))}</h1>`;
-      continue;
-    }
-    if (/^## /.test(line)) {
-      closeList();
-      html += `<h2>${esc(line.slice(3))}</h2>`;
-      continue;
-    }
-    if (/^### /.test(line)) {
-      closeList();
-      html += `<h3>${esc(line.slice(4))}</h3>`;
-      continue;
-    }
-    if (/^[-*] /.test(line)) {
-      if (!inList) {
-        html += "<ul>";
-        inList = true;
-      }
-      html += `<li>${esc(line.slice(2))}</li>`;
-      continue;
-    }
-    closeList();
-    if (line.trim() === "") {
-      html += "";
-      continue;
-    }
-    html += `<p>${esc(line).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")}</p>`;
-  }
-  if (inList) html += "</ul>";
-  return `<div style="font-family:Inter,system-ui;color:var(--foreground);line-height:1.65"><style>
-    .prose-preview h1{font-family:Fraunces,serif;font-size:1.875rem;margin:0 0 .75rem;letter-spacing:-.015em}
-    .prose-preview h2{font-family:Fraunces,serif;font-size:1.35rem;margin:1.5rem 0 .5rem}
-    .prose-preview h3{font-family:Fraunces,serif;font-size:1.1rem;margin:1.25rem 0 .4rem}
-    .prose-preview p{margin:.5rem 0}
-    .prose-preview ul{padding-left:1.2rem;margin:.5rem 0}
-    .prose-preview li{margin:.2rem 0}
-  </style>${html}</div>`;
 }

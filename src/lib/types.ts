@@ -100,11 +100,7 @@ export type LivePublishStatus = "notPublished" | "published" | "failed";
  * `failed` for a human decision instead of risking a duplicate live post.
  */
 export type ScheduledPublishStatus =
-  | "pending"
-  | "publishing"
-  | "published"
-  | "failed"
-  | "cancelled";
+  "pending" | "publishing" | "published" | "failed" | "cancelled";
 
 /** One queued publish. Mirrors a `scheduled_publishes` row. */
 export interface ScheduledPublish {
@@ -220,6 +216,14 @@ export interface Project {
   livePublishEndpoint?: string;
   /** Workflow mode: draft only, manual publish-live, or auto-publish on Approve. */
   publishMode?: PublishMode;
+  /**
+   * Internal paths the user has explicitly approved as real pages on their site,
+   * so a relative in-body link to one publishes as an active link (link-safety
+   * P0). Normalised paths (e.g. "/services"). Lives in the project JSONB — no
+   * migration. The deterministic verified set (root + Milo-published) is derived,
+   * never stored here.
+   */
+  approvedInternalPaths?: string[];
   // ---- WordPress Connector v1 (all optional → existing projects keep loading) ----
   /** Which publishing connector this project uses (defaults to "custom"). */
   connectorType?: PublishingConnectorType;

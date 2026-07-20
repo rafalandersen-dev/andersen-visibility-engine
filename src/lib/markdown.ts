@@ -39,12 +39,152 @@ function stripImages(s: string): string {
   );
 }
 
+export interface MarkdownRenderOptions {
+  /**
+   * Paths known to resolve on the target site. A relative internal link is only
+   * published as an ACTIVE link when its path is in this set; otherwise the
+   * anchor text is kept but the unverified/invented link is dropped (P0.4).
+   * Without a set, NO relative internal link is active — Milo cannot confirm an
+   * internal path resolves without a URL inventory, and must never publish an
+   * invented internal URL. External absolute URLs are unaffected.
+   */
+  knownInternalPaths?: Set<string>;
+}
+
+/** Normalise an internal href to a comparable path (strip query/hash, trailing slash). */
+export function normalizeInternalPath(href: string): string {
+  const path = href.split(/[?#]/)[0].replace(/\/+$/, "");
+  return path === "" ? "/" : path;
+}
+
+// A relative internal link `[text](/path)` — the leading `(?<!!)` excludes
+// images `![alt](/x)`, which are not links.
+const INTERNAL_LINK_RE = /(?<!!)\[([^\]]+)\]\((\/[^)\s]+)\)/g;
+
+/**
+ * The relative internal links written into a markdown body, as normalised paths.
+ */
+export function extractInternalLinkPaths(md: string): string[] {
+  const paths = new Set<string>();
+  const re = new RegExp(INTERNAL_LINK_RE);
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(md || ""))) paths.add(normalizeInternalPath(m[2]));
+  return [...paths];
+}
+
+/** Which of a body's relative internal links are NOT in the active inventory. */
+export function unresolvedInternalLinks(md: string, active: Set<string>): string[] {
+  return extractInternalLinkPaths(md).filter((p) => !active.has(p));
+}
+
+/** True when the body contains a relative internal link outside the active set. */
+export function hasUnresolvedInternalLinks(md: string, active: Set<string>): boolean {
+  return unresolvedInternalLinks(md, active).length > 0;
+}
+
+export type InternalLinkState = "VERIFIED" | "USER_APPROVED" | "UNRESOLVED";
+
+export interface ClassifiedInternalLink {
+  anchor: string;
+  /** Normalised path. */
+  path: string;
+  /** The raw href as written in the markdown. */
+  href: string;
+  /** Nearest preceding heading (the source section), or "". */
+  section: string;
+  state: InternalLinkState;
+  reason: string;
+}
+
+/**
+ * Classify every relative internal link in the body into VERIFIED (in the known
+ * inventory), USER_APPROVED (in the project's approved list) or UNRESOLVED, with
+ * its anchor text and source section. Drives the editor's link-safety panel.
+ */
+export function classifyInternalLinks(
+  md: string,
+  verified: Set<string>,
+  approved: Set<string>,
+): ClassifiedInternalLink[] {
+  const lines = (md || "").replace(/\r\n/g, "\n").split("\n");
+  const out: ClassifiedInternalLink[] = [];
+  let section = "";
+  for (const line of lines) {
+    const h = line.trim().match(/^#{1,6}\s+(.*)$/);
+    if (h) {
+      section = h[1].trim();
+      continue;
+    }
+    const re = new RegExp(INTERNAL_LINK_RE);
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(line))) {
+      const anchor = m[1];
+      const href = m[2];
+      const path = normalizeInternalPath(href);
+      const state: InternalLinkState = verified.has(path)
+        ? "VERIFIED"
+        : approved.has(path)
+          ? "USER_APPROVED"
+          : "UNRESOLVED";
+      const reason =
+        state === "UNRESOLVED"
+          ? "Not a page Milo has published and not approved for this project."
+          : state === "VERIFIED"
+            ? "Matches a known page on your site."
+            : "You approved this path.";
+      out.push({ anchor, path, href, section, state, reason });
+    }
+  }
+  return out;
+}
+
+function rewriteLinksByPath(
+  md: string,
+  targetPath: string,
+  build: (anchor: string, href: string) => string,
+): string {
+  const target = normalizeInternalPath(targetPath);
+  return (md || "").replace(INTERNAL_LINK_RE, (whole, anchor: string, href: string) =>
+    normalizeInternalPath(href) === target ? build(anchor, href) : whole,
+  );
+}
+
+/** Convert every link to `path` into plain anchor text (keep text, drop link). */
+export function linkPathToText(md: string, path: string): string {
+  return rewriteLinksByPath(md, path, (anchor) => anchor);
+}
+
+/** Remove every link to `path` entirely (text included). */
+export function removeLinkByPath(md: string, path: string): string {
+  return rewriteLinksByPath(md, path, () => "");
+}
+
+/** Repoint every link from `oldPath` to `newPath`. */
+export function replaceLinkPath(md: string, oldPath: string, newPath: string): string {
+  return rewriteLinksByPath(md, oldPath, (anchor) => `[${anchor}](${newPath})`);
+}
+
 /** Inline formatting: links, bold, italic — applied to already-escaped text. */
-function inline(s: string): string {
+function inline(s: string, opts?: MarkdownRenderOptions): string {
   return stripImages(s)
     .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_m, text: string, href: string) => {
-      const safe = /^https?:\/\/|^\//.test(href) ? href : "#";
-      return `<a href="${safe.replace(/"/g, "%22")}">${text}</a>`;
+      // External absolute URL — an explicit destination; keep as an active link.
+      if (/^https?:\/\//.test(href)) {
+        return `<a href="${href.replace(/"/g, "%22")}">${text}</a>`;
+      }
+      // Relative internal link — publish as active ONLY if it resolves against the
+      // ACTIVE inventory (verified paths ∪ user-approved paths). Otherwise keep the
+      // text and drop the link. This is a backstop: publishing is BLOCKED upstream
+      // while any unresolved link remains, so at publish time nothing is stripped.
+      if (/^\//.test(href)) {
+        if (opts?.knownInternalPaths?.has(normalizeInternalPath(href))) {
+          return `<a href="${href.replace(/"/g, "%22")}">${text}</a>`;
+        }
+        return text;
+      }
+      // Unsafe/other scheme (mailto:, javascript:, protocol-relative, bare word)
+      // — drop the link, keep the text.
+      return text;
     })
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, "$1<em>$2</em>");
@@ -71,15 +211,16 @@ function isTableSeparator(line: string): boolean {
   return cells.length > 0 && cells.every((c) => /^:?-{1,}:?$/.test(c));
 }
 
-export function markdownToHtml(md: string): string {
+export function markdownToHtml(md: string, opts?: MarkdownRenderOptions): string {
   const lines = (md || "").replace(/\r\n/g, "\n").split("\n");
   const out: string[] = [];
+  const inl = (x: string) => inline(x, opts);
   let listType: "ul" | "ol" | null = null;
   let para: string[] = [];
 
   const flushPara = () => {
     if (para.length) {
-      out.push(`<p>${inline(escapeHtml(para.join(" ").trim()))}</p>`);
+      out.push(`<p>${inl(escapeHtml(para.join(" ").trim()))}</p>`);
       para = [];
     }
   };
@@ -113,7 +254,7 @@ export function markdownToHtml(md: string): string {
         if (!row || !row.includes("|")) break;
         body.push(tableCells(row));
       }
-      const cell = (c: string) => inline(escapeHtml(c));
+      const cell = (c: string) => inl(escapeHtml(c));
       // Width comes from the WIDEST row, not the header: trimming to the header
       // silently dropped columns a model had written into the body.
       const width = Math.max(headers.length, ...body.map((r) => r.length));
@@ -145,7 +286,7 @@ export function markdownToHtml(md: string): string {
       flushPara();
       closeList();
       const level = Math.min(6, h[1].length);
-      out.push(`<h${level}>${inline(escapeHtml(h[2].trim()))}</h${level}>`);
+      out.push(`<h${level}>${inl(escapeHtml(h[2].trim()))}</h${level}>`);
       continue;
     }
 
@@ -157,7 +298,7 @@ export function markdownToHtml(md: string): string {
         out.push("<ul>");
         listType = "ul";
       }
-      out.push(`<li>${inline(escapeHtml(ul[1].trim()))}</li>`);
+      out.push(`<li>${inl(escapeHtml(ul[1].trim()))}</li>`);
       continue;
     }
 
@@ -169,7 +310,7 @@ export function markdownToHtml(md: string): string {
         out.push("<ol>");
         listType = "ol";
       }
-      out.push(`<li>${inline(escapeHtml(ol[1].trim()))}</li>`);
+      out.push(`<li>${inl(escapeHtml(ol[1].trim()))}</li>`);
       continue;
     }
 

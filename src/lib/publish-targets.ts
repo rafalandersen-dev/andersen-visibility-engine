@@ -13,6 +13,89 @@
  * No I/O, no store access — only (asset, project) → arguments.
  */
 import type { ContentAsset, Project, PublishMode } from "./types";
+import { contentJsonLdScript } from "./structured-data";
+import { normalizeInternalPath, unresolvedInternalLinks } from "./markdown";
+
+/**
+ * A deterministic, non-paid inventory of internal paths KNOWN to exist on the
+ * project's site: the site root, and the paths of this project's own
+ * Milo-published articles (we published them, so they resolve). A relative
+ * internal link is only published as an active link when its path is in here
+ * (P0.4); anything else is unverified and must not publish as a live link. This
+ * is the lightweight inventory — a full site inventory (sitemap crawl) is P1.
+ */
+export function buildKnownInternalPaths(project: Project, content: ContentAsset[]): string[] {
+  const paths = new Set<string>();
+  const site = (project.websiteUrl || "").trim();
+  let origin = "";
+  if (site) {
+    try {
+      const u = new URL(/^https?:\/\//i.test(site) ? site : `https://${site}`);
+      origin = u.origin;
+      paths.add("/");
+    } catch {
+      /* ignore an unparseable site URL */
+    }
+  }
+  for (const asset of content) {
+    const live = (asset.liveUrl || "").trim();
+    if (!live) continue;
+    try {
+      const u = new URL(live);
+      if (!origin || u.origin === origin) paths.add(normalizeInternalPath(u.pathname));
+    } catch {
+      /* ignore an unparseable live URL */
+    }
+  }
+  return [...paths];
+}
+
+/**
+ * The ACTIVE internal-path set = deterministic VERIFIED paths (root +
+ * Milo-published) ∪ the user's explicitly-approved paths. A relative in-body link
+ * publishes as an active link only if its path is in here (link-safety P0). This
+ * is what every publish/preview call site passes to the converter.
+ */
+export function buildActiveInternalPaths(project: Project, content: ContentAsset[]): string[] {
+  return [
+    ...new Set([
+      ...buildKnownInternalPaths(project, content),
+      ...(project.approvedInternalPaths ?? []).map(normalizeInternalPath),
+    ]),
+  ];
+}
+
+/**
+ * The unresolved internal links in an asset's body — links that are neither
+ * verified nor user-approved. Publishing MUST be refused while this is non-empty
+ * (link-safety P0), on every connector including the custom endpoint.
+ */
+export function unresolvedLinksForPublish(
+  asset: ContentAsset,
+  project: Project,
+  content: ContentAsset[],
+): string[] {
+  return unresolvedInternalLinks(
+    asset.markdown ?? "",
+    new Set(buildActiveInternalPaths(project, content)),
+  );
+}
+
+/**
+ * Deterministic Article + FAQPage JSON-LD for an asset, built from the VISIBLE
+ * published content (title/meta + FAQ present in the body). Injected at publish
+ * (P0.5). Empty string when there's nothing to emit.
+ */
+export function contentStructuredData(asset: ContentAsset, project: Project): string {
+  return contentJsonLdScript({
+    title: asset.title,
+    description: asset.metaDescription ?? "",
+    bodyMarkdown: asset.markdown ?? "",
+    businessName: project.businessName || project.name,
+    url: asset.liveUrl,
+    datePublished: asset.livePublishedAt,
+  });
+}
 
 export function isWordPress(project: Project): boolean {
   return project.connectorType === "wordpress";
@@ -58,7 +141,11 @@ export function shopifyCreds(project: Project): { shopDomain: string; adminAcces
   return { shopDomain, adminAccessToken };
 }
 
-export function shopifyArticleArgs(asset: ContentAsset, project: Project) {
+export function shopifyArticleArgs(
+  asset: ContentAsset,
+  project: Project,
+  knownInternalPaths: string[] = [],
+) {
   const sh = project.shopify ?? {};
   return {
     ...shopifyCreds(project),
@@ -67,6 +154,8 @@ export function shopifyArticleArgs(asset: ContentAsset, project: Project) {
     articleGid: asset.shopifyArticleGid,
     title: asset.title,
     contentMarkdown: asset.markdown,
+    jsonLd: contentStructuredData(asset, project),
+    knownInternalPaths,
     handle: asset.slug || "",
     summary: asset.metaDescription ?? "",
     tags: sh.defaultTags ?? [],
@@ -74,13 +163,19 @@ export function shopifyArticleArgs(asset: ContentAsset, project: Project) {
   };
 }
 
-export function wpPublishArgs(asset: ContentAsset, project: Project) {
+export function wpPublishArgs(
+  asset: ContentAsset,
+  project: Project,
+  knownInternalPaths: string[] = [],
+) {
   return {
     ...wpCreds(project),
     postType: wpPostTypeFor(asset, project),
     postId: asset.wordpressPostId,
     title: asset.title,
     contentMarkdown: asset.markdown,
+    jsonLd: contentStructuredData(asset, project),
+    knownInternalPaths,
     slug: (asset.publishSlug || asset.slug || "").trim(),
     excerpt: asset.metaDescription ?? "",
   };

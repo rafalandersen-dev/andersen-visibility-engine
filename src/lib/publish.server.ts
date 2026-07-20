@@ -16,7 +16,14 @@ import { mutateWorkspace, type WorkspaceData } from "./workspace.server";
 import { publishDraftDirect, publishLiveDirect } from "./publish.functions";
 import { publishWordPressLiveDirect } from "./wordpress.functions";
 import { upsertArticle } from "./shopify.functions";
-import { isShopify, isWordPress, shopifyArticleArgs, wpPublishArgs } from "./publish-targets";
+import {
+  buildActiveInternalPaths,
+  isShopify,
+  isWordPress,
+  shopifyArticleArgs,
+  wpPublishArgs,
+} from "./publish-targets";
+import { unresolvedInternalLinks } from "./markdown";
 import {
   applyAssetPatch,
   applyPublishSuccess,
@@ -49,11 +56,26 @@ async function runConnectorPublish(
   asset: ContentAsset,
   project: Project,
   userId: string,
+  knownInternalPaths: string[] = [],
 ): Promise<{ result: ServerPublishResult; assetPatch: Partial<ContentAsset> }> {
   const publishedAt = new Date().toISOString();
 
+  // Link-safety gate for EVERY connector, including the custom endpoint (which
+  // sends raw markdown downstream and so never passes through markdownToHtml).
+  // An unresolved internal link is a permanent condition until the author fixes
+  // it in the editor — retrying on a timer would never resolve it — so this is a
+  // PublishNotPossibleError, which the runner parks rather than requeues.
+  const unresolved = unresolvedInternalLinks(asset.markdown ?? "", new Set(knownInternalPaths));
+  if (unresolved.length) {
+    throw new PublishNotPossibleError(
+      `This article has ${unresolved.length} unverified internal link${
+        unresolved.length === 1 ? "" : "s"
+      } (${unresolved.join(", ")}). Resolve them in the editor before publishing.`,
+    );
+  }
+
   if (isWordPress(project)) {
-    const res = await publishWordPressLiveDirect(wpPublishArgs(asset, project));
+    const res = await publishWordPressLiveDirect(wpPublishArgs(asset, project, knownInternalPaths));
     if (!res.success) {
       // Retry only when the connector proved nothing was created.
       throw new PublishTransportError(
@@ -86,7 +108,7 @@ async function runConnectorPublish(
   }
 
   if (isShopify(project)) {
-    const res = await upsertArticle(shopifyArticleArgs(asset, project), true);
+    const res = await upsertArticle(shopifyArticleArgs(asset, project, knownInternalPaths), true);
     if (!res.success) {
       throw new PublishTransportError(
         res.error || "Shopify could not publish the article.",
@@ -246,7 +268,11 @@ export async function publishAssetServerSide(
         assetPatch: {} as Partial<ContentAsset>,
       };
     }
-    return runConnectorPublish(asset, project, userId);
+    const activeInternalPaths = buildActiveInternalPaths(
+      project,
+      (row.data.content as ContentAsset[]).filter((c) => c.projectId === project.id),
+    );
+    return runConnectorPublish(asset, project, userId, activeInternalPaths);
   })();
 
   // 2. Record the outcome under the rev guard (retries on a lost race).

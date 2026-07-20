@@ -18,6 +18,7 @@
  */
 import { useRef, useSyncExternalStore } from "react";
 import { linkedAssetFor } from "./pipeline";
+import { normalizeInternalPath } from "./markdown";
 import type {
   Project,
   ServiceItem,
@@ -527,6 +528,26 @@ export const updateProject = (id: string, patch: Partial<Project>) =>
     ...s,
     projects: s.projects.map((p) => (p.id === id ? { ...p, ...patch } : p)),
   }));
+
+/**
+ * Record that the user has explicitly approved one exact internal path for a
+ * project (link-safety USER_APPROVED state). Stored in the project JSONB as
+ * `approvedInternalPaths` — no migration. Deliberately per-path: there is no
+ * "approve all" action, and an already-approved path is a no-op.
+ */
+export const approveProjectInternalPath = (projectId: string, path: string) => {
+  const normalized = normalizeInternalPath(path);
+  if (!normalized.startsWith("/")) return;
+  setState((s) => ({
+    ...s,
+    projects: s.projects.map((p) => {
+      if (p.id !== projectId) return p;
+      const current = p.approvedInternalPaths ?? [];
+      if (current.includes(normalized)) return p;
+      return { ...p, approvedInternalPaths: [...current, normalized] };
+    }),
+  }));
+};
 
 export const addService = (item: Omit<ServiceItem, "id">) =>
   setState((s) => ({ ...s, services: [...s.services, { ...item, id: uid() }] }));

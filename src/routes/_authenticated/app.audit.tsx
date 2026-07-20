@@ -16,10 +16,11 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/_authenticated/app/audit")({
   head: () => ({
     meta: [
-      { title: "Site Audit — Milo Growth" },
+      { title: "On-page Review — Milo Growth" },
       {
         name: "description",
-        content: "Analyze your website and turn visibility gaps into growth opportunities.",
+        content:
+          "Review your homepage and business details, and turn on-page gaps into growth opportunities. Not a full technical crawl.",
       },
     ],
   }),
@@ -51,7 +52,9 @@ function AuditPage() {
     (audit?.findings ?? []).forEach((f) => {
       map.set(f.category, [...(map.get(f.category) ?? []), f]);
     });
-    return CATEGORY_ORDER.map((c) => [c, map.get(c) ?? []] as const).filter(([, list]) => list.length);
+    return CATEGORY_ORDER.map((c) => [c, map.get(c) ?? []] as const).filter(
+      ([, list]) => list.length,
+    );
   }, [audit]);
 
   const remainingTopFixes = useMemo(
@@ -96,7 +99,9 @@ function AuditPage() {
     setBulkBusy(true);
     try {
       const opps = await createOpportunitiesFromTopFixes(activeProjectId);
-      toast.success(`Created ${opps.length} ${opps.length === 1 ? "opportunity" : "opportunities"} from top fixes`);
+      toast.success(
+        `Created ${opps.length} ${opps.length === 1 ? "opportunity" : "opportunities"} from top fixes`,
+      );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not create opportunities");
     } finally {
@@ -128,14 +133,17 @@ function AuditPage() {
 
   return (
     <AppShell
-      title="Site Audit"
-      description="Find what your website is missing and turn fixes into growth opportunities."
+      title="On-page Review"
+      description="A review of your homepage and business details — not a full technical crawl. Turns on-page gaps into growth opportunities."
     >
       {/* Input card */}
       <div className="rounded-lg border border-border bg-card p-5 mb-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="flex-1">
-            <label htmlFor="audit-url" className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+            <label
+              htmlFor="audit-url"
+              className="text-xs uppercase tracking-[0.16em] text-muted-foreground"
+            >
               Website URL
             </label>
             <Input
@@ -147,9 +155,11 @@ function AuditPage() {
               disabled={running}
             />
             <p className="mt-1.5 text-xs text-muted-foreground">
-              Auditing <span className="text-foreground/80">{project.businessName || project.name}</span>
+              Reviewing{" "}
+              <span className="text-foreground/80">{project.businessName || project.name}</span>
               {project.mainLocation ? ` · ${project.mainLocation}` : ""}. We read your homepage when
-              possible; otherwise the audit uses your project details.
+              it returns readable content; otherwise this review reflects your business details, not
+              a read of your live site. It is not a full technical crawl.
             </p>
           </div>
           <Button onClick={runAudit} disabled={running}>
@@ -160,7 +170,7 @@ function AuditPage() {
             ) : (
               <Gauge className="h-4 w-4" />
             )}
-            {running ? "Running audit…" : audit ? "Re-run audit" : "Run audit"}
+            {running ? "Running review…" : audit ? "Re-run review" : "Run review"}
           </Button>
         </div>
       </div>
@@ -181,11 +191,12 @@ function AuditPage() {
       {!audit && !error ? (
         <div className="rounded-lg border border-dashed border-border p-12 text-center">
           <Sparkles className="mx-auto h-8 w-8 text-gold/70" strokeWidth={1.4} />
-          <div className="mt-3 font-display text-lg">Run your first Site Audit</div>
+          <div className="mt-3 font-display text-lg">Run your first on-page review</div>
           <p className="mt-1 text-sm text-muted-foreground max-w-lg mx-auto">
-            Milo checks your business clarity, SEO basics, local visibility, AI-search readiness and
-            conversion & trust — then hands you prioritized fixes you can turn into content
-            opportunities in one click.
+            Milo reviews your homepage and business details across business clarity, SEO basics,
+            local visibility, AI-search readiness and conversion & trust — then hands you
+            prioritized fixes you can turn into content opportunities. This is a homepage + inputs
+            review, not a full technical crawl of every page.
           </p>
         </div>
       ) : null}
@@ -193,20 +204,66 @@ function AuditPage() {
       {/* Results */}
       {audit && !error ? (
         <div className="space-y-8">
-          {!audit.fetchedWebsite && audit.note ? (
-            <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-foreground/80 flex items-start gap-2">
-              <AlertTriangle className="h-4 w-4 mt-0.5 text-amber-500 shrink-0" />
-              <span>{audit.note}</span>
+          {/* Provenance: distinguish MEASURED (read from your homepage) from
+              INFERRED advice (site not read). A failed/partial fetch must never
+              present its scores as a confident measurement. */}
+          {audit.fetchedWebsite ? (
+            <div className="flex items-start gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-4 py-2.5 text-xs text-foreground/75">
+              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
+              <span>
+                Read the content at your homepage URL — this review is based on the text we could
+                read there plus your business details. The scores are an assessment, not measured
+                technical metrics, and this is a homepage read, not a full-site crawl.
+              </span>
             </div>
-          ) : null}
+          ) : (
+            <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-foreground/80">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+              <span>
+                {audit.note ||
+                  "We couldn't read your live site, so this review reflects your business details."}{" "}
+                <strong className="font-medium">The scores below are indicative</strong> — based on
+                your inputs, not a measurement of your live site.
+              </span>
+            </div>
+          )}
 
-          {/* Score cards */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <ScoreCard label="Overall" score={audit.overallScore} primary />
-            <ScoreCard label="SEO" score={audit.seoScore} />
-            <ScoreCard label="Local" score={audit.localScore} />
-            <ScoreCard label="AI Readiness" score={audit.aiReadinessScore} />
-            <ScoreCard label="Conversion" score={audit.conversionScore} />
+          {/* Score cards — clearly badged indicative when the site was not read. */}
+          <div>
+            {!audit.fetchedWebsite ? (
+              <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-600/90">
+                Indicative · site not read
+              </div>
+            ) : null}
+            <div
+              className={
+                "grid grid-cols-2 gap-4 md:grid-cols-5 " +
+                (!audit.fetchedWebsite ? "opacity-70" : "")
+              }
+            >
+              <ScoreCard
+                label="Overall"
+                score={audit.overallScore}
+                primary
+                indicative={!audit.fetchedWebsite}
+              />
+              <ScoreCard label="SEO" score={audit.seoScore} indicative={!audit.fetchedWebsite} />
+              <ScoreCard
+                label="Local"
+                score={audit.localScore}
+                indicative={!audit.fetchedWebsite}
+              />
+              <ScoreCard
+                label="AI Readiness"
+                score={audit.aiReadinessScore}
+                indicative={!audit.fetchedWebsite}
+              />
+              <ScoreCard
+                label="Conversion"
+                score={audit.conversionScore}
+                indicative={!audit.fetchedWebsite}
+              />
+            </div>
           </div>
 
           {audit.summary ? (
@@ -223,8 +280,16 @@ function AuditPage() {
                   </div>
                   <h2 className="font-display text-lg">Top fixes</h2>
                 </div>
-                <Button size="sm" onClick={convertTopFixes} disabled={bulkBusy || remainingTopFixes === 0}>
-                  {bulkBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                <Button
+                  size="sm"
+                  onClick={convertTopFixes}
+                  disabled={bulkBusy || remainingTopFixes === 0}
+                >
+                  {bulkBusy ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Plus className="h-3.5 w-3.5" />
+                  )}
                   Create opportunities from top fixes
                 </Button>
               </div>
@@ -257,9 +322,14 @@ function AuditPage() {
                   {list.map((f) => {
                     const converted = audit.convertedFindingIds.includes(f.id);
                     return (
-                      <article key={f.id} className="rounded-lg border border-border bg-card p-5 flex flex-col">
+                      <article
+                        key={f.id}
+                        className="rounded-lg border border-border bg-card p-5 flex flex-col"
+                      >
                         <div className="flex items-start justify-between gap-3">
-                          <h3 className="font-display text-base leading-snug text-foreground">{f.title}</h3>
+                          <h3 className="font-display text-base leading-snug text-foreground">
+                            {f.title}
+                          </h3>
                           <SeverityBadge severity={f.severity} />
                         </div>
                         <p className="mt-2 text-sm text-muted-foreground">{f.explanation}</p>
@@ -282,7 +352,12 @@ function AuditPage() {
                         </div>
                         <div className="mt-4 pt-4 border-t border-border">
                           {converted ? (
-                            <Button size="sm" variant="ghost" disabled className="text-muted-foreground">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled
+                              className="text-muted-foreground"
+                            >
                               <Check className="h-3.5 w-3.5" /> Opportunity created
                             </Button>
                           ) : (
@@ -323,16 +398,36 @@ function AuditPage() {
   );
 }
 
-function ScoreCard({ label, score, primary }: { label: string; score: number; primary?: boolean }) {
+function ScoreCard({
+  label,
+  score,
+  primary,
+  indicative,
+}: {
+  label: string;
+  score: number;
+  primary?: boolean;
+  indicative?: boolean;
+}) {
   return (
-    <div className={"rounded-lg border bg-card p-4 " + (primary ? "border-accent/40" : "border-border")}>
-      <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
+    <div
+      className={
+        "rounded-lg border bg-card p-4 " + (primary ? "border-accent/40" : "border-border")
+      }
+    >
+      <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+        {label}
+        {indicative ? <span className="ml-1 text-amber-600/80">est.</span> : null}
+      </div>
       <div className="mt-1.5 font-display text-3xl text-foreground">
         {score}
         <span className="text-base text-muted-foreground">/100</span>
       </div>
       <div className="mt-2 h-1.5 rounded-full bg-secondary overflow-hidden">
-        <div className="h-full bg-gold/80 transition-all" style={{ width: `${Math.max(0, Math.min(100, score))}%` }} />
+        <div
+          className="h-full bg-gold/80 transition-all"
+          style={{ width: `${Math.max(0, Math.min(100, score))}%` }}
+        />
       </div>
     </div>
   );
@@ -346,13 +441,21 @@ function SeverityBadge({ severity }: { severity: "High" | "Medium" | "Low" }) {
         ? "bg-secondary border-border text-secondary-foreground"
         : "bg-muted border-border text-muted-foreground";
   return (
-    <span className={`shrink-0 text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full border ${cls}`}>
+    <span
+      className={`shrink-0 text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full border ${cls}`}
+    >
       {severity}
     </span>
   );
 }
 
-function Tag({ children, tone = "default" }: { children: React.ReactNode; tone?: "default" | "gold" | "muted" }) {
+function Tag({
+  children,
+  tone = "default",
+}: {
+  children: React.ReactNode;
+  tone?: "default" | "gold" | "muted";
+}) {
   const cls =
     tone === "gold"
       ? "bg-accent/30 border-accent/40 text-accent-foreground"
@@ -360,7 +463,9 @@ function Tag({ children, tone = "default" }: { children: React.ReactNode; tone?:
         ? "bg-muted text-muted-foreground border-border"
         : "bg-secondary border-border text-secondary-foreground";
   return (
-    <span className={`text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full border ${cls}`}>
+    <span
+      className={`text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full border ${cls}`}
+    >
       {children}
     </span>
   );

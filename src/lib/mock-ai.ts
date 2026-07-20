@@ -53,6 +53,9 @@ import {
   wpPostTypeFor,
   shopifyCreds,
   shopifyArticleArgs,
+  buildActiveInternalPaths,
+  unresolvedLinksForPublish,
+  contentStructuredData,
 } from "./publish-targets";
 import type {
   Opportunity,
@@ -415,6 +418,11 @@ export async function evaluateContentQuality(contentAssetId: string) {
     );
     const explanationLanguage = contentLangToProjectLanguage(project.appLanguage ?? "en");
 
+    // P0.2 — the evaluator receives ONLY the canonical evaluated asset
+    // (CANONICAL_EVALUATED_FIELDS in quality.ts): title + markdown body + meta.
+    // It must NOT receive faq[]/cta/internalLinks[] — those side-fields do not
+    // publish, and grading them would award points for unpublished information.
+    // The FAQ/CTA/internal-link components are graded from the article body.
     const score = await evaluateContentQualityFn({
       data: {
         project,
@@ -1445,6 +1453,36 @@ export async function testWordPressConnection(projectId: string) {
   return res;
 }
 
+/** The project's deterministic internal-path inventory (Milo-published + root). */
+function knownPathsForProject(project: Project): string[] {
+  return buildActiveInternalPaths(
+    project,
+    getState().content.filter((c) => c.projectId === project.id),
+  );
+}
+
+/**
+ * Refuse to send OR publish while any in-body internal link is unresolved
+ * (neither verified nor user-approved). The editor blocks the buttons, but the
+ * store path must refuse too so nothing publishes an invented/unknown link —
+ * across all three connectors, drafts included. Mirrors the connector-level
+ * guards in wordpress/shopify.functions.ts and publish.server.ts.
+ */
+function assertNoUnresolvedLinks(asset: ContentAsset, project: Project): void {
+  const unresolved = unresolvedLinksForPublish(
+    asset,
+    project,
+    getState().content.filter((c) => c.projectId === project.id),
+  );
+  if (unresolved.length) {
+    throw new Error(
+      `This article has ${unresolved.length} unverified internal link${
+        unresolved.length === 1 ? "" : "s"
+      } (${unresolved.join(", ")}). Resolve them in the editor before publishing.`,
+    );
+  }
+}
+
 async function sendToWordPressDraft(asset: ContentAsset, project: Project, slug: string) {
   const creds = wpCreds(project);
   const postType = wpPostTypeFor(asset, project);
@@ -1455,6 +1493,10 @@ async function sendToWordPressDraft(asset: ContentAsset, project: Project, slug:
       postId: asset.wordpressPostId,
       title: asset.title,
       contentMarkdown: asset.markdown,
+      // Manual == scheduled: emit the same structured data (B2) and resolve
+      // internal links against the same inventory (B1) as the cron path.
+      jsonLd: contentStructuredData(asset, project),
+      knownInternalPaths: knownPathsForProject(project),
       slug: (slug || asset.slug || "").trim(),
       excerpt: asset.metaDescription ?? "",
     },
@@ -1490,6 +1532,10 @@ async function publishToWordPressLive(asset: ContentAsset, project: Project) {
       postId: asset.wordpressPostId,
       title: asset.title,
       contentMarkdown: asset.markdown,
+      // Manual == scheduled: emit the same structured data (B2) and resolve
+      // internal links against the same inventory (B1) as the cron path.
+      jsonLd: contentStructuredData(asset, project),
+      knownInternalPaths: knownPathsForProject(project),
       slug: (asset.publishSlug || asset.slug || "").trim(),
       excerpt: asset.metaDescription ?? "",
     },
@@ -1545,7 +1591,9 @@ export async function listShopifyBlogs(projectId: string) {
 }
 
 async function sendToShopifyDraft(asset: ContentAsset, project: Project) {
-  const res = await sendContentToShopifyDraftFn({ data: shopifyArticleArgs(asset, project) });
+  const res = await sendContentToShopifyDraftFn({
+    data: shopifyArticleArgs(asset, project, knownPathsForProject(project)),
+  });
   if (!res.success) {
     const msg = res.error || "Shopify article failed. Please try again.";
     markContentAssetPublishFailed(asset.id, msg, new Date().toISOString());
@@ -1574,7 +1622,9 @@ async function sendToShopifyDraft(asset: ContentAsset, project: Project) {
 }
 
 async function publishToShopifyLive(asset: ContentAsset, project: Project) {
-  const res = await publishShopifyContentFn({ data: shopifyArticleArgs(asset, project) });
+  const res = await publishShopifyContentFn({
+    data: shopifyArticleArgs(asset, project, knownPathsForProject(project)),
+  });
   if (!res.success || !res.liveUrl) {
     const msg = res.error || "Shopify published but did not return a live URL.";
     markContentAssetLivePublishFailed(asset.id, msg, new Date().toISOString());
@@ -1621,6 +1671,7 @@ export async function sendContentToWebsite(
     if (!asset) throw new Error("Content asset not found.");
     const project = s.projects.find((p) => p.id === asset.projectId);
     if (!project) throw new Error("Project not found.");
+    assertNoUnresolvedLinks(asset, project);
 
     // WordPress connector branch — create/update a WordPress draft.
     if (isWordPress(project)) {
@@ -1691,6 +1742,7 @@ export async function publishContentLive(assetId: string) {
     if (!asset) throw new Error("Content asset not found.");
     const project = s.projects.find((p) => p.id === asset.projectId);
     if (!project) throw new Error("Project not found.");
+    assertNoUnresolvedLinks(asset, project);
 
     // WordPress connector branch — publish/update the post live (create if needed).
     if (isWordPress(project)) {

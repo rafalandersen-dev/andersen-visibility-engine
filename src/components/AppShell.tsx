@@ -70,10 +70,10 @@ const NAV = [
     children: [
       { label: "Plan workspace", to: "/app/plan", icon: ListBullets },
       { label: "Discover", to: "/app/plan", search: { view: "discover" }, icon: Binoculars },
-      { label: "Site audit", to: "/app/audit", icon: Gauge },
+      { label: "On-page review", to: "/app/audit", icon: Gauge },
       { label: "Competitors", to: "/app/competitors", icon: UsersThree },
       { label: "Authority", to: "/app/authority", icon: Medal },
-      { label: "AI visibility", to: "/app/ai-visibility", icon: Binoculars },
+      { label: "AI readiness", to: "/app/ai-visibility", icon: Binoculars },
       { label: "Proposals", to: "/app/actions", icon: Tray, pendingBadge: true },
     ],
   },

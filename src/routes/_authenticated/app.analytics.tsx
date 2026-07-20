@@ -192,7 +192,12 @@ function AnalyticsPage() {
               <TrendBars data={data.dailyTrend} />
               <div className="mt-5 grid gap-3 border-t border-border pt-5 sm:grid-cols-3">
                 <MiniMetric label="Milo page views" value={data.growthSummary.miloPageViews} />
-                <MiniMetric label="AI signals" value={data.growthSummary.aiSignalsLast30} />
+                <MiniMetric
+                  label="AI referral visits"
+                  value={data.aiSignals
+                    .filter((s) => s.type === "ai_referrer")
+                    .reduce((n, s) => n + s.count, 0)}
+                />
                 <MiniMetric
                   label="Best page views"
                   value={data.growthSummary.bestPerformingPage?.views ?? "—"}

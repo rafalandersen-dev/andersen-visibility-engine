@@ -12,13 +12,27 @@ import {
   classifyHttpFailure,
   PublishTransportError,
 } from "./publish-outcome";
-import { markdownToHtml, slugifyForPublish } from "./markdown";
+import { markdownToHtml, slugifyForPublish, unresolvedInternalLinks } from "./markdown";
 import type { WordPressPublishResult } from "./types";
+
+/** Refuse to publish while any in-body internal link is unresolved (link-safety P0). */
+function assertResolvedLinks(contentMarkdown: string, knownInternalPaths: string[]): void {
+  const unresolved = unresolvedInternalLinks(contentMarkdown, new Set(knownInternalPaths));
+  if (unresolved.length) {
+    throw new PublishTransportError(
+      `This article has ${unresolved.length} unverified internal link${
+        unresolved.length === 1 ? "" : "s"
+      } (${unresolved.join(", ")}). Resolve them in the editor before publishing.`,
+      false,
+    );
+  }
+}
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   Boolean(v) && typeof v === "object" && !Array.isArray(v);
 const asString = (v: unknown): string => (typeof v === "string" ? v : "");
-const asNumber = (v: unknown): number | undefined => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
+const asNumber = (v: unknown): number | undefined =>
+  typeof v === "number" && Number.isFinite(v) ? v : undefined;
 
 /** UTF-8 safe base64 (works in worker/edge runtimes without Buffer). */
 function b64(s: string): string {
@@ -45,7 +59,8 @@ function wpBase(siteUrl: string): URL {
   return parsed;
 }
 
-const FRIENDLY_CONNECT = "Could not connect to WordPress. Check the site URL and application password.";
+const FRIENDLY_CONNECT =
+  "Could not connect to WordPress. Check the site URL and application password.";
 
 /** Make an authenticated WordPress REST request. Never logs credentials. */
 async function wpRequest(
@@ -81,7 +96,12 @@ async function wpRequest(
     clearTimeout(timer);
   }
 
-  console.info("[wordpress.functions] request", { host: base.host, path, method, status: res.status });
+  console.info("[wordpress.functions] request", {
+    host: base.host,
+    path,
+    method,
+    status: res.status,
+  });
 
   const raw = await res.text().catch(() => "");
   let parsed: unknown;
@@ -116,12 +136,20 @@ async function wpRequest(
 export const testWordPressConnectionFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z.object({ siteUrl: z.string(), username: z.string(), applicationPassword: z.string() }).parse(input),
+    z
+      .object({ siteUrl: z.string(), username: z.string(), applicationPassword: z.string() })
+      .parse(input),
   )
   .handler(async ({ data }): Promise<WordPressPublishResult> => {
     try {
       const base = wpBase(data.siteUrl);
-      const me = await wpRequest(base, data.username, data.applicationPassword, "/users/me?context=edit", "GET");
+      const me = await wpRequest(
+        base,
+        data.username,
+        data.applicationPassword,
+        "/users/me?context=edit",
+        "GET",
+      );
       const name = isRecord(me) ? asString(me.name) || asString(me.slug) : "";
       return { success: true, message: name ? `Connected as ${name}.` : "Connected to WordPress." };
     } catch (e) {
@@ -143,6 +171,12 @@ export const ContentInput = z.object({
   postId: z.number().optional(),
   title: z.string().default(""),
   contentMarkdown: z.string().default(""),
+  // Deterministic Article/FAQPage JSON-LD <script>, appended to the post content
+  // at publish (P0.5). Empty string when there's nothing to emit.
+  jsonLd: z.string().default(""),
+  // Internal paths known to resolve on the site — relative in-body links publish
+  // as active links only if in this set (P0.4). Others render as plain text.
+  knownInternalPaths: z.array(z.string()).default([]),
   slug: z.string().default(""),
   excerpt: z.string().default(""),
 });
@@ -160,24 +194,42 @@ export const sendContentToWordPressDraftFn = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<WordPressPublishResult> => {
     try {
       const base = wpBase(data.siteUrl);
-      const html = markdownToHtml(data.contentMarkdown);
+      assertResolvedLinks(data.contentMarkdown, data.knownInternalPaths);
+      const html =
+        markdownToHtml(data.contentMarkdown, {
+          knownInternalPaths: new Set(data.knownInternalPaths),
+        }) + data.jsonLd;
       const type = restType(data.postType);
       let result: unknown;
       if (data.postId) {
         // Update existing item; do NOT change its publish status or slug.
-        result = await wpRequest(base, data.username, data.applicationPassword, `/${type}/${data.postId}`, "POST", {
-          title: data.title,
-          content: html,
-          ...(data.excerpt ? { excerpt: data.excerpt } : {}),
-        });
+        result = await wpRequest(
+          base,
+          data.username,
+          data.applicationPassword,
+          `/${type}/${data.postId}`,
+          "POST",
+          {
+            title: data.title,
+            content: html,
+            ...(data.excerpt ? { excerpt: data.excerpt } : {}),
+          },
+        );
       } else {
-        result = await wpRequest(base, data.username, data.applicationPassword, `/${type}`, "POST", {
-          title: data.title,
-          content: html,
-          status: "draft",
-          slug: slugifyForPublish(data.slug || data.title),
-          ...(data.excerpt ? { excerpt: data.excerpt } : {}),
-        });
+        result = await wpRequest(
+          base,
+          data.username,
+          data.applicationPassword,
+          `/${type}`,
+          "POST",
+          {
+            title: data.title,
+            content: html,
+            status: "draft",
+            slug: slugifyForPublish(data.slug || data.title),
+            ...(data.excerpt ? { excerpt: data.excerpt } : {}),
+          },
+        );
       }
       const r = isRecord(result) ? result : {};
       const postId = asNumber(r.id);
@@ -215,25 +267,43 @@ export async function publishWordPressLiveDirect(
   {
     try {
       const base = wpBase(data.siteUrl);
-      const html = markdownToHtml(data.contentMarkdown);
+      assertResolvedLinks(data.contentMarkdown, data.knownInternalPaths);
+      const html =
+        markdownToHtml(data.contentMarkdown, {
+          knownInternalPaths: new Set(data.knownInternalPaths),
+        }) + data.jsonLd;
       const type = restType(data.postType);
       let result: unknown;
       if (data.postId) {
-        result = await wpRequest(base, data.username, data.applicationPassword, `/${type}/${data.postId}`, "POST", {
-          title: data.title,
-          content: html,
-          status: "publish",
-          ...(data.excerpt ? { excerpt: data.excerpt } : {}),
-        });
+        result = await wpRequest(
+          base,
+          data.username,
+          data.applicationPassword,
+          `/${type}/${data.postId}`,
+          "POST",
+          {
+            title: data.title,
+            content: html,
+            status: "publish",
+            ...(data.excerpt ? { excerpt: data.excerpt } : {}),
+          },
+        );
       } else {
         // No existing item — create and publish in one call.
-        result = await wpRequest(base, data.username, data.applicationPassword, `/${type}`, "POST", {
-          title: data.title,
-          content: html,
-          status: "publish",
-          slug: slugifyForPublish(data.slug || data.title),
-          ...(data.excerpt ? { excerpt: data.excerpt } : {}),
-        });
+        result = await wpRequest(
+          base,
+          data.username,
+          data.applicationPassword,
+          `/${type}`,
+          "POST",
+          {
+            title: data.title,
+            content: html,
+            status: "publish",
+            slug: slugifyForPublish(data.slug || data.title),
+            ...(data.excerpt ? { excerpt: data.excerpt } : {}),
+          },
+        );
       }
       const r = isRecord(result) ? result : {};
       const postId = asNumber(r.id);
