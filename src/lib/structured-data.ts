@@ -29,30 +29,63 @@ export interface FaqPair {
   answer: string;
 }
 
+/** A heading that marks the start of a genuine FAQ section. */
+const FAQ_SECTION = /^#{1,6}\s+(FAQs?|Frequently\s+asked\s+questions)\s*$/i;
+
+/** Reduce inline markdown to the visible text, so schema text matches the page. */
+function stripInlineMarkdown(s: string): string {
+  return s
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "") // images
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1") // links -> link text
+    .replace(/\*\*([^*]+)\*\*/g, "$1") // bold
+    .replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, "$1$2") // italic
+    .replace(/`([^`]+)`/g, "$1") // inline code
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /**
- * Extract FAQ Q&A pairs from the VISIBLE markdown body. A heading (##–######)
- * whose text ends in "?" is a question; the text up to the next heading is its
- * answer. Only pairs with both a question and a non-empty answer are returned,
- * so nothing is invented and every schema entry is visible on the page.
+ * Extract FAQ Q&A pairs from the VISIBLE markdown body — but ONLY from inside a
+ * genuine FAQ section (a heading "FAQ"/"FAQs"/"Frequently asked questions"). A
+ * heading ending in "?" within that section is a question; the text up to the
+ * next heading is its answer. This prevents a rhetorical or CTA heading like
+ * "## Ready to start?" from being published as FAQPage markup (against Google's
+ * FAQ policy). Answer/question text is reduced to visible text so the schema
+ * matches what a reader sees. Only pairs with both a question and answer count.
  */
 export function extractFaqFromMarkdown(md: string): FaqPair[] {
   const lines = (md || "").replace(/\r\n/g, "\n").split("\n");
   const faqs: FaqPair[] = [];
+  let inFaq = false;
+  let faqLevel = 0;
   let i = 0;
   while (i < lines.length) {
-    const h = lines[i].trim().match(/^#{2,6}\s+(.*\?)\s*$/);
+    const line = lines[i].trim();
+    const h = line.match(/^(#{1,6})\s+(.*)$/);
     if (h) {
-      const question = h[1].trim();
-      const answerLines: string[] = [];
-      i++;
-      while (i < lines.length && !/^#{1,6}\s+/.test(lines[i].trim())) {
-        const t = lines[i].trim();
-        if (t) answerLines.push(t);
+      const level = h[1].length;
+      const text = h[2].trim();
+      if (FAQ_SECTION.test(line)) {
+        inFaq = true;
+        faqLevel = level;
         i++;
+        continue;
       }
-      const answer = answerLines.join(" ").trim();
-      if (question && answer) faqs.push({ question, answer });
-      continue;
+      // A heading at or above the FAQ section's level ends the FAQ section.
+      if (inFaq && level <= faqLevel) inFaq = false;
+      if (inFaq && /\?\s*$/.test(text)) {
+        const question = stripInlineMarkdown(text);
+        const answerLines: string[] = [];
+        i++;
+        while (i < lines.length && !/^#{1,6}\s+/.test(lines[i].trim())) {
+          const t = lines[i].trim();
+          if (t) answerLines.push(t);
+          i++;
+        }
+        const answer = stripInlineMarkdown(answerLines.join(" ").trim());
+        if (question && answer) faqs.push({ question, answer });
+        continue;
+      }
     }
     i++;
   }

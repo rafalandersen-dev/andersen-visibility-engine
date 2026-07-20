@@ -26,8 +26,27 @@ describe("extractFaqFromMarkdown (P0.5)", () => {
 
   it("ignores non-question headings and questions with no answer", () => {
     const md = "## Overview\n\nSome intro.\n\n### What is included?\n\n### Next\n\nBody.";
-    // "What is included?" has no answer (next line is a heading) → excluded.
+    // No FAQ section, and "What is included?" has no answer → excluded.
     expect(extractFaqFromMarkdown(md)).toEqual([]);
+  });
+
+  it("does NOT treat a CTA/rhetorical heading outside an FAQ section as an FAQ (P0-review fix)", () => {
+    const md = "## Ready to start?\n\nBook a consultation today.\n\n## Why choose us?\n\nWe care.";
+    expect(extractFaqFromMarkdown(md)).toEqual([]);
+  });
+
+  it("only extracts questions INSIDE the FAQ section, not after it ends", () => {
+    const md =
+      "## FAQ\n\n### Does it hurt?\n\nA little.\n\n## Ready to start?\n\nCall us.";
+    const faqs = extractFaqFromMarkdown(md);
+    expect(faqs.map((f) => f.question)).toEqual(["Does it hurt?"]);
+  });
+
+  it("strips markdown from question/answer so schema matches the visible text", () => {
+    const md = "## FAQ\n\n### Is it **safe**?\n\nYes — see [our guide](/guide) and `notes`.";
+    const [faq] = extractFaqFromMarkdown(md);
+    expect(faq.question).toBe("Is it safe?");
+    expect(faq.answer).toBe("Yes — see our guide and notes.");
   });
 });
 
