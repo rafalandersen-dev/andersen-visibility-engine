@@ -39,12 +39,43 @@ function stripImages(s: string): string {
   );
 }
 
+export interface MarkdownRenderOptions {
+  /**
+   * Paths known to resolve on the target site. A relative internal link is only
+   * published as an ACTIVE link when its path is in this set; otherwise the
+   * anchor text is kept but the unverified/invented link is dropped (P0.4).
+   * Without a set, NO relative internal link is active — Milo cannot confirm an
+   * internal path resolves without a URL inventory, and must never publish an
+   * invented internal URL. External absolute URLs are unaffected.
+   */
+  knownInternalPaths?: Set<string>;
+}
+
+/** Normalise an internal href to a comparable path (strip query/hash, trailing slash). */
+export function normalizeInternalPath(href: string): string {
+  const path = href.split(/[?#]/)[0].replace(/\/+$/, "");
+  return path === "" ? "/" : path;
+}
+
 /** Inline formatting: links, bold, italic — applied to already-escaped text. */
-function inline(s: string): string {
+function inline(s: string, opts?: MarkdownRenderOptions): string {
   return stripImages(s)
     .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_m, text: string, href: string) => {
-      const safe = /^https?:\/\/|^\//.test(href) ? href : "#";
-      return `<a href="${safe.replace(/"/g, "%22")}">${text}</a>`;
+      // External absolute URL — an explicit destination; keep as an active link.
+      if (/^https?:\/\//.test(href)) {
+        return `<a href="${href.replace(/"/g, "%22")}">${text}</a>`;
+      }
+      // Relative internal link — publish as active ONLY if it resolves against a
+      // known URL inventory; otherwise keep the text and drop the link (P0.4).
+      if (/^\//.test(href)) {
+        if (opts?.knownInternalPaths?.has(normalizeInternalPath(href))) {
+          return `<a href="${href.replace(/"/g, "%22")}">${text}</a>`;
+        }
+        return text;
+      }
+      // Unsafe/other scheme (mailto:, javascript:, protocol-relative, bare word)
+      // — drop the link, keep the text.
+      return text;
     })
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, "$1<em>$2</em>");
@@ -71,15 +102,16 @@ function isTableSeparator(line: string): boolean {
   return cells.length > 0 && cells.every((c) => /^:?-{1,}:?$/.test(c));
 }
 
-export function markdownToHtml(md: string): string {
+export function markdownToHtml(md: string, opts?: MarkdownRenderOptions): string {
   const lines = (md || "").replace(/\r\n/g, "\n").split("\n");
   const out: string[] = [];
+  const inl = (x: string) => inline(x, opts);
   let listType: "ul" | "ol" | null = null;
   let para: string[] = [];
 
   const flushPara = () => {
     if (para.length) {
-      out.push(`<p>${inline(escapeHtml(para.join(" ").trim()))}</p>`);
+      out.push(`<p>${inl(escapeHtml(para.join(" ").trim()))}</p>`);
       para = [];
     }
   };
@@ -113,7 +145,7 @@ export function markdownToHtml(md: string): string {
         if (!row || !row.includes("|")) break;
         body.push(tableCells(row));
       }
-      const cell = (c: string) => inline(escapeHtml(c));
+      const cell = (c: string) => inl(escapeHtml(c));
       // Width comes from the WIDEST row, not the header: trimming to the header
       // silently dropped columns a model had written into the body.
       const width = Math.max(headers.length, ...body.map((r) => r.length));
@@ -145,7 +177,7 @@ export function markdownToHtml(md: string): string {
       flushPara();
       closeList();
       const level = Math.min(6, h[1].length);
-      out.push(`<h${level}>${inline(escapeHtml(h[2].trim()))}</h${level}>`);
+      out.push(`<h${level}>${inl(escapeHtml(h[2].trim()))}</h${level}>`);
       continue;
     }
 
@@ -157,7 +189,7 @@ export function markdownToHtml(md: string): string {
         out.push("<ul>");
         listType = "ul";
       }
-      out.push(`<li>${inline(escapeHtml(ul[1].trim()))}</li>`);
+      out.push(`<li>${inl(escapeHtml(ul[1].trim()))}</li>`);
       continue;
     }
 
@@ -169,7 +201,7 @@ export function markdownToHtml(md: string): string {
         out.push("<ol>");
         listType = "ol";
       }
-      out.push(`<li>${inline(escapeHtml(ol[1].trim()))}</li>`);
+      out.push(`<li>${inl(escapeHtml(ol[1].trim()))}</li>`);
       continue;
     }
 
