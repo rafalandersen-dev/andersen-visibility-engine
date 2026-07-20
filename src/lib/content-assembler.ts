@@ -22,7 +22,7 @@
  * from hand-authored `asset.markdown` to assembled canonical markdown.
  */
 import type { ContentAsset, Project } from "./types";
-import { markdownToHtml } from "./markdown";
+import { markdownToHtml, stripImageMarkdown } from "./markdown";
 import { buildContentJsonLd, renderJsonLdScript } from "./structured-data";
 import { sourcesBlockMarkdown } from "./sources";
 import { authorBlockMarkdown, authorSchemaInput } from "./author";
@@ -66,17 +66,34 @@ export interface SectionRule {
   build: (asset: ContentAsset, project: Project) => string;
 }
 
+/** Normalise a heading for dedup: lowercase, trim, drop a trailing plural "s". */
+function normalizeHeading(h: string): string {
+  return h.trim().toLowerCase().replace(/s$/, "");
+}
+
+// Aliases are stored ALREADY normalised (singular). Deliberately NOT "summary" or
+// "in short" for TL;DR — those are ordinary sections and must not silently
+// suppress a real TL;DR (review fix).
 export const SECTION_RULES: SectionRule[] = [
+  {
+    key: "breadcrumb",
+    position: "lead",
+    headingAliases: ["breadcrumb"],
+    build: (a) => {
+      const trail = (a.breadcrumbs ?? []).map((b) => b.name?.trim()).filter(Boolean);
+      return trail.length ? trail.join(" › ") : "";
+    },
+  },
   {
     key: "tldr",
     position: "lead",
-    headingAliases: ["tl;dr", "tldr", "summary", "in short"],
+    headingAliases: ["tl;dr", "tldr"],
     build: (a) => (a.tldr && a.tldr.trim() ? `## TL;DR\n\n${a.tldr.trim()}` : ""),
   },
   {
     key: "keyTakeaways",
     position: "lead",
-    headingAliases: ["key takeaways", "key points", "takeaways"],
+    headingAliases: ["key takeaway", "key point", "takeaway"],
     build: (a) => {
       const items = (a.keyTakeaways ?? []).map((k) => k.trim()).filter(Boolean);
       return items.length ? `## Key takeaways\n\n${items.map((k) => `- ${k}`).join("\n")}` : "";
@@ -85,7 +102,7 @@ export const SECTION_RULES: SectionRule[] = [
   {
     key: "sources",
     position: "tail",
-    headingAliases: ["sources", "references", "citations"],
+    headingAliases: ["source", "reference", "citation"],
     build: (a) => sourcesBlockMarkdown(a.sources),
   },
   {
@@ -96,20 +113,22 @@ export const SECTION_RULES: SectionRule[] = [
   },
 ];
 
-/** Lowercased set of the body's heading texts — used to suppress duplicate sections. */
+/** Normalised set of the body's heading texts — used to suppress duplicate sections. */
 function bodyHeadingSet(md: string): Set<string> {
   const set = new Set<string>();
   for (const line of (md || "").split("\n")) {
     const m = line.match(/^#{1,6}\s+(.+?)\s*$/);
-    if (m) set.add(m[1].trim().toLowerCase());
+    if (m) set.add(normalizeHeading(m[1]));
   }
   return set;
 }
 
 /**
  * Which composed sections a rule set includes for an asset, and why. Drives the
- * editor's transparency + the publishing checklist. A section is `included` only
- * when it has content AND is not already present in the body.
+ * editor's transparency, the publishing checklist AND the schema-visibility gate
+ * (author/breadcrumb JSON-LD is only emitted when its section is actually
+ * composed). A section is `included` only when it has content AND is not already
+ * present in the body.
  */
 export function assemblySections(
   asset: ContentAsset,
@@ -144,7 +163,9 @@ export function composeCanonicalMarkdown(asset: ContentAsset, project: Project):
   }
   // Images (G): only PUBLISHABLE (approved + alt + controlled-origin) images
   // compose — a featured image at the very top, inline images right after the
-  // body. A legacy asset has none, so this is a no-op (parity preserved).
+  // body. When any image composes, RAW body images are stripped first so a body
+  // reference to an approved URL can neither duplicate nor bypass the alt gate
+  // (review fix); the only images that reach the page are these vetted ones.
   const pub = publishableImages(asset.images, project);
   const featured = pub
     .filter((i) => i.placement === "featured")
@@ -152,7 +173,10 @@ export function composeCanonicalMarkdown(asset: ContentAsset, project: Project):
     .map(imageMarkdown);
   const inlineImages = pub.filter((i) => i.placement === "inline").map(imageMarkdown);
   if (!lead.length && !tail.length && !featured.length && !inlineImages.length) return body;
-  return [...featured, ...lead, body.trim(), ...inlineImages, ...tail].filter(Boolean).join("\n\n");
+  const composedBody = pub.length ? stripImageMarkdown(body) : body;
+  return [...featured, ...lead, composedBody.trim(), ...inlineImages, ...tail]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 /**
@@ -171,9 +195,12 @@ export function assembleContentAsset(
     // Only assembler-vetted images render as <img>; everything else is stripped.
     allowedImageUrls: new Set(publishableImageUrls(asset.images, project)),
   });
-  // JSON-LD derives from the SAME composed markdown, so schema mirrors exactly
-  // what publishes (schema-content consistency — C17). FAQPage is still extracted
-  // from a real FAQ section in the body by buildContentJsonLd, unchanged.
+  // Schema-visibility gate (review fix): author Person + BreadcrumbList are only
+  // emitted when their VISIBLE counterpart is actually composed into the body —
+  // never claiming a byline or trail the reader cannot see. FAQPage is still
+  // extracted from the visible FAQ in the body by buildContentJsonLd.
+  const sections = assemblySections(asset, project);
+  const composed = (key: string) => sections.some((s) => s.key === key && s.included);
   const jsonLd = buildContentJsonLd({
     title: asset.title,
     description: asset.metaDescription ?? "",
@@ -181,8 +208,8 @@ export function assembleContentAsset(
     businessName: project.businessName || project.name,
     url: asset.liveUrl,
     datePublished: asset.livePublishedAt,
-    author: authorSchemaInput(asset.author),
-    breadcrumbs: asset.breadcrumbs,
+    author: composed("author") ? authorSchemaInput(asset.author) : undefined,
+    breadcrumbs: composed("breadcrumb") ? asset.breadcrumbs : undefined,
   });
   const jsonLdScript = renderJsonLdScript(jsonLd);
   return { markdown, html, jsonLd, jsonLdScript };

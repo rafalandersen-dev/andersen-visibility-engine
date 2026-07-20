@@ -97,7 +97,16 @@ export function extractFaqFromMarkdown(md: string): FaqPair[] {
     }
     i++;
   }
-  return faqs.slice(0, 20);
+  // De-duplicate by question (case-insensitive) so a repeated question heading
+  // never emits duplicate Question entities in the FAQPage (review fix).
+  const seen = new Set<string>();
+  const unique = faqs.filter((f) => {
+    const key = f.question.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return unique.slice(0, 20);
 }
 
 /** Build the JSON-LD objects (Article + optional FAQPage) for a content asset. */

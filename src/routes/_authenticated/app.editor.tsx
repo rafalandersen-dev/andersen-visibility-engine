@@ -521,7 +521,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   };
 
   const copy = async () => {
-    await navigator.clipboard.writeText(f.markdown);
+    // Copy the CANONICAL assembled markdown — what actually publishes — matching
+    // Export Markdown (review fix; raw f.markdown diverged from both).
+    await navigator.clipboard.writeText(assembled?.markdown ?? f.markdown);
     toast.success("Copied Markdown to clipboard");
   };
 
@@ -1478,11 +1480,13 @@ function PublishingChecklist({
         </details>
       ) : null}
       <p className="text-[11px] text-muted-foreground">
-        Structured data: {schema.generated ? "generated" : "none"}
+        Structured data: {schema.generated ? "generated" : "none generated"}
         {" · "}
-        {schema.connector === "custom"
-          ? "custom endpoint — JSON-LD delivery not supported"
-          : `included in the ${schema.connector} payload (retention on your site is not verified — implementation, not confirmed appearance)`}
+        {!schema.generated
+          ? "nothing to deliver"
+          : schema.connector === "custom"
+            ? "custom endpoint — JSON-LD delivery not supported"
+            : `included in the ${schema.connector} payload (retention on your site is not verified — implementation, not confirmed appearance)`}
         .
       </p>
     </div>

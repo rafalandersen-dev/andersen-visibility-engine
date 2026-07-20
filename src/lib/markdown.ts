@@ -180,11 +180,19 @@ export function replaceLinkPath(md: string, oldPath: string, newPath: string): s
  */
 function renderAllowedImages(s: string, allowed: Set<string>): string {
   return s.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (whole, alt: string, url: string) => {
-    if (!allowed.has(url)) return whole;
+    // Allow-listed URL AND non-empty alt (defence-in-depth for the C19 alt gate —
+    // a body image reusing an approved URL with empty alt must not render).
+    if (!allowed.has(url) || !alt.trim()) return whole;
     const safeUrl = url.replace(/"/g, "%22");
     const safeAlt = alt.replace(/"/g, "&quot;");
     return `<img src="${safeUrl}" alt="${safeAlt}" loading="lazy" />`;
   });
+}
+
+/** Remove all image markdown from a string (exposed so the assembler can strip a
+ *  raw body before composing only its own vetted images). */
+export function stripImageMarkdown(s: string): string {
+  return stripImages(s);
 }
 
 /** Inline formatting: images (allow-listed), links, bold, italic — on escaped text. */

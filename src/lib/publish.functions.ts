@@ -12,6 +12,9 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { ambiguousTransportFailure, classifyHttpFailure } from "./publish-outcome";
+import { publishBlockers } from "./checklist";
+import { assembleContentAsset } from "./content-assembler";
+import type { ContentAsset, Project } from "./types";
 
 const DESTINATION_TYPES = ["blogPost", "servicePage", "faq", "landingPage"] as const;
 
@@ -25,23 +28,53 @@ const DESTINATION_TYPES = ["blogPost", "servicePage", "faq", "landingPage"] as c
  * supposed to constrain. Both are fixed by never trusting the client for this —
  * the browser now sends only ids, and the target is derived server-side.
  */
-async function resolvePublishTarget(
+async function resolvePublishContext(
   userId: string,
   projectId: string,
-): Promise<{ draftEndpoint: string; liveEndpoint: string; secret: string }> {
+  assetId: string,
+): Promise<{
+  asset: ContentAsset;
+  project: Project;
+  corpus: ContentAsset[];
+  draftEndpoint: string;
+  liveEndpoint: string;
+  secret: string;
+}> {
   const { readWorkspaceRow } = await import("./workspace.server");
   const row = await readWorkspaceRow(userId);
   if (!row) throw new Error("Workspace not found.");
-  const projects = Array.isArray(row.data.projects)
-    ? (row.data.projects as Array<Record<string, unknown>>)
-    : [];
-  const project = projects.find((p) => asString(p?.id) === projectId);
+  const projects = (row.data.projects as Project[] | undefined) ?? [];
+  const content = (row.data.content as ContentAsset[] | undefined) ?? [];
+  const project = projects.find((p) => p.id === projectId);
   if (!project) throw new Error("Project not found in your workspace.");
+  const asset = content.find((c) => c.id === assetId);
+  if (!asset) throw new Error("Content not found in your workspace.");
   return {
-    draftEndpoint: asString(project.publishEndpoint).trim(),
-    liveEndpoint: asString(project.livePublishEndpoint).trim(),
-    secret: asString(project.publishSecret).trim(),
+    asset,
+    project,
+    corpus: content,
+    draftEndpoint: (project.publishEndpoint ?? "").trim(),
+    liveEndpoint: (project.livePublishEndpoint ?? "").trim(),
+    secret: (project.publishSecret ?? "").trim(),
   };
+}
+
+/**
+ * The SAME deterministic publishing checklist the editor and cron use, enforced
+ * SERVER-SIDE on the manual custom-endpoint RPCs so a direct call cannot bypass a
+ * hard blocker (review fix — dimension 4).
+ */
+function assertPublishableServerSide(
+  asset: ContentAsset,
+  project: Project,
+  corpus: ContentAsset[],
+): void {
+  const blockers = publishBlockers(asset, project, corpus);
+  if (blockers.length) {
+    throw new Error(
+      `This draft is not publishable yet: ${blockers.map((b) => b.detail || b.label).join(" ")}`,
+    );
+  }
 }
 
 export const PublishInputSchema = z.object({
@@ -163,7 +196,9 @@ export async function publishDraftDirect(
     // 2xx but explicit { ok: false }
     if (isRecord(body) && body.ok === false) {
       const apiError = asString(body.error);
-      throw new Error(apiError ? `Website rejected the draft: ${apiError}` : "Website rejected the draft.");
+      throw new Error(
+        apiError ? `Website rejected the draft: ${apiError}` : "Website rejected the draft.",
+      );
     }
 
     const draftUrl = isRecord(body) ? asString(body.draftUrl) : "";
@@ -183,12 +218,18 @@ export const publishContentFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => PublishInputSchema.parse(input))
   .handler(async ({ data, context }) => {
-    // Target comes from the caller's own workspace, never from the request.
-    const { draftEndpoint: endpoint, secret } = await resolvePublishTarget(
-      context.userId as string,
-      data.projectId,
-    );
-    return publishDraftDirect({ ...data, endpoint, secret });
+    // Target + content come from the caller's own workspace, never from the request.
+    const {
+      asset,
+      project,
+      corpus,
+      draftEndpoint: endpoint,
+      secret,
+    } = await resolvePublishContext(context.userId as string, data.projectId, data.assetId);
+    assertPublishableServerSide(asset, project, corpus);
+    // Re-derive the body server-side — never forward client-supplied markdown.
+    const markdown = assembleContentAsset(asset, project).markdown;
+    return publishDraftDirect({ ...data, markdown, endpoint, secret });
   });
 
 // ============================================================
@@ -225,7 +266,8 @@ export async function publishLiveDirect(
     const endpoint = data.endpoint.trim();
     const secret = data.secret.trim();
 
-    if (!endpoint) throw new Error("No live-publish endpoint configured. Add one in Project Setup.");
+    if (!endpoint)
+      throw new Error("No live-publish endpoint configured. Add one in Project Setup.");
     if (!secret) throw new Error("No publish secret configured. Add one in Project Setup.");
 
     let url: URL;
@@ -311,7 +353,10 @@ export async function publishLiveDirect(
     // 'pending' and republish a page that is already live.
 
     const publishedAt = new Date().toISOString();
-    console.info("[publish.functions] live publish accepted", { host: url.host, assetId: data.assetId });
+    console.info("[publish.functions] live publish accepted", {
+      host: url.host,
+      assetId: data.assetId,
+    });
 
     return { ok: true as const, liveUrl, externalId, publishedAt };
   }
@@ -324,9 +369,12 @@ export const publishLiveFn = createServerFn({ method: "POST" })
     PublishLiveInputSchema.omit({ endpoint: true, secret: true }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { liveEndpoint, secret } = await resolvePublishTarget(
+    const { asset, project, corpus, liveEndpoint, secret } = await resolvePublishContext(
       context.userId as string,
       data.projectId,
+      data.assetId,
     );
+    // Refuse to flip a draft live if the asset now fails a hard blocker.
+    assertPublishableServerSide(asset, project, corpus);
     return publishLiveDirect({ ...data, endpoint: liveEndpoint, secret });
   });

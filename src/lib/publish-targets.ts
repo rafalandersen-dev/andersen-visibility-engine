@@ -72,9 +72,11 @@ export function buildActiveInternalPaths(project: Project, content: ContentAsset
 }
 
 /**
- * The unresolved internal links in an asset's body — links that are neither
+ * The unresolved internal links in the ASSEMBLED body — links that are neither
  * verified nor user-approved. Publishing MUST be refused while this is non-empty
- * (link-safety P0), on every connector including the custom endpoint.
+ * (link-safety P0), on every connector including the custom endpoint. Runs on the
+ * assembled markdown (what actually publishes), so a relative link introduced by
+ * a composed section is gated too (review fix).
  */
 export function unresolvedLinksForPublish(
   asset: ContentAsset,
@@ -82,7 +84,7 @@ export function unresolvedLinksForPublish(
   content: ContentAsset[],
 ): string[] {
   return unresolvedInternalLinks(
-    asset.markdown ?? "",
+    assembleContentAsset(asset, project).markdown,
     new Set(buildActiveInternalPaths(project, content)),
   );
 }
