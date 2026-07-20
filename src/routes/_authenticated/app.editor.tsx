@@ -47,6 +47,7 @@ import {
   removeArticleImageFn,
 } from "@/lib/image-storage.functions";
 import { reusedImageMeta } from "@/lib/image-storage";
+import { editorFormDirty } from "@/lib/editor-form";
 import { effectivePublishMode } from "@/lib/publish-targets";
 import { pipelineStage } from "@/lib/pipeline";
 import { StageChip } from "@/components/StageChip";
@@ -123,6 +124,7 @@ import {
   Globe,
   Loader2,
   Rocket,
+  Save,
   Send,
   Sparkles,
   Trash2,
@@ -593,6 +595,22 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     }
     toast.success(status ? `Marked ${status}` : "Saved");
   };
+
+  // Unsaved-changes detection. An uploaded-but-unsaved image lives only in `f`
+  // (+ Storage) until Save writes it to the store, so without an obvious Save +
+  // this guard the user loses it on refresh (and orphans the Storage object).
+  const storedNow = getState().content.find((c) => c.id === f.id);
+  const isDirty = editorFormDirty(f, storedNow);
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [isDirty]);
 
   /**
    * Merge the form's own fields onto the CURRENT stored record.
@@ -1794,7 +1812,8 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           </section>
 
           <p className="text-xs text-muted-foreground">
-            Changes here are saved with the <strong>Save</strong> button below.
+            Author, sources and images are saved with the <strong>Save</strong> button in the footer
+            below — uploads aren&apos;t kept until you Save.
           </p>
         </TabsContent>
 
@@ -1843,6 +1862,21 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       </Tabs>
 
       <div className="flex flex-wrap items-center gap-2 px-5 py-4 border-t border-border bg-secondary/30">
+        {/* Always-visible editor-wide Save — persists every tab's edits (incl.
+            uploaded images) to the store. save() preserves the current status
+            and never approves; repeated clicks are idempotent (no re-upload). */}
+        <Button size="sm" variant="default" onClick={() => save()}>
+          <Save className="h-3.5 w-3.5" /> Save
+        </Button>
+        {isDirty ? (
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-600">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden="true" />
+            Unsaved changes
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground">All changes saved</span>
+        )}
+        <span className="mx-1 hidden h-4 w-px bg-border sm:inline-block" aria-hidden="true" />
         <Button size="sm" variant="outline" onClick={() => exportText("md")}>
           <Download className="h-3.5 w-3.5" /> Export Markdown
         </Button>

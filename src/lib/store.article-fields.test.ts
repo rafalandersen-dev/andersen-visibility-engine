@@ -56,8 +56,14 @@ const richAsset = {
       concept: "hero",
       url: "https://s.supabase.co/a.jpg",
       alt: "A",
+      caption: "Hero caption",
       placement: "featured",
+      source: "uploaded",
       status: "accepted",
+      required: true,
+      // Storage object identity MUST survive the round-trip — losing it is how an
+      // approved image would lose its promote/remove handle (hotfix regression guard).
+      storagePath: "uid/p1/a1/i1.jpg",
     },
   ],
   breadcrumbs: [{ name: "Home", url: "https://site.com" }],
@@ -94,7 +100,14 @@ describe("Article Studio 2.0 ContentAsset fields persist", () => {
     const a = getState().content[0];
     expect(a.author?.name).toBe("Dr Lena");
     expect(a.sources?.[0]).toMatchObject({ status: "verified", checkNote: "ok" });
-    expect(a.images?.[0]).toMatchObject({ status: "accepted" });
+    expect(a.images?.[0]).toMatchObject({
+      status: "accepted",
+      storagePath: "uid/p1/a1/i1.jpg",
+      alt: "A",
+      caption: "Hero caption",
+      required: true,
+      source: "uploaded",
+    });
     expect(a.tldr).toBe("Quick summary");
     expect(a.keyTakeaways).toEqual(["one", "two"]);
     expect(a.breadcrumbs?.[0]?.name).toBe("Home");
@@ -111,6 +124,13 @@ describe("Article Studio 2.0 ContentAsset fields persist", () => {
     expect((saved.author as Record<string, unknown>).name).toBe("Dr Lena");
     expect(saved.sources).toBeTruthy();
     expect(saved.images).toBeTruthy();
+    // The uploaded image's Storage identity + approval survive Save (hotfix core).
+    expect((saved.images as Record<string, unknown>[])[0]).toMatchObject({
+      storagePath: "uid/p1/a1/i1.jpg",
+      status: "accepted",
+      required: true,
+      caption: "Hero caption",
+    });
     expect(saved.breadcrumbs).toBeTruthy();
   });
 });
