@@ -65,6 +65,27 @@ import type {
   LivePublishStatus,
 } from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
+// P0.3 — Preview and Export use the SAME canonical converter as publishing, so
+// what you see is what publishes (tables, links, bold, ordered lists included).
+import { markdownToHtml } from "@/lib/markdown";
+
+/** Presentation-only styling for the preview's canonical semantic HTML. */
+const PREVIEW_STYLE = `
+.milo-preview{color:var(--foreground);line-height:1.65;font-size:.95rem}
+.milo-preview h1{font-family:Fraunces,serif;font-size:1.875rem;margin:0 0 .75rem;letter-spacing:-.015em}
+.milo-preview h2{font-family:Fraunces,serif;font-size:1.35rem;margin:1.5rem 0 .5rem}
+.milo-preview h3{font-family:Fraunces,serif;font-size:1.1rem;margin:1.25rem 0 .4rem}
+.milo-preview h4,.milo-preview h5,.milo-preview h6{font-family:Fraunces,serif;margin:1rem 0 .35rem}
+.milo-preview p{margin:.5rem 0}
+.milo-preview ul,.milo-preview ol{padding-left:1.3rem;margin:.5rem 0}
+.milo-preview li{margin:.2rem 0}
+.milo-preview a{color:#9a6716;text-decoration:underline}
+.milo-preview strong{font-weight:600}
+.milo-preview em{font-style:italic}
+.milo-preview table{border-collapse:collapse;margin:.75rem 0;width:100%;font-size:.9rem}
+.milo-preview th,.milo-preview td{border:1px solid var(--border);padding:.4rem .6rem;text-align:left}
+.milo-preview thead th{background:var(--secondary)}
+`;
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   Check,
@@ -1139,8 +1160,13 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         </TabsContent>
 
         <TabsContent value="preview" className="py-5">
+          {/* Presentation only — the HTML comes from the canonical publish
+              converter (markdown.ts), so the STRUCTURE matches what publishes.
+              This <style> just makes the bare semantic tags readable here, the
+              way a customer's theme styles them on the live site. */}
+          <style>{PREVIEW_STYLE}</style>
           <div
-            className="rounded-lg border border-border bg-background p-6 prose-preview"
+            className="milo-preview rounded-lg border border-border bg-background p-6"
             dangerouslySetInnerHTML={{ __html: markdownToHtml(f.markdown) }}
           />
         </TabsContent>
@@ -1225,56 +1251,3 @@ function LivePublishStatusBadge({ status }: { status?: LivePublishStatus }) {
   );
 }
 
-function markdownToHtml(md: string) {
-  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const lines = md.split("\n");
-  let html = "";
-  let inList = false;
-  for (const raw of lines) {
-    const line = raw;
-    const closeList = () => {
-      if (inList) {
-        html += "</ul>";
-        inList = false;
-      }
-    };
-    if (/^# /.test(line)) {
-      closeList();
-      html += `<h1>${esc(line.slice(2))}</h1>`;
-      continue;
-    }
-    if (/^## /.test(line)) {
-      closeList();
-      html += `<h2>${esc(line.slice(3))}</h2>`;
-      continue;
-    }
-    if (/^### /.test(line)) {
-      closeList();
-      html += `<h3>${esc(line.slice(4))}</h3>`;
-      continue;
-    }
-    if (/^[-*] /.test(line)) {
-      if (!inList) {
-        html += "<ul>";
-        inList = true;
-      }
-      html += `<li>${esc(line.slice(2))}</li>`;
-      continue;
-    }
-    closeList();
-    if (line.trim() === "") {
-      html += "";
-      continue;
-    }
-    html += `<p>${esc(line).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")}</p>`;
-  }
-  if (inList) html += "</ul>";
-  return `<div style="font-family:Inter,system-ui;color:var(--foreground);line-height:1.65"><style>
-    .prose-preview h1{font-family:Fraunces,serif;font-size:1.875rem;margin:0 0 .75rem;letter-spacing:-.015em}
-    .prose-preview h2{font-family:Fraunces,serif;font-size:1.35rem;margin:1.5rem 0 .5rem}
-    .prose-preview h3{font-family:Fraunces,serif;font-size:1.1rem;margin:1.25rem 0 .4rem}
-    .prose-preview p{margin:.5rem 0}
-    .prose-preview ul{padding-left:1.2rem;margin:.5rem 0}
-    .prose-preview li{margin:.2rem 0}
-  </style>${html}</div>`;
-}
