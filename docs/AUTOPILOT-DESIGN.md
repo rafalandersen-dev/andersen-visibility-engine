@@ -1,5 +1,7 @@
 # Milo Growth — hands-off content generation (Spark / Forge)
 
+> **RECONCILIATION NOTE (2026‑07‑20, product audit).** Spark/Forge is the **generation trigger model**; **Article Studio 2.0** (`ARTICLE-STUDIO-2.0.md`, roadmap epic **P1.1**) is the **assembly + quality + publish‑readiness system** it feeds. Mapping: Spark = the auto‑brief (Article Studio pipeline step 3); Forge = the grounded draft (step 4); Article Studio 2.0 owns steps 5–11 (canonical assembly, structured data, images, author/E‑E‑A‑T, scores, mobile/desktop preview, publishing checklist). The retained AUTOPILOT decisions — threshold 85, governed publishing cap (`PUBLISHING-CAP.md`), and the "What only you know" value gate — become part of Article Studio's publishing checklist. Two audit findings this design did not fully account for, now owned by Article Studio 2.0 / P0: (a) the branding‑by‑classless‑HTML premise is **true and retained**, but the editor's second (weaker) preview converter must be unified with the publish converter (P0.3); (b) the Milo Score is blind to ~36% of what it weighs (P0.2). See `PRODUCT-AUDIT-2026-07.md`, `DECISION-LOG.md` D12, `ROADMAP.md`.
+
 Analiza wieloagentowa (24 agentów: 4 czytające kod, 4 research, 3 niezależne propozycje, 9 ocen, 3 ataki, 1 synteza). 2026-07-19.
 
 Odpowiedź na propozycję właściciela: auto-tworzenie artykułu przy powstaniu szansy, pętla jakości do 90, branding strony, obrazy.
