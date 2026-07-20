@@ -25,6 +25,7 @@ import type { ContentAsset, Project } from "./types";
 import { markdownToHtml } from "./markdown";
 import { buildContentJsonLd, renderJsonLdScript } from "./structured-data";
 import { sourcesBlockMarkdown } from "./sources";
+import { authorBlockMarkdown, authorSchemaInput } from "./author";
 
 export interface AssembleOptions {
   /**
@@ -85,6 +86,12 @@ export const SECTION_RULES: SectionRule[] = [
     position: "tail",
     headingAliases: ["sources", "references", "citations"],
     build: (a) => sourcesBlockMarkdown(a.sources),
+  },
+  {
+    key: "author",
+    position: "tail",
+    headingAliases: ["about the author", "author", "the author"],
+    build: (a) => authorBlockMarkdown(a.author),
   },
 ];
 
@@ -163,6 +170,7 @@ export function assembleContentAsset(
     businessName: project.businessName || project.name,
     url: asset.liveUrl,
     datePublished: asset.livePublishedAt,
+    author: authorSchemaInput(asset.author),
   });
   const jsonLdScript = renderJsonLdScript(jsonLd);
   return { markdown, html, jsonLd, jsonLdScript };

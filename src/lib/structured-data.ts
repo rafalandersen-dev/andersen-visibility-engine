@@ -22,6 +22,14 @@ export interface ContentJsonLdInput {
   /** Canonical live URL, when known. */
   url?: string;
   datePublished?: string;
+  /**
+   * Named author (E-E-A-T). When present, Article.author is a Person and the
+   * Organization stays the publisher. Only real, user-supplied identity is used —
+   * credentials are never invented (F).
+   */
+  author?: { name: string; url?: string; sameAs?: string[] };
+  /** Breadcrumb trail → BreadcrumbList (H). */
+  breadcrumbs?: { name: string; url: string }[];
 }
 
 export interface FaqPair {
@@ -110,6 +118,18 @@ export function buildContentJsonLd(input: ContentJsonLdInput): Record<string, un
       const org = { "@type": "Organization", name: input.businessName.trim() };
       article.publisher = org;
       article.author = org;
+    }
+    // A named human author (E-E-A-T) overrides the Organization as the author,
+    // matching the visible "About the author" byline. Never invented (F).
+    if (input.author && input.author.name.trim()) {
+      const person: Record<string, unknown> = {
+        "@type": "Person",
+        name: input.author.name.trim(),
+      };
+      if (input.author.url?.trim()) person.url = input.author.url.trim();
+      const sameAs = (input.author.sameAs ?? []).map((s) => s.trim()).filter(Boolean);
+      if (sameAs.length) person.sameAs = sameAs;
+      article.author = person;
     }
     objs.push(article);
   }
