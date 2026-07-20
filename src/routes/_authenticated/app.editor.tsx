@@ -46,6 +46,7 @@ import {
   promoteArticleImageFn,
   removeArticleImageFn,
 } from "@/lib/image-storage.functions";
+import { reusedImageMeta } from "@/lib/image-storage";
 import { effectivePublishMode } from "@/lib/publish-targets";
 import { pipelineStage } from "@/lib/pipeline";
 import { StageChip } from "@/components/StageChip";
@@ -480,21 +481,10 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   const addExistingImage = (url: string) => {
     const src = existingApprovedImages.find((im) => im.url === url);
     if (!src) return;
-    setImages([
-      ...(f.images ?? []),
-      {
-        id: crypto.randomUUID(),
-        concept: src.concept,
-        url: src.url,
-        storagePath: src.storagePath,
-        alt: src.alt ?? "",
-        caption: src.caption,
-        placement: "inline",
-        source: "existing",
-        status: "accepted",
-        required: false,
-      },
-    ]);
+    // reusedImageMeta deliberately drops the source's storagePath — a reuse is a
+    // read-only reference to the shared PUBLIC object, so removing this copy must
+    // not delete it out from under the origin asset / a live article (review fix B).
+    setImages([...(f.images ?? []), { id: crypto.randomUUID(), ...reusedImageMeta(src) }]);
   };
 
   // ---- Link-safety resolver actions (one explicit choice per unresolved link) ----

@@ -159,6 +159,10 @@ export function shopifyArticleArgs(
     activeInternalPaths: new Set(knownInternalPaths),
   });
   return {
+    // Connector identity — lets the server-side RPC guard re-read + re-derive
+    // this asset from the workspace instead of trusting the request body.
+    projectId: project.id,
+    assetId: asset.id,
     ...shopifyCreds(project),
     blogGid: asset.shopifyBlogGid || sh.defaultBlogId || "",
     blogHandle: sh.defaultBlogHandle || "",
@@ -183,6 +187,10 @@ export function wpPublishArgs(
     activeInternalPaths: new Set(knownInternalPaths),
   });
   return {
+    // Connector identity — lets the server-side RPC guard re-read + re-derive
+    // this asset from the workspace instead of trusting the request body.
+    projectId: project.id,
+    assetId: asset.id,
     ...wpCreds(project),
     postType: wpPostTypeFor(asset, project),
     postId: asset.wordpressPostId,

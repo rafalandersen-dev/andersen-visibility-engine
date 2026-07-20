@@ -1573,6 +1573,10 @@ async function sendToWordPressDraft(asset: ContentAsset, project: Project, slug:
   });
   const res = await sendContentToWordPressDraftFn({
     data: {
+      // Connector identity — the server re-derives content + creds from this asset
+      // and enforces the checklist; the fields below are what a legit send passes.
+      projectId: project.id,
+      assetId: asset.id,
       ...creds,
       postType,
       postId: asset.wordpressPostId,
@@ -1614,6 +1618,10 @@ async function publishToWordPressLive(asset: ContentAsset, project: Project) {
   });
   const res = await publishWordPressContentFn({
     data: {
+      // Connector identity — the server re-derives content + creds from this asset
+      // and enforces the checklist; the fields below are what a legit publish passes.
+      projectId: project.id,
+      assetId: asset.id,
       ...creds,
       postType,
       postId: asset.wordpressPostId,

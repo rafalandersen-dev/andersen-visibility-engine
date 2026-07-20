@@ -17,6 +17,7 @@ import {
   validateImageBytes,
   storageObjectPath,
   ownerOfPath,
+  isValidStorageObjectPath,
   extForFormat,
   contentTypeForFormat,
   MAX_IMAGE_BYTES,
@@ -41,9 +42,14 @@ async function admin() {
   return supabaseAdmin;
 }
 
-/** Reject if the path's owner segment is not the caller — belt to the RLS braces. */
-function assertOwner(path: string, userId: string): void {
-  if (!path || ownerOfPath(path) !== userId) {
+/**
+ * Authorise a client-supplied object path. The path MUST first match the exact
+ * server shape (no `.`/`..`/traversal — otherwise the URL layer would normalise
+ * `<uid>/../<victim>/…` and defeat a first-segment check), THEN its owner segment
+ * must be the caller. Belt AND braces to the RLS policies.
+ */
+function assertOwnedPath(path: string, userId: string): void {
+  if (!isValidStorageObjectPath(path) || ownerOfPath(path) !== userId) {
     throw new Error("You do not have access to this asset.");
   }
 }
@@ -100,7 +106,7 @@ export const promoteArticleImageFn = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ path: z.string().min(1) }).parse(input))
   .handler(async ({ data, context }): Promise<{ publicUrl: string }> => {
     const userId = context.userId as string;
-    assertOwner(data.path, userId);
+    assertOwnedPath(data.path, userId);
     const db = await admin();
     const dl = await db.storage.from(ARTICLE_IMAGE_BUCKET_PRIVATE).download(data.path);
     if (dl.error || !dl.data) throw new Error("The staged image no longer exists.");
@@ -121,7 +127,7 @@ export const removeArticleImageFn = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ path: z.string().min(1) }).parse(input))
   .handler(async ({ data, context }): Promise<{ removed: true }> => {
     const userId = context.userId as string;
-    assertOwner(data.path, userId);
+    assertOwnedPath(data.path, userId);
     const db = await admin();
     await db.storage.from(ARTICLE_IMAGE_BUCKET_PRIVATE).remove([data.path]);
     await db.storage.from(ARTICLE_IMAGE_BUCKET_PUBLIC).remove([data.path]);

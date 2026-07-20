@@ -108,3 +108,40 @@ export function storageObjectPath(
 export function ownerOfPath(path: string): string {
   return (path || "").split("/")[0] ?? "";
 }
+
+/**
+ * The EXACT server-generated object shape: 4 safe segments, the last with an
+ * allowed extension. Any `.`/`..`/`/`/backslash or off-shape input fails — so a
+ * client-supplied path can never traverse (`<uid>/../<victim>/…`) once the server
+ * has passed it back for promote/remove. Authorisation must validate this BEFORE
+ * trusting the first segment (the URL layer would otherwise normalise `..` away).
+ */
+const STORAGE_PATH_RE =
+  /^[A-Za-z0-9_-]{1,64}\/[A-Za-z0-9_-]{1,64}\/[A-Za-z0-9_-]{1,64}\/[A-Za-z0-9_-]{1,64}\.(jpg|png|webp)$/;
+
+export function isValidStorageObjectPath(path: string): boolean {
+  return typeof path === "string" && STORAGE_PATH_RE.test(path);
+}
+
+/**
+ * Metadata for REUSING an already-approved image from another asset in the same
+ * project. Critically it does NOT carry the source's `storagePath` (nor its
+ * short-lived `previewUrl`): a reuse is a read-only reference to the shared PUBLIC
+ * object, so removing this copy must never delete the object out from under the
+ * origin asset or a live article (review fix B). The caller assigns a fresh `id`.
+ */
+export function reusedImageMeta(
+  src: import("./types").ContentImage,
+): Omit<import("./types").ContentImage, "id"> {
+  return {
+    concept: src.concept,
+    url: src.url,
+    alt: src.alt ?? "",
+    caption: src.caption,
+    placement: "inline",
+    source: "existing",
+    status: "accepted",
+    required: false,
+    // storagePath / previewUrl intentionally omitted — see doc comment.
+  };
+}
