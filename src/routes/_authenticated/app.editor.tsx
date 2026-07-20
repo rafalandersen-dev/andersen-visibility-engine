@@ -1168,11 +1168,26 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 Schema notes
               </Label>
               <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
-                On publish, Milo automatically adds valid Article and FAQ structured data
-                (schema.org JSON-LD) built from this article&apos;s title and the FAQ written into
-                the body. That is the structured-data <strong>implementation</strong>, and it makes
-                the page <strong>eligible</strong> for rich results where it qualifies — it does not
-                guarantee a rich result <strong>appears</strong> (the search engine decides that).
+                {isWordPress || isShopify ? (
+                  <>
+                    When you publish to {isWordPress ? "WordPress" : "Shopify"}, Milo includes valid
+                    Article and FAQ structured data (schema.org JSON-LD) built from this
+                    article&apos;s title and the FAQ written into the body. Whether your site keeps
+                    inline structured data depends on your CMS setup (for example, a WordPress user
+                    without the <span className="font-mono">unfiltered_html</span> capability, or an
+                    SEO plugin that already outputs schema), so Milo can&apos;t confirm it was
+                    retained — check with Google&apos;s Rich Results Test after publishing. Even when
+                    retained, this makes the page <strong>eligible</strong> for rich results where it
+                    qualifies; it does not guarantee a rich result <strong>appears</strong> (the
+                    search engine decides that).
+                  </>
+                ) : (
+                  <>
+                    Structured data (schema.org JSON-LD) is generated for this article, but Milo does
+                    not yet send it to a custom endpoint — your connector would need to add it. Milo
+                    never guarantees a rich result appears; the search engine decides that.
+                  </>
+                )}{" "}
                 The notes below are for your own reference and are not published.
               </p>
               <Textarea
