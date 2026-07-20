@@ -57,6 +57,7 @@ import {
   unresolvedLinksForPublish,
 } from "./publish-targets";
 import { assembleContentAsset } from "./content-assembler";
+import { validateSourceUrlsFn, MAX_SOURCES_PER_CALL } from "./sources.functions";
 import type {
   Opportunity,
   DiscoverySuggestion,
@@ -448,6 +449,36 @@ export async function evaluateContentQuality(contentAssetId: string) {
       overall: score.overall,
     });
     return score;
+  });
+}
+
+/**
+ * Reachability-validate an asset's attached sources (P1.1 C). Marks each source
+ * `verified` (URL resolves) or `unreachable`, never fabricating one and never
+ * silently dropping an unreachable one — it stays on the asset, labelled, so the
+ * editor can surface it. A human "unsupported" verdict is preserved, not
+ * overwritten by reachability.
+ */
+export async function validateAssetSources(assetId: string) {
+  return once(`validate-sources:${assetId}`, async () => {
+    const a = getState().content.find((c) => c.id === assetId);
+    if (!a) throw new Error("Content not found.");
+    const sources = a.sources ?? [];
+    const toCheck = sources
+      .filter((s) => s.status !== "unsupported")
+      .slice(0, MAX_SOURCES_PER_CALL);
+    if (!toCheck.length) return sources;
+    const results = await validateSourceUrlsFn({ data: { urls: toCheck.map((s) => s.url) } });
+    const byUrl = new Map(results.map((r) => [r.url, r.status]));
+    const checkedAt = new Date().toISOString();
+    const next = sources.map((s) => {
+      const status = byUrl.get(s.url);
+      return status ? { ...s, status, checkedAt } : s;
+    });
+    upsertContent({ ...a, sources: next, updatedAt: checkedAt });
+    await saveWorkspaceNow();
+    console.info("[ai.client] sources validated", { assetId, checked: toCheck.length });
+    return next;
   });
 }
 

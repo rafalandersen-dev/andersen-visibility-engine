@@ -24,6 +24,7 @@
 import type { ContentAsset, Project } from "./types";
 import { markdownToHtml } from "./markdown";
 import { buildContentJsonLd, renderJsonLdScript } from "./structured-data";
+import { sourcesBlockMarkdown } from "./sources";
 
 export interface AssembleOptions {
   /**
@@ -65,10 +66,16 @@ export function composeCanonicalMarkdown(asset: ContentAsset, _project: Project)
   if (takeaways.length) {
     lead.push(`## Key takeaways\n\n${takeaways.map((k) => `- ${k}`).join("\n")}`);
   }
+  // Tail sections composed AFTER the body. Sources (C): only CITABLE (verified)
+  // sources render as links; unreachable/unsupported are retained on the asset
+  // and surfaced in the editor, never published as a live citation (C9).
+  const tail: string[] = [];
+  const sources = sourcesBlockMarkdown(asset.sources);
+  if (sources) tail.push(sources);
   // Nothing to compose → exact byte parity with the pre-P1.1 published body.
-  if (!lead.length) return asset.markdown ?? "";
+  if (!lead.length && !tail.length) return asset.markdown ?? "";
   const body = (asset.markdown ?? "").trim();
-  return [...lead, body].filter(Boolean).join("\n\n");
+  return [...lead, body, ...tail].filter(Boolean).join("\n\n");
 }
 
 /**
