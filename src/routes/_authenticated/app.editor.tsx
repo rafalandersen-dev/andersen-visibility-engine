@@ -1144,11 +1144,19 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
             </div>
             <div>
               <Label htmlFor={schemaId} className="text-xs">
-                Schema suggestions
+                Schema notes
               </Label>
+              <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+                On publish, Milo automatically adds valid Article and FAQ structured data
+                (schema.org JSON-LD) built from this article&apos;s title and the FAQ written into
+                the body. That is the structured-data <strong>implementation</strong>, and it makes
+                the page <strong>eligible</strong> for rich results where it qualifies — it does not
+                guarantee a rich result <strong>appears</strong> (the search engine decides that).
+                The notes below are for your own reference and are not published.
+              </p>
               <Textarea
                 id={schemaId}
-                rows={4}
+                rows={3}
                 className="mt-1.5 font-mono text-xs"
                 value={f.schemaSuggestions.join("\n")}
                 onChange={(e) =>

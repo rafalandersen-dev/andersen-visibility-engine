@@ -143,6 +143,9 @@ export const ContentInput = z.object({
   postId: z.number().optional(),
   title: z.string().default(""),
   contentMarkdown: z.string().default(""),
+  // Deterministic Article/FAQPage JSON-LD <script>, appended to the post content
+  // at publish (P0.5). Empty string when there's nothing to emit.
+  jsonLd: z.string().default(""),
   slug: z.string().default(""),
   excerpt: z.string().default(""),
 });
@@ -160,7 +163,7 @@ export const sendContentToWordPressDraftFn = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<WordPressPublishResult> => {
     try {
       const base = wpBase(data.siteUrl);
-      const html = markdownToHtml(data.contentMarkdown);
+      const html = markdownToHtml(data.contentMarkdown) + data.jsonLd;
       const type = restType(data.postType);
       let result: unknown;
       if (data.postId) {
@@ -215,7 +218,7 @@ export async function publishWordPressLiveDirect(
   {
     try {
       const base = wpBase(data.siteUrl);
-      const html = markdownToHtml(data.contentMarkdown);
+      const html = markdownToHtml(data.contentMarkdown) + data.jsonLd;
       const type = restType(data.postType);
       let result: unknown;
       if (data.postId) {

@@ -13,6 +13,23 @@
  * No I/O, no store access — only (asset, project) → arguments.
  */
 import type { ContentAsset, Project, PublishMode } from "./types";
+import { contentJsonLdScript } from "./structured-data";
+
+/**
+ * Deterministic Article + FAQPage JSON-LD for an asset, built from the VISIBLE
+ * published content (title/meta + FAQ present in the body). Injected at publish
+ * (P0.5). Empty string when there's nothing to emit.
+ */
+export function contentStructuredData(asset: ContentAsset, project: Project): string {
+  return contentJsonLdScript({
+    title: asset.title,
+    description: asset.metaDescription ?? "",
+    bodyMarkdown: asset.markdown ?? "",
+    businessName: project.businessName || project.name,
+    url: asset.liveUrl,
+    datePublished: asset.livePublishedAt,
+  });
+}
 
 export function isWordPress(project: Project): boolean {
   return project.connectorType === "wordpress";
@@ -67,6 +84,7 @@ export function shopifyArticleArgs(asset: ContentAsset, project: Project) {
     articleGid: asset.shopifyArticleGid,
     title: asset.title,
     contentMarkdown: asset.markdown,
+    jsonLd: contentStructuredData(asset, project),
     handle: asset.slug || "",
     summary: asset.metaDescription ?? "",
     tags: sh.defaultTags ?? [],
@@ -81,6 +99,7 @@ export function wpPublishArgs(asset: ContentAsset, project: Project) {
     postId: asset.wordpressPostId,
     title: asset.title,
     contentMarkdown: asset.markdown,
+    jsonLd: contentStructuredData(asset, project),
     slug: (asset.publishSlug || asset.slug || "").trim(),
     excerpt: asset.metaDescription ?? "",
   };

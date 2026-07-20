@@ -155,6 +155,9 @@ export const ArticleInput = z.object({
   articleGid: z.string().optional(),
   title: z.string().default(""),
   contentMarkdown: z.string().default(""),
+  // Deterministic Article/FAQPage JSON-LD <script>, appended to the article body
+  // at publish (P0.5). Empty string when there's nothing to emit.
+  jsonLd: z.string().default(""),
   handle: z.string().default(""),
   summary: z.string().default(""),
   tags: z.array(z.string()).default([]),
@@ -170,7 +173,7 @@ export function liveUrlFor(shopDomain: string, blogHandle: string, articleHandle
 function buildArticleFields(data: z.infer<typeof ArticleInput>, isPublished: boolean) {
   const fields: Record<string, unknown> = {
     title: data.title,
-    body: markdownToHtml(data.contentMarkdown),
+    body: markdownToHtml(data.contentMarkdown) + data.jsonLd,
     isPublished,
   };
   if (data.handle || data.title) fields.handle = slugifyForPublish(data.handle || data.title);
