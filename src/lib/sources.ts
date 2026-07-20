@@ -18,6 +18,75 @@
  */
 import type { ContentSource } from "./types";
 
+/** Abuse controls for source attachment + validation (C follow-up), even without a paid API. */
+export const SOURCE_MAX_PER_ASSET = 20; // hard cap on sources attached to one asset
+export const SOURCE_MAX_PER_RUN = 12; // hard fan-out per validation run
+export const SOURCE_MAX_REDIRECTS = 3;
+export const SOURCE_FETCH_TIMEOUT_MS = 8000;
+export const SOURCE_MAX_RESPONSE_BYTES = 64_000; // we don't read bodies, but cap defensively
+export const SOURCE_RECHECK_COOLDOWN_MS = 10 * 60 * 1000; // don't re-hit a source within 10 min
+
+/** Normalise a source URL for de-duplication: trim, drop the fragment, strip a trailing slash. */
+export function normalizeSourceUrl(raw: string): string {
+  try {
+    const u = new URL((raw || "").trim());
+    u.hash = "";
+    let s = u.toString();
+    if (s.endsWith("/") && u.pathname !== "/") s = s.slice(0, -1);
+    return s;
+  } catch {
+    return (raw || "").trim();
+  }
+}
+
+/** De-duplicate sources by normalised URL, keeping first occurrence, capped per asset. */
+export function dedupeSources(sources: ContentSource[] | undefined): ContentSource[] {
+  const seen = new Set<string>();
+  const out: ContentSource[] = [];
+  for (const s of sources ?? []) {
+    const key = normalizeSourceUrl(s.url);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(s);
+    if (out.length >= SOURCE_MAX_PER_ASSET) break;
+  }
+  return out;
+}
+
+/**
+ * Which sources a validation run should actually fetch: skip a human "unsupported"
+ * verdict, skip anything checked within the cooldown, and cap the fan-out per run.
+ */
+export function selectSourcesToValidate(
+  sources: ContentSource[] | undefined,
+  nowMs: number,
+  force = false,
+): ContentSource[] {
+  return dedupeSources(sources)
+    .filter((s) => {
+      if (s.status === "unsupported") return false;
+      if (force) return true;
+      if (s.status === "unchecked") return true;
+      if (!s.checkedAt) return true;
+      const t = Date.parse(s.checkedAt);
+      return !Number.isFinite(t) || nowMs - t >= SOURCE_RECHECK_COOLDOWN_MS;
+    })
+    .slice(0, SOURCE_MAX_PER_RUN);
+}
+
+/** Map a fetch outcome to an explicit status + note (never counts a failure as verified). */
+export function classifyReachability(outcome: {
+  ok?: boolean;
+  status?: number;
+  kind?: "timeout" | "blocked" | "network";
+}): { status: "verified" | "unreachable"; note: string } {
+  if (outcome.kind === "timeout") return { status: "unreachable", note: "timeout" };
+  if (outcome.kind === "blocked") return { status: "unreachable", note: "blocked" };
+  if (outcome.kind === "network") return { status: "unreachable", note: "network" };
+  if (outcome.ok || outcome.status === 206) return { status: "verified", note: "ok" };
+  return { status: "unreachable", note: `http_${outcome.status ?? 0}` };
+}
+
 /**
  * http/https only, with a basic SSRF guard rejecting loopback / private /
  * link-local / cloud-metadata hosts. Used before any fetch AND as the gate on

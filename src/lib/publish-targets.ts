@@ -47,6 +47,12 @@ export function buildKnownInternalPaths(project: Project, content: ContentAsset[
       /* ignore an unparseable live URL */
     }
   }
+  // Sitemap inventory (P1.1 D): the site's own URLs, captured same-origin and
+  // normalised at fetch time, are VERIFIED. This is what lets a link to an
+  // existing customer page (/services, /about) resolve without per-path approval.
+  for (const p of project.sitemapInventory?.paths ?? []) {
+    if (typeof p === "string" && p.startsWith("/")) paths.add(p);
+  }
   return [...paths];
 }
 

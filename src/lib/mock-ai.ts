@@ -57,7 +57,10 @@ import {
   unresolvedLinksForPublish,
 } from "./publish-targets";
 import { assembleContentAsset } from "./content-assembler";
-import { validateSourceUrlsFn, MAX_SOURCES_PER_CALL } from "./sources.functions";
+import { validateSourceUrlsFn } from "./sources.functions";
+import { selectSourcesToValidate, normalizeSourceUrl } from "./sources";
+import { fetchSitemapInventoryFn } from "./sitemap.functions";
+import { isSitemapInventoryFresh } from "./sitemap";
 import type {
   Opportunity,
   DiscoverySuggestion,
@@ -459,26 +462,50 @@ export async function evaluateContentQuality(contentAssetId: string) {
  * editor can surface it. A human "unsupported" verdict is preserved, not
  * overwritten by reachability.
  */
-export async function validateAssetSources(assetId: string) {
+export async function validateAssetSources(assetId: string, force = false) {
   return once(`validate-sources:${assetId}`, async () => {
     const a = getState().content.find((c) => c.id === assetId);
     if (!a) throw new Error("Content not found.");
     const sources = a.sources ?? [];
-    const toCheck = sources
-      .filter((s) => s.status !== "unsupported")
-      .slice(0, MAX_SOURCES_PER_CALL);
+    // Cooldown + dedupe + per-run fan-out cap (C follow-up abuse controls).
+    const toCheck = selectSourcesToValidate(sources, Date.now(), force);
     if (!toCheck.length) return sources;
     const results = await validateSourceUrlsFn({ data: { urls: toCheck.map((s) => s.url) } });
-    const byUrl = new Map(results.map((r) => [r.url, r.status]));
+    const byUrl = new Map(results.map((r) => [normalizeSourceUrl(r.url), r]));
     const checkedAt = new Date().toISOString();
     const next = sources.map((s) => {
-      const status = byUrl.get(s.url);
-      return status ? { ...s, status, checkedAt } : s;
+      const r = byUrl.get(normalizeSourceUrl(s.url));
+      // Never count an unreachable source as verified; keep an explicit note.
+      return r ? { ...s, status: r.status, checkNote: r.note, checkedAt } : s;
     });
     upsertContent({ ...a, sources: next, updatedAt: checkedAt });
     await saveWorkspaceNow();
     console.info("[ai.client] sources validated", { assetId, checked: toCheck.length });
     return next;
+  });
+}
+
+/**
+ * Refresh a project's cached sitemap URL inventory (P1.1 D). Bounded + cached:
+ * returns the cached inventory untouched while still fresh (a cooldown), else
+ * re-fetches under the server fn's strict caps. Stores only the compact paths +
+ * metadata on the project (no raw XML).
+ */
+export async function refreshSitemapInventory(projectId: string, force = false) {
+  return once(`sitemap:${projectId}`, async () => {
+    const project = getState().projects.find((p) => p.id === projectId);
+    if (!project) throw new Error("Project not found.");
+    if (!force && isSitemapInventoryFresh(project.sitemapInventory, Date.now())) {
+      return project.sitemapInventory ?? null;
+    }
+    const siteUrl = (project.websiteUrl || "").trim();
+    if (!siteUrl) throw new Error("Add your website URL in Project Setup first.");
+    const inv = await fetchSitemapInventoryFn({ data: { siteUrl } });
+    if (inv) {
+      updateProject(projectId, { sitemapInventory: inv });
+      await saveWorkspaceNow();
+    }
+    return inv;
   });
 }
 

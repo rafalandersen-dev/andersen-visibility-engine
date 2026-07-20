@@ -12,6 +12,13 @@ import {
   nonCitableSources,
   sourcesBlockMarkdown,
   ymylClaimsNeedingReview,
+  normalizeSourceUrl,
+  dedupeSources,
+  selectSourcesToValidate,
+  classifyReachability,
+  SOURCE_MAX_PER_ASSET,
+  SOURCE_MAX_PER_RUN,
+  SOURCE_RECHECK_COOLDOWN_MS,
 } from "./sources";
 import { assembleContentAsset } from "./content-assembler";
 import type { ContentAsset, ContentSource, Project } from "./types";
@@ -119,5 +126,71 @@ describe("YMYL claims needing review (C25)", () => {
       src({ url: "https://c", ymyl: false, status: "unchecked" }),
     ]);
     expect(needing.map((s) => s.url)).toEqual(["https://a"]);
+  });
+});
+
+describe("abuse controls (C follow-up)", () => {
+  it("normalizeSourceUrl drops the fragment and a trailing slash", () => {
+    expect(normalizeSourceUrl("https://a.com/x/#frag")).toBe("https://a.com/x");
+    expect(normalizeSourceUrl("https://a.com/")).toBe("https://a.com/");
+    expect(normalizeSourceUrl("  https://a.com/x  ")).toBe("https://a.com/x");
+  });
+
+  it("dedupeSources removes duplicate URLs and caps per asset", () => {
+    const dup = [src({ url: "https://a.com/x" }), src({ url: "https://a.com/x/#y" })];
+    expect(dedupeSources(dup)).toHaveLength(1);
+    const many = Array.from({ length: SOURCE_MAX_PER_ASSET + 5 }, (_, i) =>
+      src({ url: `https://a.com/${i}` }),
+    );
+    expect(dedupeSources(many)).toHaveLength(SOURCE_MAX_PER_ASSET);
+  });
+
+  it("selectSourcesToValidate skips unsupported, honours the cooldown, caps the run", () => {
+    const now = 1_000_000_000_000;
+    const recent = new Date(now - 1000).toISOString();
+    const old = new Date(now - SOURCE_RECHECK_COOLDOWN_MS - 1).toISOString();
+    const chosen = selectSourcesToValidate(
+      [
+        src({ url: "https://a.com/unsupported", status: "unsupported" }),
+        src({ url: "https://a.com/recent", status: "unreachable", checkedAt: recent }),
+        src({ url: "https://a.com/stale", status: "unreachable", checkedAt: old }),
+        src({ url: "https://a.com/new", status: "unchecked" }),
+      ],
+      now,
+    );
+    expect(chosen.map((s) => s.url).sort()).toEqual(["https://a.com/new", "https://a.com/stale"]);
+    // force overrides the cooldown but never revives an "unsupported" verdict.
+    const forced = selectSourcesToValidate(
+      [src({ url: "https://a.com/recent", status: "verified", checkedAt: recent })],
+      now,
+      true,
+    );
+    expect(forced).toHaveLength(1);
+    const capped = selectSourcesToValidate(
+      Array.from({ length: SOURCE_MAX_PER_RUN + 8 }, (_, i) =>
+        src({ url: `https://a.com/${i}`, status: "unchecked" }),
+      ),
+      now,
+    );
+    expect(capped).toHaveLength(SOURCE_MAX_PER_RUN);
+  });
+
+  it("classifyReachability never counts a failure as verified; keeps an explicit note", () => {
+    expect(classifyReachability({ kind: "timeout" })).toEqual({
+      status: "unreachable",
+      note: "timeout",
+    });
+    expect(classifyReachability({ kind: "blocked" })).toEqual({
+      status: "unreachable",
+      note: "blocked",
+    });
+    expect(classifyReachability({ ok: true, status: 200 })).toEqual({
+      status: "verified",
+      note: "ok",
+    });
+    expect(classifyReachability({ ok: false, status: 404 })).toEqual({
+      status: "unreachable",
+      note: "http_404",
+    });
   });
 });

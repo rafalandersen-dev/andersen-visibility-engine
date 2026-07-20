@@ -224,6 +224,13 @@ export interface Project {
    * never stored here.
    */
   approvedInternalPaths?: string[];
+  /**
+   * Compact, cached inventory of the site's own URLs discovered from its
+   * sitemap(s) (P1.1 D). Feeds the VERIFIED internal-path set. Only the
+   * normalised same-origin paths + metadata are stored — never the raw XML —
+   * and it is re-fetched once stale. JSONB, no migration.
+   */
+  sitemapInventory?: SitemapInventory;
   // ---- WordPress Connector v1 (all optional → existing projects keep loading) ----
   /** Which publishing connector this project uses (defaults to "custom"). */
   connectorType?: PublishingConnectorType;
@@ -744,6 +751,8 @@ export interface ContentSource {
   claim?: string;
   status: ContentSourceStatus;
   checkedAt?: string;
+  /** Why a check produced its status: "ok" | "blocked" | "timeout" | "http_<code>" | "network". */
+  checkNote?: string;
   /** True for a Your-Money-Your-Life claim that must trace to a source (C25). */
   ymyl?: boolean;
 }
@@ -818,6 +827,23 @@ export interface ReadinessScore {
   /** 0–100 derived from the publishing checklist (J). */
   publishingReadiness?: number;
   evaluatedAt?: string;
+}
+
+/**
+ * Compact cached inventory of a site's own URLs from its sitemap(s) (P1.1 D).
+ * Stores ONLY normalised same-origin paths + metadata — never the raw XML — and
+ * is re-fetched when stale. Feeds the VERIFIED internal-path set.
+ */
+export interface SitemapInventory {
+  /** Normalised same-origin paths (e.g. "/services", "/blog/post"). */
+  paths: string[];
+  fetchedAt: string;
+  /** Distinct URLs kept (== paths.length). */
+  urlCount: number;
+  /** How many sitemap documents were fetched. */
+  sitemapCount: number;
+  /** True when a cap (URL count / file count) truncated the crawl. */
+  truncated: boolean;
 }
 
 // ---- Site Audit v1 ----
