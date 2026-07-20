@@ -147,6 +147,21 @@ export function buildContentJsonLd(input: ContentJsonLdInput): Record<string, un
     });
   }
 
+  // BreadcrumbList (H) — the page's position in the site hierarchy. One list only.
+  const crumbs = (input.breadcrumbs ?? []).filter((b) => b.name?.trim() && b.url?.trim());
+  if (crumbs.length) {
+    objs.push({
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: crumbs.map((b, i) => ({
+        "@type": "ListItem",
+        position: i + 1,
+        name: b.name.trim(),
+        item: b.url.trim(),
+      })),
+    });
+  }
+
   return objs;
 }
 

@@ -182,6 +182,7 @@ export function assembleContentAsset(
     url: asset.liveUrl,
     datePublished: asset.livePublishedAt,
     author: authorSchemaInput(asset.author),
+    breadcrumbs: asset.breadcrumbs,
   });
   const jsonLdScript = renderJsonLdScript(jsonLd);
   return { markdown, html, jsonLd, jsonLdScript };
