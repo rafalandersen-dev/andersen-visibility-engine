@@ -118,6 +118,29 @@ export function buildPublishingChecklist(
   // construction; this item guards against a future regression.
   items.push(block("schema", "Structured data matches visible content", true, ""));
 
+  // Duplicate-post guard (review fix): a REWRITE of an existing live page
+  // (republishTargetUrl set) that targets WordPress/Shopify but carries NO
+  // connector identity (postId / articleGid) cannot be resolved to the existing
+  // object — publishing would CREATE a duplicate. Block and ask the user to
+  // resolve rather than silently duplicate. The custom endpoint upserts by
+  // slug/URL, so it is safe.
+  const rewriteUnresolved =
+    Boolean(asset.republishTargetUrl?.trim()) &&
+    ((project.connectorType === "wordpress" && !asset.wordpressPostId) ||
+      (project.connectorType === "shopify" && !asset.shopifyArticleGid?.trim()));
+  items.push(
+    block(
+      "duplicateTarget",
+      "Update target resolved (no duplicate post)",
+      !rewriteUnresolved,
+      rewriteUnresolved
+        ? "This is a rewrite of an existing page, but Milo can't identify the existing " +
+            `${project.connectorType} post to update — publishing would create a duplicate. ` +
+            "Re-connect the original post, or clear the rewrite target."
+        : "",
+    ),
+  );
+
   // ---- WARNINGS (never block) ----
   const score = asset.qualityScore?.overall;
   items.push(
