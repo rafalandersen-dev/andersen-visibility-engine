@@ -13,8 +13,8 @@
  * No I/O, no store access — only (asset, project) → arguments.
  */
 import type { ContentAsset, Project, PublishMode } from "./types";
-import { contentJsonLdScript } from "./structured-data";
 import { normalizeInternalPath, unresolvedInternalLinks } from "./markdown";
+import { assembleContentAsset } from "./content-assembler";
 
 /**
  * A deterministic, non-paid inventory of internal paths KNOWN to exist on the
@@ -85,16 +85,14 @@ export function unresolvedLinksForPublish(
  * Deterministic Article + FAQPage JSON-LD for an asset, built from the VISIBLE
  * published content (title/meta + FAQ present in the body). Injected at publish
  * (P0.5). Empty string when there's nothing to emit.
+ *
+ * Now derived from the canonical assembler (P1.1 B) so the schema mirrors exactly
+ * the assembled markdown that publishes — not a separate read of `asset.markdown`
+ * (schema-content consistency, C17). The active-path set does not affect JSON-LD
+ * (schema derives from the markdown text, not the rendered links).
  */
 export function contentStructuredData(asset: ContentAsset, project: Project): string {
-  return contentJsonLdScript({
-    title: asset.title,
-    description: asset.metaDescription ?? "",
-    bodyMarkdown: asset.markdown ?? "",
-    businessName: project.businessName || project.name,
-    url: asset.liveUrl,
-    datePublished: asset.livePublishedAt,
-  });
+  return assembleContentAsset(asset, project).jsonLdScript;
 }
 
 export function isWordPress(project: Project): boolean {
@@ -147,14 +145,19 @@ export function shopifyArticleArgs(
   knownInternalPaths: string[] = [],
 ) {
   const sh = project.shopify ?? {};
+  // Body markdown + JSON-LD from the ONE canonical assembler (P1.1 B), so the
+  // article that publishes and its schema come from the same assembled source.
+  const assembled = assembleContentAsset(asset, project, {
+    activeInternalPaths: new Set(knownInternalPaths),
+  });
   return {
     ...shopifyCreds(project),
     blogGid: asset.shopifyBlogGid || sh.defaultBlogId || "",
     blogHandle: sh.defaultBlogHandle || "",
     articleGid: asset.shopifyArticleGid,
     title: asset.title,
-    contentMarkdown: asset.markdown,
-    jsonLd: contentStructuredData(asset, project),
+    contentMarkdown: assembled.markdown,
+    jsonLd: assembled.jsonLdScript,
     knownInternalPaths,
     handle: asset.slug || "",
     summary: asset.metaDescription ?? "",
@@ -168,13 +171,16 @@ export function wpPublishArgs(
   project: Project,
   knownInternalPaths: string[] = [],
 ) {
+  const assembled = assembleContentAsset(asset, project, {
+    activeInternalPaths: new Set(knownInternalPaths),
+  });
   return {
     ...wpCreds(project),
     postType: wpPostTypeFor(asset, project),
     postId: asset.wordpressPostId,
     title: asset.title,
-    contentMarkdown: asset.markdown,
-    jsonLd: contentStructuredData(asset, project),
+    contentMarkdown: assembled.markdown,
+    jsonLd: assembled.jsonLdScript,
     knownInternalPaths,
     slug: (asset.publishSlug || asset.slug || "").trim(),
     excerpt: asset.metaDescription ?? "",

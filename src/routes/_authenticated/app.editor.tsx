@@ -79,6 +79,7 @@ import {
   type ClassifiedInternalLink,
 } from "@/lib/markdown";
 import { buildKnownInternalPaths, buildActiveInternalPaths } from "@/lib/publish-targets";
+import { assembleContentAsset } from "@/lib/content-assembler";
 
 /** Presentation-only styling for the preview's canonical semantic HTML. */
 const PREVIEW_STYLE = `
@@ -290,6 +291,16 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     [project, projectContent],
   );
   const renderOpts = useMemo(() => ({ knownInternalPaths: new Set(activePaths) }), [activePaths]);
+  // Preview and Export render the CANONICAL assembled asset (P1.1 B) — the exact
+  // markdown/HTML that publishes — so WYSIWYG parity holds. Identical to
+  // markdownToHtml(f.markdown) for an asset with no Article-Studio-2.0 fields.
+  const assembled = useMemo(
+    () =>
+      project
+        ? assembleContentAsset(f, project, { activeInternalPaths: renderOpts.knownInternalPaths })
+        : null,
+    [f, project, renderOpts],
+  );
   const classifiedLinks = useMemo(
     () => classifyInternalLinks(f.markdown, new Set(verifiedPaths), new Set(approvedPaths)),
     [f.markdown, verifiedPaths, approvedPaths],
@@ -475,7 +486,10 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   }, [fromStore?.updatedAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const exportText = (type: "md" | "html") => {
-    const body = type === "md" ? f.markdown : markdownToHtml(f.markdown, renderOpts);
+    const body =
+      type === "md"
+        ? (assembled?.markdown ?? f.markdown)
+        : (assembled?.html ?? markdownToHtml(f.markdown, renderOpts));
     const blob = new Blob([body], { type: type === "md" ? "text/markdown" : "text/html" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1291,7 +1305,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           ) : null}
           <div
             className="milo-preview rounded-lg border border-border bg-background p-6"
-            dangerouslySetInnerHTML={{ __html: markdownToHtml(f.markdown, renderOpts) }}
+            dangerouslySetInnerHTML={{
+              __html: assembled?.html ?? markdownToHtml(f.markdown, renderOpts),
+            }}
           />
         </TabsContent>
       </Tabs>

@@ -24,6 +24,7 @@ import {
   wpPublishArgs,
 } from "./publish-targets";
 import { unresolvedInternalLinks } from "./markdown";
+import { assembleContentAsset } from "./content-assembler";
 import {
   applyAssetPatch,
   applyPublishSuccess,
@@ -161,7 +162,10 @@ async function runConnectorPublish(
       assetType: asset.assetType ?? "article",
       destinationType: asset.publishDestinationType ?? project.defaultDestinationType ?? "blogPost",
       language: asset.language ?? project.primaryLanguage,
-      markdown: asset.markdown,
+      // Publish the same canonical assembled body (P1.1 B) as the first-party
+      // connectors. Payload shape unchanged; identical to raw markdown for a
+      // legacy asset.
+      markdown: assembleContentAsset(asset, project).markdown,
       metaTitle: asset.metaTitle ?? "",
       metaDescription: asset.metaDescription ?? "",
       sourceOpportunityTitle: asset.sourceOpportunityTitle ?? asset.title,

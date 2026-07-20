@@ -55,8 +55,8 @@ import {
   shopifyArticleArgs,
   buildActiveInternalPaths,
   unresolvedLinksForPublish,
-  contentStructuredData,
 } from "./publish-targets";
+import { assembleContentAsset } from "./content-assembler";
 import type {
   Opportunity,
   DiscoverySuggestion,
@@ -399,9 +399,12 @@ export async function evaluateContentQuality(contentAssetId: string) {
     const { project, services } = requireProject(a.projectId);
 
     const evaluatedAt = new Date().toISOString();
+    // Score the CANONICAL assembled asset (P1.1 B), so scoring, publishing and
+    // schema all judge one artifact. Identical to `a.markdown` for a legacy asset.
+    const canonicalMarkdown = assembleContentAsset(a, project).markdown;
 
     // Short-circuit empty/too-short drafts — conservative score, no AI call.
-    if (draftWordCount(a.markdown || "") < MIN_EVALUABLE_WORDS) {
+    if (draftWordCount(canonicalMarkdown) < MIN_EVALUABLE_WORDS) {
       upsertContent({
         ...a,
         qualityScore: tooShortScore(evaluatedAt),
@@ -428,7 +431,7 @@ export async function evaluateContentQuality(contentAssetId: string) {
         project,
         services,
         title: a.title,
-        markdown: a.markdown || "",
+        markdown: canonicalMarkdown,
         assetType: a.assetType ?? "article",
         destinationType: a.publishDestinationType ?? "",
         metaTitle: a.metaTitle ?? "",
@@ -1486,17 +1489,22 @@ function assertNoUnresolvedLinks(asset: ContentAsset, project: Project): void {
 async function sendToWordPressDraft(asset: ContentAsset, project: Project, slug: string) {
   const creds = wpCreds(project);
   const postType = wpPostTypeFor(asset, project);
+  // Manual == scheduled: body markdown + structured data both come from the ONE
+  // canonical assembler (P1.1 B), resolving links against the same active
+  // inventory as the cron path.
+  const activePaths = knownPathsForProject(project);
+  const assembled = assembleContentAsset(asset, project, {
+    activeInternalPaths: new Set(activePaths),
+  });
   const res = await sendContentToWordPressDraftFn({
     data: {
       ...creds,
       postType,
       postId: asset.wordpressPostId,
       title: asset.title,
-      contentMarkdown: asset.markdown,
-      // Manual == scheduled: emit the same structured data (B2) and resolve
-      // internal links against the same inventory (B1) as the cron path.
-      jsonLd: contentStructuredData(asset, project),
-      knownInternalPaths: knownPathsForProject(project),
+      contentMarkdown: assembled.markdown,
+      jsonLd: assembled.jsonLdScript,
+      knownInternalPaths: activePaths,
       slug: (slug || asset.slug || "").trim(),
       excerpt: asset.metaDescription ?? "",
     },
@@ -1525,17 +1533,21 @@ async function sendToWordPressDraft(asset: ContentAsset, project: Project, slug:
 async function publishToWordPressLive(asset: ContentAsset, project: Project) {
   const creds = wpCreds(project);
   const postType = wpPostTypeFor(asset, project);
+  const activePaths = knownPathsForProject(project);
+  const assembled = assembleContentAsset(asset, project, {
+    activeInternalPaths: new Set(activePaths),
+  });
   const res = await publishWordPressContentFn({
     data: {
       ...creds,
       postType,
       postId: asset.wordpressPostId,
       title: asset.title,
-      contentMarkdown: asset.markdown,
-      // Manual == scheduled: emit the same structured data (B2) and resolve
-      // internal links against the same inventory (B1) as the cron path.
-      jsonLd: contentStructuredData(asset, project),
-      knownInternalPaths: knownPathsForProject(project),
+      contentMarkdown: assembled.markdown,
+      // Manual == scheduled: body + structured data from the ONE canonical
+      // assembler (P1.1 B), links resolved against the same active inventory.
+      jsonLd: assembled.jsonLdScript,
+      knownInternalPaths: activePaths,
       slug: (asset.publishSlug || asset.slug || "").trim(),
       excerpt: asset.metaDescription ?? "",
     },
@@ -1702,7 +1714,10 @@ export async function sendContentToWebsite(
           assetType: asset.assetType ?? "article",
           destinationType,
           language: asset.language ?? project.primaryLanguage,
-          markdown: asset.markdown,
+          // Custom endpoint publishes the same canonical assembled body (P1.1 B)
+          // as WordPress/Shopify. Payload shape is unchanged (still `markdown`);
+          // identical to `asset.markdown` for a legacy asset.
+          markdown: assembleContentAsset(asset, project).markdown,
           metaTitle: asset.metaTitle,
           metaDescription: asset.metaDescription,
           sourceOpportunityTitle: asset.sourceOpportunityTitle ?? asset.title,
