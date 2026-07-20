@@ -4,6 +4,7 @@
 import { describe, it, expect } from "vitest";
 import { assembleContentAsset, composeCanonicalMarkdown } from "./content-assembler";
 import { buildContentJsonLd } from "./structured-data";
+import { assessReadiness } from "./readiness";
 import type { ContentAsset, ContentImage, Project } from "./types";
 
 const project = (): Project =>
@@ -110,5 +111,51 @@ describe("FAQ question de-duplication", () => {
     });
     const faqPage = objs.find((o) => o["@type"] === "FAQPage");
     expect((faqPage?.mainEntity as unknown[]).length).toBe(1);
+  });
+});
+
+describe("YMYL hardening (Phase 2c)", () => {
+  it("detects broadened medical / financial / legal claims", () => {
+    for (const claim of [
+      "This supplement lowers blood pressure fast.",
+      "Grow your investment with guaranteed dividends.",
+      "You can sue for full liability in this lawsuit.",
+    ]) {
+      expect(
+        assessReadiness(asset({ markdown: claim }), project(), []).ymyl.signals.length,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  it("catches a YMYL claim placed only in the title/meta (not just the body)", () => {
+    const a = asset({ title: "A natural cure for diabetes", markdown: "Our friendly studio." });
+    const r = assessReadiness(a, project(), []);
+    expect(r.ymyl.signals).toContain("medical");
+    expect(r.ymyl.level).toBe("fail"); // unsupported
+  });
+
+  it("a bare name + URL author is NOT sufficient support (fail); a credential is (review)", () => {
+    const claim = "This treatment reduces chronic pain and inflammation.";
+    const bare = asset({
+      markdown: claim,
+      author: { name: "Joe", url: "https://x.com/joe" } as never,
+    });
+    expect(assessReadiness(bare, project(), []).ymyl.level).toBe("fail");
+
+    const credentialed = asset({
+      markdown: claim,
+      author: { name: "Dr Lena", credentials: "PT, MSc" } as never,
+    });
+    expect(assessReadiness(credentialed, project(), []).ymyl.level).toBe("review");
+  });
+
+  it("ordinary non-medical content still passes", () => {
+    expect(
+      assessReadiness(
+        asset({ markdown: "Our studio offers a calm, welcoming space." }),
+        project(),
+        [],
+      ).ymyl.level,
+    ).toBe("pass");
   });
 });

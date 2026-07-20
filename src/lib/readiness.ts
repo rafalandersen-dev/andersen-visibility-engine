@@ -17,7 +17,6 @@
 import type { ContentAsset, Project, ReadinessLevel, ReadinessScore } from "./types";
 import { assembleContentAsset } from "./content-assembler";
 import { citableSources } from "./sources";
-import { isAuthorResolved } from "./author";
 
 export type ScoreMethod = "deterministic" | "heuristic" | "ai-judgement" | "measured";
 
@@ -53,19 +52,24 @@ const LEXICAL_LIMITATION =
 const CANNIBAL_LIMITATION =
   "Based on title/slug overlap, not query data. Flags assets that MIGHT target the same query — confirm intent before treating as cannibalisation.";
 
-/** YMYL claim signals — health/medical, financial, legal (deterministic detection). */
+/**
+ * YMYL claim signals — health/medical, financial, legal. A deterministic HEURISTIC
+ * net, not an exhaustive classifier: it errs toward flagging (a false positive only
+ * asks for a source/credentialed author, which good content has anyway). The real
+ * YMYL safeguard is the required human review the checklist enforces.
+ */
 const YMYL_PATTERNS: { key: string; re: RegExp }[] = [
   {
     key: "medical",
-    re: /\b(cure|cures|treat|treats|treatment|diagnos\w*|symptom|dosage|prescription|side effects?|clinically proven|heals?)\b/i,
+    re: /\b(cure[sd]?|cured|treat(s|ed|ment|ments|ing)?|therap(y|ies|eutic)|diagnos\w*|symptom\w*|dosage|doses?|prescription|prescrib\w*|medication|medicine|medical|drug|supplement|vitamin|side.?effects?|clinical\w*|heal(s|ed|ing)?|disease|illness|cancer|diabet\w*|blood.?pressure|cholesterol|weight.?loss|pain.?relief|inflammation|anti.?inflammatory|immun\w*|detox\w*|mental.?health|depression|anxiety|pregnan\w*|fertility|hormone\w*)\b/i,
   },
   {
     key: "financial",
-    re: /\b(guaranteed returns?|investment advice|roi|interest rate|tax(?:es)?|loan|mortgage|refinanc\w*|portfolio)\b/i,
+    re: /\b(invest(s|ed|ing|ment|ments)?|guaranteed.?returns?|return.?on.?investment|roi|interest.?rates?|taxes?|tax.?(advice|return|deduction)|loans?|mortgage\w*|refinanc\w*|portfolio\w*|stocks?|shares?|crypto\w*|bitcoin|retirement|pension\w*|savings?|debt\w*|credit.?(score|card)|insurance|financial.?advice|profits?|dividend\w*|yield\w*)\b/i,
   },
   {
     key: "legal",
-    re: /\b(legal advice|lawsuit|liability|contract law|attorney|statute|regulation compliance)\b/i,
+    re: /\b(legal.?advice|lawsuits?|\bsue\b|attorney|lawyer|liabilit\w*|contract.?law|statute\w*|litigation|settlement\w*|legally.?binding|gdpr|regulatory.?compliance)\b/i,
   },
 ];
 
@@ -169,10 +173,23 @@ function ymyl(
   signals: string[];
   supported: boolean;
 } {
-  const signals = YMYL_PATTERNS.filter((p) => p.re.test(canonicalMarkdown)).map((p) => p.key);
+  // Scan the title + BOTH metas + the body — a YMYL claim placed only in the title
+  // or meta (which publish as headline/description) must not evade the gate.
+  const scanned = [
+    asset.title ?? "",
+    asset.metaTitle ?? "",
+    asset.metaDescription ?? "",
+    canonicalMarkdown,
+  ].join("\n");
+  const signals = YMYL_PATTERNS.filter((p) => p.re.test(scanned)).map((p) => p.key);
   if (!signals.length)
     return { level: "pass", method: "deterministic", signals: [], supported: true };
-  const supported = citableSources(asset.sources).length > 0 || isAuthorResolved(asset.author);
+  // "Supported" for a YMYL claim requires a VERIFIED source or an author with a
+  // real CREDENTIAL — a bare name + profile URL is not enough to back a health/
+  // finance/legal claim. Unsupported → fail (the checklist turns this into a hard
+  // human-review block).
+  const supported =
+    citableSources(asset.sources).length > 0 || Boolean(asset.author?.credentials?.trim());
   return { level: supported ? "review" : "fail", method: "deterministic", signals, supported };
 }
 
@@ -214,7 +231,10 @@ export function assessReadiness(
   const canonical = assembleContentAsset(asset, project).markdown;
   const others = corpus.filter((a) => a.projectId === asset.projectId && a.id !== asset.id);
 
-  const dup = corpusConflicts(asset, others, (a) => assembleContentAsset(a, project).markdown, 0.5);
+  // Duplication compares the AUTHORED body, not the assembled output — otherwise a
+  // shared house author byline + Sources block would inflate cross-asset similarity
+  // between substantively different articles (review fix).
+  const dup = corpusConflicts(asset, others, (a) => a.markdown ?? "", 0.5);
   const cannibal = corpusConflicts(asset, others, (a) => `${a.title} ${a.slug ?? ""}`, 0.6);
 
   return {
