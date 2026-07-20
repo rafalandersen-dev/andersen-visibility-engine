@@ -18,7 +18,8 @@ import type { WordPressPublishResult } from "./types";
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   Boolean(v) && typeof v === "object" && !Array.isArray(v);
 const asString = (v: unknown): string => (typeof v === "string" ? v : "");
-const asNumber = (v: unknown): number | undefined => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
+const asNumber = (v: unknown): number | undefined =>
+  typeof v === "number" && Number.isFinite(v) ? v : undefined;
 
 /** UTF-8 safe base64 (works in worker/edge runtimes without Buffer). */
 function b64(s: string): string {
@@ -45,7 +46,8 @@ function wpBase(siteUrl: string): URL {
   return parsed;
 }
 
-const FRIENDLY_CONNECT = "Could not connect to WordPress. Check the site URL and application password.";
+const FRIENDLY_CONNECT =
+  "Could not connect to WordPress. Check the site URL and application password.";
 
 /** Make an authenticated WordPress REST request. Never logs credentials. */
 async function wpRequest(
@@ -81,7 +83,12 @@ async function wpRequest(
     clearTimeout(timer);
   }
 
-  console.info("[wordpress.functions] request", { host: base.host, path, method, status: res.status });
+  console.info("[wordpress.functions] request", {
+    host: base.host,
+    path,
+    method,
+    status: res.status,
+  });
 
   const raw = await res.text().catch(() => "");
   let parsed: unknown;
@@ -116,12 +123,20 @@ async function wpRequest(
 export const testWordPressConnectionFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z.object({ siteUrl: z.string(), username: z.string(), applicationPassword: z.string() }).parse(input),
+    z
+      .object({ siteUrl: z.string(), username: z.string(), applicationPassword: z.string() })
+      .parse(input),
   )
   .handler(async ({ data }): Promise<WordPressPublishResult> => {
     try {
       const base = wpBase(data.siteUrl);
-      const me = await wpRequest(base, data.username, data.applicationPassword, "/users/me?context=edit", "GET");
+      const me = await wpRequest(
+        base,
+        data.username,
+        data.applicationPassword,
+        "/users/me?context=edit",
+        "GET",
+      );
       const name = isRecord(me) ? asString(me.name) || asString(me.slug) : "";
       return { success: true, message: name ? `Connected as ${name}.` : "Connected to WordPress." };
     } catch (e) {
@@ -174,19 +189,33 @@ export const sendContentToWordPressDraftFn = createServerFn({ method: "POST" })
       let result: unknown;
       if (data.postId) {
         // Update existing item; do NOT change its publish status or slug.
-        result = await wpRequest(base, data.username, data.applicationPassword, `/${type}/${data.postId}`, "POST", {
-          title: data.title,
-          content: html,
-          ...(data.excerpt ? { excerpt: data.excerpt } : {}),
-        });
+        result = await wpRequest(
+          base,
+          data.username,
+          data.applicationPassword,
+          `/${type}/${data.postId}`,
+          "POST",
+          {
+            title: data.title,
+            content: html,
+            ...(data.excerpt ? { excerpt: data.excerpt } : {}),
+          },
+        );
       } else {
-        result = await wpRequest(base, data.username, data.applicationPassword, `/${type}`, "POST", {
-          title: data.title,
-          content: html,
-          status: "draft",
-          slug: slugifyForPublish(data.slug || data.title),
-          ...(data.excerpt ? { excerpt: data.excerpt } : {}),
-        });
+        result = await wpRequest(
+          base,
+          data.username,
+          data.applicationPassword,
+          `/${type}`,
+          "POST",
+          {
+            title: data.title,
+            content: html,
+            status: "draft",
+            slug: slugifyForPublish(data.slug || data.title),
+            ...(data.excerpt ? { excerpt: data.excerpt } : {}),
+          },
+        );
       }
       const r = isRecord(result) ? result : {};
       const postId = asNumber(r.id);
@@ -231,21 +260,35 @@ export async function publishWordPressLiveDirect(
       const type = restType(data.postType);
       let result: unknown;
       if (data.postId) {
-        result = await wpRequest(base, data.username, data.applicationPassword, `/${type}/${data.postId}`, "POST", {
-          title: data.title,
-          content: html,
-          status: "publish",
-          ...(data.excerpt ? { excerpt: data.excerpt } : {}),
-        });
+        result = await wpRequest(
+          base,
+          data.username,
+          data.applicationPassword,
+          `/${type}/${data.postId}`,
+          "POST",
+          {
+            title: data.title,
+            content: html,
+            status: "publish",
+            ...(data.excerpt ? { excerpt: data.excerpt } : {}),
+          },
+        );
       } else {
         // No existing item — create and publish in one call.
-        result = await wpRequest(base, data.username, data.applicationPassword, `/${type}`, "POST", {
-          title: data.title,
-          content: html,
-          status: "publish",
-          slug: slugifyForPublish(data.slug || data.title),
-          ...(data.excerpt ? { excerpt: data.excerpt } : {}),
-        });
+        result = await wpRequest(
+          base,
+          data.username,
+          data.applicationPassword,
+          `/${type}`,
+          "POST",
+          {
+            title: data.title,
+            content: html,
+            status: "publish",
+            slug: slugifyForPublish(data.slug || data.title),
+            ...(data.excerpt ? { excerpt: data.excerpt } : {}),
+          },
+        );
       }
       const r = isRecord(result) ? result : {};
       const postId = asNumber(r.id);

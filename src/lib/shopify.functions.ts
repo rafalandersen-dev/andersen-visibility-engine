@@ -27,7 +27,10 @@ const asString = (v: unknown): string => (typeof v === "string" ? v : "");
 /** Normalize a shop domain: strip protocol/path; append .myshopify.com if bare. */
 export function normalizeShopDomain(raw: string): string {
   let d = (raw || "").trim().toLowerCase();
-  d = d.replace(/^https?:\/\//, "").replace(/\/.*$/, "").replace(/\/+$/, "");
+  d = d
+    .replace(/^https?:\/\//, "")
+    .replace(/\/.*$/, "")
+    .replace(/\/+$/, "");
   if (!d) return "";
   if (!d.includes(".")) d = `${d}.myshopify.com`;
   return d;
@@ -39,9 +42,15 @@ export function idFromGid(gid: string): string {
   return parts[parts.length - 1] || "";
 }
 
-const FRIENDLY_CONNECT = "Could not connect to Shopify. Check the shop domain and Admin API access token.";
+const FRIENDLY_CONNECT =
+  "Could not connect to Shopify. Check the shop domain and Admin API access token.";
 
-async function shopifyGraphQL(shopDomain: string, token: string, query: string, variables?: unknown): Promise<unknown> {
+async function shopifyGraphQL(
+  shopDomain: string,
+  token: string,
+  query: string,
+  variables?: unknown,
+): Promise<unknown> {
   const domain = normalizeShopDomain(shopDomain);
   if (!domain) throw new Error("The Shopify shop domain is not valid.");
   if (!token.trim()) throw new Error("Add your Shopify Admin API access token in Project Setup.");
@@ -81,12 +90,18 @@ async function shopifyGraphQL(shopDomain: string, token: string, query: string, 
   }
   const raw = await res.text().catch(() => "");
   let parsed: unknown;
-  try { parsed = raw ? JSON.parse(raw) : undefined; } catch { parsed = undefined; }
+  try {
+    parsed = raw ? JSON.parse(raw) : undefined;
+  } catch {
+    parsed = undefined;
+  }
   if (!res.ok) {
     throw classifyHttpFailure(res.status, `Shopify returned an error (status ${res.status}).`);
   }
   if (isRecord(parsed) && Array.isArray(parsed.errors) && parsed.errors.length) {
-    const msg = isRecord(parsed.errors[0]) ? asString((parsed.errors[0] as Record<string, unknown>).message) : "";
+    const msg = isRecord(parsed.errors[0])
+      ? asString((parsed.errors[0] as Record<string, unknown>).message)
+      : "";
     // GraphQL errors arrive with HTTP 200. The mutation may have partially
     // applied, so treat them as ambiguous rather than safe to repeat.
     throw ambiguousTransportFailure(
@@ -127,25 +142,39 @@ export const testShopifyConnectionFn = createServerFn({ method: "POST" })
 export const listShopifyBlogsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => shopDomainSchema().parse(input))
-  .handler(async ({ data }): Promise<{ success: boolean; blogs: ShopifyBlogOption[]; error?: string }> => {
-    try {
-      const out = await shopifyGraphQL(
-        data.shopDomain,
-        data.adminAccessToken,
-        `{ blogs(first: 50) { nodes { id handle title } } }`,
-      );
-      const nodes = isRecord(out) && isRecord(out.blogs) && Array.isArray((out.blogs as Record<string, unknown>).nodes)
-        ? ((out.blogs as Record<string, unknown>).nodes as unknown[])
-        : [];
-      const blogs: ShopifyBlogOption[] = nodes.filter(isRecord).map((n) => {
-        const gid = asString(n.id);
-        return { gid, id: idFromGid(gid), handle: asString(n.handle), title: asString(n.title) || asString(n.handle) };
-      });
-      return { success: true, blogs };
-    } catch (e) {
-      return { success: false, blogs: [], error: e instanceof Error ? e.message : FRIENDLY_CONNECT };
-    }
-  });
+  .handler(
+    async ({ data }): Promise<{ success: boolean; blogs: ShopifyBlogOption[]; error?: string }> => {
+      try {
+        const out = await shopifyGraphQL(
+          data.shopDomain,
+          data.adminAccessToken,
+          `{ blogs(first: 50) { nodes { id handle title } } }`,
+        );
+        const nodes =
+          isRecord(out) &&
+          isRecord(out.blogs) &&
+          Array.isArray((out.blogs as Record<string, unknown>).nodes)
+            ? ((out.blogs as Record<string, unknown>).nodes as unknown[])
+            : [];
+        const blogs: ShopifyBlogOption[] = nodes.filter(isRecord).map((n) => {
+          const gid = asString(n.id);
+          return {
+            gid,
+            id: idFromGid(gid),
+            handle: asString(n.handle),
+            title: asString(n.title) || asString(n.handle),
+          };
+        });
+        return { success: true, blogs };
+      } catch (e) {
+        return {
+          success: false,
+          blogs: [],
+          error: e instanceof Error ? e.message : FRIENDLY_CONNECT,
+        };
+      }
+    },
+  );
 
 export const ArticleInput = z.object({
   shopDomain: z.string(),
@@ -203,14 +232,19 @@ const UPDATE_MUTATION = `mutation ArticleUpdate($id: ID!, $article: ArticleUpdat
   }
 }`;
 
-function readArticleResult(out: unknown, key: "articleCreate" | "articleUpdate"): { article?: Record<string, unknown>; error?: string } {
+function readArticleResult(
+  out: unknown,
+  key: "articleCreate" | "articleUpdate",
+): { article?: Record<string, unknown>; error?: string } {
   const node = isRecord(out) && isRecord(out[key]) ? (out[key] as Record<string, unknown>) : {};
   const errs = Array.isArray(node.userErrors) ? node.userErrors : [];
   if (errs.length) {
     const e0 = isRecord(errs[0]) ? errs[0] : {};
     return { error: asString(e0.message) || "Shopify rejected the article." };
   }
-  return { article: isRecord(node.article) ? (node.article as Record<string, unknown>) : undefined };
+  return {
+    article: isRecord(node.article) ? (node.article as Record<string, unknown>) : undefined,
+  };
 }
 
 /**
@@ -218,18 +252,27 @@ function readArticleResult(out: unknown, key: "articleCreate" | "articleUpdate")
  * can reuse it: the server fns below carry `requireSupabaseAuth`, which the
  * cron runner has no session for.
  */
-export async function upsertArticle(data: z.infer<typeof ArticleInput>, isPublished: boolean): Promise<ShopifyPublishResult> {
+export async function upsertArticle(
+  data: z.infer<typeof ArticleInput>,
+  isPublished: boolean,
+): Promise<ShopifyPublishResult> {
   const fields = buildArticleFields(data, isPublished);
   let out: unknown;
   let res: { article?: Record<string, unknown>; error?: string };
   if (data.articleGid) {
-    out = await shopifyGraphQL(data.shopDomain, data.adminAccessToken, UPDATE_MUTATION, { id: data.articleGid, article: fields });
+    out = await shopifyGraphQL(data.shopDomain, data.adminAccessToken, UPDATE_MUTATION, {
+      id: data.articleGid,
+      article: fields,
+    });
     res = readArticleResult(out, "articleUpdate");
   } else {
-    out = await shopifyGraphQL(data.shopDomain, data.adminAccessToken, CREATE_MUTATION, { article: { blogId: data.blogGid, ...fields } });
+    out = await shopifyGraphQL(data.shopDomain, data.adminAccessToken, CREATE_MUTATION, {
+      article: { blogId: data.blogGid, ...fields },
+    });
     res = readArticleResult(out, "articleCreate");
   }
-  if (res.error || !res.article) return { success: false, error: res.error || "Shopify did not return an article." };
+  if (res.error || !res.article)
+    return { success: false, error: res.error || "Shopify did not return an article." };
   const a = res.article;
   const gid = asString(a.id);
   const handle = asString(a.handle);
@@ -246,7 +289,9 @@ export async function upsertArticle(data: z.infer<typeof ArticleInput>, isPublis
     handle,
     status: published ? "published" : "draft",
     liveUrl: published ? liveUrlFor(data.shopDomain, blogHandle, handle) : undefined,
-    message: published ? "Shopify published the article live." : "Shopify saved the article as a draft (unpublished).",
+    message: published
+      ? "Shopify published the article live."
+      : "Shopify saved the article as a draft (unpublished).",
   };
 }
 
@@ -255,7 +300,8 @@ export const sendContentToShopifyDraftFn = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => ArticleInput.parse(input))
   .handler(async ({ data }): Promise<ShopifyPublishResult> => {
     try {
-      if (!data.blogGid) return { success: false, error: "Select a Shopify blog in Project Setup first." };
+      if (!data.blogGid)
+        return { success: false, error: "Select a Shopify blog in Project Setup first." };
       return await upsertArticle(data, false);
     } catch (e) {
       // Preserve the transport classification: only a proven-nothing-created
@@ -273,7 +319,8 @@ export const publishShopifyContentFn = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => ArticleInput.parse(input))
   .handler(async ({ data }): Promise<ShopifyPublishResult> => {
     try {
-      if (!data.blogGid && !data.articleGid) return { success: false, error: "Select a Shopify blog in Project Setup first." };
+      if (!data.blogGid && !data.articleGid)
+        return { success: false, error: "Select a Shopify blog in Project Setup first." };
       return await upsertArticle(data, true);
     } catch (e) {
       // Preserve the transport classification: only a proven-nothing-created

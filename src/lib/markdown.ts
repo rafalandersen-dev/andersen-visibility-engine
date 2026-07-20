@@ -94,7 +94,10 @@ function inline(s: string, opts?: MarkdownRenderOptions): string {
       // known URL inventory (or the custom-endpoint keep-all case); otherwise keep
       // the text and drop the link (P0.4).
       if (/^\//.test(href)) {
-        if (opts?.keepAllInternalLinks || opts?.knownInternalPaths?.has(normalizeInternalPath(href))) {
+        if (
+          opts?.keepAllInternalLinks ||
+          opts?.knownInternalPaths?.has(normalizeInternalPath(href))
+        ) {
           return `<a href="${href.replace(/"/g, "%22")}">${text}</a>`;
         }
         return text;

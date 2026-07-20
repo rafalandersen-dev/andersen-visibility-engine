@@ -1568,7 +1568,9 @@ export async function listShopifyBlogs(projectId: string) {
 }
 
 async function sendToShopifyDraft(asset: ContentAsset, project: Project) {
-  const res = await sendContentToShopifyDraftFn({ data: shopifyArticleArgs(asset, project, knownPathsForProject(project)) });
+  const res = await sendContentToShopifyDraftFn({
+    data: shopifyArticleArgs(asset, project, knownPathsForProject(project)),
+  });
   if (!res.success) {
     const msg = res.error || "Shopify article failed. Please try again.";
     markContentAssetPublishFailed(asset.id, msg, new Date().toISOString());
@@ -1597,7 +1599,9 @@ async function sendToShopifyDraft(asset: ContentAsset, project: Project) {
 }
 
 async function publishToShopifyLive(asset: ContentAsset, project: Project) {
-  const res = await publishShopifyContentFn({ data: shopifyArticleArgs(asset, project, knownPathsForProject(project)) });
+  const res = await publishShopifyContentFn({
+    data: shopifyArticleArgs(asset, project, knownPathsForProject(project)),
+  });
   if (!res.success || !res.liveUrl) {
     const msg = res.error || "Shopify published but did not return a live URL.";
     markContentAssetLivePublishFailed(asset.id, msg, new Date().toISOString());

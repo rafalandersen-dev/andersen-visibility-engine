@@ -268,7 +268,8 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   // raw markdown downstream (links kept), so preview keeps them too.
   const renderOpts = useMemo(() => {
     if (project?.connectorType === "custom") return { keepAllInternalLinks: true };
-    if (project) return { knownInternalPaths: new Set(buildKnownInternalPaths(project, projectContent)) };
+    if (project)
+      return { knownInternalPaths: new Set(buildKnownInternalPaths(project, projectContent)) };
     return {};
   }, [project, projectContent]);
   // In-body internal links that won't publish as active links because they can't
@@ -614,9 +615,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               not: armed, sent to the site, failed, already live. */}
           <StageChip
             stage={editorStage}
-            detail={
-              live.scheduledPublishAt ? formatDateTime(live.scheduledPublishAt) : undefined
-            }
+            detail={live.scheduledPublishAt ? formatDateTime(live.scheduledPublishAt) : undefined}
           />
         </div>
         <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-foreground/80">
@@ -1176,16 +1175,16 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                     inline structured data depends on your CMS setup (for example, a WordPress user
                     without the <span className="font-mono">unfiltered_html</span> capability, or an
                     SEO plugin that already outputs schema), so Milo can&apos;t confirm it was
-                    retained — check with Google&apos;s Rich Results Test after publishing. Even when
-                    retained, this makes the page <strong>eligible</strong> for rich results where it
-                    qualifies; it does not guarantee a rich result <strong>appears</strong> (the
-                    search engine decides that).
+                    retained — check with Google&apos;s Rich Results Test after publishing. Even
+                    when retained, this makes the page <strong>eligible</strong> for rich results
+                    where it qualifies; it does not guarantee a rich result <strong>appears</strong>{" "}
+                    (the search engine decides that).
                   </>
                 ) : (
                   <>
-                    Structured data (schema.org JSON-LD) is generated for this article, but Milo does
-                    not yet send it to a custom endpoint — your connector would need to add it. Milo
-                    never guarantees a rich result appears; the search engine decides that.
+                    Structured data (schema.org JSON-LD) is generated for this article, but Milo
+                    does not yet send it to a custom endpoint — your connector would need to add it.
+                    Milo never guarantees a rich result appears; the search engine decides that.
                   </>
                 )}{" "}
                 The notes below are for your own reference and are not published.
@@ -1214,10 +1213,11 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               {droppedInternalLinks.length} internal link
               {droppedInternalLinks.length === 1 ? "" : "s"} won&apos;t publish as{" "}
               {droppedInternalLinks.length === 1 ? "a link" : "links"} because we can&apos;t confirm{" "}
-              {droppedInternalLinks.length === 1 ? "it points" : "they point"} to a real page on your
-              site: <span className="font-mono">{droppedInternalLinks.join(", ")}</span>. The text
-              stays; the link is removed. Publish {droppedInternalLinks.length === 1 ? "it" : "them"}{" "}
-              first, or link to a page Milo has already published.
+              {droppedInternalLinks.length === 1 ? "it points" : "they point"} to a real page on
+              your site: <span className="font-mono">{droppedInternalLinks.join(", ")}</span>. The
+              text stays; the link is removed. Publish{" "}
+              {droppedInternalLinks.length === 1 ? "it" : "them"} first, or link to a page Milo has
+              already published.
             </div>
           ) : null}
           <div
@@ -1305,4 +1305,3 @@ function LivePublishStatusBadge({ status }: { status?: LivePublishStatus }) {
     </span>
   );
 }
-
