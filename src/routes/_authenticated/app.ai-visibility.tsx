@@ -15,10 +15,11 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/_authenticated/app/ai-visibility")({
   head: () => ({
     meta: [
-      { title: "AI Visibility — Milo Growth" },
+      { title: "AI Readiness — Milo Growth" },
       {
         name: "description",
-        content: "Find the AI-search questions your business should be ready to answer.",
+        content:
+          "Estimate how ready your business is to appear in AI answers. Readiness planning — not live AI rank tracking.",
       },
     ],
   }),
@@ -115,8 +116,8 @@ function AiVisibilityPage() {
   if (!project) {
     return (
       <AppShell
-        title="AI Visibility"
-        description="Find the AI-search questions your business should be ready to answer."
+        title="AI Readiness"
+        description="How ready your business is to appear in AI answers — an estimate from your profile, not live AI results."
       >
         <div className="rounded-lg border border-dashed border-border p-12 text-center">
           <Radar className="mx-auto h-8 w-8 text-gold/70" strokeWidth={1.4} />
@@ -194,16 +195,22 @@ function AiVisibilityPage() {
       {/* Results */}
       {analysis && !error ? (
         <div className="space-y-8">
-          {analysis.note ? (
-            <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-foreground/80 flex items-start gap-2">
-              <AlertTriangle className="h-4 w-4 mt-0.5 text-amber-500 shrink-0" />
-              <span>{analysis.note}</span>
-            </div>
-          ) : null}
+          {/* Persistent honesty disclaimer: this module never queries an AI engine.
+              The scores are readiness ESTIMATES, not measured AI visibility. */}
+          <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-foreground/80">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+            <span>
+              {analysis.note ? <>{analysis.note} </> : null}
+              <strong className="font-medium">Estimates, not measurements.</strong> Milo has not
+              queried ChatGPT, Perplexity, Gemini or Google AI Overviews. These readiness scores are
+              inferred from your business profile — they do not mean your business currently appears
+              in AI answers.
+            </span>
+          </div>
 
-          {/* Score cards */}
+          {/* Score cards (readiness estimates) */}
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-            <ScoreCard label="Overall AI Visibility" score={analysis.overallAiVisibilityScore} primary />
+            <ScoreCard label="Overall AI Readiness" score={analysis.overallAiVisibilityScore} primary />
             <ScoreCard label="Prompt Coverage" score={analysis.promptCoverageScore} />
             <ScoreCard label="Answer Readiness" score={analysis.answerReadinessScore} />
             <ScoreCard label="Local AI Readiness" score={analysis.localAiReadinessScore} />

@@ -870,6 +870,36 @@ async function fetchSiteContext(rawUrl: string): Promise<SiteContext> {
   return { ok: true, title, metaDescription, text, links };
 }
 
+/**
+ * Minimum readable server-side text before we claim to have read a live site.
+ * A CSR/JS app returns HTTP 200 with an empty shell, so `ok` alone is misleading.
+ */
+export const MIN_AUDIT_CONTENT_CHARS = 200;
+
+/**
+ * Honest read-state for the on-page review, so a failed OR partial (empty-shell
+ * SPA) fetch is never presented as a confident measurement. Pure + exported for
+ * test.
+ */
+export function auditSiteReadState(site: { ok: boolean; text: string }): {
+  read: boolean;
+  note: string;
+} {
+  if (site.ok && site.text.trim().length >= MIN_AUDIT_CONTENT_CHARS) {
+    return { read: true, note: "" };
+  }
+  if (site.ok) {
+    return {
+      read: false,
+      note: "Your site returned little readable server-side content (often a JavaScript app that renders in the browser), so this review reflects your business details rather than a read of your live pages.",
+    };
+  }
+  return {
+    read: false,
+    note: "We couldn't reach your website, so this review reflects your business details rather than your live pages.",
+  };
+}
+
 export const generateAuditFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
@@ -956,13 +986,18 @@ ${sharedRules}`,
         findings.slice(0, 3).map((f) => f.title),
       ).slice(0, 5);
 
-      console.info("[ai.functions] audit parsed", { findings: findings.length, fetched: site.ok });
+      const readState = auditSiteReadState(site);
+      console.info("[ai.functions] audit parsed", {
+        findings: findings.length,
+        readSite: readState.read,
+      });
 
       return {
-        fetchedWebsite: site.ok,
-        note: site.ok
-          ? ""
-          : "Website could not be fetched, so this audit is based on your project details.",
+        // "Did we actually read the live site?" — false for a failed fetch AND
+        // for an empty-shell SPA, so the UI never shows indicative scores as
+        // measured. See auditSiteReadState.
+        fetchedWebsite: readState.read,
+        note: readState.note,
         overallScore,
         seoScore,
         localScore,
