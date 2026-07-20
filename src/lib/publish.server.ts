@@ -17,12 +17,13 @@ import { publishDraftDirect, publishLiveDirect } from "./publish.functions";
 import { publishWordPressLiveDirect } from "./wordpress.functions";
 import { upsertArticle } from "./shopify.functions";
 import {
-  buildKnownInternalPaths,
+  buildActiveInternalPaths,
   isShopify,
   isWordPress,
   shopifyArticleArgs,
   wpPublishArgs,
 } from "./publish-targets";
+import { unresolvedInternalLinks } from "./markdown";
 import {
   applyAssetPatch,
   applyPublishSuccess,
@@ -58,6 +59,20 @@ async function runConnectorPublish(
   knownInternalPaths: string[] = [],
 ): Promise<{ result: ServerPublishResult; assetPatch: Partial<ContentAsset> }> {
   const publishedAt = new Date().toISOString();
+
+  // Link-safety gate for EVERY connector, including the custom endpoint (which
+  // sends raw markdown downstream and so never passes through markdownToHtml).
+  // An unresolved internal link is a permanent condition until the author fixes
+  // it in the editor — retrying on a timer would never resolve it — so this is a
+  // PublishNotPossibleError, which the runner parks rather than requeues.
+  const unresolved = unresolvedInternalLinks(asset.markdown ?? "", new Set(knownInternalPaths));
+  if (unresolved.length) {
+    throw new PublishNotPossibleError(
+      `This article has ${unresolved.length} unverified internal link${
+        unresolved.length === 1 ? "" : "s"
+      } (${unresolved.join(", ")}). Resolve them in the editor before publishing.`,
+    );
+  }
 
   if (isWordPress(project)) {
     const res = await publishWordPressLiveDirect(wpPublishArgs(asset, project, knownInternalPaths));
@@ -253,11 +268,11 @@ export async function publishAssetServerSide(
         assetPatch: {} as Partial<ContentAsset>,
       };
     }
-    const knownInternalPaths = buildKnownInternalPaths(
+    const activeInternalPaths = buildActiveInternalPaths(
       project,
       (row.data.content as ContentAsset[]).filter((c) => c.projectId === project.id),
     );
-    return runConnectorPublish(asset, project, userId, knownInternalPaths);
+    return runConnectorPublish(asset, project, userId, activeInternalPaths);
   })();
 
   // 2. Record the outcome under the rev guard (retries on a lost race).

@@ -14,7 +14,7 @@
  */
 import type { ContentAsset, Project, PublishMode } from "./types";
 import { contentJsonLdScript } from "./structured-data";
-import { normalizeInternalPath } from "./markdown";
+import { normalizeInternalPath, unresolvedInternalLinks } from "./markdown";
 
 /**
  * A deterministic, non-paid inventory of internal paths KNOWN to exist on the
@@ -48,6 +48,37 @@ export function buildKnownInternalPaths(project: Project, content: ContentAsset[
     }
   }
   return [...paths];
+}
+
+/**
+ * The ACTIVE internal-path set = deterministic VERIFIED paths (root +
+ * Milo-published) ∪ the user's explicitly-approved paths. A relative in-body link
+ * publishes as an active link only if its path is in here (link-safety P0). This
+ * is what every publish/preview call site passes to the converter.
+ */
+export function buildActiveInternalPaths(project: Project, content: ContentAsset[]): string[] {
+  return [
+    ...new Set([
+      ...buildKnownInternalPaths(project, content),
+      ...(project.approvedInternalPaths ?? []).map(normalizeInternalPath),
+    ]),
+  ];
+}
+
+/**
+ * The unresolved internal links in an asset's body — links that are neither
+ * verified nor user-approved. Publishing MUST be refused while this is non-empty
+ * (link-safety P0), on every connector including the custom endpoint.
+ */
+export function unresolvedLinksForPublish(
+  asset: ContentAsset,
+  project: Project,
+  content: ContentAsset[],
+): string[] {
+  return unresolvedInternalLinks(
+    asset.markdown ?? "",
+    new Set(buildActiveInternalPaths(project, content)),
+  );
 }
 
 /**

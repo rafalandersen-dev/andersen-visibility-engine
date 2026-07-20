@@ -12,8 +12,21 @@ import {
   classifyHttpFailure,
   PublishTransportError,
 } from "./publish-outcome";
-import { markdownToHtml, slugifyForPublish } from "./markdown";
+import { markdownToHtml, slugifyForPublish, unresolvedInternalLinks } from "./markdown";
 import type { WordPressPublishResult } from "./types";
+
+/** Refuse to publish while any in-body internal link is unresolved (link-safety P0). */
+function assertResolvedLinks(contentMarkdown: string, knownInternalPaths: string[]): void {
+  const unresolved = unresolvedInternalLinks(contentMarkdown, new Set(knownInternalPaths));
+  if (unresolved.length) {
+    throw new PublishTransportError(
+      `This article has ${unresolved.length} unverified internal link${
+        unresolved.length === 1 ? "" : "s"
+      } (${unresolved.join(", ")}). Resolve them in the editor before publishing.`,
+      false,
+    );
+  }
+}
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   Boolean(v) && typeof v === "object" && !Array.isArray(v);
@@ -181,6 +194,7 @@ export const sendContentToWordPressDraftFn = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<WordPressPublishResult> => {
     try {
       const base = wpBase(data.siteUrl);
+      assertResolvedLinks(data.contentMarkdown, data.knownInternalPaths);
       const html =
         markdownToHtml(data.contentMarkdown, {
           knownInternalPaths: new Set(data.knownInternalPaths),
@@ -253,6 +267,7 @@ export async function publishWordPressLiveDirect(
   {
     try {
       const base = wpBase(data.siteUrl);
+      assertResolvedLinks(data.contentMarkdown, data.knownInternalPaths);
       const html =
         markdownToHtml(data.contentMarkdown, {
           knownInternalPaths: new Set(data.knownInternalPaths),

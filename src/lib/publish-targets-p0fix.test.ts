@@ -38,28 +38,33 @@ describe("buildKnownInternalPaths (B1)", () => {
   });
 
   it("resolves a real link when its path is in the inventory, drops an invented one", () => {
-    const known = new Set(buildKnownInternalPaths(project(), [
-      asset({ liveUrl: "https://synergymassage.se/guides/deep-tissue" }),
-    ]));
-    const html = markdownToHtml(
-      "[real](/guides/deep-tissue) and [fake](/made-up)",
-      { knownInternalPaths: known },
+    const known = new Set(
+      buildKnownInternalPaths(project(), [
+        asset({ liveUrl: "https://synergymassage.se/guides/deep-tissue" }),
+      ]),
     );
+    const html = markdownToHtml("[real](/guides/deep-tissue) and [fake](/made-up)", {
+      knownInternalPaths: known,
+    });
     expect(html).toContain('<a href="/guides/deep-tissue">real</a>');
     expect(html).not.toContain("/made-up");
     expect(html).toContain("fake"); // text kept
   });
 
-  it("keepAllInternalLinks keeps relative links active (custom-endpoint preview)", () => {
-    const html = markdownToHtml("[x](/anything)", { keepAllInternalLinks: true });
-    expect(html).toContain('<a href="/anything">x</a>');
+  it("with no inventory, NO relative internal link is active (fail-closed default)", () => {
+    // The custom-endpoint escape hatch (keepAllInternalLinks) is gone: every
+    // connector now fails closed on unverified relative links.
+    const html = markdownToHtml("[x](/anything)");
+    expect(html).not.toContain('href="/anything"');
+    expect(html).toContain("x"); // text kept
   });
 });
 
 describe("structured-data parity in the arg builders (B2)", () => {
   const withFaq = asset({
     title: "Deep tissue",
-    markdown: "## FAQ\n\n### Does it hurt?\n\nA little pressure.\n\n### How long?\n\nAbout an hour.",
+    markdown:
+      "## FAQ\n\n### Does it hurt?\n\nA little pressure.\n\n### How long?\n\nAbout an hour.",
     metaDescription: "d",
   });
 

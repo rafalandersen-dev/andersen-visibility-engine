@@ -15,7 +15,7 @@ import {
   classifyHttpFailure,
   PublishTransportError,
 } from "./publish-outcome";
-import { markdownToHtml, slugifyForPublish } from "./markdown";
+import { markdownToHtml, slugifyForPublish, unresolvedInternalLinks } from "./markdown";
 import type { ShopifyPublishResult, ShopifyBlogOption } from "./types";
 
 const SHOPIFY_API_VERSION = "2025-01";
@@ -202,6 +202,19 @@ export function liveUrlFor(shopDomain: string, blogHandle: string, articleHandle
   return `https://${d}/blogs/${blogHandle}/${articleHandle}`;
 }
 
+/** Refuse to publish while any in-body internal link is unresolved (link-safety P0). */
+function assertResolvedLinks(contentMarkdown: string, knownInternalPaths: string[]): void {
+  const unresolved = unresolvedInternalLinks(contentMarkdown, new Set(knownInternalPaths));
+  if (unresolved.length) {
+    throw new PublishTransportError(
+      `This article has ${unresolved.length} unverified internal link${
+        unresolved.length === 1 ? "" : "s"
+      } (${unresolved.join(", ")}). Resolve them in the editor before publishing.`,
+      false,
+    );
+  }
+}
+
 function buildArticleFields(data: z.infer<typeof ArticleInput>, isPublished: boolean) {
   const fields: Record<string, unknown> = {
     title: data.title,
@@ -256,6 +269,7 @@ export async function upsertArticle(
   data: z.infer<typeof ArticleInput>,
   isPublished: boolean,
 ): Promise<ShopifyPublishResult> {
+  assertResolvedLinks(data.contentMarkdown, data.knownInternalPaths);
   const fields = buildArticleFields(data, isPublished);
   let out: unknown;
   let res: { article?: Record<string, unknown>; error?: string };

@@ -53,7 +53,8 @@ import {
   wpPostTypeFor,
   shopifyCreds,
   shopifyArticleArgs,
-  buildKnownInternalPaths,
+  buildActiveInternalPaths,
+  unresolvedLinksForPublish,
   contentStructuredData,
 } from "./publish-targets";
 import type {
@@ -1454,10 +1455,32 @@ export async function testWordPressConnection(projectId: string) {
 
 /** The project's deterministic internal-path inventory (Milo-published + root). */
 function knownPathsForProject(project: Project): string[] {
-  return buildKnownInternalPaths(
+  return buildActiveInternalPaths(
     project,
     getState().content.filter((c) => c.projectId === project.id),
   );
+}
+
+/**
+ * Refuse to send OR publish while any in-body internal link is unresolved
+ * (neither verified nor user-approved). The editor blocks the buttons, but the
+ * store path must refuse too so nothing publishes an invented/unknown link —
+ * across all three connectors, drafts included. Mirrors the connector-level
+ * guards in wordpress/shopify.functions.ts and publish.server.ts.
+ */
+function assertNoUnresolvedLinks(asset: ContentAsset, project: Project): void {
+  const unresolved = unresolvedLinksForPublish(
+    asset,
+    project,
+    getState().content.filter((c) => c.projectId === project.id),
+  );
+  if (unresolved.length) {
+    throw new Error(
+      `This article has ${unresolved.length} unverified internal link${
+        unresolved.length === 1 ? "" : "s"
+      } (${unresolved.join(", ")}). Resolve them in the editor before publishing.`,
+    );
+  }
 }
 
 async function sendToWordPressDraft(asset: ContentAsset, project: Project, slug: string) {
@@ -1648,6 +1671,7 @@ export async function sendContentToWebsite(
     if (!asset) throw new Error("Content asset not found.");
     const project = s.projects.find((p) => p.id === asset.projectId);
     if (!project) throw new Error("Project not found.");
+    assertNoUnresolvedLinks(asset, project);
 
     // WordPress connector branch — create/update a WordPress draft.
     if (isWordPress(project)) {
@@ -1718,6 +1742,7 @@ export async function publishContentLive(assetId: string) {
     if (!asset) throw new Error("Content asset not found.");
     const project = s.projects.find((p) => p.id === asset.projectId);
     if (!project) throw new Error("Project not found.");
+    assertNoUnresolvedLinks(asset, project);
 
     // WordPress connector branch — publish/update the post live (create if needed).
     if (isWordPress(project)) {

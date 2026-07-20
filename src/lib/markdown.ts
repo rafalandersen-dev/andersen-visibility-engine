@@ -49,13 +49,6 @@ export interface MarkdownRenderOptions {
    * invented internal URL. External absolute URLs are unaffected.
    */
   knownInternalPaths?: Set<string>;
-  /**
-   * Keep ALL relative internal links active without an inventory check. Used only
-   * for the custom-endpoint preview, where Milo sends RAW markdown downstream and
-   * the customer's own connector renders the links — so our converter must not
-   * strip what will publish there.
-   */
-  keepAllInternalLinks?: boolean;
 }
 
 /** Normalise an internal href to a comparable path (strip query/hash, trailing slash). */
@@ -64,22 +57,111 @@ export function normalizeInternalPath(href: string): string {
   return path === "" ? "/" : path;
 }
 
+// A relative internal link `[text](/path)` — the leading `(?<!!)` excludes
+// images `![alt](/x)`, which are not links.
+const INTERNAL_LINK_RE = /(?<!!)\[([^\]]+)\]\((\/[^)\s]+)\)/g;
+
 /**
  * The relative internal links written into a markdown body, as normalised paths.
- * Used to flag which in-body links cannot be resolved against the inventory and
- * will therefore publish as plain text (never silently).
  */
 export function extractInternalLinkPaths(md: string): string[] {
   const paths = new Set<string>();
-  const re = /\[[^\]]+\]\((\/[^)\s]*)\)/g;
+  const re = new RegExp(INTERNAL_LINK_RE);
   let m: RegExpExecArray | null;
-  while ((m = re.exec(md || ""))) paths.add(normalizeInternalPath(m[1]));
+  while ((m = re.exec(md || ""))) paths.add(normalizeInternalPath(m[2]));
   return [...paths];
 }
 
-/** Which of a body's relative internal links are NOT in the known inventory. */
-export function unresolvedInternalLinks(md: string, known: Set<string>): string[] {
-  return extractInternalLinkPaths(md).filter((p) => !known.has(p));
+/** Which of a body's relative internal links are NOT in the active inventory. */
+export function unresolvedInternalLinks(md: string, active: Set<string>): string[] {
+  return extractInternalLinkPaths(md).filter((p) => !active.has(p));
+}
+
+/** True when the body contains a relative internal link outside the active set. */
+export function hasUnresolvedInternalLinks(md: string, active: Set<string>): boolean {
+  return unresolvedInternalLinks(md, active).length > 0;
+}
+
+export type InternalLinkState = "VERIFIED" | "USER_APPROVED" | "UNRESOLVED";
+
+export interface ClassifiedInternalLink {
+  anchor: string;
+  /** Normalised path. */
+  path: string;
+  /** The raw href as written in the markdown. */
+  href: string;
+  /** Nearest preceding heading (the source section), or "". */
+  section: string;
+  state: InternalLinkState;
+  reason: string;
+}
+
+/**
+ * Classify every relative internal link in the body into VERIFIED (in the known
+ * inventory), USER_APPROVED (in the project's approved list) or UNRESOLVED, with
+ * its anchor text and source section. Drives the editor's link-safety panel.
+ */
+export function classifyInternalLinks(
+  md: string,
+  verified: Set<string>,
+  approved: Set<string>,
+): ClassifiedInternalLink[] {
+  const lines = (md || "").replace(/\r\n/g, "\n").split("\n");
+  const out: ClassifiedInternalLink[] = [];
+  let section = "";
+  for (const line of lines) {
+    const h = line.trim().match(/^#{1,6}\s+(.*)$/);
+    if (h) {
+      section = h[1].trim();
+      continue;
+    }
+    const re = new RegExp(INTERNAL_LINK_RE);
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(line))) {
+      const anchor = m[1];
+      const href = m[2];
+      const path = normalizeInternalPath(href);
+      const state: InternalLinkState = verified.has(path)
+        ? "VERIFIED"
+        : approved.has(path)
+          ? "USER_APPROVED"
+          : "UNRESOLVED";
+      const reason =
+        state === "UNRESOLVED"
+          ? "Not a page Milo has published and not approved for this project."
+          : state === "VERIFIED"
+            ? "Matches a known page on your site."
+            : "You approved this path.";
+      out.push({ anchor, path, href, section, state, reason });
+    }
+  }
+  return out;
+}
+
+function rewriteLinksByPath(
+  md: string,
+  targetPath: string,
+  build: (anchor: string, href: string) => string,
+): string {
+  const target = normalizeInternalPath(targetPath);
+  return (md || "").replace(INTERNAL_LINK_RE, (whole, anchor: string, href: string) =>
+    normalizeInternalPath(href) === target ? build(anchor, href) : whole,
+  );
+}
+
+/** Convert every link to `path` into plain anchor text (keep text, drop link). */
+export function linkPathToText(md: string, path: string): string {
+  return rewriteLinksByPath(md, path, (anchor) => anchor);
+}
+
+/** Remove every link to `path` entirely (text included). */
+export function removeLinkByPath(md: string, path: string): string {
+  return rewriteLinksByPath(md, path, () => "");
+}
+
+/** Repoint every link from `oldPath` to `newPath`. */
+export function replaceLinkPath(md: string, oldPath: string, newPath: string): string {
+  return rewriteLinksByPath(md, oldPath, (anchor) => `[${anchor}](${newPath})`);
 }
 
 /** Inline formatting: links, bold, italic — applied to already-escaped text. */
@@ -90,14 +172,12 @@ function inline(s: string, opts?: MarkdownRenderOptions): string {
       if (/^https?:\/\//.test(href)) {
         return `<a href="${href.replace(/"/g, "%22")}">${text}</a>`;
       }
-      // Relative internal link — publish as active ONLY if it resolves against a
-      // known URL inventory (or the custom-endpoint keep-all case); otherwise keep
-      // the text and drop the link (P0.4).
+      // Relative internal link — publish as active ONLY if it resolves against the
+      // ACTIVE inventory (verified paths ∪ user-approved paths). Otherwise keep the
+      // text and drop the link. This is a backstop: publishing is BLOCKED upstream
+      // while any unresolved link remains, so at publish time nothing is stripped.
       if (/^\//.test(href)) {
-        if (
-          opts?.keepAllInternalLinks ||
-          opts?.knownInternalPaths?.has(normalizeInternalPath(href))
-        ) {
+        if (opts?.knownInternalPaths?.has(normalizeInternalPath(href))) {
           return `<a href="${href.replace(/"/g, "%22")}">${text}</a>`;
         }
         return text;
