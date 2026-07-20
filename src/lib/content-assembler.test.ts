@@ -10,7 +10,11 @@
  *     double-composed.
  */
 import { describe, it, expect } from "vitest";
-import { assembleContentAsset, composeCanonicalMarkdown } from "./content-assembler";
+import {
+  assembleContentAsset,
+  composeCanonicalMarkdown,
+  assemblySections,
+} from "./content-assembler";
 import { markdownToHtml } from "./markdown";
 import type { ContentAsset, Project } from "./types";
 
@@ -125,5 +129,53 @@ describe("preview == publish parity (T1 / T10)", () => {
     }).html;
     expect(html).not.toContain('href="/made-up"');
     expect(html).toContain("invented"); // text kept
+  });
+});
+
+describe("structure — deterministic sections, no duplication, no filler (E)", () => {
+  const countHeadings = (md: string, re: RegExp) => (md.match(re) || []).length;
+
+  it("does not add a second TL;DR when the body already has one", () => {
+    const a = asset({
+      tldr: "composed summary",
+      markdown: "## TL;DR\n\nBody summary.\n\n## Body\n\nx",
+    });
+    const md = composeCanonicalMarkdown(a, project());
+    expect(countHeadings(md, /^##\s+TL;DR/gim)).toBe(1);
+    expect(md).not.toContain("composed summary"); // the body's own TL;DR wins
+  });
+
+  it("does not add a second Sources section when the body already has one", () => {
+    const a = asset({
+      markdown: "Body.\n\n## Sources\n\n- [existing](https://x.com)",
+      sources: [{ url: "https://nih.gov/v", title: "NIH", status: "verified" }] as never,
+    });
+    const md = composeCanonicalMarkdown(a, project());
+    expect(countHeadings(md, /^##\s+Sources/gim)).toBe(1);
+  });
+
+  it("adds no heading when the field is empty (no filler to lift a score)", () => {
+    const a = asset({ tldr: "   ", keyTakeaways: [], sources: [], markdown: "Just a body." });
+    expect(composeCanonicalMarkdown(a, project())).toBe("Just a body.");
+  });
+
+  it("assemblySections reports each section's inclusion + reason", () => {
+    const withTldr = assemblySections(asset({ tldr: "s", markdown: "Body." }), project());
+    expect(withTldr.find((s) => s.key === "tldr")).toEqual({
+      key: "tldr",
+      included: true,
+      reason: "composed",
+    });
+    const bodyHasTldr = assemblySections(
+      asset({ tldr: "s", markdown: "## TL;DR\n\nx" }),
+      project(),
+    );
+    expect(bodyHasTldr.find((s) => s.key === "tldr")?.reason).toBe("already in body");
+    const noTldr = assemblySections(asset({ markdown: "Body." }), project());
+    expect(noTldr.find((s) => s.key === "tldr")).toEqual({
+      key: "tldr",
+      included: false,
+      reason: "no content",
+    });
   });
 });

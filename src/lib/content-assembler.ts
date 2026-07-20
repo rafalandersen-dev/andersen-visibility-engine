@@ -48,34 +48,94 @@ export interface AssembledOutput {
 }
 
 /**
- * Compose the canonical body markdown from the asset's typed fields.
- *
- * B ships the visible TL;DR + key-takeaways composition (D11 — a visible summary
- * helps readers; the markup carries no "AI signal" claim) and a byte-identical
- * pass-through when neither is present. FAQ and CTA are already authored INTO
- * `markdown` by generation, so they are deliberately NOT re-appended here (no
- * double-composition). author (F), sources (C) and images (G) composition extend
- * this function in their sub-epics.
+ * The deterministic section-composition rules (E). Each rule has an explicit
+ * PURPOSE (`key`), a deterministic inclusion predicate (`build` returns "" to
+ * skip — no empty/filler sections, and no heading is ever added just to lift a
+ * score), and heading aliases that SUPPRESS the section when the body already
+ * contains one, so a section is never duplicated (TL;DR / key-takeaways /
+ * sources / author). FAQ and CTA are authored into the body by generation and
+ * are never re-composed here.
  */
-export function composeCanonicalMarkdown(asset: ContentAsset, _project: Project): string {
+export interface SectionRule {
+  key: string;
+  position: "lead" | "tail";
+  /** Lowercased heading texts that, if present in the body, suppress this section. */
+  headingAliases: string[];
+  build: (asset: ContentAsset, project: Project) => string;
+}
+
+export const SECTION_RULES: SectionRule[] = [
+  {
+    key: "tldr",
+    position: "lead",
+    headingAliases: ["tl;dr", "tldr", "summary", "in short"],
+    build: (a) => (a.tldr && a.tldr.trim() ? `## TL;DR\n\n${a.tldr.trim()}` : ""),
+  },
+  {
+    key: "keyTakeaways",
+    position: "lead",
+    headingAliases: ["key takeaways", "key points", "takeaways"],
+    build: (a) => {
+      const items = (a.keyTakeaways ?? []).map((k) => k.trim()).filter(Boolean);
+      return items.length ? `## Key takeaways\n\n${items.map((k) => `- ${k}`).join("\n")}` : "";
+    },
+  },
+  {
+    key: "sources",
+    position: "tail",
+    headingAliases: ["sources", "references", "citations"],
+    build: (a) => sourcesBlockMarkdown(a.sources),
+  },
+];
+
+/** Lowercased set of the body's heading texts — used to suppress duplicate sections. */
+function bodyHeadingSet(md: string): Set<string> {
+  const set = new Set<string>();
+  for (const line of (md || "").split("\n")) {
+    const m = line.match(/^#{1,6}\s+(.+?)\s*$/);
+    if (m) set.add(m[1].trim().toLowerCase());
+  }
+  return set;
+}
+
+/**
+ * Which composed sections a rule set includes for an asset, and why. Drives the
+ * editor's transparency + the publishing checklist. A section is `included` only
+ * when it has content AND is not already present in the body.
+ */
+export function assemblySections(
+  asset: ContentAsset,
+  project: Project,
+): { key: string; included: boolean; reason: string }[] {
+  const existing = bodyHeadingSet(asset.markdown ?? "");
+  return SECTION_RULES.map((rule) => {
+    if (rule.headingAliases.some((h) => existing.has(h))) {
+      return { key: rule.key, included: false, reason: "already in body" };
+    }
+    const md = rule.build(asset, project);
+    return { key: rule.key, included: Boolean(md), reason: md ? "composed" : "no content" };
+  });
+}
+
+/**
+ * Compose the canonical body markdown from the asset's typed fields via the
+ * deterministic SECTION_RULES. A section is added only when it has content AND is
+ * not already present in the body (no duplication, no filler headings). With no
+ * composed section the output is byte-identical to the pre-P1.1 body.
+ */
+export function composeCanonicalMarkdown(asset: ContentAsset, project: Project): string {
+  const body = asset.markdown ?? "";
+  const existing = bodyHeadingSet(body);
   const lead: string[] = [];
-  if (asset.tldr && asset.tldr.trim()) {
-    lead.push(`## TL;DR\n\n${asset.tldr.trim()}`);
-  }
-  const takeaways = (asset.keyTakeaways ?? []).map((k) => k.trim()).filter(Boolean);
-  if (takeaways.length) {
-    lead.push(`## Key takeaways\n\n${takeaways.map((k) => `- ${k}`).join("\n")}`);
-  }
-  // Tail sections composed AFTER the body. Sources (C): only CITABLE (verified)
-  // sources render as links; unreachable/unsupported are retained on the asset
-  // and surfaced in the editor, never published as a live citation (C9).
   const tail: string[] = [];
-  const sources = sourcesBlockMarkdown(asset.sources);
-  if (sources) tail.push(sources);
-  // Nothing to compose → exact byte parity with the pre-P1.1 published body.
-  if (!lead.length && !tail.length) return asset.markdown ?? "";
-  const body = (asset.markdown ?? "").trim();
-  return [...lead, body, ...tail].filter(Boolean).join("\n\n");
+  for (const rule of SECTION_RULES) {
+    if (rule.headingAliases.some((h) => existing.has(h))) continue; // never duplicate a section
+    const md = rule.build(asset, project);
+    if (!md) continue; // deterministic inclusion — skip empty/filler
+    (rule.position === "lead" ? lead : tail).push(md);
+  }
+  if (!lead.length && !tail.length) return body;
+  return [...lead, body.trim(), ...tail].filter(Boolean).join("\n\n");
 }
 
 /**
