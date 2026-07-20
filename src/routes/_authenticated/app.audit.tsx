@@ -201,10 +201,13 @@ function AuditPage() {
               INFERRED advice (site not read). A failed/partial fetch must never
               present its scores as a confident measurement. */}
           {audit.fetchedWebsite ? (
-            <div className="flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-4 py-2.5 text-xs text-foreground/75">
-              <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
-              Reviewed from a read of your homepage — scores reflect the on-page signals we could
-              read plus your business details.
+            <div className="flex items-start gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-4 py-2.5 text-xs text-foreground/75">
+              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
+              <span>
+                Read the content at your homepage URL — this review is based on the text we could
+                read there plus your business details. The scores are an assessment, not measured
+                technical metrics, and this is a homepage read, not a full-site crawl.
+              </span>
             </div>
           ) : (
             <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-foreground/80">
