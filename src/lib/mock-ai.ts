@@ -61,6 +61,7 @@ import { validateSourceUrlsFn } from "./sources.functions";
 import { selectSourcesToValidate, normalizeSourceUrl } from "./sources";
 import { fetchSitemapInventoryFn } from "./sitemap.functions";
 import { isSitemapInventoryFresh } from "./sitemap";
+import { assessReadiness, toReadinessScore } from "./readiness";
 import type {
   Opportunity,
   DiscoverySuggestion,
@@ -483,6 +484,27 @@ export async function validateAssetSources(assetId: string, force = false) {
     console.info("[ai.client] sources validated", { assetId, checked: toCheck.length });
     return next;
   });
+}
+
+/**
+ * Compute the DETERMINISTIC readiness assessment (P1.1 I) over the canonical
+ * assembled asset and the project corpus, and store the compact summary. No AI
+ * call, no metering. Duplication/cannibalisation compare against the real corpus
+ * and expose the conflicting assets + confidence + limitations to the caller.
+ */
+export async function assessAssetReadiness(assetId: string) {
+  const a = getState().content.find((c) => c.id === assetId);
+  if (!a) throw new Error("Content not found.");
+  const { project } = requireProject(a.projectId);
+  const assessment = assessReadiness(a, project, getState().content);
+  const evaluatedAt = new Date().toISOString();
+  upsertContent({
+    ...a,
+    readiness: toReadinessScore(assessment, evaluatedAt),
+    updatedAt: evaluatedAt,
+  });
+  await saveWorkspaceNow();
+  return assessment;
 }
 
 /**
