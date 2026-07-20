@@ -37,7 +37,10 @@ import {
   generateCta,
   sendContentToWebsite,
   publishContentLive,
+  validateAssetSources,
 } from "@/lib/mock-ai";
+import { isControlledImageOrigin } from "@/lib/images";
+import { normalizeSourceUrl } from "@/lib/sources";
 import { effectivePublishMode } from "@/lib/publish-targets";
 import { pipelineStage } from "@/lib/pipeline";
 import { StageChip } from "@/components/StageChip";
@@ -330,6 +333,64 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     [project?.connectorType, assembled],
   );
   const [previewMobile, setPreviewMobile] = useState(false);
+  // ---- Sources / Author / Image form inputs (P1.1 Phase 3) ----
+  const [newSourceUrl, setNewSourceUrl] = useState("");
+  const [newSourceClaim, setNewSourceClaim] = useState("");
+  const [validatingSources, setValidatingSources] = useState(false);
+  const [newImageUrl, setNewImageUrl] = useState("");
+  const [newImageAlt, setNewImageAlt] = useState("");
+  const [newImageConcept, setNewImageConcept] = useState("");
+
+  const setSources = (sources: NonNullable<ContentAsset["sources"]>) =>
+    setF((p) => ({ ...p, sources }));
+  const addSource = () => {
+    const url = newSourceUrl.trim();
+    if (!url) return;
+    setSources([
+      ...(f.sources ?? []),
+      { url, claim: newSourceClaim.trim() || undefined, status: "unchecked" },
+    ]);
+    setNewSourceUrl("");
+    setNewSourceClaim("");
+  };
+  const removeSource = (i: number) => setSources((f.sources ?? []).filter((_, idx) => idx !== i));
+  const revalidateSources = async () => {
+    flushPendingEdits(); // persist f.sources first — the fn re-reads from the store
+    setValidatingSources(true);
+    try {
+      await validateAssetSources(f.id, true);
+      toast.success("Sources re-checked");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not validate sources");
+    } finally {
+      setValidatingSources(false);
+    }
+  };
+  const updAuthor = (patch: Partial<NonNullable<ContentAsset["author"]>>) =>
+    setF((p) => ({ ...p, author: { ...(p.author ?? { name: "" }), ...patch } }));
+  const setImages = (images: NonNullable<ContentAsset["images"]>) =>
+    setF((p) => ({ ...p, images }));
+  const addImage = () => {
+    setImages([
+      ...(f.images ?? []),
+      {
+        id: crypto.randomUUID(),
+        concept: newImageConcept.trim() || "Image",
+        url: newImageUrl.trim() || undefined,
+        alt: newImageAlt.trim(),
+        placement: "inline",
+        source: "existing",
+        status: "proposed",
+        required: false,
+      },
+    ]);
+    setNewImageUrl("");
+    setNewImageAlt("");
+    setNewImageConcept("");
+  };
+  const updImage = (i: number, patch: Partial<NonNullable<ContentAsset["images"]>[number]>) =>
+    setImages((f.images ?? []).map((im, idx) => (idx === i ? { ...im, ...patch } : im)));
+  const removeImage = (i: number) => setImages((f.images ?? []).filter((_, idx) => idx !== i));
 
   // ---- Link-safety resolver actions (one explicit choice per unresolved link) ----
   async function persistMarkdown(nextMarkdown: string, successMsg: string) {
@@ -469,6 +530,13 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       schemaSuggestions: local.schemaSuggestions,
       cta: local.cta,
       editorNotes: local.editorNotes,
+      // Article Studio 2.0 fields the editor forms own — must survive save (P1.1 J):
+      author: local.author,
+      sources: local.sources,
+      images: local.images,
+      tldr: local.tldr,
+      keyTakeaways: local.keyTakeaways,
+      breadcrumbs: local.breadcrumbs,
     };
   };
 
@@ -1111,6 +1179,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           <TabsTrigger value="content">Content</TabsTrigger>
           <TabsTrigger value="meta">Metadata</TabsTrigger>
           <TabsTrigger value="structure">Structure</TabsTrigger>
+          <TabsTrigger value="eeat">Sources &amp; Author</TabsTrigger>
           <TabsTrigger value="preview">Preview</TabsTrigger>
         </TabsList>
 
@@ -1315,6 +1384,279 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               />
             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="eeat" className="space-y-6 py-5">
+          {/* ---- Sources (P1.1 C) ---- */}
+          <section className="space-y-2.5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium text-foreground">Sources</h3>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={revalidateSources}
+                disabled={validatingSources || !(f.sources?.length ?? 0)}
+              >
+                {validatingSources ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                Re-check sources
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Attach real reference URLs. Milo checks each resolves — only <strong>verified</strong>{" "}
+              sources are cited on the page. &ldquo;Verified&rdquo; is set by validation, never
+              chosen by hand.
+            </p>
+            <ul className="space-y-1.5">
+              {(f.sources ?? []).map((s, i) => (
+                <li
+                  key={`${s.url}-${i}`}
+                  className="rounded-md border border-border bg-background px-3 py-2 text-xs"
+                >
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="font-mono text-foreground/80">
+                      {normalizeSourceUrl(s.url)}
+                    </span>
+                    <span
+                      className={
+                        "rounded-full px-1.5 py-0.5 text-[10px] uppercase tracking-wide " +
+                        (s.status === "verified"
+                          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                          : "bg-amber-500/10 text-amber-700 dark:text-amber-500")
+                      }
+                    >
+                      {s.status}
+                      {s.checkNote && s.status !== "verified" ? ` · ${s.checkNote}` : ""}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="ml-auto"
+                      onClick={() => removeSource(i)}
+                    >
+                      <Trash2 className="h-3 w-3" /> Remove
+                    </Button>
+                  </div>
+                  {s.claim ? (
+                    <p className="mt-1 text-muted-foreground">Supports: {s.claim}</p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="flex-1 min-w-[220px]">
+                <Label className="text-xs text-muted-foreground">Source URL</Label>
+                <Input
+                  className="mt-1"
+                  placeholder="https://…"
+                  value={newSourceUrl}
+                  onChange={(e) => setNewSourceUrl(e.target.value)}
+                />
+              </div>
+              <div className="flex-1 min-w-[220px]">
+                <Label className="text-xs text-muted-foreground">Supported claim (optional)</Label>
+                <Input
+                  className="mt-1"
+                  placeholder="What this source backs"
+                  value={newSourceClaim}
+                  onChange={(e) => setNewSourceClaim(e.target.value)}
+                />
+              </div>
+              <Button size="sm" onClick={addSource} disabled={!newSourceUrl.trim()}>
+                Add source
+              </Button>
+            </div>
+          </section>
+
+          {/* ---- Author / E-E-A-T (P1.1 F) ---- */}
+          <section className="space-y-2.5 border-t border-border pt-5">
+            <h3 className="text-sm font-medium text-foreground">Author (E-E-A-T)</h3>
+            <p className="text-xs text-muted-foreground">
+              A named byline must be a <strong>real, consenting person</strong> — Milo never invents
+              a name or credential.
+            </p>
+            {publishBlockers.some((b) => b.key === "author") ? (
+              <p className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-500">
+                <AlertTriangle className="h-3 w-3" /> YMYL publishing is blocked until a resolved
+                author (name + a real bio/credential/profile) is added.
+              </p>
+            ) : null}
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              <div>
+                <Label className="text-xs text-muted-foreground">Name</Label>
+                <Input
+                  className="mt-1"
+                  value={f.author?.name ?? ""}
+                  onChange={(e) => updAuthor({ name: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Role</Label>
+                <Input
+                  className="mt-1"
+                  value={f.author?.role ?? ""}
+                  onChange={(e) => updAuthor({ role: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">
+                  Qualifications / credentials
+                </Label>
+                <Input
+                  className="mt-1"
+                  placeholder="e.g. PT, MSc"
+                  value={f.author?.credentials ?? ""}
+                  onChange={(e) => updAuthor({ credentials: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Profile URL</Label>
+                <Input
+                  className="mt-1"
+                  placeholder="https://…"
+                  value={f.author?.url ?? ""}
+                  onChange={(e) => updAuthor({ url: e.target.value })}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <Label className="text-xs text-muted-foreground">Bio</Label>
+                <Textarea
+                  rows={2}
+                  className="mt-1"
+                  value={f.author?.bio ?? ""}
+                  onChange={(e) => updAuthor({ bio: e.target.value })}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <Label className="text-xs text-muted-foreground">
+                  sameAs profiles (one per line)
+                </Label>
+                <Textarea
+                  rows={2}
+                  className="mt-1 font-mono text-xs"
+                  value={(f.author?.sameAs ?? []).join("\n")}
+                  onChange={(e) =>
+                    updAuthor({
+                      sameAs: e.target.value
+                        .split("\n")
+                        .map((x) => x.trim())
+                        .filter(Boolean),
+                    })
+                  }
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* ---- Images (P1.1 G — non-upload MVP) ---- */}
+          <section className="space-y-2.5 border-t border-border pt-5">
+            <h3 className="text-sm font-medium text-foreground">Images</h3>
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-foreground/80">
+              Image <strong>upload</strong> isn&apos;t available yet — it needs a storage connector
+              (flagged for a follow-up). For now, paste a URL that is already on a{" "}
+              <strong>controlled origin</strong> (your own site or Milo storage). An image publishes
+              only when it is on a controlled origin, has alt text, and you approve it; hotlinked
+              third-party URLs never publish.
+            </div>
+            <ul className="space-y-1.5">
+              {(f.images ?? []).map((im, i) => {
+                const controlled = project ? isControlledImageOrigin(im.url ?? "", project) : false;
+                return (
+                  <li
+                    key={im.id}
+                    className="rounded-md border border-border bg-background px-3 py-2 text-xs space-y-1.5"
+                  >
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="font-medium">{im.concept || "Image"}</span>
+                      <span className="text-muted-foreground">{im.placement}</span>
+                      <span
+                        className={
+                          "rounded-full px-1.5 py-0.5 text-[10px] uppercase " +
+                          (im.status === "accepted" || im.status === "generated"
+                            ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                            : "bg-secondary text-muted-foreground")
+                        }
+                      >
+                        {im.status}
+                      </span>
+                      {im.required ? <span className="text-amber-600">required</span> : null}
+                      {im.url && !controlled ? (
+                        <span className="text-destructive">not a controlled origin</span>
+                      ) : null}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="ml-auto"
+                        onClick={() => removeImage(i)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <Input
+                      className="text-xs"
+                      placeholder="Alt text (required to publish)"
+                      value={im.alt}
+                      onChange={(e) => updImage(i, { alt: e.target.value })}
+                    />
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Button
+                        size="sm"
+                        variant={im.placement === "featured" ? "outline" : "ghost"}
+                        onClick={() =>
+                          updImage(i, {
+                            placement: im.placement === "featured" ? "inline" : "featured",
+                          })
+                        }
+                      >
+                        {im.placement === "featured" ? "Featured" : "Inline"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => updImage(i, { required: !im.required })}
+                      >
+                        {im.required ? "Required" : "Optional"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={!controlled || !im.alt.trim()}
+                        onClick={() => updImage(i, { status: "accepted" })}
+                      >
+                        Approve
+                      </Button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="flex-1 min-w-[160px]">
+                <Label className="text-xs text-muted-foreground">Concept</Label>
+                <Input
+                  className="mt-1"
+                  value={newImageConcept}
+                  onChange={(e) => setNewImageConcept(e.target.value)}
+                />
+              </div>
+              <div className="flex-1 min-w-[220px]">
+                <Label className="text-xs text-muted-foreground">
+                  Image URL (controlled origin)
+                </Label>
+                <Input
+                  className="mt-1"
+                  placeholder="https://your-site/…"
+                  value={newImageUrl}
+                  onChange={(e) => setNewImageUrl(e.target.value)}
+                />
+              </div>
+              <Button size="sm" onClick={addImage}>
+                Add image
+              </Button>
+            </div>
+          </section>
+
+          <p className="text-xs text-muted-foreground">
+            Changes here are saved with the <strong>Save</strong> button below.
+          </p>
         </TabsContent>
 
         <TabsContent value="preview" className="py-5">
