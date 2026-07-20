@@ -13,7 +13,7 @@
  * unit-testable without I/O.
  */
 import { normalizeInternalPath } from "./markdown";
-import { isValidHttpSourceUrl } from "./sources";
+import { isSafePublicUrl } from "./safe-fetch";
 import type { SitemapInventory } from "./types";
 
 export const SITEMAP_MAX_DEPTH = 3; // sitemapindex nesting (start = 0)
@@ -62,7 +62,7 @@ export function originOf(raw: string): string {
 
 /** True when `url` is a safe public http(s) URL on exactly `origin`. */
 export function isSameOriginSafe(url: string, origin: string): boolean {
-  if (!isValidHttpSourceUrl(url)) return false;
+  if (!isSafePublicUrl(url)) return false;
   return originOf(url) === origin;
 }
 

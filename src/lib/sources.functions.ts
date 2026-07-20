@@ -15,13 +15,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import {
-  isValidHttpSourceUrl,
-  classifyReachability,
-  SOURCE_MAX_PER_RUN,
-  SOURCE_MAX_REDIRECTS,
-  SOURCE_FETCH_TIMEOUT_MS,
-} from "./sources";
+import { classifyReachability, SOURCE_MAX_PER_RUN, SOURCE_MAX_REDIRECTS } from "./sources";
+import { safeFetch } from "./safe-fetch";
 
 /** Hard per-call fan-out cap (bounded external fetch). */
 export const MAX_SOURCES_PER_CALL = SOURCE_MAX_PER_RUN;
@@ -32,48 +27,29 @@ export interface SourceCheckOutcome {
   note: string;
 }
 
-/** Reachability check for one URL — manual redirects (capped, re-validated), no body read. */
+const UA = { "User-Agent": "MiloGrowthSourceCheck/1.0 (+https://milogrowth.com)" };
+
+/** Reachability check for one URL via the shared SSRF-safe fetch — no body read. */
 async function checkOne(url: string): Promise<SourceCheckOutcome> {
-  if (!isValidHttpSourceUrl(url)) return { url, ...classifyReachability({ kind: "blocked" }) };
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), SOURCE_FETCH_TIMEOUT_MS);
-  const headers = { "User-Agent": "MiloGrowthSourceCheck/1.0 (+https://milogrowth.com)" };
-  try {
-    let current = url;
-    for (let hop = 0; hop <= SOURCE_MAX_REDIRECTS; hop++) {
-      if (!isValidHttpSourceUrl(current))
-        return { url, ...classifyReachability({ kind: "blocked" }) };
-      let res = await fetch(current, {
-        method: "HEAD",
-        redirect: "manual",
-        signal: controller.signal,
-        headers,
-      });
-      // Some servers reject HEAD — fall back to a 1-byte ranged GET (body unread).
-      if (res.status === 405 || res.status === 501) {
-        res = await fetch(current, {
-          method: "GET",
-          redirect: "manual",
-          signal: controller.signal,
-          headers: { ...headers, Range: "bytes=0-0" },
-        });
-      }
-      if (res.status >= 300 && res.status < 400) {
-        const loc = res.headers.get("location");
-        if (!loc || hop >= SOURCE_MAX_REDIRECTS)
-          return { url, ...classifyReachability({ kind: "network" }) };
-        current = new URL(loc, current).toString();
-        continue;
-      }
-      return { url, ...classifyReachability({ ok: res.ok, status: res.status }) };
-    }
-    return { url, ...classifyReachability({ kind: "network" }) };
-  } catch (e) {
-    const kind = e instanceof Error && e.name === "AbortError" ? "timeout" : "network";
-    return { url, ...classifyReachability({ kind }) };
-  } finally {
-    clearTimeout(timer);
+  // HEAD first; some servers reject HEAD, so fall back to a ranged GET (body unread).
+  let res = await safeFetch(url, {
+    method: "HEAD",
+    maxRedirects: SOURCE_MAX_REDIRECTS,
+    headers: UA,
+  });
+  if (!res.ok && res.reason === "http_error" && (res.status === 405 || res.status === 501)) {
+    res = await safeFetch(url, {
+      method: "GET",
+      maxRedirects: SOURCE_MAX_REDIRECTS,
+      headers: { ...UA, Range: "bytes=0-0" },
+    });
   }
+  if (res.ok) return { url, ...classifyReachability({ ok: true, status: res.status }) };
+  if (res.reason === "blocked") return { url, ...classifyReachability({ kind: "blocked" }) };
+  if (res.reason === "timeout") return { url, ...classifyReachability({ kind: "timeout" }) };
+  if (res.reason === "http_error")
+    return { url, ...classifyReachability({ ok: false, status: res.status }) };
+  return { url, ...classifyReachability({ kind: "network" }) };
 }
 
 export const validateSourceUrlsFn = createServerFn({ method: "POST" })

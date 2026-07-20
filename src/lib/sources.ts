@@ -17,6 +17,7 @@
  * `sources.functions.ts`.
  */
 import type { ContentSource } from "./types";
+import { isSafePublicUrl } from "./safe-fetch";
 
 /** Abuse controls for source attachment + validation (C follow-up), even without a paid API. */
 export const SOURCE_MAX_PER_ASSET = 20; // hard cap on sources attached to one asset
@@ -88,29 +89,12 @@ export function classifyReachability(outcome: {
 }
 
 /**
- * http/https only, with a basic SSRF guard rejecting loopback / private /
- * link-local / cloud-metadata hosts. Used before any fetch AND as the gate on
- * what may render as a live citation.
+ * http/https only, with a robust SSRF guard (full IP-literal canonicalisation
+ * incl. IPv6-mapped/compat, trailing-dot, credentials — see `safe-fetch.ts`).
+ * Used before any fetch AND as the gate on what may render as a live citation.
  */
 export function isValidHttpSourceUrl(raw: string): boolean {
-  let u: URL;
-  try {
-    u = new URL((raw || "").trim());
-  } catch {
-    return false;
-  }
-  if (u.protocol !== "http:" && u.protocol !== "https:") return false;
-  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  if (host === "localhost" || host.endsWith(".localhost")) return false;
-  if (host === "::1" || host === "0.0.0.0") return false;
-  if (host === "169.254.169.254") return false; // cloud instance metadata
-  if (/^127\./.test(host)) return false; // loopback
-  if (/^10\./.test(host)) return false; // private
-  if (/^192\.168\./.test(host)) return false; // private
-  if (/^169\.254\./.test(host)) return false; // link-local
-  if (/^172\.(1[6-9]|2\d|3[01])\./.test(host)) return false; // private
-  if (/^fe80:/i.test(host) || /^fc00:/i.test(host) || /^fd/i.test(host)) return false; // ipv6 local
-  return true;
+  return isSafePublicUrl(raw);
 }
 
 /** A source is CITABLE (renders as a published link) only when verified + valid. */

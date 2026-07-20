@@ -12,7 +12,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { isValidHttpSourceUrl } from "./sources";
+import { isSafePublicUrl, safeFetch } from "./safe-fetch";
 import {
   crawlSitemap,
   originOf,
@@ -25,69 +25,16 @@ import {
 } from "./sitemap";
 import type { SitemapInventory } from "./types";
 
-/** Read a response body up to `maxBytes`, cancelling the stream past the cap. */
-async function readCapped(res: Response, maxBytes: number): Promise<string> {
-  const reader = res.body?.getReader();
-  if (!reader) return (await res.text()).slice(0, maxBytes);
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (value) {
-      chunks.push(value);
-      total += value.length;
-      if (total >= maxBytes) {
-        await reader.cancel().catch(() => {});
-        break;
-      }
-    }
-  }
-  const capped = Math.min(total, maxBytes);
-  const out = new Uint8Array(capped);
-  let off = 0;
-  for (const c of chunks) {
-    if (off >= capped) break;
-    const take = Math.min(c.length, capped - off);
-    out.set(c.subarray(0, take), off);
-    off += take;
-  }
-  return new TextDecoder().decode(out);
-}
-
-/** Bounded, SSRF-guarded fetch of one sitemap document. Returns null on any failure. */
+/** Bounded, SSRF-guarded fetch of one sitemap document via the shared layer. */
 async function boundedFetch(url: string): Promise<SitemapFetchResult | null> {
-  if (!isValidHttpSourceUrl(url)) return null;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), SITEMAP_TIMEOUT_MS);
-  const headers = { "User-Agent": "MiloGrowthSitemapBot/1.0 (+https://milogrowth.com)" };
-  try {
-    let current = url;
-    for (let hop = 0; hop <= SITEMAP_MAX_REDIRECTS; hop++) {
-      if (!isValidHttpSourceUrl(current)) return null;
-      const res = await fetch(current, {
-        method: "GET",
-        redirect: "manual",
-        signal: controller.signal,
-        headers,
-      });
-      if (res.status >= 300 && res.status < 400) {
-        const loc = res.headers.get("location");
-        if (!loc || hop >= SITEMAP_MAX_REDIRECTS) return null;
-        current = new URL(loc, current).toString();
-        continue;
-      }
-      if (!res.ok) return null;
-      const contentType = res.headers.get("content-type") ?? "";
-      const body = await readCapped(res, SITEMAP_MAX_BYTES);
-      return { ok: true, contentType, body };
-    }
-    return null;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
+  const res = await safeFetch(url, {
+    method: "GET",
+    maxBytes: SITEMAP_MAX_BYTES,
+    maxRedirects: SITEMAP_MAX_REDIRECTS,
+    timeoutMs: SITEMAP_TIMEOUT_MS,
+    headers: { "User-Agent": "MiloGrowthSitemapBot/1.0 (+https://milogrowth.com)" },
+  });
+  return res.ok ? { ok: true, contentType: res.contentType, body: res.body } : null;
 }
 
 export const fetchSitemapInventoryFn = createServerFn({ method: "POST" })
@@ -96,7 +43,7 @@ export const fetchSitemapInventoryFn = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<SitemapInventory | null> => {
     const raw = (data.siteUrl || "").trim();
     const origin = originOf(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
-    if (!origin || !isValidHttpSourceUrl(origin)) return null;
+    if (!origin || !isSafePublicUrl(origin)) return null;
 
     // Standard start point handles index recursion; fall back only if it 404s.
     let r = await crawlSitemap(origin, `${origin}/sitemap.xml`, boundedFetch, DEFAULT_SITEMAP_CAPS);
