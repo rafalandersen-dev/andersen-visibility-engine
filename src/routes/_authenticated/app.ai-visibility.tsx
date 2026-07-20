@@ -204,7 +204,9 @@ function AiVisibilityPage() {
               <strong className="font-medium">Estimates, not measurements.</strong> Milo has not
               queried ChatGPT, Perplexity, Gemini or Google AI Overviews. These readiness scores are
               inferred from your business profile — they do not mean your business currently appears
-              in AI answers.
+              in AI answers. To see whether people actually arrive from AI tools, check{" "}
+              <strong className="font-medium">AI referral traffic</strong> in Analytics — a measured,
+              referral-only signal (not mentions or citations).
             </span>
           </div>
 
