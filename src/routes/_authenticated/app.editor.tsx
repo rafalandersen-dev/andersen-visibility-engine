@@ -80,6 +80,9 @@ import {
 } from "@/lib/markdown";
 import { buildKnownInternalPaths, buildActiveInternalPaths } from "@/lib/publish-targets";
 import { assembleContentAsset } from "@/lib/content-assembler";
+import { buildPublishingChecklist } from "@/lib/checklist";
+import { schemaConnectorCapability } from "@/lib/schema-delivery";
+import type { ChecklistItem } from "@/lib/types";
 
 /** Presentation-only styling for the preview's canonical semantic HTML. */
 const PREVIEW_STYLE = `
@@ -310,6 +313,23 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     [classifiedLinks],
   );
   const hasUnresolvedLinks = unresolvedLinks.length > 0;
+
+  // ---- Publishing checklist (P1.1 J) — the same deterministic gate the server
+  // uses, so the editor and the runner agree on what is safe to publish. ----
+  const checklist = useMemo(
+    () => (project ? buildPublishingChecklist(f, project, projectContent) : []),
+    [f, project, projectContent],
+  );
+  const publishBlockers = useMemo(
+    () => checklist.filter((i) => i.blocking && !i.passed),
+    [checklist],
+  );
+  const publishBlocked = publishBlockers.length > 0;
+  const schemaCapability = useMemo(
+    () => schemaConnectorCapability(project?.connectorType, (assembled?.jsonLd.length ?? 0) > 0),
+    [project?.connectorType, assembled],
+  );
+  const [previewMobile, setPreviewMobile] = useState(false);
 
   // ---- Link-safety resolver actions (one explicit choice per unresolved link) ----
   async function persistMarkdown(nextMarkdown: string, successMsg: string) {
@@ -756,6 +776,14 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         </div>
       ) : null}
 
+      {/* Publishing checklist (P1.1 J) — deterministic states from the canonical
+          asset. Hard blockers disable the publish buttons; warnings are advisory. */}
+      {project ? (
+        <div className="px-5 py-3 border-b border-border">
+          <PublishingChecklist items={checklist} schema={schemaCapability} />
+        </div>
+      ) : null}
+
       {/* Publishing v1 — send approved content to the connected website as a draft */}
       <div className="px-5 py-3 border-b border-border">
         {!publishConfigured ? (
@@ -768,7 +796,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         ) : (
           <div className="space-y-2.5">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <Button size="sm" variant="outline" onClick={openSend} disabled={hasUnresolvedLinks}>
+              <Button size="sm" variant="outline" onClick={openSend} disabled={publishBlocked}>
                 <Send className="h-3.5 w-3.5" />
                 {live.publishStatus === "sent"
                   ? t("editor.publish.reSendToWebsite")
@@ -822,7 +850,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 <Button
                   size="sm"
                   onClick={() => setLiveConfirmOpen(true)}
-                  disabled={!liveConfigured || publishingLive || hasUnresolvedLinks}
+                  disabled={!liveConfigured || publishingLive || publishBlocked}
                 >
                   {publishingLive ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -936,7 +964,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               <Button
                 size="sm"
                 onClick={armSchedule}
-                disabled={!goLiveLocal || scheduling || hasUnresolvedLinks}
+                disabled={!goLiveLocal || scheduling || publishBlocked}
               >
                 {scheduling ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1303,12 +1331,31 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               panel below the tabs to approve, replace, keep as text, or remove each one.
             </div>
           ) : null}
-          <div
-            className="milo-preview rounded-lg border border-border bg-background p-6"
-            dangerouslySetInnerHTML={{
-              __html: assembled?.html ?? markdownToHtml(f.markdown, renderOpts),
-            }}
-          />
+          <div className="mb-3 flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">Preview:</span>
+            <Button
+              size="sm"
+              variant={previewMobile ? "ghost" : "outline"}
+              onClick={() => setPreviewMobile(false)}
+            >
+              Desktop
+            </Button>
+            <Button
+              size="sm"
+              variant={previewMobile ? "outline" : "ghost"}
+              onClick={() => setPreviewMobile(true)}
+            >
+              Mobile
+            </Button>
+          </div>
+          <div className={previewMobile ? "mx-auto w-full max-w-[390px]" : ""}>
+            <div
+              className="milo-preview rounded-lg border border-border bg-background p-6"
+              dangerouslySetInnerHTML={{
+                __html: assembled?.html ?? markdownToHtml(f.markdown, renderOpts),
+              }}
+            />
+          </div>
         </TabsContent>
       </Tabs>
 
@@ -1372,6 +1419,76 @@ function ReplaceControl({
  * published: approve this exact URL, replace it with a verified page, keep the
  * text without the link, or remove it. There is deliberately NO "approve all".
  */
+/**
+ * Publishing checklist panel (P1.1 J). Shows the deterministic hard blockers
+ * (with a resolution hint each), advisory warnings, and the honest structured-data
+ * delivery status. The publish buttons are disabled while any hard blocker fails.
+ */
+function PublishingChecklist({
+  items,
+  schema,
+}: {
+  items: ChecklistItem[];
+  schema: ReturnType<typeof schemaConnectorCapability>;
+}) {
+  const blockers = items.filter((i) => i.blocking && !i.passed);
+  const warnings = items.filter((i) => !i.blocking && !i.passed);
+  return (
+    <div className="space-y-2.5">
+      <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+        {blockers.length ? (
+          <>
+            <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+            Publishing blocked — {blockers.length} to resolve
+          </>
+        ) : (
+          <>
+            <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-500" />
+            Ready to publish — all safety checks pass
+          </>
+        )}
+      </div>
+      {blockers.length ? (
+        <ul className="space-y-1.5">
+          {blockers.map((b) => (
+            <li
+              key={b.key}
+              className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs"
+            >
+              <div className="font-medium text-foreground">{b.label}</div>
+              {b.detail ? <p className="mt-0.5 text-muted-foreground">{b.detail}</p> : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {warnings.length ? (
+        <details className="text-xs">
+          <summary className="cursor-pointer text-muted-foreground">
+            {warnings.length} advisory warning{warnings.length === 1 ? "" : "s"} (won&apos;t block
+            publishing)
+          </summary>
+          <ul className="mt-1.5 space-y-1">
+            {warnings.map((w) => (
+              <li key={w.key} className="text-muted-foreground">
+                <span className="text-foreground/80">{w.label}</span>
+                {w.detail ? ` — ${w.detail}` : ""}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+      <p className="text-[11px] text-muted-foreground">
+        Structured data: {schema.generated ? "generated" : "none"}
+        {" · "}
+        {schema.connector === "custom"
+          ? "custom endpoint — JSON-LD delivery not supported"
+          : `included in the ${schema.connector} payload (retention on your site is not verified — implementation, not confirmed appearance)`}
+        .
+      </p>
+    </div>
+  );
+}
+
 function LinkSafetyPanel({
   links,
   replaceOptions,

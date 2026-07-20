@@ -54,7 +54,6 @@ import {
   shopifyCreds,
   shopifyArticleArgs,
   buildActiveInternalPaths,
-  unresolvedLinksForPublish,
 } from "./publish-targets";
 import { assembleContentAsset } from "./content-assembler";
 import { validateSourceUrlsFn } from "./sources.functions";
@@ -62,6 +61,7 @@ import { selectSourcesToValidate, normalizeSourceUrl } from "./sources";
 import { fetchSitemapInventoryFn } from "./sitemap.functions";
 import { isSitemapInventoryFresh } from "./sitemap";
 import { assessReadiness, toReadinessScore } from "./readiness";
+import { publishBlockers } from "./checklist";
 import type {
   Opportunity,
   DiscoverySuggestion,
@@ -1545,23 +1545,18 @@ function knownPathsForProject(project: Project): string[] {
 }
 
 /**
- * Refuse to send OR publish while any in-body internal link is unresolved
- * (neither verified nor user-approved). The editor blocks the buttons, but the
- * store path must refuse too so nothing publishes an invented/unknown link —
- * across all three connectors, drafts included. Mirrors the connector-level
- * guards in wordpress/shopify.functions.ts and publish.server.ts.
+ * Refuse to send OR publish while ANY deterministic hard blocker fails —
+ * unresolved internal links, an invalid cited source, an unmet YMYL/author gate,
+ * a missing image alt / required image, or a schema inconsistency (P1.1 J). The
+ * editor also disables the buttons, but the store path must refuse too so nothing
+ * unsafe publishes on any connector — mirrored by the server/cron guard in
+ * publish.server.ts.
  */
-function assertNoUnresolvedLinks(asset: ContentAsset, project: Project): void {
-  const unresolved = unresolvedLinksForPublish(
-    asset,
-    project,
-    getState().content.filter((c) => c.projectId === project.id),
-  );
-  if (unresolved.length) {
+function assertPublishable(asset: ContentAsset, project: Project): void {
+  const blockers = publishBlockers(asset, project, getState().content);
+  if (blockers.length) {
     throw new Error(
-      `This article has ${unresolved.length} unverified internal link${
-        unresolved.length === 1 ? "" : "s"
-      } (${unresolved.join(", ")}). Resolve them in the editor before publishing.`,
+      `Resolve before publishing: ${blockers.map((b) => b.detail || b.label).join(" ")}`,
     );
   }
 }
@@ -1763,7 +1758,7 @@ export async function sendContentToWebsite(
     if (!asset) throw new Error("Content asset not found.");
     const project = s.projects.find((p) => p.id === asset.projectId);
     if (!project) throw new Error("Project not found.");
-    assertNoUnresolvedLinks(asset, project);
+    assertPublishable(asset, project);
 
     // WordPress connector branch — create/update a WordPress draft.
     if (isWordPress(project)) {
@@ -1837,7 +1832,7 @@ export async function publishContentLive(assetId: string) {
     if (!asset) throw new Error("Content asset not found.");
     const project = s.projects.find((p) => p.id === asset.projectId);
     if (!project) throw new Error("Project not found.");
-    assertNoUnresolvedLinks(asset, project);
+    assertPublishable(asset, project);
 
     // WordPress connector branch — publish/update the post live (create if needed).
     if (isWordPress(project)) {

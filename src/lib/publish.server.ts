@@ -25,6 +25,7 @@ import {
 } from "./publish-targets";
 import { unresolvedInternalLinks } from "./markdown";
 import { assembleContentAsset } from "./content-assembler";
+import { publishBlockers } from "./checklist";
 import {
   applyAssetPatch,
   applyPublishSuccess,
@@ -271,6 +272,16 @@ export async function publishAssetServerSide(
         },
         assetPatch: {} as Partial<ContentAsset>,
       };
+    }
+    // Deterministic safety gate — the SAME publishing checklist the editor uses,
+    // so a scheduled publish is refused for exactly what would block a manual one
+    // (unresolved links, invalid cited source, unmet YMYL/author gate, missing
+    // image alt / required image). Permanent — the runner parks the row.
+    const blockers = publishBlockers(asset, project, row.data.content as ContentAsset[]);
+    if (blockers.length) {
+      throw new PublishNotPossibleError(
+        `This draft is not publishable yet: ${blockers.map((b) => b.detail || b.label).join(" ")}`,
+      );
     }
     const activeInternalPaths = buildActiveInternalPaths(
       project,
