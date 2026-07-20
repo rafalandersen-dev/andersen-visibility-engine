@@ -6,8 +6,8 @@
  * IPv4-mapped/compat (::ffff:169.254.169.254, ::127.0.0.1), localhost aliases +
  * trailing dot, cloud metadata, embedded credentials, and non-http schemes.
  */
-import { describe, it, expect } from "vitest";
-import { isSafePublicUrl, hostCategory } from "./safe-fetch";
+import { describe, it, expect, afterEach } from "vitest";
+import { isSafePublicUrl, hostCategory, outboundFetchAllowed, safeFetch } from "./safe-fetch";
 
 describe("hostCategory — IP-literal classification", () => {
   it("classifies IPv4 ranges (incl. decimal/hex/octal via URL canonicalisation)", () => {
@@ -81,5 +81,31 @@ describe("isSafePublicUrl", () => {
     expect(isSafePublicUrl("http://user:pass@example.com/")).toBe(false);
     expect(isSafePublicUrl("http://user@example.com/")).toBe(false);
     expect(isSafePublicUrl("not a url")).toBe(false);
+  });
+});
+
+describe("outbound egress guard — fail closed unless a safe runtime is declared (Phase D)", () => {
+  const orig = process.env.MILO_OUTBOUND_FETCH_MODE;
+  afterEach(() => {
+    if (orig === undefined) delete process.env.MILO_OUTBOUND_FETCH_MODE;
+    else process.env.MILO_OUTBOUND_FETCH_MODE = orig;
+  });
+
+  it("outboundFetchAllowed only for declared safe runtimes", () => {
+    delete process.env.MILO_OUTBOUND_FETCH_MODE;
+    expect(outboundFetchAllowed()).toBe(false);
+    process.env.MILO_OUTBOUND_FETCH_MODE = "workers";
+    expect(outboundFetchAllowed()).toBe(true);
+    process.env.MILO_OUTBOUND_FETCH_MODE = "egress-proxy";
+    expect(outboundFetchAllowed()).toBe(true);
+    process.env.MILO_OUTBOUND_FETCH_MODE = "node-unsafe";
+    expect(outboundFetchAllowed()).toBe(false);
+  });
+
+  it("safeFetch refuses (blocked) when outbound fetching is not allowed", async () => {
+    delete process.env.MILO_OUTBOUND_FETCH_MODE;
+    const r = await safeFetch("https://example.com/");
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.reason).toBe("blocked");
   });
 });

@@ -28,6 +28,31 @@ export const SAFE_FETCH_MAX_REDIRECTS = 3;
 export const SAFE_FETCH_MAX_BYTES = 5_000_000;
 export const SAFE_FETCH_TIMEOUT_MS = 8000;
 
+/**
+ * Runtime egress guard (DNS-rebinding residual — Phase D). Because a lexical
+ * guard cannot stop DNS rebinding without resolve-before-connect (unavailable on
+ * Cloudflare Workers), outbound source/sitemap fetching is FAIL-CLOSED unless the
+ * operator EXPLICITLY declares that the runtime's egress is safe, via
+ * `MILO_OUTBOUND_FETCH_MODE`:
+ *   - "workers"     — the approved Cloudflare Workers deployment (egress via CF's
+ *                     edge cannot reach RFC1918 / loopback / metadata).
+ *   - "egress-proxy"— a Node/self-hosted deployment fronted by an egress
+ *                     allowlist/proxy that pins the resolved destination IP.
+ * Any other/unset value → outbound fetch is refused. This is a deliberate config
+ * guard, NOT brittle runtime sniffing, and NOT "authenticated users are enough".
+ * REQUIRED deploy step: set MILO_OUTBOUND_FETCH_MODE=workers on the current deploy.
+ */
+export const OUTBOUND_FETCH_MODE_ENV = "MILO_OUTBOUND_FETCH_MODE";
+const APPROVED_OUTBOUND_MODES = new Set(["workers", "egress-proxy"]);
+
+export function outboundFetchAllowed(): boolean {
+  const mode =
+    typeof process !== "undefined" && process.env
+      ? process.env[OUTBOUND_FETCH_MODE_ENV]
+      : undefined;
+  return Boolean(mode && APPROVED_OUTBOUND_MODES.has(mode));
+}
+
 /** Parse a dotted-decimal IPv4 into 4 octets, or null. */
 function parseIpv4(host: string): number[] | null {
   const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
@@ -193,6 +218,8 @@ export async function safeFetch(
   const maxBytes = opts.maxBytes ?? 0;
   const maxRedirects = opts.maxRedirects ?? SAFE_FETCH_MAX_REDIRECTS;
   const timeoutMs = opts.timeoutMs ?? SAFE_FETCH_TIMEOUT_MS;
+  // Fail closed unless the operator declared a safe egress runtime (Phase D).
+  if (!outboundFetchAllowed()) return { ok: false, reason: "blocked" };
   if (!isSafePublicUrl(rawUrl)) return { ok: false, reason: "blocked" };
 
   const controller = new AbortController();
