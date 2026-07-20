@@ -779,6 +779,10 @@ export interface ContentImage {
    * decorative images (false or unset) never block publishing (C19).
    */
   required?: boolean;
+  /** Storage object path (`<uid>/<projectId>/<assetId>/<id>.<ext>`) — for promote/remove. */
+  storagePath?: string;
+  /** Short-lived signed URL for the editor thumbnail before the image is approved/public. */
+  previewUrl?: string;
 }
 
 /** A breadcrumb trail item for BreadcrumbList JSON-LD (H). */

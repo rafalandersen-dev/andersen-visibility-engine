@@ -41,6 +41,11 @@ import {
 } from "@/lib/mock-ai";
 import { isControlledImageOrigin } from "@/lib/images";
 import { normalizeSourceUrl } from "@/lib/sources";
+import {
+  uploadArticleImageFn,
+  promoteArticleImageFn,
+  removeArticleImageFn,
+} from "@/lib/image-storage.functions";
 import { effectivePublishMode } from "@/lib/publish-targets";
 import { pipelineStage } from "@/lib/pipeline";
 import { StageChip } from "@/components/StageChip";
@@ -390,7 +395,107 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   };
   const updImage = (i: number, patch: Partial<NonNullable<ContentAsset["images"]>[number]>) =>
     setImages((f.images ?? []).map((im, idx) => (idx === i ? { ...im, ...patch } : im)));
-  const removeImage = (i: number) => setImages((f.images ?? []).filter((_, idx) => idx !== i));
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => {
+        const s = String(r.result);
+        resolve(s.slice(s.indexOf(",") + 1));
+      };
+      r.onerror = () => reject(new Error("Could not read the file"));
+      r.readAsDataURL(file);
+    });
+  const onUploadImage = async (file: File | undefined) => {
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const dataBase64 = await fileToBase64(file);
+      const { path, previewUrl } = await uploadArticleImageFn({
+        data: { projectId: f.projectId, assetId: f.id, dataBase64 },
+      });
+      setImages([
+        ...(f.images ?? []),
+        {
+          id: crypto.randomUUID(),
+          concept: newImageConcept.trim() || "Image",
+          storagePath: path,
+          previewUrl,
+          alt: "",
+          placement: "inline",
+          source: "uploaded",
+          status: "proposed",
+          required: false,
+        },
+      ]);
+      setNewImageConcept("");
+      toast.success("Uploaded — add alt text, then Approve to make it publishable.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+  const approveImage = async (i: number) => {
+    const im = (f.images ?? [])[i];
+    if (!im) return;
+    try {
+      if (im.storagePath) {
+        // Promote the staged private object to the public bucket (stable URL).
+        const { publicUrl } = await promoteArticleImageFn({ data: { path: im.storagePath } });
+        updImage(i, { url: publicUrl, status: "accepted" });
+      } else {
+        updImage(i, { status: "accepted" }); // an already-controlled-origin URL
+      }
+      toast.success("Image approved");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not approve the image");
+    }
+  };
+  const removeImage = async (i: number) => {
+    const im = (f.images ?? [])[i];
+    if (im?.storagePath) {
+      try {
+        await removeArticleImageFn({ data: { path: im.storagePath } });
+      } catch {
+        /* best effort — the metadata is removed either way */
+      }
+    }
+    setImages((f.images ?? []).filter((_, idx) => idx !== i));
+  };
+  // Approved, published images from the project's other assets — reusable here.
+  const existingApprovedImages = useMemo(() => {
+    const seen = new Set<string>();
+    const out: NonNullable<ContentAsset["images"]>[number][] = [];
+    for (const c of projectContent) {
+      for (const im of c.images ?? []) {
+        if (im.status === "accepted" && im.url && !seen.has(im.url)) {
+          seen.add(im.url);
+          out.push(im);
+        }
+      }
+    }
+    return out;
+  }, [projectContent]);
+  const addExistingImage = (url: string) => {
+    const src = existingApprovedImages.find((im) => im.url === url);
+    if (!src) return;
+    setImages([
+      ...(f.images ?? []),
+      {
+        id: crypto.randomUUID(),
+        concept: src.concept,
+        url: src.url,
+        storagePath: src.storagePath,
+        alt: src.alt ?? "",
+        caption: src.caption,
+        placement: "inline",
+        source: "existing",
+        status: "accepted",
+        required: false,
+      },
+    ]);
+  };
 
   // ---- Link-safety resolver actions (one explicit choice per unresolved link) ----
   async function persistMarkdown(nextMarkdown: string, successMsg: string) {
@@ -1550,13 +1655,12 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           {/* ---- Images (P1.1 G — non-upload MVP) ---- */}
           <section className="space-y-2.5 border-t border-border pt-5">
             <h3 className="text-sm font-medium text-foreground">Images</h3>
-            <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-foreground/80">
-              Image <strong>upload</strong> isn&apos;t available yet — it needs a storage connector
-              (flagged for a follow-up). For now, paste a URL that is already on a{" "}
-              <strong>controlled origin</strong> (your own site or Milo storage). An image publishes
-              only when it is on a controlled origin, has alt text, and you approve it; hotlinked
-              third-party URLs never publish.
-            </div>
+            <p className="text-xs text-muted-foreground">
+              Upload an image (JPEG/PNG/WebP, ≤5&nbsp;MB), reuse an approved project asset, or paste
+              a controlled-origin URL. Uploads are staged privately; an image publishes only once it
+              has alt text and you <strong>approve</strong> it (which promotes it to a stable public
+              URL). Pasted third-party URLs never publish — approval requires a controlled origin.
+            </p>
             <ul className="space-y-1.5">
               {(f.images ?? []).map((im, i) => {
                 const controlled = project ? isControlledImageOrigin(im.url ?? "", project) : false;
@@ -1566,6 +1670,13 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                     className="rounded-md border border-border bg-background px-3 py-2 text-xs space-y-1.5"
                   >
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      {im.previewUrl || im.url ? (
+                        <img
+                          src={im.previewUrl || im.url}
+                          alt=""
+                          className="h-8 w-8 rounded object-cover border border-border"
+                        />
+                      ) : null}
                       <span className="font-medium">{im.concept || "Image"}</span>
                       <span className="text-muted-foreground">{im.placement}</span>
                       <span
@@ -1618,8 +1729,8 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                       </Button>
                       <Button
                         size="sm"
-                        disabled={!controlled || !im.alt.trim()}
-                        onClick={() => updImage(i, { status: "accepted" })}
+                        disabled={!im.alt.trim() || (!im.storagePath && !controlled)}
+                        onClick={() => approveImage(i)}
                       >
                         Approve
                       </Button>
@@ -1628,28 +1739,66 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 );
               })}
             </ul>
+            {(f.images?.length ?? 0) === 0 ? (
+              <p className="text-xs text-muted-foreground">No images yet.</p>
+            ) : null}
             <div className="flex flex-wrap items-end gap-2">
               <div className="flex-1 min-w-[160px]">
-                <Label className="text-xs text-muted-foreground">Concept</Label>
+                <Label className="text-xs text-muted-foreground">Concept (for a new image)</Label>
                 <Input
                   className="mt-1"
                   value={newImageConcept}
                   onChange={(e) => setNewImageConcept(e.target.value)}
                 />
               </div>
+              <Button size="sm" variant="outline" asChild disabled={uploadingImage}>
+                <label className="cursor-pointer">
+                  {uploadingImage ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                  Upload image
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      onUploadImage(e.target.files?.[0]);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              </Button>
+              {existingApprovedImages.length ? (
+                <select
+                  aria-label="Reuse an approved project image"
+                  className="h-9 rounded-md border border-border bg-background px-2 text-xs"
+                  defaultValue=""
+                  onChange={(e) => {
+                    if (e.target.value) addExistingImage(e.target.value);
+                    e.target.value = "";
+                  }}
+                >
+                  <option value="">Reuse approved asset…</option>
+                  {existingApprovedImages.map((im) => (
+                    <option key={im.url} value={im.url}>
+                      {im.concept || im.url}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap items-end gap-2">
               <div className="flex-1 min-w-[220px]">
                 <Label className="text-xs text-muted-foreground">
-                  Image URL (controlled origin)
+                  …or paste a controlled-origin URL
                 </Label>
                 <Input
                   className="mt-1"
-                  placeholder="https://your-site/…"
+                  placeholder="https://your-site/image.jpg"
                   value={newImageUrl}
                   onChange={(e) => setNewImageUrl(e.target.value)}
                 />
               </div>
-              <Button size="sm" onClick={addImage}>
-                Add image
+              <Button size="sm" variant="ghost" onClick={addImage} disabled={!newImageUrl.trim()}>
+                Add URL
               </Button>
             </div>
           </section>
