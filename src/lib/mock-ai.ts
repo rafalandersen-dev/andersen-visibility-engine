@@ -415,6 +415,11 @@ export async function evaluateContentQuality(contentAssetId: string) {
     );
     const explanationLanguage = contentLangToProjectLanguage(project.appLanguage ?? "en");
 
+    // P0.2 — the evaluator receives ONLY the canonical evaluated asset
+    // (CANONICAL_EVALUATED_FIELDS in quality.ts): title + markdown body + meta.
+    // It must NOT receive faq[]/cta/internalLinks[] — those side-fields do not
+    // publish, and grading them would award points for unpublished information.
+    // The FAQ/CTA/internal-link components are graded from the article body.
     const score = await evaluateContentQualityFn({
       data: {
         project,

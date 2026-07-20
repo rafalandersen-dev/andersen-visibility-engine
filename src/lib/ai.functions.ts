@@ -1891,14 +1891,16 @@ export const evaluateContentQualityFn = createServerFn({ method: "POST" })
 Score each of these 8 categories from 0–100 with a one-sentence explanation and up to 3 concrete suggestions:
 - structure: clear title, logical H2/H3 sections, intro, conclusion/next step, scannable formatting.
 - searchReadiness: clear topic, keyword/topic coverage, local/service intent where relevant, useful headings, meta title/description.
-- aiAnswerReadiness: concise answer summary, FAQ coverage, direct answers to likely questions, entity clarity (who/what/where), avoids vague generic content.
+- aiAnswerReadiness: concise answer summary, FAQ coverage WRITTEN INTO THE ARTICLE BODY, direct answers to likely questions, entity clarity (who/what/where), avoids vague generic content.
 - brandFit: matches project tone, reflects the business description, uses the services/products correctly, avoids forbidden/unsafe claims from brand notes.
 - localRelevance: location/market relevance where applicable, local service/business context, correct country/language assumptions, local trust signals.
-- conversion: clear CTA, booking/contact/product next step, offer relevance, benefit clarity, not overly salesy.
+- conversion: a clear CTA and next step (booking/contact/product) WRITTEN INTO THE ARTICLE BODY, offer relevance, benefit clarity, not overly salesy.
 - trustSafety: no unsupported guarantees, no risky medical/legal/financial claims, appropriate caveats, professional tone, no exaggerated AI/search ranking claims.
-- internalLinks: suggests links to relevant services/products/pages, uses existing project services/products where possible, includes related next reading/service, does not force irrelevant links.
+- internalLinks: internal links PRESENT IN THE ARTICLE BODY (markdown) to relevant services/products/pages; reward real, relevant in-body links; do not reward a mere suggestion of links or links that are not written into the body, and penalise forced/irrelevant links.
 
-If the Business context includes a Brand Intelligence block, use it: lower trustSafety and brandFit when the draft uses any forbidden claim or breaks the avoid list, or is missing a required caveat; reward correct use of the preferred CTAs (conversion), the listed internal link targets (internalLinks) and the market/language rules (localRelevance).
+Grade ONLY what is present in the Title, Meta title, Meta description and article body below — these are the fields that actually publish. Do not assume any FAQ, CTA or link exists unless it is written into the body.
+
+If the Business context includes a Brand Intelligence block, use it: lower trustSafety and brandFit when the draft uses any forbidden claim or breaks the avoid list, or is missing a required caveat; reward a correctly-used preferred CTA written into the body (conversion), real in-body internal links to the listed targets (internalLinks) and the market/language rules (localRelevance).
 
 Also provide: topIssues (max 5 short bullets), quickWins (max 5 short bullets) and a summary (max 280 chars).
 Write all explanations, suggestions, topIssues, quickWins and summary in ${data.explanationLanguage}.

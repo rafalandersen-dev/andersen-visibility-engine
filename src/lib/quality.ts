@@ -41,6 +41,87 @@ export const QUALITY_WEIGHTS: Record<QualityCategoryKey, number> = {
   internalLinks: 0.08,
 };
 
+/**
+ * The exact fields the evaluator receives — the CANONICAL evaluated asset. These
+ * all publish (title, markdown body, and metaDescription reach every target;
+ * metaTitle reaches the custom endpoint and is a legitimate SEO field). The
+ * evaluator must NOT be given side-fields that do not publish (`faq[]`, `cta`,
+ * `internalLinks[]`) — grading those would award points for unpublished
+ * information (P0.2). Those components are graded from the article BODY instead.
+ */
+export const CANONICAL_EVALUATED_FIELDS = [
+  "title",
+  "markdown",
+  "metaTitle",
+  "metaDescription",
+] as const;
+
+/**
+ * The Milo Score component matrix: every scored category, its weight, the input
+ * the evaluator reads to grade it, and confirmation that the input is part of the
+ * canonical (published) evaluated asset. `gradesPublishedContent` is `true` for
+ * every row by construction: no component may award points for unavailable or
+ * unpublished information (P0.2). Asserted in quality-matrix.test.ts.
+ */
+export interface MiloScoreComponent {
+  key: QualityCategoryKey;
+  weight: number;
+  /** What the evaluator actually reads — always part of the published asset. */
+  input: string;
+  gradesPublishedContent: true;
+}
+
+export const MILO_SCORE_MATRIX: MiloScoreComponent[] = [
+  {
+    key: "searchReadiness",
+    weight: QUALITY_WEIGHTS.searchReadiness,
+    input: "title + article body + metaTitle + metaDescription",
+    gradesPublishedContent: true,
+  },
+  {
+    key: "aiAnswerReadiness",
+    weight: QUALITY_WEIGHTS.aiAnswerReadiness,
+    input: "article body — direct answer + FAQ as written in the body",
+    gradesPublishedContent: true,
+  },
+  {
+    key: "brandFit",
+    weight: QUALITY_WEIGHTS.brandFit,
+    input: "article body + project brand profile",
+    gradesPublishedContent: true,
+  },
+  {
+    key: "structure",
+    weight: QUALITY_WEIGHTS.structure,
+    input: "article body headings/formatting + title",
+    gradesPublishedContent: true,
+  },
+  {
+    key: "conversion",
+    weight: QUALITY_WEIGHTS.conversion,
+    input: "article body — CTA/next step as written in the body",
+    gradesPublishedContent: true,
+  },
+  {
+    key: "trustSafety",
+    weight: QUALITY_WEIGHTS.trustSafety,
+    input: "article body claims + tone",
+    gradesPublishedContent: true,
+  },
+  {
+    key: "localRelevance",
+    weight: QUALITY_WEIGHTS.localRelevance,
+    input: "article body + project location/market",
+    gradesPublishedContent: true,
+  },
+  {
+    key: "internalLinks",
+    weight: QUALITY_WEIGHTS.internalLinks,
+    input: "internal links present in the article body (markdown)",
+    gradesPublishedContent: true,
+  },
+];
+
 const clamp = (n: unknown): number => {
   const v = typeof n === "number" ? n : typeof n === "string" ? parseFloat(n) : NaN;
   if (!Number.isFinite(v)) return 0;
