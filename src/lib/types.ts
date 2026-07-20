@@ -774,6 +774,11 @@ export interface ContentImage {
   placement: ContentImagePlacement;
   source?: ContentImageSource;
   status: ContentImageStatus;
+  /**
+   * True for a REQUIRED content image (its absence blocks publishing). Optional /
+   * decorative images (false or unset) never block publishing (C19).
+   */
+  required?: boolean;
 }
 
 /** A breadcrumb trail item for BreadcrumbList JSON-LD (H). */

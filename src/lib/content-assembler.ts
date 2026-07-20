@@ -26,6 +26,7 @@ import { markdownToHtml } from "./markdown";
 import { buildContentJsonLd, renderJsonLdScript } from "./structured-data";
 import { sourcesBlockMarkdown } from "./sources";
 import { authorBlockMarkdown, authorSchemaInput } from "./author";
+import { publishableImages, publishableImageUrls, imageMarkdown } from "./images";
 
 export interface AssembleOptions {
   /**
@@ -141,8 +142,17 @@ export function composeCanonicalMarkdown(asset: ContentAsset, project: Project):
     if (!md) continue; // deterministic inclusion — skip empty/filler
     (rule.position === "lead" ? lead : tail).push(md);
   }
-  if (!lead.length && !tail.length) return body;
-  return [...lead, body.trim(), ...tail].filter(Boolean).join("\n\n");
+  // Images (G): only PUBLISHABLE (approved + alt + controlled-origin) images
+  // compose — a featured image at the very top, inline images right after the
+  // body. A legacy asset has none, so this is a no-op (parity preserved).
+  const pub = publishableImages(asset.images, project);
+  const featured = pub
+    .filter((i) => i.placement === "featured")
+    .slice(0, 1)
+    .map(imageMarkdown);
+  const inlineImages = pub.filter((i) => i.placement === "inline").map(imageMarkdown);
+  if (!lead.length && !tail.length && !featured.length && !inlineImages.length) return body;
+  return [...featured, ...lead, body.trim(), ...inlineImages, ...tail].filter(Boolean).join("\n\n");
 }
 
 /**
@@ -156,10 +166,11 @@ export function assembleContentAsset(
   opts: AssembleOptions = {},
 ): AssembledOutput {
   const markdown = composeCanonicalMarkdown(asset, project);
-  const html = markdownToHtml(
-    markdown,
-    opts.activeInternalPaths ? { knownInternalPaths: opts.activeInternalPaths } : undefined,
-  );
+  const html = markdownToHtml(markdown, {
+    ...(opts.activeInternalPaths ? { knownInternalPaths: opts.activeInternalPaths } : {}),
+    // Only assembler-vetted images render as <img>; everything else is stripped.
+    allowedImageUrls: new Set(publishableImageUrls(asset.images, project)),
+  });
   // JSON-LD derives from the SAME composed markdown, so schema mirrors exactly
   // what publishes (schema-content consistency — C17). FAQPage is still extracted
   // from a real FAQ section in the body by buildContentJsonLd, unchanged.
