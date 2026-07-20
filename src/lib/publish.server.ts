@@ -24,6 +24,8 @@ import {
   wpPublishArgs,
 } from "./publish-targets";
 import { unresolvedInternalLinks } from "./markdown";
+import { assembleContentAsset } from "./content-assembler";
+import { publishBlockers } from "./checklist";
 import {
   applyAssetPatch,
   applyPublishSuccess,
@@ -161,7 +163,10 @@ async function runConnectorPublish(
       assetType: asset.assetType ?? "article",
       destinationType: asset.publishDestinationType ?? project.defaultDestinationType ?? "blogPost",
       language: asset.language ?? project.primaryLanguage,
-      markdown: asset.markdown,
+      // Publish the same canonical assembled body (P1.1 B) as the first-party
+      // connectors. Payload shape unchanged; identical to raw markdown for a
+      // legacy asset.
+      markdown: assembleContentAsset(asset, project).markdown,
       metaTitle: asset.metaTitle ?? "",
       metaDescription: asset.metaDescription ?? "",
       sourceOpportunityTitle: asset.sourceOpportunityTitle ?? asset.title,
@@ -267,6 +272,16 @@ export async function publishAssetServerSide(
         },
         assetPatch: {} as Partial<ContentAsset>,
       };
+    }
+    // Deterministic safety gate — the SAME publishing checklist the editor uses,
+    // so a scheduled publish is refused for exactly what would block a manual one
+    // (unresolved links, invalid cited source, unmet YMYL/author gate, missing
+    // image alt / required image). Permanent — the runner parks the row.
+    const blockers = publishBlockers(asset, project, row.data.content as ContentAsset[]);
+    if (blockers.length) {
+      throw new PublishNotPossibleError(
+        `This draft is not publishable yet: ${blockers.map((b) => b.detail || b.label).join(" ")}`,
+      );
     }
     const activeInternalPaths = buildActiveInternalPaths(
       project,

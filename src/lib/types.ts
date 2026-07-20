@@ -224,6 +224,13 @@ export interface Project {
    * never stored here.
    */
   approvedInternalPaths?: string[];
+  /**
+   * Compact, cached inventory of the site's own URLs discovered from its
+   * sitemap(s) (P1.1 D). Feeds the VERIFIED internal-path set. Only the
+   * normalised same-origin paths + metadata are stored — never the raw XML —
+   * and it is re-fetched once stale. JSONB, no migration.
+   */
+  sitemapInventory?: SitemapInventory;
   // ---- WordPress Connector v1 (all optional → existing projects keep loading) ----
   /** Which publishing connector this project uses (defaults to "custom"). */
   connectorType?: PublishingConnectorType;
@@ -643,6 +650,41 @@ export interface ContentAsset {
   qualityScore?: QualityScore;
   /** True when the draft changed after the last evaluation (prompts a re-evaluate). */
   qualityScoreStale?: boolean;
+  // ---- Article Studio 2.0 / P1.1 — canonical assembled asset (all optional, JSONB, no migration) ----
+  //
+  // Field roles (Article Studio 2.0 §4; the governing principle is that the
+  // assembled output — and ONLY it — publishes):
+  //   • generated  (AI proposes): tldr, keyTakeaways, sources[], images[].concept,
+  //                 breadcrumbs, and a *suggested* author (never auto-trusted — C22).
+  //   • user-edited (human owns):  title, metaTitle, metaDescription, markdown body,
+  //                 author (must be a real, consenting person), images[].alt/caption.
+  //   • validated  (checked before publish): sources[].status (fetch-validated),
+  //                 internal links (link-safety three-state), images[] (alt present),
+  //                 checklist[] (publish gate), readiness (scores over the asset).
+  //   • publishable (the ONLY thing sent to any connector): assembled.{markdown,html,jsonLd}.
+  //
+  /** Visible short summary composed at the top of the canonical body (the visible TL;DR — D11). */
+  tldr?: string;
+  /** Visible "key takeaways" bullets, composed into the canonical body. */
+  keyTakeaways?: string[];
+  /** E-E-A-T author entity. A named byline must be a real, consenting person (C22). */
+  author?: ContentAuthor;
+  /** Cited sources. Never fabricated; unreachable/unsupported are labelled, not dropped (C9). */
+  sources?: ContentSource[];
+  /** Images. No hotlinking; alt text is a hard publish gate (C18/C19). */
+  images?: ContentImage[];
+  /** Breadcrumb trail for BreadcrumbList JSON-LD (H). */
+  breadcrumbs?: BreadcrumbItem[];
+  /**
+   * The canonical rendered output, cached for preview/publish parity. DERIVED by
+   * the single assembler (`assembleContentAsset`) — never hand-edited. This is the
+   * sole source for publishing; a stale cache is re-derived, never published blind.
+   */
+  assembled?: AssembledContent;
+  /** Publishing-checklist results (J). A failed blocking item prevents publish. */
+  checklist?: ChecklistItem[];
+  /** Publication-readiness scores over the canonical asset (I) — sibling of qualityScore. */
+  readiness?: ReadinessScore;
 }
 
 // ---- Content Quality Engine / Milo Score v1 ----
@@ -676,6 +718,141 @@ export interface QualityScore {
   quickWins: string[];
   publishingRecommendation: PublishingRecommendation;
   summary: string;
+}
+
+// ---- Article Studio 2.0 / P1.1 — canonical assembled asset ----
+
+/** E-E-A-T author entity. A named byline MUST be a real, consenting person (C22). */
+export interface ContentAuthor {
+  name: string;
+  bio?: string;
+  role?: string;
+  credentials?: string;
+  /** Author profile / bio page. */
+  url?: string;
+  /** Authoritative profiles for `sameAs` in author JSON-LD (LinkedIn, ORCID, …). */
+  sameAs?: string[];
+  /** A Milo-controlled / CMS-hosted origin only — never hotlinked. */
+  imageUrl?: string;
+}
+
+/**
+ * The verification state of a cited source. `unchecked` = attached but not yet
+ * validated; `unreachable`/`unsupported` are LABELLED, never silently dropped and
+ * never treated as verified (C9).
+ */
+export type ContentSourceStatus = "verified" | "unreachable" | "unsupported" | "unchecked";
+
+/** A source the article cites. Never fabricated (C9). */
+export interface ContentSource {
+  url: string;
+  title?: string;
+  /** The specific factual claim this source supports. */
+  claim?: string;
+  status: ContentSourceStatus;
+  checkedAt?: string;
+  /** Why a check produced its status: "ok" | "blocked" | "timeout" | "http_<code>" | "network". */
+  checkNote?: string;
+  /** True for a Your-Money-Your-Life claim that must trace to a source (C25). */
+  ymyl?: boolean;
+}
+
+export type ContentImagePlacement = "featured" | "inline";
+export type ContentImageStatus = "proposed" | "accepted" | "generated" | "missing";
+export type ContentImageSource = "uploaded" | "existing" | "generated";
+
+/** An image for the article. No hotlinking; alt text is a hard publish gate (C18/C19). */
+export interface ContentImage {
+  id: string;
+  /** What the image should convey (the visual concept). */
+  concept: string;
+  /** A Milo-controlled / CMS-uploaded origin only — never a hotlinked third-party URL. */
+  url?: string;
+  /** Required before publish; a missing alt blocks publishing (C19). */
+  alt: string;
+  caption?: string;
+  placement: ContentImagePlacement;
+  source?: ContentImageSource;
+  status: ContentImageStatus;
+  /**
+   * True for a REQUIRED content image (its absence blocks publishing). Optional /
+   * decorative images (false or unset) never block publishing (C19).
+   */
+  required?: boolean;
+  /** Storage object path (`<uid>/<projectId>/<assetId>/<id>.<ext>`) — for promote/remove. */
+  storagePath?: string;
+  /** Short-lived signed URL for the editor thumbnail before the image is approved/public. */
+  previewUrl?: string;
+}
+
+/** A breadcrumb trail item for BreadcrumbList JSON-LD (H). */
+export interface BreadcrumbItem {
+  name: string;
+  url: string;
+}
+
+/**
+ * The canonical rendered output, cached for preview/publish parity. DERIVED by the
+ * single assembler — never hand-edited. `markdown` is the composed canonical body;
+ * `html` is `markdownToHtml(markdown)`; `jsonLd` is the deterministic schema.org set.
+ */
+export interface AssembledContent {
+  markdown: string;
+  html: string;
+  jsonLd: Record<string, unknown>[];
+  assembledAt: string;
+}
+
+/** One publishing-checklist result (J). A failed BLOCKING item prevents publish. */
+export interface ChecklistItem {
+  key: string;
+  label: string;
+  passed: boolean;
+  /** Blocking → a fail prevents publish; non-blocking → advisory only (C23). */
+  blocking: boolean;
+  detail?: string;
+}
+
+/** pass / review / fail for the rule-or-AI readiness dimensions (I). */
+export type ReadinessLevel = "pass" | "review" | "fail";
+
+/**
+ * Publication-readiness scores over the canonical assembled asset (I). A SIBLING of
+ * `QualityScore` — kept separate so the 8-category weighted Milo Score stays intact
+ * (weights must sum to 1.0). Duplication/cannibalisation are deterministic corpus
+ * passes over the project's other assets, not AI calls.
+ */
+export interface ReadinessScore {
+  /** 0–100; rule-based (title/meta/H1 lengths, keyword-in-title) + AI. */
+  seoReadiness?: number;
+  /** 0–100; sentence length, heading density, answer-first structure. */
+  aiReadability?: number;
+  /** YMYL risk; `fail` requires a human gate before publish (C25). */
+  ymylRisk?: ReadinessLevel;
+  /** Deterministic similarity vs the project's other assets. */
+  duplicationRisk?: ReadinessLevel;
+  /** Deterministic same-intent/same-query overlap vs other assets (C28). */
+  cannibalisationRisk?: ReadinessLevel;
+  /** 0–100 derived from the publishing checklist (J). */
+  publishingReadiness?: number;
+  evaluatedAt?: string;
+}
+
+/**
+ * Compact cached inventory of a site's own URLs from its sitemap(s) (P1.1 D).
+ * Stores ONLY normalised same-origin paths + metadata — never the raw XML — and
+ * is re-fetched when stale. Feeds the VERIFIED internal-path set.
+ */
+export interface SitemapInventory {
+  /** Normalised same-origin paths (e.g. "/services", "/blog/post"). */
+  paths: string[];
+  fetchedAt: string;
+  /** Distinct URLs kept (== paths.length). */
+  urlCount: number;
+  /** How many sitemap documents were fetched. */
+  sitemapCount: number;
+  /** True when a cap (URL count / file count) truncated the crawl. */
+  truncated: boolean;
 }
 
 // ---- Site Audit v1 ----

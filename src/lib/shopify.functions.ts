@@ -177,6 +177,12 @@ export const listShopifyBlogsFn = createServerFn({ method: "POST" })
   );
 
 export const ArticleInput = z.object({
+  // Connector identity — the manual RPC handlers ignore the request's content and
+  // credentials, re-reading + re-deriving everything from the caller's own asset
+  // (connector-guard.server.ts). Optional/defaulted so the cron transport, which
+  // calls upsertArticle with derived args, stays unaffected.
+  projectId: z.string().default(""),
+  assetId: z.string().default(""),
   shopDomain: z.string(),
   adminAccessToken: z.string(),
   blogGid: z.string(),
@@ -309,14 +315,28 @@ export async function upsertArticle(
   };
 }
 
+/**
+ * Manual "send to Shopify draft" RPC. Re-reads + re-derives the article content,
+ * credentials and connector identity from the caller's own stored asset and runs
+ * the SAME publishing checklist as the editor and cron — a hand-rolled call to
+ * this endpoint cannot bypass a hard blocker (review fix C). The request body is
+ * not trusted.
+ */
 export const sendContentToShopifyDraftFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => ArticleInput.parse(input))
-  .handler(async ({ data }): Promise<ShopifyPublishResult> => {
+  .handler(async ({ data, context }): Promise<ShopifyPublishResult> => {
+    let args: z.infer<typeof ArticleInput>;
     try {
-      if (!data.blogGid)
+      const { serverShopifyArgs } = await import("./connector-guard.server");
+      args = await serverShopifyArgs(context.userId as string, data.projectId, data.assetId);
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : FRIENDLY_CONNECT };
+    }
+    try {
+      if (!args.blogGid)
         return { success: false, error: "Select a Shopify blog in Project Setup first." };
-      return await upsertArticle(data, false);
+      return await upsertArticle(args, false);
     } catch (e) {
       // Preserve the transport classification: only a proven-nothing-created
       // failure may be retried by the scheduled runner.
@@ -328,14 +348,26 @@ export const sendContentToShopifyDraftFn = createServerFn({ method: "POST" })
     }
   });
 
+/**
+ * Manual "publish to Shopify live" RPC. Re-derives + authorises the args from the
+ * caller's own asset and enforces the full checklist server-side (review fix C)
+ * before the live upsert runs. The request body is not trusted.
+ */
 export const publishShopifyContentFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => ArticleInput.parse(input))
-  .handler(async ({ data }): Promise<ShopifyPublishResult> => {
+  .handler(async ({ data, context }): Promise<ShopifyPublishResult> => {
+    let args: z.infer<typeof ArticleInput>;
     try {
-      if (!data.blogGid && !data.articleGid)
+      const { serverShopifyArgs } = await import("./connector-guard.server");
+      args = await serverShopifyArgs(context.userId as string, data.projectId, data.assetId);
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : FRIENDLY_CONNECT };
+    }
+    try {
+      if (!args.blogGid && !args.articleGid)
         return { success: false, error: "Select a Shopify blog in Project Setup first." };
-      return await upsertArticle(data, true);
+      return await upsertArticle(args, true);
     } catch (e) {
       // Preserve the transport classification: only a proven-nothing-created
       // failure may be retried by the scheduled runner.

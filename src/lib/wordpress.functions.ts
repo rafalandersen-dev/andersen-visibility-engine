@@ -164,6 +164,12 @@ export const testWordPressConnectionFn = createServerFn({ method: "POST" })
   });
 
 export const ContentInput = z.object({
+  // Connector identity — the manual RPC handlers ignore the request's content and
+  // credentials, re-reading + re-deriving everything from the caller's own asset
+  // (connector-guard.server.ts). Optional/defaulted so the cron transport, which
+  // calls publishWordPressLiveDirect with derived args, stays unaffected.
+  projectId: z.string().default(""),
+  assetId: z.string().default(""),
   siteUrl: z.string(),
   username: z.string(),
   applicationPassword: z.string(),
@@ -188,10 +194,15 @@ function editUrlFor(base: URL, id: number): string {
   return `${base.origin}${base.pathname.replace(/\/+$/, "")}/wp-admin/post.php?post=${id}&action=edit`;
 }
 
-export const sendContentToWordPressDraftFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => ContentInput.parse(input))
-  .handler(async ({ data }): Promise<WordPressPublishResult> => {
+/**
+ * Send content to WordPress as a DRAFT. Plain function — no auth middleware — so
+ * the RPC wrapper below (after it has re-derived + authorised the args) and any
+ * future server caller can share it. Mirrors publishWordPressLiveDirect.
+ */
+export async function sendWordPressDraftDirect(
+  data: z.infer<typeof ContentInput>,
+): Promise<WordPressPublishResult> {
+  {
     try {
       const base = wpBase(data.siteUrl);
       assertResolvedLinks(data.contentMarkdown, data.knownInternalPaths);
@@ -251,6 +262,35 @@ export const sendContentToWordPressDraftFn = createServerFn({ method: "POST" })
         retryable: e instanceof PublishTransportError ? e.retryable : false,
       };
     }
+  }
+}
+
+/**
+ * Manual "send to WordPress draft" RPC. Re-reads + re-derives the content,
+ * credentials and connector identity from the caller's own stored asset and runs
+ * the SAME publishing checklist as the editor and cron — a hand-rolled call to
+ * this endpoint cannot bypass a hard blocker (review fix C). The request's content
+ * and credential fields are ignored; only the chosen draft slug is honoured.
+ */
+export const sendContentToWordPressDraftFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => ContentInput.parse(input))
+  .handler(async ({ data, context }): Promise<WordPressPublishResult> => {
+    let args: z.infer<typeof ContentInput>;
+    try {
+      const { serverWpArgs } = await import("./connector-guard.server");
+      const derived = await serverWpArgs(context.userId as string, data.projectId, data.assetId);
+      // Honour the user's chosen draft slug (a non-security UI choice); everything
+      // else comes from the server-derived, checklist-passed args.
+      args = { ...derived, slug: data.slug || derived.slug };
+    } catch (e) {
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : FRIENDLY_CONNECT,
+        retryable: false,
+      };
+    }
+    return sendWordPressDraftDirect(args);
   });
 
 /**
@@ -329,7 +369,25 @@ export async function publishWordPressLiveDirect(
   }
 }
 
+/**
+ * Manual "publish to WordPress live" RPC. Re-derives + authorises the args from
+ * the caller's own asset and enforces the full checklist server-side (review fix
+ * C) before the live transport runs. The request body is not trusted.
+ */
 export const publishWordPressContentFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => ContentInput.parse(input))
-  .handler(async ({ data }): Promise<WordPressPublishResult> => publishWordPressLiveDirect(data));
+  .handler(async ({ data, context }): Promise<WordPressPublishResult> => {
+    let args: z.infer<typeof ContentInput>;
+    try {
+      const { serverWpArgs } = await import("./connector-guard.server");
+      args = await serverWpArgs(context.userId as string, data.projectId, data.assetId);
+    } catch (e) {
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : FRIENDLY_CONNECT,
+        retryable: false,
+      };
+    }
+    return publishWordPressLiveDirect(args);
+  });

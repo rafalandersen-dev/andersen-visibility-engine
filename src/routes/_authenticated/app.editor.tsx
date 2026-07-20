@@ -37,7 +37,16 @@ import {
   generateCta,
   sendContentToWebsite,
   publishContentLive,
+  validateAssetSources,
 } from "@/lib/mock-ai";
+import { isControlledImageOrigin } from "@/lib/images";
+import { normalizeSourceUrl } from "@/lib/sources";
+import {
+  uploadArticleImageFn,
+  promoteArticleImageFn,
+  removeArticleImageFn,
+} from "@/lib/image-storage.functions";
+import { reusedImageMeta } from "@/lib/image-storage";
 import { effectivePublishMode } from "@/lib/publish-targets";
 import { pipelineStage } from "@/lib/pipeline";
 import { StageChip } from "@/components/StageChip";
@@ -79,6 +88,10 @@ import {
   type ClassifiedInternalLink,
 } from "@/lib/markdown";
 import { buildKnownInternalPaths, buildActiveInternalPaths } from "@/lib/publish-targets";
+import { assembleContentAsset } from "@/lib/content-assembler";
+import { buildPublishingChecklist } from "@/lib/checklist";
+import { schemaConnectorCapability } from "@/lib/schema-delivery";
+import type { ChecklistItem } from "@/lib/types";
 
 /** Presentation-only styling for the preview's canonical semantic HTML. */
 const PREVIEW_STYLE = `
@@ -290,6 +303,16 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     [project, projectContent],
   );
   const renderOpts = useMemo(() => ({ knownInternalPaths: new Set(activePaths) }), [activePaths]);
+  // Preview and Export render the CANONICAL assembled asset (P1.1 B) — the exact
+  // markdown/HTML that publishes — so WYSIWYG parity holds. Identical to
+  // markdownToHtml(f.markdown) for an asset with no Article-Studio-2.0 fields.
+  const assembled = useMemo(
+    () =>
+      project
+        ? assembleContentAsset(f, project, { activeInternalPaths: renderOpts.knownInternalPaths })
+        : null,
+    [f, project, renderOpts],
+  );
   const classifiedLinks = useMemo(
     () => classifyInternalLinks(f.markdown, new Set(verifiedPaths), new Set(approvedPaths)),
     [f.markdown, verifiedPaths, approvedPaths],
@@ -299,6 +322,170 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     [classifiedLinks],
   );
   const hasUnresolvedLinks = unresolvedLinks.length > 0;
+
+  // ---- Publishing checklist (P1.1 J) — the same deterministic gate the server
+  // uses, so the editor and the runner agree on what is safe to publish. ----
+  const checklist = useMemo(
+    () => (project ? buildPublishingChecklist(f, project, projectContent) : []),
+    [f, project, projectContent],
+  );
+  const publishBlockers = useMemo(
+    () => checklist.filter((i) => i.blocking && !i.passed),
+    [checklist],
+  );
+  const publishBlocked = publishBlockers.length > 0;
+  const schemaCapability = useMemo(
+    () => schemaConnectorCapability(project?.connectorType, (assembled?.jsonLd.length ?? 0) > 0),
+    [project?.connectorType, assembled],
+  );
+  const [previewMobile, setPreviewMobile] = useState(false);
+  // ---- Sources / Author / Image form inputs (P1.1 Phase 3) ----
+  const [newSourceUrl, setNewSourceUrl] = useState("");
+  const [newSourceClaim, setNewSourceClaim] = useState("");
+  const [validatingSources, setValidatingSources] = useState(false);
+  const [newImageUrl, setNewImageUrl] = useState("");
+  const [newImageAlt, setNewImageAlt] = useState("");
+  const [newImageConcept, setNewImageConcept] = useState("");
+
+  const setSources = (sources: NonNullable<ContentAsset["sources"]>) =>
+    setF((p) => ({ ...p, sources }));
+  const addSource = () => {
+    const url = newSourceUrl.trim();
+    if (!url) return;
+    setSources([
+      ...(f.sources ?? []),
+      { url, claim: newSourceClaim.trim() || undefined, status: "unchecked" },
+    ]);
+    setNewSourceUrl("");
+    setNewSourceClaim("");
+  };
+  const removeSource = (i: number) => setSources((f.sources ?? []).filter((_, idx) => idx !== i));
+  const revalidateSources = async () => {
+    flushPendingEdits(); // persist f.sources first — the fn re-reads from the store
+    setValidatingSources(true);
+    try {
+      await validateAssetSources(f.id, true);
+      toast.success("Sources re-checked");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not validate sources");
+    } finally {
+      setValidatingSources(false);
+    }
+  };
+  const updAuthor = (patch: Partial<NonNullable<ContentAsset["author"]>>) =>
+    setF((p) => ({ ...p, author: { ...(p.author ?? { name: "" }), ...patch } }));
+  const setImages = (images: NonNullable<ContentAsset["images"]>) =>
+    setF((p) => ({ ...p, images }));
+  const addImage = () => {
+    setImages([
+      ...(f.images ?? []),
+      {
+        id: crypto.randomUUID(),
+        concept: newImageConcept.trim() || "Image",
+        url: newImageUrl.trim() || undefined,
+        alt: newImageAlt.trim(),
+        placement: "inline",
+        source: "existing",
+        status: "proposed",
+        required: false,
+      },
+    ]);
+    setNewImageUrl("");
+    setNewImageAlt("");
+    setNewImageConcept("");
+  };
+  const updImage = (i: number, patch: Partial<NonNullable<ContentAsset["images"]>[number]>) =>
+    setImages((f.images ?? []).map((im, idx) => (idx === i ? { ...im, ...patch } : im)));
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => {
+        const s = String(r.result);
+        resolve(s.slice(s.indexOf(",") + 1));
+      };
+      r.onerror = () => reject(new Error("Could not read the file"));
+      r.readAsDataURL(file);
+    });
+  const onUploadImage = async (file: File | undefined) => {
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const dataBase64 = await fileToBase64(file);
+      const { path, previewUrl } = await uploadArticleImageFn({
+        data: { projectId: f.projectId, assetId: f.id, dataBase64 },
+      });
+      setImages([
+        ...(f.images ?? []),
+        {
+          id: crypto.randomUUID(),
+          concept: newImageConcept.trim() || "Image",
+          storagePath: path,
+          previewUrl,
+          alt: "",
+          placement: "inline",
+          source: "uploaded",
+          status: "proposed",
+          required: false,
+        },
+      ]);
+      setNewImageConcept("");
+      toast.success("Uploaded — add alt text, then Approve to make it publishable.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+  const approveImage = async (i: number) => {
+    const im = (f.images ?? [])[i];
+    if (!im) return;
+    try {
+      if (im.storagePath) {
+        // Promote the staged private object to the public bucket (stable URL).
+        const { publicUrl } = await promoteArticleImageFn({ data: { path: im.storagePath } });
+        updImage(i, { url: publicUrl, status: "accepted" });
+      } else {
+        updImage(i, { status: "accepted" }); // an already-controlled-origin URL
+      }
+      toast.success("Image approved");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not approve the image");
+    }
+  };
+  const removeImage = async (i: number) => {
+    const im = (f.images ?? [])[i];
+    if (im?.storagePath) {
+      try {
+        await removeArticleImageFn({ data: { path: im.storagePath } });
+      } catch {
+        /* best effort — the metadata is removed either way */
+      }
+    }
+    setImages((f.images ?? []).filter((_, idx) => idx !== i));
+  };
+  // Approved, published images from the project's other assets — reusable here.
+  const existingApprovedImages = useMemo(() => {
+    const seen = new Set<string>();
+    const out: NonNullable<ContentAsset["images"]>[number][] = [];
+    for (const c of projectContent) {
+      for (const im of c.images ?? []) {
+        if (im.status === "accepted" && im.url && !seen.has(im.url)) {
+          seen.add(im.url);
+          out.push(im);
+        }
+      }
+    }
+    return out;
+  }, [projectContent]);
+  const addExistingImage = (url: string) => {
+    const src = existingApprovedImages.find((im) => im.url === url);
+    if (!src) return;
+    // reusedImageMeta deliberately drops the source's storagePath — a reuse is a
+    // read-only reference to the shared PUBLIC object, so removing this copy must
+    // not delete it out from under the origin asset / a live article (review fix B).
+    setImages([...(f.images ?? []), { id: crypto.randomUUID(), ...reusedImageMeta(src) }]);
+  };
 
   // ---- Link-safety resolver actions (one explicit choice per unresolved link) ----
   async function persistMarkdown(nextMarkdown: string, successMsg: string) {
@@ -438,6 +625,13 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       schemaSuggestions: local.schemaSuggestions,
       cta: local.cta,
       editorNotes: local.editorNotes,
+      // Article Studio 2.0 fields the editor forms own — must survive save (P1.1 J):
+      author: local.author,
+      sources: local.sources,
+      images: local.images,
+      tldr: local.tldr,
+      keyTakeaways: local.keyTakeaways,
+      breadcrumbs: local.breadcrumbs,
     };
   };
 
@@ -475,7 +669,10 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   }, [fromStore?.updatedAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const exportText = (type: "md" | "html") => {
-    const body = type === "md" ? f.markdown : markdownToHtml(f.markdown, renderOpts);
+    const body =
+      type === "md"
+        ? (assembled?.markdown ?? f.markdown)
+        : (assembled?.html ?? markdownToHtml(f.markdown, renderOpts));
     const blob = new Blob([body], { type: type === "md" ? "text/markdown" : "text/html" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -487,7 +684,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   };
 
   const copy = async () => {
-    await navigator.clipboard.writeText(f.markdown);
+    // Copy the CANONICAL assembled markdown — what actually publishes — matching
+    // Export Markdown (review fix; raw f.markdown diverged from both).
+    await navigator.clipboard.writeText(assembled?.markdown ?? f.markdown);
     toast.success("Copied Markdown to clipboard");
   };
 
@@ -742,6 +941,14 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         </div>
       ) : null}
 
+      {/* Publishing checklist (P1.1 J) — deterministic states from the canonical
+          asset. Hard blockers disable the publish buttons; warnings are advisory. */}
+      {project ? (
+        <div className="px-5 py-3 border-b border-border">
+          <PublishingChecklist items={checklist} schema={schemaCapability} />
+        </div>
+      ) : null}
+
       {/* Publishing v1 — send approved content to the connected website as a draft */}
       <div className="px-5 py-3 border-b border-border">
         {!publishConfigured ? (
@@ -754,7 +961,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         ) : (
           <div className="space-y-2.5">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <Button size="sm" variant="outline" onClick={openSend} disabled={hasUnresolvedLinks}>
+              <Button size="sm" variant="outline" onClick={openSend} disabled={publishBlocked}>
                 <Send className="h-3.5 w-3.5" />
                 {live.publishStatus === "sent"
                   ? t("editor.publish.reSendToWebsite")
@@ -808,7 +1015,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 <Button
                   size="sm"
                   onClick={() => setLiveConfirmOpen(true)}
-                  disabled={!liveConfigured || publishingLive || hasUnresolvedLinks}
+                  disabled={!liveConfigured || publishingLive || publishBlocked}
                 >
                   {publishingLive ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -922,7 +1129,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               <Button
                 size="sm"
                 onClick={armSchedule}
-                disabled={!goLiveLocal || scheduling || hasUnresolvedLinks}
+                disabled={!goLiveLocal || scheduling || publishBlocked}
               >
                 {scheduling ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1067,6 +1274,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           <TabsTrigger value="content">Content</TabsTrigger>
           <TabsTrigger value="meta">Metadata</TabsTrigger>
           <TabsTrigger value="structure">Structure</TabsTrigger>
+          <TabsTrigger value="eeat">Sources &amp; Author</TabsTrigger>
           <TabsTrigger value="preview">Preview</TabsTrigger>
         </TabsList>
 
@@ -1273,6 +1481,323 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           </div>
         </TabsContent>
 
+        <TabsContent value="eeat" className="space-y-6 py-5">
+          {/* ---- Sources (P1.1 C) ---- */}
+          <section className="space-y-2.5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium text-foreground">Sources</h3>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={revalidateSources}
+                disabled={validatingSources || !(f.sources?.length ?? 0)}
+              >
+                {validatingSources ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                Re-check sources
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Attach real reference URLs. Milo checks each resolves — only <strong>verified</strong>{" "}
+              sources are cited on the page. &ldquo;Verified&rdquo; is set by validation, never
+              chosen by hand.
+            </p>
+            <ul className="space-y-1.5">
+              {(f.sources ?? []).map((s, i) => (
+                <li
+                  key={`${s.url}-${i}`}
+                  className="rounded-md border border-border bg-background px-3 py-2 text-xs"
+                >
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="font-mono text-foreground/80">
+                      {normalizeSourceUrl(s.url)}
+                    </span>
+                    <span
+                      className={
+                        "rounded-full px-1.5 py-0.5 text-[10px] uppercase tracking-wide " +
+                        (s.status === "verified"
+                          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                          : "bg-amber-500/10 text-amber-700 dark:text-amber-500")
+                      }
+                    >
+                      {s.status}
+                      {s.checkNote && s.status !== "verified" ? ` · ${s.checkNote}` : ""}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="ml-auto"
+                      onClick={() => removeSource(i)}
+                    >
+                      <Trash2 className="h-3 w-3" /> Remove
+                    </Button>
+                  </div>
+                  {s.claim ? (
+                    <p className="mt-1 text-muted-foreground">Supports: {s.claim}</p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="flex-1 min-w-[220px]">
+                <Label className="text-xs text-muted-foreground">Source URL</Label>
+                <Input
+                  className="mt-1"
+                  placeholder="https://…"
+                  value={newSourceUrl}
+                  onChange={(e) => setNewSourceUrl(e.target.value)}
+                />
+              </div>
+              <div className="flex-1 min-w-[220px]">
+                <Label className="text-xs text-muted-foreground">Supported claim (optional)</Label>
+                <Input
+                  className="mt-1"
+                  placeholder="What this source backs"
+                  value={newSourceClaim}
+                  onChange={(e) => setNewSourceClaim(e.target.value)}
+                />
+              </div>
+              <Button size="sm" onClick={addSource} disabled={!newSourceUrl.trim()}>
+                Add source
+              </Button>
+            </div>
+          </section>
+
+          {/* ---- Author / E-E-A-T (P1.1 F) ---- */}
+          <section className="space-y-2.5 border-t border-border pt-5">
+            <h3 className="text-sm font-medium text-foreground">Author (E-E-A-T)</h3>
+            <p className="text-xs text-muted-foreground">
+              A named byline must be a <strong>real, consenting person</strong> — Milo never invents
+              a name or credential.
+            </p>
+            {publishBlockers.some((b) => b.key === "author") ? (
+              <p className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-500">
+                <AlertTriangle className="h-3 w-3" /> YMYL publishing is blocked until a resolved
+                author (name + a real bio/credential/profile) is added.
+              </p>
+            ) : null}
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              <div>
+                <Label className="text-xs text-muted-foreground">Name</Label>
+                <Input
+                  className="mt-1"
+                  value={f.author?.name ?? ""}
+                  onChange={(e) => updAuthor({ name: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Role</Label>
+                <Input
+                  className="mt-1"
+                  value={f.author?.role ?? ""}
+                  onChange={(e) => updAuthor({ role: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">
+                  Qualifications / credentials
+                </Label>
+                <Input
+                  className="mt-1"
+                  placeholder="e.g. PT, MSc"
+                  value={f.author?.credentials ?? ""}
+                  onChange={(e) => updAuthor({ credentials: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Profile URL</Label>
+                <Input
+                  className="mt-1"
+                  placeholder="https://…"
+                  value={f.author?.url ?? ""}
+                  onChange={(e) => updAuthor({ url: e.target.value })}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <Label className="text-xs text-muted-foreground">Bio</Label>
+                <Textarea
+                  rows={2}
+                  className="mt-1"
+                  value={f.author?.bio ?? ""}
+                  onChange={(e) => updAuthor({ bio: e.target.value })}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <Label className="text-xs text-muted-foreground">
+                  sameAs profiles (one per line)
+                </Label>
+                <Textarea
+                  rows={2}
+                  className="mt-1 font-mono text-xs"
+                  value={(f.author?.sameAs ?? []).join("\n")}
+                  onChange={(e) =>
+                    updAuthor({
+                      sameAs: e.target.value
+                        .split("\n")
+                        .map((x) => x.trim())
+                        .filter(Boolean),
+                    })
+                  }
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* ---- Images (P1.1 G — non-upload MVP) ---- */}
+          <section className="space-y-2.5 border-t border-border pt-5">
+            <h3 className="text-sm font-medium text-foreground">Images</h3>
+            <p className="text-xs text-muted-foreground">
+              Upload an image (JPEG/PNG/WebP, ≤5&nbsp;MB), reuse an approved project asset, or paste
+              a controlled-origin URL. Uploads are staged privately; an image publishes only once it
+              has alt text and you <strong>approve</strong> it (which promotes it to a stable public
+              URL). Pasted third-party URLs never publish — approval requires a controlled origin.
+            </p>
+            <ul className="space-y-1.5">
+              {(f.images ?? []).map((im, i) => {
+                const controlled = project ? isControlledImageOrigin(im.url ?? "", project) : false;
+                return (
+                  <li
+                    key={im.id}
+                    className="rounded-md border border-border bg-background px-3 py-2 text-xs space-y-1.5"
+                  >
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      {im.previewUrl || im.url ? (
+                        <img
+                          src={im.previewUrl || im.url}
+                          alt=""
+                          className="h-8 w-8 rounded object-cover border border-border"
+                        />
+                      ) : null}
+                      <span className="font-medium">{im.concept || "Image"}</span>
+                      <span className="text-muted-foreground">{im.placement}</span>
+                      <span
+                        className={
+                          "rounded-full px-1.5 py-0.5 text-[10px] uppercase " +
+                          (im.status === "accepted" || im.status === "generated"
+                            ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                            : "bg-secondary text-muted-foreground")
+                        }
+                      >
+                        {im.status}
+                      </span>
+                      {im.required ? <span className="text-amber-600">required</span> : null}
+                      {im.url && !controlled ? (
+                        <span className="text-destructive">not a controlled origin</span>
+                      ) : null}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="ml-auto"
+                        onClick={() => removeImage(i)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <Input
+                      className="text-xs"
+                      placeholder="Alt text (required to publish)"
+                      value={im.alt}
+                      onChange={(e) => updImage(i, { alt: e.target.value })}
+                    />
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Button
+                        size="sm"
+                        variant={im.placement === "featured" ? "outline" : "ghost"}
+                        onClick={() =>
+                          updImage(i, {
+                            placement: im.placement === "featured" ? "inline" : "featured",
+                          })
+                        }
+                      >
+                        {im.placement === "featured" ? "Featured" : "Inline"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => updImage(i, { required: !im.required })}
+                      >
+                        {im.required ? "Required" : "Optional"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={!im.alt.trim() || (!im.storagePath && !controlled)}
+                        onClick={() => approveImage(i)}
+                      >
+                        Approve
+                      </Button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            {(f.images?.length ?? 0) === 0 ? (
+              <p className="text-xs text-muted-foreground">No images yet.</p>
+            ) : null}
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="flex-1 min-w-[160px]">
+                <Label className="text-xs text-muted-foreground">Concept (for a new image)</Label>
+                <Input
+                  className="mt-1"
+                  value={newImageConcept}
+                  onChange={(e) => setNewImageConcept(e.target.value)}
+                />
+              </div>
+              <Button size="sm" variant="outline" asChild disabled={uploadingImage}>
+                <label className="cursor-pointer">
+                  {uploadingImage ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                  Upload image
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      onUploadImage(e.target.files?.[0]);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              </Button>
+              {existingApprovedImages.length ? (
+                <select
+                  aria-label="Reuse an approved project image"
+                  className="h-9 rounded-md border border-border bg-background px-2 text-xs"
+                  defaultValue=""
+                  onChange={(e) => {
+                    if (e.target.value) addExistingImage(e.target.value);
+                    e.target.value = "";
+                  }}
+                >
+                  <option value="">Reuse approved asset…</option>
+                  {existingApprovedImages.map((im) => (
+                    <option key={im.url} value={im.url}>
+                      {im.concept || im.url}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="flex-1 min-w-[220px]">
+                <Label className="text-xs text-muted-foreground">
+                  …or paste a controlled-origin URL
+                </Label>
+                <Input
+                  className="mt-1"
+                  placeholder="https://your-site/image.jpg"
+                  value={newImageUrl}
+                  onChange={(e) => setNewImageUrl(e.target.value)}
+                />
+              </div>
+              <Button size="sm" variant="ghost" onClick={addImage} disabled={!newImageUrl.trim()}>
+                Add URL
+              </Button>
+            </div>
+          </section>
+
+          <p className="text-xs text-muted-foreground">
+            Changes here are saved with the <strong>Save</strong> button below.
+          </p>
+        </TabsContent>
+
         <TabsContent value="preview" className="py-5">
           {/* Presentation only — the HTML comes from the canonical publish
               converter (markdown.ts), so the STRUCTURE matches what publishes.
@@ -1289,10 +1814,31 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               panel below the tabs to approve, replace, keep as text, or remove each one.
             </div>
           ) : null}
-          <div
-            className="milo-preview rounded-lg border border-border bg-background p-6"
-            dangerouslySetInnerHTML={{ __html: markdownToHtml(f.markdown, renderOpts) }}
-          />
+          <div className="mb-3 flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">Preview:</span>
+            <Button
+              size="sm"
+              variant={previewMobile ? "ghost" : "outline"}
+              onClick={() => setPreviewMobile(false)}
+            >
+              Desktop
+            </Button>
+            <Button
+              size="sm"
+              variant={previewMobile ? "outline" : "ghost"}
+              onClick={() => setPreviewMobile(true)}
+            >
+              Mobile
+            </Button>
+          </div>
+          <div className={previewMobile ? "mx-auto w-full max-w-[390px]" : ""}>
+            <div
+              className="milo-preview rounded-lg border border-border bg-background p-6"
+              dangerouslySetInnerHTML={{
+                __html: assembled?.html ?? markdownToHtml(f.markdown, renderOpts),
+              }}
+            />
+          </div>
         </TabsContent>
       </Tabs>
 
@@ -1356,6 +1902,78 @@ function ReplaceControl({
  * published: approve this exact URL, replace it with a verified page, keep the
  * text without the link, or remove it. There is deliberately NO "approve all".
  */
+/**
+ * Publishing checklist panel (P1.1 J). Shows the deterministic hard blockers
+ * (with a resolution hint each), advisory warnings, and the honest structured-data
+ * delivery status. The publish buttons are disabled while any hard blocker fails.
+ */
+function PublishingChecklist({
+  items,
+  schema,
+}: {
+  items: ChecklistItem[];
+  schema: ReturnType<typeof schemaConnectorCapability>;
+}) {
+  const blockers = items.filter((i) => i.blocking && !i.passed);
+  const warnings = items.filter((i) => !i.blocking && !i.passed);
+  return (
+    <div className="space-y-2.5">
+      <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+        {blockers.length ? (
+          <>
+            <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+            Publishing blocked — {blockers.length} to resolve
+          </>
+        ) : (
+          <>
+            <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-500" />
+            Ready to publish — all safety checks pass
+          </>
+        )}
+      </div>
+      {blockers.length ? (
+        <ul className="space-y-1.5">
+          {blockers.map((b) => (
+            <li
+              key={b.key}
+              className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs"
+            >
+              <div className="font-medium text-foreground">{b.label}</div>
+              {b.detail ? <p className="mt-0.5 text-muted-foreground">{b.detail}</p> : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {warnings.length ? (
+        <details className="text-xs">
+          <summary className="cursor-pointer text-muted-foreground">
+            {warnings.length} advisory warning{warnings.length === 1 ? "" : "s"} (won&apos;t block
+            publishing)
+          </summary>
+          <ul className="mt-1.5 space-y-1">
+            {warnings.map((w) => (
+              <li key={w.key} className="text-muted-foreground">
+                <span className="text-foreground/80">{w.label}</span>
+                {w.detail ? ` — ${w.detail}` : ""}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+      <p className="text-[11px] text-muted-foreground">
+        Structured data: {schema.generated ? "generated" : "none generated"}
+        {" · "}
+        {!schema.generated
+          ? "nothing to deliver"
+          : schema.connector === "custom"
+            ? "custom endpoint — JSON-LD delivery not supported"
+            : `included in the ${schema.connector} payload (retention on your site is not verified — implementation, not confirmed appearance)`}
+        .
+      </p>
+    </div>
+  );
+}
+
 function LinkSafetyPanel({
   links,
   replaceOptions,

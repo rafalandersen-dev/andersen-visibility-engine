@@ -54,9 +54,14 @@ import {
   shopifyCreds,
   shopifyArticleArgs,
   buildActiveInternalPaths,
-  unresolvedLinksForPublish,
-  contentStructuredData,
 } from "./publish-targets";
+import { assembleContentAsset } from "./content-assembler";
+import { validateSourceUrlsFn } from "./sources.functions";
+import { selectSourcesToValidate, normalizeSourceUrl } from "./sources";
+import { fetchSitemapInventoryFn } from "./sitemap.functions";
+import { isSitemapInventoryFresh } from "./sitemap";
+import { assessReadiness, toReadinessScore } from "./readiness";
+import { publishBlockers } from "./checklist";
 import type {
   Opportunity,
   DiscoverySuggestion,
@@ -399,9 +404,12 @@ export async function evaluateContentQuality(contentAssetId: string) {
     const { project, services } = requireProject(a.projectId);
 
     const evaluatedAt = new Date().toISOString();
+    // Score the CANONICAL assembled asset (P1.1 B), so scoring, publishing and
+    // schema all judge one artifact. Identical to `a.markdown` for a legacy asset.
+    const canonicalMarkdown = assembleContentAsset(a, project).markdown;
 
     // Short-circuit empty/too-short drafts — conservative score, no AI call.
-    if (draftWordCount(a.markdown || "") < MIN_EVALUABLE_WORDS) {
+    if (draftWordCount(canonicalMarkdown) < MIN_EVALUABLE_WORDS) {
       upsertContent({
         ...a,
         qualityScore: tooShortScore(evaluatedAt),
@@ -428,7 +436,7 @@ export async function evaluateContentQuality(contentAssetId: string) {
         project,
         services,
         title: a.title,
-        markdown: a.markdown || "",
+        markdown: canonicalMarkdown,
         assetType: a.assetType ?? "article",
         destinationType: a.publishDestinationType ?? "",
         metaTitle: a.metaTitle ?? "",
@@ -445,6 +453,81 @@ export async function evaluateContentQuality(contentAssetId: string) {
       overall: score.overall,
     });
     return score;
+  });
+}
+
+/**
+ * Reachability-validate an asset's attached sources (P1.1 C). Marks each source
+ * `verified` (URL resolves) or `unreachable`, never fabricating one and never
+ * silently dropping an unreachable one — it stays on the asset, labelled, so the
+ * editor can surface it. A human "unsupported" verdict is preserved, not
+ * overwritten by reachability.
+ */
+export async function validateAssetSources(assetId: string, force = false) {
+  return once(`validate-sources:${assetId}`, async () => {
+    const a = getState().content.find((c) => c.id === assetId);
+    if (!a) throw new Error("Content not found.");
+    const sources = a.sources ?? [];
+    // Cooldown + dedupe + per-run fan-out cap (C follow-up abuse controls).
+    const toCheck = selectSourcesToValidate(sources, Date.now(), force);
+    if (!toCheck.length) return sources;
+    const results = await validateSourceUrlsFn({ data: { urls: toCheck.map((s) => s.url) } });
+    const byUrl = new Map(results.map((r) => [normalizeSourceUrl(r.url), r]));
+    const checkedAt = new Date().toISOString();
+    const next = sources.map((s) => {
+      const r = byUrl.get(normalizeSourceUrl(s.url));
+      // Never count an unreachable source as verified; keep an explicit note.
+      return r ? { ...s, status: r.status, checkNote: r.note, checkedAt } : s;
+    });
+    upsertContent({ ...a, sources: next, updatedAt: checkedAt });
+    await saveWorkspaceNow();
+    console.info("[ai.client] sources validated", { assetId, checked: toCheck.length });
+    return next;
+  });
+}
+
+/**
+ * Compute the DETERMINISTIC readiness assessment (P1.1 I) over the canonical
+ * assembled asset and the project corpus, and store the compact summary. No AI
+ * call, no metering. Duplication/cannibalisation compare against the real corpus
+ * and expose the conflicting assets + confidence + limitations to the caller.
+ */
+export async function assessAssetReadiness(assetId: string) {
+  const a = getState().content.find((c) => c.id === assetId);
+  if (!a) throw new Error("Content not found.");
+  const { project } = requireProject(a.projectId);
+  const assessment = assessReadiness(a, project, getState().content);
+  const evaluatedAt = new Date().toISOString();
+  upsertContent({
+    ...a,
+    readiness: toReadinessScore(assessment, evaluatedAt),
+    updatedAt: evaluatedAt,
+  });
+  await saveWorkspaceNow();
+  return assessment;
+}
+
+/**
+ * Refresh a project's cached sitemap URL inventory (P1.1 D). Bounded + cached:
+ * returns the cached inventory untouched while still fresh (a cooldown), else
+ * re-fetches under the server fn's strict caps. Stores only the compact paths +
+ * metadata on the project (no raw XML).
+ */
+export async function refreshSitemapInventory(projectId: string, force = false) {
+  return once(`sitemap:${projectId}`, async () => {
+    const project = getState().projects.find((p) => p.id === projectId);
+    if (!project) throw new Error("Project not found.");
+    if (!force && isSitemapInventoryFresh(project.sitemapInventory, Date.now())) {
+      return project.sitemapInventory ?? null;
+    }
+    const siteUrl = (project.websiteUrl || "").trim();
+    if (!siteUrl) throw new Error("Add your website URL in Project Setup first.");
+    const inv = await fetchSitemapInventoryFn({ data: { siteUrl } });
+    if (inv) {
+      updateProject(projectId, { sitemapInventory: inv });
+      await saveWorkspaceNow();
+    }
+    return inv;
   });
 }
 
@@ -1462,23 +1545,18 @@ function knownPathsForProject(project: Project): string[] {
 }
 
 /**
- * Refuse to send OR publish while any in-body internal link is unresolved
- * (neither verified nor user-approved). The editor blocks the buttons, but the
- * store path must refuse too so nothing publishes an invented/unknown link —
- * across all three connectors, drafts included. Mirrors the connector-level
- * guards in wordpress/shopify.functions.ts and publish.server.ts.
+ * Refuse to send OR publish while ANY deterministic hard blocker fails —
+ * unresolved internal links, an invalid cited source, an unmet YMYL/author gate,
+ * a missing image alt / required image, or a schema inconsistency (P1.1 J). The
+ * editor also disables the buttons, but the store path must refuse too so nothing
+ * unsafe publishes on any connector — mirrored by the server/cron guard in
+ * publish.server.ts.
  */
-function assertNoUnresolvedLinks(asset: ContentAsset, project: Project): void {
-  const unresolved = unresolvedLinksForPublish(
-    asset,
-    project,
-    getState().content.filter((c) => c.projectId === project.id),
-  );
-  if (unresolved.length) {
+function assertPublishable(asset: ContentAsset, project: Project): void {
+  const blockers = publishBlockers(asset, project, getState().content);
+  if (blockers.length) {
     throw new Error(
-      `This article has ${unresolved.length} unverified internal link${
-        unresolved.length === 1 ? "" : "s"
-      } (${unresolved.join(", ")}). Resolve them in the editor before publishing.`,
+      `Resolve before publishing: ${blockers.map((b) => b.detail || b.label).join(" ")}`,
     );
   }
 }
@@ -1486,17 +1564,26 @@ function assertNoUnresolvedLinks(asset: ContentAsset, project: Project): void {
 async function sendToWordPressDraft(asset: ContentAsset, project: Project, slug: string) {
   const creds = wpCreds(project);
   const postType = wpPostTypeFor(asset, project);
+  // Manual == scheduled: body markdown + structured data both come from the ONE
+  // canonical assembler (P1.1 B), resolving links against the same active
+  // inventory as the cron path.
+  const activePaths = knownPathsForProject(project);
+  const assembled = assembleContentAsset(asset, project, {
+    activeInternalPaths: new Set(activePaths),
+  });
   const res = await sendContentToWordPressDraftFn({
     data: {
+      // Connector identity — the server re-derives content + creds from this asset
+      // and enforces the checklist; the fields below are what a legit send passes.
+      projectId: project.id,
+      assetId: asset.id,
       ...creds,
       postType,
       postId: asset.wordpressPostId,
       title: asset.title,
-      contentMarkdown: asset.markdown,
-      // Manual == scheduled: emit the same structured data (B2) and resolve
-      // internal links against the same inventory (B1) as the cron path.
-      jsonLd: contentStructuredData(asset, project),
-      knownInternalPaths: knownPathsForProject(project),
+      contentMarkdown: assembled.markdown,
+      jsonLd: assembled.jsonLdScript,
+      knownInternalPaths: activePaths,
       slug: (slug || asset.slug || "").trim(),
       excerpt: asset.metaDescription ?? "",
     },
@@ -1525,17 +1612,25 @@ async function sendToWordPressDraft(asset: ContentAsset, project: Project, slug:
 async function publishToWordPressLive(asset: ContentAsset, project: Project) {
   const creds = wpCreds(project);
   const postType = wpPostTypeFor(asset, project);
+  const activePaths = knownPathsForProject(project);
+  const assembled = assembleContentAsset(asset, project, {
+    activeInternalPaths: new Set(activePaths),
+  });
   const res = await publishWordPressContentFn({
     data: {
+      // Connector identity — the server re-derives content + creds from this asset
+      // and enforces the checklist; the fields below are what a legit publish passes.
+      projectId: project.id,
+      assetId: asset.id,
       ...creds,
       postType,
       postId: asset.wordpressPostId,
       title: asset.title,
-      contentMarkdown: asset.markdown,
-      // Manual == scheduled: emit the same structured data (B2) and resolve
-      // internal links against the same inventory (B1) as the cron path.
-      jsonLd: contentStructuredData(asset, project),
-      knownInternalPaths: knownPathsForProject(project),
+      contentMarkdown: assembled.markdown,
+      // Manual == scheduled: body + structured data from the ONE canonical
+      // assembler (P1.1 B), links resolved against the same active inventory.
+      jsonLd: assembled.jsonLdScript,
+      knownInternalPaths: activePaths,
       slug: (asset.publishSlug || asset.slug || "").trim(),
       excerpt: asset.metaDescription ?? "",
     },
@@ -1671,7 +1766,7 @@ export async function sendContentToWebsite(
     if (!asset) throw new Error("Content asset not found.");
     const project = s.projects.find((p) => p.id === asset.projectId);
     if (!project) throw new Error("Project not found.");
-    assertNoUnresolvedLinks(asset, project);
+    assertPublishable(asset, project);
 
     // WordPress connector branch — create/update a WordPress draft.
     if (isWordPress(project)) {
@@ -1702,7 +1797,10 @@ export async function sendContentToWebsite(
           assetType: asset.assetType ?? "article",
           destinationType,
           language: asset.language ?? project.primaryLanguage,
-          markdown: asset.markdown,
+          // Custom endpoint publishes the same canonical assembled body (P1.1 B)
+          // as WordPress/Shopify. Payload shape is unchanged (still `markdown`);
+          // identical to `asset.markdown` for a legacy asset.
+          markdown: assembleContentAsset(asset, project).markdown,
           metaTitle: asset.metaTitle,
           metaDescription: asset.metaDescription,
           sourceOpportunityTitle: asset.sourceOpportunityTitle ?? asset.title,
@@ -1742,7 +1840,7 @@ export async function publishContentLive(assetId: string) {
     if (!asset) throw new Error("Content asset not found.");
     const project = s.projects.find((p) => p.id === asset.projectId);
     if (!project) throw new Error("Project not found.");
-    assertNoUnresolvedLinks(asset, project);
+    assertPublishable(asset, project);
 
     // WordPress connector branch — publish/update the post live (create if needed).
     if (isWordPress(project)) {

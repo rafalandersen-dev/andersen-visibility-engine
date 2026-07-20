@@ -9,7 +9,9 @@
  * branding. Anything we injected here would be us overriding a design that
  * already matches.
  *
- * Images are deliberately NOT rendered. See stripImages.
+ * Images are stripped by default; only URLs the caller vetted as publishable
+ * (MarkdownRenderOptions.allowedImageUrls, P1.1 G) render as <img>. See
+ * stripImages + renderAllowedImages.
  */
 
 function escapeHtml(s: string): string {
@@ -49,6 +51,13 @@ export interface MarkdownRenderOptions {
    * invented internal URL. External absolute URLs are unaffected.
    */
   knownInternalPaths?: Set<string>;
+  /**
+   * Image URLs the caller has VETTED as publishable — approved, alt-text present,
+   * hosted on a controlled origin (P1.1 G). Only these render as `<img>`; every
+   * other image markdown is still stripped. Without a set, NO image renders
+   * (the pre-P1.1 behaviour), so a model-hallucinated image never publishes.
+   */
+  allowedImageUrls?: Set<string>;
 }
 
 /** Normalise an internal href to a comparable path (strip query/hash, trailing slash). */
@@ -164,9 +173,34 @@ export function replaceLinkPath(md: string, oldPath: string, newPath: string): s
   return rewriteLinksByPath(md, oldPath, (anchor) => `[${anchor}](${newPath})`);
 }
 
-/** Inline formatting: links, bold, italic — applied to already-escaped text. */
+/**
+ * Render ONLY the images whose URL the caller vetted as publishable (P1.1 G).
+ * Everything else is left for stripImages to remove, so a hallucinated or
+ * hotlinked image can never reach the page.
+ */
+function renderAllowedImages(s: string, allowed: Set<string>): string {
+  return s.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (whole, alt: string, url: string) => {
+    // Allow-listed URL AND non-empty alt (defence-in-depth for the C19 alt gate —
+    // a body image reusing an approved URL with empty alt must not render).
+    if (!allowed.has(url) || !alt.trim()) return whole;
+    const safeUrl = url.replace(/"/g, "%22");
+    const safeAlt = alt.replace(/"/g, "&quot;");
+    return `<img src="${safeUrl}" alt="${safeAlt}" loading="lazy" />`;
+  });
+}
+
+/** Remove all image markdown from a string (exposed so the assembler can strip a
+ *  raw body before composing only its own vetted images). */
+export function stripImageMarkdown(s: string): string {
+  return stripImages(s);
+}
+
+/** Inline formatting: images (allow-listed), links, bold, italic — on escaped text. */
 function inline(s: string, opts?: MarkdownRenderOptions): string {
-  return stripImages(s)
+  const withImages = opts?.allowedImageUrls?.size
+    ? renderAllowedImages(s, opts.allowedImageUrls)
+    : s;
+  return stripImages(withImages)
     .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_m, text: string, href: string) => {
       // External absolute URL — an explicit destination; keep as an active link.
       if (/^https?:\/\//.test(href)) {

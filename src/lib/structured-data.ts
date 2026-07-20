@@ -22,6 +22,14 @@ export interface ContentJsonLdInput {
   /** Canonical live URL, when known. */
   url?: string;
   datePublished?: string;
+  /**
+   * Named author (E-E-A-T). When present, Article.author is a Person and the
+   * Organization stays the publisher. Only real, user-supplied identity is used —
+   * credentials are never invented (F).
+   */
+  author?: { name: string; url?: string; sameAs?: string[] };
+  /** Breadcrumb trail → BreadcrumbList (H). */
+  breadcrumbs?: { name: string; url: string }[];
 }
 
 export interface FaqPair {
@@ -89,7 +97,16 @@ export function extractFaqFromMarkdown(md: string): FaqPair[] {
     }
     i++;
   }
-  return faqs.slice(0, 20);
+  // De-duplicate by question (case-insensitive) so a repeated question heading
+  // never emits duplicate Question entities in the FAQPage (review fix).
+  const seen = new Set<string>();
+  const unique = faqs.filter((f) => {
+    const key = f.question.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return unique.slice(0, 20);
 }
 
 /** Build the JSON-LD objects (Article + optional FAQPage) for a content asset. */
@@ -111,6 +128,18 @@ export function buildContentJsonLd(input: ContentJsonLdInput): Record<string, un
       article.publisher = org;
       article.author = org;
     }
+    // A named human author (E-E-A-T) overrides the Organization as the author,
+    // matching the visible "About the author" byline. Never invented (F).
+    if (input.author && input.author.name.trim()) {
+      const person: Record<string, unknown> = {
+        "@type": "Person",
+        name: input.author.name.trim(),
+      };
+      if (input.author.url?.trim()) person.url = input.author.url.trim();
+      const sameAs = (input.author.sameAs ?? []).map((s) => s.trim()).filter(Boolean);
+      if (sameAs.length) person.sameAs = sameAs;
+      article.author = person;
+    }
     objs.push(article);
   }
 
@@ -123,6 +152,21 @@ export function buildContentJsonLd(input: ContentJsonLdInput): Record<string, un
         "@type": "Question",
         name: f.question,
         acceptedAnswer: { "@type": "Answer", text: f.answer },
+      })),
+    });
+  }
+
+  // BreadcrumbList (H) — the page's position in the site hierarchy. One list only.
+  const crumbs = (input.breadcrumbs ?? []).filter((b) => b.name?.trim() && b.url?.trim());
+  if (crumbs.length) {
+    objs.push({
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: crumbs.map((b, i) => ({
+        "@type": "ListItem",
+        position: i + 1,
+        name: b.name.trim(),
+        item: b.url.trim(),
       })),
     });
   }
