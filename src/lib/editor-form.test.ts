@@ -93,7 +93,7 @@ describe("editorFormDirty", () => {
     expect(editorFormDirty(form, stored)).toBe(false);
   });
 
-  it("EDITOR_FORM_FIELDS stays in sync with the 18 fields mergeEditorEdits owns", () => {
+  it("EDITOR_FORM_FIELDS stays in sync with the 19 fields mergeEditorEdits owns", () => {
     expect([...EDITOR_FORM_FIELDS].sort()).toEqual(
       [
         "author",
@@ -110,12 +110,36 @@ describe("editorFormDirty", () => {
         "metaTitle",
         "outline",
         "schemaSuggestions",
+        "sectionIndex",
         "slug",
         "sources",
         "title",
         "tldr",
       ].sort(),
     );
+  });
+
+  // ---- Stable image anchors (Article Studio 3.0 / P1.2C) ----
+  it("is TRUE when an image anchor / order changes, or the sectionIndex changes (must persist)", () => {
+    const withImg = (over: Record<string, unknown>) =>
+      base({
+        images: [
+          { id: "i1", concept: "c", alt: "a", placement: "inline", status: "accepted", ...over },
+        ] as never,
+      });
+    const stored = withImg({});
+    expect(editorFormDirty(withImg({ anchor: "article-end" }), stored)).toBe(true);
+    expect(editorFormDirty(withImg({ order: 2 }), stored)).toBe(true);
+    expect(
+      editorFormDirty(
+        base({
+          sectionIndex: [
+            { id: "sec_a1", heading: "H", normalized: "h", level: 2, order: 0 },
+          ] as never,
+        }),
+        base(),
+      ),
+    ).toBe(true);
   });
 
   // ---- Opening hook (Article Studio 3.0 / P1.2A) ----

@@ -57,6 +57,15 @@ import {
   verifiedSourcesForHook,
 } from "@/lib/hook";
 import { articleVisualPolicy } from "@/lib/visual-model";
+import {
+  serializeAnchor,
+  parseAnchor,
+  anchorSectionId,
+  type PlacementAnchor,
+  type AnchorKind,
+} from "@/lib/anchors";
+import { reconcileSectionIndex } from "@/lib/section-index";
+import { resolveImageAnchors } from "@/lib/image-anchors";
 import { effectivePublishMode } from "@/lib/publish-targets";
 import { pipelineStage } from "@/lib/pipeline";
 import { StageChip } from "@/components/StageChip";
@@ -454,6 +463,42 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   };
   const updImage = (i: number, patch: Partial<NonNullable<ContentAsset["images"]>[number]>) =>
     setImages((f.images ?? []).map((im, idx) => (idx === i ? { ...im, ...patch } : im)));
+  // ---- Stable image anchors (Article Studio 3.0 / P1.2C) ----
+  const ANCHOR_KIND_OPTIONS: AnchorKind[] = [
+    "before-hook",
+    "after-hook",
+    "before-section",
+    "after-section",
+    "before-faq",
+    "before-cta",
+    "article-end",
+  ];
+  const imageAnchorRes = useMemo(
+    () => (project ? resolveImageAnchors(f, project) : null),
+    [f, project],
+  );
+  const imageAnchorStatus = (imgId: string): string | null => {
+    if (!imageAnchorRes) return null;
+    const a = imageAnchorRes.anchored.find((x) => x.image.id === imgId);
+    if (a) return a.status;
+    if (imageAnchorRes.invalid.some((x) => x.id === imgId)) return "invalid";
+    if (imageAnchorRes.unanchored.some((x) => x.id === imgId)) return "unplaced";
+    return null;
+  };
+  const onAnchorKind = (i: number, kind: string) => {
+    if (kind === "none") return updImage(i, { anchor: undefined });
+    if (kind === "before-section" || kind === "after-section") {
+      const cur = parseAnchor((f.images ?? [])[i]?.anchor);
+      const sid = (cur && anchorSectionId(cur)) || f.sectionIndex?.[0]?.id || "";
+      return updImage(i, { anchor: sid ? serializeAnchor({ kind, sectionId: sid }) : undefined });
+    }
+    return updImage(i, { anchor: serializeAnchor({ kind } as PlacementAnchor) });
+  };
+  const onAnchorSection = (
+    i: number,
+    kind: "before-section" | "after-section",
+    sectionId: string,
+  ) => updImage(i, { anchor: sectionId ? serializeAnchor({ kind, sectionId }) : undefined });
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileToBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -605,8 +650,19 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   const outlineId = useId();
   const internalLinksId = useId();
   const schemaId = useId();
+  // Stable-anchor section identity (P1.2C): a valid `sec_…` id from a UUID.
+  const allocSectionId = () =>
+    "sec_" + globalThis.crypto.randomUUID().replace(/-/g, "").slice(0, 10);
   const upd = <K extends keyof ContentAsset>(k: K, v: ContentAsset[K]) =>
-    setF((p) => ({ ...p, [k]: v }));
+    setF((p) => {
+      const next = { ...p, [k]: v } as ContentAsset;
+      // When the body changes, reconcile the persisted section index so anchor ids
+      // stay stable across heading edits (the reconciler keeps matched ids).
+      if (k === "markdown") {
+        next.sectionIndex = reconcileSectionIndex(p.sectionIndex, v as string, allocSectionId);
+      }
+      return next;
+    });
 
   // Mirror of the stored asset, read inside save() to detect content changes
   // since the last Milo Score (kept in sync by the fromStore effect below).
@@ -624,10 +680,16 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         stored.metaTitle !== f.metaTitle ||
         stored.metaDescription !== f.metaDescription ||
         stored.cta !== f.cta);
+    // Reconcile the section index against the current body at the persistence
+    // boundary so stable-anchor ids are consistent with what publishes (P1.2C).
+    const reconciled: ContentAsset = {
+      ...f,
+      sectionIndex: reconcileSectionIndex(f.sectionIndex, f.markdown, allocSectionId),
+    };
     const next = {
       // Merge, never replace: saving after a publish must not drop the
       // publish/schedule fields the form does not own (see mergeEditorEdits).
-      ...mergeEditorEdits(f),
+      ...mergeEditorEdits(reconciled),
       status: status ?? f.status,
       updatedAt: new Date().toISOString(),
       qualityScoreStale: f.qualityScore
@@ -709,6 +771,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       // Article Studio 3.0 / P1.2A — the opening hook the Hook panel owns. Must be
       // merged so an edited/approved hook survives Save (the P1.1 image-loss class).
       hook: local.hook,
+      // Article Studio 3.0 / P1.2C — persisted section identities for stable image
+      // anchors. Reconciled at Save (see save()) so ids stay stable across edits.
+      sectionIndex: local.sectionIndex,
     };
   };
 
@@ -1981,6 +2046,74 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                         Approve
                       </Button>
                     </div>
+                    {im.placement === "inline"
+                      ? (() => {
+                          const cur = parseAnchor(im.anchor);
+                          const curKind = cur?.kind ?? "none";
+                          const curSid =
+                            cur && (cur.kind === "before-section" || cur.kind === "after-section")
+                              ? cur.sectionId
+                              : "";
+                          const st = imageAnchorStatus(im.id);
+                          return (
+                            <div className="space-y-1 rounded border border-border/60 p-1.5">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="text-muted-foreground">{t("anchor.label")}</span>
+                                <select
+                                  value={curKind}
+                                  onChange={(e) => onAnchorKind(i, e.target.value)}
+                                  className="h-7 rounded border border-input bg-background px-1 text-xs"
+                                >
+                                  <option value="none">{t("anchor.kind.none")}</option>
+                                  {ANCHOR_KIND_OPTIONS.map((k) => (
+                                    <option key={k} value={k}>
+                                      {t(`anchor.kind.${k}`)}
+                                    </option>
+                                  ))}
+                                </select>
+                                {curKind === "before-section" || curKind === "after-section" ? (
+                                  <select
+                                    value={curSid}
+                                    onChange={(e) => onAnchorSection(i, curKind, e.target.value)}
+                                    className="h-7 rounded border border-input bg-background px-1 text-xs"
+                                  >
+                                    <option value="">{t("anchor.section.choose")}</option>
+                                    {(f.sectionIndex ?? []).map((s) => (
+                                      <option key={s.id} value={s.id}>
+                                        {s.heading}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : null}
+                              </div>
+                              {st && st !== "resolved" ? (
+                                <p
+                                  className={
+                                    st === "unplaced" ? "text-muted-foreground" : "text-destructive"
+                                  }
+                                >
+                                  {t(`anchor.status.${st}`)}
+                                </p>
+                              ) : null}
+                              {(st === "unplaced" || st === "broken" || st === "ambiguous") &&
+                              !im.placementReviewedAt ? (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => updImage(i, { placementReviewedAt: nowIso() })}
+                                >
+                                  {t("anchor.reviewAck")}
+                                </Button>
+                              ) : null}
+                              {im.placementReviewedAt ? (
+                                <span className="text-muted-foreground">
+                                  {t("anchor.reviewed")}
+                                </span>
+                              ) : null}
+                            </div>
+                          );
+                        })()
+                      : null}
                   </li>
                 );
               })}

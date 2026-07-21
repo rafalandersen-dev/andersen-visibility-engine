@@ -705,6 +705,12 @@ export interface ContentAsset {
   /** First-class opening hook, composed exactly once before the TL;DR (P1.2A). */
   hook?: ArticleHook;
   /**
+   * Persisted section identities for stable image anchors (P1.2C). Derived from the
+   * body headings + reconciled on edit; the ONLY persisted section state (no derived
+   * resolved/broken status is stored). See `section-index.ts`.
+   */
+  sectionIndex?: SectionRef[];
+  /**
    * Up to three opening-hook options returned by article generation (P1.2A). The
    * editor's proposal selector reads these; selecting one creates a `generated`/
    * `draft` hook. Never auto-selected or auto-approved.
@@ -808,6 +814,41 @@ export interface ContentImage {
   storagePath?: string;
   /** Short-lived signed URL for the editor thumbnail before the image is approved/public. */
   previewUrl?: string;
+  // ---- Article Studio 3.0 / P1.2C — stable anchors (all optional, JSONB, no migration) ----
+  /**
+   * Serialized placement anchor for an INLINE image (`before-hook` … `article-end`,
+   * `before-section:<sectionId>` / `after-section:<sectionId>`). Parsed to a typed
+   * anchor by `anchors.parseAnchor`. Only valid on `placement:"inline"`. Absent → a
+   * legacy un-anchored image (keeps the Article Studio 2.0 append-after-body render).
+   * The derived resolved/broken/ambiguous/unplaced state is NEVER persisted — it is
+   * recomputed at assembly/checklist time from the current body.
+   */
+  anchor?: string;
+  /** Ordering among images sharing one anchor (ascending; ties broken by image id). */
+  order?: number;
+  /**
+   * Set when a human has acknowledged the placement of a legacy/unplaced image
+   * during the controlled visual upgrade. Authored state — not a derived status.
+   */
+  placementReviewedAt?: string;
+}
+
+/**
+ * A persisted section identity (Article Studio 3.0 / P1.2C). `id` is an opaque token
+ * allocated once; `heading`/`normalized`/`level`/`order`/`fingerprint`/`excerpt` are
+ * reconciliation SIGNALS refreshed on each body edit, never the identity itself. No
+ * derived status is stored here (resolved/ambiguous/missing is computed at read time).
+ */
+export interface SectionRef {
+  id: string;
+  heading: string;
+  normalized: string;
+  level: number;
+  order: number;
+  /** FNV-1a fingerprint of the section's immediate normalized content (exact-equality signal). */
+  fingerprint?: string;
+  /** Normalized content excerpt (similarity signal). */
+  excerpt?: string;
 }
 
 /** A breadcrumb trail item for BreadcrumbList JSON-LD (H). */

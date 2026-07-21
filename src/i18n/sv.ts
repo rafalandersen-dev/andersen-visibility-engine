@@ -1182,4 +1182,22 @@ export const sv: Record<string, string> = {
   "hook.evidence.remove": "Ta bort underlag",
   "hook.evidence.supportedBy": "Stöds av",
   "hook.unsaved": "Osparade hook-ändringar — använd Spara.",
+
+  // ---- Article Studio 3.0 — Inline image anchors (P1.2C) ----
+  "anchor.label": "Placering",
+  "anchor.kind.none": "Ingen placering (läggs sist)",
+  "anchor.kind.before-hook": "Före hooken",
+  "anchor.kind.after-hook": "Efter hooken",
+  "anchor.kind.before-section": "Före ett avsnitt",
+  "anchor.kind.after-section": "Efter ett avsnitt",
+  "anchor.kind.before-faq": "Före FAQ",
+  "anchor.kind.before-cta": "Före CTA",
+  "anchor.kind.article-end": "Sist i artikeln",
+  "anchor.section.choose": "Välj ett avsnitt…",
+  "anchor.status.broken": "Ankaret matchar inte längre — tilldela det på nytt.",
+  "anchor.status.ambiguous": "Ankaret är tvetydigt — välj ett specifikt avsnitt.",
+  "anchor.status.unplaced": "Inget ankare — bilden läggs sist i artikeln.",
+  "anchor.status.invalid": "Ogiltig placering för den här bilden.",
+  "anchor.reviewAck": "Markera placeringen som granskad",
+  "anchor.reviewed": "Placeringen granskad",
 };

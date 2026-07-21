@@ -16,6 +16,7 @@ import { citableSources, isValidHttpSourceUrl } from "./sources";
 import { authorRequiredUnresolved } from "./author";
 import { imagesMissingAlt, requiredImagesUnresolved } from "./images";
 import { hookPublishGate, detectPossibleHookDuplicate } from "./hook";
+import { resolveImageAnchors } from "./image-anchors";
 import { assessReadiness } from "./readiness";
 
 function block(key: string, label: string, passed: boolean, detail: string): ChecklistItem {
@@ -165,6 +166,52 @@ export function buildPublishingChecklist(
       ),
     );
   }
+
+  // Inline image anchors (Article Studio 3.0 / P1.2C). Resolution is recomputed from
+  // the CURRENT body (never a persisted status), so a section deleted/renamed/merged
+  // after an image was anchored surfaces here. A REQUIRED image with a broken or
+  // ambiguous anchor hard-blocks; an OPTIONAL one only warns — both are excluded from
+  // the assembled output (never silently relocated). An invalid state (e.g. a featured
+  // image carrying an inline anchor) hard-blocks. A legacy asset with no anchors yields
+  // nothing here.
+  const anchorRes = resolveImageAnchors(asset, project);
+  const brokenLike = (s: string) => s === "broken" || s === "ambiguous";
+  const brokenRequired = anchorRes.anchored.filter(
+    (a) => brokenLike(a.status) && a.image.required === true,
+  );
+  const brokenOptional = anchorRes.anchored.filter(
+    (a) => brokenLike(a.status) && a.image.required !== true,
+  );
+  items.push(
+    block(
+      "imageAnchorValid",
+      "Image placement metadata is valid",
+      anchorRes.invalid.length === 0,
+      anchorRes.invalid.length
+        ? `${anchorRes.invalid.length} image(s) have contradictory placement (e.g. a featured image with an inline anchor).`
+        : "",
+    ),
+  );
+  items.push(
+    block(
+      "brokenRequiredAnchor",
+      "Required inline images are placed",
+      brokenRequired.length === 0,
+      brokenRequired.length
+        ? `${brokenRequired.length} required inline image(s) point at a section that no longer resolves — re-anchor them in the editor.`
+        : "",
+    ),
+  );
+  items.push(
+    warn(
+      "brokenOptionalAnchor",
+      "Optional inline image placement",
+      brokenOptional.length === 0,
+      brokenOptional.length
+        ? `${brokenOptional.length} optional inline image(s) have an unresolved anchor and are excluded from the article until reassigned.`
+        : "",
+    ),
+  );
 
   // Structured data is DERIVED from the visible body, so it matches by
   // construction; this item guards against a future regression.
