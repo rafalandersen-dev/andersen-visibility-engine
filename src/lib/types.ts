@@ -685,6 +685,25 @@ export interface ContentAsset {
   checklist?: ChecklistItem[];
   /** Publication-readiness scores over the canonical asset (I) — sibling of qualityScore. */
   readiness?: ReadinessScore;
+  // ---- Article Studio 3.0 / P1.2A — Hook + visual-model marker (all optional, JSONB, no migration) ----
+  /**
+   * Article Studio visual model. ABSENT → Article Studio 2.0 (legacy): the hook
+   * hard blockers do NOT apply. `3` → Article Studio 3.0. The publishing policy is
+   * driven by THIS marker (+ `visualState`), NEVER inferred from whether a `hook`
+   * exists — so a brand-new v3 article that has not been given a hook yet is still
+   * classified v3 (never mis-read as legacy), and a legacy article is never
+   * retroactively blocked. See `visual-model.ts`.
+   */
+  visualModelVersion?: VisualModelVersion;
+  /**
+   * Lifecycle of the 3.0 visual upgrade. `upgrading`/`current` → v3 rules apply
+   * (including to a former legacy asset the author explicitly upgraded);
+   * `legacy`/`needsVisualUpgrade` → legacy policy. The upgrade is forward-only in
+   * the UI — no user-facing revert ships in the P1.2 MVP (D-AS3-5).
+   */
+  visualState?: VisualState;
+  /** First-class opening hook, composed exactly once before the TL;DR (P1.2A). */
+  hook?: ArticleHook;
 }
 
 // ---- Content Quality Engine / Milo Score v1 ----
@@ -789,6 +808,109 @@ export interface ContentImage {
 export interface BreadcrumbItem {
   name: string;
   url: string;
+}
+
+// ---- Article Studio 3.0 / P1.2A — Hook model & visual-model marker ----
+
+export type VisualModelVersion = 2 | 3;
+export type VisualState = "legacy" | "needsVisualUpgrade" | "upgrading" | "current";
+
+/** The seven supported opening-hook rhetorical types. */
+export type HookType =
+  | "question"
+  | "problem-to-solution"
+  | "surprising-fact"
+  | "contrarian"
+  | "story"
+  | "result"
+  | "promise";
+
+/**
+ * PROVENANCE — how the current hook text came to be. Deliberately SEPARATE from
+ * approval (D-AS3-9): a generated hook can be approved, an edited hook can still
+ * be a draft. The two are never conflated in one field.
+ */
+export type HookProvenance = "generated" | "user-edited";
+
+/** APPROVAL — a deliberate human gate, never auto-set. Separate from provenance. */
+export type HookApproval = "draft" | "approved";
+
+export type HookWarningCode =
+  | "generic-filler"
+  | "title-repetition"
+  | "weak-relevance"
+  | "excessive-clickbait"
+  | "excessive-length"
+  | "testimonial-like"
+  | "overly-broad-promise";
+
+export type HookBlockerCode =
+  "unsupported-statistic" | "explicit-guarantee" | "ymyl-unsupported" | "unsupported-testimonial";
+
+/** A deterministic resolution action the editor can offer for a finding. */
+export type HookResolutionAction =
+  | "edit-hook"
+  | "attach-evidence"
+  | "change-hook-type"
+  | "remove-unsupported-claim"
+  | "request-human-confirmation";
+
+/**
+ * One validation finding (warning or blocker). Messages say "unsupported" /
+ * "needs a source" — NEVER "fabricated": the system has no evidence a claim is
+ * false, only that it is unsupported (D-AS3-9).
+ */
+export interface HookFinding {
+  code: HookWarningCode | HookBlockerCode;
+  message: string;
+  actions: HookResolutionAction[];
+}
+
+/** An evidence/source reference backing a factual claim in the hook. */
+export interface HookEvidenceRef {
+  /** A source URL (may match a ContentSource.url the asset already cites). */
+  url: string;
+  /** The specific claim this evidence supports. */
+  claim?: string;
+}
+
+/**
+ * First-class opening hook (P1.2A). Emitted exactly once by the canonical
+ * assembler, before the TL;DR. All fields additive/optional on ContentAsset.
+ */
+export interface ArticleHook {
+  /** Stable id, allocated once at creation (mirrors ContentImage.id). */
+  id: string;
+  text: string;
+  type: HookType;
+  /** Author intent for this hook. */
+  purpose?: string;
+  /** Provenance — SEPARATE from approval. */
+  provenance: HookProvenance;
+  /** Deliberate approval — never auto-approved. */
+  approval: HookApproval;
+  /** Optional evidence backing a factual claim in the hook. */
+  evidence?: HookEvidenceRef[];
+  /**
+   * Cached validation findings for the editor. ADVISORY only — the publish gate
+   * ALWAYS recomputes via `validateHook` and never trusts these, so a stale
+   * cached finding can neither block a safe publish nor unblock an unsafe one.
+   */
+  warnings?: HookFinding[];
+  blockers?: HookFinding[];
+  /** ISO timestamps, consistent with the asset's existing conventions. */
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/**
+ * A hook option returned by article generation. Never auto-approved: the selected
+ * proposal becomes a `generated`/`draft` ArticleHook (see hook.ts).
+ */
+export interface HookProposal {
+  text: string;
+  type: HookType;
+  purpose?: string;
 }
 
 /**
