@@ -83,9 +83,11 @@ Format per module: **Problem · User · Workflow · Inputs · Output · UI · Da
 - **MVP (P0/P1):** evidence + honest states on Milo's own actions. **Later (P2):** customer‑site verification via M1/M12.
 
 ### M3 — Article Studio 2.0  · ADVICE→grounded · (P1.1) · current: PARTIAL/misleading side‑fields (Content 42/100)
-Full spec in `ARTICLE-STUDIO-2.0.md`. **Problem:** output feels like raw AI text; side‑fields (FAQ/CTA/links/schema) don't publish or get scored; no images/author/citations/structured data. **Core principle:** one canonical assembled asset is the only input to score/preview/export/publish/schema. **MVP:** grounded research + verified sources, formatting, tables/comparison, TL;DR, CTA, real internal‑link resolution, author/E‑E‑A‑T, images+alt+placement, Article/Breadcrumb/FAQ schema, mobile+desktop preview, publishing checklist. **This is the headline commercial differentiator.**
+Full spec in `ARTICLE-STUDIO-2.0.md`. **Problem:** output feels like raw AI text; side‑fields (FAQ/CTA/links/schema) don't publish or get scored; no images/author/citations/structured data. **Core principle:** one canonical assembled asset is the only input to score/preview/export/publish/schema. **MVP:** grounded research + verified sources, formatting, tables/comparison, TL;DR, CTA, real internal‑link resolution, author/E‑E‑A‑T, images+alt+placement, Article/Breadcrumb/FAQ schema, mobile+desktop preview, publishing checklist. **This is the headline commercial differentiator.** — **P1.1 SHIPPED + deployed to production (2026‑07).**
 
-### M4 — Content Opportunity Engine  · ADVICE→MEASUREMENT · (P1.2) · current: PRESENT_BUT_WEAK
+**Article Studio 3.0 (P1.2 — architecture approved, planning only; full spec `ARTICLE-STUDIO-3.0.md`):** visual composition & conversion — first‑class **hook** + **featured image**, **stable image anchors** over a **persisted section identity** (not offsets, not heading hashes), bounded **presentation presets**, a two‑mode **Preview + Arrange visual editor**, responsive preview, and connector image mapping with **four‑state** fidelity honesty (generated / included / retained / destination‑verified). **Architecture (ADOPTED): extends the same canonical assembler** with typed presentation blocks over composed‑markdown (option A — no migration, one publishable output preserved); a block‑tree rewrite (option B) is **rejected for this phase / deferred**. Legacy assets protected by a read‑time `needsVisualUpgrade` state; no connector‑contract change without explicit approval. Stays an article editor, not a page builder. **Roadmap id: P1.2** (the former Content Opportunity Engine P1.2 is renumbered **P1.4**).
+
+### M4 — Content Opportunity Engine  · ADVICE→MEASUREMENT · (P1.4) · current: PRESENT_BUT_WEAK
 - **Problem:** topics are LLM guesses, not demand‑evidenced.
 - **Inputs:** GSC top queries (connected), keyword/SERP data, competitor gaps. **Output:** opportunities with *evidence* (query, impressions, position, gap).
 - **Integrations:** GSC (have), keyword/SERP source (DataForSEO extension behind Cost‑Control).
@@ -143,7 +145,7 @@ Full spec in `AI-VISIBILITY-MONITOR.md`. Three **separate** metrics: mention / c
 | Integration | Purpose | Status today | Phase | Cost‑Control gated? |
 |---|---|---|---|---|
 | Lovable AI gateway (Gemini) | generation, scoring | LIVE | — | metered (ai_usage) |
-| GSC OAuth | queries/clicks/impressions (+ URL‑Inspection, Sitemaps later) | LIVE (query only) | P1.2/P2.1 | no (quota‑bounded) |
+| GSC OAuth | queries/clicks/impressions (+ URL‑Inspection, Sitemaps later) | LIVE (query only) | P1.4/P2.1 | no (quota‑bounded) |
 | First‑party analytics | pageview/CTA/AI‑referrer | LIVE (needs snippet) | P0.6 | no |
 | PageSpeed Insights / CrUX | Core Web Vitals | none | P2.1 | rate‑limited via framework |
 | GA4 Data API | conversions/revenue | none | P2.2 | quota via framework |

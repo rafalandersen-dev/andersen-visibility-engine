@@ -68,7 +68,7 @@ Value H/M/L. Action: Build / Improve / Reject / Partner(human/supplier). Milo st
 | Technical SEO audit / indexation / CWV | quarterly (human) | MISSING / misleading | H | **Build** | P2.1 (M1) |
 | Structured data | "for AI" (all tiers) | MISSING output | H | **Build (standard schema.org, injected)** | P0.5→P1.1 |
 | Content creation | 34k–100k chars/yr | effectively on‑demand | H | **Improve → differentiator** | P1.1 (M3) |
-| Content plan | 3.0/2.0 | PARTIAL | M | Improve | P1.2 (M4) |
+| Content plan | 3.0/2.0 | PARTIAL | M | Improve | P1.4 (M4) |
 | E‑E‑A‑T / author | 3.0 | MISSING | H | **Build (author entity + schema)** | P1.1 |
 | Link building / sponsored | media budget + humans | intelligence real; acquisition demo | H | **Partner + Improve intelligence** | P3.4 (M8) |
 | Backlink gap intelligence | part of SEO | COMPLETE but DARK | H | **Enable behind Cost‑Control** | P2.0→P3.4 |
@@ -78,7 +78,7 @@ Value H/M/L. Action: Build / Improve / Reject / Partner(human/supplier). Milo st
 | Conversational query analysis | 3.0/2.0 | PRESENT_BUT_WEAK | L/M | Improve | P3.1 |
 | Knowledge Graph / entity | 3.0 | MISSING | M | Build inputs only | P3.3 (M7) |
 | GA4 config | ✓ all | MISSING | H | **Build** | P2.2 (M9) |
-| Search Console | ✓ all | COMPLETE (query only) | H | Extend | P1.2 / P2.1 |
+| Search Console | ✓ all | COMPLETE (query only) | H | Extend | P1.4 / P2.1 |
 | UX / conversion analysis | 3.0/2.0 | PRESENT_BUT_WEAK | M | Improve | P2.2 |
 | Competitor / trend monitoring | 3.0/2.0 | PARTIAL (homepage) | M | Improve | P2/P3 (M10) |
 | Reporting / client panel | ✓ all | PARTIAL | H | **Build Evidence Center** | P2.4 (M11) |

@@ -48,7 +48,8 @@
 | Epic | Title | Complexity | Definition of Done |
 |---|---|---|---|
 | **P1.1** | **Article Studio 2.0 MVP** (M3) | XL | The **canonical assembled content asset** is the single input to scoring, preview, export, publishing, and schema generation. Delivers: grounded research + verified sources; professional formatting; tables & comparison blocks; TL;DR / key takeaways; CTA blocks; **real internal‑link resolution** (against a lightweight URL inventory — see dependency note); author & E‑E‑A‑T model; featured + supporting images with alt text & placement; Article/Breadcrumb/FAQ structured data where appropriate; mobile + desktop preview; a publishing checklist. Full acceptance criteria and test list in `ARTICLE-STUDIO-2.0.md`. |
-| **P1.2** | Real data feeding the Content Opportunity Engine (M4) | M | Content opportunities are seeded from **real** GSC top queries (already OAuth‑connected) and real keyword/SERP data, not an LLM guess. An opportunity shows its evidence (query, impressions, position) instead of "because the model suggested it". |
+| **P1.2** | **Article Studio 3.0 — Visual Composition & Conversion** (M3) | XL | Full author control of an article's visual composition: an approved featured image (with alt), an approved editable opening hook, intentionally **anchored** inline images (stable section identity, not offsets), bounded responsive presentation, and a two-mode Preview/Arrange visual editor — all over the **one canonical assembler** (architecture Option A, no migration). Stays an article editor, not a page builder; legacy articles protected by a read-time `needsVisualUpgrade` state. Full spec §8.5 + `ARTICLE-STUDIO-3.0.md`. |
+| **P1.4** | Real data feeding the Content Opportunity Engine (M4) | M | Content opportunities are seeded from **real** GSC top queries (already OAuth‑connected) and real keyword/SERP data, not an LLM guess. An opportunity shows its evidence (query, impressions, position) instead of "because the model suggested it". |
 
 **P1.1 build packages** are detailed in §7 (Article Studio 2.0 MVP implementation package).
 
@@ -121,6 +122,16 @@
 10. **Tests** — the full list in `ARTICLE-STUDIO-2.0.md` §Acceptance (preview/publish parity, source handling, internal‑URL validation, schema‑content consistency, duplicated‑FAQ prevention, missing‑image handling, alt‑text, mobile, tables, comparison, YMYL, author, refresh, cannibalisation, WordPress/WooCommerce publishing).
 
 **Dependency:** P1.1 builds on P0.2/P0.3/P0.4/P0.5. It uses a lightweight URL inventory, not the P2.1 crawler.
+
+---
+
+## 8.5 P1.2 — Article Studio 3.0: Visual Composition & Conversion (architecture approved — planning only, no code)
+
+Full spec + architecture in `ARTICLE-STUDIO-3.0.md`. Extends the shipped P1.1 canonical-assembler model. **Goal:** full author control of visual composition — every new article gets an approved featured image, an approved editable hook, intentionally anchored inline images, and responsive presentation metadata. **Canonical architecture (ADOPTED):** **A — stable anchored presentation blocks over the composed-markdown model** (extends the "one assembler, one publishable output" invariant; optional JSONB fields, no migration; read-time `needsVisualUpgrade` backfill). Option B (block-tree canonical) is **rejected for this phase / deferred**. **Stays an article editor, not a page builder.** No connector-contract change (custom-endpoint payload documented as a future, approval-gated target); connector fidelity reported via the four-state model (generated / included / retained / destination-verified).
+
+**Sub-epics:** P1.2A Hook · P1.2B Featured image · P1.2C Stable anchors · P1.2D Presentation presets · P1.2E Visual editor (Preview + Arrange modes) · P1.2F Responsive preview · P1.2G Connector compatibility (approval-gated) · P1.2H Checklist/scoring/legacy backfill. **Approved order:** A → C → D → B → F → E → G → H.
+
+> ✅ **ID collision RESOLVED (D‑AS3‑0, ADOPTED):** Article Studio 3.0 keeps **P1.2**; the former Content Opportunity Engine (M4) is renumbered **P1.4** across every roadmap/architecture/decision-log reference. No duplicate or stale P1.2 identity remains.
 
 ---
 
