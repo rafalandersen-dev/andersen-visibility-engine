@@ -15,7 +15,7 @@ import { unresolvedLinksForPublish } from "./publish-targets";
 import { citableSources, isValidHttpSourceUrl } from "./sources";
 import { authorRequiredUnresolved } from "./author";
 import { imagesMissingAlt, requiredImagesUnresolved } from "./images";
-import { hookPublishGate } from "./hook";
+import { hookPublishGate, detectPossibleHookDuplicate } from "./hook";
 import { assessReadiness } from "./readiness";
 
 function block(key: string, label: string, passed: boolean, detail: string): ChecklistItem {
@@ -145,6 +145,22 @@ export function buildPublishingChecklist(
           ? `The hook has ${hookGate.blockers.length} unresolved issue(s): ${hookGate.blockers
               .map((b) => b.message)
               .join(" ")}`
+          : "",
+      ),
+    );
+    // The canonical output must contain the hook exactly once. The assembler is
+    // non-destructive (never strips body text), so if the body's first visible
+    // paragraph is a deterministic (whitespace/case-normalised) duplicate of the
+    // hook, publishing would emit it twice — block and ask the author to fix it.
+    // Deterministic exact match only; never fuzzy, never auto-deleted.
+    const duplicateHookInBody = detectPossibleHookDuplicate(asset).duplicate;
+    items.push(
+      block(
+        "duplicateHookInBody",
+        "Hook is not duplicated in the body",
+        !duplicateHookInBody,
+        duplicateHookInBody
+          ? "The article body opens with the same text as the hook, so the hook would appear twice. Remove that opening paragraph from the body, or change the hook."
           : "",
       ),
     );

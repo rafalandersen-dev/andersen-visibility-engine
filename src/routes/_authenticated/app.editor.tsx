@@ -54,6 +54,7 @@ import {
   newHookFromProposal,
   applyHookEdit,
   approveHook,
+  verifiedSourcesForHook,
 } from "@/lib/hook";
 import { articleVisualPolicy } from "@/lib/visual-model";
 import { effectivePublishMode } from "@/lib/publish-targets";
@@ -412,6 +413,25 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   const approveHookAction = () =>
     setF((prev) => (prev.hook ? { ...prev, hook: approveHook(prev.hook, nowIso()) } : prev));
   const removeHook = () => setF((prev) => ({ ...prev, hook: undefined }));
+  // Hook evidence: attach an EXISTING verified source (no fetch/AI). Evidence is
+  // supporting metadata — it updates the hook (marks dirty, persists, revalidates)
+  // but does not change provenance or approval.
+  const hookVerifiedSources = useMemo(() => verifiedSourcesForHook(f), [f]);
+  const [hookEvidenceUrl, setHookEvidenceUrl] = useState("");
+  const [hookEvidenceClaim, setHookEvidenceClaim] = useState("");
+  const setHookEvidence = (evidence: NonNullable<ContentAsset["hook"]>["evidence"]) =>
+    setF((prev) =>
+      prev.hook ? { ...prev, hook: { ...prev.hook, evidence, updatedAt: nowIso() } } : prev,
+    );
+  const attachHookEvidence = () => {
+    const url = hookEvidenceUrl.trim();
+    if (!url) return;
+    const claim = hookEvidenceClaim.trim();
+    setHookEvidence([{ url, ...(claim ? { claim } : {}) }]);
+    setHookEvidenceUrl("");
+    setHookEvidenceClaim("");
+  };
+  const removeHookEvidence = () => setHookEvidence(undefined);
   const setImages = (images: NonNullable<ContentAsset["images"]>) =>
     setF((p) => ({ ...p, images }));
   const addImage = () => {
@@ -1339,11 +1359,13 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           {/* ---- Opening hook (Article Studio 3.0 / P1.2A) ---- */}
           <div className="space-y-3 rounded-md border border-border p-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium text-foreground">Opening hook</h3>
+              <h3 className="text-sm font-medium text-foreground">{t("hook.panel.title")}</h3>
               {f.hook ? (
                 <div className="flex items-center gap-1.5 text-[11px]">
                   <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
-                    {f.hook.provenance === "user-edited" ? "Edited" : "Generated"}
+                    {f.hook.provenance === "user-edited"
+                      ? t("hook.provenance.edited")
+                      : t("hook.provenance.generated")}
                   </span>
                   <span
                     className={
@@ -1352,21 +1374,21 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                         : "rounded bg-amber-100 px-1.5 py-0.5 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
                     }
                   >
-                    {f.hook.approval === "approved" ? "Approved" : "Draft"}
+                    {f.hook.approval === "approved"
+                      ? t("hook.approval.approved")
+                      : t("hook.approval.draft")}
                   </span>
                 </div>
               ) : null}
             </div>
 
             {hookIsV3 ? (
-              <p className="text-xs text-muted-foreground">
-                Article Studio 3.0 articles need an approved opening hook before publishing.
-              </p>
+              <p className="text-xs text-muted-foreground">{t("hook.panel.v3Note")}</p>
             ) : null}
 
             {!f.hook && (f.hookProposals?.length ?? 0) > 0 ? (
               <div className="space-y-1.5">
-                <Label>Suggested hooks</Label>
+                <Label>{t("hook.proposals.label")}</Label>
                 <div className="space-y-1">
                   {f.hookProposals!.map((p, i) => (
                     <button
@@ -1375,7 +1397,8 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                       onClick={() => selectHookProposal(p)}
                       className="block w-full rounded border border-border px-2 py-1.5 text-left text-xs hover:bg-muted"
                     >
-                      <span className="text-muted-foreground">[{p.type}]</span> {p.text}
+                      <span className="text-muted-foreground">[{t(`hook.type.${p.type}`)}]</span>{" "}
+                      {p.text}
                     </button>
                   ))}
                 </div>
@@ -1384,7 +1407,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
 
             {f.hook ? (
               <>
-                <Field label="Hook text">
+                <Field label={t("hook.field.text")}>
                   {(id) => (
                     <Textarea
                       id={id}
@@ -1395,7 +1418,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                   )}
                 </Field>
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="Type">
+                  <Field label={t("hook.field.type")}>
                     {(id) => (
                       <select
                         id={id}
@@ -1405,13 +1428,13 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                       >
                         {HOOK_TYPES.map((ht) => (
                           <option key={ht} value={ht}>
-                            {ht}
+                            {t(`hook.type.${ht}`)}
                           </option>
                         ))}
                       </select>
                     )}
                   </Field>
-                  <Field label="Purpose (optional)">
+                  <Field label={t("hook.field.purpose")}>
                     {(id) => (
                       <Input
                         id={id}
@@ -1422,16 +1445,68 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                   </Field>
                 </div>
 
+                {/* Blockers (with resolution hints) then warnings */}
                 {hookFindings.blockers.map((b, i) => (
-                  <p key={`hb-${i}`} className="text-xs text-destructive">
-                    ⛔ {b.message}
-                  </p>
+                  <div key={`hb-${i}`} className="text-xs text-destructive">
+                    <p>⛔ {t(`hook.finding.${b.code}`)}</p>
+                    <p className="text-muted-foreground">
+                      {t("hook.action.suggested")}:{" "}
+                      {b.actions.map((a) => t(`hook.resolution.${a}`)).join(" · ")}
+                    </p>
+                  </div>
                 ))}
                 {hookFindings.warnings.map((w, i) => (
                   <p key={`hw-${i}`} className="text-xs text-amber-600 dark:text-amber-400">
-                    ⚠ {w.message}
+                    ⚠ {t(`hook.finding.${w.code}`)}
                   </p>
                 ))}
+
+                {/* Evidence — attach an EXISTING verified source (no fetch / no AI) */}
+                <div className="space-y-1.5 rounded border border-border/60 p-2">
+                  <Label>{t("hook.evidence.label")}</Label>
+                  {f.hook.evidence && f.hook.evidence.length > 0 ? (
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <span className="min-w-0 truncate">
+                        {t("hook.evidence.supportedBy")}:{" "}
+                        <span className="text-muted-foreground">{f.hook.evidence[0].url}</span>
+                        {f.hook.evidence[0].claim ? ` — ${f.hook.evidence[0].claim}` : ""}
+                      </span>
+                      <Button size="sm" variant="ghost" onClick={removeHookEvidence}>
+                        {t("hook.evidence.remove")}
+                      </Button>
+                    </div>
+                  ) : hookVerifiedSources.length > 0 ? (
+                    <div className="space-y-1.5">
+                      <select
+                        value={hookEvidenceUrl}
+                        onChange={(e) => setHookEvidenceUrl(e.target.value)}
+                        className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                      >
+                        <option value="">{t("hook.evidence.attach")}</option>
+                        {hookVerifiedSources.map((s) => (
+                          <option key={s.url} value={s.url}>
+                            {s.title ? `${s.title} — ${s.url}` : s.url}
+                          </option>
+                        ))}
+                      </select>
+                      <Input
+                        value={hookEvidenceClaim}
+                        onChange={(e) => setHookEvidenceClaim(e.target.value)}
+                        placeholder={t("hook.evidence.claimPlaceholder")}
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={attachHookEvidence}
+                        disabled={!hookEvidenceUrl}
+                      >
+                        {t("hook.evidence.attach")}
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">{t("hook.evidence.none")}</p>
+                  )}
+                </div>
 
                 <div className="flex items-center gap-2">
                   <Button
@@ -1440,16 +1515,22 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                     onClick={approveHookAction}
                     disabled={!f.hook.text.trim() || f.hook.approval === "approved"}
                   >
-                    {f.hook.approval === "approved" ? "Approved" : "Approve hook"}
+                    {f.hook.approval === "approved"
+                      ? t("hook.action.approved")
+                      : t("hook.action.approve")}
                   </Button>
                   <Button size="sm" variant="ghost" onClick={removeHook}>
-                    Remove
+                    {t("hook.action.remove")}
                   </Button>
                 </div>
+
+                {isDirty ? (
+                  <p className="text-[11px] text-muted-foreground">{t("hook.unsaved")}</p>
+                ) : null}
               </>
             ) : (
               <Button size="sm" variant="outline" onClick={addHook}>
-                Add opening hook
+                {t("hook.action.add")}
               </Button>
             )}
           </div>

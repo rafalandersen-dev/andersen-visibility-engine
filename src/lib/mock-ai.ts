@@ -62,6 +62,7 @@ import { fetchSitemapInventoryFn } from "./sitemap.functions";
 import { isSitemapInventoryFresh } from "./sitemap";
 import { assessReadiness, toReadinessScore } from "./readiness";
 import { publishBlockers } from "./checklist";
+import { reconcileHookOnRegeneration } from "./hook";
 import type {
   Opportunity,
   DiscoverySuggestion,
@@ -577,6 +578,12 @@ export async function improveContentDraft(contentAssetId: string) {
     upsertContent({
       ...a,
       markdown,
+      // Article Studio 3.0 / P1.2A — this is the in-place BODY regeneration path.
+      // reconcile preserves an approved / user-edited / non-empty hook across the
+      // regeneration; only an empty hook slot could take a fresh proposal, and this
+      // path produces none (the improve fn regenerates the body only, and is given
+      // the hook-free body, so it cannot reintroduce the hook).
+      hook: reconcileHookOnRegeneration(a.hook, undefined, a.hook?.id ?? uid()),
       qualityScoreStale: a.qualityScore ? true : a.qualityScoreStale,
       updatedAt: new Date().toISOString(),
     });

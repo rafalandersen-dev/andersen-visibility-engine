@@ -72,4 +72,15 @@ describe("hook composition (T3, T4, T5, T22-composition)", () => {
     const a = asset({ markdown: body });
     expect(composeCanonicalMarkdown(a, project())).toBe(body);
   });
+
+  it("is NON-DESTRUCTIVE: a body that repeats the hook emits it twice (the checklist blocks this), and removing the body copy restores exactly one (FIX 3)", () => {
+    const dup = asset({ hook: hook(HOOK), markdown: `${HOOK}\n\nBody.` });
+    // The assembler never strips body text — it emits the hook + the body copy.
+    expect(occurrences(assembleContentAsset(dup, project()).markdown, HOOK)).toBe(2);
+    // Once the author removes the duplicated opening paragraph, the hook is single.
+    const fixed = asset({ hook: hook(HOOK), markdown: "Body." });
+    const out = assembleContentAsset(fixed, project());
+    expect(occurrences(out.markdown, HOOK)).toBe(1);
+    expect(occurrences(out.html, HOOK)).toBe(1);
+  });
 });

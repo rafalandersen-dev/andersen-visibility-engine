@@ -218,17 +218,41 @@ function isExcessiveLength(text: string): boolean {
   return text.length > HOOK_MAX_CHARS || words > 50;
 }
 
+function normalizeEvidenceUrl(u: string): string {
+  return (u || "").trim().toLowerCase().replace(/\/+$/, "");
+}
+
 /**
  * A statistic / YMYL / testimonial claim counts as SUPPORTED only when the HOOK
- * itself carries a linked evidence ref. An unrelated article-level source does
- * NOT license an unsupported claim in the hook: the hook is the highest-visibility
- * line on the page, and the "linked evidence/source" contract means evidence
- * bound to the claim — not any citation elsewhere in the body. (Adversarial-review
- * finding #1: an asset-level verified source must not silently unblock a bare
- * statistic/testimonial in the hook.)
+ * carries an evidence ref whose URL matches a VERIFIED source already attached to
+ * the same asset. Two independent gates must both hold:
+ *   1. the reference is bound to the HOOK (not an unrelated body citation), and
+ *   2. the referenced source is VERIFIED (a hand-typed / unverified URL never counts).
+ * So an unrelated article source cannot silently unblock a bare claim, and pasting
+ * an arbitrary URL into the hook does not mark it supported (adversarial-review
+ * finding #1 + evidence-UI contract).
  */
 function hookHasEvidence(asset: ContentAsset): boolean {
-  return Boolean(asset.hook?.evidence?.some((e) => (e.url || "").trim()));
+  const refs = (asset.hook?.evidence ?? []).map((e) => normalizeEvidenceUrl(e.url)).filter(Boolean);
+  if (!refs.length) return false;
+  const verified = new Set(
+    (asset.sources ?? [])
+      .filter((s) => s.status === "verified" && (s.url || "").trim())
+      .map((s) => normalizeEvidenceUrl(s.url)),
+  );
+  return refs.some((r) => verified.has(r));
+}
+
+/** The asset's VERIFIED sources — the only sources the hook may cite as evidence. */
+export function verifiedSourcesForHook(asset: ContentAsset): { url: string; title?: string }[] {
+  return (asset.sources ?? [])
+    .filter((s) => s.status === "verified" && (s.url || "").trim())
+    .map((s) => ({ url: s.url, title: s.title }));
+}
+
+/** True when the hook's evidence ref resolves to a verified source (for the editor's view). */
+export function hookEvidenceResolved(asset: ContentAsset): boolean {
+  return hookHasEvidence(asset);
 }
 
 // ---------------------------------------------------------------------------

@@ -63,12 +63,13 @@ describe("model + composition", () => {
 });
 
 describe("validation — blockers (conservative, evidence-gated)", () => {
-  it("evidence-backed statistic passes when the HOOK carries linked evidence (T11)", () => {
+  it("passes when the hook cites evidence that resolves to a VERIFIED source (T11)", () => {
     const a = asset({
       hook: hook({
         text: "Studies show a 40% faster recovery.",
         evidence: [{ url: "https://example.com/study" }],
       }),
+      sources: [{ url: "https://example.com/study", status: "verified" }] as never,
     });
     expect(codes(validateHook(a).blockers)).not.toContain("unsupported-statistic");
   });
@@ -83,11 +84,22 @@ describe("validation — blockers (conservative, evidence-gated)", () => {
     const a = asset({ hook: hook({ text: "Studies show a 40% faster recovery." }) });
     expect(codes(validateHook(a).blockers)).toContain("unsupported-statistic");
   });
-  it("hook.evidence also counts as support", () => {
-    const a = asset({
+  it("evidence must resolve to a verified source — an arbitrary/unverified URL does NOT count", () => {
+    const arbitrary = asset({
       hook: hook({ text: "Recovery improves 2x.", evidence: [{ url: "https://ex.com/e" }] }),
+      // no matching verified source → the pasted evidence URL is not trusted
     });
-    expect(codes(validateHook(a).blockers)).not.toContain("unsupported-statistic");
+    expect(codes(validateHook(arbitrary).blockers)).toContain("unsupported-statistic");
+    const unverified = asset({
+      hook: hook({ text: "Recovery improves 2x.", evidence: [{ url: "https://ex.com/e" }] }),
+      sources: [{ url: "https://ex.com/e", status: "unchecked" }] as never, // source exists but not verified
+    });
+    expect(codes(validateHook(unverified).blockers)).toContain("unsupported-statistic");
+    const verified = asset({
+      hook: hook({ text: "Recovery improves 2x.", evidence: [{ url: "https://ex.com/e" }] }),
+      sources: [{ url: "https://ex.com/e", status: "verified" }] as never,
+    });
+    expect(codes(validateHook(verified).blockers)).not.toContain("unsupported-statistic");
   });
   it("an explicit guarantee blocks regardless of evidence (T13)", () => {
     const a = asset({
@@ -112,6 +124,7 @@ describe("validation — blockers (conservative, evidence-gated)", () => {
     expect(codes(validateHook(noEvidence).blockers)).toContain("unsupported-testimonial");
     const withEvidence = asset({
       hook: hook({ text: strong, evidence: [{ url: "https://ex.com/case" }] }),
+      sources: [{ url: "https://ex.com/case", status: "verified" }] as never,
     });
     expect(codes(validateHook(withEvidence).blockers)).not.toContain("unsupported-testimonial");
   });
@@ -187,6 +200,11 @@ describe("lifecycle — provenance and approval are separate", () => {
     expect(reconcileHookOnRegeneration(approved, fresh, "h10")).toBe(approved);
     const edited = applyHookEdit(newHookFromProposal(proposal, "h9"), { text: "Human words." });
     expect(reconcileHookOnRegeneration(edited, fresh, "h10")).toBe(edited);
+  });
+  it("a selected (non-empty generated) hook survives — a fresh proposal never overwrites it (FIX 4)", () => {
+    const selected = newHookFromProposal(proposal, "h9"); // generated, draft, has text
+    const fresh: HookProposal = { text: "A different generated hook.", type: "story" };
+    expect(reconcileHookOnRegeneration(selected, fresh, "h10")).toBe(selected);
   });
   it("an empty / absent hook may be replaced during regeneration (T10)", () => {
     const fresh: HookProposal = { text: "A brand new hook.", type: "surprising-fact" };

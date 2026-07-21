@@ -85,3 +85,45 @@ describe("version-3 hook enforcement on the shared gate (T21)", () => {
     expect(isPublishBlocked(a, project(), [a])).toBe(true);
   });
 });
+
+describe("duplicateHookInBody blocker (FIX 3)", () => {
+  const HK = "Need a calmer studio session?";
+  const v3 = (over: Partial<ContentAsset> = {}): ContentAsset =>
+    asset({ visualModelVersion: 3, hook: hook({ approval: "approved", text: HK }), ...over });
+
+  it("blocks when the body opens with an exact duplicate of the hook", () => {
+    const a = v3({ markdown: `${HK}\n\nThe rest of the article body.` });
+    expect(item(buildPublishingChecklist(a, project(), [a]), "duplicateHookInBody")!.passed).toBe(
+      false,
+    );
+    expect(isPublishBlocked(a, project(), [a])).toBe(true);
+  });
+
+  it("blocks a whitespace/case-normalized exact duplicate", () => {
+    const a = v3({ markdown: `  need a   calmer STUDIO session?\n\nBody continues.` });
+    expect(item(buildPublishingChecklist(a, project(), [a]), "duplicateHookInBody")!.passed).toBe(
+      false,
+    );
+  });
+
+  it("does NOT block a similar-but-not-identical opening paragraph", () => {
+    const a = v3({ markdown: `Do you need a calmer studio session today?\n\nBody.` });
+    expect(item(buildPublishingChecklist(a, project(), [a]), "duplicateHookInBody")!.passed).toBe(
+      true,
+    );
+  });
+
+  it("resolves once the duplicate paragraph is removed from the body", () => {
+    const a = v3({ markdown: `A distinct opening paragraph about the studio.\n\nBody.` });
+    const list = buildPublishingChecklist(a, project(), [a]);
+    expect(item(list, "duplicateHookInBody")!.passed).toBe(true);
+    expect(isPublishBlocked(a, project(), [a])).toBe(false);
+  });
+
+  it("does not apply to legacy assets (no marker)", () => {
+    const a = asset({ hook: hook({ text: HK }), markdown: `${HK}\n\nBody.` });
+    expect(
+      item(buildPublishingChecklist(a, project(), [a]), "duplicateHookInBody"),
+    ).toBeUndefined();
+  });
+});
