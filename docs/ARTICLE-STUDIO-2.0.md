@@ -35,7 +35,7 @@ Either way, **one assembler, one source of truth**, and `app.editor.tsx`'s secon
 
 ## 3. The pipeline (MVP)
 
-1. **Validated topic & search intent** — seeded from real GSC queries + keyword/SERP evidence (M4/P1.2), not an LLM guess. Intent (informational/commercial/transactional) is explicit and drives structure.
+1. **Validated topic & search intent** — seeded from real GSC queries + keyword/SERP evidence (M4/P1.4), not an LLM guess. Intent (informational/commercial/transactional) is explicit and drives structure.
 2. **Competitor / SERP gap** — bounded, metered fetch of the pages currently ranking for the target query; extract what they cover that the draft must address. (Cost‑bounded per article; subject to the P2.0 discipline once it lands.)
 3. **Structured outline + brief** — every section carries a **reason to exist**; sections without one are rejected (no filler).
 4. **Grounded draft** — generation attaches **real sources**; fabricated citations remain forbidden (`sharedRules`), but real ones are now *fetched, validated, and attached*.
