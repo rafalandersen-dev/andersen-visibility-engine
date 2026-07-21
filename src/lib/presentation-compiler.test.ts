@@ -215,3 +215,61 @@ describe("connector capability (four-state honesty, tests 19, 20)", () => {
     }
   });
 });
+
+describe("mobile presentation rendering (P1.2D)", () => {
+  const classesOf = (html: string): string[] => {
+    const m = html.match(/^<figure class="([^"]*)"/);
+    return m ? m[1].split(" ") : [];
+  };
+
+  it("no mobilePresentation → NO milo-m-* classes (byte-identical to base)", () => {
+    const html = compileFigureHtml(img(), pres({ size: "large", alignment: "center" }));
+    expect(html).not.toContain("milo-m-");
+  });
+
+  it("a mobile override emits milo-m-* ONLY for dimensions that differ from base", () => {
+    const html = compileFigureHtml(
+      img({ mobilePresentation: { size: "small" } }),
+      pres({ size: "large", alignment: "center", visualStyle: "card" }),
+    );
+    const cls = classesOf(html);
+    expect(cls).toContain("milo-m-size-small"); // size differs (large → small)
+    expect(cls).not.toContain("milo-m-align-center"); // alignment inherited → no class
+    expect(cls).not.toContain("milo-m-style-card"); // style inherited → no class
+    // base classes are untouched
+    expect(cls).toContain("milo-size-large");
+    expect(cls).toContain("milo-style-card");
+  });
+
+  it("a mobile override equal to the base emits NO milo-m-* class (diff-only)", () => {
+    const html = compileFigureHtml(
+      img({ mobilePresentation: { size: "large", alignment: "center" } }),
+      pres({ size: "large", alignment: "center" }),
+    );
+    expect(html).not.toContain("milo-m-");
+  });
+
+  it("mobile classes follow the base in deterministic order (size, align, aspect, fit, style)", () => {
+    const html = compileFigureHtml(
+      img({
+        mobilePresentation: { size: "full", alignment: "left", visualStyle: "rounded" },
+      }),
+      pres({ size: "small", alignment: "center", visualStyle: "plain" }),
+    );
+    const cls = classesOf(html);
+    // every base class precedes every mobile class; mobile order is size→align→style
+    expect(cls.indexOf("milo-style-plain")).toBeLessThan(cls.indexOf("milo-m-size-full"));
+    expect(cls.indexOf("milo-m-size-full")).toBeLessThan(cls.indexOf("milo-m-align-left"));
+    expect(cls.indexOf("milo-m-align-left")).toBeLessThan(cls.indexOf("milo-m-style-rounded"));
+  });
+
+  it("an unknown mobile override value is coerced (never a raw class) and inherits when unset", () => {
+    const html = compileFigureHtml(
+      img({ mobilePresentation: { size: "huge" as never } }),
+      pres({ size: "large" }),
+    );
+    // 'huge' coerces to the base size → equals base → no mobile size class, no raw 'huge'
+    expect(html).not.toContain("huge");
+    expect(html).not.toContain("milo-m-size");
+  });
+});

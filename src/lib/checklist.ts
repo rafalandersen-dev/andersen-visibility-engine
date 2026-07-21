@@ -14,10 +14,14 @@ import type { ChecklistItem, ContentAsset, Project } from "./types";
 import { unresolvedLinksForPublish } from "./publish-targets";
 import { citableSources, isValidHttpSourceUrl } from "./sources";
 import { authorRequiredUnresolved } from "./author";
-import { imagesMissingAlt, requiredImagesUnresolved } from "./images";
+import { imagesMissingAlt, requiredImagesUnresolved, publishableImages } from "./images";
 import { hookPublishGate, detectPossibleHookDuplicate } from "./hook";
 import { resolveImageAnchors } from "./image-anchors";
-import { validatePresentation } from "./presentation-compiler";
+import {
+  validatePresentation,
+  presentationCapability,
+  type PresentationDestination,
+} from "./presentation-compiler";
 import { assessReadiness } from "./readiness";
 
 function block(key: string, label: string, passed: boolean, detail: string): ChecklistItem {
@@ -222,9 +226,11 @@ export function buildPublishingChecklist(
   // Image presentation (Article Studio 3.0 / P1.2D). Hard-block on corrupt/unsafe/
   // incompatible presets (unknown enum — which also catches an injected class/style/
   // HTML string, focal out of 0..1, or an inline/featured mismatch); warn on an
-  // inactive focal point (fit=contain). Connector-downgrade warnings are destination-
-  // specific and surfaced in the editor, not this destination-agnostic gate.
-  const presentationFindings = (asset.images ?? []).flatMap((im) => validatePresentation(im));
+  // inactive focal point (fit=contain). Only images that will actually PUBLISH are
+  // gated — a bad preset on a proposed/rejected image that never ships must not
+  // block publishing.
+  const publishing = publishableImages(asset.images, project);
+  const presentationFindings = publishing.flatMap((im) => validatePresentation(im));
   const presentationBlockers = presentationFindings.filter((f) => f.blocking);
   const presentationWarnings = presentationFindings.filter((f) => !f.blocking);
   items.push(
@@ -241,6 +247,32 @@ export function buildPublishingChecklist(
       "Image presentation advisories",
       presentationWarnings.length === 0,
       presentationWarnings.map((f) => f.message).join(" "),
+    ),
+  );
+
+  // Destination honesty (four-state capability, refinement 10). Milo renders the
+  // milo-* presentation in its own preview but has NOT verified that a real
+  // connector keeps or renders those classes — a class in the exported HTML is
+  // never treated as "retained". Non-blocking; informational only.
+  const presentedCount = publishing.filter((im) => im.presentation).length;
+  const presDestination: PresentationDestination =
+    project.connectorType === "wordpress"
+      ? "wordpress"
+      : project.connectorType === "shopify"
+        ? "shopify"
+        : project.connectorType === "custom"
+          ? "custom"
+          : null;
+  const capability = presentationCapability(presDestination);
+  const capabilityUnverified = presentedCount > 0 && capability.destinationVerified !== "yes";
+  items.push(
+    warn(
+      "imagePresentationCapability",
+      "Image presentation on the publish destination",
+      !capabilityUnverified,
+      capabilityUnverified
+        ? `${presentedCount} image(s) use Milo presentation. It renders in the Milo preview but is not verified on the ${presDestination ?? "publish"} destination.`
+        : "",
     ),
   );
 

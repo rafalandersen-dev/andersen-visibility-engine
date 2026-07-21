@@ -168,15 +168,30 @@ export function assemblySections(
 }
 
 /**
+ * A token id must round-trip the `[^)\s]+` capture used by every resolver (the
+ * markdown block/inline branches and detokenizeMarkdown), so it must contain no
+ * `)` or whitespace and be non-empty. Ids are `crypto.randomUUID()` today (always
+ * safe); this guard is defence-in-depth — an unsafe id degrades to a legacy image
+ * (no token, no leak) rather than emitting an unresolvable token.
+ */
+const TOKEN_SAFE_ID = /^[^)\s]+$/;
+
+/**
  * Compose one image as markdown. A PRESENTED image (P1.2D) emits an internal
- * identity token `![alt](milo-image:<id>)` resolved by id at render time; every
- * other image keeps the legacy `![alt](url)` (byte-identical to before P1.2D). The
- * token never leaks — assembleContentAsset detokenizes it for the markdown output
- * and the HTML renderer swaps it for the compiled figure.
+ * identity token `![](milo-image:<id>)` resolved BY ID at render time; every other
+ * image keeps the legacy `![alt](url)` (byte-identical to before P1.2D). The token
+ * never leaks — assembleContentAsset detokenizes it for the markdown output and the
+ * HTML renderer swaps it for the compiled figure.
+ *
+ * The token carries NO alt on purpose: the real alt is supplied by the resolved
+ * figure (compileFigureHtml) and the degraded markdown (presentationMarkdown), so
+ * an EMPTY token alt keeps the `[^\]]*` alt capture matchable even when the real alt
+ * contains `]` or a newline — which would otherwise break resolution and leak the
+ * raw `milo-image:<id>` token (and silently drop the figure) into published output.
  */
 function composeImage(image: ContentImage): string {
-  if (image.presentation) {
-    return `![${(image.alt || "").trim()}](${MILO_IMAGE_TOKEN_PREFIX}${image.id})`;
+  if (image.presentation && TOKEN_SAFE_ID.test(image.id)) {
+    return `![](${MILO_IMAGE_TOKEN_PREFIX}${image.id})`;
   }
   return imageMarkdown(image);
 }

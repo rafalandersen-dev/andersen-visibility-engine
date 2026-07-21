@@ -73,6 +73,38 @@ const STYLE_CLASS: Record<ImageVisualStyle, string> = {
   card: "milo-style-card",
 };
 
+// Mobile-override classes (P1.2D). Emitted ONLY for a dimension whose resolved
+// mobile value differs from the base, and applied by milo-image.css at the phone
+// breakpoint. This is per-image presentation, NOT the P1.2F article responsive shell.
+const M_SIZE_CLASS: Record<ImageSize, string> = {
+  small: "milo-m-size-small",
+  medium: "milo-m-size-medium",
+  large: "milo-m-size-large",
+  wide: "milo-m-size-wide",
+  full: "milo-m-size-full",
+};
+const M_ALIGN_CLASS: Record<ImageAlign, string> = {
+  left: "milo-m-align-left",
+  center: "milo-m-align-center",
+  right: "milo-m-align-right",
+};
+const M_ASPECT_CLASS: Record<ImageAspect, string> = {
+  original: "milo-m-aspect-original",
+  square: "milo-m-aspect-square",
+  portrait: "milo-m-aspect-portrait",
+  landscape: "milo-m-aspect-landscape",
+  wide: "milo-m-aspect-wide",
+};
+const M_FIT_CLASS: Record<ImageFit, string> = {
+  cover: "milo-m-fit-cover",
+  contain: "milo-m-fit-contain",
+};
+const M_STYLE_CLASS: Record<ImageVisualStyle, string> = {
+  plain: "milo-m-style-plain",
+  rounded: "milo-m-style-rounded",
+  card: "milo-m-style-card",
+};
+
 export const DEFAULT_PRESENTATION: ImagePresentation = {
   size: "large",
   alignment: "center",
@@ -159,14 +191,28 @@ function escapeHtml(s: string): string {
  */
 export function compileFigureHtml(image: ContentImage, presentation: ImagePresentation): string {
   const p = normalizePresentation(presentation);
-  const classes = [
+  const classList = [
     "milo-image",
     SIZE_CLASS[p.size],
     ALIGN_CLASS[p.alignment],
     ASPECT_CLASS[p.aspectRatio],
     FIT_CLASS[p.fit],
     STYLE_CLASS[p.visualStyle],
-  ].join(" ");
+  ];
+  // Mobile override: emit a milo-m-* class ONLY for a dimension whose resolved
+  // mobile value DIFFERS from the base preset, so a figure with no override is
+  // byte-identical to before this change. Deterministic order (size, align,
+  // aspect, fit, style). Mobile focal is intentionally not rendered (the base
+  // object-position applies at every viewport; the editor exposes no mobile focal).
+  if (image.mobilePresentation) {
+    const m = resolveMobilePresentation(p, image.mobilePresentation);
+    if (m.size !== p.size) classList.push(M_SIZE_CLASS[m.size]);
+    if (m.alignment !== p.alignment) classList.push(M_ALIGN_CLASS[m.alignment]);
+    if (m.aspectRatio !== p.aspectRatio) classList.push(M_ASPECT_CLASS[m.aspectRatio]);
+    if (m.fit !== p.fit) classList.push(M_FIT_CLASS[m.fit]);
+    if (m.visualStyle !== p.visualStyle) classList.push(M_STYLE_CLASS[m.visualStyle]);
+  }
+  const classes = classList.join(" ");
   const url = (image.url || "").replace(/"/g, "%22");
   const alt = escapeHtml(image.alt || "");
   let objPos = "";

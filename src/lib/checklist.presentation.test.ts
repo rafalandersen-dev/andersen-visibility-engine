@@ -74,4 +74,29 @@ describe("presentation checklist enforcement", () => {
     expect(adv.blocking).toBe(false);
     expect(item(a, "imagePresentation")!.passed).toBe(true); // not a blocker
   });
+
+  // ---- Review fixes: publishable scope + destination-capability honesty ----
+  it("a bad preset on a NON-publishable image does not block (only publishing images gate)", () => {
+    const a = asset([
+      img({ status: "proposed", presentation: { ...pres(), size: "huge" as never } }),
+    ]);
+    expect(item(a, "imagePresentation")!.passed).toBe(true);
+  });
+
+  it("a bad preset on a publishable image still hard-blocks", () => {
+    const a = asset([
+      img({ status: "accepted", presentation: { ...pres(), size: "huge" as never } }),
+    ]);
+    expect(item(a, "imagePresentation")!.passed).toBe(false);
+  });
+
+  it("a presented image raises a NON-blocking destination-capability advisory", () => {
+    const cap = item(asset([img({ presentation: pres() })]), "imagePresentationCapability")!;
+    expect(cap.passed).toBe(false); // advisory surfaced
+    expect(cap.blocking).toBe(false); // never blocks publishing
+  });
+
+  it("no presented image → capability advisory passes (nothing to disclose)", () => {
+    expect(item(asset([img()]), "imagePresentationCapability")!.passed).toBe(true);
+  });
 });

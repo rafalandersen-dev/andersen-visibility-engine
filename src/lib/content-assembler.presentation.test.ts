@@ -132,3 +132,38 @@ describe("anchoring, parity, purity", () => {
     expect(composeCanonicalMarkdown(a, project())).not.toContain("milo-image:");
   });
 });
+
+describe("token robustness — hostile alt & exotic ids never leak the token", () => {
+  it("alt containing ']' still renders one figure and never leaks the token (test 19)", () => {
+    const a = asset([img({ id: "iZ", alt: "Figure [2] result]", presentation: pres() })]);
+    const out = assembleContentAsset(a, project());
+    expect(out.markdown).not.toContain("milo-image:");
+    expect(out.html).not.toContain("milo-image:");
+    expect(count(out.html, "<figure")).toBe(1);
+    expect(out.html).toContain('alt="Figure [2] result]"'); // real alt in the figure
+  });
+
+  it("alt containing a newline renders a clean BLOCK figure, not one nested in <p> (test 20)", () => {
+    const a = asset([img({ id: "iN", alt: "Line one\nLine two", presentation: pres() })]);
+    const out = assembleContentAsset(a, project());
+    expect(out.html).not.toContain("milo-image:");
+    expect(count(out.html, "<figure")).toBe(1);
+    expect(out.html).not.toContain("<p><figure");
+  });
+
+  it("a token-UNSAFE id degrades to a legacy <img> (no token, no crash, no figure) (test 21)", () => {
+    const a = asset([
+      img({
+        id: "bad id)with paren",
+        alt: "Z",
+        url: "https://site.com/z.png",
+        presentation: pres(),
+      }),
+    ]);
+    const out = assembleContentAsset(a, project());
+    expect(out.markdown).not.toContain("milo-image:");
+    expect(out.html).not.toContain("milo-image:");
+    expect(out.html).not.toContain("<figure"); // degraded — no presentation
+    expect(out.html).toContain('<img src="https://site.com/z.png" alt="Z" loading="lazy" />');
+  });
+});

@@ -87,3 +87,82 @@
   border-radius: 0.5rem;
   background: var(--card, #ffffff);
 }
+
+/*
+ * Mobile overrides (P1.2D). The compiler emits a milo-m-* class only for a
+ * dimension whose mobile value differs from the base, so a figure with no override
+ * gets none of these. These rules have the SAME specificity as the base rules and
+ * appear AFTER them, so within this breakpoint they win by source order. This is
+ * per-image presentation only — not the P1.2F article responsive shell.
+ */
+@media (max-width: 640px) {
+  .milo-m-size-small img {
+    max-width: 25%;
+  }
+  .milo-m-size-medium img {
+    max-width: 50%;
+  }
+  .milo-m-size-large img {
+    max-width: 75%;
+  }
+  .milo-m-size-wide img {
+    max-width: 100%;
+    width: auto;
+  }
+  .milo-m-size-full img {
+    max-width: 100%;
+    width: 100%;
+  }
+  .milo-m-align-left {
+    text-align: left;
+  }
+  .milo-m-align-left img {
+    margin-left: 0;
+    margin-right: auto;
+  }
+  .milo-m-align-center {
+    text-align: center;
+  }
+  .milo-m-align-center img,
+  .milo-m-align-center figcaption {
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .milo-m-align-right {
+    text-align: right;
+  }
+  .milo-m-align-right img {
+    margin-left: auto;
+    margin-right: 0;
+  }
+  .milo-m-aspect-original img {
+    aspect-ratio: auto;
+  }
+  .milo-m-aspect-square img {
+    aspect-ratio: 1 / 1;
+  }
+  .milo-m-aspect-portrait img {
+    aspect-ratio: 4 / 5;
+  }
+  .milo-m-aspect-landscape img {
+    aspect-ratio: 4 / 3;
+  }
+  .milo-m-aspect-wide img {
+    aspect-ratio: 16 / 9;
+  }
+  .milo-m-fit-cover img {
+    object-fit: cover;
+  }
+  .milo-m-fit-contain img {
+    object-fit: contain;
+  }
+  .milo-m-style-rounded img {
+    border-radius: 0.5rem;
+  }
+  .milo-m-style-card {
+    padding: 0.5rem;
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 0.5rem;
+    background: var(--card, #ffffff);
+  }
+}
