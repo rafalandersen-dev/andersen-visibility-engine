@@ -66,6 +66,16 @@ import {
 } from "@/lib/anchors";
 import { reconcileSectionIndex } from "@/lib/section-index";
 import { resolveImageAnchors } from "@/lib/image-anchors";
+import "@/styles/milo-image.css";
+import {
+  IMAGE_SIZES,
+  IMAGE_ALIGNMENTS,
+  IMAGE_ASPECTS,
+  IMAGE_FITS,
+  IMAGE_STYLES,
+  DEFAULT_PRESENTATION,
+} from "@/lib/presentation-compiler";
+import type { ImagePresentation, ImagePresentationOverride } from "@/lib/types";
 import { effectivePublishMode } from "@/lib/publish-targets";
 import { pipelineStage } from "@/lib/pipeline";
 import { StageChip } from "@/components/StageChip";
@@ -499,6 +509,27 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     kind: "before-section" | "after-section",
     sectionId: string,
   ) => updImage(i, { anchor: sectionId ? serializeAnchor({ kind, sectionId }) : undefined });
+  // ---- Image presentation (Article Studio 3.0 / P1.2D) ----
+  const setPresentation = (i: number, patch: Partial<ImagePresentation>) =>
+    updImage(i, {
+      presentation: {
+        ...((f.images ?? [])[i]?.presentation ?? DEFAULT_PRESENTATION),
+        ...patch,
+      },
+    });
+  const setPresFocal = (i: number, axis: "x" | "y", val: string) => {
+    const p = (f.images ?? [])[i]?.presentation ?? DEFAULT_PRESENTATION;
+    const cur = p.focalPoint ?? { x: 0.5, y: 0.5 };
+    const n = Math.min(1, Math.max(0, Number(val) || 0));
+    setPresentation(i, { focalPoint: { ...cur, [axis]: n } });
+  };
+  const setMobilePres = (i: number, patch: Partial<ImagePresentationOverride>) =>
+    updImage(i, {
+      mobilePresentation: {
+        ...((f.images ?? [])[i]?.mobilePresentation ?? {}),
+        ...patch,
+      },
+    });
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileToBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -2123,6 +2154,175 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                           );
                         })()
                       : null}
+                    {/* ---- Presentation (Article Studio 3.0 / P1.2D) ---- */}
+                    {(() => {
+                      const p = im.presentation;
+                      const preSel = (
+                        field: string,
+                        options: readonly string[],
+                        value: string,
+                        onChange: (v: string) => void,
+                      ) => (
+                        <label className="flex flex-col text-[11px] text-muted-foreground">
+                          {t(`pres.field.${field}`)}
+                          <select
+                            value={value}
+                            onChange={(e) => onChange(e.target.value)}
+                            className="h-7 rounded border border-input bg-background px-1 text-xs text-foreground"
+                          >
+                            {options.map((o) => (
+                              <option key={o} value={o}>
+                                {t(`pres.val.${o}`)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      );
+                      return (
+                        <div className="space-y-1.5 rounded border border-border/60 p-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">{t("pres.label")}</span>
+                            {p ? (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() =>
+                                  updImage(i, {
+                                    presentation: undefined,
+                                    mobilePresentation: undefined,
+                                  })
+                                }
+                              >
+                                {t("pres.clear")}
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  updImage(i, {
+                                    presentation: { ...DEFAULT_PRESENTATION },
+                                  })
+                                }
+                              >
+                                {t("pres.add")}
+                              </Button>
+                            )}
+                          </div>
+                          {p ? (
+                            <>
+                              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                                {preSel("size", IMAGE_SIZES, p.size, (v) =>
+                                  setPresentation(i, {
+                                    size: v as ImagePresentation["size"],
+                                  }),
+                                )}
+                                {preSel("alignment", IMAGE_ALIGNMENTS, p.alignment, (v) =>
+                                  setPresentation(i, {
+                                    alignment: v as ImagePresentation["alignment"],
+                                  }),
+                                )}
+                                {preSel("aspectRatio", IMAGE_ASPECTS, p.aspectRatio, (v) =>
+                                  setPresentation(i, {
+                                    aspectRatio: v as ImagePresentation["aspectRatio"],
+                                  }),
+                                )}
+                                {preSel("fit", IMAGE_FITS, p.fit, (v) =>
+                                  setPresentation(i, {
+                                    fit: v as ImagePresentation["fit"],
+                                  }),
+                                )}
+                                {preSel("visualStyle", IMAGE_STYLES, p.visualStyle, (v) =>
+                                  setPresentation(i, {
+                                    visualStyle: v as ImagePresentation["visualStyle"],
+                                  }),
+                                )}
+                              </div>
+                              {p.fit === "cover" ? (
+                                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                  <span>{t("pres.field.focal")}</span>
+                                  <Input
+                                    type="number"
+                                    step="0.05"
+                                    min="0"
+                                    max="1"
+                                    value={p.focalPoint?.x ?? 0.5}
+                                    onChange={(e) => setPresFocal(i, "x", e.target.value)}
+                                    className="h-7 w-16 text-xs"
+                                  />
+                                  <Input
+                                    type="number"
+                                    step="0.05"
+                                    min="0"
+                                    max="1"
+                                    value={p.focalPoint?.y ?? 0.5}
+                                    onChange={(e) => setPresFocal(i, "y", e.target.value)}
+                                    className="h-7 w-16 text-xs"
+                                  />
+                                </div>
+                              ) : null}
+                              <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                <input
+                                  type="checkbox"
+                                  checked={p.captionVisible !== false}
+                                  onChange={(e) =>
+                                    setPresentation(i, {
+                                      captionVisible: e.target.checked,
+                                    })
+                                  }
+                                />
+                                {t("pres.field.captionVisible")}
+                              </label>
+                              <div className="grid grid-cols-2 gap-1.5">
+                                <label className="flex flex-col text-[11px] text-muted-foreground">
+                                  {t("pres.mobile.size")}
+                                  <select
+                                    value={im.mobilePresentation?.size ?? ""}
+                                    onChange={(e) =>
+                                      setMobilePres(i, {
+                                        size: (e.target.value ||
+                                          undefined) as ImagePresentationOverride["size"],
+                                      })
+                                    }
+                                    className="h-7 rounded border border-input bg-background px-1 text-xs text-foreground"
+                                  >
+                                    <option value="">{t("pres.mobile.inherit")}</option>
+                                    {IMAGE_SIZES.map((o) => (
+                                      <option key={o} value={o}>
+                                        {t(`pres.val.${o}`)}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                                <label className="flex flex-col text-[11px] text-muted-foreground">
+                                  {t("pres.mobile.align")}
+                                  <select
+                                    value={im.mobilePresentation?.alignment ?? ""}
+                                    onChange={(e) =>
+                                      setMobilePres(i, {
+                                        alignment: (e.target.value ||
+                                          undefined) as ImagePresentationOverride["alignment"],
+                                      })
+                                    }
+                                    className="h-7 rounded border border-input bg-background px-1 text-xs text-foreground"
+                                  >
+                                    <option value="">{t("pres.mobile.inherit")}</option>
+                                    {IMAGE_ALIGNMENTS.map((o) => (
+                                      <option key={o} value={o}>
+                                        {t(`pres.val.${o}`)}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              </div>
+                              <p className="text-[11px] text-muted-foreground">
+                                {t("pres.capability")}
+                              </p>
+                            </>
+                          ) : null}
+                        </div>
+                      );
+                    })()}
                   </li>
                 );
               })}

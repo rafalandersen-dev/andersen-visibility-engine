@@ -1,0 +1,89 @@
+/*
+ * Article Studio 3.0 / P1.2D — scoped preview styles for compiled image figures.
+ * Milo PREVIEW only. Publish destinations (WordPress/Shopify/custom) may not load
+ * this stylesheet, so a `milo-*` class in exported HTML is never "retained/verified"
+ * there (four-state honesty). Deliberately small; matches the compiler's allow-list.
+ */
+.milo-image {
+  margin: 1rem 0;
+}
+.milo-image img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+.milo-image figcaption {
+  margin-top: 0.35rem;
+  font-size: 0.85em;
+  color: var(--muted-foreground, #6b7280);
+}
+
+/* Alignment */
+.milo-align-left {
+  text-align: left;
+}
+.milo-align-center {
+  text-align: center;
+}
+.milo-align-center img,
+.milo-align-center figcaption {
+  margin-left: auto;
+  margin-right: auto;
+}
+.milo-align-right {
+  text-align: right;
+}
+.milo-align-right img {
+  margin-left: auto;
+}
+
+/* Size (max-width of the image) */
+.milo-size-small img {
+  max-width: 25%;
+}
+.milo-size-medium img {
+  max-width: 50%;
+}
+.milo-size-large img {
+  max-width: 75%;
+}
+.milo-size-wide img {
+  max-width: 100%;
+}
+.milo-size-full img {
+  max-width: 100%;
+  width: 100%;
+}
+
+/* Aspect ratio (mirrors presentation-compiler ASPECT_RATIO) */
+.milo-aspect-square img {
+  aspect-ratio: 1 / 1;
+}
+.milo-aspect-portrait img {
+  aspect-ratio: 4 / 5;
+}
+.milo-aspect-landscape img {
+  aspect-ratio: 4 / 3;
+}
+.milo-aspect-wide img {
+  aspect-ratio: 16 / 9;
+}
+
+/* Object fit */
+.milo-fit-cover img {
+  object-fit: cover;
+}
+.milo-fit-contain img {
+  object-fit: contain;
+}
+
+/* Visual style */
+.milo-style-rounded img {
+  border-radius: 0.5rem;
+}
+.milo-style-card {
+  padding: 0.5rem;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 0.5rem;
+  background: var(--card, #ffffff);
+}
