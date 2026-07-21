@@ -15,6 +15,7 @@ import { unresolvedLinksForPublish } from "./publish-targets";
 import { citableSources, isValidHttpSourceUrl } from "./sources";
 import { authorRequiredUnresolved } from "./author";
 import { imagesMissingAlt, requiredImagesUnresolved } from "./images";
+import { hookPublishGate, detectPossibleHookDuplicate } from "./hook";
 import { assessReadiness } from "./readiness";
 
 function block(key: string, label: string, passed: boolean, detail: string): ChecklistItem {
@@ -113,6 +114,57 @@ export function buildPublishingChecklist(
         : "",
     ),
   );
+
+  // Hook (Article Studio 3.0 / P1.2A). ONLY v3 / upgrading assets are gated — a
+  // legacy Article Studio 2.0 asset (no visual marker) returns applies:false and
+  // is never blocked here, so it keeps publishing under the 2.0 policy. The gate
+  // recomputes the hook validation deterministically (never trusts a cached
+  // hook.blockers), and this runs through the SAME publishBlockers used by the
+  // editor, live/draft publish, the WordPress/Shopify RPC guard, the custom
+  // endpoint and the scheduled/cron runner.
+  const hookGate = hookPublishGate(asset);
+  if (hookGate.applies) {
+    items.push(
+      block(
+        "hook",
+        "Opening hook present & approved",
+        !hookGate.missing && !hookGate.unapproved,
+        hookGate.missing
+          ? "This Article Studio 3.0 article needs an approved opening hook. Add one in the Hook panel."
+          : hookGate.unapproved
+            ? "The opening hook is not approved yet. Review and approve it in the Hook panel."
+            : "",
+      ),
+    );
+    items.push(
+      block(
+        "hookClaims",
+        "Hook claims are supported",
+        !hookGate.blocked,
+        hookGate.blocked
+          ? `The hook has ${hookGate.blockers.length} unresolved issue(s): ${hookGate.blockers
+              .map((b) => b.message)
+              .join(" ")}`
+          : "",
+      ),
+    );
+    // The canonical output must contain the hook exactly once. The assembler is
+    // non-destructive (never strips body text), so if the body's first visible
+    // paragraph is a deterministic (whitespace/case-normalised) duplicate of the
+    // hook, publishing would emit it twice — block and ask the author to fix it.
+    // Deterministic exact match only; never fuzzy, never auto-deleted.
+    const duplicateHookInBody = detectPossibleHookDuplicate(asset).duplicate;
+    items.push(
+      block(
+        "duplicateHookInBody",
+        "Hook is not duplicated in the body",
+        !duplicateHookInBody,
+        duplicateHookInBody
+          ? "The article body opens with the same text as the hook, so the hook would appear twice. Remove that opening paragraph from the body, or change the hook."
+          : "",
+      ),
+    );
+  }
 
   // Structured data is DERIVED from the visible body, so it matches by
   // construction; this item guards against a future regression.

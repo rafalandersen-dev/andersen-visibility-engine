@@ -62,6 +62,8 @@ import { fetchSitemapInventoryFn } from "./sitemap.functions";
 import { isSitemapInventoryFresh } from "./sitemap";
 import { assessReadiness, toReadinessScore } from "./readiness";
 import { publishBlockers } from "./checklist";
+import { reconcileHookOnRegeneration } from "./hook";
+import { isArticleLikeAssetType } from "./visual-model";
 import type {
   Opportunity,
   DiscoverySuggestion,
@@ -88,6 +90,7 @@ import type {
   Priority,
   AssetType,
   ContentSourceType,
+  HookProposal,
 } from "./types";
 import { newOpportunityRecord, opportunityDeduplicationKey } from "./opportunities";
 import {
@@ -264,6 +267,7 @@ type AssetResult = {
   internalLinks: string[];
   schemaSuggestions: string[];
   editorNotes: string;
+  hookProposals?: HookProposal[];
 };
 
 async function generateAsset(opportunityId: string, kind: "landing" | "article") {
@@ -295,6 +299,12 @@ async function generateAsset(opportunityId: string, kind: "landing" | "article")
       editorNotes: result.editorNotes ?? "",
       status: "Draft",
       updatedAt: new Date().toISOString(),
+      // Article Studio 3.0 / P1.2A — a newly generated long-form article/landing
+      // is a v3 asset: it needs an approved opening hook before publishing.
+      // Generation may offer up to three proposals; none is auto-selected or
+      // auto-approved (the editor's Hook panel drives selection + approval).
+      visualModelVersion: 3,
+      ...(result.hookProposals?.length ? { hookProposals: result.hookProposals } : {}),
     };
     updateOpportunity(opp.id, {
       status: "drafting",
@@ -569,6 +579,12 @@ export async function improveContentDraft(contentAssetId: string) {
     upsertContent({
       ...a,
       markdown,
+      // Article Studio 3.0 / P1.2A — this is the in-place BODY regeneration path.
+      // reconcile preserves an approved / user-edited / non-empty hook across the
+      // regeneration; only an empty hook slot could take a fresh proposal, and this
+      // path produces none (the improve fn regenerates the body only, and is given
+      // the hook-free body, so it cannot reintroduce the hook).
+      hook: reconcileHookOnRegeneration(a.hook, undefined, a.hook?.id ?? uid()),
       qualityScoreStale: a.qualityScore ? true : a.qualityScoreStale,
       updatedAt: new Date().toISOString(),
     });
@@ -1497,6 +1513,10 @@ export async function generateContentForOpportunity(
         ? contentLangToProjectLanguage(project.primaryContentLanguage)
         : opp.language,
       createdAt: now,
+      // Article Studio 3.0 / P1.2A — a newly generated long-form article is a v3
+      // asset (needs an approved opening hook before publishing). Short-form types
+      // (faq/meta/gbpPost/socialPack/brief) stay legacy and are never hook-gated.
+      ...(isArticleLikeAssetType(assetType) ? { visualModelVersion: 3 as const } : {}),
       // Rewrite provenance, if any. Pick keeps this to publishSlug +
       // republishTargetUrl — never a field pipelineStage reads.
       ...(seed ?? {}),

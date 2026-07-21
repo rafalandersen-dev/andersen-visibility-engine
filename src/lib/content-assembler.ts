@@ -27,6 +27,7 @@ import { buildContentJsonLd, renderJsonLdScript } from "./structured-data";
 import { sourcesBlockMarkdown } from "./sources";
 import { authorBlockMarkdown, authorSchemaInput } from "./author";
 import { publishableImages, publishableImageUrls, imageMarkdown } from "./images";
+import { composeHookMarkdown } from "./hook";
 
 export interface AssembleOptions {
   /**
@@ -83,6 +84,17 @@ export const SECTION_RULES: SectionRule[] = [
       const trail = (a.breadcrumbs ?? []).map((b) => b.name?.trim()).filter(Boolean);
       return trail.length ? trail.join(" › ") : "";
     },
+  },
+  {
+    // Article Studio 3.0 / P1.2A — the opening hook composes as a lead PARAGRAPH
+    // immediately before the TL;DR. It has no heading, so there is no heading
+    // alias to dedup against: the v3 contract keeps the hook out of the generated
+    // body, so the assembler emits `asset.hook` exactly once here. (Legacy upgrade
+    // uses the explicit detectPossibleHookDuplicate check, never a fuzzy match.)
+    key: "hook",
+    position: "lead",
+    headingAliases: [],
+    build: (a) => composeHookMarkdown(a.hook),
   },
   {
     key: "tldr",
