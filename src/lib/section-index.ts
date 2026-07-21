@@ -149,7 +149,11 @@ export function parseSections(markdown: string): { lines: string[]; sections: Pa
         break;
       }
     }
-    const immediate = normalizeContent(lines.slice(h.idx + 1, contentEnd).join(" "));
+    // Join with newlines (not spaces) so stripImageMarkdown's line-anchored reference
+    // DEFINITION regex fires, making raw-body reconcile and stripped-body resolve agree
+    // for every image syntax (re-review finding #4, fully closed). normalizeContent
+    // collapses the whitespace afterwards, so the excerpt is unchanged otherwise.
+    const immediate = normalizeContent(lines.slice(h.idx + 1, contentEnd).join("\n"));
     return {
       heading: h.text,
       normalized: normalizeHeading(h.text),
