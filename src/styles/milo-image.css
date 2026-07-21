@@ -98,12 +98,15 @@
 @media (max-width: 640px) {
   .milo-m-size-small img {
     max-width: 25%;
+    width: auto;
   }
   .milo-m-size-medium img {
     max-width: 50%;
+    width: auto;
   }
   .milo-m-size-large img {
     max-width: 75%;
+    width: auto;
   }
   .milo-m-size-wide img {
     max-width: 100%;
@@ -155,6 +158,23 @@
   }
   .milo-m-fit-contain img {
     object-fit: contain;
+  }
+  /*
+   * Style overrides must FULLY replace the base chrome. A mobile value that
+   * REMOVES chrome (card/rounded → plain, card → rounded) has to reset the base
+   * figure/img properties it does not want — not merely add its own — or the base
+   * card border/padding/background (or rounded corners) would linger on phones.
+   */
+  .milo-m-style-plain,
+  .milo-m-style-rounded {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+  }
+  .milo-m-style-plain img,
+  .milo-m-style-card img {
+    border-radius: 0;
   }
   .milo-m-style-rounded img {
     border-radius: 0.5rem;
