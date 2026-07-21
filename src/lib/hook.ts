@@ -219,14 +219,16 @@ function isExcessiveLength(text: string): boolean {
 }
 
 /**
- * A statistic / YMYL / testimonial claim counts as SUPPORTED when the hook has an
- * evidence ref, or the asset already cites at least one VERIFIED source (a
- * declared evidence source). Conservative — we under-block rather than over-block.
+ * A statistic / YMYL / testimonial claim counts as SUPPORTED only when the HOOK
+ * itself carries a linked evidence ref. An unrelated article-level source does
+ * NOT license an unsupported claim in the hook: the hook is the highest-visibility
+ * line on the page, and the "linked evidence/source" contract means evidence
+ * bound to the claim — not any citation elsewhere in the body. (Adversarial-review
+ * finding #1: an asset-level verified source must not silently unblock a bare
+ * statistic/testimonial in the hook.)
  */
 function hookHasEvidence(asset: ContentAsset): boolean {
-  const hook = asset.hook;
-  if (hook?.evidence?.some((e) => (e.url || "").trim())) return true;
-  return (asset.sources ?? []).some((s) => s.status === "verified" && (s.url || "").trim());
+  return Boolean(asset.hook?.evidence?.some((e) => (e.url || "").trim()));
 }
 
 // ---------------------------------------------------------------------------
@@ -469,6 +471,12 @@ export function approveHook(hook: ArticleHook, now?: string): ArticleHook {
  * text is PRESERVED (so an approved or user-edited hook — and a selected but
  * unapproved generated proposal — always survives regeneration); only an
  * absent/empty hook slot may take a fresh proposal.
+ *
+ * This is the DESIGNATED reconcile point for any future in-place full-body
+ * regeneration path. P1.2A ships no such path — the partial regens (metadata /
+ * FAQ / CTA) preserve the hook via object spread and `generateArticleDraft`
+ * mints a NEW asset — so it is intentionally not yet wired (adversarial-review
+ * finding #2). Wire it into a body-regeneration handler before adding one.
  */
 export function reconcileHookOnRegeneration(
   existing: ArticleHook | undefined,

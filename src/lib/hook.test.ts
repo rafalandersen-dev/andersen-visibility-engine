@@ -63,12 +63,21 @@ describe("model + composition", () => {
 });
 
 describe("validation — blockers (conservative, evidence-gated)", () => {
-  it("evidence-backed statistic passes (T11)", () => {
+  it("evidence-backed statistic passes when the HOOK carries linked evidence (T11)", () => {
     const a = asset({
-      hook: hook({ text: "Studies show a 40% faster recovery." }),
-      sources: [{ url: "https://example.com/study", status: "verified" }] as never,
+      hook: hook({
+        text: "Studies show a 40% faster recovery.",
+        evidence: [{ url: "https://example.com/study" }],
+      }),
     });
     expect(codes(validateHook(a).blockers)).not.toContain("unsupported-statistic");
+  });
+  it("an unrelated article-level source does NOT license a bare hook statistic (review #1)", () => {
+    const a = asset({
+      hook: hook({ text: "Studies show a 40% faster recovery." }),
+      sources: [{ url: "https://example.com/unrelated", status: "verified" }] as never,
+    });
+    expect(codes(validateHook(a).blockers)).toContain("unsupported-statistic");
   });
   it("unsupported statistic blocks (T12)", () => {
     const a = asset({ hook: hook({ text: "Studies show a 40% faster recovery." }) });
