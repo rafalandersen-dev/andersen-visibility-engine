@@ -1203,4 +1203,22 @@ export const pl: Record<string, string> = {
   "hook.evidence.remove": "Usuń dowód",
   "hook.evidence.supportedBy": "Poparte przez",
   "hook.unsaved": "Niezapisane zmiany haka — użyj Zapisz.",
+
+  // ---- Article Studio 3.0 — Inline image anchors (P1.2C) ----
+  "anchor.label": "Umiejscowienie",
+  "anchor.kind.none": "Bez umiejscowienia (na końcu)",
+  "anchor.kind.before-hook": "Przed hakiem",
+  "anchor.kind.after-hook": "Po haku",
+  "anchor.kind.before-section": "Przed sekcją",
+  "anchor.kind.after-section": "Po sekcji",
+  "anchor.kind.before-faq": "Przed FAQ",
+  "anchor.kind.before-cta": "Przed CTA",
+  "anchor.kind.article-end": "Na końcu artykułu",
+  "anchor.section.choose": "Wybierz sekcję…",
+  "anchor.status.broken": "To zakotwiczenie już nie pasuje — przypisz je ponownie.",
+  "anchor.status.ambiguous": "Zakotwiczenie jest niejednoznaczne — wskaż konkretną sekcję.",
+  "anchor.status.unplaced": "Brak zakotwiczenia — obraz trafia na koniec artykułu.",
+  "anchor.status.invalid": "Nieprawidłowe umiejscowienie tego obrazu.",
+  "anchor.reviewAck": "Oznacz umiejscowienie jako sprawdzone",
+  "anchor.reviewed": "Umiejscowienie sprawdzone",
 };

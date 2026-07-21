@@ -1182,4 +1182,22 @@ export const da: Record<string, string> = {
   "hook.evidence.remove": "Fjern dokumentation",
   "hook.evidence.supportedBy": "Understøttet af",
   "hook.unsaved": "Ugemte hook-ændringer — brug Gem.",
+
+  // ---- Article Studio 3.0 — Inline image anchors (P1.2C) ----
+  "anchor.label": "Placering",
+  "anchor.kind.none": "Ingen placering (sidst)",
+  "anchor.kind.before-hook": "Før hooken",
+  "anchor.kind.after-hook": "Efter hooken",
+  "anchor.kind.before-section": "Før et afsnit",
+  "anchor.kind.after-section": "Efter et afsnit",
+  "anchor.kind.before-faq": "Før FAQ",
+  "anchor.kind.before-cta": "Før CTA",
+  "anchor.kind.article-end": "Sidst i artiklen",
+  "anchor.section.choose": "Vælg et afsnit…",
+  "anchor.status.broken": "Ankeret matcher ikke længere — tildel det igen.",
+  "anchor.status.ambiguous": "Ankeret er tvetydigt — vælg et bestemt afsnit.",
+  "anchor.status.unplaced": "Intet anker — billedet placeres sidst i artiklen.",
+  "anchor.status.invalid": "Ugyldig placering for dette billede.",
+  "anchor.reviewAck": "Markér placering som gennemgået",
+  "anchor.reviewed": "Placering gennemgået",
 };

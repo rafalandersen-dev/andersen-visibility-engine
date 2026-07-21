@@ -38,6 +38,7 @@ export const EDITOR_FORM_FIELDS = [
   "keyTakeaways",
   "breadcrumbs",
   "hook",
+  "sectionIndex",
 ] as const;
 
 const norm = (v: unknown): string => JSON.stringify(v ?? null);

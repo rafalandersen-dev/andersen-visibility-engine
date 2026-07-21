@@ -1248,6 +1248,24 @@ export const en: Record<string, string> = {
   "hook.evidence.remove": "Remove evidence",
   "hook.evidence.supportedBy": "Supported by",
   "hook.unsaved": "Unsaved hook changes — use Save.",
+
+  // ---- Article Studio 3.0 — Inline image anchors (P1.2C) ----
+  "anchor.label": "Placement",
+  "anchor.kind.none": "Not placed (appends at end)",
+  "anchor.kind.before-hook": "Before the hook",
+  "anchor.kind.after-hook": "After the hook",
+  "anchor.kind.before-section": "Before a section",
+  "anchor.kind.after-section": "After a section",
+  "anchor.kind.before-faq": "Before the FAQ",
+  "anchor.kind.before-cta": "Before the CTA",
+  "anchor.kind.article-end": "At the article end",
+  "anchor.section.choose": "Choose a section…",
+  "anchor.status.broken": "This anchor no longer resolves — reassign it.",
+  "anchor.status.ambiguous": "This anchor is ambiguous — pick a specific section.",
+  "anchor.status.unplaced": "Not anchored — appends at the article end.",
+  "anchor.status.invalid": "Invalid placement for this image.",
+  "anchor.reviewAck": "Mark placement reviewed",
+  "anchor.reviewed": "Placement reviewed",
 };
 
 export type Dict = typeof en;
