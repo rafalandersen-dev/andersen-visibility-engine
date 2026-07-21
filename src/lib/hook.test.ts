@@ -269,6 +269,20 @@ describe("legacy-upgrade duplicate detection (report only, no mutation)", () => 
   it("no hook → no duplicate", () => {
     expect(detectPossibleHookDuplicate(asset())).toEqual({ duplicate: false, confidence: "none" });
   });
+  it("detects a duplicate that sits as the first paragraph UNDER a heading (re-review #1)", () => {
+    const a = asset({
+      markdown: "## Introduction\n\nSore muscles slowing you down?\n\nBody.",
+      hook: hook({ text: "Sore muscles slowing you down?" }),
+    });
+    expect(detectPossibleHookDuplicate(a)).toEqual({ duplicate: true, confidence: "exact" });
+  });
+  it("a heading-only body (no prose paragraph) is not a duplicate", () => {
+    const a = asset({
+      markdown: "## Sore muscles slowing you down?\n\n### Another heading",
+      hook: hook({ text: "Sore muscles slowing you down?" }),
+    });
+    expect(detectPossibleHookDuplicate(a)).toEqual({ duplicate: false, confidence: "none" });
+  });
 });
 
 describe("generation proposal normalization (T6 shape)", () => {

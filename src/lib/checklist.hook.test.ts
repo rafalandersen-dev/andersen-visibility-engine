@@ -106,6 +106,14 @@ describe("duplicateHookInBody blocker (FIX 3)", () => {
     );
   });
 
+  it("blocks when the hook is duplicated as the first paragraph UNDER a heading (re-review #1)", () => {
+    const a = v3({ markdown: `## Introduction\n\n${HK}\n\nThe rest of the body.` });
+    expect(item(buildPublishingChecklist(a, project(), [a]), "duplicateHookInBody")!.passed).toBe(
+      false,
+    );
+    expect(isPublishBlocked(a, project(), [a])).toBe(true);
+  });
+
   it("does NOT block a similar-but-not-identical opening paragraph", () => {
     const a = v3({ markdown: `Do you need a calmer studio session today?\n\nBody.` });
     expect(item(buildPublishingChecklist(a, project(), [a]), "duplicateHookInBody")!.passed).toBe(

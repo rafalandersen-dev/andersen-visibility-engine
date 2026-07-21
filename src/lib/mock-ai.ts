@@ -63,6 +63,7 @@ import { isSitemapInventoryFresh } from "./sitemap";
 import { assessReadiness, toReadinessScore } from "./readiness";
 import { publishBlockers } from "./checklist";
 import { reconcileHookOnRegeneration } from "./hook";
+import { isArticleLikeAssetType } from "./visual-model";
 import type {
   Opportunity,
   DiscoverySuggestion,
@@ -1512,6 +1513,10 @@ export async function generateContentForOpportunity(
         ? contentLangToProjectLanguage(project.primaryContentLanguage)
         : opp.language,
       createdAt: now,
+      // Article Studio 3.0 / P1.2A — a newly generated long-form article is a v3
+      // asset (needs an approved opening hook before publishing). Short-form types
+      // (faq/meta/gbpPost/socialPack/brief) stay legacy and are never hook-gated.
+      ...(isArticleLikeAssetType(assetType) ? { visualModelVersion: 3 as const } : {}),
       // Rewrite provenance, if any. Pick keeps this to publishSlug +
       // republishTargetUrl — never a field pipelineStage reads.
       ...(seed ?? {}),

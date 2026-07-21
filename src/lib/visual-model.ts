@@ -17,9 +17,26 @@
  *
  * Pure — no I/O.
  */
-import type { ContentAsset } from "./types";
+import type { AssetType, ContentAsset } from "./types";
 
 type VisualMarkers = Pick<ContentAsset, "visualModelVersion" | "visualState">;
+
+/**
+ * Long-form asset types that get the Article Studio 3.0 hook requirement when newly
+ * generated. Short-form / non-article types (brief, faq, gbpPost, meta, socialPack)
+ * stay legacy so they are never hook-gated. Every content-generation path that
+ * mints a publishable article should mark these `visualModelVersion: 3`.
+ */
+export const ARTICLE_LIKE_ASSET_TYPES: readonly AssetType[] = [
+  "article",
+  "servicePage",
+  "landingPage",
+  "comparison",
+];
+
+export function isArticleLikeAssetType(assetType: AssetType | undefined): boolean {
+  return assetType ? ARTICLE_LIKE_ASSET_TYPES.includes(assetType) : false;
+}
 
 /**
  * True when Article Studio 3.0 rules apply to this asset:

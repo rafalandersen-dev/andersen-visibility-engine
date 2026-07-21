@@ -417,7 +417,8 @@ export function hookPublishGate(asset: ContentAsset): HookPublishGate {
 }
 
 // ---------------------------------------------------------------------------
-// Legacy-upgrade duplicate detection (NOT used in normal composition)
+// Duplicate-hook detection (v3 checklist blocker + legacy upgrade; the assembler
+// itself never calls this and never strips body text — the checklist blocks).
 // ---------------------------------------------------------------------------
 
 export interface HookDuplicateReport {
@@ -426,21 +427,36 @@ export interface HookDuplicateReport {
 }
 
 /**
- * LEGACY-UPGRADE ONLY. Conservatively reports whether the body's first paragraph
- * already looks like the hook, so the upgrade flow can ASK the user rather than
- * silently emit the hook twice or delete body content. It REQUIRES a deterministic
- * match — exact normalised equality of the first non-empty block — never a fuzzy
- * similarity score, and it NEVER mutates the asset. Not called by the assembler.
+ * The first VISIBLE body paragraph. Leading headings (`#`..`######`), blank lines,
+ * and list / quote / table / image lines are skipped, so the paragraph the reader
+ * sees first is compared — not a heading. A body like `## Intro\n\n<hook>\n\n…`
+ * therefore resolves to `<hook>`, catching a hook duplicated under a heading.
+ */
+function firstVisibleParagraph(markdown: string): string {
+  for (const block of (markdown || "").split(/\n\s*\n/)) {
+    const prose = block
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .filter((l) => !/^#{1,6}\s/.test(l)); // a heading is not a paragraph
+    const text = prose.join(" ").trim();
+    if (text) return text;
+  }
+  return "";
+}
+
+/**
+ * Reports whether the first VISIBLE body paragraph is a deterministic duplicate of
+ * the hook, so (a) the v3 `duplicateHookInBody` checklist blocker can refuse to
+ * publish a hook that would appear twice, and (b) the legacy-upgrade flow can ASK
+ * the user rather than silently emit it twice or delete body content. Exact
+ * normalised equality only — never a fuzzy similarity score — and it NEVER mutates
+ * the asset (the assembler stays non-destructive; the checklist blocks instead).
  */
 export function detectPossibleHookDuplicate(asset: ContentAsset): HookDuplicateReport {
   const hook = asset.hook;
   if (!hasHookText(hook)) return { duplicate: false, confidence: "none" };
-  const firstBlock =
-    (asset.markdown || "")
-      .split(/\n\s*\n/)
-      .map((s) => s.trim())
-      .filter(Boolean)[0] || "";
-  const a = normalizeText(firstBlock);
+  const a = normalizeText(firstVisibleParagraph(asset.markdown || ""));
   const b = normalizeText(hook.text);
   if (a && b && a === b) return { duplicate: true, confidence: "exact" };
   return { duplicate: false, confidence: "none" };
@@ -496,11 +512,11 @@ export function approveHook(hook: ArticleHook, now?: string): ArticleHook {
  * unapproved generated proposal — always survives regeneration); only an
  * absent/empty hook slot may take a fresh proposal.
  *
- * This is the DESIGNATED reconcile point for any future in-place full-body
- * regeneration path. P1.2A ships no such path — the partial regens (metadata /
- * FAQ / CTA) preserve the hook via object spread and `generateArticleDraft`
- * mints a NEW asset — so it is intentionally not yet wired (adversarial-review
- * finding #2). Wire it into a body-regeneration handler before adding one.
+ * Wired into `improveContentDraft` (the in-place body-regeneration path): the body
+ * is regenerated while the approved / user-edited / selected hook is preserved.
+ * The partial regens (metadata / FAQ / CTA) preserve the hook via object spread,
+ * and `generateArticleDraft` mints a NEW asset. There is no in-place proposal-
+ * refresh path, so the `proposal` arg is currently only exercised by tests.
  */
 export function reconcileHookOnRegeneration(
   existing: ArticleHook | undefined,

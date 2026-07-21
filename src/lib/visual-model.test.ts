@@ -7,7 +7,12 @@
  * as legacy (T2).
  */
 import { describe, it, expect } from "vitest";
-import { isVisualV3, articleVisualPolicy, needsVisualUpgrade } from "./visual-model";
+import {
+  isVisualV3,
+  articleVisualPolicy,
+  needsVisualUpgrade,
+  isArticleLikeAssetType,
+} from "./visual-model";
 import type { ContentAsset } from "./types";
 
 const asset = (over: Partial<ContentAsset> = {}): ContentAsset =>
@@ -41,5 +46,19 @@ describe("a new article without a hook is not misclassified as legacy (T2)", () 
     const a = asset({ visualModelVersion: 3, hook: undefined });
     expect(articleVisualPolicy(a)).toBe("v3");
     expect(isVisualV3(a)).toBe(true);
+  });
+});
+
+describe("article-like asset types get the v3 hook requirement (re-review #3)", () => {
+  it("long-form types are article-like", () => {
+    for (const t of ["article", "servicePage", "landingPage", "comparison"] as const) {
+      expect(isArticleLikeAssetType(t)).toBe(true);
+    }
+  });
+  it("short-form / non-article types are not gated", () => {
+    for (const t of ["brief", "faq", "gbpPost", "meta", "socialPack"] as const) {
+      expect(isArticleLikeAssetType(t)).toBe(false);
+    }
+    expect(isArticleLikeAssetType(undefined)).toBe(false);
   });
 });
