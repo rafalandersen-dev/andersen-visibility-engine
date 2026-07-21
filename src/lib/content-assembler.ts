@@ -22,12 +22,18 @@
  * from hand-authored `asset.markdown` to assembled canonical markdown.
  */
 import type { ContentAsset, Project } from "./types";
-import { markdownToHtml, stripImageMarkdown } from "./markdown";
+import { markdownToHtml } from "./markdown";
 import { buildContentJsonLd, renderJsonLdScript } from "./structured-data";
 import { sourcesBlockMarkdown } from "./sources";
 import { authorBlockMarkdown, authorSchemaInput } from "./author";
 import { publishableImages, publishableImageUrls, imageMarkdown } from "./images";
 import { composeHookMarkdown } from "./hook";
+import {
+  resolveImageAnchors,
+  type ResolvedImageAnchor,
+  type ImageAnchorResolution,
+} from "./image-anchors";
+import type { AnchorKind } from "./anchors";
 
 export interface AssembleOptions {
   /**
@@ -156,37 +162,125 @@ export function assemblySections(
   });
 }
 
+/** Publishable images resolved to one anchor kind, ordered by `order` asc then id asc (deterministic). */
+function orderedImages(anchored: ResolvedImageAnchor[], kind: AnchorKind): string[] {
+  return anchored
+    .filter((a) => a.status === "resolved" && a.anchor?.kind === kind)
+    .sort(
+      (a, b) =>
+        (a.image.order ?? 0) - (b.image.order ?? 0) ||
+        (a.image.id < b.image.id ? -1 : a.image.id > b.image.id ? 1 : 0),
+    )
+    .map((a) => imageMarkdown(a.image));
+}
+
+/**
+ * Weave the resolved before/after-section + before-faq/before-cta images into the
+ * (already image-stripped) body at deterministic character offsets. Same anchor
+ * point → ordered by `order` then image id. Never mutates; broken/ambiguous images
+ * are simply absent from the resolution's resolved set, so they are excluded.
+ */
+function weaveBody(res: ImageAnchorResolution): string {
+  const body = res.strippedBody;
+  const lines = body.split("\n");
+  const lineOffset: number[] = [];
+  let acc = 0;
+  for (const l of lines) {
+    lineOffset.push(acc);
+    acc += l.length + 1; // + newline
+  }
+  const offsetOfLine = (i: number) => (i < lineOffset.length ? lineOffset[i] : body.length);
+  const inserts: { offset: number; md: string; order: number; id: string }[] = [];
+  for (const a of res.anchored) {
+    if (a.status !== "resolved" || !a.anchor || !a.section) continue;
+    const k = a.anchor.kind;
+    let offset: number | null = null;
+    if (k === "before-section" || k === "before-faq" || k === "before-cta") {
+      offset = offsetOfLine(a.section.headingLineIdx);
+    } else if (k === "after-section") {
+      offset = offsetOfLine(a.section.subtreeEndLineIdx);
+    }
+    if (offset === null) continue;
+    inserts.push({ offset, md: imageMarkdown(a.image), order: a.image.order ?? 0, id: a.image.id });
+  }
+  inserts.sort(
+    (x, y) => x.offset - y.offset || x.order - y.order || (x.id < y.id ? -1 : x.id > y.id ? 1 : 0),
+  );
+  let cursor = 0;
+  const parts: string[] = [];
+  for (const ins of inserts) {
+    parts.push(body.slice(cursor, ins.offset));
+    parts.push(`\n\n${ins.md}\n\n`);
+    cursor = ins.offset;
+  }
+  parts.push(body.slice(cursor));
+  return parts
+    .join("")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 /**
  * Compose the canonical body markdown from the asset's typed fields via the
- * deterministic SECTION_RULES. A section is added only when it has content AND is
- * not already present in the body (no duplication, no filler headings). With no
- * composed section the output is byte-identical to the pre-P1.1 body.
+ * deterministic SECTION_RULES, weaving anchored inline images (P1.2C) at their
+ * resolved positions. A section is added only when it has content AND is not already
+ * present in the body. With no composed section AND no images the output is
+ * byte-identical to the pre-P1.1 body; with images but NO anchors it is byte-identical
+ * to the P1.1 append-after-body behaviour (legacy parity).
  */
 export function composeCanonicalMarkdown(asset: ContentAsset, project: Project): string {
   const body = asset.markdown ?? "";
   const existing = bodyHeadingSet(body);
-  const lead: string[] = [];
+  const lead: { key: string; md: string }[] = [];
   const tail: string[] = [];
   for (const rule of SECTION_RULES) {
     if (rule.headingAliases.some((h) => existing.has(h))) continue; // never duplicate a section
     const md = rule.build(asset, project);
     if (!md) continue; // deterministic inclusion — skip empty/filler
-    (rule.position === "lead" ? lead : tail).push(md);
+    if (rule.position === "lead") lead.push({ key: rule.key, md });
+    else tail.push(md);
   }
-  // Images (G): only PUBLISHABLE (approved + alt + controlled-origin) images
-  // compose — a featured image at the very top, inline images right after the
-  // body. When any image composes, RAW body images are stripped first so a body
-  // reference to an approved URL can neither duplicate nor bypass the alt gate
-  // (review fix); the only images that reach the page are these vetted ones.
+  // Images: only PUBLISHABLE (approved + alt + controlled-origin) images compose.
+  // A featured image sits at the very top; inline images are woven at their anchor
+  // (P1.2C) or, when un-anchored, appended after the body (legacy). When any image
+  // composes, RAW body images are stripped first so a body reference to an approved
+  // URL can neither duplicate nor bypass the alt gate.
   const pub = publishableImages(asset.images, project);
   const featured = pub
     .filter((i) => i.placement === "featured")
     .slice(0, 1)
     .map(imageMarkdown);
-  const inlineImages = pub.filter((i) => i.placement === "inline").map(imageMarkdown);
-  if (!lead.length && !tail.length && !featured.length && !inlineImages.length) return body;
-  const composedBody = pub.length ? stripImageMarkdown(body) : body;
-  return [...featured, ...lead, composedBody.trim(), ...inlineImages, ...tail]
+  // Anchor resolution runs only when there are publishable images (so a legacy asset
+  // with none keeps its raw body untouched).
+  const res = pub.length ? resolveImageAnchors(asset, project) : null;
+  const anchored = res?.anchored ?? [];
+
+  // Lead: inject before-hook / after-hook images around the composed hook block.
+  const beforeHook = orderedImages(anchored, "before-hook");
+  const afterHook = orderedImages(anchored, "after-hook");
+  const leadMd: string[] = [];
+  for (const { key, md } of lead) {
+    if (key === "hook") leadMd.push(...beforeHook, md, ...afterHook);
+    else leadMd.push(md);
+  }
+
+  // Body: woven when there are publishable images, raw otherwise.
+  const composedBody = res ? weaveBody(res) : body;
+  // After the body: legacy un-anchored inline images, then article-end anchored images.
+  const trailing = res
+    ? [...res.unanchored.map(imageMarkdown), ...orderedImages(anchored, "article-end")]
+    : [];
+
+  if (
+    !leadMd.length &&
+    !tail.length &&
+    !featured.length &&
+    !trailing.length &&
+    composedBody === body
+  ) {
+    return body;
+  }
+  return [...featured, ...leadMd, composedBody.trim(), ...trailing, ...tail]
     .filter(Boolean)
     .join("\n\n");
 }
