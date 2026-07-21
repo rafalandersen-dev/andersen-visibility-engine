@@ -203,6 +203,11 @@ function weaveBody(res: ImageAnchorResolution): string {
     if (offset === null) continue;
     inserts.push({ offset, md: imageMarkdown(a.image), order: a.image.order ?? 0, id: a.image.id });
   }
+  // Legacy byte-parity (finding #2): with nothing to weave, return the stripped body
+  // UNCHANGED — no `\n{3,}` collapse — so an asset with images but no anchors matches
+  // the pre-P1.2C append-after-body output exactly. The collapse below only tidies the
+  // blank lines that image INSERTIONS introduce.
+  if (inserts.length === 0) return body;
   inserts.sort(
     (x, y) => x.offset - y.offset || x.order - y.order || (x.id < y.id ? -1 : x.id > y.id ? 1 : 0),
   );

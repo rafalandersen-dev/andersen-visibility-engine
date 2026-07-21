@@ -105,6 +105,16 @@ describe("weaving at anchors", () => {
     expect(at(md, "f.png")).toBeGreaterThan(at(md, "## Intro"));
     expect(at(md, "f.png")).toBeLessThan(at(md, "## FAQ"));
   });
+
+  it("before-faq resolves a localized (Swedish) FAQ heading (review #3)", () => {
+    const a = v3("## Intro\n\nintro\n\n## Vanliga frågor\n\n### Q?\n\nA.", [
+      img({ url: "https://site.com/f.png" }),
+    ]);
+    a.images![0].anchor = serializeAnchor({ kind: "before-faq" });
+    const md = composeCanonicalMarkdown(a, project());
+    expect(at(md, "f.png")).toBeGreaterThan(at(md, "## Intro"));
+    expect(at(md, "f.png")).toBeLessThan(at(md, "## Vanliga frågor"));
+  });
 });
 
 describe("determinism, exclusion, legacy parity", () => {
@@ -143,6 +153,16 @@ describe("determinism, exclusion, legacy parity", () => {
     // no anchor set
     const md = composeCanonicalMarkdown(a, project());
     expect(md).toBe("## Body\n\ntext\n\n![L](https://site.com/leg.png)");
+  });
+
+  it("preserves legacy blank-line byte-parity when a raw body image is stripped, no anchors (review #2)", () => {
+    // Stripping the raw image leaves 4 newlines — the pre-P1.2C path kept them; the
+    // fix must NOT collapse them when there is nothing to weave.
+    const a = v3("Para one.\n\n![raw](https://site.com/raw.png)\n\nPara two.", [
+      img({ placement: "featured", url: "https://site.com/f.png", alt: "F" }),
+    ]);
+    const md = composeCanonicalMarkdown(a, project());
+    expect(md).toBe("![F](https://site.com/f.png)\n\nPara one.\n\n\n\nPara two.");
   });
 
   it("an asset with no images and no anchors is byte-identical to its raw body (legacy)", () => {

@@ -19,6 +19,7 @@
  * Pure — no I/O.
  */
 import type { SectionRef } from "./types";
+import { stripImageMarkdown } from "./markdown";
 
 // ---- Tunable reconciliation thresholds (documented; all deterministic) ----
 /** Minimum match score (0–100) to reuse a persisted id for a parsed section. */
@@ -51,8 +52,24 @@ export interface ParsedSection {
 // Deterministic helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Fold diacritics + special letters (å→a, ę→e, ø→o, ł→l, æ→ae …) so section
+ * identity and the FAQ/CTA heading markers are diacritic-insensitive — a Swedish
+ * "Vanliga frågor" or Danish "Ofte stillede spørgsmål" normalizes to the same
+ * ascii-ish form the markers use (adversarial-review finding #3).
+ */
+function foldDiacritics(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/[øØ]/g, "o")
+    .replace(/[æÆ]/g, "ae")
+    .replace(/[łŁ]/g, "l")
+    .replace(/[đðÐ]/g, "d");
+}
+
 function normalizeHeading(h: string): string {
-  return (h || "")
+  return foldDiacritics(h || "")
     .toLowerCase()
     .replace(/[*_`~]/g, "") // strip markdown emphasis
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
@@ -61,15 +78,14 @@ function normalizeHeading(h: string): string {
 }
 
 function normalizeContent(s: string): string {
-  return (
-    (s || "")
-      .replace(/!\[[^\]]*\]\([^)]*\)/g, " ") // drop image markdown → fingerprint is image-independent,
-      // so the editor's raw-body reconcile and the assembler's stripped-body resolve agree.
-      .toLowerCase()
-      .replace(/[^\p{L}\p{N}\s]/gu, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-  );
+  // Strip images with the SAME helper the assembler uses (inline + reference-style
+  // + definitions) so the editor's raw-body reconcile and the assembler's
+  // stripped-body resolve compute identical fingerprints (finding #4).
+  return foldDiacritics(stripImageMarkdown(s || ""))
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /** FNV-1a 32-bit hash → 8-char hex. Deterministic; used for EXACT fingerprint equality only. */
@@ -87,7 +103,8 @@ function tokenSet(s: string): Set<string> {
 }
 
 function jaccard(a: Set<string>, b: Set<string>): number {
-  if (a.size === 0 && b.size === 0) return 1;
+  // Empty content is a NON-signal, not a perfect match (finding #1): two sections
+  // that merely both lack immediate content must not be treated as identical.
   if (a.size === 0 || b.size === 0) return 0;
   let inter = 0;
   for (const w of a) if (b.has(w)) inter++;
@@ -177,7 +194,12 @@ function toRef(id: string, s: ParsedSection): SectionRef {
  */
 export function scoreMatch(prev: SectionRef, s: ParsedSection): number {
   const headingEq = !!prev.normalized && prev.normalized === s.normalized;
-  const fpEq = !!prev.fingerprint && prev.fingerprint === s.fingerprint;
+  // A fingerprint match only counts when BOTH sections actually have content —
+  // otherwise every empty-immediate-content section shares the FNV basis and would
+  // cross-match, churning valid anchors on an unrelated edit (finding #1). Empty
+  // sections must match on heading, not on a shared empty hash.
+  const bothHaveContent = (prev.excerpt ?? "").length > 0 && s.excerpt.length > 0;
+  const fpEq = bothHaveContent && !!prev.fingerprint && prev.fingerprint === s.fingerprint;
   if (headingEq && fpEq) return 100;
   let base = 0;
   if (fpEq) base = 82;

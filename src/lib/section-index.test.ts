@@ -149,6 +149,29 @@ describe("determinism & idempotence", () => {
     const again = reconcileSectionIndex(idx, body, freshAlloc());
     expect(again.map((s) => s.id)).toEqual(idx.map((s) => s.id));
   });
+  it("empty-immediate-content sections don't cross-match — a valid id survives an unrelated delete (review #1)", () => {
+    // Alpha & Beta have EMPTY immediate content (heading immediately followed by a
+    // subheading) — a common shape. Before the fix they shared the FNV basis and
+    // cross-matched, churning Beta's id when Alpha was deleted.
+    const body = "## Alpha\n\n### A1\n\nalpha sub\n\n## Beta\n\n### B1\n\nbeta sub";
+    const idx = index(body);
+    const betaId = idOf(idx, "Beta");
+    const after = "## Beta\n\n### B1\n\nbeta sub"; // Alpha (unrelated) deleted
+    const beta = matchSections(idx, parseSections(after).sections).find(
+      (m) => m.ref.id === betaId,
+    )!;
+    expect(beta.status).toBe("resolved"); // matched on heading, not the shared empty hash
+    expect(beta.section!.heading).toBe("Beta");
+  });
+
+  it("folds diacritics so a localized heading is stable identity (å/ø/ę)", () => {
+    const body = "## Vanliga frågor\n\nsvar här om produkten";
+    const idx = index(body);
+    const renamed = "## Vanliga Frågor\n\nsvar här om produkten"; // case only
+    const next = reconcileSectionIndex(idx, renamed, freshAlloc());
+    expect(next[0].id).toBe(idx[0].id);
+  });
+
   it("resolveSectionPositions maps a persisted id to its current section", () => {
     const body = "## A\n\naaa apples\n\n## B\n\nbbb bananas";
     const idx = index(body);
