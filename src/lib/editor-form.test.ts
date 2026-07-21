@@ -93,7 +93,7 @@ describe("editorFormDirty", () => {
     expect(editorFormDirty(form, stored)).toBe(false);
   });
 
-  it("EDITOR_FORM_FIELDS stays in sync with the 17 fields mergeEditorEdits owns", () => {
+  it("EDITOR_FORM_FIELDS stays in sync with the 18 fields mergeEditorEdits owns", () => {
     expect([...EDITOR_FORM_FIELDS].sort()).toEqual(
       [
         "author",
@@ -101,6 +101,7 @@ describe("editorFormDirty", () => {
         "cta",
         "editorNotes",
         "h1",
+        "hook",
         "images",
         "internalLinks",
         "keyTakeaways",
@@ -115,5 +116,41 @@ describe("editorFormDirty", () => {
         "tldr",
       ].sort(),
     );
+  });
+
+  // ---- Opening hook (Article Studio 3.0 / P1.2A) ----
+  const hook = (over: Record<string, unknown> = {}) => ({
+    id: "h1",
+    text: "Sore after training?",
+    type: "question",
+    provenance: "generated",
+    approval: "draft",
+    ...over,
+  });
+
+  it("is FALSE for a legacy asset with no hook (undefined on both sides) — T18 baseline", () => {
+    expect(editorFormDirty(base(), base())).toBe(false);
+  });
+
+  it("is TRUE when a hook is added (T18)", () => {
+    const stored = base();
+    expect(editorFormDirty(base({ hook: hook() as never }), stored)).toBe(true);
+  });
+
+  it("is TRUE when the hook text / type / approval changes (T18/T19 — the edit must persist)", () => {
+    const stored = base({ hook: hook() as never });
+    expect(editorFormDirty(base({ hook: hook({ text: "New angle." }) as never }), stored)).toBe(
+      true,
+    );
+    expect(editorFormDirty(base({ hook: hook({ type: "story" }) as never }), stored)).toBe(true);
+    expect(editorFormDirty(base({ hook: hook({ approval: "approved" }) as never }), stored)).toBe(
+      true,
+    );
+  });
+
+  it("is FALSE when the hook is unchanged — repeated Save does not read as dirty (T22)", () => {
+    const stored = base({ hook: hook({ approval: "approved" }) as never });
+    const form = base({ hook: hook({ approval: "approved" }) as never });
+    expect(editorFormDirty(form, stored)).toBe(false);
   });
 });

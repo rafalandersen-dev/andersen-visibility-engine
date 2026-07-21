@@ -37,6 +37,34 @@ export const HOOK_TYPES: readonly HookType[] = [
 /** Above this length (characters) the hook earns an "excessive-length" warning. */
 export const HOOK_MAX_CHARS = 320;
 
+/**
+ * Normalise up to three hook proposals from a generation payload (P1.2A). Pure and
+ * defensive: drops empty/malformed entries, coerces an unknown type to "question",
+ * clamps text length, and caps the list at three. No proposal is ever approved.
+ */
+export function normalizeHookProposals(value: unknown): HookProposal[] {
+  if (!Array.isArray(value)) return [];
+  const out: HookProposal[] = [];
+  for (const raw of value) {
+    if (!raw || typeof raw !== "object") continue;
+    const r = raw as Record<string, unknown>;
+    const text = String(r.text ?? r.hook ?? r.opening ?? "").trim();
+    if (!text) continue;
+    const typeRaw = String(r.type ?? r.kind ?? "")
+      .toLowerCase()
+      .trim();
+    const type = (HOOK_TYPES as readonly string[]).includes(typeRaw)
+      ? (typeRaw as HookType)
+      : "question";
+    const proposal: HookProposal = { text: text.slice(0, HOOK_MAX_CHARS), type };
+    const purpose = String(r.purpose ?? r.intent ?? "").trim();
+    if (purpose) proposal.purpose = purpose.slice(0, 200);
+    out.push(proposal);
+    if (out.length >= 3) break;
+  }
+  return out;
+}
+
 export function hasHookText(hook: ArticleHook | undefined): hook is ArticleHook {
   return Boolean(hook && hook.text && hook.text.trim());
 }

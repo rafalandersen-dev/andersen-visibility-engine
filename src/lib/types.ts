@@ -704,6 +704,12 @@ export interface ContentAsset {
   visualState?: VisualState;
   /** First-class opening hook, composed exactly once before the TL;DR (P1.2A). */
   hook?: ArticleHook;
+  /**
+   * Up to three opening-hook options returned by article generation (P1.2A). The
+   * editor's proposal selector reads these; selecting one creates a `generated`/
+   * `draft` hook. Never auto-selected or auto-approved.
+   */
+  hookProposals?: HookProposal[];
 }
 
 // ---- Content Quality Engine / Milo Score v1 ----

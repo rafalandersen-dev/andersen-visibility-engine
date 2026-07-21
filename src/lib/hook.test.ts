@@ -17,6 +17,7 @@ import {
   applyHookEdit,
   approveHook,
   reconcileHookOnRegeneration,
+  normalizeHookProposals,
 } from "./hook";
 import type { ArticleHook, ContentAsset, HookProposal } from "./types";
 
@@ -240,5 +241,37 @@ describe("legacy-upgrade duplicate detection (report only, no mutation)", () => 
   });
   it("no hook → no duplicate", () => {
     expect(detectPossibleHookDuplicate(asset())).toEqual({ duplicate: false, confidence: "none" });
+  });
+});
+
+describe("generation proposal normalization (T6 shape)", () => {
+  it("keeps up to three valid proposals, coerces unknown type, drops empties", () => {
+    const out = normalizeHookProposals([
+      { text: "Sore after training?", type: "question", purpose: "empathy" },
+      { text: "  ", type: "story" }, // empty → dropped
+      { text: "A bold claim.", type: "made-up" }, // unknown type → question
+      { text: "Third one." }, // no type → question
+      { text: "Fourth — over the cap." }, // beyond 3 → dropped
+    ]);
+    expect(out).toEqual([
+      { text: "Sore after training?", type: "question", purpose: "empathy" },
+      { text: "A bold claim.", type: "question" },
+      { text: "Third one.", type: "question" },
+    ]);
+  });
+  it("returns [] for non-array or junk input (never throws)", () => {
+    expect(normalizeHookProposals(undefined)).toEqual([]);
+    expect(normalizeHookProposals("nope")).toEqual([]);
+    expect(normalizeHookProposals([null, 3, "x"])).toEqual([]);
+  });
+  it("a normalized proposal feeds newHookFromProposal as generated/draft (never approved)", () => {
+    const [p] = normalizeHookProposals([{ text: "Lead line.", type: "promise" }]);
+    const h = newHookFromProposal(p, "h1");
+    expect(h).toMatchObject({
+      text: "Lead line.",
+      type: "promise",
+      provenance: "generated",
+      approval: "draft",
+    });
   });
 });

@@ -12,6 +12,7 @@ import { z } from "zod";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 import { normalizeQualityScore } from "./quality";
+import { normalizeHookProposals } from "./hook";
 import { brandIntelligenceBlock } from "./brand";
 import { candidateUsesOpenRouter, getRouterStatus } from "./ai-router";
 import {
@@ -500,7 +501,7 @@ function normalizeContentAsset(payload: unknown, project: Project, opp: Opportun
     ["markdown", "content", "body", "draftMarkdown", "draft_markdown", "article", "pageDraft", "page_draft"],
     `## ${opp.title}\n\nCreate a focused page for ${project.businessName || project.name} that answers the search intent clearly and guides readers toward ${opp.recommendedCta}.`,
   );
-  return ContentAssetSchema.parse({
+  const parsed = ContentAssetSchema.parse({
     metaTitle: pickString(item, ["metaTitle", "meta_title", "seoTitle", "seo_title", "title"], opp.title),
     metaDescription: pickString(item, ["metaDescription", "meta_description", "seoDescription", "seo_description", "description"], opp.businessValue),
     h1: pickString(item, ["h1", "headline", "pageTitle"], opp.title),
@@ -512,6 +513,13 @@ function normalizeContentAsset(payload: unknown, project: Project, opp: Opportun
     schemaSuggestions: normalizeStringArray(item.schemaSuggestions ?? item.schema_suggestions ?? item.schema ?? item.structuredData ?? item.structured_data, []),
     editorNotes: pickString(item, ["editorNotes", "editor_notes", "notes"], ""),
   });
+  // Article Studio 3.0 / P1.2A — up to three opening-hook proposals, when the
+  // generation returned any. Additive + optional: an older/other generation path
+  // that does not request them simply yields none, and the result is unchanged.
+  const hookProposals = normalizeHookProposals(
+    item.hookProposals ?? item.hooks ?? item.hook_proposals,
+  );
+  return hookProposals.length ? { ...parsed, hookProposals } : parsed;
 }
 
 function normalizeAuditCategory(value: unknown) {
@@ -1626,7 +1634,7 @@ export const generateContentAssetFn = createServerFn({ method: "POST" })
       const payload = await generateJsonText(`${kindInstruction}
 
 Return exactly this JSON shape:
-{"metaTitle":"","metaDescription":"","h1":"","outline":[""],"faq":[{"q":"","a":""}],"cta":"","markdown":"","internalLinks":[""],"schemaSuggestions":[""],"editorNotes":""}
+{"metaTitle":"","metaDescription":"","h1":"","outline":[""],"faq":[{"q":"","a":""}],"cta":"","markdown":"","internalLinks":[""],"schemaSuggestions":[""],"editorNotes":"","hookProposals":[{"text":"","type":"question","purpose":""}]}
 
 Topic: ${opp.title}
 Search intent: ${opp.searchIntent}
@@ -1643,6 +1651,9 @@ Markdown rules:
 - No keyword stuffing.
 - Internal links: relative paths like "/services" or "/contact" only.
 - schemaSuggestions: schema.org types only (e.g. "Service", "FAQPage").
+- Do NOT open the markdown body with the hook — the hook is authored separately in hookProposals.
+
+hookProposals: 2–3 alternative one-sentence opening hooks in ${contentLang}. Each has a "type" from: question, problem-to-solution, surprising-fact, contrarian, story, result, promise, and an optional short "purpose". Never invent statistics, testimonials, outcomes or guarantees in a hook.
 ${sharedRules}`,
       8000);
 

@@ -48,6 +48,14 @@ import {
 } from "@/lib/image-storage.functions";
 import { reusedImageMeta } from "@/lib/image-storage";
 import { editorFormDirty } from "@/lib/editor-form";
+import {
+  HOOK_TYPES,
+  validateHook,
+  newHookFromProposal,
+  applyHookEdit,
+  approveHook,
+} from "@/lib/hook";
+import { articleVisualPolicy } from "@/lib/visual-model";
 import { effectivePublishMode } from "@/lib/publish-targets";
 import { pipelineStage } from "@/lib/pipeline";
 import { StageChip } from "@/components/StageChip";
@@ -74,6 +82,8 @@ import type {
   PublishDestinationType,
   PublishStatus,
   LivePublishStatus,
+  HookType,
+  HookProposal,
 } from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
 // P0.3 — Preview and Export use the SAME canonical converter as publishing, so
@@ -376,6 +386,32 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   };
   const updAuthor = (patch: Partial<NonNullable<ContentAsset["author"]>>) =>
     setF((p) => ({ ...p, author: { ...(p.author ?? { name: "" }), ...patch } }));
+  // ---- Opening hook (Article Studio 3.0 / P1.2A) ----
+  const nowIso = () => new Date().toISOString();
+  const hookIsV3 = articleVisualPolicy(f) === "v3";
+  const hookFindings = useMemo(() => validateHook(f), [f]);
+  const selectHookProposal = (p: HookProposal) =>
+    setF((prev) => ({ ...prev, hook: newHookFromProposal(p, crypto.randomUUID(), nowIso()) }));
+  const addHook = () =>
+    setF((prev) => ({
+      ...prev,
+      hook: {
+        id: crypto.randomUUID(),
+        text: "",
+        type: "question",
+        provenance: "user-edited",
+        approval: "draft",
+        createdAt: nowIso(),
+        updatedAt: nowIso(),
+      },
+    }));
+  const editHook = (patch: Parameters<typeof applyHookEdit>[1]) =>
+    setF((prev) =>
+      prev.hook ? { ...prev, hook: applyHookEdit(prev.hook, patch, nowIso()) } : prev,
+    );
+  const approveHookAction = () =>
+    setF((prev) => (prev.hook ? { ...prev, hook: approveHook(prev.hook, nowIso()) } : prev));
+  const removeHook = () => setF((prev) => ({ ...prev, hook: undefined }));
   const setImages = (images: NonNullable<ContentAsset["images"]>) =>
     setF((p) => ({ ...p, images }));
   const addImage = () => {
@@ -650,6 +686,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       tldr: local.tldr,
       keyTakeaways: local.keyTakeaways,
       breadcrumbs: local.breadcrumbs,
+      // Article Studio 3.0 / P1.2A — the opening hook the Hook panel owns. Must be
+      // merged so an edited/approved hook survives Save (the P1.1 image-loss class).
+      hook: local.hook,
     };
   };
 
@@ -1297,6 +1336,124 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         </TabsList>
 
         <TabsContent value="content" className="space-y-4 py-5">
+          {/* ---- Opening hook (Article Studio 3.0 / P1.2A) ---- */}
+          <div className="space-y-3 rounded-md border border-border p-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium text-foreground">Opening hook</h3>
+              {f.hook ? (
+                <div className="flex items-center gap-1.5 text-[11px]">
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
+                    {f.hook.provenance === "user-edited" ? "Edited" : "Generated"}
+                  </span>
+                  <span
+                    className={
+                      f.hook.approval === "approved"
+                        ? "rounded bg-emerald-100 px-1.5 py-0.5 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                        : "rounded bg-amber-100 px-1.5 py-0.5 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                    }
+                  >
+                    {f.hook.approval === "approved" ? "Approved" : "Draft"}
+                  </span>
+                </div>
+              ) : null}
+            </div>
+
+            {hookIsV3 ? (
+              <p className="text-xs text-muted-foreground">
+                Article Studio 3.0 articles need an approved opening hook before publishing.
+              </p>
+            ) : null}
+
+            {!f.hook && (f.hookProposals?.length ?? 0) > 0 ? (
+              <div className="space-y-1.5">
+                <Label>Suggested hooks</Label>
+                <div className="space-y-1">
+                  {f.hookProposals!.map((p, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => selectHookProposal(p)}
+                      className="block w-full rounded border border-border px-2 py-1.5 text-left text-xs hover:bg-muted"
+                    >
+                      <span className="text-muted-foreground">[{p.type}]</span> {p.text}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {f.hook ? (
+              <>
+                <Field label="Hook text">
+                  {(id) => (
+                    <Textarea
+                      id={id}
+                      rows={2}
+                      value={f.hook!.text}
+                      onChange={(e) => editHook({ text: e.target.value })}
+                    />
+                  )}
+                </Field>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Type">
+                    {(id) => (
+                      <select
+                        id={id}
+                        value={f.hook!.type}
+                        onChange={(e) => editHook({ type: e.target.value as HookType })}
+                        className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                      >
+                        {HOOK_TYPES.map((ht) => (
+                          <option key={ht} value={ht}>
+                            {ht}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </Field>
+                  <Field label="Purpose (optional)">
+                    {(id) => (
+                      <Input
+                        id={id}
+                        value={f.hook!.purpose ?? ""}
+                        onChange={(e) => editHook({ purpose: e.target.value })}
+                      />
+                    )}
+                  </Field>
+                </div>
+
+                {hookFindings.blockers.map((b, i) => (
+                  <p key={`hb-${i}`} className="text-xs text-destructive">
+                    ⛔ {b.message}
+                  </p>
+                ))}
+                {hookFindings.warnings.map((w, i) => (
+                  <p key={`hw-${i}`} className="text-xs text-amber-600 dark:text-amber-400">
+                    ⚠ {w.message}
+                  </p>
+                ))}
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant={f.hook.approval === "approved" ? "outline" : "default"}
+                    onClick={approveHookAction}
+                    disabled={!f.hook.text.trim() || f.hook.approval === "approved"}
+                  >
+                    {f.hook.approval === "approved" ? "Approved" : "Approve hook"}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={removeHook}>
+                    Remove
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <Button size="sm" variant="outline" onClick={addHook}>
+                Add opening hook
+              </Button>
+            )}
+          </div>
+
           <Field label="Title">
             {(id) => (
               <Input id={id} value={f.title} onChange={(e) => upd("title", e.target.value)} />

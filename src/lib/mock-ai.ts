@@ -88,6 +88,7 @@ import type {
   Priority,
   AssetType,
   ContentSourceType,
+  HookProposal,
 } from "./types";
 import { newOpportunityRecord, opportunityDeduplicationKey } from "./opportunities";
 import {
@@ -264,6 +265,7 @@ type AssetResult = {
   internalLinks: string[];
   schemaSuggestions: string[];
   editorNotes: string;
+  hookProposals?: HookProposal[];
 };
 
 async function generateAsset(opportunityId: string, kind: "landing" | "article") {
@@ -295,6 +297,12 @@ async function generateAsset(opportunityId: string, kind: "landing" | "article")
       editorNotes: result.editorNotes ?? "",
       status: "Draft",
       updatedAt: new Date().toISOString(),
+      // Article Studio 3.0 / P1.2A — a newly generated long-form article/landing
+      // is a v3 asset: it needs an approved opening hook before publishing.
+      // Generation may offer up to three proposals; none is auto-selected or
+      // auto-approved (the editor's Hook panel drives selection + approval).
+      visualModelVersion: 3,
+      ...(result.hookProposals?.length ? { hookProposals: result.hookProposals } : {}),
     };
     updateOpportunity(opp.id, {
       status: "drafting",
