@@ -428,7 +428,7 @@ Capability is reported with an explicit **four-state model** — Milo never clai
 
 **Legacy → upgraded transition.** The transition is an **explicit author action**, never automatic. An article moves from `needsVisualUpgrade` to `current` only when the author opts it into the visual upgrade **and** satisfies the new-article requirements (approved hook + approved featured image + alt). During the upgrade, legacy inline images may be mapped to `article-end` and marked `unplaced` for placement review (§4.2). On completion, `visualState` flips to `current` and the article is thereafter held to the new-article rules.
 
-**Reversibility.** The forward transition is **deliberate and, by default, forward-only** — once an article is `current`, it is governed by the new rules and is not silently reverted. A **documented escape hatch** allows an explicit author "revert to legacy policy" that sets `visualState` back to `needsVisualUpgrade` (e.g. to un-block an in-progress edit); this is an explicit, logged choice, not an automatic fallback. (Open sub-decision D‑AS3‑5: whether to expose the revert in the MVP or defer it — see `DECISION-LOG.md`.)
+**Reversibility (DECIDED — revert deferred, D‑AS3‑5).** The forward transition is **deliberate and forward-only in the UI**: once an article is explicitly upgraded to the Article Studio 3.0 visual model, there is **no user-facing "revert to legacy" control in the P1.2 MVP**. The underlying model may remain **technically** backward-compatible (the new fields are additive/optional JSONB), but **exposing** a revert control is **deferred technical/product scope**, not built in this phase. There is no automatic fallback and no silent revert.
 
 ---
 
