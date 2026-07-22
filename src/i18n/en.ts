@@ -1227,7 +1227,7 @@ export const en: Record<string, string> = {
   "hook.type.promise": "Promise",
   "hook.finding.unsupported-statistic": "The hook states a statistic or outcome with no linked evidence. Attach a source or remove the figure.",
   "hook.finding.explicit-guarantee": "The hook makes an explicit guarantee. Milo does not publish guarantees — rephrase without a promise of results.",
-  "hook.finding.ymyl-unsupported": "The hook makes a health, finance or legal claim that needs a cited source. Attach evidence or request human confirmation.",
+  "hook.finding.ymyl-unsupported": "The hook makes a health, finance or legal claim — a cited source or human confirmation is recommended (no longer required to publish).",
   "hook.finding.unsupported-testimonial": "The hook presents a customer result or testimonial as fact with no declared evidence source. Attach evidence or remove the claim.",
   "hook.finding.generic-filler": "The hook opens with generic filler. Lead with something specific.",
   "hook.finding.title-repetition": "The hook mostly repeats the title. Give it a distinct angle.",

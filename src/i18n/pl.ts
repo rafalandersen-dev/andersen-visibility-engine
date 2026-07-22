@@ -1182,7 +1182,7 @@ export const pl: Record<string, string> = {
   "hook.type.promise": "Obietnica",
   "hook.finding.unsupported-statistic": "Hak podaje statystykę lub wynik bez powiązanego dowodu. Dołącz źródło lub usuń liczbę.",
   "hook.finding.explicit-guarantee": "Hak zawiera wyraźną gwarancję. Milo nie publikuje gwarancji — przeredaguj bez obietnicy rezultatów.",
-  "hook.finding.ymyl-unsupported": "Hak zawiera twierdzenie zdrowotne, finansowe lub prawne wymagające źródła. Dołącz dowód lub poproś o potwierdzenie przez człowieka.",
+  "hook.finding.ymyl-unsupported": "Hak zawiera twierdzenie zdrowotne, finansowe lub prawne — zalecane jest źródło lub potwierdzenie przez człowieka (nie jest już wymagane do publikacji).",
   "hook.finding.unsupported-testimonial": "Hak przedstawia wynik lub opinię klienta jako fakt bez podanego źródła. Dołącz dowód lub usuń twierdzenie.",
   "hook.finding.generic-filler": "Hak zaczyna się ogólnikiem. Zacznij od czegoś konkretnego.",
   "hook.finding.title-repetition": "Hak w większości powtarza tytuł. Nadaj mu odrębne ujęcie.",

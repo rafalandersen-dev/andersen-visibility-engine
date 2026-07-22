@@ -1161,7 +1161,7 @@ export const sv: Record<string, string> = {
   "hook.type.promise": "Löfte",
   "hook.finding.unsupported-statistic": "Hooken anger statistik eller resultat utan länkat underlag. Bifoga en källa eller ta bort siffran.",
   "hook.finding.explicit-guarantee": "Hooken ger en uttrycklig garanti. Milo publicerar inte garantier — formulera om utan löfte om resultat.",
-  "hook.finding.ymyl-unsupported": "Hooken gör ett hälso-, ekonomi- eller juridikpåstående som behöver en källa. Bifoga underlag eller begär mänsklig bekräftelse.",
+  "hook.finding.ymyl-unsupported": "Hooken gör ett hälso-, ekonomi- eller juridikpåstående — en källa eller mänsklig bekräftelse rekommenderas (krävs inte längre för publicering).",
   "hook.finding.unsupported-testimonial": "Hooken framställer ett kundresultat eller omdöme som fakta utan angiven källa. Bifoga underlag eller ta bort påståendet.",
   "hook.finding.generic-filler": "Hooken börjar med utfyllnad. Inled med något konkret.",
   "hook.finding.title-repetition": "Hooken upprepar mest titeln. Ge den en egen vinkel.",
