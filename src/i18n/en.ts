@@ -1266,6 +1266,28 @@ export const en: Record<string, string> = {
   "anchor.status.invalid": "Invalid placement for this image.",
   "anchor.reviewAck": "Mark placement reviewed",
   "anchor.reviewed": "Placement reviewed",
+
+  // ---- Calendar drop-to-schedule ----
+  "calsched.title.ready": "Schedule go-live?",
+  "calsched.title.notReady": "Not ready to publish",
+  "calsched.title.reschedule": "Move go-live?",
+  "calsched.readyHint": "“{title}” is ready. Pick the exact time it goes live on {date}.",
+  "calsched.notReadyHint": "“{title}” can’t be scheduled to publish yet:",
+  "calsched.rescheduleWarn": "This go-live will FAIL unless the issues above are fixed before its time.",
+  "calsched.timeLabel": "Go-live time",
+  "calsched.pastDay": "That day can’t host a go-live any more — drop it on a future day.",
+  "calsched.cancel": "Cancel",
+  "calsched.openEditor": "Open in editor",
+  "calsched.targetOnly": "Set target only",
+  "calsched.setTarget": "Set target for {date}",
+  "calsched.arm": "Schedule go-live",
+  "calsched.move": "Move go-live",
+  "calsched.badge.notReady": "Not ready",
+  "calsched.badge.willFail": "Will fail — not ready",
+  "calsched.banner": "{count} article(s) dated in the next 7 days aren’t ready to publish.",
+  "calsched.banner.armed": "goes live {when}",
+  "calsched.banner.target": "target {when}",
+  "calsched.banner.more": "+{count} more on the calendar.",
 };
 
 export type Dict = typeof en;

@@ -99,6 +99,23 @@ describe("defaultGoLiveLocal — the 09:00 rule", () => {
   it("today with no room left before midnight → null, never silently tomorrow", () => {
     expect(defaultGoLiveLocal(local(2026, 6, 22), local(2026, 6, 22, 23, 50))).toBeNull();
   });
+
+  it("a reschedule keeps the original time-of-day on the new date (preferred slot)", () => {
+    const slot = defaultGoLiveLocal(local(2026, 6, 25), local(2026, 6, 22, 10, 0), {
+      hours: 14,
+      minutes: 30,
+    });
+    expect(slot).toBe("2026-07-25T14:30");
+  });
+
+  it("a preferred slot inside the lead window falls back to 09:00, then to the nearest slot", () => {
+    // preferred 06:00 today at 10:00 now → past; 09:00 also past → nearest 10:20
+    const slot = defaultGoLiveLocal(local(2026, 6, 22), local(2026, 6, 22, 10, 2), {
+      hours: 6,
+      minutes: 0,
+    });
+    expect(slot).toBe("2026-07-22T10:20");
+  });
 });
 
 describe("upcomingPublishRisks — dated soon but will not publish", () => {

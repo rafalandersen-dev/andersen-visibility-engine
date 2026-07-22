@@ -72,20 +72,32 @@ const sameLocalDay = (a: Date, b: Date) =>
  * The default go-live slot for a calendar-day drop, as a datetime-local string
  * ("YYYY-MM-DDTHH:mm", browser-local — the dialog input's format).
  *
- * 09:00 local on the dropped day (the owner's chosen default). When 09:00 is
- * already inside the lead window (dropping on today mid-morning), the nearest
- * future slot on that day is offered instead: now + 15 min, rounded UP to the
- * runner's 5-minute grid. Returns null when the day cannot host a valid slot at
- * all (a past day, or today with no room left before midnight) — the dialog
- * then refuses to arm rather than silently scheduling tomorrow.
+ * `preferred` first when given (a reschedule keeps the article's original
+ * time-of-day on the new date), else 09:00 local on the dropped day (the
+ * owner's chosen default). When that slot is already inside the lead window
+ * (dropping on today mid-morning), the nearest future slot on the day is
+ * offered instead: now + 15 min, rounded UP to the runner's 5-minute grid.
+ * Returns null when the day cannot host a valid slot at all (a past day, or
+ * today with no room left before midnight) — the dialog then refuses to arm
+ * rather than silently scheduling a different day.
  */
-export function defaultGoLiveLocal(date: Date, now: Date = new Date()): string | null {
+export function defaultGoLiveLocal(
+  date: Date,
+  now: Date = new Date(),
+  preferred?: { hours: number; minutes: number },
+): string | null {
   const day = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const nine = new Date(day);
-  nine.setHours(9, 0, 0, 0);
   const earliest = now.getTime() + DEFAULT_LEAD_MS;
 
-  let chosen: Date | null = nine.getTime() >= earliest ? nine : null;
+  const slotAt = (hours: number, minutes: number): Date | null => {
+    const slot = new Date(day);
+    slot.setHours(hours, minutes, 0, 0);
+    return slot.getTime() >= earliest ? slot : null;
+  };
+
+  let chosen: Date | null = null;
+  if (preferred) chosen = slotAt(preferred.hours, preferred.minutes);
+  if (!chosen) chosen = slotAt(9, 0);
   if (!chosen) {
     const rounded = new Date(Math.ceil(earliest / TICK_MS) * TICK_MS);
     if (sameLocalDay(rounded, day)) chosen = rounded;

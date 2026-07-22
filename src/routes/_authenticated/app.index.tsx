@@ -5,7 +5,9 @@ import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { computeLaunchChecklist } from "@/lib/launch";
 import { opportunityView } from "@/lib/opportunities";
-import { pipelineStage, linkedAssetFor, upNext, isDropped } from "@/lib/pipeline";
+import { pipelineStage, linkedAssetFor, upNext, isDropped, GHOST_STAGES } from "@/lib/pipeline";
+import { upcomingPublishRisks } from "@/lib/calendar-schedule";
+import { PublishRiskBanner } from "@/components/PublishRiskBanner";
 import { StageChip } from "@/components/StageChip";
 // Home is not localised yet (no useT anywhere in this file); pull the action
 // label straight from the base dictionary so the wording still comes from ONE
@@ -180,6 +182,28 @@ function Dashboard() {
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 5);
 
+  // Content dated within 7 days that will NOT publish as things stand (missing/
+  // unready draft behind a target, or an armed go-live that regressed). The
+  // owner asked to see this without opening the calendar — it renders at the
+  // very top of Home. Same selector as Plan's banner and the calendar badges.
+  const publishRisks = upcomingPublishRisks({
+    ghosts: rawOpportunities
+      .filter((item) => !isDropped(item) && item.status !== "archived" && item.dueAt)
+      .map((item) => ({ opportunity: item, asset: latestAssetByOpportunity.get(item.id) }))
+      .filter(({ opportunity, asset }) =>
+        GHOST_STAGES.includes(pipelineStage({ opportunity, asset })),
+      )
+      .map(({ opportunity, asset }) => ({
+        id: opportunity.id,
+        title: opportunity.title,
+        dueAt: opportunity.dueAt,
+        assetId: asset?.id,
+      })),
+    armed: content.filter((asset) => pipelineStage({ asset }) === "armed"),
+    assets: content,
+    project: active,
+  });
+
   return (
     <AppShell
       title={`${greeting()}, ${active.businessName || active.name}`}
@@ -198,6 +222,15 @@ function Dashboard() {
         </>
       }
     >
+      <PublishRiskBanner
+        className="mb-5"
+        risks={publishRisks}
+        onOpenRisk={(risk) =>
+          risk.assetId
+            ? navigate({ to: "/app/editor", search: { id: risk.assetId } })
+            : navigate({ to: "/app/plan", search: { selected: risk.opportunityId } })
+        }
+      />
       <section className="rounded-xl border border-border bg-card p-6">
         <div className="flex flex-wrap items-center gap-6">
           <div className="flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-full border-[5px] border-[#b77f1f]/80 bg-[#faf6ec]">

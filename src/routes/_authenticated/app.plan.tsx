@@ -37,6 +37,7 @@ import {
   Plus,
   Sparkle,
   UserCircle,
+  Warning,
   X,
 } from "@phosphor-icons/react";
 import { AppShell } from "@/components/AppShell";
@@ -46,6 +47,8 @@ import {
   acceptDiscoverySuggestions,
   addOpportunity,
   archiveOpportunity,
+  getState,
+  reloadWorkspaceForUser,
   restoreOpportunity,
   saveWorkspaceNow,
   transitionOpportunity,
@@ -54,6 +57,24 @@ import {
   useStore,
 } from "@/lib/store";
 import { generateSeoOpportunities, generateContentForOpportunity } from "@/lib/mock-ai";
+import { scheduleContentPublishFn } from "@/lib/schedule.functions";
+import {
+  defaultGoLiveLocal,
+  publishReadiness,
+  upcomingPublishRisks,
+  type PublishReadiness,
+} from "@/lib/calendar-schedule";
+import { PublishRiskBanner } from "@/components/PublishRiskBanner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   canTransitionOpportunity,
   opportunitySourceLabel,
@@ -70,6 +91,7 @@ import {
   pipelineStage,
   linkedAssetFor,
   nextAction,
+  GHOST_STAGES,
   PIPELINE_STAGES,
   type PipelineStage,
 } from "@/lib/pipeline";
@@ -164,17 +186,8 @@ const FLOW_STAGES: PipelineStage[] = [
   "live",
 ];
 
-/** Stages whose dueAt is a genuine, not-yet-armed target — the calendar's ghost
- *  layer. Armed has its own solid layer; live/sent/needs_fixing/live_missing are
- *  past being a target and must not render as one. */
-const GHOST_STAGES: PipelineStage[] = [
-  "idea",
-  "queued",
-  "planned",
-  "writing",
-  "in_review",
-  "ready",
-];
+// GHOST_STAGES (the calendar's not-yet-armed target layer) moved to pipeline.ts
+// so Home's publish-risk banner shares the exact definition.
 
 function PlanPage() {
   const search = Route.useSearch();
@@ -289,6 +302,156 @@ function PlanPage() {
       return !oid || !oppIds.has(oid);
     });
   }, [content, rawOpportunities, hydrated]);
+
+  // ---- Calendar scheduling (drop-to-schedule) ----
+  // Ghost targets + their linked asset id: ONE definition shared by the risk
+  // banner, the calendar badges and CalendarView's own ghost layer.
+  const ghostTargets = useMemo(
+    () =>
+      opportunities
+        .filter((opportunity) => opportunity.dueAt && GHOST_STAGES.includes(opportunity.pipeline))
+        .map((opportunity) => ({
+          id: opportunity.id,
+          title: opportunity.title,
+          dueAt: opportunity.dueAt,
+          assetId: assetsByOpportunity.get(opportunity.id)?.id,
+        })),
+    [opportunities, assetsByOpportunity],
+  );
+  // Everything dated within 7 days that will NOT publish as things stand —
+  // including armed go-lives whose asset regressed after arming (the cron would
+  // refuse those at fire time; surface them now, not the morning after).
+  const publishRisks = useMemo(
+    () => upcomingPublishRisks({ ghosts: ghostTargets, armed: goLives, assets: content, project }),
+    [ghostTargets, goLives, content, project],
+  );
+  const riskOpportunityIds = useMemo(
+    () =>
+      new Set(
+        publishRisks
+          .filter((risk) => risk.kind === "target" && risk.opportunityId)
+          .map((risk) => risk.opportunityId as string),
+      ),
+    [publishRisks],
+  );
+  const riskAssetIds = useMemo(
+    () =>
+      new Set(
+        publishRisks
+          .filter((risk) => risk.kind === "armed" && risk.assetId)
+          .map((risk) => risk.assetId as string),
+      ),
+    [publishRisks],
+  );
+
+  // A calendar drop never mutates directly — it opens this intent in a dialog.
+  // Ready → confirm arms the REAL go-live (same queue as the editor's control).
+  // Not ready → the dialog says exactly why and offers target-only.
+  const [dropIntent, setDropIntent] = useState<{
+    date: Date;
+    opportunity?: OpportunityView;
+    asset?: ContentAsset;
+    /** True when an armed go-live chip was dragged (move, not first arm). */
+    reschedule: boolean;
+    readiness: PublishReadiness;
+  } | null>(null);
+  const [dropTime, setDropTime] = useState("");
+  const [arming, setArming] = useState(false);
+
+  function onCalendarDrop(event: React.DragEvent, date: Date) {
+    const assetId = event.dataTransfer.getData("text/asset-id");
+    if (assetId) {
+      const asset = content.find((item) => item.id === assetId);
+      if (!asset) return;
+      // A reschedule keeps the article's original time-of-day on the new date.
+      const previous = asset.scheduledPublishAt ? new Date(asset.scheduledPublishAt) : null;
+      setDropTime(
+        defaultGoLiveLocal(
+          date,
+          new Date(),
+          previous ? { hours: previous.getHours(), minutes: previous.getMinutes() } : undefined,
+        ) ?? "",
+      );
+      setDropIntent({
+        date,
+        asset,
+        reschedule: true,
+        readiness: publishReadiness(asset, project, content),
+      });
+      return;
+    }
+    const opportunityId = event.dataTransfer.getData("text/opportunity-id");
+    const opportunity = opportunities.find((item) => item.id === opportunityId);
+    if (!opportunity) return;
+    const linked = assetsByOpportunity.get(opportunity.id);
+    setDropTime(defaultGoLiveLocal(date) ?? "");
+    setDropIntent({
+      date,
+      opportunity,
+      asset: linked,
+      reschedule: false,
+      readiness: publishReadiness(linked, project, content),
+    });
+  }
+
+  /** The pre-dialog behavior, unchanged: a dropped date is a work TARGET. */
+  function applyTarget(opportunity: OpportunityView, date: Date) {
+    const dueAt = format(date, "yyyy-MM-dd");
+    if (opportunity.status === "prioritized") {
+      transitionOpportunity(opportunity.id, "scheduled", { dueAt });
+    } else {
+      updateOpportunity(opportunity.id, {
+        dueAt,
+        status: opportunity.status === "captured" ? "scheduled" : opportunity.status,
+      });
+    }
+  }
+
+  function setTargetOnly() {
+    if (!dropIntent?.opportunity) return;
+    try {
+      applyTarget(dropIntent.opportunity, dropIntent.date);
+      toast.success(`Target set for ${format(dropIntent.date, "MMM d")}`);
+      setDropIntent(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not set the target");
+    }
+  }
+
+  async function armGoLive() {
+    if (!dropIntent?.asset || !dropTime) return;
+    const instant = new Date(dropTime);
+    if (Number.isNaN(instant.getTime())) return;
+    setArming(true);
+    try {
+      // Persist the target FIRST: scheduleContentPublishFn writes its mirror into
+      // the server-side workspace blob, so a debounced save of a stale local blob
+      // afterwards would erase the mirror. Flush, then arm, then reload.
+      if (!dropIntent.reschedule && dropIntent.opportunity) {
+        applyTarget(dropIntent.opportunity, dropIntent.date);
+        await saveWorkspaceNow();
+      }
+      await scheduleContentPublishFn({
+        data: {
+          assetId: dropIntent.asset.id,
+          publishAt: instant.toISOString(),
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        },
+      });
+      const uid = getState().userId;
+      if (uid) await reloadWorkspaceForUser(uid);
+      toast.success(
+        `${dropIntent.reschedule ? "Go-live moved to" : "Scheduled — goes live"} ${formatDateTime(
+          instant.toISOString(),
+        )}`,
+      );
+      setDropIntent(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not schedule the go-live");
+    } finally {
+      setArming(false);
+    }
+  }
 
   const selected = opportunities.find((opportunity) => opportunity.id === search.selected);
   const view = search.view ?? "board";
@@ -438,6 +601,20 @@ function PlanPage() {
             onQuery={setQuery}
             onToggleArchived={() => setShowArchived((value) => !value)}
           />
+          {!showArchived && publishRisks.length > 0 ? (
+            <div className="px-3 pt-3">
+              <PublishRiskBanner
+                risks={publishRisks}
+                onOpenRisk={(risk) =>
+                  risk.assetId
+                    ? navigate({ to: "/app/editor", search: { id: risk.assetId } })
+                    : risk.opportunityId
+                      ? selectOpportunity(risk.opportunityId)
+                      : undefined
+                }
+              />
+            </div>
+          ) : null}
           {showArchived ? (
             <ArchivedView
               opportunities={opportunities}
@@ -456,6 +633,8 @@ function PlanPage() {
               goLives={goLives}
               scale={scale}
               selectedId={selected?.id}
+              riskOpportunityIds={riskOpportunityIds}
+              riskAssetIds={riskAssetIds}
               onScale={(next) =>
                 navigate({
                   to: "/app/plan",
@@ -466,6 +645,7 @@ function PlanPage() {
               onSelect={selectOpportunity}
               onPrimaryAction={onPrimaryAction}
               onOpenAsset={(assetId) => navigate({ to: "/app/editor", search: { id: assetId } })}
+              onDrop={onCalendarDrop}
             />
           ) : (
             <BoardView
@@ -503,7 +683,134 @@ function PlanPage() {
           if (!open) setContentOpportunityId(null);
         }}
       />
+
+      <ScheduleDropDialog
+        intent={dropIntent}
+        time={dropTime}
+        arming={arming}
+        onTime={setDropTime}
+        onArm={armGoLive}
+        onTargetOnly={setTargetOnly}
+        onOpenEditor={(assetId) => {
+          setDropIntent(null);
+          navigate({ to: "/app/editor", search: { id: assetId } });
+        }}
+        onClose={() => (!arming ? setDropIntent(null) : undefined)}
+      />
     </AppShell>
+  );
+}
+
+/**
+ * The calendar drop dialog. A drop is inert until confirmed here: a READY
+ * article arms the real go-live queue at the picked time (default 09:00 local);
+ * a NOT-ready one is told exactly why — the same reasons the fire-time gate
+ * would refuse it for — and can only take a soft target. Moving an armed chip
+ * reschedules it; if its asset regressed after arming, the warning says the
+ * publish will fail unless fixed (the server enforces this regardless).
+ */
+function ScheduleDropDialog({
+  intent,
+  time,
+  arming,
+  onTime,
+  onArm,
+  onTargetOnly,
+  onOpenEditor,
+  onClose,
+}: {
+  intent: {
+    date: Date;
+    opportunity?: OpportunityView;
+    asset?: ContentAsset;
+    reschedule: boolean;
+    readiness: PublishReadiness;
+  } | null;
+  time: string;
+  arming: boolean;
+  onTime: (value: string) => void;
+  onArm: () => void;
+  onTargetOnly: () => void;
+  onOpenEditor: (assetId: string) => void;
+  onClose: () => void;
+}) {
+  const t = useT();
+  if (!intent) return null;
+  const { readiness, reschedule } = intent;
+  const title = intent.asset?.title ?? intent.opportunity?.title ?? "";
+  const day = format(intent.date, "MMM d, yyyy");
+  const canArm = Boolean(intent.asset) && time !== "" && (readiness.ready || reschedule);
+  return (
+    <Dialog open onOpenChange={(open) => (!open ? onClose() : undefined)}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            {reschedule
+              ? t("calsched.title.reschedule")
+              : readiness.ready
+                ? t("calsched.title.ready")
+                : t("calsched.title.notReady")}
+          </DialogTitle>
+          <DialogDescription>
+            {readiness.ready
+              ? t("calsched.readyHint", { title, date: day })
+              : t("calsched.notReadyHint", { title })}
+          </DialogDescription>
+        </DialogHeader>
+
+        {!readiness.ready ? (
+          <ul className="grid gap-1 rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-800">
+            {readiness.reasons.map((reason) => (
+              <li key={reason}>• {reason}</li>
+            ))}
+            {reschedule ? <li className="font-medium">{t("calsched.rescheduleWarn")}</li> : null}
+          </ul>
+        ) : null}
+
+        {(readiness.ready || reschedule) && intent.asset ? (
+          time === "" ? (
+            <p className="text-xs text-amber-700">{t("calsched.pastDay")}</p>
+          ) : (
+            <div>
+              <Label className="text-xs text-muted-foreground">{t("calsched.timeLabel")}</Label>
+              <Input
+                type="datetime-local"
+                className="mt-1 h-9 w-60 text-sm"
+                value={time}
+                onChange={(event) => onTime(event.target.value)}
+              />
+            </div>
+          )
+        ) : null}
+
+        <DialogFooter className="gap-2">
+          <Button variant="ghost" onClick={onClose} disabled={arming}>
+            {t("calsched.cancel")}
+          </Button>
+          {!readiness.ready && intent.asset ? (
+            <Button variant="outline" onClick={() => onOpenEditor(intent.asset!.id)}>
+              {t("calsched.openEditor")}
+            </Button>
+          ) : null}
+          {!reschedule && intent.opportunity ? (
+            <Button
+              variant={readiness.ready ? "outline" : "default"}
+              onClick={onTargetOnly}
+              disabled={arming}
+            >
+              {readiness.ready
+                ? t("calsched.targetOnly")
+                : t("calsched.setTarget", { date: format(intent.date, "MMM d") })}
+            </Button>
+          ) : null}
+          {(readiness.ready || reschedule) && intent.asset ? (
+            <Button onClick={onArm} disabled={!canArm || arming}>
+              {arming ? "…" : reschedule ? t("calsched.move") : t("calsched.arm")}
+            </Button>
+          ) : null}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1306,20 +1613,28 @@ function CalendarView({
   goLives,
   scale,
   selectedId,
+  riskOpportunityIds,
+  riskAssetIds,
   onScale,
   onSelect,
   onPrimaryAction,
   onOpenAsset,
+  onDrop,
 }: {
   opportunities: OpportunityView[];
   /** Armed assets, keyed on the asset — the real go-live layer, incl. orphans. */
   goLives: ContentAsset[];
   scale: CalendarScale;
   selectedId?: string;
+  /** Dated within 7 days but NOT ready — drives the amber/red chip badges. */
+  riskOpportunityIds: Set<string>;
+  riskAssetIds: Set<string>;
   onScale: (scale: CalendarScale) => void;
   onSelect: (id?: string) => void;
   onPrimaryAction: (opportunity: OpportunityView) => void;
   onOpenAsset: (assetId: string) => void;
+  /** Owned by PlanPage: opens the schedule dialog (arm / target / reschedule). */
+  onDrop: (event: React.DragEvent, date: Date) => void;
 }) {
   const today = new Date();
   const initial = today.getDay() === 0 ? addDays(today, 1) : today;
@@ -1348,25 +1663,13 @@ function CalendarView({
       );
   }
 
-  // Dropping a card on a day sets its TARGET (dueAt) only. It never arms and never
-  // publishes — a real go-live is set, with a zoned timestamp, in the editor.
+  // Dropping a card on a day opens PlanPage's schedule dialog: a READY article
+  // can arm its real go-live there (default 09:00 local); anything else sets a
+  // target with the reasons it can't publish spelled out. Nothing mutates on the
+  // drop itself.
   function retargetOn(event: React.DragEvent, date: Date) {
     event.preventDefault();
-    const id = event.dataTransfer.getData("text/opportunity-id");
-    const opportunity = opportunities.find((item) => item.id === id);
-    if (!opportunity) return;
-    const dueAt = format(date, "yyyy-MM-dd");
-    try {
-      if (opportunity.status === "prioritized") transitionOpportunity(id, "scheduled", { dueAt });
-      else
-        updateOpportunity(id, {
-          dueAt,
-          status: opportunity.status === "captured" ? "scheduled" : opportunity.status,
-        });
-      toast.success(`Target set for ${format(date, "MMM d")}`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not set the target");
-    }
+    onDrop(event, date);
   }
 
   const weekStart = startOfWeek(anchor, { weekStartsOn: 1 });
@@ -1439,6 +1742,8 @@ function CalendarView({
                 ghosts={ghosts}
                 goLives={goLives}
                 selectedId={selectedId}
+                riskOpportunityIds={riskOpportunityIds}
+                riskAssetIds={riskAssetIds}
                 onSelect={onSelect}
                 onPrimaryAction={onPrimaryAction}
                 onOpenAsset={onOpenAsset}
@@ -1457,6 +1762,8 @@ function CalendarView({
                 ghosts={ghosts}
                 goLives={goLives}
                 selectedId={selectedId}
+                riskOpportunityIds={riskOpportunityIds}
+                riskAssetIds={riskAssetIds}
                 onSelect={onSelect}
                 onPrimaryAction={onPrimaryAction}
                 onOpenAsset={onOpenAsset}
@@ -1473,7 +1780,8 @@ function CalendarView({
           <span className="text-[10px] text-[#697282]">{unscheduled.length}</span>
         </div>
         <p className="mt-2 text-[10px] leading-4 text-[#697282]">
-          Drag one onto a day to set its target. A real go-live is set in the editor.
+          Drag one onto a day. A ready article can be scheduled to go live right there; anything
+          else gets a work target.
         </p>
         <div className="mt-4 grid gap-2">
           {unscheduled.map((opportunity) => (
@@ -1512,6 +1820,8 @@ function CalendarDay({
   ghosts,
   goLives,
   selectedId,
+  riskOpportunityIds,
+  riskAssetIds,
   onSelect,
   onPrimaryAction,
   onOpenAsset,
@@ -1523,6 +1833,8 @@ function CalendarDay({
   ghosts: OpportunityView[];
   goLives: ContentAsset[];
   selectedId?: string;
+  riskOpportunityIds: Set<string>;
+  riskAssetIds: Set<string>;
   onSelect: (id?: string) => void;
   onPrimaryAction: (opportunity: OpportunityView) => void;
   onOpenAsset: (assetId: string) => void;
@@ -1553,20 +1865,34 @@ function CalendarDay({
         <strong className="font-display text-base">{format(date, "d")}</strong>
       </header>
 
-      {/* SOLID layer — armed go-lives. The real, scheduled events. Read-only here:
-          a go-live is changed or cancelled only from the editor's schedule control. */}
+      {/* SOLID layer — armed go-lives. The real, scheduled events. Draggable:
+          dropping one on another day opens the reschedule dialog (cancel +
+          re-arm through the same queue). Click still opens the editor. */}
       {dayGoLives.map((asset) => (
         <button
           key={asset.id}
           type="button"
+          draggable
+          onDragStart={(event) => event.dataTransfer.setData("text/asset-id", asset.id)}
           onClick={() => onOpenAsset(asset.id)}
-          className="mb-2 grid w-full gap-1 rounded-md border border-amber-500/60 bg-amber-500/10 p-2 text-left transition hover:border-amber-600"
+          className={`mb-2 grid w-full cursor-grab gap-1 rounded-md border p-2 text-left transition ${
+            riskAssetIds.has(asset.id)
+              ? "border-red-500/60 bg-red-500/10 hover:border-red-600"
+              : "border-amber-500/60 bg-amber-500/10 hover:border-amber-600"
+          }`}
         >
           <span className="flex items-center gap-1 text-[8px] font-medium uppercase tracking-[0.08em] text-amber-800">
             <Clock size={10} />
             {asset.scheduledPublishAt ? formatTime(asset.scheduledPublishAt) : ""} · Goes live
           </span>
           <strong className="text-[9px] leading-[1.4] text-[#3a2f18]">{asset.title}</strong>
+          {/* Armed but regressed since arming — the cron WILL refuse this at fire
+              time; say so here instead of the morning after. */}
+          {riskAssetIds.has(asset.id) ? (
+            <span className="flex items-center gap-1 text-[8px] font-semibold uppercase tracking-[0.08em] text-red-700">
+              <Warning size={10} weight="fill" /> {t("calsched.badge.willFail")}
+            </span>
+          ) : null}
         </button>
       ))}
 
@@ -1594,6 +1920,13 @@ function CalendarDay({
             Target — not scheduled
           </span>
           <strong className="text-[9px] leading-[1.4]">{opportunity.title}</strong>
+          {/* Dated within the week but not ready to publish — the in-app alert's
+              on-calendar counterpart. */}
+          {riskOpportunityIds.has(opportunity.id) ? (
+            <span className="flex items-center gap-1 text-[8px] font-semibold uppercase tracking-[0.08em] text-amber-700">
+              <Warning size={10} weight="fill" /> {t("calsched.badge.notReady")}
+            </span>
+          ) : null}
           {!compact ? (
             <button
               type="button"
