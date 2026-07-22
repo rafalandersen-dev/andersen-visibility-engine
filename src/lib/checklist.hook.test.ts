@@ -79,6 +79,17 @@ describe("version-3 hook enforcement on the shared gate (T21)", () => {
     expect(isPublishBlocked(a, project(), [a])).toBe(true);
   });
 
+  it("v3 hook making ONLY a YMYL (health) claim does NOT block — advisory (owner decision 2026-07-22)", () => {
+    const a = asset({
+      visualModelVersion: 3,
+      hook: hook({ approval: "approved", text: "This massage cures chronic back pain." }),
+    });
+    const list = buildPublishingChecklist(a, project(), [a]);
+    // hookClaims no longer trips on a YMYL-only hook (the other claim gates still would)...
+    expect(item(list, "hookClaims")!.passed).toBe(true);
+    expect(isPublishBlocked(a, project(), [a])).toBe(false);
+  });
+
   it("an 'upgrading' legacy asset is also gated on the hook", () => {
     const a = asset({ visualState: "upgrading" });
     expect(item(buildPublishingChecklist(a, project(), [a]), "hook")!.passed).toBe(false);
