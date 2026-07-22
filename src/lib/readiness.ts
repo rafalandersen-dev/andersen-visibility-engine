@@ -161,8 +161,9 @@ function aiReadability(canonicalMarkdown: string): {
 
 /**
  * YMYL detection + support. `fail` = claims present but NOT adequately supported
- * (no verified source and no resolved author) → the J checklist turns this into a
- * hard block that requires a human. `review` = claims present but supported.
+ * (no verified source and no resolved author) → the J checklist surfaces this as
+ * an advisory warning and it feeds the readiness score (no longer a hard block;
+ * owner decision 2026-07-22). `review` = claims present but supported.
  */
 function ymyl(
   asset: ContentAsset,
@@ -186,8 +187,8 @@ function ymyl(
     return { level: "pass", method: "deterministic", signals: [], supported: true };
   // "Supported" for a YMYL claim requires a VERIFIED source or an author with a
   // real CREDENTIAL — a bare name + profile URL is not enough to back a health/
-  // finance/legal claim. Unsupported → fail (the checklist turns this into a hard
-  // human-review block).
+  // finance/legal claim. Unsupported → fail (surfaced as an advisory checklist
+  // warning + reflected in the readiness score; no longer a hard block).
   const supported =
     citableSources(asset.sources).length > 0 || Boolean(asset.author?.credentials?.trim());
   return { level: supported ? "review" : "fail", method: "deterministic", signals, supported };

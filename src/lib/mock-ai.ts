@@ -1566,8 +1566,8 @@ function knownPathsForProject(project: Project): string[] {
 
 /**
  * Refuse to send OR publish while ANY deterministic hard blocker fails —
- * unresolved internal links, an invalid cited source, an unmet YMYL/author gate,
- * a missing image alt / required image, or a schema inconsistency (P1.1 J). The
+ * unresolved internal links, an invalid cited source, a missing image alt /
+ * required image, or a schema inconsistency (P1.1 J). The
  * editor also disables the buttons, but the store path must refuse too so nothing
  * unsafe publishes on any connector — mirrored by the server/cron guard in
  * publish.server.ts.

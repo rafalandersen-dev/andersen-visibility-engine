@@ -5,7 +5,7 @@
  * whatever content + credentials the browser sent, running only the relative-link
  * check. That let a direct RPC call bypass EVERY other hard publishing blocker —
  * the duplicate-target guard, unresolved links introduced by a composed section,
- * the YMYL/author gate, a missing meta title, a schema inconsistency, … (the
+ * a schema inconsistency, an unapproved v3 hook, … (the
  * client gates all of these in mock-ai, but a hand-rolled RPC call does not go
  * through the client).
  *

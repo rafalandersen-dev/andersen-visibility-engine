@@ -1161,7 +1161,7 @@ export const da: Record<string, string> = {
   "hook.type.promise": "Løfte",
   "hook.finding.unsupported-statistic": "Hooken angiver en statistik eller et resultat uden tilknyttet dokumentation. Vedhæft en kilde, eller fjern tallet.",
   "hook.finding.explicit-guarantee": "Hooken giver en udtrykkelig garanti. Milo udgiver ikke garantier — omformulér uden løfte om resultater.",
-  "hook.finding.ymyl-unsupported": "Hooken kommer med en sundheds-, økonomi- eller juraudtalelse, der kræver en kilde. Vedhæft dokumentation, eller bed om menneskelig bekræftelse.",
+  "hook.finding.ymyl-unsupported": "Hooken kommer med en sundheds-, økonomi- eller juraudtalelse — en kilde eller menneskelig bekræftelse anbefales (ikke længere påkrævet for at udgive).",
   "hook.finding.unsupported-testimonial": "Hooken fremstiller et kunderesultat eller en udtalelse som fakta uden angivet kilde. Vedhæft dokumentation, eller fjern påstanden.",
   "hook.finding.generic-filler": "Hooken starter med fyldtekst. Begynd med noget konkret.",
   "hook.finding.title-repetition": "Hooken gentager mest titlen. Giv den en selvstændig vinkel.",

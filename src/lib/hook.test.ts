@@ -114,9 +114,10 @@ describe("validation — blockers (conservative, evidence-gated)", () => {
     });
     expect(codes(validateHook(a).blockers)).not.toContain("explicit-guarantee");
   });
-  it("unsupported YMYL claim blocks", () => {
+  it("unsupported YMYL claim WARNS but does not block (owner decision 2026-07-22)", () => {
     const a = asset({ hook: hook({ text: "This massage cures chronic back pain." }) });
-    expect(codes(validateHook(a).blockers)).toContain("ymyl-unsupported");
+    expect(codes(validateHook(a).blockers)).not.toContain("ymyl-unsupported");
+    expect(codes(validateHook(a).warnings)).toContain("ymyl-unsupported");
   });
   it("testimonial-as-fact without evidence blocks; with evidence it does not (T14)", () => {
     const strong = "Our clients achieved 30 fewer sick days, said one manager.";

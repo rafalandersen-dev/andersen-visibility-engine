@@ -1890,10 +1890,11 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               A named byline must be a <strong>real, consenting person</strong> — Milo never invents
               a name or credential.
             </p>
-            {publishBlockers.some((b) => b.key === "author") ? (
+            {checklist.some((b) => b.key === "author" && !b.passed) ? (
               <p className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-500">
-                <AlertTriangle className="h-3 w-3" /> YMYL publishing is blocked until a resolved
-                author (name + a real bio/credential/profile) is added.
+                <AlertTriangle className="h-3 w-3" /> Recommended for E-E-A-T: add a resolved author
+                (name + a real bio/credential/profile) for health/finance/legal content. This no
+                longer blocks publishing.
               </p>
             ) : null}
             <div className="grid gap-2.5 sm:grid-cols-2">

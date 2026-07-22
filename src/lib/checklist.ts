@@ -69,14 +69,19 @@ export function buildPublishingChecklist(
     ),
   );
 
+  // YMYL (health/finance/legal) claim support and author E-E-A-T are ADVISORY, not
+  // hard blockers (owner decision, 2026-07-22): Milo still surfaces both as
+  // warnings — an unsupported claim and a missing named author are strong SEO /
+  // trust signals — but neither refuses publishing. The readiness score continues
+  // to reflect YMYL risk independently; only the publish gate is relaxed.
   const ymylFail = readiness.ymyl.level === "fail";
   items.push(
-    block(
+    warn(
       "ymyl",
       "YMYL claims supported & reviewed",
       !ymylFail,
       ymylFail
-        ? `Health/finance/legal claim(s) [${readiness.ymyl.signals.join(", ")}] need a verified source or a resolved author, plus human review.`
+        ? `Health/finance/legal claim(s) [${readiness.ymyl.signals.join(", ")}] should have a verified source or a resolved author, plus human review (recommended, not required).`
         : "",
     ),
   );
@@ -84,12 +89,12 @@ export function buildPublishingChecklist(
   const ymylPresent = readiness.ymyl.level !== "pass";
   const authorGate = authorRequiredUnresolved(asset, ymylPresent);
   items.push(
-    block(
+    warn(
       "author",
       "Author resolved for YMYL",
       !authorGate,
       authorGate
-        ? "YMYL content needs a named author with a real bio, credential or profile — add one in the Author panel."
+        ? "For E-E-A-T, health/finance/legal content should have a named author with a real bio, credential or profile — add one in the Author panel (recommended, not required)."
         : "",
     ),
   );

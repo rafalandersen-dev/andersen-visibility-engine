@@ -25,9 +25,10 @@ export function isAuthorResolved(author: ContentAuthor | undefined): boolean {
 }
 
 /**
- * For YMYL content an author is REQUIRED and must be resolved. Returns true when
- * that gate is UNMET. Non-YMYL content never triggers this — ordinary posts do
- * not need a named author with clinical credentials.
+ * The YMYL author E-E-A-T gate: returns true when YMYL content lacks a resolved
+ * author. This drives an ADVISORY warning in the publishing checklist (owner
+ * decision 2026-07-22) — it is no longer a hard publish blocker. Non-YMYL content
+ * never triggers it. Name kept for continuity; "unresolved" = the nudge applies.
  */
 export function authorRequiredUnresolved(asset: ContentAsset, ymyl: boolean): boolean {
   if (!ymyl) return false;

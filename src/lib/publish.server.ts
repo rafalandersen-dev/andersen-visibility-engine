@@ -275,8 +275,9 @@ export async function publishAssetServerSide(
     }
     // Deterministic safety gate — the SAME publishing checklist the editor uses,
     // so a scheduled publish is refused for exactly what would block a manual one
-    // (unresolved links, invalid cited source, unmet YMYL/author gate, missing
-    // image alt / required image). Permanent — the runner parks the row.
+    // (unresolved links, invalid cited source, missing image alt / required image,
+    // an unapproved v3 hook). Permanent — the runner parks the row. (YMYL claim
+    // support and author E-E-A-T are advisory warnings, not blockers.)
     const blockers = publishBlockers(asset, project, row.data.content as ContentAsset[]);
     if (blockers.length) {
       throw new PublishNotPossibleError(

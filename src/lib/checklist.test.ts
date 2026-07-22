@@ -46,14 +46,6 @@ describe("hard blockers (deterministic safety) — each blocks", () => {
     expect(isPublishBlocked(a, project(), [a])).toBe(true);
   });
 
-  it("an unsupported YMYL claim blocks (T12)", () => {
-    const a = asset({ markdown: "This treatment cures back pain and removes every symptom." });
-    const list = buildPublishingChecklist(a, project(), [a]);
-    expect(item(list, "ymyl").passed).toBe(false);
-    expect(item(list, "author").passed).toBe(false); // YMYL present + no author
-    expect(isPublishBlocked(a, project(), [a])).toBe(true);
-  });
-
   it("a YMYL claim WITH a resolved author + source does not block", () => {
     const a = asset({
       markdown: "This treatment can help reduce symptoms for some people.",
@@ -97,6 +89,31 @@ describe("hard blockers (deterministic safety) — each blocks", () => {
     });
     expect(item(buildPublishingChecklist(a, project(), [a]), "requiredImage").passed).toBe(false);
     expect(isPublishBlocked(a, project(), [a])).toBe(true);
+  });
+});
+
+describe("YMYL & author are advisory, not hard blockers (owner decision 2026-07-22)", () => {
+  it("an unsupported YMYL claim with no author WARNS but does not block publish", () => {
+    const a = asset({ markdown: "This treatment cures back pain and removes every symptom." });
+    const list = buildPublishingChecklist(a, project(), [a]);
+    // both still flagged (passed=false) so the nudge shows...
+    expect(item(list, "ymyl").passed).toBe(false);
+    expect(item(list, "author").passed).toBe(false);
+    // ...but both are non-blocking, so publishing is allowed
+    expect(item(list, "ymyl").blocking).toBe(false);
+    expect(item(list, "author").blocking).toBe(false);
+    expect(isPublishBlocked(a, project(), [a])).toBe(false);
+    expect(publishBlockers(a, project(), [a]).map((b) => b.key)).not.toContain("ymyl");
+    expect(publishBlockers(a, project(), [a]).map((b) => b.key)).not.toContain("author");
+  });
+
+  it("a genuine hard blocker STILL blocks even on YMYL content (safety not weakened)", () => {
+    // health claim (would trip ymyl/author warnings) PLUS an unresolved internal link
+    const a = asset({
+      markdown: "This treatment cures back pain. See [invented](/made-up-page).",
+    });
+    expect(item(buildPublishingChecklist(a, project(), [a]), "links").passed).toBe(false);
+    expect(isPublishBlocked(a, project(), [a])).toBe(true); // still blocked by `links`
   });
 });
 

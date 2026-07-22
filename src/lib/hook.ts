@@ -295,15 +295,6 @@ export function validateHook(asset: ContentAsset): HookValidation {
       ),
     );
   }
-  if (YMYL_RE.test(text) && !supported) {
-    blockers.push(
-      finding(
-        "ymyl-unsupported",
-        "The hook makes a health, finance or legal claim that needs a cited source. Attach evidence or request human confirmation.",
-        ["attach-evidence", "remove-unsupported-claim", "request-human-confirmation"],
-      ),
-    );
-  }
   if (TESTIMONIAL_STRONG_RE.test(text) && !supported) {
     blockers.push(
       finding(
@@ -315,6 +306,19 @@ export function validateHook(asset: ContentAsset): HookValidation {
   }
 
   // ---- WARNINGS (never block) ----
+  // YMYL (health/finance/legal) hook claims are ADVISORY, not a hard block (owner
+  // decision 2026-07-22) — consistent with the body-level YMYL/author checklist
+  // relaxation. Still surfaced so the author can attach evidence or request human
+  // confirmation, but it no longer refuses publishing.
+  if (YMYL_RE.test(text) && !supported) {
+    warnings.push(
+      finding(
+        "ymyl-unsupported",
+        "The hook makes a health, finance or legal claim — attaching a cited source or requesting human confirmation is recommended (no longer required to publish).",
+        ["attach-evidence", "remove-unsupported-claim", "request-human-confirmation"],
+      ),
+    );
+  }
   if (FILLER_RE.test(text)) {
     warnings.push(
       finding(
