@@ -95,7 +95,7 @@ import {
   PIPELINE_STAGES,
   type PipelineStage,
 } from "@/lib/pipeline";
-import { formatDateTime, formatTime } from "@/lib/format";
+import { formatDateTimeLocal, formatTimeLocal } from "@/lib/format";
 import { StageChip } from "@/components/StageChip";
 import { OrphanLane } from "@/components/OrphanLane";
 import { StackedDeck } from "@/components/StackedDeck";
@@ -262,7 +262,7 @@ function PlanPage() {
             // about armed schedules, failed publishes and pages already live.
             pipeline: pipelineStage({ opportunity, asset }),
             pipelineDetail: asset?.scheduledPublishAt
-              ? formatDateTime(asset.scheduledPublishAt)
+              ? formatDateTimeLocal(asset.scheduledPublishAt)
               : undefined,
           };
         })
@@ -441,7 +441,7 @@ function PlanPage() {
       const uid = getState().userId;
       if (uid) await reloadWorkspaceForUser(uid);
       toast.success(
-        `${dropIntent.reschedule ? "Go-live moved to" : "Scheduled — goes live"} ${formatDateTime(
+        `${dropIntent.reschedule ? "Go-live moved to" : "Scheduled — goes live"} ${formatDateTimeLocal(
           instant.toISOString(),
         )}`,
       );
@@ -1849,10 +1849,11 @@ function CalendarDay({
   );
   const dayGoLives = goLives.filter(
     (asset) =>
-      // Bucket on the UTC calendar day of the instant (matching formatDateTime and
-      // the armed chip, both getUTC*), not the browser-local instant, or the
-      // go-live lands on the wrong cell. Robust to any stored offset, not just Z.
-      asset.scheduledPublishAt && isSameDay(utcDayAnchor(asset.scheduledPublishAt), date),
+      // Bucket on the LOCAL calendar day of the instant, matching the chip's
+      // formatTimeLocal and the datetime-local picker the user typed the slot
+      // into — a 09:00 CEST go-live must sit on the day the user meant, with
+      // the chip showing 09:00 (isSameDay compares local components).
+      asset.scheduledPublishAt && isSameDay(new Date(asset.scheduledPublishAt), date),
   );
   return (
     <div
@@ -1883,7 +1884,7 @@ function CalendarDay({
         >
           <span className="flex items-center gap-1 text-[8px] font-medium uppercase tracking-[0.08em] text-amber-800">
             <Clock size={10} />
-            {asset.scheduledPublishAt ? formatTime(asset.scheduledPublishAt) : ""} · Goes live
+            {asset.scheduledPublishAt ? formatTimeLocal(asset.scheduledPublishAt) : ""} · Goes live
           </span>
           <strong className="text-[9px] leading-[1.4] text-[#3a2f18]">{asset.title}</strong>
           {/* Armed but regressed since arming — the cron WILL refuse this at fire
@@ -2187,13 +2188,6 @@ function Detail({ label, value, icon }: { label: string; value: string; icon?: R
 function formatDate(value: string) {
   const date = new Date(value.length <= 10 ? `${value}T12:00:00` : value);
   return Number.isNaN(date.getTime()) ? value : format(date, "MMM d, yyyy");
-}
-
-/** A local-noon Date on the instant's UTC calendar day, so calendar bucketing
- *  agrees with formatDateTime (UTC) regardless of the stored offset. */
-function utcDayAnchor(iso: string): Date {
-  const d = new Date(iso);
-  return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12, 0, 0);
 }
 
 /** The path portion of a live URL, for seeding a rewrite's publishSlug. */

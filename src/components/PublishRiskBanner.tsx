@@ -7,7 +7,7 @@
  */
 import { Warning } from "@phosphor-icons/react";
 import type { PublishRisk } from "@/lib/calendar-schedule";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { formatDate, formatDateTimeLocal } from "@/lib/format";
 import { useT } from "@/i18n";
 
 const MAX_LISTED = 3;
@@ -43,7 +43,7 @@ export function PublishRiskBanner({
               <span className="text-amber-800/80">
                 {" — "}
                 {risk.kind === "armed"
-                  ? t("calsched.banner.armed", { when: formatDateTime(risk.when) })
+                  ? t("calsched.banner.armed", { when: formatDateTimeLocal(risk.when) })
                   : t("calsched.banner.target", { when: formatDate(risk.when) })}
                 {" · "}
                 {risk.reasons[0]}
