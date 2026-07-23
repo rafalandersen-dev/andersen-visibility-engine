@@ -27,9 +27,9 @@ import {
   markdownToHtml,
   unresolvedInternalLinks,
   classifyInternalLinks,
-  replaceLinkPath,
-  linkPathToText,
-  removeLinkByPath,
+  replaceLinkPathAt,
+  linkPathToTextAt,
+  removeLinkAt,
 } from "./markdown";
 import type { ContentAsset, Project } from "./types";
 
@@ -219,16 +219,61 @@ describe("no global approval bypass", () => {
   });
 });
 
-describe("resolver actions used by the editor's link-safety panel", () => {
-  it("replace repoints only the matching path", () => {
-    expect(replaceLinkPath("[a](/x) and [b](/y)", "/x", "/services")).toBe(
-      "[a](/services) and [b](/y)",
+describe("resolver actions used by the editor's link-safety panel (occurrence-scoped)", () => {
+  it("replace repoints only the matching path and occurrence", () => {
+    expect(replaceLinkPathAt("[a](/x) and [b](/y)", "/x", 0, "/pricing")).toBe(
+      "[a](/pricing) and [b](/y)",
     );
   });
   it("keep-as-text drops the link, keeps the anchor", () => {
-    expect(linkPathToText("see [a](/x) now", "/x")).toBe("see a now");
+    expect(linkPathToTextAt("see [a](/x) now", "/x", 0)).toBe("see a now");
   });
   it("remove drops the link and its text", () => {
-    expect(removeLinkByPath("see [a](/x) now", "/x")).toBe("see  now");
+    expect(removeLinkAt("see [a](/x) now", "/x", 0)).toBe("see  now");
+  });
+
+  // The live bug this fixes: five links all pointing at one invented "/services";
+  // resolving the FIRST swept all five to that target and the panel then said
+  // "all safety checks pass". Each occurrence must be its own decision.
+  const five = [
+    "[Red Light Therapy](/services) intro.",
+    "Then [Deep Relaxation Massage](/services) and [Swedish Massage](/services).",
+    "Try [Synergy Reset](/services). [Visa alla tjänster](/services)",
+  ].join("\n");
+
+  it("resolving ONE occurrence leaves the other links on the same path untouched", () => {
+    const after = replaceLinkPathAt(five, "/services", 0, "/massage-recovery/red-light-therapy");
+    expect(after).toContain("[Red Light Therapy](/massage-recovery/red-light-therapy)");
+    // The other four are STILL /services — separate decisions, not a sweep.
+    expect(after.match(/\(\/services\)/g)).toHaveLength(4);
+  });
+
+  it("occurrence indexes address each link in document order, matching the panel", () => {
+    const links = classifyInternalLinks(five, new Set(), new Set());
+    expect(links.map((l) => l.occurrence)).toEqual([0, 1, 2, 3, 4]);
+    const after = replaceLinkPathAt(five, "/services", 3, "/signature");
+    expect(after).toContain("[Synergy Reset](/signature)");
+    expect(after).toContain("[Red Light Therapy](/services)"); // 0 untouched
+    expect(after.match(/\(\/services\)/g)).toHaveLength(4);
+  });
+
+  it("keep-as-text and remove are also occurrence-scoped", () => {
+    const md = "[a](/services) then [b](/services)";
+    expect(linkPathToTextAt(md, "/services", 1)).toBe("[a](/services) then b");
+    expect(removeLinkAt(md, "/services", 0)).toBe(" then [b](/services)");
+  });
+
+  it("an out-of-range occurrence is a no-op", () => {
+    expect(replaceLinkPathAt("[a](/x)", "/x", 5, "/y")).toBe("[a](/x)");
+  });
+
+  it("occurrence counting skips heading lines exactly like the classifier", () => {
+    const md = "## See [h](/services)\n[a](/services) body";
+    // The classifier never lists the heading link, so occurrence 0 = the body link.
+    const links = classifyInternalLinks(md, new Set(), new Set());
+    expect(links).toHaveLength(1);
+    const after = replaceLinkPathAt(md, "/services", 0, "/pricing");
+    expect(after).toContain("[a](/pricing) body");
+    expect(after).toContain("## See [h](/services)"); // heading untouched
   });
 });

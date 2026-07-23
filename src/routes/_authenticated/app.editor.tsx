@@ -104,9 +104,9 @@ import { formatDateTime, formatDateTimeLocal } from "@/lib/format";
 import {
   markdownToHtml,
   classifyInternalLinks,
-  linkPathToText,
-  removeLinkByPath,
-  replaceLinkPath,
+  linkPathToTextAt,
+  removeLinkAt,
+  replaceLinkPathAt,
   type ClassifiedInternalLink,
 } from "@/lib/markdown";
 import { buildKnownInternalPaths, buildActiveInternalPaths } from "@/lib/publish-targets";
@@ -621,12 +621,21 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     await saveWorkspaceNow();
     toast.success(`Approved ${path} — it will now publish as a link.`);
   }
-  const replaceLink = (oldPath: string, newPath: string) =>
-    persistMarkdown(replaceLinkPath(f.markdown, oldPath, newPath), `Repointed to ${newPath}`);
-  const linkToText = (path: string) =>
-    persistMarkdown(linkPathToText(f.markdown, path), "Converted to plain text");
-  const removeLink = (path: string) =>
-    persistMarkdown(removeLinkByPath(f.markdown, path), "Removed the link and its text");
+  // Occurrence-scoped: each action targets exactly the ROW the user clicked.
+  // The old path-scoped versions swept every link sharing the path — five
+  // /services links collapsed to one target on the first Replace.
+  const replaceLink = (link: ClassifiedInternalLink, newPath: string) =>
+    persistMarkdown(
+      replaceLinkPathAt(f.markdown, link.path, link.occurrence, newPath),
+      `Repointed “${link.anchor}” to ${newPath}`,
+    );
+  const linkToText = (link: ClassifiedInternalLink) =>
+    persistMarkdown(
+      linkPathToTextAt(f.markdown, link.path, link.occurrence),
+      "Converted to plain text",
+    );
+  const removeLink = (link: ClassifiedInternalLink) =>
+    persistMarkdown(removeLinkAt(f.markdown, link.path, link.occurrence), "Removed the link");
   const wpConfigured = Boolean(
     project?.wordpress?.siteUrl &&
     project?.wordpress?.username &&
@@ -2409,10 +2418,12 @@ function LinkSafetyPanel({
 }: {
   links: ClassifiedInternalLink[];
   replaceOptions: string[];
+  /** Approving is PATH-scoped by design — a path is valid everywhere or nowhere. */
   onApprove: (path: string) => void;
-  onReplace: (oldPath: string, newPath: string) => void;
-  onTextOnly: (path: string) => void;
-  onRemove: (path: string) => void;
+  /** Replace/text/remove are OCCURRENCE-scoped — they act on this row only. */
+  onReplace: (link: ClassifiedInternalLink, newPath: string) => void;
+  onTextOnly: (link: ClassifiedInternalLink) => void;
+  onRemove: (link: ClassifiedInternalLink) => void;
 }) {
   return (
     <div className="rounded-md border border-amber-500/40 bg-amber-500/5 px-4 py-3">
@@ -2446,15 +2457,12 @@ function LinkSafetyPanel({
                 <Check className="h-3 w-3" /> Approve this URL
               </Button>
               {replaceOptions.length ? (
-                <ReplaceControl
-                  options={replaceOptions}
-                  onReplace={(to) => onReplace(l.path, to)}
-                />
+                <ReplaceControl options={replaceOptions} onReplace={(to) => onReplace(l, to)} />
               ) : null}
-              <Button size="sm" variant="ghost" onClick={() => onTextOnly(l.path)}>
+              <Button size="sm" variant="ghost" onClick={() => onTextOnly(l)}>
                 Keep as text
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => onRemove(l.path)}>
+              <Button size="sm" variant="ghost" onClick={() => onRemove(l)}>
                 <Trash2 className="h-3 w-3" /> Remove
               </Button>
             </div>

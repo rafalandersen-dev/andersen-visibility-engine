@@ -101,6 +101,12 @@ export interface ClassifiedInternalLink {
   href: string;
   /** Nearest preceding heading (the source section), or "". */
   section: string;
+  /**
+   * Which occurrence of THIS path this link is (0-based, document order).
+   * The resolver actions are occurrence-scoped: five links sharing one bad
+   * path are five separate decisions, never one global sweep.
+   */
+  occurrence: number;
   state: InternalLinkState;
   reason: string;
 }
@@ -117,6 +123,10 @@ export function classifyInternalLinks(
 ): ClassifiedInternalLink[] {
   const lines = (md || "").replace(/\r\n/g, "\n").split("\n");
   const out: ClassifiedInternalLink[] = [];
+  // Per-path occurrence counter, in document order — MUST count identically to
+  // rewriteLinkOccurrence (same regex, same normalisation) so a panel row's
+  // action lands on exactly the link the user clicked.
+  const seen = new Map<string, number>();
   let section = "";
   for (const line of lines) {
     const h = line.trim().match(/^#{1,6}\s+(.*)$/);
@@ -130,6 +140,8 @@ export function classifyInternalLinks(
       const anchor = m[1];
       const href = m[2];
       const path = normalizeInternalPath(href);
+      const occurrence = seen.get(path) ?? 0;
+      seen.set(path, occurrence + 1);
       const state: InternalLinkState = verified.has(path)
         ? "VERIFIED"
         : approved.has(path)
@@ -141,36 +153,67 @@ export function classifyInternalLinks(
           : state === "VERIFIED"
             ? "Matches a known page on your site."
             : "You approved this path.";
-      out.push({ anchor, path, href, section, state, reason });
+      out.push({ anchor, path, href, section, occurrence, state, reason });
     }
   }
   return out;
 }
 
-function rewriteLinksByPath(
+/**
+ * Rewrite exactly ONE link: the `occurrence`-th link (0-based, document order)
+ * whose normalised path equals `targetPath`.
+ *
+ * This replaced the old path-global sweep. That version rewrote EVERY link
+ * sharing the path, so an article with five different anchors all pointing at
+ * one invented "/services" collapsed to a single target the moment the user
+ * resolved the first row — and the panel then reported all clear. Five links
+ * are five separate decisions.
+ *
+ * Counts line-by-line with heading lines skipped — IDENTICAL to
+ * classifyInternalLinks — so the panel row's occurrence index always addresses
+ * the link the user clicked. Out-of-range occurrence: no-op.
+ */
+function rewriteLinkOccurrence(
   md: string,
   targetPath: string,
+  occurrence: number,
   build: (anchor: string, href: string) => string,
 ): string {
   const target = normalizeInternalPath(targetPath);
-  return (md || "").replace(INTERNAL_LINK_RE, (whole, anchor: string, href: string) =>
-    normalizeInternalPath(href) === target ? build(anchor, href) : whole,
-  );
+  let count = 0;
+  return (md || "")
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => {
+      if (line.trim().match(/^#{1,6}\s+/)) return line; // classify skips headings; so do we
+      return line.replace(INTERNAL_LINK_RE, (whole, anchor: string, href: string) => {
+        if (normalizeInternalPath(href) !== target) return whole;
+        const isTarget = count === occurrence;
+        count += 1;
+        return isTarget ? build(anchor, href) : whole;
+      });
+    })
+    .join("\n");
 }
 
-/** Convert every link to `path` into plain anchor text (keep text, drop link). */
-export function linkPathToText(md: string, path: string): string {
-  return rewriteLinksByPath(md, path, (anchor) => anchor);
+/** Convert ONE occurrence of a link to `path` into plain anchor text. */
+export function linkPathToTextAt(md: string, path: string, occurrence: number): string {
+  return rewriteLinkOccurrence(md, path, occurrence, (anchor) => anchor);
 }
 
-/** Remove every link to `path` entirely (text included). */
-export function removeLinkByPath(md: string, path: string): string {
-  return rewriteLinksByPath(md, path, () => "");
+/** Remove ONE occurrence of a link to `path` entirely (text included). */
+export function removeLinkAt(md: string, path: string, occurrence: number): string {
+  return rewriteLinkOccurrence(md, path, occurrence, () => "");
 }
 
-/** Repoint every link from `oldPath` to `newPath`. */
-export function replaceLinkPath(md: string, oldPath: string, newPath: string): string {
-  return rewriteLinksByPath(md, oldPath, (anchor) => `[${anchor}](${newPath})`);
+/** Repoint ONE occurrence of a link from `oldPath` to `newPath`. */
+export function replaceLinkPathAt(
+  md: string,
+  oldPath: string,
+  occurrence: number,
+  newPath: string,
+): string {
+  return rewriteLinkOccurrence(md, oldPath, occurrence, (anchor) => `[${anchor}](${newPath})`);
 }
 
 /**
