@@ -1276,4 +1276,17 @@ export const pl: Record<string, string> = {
   "pres.mobile.align": "Wyrównanie (mobile)",
   "pres.mobile.inherit": "Dziedzicz",
   "pres.capability": "Zastosowane w podglądzie Milo; niezweryfikowane w miejscu publikacji.",
+
+  // ---- Obraz wyróżniający (P1.2B) ----
+  "featured.title": "Obraz wyróżniający",
+  "featured.hint": "Jeden zatwierdzony obraz z kadrami hero/mobile — wymagany dla artykułów Article Studio 3.0.",
+  "featured.use": "Użyj „{concept}”",
+  "featured.none": "Najpierw zatwierdź obraz w panelu Obrazy.",
+  "featured.alt": "Tekst alternatywny (wymagany)",
+  "featured.caption": "Podpis",
+  "featured.variant.hero": "Kadr hero",
+  "featured.variant.mobile": "Kadr mobilny",
+  "featured.approve": "Zatwierdź obraz wyróżniający",
+  "featured.approved": "Zatwierdzony",
+  "featured.remove": "Usuń",
 };

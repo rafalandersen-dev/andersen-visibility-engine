@@ -1321,6 +1321,18 @@ export const en: Record<string, string> = {
   "pres.mobile.align": "Mobile alignment",
   "pres.mobile.inherit": "Inherit",
   "pres.capability": "Applied in Milo preview; not verified on the publish destination.",
-};
 
+  // ---- Featured image (P1.2B) ----
+  "featured.title": "Featured image",
+  "featured.hint": "One approved image with hero/mobile crops — required for Article Studio 3.0 articles.",
+  "featured.use": "Use “{concept}”",
+  "featured.none": "Approve an image in the Images panel first.",
+  "featured.alt": "Alt text (required)",
+  "featured.caption": "Caption",
+  "featured.variant.hero": "Hero crop",
+  "featured.variant.mobile": "Mobile crop",
+  "featured.approve": "Approve featured image",
+  "featured.approved": "Approved",
+  "featured.remove": "Remove",
+};
 export type Dict = typeof en;

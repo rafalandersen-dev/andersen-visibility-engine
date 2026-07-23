@@ -28,6 +28,12 @@ import {
   presentationMarkdown,
   normalizePresentation,
 } from "./presentation-compiler";
+import {
+  compileFeaturedHeroHtml,
+  featuredImageActive,
+  featuredMarkdown,
+  featuredOgImageUrl,
+} from "./featured-image";
 import { buildContentJsonLd, renderJsonLdScript } from "./structured-data";
 import { sourcesBlockMarkdown } from "./sources";
 import { authorBlockMarkdown, authorSchemaInput } from "./author";
@@ -177,6 +183,18 @@ export function assemblySections(
 const TOKEN_SAFE_ID = /^[^)\s]+$/;
 
 /**
+ * The identity-token id for an ACTIVE featured image (P1.2B), namespaced so it
+ * can never collide with an inline ContentImage id in the presented maps. Null
+ * when the featured image is absent/unapproved/incomplete or its id is not
+ * token-safe — every null falls back to the legacy featured rendering.
+ */
+function featuredTokenId(asset: ContentAsset): string | null {
+  if (!featuredImageActive(asset)) return null;
+  const id = asset.featuredImage!.imageId;
+  return TOKEN_SAFE_ID.test(id) ? `feat-${id}` : null;
+}
+
+/**
  * Compose one image as markdown. A PRESENTED image (P1.2D) emits an internal
  * identity token `![](milo-image:<id>)` resolved BY ID at render time; every other
  * image keeps the legacy `![alt](url)` (byte-identical to before P1.2D). The token
@@ -190,7 +208,11 @@ const TOKEN_SAFE_ID = /^[^)\s]+$/;
  * raw `milo-image:<id>` token (and silently drop the figure) into published output.
  */
 function composeImage(image: ContentImage): string {
-  if (image.presentation && TOKEN_SAFE_ID.test(image.id)) {
+  // Ids beginning with "feat-" are reserved for the featured-hero namespace
+  // (defence-in-depth: inline ids are randomUUIDs today, but a crafted id must
+  // never be able to alias the featured map entry). Such an image degrades to
+  // the legacy markdown path — rendered, just not token-presented.
+  if (image.presentation && TOKEN_SAFE_ID.test(image.id) && !image.id.startsWith("feat-")) {
     return `![](${MILO_IMAGE_TOKEN_PREFIX}${image.id})`;
   }
   return imageMarkdown(image);
@@ -285,10 +307,21 @@ export function composeCanonicalMarkdown(asset: ContentAsset, project: Project):
   // composes, RAW body images are stripped first so a body reference to an approved
   // URL can neither duplicate nor bypass the alt gate.
   const pub = publishableImages(asset.images, project);
-  const featured = pub
-    .filter((i) => i.placement === "featured")
-    .slice(0, 1)
-    .map(composeImage);
+  // P1.2B: an ACTIVE FeaturedImage renders as the compiled hero via the same
+  // identity-token mechanism as presented inline images, REPLACING the legacy
+  // placement:"featured" line. Absent/unapproved → legacy path, byte-identical.
+  const featTok = featuredTokenId(asset);
+  const featured = featTok
+    ? [`![](${MILO_IMAGE_TOKEN_PREFIX}${featTok})`]
+    : featuredImageActive(asset)
+      ? // ACTIVE featured image with a token-unsafe id: degrade to its literal
+        // markdown (image still renders) — never silently drop the hero while
+        // JSON-LD keeps claiming it.
+        [featuredMarkdown(asset.featuredImage!)]
+      : pub
+          .filter((i) => i.placement === "featured")
+          .slice(0, 1)
+          .map(composeImage);
   // Anchor resolution runs only when there are publishable images (so a legacy asset
   // with none keeps its raw body untouched).
   const res = pub.length ? resolveImageAnchors(asset, project) : null;
@@ -355,6 +388,13 @@ export function assembleContentAsset(
     presentedHtml.set(img.id, compileFigureHtml(img, p));
     presentedMarkdown.set(img.id, presentationMarkdown(img, p));
   }
+  // P1.2B: the featured hero rides the same token channel under a namespaced id
+  // (`feat-<imageId>`), so it can never collide with an inline image entry.
+  const featTok = featuredTokenId(asset);
+  if (featTok) {
+    presentedHtml.set(featTok, compileFeaturedHeroHtml(asset.featuredImage!));
+    presentedMarkdown.set(featTok, featuredMarkdown(asset.featuredImage!));
+  }
   // Final canonical markdown = detokenized (real URLs + degraded caption); no token leaks.
   const markdown = detokenizeMarkdown(tokenMarkdown, presentedMarkdown);
   const html = markdownToHtml(tokenMarkdown, {
@@ -379,6 +419,9 @@ export function assembleContentAsset(
     datePublished: asset.livePublishedAt,
     author: composed("author") ? authorSchemaInput(asset.author) : undefined,
     breadcrumbs: composed("breadcrumb") ? asset.breadcrumbs : undefined,
+    // P1.2B: the article's representative image (social physical asset wins,
+    // else the one approved object). Empty/absent featured → no image claim.
+    image: featuredOgImageUrl(asset) || undefined,
   });
   const jsonLdScript = renderJsonLdScript(jsonLd);
   return { markdown, html, jsonLd, jsonLdScript };

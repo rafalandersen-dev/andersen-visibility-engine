@@ -16,6 +16,7 @@ import { citableSources, isValidHttpSourceUrl } from "./sources";
 import { authorRequiredUnresolved } from "./author";
 import { imagesMissingAlt, requiredImagesUnresolved, publishableImages } from "./images";
 import { hookPublishGate, detectPossibleHookDuplicate } from "./hook";
+import { validateFeaturedImage } from "./featured-image";
 import { resolveImageAnchors } from "./image-anchors";
 import {
   validatePresentation,
@@ -176,6 +177,22 @@ export function buildPublishingChecklist(
       ),
     );
   }
+
+  // Featured image (Article Studio 3.0 / P1.2B). Same applicability rule as the
+  // hook: only v3/upgrading articles are REQUIRED to have one (legacy is never
+  // retro-blocked — needsVisualUpgrade covers it), but a featured image that IS
+  // present is validated for every asset: unapproved, alt-less, hotlinked or
+  // focal-out-of-range featured images must never publish regardless of vintage.
+  const featuredFindings = validateFeaturedImage(asset, project, hookGate.applies);
+  const featuredBlockers = featuredFindings.filter((f) => f.blocking);
+  items.push(
+    block(
+      "featuredImage",
+      "Featured image present & approved",
+      featuredBlockers.length === 0,
+      featuredBlockers.map((f) => f.message).join(" "),
+    ),
+  );
 
   // Inline image anchors (Article Studio 3.0 / P1.2C). Resolution is recomputed from
   // the CURRENT body (never a persisted status), so a section deleted/renamed/merged

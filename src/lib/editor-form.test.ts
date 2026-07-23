@@ -93,13 +93,14 @@ describe("editorFormDirty", () => {
     expect(editorFormDirty(form, stored)).toBe(false);
   });
 
-  it("EDITOR_FORM_FIELDS stays in sync with the 19 fields mergeEditorEdits owns", () => {
+  it("EDITOR_FORM_FIELDS stays in sync with the 20 fields mergeEditorEdits owns", () => {
     expect([...EDITOR_FORM_FIELDS].sort()).toEqual(
       [
         "author",
         "breadcrumbs",
         "cta",
         "editorNotes",
+        "featuredImage",
         "h1",
         "hook",
         "images",
@@ -227,6 +228,31 @@ describe("editorFormDirty", () => {
             }),
           ] as never,
         }),
+        stored,
+      ),
+    ).toBe(true);
+  });
+
+  // ---- Featured image (Article Studio 3.0 / P1.2B) ----
+  it("is TRUE when a featured image is added or its approval/crop changes (must persist)", () => {
+    const feat = (over: Record<string, unknown> = {}) => ({
+      imageId: "img1",
+      storagePath: "uid/p/a/img1.jpg",
+      url: "https://site.com/media/img1.jpg",
+      alt: "Hero",
+      hero: { aspectRatio: "wide", fit: "cover" },
+      approval: "draft",
+      ...over,
+    });
+    const stored = base({ featuredImage: feat() as never });
+    expect(editorFormDirty(base({ featuredImage: feat() as never }), stored)).toBe(false);
+    expect(editorFormDirty(base(), stored)).toBe(true); // removed
+    expect(
+      editorFormDirty(base({ featuredImage: feat({ approval: "approved" }) as never }), stored),
+    ).toBe(true);
+    expect(
+      editorFormDirty(
+        base({ featuredImage: feat({ hero: { aspectRatio: "square", fit: "cover" } }) as never }),
         stored,
       ),
     ).toBe(true);

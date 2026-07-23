@@ -23,6 +23,17 @@ const asset = (over: Partial<ContentAsset> = {}): ContentAsset =>
     ...over,
   }) as ContentAsset;
 
+// P1.2B: v3 articles now also require an APPROVED featured image; the
+// publishable-path fixtures below carry this one so they isolate the hook gate.
+const feat = () => ({
+  imageId: "img1",
+  storagePath: "uid/p/a/img1.jpg",
+  url: "https://site.com/media/img1.jpg",
+  alt: "Hero",
+  hero: { aspectRatio: "wide", fit: "cover" },
+  approval: "approved",
+});
+
 const hook = (over: Partial<ArticleHook> = {}): ArticleHook =>
   ({
     id: "h1",
@@ -62,7 +73,11 @@ describe("version-3 hook enforcement on the shared gate (T21)", () => {
   });
 
   it("v3 with an approved, clean, supported hook is publishable", () => {
-    const a = asset({ visualModelVersion: 3, hook: hook({ approval: "approved" }) });
+    const a = asset({
+      visualModelVersion: 3,
+      hook: hook({ approval: "approved" }),
+      featuredImage: feat() as never,
+    });
     const list = buildPublishingChecklist(a, project(), [a]);
     expect(item(list, "hook")!.passed).toBe(true);
     expect(item(list, "hookClaims")!.passed).toBe(true);
@@ -83,6 +98,7 @@ describe("version-3 hook enforcement on the shared gate (T21)", () => {
     const a = asset({
       visualModelVersion: 3,
       hook: hook({ approval: "approved", text: "This massage cures chronic back pain." }),
+      featuredImage: feat() as never,
     });
     const list = buildPublishingChecklist(a, project(), [a]);
     // hookClaims no longer trips on a YMYL-only hook (the other claim gates still would)...
@@ -100,7 +116,12 @@ describe("version-3 hook enforcement on the shared gate (T21)", () => {
 describe("duplicateHookInBody blocker (FIX 3)", () => {
   const HK = "Need a calmer studio session?";
   const v3 = (over: Partial<ContentAsset> = {}): ContentAsset =>
-    asset({ visualModelVersion: 3, hook: hook({ approval: "approved", text: HK }), ...over });
+    asset({
+      visualModelVersion: 3,
+      hook: hook({ approval: "approved", text: HK }),
+      featuredImage: feat() as never,
+      ...over,
+    });
 
   it("blocks when the body opens with an exact duplicate of the hook", () => {
     const a = v3({ markdown: `${HK}\n\nThe rest of the article body.` });
