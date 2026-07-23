@@ -588,20 +588,24 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       const { path, previewUrl } = await uploadArticleImageFn({
         data: { projectId: f.projectId, assetId: f.id, dataBase64 },
       });
-      setImages([
-        ...(f.images ?? []),
-        {
-          id: crypto.randomUUID(),
-          concept: newImageConcept.trim() || "Image",
-          storagePath: path,
-          previewUrl,
-          alt: "",
-          placement: "inline",
-          source: "uploaded",
-          status: "proposed",
-          required: false,
-        },
-      ]);
+      // Functional update — same stale-closure guard as the generate path.
+      setF((p) => ({
+        ...p,
+        images: [
+          ...(p.images ?? []),
+          {
+            id: crypto.randomUUID(),
+            concept: newImageConcept.trim() || "Image",
+            storagePath: path,
+            previewUrl,
+            alt: "",
+            placement: "inline",
+            source: "uploaded",
+            status: "proposed",
+            required: false,
+          },
+        ],
+      }));
       setNewImageConcept("");
       toast.success("Uploaded — add alt text, then Approve to make it publishable.");
     } catch (e) {
@@ -634,20 +638,26 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       });
       // Identical shape to an upload: proposed + staged. Nothing publishes
       // until the user approves it (promote-to-public), same as any upload.
-      setImages([
-        ...(f.images ?? []),
-        {
-          id: crypto.randomUUID(),
-          concept,
-          storagePath: path,
-          previewUrl,
-          alt,
-          placement: "inline",
-          source: "generated",
-          status: "proposed",
-          required: false,
-        },
-      ]);
+      // FUNCTIONAL update: generation takes seconds — appending onto the
+      // render-closure's f would silently revert any approval/alt edit made
+      // while it ran (the P1.1 image-loss bug class).
+      setF((p) => ({
+        ...p,
+        images: [
+          ...(p.images ?? []),
+          {
+            id: crypto.randomUUID(),
+            concept,
+            storagePath: path,
+            previewUrl,
+            alt,
+            placement: "inline",
+            source: "generated",
+            status: "proposed",
+            required: false,
+          },
+        ],
+      }));
       setNewImageConcept("");
       toast.success(t("imgGen.done"));
     } catch (e) {
@@ -2592,6 +2602,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 <Label className="text-xs text-muted-foreground">Concept (for a new image)</Label>
                 <Input
                   className="mt-1"
+                  maxLength={500}
                   value={newImageConcept}
                   onChange={(e) => setNewImageConcept(e.target.value)}
                 />

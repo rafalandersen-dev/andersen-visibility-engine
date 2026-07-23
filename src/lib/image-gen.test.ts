@@ -53,6 +53,7 @@ describe("provider seam", () => {
   });
 
   it("defaults to lovable; env flips to openai", () => {
+    vi.stubEnv("IMAGE_GEN_PROVIDER", "");
     expect(activeImageProvider()).toBe("lovable");
     vi.stubEnv("IMAGE_GEN_PROVIDER", "openai");
     expect(activeImageProvider()).toBe("openai");
@@ -100,6 +101,8 @@ describe("provider seam", () => {
   });
 
   it("refuses to run unconfigured (no key) instead of calling out", async () => {
+    vi.stubEnv("IMAGE_GEN_PROVIDER", "");
+    vi.stubEnv("LOVABLE_API_KEY", "");
     const spy = vi.fn();
     vi.stubGlobal("fetch", spy);
     await expect(generateImageBytes("p")).rejects.toThrow(/not configured/);

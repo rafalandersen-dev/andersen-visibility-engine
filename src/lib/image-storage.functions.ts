@@ -102,33 +102,7 @@ export const uploadArticleImageFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<{ path: string; previewUrl: string }> => {
     const userId = context.userId as string;
     const bytes = b64ToBytes(data.dataBase64);
-    const check = validateImageBytes(bytes);
-    if (!check.ok) {
-      const msg =
-        check.reason === "too_large"
-          ? "Image is too large (max 5 MB)."
-          : check.reason === "empty"
-            ? "The file was empty."
-            : "Unsupported image — only JPEG, PNG and WebP are allowed.";
-      throw new Error(msg);
-    }
-    const id = crypto.randomUUID();
-    const path = storageObjectPath(
-      userId,
-      data.projectId,
-      data.assetId,
-      id,
-      extForFormat(check.format),
-    );
-    const db = await admin();
-    const { error } = await db.storage
-      .from(ARTICLE_IMAGE_BUCKET_PRIVATE)
-      .upload(path, bytes, { contentType: contentTypeForFormat(check.format), upsert: false });
-    if (error) throw new Error("Could not store the image. Please try again.");
-    const { data: signed } = await db.storage
-      .from(ARTICLE_IMAGE_BUCKET_PRIVATE)
-      .createSignedUrl(path, 3600);
-    return { path, previewUrl: signed?.signedUrl ?? "" };
+    return stageValidatedImageBytes(userId, data.projectId, data.assetId, bytes);
   });
 
 /**

@@ -73,9 +73,9 @@ export const generateArticleImageFn = createServerFn({ method: "POST" })
         concept: z.string().min(3).max(500),
         articleTitle: z.string().max(300).optional(),
         project: z.object({
-          businessName: z.string().default(""),
-          businessType: z.string().default(""),
-          toneOfVoice: z.string().default(""),
+          businessName: z.string().max(200).default(""),
+          businessType: z.string().max(200).default(""),
+          toneOfVoice: z.string().max(400).default(""),
         }),
       })
       .parse(input),
