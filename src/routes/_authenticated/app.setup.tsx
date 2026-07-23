@@ -493,6 +493,7 @@ function ProjectSetup() {
                                 key={d}
                                 type="button"
                                 aria-pressed={on}
+                                disabled={on && cfg.weekdays.length === 1}
                                 onClick={() =>
                                   patch({
                                     weekdays: on

@@ -50,6 +50,10 @@ describe("config normalization", () => {
     });
     expect(dirty.weekdays).toEqual([2, 4]);
     expect(dirty.publishTime).toBe("09:00");
+    // Out-of-range wall-clock times must fall back, never roll over to another day.
+    expect(normalizeAutoSchedulerConfig({ publishTime: "24:00" }).publishTime).toBe("09:00");
+    expect(normalizeAutoSchedulerConfig({ publishTime: "99:99" }).publishTime).toBe("09:00");
+    expect(normalizeAutoSchedulerConfig({ publishTime: "23:59" }).publishTime).toBe("23:59");
     expect(dirty.timeZone).toBe("Europe/Stockholm");
     expect(dirty.mode).toBe("approve_first"); // unknown mode NEVER becomes auto_publish
     expect(dirty.summaryEmail).toBe("a@b.se");

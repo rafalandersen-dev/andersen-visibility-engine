@@ -640,6 +640,12 @@ export interface ContentAsset {
   scheduledPublishStatus?: ScheduledPublishStatus;
   scheduledPublishError?: string;
   /**
+   * "YYYY-MM" of the month the Monthly Auto-Scheduler drafted this asset for.
+   * Idempotency marker: a re-run for the same month counts these toward its
+   * target instead of drafting duplicates.
+   */
+  autoScheduledFor?: string;
+  /**
    * Set when this draft is a rewrite of a page already live whose original asset
    * was lost. Carries the prior canonical URL forward so the connector UPDATES the
    * page in place instead of CREATING a duplicate. Deliberately NOT `liveUrl`:

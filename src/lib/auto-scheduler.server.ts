@@ -42,7 +42,7 @@ import { approveHook, newHookFromProposal, validateHook } from "./hook";
 import { isSitemapInventoryFresh } from "./sitemap";
 import { fetchSitemapInventoryCore } from "./sitemap.functions";
 import { slugifyForPublish } from "./markdown";
-import { getPlanLimitsFor } from "./billing";
+import { getPlanLimitsFor, isActivePaid, PLAN_LIMITS } from "./billing";
 import { usagePeriod } from "./ai-usage.server";
 import { contentLangToProjectLanguage } from "./onboarding";
 
@@ -111,9 +111,12 @@ async function admin(): Promise<AdminClient> {
  * increments, so the cap holds even while global metering enforcement is off.
  */
 async function remainingContentQuota(userId: string, ws: WorkspaceData): Promise<number> {
-  const limits = getPlanLimitsFor(
-    (ws as { subscription?: Parameters<typeof getPlanLimitsFor>[0] }).subscription,
-  );
+  // The subscription lives in the CLIENT-WRITABLE workspace blob, and this is
+  // an autonomous monthly spend path — so gate on isActivePaid exactly like
+  // claimAiUsage's resolvePlan does. A self-declared planId without an active
+  // paid status gets the freePreview cap, never the declared tier's.
+  const sub = (ws as { subscription?: Parameters<typeof isActivePaid>[0] }).subscription;
+  const limits = isActivePaid(sub) ? getPlanLimitsFor(sub) : PLAN_LIMITS.freePreview;
   const cap = limits.monthlyContentGenerations;
   if (cap < 0) return -1;
   const db = await admin();
@@ -128,13 +131,23 @@ async function remainingContentQuota(userId: string, ws: WorkspaceData): Promise
   return Math.max(0, cap - used);
 }
 
-/** Pending go-live instants for this user (never double-book against these). */
-async function bookedInstants(userId: string, content: ContentAsset[]): Promise<string[]> {
+/**
+ * Pending go-live instants for this PROJECT (never double-book against these).
+ * Project-scoped on both halves: two sites publishing at the same instant is
+ * not a conflict — an unscoped query would let project A starve project B's
+ * identical default cadence entirely.
+ */
+async function bookedInstants(
+  userId: string,
+  projectId: string,
+  content: ContentAsset[],
+): Promise<string[]> {
   const db = await admin();
   const { data } = await db
     .from("scheduled_publishes")
     .select("publish_at")
     .eq("user_id", userId)
+    .eq("project_id", projectId)
     .in("status", ["pending", "publishing"]);
   const queue = (Array.isArray(data) ? data : []).map((r) =>
     String((r as { publish_at?: string }).publish_at ?? ""),
@@ -148,11 +161,12 @@ async function bookedInstants(userId: string, content: ContentAsset[]): Promise<
 // ---------------------------------------------------------------------------
 
 /** Server-side twin of the client asset builder in generateContentForOpportunity. */
-function buildAssetFromGeneration(
+export function buildAssetFromGeneration(
   gen: Awaited<ReturnType<typeof generateContentCore>>,
   opp: Opportunity,
   project: Project,
   nowIso: string,
+  plannedKey: string,
 ): ContentAsset {
   return {
     id: crypto.randomUUID(),
@@ -181,6 +195,12 @@ function buildAssetFromGeneration(
     createdAt: nowIso,
     // Auto-drafted long-form is always a v3 article — hook-gated like the editor path.
     visualModelVersion: 3,
+    autoScheduledFor: plannedKey,
+    // The generated proposals ride along (H1): attachBestHook consumes them,
+    // and the editor's Hook panel offers them when a draft is held for review.
+    ...((gen as { hookProposals?: ContentAsset["hookProposals"] }).hookProposals?.length
+      ? { hookProposals: (gen as { hookProposals?: ContentAsset["hookProposals"] }).hookProposals }
+      : {}),
   } as ContentAsset;
 }
 
@@ -221,13 +241,15 @@ export async function runMonthlyAutoScheduler(now = new Date()): Promise<AutoSch
     if (!userId || enabled.length === 0) continue;
     summary.workspaces++;
     for (const project of enabled) {
+      const cfg = normalizeAutoSchedulerConfig(project.autoScheduler);
+      let report: ProjectRunReport;
       try {
-        summary.projects.push(await runForProject(userId, project.id, now, planned));
+        report = await runForProject(userId, project.id, now, planned);
       } catch (e) {
-        summary.projects.push({
+        report = {
           projectId: project.id,
           projectName: project.businessName || project.name,
-          mode: normalizeAutoSchedulerConfig(project.autoScheduler).mode,
+          mode: cfg.mode,
           slots: 0,
           remainingQuota: 0,
           target: 0,
@@ -236,33 +258,35 @@ export async function runMonthlyAutoScheduler(now = new Date()): Promise<AutoSch
           held: 0,
           flaggedEmpty: 0,
           notes: [],
+          // The owner must hear about a run that failed outright (a typo'd
+          // time zone would otherwise fail silently every month forever).
+          ...(cfg.summaryEmail ? { summaryEmailTo: cfg.summaryEmail } : {}),
           error: e instanceof Error ? e.message : String(e),
-        });
+        };
       }
+      summary.projects.push(report);
+      // Email + heartbeat PER PROJECT, not at the end: a run that exceeds the
+      // cron HTTP timeout mid-way still reports every project it completed.
+      await sendSummaryEmail(report, planned).catch(() => undefined);
+      await db
+        .rpc("record_cron_heartbeat", {
+          job: "monthly-auto-scheduler",
+          summary: {
+            planned,
+            projects: summary.projects.map((p) => ({
+              id: p.projectId,
+              generated: p.generated,
+              armed: p.armed,
+              held: p.held,
+              error: p.error ?? null,
+            })),
+          } as unknown as Record<string, unknown>,
+        })
+        .then(
+          () => undefined,
+          () => undefined, // heartbeat is telemetry, never a failure reason
+        );
     }
-  }
-
-  await db
-    .rpc("record_cron_heartbeat", {
-      job: "monthly-auto-scheduler",
-      summary: {
-        planned,
-        projects: summary.projects.map((p) => ({
-          id: p.projectId,
-          generated: p.generated,
-          armed: p.armed,
-          held: p.held,
-          error: p.error ?? null,
-        })),
-      } as unknown as Record<string, unknown>,
-    })
-    .then(
-      () => undefined,
-      () => undefined, // heartbeat is telemetry, never a failure reason
-    );
-
-  for (const report of summary.projects) {
-    await sendSummaryEmail(report, planned).catch(() => undefined);
   }
   return summary;
 }
@@ -306,12 +330,25 @@ async function runForProject(
   // ---- 1. Slots, quota, target -------------------------------------------
   const booked = await bookedInstants(
     userId,
+    projectId,
     content.filter((a) => a.projectId === projectId),
   );
   const slots = computeMonthlySlots(planned.year, planned.month, cfg, booked);
   report.slots = slots.length;
   report.remainingQuota = await remainingContentQuota(userId, ws);
-  report.target = runTarget(slots.length, report.remainingQuota);
+  // Idempotency: assets this feature already drafted for the planned month
+  // count toward the target, so an interrupted run resumed later (or a manual
+  // re-trigger) fills only what is still missing instead of re-drafting.
+  const plannedKey = `${planned.year}-${String(planned.month).padStart(2, "0")}`;
+  const alreadyDrafted = content.filter(
+    (a) => a.projectId === projectId && a.autoScheduledFor === plannedKey,
+  ).length;
+  report.target = Math.max(0, runTarget(slots.length, report.remainingQuota) - alreadyDrafted);
+  if (alreadyDrafted > 0) {
+    report.notes.push(
+      `${alreadyDrafted} draft(s) from an earlier run for ${plannedKey} counted toward the target.`,
+    );
+  }
   if (report.target === 0) return report;
 
   // ---- 2. Sitemap first (page-map rule: never let the model guess paths) --
@@ -395,7 +432,7 @@ async function runForProject(
       report.flaggedEmpty++;
       continue;
     }
-    let asset = buildAssetFromGeneration(gen, opportunity, liveProject, nowIso);
+    let asset = buildAssetFromGeneration(gen, opportunity, liveProject, nowIso, plannedKey);
 
     // Auto link resolution against the real page map (owner guardrail).
     const corpus = [...content, ...prepared.map((p) => p.asset)];
@@ -437,6 +474,14 @@ async function runForProject(
   if (!prepared.length) return report;
 
   // ---- 5. One pure blob mutation for the whole project --------------------
+  // Deliberately WITHOUT schedule mirrors: the queue row is inserted first and
+  // the mirror second (same order as the interactive scheduling fn), so a crash
+  // between the two can never strand an "Approved + Goes live ..." asset that no
+  // queue row will ever publish. A queue row without a mirror is harmless (the
+  // runner publishes it; only the editor badge is missing).
+  const acceptedAndDrafted = acceptedSuggestionIds.filter((id) =>
+    prepared.some((p) => p.opportunity.id === id),
+  );
   await mutateWorkspace(userId, (data) => {
     const wsContent = Array.isArray(data.content) ? (data.content as ContentAsset[]) : [];
     const wsOpps = Array.isArray(data.opportunities) ? (data.opportunities as Opportunity[]) : [];
@@ -445,6 +490,7 @@ async function runForProject(
       : [];
     const wsProjects = Array.isArray(data.projects) ? (data.projects as Project[]) : [];
     const existingOppIds = new Set(wsOpps.map((o) => o.id));
+    const existingAssetIds = new Set(wsContent.map((a) => a.id));
     const newOpps = prepared
       .map((p) => p.opportunity)
       .filter((o) => !existingOppIds.has(o.id))
@@ -460,15 +506,8 @@ async function runForProject(
               ),
         content: [
           ...wsContent,
-          ...prepared.map((p) =>
-            p.armable
-              ? {
-                  ...p.asset,
-                  scheduledPublishAt: p.slot.publishAt,
-                  scheduledPublishStatus: "pending" as const,
-                }
-              : p.asset,
-          ),
+          // Re-runnable: never append an asset id twice on a mutation retry.
+          ...prepared.map((p) => p.asset).filter((a) => !existingAssetIds.has(a.id)),
         ],
         opportunities: [
           ...wsOpps.map((o) =>
@@ -485,8 +524,10 @@ async function runForProject(
             currentContentAssetId: prepared.find((p) => p.opportunity.id === o.id)?.asset.id,
           })),
         ],
+        // A suggestion is consumed only when its article actually got drafted —
+        // a failed generation must not burn it (it stays available next run).
         discoverySuggestions: wsSugs.map((sug) =>
-          acceptedSuggestionIds.includes(sug.id)
+          acceptedAndDrafted.includes(sug.id)
             ? { ...sug, status: "accepted" as const, acceptedOpportunityId: sug.id }
             : sug,
         ),
@@ -495,7 +536,7 @@ async function runForProject(
     };
   });
 
-  // ---- 6. Arm the queue rows (auto_publish only, AFTER the blob is safe) --
+  // ---- 6. Arm go-lives (auto_publish only): queue row FIRST, mirror second --
   const db = await admin();
   for (const p of prepared) {
     if (!p.armable) continue;
@@ -508,25 +549,27 @@ async function runForProject(
     });
     if (error) {
       report.notes.push(`"${p.asset.title}": queue insert failed — left as a ready draft.`);
-      await mutateWorkspace(userId, (data) => {
-        const wsContent = Array.isArray(data.content) ? (data.content as ContentAsset[]) : [];
-        return {
-          data: {
-            ...data,
-            content: wsContent.map((a) =>
-              a.id === p.asset.id
-                ? (({ scheduledPublishAt, scheduledPublishStatus, ...rest }) => rest)(
-                    a as ContentAsset & Record<string, unknown>,
-                  )
-                : a,
-            ),
-          },
-          result: null,
-        };
-      }).catch(() => undefined);
-    } else {
-      report.armed++;
+      continue;
     }
+    report.armed++;
+    await mutateWorkspace(userId, (data) => {
+      const wsContent = Array.isArray(data.content) ? (data.content as ContentAsset[]) : [];
+      return {
+        data: {
+          ...data,
+          content: wsContent.map((a) =>
+            a.id === p.asset.id
+              ? {
+                  ...a,
+                  scheduledPublishAt: p.slot.publishAt,
+                  scheduledPublishStatus: "pending" as const,
+                }
+              : a,
+          ),
+        },
+        result: null,
+      };
+    }).catch(() => undefined); // mirror is UI-only; the queue row is the truth
   }
   report.held = prepared.length - report.armed;
   return report;

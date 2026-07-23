@@ -60,7 +60,7 @@ export function normalizeAutoSchedulerConfig(
   return {
     enabled: raw?.enabled === true,
     weekdays: weekdays.length ? [...new Set(weekdays)] : [...AUTO_SCHEDULER_DEFAULTS.weekdays],
-    publishTime: /^\d{2}:\d{2}$/.test(raw?.publishTime ?? "")
+    publishTime: /^([01]\d|2[0-3]):[0-5]\d$/.test(raw?.publishTime ?? "")
       ? (raw!.publishTime as string)
       : AUTO_SCHEDULER_DEFAULTS.publishTime,
     timeZone: raw?.timeZone?.trim() || AUTO_SCHEDULER_DEFAULTS.timeZone,
