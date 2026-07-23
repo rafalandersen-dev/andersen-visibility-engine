@@ -17,6 +17,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const SOURCE = readFileSync(join(process.cwd(), "src/lib/ai.functions.ts"), "utf8");
+const IMAGE_SOURCE = readFileSync(join(process.cwd(), "src/lib/image-gen.functions.ts"), "utf8");
 
 /**
  * Split the file into one chunk per exported server function OR exported core.
@@ -67,5 +68,15 @@ describe("every AI server function accounts for its spend", () => {
     // The plan is resolved server-side from the caller's own workspace; accepting
     // it as input would let anyone declare themselves Pro.
     expect(SOURCE).not.toMatch(/claimAiUsage\(\{[^}]*data\.(plan|planId)/);
+  });
+});
+
+describe("image generation accounts for its spend", () => {
+  it("claims the imageGeneration bucket BEFORE the model call", () => {
+    const claim = IMAGE_SOURCE.indexOf('claimAiUsage({ userId, bucket: "imageGeneration" })');
+    const model = IMAGE_SOURCE.indexOf("generateImageBytes(");
+    expect(claim).toBeGreaterThan(-1);
+    expect(model).toBeGreaterThan(-1);
+    expect(claim).toBeLessThan(model);
   });
 });

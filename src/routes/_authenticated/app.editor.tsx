@@ -42,6 +42,7 @@ import {
 } from "@/lib/mock-ai";
 import { isControlledImageOrigin } from "@/lib/images";
 import { normalizeSourceUrl } from "@/lib/sources";
+import { generateArticleImageFn } from "@/lib/image-gen.functions";
 import {
   uploadArticleImageFn,
   promoteArticleImageFn,
@@ -587,26 +588,82 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       const { path, previewUrl } = await uploadArticleImageFn({
         data: { projectId: f.projectId, assetId: f.id, dataBase64 },
       });
-      setImages([
-        ...(f.images ?? []),
-        {
-          id: crypto.randomUUID(),
-          concept: newImageConcept.trim() || "Image",
-          storagePath: path,
-          previewUrl,
-          alt: "",
-          placement: "inline",
-          source: "uploaded",
-          status: "proposed",
-          required: false,
-        },
-      ]);
+      // Functional update — same stale-closure guard as the generate path.
+      setF((p) => ({
+        ...p,
+        images: [
+          ...(p.images ?? []),
+          {
+            id: crypto.randomUUID(),
+            concept: newImageConcept.trim() || "Image",
+            storagePath: path,
+            previewUrl,
+            alt: "",
+            placement: "inline",
+            source: "uploaded",
+            status: "proposed",
+            required: false,
+          },
+        ],
+      }));
       setNewImageConcept("");
       toast.success("Uploaded — add alt text, then Approve to make it publishable.");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Upload failed");
     } finally {
       setUploadingImage(false);
+    }
+  };
+  const [generatingImage, setGeneratingImage] = useState(false);
+  const onGenerateImage = async () => {
+    const concept = newImageConcept.trim();
+    if (concept.length < 3) {
+      toast.error(t("imgGen.needConcept"));
+      return;
+    }
+    setGeneratingImage(true);
+    try {
+      const { path, previewUrl, alt } = await generateArticleImageFn({
+        data: {
+          projectId: f.projectId,
+          assetId: f.id,
+          concept,
+          articleTitle: f.title,
+          project: {
+            businessName: project?.businessName ?? "",
+            businessType: project?.businessType ?? "",
+            toneOfVoice: project?.toneOfVoice ?? "",
+          },
+        },
+      });
+      // Identical shape to an upload: proposed + staged. Nothing publishes
+      // until the user approves it (promote-to-public), same as any upload.
+      // FUNCTIONAL update: generation takes seconds — appending onto the
+      // render-closure's f would silently revert any approval/alt edit made
+      // while it ran (the P1.1 image-loss bug class).
+      setF((p) => ({
+        ...p,
+        images: [
+          ...(p.images ?? []),
+          {
+            id: crypto.randomUUID(),
+            concept,
+            storagePath: path,
+            previewUrl,
+            alt,
+            placement: "inline",
+            source: "generated",
+            status: "proposed",
+            required: false,
+          },
+        ],
+      }));
+      setNewImageConcept("");
+      toast.success(t("imgGen.done"));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Image generation failed");
+    } finally {
+      setGeneratingImage(false);
     }
   };
   const approveImage = async (i: number) => {
@@ -2545,10 +2602,20 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 <Label className="text-xs text-muted-foreground">Concept (for a new image)</Label>
                 <Input
                   className="mt-1"
+                  maxLength={500}
                   value={newImageConcept}
                   onChange={(e) => setNewImageConcept(e.target.value)}
                 />
               </div>
+              <Button
+                size="sm"
+                variant="default"
+                onClick={onGenerateImage}
+                disabled={generatingImage || uploadingImage}
+              >
+                {generatingImage ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                {t("imgGen.generate")}
+              </Button>
               <Button size="sm" variant="outline" asChild disabled={uploadingImage}>
                 <label className="cursor-pointer">
                   {uploadingImage ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
