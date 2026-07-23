@@ -54,6 +54,40 @@ function assertOwnedPath(path: string, userId: string): void {
   }
 }
 
+/**
+ * Validate bytes (magic-byte sniff) and stage them in the PRIVATE bucket under
+ * the server-generated owner path. Shared by the upload fn and the AI
+ * image-generation fn — a provider response is untrusted input like any upload.
+ */
+export async function stageValidatedImageBytes(
+  userId: string,
+  projectId: string,
+  assetId: string,
+  bytes: Uint8Array,
+): Promise<{ path: string; previewUrl: string }> {
+  const check = validateImageBytes(bytes);
+  if (!check.ok) {
+    const msg =
+      check.reason === "too_large"
+        ? "Image is too large (max 5 MB)."
+        : check.reason === "empty"
+          ? "The file was empty."
+          : "Unsupported image — only JPEG, PNG and WebP are allowed.";
+    throw new Error(msg);
+  }
+  const id = crypto.randomUUID();
+  const path = storageObjectPath(userId, projectId, assetId, id, extForFormat(check.format));
+  const db = await admin();
+  const { error } = await db.storage
+    .from(ARTICLE_IMAGE_BUCKET_PRIVATE)
+    .upload(path, bytes, { contentType: contentTypeForFormat(check.format), upsert: false });
+  if (error) throw new Error("Could not store the image. Please try again.");
+  const { data: signed } = await db.storage
+    .from(ARTICLE_IMAGE_BUCKET_PRIVATE)
+    .createSignedUrl(path, 3600);
+  return { path, previewUrl: signed?.signedUrl ?? "" };
+}
+
 export const uploadArticleImageFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>

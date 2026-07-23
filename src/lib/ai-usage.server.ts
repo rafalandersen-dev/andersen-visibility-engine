@@ -41,6 +41,7 @@ export type UsageBucket =
   | "audit"
   | "authority"
   | "gscImport"
+  | "imageGeneration"
   | "aiCredits";
 
 const BUCKET_LIMIT: Record<UsageBucket, keyof PlanLimits> = {
@@ -50,6 +51,7 @@ const BUCKET_LIMIT: Record<UsageBucket, keyof PlanLimits> = {
   audit: "monthlyAudits",
   authority: "monthlyAuthorityGenerations",
   gscImport: "monthlyGscImports",
+  imageGeneration: "monthlyImageGenerations",
   aiCredits: "monthlyAiCredits",
 };
 
@@ -96,6 +98,7 @@ const FRIENDLY: Record<UsageBucket, string> = {
   miloScore: "Milo Score runs",
   audit: "site audits",
   authority: "authority analyses",
+  imageGeneration: "image generations",
   gscImport: "Search Console imports",
   aiCredits: "AI credits",
 };
