@@ -1899,6 +1899,10 @@ export async function publishContentLive(assetId: string) {
     }
 
     try {
+      // publishLiveFn is send-then-publish SERVER-SIDE: it re-transmits the
+      // assembled draft before flipping live, so a re-publish always carries the
+      // CURRENT content. (The live instruction itself has no body — relying on a
+      // draft sent days earlier silently published stale or nothing at all.)
       const res = await publishLiveFn({
         data: {
           // endpoint/secret intentionally not sent — see publishContentFn above.
