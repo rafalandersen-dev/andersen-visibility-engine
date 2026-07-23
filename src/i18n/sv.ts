@@ -69,7 +69,8 @@ export const sv: Record<string, string> = {
   "onboarding.appLanguage": "Appspråk",
   "onboarding.contentLanguage": "Primärt innehållsspråk",
   "onboarding.websiteUrl": "Webbadress",
-  "onboarding.websiteHint": "Milo försöker läsa din startsida för att fylla i nästa steg i förväg. Du kan även hoppa över och fylla i manuellt.",
+  "onboarding.websiteHint":
+    "Milo försöker läsa din startsida för att fylla i nästa steg i förväg. Du kan även hoppa över och fylla i manuellt.",
   "onboarding.reading": "Läser din webbplats…",
   "onboarding.prefilled": "Ifyllt i förväg från din webbplats — redigera allt nedan.",
   "onboarding.businessName": "Företagsnamn",
@@ -80,13 +81,16 @@ export const sv: Record<string, string> = {
   "onboarding.targetLocations": "Målorter (kommaseparerade)",
   "onboarding.toneOfVoice": "Tonalitet",
   "onboarding.brandNotes": "Varumärkesnoteringar (vad som ska undvikas)",
-  "onboarding.servicesIntro": "Lägg till tjänsterna eller produkterna du säljer. Du kan finjustera dem senare.",
+  "onboarding.servicesIntro":
+    "Lägg till tjänsterna eller produkterna du säljer. Du kan finjustera dem senare.",
   "onboarding.addService": "Lägg till tjänst / produkt",
   "onboarding.serviceName": "Namn",
   "onboarding.serviceDesc": "Kort beskrivning (valfritt)",
-  "onboarding.competitorsIntro": "Valfritt men rekommenderat — lägg till upp till 3 konkurrentwebbplatser som Milo kan jämföra dig mot.",
+  "onboarding.competitorsIntro":
+    "Valfritt men rekommenderat — lägg till upp till 3 konkurrentwebbplatser som Milo kan jämföra dig mot.",
   "onboarding.goalsHint": "Välj de resultat som är viktigast. Du kan ändra dem senare.",
-  "onboarding.summaryIntro": "Granska dina inställningar. Milo skapar ditt projekt och genererar en första grund.",
+  "onboarding.summaryIntro":
+    "Granska dina inställningar. Milo skapar ditt projekt och genererar en första grund.",
   "onboarding.summary.market": "Marknad",
   "onboarding.summary.language": "Språk",
   "onboarding.summary.website": "Webbplats",
@@ -101,7 +105,8 @@ export const sv: Record<string, string> = {
   "onboarding.toast.scanned": "Skannade din webbplats — granska uppgifterna",
   "onboarding.toast.scanFailed": "Kunde inte läsa webbplatsen — fyll i uppgifterna manuellt",
   "onboarding.toast.ready": "Din första tillväxtplan är klar",
-  "onboarding.toast.partial": "Inställningarna sparades. Vissa AI-steg blev inte klara — du kan köra dem från varje modul.",
+  "onboarding.toast.partial":
+    "Inställningarna sparades. Vissa AI-steg blev inte klara — du kan köra dem från varje modul.",
   "onboarding.toast.saveError": "Det gick inte att spara projektet. Försök igen.",
 
   "setup.title": "Projektinställningar",
@@ -115,6 +120,26 @@ export const sv: Record<string, string> = {
   "setup.section.markets": "Marknader och språk",
   "setup.section.positioning": "Positionering",
   "setup.section.marketsGoals": "Marknader och mål",
+  "autoSched.title": "Månatlig autoplanerare",
+  "autoSched.hint":
+    "Runt den 25:e planerar Milo nästa månad: artiklar skrivs för dina valda veckodagar inom planens månadskvot, interna länkar löses mot dina riktiga sidor och varje artikel förbereds med en godkänd inledande hook.",
+  "autoSched.enable": "Fyll nästa månads kalender automatiskt",
+  "autoSched.weekdays": "Publiceringsdagar",
+  "autoSched.publishTime": "Publiceringstid",
+  "autoSched.timeZone": "Tidszon",
+  "autoSched.mode": "Läge",
+  "autoSched.modeAuto": "Publicera automatiskt",
+  "autoSched.modeApprove": "Vänta på mitt godkännande",
+  "autoSched.modeHint":
+    "”Vänta på mitt godkännande” publicerar aldrig något: utkasten väntar som färdiga artiklar och du aktiverar dem från kalendern. ”Publicera automatiskt” schemalägger riktiga publiceringar i varje lucka.",
+  "autoSched.summaryEmail": "Sammanfattningsmejl (valfritt)",
+  "autoSched.day.1": "Mån",
+  "autoSched.day.2": "Tis",
+  "autoSched.day.3": "Ons",
+  "autoSched.day.4": "Tor",
+  "autoSched.day.5": "Fre",
+  "autoSched.day.6": "Lör",
+  "autoSched.day.7": "Sön",
   "setup.markets.market": "Marknad / land",
   "setup.markets.currency": "Valuta",
   "setup.markets.appLanguage": "Appspråk",
@@ -127,7 +152,8 @@ export const sv: Record<string, string> = {
 
   "dashboard.title": "Översikt",
   "dashboard.welcomeTitle": "Välkommen till Milo Growth",
-  "dashboard.welcomeDesc": "Din arbetsyta är tom. Skapa ditt första projekt för att starta din månatliga tillväxtplan.",
+  "dashboard.welcomeDesc":
+    "Din arbetsyta är tom. Skapa ditt första projekt för att starta din månatliga tillväxtplan.",
   "dashboard.createFirst": "Skapa första projektet",
   "dashboard.generateOpps": "Generera SEO-möjligheter",
   "dashboard.createNew": "Skapa nytt projekt",
@@ -140,7 +166,8 @@ export const sv: Record<string, string> = {
   "dashboard.recentContent": "Senaste innehåll",
   "dashboard.latestAssets": "Senaste material",
   "dashboard.openEditor": "Öppna redigeraren",
-  "dashboard.noContent": "Inget innehåll ännu. Generera en möjlighet och skapa en brief eller ett utkast för att komma igång.",
+  "dashboard.noContent":
+    "Inget innehåll ännu. Generera en möjlighet och skapa en brief eller ett utkast för att komma igång.",
   "dashboard.thisWeek": "Denna vecka",
   "dashboard.languages": "Språk",
   "dashboard.targetLocations": "Målorter",
@@ -150,7 +177,8 @@ export const sv: Record<string, string> = {
   "editor.title": "Innehållsredigerare",
   "editor.subtitle": "Förfina, godkänn och exportera AI-utkast.",
   "editor.assets": "Material",
-  "editor.aiReviewNote": "AI-genererat utkast. Granska före publicering — särskilt påståenden, priser, medicinska/juridiska/ekonomiska uppgifter och lokala regler.",
+  "editor.aiReviewNote":
+    "AI-genererat utkast. Granska före publicering — särskilt påståenden, priser, medicinska/juridiska/ekonomiska uppgifter och lokala regler.",
   "editor.noAssetSelectedTitle": "Inget material valt",
   "editor.status": "Status",
   "status.Draft": "Utkast",
@@ -176,26 +204,31 @@ export const sv: Record<string, string> = {
   "editor.publish.notPublished": "Inte publicerat",
   "editor.publish.published": "Publicerat live",
   "editor.publish.liveFailed": "Livepublicering misslyckades",
-  "editor.publish.connectHint": "Anslut en webbplats i Projektinställningar för att skicka utkast direkt från Milo.",
+  "editor.publish.connectHint":
+    "Anslut en webbplats i Projektinställningar för att skicka utkast direkt från Milo.",
   "editor.sendModal.title": "Skicka utkast till webbplatsen?",
-  "editor.sendModal.body": "Milo skickar det här innehållet till din anslutna webbplats som ett utkast. Det publiceras inte live automatiskt.",
+  "editor.sendModal.body":
+    "Milo skickar det här innehållet till din anslutna webbplats som ett utkast. Det publiceras inte live automatiskt.",
   "editor.sendModal.unapproved": "Det här materialet är inte godkänt ännu. Skicka ändå som utkast?",
   "editor.sendModal.destinationType": "Måltyp",
   "editor.sendModal.slug": "Slug",
   "editor.sendModal.send": "Skicka utkast",
   "editor.sendModal.sending": "Skickar…",
   "editor.liveModal.title": "Publicera det här utkastet live?",
-  "editor.liveModal.body": "Detta gör utkastet offentligt tillgängligt på den anslutna webbplatsen. Publicera först efter att du har granskat innehållet.",
+  "editor.liveModal.body":
+    "Detta gör utkastet offentligt tillgängligt på den anslutna webbplatsen. Publicera först efter att du har granskat innehållet.",
   "editor.liveModal.publish": "Publicera live",
   "editor.liveModal.publishing": "Publicerar…",
 
   "analytics.title": "Analys",
-  "analytics.subtitle": "Egen spårning av webbplatsens tillväxt — anonyma besök, toppsidor, prestanda för publicerat innehåll och AI-relaterade signaler.",
+  "analytics.subtitle":
+    "Egen spårning av webbplatsens tillväxt — anonyma besök, toppsidor, prestanda för publicerat innehåll och AI-relaterade signaler.",
   "analytics.refresh": "Uppdatera",
   "analytics.loading": "Laddar analys…",
   "analytics.errorTitle": "Kunde inte ladda analysen",
   "analytics.emptyTitle": "Ingen analysdata ännu",
-  "analytics.emptyDesc": "Lägg till spårningskoden på din webbplats så börjar Milo visa besök, toppsidor, prestanda för publicerat innehåll och AI-relaterade signaler.",
+  "analytics.emptyDesc":
+    "Lägg till spårningskoden på din webbplats så börjar Milo visa besök, toppsidor, prestanda för publicerat innehåll och AI-relaterade signaler.",
   "analytics.stat.visits30": "Besök (30 d)",
   "analytics.stat.prev30": "Föregående 30 d",
   "analytics.stat.growth": "Tillväxt",
@@ -214,33 +247,41 @@ export const sv: Record<string, string> = {
   "analytics.published.cta": "CTA",
   "analytics.published.booking": "Bokning",
   "analytics.published.livePage": "Livesida",
-  "analytics.published.none": "Inget publicerat innehåll matchat ännu. Publicera innehåll live från redigeraren, så visas besök på dess live-URL här.",
+  "analytics.published.none":
+    "Inget publicerat innehåll matchat ännu. Publicera innehåll live från redigeraren, så visas besök på dess live-URL här.",
   "analytics.ai.heading": "AI-hänvisningstrafik",
-  "analytics.ai.copy": "Besök där hänvisaren visar att besökaren kom från ett AI-verktyg (t.ex. ChatGPT, Perplexity) — detta är AI-hänvisningstrafik, inte AI-omnämnanden eller citeringar. Siffran är underskattad eftersom många AI-verktyg döljer hänvisaren, och den betyder inte att ditt företag nämns, citeras eller rankas i de verktygen. Robot-/bot-raderna nedan är separata aktivitetssignaler, inte besök.",
+  "analytics.ai.copy":
+    "Besök där hänvisaren visar att besökaren kom från ett AI-verktyg (t.ex. ChatGPT, Perplexity) — detta är AI-hänvisningstrafik, inte AI-omnämnanden eller citeringar. Siffran är underskattad eftersom många AI-verktyg döljer hänvisaren, och den betyder inte att ditt företag nämns, citeras eller rankas i de verktygen. Robot-/bot-raderna nedan är separata aktivitetssignaler, inte besök.",
   "analytics.ai.none": "Inga AI-hänvisningsbesök upptäckta de senaste 30 dagarna.",
   "analytics.ai.referral": "AI-hänvisningsbesök",
   "analytics.ai.crawler": "AI-robotaktivitet",
   "analytics.ai.searchBot": "AI-/sökrobotsignal",
   "analytics.setup.label": "Konfiguration",
   "analytics.setup.heading": "Spårningskod",
-  "analytics.setup.addOnce": "Lägg till detta en gång i din webbplats head/body för att börja spåra besök.",
-  "analytics.privacy": "Milo Analytics använder anonym besöks- och händelsespårning. Den lagrar inte namn, e-postadresser eller fullständiga IP-adresser.",
+  "analytics.setup.addOnce":
+    "Lägg till detta en gång i din webbplats head/body för att börja spåra besök.",
+  "analytics.privacy":
+    "Milo Analytics använder anonym besöks- och händelsespårning. Den lagrar inte namn, e-postadresser eller fullständiga IP-adresser.",
   "analytics.setupFirst": "Skapa ett projekt först",
 
   // ---- Content Quality Engine / Milo Score ----
   "quality.title": "Milo Score",
   "quality.subtitle": "Poäng för publiceringsberedskap",
-  "quality.about": "Poängen uppskattar hur redo det här utkastet är för publicering utifrån struktur, tydlighet, varumärkesanpassning, SEO/GEO-grunder och trygga konverteringselement.",
+  "quality.about":
+    "Poängen uppskattar hur redo det här utkastet är för publicering utifrån struktur, tydlighet, varumärkesanpassning, SEO/GEO-grunder och trygga konverteringselement.",
   "quality.evaluate": "Utvärdera utkast",
   "quality.reevaluate": "Utvärdera igen",
   "quality.improve": "Förbättra utkast",
   "quality.evaluating": "Utvärderar…",
   "quality.improving": "Förbättrar…",
-  "quality.empty": "Ingen Milo Score ännu. Utvärdera utkastet för att se publiceringsberedskap och förbättringsförslag.",
+  "quality.empty":
+    "Ingen Milo Score ännu. Utvärdera utkastet för att se publiceringsberedskap och förbättringsförslag.",
   "quality.needBody": "Lägg till innehåll i utkastet innan du utvärderar.",
-  "quality.stale": "Utkastet ändrades efter senaste utvärderingen. Utvärdera igen för att uppdatera Milo Score.",
+  "quality.stale":
+    "Utkastet ändrades efter senaste utvärderingen. Utvärdera igen för att uppdatera Milo Score.",
   "quality.improved": "Utkastet förbättrades. Utvärdera igen för att uppdatera Milo Score.",
-  "quality.improveConfirm": "Milo förbättrar utkastet utifrån de aktuella förslagen. Granska resultatet innan publicering.",
+  "quality.improveConfirm":
+    "Milo förbättrar utkastet utifrån de aktuella förslagen. Granska resultatet innan publicering.",
   "quality.improveConfirmTitle": "Förbättra det här utkastet?",
   "quality.breakdown": "Kategoriöversikt",
   "quality.topIssues": "Främsta problem",
@@ -252,7 +293,8 @@ export const sv: Record<string, string> = {
   "quality.rec.reviewFirst": "Granska först",
   "quality.rec.notReady": "Inte redo",
   "quality.evaluatedAt": "Utvärderad",
-  "quality.publishWarnNotReady": "Det här utkastet är markerat som inte redo. Granska Milo Score-problemen innan publicering.",
+  "quality.publishWarnNotReady":
+    "Det här utkastet är markerat som inte redo. Granska Milo Score-problemen innan publicering.",
   "quality.publishWarnNoScore": "Det här utkastet har inte utvärderats ännu.",
   "quality.error": "Kunde inte utvärdera utkastet. Försök igen.",
   "quality.cat.structure": "Struktur",
@@ -266,20 +308,23 @@ export const sv: Record<string, string> = {
 
   // ---- Brand Intelligence ----
   "brand.title": "Varumärkesintelligens",
-  "brand.intro": "Milo använder detta för att göra framtida innehåll, poängsättning och förbättringar mer varumärkesanpassade och säkrare. Alla fält är valfria.",
+  "brand.intro":
+    "Milo använder detta för att göra framtida innehåll, poängsättning och förbättringar mer varumärkesanpassade och säkrare. Alla fält är valfria.",
   "brand.save": "Spara varumärkesintelligens",
   "brand.saving": "Sparar…",
   "brand.remove": "Ta bort",
   "brand.listHint": "En per rad eller kommaseparerade.",
   "brand.toast.saved": "Varumärkesintelligens sparad",
   "brand.section.voice": "Varumärkesröst",
-  "brand.voice.help": "Berätta för Milo hur ditt innehåll ska låta och vilka formuleringar du vill undvika.",
+  "brand.voice.help":
+    "Berätta för Milo hur ditt innehåll ska låta och vilka formuleringar du vill undvika.",
   "brand.voice.tone": "Ton",
   "brand.voice.styleNotes": "Stilanteckningar",
   "brand.voice.wordsToUse": "Ord att använda",
   "brand.voice.wordsToAvoid": "Ord att undvika",
   "brand.section.claims": "Påståenden och säkerhet",
-  "brand.claims.help": "Använd detta för att förhindra osäkra eller varumärkesfrämmande påståenden i innehållet.",
+  "brand.claims.help":
+    "Använd detta för att förhindra osäkra eller varumärkesfrämmande påståenden i innehållet.",
   "brand.claims.allowed": "Tillåtna påståenden",
   "brand.claims.forbidden": "Förbjudna påståenden",
   "brand.claims.caveats": "Obligatoriska förbehåll",
@@ -323,8 +368,10 @@ export const sv: Record<string, string> = {
   "analytics.v2.whatChanged": "Vad har ändrats",
   "analytics.v2.nextAction": "Nästa steg",
   "analytics.v2.publishedByMilo": "Publicerat av Milo",
-  "analytics.v2.publishedByMiloDesc": "Hur innehållet du publicerat med Milo presterar sedan det gick live.",
-  "analytics.v2.publishedByMiloEmpty": "Inga publicerade Milo-sidor ännu. Publicera ett innehåll för att börja mäta resultat.",
+  "analytics.v2.publishedByMiloDesc":
+    "Hur innehållet du publicerat med Milo presterar sedan det gick live.",
+  "analytics.v2.publishedByMiloEmpty":
+    "Inga publicerade Milo-sidor ännu. Publicera ett innehåll för att börja mäta resultat.",
   "analytics.v2.topGrowing": "Sidor som växer mest",
   "analytics.v2.needsAttention": "Behöver uppmärksamhet",
   "analytics.v2.needsAttentionEmpty": "Inget behöver uppmärksamhet just nu.",
@@ -352,33 +399,44 @@ export const sv: Record<string, string> = {
   "analytics.issue.noClicks": "Visningar men inga klick",
   "analytics.issue.lowConversion": "Låg konvertering",
   "analytics.issue.lowQuality": "Lågt Milo Score",
-  "analytics.next.installSnippet": "Installera Milo Analytics-snippet och besök din webbplats för att testa spårningen.",
-  "analytics.next.addInternalLinks": "Lägg till interna länkar till ditt nya innehåll och dela sidan från dina huvudsakliga tjänstesidor.",
+  "analytics.next.installSnippet":
+    "Installera Milo Analytics-snippet och besök din webbplats för att testa spårningen.",
+  "analytics.next.addInternalLinks":
+    "Lägg till interna länkar till ditt nya innehåll och dela sidan från dina huvudsakliga tjänstesidor.",
   "analytics.next.improveCta": "Förbättra CTA och gör nästa steg tydligare.",
-  "analytics.next.keepMonitoring": "Ditt innehåll engagerar. Fortsätt bevaka och överväg att skapa en stödjande artikel.",
-  "analytics.next.aiClarity": "Du har AI-relaterade signaler. Fortsätt förbättra tydliga svar, FAQ-täckning och varumärkes-/entitetsklarhet.",
+  "analytics.next.keepMonitoring":
+    "Ditt innehåll engagerar. Fortsätt bevaka och överväg att skapa en stödjande artikel.",
+  "analytics.next.aiClarity":
+    "Du har AI-relaterade signaler. Fortsätt förbättra tydliga svar, FAQ-täckning och varumärkes-/entitetsklarhet.",
 
   // ---- GSC Lite / SEO Proof Import ----
   "gsc.title": "Search Console Lite",
-  "gsc.subtitle": "Importera en CSV-export från Google Search Console för att koppla sökvisningar och klick till ditt Milo-publicerade innehåll.",
+  "gsc.subtitle":
+    "Importera en CSV-export från Google Search Console för att koppla sökvisningar och klick till ditt Milo-publicerade innehåll.",
   "gsc.file": "CSV-fil",
   "gsc.label": "Etikett / datumintervall",
   "gsc.labelPlaceholder": "t.ex. maj 2026",
   "gsc.import": "Importera",
   "gsc.importing": "Importerar…",
   "gsc.helper": "Milo stöder manuell CSV-import och valfri OAuth-synk med Google Search Console.",
-  "gsc.privacy": "Importerade data lagras i din Milo-arbetsyta och används endast för att visa SEO-resultat i detta projekt.",
-  "gsc.empty": "Inga Search Console-data ännu. Anslut Google Search Console ovan, eller exportera en CSV och ladda upp den här för att lägga till SEO-bevis.",
+  "gsc.privacy":
+    "Importerade data lagras i din Milo-arbetsyta och används endast för att visa SEO-resultat i detta projekt.",
+  "gsc.empty":
+    "Inga Search Console-data ännu. Anslut Google Search Console ovan, eller exportera en CSV och ladda upp den här för att lägga till SEO-bevis.",
   "gsc.sourceApi": "API-synk",
   "gsc.sourceCsv": "CSV-import",
   "gsc.csvHeading": "Manuell CSV-import",
-  "gsc.csvFallbackNote": "Manuell CSV-import är alltid tillgänglig. OAuth-synk låter Milo hämta Search Console-data direkt efter att du anslutit en verifierad egendom.",
+  "gsc.csvFallbackNote":
+    "Manuell CSV-import är alltid tillgänglig. OAuth-synk låter Milo hämta Search Console-data direkt efter att du anslutit en verifierad egendom.",
   "gsc.oauth.title": "Google Search Console-synk",
-  "gsc.oauth.notConfigured": "Google Search Console-synk är inte konfigurerad ännu. Du kan fortfarande använda manuell CSV-import.",
+  "gsc.oauth.notConfigured":
+    "Google Search Console-synk är inte konfigurerad ännu. Du kan fortfarande använda manuell CSV-import.",
   "gsc.oauth.ownerSetup.title": "Engångskonfiguration för ägaren",
-  "gsc.oauth.ownerSetup.intro": "Anslut-knappen visas för alla användare när dessa produktionshemligheter är satta i Lovable Cloud (Settings → Secrets):",
+  "gsc.oauth.ownerSetup.intro":
+    "Anslut-knappen visas för alla användare när dessa produktionshemligheter är satta i Lovable Cloud (Settings → Secrets):",
   "gsc.oauth.ownerSetup.docs": "Fullständig guide: docs/GSC-OAUTH-SETUP.md i repot.",
-  "gsc.oauth.consent": "Milo begär skrivskyddad åtkomst till Search Console. Du kan koppla från när som helst. Vi använder dessa data för att visa sökresultat och innehållsmöjligheter i din Milo-arbetsyta.",
+  "gsc.oauth.consent":
+    "Milo begär skrivskyddad åtkomst till Search Console. Du kan koppla från när som helst. Vi använder dessa data för att visa sökresultat och innehållsmöjligheter i din Milo-arbetsyta.",
   "gsc.oauth.connect": "Anslut Google Search Console",
   "gsc.oauth.disconnect": "Koppla från Google Search Console",
   "gsc.oauth.reconnect": "Anslut igen",
@@ -394,9 +452,12 @@ export const sv: Record<string, string> = {
   "gsc.oauth.sync90": "Synka senaste 90 dagarna",
   "gsc.oauth.lastSync": "Senaste synk",
   "gsc.oauth.rows": "rader",
-  "gsc.oauth.readOnlyNote": "Skrivskyddad åtkomst. Milo ändrar aldrig dina Search Console-inställningar och använder aldrig andra Google-tjänster.",
-  "gsc.oauth.expired": "Din Google-anslutning har gått ut. Anslut igen för att fortsätta. Manuell CSV-import är fortfarande tillgänglig.",
-  "gsc.oauth.errorState": "Det uppstod ett problem med Google-anslutningen. Anslut igen för att fortsätta. Manuell CSV-import är fortfarande tillgänglig.",
+  "gsc.oauth.readOnlyNote":
+    "Skrivskyddad åtkomst. Milo ändrar aldrig dina Search Console-inställningar och använder aldrig andra Google-tjänster.",
+  "gsc.oauth.expired":
+    "Din Google-anslutning har gått ut. Anslut igen för att fortsätta. Manuell CSV-import är fortfarande tillgänglig.",
+  "gsc.oauth.errorState":
+    "Det uppstod ett problem med Google-anslutningen. Anslut igen för att fortsätta. Manuell CSV-import är fortfarande tillgänglig.",
   "gsc.oauth.connectedToast": "Google Search Console ansluten.",
   "gsc.oauth.deniedToast": "Google-inloggningen avbröts.",
   "gsc.oauth.errorToast": "Kunde inte ansluta Google Search Console.",
@@ -410,7 +471,8 @@ export const sv: Record<string, string> = {
   "gsc.oauth.status.expired": "Utgången",
   "gsc.oauth.status.error": "Fel",
   "gsc.oauth.status.notConfigured": "Inte konfigurerad",
-  "gsc.caution": "Search Console-data återspeglar Google Sök-resultat för det importerade datumintervallet. Det garanterar inte framtida placeringar eller trafik.",
+  "gsc.caution":
+    "Search Console-data återspeglar Google Sök-resultat för det importerade datumintervallet. Det garanterar inte framtida placeringar eller trafik.",
   "gsc.stat.clicks": "Google-klick",
   "gsc.stat.impressions": "Google-visningar",
   "gsc.stat.ctr": "Genomsnittlig CTR",
@@ -418,7 +480,8 @@ export const sv: Record<string, string> = {
   "gsc.stat.topQuery": "Bästa sökord",
   "gsc.stat.topPage": "Bästa sidan",
   "gsc.matched.heading": "Milo-publicerade sidor i Search Console",
-  "gsc.matched.queryOnly": "Den här importen innehåller endast data på sökordsnivå, så Milo kan inte matcha den mot specifika publicerade sidor.",
+  "gsc.matched.queryOnly":
+    "Den här importen innehåller endast data på sökordsnivå, så Milo kan inte matcha den mot specifika publicerade sidor.",
   "gsc.col.page": "Sida",
   "gsc.col.query": "Sökord",
   "gsc.col.ctr": "CTR",
@@ -433,8 +496,10 @@ export const sv: Record<string, string> = {
   "gsc.delete": "Ta bort import",
   "gsc.toast.imported": "Importerade {rows} rader",
   "gsc.toast.deleted": "Import borttagen",
-  "gsc.warn.truncated": "Importerade 1000 rader. Vissa rader hoppades över för att hålla arbetsytan snabb.",
-  "gsc.warn.queryOnly": "Den här importen innehåller endast data på sökordsnivå, så sidmatchning är inte tillgänglig.",
+  "gsc.warn.truncated":
+    "Importerade 1000 rader. Vissa rader hoppades över för att hålla arbetsytan snabb.",
+  "gsc.warn.queryOnly":
+    "Den här importen innehåller endast data på sökordsnivå, så sidmatchning är inte tillgänglig.",
   "gsc.error.noFile": "Välj en CSV-fil först.",
   "gsc.error.notCsv": "Välj en .csv-fil.",
   "gsc.error.generic": "Kunde inte importera den här CSV-filen. Försök igen.",
@@ -447,13 +512,17 @@ export const sv: Record<string, string> = {
 
   // ---- Authority Builder v2 ----
   "authority.title": "Auktoritetsbyggare",
-  "authority.subtitle": "Hitta och spåra säkra, relevanta auktoritetsmöjligheter — kataloger, omdömesprofiler, citeringar, partner och PR.",
-  "authority.disclaimer": "Auktoritetsmöjligheter är förslag. Du ansvarar för att kontrollera relevans, riktighet, regler, katalogpolicyer och om kontakt är lämplig. Milo garanterar inte länkar, placeringar, trafik eller intäkter.",
-  "authority.safeNote": "Auktoritetsmöjligheter hjälper till att bygga förtroende- och synlighetssignaler. De garanterar inte placeringar eller trafik.",
+  "authority.subtitle":
+    "Hitta och spåra säkra, relevanta auktoritetsmöjligheter — kataloger, omdömesprofiler, citeringar, partner och PR.",
+  "authority.disclaimer":
+    "Auktoritetsmöjligheter är förslag. Du ansvarar för att kontrollera relevans, riktighet, regler, katalogpolicyer och om kontakt är lämplig. Milo garanterar inte länkar, placeringar, trafik eller intäkter.",
+  "authority.safeNote":
+    "Auktoritetsmöjligheter hjälper till att bygga förtroende- och synlighetssignaler. De garanterar inte placeringar eller trafik.",
   "authority.generate": "Generera auktoritetsmöjligheter",
   "authority.generating": "Genererar…",
   "authority.regenerate": "Generera fler",
-  "authority.empty": "Generera en uppsättning säkra, relevanta idéer för att bygga auktoritet för ditt företag — lokala kataloger, omdömesprofiler, citeringar, partnerlänkar, PR-vinklar och förtroendesignaler.",
+  "authority.empty":
+    "Generera en uppsättning säkra, relevanta idéer för att bygga auktoritet för ditt företag — lokala kataloger, omdömesprofiler, citeringar, partnerlänkar, PR-vinklar och förtroendesignaler.",
   "authority.summary.total": "Totalt antal möjligheter",
   "authority.summary.live": "Aktiva signaler",
   "authority.summary.inProgress": "Pågående",
@@ -462,7 +531,8 @@ export const sv: Record<string, string> = {
   "authority.summary.review": "Omdöme / citering",
   "authority.tracker": "Auktoritetsspårare",
   "authority.liveSignals": "Aktiva auktoritetssignaler",
-  "authority.liveNote": "Följ framtida förändringar i Analytics och GSC Lite för att se om synlighetssignalerna förbättras över tid.",
+  "authority.liveNote":
+    "Följ framtida förändringar i Analytics och GSC Lite för att se om synlighetssignalerna förbättras över tid.",
   "authority.viewLive": "Visa aktiv länk",
   "authority.none": "Inga möjligheter matchar dina filter.",
   "authority.search": "Sök…",
@@ -522,13 +592,17 @@ export const sv: Record<string, string> = {
 
   // ---- AI Evaluation (internal) ----
   "aiEval.title": "AI-utvärdering",
-  "aiEval.subtitle": "Jämför den befintliga modellen och en kandidatmodell på riktiga Milo-uppgifter.",
-  "aiEval.intro": "Använd detta interna verktyg för att jämföra AI-modellernas kvalitet på riktiga Milo-uppgifter. Resultaten är för produktutveckling och ändrar inte produktionsbeteendet om inte routningen uttryckligen uppdateras.",
-  "aiEval.noAutoSwitch": "Milo byter inte automatiskt modell baserat på detta test. Använd resultaten för att senare avgöra vilka uppgifter som ska använda vilken modell.",
+  "aiEval.subtitle":
+    "Jämför den befintliga modellen och en kandidatmodell på riktiga Milo-uppgifter.",
+  "aiEval.intro":
+    "Använd detta interna verktyg för att jämföra AI-modellernas kvalitet på riktiga Milo-uppgifter. Resultaten är för produktutveckling och ändrar inte produktionsbeteendet om inte routningen uttryckligen uppdateras.",
+  "aiEval.noAutoSwitch":
+    "Milo byter inte automatiskt modell baserat på detta test. Använd resultaten för att senare avgöra vilka uppgifter som ska använda vilken modell.",
   "aiEval.existingModel": "Befintlig modell",
   "aiEval.candidateModel": "Kandidatmodell",
   "aiEval.notConfigured": "Inte konfigurerad",
-  "aiEval.notConfiguredHelp": "Kandidatmodellen är inte konfigurerad. Lägg till den nödvändiga server-miljönyckeln för att köra jämförelser.",
+  "aiEval.notConfiguredHelp":
+    "Kandidatmodellen är inte konfigurerad. Lägg till den nödvändiga server-miljönyckeln för att köra jämförelser.",
   "aiEval.task": "Uppgift",
   "aiEval.taskType.contentGeneration": "Innehållsgenerering",
   "aiEval.taskType.contentImprove": "Förbättra utkast",
@@ -558,12 +632,14 @@ export const sv: Record<string, string> = {
   // ---- Free AI Visibility Readiness Audit (public) ----
   "publicAudit.badge": "Gratis granskning",
   "publicAudit.title": "Gratis granskning av AI-synlighetsberedskap",
-  "publicAudit.subtitle": "Se hur tydligt din webbplats förklarar ditt företag för moderna sökmotorer och AI-assisterade verktyg.",
+  "publicAudit.subtitle":
+    "Se hur tydligt din webbplats förklarar ditt företag för moderna sökmotorer och AI-assisterade verktyg.",
   "publicAudit.run": "Kör gratis granskning",
   "publicAudit.running": "Granskar…",
   "publicAudit.helper": "Inget login krävs för det första resultatet.",
   "publicAudit.safeNote": "Detta är en beredskapsgranskning, inte en kontroll av live-placeringar.",
-  "publicAudit.privacy": "Milo läser endast offentligt tillgängligt webbinnehåll för denna granskning. Ange inte privata, lösenordsskyddade eller känsliga URL:er.",
+  "publicAudit.privacy":
+    "Milo läser endast offentligt tillgängligt webbinnehåll för denna granskning. Ange inte privata, lösenordsskyddade eller känsliga URL:er.",
   "publicAudit.invalidUrl": "Ange en giltig webbadress (till exempel: dittforetag.se).",
   "publicAudit.genericError": "Något gick fel. Försök igen.",
   "publicAudit.loading.fetching": "Hämtar webbplats",
@@ -592,7 +668,8 @@ export const sv: Record<string, string> = {
   "publicAudit.yes": "Ja",
   "publicAudit.no": "Nej",
   "publicAudit.ctaTitle": "Gör det till en tillväxtplan",
-  "publicAudit.ctaBody": "Skapa ett gratis Milo-projekt för att omvandla dessa rekommendationer till en strukturerad månatlig tillväxtplan.",
+  "publicAudit.ctaBody":
+    "Skapa ett gratis Milo-projekt för att omvandla dessa rekommendationer till en strukturerad månatlig tillväxtplan.",
   "publicAudit.cta": "Skapa ett gratis Milo-projekt",
   "publicAudit.ctaSecondary": "Kör en ny granskning",
   "publicAudit.cat.entityClarity": "Företags-/entitetsklarhet",
@@ -615,29 +692,39 @@ export const sv: Record<string, string> = {
   "wp.page": "Sida",
   "wp.appPassword": "Applikationslösenord",
   "wp.appPasswordSaved": "•••••• sparat — lämna tomt för att behålla",
-  "wp.appPasswordHelp": "Skapa ett applikationslösenord i din WordPress-användarprofil och klistra in det här. Milo använder det på serversidan för att skapa utkast och publicera via WordPress REST API.",
-  "wp.security": "Ditt applikationslösenord visas aldrig igen efter att du sparat. Du kan byta det när som helst.",
-  "wp.minPerms": "Använd en dedikerad WordPress-användare eller ett applikationslösenord med minsta möjliga behörighet för att skapa och publicera innehåll.",
+  "wp.appPasswordHelp":
+    "Skapa ett applikationslösenord i din WordPress-användarprofil och klistra in det här. Milo använder det på serversidan för att skapa utkast och publicera via WordPress REST API.",
+  "wp.security":
+    "Ditt applikationslösenord visas aldrig igen efter att du sparat. Du kan byta det när som helst.",
+  "wp.minPerms":
+    "Använd en dedikerad WordPress-användare eller ett applikationslösenord med minsta möjliga behörighet för att skapa och publicera innehåll.",
   "wp.test": "Testa anslutning",
   "wp.testing": "Testar…",
   "wp.testOk": "Ansluten till WordPress.",
-  "wp.testFail": "Kunde inte ansluta till WordPress. Kontrollera webbplatsens URL och applikationslösenordet.",
-  "wp.reviewNote": "Granska allt innehåll före publicering. Milo kan skicka utkast till WordPress, men du ansvarar för att kontrollera riktighet, påståenden, formatering, länkar och efterlevnad.",
+  "wp.testFail":
+    "Kunde inte ansluta till WordPress. Kontrollera webbplatsens URL och applikationslösenordet.",
+  "wp.reviewNote":
+    "Granska allt innehåll före publicering. Milo kan skicka utkast till WordPress, men du ansvarar för att kontrollera riktighet, påståenden, formatering, länkar och efterlevnad.",
 
   // ---- Shopify connector ----
   "shopify.shopify": "Shopify",
-  "shopify.intro": "Anslut en Shopify-butik för att publicera Milo-innehåll som blogginlägg. Milo skickar först artiklar till en Shopify-blogg som opublicerade utkast och publicerar dem sedan live när du godkänner.",
+  "shopify.intro":
+    "Anslut en Shopify-butik för att publicera Milo-innehåll som blogginlägg. Milo skickar först artiklar till en Shopify-blogg som opublicerade utkast och publicerar dem sedan live när du godkänner.",
   "shopify.shopDomain": "Butiksdomän",
   "shopify.shopDomainHelp": "Din butiksdomän, t.ex. minbutik.myshopify.com.",
   "shopify.token": "Admin API-åtkomsttoken",
   "shopify.tokenSaved": "•••••• sparad — lämna tomt för att behålla",
-  "shopify.tokenHelp": "Skapa en anpassad app i din Shopify-admin (Inställningar → Appar och försäljningskanaler → Utveckla appar), ge den behörighet till bloggar och artiklar och klistra in dess Admin API-åtkomsttoken här. Milo använder den på serversidan via Shopify Admin API.",
-  "shopify.security": "Din åtkomsttoken visas aldrig igen efter att den sparats och används endast på serversidan. Du kan byta ut den när som helst.",
-  "shopify.minPerms": "Ge endast innehållsbehörighet (läs/skriv bloggar och artiklar). Milo kommer aldrig åt order, kunder, produkter eller betalningsdata.",
+  "shopify.tokenHelp":
+    "Skapa en anpassad app i din Shopify-admin (Inställningar → Appar och försäljningskanaler → Utveckla appar), ge den behörighet till bloggar och artiklar och klistra in dess Admin API-åtkomsttoken här. Milo använder den på serversidan via Shopify Admin API.",
+  "shopify.security":
+    "Din åtkomsttoken visas aldrig igen efter att den sparats och används endast på serversidan. Du kan byta ut den när som helst.",
+  "shopify.minPerms":
+    "Ge endast innehållsbehörighet (läs/skriv bloggar och artiklar). Milo kommer aldrig åt order, kunder, produkter eller betalningsdata.",
   "shopify.test": "Testa anslutning",
   "shopify.testing": "Testar…",
   "shopify.testOk": "Ansluten till Shopify.",
-  "shopify.testFail": "Kunde inte ansluta till Shopify. Kontrollera butiksdomänen och Admin API-åtkomsttoken.",
+  "shopify.testFail":
+    "Kunde inte ansluta till Shopify. Kontrollera butiksdomänen och Admin API-åtkomsttoken.",
   "shopify.refreshBlogs": "Ladda bloggar",
   "shopify.loadingBlogs": "Laddar…",
   "shopify.blog": "Målblogg",
@@ -650,12 +737,15 @@ export const sv: Record<string, string> = {
   "shopify.tagsHelp": "Kommaseparerade taggar som tillämpas på publicerade artiklar.",
   "shopify.statusDraft": "utkast",
   "shopify.statusPublished": "publicerad",
-  "shopify.blogOnly": "Shopify stöder endast blogginlägg. Detta innehåll publiceras som ett blogginlägg.",
+  "shopify.blogOnly":
+    "Shopify stöder endast blogginlägg. Detta innehåll publiceras som ett blogginlägg.",
 
   // ---- Claude connector (MCP) ----
   "claude.title": "Claude-anslutning (MCP)",
-  "claude.subtitle": "Anslut Milo till Claude som en MCP-anslutning. Generera en anslutningstoken, lägg till den i Claude Code eller Claude Desktop och läs dina projekt, möjligheter, innehåll, Milo Score, granskningar, Search Console- och auktoritetsdata direkt i Claude.",
-  "claude.accountNote": "Anslutningen är på kontonivå: en token ger Claude skrivskyddad åtkomst till alla projekt i denna arbetsyta.",
+  "claude.subtitle":
+    "Anslut Milo till Claude som en MCP-anslutning. Generera en anslutningstoken, lägg till den i Claude Code eller Claude Desktop och läs dina projekt, möjligheter, innehåll, Milo Score, granskningar, Search Console- och auktoritetsdata direkt i Claude.",
+  "claude.accountNote":
+    "Anslutningen är på kontonivå: en token ger Claude skrivskyddad åtkomst till alla projekt i denna arbetsyta.",
   "claude.endpoint": "MCP-slutpunkt",
   "claude.label": "Token-etikett",
   "claude.labelPlaceholder": "t.ex. Min laptop",
@@ -677,11 +767,13 @@ export const sv: Record<string, string> = {
   "claude.createError": "Kunde inte generera en token. Försök igen.",
   "claude.tools": "Tillgängliga verktyg (skrivskyddade)",
   "claude.securityTitle": "Säkerhet",
-  "claude.security": "Skrivskyddad åtkomst till dina Milo-data. Tokens lagras hashade, visas aldrig igen efter skapande och loggas aldrig. Återkalla en token när som helst för att koppla från.",
+  "claude.security":
+    "Skrivskyddad åtkomst till dina Milo-data. Tokens lagras hashade, visas aldrig igen efter skapande och loggas aldrig. Återkalla en token när som helst för att koppla från.",
 
   // ---- Claude connected apps (OAuth) ----
   "claude.apps.title": "Anslutna appar",
-  "claude.apps.subtitle": "Appar anslutna till ditt Milo Growth-konto via Claude.ai. Du kan återkalla åtkomsten när som helst.",
+  "claude.apps.subtitle":
+    "Appar anslutna till ditt Milo Growth-konto via Claude.ai. Du kan återkalla åtkomsten när som helst.",
   "claude.apps.status.active": "Aktiv",
   "claude.apps.status.expired": "Utgången",
   "claude.apps.status.revoked": "Återkallad",
@@ -690,7 +782,8 @@ export const sv: Record<string, string> = {
   "claude.apps.unnamed": "Okänd app",
   "claude.apps.revoke": "Återkalla åtkomst",
   "claude.apps.revokeTitle": "Koppla från Claude?",
-  "claude.apps.revokeBody": "Claude förlorar omedelbart åtkomsten till dina Milo Growth-data. Dina projekt och ditt innehåll påverkas inte — inget raderas. Du kan ansluta igen från Claude.ai när som helst.",
+  "claude.apps.revokeBody":
+    "Claude förlorar omedelbart åtkomsten till dina Milo Growth-data. Dina projekt och ditt innehåll påverkas inte — inget raderas. Du kan ansluta igen från Claude.ai när som helst.",
   "claude.apps.revoked": "Åtkomst återkallad.",
   "claude.apps.revokeError": "Det gick inte att återkalla åtkomsten. Försök igen.",
   "claude.apps.loadError": "Det gick inte att läsa in anslutna appar.",
@@ -701,10 +794,12 @@ export const sv: Record<string, string> = {
   "connect.title": "Anslut Milo Growth till Claude",
   "connect.write.badge": "Läs- och skrivåtkomst",
   "connect.write.title": "Skrivbehörigheter",
-  "connect.write.warning": "Den här anslutningen kommer att kunna skapa och redigera innehåll, uppgifter och projektrekommendationer i din Milo-arbetsyta. Den kan aldrig publicera eller radera något.",
+  "connect.write.warning":
+    "Den här anslutningen kommer att kunna skapa och redigera innehåll, uppgifter och projektrekommendationer i din Milo-arbetsyta. Den kan aldrig publicera eller radera något.",
   "connect.propose.badge": "Läs- och förslagsåtkomst",
   "connect.propose.title": "Förslagsbehörigheter",
-  "connect.propose.warning": "Den här anslutningen kan föreslå ändringar som du granskar. Inget tillämpas förrän du godkänner det i Milo. Den kan aldrig godkänna sina egna förslag och kan aldrig publicera, radera något eller ändra inställningar eller fakturering.",
+  "connect.propose.warning":
+    "Den här anslutningen kan föreslå ändringar som du granskar. Inget tillämpas förrän du godkänner det i Milo. Den kan aldrig godkänna sina egna förslag och kan aldrig publicera, radera något eller ändra inställningar eller fakturering.",
   "connect.intro": "Claude begär skrivskyddad åtkomst till din Milo Growth-arbetsyta.",
   "connect.requestedBy": "Begärt av",
   "connect.account": "Inloggad som",
@@ -738,7 +833,8 @@ export const sv: Record<string, string> = {
   "billing.title": "Fakturering & plan",
   "billing.subtitle": "Hantera din plan, faktureringsprofil och tillägg.",
   "billing.owner.title": "Ägarkonto",
-  "billing.owner.desc": "Du har obegränsade projekt och ingen fakturering. Detta konto kringgår planbegränsningar.",
+  "billing.owner.desc":
+    "Du har obegränsade projekt och ingen fakturering. Detta konto kringgår planbegränsningar.",
   "billing.currentPlan": "Nuvarande plan",
   "billing.status": "Status",
   "billing.billingMarket": "Faktureringsmarknad",
@@ -768,16 +864,22 @@ export const sv: Record<string, string> = {
   "billing.assistedSetup": "Assisted Setup",
   "billing.monthlyCare": "Monthly Care",
   "billing.oneTime": "engångs",
-  "billing.checkoutNotConfigured": "Betalning är inte konfigurerad ännu. Kontakta supporten för att aktivera planen.",
+  "billing.checkoutNotConfigured":
+    "Betalning är inte konfigurerad ännu. Kontakta supporten för att aktivera planen.",
   "billing.contactSupport": "Kontakta support",
-  "billing.checkoutPendingMsg": "Betalning påbörjad. Planen aktiveras när betalningen är bekräftad.",
-  "billing.rulesNote": "Din faktureringsmarknad baseras på ditt företags eller faktureringsland. Att byta webbplatsens språk eller region ändrar inte prisberättigandet.",
-  "billing.taxNote": "Milo stödjer både företags- och privatkunder. Skatte- och fakturadetaljer kan variera per land och kan kräva granskning före publik lansering.",
-  "billing.paddleNote": "Paddle används för säker betalning och skattehantering där det är konfigurerat.",
+  "billing.checkoutPendingMsg":
+    "Betalning påbörjad. Planen aktiveras när betalningen är bekräftad.",
+  "billing.rulesNote":
+    "Din faktureringsmarknad baseras på ditt företags eller faktureringsland. Att byta webbplatsens språk eller region ändrar inte prisberättigandet.",
+  "billing.taxNote":
+    "Milo stödjer både företags- och privatkunder. Skatte- och fakturadetaljer kan variera per land och kan kräva granskning före publik lansering.",
+  "billing.paddleNote":
+    "Paddle används för säker betalning och skattehantering där det är konfigurerat.",
   "billing.noGuarantee": "Inga placeringar, trafik, intäkter eller AI-citeringar garanteras.",
   "billing.marketReview": "Att ändra faktureringsland kan påverka priset och kräver granskning.",
   "billing.manual.title": "Manuell aktivering (endast ägare)",
-  "billing.manual.desc": "Aktivera en plan manuellt för fakturabetalda, beta- eller gratis konton. Visas inte för vanliga användare.",
+  "billing.manual.desc":
+    "Aktivera en plan manuellt för fakturabetalda, beta- eller gratis konton. Visas inte för vanliga användare.",
   "billing.manual.beta": "Aktivera som Manual beta",
   "billing.manual.comped": "Aktivera som Manual comped",
   "billing.manual.reset": "Återställ till Free Preview",
@@ -791,7 +893,8 @@ export const sv: Record<string, string> = {
 
   // ---- Launch checklist (Sprint 16) ----
   "launch.title": "Checklista för betalansering",
-  "launch.subtitle": "Följ beredskap för konfiguration, innehåll, publicering, mätning, auktoritet och fakturering för detta projekt.",
+  "launch.subtitle":
+    "Följ beredskap för konfiguration, innehåll, publicering, mätning, auktoritet och fakturering för detta projekt.",
   "launch.noProject": "Skapa ett projekt för att se din checklista.",
   "launch.betaNotesCta": "Betaanteckningar",
   "launch.readiness": "Lanseringsberedskap",
@@ -806,7 +909,8 @@ export const sv: Record<string, string> = {
   "launch.section.authority": "Auktoritet",
   "launch.section.billing": "Fakturering & beta",
   "launch.item.businessProfile": "Företagsprofil ifylld",
-  "launch.item.businessProfile.desc": "Företagsnamn och beskrivning är angivna så att Milo har kontext.",
+  "launch.item.businessProfile.desc":
+    "Företagsnamn och beskrivning är angivna så att Milo har kontext.",
   "launch.item.websiteUrl": "Webbadress tillagd",
   "launch.item.websiteUrl.desc": "Används för granskningar, analysmatchning och publicering.",
   "launch.item.marketLanguage": "Marknad & språk valda",
@@ -814,7 +918,8 @@ export const sv: Record<string, string> = {
   "launch.item.services": "Tjänster eller produkter tillagda",
   "launch.item.services.desc": "Berätta för Milo vad företaget faktiskt säljer.",
   "launch.item.brandIntelligence": "Brand Intelligence påbörjad",
-  "launch.item.brandIntelligence.desc": "Ton, påståenden och erbjudanden håller innehållet varumärkesenligt och säkert.",
+  "launch.item.brandIntelligence.desc":
+    "Ton, påståenden och erbjudanden håller innehållet varumärkesenligt och säkert.",
   "launch.item.opportunity": "Minst en möjlighet genererad",
   "launch.item.opportunity.desc": "Strukturerade synlighetsidéer förankrade i företaget.",
   "launch.item.contentAsset": "Minst en innehållstillgång genererad",
@@ -824,35 +929,45 @@ export const sv: Record<string, string> = {
   "launch.item.reviewed": "Ett utkast granskat eller förbättrat",
   "launch.item.reviewed.desc": "Flytta ett utkast till granskning, godkänn eller förbättra det.",
   "launch.item.connectorSelected": "Anslutning vald",
-  "launch.item.connectorSelected.desc": "Välj Custom, WordPress eller Shopify i Projektinställningar.",
+  "launch.item.connectorSelected.desc":
+    "Välj Custom, WordPress eller Shopify i Projektinställningar.",
   "launch.item.connectorConfigured": "Anslutning konfigurerad",
-  "launch.item.connectorConfigured.desc": "Uppgifter eller slutpunkter finns på plats för publicering.",
+  "launch.item.connectorConfigured.desc":
+    "Uppgifter eller slutpunkter finns på plats för publicering.",
   "launch.item.connectorTested": "Anslutning testad (WordPress/Shopify)",
-  "launch.item.connectorTested.desc": "Kör Testa anslutning så att publicering inte misslyckas senare.",
+  "launch.item.connectorTested.desc":
+    "Kör Testa anslutning så att publicering inte misslyckas senare.",
   "launch.item.draftSent": "Minst ett utkast skickat",
   "launch.item.draftSent.desc": "Skicka godkänt innehåll till webbplatsen som ett utkast.",
   "launch.item.publishedLive": "Minst en sida publicerad live",
   "launch.item.publishedLive.desc": "Publicera ett granskat utkast live från Milo.",
   "launch.item.analyticsSnippet": "Analyssnutt tillgänglig",
-  "launch.item.analyticsSnippet.desc": "Kopiera Milo-snutten från Analys och lägg till den på din webbplats.",
+  "launch.item.analyticsSnippet.desc":
+    "Kopiera Milo-snutten från Analys och lägg till den på din webbplats.",
   "launch.item.analyticsEvents": "Analyshändelser mottagna",
-  "launch.item.analyticsEvents.desc": "Besök din webbplats efter att snutten installerats för att bekräfta spårning.",
+  "launch.item.analyticsEvents.desc":
+    "Besök din webbplats efter att snutten installerats för att bekräfta spårning.",
   "launch.item.gscImport": "GSC Lite-import tillagd",
-  "launch.item.gscImport.desc": "Importera en Search Console-CSV för att koppla visningar och klick.",
+  "launch.item.gscImport.desc":
+    "Importera en Search Console-CSV för att koppla visningar och klick.",
   "launch.item.publishedByMilo": "Data för publicerat-av-Milo tillgänglig",
   "launch.item.publishedByMilo.desc": "Live Milo-sidor matchade mot Search Console-prestanda.",
   "launch.item.authorityGenerated": "Auktoritetsmöjligheter genererade",
-  "launch.item.authorityGenerated.desc": "Säkra auktoritetsuppgifter som kataloger och partnerlänkar.",
+  "launch.item.authorityGenerated.desc":
+    "Säkra auktoritetsuppgifter som kataloger och partnerlänkar.",
   "launch.item.authorityProgress": "En auktoritetspost planerad eller live",
-  "launch.item.authorityProgress.desc": "Flytta en auktoritetsuppgift till planerad, kontaktad eller live.",
+  "launch.item.authorityProgress.desc":
+    "Flytta en auktoritetsuppgift till planerad, kontaktad eller live.",
   "launch.item.billingProfile": "Faktureringsprofil ifylld",
   "launch.item.billingProfile.desc": "Faktureringsland anger din prismarknad.",
   "launch.item.planSelected": "Plan vald (eller Free Preview)",
   "launch.item.planSelected.desc": "Free Preview är aktiv som standard — ingen betalning behövs.",
   "launch.item.betaStatus": "Beta- / comped- / väntande status synlig",
-  "launch.item.betaStatus.desc": "Manual beta-, comped- eller väntande betalningsstatus visas i Fakturering.",
+  "launch.item.betaStatus.desc":
+    "Manual beta-, comped- eller väntande betalningsstatus visas i Fakturering.",
   "launch.item.paddlePending": "Live-betalningar väntar (noterat)",
-  "launch.item.paddlePending.desc": "Paddle-aktivering sker efter företagsuppsättning — se Betaanteckningar.",
+  "launch.item.paddlePending.desc":
+    "Paddle-aktivering sker efter företagsuppsättning — se Betaanteckningar.",
   "launch.conn.website": "Webbplats",
   "launch.conn.website.ok": "Webbadress angiven.",
   "launch.conn.website.none": "Lägg till din webbadress i Projektinställningar.",
@@ -907,24 +1022,37 @@ export const sv: Record<string, string> = {
 
   // ---- Beta notes (Sprint 16) ----
   "beta.title": "Betaanteckningar",
-  "beta.subtitle": "Aktuella begränsningar och vad som ska bekräftas före bredare självbetjäningslansering.",
-  "beta.intro": "Milo är i assisterad beta. Posterna nedan blockerar inte guidade demos eller assisterad onboarding, men bör bekräftas före en bredare betald självbetjäningslansering.",
+  "beta.subtitle":
+    "Aktuella begränsningar och vad som ska bekräftas före bredare självbetjäningslansering.",
+  "beta.intro":
+    "Milo är i assisterad beta. Posterna nedan blockerar inte guidade demos eller assisterad onboarding, men bör bekräftas före en bredare betald självbetjäningslansering.",
   "beta.limitsTitle": "Aktuella betabegränsningar",
-  "beta.reassure": "Dessa begränsningar blockerar inte assisterade betademos, men bör bekräftas före bredare självbetjäningslansering.",
+  "beta.reassure":
+    "Dessa begränsningar blockerar inte assisterade betademos, men bör bekräftas före bredare självbetjäningslansering.",
   "beta.demoSafeTitle": "Demosäkra anteckningar",
   "beta.backToChecklist": "Tillbaka till checklistan",
   "beta.openDemoScript": "Öppna demoskript",
-  "beta.limit.paddle": "Live Paddle-betalningar väntar på företags- och Paddle-kontouppsättning. Faktureringsgränssnittet och priserna är klara; aktivering är manuell tills vidare.",
-  "beta.limit.wordpress": "WordPress-anslutningen är byggd men behöver fortfarande livetestas mot en riktig webbplats.",
-  "beta.limit.shopify": "Shopify-anslutningen är byggd men behöver fortfarande livetestas mot en riktig butik.",
-  "beta.limit.aiCandidate": "Den alternativa AI-modellen (utvärderingskandidat) kräver miljökonfiguration för att köras.",
-  "beta.limit.legal": "Juridiska sidor är betaberedskapsutkast och bör granskas före bredare betald lansering.",
-  "beta.limit.analytics": "Analys kräver att Milo-snutten installeras på klientens webbplats för att ta emot händelser.",
-  "beta.limit.gsc": "GSC Lite stöder manuell CSV-import och valfri OAuth/API-synk där Google OAuth är konfigurerat. Manuell import är fortfarande tillgänglig som reserv.",
+  "beta.limit.paddle":
+    "Live Paddle-betalningar väntar på företags- och Paddle-kontouppsättning. Faktureringsgränssnittet och priserna är klara; aktivering är manuell tills vidare.",
+  "beta.limit.wordpress":
+    "WordPress-anslutningen är byggd men behöver fortfarande livetestas mot en riktig webbplats.",
+  "beta.limit.shopify":
+    "Shopify-anslutningen är byggd men behöver fortfarande livetestas mot en riktig butik.",
+  "beta.limit.aiCandidate":
+    "Den alternativa AI-modellen (utvärderingskandidat) kräver miljökonfiguration för att köras.",
+  "beta.limit.legal":
+    "Juridiska sidor är betaberedskapsutkast och bör granskas före bredare betald lansering.",
+  "beta.limit.analytics":
+    "Analys kräver att Milo-snutten installeras på klientens webbplats för att ta emot händelser.",
+  "beta.limit.gsc":
+    "GSC Lite stöder manuell CSV-import och valfri OAuth/API-synk där Google OAuth är konfigurerat. Manuell import är fortfarande tillgänglig som reserv.",
   "beta.limit.images": "Anslutningar publicerar text och HTML; de laddar inte upp bilder i v1.",
-  "beta.demo.rankings": "Lova inte placeringar, trafik eller garanterade AI-citat — Milo är AI-assisterad och granskad av människor.",
-  "beta.demo.payments": "Säg att betalningar är arkitektoniskt klara men att live-aktivering väntar på företags- och Paddle-uppsättning.",
-  "beta.demo.connectors": "Säg att WordPress- och Shopify-anslutningar kräver live end-to-end-testning per webbplats.",
+  "beta.demo.rankings":
+    "Lova inte placeringar, trafik eller garanterade AI-citat — Milo är AI-assisterad och granskad av människor.",
+  "beta.demo.payments":
+    "Säg att betalningar är arkitektoniskt klara men att live-aktivering väntar på företags- och Paddle-uppsättning.",
+  "beta.demo.connectors":
+    "Säg att WordPress- och Shopify-anslutningar kräver live end-to-end-testning per webbplats.",
   "beta.demo.data": "Säg att analys- och GSC-bevis beror på datatillgänglighet för demoprojektet.",
 
   // ---- Pending Actions (Phase 1B) ----
@@ -932,13 +1060,15 @@ export const sv: Record<string, string> = {
   "nav.actions": "Föreslagna ändringar",
   "actions.title": "Föreslagna ändringar",
   "actions.description": "Granska ändringar som Claude föreslagit innan de påverkar din arbetsyta.",
-  "actions.safety": "Claude kan skapa förslag för granskning. Inget tillämpas förrän du godkänner det.",
+  "actions.safety":
+    "Claude kan skapa förslag för granskning. Inget tillämpas förrän du godkänner det.",
   "actions.filter.status": "Status",
   "actions.filter.allStatuses": "Alla statusar",
   "actions.filter.project": "Projekt",
   "actions.filter.allProjects": "Alla projekt",
   "actions.empty.title": "Inga förslag ännu.",
-  "actions.empty.body": "När Claude föreslår ändringar via kopplingen visas de här för din granskning.",
+  "actions.empty.body":
+    "När Claude föreslår ändringar via kopplingen visas de här för din granskning.",
   "actions.status.pending": "Väntar",
   "actions.status.approved": "Godkänd",
   "actions.status.applied": "Tillämpad",
@@ -957,7 +1087,8 @@ export const sv: Record<string, string> = {
   "actions.card.showDetail": "Visa före / efter",
   "actions.card.hideDetail": "Dölj detaljer",
   "actions.detail.target": "Målmöjlighet",
-  "actions.detail.targetMissing": "Målmöjligheten finns inte längre — förslaget kan inte tillämpas som det är.",
+  "actions.detail.targetMissing":
+    "Målmöjligheten finns inte längre — förslaget kan inte tillämpas som det är.",
   "actions.detail.field": "Fält",
   "actions.detail.current": "Nuvarande",
   "actions.detail.proposed": "Föreslaget",
@@ -968,17 +1099,21 @@ export const sv: Record<string, string> = {
   "actions.detail.stateNone": "Ingen ändring",
   "actions.detail.servicesToCreate": "Tjänster att skapa",
   "actions.detail.opportunitiesToCreate": "Möjligheter att skapa",
-  "actions.detail.createDisclaimer": "Detta är föreslagna nya objekt. Vid godkännande hoppas dubbletter och allt utöver din arbetsytas gräns över — antalen som visas är inte garanterade.",
+  "actions.detail.createDisclaimer":
+    "Detta är föreslagna nya objekt. Vid godkännande hoppas dubbletter och allt utöver din arbetsytas gräns över — antalen som visas är inte garanterade.",
   "actions.detail.competitors": "Konkurrenter",
-  "actions.detail.projectMissing": "Detta projekt finns inte längre — förslaget kan inte tillämpas som det är.",
+  "actions.detail.projectMissing":
+    "Detta projekt finns inte längre — förslaget kan inte tillämpas som det är.",
   "actions.detail.none": "Inga",
   "claude.apps.scope.needsApproval": "kräver ditt godkännande",
 
   // ---- Pending Actions resolution (Phase 1B.5) ----
   "actions.resolve.approve": "Godkänn & tillämpa",
   "actions.resolve.approveTitle": "Godkänna det här förslaget?",
-  "actions.resolve.approveBody": "Godkännande tillämpar de föreslagna ändringarna i din arbetsyta omedelbart. Fält som ändras:",
-  "actions.resolve.approveBodySetup": "Godkännande tillämpar omedelbart de föreslagna projektfälten och skapar de behöriga tjänsterna och möjligheterna. Dubbletter och allt utöver din arbetsytas gräns hoppas över. Din status för slutförd konfiguration ändras inte. Claude kan inte godkänna eller tillämpa — bara du kan.",
+  "actions.resolve.approveBody":
+    "Godkännande tillämpar de föreslagna ändringarna i din arbetsyta omedelbart. Fält som ändras:",
+  "actions.resolve.approveBodySetup":
+    "Godkännande tillämpar omedelbart de föreslagna projektfälten och skapar de behöriga tjänsterna och möjligheterna. Dubbletter och allt utöver din arbetsytas gräns hoppas över. Din status för slutförd konfiguration ändras inte. Claude kan inte godkänna eller tillämpa — bara du kan.",
   "actions.resolve.reject": "Avvisa",
   "actions.resolve.rejectTitle": "Avvisa det här förslaget?",
   "actions.resolve.rejectBody": "Inget tillämpas. Förslaget stannar i din historik som avvisat.",
@@ -997,27 +1132,35 @@ export const sv: Record<string, string> = {
   // ---- Backlinks v1 ----
   "nav.backlinks": "Bakåtlänkar",
   "backlinks.title": "Bakåtlänkar",
-  "backlinks.subtitle": "Verklig länkdata för din domän — profilstyrka, länkgap mot konkurrenter och säkra länkbyggnadsrekommendationer.",
-  "backlinks.disclaimer": "Länkdata kommer från ett externt länkindex och är uppskattningar — inget index ser alla länkar. Rekommendationerna är enbart white-hat: Milo föreslår aldrig länkscheman eller omärkta betalda länkar och garanterar inte placeringar, trafik eller intäkter.",
+  "backlinks.subtitle":
+    "Verklig länkdata för din domän — profilstyrka, länkgap mot konkurrenter och säkra länkbyggnadsrekommendationer.",
+  "backlinks.disclaimer":
+    "Länkdata kommer från ett externt länkindex och är uppskattningar — inget index ser alla länkar. Rekommendationerna är enbart white-hat: Milo föreslår aldrig länkscheman eller omärkta betalda länkar och garanterar inte placeringar, trafik eller intäkter.",
   "backlinks.run": "Kör länkanalys",
   "backlinks.rerun": "Uppdatera analysen",
   "backlinks.running": "Analyserar…",
-  "backlinks.empty": "Kör en länkanalys för att se din domäns verkliga länkprofil, jämförelsen med konkurrenter och vilka domäner som länkar till dem men inte till dig.",
+  "backlinks.empty":
+    "Kör en länkanalys för att se din domäns verkliga länkprofil, jämförelsen med konkurrenter och vilka domäner som länkar till dem men inte till dig.",
   "backlinks.notConfigured.title": "Anslut en länkdatakälla",
-  "backlinks.notConfigured.body": "Modulen använder DataForSEO:s länkindex och är inte ansluten ännu. Arbetsytans ägare behöver skapa ett DataForSEO-konto (pay-as-you-go) och lägga till DATAFORSEO_LOGIN och DATAFORSEO_PASSWORD som backend-hemligheter. Tills dess är länkdata inte tillgänglig.",
+  "backlinks.notConfigured.body":
+    "Modulen använder DataForSEO:s länkindex och är inte ansluten ännu. Arbetsytans ägare behöver skapa ett DataForSEO-konto (pay-as-you-go) och lägga till DATAFORSEO_LOGIN och DATAFORSEO_PASSWORD som backend-hemligheter. Tills dess är länkdata inte tillgänglig.",
   "backlinks.status.ready.title": "DataForSEO fungerar",
   "backlinks.status.ready.body": "Backlinks API är anslutet och svarar.",
   "backlinks.status.lowBalance.title": "DataForSEO-saldot börjar bli lågt",
   "backlinks.status.lowBalance.body": "Fyll på snart för att undvika avbrutna analyser.",
   "backlinks.status.paused.title": "Åtkomsten till DataForSEO är pausad",
-  "backlinks.status.paused.body": "Kontakta DataForSEO-supporten för att återaktivera kontot före nästa analys.",
+  "backlinks.status.paused.body":
+    "Kontakta DataForSEO-supporten för att återaktivera kontot före nästa analys.",
   "backlinks.status.error.title": "DataForSEO-status är inte tillgänglig",
-  "backlinks.status.error.body": "Kontot eller Backlinks API kunde inte verifieras. Uppdatera statusen eller kontrollera leverantörens panel.",
+  "backlinks.status.error.body":
+    "Kontot eller Backlinks API kunde inte verifieras. Uppdatera statusen eller kontrollera leverantörens panel.",
   "backlinks.status.balance": "Saldo: {balance}.",
   "backlinks.status.refresh": "Uppdatera status",
   "backlinks.competitorsUsed": "Jämförda konkurrenter: {list}",
-  "backlinks.competitorsFromAnalysis": "Använder konkurrenter från den senaste konkurrentanalysen: {list}",
-  "backlinks.noCompetitors": "Inga konkurrent-URL:er i projektet — analysen täcker bara din egen profil. Lägg till konkurrenter i projektinställningarna eller Konkurrenter-modulen för att låsa upp länkgapet.",
+  "backlinks.competitorsFromAnalysis":
+    "Använder konkurrenter från den senaste konkurrentanalysen: {list}",
+  "backlinks.noCompetitors":
+    "Inga konkurrent-URL:er i projektet — analysen täcker bara din egen profil. Lägg till konkurrenter i projektinställningarna eller Konkurrenter-modulen för att låsa upp länkgapet.",
   "backlinks.lastRun": "Senast analyserad: {date}",
   "backlinks.score.overall": "Länkposition",
   "backlinks.score.profile": "Profilstyrka",
@@ -1036,11 +1179,14 @@ export const sv: Record<string, string> = {
   "backlinks.table.notFetched": "Data kunde inte hämtas",
   "backlinks.you": "Du",
   "backlinks.gapHeading": "Länkgap — de länkar till konkurrenter, inte till dig",
-  "backlinks.gapNote": "Domäner som länkar till minst en konkurrent men inte till din domän. Se dem som outreach-mål eller inspiration för vilken typ av sajter du bör kontakta.",
+  "backlinks.gapNote":
+    "Domäner som länkar till minst en konkurrent men inte till din domän. Se dem som outreach-mål eller inspiration för vilken typ av sajter du bör kontakta.",
   "backlinks.gap.linksTo": "Länkar till",
-  "backlinks.gapEmpty": "Inget länkgap hittades — inga konkurrenter hämtades eller ingen överlappning fanns.",
+  "backlinks.gapEmpty":
+    "Inget länkgap hittades — inga konkurrenter hämtades eller ingen överlappning fanns.",
   "backlinks.referringHeading": "Starkaste domänerna som länkar till dig",
-  "backlinks.referringEmpty": "Indexet har inte hittat några hänvisande domäner ännu — en ung domän börjar ofta på noll.",
+  "backlinks.referringEmpty":
+    "Indexet har inte hittat några hänvisande domäner ännu — en ung domän börjar ofta på noll.",
   "backlinks.recommendations": "Rekommendationer",
   "backlinks.effort": "Arbetsinsats",
   "backlinks.target": "Mål / plattform",
@@ -1058,39 +1204,149 @@ export const sv: Record<string, string> = {
   "backlinks.category.directories": "Kataloger & profiler",
   "backlinks.category.linkHygiene": "Länkhygien",
   "nav.linkMarketplace": "Länkmarknad",
-  "marketplace.title": "Sponsrade publiceringar", "marketplace.subtitle": "Matcha backlink-möjligheter med transparenta, redaktionellt granskade sponsrade placeringar.",
-  "marketplace.disclosureTitle": "White-hat-marknad.", "marketplace.disclosure": "Varje förfrågan kräver tydlig sponsringsmärkning och rel=\"sponsored\". En förfrågan är inte ett köp och garanterar aldrig ranking, trafik eller intäkter.",
-  "marketplace.demoNoticeTitle": "Demokatalog.", "marketplace.demoNotice": "Domänerna, mätvärdena och priserna nedan är demonstrationsdata tills Linkhouse API-åtkomst har beviljats. Förfrågningar sparas endast i Milo för granskning; ingen leverantörsorder eller betalning skapas.", "marketplace.demoBadge": "Demo",
-  "marketplace.integrationTitle": "Linkhouse-integration", "marketplace.integrationLive": "Leverantörskatalogen är ansluten. Varje betald order kräver fortfarande bekräftelse av exakt totalbelopp.", "marketplace.integrationPending": "Produktionskontraktet är klart; endpoint-mappning och nycklar väntar på Linkhouse-dokumentation.",
-  "marketplace.catalogConnected": "Livekatalog", "marketplace.catalogDemo": "Demokatalog", "marketplace.orderingEnabled": "Beställning aktiverad", "marketplace.orderingLocked": "Beställning låst",
-  "marketplace.offers": "Erbjudanden", "marketplace.orders": "Förfrågningar", "marketplace.search": "Sök domäner eller ämnen…", "marketplace.noAnalysis": "Kör Backlink Intelligence för länkgapssignaler. Ämnes- och marknadsmatchning är redan aktiv.",
-  "marketplace.reason.linkGap": "Konkurrenternas länkgap", "marketplace.rank": "Domänrank", "marketplace.traffic": "Uppsk. trafik", "marketplace.turnaround": "Leveranstid", "marketplace.days": "{count} dagar", "marketplace.price": "Indikativt pris",
-  "marketplace.request": "Begär granskning", "marketplace.reviewPrice": "Granska pris", "marketplace.quoteLocked": "Offertinställning krävs", "marketplace.requested": "Begärd", "marketplace.ordersEmpty": "Inga publiceringsförfrågningar ännu.",
-  "marketplace.quoteTitle": "Granska publiceringspris", "marketplace.basePrice": "Leverantörspris", "marketplace.serviceFee": "Milo-serviceavgift ({count}%)", "marketplace.totalPrice": "Exakt totalbelopp", "marketplace.quoteExpires": "Offerten löper ut kl. {time}. Därefter krävs en ny offert.",
-  "marketplace.confirmSponsored": "Jag kräver tydlig sponsringsmärkning och rel=\"sponsored\" eller nofollow på länken.", "marketplace.confirmPaymentLive": "Jag godkänner uttryckligen en leverantörsorder på exakt €{total}.", "marketplace.confirmPaymentDemo": "Jag bekräftar granskningsförfrågan på €{total} och förstår att demoläget inte skapar order eller betalning.",
-  "marketplace.confirmPurchase": "Bekräfta betald order", "marketplace.confirmDemoRequest": "Spara förfrågan", "marketplace.confirmedAt": "Bekräftad",
-  "marketplace.toast.exists": "Erbjudandet har redan en aktiv förfrågan.", "marketplace.toast.requested": "Publiceringsförfrågan sparades för granskning.", "marketplace.toast.submitted": "Betald leverantörsorder skickad.", "marketplace.toast.catalogError": "Leverantörskatalogen kunde inte uppdateras. Den säkra demokatalogen är kvar.", "marketplace.toast.quoteError": "Kunde inte skapa en offert. Försök igen.", "marketplace.toast.quoteExpired": "Offerten har löpt ut. Begär ett nytt pris.", "marketplace.toast.orderError": "Ordern skapades inte. Ingen betalning gjordes.",
-  "marketplace.toast.orderReview": "Leverantörens resultat kunde inte bekräftas. Milo sparade förfrågan som Under granskning; försök inte igen innan statusen har stämts av.",
-  "marketplace.status.Requested": "Begärd", "marketplace.status.In Review": "Granskas", "marketplace.status.Submitted": "Skickad", "marketplace.status.Accepted": "Godkänd", "marketplace.status.Published": "Publicerad", "marketplace.status.Failed": "Misslyckad", "marketplace.status.Cancelled": "Avbruten",
-  "nav.outreach": "AI Outreach", "outreach.title": "AI Outreach", "outreach.subtitle": "Skapa personliga, mänskligt granskade digital-PR-mejl.", "outreach.safetyTitle": "Mänskligt godkännande krävs.", "outreach.safety": "Milo skickar aldrig mejl automatiskt. Varje första meddelande och uppföljning kräver bekräftelse av exakt mottagare och innehåll. Spärrar och frekvensgränser tillämpas på servern.",
-  "outreach.drafts": "Utkastkö", "outreach.empty": "Inga outreach-utkast ännu.", "outreach.newDraft": "Skapa utkast", "outreach.suggestedTargets": "Förslag från backlink-data", "outreach.domain": "Måldomän", "outreach.contactName": "Kontaktnamn", "outreach.contactEmail": "Kontaktmejl", "outreach.optional": "Valfritt", "outreach.reason": "Verklig kontaktorsak", "outreach.reasonPlaceholder": "Varför resursen faktiskt kan hjälpa deras målgrupp", "outreach.asset": "Resurs att erbjuda", "outreach.assetPlaceholder": "Guide, originaldata, expertkommentar…", "outreach.generate": "Generera utkast", "outreach.generating": "Genererar…", "outreach.invalidDomain": "Ange en giltig måldomän.", "outreach.followUps": "Valfria uppföljningar", "outreach.afterDays": "Efter {count} dagar", "outreach.approve": "Godkänn utkast", "outreach.markSent": "Markera som skickat", "outreach.pause": "Pausa", "outreach.toast.generated": "Outreach-utkast skapat.", "outreach.toast.failed": "Kunde inte skapa utkastet.", "outreach.toast.copied": "Mejlet kopierades.", "outreach.toast.status": "Status ändrad till {status}.",
-  "outreach.source.linkGap": "Länkgap", "outreach.source.marketplace": "Marknad", "outreach.source.manual": "Manuell", "outreach.status.Draft": "Utkast", "outreach.status.Approved": "Godkänt", "outreach.status.Queued": "I kö", "outreach.status.Sent": "Skickat", "outreach.status.Replied": "Besvarat", "outreach.status.Paused": "Pausat",
-  "outreach.status.Failed": "Misslyckat", "outreach.status.Suppressed": "Spärrat",
-  "outreach.deliveryTitle": "Kontrollerad e-postleverans", "outreach.deliveryReady": "Verifierad Resend-avsändare är klar. Gräns: {count} meddelanden per 24 timmar.",
-  "outreach.deliveryPending": "Utkast fungerar. Liveutskick är låst tills verifierad avsändare och kill switch har konfigurerats.",
-  "outreach.sendingEnabled": "Utskick aktiverat", "outreach.sendingLocked": "Utskick låst",
-  "outreach.recipientRequired": "Lägg till en giltig mottagaradress före godkännande.", "outreach.contentRequired": "Ämne och meddelande krävs.",
-  "outreach.subject": "Ämne", "outreach.message": "Meddelande", "outreach.to": "Till", "outreach.lastError": "Senaste leveransfel",
-  "outreach.editTitle": "Redigera och granska utkastet igen", "outreach.reviewSend": "Granska utskick", "outreach.markReplied": "Markera svar",
-  "outreach.reviewSendTitle": "Granska exakt mejl", "outreach.reviewFollowUpTitle": "Granska exakt uppföljning",
-  "outreach.reviewSendDescription": "Inget skickas förrän båda bekräftelserna är markerade och du trycker Skicka nu.",
-  "outreach.confirmRecipient": "Jag har verifierat mottagaren och har ett legitimt, relevant skäl att kontakta personen.",
-  "outreach.confirmContent": "Jag har granskat hela meddelandet. Det innehåller inget köpt eller ömsesidigt länkerbjudande, påhittad personalisering eller rankningslöfte.",
-  "outreach.sendNow": "Skicka nu", "outreach.reviewFollowUp": "Granska uppföljning", "outreach.followUpSent": "Skickat", "outreach.dueAt": "Förfaller {time}",
-  "outreach.toast.saved": "Utkastet sparades och kräver nytt godkännande.", "outreach.toast.sent": "Mejlet accepterades för leverans.",
-  "outreach.toast.followUpSent": "Uppföljningen accepterades för leverans.", "outreach.toast.suppressed": "Mottagaren har avregistrerat sig eller är spärrad.",
-  "outreach.toast.limit": "24-timmarsgränsen för outreach har nåtts.", "outreach.toast.notDue": "Uppföljningen ska inte skickas ännu.",
-  "outreach.toast.notConfigured": "Liveleverans för outreach är inte konfigurerad.", "outreach.toast.sendFailed": "Mejlet kunde inte skickas. Granska utkastet och försök igen.",
+  "marketplace.title": "Sponsrade publiceringar",
+  "marketplace.subtitle":
+    "Matcha backlink-möjligheter med transparenta, redaktionellt granskade sponsrade placeringar.",
+  "marketplace.disclosureTitle": "White-hat-marknad.",
+  "marketplace.disclosure":
+    'Varje förfrågan kräver tydlig sponsringsmärkning och rel="sponsored". En förfrågan är inte ett köp och garanterar aldrig ranking, trafik eller intäkter.',
+  "marketplace.demoNoticeTitle": "Demokatalog.",
+  "marketplace.demoNotice":
+    "Domänerna, mätvärdena och priserna nedan är demonstrationsdata tills Linkhouse API-åtkomst har beviljats. Förfrågningar sparas endast i Milo för granskning; ingen leverantörsorder eller betalning skapas.",
+  "marketplace.demoBadge": "Demo",
+  "marketplace.integrationTitle": "Linkhouse-integration",
+  "marketplace.integrationLive":
+    "Leverantörskatalogen är ansluten. Varje betald order kräver fortfarande bekräftelse av exakt totalbelopp.",
+  "marketplace.integrationPending":
+    "Produktionskontraktet är klart; endpoint-mappning och nycklar väntar på Linkhouse-dokumentation.",
+  "marketplace.catalogConnected": "Livekatalog",
+  "marketplace.catalogDemo": "Demokatalog",
+  "marketplace.orderingEnabled": "Beställning aktiverad",
+  "marketplace.orderingLocked": "Beställning låst",
+  "marketplace.offers": "Erbjudanden",
+  "marketplace.orders": "Förfrågningar",
+  "marketplace.search": "Sök domäner eller ämnen…",
+  "marketplace.noAnalysis":
+    "Kör Backlink Intelligence för länkgapssignaler. Ämnes- och marknadsmatchning är redan aktiv.",
+  "marketplace.reason.linkGap": "Konkurrenternas länkgap",
+  "marketplace.rank": "Domänrank",
+  "marketplace.traffic": "Uppsk. trafik",
+  "marketplace.turnaround": "Leveranstid",
+  "marketplace.days": "{count} dagar",
+  "marketplace.price": "Indikativt pris",
+  "marketplace.request": "Begär granskning",
+  "marketplace.reviewPrice": "Granska pris",
+  "marketplace.quoteLocked": "Offertinställning krävs",
+  "marketplace.requested": "Begärd",
+  "marketplace.ordersEmpty": "Inga publiceringsförfrågningar ännu.",
+  "marketplace.quoteTitle": "Granska publiceringspris",
+  "marketplace.basePrice": "Leverantörspris",
+  "marketplace.serviceFee": "Milo-serviceavgift ({count}%)",
+  "marketplace.totalPrice": "Exakt totalbelopp",
+  "marketplace.quoteExpires": "Offerten löper ut kl. {time}. Därefter krävs en ny offert.",
+  "marketplace.confirmSponsored":
+    'Jag kräver tydlig sponsringsmärkning och rel="sponsored" eller nofollow på länken.',
+  "marketplace.confirmPaymentLive":
+    "Jag godkänner uttryckligen en leverantörsorder på exakt €{total}.",
+  "marketplace.confirmPaymentDemo":
+    "Jag bekräftar granskningsförfrågan på €{total} och förstår att demoläget inte skapar order eller betalning.",
+  "marketplace.confirmPurchase": "Bekräfta betald order",
+  "marketplace.confirmDemoRequest": "Spara förfrågan",
+  "marketplace.confirmedAt": "Bekräftad",
+  "marketplace.toast.exists": "Erbjudandet har redan en aktiv förfrågan.",
+  "marketplace.toast.requested": "Publiceringsförfrågan sparades för granskning.",
+  "marketplace.toast.submitted": "Betald leverantörsorder skickad.",
+  "marketplace.toast.catalogError":
+    "Leverantörskatalogen kunde inte uppdateras. Den säkra demokatalogen är kvar.",
+  "marketplace.toast.quoteError": "Kunde inte skapa en offert. Försök igen.",
+  "marketplace.toast.quoteExpired": "Offerten har löpt ut. Begär ett nytt pris.",
+  "marketplace.toast.orderError": "Ordern skapades inte. Ingen betalning gjordes.",
+  "marketplace.toast.orderReview":
+    "Leverantörens resultat kunde inte bekräftas. Milo sparade förfrågan som Under granskning; försök inte igen innan statusen har stämts av.",
+  "marketplace.status.Requested": "Begärd",
+  "marketplace.status.In Review": "Granskas",
+  "marketplace.status.Submitted": "Skickad",
+  "marketplace.status.Accepted": "Godkänd",
+  "marketplace.status.Published": "Publicerad",
+  "marketplace.status.Failed": "Misslyckad",
+  "marketplace.status.Cancelled": "Avbruten",
+  "nav.outreach": "AI Outreach",
+  "outreach.title": "AI Outreach",
+  "outreach.subtitle": "Skapa personliga, mänskligt granskade digital-PR-mejl.",
+  "outreach.safetyTitle": "Mänskligt godkännande krävs.",
+  "outreach.safety":
+    "Milo skickar aldrig mejl automatiskt. Varje första meddelande och uppföljning kräver bekräftelse av exakt mottagare och innehåll. Spärrar och frekvensgränser tillämpas på servern.",
+  "outreach.drafts": "Utkastkö",
+  "outreach.empty": "Inga outreach-utkast ännu.",
+  "outreach.newDraft": "Skapa utkast",
+  "outreach.suggestedTargets": "Förslag från backlink-data",
+  "outreach.domain": "Måldomän",
+  "outreach.contactName": "Kontaktnamn",
+  "outreach.contactEmail": "Kontaktmejl",
+  "outreach.optional": "Valfritt",
+  "outreach.reason": "Verklig kontaktorsak",
+  "outreach.reasonPlaceholder": "Varför resursen faktiskt kan hjälpa deras målgrupp",
+  "outreach.asset": "Resurs att erbjuda",
+  "outreach.assetPlaceholder": "Guide, originaldata, expertkommentar…",
+  "outreach.generate": "Generera utkast",
+  "outreach.generating": "Genererar…",
+  "outreach.invalidDomain": "Ange en giltig måldomän.",
+  "outreach.followUps": "Valfria uppföljningar",
+  "outreach.afterDays": "Efter {count} dagar",
+  "outreach.approve": "Godkänn utkast",
+  "outreach.markSent": "Markera som skickat",
+  "outreach.pause": "Pausa",
+  "outreach.toast.generated": "Outreach-utkast skapat.",
+  "outreach.toast.failed": "Kunde inte skapa utkastet.",
+  "outreach.toast.copied": "Mejlet kopierades.",
+  "outreach.toast.status": "Status ändrad till {status}.",
+  "outreach.source.linkGap": "Länkgap",
+  "outreach.source.marketplace": "Marknad",
+  "outreach.source.manual": "Manuell",
+  "outreach.status.Draft": "Utkast",
+  "outreach.status.Approved": "Godkänt",
+  "outreach.status.Queued": "I kö",
+  "outreach.status.Sent": "Skickat",
+  "outreach.status.Replied": "Besvarat",
+  "outreach.status.Paused": "Pausat",
+  "outreach.status.Failed": "Misslyckat",
+  "outreach.status.Suppressed": "Spärrat",
+  "outreach.deliveryTitle": "Kontrollerad e-postleverans",
+  "outreach.deliveryReady":
+    "Verifierad Resend-avsändare är klar. Gräns: {count} meddelanden per 24 timmar.",
+  "outreach.deliveryPending":
+    "Utkast fungerar. Liveutskick är låst tills verifierad avsändare och kill switch har konfigurerats.",
+  "outreach.sendingEnabled": "Utskick aktiverat",
+  "outreach.sendingLocked": "Utskick låst",
+  "outreach.recipientRequired": "Lägg till en giltig mottagaradress före godkännande.",
+  "outreach.contentRequired": "Ämne och meddelande krävs.",
+  "outreach.subject": "Ämne",
+  "outreach.message": "Meddelande",
+  "outreach.to": "Till",
+  "outreach.lastError": "Senaste leveransfel",
+  "outreach.editTitle": "Redigera och granska utkastet igen",
+  "outreach.reviewSend": "Granska utskick",
+  "outreach.markReplied": "Markera svar",
+  "outreach.reviewSendTitle": "Granska exakt mejl",
+  "outreach.reviewFollowUpTitle": "Granska exakt uppföljning",
+  "outreach.reviewSendDescription":
+    "Inget skickas förrän båda bekräftelserna är markerade och du trycker Skicka nu.",
+  "outreach.confirmRecipient":
+    "Jag har verifierat mottagaren och har ett legitimt, relevant skäl att kontakta personen.",
+  "outreach.confirmContent":
+    "Jag har granskat hela meddelandet. Det innehåller inget köpt eller ömsesidigt länkerbjudande, påhittad personalisering eller rankningslöfte.",
+  "outreach.sendNow": "Skicka nu",
+  "outreach.reviewFollowUp": "Granska uppföljning",
+  "outreach.followUpSent": "Skickat",
+  "outreach.dueAt": "Förfaller {time}",
+  "outreach.toast.saved": "Utkastet sparades och kräver nytt godkännande.",
+  "outreach.toast.sent": "Mejlet accepterades för leverans.",
+  "outreach.toast.followUpSent": "Uppföljningen accepterades för leverans.",
+  "outreach.toast.suppressed": "Mottagaren har avregistrerat sig eller är spärrad.",
+  "outreach.toast.limit": "24-timmarsgränsen för outreach har nåtts.",
+  "outreach.toast.notDue": "Uppföljningen ska inte skickas ännu.",
+  "outreach.toast.notConfigured": "Liveleverans för outreach är inte konfigurerad.",
+  "outreach.toast.sendFailed": "Mejlet kunde inte skickas. Granska utkastet och försök igen.",
 
   // ---- Scheduled publishing ----
   "editor.schedule.failedTitle": "Den schemalagda publiceringen misslyckades",
@@ -1105,10 +1361,13 @@ export const sv: Record<string, string> = {
   "editor.schedule.cancel": "Avbryt publiceringen",
   "editor.schedule.cancelled": "Publiceringen avbröts. Utkastet är orört.",
   "editor.schedule.armed": "Schemalagd. Den publiceras {when}.",
-  "editor.schedule.inFlight": "Den publiceras just nu och kan inte längre stoppas — du kan avpublicera den från din sajt.",
+  "editor.schedule.inFlight":
+    "Den publiceras just nu och kan inte längre stoppas — du kan avpublicera den från din sajt.",
   "editor.schedule.needsApproval": "Markera artikeln som klar innan du schemalägger den.",
-  "editor.schedule.overdue": "Den skulle ha publicerats {when} men gjorde det inte. Kontrollera dina anslutningsinställningar och schemalägg igen.",
-  "editor.schedule.hint": "Att godkänna publicerar aldrig. Ingenting går live förrän du schemalägger eller publicerar det.",
+  "editor.schedule.overdue":
+    "Den skulle ha publicerats {when} men gjorde det inte. Kontrollera dina anslutningsinställningar och schemalägg igen.",
+  "editor.schedule.hint":
+    "Att godkänna publicerar aldrig. Ingenting går live förrän du schemalägger eller publicerar det.",
 
   // ---- Pipeline vocabulary (increment 3) ----
   "pipeline.stage.idea": "Idé",
@@ -1138,7 +1397,8 @@ export const sv: Record<string, string> = {
 
   // ---- Article Studio 3.0 — Hook panel (P1.2A) ----
   "hook.panel.title": "Inledande hook",
-  "hook.panel.v3Note": "Article Studio 3.0-artiklar behöver en godkänd inledande hook innan publicering.",
+  "hook.panel.v3Note":
+    "Article Studio 3.0-artiklar behöver en godkänd inledande hook innan publicering.",
   "hook.provenance.generated": "Genererad",
   "hook.provenance.edited": "Redigerad",
   "hook.approval.draft": "Utkast",
@@ -1159,16 +1419,22 @@ export const sv: Record<string, string> = {
   "hook.type.story": "Berättelse",
   "hook.type.result": "Resultat",
   "hook.type.promise": "Löfte",
-  "hook.finding.unsupported-statistic": "Hooken anger statistik eller resultat utan länkat underlag. Bifoga en källa eller ta bort siffran.",
-  "hook.finding.explicit-guarantee": "Hooken ger en uttrycklig garanti. Milo publicerar inte garantier — formulera om utan löfte om resultat.",
-  "hook.finding.ymyl-unsupported": "Hooken gör ett hälso-, ekonomi- eller juridikpåstående — en källa eller mänsklig bekräftelse rekommenderas (krävs inte längre för publicering).",
-  "hook.finding.unsupported-testimonial": "Hooken framställer ett kundresultat eller omdöme som fakta utan angiven källa. Bifoga underlag eller ta bort påståendet.",
+  "hook.finding.unsupported-statistic":
+    "Hooken anger statistik eller resultat utan länkat underlag. Bifoga en källa eller ta bort siffran.",
+  "hook.finding.explicit-guarantee":
+    "Hooken ger en uttrycklig garanti. Milo publicerar inte garantier — formulera om utan löfte om resultat.",
+  "hook.finding.ymyl-unsupported":
+    "Hooken gör ett hälso-, ekonomi- eller juridikpåstående — en källa eller mänsklig bekräftelse rekommenderas (krävs inte längre för publicering).",
+  "hook.finding.unsupported-testimonial":
+    "Hooken framställer ett kundresultat eller omdöme som fakta utan angiven källa. Bifoga underlag eller ta bort påståendet.",
   "hook.finding.generic-filler": "Hooken börjar med utfyllnad. Inled med något konkret.",
   "hook.finding.title-repetition": "Hooken upprepar mest titeln. Ge den en egen vinkel.",
-  "hook.finding.weak-relevance": "Hooken har liten koppling till artikeltexten. Knyt den till innehållet.",
+  "hook.finding.weak-relevance":
+    "Hooken har liten koppling till artikeltexten. Knyt den till innehållet.",
   "hook.finding.excessive-clickbait": "Hooken låter som clickbait. Tona ner överdrifterna.",
   "hook.finding.excessive-length": "Hooken är lång. Korta ner den till en kärnfull inledning.",
-  "hook.finding.testimonial-like": "Hooken använder omdömesformuleringar utan sammanhang. Lägg till en källa eller formulera om.",
+  "hook.finding.testimonial-like":
+    "Hooken använder omdömesformuleringar utan sammanhang. Lägg till en källa eller formulera om.",
   "hook.finding.overly-broad-promise": "Hooken ger ett för brett löfte. Gör det konkret.",
   "hook.resolution.edit-hook": "Redigera hooken",
   "hook.resolution.attach-evidence": "Bifoga underlag",
@@ -1178,7 +1444,8 @@ export const sv: Record<string, string> = {
   "hook.evidence.label": "Underlag",
   "hook.evidence.attach": "Bifoga en verifierad källa",
   "hook.evidence.claimPlaceholder": "Vilket påstående stöder den? (valfritt)",
-  "hook.evidence.none": "Inga verifierade källor ännu. Lägg till och verifiera en källa på fliken Källor och författare, bifoga den sedan här.",
+  "hook.evidence.none":
+    "Inga verifierade källor ännu. Lägg till och verifiera en källa på fliken Källor och författare, bifoga den sedan här.",
   "hook.evidence.remove": "Ta bort underlag",
   "hook.evidence.supportedBy": "Stöds av",
   "hook.unsaved": "Osparade hook-ändringar — använd Spara.",
@@ -1207,9 +1474,11 @@ export const sv: Record<string, string> = {
   "calsched.title.reschedule": "Flytta publiceringen?",
   "calsched.readyHint": "”{title}” är redo. Välj exakt tid för publicering {date}.",
   "calsched.notReadyHint": "”{title}” kan inte schemaläggas för publicering ännu:",
-  "calsched.rescheduleWarn": "Publiceringen kommer att MISSLYCKAS om problemen ovan inte åtgärdas före utsatt tid.",
+  "calsched.rescheduleWarn":
+    "Publiceringen kommer att MISSLYCKAS om problemen ovan inte åtgärdas före utsatt tid.",
   "calsched.timeLabel": "Publiceringstid",
-  "calsched.pastDay": "Den dagen kan inte längre ta emot en publicering — släpp på en framtida dag.",
+  "calsched.pastDay":
+    "Den dagen kan inte längre ta emot en publicering — släpp på en framtida dag.",
   "calsched.cancel": "Avbryt",
   "calsched.openEditor": "Öppna i redigeraren",
   "calsched.targetOnly": "Sätt endast måldatum",
@@ -1254,11 +1523,13 @@ export const sv: Record<string, string> = {
   "pres.mobile.size": "Storlek (mobil)",
   "pres.mobile.align": "Justering (mobil)",
   "pres.mobile.inherit": "Ärv",
-  "pres.capability": "Tillämpas i Milo-förhandsvisning; inte verifierad på publiceringsdestinationen.",
+  "pres.capability":
+    "Tillämpas i Milo-förhandsvisning; inte verifierad på publiceringsdestinationen.",
 
   // ---- Utvald bild (P1.2B) ----
   "featured.title": "Utvald bild",
-  "featured.hint": "En godkänd bild med hero/mobil-beskärningar — krävs för Article Studio 3.0-artiklar.",
+  "featured.hint":
+    "En godkänd bild med hero/mobil-beskärningar — krävs för Article Studio 3.0-artiklar.",
   "featured.use": "Använd ”{concept}”",
   "featured.none": "Godkänn först en bild i bildpanelen.",
   "featured.alt": "Alt-text (krävs)",

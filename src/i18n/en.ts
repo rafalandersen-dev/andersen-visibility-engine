@@ -75,7 +75,8 @@ export const en: Record<string, string> = {
   "onboarding.appLanguage": "App language",
   "onboarding.contentLanguage": "Primary content language",
   "onboarding.websiteUrl": "Website URL",
-  "onboarding.websiteHint": "Milo will try to read your homepage to pre-fill the next steps. You can also skip and fill manually.",
+  "onboarding.websiteHint":
+    "Milo will try to read your homepage to pre-fill the next steps. You can also skip and fill manually.",
   "onboarding.reading": "Reading your website…",
   "onboarding.prefilled": "Pre-filled from your website — edit anything below.",
   "onboarding.businessName": "Business name",
@@ -90,9 +91,11 @@ export const en: Record<string, string> = {
   "onboarding.addService": "Add service / product",
   "onboarding.serviceName": "Name",
   "onboarding.serviceDesc": "Short description (optional)",
-  "onboarding.competitorsIntro": "Optional but recommended — add up to 3 competitor websites Milo can compare you against.",
+  "onboarding.competitorsIntro":
+    "Optional but recommended — add up to 3 competitor websites Milo can compare you against.",
   "onboarding.goalsHint": "Pick the outcomes that matter most. You can change these later.",
-  "onboarding.summaryIntro": "Review your setup. Milo will create your project and generate a first foundation.",
+  "onboarding.summaryIntro":
+    "Review your setup. Milo will create your project and generate a first foundation.",
   "onboarding.summary.market": "Market",
   "onboarding.summary.language": "Language",
   "onboarding.summary.website": "Website",
@@ -107,7 +110,8 @@ export const en: Record<string, string> = {
   "onboarding.toast.scanned": "Scanned your website — review the details",
   "onboarding.toast.scanFailed": "Couldn’t read that website — fill the details manually",
   "onboarding.toast.ready": "Your first growth plan is ready",
-  "onboarding.toast.partial": "Setup saved. Some AI steps didn’t finish — you can run them from each module.",
+  "onboarding.toast.partial":
+    "Setup saved. Some AI steps didn’t finish — you can run them from each module.",
   "onboarding.toast.saveError": "Could not save your project. Please try again.",
 
   // ---- Project Setup ----
@@ -122,6 +126,26 @@ export const en: Record<string, string> = {
   "setup.section.markets": "Markets & language",
   "setup.section.positioning": "Positioning",
   "setup.section.marketsGoals": "Markets & goals",
+  "autoSched.title": "Monthly auto-scheduler",
+  "autoSched.hint":
+    "Around the 25th, Milo plans next month: it drafts articles for your chosen weekdays within your plan's monthly quota, resolves internal links against your real pages, and prepares each one with an approved opening hook.",
+  "autoSched.enable": "Fill next month's calendar automatically",
+  "autoSched.weekdays": "Publish days",
+  "autoSched.publishTime": "Publish time",
+  "autoSched.timeZone": "Time zone",
+  "autoSched.mode": "Mode",
+  "autoSched.modeAuto": "Publish automatically",
+  "autoSched.modeApprove": "Hold for my approval",
+  "autoSched.modeHint":
+    "“Hold for my approval” never publishes anything: drafts wait as ready articles and you arm them from the calendar. “Publish automatically” schedules real go-lives at each slot.",
+  "autoSched.summaryEmail": "Summary email (optional)",
+  "autoSched.day.1": "Mon",
+  "autoSched.day.2": "Tue",
+  "autoSched.day.3": "Wed",
+  "autoSched.day.4": "Thu",
+  "autoSched.day.5": "Fri",
+  "autoSched.day.6": "Sat",
+  "autoSched.day.7": "Sun",
   "setup.markets.market": "Market / country",
   "setup.markets.currency": "Currency",
   "setup.markets.appLanguage": "App language",
@@ -135,7 +159,8 @@ export const en: Record<string, string> = {
   // ---- Dashboard ----
   "dashboard.title": "Dashboard",
   "dashboard.welcomeTitle": "Welcome to Milo Growth",
-  "dashboard.welcomeDesc": "Your workspace is empty. Create your first project to start your monthly growth plan.",
+  "dashboard.welcomeDesc":
+    "Your workspace is empty. Create your first project to start your monthly growth plan.",
   "dashboard.createFirst": "Create first project",
   "dashboard.generateOpps": "Generate SEO Opportunities",
   "dashboard.createNew": "Create New Project",
@@ -148,7 +173,8 @@ export const en: Record<string, string> = {
   "dashboard.recentContent": "Recent content",
   "dashboard.latestAssets": "Latest assets",
   "dashboard.openEditor": "Open editor",
-  "dashboard.noContent": "No content yet. Generate an opportunity and create a brief or draft to get started.",
+  "dashboard.noContent":
+    "No content yet. Generate an opportunity and create a brief or draft to get started.",
   "dashboard.thisWeek": "This week",
   "dashboard.languages": "Languages",
   "dashboard.targetLocations": "Target locations",
@@ -159,7 +185,8 @@ export const en: Record<string, string> = {
   "editor.title": "Content editor",
   "editor.subtitle": "Refine, approve and export AI-drafted assets.",
   "editor.assets": "Assets",
-  "editor.aiReviewNote": "AI-assisted draft. Review before publishing, especially claims, prices, medical/legal/financial statements and local regulations.",
+  "editor.aiReviewNote":
+    "AI-assisted draft. Review before publishing, especially claims, prices, medical/legal/financial statements and local regulations.",
   "editor.noAssetSelectedTitle": "No asset selected",
   "editor.status": "Status",
   "status.Draft": "Draft",
@@ -185,27 +212,32 @@ export const en: Record<string, string> = {
   "editor.publish.notPublished": "Not published",
   "editor.publish.published": "Published live",
   "editor.publish.liveFailed": "Live failed",
-  "editor.publish.connectHint": "Connect a website in Project Setup to send drafts directly from Milo.",
+  "editor.publish.connectHint":
+    "Connect a website in Project Setup to send drafts directly from Milo.",
   "editor.sendModal.title": "Send draft to website?",
-  "editor.sendModal.body": "Milo will send this content asset to your connected website as a draft. It will not be published live automatically.",
+  "editor.sendModal.body":
+    "Milo will send this content asset to your connected website as a draft. It will not be published live automatically.",
   "editor.sendModal.unapproved": "This asset is not approved yet. Send it as a draft anyway?",
   "editor.sendModal.destinationType": "Destination type",
   "editor.sendModal.slug": "Slug",
   "editor.sendModal.send": "Send draft",
   "editor.sendModal.sending": "Sending…",
   "editor.liveModal.title": "Publish this draft live?",
-  "editor.liveModal.body": "This will make the website draft publicly available on the connected website. You should only publish after reviewing the draft.",
+  "editor.liveModal.body":
+    "This will make the website draft publicly available on the connected website. You should only publish after reviewing the draft.",
   "editor.liveModal.publish": "Publish live",
   "editor.liveModal.publishing": "Publishing…",
 
   // ---- Analytics ----
   "analytics.title": "Analytics",
-  "analytics.subtitle": "First-party website growth tracking — anonymous visits, top pages, published-content performance and AI-related signals.",
+  "analytics.subtitle":
+    "First-party website growth tracking — anonymous visits, top pages, published-content performance and AI-related signals.",
   "analytics.refresh": "Refresh",
   "analytics.loading": "Loading analytics…",
   "analytics.errorTitle": "Couldn’t load analytics",
   "analytics.emptyTitle": "No analytics data yet",
-  "analytics.emptyDesc": "Add the tracking snippet to your website and Milo will start showing visits, top pages, published-content performance and AI-related signals.",
+  "analytics.emptyDesc":
+    "Add the tracking snippet to your website and Milo will start showing visits, top pages, published-content performance and AI-related signals.",
   "analytics.stat.visits30": "Visits (30d)",
   "analytics.stat.prev30": "Prev 30d",
   "analytics.stat.growth": "Growth",
@@ -224,9 +256,11 @@ export const en: Record<string, string> = {
   "analytics.published.cta": "CTA",
   "analytics.published.booking": "Booking",
   "analytics.published.livePage": "Live page",
-  "analytics.published.none": "No published content matched yet. Publish content live from the editor, then visits to its live URL appear here.",
+  "analytics.published.none":
+    "No published content matched yet. Publish content live from the editor, then visits to its live URL appear here.",
   "analytics.ai.heading": "AI referral traffic",
-  "analytics.ai.copy": "Visits where the referrer shows the visitor arrived from an AI tool (e.g. ChatGPT, Perplexity) — this is AI referral traffic, not AI mentions or citations. It under-counts, because many AI tools hide the referrer, and it does not mean your business is mentioned, cited or ranked in those tools. Crawler/bot rows below are separate activity signals, not visits.",
+  "analytics.ai.copy":
+    "Visits where the referrer shows the visitor arrived from an AI tool (e.g. ChatGPT, Perplexity) — this is AI referral traffic, not AI mentions or citations. It under-counts, because many AI tools hide the referrer, and it does not mean your business is mentioned, cited or ranked in those tools. Crawler/bot rows below are separate activity signals, not visits.",
   "analytics.ai.none": "No AI referral visits detected in the last 30 days.",
   "analytics.ai.referral": "AI referral visit",
   "analytics.ai.crawler": "AI crawler activity",
@@ -234,23 +268,27 @@ export const en: Record<string, string> = {
   "analytics.setup.label": "Setup",
   "analytics.setup.heading": "Tracking snippet",
   "analytics.setup.addOnce": "Add this once to your website head/body to start tracking visits.",
-  "analytics.privacy": "Milo Analytics uses anonymous visit and event tracking. It does not store names, emails or full IP addresses.",
+  "analytics.privacy":
+    "Milo Analytics uses anonymous visit and event tracking. It does not store names, emails or full IP addresses.",
   "analytics.setupFirst": "Set up a project first",
 
   // ---- Content Quality Engine / Milo Score ----
   "quality.title": "Milo Score",
   "quality.subtitle": "Publishing readiness score",
-  "quality.about": "This score estimates how ready this draft is for publishing based on structure, clarity, brand fit, SEO/GEO basics and safe conversion elements.",
+  "quality.about":
+    "This score estimates how ready this draft is for publishing based on structure, clarity, brand fit, SEO/GEO basics and safe conversion elements.",
   "quality.evaluate": "Evaluate draft",
   "quality.reevaluate": "Re-evaluate",
   "quality.improve": "Improve draft",
   "quality.evaluating": "Evaluating…",
   "quality.improving": "Improving…",
-  "quality.empty": "No Milo Score yet. Evaluate this draft to see publishing readiness and improvement suggestions.",
+  "quality.empty":
+    "No Milo Score yet. Evaluate this draft to see publishing readiness and improvement suggestions.",
   "quality.needBody": "Add draft content before evaluating.",
   "quality.stale": "Draft changed after last evaluation. Re-evaluate to refresh Milo Score.",
   "quality.improved": "Draft improved. Re-evaluate to update Milo Score.",
-  "quality.improveConfirm": "Milo will improve the draft using the current score suggestions. Review the result before publishing.",
+  "quality.improveConfirm":
+    "Milo will improve the draft using the current score suggestions. Review the result before publishing.",
   "quality.improveConfirmTitle": "Improve this draft?",
   "quality.breakdown": "Category breakdown",
   "quality.topIssues": "Top issues",
@@ -262,7 +300,8 @@ export const en: Record<string, string> = {
   "quality.rec.reviewFirst": "Review first",
   "quality.rec.notReady": "Not ready",
   "quality.evaluatedAt": "Evaluated",
-  "quality.publishWarnNotReady": "This draft is marked not ready. Review the Milo Score issues before publishing.",
+  "quality.publishWarnNotReady":
+    "This draft is marked not ready. Review the Milo Score issues before publishing.",
   "quality.publishWarnNoScore": "This draft has not been evaluated yet.",
   "quality.error": "Couldn’t evaluate this draft. Please try again.",
   "quality.cat.structure": "Structure",
@@ -276,7 +315,8 @@ export const en: Record<string, string> = {
 
   // ---- Brand Intelligence ----
   "brand.title": "Brand Intelligence",
-  "brand.intro": "Milo uses this to make future content, scoring and improvements more on-brand and safer. All fields are optional.",
+  "brand.intro":
+    "Milo uses this to make future content, scoring and improvements more on-brand and safer. All fields are optional.",
   "brand.save": "Save Brand Intelligence",
   "brand.saving": "Saving…",
   "brand.remove": "Remove",
@@ -333,8 +373,10 @@ export const en: Record<string, string> = {
   "analytics.v2.whatChanged": "What changed",
   "analytics.v2.nextAction": "Next action",
   "analytics.v2.publishedByMilo": "Published by Milo",
-  "analytics.v2.publishedByMiloDesc": "How the content you published with Milo is performing since it went live.",
-  "analytics.v2.publishedByMiloEmpty": "No published Milo pages yet. Publish a content asset to start measuring performance.",
+  "analytics.v2.publishedByMiloDesc":
+    "How the content you published with Milo is performing since it went live.",
+  "analytics.v2.publishedByMiloEmpty":
+    "No published Milo pages yet. Publish a content asset to start measuring performance.",
   "analytics.v2.topGrowing": "Top growing pages",
   "analytics.v2.needsAttention": "Needs attention",
   "analytics.v2.needsAttentionEmpty": "Nothing needs attention right now.",
@@ -362,33 +404,44 @@ export const en: Record<string, string> = {
   "analytics.issue.noClicks": "Views but no clicks",
   "analytics.issue.lowConversion": "Low conversion",
   "analytics.issue.lowQuality": "Low Milo Score",
-  "analytics.next.installSnippet": "Install the Milo Analytics snippet and visit your website to test tracking.",
-  "analytics.next.addInternalLinks": "Add internal links to your new content and share the page from your main service pages.",
+  "analytics.next.installSnippet":
+    "Install the Milo Analytics snippet and visit your website to test tracking.",
+  "analytics.next.addInternalLinks":
+    "Add internal links to your new content and share the page from your main service pages.",
   "analytics.next.improveCta": "Improve the CTA and make the next step more visible.",
-  "analytics.next.keepMonitoring": "Your content is getting engagement. Keep monitoring and consider creating a supporting article.",
-  "analytics.next.aiClarity": "You have AI-related signals. Keep improving clear answers, FAQ coverage and brand/entity clarity.",
+  "analytics.next.keepMonitoring":
+    "Your content is getting engagement. Keep monitoring and consider creating a supporting article.",
+  "analytics.next.aiClarity":
+    "You have AI-related signals. Keep improving clear answers, FAQ coverage and brand/entity clarity.",
 
   // ---- GSC Lite / SEO Proof Import ----
   "gsc.title": "Search Console Lite",
-  "gsc.subtitle": "Import a Google Search Console CSV export to connect search impressions and clicks with your Milo-published content.",
+  "gsc.subtitle":
+    "Import a Google Search Console CSV export to connect search impressions and clicks with your Milo-published content.",
   "gsc.file": "CSV file",
   "gsc.label": "Label / date range",
   "gsc.labelPlaceholder": "e.g. May 2026",
   "gsc.import": "Import",
   "gsc.importing": "Importing…",
   "gsc.helper": "Milo supports manual CSV imports and optional Google Search Console OAuth sync.",
-  "gsc.privacy": "Imported data is stored in your Milo workspace and used only to show SEO performance inside this project.",
-  "gsc.empty": "No Search Console data yet. Connect Google Search Console above, or export a CSV and upload it here to add SEO proof.",
+  "gsc.privacy":
+    "Imported data is stored in your Milo workspace and used only to show SEO performance inside this project.",
+  "gsc.empty":
+    "No Search Console data yet. Connect Google Search Console above, or export a CSV and upload it here to add SEO proof.",
   "gsc.sourceApi": "API sync",
   "gsc.sourceCsv": "CSV import",
   "gsc.csvHeading": "Manual CSV import",
-  "gsc.csvFallbackNote": "Manual CSV import is always available. OAuth sync lets Milo pull Search Console performance data directly after you connect a verified property.",
+  "gsc.csvFallbackNote":
+    "Manual CSV import is always available. OAuth sync lets Milo pull Search Console performance data directly after you connect a verified property.",
   "gsc.oauth.title": "Google Search Console sync",
-  "gsc.oauth.notConfigured": "Google Search Console sync is not configured yet. You can still use manual CSV import.",
+  "gsc.oauth.notConfigured":
+    "Google Search Console sync is not configured yet. You can still use manual CSV import.",
   "gsc.oauth.ownerSetup.title": "One-time owner setup",
-  "gsc.oauth.ownerSetup.intro": "The Connect button appears for every user once these production secrets are set in Lovable Cloud (Settings → Secrets):",
+  "gsc.oauth.ownerSetup.intro":
+    "The Connect button appears for every user once these production secrets are set in Lovable Cloud (Settings → Secrets):",
   "gsc.oauth.ownerSetup.docs": "Full guide: docs/GSC-OAUTH-SETUP.md in the repo.",
-  "gsc.oauth.consent": "Milo requests read-only Search Console access. You can disconnect it at any time. We use this data to show search performance and content opportunities inside your Milo workspace.",
+  "gsc.oauth.consent":
+    "Milo requests read-only Search Console access. You can disconnect it at any time. We use this data to show search performance and content opportunities inside your Milo workspace.",
   "gsc.oauth.connect": "Connect Google Search Console",
   "gsc.oauth.disconnect": "Disconnect Google Search Console",
   "gsc.oauth.reconnect": "Reconnect",
@@ -404,9 +457,12 @@ export const en: Record<string, string> = {
   "gsc.oauth.sync90": "Sync last 90 days",
   "gsc.oauth.lastSync": "Last sync",
   "gsc.oauth.rows": "rows",
-  "gsc.oauth.readOnlyNote": "Read-only access. Milo never modifies your Search Console settings and never accesses other Google services.",
-  "gsc.oauth.expired": "Your Google connection expired. Reconnect to continue. Manual CSV import remains available.",
-  "gsc.oauth.errorState": "There was a problem with the Google connection. Reconnect to continue. Manual CSV import remains available.",
+  "gsc.oauth.readOnlyNote":
+    "Read-only access. Milo never modifies your Search Console settings and never accesses other Google services.",
+  "gsc.oauth.expired":
+    "Your Google connection expired. Reconnect to continue. Manual CSV import remains available.",
+  "gsc.oauth.errorState":
+    "There was a problem with the Google connection. Reconnect to continue. Manual CSV import remains available.",
   "gsc.oauth.connectedToast": "Google Search Console connected.",
   "gsc.oauth.deniedToast": "Google sign-in was cancelled.",
   "gsc.oauth.errorToast": "Could not connect Google Search Console.",
@@ -420,7 +476,8 @@ export const en: Record<string, string> = {
   "gsc.oauth.status.expired": "Expired",
   "gsc.oauth.status.error": "Error",
   "gsc.oauth.status.notConfigured": "Not configured",
-  "gsc.caution": "Search Console data reflects Google Search performance for the imported date range. It does not guarantee future rankings or traffic.",
+  "gsc.caution":
+    "Search Console data reflects Google Search performance for the imported date range. It does not guarantee future rankings or traffic.",
   "gsc.stat.clicks": "Google clicks",
   "gsc.stat.impressions": "Google impressions",
   "gsc.stat.ctr": "Average CTR",
@@ -428,7 +485,8 @@ export const en: Record<string, string> = {
   "gsc.stat.topQuery": "Top query",
   "gsc.stat.topPage": "Top page",
   "gsc.matched.heading": "Milo-published pages in Search Console",
-  "gsc.matched.queryOnly": "This import contains query-level data only, so Milo cannot match it to specific published pages.",
+  "gsc.matched.queryOnly":
+    "This import contains query-level data only, so Milo cannot match it to specific published pages.",
   "gsc.col.page": "Page",
   "gsc.col.query": "Query",
   "gsc.col.ctr": "CTR",
@@ -444,7 +502,8 @@ export const en: Record<string, string> = {
   "gsc.toast.imported": "Imported {rows} rows",
   "gsc.toast.deleted": "Import deleted",
   "gsc.warn.truncated": "Imported 1000 rows. Some rows were skipped to keep the workspace fast.",
-  "gsc.warn.queryOnly": "This import contains query-level data only, so page matching is not available.",
+  "gsc.warn.queryOnly":
+    "This import contains query-level data only, so page matching is not available.",
   "gsc.error.noFile": "Select a CSV file first.",
   "gsc.error.notCsv": "Please choose a .csv file.",
   "gsc.error.generic": "Could not import this CSV. Please try again.",
@@ -457,13 +516,17 @@ export const en: Record<string, string> = {
 
   // ---- Authority Builder v2 ----
   "authority.title": "Authority Builder",
-  "authority.subtitle": "Find and track safe, relevant authority opportunities — directories, review profiles, citations, partners and PR.",
-  "authority.disclaimer": "Authority opportunities are suggestions. You are responsible for checking relevance, accuracy, rules, directory policies and whether outreach is appropriate. Milo does not guarantee backlinks, rankings, traffic or revenue.",
-  "authority.safeNote": "Authority opportunities help build trust and visibility signals. They do not guarantee rankings or traffic.",
+  "authority.subtitle":
+    "Find and track safe, relevant authority opportunities — directories, review profiles, citations, partners and PR.",
+  "authority.disclaimer":
+    "Authority opportunities are suggestions. You are responsible for checking relevance, accuracy, rules, directory policies and whether outreach is appropriate. Milo does not guarantee backlinks, rankings, traffic or revenue.",
+  "authority.safeNote":
+    "Authority opportunities help build trust and visibility signals. They do not guarantee rankings or traffic.",
   "authority.generate": "Generate authority opportunities",
   "authority.generating": "Generating…",
   "authority.regenerate": "Generate more",
-  "authority.empty": "Generate a set of safe, relevant authority-building ideas for your business — local directories, review profiles, citations, partner links, PR angles and trust signals.",
+  "authority.empty":
+    "Generate a set of safe, relevant authority-building ideas for your business — local directories, review profiles, citations, partner links, PR angles and trust signals.",
   "authority.summary.total": "Total opportunities",
   "authority.summary.live": "Live signals",
   "authority.summary.inProgress": "In progress",
@@ -472,7 +535,8 @@ export const en: Record<string, string> = {
   "authority.summary.review": "Review / citation",
   "authority.tracker": "Authority tracker",
   "authority.liveSignals": "Live authority signals",
-  "authority.liveNote": "Track future changes in Analytics and GSC Lite to see whether visibility signals improve over time.",
+  "authority.liveNote":
+    "Track future changes in Analytics and GSC Lite to see whether visibility signals improve over time.",
   "authority.viewLive": "View live link",
   "authority.none": "No opportunities match your filters.",
   "authority.search": "Search…",
@@ -533,12 +597,15 @@ export const en: Record<string, string> = {
   // ---- AI Evaluation (internal) ----
   "aiEval.title": "AI Evaluation",
   "aiEval.subtitle": "Compare the existing model and a candidate model on real Milo tasks.",
-  "aiEval.intro": "Use this internal tool to compare AI model quality on real Milo tasks. Evaluation results are for product development and do not change production behavior unless routing is explicitly updated.",
-  "aiEval.noAutoSwitch": "Milo will not automatically switch models based on this test. Use the results to decide which tasks should use which model later.",
+  "aiEval.intro":
+    "Use this internal tool to compare AI model quality on real Milo tasks. Evaluation results are for product development and do not change production behavior unless routing is explicitly updated.",
+  "aiEval.noAutoSwitch":
+    "Milo will not automatically switch models based on this test. Use the results to decide which tasks should use which model later.",
   "aiEval.existingModel": "Existing model",
   "aiEval.candidateModel": "Candidate model",
   "aiEval.notConfigured": "Not configured",
-  "aiEval.notConfiguredHelp": "Candidate model is not configured. Add the required server-side environment key to run comparisons.",
+  "aiEval.notConfiguredHelp":
+    "Candidate model is not configured. Add the required server-side environment key to run comparisons.",
   "aiEval.task": "Task",
   "aiEval.taskType.contentGeneration": "Content generation",
   "aiEval.taskType.contentImprove": "Improve draft",
@@ -568,12 +635,14 @@ export const en: Record<string, string> = {
   // ---- Free AI Visibility Readiness Audit (public) ----
   "publicAudit.badge": "Free audit",
   "publicAudit.title": "Free AI Visibility Readiness Audit",
-  "publicAudit.subtitle": "See how clearly your website explains your business to modern search engines and AI-assisted discovery tools.",
+  "publicAudit.subtitle":
+    "See how clearly your website explains your business to modern search engines and AI-assisted discovery tools.",
   "publicAudit.run": "Run free audit",
   "publicAudit.running": "Auditing…",
   "publicAudit.helper": "No login required for the first result.",
   "publicAudit.safeNote": "This is a readiness audit, not a live ranking check.",
-  "publicAudit.privacy": "Milo only reads publicly available website content for this audit. Do not enter private, password-protected or sensitive URLs.",
+  "publicAudit.privacy":
+    "Milo only reads publicly available website content for this audit. Do not enter private, password-protected or sensitive URLs.",
   "publicAudit.invalidUrl": "Please enter a valid website URL (for example: yourbusiness.com).",
   "publicAudit.genericError": "Something went wrong. Please try again.",
   "publicAudit.loading.fetching": "Fetching website",
@@ -602,7 +671,8 @@ export const en: Record<string, string> = {
   "publicAudit.yes": "Yes",
   "publicAudit.no": "No",
   "publicAudit.ctaTitle": "Turn this into a growth plan",
-  "publicAudit.ctaBody": "Create a free Milo project to turn these recommendations into a structured monthly growth plan.",
+  "publicAudit.ctaBody":
+    "Create a free Milo project to turn these recommendations into a structured monthly growth plan.",
   "publicAudit.cta": "Create a free Milo project",
   "publicAudit.ctaSecondary": "Run another audit",
   "publicAudit.cat.entityClarity": "Business / entity clarity",
@@ -625,29 +695,38 @@ export const en: Record<string, string> = {
   "wp.page": "Page",
   "wp.appPassword": "Application password",
   "wp.appPasswordSaved": "•••••• saved — leave blank to keep",
-  "wp.appPasswordHelp": "Create an Application Password in your WordPress user profile and paste it here. Milo uses it server-side to create drafts and publish through the WordPress REST API.",
-  "wp.security": "Your application password is never shown again after saving. You can replace it at any time.",
-  "wp.minPerms": "Use a dedicated WordPress user or application password with the minimum permissions needed to create and publish content.",
+  "wp.appPasswordHelp":
+    "Create an Application Password in your WordPress user profile and paste it here. Milo uses it server-side to create drafts and publish through the WordPress REST API.",
+  "wp.security":
+    "Your application password is never shown again after saving. You can replace it at any time.",
+  "wp.minPerms":
+    "Use a dedicated WordPress user or application password with the minimum permissions needed to create and publish content.",
   "wp.test": "Test connection",
   "wp.testing": "Testing…",
   "wp.testOk": "Connected to WordPress.",
   "wp.testFail": "Could not connect to WordPress. Check the site URL and application password.",
-  "wp.reviewNote": "Review all content before publishing. Milo can send drafts to WordPress, but you remain responsible for checking accuracy, claims, formatting, links and compliance.",
+  "wp.reviewNote":
+    "Review all content before publishing. Milo can send drafts to WordPress, but you remain responsible for checking accuracy, claims, formatting, links and compliance.",
 
   // ---- Shopify connector ----
   "shopify.shopify": "Shopify",
-  "shopify.intro": "Connect a Shopify store to publish Milo content as blog articles. Milo sends articles to a Shopify blog as unpublished drafts first, then publishes them live when you approve.",
+  "shopify.intro":
+    "Connect a Shopify store to publish Milo content as blog articles. Milo sends articles to a Shopify blog as unpublished drafts first, then publishes them live when you approve.",
   "shopify.shopDomain": "Shop domain",
   "shopify.shopDomainHelp": "Your store domain, e.g. mystore.myshopify.com.",
   "shopify.token": "Admin API access token",
   "shopify.tokenSaved": "•••••• saved — leave blank to keep",
-  "shopify.tokenHelp": "Create a custom app in your Shopify admin (Settings → Apps and sales channels → Develop apps), grant it Blog and Article content permissions, and paste its Admin API access token here. Milo uses it server-side via the Shopify Admin API.",
-  "shopify.security": "Your access token is never shown again after saving and is only used server-side. You can replace it at any time.",
-  "shopify.minPerms": "Grant only content permissions (read/write blogs and articles). Milo never accesses orders, customers, products or payment data.",
+  "shopify.tokenHelp":
+    "Create a custom app in your Shopify admin (Settings → Apps and sales channels → Develop apps), grant it Blog and Article content permissions, and paste its Admin API access token here. Milo uses it server-side via the Shopify Admin API.",
+  "shopify.security":
+    "Your access token is never shown again after saving and is only used server-side. You can replace it at any time.",
+  "shopify.minPerms":
+    "Grant only content permissions (read/write blogs and articles). Milo never accesses orders, customers, products or payment data.",
   "shopify.test": "Test connection",
   "shopify.testing": "Testing…",
   "shopify.testOk": "Connected to Shopify.",
-  "shopify.testFail": "Could not connect to Shopify. Check the shop domain and Admin API access token.",
+  "shopify.testFail":
+    "Could not connect to Shopify. Check the shop domain and Admin API access token.",
   "shopify.refreshBlogs": "Load blogs",
   "shopify.loadingBlogs": "Loading…",
   "shopify.blog": "Target blog",
@@ -660,12 +739,15 @@ export const en: Record<string, string> = {
   "shopify.tagsHelp": "Comma-separated tags applied to published articles.",
   "shopify.statusDraft": "draft",
   "shopify.statusPublished": "published",
-  "shopify.blogOnly": "Shopify supports blog articles only. This content will be published as a blog article.",
+  "shopify.blogOnly":
+    "Shopify supports blog articles only. This content will be published as a blog article.",
 
   // ---- Claude connector (MCP) ----
   "claude.title": "Claude connector (MCP)",
-  "claude.subtitle": "Connect Milo to Claude as an MCP connector. Generate a connection token, add it to Claude Code or Claude Desktop, and read your projects, opportunities, content, Milo Score, audits, Search Console and authority data directly inside Claude.",
-  "claude.accountNote": "This connection is account-level: one token gives Claude read-only access to all projects in this workspace.",
+  "claude.subtitle":
+    "Connect Milo to Claude as an MCP connector. Generate a connection token, add it to Claude Code or Claude Desktop, and read your projects, opportunities, content, Milo Score, audits, Search Console and authority data directly inside Claude.",
+  "claude.accountNote":
+    "This connection is account-level: one token gives Claude read-only access to all projects in this workspace.",
   "claude.endpoint": "MCP endpoint",
   "claude.label": "Token label",
   "claude.labelPlaceholder": "e.g. My laptop",
@@ -687,11 +769,13 @@ export const en: Record<string, string> = {
   "claude.createError": "Could not generate a token. Please try again.",
   "claude.tools": "Available tools (read-only)",
   "claude.securityTitle": "Security",
-  "claude.security": "Read-only access to your Milo data. Tokens are stored hashed, never shown again after creation, and never logged. Revoke a token at any time to disconnect.",
+  "claude.security":
+    "Read-only access to your Milo data. Tokens are stored hashed, never shown again after creation, and never logged. Revoke a token at any time to disconnect.",
 
   // ---- Claude connected apps (OAuth) ----
   "claude.apps.title": "Connected apps",
-  "claude.apps.subtitle": "Apps connected to your Milo Growth account via Claude.ai. You can revoke access at any time.",
+  "claude.apps.subtitle":
+    "Apps connected to your Milo Growth account via Claude.ai. You can revoke access at any time.",
   "claude.apps.status.active": "Active",
   "claude.apps.status.expired": "Expired",
   "claude.apps.status.revoked": "Revoked",
@@ -700,7 +784,8 @@ export const en: Record<string, string> = {
   "claude.apps.unnamed": "Unknown app",
   "claude.apps.revoke": "Revoke access",
   "claude.apps.revokeTitle": "Disconnect Claude?",
-  "claude.apps.revokeBody": "Claude will immediately lose access to your Milo Growth data. Your projects and content stay untouched — nothing is deleted. You can reconnect from Claude.ai at any time.",
+  "claude.apps.revokeBody":
+    "Claude will immediately lose access to your Milo Growth data. Your projects and content stay untouched — nothing is deleted. You can reconnect from Claude.ai at any time.",
   "claude.apps.revoked": "Access revoked.",
   "claude.apps.revokeError": "Could not revoke access. Please try again.",
   "claude.apps.loadError": "Could not load connected apps.",
@@ -711,10 +796,12 @@ export const en: Record<string, string> = {
   "connect.title": "Connect Milo Growth to Claude",
   "connect.write.badge": "Read & write access",
   "connect.write.title": "Write permissions",
-  "connect.write.warning": "This connection will be able to create and edit content, tasks and project recommendations in your Milo workspace. It can never publish or delete anything.",
+  "connect.write.warning":
+    "This connection will be able to create and edit content, tasks and project recommendations in your Milo workspace. It can never publish or delete anything.",
   "connect.propose.badge": "Read & propose access",
   "connect.propose.title": "Proposal permissions",
-  "connect.propose.warning": "This connection can suggest changes for your review. Nothing is applied until you approve it in Milo. It can never approve its own suggestions, and it can never publish, delete anything, or change settings or billing.",
+  "connect.propose.warning":
+    "This connection can suggest changes for your review. Nothing is applied until you approve it in Milo. It can never approve its own suggestions, and it can never publish, delete anything, or change settings or billing.",
   "connect.intro": "Claude is requesting read-only access to your Milo Growth workspace.",
   "connect.requestedBy": "Requested by",
   "connect.account": "Signed in as",
@@ -748,7 +835,8 @@ export const en: Record<string, string> = {
   "billing.title": "Billing & plan",
   "billing.subtitle": "Manage your plan, billing profile and add-ons.",
   "billing.owner.title": "Owner account",
-  "billing.owner.desc": "You have unlimited projects and no billing. This account bypasses plan limits.",
+  "billing.owner.desc":
+    "You have unlimited projects and no billing. This account bypasses plan limits.",
   "billing.currentPlan": "Current plan",
   "billing.status": "Status",
   "billing.billingMarket": "Billing market",
@@ -778,16 +866,22 @@ export const en: Record<string, string> = {
   "billing.assistedSetup": "Assisted Setup",
   "billing.monthlyCare": "Monthly Care",
   "billing.oneTime": "one-time",
-  "billing.checkoutNotConfigured": "Checkout is not configured yet. Contact support to activate this plan.",
+  "billing.checkoutNotConfigured":
+    "Checkout is not configured yet. Contact support to activate this plan.",
   "billing.contactSupport": "Contact support",
-  "billing.checkoutPendingMsg": "Checkout started. Your plan will activate once payment is confirmed.",
-  "billing.rulesNote": "Your billing market is based on your business or billing country. Changing the website language or public region does not change pricing eligibility.",
-  "billing.taxNote": "Milo supports both business and consumer customers. Tax and invoice details may vary by country and may require review before public launch.",
-  "billing.paddleNote": "Paddle checkout is used for secure payment and tax handling where configured.",
+  "billing.checkoutPendingMsg":
+    "Checkout started. Your plan will activate once payment is confirmed.",
+  "billing.rulesNote":
+    "Your billing market is based on your business or billing country. Changing the website language or public region does not change pricing eligibility.",
+  "billing.taxNote":
+    "Milo supports both business and consumer customers. Tax and invoice details may vary by country and may require review before public launch.",
+  "billing.paddleNote":
+    "Paddle checkout is used for secure payment and tax handling where configured.",
   "billing.noGuarantee": "No rankings, traffic, revenue or AI citations are guaranteed.",
   "billing.marketReview": "Changing billing country may affect pricing and requires review.",
   "billing.manual.title": "Manual activation (owner only)",
-  "billing.manual.desc": "Activate a plan manually for invoice-paid, beta or comped accounts. Not shown to normal users.",
+  "billing.manual.desc":
+    "Activate a plan manually for invoice-paid, beta or comped accounts. Not shown to normal users.",
   "billing.manual.beta": "Activate as Manual beta",
   "billing.manual.comped": "Activate as Manual comped",
   "billing.manual.reset": "Reset to Free Preview",
@@ -801,7 +895,8 @@ export const en: Record<string, string> = {
 
   // ---- Launch checklist (Sprint 16) ----
   "launch.title": "Beta launch checklist",
-  "launch.subtitle": "Track setup, content, publishing, measurement, authority and billing readiness for this project.",
+  "launch.subtitle":
+    "Track setup, content, publishing, measurement, authority and billing readiness for this project.",
   "launch.noProject": "Create a project to see your launch checklist.",
   "launch.betaNotesCta": "Beta notes",
   "launch.readiness": "Launch readiness",
@@ -838,21 +933,25 @@ export const en: Record<string, string> = {
   "launch.item.connectorConfigured": "Connector configured",
   "launch.item.connectorConfigured.desc": "Credentials or endpoints are in place to publish.",
   "launch.item.connectorTested": "Connection tested (WordPress/Shopify)",
-  "launch.item.connectorTested.desc": "Run the Test connection action so publishing won't fail later.",
+  "launch.item.connectorTested.desc":
+    "Run the Test connection action so publishing won't fail later.",
   "launch.item.draftSent": "At least one draft sent",
   "launch.item.draftSent.desc": "Send approved content to the connected website as a draft.",
   "launch.item.publishedLive": "At least one page published live",
   "launch.item.publishedLive.desc": "Publish a reviewed draft live from Milo.",
   "launch.item.analyticsSnippet": "Analytics snippet available",
-  "launch.item.analyticsSnippet.desc": "Copy the Milo snippet from Analytics and add it to your site.",
+  "launch.item.analyticsSnippet.desc":
+    "Copy the Milo snippet from Analytics and add it to your site.",
   "launch.item.analyticsEvents": "Analytics events received",
-  "launch.item.analyticsEvents.desc": "Visit your site after installing the snippet to confirm tracking.",
+  "launch.item.analyticsEvents.desc":
+    "Visit your site after installing the snippet to confirm tracking.",
   "launch.item.gscImport": "GSC Lite import added",
   "launch.item.gscImport.desc": "Import a Search Console CSV to connect impressions and clicks.",
   "launch.item.publishedByMilo": "Published-by-Milo data available",
   "launch.item.publishedByMilo.desc": "Live Milo pages matched to Search Console performance.",
   "launch.item.authorityGenerated": "Authority opportunities generated",
-  "launch.item.authorityGenerated.desc": "Safe authority tasks such as directories and partner links.",
+  "launch.item.authorityGenerated.desc":
+    "Safe authority tasks such as directories and partner links.",
   "launch.item.authorityProgress": "An authority item planned or live",
   "launch.item.authorityProgress.desc": "Move an authority task into planned, contacted or live.",
   "launch.item.billingProfile": "Billing profile completed",
@@ -860,9 +959,11 @@ export const en: Record<string, string> = {
   "launch.item.planSelected": "Plan selected (or Free Preview)",
   "launch.item.planSelected.desc": "Free Preview is active by default — no payment needed.",
   "launch.item.betaStatus": "Beta / comped / pending status visible",
-  "launch.item.betaStatus.desc": "Manual beta, comped or checkout-pending status is shown in Billing.",
+  "launch.item.betaStatus.desc":
+    "Manual beta, comped or checkout-pending status is shown in Billing.",
   "launch.item.paddlePending": "Live payments pending (noted)",
-  "launch.item.paddlePending.desc": "Paddle activation happens after company setup — see Beta notes.",
+  "launch.item.paddlePending.desc":
+    "Paddle activation happens after company setup — see Beta notes.",
   "launch.conn.website": "Website",
   "launch.conn.website.ok": "Website URL is set.",
   "launch.conn.website.none": "Add your website URL in Project Setup.",
@@ -918,23 +1019,35 @@ export const en: Record<string, string> = {
   // ---- Beta notes (Sprint 16) ----
   "beta.title": "Beta notes",
   "beta.subtitle": "Current limitations and what to confirm before wider self-service launch.",
-  "beta.intro": "Milo is in assisted beta. The items below do not block guided demos or assisted onboarding, but should be confirmed before a wider paid, self-service launch.",
+  "beta.intro":
+    "Milo is in assisted beta. The items below do not block guided demos or assisted onboarding, but should be confirmed before a wider paid, self-service launch.",
   "beta.limitsTitle": "Current beta limitations",
-  "beta.reassure": "These limitations do not block assisted beta demos, but they should be confirmed before wider self-service launch.",
+  "beta.reassure":
+    "These limitations do not block assisted beta demos, but they should be confirmed before wider self-service launch.",
   "beta.demoSafeTitle": "Demo-safe notes",
   "beta.backToChecklist": "Back to checklist",
   "beta.openDemoScript": "Open demo script",
-  "beta.limit.paddle": "Live Paddle payments are pending company and Paddle account setup. The billing UI and pricing are ready; activation is manual for now.",
-  "beta.limit.wordpress": "The WordPress connector is built but still needs live testing against a real site.",
-  "beta.limit.shopify": "The Shopify connector is built but still needs live testing against a real store.",
-  "beta.limit.aiCandidate": "The alternative AI model (evaluation candidate) requires environment configuration before it runs.",
-  "beta.limit.legal": "Legal pages are beta-readiness drafts and should be reviewed before wider paid launch.",
-  "beta.limit.analytics": "Analytics needs the Milo snippet installed on the client site to receive events.",
-  "beta.limit.gsc": "GSC Lite supports manual CSV import and optional OAuth/API sync where Google OAuth is configured. Manual import remains available as fallback.",
+  "beta.limit.paddle":
+    "Live Paddle payments are pending company and Paddle account setup. The billing UI and pricing are ready; activation is manual for now.",
+  "beta.limit.wordpress":
+    "The WordPress connector is built but still needs live testing against a real site.",
+  "beta.limit.shopify":
+    "The Shopify connector is built but still needs live testing against a real store.",
+  "beta.limit.aiCandidate":
+    "The alternative AI model (evaluation candidate) requires environment configuration before it runs.",
+  "beta.limit.legal":
+    "Legal pages are beta-readiness drafts and should be reviewed before wider paid launch.",
+  "beta.limit.analytics":
+    "Analytics needs the Milo snippet installed on the client site to receive events.",
+  "beta.limit.gsc":
+    "GSC Lite supports manual CSV import and optional OAuth/API sync where Google OAuth is configured. Manual import remains available as fallback.",
   "beta.limit.images": "Connectors publish text and HTML; they do not upload images in v1.",
-  "beta.demo.rankings": "Do not promise rankings, traffic or guaranteed AI citations — Milo is AI-assisted and human-reviewed.",
-  "beta.demo.payments": "Say payments are architecture-ready but live activation is pending company and Paddle setup.",
-  "beta.demo.connectors": "Say WordPress and Shopify connectors require live end-to-end testing per site.",
+  "beta.demo.rankings":
+    "Do not promise rankings, traffic or guaranteed AI citations — Milo is AI-assisted and human-reviewed.",
+  "beta.demo.payments":
+    "Say payments are architecture-ready but live activation is pending company and Paddle setup.",
+  "beta.demo.connectors":
+    "Say WordPress and Shopify connectors require live end-to-end testing per site.",
   "beta.demo.data": "Say analytics and GSC proof depend on data availability for the demo project.",
 
   // ---- Pending Actions (Phase 1B) ----
@@ -942,13 +1055,15 @@ export const en: Record<string, string> = {
   "nav.actions": "Pending Actions",
   "actions.title": "Pending Actions",
   "actions.description": "Review changes Claude has proposed before they touch your workspace.",
-  "actions.safety": "Claude can create proposals for review. Nothing is applied until you approve it.",
+  "actions.safety":
+    "Claude can create proposals for review. Nothing is applied until you approve it.",
   "actions.filter.status": "Status",
   "actions.filter.allStatuses": "All statuses",
   "actions.filter.project": "Project",
   "actions.filter.allProjects": "All projects",
   "actions.empty.title": "No pending actions yet.",
-  "actions.empty.body": "When Claude suggests changes through the connector, they appear here for your review.",
+  "actions.empty.body":
+    "When Claude suggests changes through the connector, they appear here for your review.",
   "actions.status.pending": "Pending",
   "actions.status.approved": "Approved",
   "actions.status.applied": "Applied",
@@ -967,7 +1082,8 @@ export const en: Record<string, string> = {
   "actions.card.showDetail": "Show before / after",
   "actions.card.hideDetail": "Hide detail",
   "actions.detail.target": "Target opportunity",
-  "actions.detail.targetMissing": "The target opportunity no longer exists — this proposal cannot be applied as-is.",
+  "actions.detail.targetMissing":
+    "The target opportunity no longer exists — this proposal cannot be applied as-is.",
   "actions.detail.field": "Field",
   "actions.detail.current": "Current",
   "actions.detail.proposed": "Proposed",
@@ -978,20 +1094,25 @@ export const en: Record<string, string> = {
   "actions.detail.stateNone": "No change",
   "actions.detail.servicesToCreate": "Services to create",
   "actions.detail.opportunitiesToCreate": "Opportunities to create",
-  "actions.detail.createDisclaimer": "These are proposed new items. On approval, duplicates and anything beyond your workspace limit are skipped — the counts shown are not guaranteed.",
+  "actions.detail.createDisclaimer":
+    "These are proposed new items. On approval, duplicates and anything beyond your workspace limit are skipped — the counts shown are not guaranteed.",
   "actions.detail.competitors": "Competitors",
-  "actions.detail.projectMissing": "This project no longer exists — this proposal can no longer be applied.",
+  "actions.detail.projectMissing":
+    "This project no longer exists — this proposal can no longer be applied.",
   "actions.detail.none": "None",
   "claude.apps.scope.needsApproval": "needs your approval",
 
   // ---- Pending Actions resolution (Phase 1B.5) ----
   "actions.resolve.approve": "Approve & apply",
   "actions.resolve.approveTitle": "Approve this proposal?",
-  "actions.resolve.approveBody": "Approving applies the proposed changes to your workspace immediately. Fields that will change:",
-  "actions.resolve.approveBodySetup": "Approving immediately applies the proposed project fields and creates the eligible services and opportunities. Duplicates and anything beyond your workspace limit are skipped. Your setup-complete status is not changed. Claude cannot approve or apply — only you can.",
+  "actions.resolve.approveBody":
+    "Approving applies the proposed changes to your workspace immediately. Fields that will change:",
+  "actions.resolve.approveBodySetup":
+    "Approving immediately applies the proposed project fields and creates the eligible services and opportunities. Duplicates and anything beyond your workspace limit are skipped. Your setup-complete status is not changed. Claude cannot approve or apply — only you can.",
   "actions.resolve.reject": "Reject",
   "actions.resolve.rejectTitle": "Reject this proposal?",
-  "actions.resolve.rejectBody": "Nothing will be applied. The proposal stays in your history as rejected.",
+  "actions.resolve.rejectBody":
+    "Nothing will be applied. The proposal stays in your history as rejected.",
   "actions.resolve.rejectConfirm": "Reject proposal",
   "actions.resolve.notePlaceholder": "Optional note (kept in your workspace, never shared)",
   "actions.resolve.appliedToast": "Approved and applied.",
@@ -999,7 +1120,8 @@ export const en: Record<string, string> = {
   "actions.resolve.error.not_found": "That proposal no longer exists.",
   "actions.resolve.error.not_pending": "This proposal was already resolved.",
   "actions.resolve.error.expired": "This proposal has expired and can no longer be applied.",
-  "actions.resolve.error.target_missing": "The target opportunity no longer exists — nothing was changed.",
+  "actions.resolve.error.target_missing":
+    "The target opportunity no longer exists — nothing was changed.",
   "actions.resolve.error.invalid": "This proposal is no longer valid — nothing was changed.",
   "actions.resolve.error.conflict": "Your workspace changed at the same time — please try again.",
   "actions.resolve.error.error": "Something went wrong — nothing was changed.",
@@ -1007,27 +1129,35 @@ export const en: Record<string, string> = {
   // ---- Backlinks v1 ----
   "nav.backlinks": "Backlinks",
   "backlinks.title": "Backlinks",
-  "backlinks.subtitle": "Real backlink data for your domain — profile strength, competitor link gap and safe link-building recommendations.",
-  "backlinks.disclaimer": "Backlink metrics come from an external link index and are estimates — no index sees every link. Recommendations are white-hat suggestions only: Milo never proposes link schemes or undisclosed paid links, and does not guarantee rankings, traffic or revenue.",
+  "backlinks.subtitle":
+    "Real backlink data for your domain — profile strength, competitor link gap and safe link-building recommendations.",
+  "backlinks.disclaimer":
+    "Backlink metrics come from an external link index and are estimates — no index sees every link. Recommendations are white-hat suggestions only: Milo never proposes link schemes or undisclosed paid links, and does not guarantee rankings, traffic or revenue.",
   "backlinks.run": "Run backlink analysis",
   "backlinks.rerun": "Refresh analysis",
   "backlinks.running": "Analyzing…",
-  "backlinks.empty": "Run a backlink analysis to see your domain's real link profile, how it compares to competitors, and which domains link to them but not to you.",
+  "backlinks.empty":
+    "Run a backlink analysis to see your domain's real link profile, how it compares to competitors, and which domains link to them but not to you.",
   "backlinks.notConfigured.title": "Connect a backlink data source",
-  "backlinks.notConfigured.body": "This module uses the DataForSEO backlink index and is not connected yet. The workspace owner needs to create a DataForSEO account (pay-as-you-go) and add DATAFORSEO_LOGIN and DATAFORSEO_PASSWORD as backend secrets. Until then, backlink data is unavailable.",
+  "backlinks.notConfigured.body":
+    "This module uses the DataForSEO backlink index and is not connected yet. The workspace owner needs to create a DataForSEO account (pay-as-you-go) and add DATAFORSEO_LOGIN and DATAFORSEO_PASSWORD as backend secrets. Until then, backlink data is unavailable.",
   "backlinks.status.ready.title": "DataForSEO operational",
   "backlinks.status.ready.body": "The Backlinks API is connected and responding.",
   "backlinks.status.lowBalance.title": "DataForSEO balance is running low",
   "backlinks.status.lowBalance.body": "Top up soon to avoid interrupted analyses.",
   "backlinks.status.paused.title": "DataForSEO access is paused",
-  "backlinks.status.paused.body": "Contact DataForSEO support to reactivate the account before running another analysis.",
+  "backlinks.status.paused.body":
+    "Contact DataForSEO support to reactivate the account before running another analysis.",
   "backlinks.status.error.title": "DataForSEO status unavailable",
-  "backlinks.status.error.body": "The account or Backlinks API could not be verified. Refresh the status or check the provider dashboard.",
+  "backlinks.status.error.body":
+    "The account or Backlinks API could not be verified. Refresh the status or check the provider dashboard.",
   "backlinks.status.balance": "Balance: {balance}.",
   "backlinks.status.refresh": "Refresh status",
   "backlinks.competitorsUsed": "Competitors compared: {list}",
-  "backlinks.competitorsFromAnalysis": "Using competitors from the latest Competitors analysis: {list}",
-  "backlinks.noCompetitors": "No competitor URLs on this project — the analysis will only cover your own profile. Add competitors in Project Setup or the Competitors module to unlock the link gap.",
+  "backlinks.competitorsFromAnalysis":
+    "Using competitors from the latest Competitors analysis: {list}",
+  "backlinks.noCompetitors":
+    "No competitor URLs on this project — the analysis will only cover your own profile. Add competitors in Project Setup or the Competitors module to unlock the link gap.",
   "backlinks.lastRun": "Last analyzed: {date}",
   "backlinks.score.overall": "Link position",
   "backlinks.score.profile": "Profile strength",
@@ -1046,11 +1176,14 @@ export const en: Record<string, string> = {
   "backlinks.table.notFetched": "Data could not be fetched",
   "backlinks.you": "You",
   "backlinks.gapHeading": "Link gap — they link to competitors, not to you",
-  "backlinks.gapNote": "Domains linking to at least one competitor but not to your domain. Treat them as outreach targets or as inspiration for the type of sites to approach.",
+  "backlinks.gapNote":
+    "Domains linking to at least one competitor but not to your domain. Treat them as outreach targets or as inspiration for the type of sites to approach.",
   "backlinks.gap.linksTo": "Links to",
-  "backlinks.gapEmpty": "No link gap found — either no competitors were fetched or there was no overlap.",
+  "backlinks.gapEmpty":
+    "No link gap found — either no competitors were fetched or there was no overlap.",
   "backlinks.referringHeading": "Top referring domains linking to you",
-  "backlinks.referringEmpty": "No referring domains found in the index yet — a young domain often starts at zero.",
+  "backlinks.referringEmpty":
+    "No referring domains found in the index yet — a young domain often starts at zero.",
   "backlinks.recommendations": "Recommendations",
   "backlinks.effort": "Effort",
   "backlinks.target": "Target / platform",
@@ -1069,15 +1202,20 @@ export const en: Record<string, string> = {
   "backlinks.category.linkHygiene": "Link hygiene",
   "nav.linkMarketplace": "Link Marketplace",
   "marketplace.title": "Sponsored publications",
-  "marketplace.subtitle": "Match backlink opportunities with transparent, editorially reviewed sponsored placements.",
+  "marketplace.subtitle":
+    "Match backlink opportunities with transparent, editorially reviewed sponsored placements.",
   "marketplace.disclosureTitle": "White-hat marketplace.",
-  "marketplace.disclosure": "Every request requires clear sponsorship disclosure and rel=\"sponsored\". A request is not a purchase and never guarantees rankings, traffic or revenue.",
+  "marketplace.disclosure":
+    'Every request requires clear sponsorship disclosure and rel="sponsored". A request is not a purchase and never guarantees rankings, traffic or revenue.',
   "marketplace.demoNoticeTitle": "Preview catalogue.",
-  "marketplace.demoNotice": "The domains, metrics and prices below are demonstration data while Linkhouse API access is pending. Requests are saved only inside Milo for review; no provider order or payment is created.",
+  "marketplace.demoNotice":
+    "The domains, metrics and prices below are demonstration data while Linkhouse API access is pending. Requests are saved only inside Milo for review; no provider order or payment is created.",
   "marketplace.demoBadge": "Demo",
   "marketplace.integrationTitle": "Linkhouse integration",
-  "marketplace.integrationLive": "The provider catalogue is connected. Every paid order still requires confirmation of the exact total.",
-  "marketplace.integrationPending": "The production contract is ready; endpoint mapping and credentials are pending Linkhouse documentation.",
+  "marketplace.integrationLive":
+    "The provider catalogue is connected. Every paid order still requires confirmation of the exact total.",
+  "marketplace.integrationPending":
+    "The production contract is ready; endpoint mapping and credentials are pending Linkhouse documentation.",
   "marketplace.catalogConnected": "Live catalogue",
   "marketplace.catalogDemo": "Demo catalogue",
   "marketplace.orderingEnabled": "Ordering enabled",
@@ -1085,7 +1223,8 @@ export const en: Record<string, string> = {
   "marketplace.offers": "Offers",
   "marketplace.orders": "Requests",
   "marketplace.search": "Search domains or topics…",
-  "marketplace.noAnalysis": "Run Backlink Intelligence to add link-gap signals to matching. Topic and market matching is already active.",
+  "marketplace.noAnalysis":
+    "Run Backlink Intelligence to add link-gap signals to matching. Topic and market matching is already active.",
   "marketplace.reason.linkGap": "Competitor link gap",
   "marketplace.rank": "Domain rank",
   "marketplace.traffic": "Est. traffic",
@@ -1100,10 +1239,14 @@ export const en: Record<string, string> = {
   "marketplace.basePrice": "Provider price",
   "marketplace.serviceFee": "Milo service fee ({count}%)",
   "marketplace.totalPrice": "Exact total",
-  "marketplace.quoteExpires": "This quote expires at {time}. A new quote is required after that time.",
-  "marketplace.confirmSponsored": "I require clear sponsorship disclosure and rel=\"sponsored\" or nofollow on the link.",
-  "marketplace.confirmPaymentLive": "I explicitly authorize a provider order for the exact total of €{total}.",
-  "marketplace.confirmPaymentDemo": "I confirm the €{total} review request and understand that demo mode creates no provider order or payment.",
+  "marketplace.quoteExpires":
+    "This quote expires at {time}. A new quote is required after that time.",
+  "marketplace.confirmSponsored":
+    'I require clear sponsorship disclosure and rel="sponsored" or nofollow on the link.',
+  "marketplace.confirmPaymentLive":
+    "I explicitly authorize a provider order for the exact total of €{total}.",
+  "marketplace.confirmPaymentDemo":
+    "I confirm the €{total} review request and understand that demo mode creates no provider order or payment.",
   "marketplace.confirmPurchase": "Confirm paid order",
   "marketplace.confirmDemoRequest": "Save review request",
   "marketplace.confirmedAt": "Confirmed",
@@ -1111,11 +1254,13 @@ export const en: Record<string, string> = {
   "marketplace.toast.exists": "This offer already has an active request.",
   "marketplace.toast.requested": "Publication request saved for review.",
   "marketplace.toast.submitted": "Paid provider order submitted.",
-  "marketplace.toast.catalogError": "Could not refresh the provider catalogue. The safe demo catalogue remains available.",
+  "marketplace.toast.catalogError":
+    "Could not refresh the provider catalogue. The safe demo catalogue remains available.",
   "marketplace.toast.quoteError": "Could not prepare a price quote. Please try again.",
   "marketplace.toast.quoteExpired": "The quote expired. Request a new price before confirming.",
   "marketplace.toast.orderError": "The order was not created. No payment was made.",
-  "marketplace.toast.orderReview": "The provider outcome could not be confirmed. Milo saved the request as In review; do not retry until it has been reconciled.",
+  "marketplace.toast.orderReview":
+    "The provider outcome could not be confirmed. Milo saved the request as In review; do not retry until it has been reconciled.",
   "marketplace.status.Requested": "Requested",
   "marketplace.status.In Review": "In review",
   "marketplace.status.Submitted": "Submitted",
@@ -1125,38 +1270,82 @@ export const en: Record<string, string> = {
   "marketplace.status.Cancelled": "Cancelled",
   "nav.outreach": "AI Outreach",
   "outreach.title": "AI Outreach",
-  "outreach.subtitle": "Create personalized, human-reviewed digital-PR emails for targets that require a real conversation.",
+  "outreach.subtitle":
+    "Create personalized, human-reviewed digital-PR emails for targets that require a real conversation.",
   "outreach.safetyTitle": "Human approval required.",
-  "outreach.safety": "Milo never sends email automatically. Every initial message and follow-up requires an exact recipient and content confirmation. Suppression and frequency limits are enforced server-side.",
-  "outreach.drafts": "Draft queue", "outreach.empty": "No outreach drafts yet.", "outreach.newDraft": "Create a draft",
-  "outreach.suggestedTargets": "Suggested from backlink data", "outreach.domain": "Target domain", "outreach.contactName": "Contact name",
-  "outreach.contactEmail": "Contact email", "outreach.optional": "Optional", "outreach.reason": "Real reason for contact",
-  "outreach.reasonPlaceholder": "Why this resource may genuinely help their audience", "outreach.asset": "Resource to offer",
-  "outreach.assetPlaceholder": "Guide, original data, expert comment…", "outreach.generate": "Generate draft", "outreach.generating": "Generating…",
-  "outreach.invalidDomain": "Enter a valid target domain.", "outreach.followUps": "Optional follow-ups", "outreach.afterDays": "After {count} days",
-  "outreach.approve": "Approve draft", "outreach.markSent": "Mark as sent", "outreach.pause": "Pause",
-  "outreach.toast.generated": "Outreach draft created.", "outreach.toast.failed": "Could not create the draft.",
-  "outreach.toast.copied": "Email copied.", "outreach.toast.status": "Status changed to {status}.",
-  "outreach.source.linkGap": "Link gap", "outreach.source.marketplace": "Marketplace", "outreach.source.manual": "Manual",
-  "outreach.status.Draft": "Draft", "outreach.status.Approved": "Approved", "outreach.status.Queued": "Queued",
-  "outreach.status.Sent": "Sent", "outreach.status.Replied": "Replied", "outreach.status.Paused": "Paused",
-  "outreach.status.Failed": "Failed", "outreach.status.Suppressed": "Suppressed",
-  "outreach.deliveryTitle": "Controlled email delivery", "outreach.deliveryReady": "Verified sender ready via Resend. Limit: {count} messages per 24 hours.",
-  "outreach.deliveryPending": "Drafting is available. Live sending stays locked until the verified sender and kill switch are configured.",
-  "outreach.sendingEnabled": "Sending enabled", "outreach.sendingLocked": "Sending locked",
-  "outreach.recipientRequired": "Add a valid recipient email before approval.", "outreach.contentRequired": "Subject and message are required.",
-  "outreach.subject": "Subject", "outreach.message": "Message", "outreach.to": "To", "outreach.lastError": "Last delivery error",
-  "outreach.editTitle": "Edit and re-review draft", "outreach.reviewSend": "Review send", "outreach.markReplied": "Mark replied",
-  "outreach.reviewSendTitle": "Review exact email", "outreach.reviewFollowUpTitle": "Review exact follow-up",
-  "outreach.reviewSendDescription": "Nothing is sent until both confirmations are checked and you press Send now.",
-  "outreach.confirmRecipient": "I verified this exact recipient and have a legitimate, relevant reason to contact them.",
-  "outreach.confirmContent": "I reviewed the full message. It contains no bought or reciprocal link offer, invented personalization or ranking promise.",
-  "outreach.sendNow": "Send now", "outreach.reviewFollowUp": "Review follow-up", "outreach.followUpSent": "Sent",
+  "outreach.safety":
+    "Milo never sends email automatically. Every initial message and follow-up requires an exact recipient and content confirmation. Suppression and frequency limits are enforced server-side.",
+  "outreach.drafts": "Draft queue",
+  "outreach.empty": "No outreach drafts yet.",
+  "outreach.newDraft": "Create a draft",
+  "outreach.suggestedTargets": "Suggested from backlink data",
+  "outreach.domain": "Target domain",
+  "outreach.contactName": "Contact name",
+  "outreach.contactEmail": "Contact email",
+  "outreach.optional": "Optional",
+  "outreach.reason": "Real reason for contact",
+  "outreach.reasonPlaceholder": "Why this resource may genuinely help their audience",
+  "outreach.asset": "Resource to offer",
+  "outreach.assetPlaceholder": "Guide, original data, expert comment…",
+  "outreach.generate": "Generate draft",
+  "outreach.generating": "Generating…",
+  "outreach.invalidDomain": "Enter a valid target domain.",
+  "outreach.followUps": "Optional follow-ups",
+  "outreach.afterDays": "After {count} days",
+  "outreach.approve": "Approve draft",
+  "outreach.markSent": "Mark as sent",
+  "outreach.pause": "Pause",
+  "outreach.toast.generated": "Outreach draft created.",
+  "outreach.toast.failed": "Could not create the draft.",
+  "outreach.toast.copied": "Email copied.",
+  "outreach.toast.status": "Status changed to {status}.",
+  "outreach.source.linkGap": "Link gap",
+  "outreach.source.marketplace": "Marketplace",
+  "outreach.source.manual": "Manual",
+  "outreach.status.Draft": "Draft",
+  "outreach.status.Approved": "Approved",
+  "outreach.status.Queued": "Queued",
+  "outreach.status.Sent": "Sent",
+  "outreach.status.Replied": "Replied",
+  "outreach.status.Paused": "Paused",
+  "outreach.status.Failed": "Failed",
+  "outreach.status.Suppressed": "Suppressed",
+  "outreach.deliveryTitle": "Controlled email delivery",
+  "outreach.deliveryReady":
+    "Verified sender ready via Resend. Limit: {count} messages per 24 hours.",
+  "outreach.deliveryPending":
+    "Drafting is available. Live sending stays locked until the verified sender and kill switch are configured.",
+  "outreach.sendingEnabled": "Sending enabled",
+  "outreach.sendingLocked": "Sending locked",
+  "outreach.recipientRequired": "Add a valid recipient email before approval.",
+  "outreach.contentRequired": "Subject and message are required.",
+  "outreach.subject": "Subject",
+  "outreach.message": "Message",
+  "outreach.to": "To",
+  "outreach.lastError": "Last delivery error",
+  "outreach.editTitle": "Edit and re-review draft",
+  "outreach.reviewSend": "Review send",
+  "outreach.markReplied": "Mark replied",
+  "outreach.reviewSendTitle": "Review exact email",
+  "outreach.reviewFollowUpTitle": "Review exact follow-up",
+  "outreach.reviewSendDescription":
+    "Nothing is sent until both confirmations are checked and you press Send now.",
+  "outreach.confirmRecipient":
+    "I verified this exact recipient and have a legitimate, relevant reason to contact them.",
+  "outreach.confirmContent":
+    "I reviewed the full message. It contains no bought or reciprocal link offer, invented personalization or ranking promise.",
+  "outreach.sendNow": "Send now",
+  "outreach.reviewFollowUp": "Review follow-up",
+  "outreach.followUpSent": "Sent",
   "outreach.dueAt": "Due {time}",
-  "outreach.toast.saved": "Draft saved and returned for approval.", "outreach.toast.sent": "Email accepted for delivery.",
-  "outreach.toast.followUpSent": "Follow-up accepted for delivery.", "outreach.toast.suppressed": "This recipient has opted out or is suppressed.",
-  "outreach.toast.limit": "The 24-hour outreach limit has been reached.", "outreach.toast.notDue": "This follow-up is not due yet.",
-  "outreach.toast.notConfigured": "Live outreach delivery is not configured yet.", "outreach.toast.sendFailed": "The email could not be sent. Review the draft and try again.",
+  "outreach.toast.saved": "Draft saved and returned for approval.",
+  "outreach.toast.sent": "Email accepted for delivery.",
+  "outreach.toast.followUpSent": "Follow-up accepted for delivery.",
+  "outreach.toast.suppressed": "This recipient has opted out or is suppressed.",
+  "outreach.toast.limit": "The 24-hour outreach limit has been reached.",
+  "outreach.toast.notDue": "This follow-up is not due yet.",
+  "outreach.toast.notConfigured": "Live outreach delivery is not configured yet.",
+  "outreach.toast.sendFailed": "The email could not be sent. Review the draft and try again.",
 
   // ---- Scheduled publishing ----
   "editor.schedule.failedTitle": "Scheduled publishing failed",
@@ -1171,10 +1360,13 @@ export const en: Record<string, string> = {
   "editor.schedule.cancel": "Cancel go-live",
   "editor.schedule.cancelled": "Go-live cancelled. The draft is untouched.",
   "editor.schedule.armed": "Scheduled. It goes live {when}.",
-  "editor.schedule.inFlight": "This is going out right now and can no longer be stopped — you can unpublish it from your site.",
+  "editor.schedule.inFlight":
+    "This is going out right now and can no longer be stopped — you can unpublish it from your site.",
   "editor.schedule.needsApproval": "Mark the article ready before scheduling it.",
-  "editor.schedule.overdue": "This should have gone live {when} and did not. Check your connection settings, then schedule it again.",
-  "editor.schedule.hint": "Approving never publishes. Nothing goes live until you schedule it or publish it now.",
+  "editor.schedule.overdue":
+    "This should have gone live {when} and did not. Check your connection settings, then schedule it again.",
+  "editor.schedule.hint":
+    "Approving never publishes. Nothing goes live until you schedule it or publish it now.",
 
   // ---- Pipeline vocabulary (increment 3) ----
   "pipeline.stage.idea": "Idea",
@@ -1204,7 +1396,8 @@ export const en: Record<string, string> = {
 
   // ---- Article Studio 3.0 — Hook panel (P1.2A) ----
   "hook.panel.title": "Opening hook",
-  "hook.panel.v3Note": "Article Studio 3.0 articles need an approved opening hook before publishing.",
+  "hook.panel.v3Note":
+    "Article Studio 3.0 articles need an approved opening hook before publishing.",
   "hook.provenance.generated": "Generated",
   "hook.provenance.edited": "Edited",
   "hook.approval.draft": "Draft",
@@ -1225,16 +1418,23 @@ export const en: Record<string, string> = {
   "hook.type.story": "Story",
   "hook.type.result": "Result",
   "hook.type.promise": "Promise",
-  "hook.finding.unsupported-statistic": "The hook states a statistic or outcome with no linked evidence. Attach a source or remove the figure.",
-  "hook.finding.explicit-guarantee": "The hook makes an explicit guarantee. Milo does not publish guarantees — rephrase without a promise of results.",
-  "hook.finding.ymyl-unsupported": "The hook makes a health, finance or legal claim — a cited source or human confirmation is recommended (no longer required to publish).",
-  "hook.finding.unsupported-testimonial": "The hook presents a customer result or testimonial as fact with no declared evidence source. Attach evidence or remove the claim.",
-  "hook.finding.generic-filler": "The hook opens with generic filler. Lead with something specific.",
+  "hook.finding.unsupported-statistic":
+    "The hook states a statistic or outcome with no linked evidence. Attach a source or remove the figure.",
+  "hook.finding.explicit-guarantee":
+    "The hook makes an explicit guarantee. Milo does not publish guarantees — rephrase without a promise of results.",
+  "hook.finding.ymyl-unsupported":
+    "The hook makes a health, finance or legal claim — a cited source or human confirmation is recommended (no longer required to publish).",
+  "hook.finding.unsupported-testimonial":
+    "The hook presents a customer result or testimonial as fact with no declared evidence source. Attach evidence or remove the claim.",
+  "hook.finding.generic-filler":
+    "The hook opens with generic filler. Lead with something specific.",
   "hook.finding.title-repetition": "The hook mostly repeats the title. Give it a distinct angle.",
-  "hook.finding.weak-relevance": "The hook has little overlap with the article body. Tie it to the content.",
+  "hook.finding.weak-relevance":
+    "The hook has little overlap with the article body. Tie it to the content.",
   "hook.finding.excessive-clickbait": "The hook reads as clickbait. Tone down the hype.",
   "hook.finding.excessive-length": "The hook is long. Tighten it to a punchy opener.",
-  "hook.finding.testimonial-like": "The hook uses testimonial-like phrasing without context. Add a source or reframe.",
+  "hook.finding.testimonial-like":
+    "The hook uses testimonial-like phrasing without context. Add a source or reframe.",
   "hook.finding.overly-broad-promise": "The hook makes an overly broad promise. Make it concrete.",
   "hook.resolution.edit-hook": "Edit the hook",
   "hook.resolution.attach-evidence": "Attach evidence",
@@ -1244,7 +1444,8 @@ export const en: Record<string, string> = {
   "hook.evidence.label": "Evidence",
   "hook.evidence.attach": "Attach a verified source",
   "hook.evidence.claimPlaceholder": "Which claim does it support? (optional)",
-  "hook.evidence.none": "No verified sources yet. Add and verify a source in the Sources & Author tab, then attach it here.",
+  "hook.evidence.none":
+    "No verified sources yet. Add and verify a source in the Sources & Author tab, then attach it here.",
   "hook.evidence.remove": "Remove evidence",
   "hook.evidence.supportedBy": "Supported by",
   "hook.unsaved": "Unsaved hook changes — use Save.",
@@ -1273,7 +1474,8 @@ export const en: Record<string, string> = {
   "calsched.title.reschedule": "Move go-live?",
   "calsched.readyHint": "“{title}” is ready. Pick the exact time it goes live on {date}.",
   "calsched.notReadyHint": "“{title}” can’t be scheduled to publish yet:",
-  "calsched.rescheduleWarn": "This go-live will FAIL unless the issues above are fixed before its time.",
+  "calsched.rescheduleWarn":
+    "This go-live will FAIL unless the issues above are fixed before its time.",
   "calsched.timeLabel": "Go-live time",
   "calsched.pastDay": "That day can’t host a go-live any more — drop it on a future day.",
   "calsched.cancel": "Cancel",
@@ -1324,7 +1526,8 @@ export const en: Record<string, string> = {
 
   // ---- Featured image (P1.2B) ----
   "featured.title": "Featured image",
-  "featured.hint": "One approved image with hero/mobile crops — required for Article Studio 3.0 articles.",
+  "featured.hint":
+    "One approved image with hero/mobile crops — required for Article Studio 3.0 articles.",
   "featured.use": "Use “{concept}”",
   "featured.none": "Approve an image in the Images panel first.",
   "featured.alt": "Alt text (required)",

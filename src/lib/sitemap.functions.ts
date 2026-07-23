@@ -37,11 +37,13 @@ async function boundedFetch(url: string): Promise<SitemapFetchResult | null> {
   return res.ok ? { ok: true, contentType: res.contentType, body: res.body } : null;
 }
 
-export const fetchSitemapInventoryFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ siteUrl: z.string() }).parse(input))
-  .handler(async ({ data }): Promise<SitemapInventory | null> => {
-    const raw = (data.siteUrl || "").trim();
+/**
+ * Core of the inventory fetch, callable from the cron/auto-scheduler runner
+ * (no request context). The server fn below wraps this with JWT auth.
+ */
+export async function fetchSitemapInventoryCore(siteUrl: string): Promise<SitemapInventory | null> {
+  {
+    const raw = (siteUrl || "").trim();
     const origin = originOf(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
     if (!origin || !isSafePublicUrl(origin)) return null;
 
@@ -72,4 +74,12 @@ export const fetchSitemapInventoryFn = createServerFn({ method: "POST" })
       sitemapCount: r.sitemapCount,
       truncated: r.truncated,
     };
-  });
+  }
+}
+
+export const fetchSitemapInventoryFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ siteUrl: z.string() }).parse(input))
+  .handler(async ({ data }): Promise<SitemapInventory | null> =>
+    fetchSitemapInventoryCore(data.siteUrl),
+  );

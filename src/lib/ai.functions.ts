@@ -30,11 +30,7 @@ import {
   fetchBacklinkGap,
   getDataForSeoHealth,
 } from "./backlinks.server";
-import type {
-  Project,
-  ServiceItem,
-  Opportunity,
-} from "./types";
+import type { Project, ServiceItem, Opportunity } from "./types";
 
 import { claimAiUsage, type UsageBucket } from "./ai-usage.server";
 
@@ -284,14 +280,14 @@ const pickNumber = (record: UnknownRecord, keys: string[]): unknown => {
   for (const key of keys) {
     const value = record[key];
     if (typeof value === "number" && Number.isFinite(value)) return value;
-    if (typeof value === "string" && value.trim() && Number.isFinite(parseFloat(value))) return value;
+    if (typeof value === "string" && value.trim() && Number.isFinite(parseFloat(value)))
+      return value;
   }
   return undefined;
 };
 
 const clampScore = (value: unknown, fallback = 60): number => {
-  const n =
-    typeof value === "number" ? value : typeof value === "string" ? parseFloat(value) : NaN;
+  const n = typeof value === "number" ? value : typeof value === "string" ? parseFloat(value) : NaN;
   if (!Number.isFinite(n)) return fallback;
   return Math.max(0, Math.min(100, Math.round(n)));
 };
@@ -307,7 +303,9 @@ function normalizeValue<const T extends readonly [string, ...string[]]>(
   const input = normalize(raw);
   return (
     values.find((option) => normalize(option) === input) ??
-    values.find((option) => input.includes(normalize(option)) || normalize(option).includes(input)) ??
+    values.find(
+      (option) => input.includes(normalize(option)) || normalize(option).includes(input),
+    ) ??
     fallback
   );
 }
@@ -321,7 +319,9 @@ function normalizeLanguage(value: unknown, project?: Project) {
   return normalizeValue(
     value,
     LANGUAGES,
-    project?.primaryLanguage && LANGUAGES.includes(project.primaryLanguage) ? project.primaryLanguage : "English",
+    project?.primaryLanguage && LANGUAGES.includes(project.primaryLanguage)
+      ? project.primaryLanguage
+      : "English",
   );
 }
 
@@ -339,8 +339,14 @@ function normalizeContentType(value: unknown) {
 
 function normalizeSearchIntent(value: unknown) {
   const raw = asString(value).toLowerCase();
-  if (/transaction|transaktion|buy|köp|kop|book|boka|bokning|order|quote|offert|hire/.test(raw)) return "Transactional";
-  if (/commercial|kommersi|compare|jämför|jamfor|best|pricing|price|pris|cost|service|tjänst|tjanst/.test(raw)) return "Commercial";
+  if (/transaction|transaktion|buy|köp|kop|book|boka|bokning|order|quote|offert|hire/.test(raw))
+    return "Transactional";
+  if (
+    /commercial|kommersi|compare|jämför|jamfor|best|pricing|price|pris|cost|service|tjänst|tjanst/.test(
+      raw,
+    )
+  )
+    return "Commercial";
   if (/navigation|brand|contact|kontakt|address|adress/.test(raw)) return "Navigational";
   return normalizeValue(value, SEARCH_INTENTS, "Informational");
 }
@@ -433,15 +439,45 @@ function extractArray(payload: unknown, keys: string[]): unknown[] {
 
 function normalizeOpportunityItem(value: unknown, project: Project, index: number) {
   const item = isRecord(value) ? value : {};
-  const title = pickString(item, ["title", "topicTitle", "topic_title", "topic", "name", "headline", "primary_keyword"], `SEO opportunity ${index + 1}`);
+  const title = pickString(
+    item,
+    ["title", "topicTitle", "topic_title", "topic", "name", "headline", "primary_keyword"],
+    `SEO opportunity ${index + 1}`,
+  );
   return OpportunityItemSchema.parse({
     title,
     language: normalizeLanguage(item.language ?? item.lang, project),
-    contentType: normalizeContentType(item.contentType ?? item.content_type ?? item.type ?? item.format ?? item.assetType ?? item.asset_type),
+    contentType: normalizeContentType(
+      item.contentType ??
+        item.content_type ??
+        item.type ??
+        item.format ??
+        item.assetType ??
+        item.asset_type,
+    ),
     searchIntent: normalizeSearchIntent(item.searchIntent ?? item.search_intent ?? item.intent),
-    targetAudience: pickString(item, ["targetAudience", "target_audience", "audience", "who", "persona"], project.targetAudience || "Potential customers"),
-    businessValue: pickString(item, ["businessValue", "business_value", "value", "why", "why_it_works", "rationale", "strategy"], "Build qualified search visibility for the business."),
-    recommendedCta: pickString(item, ["recommendedCta", "recommended_cta", "suggested_cta", "cta", "callToAction", "call_to_action"], "Contact us"),
+    targetAudience: pickString(
+      item,
+      ["targetAudience", "target_audience", "audience", "who", "persona"],
+      project.targetAudience || "Potential customers",
+    ),
+    businessValue: pickString(
+      item,
+      ["businessValue", "business_value", "value", "why", "why_it_works", "rationale", "strategy"],
+      "Build qualified search visibility for the business.",
+    ),
+    recommendedCta: pickString(
+      item,
+      [
+        "recommendedCta",
+        "recommended_cta",
+        "suggested_cta",
+        "cta",
+        "callToAction",
+        "call_to_action",
+      ],
+      "Contact us",
+    ),
     priority: normalizePriority(item.priority ?? item.impact),
   });
 }
@@ -450,12 +486,35 @@ function normalizeCalendarItem(value: unknown, project: Project, index: number) 
   const item = isRecord(value) ? value : {};
   return CalendarItemSchema.parse({
     opportunityIndex: item.opportunityIndex ?? item.sourceIndex ?? item.index ?? index + 1,
-    daysFromToday: item.daysFromToday ?? item.days_from_today ?? item.dayOffset ?? item.day_offset ?? item.day ?? (index + 1) * 4,
-    topicTitle: pickString(item, ["topicTitle", "topic_title", "title", "topic", "name"], `Planned content ${index + 1}`),
+    daysFromToday:
+      item.daysFromToday ??
+      item.days_from_today ??
+      item.dayOffset ??
+      item.day_offset ??
+      item.day ??
+      (index + 1) * 4,
+    topicTitle: pickString(
+      item,
+      ["topicTitle", "topic_title", "title", "topic", "name"],
+      `Planned content ${index + 1}`,
+    ),
     language: normalizeLanguage(item.language ?? item.lang, project),
-    contentType: normalizeContentType(item.contentType ?? item.content_type ?? item.type ?? item.format),
+    contentType: normalizeContentType(
+      item.contentType ?? item.content_type ?? item.type ?? item.format,
+    ),
     searchIntent: normalizeSearchIntent(item.searchIntent ?? item.search_intent ?? item.intent),
-    recommendedCta: pickString(item, ["recommendedCta", "recommended_cta", "suggested_cta", "cta", "callToAction", "call_to_action"], "Contact us"),
+    recommendedCta: pickString(
+      item,
+      [
+        "recommendedCta",
+        "recommended_cta",
+        "suggested_cta",
+        "cta",
+        "callToAction",
+        "call_to_action",
+      ],
+      "Contact us",
+    ),
   });
 }
 
@@ -466,52 +525,102 @@ function normalizeStringArray(value: unknown, fallback: string[]) {
       ? value.split(/\n|,|;/)
       : [];
   const items = source
-    .map((item) => (isRecord(item) ? pickString(item, ["title", "text", "label", "name"]) : asString(item)))
+    .map((item) =>
+      isRecord(item) ? pickString(item, ["title", "text", "label", "name"]) : asString(item),
+    )
     .filter(Boolean);
   return items.length ? items : fallback;
 }
 
 function normalizeFaq(value: unknown) {
-  const source = isRecord(value) && Array.isArray(value.faq)
-    ? value.faq
-    : isRecord(value) && Array.isArray(value.faqs)
-      ? value.faqs
-      : isRecord(value) && Array.isArray(value.questions)
-        ? value.questions
-        : Array.isArray(value)
-          ? value
-          : [];
+  const source =
+    isRecord(value) && Array.isArray(value.faq)
+      ? value.faq
+      : isRecord(value) && Array.isArray(value.faqs)
+        ? value.faqs
+        : isRecord(value) && Array.isArray(value.questions)
+          ? value.questions
+          : Array.isArray(value)
+            ? value
+            : [];
   const items = source
     .map((item, index) => {
       if (!isRecord(item)) return null;
       const q = pickString(item, ["q", "question", "title", "heading"], `Question ${index + 1}`);
-      const a = pickString(item, ["a", "answer", "response", "body", "text"], "Contact the business for details.");
+      const a = pickString(
+        item,
+        ["a", "answer", "response", "body", "text"],
+        "Contact the business for details.",
+      );
       return { q, a };
     })
     .filter((item): item is { q: string; a: string } => Boolean(item));
-  return items.length ? items : [{ q: "How can I get started?", a: "Contact the team to discuss your needs and the next practical step." }];
+  return items.length
+    ? items
+    : [
+        {
+          q: "How can I get started?",
+          a: "Contact the team to discuss your needs and the next practical step.",
+        },
+      ];
 }
 
 function normalizeContentAsset(payload: unknown, project: Project, opp: Opportunity) {
   const root = isRecord(payload) ? payload : {};
-  const item = ["contentAsset", "content_asset", "asset", "page", "article", "draft"]
-    .map((key) => root[key])
-    .find(isRecord) ?? root;
+  const item =
+    ["contentAsset", "content_asset", "asset", "page", "article", "draft"]
+      .map((key) => root[key])
+      .find(isRecord) ?? root;
   const markdown = pickString(
     item,
-    ["markdown", "content", "body", "draftMarkdown", "draft_markdown", "article", "pageDraft", "page_draft"],
+    [
+      "markdown",
+      "content",
+      "body",
+      "draftMarkdown",
+      "draft_markdown",
+      "article",
+      "pageDraft",
+      "page_draft",
+    ],
     `## ${opp.title}\n\nCreate a focused page for ${project.businessName || project.name} that answers the search intent clearly and guides readers toward ${opp.recommendedCta}.`,
   );
   const parsed = ContentAssetSchema.parse({
-    metaTitle: pickString(item, ["metaTitle", "meta_title", "seoTitle", "seo_title", "title"], opp.title),
-    metaDescription: pickString(item, ["metaDescription", "meta_description", "seoDescription", "seo_description", "description"], opp.businessValue),
+    metaTitle: pickString(
+      item,
+      ["metaTitle", "meta_title", "seoTitle", "seo_title", "title"],
+      opp.title,
+    ),
+    metaDescription: pickString(
+      item,
+      ["metaDescription", "meta_description", "seoDescription", "seo_description", "description"],
+      opp.businessValue,
+    ),
     h1: pickString(item, ["h1", "headline", "pageTitle"], opp.title),
-    outline: normalizeStringArray(item.outline ?? item.sections, ["Introduction", "Key information", "Next step"]),
+    outline: normalizeStringArray(item.outline ?? item.sections, [
+      "Introduction",
+      "Key information",
+      "Next step",
+    ]),
     faq: normalizeFaq(item.faq ?? item.faqs ?? item.questions),
-    cta: pickString(item, ["cta", "recommendedCta", "recommended_cta", "callToAction", "call_to_action"], opp.recommendedCta || "Contact us"),
+    cta: pickString(
+      item,
+      ["cta", "recommendedCta", "recommended_cta", "callToAction", "call_to_action"],
+      opp.recommendedCta || "Contact us",
+    ),
     markdown,
-    internalLinks: normalizeStringArray(item.internalLinks ?? item.internal_links ?? item.links, []),
-    schemaSuggestions: normalizeStringArray(item.schemaSuggestions ?? item.schema_suggestions ?? item.schema ?? item.structuredData ?? item.structured_data, []),
+    internalLinks: normalizeStringArray(
+      item.internalLinks ?? item.internal_links ?? item.links,
+      [],
+    ),
+    schemaSuggestions: normalizeStringArray(
+      item.schemaSuggestions ??
+        item.schema_suggestions ??
+        item.schema ??
+        item.structuredData ??
+        item.structured_data,
+      [],
+    ),
     editorNotes: pickString(item, ["editorNotes", "editor_notes", "notes"], ""),
   });
   // Article Studio 3.0 / P1.2A — up to three opening-hook proposals, when the
@@ -526,26 +635,73 @@ function normalizeContentAsset(payload: unknown, project: Project, opp: Opportun
 function normalizeAuditCategory(value: unknown) {
   const raw = asString(value).toLowerCase();
   if (/local|near me|map|gbp|google business|directory/.test(raw)) return "Local Visibility";
-  if (/conver|trust|cta|testimonial|review|booking|pricing|offer/.test(raw)) return "Conversion & Trust";
+  if (/conver|trust|cta|testimonial|review|booking|pricing|offer/.test(raw))
+    return "Conversion & Trust";
   if (/\bai\b|geo|answer|generative|llm|cited|citation|overview/.test(raw)) return "AI Readiness";
-  if (/seo|search engine|on-?page|technical|meta|title|heading|keyword|internal link/.test(raw)) return "SEO Basics";
-  if (/clarity|business|messaging|value prop|positioning|who|what/.test(raw)) return "Business Clarity";
+  if (/seo|search engine|on-?page|technical|meta|title|heading|keyword|internal link/.test(raw))
+    return "SEO Basics";
+  if (/clarity|business|messaging|value prop|positioning|who|what/.test(raw))
+    return "Business Clarity";
   return normalizeValue(value, AUDIT_CATEGORIES, "SEO Basics");
 }
 
 function normalizeAuditFinding(value: unknown, index: number) {
   const item = isRecord(value) ? value : {};
-  const title = pickString(item, ["title", "name", "issue", "heading", "finding"], `Finding ${index + 1}`);
+  const title = pickString(
+    item,
+    ["title", "name", "issue", "heading", "finding"],
+    `Finding ${index + 1}`,
+  );
   return AuditFindingOutputSchema.parse({
     title,
     category: normalizeAuditCategory(item.category ?? item.area ?? item.group ?? item.section),
     severity: normalizePriority(item.severity ?? item.impact ?? item.priority),
-    explanation: pickString(item, ["explanation", "detail", "details", "why", "description", "problem", "issue"], "This area could be clearer for both search engines and AI answers."),
-    recommendation: pickString(item, ["recommendation", "fix", "action", "suggestion", "howToFix", "how_to_fix", "recommendedAction", "remedy"], "Add a focused page or section that addresses this directly."),
-    suggestedOpportunityTitle: pickString(item, ["suggestedOpportunityTitle", "suggested_opportunity_title", "opportunityTitle", "suggestedTitle", "contentTitle", "pageTitle"], title),
-    suggestedContentType: normalizeContentType(item.suggestedContentType ?? item.contentType ?? item.content_type ?? item.type ?? item.format),
-    suggestedSearchIntent: normalizeSearchIntent(item.suggestedSearchIntent ?? item.searchIntent ?? item.search_intent ?? item.intent),
-    suggestedCta: pickString(item, ["suggestedCta", "suggested_cta", "cta", "callToAction", "call_to_action"], "Contact us"),
+    explanation: pickString(
+      item,
+      ["explanation", "detail", "details", "why", "description", "problem", "issue"],
+      "This area could be clearer for both search engines and AI answers.",
+    ),
+    recommendation: pickString(
+      item,
+      [
+        "recommendation",
+        "fix",
+        "action",
+        "suggestion",
+        "howToFix",
+        "how_to_fix",
+        "recommendedAction",
+        "remedy",
+      ],
+      "Add a focused page or section that addresses this directly.",
+    ),
+    suggestedOpportunityTitle: pickString(
+      item,
+      [
+        "suggestedOpportunityTitle",
+        "suggested_opportunity_title",
+        "opportunityTitle",
+        "suggestedTitle",
+        "contentTitle",
+        "pageTitle",
+      ],
+      title,
+    ),
+    suggestedContentType: normalizeContentType(
+      item.suggestedContentType ??
+        item.contentType ??
+        item.content_type ??
+        item.type ??
+        item.format,
+    ),
+    suggestedSearchIntent: normalizeSearchIntent(
+      item.suggestedSearchIntent ?? item.searchIntent ?? item.search_intent ?? item.intent,
+    ),
+    suggestedCta: pickString(
+      item,
+      ["suggestedCta", "suggested_cta", "cta", "callToAction", "call_to_action"],
+      "Contact us",
+    ),
     priority: normalizePriority(item.priority ?? item.severity ?? item.impact),
   });
 }
@@ -555,26 +711,76 @@ function normalizeCompetitorGapCategory(value: unknown) {
   if (/service|offering|product/.test(raw)) return "Service Coverage";
   if (/faq|question|answer/.test(raw)) return "FAQ & Answers";
   if (/local|location|area|city|neighbo|near me|geo/.test(raw)) return "Local Positioning";
-  if (/trust|authority|review|testimonial|credential|about|founder|guarantee|proof/.test(raw)) return "Trust & Authority";
-  if (/conver|offer|cta|booking|pricing|package|subscription|checkout/.test(raw)) return "Conversion & Offer";
+  if (/trust|authority|review|testimonial|credential|about|founder|guarantee|proof/.test(raw))
+    return "Trust & Authority";
+  if (/conver|offer|cta|booking|pricing|package|subscription|checkout/.test(raw))
+    return "Conversion & Offer";
   if (/content|blog|topic|theme|educational|seasonal|guide/.test(raw)) return "Content Themes";
   return normalizeValue(value, COMPETITOR_GAP_CATEGORIES, "Service Coverage");
 }
 
 function normalizeCompetitorGap(value: unknown, index: number) {
   const item = isRecord(value) ? value : {};
-  const title = pickString(item, ["title", "name", "gap", "heading"], `Competitor gap ${index + 1}`);
+  const title = pickString(
+    item,
+    ["title", "name", "gap", "heading"],
+    `Competitor gap ${index + 1}`,
+  );
   return CompetitorGapOutputSchema.parse({
     title,
-    category: normalizeCompetitorGapCategory(item.category ?? item.area ?? item.group ?? item.section),
+    category: normalizeCompetitorGapCategory(
+      item.category ?? item.area ?? item.group ?? item.section,
+    ),
     severity: normalizePriority(item.severity ?? item.impact ?? item.priority),
-    competitorEvidence: pickString(item, ["competitorEvidence", "competitor_evidence", "evidence", "whatTheyDo", "observed", "example"], "A competitor covers this more clearly than the business does."),
-    explanation: pickString(item, ["explanation", "detail", "details", "why", "description", "gap"], "Competitors address this and the business currently does not."),
-    recommendation: pickString(item, ["recommendation", "fix", "action", "suggestion", "howToClose", "how_to_close", "remedy"], "Create a focused page or section that closes this gap."),
-    suggestedOpportunityTitle: pickString(item, ["suggestedOpportunityTitle", "suggested_opportunity_title", "opportunityTitle", "suggestedTitle", "contentTitle", "pageTitle"], title),
-    suggestedContentType: normalizeContentType(item.suggestedContentType ?? item.contentType ?? item.content_type ?? item.type ?? item.format),
-    suggestedSearchIntent: normalizeSearchIntent(item.suggestedSearchIntent ?? item.searchIntent ?? item.search_intent ?? item.intent),
-    suggestedCta: pickString(item, ["suggestedCta", "suggested_cta", "cta", "callToAction", "call_to_action"], "Contact us"),
+    competitorEvidence: pickString(
+      item,
+      [
+        "competitorEvidence",
+        "competitor_evidence",
+        "evidence",
+        "whatTheyDo",
+        "observed",
+        "example",
+      ],
+      "A competitor covers this more clearly than the business does.",
+    ),
+    explanation: pickString(
+      item,
+      ["explanation", "detail", "details", "why", "description", "gap"],
+      "Competitors address this and the business currently does not.",
+    ),
+    recommendation: pickString(
+      item,
+      ["recommendation", "fix", "action", "suggestion", "howToClose", "how_to_close", "remedy"],
+      "Create a focused page or section that closes this gap.",
+    ),
+    suggestedOpportunityTitle: pickString(
+      item,
+      [
+        "suggestedOpportunityTitle",
+        "suggested_opportunity_title",
+        "opportunityTitle",
+        "suggestedTitle",
+        "contentTitle",
+        "pageTitle",
+      ],
+      title,
+    ),
+    suggestedContentType: normalizeContentType(
+      item.suggestedContentType ??
+        item.contentType ??
+        item.content_type ??
+        item.type ??
+        item.format,
+    ),
+    suggestedSearchIntent: normalizeSearchIntent(
+      item.suggestedSearchIntent ?? item.searchIntent ?? item.search_intent ?? item.intent,
+    ),
+    suggestedCta: pickString(
+      item,
+      ["suggestedCta", "suggested_cta", "cta", "callToAction", "call_to_action"],
+      "Contact us",
+    ),
     priority: normalizePriority(item.priority ?? item.severity ?? item.impact),
   });
 }
@@ -582,88 +788,264 @@ function normalizeCompetitorGap(value: unknown, index: number) {
 function normalizeCompetitorSnapshot(value: unknown, fallbackUrl: string, fetched: boolean) {
   const item = isRecord(value) ? value : {};
   return CompetitorSnapshotOutputSchema.parse({
-    competitorUrl: pickString(item, ["competitorUrl", "competitor_url", "url", "website"], fallbackUrl),
-    title: pickString(item, ["title", "name", "businessName"], fetched ? "Competitor" : "Competitor (not fetched)"),
-    detectedPositioning: pickString(item, ["detectedPositioning", "detected_positioning", "positioning", "summary", "description"], fetched ? "Positioning not clearly detected." : "Could not read this competitor's site."),
-    notableStrengths: normalizeStringArray(item.notableStrengths ?? item.notable_strengths ?? item.strengths ?? item.highlights, []),
+    competitorUrl: pickString(
+      item,
+      ["competitorUrl", "competitor_url", "url", "website"],
+      fallbackUrl,
+    ),
+    title: pickString(
+      item,
+      ["title", "name", "businessName"],
+      fetched ? "Competitor" : "Competitor (not fetched)",
+    ),
+    detectedPositioning: pickString(
+      item,
+      ["detectedPositioning", "detected_positioning", "positioning", "summary", "description"],
+      fetched ? "Positioning not clearly detected." : "Could not read this competitor's site.",
+    ),
+    notableStrengths: normalizeStringArray(
+      item.notableStrengths ?? item.notable_strengths ?? item.strengths ?? item.highlights,
+      [],
+    ),
     fetchStatus: fetched ? "fetched" : "failed",
   });
 }
 
 function normalizeAuthorityCategory(value: unknown) {
   const raw = asString(value).toLowerCase();
-  if (/local.*(direct|citation|listing)|citation|nap|map|gbp|google business|yelp|near me/.test(raw)) return "Local Directories & Citations";
-  if (/industry|niche|professional director|marketplace|vertical|trade director|profile director/.test(raw)) return "Industry Directories";
-  if (/review|reputation|testimonial|rating|trustpilot|feedback/.test(raw)) return "Review & Reputation";
-  if (/partner|supplier|manufacturer|collab|reseller|stockist|vendor/.test(raw)) return "Partner & Supplier Links";
-  if (/association|community|chamber|membership|guild|group|society|club|network/.test(raw)) return "Associations & Communities";
-  if (/\bpr\b|press|story|media|news|journalist|founder story|event|seasonal|commentary|publicity/.test(raw)) return "PR & Story";
-  if (/trust|credential|certification|accreditation|case study|proof|award|badge|about|guarantee/.test(raw)) return "Trust Signals";
+  if (
+    /local.*(direct|citation|listing)|citation|nap|map|gbp|google business|yelp|near me/.test(raw)
+  )
+    return "Local Directories & Citations";
+  if (
+    /industry|niche|professional director|marketplace|vertical|trade director|profile director/.test(
+      raw,
+    )
+  )
+    return "Industry Directories";
+  if (/review|reputation|testimonial|rating|trustpilot|feedback/.test(raw))
+    return "Review & Reputation";
+  if (/partner|supplier|manufacturer|collab|reseller|stockist|vendor/.test(raw))
+    return "Partner & Supplier Links";
+  if (/association|community|chamber|membership|guild|group|society|club|network/.test(raw))
+    return "Associations & Communities";
+  if (
+    /\bpr\b|press|story|media|news|journalist|founder story|event|seasonal|commentary|publicity/.test(
+      raw,
+    )
+  )
+    return "PR & Story";
+  if (
+    /trust|credential|certification|accreditation|case study|proof|award|badge|about|guarantee/.test(
+      raw,
+    )
+  )
+    return "Trust Signals";
   if (/outreach|contact|pitch|email|reach out|approach/.test(raw)) return "Outreach";
   return normalizeValue(value, AUTHORITY_CATEGORIES, "Local Directories & Citations");
 }
 
 function normalizeAuthorityItem(value: unknown, index: number) {
   const item = isRecord(value) ? value : {};
-  const title = pickString(item, ["title", "name", "opportunity", "heading", "action"], `Authority opportunity ${index + 1}`);
+  const title = pickString(
+    item,
+    ["title", "name", "opportunity", "heading", "action"],
+    `Authority opportunity ${index + 1}`,
+  );
   return AuthorityItemOutputSchema.parse({
     title,
-    category: normalizeAuthorityCategory(item.category ?? item.area ?? item.group ?? item.section ?? item.type),
+    category: normalizeAuthorityCategory(
+      item.category ?? item.area ?? item.group ?? item.section ?? item.type,
+    ),
     priority: normalizePriority(item.priority ?? item.impact ?? item.severity),
     effort: normalizePriority(item.effort ?? item.difficulty ?? item.work),
-    expectedImpact: normalizePriority(item.expectedImpact ?? item.expected_impact ?? item.impact ?? item.value),
-    explanation: pickString(item, ["explanation", "detail", "details", "why", "description", "rationale"], "Building presence here can strengthen the business's credibility and discoverability."),
-    recommendation: pickString(item, ["recommendation", "action", "suggestion", "howTo", "how_to", "steps", "nextStep"], "Claim or build a presence here, keeping business details consistent."),
-    suggestedPlatformOrTarget: pickString(item, ["suggestedPlatformOrTarget", "suggested_platform_or_target", "platform", "target", "where", "site", "directory", "publication"], "Relevant platform or directory"),
-    outreachAngle: pickString(item, ["outreachAngle", "outreach_angle", "angle", "pitch", "why_they_care", "whyTheyCare", "hook"], "Lead with what makes the business genuinely useful or interesting to their audience."),
-    suggestedOpportunityTitle: pickString(item, ["suggestedOpportunityTitle", "suggested_opportunity_title", "opportunityTitle", "suggestedTitle", "contentTitle", "pageTitle"], title),
-    suggestedContentType: normalizeContentType(item.suggestedContentType ?? item.contentType ?? item.content_type ?? item.type ?? item.format),
-    suggestedSearchIntent: normalizeSearchIntent(item.suggestedSearchIntent ?? item.searchIntent ?? item.search_intent ?? item.intent),
-    suggestedCta: pickString(item, ["suggestedCta", "suggested_cta", "cta", "callToAction", "call_to_action"], "Contact us"),
+    expectedImpact: normalizePriority(
+      item.expectedImpact ?? item.expected_impact ?? item.impact ?? item.value,
+    ),
+    explanation: pickString(
+      item,
+      ["explanation", "detail", "details", "why", "description", "rationale"],
+      "Building presence here can strengthen the business's credibility and discoverability.",
+    ),
+    recommendation: pickString(
+      item,
+      ["recommendation", "action", "suggestion", "howTo", "how_to", "steps", "nextStep"],
+      "Claim or build a presence here, keeping business details consistent.",
+    ),
+    suggestedPlatformOrTarget: pickString(
+      item,
+      [
+        "suggestedPlatformOrTarget",
+        "suggested_platform_or_target",
+        "platform",
+        "target",
+        "where",
+        "site",
+        "directory",
+        "publication",
+      ],
+      "Relevant platform or directory",
+    ),
+    outreachAngle: pickString(
+      item,
+      ["outreachAngle", "outreach_angle", "angle", "pitch", "why_they_care", "whyTheyCare", "hook"],
+      "Lead with what makes the business genuinely useful or interesting to their audience.",
+    ),
+    suggestedOpportunityTitle: pickString(
+      item,
+      [
+        "suggestedOpportunityTitle",
+        "suggested_opportunity_title",
+        "opportunityTitle",
+        "suggestedTitle",
+        "contentTitle",
+        "pageTitle",
+      ],
+      title,
+    ),
+    suggestedContentType: normalizeContentType(
+      item.suggestedContentType ??
+        item.contentType ??
+        item.content_type ??
+        item.type ??
+        item.format,
+    ),
+    suggestedSearchIntent: normalizeSearchIntent(
+      item.suggestedSearchIntent ?? item.searchIntent ?? item.search_intent ?? item.intent,
+    ),
+    suggestedCta: pickString(
+      item,
+      ["suggestedCta", "suggested_cta", "cta", "callToAction", "call_to_action"],
+      "Contact us",
+    ),
   });
 }
 
 function normalizeAiVisibilityCategory(value: unknown) {
   const raw = asString(value).toLowerCase();
-  if (/discover|best .* in|where can|recommend|near|find a|looking for/.test(raw)) return "Discovery Prompts";
-  if (/compar|vs\b|versus|which|choose|best option|alternative/.test(raw)) return "Comparison Prompts";
-  if (/problem|solution|how to|what helps|what should|fix|solve|troubleshoot/.test(raw)) return "Problem / Solution Prompts";
-  if (/local|city|neighbo|area|near me|geo|location|language/.test(raw)) return "Local-Intent Prompts";
-  if (/trust|citation|cite|proof|fact|credential|source readiness|verif/.test(raw)) return "Trust & Citation Readiness";
-  if (/content gap|missing faq|missing service|missing comparison|missing content|expert content|helpful content/.test(raw)) return "Content Gaps for AI Answers";
-  if (/authority gap|third.?party|review|testimonial|director|external proof|profile/.test(raw)) return "Authority Gaps for AI Answers";
+  if (/discover|best .* in|where can|recommend|near|find a|looking for/.test(raw))
+    return "Discovery Prompts";
+  if (/compar|vs\b|versus|which|choose|best option|alternative/.test(raw))
+    return "Comparison Prompts";
+  if (/problem|solution|how to|what helps|what should|fix|solve|troubleshoot/.test(raw))
+    return "Problem / Solution Prompts";
+  if (/local|city|neighbo|area|near me|geo|location|language/.test(raw))
+    return "Local-Intent Prompts";
+  if (/trust|citation|cite|proof|fact|credential|source readiness|verif/.test(raw))
+    return "Trust & Citation Readiness";
+  if (
+    /content gap|missing faq|missing service|missing comparison|missing content|expert content|helpful content/.test(
+      raw,
+    )
+  )
+    return "Content Gaps for AI Answers";
+  if (/authority gap|third.?party|review|testimonial|director|external proof|profile/.test(raw))
+    return "Authority Gaps for AI Answers";
   return normalizeValue(value, AI_VISIBILITY_CATEGORIES, "Discovery Prompts");
 }
 
 function normalizePromptSet(value: unknown, project: Project) {
   const item = isRecord(value) ? value : {};
   return AiVisibilityPromptSetOutputSchema.parse({
-    category: normalizeAiVisibilityCategory(item.category ?? item.type ?? item.group ?? item.section),
-    prompt: pickString(item, ["prompt", "question", "query", "text", "title"], `What is the best option for ${project.businessType || "this business"}?`),
+    category: normalizeAiVisibilityCategory(
+      item.category ?? item.type ?? item.group ?? item.section,
+    ),
+    prompt: pickString(
+      item,
+      ["prompt", "question", "query", "text", "title"],
+      `What is the best option for ${project.businessType || "this business"}?`,
+    ),
     language: normalizeLanguage(item.language ?? item.lang, project),
     intent: normalizeSearchIntent(item.intent ?? item.searchIntent ?? item.search_intent),
-    targetAudience: pickString(item, ["targetAudience", "target_audience", "audience", "who", "persona"], project.targetAudience || "Potential customers"),
-    whyItMatters: pickString(item, ["whyItMatters", "why_it_matters", "why", "rationale", "reason", "importance"], "Customers ask AI assistants this kind of question when choosing who to buy from."),
-    readiness: normalizePriority(item.readiness ?? item.answerReadiness ?? item.answer_readiness ?? item.status),
-    recommendedSourcePageOrAsset: pickString(item, ["recommendedSourcePageOrAsset", "recommended_source_page_or_asset", "sourcePage", "source", "recommendedSource", "page", "asset"], "A clear, factual page that answers this directly"),
+    targetAudience: pickString(
+      item,
+      ["targetAudience", "target_audience", "audience", "who", "persona"],
+      project.targetAudience || "Potential customers",
+    ),
+    whyItMatters: pickString(
+      item,
+      ["whyItMatters", "why_it_matters", "why", "rationale", "reason", "importance"],
+      "Customers ask AI assistants this kind of question when choosing who to buy from.",
+    ),
+    readiness: normalizePriority(
+      item.readiness ?? item.answerReadiness ?? item.answer_readiness ?? item.status,
+    ),
+    recommendedSourcePageOrAsset: pickString(
+      item,
+      [
+        "recommendedSourcePageOrAsset",
+        "recommended_source_page_or_asset",
+        "sourcePage",
+        "source",
+        "recommendedSource",
+        "page",
+        "asset",
+      ],
+      "A clear, factual page that answers this directly",
+    ),
   });
 }
 
 function normalizeVisibilityGap(value: unknown, index: number) {
   const item = isRecord(value) ? value : {};
-  const title = pickString(item, ["title", "name", "gap", "heading"], `AI visibility gap ${index + 1}`);
+  const title = pickString(
+    item,
+    ["title", "name", "gap", "heading"],
+    `AI visibility gap ${index + 1}`,
+  );
   return AiVisibilityGapOutputSchema.parse({
     title,
-    category: normalizeAiVisibilityCategory(item.category ?? item.area ?? item.group ?? item.section),
+    category: normalizeAiVisibilityCategory(
+      item.category ?? item.area ?? item.group ?? item.section,
+    ),
     priority: normalizePriority(item.priority ?? item.severity ?? item.impact),
-    explanation: pickString(item, ["explanation", "detail", "details", "description", "gap", "why"], "The business may not yet have a clear source AI assistants could use to answer this."),
-    likelyReason: pickString(item, ["likelyReason", "likely_reason", "reason", "cause", "rootCause", "root_cause", "why"], "There is likely no dedicated, factual page or proof source covering this topic yet."),
-    recommendation: pickString(item, ["recommendation", "fix", "action", "suggestion", "howToClose", "how_to_close", "remedy"], "Create a focused, factual page or proof source that answers this clearly."),
-    suggestedPrompt: pickString(item, ["suggestedPrompt", "suggested_prompt", "prompt", "question", "examplePrompt"], title),
-    suggestedOpportunityTitle: pickString(item, ["suggestedOpportunityTitle", "suggested_opportunity_title", "opportunityTitle", "suggestedTitle", "contentTitle", "pageTitle"], title),
-    suggestedContentType: normalizeContentType(item.suggestedContentType ?? item.contentType ?? item.content_type ?? item.type ?? item.format),
-    suggestedSearchIntent: normalizeSearchIntent(item.suggestedSearchIntent ?? item.searchIntent ?? item.search_intent ?? item.intent),
-    suggestedCta: pickString(item, ["suggestedCta", "suggested_cta", "cta", "callToAction", "call_to_action"], "Contact us"),
+    explanation: pickString(
+      item,
+      ["explanation", "detail", "details", "description", "gap", "why"],
+      "The business may not yet have a clear source AI assistants could use to answer this.",
+    ),
+    likelyReason: pickString(
+      item,
+      ["likelyReason", "likely_reason", "reason", "cause", "rootCause", "root_cause", "why"],
+      "There is likely no dedicated, factual page or proof source covering this topic yet.",
+    ),
+    recommendation: pickString(
+      item,
+      ["recommendation", "fix", "action", "suggestion", "howToClose", "how_to_close", "remedy"],
+      "Create a focused, factual page or proof source that answers this clearly.",
+    ),
+    suggestedPrompt: pickString(
+      item,
+      ["suggestedPrompt", "suggested_prompt", "prompt", "question", "examplePrompt"],
+      title,
+    ),
+    suggestedOpportunityTitle: pickString(
+      item,
+      [
+        "suggestedOpportunityTitle",
+        "suggested_opportunity_title",
+        "opportunityTitle",
+        "suggestedTitle",
+        "contentTitle",
+        "pageTitle",
+      ],
+      title,
+    ),
+    suggestedContentType: normalizeContentType(
+      item.suggestedContentType ??
+        item.contentType ??
+        item.content_type ??
+        item.type ??
+        item.format,
+    ),
+    suggestedSearchIntent: normalizeSearchIntent(
+      item.suggestedSearchIntent ?? item.searchIntent ?? item.search_intent ?? item.intent,
+    ),
+    suggestedCta: pickString(
+      item,
+      ["suggestedCta", "suggested_cta", "cta", "callToAction", "call_to_action"],
+      "Contact us",
+    ),
   });
 }
 
@@ -690,7 +1072,11 @@ function mapGatewayError(e: unknown): Error {
   const causeMsg = anyErr?.cause instanceof Error ? anyErr.cause.message : anyErr?.cause;
   const text = typeof anyErr?.text === "string" ? anyErr.text.slice(0, 800) : undefined;
   const status = anyErr?.statusCode ?? anyErr?.status;
-  const msg = [raw, typeof causeMsg === "string" ? causeMsg : "", status ? `status ${status}` : ""].join(" ");
+  const msg = [
+    raw,
+    typeof causeMsg === "string" ? causeMsg : "",
+    status ? `status ${status}` : "",
+  ].join(" ");
   console.error("[ai.functions] gateway/validation error:", raw, { cause: causeMsg, status, text });
 
   // 1. Rate limit — transient, retry shortly.
@@ -698,16 +1084,28 @@ function mapGatewayError(e: unknown): Error {
     return new Error("AI is busy right now (rate limit). Please retry in a moment.");
 
   // 2. Credits / billing / quota — needs account action, not a retry.
-  if (/\b402\b|credit|insufficient|quota|billing|payment required|out of funds|exceeded your/i.test(msg))
+  if (
+    /\b402\b|credit|insufficient|quota|billing|payment required|out of funds|exceeded your/i.test(
+      msg,
+    )
+  )
     return new Error("AI credits/quota exhausted. Please check your AI billing balance.");
 
   // 3. Truncation / incomplete — check BEFORE schema/JSON, since a cut-off
   //    response usually also fails those checks but the real cause is length.
-  if (/max_?tokens|max output|length limit|truncat|incomplete|finish.?reason\W*length|unexpected end of (json|input|data)/i.test(msg))
+  if (
+    /max_?tokens|max output|length limit|truncat|incomplete|finish.?reason\W*length|unexpected end of (json|input|data)/i.test(
+      msg,
+    )
+  )
     return new Error("AI response was cut short (incomplete). Please try again.");
 
   // 4. Schema / structured-output validation — model returned the wrong shape.
-  if (/schema|validation|zod|invalid_type|too_small|too_big|unrecognized|did not match|no object generated/i.test(msg))
+  if (
+    /schema|validation|zod|invalid_type|too_small|too_big|unrecognized|did not match|no object generated/i.test(
+      msg,
+    )
+  )
     return new Error("AI returned data in an unexpected structure. Please try again.");
 
   // 4b. JSON parse / empty payload — couldn't read the model output at all.
@@ -743,7 +1141,9 @@ function projectBrief(p: Project, services: ServiceItem[]) {
   const contentLang = contentLanguageLabel(p);
   return [
     `Business: ${p.businessName || p.name}`,
-    p.websiteUrl ? `Website: ${p.websiteUrl} (NOT crawled — base recommendations only on the context below)` : null,
+    p.websiteUrl
+      ? `Website: ${p.websiteUrl} (NOT crawled — base recommendations only on the context below)`
+      : null,
     p.businessType ? `Type: ${p.businessType}` : null,
     p.description ? `Description: ${p.description}` : null,
     p.targetAudience ? `Audience: ${p.targetAudience}` : null,
@@ -751,13 +1151,18 @@ function projectBrief(p: Project, services: ServiceItem[]) {
     p.targetLocations?.length ? `Target locations: ${p.targetLocations.join(", ")}` : null,
     `Primary language: ${p.primaryLanguage}`,
     `Content language (write ALL generated content in this language): ${contentLang}`,
-    p.additionalLanguages?.length ? `Additional languages: ${p.additionalLanguages.join(", ")}` : null,
+    p.additionalLanguages?.length
+      ? `Additional languages: ${p.additionalLanguages.join(", ")}`
+      : null,
     p.toneOfVoice ? `Tone of voice: ${p.toneOfVoice}` : null,
     p.uniqueSellingPoints ? `USPs: ${p.uniqueSellingPoints}` : null,
     p.brandNotes ? `Brand notes: ${p.brandNotes}` : null,
     services.length
       ? `Services/products:\n${services
-          .map((s) => `- [${s.kind}] ${s.name}${s.description ? ` — ${s.description}` : ""}${s.locationRelevance ? ` (loc: ${s.locationRelevance})` : ""}`)
+          .map(
+            (s) =>
+              `- [${s.kind}] ${s.name}${s.description ? ` — ${s.description}` : ""}${s.locationRelevance ? ` (loc: ${s.locationRelevance})` : ""}`,
+          )
           .join("\n")}`
       : "Services/products: (none provided)",
     brandIntelligenceBlock(p) || null,
@@ -976,7 +1381,13 @@ ${sharedRules}`,
       const seoScore = clampScore(pickNumber(root, ["seoScore", "seo_score", "seo"]));
       const localScore = clampScore(pickNumber(root, ["localScore", "local_score", "local"]));
       const aiReadinessScore = clampScore(
-        pickNumber(root, ["aiReadinessScore", "ai_readiness_score", "aiReadiness", "geoScore", "geo"]),
+        pickNumber(root, [
+          "aiReadinessScore",
+          "ai_readiness_score",
+          "aiReadiness",
+          "geoScore",
+          "geo",
+        ]),
       );
       const conversionScore = clampScore(
         pickNumber(root, ["conversionScore", "conversion_score", "conversion"]),
@@ -1044,7 +1455,10 @@ export const generateCompetitorGapFn = createServerFn({ method: "POST" })
     const services = data.services as ServiceItem[];
     const brief = projectBrief(project, services);
 
-    const urls = data.competitorUrls.map((u) => u.trim()).filter(Boolean).slice(0, 3);
+    const urls = data.competitorUrls
+      .map((u) => u.trim())
+      .filter(Boolean)
+      .slice(0, 3);
     if (urls.length === 0) throw new Error("Add at least one competitor URL to run the analysis.");
 
     // Fetch competitor homepages in parallel; one failure must not sink the rest.
@@ -1104,26 +1518,45 @@ ${sharedRules}`,
       );
 
       const root = isRecord(payload) ? payload : {};
-      const gaps = extractArray(root, ["gaps", "competitorGaps", "findings", "items", "results"]).map(
-        (g, i) => normalizeCompetitorGap(g, i),
-      );
+      const gaps = extractArray(root, [
+        "gaps",
+        "competitorGaps",
+        "findings",
+        "items",
+        "results",
+      ]).map((g, i) => normalizeCompetitorGap(g, i));
       if (gaps.length === 0) throw new Error("AI returned no competitor gaps.");
 
       const aiSnapshots = extractArray(root, ["competitorSnapshots", "competitors", "snapshots"]);
       const competitorSnapshots = fetches.map((f, i) =>
-        normalizeCompetitorSnapshot(aiSnapshots[i] ?? { competitorUrl: f.url, title: f.ctx.title }, f.url, f.ctx.ok),
+        normalizeCompetitorSnapshot(
+          aiSnapshots[i] ?? { competitorUrl: f.url, title: f.ctx.title },
+          f.url,
+          f.ctx.ok,
+        ),
       );
 
-      const serviceGapScore = clampScore(pickNumber(root, ["serviceGapScore", "service_gap_score", "service"]));
-      const contentGapScore = clampScore(pickNumber(root, ["contentGapScore", "content_gap_score", "content"]));
-      const localGapScore = clampScore(pickNumber(root, ["localGapScore", "local_gap_score", "local"]));
-      const trustGapScore = clampScore(pickNumber(root, ["trustGapScore", "trust_gap_score", "trust"]));
+      const serviceGapScore = clampScore(
+        pickNumber(root, ["serviceGapScore", "service_gap_score", "service"]),
+      );
+      const contentGapScore = clampScore(
+        pickNumber(root, ["contentGapScore", "content_gap_score", "content"]),
+      );
+      const localGapScore = clampScore(
+        pickNumber(root, ["localGapScore", "local_gap_score", "local"]),
+      );
+      const trustGapScore = clampScore(
+        pickNumber(root, ["trustGapScore", "trust_gap_score", "trust"]),
+      );
       const conversionGapScore = clampScore(
         pickNumber(root, ["conversionGapScore", "conversion_gap_score", "conversion"]),
       );
       const overallGapScore = clampScore(
         pickNumber(root, ["overallGapScore", "overall_gap_score", "overall", "score"]),
-        Math.round((serviceGapScore + contentGapScore + localGapScore + trustGapScore + conversionGapScore) / 5),
+        Math.round(
+          (serviceGapScore + contentGapScore + localGapScore + trustGapScore + conversionGapScore) /
+            5,
+        ),
       );
       const summary = pickString(
         root,
@@ -1141,7 +1574,10 @@ ${sharedRules}`,
           ? `${failedCount} of ${urls.length} competitor site${urls.length > 1 ? "s" : ""} could not be fetched — analysis used the ones that loaded plus your project details.`
           : "";
 
-      console.info("[ai.functions] competitor-gap parsed", { gaps: gaps.length, fetched: fetchedCount });
+      console.info("[ai.functions] competitor-gap parsed", {
+        gaps: gaps.length,
+        fetched: fetchedCount,
+      });
 
       return {
         note,
@@ -1236,16 +1672,39 @@ ${auditBlock}${competitorBlock}${competitorStrengthsBlock}${oppBlock}${sharedRul
       ]).map((it, i) => normalizeAuthorityItem(it, i));
       if (authorityItems.length === 0) throw new Error("AI returned no authority items.");
 
-      const localCitationScore = clampScore(pickNumber(root, ["localCitationScore", "local_citation_score", "localCitation", "local"]));
-      const industryPresenceScore = clampScore(pickNumber(root, ["industryPresenceScore", "industry_presence_score", "industryPresence", "industry"]));
-      const reputationScore = clampScore(pickNumber(root, ["reputationScore", "reputation_score", "reputation", "review"]));
-      const partnerLinkScore = clampScore(pickNumber(root, ["partnerLinkScore", "partner_link_score", "partnerLink", "partner"]));
-      const prOpportunityScore = clampScore(pickNumber(root, ["prOpportunityScore", "pr_opportunity_score", "prOpportunity", "pr"]));
-      const trustSignalScore = clampScore(pickNumber(root, ["trustSignalScore", "trust_signal_score", "trustSignal", "trust"]));
+      const localCitationScore = clampScore(
+        pickNumber(root, ["localCitationScore", "local_citation_score", "localCitation", "local"]),
+      );
+      const industryPresenceScore = clampScore(
+        pickNumber(root, [
+          "industryPresenceScore",
+          "industry_presence_score",
+          "industryPresence",
+          "industry",
+        ]),
+      );
+      const reputationScore = clampScore(
+        pickNumber(root, ["reputationScore", "reputation_score", "reputation", "review"]),
+      );
+      const partnerLinkScore = clampScore(
+        pickNumber(root, ["partnerLinkScore", "partner_link_score", "partnerLink", "partner"]),
+      );
+      const prOpportunityScore = clampScore(
+        pickNumber(root, ["prOpportunityScore", "pr_opportunity_score", "prOpportunity", "pr"]),
+      );
+      const trustSignalScore = clampScore(
+        pickNumber(root, ["trustSignalScore", "trust_signal_score", "trustSignal", "trust"]),
+      );
       const overallAuthorityScore = clampScore(
         pickNumber(root, ["overallAuthorityScore", "overall_authority_score", "overall", "score"]),
         Math.round(
-          (localCitationScore + industryPresenceScore + reputationScore + partnerLinkScore + prOpportunityScore + trustSignalScore) / 6,
+          (localCitationScore +
+            industryPresenceScore +
+            reputationScore +
+            partnerLinkScore +
+            prOpportunityScore +
+            trustSignalScore) /
+            6,
         ),
       );
       const summary = pickString(
@@ -1254,7 +1713,11 @@ ${auditBlock}${competitorBlock}${competitorStrengthsBlock}${oppBlock}${sharedRul
         "Authority analysis complete — review the opportunities below and turn the top ones into opportunities.",
       );
       const topAuthorityActions = normalizeStringArray(
-        root.topAuthorityActions ?? root.top_authority_actions ?? root.topActions ?? root.priorities ?? root.quickWins,
+        root.topAuthorityActions ??
+          root.top_authority_actions ??
+          root.topActions ??
+          root.priorities ??
+          root.quickWins,
         authorityItems.slice(0, 3).map((it) => it.title),
       ).slice(0, 5);
 
@@ -1347,26 +1810,78 @@ ${auditBlock}${competitorBlock}${authorityBlock}${oppBlock}${sharedRules}`,
       );
 
       const root = isRecord(payload) ? payload : {};
-      const promptSets = extractArray(root, ["promptSets", "prompt_sets", "prompts", "promptSet", "questions"]).map(
-        (p) => normalizePromptSet(p, project),
-      );
-      const visibilityGaps = extractArray(root, ["visibilityGaps", "visibility_gaps", "gaps", "items", "results"]).map(
-        (g, i) => normalizeVisibilityGap(g, i),
-      );
+      const promptSets = extractArray(root, [
+        "promptSets",
+        "prompt_sets",
+        "prompts",
+        "promptSet",
+        "questions",
+      ]).map((p) => normalizePromptSet(p, project));
+      const visibilityGaps = extractArray(root, [
+        "visibilityGaps",
+        "visibility_gaps",
+        "gaps",
+        "items",
+        "results",
+      ]).map((g, i) => normalizeVisibilityGap(g, i));
       if (promptSets.length === 0 && visibilityGaps.length === 0) {
         throw new Error("AI returned no AI-visibility results.");
       }
 
-      const promptCoverageScore = clampScore(pickNumber(root, ["promptCoverageScore", "prompt_coverage_score", "promptCoverage", "coverage"]));
-      const answerReadinessScore = clampScore(pickNumber(root, ["answerReadinessScore", "answer_readiness_score", "answerReadiness", "readiness"]));
-      const localAiReadinessScore = clampScore(pickNumber(root, ["localAiReadinessScore", "local_ai_readiness_score", "localAiReadiness", "local"]));
-      const trustCitationScore = clampScore(pickNumber(root, ["trustCitationScore", "trust_citation_score", "trustCitation", "trust", "citation"]));
-      const contentGapScore = clampScore(pickNumber(root, ["contentGapScore", "content_gap_score", "contentGap", "content"]));
-      const authorityGapScore = clampScore(pickNumber(root, ["authorityGapScore", "authority_gap_score", "authorityGap", "authority"]));
+      const promptCoverageScore = clampScore(
+        pickNumber(root, [
+          "promptCoverageScore",
+          "prompt_coverage_score",
+          "promptCoverage",
+          "coverage",
+        ]),
+      );
+      const answerReadinessScore = clampScore(
+        pickNumber(root, [
+          "answerReadinessScore",
+          "answer_readiness_score",
+          "answerReadiness",
+          "readiness",
+        ]),
+      );
+      const localAiReadinessScore = clampScore(
+        pickNumber(root, [
+          "localAiReadinessScore",
+          "local_ai_readiness_score",
+          "localAiReadiness",
+          "local",
+        ]),
+      );
+      const trustCitationScore = clampScore(
+        pickNumber(root, [
+          "trustCitationScore",
+          "trust_citation_score",
+          "trustCitation",
+          "trust",
+          "citation",
+        ]),
+      );
+      const contentGapScore = clampScore(
+        pickNumber(root, ["contentGapScore", "content_gap_score", "contentGap", "content"]),
+      );
+      const authorityGapScore = clampScore(
+        pickNumber(root, ["authorityGapScore", "authority_gap_score", "authorityGap", "authority"]),
+      );
       const overallAiVisibilityScore = clampScore(
-        pickNumber(root, ["overallAiVisibilityScore", "overall_ai_visibility_score", "overall", "score"]),
+        pickNumber(root, [
+          "overallAiVisibilityScore",
+          "overall_ai_visibility_score",
+          "overall",
+          "score",
+        ]),
         Math.round(
-          (promptCoverageScore + answerReadinessScore + localAiReadinessScore + trustCitationScore + contentGapScore + authorityGapScore) / 6,
+          (promptCoverageScore +
+            answerReadinessScore +
+            localAiReadinessScore +
+            trustCitationScore +
+            contentGapScore +
+            authorityGapScore) /
+            6,
         ),
       );
       const summary = pickString(
@@ -1375,7 +1890,11 @@ ${auditBlock}${competitorBlock}${authorityBlock}${oppBlock}${sharedRules}`,
         "AI visibility readiness analyzed — review the prompts and likely gaps below and turn the top ones into opportunities.",
       );
       const topAiVisibilityActions = normalizeStringArray(
-        root.topAiVisibilityActions ?? root.top_ai_visibility_actions ?? root.topActions ?? root.priorities ?? root.quickWins,
+        root.topAiVisibilityActions ??
+          root.top_ai_visibility_actions ??
+          root.topActions ??
+          root.priorities ??
+          root.quickWins,
         visibilityGaps.slice(0, 3).map((g) => g.title),
       ).slice(0, 5);
 
@@ -1413,7 +1932,16 @@ export const scanWebsiteFn = createServerFn({ method: "POST" })
     // NOT metered. Onboarding website scan: metering it would block signup before the user has a plan.
     const site = await fetchSiteContext(data.url);
     if (!site.ok) {
-      return { ok: false as const, title: "", metaDescription: "", businessName: "", businessType: "", description: "", primaryLanguage: "English", services: [] as { name: string; kind: "Service" | "Product"; description: string }[] };
+      return {
+        ok: false as const,
+        title: "",
+        metaDescription: "",
+        businessName: "",
+        businessType: "",
+        description: "",
+        primaryLanguage: "English",
+        services: [] as { name: string; kind: "Service" | "Product"; description: string }[],
+      };
     }
 
     // Best-effort AI extraction; if it fails we still return title/meta so the
@@ -1444,7 +1972,8 @@ ${sharedRules}`,
           const kindRaw = pickString(it, ["kind", "type"], "Service").toLowerCase();
           return {
             name,
-            kind: (/product|shop|store|buy|goods/.test(kindRaw) ? "Product" : "Service") as "Service" | "Product",
+            kind: (/product|shop|store|buy|goods/.test(kindRaw) ? "Product" : "Service") as
+              "Service" | "Product",
             description: pickString(it, ["description", "detail", "summary"], ""),
           };
         })
@@ -1456,7 +1985,11 @@ ${sharedRules}`,
         metaDescription: site.metaDescription,
         businessName: pickString(root, ["businessName", "business_name", "name"], ""),
         businessType: pickString(root, ["businessType", "business_type", "type", "category"], ""),
-        description: pickString(root, ["description", "summary", "about"], site.metaDescription || ""),
+        description: pickString(
+          root,
+          ["description", "summary", "about"],
+          site.metaDescription || "",
+        ),
         primaryLanguage: normalizeLanguage(root.primaryLanguage ?? root.language),
         services,
       };
@@ -1478,6 +2011,63 @@ ${sharedRules}`,
 // generateOpportunities
 // ============================================================
 
+/**
+ * Core of opportunity generation, callable from the cron/auto-scheduler runner
+ * (no request context — the caller supplies the authenticated userId). The
+ * server fn below is a thin JWT-authenticated wrapper over this.
+ */
+export async function generateOpportunitiesCore(
+  userId: string,
+  data: { project: Project; services: ServiceItem[]; existingTitles: string[] },
+) {
+  {
+    // Spend limit, claimed before any model call so a refusal costs nothing.
+    await claimAiUsage({ userId, bucket: "aiCredits" });
+    const project = data.project as Project;
+    const services = data.services as ServiceItem[];
+    const brief = projectBrief(project, services);
+    const existing = data.existingTitles.length
+      ? `\nAvoid duplicating these existing titles:\n- ${data.existingTitles.join("\n- ")}`
+      : "";
+
+    try {
+      console.info("[ai.functions] opportunities reached", {
+        userIdPresent: Boolean(userId),
+        projectId: project.id,
+        projectName: project.businessName || project.name,
+        serviceCount: services.length,
+      });
+      const payload = await generateJsonText(
+        `You are an SEO and AI-visibility strategist for small businesses.
+
+Generate 6 high-quality content opportunities for this business.
+Return exactly this JSON shape:
+{"opportunities":[{"title":"","language":"Polish|Swedish|English|Danish","contentType":"Landing Page|Service Page|Blog Article|Guide|FAQ Page|Comparison|Location Page","searchIntent":"Informational|Commercial|Transactional|Navigational","targetAudience":"","businessValue":"","recommendedCta":"","priority":"Low|Medium|High"}]}
+
+${brief}
+${existing}
+
+Mix content types (landing/service/blog/guide/location/comparison) and languages (use primary + additional). Each opportunity should be a specific, search-driven topic — not a vague theme. Each title should read like a real page or article a user could search for.
+${sharedRules}`,
+        3000,
+      );
+
+      const opportunities = extractArray(payload, [
+        "opportunities",
+        "ideas",
+        "topics",
+        "items",
+        "results",
+      ]).map((item, index) => normalizeOpportunityItem(item, project, index));
+      if (opportunities.length === 0) throw new Error("AI returned no opportunities.");
+      console.info("[ai.functions] opportunities parsed", { count: opportunities.length });
+      return { opportunities };
+    } catch (e) {
+      throw mapGatewayError(e);
+    }
+  }
+}
+
 export const generateOpportunitiesFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
@@ -1489,45 +2079,13 @@ export const generateOpportunitiesFn = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data, context }) => {
-    // Spend limit, claimed before any model call so a refusal costs nothing.
-    await claimAiUsage({ userId: context.userId as string, bucket: "aiCredits" });
-    const project = data.project as Project;
-    const services = data.services as ServiceItem[];
-    const brief = projectBrief(project, services);
-    const existing = data.existingTitles.length
-      ? `\nAvoid duplicating these existing titles:\n- ${data.existingTitles.join("\n- ")}`
-      : "";
-
-    try {
-      console.info("[ai.functions] opportunities reached", {
-        userIdPresent: Boolean(context.userId),
-        projectId: project.id,
-        projectName: project.businessName || project.name,
-        serviceCount: services.length,
-      });
-      const payload = await generateJsonText(`You are an SEO and AI-visibility strategist for small businesses.
-
-Generate 6 high-quality content opportunities for this business.
-Return exactly this JSON shape:
-{"opportunities":[{"title":"","language":"Polish|Swedish|English|Danish","contentType":"Landing Page|Service Page|Blog Article|Guide|FAQ Page|Comparison|Location Page","searchIntent":"Informational|Commercial|Transactional|Navigational","targetAudience":"","businessValue":"","recommendedCta":"","priority":"Low|Medium|High"}]}
-
-${brief}
-${existing}
-
-Mix content types (landing/service/blog/guide/location/comparison) and languages (use primary + additional). Each opportunity should be a specific, search-driven topic — not a vague theme. Each title should read like a real page or article a user could search for.
-${sharedRules}`,
-      3000);
-
-      const opportunities = extractArray(payload, ["opportunities", "ideas", "topics", "items", "results"])
-        .map((item, index) => normalizeOpportunityItem(item, project, index));
-      if (opportunities.length === 0) throw new Error("AI returned no opportunities.");
-      console.info("[ai.functions] opportunities parsed", { count: opportunities.length });
-      return { opportunities };
-    } catch (e) {
-      throw mapGatewayError(e);
-    }
-  });
+  .handler(async ({ data, context }) =>
+    generateOpportunitiesCore(context.userId as string, {
+      project: data.project as Project,
+      services: data.services as ServiceItem[],
+      existingTitles: data.existingTitles,
+    }),
+  );
 
 // ============================================================
 // generateCalendar
@@ -1551,7 +2109,10 @@ export const generateCalendarFn = createServerFn({ method: "POST" })
 
     const oppLines = opps
       .slice(0, 12)
-      .map((o, i) => `${i + 1}. [${o.priority}] ${o.title} (${o.language}, ${o.contentType}, ${o.searchIntent}) — CTA: ${o.recommendedCta}`)
+      .map(
+        (o, i) =>
+          `${i + 1}. [${o.priority}] ${o.title} (${o.language}, ${o.contentType}, ${o.searchIntent}) — CTA: ${o.recommendedCta}`,
+      )
       .join("\n");
 
     try {
@@ -1561,7 +2122,8 @@ export const generateCalendarFn = createServerFn({ method: "POST" })
         projectName: project.businessName || project.name,
         opportunityCount: opps.length,
       });
-      const payload = await generateJsonText(`Build a realistic 1-month content calendar for "${project.businessName || project.name}" in ${project.primaryLanguage}.
+      const payload = await generateJsonText(
+        `Build a realistic 1-month content calendar for "${project.businessName || project.name}" in ${project.primaryLanguage}.
 Return exactly this JSON shape:
 {"calendarItems":[{"opportunityIndex":1,"daysFromToday":4,"topicTitle":"","language":"Polish|Swedish|English|Danish","contentType":"Landing Page|Service Page|Blog Article|Guide|FAQ Page|Comparison|Location Page","searchIntent":"Informational|Commercial|Transactional|Navigational","recommendedCta":""}]}
 
@@ -1572,10 +2134,16 @@ ${oppLines}
 
 For each scheduled item, return the 1-based opportunityIndex it derives from.
 ${sharedRules}`,
-      3000);
+        3000,
+      );
 
-      const calendarItems = extractArray(payload, ["calendarItems", "calendar", "items", "schedule", "contentCalendar"])
-        .map((item, index) => normalizeCalendarItem(item, project, index));
+      const calendarItems = extractArray(payload, [
+        "calendarItems",
+        "calendar",
+        "items",
+        "schedule",
+        "contentCalendar",
+      ]).map((item, index) => normalizeCalendarItem(item, project, index));
       if (calendarItems.length === 0) throw new Error("AI returned no calendar items.");
       console.info("[ai.functions] calendar parsed", { count: calendarItems.length });
       return { calendarItems };
@@ -1599,7 +2167,7 @@ const ContentAssetSchema = z.object({
   internalLinks: z.array(cleanString(80)).default([]),
   schemaSuggestions: z.array(cleanString(40)).default([]),
   editorNotes: z
-    .preprocess((v) => (typeof v === "string" ? v.trim() : v ?? ""), z.string())
+    .preprocess((v) => (typeof v === "string" ? v.trim() : (v ?? "")), z.string())
     .transform((v) => (v.length > 400 ? v.slice(0, 400) : v)),
 });
 
@@ -1632,7 +2200,8 @@ export const generateContentAssetFn = createServerFn({ method: "POST" })
         : `Generate a BLOG ARTICLE draft. Lead with a 2–3 sentence direct answer (AI-overview friendly), then context, key factors, what to do next, and FAQ. Markdown should be the article body in ${contentLang}.`;
 
     try {
-      const payload = await generateJsonText(`${kindInstruction}
+      const payload = await generateJsonText(
+        `${kindInstruction}
 
 Return exactly this JSON shape:
 {"metaTitle":"","metaDescription":"","h1":"","outline":[""],"faq":[{"q":"","a":""}],"cta":"","markdown":"","internalLinks":[""],"schemaSuggestions":[""],"editorNotes":"","hookProposals":[{"text":"","type":"question","purpose":""}]}
@@ -1656,7 +2225,8 @@ ${internalLinkRule(project)}
 
 hookProposals: 2–3 alternative one-sentence opening hooks in ${contentLang}. Each has a "type" from: question, problem-to-solution, surprising-fact, contrarian, story, result, promise, and an optional short "purpose". Never invent statistics, testimonials, outcomes or guarantees in a hook.
 ${sharedRules}`,
-      8000);
+        8000,
+      );
 
       return normalizeContentAsset(payload, project, opp);
     } catch (e) {
@@ -1689,34 +2259,35 @@ const ASSET_INSTRUCTIONS: Record<(typeof CONTENT_ASSET_TYPES)[number], string> =
     "Generate a SERVICE PAGE section. In `markdown`, include: H1 and H2 suggestions, Service description, Who it is for, Benefits (bulleted), Process / what to expect, FAQ, CTA. Also fill: h1, outline (section headings), faq, cta.",
   landingPage:
     "Generate a LANDING PAGE draft. In `markdown`, include: Hero headline, Subheadline, Problem section, Solution section, Benefits (bulleted), Trust signals, FAQ, CTA. Also fill: h1 (hero headline), faq, cta.",
-  faq:
-    "Generate an FAQ SECTION with 6–10 concise, genuinely helpful FAQs. In `markdown`, render each as a `## question` followed by a short answer (schema-ready). Also fill: faq (the 6–10 q/a entries), h1, cta.",
+  faq: "Generate an FAQ SECTION with 6–10 concise, genuinely helpful FAQs. In `markdown`, render each as a `## question` followed by a short answer (schema-ready). Also fill: faq (the 6–10 q/a entries), h1, cta.",
   comparison:
     "Generate a COMPARISON PAGE section. In `markdown`, include: a comparison title, a framing paragraph, a markdown TABLE comparing the options across key points, a 'When to choose each option' section, a recommendation, and a CTA. Also fill: h1, cta.",
   gbpPost:
     "Generate a concise GOOGLE BUSINESS PROFILE post (offer/update/event style if relevant). In `markdown`, write the short post text (keep under ~1500 characters), a clear CTA line, and a few optional relevant hashtags. Keep it concise and local. Also fill: cta.",
-  meta:
-    "Generate META TITLE + META DESCRIPTION options. In `markdown`, list 3 title options and 3 meta-description options, then state the recommended pairing and one line on why it fits. Also fill: metaTitle (the recommended title, ≤60 chars), metaDescription (the recommended description, ≤160 chars).",
+  meta: "Generate META TITLE + META DESCRIPTION options. In `markdown`, list 3 title options and 3 meta-description options, then state the recommended pairing and one line on why it fits. Also fill: metaTitle (the recommended title, ≤60 chars), metaDescription (the recommended description, ≤160 chars).",
   socialPack:
     "Generate a SOCIAL POST PACK. In `markdown`, include clearly-headed sections: LinkedIn post, Facebook post, Instagram caption, a short CTA, and optional hashtags. Tailor tone per platform. Also fill: cta.",
 };
 
-export const generateContentFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
-    z
-      .object({
-        project: z.any(),
-        services: z.array(z.any()).default([]),
-        opportunity: z.any(),
-        assetType: z.enum(CONTENT_ASSET_TYPES),
-        modelOverride: z.string().optional(),
-      })
-      .parse(input),
-  )
-  .handler(async ({ data, context }) => {
+/**
+ * Core of content generation, callable from the cron/auto-scheduler runner (no
+ * request context — the caller supplies the authenticated userId). Claims the
+ * contentGeneration budget exactly like the interactive path. The server fn
+ * below is a thin JWT-authenticated wrapper over this.
+ */
+export async function generateContentCore(
+  userId: string,
+  data: {
+    project: Project;
+    services: ServiceItem[];
+    opportunity: Opportunity;
+    assetType: (typeof CONTENT_ASSET_TYPES)[number];
+    modelOverride?: string;
+  },
+) {
+  {
     // Spend limit, claimed before any model call so a refusal costs nothing.
-    await claimAiUsage({ userId: context.userId as string, bucket: "contentGeneration" });
+    await claimAiUsage({ userId, bucket: "contentGeneration" });
     const project = data.project as Project;
     const services = data.services as ServiceItem[];
     const opp = data.opportunity as Opportunity;
@@ -1732,7 +2303,7 @@ export const generateContentFn = createServerFn({ method: "POST" })
         `${instruction}
 
 Return exactly this JSON shape. "markdown" is REQUIRED and must contain the full, formatted content for this asset type; fill the other fields that are relevant.
-{"metaTitle":"","metaDescription":"","h1":"","outline":[""],"faq":[{"q":"","a":""}],"cta":"","markdown":"","internalLinks":[""],"schemaSuggestions":[""],"editorNotes":""}
+{"metaTitle":"","metaDescription":"","h1":"","outline":[""],"faq":[{"q":"","a":""}],"cta":"","markdown":"","internalLinks":[""],"schemaSuggestions":[""],"editorNotes":"","hookProposals":[{"text":"","type":"question","purpose":""}]}
 
 Topic: ${opp.title}
 Language: ${contentLang} (write ALL output in this language)
@@ -1747,6 +2318,7 @@ ${brief}
 
 Markdown rules:
 ${internalLinkRule(project)}
+- hookProposals: 2-3 alternative one-sentence opening hooks in ${contentLang} (types: question, problem-to-solution, surprising-fact, contrarian, story, result, promise). Never invent statistics, testimonials, outcomes or guarantees in a hook. Do NOT open the markdown body with the hook text.
 ${sharedRules}`,
         8000,
         data.modelOverride,
@@ -1756,7 +2328,31 @@ ${sharedRules}`,
     } catch (e) {
       throw mapGatewayError(e);
     }
-  });
+  }
+}
+
+export const generateContentFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        project: z.any(),
+        services: z.array(z.any()).default([]),
+        opportunity: z.any(),
+        assetType: z.enum(CONTENT_ASSET_TYPES),
+        modelOverride: z.string().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) =>
+    generateContentCore(context.userId as string, {
+      project: data.project as Project,
+      services: data.services as ServiceItem[],
+      opportunity: data.opportunity as Opportunity,
+      assetType: data.assetType,
+      ...(data.modelOverride ? { modelOverride: data.modelOverride } : {}),
+    }),
+  );
 
 // ============================================================
 // Small editor regen helpers (metadata / faq / cta)
@@ -1795,7 +2391,11 @@ ${sharedRules}`,
         })
         .parse({
           metaTitle: pickString(item, ["metaTitle", "title", "seoTitle"], data.title),
-          metaDescription: pickString(item, ["metaDescription", "description", "seoDescription"], data.topic),
+          metaDescription: pickString(
+            item,
+            ["metaDescription", "description", "seoDescription"],
+            data.topic,
+          ),
         });
     } catch (e) {
       throw mapGatewayError(e);
@@ -1827,9 +2427,14 @@ ${sharedRules}`,
         1800,
       );
       const faq = normalizeFaq(
-        isRecord(payload) ? payload.faq ?? payload.faqs ?? payload.questions ?? payload.items : payload,
+        isRecord(payload)
+          ? (payload.faq ?? payload.faqs ?? payload.questions ?? payload.items)
+          : payload,
       );
-      return z.array(z.object({ q: cleanString(140), a: cleanString(400) })).parse(faq).slice(0, 5);
+      return z
+        .array(z.object({ q: cleanString(140), a: cleanString(400) }))
+        .parse(faq)
+        .slice(0, 5);
     } catch (e) {
       throw mapGatewayError(e);
     }
@@ -1970,7 +2575,11 @@ export const improveContentDraftFn = createServerFn({ method: "POST" })
     const project = data.project as Project;
     const services = data.services as ServiceItem[];
     const brief = projectBrief(project, services);
-    const suggestionList = data.suggestions.filter(Boolean).slice(0, 12).map((s) => `- ${s}`).join("\n");
+    const suggestionList = data.suggestions
+      .filter(Boolean)
+      .slice(0, 12)
+      .map((s) => `- ${s}`)
+      .join("\n");
 
     try {
       const payload = await generateJsonText(
@@ -2030,13 +2639,16 @@ const DIFFICULTY = ["easy", "medium", "hard"] as const;
 function normalizeAuthorityOpportunity(value: unknown) {
   const it = isRecord(value) ? value : {};
   const lower = (v: unknown, fallback: string) => {
-    const raw = asString(v).toLowerCase().replace(/[^a-z]/g, "");
+    const raw = asString(v)
+      .toLowerCase()
+      .replace(/[^a-z]/g, "");
     return raw || fallback;
   };
   const typeRaw = lower(it.type ?? it.category, "other");
   const type = AUTHORITY_TYPES.find((t) => t.toLowerCase() === typeRaw) ?? "other";
   const prio = PRIORITY_LMH.find((p) => p === lower(it.priority, "medium")) ?? "medium";
-  const value3 = PRIORITY_LMH.find((p) => p === lower(it.estimatedValue ?? it.value, "medium")) ?? "medium";
+  const value3 =
+    PRIORITY_LMH.find((p) => p === lower(it.estimatedValue ?? it.value, "medium")) ?? "medium";
   const diff = DIFFICULTY.find((d) => d === lower(it.difficulty, "medium")) ?? "medium";
   return {
     type,
@@ -2049,11 +2661,27 @@ function normalizeAuthorityOpportunity(value: unknown) {
     nextStep: pickString(it, ["nextStep", "next_step", "action"], "").slice(0, 300),
     requirements: normalizeStringArray(it.requirements ?? it.requires, []).slice(0, 6),
     targetUrl: pickString(it, ["targetUrl", "target_url", "url"], "").slice(0, 400),
-    suggestedPageToLink: pickString(it, ["suggestedPageToLink", "suggested_page_to_link", "pageToLink", "linkTo"], "").slice(0, 400),
-    relatedServiceOrOffer: pickString(it, ["relatedServiceOrOffer", "relatedService", "offer"], "").slice(0, 200),
-    anchorOrListingText: pickString(it, ["anchorOrListingText", "anchorText", "listingText"], "").slice(0, 200),
+    suggestedPageToLink: pickString(
+      it,
+      ["suggestedPageToLink", "suggested_page_to_link", "pageToLink", "linkTo"],
+      "",
+    ).slice(0, 400),
+    relatedServiceOrOffer: pickString(
+      it,
+      ["relatedServiceOrOffer", "relatedService", "offer"],
+      "",
+    ).slice(0, 200),
+    anchorOrListingText: pickString(
+      it,
+      ["anchorOrListingText", "anchorText", "listingText"],
+      "",
+    ).slice(0, 200),
     outreachNote: pickString(it, ["outreachNote", "outreach_note", "note"], "").slice(0, 600),
-    outreachTemplate: pickString(it, ["outreachTemplate", "outreach_template", "template", "message"], "").slice(0, 1200),
+    outreachTemplate: pickString(
+      it,
+      ["outreachTemplate", "outreach_template", "template", "message"],
+      "",
+    ).slice(0, 1200),
     safetyNotes: pickString(it, ["safetyNotes", "safety_notes", "safety"], "").slice(0, 400),
   };
 }
@@ -2110,9 +2738,13 @@ ${existingBlock}${liveBlock}${sharedRules}`,
         data.modelOverride,
       );
       const root = isRecord(payload) ? payload : {};
-      const opportunities = extractArray(root, ["opportunities", "authorityOpportunities", "items", "results", "actions"]).map(
-        normalizeAuthorityOpportunity,
-      );
+      const opportunities = extractArray(root, [
+        "opportunities",
+        "authorityOpportunities",
+        "items",
+        "results",
+        "actions",
+      ]).map(normalizeAuthorityOpportunity);
       return { opportunities };
     } catch (e) {
       throw mapGatewayError(e);
@@ -2156,10 +2788,13 @@ const BacklinkRecommendationOutputSchema = z.object({
 
 function normalizeBacklinkCategory(value: unknown) {
   const raw = asString(value).toLowerCase();
-  if (/gap|competitor.*(link|domain)|intersection|target domain/.test(raw)) return "Link Gap Targets";
-  if (/content|linkable asset|guide|resource|research|study|tool|data/.test(raw)) return "Content for Links";
+  if (/gap|competitor.*(link|domain)|intersection|target domain/.test(raw))
+    return "Link Gap Targets";
+  if (/content|linkable asset|guide|resource|research|study|tool|data/.test(raw))
+    return "Content for Links";
   if (/\bpr\b|press|media|news|journalist|story|expert comment/.test(raw)) return "Digital PR";
-  if (/partner|sponsor|supplier|collab|association|community|event/.test(raw)) return "Partnerships & Sponsorships";
+  if (/partner|sponsor|supplier|collab|association|community|event/.test(raw))
+    return "Partnerships & Sponsorships";
   if (/director|profile|citation|listing|nap/.test(raw)) return "Directories & Profiles";
   if (/hygiene|broken|toxic|spam|disavow|lost|reclaim|redirect/.test(raw)) return "Link Hygiene";
   return normalizeValue(value, BACKLINK_CATEGORIES, "Link Gap Targets");
@@ -2167,20 +2802,80 @@ function normalizeBacklinkCategory(value: unknown) {
 
 function normalizeBacklinkRecommendation(value: unknown, index: number) {
   const item = isRecord(value) ? value : {};
-  const title = pickString(item, ["title", "name", "action", "heading"], `Link opportunity ${index + 1}`);
+  const title = pickString(
+    item,
+    ["title", "name", "action", "heading"],
+    `Link opportunity ${index + 1}`,
+  );
   return BacklinkRecommendationOutputSchema.parse({
     title,
     category: normalizeBacklinkCategory(item.category ?? item.area ?? item.group ?? item.type),
     priority: normalizePriority(item.priority ?? item.impact ?? item.severity),
     effort: normalizePriority(item.effort ?? item.difficulty ?? item.work),
-    explanation: pickString(item, ["explanation", "detail", "details", "why", "description", "rationale"], "Earning relevant links here can strengthen the domain's authority."),
-    recommendation: pickString(item, ["recommendation", "action", "suggestion", "howTo", "how_to", "steps", "nextStep"], "Reach out with a genuinely useful, relevant reason to link."),
-    targetDomainOrPlatform: pickString(item, ["targetDomainOrPlatform", "target_domain_or_platform", "targetDomain", "target", "domain", "platform", "site", "where"], "Relevant website or platform"),
-    suggestedApproach: pickString(item, ["suggestedApproach", "suggested_approach", "approach", "method", "tactic", "outreachAngle", "angle"], "Honest outreach with a relevant, useful asset."),
-    suggestedOpportunityTitle: pickString(item, ["suggestedOpportunityTitle", "suggested_opportunity_title", "opportunityTitle", "suggestedTitle", "contentTitle", "pageTitle"], title),
-    suggestedContentType: normalizeContentType(item.suggestedContentType ?? item.contentType ?? item.content_type ?? item.type ?? item.format),
-    suggestedSearchIntent: normalizeSearchIntent(item.suggestedSearchIntent ?? item.searchIntent ?? item.search_intent ?? item.intent),
-    suggestedCta: pickString(item, ["suggestedCta", "suggested_cta", "cta", "callToAction", "call_to_action"], "Contact us"),
+    explanation: pickString(
+      item,
+      ["explanation", "detail", "details", "why", "description", "rationale"],
+      "Earning relevant links here can strengthen the domain's authority.",
+    ),
+    recommendation: pickString(
+      item,
+      ["recommendation", "action", "suggestion", "howTo", "how_to", "steps", "nextStep"],
+      "Reach out with a genuinely useful, relevant reason to link.",
+    ),
+    targetDomainOrPlatform: pickString(
+      item,
+      [
+        "targetDomainOrPlatform",
+        "target_domain_or_platform",
+        "targetDomain",
+        "target",
+        "domain",
+        "platform",
+        "site",
+        "where",
+      ],
+      "Relevant website or platform",
+    ),
+    suggestedApproach: pickString(
+      item,
+      [
+        "suggestedApproach",
+        "suggested_approach",
+        "approach",
+        "method",
+        "tactic",
+        "outreachAngle",
+        "angle",
+      ],
+      "Honest outreach with a relevant, useful asset.",
+    ),
+    suggestedOpportunityTitle: pickString(
+      item,
+      [
+        "suggestedOpportunityTitle",
+        "suggested_opportunity_title",
+        "opportunityTitle",
+        "suggestedTitle",
+        "contentTitle",
+        "pageTitle",
+      ],
+      title,
+    ),
+    suggestedContentType: normalizeContentType(
+      item.suggestedContentType ??
+        item.contentType ??
+        item.content_type ??
+        item.type ??
+        item.format,
+    ),
+    suggestedSearchIntent: normalizeSearchIntent(
+      item.suggestedSearchIntent ?? item.searchIntent ?? item.search_intent ?? item.intent,
+    ),
+    suggestedCta: pickString(
+      item,
+      ["suggestedCta", "suggested_cta", "cta", "callToAction", "call_to_action"],
+      "Contact us",
+    ),
   });
 }
 
@@ -2213,7 +2908,9 @@ export const generateBacklinksFn = createServerFn({ method: "POST" })
     }
     const ownDomain = extractDomain(project.websiteUrl);
     if (!ownDomain) {
-      throw new Error("Add your website URL in Project Setup before running the backlink analysis.");
+      throw new Error(
+        "Add your website URL in Project Setup before running the backlink analysis.",
+      );
     }
     const competitorDomains = Array.from(
       new Set(data.competitorUrls.map(extractDomain).filter((d) => d && d !== ownDomain)),
@@ -2234,7 +2931,10 @@ export const generateBacklinksFn = createServerFn({ method: "POST" })
           try {
             return await fetchBacklinkSummary(domain);
           } catch (e) {
-            console.warn("[ai.functions] backlinks competitor summary failed", { domain, e: e instanceof Error ? e.message : e });
+            console.warn("[ai.functions] backlinks competitor summary failed", {
+              domain,
+              e: e instanceof Error ? e.message : e,
+            });
             return {
               target: domain,
               fetchStatus: "failed" as const,
@@ -2249,7 +2949,10 @@ export const generateBacklinksFn = createServerFn({ method: "POST" })
         }),
       ),
       fetchTopReferringDomains(ownDomain, 25).catch((e) => {
-        console.warn("[ai.functions] backlinks referring domains failed", e instanceof Error ? e.message : e);
+        console.warn(
+          "[ai.functions] backlinks referring domains failed",
+          e instanceof Error ? e.message : e,
+        );
         return [];
       }),
       fetchBacklinkGap(ownDomain, competitorDomains, 30).catch((e) => {
@@ -2264,7 +2967,11 @@ export const generateBacklinksFn = createServerFn({ method: "POST" })
 
     const competitorBlock = competitorResults.length
       ? `COMPETITOR LINK PROFILES (from the same index):\n${competitorResults
-          .map((c) => (c.fetchStatus === "fetched" ? `- ${summaryLine(c)}` : `- ${c.target}: data could not be fetched — ignore.`))
+          .map((c) =>
+            c.fetchStatus === "fetched"
+              ? `- ${summaryLine(c)}`
+              : `- ${c.target}: data could not be fetched — ignore.`,
+          )
           .join("\n")}\n`
       : "COMPETITOR LINK PROFILES: none provided (no competitor URLs on the project).\n";
 
@@ -2318,9 +3025,13 @@ ${sharedRules}`,
       ]).map((r, i) => normalizeBacklinkRecommendation(r, i));
       if (recommendations.length === 0) throw new Error("AI returned no backlink recommendations.");
 
-      const linkProfileScore = clampScore(pickNumber(root, ["linkProfileScore", "link_profile_score", "profile"]));
+      const linkProfileScore = clampScore(
+        pickNumber(root, ["linkProfileScore", "link_profile_score", "profile"]),
+      );
       const linkGapScore = clampScore(pickNumber(root, ["linkGapScore", "link_gap_score", "gap"]));
-      const linkQualityScore = clampScore(pickNumber(root, ["linkQualityScore", "link_quality_score", "quality"]));
+      const linkQualityScore = clampScore(
+        pickNumber(root, ["linkQualityScore", "link_quality_score", "quality"]),
+      );
       const overallLinkScore = clampScore(
         pickNumber(root, ["overallLinkScore", "overall_link_score", "overall", "score"]),
         Math.round((linkProfileScore + (100 - linkGapScore) + linkQualityScore) / 3),
@@ -2331,16 +3042,24 @@ ${sharedRules}`,
         "Backlink analysis complete — review the link gap and recommendations below.",
       );
       const topLinkActions = normalizeStringArray(
-        root.topLinkActions ?? root.top_link_actions ?? root.topActions ?? root.priorities ?? root.quickWins,
+        root.topLinkActions ??
+          root.top_link_actions ??
+          root.topActions ??
+          root.priorities ??
+          root.quickWins,
         recommendations.slice(0, 3).map((r) => r.title),
       ).slice(0, 5);
 
       const failedCompetitors = competitorResults.length - fetchedCompetitors.length;
       const noteParts: string[] = [];
       if (!competitorDomains.length)
-        noteParts.push("No competitor URLs on the project — add them in Competitors to unlock the link gap.");
+        noteParts.push(
+          "No competitor URLs on the project — add them in Competitors to unlock the link gap.",
+        );
       if (failedCompetitors > 0)
-        noteParts.push(`${failedCompetitors} competitor domain(s) could not be fetched from the index.`);
+        noteParts.push(
+          `${failedCompetitors} competitor domain(s) could not be fetched from the index.`,
+        );
 
       console.info("[ai.functions] backlinks parsed", {
         recommendations: recommendations.length,
@@ -2379,11 +3098,14 @@ export const runPublicAiVisibilityAuditFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     // NOT metered. Public marketing audit: there is no signed-in user to meter. Rate limiting for this path is tracked separately.
     const normalizedUrl = normalizeAuditUrl(data.url);
-    if (!normalizedUrl) throw new Error("Please enter a valid website URL (for example: yourbusiness.com).");
+    if (!normalizedUrl)
+      throw new Error("Please enter a valid website URL (for example: yourbusiness.com).");
 
     const html = await fetchHtml(normalizedUrl, 8000);
     if (!html) {
-      throw new Error("Couldn’t read that website. Check the URL is public and reachable, then try again.");
+      throw new Error(
+        "Couldn’t read that website. Check the URL is public and reachable, then try again.",
+      );
     }
 
     const { signals, text } = extractAuditSignals(html);
@@ -2424,10 +3146,19 @@ ${text}
 ${sharedRules}`,
         4000,
       );
-      return normalizePublicAudit(payload, { id, url: data.url, normalizedUrl, auditedAt, extractedSignals: signals });
+      return normalizePublicAudit(payload, {
+        id,
+        url: data.url,
+        normalizedUrl,
+        auditedAt,
+        extractedSignals: signals,
+      });
     } catch (e) {
       // AI failed — return a conservative deterministic estimate instead of crashing.
-      console.warn("[ai.functions] public audit AI failed, using deterministic fallback:", e instanceof Error ? e.message : e);
+      console.warn(
+        "[ai.functions] public audit AI failed, using deterministic fallback:",
+        e instanceof Error ? e.message : e,
+      );
       return deterministicFallbackAudit(signals, { id, url: data.url, normalizedUrl, auditedAt });
     }
   });
@@ -2511,15 +3242,31 @@ The email must be a draft for human review. It will not be sent automatically.`,
           const followUp = isRecord(item) ? item : {};
           return OutreachFollowUpSchema.parse({
             delayDays: followUp.delayDays ?? followUp.delay_days ?? (index === 0 ? 4 : 8),
-            subject: pickString(followUp, ["subject", "title"], `Following up: ${data.targetDomain}`),
-            body: pickString(followUp, ["body", "message", "email"], "Just checking whether this resource could be useful for your audience. No worries if it is not a fit."),
+            subject: pickString(
+              followUp,
+              ["subject", "title"],
+              `Following up: ${data.targetDomain}`,
+            ),
+            body: pickString(
+              followUp,
+              ["body", "message", "email"],
+              "Just checking whether this resource could be useful for your audience. No worries if it is not a fit.",
+            ),
           });
         });
       return OutreachDraftOutputSchema.parse({
         subject: pickString(root, ["subject", "title"], `Resource idea for ${data.targetDomain}`),
         body: pickString(root, ["body", "message", "email"], ""),
-        suggestedAsset: pickString(root, ["suggestedAsset", "suggested_asset", "asset", "resource"], data.suggestedAsset || "Useful expert resource"),
-        rationale: pickString(root, ["rationale", "reason", "why"], data.reason || "Potential editorial relevance"),
+        suggestedAsset: pickString(
+          root,
+          ["suggestedAsset", "suggested_asset", "asset", "resource"],
+          data.suggestedAsset || "Useful expert resource",
+        ),
+        rationale: pickString(
+          root,
+          ["rationale", "reason", "why"],
+          data.reason || "Potential editorial relevance",
+        ),
         followUps,
       });
     } catch (e) {

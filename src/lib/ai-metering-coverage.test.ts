@@ -18,13 +18,20 @@ import { join } from "node:path";
 
 const SOURCE = readFileSync(join(process.cwd(), "src/lib/ai.functions.ts"), "utf8");
 
-/** Split the file into one chunk per exported server function. */
+/**
+ * Split the file into one chunk per exported server function OR exported core.
+ * Cores (generateContentCore, …) are the extracted bodies the cron runner calls
+ * without a request context — they carry the claimAiUsage themselves, and their
+ * *Fn wrappers become thin delegates with no model call of their own.
+ */
 function serverFunctions(): Array<{ name: string; body: string }> {
-  const parts = SOURCE.split(/^export const (\w+Fn) = createServerFn/m);
+  const parts = SOURCE.split(
+    /^export (?:const (\w+Fn) = createServerFn|async function (\w+Core)\()/m,
+  );
   const out: Array<{ name: string; body: string }> = [];
-  // parts = [preamble, name1, body1, name2, body2, ...]
-  for (let i = 1; i < parts.length; i += 2) {
-    out.push({ name: parts[i], body: parts[i + 1] ?? "" });
+  // parts = [preamble, fnName?, coreName?, body, fnName?, coreName?, body, ...]
+  for (let i = 1; i < parts.length; i += 3) {
+    out.push({ name: parts[i] ?? parts[i + 1], body: parts[i + 2] ?? "" });
   }
   return out;
 }

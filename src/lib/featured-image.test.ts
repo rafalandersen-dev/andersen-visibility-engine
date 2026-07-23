@@ -81,8 +81,10 @@ describe("activation + variants", () => {
 });
 
 describe("validation (checklist-facing)", () => {
-  it("v3 without a featured image blocks; legacy without one passes", () => {
-    expect(validateFeaturedImage(asset(), project(), true)[0]?.code).toBe("missing-featured");
+  it("v3 without a featured image warns (advisory, YMYL-precedent); legacy is silent", () => {
+    const findings = validateFeaturedImage(asset(), project(), true);
+    expect(findings[0]?.code).toBe("missing-featured");
+    expect(findings[0]?.blocking).toBe(false);
     expect(validateFeaturedImage(asset(), project(), false)).toEqual([]);
   });
 
@@ -108,13 +110,21 @@ describe("validation (checklist-facing)", () => {
     );
   });
 
-  it("checklist: v3 article without featured image is publish-blocked; legacy is not", () => {
+  it("checklist: a v3 article without a featured image still PASSES the gate (advisory); a corrupt one blocks", () => {
     const v3 = asset({ visualModelVersion: 3, hook: undefined } as Partial<ContentAsset>);
     const item = buildPublishingChecklist(v3, project(), [v3]).find(
       (i) => i.key === "featuredImage",
     )!;
-    expect(item.passed).toBe(false);
-    expect(item.blocking).toBe(true);
+    expect(item.passed).toBe(true);
+    const corrupt = asset({
+      visualModelVersion: 3,
+      featuredImage: featured({ approval: "draft" }),
+    } as Partial<ContentAsset>);
+    const corruptItem = buildPublishingChecklist(corrupt, project(), [corrupt]).find(
+      (i) => i.key === "featuredImage",
+    )!;
+    expect(corruptItem.passed).toBe(false);
+    expect(corruptItem.blocking).toBe(true);
     const legacy = asset();
     expect(
       buildPublishingChecklist(legacy, project(), [legacy]).find((i) => i.key === "featuredImage")!

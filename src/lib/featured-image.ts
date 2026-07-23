@@ -130,10 +130,15 @@ export function validateFeaturedImage(
   const out: FeaturedImageFinding[] = [];
   if (!f) {
     if (applies) {
+      // ADVISORY, not blocking (same treatment the owner chose for the YMYL and
+      // author presence gates, 2026-07-22): Milo has no image generation, so a
+      // hard presence gate would make every auto-drafted v3 article unpublishable.
+      // Integrity findings below (unapproved/alt/origin/preset/focal) stay blocking.
       out.push({
         code: "missing-featured",
-        message: "This Article Studio 3.0 article needs a featured image. Add one in the editor.",
-        blocking: true,
+        message:
+          "No featured image yet — the article publishes without a hero and without an og/JSON-LD image. Add one in the editor when you can.",
+        blocking: false,
       });
     }
     return out;
