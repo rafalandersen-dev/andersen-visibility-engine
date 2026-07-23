@@ -275,6 +275,11 @@ async function generateAsset(opportunityId: string, kind: "landing" | "article")
     const s = getState();
     const opp = s.opportunities.find((o) => o.id === opportunityId);
     if (!opp) throw new Error("Opportunity not found.");
+    // Load the site's real page map FIRST (freshness-cached) so generation links
+    // only to pages that exist — invented paths like "/services" were the root
+    // cause of blocked/dead internal links. Non-fatal: no sitemap → the prompt
+    // forbids inventing paths instead.
+    await refreshSitemapInventory(opp.projectId).catch(() => null);
     const { project, services } = requireProject(opp.projectId);
 
     const result = (await generateContentAssetFn({
@@ -523,6 +528,15 @@ export async function assessAssetReadiness(assetId: string) {
  * re-fetches under the server fn's strict caps. Stores only the compact paths +
  * metadata on the project (no raw XML).
  */
+/**
+ * A failed/empty crawl returns null and is NOT persisted (a flaky fetch cached
+ * as a valid inventory would pin the generation whitelist to "/" for the whole
+ * TTL). This in-memory cooldown just stops every editor open / generation from
+ * re-fetching a sitemap-less or unreachable site — retry after 15 minutes.
+ */
+const sitemapRetryAfter = new Map<string, number>();
+const SITEMAP_FAILURE_COOLDOWN_MS = 15 * 60_000;
+
 export async function refreshSitemapInventory(projectId: string, force = false) {
   return once(`sitemap:${projectId}`, async () => {
     const project = getState().projects.find((p) => p.id === projectId);
@@ -530,12 +544,18 @@ export async function refreshSitemapInventory(projectId: string, force = false) 
     if (!force && isSitemapInventoryFresh(project.sitemapInventory, Date.now())) {
       return project.sitemapInventory ?? null;
     }
+    if (!force && Date.now() < (sitemapRetryAfter.get(projectId) ?? 0)) {
+      return project.sitemapInventory ?? null;
+    }
     const siteUrl = (project.websiteUrl || "").trim();
     if (!siteUrl) throw new Error("Add your website URL in Project Setup first.");
     const inv = await fetchSitemapInventoryFn({ data: { siteUrl } });
     if (inv) {
+      sitemapRetryAfter.delete(projectId);
       updateProject(projectId, { sitemapInventory: inv });
       await saveWorkspaceNow();
+    } else {
+      sitemapRetryAfter.set(projectId, Date.now() + SITEMAP_FAILURE_COOLDOWN_MS);
     }
     return inv;
   });
@@ -549,6 +569,8 @@ export async function improveContentDraft(contentAssetId: string) {
   return once(`improve:${contentAssetId}`, async () => {
     const a = getState().content.find((c) => c.id === contentAssetId);
     if (!a) throw new Error("Content not found.");
+    // Page-map-first here too, so Improve never introduces an invented path.
+    await refreshSitemapInventory(a.projectId).catch(() => null);
     const { project, services } = requireProject(a.projectId);
 
     const suggestions = [
@@ -1474,6 +1496,8 @@ export async function generateContentForOpportunity(
     const s = getState();
     const opp = s.opportunities.find((o) => o.id === opportunityId);
     if (!opp) throw new Error("Opportunity not found.");
+    // Same page-map-first rule as generateAsset: never let the model guess paths.
+    await refreshSitemapInventory(opp.projectId).catch(() => null);
     const { project, services } = requireProject(opp.projectId);
 
     const result = (await generateContentFn({

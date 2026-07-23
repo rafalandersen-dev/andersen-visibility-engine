@@ -186,3 +186,15 @@ describe("sitemap paths become VERIFIED in the internal-path inventory", () => {
     expect(known.has("/")).toBe(true);
   });
 });
+
+describe("path length cap (prompt-flood / storage-bloat guard)", () => {
+  const ORIGIN = "https://example.com";
+  it("rejects an attacker-length pathname at capture time", () => {
+    const huge = `${ORIGIN}/${"a".repeat(5000)}`;
+    expect(sameOriginPath(huge, ORIGIN)).toBe("");
+    // Normal paths are untouched by the cap.
+    expect(sameOriginPath(`${ORIGIN}/massage-recovery/red-light-therapy`, ORIGIN)).toBe(
+      "/massage-recovery/red-light-therapy",
+    );
+  });
+});
