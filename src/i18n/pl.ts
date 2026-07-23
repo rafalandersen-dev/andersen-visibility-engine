@@ -69,9 +69,11 @@ export const pl: Record<string, string> = {
   "onboarding.appLanguage": "Język aplikacji",
   "onboarding.contentLanguage": "Główny język treści",
   "onboarding.websiteUrl": "Adres strony",
-  "onboarding.websiteHint": "Milo spróbuje odczytać Twoją stronę główną, aby wstępnie wypełnić kolejne kroki. Możesz też pominąć i wypełnić ręcznie.",
+  "onboarding.websiteHint":
+    "Milo spróbuje odczytać Twoją stronę główną, aby wstępnie wypełnić kolejne kroki. Możesz też pominąć i wypełnić ręcznie.",
   "onboarding.reading": "Odczytuję Twoją stronę…",
-  "onboarding.prefilled": "Wstępnie wypełnione na podstawie Twojej strony — możesz edytować wszystko poniżej.",
+  "onboarding.prefilled":
+    "Wstępnie wypełnione na podstawie Twojej strony — możesz edytować wszystko poniżej.",
   "onboarding.businessName": "Nazwa firmy",
   "onboarding.businessType": "Rodzaj działalności",
   "onboarding.description": "Opis firmy",
@@ -80,13 +82,16 @@ export const pl: Record<string, string> = {
   "onboarding.targetLocations": "Lokalizacje docelowe (oddzielone przecinkami)",
   "onboarding.toneOfVoice": "Ton komunikacji",
   "onboarding.brandNotes": "Uwagi o marce (czego unikać)",
-  "onboarding.servicesIntro": "Dodaj usługi lub produkty, które sprzedajesz. Możesz je później dopracować.",
+  "onboarding.servicesIntro":
+    "Dodaj usługi lub produkty, które sprzedajesz. Możesz je później dopracować.",
   "onboarding.addService": "Dodaj usługę / produkt",
   "onboarding.serviceName": "Nazwa",
   "onboarding.serviceDesc": "Krótki opis (opcjonalnie)",
-  "onboarding.competitorsIntro": "Opcjonalne, ale zalecane — dodaj do 3 stron konkurencji, z którymi Milo może Cię porównać.",
+  "onboarding.competitorsIntro":
+    "Opcjonalne, ale zalecane — dodaj do 3 stron konkurencji, z którymi Milo może Cię porównać.",
   "onboarding.goalsHint": "Wybierz najważniejsze dla Ciebie cele. Możesz je później zmienić.",
-  "onboarding.summaryIntro": "Sprawdź swoje ustawienia. Milo utworzy projekt i wygeneruje pierwsze fundamenty.",
+  "onboarding.summaryIntro":
+    "Sprawdź swoje ustawienia. Milo utworzy projekt i wygeneruje pierwsze fundamenty.",
   "onboarding.summary.market": "Rynek",
   "onboarding.summary.language": "Język",
   "onboarding.summary.website": "Strona",
@@ -101,7 +106,8 @@ export const pl: Record<string, string> = {
   "onboarding.toast.scanned": "Przeskanowano Twoją stronę — sprawdź szczegóły",
   "onboarding.toast.scanFailed": "Nie udało się odczytać tej strony — wypełnij dane ręcznie",
   "onboarding.toast.ready": "Twój pierwszy plan wzrostu jest gotowy",
-  "onboarding.toast.partial": "Ustawienia zapisane. Niektóre kroki AI nie zakończyły się — możesz je uruchomić w poszczególnych modułach.",
+  "onboarding.toast.partial":
+    "Ustawienia zapisane. Niektóre kroki AI nie zakończyły się — możesz je uruchomić w poszczególnych modułach.",
   "onboarding.toast.saveError": "Nie udało się zapisać projektu. Spróbuj ponownie.",
 
   "setup.title": "Ustawienia projektu",
@@ -115,6 +121,26 @@ export const pl: Record<string, string> = {
   "setup.section.markets": "Rynki i język",
   "setup.section.positioning": "Pozycjonowanie",
   "setup.section.marketsGoals": "Rynki i cele",
+  "autoSched.title": "Miesięczny auto-planer",
+  "autoSched.hint":
+    "Około 25. dnia miesiąca Milo planuje kolejny miesiąc: tworzy artykuły na wybrane dni tygodnia w ramach miesięcznego limitu planu, rozwiązuje linki wewnętrzne względem prawdziwych stron i przygotowuje każdy z zatwierdzonym hookiem otwierającym.",
+  "autoSched.enable": "Automatycznie wypełniaj kalendarz na kolejny miesiąc",
+  "autoSched.weekdays": "Dni publikacji",
+  "autoSched.publishTime": "Godzina publikacji",
+  "autoSched.timeZone": "Strefa czasowa",
+  "autoSched.mode": "Tryb",
+  "autoSched.modeAuto": "Publikuj automatycznie",
+  "autoSched.modeApprove": "Czekaj na moją akceptację",
+  "autoSched.modeHint":
+    "„Czekaj na moją akceptację” nigdy niczego nie publikuje: szkice czekają jako gotowe artykuły, a Ty uzbrajasz je z kalendarza. „Publikuj automatycznie” planuje prawdziwe publikacje w każdym slocie.",
+  "autoSched.summaryEmail": "E-mail z podsumowaniem (opcjonalnie)",
+  "autoSched.day.1": "Pon",
+  "autoSched.day.2": "Wt",
+  "autoSched.day.3": "Śr",
+  "autoSched.day.4": "Czw",
+  "autoSched.day.5": "Pt",
+  "autoSched.day.6": "Sob",
+  "autoSched.day.7": "Nd",
   "setup.markets.market": "Rynek / kraj",
   "setup.markets.currency": "Waluta",
   "setup.markets.appLanguage": "Język aplikacji",
@@ -127,7 +153,8 @@ export const pl: Record<string, string> = {
 
   "dashboard.title": "Pulpit",
   "dashboard.welcomeTitle": "Witaj w Milo Growth",
-  "dashboard.welcomeDesc": "Twój obszar roboczy jest pusty. Utwórz pierwszy projekt, aby rozpocząć miesięczny plan wzrostu.",
+  "dashboard.welcomeDesc":
+    "Twój obszar roboczy jest pusty. Utwórz pierwszy projekt, aby rozpocząć miesięczny plan wzrostu.",
   "dashboard.createFirst": "Utwórz pierwszy projekt",
   "dashboard.generateOpps": "Generuj możliwości SEO",
   "dashboard.createNew": "Utwórz nowy projekt",
@@ -140,7 +167,8 @@ export const pl: Record<string, string> = {
   "dashboard.recentContent": "Ostatnie treści",
   "dashboard.latestAssets": "Najnowsze materiały",
   "dashboard.openEditor": "Otwórz edytor",
-  "dashboard.noContent": "Brak treści. Wygeneruj możliwość i utwórz brief lub wersję roboczą, aby zacząć.",
+  "dashboard.noContent":
+    "Brak treści. Wygeneruj możliwość i utwórz brief lub wersję roboczą, aby zacząć.",
   "dashboard.thisWeek": "W tym tygodniu",
   "dashboard.languages": "Języki",
   "dashboard.targetLocations": "Lokalizacje docelowe",
@@ -150,7 +178,8 @@ export const pl: Record<string, string> = {
   "editor.title": "Edytor treści",
   "editor.subtitle": "Dopracuj, zatwierdź i eksportuj materiały przygotowane przez AI.",
   "editor.assets": "Materiały",
-  "editor.aiReviewNote": "Wersja robocza przygotowana przez AI. Sprawdź ją przed publikacją — zwłaszcza twierdzenia, ceny, kwestie medyczne/prawne/finansowe oraz lokalne przepisy.",
+  "editor.aiReviewNote":
+    "Wersja robocza przygotowana przez AI. Sprawdź ją przed publikacją — zwłaszcza twierdzenia, ceny, kwestie medyczne/prawne/finansowe oraz lokalne przepisy.",
   "editor.noAssetSelectedTitle": "Nie wybrano materiału",
   "editor.status": "Status",
   "status.Draft": "Wersja robocza",
@@ -176,26 +205,32 @@ export const pl: Record<string, string> = {
   "editor.publish.notPublished": "Nieopublikowane",
   "editor.publish.published": "Opublikowane na żywo",
   "editor.publish.liveFailed": "Publikacja nieudana",
-  "editor.publish.connectHint": "Połącz stronę w Ustawieniach projektu, aby wysyłać wersje robocze bezpośrednio z Milo.",
+  "editor.publish.connectHint":
+    "Połącz stronę w Ustawieniach projektu, aby wysyłać wersje robocze bezpośrednio z Milo.",
   "editor.sendModal.title": "Wysłać wersję roboczą na stronę?",
-  "editor.sendModal.body": "Milo wyśle ten materiał na połączoną stronę jako wersję roboczą. Nie zostanie opublikowany na żywo automatycznie.",
-  "editor.sendModal.unapproved": "Ten materiał nie jest jeszcze zatwierdzony. Wysłać mimo to jako wersję roboczą?",
+  "editor.sendModal.body":
+    "Milo wyśle ten materiał na połączoną stronę jako wersję roboczą. Nie zostanie opublikowany na żywo automatycznie.",
+  "editor.sendModal.unapproved":
+    "Ten materiał nie jest jeszcze zatwierdzony. Wysłać mimo to jako wersję roboczą?",
   "editor.sendModal.destinationType": "Typ docelowy",
   "editor.sendModal.slug": "Slug",
   "editor.sendModal.send": "Wyślij wersję roboczą",
   "editor.sendModal.sending": "Wysyłanie…",
   "editor.liveModal.title": "Opublikować tę wersję na żywo?",
-  "editor.liveModal.body": "Spowoduje to publiczne udostępnienie wersji roboczej na połączonej stronie. Publikuj dopiero po sprawdzeniu treści.",
+  "editor.liveModal.body":
+    "Spowoduje to publiczne udostępnienie wersji roboczej na połączonej stronie. Publikuj dopiero po sprawdzeniu treści.",
   "editor.liveModal.publish": "Opublikuj na żywo",
   "editor.liveModal.publishing": "Publikowanie…",
 
   "analytics.title": "Analityka",
-  "analytics.subtitle": "Własne śledzenie wzrostu strony — anonimowe odwiedziny, najczęstsze strony, skuteczność opublikowanych treści i sygnały związane z AI.",
+  "analytics.subtitle":
+    "Własne śledzenie wzrostu strony — anonimowe odwiedziny, najczęstsze strony, skuteczność opublikowanych treści i sygnały związane z AI.",
   "analytics.refresh": "Odśwież",
   "analytics.loading": "Ładowanie analityki…",
   "analytics.errorTitle": "Nie udało się załadować analityki",
   "analytics.emptyTitle": "Brak danych analitycznych",
-  "analytics.emptyDesc": "Dodaj fragment śledzący do swojej strony, a Milo zacznie pokazywać odwiedziny, najczęstsze strony, skuteczność opublikowanych treści i sygnały związane z AI.",
+  "analytics.emptyDesc":
+    "Dodaj fragment śledzący do swojej strony, a Milo zacznie pokazywać odwiedziny, najczęstsze strony, skuteczność opublikowanych treści i sygnały związane z AI.",
   "analytics.stat.visits30": "Odwiedziny (30 dni)",
   "analytics.stat.prev30": "Poprzednie 30 dni",
   "analytics.stat.growth": "Wzrost",
@@ -214,33 +249,41 @@ export const pl: Record<string, string> = {
   "analytics.published.cta": "CTA",
   "analytics.published.booking": "Rezerwacje",
   "analytics.published.livePage": "Strona na żywo",
-  "analytics.published.none": "Brak dopasowanych opublikowanych treści. Opublikuj treść na żywo z edytora, a odwiedziny jej adresu pojawią się tutaj.",
+  "analytics.published.none":
+    "Brak dopasowanych opublikowanych treści. Opublikuj treść na żywo z edytora, a odwiedziny jej adresu pojawią się tutaj.",
   "analytics.ai.heading": "Ruch z narzędzi AI (wejścia)",
-  "analytics.ai.copy": "Odwiedziny, w których odsyłacz wskazuje, że użytkownik przyszedł z narzędzia AI (np. ChatGPT, Perplexity) — to ruch z wejść AI, a nie wzmianki ani cytowania w AI. Liczba jest zaniżona, bo wiele narzędzi AI ukrywa odsyłacz, i nie oznacza, że Twoja firma jest wspominana, cytowana ani rankowana w tych narzędziach. Wiersze robotów/botów poniżej to osobne sygnały aktywności, nie wejścia.",
+  "analytics.ai.copy":
+    "Odwiedziny, w których odsyłacz wskazuje, że użytkownik przyszedł z narzędzia AI (np. ChatGPT, Perplexity) — to ruch z wejść AI, a nie wzmianki ani cytowania w AI. Liczba jest zaniżona, bo wiele narzędzi AI ukrywa odsyłacz, i nie oznacza, że Twoja firma jest wspominana, cytowana ani rankowana w tych narzędziach. Wiersze robotów/botów poniżej to osobne sygnały aktywności, nie wejścia.",
   "analytics.ai.none": "Brak wejść z narzędzi AI w ciągu ostatnich 30 dni.",
   "analytics.ai.referral": "Wejście z AI",
   "analytics.ai.crawler": "Aktywność robota AI",
   "analytics.ai.searchBot": "Sygnał bota AI/wyszukiwarki",
   "analytics.setup.label": "Konfiguracja",
   "analytics.setup.heading": "Fragment śledzący",
-  "analytics.setup.addOnce": "Dodaj to raz w sekcji head/body swojej strony, aby zacząć śledzić odwiedziny.",
-  "analytics.privacy": "Milo Analytics korzysta z anonimowego śledzenia odwiedzin i zdarzeń. Nie przechowuje imion, adresów e-mail ani pełnych adresów IP.",
+  "analytics.setup.addOnce":
+    "Dodaj to raz w sekcji head/body swojej strony, aby zacząć śledzić odwiedziny.",
+  "analytics.privacy":
+    "Milo Analytics korzysta z anonimowego śledzenia odwiedzin i zdarzeń. Nie przechowuje imion, adresów e-mail ani pełnych adresów IP.",
   "analytics.setupFirst": "Najpierw skonfiguruj projekt",
 
   // ---- Content Quality Engine / Milo Score ----
   "quality.title": "Milo Score",
   "quality.subtitle": "Ocena gotowości do publikacji",
-  "quality.about": "Ta ocena szacuje, na ile ten szkic jest gotowy do publikacji, na podstawie struktury, przejrzystości, dopasowania do marki, podstaw SEO/GEO i bezpiecznych elementów konwersji.",
+  "quality.about":
+    "Ta ocena szacuje, na ile ten szkic jest gotowy do publikacji, na podstawie struktury, przejrzystości, dopasowania do marki, podstaw SEO/GEO i bezpiecznych elementów konwersji.",
   "quality.evaluate": "Oceń szkic",
   "quality.reevaluate": "Oceń ponownie",
   "quality.improve": "Ulepsz szkic",
   "quality.evaluating": "Ocenianie…",
   "quality.improving": "Ulepszanie…",
-  "quality.empty": "Brak oceny Milo Score. Oceń ten szkic, aby zobaczyć gotowość do publikacji i sugestie ulepszeń.",
+  "quality.empty":
+    "Brak oceny Milo Score. Oceń ten szkic, aby zobaczyć gotowość do publikacji i sugestie ulepszeń.",
   "quality.needBody": "Dodaj treść szkicu przed oceną.",
-  "quality.stale": "Szkic zmienił się po ostatniej ocenie. Oceń ponownie, aby odświeżyć Milo Score.",
+  "quality.stale":
+    "Szkic zmienił się po ostatniej ocenie. Oceń ponownie, aby odświeżyć Milo Score.",
   "quality.improved": "Szkic ulepszony. Oceń ponownie, aby zaktualizować Milo Score.",
-  "quality.improveConfirm": "Milo ulepszy szkic na podstawie aktualnych sugestii oceny. Sprawdź wynik przed publikacją.",
+  "quality.improveConfirm":
+    "Milo ulepszy szkic na podstawie aktualnych sugestii oceny. Sprawdź wynik przed publikacją.",
   "quality.improveConfirmTitle": "Ulepszyć ten szkic?",
   "quality.breakdown": "Podział na kategorie",
   "quality.topIssues": "Najważniejsze problemy",
@@ -252,7 +295,8 @@ export const pl: Record<string, string> = {
   "quality.rec.reviewFirst": "Najpierw sprawdź",
   "quality.rec.notReady": "Niegotowe",
   "quality.evaluatedAt": "Oceniono",
-  "quality.publishWarnNotReady": "Ten szkic jest oznaczony jako niegotowy. Przejrzyj problemy z Milo Score przed publikacją.",
+  "quality.publishWarnNotReady":
+    "Ten szkic jest oznaczony jako niegotowy. Przejrzyj problemy z Milo Score przed publikacją.",
   "quality.publishWarnNoScore": "Ten szkic nie został jeszcze oceniony.",
   "quality.error": "Nie udało się ocenić tego szkicu. Spróbuj ponownie.",
   "quality.cat.structure": "Struktura",
@@ -266,7 +310,8 @@ export const pl: Record<string, string> = {
 
   // ---- Brand Intelligence ----
   "brand.title": "Inteligencja marki",
-  "brand.intro": "Milo wykorzystuje to, aby przyszłe treści, ocena i ulepszenia były bardziej zgodne z marką i bezpieczniejsze. Wszystkie pola są opcjonalne.",
+  "brand.intro":
+    "Milo wykorzystuje to, aby przyszłe treści, ocena i ulepszenia były bardziej zgodne z marką i bezpieczniejsze. Wszystkie pola są opcjonalne.",
   "brand.save": "Zapisz inteligencję marki",
   "brand.saving": "Zapisywanie…",
   "brand.remove": "Usuń",
@@ -279,7 +324,8 @@ export const pl: Record<string, string> = {
   "brand.voice.wordsToUse": "Słowa do użycia",
   "brand.voice.wordsToAvoid": "Słowa do unikania",
   "brand.section.claims": "Twierdzenia i bezpieczeństwo",
-  "brand.claims.help": "Użyj tego, aby zapobiec niebezpiecznym lub niezgodnym z marką twierdzeniom w treściach.",
+  "brand.claims.help":
+    "Użyj tego, aby zapobiec niebezpiecznym lub niezgodnym z marką twierdzeniom w treściach.",
   "brand.claims.allowed": "Dozwolone twierdzenia",
   "brand.claims.forbidden": "Zabronione twierdzenia",
   "brand.claims.caveats": "Wymagane zastrzeżenia",
@@ -323,8 +369,10 @@ export const pl: Record<string, string> = {
   "analytics.v2.whatChanged": "Co się zmieniło",
   "analytics.v2.nextAction": "Następny krok",
   "analytics.v2.publishedByMilo": "Opublikowane przez Milo",
-  "analytics.v2.publishedByMiloDesc": "Jak radzą sobie treści opublikowane przez Milo od momentu publikacji.",
-  "analytics.v2.publishedByMiloEmpty": "Brak opublikowanych stron Milo. Opublikuj materiał, aby zacząć mierzyć wyniki.",
+  "analytics.v2.publishedByMiloDesc":
+    "Jak radzą sobie treści opublikowane przez Milo od momentu publikacji.",
+  "analytics.v2.publishedByMiloEmpty":
+    "Brak opublikowanych stron Milo. Opublikuj materiał, aby zacząć mierzyć wyniki.",
   "analytics.v2.topGrowing": "Najszybciej rosnące strony",
   "analytics.v2.needsAttention": "Wymaga uwagi",
   "analytics.v2.needsAttentionEmpty": "Nic nie wymaga teraz uwagi.",
@@ -352,33 +400,45 @@ export const pl: Record<string, string> = {
   "analytics.issue.noClicks": "Wyświetlenia bez kliknięć",
   "analytics.issue.lowConversion": "Niska konwersja",
   "analytics.issue.lowQuality": "Niski Milo Score",
-  "analytics.next.installSnippet": "Zainstaluj snippet Milo Analytics i odwiedź swoją stronę, aby przetestować śledzenie.",
-  "analytics.next.addInternalLinks": "Dodaj linki wewnętrzne do nowej treści i udostępnij stronę z głównych stron usług.",
+  "analytics.next.installSnippet":
+    "Zainstaluj snippet Milo Analytics i odwiedź swoją stronę, aby przetestować śledzenie.",
+  "analytics.next.addInternalLinks":
+    "Dodaj linki wewnętrzne do nowej treści i udostępnij stronę z głównych stron usług.",
   "analytics.next.improveCta": "Popraw CTA i wyraźniej pokaż następny krok.",
-  "analytics.next.keepMonitoring": "Twoje treści angażują odbiorców. Obserwuj dalej i rozważ stworzenie artykułu uzupełniającego.",
-  "analytics.next.aiClarity": "Masz sygnały związane z AI. Ulepszaj jasne odpowiedzi, sekcje FAQ oraz klarowność marki/encji.",
+  "analytics.next.keepMonitoring":
+    "Twoje treści angażują odbiorców. Obserwuj dalej i rozważ stworzenie artykułu uzupełniającego.",
+  "analytics.next.aiClarity":
+    "Masz sygnały związane z AI. Ulepszaj jasne odpowiedzi, sekcje FAQ oraz klarowność marki/encji.",
 
   // ---- GSC Lite / SEO Proof Import ----
   "gsc.title": "Search Console Lite",
-  "gsc.subtitle": "Zaimportuj eksport CSV z Google Search Console, aby połączyć wyświetlenia i kliknięcia w wyszukiwarce z treściami opublikowanymi przez Milo.",
+  "gsc.subtitle":
+    "Zaimportuj eksport CSV z Google Search Console, aby połączyć wyświetlenia i kliknięcia w wyszukiwarce z treściami opublikowanymi przez Milo.",
   "gsc.file": "Plik CSV",
   "gsc.label": "Etykieta / zakres dat",
   "gsc.labelPlaceholder": "np. maj 2026",
   "gsc.import": "Importuj",
   "gsc.importing": "Importowanie…",
-  "gsc.helper": "Milo obsługuje ręczny import CSV oraz opcjonalną synchronizację OAuth z Google Search Console.",
-  "gsc.privacy": "Zaimportowane dane są przechowywane w Twoim obszarze roboczym Milo i służą wyłącznie do prezentacji wyników SEO w tym projekcie.",
-  "gsc.empty": "Brak danych z Search Console. Połącz Google Search Console powyżej lub wyeksportuj CSV i prześlij go tutaj, aby dodać dowód SEO.",
+  "gsc.helper":
+    "Milo obsługuje ręczny import CSV oraz opcjonalną synchronizację OAuth z Google Search Console.",
+  "gsc.privacy":
+    "Zaimportowane dane są przechowywane w Twoim obszarze roboczym Milo i służą wyłącznie do prezentacji wyników SEO w tym projekcie.",
+  "gsc.empty":
+    "Brak danych z Search Console. Połącz Google Search Console powyżej lub wyeksportuj CSV i prześlij go tutaj, aby dodać dowód SEO.",
   "gsc.sourceApi": "Synchronizacja API",
   "gsc.sourceCsv": "Import CSV",
   "gsc.csvHeading": "Ręczny import CSV",
-  "gsc.csvFallbackNote": "Ręczny import CSV jest zawsze dostępny. Synchronizacja OAuth pozwala Milo pobierać dane z Search Console bezpośrednio po połączeniu zweryfikowanej usługi.",
+  "gsc.csvFallbackNote":
+    "Ręczny import CSV jest zawsze dostępny. Synchronizacja OAuth pozwala Milo pobierać dane z Search Console bezpośrednio po połączeniu zweryfikowanej usługi.",
   "gsc.oauth.title": "Synchronizacja Google Search Console",
-  "gsc.oauth.notConfigured": "Synchronizacja Google Search Console nie jest jeszcze skonfigurowana. Nadal możesz korzystać z ręcznego importu CSV.",
+  "gsc.oauth.notConfigured":
+    "Synchronizacja Google Search Console nie jest jeszcze skonfigurowana. Nadal możesz korzystać z ręcznego importu CSV.",
   "gsc.oauth.ownerSetup.title": "Jednorazowa konfiguracja właściciela",
-  "gsc.oauth.ownerSetup.intro": "Przycisk Połącz pojawi się dla wszystkich użytkowników po ustawieniu tych sekretów produkcyjnych w Lovable Cloud (Settings → Secrets):",
+  "gsc.oauth.ownerSetup.intro":
+    "Przycisk Połącz pojawi się dla wszystkich użytkowników po ustawieniu tych sekretów produkcyjnych w Lovable Cloud (Settings → Secrets):",
   "gsc.oauth.ownerSetup.docs": "Pełna instrukcja: docs/GSC-OAUTH-SETUP.md w repozytorium.",
-  "gsc.oauth.consent": "Milo prosi o dostęp tylko do odczytu Search Console. Możesz rozłączyć w dowolnym momencie. Używamy tych danych, aby pokazać wyniki wyszukiwania i możliwości treści w Twoim workspace Milo.",
+  "gsc.oauth.consent":
+    "Milo prosi o dostęp tylko do odczytu Search Console. Możesz rozłączyć w dowolnym momencie. Używamy tych danych, aby pokazać wyniki wyszukiwania i możliwości treści w Twoim workspace Milo.",
   "gsc.oauth.connect": "Połącz Google Search Console",
   "gsc.oauth.disconnect": "Rozłącz Google Search Console",
   "gsc.oauth.reconnect": "Połącz ponownie",
@@ -394,9 +454,12 @@ export const pl: Record<string, string> = {
   "gsc.oauth.sync90": "Synchronizuj ostatnie 90 dni",
   "gsc.oauth.lastSync": "Ostatnia synchronizacja",
   "gsc.oauth.rows": "wierszy",
-  "gsc.oauth.readOnlyNote": "Dostęp tylko do odczytu. Milo nigdy nie zmienia ustawień Search Console ani nie korzysta z innych usług Google.",
-  "gsc.oauth.expired": "Połączenie z Google wygasło. Połącz ponownie, aby kontynuować. Ręczny import CSV pozostaje dostępny.",
-  "gsc.oauth.errorState": "Wystąpił problem z połączeniem Google. Połącz ponownie, aby kontynuować. Ręczny import CSV pozostaje dostępny.",
+  "gsc.oauth.readOnlyNote":
+    "Dostęp tylko do odczytu. Milo nigdy nie zmienia ustawień Search Console ani nie korzysta z innych usług Google.",
+  "gsc.oauth.expired":
+    "Połączenie z Google wygasło. Połącz ponownie, aby kontynuować. Ręczny import CSV pozostaje dostępny.",
+  "gsc.oauth.errorState":
+    "Wystąpił problem z połączeniem Google. Połącz ponownie, aby kontynuować. Ręczny import CSV pozostaje dostępny.",
   "gsc.oauth.connectedToast": "Połączono Google Search Console.",
   "gsc.oauth.deniedToast": "Logowanie Google zostało anulowane.",
   "gsc.oauth.errorToast": "Nie udało się połączyć Google Search Console.",
@@ -410,7 +473,8 @@ export const pl: Record<string, string> = {
   "gsc.oauth.status.expired": "Wygasło",
   "gsc.oauth.status.error": "Błąd",
   "gsc.oauth.status.notConfigured": "Nieskonfigurowane",
-  "gsc.caution": "Dane Search Console odzwierciedlają wyniki w wyszukiwarce Google dla zaimportowanego zakresu dat. Nie gwarantują przyszłych pozycji ani ruchu.",
+  "gsc.caution":
+    "Dane Search Console odzwierciedlają wyniki w wyszukiwarce Google dla zaimportowanego zakresu dat. Nie gwarantują przyszłych pozycji ani ruchu.",
   "gsc.stat.clicks": "Kliknięcia Google",
   "gsc.stat.impressions": "Wyświetlenia Google",
   "gsc.stat.ctr": "Średni CTR",
@@ -418,7 +482,8 @@ export const pl: Record<string, string> = {
   "gsc.stat.topQuery": "Najlepsze zapytanie",
   "gsc.stat.topPage": "Najlepsza strona",
   "gsc.matched.heading": "Strony Milo w Search Console",
-  "gsc.matched.queryOnly": "Ten import zawiera tylko dane na poziomie zapytań, więc Milo nie może dopasować ich do konkretnych opublikowanych stron.",
+  "gsc.matched.queryOnly":
+    "Ten import zawiera tylko dane na poziomie zapytań, więc Milo nie może dopasować ich do konkretnych opublikowanych stron.",
   "gsc.col.page": "Strona",
   "gsc.col.query": "Zapytanie",
   "gsc.col.ctr": "CTR",
@@ -433,8 +498,10 @@ export const pl: Record<string, string> = {
   "gsc.delete": "Usuń import",
   "gsc.toast.imported": "Zaimportowano {rows} wierszy",
   "gsc.toast.deleted": "Import usunięty",
-  "gsc.warn.truncated": "Zaimportowano 1000 wierszy. Część wierszy pominięto, aby zachować szybkość obszaru roboczego.",
-  "gsc.warn.queryOnly": "Ten import zawiera tylko dane na poziomie zapytań, więc dopasowanie stron jest niedostępne.",
+  "gsc.warn.truncated":
+    "Zaimportowano 1000 wierszy. Część wierszy pominięto, aby zachować szybkość obszaru roboczego.",
+  "gsc.warn.queryOnly":
+    "Ten import zawiera tylko dane na poziomie zapytań, więc dopasowanie stron jest niedostępne.",
   "gsc.error.noFile": "Najpierw wybierz plik CSV.",
   "gsc.error.notCsv": "Wybierz plik .csv.",
   "gsc.error.generic": "Nie udało się zaimportować tego pliku CSV. Spróbuj ponownie.",
@@ -447,13 +514,17 @@ export const pl: Record<string, string> = {
 
   // ---- Authority Builder v2 ----
   "authority.title": "Kreator autorytetu",
-  "authority.subtitle": "Znajduj i śledź bezpieczne, trafne możliwości budowania autorytetu — katalogi, profile opinii, cytowania, partnerów i PR.",
-  "authority.disclaimer": "Możliwości budowania autorytetu to sugestie. Odpowiadasz za sprawdzenie trafności, poprawności, zasad, polityk katalogów oraz tego, czy kontakt jest odpowiedni. Milo nie gwarantuje linków, pozycji, ruchu ani przychodów.",
-  "authority.safeNote": "Możliwości budowania autorytetu pomagają budować sygnały zaufania i widoczności. Nie gwarantują pozycji ani ruchu.",
+  "authority.subtitle":
+    "Znajduj i śledź bezpieczne, trafne możliwości budowania autorytetu — katalogi, profile opinii, cytowania, partnerów i PR.",
+  "authority.disclaimer":
+    "Możliwości budowania autorytetu to sugestie. Odpowiadasz za sprawdzenie trafności, poprawności, zasad, polityk katalogów oraz tego, czy kontakt jest odpowiedni. Milo nie gwarantuje linków, pozycji, ruchu ani przychodów.",
+  "authority.safeNote":
+    "Możliwości budowania autorytetu pomagają budować sygnały zaufania i widoczności. Nie gwarantują pozycji ani ruchu.",
   "authority.generate": "Generuj możliwości autorytetu",
   "authority.generating": "Generowanie…",
   "authority.regenerate": "Generuj więcej",
-  "authority.empty": "Wygeneruj zestaw bezpiecznych, trafnych pomysłów na budowanie autorytetu dla Twojej firmy — lokalne katalogi, profile opinii, cytowania, linki partnerskie, tematy PR i sygnały zaufania.",
+  "authority.empty":
+    "Wygeneruj zestaw bezpiecznych, trafnych pomysłów na budowanie autorytetu dla Twojej firmy — lokalne katalogi, profile opinii, cytowania, linki partnerskie, tematy PR i sygnały zaufania.",
   "authority.summary.total": "Wszystkie możliwości",
   "authority.summary.live": "Aktywne sygnały",
   "authority.summary.inProgress": "W toku",
@@ -462,7 +533,8 @@ export const pl: Record<string, string> = {
   "authority.summary.review": "Opinie / cytowania",
   "authority.tracker": "Tracker autorytetu",
   "authority.liveSignals": "Aktywne sygnały autorytetu",
-  "authority.liveNote": "Śledź przyszłe zmiany w Analytics i GSC Lite, aby zobaczyć, czy sygnały widoczności poprawiają się z czasem.",
+  "authority.liveNote":
+    "Śledź przyszłe zmiany w Analytics i GSC Lite, aby zobaczyć, czy sygnały widoczności poprawiają się z czasem.",
   "authority.viewLive": "Zobacz aktywny link",
   "authority.none": "Żadna możliwość nie pasuje do filtrów.",
   "authority.search": "Szukaj…",
@@ -522,13 +594,17 @@ export const pl: Record<string, string> = {
 
   // ---- AI Evaluation (internal) ----
   "aiEval.title": "Ocena AI",
-  "aiEval.subtitle": "Porównaj istniejący model i model kandydujący na rzeczywistych zadaniach Milo.",
-  "aiEval.intro": "Użyj tego wewnętrznego narzędzia, aby porównać jakość modeli AI na rzeczywistych zadaniach Milo. Wyniki służą rozwojowi produktu i nie zmieniają zachowania produkcyjnego, dopóki routing nie zostanie jawnie zaktualizowany.",
-  "aiEval.noAutoSwitch": "Milo nie przełączy automatycznie modeli na podstawie tego testu. Użyj wyników, aby zdecydować później, które zadania mają używać którego modelu.",
+  "aiEval.subtitle":
+    "Porównaj istniejący model i model kandydujący na rzeczywistych zadaniach Milo.",
+  "aiEval.intro":
+    "Użyj tego wewnętrznego narzędzia, aby porównać jakość modeli AI na rzeczywistych zadaniach Milo. Wyniki służą rozwojowi produktu i nie zmieniają zachowania produkcyjnego, dopóki routing nie zostanie jawnie zaktualizowany.",
+  "aiEval.noAutoSwitch":
+    "Milo nie przełączy automatycznie modeli na podstawie tego testu. Użyj wyników, aby zdecydować później, które zadania mają używać którego modelu.",
   "aiEval.existingModel": "Istniejący model",
   "aiEval.candidateModel": "Model kandydujący",
   "aiEval.notConfigured": "Nieskonfigurowany",
-  "aiEval.notConfiguredHelp": "Model kandydujący nie jest skonfigurowany. Dodaj wymagany klucz środowiskowy po stronie serwera, aby uruchomić porównania.",
+  "aiEval.notConfiguredHelp":
+    "Model kandydujący nie jest skonfigurowany. Dodaj wymagany klucz środowiskowy po stronie serwera, aby uruchomić porównania.",
   "aiEval.task": "Zadanie",
   "aiEval.taskType.contentGeneration": "Generowanie treści",
   "aiEval.taskType.contentImprove": "Ulepsz szkic",
@@ -558,12 +634,14 @@ export const pl: Record<string, string> = {
   // ---- Free AI Visibility Readiness Audit (public) ----
   "publicAudit.badge": "Bezpłatny audyt",
   "publicAudit.title": "Bezpłatny audyt gotowości do widoczności w AI",
-  "publicAudit.subtitle": "Sprawdź, jak jasno Twoja strona wyjaśnia Twój biznes nowoczesnym wyszukiwarkom i narzędziom wspieranym przez AI.",
+  "publicAudit.subtitle":
+    "Sprawdź, jak jasno Twoja strona wyjaśnia Twój biznes nowoczesnym wyszukiwarkom i narzędziom wspieranym przez AI.",
   "publicAudit.run": "Uruchom bezpłatny audyt",
   "publicAudit.running": "Audytowanie…",
   "publicAudit.helper": "Pierwszy wynik bez logowania.",
   "publicAudit.safeNote": "To audyt gotowości, a nie sprawdzanie pozycji na żywo.",
-  "publicAudit.privacy": "Milo czyta tylko publicznie dostępną treść strony na potrzeby tego audytu. Nie wpisuj prywatnych, chronionych hasłem ani wrażliwych adresów URL.",
+  "publicAudit.privacy":
+    "Milo czyta tylko publicznie dostępną treść strony na potrzeby tego audytu. Nie wpisuj prywatnych, chronionych hasłem ani wrażliwych adresów URL.",
   "publicAudit.invalidUrl": "Wpisz prawidłowy adres strony (na przykład: twojafirma.pl).",
   "publicAudit.genericError": "Coś poszło nie tak. Spróbuj ponownie.",
   "publicAudit.loading.fetching": "Pobieranie strony",
@@ -592,7 +670,8 @@ export const pl: Record<string, string> = {
   "publicAudit.yes": "Tak",
   "publicAudit.no": "Nie",
   "publicAudit.ctaTitle": "Zamień to w plan wzrostu",
-  "publicAudit.ctaBody": "Utwórz bezpłatny projekt Milo, aby zamienić te rekomendacje w uporządkowany miesięczny plan wzrostu.",
+  "publicAudit.ctaBody":
+    "Utwórz bezpłatny projekt Milo, aby zamienić te rekomendacje w uporządkowany miesięczny plan wzrostu.",
   "publicAudit.cta": "Utwórz bezpłatny projekt Milo",
   "publicAudit.ctaSecondary": "Uruchom kolejny audyt",
   "publicAudit.cat.entityClarity": "Jasność firmy / podmiotu",
@@ -615,29 +694,38 @@ export const pl: Record<string, string> = {
   "wp.page": "Strona",
   "wp.appPassword": "Hasło aplikacji",
   "wp.appPasswordSaved": "•••••• zapisane — pozostaw puste, aby zachować",
-  "wp.appPasswordHelp": "Utwórz hasło aplikacji w profilu użytkownika WordPress i wklej je tutaj. Milo używa go po stronie serwera, aby tworzyć wersje robocze i publikować przez REST API WordPress.",
-  "wp.security": "Hasło aplikacji nie jest ponownie wyświetlane po zapisaniu. Możesz je wymienić w dowolnej chwili.",
-  "wp.minPerms": "Użyj dedykowanego użytkownika WordPress lub hasła aplikacji z minimalnymi uprawnieniami potrzebnymi do tworzenia i publikowania treści.",
+  "wp.appPasswordHelp":
+    "Utwórz hasło aplikacji w profilu użytkownika WordPress i wklej je tutaj. Milo używa go po stronie serwera, aby tworzyć wersje robocze i publikować przez REST API WordPress.",
+  "wp.security":
+    "Hasło aplikacji nie jest ponownie wyświetlane po zapisaniu. Możesz je wymienić w dowolnej chwili.",
+  "wp.minPerms":
+    "Użyj dedykowanego użytkownika WordPress lub hasła aplikacji z minimalnymi uprawnieniami potrzebnymi do tworzenia i publikowania treści.",
   "wp.test": "Testuj połączenie",
   "wp.testing": "Testowanie…",
   "wp.testOk": "Połączono z WordPress.",
   "wp.testFail": "Nie udało się połączyć z WordPress. Sprawdź adres strony i hasło aplikacji.",
-  "wp.reviewNote": "Sprawdź wszystkie treści przed publikacją. Milo może wysyłać wersje robocze do WordPress, ale to Ty odpowiadasz za poprawność, twierdzenia, formatowanie, linki i zgodność.",
+  "wp.reviewNote":
+    "Sprawdź wszystkie treści przed publikacją. Milo może wysyłać wersje robocze do WordPress, ale to Ty odpowiadasz za poprawność, twierdzenia, formatowanie, linki i zgodność.",
 
   // ---- Shopify connector ----
   "shopify.shopify": "Shopify",
-  "shopify.intro": "Połącz sklep Shopify, aby publikować treści Milo jako artykuły na blogu. Milo najpierw wysyła artykuły na blog Shopify jako nieopublikowane wersje robocze, a po Twojej akceptacji publikuje je na żywo.",
+  "shopify.intro":
+    "Połącz sklep Shopify, aby publikować treści Milo jako artykuły na blogu. Milo najpierw wysyła artykuły na blog Shopify jako nieopublikowane wersje robocze, a po Twojej akceptacji publikuje je na żywo.",
   "shopify.shopDomain": "Domena sklepu",
   "shopify.shopDomainHelp": "Domena Twojego sklepu, np. mojsklep.myshopify.com.",
   "shopify.token": "Token dostępu Admin API",
   "shopify.tokenSaved": "•••••• zapisano — pozostaw puste, aby zachować",
-  "shopify.tokenHelp": "Utwórz aplikację niestandardową w panelu Shopify (Ustawienia → Aplikacje i kanały sprzedaży → Twórz aplikacje), nadaj jej uprawnienia do blogów i artykułów, a następnie wklej tutaj token dostępu Admin API. Milo używa go po stronie serwera przez Shopify Admin API.",
-  "shopify.security": "Twój token dostępu nigdy nie jest ponownie pokazywany po zapisaniu i jest używany wyłącznie po stronie serwera. Możesz go wymienić w dowolnym momencie.",
-  "shopify.minPerms": "Nadaj tylko uprawnienia do treści (odczyt/zapis blogów i artykułów). Milo nigdy nie ma dostępu do zamówień, klientów, produktów ani danych płatności.",
+  "shopify.tokenHelp":
+    "Utwórz aplikację niestandardową w panelu Shopify (Ustawienia → Aplikacje i kanały sprzedaży → Twórz aplikacje), nadaj jej uprawnienia do blogów i artykułów, a następnie wklej tutaj token dostępu Admin API. Milo używa go po stronie serwera przez Shopify Admin API.",
+  "shopify.security":
+    "Twój token dostępu nigdy nie jest ponownie pokazywany po zapisaniu i jest używany wyłącznie po stronie serwera. Możesz go wymienić w dowolnym momencie.",
+  "shopify.minPerms":
+    "Nadaj tylko uprawnienia do treści (odczyt/zapis blogów i artykułów). Milo nigdy nie ma dostępu do zamówień, klientów, produktów ani danych płatności.",
   "shopify.test": "Testuj połączenie",
   "shopify.testing": "Testowanie…",
   "shopify.testOk": "Połączono z Shopify.",
-  "shopify.testFail": "Nie udało się połączyć z Shopify. Sprawdź domenę sklepu i token dostępu Admin API.",
+  "shopify.testFail":
+    "Nie udało się połączyć z Shopify. Sprawdź domenę sklepu i token dostępu Admin API.",
   "shopify.refreshBlogs": "Wczytaj blogi",
   "shopify.loadingBlogs": "Wczytywanie…",
   "shopify.blog": "Blog docelowy",
@@ -650,17 +738,21 @@ export const pl: Record<string, string> = {
   "shopify.tagsHelp": "Tagi oddzielone przecinkami, dodawane do publikowanych artykułów.",
   "shopify.statusDraft": "wersja robocza",
   "shopify.statusPublished": "opublikowano",
-  "shopify.blogOnly": "Shopify obsługuje tylko artykuły na blogu. Ta treść zostanie opublikowana jako artykuł na blogu.",
+  "shopify.blogOnly":
+    "Shopify obsługuje tylko artykuły na blogu. Ta treść zostanie opublikowana jako artykuł na blogu.",
 
   // ---- Claude connector (MCP) ----
   "claude.title": "Konektor Claude (MCP)",
-  "claude.subtitle": "Połącz Milo z Claude jako konektor MCP. Wygeneruj token połączenia, dodaj go w Claude Code lub Claude Desktop i czytaj swoje projekty, szanse, treści, Milo Score, audyty, dane Search Console i autorytetu bezpośrednio w Claude.",
-  "claude.accountNote": "To połączenie działa na poziomie konta: jeden token daje Claude dostęp tylko do odczytu do wszystkich projektów w tym workspace.",
+  "claude.subtitle":
+    "Połącz Milo z Claude jako konektor MCP. Wygeneruj token połączenia, dodaj go w Claude Code lub Claude Desktop i czytaj swoje projekty, szanse, treści, Milo Score, audyty, dane Search Console i autorytetu bezpośrednio w Claude.",
+  "claude.accountNote":
+    "To połączenie działa na poziomie konta: jeden token daje Claude dostęp tylko do odczytu do wszystkich projektów w tym workspace.",
   "claude.endpoint": "Punkt końcowy MCP",
   "claude.label": "Etykieta tokenu",
   "claude.labelPlaceholder": "np. Mój laptop",
   "claude.generate": "Wygeneruj token połączenia",
-  "claude.tokenOnce": "Skopiuj ten token teraz — jest pokazywany tylko raz i nie można go odzyskać.",
+  "claude.tokenOnce":
+    "Skopiuj ten token teraz — jest pokazywany tylko raz i nie można go odzyskać.",
   "claude.copy": "Kopiuj",
   "claude.copied": "Skopiowano",
   "claude.cliHeading": "Claude Code (CLI)",
@@ -677,11 +769,13 @@ export const pl: Record<string, string> = {
   "claude.createError": "Nie udało się wygenerować tokenu. Spróbuj ponownie.",
   "claude.tools": "Dostępne narzędzia (tylko do odczytu)",
   "claude.securityTitle": "Bezpieczeństwo",
-  "claude.security": "Dostęp tylko do odczytu do danych Milo. Tokeny są przechowywane w postaci skrótu, nigdy nie są pokazywane ponownie po utworzeniu i nigdy nie są logowane. Unieważnij token w dowolnym momencie, aby się rozłączyć.",
+  "claude.security":
+    "Dostęp tylko do odczytu do danych Milo. Tokeny są przechowywane w postaci skrótu, nigdy nie są pokazywane ponownie po utworzeniu i nigdy nie są logowane. Unieważnij token w dowolnym momencie, aby się rozłączyć.",
 
   // ---- Claude connected apps (OAuth) ----
   "claude.apps.title": "Połączone aplikacje",
-  "claude.apps.subtitle": "Aplikacje połączone z Twoim kontem Milo Growth przez Claude.ai. Dostęp możesz odebrać w każdej chwili.",
+  "claude.apps.subtitle":
+    "Aplikacje połączone z Twoim kontem Milo Growth przez Claude.ai. Dostęp możesz odebrać w każdej chwili.",
   "claude.apps.status.active": "Aktywne",
   "claude.apps.status.expired": "Wygasłe",
   "claude.apps.status.revoked": "Odebrane",
@@ -690,7 +784,8 @@ export const pl: Record<string, string> = {
   "claude.apps.unnamed": "Nieznana aplikacja",
   "claude.apps.revoke": "Odbierz dostęp",
   "claude.apps.revokeTitle": "Odłączyć Claude?",
-  "claude.apps.revokeBody": "Claude natychmiast utraci dostęp do Twoich danych Milo Growth. Twoje projekty i treści pozostaną nietknięte — nic nie zostanie usunięte. Możesz połączyć się ponownie z Claude.ai w dowolnym momencie.",
+  "claude.apps.revokeBody":
+    "Claude natychmiast utraci dostęp do Twoich danych Milo Growth. Twoje projekty i treści pozostaną nietknięte — nic nie zostanie usunięte. Możesz połączyć się ponownie z Claude.ai w dowolnym momencie.",
   "claude.apps.revoked": "Dostęp odebrany.",
   "claude.apps.revokeError": "Nie udało się odebrać dostępu. Spróbuj ponownie.",
   "claude.apps.loadError": "Nie udało się wczytać połączonych aplikacji.",
@@ -701,10 +796,12 @@ export const pl: Record<string, string> = {
   "connect.title": "Połącz Milo Growth z Claude",
   "connect.write.badge": "Dostęp do odczytu i zapisu",
   "connect.write.title": "Uprawnienia do zapisu",
-  "connect.write.warning": "To połączenie będzie mogło tworzyć i edytować treści, zadania i rekomendacje projektów w Twojej przestrzeni Milo. Nigdy nie może niczego publikować ani usuwać.",
+  "connect.write.warning":
+    "To połączenie będzie mogło tworzyć i edytować treści, zadania i rekomendacje projektów w Twojej przestrzeni Milo. Nigdy nie może niczego publikować ani usuwać.",
   "connect.propose.badge": "Dostęp do odczytu i propozycji",
   "connect.propose.title": "Uprawnienia do propozycji",
-  "connect.propose.warning": "To połączenie może sugerować zmiany do Twojej akceptacji. Nic nie zostanie zastosowane, dopóki nie zatwierdzisz tego w Milo. Nigdy nie zatwierdza własnych sugestii i nigdy niczego nie publikuje, nie usuwa ani nie zmienia ustawień czy rozliczeń.",
+  "connect.propose.warning":
+    "To połączenie może sugerować zmiany do Twojej akceptacji. Nic nie zostanie zastosowane, dopóki nie zatwierdzisz tego w Milo. Nigdy nie zatwierdza własnych sugestii i nigdy niczego nie publikuje, nie usuwa ani nie zmienia ustawień czy rozliczeń.",
   "connect.intro": "Claude prosi o dostęp tylko do odczytu do Twojego workspace Milo Growth.",
   "connect.requestedBy": "Żąda",
   "connect.account": "Zalogowano jako",
@@ -738,7 +835,8 @@ export const pl: Record<string, string> = {
   "billing.title": "Rozliczenia i plan",
   "billing.subtitle": "Zarządzaj planem, profilem rozliczeniowym i dodatkami.",
   "billing.owner.title": "Konto właściciela",
-  "billing.owner.desc": "Masz nieograniczoną liczbę projektów i brak rozliczeń. To konto pomija limity planów.",
+  "billing.owner.desc":
+    "Masz nieograniczoną liczbę projektów i brak rozliczeń. To konto pomija limity planów.",
   "billing.currentPlan": "Aktualny plan",
   "billing.status": "Status",
   "billing.billingMarket": "Rynek rozliczeń",
@@ -768,16 +866,22 @@ export const pl: Record<string, string> = {
   "billing.assistedSetup": "Assisted Setup",
   "billing.monthlyCare": "Monthly Care",
   "billing.oneTime": "jednorazowo",
-  "billing.checkoutNotConfigured": "Płatności nie są jeszcze skonfigurowane. Skontaktuj się ze wsparciem, aby aktywować ten plan.",
+  "billing.checkoutNotConfigured":
+    "Płatności nie są jeszcze skonfigurowane. Skontaktuj się ze wsparciem, aby aktywować ten plan.",
   "billing.contactSupport": "Skontaktuj się ze wsparciem",
-  "billing.checkoutPendingMsg": "Rozpoczęto płatność. Plan zostanie aktywowany po potwierdzeniu płatności.",
-  "billing.rulesNote": "Twój rynek rozliczeń zależy od kraju firmy lub kraju rozliczeń. Zmiana języka lub regionu strony nie zmienia kwalifikacji cenowej.",
-  "billing.taxNote": "Milo obsługuje klientów firmowych i indywidualnych. Szczegóły podatkowe i faktur mogą się różnić w zależności od kraju i mogą wymagać weryfikacji przed publicznym uruchomieniem.",
-  "billing.paddleNote": "Tam, gdzie jest skonfigurowane, do bezpiecznych płatności i obsługi podatków używany jest Paddle.",
+  "billing.checkoutPendingMsg":
+    "Rozpoczęto płatność. Plan zostanie aktywowany po potwierdzeniu płatności.",
+  "billing.rulesNote":
+    "Twój rynek rozliczeń zależy od kraju firmy lub kraju rozliczeń. Zmiana języka lub regionu strony nie zmienia kwalifikacji cenowej.",
+  "billing.taxNote":
+    "Milo obsługuje klientów firmowych i indywidualnych. Szczegóły podatkowe i faktur mogą się różnić w zależności od kraju i mogą wymagać weryfikacji przed publicznym uruchomieniem.",
+  "billing.paddleNote":
+    "Tam, gdzie jest skonfigurowane, do bezpiecznych płatności i obsługi podatków używany jest Paddle.",
   "billing.noGuarantee": "Brak gwarancji pozycji, ruchu, przychodów ani cytowań w AI.",
   "billing.marketReview": "Zmiana kraju rozliczeń może wpłynąć na cenę i wymaga weryfikacji.",
   "billing.manual.title": "Aktywacja ręczna (tylko właściciel)",
-  "billing.manual.desc": "Aktywuj plan ręcznie dla kont opłaconych fakturą, beta lub bezpłatnych. Niewidoczne dla zwykłych użytkowników.",
+  "billing.manual.desc":
+    "Aktywuj plan ręcznie dla kont opłaconych fakturą, beta lub bezpłatnych. Niewidoczne dla zwykłych użytkowników.",
   "billing.manual.beta": "Aktywuj jako Manual beta",
   "billing.manual.comped": "Aktywuj jako Manual comped",
   "billing.manual.reset": "Przywróć Free Preview",
@@ -791,7 +895,8 @@ export const pl: Record<string, string> = {
 
   // ---- Launch checklist (Sprint 16) ----
   "launch.title": "Lista startowa bety",
-  "launch.subtitle": "Śledź gotowość konfiguracji, treści, publikacji, pomiarów, autorytetu i płatności dla tego projektu.",
+  "launch.subtitle":
+    "Śledź gotowość konfiguracji, treści, publikacji, pomiarów, autorytetu i płatności dla tego projektu.",
   "launch.noProject": "Utwórz projekt, aby zobaczyć listę startową.",
   "launch.betaNotesCta": "Uwagi beta",
   "launch.readiness": "Gotowość do startu",
@@ -814,7 +919,8 @@ export const pl: Record<string, string> = {
   "launch.item.services": "Usługi lub produkty dodane",
   "launch.item.services.desc": "Powiedz Milo, co ta firma faktycznie sprzedaje.",
   "launch.item.brandIntelligence": "Brand Intelligence rozpoczęte",
-  "launch.item.brandIntelligence.desc": "Ton, twierdzenia i oferty utrzymują treści zgodne z marką i bezpieczne.",
+  "launch.item.brandIntelligence.desc":
+    "Ton, twierdzenia i oferty utrzymują treści zgodne z marką i bezpieczne.",
   "launch.item.opportunity": "Co najmniej jedna szansa wygenerowana",
   "launch.item.opportunity.desc": "Uporządkowane pomysły na widoczność oparte na firmie.",
   "launch.item.contentAsset": "Co najmniej jedna treść wygenerowana",
@@ -824,11 +930,14 @@ export const pl: Record<string, string> = {
   "launch.item.reviewed": "Szkic sprawdzony lub ulepszony",
   "launch.item.reviewed.desc": "Przenieś szkic do recenzji, zatwierdź lub ulepsz.",
   "launch.item.connectorSelected": "Konektor wybrany",
-  "launch.item.connectorSelected.desc": "Wybierz Custom, WordPress lub Shopify w ustawieniach projektu.",
+  "launch.item.connectorSelected.desc":
+    "Wybierz Custom, WordPress lub Shopify w ustawieniach projektu.",
   "launch.item.connectorConfigured": "Konektor skonfigurowany",
-  "launch.item.connectorConfigured.desc": "Dane logowania lub punkty końcowe są gotowe do publikacji.",
+  "launch.item.connectorConfigured.desc":
+    "Dane logowania lub punkty końcowe są gotowe do publikacji.",
   "launch.item.connectorTested": "Połączenie przetestowane (WordPress/Shopify)",
-  "launch.item.connectorTested.desc": "Uruchom test połączenia, aby publikacja nie zawiodła później.",
+  "launch.item.connectorTested.desc":
+    "Uruchom test połączenia, aby publikacja nie zawiodła później.",
   "launch.item.draftSent": "Co najmniej jeden szkic wysłany",
   "launch.item.draftSent.desc": "Wyślij zatwierdzoną treść na stronę jako szkic.",
   "launch.item.publishedLive": "Co najmniej jedna strona opublikowana na żywo",
@@ -836,23 +945,29 @@ export const pl: Record<string, string> = {
   "launch.item.analyticsSnippet": "Snippet analityki dostępny",
   "launch.item.analyticsSnippet.desc": "Skopiuj snippet Milo z Analityki i dodaj go do strony.",
   "launch.item.analyticsEvents": "Zdarzenia analityki odebrane",
-  "launch.item.analyticsEvents.desc": "Odwiedź stronę po instalacji snippetu, aby potwierdzić śledzenie.",
+  "launch.item.analyticsEvents.desc":
+    "Odwiedź stronę po instalacji snippetu, aby potwierdzić śledzenie.",
   "launch.item.gscImport": "Import GSC Lite dodany",
-  "launch.item.gscImport.desc": "Zaimportuj CSV z Search Console, aby połączyć wyświetlenia i kliknięcia.",
+  "launch.item.gscImport.desc":
+    "Zaimportuj CSV z Search Console, aby połączyć wyświetlenia i kliknięcia.",
   "launch.item.publishedByMilo": "Dane „opublikowane przez Milo” dostępne",
   "launch.item.publishedByMilo.desc": "Strony Milo na żywo dopasowane do danych Search Console.",
   "launch.item.authorityGenerated": "Szanse autorytetu wygenerowane",
-  "launch.item.authorityGenerated.desc": "Bezpieczne zadania autorytetu, takie jak katalogi i linki partnerskie.",
+  "launch.item.authorityGenerated.desc":
+    "Bezpieczne zadania autorytetu, takie jak katalogi i linki partnerskie.",
   "launch.item.authorityProgress": "Element autorytetu zaplanowany lub na żywo",
-  "launch.item.authorityProgress.desc": "Przenieś zadanie autorytetu do zaplanowane, skontaktowane lub na żywo.",
+  "launch.item.authorityProgress.desc":
+    "Przenieś zadanie autorytetu do zaplanowane, skontaktowane lub na żywo.",
   "launch.item.billingProfile": "Profil płatności uzupełniony",
   "launch.item.billingProfile.desc": "Kraj rozliczeniowy ustala Twój rynek cenowy.",
   "launch.item.planSelected": "Plan wybrany (lub Free Preview)",
   "launch.item.planSelected.desc": "Free Preview jest aktywny domyślnie — bez płatności.",
   "launch.item.betaStatus": "Status beta / comped / oczekujący widoczny",
-  "launch.item.betaStatus.desc": "Status manual beta, comped lub oczekujący na płatność jest widoczny w Płatnościach.",
+  "launch.item.betaStatus.desc":
+    "Status manual beta, comped lub oczekujący na płatność jest widoczny w Płatnościach.",
   "launch.item.paddlePending": "Płatności na żywo oczekują (zaznaczone)",
-  "launch.item.paddlePending.desc": "Aktywacja Paddle nastąpi po konfiguracji firmy — zobacz Uwagi beta.",
+  "launch.item.paddlePending.desc":
+    "Aktywacja Paddle nastąpi po konfiguracji firmy — zobacz Uwagi beta.",
   "launch.conn.website": "Strona",
   "launch.conn.website.ok": "Adres strony ustawiony.",
   "launch.conn.website.none": "Dodaj adres strony w ustawieniach projektu.",
@@ -908,37 +1023,53 @@ export const pl: Record<string, string> = {
   // ---- Beta notes (Sprint 16) ----
   "beta.title": "Uwagi beta",
   "beta.subtitle": "Aktualne ograniczenia i co potwierdzić przed szerszym startem samoobsługowym.",
-  "beta.intro": "Milo jest w asystowanej becie. Poniższe elementy nie blokują prowadzonych demo ani asystowanego wdrożenia, ale powinny zostać potwierdzone przed szerszym, płatnym startem samoobsługowym.",
+  "beta.intro":
+    "Milo jest w asystowanej becie. Poniższe elementy nie blokują prowadzonych demo ani asystowanego wdrożenia, ale powinny zostać potwierdzone przed szerszym, płatnym startem samoobsługowym.",
   "beta.limitsTitle": "Aktualne ograniczenia bety",
-  "beta.reassure": "Te ograniczenia nie blokują asystowanych demo bety, ale powinny zostać potwierdzone przed szerszym startem samoobsługowym.",
+  "beta.reassure":
+    "Te ograniczenia nie blokują asystowanych demo bety, ale powinny zostać potwierdzone przed szerszym startem samoobsługowym.",
   "beta.demoSafeTitle": "Uwagi bezpieczne do demo",
   "beta.backToChecklist": "Powrót do listy",
   "beta.openDemoScript": "Otwórz skrypt demo",
-  "beta.limit.paddle": "Płatności na żywo Paddle oczekują na konfigurację firmy i konta Paddle. Interfejs płatności i ceny są gotowe; aktywacja jest na razie ręczna.",
-  "beta.limit.wordpress": "Konektor WordPress jest gotowy, ale wymaga testów na żywo na prawdziwej stronie.",
-  "beta.limit.shopify": "Konektor Shopify jest gotowy, ale wymaga testów na żywo na prawdziwym sklepie.",
-  "beta.limit.aiCandidate": "Alternatywny model AI (kandydat do oceny) wymaga konfiguracji środowiska, aby działać.",
-  "beta.limit.legal": "Strony prawne to wersje robocze gotowości beta i powinny zostać sprawdzone przed szerszym płatnym startem.",
-  "beta.limit.analytics": "Analityka wymaga zainstalowania snippetu Milo na stronie klienta, aby odbierać zdarzenia.",
-  "beta.limit.gsc": "GSC Lite obsługuje ręczny import CSV oraz opcjonalną synchronizację OAuth/API tam, gdzie skonfigurowano Google OAuth. Ręczny import pozostaje dostępny jako rozwiązanie zapasowe.",
+  "beta.limit.paddle":
+    "Płatności na żywo Paddle oczekują na konfigurację firmy i konta Paddle. Interfejs płatności i ceny są gotowe; aktywacja jest na razie ręczna.",
+  "beta.limit.wordpress":
+    "Konektor WordPress jest gotowy, ale wymaga testów na żywo na prawdziwej stronie.",
+  "beta.limit.shopify":
+    "Konektor Shopify jest gotowy, ale wymaga testów na żywo na prawdziwym sklepie.",
+  "beta.limit.aiCandidate":
+    "Alternatywny model AI (kandydat do oceny) wymaga konfiguracji środowiska, aby działać.",
+  "beta.limit.legal":
+    "Strony prawne to wersje robocze gotowości beta i powinny zostać sprawdzone przed szerszym płatnym startem.",
+  "beta.limit.analytics":
+    "Analityka wymaga zainstalowania snippetu Milo na stronie klienta, aby odbierać zdarzenia.",
+  "beta.limit.gsc":
+    "GSC Lite obsługuje ręczny import CSV oraz opcjonalną synchronizację OAuth/API tam, gdzie skonfigurowano Google OAuth. Ręczny import pozostaje dostępny jako rozwiązanie zapasowe.",
   "beta.limit.images": "Konektory publikują tekst i HTML; w wersji v1 nie przesyłają obrazów.",
-  "beta.demo.rankings": "Nie obiecuj pozycji, ruchu ani gwarantowanych cytatów AI — Milo jest wspierane przez AI i sprawdzane przez ludzi.",
-  "beta.demo.payments": "Mów, że płatności są gotowe architektonicznie, ale aktywacja na żywo oczekuje na konfigurację firmy i Paddle.",
-  "beta.demo.connectors": "Mów, że konektory WordPress i Shopify wymagają testów end-to-end na żywo dla każdej strony.",
-  "beta.demo.data": "Mów, że dowody z analityki i GSC zależą od dostępności danych dla projektu demo.",
+  "beta.demo.rankings":
+    "Nie obiecuj pozycji, ruchu ani gwarantowanych cytatów AI — Milo jest wspierane przez AI i sprawdzane przez ludzi.",
+  "beta.demo.payments":
+    "Mów, że płatności są gotowe architektonicznie, ale aktywacja na żywo oczekuje na konfigurację firmy i Paddle.",
+  "beta.demo.connectors":
+    "Mów, że konektory WordPress i Shopify wymagają testów end-to-end na żywo dla każdej strony.",
+  "beta.demo.data":
+    "Mów, że dowody z analityki i GSC zależą od dostępności danych dla projektu demo.",
 
   // ---- Pending Actions (Phase 1B) ----
   "common.loading": "Ładowanie…",
   "nav.actions": "Propozycje zmian",
   "actions.title": "Propozycje zmian",
-  "actions.description": "Przejrzyj zmiany zaproponowane przez Claude, zanim trafią do Twojej przestrzeni.",
-  "actions.safety": "Claude może tworzyć propozycje do przeglądu. Nic nie zostanie zastosowane, dopóki tego nie zatwierdzisz.",
+  "actions.description":
+    "Przejrzyj zmiany zaproponowane przez Claude, zanim trafią do Twojej przestrzeni.",
+  "actions.safety":
+    "Claude może tworzyć propozycje do przeglądu. Nic nie zostanie zastosowane, dopóki tego nie zatwierdzisz.",
   "actions.filter.status": "Status",
   "actions.filter.allStatuses": "Wszystkie statusy",
   "actions.filter.project": "Projekt",
   "actions.filter.allProjects": "Wszystkie projekty",
   "actions.empty.title": "Brak propozycji.",
-  "actions.empty.body": "Gdy Claude zasugeruje zmiany przez konektor, pojawią się tutaj do Twojego przeglądu.",
+  "actions.empty.body":
+    "Gdy Claude zasugeruje zmiany przez konektor, pojawią się tutaj do Twojego przeglądu.",
   "actions.status.pending": "Oczekuje",
   "actions.status.approved": "Zatwierdzona",
   "actions.status.applied": "Zastosowana",
@@ -957,7 +1088,8 @@ export const pl: Record<string, string> = {
   "actions.card.showDetail": "Pokaż przed / po",
   "actions.card.hideDetail": "Ukryj szczegóły",
   "actions.detail.target": "Docelowa szansa",
-  "actions.detail.targetMissing": "Docelowa szansa już nie istnieje — tej propozycji nie można zastosować w obecnej formie.",
+  "actions.detail.targetMissing":
+    "Docelowa szansa już nie istnieje — tej propozycji nie można zastosować w obecnej formie.",
   "actions.detail.field": "Pole",
   "actions.detail.current": "Obecnie",
   "actions.detail.proposed": "Proponowane",
@@ -968,56 +1100,73 @@ export const pl: Record<string, string> = {
   "actions.detail.stateNone": "Bez zmian",
   "actions.detail.servicesToCreate": "Usługi do utworzenia",
   "actions.detail.opportunitiesToCreate": "Szanse do utworzenia",
-  "actions.detail.createDisclaimer": "To proponowane nowe pozycje. Przy zatwierdzeniu duplikaty oraz elementy przekraczające limit przestrzeni są pomijane — pokazane liczby nie są gwarantowane.",
+  "actions.detail.createDisclaimer":
+    "To proponowane nowe pozycje. Przy zatwierdzeniu duplikaty oraz elementy przekraczające limit przestrzeni są pomijane — pokazane liczby nie są gwarantowane.",
   "actions.detail.competitors": "Konkurenci",
-  "actions.detail.projectMissing": "Ten projekt już nie istnieje — tej propozycji nie można zastosować w obecnej formie.",
+  "actions.detail.projectMissing":
+    "Ten projekt już nie istnieje — tej propozycji nie można zastosować w obecnej formie.",
   "actions.detail.none": "Brak",
   "claude.apps.scope.needsApproval": "wymaga Twojej zgody",
 
   // ---- Pending Actions resolution (Phase 1B.5) ----
   "actions.resolve.approve": "Zatwierdź i zastosuj",
   "actions.resolve.approveTitle": "Zatwierdzić tę propozycję?",
-  "actions.resolve.approveBody": "Zatwierdzenie natychmiast zastosuje proponowane zmiany w Twojej przestrzeni. Pola, które się zmienią:",
-  "actions.resolve.approveBodySetup": "Zatwierdzenie natychmiast zastosuje proponowane pola projektu oraz utworzy kwalifikujące się usługi i szanse. Duplikaty i pozycje przekraczające limit przestrzeni są pomijane. Status ukończenia konfiguracji nie zostanie zmieniony. Claude nie może zatwierdzać ani stosować — tylko Ty.",
+  "actions.resolve.approveBody":
+    "Zatwierdzenie natychmiast zastosuje proponowane zmiany w Twojej przestrzeni. Pola, które się zmienią:",
+  "actions.resolve.approveBodySetup":
+    "Zatwierdzenie natychmiast zastosuje proponowane pola projektu oraz utworzy kwalifikujące się usługi i szanse. Duplikaty i pozycje przekraczające limit przestrzeni są pomijane. Status ukończenia konfiguracji nie zostanie zmieniony. Claude nie może zatwierdzać ani stosować — tylko Ty.",
   "actions.resolve.reject": "Odrzuć",
   "actions.resolve.rejectTitle": "Odrzucić tę propozycję?",
-  "actions.resolve.rejectBody": "Nic nie zostanie zastosowane. Propozycja pozostanie w historii jako odrzucona.",
+  "actions.resolve.rejectBody":
+    "Nic nie zostanie zastosowane. Propozycja pozostanie w historii jako odrzucona.",
   "actions.resolve.rejectConfirm": "Odrzuć propozycję",
-  "actions.resolve.notePlaceholder": "Opcjonalna notatka (pozostaje w Twojej przestrzeni, nigdy nie jest udostępniana)",
+  "actions.resolve.notePlaceholder":
+    "Opcjonalna notatka (pozostaje w Twojej przestrzeni, nigdy nie jest udostępniana)",
   "actions.resolve.appliedToast": "Zatwierdzono i zastosowano.",
   "actions.resolve.rejectedToast": "Propozycja odrzucona.",
   "actions.resolve.error.not_found": "Ta propozycja już nie istnieje.",
   "actions.resolve.error.not_pending": "Ta propozycja została już rozstrzygnięta.",
   "actions.resolve.error.expired": "Ta propozycja wygasła i nie można jej już zastosować.",
-  "actions.resolve.error.target_missing": "Docelowa szansa już nie istnieje — nic nie zostało zmienione.",
-  "actions.resolve.error.invalid": "Ta propozycja jest już nieaktualna — nic nie zostało zmienione.",
-  "actions.resolve.error.conflict": "Twoja przestrzeń zmieniła się w tym samym czasie — spróbuj ponownie.",
+  "actions.resolve.error.target_missing":
+    "Docelowa szansa już nie istnieje — nic nie zostało zmienione.",
+  "actions.resolve.error.invalid":
+    "Ta propozycja jest już nieaktualna — nic nie zostało zmienione.",
+  "actions.resolve.error.conflict":
+    "Twoja przestrzeń zmieniła się w tym samym czasie — spróbuj ponownie.",
   "actions.resolve.error.error": "Coś poszło nie tak — nic nie zostało zmienione.",
 
   // ---- Backlinks v1 ----
   "nav.backlinks": "Linki zwrotne",
   "backlinks.title": "Linki zwrotne",
-  "backlinks.subtitle": "Prawdziwe dane o linkach do Twojej domeny — siła profilu, luka linkowa vs konkurencja i bezpieczne rekomendacje link buildingu.",
-  "backlinks.disclaimer": "Dane o linkach pochodzą z zewnętrznego indeksu i są szacunkowe — żaden indeks nie widzi wszystkich linków. Rekomendacje są wyłącznie white-hat: Milo nigdy nie proponuje systemów wymiany linków ani nieoznaczonych linków płatnych i nie gwarantuje pozycji, ruchu ani przychodów.",
+  "backlinks.subtitle":
+    "Prawdziwe dane o linkach do Twojej domeny — siła profilu, luka linkowa vs konkurencja i bezpieczne rekomendacje link buildingu.",
+  "backlinks.disclaimer":
+    "Dane o linkach pochodzą z zewnętrznego indeksu i są szacunkowe — żaden indeks nie widzi wszystkich linków. Rekomendacje są wyłącznie white-hat: Milo nigdy nie proponuje systemów wymiany linków ani nieoznaczonych linków płatnych i nie gwarantuje pozycji, ruchu ani przychodów.",
   "backlinks.run": "Uruchom analizę linków",
   "backlinks.rerun": "Odśwież analizę",
   "backlinks.running": "Analizuję…",
-  "backlinks.empty": "Uruchom analizę linków zwrotnych, aby zobaczyć prawdziwy profil linków Twojej domeny, porównanie z konkurencją i domeny, które linkują do nich, a nie do Ciebie.",
+  "backlinks.empty":
+    "Uruchom analizę linków zwrotnych, aby zobaczyć prawdziwy profil linków Twojej domeny, porównanie z konkurencją i domeny, które linkują do nich, a nie do Ciebie.",
   "backlinks.notConfigured.title": "Podłącz źródło danych o linkach",
-  "backlinks.notConfigured.body": "Ten moduł korzysta z indeksu linków DataForSEO i nie jest jeszcze podłączony. Właściciel przestrzeni musi utworzyć konto DataForSEO (pay-as-you-go) i dodać DATAFORSEO_LOGIN oraz DATAFORSEO_PASSWORD jako sekrety backendu. Do tego czasu dane o linkach są niedostępne.",
+  "backlinks.notConfigured.body":
+    "Ten moduł korzysta z indeksu linków DataForSEO i nie jest jeszcze podłączony. Właściciel przestrzeni musi utworzyć konto DataForSEO (pay-as-you-go) i dodać DATAFORSEO_LOGIN oraz DATAFORSEO_PASSWORD jako sekrety backendu. Do tego czasu dane o linkach są niedostępne.",
   "backlinks.status.ready.title": "DataForSEO działa prawidłowo",
   "backlinks.status.ready.body": "Interfejs Backlinks API jest podłączony i odpowiada.",
   "backlinks.status.lowBalance.title": "Saldo DataForSEO jest niskie",
   "backlinks.status.lowBalance.body": "Doładuj konto, aby uniknąć przerw w analizach.",
   "backlinks.status.paused.title": "Dostęp do DataForSEO jest wstrzymany",
-  "backlinks.status.paused.body": "Skontaktuj się z pomocą DataForSEO, aby reaktywować konto przed kolejną analizą.",
+  "backlinks.status.paused.body":
+    "Skontaktuj się z pomocą DataForSEO, aby reaktywować konto przed kolejną analizą.",
   "backlinks.status.error.title": "Status DataForSEO jest niedostępny",
-  "backlinks.status.error.body": "Nie udało się zweryfikować konta lub Backlinks API. Odśwież status albo sprawdź panel dostawcy.",
+  "backlinks.status.error.body":
+    "Nie udało się zweryfikować konta lub Backlinks API. Odśwież status albo sprawdź panel dostawcy.",
   "backlinks.status.balance": "Saldo: {balance}.",
   "backlinks.status.refresh": "Odśwież status",
   "backlinks.competitorsUsed": "Porównywana konkurencja: {list}",
-  "backlinks.competitorsFromAnalysis": "Używam konkurentów z najnowszej analizy Konkurencji: {list}",
-  "backlinks.noCompetitors": "Brak adresów konkurencji w projekcie — analiza obejmie tylko Twój profil. Dodaj konkurentów w Ustawieniach projektu lub module Konkurencja, aby odblokować lukę linkową.",
+  "backlinks.competitorsFromAnalysis":
+    "Używam konkurentów z najnowszej analizy Konkurencji: {list}",
+  "backlinks.noCompetitors":
+    "Brak adresów konkurencji w projekcie — analiza obejmie tylko Twój profil. Dodaj konkurentów w Ustawieniach projektu lub module Konkurencja, aby odblokować lukę linkową.",
   "backlinks.lastRun": "Ostatnia analiza: {date}",
   "backlinks.score.overall": "Pozycja linkowa",
   "backlinks.score.profile": "Siła profilu",
@@ -1036,11 +1185,14 @@ export const pl: Record<string, string> = {
   "backlinks.table.notFetched": "Nie udało się pobrać danych",
   "backlinks.you": "Ty",
   "backlinks.gapHeading": "Luka linkowa — linkują do konkurencji, nie do Ciebie",
-  "backlinks.gapNote": "Domeny linkujące do co najmniej jednego konkurenta, ale nie do Twojej domeny. Traktuj je jako cele outreachu lub inspirację, do jakiego typu stron się odezwać.",
+  "backlinks.gapNote":
+    "Domeny linkujące do co najmniej jednego konkurenta, ale nie do Twojej domeny. Traktuj je jako cele outreachu lub inspirację, do jakiego typu stron się odezwać.",
   "backlinks.gap.linksTo": "Linkuje do",
-  "backlinks.gapEmpty": "Nie znaleziono luki linkowej — nie pobrano konkurencji albo nie było wspólnych domen.",
+  "backlinks.gapEmpty":
+    "Nie znaleziono luki linkowej — nie pobrano konkurencji albo nie było wspólnych domen.",
   "backlinks.referringHeading": "Najsilniejsze domeny linkujące do Ciebie",
-  "backlinks.referringEmpty": "Indeks nie znalazł jeszcze domen linkujących — młoda domena często zaczyna od zera.",
+  "backlinks.referringEmpty":
+    "Indeks nie znalazł jeszcze domen linkujących — młoda domena często zaczyna od zera.",
   "backlinks.recommendations": "Rekomendacje",
   "backlinks.effort": "Nakład pracy",
   "backlinks.target": "Cel / platforma",
@@ -1059,59 +1211,149 @@ export const pl: Record<string, string> = {
   "backlinks.category.linkHygiene": "Higiena linków",
   "nav.linkMarketplace": "Marketplace linków",
   "marketplace.title": "Publikacje sponsorowane",
-  "marketplace.subtitle": "Dopasuj szanse backlinkowe do transparentnych, redakcyjnie weryfikowanych publikacji sponsorowanych.",
+  "marketplace.subtitle":
+    "Dopasuj szanse backlinkowe do transparentnych, redakcyjnie weryfikowanych publikacji sponsorowanych.",
   "marketplace.disclosureTitle": "Marketplace white-hat.",
-  "marketplace.disclosure": "Każde zlecenie wymaga jawnego oznaczenia sponsorowania i rel=\"sponsored\". Prośba nie jest zakupem i nie gwarantuje pozycji, ruchu ani przychodu.",
+  "marketplace.disclosure":
+    'Każde zlecenie wymaga jawnego oznaczenia sponsorowania i rel="sponsored". Prośba nie jest zakupem i nie gwarantuje pozycji, ruchu ani przychodu.',
   "marketplace.demoNoticeTitle": "Katalog demonstracyjny.",
-  "marketplace.demoNotice": "Poniższe domeny, metryki i ceny są danymi demonstracyjnymi do czasu uzyskania dostępu do API Linkhouse. Zgłoszenia zapisują się wyłącznie w Milo do weryfikacji — nie powstaje zamówienie ani płatność u dostawcy.",
+  "marketplace.demoNotice":
+    "Poniższe domeny, metryki i ceny są danymi demonstracyjnymi do czasu uzyskania dostępu do API Linkhouse. Zgłoszenia zapisują się wyłącznie w Milo do weryfikacji — nie powstaje zamówienie ani płatność u dostawcy.",
   "marketplace.demoBadge": "Demo",
   "marketplace.integrationTitle": "Integracja Linkhouse",
-  "marketplace.integrationLive": "Katalog dostawcy jest podłączony. Każde płatne zamówienie nadal wymaga potwierdzenia dokładnej kwoty.",
-  "marketplace.integrationPending": "Kontrakt produkcyjny jest gotowy; mapowanie endpointów i klucze czekają na dokumentację Linkhouse.",
-  "marketplace.catalogConnected": "Katalog live", "marketplace.catalogDemo": "Katalog demo",
-  "marketplace.orderingEnabled": "Zamówienia włączone", "marketplace.orderingLocked": "Zamówienia zablokowane",
-  "marketplace.offers": "Oferty", "marketplace.orders": "Zlecenia", "marketplace.search": "Szukaj domen lub tematów…",
-  "marketplace.noAnalysis": "Uruchom Backlink Intelligence, aby dodać sygnały luki linkowej. Dopasowanie tematu i rynku już działa.",
-  "marketplace.reason.linkGap": "Luka względem konkurencji", "marketplace.rank": "Domain rank", "marketplace.traffic": "Szac. ruch",
-  "marketplace.turnaround": "Realizacja", "marketplace.days": "{count} dni", "marketplace.price": "Cena orientacyjna",
-  "marketplace.request": "Poproś o weryfikację", "marketplace.reviewPrice": "Sprawdź cenę", "marketplace.quoteLocked": "Wymagana konfiguracja wyceny", "marketplace.requested": "Zgłoszono", "marketplace.ordersEmpty": "Brak zgłoszeń publikacji.",
-  "marketplace.quoteTitle": "Sprawdź cenę publikacji", "marketplace.basePrice": "Cena dostawcy", "marketplace.serviceFee": "Opłata Milo ({count}%)", "marketplace.totalPrice": "Dokładna suma",
+  "marketplace.integrationLive":
+    "Katalog dostawcy jest podłączony. Każde płatne zamówienie nadal wymaga potwierdzenia dokładnej kwoty.",
+  "marketplace.integrationPending":
+    "Kontrakt produkcyjny jest gotowy; mapowanie endpointów i klucze czekają na dokumentację Linkhouse.",
+  "marketplace.catalogConnected": "Katalog live",
+  "marketplace.catalogDemo": "Katalog demo",
+  "marketplace.orderingEnabled": "Zamówienia włączone",
+  "marketplace.orderingLocked": "Zamówienia zablokowane",
+  "marketplace.offers": "Oferty",
+  "marketplace.orders": "Zlecenia",
+  "marketplace.search": "Szukaj domen lub tematów…",
+  "marketplace.noAnalysis":
+    "Uruchom Backlink Intelligence, aby dodać sygnały luki linkowej. Dopasowanie tematu i rynku już działa.",
+  "marketplace.reason.linkGap": "Luka względem konkurencji",
+  "marketplace.rank": "Domain rank",
+  "marketplace.traffic": "Szac. ruch",
+  "marketplace.turnaround": "Realizacja",
+  "marketplace.days": "{count} dni",
+  "marketplace.price": "Cena orientacyjna",
+  "marketplace.request": "Poproś o weryfikację",
+  "marketplace.reviewPrice": "Sprawdź cenę",
+  "marketplace.quoteLocked": "Wymagana konfiguracja wyceny",
+  "marketplace.requested": "Zgłoszono",
+  "marketplace.ordersEmpty": "Brak zgłoszeń publikacji.",
+  "marketplace.quoteTitle": "Sprawdź cenę publikacji",
+  "marketplace.basePrice": "Cena dostawcy",
+  "marketplace.serviceFee": "Opłata Milo ({count}%)",
+  "marketplace.totalPrice": "Dokładna suma",
   "marketplace.quoteExpires": "Wycena wygasa o {time}. Po tym czasie trzeba pobrać nową cenę.",
-  "marketplace.confirmSponsored": "Wymagam jawnego oznaczenia sponsorowania oraz rel=\"sponsored\" lub nofollow przy linku.",
-  "marketplace.confirmPaymentLive": "Wyraźnie autoryzuję zamówienie u dostawcy na dokładną kwotę €{total}.",
-  "marketplace.confirmPaymentDemo": "Potwierdzam zgłoszenie na €{total} i rozumiem, że tryb demo nie tworzy zamówienia ani płatności u dostawcy.",
-  "marketplace.confirmPurchase": "Potwierdź płatne zamówienie", "marketplace.confirmDemoRequest": "Zapisz zgłoszenie", "marketplace.confirmedAt": "Potwierdzono",
-  "marketplace.toast.exists": "Ta oferta ma już aktywne zgłoszenie.", "marketplace.toast.requested": "Zapisano zgłoszenie publikacji do weryfikacji.", "marketplace.toast.submitted": "Wysłano płatne zamówienie do dostawcy.",
-  "marketplace.toast.catalogError": "Nie udało się odświeżyć katalogu dostawcy. Bezpieczny katalog demo pozostaje dostępny.", "marketplace.toast.quoteError": "Nie udało się przygotować wyceny. Spróbuj ponownie.",
-  "marketplace.toast.quoteExpired": "Wycena wygasła. Pobierz nową cenę przed potwierdzeniem.", "marketplace.toast.orderError": "Nie utworzono zamówienia. Nie pobrano płatności.",
-  "marketplace.toast.orderReview": "Nie udało się potwierdzić wyniku u dostawcy. Milo zapisało zlecenie jako W weryfikacji — nie ponawiaj go przed uzgodnieniem statusu.",
-  "marketplace.status.Requested": "Zgłoszono", "marketplace.status.In Review": "W weryfikacji", "marketplace.status.Submitted": "Wysłano", "marketplace.status.Accepted": "Zaakceptowano",
-  "marketplace.status.Published": "Opublikowano", "marketplace.status.Failed": "Błąd", "marketplace.status.Cancelled": "Anulowano",
-  "nav.outreach": "AI Outreach", "outreach.title": "AI Outreach", "outreach.subtitle": "Twórz spersonalizowane, weryfikowane przez człowieka maile digital PR do celów wymagających prawdziwej rozmowy.",
-  "outreach.safetyTitle": "Wymagana akceptacja człowieka.", "outreach.safety": "Milo nigdy nie wysyła maili automatycznie. Każda pierwsza wiadomość i follow-up wymagają potwierdzenia dokładnego odbiorcy i treści. Suppression i limity częstotliwości są egzekwowane na serwerze.",
-  "outreach.drafts": "Kolejka szkiców", "outreach.empty": "Brak szkiców outreach.", "outreach.newDraft": "Utwórz szkic", "outreach.suggestedTargets": "Sugestie z danych backlinkowych",
-  "outreach.domain": "Domena docelowa", "outreach.contactName": "Imię kontaktu", "outreach.contactEmail": "Email kontaktu", "outreach.optional": "Opcjonalnie",
-  "outreach.reason": "Prawdziwy powód kontaktu", "outreach.reasonPlaceholder": "Dlaczego zasób może realnie pomóc ich odbiorcom", "outreach.asset": "Oferowany zasób", "outreach.assetPlaceholder": "Poradnik, własne dane, komentarz eksperta…",
-  "outreach.generate": "Wygeneruj szkic", "outreach.generating": "Generowanie…", "outreach.invalidDomain": "Podaj prawidłową domenę docelową.", "outreach.followUps": "Opcjonalne follow-upy", "outreach.afterDays": "Po {count} dniach",
-  "outreach.approve": "Zatwierdź szkic", "outreach.markSent": "Oznacz jako wysłany", "outreach.pause": "Wstrzymaj", "outreach.toast.generated": "Utworzono szkic outreach.", "outreach.toast.failed": "Nie udało się utworzyć szkicu.", "outreach.toast.copied": "Skopiowano mail.", "outreach.toast.status": "Status zmieniono na {status}.",
-  "outreach.source.linkGap": "Luka linkowa", "outreach.source.marketplace": "Marketplace", "outreach.source.manual": "Ręcznie", "outreach.status.Draft": "Szkic", "outreach.status.Approved": "Zatwierdzony", "outreach.status.Queued": "W kolejce", "outreach.status.Sent": "Wysłany", "outreach.status.Replied": "Odpowiedź", "outreach.status.Paused": "Wstrzymany",
-  "outreach.status.Failed": "Błąd", "outreach.status.Suppressed": "Zablokowany",
-  "outreach.deliveryTitle": "Kontrolowana wysyłka e-mail", "outreach.deliveryReady": "Zweryfikowany nadawca Resend jest gotowy. Limit: {count} wiadomości na 24 godziny.",
-  "outreach.deliveryPending": "Szkice działają. Realna wysyłka pozostaje zablokowana do czasu konfiguracji zweryfikowanego nadawcy i kill switcha.",
-  "outreach.sendingEnabled": "Wysyłka aktywna", "outreach.sendingLocked": "Wysyłka zablokowana",
-  "outreach.recipientRequired": "Przed zatwierdzeniem dodaj prawidłowy adres odbiorcy.", "outreach.contentRequired": "Temat i treść wiadomości są wymagane.",
-  "outreach.subject": "Temat", "outreach.message": "Wiadomość", "outreach.to": "Do", "outreach.lastError": "Ostatni błąd wysyłki",
-  "outreach.editTitle": "Edytuj i ponownie sprawdź szkic", "outreach.reviewSend": "Sprawdź wysyłkę", "outreach.markReplied": "Oznacz odpowiedź",
-  "outreach.reviewSendTitle": "Sprawdź dokładną wiadomość", "outreach.reviewFollowUpTitle": "Sprawdź dokładny follow-up",
-  "outreach.reviewSendDescription": "Nic nie zostanie wysłane, dopóki nie zaznaczysz obu potwierdzeń i nie naciśniesz Wyślij teraz.",
-  "outreach.confirmRecipient": "Sprawdziłem dokładnego odbiorcę i mam uzasadniony, trafny powód kontaktu.",
-  "outreach.confirmContent": "Przeczytałem całą wiadomość. Nie zawiera kupowania ani wymiany linków, zmyślonej personalizacji ani obietnic pozycji.",
-  "outreach.sendNow": "Wyślij teraz", "outreach.reviewFollowUp": "Sprawdź follow-up", "outreach.followUpSent": "Wysłany",
+  "marketplace.confirmSponsored":
+    'Wymagam jawnego oznaczenia sponsorowania oraz rel="sponsored" lub nofollow przy linku.',
+  "marketplace.confirmPaymentLive":
+    "Wyraźnie autoryzuję zamówienie u dostawcy na dokładną kwotę €{total}.",
+  "marketplace.confirmPaymentDemo":
+    "Potwierdzam zgłoszenie na €{total} i rozumiem, że tryb demo nie tworzy zamówienia ani płatności u dostawcy.",
+  "marketplace.confirmPurchase": "Potwierdź płatne zamówienie",
+  "marketplace.confirmDemoRequest": "Zapisz zgłoszenie",
+  "marketplace.confirmedAt": "Potwierdzono",
+  "marketplace.toast.exists": "Ta oferta ma już aktywne zgłoszenie.",
+  "marketplace.toast.requested": "Zapisano zgłoszenie publikacji do weryfikacji.",
+  "marketplace.toast.submitted": "Wysłano płatne zamówienie do dostawcy.",
+  "marketplace.toast.catalogError":
+    "Nie udało się odświeżyć katalogu dostawcy. Bezpieczny katalog demo pozostaje dostępny.",
+  "marketplace.toast.quoteError": "Nie udało się przygotować wyceny. Spróbuj ponownie.",
+  "marketplace.toast.quoteExpired": "Wycena wygasła. Pobierz nową cenę przed potwierdzeniem.",
+  "marketplace.toast.orderError": "Nie utworzono zamówienia. Nie pobrano płatności.",
+  "marketplace.toast.orderReview":
+    "Nie udało się potwierdzić wyniku u dostawcy. Milo zapisało zlecenie jako W weryfikacji — nie ponawiaj go przed uzgodnieniem statusu.",
+  "marketplace.status.Requested": "Zgłoszono",
+  "marketplace.status.In Review": "W weryfikacji",
+  "marketplace.status.Submitted": "Wysłano",
+  "marketplace.status.Accepted": "Zaakceptowano",
+  "marketplace.status.Published": "Opublikowano",
+  "marketplace.status.Failed": "Błąd",
+  "marketplace.status.Cancelled": "Anulowano",
+  "nav.outreach": "AI Outreach",
+  "outreach.title": "AI Outreach",
+  "outreach.subtitle":
+    "Twórz spersonalizowane, weryfikowane przez człowieka maile digital PR do celów wymagających prawdziwej rozmowy.",
+  "outreach.safetyTitle": "Wymagana akceptacja człowieka.",
+  "outreach.safety":
+    "Milo nigdy nie wysyła maili automatycznie. Każda pierwsza wiadomość i follow-up wymagają potwierdzenia dokładnego odbiorcy i treści. Suppression i limity częstotliwości są egzekwowane na serwerze.",
+  "outreach.drafts": "Kolejka szkiców",
+  "outreach.empty": "Brak szkiców outreach.",
+  "outreach.newDraft": "Utwórz szkic",
+  "outreach.suggestedTargets": "Sugestie z danych backlinkowych",
+  "outreach.domain": "Domena docelowa",
+  "outreach.contactName": "Imię kontaktu",
+  "outreach.contactEmail": "Email kontaktu",
+  "outreach.optional": "Opcjonalnie",
+  "outreach.reason": "Prawdziwy powód kontaktu",
+  "outreach.reasonPlaceholder": "Dlaczego zasób może realnie pomóc ich odbiorcom",
+  "outreach.asset": "Oferowany zasób",
+  "outreach.assetPlaceholder": "Poradnik, własne dane, komentarz eksperta…",
+  "outreach.generate": "Wygeneruj szkic",
+  "outreach.generating": "Generowanie…",
+  "outreach.invalidDomain": "Podaj prawidłową domenę docelową.",
+  "outreach.followUps": "Opcjonalne follow-upy",
+  "outreach.afterDays": "Po {count} dniach",
+  "outreach.approve": "Zatwierdź szkic",
+  "outreach.markSent": "Oznacz jako wysłany",
+  "outreach.pause": "Wstrzymaj",
+  "outreach.toast.generated": "Utworzono szkic outreach.",
+  "outreach.toast.failed": "Nie udało się utworzyć szkicu.",
+  "outreach.toast.copied": "Skopiowano mail.",
+  "outreach.toast.status": "Status zmieniono na {status}.",
+  "outreach.source.linkGap": "Luka linkowa",
+  "outreach.source.marketplace": "Marketplace",
+  "outreach.source.manual": "Ręcznie",
+  "outreach.status.Draft": "Szkic",
+  "outreach.status.Approved": "Zatwierdzony",
+  "outreach.status.Queued": "W kolejce",
+  "outreach.status.Sent": "Wysłany",
+  "outreach.status.Replied": "Odpowiedź",
+  "outreach.status.Paused": "Wstrzymany",
+  "outreach.status.Failed": "Błąd",
+  "outreach.status.Suppressed": "Zablokowany",
+  "outreach.deliveryTitle": "Kontrolowana wysyłka e-mail",
+  "outreach.deliveryReady":
+    "Zweryfikowany nadawca Resend jest gotowy. Limit: {count} wiadomości na 24 godziny.",
+  "outreach.deliveryPending":
+    "Szkice działają. Realna wysyłka pozostaje zablokowana do czasu konfiguracji zweryfikowanego nadawcy i kill switcha.",
+  "outreach.sendingEnabled": "Wysyłka aktywna",
+  "outreach.sendingLocked": "Wysyłka zablokowana",
+  "outreach.recipientRequired": "Przed zatwierdzeniem dodaj prawidłowy adres odbiorcy.",
+  "outreach.contentRequired": "Temat i treść wiadomości są wymagane.",
+  "outreach.subject": "Temat",
+  "outreach.message": "Wiadomość",
+  "outreach.to": "Do",
+  "outreach.lastError": "Ostatni błąd wysyłki",
+  "outreach.editTitle": "Edytuj i ponownie sprawdź szkic",
+  "outreach.reviewSend": "Sprawdź wysyłkę",
+  "outreach.markReplied": "Oznacz odpowiedź",
+  "outreach.reviewSendTitle": "Sprawdź dokładną wiadomość",
+  "outreach.reviewFollowUpTitle": "Sprawdź dokładny follow-up",
+  "outreach.reviewSendDescription":
+    "Nic nie zostanie wysłane, dopóki nie zaznaczysz obu potwierdzeń i nie naciśniesz Wyślij teraz.",
+  "outreach.confirmRecipient":
+    "Sprawdziłem dokładnego odbiorcę i mam uzasadniony, trafny powód kontaktu.",
+  "outreach.confirmContent":
+    "Przeczytałem całą wiadomość. Nie zawiera kupowania ani wymiany linków, zmyślonej personalizacji ani obietnic pozycji.",
+  "outreach.sendNow": "Wyślij teraz",
+  "outreach.reviewFollowUp": "Sprawdź follow-up",
+  "outreach.followUpSent": "Wysłany",
   "outreach.dueAt": "Termin {time}",
-  "outreach.toast.saved": "Szkic zapisano i skierowano do ponownej akceptacji.", "outreach.toast.sent": "Wiadomość przyjęta do wysyłki.",
-  "outreach.toast.followUpSent": "Follow-up przyjęty do wysyłki.", "outreach.toast.suppressed": "Odbiorca wypisał się lub znajduje się na liście suppression.",
-  "outreach.toast.limit": "Osiągnięto limit outreach na 24 godziny.", "outreach.toast.notDue": "Termin tego follow-upu jeszcze nie nadszedł.",
-  "outreach.toast.notConfigured": "Realna wysyłka outreach nie jest jeszcze skonfigurowana.", "outreach.toast.sendFailed": "Nie udało się wysłać wiadomości. Sprawdź szkic i spróbuj ponownie.",
+  "outreach.toast.saved": "Szkic zapisano i skierowano do ponownej akceptacji.",
+  "outreach.toast.sent": "Wiadomość przyjęta do wysyłki.",
+  "outreach.toast.followUpSent": "Follow-up przyjęty do wysyłki.",
+  "outreach.toast.suppressed": "Odbiorca wypisał się lub znajduje się na liście suppression.",
+  "outreach.toast.limit": "Osiągnięto limit outreach na 24 godziny.",
+  "outreach.toast.notDue": "Termin tego follow-upu jeszcze nie nadszedł.",
+  "outreach.toast.notConfigured": "Realna wysyłka outreach nie jest jeszcze skonfigurowana.",
+  "outreach.toast.sendFailed": "Nie udało się wysłać wiadomości. Sprawdź szkic i spróbuj ponownie.",
 
   // ---- Scheduled publishing ----
   "editor.schedule.failedTitle": "Zaplanowana publikacja nie powiodła się",
@@ -1126,10 +1368,13 @@ export const pl: Record<string, string> = {
   "editor.schedule.cancel": "Anuluj publikację",
   "editor.schedule.cancelled": "Publikacja anulowana. Wersja robocza została nietknięta.",
   "editor.schedule.armed": "Zaplanowane. Wyjdzie {when}.",
-  "editor.schedule.inFlight": "Ten artykuł właśnie jest publikowany i nie da się go już zatrzymać — możesz go zdjąć ze swojej strony.",
+  "editor.schedule.inFlight":
+    "Ten artykuł właśnie jest publikowany i nie da się go już zatrzymać — możesz go zdjąć ze swojej strony.",
   "editor.schedule.needsApproval": "Oznacz artykuł jako gotowy, zanim zaplanujesz publikację.",
-  "editor.schedule.overdue": "To miało wyjść {when} i nie wyszło. Sprawdź ustawienia połączenia i zaplanuj ponownie.",
-  "editor.schedule.hint": "Zatwierdzenie nigdy nie publikuje. Nic nie wyjdzie na żywo, dopóki tego nie zaplanujesz albo nie opublikujesz teraz.",
+  "editor.schedule.overdue":
+    "To miało wyjść {when} i nie wyszło. Sprawdź ustawienia połączenia i zaplanuj ponownie.",
+  "editor.schedule.hint":
+    "Zatwierdzenie nigdy nie publikuje. Nic nie wyjdzie na żywo, dopóki tego nie zaplanujesz albo nie opublikujesz teraz.",
 
   // ---- Pipeline vocabulary (increment 3) ----
   "pipeline.stage.idea": "Pomysł",
@@ -1159,7 +1404,8 @@ export const pl: Record<string, string> = {
 
   // ---- Article Studio 3.0 — Hook panel (P1.2A) ----
   "hook.panel.title": "Hak otwierający",
-  "hook.panel.v3Note": "Artykuły Article Studio 3.0 wymagają zatwierdzonego haka otwierającego przed publikacją.",
+  "hook.panel.v3Note":
+    "Artykuły Article Studio 3.0 wymagają zatwierdzonego haka otwierającego przed publikacją.",
   "hook.provenance.generated": "Wygenerowany",
   "hook.provenance.edited": "Edytowany",
   "hook.approval.draft": "Szkic",
@@ -1180,16 +1426,22 @@ export const pl: Record<string, string> = {
   "hook.type.story": "Historia",
   "hook.type.result": "Wynik",
   "hook.type.promise": "Obietnica",
-  "hook.finding.unsupported-statistic": "Hak podaje statystykę lub wynik bez powiązanego dowodu. Dołącz źródło lub usuń liczbę.",
-  "hook.finding.explicit-guarantee": "Hak zawiera wyraźną gwarancję. Milo nie publikuje gwarancji — przeredaguj bez obietnicy rezultatów.",
-  "hook.finding.ymyl-unsupported": "Hak zawiera twierdzenie zdrowotne, finansowe lub prawne — zalecane jest źródło lub potwierdzenie przez człowieka (nie jest już wymagane do publikacji).",
-  "hook.finding.unsupported-testimonial": "Hak przedstawia wynik lub opinię klienta jako fakt bez podanego źródła. Dołącz dowód lub usuń twierdzenie.",
+  "hook.finding.unsupported-statistic":
+    "Hak podaje statystykę lub wynik bez powiązanego dowodu. Dołącz źródło lub usuń liczbę.",
+  "hook.finding.explicit-guarantee":
+    "Hak zawiera wyraźną gwarancję. Milo nie publikuje gwarancji — przeredaguj bez obietnicy rezultatów.",
+  "hook.finding.ymyl-unsupported":
+    "Hak zawiera twierdzenie zdrowotne, finansowe lub prawne — zalecane jest źródło lub potwierdzenie przez człowieka (nie jest już wymagane do publikacji).",
+  "hook.finding.unsupported-testimonial":
+    "Hak przedstawia wynik lub opinię klienta jako fakt bez podanego źródła. Dołącz dowód lub usuń twierdzenie.",
   "hook.finding.generic-filler": "Hak zaczyna się ogólnikiem. Zacznij od czegoś konkretnego.",
   "hook.finding.title-repetition": "Hak w większości powtarza tytuł. Nadaj mu odrębne ujęcie.",
-  "hook.finding.weak-relevance": "Hak ma niewielki związek z treścią artykułu. Powiąż go z treścią.",
+  "hook.finding.weak-relevance":
+    "Hak ma niewielki związek z treścią artykułu. Powiąż go z treścią.",
   "hook.finding.excessive-clickbait": "Hak brzmi jak clickbait. Stonuj przesadę.",
   "hook.finding.excessive-length": "Hak jest długi. Skróć go do zwięzłego wstępu.",
-  "hook.finding.testimonial-like": "Hak używa formy opinii bez kontekstu. Dodaj źródło lub przeredaguj.",
+  "hook.finding.testimonial-like":
+    "Hak używa formy opinii bez kontekstu. Dodaj źródło lub przeredaguj.",
   "hook.finding.overly-broad-promise": "Hak zawiera zbyt ogólną obietnicę. Uczyń ją konkretną.",
   "hook.resolution.edit-hook": "Edytuj hak",
   "hook.resolution.attach-evidence": "Dołącz dowód",
@@ -1199,7 +1451,8 @@ export const pl: Record<string, string> = {
   "hook.evidence.label": "Dowód",
   "hook.evidence.attach": "Dołącz zweryfikowane źródło",
   "hook.evidence.claimPlaceholder": "Które twierdzenie wspiera? (opcjonalnie)",
-  "hook.evidence.none": "Brak zweryfikowanych źródeł. Dodaj i zweryfikuj źródło w zakładce Źródła i autor, a potem dołącz je tutaj.",
+  "hook.evidence.none":
+    "Brak zweryfikowanych źródeł. Dodaj i zweryfikuj źródło w zakładce Źródła i autor, a potem dołącz je tutaj.",
   "hook.evidence.remove": "Usuń dowód",
   "hook.evidence.supportedBy": "Poparte przez",
   "hook.unsaved": "Niezapisane zmiany haka — użyj Zapisz.",
@@ -1228,7 +1481,8 @@ export const pl: Record<string, string> = {
   "calsched.title.reschedule": "Przenieść publikację?",
   "calsched.readyHint": "„{title}” jest gotowy. Wybierz dokładną godzinę publikacji {date}.",
   "calsched.notReadyHint": "„{title}” nie może jeszcze zostać zaplanowany do publikacji:",
-  "calsched.rescheduleWarn": "Ta publikacja NIE POWIEDZIE SIĘ, jeśli powyższe problemy nie zostaną naprawione przed jej terminem.",
+  "calsched.rescheduleWarn":
+    "Ta publikacja NIE POWIEDZIE SIĘ, jeśli powyższe problemy nie zostaną naprawione przed jej terminem.",
   "calsched.timeLabel": "Godzina publikacji",
   "calsched.pastDay": "Ten dzień nie może już przyjąć publikacji — upuść na przyszły dzień.",
   "calsched.cancel": "Anuluj",
@@ -1279,7 +1533,8 @@ export const pl: Record<string, string> = {
 
   // ---- Obraz wyróżniający (P1.2B) ----
   "featured.title": "Obraz wyróżniający",
-  "featured.hint": "Jeden zatwierdzony obraz z kadrami hero/mobile — wymagany dla artykułów Article Studio 3.0.",
+  "featured.hint":
+    "Jeden zatwierdzony obraz z kadrami hero/mobile — wymagany dla artykułów Article Studio 3.0.",
   "featured.use": "Użyj „{concept}”",
   "featured.none": "Najpierw zatwierdź obraz w panelu Obrazy.",
   "featured.alt": "Tekst alternatywny (wymagany)",

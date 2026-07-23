@@ -69,7 +69,8 @@ export const da: Record<string, string> = {
   "onboarding.appLanguage": "Appsprog",
   "onboarding.contentLanguage": "Primært indholdssprog",
   "onboarding.websiteUrl": "Webadresse",
-  "onboarding.websiteHint": "Milo forsøger at læse din forside for at udfylde de næste trin på forhånd. Du kan også springe over og udfylde manuelt.",
+  "onboarding.websiteHint":
+    "Milo forsøger at læse din forside for at udfylde de næste trin på forhånd. Du kan også springe over og udfylde manuelt.",
   "onboarding.reading": "Læser dit websted…",
   "onboarding.prefilled": "Udfyldt på forhånd ud fra dit websted — rediger alt nedenfor.",
   "onboarding.businessName": "Virksomhedsnavn",
@@ -80,13 +81,16 @@ export const da: Record<string, string> = {
   "onboarding.targetLocations": "Mållokationer (adskilt med komma)",
   "onboarding.toneOfVoice": "Tone",
   "onboarding.brandNotes": "Brandnoter (hvad der skal undgås)",
-  "onboarding.servicesIntro": "Tilføj de ydelser eller produkter, du sælger. Du kan finjustere dem senere.",
+  "onboarding.servicesIntro":
+    "Tilføj de ydelser eller produkter, du sælger. Du kan finjustere dem senere.",
   "onboarding.addService": "Tilføj ydelse / produkt",
   "onboarding.serviceName": "Navn",
   "onboarding.serviceDesc": "Kort beskrivelse (valgfrit)",
-  "onboarding.competitorsIntro": "Valgfrit, men anbefalet — tilføj op til 3 konkurrentwebsteder, som Milo kan sammenligne dig med.",
+  "onboarding.competitorsIntro":
+    "Valgfrit, men anbefalet — tilføj op til 3 konkurrentwebsteder, som Milo kan sammenligne dig med.",
   "onboarding.goalsHint": "Vælg de resultater, der betyder mest. Du kan ændre dem senere.",
-  "onboarding.summaryIntro": "Gennemgå din opsætning. Milo opretter dit projekt og genererer et første fundament.",
+  "onboarding.summaryIntro":
+    "Gennemgå din opsætning. Milo opretter dit projekt og genererer et første fundament.",
   "onboarding.summary.market": "Marked",
   "onboarding.summary.language": "Sprog",
   "onboarding.summary.website": "Websted",
@@ -101,7 +105,8 @@ export const da: Record<string, string> = {
   "onboarding.toast.scanned": "Scannede dit websted — gennemgå oplysningerne",
   "onboarding.toast.scanFailed": "Kunne ikke læse webstedet — udfyld oplysningerne manuelt",
   "onboarding.toast.ready": "Din første vækstplan er klar",
-  "onboarding.toast.partial": "Opsætningen blev gemt. Nogle AI-trin blev ikke færdige — du kan køre dem fra hvert modul.",
+  "onboarding.toast.partial":
+    "Opsætningen blev gemt. Nogle AI-trin blev ikke færdige — du kan køre dem fra hvert modul.",
   "onboarding.toast.saveError": "Projektet kunne ikke gemmes. Prøv igen.",
 
   "setup.title": "Projektopsætning",
@@ -115,6 +120,26 @@ export const da: Record<string, string> = {
   "setup.section.markets": "Markeder og sprog",
   "setup.section.positioning": "Positionering",
   "setup.section.marketsGoals": "Markeder og mål",
+  "autoSched.title": "Månedlig autoplanlægger",
+  "autoSched.hint":
+    "Omkring den 25. planlægger Milo næste måned: artikler udarbejdes til dine valgte ugedage inden for planens månedlige kvote, interne links matches mod dine rigtige sider, og hver artikel forberedes med en godkendt indledende hook.",
+  "autoSched.enable": "Udfyld næste måneds kalender automatisk",
+  "autoSched.weekdays": "Udgivelsesdage",
+  "autoSched.publishTime": "Udgivelsestidspunkt",
+  "autoSched.timeZone": "Tidszone",
+  "autoSched.mode": "Tilstand",
+  "autoSched.modeAuto": "Udgiv automatisk",
+  "autoSched.modeApprove": "Vent på min godkendelse",
+  "autoSched.modeHint":
+    "”Vent på min godkendelse” udgiver aldrig noget: udkast venter som færdige artikler, og du aktiverer dem fra kalenderen. ”Udgiv automatisk” planlægger rigtige udgivelser i hvert slot.",
+  "autoSched.summaryEmail": "Opsummeringsmail (valgfrit)",
+  "autoSched.day.1": "Man",
+  "autoSched.day.2": "Tir",
+  "autoSched.day.3": "Ons",
+  "autoSched.day.4": "Tor",
+  "autoSched.day.5": "Fre",
+  "autoSched.day.6": "Lør",
+  "autoSched.day.7": "Søn",
   "setup.markets.market": "Marked / land",
   "setup.markets.currency": "Valuta",
   "setup.markets.appLanguage": "Appsprog",
@@ -127,7 +152,8 @@ export const da: Record<string, string> = {
 
   "dashboard.title": "Oversigt",
   "dashboard.welcomeTitle": "Velkommen til Milo Growth",
-  "dashboard.welcomeDesc": "Dit arbejdsområde er tomt. Opret dit første projekt for at starte din månedlige vækstplan.",
+  "dashboard.welcomeDesc":
+    "Dit arbejdsområde er tomt. Opret dit første projekt for at starte din månedlige vækstplan.",
   "dashboard.createFirst": "Opret første projekt",
   "dashboard.generateOpps": "Generer SEO-muligheder",
   "dashboard.createNew": "Opret nyt projekt",
@@ -140,7 +166,8 @@ export const da: Record<string, string> = {
   "dashboard.recentContent": "Seneste indhold",
   "dashboard.latestAssets": "Seneste materialer",
   "dashboard.openEditor": "Åbn redigering",
-  "dashboard.noContent": "Intet indhold endnu. Generer en mulighed og opret en brief eller kladde for at komme i gang.",
+  "dashboard.noContent":
+    "Intet indhold endnu. Generer en mulighed og opret en brief eller kladde for at komme i gang.",
   "dashboard.thisWeek": "Denne uge",
   "dashboard.languages": "Sprog",
   "dashboard.targetLocations": "Mållokationer",
@@ -150,7 +177,8 @@ export const da: Record<string, string> = {
   "editor.title": "Indholdsredigering",
   "editor.subtitle": "Forfin, godkend og eksportér AI-kladder.",
   "editor.assets": "Materialer",
-  "editor.aiReviewNote": "AI-genereret kladde. Gennemgå før udgivelse — især påstande, priser, medicinske/juridiske/finansielle oplysninger og lokale regler.",
+  "editor.aiReviewNote":
+    "AI-genereret kladde. Gennemgå før udgivelse — især påstande, priser, medicinske/juridiske/finansielle oplysninger og lokale regler.",
   "editor.noAssetSelectedTitle": "Intet materiale valgt",
   "editor.status": "Status",
   "status.Draft": "Kladde",
@@ -176,26 +204,32 @@ export const da: Record<string, string> = {
   "editor.publish.notPublished": "Ikke udgivet",
   "editor.publish.published": "Udgivet live",
   "editor.publish.liveFailed": "Live-udgivelse mislykkedes",
-  "editor.publish.connectHint": "Forbind et websted i Projektopsætning for at sende kladder direkte fra Milo.",
+  "editor.publish.connectHint":
+    "Forbind et websted i Projektopsætning for at sende kladder direkte fra Milo.",
   "editor.sendModal.title": "Send kladde til webstedet?",
-  "editor.sendModal.body": "Milo sender dette indhold til dit forbundne websted som en kladde. Det udgives ikke live automatisk.",
-  "editor.sendModal.unapproved": "Dette materiale er ikke godkendt endnu. Send alligevel som kladde?",
+  "editor.sendModal.body":
+    "Milo sender dette indhold til dit forbundne websted som en kladde. Det udgives ikke live automatisk.",
+  "editor.sendModal.unapproved":
+    "Dette materiale er ikke godkendt endnu. Send alligevel som kladde?",
   "editor.sendModal.destinationType": "Måltype",
   "editor.sendModal.slug": "Slug",
   "editor.sendModal.send": "Send kladde",
   "editor.sendModal.sending": "Sender…",
   "editor.liveModal.title": "Udgiv denne kladde live?",
-  "editor.liveModal.body": "Dette gør kladden offentligt tilgængelig på det forbundne websted. Udgiv først, når du har gennemgået indholdet.",
+  "editor.liveModal.body":
+    "Dette gør kladden offentligt tilgængelig på det forbundne websted. Udgiv først, når du har gennemgået indholdet.",
   "editor.liveModal.publish": "Udgiv live",
   "editor.liveModal.publishing": "Udgiver…",
 
   "analytics.title": "Analyse",
-  "analytics.subtitle": "Egen sporing af webstedets vækst — anonyme besøg, topsider, ydeevne for udgivet indhold og AI-relaterede signaler.",
+  "analytics.subtitle":
+    "Egen sporing af webstedets vækst — anonyme besøg, topsider, ydeevne for udgivet indhold og AI-relaterede signaler.",
   "analytics.refresh": "Opdater",
   "analytics.loading": "Indlæser analyse…",
   "analytics.errorTitle": "Kunne ikke indlæse analysen",
   "analytics.emptyTitle": "Ingen analysedata endnu",
-  "analytics.emptyDesc": "Tilføj sporingskoden til dit websted, så begynder Milo at vise besøg, topsider, ydeevne for udgivet indhold og AI-relaterede signaler.",
+  "analytics.emptyDesc":
+    "Tilføj sporingskoden til dit websted, så begynder Milo at vise besøg, topsider, ydeevne for udgivet indhold og AI-relaterede signaler.",
   "analytics.stat.visits30": "Besøg (30 d)",
   "analytics.stat.prev30": "Forrige 30 d",
   "analytics.stat.growth": "Vækst",
@@ -214,33 +248,41 @@ export const da: Record<string, string> = {
   "analytics.published.cta": "CTA",
   "analytics.published.booking": "Booking",
   "analytics.published.livePage": "Live-side",
-  "analytics.published.none": "Intet udgivet indhold matchet endnu. Udgiv indhold live fra redigeringen, så vises besøg på dets live-URL her.",
+  "analytics.published.none":
+    "Intet udgivet indhold matchet endnu. Udgiv indhold live fra redigeringen, så vises besøg på dets live-URL her.",
   "analytics.ai.heading": "AI-henvisningstrafik",
-  "analytics.ai.copy": "Besøg hvor henviseren viser, at den besøgende kom fra et AI-værktøj (f.eks. ChatGPT, Perplexity) — dette er AI-henvisningstrafik, ikke AI-omtaler eller citater. Tallet er undervurderet, fordi mange AI-værktøjer skjuler henviseren, og det betyder ikke, at din virksomhed omtales, citeres eller rangerer i de værktøjer. Robot-/bot-rækkerne nedenfor er separate aktivitetssignaler, ikke besøg.",
+  "analytics.ai.copy":
+    "Besøg hvor henviseren viser, at den besøgende kom fra et AI-værktøj (f.eks. ChatGPT, Perplexity) — dette er AI-henvisningstrafik, ikke AI-omtaler eller citater. Tallet er undervurderet, fordi mange AI-værktøjer skjuler henviseren, og det betyder ikke, at din virksomhed omtales, citeres eller rangerer i de værktøjer. Robot-/bot-rækkerne nedenfor er separate aktivitetssignaler, ikke besøg.",
   "analytics.ai.none": "Ingen AI-henvisningsbesøg registreret i de seneste 30 dage.",
   "analytics.ai.referral": "AI-henvisningsbesøg",
   "analytics.ai.crawler": "AI-robotaktivitet",
   "analytics.ai.searchBot": "AI-/søgerobotsignal",
   "analytics.setup.label": "Opsætning",
   "analytics.setup.heading": "Sporingskode",
-  "analytics.setup.addOnce": "Tilføj dette én gang i dit websteds head/body for at begynde at spore besøg.",
-  "analytics.privacy": "Milo Analytics bruger anonym besøgs- og hændelsessporing. Den gemmer ikke navne, e-mailadresser eller fulde IP-adresser.",
+  "analytics.setup.addOnce":
+    "Tilføj dette én gang i dit websteds head/body for at begynde at spore besøg.",
+  "analytics.privacy":
+    "Milo Analytics bruger anonym besøgs- og hændelsessporing. Den gemmer ikke navne, e-mailadresser eller fulde IP-adresser.",
   "analytics.setupFirst": "Opret et projekt først",
 
   // ---- Content Quality Engine / Milo Score ----
   "quality.title": "Milo Score",
   "quality.subtitle": "Score for udgivelsesparathed",
-  "quality.about": "Denne score vurderer, hvor klar kladden er til udgivelse ud fra struktur, klarhed, brandtilpasning, SEO/GEO-grundlag og sikre konverteringselementer.",
+  "quality.about":
+    "Denne score vurderer, hvor klar kladden er til udgivelse ud fra struktur, klarhed, brandtilpasning, SEO/GEO-grundlag og sikre konverteringselementer.",
   "quality.evaluate": "Vurdér kladde",
   "quality.reevaluate": "Vurdér igen",
   "quality.improve": "Forbedr kladde",
   "quality.evaluating": "Vurderer…",
   "quality.improving": "Forbedrer…",
-  "quality.empty": "Ingen Milo Score endnu. Vurdér kladden for at se udgivelsesparathed og forbedringsforslag.",
+  "quality.empty":
+    "Ingen Milo Score endnu. Vurdér kladden for at se udgivelsesparathed og forbedringsforslag.",
   "quality.needBody": "Tilføj indhold i kladden, før du vurderer.",
-  "quality.stale": "Kladden blev ændret efter sidste vurdering. Vurdér igen for at opdatere Milo Score.",
+  "quality.stale":
+    "Kladden blev ændret efter sidste vurdering. Vurdér igen for at opdatere Milo Score.",
   "quality.improved": "Kladden blev forbedret. Vurdér igen for at opdatere Milo Score.",
-  "quality.improveConfirm": "Milo forbedrer kladden ud fra de aktuelle forslag. Gennemgå resultatet før udgivelse.",
+  "quality.improveConfirm":
+    "Milo forbedrer kladden ud fra de aktuelle forslag. Gennemgå resultatet før udgivelse.",
   "quality.improveConfirmTitle": "Forbedr denne kladde?",
   "quality.breakdown": "Kategorioversigt",
   "quality.topIssues": "Største problemer",
@@ -252,7 +294,8 @@ export const da: Record<string, string> = {
   "quality.rec.reviewFirst": "Gennemgå først",
   "quality.rec.notReady": "Ikke klar",
   "quality.evaluatedAt": "Vurderet",
-  "quality.publishWarnNotReady": "Denne kladde er markeret som ikke klar. Gennemgå Milo Score-problemerne før udgivelse.",
+  "quality.publishWarnNotReady":
+    "Denne kladde er markeret som ikke klar. Gennemgå Milo Score-problemerne før udgivelse.",
   "quality.publishWarnNoScore": "Denne kladde er ikke vurderet endnu.",
   "quality.error": "Kunne ikke vurdere kladden. Prøv igen.",
   "quality.cat.structure": "Struktur",
@@ -266,20 +309,23 @@ export const da: Record<string, string> = {
 
   // ---- Brand Intelligence ----
   "brand.title": "Brandintelligens",
-  "brand.intro": "Milo bruger dette til at gøre fremtidigt indhold, scoring og forbedringer mere brandtro og sikrere. Alle felter er valgfrie.",
+  "brand.intro":
+    "Milo bruger dette til at gøre fremtidigt indhold, scoring og forbedringer mere brandtro og sikrere. Alle felter er valgfrie.",
   "brand.save": "Gem brandintelligens",
   "brand.saving": "Gemmer…",
   "brand.remove": "Fjern",
   "brand.listHint": "Én pr. linje eller kommasepareret.",
   "brand.toast.saved": "Brandintelligens gemt",
   "brand.section.voice": "Brandstemme",
-  "brand.voice.help": "Fortæl Milo, hvordan dit indhold skal lyde, og hvilke formuleringer der skal undgås.",
+  "brand.voice.help":
+    "Fortæl Milo, hvordan dit indhold skal lyde, og hvilke formuleringer der skal undgås.",
   "brand.voice.tone": "Tone",
   "brand.voice.styleNotes": "Stilnoter",
   "brand.voice.wordsToUse": "Ord at bruge",
   "brand.voice.wordsToAvoid": "Ord at undgå",
   "brand.section.claims": "Påstande og sikkerhed",
-  "brand.claims.help": "Brug dette til at forhindre usikre eller brandfremmede påstande i indholdet.",
+  "brand.claims.help":
+    "Brug dette til at forhindre usikre eller brandfremmede påstande i indholdet.",
   "brand.claims.allowed": "Tilladte påstande",
   "brand.claims.forbidden": "Forbudte påstande",
   "brand.claims.caveats": "Påkrævede forbehold",
@@ -323,8 +369,10 @@ export const da: Record<string, string> = {
   "analytics.v2.whatChanged": "Hvad ændrede sig",
   "analytics.v2.nextAction": "Næste skridt",
   "analytics.v2.publishedByMilo": "Udgivet af Milo",
-  "analytics.v2.publishedByMiloDesc": "Hvordan indholdet, du har udgivet med Milo, klarer sig, siden det gik live.",
-  "analytics.v2.publishedByMiloEmpty": "Ingen udgivne Milo-sider endnu. Udgiv et indhold for at begynde at måle resultater.",
+  "analytics.v2.publishedByMiloDesc":
+    "Hvordan indholdet, du har udgivet med Milo, klarer sig, siden det gik live.",
+  "analytics.v2.publishedByMiloEmpty":
+    "Ingen udgivne Milo-sider endnu. Udgiv et indhold for at begynde at måle resultater.",
   "analytics.v2.topGrowing": "Sider i størst vækst",
   "analytics.v2.needsAttention": "Kræver opmærksomhed",
   "analytics.v2.needsAttentionEmpty": "Intet kræver opmærksomhed lige nu.",
@@ -352,33 +400,45 @@ export const da: Record<string, string> = {
   "analytics.issue.noClicks": "Visninger men ingen klik",
   "analytics.issue.lowConversion": "Lav konvertering",
   "analytics.issue.lowQuality": "Lavt Milo Score",
-  "analytics.next.installSnippet": "Installer Milo Analytics-snippet, og besøg dit website for at teste sporing.",
-  "analytics.next.addInternalLinks": "Tilføj interne links til dit nye indhold, og del siden fra dine vigtigste servicesider.",
+  "analytics.next.installSnippet":
+    "Installer Milo Analytics-snippet, og besøg dit website for at teste sporing.",
+  "analytics.next.addInternalLinks":
+    "Tilføj interne links til dit nye indhold, og del siden fra dine vigtigste servicesider.",
   "analytics.next.improveCta": "Forbedr CTA, og gør næste skridt tydeligere.",
-  "analytics.next.keepMonitoring": "Dit indhold skaber engagement. Hold øje, og overvej at lave en understøttende artikel.",
-  "analytics.next.aiClarity": "Du har AI-relaterede signaler. Bliv ved med at forbedre klare svar, FAQ-dækning og brand-/entitetsklarhed.",
+  "analytics.next.keepMonitoring":
+    "Dit indhold skaber engagement. Hold øje, og overvej at lave en understøttende artikel.",
+  "analytics.next.aiClarity":
+    "Du har AI-relaterede signaler. Bliv ved med at forbedre klare svar, FAQ-dækning og brand-/entitetsklarhed.",
 
   // ---- GSC Lite / SEO Proof Import ----
   "gsc.title": "Search Console Lite",
-  "gsc.subtitle": "Importér en CSV-eksport fra Google Search Console for at koble søgevisninger og klik til dit Milo-udgivne indhold.",
+  "gsc.subtitle":
+    "Importér en CSV-eksport fra Google Search Console for at koble søgevisninger og klik til dit Milo-udgivne indhold.",
   "gsc.file": "CSV-fil",
   "gsc.label": "Etiket / datointerval",
   "gsc.labelPlaceholder": "f.eks. maj 2026",
   "gsc.import": "Importér",
   "gsc.importing": "Importerer…",
-  "gsc.helper": "Milo understøtter manuel CSV-import og valgfri OAuth-synk med Google Search Console.",
-  "gsc.privacy": "Importerede data gemmes i dit Milo-arbejdsområde og bruges kun til at vise SEO-resultater i dette projekt.",
-  "gsc.empty": "Ingen Search Console-data endnu. Forbind Google Search Console ovenfor, eller eksportér en CSV og upload den her for at tilføje SEO-bevis.",
+  "gsc.helper":
+    "Milo understøtter manuel CSV-import og valgfri OAuth-synk med Google Search Console.",
+  "gsc.privacy":
+    "Importerede data gemmes i dit Milo-arbejdsområde og bruges kun til at vise SEO-resultater i dette projekt.",
+  "gsc.empty":
+    "Ingen Search Console-data endnu. Forbind Google Search Console ovenfor, eller eksportér en CSV og upload den her for at tilføje SEO-bevis.",
   "gsc.sourceApi": "API-synk",
   "gsc.sourceCsv": "CSV-import",
   "gsc.csvHeading": "Manuel CSV-import",
-  "gsc.csvFallbackNote": "Manuel CSV-import er altid tilgængelig. OAuth-synk lader Milo hente Search Console-data direkte, når du har forbundet en verificeret ejendom.",
+  "gsc.csvFallbackNote":
+    "Manuel CSV-import er altid tilgængelig. OAuth-synk lader Milo hente Search Console-data direkte, når du har forbundet en verificeret ejendom.",
   "gsc.oauth.title": "Google Search Console-synk",
-  "gsc.oauth.notConfigured": "Google Search Console-synk er ikke konfigureret endnu. Du kan stadig bruge manuel CSV-import.",
+  "gsc.oauth.notConfigured":
+    "Google Search Console-synk er ikke konfigureret endnu. Du kan stadig bruge manuel CSV-import.",
   "gsc.oauth.ownerSetup.title": "Engangsopsætning for ejeren",
-  "gsc.oauth.ownerSetup.intro": "Forbind-knappen vises for alle brugere, når disse produktionshemmeligheder er sat i Lovable Cloud (Settings → Secrets):",
+  "gsc.oauth.ownerSetup.intro":
+    "Forbind-knappen vises for alle brugere, når disse produktionshemmeligheder er sat i Lovable Cloud (Settings → Secrets):",
   "gsc.oauth.ownerSetup.docs": "Fuld guide: docs/GSC-OAUTH-SETUP.md i repoet.",
-  "gsc.oauth.consent": "Milo anmoder om skrivebeskyttet adgang til Search Console. Du kan afbryde når som helst. Vi bruger disse data til at vise søgeresultater og indholdsmuligheder i dit Milo-arbejdsområde.",
+  "gsc.oauth.consent":
+    "Milo anmoder om skrivebeskyttet adgang til Search Console. Du kan afbryde når som helst. Vi bruger disse data til at vise søgeresultater og indholdsmuligheder i dit Milo-arbejdsområde.",
   "gsc.oauth.connect": "Forbind Google Search Console",
   "gsc.oauth.disconnect": "Afbryd Google Search Console",
   "gsc.oauth.reconnect": "Forbind igen",
@@ -394,9 +454,12 @@ export const da: Record<string, string> = {
   "gsc.oauth.sync90": "Synk seneste 90 dage",
   "gsc.oauth.lastSync": "Seneste synk",
   "gsc.oauth.rows": "rækker",
-  "gsc.oauth.readOnlyNote": "Skrivebeskyttet adgang. Milo ændrer aldrig dine Search Console-indstillinger og bruger aldrig andre Google-tjenester.",
-  "gsc.oauth.expired": "Din Google-forbindelse er udløbet. Forbind igen for at fortsætte. Manuel CSV-import er fortsat tilgængelig.",
-  "gsc.oauth.errorState": "Der opstod et problem med Google-forbindelsen. Forbind igen for at fortsætte. Manuel CSV-import er fortsat tilgængelig.",
+  "gsc.oauth.readOnlyNote":
+    "Skrivebeskyttet adgang. Milo ændrer aldrig dine Search Console-indstillinger og bruger aldrig andre Google-tjenester.",
+  "gsc.oauth.expired":
+    "Din Google-forbindelse er udløbet. Forbind igen for at fortsætte. Manuel CSV-import er fortsat tilgængelig.",
+  "gsc.oauth.errorState":
+    "Der opstod et problem med Google-forbindelsen. Forbind igen for at fortsætte. Manuel CSV-import er fortsat tilgængelig.",
   "gsc.oauth.connectedToast": "Google Search Console forbundet.",
   "gsc.oauth.deniedToast": "Google-login blev annulleret.",
   "gsc.oauth.errorToast": "Kunne ikke forbinde Google Search Console.",
@@ -410,7 +473,8 @@ export const da: Record<string, string> = {
   "gsc.oauth.status.expired": "Udløbet",
   "gsc.oauth.status.error": "Fejl",
   "gsc.oauth.status.notConfigured": "Ikke konfigureret",
-  "gsc.caution": "Search Console-data afspejler Google Søgning-resultater for det importerede datointerval. Det garanterer ikke fremtidige placeringer eller trafik.",
+  "gsc.caution":
+    "Search Console-data afspejler Google Søgning-resultater for det importerede datointerval. Det garanterer ikke fremtidige placeringer eller trafik.",
   "gsc.stat.clicks": "Google-klik",
   "gsc.stat.impressions": "Google-visninger",
   "gsc.stat.ctr": "Gennemsnitlig CTR",
@@ -418,7 +482,8 @@ export const da: Record<string, string> = {
   "gsc.stat.topQuery": "Bedste søgning",
   "gsc.stat.topPage": "Bedste side",
   "gsc.matched.heading": "Milo-udgivne sider i Search Console",
-  "gsc.matched.queryOnly": "Denne import indeholder kun data på søgeordsniveau, så Milo kan ikke matche den til specifikke udgivne sider.",
+  "gsc.matched.queryOnly":
+    "Denne import indeholder kun data på søgeordsniveau, så Milo kan ikke matche den til specifikke udgivne sider.",
   "gsc.col.page": "Side",
   "gsc.col.query": "Søgning",
   "gsc.col.ctr": "CTR",
@@ -433,8 +498,10 @@ export const da: Record<string, string> = {
   "gsc.delete": "Slet import",
   "gsc.toast.imported": "Importerede {rows} rækker",
   "gsc.toast.deleted": "Import slettet",
-  "gsc.warn.truncated": "Importerede 1000 rækker. Nogle rækker blev sprunget over for at holde arbejdsområdet hurtigt.",
-  "gsc.warn.queryOnly": "Denne import indeholder kun data på søgeordsniveau, så sidematchning er ikke tilgængelig.",
+  "gsc.warn.truncated":
+    "Importerede 1000 rækker. Nogle rækker blev sprunget over for at holde arbejdsområdet hurtigt.",
+  "gsc.warn.queryOnly":
+    "Denne import indeholder kun data på søgeordsniveau, så sidematchning er ikke tilgængelig.",
   "gsc.error.noFile": "Vælg en CSV-fil først.",
   "gsc.error.notCsv": "Vælg en .csv-fil.",
   "gsc.error.generic": "Kunne ikke importere denne CSV. Prøv igen.",
@@ -447,13 +514,17 @@ export const da: Record<string, string> = {
 
   // ---- Authority Builder v2 ----
   "authority.title": "Autoritetsbygger",
-  "authority.subtitle": "Find og spor sikre, relevante autoritetsmuligheder — kataloger, anmeldelsesprofiler, citeringer, partnere og PR.",
-  "authority.disclaimer": "Autoritetsmuligheder er forslag. Du er ansvarlig for at tjekke relevans, korrekthed, regler, katalogpolitikker og om kontakt er passende. Milo garanterer ikke links, placeringer, trafik eller indtægter.",
-  "authority.safeNote": "Autoritetsmuligheder hjælper med at opbygge tillids- og synlighedssignaler. De garanterer ikke placeringer eller trafik.",
+  "authority.subtitle":
+    "Find og spor sikre, relevante autoritetsmuligheder — kataloger, anmeldelsesprofiler, citeringer, partnere og PR.",
+  "authority.disclaimer":
+    "Autoritetsmuligheder er forslag. Du er ansvarlig for at tjekke relevans, korrekthed, regler, katalogpolitikker og om kontakt er passende. Milo garanterer ikke links, placeringer, trafik eller indtægter.",
+  "authority.safeNote":
+    "Autoritetsmuligheder hjælper med at opbygge tillids- og synlighedssignaler. De garanterer ikke placeringer eller trafik.",
   "authority.generate": "Generer autoritetsmuligheder",
   "authority.generating": "Genererer…",
   "authority.regenerate": "Generer flere",
-  "authority.empty": "Generer et sæt sikre, relevante idéer til at opbygge autoritet for din virksomhed — lokale kataloger, anmeldelsesprofiler, citeringer, partnerlinks, PR-vinkler og tillidssignaler.",
+  "authority.empty":
+    "Generer et sæt sikre, relevante idéer til at opbygge autoritet for din virksomhed — lokale kataloger, anmeldelsesprofiler, citeringer, partnerlinks, PR-vinkler og tillidssignaler.",
   "authority.summary.total": "Muligheder i alt",
   "authority.summary.live": "Aktive signaler",
   "authority.summary.inProgress": "I gang",
@@ -462,7 +533,8 @@ export const da: Record<string, string> = {
   "authority.summary.review": "Anmeldelse / citering",
   "authority.tracker": "Autoritetstracker",
   "authority.liveSignals": "Aktive autoritetssignaler",
-  "authority.liveNote": "Følg fremtidige ændringer i Analytics og GSC Lite for at se, om synlighedssignalerne forbedres over tid.",
+  "authority.liveNote":
+    "Følg fremtidige ændringer i Analytics og GSC Lite for at se, om synlighedssignalerne forbedres over tid.",
   "authority.viewLive": "Se aktivt link",
   "authority.none": "Ingen muligheder matcher dine filtre.",
   "authority.search": "Søg…",
@@ -522,13 +594,17 @@ export const da: Record<string, string> = {
 
   // ---- AI Evaluation (internal) ----
   "aiEval.title": "AI-evaluering",
-  "aiEval.subtitle": "Sammenlign den eksisterende model og en kandidatmodel på rigtige Milo-opgaver.",
-  "aiEval.intro": "Brug dette interne værktøj til at sammenligne AI-modellers kvalitet på rigtige Milo-opgaver. Resultaterne er til produktudvikling og ændrer ikke produktionsadfærd, medmindre routing eksplicit opdateres.",
-  "aiEval.noAutoSwitch": "Milo skifter ikke automatisk model baseret på denne test. Brug resultaterne til senere at beslutte, hvilke opgaver der skal bruge hvilken model.",
+  "aiEval.subtitle":
+    "Sammenlign den eksisterende model og en kandidatmodel på rigtige Milo-opgaver.",
+  "aiEval.intro":
+    "Brug dette interne værktøj til at sammenligne AI-modellers kvalitet på rigtige Milo-opgaver. Resultaterne er til produktudvikling og ændrer ikke produktionsadfærd, medmindre routing eksplicit opdateres.",
+  "aiEval.noAutoSwitch":
+    "Milo skifter ikke automatisk model baseret på denne test. Brug resultaterne til senere at beslutte, hvilke opgaver der skal bruge hvilken model.",
   "aiEval.existingModel": "Eksisterende model",
   "aiEval.candidateModel": "Kandidatmodel",
   "aiEval.notConfigured": "Ikke konfigureret",
-  "aiEval.notConfiguredHelp": "Kandidatmodellen er ikke konfigureret. Tilføj den nødvendige server-miljønøgle for at køre sammenligninger.",
+  "aiEval.notConfiguredHelp":
+    "Kandidatmodellen er ikke konfigureret. Tilføj den nødvendige server-miljønøgle for at køre sammenligninger.",
   "aiEval.task": "Opgave",
   "aiEval.taskType.contentGeneration": "Indholdsgenerering",
   "aiEval.taskType.contentImprove": "Forbedr kladde",
@@ -558,12 +634,14 @@ export const da: Record<string, string> = {
   // ---- Free AI Visibility Readiness Audit (public) ----
   "publicAudit.badge": "Gratis tjek",
   "publicAudit.title": "Gratis tjek af AI-synlighedsparathed",
-  "publicAudit.subtitle": "Se hvor tydeligt dit website forklarer din virksomhed for moderne søgemaskiner og AI-assisterede værktøjer.",
+  "publicAudit.subtitle":
+    "Se hvor tydeligt dit website forklarer din virksomhed for moderne søgemaskiner og AI-assisterede værktøjer.",
   "publicAudit.run": "Kør gratis tjek",
   "publicAudit.running": "Tjekker…",
   "publicAudit.helper": "Intet login krævet for det første resultat.",
   "publicAudit.safeNote": "Dette er et parathedstjek, ikke et tjek af live-placeringer.",
-  "publicAudit.privacy": "Milo læser kun offentligt tilgængeligt webindhold til dette tjek. Indtast ikke private, adgangskodebeskyttede eller følsomme URL'er.",
+  "publicAudit.privacy":
+    "Milo læser kun offentligt tilgængeligt webindhold til dette tjek. Indtast ikke private, adgangskodebeskyttede eller følsomme URL'er.",
   "publicAudit.invalidUrl": "Indtast en gyldig webadresse (for eksempel: dinvirksomhed.dk).",
   "publicAudit.genericError": "Noget gik galt. Prøv igen.",
   "publicAudit.loading.fetching": "Henter website",
@@ -592,7 +670,8 @@ export const da: Record<string, string> = {
   "publicAudit.yes": "Ja",
   "publicAudit.no": "Nej",
   "publicAudit.ctaTitle": "Gør det til en vækstplan",
-  "publicAudit.ctaBody": "Opret et gratis Milo-projekt for at omdanne disse anbefalinger til en struktureret månedlig vækstplan.",
+  "publicAudit.ctaBody":
+    "Opret et gratis Milo-projekt for at omdanne disse anbefalinger til en struktureret månedlig vækstplan.",
   "publicAudit.cta": "Opret et gratis Milo-projekt",
   "publicAudit.ctaSecondary": "Kør et nyt tjek",
   "publicAudit.cat.entityClarity": "Virksomheds-/entitetsklarhed",
@@ -615,29 +694,39 @@ export const da: Record<string, string> = {
   "wp.page": "Side",
   "wp.appPassword": "Applikationsadgangskode",
   "wp.appPasswordSaved": "•••••• gemt — lad stå tomt for at beholde",
-  "wp.appPasswordHelp": "Opret en applikationsadgangskode i din WordPress-brugerprofil, og indsæt den her. Milo bruger den på serversiden til at oprette kladder og udgive via WordPress REST API.",
-  "wp.security": "Din applikationsadgangskode vises aldrig igen efter at være gemt. Du kan udskifte den når som helst.",
-  "wp.minPerms": "Brug en dedikeret WordPress-bruger eller applikationsadgangskode med de færrest mulige tilladelser til at oprette og udgive indhold.",
+  "wp.appPasswordHelp":
+    "Opret en applikationsadgangskode i din WordPress-brugerprofil, og indsæt den her. Milo bruger den på serversiden til at oprette kladder og udgive via WordPress REST API.",
+  "wp.security":
+    "Din applikationsadgangskode vises aldrig igen efter at være gemt. Du kan udskifte den når som helst.",
+  "wp.minPerms":
+    "Brug en dedikeret WordPress-bruger eller applikationsadgangskode med de færrest mulige tilladelser til at oprette og udgive indhold.",
   "wp.test": "Test forbindelse",
   "wp.testing": "Tester…",
   "wp.testOk": "Forbundet til WordPress.",
-  "wp.testFail": "Kunne ikke forbinde til WordPress. Tjek webstedets URL og applikationsadgangskoden.",
-  "wp.reviewNote": "Gennemgå alt indhold før udgivelse. Milo kan sende kladder til WordPress, men du er ansvarlig for at tjekke nøjagtighed, påstande, formatering, links og overholdelse.",
+  "wp.testFail":
+    "Kunne ikke forbinde til WordPress. Tjek webstedets URL og applikationsadgangskoden.",
+  "wp.reviewNote":
+    "Gennemgå alt indhold før udgivelse. Milo kan sende kladder til WordPress, men du er ansvarlig for at tjekke nøjagtighed, påstande, formatering, links og overholdelse.",
 
   // ---- Shopify connector ----
   "shopify.shopify": "Shopify",
-  "shopify.intro": "Forbind en Shopify-butik for at udgive Milo-indhold som blogartikler. Milo sender først artikler til en Shopify-blog som ikke-udgivne kladder og udgiver dem derefter live, når du godkender.",
+  "shopify.intro":
+    "Forbind en Shopify-butik for at udgive Milo-indhold som blogartikler. Milo sender først artikler til en Shopify-blog som ikke-udgivne kladder og udgiver dem derefter live, når du godkender.",
   "shopify.shopDomain": "Butiksdomæne",
   "shopify.shopDomainHelp": "Dit butiksdomæne, f.eks. minbutik.myshopify.com.",
   "shopify.token": "Admin API-adgangstoken",
   "shopify.tokenSaved": "•••••• gemt — lad være tom for at beholde",
-  "shopify.tokenHelp": "Opret en brugerdefineret app i din Shopify-admin (Indstillinger → Apps og salgskanaler → Udvikl apps), giv den tilladelse til blogs og artikler, og indsæt dens Admin API-adgangstoken her. Milo bruger den på serversiden via Shopify Admin API.",
-  "shopify.security": "Dit adgangstoken vises aldrig igen efter lagring og bruges kun på serversiden. Du kan udskifte det når som helst.",
-  "shopify.minPerms": "Giv kun indholdstilladelser (læs/skriv blogs og artikler). Milo tilgår aldrig ordrer, kunder, produkter eller betalingsdata.",
+  "shopify.tokenHelp":
+    "Opret en brugerdefineret app i din Shopify-admin (Indstillinger → Apps og salgskanaler → Udvikl apps), giv den tilladelse til blogs og artikler, og indsæt dens Admin API-adgangstoken her. Milo bruger den på serversiden via Shopify Admin API.",
+  "shopify.security":
+    "Dit adgangstoken vises aldrig igen efter lagring og bruges kun på serversiden. Du kan udskifte det når som helst.",
+  "shopify.minPerms":
+    "Giv kun indholdstilladelser (læs/skriv blogs og artikler). Milo tilgår aldrig ordrer, kunder, produkter eller betalingsdata.",
   "shopify.test": "Test forbindelse",
   "shopify.testing": "Tester…",
   "shopify.testOk": "Forbundet til Shopify.",
-  "shopify.testFail": "Kunne ikke forbinde til Shopify. Tjek butiksdomænet og Admin API-adgangstoken.",
+  "shopify.testFail":
+    "Kunne ikke forbinde til Shopify. Tjek butiksdomænet og Admin API-adgangstoken.",
   "shopify.refreshBlogs": "Indlæs blogs",
   "shopify.loadingBlogs": "Indlæser…",
   "shopify.blog": "Målblog",
@@ -650,12 +739,15 @@ export const da: Record<string, string> = {
   "shopify.tagsHelp": "Kommaseparerede tags, der anvendes på udgivne artikler.",
   "shopify.statusDraft": "kladde",
   "shopify.statusPublished": "udgivet",
-  "shopify.blogOnly": "Shopify understøtter kun blogartikler. Dette indhold udgives som en blogartikel.",
+  "shopify.blogOnly":
+    "Shopify understøtter kun blogartikler. Dette indhold udgives som en blogartikel.",
 
   // ---- Claude connector (MCP) ----
   "claude.title": "Claude-forbindelse (MCP)",
-  "claude.subtitle": "Forbind Milo til Claude som en MCP-forbindelse. Generér en forbindelsestoken, tilføj den i Claude Code eller Claude Desktop, og læs dine projekter, muligheder, indhold, Milo Score, revisioner, Search Console- og autoritetsdata direkte i Claude.",
-  "claude.accountNote": "Forbindelsen er på kontoniveau: én token giver Claude skrivebeskyttet adgang til alle projekter i dette arbejdsområde.",
+  "claude.subtitle":
+    "Forbind Milo til Claude som en MCP-forbindelse. Generér en forbindelsestoken, tilføj den i Claude Code eller Claude Desktop, og læs dine projekter, muligheder, indhold, Milo Score, revisioner, Search Console- og autoritetsdata direkte i Claude.",
+  "claude.accountNote":
+    "Forbindelsen er på kontoniveau: én token giver Claude skrivebeskyttet adgang til alle projekter i dette arbejdsområde.",
   "claude.endpoint": "MCP-slutpunkt",
   "claude.label": "Token-etiket",
   "claude.labelPlaceholder": "f.eks. Min laptop",
@@ -677,11 +769,13 @@ export const da: Record<string, string> = {
   "claude.createError": "Kunne ikke generere en token. Prøv igen.",
   "claude.tools": "Tilgængelige værktøjer (skrivebeskyttet)",
   "claude.securityTitle": "Sikkerhed",
-  "claude.security": "Skrivebeskyttet adgang til dine Milo-data. Tokens gemmes hashet, vises aldrig igen efter oprettelse og logges aldrig. Tilbagekald en token når som helst for at afbryde.",
+  "claude.security":
+    "Skrivebeskyttet adgang til dine Milo-data. Tokens gemmes hashet, vises aldrig igen efter oprettelse og logges aldrig. Tilbagekald en token når som helst for at afbryde.",
 
   // ---- Claude connected apps (OAuth) ----
   "claude.apps.title": "Forbundne apps",
-  "claude.apps.subtitle": "Apps forbundet til din Milo Growth-konto via Claude.ai. Du kan til enhver tid tilbagekalde adgangen.",
+  "claude.apps.subtitle":
+    "Apps forbundet til din Milo Growth-konto via Claude.ai. Du kan til enhver tid tilbagekalde adgangen.",
   "claude.apps.status.active": "Aktiv",
   "claude.apps.status.expired": "Udløbet",
   "claude.apps.status.revoked": "Tilbagekaldt",
@@ -690,7 +784,8 @@ export const da: Record<string, string> = {
   "claude.apps.unnamed": "Ukendt app",
   "claude.apps.revoke": "Tilbagekald adgang",
   "claude.apps.revokeTitle": "Afbryd Claude?",
-  "claude.apps.revokeBody": "Claude mister øjeblikkeligt adgangen til dine Milo Growth-data. Dine projekter og dit indhold påvirkes ikke — intet slettes. Du kan altid forbinde igen fra Claude.ai.",
+  "claude.apps.revokeBody":
+    "Claude mister øjeblikkeligt adgangen til dine Milo Growth-data. Dine projekter og dit indhold påvirkes ikke — intet slettes. Du kan altid forbinde igen fra Claude.ai.",
   "claude.apps.revoked": "Adgang tilbagekaldt.",
   "claude.apps.revokeError": "Adgangen kunne ikke tilbagekaldes. Prøv igen.",
   "claude.apps.loadError": "Forbundne apps kunne ikke indlæses.",
@@ -701,10 +796,12 @@ export const da: Record<string, string> = {
   "connect.title": "Forbind Milo Growth til Claude",
   "connect.write.badge": "Læse- og skriveadgang",
   "connect.write.title": "Skriverettigheder",
-  "connect.write.warning": "Denne forbindelse vil kunne oprette og redigere indhold, opgaver og projektanbefalinger i dit Milo-arbejdsområde. Den kan aldrig udgive eller slette noget.",
+  "connect.write.warning":
+    "Denne forbindelse vil kunne oprette og redigere indhold, opgaver og projektanbefalinger i dit Milo-arbejdsområde. Den kan aldrig udgive eller slette noget.",
   "connect.propose.badge": "Læse- og forslagsadgang",
   "connect.propose.title": "Forslagstilladelser",
-  "connect.propose.warning": "Denne forbindelse kan foreslå ændringer til din godkendelse. Intet anvendes, før du godkender det i Milo. Den kan aldrig godkende sine egne forslag og kan aldrig udgive, slette noget eller ændre indstillinger eller fakturering.",
+  "connect.propose.warning":
+    "Denne forbindelse kan foreslå ændringer til din godkendelse. Intet anvendes, før du godkender det i Milo. Den kan aldrig godkende sine egne forslag og kan aldrig udgive, slette noget eller ændre indstillinger eller fakturering.",
   "connect.intro": "Claude anmoder om skrivebeskyttet adgang til dit Milo Growth-arbejdsområde.",
   "connect.requestedBy": "Anmodet af",
   "connect.account": "Logget ind som",
@@ -738,7 +835,8 @@ export const da: Record<string, string> = {
   "billing.title": "Fakturering & plan",
   "billing.subtitle": "Administrer din plan, faktureringsprofil og tilføjelser.",
   "billing.owner.title": "Ejerkonto",
-  "billing.owner.desc": "Du har ubegrænsede projekter og ingen fakturering. Denne konto omgår planbegrænsninger.",
+  "billing.owner.desc":
+    "Du har ubegrænsede projekter og ingen fakturering. Denne konto omgår planbegrænsninger.",
   "billing.currentPlan": "Nuværende plan",
   "billing.status": "Status",
   "billing.billingMarket": "Faktureringsmarked",
@@ -768,16 +866,22 @@ export const da: Record<string, string> = {
   "billing.assistedSetup": "Assisted Setup",
   "billing.monthlyCare": "Monthly Care",
   "billing.oneTime": "engang",
-  "billing.checkoutNotConfigured": "Betaling er ikke konfigureret endnu. Kontakt support for at aktivere denne plan.",
+  "billing.checkoutNotConfigured":
+    "Betaling er ikke konfigureret endnu. Kontakt support for at aktivere denne plan.",
   "billing.contactSupport": "Kontakt support",
-  "billing.checkoutPendingMsg": "Betaling påbegyndt. Planen aktiveres, når betalingen er bekræftet.",
-  "billing.rulesNote": "Dit faktureringsmarked er baseret på din virksomheds- eller faktureringsland. At skifte webstedets sprog eller region ændrer ikke prisberettigelsen.",
-  "billing.taxNote": "Milo understøtter både virksomheds- og privatkunder. Skatte- og fakturaoplysninger kan variere efter land og kan kræve gennemgang før offentlig lancering.",
-  "billing.paddleNote": "Paddle bruges til sikker betaling og skattehåndtering, hvor det er konfigureret.",
+  "billing.checkoutPendingMsg":
+    "Betaling påbegyndt. Planen aktiveres, når betalingen er bekræftet.",
+  "billing.rulesNote":
+    "Dit faktureringsmarked er baseret på din virksomheds- eller faktureringsland. At skifte webstedets sprog eller region ændrer ikke prisberettigelsen.",
+  "billing.taxNote":
+    "Milo understøtter både virksomheds- og privatkunder. Skatte- og fakturaoplysninger kan variere efter land og kan kræve gennemgang før offentlig lancering.",
+  "billing.paddleNote":
+    "Paddle bruges til sikker betaling og skattehåndtering, hvor det er konfigureret.",
   "billing.noGuarantee": "Ingen placeringer, trafik, indtægter eller AI-citeringer garanteres.",
   "billing.marketReview": "At ændre faktureringsland kan påvirke prisen og kræver gennemgang.",
   "billing.manual.title": "Manuel aktivering (kun ejer)",
-  "billing.manual.desc": "Aktivér en plan manuelt for fakturabetalte, beta- eller gratis konti. Vises ikke for almindelige brugere.",
+  "billing.manual.desc":
+    "Aktivér en plan manuelt for fakturabetalte, beta- eller gratis konti. Vises ikke for almindelige brugere.",
   "billing.manual.beta": "Aktivér som Manual beta",
   "billing.manual.comped": "Aktivér som Manual comped",
   "billing.manual.reset": "Nulstil til Free Preview",
@@ -791,7 +895,8 @@ export const da: Record<string, string> = {
 
   // ---- Launch checklist (Sprint 16) ----
   "launch.title": "Tjekliste til betalancering",
-  "launch.subtitle": "Følg parathed for opsætning, indhold, udgivelse, måling, autoritet og betaling for dette projekt.",
+  "launch.subtitle":
+    "Følg parathed for opsætning, indhold, udgivelse, måling, autoritet og betaling for dette projekt.",
   "launch.noProject": "Opret et projekt for at se din tjekliste.",
   "launch.betaNotesCta": "Betanoter",
   "launch.readiness": "Lanceringsparathed",
@@ -806,7 +911,8 @@ export const da: Record<string, string> = {
   "launch.section.authority": "Autoritet",
   "launch.section.billing": "Betaling & beta",
   "launch.item.businessProfile": "Virksomhedsprofil udfyldt",
-  "launch.item.businessProfile.desc": "Virksomhedsnavn og beskrivelse er angivet, så Milo har kontekst.",
+  "launch.item.businessProfile.desc":
+    "Virksomhedsnavn og beskrivelse er angivet, så Milo har kontekst.",
   "launch.item.websiteUrl": "Webadresse tilføjet",
   "launch.item.websiteUrl.desc": "Bruges til revisioner, analysematchning og udgivelse.",
   "launch.item.marketLanguage": "Marked & sprog valgt",
@@ -814,7 +920,8 @@ export const da: Record<string, string> = {
   "launch.item.services": "Tjenester eller produkter tilføjet",
   "launch.item.services.desc": "Fortæl Milo, hvad virksomheden faktisk sælger.",
   "launch.item.brandIntelligence": "Brand Intelligence påbegyndt",
-  "launch.item.brandIntelligence.desc": "Tone, påstande og tilbud holder indholdet brandtro og sikkert.",
+  "launch.item.brandIntelligence.desc":
+    "Tone, påstande og tilbud holder indholdet brandtro og sikkert.",
   "launch.item.opportunity": "Mindst én mulighed genereret",
   "launch.item.opportunity.desc": "Strukturerede synlighedsidéer forankret i virksomheden.",
   "launch.item.contentAsset": "Mindst ét indholdsaktiv genereret",
@@ -826,7 +933,8 @@ export const da: Record<string, string> = {
   "launch.item.connectorSelected": "Forbindelse valgt",
   "launch.item.connectorSelected.desc": "Vælg Custom, WordPress eller Shopify i Projektopsætning.",
   "launch.item.connectorConfigured": "Forbindelse konfigureret",
-  "launch.item.connectorConfigured.desc": "Legitimationsoplysninger eller slutpunkter er klar til udgivelse.",
+  "launch.item.connectorConfigured.desc":
+    "Legitimationsoplysninger eller slutpunkter er klar til udgivelse.",
   "launch.item.connectorTested": "Forbindelse testet (WordPress/Shopify)",
   "launch.item.connectorTested.desc": "Kør Test forbindelse, så udgivelse ikke fejler senere.",
   "launch.item.draftSent": "Mindst ét udkast sendt",
@@ -834,9 +942,11 @@ export const da: Record<string, string> = {
   "launch.item.publishedLive": "Mindst én side udgivet live",
   "launch.item.publishedLive.desc": "Udgiv et gennemgået udkast live fra Milo.",
   "launch.item.analyticsSnippet": "Analyse-snippet tilgængelig",
-  "launch.item.analyticsSnippet.desc": "Kopiér Milo-snippet fra Analyse og tilføj den til dit websted.",
+  "launch.item.analyticsSnippet.desc":
+    "Kopiér Milo-snippet fra Analyse og tilføj den til dit websted.",
   "launch.item.analyticsEvents": "Analysehændelser modtaget",
-  "launch.item.analyticsEvents.desc": "Besøg dit websted efter installation af snippet for at bekræfte sporing.",
+  "launch.item.analyticsEvents.desc":
+    "Besøg dit websted efter installation af snippet for at bekræfte sporing.",
   "launch.item.gscImport": "GSC Lite-import tilføjet",
   "launch.item.gscImport.desc": "Importér en Search Console-CSV for at forbinde visninger og klik.",
   "launch.item.publishedByMilo": "Data for udgivet-af-Milo tilgængelig",
@@ -844,15 +954,18 @@ export const da: Record<string, string> = {
   "launch.item.authorityGenerated": "Autoritetsmuligheder genereret",
   "launch.item.authorityGenerated.desc": "Sikre autoritetsopgaver som kataloger og partnerlinks.",
   "launch.item.authorityProgress": "Et autoritetspunkt planlagt eller live",
-  "launch.item.authorityProgress.desc": "Flyt en autoritetsopgave til planlagt, kontaktet eller live.",
+  "launch.item.authorityProgress.desc":
+    "Flyt en autoritetsopgave til planlagt, kontaktet eller live.",
   "launch.item.billingProfile": "Betalingsprofil udfyldt",
   "launch.item.billingProfile.desc": "Faktureringsland fastsætter dit prismarked.",
   "launch.item.planSelected": "Plan valgt (eller Free Preview)",
   "launch.item.planSelected.desc": "Free Preview er aktiv som standard — ingen betaling nødvendig.",
   "launch.item.betaStatus": "Beta- / comped- / afventende status synlig",
-  "launch.item.betaStatus.desc": "Manual beta-, comped- eller afventende betalingsstatus vises i Betaling.",
+  "launch.item.betaStatus.desc":
+    "Manual beta-, comped- eller afventende betalingsstatus vises i Betaling.",
   "launch.item.paddlePending": "Live-betalinger afventer (noteret)",
-  "launch.item.paddlePending.desc": "Paddle-aktivering sker efter virksomhedsopsætning — se Betanoter.",
+  "launch.item.paddlePending.desc":
+    "Paddle-aktivering sker efter virksomhedsopsætning — se Betanoter.",
   "launch.conn.website": "Websted",
   "launch.conn.website.ok": "Webadresse angivet.",
   "launch.conn.website.none": "Tilføj din webadresse i Projektopsætning.",
@@ -907,38 +1020,55 @@ export const da: Record<string, string> = {
 
   // ---- Beta notes (Sprint 16) ----
   "beta.title": "Betanoter",
-  "beta.subtitle": "Aktuelle begrænsninger og hvad der skal bekræftes før bredere selvbetjeningslancering.",
-  "beta.intro": "Milo er i assisteret beta. Punkterne nedenfor blokerer ikke guidede demoer eller assisteret onboarding, men bør bekræftes før en bredere betalt selvbetjeningslancering.",
+  "beta.subtitle":
+    "Aktuelle begrænsninger og hvad der skal bekræftes før bredere selvbetjeningslancering.",
+  "beta.intro":
+    "Milo er i assisteret beta. Punkterne nedenfor blokerer ikke guidede demoer eller assisteret onboarding, men bør bekræftes før en bredere betalt selvbetjeningslancering.",
   "beta.limitsTitle": "Aktuelle betabegrænsninger",
-  "beta.reassure": "Disse begrænsninger blokerer ikke assisterede betademoer, men bør bekræftes før bredere selvbetjeningslancering.",
+  "beta.reassure":
+    "Disse begrænsninger blokerer ikke assisterede betademoer, men bør bekræftes før bredere selvbetjeningslancering.",
   "beta.demoSafeTitle": "Demosikre noter",
   "beta.backToChecklist": "Tilbage til tjeklisten",
   "beta.openDemoScript": "Åbn demoskript",
-  "beta.limit.paddle": "Live Paddle-betalinger afventer virksomheds- og Paddle-kontoopsætning. Betalingsgrænsefladen og priserne er klar; aktivering er manuel indtil videre.",
-  "beta.limit.wordpress": "WordPress-forbindelsen er bygget, men skal stadig livetestes mod et rigtigt websted.",
-  "beta.limit.shopify": "Shopify-forbindelsen er bygget, men skal stadig livetestes mod en rigtig butik.",
-  "beta.limit.aiCandidate": "Den alternative AI-model (evalueringskandidat) kræver miljøkonfiguration for at køre.",
-  "beta.limit.legal": "Juridiske sider er betaparatheds-udkast og bør gennemgås før bredere betalt lancering.",
-  "beta.limit.analytics": "Analyse kræver, at Milo-snippet installeres på klientens websted for at modtage hændelser.",
-  "beta.limit.gsc": "GSC Lite understøtter manuel CSV-import og valgfri OAuth/API-synk, hvor Google OAuth er konfigureret. Manuel import er fortsat tilgængelig som reserve.",
+  "beta.limit.paddle":
+    "Live Paddle-betalinger afventer virksomheds- og Paddle-kontoopsætning. Betalingsgrænsefladen og priserne er klar; aktivering er manuel indtil videre.",
+  "beta.limit.wordpress":
+    "WordPress-forbindelsen er bygget, men skal stadig livetestes mod et rigtigt websted.",
+  "beta.limit.shopify":
+    "Shopify-forbindelsen er bygget, men skal stadig livetestes mod en rigtig butik.",
+  "beta.limit.aiCandidate":
+    "Den alternative AI-model (evalueringskandidat) kræver miljøkonfiguration for at køre.",
+  "beta.limit.legal":
+    "Juridiske sider er betaparatheds-udkast og bør gennemgås før bredere betalt lancering.",
+  "beta.limit.analytics":
+    "Analyse kræver, at Milo-snippet installeres på klientens websted for at modtage hændelser.",
+  "beta.limit.gsc":
+    "GSC Lite understøtter manuel CSV-import og valgfri OAuth/API-synk, hvor Google OAuth er konfigureret. Manuel import er fortsat tilgængelig som reserve.",
   "beta.limit.images": "Forbindelser udgiver tekst og HTML; de uploader ikke billeder i v1.",
-  "beta.demo.rankings": "Lov ikke placeringer, trafik eller garanterede AI-citater — Milo er AI-assisteret og gennemgået af mennesker.",
-  "beta.demo.payments": "Sig, at betalinger er arkitektonisk klar, men live-aktivering afventer virksomheds- og Paddle-opsætning.",
-  "beta.demo.connectors": "Sig, at WordPress- og Shopify-forbindelser kræver live end-to-end-test pr. websted.",
-  "beta.demo.data": "Sig, at analyse- og GSC-bevis afhænger af datatilgængelighed for demoprojektet.",
+  "beta.demo.rankings":
+    "Lov ikke placeringer, trafik eller garanterede AI-citater — Milo er AI-assisteret og gennemgået af mennesker.",
+  "beta.demo.payments":
+    "Sig, at betalinger er arkitektonisk klar, men live-aktivering afventer virksomheds- og Paddle-opsætning.",
+  "beta.demo.connectors":
+    "Sig, at WordPress- og Shopify-forbindelser kræver live end-to-end-test pr. websted.",
+  "beta.demo.data":
+    "Sig, at analyse- og GSC-bevis afhænger af datatilgængelighed for demoprojektet.",
 
   // ---- Pending Actions (Phase 1B) ----
   "common.loading": "Indlæser…",
   "nav.actions": "Foreslåede ændringer",
   "actions.title": "Foreslåede ændringer",
-  "actions.description": "Gennemgå ændringer, Claude har foreslået, før de påvirker dit arbejdsområde.",
-  "actions.safety": "Claude kan oprette forslag til gennemsyn. Intet anvendes, før du godkender det.",
+  "actions.description":
+    "Gennemgå ændringer, Claude har foreslået, før de påvirker dit arbejdsområde.",
+  "actions.safety":
+    "Claude kan oprette forslag til gennemsyn. Intet anvendes, før du godkender det.",
   "actions.filter.status": "Status",
   "actions.filter.allStatuses": "Alle statusser",
   "actions.filter.project": "Projekt",
   "actions.filter.allProjects": "Alle projekter",
   "actions.empty.title": "Ingen forslag endnu.",
-  "actions.empty.body": "Når Claude foreslår ændringer via forbindelsen, vises de her til din gennemgang.",
+  "actions.empty.body":
+    "Når Claude foreslår ændringer via forbindelsen, vises de her til din gennemgang.",
   "actions.status.pending": "Afventer",
   "actions.status.approved": "Godkendt",
   "actions.status.applied": "Anvendt",
@@ -957,7 +1087,8 @@ export const da: Record<string, string> = {
   "actions.card.showDetail": "Vis før / efter",
   "actions.card.hideDetail": "Skjul detaljer",
   "actions.detail.target": "Målmulighed",
-  "actions.detail.targetMissing": "Målmuligheden findes ikke længere — forslaget kan ikke anvendes, som det er.",
+  "actions.detail.targetMissing":
+    "Målmuligheden findes ikke længere — forslaget kan ikke anvendes, som det er.",
   "actions.detail.field": "Felt",
   "actions.detail.current": "Nuværende",
   "actions.detail.proposed": "Foreslået",
@@ -968,17 +1099,21 @@ export const da: Record<string, string> = {
   "actions.detail.stateNone": "Ingen ændring",
   "actions.detail.servicesToCreate": "Tjenester der oprettes",
   "actions.detail.opportunitiesToCreate": "Muligheder der oprettes",
-  "actions.detail.createDisclaimer": "Dette er foreslåede nye elementer. Ved godkendelse springes dubletter og alt ud over dit arbejdsområdes grænse over — de viste antal er ikke garanteret.",
+  "actions.detail.createDisclaimer":
+    "Dette er foreslåede nye elementer. Ved godkendelse springes dubletter og alt ud over dit arbejdsområdes grænse over — de viste antal er ikke garanteret.",
   "actions.detail.competitors": "Konkurrenter",
-  "actions.detail.projectMissing": "Dette projekt findes ikke længere — forslaget kan ikke anvendes som det er.",
+  "actions.detail.projectMissing":
+    "Dette projekt findes ikke længere — forslaget kan ikke anvendes som det er.",
   "actions.detail.none": "Ingen",
   "claude.apps.scope.needsApproval": "kræver din godkendelse",
 
   // ---- Pending Actions resolution (Phase 1B.5) ----
   "actions.resolve.approve": "Godkend & anvend",
   "actions.resolve.approveTitle": "Godkende dette forslag?",
-  "actions.resolve.approveBody": "Godkendelse anvender de foreslåede ændringer i dit arbejdsområde med det samme. Felter der ændres:",
-  "actions.resolve.approveBodySetup": "Godkendelse anvender straks de foreslåede projektfelter og opretter de kvalificerede tjenester og muligheder. Dubletter og alt ud over dit arbejdsområdes grænse springes over. Din status for fuldført opsætning ændres ikke. Claude kan ikke godkende eller anvende — kun du kan.",
+  "actions.resolve.approveBody":
+    "Godkendelse anvender de foreslåede ændringer i dit arbejdsområde med det samme. Felter der ændres:",
+  "actions.resolve.approveBodySetup":
+    "Godkendelse anvender straks de foreslåede projektfelter og opretter de kvalificerede tjenester og muligheder. Dubletter og alt ud over dit arbejdsområdes grænse springes over. Din status for fuldført opsætning ændres ikke. Claude kan ikke godkende eller anvende — kun du kan.",
   "actions.resolve.reject": "Afvis",
   "actions.resolve.rejectTitle": "Afvise dette forslag?",
   "actions.resolve.rejectBody": "Intet anvendes. Forslaget bliver i din historik som afvist.",
@@ -997,27 +1132,35 @@ export const da: Record<string, string> = {
   // ---- Backlinks v1 ----
   "nav.backlinks": "Backlinks",
   "backlinks.title": "Backlinks",
-  "backlinks.subtitle": "Rigtige linkdata for dit domæne — profilstyrke, linkgab mod konkurrenter og sikre linkbuilding-anbefalinger.",
-  "backlinks.disclaimer": "Linkdata kommer fra et eksternt linkindeks og er estimater — intet indeks ser alle links. Anbefalingerne er udelukkende white-hat: Milo foreslår aldrig linkordninger eller umærkede betalte links og garanterer ikke placeringer, trafik eller omsætning.",
+  "backlinks.subtitle":
+    "Rigtige linkdata for dit domæne — profilstyrke, linkgab mod konkurrenter og sikre linkbuilding-anbefalinger.",
+  "backlinks.disclaimer":
+    "Linkdata kommer fra et eksternt linkindeks og er estimater — intet indeks ser alle links. Anbefalingerne er udelukkende white-hat: Milo foreslår aldrig linkordninger eller umærkede betalte links og garanterer ikke placeringer, trafik eller omsætning.",
   "backlinks.run": "Kør linkanalyse",
   "backlinks.rerun": "Opdater analysen",
   "backlinks.running": "Analyserer…",
-  "backlinks.empty": "Kør en linkanalyse for at se dit domænes reelle linkprofil, sammenligningen med konkurrenter og hvilke domæner der linker til dem, men ikke til dig.",
+  "backlinks.empty":
+    "Kør en linkanalyse for at se dit domænes reelle linkprofil, sammenligningen med konkurrenter og hvilke domæner der linker til dem, men ikke til dig.",
   "backlinks.notConfigured.title": "Tilslut en linkdatakilde",
-  "backlinks.notConfigured.body": "Modulet bruger DataForSEO's linkindeks og er ikke tilsluttet endnu. Arbejdsområdets ejer skal oprette en DataForSEO-konto (pay-as-you-go) og tilføje DATAFORSEO_LOGIN og DATAFORSEO_PASSWORD som backend-hemmeligheder. Indtil da er linkdata utilgængelige.",
+  "backlinks.notConfigured.body":
+    "Modulet bruger DataForSEO's linkindeks og er ikke tilsluttet endnu. Arbejdsområdets ejer skal oprette en DataForSEO-konto (pay-as-you-go) og tilføje DATAFORSEO_LOGIN og DATAFORSEO_PASSWORD som backend-hemmeligheder. Indtil da er linkdata utilgængelige.",
   "backlinks.status.ready.title": "DataForSEO fungerer",
   "backlinks.status.ready.body": "Backlinks API er tilsluttet og svarer.",
   "backlinks.status.lowBalance.title": "DataForSEO-saldoen er lav",
   "backlinks.status.lowBalance.body": "Fyld snart op for at undgå afbrudte analyser.",
   "backlinks.status.paused.title": "Adgangen til DataForSEO er sat på pause",
-  "backlinks.status.paused.body": "Kontakt DataForSEO-support for at genaktivere kontoen før næste analyse.",
+  "backlinks.status.paused.body":
+    "Kontakt DataForSEO-support for at genaktivere kontoen før næste analyse.",
   "backlinks.status.error.title": "DataForSEO-status er ikke tilgængelig",
-  "backlinks.status.error.body": "Kontoen eller Backlinks API kunne ikke verificeres. Opdater status eller tjek udbyderens kontrolpanel.",
+  "backlinks.status.error.body":
+    "Kontoen eller Backlinks API kunne ikke verificeres. Opdater status eller tjek udbyderens kontrolpanel.",
   "backlinks.status.balance": "Saldo: {balance}.",
   "backlinks.status.refresh": "Opdater status",
   "backlinks.competitorsUsed": "Sammenlignede konkurrenter: {list}",
-  "backlinks.competitorsFromAnalysis": "Bruger konkurrenter fra den seneste konkurrentanalyse: {list}",
-  "backlinks.noCompetitors": "Ingen konkurrent-URL'er i projektet — analysen dækker kun din egen profil. Tilføj konkurrenter i projektopsætningen eller Konkurrenter-modulet for at låse linkgabet op.",
+  "backlinks.competitorsFromAnalysis":
+    "Bruger konkurrenter fra den seneste konkurrentanalyse: {list}",
+  "backlinks.noCompetitors":
+    "Ingen konkurrent-URL'er i projektet — analysen dækker kun din egen profil. Tilføj konkurrenter i projektopsætningen eller Konkurrenter-modulet for at låse linkgabet op.",
   "backlinks.lastRun": "Senest analyseret: {date}",
   "backlinks.score.overall": "Linkposition",
   "backlinks.score.profile": "Profilstyrke",
@@ -1036,11 +1179,14 @@ export const da: Record<string, string> = {
   "backlinks.table.notFetched": "Data kunne ikke hentes",
   "backlinks.you": "Dig",
   "backlinks.gapHeading": "Linkgab — de linker til konkurrenter, ikke til dig",
-  "backlinks.gapNote": "Domæner der linker til mindst én konkurrent, men ikke til dit domæne. Se dem som outreach-mål eller inspiration til hvilken type sider du bør kontakte.",
+  "backlinks.gapNote":
+    "Domæner der linker til mindst én konkurrent, men ikke til dit domæne. Se dem som outreach-mål eller inspiration til hvilken type sider du bør kontakte.",
   "backlinks.gap.linksTo": "Linker til",
-  "backlinks.gapEmpty": "Intet linkgab fundet — ingen konkurrenter blev hentet, eller der var ingen overlapning.",
+  "backlinks.gapEmpty":
+    "Intet linkgab fundet — ingen konkurrenter blev hentet, eller der var ingen overlapning.",
   "backlinks.referringHeading": "Stærkeste domæner der linker til dig",
-  "backlinks.referringEmpty": "Indekset har ikke fundet nogen henvisende domæner endnu — et ungt domæne starter ofte på nul.",
+  "backlinks.referringEmpty":
+    "Indekset har ikke fundet nogen henvisende domæner endnu — et ungt domæne starter ofte på nul.",
   "backlinks.recommendations": "Anbefalinger",
   "backlinks.effort": "Arbejdsindsats",
   "backlinks.target": "Mål / platform",
@@ -1058,39 +1204,149 @@ export const da: Record<string, string> = {
   "backlinks.category.directories": "Kataloger & profiler",
   "backlinks.category.linkHygiene": "Linkhygiejne",
   "nav.linkMarketplace": "Linkmarkedsplads",
-  "marketplace.title": "Sponsorerede udgivelser", "marketplace.subtitle": "Match backlink-muligheder med transparente, redaktionelt gennemgåede sponsorerede placeringer.",
-  "marketplace.disclosureTitle": "White-hat-markedsplads.", "marketplace.disclosure": "Hver anmodning kræver tydelig sponsormærkning og rel=\"sponsored\". En anmodning er ikke et køb og garanterer aldrig placeringer, trafik eller omsætning.",
-  "marketplace.demoNoticeTitle": "Demokatalog.", "marketplace.demoNotice": "Domænerne, målingerne og priserne nedenfor er demonstrationsdata, indtil Linkhouse API-adgang er godkendt. Anmodninger gemmes kun i Milo til gennemgang; der oprettes ingen leverandørordre eller betaling.", "marketplace.demoBadge": "Demo",
-  "marketplace.integrationTitle": "Linkhouse-integration", "marketplace.integrationLive": "Leverandørkataloget er forbundet. Hver betalt ordre kræver stadig bekræftelse af det nøjagtige totalbeløb.", "marketplace.integrationPending": "Produktionskontrakten er klar; endpoint-mapping og nøgler afventer Linkhouse-dokumentation.",
-  "marketplace.catalogConnected": "Livekatalog", "marketplace.catalogDemo": "Demokatalog", "marketplace.orderingEnabled": "Bestilling aktiveret", "marketplace.orderingLocked": "Bestilling låst",
-  "marketplace.offers": "Tilbud", "marketplace.orders": "Anmodninger", "marketplace.search": "Søg domæner eller emner…", "marketplace.noAnalysis": "Kør Backlink Intelligence for at tilføje linkgap-signaler. Emne- og markedsmatchning er allerede aktiv.",
-  "marketplace.reason.linkGap": "Konkurrent-linkgap", "marketplace.rank": "Domænerang", "marketplace.traffic": "Est. trafik", "marketplace.turnaround": "Leveringstid", "marketplace.days": "{count} dage", "marketplace.price": "Vejledende pris",
-  "marketplace.request": "Anmod om gennemgang", "marketplace.reviewPrice": "Gennemgå pris", "marketplace.quoteLocked": "Tilbudsopsætning kræves", "marketplace.requested": "Anmodet", "marketplace.ordersEmpty": "Ingen udgivelsesanmodninger endnu.",
-  "marketplace.quoteTitle": "Gennemgå udgivelsespris", "marketplace.basePrice": "Leverandørpris", "marketplace.serviceFee": "Milo-servicegebyr ({count}%)", "marketplace.totalPrice": "Nøjagtigt totalbeløb", "marketplace.quoteExpires": "Tilbuddet udløber kl. {time}. Derefter kræves et nyt tilbud.",
-  "marketplace.confirmSponsored": "Jeg kræver tydelig sponsormærkning og rel=\"sponsored\" eller nofollow på linket.", "marketplace.confirmPaymentLive": "Jeg godkender udtrykkeligt en leverandørordre på præcis €{total}.", "marketplace.confirmPaymentDemo": "Jeg bekræfter anmodningen på €{total} og forstår, at demotilstand ikke opretter ordre eller betaling.",
-  "marketplace.confirmPurchase": "Bekræft betalt ordre", "marketplace.confirmDemoRequest": "Gem anmodning", "marketplace.confirmedAt": "Bekræftet",
-  "marketplace.toast.exists": "Tilbuddet har allerede en aktiv anmodning.", "marketplace.toast.requested": "Udgivelsesanmodningen er gemt til gennemgang.", "marketplace.toast.submitted": "Betalt leverandørordre sendt.", "marketplace.toast.catalogError": "Leverandørkataloget kunne ikke opdateres. Det sikre demokatalog er stadig tilgængeligt.", "marketplace.toast.quoteError": "Kunne ikke oprette et pristilbud. Prøv igen.", "marketplace.toast.quoteExpired": "Tilbuddet er udløbet. Hent en ny pris.", "marketplace.toast.orderError": "Ordren blev ikke oprettet. Ingen betaling blev foretaget.",
-  "marketplace.toast.orderReview": "Leverandørens resultat kunne ikke bekræftes. Milo gemte anmodningen som Under gennemgang; prøv ikke igen, før status er afstemt.",
-  "marketplace.status.Requested": "Anmodet", "marketplace.status.In Review": "Under gennemgang", "marketplace.status.Submitted": "Sendt", "marketplace.status.Accepted": "Accepteret", "marketplace.status.Published": "Udgivet", "marketplace.status.Failed": "Mislykket", "marketplace.status.Cancelled": "Annulleret",
-  "nav.outreach": "AI Outreach", "outreach.title": "AI Outreach", "outreach.subtitle": "Opret personlige, menneskeligt gennemgåede digital-PR-mails.", "outreach.safetyTitle": "Menneskelig godkendelse kræves.", "outreach.safety": "Milo sender aldrig mails automatisk. Hver første besked og opfølgning kræver bekræftelse af den præcise modtager og teksten. Suppression og frekvensgrænser håndhæves på serveren.",
-  "outreach.drafts": "Kladdekø", "outreach.empty": "Ingen outreach-kladder endnu.", "outreach.newDraft": "Opret kladde", "outreach.suggestedTargets": "Forslag fra backlink-data", "outreach.domain": "Måldomæne", "outreach.contactName": "Kontaktnavn", "outreach.contactEmail": "Kontaktmail", "outreach.optional": "Valgfrit", "outreach.reason": "Reel kontaktårsag", "outreach.reasonPlaceholder": "Hvorfor ressourcen reelt kan hjælpe deres målgruppe", "outreach.asset": "Ressource at tilbyde", "outreach.assetPlaceholder": "Guide, originale data, ekspertkommentar…", "outreach.generate": "Generer kladde", "outreach.generating": "Genererer…", "outreach.invalidDomain": "Indtast et gyldigt måldomæne.", "outreach.followUps": "Valgfrie opfølgninger", "outreach.afterDays": "Efter {count} dage", "outreach.approve": "Godkend kladde", "outreach.markSent": "Marker som sendt", "outreach.pause": "Sæt på pause", "outreach.toast.generated": "Outreach-kladde oprettet.", "outreach.toast.failed": "Kunne ikke oprette kladden.", "outreach.toast.copied": "Mail kopieret.", "outreach.toast.status": "Status ændret til {status}.",
-  "outreach.source.linkGap": "Linkgap", "outreach.source.marketplace": "Markedsplads", "outreach.source.manual": "Manuel", "outreach.status.Draft": "Kladde", "outreach.status.Approved": "Godkendt", "outreach.status.Queued": "I kø", "outreach.status.Sent": "Sendt", "outreach.status.Replied": "Besvaret", "outreach.status.Paused": "Pauset",
-  "outreach.status.Failed": "Mislykket", "outreach.status.Suppressed": "Blokeret",
-  "outreach.deliveryTitle": "Kontrolleret e-maillevering", "outreach.deliveryReady": "Verificeret Resend-afsender er klar. Grænse: {count} beskeder pr. 24 timer.",
-  "outreach.deliveryPending": "Kladder virker. Liveafsendelse er låst, indtil verificeret afsender og kill switch er konfigureret.",
-  "outreach.sendingEnabled": "Afsendelse aktiveret", "outreach.sendingLocked": "Afsendelse låst",
-  "outreach.recipientRequired": "Tilføj en gyldig modtageradresse før godkendelse.", "outreach.contentRequired": "Emne og besked er påkrævet.",
-  "outreach.subject": "Emne", "outreach.message": "Besked", "outreach.to": "Til", "outreach.lastError": "Seneste leveringsfejl",
-  "outreach.editTitle": "Rediger og gennemgå kladden igen", "outreach.reviewSend": "Gennemgå afsendelse", "outreach.markReplied": "Markér besvaret",
-  "outreach.reviewSendTitle": "Gennemgå præcis e-mail", "outreach.reviewFollowUpTitle": "Gennemgå præcis opfølgning",
-  "outreach.reviewSendDescription": "Intet sendes, før begge bekræftelser er markeret, og du trykker Send nu.",
-  "outreach.confirmRecipient": "Jeg har verificeret modtageren og har en legitim, relevant grund til kontakten.",
-  "outreach.confirmContent": "Jeg har gennemgået hele beskeden. Den indeholder intet købt eller gensidigt linktilbud, opdigtet personalisering eller løfte om placering.",
-  "outreach.sendNow": "Send nu", "outreach.reviewFollowUp": "Gennemgå opfølgning", "outreach.followUpSent": "Sendt", "outreach.dueAt": "Forfalder {time}",
-  "outreach.toast.saved": "Kladden blev gemt og kræver ny godkendelse.", "outreach.toast.sent": "E-mailen blev accepteret til levering.",
-  "outreach.toast.followUpSent": "Opfølgningen blev accepteret til levering.", "outreach.toast.suppressed": "Modtageren har afmeldt eller er blokeret.",
-  "outreach.toast.limit": "24-timersgrænsen for outreach er nået.", "outreach.toast.notDue": "Opfølgningen skal ikke sendes endnu.",
-  "outreach.toast.notConfigured": "Livelevering til outreach er ikke konfigureret.", "outreach.toast.sendFailed": "E-mailen kunne ikke sendes. Gennemgå kladden og prøv igen.",
+  "marketplace.title": "Sponsorerede udgivelser",
+  "marketplace.subtitle":
+    "Match backlink-muligheder med transparente, redaktionelt gennemgåede sponsorerede placeringer.",
+  "marketplace.disclosureTitle": "White-hat-markedsplads.",
+  "marketplace.disclosure":
+    'Hver anmodning kræver tydelig sponsormærkning og rel="sponsored". En anmodning er ikke et køb og garanterer aldrig placeringer, trafik eller omsætning.',
+  "marketplace.demoNoticeTitle": "Demokatalog.",
+  "marketplace.demoNotice":
+    "Domænerne, målingerne og priserne nedenfor er demonstrationsdata, indtil Linkhouse API-adgang er godkendt. Anmodninger gemmes kun i Milo til gennemgang; der oprettes ingen leverandørordre eller betaling.",
+  "marketplace.demoBadge": "Demo",
+  "marketplace.integrationTitle": "Linkhouse-integration",
+  "marketplace.integrationLive":
+    "Leverandørkataloget er forbundet. Hver betalt ordre kræver stadig bekræftelse af det nøjagtige totalbeløb.",
+  "marketplace.integrationPending":
+    "Produktionskontrakten er klar; endpoint-mapping og nøgler afventer Linkhouse-dokumentation.",
+  "marketplace.catalogConnected": "Livekatalog",
+  "marketplace.catalogDemo": "Demokatalog",
+  "marketplace.orderingEnabled": "Bestilling aktiveret",
+  "marketplace.orderingLocked": "Bestilling låst",
+  "marketplace.offers": "Tilbud",
+  "marketplace.orders": "Anmodninger",
+  "marketplace.search": "Søg domæner eller emner…",
+  "marketplace.noAnalysis":
+    "Kør Backlink Intelligence for at tilføje linkgap-signaler. Emne- og markedsmatchning er allerede aktiv.",
+  "marketplace.reason.linkGap": "Konkurrent-linkgap",
+  "marketplace.rank": "Domænerang",
+  "marketplace.traffic": "Est. trafik",
+  "marketplace.turnaround": "Leveringstid",
+  "marketplace.days": "{count} dage",
+  "marketplace.price": "Vejledende pris",
+  "marketplace.request": "Anmod om gennemgang",
+  "marketplace.reviewPrice": "Gennemgå pris",
+  "marketplace.quoteLocked": "Tilbudsopsætning kræves",
+  "marketplace.requested": "Anmodet",
+  "marketplace.ordersEmpty": "Ingen udgivelsesanmodninger endnu.",
+  "marketplace.quoteTitle": "Gennemgå udgivelsespris",
+  "marketplace.basePrice": "Leverandørpris",
+  "marketplace.serviceFee": "Milo-servicegebyr ({count}%)",
+  "marketplace.totalPrice": "Nøjagtigt totalbeløb",
+  "marketplace.quoteExpires": "Tilbuddet udløber kl. {time}. Derefter kræves et nyt tilbud.",
+  "marketplace.confirmSponsored":
+    'Jeg kræver tydelig sponsormærkning og rel="sponsored" eller nofollow på linket.',
+  "marketplace.confirmPaymentLive":
+    "Jeg godkender udtrykkeligt en leverandørordre på præcis €{total}.",
+  "marketplace.confirmPaymentDemo":
+    "Jeg bekræfter anmodningen på €{total} og forstår, at demotilstand ikke opretter ordre eller betaling.",
+  "marketplace.confirmPurchase": "Bekræft betalt ordre",
+  "marketplace.confirmDemoRequest": "Gem anmodning",
+  "marketplace.confirmedAt": "Bekræftet",
+  "marketplace.toast.exists": "Tilbuddet har allerede en aktiv anmodning.",
+  "marketplace.toast.requested": "Udgivelsesanmodningen er gemt til gennemgang.",
+  "marketplace.toast.submitted": "Betalt leverandørordre sendt.",
+  "marketplace.toast.catalogError":
+    "Leverandørkataloget kunne ikke opdateres. Det sikre demokatalog er stadig tilgængeligt.",
+  "marketplace.toast.quoteError": "Kunne ikke oprette et pristilbud. Prøv igen.",
+  "marketplace.toast.quoteExpired": "Tilbuddet er udløbet. Hent en ny pris.",
+  "marketplace.toast.orderError": "Ordren blev ikke oprettet. Ingen betaling blev foretaget.",
+  "marketplace.toast.orderReview":
+    "Leverandørens resultat kunne ikke bekræftes. Milo gemte anmodningen som Under gennemgang; prøv ikke igen, før status er afstemt.",
+  "marketplace.status.Requested": "Anmodet",
+  "marketplace.status.In Review": "Under gennemgang",
+  "marketplace.status.Submitted": "Sendt",
+  "marketplace.status.Accepted": "Accepteret",
+  "marketplace.status.Published": "Udgivet",
+  "marketplace.status.Failed": "Mislykket",
+  "marketplace.status.Cancelled": "Annulleret",
+  "nav.outreach": "AI Outreach",
+  "outreach.title": "AI Outreach",
+  "outreach.subtitle": "Opret personlige, menneskeligt gennemgåede digital-PR-mails.",
+  "outreach.safetyTitle": "Menneskelig godkendelse kræves.",
+  "outreach.safety":
+    "Milo sender aldrig mails automatisk. Hver første besked og opfølgning kræver bekræftelse af den præcise modtager og teksten. Suppression og frekvensgrænser håndhæves på serveren.",
+  "outreach.drafts": "Kladdekø",
+  "outreach.empty": "Ingen outreach-kladder endnu.",
+  "outreach.newDraft": "Opret kladde",
+  "outreach.suggestedTargets": "Forslag fra backlink-data",
+  "outreach.domain": "Måldomæne",
+  "outreach.contactName": "Kontaktnavn",
+  "outreach.contactEmail": "Kontaktmail",
+  "outreach.optional": "Valgfrit",
+  "outreach.reason": "Reel kontaktårsag",
+  "outreach.reasonPlaceholder": "Hvorfor ressourcen reelt kan hjælpe deres målgruppe",
+  "outreach.asset": "Ressource at tilbyde",
+  "outreach.assetPlaceholder": "Guide, originale data, ekspertkommentar…",
+  "outreach.generate": "Generer kladde",
+  "outreach.generating": "Genererer…",
+  "outreach.invalidDomain": "Indtast et gyldigt måldomæne.",
+  "outreach.followUps": "Valgfrie opfølgninger",
+  "outreach.afterDays": "Efter {count} dage",
+  "outreach.approve": "Godkend kladde",
+  "outreach.markSent": "Marker som sendt",
+  "outreach.pause": "Sæt på pause",
+  "outreach.toast.generated": "Outreach-kladde oprettet.",
+  "outreach.toast.failed": "Kunne ikke oprette kladden.",
+  "outreach.toast.copied": "Mail kopieret.",
+  "outreach.toast.status": "Status ændret til {status}.",
+  "outreach.source.linkGap": "Linkgap",
+  "outreach.source.marketplace": "Markedsplads",
+  "outreach.source.manual": "Manuel",
+  "outreach.status.Draft": "Kladde",
+  "outreach.status.Approved": "Godkendt",
+  "outreach.status.Queued": "I kø",
+  "outreach.status.Sent": "Sendt",
+  "outreach.status.Replied": "Besvaret",
+  "outreach.status.Paused": "Pauset",
+  "outreach.status.Failed": "Mislykket",
+  "outreach.status.Suppressed": "Blokeret",
+  "outreach.deliveryTitle": "Kontrolleret e-maillevering",
+  "outreach.deliveryReady":
+    "Verificeret Resend-afsender er klar. Grænse: {count} beskeder pr. 24 timer.",
+  "outreach.deliveryPending":
+    "Kladder virker. Liveafsendelse er låst, indtil verificeret afsender og kill switch er konfigureret.",
+  "outreach.sendingEnabled": "Afsendelse aktiveret",
+  "outreach.sendingLocked": "Afsendelse låst",
+  "outreach.recipientRequired": "Tilføj en gyldig modtageradresse før godkendelse.",
+  "outreach.contentRequired": "Emne og besked er påkrævet.",
+  "outreach.subject": "Emne",
+  "outreach.message": "Besked",
+  "outreach.to": "Til",
+  "outreach.lastError": "Seneste leveringsfejl",
+  "outreach.editTitle": "Rediger og gennemgå kladden igen",
+  "outreach.reviewSend": "Gennemgå afsendelse",
+  "outreach.markReplied": "Markér besvaret",
+  "outreach.reviewSendTitle": "Gennemgå præcis e-mail",
+  "outreach.reviewFollowUpTitle": "Gennemgå præcis opfølgning",
+  "outreach.reviewSendDescription":
+    "Intet sendes, før begge bekræftelser er markeret, og du trykker Send nu.",
+  "outreach.confirmRecipient":
+    "Jeg har verificeret modtageren og har en legitim, relevant grund til kontakten.",
+  "outreach.confirmContent":
+    "Jeg har gennemgået hele beskeden. Den indeholder intet købt eller gensidigt linktilbud, opdigtet personalisering eller løfte om placering.",
+  "outreach.sendNow": "Send nu",
+  "outreach.reviewFollowUp": "Gennemgå opfølgning",
+  "outreach.followUpSent": "Sendt",
+  "outreach.dueAt": "Forfalder {time}",
+  "outreach.toast.saved": "Kladden blev gemt og kræver ny godkendelse.",
+  "outreach.toast.sent": "E-mailen blev accepteret til levering.",
+  "outreach.toast.followUpSent": "Opfølgningen blev accepteret til levering.",
+  "outreach.toast.suppressed": "Modtageren har afmeldt eller er blokeret.",
+  "outreach.toast.limit": "24-timersgrænsen for outreach er nået.",
+  "outreach.toast.notDue": "Opfølgningen skal ikke sendes endnu.",
+  "outreach.toast.notConfigured": "Livelevering til outreach er ikke konfigureret.",
+  "outreach.toast.sendFailed": "E-mailen kunne ikke sendes. Gennemgå kladden og prøv igen.",
 
   // ---- Scheduled publishing ----
   "editor.schedule.failedTitle": "Den planlagte udgivelse mislykkedes",
@@ -1105,10 +1361,13 @@ export const da: Record<string, string> = {
   "editor.schedule.cancel": "Annullér udgivelsen",
   "editor.schedule.cancelled": "Udgivelsen blev annulleret. Udkastet er urørt.",
   "editor.schedule.armed": "Planlagt. Den udgives {when}.",
-  "editor.schedule.inFlight": "Den er ved at blive udgivet nu og kan ikke længere stoppes — du kan fjerne den fra dit websted.",
+  "editor.schedule.inFlight":
+    "Den er ved at blive udgivet nu og kan ikke længere stoppes — du kan fjerne den fra dit websted.",
   "editor.schedule.needsApproval": "Markér artiklen som klar, før du planlægger den.",
-  "editor.schedule.overdue": "Den skulle være udgivet {when}, men blev det ikke. Tjek dine forbindelsesindstillinger, og planlæg igen.",
-  "editor.schedule.hint": "Godkendelse udgiver aldrig. Intet går live, før du planlægger det eller udgiver det nu.",
+  "editor.schedule.overdue":
+    "Den skulle være udgivet {when}, men blev det ikke. Tjek dine forbindelsesindstillinger, og planlæg igen.",
+  "editor.schedule.hint":
+    "Godkendelse udgiver aldrig. Intet går live, før du planlægger det eller udgiver det nu.",
 
   // ---- Pipeline vocabulary (increment 3) ----
   "pipeline.stage.idea": "Idé",
@@ -1138,7 +1397,8 @@ export const da: Record<string, string> = {
 
   // ---- Article Studio 3.0 — Hook panel (P1.2A) ----
   "hook.panel.title": "Indledende hook",
-  "hook.panel.v3Note": "Article Studio 3.0-artikler kræver en godkendt indledende hook før publicering.",
+  "hook.panel.v3Note":
+    "Article Studio 3.0-artikler kræver en godkendt indledende hook før publicering.",
   "hook.provenance.generated": "Genereret",
   "hook.provenance.edited": "Redigeret",
   "hook.approval.draft": "Kladde",
@@ -1159,16 +1419,22 @@ export const da: Record<string, string> = {
   "hook.type.story": "Historie",
   "hook.type.result": "Resultat",
   "hook.type.promise": "Løfte",
-  "hook.finding.unsupported-statistic": "Hooken angiver en statistik eller et resultat uden tilknyttet dokumentation. Vedhæft en kilde, eller fjern tallet.",
-  "hook.finding.explicit-guarantee": "Hooken giver en udtrykkelig garanti. Milo udgiver ikke garantier — omformulér uden løfte om resultater.",
-  "hook.finding.ymyl-unsupported": "Hooken kommer med en sundheds-, økonomi- eller juraudtalelse — en kilde eller menneskelig bekræftelse anbefales (ikke længere påkrævet for at udgive).",
-  "hook.finding.unsupported-testimonial": "Hooken fremstiller et kunderesultat eller en udtalelse som fakta uden angivet kilde. Vedhæft dokumentation, eller fjern påstanden.",
+  "hook.finding.unsupported-statistic":
+    "Hooken angiver en statistik eller et resultat uden tilknyttet dokumentation. Vedhæft en kilde, eller fjern tallet.",
+  "hook.finding.explicit-guarantee":
+    "Hooken giver en udtrykkelig garanti. Milo udgiver ikke garantier — omformulér uden løfte om resultater.",
+  "hook.finding.ymyl-unsupported":
+    "Hooken kommer med en sundheds-, økonomi- eller juraudtalelse — en kilde eller menneskelig bekræftelse anbefales (ikke længere påkrævet for at udgive).",
+  "hook.finding.unsupported-testimonial":
+    "Hooken fremstiller et kunderesultat eller en udtalelse som fakta uden angivet kilde. Vedhæft dokumentation, eller fjern påstanden.",
   "hook.finding.generic-filler": "Hooken starter med fyldtekst. Begynd med noget konkret.",
   "hook.finding.title-repetition": "Hooken gentager mest titlen. Giv den en selvstændig vinkel.",
-  "hook.finding.weak-relevance": "Hooken har lidt sammenhæng med artiklens indhold. Knyt den til indholdet.",
+  "hook.finding.weak-relevance":
+    "Hooken har lidt sammenhæng med artiklens indhold. Knyt den til indholdet.",
   "hook.finding.excessive-clickbait": "Hooken lyder som clickbait. Dæmp overdrivelserne.",
   "hook.finding.excessive-length": "Hooken er lang. Kort den ned til en skarp indledning.",
-  "hook.finding.testimonial-like": "Hooken bruger udtalelsesagtige formuleringer uden kontekst. Tilføj en kilde, eller omformulér.",
+  "hook.finding.testimonial-like":
+    "Hooken bruger udtalelsesagtige formuleringer uden kontekst. Tilføj en kilde, eller omformulér.",
   "hook.finding.overly-broad-promise": "Hooken giver et for bredt løfte. Gør det konkret.",
   "hook.resolution.edit-hook": "Redigér hooken",
   "hook.resolution.attach-evidence": "Vedhæft dokumentation",
@@ -1178,7 +1444,8 @@ export const da: Record<string, string> = {
   "hook.evidence.label": "Dokumentation",
   "hook.evidence.attach": "Vedhæft en verificeret kilde",
   "hook.evidence.claimPlaceholder": "Hvilken påstand understøtter den? (valgfrit)",
-  "hook.evidence.none": "Ingen verificerede kilder endnu. Tilføj og verificér en kilde under fanen Kilder og forfatter, og vedhæft den her.",
+  "hook.evidence.none":
+    "Ingen verificerede kilder endnu. Tilføj og verificér en kilde under fanen Kilder og forfatter, og vedhæft den her.",
   "hook.evidence.remove": "Fjern dokumentation",
   "hook.evidence.supportedBy": "Understøttet af",
   "hook.unsaved": "Ugemte hook-ændringer — brug Gem.",
@@ -1207,7 +1474,8 @@ export const da: Record<string, string> = {
   "calsched.title.reschedule": "Flytte udgivelsen?",
   "calsched.readyHint": "”{title}” er klar. Vælg det præcise tidspunkt for udgivelsen {date}.",
   "calsched.notReadyHint": "”{title}” kan ikke planlægges til udgivelse endnu:",
-  "calsched.rescheduleWarn": "Udgivelsen vil MISLYKKES, medmindre problemerne ovenfor løses inden tidspunktet.",
+  "calsched.rescheduleWarn":
+    "Udgivelsen vil MISLYKKES, medmindre problemerne ovenfor løses inden tidspunktet.",
   "calsched.timeLabel": "Udgivelsestidspunkt",
   "calsched.pastDay": "Den dag kan ikke længere rumme en udgivelse — slip på en fremtidig dag.",
   "calsched.cancel": "Annullér",
@@ -1218,7 +1486,8 @@ export const da: Record<string, string> = {
   "calsched.move": "Flyt udgivelse",
   "calsched.badge.notReady": "Ikke klar",
   "calsched.badge.willFail": "Mislykkes — ikke klar",
-  "calsched.banner": "{count} artikel/artikler dateret inden for 7 dage er ikke klar til udgivelse.",
+  "calsched.banner":
+    "{count} artikel/artikler dateret inden for 7 dage er ikke klar til udgivelse.",
   "calsched.banner.armed": "udgives {when}",
   "calsched.banner.target": "måldato {when}",
   "calsched.banner.more": "+{count} flere i kalenderen.",
@@ -1254,11 +1523,13 @@ export const da: Record<string, string> = {
   "pres.mobile.size": "Størrelse (mobil)",
   "pres.mobile.align": "Justering (mobil)",
   "pres.mobile.inherit": "Nedarv",
-  "pres.capability": "Anvendt i Milo-forhåndsvisning; ikke verificeret på publiceringsdestinationen.",
+  "pres.capability":
+    "Anvendt i Milo-forhåndsvisning; ikke verificeret på publiceringsdestinationen.",
 
   // ---- Fremhævet billede (P1.2B) ----
   "featured.title": "Fremhævet billede",
-  "featured.hint": "Ét godkendt billede med hero/mobil-beskæringer — påkrævet for Article Studio 3.0-artikler.",
+  "featured.hint":
+    "Ét godkendt billede med hero/mobil-beskæringer — påkrævet for Article Studio 3.0-artikler.",
   "featured.use": "Brug ”{concept}”",
   "featured.none": "Godkend først et billede i billedpanelet.",
   "featured.alt": "Alt-tekst (påkrævet)",
