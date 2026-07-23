@@ -45,6 +45,7 @@ import { Route as ApiOauthTokenRouteImport } from './routes/api.oauth.token'
 import { Route as ApiOauthRevokeRouteImport } from './routes/api.oauth.revoke'
 import { Route as ApiOauthRegisterRouteImport } from './routes/api.oauth.register'
 import { Route as ApiOauthAuthorizeRouteImport } from './routes/api.oauth.authorize'
+import { Route as ApiAutoSchedulerRunRouteImport } from './routes/api.auto-scheduler.run'
 import { Route as ApiAnalyticsTrackRouteImport } from './routes/api.analytics.track'
 import { Route as AuthenticatedAppSetupRouteImport } from './routes/_authenticated/app.setup'
 import { Route as AuthenticatedAppServicesRouteImport } from './routes/_authenticated/app.services'
@@ -255,6 +256,11 @@ const ApiOauthRegisterRoute = ApiOauthRegisterRouteImport.update({
 const ApiOauthAuthorizeRoute = ApiOauthAuthorizeRouteImport.update({
   id: '/api/oauth/authorize',
   path: '/api/oauth/authorize',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAutoSchedulerRunRoute = ApiAutoSchedulerRunRouteImport.update({
+  id: '/api/auto-scheduler/run',
+  path: '/api/auto-scheduler/run',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAnalyticsTrackRoute = ApiAnalyticsTrackRouteImport.update({
@@ -480,6 +486,7 @@ export interface FileRoutesByFullPath {
   '/app/services': typeof AuthenticatedAppServicesRoute
   '/app/setup': typeof AuthenticatedAppSetupRoute
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
+  '/api/auto-scheduler/run': typeof ApiAutoSchedulerRunRoute
   '/api/oauth/authorize': typeof ApiOauthAuthorizeRoute
   '/api/oauth/register': typeof ApiOauthRegisterRoute
   '/api/oauth/revoke': typeof ApiOauthRevokeRoute
@@ -547,6 +554,7 @@ export interface FileRoutesByTo {
   '/app/services': typeof AuthenticatedAppServicesRoute
   '/app/setup': typeof AuthenticatedAppSetupRoute
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
+  '/api/auto-scheduler/run': typeof ApiAutoSchedulerRunRoute
   '/api/oauth/authorize': typeof ApiOauthAuthorizeRoute
   '/api/oauth/register': typeof ApiOauthRegisterRoute
   '/api/oauth/revoke': typeof ApiOauthRevokeRoute
@@ -616,6 +624,7 @@ export interface FileRoutesById {
   '/_authenticated/app/services': typeof AuthenticatedAppServicesRoute
   '/_authenticated/app/setup': typeof AuthenticatedAppSetupRoute
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
+  '/api/auto-scheduler/run': typeof ApiAutoSchedulerRunRoute
   '/api/oauth/authorize': typeof ApiOauthAuthorizeRoute
   '/api/oauth/register': typeof ApiOauthRegisterRoute
   '/api/oauth/revoke': typeof ApiOauthRevokeRoute
@@ -685,6 +694,7 @@ export interface FileRouteTypes {
     | '/app/services'
     | '/app/setup'
     | '/api/analytics/track'
+    | '/api/auto-scheduler/run'
     | '/api/oauth/authorize'
     | '/api/oauth/register'
     | '/api/oauth/revoke'
@@ -752,6 +762,7 @@ export interface FileRouteTypes {
     | '/app/services'
     | '/app/setup'
     | '/api/analytics/track'
+    | '/api/auto-scheduler/run'
     | '/api/oauth/authorize'
     | '/api/oauth/register'
     | '/api/oauth/revoke'
@@ -820,6 +831,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/services'
     | '/_authenticated/app/setup'
     | '/api/analytics/track'
+    | '/api/auto-scheduler/run'
     | '/api/oauth/authorize'
     | '/api/oauth/register'
     | '/api/oauth/revoke'
@@ -867,6 +879,7 @@ export interface RootRouteChildren {
   BlogLocalSeoGuideRoute: typeof BlogLocalSeoGuideRoute
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
   ApiAnalyticsTrackRoute: typeof ApiAnalyticsTrackRoute
+  ApiAutoSchedulerRunRoute: typeof ApiAutoSchedulerRunRoute
   ApiOauthAuthorizeRoute: typeof ApiOauthAuthorizeRoute
   ApiOauthRegisterRoute: typeof ApiOauthRegisterRoute
   ApiOauthRevokeRoute: typeof ApiOauthRevokeRoute
@@ -1134,6 +1147,13 @@ declare module '@tanstack/react-router' {
       path: '/api/oauth/authorize'
       fullPath: '/api/oauth/authorize'
       preLoaderRoute: typeof ApiOauthAuthorizeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auto-scheduler/run': {
+      id: '/api/auto-scheduler/run'
+      path: '/api/auto-scheduler/run'
+      fullPath: '/api/auto-scheduler/run'
+      preLoaderRoute: typeof ApiAutoSchedulerRunRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/analytics/track': {
@@ -1437,6 +1457,7 @@ const rootRouteChildren: RootRouteChildren = {
   BlogLocalSeoGuideRoute: BlogLocalSeoGuideRoute,
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
   ApiAnalyticsTrackRoute: ApiAnalyticsTrackRoute,
+  ApiAutoSchedulerRunRoute: ApiAutoSchedulerRunRoute,
   ApiOauthAuthorizeRoute: ApiOauthAuthorizeRoute,
   ApiOauthRegisterRoute: ApiOauthRegisterRoute,
   ApiOauthRevokeRoute: ApiOauthRevokeRoute,
