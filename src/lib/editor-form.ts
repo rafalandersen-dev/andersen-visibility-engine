@@ -38,6 +38,7 @@ export const EDITOR_FORM_FIELDS = [
   "keyTakeaways",
   "breadcrumbs",
   "hook",
+  "featuredImage",
   "sectionIndex",
 ] as const;
 

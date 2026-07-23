@@ -1255,4 +1255,17 @@ export const sv: Record<string, string> = {
   "pres.mobile.align": "Justering (mobil)",
   "pres.mobile.inherit": "Ärv",
   "pres.capability": "Tillämpas i Milo-förhandsvisning; inte verifierad på publiceringsdestinationen.",
+
+  // ---- Utvald bild (P1.2B) ----
+  "featured.title": "Utvald bild",
+  "featured.hint": "En godkänd bild med hero/mobil-beskärningar — krävs för Article Studio 3.0-artiklar.",
+  "featured.use": "Använd ”{concept}”",
+  "featured.none": "Godkänn först en bild i bildpanelen.",
+  "featured.alt": "Alt-text (krävs)",
+  "featured.caption": "Bildtext",
+  "featured.variant.hero": "Hero-beskärning",
+  "featured.variant.mobile": "Mobil beskärning",
+  "featured.approve": "Godkänn utvald bild",
+  "featured.approved": "Godkänd",
+  "featured.remove": "Ta bort",
 };

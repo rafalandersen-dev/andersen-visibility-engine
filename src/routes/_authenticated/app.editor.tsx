@@ -76,7 +76,12 @@ import {
   IMAGE_STYLES,
   DEFAULT_PRESENTATION,
 } from "@/lib/presentation-compiler";
-import type { ImagePresentation, ImagePresentationOverride } from "@/lib/types";
+import type {
+  FeaturedImage,
+  ImagePresentation,
+  ImagePresentationOverride,
+  PresentationVariant,
+} from "@/lib/types";
 import { effectivePublishMode } from "@/lib/publish-targets";
 import { pipelineStage } from "@/lib/pipeline";
 import { StageChip } from "@/components/StageChip";
@@ -541,6 +546,24 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         ...patch,
       },
     });
+  // ---- Featured image (Article Studio 3.0 / P1.2B) ----
+  const updFeatured = (patch: Partial<FeaturedImage> | null) =>
+    setF((prev) => ({
+      ...prev,
+      featuredImage:
+        patch === null ? undefined : ({ ...(prev.featuredImage ?? {}), ...patch } as FeaturedImage),
+    }));
+  const updFeaturedVariant = (key: "hero" | "mobile", patch: Partial<PresentationVariant>) =>
+    setF((prev) => {
+      const f0 = prev.featuredImage;
+      if (!f0) return prev;
+      const cur = key === "hero" ? f0.hero : (f0.mobile ?? { aspectRatio: "wide", fit: "cover" });
+      return {
+        ...prev,
+        featuredImage: { ...f0, [key]: { ...cur, ...patch } },
+      };
+    });
+
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileToBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -822,6 +845,8 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       // Article Studio 3.0 / P1.2A — the opening hook the Hook panel owns. Must be
       // merged so an edited/approved hook survives Save (the P1.1 image-loss class).
       hook: local.hook,
+      // P1.2B — the featured image the Featured panel owns; same survival rule.
+      featuredImage: local.featuredImage,
       // Article Studio 3.0 / P1.2C — persisted section identities for stable image
       // anchors. Reconciled at Save (see save()) so ids stay stable across edits.
       sectionIndex: local.sectionIndex,
@@ -1940,6 +1965,162 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 Add source
               </Button>
             </div>
+          </section>
+
+          {/* ---- Featured image (Article Studio 3.0 / P1.2B) ---- */}
+          <section className="space-y-2.5 border-t border-border pt-5">
+            <h3 className="text-sm font-medium text-foreground">{t("featured.title")}</h3>
+            <p className="text-xs text-muted-foreground">{t("featured.hint")}</p>
+            {!f.featuredImage ? (
+              <div className="flex flex-wrap gap-1.5">
+                {(f.images ?? [])
+                  .filter(
+                    (im) =>
+                      (im.status === "accepted" || im.status === "generated") &&
+                      (im.url ?? "").trim(),
+                  )
+                  .map((im) => (
+                    <Button
+                      key={im.id}
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        updFeatured({
+                          imageId: im.id,
+                          storagePath: im.storagePath ?? "",
+                          url: im.url,
+                          alt: im.alt ?? "",
+                          caption: im.caption,
+                          hero: { aspectRatio: "wide", fit: "cover" },
+                          approval: "draft",
+                        })
+                      }
+                    >
+                      {t("featured.use", { concept: im.concept || im.alt || im.id })}
+                    </Button>
+                  ))}
+                {(f.images ?? []).every(
+                  (im) => !(im.status === "accepted" || im.status === "generated") || !im.url,
+                ) ? (
+                  <p className="text-xs text-muted-foreground">{t("featured.none")}</p>
+                ) : null}
+              </div>
+            ) : (
+              <div className="space-y-2 rounded-md border border-border p-2.5">
+                <p className="break-all font-mono text-[11px] text-muted-foreground">
+                  {f.featuredImage.url}
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">{t("featured.alt")}</Label>
+                    <Input
+                      className="mt-1"
+                      value={f.featuredImage.alt}
+                      onChange={(e) => updFeatured({ alt: e.target.value, approval: "draft" })}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">{t("featured.caption")}</Label>
+                    <Input
+                      className="mt-1"
+                      value={f.featuredImage.caption ?? ""}
+                      onChange={(e) => updFeatured({ caption: e.target.value })}
+                    />
+                  </div>
+                </div>
+                {(["hero", "mobile"] as const).map((variantKey) => {
+                  const v = variantKey === "hero" ? f.featuredImage!.hero : f.featuredImage!.mobile;
+                  return (
+                    <div key={variantKey} className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                      <span className="col-span-2 self-center text-[11px] text-muted-foreground sm:col-span-1">
+                        {t(`featured.variant.${variantKey}`)}
+                      </span>
+                      <select
+                        value={v?.aspectRatio ?? ""}
+                        onChange={(e) =>
+                          updFeaturedVariant(variantKey, {
+                            aspectRatio: e.target.value as PresentationVariant["aspectRatio"],
+                          })
+                        }
+                        className="h-7 rounded border border-input bg-background px-1 text-xs text-foreground"
+                      >
+                        {variantKey === "mobile" && !v ? <option value="">—</option> : null}
+                        {IMAGE_ASPECTS.map((o) => (
+                          <option key={o} value={o}>
+                            {t(`pres.val.${o}`)}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        value={v?.fit ?? "cover"}
+                        onChange={(e) =>
+                          updFeaturedVariant(variantKey, {
+                            fit: e.target.value as PresentationVariant["fit"],
+                          })
+                        }
+                        className="h-7 rounded border border-input bg-background px-1 text-xs text-foreground"
+                      >
+                        {IMAGE_FITS.map((o) => (
+                          <option key={o} value={o}>
+                            {t(`pres.val.${o}`)}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          step="0.05"
+                          min="0"
+                          max="1"
+                          value={v?.focalPoint?.x ?? 0.5}
+                          onChange={(e) =>
+                            updFeaturedVariant(variantKey, {
+                              focalPoint: {
+                                x: Math.min(1, Math.max(0, Number(e.target.value) || 0)),
+                                y: v?.focalPoint?.y ?? 0.5,
+                              },
+                            })
+                          }
+                          className="h-7 w-14 text-xs"
+                        />
+                        <Input
+                          type="number"
+                          step="0.05"
+                          min="0"
+                          max="1"
+                          value={v?.focalPoint?.y ?? 0.5}
+                          onChange={(e) =>
+                            updFeaturedVariant(variantKey, {
+                              focalPoint: {
+                                x: v?.focalPoint?.x ?? 0.5,
+                                y: Math.min(1, Math.max(0, Number(e.target.value) || 0)),
+                              },
+                            })
+                          }
+                          className="h-7 w-14 text-xs"
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  {f.featuredImage.approval === "approved" ? (
+                    <span className="text-xs text-[#398a63]">{t("featured.approved")}</span>
+                  ) : (
+                    <Button
+                      size="sm"
+                      onClick={() => updFeatured({ approval: "approved" })}
+                      disabled={!f.featuredImage.alt.trim()}
+                    >
+                      {t("featured.approve")}
+                    </Button>
+                  )}
+                  <Button size="sm" variant="ghost" onClick={() => updFeatured(null)}>
+                    {t("featured.remove")}
+                  </Button>
+                </div>
+              </div>
+            )}
           </section>
 
           {/* ---- Author / E-E-A-T (P1.1 F) ---- */}

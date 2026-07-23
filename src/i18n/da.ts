@@ -1255,4 +1255,17 @@ export const da: Record<string, string> = {
   "pres.mobile.align": "Justering (mobil)",
   "pres.mobile.inherit": "Nedarv",
   "pres.capability": "Anvendt i Milo-forhåndsvisning; ikke verificeret på publiceringsdestinationen.",
+
+  // ---- Fremhævet billede (P1.2B) ----
+  "featured.title": "Fremhævet billede",
+  "featured.hint": "Ét godkendt billede med hero/mobil-beskæringer — påkrævet for Article Studio 3.0-artikler.",
+  "featured.use": "Brug ”{concept}”",
+  "featured.none": "Godkend først et billede i billedpanelet.",
+  "featured.alt": "Alt-tekst (påkrævet)",
+  "featured.caption": "Billedtekst",
+  "featured.variant.hero": "Hero-beskæring",
+  "featured.variant.mobile": "Mobil beskæring",
+  "featured.approve": "Godkend fremhævet billede",
+  "featured.approved": "Godkendt",
+  "featured.remove": "Fjern",
 };
