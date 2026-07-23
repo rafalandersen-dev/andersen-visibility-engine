@@ -705,6 +705,13 @@ export interface ContentAsset {
   /** First-class opening hook, composed exactly once before the TL;DR (P1.2A). */
   hook?: ArticleHook;
   /**
+   * First-class featured image (P1.2B): one Storage object, hero/mobile/social
+   * crops as metadata variants. When present + approved, the assembler renders
+   * the compiled hero at the top INSTEAD of the legacy placement:"featured"
+   * image; absent → the Article Studio 2.0 rendering is byte-identical.
+   */
+  featuredImage?: FeaturedImage;
+  /**
    * Persisted section identities for stable image anchors (P1.2C). Derived from the
    * body headings + reconciled on edit; the ONLY persisted section state (no derived
    * resolved/broken status is stored). See `section-index.ts`.
@@ -836,6 +843,56 @@ export interface ContentImage {
    * during the controlled visual upgrade. Authored state — not a derived status.
    */
   placementReviewedAt?: string;
+}
+
+// ---- Article Studio 3.0 / P1.2B — featured image (one object, many variants) ----
+
+/**
+ * A per-context crop over the SAME stored object (spec §4.3). METADATA ONLY —
+ * never a new Storage object. Compiled at render time to the P1.2D allow-listed
+ * figure (clamped `object-position` + aspect box); no other styling surface.
+ */
+export interface PresentationVariant {
+  aspectRatio: ImageAspect;
+  fit: ImageFit;
+  focalPoint?: FocalPoint;
+}
+
+/**
+ * First-class featured/article image (spec §4/§4.3): ONE controlled-origin
+ * Storage object (`storagePath`) with hero/mobile/social presentation VARIANTS
+ * over it. Alt is a hard publish gate for v3 articles; approval is deliberate,
+ * never automatic. Connector identity fields are DORMANT until P1.2G — they are
+ * recorded so republish can be idempotent later, but no connector media
+ * behaviour ships in P1.2B (approval-gated, document-first).
+ */
+export interface FeaturedImage {
+  /** References the approved ContentImage this was picked from. */
+  imageId: string;
+  /** THE single stored object identity — never duplicated per variant. */
+  storagePath: string;
+  /** Stable PUBLIC url once approved (never a signed url). */
+  url?: string;
+  /** Short-lived signed preview before approval. */
+  previewUrl?: string;
+  /** Required for publish on v3 articles (hard gate). */
+  alt: string;
+  caption?: string;
+  /** Article/hero crop — the one the assembler renders at the top. */
+  hero: PresentationVariant;
+  /** Optional mobile crop; falls back to hero. */
+  mobile?: PresentationVariant;
+  /** Social / Open Graph crop; a DISTINCT physical asset is optional, never required. */
+  social?: {
+    variant?: PresentationVariant;
+    physicalUrl?: string;
+    alt?: string;
+  };
+  approval: "draft" | "approved";
+  // Connector identity (set on publish/republish once P1.2G lands — dormant now):
+  wordpressMediaId?: number;
+  shopifyImageMapped?: boolean;
+  publishedObjectHash?: string;
 }
 
 /**

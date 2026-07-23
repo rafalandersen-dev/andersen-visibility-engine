@@ -30,6 +30,12 @@ export interface ContentJsonLdInput {
   author?: { name: string; url?: string; sameAs?: string[] };
   /** Breadcrumb trail → BreadcrumbList (H). */
   breadcrumbs?: { name: string; url: string }[];
+  /**
+   * The article's representative image URL (P1.2B featured image — social
+   * physical asset or the one approved object). Emitted as Article.image only
+   * when present; never a signed/preview URL (the assembler guarantees that).
+   */
+  image?: string;
 }
 
 export interface FaqPair {
@@ -123,6 +129,7 @@ export function buildContentJsonLd(input: ContentJsonLdInput): Record<string, un
     if (input.description?.trim()) article.description = input.description.trim();
     if (input.url?.trim()) article.mainEntityOfPage = input.url.trim();
     if (input.datePublished?.trim()) article.datePublished = input.datePublished.trim();
+    if (input.image?.trim()) article.image = input.image.trim();
     if (input.businessName?.trim()) {
       const org = { "@type": "Organization", name: input.businessName.trim() };
       article.publisher = org;
