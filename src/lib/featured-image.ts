@@ -21,7 +21,13 @@ import type {
   PresentationVariant,
   Project,
 } from "./types";
-import { clampFocal, compileFigureHtml, DEFAULT_PRESENTATION } from "./presentation-compiler";
+import {
+  clampFocal,
+  compileFigureHtml,
+  DEFAULT_PRESENTATION,
+  IMAGE_ASPECTS,
+  IMAGE_FITS,
+} from "./presentation-compiler";
 import { isControlledImageOrigin } from "./images";
 
 /**
@@ -59,16 +65,11 @@ export function compileFeaturedHeroHtml(featured: FeaturedImage): string {
       caption: featured.caption,
       placement: "featured",
       status: "accepted",
+      // Mobile focal is intentionally NOT bridged: the P1.2D mobile channel
+      // renders class-diffs only (no mobile object-position), so passing it
+      // would persist a value that can never take effect.
       ...(mobile
-        ? {
-            mobilePresentation: {
-              aspectRatio: mobile.aspectRatio,
-              fit: mobile.fit,
-              ...(clampFocal(mobile.focalPoint)
-                ? { focalPoint: clampFocal(mobile.focalPoint) }
-                : {}),
-            },
-          }
+        ? { mobilePresentation: { aspectRatio: mobile.aspectRatio, fit: mobile.fit } }
         : {}),
     },
     heroPresentation,
@@ -99,7 +100,7 @@ export function featuredOgImageUrl(asset: Pick<ContentAsset, "featuredImage">): 
 /** True when the assembler should render the P1.2B hero instead of the legacy path. */
 export function featuredImageActive(asset: Pick<ContentAsset, "featuredImage">): boolean {
   const f = asset.featuredImage;
-  return Boolean(f && f.approval === "approved" && (f.url || "").trim() && f.alt.trim());
+  return Boolean(f && f.approval === "approved" && (f.url || "").trim() && (f.alt || "").trim());
 }
 
 export interface FeaturedImageFinding {
@@ -108,7 +109,8 @@ export interface FeaturedImageFinding {
     | "unapproved-featured"
     | "missing-alt"
     | "uncontrolled-origin"
-    | "focal-out-of-range";
+    | "focal-out-of-range"
+    | "invalid-preset";
   message: string;
   blocking: boolean;
 }
@@ -143,7 +145,7 @@ export function validateFeaturedImage(
       blocking: true,
     });
   }
-  if (!f.alt.trim()) {
+  if (!(f.alt || "").trim()) {
     out.push({
       code: "missing-alt",
       message: "The featured image is missing alt text.",
@@ -162,6 +164,20 @@ export function validateFeaturedImage(
     }
   }
   const variants = [f.hero, f.mobile, f.social?.variant];
+  for (const v of variants) {
+    if (
+      v &&
+      (!(IMAGE_ASPECTS as readonly string[]).includes(v.aspectRatio) ||
+        !(IMAGE_FITS as readonly string[]).includes(v.fit))
+    ) {
+      out.push({
+        code: "invalid-preset",
+        message: "A featured-image crop has an unknown preset value.",
+        blocking: true,
+      });
+      break;
+    }
+  }
   for (const v of variants) {
     const fp = v?.focalPoint;
     if (fp && (fp.x < 0 || fp.x > 1 || fp.y < 0 || fp.y > 1)) {

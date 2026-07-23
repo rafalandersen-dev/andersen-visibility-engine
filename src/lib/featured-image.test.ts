@@ -169,6 +169,38 @@ describe("assembler + JSON-LD integration", () => {
     expect(JSON.stringify(a.jsonLd)).not.toContain("img9.jpg"); // no image claim without approval
   });
 
+  // ---- Review-fix regressions ----
+  it("a malformed record without alt never throws (guards, not crashes)", () => {
+    const noAlt = { featuredImage: { ...featured(), alt: undefined } as never };
+    expect(featuredImageActive(noAlt)).toBe(false);
+    expect(() => validateFeaturedImage(noAlt, project(), true)).not.toThrow();
+  });
+
+  it("an unknown variant preset value hard-blocks (invalid-preset)", () => {
+    const bad = asset({
+      featuredImage: featured({ hero: { aspectRatio: "evil" as never, fit: "cover" } }),
+    });
+    expect(validateFeaturedImage(bad, project(), false).map((f) => f.code)).toContain(
+      "invalid-preset",
+    );
+  });
+
+  it("a token-unsafe imageId degrades to literal featured markdown — hero never dropped", () => {
+    const a = asset({ featuredImage: featured({ imageId: "bad id)paren" }) });
+    const out = assembleContentAsset(a, project());
+    expect(out.markdown).toContain("![A hero image](https://site.com/media/img1.jpg)");
+    expect(out.markdown).not.toContain("milo-image:");
+    expect(out.html).not.toContain("milo-image:");
+  });
+
+  it("mobile focal is not bridged (P1.2D renders no mobile object-position)", () => {
+    const html = compileFeaturedHeroHtml(
+      featured({ mobile: { aspectRatio: "square", fit: "cover", focalPoint: { x: 0.1, y: 0.9 } } }),
+    );
+    expect(html).toContain("milo-m-aspect-square");
+    expect(html.match(/object-position/g) ?? []).toHaveLength(0); // no hero focal set either
+  });
+
   it("markdown degrade includes the caption", () => {
     expect(featuredMarkdown(featured({ caption: "The cap" }))).toBe(
       "![A hero image](https://site.com/media/img1.jpg)\n\n*The cap*",

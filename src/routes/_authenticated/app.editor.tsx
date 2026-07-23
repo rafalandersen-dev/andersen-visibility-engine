@@ -2066,40 +2066,45 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                           </option>
                         ))}
                       </select>
-                      <div className="flex items-center gap-1">
-                        <Input
-                          type="number"
-                          step="0.05"
-                          min="0"
-                          max="1"
-                          value={v?.focalPoint?.x ?? 0.5}
-                          onChange={(e) =>
-                            updFeaturedVariant(variantKey, {
-                              focalPoint: {
-                                x: Math.min(1, Math.max(0, Number(e.target.value) || 0)),
-                                y: v?.focalPoint?.y ?? 0.5,
-                              },
-                            })
-                          }
-                          className="h-7 w-14 text-xs"
-                        />
-                        <Input
-                          type="number"
-                          step="0.05"
-                          min="0"
-                          max="1"
-                          value={v?.focalPoint?.y ?? 0.5}
-                          onChange={(e) =>
-                            updFeaturedVariant(variantKey, {
-                              focalPoint: {
-                                x: v?.focalPoint?.x ?? 0.5,
-                                y: Math.min(1, Math.max(0, Number(e.target.value) || 0)),
-                              },
-                            })
-                          }
-                          className="h-7 w-14 text-xs"
-                        />
-                      </div>
+                      {/* Focal applies to the HERO crop only — the P1.2D mobile
+                          channel deliberately renders no mobile focal, so offering
+                          inputs there would be a dead control. */}
+                      {variantKey === "hero" ? (
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            step="0.05"
+                            min="0"
+                            max="1"
+                            value={v?.focalPoint?.x ?? 0.5}
+                            onChange={(e) =>
+                              updFeaturedVariant(variantKey, {
+                                focalPoint: {
+                                  x: Math.min(1, Math.max(0, Number(e.target.value) || 0)),
+                                  y: v?.focalPoint?.y ?? 0.5,
+                                },
+                              })
+                            }
+                            className="h-7 w-14 text-xs"
+                          />
+                          <Input
+                            type="number"
+                            step="0.05"
+                            min="0"
+                            max="1"
+                            value={v?.focalPoint?.y ?? 0.5}
+                            onChange={(e) =>
+                              updFeaturedVariant(variantKey, {
+                                focalPoint: {
+                                  x: v?.focalPoint?.x ?? 0.5,
+                                  y: Math.min(1, Math.max(0, Number(e.target.value) || 0)),
+                                },
+                              })
+                            }
+                            className="h-7 w-14 text-xs"
+                          />
+                        </div>
+                      ) : null}
                     </div>
                   );
                 })}

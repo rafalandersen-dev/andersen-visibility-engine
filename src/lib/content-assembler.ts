@@ -208,7 +208,11 @@ function featuredTokenId(asset: ContentAsset): string | null {
  * raw `milo-image:<id>` token (and silently drop the figure) into published output.
  */
 function composeImage(image: ContentImage): string {
-  if (image.presentation && TOKEN_SAFE_ID.test(image.id)) {
+  // Ids beginning with "feat-" are reserved for the featured-hero namespace
+  // (defence-in-depth: inline ids are randomUUIDs today, but a crafted id must
+  // never be able to alias the featured map entry). Such an image degrades to
+  // the legacy markdown path — rendered, just not token-presented.
+  if (image.presentation && TOKEN_SAFE_ID.test(image.id) && !image.id.startsWith("feat-")) {
     return `![](${MILO_IMAGE_TOKEN_PREFIX}${image.id})`;
   }
   return imageMarkdown(image);
@@ -309,10 +313,15 @@ export function composeCanonicalMarkdown(asset: ContentAsset, project: Project):
   const featTok = featuredTokenId(asset);
   const featured = featTok
     ? [`![](${MILO_IMAGE_TOKEN_PREFIX}${featTok})`]
-    : pub
-        .filter((i) => i.placement === "featured")
-        .slice(0, 1)
-        .map(composeImage);
+    : featuredImageActive(asset)
+      ? // ACTIVE featured image with a token-unsafe id: degrade to its literal
+        // markdown (image still renders) — never silently drop the hero while
+        // JSON-LD keeps claiming it.
+        [featuredMarkdown(asset.featuredImage!)]
+      : pub
+          .filter((i) => i.placement === "featured")
+          .slice(0, 1)
+          .map(composeImage);
   // Anchor resolution runs only when there are publishable images (so a legacy asset
   // with none keeps its raw body untouched).
   const res = pub.length ? resolveImageAnchors(asset, project) : null;
