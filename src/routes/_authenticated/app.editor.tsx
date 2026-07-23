@@ -68,6 +68,10 @@ import {
 import { reconcileSectionIndex } from "@/lib/section-index";
 import { resolveImageAnchors } from "@/lib/image-anchors";
 import "@/styles/milo-image.css";
+// Raw text of the SAME stylesheet, inlined into the mobile-preview iframe so
+// the milo-m-* media query fires against the iframe's real 390px viewport.
+import miloImageCss from "@/styles/milo-image.css?raw";
+import { buildPreviewSrcDoc, poorMobileCropWarnings } from "@/lib/responsive-preview";
 import {
   IMAGE_SIZES,
   IMAGE_ALIGNMENTS,
@@ -2636,14 +2640,45 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               Mobile
             </Button>
           </div>
-          <div className={previewMobile ? "mx-auto w-full max-w-[390px]" : ""}>
+          {previewMobile && poorMobileCropWarnings(f).length > 0 ? (
+            <div className="mb-3 rounded-md border border-amber-500/40 bg-amber-500/5 px-4 py-3 text-xs text-foreground/80">
+              {t("prev.cropWarn")}{" "}
+              <strong>
+                {poorMobileCropWarnings(f)
+                  .map((w) => w.label)
+                  .join(", ")}
+              </strong>
+            </div>
+          ) : null}
+          {previewMobile ? (
+            /* A REAL 390px viewport: media queries (milo-m-*) fire exactly as
+               on a phone, over the same assembled HTML and the same stylesheet
+               the desktop preview uses. sandbox="" — no scripts can ever run. */
+            <iframe
+              title={t("prev.mobileTitle")}
+              sandbox=""
+              className="mx-auto block w-[390px] rounded-lg border border-border bg-white"
+              style={{ height: "70vh" }}
+              srcDoc={buildPreviewSrcDoc(
+                assembled?.html ?? markdownToHtml(f.markdown, renderOpts),
+                [
+                  // The iframe has no app stylesheet, so PREVIEW_STYLE's var()
+                  // tokens must resolve here or table borders/shading vanish.
+                  ":root{--foreground:#1a1a1a;--border:#e5e7eb;--secondary:#f4f4f5}",
+                  "body{margin:0;padding:20px;background:#fff;color:#1a1a1a}",
+                  PREVIEW_STYLE,
+                  miloImageCss,
+                ],
+              )}
+            />
+          ) : (
             <div
               className="milo-preview rounded-lg border border-border bg-background p-6"
               dangerouslySetInnerHTML={{
                 __html: assembled?.html ?? markdownToHtml(f.markdown, renderOpts),
               }}
             />
-          </div>
+          )}
         </TabsContent>
       </Tabs>
 

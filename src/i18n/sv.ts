@@ -140,6 +140,8 @@ export const sv: Record<string, string> = {
   "autoSched.day.5": "Fre",
   "autoSched.day.6": "Lör",
   "autoSched.day.7": "Sön",
+  "prev.cropWarn": "Kontrollera den mobila beskärningen före publicering för:",
+  "prev.mobileTitle": "Mobil förhandsgranskning",
   "setup.markets.market": "Marknad / land",
   "setup.markets.currency": "Valuta",
   "setup.markets.appLanguage": "Appspråk",

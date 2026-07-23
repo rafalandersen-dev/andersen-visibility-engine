@@ -141,6 +141,8 @@ export const pl: Record<string, string> = {
   "autoSched.day.5": "Pt",
   "autoSched.day.6": "Sob",
   "autoSched.day.7": "Nd",
+  "prev.cropWarn": "Przed publikacją sprawdź mobilny kadr dla:",
+  "prev.mobileTitle": "Podgląd mobilny",
   "setup.markets.market": "Rynek / kraj",
   "setup.markets.currency": "Waluta",
   "setup.markets.appLanguage": "Język aplikacji",
