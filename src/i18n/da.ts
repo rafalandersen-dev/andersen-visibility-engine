@@ -141,6 +141,7 @@ export const da: Record<string, string> = {
   "autoSched.day.6": "Lør",
   "autoSched.day.7": "Søn",
   "prev.cropWarn": "Tjek den mobile beskæring før udgivelse for:",
+  "prev.mobileTitle": "Mobil forhåndsvisning",
   "setup.markets.market": "Marked / land",
   "setup.markets.currency": "Valuta",
   "setup.markets.appLanguage": "Appsprog",

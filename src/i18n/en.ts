@@ -147,6 +147,7 @@ export const en: Record<string, string> = {
   "autoSched.day.6": "Sat",
   "autoSched.day.7": "Sun",
   "prev.cropWarn": "Before publishing, check the mobile crop for:",
+  "prev.mobileTitle": "Mobile preview",
   "setup.markets.market": "Market / country",
   "setup.markets.currency": "Currency",
   "setup.markets.appLanguage": "App language",

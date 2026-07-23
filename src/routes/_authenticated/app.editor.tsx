@@ -2655,13 +2655,16 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                on a phone, over the same assembled HTML and the same stylesheet
                the desktop preview uses. sandbox="" — no scripts can ever run. */
             <iframe
-              title="Mobile preview"
+              title={t("prev.mobileTitle")}
               sandbox=""
               className="mx-auto block w-[390px] rounded-lg border border-border bg-white"
               style={{ height: "70vh" }}
               srcDoc={buildPreviewSrcDoc(
                 assembled?.html ?? markdownToHtml(f.markdown, renderOpts),
                 [
+                  // The iframe has no app stylesheet, so PREVIEW_STYLE's var()
+                  // tokens must resolve here or table borders/shading vanish.
+                  ":root{--foreground:#1a1a1a;--border:#e5e7eb;--secondary:#f4f4f5}",
                   "body{margin:0;padding:20px;background:#fff;color:#1a1a1a}",
                   PREVIEW_STYLE,
                   miloImageCss,

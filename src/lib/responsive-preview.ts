@@ -49,12 +49,16 @@ export function poorMobileCropWarnings(
 ): MobileCropWarning[] {
   const out: MobileCropWarning[] = [];
   const f = asset.featuredImage as FeaturedImage | undefined;
+  // Approved only — a draft featured image renders no hero, so warning about
+  // its crop would nag about an image that is not in the preview at all. Only
+  // the HERO focal matters: the renderer never applies a mobile focal (the
+  // P1.2D mobile channel is class-diff only; featured-image.ts strips it).
   if (
     f?.mobile &&
+    f.approval === "approved" &&
     f.mobile.aspectRatio !== f.hero.aspectRatio &&
-    (f.mobile.fit ?? "cover") === "cover" &&
-    !f.hero.focalPoint &&
-    !f.mobile.focalPoint
+    f.mobile.fit === "cover" &&
+    !f.hero.focalPoint
   ) {
     out.push({ target: "featured", label: f.alt || "featured image" });
   }

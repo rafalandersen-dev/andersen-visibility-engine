@@ -60,6 +60,25 @@ describe("poorMobileCropWarnings", () => {
     ).toEqual([]);
   });
 
+  it("a DRAFT featured image never warns — it renders no hero at all", () => {
+    const a = asset({
+      featuredImage: featured({
+        approval: "draft",
+        mobile: { aspectRatio: "square", fit: "cover" },
+      }),
+    });
+    expect(poorMobileCropWarnings(a)).toEqual([]);
+  });
+
+  it("a mobile-only focal does NOT silence the warning (it never renders)", () => {
+    const a = asset({
+      featuredImage: featured({
+        mobile: { aspectRatio: "square", fit: "cover", focalPoint: { x: 0.5, y: 0.2 } },
+      }),
+    });
+    expect(poorMobileCropWarnings(a)).toEqual([{ target: "featured", label: "Hero" }]);
+  });
+
   it("flags inline accepted images the same way, by id", () => {
     const img: ContentImage = {
       id: "i9",
