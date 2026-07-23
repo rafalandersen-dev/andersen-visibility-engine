@@ -95,7 +95,7 @@ import type {
   HookType,
   HookProposal,
 } from "@/lib/types";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatDateTimeLocal } from "@/lib/format";
 // P0.3 — Preview and Export use the SAME canonical converter as publishing, so
 // what you see is what publishes (tables, links, bold, ordered lists included).
 // P0.4 — resolve internal links against the same inventory the publisher uses,
@@ -848,7 +848,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
 
   const goLiveInstant = goLiveLocal ? new Date(goLiveLocal) : null;
   const goLiveValid = Boolean(goLiveInstant && !Number.isNaN(goLiveInstant.getTime()));
-  const goLiveLabel = goLiveValid ? formatDateTime(goLiveInstant!.toISOString()) : "…";
+  // Local rendering: the label must echo the wall-clock time the user just
+  // typed into the datetime-local input, not its UTC translation.
+  const goLiveLabel = goLiveValid ? formatDateTimeLocal(goLiveInstant!.toISOString()) : "…";
   // The runner ticks every five minutes, so a nearer slot would render a
   // minute-precise promise on a five-minute grid.
   const minGoLiveLocal = new Date(Date.now() + SCHEDULE_TICK_MS).toISOString().slice(0, 16);
@@ -1001,7 +1003,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               not: armed, sent to the site, failed, already live. */}
           <StageChip
             stage={editorStage}
-            detail={live.scheduledPublishAt ? formatDateTime(live.scheduledPublishAt) : undefined}
+            detail={
+              live.scheduledPublishAt ? formatDateTimeLocal(live.scheduledPublishAt) : undefined
+            }
           />
         </div>
         <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-foreground/80">
@@ -1237,8 +1241,12 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                     time means nothing fired, and saying "Scheduled" there is the
                     exact lie this increment exists to remove. */}
                 {scheduleOverdue
-                  ? t("editor.schedule.overdue", { when: formatDateTime(live.scheduledPublishAt) })
-                  : t("editor.schedule.pending", { when: formatDateTime(live.scheduledPublishAt) })}
+                  ? t("editor.schedule.overdue", {
+                      when: formatDateTimeLocal(live.scheduledPublishAt),
+                    })
+                  : t("editor.schedule.pending", {
+                      when: formatDateTimeLocal(live.scheduledPublishAt),
+                    })}
               </span>
               <Button size="sm" variant="ghost" onClick={cancelSchedule} disabled={scheduling}>
                 {t("editor.schedule.cancel")}

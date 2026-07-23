@@ -102,6 +102,22 @@ export function isDropped(o: Pick<StageOpportunity, "deletedAt"> | undefined): b
   return Boolean(o?.deletedAt);
 }
 
+/**
+ * Stages whose dueAt is a genuine, not-yet-armed target — the calendar's ghost
+ * layer and the publish-risk horizon. Armed has its own solid layer;
+ * live/sent/needs_fixing/live_missing are past being a target and must not
+ * render as one. (Moved here from app.plan so Home's risk banner shares the
+ * exact same definition.)
+ */
+export const GHOST_STAGES: PipelineStage[] = [
+  "idea",
+  "queued",
+  "planned",
+  "writing",
+  "in_review",
+  "ready",
+];
+
 export interface StageInput {
   opportunity?: StageOpportunity;
   asset?: ContentAsset;
