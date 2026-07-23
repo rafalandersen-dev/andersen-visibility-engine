@@ -126,16 +126,11 @@ import {
   publishShopifyContentFn,
 } from "./shopify.functions";
 import { tooShortScore, draftWordCount, MIN_EVALUABLE_WORDS } from "./quality";
+import { slugifyForPublish } from "./markdown";
 
-function slugify(s: string) {
-  return s
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "")
-    .slice(0, 60);
-}
+// One canonical slugifier (transliteration + word-boundary truncation) \u2014 the
+// local copy here used to drop \u0142 mid-word ("dzia\u0142aj\u0105" \u2192 "dzia-aja" in live URLs).
+const slugify = (s: string) => slugifyForPublish(s, 60);
 
 function requireProject(projectId: string) {
   const s = getState();

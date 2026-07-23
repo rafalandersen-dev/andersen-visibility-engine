@@ -357,12 +357,46 @@ export function markdownToHtml(md: string, opts?: MarkdownRenderOptions): string
 }
 
 /** URL-safe slug from a string (lowercase, dashed, ascii-folded). */
-export function slugifyForPublish(s: string): string {
-  return (s || "")
+/**
+ * Letters NFD decomposition does NOT handle: they are distinct letters, not
+ * base+combining-mark, so the old pipeline dropped them mid-word \u2014 Polish
+ * "dzia\u0142aj\u0105" became "dzia-aja" in live URLs (\u0142 fell through to the
+ * non-alphanumeric replacer and turned into a hyphen). Map them explicitly.
+ */
+const SLUG_TRANSLITERATIONS: Record<string, string> = {
+  ł: "l",
+  ø: "o",
+  đ: "d",
+  ð: "d",
+  þ: "th",
+  æ: "ae",
+  œ: "oe",
+  ß: "ss",
+};
+
+/**
+ * One canonical slugifier (previously duplicated in mock-ai with a different
+ * cap). Transliteration first (see above), then NFD strips ordinary diacritics
+ * (\u0105 \u0107 \u0119 \u0144 \u00f3 \u015b \u017a \u017c \u00e5 \u00e4 \u00f6 \u2026), then hyphenation. Truncation lands on a WORD
+ * BOUNDARY: the old hard `.slice()` cut words mid-syllable, shipping slugs like
+ * "\u2026-i-technologi" (from "technologi\u0119") on live URLs. A single over-long word
+ * still hard-cuts \u2014 there is no boundary to prefer.
+ */
+export function slugifyForPublish(s: string, max = 80): string {
+  const full = (s || "")
     .toLowerCase()
+    .replace(
+      /[\u0142\u00f8\u0111\u00f0\u00fe\u00e6\u0153\u00df]/g,
+      (ch) => SLUG_TRANSLITERATIONS[ch] ?? ch,
+    )
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "")
-    .slice(0, 80);
+    .replace(/(^-|-$)/g, "");
+  if (full.length <= max) return full;
+  const cut = full.slice(0, max);
+  // Cut landed mid-word (the char after the cut is not a separator): drop the
+  // partial segment, unless that would leave nothing.
+  if (full[max] !== "-" && cut.includes("-")) return cut.replace(/-[^-]*$/, "");
+  return cut.replace(/-$/, "");
 }
