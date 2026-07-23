@@ -100,6 +100,33 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
 const asString = (v: unknown): string => (typeof v === "string" ? v : "");
 
 /**
+ * The draft payload for an asset, derived entirely server-side — the ONE
+ * builder shared by the manual publish-live flow and the scheduled runner, so
+ * a re-publish transmits exactly what a scheduled publish would. The body is
+ * always the canonical assembled markdown (P1.1 B), never client-supplied.
+ */
+export function draftPayloadFor(
+  asset: ContentAsset,
+  project: Project,
+): z.infer<typeof PublishInputSchema> {
+  return {
+    projectId: project.id,
+    assetId: asset.id,
+    title: asset.title,
+    slug: asset.publishSlug || asset.slug || "",
+    assetType: asset.assetType ?? "article",
+    destinationType: asset.publishDestinationType ?? project.defaultDestinationType ?? "blogPost",
+    language: asset.language ?? project.primaryLanguage ?? "English",
+    markdown: assembleContentAsset(asset, project).markdown,
+    metaTitle: asset.metaTitle ?? "",
+    metaDescription: asset.metaDescription ?? "",
+    sourceOpportunityTitle: asset.sourceOpportunityTitle ?? asset.title,
+    sourceType: asset.sourceType ?? "unknown",
+    createdAt: asset.createdAt ?? asset.updatedAt ?? "",
+  };
+}
+
+/**
  * Send a content asset to the website as a DRAFT. Plain function — no auth
  * middleware — so both the browser server fn below and the scheduled-publish
  * runner can call it. The runner needs it because the custom-endpoint contract
@@ -369,12 +396,26 @@ export const publishLiveFn = createServerFn({ method: "POST" })
     PublishLiveInputSchema.omit({ endpoint: true, secret: true }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { asset, project, corpus, liveEndpoint, secret } = await resolvePublishContext(
-      context.userId as string,
-      data.projectId,
-      data.assetId,
-    );
+    const { asset, project, corpus, draftEndpoint, liveEndpoint, secret } =
+      await resolvePublishContext(context.userId as string, data.projectId, data.assetId);
     // Refuse to flip a draft live if the asset now fails a hard blocker.
     assertPublishableServerSide(asset, project, corpus);
-    return publishLiveDirect({ ...data, endpoint: liveEndpoint, secret });
+    // ALWAYS refresh the draft before flipping live. The live instruction
+    // carries NO content — the site's draft endpoint is the only thing that
+    // transmits the body, and it upserts idempotently by assetId. Skipping this
+    // made "Re-publish live" a silent no-op on already-published pages: the
+    // receiving endpoint answered `alreadyPublished: ok` without writing a byte,
+    // Milo recorded "Published", and the live page kept serving the old copy
+    // (verified live on synergymassage.se, 2026-07-23).
+    const draft = await publishDraftDirect({
+      ...draftPayloadFor(asset, project),
+      endpoint: draftEndpoint,
+      secret,
+    });
+    return publishLiveDirect({
+      ...data,
+      externalId: draft.externalId || data.externalId,
+      endpoint: liveEndpoint,
+      secret,
+    });
   });

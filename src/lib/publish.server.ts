@@ -13,7 +13,7 @@
  * scheduled publish and a manual one can never diverge.
  */
 import { mutateWorkspace, type WorkspaceData } from "./workspace.server";
-import { publishDraftDirect, publishLiveDirect } from "./publish.functions";
+import { draftPayloadFor, publishDraftDirect, publishLiveDirect } from "./publish.functions";
 import { publishWordPressLiveDirect } from "./wordpress.functions";
 import { upsertArticle } from "./shopify.functions";
 import {
@@ -24,7 +24,6 @@ import {
   wpPublishArgs,
 } from "./publish-targets";
 import { unresolvedInternalLinks } from "./markdown";
-import { assembleContentAsset } from "./content-assembler";
 import { publishBlockers } from "./checklist";
 import {
   applyAssetPatch,
@@ -147,31 +146,19 @@ async function runConnectorPublish(
   if (!secret) {
     throw new PublishNotPossibleError("No publish secret is configured for this project.");
   }
-  // Send-then-publish, matching the manual path. The custom-endpoint contract
-  // requires the draft to exist on the site before it can be flipped live, and
-  // refusing here meant a scheduled publish failed permanently exactly where the
-  // equivalent manual click would have succeeded.
+  // ALWAYS send-then-publish (shared payload with the manual publishLiveFn).
+  // The live instruction carries NO content — only the draft send transmits the
+  // body, and the receiver upserts idempotently by assetId. This used to be
+  // gated on `publishStatus !== "sent"`, which silently skipped the content
+  // send for any asset that had EVER been sent: a scheduled re-publish became a
+  // no-op (the endpoint answers `alreadyPublished: ok`), and an asset edited
+  // after an old send would have published the STALE draft from that send.
   let externalId = asset.publishExternalId ?? "";
-  if (asset.publishStatus !== "sent") {
+  {
     const draft = await publishDraftDirect({
+      ...draftPayloadFor(asset, project),
       endpoint: (project.publishEndpoint ?? "").trim(),
       secret,
-      projectId: project.id,
-      assetId: asset.id,
-      title: asset.title,
-      slug: asset.publishSlug || asset.slug || "",
-      assetType: asset.assetType ?? "article",
-      destinationType: asset.publishDestinationType ?? project.defaultDestinationType ?? "blogPost",
-      language: asset.language ?? project.primaryLanguage,
-      // Publish the same canonical assembled body (P1.1 B) as the first-party
-      // connectors. Payload shape unchanged; identical to raw markdown for a
-      // legacy asset.
-      markdown: assembleContentAsset(asset, project).markdown,
-      metaTitle: asset.metaTitle ?? "",
-      metaDescription: asset.metaDescription ?? "",
-      sourceOpportunityTitle: asset.sourceOpportunityTitle ?? asset.title,
-      sourceType: asset.sourceType ?? "unknown",
-      createdAt: asset.createdAt ?? asset.updatedAt ?? "",
     });
     externalId = draft.externalId || externalId;
 
