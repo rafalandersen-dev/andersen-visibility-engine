@@ -231,6 +231,19 @@ export interface Project {
    * and it is re-fetched once stale. JSONB, no migration.
    */
   sitemapInventory?: SitemapInventory;
+  /**
+   * Monthly Auto-Scheduler opt-in (owner spec 2026-07-23). When enabled, the
+   * ~25th cron fills next month's calendar for this project within plan quota.
+   * Shape defined in auto-scheduler.ts (kept loose here to avoid a cycle).
+   */
+  autoScheduler?: {
+    enabled: boolean;
+    weekdays: number[];
+    publishTime: string;
+    timeZone: string;
+    mode: "auto_publish" | "approve_first";
+    summaryEmail?: string;
+  };
   // ---- WordPress Connector v1 (all optional → existing projects keep loading) ----
   /** Which publishing connector this project uses (defaults to "custom"). */
   connectorType?: PublishingConnectorType;
