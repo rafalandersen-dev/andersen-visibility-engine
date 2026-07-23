@@ -58,7 +58,18 @@ export interface MarkdownRenderOptions {
    * (the pre-P1.1 behaviour), so a model-hallucinated image never publishes.
    */
   allowedImageUrls?: Set<string>;
+  /**
+   * Presented images (Article Studio 3.0 / P1.2D), keyed by ContentImage.id. The
+   * assembler weaves an internal `milo-image:<id>` token for each PRESENTED image;
+   * this map supplies the pre-compiled, already-safe `<figure>` HTML the renderer
+   * substitutes. A token with no entry here renders nothing (stripped). Identity is
+   * the image id — a Storage URL is never a presentation identity.
+   */
+  presentedImages?: Map<string, string>;
 }
+
+/** Internal token prefix used in the assembler's intermediate markdown. Never leaks to output. */
+export const MILO_IMAGE_TOKEN_PREFIX = "milo-image:";
 
 /** Normalise an internal href to a comparable path (strip query/hash, trailing slash). */
 export function normalizeInternalPath(href: string): string {
@@ -221,11 +232,18 @@ export function replaceLinkPathAt(
  * Everything else is left for stripImages to remove, so a hallucinated or
  * hotlinked image can never reach the page.
  */
-function renderAllowedImages(s: string, allowed: Set<string>): string {
+function renderImages(s: string, opts?: MarkdownRenderOptions): string {
   return s.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (whole, alt: string, url: string) => {
-    // Allow-listed URL AND non-empty alt (defence-in-depth for the C19 alt gate —
-    // a body image reusing an approved URL with empty alt must not render).
-    if (!allowed.has(url) || !alt.trim()) return whole;
+    // Presented image (P1.2D): an internal identity token → its pre-compiled,
+    // already-safe <figure>. An unresolved token renders nothing (never leaks).
+    if (url.startsWith(MILO_IMAGE_TOKEN_PREFIX)) {
+      const id = url.slice(MILO_IMAGE_TOKEN_PREFIX.length);
+      return opts?.presentedImages?.get(id) ?? "";
+    }
+    // Legacy vetted image by URL: allow-listed URL AND non-empty alt (defence-in-depth
+    // for the C19 alt gate — a body image reusing an approved URL with empty alt must
+    // not render).
+    if (!opts?.allowedImageUrls?.has(url) || !alt.trim()) return whole;
     const safeUrl = url.replace(/"/g, "%22");
     const safeAlt = alt.replace(/"/g, "&quot;");
     return `<img src="${safeUrl}" alt="${safeAlt}" loading="lazy" />`;
@@ -240,9 +258,8 @@ export function stripImageMarkdown(s: string): string {
 
 /** Inline formatting: images (allow-listed), links, bold, italic — on escaped text. */
 function inline(s: string, opts?: MarkdownRenderOptions): string {
-  const withImages = opts?.allowedImageUrls?.size
-    ? renderAllowedImages(s, opts.allowedImageUrls)
-    : s;
+  const withImages =
+    opts?.allowedImageUrls?.size || opts?.presentedImages?.size ? renderImages(s, opts) : s;
   return stripImages(withImages)
     .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_m, text: string, href: string) => {
       // External absolute URL — an explicit destination; keep as an active link.
@@ -313,6 +330,19 @@ export function markdownToHtml(md: string, opts?: MarkdownRenderOptions): string
     if (!line) {
       flushPara();
       closeList();
+      continue;
+    }
+
+    // Presented image (P1.2D): a lone identity-token line renders as a BLOCK
+    // <figure> (never wrapped in <p>). The compiled HTML is already safe; an
+    // unresolved token emits nothing. Legacy `<img>` images keep their in-paragraph
+    // rendering (byte-parity), so only presented images take this branch.
+    const tok = line.match(/^!\[[^\]]*\]\(milo-image:([^)\s]+)\)$/);
+    if (tok) {
+      flushPara();
+      closeList();
+      const html = opts?.presentedImages?.get(tok[1]);
+      if (html) out.push(html);
       continue;
     }
 

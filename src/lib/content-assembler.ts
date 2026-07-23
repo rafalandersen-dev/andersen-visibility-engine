@@ -21,8 +21,13 @@
  * (`markdownToHtml`, `buildContentJsonLd`) unchanged — only their INPUT changes
  * from hand-authored `asset.markdown` to assembled canonical markdown.
  */
-import type { ContentAsset, Project } from "./types";
-import { markdownToHtml } from "./markdown";
+import type { ContentAsset, ContentImage, Project } from "./types";
+import { markdownToHtml, MILO_IMAGE_TOKEN_PREFIX } from "./markdown";
+import {
+  compileFigureHtml,
+  presentationMarkdown,
+  normalizePresentation,
+} from "./presentation-compiler";
 import { buildContentJsonLd, renderJsonLdScript } from "./structured-data";
 import { sourcesBlockMarkdown } from "./sources";
 import { authorBlockMarkdown, authorSchemaInput } from "./author";
@@ -162,6 +167,35 @@ export function assemblySections(
   });
 }
 
+/**
+ * A token id must round-trip the `[^)\s]+` capture used by every resolver (the
+ * markdown block/inline branches and detokenizeMarkdown), so it must contain no
+ * `)` or whitespace and be non-empty. Ids are `crypto.randomUUID()` today (always
+ * safe); this guard is defence-in-depth — an unsafe id degrades to a legacy image
+ * (no token, no leak) rather than emitting an unresolvable token.
+ */
+const TOKEN_SAFE_ID = /^[^)\s]+$/;
+
+/**
+ * Compose one image as markdown. A PRESENTED image (P1.2D) emits an internal
+ * identity token `![](milo-image:<id>)` resolved BY ID at render time; every other
+ * image keeps the legacy `![alt](url)` (byte-identical to before P1.2D). The token
+ * never leaks — assembleContentAsset detokenizes it for the markdown output and the
+ * HTML renderer swaps it for the compiled figure.
+ *
+ * The token carries NO alt on purpose: the real alt is supplied by the resolved
+ * figure (compileFigureHtml) and the degraded markdown (presentationMarkdown), so
+ * an EMPTY token alt keeps the `[^\]]*` alt capture matchable even when the real alt
+ * contains `]` or a newline — which would otherwise break resolution and leak the
+ * raw `milo-image:<id>` token (and silently drop the figure) into published output.
+ */
+function composeImage(image: ContentImage): string {
+  if (image.presentation && TOKEN_SAFE_ID.test(image.id)) {
+    return `![](${MILO_IMAGE_TOKEN_PREFIX}${image.id})`;
+  }
+  return imageMarkdown(image);
+}
+
 /** Publishable images resolved to one anchor kind, ordered by `order` asc then id asc (deterministic). */
 function orderedImages(anchored: ResolvedImageAnchor[], kind: AnchorKind): string[] {
   return anchored
@@ -171,7 +205,7 @@ function orderedImages(anchored: ResolvedImageAnchor[], kind: AnchorKind): strin
         (a.image.order ?? 0) - (b.image.order ?? 0) ||
         (a.image.id < b.image.id ? -1 : a.image.id > b.image.id ? 1 : 0),
     )
-    .map((a) => imageMarkdown(a.image));
+    .map((a) => composeImage(a.image));
 }
 
 /**
@@ -201,7 +235,7 @@ function weaveBody(res: ImageAnchorResolution): string {
       offset = offsetOfLine(a.section.subtreeEndLineIdx);
     }
     if (offset === null) continue;
-    inserts.push({ offset, md: imageMarkdown(a.image), order: a.image.order ?? 0, id: a.image.id });
+    inserts.push({ offset, md: composeImage(a.image), order: a.image.order ?? 0, id: a.image.id });
   }
   // Legacy byte-parity (finding #2): with nothing to weave, return the stripped body
   // UNCHANGED — no `\n{3,}` collapse — so an asset with images but no anchors matches
@@ -254,7 +288,7 @@ export function composeCanonicalMarkdown(asset: ContentAsset, project: Project):
   const featured = pub
     .filter((i) => i.placement === "featured")
     .slice(0, 1)
-    .map(imageMarkdown);
+    .map(composeImage);
   // Anchor resolution runs only when there are publishable images (so a legacy asset
   // with none keeps its raw body untouched).
   const res = pub.length ? resolveImageAnchors(asset, project) : null;
@@ -273,7 +307,7 @@ export function composeCanonicalMarkdown(asset: ContentAsset, project: Project):
   const composedBody = res ? weaveBody(res) : body;
   // After the body: legacy un-anchored inline images, then article-end anchored images.
   const trailing = res
-    ? [...res.unanchored.map(imageMarkdown), ...orderedImages(anchored, "article-end")]
+    ? [...res.unanchored.map(composeImage), ...orderedImages(anchored, "article-end")]
     : [];
 
   if (
@@ -295,16 +329,40 @@ export function composeCanonicalMarkdown(asset: ContentAsset, project: Project):
  * HTML, and its JSON-LD. The single function every publish/score/preview/export
  * path calls. Pure — no I/O, no store access.
  */
+/** Replace every presentation identity token with its degraded real-URL markdown (no token leaks). */
+function detokenizeMarkdown(tokenMarkdown: string, presentedMarkdown: Map<string, string>): string {
+  return tokenMarkdown.replace(
+    /!\[[^\]]*\]\(milo-image:([^)\s]+)\)/g,
+    (_whole, id: string) => presentedMarkdown.get(id) ?? "",
+  );
+}
+
 export function assembleContentAsset(
   asset: ContentAsset,
   project: Project,
   opts: AssembleOptions = {},
 ): AssembledOutput {
-  const markdown = composeCanonicalMarkdown(asset, project);
-  const html = markdownToHtml(markdown, {
+  // The intermediate composition carries `milo-image:<id>` identity tokens for
+  // PRESENTED images (P1.2D); it is never the final output.
+  const tokenMarkdown = composeCanonicalMarkdown(asset, project);
+  // Compile each presented publishable image once (by id): a safe <figure> for HTML
+  // and degraded `![alt](url)` for markdown.
+  const presentedHtml = new Map<string, string>();
+  const presentedMarkdown = new Map<string, string>();
+  for (const img of publishableImages(asset.images, project)) {
+    if (!img.presentation) continue;
+    const p = normalizePresentation(img.presentation);
+    presentedHtml.set(img.id, compileFigureHtml(img, p));
+    presentedMarkdown.set(img.id, presentationMarkdown(img, p));
+  }
+  // Final canonical markdown = detokenized (real URLs + degraded caption); no token leaks.
+  const markdown = detokenizeMarkdown(tokenMarkdown, presentedMarkdown);
+  const html = markdownToHtml(tokenMarkdown, {
     ...(opts.activeInternalPaths ? { knownInternalPaths: opts.activeInternalPaths } : {}),
-    // Only assembler-vetted images render as <img>; everything else is stripped.
+    // Only assembler-vetted images render as <img>; presented images render as their
+    // compiled <figure>; everything else is stripped.
     allowedImageUrls: new Set(publishableImageUrls(asset.images, project)),
+    presentedImages: presentedHtml,
   });
   // Schema-visibility gate (review fix): author Person + BreadcrumbList are only
   // emitted when their VISIBLE counterpart is actually composed into the body —

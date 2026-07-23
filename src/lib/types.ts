@@ -826,6 +826,11 @@ export interface ContentImage {
   anchor?: string;
   /** Ordering among images sharing one anchor (ascending; ties broken by image id). */
   order?: number;
+  // ---- Article Studio 3.0 / P1.2D — bounded presentation (all optional, JSONB, no migration) ----
+  /** Bounded desktop/base presentation preset. Absent → today's default rendering. */
+  presentation?: ImagePresentation;
+  /** Mobile overrides; unset fields inherit `presentation` (validated partial). */
+  mobilePresentation?: ImagePresentationOverride;
   /**
    * Set when a human has acknowledged the placement of a legacy/unplaced image
    * during the controlled visual upgrade. Authored state — not a derived status.
@@ -849,6 +854,47 @@ export interface SectionRef {
   fingerprint?: string;
   /** Normalized content excerpt (similarity signal). */
   excerpt?: string;
+}
+
+// ---- Article Studio 3.0 / P1.2D — bounded image presentation ----
+
+export type ImageSize = "small" | "medium" | "large" | "wide" | "full";
+/** Alignment is left/center/right only — `full` is a SIZE, never an alignment. */
+export type ImageAlign = "left" | "center" | "right";
+export type ImageAspect = "original" | "square" | "portrait" | "landscape" | "wide";
+export type ImageFit = "cover" | "contain";
+export type ImageVisualStyle = "plain" | "rounded" | "card";
+
+/** Normalized focal point (0..1 each). Active only when `fit:"cover"`. */
+export interface FocalPoint {
+  x: number;
+  y: number;
+}
+
+/** Bounded, additive presentation preset. Enums only — no arbitrary CSS/classes/HTML. */
+export interface ImagePresentation {
+  size: ImageSize;
+  alignment: ImageAlign;
+  aspectRatio: ImageAspect;
+  fit: ImageFit;
+  visualStyle: ImageVisualStyle;
+  focalPoint?: FocalPoint;
+  captionVisible?: boolean;
+}
+
+/**
+ * A validated mobile override. Every field is optional and inherits the base
+ * `ImagePresentation` when unset; `focalPoint` must be a complete `{x,y}` or absent
+ * (no partial coordinate). Never a free-form `Partial` of an invalid nested shape.
+ */
+export interface ImagePresentationOverride {
+  size?: ImageSize;
+  alignment?: ImageAlign;
+  aspectRatio?: ImageAspect;
+  fit?: ImageFit;
+  visualStyle?: ImageVisualStyle;
+  focalPoint?: FocalPoint;
+  captionVisible?: boolean;
 }
 
 /** A breadcrumb trail item for BreadcrumbList JSON-LD (H). */

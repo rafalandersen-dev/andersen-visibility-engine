@@ -177,4 +177,68 @@ describe("editorFormDirty", () => {
     const form = base({ hook: hook({ approval: "approved" }) as never });
     expect(editorFormDirty(form, stored)).toBe(false);
   });
+
+  // ---- Image presentation (Article Studio 3.0 / P1.2D) ----
+  const pres = (over: Record<string, unknown> = {}) => ({
+    size: "large",
+    alignment: "center",
+    aspectRatio: "original",
+    fit: "cover",
+    visualStyle: "plain",
+    ...over,
+  });
+
+  it("is TRUE when a presentation is added to an image (must persist)", () => {
+    const stored = base({ images: [img()] as never });
+    expect(
+      editorFormDirty(base({ images: [img({ presentation: pres() })] as never }), stored),
+    ).toBe(true);
+  });
+
+  it("is TRUE when a presentation preset field or focal point changes", () => {
+    const stored = base({ images: [img({ presentation: pres() })] as never });
+    expect(
+      editorFormDirty(
+        base({
+          images: [img({ presentation: pres({ size: "wide" }) })] as never,
+        }),
+        stored,
+      ),
+    ).toBe(true);
+    expect(
+      editorFormDirty(
+        base({
+          images: [img({ presentation: pres({ focalPoint: { x: 0.2, y: 0.8 } }) })] as never,
+        }),
+        stored,
+      ),
+    ).toBe(true);
+  });
+
+  it("is TRUE when a mobile presentation override changes (desktop/mobile inheritance)", () => {
+    const stored = base({ images: [img({ presentation: pres() })] as never });
+    expect(
+      editorFormDirty(
+        base({
+          images: [
+            img({
+              presentation: pres(),
+              mobilePresentation: { size: "medium" },
+            }),
+          ] as never,
+        }),
+        stored,
+      ),
+    ).toBe(true);
+  });
+
+  it("is FALSE when the presentation is unchanged — repeated Save is not dirty", () => {
+    const stored = base({
+      images: [img({ presentation: pres({ captionVisible: false }) })] as never,
+    });
+    const form = base({
+      images: [img({ presentation: pres({ captionVisible: false }) })] as never,
+    });
+    expect(editorFormDirty(form, stored)).toBe(false);
+  });
 });
