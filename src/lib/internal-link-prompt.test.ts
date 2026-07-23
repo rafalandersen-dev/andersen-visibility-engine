@@ -52,6 +52,14 @@ describe("promptLinkPaths — the model's allowed link targets", () => {
     expect(promptLinkPaths(project())).toEqual([]);
     expect(promptLinkPaths(undefined)).toEqual([]);
   });
+
+  it("drops attacker-length paths (a pre-cap inventory must never flood the prompt)", () => {
+    const huge = "/" + "a".repeat(5000);
+    const p = withInventory(["/treatments", huge]);
+    const paths = promptLinkPaths(p);
+    expect(paths).toEqual(["/treatments"]);
+    expect(internalLinkRule(p)).not.toContain(huge);
+  });
 });
 
 describe("internalLinkRule — the prompt bullet", () => {

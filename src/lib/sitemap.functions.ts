@@ -57,6 +57,13 @@ export const fetchSitemapInventoryFn = createServerFn({ method: "POST" })
       if (alt.urlCount > 0) r = alt;
     }
 
+    // Zero URLs is indistinguishable from a transient failure (timeout, non-2xx,
+    // egress blocked) at this layer. Returning an "inventory" here would be
+    // CACHED AS VALID for the full TTL — one flaky fetch would silently pin the
+    // generation whitelist to "/" for a week. Return null instead: nothing is
+    // cached, and the client retries on its own (short) cooldown.
+    if (r.urlCount === 0) return null;
+
     const paths = [...new Set(["/", ...r.paths])].slice(0, SITEMAP_MAX_URLS);
     return {
       paths,

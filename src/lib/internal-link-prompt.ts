@@ -21,14 +21,24 @@ import { normalizeInternalPath } from "./markdown";
 /** Prompt-size bound: enough for a small-business site, never a token flood. */
 export const MAX_PROMPT_PATHS = 60;
 
+/**
+ * Per-path bound (defence in depth alongside the capture-time cap in
+ * sitemap.ts): an inventory persisted BEFORE that cap existed could still carry
+ * an attacker-length pathname; never let one reach the prompt.
+ */
+export const MAX_PROMPT_PATH_CHARS = 200;
+
+const isPromptSafePath = (p: unknown): p is string =>
+  typeof p === "string" && p.startsWith("/") && p.length <= MAX_PROMPT_PATH_CHARS;
+
 /** The real internal paths the model may link to: sitemap inventory ∪ approved. */
 export function promptLinkPaths(project: Project | undefined): string[] {
   const paths = new Set<string>();
   for (const p of project?.sitemapInventory?.paths ?? []) {
-    if (typeof p === "string" && p.startsWith("/")) paths.add(p);
+    if (isPromptSafePath(p)) paths.add(p);
   }
   for (const p of project?.approvedInternalPaths ?? []) {
-    if (typeof p === "string" && p.startsWith("/")) paths.add(normalizeInternalPath(p));
+    if (isPromptSafePath(p)) paths.add(normalizeInternalPath(p));
   }
   return [...paths].slice(0, MAX_PROMPT_PATHS);
 }

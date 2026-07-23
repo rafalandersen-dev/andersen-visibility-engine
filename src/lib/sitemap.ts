@@ -95,10 +95,20 @@ export function parseSitemapLocs(xml: string): { locs: string[]; isIndex: boolea
 }
 
 /** Normalised same-origin path for a `<loc>` URL, or "" if cross-origin/unsafe. */
+/**
+ * Per-path length cap. A crafted <loc> can carry a pathname of arbitrary length
+ * (URL parsing preserves it), and captured paths are persisted into the
+ * workspace AND interpolated into generation prompts — an unbounded path is a
+ * storage-bloat / prompt-flood vector. No legitimate small-business URL is this
+ * long.
+ */
+export const SITEMAP_MAX_PATH_CHARS = 300;
+
 export function sameOriginPath(loc: string, origin: string): string {
   if (!isSameOriginSafe(loc, origin)) return "";
   try {
-    return normalizeInternalPath(new URL(loc).pathname);
+    const path = normalizeInternalPath(new URL(loc).pathname);
+    return path.length > SITEMAP_MAX_PATH_CHARS ? "" : path;
   } catch {
     return "";
   }
