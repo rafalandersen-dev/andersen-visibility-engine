@@ -223,7 +223,7 @@ export function BrandIntelligenceCard({ project }: { project: Project }) {
         <TextField label={t("brand.cta.primaryLabel")} value={f.primaryCtaLabel} onChange={(v) => set("primaryCtaLabel", v)} />
         <TextField label={t("brand.cta.primaryUrl")} value={f.primaryCtaUrl} onChange={(v) => set("primaryCtaUrl", v)} placeholder="/book" />
         <TextField label={t("brand.cta.secondaryLabel")} value={f.secondaryCtaLabel} onChange={(v) => set("secondaryCtaLabel", v)} />
-        <TextField label={t("brand.cta.secondaryUrl")} value={f.secondaryCtaUrl} onChange={(v) => set("secondaryCtaUrl", v)} placeholder="/services" />
+        <TextField label={t("brand.cta.secondaryUrl")} value={f.secondaryCtaUrl} onChange={(v) => set("secondaryCtaUrl", v)} placeholder="/pricing" />
         <TextField label={t("brand.cta.styleNotes")} value={f.ctaStyleNotes} onChange={(v) => set("ctaStyleNotes", v)} full />
       </Group>
 
@@ -241,7 +241,7 @@ export function BrandIntelligenceCard({ project }: { project: Project }) {
           {f.internalLinks.map((l, i) => (
             <div key={i} className="rounded-md border border-border p-2 grid sm:grid-cols-[1fr,1fr,140px,120px,auto] gap-2 items-center">
               <Input placeholder={t("brand.field.label")} value={l.label} onChange={(e) => set("internalLinks", f.internalLinks.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} />
-              <Input placeholder="/services/..." value={l.url} onChange={(e) => set("internalLinks", f.internalLinks.map((x, j) => j === i ? { ...x, url: e.target.value } : x))} />
+              <Input placeholder="/your-page-path" value={l.url} onChange={(e) => set("internalLinks", f.internalLinks.map((x, j) => j === i ? { ...x, url: e.target.value } : x))} />
               <Select value={l.type} onValueChange={(v) => set("internalLinks", f.internalLinks.map((x, j) => j === i ? { ...x, type: v as BrandInternalLink["type"] } : x))}>
                 <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>{LINK_TYPES.map((tp) => <SelectItem key={tp} value={tp}>{tp}</SelectItem>)}</SelectContent>

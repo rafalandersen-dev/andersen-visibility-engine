@@ -13,6 +13,7 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 import { normalizeQualityScore } from "./quality";
 import { normalizeHookProposals } from "./hook";
+import { internalLinkRule } from "./internal-link-prompt";
 import { brandIntelligenceBlock } from "./brand";
 import { candidateUsesOpenRouter, getRouterStatus } from "./ai-router";
 import {
@@ -1649,7 +1650,7 @@ Markdown rules:
 - Use real headings (##, ###) and short paragraphs.
 - No fake statistics or invented citations.
 - No keyword stuffing.
-- Internal links: relative paths like "/services" or "/contact" only.
+${internalLinkRule(project)}
 - schemaSuggestions: schema.org types only (e.g. "Service", "FAQPage").
 - Do NOT open the markdown body with the hook — the hook is authored separately in hookProposals.
 
@@ -1683,7 +1684,7 @@ const ASSET_INSTRUCTIONS: Record<(typeof CONTENT_ASSET_TYPES)[number], string> =
   brief:
     "Generate a CONTENT BRIEF for a writer. In `markdown`, include clearly-headed sections: Target audience, Search intent, Angle, Suggested H1, Outline (bulleted), Key points, FAQs to answer, Internal link ideas, CTA, and Notes for human review. Also fill: h1 (suggested H1), outline (outline headings), faq (FAQs to answer with a short suggested answer direction), cta, editorNotes.",
   article:
-    "Generate a FULL ARTICLE. In `markdown`, write the complete article body in real markdown (##/###, short paragraphs): open with a 2–3 sentence direct answer (AI-overview friendly), then context, key factors, what to do next, an FAQ section, and a closing CTA section. Also fill: metaTitle (≤60 chars), metaDescription (≤160 chars), h1, outline (section headings), faq, cta, internalLinks (relative paths like /services).",
+    "Generate a FULL ARTICLE. In `markdown`, write the complete article body in real markdown (##/###, short paragraphs): open with a 2–3 sentence direct answer (AI-overview friendly), then context, key factors, what to do next, an FAQ section, and a closing CTA section. Also fill: metaTitle (≤60 chars), metaDescription (≤160 chars), h1, outline (section headings), faq, cta, internalLinks (the relative paths of the internal links you actually wrote into the body — see the Internal links rule).",
   servicePage:
     "Generate a SERVICE PAGE section. In `markdown`, include: H1 and H2 suggestions, Service description, Who it is for, Benefits (bulleted), Process / what to expect, FAQ, CTA. Also fill: h1, outline (section headings), faq, cta.",
   landingPage:
@@ -1743,6 +1744,9 @@ ${sourceLine}
 
 Business context:
 ${brief}
+
+Markdown rules:
+${internalLinkRule(project)}
 ${sharedRules}`,
         8000,
         data.modelOverride,
@@ -1981,6 +1985,9 @@ Return EXACTLY this JSON shape:
 Title: ${data.title}
 Business context:
 ${brief}
+
+Markdown rules:
+${internalLinkRule(project)}
 
 CURRENT DRAFT (markdown):
 """

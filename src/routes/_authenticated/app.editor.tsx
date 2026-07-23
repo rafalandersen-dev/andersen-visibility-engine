@@ -35,6 +35,7 @@ import {
   generateMetadata,
   generateFaq,
   generateCta,
+  refreshSitemapInventory,
   sendContentToWebsite,
   publishContentLive,
   validateAssetSources,
@@ -344,6 +345,16 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     [classifiedLinks],
   );
   const hasUnresolvedLinks = unresolvedLinks.length > 0;
+
+  // Load the site's real page map when the editor opens (freshness-cached, so
+  // this is a no-op within the TTL). It feeds verified paths AND the resolver's
+  // Replace-with picker, so an invented "/services" can be repointed to a page
+  // that actually exists in one click instead of being unresolvable.
+  useEffect(() => {
+    if (project?.id && project.websiteUrl) {
+      refreshSitemapInventory(project.id).catch(() => null);
+    }
+  }, [project?.id, project?.websiteUrl]);
 
   // ---- Publishing checklist (P1.1 J) — the same deterministic gate the server
   // uses, so the editor and the runner agree on what is safe to publish. ----

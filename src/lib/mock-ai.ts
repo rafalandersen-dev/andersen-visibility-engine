@@ -275,6 +275,11 @@ async function generateAsset(opportunityId: string, kind: "landing" | "article")
     const s = getState();
     const opp = s.opportunities.find((o) => o.id === opportunityId);
     if (!opp) throw new Error("Opportunity not found.");
+    // Load the site's real page map FIRST (freshness-cached) so generation links
+    // only to pages that exist — invented paths like "/services" were the root
+    // cause of blocked/dead internal links. Non-fatal: no sitemap → the prompt
+    // forbids inventing paths instead.
+    await refreshSitemapInventory(opp.projectId).catch(() => null);
     const { project, services } = requireProject(opp.projectId);
 
     const result = (await generateContentAssetFn({
@@ -549,6 +554,8 @@ export async function improveContentDraft(contentAssetId: string) {
   return once(`improve:${contentAssetId}`, async () => {
     const a = getState().content.find((c) => c.id === contentAssetId);
     if (!a) throw new Error("Content not found.");
+    // Page-map-first here too, so Improve never introduces an invented path.
+    await refreshSitemapInventory(a.projectId).catch(() => null);
     const { project, services } = requireProject(a.projectId);
 
     const suggestions = [
@@ -1474,6 +1481,8 @@ export async function generateContentForOpportunity(
     const s = getState();
     const opp = s.opportunities.find((o) => o.id === opportunityId);
     if (!opp) throw new Error("Opportunity not found.");
+    // Same page-map-first rule as generateAsset: never let the model guess paths.
+    await refreshSitemapInventory(opp.projectId).catch(() => null);
     const { project, services } = requireProject(opp.projectId);
 
     const result = (await generateContentFn({
