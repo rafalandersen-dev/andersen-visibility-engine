@@ -205,4 +205,26 @@ describe("slugifyForPublish", () => {
     expect(slugifyForPublish("  --Hello, World!--  ")).toBe("hello-world");
     expect(slugifyForPublish("a".repeat(200)).length).toBe(80);
   });
+
+  // ---- Transliteration + word-boundary truncation (butelkiwodorowe.pl regressions) ----
+  it("transliterates ł instead of dropping it mid-word (the live 'dzia-aja' bug)", () => {
+    expect(slugifyForPublish("Czym jest woda wodorowa i jak działają generatory SPE/PEM?")).toBe(
+      "czym-jest-woda-wodorowa-i-jak-dzialaja-generatory-spe-pem",
+    );
+  });
+  it("transliterates Nordic/German letters NFD cannot decompose", () => {
+    expect(slugifyForPublish("Grønnegade smørrebrød straße Þór")).toBe(
+      "gronnegade-smorrebrod-strasse-thor",
+    );
+  });
+  it("truncates on a word boundary, never mid-word (the live '…-i-technologi' bug)", () => {
+    const title = "Najczęstsze pytania o generatory wody wodorowej i technologię SPE/PEM";
+    const slug = slugifyForPublish(title, 60);
+    expect(slug).toBe("najczestsze-pytania-o-generatory-wody-wodorowej-i");
+    expect(slug.length).toBeLessThanOrEqual(60);
+    // A cut landing exactly on a boundary keeps the whole word.
+    expect(slugifyForPublish("alpha-beta-gamma", 10)).toBe("alpha-beta");
+    // A single over-long word still hard-cuts — no boundary to prefer.
+    expect(slugifyForPublish("b".repeat(100), 30)).toBe("b".repeat(30));
+  });
 });
