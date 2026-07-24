@@ -28,6 +28,17 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Input } from "@/components/ui/input";
+import type { Project } from "@/lib/types";
+import {
+  getLinkListingFn,
+  upsertLinkListingFn,
+  findLinkMatchesFn,
+  updateLinkMatchStatusFn,
+  verifyLinkPlacementFn,
+  type LinkListingView,
+  type LinkMatchView,
+} from "@/lib/link-network.functions";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/app/backlinks")({
@@ -222,6 +233,7 @@ function BacklinksPage() {
           t={t}
         />
       )}
+      {project ? <LinkNetworkSection key={project.id} project={project} t={t} /> : null}
     </AppShell>
   );
 }
@@ -641,5 +653,235 @@ function Tag({
     >
       {children}
     </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Link Growth Network (owner scope 2026-07-24)
+// ---------------------------------------------------------------------------
+
+/**
+ * Opt-in directory + tracked introductions. Relevance-matched partners,
+ * localized intro drafts, and honest statuses where "live" exists only after
+ * Milo has re-fetched the partner page and found the link. No DataForSEO
+ * dependency — this section works without provider keys.
+ */
+function LinkNetworkSection({ project, t }: { project: Project; t: (k: string) => string }) {
+  const [listing, setListing] = useState<LinkListingView | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [topicsText, setTopicsText] = useState("");
+  const [contact, setContact] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [matches, setMatches] = useState<LinkMatchView[] | null>(null);
+  const [targetUrls, setTargetUrls] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let alive = true;
+    getLinkListingFn({ data: { projectId: project.id } })
+      .then((r) => {
+        if (!alive) return;
+        setListing(r.listing);
+        if (r.listing) {
+          setTopicsText(r.listing.topics.join(", "));
+          setContact(r.listing.contactEmail);
+        }
+        setLoaded(true);
+      })
+      .catch(() => setLoaded(true));
+    return () => {
+      alive = false;
+    };
+  }, [project.id]);
+
+  const saveListing = async (status: "active" | "paused") => {
+    setBusy(true);
+    try {
+      const topics = topicsText
+        .split(",")
+        .map((x) => x.trim())
+        .filter((x) => x.length >= 2)
+        .slice(0, 12);
+      const r = await upsertLinkListingFn({
+        data: { projectId: project.id, topics, contactEmail: contact.trim(), status },
+      });
+      setListing(r);
+      setTopicsText(r.topics.join(", "));
+      toast.success(t(status === "active" ? "linknet.joined" : "linknet.paused"));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save the listing");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const findMatches = async () => {
+    setBusy(true);
+    try {
+      const r = await findLinkMatchesFn({ data: { projectId: project.id } });
+      setMatches(r.matches);
+      if (!r.matches.length) toast.info(t("linknet.noMatches"));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not search the network");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const advance = async (m: LinkMatchView, to: "contacted" | "agreed" | "declined") => {
+    try {
+      const targetUrl = to === "agreed" ? (targetUrls[m.id] ?? "").trim() : undefined;
+      await updateLinkMatchStatusFn({ data: { matchId: m.id, to, targetUrl } });
+      setMatches((prev) =>
+        (prev ?? []).map((x) =>
+          x.id === m.id ? { ...x, status: to, targetUrl: targetUrl || x.targetUrl } : x,
+        ),
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not update the match");
+    }
+  };
+
+  const verify = async (m: LinkMatchView) => {
+    setBusy(true);
+    try {
+      const pageUrl = (targetUrls[m.id] ?? m.targetUrl ?? "").trim();
+      const r = await verifyLinkPlacementFn({
+        data: { matchId: m.id, ...(pageUrl ? { pageUrl } : {}) },
+      });
+      setMatches((prev) =>
+        (prev ?? []).map((x) =>
+          x.id === m.id ? { ...x, status: r.status, lastCheckFound: r.found, linkRel: r.rel } : x,
+        ),
+      );
+      toast[r.found ? "success" : "info"](t(r.found ? "linknet.verified" : "linknet.notFound"));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Verification failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const copyIntro = async (m: LinkMatchView) => {
+    await navigator.clipboard.writeText(`${m.intro.subject}\n\n${m.intro.body}`);
+    toast.success(t("linknet.introCopied"));
+  };
+
+  if (!loaded) return null;
+
+  return (
+    <section className="mt-8 rounded-lg border border-border bg-background p-5">
+      <h2 className="text-sm font-medium text-foreground">{t("linknet.title")}</h2>
+      <p className="mt-1 text-xs text-muted-foreground">{t("linknet.subtitle")}</p>
+      <p className="mt-1 text-[11px] text-muted-foreground">{t("linknet.policyNote")}</p>
+
+      <div className="mt-4 grid gap-2 md:grid-cols-[2fr_1fr_auto_auto]">
+        <Input
+          value={topicsText}
+          onChange={(e) => setTopicsText(e.target.value)}
+          placeholder={t("linknet.topicsPlaceholder")}
+          aria-label={t("linknet.topics")}
+        />
+        <Input
+          type="email"
+          value={contact}
+          onChange={(e) => setContact(e.target.value)}
+          placeholder={t("linknet.contactPlaceholder")}
+          aria-label={t("linknet.contact")}
+        />
+        <Button size="sm" disabled={busy} onClick={() => saveListing("active")}>
+          {listing?.status === "active" ? t("linknet.update") : t("linknet.join")}
+        </Button>
+        {listing?.status === "active" ? (
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => saveListing("paused")}>
+            {t("linknet.pause")}
+          </Button>
+        ) : null}
+      </div>
+
+      {listing?.status === "active" ? (
+        <div className="mt-4">
+          <Button size="sm" variant="outline" disabled={busy} onClick={findMatches}>
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null} {t("linknet.find")}
+          </Button>
+        </div>
+      ) : null}
+
+      {matches?.length ? (
+        <ul className="mt-4 space-y-3">
+          {matches.map((m) => (
+            <li key={m.id} className="rounded-md border border-border p-3 text-xs">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <span className="font-medium text-foreground">
+                    {m.partnerName || m.partnerSite}
+                  </span>{" "}
+                  <a
+                    className="text-muted-foreground underline"
+                    href={m.partnerSite}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {m.partnerSite}
+                  </a>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">
+                    {t("linknet.score")} {m.score} · {m.sharedTopics.join(", ")}
+                  </span>
+                  <span className="rounded-full border border-border px-2 py-0.5 uppercase tracking-wide text-[10px]">
+                    {t(`linknet.status.${m.status}`)}
+                  </span>
+                </div>
+              </div>
+              {m.reciprocalSwap ? (
+                <p className="mt-1 text-amber-600">{t("linknet.reciprocalWarn")}</p>
+              ) : null}
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <Button size="sm" variant="outline" onClick={() => copyIntro(m)}>
+                  {t("linknet.copyIntro")}
+                </Button>
+                {m.status === "suggested" ? (
+                  <Button size="sm" variant="outline" onClick={() => advance(m, "contacted")}>
+                    {t("linknet.markContacted")}
+                  </Button>
+                ) : null}
+                {m.status === "contacted" ? (
+                  <>
+                    <Input
+                      className="h-8 w-64 text-xs"
+                      placeholder={t("linknet.targetUrlPlaceholder")}
+                      value={targetUrls[m.id] ?? ""}
+                      onChange={(e) => setTargetUrls((p) => ({ ...p, [m.id]: e.target.value }))}
+                    />
+                    <Button size="sm" variant="outline" onClick={() => advance(m, "agreed")}>
+                      {t("linknet.markAgreed")}
+                    </Button>
+                  </>
+                ) : null}
+                {m.status === "agreed" || m.status === "live_verified" ? (
+                  <Button size="sm" variant="outline" disabled={busy} onClick={() => verify(m)}>
+                    {t("linknet.verify")}
+                  </Button>
+                ) : null}
+                {m.status !== "declined" && m.status !== "live_verified" ? (
+                  <Button size="sm" variant="ghost" onClick={() => advance(m, "declined")}>
+                    {t("linknet.decline")}
+                  </Button>
+                ) : null}
+                {m.status === "live_verified" ? (
+                  <span className="text-emerald-600">
+                    ✓ {t("linknet.liveSince")} {m.verifiedAt?.slice(0, 10)}
+                    {m.linkRel?.includes("nofollow") ? ` · ${t("linknet.nofollow")}` : ""}
+                  </span>
+                ) : null}
+                {m.lastCheckFound === false ? (
+                  <span className="text-muted-foreground">{t("linknet.lastCheckMiss")}</span>
+                ) : null}
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </section>
   );
 }
