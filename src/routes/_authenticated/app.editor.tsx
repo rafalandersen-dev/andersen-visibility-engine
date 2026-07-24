@@ -3137,10 +3137,20 @@ function ArrangeSurface(props: {
           e.dataTransfer.setData("text/plain", img.id);
           e.dataTransfer.effectAllowed = "move";
         }}
-        onClick={() => props.onSelect(selected ? null : img.id)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") props.onSelect(selected ? null : img.id);
+        onClick={(e) => {
+          // Without this the click bubbles to the surface root, whose
+          // deselect handler would immediately undo the selection (review H1).
+          e.stopPropagation();
+          props.onSelect(selected ? null : img.id);
         }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            e.stopPropagation();
+            props.onSelect(selected ? null : img.id);
+          }
+        }}
+        onDragEnd={() => props.onDragOverZone(null)}
         className={
           "cursor-grab rounded-md border px-3 py-2 text-xs transition-colors " +
           (selected
@@ -3162,7 +3172,11 @@ function ArrangeSurface(props: {
           <div className="min-w-0 flex-1">
             <div className="truncate font-medium text-foreground">{img.alt || img.concept}</div>
             <div className="truncate text-muted-foreground">
-              {opts.attention ? `${t("arrange.status")}: ${entry.status}` : t("arrange.dragHint")}
+              {opts.attention
+                ? `${t("arrange.status")}: ${t(`arrange.status.${entry.status}`)}`
+                : entry.status === "unplaced"
+                  ? t("arrange.unplacedNote")
+                  : t("arrange.dragHint")}
             </div>
           </div>
         </div>
@@ -3257,7 +3271,7 @@ function ArrangeSurface(props: {
                 <span className="font-medium">{t("arrange.featured")}</span>{" "}
                 <span className="text-muted-foreground">
                   {feat
-                    ? `${feat.alt || feat.imageId} · ${feat.approval}`
+                    ? `${feat.alt || feat.imageId} · ${t(`hook.approval.${feat.approval}`)}`
                     : t("arrange.featuredNone")}
                 </span>
               </div>
@@ -3274,7 +3288,9 @@ function ArrangeSurface(props: {
                   <span className="font-medium">{t("arrange.hook")}</span>
                   {asset.hook ? (
                     <span className="flex items-center gap-2">
-                      <span className="text-muted-foreground">{asset.hook.approval}</span>
+                      <span className="text-muted-foreground">
+                        {t(`hook.approval.${asset.hook.approval}`)}
+                      </span>
                       <Button
                         size="sm"
                         variant="outline"

@@ -116,17 +116,31 @@ describe("buildArrangeModel", () => {
     }
   });
 
-  it("groups broken/unplaced images into one attention bucket (excluded from assembly)", () => {
+  it("attention = truly excluded only; legacy unanchored images render in weave position", () => {
     const blocks = buildArrangeModel(
       asset([
         img("i-broken", "before-section:sec_gone9999"),
-        img("i-legacy"), // no anchor — legacy unplaced
+        img("i-legacy"), // no anchor — publishes appended after the body
+        img("i-draft", undefined, { status: "proposed" }), // fails the publishable gate
       ]),
       project(),
     );
     const attention = blocks.find((b) => b.kind === "attention");
-    expect(attention && attention.kind === "attention" ? attention.entries : []).toHaveLength(2);
-    expect(kinds(blocks)).not.toContain("image:i-broken");
+    const attIds = (attention && attention.kind === "attention" ? attention.entries : []).map(
+      (e) => e.image.id,
+    );
+    expect(attIds.sort()).toEqual(["i-broken", "i-draft"]); // never-vanish guarantee (M3)
+    const k = kinds(blocks);
+    // The legacy image is NOT excluded: it sits after the last section, before article-end.
+    expect(k.indexOf("image:i-legacy")).toBeGreaterThan(k.lastIndexOf("section:FAQ"));
+    expect(k.indexOf("image:i-legacy")).toBeLessThan(k.indexOf("zone:article-end"));
+  });
+
+  it("before-faq surfaces AT the FAQ section, exactly where the assembler weaves it (H2)", () => {
+    const blocks = buildArrangeModel(asset([img("i-faq", "before-faq")]), project());
+    const k = kinds(blocks);
+    expect(k.indexOf("image:i-faq")).toBeGreaterThan(k.lastIndexOf("section:Beta"));
+    expect(k.indexOf("image:i-faq")).toBeLessThan(k.indexOf("section:FAQ"));
   });
 });
 
@@ -143,5 +157,20 @@ describe("moveImageToAnchor (drop)", () => {
     expect(Object.keys(b)).not.toEqual(expect.arrayContaining(["x", "y", "lineIdx"]));
     const a = images.find((i) => i.id === "a")!;
     expect(a).toEqual(img("a", "article-end", { order: 1 })); // untouched sibling
+  });
+});
+
+describe("weave tie-break parity (M2)", () => {
+  it("assembled markdown puts after-section(Alpha) above before-section(Beta) at the shared boundary", async () => {
+    const { assembleContentAsset } = await import("./content-assembler");
+    const a = asset([
+      img("z-after-alpha", `after-section:${alphaId}`, { order: 9 }),
+      img("a-before-beta", `before-section:${betaId}`, { order: 1 }),
+    ]);
+    const md = assembleContentAsset(a, project()).markdown;
+    // Same character offset (Alpha's subtree ends where Beta begins): the
+    // anchor-kind rank must win over image order/id — matching Arrange.
+    expect(md.indexOf("z-after-alpha.jpg")).toBeLessThan(md.indexOf("a-before-beta.jpg"));
+    expect(md.indexOf("a-before-beta.jpg")).toBeLessThan(md.indexOf("## Beta"));
   });
 });

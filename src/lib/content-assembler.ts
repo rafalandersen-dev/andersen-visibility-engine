@@ -246,7 +246,7 @@ function weaveBody(res: ImageAnchorResolution): string {
     acc += l.length + 1; // + newline
   }
   const offsetOfLine = (i: number) => (i < lineOffset.length ? lineOffset[i] : body.length);
-  const inserts: { offset: number; md: string; order: number; id: string }[] = [];
+  const inserts: { offset: number; md: string; rank: number; order: number; id: string }[] = [];
   for (const a of res.anchored) {
     if (a.status !== "resolved" || !a.anchor || !a.section) continue;
     const k = a.anchor.kind;
@@ -257,7 +257,16 @@ function weaveBody(res: ImageAnchorResolution): string {
       offset = offsetOfLine(a.section.subtreeEndLineIdx);
     }
     if (offset === null) continue;
-    inserts.push({ offset, md: composeImage(a.image), order: a.image.order ?? 0, id: a.image.id });
+    inserts.push({
+      offset,
+      md: composeImage(a.image),
+      // A closing subtree's after-section images belong ABOVE the next
+      // heading's before-* images when both land on the same character offset
+      // — the order the Arrange surface displays (P1.2E review M2).
+      rank: k === "after-section" ? 0 : 1,
+      order: a.image.order ?? 0,
+      id: a.image.id,
+    });
   }
   // Legacy byte-parity (finding #2): with nothing to weave, return the stripped body
   // UNCHANGED — no `\n{3,}` collapse — so an asset with images but no anchors matches
@@ -265,7 +274,11 @@ function weaveBody(res: ImageAnchorResolution): string {
   // blank lines that image INSERTIONS introduce.
   if (inserts.length === 0) return body;
   inserts.sort(
-    (x, y) => x.offset - y.offset || x.order - y.order || (x.id < y.id ? -1 : x.id > y.id ? 1 : 0),
+    (x, y) =>
+      x.offset - y.offset ||
+      x.rank - y.rank ||
+      x.order - y.order ||
+      (x.id < y.id ? -1 : x.id > y.id ? 1 : 0),
   );
   let cursor = 0;
   const parts: string[] = [];

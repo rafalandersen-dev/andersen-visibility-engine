@@ -97,6 +97,16 @@ export function buildArrangeModel(asset: ContentAsset, project: Project): Arrang
   };
   for (const s of res.sections) {
     closeThrough(s.headingLineIdx);
+    // Weave parity (review H2): before-faq/before-cta images insert at the
+    // FAQ/CTA section's heading — surface them exactly there, not at the tail.
+    if (res.faqSection && s.order === res.faqSection.order) {
+      img("before-faq");
+      zone({ kind: "before-faq" });
+    }
+    if (res.ctaSection && s.order === res.ctaSection.order) {
+      img("before-cta");
+      zone({ kind: "before-cta" });
+    }
     const id = idByOrder.get(s.order) ?? null;
     if (id) {
       const serialized = serializeAnchor({ kind: "before-section", sectionId: id });
@@ -114,24 +124,32 @@ export function buildArrangeModel(asset: ContentAsset, project: Project): Arrang
   }
   closeThrough(null);
 
-  if (res.faqSection) {
-    img("before-faq");
-    zone({ kind: "before-faq" });
-  }
-  if (res.ctaSection) {
-    img("before-cta");
-    zone({ kind: "before-cta" });
+  // Weave order after the body (review M1): legacy UNANCHORED images publish
+  // appended after the body, BEFORE article-end images — show them exactly
+  // there as ordinary draggable blocks (they are NOT excluded from assembly).
+  for (const image of res.unanchored) {
+    blocks.push({ kind: "image", entry: { image, status: "unplaced" } });
   }
   img("article-end");
   zone({ kind: "article-end" });
 
-  // Everything excluded from assembly, surfaced once at the end for repair.
+  // Genuinely excluded from assembly (broken/ambiguous/invalid anchors) plus
+  // inline images the publishable gate rejects (unapproved / missing alt) —
+  // surfaced once for repair so a card can never vanish mid-drag (review M3).
+  const seen = new Set<string>([
+    ...res.anchored.map((a) => a.image.id),
+    ...res.unanchored.map((i) => i.id),
+    ...res.invalid.map((i) => i.id),
+  ]);
+  const notPublishable = (asset.images ?? []).filter(
+    (i) => i.placement !== "featured" && !seen.has(i.id),
+  );
   const attention: ArrangeImageEntry[] = [
     ...res.anchored
       .filter((a) => a.status !== "resolved")
       .map((a) => ({ image: a.image, status: a.status })),
-    ...res.unanchored.map((image) => ({ image, status: "unplaced" as const })),
     ...res.invalid.map((image) => ({ image, status: "invalid" as const })),
+    ...notPublishable.map((image) => ({ image, status: "unplaced" as const })),
   ];
   if (attention.length) blocks.push({ kind: "attention", entries: attention });
   return blocks;
