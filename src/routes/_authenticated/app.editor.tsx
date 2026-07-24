@@ -74,6 +74,12 @@ import "@/styles/milo-image.css";
 import miloImageCss from "@/styles/milo-image.css?raw";
 import { buildPreviewSrcDoc, poorMobileCropWarnings } from "@/lib/responsive-preview";
 import {
+  buildArrangeModel,
+  moveImageToAnchor,
+  anchorFromDropzone,
+  dropzoneLabel,
+} from "@/lib/arrange-model";
+import {
   IMAGE_SIZES,
   IMAGE_ALIGNMENTS,
   IMAGE_ASPECTS,
@@ -392,6 +398,10 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     [project?.connectorType, assembled],
   );
   const [previewMobile, setPreviewMobile] = useState(false);
+  // ---- Arrange mode (Article Studio 3.0 / P1.2E) ----
+  const [arrangeMode, setArrangeMode] = useState(false);
+  const [selectedArrangeImage, setSelectedArrangeImage] = useState<string | null>(null);
+  const [dragOverZone, setDragOverZone] = useState<string | null>(null);
   // ---- Sources / Author / Image form inputs (P1.1 Phase 3) ----
   const [newSourceUrl, setNewSourceUrl] = useState("");
   const [newSourceClaim, setNewSourceClaim] = useState("");
@@ -504,6 +514,22 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     "before-cta",
     "article-end",
   ];
+  const arrangeBlocks = useMemo(
+    () => (project && arrangeMode ? buildArrangeModel(f, project) : []),
+    [f, project, arrangeMode],
+  );
+  /**
+   * A drop resolves to a SEMANTIC anchor only (spec §5.1 hard rule) and goes
+   * through the same images field the anchor selector writes — dirty tracking,
+   * Save, refresh-guard and the assembler all see one source of truth.
+   */
+  const onArrangeDrop = (serialized: string, imageId: string) => {
+    const anchor = anchorFromDropzone(serialized);
+    if (!anchor || !imageId) return;
+    setF((prev) => ({ ...prev, images: moveImageToAnchor(prev.images ?? [], imageId, anchor) }));
+    setDragOverZone(null);
+    setSelectedArrangeImage(imageId);
+  };
   const imageAnchorRes = useMemo(
     () => (project ? resolveImageAnchors(f, project) : null),
     [f, project],
@@ -2706,8 +2732,43 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
             >
               Mobile
             </Button>
+            <span className="mx-2 h-4 w-px bg-border" aria-hidden="true" />
+            <Button
+              size="sm"
+              variant={arrangeMode ? "ghost" : "outline"}
+              onClick={() => setArrangeMode(false)}
+            >
+              {t("arrange.modePreview")}
+            </Button>
+            <Button
+              size="sm"
+              variant={arrangeMode ? "outline" : "ghost"}
+              onClick={() => setArrangeMode(true)}
+            >
+              {t("arrange.modeArrange")}
+            </Button>
           </div>
-          {previewMobile && poorMobileCropWarnings(f).length > 0 ? (
+          {arrangeMode ? (
+            <ArrangeSurface
+              blocks={arrangeBlocks}
+              asset={f}
+              t={t}
+              selected={selectedArrangeImage}
+              onSelect={setSelectedArrangeImage}
+              dragOverZone={dragOverZone}
+              onDragOverZone={setDragOverZone}
+              onDrop={onArrangeDrop}
+              imageIndexOf={(id) => (f.images ?? []).findIndex((im) => im.id === id)}
+              updImage={updImage}
+              setPresentation={setPresentation}
+              setPresFocal={setPresFocal}
+              hook={{
+                edit: (text: string) => editHook({ text }),
+                approve: approveHookAction,
+              }}
+            />
+          ) : null}
+          {!arrangeMode && previewMobile && poorMobileCropWarnings(f).length > 0 ? (
             <div className="mb-3 rounded-md border border-amber-500/40 bg-amber-500/5 px-4 py-3 text-xs text-foreground/80">
               {t("prev.cropWarn")}{" "}
               <strong>
@@ -2717,7 +2778,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               </strong>
             </div>
           ) : null}
-          {previewMobile ? (
+          {!arrangeMode && previewMobile ? (
             /* A REAL 390px viewport: media queries (milo-m-*) fire exactly as
                on a phone, over the same assembled HTML and the same stylesheet
                the desktop preview uses. sandbox="" — no scripts can ever run. */
@@ -2738,14 +2799,15 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 ],
               )}
             />
-          ) : (
+          ) : null}
+          {!arrangeMode && !previewMobile ? (
             <div
               className="milo-preview rounded-lg border border-border bg-background p-6"
               dangerouslySetInnerHTML={{
                 __html: assembled?.html ?? markdownToHtml(f.markdown, renderOpts),
               }}
             />
-          )}
+          ) : null}
         </TabsContent>
       </Tabs>
 
@@ -3019,5 +3081,300 @@ function LivePublishStatusBadge({ status }: { status?: LivePublishStatus }) {
     >
       {t(key)}
     </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Arrange mode surface (Article Studio 3.0 / P1.2E, spec §5.1)
+// ---------------------------------------------------------------------------
+
+/**
+ * A visual composition surface over the SAME canonical asset: blocks come from
+ * buildArrangeModel (assembler-order), drops resolve to semantic anchors only,
+ * and every control writes the exact fields the panels below write — one
+ * source of truth, one Save, one dirty tracker.
+ */
+function ArrangeSurface(props: {
+  blocks: import("@/lib/arrange-model").ArrangeBlock[];
+  asset: ContentAsset;
+  t: (key: string) => string;
+  selected: string | null;
+  onSelect: (id: string | null) => void;
+  dragOverZone: string | null;
+  onDragOverZone: (zone: string | null) => void;
+  onDrop: (serialized: string, imageId: string) => void;
+  imageIndexOf: (id: string) => number;
+  updImage: (i: number, patch: Partial<NonNullable<ContentAsset["images"]>[number]>) => void;
+  setPresentation: (i: number, patch: Partial<ImagePresentation>) => void;
+  setPresFocal: (i: number, axis: "x" | "y", val: string) => void;
+  hook: { edit: (text: string) => void; approve: () => void };
+}) {
+  const { blocks, asset, t } = props;
+  const sections = blocks.flatMap((b) =>
+    b.kind === "section" ? [{ sectionId: b.sectionId, heading: b.heading }] : [],
+  );
+
+  const zoneLabel = (b: Extract<(typeof blocks)[number], { kind: "dropzone" }>) => {
+    const l = dropzoneLabel(b.anchor, sections);
+    return l.heading ? `${t(l.key)} “${l.heading}”` : t(l.key);
+  };
+
+  const imageCard = (
+    entry: import("@/lib/arrange-model").ArrangeImageEntry,
+    opts: { attention?: boolean } = {},
+  ) => {
+    const img = entry.image;
+    const idx = props.imageIndexOf(img.id);
+    const selected = props.selected === img.id;
+    const pres = img.presentation ?? DEFAULT_PRESENTATION;
+    return (
+      <div
+        key={img.id}
+        role="button"
+        tabIndex={0}
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.setData("text/plain", img.id);
+          e.dataTransfer.effectAllowed = "move";
+        }}
+        onClick={(e) => {
+          // Without this the click bubbles to the surface root, whose
+          // deselect handler would immediately undo the selection (review H1).
+          e.stopPropagation();
+          props.onSelect(selected ? null : img.id);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            e.stopPropagation();
+            props.onSelect(selected ? null : img.id);
+          }
+        }}
+        onDragEnd={() => props.onDragOverZone(null)}
+        className={
+          "cursor-grab rounded-md border px-3 py-2 text-xs transition-colors " +
+          (selected
+            ? "border-accent bg-accent/10"
+            : opts.attention
+              ? "border-amber-500/40 bg-amber-500/5"
+              : "border-border bg-secondary/40 hover:border-accent")
+        }
+      >
+        <div className="flex items-center gap-2">
+          {img.previewUrl || img.url ? (
+            <img
+              src={img.previewUrl || img.url}
+              alt=""
+              className="h-9 w-12 rounded object-cover"
+              draggable={false}
+            />
+          ) : null}
+          <div className="min-w-0 flex-1">
+            <div className="truncate font-medium text-foreground">{img.alt || img.concept}</div>
+            <div className="truncate text-muted-foreground">
+              {opts.attention
+                ? `${t("arrange.status")}: ${t(`arrange.status.${entry.status}`)}`
+                : entry.status === "unplaced"
+                  ? t("arrange.unplacedNote")
+                  : t("arrange.dragHint")}
+            </div>
+          </div>
+        </div>
+        {selected && idx >= 0 ? (
+          <div
+            className="mt-2 grid gap-2 md:grid-cols-2"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            role="group"
+            aria-label={t("arrange.inlineControls")}
+          >
+            <Input
+              value={img.alt ?? ""}
+              placeholder={t("arrange.altPlaceholder")}
+              onChange={(e) => props.updImage(idx, { alt: e.target.value })}
+            />
+            <Input
+              value={img.caption ?? ""}
+              placeholder={t("arrange.captionPlaceholder")}
+              onChange={(e) => props.updImage(idx, { caption: e.target.value })}
+            />
+            <div className="flex flex-wrap items-center gap-1.5 md:col-span-2">
+              {(
+                [
+                  ["size", IMAGE_SIZES, pres.size],
+                  ["alignment", IMAGE_ALIGNMENTS, pres.alignment],
+                  ["aspectRatio", IMAGE_ASPECTS, pres.aspectRatio],
+                  ["fit", IMAGE_FITS, pres.fit],
+                ] as const
+              ).map(([field, options, value]) => (
+                <select
+                  key={field}
+                  aria-label={field}
+                  className="h-8 rounded-md border border-border bg-background px-1.5 text-xs"
+                  value={value}
+                  onChange={(e) =>
+                    props.setPresentation(idx, {
+                      [field]: e.target.value,
+                    } as Partial<ImagePresentation>)
+                  }
+                >
+                  {options.map((o) => (
+                    <option key={o} value={o}>
+                      {t(`pres.val.${o}`)}
+                    </option>
+                  ))}
+                </select>
+              ))}
+              {pres.fit === "cover" ? (
+                <>
+                  <Input
+                    type="number"
+                    step="0.05"
+                    min={0}
+                    max={1}
+                    value={pres.focalPoint?.x ?? 0.5}
+                    onChange={(e) => props.setPresFocal(idx, "x", e.target.value)}
+                    className="h-8 w-16 text-xs"
+                    aria-label="focal x"
+                  />
+                  <Input
+                    type="number"
+                    step="0.05"
+                    min={0}
+                    max={1}
+                    value={pres.focalPoint?.y ?? 0.5}
+                    onChange={(e) => props.setPresFocal(idx, "y", e.target.value)}
+                    className="h-8 w-16 text-xs"
+                    aria-label="focal y"
+                  />
+                </>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-1.5" onClick={() => props.onSelect(null)}>
+      <p className="mb-2 text-xs text-muted-foreground">{t("arrange.hint")}</p>
+      {blocks.map((b, i) => {
+        switch (b.kind) {
+          case "featured": {
+            const feat = asset.featuredImage;
+            return (
+              <div
+                key={`feat-${i}`}
+                className="rounded-md border border-dashed border-border px-3 py-2 text-xs"
+              >
+                <span className="font-medium">{t("arrange.featured")}</span>{" "}
+                <span className="text-muted-foreground">
+                  {feat
+                    ? `${feat.alt || feat.imageId} · ${t(`hook.approval.${feat.approval}`)}`
+                    : t("arrange.featuredNone")}
+                </span>
+              </div>
+            );
+          }
+          case "hook":
+            return (
+              <div
+                key={`hook-${i}`}
+                className="rounded-md border border-border bg-secondary/30 px-3 py-2"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="mb-1 flex items-center justify-between text-xs">
+                  <span className="font-medium">{t("arrange.hook")}</span>
+                  {asset.hook ? (
+                    <span className="flex items-center gap-2">
+                      <span className="text-muted-foreground">
+                        {t(`hook.approval.${asset.hook.approval}`)}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={asset.hook.approval === "approved" || !asset.hook.text.trim()}
+                        onClick={props.hook.approve}
+                      >
+                        {t("hook.action.approve")}
+                      </Button>
+                    </span>
+                  ) : null}
+                </div>
+                {asset.hook ? (
+                  <Input
+                    value={asset.hook.text}
+                    onChange={(e) => props.hook.edit(e.target.value)}
+                    placeholder={t("arrange.hookPlaceholder")}
+                  />
+                ) : (
+                  <p className="text-xs text-muted-foreground">{t("arrange.hookNone")}</p>
+                )}
+              </div>
+            );
+          case "dropzone": {
+            const active = props.dragOverZone === b.serialized;
+            return (
+              <div
+                key={`zone-${b.serialized}-${i}`}
+                data-anchor={b.serialized}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  props.onDragOverZone(b.serialized);
+                }}
+                onDragLeave={() => props.onDragOverZone(null)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  props.onDrop(b.serialized, e.dataTransfer.getData("text/plain"));
+                }}
+                className={
+                  "flex h-6 items-center justify-center rounded border border-dashed text-[10px] transition-colors " +
+                  (active
+                    ? "border-accent bg-accent/15 text-accent-foreground"
+                    : "border-border/60 text-muted-foreground/70")
+                }
+              >
+                {zoneLabel(b)}
+              </div>
+            );
+          }
+          case "section":
+            return (
+              <div
+                key={`sec-${b.sectionId ?? i}`}
+                className="rounded-md border border-border bg-background px-3 py-2"
+              >
+                <div
+                  className={
+                    "font-medium text-foreground " + (b.level <= 2 ? "text-sm" : "text-xs pl-3")
+                  }
+                >
+                  {b.heading}
+                </div>
+                {b.excerpt ? (
+                  <div className="mt-0.5 truncate text-xs text-muted-foreground">{b.excerpt}</div>
+                ) : null}
+              </div>
+            );
+          case "image":
+            return imageCard(b.entry);
+          case "attention":
+            return (
+              <div
+                key={`att-${i}`}
+                className="mt-4 space-y-1.5 rounded-md border border-amber-500/40 bg-amber-500/5 p-3"
+              >
+                <div className="text-xs font-medium">{t("arrange.attention")}</div>
+                <p className="text-[11px] text-muted-foreground">{t("arrange.attentionHint")}</p>
+                {b.entries.map((entry) => imageCard(entry, { attention: true }))}
+              </div>
+            );
+          default:
+            return null;
+        }
+      })}
+    </div>
   );
 }
