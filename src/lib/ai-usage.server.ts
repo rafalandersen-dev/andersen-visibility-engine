@@ -42,6 +42,7 @@ export type UsageBucket =
   | "authority"
   | "gscImport"
   | "imageGeneration"
+  | "linkVerify"
   | "aiCredits";
 
 const BUCKET_LIMIT: Record<UsageBucket, keyof PlanLimits> = {
@@ -52,6 +53,7 @@ const BUCKET_LIMIT: Record<UsageBucket, keyof PlanLimits> = {
   authority: "monthlyAuthorityGenerations",
   gscImport: "monthlyGscImports",
   imageGeneration: "monthlyImageGenerations",
+  linkVerify: "monthlyLinkVerifications",
   aiCredits: "monthlyAiCredits",
 };
 
@@ -99,6 +101,7 @@ const FRIENDLY: Record<UsageBucket, string> = {
   audit: "site audits",
   authority: "authority analyses",
   imageGeneration: "image generations",
+  linkVerify: "link verifications",
   gscImport: "Search Console imports",
   aiCredits: "AI credits",
 };

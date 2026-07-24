@@ -50,4 +50,6 @@ CREATE TABLE IF NOT EXISTS public.link_network_matches (
 );
 CREATE INDEX IF NOT EXISTS link_network_matches_owner_idx
   ON public.link_network_matches (a_user, a_project, status);
+CREATE INDEX IF NOT EXISTS link_network_matches_partner_idx
+  ON public.link_network_matches (b_user, b_project, status);
 ALTER TABLE public.link_network_matches ENABLE ROW LEVEL SECURITY;

@@ -200,13 +200,16 @@ export function containsLinkToSite(
   for (let m = anchorRe.exec(html); m; m = anchorRe.exec(html)) {
     const attrs = m[1] ?? "";
     const href = hrefRe.exec(attrs);
-    const value = (href?.[2] ?? href?.[3] ?? href?.[4] ?? "").replace(/&amp;/g, "&");
+    let value = (href?.[2] ?? href?.[3] ?? href?.[4] ?? "").replace(/&amp;/g, "&");
+    if (value.startsWith("//")) value = "https:" + value; // protocol-relative
     if (!/^https?:\/\//i.test(value)) continue;
     try {
       const host = new URL(value).hostname.replace(/^www\./, "").toLowerCase();
       if (host === partnerHost) {
         const rel = relRe.exec(attrs);
-        return { found: true, rel: rel?.[2] ?? rel?.[3] ?? null };
+        const relValue = rel?.[2] ?? rel?.[3] ?? null;
+        // Hostile pages can carry megabyte rel attributes — cap before storage.
+        return { found: true, rel: relValue ? relValue.slice(0, 120) : null };
       }
     } catch {
       /* malformed href — keep scanning */

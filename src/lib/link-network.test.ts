@@ -101,6 +101,14 @@ describe("containsLinkToSite (verification is the only path to live)", () => {
     expect(r.rel).toContain("nofollow");
   });
 
+  it("protocol-relative hrefs count (L1) and hostile rel attributes are capped (L2)", () => {
+    const rel = "x".repeat(5000);
+    const page = `<a href="//synergymassage.se/guide" rel="${rel}">g</a>`;
+    const r = containsLinkToSite(page, "https://synergymassage.se");
+    expect(r.found).toBe(true);
+    expect((r.rel ?? "").length).toBeLessThanOrEqual(120);
+  });
+
   it("plain-text mentions and other hosts never count", () => {
     expect(
       containsLinkToSite("visit synergymassage.se today", "https://synergymassage.se").found,

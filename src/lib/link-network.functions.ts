@@ -12,6 +12,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import type { Project, ServiceItem } from "./types";
 import { readWorkspaceRow } from "./workspace.server";
+import { claimAiUsage } from "./ai-usage.server";
 import { safeFetch } from "./safe-fetch";
 import { isEmailAddress } from "./outreach-delivery.server";
 import {
@@ -191,18 +192,20 @@ export const findLinkMatchesFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<{ matches: LinkMatchView[] }> => {
     const userId = context.userId as string;
     const db = await admin();
-    const { data: mineRaw } = await db
+    const { data: mineRaw, error: mineErr } = await db
       .from("link_network_listings")
       .select("*")
       .eq("user_id", userId)
       .eq("project_id", data.projectId)
       .maybeSingle();
+    if (mineErr) throw new Error("Could not read the network directory. Please try again.");
     const mine = mineRaw as Row | null;
     if (!mine) throw new Error("Join the network first.");
-    const { data: allRaw } = await db
+    const { data: allRaw, error: allErr } = await db
       .from("link_network_listings")
       .select("*")
       .eq("status", "active");
+    if (allErr) throw new Error("Could not read the network directory. Please try again.");
     const listings = (Array.isArray(allRaw) ? allRaw : []) as Row[];
     const my = {
       siteUrl: str(mine.site_url),
@@ -345,6 +348,15 @@ export const verifyLinkPlacementFn = createServerFn({ method: "POST" })
       }
       const pageUrl = (data.pageUrl ?? str(row.target_url)).trim();
       if (!pageUrl) throw new Error("No page to check — save the agreed page URL first.");
+      // Review M1: the checked page MUST live on the partner's site — anyone
+      // could otherwise "verify" against a page they control and forge the
+      // product's core trust signal (and the partner's reciprocity view).
+      if (!sameSite(pageUrl, str(row.b_site))) {
+        throw new Error("The page to verify must be on the partner's website.");
+      }
+      // Review M2: metered like every other costly fetch — claimed BEFORE the
+      // request so a refusal costs nothing.
+      await claimAiUsage({ userId, bucket: "linkVerify" });
       const res = await safeFetch(pageUrl, { maxBytes: 1_500_000, timeoutMs: 12_000 });
       if (!res.ok) throw new Error("Could not fetch the partner page to verify.");
       const check = containsLinkToSite(res.body, str(row.a_site));
@@ -355,17 +367,28 @@ export const verifyLinkPlacementFn = createServerFn({ method: "POST" })
         last_check_found: check.found,
         updated_at: now,
       };
+      let nextStatus: MatchStatus = from;
       if (check.found) {
-        patch.status = "live_verified";
+        nextStatus = "live_verified";
+        patch.status = nextStatus;
         patch.verified_at = now;
         patch.link_rel = check.rel;
+      } else if (from === "live_verified") {
+        // Review M3 — the documented exception to the forward-only machine:
+        // a link that DISAPPEARED regresses to agreed. "Live ✓" must never
+        // outlive the link, or the honesty badge is a lie.
+        nextStatus = "agreed";
+        patch.status = nextStatus;
+        patch.verified_at = null;
+        patch.link_rel = null;
       }
-      await db
+      const { error: updErr } = await db
         .from("link_network_matches")
         .update(patch)
         .eq("id", data.matchId)
         .eq("a_user", userId);
-      return { found: check.found, rel: check.rel, status: check.found ? "live_verified" : from };
+      if (updErr) throw new Error("Could not record the verification. Please try again.");
+      return { found: check.found, rel: check.rel, status: nextStatus };
     },
   );
 

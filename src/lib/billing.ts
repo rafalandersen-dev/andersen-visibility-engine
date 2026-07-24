@@ -33,6 +33,7 @@ export interface PlanLimits {
   monthlyGscImports: number;
   monthlyAuthorityGenerations: number;
   monthlyImageGenerations: number;
+  monthlyLinkVerifications: number;
   publishingEnabled: boolean;
   wordpressConnectorEnabled: boolean;
   customConnectorEnabled: boolean;
@@ -175,6 +176,7 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
     monthlyGscImports: 1,
     monthlyAuthorityGenerations: 1,
     monthlyImageGenerations: 3,
+    monthlyLinkVerifications: 10,
     publishingEnabled: false,
     wordpressConnectorEnabled: false,
     customConnectorEnabled: false,
@@ -194,6 +196,7 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
     monthlyGscImports: 3,
     monthlyAuthorityGenerations: 3,
     monthlyImageGenerations: 10,
+    monthlyLinkVerifications: 50,
     publishingEnabled: true,
     wordpressConnectorEnabled: true,
     customConnectorEnabled: true,
@@ -213,6 +216,7 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
     monthlyGscImports: 10,
     monthlyAuthorityGenerations: 10,
     monthlyImageGenerations: 40,
+    monthlyLinkVerifications: 200,
     publishingEnabled: true,
     wordpressConnectorEnabled: true,
     customConnectorEnabled: true,
@@ -232,6 +236,7 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
     monthlyGscImports: 30,
     monthlyAuthorityGenerations: 30,
     monthlyImageGenerations: 120,
+    monthlyLinkVerifications: 600,
     publishingEnabled: true,
     wordpressConnectorEnabled: true,
     customConnectorEnabled: true,

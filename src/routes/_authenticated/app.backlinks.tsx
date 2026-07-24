@@ -762,8 +762,12 @@ function LinkNetworkSection({ project, t }: { project: Project; t: (k: string) =
   };
 
   const copyIntro = async (m: LinkMatchView) => {
-    await navigator.clipboard.writeText(`${m.intro.subject}\n\n${m.intro.body}`);
-    toast.success(t("linknet.introCopied"));
+    try {
+      await navigator.clipboard.writeText(`${m.intro.subject}\n\n${m.intro.body}`);
+      toast.success(t("linknet.introCopied"));
+    } catch {
+      toast.error("Clipboard is unavailable — copy the text manually.");
+    }
   };
 
   if (!loaded) return null;
