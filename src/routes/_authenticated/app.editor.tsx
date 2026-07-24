@@ -73,6 +73,7 @@ import "@/styles/milo-image.css";
 // the milo-m-* media query fires against the iframe's real 390px viewport.
 import miloImageCss from "@/styles/milo-image.css?raw";
 import { buildPreviewSrcDoc, poorMobileCropWarnings } from "@/lib/responsive-preview";
+import { effectiveVisualState, beginVisualUpgrade, visualCompleteness } from "@/lib/visual-model";
 import {
   buildArrangeModel,
   moveImageToAnchor,
@@ -934,6 +935,10 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       hook: local.hook,
       // P1.2B — the featured image the Featured panel owns; same survival rule.
       featuredImage: local.featuredImage,
+      // P1.2H upgrade markers — without these, "Upgrade to 3.0" would be
+      // silently dropped by Save/flushPendingEdits (the P1.1 defect class).
+      visualState: local.visualState,
+      visualModelVersion: local.visualModelVersion,
       // Article Studio 3.0 / P1.2C — persisted section identities for stable image
       // anchors. Reconciled at Save (see save()) so ids stay stable across edits.
       sectionIndex: local.sectionIndex,
@@ -1581,6 +1586,33 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {effectiveVisualState(f) === "needsVisualUpgrade" ? (
+        <div className="mx-5 mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-secondary/40 px-4 py-3 text-xs">
+          <span className="text-foreground/80">{t("visual.upgradePrompt")}</span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setF((prev) => beginVisualUpgrade(prev))}
+          >
+            {t("visual.upgradeAction")}
+          </Button>
+        </div>
+      ) : null}
+      {effectiveVisualState(f) === "upgrading" || effectiveVisualState(f) === "current"
+        ? (() => {
+            const vc = visualCompleteness(f);
+            return (
+              <div className="mx-5 mt-3 text-xs text-muted-foreground">
+                {t("visual.completeness")}:{" "}
+                <strong className="text-foreground">{vc.score}/100</strong>
+                {vc.missing.length ? (
+                  <> · {vc.missing.map((m) => t(`visual.missing.${m}`)).join(" · ")}</>
+                ) : null}
+              </div>
+            );
+          })()
+        : null}
 
       <Tabs defaultValue="content" className="px-5 pt-3">
         <TabsList>

@@ -17,6 +17,7 @@ import { authorRequiredUnresolved } from "./author";
 import { imagesMissingAlt, requiredImagesUnresolved, publishableImages } from "./images";
 import { hookPublishGate, detectPossibleHookDuplicate } from "./hook";
 import { validateFeaturedImage } from "./featured-image";
+import { poorMobileCropWarnings } from "./responsive-preview";
 import { resolveImageAnchors } from "./image-anchors";
 import {
   validatePresentation,
@@ -193,6 +194,67 @@ export function buildPublishingChecklist(
       featuredBlockers.map((f) => f.message).join(" "),
     ),
   );
+
+  // P1.2H — image-object integrity + advisory visual warnings (spec §6).
+  // Blocker (v3 only): an approved image whose stored object is unresolvable
+  // (no url AND no storagePath). The assembler EXCLUDES such an image rather
+  // than rendering it broken — this gate exists so a v3 article never quietly
+  // publishes with less imagery than the author approved. Warnings never
+  // block: poor mobile crops, excessive image count, duplicate image URLs.
+  if (hookGate.applies) {
+    const ghost = (asset.images ?? []).filter(
+      (i) =>
+        (i.status === "accepted" || i.status === "generated") &&
+        !(i.url ?? "").trim() &&
+        !(i.storagePath ?? "").trim(),
+    );
+    items.push(
+      block(
+        "imageObjectMissing",
+        "Every accepted image has a stored object",
+        ghost.length === 0,
+        ghost.length
+          ? `${ghost.length} accepted image(s) have no stored file or URL — remove or re-upload them.`
+          : "",
+      ),
+    );
+  }
+  {
+    const crops = poorMobileCropWarnings(asset);
+    items.push(
+      warn(
+        "poorMobileCrop",
+        "Mobile crops look intentional",
+        crops.length === 0,
+        crops.length
+          ? `Check the mobile crop for: ${crops.map((c) => c.label).join(", ")} — the crop changes shape on phones with no focal point set.`
+          : "",
+      ),
+    );
+    const pubImgs = (asset.images ?? []).filter(
+      (i) => i.status === "accepted" || i.status === "generated",
+    );
+    items.push(
+      warn(
+        "excessiveImages",
+        "Image count is reasonable",
+        pubImgs.length <= 8,
+        pubImgs.length > 8
+          ? `${pubImgs.length} images — long articles rarely need more than 8.`
+          : "",
+      ),
+    );
+    const urls = pubImgs.map((i) => (i.url ?? "").trim()).filter(Boolean);
+    const dup = urls.filter((u, idx) => urls.indexOf(u) !== idx);
+    items.push(
+      warn(
+        "duplicateImage",
+        "No duplicate images",
+        dup.length === 0,
+        dup.length ? "The same image URL is used more than once in this article." : "",
+      ),
+    );
+  }
 
   // Inline image anchors (Article Studio 3.0 / P1.2C). Resolution is recomputed from
   // the CURRENT body (never a persisted status), so a section deleted/renamed/merged
