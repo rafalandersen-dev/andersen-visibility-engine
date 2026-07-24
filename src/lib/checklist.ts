@@ -196,12 +196,17 @@ export function buildPublishingChecklist(
   );
 
   // P1.2H — image-object integrity + advisory visual warnings (spec §6).
-  // Blocker (v3 only): an ACCEPTED image whose stored object is unresolvable
-  // (no url AND no storagePath) would publish as a broken <img>. Warnings never
+  // Blocker (v3 only): an approved image whose stored object is unresolvable
+  // (no url AND no storagePath). The assembler EXCLUDES such an image rather
+  // than rendering it broken — this gate exists so a v3 article never quietly
+  // publishes with less imagery than the author approved. Warnings never
   // block: poor mobile crops, excessive image count, duplicate image URLs.
   if (hookGate.applies) {
     const ghost = (asset.images ?? []).filter(
-      (i) => i.status === "accepted" && !(i.url ?? "").trim() && !(i.storagePath ?? "").trim(),
+      (i) =>
+        (i.status === "accepted" || i.status === "generated") &&
+        !(i.url ?? "").trim() &&
+        !(i.storagePath ?? "").trim(),
     );
     items.push(
       block(
@@ -226,7 +231,9 @@ export function buildPublishingChecklist(
           : "",
       ),
     );
-    const pubImgs = (asset.images ?? []).filter((i) => i.status === "accepted");
+    const pubImgs = (asset.images ?? []).filter(
+      (i) => i.status === "accepted" || i.status === "generated",
+    );
     items.push(
       warn(
         "excessiveImages",

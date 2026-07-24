@@ -39,6 +39,8 @@ export const EDITOR_FORM_FIELDS = [
   "breadcrumbs",
   "hook",
   "featuredImage",
+  "visualState",
+  "visualModelVersion",
   "sectionIndex",
 ] as const;
 

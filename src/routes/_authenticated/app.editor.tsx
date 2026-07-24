@@ -935,6 +935,10 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       hook: local.hook,
       // P1.2B — the featured image the Featured panel owns; same survival rule.
       featuredImage: local.featuredImage,
+      // P1.2H upgrade markers — without these, "Upgrade to 3.0" would be
+      // silently dropped by Save/flushPendingEdits (the P1.1 defect class).
+      visualState: local.visualState,
+      visualModelVersion: local.visualModelVersion,
       // Article Studio 3.0 / P1.2C — persisted section identities for stable image
       // anchors. Reconciled at Save (see save()) so ids stay stable across edits.
       sectionIndex: local.sectionIndex,

@@ -126,7 +126,7 @@ export function visualCompleteness(
   if (featuredImageActive(asset)) score += 30;
   else missing.push("featured");
   const inline = (asset.images ?? []).filter(
-    (i) => i.placement !== "featured" && i.status === "accepted",
+    (i) => i.placement !== "featured" && (i.status === "accepted" || i.status === "generated"),
   );
   if (inline.length > 0) {
     score += 15;

@@ -101,6 +101,8 @@ describe("editorFormDirty", () => {
         "cta",
         "editorNotes",
         "featuredImage",
+        "visualState",
+        "visualModelVersion",
         "h1",
         "hook",
         "images",
@@ -267,4 +269,10 @@ describe("editorFormDirty", () => {
     });
     expect(editorFormDirty(form, stored)).toBe(false);
   });
+});
+
+it("the P1.2H upgrade markers are dirty-tracked (Save+reload acceptance)", async () => {
+  const { beginVisualUpgrade } = await import("./visual-model");
+  const base = { id: "a1", title: "T", markdown: "b" } as never;
+  expect(editorFormDirty(beginVisualUpgrade(base), base)).toBe(true);
 });
