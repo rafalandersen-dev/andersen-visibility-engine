@@ -13,6 +13,8 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { hydrateForUser, resetStore, useStore } from "@/lib/store";
 import { isProjectSetupComplete } from "@/lib/onboarding";
+import { useT } from "@/i18n";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated")({
   component: AuthenticatedLayout,
@@ -33,6 +35,8 @@ function AuthenticatedLayout() {
   const searchStr = location.searchStr;
   const projects = useStore((s) => s.projects);
   const activeProjectId = useStore((s) => s.activeProjectId);
+  const hydrationFailed = useStore((s) => s.hydrationFailed);
+  const t = useT();
 
   useEffect(() => {
     if (visualQa) {
@@ -64,7 +68,9 @@ function AuthenticatedLayout() {
   // onboarding route itself.
   useEffect(() => {
     if (visualQa) return;
-    if (loading || !session || hydrating || !roleLoaded || isOwner) return;
+    // A FAILED hydrate must never read as "no projects" (2026-07-25 outage:
+    // the empty fallback sent a 5-project owner into the onboarding wizard).
+    if (loading || !session || hydrating || hydrationFailed || !roleLoaded || isOwner) return;
     // The consent page must render for any authenticated user regardless of
     // onboarding state, so it is exempt from the onboarding guard.
     if (pathname === ONBOARDING_PATH || pathname === CONNECT_PATH) return;
@@ -77,6 +83,7 @@ function AuthenticatedLayout() {
     loading,
     session,
     hydrating,
+    hydrationFailed,
     roleLoaded,
     isOwner,
     pathname,
@@ -90,6 +97,26 @@ function AuthenticatedLayout() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-sm text-muted-foreground">Loading workspace…</div>
+      </div>
+    );
+  }
+
+  if (!visualQa && hydrationFailed) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="max-w-sm space-y-4 text-center" role="alert">
+          <div className="font-display text-lg text-foreground">{t("shell.loadError.title")}</div>
+          <p className="text-sm text-muted-foreground">{t("shell.loadError.body")}</p>
+          <Button
+            onClick={() => {
+              if (!session) return;
+              setHydrating(true);
+              hydrateForUser(session.user.id).finally(() => setHydrating(false));
+            }}
+          >
+            {t("shell.loadError.retry")}
+          </Button>
+        </div>
       </div>
     );
   }

@@ -95,6 +95,13 @@ interface State {
   activeProjectId: string;
   /** Whether the active user's workspace has been loaded from Cloud. */
   hydrated: boolean;
+  /**
+   * The last hydrate attempt FAILED (2026-07-25 outage lesson): a backend blip
+   * must read as "couldn't load", never as "you have no workspace" — the old
+   * empty-with-hydrated:true fallback dumped real users into the onboarding
+   * wizard as if their data were gone. Never persisted.
+   */
+  hydrationFailed: boolean;
   /** The user whose workspace is currently in memory (null = signed out). */
   userId: string | null;
   /**
@@ -126,6 +133,7 @@ const emptyState: State = {
   pendingActions: [],
   activeProjectId: "",
   hydrated: false,
+  hydrationFailed: false,
   userId: null,
   rev: 0,
 };
@@ -152,6 +160,7 @@ const ssrSnapshot: State = {
   pendingActions: [],
   activeProjectId: seedProjects[0]?.id ?? "",
   hydrated: false,
+  hydrationFailed: false,
   userId: null,
   rev: 0,
 };
@@ -258,6 +267,7 @@ function stateFromRow(userId: string, d: Partial<State>, rev: number): State {
       return d.activeProjectId ?? projects[0]?.id ?? "";
     })(),
     hydrated: true,
+    hydrationFailed: false,
     userId,
     rev,
   };
@@ -436,7 +446,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
     } else {
       // First-run: authenticated users start with an EMPTY workspace.
       // Demo seed data is only used for the public landing preview (ssrSnapshot).
-      const { data: inserted } = await supabase
+      const { data: inserted, error: insertError } = await supabase
         .from("workspaces")
         .insert({
           user_id: userId,
@@ -452,55 +462,25 @@ export async function hydrateForUser(userId: string): Promise<void> {
         })
         .select("rev")
         .single();
+      // A failed seed insert is a failed hydrate, not a valid empty workspace
+      // (during the 2026-07-25 outage every write 503'd — swallowing this left
+      // a phantom rev-0 empty state).
+      if (insertError) throw insertError;
       state = {
-        projects: [],
-        services: [],
-        opportunities: [],
-        discoverySuggestions: [],
-        calendar: [],
-        content: [],
-        audits: [],
-        competitorAnalyses: [],
-        authorityAnalyses: [],
-        aiVisibilityAnalyses: [],
-        backlinkAnalyses: [],
-        linkMarketplaceOrders: [],
-        outreachDrafts: [],
-        authorityOpportunities: [],
-        aiEvaluationRuns: [],
-        tasks: [],
-        pendingActions: [],
-        activeProjectId: "",
+        ...emptyState,
         hydrated: true,
         userId,
         rev: Number((inserted as { rev?: number } | null)?.rev ?? 0),
       };
     }
   } catch (e) {
-    console.warn("[workspace] hydrate failed, falling back to empty", e);
-    state = {
-      projects: [],
-      services: [],
-      opportunities: [],
-      discoverySuggestions: [],
-      calendar: [],
-      content: [],
-      audits: [],
-      competitorAnalyses: [],
-      authorityAnalyses: [],
-      aiVisibilityAnalyses: [],
-      backlinkAnalyses: [],
-      linkMarketplaceOrders: [],
-      outreachDrafts: [],
-      authorityOpportunities: [],
-      aiEvaluationRuns: [],
-      tasks: [],
-      pendingActions: [],
-      activeProjectId: "",
-      hydrated: true,
-      userId,
-      rev: 0,
-    };
+    // 2026-07-25 outage lesson: NEVER present a load failure as an empty
+    // workspace. The old fallback set hydrated:true with no projects, which
+    // sent real users into the onboarding wizard as if their data were gone.
+    // Fail loudly instead: the authenticated layout renders a retry screen
+    // while hydrationFailed is set, and the onboarding guard stays inert.
+    console.warn("[workspace] hydrate failed — showing retry screen", e);
+    state = { ...emptyState, hydrationFailed: true, userId };
   }
   notify();
 }

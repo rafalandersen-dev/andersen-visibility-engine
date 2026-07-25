@@ -222,6 +222,10 @@ export const pl: Record<string, string> = {
   "linknet.status.declined": "Odrzucono",
   "editor.schedule.blockedTitle": "Planowanie jest zablokowane, dopóki nie naprawisz:",
   "editor.schedule.blockedCta": "Otwórz checklistę publikacji",
+  "shell.loadError.title": "Nie udało się wczytać Twojego workspace'u",
+  "shell.loadError.body":
+    "Twoje dane są bezpieczne — połączenie z backendem Milo nie powiodło się. Sprawdź sieć i spróbuj ponownie.",
+  "shell.loadError.retry": "Spróbuj ponownie",
   "shell.nav.home": "Start",
   "shell.nav.plan": "Plan",
   "shell.nav.content": "Treści",

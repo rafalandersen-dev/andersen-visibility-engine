@@ -222,6 +222,10 @@ export const da: Record<string, string> = {
   "linknet.status.declined": "Afvist",
   "editor.schedule.blockedTitle": "Planlægning er blokeret, indtil dette er rettet:",
   "editor.schedule.blockedCta": "Åbn udgivelsestjeklisten",
+  "shell.loadError.title": "Vi kunne ikke indlæse dit workspace",
+  "shell.loadError.body":
+    "Dine data er sikre — forbindelsen til Milos backend fejlede. Tjek dit netværk og prøv igen.",
+  "shell.loadError.retry": "Prøv igen",
   "shell.nav.home": "Hjem",
   "shell.nav.plan": "Plan",
   "shell.nav.content": "Indhold",
