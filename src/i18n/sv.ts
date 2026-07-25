@@ -102,6 +102,8 @@ export const sv: Record<string, string> = {
   "onboarding.generating": "Genererar…",
   "onboarding.genStatus.saving": "Sparar ditt projekt…",
   "onboarding.genStatus.foundation": "Genererar möjligheter och kalender…",
+  "onboarding.genStatus.sample": "Skriver ditt första artikelutkast…",
+  "onboarding.toast.sampleReady": "Ditt första utkast är klart — det är det här",
   "onboarding.toast.scanned": "Skannade din webbplats — granska uppgifterna",
   "onboarding.toast.scanFailed": "Kunde inte läsa webbplatsen — fyll i uppgifterna manuellt",
   "onboarding.toast.ready": "Din första tillväxtplan är klar",

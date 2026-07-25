@@ -5,7 +5,7 @@
  * Onboarding data lives in the workspace JSONB (Project), so there is no DB
  * schema change. All fields are optional → existing projects keep working.
  */
-import type { Currency, Market, OnboardingLanguage, Language, Project } from "./types";
+import type { Currency, Market, OnboardingLanguage, Language, Opportunity, Project } from "./types";
 
 export const MARKETS: {
   value: Market;
@@ -88,4 +88,26 @@ export function isProjectSetupComplete(p: Project | undefined): boolean {
   // description was optional in the old setup form, so don't lock those users
   // out of their existing workspace.
   return Boolean(p.businessName?.trim());
+}
+
+/**
+ * Onboarding TTFV (Europe move 2): pick the opportunity whose generated draft
+ * makes the best FIRST piece — the one the user lands in right after the
+ * wizard. Blog articles beat page types (fastest visible "wow", and the
+ * generator needs no existing site structure), the project's own content
+ * language beats a mismatch, higher priority beats lower. The caller must
+ * derive the ASSET TYPE from the picked opportunity's contentType (P1-6
+ * contract) — a non-blog pick gets its matching page type, never "article".
+ */
+export function pickSampleOpportunity(
+  opportunities: Opportunity[],
+  projectLanguage: Language,
+): Opportunity | null {
+  if (opportunities.length === 0) return null;
+  const prio = (p: Opportunity) => (p.priority === "High" ? 2 : p.priority === "Medium" ? 1 : 0);
+  const score = (o: Opportunity) =>
+    (o.contentType === "Blog Article" ? 100 : 0) +
+    (o.language === projectLanguage ? 10 : 0) +
+    prio(o);
+  return [...opportunities].sort((a, b) => score(b) - score(a))[0];
 }

@@ -107,6 +107,8 @@ export const en: Record<string, string> = {
   "onboarding.generating": "Generating…",
   "onboarding.genStatus.saving": "Saving your project…",
   "onboarding.genStatus.foundation": "Generating opportunities & calendar…",
+  "onboarding.genStatus.sample": "Writing your first article draft…",
+  "onboarding.toast.sampleReady": "Your first draft is ready — this is it",
   "onboarding.toast.scanned": "Scanned your website — review the details",
   "onboarding.toast.scanFailed": "Couldn’t read that website — fill the details manually",
   "onboarding.toast.ready": "Your first growth plan is ready",
