@@ -220,6 +220,8 @@ export const da: Record<string, string> = {
   "linknet.status.agreed": "Aftalt",
   "linknet.status.live_verified": "Live ✓",
   "linknet.status.declined": "Afvist",
+  "editor.schedule.blockedTitle": "Planlægning er blokeret, indtil dette er rettet:",
+  "editor.schedule.blockedCta": "Åbn udgivelsestjeklisten",
   "setup.markets.market": "Marked / land",
   "setup.markets.currency": "Valuta",
   "setup.markets.appLanguage": "Appsprog",

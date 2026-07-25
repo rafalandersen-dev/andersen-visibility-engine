@@ -220,6 +220,8 @@ export const pl: Record<string, string> = {
   "linknet.status.agreed": "Uzgodniono",
   "linknet.status.live_verified": "Aktywny ✓",
   "linknet.status.declined": "Odrzucono",
+  "editor.schedule.blockedTitle": "Planowanie jest zablokowane, dopóki nie naprawisz:",
+  "editor.schedule.blockedCta": "Otwórz checklistę publikacji",
   "setup.markets.market": "Rynek / kraj",
   "setup.markets.currency": "Waluta",
   "setup.markets.appLanguage": "Język aplikacji",

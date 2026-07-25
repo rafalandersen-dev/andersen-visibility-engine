@@ -226,6 +226,8 @@ export const en: Record<string, string> = {
   "linknet.status.agreed": "Agreed",
   "linknet.status.live_verified": "Live ✓",
   "linknet.status.declined": "Declined",
+  "editor.schedule.blockedTitle": "Scheduling is blocked until these are fixed:",
+  "editor.schedule.blockedCta": "Open the publishing checklist",
   "setup.markets.market": "Market / country",
   "setup.markets.currency": "Currency",
   "setup.markets.appLanguage": "App language",
