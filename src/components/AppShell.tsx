@@ -98,7 +98,7 @@ const NAV = [
     tKey: "shell.nav.backlinks",
     to: "/app/backlinks",
     icon: LinkSimple,
-    badge: "Add-on",
+    badgeKey: "shell.addOn",
     paths: ["/app/backlinks", "/app/link-marketplace", "/app/outreach"],
     children: [
       { tKey: "shell.nav.linkIntelligence", to: "/app/backlinks", icon: LinkSimple },
@@ -205,7 +205,7 @@ export function AppShell({
         <div className="fixed inset-0 z-50 lg:hidden">
           <button
             type="button"
-            aria-label="Close navigation"
+            aria-label={t("shell.closeNav")}
             className="absolute inset-0 bg-[#101820]/55 backdrop-blur-sm"
             onClick={() => setMobileOpen(false)}
           />
@@ -213,7 +213,7 @@ export function AppShell({
             {sidebar}
             <button
               type="button"
-              aria-label="Close navigation"
+              aria-label={t("shell.closeNav")}
               className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-md text-white/70 hover:bg-white/10 hover:text-white"
               onClick={() => setMobileOpen(false)}
             >
@@ -262,16 +262,16 @@ export function AppShell({
             <span>{t("shell.footerBuiltBy")}</span>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
               <Link to="/terms" className="hover:text-foreground">
-                Terms
+                {t("shell.terms")}
               </Link>
               <Link to="/privacy" className="hover:text-foreground">
-                Privacy
+                {t("shell.privacy")}
               </Link>
               <Link to="/security" className="hover:text-foreground">
-                Security
+                {t("shell.security")}
               </Link>
               <Link to="/ai-disclaimer" className="hover:text-foreground">
-                AI disclaimer
+                {t("shell.aiDisclaimer")}
               </Link>
               <span>© {new Date().getUTCFullYear()}</span>
             </div>
@@ -362,7 +362,7 @@ function SidebarContent({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <nav className="grid gap-1" aria-label="Primary navigation">
+      <nav className="grid gap-1" aria-label={t("shell.primaryNav")}>
         {NAV.map((item) => {
           const active =
             "exact" in item && item.exact
@@ -383,9 +383,9 @@ function SidebarContent({
               >
                 <Icon size={20} weight={active ? "fill" : "regular"} className="text-[#d2a23f]" />
                 <span className="flex-1">{t(item.tKey)}</span>
-                {"badge" in item ? (
+                {"badgeKey" in item ? (
                   <span className="rounded bg-white/[.12] px-1.5 py-0.5 text-[10px] text-white">
-                    {item.badge}
+                    {t(item.badgeKey)}
                   </span>
                 ) : null}
               </Link>

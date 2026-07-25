@@ -180,7 +180,14 @@ function RootComponent() {
         if (buildId && buildId !== __MILO_BUILD_ID__) {
           stalePromptShown.current = true;
           toast.info("A new version of Milo is available.", {
+            id: "stale-bundle",
             duration: Infinity,
+            // Review H1: the route-change sweep (and the close button) dismiss
+            // this toast — re-arm so the next check can prompt again instead
+            // of going silent forever.
+            onDismiss: () => {
+              stalePromptShown.current = false;
+            },
             action: { label: "Reload", onClick: () => window.location.reload() },
           });
         }
