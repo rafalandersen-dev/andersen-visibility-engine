@@ -164,6 +164,42 @@ function RootComponent() {
     }
   }, [pathname]);
 
+  // Stale-bundle guard (2026-07-25): users were served the PRE-REDESIGN app
+  // from cached bundles after deploys. Compare this bundle's baked build id
+  // with the live server's; on mismatch offer a one-click reload. Checked on
+  // tab focus and every 15 minutes; network errors are ignored (offline).
+  const stalePromptShown = useRef(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const check = async () => {
+      if (stalePromptShown.current) return;
+      try {
+        const res = await fetch("/api/app-version", { cache: "no-store" });
+        if (!res.ok) return;
+        const { buildId } = (await res.json()) as { buildId?: string };
+        if (buildId && buildId !== __MILO_BUILD_ID__) {
+          stalePromptShown.current = true;
+          toast.info("A new version of Milo is available.", {
+            duration: Infinity,
+            action: { label: "Reload", onClick: () => window.location.reload() },
+          });
+        }
+      } catch {
+        /* offline / transient — try again next tick */
+      }
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void check();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    const interval = setInterval(check, 15 * 60_000);
+    void check();
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      clearInterval(interval);
+    };
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
