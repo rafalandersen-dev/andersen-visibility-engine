@@ -2,7 +2,8 @@
  * Tests for the client side of the workspace optimistic-concurrency system
  * (Phase 1 commit 2): hydration reads rev, saves echo it, the DB's bumped rev
  * is stored without scheduling another save, and workspace_conflict triggers
- * the server-wins rehydrate + toast path. The anon Supabase client and sonner
+ * the MERGE-AND-RETRY recovery (P0 fix 2026-07-25 — unsaved local edits must
+ * survive a conflict; the old server-wins wipe silently lost creates). The anon Supabase client and sonner
  * are mocked at the module boundary; the store's `typeof window` guard is
  * satisfied via a stubbed global. No OAuth/MCP modules are imported.
  */
@@ -15,6 +16,8 @@ interface SupabaseResult {
 
 const h = vi.hoisted(() => ({
   maybeSingleResult: { data: null, error: null } as SupabaseResult,
+  /** FIFO of upsert results (merge-retry does a second upsert); falls back to upsertResult. */
+  upsertQueue: [] as SupabaseResult[],
   upsertResult: { data: { rev: 1 }, error: null } as SupabaseResult,
   insertResult: { data: { rev: 0 }, error: null } as SupabaseResult,
   upsertCalls: [] as { payload: Record<string, unknown>; opts: Record<string, unknown> }[],
@@ -33,7 +36,8 @@ vi.mock("@/integrations/supabase/client", () => ({
         },
         upsert: (payload: Record<string, unknown>, opts: Record<string, unknown>) => {
           h.upsertCalls.push({ payload, opts });
-          return { select: () => ({ single: async () => h.upsertResult }) };
+          const result = h.upsertQueue.shift() ?? h.upsertResult;
+          return { select: () => ({ single: async () => result }) };
         },
         insert: (payload: Record<string, unknown>) => {
           h.insertCalls.push(payload);
@@ -53,7 +57,11 @@ import { toast } from "sonner";
 
 const serverRow = (rev: number, projectId = "p-server") => ({
   data: {
-    data: { projects: [{ id: projectId, name: "Server Project" }], content: [], activeProjectId: projectId },
+    data: {
+      projects: [{ id: projectId, name: "Server Project" }],
+      content: [],
+      activeProjectId: projectId,
+    },
     rev,
   },
   error: null,
@@ -147,9 +155,20 @@ describe("save path", () => {
   });
 
   it("tasks[] survives the hydrate → snapshot round trip (server-written tasks are not dropped)", async () => {
-    const task = { id: "t1", projectId: "p-server", title: "server task", status: "open", origin: "claude", createdAt: "x", updatedAt: "x" };
+    const task = {
+      id: "t1",
+      projectId: "p-server",
+      title: "server task",
+      status: "open",
+      origin: "claude",
+      createdAt: "x",
+      updatedAt: "x",
+    };
     h.maybeSingleResult = {
-      data: { data: { projects: [{ id: "p-server" }], tasks: [task], activeProjectId: "p-server" }, rev: 5 },
+      data: {
+        data: { projects: [{ id: "p-server" }], tasks: [task], activeProjectId: "p-server" },
+        rev: 5,
+      },
       error: null,
     };
     await hydrateForUser("user1");
@@ -181,37 +200,114 @@ describe("save path", () => {
   });
 });
 
-describe("conflict handling (v1: server wins)", () => {
-  it("errcode 40001 → refetch, replace local state, toast.info, no throw, no extra save", async () => {
+describe("conflict handling (merge-and-retry — P0 fix 2026-07-25)", () => {
+  it("conflict → merge + retry: unsaved local creates SURVIVE (the 45-lost-opportunities bug)", async () => {
     vi.useFakeTimers();
     h.maybeSingleResult = serverRow(5, "p-local");
     await hydrateForUser("user1");
-    setState((s) => ({ ...s, activeProjectId: "my-unsaved-edit" }));
+    // The user creates an opportunity locally — this must never be lost.
+    setState((s) => ({
+      ...s,
+      opportunities: [
+        ...s.opportunities,
+        { id: "opp-local", projectId: "p-local", title: "Local create" } as never,
+      ],
+    }));
 
-    h.upsertResult = { data: null, error: dbError("workspace_conflict", "40001") };
-    h.maybeSingleResult = serverRow(9, "p-fresh"); // what the conflict refetch returns
+    h.upsertQueue = [
+      { data: null, error: dbError("workspace_conflict", "40001") }, // first save: stale rev
+      { data: { rev: 10 }, error: null }, // merged retry succeeds
+    ];
+    // The conflict refetch: server bumped to rev 9 and gained a project.
+    h.maybeSingleResult = {
+      data: {
+        data: {
+          projects: [
+            { id: "p-local", name: "Local Project" },
+            { id: "p-fresh", name: "Server-added Project" },
+          ],
+          opportunities: [{ id: "opp-server", projectId: "p-fresh", title: "Server create" }],
+          content: [],
+          activeProjectId: "p-fresh",
+        },
+        rev: 9,
+      },
+      error: null,
+    };
     await saveWorkspaceNow(); // must not throw
 
     const s = getState();
-    expect(s.rev).toBe(9);
-    expect(s.projects[0]?.id).toBe("p-fresh");
-    expect(s.activeProjectId).toBe("p-fresh"); // server version replaced the local edit
+    expect(s.rev).toBe(10);
+    // The retry payload carried BOTH the server's and the local entities.
+    const retryPayload = h.upsertCalls[h.upsertCalls.length - 1].payload as {
+      data: { opportunities: { id: string }[]; activeProjectId: string };
+      rev: number;
+    };
+    expect(retryPayload.rev).toBe(9); // echoed the fresh rev
+    const ids = retryPayload.data.opportunities.map((o) => o.id).sort();
+    expect(ids).toEqual(["opp-local", "opp-server"]);
+    // Device-local active project is NOT flipped by another writer.
+    expect(retryPayload.data.activeProjectId).toBe("p-local");
+    expect(s.activeProjectId).toBe("p-local");
+    // Live state gained the server entity and kept the local one.
+    expect(s.opportunities.map((o) => o.id).sort()).toEqual(["opp-local", "opp-server"]);
     expect(toast.info).toHaveBeenCalledTimes(1);
-    expect(String(vi.mocked(toast.info).mock.calls[0][0])).toMatch(/updated elsewhere/i);
-
-    const upsertsSoFar = h.upsertCalls.length;
-    await vi.advanceTimersByTimeAsync(5_000);
-    expect(h.upsertCalls).toHaveLength(upsertsSoFar); // rehydrate never re-saves
+    expect(String(vi.mocked(toast.info).mock.calls[0][0])).toMatch(/merged and saved/i);
   });
 
-  it("a workspace_conflict MESSAGE (different code) is also treated as a conflict", async () => {
+  it("a workspace_conflict MESSAGE (different code) also goes through the merge path", async () => {
     h.maybeSingleResult = serverRow(2);
     await hydrateForUser("user1");
-    h.upsertResult = { data: null, error: dbError("ERROR: workspace_conflict raised by trigger", "P0001") };
+    h.upsertQueue = [
+      { data: null, error: dbError("ERROR: workspace_conflict raised by trigger", "P0001") },
+      { data: { rev: 4 }, error: null },
+    ];
     h.maybeSingleResult = serverRow(3);
     await saveWorkspaceNow(); // no throw
-    expect(getState().rev).toBe(3);
+    expect(getState().rev).toBe(4);
     expect(toast.info).toHaveBeenCalledTimes(1);
+  });
+
+  it("double conflict: local state is KEPT, the user is told, and a retry is scheduled — never a silent wipe", async () => {
+    vi.useFakeTimers();
+    h.maybeSingleResult = serverRow(5, "p-local");
+    await hydrateForUser("user1");
+    setState((s) => ({
+      ...s,
+      opportunities: [{ id: "opp-keep", projectId: "p-local", title: "Keep me" } as never],
+    }));
+    await vi.advanceTimersByTimeAsync(700); // flush the debounced save from setState
+    h.upsertCalls.length = 0;
+
+    h.upsertQueue = [
+      { data: null, error: dbError("workspace_conflict", "40001") },
+      { data: null, error: dbError("workspace_conflict", "40001") },
+    ];
+    h.maybeSingleResult = serverRow(9, "p-local");
+    await saveWorkspaceNow(); // must not throw
+    expect(getState().opportunities.map((o) => o.id)).toContain("opp-keep"); // nothing wiped
+    expect(toast.error).toHaveBeenCalledTimes(1);
+    // A retry save was scheduled (debounced) — it fires and can now succeed.
+    h.upsertResult = { data: { rev: 12 }, error: null };
+    await vi.advanceTimersByTimeAsync(700);
+    expect(h.upsertCalls.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("conflict + unreadable fresh row: local kept, loud error, retry scheduled", async () => {
+    vi.useFakeTimers();
+    h.maybeSingleResult = serverRow(5, "p-local");
+    await hydrateForUser("user1");
+    setState((s) => ({
+      ...s,
+      opportunities: [{ id: "opp-keep2", projectId: "p-local", title: "Keep me too" } as never],
+    }));
+    await vi.advanceTimersByTimeAsync(700);
+
+    h.upsertQueue = [{ data: null, error: dbError("workspace_conflict", "40001") }];
+    h.maybeSingleResult = { data: null, error: dbError("network down") }; // refetch fails
+    await saveWorkspaceNow(); // must not throw
+    expect(getState().opportunities.map((o) => o.id)).toContain("opp-keep2");
+    expect(toast.error).toHaveBeenCalled();
   });
 
   it("project-cap errors still THROW and the debounced path still shows toast.error", async () => {
@@ -220,7 +316,9 @@ describe("conflict handling (v1: server wins)", () => {
     await hydrateForUser("user1");
     h.upsertResult = { data: null, error: dbError("Project limit reached (3).") };
 
-    await expect(saveWorkspaceNow()).rejects.toMatchObject({ message: "Project limit reached (3)." });
+    await expect(saveWorkspaceNow()).rejects.toMatchObject({
+      message: "Project limit reached (3).",
+    });
     expect(toast.info).not.toHaveBeenCalled();
 
     setState((s) => ({ ...s, activeProjectId: "again" })); // debounced path surfaces the cap toast
