@@ -528,6 +528,7 @@ function PublicFooter() {
             <Link to="/terms">Terms</Link>
             <Link to="/privacy">Privacy</Link>
             <Link to="/security">Security</Link>
+            <Link to="/trust">EU Trust Centre</Link>
             <Link to="/ai-disclaimer">AI disclaimer</Link>
           </div>
         </div>

@@ -278,6 +278,9 @@ export function AppShell({
               <Link to="/ai-disclaimer" className="hover:text-foreground">
                 {t("shell.aiDisclaimer")}
               </Link>
+              <Link to="/trust" className="hover:text-foreground">
+                {t("shell.trust")}
+              </Link>
               <span>© {new Date().getUTCFullYear()}</span>
             </div>
           </footer>
