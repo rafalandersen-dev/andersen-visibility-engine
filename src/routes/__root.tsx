@@ -7,11 +7,13 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
+import { toast } from "sonner";
+import { useRouterState } from "@tanstack/react-router";
 import { AuthProvider } from "@/lib/auth";
 
 function NotFoundComponent() {
@@ -83,8 +85,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
       { property: "og:site_name", content: "Milo Growth" },
       { name: "twitter:card", content: "summary_large_image" },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/d9fb25dc-4910-49d5-ae5e-51ef0b30f33b/id-preview-8776fd09--06b696f6-c02b-468f-b0a0-7ab8af92d6a0.lovable.app-1782164686620.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/d9fb25dc-4910-49d5-ae5e-51ef0b30f33b/id-preview-8776fd09--06b696f6-c02b-468f-b0a0-7ab8af92d6a0.lovable.app-1782164686620.png" },
+      {
+        property: "og:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/d9fb25dc-4910-49d5-ae5e-51ef0b30f33b/id-preview-8776fd09--06b696f6-c02b-468f-b0a0-7ab8af92d6a0.lovable.app-1782164686620.png",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/d9fb25dc-4910-49d5-ae5e-51ef0b30f33b/id-preview-8776fd09--06b696f6-c02b-468f-b0a0-7ab8af92d6a0.lovable.app-1782164686620.png",
+      },
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
@@ -126,7 +136,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
-
 function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
@@ -143,6 +152,17 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  // P2-9 (2026-07-25): toasts are page-scoped. A stale "quota exhausted" from
+  // one page must not still be on screen minutes later on another — navigating
+  // dismisses whatever the previous page raised.
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const prevPath = useRef(pathname);
+  useEffect(() => {
+    if (prevPath.current !== pathname) {
+      prevPath.current = pathname;
+      toast.dismiss();
+    }
+  }, [pathname]);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -152,9 +172,8 @@ function RootComponent() {
           <Outlet />
         </div>
 
-        <Toaster position="top-right" />
+        <Toaster position="top-right" duration={5000} closeButton />
       </AuthProvider>
     </QueryClientProvider>
   );
 }
-
