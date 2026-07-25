@@ -55,6 +55,7 @@ import {
   shopifyArticleArgs,
   buildActiveInternalPaths,
 } from "./publish-targets";
+import { autoResolveInternalLinks } from "./auto-scheduler";
 import { assembleContentAsset } from "./content-assembler";
 import { validateSourceUrlsFn } from "./sources.functions";
 import { selectSourcesToValidate, normalizeSourceUrl } from "./sources";
@@ -281,6 +282,8 @@ async function generateAsset(opportunityId: string, kind: "landing" | "article")
       data: { project, services, opportunity: opp, kind },
     })) as AssetResult;
 
+    // P1-4: this generation path resolves invented links too.
+    const resolvedBody = await resolveGeneratedLinks(result.markdown, project);
     const asset: ContentAsset = {
       id: uid(),
       projectId: opp.projectId,
@@ -293,7 +296,7 @@ async function generateAsset(opportunityId: string, kind: "landing" | "article")
       outline: result.outline ?? [],
       faq: result.faq ?? [],
       cta: result.cta || opp.recommendedCta,
-      markdown: result.markdown,
+      markdown: resolvedBody,
       internalLinks: result.internalLinks ?? [],
       schemaSuggestions: result.schemaSuggestions ?? [],
       editorNotes: result.editorNotes ?? "",
@@ -592,10 +595,11 @@ export async function improveContentDraft(contentAssetId: string) {
 
     if (!markdown || !markdown.trim())
       throw new Error("AI returned empty content. Please try again.");
+    const resolvedMarkdown = await resolveGeneratedLinks(markdown, project);
     // Keep title/metadata/publish status; only the body changes. Score becomes stale.
     upsertContent({
       ...a,
-      markdown,
+      markdown: resolvedMarkdown,
       // Article Studio 3.0 / P1.2A — this is the in-place BODY regeneration path.
       // reconcile preserves an approved / user-edited / non-empty hook across the
       // regeneration; only an empty hook slot could take a fresh proposal, and this
@@ -607,7 +611,7 @@ export async function improveContentDraft(contentAssetId: string) {
     });
     await saveWorkspaceNow();
     console.info("[ai.client] draft improved", { assetId: contentAssetId });
-    return markdown;
+    return resolvedMarkdown;
   });
 }
 
@@ -1504,6 +1508,7 @@ export async function generateContentForOpportunity(
     }
 
     const now = new Date().toISOString();
+    const resolvedBody = await resolveGeneratedLinks(result.markdown, project);
     const asset: ContentAsset = {
       id: uid(),
       projectId: opp.projectId,
@@ -1516,7 +1521,7 @@ export async function generateContentForOpportunity(
       outline: result.outline ?? [],
       faq: result.faq ?? [],
       cta: result.cta || opp.recommendedCta,
-      markdown: result.markdown,
+      markdown: resolvedBody,
       internalLinks: result.internalLinks ?? [],
       schemaSuggestions: result.schemaSuggestions ?? [],
       editorNotes: result.editorNotes ?? "",
@@ -1573,6 +1578,35 @@ export async function testWordPressConnection(projectId: string) {
   });
   await saveWorkspaceNow();
   return res;
+}
+
+/**
+ * P1-4 fix (2026-07-25): the model still occasionally invents internal paths
+ * despite the prompt whitelist (hit 3x with /friskvard-massage-malmo-guide).
+ * Every generate/improve result now runs the SAME auto-resolution the
+ * monthly auto-scheduler uses — near-miss paths are remapped to the closest
+ * real page, hopeless ones become plain text — and the user is told what was
+ * fixed instead of discovering a blocked Schedule button at publish time.
+ */
+async function resolveGeneratedLinks(markdown: string, project: Project): Promise<string> {
+  const active = new Set(knownPathsForProject(project));
+  const resolved = autoResolveInternalLinks(markdown, active);
+  if (resolved.remapped.length || resolved.unlinked.length) {
+    const { toast } = await import("sonner");
+    const parts: string[] = [];
+    if (resolved.remapped.length) {
+      parts.push(
+        `${resolved.remapped.length} link(s) remapped to real pages (${resolved.remapped
+          .map((r) => r.to)
+          .join(", ")})`,
+      );
+    }
+    if (resolved.unlinked.length) {
+      parts.push(`${resolved.unlinked.length} invented link(s) removed`);
+    }
+    toast.info(`Link check: ${parts.join("; ")}.`);
+  }
+  return resolved.markdown;
 }
 
 /** The project's deterministic internal-path inventory (Milo-published + root). */
