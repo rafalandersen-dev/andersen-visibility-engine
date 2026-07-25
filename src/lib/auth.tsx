@@ -52,12 +52,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRoleUserId(null);
       return;
     }
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", userId)
       .eq("role", "owner")
       .maybeSingle();
+    if (error) {
+      // A failed lookup (2026-07-25 outage: every REST call 503'd) is NOT
+      // "confirmed not owner" — leaving roleLoaded false keeps owner-bypass
+      // guards waiting instead of misclassifying an owner mid-blip.
+      setIsOwner(false);
+      return;
+    }
     setIsOwner(!!data);
     setRoleUserId(userId);
   }

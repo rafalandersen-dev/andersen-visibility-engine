@@ -228,6 +228,10 @@ export const en: Record<string, string> = {
   "linknet.status.declined": "Declined",
   "editor.schedule.blockedTitle": "Scheduling is blocked until these are fixed:",
   "editor.schedule.blockedCta": "Open the publishing checklist",
+  "shell.loadError.title": "We couldn't load your workspace",
+  "shell.loadError.body":
+    "Your data is safe — the connection to Milo's backend failed. Check your network and try again.",
+  "shell.loadError.retry": "Try again",
   "shell.nav.home": "Home",
   "shell.nav.plan": "Plan",
   "shell.nav.content": "Content",

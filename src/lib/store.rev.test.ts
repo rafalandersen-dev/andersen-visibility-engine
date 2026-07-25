@@ -109,12 +109,39 @@ describe("hydration + rev", () => {
     expect(s.projects).toEqual([]);
   });
 
-  it("hydrate fallback (select error) still hydrates with rev 0", async () => {
-    h.maybeSingleResult = { data: null, error: dbError("boom") };
+  // 2026-07-25 outage regression: PostgREST 503'd every call; the old fallback
+  // presented the failure as an EMPTY hydrated workspace, so the onboarding
+  // guard yanked a 5-project owner into the wizard as if their data were gone.
+  it("a failed hydrate fetch sets hydrationFailed — never a phantom empty workspace", async () => {
+    h.maybeSingleResult = { data: null, error: dbError("Service Unavailable", "PGRST002") };
     await hydrateForUser("user1");
     const s = getState();
+    expect(s.hydrationFailed).toBe(true);
+    expect(s.hydrated).toBe(false); // keeps the retry path open
+    expect(s.projects).toEqual([]);
+    expect(h.insertCalls).toHaveLength(0); // no first-run seed on failure
+  });
+
+  it("a failed first-run seed insert is a failed hydrate too", async () => {
+    h.maybeSingleResult = { data: null, error: null };
+    h.insertResult = { data: null, error: dbError("Service Unavailable", "PGRST002") };
+    await hydrateForUser("newuser");
+    const s = getState();
+    expect(s.hydrationFailed).toBe(true);
+    expect(s.hydrated).toBe(false);
+  });
+
+  it("retry after a failed hydrate recovers the full workspace", async () => {
+    h.maybeSingleResult = { data: null, error: dbError("Service Unavailable", "PGRST002") };
+    await hydrateForUser("user1");
+    expect(getState().hydrationFailed).toBe(true);
+    h.maybeSingleResult = serverRow(7);
+    await hydrateForUser("user1"); // hydrated stayed false → no early-return
+    const s = getState();
+    expect(s.hydrationFailed).toBe(false);
     expect(s.hydrated).toBe(true);
-    expect(s.rev).toBe(0);
+    expect(s.rev).toBe(7);
+    expect(s.projects[0]?.id).toBe("p-server");
   });
 
   it("resetStore returns rev to 0", async () => {

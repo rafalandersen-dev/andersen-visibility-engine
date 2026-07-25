@@ -222,6 +222,10 @@ export const sv: Record<string, string> = {
   "linknet.status.declined": "Avböjd",
   "editor.schedule.blockedTitle": "Schemaläggning är blockerad tills detta är åtgärdat:",
   "editor.schedule.blockedCta": "Öppna publiceringschecklistan",
+  "shell.loadError.title": "Vi kunde inte ladda din arbetsyta",
+  "shell.loadError.body":
+    "Din data är säker — anslutningen till Milos backend misslyckades. Kontrollera nätverket och försök igen.",
+  "shell.loadError.retry": "Försök igen",
   "shell.nav.home": "Hem",
   "shell.nav.plan": "Plan",
   "shell.nav.content": "Innehåll",
