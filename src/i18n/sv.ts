@@ -220,6 +220,8 @@ export const sv: Record<string, string> = {
   "linknet.status.agreed": "Överenskommen",
   "linknet.status.live_verified": "Live ✓",
   "linknet.status.declined": "Avböjd",
+  "editor.schedule.blockedTitle": "Schemaläggning är blockerad tills detta är åtgärdat:",
+  "editor.schedule.blockedCta": "Öppna publiceringschecklistan",
   "setup.markets.market": "Marknad / land",
   "setup.markets.currency": "Valuta",
   "setup.markets.appLanguage": "Appspråk",

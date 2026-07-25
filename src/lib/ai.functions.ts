@@ -2192,7 +2192,11 @@ export const generateContentAssetFn = createServerFn({ method: "POST" })
     const brief = projectBrief(project, services);
     // Generate in the project's primary content language (covers Danish too),
     // falling back to the opportunity's language if none is set.
-    const contentLang = contentLanguageLabel(project) || opp.language;
+    // P1-7 fix (2026-07-25): the OPPORTUNITY's language wins. A Polish-language
+    // opportunity on a Swedish-market project must generate a Polish article —
+    // the project's content language is only the fallback when the opportunity
+    // carries none.
+    const contentLang = opp.language || contentLanguageLabel(project);
 
     const kindInstruction =
       data.kind === "landing"
@@ -2230,6 +2234,13 @@ ${sharedRules}`,
 
       return normalizeContentAsset(payload, project, opp);
     } catch (e) {
+      // P1-5: generation failures must be visible in server logs, not only
+      // as a transient client toast.
+      console.error("[ai.functions] content generation failed", {
+        projectId: project.id,
+        opportunityId: opp.id,
+        error: e instanceof Error ? e.message : String(e),
+      });
       throw mapGatewayError(e);
     }
   });
@@ -2292,7 +2303,11 @@ export async function generateContentCore(
     const services = data.services as ServiceItem[];
     const opp = data.opportunity as Opportunity;
     const brief = projectBrief(project, services);
-    const contentLang = contentLanguageLabel(project) || opp.language;
+    // P1-7 fix (2026-07-25): the OPPORTUNITY's language wins. A Polish-language
+    // opportunity on a Swedish-market project must generate a Polish article —
+    // the project's content language is only the fallback when the opportunity
+    // carries none.
+    const contentLang = opp.language || contentLanguageLabel(project);
     const instruction = ASSET_INSTRUCTIONS[data.assetType] ?? ASSET_INSTRUCTIONS.article;
     const sourceLine = opp.source
       ? `Source: this opportunity came from ${opp.source === "audit" ? "a Site Audit finding" : opp.source === "competitor" ? "a Competitor Gap" : opp.source === "authority" ? "an Authority-building action" : opp.source === "aiVisibility" ? "an AI Visibility gap" : "manual planning"} — keep that intent in mind.`
@@ -2326,6 +2341,13 @@ ${sharedRules}`,
 
       return normalizeContentAsset(payload, project, opp);
     } catch (e) {
+      // P1-5: generation failures must be visible in server logs, not only
+      // as a transient client toast.
+      console.error("[ai.functions] content generation failed", {
+        projectId: project.id,
+        opportunityId: opp.id,
+        error: e instanceof Error ? e.message : String(e),
+      });
       throw mapGatewayError(e);
     }
   }

@@ -124,11 +124,30 @@ function ProjectSetup() {
         throw e;
       }
     } else if (active) {
-      // Preserve Brand Intelligence (saved separately via its own card) so a
-      // plain identity/positioning save never clobbers it with stale form data.
+      // PATCH-style save (P0-2 fix 2026-07-25): write ONLY the fields this
+      // main form owns. The old whole-form spread clobbered every field some
+      // OTHER surface changed after this form mounted — publishing settings,
+      // connector config, Brand Intelligence, auto-scheduler toggles — with
+      // the stale copies captured at mount ("saving one section reverts
+      // another"). An explicit ownership list makes that impossible.
       updateProject(active.id, {
-        ...form,
-        brandIntelligence: active.brandIntelligence ?? form.brandIntelligence,
+        name: form.name,
+        websiteUrl: form.websiteUrl,
+        businessName: form.businessName,
+        businessType: form.businessType,
+        description: form.description,
+        targetAudience: form.targetAudience,
+        toneOfVoice: form.toneOfVoice,
+        brandNotes: form.brandNotes,
+        market: form.market,
+        currency: form.currency,
+        appLanguage: form.appLanguage,
+        primaryContentLanguage: form.primaryContentLanguage,
+        additionalLanguages: form.additionalLanguages,
+        mainLocation: form.mainLocation,
+        targetLocations: form.targetLocations,
+        growthGoals: form.growthGoals,
+        autoScheduler: form.autoScheduler,
       });
       toast.success(t("setup.toast.saved"));
     }

@@ -165,6 +165,28 @@ const notify = () => listeners.forEach((l) => l());
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 const SAVE_DEBOUNCE_MS = 600;
 
+// P0 fix 2026-07-25: device-local active project. The blob's activeProjectId
+// is whatever ANY tab/device saved last — restoring it on hydrate (and, worse,
+// on conflict rehydrate) flipped this tab's active project mid-session, and
+// mutations issued right after bound to the flipped project. localStorage wins.
+function activeProjectStorageKey(userId: string): string {
+  return `milo.activeProject.${userId}`;
+}
+function readStoredActiveProject(userId: string): string {
+  try {
+    return window.localStorage.getItem(activeProjectStorageKey(userId)) ?? "";
+  } catch {
+    return "";
+  }
+}
+function writeStoredActiveProject(userId: string, projectId: string): void {
+  try {
+    window.localStorage.setItem(activeProjectStorageKey(userId), projectId);
+  } catch {
+    /* private mode etc. — the blob value remains the fallback */
+  }
+}
+
 /** True for the workspaces_rev_guard trigger's optimistic-concurrency conflict. */
 function isRevConflict(error: { code?: string; message?: string } | null): boolean {
   return !!error && (error.code === "40001" || /workspace_conflict/i.test(error.message ?? ""));
@@ -174,6 +196,37 @@ function isRevConflict(error: { code?: string; message?: string } | null): boole
 function applyRev(rev: number) {
   state = { ...state, rev };
   notify();
+}
+
+// P0 fix 2026-07-25: conflict recovery merges instead of wiping (see
+// workspace-merge.ts for the incident and the per-field contract).
+// eslint-disable-next-line import/order -- grouped with the fix block
+import { mergeWorkspaceSnapshots, type WorkspaceSnapshot } from "./workspace-merge";
+
+/** Enumerated persisted fields — rev is deliberately NOT part of `data`. */
+function persistedSnapshot(s: State): WorkspaceSnapshot {
+  return {
+    projects: s.projects,
+    services: s.services,
+    opportunities: s.opportunities,
+    discoverySuggestions: s.discoverySuggestions,
+    calendar: s.calendar,
+    content: s.content,
+    audits: s.audits,
+    competitorAnalyses: s.competitorAnalyses,
+    authorityAnalyses: s.authorityAnalyses,
+    aiVisibilityAnalyses: s.aiVisibilityAnalyses,
+    backlinkAnalyses: s.backlinkAnalyses,
+    linkMarketplaceOrders: s.linkMarketplaceOrders,
+    outreachDrafts: s.outreachDrafts,
+    authorityOpportunities: s.authorityOpportunities,
+    aiEvaluationRuns: s.aiEvaluationRuns,
+    tasks: s.tasks,
+    pendingActions: s.pendingActions,
+    billingProfile: s.billingProfile,
+    subscription: s.subscription,
+    activeProjectId: s.activeProjectId,
+  };
 }
 
 /** Build a full hydrated State from a fetched workspaces row (hydrate + conflict rehydrate). */
@@ -198,7 +251,12 @@ function stateFromRow(userId: string, d: Partial<State>, rev: number): State {
     pendingActions: d.pendingActions ?? [],
     billingProfile: d.billingProfile,
     subscription: d.subscription,
-    activeProjectId: d.activeProjectId ?? d.projects?.[0]?.id ?? "",
+    activeProjectId: (() => {
+      const stored = typeof window === "undefined" ? "" : readStoredActiveProject(userId);
+      const projects = d.projects ?? [];
+      if (stored && projects.some((p) => p.id === stored)) return stored;
+      return d.activeProjectId ?? projects[0]?.id ?? "";
+    })(),
     hydrated: true,
     userId,
     rev,
@@ -206,30 +264,64 @@ function stateFromRow(userId: string, d: Partial<State>, rev: number): State {
 }
 
 /**
- * Conflict recovery (v1: server wins). Another writer bumped the row since we
- * last read it — reload the server's version, tell the user, and DO NOT save:
- * the next real edit echoes the fresh rev. Never throws.
+ * Conflict recovery (P0 fix 2026-07-25): MERGE and retry, never wipe.
+ *
+ * The previous "server wins" recovery replaced the whole local state —
+ * silently discarding every unsaved local edit (and flipping the active
+ * project). Server-side writers bump the rev constantly, so a stale tab
+ * could lose every subsequent create with no error. Now: fetch the fresh
+ * row, merge the local snapshot over it per entity (workspace-merge.ts),
+ * and retry the save ONCE with the fresh rev. Any failure past that is
+ * LOUD — local state is kept and the user sees an error, never a no-op.
+ *
+ * Returns the merged snapshot + fresh rev on success, or null when the
+ * fresh row could not be read (caller keeps local state and surfaces it).
  */
-async function rehydrateAfterConflict(userId: string): Promise<void> {
-  try {
-    const { data: row } = await supabase
-      .from("workspaces")
-      .select("data,rev")
-      .eq("user_id", userId)
-      .maybeSingle();
-    const r = row as { data?: unknown; rev?: number } | null;
-    if (r?.data && typeof r.data === "object" && state.userId === userId) {
-      state = stateFromRow(userId, r.data as Partial<State>, Number(r.rev ?? 0));
-      notify();
-    }
-    const { toast } = await import("sonner");
-    toast.info("Your workspace was updated elsewhere — reloaded the latest version.");
-  } catch (e) {
-    console.warn("[workspace] conflict rehydrate failed", e);
-  }
+async function mergeWithServerRow(
+  userId: string,
+  localSnapshot: WorkspaceSnapshot,
+): Promise<{ merged: WorkspaceSnapshot; rev: number } | null> {
+  const { data: row, error } = await supabase
+    .from("workspaces")
+    .select("data,rev")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) return null;
+  const r = row as { data?: unknown; rev?: number } | null;
+  if (!r?.data || typeof r.data !== "object") return null;
+  return {
+    merged: mergeWorkspaceSnapshots(localSnapshot, r.data as WorkspaceSnapshot),
+    rev: Number(r.rev ?? 0),
+  };
 }
 
-export async function saveWorkspaceNow(): Promise<void> {
+// Review L1 (2026-07-25): sustained contention must not spam an error toast
+// per retry cycle — at most one every 30s, with a long duration so it is
+// actually seen (the route-change sweep can otherwise clear it).
+let lastContentionToastAt = 0;
+async function contentionToast(message: string): Promise<void> {
+  const now = Date.now();
+  if (now - lastContentionToastAt < 30_000) return;
+  lastContentionToastAt = now;
+  const { toast } = await import("sonner");
+  toast.error(message, { duration: 8000 });
+}
+
+// Review M3 (2026-07-25): saves are SERIALIZED. Overlapping saves (explicit
+// await + the debounced timer) could both echo the same rev; the older
+// snapshot would then conflict-merge itself over the newer one and persist
+// regressed data. Chaining guarantees each save snapshots AFTER the previous
+// one finished, with the freshest rev and state.
+let saveChain: Promise<void> = Promise.resolve();
+
+export function saveWorkspaceNow(): Promise<void> {
+  const next = saveChain.then(() => saveWorkspaceUnchained());
+  // Keep the chain alive through failures; callers still see the rejection.
+  saveChain = next.catch(() => undefined);
+  return next;
+}
+
+async function saveWorkspaceUnchained(): Promise<void> {
   if (typeof window === "undefined") return;
   if (!state.hydrated || !state.userId) return;
   if (saveTimer) {
@@ -239,43 +331,46 @@ export async function saveWorkspaceNow(): Promise<void> {
   const userId = state.userId;
   // Echo the rev this snapshot is based on; the DB trigger does the increment.
   const revAtSnapshot = state.rev;
-  // Enumerated persisted fields — rev is deliberately NOT part of `data`.
-  const snapshot = {
-    projects: state.projects,
-    services: state.services,
-    opportunities: state.opportunities,
-    discoverySuggestions: state.discoverySuggestions,
-    calendar: state.calendar,
-    content: state.content,
-    audits: state.audits,
-    competitorAnalyses: state.competitorAnalyses,
-    authorityAnalyses: state.authorityAnalyses,
-    aiVisibilityAnalyses: state.aiVisibilityAnalyses,
-    backlinkAnalyses: state.backlinkAnalyses,
-    linkMarketplaceOrders: state.linkMarketplaceOrders,
-    outreachDrafts: state.outreachDrafts,
-    authorityOpportunities: state.authorityOpportunities,
-    aiEvaluationRuns: state.aiEvaluationRuns,
-    tasks: state.tasks,
-    pendingActions: state.pendingActions,
-    billingProfile: state.billingProfile,
-    subscription: state.subscription,
-    activeProjectId: state.activeProjectId,
-  };
-  const { data: saved, error } = await supabase
-    .from("workspaces")
-    .upsert({ user_id: userId, data: snapshot, rev: revAtSnapshot } as never, {
-      onConflict: "user_id",
-    })
-    .select("rev")
-    .single();
-  if (error) {
-    if (isRevConflict(error)) {
-      await rehydrateAfterConflict(userId);
-      return; // handled: server won; callers see a normal (non-throwing) save
+  const snapshot = persistedSnapshot(state);
+  const attempt = (data: WorkspaceSnapshot, rev: number) =>
+    supabase
+      .from("workspaces")
+      .upsert({ user_id: userId, data, rev } as never, { onConflict: "user_id" })
+      .select("rev")
+      .single();
+
+  let { data: saved, error } = await attempt(snapshot as WorkspaceSnapshot, revAtSnapshot);
+  if (error && isRevConflict(error)) {
+    // Another writer bumped the row. Merge our snapshot over theirs and retry
+    // once with the fresh rev — creates/edits survive, nothing is wiped.
+    const fresh = await mergeWithServerRow(userId, snapshot as WorkspaceSnapshot);
+    if (!fresh) {
+      await contentionToast(
+        "Could not sync your workspace — your changes are kept here. Retrying…",
+      );
+      scheduleSave(); // bounded by the debounce; each retry re-reads a fresh rev
+      return;
     }
-    throw error; // project-cap + all other errors keep their existing paths
+    ({ data: saved, error } = await attempt(fresh.merged, fresh.rev));
+    if (error && isRevConflict(error)) {
+      // Two conflicts in one save = very busy row. Keep local, retry soon, be loud.
+      await contentionToast("Workspace is being updated elsewhere — retrying your save…");
+      scheduleSave();
+      return;
+    }
+    if (!error && state.userId === userId) {
+      // Fold the server-side entities we just learned about into the LIVE
+      // state, with the live state winning per id (the user may have kept
+      // typing while the retry ran).
+      const liveSnapshot = persistedSnapshot(state);
+      const liveMerged = mergeWorkspaceSnapshots(liveSnapshot, fresh.merged);
+      state = stateFromRow(userId, liveMerged as Partial<State>, state.rev);
+      notify();
+      const { toast } = await import("sonner");
+      toast.info("Workspace was updated elsewhere — your changes were merged and saved.");
+    }
   }
+  if (error) throw error; // project-cap + all other errors keep their existing paths
   const newRev = Number((saved as { rev?: number } | null)?.rev ?? revAtSnapshot + 1);
   if (state.userId === userId) applyRev(newRev);
 }
@@ -411,6 +506,8 @@ export async function hydrateForUser(userId: string): Promise<void> {
 }
 
 export function resetStore(): void {
+  lastContentionToastAt = 0; // test isolation for the L1 backoff
+
   if (saveTimer) {
     clearTimeout(saveTimer);
     saveTimer = null;
@@ -501,7 +598,11 @@ export function useStore<T>(selector: (s: State) => T): T {
 export const uid = () => Math.random().toString(36).slice(2, 10);
 
 // --- actions ---
-export const setActiveProject = (id: string) => setState((s) => ({ ...s, activeProjectId: id }));
+export const setActiveProject = (id: string) =>
+  setState((s) => {
+    if (s.userId) writeStoredActiveProject(s.userId, id);
+    return { ...s, activeProjectId: id };
+  });
 
 export class ProjectLimitError extends Error {
   constructor(public readonly max: number) {
@@ -519,7 +620,10 @@ export const addProject = (p: Omit<Project, "id">, opts: { isOwner: boolean }) =
     throw new ProjectLimitError(MAX_PROJECTS_PER_USER);
   }
   const id = uid();
-  setState((s) => ({ ...s, projects: [...s.projects, { ...p, id }], activeProjectId: id }));
+  setState((s) => {
+    if (s.userId) writeStoredActiveProject(s.userId, id);
+    return { ...s, projects: [...s.projects, { ...p, id }], activeProjectId: id };
+  });
   return id;
 };
 

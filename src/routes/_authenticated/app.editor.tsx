@@ -1258,7 +1258,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       {/* Publishing checklist (P1.1 J) — deterministic states from the canonical
           asset. Hard blockers disable the publish buttons; warnings are advisory. */}
       {project ? (
-        <div className="px-5 py-3 border-b border-border">
+        <div id="publishing-checklist" className="px-5 py-3 border-b border-border">
           <PublishingChecklist items={checklist} schema={schemaCapability} />
         </div>
       ) : null}
@@ -1459,6 +1459,29 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                   : t("editor.schedule.arm", { when: goLiveLabel })}
               </Button>
             </div>
+            {/* P1-3 fix (2026-07-25): a disabled Schedule button must SAY why.
+                It used to silently eat clicks while publishBlocked. */}
+            {publishBlocked ? (
+              <div className="mt-2 rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-foreground/80">
+                <span className="font-medium">{t("editor.schedule.blockedTitle")}</span>
+                <ul className="mt-1 list-disc pl-4">
+                  {publishBlockers.map((b) => (
+                    <li key={b.key}>{b.detail || b.label}</li>
+                  ))}
+                </ul>
+                <button
+                  type="button"
+                  className="mt-1 underline"
+                  onClick={() =>
+                    document
+                      .getElementById("publishing-checklist")
+                      ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                  }
+                >
+                  {t("editor.schedule.blockedCta")}
+                </button>
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>

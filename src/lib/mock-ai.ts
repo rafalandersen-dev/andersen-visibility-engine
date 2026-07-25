@@ -55,6 +55,7 @@ import {
   shopifyArticleArgs,
   buildActiveInternalPaths,
 } from "./publish-targets";
+import { autoResolveInternalLinks } from "./auto-scheduler";
 import { assembleContentAsset } from "./content-assembler";
 import { validateSourceUrlsFn } from "./sources.functions";
 import { selectSourcesToValidate, normalizeSourceUrl } from "./sources";
@@ -281,6 +282,8 @@ async function generateAsset(opportunityId: string, kind: "landing" | "article")
       data: { project, services, opportunity: opp, kind },
     })) as AssetResult;
 
+    // P1-4: this generation path resolves invented links too.
+    const resolvedBody = await resolveGeneratedLinks(result.markdown, project);
     const asset: ContentAsset = {
       id: uid(),
       projectId: opp.projectId,
@@ -293,7 +296,7 @@ async function generateAsset(opportunityId: string, kind: "landing" | "article")
       outline: result.outline ?? [],
       faq: result.faq ?? [],
       cta: result.cta || opp.recommendedCta,
-      markdown: result.markdown,
+      markdown: resolvedBody,
       internalLinks: result.internalLinks ?? [],
       schemaSuggestions: result.schemaSuggestions ?? [],
       editorNotes: result.editorNotes ?? "",
@@ -560,6 +563,53 @@ export async function refreshSitemapInventory(projectId: string, force = false) 
  * Improve the draft markdown using the current score suggestions. Updates only
  * the markdown body, marks the score stale (publish/live status untouched).
  */
+/**
+ * P1-8 (2026-07-25): a NON-AI draft path. When AI credits are exhausted the
+ * Generate dialog was the only road to content — now a blank, opportunity-
+ * linked asset can be created with zero model calls and edited through the
+ * ordinary pipeline (hook, images, approve, schedule).
+ */
+export async function createBlankDraftForOpportunity(opportunityId: string, assetType: AssetType) {
+  const s = getState();
+  const opp = s.opportunities.find((o) => o.id === opportunityId);
+  if (!opp) throw new Error("Opportunity not found.");
+  const { project } = requireProject(opp.projectId);
+  const now = new Date().toISOString();
+  const asset: ContentAsset = {
+    id: uid(),
+    projectId: opp.projectId,
+    opportunityId: opp.id,
+    title: opp.title,
+    slug: slugify(opp.title),
+    metaTitle: "",
+    metaDescription: "",
+    h1: opp.title,
+    outline: [],
+    faq: [],
+    cta: opp.recommendedCta ?? "",
+    internalLinks: [],
+    schemaSuggestions: [],
+    editorNotes: "",
+    markdown: `# ${opp.title}\n\n`,
+    status: "Draft",
+    updatedAt: now,
+    createdAt: now,
+    assetType,
+    sourceOpportunityId: opp.id,
+    sourceOpportunityTitle: opp.title,
+    language:
+      opp.language ??
+      (project.primaryContentLanguage
+        ? contentLangToProjectLanguage(project.primaryContentLanguage)
+        : "English"),
+    ...(isArticleLikeAssetType(assetType) ? { visualModelVersion: 3 as const } : {}),
+  } as ContentAsset;
+  updateOpportunity(opp.id, { status: "drafting", currentContentAssetId: asset.id });
+  upsertContent(asset);
+  await saveWorkspaceNow();
+  return asset;
+}
+
 export async function improveContentDraft(contentAssetId: string) {
   return once(`improve:${contentAssetId}`, async () => {
     const a = getState().content.find((c) => c.id === contentAssetId);
@@ -592,10 +642,11 @@ export async function improveContentDraft(contentAssetId: string) {
 
     if (!markdown || !markdown.trim())
       throw new Error("AI returned empty content. Please try again.");
+    const resolvedMarkdown = await resolveGeneratedLinks(markdown, project);
     // Keep title/metadata/publish status; only the body changes. Score becomes stale.
     upsertContent({
       ...a,
-      markdown,
+      markdown: resolvedMarkdown,
       // Article Studio 3.0 / P1.2A — this is the in-place BODY regeneration path.
       // reconcile preserves an approved / user-edited / non-empty hook across the
       // regeneration; only an empty hook slot could take a fresh proposal, and this
@@ -607,7 +658,7 @@ export async function improveContentDraft(contentAssetId: string) {
     });
     await saveWorkspaceNow();
     console.info("[ai.client] draft improved", { assetId: contentAssetId });
-    return markdown;
+    return resolvedMarkdown;
   });
 }
 
@@ -1504,6 +1555,7 @@ export async function generateContentForOpportunity(
     }
 
     const now = new Date().toISOString();
+    const resolvedBody = await resolveGeneratedLinks(result.markdown, project);
     const asset: ContentAsset = {
       id: uid(),
       projectId: opp.projectId,
@@ -1516,7 +1568,7 @@ export async function generateContentForOpportunity(
       outline: result.outline ?? [],
       faq: result.faq ?? [],
       cta: result.cta || opp.recommendedCta,
-      markdown: result.markdown,
+      markdown: resolvedBody,
       internalLinks: result.internalLinks ?? [],
       schemaSuggestions: result.schemaSuggestions ?? [],
       editorNotes: result.editorNotes ?? "",
@@ -1528,9 +1580,12 @@ export async function generateContentForOpportunity(
       sourceType: sourceTypeForOpportunity(opp),
       // Store the asset's language: prefer the project's primary content language
       // (what we now generate in), falling back to the opportunity's language.
-      language: project.primaryContentLanguage
-        ? contentLangToProjectLanguage(project.primaryContentLanguage)
-        : opp.language,
+      // P1-7: follow the opportunity's language; project default is fallback.
+      language:
+        opp.language ??
+        (project.primaryContentLanguage
+          ? contentLangToProjectLanguage(project.primaryContentLanguage)
+          : "English"),
       createdAt: now,
       // Article Studio 3.0 / P1.2A — a newly generated long-form article is a v3
       // asset (needs an approved opening hook before publishing). Short-form types
@@ -1573,6 +1628,37 @@ export async function testWordPressConnection(projectId: string) {
   });
   await saveWorkspaceNow();
   return res;
+}
+
+/**
+ * P1-4 fix (2026-07-25): the model still occasionally invents internal paths
+ * despite the prompt whitelist (hit 3x with /friskvard-massage-malmo-guide).
+ * Every generate/improve result now runs the SAME auto-resolution the
+ * monthly auto-scheduler uses — near-miss paths are remapped to the closest
+ * real page, hopeless ones become plain text — and the user is told what was
+ * fixed instead of discovering a blocked Schedule button at publish time.
+ */
+async function resolveGeneratedLinks(markdown: string, project: Project): Promise<string> {
+  const active = new Set(knownPathsForProject(project));
+  const resolved = autoResolveInternalLinks(markdown, active);
+  if (resolved.remapped.length || resolved.unlinked.length) {
+    const { toast } = await import("sonner");
+    const parts: string[] = [];
+    if (resolved.remapped.length) {
+      parts.push(
+        `${resolved.remapped.length} link(s) remapped to real pages (${resolved.remapped
+          .map((r) => r.to)
+          .join(", ")})`,
+      );
+    }
+    if (resolved.unlinked.length) {
+      parts.push(`${resolved.unlinked.length} invented link(s) removed`);
+    }
+    // Raised on a short delay so the route-change toast sweep (P2-9) that
+    // fires when the user lands in the editor cannot kill it unseen.
+    setTimeout(() => toast.info(`Link check: ${parts.join("; ")}.`, { duration: 8000 }), 400);
+  }
+  return resolved.markdown;
 }
 
 /** The project's deterministic internal-path inventory (Milo-published + root). */

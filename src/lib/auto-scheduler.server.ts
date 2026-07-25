@@ -189,9 +189,12 @@ export function buildAssetFromGeneration(
     assetType: "article",
     sourceOpportunityId: opp.id,
     sourceOpportunityTitle: opp.title,
-    language: project.primaryContentLanguage
-      ? contentLangToProjectLanguage(project.primaryContentLanguage)
-      : opp.language,
+    // P1-7 (2026-07-25): the opportunity's language wins; project is fallback.
+    language:
+      opp.language ??
+      (project.primaryContentLanguage
+        ? contentLangToProjectLanguage(project.primaryContentLanguage)
+        : "English"),
     createdAt: nowIso,
     // Auto-drafted long-form is always a v3 article — hook-gated like the editor path.
     visualModelVersion: 3,
