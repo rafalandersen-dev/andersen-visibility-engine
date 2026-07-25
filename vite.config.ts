@@ -12,4 +12,14 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  vite: {
+    define: {
+      // Stale-bundle guard (2026-07-25): one id baked into BOTH the client and
+      // the server bundle at build time. The client compares its baked id with
+      // /api/app-version (served by the freshly deployed server) and offers a
+      // reload when they differ — users were seeing the PRE-REDESIGN app from
+      // cached bundles after deploys.
+      __MILO_BUILD_ID__: JSON.stringify(String(Date.now())),
+    },
+  },
 });
