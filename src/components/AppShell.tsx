@@ -111,8 +111,11 @@ const NAV = [
     tKey: "shell.nav.insights",
     to: "/app/analytics",
     icon: ChartLineUp,
-    paths: ["/app/analytics"],
-    children: [{ tKey: "shell.nav.premiumAnalytics", to: "/app/analytics", icon: ChartLineUp }],
+    paths: ["/app/analytics", "/app/report"],
+    children: [
+      { tKey: "shell.nav.premiumAnalytics", to: "/app/analytics", icon: ChartLineUp },
+      { tKey: "shell.nav.monthlyReport", to: "/app/report", icon: FileText },
+    ],
   },
   {
     id: "settings",
@@ -224,7 +227,9 @@ export function AppShell({
       ) : null}
 
       <main className="min-w-0 flex-1">
-        <div className="flex h-14 items-center justify-between border-b border-[#e5e0d6] bg-[#fffdf8]/90 px-4 backdrop-blur lg:hidden">
+        {/* Print pages at paper width fall below the lg breakpoint, so without
+            print:hidden this bar would top every printed report page. */}
+        <div className="flex h-14 items-center justify-between border-b border-[#e5e0d6] bg-[#fffdf8]/90 px-4 backdrop-blur lg:hidden print:hidden">
           <button
             type="button"
             onClick={() => setMobileOpen(true)}

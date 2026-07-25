@@ -50,6 +50,7 @@ import { Route as ApiAutoSchedulerRunRouteImport } from './routes/api.auto-sched
 import { Route as ApiAnalyticsTrackRouteImport } from './routes/api.analytics.track'
 import { Route as AuthenticatedAppSetupRouteImport } from './routes/_authenticated/app.setup'
 import { Route as AuthenticatedAppServicesRouteImport } from './routes/_authenticated/app.services'
+import { Route as AuthenticatedAppReportRouteImport } from './routes/_authenticated/app.report'
 import { Route as AuthenticatedAppPlanRouteImport } from './routes/_authenticated/app.plan'
 import { Route as AuthenticatedAppOutreachRouteImport } from './routes/_authenticated/app.outreach'
 import { Route as AuthenticatedAppOpportunitiesRouteImport } from './routes/_authenticated/app.opportunities'
@@ -285,6 +286,11 @@ const AuthenticatedAppServicesRoute =
     path: '/app/services',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAppReportRoute = AuthenticatedAppReportRouteImport.update({
+  id: '/app/report',
+  path: '/app/report',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAppPlanRoute = AuthenticatedAppPlanRouteImport.update({
   id: '/app/plan',
   path: '/app/plan',
@@ -490,6 +496,7 @@ export interface FileRoutesByFullPath {
   '/app/opportunities': typeof AuthenticatedAppOpportunitiesRoute
   '/app/outreach': typeof AuthenticatedAppOutreachRoute
   '/app/plan': typeof AuthenticatedAppPlanRoute
+  '/app/report': typeof AuthenticatedAppReportRoute
   '/app/services': typeof AuthenticatedAppServicesRoute
   '/app/setup': typeof AuthenticatedAppSetupRoute
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
@@ -559,6 +566,7 @@ export interface FileRoutesByTo {
   '/app/opportunities': typeof AuthenticatedAppOpportunitiesRoute
   '/app/outreach': typeof AuthenticatedAppOutreachRoute
   '/app/plan': typeof AuthenticatedAppPlanRoute
+  '/app/report': typeof AuthenticatedAppReportRoute
   '/app/services': typeof AuthenticatedAppServicesRoute
   '/app/setup': typeof AuthenticatedAppSetupRoute
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
@@ -630,6 +638,7 @@ export interface FileRoutesById {
   '/_authenticated/app/opportunities': typeof AuthenticatedAppOpportunitiesRoute
   '/_authenticated/app/outreach': typeof AuthenticatedAppOutreachRoute
   '/_authenticated/app/plan': typeof AuthenticatedAppPlanRoute
+  '/_authenticated/app/report': typeof AuthenticatedAppReportRoute
   '/_authenticated/app/services': typeof AuthenticatedAppServicesRoute
   '/_authenticated/app/setup': typeof AuthenticatedAppSetupRoute
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
@@ -701,6 +710,7 @@ export interface FileRouteTypes {
     | '/app/opportunities'
     | '/app/outreach'
     | '/app/plan'
+    | '/app/report'
     | '/app/services'
     | '/app/setup'
     | '/api/analytics/track'
@@ -770,6 +780,7 @@ export interface FileRouteTypes {
     | '/app/opportunities'
     | '/app/outreach'
     | '/app/plan'
+    | '/app/report'
     | '/app/services'
     | '/app/setup'
     | '/api/analytics/track'
@@ -840,6 +851,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/opportunities'
     | '/_authenticated/app/outreach'
     | '/_authenticated/app/plan'
+    | '/_authenticated/app/report'
     | '/_authenticated/app/services'
     | '/_authenticated/app/setup'
     | '/api/analytics/track'
@@ -1197,6 +1209,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppServicesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/app/report': {
+      id: '/_authenticated/app/report'
+      path: '/app/report'
+      fullPath: '/app/report'
+      preLoaderRoute: typeof AuthenticatedAppReportRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/app/plan': {
       id: '/_authenticated/app/plan'
       path: '/app/plan'
@@ -1410,6 +1429,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppOpportunitiesRoute: typeof AuthenticatedAppOpportunitiesRoute
   AuthenticatedAppOutreachRoute: typeof AuthenticatedAppOutreachRoute
   AuthenticatedAppPlanRoute: typeof AuthenticatedAppPlanRoute
+  AuthenticatedAppReportRoute: typeof AuthenticatedAppReportRoute
   AuthenticatedAppServicesRoute: typeof AuthenticatedAppServicesRoute
   AuthenticatedAppSetupRoute: typeof AuthenticatedAppSetupRoute
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
@@ -1436,6 +1456,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppOpportunitiesRoute: AuthenticatedAppOpportunitiesRoute,
   AuthenticatedAppOutreachRoute: AuthenticatedAppOutreachRoute,
   AuthenticatedAppPlanRoute: AuthenticatedAppPlanRoute,
+  AuthenticatedAppReportRoute: AuthenticatedAppReportRoute,
   AuthenticatedAppServicesRoute: AuthenticatedAppServicesRoute,
   AuthenticatedAppSetupRoute: AuthenticatedAppSetupRoute,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
