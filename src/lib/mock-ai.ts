@@ -1533,9 +1533,12 @@ export async function generateContentForOpportunity(
       sourceType: sourceTypeForOpportunity(opp),
       // Store the asset's language: prefer the project's primary content language
       // (what we now generate in), falling back to the opportunity's language.
-      language: project.primaryContentLanguage
-        ? contentLangToProjectLanguage(project.primaryContentLanguage)
-        : opp.language,
+      // P1-7: follow the opportunity's language; project default is fallback.
+      language:
+        opp.language ??
+        (project.primaryContentLanguage
+          ? contentLangToProjectLanguage(project.primaryContentLanguage)
+          : "English"),
       createdAt: now,
       // Article Studio 3.0 / P1.2A — a newly generated long-form article is a v3
       // asset (needs an approved opening hook before publishing). Short-form types

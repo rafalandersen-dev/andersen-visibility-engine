@@ -62,3 +62,27 @@ describe("buildAssetFromGeneration (H1 regression)", () => {
     expect(a.status).toBe("Draft");
   });
 });
+
+describe("generation language follows the opportunity (P1-7)", () => {
+  const gen = { metaTitle: "T", metaDescription: "D", h1: "H", markdown: "Body." } as never;
+  const project = { id: "p1", name: "N", primaryContentLanguage: "sv" } as unknown as Project;
+
+  it("a Polish opportunity on a Swedish project yields a Polish asset", () => {
+    const opp = {
+      id: "o1",
+      projectId: "p1",
+      title: "T",
+      language: "Polish",
+    } as unknown as Opportunity;
+    expect(
+      buildAssetFromGeneration(gen, opp, project, "2026-07-25T06:00:00.000Z", "2026-09").language,
+    ).toBe("Polish");
+  });
+
+  it("falls back to the project content language when the opportunity has none", () => {
+    const opp = { id: "o2", projectId: "p1", title: "T" } as unknown as Opportunity;
+    expect(
+      buildAssetFromGeneration(gen, opp, project, "2026-07-25T06:00:00.000Z", "2026-09").language,
+    ).toBe("Swedish");
+  });
+});
