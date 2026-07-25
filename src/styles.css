@@ -155,3 +155,20 @@
   background: linear-gradient(90deg, transparent, var(--gold), transparent);
   height: 1px;
 }
+
+/* Monthly proof report — browser print = the white-label PDF. Scoped via
+   :has(#proof-report-print-root) so printing OTHER pages (blog, editor,
+   marketing) keeps their headers/asides untouched. */
+@media print {
+  body:has(#proof-report-print-root) aside,
+  body:has(#proof-report-print-root) header,
+  body:has(#proof-report-print-root) [data-sonner-toaster] {
+    display: none !important;
+  }
+  body:has(#proof-report-print-root) main {
+    width: 100% !important;
+  }
+  body:has(#proof-report-print-root) {
+    background: white !important;
+  }
+}
