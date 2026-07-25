@@ -1,13 +1,22 @@
 /**
- * Tests for the client side of the workspace optimistic-concurrency system
- * (Phase 1 commit 2): hydration reads rev, saves echo it, the DB's bumped rev
- * is stored without scheduling another save, and workspace_conflict triggers
- * the MERGE-AND-RETRY recovery (P0 fix 2026-07-25 — unsaved local edits must
- * survive a conflict; the old server-wins wipe silently lost creates). The anon Supabase client and sonner
- * are mocked at the module boundary; the store's `typeof window` guard is
- * satisfied via a stubbed global. No OAuth/MCP modules are imported.
+ * Client persistence contract — per-entity backend (scale migration
+ * 2026-07-26). What replaced the blob's rev-echo/conflict-merge machinery:
+ *
+ *  - hydrate reads the entity BUNDLE (one RPC) and sets the diff baseline;
+ *  - a save sends ONLY the diff (upserts/deletes/meta) through the atomic
+ *    batch RPC — never the whole doc, never a rev echo;
+ *  - the baseline advances only after a CONFIRMED write, so a failed save
+ *    keeps every change in the next diff (nothing is silently dropped —
+ *    the "45 lost opportunities" incident class stays dead);
+ *  - unmigrated users fall back to the legacy blob and are backfilled;
+ *    first-run users get their meta row created or hydrate FAILS LOUDLY
+ *    (2026-07-25 outage lesson: no phantom-empty workspaces).
+ *
+ * The anon Supabase client and sonner are mocked at the module boundary; the
+ * fake entity backend (workspace-entities.testkit) emulates the RPC contract.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { makeEntityBackend } from "./workspace-entities.testkit";
 
 interface SupabaseResult {
   data: unknown;
@@ -15,33 +24,22 @@ interface SupabaseResult {
 }
 
 const h = vi.hoisted(() => ({
-  maybeSingleResult: { data: null, error: null } as SupabaseResult,
-  /** FIFO of upsert results (merge-retry does a second upsert); falls back to upsertResult. */
-  upsertQueue: [] as SupabaseResult[],
-  upsertResult: { data: { rev: 1 }, error: null } as SupabaseResult,
-  insertResult: { data: { rev: 0 }, error: null } as SupabaseResult,
-  upsertCalls: [] as { payload: Record<string, unknown>; opts: Record<string, unknown> }[],
-  insertCalls: [] as Record<string, unknown>[],
-  selectCalls: 0,
+  backend: null as unknown as ReturnType<
+    typeof import("./workspace-entities.testkit").makeEntityBackend
+  >,
+  blobRow: { data: null, error: null } as SupabaseResult,
+  blobSelects: 0,
 }));
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
+    rpc: (fn: string, args: Record<string, unknown>) => h.backend.rpc(fn, args),
     from: (table: string) => {
       if (table !== "workspaces") throw new Error(`unexpected table ${table}`);
       return {
         select: () => {
-          h.selectCalls += 1;
-          return { eq: () => ({ maybeSingle: async () => h.maybeSingleResult }) };
-        },
-        upsert: (payload: Record<string, unknown>, opts: Record<string, unknown>) => {
-          h.upsertCalls.push({ payload, opts });
-          const result = h.upsertQueue.shift() ?? h.upsertResult;
-          return { select: () => ({ single: async () => result }) };
-        },
-        insert: (payload: Record<string, unknown>) => {
-          h.insertCalls.push(payload);
-          return { select: () => ({ single: async () => h.insertResult }) };
+          h.blobSelects += 1;
+          return { eq: () => ({ maybeSingle: async () => h.blobRow }) };
         },
       };
     },
@@ -49,36 +47,23 @@ vi.mock("@/integrations/supabase/client", () => ({
 }));
 
 vi.mock("sonner", () => ({
-  toast: { info: vi.fn(), error: vi.fn(), success: vi.fn() },
+  toast: { info: vi.fn(), error: vi.fn(), success: vi.fn(), dismiss: vi.fn() },
 }));
 
 import { hydrateForUser, saveWorkspaceNow, resetStore, getState, setState } from "./store";
-import { toast } from "sonner";
 
-const serverRow = (rev: number, projectId = "p-server") => ({
-  data: {
-    data: {
-      projects: [{ id: projectId, name: "Server Project" }],
-      content: [],
-      activeProjectId: projectId,
-    },
-    rev,
-  },
-  error: null,
-});
-
-/** Faithful to supabase-js: PostgrestError is an Error subclass with a code. */
-const dbError = (message: string, code?: string) => Object.assign(new Error(message), { code });
+const DOC = {
+  projects: [{ id: "p-server", name: "Server Project" }],
+  content: [],
+  activeProjectId: "p-server",
+};
 
 beforeEach(() => {
   vi.stubGlobal("window", globalThis as unknown as Window);
   vi.clearAllMocks();
-  h.upsertCalls = [];
-  h.insertCalls = [];
-  h.selectCalls = 0;
-  h.maybeSingleResult = { data: null, error: null };
-  h.upsertResult = { data: { rev: 1 }, error: null };
-  h.insertResult = { data: { rev: 0 }, error: null };
+  h.backend = makeEntityBackend();
+  h.blobRow = { data: null, error: null };
+  h.blobSelects = 0;
   resetStore();
 });
 
@@ -87,280 +72,137 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("hydration + rev", () => {
-  it("hydrate reads data AND rev from the row", async () => {
-    h.maybeSingleResult = serverRow(5);
+describe("hydration", () => {
+  it("migrated user: one bundle RPC, no blob read, rev adopted", async () => {
+    h.backend.state.doc = structuredClone(DOC);
+    h.backend.state.rev = 7;
     await hydrateForUser("user1");
     const s = getState();
-    expect(s.hydrated).toBe(true);
-    expect(s.rev).toBe(5);
-    expect(s.projects[0]?.id).toBe("p-server");
-  });
-
-  it("first-run insert stores the returned rev", async () => {
-    h.maybeSingleResult = { data: null, error: null };
-    h.insertResult = { data: { rev: 0 }, error: null };
-    await hydrateForUser("newuser");
-    expect(h.insertCalls).toHaveLength(1);
-    expect(h.insertCalls[0].user_id).toBe("newuser");
-    const s = getState();
-    expect(s.hydrated).toBe(true);
-    expect(s.rev).toBe(0);
-    expect(s.projects).toEqual([]);
-  });
-
-  // 2026-07-25 outage regression: PostgREST 503'd every call; the old fallback
-  // presented the failure as an EMPTY hydrated workspace, so the onboarding
-  // guard yanked a 5-project owner into the wizard as if their data were gone.
-  it("a failed hydrate fetch sets hydrationFailed — never a phantom empty workspace", async () => {
-    h.maybeSingleResult = { data: null, error: dbError("Service Unavailable", "PGRST002") };
-    await hydrateForUser("user1");
-    const s = getState();
-    expect(s.hydrationFailed).toBe(true);
-    expect(s.hydrated).toBe(false); // keeps the retry path open
-    expect(s.projects).toEqual([]);
-    expect(h.insertCalls).toHaveLength(0); // no first-run seed on failure
-  });
-
-  it("a failed first-run seed insert is a failed hydrate too", async () => {
-    h.maybeSingleResult = { data: null, error: null };
-    h.insertResult = { data: null, error: dbError("Service Unavailable", "PGRST002") };
-    await hydrateForUser("newuser");
-    const s = getState();
-    expect(s.hydrationFailed).toBe(true);
-    expect(s.hydrated).toBe(false);
-  });
-
-  it("retry after a failed hydrate recovers the full workspace", async () => {
-    h.maybeSingleResult = { data: null, error: dbError("Service Unavailable", "PGRST002") };
-    await hydrateForUser("user1");
-    expect(getState().hydrationFailed).toBe(true);
-    h.maybeSingleResult = serverRow(7);
-    await hydrateForUser("user1"); // hydrated stayed false → no early-return
-    const s = getState();
-    expect(s.hydrationFailed).toBe(false);
     expect(s.hydrated).toBe(true);
     expect(s.rev).toBe(7);
     expect(s.projects[0]?.id).toBe("p-server");
+    expect(h.blobSelects).toBe(0);
   });
 
-  it("resetStore returns rev to 0", async () => {
-    h.maybeSingleResult = serverRow(7);
+  it("legacy user: blob fallback renders AND backfills the entity rows", async () => {
+    h.blobRow = { data: { data: structuredClone(DOC), rev: 1563 }, error: null };
     await hydrateForUser("user1");
-    expect(getState().rev).toBe(7);
-    resetStore();
-    expect(getState().rev).toBe(0);
-  });
-});
-
-describe("save path", () => {
-  it("save echoes the snapshot-time rev, keeps rev OUT of data, and stores the bumped rev", async () => {
-    h.maybeSingleResult = serverRow(5);
-    await hydrateForUser("user1");
-    h.upsertResult = { data: { rev: 6 }, error: null };
-    await saveWorkspaceNow();
-    expect(h.upsertCalls).toHaveLength(1);
-    const { payload, opts } = h.upsertCalls[0];
-    expect(payload.user_id).toBe("user1");
-    expect(payload.rev).toBe(5); // echo, not the bump
-    expect(opts).toEqual({ onConflict: "user_id" });
-    expect(Object.keys(payload.data as Record<string, unknown>)).not.toContain("rev");
-    expect(JSON.stringify(payload.data)).not.toContain('"rev"');
-    expect(getState().rev).toBe(6);
-  });
-
-  it("save success does NOT schedule another save (no loop)", async () => {
-    vi.useFakeTimers();
-    h.maybeSingleResult = serverRow(1);
-    await hydrateForUser("user1");
-    h.upsertResult = { data: { rev: 2 }, error: null };
-    await saveWorkspaceNow();
-    expect(h.upsertCalls).toHaveLength(1);
-    await vi.advanceTimersByTimeAsync(5_000);
-    expect(h.upsertCalls).toHaveLength(1); // rev-only update never re-saved
-    expect(getState().rev).toBe(2);
-  });
-
-  it("tasks[] survives the hydrate → snapshot round trip (server-written tasks are not dropped)", async () => {
-    const task = {
-      id: "t1",
-      projectId: "p-server",
-      title: "server task",
-      status: "open",
-      origin: "claude",
-      createdAt: "x",
-      updatedAt: "x",
-    };
-    h.maybeSingleResult = {
-      data: {
-        data: { projects: [{ id: "p-server" }], tasks: [task], activeProjectId: "p-server" },
-        rev: 5,
-      },
-      error: null,
-    };
-    await hydrateForUser("user1");
-    expect(getState().tasks).toEqual([task]);
-    h.upsertResult = { data: { rev: 6 }, error: null };
-    await saveWorkspaceNow();
-    const written = h.upsertCalls[0].payload.data as Record<string, unknown>;
-    expect(written.tasks).toEqual([task]); // enumerated snapshot now carries tasks
-    expect(Object.keys(written)).not.toContain("rev");
-  });
-
-  it("workspaces with no tasks key hydrate with tasks []", async () => {
-    h.maybeSingleResult = serverRow(3);
-    await hydrateForUser("user1");
-    expect(getState().tasks).toEqual([]);
-  });
-
-  it("setState still schedules a debounced save that echoes the current rev", async () => {
-    vi.useFakeTimers();
-    h.maybeSingleResult = serverRow(3);
-    await hydrateForUser("user1");
-    h.upsertResult = { data: { rev: 4 }, error: null };
-    setState((s) => ({ ...s, activeProjectId: "changed" }));
-    expect(h.upsertCalls).toHaveLength(0); // debounced
-    await vi.advanceTimersByTimeAsync(700);
-    expect(h.upsertCalls).toHaveLength(1);
-    expect(h.upsertCalls[0].payload.rev).toBe(3);
-    expect(getState().rev).toBe(4);
-  });
-});
-
-describe("conflict handling (merge-and-retry — P0 fix 2026-07-25)", () => {
-  it("conflict → merge + retry: unsaved local creates SURVIVE (the 45-lost-opportunities bug)", async () => {
-    vi.useFakeTimers();
-    h.maybeSingleResult = serverRow(5, "p-local");
-    await hydrateForUser("user1");
-    // The user creates an opportunity locally — this must never be lost.
-    setState((s) => ({
-      ...s,
-      opportunities: [
-        ...s.opportunities,
-        { id: "opp-local", projectId: "p-local", title: "Local create" } as never,
-      ],
-    }));
-
-    h.upsertQueue = [
-      { data: null, error: dbError("workspace_conflict", "40001") }, // first save: stale rev
-      { data: { rev: 10 }, error: null }, // merged retry succeeds
-    ];
-    // The conflict refetch: server bumped to rev 9 and gained a project.
-    h.maybeSingleResult = {
-      data: {
-        data: {
-          projects: [
-            { id: "p-local", name: "Local Project" },
-            { id: "p-fresh", name: "Server-added Project" },
-          ],
-          opportunities: [{ id: "opp-server", projectId: "p-fresh", title: "Server create" }],
-          content: [],
-          activeProjectId: "p-fresh",
-        },
-        rev: 9,
-      },
-      error: null,
-    };
-    await saveWorkspaceNow(); // must not throw
-
     const s = getState();
-    expect(s.rev).toBe(10);
-    // The retry payload carried BOTH the server's and the local entities.
-    const retryPayload = h.upsertCalls[h.upsertCalls.length - 1].payload as {
-      data: { opportunities: { id: string }[]; activeProjectId: string };
-      rev: number;
-    };
-    expect(retryPayload.rev).toBe(9); // echoed the fresh rev
-    const ids = retryPayload.data.opportunities.map((o) => o.id).sort();
-    expect(ids).toEqual(["opp-local", "opp-server"]);
-    // Device-local active project is NOT flipped by another writer.
-    expect(retryPayload.data.activeProjectId).toBe("p-local");
-    expect(s.activeProjectId).toBe("p-local");
-    // Live state gained the server entity and kept the local one.
-    expect(s.opportunities.map((o) => o.id).sort()).toEqual(["opp-local", "opp-server"]);
-    expect(toast.info).toHaveBeenCalledTimes(1);
-    expect(String(vi.mocked(toast.info).mock.calls[0][0])).toMatch(/merged and saved/i);
+    expect(s.hydrated).toBe(true);
+    expect(s.projects[0]?.id).toBe("p-server");
+    expect(h.backend.state.backfills).toHaveLength(1);
+    // The backfill adopted the doc — the user is migrated from now on.
+    expect((h.backend.state.doc?.projects as unknown[])?.length).toBe(1);
   });
 
-  it("a workspace_conflict MESSAGE (different code) also goes through the merge path", async () => {
-    h.maybeSingleResult = serverRow(2);
+  it("first-run user: backfill creates the meta marker; its failure fails hydrate LOUDLY", async () => {
+    await hydrateForUser("newuser");
+    expect(getState().hydrated).toBe(true);
+    expect(h.backend.state.doc).not.toBeNull(); // empty workspace adopted
+    resetStore();
+    h.backend = makeEntityBackend();
+    h.backend.state.errors.backfill = { message: "503" };
+    await hydrateForUser("newuser2");
+    const s = getState();
+    expect(s.hydrationFailed).toBe(true);
+    expect(s.hydrated).toBe(false); // retry path stays open, saves stay disabled
+  });
+
+  it("bundle read failure sets hydrationFailed — never a phantom empty workspace", async () => {
+    h.backend.state.errors.read = { message: "PGRST002" };
     await hydrateForUser("user1");
-    h.upsertQueue = [
-      { data: null, error: dbError("ERROR: workspace_conflict raised by trigger", "P0001") },
-      { data: { rev: 4 }, error: null },
-    ];
-    h.maybeSingleResult = serverRow(3);
-    await saveWorkspaceNow(); // no throw
+    const s = getState();
+    expect(s.hydrationFailed).toBe(true);
+    expect(s.projects).toEqual([]);
+    expect(s.hydrated).toBe(false);
+  });
+});
+
+describe("diff-based saves", () => {
+  beforeEach(async () => {
+    h.backend.state.doc = structuredClone(DOC);
+    h.backend.state.rev = 3;
+    await hydrateForUser("user1");
+  });
+
+  it("sends ONLY the changed entity, adopts the bumped rev, advances the baseline", async () => {
+    setState((s) => ({ ...s, content: [...s.content, { id: "c-new", title: "Draft" } as never] }));
+    await saveWorkspaceNow();
+    expect(h.backend.state.batches).toHaveLength(1);
+    const b = h.backend.state.batches[0];
+    expect(b.upserts.map((u) => `${u.collection}:${u.entity_id}`)).toEqual(["content:c-new"]);
+    expect(b.deletes).toEqual([]);
     expect(getState().rev).toBe(4);
-    expect(toast.info).toHaveBeenCalledTimes(1);
+    // Saving again with no changes is a no-op (baseline advanced).
+    await saveWorkspaceNow();
+    expect(h.backend.state.batches).toHaveLength(1);
   });
 
-  it("double conflict: local state is KEPT, the user is told, and a retry is scheduled — never a silent wipe", async () => {
-    vi.useFakeTimers();
-    h.maybeSingleResult = serverRow(5, "p-local");
-    await hydrateForUser("user1");
-    setState((s) => ({
-      ...s,
-      opportunities: [{ id: "opp-keep", projectId: "p-local", title: "Keep me" } as never],
-    }));
-    await vi.advanceTimersByTimeAsync(700); // flush the debounced save from setState
-    h.upsertCalls.length = 0;
-
-    h.upsertQueue = [
-      { data: null, error: dbError("workspace_conflict", "40001") },
-      { data: null, error: dbError("workspace_conflict", "40001") },
-    ];
-    h.maybeSingleResult = serverRow(9, "p-local");
-    await saveWorkspaceNow(); // must not throw
-    expect(getState().opportunities.map((o) => o.id)).toContain("opp-keep"); // nothing wiped
-    expect(toast.error).toHaveBeenCalledTimes(1);
-    // A retry save was scheduled (debounced) — it fires and can now succeed.
-    h.upsertResult = { data: { rev: 12 }, error: null };
-    await vi.advanceTimersByTimeAsync(700);
-    expect(h.upsertCalls.length).toBeGreaterThanOrEqual(3);
+  it("a failed save keeps the change in the NEXT diff (nothing silently dropped)", async () => {
+    setState((s) => ({ ...s, content: [{ id: "c-keep", title: "Mine" } as never] }));
+    h.backend.state.errors.apply = { message: "503" };
+    await expect(saveWorkspaceNow()).rejects.toBeTruthy();
+    h.backend.state.errors.apply = undefined as never;
+    await saveWorkspaceNow();
+    const last = h.backend.state.batches.at(-1);
+    expect(last?.upserts.some((u) => u.entity_id === "c-keep")).toBe(true);
+    expect((h.backend.state.doc?.content as { id: string }[]).map((c) => c.id)).toEqual(["c-keep"]);
   });
 
-  it("conflict + unreadable fresh row: local kept, loud error, retry scheduled", async () => {
-    vi.useFakeTimers();
-    h.maybeSingleResult = serverRow(5, "p-local");
-    await hydrateForUser("user1");
-    setState((s) => ({
-      ...s,
-      opportunities: [{ id: "opp-keep2", projectId: "p-local", title: "Keep me too" } as never],
-    }));
-    await vi.advanceTimersByTimeAsync(700);
-
-    h.upsertQueue = [{ data: null, error: dbError("workspace_conflict", "40001") }];
-    h.maybeSingleResult = { data: null, error: dbError("network down") }; // refetch fails
-    await saveWorkspaceNow(); // must not throw
-    expect(getState().opportunities.map((o) => o.id)).toContain("opp-keep2");
-    expect(toast.error).toHaveBeenCalled();
+  it("deletes and meta changes ride the same batch", async () => {
+    setState((s) => ({ ...s, projects: [], activeProjectId: "" }));
+    await saveWorkspaceNow();
+    const b = h.backend.state.batches.at(-1);
+    expect(b?.deletes).toEqual([{ collection: "projects", entity_id: "p-server" }]);
+    expect(b?.meta).toEqual({ activeProjectId: "" });
   });
 
-  it("project-cap errors still THROW and the debounced path still shows toast.error", async () => {
-    vi.useFakeTimers();
-    h.maybeSingleResult = serverRow(1);
-    await hydrateForUser("user1");
-    h.upsertResult = { data: null, error: dbError("Project limit reached (3).") };
-
-    await expect(saveWorkspaceNow()).rejects.toMatchObject({
-      message: "Project limit reached (3).",
-    });
-    expect(toast.info).not.toHaveBeenCalled();
-
-    setState((s) => ({ ...s, activeProjectId: "again" })); // debounced path surfaces the cap toast
-    await vi.advanceTimersByTimeAsync(700);
-    expect(toast.error).toHaveBeenCalledWith("Project limit reached (3).");
+  it("concurrent writer's entities are NOT clobbered — the diff only touches ours", async () => {
+    // A cron writes c-cron directly to the backend between our hydrate and save.
+    const cur = h.backend.state.doc as Record<string, unknown>;
+    cur.content = [{ id: "c-cron", title: "Cron outcome" }];
+    setState((s) => ({ ...s, opportunities: [{ id: "o-mine", title: "Mine" } as never] }));
+    await saveWorkspaceNow();
+    const doc = h.backend.state.doc as {
+      content: { id: string }[];
+      opportunities: { id: string }[];
+    };
+    expect(doc.content.map((c) => c.id)).toEqual(["c-cron"]); // survived our save
+    expect(doc.opportunities.map((o) => o.id)).toEqual(["o-mine"]);
   });
 
-  it("non-conflict errors still throw (no rehydrate, no toast)", async () => {
-    h.maybeSingleResult = serverRow(1);
-    await hydrateForUser("user1");
-    h.upsertResult = { data: null, error: dbError("db down", "XX000") };
-    const selectsBefore = h.selectCalls;
-    await expect(saveWorkspaceNow()).rejects.toMatchObject({ message: "db down" });
-    expect(h.selectCalls).toBe(selectsBefore); // no conflict refetch
-    expect(toast.info).not.toHaveBeenCalled();
-    expect(getState().rev).toBe(1); // unchanged
+  it("backfill race lost (created=false): the batch is RETRIED — edits never silently dropped (review MEDIUM-1)", async () => {
+    // First batch hits a not-migrated error, but a CONCURRENT actor migrates
+    // the user before our backfill runs — the backfill no-ops (created=false).
+    // The save must then retry the batch against the fresh meta row instead of
+    // advancing the baseline over unpersisted edits.
+    const real = h.backend.rpc.bind(h.backend);
+    let batchCalls = 0;
+    h.backend = {
+      ...h.backend,
+      rpc: async (fn: string, args: Record<string, unknown>) => {
+        if (fn === "apply_workspace_entity_batch" && batchCalls++ === 0) {
+          return { data: null, error: { code: "P0002", message: "workspace_not_migrated" } };
+        }
+        if (fn === "backfill_workspace_entities") {
+          return { data: false, error: null }; // concurrent migration won → no-op
+        }
+        return real(fn, args);
+      },
+    } as typeof h.backend;
+    setState((s) => ({ ...s, content: [{ id: "c-racy", title: "Mine" } as never] }));
+    await saveWorkspaceNow();
+    expect(batchCalls).toBe(2); // failed once, retried once
+    const doc = h.backend.state.doc as { content: { id: string }[] };
+    expect(doc.content.map((c) => c.id)).toEqual(["c-racy"]); // persisted by the RETRY
+  });
+
+  it("not-migrated race: save backfills the FULL snapshot once and treats it as saved", async () => {
+    h.backend.state.doc = null; // simulate a backfill that never landed
+    setState((s) => ({ ...s, content: [{ id: "c1", title: "T" } as never] }));
+    await saveWorkspaceNow();
+    expect(h.backend.state.backfills.length).toBeGreaterThan(0);
+    const adopted = h.backend.state.doc as { content: { id: string }[] } | null;
+    expect(adopted?.content.map((c) => c.id)).toEqual(["c1"]);
   });
 });

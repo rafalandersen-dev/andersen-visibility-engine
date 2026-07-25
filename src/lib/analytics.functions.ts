@@ -33,12 +33,12 @@ export const getAnalyticsSummaryFn = createServerFn({ method: "POST" })
     if (!projectId) throw new Error("No project selected.");
 
     // ---- Authorize: the project must belong to the requesting user's workspace.
-    const { data: row, error: wsErr } = await context.supabase
-      .from("workspaces")
-      .select("data")
-      .eq("user_id", context.userId)
-      .maybeSingle();
-    if (wsErr) throw new Error("Could not load workspace.");
+    // Per-entity backend: readWorkspaceRow assembles from workspace_entities
+    // (with legacy-blob fallback + lazy backfill) — never read the blob here.
+    const { readWorkspaceRow } = await import("./workspace.server");
+    const row = await readWorkspaceRow(context.userId).catch(() => {
+      throw new Error("Could not load workspace.");
+    });
     const ws = (row?.data ?? {}) as { projects?: Project[]; content?: ContentAsset[] };
     const owns = (ws.projects ?? []).some((p) => p.id === projectId);
     if (!owns) throw new Error("Project not found.");

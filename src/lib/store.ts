@@ -196,11 +196,6 @@ function writeStoredActiveProject(userId: string, projectId: string): void {
   }
 }
 
-/** True for the workspaces_rev_guard trigger's optimistic-concurrency conflict. */
-function isRevConflict(error: { code?: string; message?: string } | null): boolean {
-  return !!error && (error.code === "40001" || /workspace_conflict/i.test(error.message ?? ""));
-}
-
 /** Store a DB-acknowledged rev locally. Bypasses setState/scheduleSave on purpose. */
 function applyRev(rev: number) {
   state = { ...state, rev };
@@ -210,7 +205,13 @@ function applyRev(rev: number) {
 // P0 fix 2026-07-25: conflict recovery merges instead of wiping (see
 // workspace-merge.ts for the incident and the per-field contract).
 // eslint-disable-next-line import/order -- grouped with the fix block
-import { mergeWorkspaceSnapshots, type WorkspaceSnapshot } from "./workspace-merge";
+import { type WorkspaceSnapshot } from "./workspace-merge";
+import {
+  assembleWorkspaceDoc,
+  diffWorkspaceDocs,
+  splitWorkspaceDoc,
+  type WorkspaceBundle,
+} from "./workspace-entities";
 
 /** Enumerated persisted fields — rev is deliberately NOT part of `data`. */
 function persistedSnapshot(s: State): WorkspaceSnapshot {
@@ -274,54 +275,25 @@ function stateFromRow(userId: string, d: Partial<State>, rev: number): State {
 }
 
 /**
- * Conflict recovery (P0 fix 2026-07-25): MERGE and retry, never wipe.
+ * Per-entity persistence (scale migration 2026-07-26).
  *
- * The previous "server wins" recovery replaced the whole local state —
- * silently discarding every unsaved local edit (and flipping the active
- * project). Server-side writers bump the rev constantly, so a stale tab
- * could lose every subsequent create with no error. Now: fetch the fresh
- * row, merge the local snapshot over it per entity (workspace-merge.ts),
- * and retry the save ONCE with the fresh rev. Any failure past that is
- * LOUD — local state is kept and the user sees an error, never a no-op.
+ * A save no longer uploads the whole workspace doc (169-801 kB): it DIFFS the
+ * current snapshot against the last doc known to be in the DB and sends only
+ * the changed entities through ONE atomic RPC (~2 kB). Consequences:
+ *  - rev conflicts are gone client-side (no whole-doc precondition); per-entity
+ *    recency is arbitrated by the DB's newer-wins trigger, so a stale tab
+ *    still cannot clobber a cron's publish outcome (the 2026-07-23 incident
+ *    class stays fixed, now at the row level).
+ *  - the 2026-07-25 outage class (800 kB upsert storms) is structurally gone.
  *
- * Returns the merged snapshot + fresh rev on success, or null when the
- * fresh row could not be read (caller keeps local state and surfaces it).
+ * `lastSavedDoc` is the diff baseline: the doc as READ from the server (set on
+ * hydrate/reload) or as last successfully saved. Never persisted.
  */
-async function mergeWithServerRow(
-  userId: string,
-  localSnapshot: WorkspaceSnapshot,
-): Promise<{ merged: WorkspaceSnapshot; rev: number } | null> {
-  const { data: row, error } = await supabase
-    .from("workspaces")
-    .select("data,rev")
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (error) return null;
-  const r = row as { data?: unknown; rev?: number } | null;
-  if (!r?.data || typeof r.data !== "object") return null;
-  return {
-    merged: mergeWorkspaceSnapshots(localSnapshot, r.data as WorkspaceSnapshot),
-    rev: Number(r.rev ?? 0),
-  };
-}
+let lastSavedDoc: WorkspaceSnapshot | null = null;
 
-// Review L1 (2026-07-25): sustained contention must not spam an error toast
-// per retry cycle — at most one every 30s, with a long duration so it is
-// actually seen (the route-change sweep can otherwise clear it).
-let lastContentionToastAt = 0;
-async function contentionToast(message: string): Promise<void> {
-  const now = Date.now();
-  if (now - lastContentionToastAt < 30_000) return;
-  lastContentionToastAt = now;
-  const { toast } = await import("sonner");
-  toast.error(message, { duration: 8000 });
-}
-
-// Review M3 (2026-07-25): saves are SERIALIZED. Overlapping saves (explicit
-// await + the debounced timer) could both echo the same rev; the older
-// snapshot would then conflict-merge itself over the newer one and persist
-// regressed data. Chaining guarantees each save snapshots AFTER the previous
-// one finished, with the freshest rev and state.
+// Review M3 (2026-07-25): saves are SERIALIZED. Overlapping saves could diff
+// against the same baseline and double-apply; chaining guarantees each save
+// snapshots AFTER the previous one advanced the baseline.
 let saveChain: Promise<void> = Promise.resolve();
 
 export function saveWorkspaceNow(): Promise<void> {
@@ -339,50 +311,53 @@ async function saveWorkspaceUnchained(): Promise<void> {
     saveTimer = null;
   }
   const userId = state.userId;
-  // Echo the rev this snapshot is based on; the DB trigger does the increment.
-  const revAtSnapshot = state.rev;
   const snapshot = persistedSnapshot(state);
-  const attempt = (data: WorkspaceSnapshot, rev: number) =>
-    supabase
-      .from("workspaces")
-      .upsert({ user_id: userId, data, rev } as never, { onConflict: "user_id" })
-      .select("rev")
-      .single();
+  const diff = diffWorkspaceDocs(
+    (lastSavedDoc ?? {}) as Record<string, unknown>,
+    snapshot as Record<string, unknown>,
+  );
+  if (diff.isEmpty) return;
 
-  let { data: saved, error } = await attempt(snapshot as WorkspaceSnapshot, revAtSnapshot);
-  if (error && isRevConflict(error)) {
-    // Another writer bumped the row. Merge our snapshot over theirs and retry
-    // once with the fresh rev — creates/edits survive, nothing is wiped.
-    const fresh = await mergeWithServerRow(userId, snapshot as WorkspaceSnapshot);
-    if (!fresh) {
-      await contentionToast(
-        "Could not sync your workspace — your changes are kept here. Retrying…",
-      );
-      scheduleSave(); // bounded by the debounce; each retry re-reads a fresh rev
+  const applyBatch = () =>
+    supabase.rpc("apply_workspace_entity_batch" as never, {
+      p_user_id: userId,
+      p_upserts: diff.upserts,
+      p_deletes: diff.deletes,
+      p_meta: diff.meta,
+      p_expected_rev: null,
+    } as never);
+
+  let { data: newRev, error } = await applyBatch();
+  if (error && /workspace_not_migrated/i.test(error.message ?? "")) {
+    // Extremely rare: hydrate's lazy backfill failed earlier. Backfill from
+    // the full local snapshot, then retry the batch once.
+    const { entities, meta } = splitWorkspaceDoc(snapshot as Record<string, unknown>);
+    const { data: created, error: backfillError } = await supabase.rpc(
+      "backfill_workspace_entities" as never,
+      {
+        p_user_id: userId,
+        p_entities: entities,
+        p_meta: meta,
+      } as never,
+    );
+    if (backfillError) throw error;
+    if (created) {
+      // OUR backfill created the meta row — it persisted the full snapshot.
+      if (state.userId === userId) lastSavedDoc = snapshot;
       return;
     }
-    ({ data: saved, error } = await attempt(fresh.merged, fresh.rev));
-    if (error && isRevConflict(error)) {
-      // Two conflicts in one save = very busy row. Keep local, retry soon, be loud.
-      await contentionToast("Workspace is being updated elsewhere — retrying your save…");
-      scheduleSave();
-      return;
-    }
-    if (!error && state.userId === userId) {
-      // Fold the server-side entities we just learned about into the LIVE
-      // state, with the live state winning per id (the user may have kept
-      // typing while the retry ran).
-      const liveSnapshot = persistedSnapshot(state);
-      const liveMerged = mergeWorkspaceSnapshots(liveSnapshot, fresh.merged);
-      state = stateFromRow(userId, liveMerged as Partial<State>, state.rev);
-      notify();
-      const { toast } = await import("sonner");
-      toast.info("Workspace was updated elsewhere — your changes were merged and saved.");
-    }
+    // Review MEDIUM-1: created=false means a CONCURRENT actor migrated the
+    // user between our failed batch and the backfill — which then no-opped
+    // (ON CONFLICT DO NOTHING). Advancing the baseline here would silently
+    // discard every local edit. Retry the batch against the now-existing
+    // meta row instead, and fall through to the shared confirm/throw path.
+    ({ data: newRev, error } = await applyBatch());
   }
   if (error) throw error; // project-cap + all other errors keep their existing paths
-  const newRev = Number((saved as { rev?: number } | null)?.rev ?? revAtSnapshot + 1);
-  if (state.userId === userId) applyRev(newRev);
+  if (state.userId === userId) {
+    lastSavedDoc = snapshot; // baseline advances only after a confirmed write
+    applyRev(Number(newRev ?? state.rev + 1));
+  }
 }
 
 function scheduleSave() {
@@ -433,60 +408,61 @@ export async function hydrateForUser(userId: string): Promise<void> {
   notify();
 
   try {
-    const { data: row, error } = await supabase
-      .from("workspaces")
-      .select("data,rev")
-      .eq("user_id", userId)
-      .maybeSingle();
+    // Per-entity read: ONE RPC returns {meta, entities}; null = not migrated.
+    const { data: bundleRaw, error } = await supabase.rpc("read_workspace_bundle" as never, {
+      p_user_id: userId,
+    } as never);
     if (error) throw error;
 
-    const r = row as { data?: unknown; rev?: number } | null;
-    if (r?.data && typeof r.data === "object") {
-      state = stateFromRow(userId, r.data as Partial<State>, Number(r.rev ?? 0));
+    if (bundleRaw) {
+      const bundle = bundleRaw as unknown as WorkspaceBundle;
+      const doc = assembleWorkspaceDoc(bundle);
+      state = stateFromRow(userId, doc as Partial<State>, Number(bundle.meta.rev ?? 0));
+      lastSavedDoc = doc as WorkspaceSnapshot; // diff baseline = the doc as stored
     } else {
-      // First-run: authenticated users start with an EMPTY workspace.
-      // Demo seed data is only used for the public landing preview (ssrSnapshot).
-      const { data: inserted, error: insertError } = await supabase
+      // Legacy blob (pre-migration) or first-run. Either way the backfill RPC
+      // creates the entity rows + meta marker; the blob is never written again.
+      const { data: row, error: rowError } = await supabase
         .from("workspaces")
-        .insert({
-          user_id: userId,
-          data: {
-            projects: [],
-            services: [],
-            opportunities: [],
-            discoverySuggestions: [],
-            calendar: [],
-            content: [],
-            activeProjectId: "",
-          } as never,
-        })
-        .select("rev")
-        .single();
-      // A failed seed insert is a failed hydrate, not a valid empty workspace
-      // (during the 2026-07-25 outage every write 503'd — swallowing this left
-      // a phantom rev-0 empty state).
-      if (insertError) throw insertError;
-      state = {
-        ...emptyState,
-        hydrated: true,
-        userId,
-        rev: Number((inserted as { rev?: number } | null)?.rev ?? 0),
-      };
+        .select("data,rev")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (rowError) throw rowError;
+
+      const r = row as { data?: unknown } | null;
+      const doc =
+        r?.data && typeof r.data === "object" ? (r.data as Record<string, unknown>) : {};
+      const { entities, meta } = splitWorkspaceDoc(doc);
+      const { error: backfillError } = await supabase.rpc("backfill_workspace_entities" as never, {
+        p_user_id: userId,
+        p_entities: entities,
+        p_meta: meta,
+      } as never);
+      // A failed backfill for a user WITH data is non-fatal for this session
+      // (the blob copy just rendered); the save path retries the backfill.
+      // For a FIRST-RUN user it must fail loudly — otherwise saves have no
+      // meta row to write against and the wizard's work would be lost.
+      if (backfillError && !r?.data) throw backfillError;
+      if (backfillError) {
+        console.warn("[workspace] lazy backfill failed — will retry on save", backfillError);
+      }
+      state = stateFromRow(userId, doc as Partial<State>, 0);
+      lastSavedDoc = doc as WorkspaceSnapshot;
     }
   } catch (e) {
     // 2026-07-25 outage lesson: NEVER present a load failure as an empty
-    // workspace. The old fallback set hydrated:true with no projects, which
-    // sent real users into the onboarding wizard as if their data were gone.
-    // Fail loudly instead: the authenticated layout renders a retry screen
-    // while hydrationFailed is set, and the onboarding guard stays inert.
+    // workspace. Fail loudly instead: the authenticated layout renders a
+    // retry screen while hydrationFailed is set, saves stay disabled
+    // (hydrated:false), and the onboarding guard stays inert.
     console.warn("[workspace] hydrate failed — showing retry screen", e);
     state = { ...emptyState, hydrationFailed: true, userId };
+    lastSavedDoc = null;
   }
   notify();
 }
 
 export function resetStore(): void {
-  lastContentionToastAt = 0; // test isolation for the L1 backoff
+  lastSavedDoc = null; // diff baseline is per signed-in user
 
   if (saveTimer) {
     clearTimeout(saveTimer);
@@ -508,15 +484,15 @@ export function resetStore(): void {
 export async function reloadWorkspaceForUser(userId: string): Promise<void> {
   if (typeof window === "undefined") return;
   try {
-    const { data: row } = await supabase
-      .from("workspaces")
-      .select("data,rev")
-      .eq("user_id", userId)
-      .maybeSingle();
-    const r = row as { data?: unknown; rev?: number } | null;
+    const { data: bundleRaw } = await supabase.rpc("read_workspace_bundle" as never, {
+      p_user_id: userId,
+    } as never);
     // Guard against a user switch mid-flight: only apply if still the same user.
-    if (r?.data && typeof r.data === "object" && state.userId === userId) {
-      state = stateFromRow(userId, r.data as Partial<State>, Number(r.rev ?? 0));
+    if (bundleRaw && state.userId === userId) {
+      const bundle = bundleRaw as unknown as WorkspaceBundle;
+      const doc = assembleWorkspaceDoc(bundle);
+      state = stateFromRow(userId, doc as Partial<State>, Number(bundle.meta.rev ?? 0));
+      lastSavedDoc = doc as WorkspaceSnapshot; // fresh server truth = fresh baseline
       notify();
     }
   } catch (e) {

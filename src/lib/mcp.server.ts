@@ -133,11 +133,11 @@ interface Workspace {
 }
 
 async function loadWorkspace(userId: string): Promise<Workspace> {
-  const db = await admin();
-  const res = await (db as unknown as {
-    from: (t: string) => { select: (c: string) => { eq: (k: string, v: string) => { maybeSingle: () => Promise<{ data: { data?: Partial<Workspace> } | null }> } } };
-  }).from("workspaces").select("data").eq("user_id", userId).maybeSingle();
-  const d = (res.data?.data ?? {}) as Partial<Workspace>;
+  // Per-entity backend: assemble via readWorkspaceRow (legacy-blob fallback +
+  // lazy backfill included) — the blob is stale once a user is migrated.
+  const { readWorkspaceRow } = await import("./workspace.server");
+  const row = await readWorkspaceRow(userId);
+  const d = (row?.data ?? {}) as Partial<Workspace>;
   return {
     projects: d.projects ?? [],
     services: d.services ?? [],
