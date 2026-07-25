@@ -2234,6 +2234,13 @@ ${sharedRules}`,
 
       return normalizeContentAsset(payload, project, opp);
     } catch (e) {
+      // P1-5: generation failures must be visible in server logs, not only
+      // as a transient client toast.
+      console.error("[ai.functions] content generation failed", {
+        projectId: project.id,
+        opportunityId: opp.id,
+        error: e instanceof Error ? e.message : String(e),
+      });
       throw mapGatewayError(e);
     }
   });
@@ -2334,6 +2341,13 @@ ${sharedRules}`,
 
       return normalizeContentAsset(payload, project, opp);
     } catch (e) {
+      // P1-5: generation failures must be visible in server logs, not only
+      // as a transient client toast.
+      console.error("[ai.functions] content generation failed", {
+        projectId: project.id,
+        opportunityId: opp.id,
+        error: e instanceof Error ? e.message : String(e),
+      });
       throw mapGatewayError(e);
     }
   }

@@ -563,6 +563,44 @@ export async function refreshSitemapInventory(projectId: string, force = false) 
  * Improve the draft markdown using the current score suggestions. Updates only
  * the markdown body, marks the score stale (publish/live status untouched).
  */
+/**
+ * P1-8 (2026-07-25): a NON-AI draft path. When AI credits are exhausted the
+ * Generate dialog was the only road to content — now a blank, opportunity-
+ * linked asset can be created with zero model calls and edited through the
+ * ordinary pipeline (hook, images, approve, schedule).
+ */
+export async function createBlankDraftForOpportunity(opportunityId: string, assetType: AssetType) {
+  const s = getState();
+  const opp = s.opportunities.find((o) => o.id === opportunityId);
+  if (!opp) throw new Error("Opportunity not found.");
+  const { project } = requireProject(opp.projectId);
+  const now = new Date().toISOString();
+  const asset: ContentAsset = {
+    id: uid(),
+    projectId: opp.projectId,
+    opportunityId: opp.id,
+    title: opp.title,
+    slug: slugify(opp.title),
+    markdown: `# ${opp.title}\n\n`,
+    status: "Draft",
+    updatedAt: now,
+    createdAt: now,
+    assetType,
+    sourceOpportunityId: opp.id,
+    sourceOpportunityTitle: opp.title,
+    language:
+      opp.language ??
+      (project.primaryContentLanguage
+        ? contentLangToProjectLanguage(project.primaryContentLanguage)
+        : "English"),
+    ...(isArticleLikeAssetType(assetType) ? { visualModelVersion: 3 as const } : {}),
+  } as ContentAsset;
+  updateOpportunity(opp.id, { status: "drafting", currentContentAssetId: asset.id });
+  upsertContent(asset);
+  await saveWorkspaceNow();
+  return asset;
+}
+
 export async function improveContentDraft(contentAssetId: string) {
   return once(`improve:${contentAssetId}`, async () => {
     const a = getState().content.find((c) => c.id === contentAssetId);
