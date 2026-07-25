@@ -1,39 +1,26 @@
 /**
  * Link-safety P0 — store plumbing for project-level link approvals.
  *
- * `approveProjectInternalPath` writes an exact approved path onto the project in
- * the workspace JSONB (no migration). This guards two things: the approval must
- * survive a hydrate → save round-trip (projects are persisted whole), and it is
- * strictly per-path — there is no "approve all". Mock harness mirrors
- * store.pending-actions.test.ts (Supabase client mocked at the module boundary).
+ * `approveProjectInternalPath` writes an exact approved path onto the project
+ * entity (no migration). This guards two things: the approval must survive a
+ * hydrate → save round-trip (the project row is upserted whole), and it is
+ * strictly per-path — there is no "approve all". Persistence is per-entity
+ * RPCs: the Supabase client is mocked at the module boundary with the fake
+ * entity backend (workspace-entities.testkit), mirroring
+ * store.pending-actions.test.ts.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-
-interface SupabaseResult {
-  data: unknown;
-  error: { code?: string; message?: string } | null;
-}
+import { makeEntityBackend } from "./workspace-entities.testkit";
 
 const h = vi.hoisted(() => ({
-  maybeSingleResult: { data: null, error: null } as SupabaseResult,
-  upsertResult: { data: { rev: 1 }, error: null } as SupabaseResult,
-  insertResult: { data: { rev: 0 }, error: null } as SupabaseResult,
-  upsertCalls: [] as { payload: Record<string, unknown>; opts: Record<string, unknown> }[],
+  backend: null as unknown as ReturnType<
+    typeof import("./workspace-entities.testkit").makeEntityBackend
+  >,
 }));
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
-    from: (table: string) => {
-      if (table !== "workspaces") throw new Error(`unexpected table ${table}`);
-      return {
-        select: () => ({ eq: () => ({ maybeSingle: async () => h.maybeSingleResult }) }),
-        upsert: (payload: Record<string, unknown>, opts: Record<string, unknown>) => {
-          h.upsertCalls.push({ payload, opts });
-          return { select: () => ({ single: async () => h.upsertResult }) };
-        },
-        insert: () => ({ select: () => ({ single: async () => h.insertResult }) }),
-      };
-    },
+    rpc: (fn: string, args: Record<string, unknown>) => h.backend.rpc(fn, args),
   },
 }));
 
@@ -49,28 +36,20 @@ import {
   approveProjectInternalPath,
 } from "./store";
 
-const serverRow = (rev: number, extra: Record<string, unknown> = {}) => ({
-  data: {
-    data: {
-      projects: [{ id: "p1", name: "P", connectorType: "wordpress" }],
-      content: [],
-      activeProjectId: "p1",
-      ...extra,
-    },
-    rev,
-  },
-  error: null,
-});
+const seedServer = () => {
+  h.backend.state.doc = {
+    projects: [{ id: "p1", name: "P", connectorType: "wordpress" }],
+    content: [],
+    activeProjectId: "p1",
+  };
+};
 
 const projectById = (id: string) => getState().projects.find((p) => p.id === id);
 
 beforeEach(() => {
   vi.stubGlobal("window", globalThis as unknown as Window);
   vi.clearAllMocks();
-  h.upsertCalls = [];
-  h.maybeSingleResult = { data: null, error: null };
-  h.upsertResult = { data: { rev: 1 }, error: null };
-  h.insertResult = { data: { rev: 0 }, error: null };
+  h.backend = makeEntityBackend();
   resetStore();
 });
 
@@ -80,14 +59,14 @@ afterEach(() => {
 
 describe("approveProjectInternalPath", () => {
   it("records the exact approved path on the project", async () => {
-    h.maybeSingleResult = serverRow(3);
+    seedServer();
     await hydrateForUser("user1");
     approveProjectInternalPath("p1", "/services");
     expect(projectById("p1")?.approvedInternalPaths).toEqual(["/services"]);
   });
 
   it("normalises and de-duplicates; a repeat approval is a no-op", async () => {
-    h.maybeSingleResult = serverRow(3);
+    seedServer();
     await hydrateForUser("user1");
     approveProjectInternalPath("p1", "/services?ref=x#top"); // → /services
     approveProjectInternalPath("p1", "/services/"); // trailing slash → /services
@@ -95,7 +74,7 @@ describe("approveProjectInternalPath", () => {
   });
 
   it("approves ONLY that path — there is no blanket approval", async () => {
-    h.maybeSingleResult = serverRow(3);
+    seedServer();
     await hydrateForUser("user1");
     approveProjectInternalPath("p1", "/a");
     approveProjectInternalPath("p1", "/b");
@@ -105,23 +84,26 @@ describe("approveProjectInternalPath", () => {
   });
 
   it("ignores a non-internal path (must start with /)", async () => {
-    h.maybeSingleResult = serverRow(3);
+    seedServer();
     await hydrateForUser("user1");
     approveProjectInternalPath("p1", "https://evil.com/x");
     expect(projectById("p1")?.approvedInternalPaths ?? []).toEqual([]);
   });
 
-  it("persists the approval in the saved snapshot (survives save)", async () => {
-    h.maybeSingleResult = serverRow(3);
+  it("persists the approval in the saved entity batch (survives save)", async () => {
+    seedServer();
     await hydrateForUser("user1");
     approveProjectInternalPath("p1", "/services");
-    h.upsertResult = { data: { rev: 4 }, error: null };
     await saveWorkspaceNow();
-    expect(h.upsertCalls).toHaveLength(1);
-    const data = h.upsertCalls[0].payload.data as {
-      projects?: { id: string; approvedInternalPaths?: string[] }[];
-    };
-    const saved = data.projects?.find((p) => p.id === "p1");
-    expect(saved?.approvedInternalPaths).toEqual(["/services"]);
+    expect(h.backend.state.batches).toHaveLength(1);
+    const batch = h.backend.state.batches[0];
+    expect(batch.deletes).toEqual([]);
+    // The diff upserts exactly the changed project row, carrying the approval.
+    expect(batch.upserts.map((u) => `${u.collection}:${u.entity_id}`)).toEqual(["projects:p1"]);
+    const saved = batch.upserts[0].data as { approvedInternalPaths?: string[] };
+    expect(saved.approvedInternalPaths).toEqual(["/services"]);
+    // And the stored workspace reflects it after the batch is applied.
+    const doc = h.backend.state.doc as { projects: { approvedInternalPaths?: string[] }[] };
+    expect(doc.projects[0].approvedInternalPaths).toEqual(["/services"]);
   });
 });

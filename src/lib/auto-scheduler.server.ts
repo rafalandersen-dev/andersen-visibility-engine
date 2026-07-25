@@ -231,14 +231,26 @@ export function attachBestHook(asset: ContentAsset, nowIso: string): ContentAsse
 
 export async function runMonthlyAutoScheduler(now = new Date()): Promise<AutoScheduleRunSummary> {
   const planned = nextMonthOf(now);
-  const db = await admin();
-  const { data: rows, error } = await db.from("workspaces").select("user_id, data");
-  if (error) throw new Error("auto_scheduler_workspace_scan_failed");
+  // Per-entity backend: list every workspace user (migrated ∪ legacy blob),
+  // then assemble each doc via readWorkspaceRow — which also lazily backfills
+  // stragglers, so the monthly run doubles as a migration sweep.
+  const { listWorkspaceUserIds, readWorkspaceRow } = await import("./workspace.server");
+  let userIds: string[];
+  try {
+    userIds = await listWorkspaceUserIds();
+  } catch {
+    throw new Error("auto_scheduler_workspace_scan_failed");
+  }
 
+  const db = await admin();
   const summary: AutoScheduleRunSummary = { planned, workspaces: 0, projects: [] };
-  for (const row of Array.isArray(rows) ? rows : []) {
-    const userId = String((row as { user_id?: string }).user_id ?? "");
-    const data = ((row as { data?: WorkspaceData }).data ?? {}) as WorkspaceData;
+  for (const userId of userIds) {
+    let data: WorkspaceData;
+    try {
+      data = (await readWorkspaceRow(userId))?.data ?? {};
+    } catch {
+      continue; // one unreadable workspace must not kill the whole run
+    }
     const projects = Array.isArray(data.projects) ? (data.projects as Project[]) : [];
     const enabled = projects.filter((p) => p.autoScheduler?.enabled === true);
     if (!userId || enabled.length === 0) continue;

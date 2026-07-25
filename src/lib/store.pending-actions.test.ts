@@ -1,10 +1,13 @@
 /**
  * Phase 1B.1 — store plumbing for pendingActions[]. Guards the 1A gotcha:
  * the client save enumerates persisted fields, so server-created pending
- * actions MUST survive hydrate → save round-trips. Mock harness mirrors
- * store.rev.test.ts (anon Supabase client mocked at the module boundary).
+ * actions MUST survive hydrate → save round-trips. Persistence is per-entity
+ * RPCs: the Supabase client is mocked at the module boundary with the fake
+ * entity backend (workspace-entities.testkit); a `workspaces` blob read is
+ * kept only for the legacy/first-run fallback paths.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { makeEntityBackend } from "./workspace-entities.testkit";
 
 interface SupabaseResult {
   data: unknown;
@@ -12,23 +15,20 @@ interface SupabaseResult {
 }
 
 const h = vi.hoisted(() => ({
+  backend: null as unknown as ReturnType<
+    typeof import("./workspace-entities.testkit").makeEntityBackend
+  >,
+  /** Legacy blob row for the pre-migration fallback read (null = no row). */
   maybeSingleResult: { data: null, error: null } as SupabaseResult,
-  upsertResult: { data: { rev: 1 }, error: null } as SupabaseResult,
-  insertResult: { data: { rev: 0 }, error: null } as SupabaseResult,
-  upsertCalls: [] as { payload: Record<string, unknown>; opts: Record<string, unknown> }[],
 }));
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
+    rpc: (fn: string, args: Record<string, unknown>) => h.backend.rpc(fn, args),
     from: (table: string) => {
       if (table !== "workspaces") throw new Error(`unexpected table ${table}`);
       return {
         select: () => ({ eq: () => ({ maybeSingle: async () => h.maybeSingleResult }) }),
-        upsert: (payload: Record<string, unknown>, opts: Record<string, unknown>) => {
-          h.upsertCalls.push({ payload, opts });
-          return { select: () => ({ single: async () => h.upsertResult }) };
-        },
-        insert: () => ({ select: () => ({ single: async () => h.insertResult }) }),
       };
     },
   },
@@ -38,7 +38,7 @@ vi.mock("sonner", () => ({
   toast: { info: vi.fn(), error: vi.fn(), success: vi.fn() },
 }));
 
-import { hydrateForUser, saveWorkspaceNow, resetStore, getState } from "./store";
+import { hydrateForUser, saveWorkspaceNow, resetStore, getState, setState } from "./store";
 
 const serverPendingAction = {
   id: "pa1",
@@ -56,21 +56,18 @@ const serverPendingAction = {
   riskLevel: "medium",
 };
 
-const serverRow = (rev: number, extra: Record<string, unknown> = {}) => ({
-  data: {
-    data: { projects: [{ id: "p1", name: "P" }], content: [], activeProjectId: "p1", ...extra },
-    rev,
-  },
-  error: null,
+const workspaceDoc = (extra: Record<string, unknown> = {}) => ({
+  projects: [{ id: "p1", name: "P" }],
+  content: [],
+  activeProjectId: "p1",
+  ...extra,
 });
 
 beforeEach(() => {
   vi.stubGlobal("window", globalThis as unknown as Window);
   vi.clearAllMocks();
-  h.upsertCalls = [];
+  h.backend = makeEntityBackend();
   h.maybeSingleResult = { data: null, error: null };
-  h.upsertResult = { data: { rev: 1 }, error: null };
-  h.insertResult = { data: { rev: 0 }, error: null };
   resetStore();
 });
 
@@ -81,20 +78,26 @@ afterEach(() => {
 describe("pendingActions store plumbing", () => {
   it("default state includes an empty pendingActions array", async () => {
     expect(getState().pendingActions).toEqual([]);
-    h.maybeSingleResult = { data: null, error: null }; // first-run insert path
+    // First-run: no entity rows AND no legacy blob row → backfill creates the
+    // meta marker and hydrate lands on an empty workspace.
     await hydrateForUser("newuser");
+    expect(getState().hydrated).toBe(true);
     expect(getState().pendingActions).toEqual([]);
+    expect(h.backend.state.backfills).toHaveLength(1);
   });
 
-  it("rows without the field hydrate to [] (legacy workspaces)", async () => {
-    h.maybeSingleResult = serverRow(3);
+  it("rows without the field hydrate to [] (legacy blob workspaces)", async () => {
+    // Pre-migration user: bundle is null, the blob row is read and backfilled.
+    h.maybeSingleResult = { data: { data: workspaceDoc(), rev: 3 }, error: null };
     await hydrateForUser("user1");
     expect(getState().hydrated).toBe(true);
     expect(getState().pendingActions).toEqual([]);
+    expect(h.backend.state.backfills).toHaveLength(1); // blob adopted into entity rows
+    expect(h.backend.state.doc).not.toBeNull();
   });
 
   it("hydration preserves server-created pendingActions", async () => {
-    h.maybeSingleResult = serverRow(5, { pendingActions: [serverPendingAction] });
+    h.backend.state.doc = workspaceDoc({ pendingActions: [serverPendingAction] });
     await hydrateForUser("user1");
     expect(getState().pendingActions).toHaveLength(1);
     expect(getState().pendingActions[0].id).toBe("pa1");
@@ -102,13 +105,22 @@ describe("pendingActions store plumbing", () => {
   });
 
   it("client save keeps pendingActions in the persisted snapshot (the 1A gotcha)", async () => {
-    h.maybeSingleResult = serverRow(5, { pendingActions: [serverPendingAction] });
+    h.backend.state.doc = workspaceDoc({ pendingActions: [serverPendingAction] });
     await hydrateForUser("user1");
-    h.upsertResult = { data: { rev: 6 }, error: null };
+    // An unrelated local edit; the diff-based save must NOT read the hydrated
+    // pendingActions as removed (that is exactly how an enumeration gap would
+    // surface now: as a delete of the server-written rows).
+    setState((s) => ({
+      ...s,
+      projects: s.projects.map((p) => (p.id === "p1" ? { ...p, name: "P renamed" } : p)),
+    }));
     await saveWorkspaceNow();
-    expect(h.upsertCalls).toHaveLength(1);
-    const data = h.upsertCalls[0].payload.data as { pendingActions?: unknown[] };
-    expect(data.pendingActions).toHaveLength(1);
-    expect((data.pendingActions?.[0] as { id: string }).id).toBe("pa1");
+    expect(h.backend.state.batches).toHaveLength(1);
+    const batch = h.backend.state.batches[0];
+    expect(batch.deletes).toEqual([]); // pa1 not dropped from the snapshot
+    expect(batch.upserts.map((u) => `${u.collection}:${u.entity_id}`)).toEqual(["projects:p1"]);
+    const doc = h.backend.state.doc as { pendingActions?: { id: string; status: string }[] };
+    expect(doc.pendingActions?.map((a) => a.id)).toEqual(["pa1"]);
+    expect(doc.pendingActions?.[0].status).toBe("pending");
   });
 });

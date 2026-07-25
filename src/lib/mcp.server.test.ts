@@ -196,6 +196,13 @@ describe("handleMcpMessage", () => {
   });
 
   it("an allowed tools/call loads the workspace and returns tool output", async () => {
+    // Per-entity backend: unmigrated user → bundle null → legacy blob read
+    // (+ lazy backfill, which we just acknowledge).
+    h.rpc = (fn: string) => {
+      if (fn === "read_workspace_bundle") return Promise.resolve({ data: null, error: null });
+      if (fn === "backfill_workspace_entities") return Promise.resolve({ data: true, error: null });
+      throw new Error(`unexpected rpc ${fn}`);
+    };
     h.from = (table: string) => {
       expect(table).toBe("workspaces");
       return { select: () => selectChain({ data: { projects: [{ id: "p1", name: "P1", businessName: "Biz", websiteUrl: "https://x.se", market: "SE", primaryLanguage: "Swedish" }] } }) };
@@ -869,6 +876,11 @@ describe("write tools — execution", () => {
   });
 
   it("read tools are untouched by hooks/write plumbing (no regression)", async () => {
+    h.rpc = (fn: string) => {
+      if (fn === "read_workspace_bundle") return Promise.resolve({ data: null, error: null });
+      if (fn === "backfill_workspace_entities") return Promise.resolve({ data: true, error: null });
+      throw new Error(`unexpected rpc ${fn}`);
+    };
     h.from = (table: string) => {
       expect(table).toBe("workspaces");
       const chain: Record<string, unknown> = {};

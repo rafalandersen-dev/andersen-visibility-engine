@@ -127,8 +127,13 @@ export function applyAssetPatch(
   assetId: string,
   assetPatch: Partial<ContentAsset>,
 ): WorkspaceData {
+  // Stamp updatedAt (review MEDIUM-2, entity migration): the per-entity
+  // newer-wins trigger arbitrates by this field — without the bump, a tab
+  // whose copy predates this cron write could silently overwrite the publish
+  // outcome on its next save (erasing liveUrl/publishStatus → double publish).
+  const stampedPatch = { updatedAt: new Date().toISOString(), ...assetPatch };
   const content = asArray<ContentAsset>(data.content).map((c) =>
-    c?.id === assetId ? { ...c, ...assetPatch } : c,
+    c?.id === assetId ? { ...c, ...stampedPatch } : c,
   );
   return { ...data, content };
 }
