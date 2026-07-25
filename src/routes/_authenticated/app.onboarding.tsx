@@ -29,15 +29,18 @@ import {
   marketDefaults,
   contentLangToProjectLanguage,
   isProjectSetupComplete,
+  pickSampleOpportunity,
 } from "@/lib/onboarding";
 import { translate } from "@/i18n";
 import { scanWebsiteFn } from "@/lib/ai.functions";
 import {
   generateSeoOpportunities,
   generateContentCalendar,
+  generateContentForOpportunity,
   runSiteAudit,
   runCompetitorGap,
 } from "@/lib/mock-ai";
+import { defaultAssetTypeFor } from "@/components/CreateContentDialog";
 import type { Market, Currency, OnboardingLanguage, Priority, Project } from "@/lib/types";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -309,15 +312,45 @@ function OnboardingWizard() {
       toast.success(t("onboarding.toast.ready"));
     } catch {
       toast.message(t("onboarding.toast.partial"));
-    } finally {
-      try {
-        sessionStorage.removeItem(DRAFT_KEY);
-      } catch {
-        /* ignore */
+    }
+
+    // TTFV (Europe move 2): write the user's FIRST draft right now, from the
+    // best fresh opportunity, and land them in the editor on it. Best-effort:
+    // any failure (empty AI balance, no opportunities) falls back to /app.
+    // Asset type derives from the opportunity's contentType (P1-6 contract).
+    let sampleAssetId = "";
+    try {
+      const s = getState();
+      const project = s.projects.find((p) => p.id === projectId);
+      const opps = s.opportunities.filter((o) => o.projectId === projectId);
+      const top = pickSampleOpportunity(opps, project?.primaryLanguage ?? "English");
+      if (top) {
+        setGenStatus(t("onboarding.genStatus.sample"));
+        const asset = await generateContentForOpportunity(
+          top.id,
+          defaultAssetTypeFor(top.contentType, null),
+        );
+        sampleAssetId = asset.id;
       }
-      setGenerating(false);
+    } catch {
+      /* non-fatal — the plan alone is still a valid first-run */
+    }
+
+    try {
+      sessionStorage.removeItem(DRAFT_KEY);
+    } catch {
+      /* ignore */
+    }
+    if (sampleAssetId) {
+      await navigate({ to: "/app/editor", search: { id: sampleAssetId } as never });
+      // After navigation so the route-change toast sweep can't eat it.
+      toast.success(t("onboarding.toast.sampleReady"));
+    } else {
       navigate({ to: "/app" });
     }
+    // Only now: the Generate button must stay dead until the route is gone
+    // (a re-click would addProject() a duplicate — CreateContentDialog pattern).
+    setGenerating(false);
   }
 
   const canContinue =

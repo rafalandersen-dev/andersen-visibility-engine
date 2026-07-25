@@ -102,6 +102,8 @@ export const da: Record<string, string> = {
   "onboarding.generating": "Genererer…",
   "onboarding.genStatus.saving": "Gemmer dit projekt…",
   "onboarding.genStatus.foundation": "Genererer muligheder og kalender…",
+  "onboarding.genStatus.sample": "Skriver dit første artikeludkast…",
+  "onboarding.toast.sampleReady": "Dit første udkast er klar — det er det her",
   "onboarding.toast.scanned": "Scannede dit websted — gennemgå oplysningerne",
   "onboarding.toast.scanFailed": "Kunne ikke læse webstedet — udfyld oplysningerne manuelt",
   "onboarding.toast.ready": "Din første vækstplan er klar",

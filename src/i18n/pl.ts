@@ -103,6 +103,8 @@ export const pl: Record<string, string> = {
   "onboarding.generating": "Generowanie…",
   "onboarding.genStatus.saving": "Zapisuję Twój projekt…",
   "onboarding.genStatus.foundation": "Generuję możliwości i kalendarz…",
+  "onboarding.genStatus.sample": "Piszę Twój pierwszy szkic artykułu…",
+  "onboarding.toast.sampleReady": "Twój pierwszy szkic jest gotowy — właśnie go widzisz",
   "onboarding.toast.scanned": "Przeskanowano Twoją stronę — sprawdź szczegóły",
   "onboarding.toast.scanFailed": "Nie udało się odczytać tej strony — wypełnij dane ręcznie",
   "onboarding.toast.ready": "Twój pierwszy plan wzrostu jest gotowy",
