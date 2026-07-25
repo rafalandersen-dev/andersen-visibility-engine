@@ -295,7 +295,33 @@ async function mergeWithServerRow(
   };
 }
 
-export async function saveWorkspaceNow(): Promise<void> {
+// Review L1 (2026-07-25): sustained contention must not spam an error toast
+// per retry cycle — at most one every 30s, with a long duration so it is
+// actually seen (the route-change sweep can otherwise clear it).
+let lastContentionToastAt = 0;
+async function contentionToast(message: string): Promise<void> {
+  const now = Date.now();
+  if (now - lastContentionToastAt < 30_000) return;
+  lastContentionToastAt = now;
+  const { toast } = await import("sonner");
+  toast.error(message, { duration: 8000 });
+}
+
+// Review M3 (2026-07-25): saves are SERIALIZED. Overlapping saves (explicit
+// await + the debounced timer) could both echo the same rev; the older
+// snapshot would then conflict-merge itself over the newer one and persist
+// regressed data. Chaining guarantees each save snapshots AFTER the previous
+// one finished, with the freshest rev and state.
+let saveChain: Promise<void> = Promise.resolve();
+
+export function saveWorkspaceNow(): Promise<void> {
+  const next = saveChain.then(() => saveWorkspaceUnchained());
+  // Keep the chain alive through failures; callers still see the rejection.
+  saveChain = next.catch(() => undefined);
+  return next;
+}
+
+async function saveWorkspaceUnchained(): Promise<void> {
   if (typeof window === "undefined") return;
   if (!state.hydrated || !state.userId) return;
   if (saveTimer) {
@@ -319,16 +345,16 @@ export async function saveWorkspaceNow(): Promise<void> {
     // once with the fresh rev — creates/edits survive, nothing is wiped.
     const fresh = await mergeWithServerRow(userId, snapshot as WorkspaceSnapshot);
     if (!fresh) {
-      const { toast } = await import("sonner");
-      toast.error("Could not sync your workspace — your changes are kept here. Retrying…");
+      await contentionToast(
+        "Could not sync your workspace — your changes are kept here. Retrying…",
+      );
       scheduleSave(); // bounded by the debounce; each retry re-reads a fresh rev
       return;
     }
     ({ data: saved, error } = await attempt(fresh.merged, fresh.rev));
     if (error && isRevConflict(error)) {
       // Two conflicts in one save = very busy row. Keep local, retry soon, be loud.
-      const { toast } = await import("sonner");
-      toast.error("Workspace is being updated elsewhere — retrying your save…");
+      await contentionToast("Workspace is being updated elsewhere — retrying your save…");
       scheduleSave();
       return;
     }
@@ -480,6 +506,8 @@ export async function hydrateForUser(userId: string): Promise<void> {
 }
 
 export function resetStore(): void {
+  lastContentionToastAt = 0; // test isolation for the L1 backoff
+
   if (saveTimer) {
     clearTimeout(saveTimer);
     saveTimer = null;

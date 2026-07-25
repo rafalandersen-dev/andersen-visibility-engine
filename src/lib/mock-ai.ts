@@ -581,6 +581,15 @@ export async function createBlankDraftForOpportunity(opportunityId: string, asse
     opportunityId: opp.id,
     title: opp.title,
     slug: slugify(opp.title),
+    metaTitle: "",
+    metaDescription: "",
+    h1: opp.title,
+    outline: [],
+    faq: [],
+    cta: opp.recommendedCta ?? "",
+    internalLinks: [],
+    schemaSuggestions: [],
+    editorNotes: "",
     markdown: `# ${opp.title}\n\n`,
     status: "Draft",
     updatedAt: now,
@@ -1645,7 +1654,9 @@ async function resolveGeneratedLinks(markdown: string, project: Project): Promis
     if (resolved.unlinked.length) {
       parts.push(`${resolved.unlinked.length} invented link(s) removed`);
     }
-    toast.info(`Link check: ${parts.join("; ")}.`);
+    // Raised on a short delay so the route-change toast sweep (P2-9) that
+    // fires when the user lands in the editor cannot kill it unseen.
+    setTimeout(() => toast.info(`Link check: ${parts.join("; ")}.`, { duration: 8000 }), 400);
   }
   return resolved.markdown;
 }

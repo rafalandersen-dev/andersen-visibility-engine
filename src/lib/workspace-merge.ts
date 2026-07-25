@@ -28,15 +28,55 @@ interface HasId {
   id: string;
 }
 
-/** Server list as base; local wins per id; local-only entities appended. */
+function ts(e: unknown): number {
+  const v = (e as { updatedAt?: string }).updatedAt;
+  const t = v ? Date.parse(v) : NaN;
+  return Number.isNaN(t) ? 0 : t;
+}
+
+/**
+ * Server list as base; per id the NEWER copy wins (by updatedAt — review H2:
+ * server-side writers update existing entities, and a stale tab must not
+ * clobber a cron's publish outcome), local wins on tie or missing stamps;
+ * local-only entities are appended (creates survive).
+ */
 export function mergeById<T extends HasId>(local: T[], server: T[]): T[] {
   const localById = new Map(local.map((e) => [e.id, e]));
   const serverIds = new Set(server.map((e) => e.id));
-  const merged = server.map((e) => localById.get(e.id) ?? e);
+  const merged = server.map((e) => {
+    const l = localById.get(e.id);
+    if (!l) return e;
+    return ts(e) > ts(l) ? e : l;
+  });
   for (const e of local) {
     if (!serverIds.has(e.id)) merged.push(e);
   }
   return merged;
+}
+
+/** Single-instance-per-project collections (review M2): after the id merge,
+ * keep only the NEWEST row per projectId so a conflict can never resurrect a
+ * superseded analysis that would shadow the fresh one for every
+ * find-by-projectId reader. */
+export function newestPerProject<T extends HasId & { projectId?: string; createdAt?: string }>(
+  rows: T[],
+): T[] {
+  const best = new Map<string, T>();
+  const keyless: T[] = [];
+  const stamp = (e: T) => {
+    const v = e.createdAt ?? (e as { updatedAt?: string }).updatedAt;
+    const t = v ? Date.parse(v) : NaN;
+    return Number.isNaN(t) ? 0 : t;
+  };
+  for (const e of rows) {
+    if (!e.projectId) {
+      keyless.push(e);
+      continue;
+    }
+    const cur = best.get(e.projectId);
+    if (!cur || stamp(e) >= stamp(cur)) best.set(e.projectId, e);
+  }
+  return [...best.values(), ...keyless];
 }
 
 /** The id-keyed array fields of the persisted workspace snapshot. */
@@ -72,10 +112,18 @@ export function mergeWorkspaceSnapshots(
   server: WorkspaceSnapshot,
 ): WorkspaceSnapshot {
   const merged: WorkspaceSnapshot = { ...server };
+  const SINGLE_PER_PROJECT = new Set([
+    "audits",
+    "competitorAnalyses",
+    "authorityAnalyses",
+    "aiVisibilityAnalyses",
+    "backlinkAnalyses",
+  ]);
   for (const field of MERGEABLE_ARRAY_FIELDS) {
     const l = Array.isArray(local[field]) ? (local[field] as HasId[]) : [];
     const s = Array.isArray(server[field]) ? (server[field] as HasId[]) : [];
-    merged[field] = mergeById(l, s);
+    const m = mergeById(l, s);
+    merged[field] = SINGLE_PER_PROJECT.has(field) ? newestPerProject(m) : m;
   }
   // Server-authoritative scalars: billing is webhook-written, never local.
   merged.subscription = server.subscription;

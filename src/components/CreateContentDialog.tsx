@@ -104,9 +104,11 @@ export function CreateContentDialog({
     setError(null);
     try {
       const asset = await generateContentForOpportunity(opp.id, assetType);
-      toast.success("Content created");
       onOpenChange(false);
-      navigate({ to: "/app/editor", search: { id: asset.id } as never });
+      // Toast AFTER navigation so the route-change toast sweep (P2-9) cannot
+      // dismiss it unseen.
+      await navigate({ to: "/app/editor", search: { id: asset.id } as never });
+      toast.success("Content created");
     } catch (e) {
       // P1-5: the dialog used to reset silently. Keep it open, show the
       // mapped gateway message, offer Retry.
@@ -122,9 +124,9 @@ export function CreateContentDialog({
     setError(null);
     try {
       const asset = await createBlankDraftForOpportunity(opp.id, assetType);
-      toast.success("Blank draft created");
       onOpenChange(false);
-      navigate({ to: "/app/editor", search: { id: asset.id } as never });
+      await navigate({ to: "/app/editor", search: { id: asset.id } as never });
+      toast.success("Blank draft created");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not create the draft.");
     } finally {

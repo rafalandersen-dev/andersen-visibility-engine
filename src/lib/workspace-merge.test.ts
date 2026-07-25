@@ -5,7 +5,7 @@
  * flip this tab's active project.
  */
 import { describe, it, expect } from "vitest";
-import { mergeById, mergeWorkspaceSnapshots } from "./workspace-merge";
+import { mergeById, mergeWorkspaceSnapshots, newestPerProject } from "./workspace-merge";
 
 describe("mergeById", () => {
   it("local wins per id; server-only kept; local-only appended (creates survive)", () => {
@@ -69,5 +69,38 @@ describe("mergeWorkspaceSnapshots", () => {
     expect(mergeWorkspaceSnapshots(local, serverWithoutP1).activeProjectId).toBe("p1");
     const noLocalChoice = { ...local, activeProjectId: "" };
     expect(mergeWorkspaceSnapshots(noLocalChoice, server).activeProjectId).toBe("p2");
+  });
+});
+
+describe("recency + single-instance rules (review H2/M2)", () => {
+  it("a SERVER-newer copy of the same entity wins — a stale tab cannot clobber a cron update", () => {
+    const merged = mergeById(
+      [{ id: "a", updatedAt: "2026-07-24T10:00:00Z", v: "stale-tab" }] as never[],
+      [{ id: "a", updatedAt: "2026-07-25T06:00:00Z", v: "cron-publish-outcome" }] as never[],
+    );
+    expect(merged).toEqual([
+      { id: "a", updatedAt: "2026-07-25T06:00:00Z", v: "cron-publish-outcome" },
+    ]);
+    // Local still wins on tie or when stamps are missing (unsaved edits).
+    expect(
+      mergeById([{ id: "b", v: "local" }] as never[], [{ id: "b", v: "server" }] as never[]),
+    ).toEqual([{ id: "b", v: "local" }]);
+  });
+
+  it("single-instance analyses keep only the newest per project — no resurrected shadow rows", () => {
+    const m = mergeWorkspaceSnapshots(
+      { audits: [{ id: "new", projectId: "p1", createdAt: "2026-07-25T10:00:00Z" }] },
+      { audits: [{ id: "old", projectId: "p1", createdAt: "2026-07-01T10:00:00Z" }], projects: [] },
+    );
+    expect((m.audits as { id: string }[]).map((a) => a.id)).toEqual(["new"]);
+    expect(
+      newestPerProject([
+        { id: "x", projectId: "p1", createdAt: "2026-01-01" },
+        { id: "y", projectId: "p1", createdAt: "2026-02-01" },
+        { id: "z", projectId: "p2", createdAt: "2026-01-15" },
+      ])
+        .map((r) => r.id)
+        .sort(),
+    ).toEqual(["y", "z"]);
   });
 });
