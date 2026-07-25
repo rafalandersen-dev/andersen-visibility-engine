@@ -251,6 +251,7 @@ export const da: Record<string, string> = {
   "report.plan.title": "Næste måneds plan ({count})",
   "report.plan.empty": "Intet planlagt endnu — åbn Plan for at lægge næste måned.",
   "report.footer": "Genereret af Milo Growth. Udgivet omfatter kun indhold verificeret live på dit website.",
+  "shell.trust": "EU-tillidscenter",
   "shell.nav.home": "Hjem",
   "shell.nav.plan": "Plan",
   "shell.nav.content": "Indhold",

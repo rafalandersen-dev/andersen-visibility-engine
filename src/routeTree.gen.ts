@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
 import { Route as UkRouteImport } from './routes/uk'
+import { Route as TrustRouteImport } from './routes/trust'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SubprocessorsRouteImport } from './routes/subprocessors'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
@@ -87,6 +88,11 @@ const UnsubscribeRoute = UnsubscribeRouteImport.update({
 const UkRoute = UkRouteImport.update({
   id: '/uk',
   path: '/uk',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TrustRoute = TrustRouteImport.update({
+  id: '/trust',
+  path: '/trust',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TermsRoute = TermsRouteImport.update({
@@ -468,6 +474,7 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/subprocessors': typeof SubprocessorsRoute
   '/terms': typeof TermsRoute
+  '/trust': typeof TrustRoute
   '/uk': typeof UkRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
@@ -538,6 +545,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/subprocessors': typeof SubprocessorsRoute
   '/terms': typeof TermsRoute
+  '/trust': typeof TrustRoute
   '/uk': typeof UkRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
@@ -610,6 +618,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/subprocessors': typeof SubprocessorsRoute
   '/terms': typeof TermsRoute
+  '/trust': typeof TrustRoute
   '/uk': typeof UkRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
@@ -682,6 +691,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/subprocessors'
     | '/terms'
+    | '/trust'
     | '/uk'
     | '/unsubscribe'
     | '/.well-known/oauth-authorization-server'
@@ -752,6 +762,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/subprocessors'
     | '/terms'
+    | '/trust'
     | '/uk'
     | '/unsubscribe'
     | '/.well-known/oauth-authorization-server'
@@ -823,6 +834,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/subprocessors'
     | '/terms'
+    | '/trust'
     | '/uk'
     | '/unsubscribe'
     | '/.well-known/oauth-authorization-server'
@@ -895,6 +907,7 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   SubprocessorsRoute: typeof SubprocessorsRoute
   TermsRoute: typeof TermsRoute
+  TrustRoute: typeof TrustRoute
   UkRoute: typeof UkRoute
   UnsubscribeRoute: typeof UnsubscribeRoute
   DotwellKnownOauthAuthorizationServerRoute: typeof DotwellKnownOauthAuthorizationServerRoute
@@ -934,6 +947,13 @@ declare module '@tanstack/react-router' {
       path: '/uk'
       fullPath: '/uk'
       preLoaderRoute: typeof UkRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/trust': {
+      id: '/trust'
+      path: '/trust'
+      fullPath: '/trust'
+      preLoaderRoute: typeof TrustRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/terms': {
@@ -1488,6 +1508,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   SubprocessorsRoute: SubprocessorsRoute,
   TermsRoute: TermsRoute,
+  TrustRoute: TrustRoute,
   UkRoute: UkRoute,
   UnsubscribeRoute: UnsubscribeRoute,
   DotwellKnownOauthAuthorizationServerRoute:

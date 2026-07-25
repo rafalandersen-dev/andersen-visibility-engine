@@ -251,6 +251,7 @@ export const pl: Record<string, string> = {
   "report.plan.title": "Plan na kolejny miesiąc ({count})",
   "report.plan.empty": "Nic jeszcze nie zaplanowano — otwórz Plan, aby ułożyć kolejny miesiąc.",
   "report.footer": "Wygenerowane przez Milo Growth. Publikacje obejmują wyłącznie treści zweryfikowane jako live na Twojej stronie.",
+  "shell.trust": "Centrum zaufania UE",
   "shell.nav.home": "Start",
   "shell.nav.plan": "Plan",
   "shell.nav.content": "Treści",

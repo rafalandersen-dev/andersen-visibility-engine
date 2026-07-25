@@ -251,6 +251,7 @@ export const sv: Record<string, string> = {
   "report.plan.title": "Nästa månads plan ({count})",
   "report.plan.empty": "Inget planerat ännu — öppna Plan för att schemalägga nästa månad.",
   "report.footer": "Genererad av Milo Growth. Publicerat omfattar endast innehåll som verifierats live på din webbplats.",
+  "shell.trust": "EU-förtroendecenter",
   "shell.nav.home": "Hem",
   "shell.nav.plan": "Plan",
   "shell.nav.content": "Innehåll",
