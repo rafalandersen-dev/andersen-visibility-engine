@@ -81,7 +81,7 @@ async function reportForCaller(
  * service-role-only tables). */
 export const getProofLinksLiveFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator(z.object({ projectId: z.string().min(1) }))
+  .inputValidator((input: unknown) => z.object({ projectId: z.string().min(1) }).parse(input))
   .handler(async ({ data, context }): Promise<{ linksLive: number | null }> => {
     return { linksLive: await liveLinkCount(context.userId, data.projectId) };
   });
@@ -149,7 +149,9 @@ export function renderProofReportEmailHtml(
 /** Email the report to the CALLER (recipient comes from the JWT, never the request). */
 export const emailProofReportFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .validator(z.object({ projectId: z.string().min(1), monthKey: z.string().regex(MONTH_KEY) }))
+  .inputValidator((input: unknown) =>
+    z.object({ projectId: z.string().min(1), monthKey: z.string().regex(MONTH_KEY) }).parse(input),
+  )
   .handler(async ({ data, context }): Promise<{ sent: boolean }> => {
     const recipient = clean(
       (context.claims as { email?: string } | undefined)?.email,
