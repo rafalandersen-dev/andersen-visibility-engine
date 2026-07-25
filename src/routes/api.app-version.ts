@@ -7,10 +7,7 @@ export const Route = createFileRoute("/api/app-version")({
   server: {
     handlers: {
       GET: async () =>
-        Response.json(
-          { buildId: __MILO_BUILD_ID__ },
-          { headers: { "Cache-Control": "no-store" } },
-        ),
+        Response.json({ buildId: __MILO_BUILD_ID__ }, { headers: { "Cache-Control": "no-store" } }),
     },
   },
 });

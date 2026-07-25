@@ -30,7 +30,7 @@ import {
 } from "@phosphor-icons/react";
 import { useStore, setActiveProject } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
-import { useT } from "@/i18n";
+import { useT, getUiLocaleOverride, setUiLocaleOverride } from "@/i18n";
 import { MAX_PROJECTS_PER_USER } from "@/lib/billing";
 import { countPendingForBadge } from "@/lib/pending-actions.ui";
 import {
@@ -45,7 +45,7 @@ import {
 const NAV = [
   {
     id: "home",
-    label: "Home",
+    tKey: "shell.nav.home",
     to: "/app",
     icon: House,
     exact: true,
@@ -54,7 +54,7 @@ const NAV = [
   },
   {
     id: "plan",
-    label: "Plan",
+    tKey: "shell.nav.plan",
     to: "/app/plan",
     icon: CalendarDots,
     paths: [
@@ -68,50 +68,55 @@ const NAV = [
       "/app/actions",
     ],
     children: [
-      { label: "Plan workspace", to: "/app/plan", icon: ListBullets },
-      { label: "Discover", to: "/app/plan", search: { view: "discover" }, icon: Binoculars },
-      { label: "On-page review", to: "/app/audit", icon: Gauge },
-      { label: "Competitors", to: "/app/competitors", icon: UsersThree },
-      { label: "Authority", to: "/app/authority", icon: Medal },
-      { label: "AI readiness", to: "/app/ai-visibility", icon: Binoculars },
-      { label: "Proposals", to: "/app/actions", icon: Tray, pendingBadge: true },
+      { tKey: "shell.nav.planWorkspace", to: "/app/plan", icon: ListBullets },
+      {
+        tKey: "shell.nav.discover",
+        to: "/app/plan",
+        search: { view: "discover" },
+        icon: Binoculars,
+      },
+      { tKey: "shell.nav.onpage", to: "/app/audit", icon: Gauge },
+      { tKey: "shell.nav.competitors", to: "/app/competitors", icon: UsersThree },
+      { tKey: "shell.nav.authority", to: "/app/authority", icon: Medal },
+      { tKey: "shell.nav.aiReadiness", to: "/app/ai-visibility", icon: Binoculars },
+      { tKey: "shell.nav.proposals", to: "/app/actions", icon: Tray, pendingBadge: true },
     ],
   },
   {
     id: "content",
-    label: "Content",
+    tKey: "shell.nav.content",
     to: "/app/editor",
     icon: FileText,
     paths: ["/app/editor", "/app/ai-evaluation"],
     children: [
-      { label: "Content library", to: "/app/editor", icon: FileText },
-      { label: "AI evaluation", to: "/app/ai-evaluation", icon: Flask },
+      { tKey: "shell.nav.contentLibrary", to: "/app/editor", icon: FileText },
+      { tKey: "shell.nav.aiEvaluation", to: "/app/ai-evaluation", icon: Flask },
     ],
   },
   {
     id: "backlinks",
-    label: "Backlinks",
+    tKey: "shell.nav.backlinks",
     to: "/app/backlinks",
     icon: LinkSimple,
     badge: "Add-on",
     paths: ["/app/backlinks", "/app/link-marketplace", "/app/outreach"],
     children: [
-      { label: "Link intelligence", to: "/app/backlinks", icon: LinkSimple },
-      { label: "Marketplace", to: "/app/link-marketplace", icon: Storefront },
-      { label: "Outreach", to: "/app/outreach", icon: PaperPlaneTilt },
+      { tKey: "shell.nav.linkIntelligence", to: "/app/backlinks", icon: LinkSimple },
+      { tKey: "shell.nav.marketplace", to: "/app/link-marketplace", icon: Storefront },
+      { tKey: "shell.nav.outreach", to: "/app/outreach", icon: PaperPlaneTilt },
     ],
   },
   {
     id: "insights",
-    label: "Insights",
+    tKey: "shell.nav.insights",
     to: "/app/analytics",
     icon: ChartLineUp,
     paths: ["/app/analytics"],
-    children: [{ label: "Premium analytics", to: "/app/analytics", icon: ChartLineUp }],
+    children: [{ tKey: "shell.nav.premiumAnalytics", to: "/app/analytics", icon: ChartLineUp }],
   },
   {
     id: "settings",
-    label: "Settings",
+    tKey: "shell.nav.settings",
     to: "/app/setup",
     icon: GearSix,
     paths: [
@@ -123,12 +128,17 @@ const NAV = [
       "/app/beta-validation",
     ],
     children: [
-      { label: "Project setup", to: "/app/setup", icon: PencilSimple },
-      { label: "Services & products", to: "/app/services", icon: Package },
-      { label: "Connected apps", to: "/app/connect", icon: PlugsConnected },
-      { label: "Billing & subscription", to: "/app/billing", icon: CreditCard },
-      { label: "Launch checklist", to: "/app/launch-checklist", icon: Rocket },
-      { label: "Beta validation", to: "/app/beta-validation", icon: Flask, ownerOnly: true },
+      { tKey: "shell.nav.projectSetup", to: "/app/setup", icon: PencilSimple },
+      { tKey: "shell.nav.services", to: "/app/services", icon: Package },
+      { tKey: "shell.nav.connectedApps", to: "/app/connect", icon: PlugsConnected },
+      { tKey: "shell.nav.billing", to: "/app/billing", icon: CreditCard },
+      { tKey: "shell.nav.launchChecklist", to: "/app/launch-checklist", icon: Rocket },
+      {
+        tKey: "shell.nav.betaValidation",
+        to: "/app/beta-validation",
+        icon: Flask,
+        ownerOnly: true,
+      },
     ],
   },
 ] as const;
@@ -163,6 +173,7 @@ export function AppShell({
 
   const sidebar = (
     <SidebarContent
+      t={t}
       key={pathname}
       pathname={pathname}
       projects={projects}
@@ -219,11 +230,11 @@ export function AppShell({
             onClick={() => setMobileOpen(true)}
             className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm"
           >
-            <ListBullets size={17} /> Menu
+            <ListBullets size={17} /> {t("shell.menu")}
           </button>
           <div className="font-display text-lg">Milo Growth</div>
           <Link to="/app/billing" className="text-xs text-muted-foreground">
-            Billing
+            {t("shell.billing")}
           </Link>
         </div>
 
@@ -248,7 +259,7 @@ export function AppShell({
 
         {!flush ? (
           <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-6 text-[11px] text-muted-foreground md:px-9">
-            <span>Milo Growth — built by Andersen Innovations</span>
+            <span>{t("shell.footerBuiltBy")}</span>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
               <Link to="/terms" className="hover:text-foreground">
                 Terms
@@ -272,6 +283,7 @@ export function AppShell({
 }
 
 function SidebarContent({
+  t,
   pathname,
   projects,
   activeProjectId,
@@ -284,6 +296,7 @@ function SidebarContent({
   onAddProject,
   onEditProject,
 }: {
+  t: (key: string, vars?: Record<string, string | number>) => string;
   pathname: string;
   projects: Array<{ id: string; name: string }>;
   activeProjectId: string;
@@ -301,7 +314,7 @@ function SidebarContent({
       <Link to="/" onClick={onNavigate} className="mx-3 border-b border-white/[.08] pb-5">
         <div className="font-display text-[24px] tracking-[-0.02em]">Milo Growth</div>
         <div className="mt-1.5 max-w-[190px] text-[10px] uppercase leading-[1.55] tracking-[0.22em] text-[#aab0b3]">
-          Monthly AI growth planner
+          {t("shell.tagline")}
         </div>
       </Link>
 
@@ -312,13 +325,13 @@ function SidebarContent({
             className="my-4 grid w-full grid-cols-[auto_1fr_auto] items-center gap-2.5 rounded-[7px] border border-white/[.04] bg-white/[.075] p-3 text-left text-[13px] outline-none transition hover:bg-white/[.11] focus-visible:ring-2 focus-visible:ring-[#d2a23f]/50"
           >
             <Briefcase size={18} weight="duotone" className="text-[#d2a23f]" />
-            <span className="truncate">{activeProjectName ?? "Choose a project"}</span>
+            <span className="truncate">{activeProjectName ?? t("shell.chooseProject")}</span>
             <CaretDown size={15} />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-[232px]">
           <DropdownMenuLabel className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-            Projects
+            {t("shell.projects")}
           </DropdownMenuLabel>
           {projects.map((project) => (
             <DropdownMenuItem
@@ -335,13 +348,13 @@ function SidebarContent({
           ))}
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={onEditProject} disabled={!activeProjectName}>
-            <PencilSimple /> Edit current project
+            <PencilSimple /> {t("shell.editProject")}
           </DropdownMenuItem>
           <DropdownMenuItem
             onSelect={onAddProject}
             disabled={!isOwner && projects.length >= MAX_PROJECTS_PER_USER}
           >
-            <Plus /> Add project
+            <Plus /> {t("shell.addProject")}
             <span className="ml-auto text-[10px] text-muted-foreground">
               {projects.length}/{MAX_PROJECTS_PER_USER}
             </span>
@@ -369,7 +382,7 @@ function SidebarContent({
                 }
               >
                 <Icon size={20} weight={active ? "fill" : "regular"} className="text-[#d2a23f]" />
-                <span className="flex-1">{item.label}</span>
+                <span className="flex-1">{t(item.tKey)}</span>
                 {"badge" in item ? (
                   <span className="rounded bg-white/[.12] px-1.5 py-0.5 text-[10px] text-white">
                     {item.badge}
@@ -386,7 +399,7 @@ function SidebarContent({
                       const childActive = pathname === child.to;
                       return (
                         <Link
-                          key={`${child.label}-${JSON.stringify("search" in child ? child.search : {})}`}
+                          key={`${child.tKey}-${JSON.stringify("search" in child ? child.search : {})}`}
                           to={child.to}
                           search={("search" in child ? child.search : undefined) as never}
                           onClick={onNavigate}
@@ -398,7 +411,7 @@ function SidebarContent({
                           }
                         >
                           <ChildIcon size={14} />
-                          <span className="flex-1">{child.label}</span>
+                          <span className="flex-1">{t(child.tKey)}</span>
                           {"pendingBadge" in child && child.pendingBadge && pendingCount > 0 ? (
                             <span className="rounded-full bg-[#d2a23f]/20 px-1.5 text-[9px] text-[#e5bd64]">
                               {pendingCount}
@@ -415,7 +428,7 @@ function SidebarContent({
       </nav>
 
       <div className="mt-auto px-3 pt-6 text-[#c2c8c9]">
-        <div className="text-[10px] text-[#8e999e]">Active project</div>
+        <div className="text-[10px] text-[#8e999e]">{t("shell.activeProject")}</div>
         <div className="mt-1 truncate text-[12px] text-[#eef0ee]">{activeProjectName ?? "—"}</div>
         <Link
           to="/app/billing"
@@ -423,7 +436,7 @@ function SidebarContent({
           className="mt-4 block rounded-md p-2 transition hover:bg-white/[.05]"
         >
           <div className="flex justify-between text-[10px] text-[#9ba5a9]">
-            <span>Projects</span>
+            <span>{t("shell.projects")}</span>
             <span>
               {projects.length} / {MAX_PROJECTS_PER_USER}
             </span>
@@ -437,7 +450,7 @@ function SidebarContent({
             />
           </div>
         </Link>
-        <div className="mt-4 text-[10px] text-[#8e999e]">Account</div>
+        <div className="mt-4 text-[10px] text-[#8e999e]">{t("shell.account")}</div>
         <div className="mt-1 flex items-center gap-1.5 truncate text-[12px] text-[#eef0ee]">
           {isOwner ? <Crown size={14} className="text-[#d2a23f]" /> : null}
           <span className="truncate">{accountEmail ?? "—"}</span>
@@ -447,14 +460,35 @@ function SidebarContent({
           onClick={onNavigate}
           className="mt-3 flex items-center gap-2 text-[11px] text-[#d7dcdd] hover:text-white"
         >
-          <CreditCard size={16} className="text-[#d2a23f]" /> Manage or cancel subscription
+          <CreditCard size={16} className="text-[#d2a23f]" /> {t("shell.manageSubscription")}
         </Link>
+        <div className="mt-4">
+          <label className="text-[10px] text-[#8e999e]" htmlFor="ui-locale">
+            {t("shell.language")}
+          </label>
+          <select
+            id="ui-locale"
+            className="mt-1 w-full rounded-md border border-white/[.12] bg-white/[.06] px-2 py-1.5 text-[12px] text-[#eef0ee]"
+            value={getUiLocaleOverride() ?? ""}
+            onChange={(e) =>
+              setUiLocaleOverride(
+                (e.target.value || null) as Parameters<typeof setUiLocaleOverride>[0],
+              )
+            }
+          >
+            <option value="">{t("shell.languageProjectDefault")}</option>
+            <option value="en">English</option>
+            <option value="pl">Polski</option>
+            <option value="sv">Svenska</option>
+            <option value="da">Dansk</option>
+          </select>
+        </div>
         <button
           type="button"
           onClick={onSignOut}
           className="mt-4 flex items-center gap-2 border-0 bg-transparent p-0 text-[12px] text-[#d7dcdd] hover:text-white"
         >
-          <SignOut size={17} className="text-[#d2a23f]" /> Sign out
+          <SignOut size={17} className="text-[#d2a23f]" /> {t("shell.signOut")}
         </button>
       </div>
     </div>
