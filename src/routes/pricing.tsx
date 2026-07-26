@@ -125,7 +125,7 @@ function PricingBody() {
           Simple plans. Clear limits. No lock-in.
         </h1>
         <p className="mt-4 text-lg text-muted-foreground">
-          Start with one project. Scale to five when you need to.
+          Start with one project. Scale to fifteen when your clients do.
         </p>
         <div className="mt-7 inline-block text-left lg:absolute lg:right-6 lg:top-1 lg:mt-0">
           <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
