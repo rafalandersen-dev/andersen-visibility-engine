@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+
+  "model": "opus",
+  "effortLevel": "high",
+
+  "permissions": {
+    "allow": [
+      "Bash(npm test)",
+      "Bash(npm run test)",
+      "Bash(npm run test -- *)",
+      "Bash(npx vitest run)",
+      "Bash(npx vitest run *)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx tsc --noEmit *)",
+      "Bash(npm run build)",
+      "Bash(npm run build:dev)",
+      "Bash(npm run preview)",
+      "Bash(npm run dev)",
+      "Bash(npm run lint)",
+      "Bash(npx eslint src/*)",
+      "Bash(npx prettier --check *)",
+      "Bash(curl http://localhost:8080/*)",
+      "Bash(curl -s http://localhost:8080/*)",
+      "Bash(curl -sS http://localhost:8080/*)",
+      "Bash(curl -I http://localhost:8080/*)",
+      "Bash(curl http://127.0.0.1:8080/*)",
+      "Bash(curl -s http://127.0.0.1:8080/*)"
+    ],
+
+    "ask": [
+      "Bash(npm install)",
+      "Bash(npm install *)",
+      "Bash(npm ci)",
+      "Bash(npm uninstall *)",
+      "Bash(npm update *)",
+      "Bash(npm run format)",
+      "Bash(npx prettier --write *)"
+    ],
+
+    "deny": [
+      "Bash(git commit --amend*)",
+      "Bash(git rebase*)",
+      "Bash(git filter-branch*)",
+      "Bash(supabase db push*)",
+      "Bash(npx supabase db push*)",
+      "Bash(supabase db reset*)",
+      "Bash(npx supabase db reset*)"
+    ]
+  },
+
+  "sandbox": {
+    "network": {
+      "allowLocalBinding": true,
+      "allowedDomains": ["registry.npmjs.org"]
+    }
+  }
+}
