@@ -22,6 +22,9 @@ import {
   type MonthlyProofReport,
 } from "@/lib/proof-report";
 import { getProofLinksLiveFn, emailProofReportFn } from "@/lib/proof-report.functions";
+import { isAgencyPlan, type AgencyBranding } from "@/lib/billing";
+import { setAgencyBranding, saveWorkspaceNow } from "@/lib/store";
+import { Input } from "@/components/ui/input";
 import { CheckCircle2, FileDown, Loader2, Mail } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -40,6 +43,9 @@ function ReportPage() {
   const project = useStore((s) => s.projects.find((p) => p.id === s.activeProjectId));
   const content = useStore((s) => s.content);
   const calendar = useStore((s) => s.calendar);
+  const subscription = useStore((s) => s.subscription);
+  const branding = useStore((s) => s.agencyBranding);
+  const agency = isAgencyPlan(subscription);
   const [monthKey, setMonthKey] = useState<string>(currentMonthKey);
   const [linksLive, setLinksLive] = useState<number | null>(null);
   const [emailing, setEmailing] = useState(false);
@@ -85,6 +91,16 @@ function ReportPage() {
     }
   }
 
+  async function saveBranding(next: AgencyBranding) {
+    setAgencyBranding(next.agencyName || next.logoUrl ? next : undefined);
+    try {
+      await saveWorkspaceNow();
+      toast.success(t("report.branding.saved"));
+    } catch {
+      toast.error(t("report.branding.saveFailed"));
+    }
+  }
+
   return (
     <AppShell title={t("report.title")} description={t("report.subtitle")}>
       {!project || !report ? (
@@ -118,8 +134,16 @@ function ReportPage() {
             </Button>
           </div>
 
-          {/* Print header (white-label: project, month — no app chrome) */}
+          {/* Print header (white-label: agency brand when set — no app chrome) */}
           <div className="hidden print:block">
+            {agency && branding?.logoUrl && /^https:\/\//i.test(branding.logoUrl) ? (
+              <img src={branding.logoUrl} alt="" className="mb-2 h-10 w-auto" />
+            ) : null}
+            {agency && branding?.agencyName ? (
+              <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                {branding.agencyName}
+              </div>
+            ) : null}
             <h1 className="font-display text-2xl">
               {project.name} — {report.monthKey}
             </h1>
@@ -214,7 +238,19 @@ function ReportPage() {
             )}
           </section>
 
-          <p className="text-xs text-muted-foreground print:block">{t("report.footer")}</p>
+          {agency ? (
+            <section className="rounded-lg border border-border bg-card p-5 print:hidden">
+              <h2 className="font-display text-lg mb-1">{t("report.branding.title")}</h2>
+              <p className="text-xs text-muted-foreground mb-3">{t("report.branding.note")}</p>
+              <BrandingForm branding={branding} onSave={saveBranding} t={t} />
+            </section>
+          ) : null}
+
+          <p className="text-xs text-muted-foreground print:block">
+            {agency && branding?.agencyName
+              ? t("report.footer.agency", { agency: branding.agencyName })
+              : t("report.footer")}
+          </p>
         </div>
       )}
     </AppShell>
@@ -226,6 +262,52 @@ function Stat({ label, value }: { label: string; value: string }) {
     <div className="rounded-lg border border-border bg-card p-4">
       <div className="text-2xl font-display">{value}</div>
       <div className="text-xs text-muted-foreground uppercase tracking-[0.14em] mt-1">{label}</div>
+    </div>
+  );
+}
+
+function BrandingForm({
+  branding,
+  onSave,
+  t,
+}: {
+  branding: AgencyBranding | undefined;
+  onSave: (b: AgencyBranding) => Promise<void>;
+  t: (k: string, vars?: Record<string, string | number>) => string;
+}) {
+  const [name, setName] = useState(branding?.agencyName ?? "");
+  const [logo, setLogo] = useState(branding?.logoUrl ?? "");
+  const [saving, setSaving] = useState(false);
+  return (
+    <div className="flex flex-wrap items-end gap-3">
+      <div>
+        <label className="text-xs text-muted-foreground">{t("report.branding.name")}</label>
+        <Input value={name} onChange={(e) => setName(e.target.value)} className="w-56" />
+      </div>
+      <div>
+        <label className="text-xs text-muted-foreground">{t("report.branding.logoUrl")}</label>
+        <Input
+          value={logo}
+          onChange={(e) => setLogo(e.target.value)}
+          placeholder="https://…"
+          className="w-72"
+        />
+      </div>
+      <Button
+        variant="outline"
+        disabled={saving}
+        onClick={async () => {
+          setSaving(true);
+          try {
+            await onSave({ agencyName: name.trim(), logoUrl: logo.trim() });
+          } finally {
+            setSaving(false);
+          }
+        }}
+      >
+        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+        {t("report.branding.save")}
+      </Button>
     </div>
   );
 }

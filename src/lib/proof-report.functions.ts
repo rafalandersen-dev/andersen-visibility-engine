@@ -13,6 +13,7 @@ import type { CalendarItem, ContentAsset, Project } from "./types";
 import { readWorkspaceRow } from "./workspace.server";
 import { isEmailAddress } from "./outreach-delivery.server";
 import { buildMonthlyProofReport, type MonthlyProofReport } from "./proof-report";
+import { isAgencyPlan, type AgencyBranding } from "./billing";
 
 const RESEND_SEND_URL = "https://api.resend.com/emails";
 const MONTH_KEY = /^\d{4}-\d{2}$/;
@@ -62,7 +63,7 @@ async function reportForCaller(
   userId: string,
   projectId: string,
   monthKey: string,
-): Promise<{ report: MonthlyProofReport; project: Project }> {
+): Promise<{ report: MonthlyProofReport; project: Project; branding: AgencyBranding | null }> {
   const row = await readWorkspaceRow(userId);
   if (!row) throw new Error("Workspace not found.");
   const projects = Array.isArray(row.data.projects) ? (row.data.projects as Project[]) : [];
@@ -71,9 +72,15 @@ async function reportForCaller(
   const content = Array.isArray(row.data.content) ? (row.data.content as ContentAsset[]) : [];
   const calendar = Array.isArray(row.data.calendar) ? (row.data.calendar as CalendarItem[]) : [];
   const linksLive = await liveLinkCount(userId, projectId);
+  // White-label only for a genuinely active agency plan (the same gate the
+  // client UI and the DB cap trigger apply — subscription is client-writable).
+  const sub = row.data.subscription as Parameters<typeof isAgencyPlan>[0];
+  const rawBranding = row.data.agencyBranding as AgencyBranding | undefined;
+  const branding = isAgencyPlan(sub) && rawBranding ? rawBranding : null;
   return {
     report: buildMonthlyProofReport({ project, content, calendar, monthKey, linksLive }),
     project,
+    branding,
   };
 }
 
@@ -98,6 +105,7 @@ function escapeHtml(s: string): string {
 export function renderProofReportEmailHtml(
   report: MonthlyProofReport,
   projectName: string,
+  branding: AgencyBranding | null = null,
 ): string {
   const e = escapeHtml;
   const row = (label: string, value: string) =>
@@ -129,7 +137,18 @@ export function renderProofReportEmailHtml(
         report.gsc.rangeLabel ? ` · ${e(report.gsc.rangeLabel)}` : ""
       }</p>`
     : `<p style="color:#666;">Connect Google Search Console in Milo to include search metrics.</p>`;
+  // https only: http logos are mixed content on the app page and blocked by
+  // most mail clients — better no logo than a broken box in a client report.
+  const logoOk = branding?.logoUrl && /^https:\/\//i.test(branding.logoUrl);
+  const brandHeader = branding
+    ? `${logoOk ? `<img src="${e(branding.logoUrl as string)}" alt="" style="height:40px;max-width:220px;object-fit:contain;margin-bottom:8px;" />` : ""}${
+        branding.agencyName
+          ? `<div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#666;">${e(branding.agencyName)}</div>`
+          : ""
+      }`
+    : "";
   return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1c1917;">
+  ${brandHeader}
   <h1 style="font-size:22px;">Monthly proof — ${e(projectName)} · ${e(report.monthKey)}</h1>
   <h2 style="font-size:16px;">Published &amp; live (${report.published.length})</h2>
   ${publishedList}
@@ -142,7 +161,11 @@ export function renderProofReportEmailHtml(
   ${gsc}
   <h2 style="font-size:16px;">Next month's plan (${report.nextMonthPlan.length})</h2>
   ${planList}
-  <p style="color:#999;font-size:12px;margin-top:24px;">Sent by Milo Growth on your request — this is not a marketing email.</p>
+  <p style="color:#999;font-size:12px;margin-top:24px;">${
+    branding?.agencyName
+      ? `Prepared by ${e(branding.agencyName)}. Sent on your request — this is not a marketing email.`
+      : "Sent by Milo Growth on your request — this is not a marketing email."
+  }</p>
 </div>`;
 }
 
@@ -162,12 +185,12 @@ export const emailProofReportFn = createServerFn({ method: "POST" })
     if (!apiKey || !isEmailAddress(fromEmail)) {
       throw new Error("Email sending is not configured yet.");
     }
-    const { report, project } = await reportForCaller(
+    const { report, project, branding } = await reportForCaller(
       context.userId,
       data.projectId,
       data.monthKey,
     );
-    const html = renderProofReportEmailHtml(report, project.name);
+    const html = renderProofReportEmailHtml(report, project.name, branding);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 20_000);
     try {

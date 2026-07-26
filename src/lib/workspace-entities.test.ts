@@ -125,8 +125,18 @@ describe("diffWorkspaceDocs", () => {
     expect(d2.upserts).toEqual([]);
   });
 
-  it("unknown top-level fields flow through extras diffs", () => {
+  it("extras diffs are MERGE PATCHES: changed keys only, removals as null sentinels", () => {
     const d = diffWorkspaceDocs(doc, { ...doc, someFutureField: { keep: false } });
     expect(d.meta.extras).toEqual({ someFutureField: { keep: false } });
+    // Removing a key locally → explicit null (the RPC strips it after merge).
+    const removed = { ...doc } as Record<string, unknown>;
+    delete removed.someFutureField;
+    expect(diffWorkspaceDocs(doc, removed).meta.extras).toEqual({ someFutureField: null });
+    // Review MEDIUM-3: a STALE-BUNDLE snapshot that never knew a key emits NO
+    // patch for it — baseline and snapshot both lack agencyBranding, so the
+    // server-held value survives the save untouched.
+    const staleBase = { projects: doc.projects };
+    const staleNext = { projects: doc.projects };
+    expect(diffWorkspaceDocs(staleBase, staleNext).isEmpty).toBe(true);
   });
 });

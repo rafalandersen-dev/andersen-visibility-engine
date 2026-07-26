@@ -6,6 +6,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { addMonths, buildMonthlyProofReport, monthKeyOf, recentMonthKeys } from "./proof-report";
+import { renderProofReportEmailHtml } from "./proof-report.functions";
 import type { CalendarItem, ContentAsset } from "./types";
 
 const asset = (over: Partial<ContentAsset>): ContentAsset =>
@@ -189,5 +190,36 @@ describe("buildMonthlyProofReport", () => {
     });
     expect(r.gsc?.totalClicks).toBe(42);
     expect(r.gsc?.rangeLabel).toBe("Last 28 days");
+  });
+});
+
+describe("white-label email rendering (Agency Inc B)", () => {
+  const report = buildMonthlyProofReport({
+    project: { id: "p1" },
+    content: [],
+    calendar: [],
+    monthKey: "2026-07",
+    linksLive: 0,
+  });
+
+  it("no branding → Milo sender line, no brand header", () => {
+    const html = renderProofReportEmailHtml(report, "Client Site");
+    expect(html).toContain("Sent by Milo Growth");
+    expect(html).not.toContain("Prepared by");
+  });
+
+  it("branding swaps the sender line, escapes the name, allowlists the logo scheme", () => {
+    const html = renderProofReportEmailHtml(report, "Client Site", {
+      agencyName: 'Acme & <Co> "Agency"',
+      logoUrl: "https://acme.example/logo.png",
+    });
+    expect(html).toContain("Prepared by Acme &amp; &lt;Co&gt; &quot;Agency&quot;");
+    expect(html).not.toContain("Sent by Milo Growth");
+    expect(html).toContain('src="https://acme.example/logo.png"');
+    const js = renderProofReportEmailHtml(report, "Client Site", {
+      agencyName: "Acme",
+      logoUrl: "javascript:alert(1)",
+    });
+    expect(js).not.toContain("javascript:alert");
   });
 });

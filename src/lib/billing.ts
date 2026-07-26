@@ -6,7 +6,7 @@
  * COUNTRY — never by the public display region, app language or target market.
  */
 
-export type PlanId = "freePreview" | "starter" | "growth" | "pro";
+export type PlanId = "freePreview" | "starter" | "growth" | "pro" | "agency";
 export type AddOnId = "assistedSetup" | "monthlyCare";
 export type CustomerType = "business" | "consumer";
 
@@ -73,7 +73,7 @@ export interface SubscriptionPlan {
   updatedAt?: string;
 }
 
-export const PLAN_IDS: PlanId[] = ["freePreview", "starter", "growth", "pro"];
+export const PLAN_IDS: PlanId[] = ["freePreview", "starter", "growth", "pro", "agency"];
 export const MAX_PROJECTS_PER_USER = 5;
 export const BILLING_MARKETS: BillingMarket[] = [
   "Poland",
@@ -95,12 +95,12 @@ export const MARKET_CURRENCY: Record<BillingMarket, string> = {
 
 /** Monthly plan price per market (0 = Free Preview). */
 export const PLAN_PRICING: Record<BillingMarket, Record<PlanId, number>> = {
-  Poland: { freePreview: 0, starter: 249, growth: 599, pro: 1199 },
-  Sweden: { freePreview: 0, starter: 799, growth: 1499, pro: 2999 },
-  Denmark: { freePreview: 0, starter: 549, growth: 999, pro: 1999 },
-  "United Kingdom": { freePreview: 0, starter: 69, growth: 129, pro: 249 },
-  "European Union": { freePreview: 0, starter: 79, growth: 149, pro: 299 },
-  Other: { freePreview: 0, starter: 79, growth: 149, pro: 299 },
+  Poland: { freePreview: 0, starter: 249, growth: 599, pro: 1199, agency: 1999 },
+  Sweden: { freePreview: 0, starter: 799, growth: 1499, pro: 2999, agency: 4499 },
+  Denmark: { freePreview: 0, starter: 549, growth: 999, pro: 1999, agency: 2999 },
+  "United Kingdom": { freePreview: 0, starter: 69, growth: 129, pro: 249, agency: 379 },
+  "European Union": { freePreview: 0, starter: 79, growth: 149, pro: 299, agency: 449 },
+  Other: { freePreview: 0, starter: 79, growth: 149, pro: 299, agency: 449 },
 };
 
 /** Assisted Setup is one-time; Monthly Care is recurring. */
@@ -153,12 +153,23 @@ export const PLAN_META: Record<
   },
   pro: {
     name: "Pro",
-    tagline: "For freelancers, agencies and multi-site businesses.",
+    tagline: "For freelancers and multi-site businesses.",
     features: [
       "Up to 5 projects / websites",
       "High monthly limits",
       "More GSC imports & authority",
       "AI Evaluation (where configured)",
+      "Priority support",
+    ],
+  },
+  agency: {
+    name: "Agency",
+    tagline: "Run your clients' growth on Milo — white-label included.",
+    features: [
+      "Up to 15 client projects",
+      "White-label monthly proof reports",
+      "Highest monthly limits",
+      "All connectors + AI Evaluation",
       "Priority support",
     ],
   },
@@ -237,6 +248,26 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
     monthlyAuthorityGenerations: 30,
     monthlyImageGenerations: 120,
     monthlyLinkVerifications: 600,
+    publishingEnabled: true,
+    wordpressConnectorEnabled: true,
+    customConnectorEnabled: true,
+    analyticsEnabled: true,
+    gscLiteEnabled: true,
+    authorityBuilderEnabled: true,
+    aiEvaluationEnabled: true,
+  },
+  agency: {
+    maxProjects: 15,
+    maxWebsites: 15,
+    monthlyAiCredits: 9000,
+    monthlyContentGenerations: 300,
+    monthlyImproveDrafts: 300,
+    monthlyMiloScores: 750,
+    monthlyAudits: 100,
+    monthlyGscImports: 75,
+    monthlyAuthorityGenerations: 75,
+    monthlyImageGenerations: 300,
+    monthlyLinkVerifications: 1500,
     publishingEnabled: true,
     wordpressConnectorEnabled: true,
     customConnectorEnabled: true,
@@ -325,6 +356,19 @@ export function getCurrentPlanId(sub?: SubscriptionPlan): PlanId {
 }
 export function getPlanLimitsFor(sub?: SubscriptionPlan): PlanLimits {
   return PLAN_LIMITS[getCurrentPlanId(sub)];
+}
+
+/** Agency white-label branding (applied to the monthly proof report). */
+export interface AgencyBranding {
+  agencyName?: string;
+  logoUrl?: string;
+}
+
+/** Agency-plan gate: active paid/manual subscription on the agency tier.
+ * `subscription` is client-writable state, so every consumer (client UI, the
+ * report email fn, the DB project-cap trigger) applies this SAME rule. */
+export function isAgencyPlan(sub?: SubscriptionPlan): boolean {
+  return isActivePaid(sub) && sub?.planId === "agency";
 }
 
 /** True for a genuinely active paid/manual plan (not free preview). */
