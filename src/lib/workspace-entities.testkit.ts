@@ -51,7 +51,16 @@ export function makeEntityBackend(): {
     const byKey = new Map(cur.entities.map((e) => [`${e.collection} ${e.entity_id}`, e]));
     for (const u of upserts) byKey.set(`${u.collection} ${u.entity_id}`, u);
     for (const d of deletes) byKey.delete(`${d.collection} ${d.entity_id}`);
-    const meta = { ...cur.meta, ...metaPatch } as typeof cur.meta;
+    const merged = { ...cur.meta, ...metaPatch } as typeof cur.meta & {
+      extras?: Record<string, unknown>;
+    };
+    if ("extras" in metaPatch) {
+      // DB semantics: extras = strip_nulls(stored || patch)
+      const base = { ...(cur.meta.extras ?? {}), ...(metaPatch.extras as Record<string, unknown>) };
+      for (const k of Object.keys(base)) if (base[k] === null) delete base[k];
+      merged.extras = base;
+    }
+    const meta = merged;
     state.rev += 1;
     state.doc = assembleWorkspaceDoc({
       meta: {

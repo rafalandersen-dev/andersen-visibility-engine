@@ -42,7 +42,7 @@ import type {
   WordPressPublishingSettings,
   ShopifyPublishingSettings,
 } from "./types";
-import type { BillingProfile, SubscriptionPlan } from "./billing";
+import type { AgencyBranding, BillingProfile, SubscriptionPlan } from "./billing";
 import {
   seedProjects,
   seedServices,
@@ -51,7 +51,7 @@ import {
   seedContent,
 } from "./mock-data";
 import { supabase } from "@/integrations/supabase/client";
-import { MAX_PROJECTS_PER_USER } from "./billing";
+import { MAX_PROJECTS_PER_USER, getPlanLimitsFor, isActivePaid } from "./billing";
 import {
   newOpportunityRecord,
   opportunityDeduplicationKey,
@@ -92,6 +92,8 @@ interface State {
   /** Billing v1 — workspace-level billing profile + subscription (optional). */
   billingProfile?: BillingProfile;
   subscription?: SubscriptionPlan;
+  /** Agency white-label branding (persisted via meta extras; agency plan only). */
+  agencyBranding?: AgencyBranding;
   activeProjectId: string;
   /** Whether the active user's workspace has been loaded from Cloud. */
   hydrated: boolean;
@@ -235,6 +237,7 @@ function persistedSnapshot(s: State): WorkspaceSnapshot {
     pendingActions: s.pendingActions,
     billingProfile: s.billingProfile,
     subscription: s.subscription,
+    agencyBranding: s.agencyBranding,
     activeProjectId: s.activeProjectId,
   };
 }
@@ -261,6 +264,7 @@ function stateFromRow(userId: string, d: Partial<State>, rev: number): State {
     pendingActions: d.pendingActions ?? [],
     billingProfile: d.billingProfile,
     subscription: d.subscription,
+    agencyBranding: d.agencyBranding,
     activeProjectId: (() => {
       const stored = typeof window === "undefined" ? "" : readStoredActiveProject(userId);
       const projects = d.projects ?? [];
@@ -319,13 +323,16 @@ async function saveWorkspaceUnchained(): Promise<void> {
   if (diff.isEmpty) return;
 
   const applyBatch = () =>
-    supabase.rpc("apply_workspace_entity_batch" as never, {
-      p_user_id: userId,
-      p_upserts: diff.upserts,
-      p_deletes: diff.deletes,
-      p_meta: diff.meta,
-      p_expected_rev: null,
-    } as never);
+    supabase.rpc(
+      "apply_workspace_entity_batch" as never,
+      {
+        p_user_id: userId,
+        p_upserts: diff.upserts,
+        p_deletes: diff.deletes,
+        p_meta: diff.meta,
+        p_expected_rev: null,
+      } as never,
+    );
 
   let { data: newRev, error } = await applyBatch();
   if (error && /workspace_not_migrated/i.test(error.message ?? "")) {
@@ -409,9 +416,12 @@ export async function hydrateForUser(userId: string): Promise<void> {
 
   try {
     // Per-entity read: ONE RPC returns {meta, entities}; null = not migrated.
-    const { data: bundleRaw, error } = await supabase.rpc("read_workspace_bundle" as never, {
-      p_user_id: userId,
-    } as never);
+    const { data: bundleRaw, error } = await supabase.rpc(
+      "read_workspace_bundle" as never,
+      {
+        p_user_id: userId,
+      } as never,
+    );
     if (error) throw error;
 
     if (bundleRaw) {
@@ -430,14 +440,16 @@ export async function hydrateForUser(userId: string): Promise<void> {
       if (rowError) throw rowError;
 
       const r = row as { data?: unknown } | null;
-      const doc =
-        r?.data && typeof r.data === "object" ? (r.data as Record<string, unknown>) : {};
+      const doc = r?.data && typeof r.data === "object" ? (r.data as Record<string, unknown>) : {};
       const { entities, meta } = splitWorkspaceDoc(doc);
-      const { error: backfillError } = await supabase.rpc("backfill_workspace_entities" as never, {
-        p_user_id: userId,
-        p_entities: entities,
-        p_meta: meta,
-      } as never);
+      const { error: backfillError } = await supabase.rpc(
+        "backfill_workspace_entities" as never,
+        {
+          p_user_id: userId,
+          p_entities: entities,
+          p_meta: meta,
+        } as never,
+      );
       // A failed backfill for a user WITH data is non-fatal for this session
       // (the blob copy just rendered); the save path retries the backfill.
       // For a FIRST-RUN user it must fail loudly — otherwise saves have no
@@ -484,9 +496,12 @@ export function resetStore(): void {
 export async function reloadWorkspaceForUser(userId: string): Promise<void> {
   if (typeof window === "undefined") return;
   try {
-    const { data: bundleRaw } = await supabase.rpc("read_workspace_bundle" as never, {
-      p_user_id: userId,
-    } as never);
+    const { data: bundleRaw } = await supabase.rpc(
+      "read_workspace_bundle" as never,
+      {
+        p_user_id: userId,
+      } as never,
+    );
     // Guard against a user switch mid-flight: only apply if still the same user.
     if (bundleRaw && state.userId === userId) {
       const bundle = bundleRaw as unknown as WorkspaceBundle;
@@ -560,6 +575,9 @@ export const setActiveProject = (id: string) =>
     return { ...s, activeProjectId: id };
   });
 
+export const setAgencyBranding = (branding: AgencyBranding | undefined) =>
+  setState((s) => ({ ...s, agencyBranding: branding }));
+
 export class ProjectLimitError extends Error {
   constructor(public readonly max: number) {
     super(`Project limit reached (${max}). Upgrade your plan to add more projects.`);
@@ -568,12 +586,19 @@ export class ProjectLimitError extends Error {
 }
 
 /**
- * Create a project. Non-owner accounts are capped at MAX_PROJECTS_PER_USER.
- * Owners (role = 'owner') bypass the cap — pass `isOwner: true` from the caller.
+ * Create a project. Non-owner accounts are capped at their PLAN's maxProjects
+ * (Agency = 15; everyone else effectively MAX_PROJECTS_PER_USER — the plan
+ * must be ACTIVE PAID, since `subscription` is client-writable state and the
+ * DB-side cap trigger re-checks the same rule server-side). Owners bypass.
  */
 export const addProject = (p: Omit<Project, "id">, opts: { isOwner: boolean }) => {
-  if (!opts.isOwner && state.projects.length >= MAX_PROJECTS_PER_USER) {
-    throw new ProjectLimitError(MAX_PROJECTS_PER_USER);
+  const planCap =
+    isActivePaid(state.subscription) && getPlanLimitsFor(state.subscription).maxProjects > 0
+      ? getPlanLimitsFor(state.subscription).maxProjects
+      : MAX_PROJECTS_PER_USER;
+  const cap = Math.max(planCap, MAX_PROJECTS_PER_USER);
+  if (!opts.isOwner && state.projects.length >= cap) {
+    throw new ProjectLimitError(cap);
   }
   const id = uid();
   setState((s) => {

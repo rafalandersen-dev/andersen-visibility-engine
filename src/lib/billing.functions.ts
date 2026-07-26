@@ -26,6 +26,11 @@ const PLAN_KEY: Record<PlanId, string> = {
   starter: "STARTER",
   growth: "GROWTH",
   pro: "PRO",
+  // Checkout works once the owner creates the PADDLE_PRICE_AGENCY_* prices —
+  // until then priceIdFor returns "" and the checkout fn responds with the
+  // graceful "not configured for this plan/market" message (+ records the
+  // checkoutPending intent).
+  agency: "AGENCY",
 };
 
 function paddleApiKey(): string {
@@ -51,7 +56,7 @@ export const createPaddleCheckoutFn = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
     z
       .object({
-        planId: z.enum(["freePreview", "starter", "growth", "pro"]),
+        planId: z.enum(["freePreview", "starter", "growth", "pro", "agency"]),
         billingMarket: z.enum([
           "Poland",
           "Sweden",

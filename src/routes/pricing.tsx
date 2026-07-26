@@ -146,7 +146,7 @@ function PricingBody() {
         </div>
       </div>
 
-      <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {PLAN_IDS.map((pid) => {
           const meta = PLAN_META[pid];
           return (

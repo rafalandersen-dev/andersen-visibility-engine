@@ -364,7 +364,7 @@ function BillingPage() {
       {!billingCountry ? (
         <p className="mt-1 text-sm text-muted-foreground">{t("billing.selectCountryFirst")}</p>
       ) : null}
-      <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {PLAN_IDS.map((pid) => {
           const meta = PLAN_META[pid];
           const lim = PLAN_LIMITS[pid];
