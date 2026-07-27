@@ -173,7 +173,7 @@ BEGIN
   ON CONFLICT (day) DO UPDATE
     SET used = u.used + 1, updated_at = p_now
     WHERE u.used + 1 <= p_cap
-  RETURNING public.public_audit_daily_usage.used INTO day_used;
+  RETURNING u.used INTO day_used;
 
   IF day_used IS NULL THEN
     SELECT u.used INTO day_used
