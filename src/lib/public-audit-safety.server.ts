@@ -167,6 +167,9 @@ export function createPublicAuditSafety(deps: PublicAuditSafetyDependencies) {
         hostname?: string;
       };
       const expectedHostname = deps.env.PUBLIC_AUDIT_ALLOWED_HOSTNAME?.trim().toLowerCase();
+      if (production(deps.env) && !expectedHostname) {
+        throw new Error("turnstile_hostname_unconfigured");
+      }
       const hostnameMatches =
         !expectedHostname || result.hostname?.trim().toLowerCase() === expectedHostname;
       if (!result.success || result.action !== "public_audit" || !hostnameMatches) {
