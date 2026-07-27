@@ -34,9 +34,9 @@
 | Independent fetch ceiling | PASS | Fetch claims 1–50 allowed, claim 51 refused without changing paid-AI usage |
 | RLS/table privilege smoke test | PASS | `anon` table read refused |
 | Vercel production build/preview | PASS | GitHub Vercel status `success`; preview marked Ready |
-| Automatic Claude Code Review | PASS | Workflow run 30306194012 completed successfully; no inline findings |
-| Dedicated security reviewer | PASS WITH FIXES | Re-review run 30307366919 confirmed all prior P0/P1 blockers closed. Its new P2 finding—failed fetches consuming AI slots—was then remediated with an independent atomic fetch counter; final review pending |
-| Dedicated verifier | PENDING | To run after security review and any fixes |
+| Automatic Claude Code Review | PASS | Functional head workflow 30307898922 completed successfully; no inline findings |
+| Dedicated security reviewer | PASS WITH FIXES | Final run 30307906406 confirmed all prior P0/P1/P2 blockers closed and listed no code change required before merge |
+| Dedicated verifier | BLOCKED | Run 30307923481 statically passed claim ordering and migration composition, but could not run dependency-backed checks because its checkout had no `node_modules` and its contract forbids installation |
 
 ## Commands run in the isolated verification scaffold
 
@@ -62,14 +62,17 @@ connect to or mutate the production Supabase project.
   from the final production environment.
 - The full repository test suite has not yet been recorded by the dedicated
   verifier.
+- The verifier's whitespace-only findings were corrected after its read-only
+  run.
 
 ## Release gate
 
 PR #36 must remain draft and unmerged until:
 
-1. the dedicated security reviewer returns PASS or every blocker is fixed;
-2. the dedicated verifier records TypeScript, targeted tests, full tests and
-   build evidence;
+1. the dedicated security reviewer returns no merge-blocking finding;
+2. the Product Lead explicitly accepts or resolves the independent verifier's
+   blocked dependency-backed checks, using the separate local and Vercel
+   evidence;
 3. the migration/configuration checklist in
    `docs/PUBLIC-AUDIT-SAFETY.md` is executed in the target environment;
 4. the Product Lead makes a separate merge/release decision.
