@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   PUBLIC_AUDIT_DAILY_AI_LIMIT,
+  PUBLIC_AUDIT_DAILY_FETCH_LIMIT,
   PUBLIC_AUDIT_MAX_BYTES,
   PUBLIC_AUDIT_PER_IP_HOURLY_LIMIT,
   createPublicAuditSafety,
@@ -41,6 +42,8 @@ function setup(
       if (fn === "claim_public_audit_request")
         return { data: [{ allowed: true, used: 1, retry_after_seconds: 0 }], error: null };
       if (fn === "get_public_audit_cache") return { data: null, error: null };
+      if (fn === "claim_public_audit_fetch")
+        return { data: [{ allowed: true, used: 1 }], error: null };
       if (fn === "claim_public_audit_ai")
         return { data: [{ decision: "claimed", used: 1, cached_result: null }], error: null };
       return { data: null, error: null };
@@ -292,6 +295,30 @@ describe("cache and daily AI claim", () => {
         p_day: "2026-07-27",
       }),
     );
+  });
+
+  it("claims an independent global fetch cap before outbound fetch", async () => {
+    const { safety, rpc, safeFetchImpl } = setup();
+    await expect(safety.claimFetch()).resolves.toBeUndefined();
+    expect(rpc).toHaveBeenCalledWith(
+      "claim_public_audit_fetch",
+      expect.objectContaining({
+        p_cap: PUBLIC_AUDIT_DAILY_FETCH_LIMIT,
+        p_day: "2026-07-27",
+      }),
+    );
+    expect(safeFetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("fails closed without touching the destination when the fetch cap is exhausted", async () => {
+    const { safety, safeFetchImpl } = setup({
+      rpcImpl: async (fn) =>
+        fn === "claim_public_audit_fetch"
+          ? { data: [{ allowed: false, used: PUBLIC_AUDIT_DAILY_FETCH_LIMIT }], error: null }
+          : { data: null, error: null },
+    });
+    await expect(safety.claimFetch()).rejects.toThrow("daily audit limit");
+    expect(safeFetchImpl).not.toHaveBeenCalled();
   });
 
   it("returns a cached result without claiming a new generation", async () => {
