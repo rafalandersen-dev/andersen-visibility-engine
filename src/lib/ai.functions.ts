@@ -23,6 +23,16 @@ import {
   normalizeAuditUrl,
 } from "./public-audit";
 import {
+  beginPublicAuditRequest,
+  claimPublicAuditAi,
+  completePublicAuditCache,
+  fetchPublicAuditHtml,
+  getCachedPublicAudit,
+  normalizePublicAuditLanguage,
+  observePublicAudit,
+  publicAuditCacheKey,
+} from "./public-audit-safety.server";
+import {
   isDataForSeoConfigured,
   extractDomain,
   fetchBacklinkSummary,
@@ -3115,25 +3125,69 @@ ${sharedRules}`,
 
 export const runPublicAiVisibilityAuditFn = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) =>
-    z.object({ url: z.string(), language: z.string().optional() }).parse(input),
+    z
+      .object({
+        url: z.string().trim().min(3).max(2048),
+        language: z.string().trim().max(30).optional(),
+        botProof: z.string().trim().max(2048).optional(),
+      })
+      .parse(input),
   )
   .handler(async ({ data }) => {
-    // NOT metered. Public marketing audit: there is no signed-in user to meter. Rate limiting for this path is tracked separately.
     const normalizedUrl = normalizeAuditUrl(data.url);
     if (!normalizedUrl)
       throw new Error("Please enter a valid website URL (for example: yourbusiness.com).");
 
-    const html = await fetchHtml(normalizedUrl, 8000);
-    if (!html) {
-      throw new Error(
-        "Couldn’t read that website. Check the URL is public and reachable, then try again.",
-      );
+    const lang = normalizePublicAuditLanguage(data.language);
+    const requestContext = await beginPublicAuditRequest(data.botProof);
+    const cacheKey = await publicAuditCacheKey(normalizedUrl, lang);
+    const cached = await getCachedPublicAudit(cacheKey);
+    if (cached) {
+      observePublicAudit("cached", {
+        context: requestContext,
+        normalizedUrl,
+        language: lang,
+      });
+      return cached;
     }
 
+    const html = await fetchPublicAuditHtml(normalizedUrl);
     const { signals, text } = extractAuditSignals(html);
     const id = `audit_${Date.now().toString(36)}`;
     const auditedAt = new Date().toISOString();
-    const lang = data.language?.trim() || "English";
+    const fallback = () =>
+      deterministicFallbackAudit(signals, {
+        id,
+        url: normalizedUrl,
+        normalizedUrl,
+        auditedAt,
+      });
+
+    const claim = await claimPublicAuditAi(cacheKey);
+    if (claim.decision === "cached") {
+      observePublicAudit("cached", {
+        context: requestContext,
+        normalizedUrl,
+        language: lang,
+      });
+      return claim.result;
+    }
+    if (claim.decision === "busy" || claim.decision === "limit") {
+      const result = fallback();
+      observePublicAudit(claim.decision === "limit" ? "limited" : "fallback", {
+        context: requestContext,
+        normalizedUrl,
+        language: lang,
+        reason: claim.decision,
+      });
+      return result;
+    }
+
+    observePublicAudit("allowed", {
+      context: requestContext,
+      normalizedUrl,
+      language: lang,
+    });
 
     try {
       const payload = await generateJsonText(
@@ -3168,20 +3222,35 @@ ${text}
 ${sharedRules}`,
         4000,
       );
-      return normalizePublicAudit(payload, {
+      const result = normalizePublicAudit(payload, {
         id,
-        url: data.url,
+        url: normalizedUrl,
         normalizedUrl,
         auditedAt,
         extractedSignals: signals,
       });
+      await completePublicAuditCache(cacheKey, result);
+      observePublicAudit("generated", {
+        context: requestContext,
+        normalizedUrl,
+        language: lang,
+      });
+      return result;
     } catch (e) {
       // AI failed — return a conservative deterministic estimate instead of crashing.
       console.warn(
         "[ai.functions] public audit AI failed, using deterministic fallback:",
         e instanceof Error ? e.message : e,
       );
-      return deterministicFallbackAudit(signals, { id, url: data.url, normalizedUrl, auditedAt });
+      const result = fallback();
+      await completePublicAuditCache(cacheKey, result);
+      observePublicAudit("fallback", {
+        context: requestContext,
+        normalizedUrl,
+        language: lang,
+        reason: "provider_error",
+      });
+      return result;
     }
   });
 
