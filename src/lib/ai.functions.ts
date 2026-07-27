@@ -25,6 +25,7 @@ import {
 import {
   beginPublicAuditRequest,
   claimPublicAuditAi,
+  claimPublicAuditFetch,
   completePublicAuditCache,
   fetchPublicAuditHtml,
   getCachedPublicAudit,
@@ -3151,9 +3152,22 @@ export const runPublicAiVisibilityAuditFn = createServerFn({ method: "POST" })
       return cached;
     }
 
-    // The approved global claim is acquired before touching the user-supplied
-    // destination. Its 50/day ceiling therefore bounds both outbound fetches and
-    // paid generation. Cached hits above do not consume a claim.
+    // Fetch and paid-AI budgets are independent. The first atomic claim bounds
+    // user-controlled outbound traffic; only a successful fetch can consume the
+    // separately approved paid-AI budget.
+    await claimPublicAuditFetch();
+    const html = await fetchPublicAuditHtml(normalizedUrl);
+    const { signals, text } = extractAuditSignals(html);
+    const id = `audit_${Date.now().toString(36)}`;
+    const auditedAt = new Date().toISOString();
+    const fallback = () =>
+      deterministicFallbackAudit(signals, {
+        id,
+        url: normalizedUrl,
+        normalizedUrl,
+        auditedAt,
+      });
+
     const claim = await claimPublicAuditAi(cacheKey);
     if (claim.decision === "cached") {
       observePublicAudit("cached", {
@@ -3182,18 +3196,6 @@ export const runPublicAiVisibilityAuditFn = createServerFn({ method: "POST" })
       normalizedUrl,
       language: lang,
     });
-
-    const html = await fetchPublicAuditHtml(normalizedUrl);
-    const { signals, text } = extractAuditSignals(html);
-    const id = `audit_${Date.now().toString(36)}`;
-    const auditedAt = new Date().toISOString();
-    const fallback = () =>
-      deterministicFallbackAudit(signals, {
-        id,
-        url: normalizedUrl,
-        normalizedUrl,
-        auditedAt,
-      });
 
     try {
       const payload = await generateJsonText(
