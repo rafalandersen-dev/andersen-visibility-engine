@@ -37,7 +37,7 @@ export interface PublicAuditSafetyDependencies {
   env: Record<string, string | undefined>;
   fetchImpl: typeof fetch;
   safeFetchImpl: SafeFetch;
-  requestIdentity: () => { ip?: string; fromCloudflare: boolean };
+  requestIdentity: () => { ip?: string; edgeProof?: string };
   rpc: (fn: string, params: Record<string, unknown>) => Promise<RpcResponse>;
   now: () => Date;
 }
@@ -53,23 +53,84 @@ export type PublicAuditAiClaim =
   | { decision: "cached"; used: number; result: PublicAiVisibilityAudit }
   | { decision: "busy" | "limit"; used: number };
 
-function production(env: Record<string, string | undefined>): boolean {
-  return env.NODE_ENV === "production";
+function localAuditRuntime(env: Record<string, string | undefined>): boolean {
+  return env.PUBLIC_AUDIT_RUNTIME === "local";
 }
 
 function localBotBypass(env: Record<string, string | undefined>): boolean {
-  return !production(env) && env.PUBLIC_AUDIT_BOT_BYPASS === "true";
+  return localAuditRuntime(env) && env.PUBLIC_AUDIT_BOT_BYPASS === "true";
 }
 
-function validClientIp(value: string | undefined): value is string {
-  if (!value || value.length > 64 || value.includes(",")) return false;
-  return /^[0-9a-f:.]+$/i.test(value);
+function normalizeIpv4(value: string): string | undefined {
+  const parts = value.split(".");
+  if (parts.length !== 4) return undefined;
+  const octets = parts.map((part) => {
+    if (!/^(0|[1-9]\d{0,2})$/.test(part)) return -1;
+    const parsed = Number(part);
+    return parsed <= 255 ? parsed : -1;
+  });
+  return octets.every((part) => part >= 0) ? octets.join(".") : undefined;
+}
+
+function expandIpv6(value: string): string[] | undefined {
+  if (!value || value.includes("%") || (value.match(/::/g)?.length ?? 0) > 1) return undefined;
+  let source = value.toLowerCase();
+  const ipv4Tail = source.match(/(?:^|:)(\d{1,3}(?:\.\d{1,3}){3})$/)?.[1];
+  if (ipv4Tail) {
+    const ipv4 = normalizeIpv4(ipv4Tail);
+    if (!ipv4) return undefined;
+    const bytes = ipv4.split(".").map(Number);
+    source = source.slice(0, -ipv4Tail.length) +
+      `${((bytes[0] << 8) | bytes[1]).toString(16)}:${((bytes[2] << 8) | bytes[3]).toString(16)}`;
+  }
+  const [leftRaw, rightRaw] = source.split("::");
+  const left = leftRaw ? leftRaw.split(":") : [];
+  const right = rightRaw ? rightRaw.split(":") : [];
+  if (![...left, ...right].every((part) => /^[0-9a-f]{1,4}$/.test(part))) return undefined;
+  const missing = 8 - left.length - right.length;
+  if ((source.includes("::") && missing < 1) || (!source.includes("::") && missing !== 0)) {
+    return undefined;
+  }
+  return [...left, ...Array(missing).fill("0"), ...right].map((part) =>
+    Number.parseInt(part, 16).toString(16),
+  );
+}
+
+function normalizeClientIp(
+  value: string | undefined,
+): { rawIp: string; rateIdentity: string } | undefined {
+  const candidate = value?.trim();
+  if (!candidate || candidate.length > 64 || candidate.includes(",")) return undefined;
+  const ipv4 = normalizeIpv4(candidate);
+  if (ipv4) return { rawIp: ipv4, rateIdentity: ipv4 };
+  const ipv6 = expandIpv6(candidate);
+  if (!ipv6) return undefined;
+  const rawIp = ipv6.join(":");
+  return { rawIp, rateIdentity: `${ipv6.slice(0, 4).join(":")}::/64` };
 }
 
 async function sha256Hex(value: string): Promise<string> {
   const bytes = new TextEncoder().encode(value);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function constantTimeSecretEqual(
+  provided: string | undefined,
+  expected: string,
+): Promise<boolean> {
+  if (!provided) return false;
+  const [providedHash, expectedHash] = await Promise.all([
+    crypto.subtle.digest("SHA-256", new TextEncoder().encode(provided)),
+    crypto.subtle.digest("SHA-256", new TextEncoder().encode(expected)),
+  ]);
+  const left = new Uint8Array(providedHash);
+  const right = new Uint8Array(expectedHash);
+  let different = left.length ^ right.length;
+  for (let index = 0; index < left.length; index += 1) {
+    different |= left[index] ^ right[index];
+  }
+  return different === 0;
 }
 
 function firstRow(value: unknown): Record<string, unknown> | undefined {
@@ -106,31 +167,60 @@ export function normalizePublicAuditLanguage(value: string | undefined): string 
 }
 
 export function createPublicAuditSafety(deps: PublicAuditSafetyDependencies) {
+  async function rpc(
+    fn: string,
+    params: Record<string, unknown>,
+    label: string,
+  ): Promise<RpcResponse> {
+    try {
+      return await deps.rpc(fn, params);
+    } catch {
+      // Never surface transport, Supabase or schema detail to an unauthenticated
+      // caller. The caller decides whether this is a pre-spend hard failure or a
+      // post-spend best-effort cache write.
+      console.error(`[public-audit] ${label} transport unavailable`);
+      return { data: null, error: { message: "unavailable" } };
+    }
+  }
+
   async function clientContext(): Promise<PublicAuditRequestContext> {
     const identity = deps.requestIdentity();
-    if (!validClientIp(identity.ip)) {
+    const clientIp = normalizeClientIp(identity.ip);
+    if (!clientIp) {
       throw new Error("The audit is temporarily unavailable. Please try again later.");
     }
-    if (production(deps.env) && !identity.fromCloudflare) {
-      // Production is deployed behind Cloudflare. Refuse rather than trusting a
-      // caller-controlled forwarding header or collapsing everyone to a proxy IP.
-      throw new Error("The audit is temporarily unavailable. Please try again later.");
+
+    if (!localAuditRuntime(deps.env)) {
+      const edgeSecret = deps.env.PUBLIC_AUDIT_EDGE_SECRET?.trim();
+      if (
+        !edgeSecret ||
+        edgeSecret.length < 24 ||
+        !(await constantTimeSecretEqual(identity.edgeProof, edgeSecret))
+      ) {
+        // Header presence does not establish trust. Only the shared proof injected
+        // by the Cloudflare edge permits cf-connecting-ip to become rate-limit input.
+        throw new Error("The audit is temporarily unavailable. Please try again later.");
+      }
     }
 
     const salt = deps.env.PUBLIC_AUDIT_IP_SALT?.trim();
-    if (production(deps.env) && (!salt || salt.length < 24)) {
+    if (!salt || salt.length < 24) {
       throw new Error("The audit is temporarily unavailable. Please try again later.");
     }
-    const clientKey = await sha256Hex(`milo-public-audit:${salt || "local-only-salt"}:${identity.ip}`);
-    return { clientKey, clientLogKey: clientKey.slice(0, 12), rawIp: identity.ip };
+    const clientKey = await sha256Hex(`milo-public-audit:${salt}:${clientIp.rateIdentity}`);
+    return { clientKey, clientLogKey: clientKey.slice(0, 12), rawIp: clientIp.rawIp };
   }
 
   async function claimRequest(clientKey: string): Promise<void> {
-    const { data, error } = await deps.rpc("claim_public_audit_request", {
-      p_client_key: clientKey,
-      p_limit: PUBLIC_AUDIT_PER_IP_HOURLY_LIMIT,
-      p_now: deps.now().toISOString(),
-    });
+    const { data, error } = await rpc(
+      "claim_public_audit_request",
+      {
+        p_client_key: clientKey,
+        p_limit: PUBLIC_AUDIT_PER_IP_HOURLY_LIMIT,
+        p_now: deps.now().toISOString(),
+      },
+      "request limiter",
+    );
     if (error) {
       console.error("[public-audit] request limiter unavailable", { message: error.message });
       throw new Error("The audit is temporarily unavailable. Please try again later.");
@@ -167,11 +257,10 @@ export function createPublicAuditSafety(deps: PublicAuditSafetyDependencies) {
         hostname?: string;
       };
       const expectedHostname = deps.env.PUBLIC_AUDIT_ALLOWED_HOSTNAME?.trim().toLowerCase();
-      if (production(deps.env) && !expectedHostname) {
+      if (!expectedHostname) {
         throw new Error("turnstile_hostname_unconfigured");
       }
-      const hostnameMatches =
-        !expectedHostname || result.hostname?.trim().toLowerCase() === expectedHostname;
+      const hostnameMatches = result.hostname?.trim().toLowerCase() === expectedHostname;
       if (!result.success || result.action !== "public_audit" || !hostnameMatches) {
         throw new Error("turnstile_rejected");
       }
@@ -197,10 +286,14 @@ export function createPublicAuditSafety(deps: PublicAuditSafetyDependencies) {
   }
 
   async function getCached(cacheKeyValue: string): Promise<PublicAiVisibilityAudit | undefined> {
-    const { data, error } = await deps.rpc("get_public_audit_cache", {
-      p_cache_key: cacheKeyValue,
-      p_now: deps.now().toISOString(),
-    });
+    const { data, error } = await rpc(
+      "get_public_audit_cache",
+      {
+        p_cache_key: cacheKeyValue,
+        p_now: deps.now().toISOString(),
+      },
+      "cache read",
+    );
     if (error) {
       console.error("[public-audit] cache read unavailable", { message: error.message });
       throw new Error("The audit is temporarily unavailable. Please try again later.");
@@ -209,16 +302,21 @@ export function createPublicAuditSafety(deps: PublicAuditSafetyDependencies) {
   }
 
   async function fetchHtml(normalizedUrl: string): Promise<string> {
-    const result = await deps.safeFetchImpl(normalizedUrl, {
-      method: "GET",
-      maxBytes: PUBLIC_AUDIT_MAX_BYTES,
-      maxRedirects: PUBLIC_AUDIT_MAX_REDIRECTS,
-      timeoutMs: PUBLIC_AUDIT_TIMEOUT_MS,
-      headers: {
-        "User-Agent": "MiloGrowthAuditBot/1.0 (+https://milogrowth.com)",
-        Accept: "text/html,application/xhtml+xml;q=0.9",
-      },
-    });
+    let result: SafeFetchResult;
+    try {
+      result = await deps.safeFetchImpl(normalizedUrl, {
+        method: "GET",
+        maxBytes: PUBLIC_AUDIT_MAX_BYTES,
+        maxRedirects: PUBLIC_AUDIT_MAX_REDIRECTS,
+        timeoutMs: PUBLIC_AUDIT_TIMEOUT_MS,
+        headers: {
+          "User-Agent": "MiloGrowthAuditBot/1.0 (+https://milogrowth.com)",
+          Accept: "text/html,application/xhtml+xml;q=0.9",
+        },
+      });
+    } catch {
+      throw new Error("Couldn’t read that website. Check the URL is public and reachable, then try again.");
+    }
     if (!result.ok) {
       throw new Error("Couldn’t read that website. Check the URL is public and reachable, then try again.");
     }
@@ -229,13 +327,17 @@ export function createPublicAuditSafety(deps: PublicAuditSafetyDependencies) {
   }
 
   async function claimAi(cacheKeyValue: string): Promise<PublicAuditAiClaim> {
-    const { data, error } = await deps.rpc("claim_public_audit_ai", {
-      p_cache_key: cacheKeyValue,
-      p_day: deps.now().toISOString().slice(0, 10),
-      p_cap: PUBLIC_AUDIT_DAILY_AI_LIMIT,
-      p_lock_seconds: 90,
-      p_now: deps.now().toISOString(),
-    });
+    const { data, error } = await rpc(
+      "claim_public_audit_ai",
+      {
+        p_cache_key: cacheKeyValue,
+        p_day: deps.now().toISOString().slice(0, 10),
+        p_cap: PUBLIC_AUDIT_DAILY_AI_LIMIT,
+        p_lock_seconds: 90,
+        p_now: deps.now().toISOString(),
+      },
+      "AI limiter",
+    );
     if (error) {
       console.error("[public-audit] AI limiter unavailable", { message: error.message });
       throw new Error("The audit is temporarily unavailable. Please try again later.");
@@ -261,12 +363,16 @@ export function createPublicAuditSafety(deps: PublicAuditSafetyDependencies) {
     cacheKeyValue: string,
     result: PublicAiVisibilityAudit,
   ): Promise<void> {
-    const response = await deps.rpc("complete_public_audit_cache", {
-      p_cache_key: cacheKeyValue,
-      p_result: result,
-      p_ttl_seconds: PUBLIC_AUDIT_CACHE_SECONDS,
-      p_now: deps.now().toISOString(),
-    });
+    const response = await rpc(
+      "complete_public_audit_cache",
+      {
+        p_cache_key: cacheKeyValue,
+        p_result: result,
+        p_ttl_seconds: PUBLIC_AUDIT_CACHE_SECONDS,
+        p_now: deps.now().toISOString(),
+      },
+      "cache completion",
+    );
     if (response.error) {
       // The paid call already happened. Return the result to the user; the atomic
       // global daily ceiling remains the spend backstop even if cache completion
@@ -314,7 +420,7 @@ const publicAuditSafety = createPublicAuditSafety({
     const cloudflareIp = getRequestHeader("cf-connecting-ip");
     return {
       ip: cloudflareIp ?? getRequestIP(),
-      fromCloudflare: Boolean(cloudflareIp),
+      edgeProof: getRequestHeader("x-milo-edge-auth"),
     };
   },
   rpc: productionRpc,
