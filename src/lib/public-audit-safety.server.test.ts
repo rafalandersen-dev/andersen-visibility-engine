@@ -56,13 +56,13 @@ function setup(
     }));
   const deps = {
     env: {
-      NODE_ENV: "test",
+      PUBLIC_AUDIT_RUNTIME: "local",
       PUBLIC_AUDIT_BOT_BYPASS: "true",
       PUBLIC_AUDIT_IP_SALT: "test-salt-is-not-used-in-production",
     },
     fetchImpl: vi.fn(async () => response('{"success":true}')),
     safeFetchImpl,
-    requestIdentity: () => ({ ip: "203.0.113.7", fromCloudflare: true }),
+    requestIdentity: () => ({ ip: "203.0.113.7" }),
     rpc,
     now: () => new Date("2026-07-27T12:00:00.000Z"),
     ...overrides,
@@ -101,29 +101,59 @@ describe("request guard", () => {
     await expect(safety.beginRequest("token")).rejects.toThrow("temporarily unavailable");
   });
 
-  it("rejects a production request without a trusted Cloudflare client IP", async () => {
+  it("maps a thrown rate-limit transport error to the generic failure", async () => {
+    const { safety } = setup({
+      rpc: vi.fn(async () => {
+        throw new Error("postgres://internal-host/schema detail");
+      }),
+    });
+    await expect(safety.beginRequest("token")).rejects.toThrow("temporarily unavailable");
+  });
+
+  it("fails closed by default when the edge proof is absent", async () => {
     const { safety } = setup({
       env: {
-        NODE_ENV: "production",
         PUBLIC_AUDIT_IP_SALT: "a-production-salt-with-at-least-24-characters",
+        PUBLIC_AUDIT_EDGE_SECRET: "an-edge-secret-with-at-least-24-characters",
         TURNSTILE_SECRET_KEY: "secret",
       },
-      requestIdentity: () => ({ ip: "203.0.113.7", fromCloudflare: false }),
+      requestIdentity: () => ({ ip: "203.0.113.7" }),
     });
     await expect(safety.beginRequest("proof")).rejects.toThrow("temporarily unavailable");
   });
 
-  it("does not allow the local bot bypass to activate in production", async () => {
+  it("rejects a spoofed Cloudflare IP without the shared edge proof", async () => {
+    const { safety } = setup({
+      env: {
+        NODE_ENV: "development",
+        PUBLIC_AUDIT_BOT_BYPASS: "true",
+        PUBLIC_AUDIT_IP_SALT: "a-production-salt-with-at-least-24-characters",
+        PUBLIC_AUDIT_EDGE_SECRET: "an-edge-secret-with-at-least-24-characters",
+        TURNSTILE_SECRET_KEY: "secret",
+        PUBLIC_AUDIT_ALLOWED_HOSTNAME: "milogrowth.com",
+      },
+      requestIdentity: () => ({ ip: "198.51.100.9" }),
+    });
+    await expect(safety.beginRequest("proof")).rejects.toThrow("temporarily unavailable");
+  });
+
+  it("does not allow the local bot bypass unless runtime is explicitly local", async () => {
     const fetchImpl = vi.fn(async () =>
       response(JSON.stringify({ success: false }), "application/json"),
     );
     const { safety } = setup({
       env: {
-        NODE_ENV: "production",
+        NODE_ENV: "test",
         PUBLIC_AUDIT_BOT_BYPASS: "true",
         PUBLIC_AUDIT_IP_SALT: "a-production-salt-with-at-least-24-characters",
+        PUBLIC_AUDIT_EDGE_SECRET: "an-edge-secret-with-at-least-24-characters",
         TURNSTILE_SECRET_KEY: "secret",
+        PUBLIC_AUDIT_ALLOWED_HOSTNAME: "milogrowth.com",
       },
+      requestIdentity: () => ({
+        ip: "203.0.113.7",
+        edgeProof: "an-edge-secret-with-at-least-24-characters",
+      }),
       fetchImpl,
     });
     await expect(safety.beginRequest("invalid")).rejects.toThrow("bot check");
@@ -139,11 +169,15 @@ describe("request guard", () => {
     );
     const { safety } = setup({
       env: {
-        NODE_ENV: "production",
         PUBLIC_AUDIT_IP_SALT: "a-production-salt-with-at-least-24-characters",
+        PUBLIC_AUDIT_EDGE_SECRET: "an-edge-secret-with-at-least-24-characters",
         TURNSTILE_SECRET_KEY: "secret",
         PUBLIC_AUDIT_ALLOWED_HOSTNAME: "milogrowth.com",
       },
+      requestIdentity: () => ({
+        ip: "203.0.113.7",
+        edgeProof: "an-edge-secret-with-at-least-24-characters",
+      }),
       fetchImpl,
     });
     await expect(safety.beginRequest("proof")).rejects.toThrow("bot check");
@@ -158,13 +192,42 @@ describe("request guard", () => {
     );
     const { safety } = setup({
       env: {
-        NODE_ENV: "production",
         PUBLIC_AUDIT_IP_SALT: "a-production-salt-with-at-least-24-characters",
+        PUBLIC_AUDIT_EDGE_SECRET: "an-edge-secret-with-at-least-24-characters",
         TURNSTILE_SECRET_KEY: "secret",
       },
+      requestIdentity: () => ({
+        ip: "203.0.113.7",
+        edgeProof: "an-edge-secret-with-at-least-24-characters",
+      }),
       fetchImpl,
     });
     await expect(safety.beginRequest("proof")).rejects.toThrow("bot check");
+  });
+
+  it("requires a strong IP salt even in explicitly local mode", async () => {
+    const { safety } = setup({
+      env: {
+        PUBLIC_AUDIT_RUNTIME: "local",
+        PUBLIC_AUDIT_BOT_BYPASS: "true",
+        PUBLIC_AUDIT_IP_SALT: "short",
+      },
+    });
+    await expect(safety.beginRequest("")).rejects.toThrow("temporarily unavailable");
+  });
+
+  it("groups IPv6 clients by /64 before hashing the rate-limit identity", async () => {
+    const first = setup({
+      requestIdentity: () => ({ ip: "2001:db8:abcd:1234::1" }),
+    });
+    const second = setup({
+      requestIdentity: () => ({ ip: "2001:db8:abcd:1234:ffff::99" }),
+    });
+    await first.safety.beginRequest("");
+    await second.safety.beginRequest("");
+    const firstClaim = vi.mocked(first.rpc).mock.calls[0][1].p_client_key;
+    const secondClaim = vi.mocked(second.rpc).mock.calls[0][1].p_client_key;
+    expect(firstClaim).toBe(secondClaim);
   });
 });
 
@@ -189,6 +252,17 @@ describe("bounded outbound fetch", () => {
       })),
     });
     await expect(safety.fetchHtml("https://example.com/data")).rejects.toThrow(
+      "Couldn’t read that website",
+    );
+  });
+
+  it("maps an unexpected outbound-fetch throw to the generic website error", async () => {
+    const { safety } = setup({
+      safeFetchImpl: vi.fn(async () => {
+        throw new Error("connect ECONNREFUSED 10.0.0.4:5432");
+      }),
+    });
+    await expect(safety.fetchHtml("https://example.com")).rejects.toThrow(
       "Couldn’t read that website",
     );
   });
@@ -248,5 +322,15 @@ describe("cache and daily AI claim", () => {
       ),
     });
     await expect(safety.claimAi("cache-key")).rejects.toThrow("temporarily unavailable");
+  });
+
+  it("does not fail the completed audit if the post-spend cache write throws", async () => {
+    const { safety } = setup({
+      rpc: vi.fn(async (fn) => {
+        if (fn === "complete_public_audit_cache") throw new Error("transport down");
+        return { data: null, error: null };
+      }),
+    });
+    await expect(safety.completeCache("cache-key", audit)).resolves.toBeUndefined();
   });
 });
