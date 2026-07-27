@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS public.public_audit_rate_events (
 
 CREATE INDEX IF NOT EXISTS public_audit_rate_events_client_time_idx
   ON public.public_audit_rate_events (client_key, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS public_audit_rate_events_time_idx
+  ON public.public_audit_rate_events (occurred_at);
 
 CREATE TABLE IF NOT EXISTS public.public_audit_daily_usage (
   day        date PRIMARY KEY,
@@ -40,9 +42,9 @@ ALTER TABLE public.public_audit_rate_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.public_audit_daily_usage ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.public_audit_cache ENABLE ROW LEVEL SECURITY;
 
-REVOKE ALL ON public.public_audit_rate_events FROM anon, authenticated;
-REVOKE ALL ON public.public_audit_daily_usage FROM anon, authenticated;
-REVOKE ALL ON public.public_audit_cache FROM anon, authenticated;
+REVOKE ALL ON public.public_audit_rate_events FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON public.public_audit_daily_usage FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON public.public_audit_cache FROM PUBLIC, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.claim_public_audit_request(
   p_client_key text,
@@ -65,6 +67,19 @@ BEGIN
   PERFORM pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended('public-audit-rate:' || p_client_key, 0)
   );
+
+  -- Opportunistically cap stale-row growth across one-time or rotating client
+  -- identities. The batch is bounded so a public request cannot trigger a long
+  -- cleanup transaction; the time-only index keeps selection cheap.
+  WITH stale AS (
+    SELECT ctid
+      FROM public.public_audit_rate_events
+      WHERE occurred_at <= p_now - interval '2 hours'
+      LIMIT 1000
+  )
+  DELETE FROM public.public_audit_rate_events AS events
+    USING stale
+    WHERE events.ctid = stale.ctid;
 
   DELETE FROM public.public_audit_rate_events
     WHERE client_key = p_client_key
