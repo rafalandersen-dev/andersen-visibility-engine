@@ -3,6 +3,7 @@ import { safeFetch, type SafeFetchResult } from "./safe-fetch";
 import type { PublicAiVisibilityAudit } from "./public-audit";
 
 export const PUBLIC_AUDIT_PER_IP_HOURLY_LIMIT = 5;
+export const PUBLIC_AUDIT_DAILY_FETCH_LIMIT = 50;
 export const PUBLIC_AUDIT_DAILY_AI_LIMIT = 50;
 export const PUBLIC_AUDIT_CACHE_SECONDS = 24 * 60 * 60;
 export const PUBLIC_AUDIT_MAX_BYTES = 300_000;
@@ -326,6 +327,29 @@ export function createPublicAuditSafety(deps: PublicAuditSafetyDependencies) {
     return result.body;
   }
 
+  async function claimFetch(): Promise<void> {
+    const { data, error } = await rpc(
+      "claim_public_audit_fetch",
+      {
+        p_day: deps.now().toISOString().slice(0, 10),
+        p_cap: PUBLIC_AUDIT_DAILY_FETCH_LIMIT,
+        p_now: deps.now().toISOString(),
+      },
+      "fetch limiter",
+    );
+    if (error) {
+      console.error("[public-audit] fetch limiter unavailable", { message: error.message });
+      throw new Error("The audit is temporarily unavailable. Please try again later.");
+    }
+    const row = firstRow(data);
+    if (!row) {
+      throw new Error("The audit is temporarily unavailable. Please try again later.");
+    }
+    if (row.allowed !== true) {
+      throw new Error("The daily audit limit has been reached. Please try again tomorrow.");
+    }
+  }
+
   async function claimAi(cacheKeyValue: string): Promise<PublicAuditAiClaim> {
     const { data, error } = await rpc(
       "claim_public_audit_ai",
@@ -401,7 +425,16 @@ export function createPublicAuditSafety(deps: PublicAuditSafetyDependencies) {
     });
   }
 
-  return { beginRequest, cacheKey, getCached, fetchHtml, claimAi, completeCache, observe };
+  return {
+    beginRequest,
+    cacheKey,
+    getCached,
+    claimFetch,
+    fetchHtml,
+    claimAi,
+    completeCache,
+    observe,
+  };
 }
 
 async function productionRpc(fn: string, params: Record<string, unknown>): Promise<RpcResponse> {
@@ -430,6 +463,7 @@ const publicAuditSafety = createPublicAuditSafety({
 export const beginPublicAuditRequest = publicAuditSafety.beginRequest;
 export const publicAuditCacheKey = publicAuditSafety.cacheKey;
 export const getCachedPublicAudit = publicAuditSafety.getCached;
+export const claimPublicAuditFetch = publicAuditSafety.claimFetch;
 export const fetchPublicAuditHtml = publicAuditSafety.fetchHtml;
 export const claimPublicAuditAi = publicAuditSafety.claimAi;
 export const completePublicAuditCache = publicAuditSafety.completeCache;
