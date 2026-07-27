@@ -7,7 +7,7 @@ import { runPublicAiVisibilityAuditFn } from "@/lib/ai.functions";
 import { PUBLIC_AUDIT_CATEGORY_KEYS, type PublicAiVisibilityAudit, type PublicAuditStatus } from "@/lib/public-audit";
 import type { OnboardingLanguage } from "@/lib/types";
 import { Gauge, Loader2, Search, AlertTriangle, ArrowRight, CheckCircle2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export const Route = createFileRoute("/free-ai-visibility-audit")({
   head: () => ({
@@ -43,11 +43,18 @@ function PublicAuditPage() {
   const [step, setStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<PublicAiVisibilityAudit | null>(null);
+  const [botProof, setBotProof] = useState("");
+  const [turnstileReset, setTurnstileReset] = useState(0);
+  const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
 
   async function run() {
     const trimmed = url.trim();
     if (!trimmed || !/\.\w{2,}/.test(trimmed)) {
       setError(t("publicAudit.invalidUrl"));
+      return;
+    }
+    if (import.meta.env.PROD && !botProof) {
+      setError("Please complete the bot check and try again.");
       return;
     }
     setLoading(true);
@@ -57,7 +64,11 @@ function PublicAuditPage() {
     const timer = setInterval(() => setStep((s) => Math.min(STEP_KEYS.length - 1, s + 1)), 1500);
     try {
       const audit = await runPublicAiVisibilityAuditFn({
-        data: { url: trimmed, language: contentLangToProjectLanguage(lang) },
+        data: {
+          url: trimmed,
+          language: contentLangToProjectLanguage(lang),
+          botProof,
+        },
       });
       setResult(audit);
     } catch (e) {
@@ -65,6 +76,8 @@ function PublicAuditPage() {
     } finally {
       clearInterval(timer);
       setLoading(false);
+      setBotProof("");
+      setTurnstileReset((value) => value + 1);
     }
   }
 
@@ -111,13 +124,27 @@ function PublicAuditPage() {
             placeholder="yourbusiness.com"
             disabled={loading}
           />
-          <Button onClick={run} disabled={loading}>
+          <Button onClick={run} disabled={loading || (import.meta.env.PROD && !botProof)}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
             {loading ? t("publicAudit.running") : t("publicAudit.run")}
           </Button>
         </div>
         <p className="mt-2 text-xs text-muted-foreground">{t("publicAudit.helper")}</p>
         <p className="text-xs text-muted-foreground">{t("publicAudit.safeNote")}</p>
+
+        {turnstileSiteKey ? (
+          <div className="mt-4">
+            <TurnstileWidget
+              siteKey={turnstileSiteKey}
+              resetKey={turnstileReset}
+              onToken={setBotProof}
+            />
+          </div>
+        ) : import.meta.env.PROD ? (
+          <p className="mt-4 text-xs text-destructive">
+            Bot protection is temporarily unavailable. Please try again later.
+          </p>
+        ) : null}
 
         {/* Loading */}
         {loading ? (
@@ -260,3 +287,76 @@ function Sig({ label, value }: { label: string; value?: string }) {
     </div>
   );
 }
+
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (
+        element: HTMLElement,
+        options: {
+          sitekey: string;
+          action: string;
+          theme: "auto";
+          callback: (token: string) => void;
+          "expired-callback": () => void;
+          "error-callback": () => void;
+        },
+      ) => string;
+      remove: (widgetId: string) => void;
+    };
+  }
+}
+
+function TurnstileWidget({
+  siteKey,
+  resetKey,
+  onToken,
+}: {
+  siteKey: string;
+  resetKey: number;
+  onToken: (token: string) => void;
+}) {
+  const elementRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let active = true;
+    let widgetId: string | undefined;
+
+    const render = () => {
+      if (!active || !elementRef.current || !window.turnstile) return;
+      widgetId = window.turnstile.render(elementRef.current, {
+        sitekey: siteKey,
+        action: "public_audit",
+        theme: "auto",
+        callback: onToken,
+        "expired-callback": () => onToken(""),
+        "error-callback": () => onToken(""),
+      });
+    };
+
+    const scriptId = "milo-turnstile-script";
+    const existing = document.getElementById(scriptId) as HTMLScriptElement | null;
+    if (window.turnstile) {
+      render();
+    } else if (existing) {
+      existing.addEventListener("load", render, { once: true });
+    } else {
+      const script = document.createElement("script");
+      script.id = scriptId;
+      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+      script.async = true;
+      script.defer = true;
+      script.addEventListener("load", render, { once: true });
+      document.head.appendChild(script);
+    }
+
+    return () => {
+      active = false;
+      existing?.removeEventListener("load", render);
+      if (widgetId && window.turnstile) window.turnstile.remove(widgetId);
+    };
+  }, [onToken, resetKey, siteKey]);
+
+  return <div ref={elementRef} aria-label="Bot protection check" />;
+}
+
