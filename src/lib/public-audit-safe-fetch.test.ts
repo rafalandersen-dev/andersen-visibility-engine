@@ -10,6 +10,17 @@ afterEach(() => {
 });
 
 describe("public audit safe-fetch adversarial cases", () => {
+  it("rejects non-default ports before opening a connection", async () => {
+    process.env.MILO_OUTBOUND_FETCH_MODE = "workers";
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    await expect(safeFetch("https://example.com:22", { maxBytes: 100 })).resolves.toEqual({
+      ok: false,
+      reason: "blocked",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("revalidates a redirect target and never connects to metadata", async () => {
     process.env.MILO_OUTBOUND_FETCH_MODE = "workers";
     const fetchMock = vi
