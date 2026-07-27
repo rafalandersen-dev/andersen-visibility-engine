@@ -148,6 +148,24 @@ describe("request guard", () => {
     });
     await expect(safety.beginRequest("proof")).rejects.toThrow("bot check");
   });
+
+  it("fails closed when the production Turnstile hostname is not configured", async () => {
+    const fetchImpl = vi.fn(async () =>
+      response(
+        JSON.stringify({ success: true, action: "public_audit", hostname: "milogrowth.com" }),
+        "application/json",
+      ),
+    );
+    const { safety } = setup({
+      env: {
+        NODE_ENV: "production",
+        PUBLIC_AUDIT_IP_SALT: "a-production-salt-with-at-least-24-characters",
+        TURNSTILE_SECRET_KEY: "secret",
+      },
+      fetchImpl,
+    });
+    await expect(safety.beginRequest("proof")).rejects.toThrow("bot check");
+  });
 });
 
 describe("bounded outbound fetch", () => {
