@@ -359,4 +359,3 @@ function TurnstileWidget({
 
   return <div ref={elementRef} aria-label="Bot protection check" />;
 }
-
