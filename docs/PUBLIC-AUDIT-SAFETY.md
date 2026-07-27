@@ -8,6 +8,9 @@ target environment.
 
 - 5 submissions per privacy-preserving client/IP hash per rolling hour.
 - 50 paid public-audit AI generations per UTC day.
+- 50 user-controlled outbound page fetches per UTC day. This uses the same
+  approved beta value but an independent counter, so failed fetches cannot
+  corrupt the paid-AI usage signal.
 - 24-hour result cache keyed by normalized URL plus output language.
 
 The values are server constants. The browser cannot raise or bypass them.
@@ -41,10 +44,14 @@ Apply:
 
 `supabase/migrations/20260727220000_public_audit_safety.sql`
 
+Then apply:
+
+`supabase/migrations/20260727223000_public_audit_fetch_budget.sql`
+
 It adds:
 
 - service-role-only rolling-window request events;
-- an atomic global UTC-day counter;
+- independent atomic global UTC-day fetch and paid-AI counters;
 - a result cache with a short processing lease to deduplicate concurrent AI
   generation.
 
@@ -82,10 +89,12 @@ Before production:
 5. verify a spoofed `cf-connecting-ip` without the edge proof is rejected;
 6. verify missing/invalid Turnstile tokens cannot trigger a user-site fetch;
 7. verify five rolling-hour claims pass and the sixth is refused;
-8. verify global claim 50 passes and claim 51 short-circuits before any user-site
-   fetch or paid AI call;
-9. verify a duplicate URL/language returns the cached result without another AI
+8. verify fetch claim 50 passes and fetch claim 51 short-circuits before any
+   user-site fetch;
+9. verify failed fetches do not consume paid-AI slots, while paid-AI claim 50
+   passes and claim 51 refuses generation;
+10. verify a duplicate URL/language returns the cached result without another AI
    claim;
-10. run the full test suite, TypeScript, build, security review and independent
+11. run the full test suite, TypeScript, build, security review and independent
    verifier;
-11. obtain Product Lead release approval.
+12. obtain Product Lead release approval.
