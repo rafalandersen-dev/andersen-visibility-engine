@@ -20,16 +20,20 @@ Set these in the server/Workers environment:
 |---|---|
 | `MILO_OUTBOUND_FETCH_MODE` | `workers` for the approved Cloudflare Workers deployment, or `egress-proxy` only when a separately verified proxy pins and filters resolved destinations |
 | `PUBLIC_AUDIT_IP_SALT` | Secret random value of at least 24 characters, used only to hash client IPs before storage |
+| `PUBLIC_AUDIT_EDGE_SECRET` | Secret random value of at least 24 characters; Cloudflare removes any incoming `X-Milo-Edge-Auth` and injects this value before forwarding to the origin |
 | `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile secret; server-only |
 | `PUBLIC_AUDIT_ALLOWED_HOSTNAME` | Exact production hostname expected in successful Turnstile verification |
 | `VITE_TURNSTILE_SITE_KEY` | Public Turnstile site key used by the audit page |
 
-`PUBLIC_AUDIT_BOT_BYPASS=true` is permitted only for local/test execution. The
-server ignores it in production.
+The endpoint is fail-closed by default. `PUBLIC_AUDIT_RUNTIME=local` is the only
+opt-out for local/test execution; only in that explicit mode may
+`PUBLIC_AUDIT_BOT_BYPASS=true` skip Turnstile. `NODE_ENV` never relaxes a
+security check.
 
 Do not commit any real key or salt. Do not deploy until the target environment
-contains all five values and a production request carries Cloudflare's trusted
-`cf-connecting-ip` header.
+contains all six values, Cloudflare injects the matching edge proof, direct
+origin access is blocked, and preview deployments are protected or isolated
+from production Supabase.
 
 ## Database migration
 
@@ -45,6 +49,8 @@ It adds:
   generation.
 
 No raw IP, URL, query string, page HTML or Turnstile token is stored.
+IPv4 clients are keyed by /32 and IPv6 clients by /64. Each claim also performs
+a bounded global cleanup of stale request events.
 
 ## Outbound-fetch boundary
 
@@ -71,12 +77,15 @@ Before production:
 1. apply the migration in the target Supabase project;
 2. configure Turnstile for the exact production hostname and `public_audit`
    action;
-3. set the five required environment variables;
-4. verify missing/invalid Turnstile tokens cannot trigger a user-site fetch;
-5. verify five rolling-hour claims pass and the sixth is refused;
-6. verify generation 50 passes and generation 51 returns deterministic results;
-7. verify a duplicate URL/language returns the cached result without another AI
+3. set the six required environment variables and edge header injection;
+4. block direct origin access and protect or isolate preview deployments;
+5. verify a spoofed `cf-connecting-ip` without the edge proof is rejected;
+6. verify missing/invalid Turnstile tokens cannot trigger a user-site fetch;
+7. verify five rolling-hour claims pass and the sixth is refused;
+8. verify global claim 50 passes and claim 51 short-circuits before any user-site
+   fetch or paid AI call;
+9. verify a duplicate URL/language returns the cached result without another AI
    claim;
-8. run the full test suite, TypeScript, build, security review and independent
+10. run the full test suite, TypeScript, build, security review and independent
    verifier;
-9. obtain Product Lead release approval.
+11. obtain Product Lead release approval.
