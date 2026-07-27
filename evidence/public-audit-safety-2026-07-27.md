@@ -1,9 +1,9 @@
 # Milo Public Audit Safety — Verification Evidence — 2026-07-27
 
-**Repository:** `rafalandersen-dev/andersen-visibility-engine`  
-**Issue:** #35  
-**Draft PR:** #36  
-**Branch:** `agent/p0-public-audit-safety`  
+**Repository:** `rafalandersen-dev/andersen-visibility-engine`
+**Issue:** #35
+**Draft PR:** #36
+**Branch:** `agent/p0-public-audit-safety`
 **Base:** `main` at `7ec16c0338a78921d9333593592bd18b74d36b36`
 
 ## Implemented controls
