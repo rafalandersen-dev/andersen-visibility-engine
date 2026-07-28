@@ -17,6 +17,14 @@ describe("public audit architecture boundary", () => {
     expect(config).not.toMatch(/"services"|"hyperdrive"|"tcp_sockets"|"vpc"/);
   });
 
+  it("keeps the staging harness separately named and disabled by default", () => {
+    const config = readFileSync("workers/public-audit/wrangler.jsonc", "utf-8");
+    expect(config).toContain('"name": "milo-public-audit-staging"');
+    expect(config).toContain('"PUBLIC_AUDIT_STAGING_HARNESS_HOST": ""');
+    expect(config).toContain('"PUBLIC_AUDIT_STAGING_TURNSTILE_SITE_KEY": ""');
+    expect(config).not.toMatch(/"routes"|"custom_domains"/);
+  });
+
   it("keeps the public audit independent from Lovable-managed AI credentials", () => {
     const worker = readFileSync("workers/public-audit/src/index.ts", "utf-8");
     expect(worker).toContain("GEMINI_API_KEY");

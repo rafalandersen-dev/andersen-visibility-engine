@@ -9,4 +9,17 @@
     "enabled": true,
     "head_sampling_rate": 1,
   },
+  "env": {
+    "staging": {
+      "name": "milo-public-audit-staging",
+      "workers_dev": false,
+      "preview_urls": false,
+      "vars": {
+        "PUBLIC_AUDIT_ALLOWED_HOSTS": "",
+        "PUBLIC_AUDIT_ALLOWED_ORIGINS": "",
+        "PUBLIC_AUDIT_STAGING_HARNESS_HOST": "",
+        "PUBLIC_AUDIT_STAGING_TURNSTILE_SITE_KEY": "",
+      },
+    },
+  },
 }

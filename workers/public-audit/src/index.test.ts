@@ -117,6 +117,31 @@ function request(
 }
 
 describe("Worker request boundary", () => {
+  it("keeps the staging harness disabled by default", async () => {
+    const { worker, fetchImpl, safeFetchImpl } = setup();
+    const response = await worker.fetch(new Request("https://audit.test/"), env);
+    expect(response.status).toBe(404);
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(safeFetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("serves the harness only on the explicitly configured staging host", async () => {
+    const { worker, fetchImpl, safeFetchImpl } = setup();
+    const stagingEnv: Env = {
+      ...env,
+      PUBLIC_AUDIT_ALLOWED_HOSTS: "staging.milogrowth.com",
+      PUBLIC_AUDIT_ALLOWED_ORIGINS: "https://staging.milogrowth.com",
+      PUBLIC_AUDIT_STAGING_HARNESS_HOST: "staging.milogrowth.com",
+      PUBLIC_AUDIT_STAGING_TURNSTILE_SITE_KEY: "1x00000000000000000000AA",
+    };
+    const response = await worker.fetch(new Request("https://staging.milogrowth.com/"), stagingEnv);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/html");
+    expect(await response.text()).toContain("Public audit harness");
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(safeFetchImpl).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["wrong method", request({}, {}, "GET")],
     ["wrong path", request(undefined, {}, "POST", "https://audit.test/api/other")],
