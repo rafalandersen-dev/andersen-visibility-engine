@@ -4,7 +4,7 @@
 **Date:** 2026-07-28  
 **Decision authority:** Rafal Andersen, Milo Product Lead  
 **Gate:** Issue #37 Gate 0  
-**Implementation packet:** Issue #38
+**Implementation packet:** Issue #39
 
 ## Context
 
@@ -65,4 +65,4 @@ Safe fallback, but not the selected target. It remains the rollback mode and mus
 
 ## Exit criteria
 
-This decision is implemented only when issue #38 acceptance criteria pass on an exact release SHA and issue #37 advances through staging evidence to a separate production approval.
+This decision is implemented only when issue #39 acceptance criteria pass on an exact release SHA and issue #37 advances through staging evidence to a separate production approval.
