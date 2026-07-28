@@ -82,7 +82,7 @@ Review when hard platform evidence exists or a revised architecture is ready for
 
 **Status:** Accepted  
 **Decision authority / Outcome Owner:** Rafal Andersen  
-**Evidence:** issue #37 Gate 0, ADR-0001, issue #38
+**Evidence:** issue #37 Gate 0, ADR-0001, issue #39
 
 ### Decision
 
