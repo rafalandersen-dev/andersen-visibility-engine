@@ -22,6 +22,7 @@ Use a **user-controlled Cloudflare Worker as the complete public-audit execution
 - Turnstile verification, trusted client IP derivation, URL normalization, request/fetch/AI limits, cache coordination, outbound page fetch and AI generation all execute inside the Worker boundary.
 - The Worker uses the existing service-role-only Supabase RPCs and cache schema after they pass isolated staging verification.
 - Public-audit secrets and the Supabase service-role credential exist only in the Worker environment. They are not configured in Lovable.
+- AI generation uses a direct paid Gemini API credential scoped to the Worker. The architecture does not assume that Lovable's managed `LOVABLE_API_KEY` can be exported or used outside Lovable.
 - The browser calls the same-origin audit API path. Only the Milo production and approved staging origins are accepted.
 - The existing Lovable/TanStack public server function is removed from the public flow or left permanently fail-closed without the Worker-only secrets.
 - `workers.dev` and public preview URLs are disabled for the production Worker. Staging uses a separately named host and isolated data plane.
@@ -62,6 +63,7 @@ Safe fallback, but not the selected target. It remains the rollback mode and mus
 - The existing PR #36 controls are reusable conceptually, but code must be separated from TanStack/Lovable request assumptions.
 - A dedicated Worker package, isolated staging environment, security review and exact production release approval are required.
 - The public audit can be disabled independently without taking down Milo.
+- The Worker has an independently documented provider boundary; missing or failed Gemini access returns the deterministic fallback rather than reopening the Lovable execution path.
 
 ## Exit criteria
 

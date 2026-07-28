@@ -16,7 +16,8 @@ export const LIMITS = {
 } as const;
 
 const TURNSTILE_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
-const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+const DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite";
 const ALLOWED_LANGUAGES = new Map([
   ["english", "English"],
   ["polish", "Polish"],
@@ -31,7 +32,7 @@ export interface Env {
   TURNSTILE_SECRET_KEY: string;
   PUBLIC_AUDIT_ALLOWED_HOSTS: string;
   PUBLIC_AUDIT_ALLOWED_ORIGINS: string;
-  LOVABLE_API_KEY: string;
+  GEMINI_API_KEY: string;
   PUBLIC_AUDIT_AI_MODEL?: string;
 }
 
@@ -287,27 +288,37 @@ ${text}
 }
 
 async function generateAudit(env: Env, fetchImpl: typeof fetch, prompt: string): Promise<unknown> {
-  if (!env.LOVABLE_API_KEY?.trim()) throw new Error("provider_unavailable");
-  const response = await fetchImpl(AI_GATEWAY_URL, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "Lovable-API-Key": env.LOVABLE_API_KEY,
-      "X-Lovable-AIG-SDK": "milo-public-audit-worker",
+  const apiKey = env.GEMINI_API_KEY?.trim();
+  const model = env.PUBLIC_AUDIT_AI_MODEL?.trim() || DEFAULT_GEMINI_MODEL;
+  if (!apiKey || !/^gemini-[a-z0-9][a-z0-9.-]{0,79}$/.test(model)) {
+    throw new Error("provider_unavailable");
+  }
+  const response = await fetchImpl(
+    `${GEMINI_API_BASE}/${encodeURIComponent(model)}:generateContent`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: "application/json",
+          maxOutputTokens: 4_000,
+          temperature: 0.2,
+        },
+      }),
     },
-    body: JSON.stringify({
-      model: env.PUBLIC_AUDIT_AI_MODEL?.trim() || "google/gemini-3-flash-preview",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
-      max_tokens: 4_000,
-      temperature: 0.2,
-    }),
-  });
+  );
   if (!response.ok) throw new Error("provider_unavailable");
   const payload = (await response.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
   };
-  const content = payload.choices?.[0]?.message?.content?.trim();
+  const content = payload.candidates?.[0]?.content?.parts
+    ?.map((part) => part.text ?? "")
+    .join("")
+    .trim();
   if (!content) throw new Error("provider_invalid");
   return JSON.parse(content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, ""));
 }

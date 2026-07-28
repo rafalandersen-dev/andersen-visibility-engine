@@ -16,4 +16,12 @@ describe("public audit architecture boundary", () => {
     expect(config).toContain('"preview_urls": false');
     expect(config).not.toMatch(/"services"|"hyperdrive"|"tcp_sockets"|"vpc"/);
   });
+
+  it("keeps the public audit independent from Lovable-managed AI credentials", () => {
+    const worker = readFileSync("workers/public-audit/src/index.ts", "utf-8");
+    expect(worker).toContain("GEMINI_API_KEY");
+    expect(worker).toContain("generativelanguage.googleapis.com");
+    expect(worker).not.toContain("LOVABLE_API_KEY");
+    expect(worker).not.toContain("ai.gateway.lovable.dev");
+  });
 });
