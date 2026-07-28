@@ -2,15 +2,24 @@
 
 **Status:** Canonical current state — Product Lead approved  
 **Last updated:** 2026-07-28  
-**Evidence baseline:** `main` at `0d163dd32cd807463fc40e6c41fafd1176b94e5f`  
+**Evidence baseline:** `main` at `86f95d6`; issue #39 implementation candidate on `agent/public-audit-worker`
 **Product Lead / Outcome Owner:** Rafal Andersen  
 **Current phase:** Private beta; transition from BUILD to REVENUE
 
 ## Recovery brief
 
-Milo Growth remains a supervised private-beta product transitioning from BUILD to REVENUE. The first Andersen OS P0 cycle has completed audit, Product Lead approval, implementation, independent review, verification and merge. PR #36 is canonical on `main` at `0d163dd`, but the outcome is not closed: release, observation, learning review and final recovery verification remain open.
+Milo Growth remains a supervised private-beta product transitioning from BUILD
+to REVENUE. The first Andersen OS P0 cycle has completed audit, Product Lead
+approval, the original safety implementation, independent review, verification
+and merge. Gate 0 then rejected the unproven Lovable trust assumptions and
+ADR-0001 selected a dedicated Cloudflare Worker as the full audit boundary.
 
-Production still serves an older pre-PR-#36 deployment. Issue #37 Gate 0 returned **PARTIAL PASS / NO-GO** because current evidence does not prove the Lovable/Cloudflare edge trust contract, direct-origin blocking, exact Workers egress property or isolated staging model. No P0 migrations or new production secrets have been applied.
+Issue #39 now has a locally verified implementation candidate on
+`agent/public-audit-worker`: the UI calls a typed HTTP endpoint, the Worker owns
+Turnstile, limits, cache, fetch and AI, and the old public TanStack paid path is
+removed. It has not yet passed independent exact-head review or been merged.
+Production still serves the older deterministic flow. No Worker, route, DNS
+change, migration, Turnstile resource or new secret has been created.
 
 Milo is not ready for an unattended paid public launch. Paid launch additionally requires server-authoritative billing, authenticated hard AI limits, completed legal identity and live operational verification.
 
@@ -18,10 +27,10 @@ Milo is not ready for an unattended paid public launch. Paid launch additionally
 
 These are operating estimates, not test-coverage scores.
 
-| Launch mode | Estimate | Definition | Current verdict |
-|---|---:|---|---|
-| Assisted private beta | **~70%** | Small invited cohort, founder support, manual activation/payment, controlled spend and explicit limitations | **Proceed cautiously** after the public-audit P0 is contained |
-| Unattended public SaaS | **~40%** | Open acquisition, self-serve paid billing, enforced cost controls, final legal identity, verified integrations, support and incident ownership | **Blocked** |
+| Launch mode            | Estimate | Definition                                                                                                                                     | Current verdict                                               |
+| ---------------------- | -------: | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Assisted private beta  | **~70%** | Small invited cohort, founder support, manual activation/payment, controlled spend and explicit limitations                                    | **Proceed cautiously** after the public-audit P0 is contained |
+| Unattended public SaaS | **~40%** | Open acquisition, self-serve paid billing, enforced cost controls, final legal identity, verified integrations, support and incident ownership | **Blocked**                                                   |
 
 The estimates originate from the approved Andersen OS rollout. They must be
 recalibrated after the first complete beta cohort and a fresh launch-readiness
@@ -29,7 +38,8 @@ review.
 
 ## Last verified achievement
 
-**Public AI Visibility Audit safety implementation merged through PR #36; production release remains gated.**
+**Dedicated Public Audit Worker implementation candidate complete locally;
+independent review, merge and staging remain gated.**
 
 Verified evidence recorded on 2026-07-28:
 
@@ -50,6 +60,9 @@ Supporting evidence:
 - [Delegation Packet #35](https://github.com/rafalandersen-dev/andersen-visibility-engine/issues/35)
 - [Release Configuration Packet #37](https://github.com/rafalandersen-dev/andersen-visibility-engine/issues/37)
 - [`evidence/public-audit-safety-2026-07-27.md`](../evidence/public-audit-safety-2026-07-27.md)
+- [ADR-0001](../docs/adr/ADR-0001-public-audit-boundary.md)
+- [Issue #39](https://github.com/rafalandersen-dev/andersen-visibility-engine/issues/39)
+- [`evidence/public-audit-worker-2026-07-28.md`](../evidence/public-audit-worker-2026-07-28.md)
 
 ## Verified product baseline
 
@@ -88,27 +101,37 @@ Success requires:
 
 ## Blockers
 
-### P0 — Public-audit safety implementation merged; release trust boundary unresolved
+### P0 — Dedicated Worker implemented locally; review, staging and release open
 
-**Status:** Implementation complete on `main`; outcome open; production release NO-GO.
+**Status:** Issue #39 implementation candidate complete on branch; production
+release NO-GO.
 
-PR #36 replaced the unmetered public audit path with the approved safety envelope: bot proof, salted IP rolling-hour limit, independent global fetch and paid-AI ceilings, 24-hour cache, guarded outbound fetch, bounded redirects/body/timeouts and deterministic fallback.
+ADR-0001 selected a dedicated Worker after Gate 0 showed that the prior
+Lovable-hosted design relied on unproven controls. The implementation candidate
+now:
 
-Production release is blocked because Milo is hosted and published through Lovable Cloud. Current Gate 0 evidence confirms Cloudflare termination and a Cloudflare-compatible build target, but does not prove the security contract required by the merged code:
+- terminates `POST /api/public-audit` in the Worker;
+- enforces exact host/origin/content/body/schema checks;
+- owns Turnstile, salted IP request claims, independent fetch and AI budgets,
+  cache/lease, bounded fetch, AI generation and deterministic fallback;
+- keeps service-role, AI, Turnstile and salt secrets Worker-only;
+- removes the public TanStack paid-audit handler and shared-edge-secret bridge;
+- commits `workers_dev=false`, `preview_urls=false` and no private binding.
 
-- client-supplied `X-Milo-Edge-Auth` is always stripped and a server-owned value is injected;
-- direct-origin access is blocked;
-- the runtime provides the exact Workers egress property assumed by `MILO_OUTBOUND_FETCH_MODE=workers`;
-- the six environment values can be scoped correctly;
-- a separate non-production Supabase data plane exists.
+Local evidence: Worker 36/36 tests, Worker TypeScript and dry-run build PASS;
+full Milo 1163/1163 tests and production build PASS; fresh compatible migration
+verification PASS.
 
 Required next:
 
-1. obtain hard platform evidence for the required Lovable controls; or
-2. approve a user-controlled Cloudflare Worker / verified egress proxy as the public-audit boundary; or
-3. keep the public audit deterministic/no-AI without user-controlled server fetch.
+1. independent security review and exact-head verifier;
+2. merge only if all required findings are closed;
+3. separately define and approve isolated staging;
+4. apply migrations/configure secrets only in that approved staging;
+5. repeat abuse/privacy/live-provider tests before any production decision.
 
-Do not publish PR #36, apply its two production migrations or configure its secrets while Gate 0 remains NO-GO.
+Do not deploy the Worker, create routes/secrets/Turnstile resources or apply its
+two migrations without the next explicit environment approval in issue #37.
 
 Evidence:
 
@@ -236,7 +259,9 @@ Required:
 
 ## Current risks that do not block the first supervised demo
 
-- The merged public-audit implementation depends on a Lovable/Cloudflare trust boundary that remains unproven; issue #37 is the controlling release gate.
+- The Worker removes the unproven Lovable execution boundary, but DNS rebinding
+  remains a documented residual risk and live AI/Turnstile/Supabase integration
+  is not yet staged.
 - Repository-wide lint/format baseline is intentionally dirty and there is no
   CI quality gate; changed-file verification remains the current workaround.
 - The build passes but emits widespread `inputValidator()` deprecation warnings.
@@ -269,7 +294,9 @@ Required:
 
 ## Next single recommended action
 
-Implement issue #39: extract the complete public-audit boundary into a user-controlled Cloudflare Worker, prove it in isolated staging, and return an exact release recommendation. Gate 0 selected the Worker architecture in ADR-0001; production remains NO-GO.
+Complete independent security review and exact-head verification of the issue
+#39 implementation candidate. If both pass, merge with canonical writeback and
+then request a separate decision for isolated staging.
 
 Do not begin billing changes, WombatOps rollout, broad feature work or production configuration inside this discovery action.
 
