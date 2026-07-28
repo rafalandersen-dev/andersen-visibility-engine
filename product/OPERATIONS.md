@@ -23,7 +23,7 @@ Do not store secret values in this file.
 
 ## Public-audit release dependencies
 
-ADR-0001 replaces the edge-to-Lovable shared-header design with a dedicated Worker. The following remain unconfigured until issue #38 passes review and issue #37 authorises the relevant environment stage:
+ADR-0001 replaces the edge-to-Lovable shared-header design with a dedicated Worker. The following remain unconfigured until issue #39 passes review and issue #37 authorises the relevant environment stage:
 
 - Worker-only `PUBLIC_AUDIT_IP_SALT`;
 - Worker-only `TURNSTILE_SECRET_KEY`;
