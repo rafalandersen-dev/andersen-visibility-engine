@@ -337,7 +337,8 @@ Required:
   credentials must not be reintroduced into the external Worker.
 - Issue #43 selected a Cloudflare-hosted minimal staging harness; the code-only,
   fail-closed, disabled-by-default harness is merged through PR #46 at
-  `8037524`. No harness configuration value is set and no environment exists.
+  `8037524`. No harness configuration value is committed, and PR #46 created
+  no runtime environment; account-level state remains unverified.
 - Staging and production remain NO-GO. No production or staging DNS, secret,
   Turnstile widget, Gemini key, billing, migration or deployment change is
   authorised.
