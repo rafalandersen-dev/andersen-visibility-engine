@@ -17,8 +17,8 @@ Readiness percentages are operating estimates, not guarantees.
 - [x] Guardrails approved: 5/IP/hour, 50 fetches/day, 50 paid-AI claims/day, 24-hour cache.
 - [x] Targeted tests, TypeScript, isolated migration execution, build and security review recorded.
 - [x] Replace the unproven Lovable trust boundary with ADR-0001's dedicated Worker architecture.
-- [x] Implement issue #39 as a locally verified Worker candidate with no environment mutation.
-- [ ] Complete independent security review and exact-head verification.
+- [x] Implement and merge issue #39 with no environment mutation.
+- [x] Complete independent security review and exact-head verification; merge PR #41 at `cfeff9f`.
 - [ ] Establish isolated Worker staging with a separate data plane.
 - [ ] Apply and verify the two migrations in the approved environment.
 - [ ] Configure secrets and Turnstile without exposing values.
@@ -57,9 +57,9 @@ Readiness percentages are operating estimates, not guarantees.
 
 ## Current release decision
 
-**NO-GO for publishing PR #36 to the custom production domain.**
+**NO-GO for deploying the public-audit Worker to staging or production.**
 
 Gate 0 is complete. ADR-0001 selects the dedicated Worker boundary and the issue
-#39 implementation candidate passes local tests/builds. The next gates are
-independent exact-head review and separately approved isolated staging;
-production remains separately gated.
+#39 implementation passed exact-tree verification and was merged through PR #41
+at `cfeff9f`. The next gate is a separately designed and approved isolated
+staging environment; production remains separately gated.

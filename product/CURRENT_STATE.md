@@ -2,7 +2,7 @@
 
 **Status:** Canonical current state — Product Lead approved  
 **Last updated:** 2026-07-28  
-**Evidence baseline:** `main` at `86f95d6`; issue #39 implementation candidate on `agent/public-audit-worker`
+**Evidence baseline:** `main` at `cfeff9fcdc0ece06824a8c980061672e27a27282`; issue #39 implementation merged
 **Product Lead / Outcome Owner:** Rafal Andersen  
 **Current phase:** Private beta; transition from BUILD to REVENUE
 
@@ -14,10 +14,10 @@ approval, the original safety implementation, independent review, verification
 and merge. Gate 0 then rejected the unproven Lovable trust assumptions and
 ADR-0001 selected a dedicated Cloudflare Worker as the full audit boundary.
 
-Issue #39 now has a locally verified implementation candidate on
-`agent/public-audit-worker`: the UI calls a typed HTTP endpoint, the Worker owns
-Turnstile, limits, cache, fetch and AI, and the old public TanStack paid path is
-removed. It has not yet passed independent exact-head review or been merged.
+Issue #39 is implemented and merged through PR #41 at `cfeff9f`: the UI calls a
+typed HTTP endpoint, the Worker owns Turnstile, limits, cache, fetch and AI, and
+the old public TanStack paid path is removed. The exact implementation tree
+passed independent verification and the code-only merge.
 Production still serves the older deterministic flow. No Worker, route, DNS
 change, migration, Turnstile resource or new secret has been created.
 
@@ -38,8 +38,8 @@ review.
 
 ## Last verified achievement
 
-**Dedicated Public Audit Worker implementation candidate complete locally;
-independent review, merge and staging remain gated.**
+**Dedicated Public Audit Worker implemented, independently verified and merged;
+isolated staging and release remain gated.**
 
 Verified evidence recorded on 2026-07-28:
 
@@ -62,6 +62,8 @@ Supporting evidence:
 - [`evidence/public-audit-safety-2026-07-27.md`](../evidence/public-audit-safety-2026-07-27.md)
 - [ADR-0001](../docs/adr/ADR-0001-public-audit-boundary.md)
 - [Issue #39](https://github.com/rafalandersen-dev/andersen-visibility-engine/issues/39)
+- [PR #41](https://github.com/rafalandersen-dev/andersen-visibility-engine/pull/41)
+- [Merge commit `cfeff9f`](https://github.com/rafalandersen-dev/andersen-visibility-engine/commit/cfeff9fcdc0ece06824a8c980061672e27a27282)
 - [`evidence/public-audit-worker-2026-07-28.md`](../evidence/public-audit-worker-2026-07-28.md)
 
 ## Verified product baseline
@@ -101,13 +103,13 @@ Success requires:
 
 ## Blockers
 
-### P0 — Dedicated Worker implemented locally; review, staging and release open
+### P0 — Dedicated Worker merged; staging and release open
 
-**Status:** Issue #39 implementation candidate complete on branch; production
-release NO-GO.
+**Status:** Issue #39 implementation independently verified and merged through
+PR #41; production release NO-GO.
 
 ADR-0001 selected a dedicated Worker after Gate 0 showed that the prior
-Lovable-hosted design relied on unproven controls. The implementation candidate
+Lovable-hosted design relied on unproven controls. The merged implementation
 now:
 
 - terminates `POST /api/public-audit` in the Worker;
@@ -124,11 +126,10 @@ verification PASS.
 
 Required next:
 
-1. independent security review and exact-head verifier;
-2. merge only if all required findings are closed;
-3. separately define and approve isolated staging;
-4. apply migrations/configure secrets only in that approved staging;
-5. repeat abuse/privacy/live-provider tests before any production decision.
+1. separately define and approve isolated staging;
+2. apply migrations/configure secrets only in that approved staging;
+3. deploy only the reviewed merge tree in staging;
+4. repeat abuse/privacy/live-provider tests before any production decision.
 
 Do not deploy the Worker, create routes/secrets/Turnstile resources or apply its
 two migrations without the next explicit environment approval in issue #37.
@@ -289,14 +290,14 @@ Required:
 - ADR-0001 selects a dedicated Cloudflare Worker as the full audit execution boundary.
 - Lovable remains the web-app host; the Worker owns Turnstile, limits, cache, outbound fetch and AI.
 - The rejected design must not set `MILO_OUTBOUND_FETCH_MODE=workers` inside Lovable.
-- Issue #39 is the bounded implementation packet.
+- Issue #39 is the completed bounded implementation packet; PR #41 is merged at `cfeff9f`.
 - No production DNS, secret, migration or deployment change is authorised.
 
 ## Next single recommended action
 
-Complete independent security review and exact-head verification of the issue
-#39 implementation candidate. If both pass, merge with canonical writeback and
-then request a separate decision for isolated staging.
+Define the isolated staging host, data plane, configuration-presence matrix,
+operators, live verification plan and rollback conditions. Then request a
+separate Product Lead decision before creating or changing any environment.
 
 Do not begin billing changes, WombatOps rollout, broad feature work or production configuration inside this discovery action.
 

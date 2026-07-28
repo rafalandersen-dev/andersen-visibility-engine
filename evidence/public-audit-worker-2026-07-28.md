@@ -2,7 +2,7 @@
 
 **Issue:** #39
 **Architecture:** `docs/adr/ADR-0001-public-audit-boundary.md`
-**Branch:** `agent/public-audit-worker`
+**Branch:** `agent/public-audit-worker`; merged through PR #41 at `cfeff9f`
 **Authority:** implementation only; no environment mutation
 
 ## Architecture-to-code mapping
@@ -39,7 +39,7 @@ deployment or production credential was used.
 | ------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | Worker unit/integration/adversarial tests   | PASS — 2 files / 36 tests                                                                          |
 | Worker TypeScript                           | PASS                                                                                               |
-| Worker production dry-run                   | PASS — 31.75 KiB upload, 9.26 KiB gzip, no bindings                                                |
+| Worker production dry-run                   | PASS — verifier rerun: 31.68 KiB upload, 9.26 KiB gzip, no bindings                                 |
 | Full Milo test suite                        | PASS — 89 files / 1163 tests                                                                       |
 | Milo production build                       | PASS                                                                                               |
 | Changed-file ESLint                         | PASS except pre-existing `src/lib/ai.functions.ts:374 no-control-regex`, outside this diff         |
@@ -67,6 +67,6 @@ Wrangler config directory. This did not require authentication or deployment.
 
 ## Release state
 
-Implementation candidate only. Production remains **NO-GO** under issue #37.
-The next action after merge is to define and separately approve isolated
-staging, not to deploy directly to production.
+Implementation, exact-tree verification and code-only merge are complete.
+Production remains **NO-GO** under issue #37. The next action is to define and
+separately approve isolated staging, not to deploy directly to production.
