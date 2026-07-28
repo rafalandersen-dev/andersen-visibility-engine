@@ -264,12 +264,12 @@ Required:
 - ADR-0001 selects a dedicated Cloudflare Worker as the full audit execution boundary.
 - Lovable remains the web-app host; the Worker owns Turnstile, limits, cache, outbound fetch and AI.
 - The rejected design must not set `MILO_OUTBOUND_FETCH_MODE=workers` inside Lovable.
-- Issue #38 is the bounded implementation packet.
+- Issue #39 is the bounded implementation packet.
 - No production DNS, secret, migration or deployment change is authorised.
 
 ## Next single recommended action
 
-Implement issue #38: extract the complete public-audit boundary into a user-controlled Cloudflare Worker, prove it in isolated staging, and return an exact release recommendation. Gate 0 selected the Worker architecture in ADR-0001; production remains NO-GO.
+Implement issue #39: extract the complete public-audit boundary into a user-controlled Cloudflare Worker, prove it in isolated staging, and return an exact release recommendation. Gate 0 selected the Worker architecture in ADR-0001; production remains NO-GO.
 
 Do not begin billing changes, WombatOps rollout, broad feature work or production configuration inside this discovery action.
 
