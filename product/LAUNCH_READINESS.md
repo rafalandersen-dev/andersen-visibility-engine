@@ -19,7 +19,10 @@ Readiness percentages are operating estimates, not guarantees.
 - [x] Replace the unproven Lovable trust boundary with ADR-0001's dedicated Worker architecture.
 - [x] Implement and merge issue #39 with no environment mutation.
 - [x] Complete independent security review and exact-head verification; merge PR #41 at `cfeff9f`.
-- [ ] Establish isolated Worker staging with a separate data plane.
+- [x] Replace the unsupported Lovable AI-gateway dependency with the Worker-only direct Gemini boundary; merge PR #45 at `696cb73`.
+- [x] Merge the fail-closed, disabled-by-default minimal staging harness with empty committed configuration; merge PR #46 at `8037524`.
+- [ ] Authorise and complete account-level read-only discovery (Cloudflare zone/Access, Supabase project slot, Google Cloud Gemini quota/budget) with a SET / NOT SET matrix under issue #43.
+- [ ] Approve one bounded staging mutation package and establish isolated Worker staging with a separate data plane.
 - [ ] Apply and verify the two migrations in the approved environment.
 - [ ] Configure secrets and Turnstile without exposing values.
 - [ ] Run staging abuse-boundary and privacy tests on the exact release SHA.
@@ -59,7 +62,11 @@ Readiness percentages are operating estimates, not guarantees.
 
 **NO-GO for deploying the public-audit Worker to staging or production.**
 
-Gate 0 is complete. ADR-0001 selects the dedicated Worker boundary and the issue
-#39 implementation passed exact-tree verification and was merged through PR #41
-at `cfeff9f`. The next gate is a separately designed and approved isolated
-staging environment; production remains separately gated.
+Gate 0 is complete. ADR-0001 selects the dedicated Worker boundary; the issue
+#39 implementation merged through PR #41 at `cfeff9f`, the direct Gemini
+provider boundary merged through PR #45 at `696cb73`, and the fail-closed
+disabled-by-default staging harness merged through PR #46 at `8037524`.
+Code-only work under issue #43 is complete. The active gate is account-level
+read-only discovery of Cloudflare, Supabase and Google Cloud state, returning a
+SET / NOT SET matrix and one bounded staging mutation package for separate
+Product Lead approval; production remains separately gated.

@@ -2,7 +2,7 @@
 
 **Status:** Canonical current state — Product Lead approved  
 **Last updated:** 2026-07-28  
-**Evidence baseline:** `main` at `cfeff9fcdc0ece06824a8c980061672e27a27282`; issue #39 implementation merged
+**Evidence baseline:** `main` at `80375249dfcf9e371d82ebf7c28f2983fc4ab047`; PR #45 Gemini boundary and PR #46 staging harness merged
 **Product Lead / Outcome Owner:** Rafal Andersen  
 **Current phase:** Private beta; transition from BUILD to REVENUE
 
@@ -18,8 +18,19 @@ Issue #39 is implemented and merged through PR #41 at `cfeff9f`: the UI calls a
 typed HTTP endpoint, the Worker owns Turnstile, limits, cache, fetch and AI, and
 the old public TanStack paid path is removed. The exact implementation tree
 passed independent verification and the code-only merge.
-Production still serves the older deterministic flow. No Worker, route, DNS
-change, migration, Turnstile resource or new secret has been created.
+
+Two corrections have since merged under issue #43. PR #45 at `696cb73` replaced
+the Worker's unsupported `LOVABLE_API_KEY` / Lovable AI-gateway dependency with
+the native Gemini API behind a Worker-only `GEMINI_API_KEY`, preserving the
+deterministic fallback and all approved limits. PR #46 at `8037524` added a
+fail-closed, disabled-by-default minimal staging harness in a separately named
+Wrangler staging environment; its committed configuration is empty, and the
+harness cannot be enabled on `milogrowth.com` even through configuration.
+
+Production still serves the older deterministic flow. PR #45, PR #46 and this
+writeback created no Worker, route, DNS change, migration, Turnstile resource,
+Gemini key or new secret; account-level Cloudflare, Supabase and Google Cloud
+state remains unverified pending the issue #43 read-only discovery.
 
 Milo is not ready for an unattended paid public launch. Paid launch additionally requires server-authoritative billing, authenticated hard AI limits, completed legal identity and live operational verification.
 
@@ -38,20 +49,26 @@ review.
 
 ## Last verified achievement
 
-**Dedicated Public Audit Worker implemented, independently verified and merged;
+**Worker-scoped Gemini provider boundary and fail-closed staging harness merged;
 isolated staging and release remain gated.**
 
-Verified evidence recorded on 2026-07-28:
+Verified evidence recorded on 2026-07-28 for PR #46 at `8037524`:
 
-- approved limits: 5 salted IP claims per rolling hour, 50 global fetch claims per UTC day, 50 global paid-AI claims per UTC day and 24-hour cache;
-- targeted public-audit tests: 26/26 PASS;
-- TypeScript for the changed boundary: PASS;
-- both additive migrations executed successfully in an isolated PostgreSQL-compatible runtime;
-- Vercel build/preview and automatic Claude Code Review: PASS;
-- dedicated security review: all prior P0/P1/P2 blockers closed; no code change required before merge;
-- independent verifier statically passed claim ordering and migration composition but could not run dependency-backed checks because its protected checkout lacked `node_modules`;
-- squash merge to `main`: `0d163dd32cd807463fc40e6c41fafd1176b94e5f`;
-- Gate 0 production discovery: PARTIAL PASS / NO-GO; no production mutation.
+- connector tree matched the locally verified tree exactly:
+  `eb6355231d8a161439ec82e761780aed9bf95cd2`;
+- Worker tests: 3 files / 49 tests PASS, including adversarial harness cases;
+- Worker TypeScript, production dry-run and staging dry-run PASS; the staging
+  dry-run showed four empty public bindings only and no route or secret;
+- full Milo suite: 89 files / 1165 tests PASS; production build PASS;
+- changed-file ESLint, Prettier and `git diff --check` PASS;
+- both Claude Code Review runs succeeded with no review comments;
+- no route, custom domain, secret, account resource or deployment was created;
+- the harness cannot be enabled on `milogrowth.com`, even through configuration.
+
+Immediately prior, PR #45 at `696cb73` merged the direct Worker-scoped Gemini
+boundary: Worker tests 39/39 PASS, Milo tests 1164/1164 PASS, TypeScript,
+lint, build and no-bindings dry-run PASS; regression tests now prevent Lovable
+AI-gateway credentials or endpoints from returning to the external Worker.
 
 Supporting evidence:
 
@@ -65,6 +82,14 @@ Supporting evidence:
 - [PR #41](https://github.com/rafalandersen-dev/andersen-visibility-engine/pull/41)
 - [Merge commit `cfeff9f`](https://github.com/rafalandersen-dev/andersen-visibility-engine/commit/cfeff9fcdc0ece06824a8c980061672e27a27282)
 - [`evidence/public-audit-worker-2026-07-28.md`](../evidence/public-audit-worker-2026-07-28.md)
+- [Staging Design Packet #43](https://github.com/rafalandersen-dev/andersen-visibility-engine/issues/43)
+- [Issue #44](https://github.com/rafalandersen-dev/andersen-visibility-engine/issues/44)
+- [PR #45](https://github.com/rafalandersen-dev/andersen-visibility-engine/pull/45)
+- [Merge commit `696cb73`](https://github.com/rafalandersen-dev/andersen-visibility-engine/commit/696cb73b8ae68af86bcf6f75c8c73b9a1fc7855a)
+- [PR #46](https://github.com/rafalandersen-dev/andersen-visibility-engine/pull/46)
+- [Merge commit `8037524`](https://github.com/rafalandersen-dev/andersen-visibility-engine/commit/80375249dfcf9e371d82ebf7c28f2983fc4ab047)
+- [`docs/PUBLIC-AUDIT-STAGING-HARNESS.md`](../docs/PUBLIC-AUDIT-STAGING-HARNESS.md)
+- [`evidence/public-audit-staging-harness-2026-07-28.md`](../evidence/public-audit-staging-harness-2026-07-28.md)
 
 ## Verified product baseline
 
@@ -105,8 +130,9 @@ Success requires:
 
 ### P0 — Dedicated Worker merged; staging and release open
 
-**Status:** Issue #39 implementation independently verified and merged through
-PR #41; production release NO-GO.
+**Status:** Issue #39 implementation merged through PR #41, corrected by PR #45
+(Gemini boundary) and extended by PR #46 (fail-closed staging harness);
+staging and production release remain NO-GO.
 
 ADR-0001 selected a dedicated Worker after Gate 0 showed that the prior
 Lovable-hosted design relied on unproven controls. The merged implementation
@@ -116,30 +142,45 @@ now:
 - enforces exact host/origin/content/body/schema checks;
 - owns Turnstile, salted IP request claims, independent fetch and AI budgets,
   cache/lease, bounded fetch, AI generation and deterministic fallback;
-- keeps service-role, AI, Turnstile and salt secrets Worker-only;
+- calls the native Gemini API directly behind a Worker-only `GEMINI_API_KEY`
+  with a stable default model; the unsupported `LOVABLE_API_KEY` / Lovable
+  AI-gateway dependency is removed and regression-tested against
+  reintroduction (PR #45);
+- keeps service-role, Gemini, Turnstile and salt secrets Worker-only;
 - removes the public TanStack paid-audit handler and shared-edge-secret bridge;
-- commits `workers_dev=false`, `preview_urls=false` and no private binding.
+- ships a minimal same-origin staging harness that is disabled by default,
+  hard-limited to `staging.milogrowth.com` and unable to be enabled on the
+  production hostname even through configuration (PR #46);
+- commits `workers_dev=false`, `preview_urls=false`, no private binding and an
+  empty staging configuration in the separately named
+  `milo-public-audit-staging` Wrangler environment.
 
-Local evidence: Worker 36/36 tests, Worker TypeScript and dry-run build PASS;
-full Milo 1163/1163 tests and production build PASS; fresh compatible migration
-verification PASS.
+Local evidence at `8037524`: Worker 3 files / 49 tests, TypeScript and both
+dry-runs PASS; full Milo 89 files / 1165 tests and production build PASS.
 
 Required next:
 
-1. separately define and approve isolated staging;
-2. apply migrations/configure secrets only in that approved staging;
-3. deploy only the reviewed merge tree in staging;
+1. obtain Product Lead authority for read-only inspection of Cloudflare,
+   Supabase and Google Cloud account state under issue #43;
+2. return an evidence-backed SET / NOT SET matrix and one bounded staging
+   mutation package for separate approval;
+3. only after that approval: apply migrations/configure secrets in the isolated
+   staging data plane and deploy the exact reviewed merge tree;
 4. repeat abuse/privacy/live-provider tests before any production decision.
 
-Do not deploy the Worker, create routes/secrets/Turnstile resources or apply its
-two migrations without the next explicit environment approval in issue #37.
+Do not deploy the Worker, create routes/secrets/Turnstile/Gemini resources or
+apply its two migrations without the next explicit environment approval in
+issue #43.
 
 Evidence:
 
 - PR #36 and merge commit `0d163dd`
 - issue #35 implementation record
 - issue #37 Gate 0 discovery and platform-documentation follow-up
+- issue #43 staging design packet and its checkpoint comments
+- PR #45 and merge commit `696cb73`; PR #46 and merge commit `8037524`
 - `evidence/public-audit-safety-2026-07-27.md`
+- `evidence/public-audit-staging-harness-2026-07-28.md`
 
 ### P0 — Paid entitlements are not server-authoritative
 
@@ -291,13 +332,25 @@ Required:
 - Lovable remains the web-app host; the Worker owns Turnstile, limits, cache, outbound fetch and AI.
 - The rejected design must not set `MILO_OUTBOUND_FETCH_MODE=workers` inside Lovable.
 - Issue #39 is the completed bounded implementation packet; PR #41 is merged at `cfeff9f`.
-- No production DNS, secret, migration or deployment change is authorised.
+- The Worker's AI provider is the direct paid Gemini API behind a Worker-only
+  `GEMINI_API_KEY`; PR #45 is merged at `696cb73`. Lovable AI-gateway
+  credentials must not be reintroduced into the external Worker.
+- Issue #43 selected a Cloudflare-hosted minimal staging harness; the code-only,
+  fail-closed, disabled-by-default harness is merged through PR #46 at
+  `8037524`. No harness configuration value is committed, and PR #46 created
+  no runtime environment; account-level state remains unverified.
+- Staging and production remain NO-GO. No production or staging DNS, secret,
+  Turnstile widget, Gemini key, billing, migration or deployment change is
+  authorised.
 
 ## Next single recommended action
 
-Define the isolated staging host, data plane, configuration-presence matrix,
-operators, live verification plan and rollback conditions. Then request a
-separate Product Lead decision before creating or changing any environment.
+Obtain Product Lead authority for read-only inspection of Cloudflare, Supabase
+and Google Cloud account state under issue #43. During that inspection create
+nothing — no project, widget, key, billing link, Worker, Access policy, DNS
+record, migration or deploy. Return only an evidence-backed SET / NOT SET
+configuration matrix and one bounded staging mutation package for separate
+approval.
 
 Do not begin billing changes, WombatOps rollout, broad feature work or production configuration inside this discovery action.
 
