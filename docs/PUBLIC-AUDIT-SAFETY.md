@@ -1,7 +1,8 @@
 # Public Audit Worker Safety Contract
 
-**Status:** Implementation candidate for issue #39. Production and staging remain
-NO-GO until separately approved under issue #37.
+**Status:** Worker implementation merged through issue #39. Production and
+staging remain NO-GO until separately approved under issue #43, which
+supersedes the closed issue #37 for staging.
 
 ## Boundary
 
@@ -135,4 +136,4 @@ Implementation and tests do not authorize deployment. Before production:
 6. obtain independent security review and verifier results;
 7. prepare the exact production route, configuration-presence matrix and
    rollback plan;
-8. obtain explicit Product Lead approval under issue #37.
+8. obtain explicit Product Lead approval under issue #43.

@@ -6,6 +6,7 @@ import {
   type PublicAiVisibilityAudit,
 } from "../../../src/lib/public-audit";
 import { safeFetch } from "./safe-fetch";
+import { stagingHarnessResponse, type StagingHarnessEnv } from "./staging-harness";
 
 export const LIMITS = {
   requestPerHour: 5,
@@ -25,7 +26,7 @@ const ALLOWED_LANGUAGES = new Map([
   ["danish", "Danish"],
 ]);
 
-export interface Env {
+export interface Env extends StagingHarnessEnv {
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
   PUBLIC_AUDIT_IP_SALT: string;
@@ -34,6 +35,8 @@ export interface Env {
   PUBLIC_AUDIT_ALLOWED_ORIGINS: string;
   GEMINI_API_KEY: string;
   PUBLIC_AUDIT_AI_MODEL?: string;
+  PUBLIC_AUDIT_STAGING_HARNESS_HOST?: string;
+  PUBLIC_AUDIT_STAGING_TURNSTILE_SITE_KEY?: string;
 }
 
 type RpcResponse = { data: unknown; error: string | null };
@@ -339,6 +342,12 @@ export function createWorker(overrides: Partial<Dependencies> = {}) {
       let client = "unknown";
       let resultClass = "blocked";
       try {
+        const harnessResponse = stagingHarnessResponse(request, env);
+        if (harnessResponse) {
+          resultClass = "staging_harness";
+          return harnessResponse;
+        }
+
         const requestUrl = new URL(request.url);
         const allowedHosts = configuredSet(env.PUBLIC_AUDIT_ALLOWED_HOSTS, (item) =>
           item.toLowerCase(),
