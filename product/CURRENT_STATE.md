@@ -1,23 +1,18 @@
 # Milo Growth — Current State
 
-**Status:** Canonical state candidate — Product Lead confirmation required  
-**Last updated:** 2026-07-27  
-**Evidence baseline:** `main` at `b24dfd1ab9e4149383cb601d15447286307ff777`  
+**Status:** Canonical current state — Product Lead approved  
+**Last updated:** 2026-07-28  
+**Evidence baseline:** `main` at `0d163dd32cd807463fc40e6c41fafd1176b94e5f`  
 **Product Lead / Outcome Owner:** Rafal Andersen  
 **Current phase:** Private beta; transition from BUILD to REVENUE
 
 ## Recovery brief
 
-Milo Growth is live as a supervised private-beta product and has a substantial
-planning, content, publishing-governance and measurement codebase. The current
-engineering baseline is healthy: PR #33 established the project-level Claude
-configuration plus independent security and verification agents, and a fresh
-checkout of `main` passes typecheck, all 1,154 tests and the production build.
+Milo Growth remains a supervised private-beta product transitioning from BUILD to REVENUE. The first Andersen OS P0 cycle has completed audit, Product Lead approval, implementation, independent review, verification and merge. PR #36 is canonical on `main` at `0d163dd`, but the outcome is not closed: release, observation, learning review and final recovery verification remain open.
 
-Milo is not ready for an unattended paid public launch. The first implementation
-branch must close the public AI-audit abuse surface and AI-credit-drain risk before
-new feature work. Paid launch additionally requires server-authoritative billing
-and completed legal identity.
+Production still serves an older pre-PR-#36 deployment. Issue #37 Gate 0 returned **PARTIAL PASS / NO-GO** because current evidence does not prove the Lovable/Cloudflare edge trust contract, direct-origin blocking, exact Workers egress property or isolated staging model. No P0 migrations or new production secrets have been applied.
+
+Milo is not ready for an unattended paid public launch. Paid launch additionally requires server-authoritative billing, authenticated hard AI limits, completed legal identity and live operational verification.
 
 ## Readiness
 
@@ -34,20 +29,27 @@ review.
 
 ## Last verified achievement
 
-**Claude project baseline and independent review agents merged through PR #33.**
+**Public AI Visibility Audit safety implementation merged through PR #36; production release remains gated.**
 
-Verified on 2026-07-27 against `main`:
+Verified evidence recorded on 2026-07-28:
 
-- TypeScript: `./node_modules/.bin/tsc --noEmit` — PASS.
-- Tests: `npm test` — PASS, 86 files / 1,154 tests.
-- Production build: `npm run build` — PASS.
-- Working tree before this state package: clean.
+- approved limits: 5 salted IP claims per rolling hour, 50 global fetch claims per UTC day, 50 global paid-AI claims per UTC day and 24-hour cache;
+- targeted public-audit tests: 26/26 PASS;
+- TypeScript for the changed boundary: PASS;
+- both additive migrations executed successfully in an isolated PostgreSQL-compatible runtime;
+- Vercel build/preview and automatic Claude Code Review: PASS;
+- dedicated security review: all prior P0/P1/P2 blockers closed; no code change required before merge;
+- independent verifier statically passed claim ordering and migration composition but could not run dependency-backed checks because its protected checkout lacked `node_modules`;
+- squash merge to `main`: `0d163dd32cd807463fc40e6c41fafd1176b94e5f`;
+- Gate 0 production discovery: PARTIAL PASS / NO-GO; no production mutation.
 
 Supporting evidence:
 
-- [PR #33](https://github.com/rafalandersen-dev/andersen-visibility-engine/pull/33)
-- [Baseline commit `b24dfd1`](https://github.com/rafalandersen-dev/andersen-visibility-engine/commit/b24dfd1ab9e4149383cb601d15447286307ff777)
-- [`evidence/verification-2026-07-27.md`](../evidence/verification-2026-07-27.md)
+- [PR #36](https://github.com/rafalandersen-dev/andersen-visibility-engine/pull/36)
+- [Merge commit `0d163dd`](https://github.com/rafalandersen-dev/andersen-visibility-engine/commit/0d163dd32cd807463fc40e6c41fafd1176b94e5f)
+- [Delegation Packet #35](https://github.com/rafalandersen-dev/andersen-visibility-engine/issues/35)
+- [Release Configuration Packet #37](https://github.com/rafalandersen-dev/andersen-visibility-engine/issues/37)
+- [`evidence/public-audit-safety-2026-07-27.md`](../evidence/public-audit-safety-2026-07-27.md)
 
 ## Verified product baseline
 
@@ -86,38 +88,34 @@ Success requires:
 
 ## Blockers
 
-### P0 — Public audit exposes cost-drain and outbound-fetch abuse
+### P0 — Public-audit safety implementation merged; release trust boundary unresolved
 
-**Status:** Confirmed in code; blocks broader acquisition.
+**Status:** Implementation complete on `main`; outcome open; production release NO-GO.
 
-`runPublicAiVisibilityAuditFn` is unauthenticated and explicitly unmetered. Every
-request attempts an AI generation before falling back to a deterministic result.
-No rate limit, CAPTCHA/Turnstile, global spend ceiling or duplicate-request cache
-is applied. The same route accepts an arbitrary HTTP(S) URL and calls the generic
-`fetchHtml`, which follows redirects and does not use the repository's guarded
-`safeFetch` path.
+PR #36 replaced the unmetered public audit path with the approved safety envelope: bot proof, salted IP rolling-hour limit, independent global fetch and paid-AI ceilings, 24-hour cache, guarded outbound fetch, bounded redirects/body/timeouts and deterministic fallback.
 
-Impact:
+Production release is blocked because Milo is hosted and published through Lovable Cloud. Current Gate 0 evidence confirms Cloudflare termination and a Cloudflare-compatible build target, but does not prove the security contract required by the merged code:
 
-- automated requests can drain shared AI credits;
-- the endpoint can be abused as a server-side fetch primitive;
-- broad marketing traffic can exhaust the shared AI workspace and stop
-  generation for legitimate testers.
+- client-supplied `X-Milo-Edge-Auth` is always stripped and a server-owned value is injected;
+- direct-origin access is blocked;
+- the runtime provides the exact Workers egress property assumed by `MILO_OUTBOUND_FETCH_MODE=workers`;
+- the six environment values can be scoped correctly;
+- a separate non-production Supabase data plane exists.
+
+Required next:
+
+1. obtain hard platform evidence for the required Lovable controls; or
+2. approve a user-controlled Cloudflare Worker / verified egress proxy as the public-audit boundary; or
+3. keep the public audit deterministic/no-AI without user-controlled server fetch.
+
+Do not publish PR #36, apply its two production migrations or configure its secrets while Gate 0 remains NO-GO.
 
 Evidence:
 
-- `src/lib/ai.functions.ts` — `runPublicAiVisibilityAuditFn`
-- `src/lib/ai.functions.ts` — `fetchHtml`
-- `src/lib/public-audit.ts` — `normalizeAuditUrl`
-
-Required before widening beta:
-
-- rate limit by IP plus a global daily ceiling;
-- bot protection appropriate to the public form;
-- request deduplication/cache;
-- guarded outbound fetch with redirect revalidation;
-- retain the deterministic fallback without spending AI credits when a limit is
-  reached.
+- PR #36 and merge commit `0d163dd`
+- issue #35 implementation record
+- issue #37 Gate 0 discovery and platform-documentation follow-up
+- `evidence/public-audit-safety-2026-07-27.md`
 
 ### P0 — Paid entitlements are not server-authoritative
 
@@ -238,8 +236,7 @@ Required:
 
 ## Current risks that do not block the first supervised demo
 
-- `MILO_OUTBOUND_FETCH_MODE=workers` is a deployment invariant and has not been
-  verified from repository evidence alone.
+- The merged public-audit implementation depends on a Lovable/Cloudflare trust boundary that remains unproven; issue #37 is the controlling release gate.
 - Repository-wide lint/format baseline is intentionally dirty and there is no
   CI quality gate; changed-file verification remains the current workaround.
 - The build passes but emits widespread `inputValidator()` deprecation warnings.
@@ -263,26 +260,18 @@ Required:
 
 ## Next single recommended action
 
-Create one bounded P0 feature branch for the **public audit safety envelope**:
+Complete issue #37 Gate 0 by obtaining hard proof of Lovable's runtime, secret scopes, edge header controls, origin blocking and staging isolation. If the platform cannot satisfy the contract, prepare a bounded architecture decision for a user-controlled Cloudflare Worker / verified egress boundary or deterministic no-AI mode.
 
-1. guarded outbound fetch with redirect revalidation;
-2. IP rate limit plus global daily ceiling;
-3. bot protection and duplicate-request caching;
-4. deterministic no-AI fallback at the limit;
-5. independent security review and verifier evidence.
+Do not begin billing changes, WombatOps rollout, broad feature work or production configuration inside this discovery action.
 
-Do not combine billing authority, repo-wide formatting, a redesign or new product
-features into this branch.
+## Closure rule for the active outcome
 
-## Closure rule for the next action
+The public-audit outcome remains **implementation complete / outcome open** until:
 
-The P0 outcome is not complete until:
-
-- adversarial tests cover internal/private targets, redirect-to-private,
-  concurrency, rate-limit boundaries and AI-provider failure;
-- TypeScript, full tests and build pass;
-- the Security Reviewer returns PASS or all blockers are fixed;
-- the Product Lead accepts the behaviour and spend limits;
-- this file and the evidence record are updated;
-- a fresh session successfully recovers the next action without chat history.
-
+- a production architecture is explicitly approved;
+- staging or an accepted verification environment passes the abuse, privacy and cost-boundary checks;
+- an exact production release is approved and executed or the audit is intentionally kept disabled/deterministic;
+- the assisted release is observed and residual risks are recorded;
+- `CURRENT_STATE`, `DECISIONS`, `OPERATIONS`, `LAUNCH_READINESS` and evidence reflect the final state;
+- a learning review is completed;
+- a fresh session recovers the next action from repository sources without chat history.
