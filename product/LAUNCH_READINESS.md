@@ -6,10 +6,10 @@
 
 Readiness percentages are operating estimates, not guarantees.
 
-| Launch mode | Estimate | Verdict |
-|---|---:|---|
-| Assisted private beta | **~70%** | Proceed only with founder supervision and explicit controls |
-| Unattended public SaaS | **~40%** | Blocked |
+| Launch mode            | Estimate | Verdict                                                     |
+| ---------------------- | -------: | ----------------------------------------------------------- |
+| Assisted private beta  | **~70%** | Proceed only with founder supervision and explicit controls |
+| Unattended public SaaS | **~40%** | Blocked                                                     |
 
 ## Security and cost
 
@@ -17,7 +17,9 @@ Readiness percentages are operating estimates, not guarantees.
 - [x] Guardrails approved: 5/IP/hour, 50 fetches/day, 50 paid-AI claims/day, 24-hour cache.
 - [x] Targeted tests, TypeScript, isolated migration execution, build and security review recorded.
 - [x] Replace the unproven Lovable trust boundary with ADR-0001's dedicated Worker architecture.
-- [ ] Implement issue #39 and establish isolated Worker staging with a separate data plane.
+- [x] Implement issue #39 as a locally verified Worker candidate with no environment mutation.
+- [ ] Complete independent security review and exact-head verification.
+- [ ] Establish isolated Worker staging with a separate data plane.
 - [ ] Apply and verify the two migrations in the approved environment.
 - [ ] Configure secrets and Turnstile without exposing values.
 - [ ] Run staging abuse-boundary and privacy tests on the exact release SHA.
@@ -57,4 +59,7 @@ Readiness percentages are operating estimates, not guarantees.
 
 **NO-GO for publishing PR #36 to the custom production domain.**
 
-Gate 0 is complete. ADR-0001 selects the dedicated Worker boundary. The next gate is issue #39 implementation and isolated staging evidence; production remains separately gated.
+Gate 0 is complete. ADR-0001 selects the dedicated Worker boundary and the issue
+#39 implementation candidate passes local tests/builds. The next gates are
+independent exact-head review and separately approved isolated staging;
+production remains separately gated.

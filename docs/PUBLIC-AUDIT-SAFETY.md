@@ -1,100 +1,115 @@
-# Public Audit Safety Envelope
+# Public Audit Worker Safety Contract
 
-**Status:** Code/config contract for issue #35. Production release remains blocked
-until the migration and all required environment variables are verified in the
-target environment.
+**Status:** Implementation candidate for issue #39. Production and staging remain
+NO-GO until separately approved under issue #37.
 
-## Approved beta limits
+## Boundary
 
-- 5 submissions per privacy-preserving client/IP hash per rolling hour.
-- 50 paid public-audit AI generations per UTC day.
-- 50 user-controlled outbound page fetches per UTC day. This uses the same
-  approved beta value but an independent counter, so failed fetches cannot
-  corrupt the paid-AI usage signal.
-- 24-hour result cache keyed by normalized URL plus output language.
+`workers/public-audit/` is the complete execution boundary for the unauthenticated
+audit. Lovable hosts the UI, but does not receive or execute the audit request.
+The browser uses `src/lib/public-audit-client.ts`; the former public TanStack
+server function and its shared-edge-secret bridge have been removed.
 
-The values are server constants. The browser cannot raise or bypass them.
+The Worker accepts only:
 
-## Required production configuration
+- `POST /api/public-audit`;
+- exact `application/json`;
+- an 8 KiB bounded body with only `url`, `language` and `botProof`;
+- a configured host and exact same-origin request;
+- a valid Cloudflare client IP and Turnstile proof bound to the
+  `public_audit` action and configured hostname.
 
-Set these in the server/Workers environment:
+No permissive CORS or credentialed cross-origin response is emitted.
 
-| Variable | Requirement |
-|---|---|
-| `MILO_OUTBOUND_FETCH_MODE` | `workers` for the approved Cloudflare Workers deployment, or `egress-proxy` only when a separately verified proxy pins and filters resolved destinations |
-| `PUBLIC_AUDIT_IP_SALT` | Secret random value of at least 24 characters, used only to hash client IPs before storage |
-| `PUBLIC_AUDIT_EDGE_SECRET` | Secret random value of at least 24 characters; Cloudflare removes any incoming `X-Milo-Edge-Auth` and injects this value before forwarding to the origin |
-| `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile secret; server-only |
-| `PUBLIC_AUDIT_ALLOWED_HOSTNAME` | Exact production hostname expected in successful Turnstile verification |
-| `VITE_TURNSTILE_SITE_KEY` | Public Turnstile site key used by the audit page |
+## Approved limits
 
-The endpoint is fail-closed by default. `PUBLIC_AUDIT_RUNTIME=local` is the only
-opt-out for local/test execution; only in that explicit mode may
-`PUBLIC_AUDIT_BOT_BYPASS=true` skip Turnstile. `NODE_ENV` never relaxes a
-security check.
+- 5 claims per salted IPv4 /32 or IPv6 /64 identity per rolling hour.
+- 50 user-controlled outbound fetch claims per UTC day.
+- 50 paid-AI claims per UTC day.
+- 24-hour cache by query-free normalized URL and language.
 
-Do not commit any real key or salt. Do not deploy until the target environment
-contains all six values, Cloudflare injects the matching edge proof, direct
-origin access is blocked, and preview deployments are protected or isolated
-from production Supabase.
+All claims are atomic Supabase RPCs. Cache hits consume neither fetch nor AI
+claims. The fetch claim happens before outbound traffic; the AI claim happens
+only after a successful HTML fetch.
 
-## Database migration
+## Worker-only configuration
 
-Apply:
+Secret values must never be committed, logged or configured in Lovable.
 
-`supabase/migrations/20260727220000_public_audit_safety.sql`
+| Name                           | Scope                                                    |
+| ------------------------------ | -------------------------------------------------------- |
+| `SUPABASE_URL`                 | Worker only                                              |
+| `SUPABASE_SERVICE_ROLE_KEY`    | Worker secret only                                       |
+| `PUBLIC_AUDIT_IP_SALT`         | Worker secret only; at least 24 characters               |
+| `TURNSTILE_SECRET_KEY`         | Worker secret only                                       |
+| `LOVABLE_API_KEY`              | Worker secret only                                       |
+| `PUBLIC_AUDIT_ALLOWED_HOSTS`   | Worker non-secret comma-separated allowlist              |
+| `PUBLIC_AUDIT_ALLOWED_ORIGINS` | Worker non-secret comma-separated exact-origin allowlist |
+| `PUBLIC_AUDIT_AI_MODEL`        | Optional Worker non-secret model override                |
+| `VITE_PUBLIC_AUDIT_API_URL`    | Public UI endpoint; same-origin path is the default      |
+| `VITE_TURNSTILE_SITE_KEY`      | Public UI site key                                       |
 
-Then apply:
+`PUBLIC_AUDIT_EDGE_SECRET`, `X-Milo-Edge-Auth` and
+`MILO_OUTBOUND_FETCH_MODE=workers` inside Lovable are not part of the selected
+architecture.
 
-`supabase/migrations/20260727223000_public_audit_fetch_budget.sql`
+The committed production config has `workers_dev=false`, `preview_urls=false`
+and no service, VPC, Hyperdrive, TCP or private-network binding.
 
-It adds:
+## Outbound fetch
 
-- service-role-only rolling-window request events;
-- independent atomic global UTC-day fetch and paid-AI counters;
-- a result cache with a short processing lease to deduplicate concurrent AI
-  generation.
+The Worker:
 
-No raw IP, URL, query string, page HTML or Turnstile token is stored.
-IPv4 clients are keyed by /32 and IPv6 clients by /64. Each claim also performs
-a bounded global cleanup of stale request events.
+- permits HTTP/HTTPS on default ports only, without userinfo;
+- blocks literal loopback, private, link-local, reserved, multicast, metadata
+  and IPv4-mapped IPv6 targets, including URL-parser-normalised encodings;
+- validates every manual redirect;
+- permits only HTML/XHTML;
+- caps redirects, time and bytes;
+- forwards no browser cookies, authorization or platform credentials;
+- never returns fetched HTML or target headers to the browser.
 
-## Outbound-fetch boundary
+Cloudflare Workers does not provide resolve-and-pin sockets. DNS rebinding is a
+recorded residual risk, constrained by the isolated Worker, absence of private
+bindings, redirect/literal checks and the 50/day global fetch ceiling.
 
-The endpoint uses the shared `safeFetch` path:
+## Data and observability
 
-- HTTP(S) only and no embedded credentials;
-- blocks loopback, private, link-local, reserved, multicast, metadata and
-  IPv4-mapped IPv6 literals;
-- manually revalidates every redirect target;
-- caps redirects, timeout and streamed body bytes;
-- accepts only HTML/XHTML.
+Supabase receives only salted client hashes, counters, cache keys and completed
+audit JSON. Raw IP, query strings, page HTML, Turnstile tokens and secrets are
+not stored.
 
-Cloudflare Workers does not expose a trustworthy resolve-and-pin socket API.
-Therefore lexical hostname validation is not presented as DNS-rebinding
-protection. The blocking mitigation is the existing fail-closed deployment
-invariant: outbound fetches run only in the approved Workers egress environment
-or behind a separately verified egress proxy. Any unset or unknown mode refuses
-the fetch.
+Structured logs contain only:
 
-## Release verification
+- event type;
+- result class;
+- duration;
+- first 12 characters of the salted client key.
 
-Before production:
+Public errors are bounded and contain no provider, database or network detail.
+AI failure returns the conservative deterministic result; cache-write failure
+does not expand the atomic paid-AI ceiling.
 
-1. apply the migration in the target Supabase project;
-2. configure Turnstile for the exact production hostname and `public_audit`
-   action;
-3. set the six required environment variables and edge header injection;
-4. block direct origin access and protect or isolate preview deployments;
-5. verify a spoofed `cf-connecting-ip` without the edge proof is rejected;
-6. verify missing/invalid Turnstile tokens cannot trigger a user-site fetch;
-7. verify five rolling-hour claims pass and the sixth is refused;
-8. verify fetch claim 50 passes and fetch claim 51 short-circuits before any
-   user-site fetch;
-9. verify failed fetches do not consume paid-AI slots, while paid-AI claim 50
-   passes and claim 51 refuses generation;
-10. verify a duplicate URL/language returns the cached result without another AI
-   claim;
-11. run the full test suite, TypeScript, build, security review and independent
-   verifier;
-12. obtain Product Lead release approval.
+## Database
+
+The Worker reuses the additive, service-role-only migrations:
+
+1. `20260727220000_public_audit_safety.sql`;
+2. `20260727223000_public_audit_fetch_budget.sql`.
+
+They remain unapplied to staging and production. Fresh PGlite verification must
+pass before any environment approval.
+
+## Release gate
+
+Implementation and tests do not authorize deployment. Before production:
+
+1. establish an isolated staging hostname and data plane;
+2. apply and verify both migrations there;
+3. create scoped Worker secrets and Turnstile configuration;
+4. deploy only the exact reviewed SHA with public preview URLs disabled;
+5. repeat abuse, privacy, concurrency, provider-failure and rollback tests;
+6. obtain independent security review and verifier results;
+7. prepare the exact production route, configuration-presence matrix and
+   rollback plan;
+8. obtain explicit Product Lead approval under issue #37.

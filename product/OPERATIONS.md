@@ -8,18 +8,18 @@ Do not store secret values in this file.
 
 ## Environments and hosting
 
-| Item | Current state |
-|---|---|
-| Public domain | `https://milogrowth.com` |
-| Hosting / publishing | Lovable Cloud |
-| Platform hostname | `milo-growth.lovable.app`, redirected to the custom domain |
-| Public edge | Target architecture accepted: dedicated user-controlled Cloudflare Worker owns the audit API path; not yet implemented |
-| Source repository | `rafalandersen-dev/andersen-visibility-engine` |
-| Current repository implementation | PR #36 merged at `0d163dd32cd807463fc40e6c41fafd1176b94e5f` |
-| Custom-domain production | Older pre-PR-#36 deployment confirmed during issue #37 Gate 0 |
-| Database | Lovable Cloud / Supabase-backed project |
-| Isolated staging data plane | Not confirmed |
-| Preview | Protected authenticated preview confirmed |
+| Item                              | Current state                                                                                           |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Public domain                     | `https://milogrowth.com`                                                                                |
+| Hosting / publishing              | Lovable Cloud                                                                                           |
+| Platform hostname                 | `milo-growth.lovable.app`, redirected to the custom domain                                              |
+| Public edge                       | Dedicated Worker implementation candidate exists on `agent/public-audit-worker`; not deployed or routed |
+| Source repository                 | `rafalandersen-dev/andersen-visibility-engine`                                                          |
+| Current repository implementation | PR #36 merged at `0d163dd32cd807463fc40e6c41fafd1176b94e5f`                                             |
+| Custom-domain production          | Older pre-PR-#36 deployment confirmed during issue #37 Gate 0                                           |
+| Database                          | Lovable Cloud / Supabase-backed project                                                                 |
+| Isolated staging data plane       | Not confirmed                                                                                           |
+| Preview                           | Protected authenticated preview confirmed                                                               |
 
 ## Public-audit release dependencies
 
@@ -39,14 +39,14 @@ ADR-0001 replaces the edge-to-Lovable shared-header design with a dedicated Work
 
 ## Ownership
 
-| Responsibility | Owner |
-|---|---|
-| Product and release decision | Rafal Andersen |
-| Production publishing | Rafal Andersen |
-| Incident decision and rollback | Rafal Andersen |
-| Security review | Named independent reviewer under the Delegation/Release Packet |
-| Database migration execution | Must be explicitly assigned in the approved production release |
-| Secret ownership and rotation | Must be explicitly assigned before configuration |
+| Responsibility                 | Owner                                                          |
+| ------------------------------ | -------------------------------------------------------------- |
+| Product and release decision   | Rafal Andersen                                                 |
+| Production publishing          | Rafal Andersen                                                 |
+| Incident decision and rollback | Rafal Andersen                                                 |
+| Security review                | Named independent reviewer under the Delegation/Release Packet |
+| Database migration execution   | Must be explicitly assigned in the approved production release |
+| Secret ownership and rotation  | Must be explicitly assigned before configuration               |
 
 ## Incident and rollback baseline
 
@@ -62,7 +62,7 @@ For a public-audit trust-boundary or cost-control failure:
 
 ## Known operating gaps
 
-- dedicated Worker boundary is selected but not implemented;
+- dedicated Worker boundary is implemented and locally verified but not independently reviewed, merged or staged;
 - Worker outbound-fetch residual risk needs staging security verification;
 - isolated staging is unconfirmed;
 - production configuration presence matrix is not established;
