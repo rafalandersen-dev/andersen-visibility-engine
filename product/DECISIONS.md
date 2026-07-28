@@ -77,7 +77,6 @@ Lovable Cloud is the hosting platform and Cloudflare terminates public traffic, 
 
 Review when hard platform evidence exists or a revised architecture is ready for approval.
 
-
 ## 2026-07-28 — Public audit moves to a dedicated Cloudflare Worker
 
 **Status:** Accepted  
@@ -97,3 +96,62 @@ Official platform evidence does not prove the edge header ownership, direct-orig
 ### Consequences
 
 Gate 0 architecture selection is complete. Production remains NO-GO until the Worker is implemented, verified against an isolated staging data plane, independently reviewed and approved for an exact production release. DNS, secrets, migrations and deployment require later explicit approvals.
+
+## 2026-07-28 — Worker AI provider is direct paid Gemini
+
+**Status:** Accepted and merged  
+**Decision authority / Outcome Owner:** Rafal Andersen  
+**Evidence:** issue #43 discovery checkpoint, issue #44, PR #45, merge commit `696cb73b8ae68af86bcf6f75c8c73b9a1fc7855a`
+
+### Decision
+
+Replace the Worker's assumed Lovable AI-gateway credential with the direct
+native Gemini API behind a Worker-only `GEMINI_API_KEY`, keeping the
+deterministic fallback, the approved limits and the 50/day atomic paid-AI
+ceiling unchanged.
+
+### Reason
+
+Lovable documents `LOVABLE_API_KEY` as platform-managed and does not document
+exporting it to an external Cloudflare Worker. Depending on it from the
+dedicated Worker was an unsupported security assumption. Google's paid Gemini
+API is directly supported, and paid-service prompts/responses are not used to
+improve Google's products under the cited terms.
+
+### Consequences
+
+The provider boundary is code-complete on `main` with regression tests that
+prevent Lovable gateway credentials or endpoints from returning to the Worker.
+No Gemini key exists, no billing is enabled and no environment is mutated;
+credential creation and paid-service activation require a separate approval
+under issue #43.
+
+## 2026-07-28 — Cloudflare-hosted minimal staging harness, code-only
+
+**Status:** Accepted and merged; environment mutation remains NO-GO  
+**Decision authority / Outcome Owner:** Rafal Andersen  
+**Evidence:** issue #43 staging recommendation, PR #46, merge commit `80375249dfcf9e371d82ebf7c28f2983fc4ab047`
+
+### Decision
+
+Use a Cloudflare-hosted minimal staging harness served by the public-audit
+Worker itself for the first isolated security verification, instead of a paid
+Vercel custom environment. Merge only the fail-closed, disabled-by-default
+code: a separately named `milo-public-audit-staging` Wrangler environment with
+empty committed configuration, `workers_dev=false`, `preview_urls=false` and
+enablement hard-limited to `staging.milogrowth.com`.
+
+### Reason
+
+The harness model keeps the first staging pass near USD 0 platform cost while
+preserving the exact reviewed `POST /api/public-audit` code path. Fail-closed
+configuration guarantees the production hostname cannot serve the harness even
+through operator error.
+
+### Consequences
+
+Code-only staging work is complete at `8037524`. The active gate is
+account-level read-only discovery of Cloudflare, Supabase and Google Cloud
+state under issue #43, followed by one bounded, separately approved staging
+mutation package. No route, custom domain, secret, widget, key, project,
+migration or deployment exists as a result of the merge.
