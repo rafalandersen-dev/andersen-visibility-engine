@@ -10,11 +10,12 @@ This roadmap is not a delivery promise. Active work must have an Outcome Owner, 
 
 ### Close the public-audit safety outcome
 
-- Complete issue #37 Gate 0 compatibility proof.
-- Select and approve the production trust-boundary architecture.
-- Define isolated staging or an explicitly accepted verification alternative.
-- Only after approval: configure staging, run abuse-boundary tests and prepare an exact production release decision.
-- After release: observe, learn, write back and close.
+- [x] Complete issue #37 Gate 0 compatibility discovery.
+- [x] Select the production trust-boundary architecture in ADR-0001.
+- Implement issue #38: dedicated Cloudflare Worker owning the full public-audit operation.
+- Establish an isolated staging host and data plane.
+- Run abuse-boundary tests and prepare an exact production release decision.
+- After a separately approved release: observe, learn, write back and close.
 
 ## Next
 
