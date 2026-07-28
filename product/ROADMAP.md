@@ -12,7 +12,7 @@ This roadmap is not a delivery promise. Active work must have an Outcome Owner, 
 
 - [x] Complete issue #37 Gate 0 compatibility discovery.
 - [x] Select the production trust-boundary architecture in ADR-0001.
-- Implement issue #38: dedicated Cloudflare Worker owning the full public-audit operation.
+- Implement issue #39: dedicated Cloudflare Worker owning the full public-audit operation.
 - Establish an isolated staging host and data plane.
 - Run abuse-boundary tests and prepare an exact production release decision.
 - After a separately approved release: observe, learn, write back and close.
