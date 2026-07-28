@@ -2,9 +2,10 @@
 
 **Repository:** `rafalandersen-dev/andersen-visibility-engine`
 **Issue:** #35
-**Draft PR:** #36
+**Merged PR:** #36
 **Branch:** `agent/p0-public-audit-safety`
 **Base:** `main` at `7ec16c0338a78921d9333593592bd18b74d36b36`
+**Merge commit:** `0d163dd32cd807463fc40e6c41fafd1176b94e5f`
 
 ## Implemented controls
 
@@ -57,7 +58,7 @@ connect to or mutate the production Supabase project.
 - The six production environment variables and Cloudflare edge injection have
   not been verified.
 - Direct-origin blocking and preview isolation/protection have not been verified.
-- No production deploy or public release has been performed.
+- The custom production domain remains on an older pre-PR-#36 deployment; the merged implementation has not been published.
 - Live Cloudflare edge-proof/header and egress behaviour has not been exercised
   from the final production environment.
 - The full repository test suite has not yet been recorded by the dedicated
@@ -67,12 +68,15 @@ connect to or mutate the production Supabase project.
 
 ## Release gate
 
-PR #36 must remain draft and unmerged until:
+PR #36 is merged. The implementation is canonical on `main`, but production release remains **NO-GO** under issue #37.
 
-1. the dedicated security reviewer returns no merge-blocking finding;
-2. the Product Lead explicitly accepts or resolves the independent verifier's
-   blocked dependency-backed checks, using the separate local and Vercel
-   evidence;
-3. the migration/configuration checklist in
-   `docs/PUBLIC-AUDIT-SAFETY.md` is executed in the target environment;
-4. the Product Lead makes a separate merge/release decision.
+Gate 0 confirmed Lovable Cloud hosting, Cloudflare termination, protected preview and an older custom-domain production deployment. It did not prove the required edge header ownership, direct-origin blocking, exact Workers egress property, correct environment scopes or isolated staging data plane.
+
+Do not publish the merged implementation, apply the two production migrations or configure the new secrets until:
+
+1. the platform contract is proven or a revised public-audit boundary is approved;
+2. the staging/verification model is approved;
+3. the exact environment passes the required abuse, privacy and cost-boundary tests;
+4. the Product Lead approves a precise production release decision.
+
+Implementation merge is complete; release, observation, learning review and outcome closure remain open.
