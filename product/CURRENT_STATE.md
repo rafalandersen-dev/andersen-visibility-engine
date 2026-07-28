@@ -27,9 +27,10 @@ fail-closed, disabled-by-default minimal staging harness in a separately named
 Wrangler staging environment; its committed configuration is empty, and the
 harness cannot be enabled on `milogrowth.com` even through configuration.
 
-Production still serves the older deterministic flow. No Worker, route, DNS
-change, migration, Turnstile resource, Gemini key or new secret has been
-created.
+Production still serves the older deterministic flow. PR #45, PR #46 and this
+writeback created no Worker, route, DNS change, migration, Turnstile resource,
+Gemini key or new secret; account-level Cloudflare, Supabase and Google Cloud
+state remains unverified pending the issue #43 read-only discovery.
 
 Milo is not ready for an unattended paid public launch. Paid launch additionally requires server-authoritative billing, authenticated hard AI limits, completed legal identity and live operational verification.
 

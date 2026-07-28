@@ -122,9 +122,10 @@ improve Google's products under the cited terms.
 
 The provider boundary is code-complete on `main` with regression tests that
 prevent Lovable gateway credentials or endpoints from returning to the Worker.
-No Gemini key exists, no billing is enabled and no environment is mutated;
-credential creation and paid-service activation require a separate approval
-under issue #43.
+No Gemini key or billing configuration was created or enabled by this outcome;
+account-level state remains unverified pending issue #43 discovery. Credential
+creation and paid-service activation require a separate approval under
+issue #43.
 
 ## 2026-07-28 — Cloudflare-hosted minimal staging harness, code-only
 

@@ -72,7 +72,8 @@ For a public-audit trust-boundary or cost-control failure:
 - account-level Cloudflare, Supabase and Google Cloud state is unverified; the
   read-only SET / NOT SET discovery under issue #43 has not been authorised;
 - isolated staging is unconfirmed; no staging environment, credential, widget,
-  Gemini key or data plane exists;
+  Gemini key or data plane was created by the reviewed repository outcomes,
+  while actual account configuration and existence remain unverified;
 - production configuration presence matrix is not established;
 - final legal operator and support/security mailboxes remain incomplete;
 - production billing authority and authenticated hard AI limits remain incomplete.
