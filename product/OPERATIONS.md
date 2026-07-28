@@ -13,7 +13,7 @@ Do not store secret values in this file.
 | Public domain | `https://milogrowth.com` |
 | Hosting / publishing | Lovable Cloud |
 | Platform hostname | `milo-growth.lovable.app`, redirected to the custom domain |
-| Public edge | Cloudflare termination confirmed; security capabilities still partly unproven |
+| Public edge | Target architecture accepted: dedicated user-controlled Cloudflare Worker owns the audit API path; not yet implemented |
 | Source repository | `rafalandersen-dev/andersen-visibility-engine` |
 | Current repository implementation | PR #36 merged at `0d163dd32cd807463fc40e6c41fafd1176b94e5f` |
 | Custom-domain production | Older pre-PR-#36 deployment confirmed during issue #37 Gate 0 |
@@ -23,17 +23,19 @@ Do not store secret values in this file.
 
 ## Public-audit release dependencies
 
-The following are required but must not be configured until issue #37 advances beyond Gate 0:
+ADR-0001 replaces the edge-to-Lovable shared-header design with a dedicated Worker. The following remain unconfigured until issue #39 passes review and issue #37 authorises the relevant environment stage:
 
-- `MILO_OUTBOUND_FETCH_MODE`;
-- `PUBLIC_AUDIT_IP_SALT`;
-- `PUBLIC_AUDIT_EDGE_SECRET`;
-- `TURNSTILE_SECRET_KEY`;
-- `PUBLIC_AUDIT_ALLOWED_HOSTNAME`;
-- `VITE_TURNSTILE_SITE_KEY`;
+- Worker-only `PUBLIC_AUDIT_IP_SALT`;
+- Worker-only `TURNSTILE_SECRET_KEY`;
+- Worker-only AI gateway credential;
+- Worker-only Supabase URL and service-role credential;
+- exact production/staging hostname allowlists;
+- public `VITE_PUBLIC_AUDIT_API_URL` and `VITE_TURNSTILE_SITE_KEY`;
 - migrations `20260727220000_public_audit_safety.sql` and `20260727223000_public_audit_fetch_budget.sql`;
-- trusted edge header stripping/injection;
-- direct-origin blocking or a revised architecture that removes the assumption.
+- Cloudflare Worker route/custom domain, with `workers.dev` and public preview URLs disabled;
+- isolated staging data plane and rollback routing.
+
+`PUBLIC_AUDIT_EDGE_SECRET` and `X-Milo-Edge-Auth` are not part of the selected architecture. Do not configure public-audit service credentials in Lovable.
 
 ## Ownership
 
@@ -60,8 +62,8 @@ For a public-audit trust-boundary or cost-control failure:
 
 ## Known operating gaps
 
-- exact Lovable runtime/egress guarantee is unproven;
-- edge header ownership and origin blocking are unproven;
+- dedicated Worker boundary is selected but not implemented;
+- Worker outbound-fetch residual risk needs staging security verification;
 - isolated staging is unconfirmed;
 - production configuration presence matrix is not established;
 - final legal operator and support/security mailboxes remain incomplete;

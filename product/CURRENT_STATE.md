@@ -258,9 +258,18 @@ Required:
 - Public-SaaS readiness.
 - That the 2026-07-20 product-audit scores describe the current codebase.
 
+## Public-audit architecture checkpoint
+
+- Gate 0 topology discovery is complete.
+- ADR-0001 selects a dedicated Cloudflare Worker as the full audit execution boundary.
+- Lovable remains the web-app host; the Worker owns Turnstile, limits, cache, outbound fetch and AI.
+- The rejected design must not set `MILO_OUTBOUND_FETCH_MODE=workers` inside Lovable.
+- Issue #39 is the bounded implementation packet.
+- No production DNS, secret, migration or deployment change is authorised.
+
 ## Next single recommended action
 
-Complete issue #37 Gate 0 by obtaining hard proof of Lovable's runtime, secret scopes, edge header controls, origin blocking and staging isolation. If the platform cannot satisfy the contract, prepare a bounded architecture decision for a user-controlled Cloudflare Worker / verified egress boundary or deterministic no-AI mode.
+Implement issue #39: extract the complete public-audit boundary into a user-controlled Cloudflare Worker, prove it in isolated staging, and return an exact release recommendation. Gate 0 selected the Worker architecture in ADR-0001; production remains NO-GO.
 
 Do not begin billing changes, WombatOps rollout, broad feature work or production configuration inside this discovery action.
 
