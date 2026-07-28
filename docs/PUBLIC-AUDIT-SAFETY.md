@@ -42,7 +42,7 @@ Secret values must never be committed, logged or configured in Lovable.
 | `SUPABASE_SERVICE_ROLE_KEY`    | Worker secret only                                       |
 | `PUBLIC_AUDIT_IP_SALT`         | Worker secret only; at least 24 characters               |
 | `TURNSTILE_SECRET_KEY`         | Worker secret only                                       |
-| `LOVABLE_API_KEY`              | Worker secret only                                       |
+| `GEMINI_API_KEY`               | Worker secret only; direct paid Gemini API credential    |
 | `PUBLIC_AUDIT_ALLOWED_HOSTS`   | Worker non-secret comma-separated allowlist              |
 | `PUBLIC_AUDIT_ALLOWED_ORIGINS` | Worker non-secret comma-separated exact-origin allowlist |
 | `PUBLIC_AUDIT_AI_MODEL`        | Optional Worker non-secret model override                |
@@ -89,6 +89,29 @@ Structured logs contain only:
 Public errors are bounded and contain no provider, database or network detail.
 AI failure returns the conservative deterministic result; cache-write failure
 does not expand the atomic paid-AI ceiling.
+
+The Worker calls Google's native Gemini `generateContent` endpoint directly
+with JSON mode. It does not use Lovable's managed AI gateway or
+`LOVABLE_API_KEY`. The default model is the stable
+`gemini-3.1-flash-lite`; a model override remains non-secret configuration and
+is restricted to a bounded Gemini model identifier.
+
+Provider contract evidence checked on 2026-07-28:
+
+- the native REST contract and `responseMimeType: application/json` are
+  documented at
+  <https://ai.google.dev/api/generate-content>;
+- `gemini-3.1-flash-lite` is documented as stable with structured-output
+  support at
+  <https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite>;
+- an EEA-facing API client must use Paid Services under
+  <https://ai.google.dev/gemini-api/terms>;
+- paid-tier pricing and the no-product-improvement data-use row are documented
+  at <https://ai.google.dev/gemini-api/docs/pricing>.
+
+These sources prove the external provider boundary only. A real
+staging-scoped paid credential, provider response and billing ceiling still
+require separate environment approval and verification.
 
 ## Database
 

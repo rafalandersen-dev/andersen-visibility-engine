@@ -17,6 +17,7 @@
 | Bounded user-site fetch                         | `workers/public-audit/src/safe-fetch.ts`                                           |
 | Prompt-injection boundary and normalized output | `auditPrompt` + shared `normalizePublicAudit`                                      |
 | Provider fallback                               | shared `deterministicFallbackAudit`                                                |
+| External AI credential boundary                 | direct native Gemini API using Worker-only `GEMINI_API_KEY`                        |
 | Privacy-minimised logs                          | final `request_complete` event                                                     |
 | Typed browser transport                         | `src/lib/public-audit-client.ts`                                                   |
 | Old Lovable paid path removed                   | public export removed from `src/lib/ai.functions.ts`; former safety bridge deleted |
@@ -37,10 +38,10 @@ deployment or production credential was used.
 
 | Check                                       | Result                                                                                             |
 | ------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Worker unit/integration/adversarial tests   | PASS — 2 files / 36 tests                                                                          |
+| Worker unit/integration/adversarial tests   | PASS — 2 files / 39 tests                                                                          |
 | Worker TypeScript                           | PASS                                                                                               |
-| Worker production dry-run                   | PASS — verifier rerun: 31.68 KiB upload, 9.26 KiB gzip, no bindings                                 |
-| Full Milo test suite                        | PASS — 89 files / 1163 tests                                                                       |
+| Worker production dry-run                   | PASS — 31.93 KiB upload, 9.34 KiB gzip, no bindings                                                |
+| Full Milo test suite                        | PASS — 89 files / 1164 tests                                                                       |
 | Milo production build                       | PASS                                                                                               |
 | Changed-file ESLint                         | PASS except pre-existing `src/lib/ai.functions.ts:374 no-control-regex`, outside this diff         |
 | `git diff --check`                          | PASS                                                                                               |
@@ -56,9 +57,9 @@ Wrangler config directory. This did not require authentication or deployment.
 
 - DNS rebinding is constrained but not eliminated because Workers does not
   expose resolve-and-pin sockets.
-- AI gateway compatibility is statically implemented and mocked in tests; it
-  still requires isolated staging verification with a non-production
-  credential.
+- Direct Gemini API compatibility is statically implemented and mocked in
+  tests; it still requires isolated staging verification with a non-production
+  paid credential.
 - The two database migrations are not applied to any connected environment.
 - Turnstile replay, exact production hostname binding and Cloudflare route
   behaviour require isolated live staging evidence.
