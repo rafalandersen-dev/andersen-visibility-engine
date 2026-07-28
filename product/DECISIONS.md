@@ -76,3 +76,24 @@ Lovable Cloud is the hosting platform and Cloudflare terminates public traffic, 
 ### Review trigger
 
 Review when hard platform evidence exists or a revised architecture is ready for approval.
+
+
+## 2026-07-28 — Public audit moves to a dedicated Cloudflare Worker
+
+**Status:** Accepted  
+**Decision authority / Outcome Owner:** Rafal Andersen  
+**Evidence:** issue #37 Gate 0, ADR-0001, issue #38
+
+### Decision
+
+Keep the Milo web application on Lovable Cloud, but move the complete public-audit execution boundary to a user-controlled Cloudflare Worker on the `milogrowth.com/api/public-audit*` route.
+
+The Worker owns Turnstile, trusted client IP derivation, request/fetch/AI limits, Supabase RPC/cache access, outbound fetch and AI generation. It does not proxy the audit operation to Lovable. Public-audit secrets remain Worker-only, and the old Lovable server function stays fail-closed or is removed from the public flow.
+
+### Reason
+
+Official platform evidence does not prove the edge header ownership, direct-origin blocking or exact runtime guarantee required by the merged Lovable-hosted design. A Worker-owned endpoint removes the shared-header bridge and gives Milo a separately deployable, observable and reversible trust boundary.
+
+### Consequences
+
+Gate 0 architecture selection is complete. Production remains NO-GO until the Worker is implemented, verified against an isolated staging data plane, independently reviewed and approved for an exact production release. DNS, secrets, migrations and deployment require later explicit approvals.
