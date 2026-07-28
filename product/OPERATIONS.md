@@ -13,9 +13,9 @@ Do not store secret values in this file.
 | Public domain                     | `https://milogrowth.com`                                                                                |
 | Hosting / publishing              | Lovable Cloud                                                                                           |
 | Platform hostname                 | `milo-growth.lovable.app`, redirected to the custom domain                                              |
-| Public edge                       | Dedicated Worker implementation candidate exists on `agent/public-audit-worker`; not deployed or routed |
+| Public edge                       | Dedicated Worker code merged at `cfeff9f`; not deployed or routed                                         |
 | Source repository                 | `rafalandersen-dev/andersen-visibility-engine`                                                          |
-| Current repository implementation | PR #36 merged at `0d163dd32cd807463fc40e6c41fafd1176b94e5f`                                             |
+| Current repository implementation | PR #41 merged at `cfeff9fcdc0ece06824a8c980061672e27a27282`                                             |
 | Custom-domain production          | Older pre-PR-#36 deployment confirmed during issue #37 Gate 0                                           |
 | Database                          | Lovable Cloud / Supabase-backed project                                                                 |
 | Isolated staging data plane       | Not confirmed                                                                                           |
@@ -23,7 +23,7 @@ Do not store secret values in this file.
 
 ## Public-audit release dependencies
 
-ADR-0001 replaces the edge-to-Lovable shared-header design with a dedicated Worker. The following remain unconfigured until issue #39 passes review and issue #37 authorises the relevant environment stage:
+ADR-0001 replaces the edge-to-Lovable shared-header design with a dedicated Worker. The following remain unconfigured until issue #37 authorises the relevant environment stage:
 
 - Worker-only `PUBLIC_AUDIT_IP_SALT`;
 - Worker-only `TURNSTILE_SECRET_KEY`;
@@ -62,7 +62,7 @@ For a public-audit trust-boundary or cost-control failure:
 
 ## Known operating gaps
 
-- dedicated Worker boundary is implemented and locally verified but not independently reviewed, merged or staged;
+- dedicated Worker boundary is implemented, independently verified and merged but not staged;
 - Worker outbound-fetch residual risk needs staging security verification;
 - isolated staging is unconfirmed;
 - production configuration presence matrix is not established;
