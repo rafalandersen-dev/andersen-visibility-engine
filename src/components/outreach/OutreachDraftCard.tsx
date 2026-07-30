@@ -211,7 +211,10 @@ export function OutreachDraftCard({
                         <MailCheck className="mr-1 h-3 w-3" />
                         {t("outreach.followUpSent")}
                       </Badge>
-                    ) : due && deliveryReady && draft.status === "Sent" ? (
+                    ) : due &&
+                      deliveryReady &&
+                      (draft.status === "Sent" ||
+                        (draft.status === "Failed" && initialSent)) ? (
                       <Button
                         size="sm"
                         variant="outline"
