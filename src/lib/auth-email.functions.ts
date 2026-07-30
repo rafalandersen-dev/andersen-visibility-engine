@@ -159,14 +159,29 @@ export const signupWithBrandedEmailFn = createServerFn({ method: "POST" })
       recipient: email,
       confirmationUrl,
     });
-    await sendDirectAuthEmail({
-      templateName: "signup",
-      to: email,
-      subject: "Confirm your Milo Growth account",
-      html: await render(element),
-      text: await render(element, { plainText: true }),
-      supabase,
-    });
+
+    // generateLink already CREATED the auth user. If the branded send fails we
+    // would leave an unreachable, unconfirmable account behind that also blocks
+    // a clean retry ("user already registered"). Roll the user back instead.
+    try {
+      await sendDirectAuthEmail({
+        templateName: "signup",
+        to: email,
+        subject: "Confirm your Milo Growth account",
+        html: await render(element),
+        text: await render(element, { plainText: true }),
+        supabase,
+      });
+    } catch (sendError) {
+      const createdUserId = linkData.user?.id;
+      if (createdUserId) {
+        const { error: deleteError } = await supabase.auth.admin.deleteUser(createdUserId);
+        if (deleteError) {
+          console.error("[auth-email] orphan cleanup failed", deleteError.message);
+        }
+      }
+      throw sendError;
+    }
     return { ok: true };
   });
 
