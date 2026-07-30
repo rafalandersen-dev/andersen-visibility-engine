@@ -1929,7 +1929,10 @@ function CalendarDay({
           <span className="text-[7px] font-medium uppercase tracking-[0.1em] text-[#9a927f]">
             Target — not scheduled
           </span>
-          <strong className="text-[9px] leading-[1.4]">{opportunity.title}</strong>
+          <strong className="flex items-center gap-1 text-[9px] leading-[1.4]">
+            <span className="truncate">{opportunity.title}</span>
+            <SampleBadge id={opportunity.id} />
+          </strong>
           {/* Dated within the week but not ready to publish — the in-app alert's
               on-calendar counterpart. */}
           {riskOpportunityIds.has(opportunity.id) ? (
