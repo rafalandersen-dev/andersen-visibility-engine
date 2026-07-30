@@ -1445,7 +1445,9 @@ function OpportunityCard({
       >
         <Check size={11} />
       </button>
-      <strong className="pr-5 text-[10px] leading-[1.45]">{opportunity.title}</strong>
+      <strong className="pr-5 text-[10px] leading-[1.45]">
+        {opportunity.title} <SampleBadge id={opportunity.id} className="ml-1 align-middle" />
+      </strong>
       <span className="w-max max-w-full rounded-[3px] border border-[#e2ddd4] bg-[#f7f4ed] px-1.5 py-0.5 text-[8px] text-[#727a84]">
         {opportunitySourceLabel(opportunity)}
       </span>
