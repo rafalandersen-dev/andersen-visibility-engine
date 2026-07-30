@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { hreflangLinks } from "@/lib/locales";
 import {
   ArrowRight,
   CalendarBlank,
