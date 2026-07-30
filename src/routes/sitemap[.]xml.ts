@@ -1,15 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
-import { routeTree } from "@/routeTree.gen";
 import { LOCALE_ROUTES, SITE_ORIGIN } from "@/lib/locales";
 
 const BASE_URL = SITE_ORIGIN;
 
 /**
- * The sitemap is DERIVED from the generated route tree, so adding a marketing
- * or legal page automatically lists it. Everything non-indexable is excluded by
- * the rules below rather than by an easily-stale allow-list.
+ * The sitemap is DERIVED from the route files on disk (same source the route
+ * tree is generated from), so adding a marketing or legal page automatically
+ * lists it. Importing routeTree.gen here would be circular — this route is
+ * itself part of that tree — so we enumerate the route modules instead.
+ * Everything non-indexable is excluded by the rules below rather than by an
+ * easily-stale allow-list.
  */
+const ROUTE_FILES = import.meta.glob("./**/*.{tsx,ts}");
+
 const EXCLUDE_PREFIXES = [
   "/app", // authenticated product
   "/api",
@@ -18,6 +22,7 @@ const EXCLUDE_PREFIXES = [
   "/.well-known",
   "/_",
 ];
+
 
 const EXCLUDE_EXACT = new Set([
   "/auth",
