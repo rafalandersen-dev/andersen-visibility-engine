@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/lib/auth";
-import { useStore, setBillingProfile, setSubscription, saveWorkspaceNow } from "@/lib/store";
+import { useStore, setBillingProfile, refreshEntitlement, saveWorkspaceNow } from "@/lib/store";
 import { useT } from "@/i18n";
 import {
   PLAN_IDS,
@@ -31,6 +31,7 @@ import {
   type SubscriptionStatus,
 } from "@/lib/billing";
 import { createPaddleCheckoutFn, createPaddlePortalSessionFn } from "@/lib/billing.functions";
+import { setManualEntitlementFn } from "@/lib/entitlements.functions";
 import { ShieldCheck, Crown, Check, ExternalLink, Loader2, Link2, CircleMinus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -110,8 +111,14 @@ function BillingPage() {
 
   async function choosePlan(planId: PlanId) {
     if (planId === "freePreview") {
-      setSubscription(undefined);
-      await saveWorkspaceNow();
+      // Downgrades are an entitlement change: owners can self-serve, everyone
+      // else cancels through the Paddle portal (the webhook then downgrades).
+      if (!isOwner) {
+        await openSubscriptionPortal("cancel");
+        return;
+      }
+      await setManualEntitlementFn({ data: { planId: "freePreview", status: "freePreview" } });
+      await refreshEntitlement();
       toast.success(t("billing.profileSaved"));
       return;
     }
@@ -124,16 +131,8 @@ function BillingPage() {
         window.location.href = res.checkoutUrl;
         return;
       }
-      // Not configured / no URL → record pending intent (never grants paid access).
-      setSubscription({
-        planId,
-        status: "checkoutPending",
-        billingMarket: market,
-        currency,
-        priceMonthly: planPrice(market, planId),
-        updatedAt: new Date().toISOString(),
-      });
-      await saveWorkspaceNow();
+      // Not configured / no URL → nothing is written anywhere. Paid access is
+      // granted exclusively by the verified Paddle webhook.
       toast.message(res.message || t("billing.checkoutNotConfigured"));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Checkout failed");
@@ -142,18 +141,14 @@ function BillingPage() {
     }
   }
 
-  function manualActivate(planId: PlanId, manualStatus: "manualBeta" | "manualComped") {
-    setSubscription({
-      planId,
-      status: manualStatus,
-      billingMarket: market,
-      currency,
-      priceMonthly: planPrice(market, planId),
-      manualOverride: true,
-      updatedAt: new Date().toISOString(),
-    });
-    saveWorkspaceNow();
-    toast.success(t("billing.profileSaved"));
+  async function manualActivate(planId: PlanId, manualStatus: "manualBeta" | "manualComped") {
+    try {
+      await setManualEntitlementFn({ data: { planId, status: manualStatus } });
+      await refreshEntitlement();
+      toast.success(t("billing.profileSaved"));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not update the plan.");
+    }
   }
 
   async function openSubscriptionPortal(intent: "manage" | "cancel") {
@@ -487,24 +482,30 @@ function BillingPage() {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => manualActivate("growth", "manualBeta")}
+              onClick={() => void manualActivate("growth", "manualBeta")}
             >
               {t("billing.manual.beta")} (Growth)
             </Button>
             <Button
               size="sm"
               variant="outline"
-              onClick={() => manualActivate("pro", "manualComped")}
+              onClick={() => void manualActivate("pro", "manualComped")}
             >
               {t("billing.manual.comped")} (Pro)
             </Button>
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => {
-                setSubscription(undefined);
-                saveWorkspaceNow();
-                toast.success(t("billing.profileSaved"));
+              onClick={async () => {
+                try {
+                  await setManualEntitlementFn({
+                    data: { planId: "freePreview", status: "freePreview" },
+                  });
+                  await refreshEntitlement();
+                  toast.success(t("billing.profileSaved"));
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Could not update the plan.");
+                }
               }}
             >
               {t("billing.manual.reset")}

@@ -30,8 +30,7 @@
  * service-role-only column written by the Paddle webhook. That is tracked with
  * the billing fixes that gate the paid launch.
  */
-import { PLAN_LIMITS, isActivePaid, type PlanId, type PlanLimits } from "./billing";
-import type { SubscriptionPlan } from "./billing";
+import { PLAN_LIMITS, type PlanId, type PlanLimits } from "./billing";
 
 /** Which advertised limit a given AI call draws from. */
 export type UsageBucket =
@@ -178,18 +177,15 @@ export async function claimAiUsage(args: {
 }
 
 /**
- * The caller's plan, from their workspace. Only an ACTIVE PAID subscription
- * grants its caps: a `checkoutPending` status (what the billing page writes on
- * "Choose Pro" before Paddle confirms) or a self-declared blob resolves to
- * freePreview. getCurrentPlanId used to ignore status entirely, so clicking
- * "Choose Pro" with Paddle unconfigured silently granted Pro caps.
+ * The caller's plan, from public.entitlements — a service-role-write-only
+ * table. The old source (workspace_meta.subscription) was client-writable, so
+ * a user could PATCH themselves onto the agency tier. Fails closed: no row,
+ * non-paid status, lapsed period or a read error all resolve to freePreview.
  */
 async function resolvePlan(userId: string): Promise<PlanId> {
   try {
-    const { readWorkspaceRow } = await import("./workspace.server");
-    const row = await readWorkspaceRow(userId);
-    const sub = row?.data?.subscription as SubscriptionPlan | undefined;
-    return isActivePaid(sub) && sub ? sub.planId : "freePreview";
+    const { resolveEntitledPlan } = await import("./entitlements.server");
+    return await resolveEntitledPlan(userId);
   } catch {
     // Unknown plan must not mean "unlimited".
     return "freePreview";
