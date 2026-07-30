@@ -212,6 +212,8 @@ function PlanPage() {
   const project = projects.find((item) => item.id === activeProjectId) ?? projects[0];
   const [query, setQuery] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  // Seeded demo rows must be disclosed in place, not only in the beta notes.
+  const showSampleBanner = useStore(hasSampleData);
   const [contentOpportunityId, setContentOpportunityId] = useState<string | null>(null);
 
   /**
