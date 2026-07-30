@@ -587,6 +587,52 @@ export function useStore<T>(selector: (s: State) => T): T {
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 
+// --- sample (demo) data ---------------------------------------------------
+// Rows that originate from `mock-data` are illustrative, not the user's own
+// data. They keep their stable seed IDs forever, so identity is enough to tell
+// them apart — no extra flag has to be persisted.
+const SAMPLE_IDS: ReadonlySet<string> = new Set<string>([
+  ...seedProjects.map((p) => p.id),
+  ...seedServices.map((s) => s.id),
+  ...seedOpportunities.map((o) => o.id),
+  ...seedCalendar.map((c) => c.id),
+  ...seedContent.map((c) => c.id),
+]);
+
+/** True when a row came from the seeded demo workspace rather than the user. */
+export const isSampleId = (id: string | undefined | null): boolean =>
+  Boolean(id) && SAMPLE_IDS.has(id as string);
+
+/** Whether any seeded demo row is still present in the workspace. */
+export const hasSampleData = (s: State): boolean =>
+  s.projects.some((p) => isSampleId(p.id)) ||
+  s.services.some((x) => isSampleId(x.id)) ||
+  s.opportunities.some((x) => isSampleId(x.id)) ||
+  s.calendar.some((x) => isSampleId(x.id)) ||
+  s.content.some((x) => isSampleId(x.id));
+
+/** One-click removal of every seeded demo row, keeping the user's own work. */
+export const clearSampleData = () =>
+  setState((s) => {
+    const sampleProjectIds = new Set(s.projects.filter((p) => isSampleId(p.id)).map((p) => p.id));
+    const keep = <T extends { id: string; projectId?: string }>(rows: T[]) =>
+      rows.filter((r) => !isSampleId(r.id) && !(r.projectId && sampleProjectIds.has(r.projectId)));
+    const projects = s.projects.filter((p) => !isSampleId(p.id));
+    const activeProjectId = projects.some((p) => p.id === s.activeProjectId)
+      ? s.activeProjectId
+      : (projects[0]?.id ?? "");
+    if (s.userId) writeStoredActiveProject(s.userId, activeProjectId);
+    return {
+      ...s,
+      projects,
+      services: keep(s.services),
+      opportunities: keep(s.opportunities),
+      calendar: keep(s.calendar),
+      content: keep(s.content),
+      activeProjectId,
+    };
+  });
+
 // --- actions ---
 export const setActiveProject = (id: string) =>
   setState((s) => {
