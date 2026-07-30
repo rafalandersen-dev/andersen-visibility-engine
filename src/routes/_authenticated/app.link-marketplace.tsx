@@ -146,14 +146,33 @@ function LinkMarketplacePage() {
       toast.success(result.submitted ? t("marketplace.toast.submitted") : t("marketplace.toast.requested"));
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
-      if (quote.live) {
+      // These are all thrown BEFORE (or inside, and therefore rolled back with)
+      // the workspace reservation — nothing was persisted, so the user can and
+      // should fix the cause and retry. Only an unrecognised failure after the
+      // reservation leaves a real "In review" record.
+      const nothingPersisted = [
+        "marketplace_confirmation_required",
+        "marketplace_quote_invalid",
+        "marketplace_quote_expired",
+        "marketplace_total_mismatch",
+        "marketplace_ordering_disabled",
+        "marketplace_project_changed",
+        "marketplace_order_exists",
+        "marketplace_offer_not_found",
+        "marketplace_project_not_found",
+        "marketplace_signing_not_configured",
+        "marketplace_target_url_invalid",
+      ].some((code) => message.includes(code));
+      if (quote.live && !nothingPersisted) {
         await reloadWorkspaceForUser(userId);
         toast.error(t("marketplace.toast.orderReview"));
       } else {
         toast.error(
           message.includes("expired")
             ? t("marketplace.toast.quoteExpired")
-            : t("marketplace.toast.orderError"),
+            : message.includes("marketplace_order_exists")
+              ? t("marketplace.toast.exists")
+              : t("marketplace.toast.orderError"),
         );
       }
     } finally {
