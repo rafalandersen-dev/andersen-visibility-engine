@@ -140,8 +140,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootShell({ children }: { children: ReactNode }) {
+  // Locale routes (/dk, /se, /pl, ...) must not claim lang="en" — screen
+  // readers and crawlers both use this attribute. Derived from the pathname so
+  // SSR and hydration agree.
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   return (
-    <html lang="en">
+    <html lang={htmlLangForPath(pathname)}>
       <head>
         <HeadContent />
       </head>
