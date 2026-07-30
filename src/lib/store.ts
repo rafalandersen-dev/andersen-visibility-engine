@@ -51,7 +51,13 @@ import {
   seedContent,
 } from "./mock-data";
 import { supabase } from "@/integrations/supabase/client";
-import { MAX_PROJECTS_PER_USER, getPlanLimitsFor, isActivePaid } from "./billing";
+import {
+  MAX_PROJECTS_PER_USER,
+  MARKET_CURRENCY,
+  getPlanLimitsFor,
+  isActivePaid,
+  planPrice,
+} from "./billing";
 import {
   newOpportunityRecord,
   opportunityDeduplicationKey,
@@ -236,7 +242,11 @@ function persistedSnapshot(s: State): WorkspaceSnapshot {
     tasks: s.tasks,
     pendingActions: s.pendingActions,
     billingProfile: s.billingProfile,
-    subscription: s.subscription,
+    // `subscription` is deliberately NOT persisted: entitlements live in the
+    // service-role-only public.entitlements table and are mirrored into state
+    // read-only by refreshEntitlement(). Saving it here would be a no-op
+    // anyway (apply_workspace_entity_batch strips it), but leaving it out
+    // makes the read-only contract explicit.
     agencyBranding: s.agencyBranding,
     activeProjectId: s.activeProjectId,
   };
@@ -263,7 +273,8 @@ function stateFromRow(userId: string, d: Partial<State>, rev: number): State {
     tasks: d.tasks ?? [],
     pendingActions: d.pendingActions ?? [],
     billingProfile: d.billingProfile,
-    subscription: d.subscription,
+    // Legacy value in the blob is ignored — refreshEntitlement() supplies it.
+    subscription: undefined,
     agencyBranding: d.agencyBranding,
     activeProjectId: (() => {
       const stored = typeof window === "undefined" ? "" : readStoredActiveProject(userId);
@@ -392,6 +403,12 @@ export const setState = (updater: (s: State) => State) => {
   notify();
 };
 
+/** State change that must NOT trigger a workspace save (server-owned data). */
+const setStateNoSave = (updater: (s: State) => State) => {
+  state = updater(state);
+  notify();
+};
+
 export const getState = () => state;
 
 const subscribe = (l: () => void) => {
@@ -471,6 +488,8 @@ export async function hydrateForUser(userId: string): Promise<void> {
     lastSavedDoc = null;
   }
   notify();
+  // Entitlement is server-owned; mirror it in after the workspace loads.
+  await refreshEntitlement();
 }
 
 export function resetStore(): void {
@@ -1186,8 +1205,40 @@ export const updateAiEvaluationRun = (id: string, patch: Partial<AiEvaluationRun
 export const setBillingProfile = (profile: BillingProfile) =>
   setState((s) => ({ ...s, billingProfile: profile }));
 
-export const setSubscription = (sub: SubscriptionPlan | undefined) =>
-  setState((s) => ({ ...s, subscription: sub }));
+/**
+ * Mirror the AUTHORITATIVE entitlement (public.entitlements, service-role
+ * write only) into client state for display and soft UI gating. There is no
+ * client-side setter: the browser cannot grant itself a plan, and anything
+ * unreadable resolves to Free Preview.
+ */
+export async function refreshEntitlement(): Promise<void> {
+  try {
+    const { getMyEntitlementFn } = await import("./entitlements.functions");
+    const { entitlement } = await getMyEntitlementFn();
+    const paid = entitlement.planId !== "freePreview";
+    const market = state.billingProfile?.billingMarket ?? "Other";
+    setStateNoSave((s) => ({
+      ...s,
+      subscription: paid
+        ? {
+            planId: entitlement.planId,
+            status: entitlement.status,
+            billingMarket: market,
+            currency: MARKET_CURRENCY[market],
+            priceMonthly: planPrice(market, entitlement.planId),
+            paddleCustomerId: entitlement.providerCustomerId,
+            paddleSubscriptionId: entitlement.providerSubscriptionId,
+            currentPeriodEnd: entitlement.currentPeriodEnd,
+            cancelAtPeriodEnd: entitlement.cancelAtPeriodEnd,
+            updatedAt: entitlement.updatedAt,
+          }
+        : undefined,
+    }));
+  } catch {
+    // Fail closed: no entitlement data means Free Preview.
+    setStateNoSave((s) => ({ ...s, subscription: undefined }));
+  }
+}
 
 // ---- AI Visibility ----
 

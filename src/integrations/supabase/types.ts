@@ -110,6 +110,30 @@ export type Database = {
         }
         Relationships: []
       }
+      billing_webhook_events: {
+        Row: {
+          event_id: string
+          event_type: string
+          payload: Json
+          processed_at: string
+          provider: string
+        }
+        Insert: {
+          event_id: string
+          event_type: string
+          payload?: Json
+          processed_at?: string
+          provider?: string
+        }
+        Update: {
+          event_id?: string
+          event_type?: string
+          payload?: Json
+          processed_at?: string
+          provider?: string
+        }
+        Relationships: []
+      }
       cron_heartbeats: {
         Row: {
           job_name: string
@@ -212,6 +236,45 @@ export type Database = {
           id?: string
           token?: string
           used_at?: string | null
+        }
+        Relationships: []
+      }
+      entitlements: {
+        Row: {
+          cancel_at_period_end: boolean
+          created_at: string
+          current_period_end: string | null
+          plan_id: string
+          provider: string
+          provider_customer_id: string | null
+          provider_subscription_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancel_at_period_end?: boolean
+          created_at?: string
+          current_period_end?: string | null
+          plan_id?: string
+          provider?: string
+          provider_customer_id?: string | null
+          provider_subscription_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cancel_at_period_end?: boolean
+          created_at?: string
+          current_period_end?: string | null
+          plan_id?: string
+          provider?: string
+          provider_customer_id?: string | null
+          provider_subscription_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -877,6 +940,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      active_plan_id: { Args: { _user_id: string }; Returns: string }
       apply_workspace_entity_batch: {
         Args: {
           p_deletes?: Json
