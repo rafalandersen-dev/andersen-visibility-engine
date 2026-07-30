@@ -245,7 +245,7 @@ export function OutreachDraftCard({
             {t("outreach.approve")}
           </Button>
         ) : null}
-        {draft.status === "Approved" || draft.status === "Failed" ? (
+        {(draft.status === "Approved" || draft.status === "Failed") && !initialSent ? (
           <Button
             size="sm"
             onClick={() => reviewSend({ kind: "initial" })}
