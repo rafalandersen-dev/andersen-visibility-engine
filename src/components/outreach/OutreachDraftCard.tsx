@@ -53,6 +53,13 @@ export function OutreachDraftCard({
       ? draft.followUps[sendStep.followUpIndex]
       : { subject: draft.subject, body: draft.body };
 
+  // A failed FOLLOW-UP also flips the draft to "Failed", but the initial email
+  // is already accepted — re-sending it throws outreach_step_already_sent. Gate
+  // the retry affordances on what actually shipped, not on the draft status.
+  const initialSent = (draft.deliveryEvents ?? []).some(
+    (event) => event.kind === "initial" && event.status === "accepted",
+  );
+
   async function setStatus(status: OutreachStatus) {
     updateOutreachDraft(draft.id, {
       status,
@@ -204,7 +211,10 @@ export function OutreachDraftCard({
                         <MailCheck className="mr-1 h-3 w-3" />
                         {t("outreach.followUpSent")}
                       </Badge>
-                    ) : due && deliveryReady && draft.status === "Sent" ? (
+                    ) : due &&
+                      deliveryReady &&
+                      (draft.status === "Sent" ||
+                        (draft.status === "Failed" && initialSent)) ? (
                       <Button
                         size="sm"
                         variant="outline"
@@ -235,7 +245,7 @@ export function OutreachDraftCard({
             {t("outreach.approve")}
           </Button>
         ) : null}
-        {draft.status === "Approved" || draft.status === "Failed" ? (
+        {(draft.status === "Approved" || draft.status === "Failed") && !initialSent ? (
           <Button
             size="sm"
             onClick={() => reviewSend({ kind: "initial" })}
