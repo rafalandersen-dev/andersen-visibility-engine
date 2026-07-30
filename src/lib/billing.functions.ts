@@ -4,9 +4,10 @@
  * IDs, graceful "not configured" handling and a checkout-session creator. The
  * Paddle API key is read server-side only and never returned to the client.
  *
- * DEFERRED (documented): webhook handling + subscription sync. Until a webhook
- * confirms payment, checkout only moves the local status to "checkoutPending" —
- * paid status is never granted purely client-side.
+ * Paid access is granted ONLY by the signed Paddle webhook
+ * (src/routes/api/public/webhooks/paddle.ts) writing public.entitlements with
+ * the service role. Checkout passes the Supabase user id in `custom_data` so
+ * the webhook can map the subscription back to the account.
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -28,8 +29,7 @@ const PLAN_KEY: Record<PlanId, string> = {
   pro: "PRO",
   // Checkout works once the owner creates the PADDLE_PRICE_AGENCY_* prices —
   // until then priceIdFor returns "" and the checkout fn responds with the
-  // graceful "not configured for this plan/market" message (+ records the
-  // checkoutPending intent).
+  // graceful "not configured for this plan/market" message.
   agency: "AGENCY",
 };
 
@@ -72,6 +72,7 @@ export const createPaddleCheckoutFn = createServerFn({ method: "POST" })
   .handler(
     async ({
       data,
+      context,
     }): Promise<{
       configured: boolean;
       checkoutUrl?: string;
@@ -105,6 +106,9 @@ export const createPaddleCheckoutFn = createServerFn({ method: "POST" })
           body: JSON.stringify({
             items: [{ price_id: priceId, quantity: 1 }],
             ...(data.billingEmail ? { customer: { email: data.billingEmail } } : {}),
+            // The webhook keys entitlements on this; without it a payment
+            // cannot be attributed to an account.
+            custom_data: { user_id: context.userId, plan_id: data.planId },
           }),
         });
         const raw = await res.text().catch(() => "");
@@ -158,6 +162,7 @@ export const createPaddlePortalSessionFn = createServerFn({ method: "POST" })
   .handler(
     async ({
       data,
+      context,
     }): Promise<{
       configured: boolean;
       overviewUrl?: string;
