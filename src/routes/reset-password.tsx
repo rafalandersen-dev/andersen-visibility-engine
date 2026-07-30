@@ -46,7 +46,16 @@ function ResetPasswordPage() {
       if (data.session) finish(true);
     });
 
-    const t = setTimeout(() => finish(false), 2500);
+    // Slow networks / slow token exchange used to trip a 2.5s verdict and show
+    // a false "invalid link". Wait longer, then re-check the session once more
+    // before declaring the link dead.
+    const t = setTimeout(() => {
+      if (resolved) return;
+      supabase.auth
+        .getSession()
+        .then(({ data }) => finish(Boolean(data.session)))
+        .catch(() => finish(false));
+    }, 8000);
     return () => {
       clearTimeout(t);
       sub.subscription.unsubscribe();

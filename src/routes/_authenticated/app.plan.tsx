@@ -43,9 +43,12 @@ import {
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { CreateContentDialog } from "@/components/CreateContentDialog";
+import { SampleBadge } from "@/components/SampleBadge";
 import {
   acceptDiscoverySuggestions,
   addOpportunity,
+  clearSampleData,
+  hasSampleData,
   archiveOpportunity,
   getState,
   reloadWorkspaceForUser,
@@ -209,6 +212,8 @@ function PlanPage() {
   const project = projects.find((item) => item.id === activeProjectId) ?? projects[0];
   const [query, setQuery] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  // Seeded demo rows must be disclosed in place, not only in the beta notes.
+  const showSampleBanner = useStore(hasSampleData);
   const [contentOpportunityId, setContentOpportunityId] = useState<string | null>(null);
 
   /**
@@ -601,6 +606,24 @@ function PlanPage() {
             onQuery={setQuery}
             onToggleArchived={() => setShowArchived((value) => !value)}
           />
+          {showSampleBanner ? (
+            <div className="mx-3 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-[#ddd8cd] bg-[#f7f4ed] px-4 py-2.5">
+              <p className="text-[11px] text-[#5f6672]">
+                Rows marked <span className="font-semibold">Sample</span> are example data included
+                with your workspace — not your own content.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  clearSampleData();
+                  toast.success("Sample data removed");
+                }}
+              >
+                Clear sample data
+              </Button>
+            </div>
+          ) : null}
           {!showArchived && publishRisks.length > 0 ? (
             <div className="px-3 pt-3">
               <PublishRiskBanner
@@ -1445,7 +1468,9 @@ function OpportunityCard({
       >
         <Check size={11} />
       </button>
-      <strong className="pr-5 text-[10px] leading-[1.45]">{opportunity.title}</strong>
+      <strong className="pr-5 text-[10px] leading-[1.45]">
+        {opportunity.title} <SampleBadge id={opportunity.id} className="ml-1 align-middle" />
+      </strong>
       <span className="w-max max-w-full rounded-[3px] border border-[#e2ddd4] bg-[#f7f4ed] px-1.5 py-0.5 text-[8px] text-[#727a84]">
         {opportunitySourceLabel(opportunity)}
       </span>
@@ -1529,7 +1554,10 @@ function ListView({
               onClick={() => onSelect(opportunity.id)}
               className={`grid min-h-14 w-full grid-cols-[2fr_.8fr_.9fr_.7fr_.8fr_80px] items-center gap-3 border-b border-[#e7e1d8] px-4 py-2.5 text-left text-[10px] last:border-b-0 hover:bg-[#faf6ef] ${selectedId === opportunity.id ? "bg-[#faf6ef]" : ""}`}
             >
-              <strong className="text-[11px]">{opportunity.title}</strong>
+              <strong className="flex items-center gap-1.5 text-[11px]">
+                <span className="truncate">{opportunity.title}</span>
+                <SampleBadge id={opportunity.id} />
+              </strong>
               <StageChip stage={opportunity.pipeline} detail={opportunity.pipelineDetail} />
               <span>{opportunitySourceLabel(opportunity)}</span>
               <span className="capitalize">{opportunity.businessImpact}</span>
@@ -1795,7 +1823,10 @@ function CalendarView({
               onClick={() => onSelect(opportunity.id)}
               className="border-t-[3px] border-[#b5862a] bg-[#fbfaf6] px-2.5 py-3 text-left"
             >
-              <strong className="text-[10px] leading-4">{opportunity.title}</strong>
+              <strong className="flex items-center gap-1.5 text-[10px] leading-4">
+                <span className="truncate">{opportunity.title}</span>
+                <SampleBadge id={opportunity.id} />
+              </strong>
               <span className="mt-2 block text-[8px] text-[#697282]">
                 Source: {opportunitySourceLabel(opportunity)}
               </span>
@@ -1920,7 +1951,10 @@ function CalendarDay({
           <span className="text-[7px] font-medium uppercase tracking-[0.1em] text-[#9a927f]">
             Target — not scheduled
           </span>
-          <strong className="text-[9px] leading-[1.4]">{opportunity.title}</strong>
+          <strong className="flex items-center gap-1 text-[9px] leading-[1.4]">
+            <span className="truncate">{opportunity.title}</span>
+            <SampleBadge id={opportunity.id} />
+          </strong>
           {/* Dated within the week but not ready to publish — the in-app alert's
               on-calendar counterpart. */}
           {riskOpportunityIds.has(opportunity.id) ? (

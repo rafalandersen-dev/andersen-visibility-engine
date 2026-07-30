@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { hreflangLinks } from "@/lib/locales";
 import {
   ArrowRight,
   CalendarBlank,
@@ -72,7 +73,7 @@ export const Route = createFileRoute("/")({
         content: "Turn visibility signals into a clear growth plan and prove what changed.",
       },
     ],
-    links: [{ rel: "canonical", href: "https://milogrowth.com/" }],
+    links: [{ rel: "canonical", href: "https://milogrowth.com/" }, ...hreflangLinks()],
     scripts: [
       {
         type: "application/ld+json",

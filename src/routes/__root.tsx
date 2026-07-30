@@ -14,6 +14,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { useRouterState } from "@tanstack/react-router";
+import { htmlLangForPath } from "@/lib/locales";
 import { AuthProvider } from "@/lib/auth";
 
 function NotFoundComponent() {
@@ -98,7 +99,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
-      { rel: "apple-touch-icon", href: "/favicon.svg" },
+      // PNG fallback for clients that ignore SVG icons (older Safari, some
+      // crawlers, Android home-screen).
+      { rel: "icon", type: "image/png", sizes: "512x512", href: "/favicon-512.png" },
+      { rel: "apple-touch-icon", sizes: "180x180", href: "/favicon-180.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
@@ -137,8 +141,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootShell({ children }: { children: ReactNode }) {
+  // Locale routes (/dk, /se, /pl, ...) must not claim lang="en" — screen
+  // readers and crawlers both use this attribute. Derived from the pathname so
+  // SSR and hydration agree.
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   return (
-    <html lang="en">
+    <html lang={htmlLangForPath(pathname)}>
       <head>
         <HeadContent />
       </head>

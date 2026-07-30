@@ -4,6 +4,12 @@ import type {} from "@tanstack/react-start";
 // Lightweight, dependency-free first-party tracking snippet.
 // Usage on a client website:
 //   <script src="https://milogrowth.com/milo-analytics.js" data-project-id="PROJECT_ID"></script>
+//
+// Consent (GDPR/ePrivacy): events are QUEUED, not sent, until consent is
+// resolved. In the EU/EEA/UK the default is "withheld" — nothing is sent and no
+// identifier is stored until window.miloConsent.grant() is called. Outside that
+// region the default is "granted"; set data-consent="required" to force the
+// opt-in behaviour everywhere.
 const SCRIPT = `(function () {
   try {
     var s = document.currentScript ||
@@ -27,30 +33,61 @@ const SCRIPT = `(function () {
       return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2);
     }
 
-    var visitorId = '';
-    try {
-      visitorId = localStorage.getItem('milo_vid') || '';
-      if (!visitorId) { visitorId = uid('v-'); localStorage.setItem('milo_vid', visitorId); }
-    } catch (e) { visitorId = uid('v-'); }
-
-    var sessionId = '';
-    try {
-      sessionId = sessionStorage.getItem('milo_sid') || '';
-      if (!sessionId) { sessionId = uid('s-'); sessionStorage.setItem('milo_sid', sessionId); }
-    } catch (e) { sessionId = uid('s-'); }
-
-    function send(eventType, metadata) {
+    // --- consent -----------------------------------------------------------
+    function inEurope() {
       try {
+        var tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '');
+        if (/^(Europe|Atlantic\\/(Canary|Madeira|Azores|Faroe|Reykjavik))/.test(tz)) return true;
+      } catch (e) {}
+      // Timezone unavailable: fail closed only when the site opted into
+      // data-consent="required"; "auto" treats unknown regions as non-EU.
+      return false;
+    }
+
+    var mode = (s.getAttribute('data-consent') || 'auto').toLowerCase();
+    var stored = null;
+    try { stored = localStorage.getItem('milo_consent'); } catch (e) {}
+
+    var consent;
+    if (stored === 'granted') consent = true;
+    else if (stored === 'denied') consent = false;
+    else if (mode === 'granted') consent = true;
+    else if (mode === 'required') consent = null;          // withhold everywhere
+    else consent = inEurope() ? null : true;               // auto
+
+    var queue = [];
+    var visitorId = '';
+    var sessionId = '';
+
+    function ensureIds() {
+      // Identifiers are only created/persisted once consent exists.
+      if (!visitorId) {
+        try {
+          visitorId = localStorage.getItem('milo_vid') || '';
+          if (!visitorId) { visitorId = uid('v-'); localStorage.setItem('milo_vid', visitorId); }
+        } catch (e) { visitorId = uid('v-'); }
+      }
+      if (!sessionId) {
+        try {
+          sessionId = sessionStorage.getItem('milo_sid') || '';
+          if (!sessionId) { sessionId = uid('s-'); sessionStorage.setItem('milo_sid', sessionId); }
+        } catch (e) { sessionId = uid('s-'); }
+      }
+    }
+
+    function post(evt) {
+      try {
+        ensureIds();
         var payload = {
           projectId: projectId,
-          eventType: eventType,
-          url: location.href,
-          path: location.pathname,
-          title: document.title,
-          referrer: document.referrer,
+          eventType: evt.eventType,
+          url: evt.url,
+          path: evt.path,
+          title: evt.title,
+          referrer: evt.referrer,
           sessionId: sessionId,
           visitorId: visitorId,
-          metadata: metadata || {}
+          metadata: evt.metadata || {}
         };
         var body = JSON.stringify(payload);
         // text/plain keeps this a CORS "simple" request (no preflight).
@@ -64,6 +101,49 @@ const SCRIPT = `(function () {
         }).catch(function () {});
       } catch (e) {}
     }
+
+    function send(eventType, metadata) {
+      var evt = {
+        eventType: eventType,
+        url: location.href,
+        path: location.pathname,
+        title: document.title,
+        referrer: document.referrer,
+        metadata: metadata || {}
+      };
+      if (consent === true) { post(evt); return; }
+      if (consent === false) return;             // denied: drop
+      if (queue.length < 50) queue.push(evt);    // pending: hold
+    }
+
+    function flush() {
+      var pending = queue;
+      queue = [];
+      for (var i = 0; i < pending.length; i++) post(pending[i]);
+    }
+
+    window.miloConsent = {
+      status: function () { return consent === null ? 'pending' : (consent ? 'granted' : 'denied'); },
+      grant: function () {
+        consent = true;
+        try { localStorage.setItem('milo_consent', 'granted'); } catch (e) {}
+        flush();
+      },
+      deny: function () {
+        consent = false;
+        queue = [];
+        try {
+          localStorage.setItem('milo_consent', 'denied');
+          localStorage.removeItem('milo_vid');
+          sessionStorage.removeItem('milo_sid');
+        } catch (e) {}
+        visitorId = ''; sessionId = '';
+      },
+      reset: function () {
+        try { localStorage.removeItem('milo_consent'); } catch (e) {}
+        consent = null;
+      }
+    };
 
     window.miloTrack = function (eventType, metadata) {
       if (!eventType) return;
@@ -86,7 +166,7 @@ const SCRIPT = `(function () {
       window.addEventListener('popstate', function () { setTimeout(onRouteChange, 0); });
     } catch (e) {}
 
-    // Initial page view.
+    // Initial page view (queued when consent is still pending).
     if (document.readyState === 'complete' || document.readyState === 'interactive') send('page_view', {});
     else window.addEventListener('DOMContentLoaded', function () { send('page_view', {}); });
   } catch (e) {}

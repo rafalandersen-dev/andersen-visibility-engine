@@ -22,6 +22,10 @@ export const Route = createFileRoute("/_authenticated")({
 
 const ONBOARDING_PATH = "/app/onboarding";
 const CONNECT_PATH = "/app/connect";
+const SETUP_PATH = "/app/setup";
+// Routes that must render for any authenticated user regardless of how far
+// through onboarding they are (consent page, project setup itself).
+const ONBOARDING_EXEMPT_PATHS = [ONBOARDING_PATH, CONNECT_PATH, SETUP_PATH];
 
 function AuthenticatedLayout() {
   const { loading, session, isOwner, roleLoaded } = useAuth();
@@ -73,7 +77,7 @@ function AuthenticatedLayout() {
     if (loading || !session || hydrating || hydrationFailed || !roleLoaded || isOwner) return;
     // The consent page must render for any authenticated user regardless of
     // onboarding state, so it is exempt from the onboarding guard.
-    if (pathname === ONBOARDING_PATH || pathname === CONNECT_PATH) return;
+    if (ONBOARDING_EXEMPT_PATHS.includes(pathname)) return;
     const active = projects.find((p) => p.id === activeProjectId) ?? projects[0];
     const needsOnboarding = projects.length === 0 || !isProjectSetupComplete(active);
     if (needsOnboarding) {
