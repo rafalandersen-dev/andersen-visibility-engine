@@ -173,9 +173,14 @@ export const signupWithBrandedEmailFn = createServerFn({ method: "POST" })
         supabase,
       });
     } catch (sendError) {
-      const createdUserId = linkData.user?.id;
-      if (createdUserId) {
-        const { error: deleteError } = await supabase.auth.admin.deleteUser(createdUserId);
+      // Only roll back an account this call actually created — generateLink on
+      // an existing (unconfirmed) user returns that user, and deleting it would
+      // destroy someone else's account.
+      const createdUser = linkData.user;
+      const createdAt = createdUser?.created_at ? Date.parse(createdUser.created_at) : NaN;
+      const justCreated = Number.isFinite(createdAt) && Date.now() - createdAt < 60_000;
+      if (createdUser?.id && justCreated) {
+        const { error: deleteError } = await supabase.auth.admin.deleteUser(createdUser.id);
         if (deleteError) {
           console.error("[auth-email] orphan cleanup failed", deleteError.message);
         }
