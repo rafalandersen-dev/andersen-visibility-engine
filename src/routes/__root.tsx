@@ -14,6 +14,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { useRouterState } from "@tanstack/react-router";
+import { htmlLangForPath } from "@/lib/locales";
 import { AuthProvider } from "@/lib/auth";
 
 function NotFoundComponent() {
