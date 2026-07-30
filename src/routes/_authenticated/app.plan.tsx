@@ -1801,7 +1801,10 @@ function CalendarView({
               onClick={() => onSelect(opportunity.id)}
               className="border-t-[3px] border-[#b5862a] bg-[#fbfaf6] px-2.5 py-3 text-left"
             >
-              <strong className="text-[10px] leading-4">{opportunity.title}</strong>
+              <strong className="flex items-center gap-1.5 text-[10px] leading-4">
+                <span className="truncate">{opportunity.title}</span>
+                <SampleBadge id={opportunity.id} />
+              </strong>
               <span className="mt-2 block text-[8px] text-[#697282]">
                 Source: {opportunitySourceLabel(opportunity)}
               </span>
