@@ -565,24 +565,6 @@ function PlanPage() {
       toast.error(error instanceof Error ? error.message : "Could not start the rewrite");
     }
   }
-          {showSampleBanner ? (
-            <div className="mx-3 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-[#ddd8cd] bg-[#f7f4ed] px-4 py-2.5">
-              <p className="text-[11px] text-[#5f6672]">
-                Rows marked <span className="font-semibold">Sample</span> are example data included
-                with your workspace — not your own content.
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  clearSampleData();
-                  toast.success("Sample data removed");
-                }}
-              >
-                Clear sample data
-              </Button>
-            </div>
-          ) : null}
 
   return (
     <AppShell
