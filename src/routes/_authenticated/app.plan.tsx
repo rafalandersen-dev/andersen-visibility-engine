@@ -43,6 +43,7 @@ import {
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { CreateContentDialog } from "@/components/CreateContentDialog";
+import { SampleBadge } from "@/components/SampleBadge";
 import {
   acceptDiscoverySuggestions,
   addOpportunity,
