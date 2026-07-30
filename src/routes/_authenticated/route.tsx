@@ -77,7 +77,7 @@ function AuthenticatedLayout() {
     if (loading || !session || hydrating || hydrationFailed || !roleLoaded || isOwner) return;
     // The consent page must render for any authenticated user regardless of
     // onboarding state, so it is exempt from the onboarding guard.
-    if (pathname === ONBOARDING_PATH || pathname === CONNECT_PATH) return;
+    if (ONBOARDING_EXEMPT_PATHS.includes(pathname)) return;
     const active = projects.find((p) => p.id === activeProjectId) ?? projects[0];
     const needsOnboarding = projects.length === 0 || !isProjectSetupComplete(active);
     if (needsOnboarding) {
