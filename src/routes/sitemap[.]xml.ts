@@ -54,22 +54,29 @@ const LEGAL = new Set([
   "/ai-disclaimer",
 ]);
 
-interface AnyRoute {
-  fullPath?: string;
-  children?: AnyRoute[] | Record<string, AnyRoute>;
-}
-
-function collectPaths(route: AnyRoute, acc: Set<string>): void {
-  if (typeof route.fullPath === "string") acc.add(route.fullPath);
-  const kids = route.children;
-  if (!kids) return;
-  const list = Array.isArray(kids) ? kids : Object.values(kids);
-  for (const child of list) collectPaths(child as AnyRoute, acc);
+/** Turn a route filename ("./blog.local-seo-guide.tsx") into its URL path. */
+function fileToPath(file: string): string | null {
+  let name = file.replace(/^\.\//, "").replace(/\.(tsx|ts)$/, "");
+  if (name === "__root" || name.endsWith("/route") || name === "route") return null;
+  // Folder separators and dot separators are equivalent in file-based routing.
+  name = name.replace(/\//g, ".");
+  // "[.]" escapes a literal dot (sitemap[.]xml -> sitemap.xml).
+  name = name.replace(/\[\.\]/g, "\u0000");
+  const segments = name
+    .split(".")
+    .map((s) => s.replace(/\u0000/g, "."))
+    .filter((s) => s.length > 0);
+  const cleaned = segments.filter((s, i) => !(s === "index" && i === segments.length - 1));
+  if (cleaned.length === 0) return "/";
+  return "/" + cleaned.join("/");
 }
 
 function indexablePaths(): string[] {
   const all = new Set<string>();
-  collectPaths(routeTree as unknown as AnyRoute, all);
+  for (const file of Object.keys(ROUTE_FILES)) {
+    const path = fileToPath(file);
+    if (path) all.add(path);
+  }
 
   const paths = [...all]
     .map((p) => (p !== "/" ? p.replace(/\/+$/, "") : p))
@@ -77,11 +84,9 @@ function indexablePaths(): string[] {
     .filter((p) => !p.includes("$") && !p.includes("*"))
     .filter((p) => !EXCLUDE_EXACT.has(p))
     .filter((p) => !EXCLUDE_PREFIXES.some((prefix) => p === prefix || p.startsWith(prefix + "/")))
-    .filter((p) => !EXCLUDE_PREFIXES.some((prefix) => p.startsWith(prefix) && prefix === "/_"));
+    .filter((p) => !p.split("/").some((seg) => seg.startsWith("_")));
 
-  return [...new Set(paths)].sort((a, b) =>
-    a === "/" ? -1 : b === "/" ? 1 : a.localeCompare(b),
-  );
+  return [...new Set(paths)].sort((a, b) => (a === "/" ? -1 : b === "/" ? 1 : a.localeCompare(b)));
 }
 
 function hintFor(path: string): { changefreq: string; priority: string } {
