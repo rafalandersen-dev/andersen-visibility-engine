@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_usage: {
+        Row: {
+          bucket: string
+          period: string
+          updated_at: string
+          used: number
+          user_id: string
+        }
+        Insert: {
+          bucket: string
+          period: string
+          updated_at?: string
+          used?: number
+          user_id: string
+        }
+        Update: {
+          bucket?: string
+          period?: string
+          updated_at?: string
+          used?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       analytics_events: {
         Row: {
           ai_signal_source: string | null
@@ -83,6 +107,24 @@ export type Database = {
           url?: string | null
           user_agent?: string | null
           visitor_id?: string | null
+        }
+        Relationships: []
+      }
+      cron_heartbeats: {
+        Row: {
+          job_name: string
+          last_run_at: string
+          last_summary: Json | null
+        }
+        Insert: {
+          job_name: string
+          last_run_at?: string
+          last_summary?: Json | null
+        }
+        Update: {
+          job_name?: string
+          last_run_at?: string
+          last_summary?: Json | null
         }
         Relationships: []
       }
@@ -212,6 +254,123 @@ export type Database = {
           updated_at?: string
           user_id?: string
           workspace_id?: string
+        }
+        Relationships: []
+      }
+      link_network_listings: {
+        Row: {
+          contact_email: string
+          created_at: string
+          id: string
+          language: string
+          locale: string
+          project_id: string
+          site_name: string
+          site_url: string
+          status: string
+          topics: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          contact_email?: string
+          created_at?: string
+          id?: string
+          language?: string
+          locale?: string
+          project_id: string
+          site_name: string
+          site_url: string
+          status?: string
+          topics?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          contact_email?: string
+          created_at?: string
+          id?: string
+          language?: string
+          locale?: string
+          project_id?: string
+          site_name?: string
+          site_url?: string
+          status?: string
+          topics?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      link_network_matches: {
+        Row: {
+          a_project: string
+          a_site: string
+          a_user: string
+          b_contact: string
+          b_language: string
+          b_name: string
+          b_project: string
+          b_site: string
+          b_topics: string[]
+          b_user: string
+          created_at: string
+          id: string
+          last_check_found: boolean | null
+          last_checked_at: string | null
+          link_rel: string | null
+          score: number
+          shared_topics: string[]
+          status: string
+          target_url: string
+          updated_at: string
+          verified_at: string | null
+        }
+        Insert: {
+          a_project: string
+          a_site: string
+          a_user: string
+          b_contact?: string
+          b_language?: string
+          b_name?: string
+          b_project: string
+          b_site: string
+          b_topics?: string[]
+          b_user: string
+          created_at?: string
+          id?: string
+          last_check_found?: boolean | null
+          last_checked_at?: string | null
+          link_rel?: string | null
+          score?: number
+          shared_topics?: string[]
+          status?: string
+          target_url?: string
+          updated_at?: string
+          verified_at?: string | null
+        }
+        Update: {
+          a_project?: string
+          a_site?: string
+          a_user?: string
+          b_contact?: string
+          b_language?: string
+          b_name?: string
+          b_project?: string
+          b_site?: string
+          b_topics?: string[]
+          b_user?: string
+          created_at?: string
+          id?: string
+          last_check_found?: boolean | null
+          last_checked_at?: string | null
+          link_rel?: string | null
+          score?: number
+          shared_topics?: string[]
+          status?: string
+          target_url?: string
+          updated_at?: string
+          verified_at?: string | null
         }
         Relationships: []
       }
@@ -536,6 +695,51 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduled_publishes: {
+        Row: {
+          asset_id: string
+          attempts: number
+          claimed_at: string | null
+          created_at: string
+          id: string
+          last_error: string | null
+          project_id: string
+          publish_at: string
+          published_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          asset_id: string
+          attempts?: number
+          claimed_at?: string | null
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          project_id: string
+          publish_at: string
+          published_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          asset_id?: string
+          attempts?: number
+          claimed_at?: string | null
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          project_id?: string
+          publish_at?: string
+          published_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       suppressed_emails: {
         Row: {
           created_at: string
@@ -581,6 +785,66 @@ export type Database = {
         }
         Relationships: []
       }
+      workspace_entities: {
+        Row: {
+          collection: string
+          data: Json
+          entity_id: string
+          ord: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          collection: string
+          data: Json
+          entity_id: string
+          ord?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          collection?: string
+          data?: Json
+          entity_id?: string
+          ord?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      workspace_meta: {
+        Row: {
+          active_project_id: string
+          billing_profile: Json | null
+          extras: Json
+          migrated_at: string
+          rev: number
+          subscription: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active_project_id?: string
+          billing_profile?: Json | null
+          extras?: Json
+          migrated_at?: string
+          rev?: number
+          subscription?: Json | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active_project_id?: string
+          billing_profile?: Json | null
+          extras?: Json
+          migrated_at?: string
+          rev?: number
+          subscription?: Json | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       workspaces: {
         Row: {
           created_at: string
@@ -613,15 +877,68 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_workspace_entity_batch: {
+        Args: {
+          p_deletes?: Json
+          p_expected_rev?: number
+          p_meta?: Json
+          p_upserts?: Json
+          p_user_id: string
+        }
+        Returns: number
+      }
+      auto_scheduler_secret: { Args: never; Returns: string }
+      backfill_workspace_entities: {
+        Args: { p_entities: Json; p_meta: Json; p_user_id: string }
+        Returns: boolean
+      }
       bump_rate_limit: {
         Args: { p_bucket: string; p_key: string; p_window_start: string }
         Returns: number
+      }
+      claim_ai_usage: {
+        Args: {
+          p_bucket: string
+          p_cap: number
+          p_period: string
+          p_units?: number
+          p_user: string
+        }
+        Returns: {
+          allowed: boolean
+          cap: number
+          used: number
+        }[]
+      }
+      claim_scheduled_publishes: {
+        Args: { batch_size?: number; max_attempts?: number }
+        Returns: {
+          asset_id: string
+          attempts: number
+          claimed_at: string | null
+          created_at: string
+          id: string
+          last_error: string | null
+          project_id: string
+          publish_at: string
+          published_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "scheduled_publishes"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       cleanup_rate_limits: { Args: { p_before: string }; Returns: undefined }
       consume_refresh_token: {
         Args: { p_now: string; p_refresh_hash: string }
         Returns: boolean
       }
+      cron_heartbeat_age_seconds: { Args: { job: string }; Returns: number }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -648,6 +965,7 @@ export type Database = {
         }
         Returns: number
       }
+      publish_cron_secret: { Args: never; Returns: string }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
@@ -655,6 +973,19 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      read_workspace_bundle: { Args: { p_user_id: string }; Returns: Json }
+      reap_stale_scheduled_publishes: {
+        Args: { stale_after?: string }
+        Returns: {
+          asset_id: string
+          last_error: string
+          user_id: string
+        }[]
+      }
+      record_cron_heartbeat: {
+        Args: { job: string; summary?: Json }
+        Returns: undefined
       }
     }
     Enums: {
