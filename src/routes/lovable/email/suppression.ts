@@ -14,13 +14,19 @@ interface SuppressionPayload {
 }
 
 function parseSuppressionPayload(body: string): SuppressionPayload {
-  const parsed = JSON.parse(body)
-  if (!parsed.data) {
-    throw new Error('Missing data field in payload')
+  let parsed: { data?: unknown }
+  try {
+    parsed = JSON.parse(body)
+  } catch {
+    // Malformed body must be a 400, not an unhandled 500.
+    throw new WebhookError('invalid_json', 'Malformed JSON body')
+  }
+  if (!parsed || typeof parsed !== 'object' || !parsed.data) {
+    throw new WebhookError('invalid_payload', 'Missing data field in payload')
   }
   const data = parsed.data as SuppressionPayload
   if (!data.email || !data.reason) {
-    throw new Error('Missing required fields: email, reason')
+    throw new WebhookError('invalid_payload', 'Missing required fields: email, reason')
   }
   return data
 }
