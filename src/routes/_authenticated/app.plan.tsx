@@ -47,6 +47,8 @@ import { SampleBadge } from "@/components/SampleBadge";
 import {
   acceptDiscoverySuggestions,
   addOpportunity,
+  clearSampleData,
+  hasSampleData,
   archiveOpportunity,
   getState,
   reloadWorkspaceForUser,
