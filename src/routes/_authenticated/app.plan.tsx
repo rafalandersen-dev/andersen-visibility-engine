@@ -1532,7 +1532,10 @@ function ListView({
               onClick={() => onSelect(opportunity.id)}
               className={`grid min-h-14 w-full grid-cols-[2fr_.8fr_.9fr_.7fr_.8fr_80px] items-center gap-3 border-b border-[#e7e1d8] px-4 py-2.5 text-left text-[10px] last:border-b-0 hover:bg-[#faf6ef] ${selectedId === opportunity.id ? "bg-[#faf6ef]" : ""}`}
             >
-              <strong className="text-[11px]">{opportunity.title}</strong>
+              <strong className="flex items-center gap-1.5 text-[11px]">
+                <span className="truncate">{opportunity.title}</span>
+                <SampleBadge id={opportunity.id} />
+              </strong>
               <StageChip stage={opportunity.pipeline} detail={opportunity.pipelineDetail} />
               <span>{opportunitySourceLabel(opportunity)}</span>
               <span className="capitalize">{opportunity.businessImpact}</span>
