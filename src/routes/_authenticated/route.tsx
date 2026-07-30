@@ -22,6 +22,10 @@ export const Route = createFileRoute("/_authenticated")({
 
 const ONBOARDING_PATH = "/app/onboarding";
 const CONNECT_PATH = "/app/connect";
+const SETUP_PATH = "/app/setup";
+// Routes that must render for any authenticated user regardless of how far
+// through onboarding they are (consent page, project setup itself).
+const ONBOARDING_EXEMPT_PATHS = [ONBOARDING_PATH, CONNECT_PATH, SETUP_PATH];
 
 function AuthenticatedLayout() {
   const { loading, session, isOwner, roleLoaded } = useAuth();
