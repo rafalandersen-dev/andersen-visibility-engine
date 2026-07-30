@@ -39,9 +39,8 @@ const SCRIPT = `(function () {
         var tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '');
         if (/^(Europe|Atlantic\\/(Canary|Madeira|Azores|Faroe|Reykjavik))/.test(tz)) return true;
       } catch (e) {}
-      try {
-        var offset = -new Date().getUTCMonth ? 0 : 0;
-      } catch (e) {}
+      // Timezone unavailable: fail closed only when the site opted into
+      // data-consent="required"; "auto" treats unknown regions as non-EU.
       return false;
     }
 
