@@ -266,6 +266,15 @@ export const REGION_SELECTOR_LABELS: Record<DisplayRegion, string> = {
   eu: "EU / English",
 };
 
+/** Region names as they read inside a sentence ("… you may be in the United Kingdom."). */
+export const REGION_SENTENCE_LABELS: Record<DisplayRegion, string> = {
+  pl: "Poland",
+  se: "Sweden",
+  dk: "Denmark",
+  uk: "the United Kingdom",
+  eu: "the EU",
+};
+
 /** Map a display region to its billing market (for displaying local plan prices). */
 export function regionToBillingMarket(region: DisplayRegion): "Poland" | "Sweden" | "Denmark" | "United Kingdom" | "European Union" {
   if (region === "pl") return "Poland";
@@ -275,12 +284,52 @@ export function regionToBillingMarket(region: DisplayRegion): "Poland" | "Sweden
   return "European Union";
 }
 
-/** Suggest a display region from a browser language code. Defaults to "eu". */
+/** IANA time zones that map cleanly onto one of our local markets. */
+const REGION_TIME_ZONES: Record<string, DisplayRegion> = {
+  "Europe/Warsaw": "pl",
+  "Europe/Stockholm": "se",
+  "Europe/Copenhagen": "dk",
+  "Europe/London": "uk",
+};
+
+/**
+ * Suggest a display region from an IANA time zone, or null if the zone is
+ * missing or not one of our markets.
+ */
+export function suggestRegionFromTimeZone(timeZone: string | undefined): DisplayRegion | null {
+  if (!timeZone) return null;
+  return REGION_TIME_ZONES[timeZone.trim()] ?? null;
+}
+
+/**
+ * Suggest a display region from a browser language code. Defaults to "eu".
+ *
+ * Matches on the full locale, not just the primary subtag: only "en-GB" implies
+ * the UK market. Every other English locale ("en", "en-US", "en-SE", …) says
+ * nothing about where the visitor is, so it falls through to generic EU/English
+ * rather than pointing them at GBP pricing.
+ */
 export function suggestRegionFromLanguage(navLang: string | undefined): DisplayRegion {
-  const l = (navLang || "").slice(0, 2).toLowerCase();
-  if (l === "pl") return "pl";
-  if (l === "sv") return "se";
-  if (l === "da") return "dk";
-  if (l === "en") return "uk";
+  const l = (navLang || "").trim().toLowerCase();
+  const primary = l.split("-")[0];
+  if (primary === "pl") return "pl";
+  if (primary === "sv") return "se";
+  if (primary === "da") return "dk";
+  if (l === "en-gb") return "uk";
   return "eu";
+}
+
+/**
+ * Suggest a display region for a visitor. Defaults to "eu" (= no suggestion
+ * worth making; the landing page is already generic English).
+ *
+ * Time zone first, because it is the closest thing the browser exposes to
+ * "where is this person". Language is a poor location signal: a macOS user in
+ * Malmö who set their system language to English (UK) reports "en-GB" and was
+ * being told they might be in the United Kingdom, with GBP pricing attached.
+ * Language is only consulted when no time zone is available at all.
+ */
+export function suggestDisplayRegion(signals: { timeZone?: string; language?: string }): DisplayRegion {
+  if (signals.timeZone) return suggestRegionFromTimeZone(signals.timeZone) ?? "eu";
+  return suggestRegionFromLanguage(signals.language);
 }
