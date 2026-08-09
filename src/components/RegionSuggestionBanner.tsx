@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { REGION_SELECTOR_LABELS, suggestRegionFromLanguage, type DisplayRegion } from "@/lib/markets";
+import { REGION_SELECTOR_LABELS, REGION_SENTENCE_LABELS, suggestDisplayRegion, type DisplayRegion } from "@/lib/markets";
 import { X } from "lucide-react";
 
 /**
@@ -15,7 +15,16 @@ export function RegionSuggestionBanner() {
       const stored = localStorage.getItem("milo_display_region");
       const dismissed = localStorage.getItem("milo_region_suggest_dismissed");
       if (stored || dismissed) return;
-      const suggested = suggestRegionFromLanguage(navigator.language);
+      let timeZone: string | undefined;
+      try {
+        timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      } catch {
+        /* fall back to language below */
+      }
+      const suggested = suggestDisplayRegion({ timeZone, language: navigator.language });
+      // "eu" means we couldn't place the visitor in a local market, and the
+      // landing page is already the generic English one — nothing to suggest.
+      if (suggested === "eu") return;
       setRegion(suggested);
     } catch {
       /* ignore */
@@ -33,7 +42,7 @@ export function RegionSuggestionBanner() {
     <div className="border-b border-border bg-card/60">
       <div className="mx-auto max-w-6xl px-6 py-2.5 flex items-center justify-between gap-3 text-sm">
         <span className="text-muted-foreground">
-          Looks like you may be in {REGION_SELECTOR_LABELS[region]}.{" "}
+          Looks like you may be in {REGION_SENTENCE_LABELS[region]}.{" "}
           <Link to={`/${region}` as never} className="text-foreground underline underline-offset-4" onClick={() => { try { localStorage.setItem("milo_display_region", region!); } catch { /* ignore */ } }}>
             View the {REGION_SELECTOR_LABELS[region]} version
           </Link>
