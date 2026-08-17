@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { translate } from "@/i18n";
 import { contentLangToProjectLanguage } from "@/lib/onboarding";
-import { runPublicAudit } from "@/lib/public-audit-client";
+import { PublicAuditUnavailableError, runPublicAudit } from "@/lib/public-audit-client";
 import {
   PUBLIC_AUDIT_CATEGORY_KEYS,
   type PublicAiVisibilityAudit,
@@ -57,6 +57,7 @@ function PublicAuditPage() {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [unavailable, setUnavailable] = useState(false);
   const [result, setResult] = useState<PublicAiVisibilityAudit | null>(null);
   const [botProof, setBotProof] = useState("");
   const [turnstileReset, setTurnstileReset] = useState(0);
@@ -74,6 +75,7 @@ function PublicAuditPage() {
     }
     setLoading(true);
     setError(null);
+    setUnavailable(false);
     setResult(null);
     setStep(0);
     const timer = setInterval(() => setStep((s) => Math.min(STEP_KEYS.length - 1, s + 1)), 1500);
@@ -85,6 +87,7 @@ function PublicAuditPage() {
       });
       setResult(audit);
     } catch (e) {
+      setUnavailable(e instanceof PublicAuditUnavailableError);
       setError(e instanceof Error ? e.message : t("publicAudit.genericError"));
     } finally {
       clearInterval(timer);
@@ -206,9 +209,18 @@ function PublicAuditPage() {
           <div className="mt-8 rounded-lg border border-border bg-card p-6 text-center">
             <AlertTriangle className="mx-auto h-7 w-7 text-amber-500" strokeWidth={1.5} />
             <p className="mt-2 text-sm text-muted-foreground max-w-md mx-auto">{error}</p>
-            <Button className="mt-4" variant="outline" onClick={run}>
-              {t("common.retry")}
-            </Button>
+            {/* Retry only helps for transient failures. When the endpoint is not
+                wired up, offer the sign-up path instead of a button that cannot
+                ever succeed. */}
+            {unavailable ? (
+              <Button className="mt-4" onClick={startProject}>
+                Start a project
+              </Button>
+            ) : (
+              <Button className="mt-4" variant="outline" onClick={run}>
+                {t("common.retry")}
+              </Button>
+            )}
           </div>
         ) : null}
 

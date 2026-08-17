@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { runPublicAudit } from "./public-audit-client";
+import { PublicAuditUnavailableError, runPublicAudit } from "./public-audit-client";
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -59,5 +59,27 @@ describe("public audit HTTP client", () => {
       "/api/public-audit",
       expect.objectContaining({ credentials: "omit" }),
     );
+  });
+});
+
+describe("endpoint not wired up", () => {
+  it("flags a bare 404 as permanently unavailable, not a retryable error", async () => {
+    const fetchImpl = vi.fn(async () => new Response("<!doctype html>", { status: 404 }));
+    await expect(
+      runPublicAudit({ url: "example.com", botProof: "proof" }, fetchImpl),
+    ).rejects.toBeInstanceOf(PublicAuditUnavailableError);
+  });
+
+  it("keeps a real worker error retryable even on a 503", async () => {
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ error: { code: "upstream", message: "Provider down." } }), {
+          status: 503,
+          headers: { "content-type": "application/json" },
+        }),
+    );
+    await expect(
+      runPublicAudit({ url: "example.com", botProof: "proof" }, fetchImpl),
+    ).rejects.not.toBeInstanceOf(PublicAuditUnavailableError);
   });
 });
