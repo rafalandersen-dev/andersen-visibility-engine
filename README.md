@@ -176,3 +176,5 @@ Internal — Andersen Innovations.
 <!-- deploy-nudge 2026-08-17: force pipeline past 7f05598 (PR #53) -->
 
 <!-- deploy-nudge 2 -->
+
+<!-- deploy-nudge 3: apply Paddle secrets -->
