@@ -148,20 +148,16 @@ export const createPaddleCheckoutFn = createServerFn({ method: "POST" })
  * uses the subscription-specific cancellation deep link when available, so
  * cancelling is a visible first-class account action rather than a support
  * request or a hidden settings path.
+ *
+ * The Paddle customer/subscription ids are resolved SERVER-side from the
+ * caller's own entitlement row (P1-10). They used to arrive in the request
+ * body, which let any authenticated user mint a portal session — including
+ * the cancellation deep link — for any other customer's billing account.
  */
 export const createPaddlePortalSessionFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
-    z
-      .object({
-        customerId: z.string().min(1),
-        subscriptionId: z.string().min(1).optional(),
-      })
-      .parse(input),
-  )
   .handler(
     async ({
-      data,
       context,
     }): Promise<{
       configured: boolean;
@@ -178,11 +174,24 @@ export const createPaddlePortalSessionFn = createServerFn({ method: "POST" })
             "Subscription management is not configured yet. Contact support and we will handle your request immediately.",
         };
       }
+      // The caller's OWN Paddle ids, from the service-role entitlements row —
+      // never from the request body.
+      const { readEntitlement } = await import("./entitlements.server");
+      const entitlement = await readEntitlement(context.userId as string);
+      const customerId = entitlement.providerCustomerId ?? "";
+      const subscriptionId = entitlement.providerSubscriptionId ?? "";
+      if (!customerId) {
+        return {
+          configured: true,
+          message:
+            "Your billing account is not linked to Paddle yet. Email billing@milogrowth.com and we will process the request immediately.",
+        };
+      }
       const base =
         paddleEnv() === "production" ? "https://api.paddle.com" : "https://sandbox-api.paddle.com";
       try {
         const response = await fetch(
-          `${base}/customers/${encodeURIComponent(data.customerId)}/portal-sessions`,
+          `${base}/customers/${encodeURIComponent(customerId)}/portal-sessions`,
           {
             method: "POST",
             headers: {
@@ -190,9 +199,7 @@ export const createPaddlePortalSessionFn = createServerFn({ method: "POST" })
               "Content-Type": "application/json",
               "Paddle-Version": "1",
             },
-            body: JSON.stringify(
-              data.subscriptionId ? { subscription_ids: [data.subscriptionId] } : {},
-            ),
+            body: JSON.stringify(subscriptionId ? { subscription_ids: [subscriptionId] } : {}),
           },
         );
         const raw = await response.text().catch(() => "");
@@ -229,7 +236,7 @@ export const createPaddlePortalSessionFn = createServerFn({ method: "POST" })
           configured: true,
           overviewUrl: portal?.general?.overview,
           cancelUrl: portal?.subscriptions?.find(
-            (subscription) => subscription.id === data.subscriptionId,
+            (subscription) => subscription.id === subscriptionId,
           )?.cancel_subscription,
         };
       } catch {
