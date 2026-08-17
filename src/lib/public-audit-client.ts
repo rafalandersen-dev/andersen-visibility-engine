@@ -51,6 +51,16 @@ export async function runPublicAudit(
   const payload = (await response.json().catch(() => undefined)) as
     { error?: { message?: string } } | PublicAiVisibilityAudit | undefined;
   if (!response.ok) {
+    // 404/501/502/503 with no audit error envelope means the endpoint itself is
+    // not answering (worker not routed) rather than the audit failing.
+    const notWired =
+      [404, 501, 502, 503].includes(response.status) &&
+      !(payload && "error" in payload && payload.error?.message);
+    if (notWired) {
+      throw new PublicAuditUnavailableError(
+        "The free audit is temporarily closed while we finish setting it up. Start a project and Milo will run a full audit for you.",
+      );
+    }
     const message =
       payload && "error" in payload && payload.error?.message
         ? payload.error.message
