@@ -174,3 +174,5 @@ routing. `src/routeTree.gen.ts` is auto-generated — do not edit it.
 Internal — Andersen Innovations.
 
 <!-- deploy-nudge 2026-08-17: force pipeline past 7f05598 (PR #53) -->
+
+<!-- deploy-nudge 2 -->
