@@ -152,6 +152,9 @@ function BillingPage() {
   }
 
   async function openSubscriptionPortal(intent: "manage" | "cancel") {
+    // No ids sent up: the server resolves the caller's own Paddle customer and
+    // subscription from the entitlements row (P1-10). The client-side
+    // subscription copy is only a UX hint and is not trusted for this.
     if (!subscription?.paddleCustomerId) {
       toast.message(
         "Your billing account is not linked to Paddle yet. Email billing@milogrowth.com and we will process the request immediately.",
@@ -160,12 +163,7 @@ function BillingPage() {
     }
     setPortalBusy(intent);
     try {
-      const portal = await createPaddlePortalSessionFn({
-        data: {
-          customerId: subscription.paddleCustomerId,
-          subscriptionId: subscription.paddleSubscriptionId,
-        },
-      });
+      const portal = await createPaddlePortalSessionFn();
       const target =
         intent === "cancel" ? (portal.cancelUrl ?? portal.overviewUrl) : portal.overviewUrl;
       if (target) {

@@ -46,8 +46,61 @@ export const Route = createFileRoute("/api/analytics/track")({
             return json({ ok: false, error: "Invalid JSON" }, 400);
           }
 
+          // ---- Per-IP rate limit (P1-11) — same fixed-window machinery as the
+          // OAuth endpoints. Fail-open: a metering hiccup must not break
+          // customers' sites, the wall is for floods.
+          const { checkRateLimit, RATE_BUCKETS, bumpRateLimit } =
+            await import("@/lib/oauth.server");
+          const ip = (request.headers.get("x-forwarded-for") ?? "").split(",")[0].trim();
+          const rate = await checkRateLimit(RATE_BUCKETS.analyticsIp, ip, {
+            bump: bumpRateLimit,
+            nowMs: Date.now(),
+          });
+          if (!rate.allowed) {
+            return new Response(null, {
+              status: 429,
+              headers: { "Retry-After": String(rate.retryAfterSec), ...CORS },
+            });
+          }
+
           const projectId = safeStr(p.projectId, 100);
           if (!projectId) return json({ ok: false, error: "Missing projectId" }, 400);
+
+          // ---- The project must actually exist (P1-11). Without this, any
+          // anonymous caller could pour forged rows into an arbitrary
+          // project_id — polluting a real tenant's analytics or bloating the
+          // table with junk. Unknown ids answer ok:true (no existence oracle),
+          // they just never insert.
+          const { supabaseAdmin: adminForCheck } =
+            await import("@/integrations/supabase/client.server");
+          const { data: projectRow } = await (
+            adminForCheck as unknown as {
+              from: (t: string) => {
+                select: (c: string) => {
+                  eq: (
+                    c: string,
+                    v: string,
+                  ) => {
+                    eq: (
+                      c: string,
+                      v: string,
+                    ) => {
+                      limit: (n: number) => {
+                        maybeSingle: () => Promise<{ data: unknown; error: unknown }>;
+                      };
+                    };
+                  };
+                };
+              };
+            }
+          )
+            .from("workspace_entities")
+            .select("entity_id")
+            .eq("collection", "projects")
+            .eq("entity_id", projectId)
+            .limit(1)
+            .maybeSingle();
+          if (!projectRow) return json({ ok: true });
 
           const eventType = p.eventType;
           if (!isValidEventType(eventType)) {
@@ -93,9 +146,13 @@ export const Route = createFileRoute("/api/analytics/track")({
 
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           // analytics_events is not in the generated Database types; cast for insert.
-          const { error } = await (supabaseAdmin as unknown as {
-            from: (t: string) => { insert: (r: unknown) => Promise<{ error: { message: string } | null }> };
-          })
+          const { error } = await (
+            supabaseAdmin as unknown as {
+              from: (t: string) => {
+                insert: (r: unknown) => Promise<{ error: { message: string } | null }>;
+              };
+            }
+          )
             .from("analytics_events")
             .insert(row);
 

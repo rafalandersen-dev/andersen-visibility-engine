@@ -48,7 +48,11 @@ export const OAUTH_ISSUABLE_SCOPES = [...OAUTH_SCOPES, OFFLINE_ACCESS_SCOPE] as 
  * no umbrella milo.write, and settings/insights/authority write scopes are
  * intentionally undefined so they can never be granted.
  */
-export const MCP_WRITE_SCOPES = ["milo.projects.write", "milo.content.write", "milo.tasks.write"] as const;
+export const MCP_WRITE_SCOPES = [
+  "milo.projects.write",
+  "milo.content.write",
+  "milo.tasks.write",
+] as const;
 
 /**
  * Phase 1B propose scope — "Claude may PROPOSE, not apply". Weaker than the
@@ -64,7 +68,9 @@ export const MCP_PUBLISH_SCOPE = "milo.content.publish";
 
 /** The scopes the AS may grant, given the write flag. Publish is never included. */
 export function issuableScopes(writeEnabled: boolean): string[] {
-  return writeEnabled ? [...OAUTH_ISSUABLE_SCOPES, ...MCP_WRITE_SCOPES, MCP_PROPOSE_SCOPE] : [...OAUTH_ISSUABLE_SCOPES];
+  return writeEnabled
+    ? [...OAUTH_ISSUABLE_SCOPES, ...MCP_WRITE_SCOPES, MCP_PROPOSE_SCOPE]
+    : [...OAUTH_ISSUABLE_SCOPES];
 }
 
 /** Whether the OAuth connector is enabled. Off ⇒ production behaves as today. */
@@ -147,7 +153,10 @@ export function randomToken(prefix = ""): string {
 /** SHA-256 hex (mirrors mcp.server.sha256Hex; codes/tokens are stored hashed). */
 export async function sha256Hex(input: string): Promise<string> {
   const data = new TextEncoder().encode(input);
-  const digest = await globalThis.crypto.subtle.digest("SHA-256", data.buffer.slice(0) as ArrayBuffer);
+  const digest = await globalThis.crypto.subtle.digest(
+    "SHA-256",
+    data.buffer.slice(0) as ArrayBuffer,
+  );
   const bytes = new Uint8Array(digest);
   let hex = "";
   for (let i = 0; i < bytes.length; i++) hex += bytes[i].toString(16).padStart(2, "0");
@@ -161,7 +170,14 @@ export function generateClientId(): string {
 // ---- scope validation ----
 export function parseScopes(scope: unknown): string[] {
   if (typeof scope !== "string") return [];
-  return Array.from(new Set(scope.split(/\s+/).map((s) => s.trim()).filter(Boolean)));
+  return Array.from(
+    new Set(
+      scope
+        .split(/\s+/)
+        .map((s) => s.trim())
+        .filter(Boolean),
+    ),
+  );
 }
 
 export function isAllowedScope(s: string): boolean {
@@ -204,7 +220,10 @@ export function validateRedirectUri(uri: unknown): boolean {
 }
 
 // ---- OAuth error bodies ----
-export function oauthErrorBody(error: string, description?: string): { error: string; error_description?: string } {
+export function oauthErrorBody(
+  error: string,
+  description?: string,
+): { error: string; error_description?: string } {
   return description ? { error, error_description: description } : { error };
 }
 
@@ -225,7 +244,11 @@ type RegErr = { ok: false; status: number; body: { error: string; error_descript
 /** Validate an RFC 7591 registration request. Pure — no DB, no id generation.
  * writeEnabled widens the ALLOWED set only; the no-scope DEFAULT never widens. */
 export function validateRegistration(input: unknown, writeEnabled = false): RegOk | RegErr {
-  const err = (error: string, description: string, status = 400): RegErr => ({ ok: false, status, body: oauthErrorBody(error, description) });
+  const err = (error: string, description: string, status = 400): RegErr => ({
+    ok: false,
+    status,
+    body: oauthErrorBody(error, description),
+  });
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     return err("invalid_client_metadata", "Request body must be a JSON object.");
   }
@@ -238,22 +261,36 @@ export function validateRegistration(input: unknown, writeEnabled = false): RegO
   }
   if (rawUris.length > 10) return err("invalid_redirect_uri", "Too many redirect URIs.");
   for (const u of rawUris) {
-    if (!validateRedirectUri(u)) return err("invalid_redirect_uri", `Invalid redirect URI: ${typeof u === "string" ? u : "<non-string>"}`);
+    if (!validateRedirectUri(u))
+      return err(
+        "invalid_redirect_uri",
+        `Invalid redirect URI: ${typeof u === "string" ? u : "<non-string>"}`,
+      );
   }
   const redirect_uris = (rawUris as string[]).map((u) => u.trim());
 
   // token_endpoint_auth_method — v1 supports public clients only.
-  const authMethod = b.token_endpoint_auth_method === undefined ? "none" : b.token_endpoint_auth_method;
+  const authMethod =
+    b.token_endpoint_auth_method === undefined ? "none" : b.token_endpoint_auth_method;
   if (authMethod !== "none") {
-    return err("invalid_client_metadata", "Only public clients (token_endpoint_auth_method \"none\") are supported.");
+    return err(
+      "invalid_client_metadata",
+      'Only public clients (token_endpoint_auth_method "none") are supported.',
+    );
   }
 
   // grant_types — must include authorization_code. Default is authorization_code
   // only (we don't advertise/encourage refresh). An explicit refresh_token is
   // still TOLERATED for client compatibility but is never fulfilled.
   const grant_types = b.grant_types === undefined ? ["authorization_code"] : b.grant_types;
-  if (!Array.isArray(grant_types) || grant_types.some((g) => !ALLOWED_GRANT_TYPES.includes(g as string))) {
-    return err("invalid_client_metadata", "Unsupported grant_types. Allowed: authorization_code, refresh_token.");
+  if (
+    !Array.isArray(grant_types) ||
+    grant_types.some((g) => !ALLOWED_GRANT_TYPES.includes(g as string))
+  ) {
+    return err(
+      "invalid_client_metadata",
+      "Unsupported grant_types. Allowed: authorization_code, refresh_token.",
+    );
   }
   if (!grant_types.includes("authorization_code")) {
     return err("invalid_client_metadata", "grant_types must include authorization_code.");
@@ -261,8 +298,11 @@ export function validateRegistration(input: unknown, writeEnabled = false): RegO
 
   // response_types — must be within {code}.
   const response_types = b.response_types === undefined ? ["code"] : b.response_types;
-  if (!Array.isArray(response_types) || response_types.some((r) => !ALLOWED_RESPONSE_TYPES.includes(r as string))) {
-    return err("invalid_client_metadata", "Unsupported response_types. Only \"code\" is supported.");
+  if (
+    !Array.isArray(response_types) ||
+    response_types.some((r) => !ALLOWED_RESPONSE_TYPES.includes(r as string))
+  ) {
+    return err("invalid_client_metadata", 'Unsupported response_types. Only "code" is supported.');
   }
   if (!response_types.includes("code")) {
     return err("invalid_client_metadata", "response_types must include code.");
@@ -276,7 +316,8 @@ export function validateRegistration(input: unknown, writeEnabled = false): RegO
   } else {
     const requested = parseScopes(b.scope);
     const v = validateScopes(requested, issuableScopes(writeEnabled));
-    if (!v.ok) return err("invalid_scope", `Unknown or disallowed scope(s): ${v.invalid.join(", ")}`);
+    if (!v.ok)
+      return err("invalid_scope", `Unknown or disallowed scope(s): ${v.invalid.join(", ")}`);
     scopes = v.scopes;
   }
 
@@ -298,7 +339,11 @@ export function validateRegistration(input: unknown, writeEnabled = false): RegO
 }
 
 /** The DB row for a registered client. Never contains a client secret (public). */
-export function buildClientRow(clientId: string, n: NormalizedClient, nowIso: string): Record<string, unknown> {
+export function buildClientRow(
+  clientId: string,
+  n: NormalizedClient,
+  nowIso: string,
+): Record<string, unknown> {
   return {
     client_id: clientId,
     client_secret_hash: null, // public client — no secret ever
@@ -315,7 +360,11 @@ export function buildClientRow(clientId: string, n: NormalizedClient, nowIso: st
 }
 
 /** The RFC 7591 registration response. No client_secret for public clients. */
-export function registrationResponse(clientId: string, n: NormalizedClient, issuedAtEpochSec: number): Record<string, unknown> {
+export function registrationResponse(
+  clientId: string,
+  n: NormalizedClient,
+  issuedAtEpochSec: number,
+): Record<string, unknown> {
   return {
     client_id: clientId,
     client_id_issued_at: issuedAtEpochSec,
@@ -336,7 +385,12 @@ export function registrationResponse(clientId: string, n: NormalizedClient, issu
 export async function processClientRegistration(
   enabled: boolean,
   input: unknown,
-  deps: { insertClient: (row: Record<string, unknown>) => Promise<void>; clientId: string; nowMs: number; writeEnabled?: boolean },
+  deps: {
+    insertClient: (row: Record<string, unknown>) => Promise<void>;
+    clientId: string;
+    nowMs: number;
+    writeEnabled?: boolean;
+  },
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   if (!enabled) return { status: 404, body: oauthErrorBody("not_found") };
   const v = validateRegistration(input, deps.writeEnabled ?? false);
@@ -344,7 +398,10 @@ export async function processClientRegistration(
   const nowIso = new Date(deps.nowMs).toISOString();
   const row = buildClientRow(deps.clientId, v.normalized, nowIso);
   await deps.insertClient(row);
-  return { status: 201, body: registrationResponse(deps.clientId, v.normalized, Math.floor(deps.nowMs / 1000)) };
+  return {
+    status: 201,
+    body: registrationResponse(deps.clientId, v.normalized, Math.floor(deps.nowMs / 1000)),
+  };
 }
 
 // ---- DB helpers (service role; lazy import keeps client bundle clean) ----
@@ -395,7 +452,11 @@ export interface OAuthClientRow {
 export async function getOAuthClient(clientId: string): Promise<OAuthClientRow | null> {
   if (!clientId) return null;
   const db = await admin();
-  const { data } = await db.from("oauth_clients").select("client_id,client_name,redirect_uris,scope,disabled_at").eq("client_id", clientId).maybeSingle();
+  const { data } = await db
+    .from("oauth_clients")
+    .select("client_id,client_name,redirect_uris,scope,disabled_at")
+    .eq("client_id", clientId)
+    .maybeSingle();
   if (!data) return null;
   return {
     client_id: String(data.client_id ?? ""),
@@ -406,10 +467,19 @@ export async function getOAuthClient(clientId: string): Promise<OAuthClientRow |
   };
 }
 
-export async function insertConsent(userId: string, clientId: string, scope: string): Promise<void> {
+export async function insertConsent(
+  userId: string,
+  clientId: string,
+  scope: string,
+): Promise<void> {
   try {
     const db = await admin();
-    await db.from("oauth_consents").insert({ user_id: userId, client_id: clientId, scope, granted_at: new Date().toISOString() });
+    await db.from("oauth_consents").insert({
+      user_id: userId,
+      client_id: clientId,
+      scope,
+      granted_at: new Date().toISOString(),
+    });
   } catch {
     /* consent record is best-effort (drives the connected-apps list later) */
   }
@@ -424,14 +494,22 @@ export async function insertAuthorizationRequest(row: Record<string, unknown>): 
 export async function getAuthorizationRequest(id: string): Promise<Row | null> {
   if (!id) return null;
   const db = await admin();
-  const { data } = await db.from("oauth_authorization_requests").select("*").eq("id", id).maybeSingle();
+  const { data } = await db
+    .from("oauth_authorization_requests")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
   return data ?? null;
 }
 
 /** Mark a pending request consumed (only if not already). */
 export async function consumeAuthorizationRequest(id: string): Promise<void> {
   const db = await admin();
-  await db.from("oauth_authorization_requests").update({ consumed_at: new Date().toISOString() }).eq("id", id).is("consumed_at", null);
+  await db
+    .from("oauth_authorization_requests")
+    .update({ consumed_at: new Date().toISOString() })
+    .eq("id", id)
+    .is("consumed_at", null);
 }
 
 export async function insertAuthorizationCode(row: Record<string, unknown>): Promise<void> {
@@ -443,14 +521,22 @@ export async function insertAuthorizationCode(row: Record<string, unknown>): Pro
 export async function getAuthorizationCodeByHash(codeHash: string): Promise<Row | null> {
   if (!codeHash) return null;
   const db = await admin();
-  const { data } = await db.from("oauth_authorization_codes").select("*").eq("code_hash", codeHash).maybeSingle();
+  const { data } = await db
+    .from("oauth_authorization_codes")
+    .select("*")
+    .eq("code_hash", codeHash)
+    .maybeSingle();
   return data ?? null;
 }
 
 /** Mark an authorization code consumed (only if not already). */
 export async function consumeAuthorizationCode(codeHash: string): Promise<void> {
   const db = await admin();
-  await db.from("oauth_authorization_codes").update({ consumed_at: new Date().toISOString() }).eq("code_hash", codeHash).is("consumed_at", null);
+  await db
+    .from("oauth_authorization_codes")
+    .update({ consumed_at: new Date().toISOString() })
+    .eq("code_hash", codeHash)
+    .is("consumed_at", null);
 }
 
 export async function insertAccessToken(row: Record<string, unknown>): Promise<void> {
@@ -503,7 +589,10 @@ export async function resolveAccessToken(token: string): Promise<ResolvedAccessT
   // Awaited: Cloudflare Workers may terminate the isolate right after the
   // response, dropping un-awaited writes. A failed touch must not fail auth.
   try {
-    await db.from("oauth_tokens").update({ last_used_at: new Date().toISOString() }).eq("access_token_hash", hash);
+    await db
+      .from("oauth_tokens")
+      .update({ last_used_at: new Date().toISOString() })
+      .eq("access_token_hash", hash);
   } catch {
     /* best-effort */
   }
@@ -542,7 +631,13 @@ export interface NormalizedAuthorize {
 export type AuthorizeOutcome =
   | { kind: "invalid_client" } // do NOT redirect — client unknown/disabled
   | { kind: "invalid_redirect" } // do NOT redirect — redirect_uri untrusted
-  | { kind: "redirect_error"; redirectUri: string; error: string; description: string; state?: string }
+  | {
+      kind: "redirect_error";
+      redirectUri: string;
+      error: string;
+      description: string;
+      state?: string;
+    }
   | { kind: "ok"; normalized: NormalizedAuthorize };
 
 /**
@@ -558,17 +653,28 @@ export function classifyAuthorizeRequest(
   if (!params.client_id || !client || client.disabled_at) return { kind: "invalid_client" };
 
   const redirectUri = typeof params.redirect_uri === "string" ? params.redirect_uri.trim() : "";
-  if (!redirectUri || !client.redirect_uris.includes(redirectUri)) return { kind: "invalid_redirect" };
+  if (!redirectUri || !client.redirect_uris.includes(redirectUri))
+    return { kind: "invalid_redirect" };
 
   const state = typeof params.state === "string" && params.state ? params.state : undefined;
-  const rerr = (error: string, description: string): AuthorizeOutcome => ({ kind: "redirect_error", redirectUri, error, description, state });
+  const rerr = (error: string, description: string): AuthorizeOutcome => ({
+    kind: "redirect_error",
+    redirectUri,
+    error,
+    description,
+    state,
+  });
 
-  if (params.response_type !== "code") return rerr("unsupported_response_type", "response_type must be 'code'.");
-  if (typeof params.code_challenge !== "string" || !params.code_challenge.trim()) return rerr("invalid_request", "code_challenge is required (PKCE).");
-  if (params.code_challenge_method !== "S256") return rerr("invalid_request", "code_challenge_method must be S256.");
+  if (params.response_type !== "code")
+    return rerr("unsupported_response_type", "response_type must be 'code'.");
+  if (typeof params.code_challenge !== "string" || !params.code_challenge.trim())
+    return rerr("invalid_request", "code_challenge is required (PKCE).");
+  if (params.code_challenge_method !== "S256")
+    return rerr("invalid_request", "code_challenge_method must be S256.");
   // resource: if supplied it must be the MCP URL; if omitted, default to it.
   const providedResource = typeof params.resource === "string" ? params.resource.trim() : "";
-  if (providedResource && providedResource !== MCP_RESOURCE_URL) return rerr("invalid_target", "resource must be the Milo MCP URL.");
+  if (providedResource && providedResource !== MCP_RESOURCE_URL)
+    return rerr("invalid_target", "resource must be the Milo MCP URL.");
 
   // No-scope requests fall back to the client's REGISTERED scope (validated at
   // DCR time — a write-scoped registration counts as an explicit request) or
@@ -580,7 +686,8 @@ export function classifyAuthorizeRequest(
     scopes = client.scope ? parseScopes(client.scope) : [...OAUTH_ISSUABLE_SCOPES];
   } else {
     const v = validateScopes(parseScopes(reqScope), issuableScopes(writeEnabled));
-    if (!v.ok) return rerr("invalid_scope", `Unknown or disallowed scope(s): ${v.invalid.join(", ")}`);
+    if (!v.ok)
+      return rerr("invalid_scope", `Unknown or disallowed scope(s): ${v.invalid.join(", ")}`);
     scopes = v.scopes;
   }
 
@@ -599,7 +706,12 @@ export function classifyAuthorizeRequest(
 }
 
 /** Append an OAuth error (+state) to a validated redirect_uri. Pure. */
-export function buildRedirectError(redirectUri: string, error: string, description?: string, state?: string): string {
+export function buildRedirectError(
+  redirectUri: string,
+  error: string,
+  description?: string,
+  state?: string,
+): string {
   const u = new URL(redirectUri);
   u.searchParams.set("error", error);
   if (description) u.searchParams.set("error_description", description);
@@ -621,7 +733,11 @@ export function consentRedirectPath(requestId: string): string {
 }
 
 /** DB row for a pending authorization request. Pure. */
-export function buildPendingRequestRow(n: NormalizedAuthorize, id: string, expiresAtIso: string): Record<string, unknown> {
+export function buildPendingRequestRow(
+  n: NormalizedAuthorize,
+  id: string,
+  expiresAtIso: string,
+): Record<string, unknown> {
   return {
     id,
     client_id: n.clientId,
@@ -636,7 +752,12 @@ export function buildPendingRequestRow(n: NormalizedAuthorize, id: string, expir
 }
 
 /** DB row for an issued authorization code (hash only). Pure. */
-export function buildAuthCodeRow(pending: Row, userId: string, codeHash: string, expiresAtIso: string): Record<string, unknown> {
+export function buildAuthCodeRow(
+  pending: Row,
+  userId: string,
+  codeHash: string,
+  expiresAtIso: string,
+): Record<string, unknown> {
   return {
     code_hash: codeHash,
     client_id: String(pending.client_id ?? ""),
@@ -704,7 +825,10 @@ export const REFRESH_TOKEN_PREFIX = "milo_rt_";
 /** BASE64URL(SHA256(verifier)) — the PKCE S256 transform (RFC 7636). */
 export async function pkceChallengeS256(verifier: string): Promise<string> {
   const data = new TextEncoder().encode(verifier);
-  const digest = await globalThis.crypto.subtle.digest("SHA-256", data.buffer.slice(0) as ArrayBuffer);
+  const digest = await globalThis.crypto.subtle.digest(
+    "SHA-256",
+    data.buffer.slice(0) as ArrayBuffer,
+  );
   return b64url(new Uint8Array(digest));
 }
 
@@ -714,7 +838,8 @@ export async function verifyPkceS256(verifier: string, challenge: string): Promi
   const computed = await pkceChallengeS256(verifier);
   if (computed.length !== challenge.length) return false;
   let diff = 0;
-  for (let i = 0; i < computed.length; i++) diff |= computed.charCodeAt(i) ^ challenge.charCodeAt(i);
+  for (let i = 0; i < computed.length; i++)
+    diff |= computed.charCodeAt(i) ^ challenge.charCodeAt(i);
   return diff === 0;
 }
 
@@ -738,7 +863,13 @@ export interface RefreshIssue {
 }
 
 /** DB row for an issued access token; refresh columns filled when granted. */
-export function buildAccessTokenRow(codeRow: Row, accessHash: string, scope: string, expiresAtIso: string, refresh?: RefreshIssue): Record<string, unknown> {
+export function buildAccessTokenRow(
+  codeRow: Row,
+  accessHash: string,
+  scope: string,
+  expiresAtIso: string,
+  refresh?: RefreshIssue,
+): Record<string, unknown> {
   return {
     user_id: String(codeRow.user_id ?? ""),
     client_id: String(codeRow.client_id ?? ""),
@@ -752,7 +883,12 @@ export function buildAccessTokenRow(codeRow: Row, accessHash: string, scope: str
   };
 }
 
-export function tokenSuccessResponse(accessToken: string, scope: string, expiresInSec: number, refreshToken?: string): Record<string, unknown> {
+export function tokenSuccessResponse(
+  accessToken: string,
+  scope: string,
+  expiresInSec: number,
+  refreshToken?: string,
+): Record<string, unknown> {
   return {
     access_token: accessToken,
     token_type: "Bearer",
@@ -802,16 +938,23 @@ export async function processTokenRequest(
 ): Promise<{ status: number; body: Record<string, unknown> | null; audit?: TokenAudit }> {
   if (!enabled) return { status: 404, body: oauthErrorBody("not_found") };
 
-  const err = (error: string, description: string, status = 400) => ({ status, body: oauthErrorBody(error, description) });
+  const err = (error: string, description: string, status = 400) => ({
+    status,
+    body: oauthErrorBody(error, description),
+  });
 
   // ---- param presence + grant type ----
   if (!params.grant_type) return err("invalid_request", "grant_type is required.");
   if (params.grant_type !== "authorization_code" && params.grant_type !== "refresh_token") {
-    return err("unsupported_grant_type", "Only authorization_code and refresh_token are supported.");
+    return err(
+      "unsupported_grant_type",
+      "Only authorization_code and refresh_token are supported.",
+    );
   }
   if (!params.client_id) return err("invalid_request", "client_id is required.");
   // Public/PKCE clients must not present a secret.
-  if (params.client_secret) return err("invalid_client", "This is a public client; do not send a client secret.", 401);
+  if (params.client_secret)
+    return err("invalid_client", "This is a public client; do not send a client secret.", 401);
 
   // ---- resource: if supplied it must be the MCP URL; if omitted, default to it.
   const providedResource = typeof params.resource === "string" ? params.resource.trim() : "";
@@ -821,7 +964,8 @@ export async function processTokenRequest(
 
   // ---- client ----
   const client = await deps.getClient(params.client_id);
-  if (!client || client.disabled_at) return err("invalid_client", "Unknown or disabled client.", 401);
+  if (!client || client.disabled_at)
+    return err("invalid_client", "Unknown or disabled client.", 401);
 
   const nowIso = new Date(deps.nowMs).toISOString();
 
@@ -841,8 +985,15 @@ export async function processTokenRequest(
         expiresAtIso: new Date(deps.nowMs + REFRESH_TOKEN_TTL_MS).toISOString(),
       };
     }
-    await deps.insertToken(buildAccessTokenRow(sourceRow, accessHash, scope, accessExpiresIso, refresh));
-    return tokenSuccessResponse(accessToken, scope, Math.floor(ACCESS_TOKEN_TTL_MS / 1000), refreshToken);
+    await deps.insertToken(
+      buildAccessTokenRow(sourceRow, accessHash, scope, accessExpiresIso, refresh),
+    );
+    return tokenSuccessResponse(
+      accessToken,
+      scope,
+      Math.floor(ACCESS_TOKEN_TTL_MS / 1000),
+      refreshToken,
+    );
   };
 
   // =========================================================================
@@ -851,7 +1002,10 @@ export async function processTokenRequest(
   if (params.grant_type === "refresh_token") {
     if (!params.refresh_token) return err("invalid_request", "refresh_token is required.");
     // Uniform error: never reveals whether/why a refresh token is dead.
-    const badGrant = err("invalid_grant", "The refresh token is invalid, expired, or already used.");
+    const badGrant = err(
+      "invalid_grant",
+      "The refresh token is invalid, expired, or already used.",
+    );
 
     const refreshHash = await deps.hash(params.refresh_token);
     const row = await deps.getTokenByRefreshHash(refreshHash);
@@ -861,7 +1015,11 @@ export async function processTokenRequest(
     if (String(row.client_id ?? "") !== params.client_id) return badGrant;
 
     const familyId = (row.refresh_family_id as string | null) ?? null;
-    const reuse = async (): Promise<{ status: number; body: Record<string, unknown> | null; audit?: TokenAudit }> => {
+    const reuse = async (): Promise<{
+      status: number;
+      body: Record<string, unknown> | null;
+      audit?: TokenAudit;
+    }> => {
       let familySize = 0;
       if (familyId) {
         try {
@@ -872,14 +1030,20 @@ export async function processTokenRequest(
       }
       return {
         ...badGrant,
-        audit: { event: "token_reuse_detected", clientId: params.client_id!, userId: String(row.user_id ?? ""), detail: { familySize } },
+        audit: {
+          event: "token_reuse_detected",
+          clientId: params.client_id!,
+          userId: String(row.user_id ?? ""),
+          detail: { familySize },
+        },
       };
     };
 
     // Already rotated or revoked → theft signal → kill the family.
     if (row.rotated_at || row.revoked_at) return reuse();
     // Naturally expired → plain rejection, no family kill.
-    const rExp = typeof row.refresh_expires_at === "string" ? Date.parse(row.refresh_expires_at) : 0;
+    const rExp =
+      typeof row.refresh_expires_at === "string" ? Date.parse(row.refresh_expires_at) : 0;
     if (!rExp || rExp < deps.nowMs) return badGrant;
     // Optional scope param must equal the original grant (no narrowing in v1).
     const originalScope = String(row.scope ?? "");
@@ -899,7 +1063,12 @@ export async function processTokenRequest(
     return {
       status: 200,
       body,
-      audit: { event: "token_refreshed", clientId: params.client_id, userId: String(row.user_id ?? ""), detail: { scope: originalScope } },
+      audit: {
+        event: "token_refreshed",
+        clientId: params.client_id,
+        userId: String(row.user_id ?? ""),
+        detail: { scope: originalScope },
+      },
     };
   }
 
@@ -911,7 +1080,10 @@ export async function processTokenRequest(
   if (!params.code_verifier) return err("invalid_request", "code_verifier is required (PKCE).");
 
   // ---- authorization code (uniform invalid_grant to avoid existence leaks) ----
-  const badGrant = err("invalid_grant", "The authorization code is invalid, expired, or already used.");
+  const badGrant = err(
+    "invalid_grant",
+    "The authorization code is invalid, expired, or already used.",
+  );
   const codeHash = await deps.hash(params.code);
   const codeRow = await deps.getCodeByHash(codeHash);
   if (!codeRow) return badGrant;
@@ -939,7 +1111,12 @@ export async function processTokenRequest(
   return {
     status: 200,
     body,
-    audit: { event: "token_issued", clientId: params.client_id, userId: String(codeRow.user_id ?? ""), detail: { scope: tokenScope } },
+    audit: {
+      event: "token_issued",
+      clientId: params.client_id,
+      userId: String(codeRow.user_id ?? ""),
+      detail: { scope: tokenScope },
+    },
   };
 }
 
@@ -968,10 +1145,16 @@ export const RATE_BUCKETS = {
   mcpAnon: { bucket: "mcp_anon", limit: 30, windowSec: 300, saltPrefix: "rl:mcpa:" },
   /** Phase 1A — MCP write tools, per bearer token. */
   write: { bucket: "write", limit: 30, windowSec: 3600, saltPrefix: "rl:wr:" },
+  /** Public analytics ingestion, per site-visitor IP (P1-11). Generous for a
+   * human browsing a customer's site; a flood from one address hits the wall. */
+  analyticsIp: { bucket: "analytics_ip", limit: 240, windowSec: 300, saltPrefix: "rl:an:" },
 } as const;
 
 /** Fixed-window boundary + seconds until the window rolls over. Pure. */
-export function rateWindowStart(nowMs: number, windowSec: number): { startIso: string; retryAfterSec: number } {
+export function rateWindowStart(
+  nowMs: number,
+  windowSec: number,
+): { startIso: string; retryAfterSec: number } {
   const windowMs = windowSec * 1000;
   const startMs = Math.floor(nowMs / windowMs) * windowMs;
   return {
@@ -1002,14 +1185,21 @@ export interface RateLimitDeps {
 }
 
 /** Increment-then-check. A bump failure fails OPEN (request allowed). */
-export async function checkRateLimit(bucket: RateBucket, identifier: string, deps: RateLimitDeps): Promise<RateLimitResult> {
+export async function checkRateLimit(
+  bucket: RateBucket,
+  identifier: string,
+  deps: RateLimitDeps,
+): Promise<RateLimitResult> {
   const { startIso, retryAfterSec } = rateWindowStart(deps.nowMs, bucket.windowSec);
   const key = await rateLimitKey(bucket, identifier);
   let count: number;
   try {
     count = await deps.bump(bucket.bucket, key, startIso);
   } catch (e) {
-    console.error("[rate-limit] bump failed (fail-open):", e instanceof Error ? e.message : String(e));
+    console.error(
+      "[rate-limit] bump failed (fail-open):",
+      e instanceof Error ? e.message : String(e),
+    );
     return { allowed: true, retryAfterSec: 0, shouldAudit: false, windowStartIso: startIso };
   }
   return {
@@ -1022,13 +1212,23 @@ export async function checkRateLimit(bucket: RateBucket, identifier: string, dep
 
 /** DB bump via the bump_rate_limit RPC (single atomic statement), with
  * opportunistic best-effort cleanup of >24h-old windows (~2% of requests). */
-export async function bumpRateLimit(bucket: string, key: string, windowStartIso: string): Promise<number> {
+export async function bumpRateLimit(
+  bucket: string,
+  key: string,
+  windowStartIso: string,
+): Promise<number> {
   const db = await admin();
-  const { data, error } = await db.rpc("bump_rate_limit", { p_bucket: bucket, p_key: key, p_window_start: windowStartIso });
+  const { data, error } = await db.rpc("bump_rate_limit", {
+    p_bucket: bucket,
+    p_key: key,
+    p_window_start: windowStartIso,
+  });
   if (error || typeof data !== "number") throw new Error("rate_limit_bump_failed");
   if (Math.floor(Date.now() / 1000) % 50 === 0) {
     try {
-      await db.rpc("cleanup_rate_limits", { p_before: new Date(Date.now() - 24 * 3600 * 1000).toISOString() });
+      await db.rpc("cleanup_rate_limits", {
+        p_before: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+      });
     } catch {
       /* best-effort */
     }
@@ -1060,7 +1260,11 @@ export interface RevokedTokenInfo {
 
 export interface RevocationDeps {
   /** Find by access OR refresh hash and revoke (family-aware); null if no live match. */
-  revokeTokenByHash: (tokenHash: string, nowIso: string, hint?: string) => Promise<RevokedTokenInfo | null>;
+  revokeTokenByHash: (
+    tokenHash: string,
+    nowIso: string,
+    hint?: string,
+  ) => Promise<RevokedTokenInfo | null>;
   hash: (s: string) => Promise<string>;
   nowMs: number;
 }
@@ -1080,12 +1284,25 @@ export interface RevocationResult {
  * the lookups. A DB failure propagates (route → 500) so a client is never told
  * "revoked" when the write did not happen.
  */
-export async function processRevocationRequest(enabled: boolean, params: RevocationParams, deps: RevocationDeps): Promise<RevocationResult> {
+export async function processRevocationRequest(
+  enabled: boolean,
+  params: RevocationParams,
+  deps: RevocationDeps,
+): Promise<RevocationResult> {
   if (!enabled) return { status: 404, body: oauthErrorBody("not_found"), revoked: null };
   const token = typeof params.token === "string" ? params.token.trim() : "";
-  if (!token) return { status: 400, body: oauthErrorBody("invalid_request", "token is required."), revoked: null };
+  if (!token)
+    return {
+      status: 400,
+      body: oauthErrorBody("invalid_request", "token is required."),
+      revoked: null,
+    };
   const tokenHash = await deps.hash(token);
-  const revoked = await deps.revokeTokenByHash(tokenHash, new Date(deps.nowMs).toISOString(), params.token_type_hint);
+  const revoked = await deps.revokeTokenByHash(
+    tokenHash,
+    new Date(deps.nowMs).toISOString(),
+    params.token_type_hint,
+  );
   return { status: 200, body: null, revoked };
 }
 
@@ -1093,8 +1310,16 @@ export async function processRevocationRequest(enabled: boolean, params: Revocat
 export async function revokeTokenFamily(familyId: string, nowIso: string): Promise<number> {
   if (!familyId) return 0;
   const db = await admin();
-  const { data: live } = await db.from("oauth_tokens").select("user_id").eq("refresh_family_id", familyId).is("revoked_at", null);
-  const { error } = await db.from("oauth_tokens").update({ revoked_at: nowIso }).eq("refresh_family_id", familyId).is("revoked_at", null);
+  const { data: live } = await db
+    .from("oauth_tokens")
+    .select("user_id")
+    .eq("refresh_family_id", familyId)
+    .is("revoked_at", null);
+  const { error } = await db
+    .from("oauth_tokens")
+    .update({ revoked_at: nowIso })
+    .eq("refresh_family_id", familyId)
+    .is("revoked_at", null);
   if (error) throw new Error("revoke_failed");
   return (live ?? []).length;
 }
@@ -1105,14 +1330,26 @@ export async function revokeTokenFamily(familyId: string, nowIso: string): Promi
  * pre-refresh behavior). Returns safe context, or null for unknown/already-
  * revoked hashes. Throws if a revocation write fails.
  */
-export async function revokeTokenByHash(tokenHash: string, nowIso: string, hint?: string): Promise<RevokedTokenInfo | null> {
+export async function revokeTokenByHash(
+  tokenHash: string,
+  nowIso: string,
+  hint?: string,
+): Promise<RevokedTokenInfo | null> {
   if (!tokenHash) return null;
   const db = await admin();
   const lookup = async (column: "access_token_hash" | "refresh_token_hash") =>
-    (await db.from("oauth_tokens").select("user_id,client_id,revoked_at,refresh_family_id").eq(column, tokenHash).maybeSingle()).data;
+    (
+      await db
+        .from("oauth_tokens")
+        .select("user_id,client_id,revoked_at,refresh_family_id")
+        .eq(column, tokenHash)
+        .maybeSingle()
+    ).data;
 
   const order: ("access_token_hash" | "refresh_token_hash")[] =
-    hint === "refresh_token" ? ["refresh_token_hash", "access_token_hash"] : ["access_token_hash", "refresh_token_hash"];
+    hint === "refresh_token"
+      ? ["refresh_token_hash", "access_token_hash"]
+      : ["access_token_hash", "refresh_token_hash"];
   let row = await lookup(order[0]);
   let tokenType: "access" | "refresh" = order[0] === "access_token_hash" ? "access" : "refresh";
   if (!row) {
@@ -1126,7 +1363,11 @@ export async function revokeTokenByHash(tokenHash: string, nowIso: string, hint?
   if (familyId) {
     familyRevoked = await revokeTokenFamily(familyId, nowIso);
   } else {
-    const { error } = await db.from("oauth_tokens").update({ revoked_at: nowIso }).eq("access_token_hash", tokenHash).is("revoked_at", null);
+    const { error } = await db
+      .from("oauth_tokens")
+      .update({ revoked_at: nowIso })
+      .eq("access_token_hash", tokenHash)
+      .is("revoked_at", null);
     if (error) throw new Error("revoke_failed");
   }
   return {
@@ -1145,16 +1386,24 @@ export async function getTokenRowByRefreshHash(refreshHash: string): Promise<Row
   const db = await admin();
   const { data } = await db
     .from("oauth_tokens")
-    .select("user_id,client_id,scope,resource,refresh_family_id,refresh_expires_at,rotated_at,revoked_at")
+    .select(
+      "user_id,client_id,scope,resource,refresh_family_id,refresh_expires_at,rotated_at,revoked_at",
+    )
     .eq("refresh_token_hash", refreshHash)
     .maybeSingle();
   return data ?? null;
 }
 
 /** Atomically consume a live refresh token via the consume_refresh_token RPC. */
-export async function consumeRefreshTokenByHash(refreshHash: string, nowIso: string): Promise<boolean> {
+export async function consumeRefreshTokenByHash(
+  refreshHash: string,
+  nowIso: string,
+): Promise<boolean> {
   const db = await admin();
-  const { data, error } = await db.rpc("consume_refresh_token", { p_refresh_hash: refreshHash, p_now: nowIso });
+  const { data, error } = await db.rpc("consume_refresh_token", {
+    p_refresh_hash: refreshHash,
+    p_now: nowIso,
+  });
   if (error) throw new Error("consume_refresh_failed");
   return data === true;
 }
@@ -1208,21 +1457,37 @@ export function buildConnectedApps(
   clientNames: Record<string, string | null>,
   nowMs: number,
 ): ConnectedAppView[] {
-  const byNewest = (a: string | null, b: string | null) => String(b ?? "").localeCompare(String(a ?? ""));
-  const ids = [...new Set([...tokens.map((t) => t.client_id), ...consents.map((c) => c.client_id)].filter(Boolean))];
+  const byNewest = (a: string | null, b: string | null) =>
+    String(b ?? "").localeCompare(String(a ?? ""));
+  const ids = [
+    ...new Set(
+      [...tokens.map((t) => t.client_id), ...consents.map((c) => c.client_id)].filter(Boolean),
+    ),
+  ];
 
   const apps = ids.map((clientId): ConnectedAppView => {
-    const ts = tokens.filter((t) => t.client_id === clientId).sort((a, b) => byNewest(a.created_at, b.created_at));
+    const ts = tokens
+      .filter((t) => t.client_id === clientId)
+      .sort((a, b) => byNewest(a.created_at, b.created_at));
     const latest = ts[0];
-    const live = ts.filter((t) => !t.revoked_at && t.access_expires_at && Date.parse(t.access_expires_at) > nowMs);
-    const cs = consents.filter((c) => c.client_id === clientId).sort((a, b) => byNewest(a.granted_at, b.granted_at));
+    const live = ts.filter(
+      (t) => !t.revoked_at && t.access_expires_at && Date.parse(t.access_expires_at) > nowMs,
+    );
+    const cs = consents
+      .filter((c) => c.client_id === clientId)
+      .sort((a, b) => byNewest(a.granted_at, b.granted_at));
     const activeConsent = cs.find((c) => !c.revoked_at);
-    const scopeSource = live[0]?.scope ?? activeConsent?.scope ?? latest?.scope ?? cs[0]?.scope ?? "";
+    const scopeSource =
+      live[0]?.scope ?? activeConsent?.scope ?? latest?.scope ?? cs[0]?.scope ?? "";
     return {
       clientId,
       clientName: clientNames[clientId] ?? null,
       scopes: scopeConsentItems(scopeSource),
-      grantedAt: cs.length ? cs[cs.length - 1].granted_at : (ts.length ? ts[ts.length - 1].created_at : null),
+      grantedAt: cs.length
+        ? cs[cs.length - 1].granted_at
+        : ts.length
+          ? ts[ts.length - 1].created_at
+          : null,
       status: live.length > 0 ? "active" : activeConsent ? "expired" : "revoked",
       activeTokenCount: live.length,
       latestTokenCreatedAt: latest?.created_at ?? null,
@@ -1232,7 +1497,9 @@ export function buildConnectedApps(
   });
 
   return apps.sort(
-    (a, b) => (b.activeTokenCount > 0 ? 1 : 0) - (a.activeTokenCount > 0 ? 1 : 0) || byNewest(a.latestTokenCreatedAt, b.latestTokenCreatedAt),
+    (a, b) =>
+      (b.activeTokenCount > 0 ? 1 : 0) - (a.activeTokenCount > 0 ? 1 : 0) ||
+      byNewest(a.latestTokenCreatedAt, b.latestTokenCreatedAt),
   );
 }
 
@@ -1247,16 +1514,25 @@ export async function listGrantsForUser(userId: string): Promise<ConnectedAppVie
     .from("oauth_tokens")
     .select("client_id,scope,created_at,access_expires_at,last_used_at,revoked_at")
     .eq("user_id", userId);
-  const { data: consents } = await db.from("oauth_consents").select("client_id,scope,granted_at,revoked_at").eq("user_id", userId);
+  const { data: consents } = await db
+    .from("oauth_consents")
+    .select("client_id,scope,granted_at,revoked_at")
+    .eq("user_id", userId);
 
   const t = (tokens ?? []) as unknown as TokenGrantRow[];
   const c = (consents ?? []) as unknown as ConsentRow[];
-  const ids = [...new Set([...t.map((r) => r.client_id), ...c.map((r) => r.client_id)].filter(Boolean))];
+  const ids = [
+    ...new Set([...t.map((r) => r.client_id), ...c.map((r) => r.client_id)].filter(Boolean)),
+  ];
 
   const names: Record<string, string | null> = {};
   if (ids.length) {
-    const { data: clients } = await db.from("oauth_clients").select("client_id,client_name").in("client_id", ids);
-    for (const row of clients ?? []) names[String(row.client_id ?? "")] = (row.client_name as string | null) ?? null;
+    const { data: clients } = await db
+      .from("oauth_clients")
+      .select("client_id,client_name")
+      .in("client_id", ids);
+    for (const row of clients ?? [])
+      names[String(row.client_id ?? "")] = (row.client_name as string | null) ?? null;
   }
   return buildConnectedApps(t, c, names, Date.now());
 }
@@ -1268,7 +1544,11 @@ export async function listGrantsForUser(userId: string): Promise<ConnectedAppVie
  * no grants for simply matches zero rows (safe no-op — no existence leak).
  * Throws if a write fails so callers never report success on a failed revoke.
  */
-export async function revokeGrantsForUserClient(userId: string, clientId: string, nowIso: string): Promise<void> {
+export async function revokeGrantsForUserClient(
+  userId: string,
+  clientId: string,
+  nowIso: string,
+): Promise<void> {
   if (!userId || !clientId) return;
   const db = await admin();
   const { error: tokenErr } = await db
@@ -1310,17 +1590,27 @@ export type ScopeKind = "read" | "offline" | "write" | "propose";
 export function scopeKind(scope: string): ScopeKind {
   if (scope === OFFLINE_ACCESS_SCOPE) return "offline";
   if (scope === MCP_PROPOSE_SCOPE) return "propose";
-  if ((MCP_WRITE_SCOPES as readonly string[]).includes(scope) || scope === MCP_PUBLISH_SCOPE) return "write";
+  if ((MCP_WRITE_SCOPES as readonly string[]).includes(scope) || scope === MCP_PUBLISH_SCOPE)
+    return "write";
   return "read";
 }
 
-export function scopeConsentItems(scope: string): { scope: string; label: string; kind: ScopeKind }[] {
-  return parseScopes(scope).map((s) => ({ scope: s, label: SCOPE_LABELS[s] ?? s, kind: scopeKind(s) }));
+export function scopeConsentItems(
+  scope: string,
+): { scope: string; label: string; kind: ScopeKind }[] {
+  return parseScopes(scope).map((s) => ({
+    scope: s,
+    label: SCOPE_LABELS[s] ?? s,
+    kind: scopeKind(s),
+  }));
 }
 
 export type ConsentReason = "not_found" | "expired" | "already_used" | "invalid_client";
 export type ConsentClassification =
-  | { ok: true; normalized: { clientId: string; redirectUri: string; scope: string; state?: string } }
+  | {
+      ok: true;
+      normalized: { clientId: string; redirectUri: string; scope: string; state?: string };
+    }
   | { ok: false; reason: ConsentReason };
 
 /** Validate a pending request + its client for the consent screen. Pure. */
@@ -1340,7 +1630,8 @@ export function classifyConsentRequest(
       clientId: String(requestRow.client_id ?? ""),
       redirectUri: String(requestRow.redirect_uri ?? ""),
       scope: String(requestRow.scope ?? ""),
-      state: typeof requestRow.state === "string" && requestRow.state ? requestRow.state : undefined,
+      state:
+        typeof requestRow.state === "string" && requestRow.state ? requestRow.state : undefined,
     },
   };
 }
@@ -1351,7 +1642,10 @@ export function buildDenyRedirect(redirectUri: string, state?: string): string {
 }
 
 /** Best-effort audit log (no secrets). Never throws. */
-export async function logOAuthEvent(event: string, opts: { clientId?: string; userId?: string; detail?: Record<string, unknown> } = {}): Promise<void> {
+export async function logOAuthEvent(
+  event: string,
+  opts: { clientId?: string; userId?: string; detail?: Record<string, unknown> } = {},
+): Promise<void> {
   try {
     const db = await admin();
     await db.from("oauth_audit_log").insert({
