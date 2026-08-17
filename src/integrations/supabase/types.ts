@@ -758,6 +758,27 @@ export type Database = {
         }
         Relationships: []
       }
+      project_publish_secrets: {
+        Row: {
+          project_id: string
+          secret: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          project_id: string
+          secret: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          project_id?: string
+          secret?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       scheduled_publishes: {
         Row: {
           asset_id: string
