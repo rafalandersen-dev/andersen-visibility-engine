@@ -206,9 +206,18 @@ function PublicAuditPage() {
           <div className="mt-8 rounded-lg border border-border bg-card p-6 text-center">
             <AlertTriangle className="mx-auto h-7 w-7 text-amber-500" strokeWidth={1.5} />
             <p className="mt-2 text-sm text-muted-foreground max-w-md mx-auto">{error}</p>
-            <Button className="mt-4" variant="outline" onClick={run}>
-              {t("common.retry")}
-            </Button>
+            {/* Retry only helps for transient failures. When the endpoint is not
+                wired up, offer the sign-up path instead of a button that cannot
+                ever succeed. */}
+            {unavailable ? (
+              <Button className="mt-4" onClick={startProject}>
+                Start a project
+              </Button>
+            ) : (
+              <Button className="mt-4" variant="outline" onClick={run}>
+                {t("common.retry")}
+              </Button>
+            )}
           </div>
         ) : null}
 
