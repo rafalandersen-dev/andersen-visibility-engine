@@ -5,6 +5,14 @@
   "compatibility_date": "2026-07-28",
   "workers_dev": false,
   "preview_urls": false,
+  "routes": [
+    { "pattern": "milogrowth.com/api/public-audit", "zone_name": "milogrowth.com" },
+    { "pattern": "www.milogrowth.com/api/public-audit", "zone_name": "milogrowth.com" },
+  ],
+  "vars": {
+    "PUBLIC_AUDIT_ALLOWED_HOSTS": "milogrowth.com,www.milogrowth.com",
+    "PUBLIC_AUDIT_ALLOWED_ORIGINS": "https://milogrowth.com,https://www.milogrowth.com",
+  },
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1,
