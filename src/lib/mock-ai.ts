@@ -63,6 +63,7 @@ import { fetchSitemapInventoryFn } from "./sitemap.functions";
 import { isSitemapInventoryFresh } from "./sitemap";
 import { assessReadiness, toReadinessScore } from "./readiness";
 import { publishBlockers } from "./checklist";
+import { hasPublishSecret } from "./launch";
 import { reconcileHookOnRegeneration } from "./hook";
 import { isArticleLikeAssetType } from "./visual-model";
 import type {
@@ -1903,8 +1904,7 @@ export async function sendContentToWebsite(
     }
 
     const endpoint = (project.publishEndpoint ?? "").trim();
-    const secret = (project.publishSecret ?? "").trim();
-    if (!endpoint || !secret) {
+    if (!endpoint || !hasPublishSecret(project)) {
       throw new Error("Connect a website in Project Setup before sending drafts.");
     }
 
@@ -1977,9 +1977,8 @@ export async function publishContentLive(assetId: string) {
     }
 
     const liveEndpoint = (project.livePublishEndpoint ?? "").trim();
-    const secret = (project.publishSecret ?? "").trim();
     if (!liveEndpoint) throw new Error("Add a live-publish endpoint in Project Setup first.");
-    if (!secret) throw new Error("Add a publish secret in Project Setup first.");
+    if (!hasPublishSecret(project)) throw new Error("Add a publish secret in Project Setup first.");
     if (asset.publishStatus !== "sent") {
       throw new Error("Send the draft to the website before publishing it live.");
     }

@@ -959,6 +959,7 @@ type ProjectPublishingSettings = Partial<
     | "publishingPlatform"
     | "publishEndpoint"
     | "publishSecret"
+    | "publishSecretSet"
     | "defaultPublishMode"
     | "defaultDestinationType"
     | "livePublishEndpoint"
