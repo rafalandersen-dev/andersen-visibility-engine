@@ -1,5 +1,19 @@
 import type { PublicAiVisibilityAudit } from "./public-audit";
 
+/**
+ * Thrown when the audit endpoint is not wired up at all (the handler lives in
+ * a separate worker that may not be routed yet). This is NOT a transient
+ * failure: retrying cannot help, so the UI shows a "closed" notice instead of
+ * an error card with a Retry button.
+ */
+export class PublicAuditUnavailableError extends Error {
+  readonly retryable = false;
+  constructor(message: string) {
+    super(message);
+    this.name = "PublicAuditUnavailableError";
+  }
+}
+
 export interface PublicAuditHttpInput {
   url: string;
   language?: string;
