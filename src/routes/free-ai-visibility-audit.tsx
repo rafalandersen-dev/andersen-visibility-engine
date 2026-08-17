@@ -75,6 +75,7 @@ function PublicAuditPage() {
     }
     setLoading(true);
     setError(null);
+    setUnavailable(false);
     setResult(null);
     setStep(0);
     const timer = setInterval(() => setStep((s) => Math.min(STEP_KEYS.length - 1, s + 1)), 1500);
