@@ -79,4 +79,14 @@ describe("image generation accounts for its spend", () => {
     expect(model).toBeGreaterThan(-1);
     expect(claim).toBeLessThan(model);
   });
+
+  it("asserts the Pro/Agency plan gate BEFORE the claim and the model call", () => {
+    // The gate is the only refusal that fires while AI_METERING_ENFORCED is
+    // off — removing or reordering it would re-open image generation (the most
+    // expensive AI click) to every free-preview account.
+    const gate = IMAGE_SOURCE.indexOf("assertImageGenerationAllowed({ userId })");
+    const claim = IMAGE_SOURCE.indexOf('claimAiUsage({ userId, bucket: "imageGeneration" })');
+    expect(gate).toBeGreaterThan(-1);
+    expect(gate).toBeLessThan(claim);
+  });
 });

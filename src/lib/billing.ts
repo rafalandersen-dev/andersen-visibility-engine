@@ -34,6 +34,8 @@ export interface PlanLimits {
   monthlyAuthorityGenerations: number;
   monthlyImageGenerations: number;
   monthlyLinkVerifications: number;
+  /** AI image generation is a Pro/Agency feature (owner decision 2026-08-17). */
+  imageGenerationEnabled: boolean;
   publishingEnabled: boolean;
   wordpressConnectorEnabled: boolean;
   customConnectorEnabled: boolean;
@@ -157,6 +159,7 @@ export const PLAN_META: Record<
     features: [
       "Up to 5 projects / websites",
       "High monthly limits",
+      "AI image generation",
       "More GSC imports & authority",
       "AI Evaluation (where configured)",
       "Priority support",
@@ -169,6 +172,7 @@ export const PLAN_META: Record<
       "Up to 15 client projects",
       "White-label monthly proof reports",
       "Highest monthly limits",
+      "AI image generation",
       "All connectors + AI Evaluation",
       "Priority support",
     ],
@@ -186,8 +190,9 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
     monthlyAudits: 2,
     monthlyGscImports: 1,
     monthlyAuthorityGenerations: 1,
-    monthlyImageGenerations: 3,
+    monthlyImageGenerations: 0,
     monthlyLinkVerifications: 10,
+    imageGenerationEnabled: false,
     publishingEnabled: false,
     wordpressConnectorEnabled: false,
     customConnectorEnabled: false,
@@ -206,8 +211,9 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
     monthlyAudits: 5,
     monthlyGscImports: 3,
     monthlyAuthorityGenerations: 3,
-    monthlyImageGenerations: 10,
+    monthlyImageGenerations: 0,
     monthlyLinkVerifications: 50,
+    imageGenerationEnabled: false,
     publishingEnabled: true,
     wordpressConnectorEnabled: true,
     customConnectorEnabled: true,
@@ -226,8 +232,9 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
     monthlyAudits: 15,
     monthlyGscImports: 10,
     monthlyAuthorityGenerations: 10,
-    monthlyImageGenerations: 40,
+    monthlyImageGenerations: 0,
     monthlyLinkVerifications: 200,
+    imageGenerationEnabled: false,
     publishingEnabled: true,
     wordpressConnectorEnabled: true,
     customConnectorEnabled: true,
@@ -248,6 +255,7 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
     monthlyAuthorityGenerations: 30,
     monthlyImageGenerations: 120,
     monthlyLinkVerifications: 600,
+    imageGenerationEnabled: true,
     publishingEnabled: true,
     wordpressConnectorEnabled: true,
     customConnectorEnabled: true,
@@ -268,6 +276,7 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
     monthlyAuthorityGenerations: 75,
     monthlyImageGenerations: 300,
     monthlyLinkVerifications: 1500,
+    imageGenerationEnabled: true,
     publishingEnabled: true,
     wordpressConnectorEnabled: true,
     customConnectorEnabled: true,
