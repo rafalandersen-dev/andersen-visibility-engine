@@ -9,14 +9,15 @@
  * approves it like any upload.
  *
  * Provider is a seam (image-gen.server.ts): Lovable gateway now, gpt-image-1
- * pre-launch (owner decision). Metered via the imageGeneration bucket,
- * claimed BEFORE the model call so a refusal costs nothing.
+ * pre-launch (owner decision). Pro/Agency-only (hard plan gate, active even
+ * while AI_METERING_ENFORCED is off) and metered via the imageGeneration
+ * bucket — both checked BEFORE the model call so a refusal costs nothing.
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import type { Project } from "./types";
-import { claimAiUsage } from "./ai-usage.server";
+import { assertImageGenerationAllowed, claimAiUsage } from "./ai-usage.server";
 import { generateImageBytes, ImageGenError } from "./image-gen.server";
 import { buildImagePrompt, draftAltText } from "./image-gen";
 import { stageValidatedImageBytes } from "./image-storage.functions";
@@ -41,6 +42,9 @@ export async function generateArticleImageCore(
     project: Pick<Project, "businessName" | "businessType" | "toneOfVoice">;
   },
 ): Promise<GeneratedArticleImage> {
+  // Pro/Agency plan gate first (active even while metering enforcement is off),
+  // then the metered claim — both before the model call so a refusal costs nothing.
+  await assertImageGenerationAllowed({ userId });
   await claimAiUsage({ userId, bucket: "imageGeneration" });
   const prompt = buildImagePrompt({
     concept: args.concept,

@@ -8,8 +8,15 @@
  * owner ceiling is applied, and the period key.
  */
 import { describe, it, expect } from "vitest";
-import { capFor, usagePeriod, OWNER_MULTIPLIER, UsageLimitError } from "./ai-usage.server";
-import { PLAN_LIMITS, isActivePaid } from "./billing";
+import {
+  assertImageGenerationAllowed,
+  capFor,
+  usagePeriod,
+  ImageGenerationGateError,
+  OWNER_MULTIPLIER,
+  UsageLimitError,
+} from "./ai-usage.server";
+import { PLAN_LIMITS, type PlanId, isActivePaid } from "./billing";
 
 describe("capFor", () => {
   it("draws from the limit the pricing page actually advertises", () => {
@@ -87,6 +94,51 @@ describe("resolvePlan honours only active-paid subscriptions", () => {
   it("isActivePaid accepts a genuinely active paid plan", () => {
     expect(isActivePaid({ planId: "pro", status: "active" } as never)).toBe(true);
     expect(isActivePaid({ planId: "starter", status: "manualBeta" } as never)).toBe(true);
+  });
+});
+
+describe("image generation plan gate (Pro/Agency only, owner decision 2026-08-17)", () => {
+  // The gate must hold even while AI_METERING_ENFORCED is off — it is the only
+  // thing standing between a free-preview account and the most expensive AI
+  // call in the product. Overrides keep these tests off the DB.
+  const gated: PlanId[] = ["freePreview", "starter", "growth"];
+  const allowed: PlanId[] = ["pro", "agency"];
+
+  it("refuses every plan below Pro with the upgrade message", async () => {
+    for (const plan of gated) {
+      await expect(
+        assertImageGenerationAllowed({ userId: "u1", planOverride: plan, isOwnerOverride: false }),
+      ).rejects.toBeInstanceOf(ImageGenerationGateError);
+    }
+  });
+
+  it("allows Pro and Agency", async () => {
+    for (const plan of allowed) {
+      await expect(
+        assertImageGenerationAllowed({ userId: "u1", planOverride: plan, isOwnerOverride: false }),
+      ).resolves.toBeUndefined();
+    }
+  });
+
+  it("keeps the owner bypass, even on the free preview", async () => {
+    await expect(
+      assertImageGenerationAllowed({
+        userId: "u1",
+        planOverride: "freePreview",
+        isOwnerOverride: true,
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("keeps the metered quota consistent with the boolean flag on every plan", () => {
+    for (const plan of gated) {
+      expect(PLAN_LIMITS[plan].imageGenerationEnabled, plan).toBe(false);
+      expect(PLAN_LIMITS[plan].monthlyImageGenerations, plan).toBe(0);
+    }
+    for (const plan of allowed) {
+      expect(PLAN_LIMITS[plan].imageGenerationEnabled, plan).toBe(true);
+      expect(PLAN_LIMITS[plan].monthlyImageGenerations, plan).toBeGreaterThan(0);
+    }
   });
 });
 

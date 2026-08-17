@@ -176,6 +176,44 @@ export async function claimAiUsage(args: {
   return { ...row, cap: realCap };
 }
 
+export class ImageGenerationGateError extends Error {
+  readonly code = "feature_gate";
+  constructor(message: string) {
+    super(message);
+    this.name = "ImageGenerationGateError";
+  }
+}
+
+/**
+ * Hard plan gate for AI image generation — Pro/Agency only (owner decision
+ * 2026-08-17). Unlike the metered buckets this is NOT behind
+ * AI_METERING_ENFORCED: an image call is the most expensive single AI click in
+ * the product, and the entitled plan resolves from the service-role-only
+ * entitlements table, so this gate is trustworthy today. The owner bypass
+ * follows the raised-ceiling philosophy above — the owner account keeps the
+ * feature (batch tooling depends on it) while spend stays visible through the
+ * recorded imageGeneration bucket.
+ */
+export async function assertImageGenerationAllowed(args: {
+  userId: string;
+  /** Test seams; production resolves both server-side. */
+  planOverride?: PlanId;
+  isOwnerOverride?: boolean;
+}): Promise<void> {
+  const [plan, isOwner] = await Promise.all([
+    args.planOverride !== undefined ? Promise.resolve(args.planOverride) : resolvePlan(args.userId),
+    args.isOwnerOverride !== undefined
+      ? Promise.resolve(args.isOwnerOverride)
+      : resolveOwner(args.userId),
+  ]);
+  if (isOwner) return;
+  if (!PLAN_LIMITS[plan].imageGenerationEnabled) {
+    throw new ImageGenerationGateError(
+      "AI image generation is included in the Pro and Agency plans. Upgrade to generate images — or upload your own.",
+    );
+  }
+}
+
 /**
  * The caller's plan, from public.entitlements — a service-role-write-only
  * table. The old source (workspace_meta.subscription) was client-writable, so

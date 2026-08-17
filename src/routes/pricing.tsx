@@ -257,6 +257,10 @@ function PricingBody() {
                 )}
               />
               <CompareRow
+                label="AI image generation"
+                values={PLAN_IDS.map((pid) => PLAN_LIMITS[pid].imageGenerationEnabled)}
+              />
+              <CompareRow
                 label="AI evaluation"
                 values={PLAN_IDS.map((pid) => PLAN_LIMITS[pid].aiEvaluationEnabled)}
               />
