@@ -22,6 +22,7 @@ import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as PlRouteImport } from './routes/pl'
 import { Route as MiloAnalyticsDotjsRouteImport } from './routes/milo-analytics[.]js'
+import { Route as ImprintRouteImport } from './routes/imprint'
 import { Route as FreeAiVisibilityAuditRouteImport } from './routes/free-ai-visibility-audit'
 import { Route as EuRouteImport } from './routes/eu'
 import { Route as DpaRouteImport } from './routes/dpa'
@@ -144,6 +145,11 @@ const PlRoute = PlRouteImport.update({
 const MiloAnalyticsDotjsRoute = MiloAnalyticsDotjsRouteImport.update({
   id: '/milo-analytics.js',
   path: '/milo-analytics.js',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ImprintRoute = ImprintRouteImport.update({
+  id: '/imprint',
+  path: '/imprint',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FreeAiVisibilityAuditRoute = FreeAiVisibilityAuditRouteImport.update({
@@ -470,6 +476,7 @@ export interface FileRoutesByFullPath {
   '/dpa': typeof DpaRoute
   '/eu': typeof EuRoute
   '/free-ai-visibility-audit': typeof FreeAiVisibilityAuditRoute
+  '/imprint': typeof ImprintRoute
   '/milo-analytics.js': typeof MiloAnalyticsDotjsRoute
   '/pl': typeof PlRoute
   '/pricing': typeof PricingRoute
@@ -542,6 +549,7 @@ export interface FileRoutesByTo {
   '/dpa': typeof DpaRoute
   '/eu': typeof EuRoute
   '/free-ai-visibility-audit': typeof FreeAiVisibilityAuditRoute
+  '/imprint': typeof ImprintRoute
   '/milo-analytics.js': typeof MiloAnalyticsDotjsRoute
   '/pl': typeof PlRoute
   '/pricing': typeof PricingRoute
@@ -616,6 +624,7 @@ export interface FileRoutesById {
   '/dpa': typeof DpaRoute
   '/eu': typeof EuRoute
   '/free-ai-visibility-audit': typeof FreeAiVisibilityAuditRoute
+  '/imprint': typeof ImprintRoute
   '/milo-analytics.js': typeof MiloAnalyticsDotjsRoute
   '/pl': typeof PlRoute
   '/pricing': typeof PricingRoute
@@ -690,6 +699,7 @@ export interface FileRouteTypes {
     | '/dpa'
     | '/eu'
     | '/free-ai-visibility-audit'
+    | '/imprint'
     | '/milo-analytics.js'
     | '/pl'
     | '/pricing'
@@ -762,6 +772,7 @@ export interface FileRouteTypes {
     | '/dpa'
     | '/eu'
     | '/free-ai-visibility-audit'
+    | '/imprint'
     | '/milo-analytics.js'
     | '/pl'
     | '/pricing'
@@ -835,6 +846,7 @@ export interface FileRouteTypes {
     | '/dpa'
     | '/eu'
     | '/free-ai-visibility-audit'
+    | '/imprint'
     | '/milo-analytics.js'
     | '/pl'
     | '/pricing'
@@ -909,6 +921,7 @@ export interface RootRouteChildren {
   DpaRoute: typeof DpaRoute
   EuRoute: typeof EuRoute
   FreeAiVisibilityAuditRoute: typeof FreeAiVisibilityAuditRoute
+  ImprintRoute: typeof ImprintRoute
   MiloAnalyticsDotjsRoute: typeof MiloAnalyticsDotjsRoute
   PlRoute: typeof PlRoute
   PricingRoute: typeof PricingRoute
@@ -1037,6 +1050,13 @@ declare module '@tanstack/react-router' {
       path: '/milo-analytics.js'
       fullPath: '/milo-analytics.js'
       preLoaderRoute: typeof MiloAnalyticsDotjsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/imprint': {
+      id: '/imprint'
+      path: '/imprint'
+      fullPath: '/imprint'
+      preLoaderRoute: typeof ImprintRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/free-ai-visibility-audit': {
@@ -1518,6 +1538,7 @@ const rootRouteChildren: RootRouteChildren = {
   DpaRoute: DpaRoute,
   EuRoute: EuRoute,
   FreeAiVisibilityAuditRoute: FreeAiVisibilityAuditRoute,
+  ImprintRoute: ImprintRoute,
   MiloAnalyticsDotjsRoute: MiloAnalyticsDotjsRoute,
   PlRoute: PlRoute,
   PricingRoute: PricingRoute,
@@ -1559,3 +1580,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
