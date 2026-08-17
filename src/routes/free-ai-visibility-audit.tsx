@@ -87,6 +87,7 @@ function PublicAuditPage() {
       });
       setResult(audit);
     } catch (e) {
+      setUnavailable(e instanceof PublicAuditUnavailableError);
       setError(e instanceof Error ? e.message : t("publicAudit.genericError"));
     } finally {
       clearInterval(timer);
