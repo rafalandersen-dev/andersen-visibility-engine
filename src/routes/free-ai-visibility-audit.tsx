@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { translate } from "@/i18n";
 import { contentLangToProjectLanguage } from "@/lib/onboarding";
-import { runPublicAudit } from "@/lib/public-audit-client";
+import { PublicAuditUnavailableError, runPublicAudit } from "@/lib/public-audit-client";
 import {
   PUBLIC_AUDIT_CATEGORY_KEYS,
   type PublicAiVisibilityAudit,
