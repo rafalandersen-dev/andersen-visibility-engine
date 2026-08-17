@@ -1,13 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  LEGAL_PAGES,
-  LEGAL_LAST_UPDATED,
-  LEGAL_REVIEW_NOTE,
-  LEGAL_LOCALIZATION_NOTE,
-} from "@/lib/legal";
-import { Info } from "lucide-react";
+import { LEGAL_PAGES, LEGAL_LAST_UPDATED, LEGAL_LOCALIZATION_NOTE } from "@/lib/legal";
 
 /**
  * Shared public layout for legal / trust pages. No authentication required.
@@ -34,8 +28,14 @@ export function LegalPage({
             </span>
           </Link>
           <div className="flex items-center gap-2">
-            <Link to="/"><Button variant="ghost" size="sm">Home</Button></Link>
-            <Link to="/auth"><Button size="sm">Get started</Button></Link>
+            <Link to="/">
+              <Button variant="ghost" size="sm">
+                Home
+              </Button>
+            </Link>
+            <Link to="/auth">
+              <Button size="sm">Get started</Button>
+            </Link>
           </div>
         </div>
       </header>
@@ -63,11 +63,8 @@ export function LegalPage({
         {/* Content */}
         <article className="min-w-0">
           <h1 className="font-display text-3xl md:text-4xl">{title}</h1>
-          <div className="mt-2 text-xs text-muted-foreground">Last updated: {LEGAL_LAST_UPDATED}</div>
-
-          <div className="mt-4 flex items-start gap-2 rounded-md border border-gold/30 bg-gold/5 px-4 py-3 text-xs text-foreground/80">
-            <Info className="h-4 w-4 shrink-0 text-gold/80 mt-0.5" />
-            <span>{LEGAL_REVIEW_NOTE}</span>
+          <div className="mt-2 text-xs text-muted-foreground">
+            Last updated: {LEGAL_LAST_UPDATED}
           </div>
 
           {intro ? <p className="mt-6 text-sm text-muted-foreground max-w-2xl">{intro}</p> : null}
@@ -85,7 +82,9 @@ export function LegalPage({
       <footer className="border-t border-border bg-card/40">
         <div className="mx-auto max-w-5xl px-6 py-8 flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
           <span>Milo Growth — built by Andersen Innovations</span>
-          <Link to="/" className="hover:text-foreground">Back to home</Link>
+          <Link to="/" className="hover:text-foreground">
+            Back to home
+          </Link>
         </div>
       </footer>
     </main>
