@@ -29,10 +29,6 @@ export const LEGAL_IDENTITY = {
   address: "Malmö, Sweden",
 } as const;
 
-/** Standard beta / legal-review banner copy. */
-export const LEGAL_REVIEW_NOTE =
-  "This page is provided for beta readiness and should be reviewed by a qualified legal professional before broad commercial launch.";
-
 /** Note shown about localized (PL/SV/DA) versions. */
 export const LEGAL_LOCALIZATION_NOTE =
   "Localized versions may be added before wider launch in Poland, Sweden and Denmark.";
