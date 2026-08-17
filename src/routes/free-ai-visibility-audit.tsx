@@ -57,6 +57,7 @@ function PublicAuditPage() {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [unavailable, setUnavailable] = useState(false);
   const [result, setResult] = useState<PublicAiVisibilityAudit | null>(null);
   const [botProof, setBotProof] = useState("");
   const [turnstileReset, setTurnstileReset] = useState(0);
