@@ -80,10 +80,19 @@ function brandIntelligenceStarted(p: Project): boolean {
   if (!bi) return false;
   return Boolean(
     bi.updatedAt ||
-      bi.voice?.tone ||
-      (bi.offers?.primaryOffers?.length ?? 0) > 0 ||
-      (bi.claims?.allowedClaims?.length ?? 0) > 0,
+    bi.voice?.tone ||
+    (bi.offers?.primaryOffers?.length ?? 0) > 0 ||
+    (bi.claims?.allowedClaims?.length ?? 0) > 0,
   );
+}
+
+/**
+ * A usable custom-connector publish secret exists: either the server-side
+ * store has one (publishSecretSet marker) or the legacy plaintext field is
+ * still populated (P0-3 fallback). The browser never sees the secret itself.
+ */
+export function hasPublishSecret(p: Pick<Project, "publishSecret" | "publishSecretSet">): boolean {
+  return Boolean(p.publishSecretSet || (p.publishSecret ?? "").trim());
 }
 
 /** Has the publishing connector got enough config to attempt a send? */
@@ -98,7 +107,7 @@ export function connectorConfigured(p: Project): boolean {
     return Boolean(s.shopDomain && s.adminAccessToken && s.defaultBlogId);
   }
   // custom
-  return Boolean(p.publishEndpoint && p.publishSecret);
+  return Boolean(p.publishEndpoint && hasPublishSecret(p));
 }
 
 /** Connector test status — only meaningful for WordPress/Shopify. */
@@ -121,8 +130,12 @@ export function computeLaunchChecklist(input: LaunchInputs): LaunchChecklist {
   const bool = (v: boolean): ChecklistState => (v ? "done" : "missing");
 
   const hasScore = content.some((c) => Boolean(c.qualityScore));
-  const hasReviewed = content.some((c) =>
-    c.status === "In Review" || c.status === "Approved" || c.status === "Exported" || c.status === "Rejected",
+  const hasReviewed = content.some(
+    (c) =>
+      c.status === "In Review" ||
+      c.status === "Approved" ||
+      c.status === "Exported" ||
+      c.status === "Rejected",
   );
   const hasDraftSent = content.some((c) => c.publishStatus === "sent");
   const hasLive = content.some((c) => c.livePublishStatus === "published" || Boolean(c.liveUrl));

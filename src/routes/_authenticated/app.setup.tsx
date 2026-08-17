@@ -21,6 +21,7 @@ import {
   saveWorkspaceNow,
 } from "@/lib/store";
 import { testWordPressConnectionFn } from "@/lib/wordpress.functions";
+import { savePublishSecretFn } from "@/lib/publish.functions";
 import { testShopifyConnectionFn, listShopifyBlogsFn } from "@/lib/shopify.functions";
 import { useAuth } from "@/lib/auth";
 
@@ -629,7 +630,9 @@ function PublishingCard({ project }: { project: Project }) {
   );
   const [endpoint, setEndpoint] = useState(project.publishEndpoint ?? "");
   const [liveEndpoint, setLiveEndpoint] = useState(project.livePublishEndpoint ?? "");
-  const [secret, setSecret] = useState(project.publishSecret ?? "");
+  // Never pre-filled (P0-3): the browser no longer receives the saved secret.
+  const [secret, setSecret] = useState("");
+  const hasSavedSecret = Boolean(project.publishSecretSet || project.publishSecret);
   const [destination, setDestination] = useState<PublishDestinationType>(
     project.defaultDestinationType ?? "blogPost",
   );
@@ -794,11 +797,22 @@ function PublishingCard({ project }: { project: Project }) {
           return;
         }
         updateProjectConnector(project.id, { connectorType: "custom" });
+        const typedSecret = secret.trim();
+        if (typedSecret) {
+          // Server-side store FIRST — the legacy field is only blanked once the
+          // store write succeeded, so a failed call cannot orphan publishing.
+          await savePublishSecretFn({ data: { projectId: project.id, secret: typedSecret } });
+        }
+        const secretPatch = typedSecret
+          ? { publishSecret: "", publishSecretSet: true }
+          : project.publishSecretSet
+            ? { publishSecret: "" } // store is authoritative; keep the legacy field blank
+            : {}; // legacy-only project, nothing typed: leave the fallback in place
         updateProjectPublishingSettings(project.id, {
           publishingPlatform: "lovableCustomEndpoint",
           publishEndpoint: endpoint.trim(),
           livePublishEndpoint: liveEndpoint.trim(),
-          publishSecret: secret,
+          ...secretPatch,
           defaultPublishMode: "draft",
           defaultDestinationType: destination,
           publishMode: mode,
@@ -807,6 +821,7 @@ function PublishingCard({ project }: { project: Project }) {
       await saveWorkspaceNow();
       setWpAppPassword("");
       setShopToken("");
+      setSecret("");
       toast.success("Publishing settings saved");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not save publishing settings");
@@ -1095,7 +1110,7 @@ function PublishingCard({ project }: { project: Project }) {
                   type="password"
                   value={secret}
                   onChange={(e) => setSecret(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder={hasSavedSecret ? t("wp.appPasswordSaved") : "••••••••"}
                   autoComplete="off"
                 />
               </div>

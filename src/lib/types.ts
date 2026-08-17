@@ -208,7 +208,14 @@ export interface Project {
   // ---- Publishing v1 (all optional → existing projects keep loading) ----
   publishingPlatform?: PublishingPlatform;
   publishEndpoint?: string;
+  /**
+   * LEGACY plaintext publish secret (P0-3). New saves go to the service-role
+   * project_publish_secrets store; this field is only read as a fallback for
+   * projects that never re-saved, and is blanked on the next settings save.
+   */
   publishSecret?: string;
+  /** True once a secret exists in the server-side store (browser-safe marker). */
+  publishSecretSet?: boolean;
   defaultPublishMode?: "draft";
   defaultDestinationType?: PublishDestinationType;
   // ---- Publishing v1.1 ----

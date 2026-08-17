@@ -139,7 +139,9 @@ async function runConnectorPublish(
   // Custom endpoint. Mirrors the browser path's precondition: the draft has to
   // exist on the site before it can be flipped live.
   const liveEndpoint = (project.livePublishEndpoint ?? "").trim();
-  const secret = (project.publishSecret ?? "").trim();
+  const { resolvePublishSecret } = await import("./publish-secret.server");
+  // Service-role store first, legacy workspace field as fallback (P0-3).
+  const secret = await resolvePublishSecret(userId, project);
   if (!liveEndpoint) {
     throw new PublishNotPossibleError("No live-publish endpoint is configured for this project.");
   }

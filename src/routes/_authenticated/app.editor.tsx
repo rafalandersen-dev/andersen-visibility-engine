@@ -41,6 +41,7 @@ import {
   validateAssetSources,
 } from "@/lib/mock-ai";
 import { isControlledImageOrigin } from "@/lib/images";
+import { hasPublishSecret } from "@/lib/launch";
 import { normalizeSourceUrl } from "@/lib/sources";
 import { generateArticleImageFn } from "@/lib/image-gen.functions";
 import {
@@ -792,7 +793,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     ? wpConfigured
     : isShopify
       ? shopifyConfigured
-      : Boolean(project?.publishEndpoint && project?.publishSecret);
+      : Boolean(project?.publishEndpoint && project && hasPublishSecret(project));
   const [sendOpen, setSendOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [destType, setDestType] = useState<PublishDestinationType>(
@@ -806,7 +807,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     ? wpConfigured
     : isShopify
       ? shopifyConfigured
-      : Boolean(project?.livePublishEndpoint && project?.publishSecret);
+      : Boolean(project?.livePublishEndpoint && project && hasPublishSecret(project));
   const [liveConfirmOpen, setLiveConfirmOpen] = useState(false);
   const [publishingLive, setPublishingLive] = useState(false);
   const outlineId = useId();

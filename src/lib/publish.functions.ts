@@ -49,15 +49,38 @@ async function resolvePublishContext(
   if (!project) throw new Error("Project not found in your workspace.");
   const asset = content.find((c) => c.id === assetId);
   if (!asset) throw new Error("Content not found in your workspace.");
+  const { resolvePublishSecret } = await import("./publish-secret.server");
   return {
     asset,
     project,
     corpus: content,
     draftEndpoint: (project.publishEndpoint ?? "").trim(),
     liveEndpoint: (project.livePublishEndpoint ?? "").trim(),
-    secret: (project.publishSecret ?? "").trim(),
+    // Service-role store first, legacy workspace field as fallback (P0-3).
+    secret: await resolvePublishSecret(userId, project),
   };
 }
+
+/**
+ * Save (or rotate) the custom-connector publish secret. The secret goes into
+ * the service-role-only store — never back into the workspace data the
+ * browser hydrates. Empty input is a no-op so the Setup form can re-save
+ * settings without knowing the current secret (same contract as the
+ * WordPress application-password field).
+ */
+export const savePublishSecretFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ projectId: z.string().min(1), secret: z.string().max(500) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const userId = context.userId as string;
+    const secret = data.secret.trim();
+    if (!secret) return { secretSet: false };
+    const { storePublishSecret } = await import("./publish-secret.server");
+    await storePublishSecret(userId, data.projectId, secret);
+    return { secretSet: true };
+  });
 
 /**
  * The SAME deterministic publishing checklist the editor and cron use, enforced
