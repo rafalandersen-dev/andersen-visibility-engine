@@ -64,12 +64,20 @@ function activePaths(project: Project, corpus: ContentAsset[]): string[] {
 export async function serverWpArgs(userId: string, projectId: string, assetId: string) {
   const { asset, project, corpus } = await readAssetAndProject(userId, projectId, assetId);
   assertPublishable(asset, project, corpus);
-  return wpPublishArgs(asset, project, activePaths(project, corpus));
+  const args = wpPublishArgs(asset, project, activePaths(project, corpus));
+  // Service-role store first, legacy workspace field as fallback (P0-3): the
+  // workspace copy of the application password is blanked once migrated, so
+  // the transport credential must come from the resolver, never the blob.
+  const { resolveWordPressAppPassword } = await import("./publish-secret.server");
+  return { ...args, applicationPassword: await resolveWordPressAppPassword(userId, project) };
 }
 
 /** Authorise + re-derive the Shopify article args for the caller's own asset. */
 export async function serverShopifyArgs(userId: string, projectId: string, assetId: string) {
   const { asset, project, corpus } = await readAssetAndProject(userId, projectId, assetId);
   assertPublishable(asset, project, corpus);
-  return shopifyArticleArgs(asset, project, activePaths(project, corpus));
+  const args = shopifyArticleArgs(asset, project, activePaths(project, corpus));
+  // Same store-first resolution as WordPress above.
+  const { resolveShopifyAdminToken } = await import("./publish-secret.server");
+  return { ...args, adminAccessToken: await resolveShopifyAdminToken(userId, project) };
 }

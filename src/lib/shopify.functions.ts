@@ -16,7 +16,7 @@ import {
   PublishTransportError,
 } from "./publish-outcome";
 import { markdownToHtml, slugifyForPublish, unresolvedInternalLinks } from "./markdown";
-import type { ShopifyPublishResult, ShopifyBlogOption } from "./types";
+import type { Project, ShopifyPublishResult, ShopifyBlogOption } from "./types";
 
 const SHOPIFY_API_VERSION = "2025-01";
 
@@ -112,17 +112,68 @@ async function shopifyGraphQL(
 }
 
 function shopDomainSchema() {
-  return z.object({ shopDomain: z.string(), adminAccessToken: z.string() });
+  return z.object({
+    shopDomain: z.string(),
+    // Empty when testing an already-saved token: the browser never receives
+    // it, so the server resolves it from the store instead. A typed value
+    // tests THAT value (the pre-save test flow).
+    adminAccessToken: z.string().default(""),
+    projectId: z.string().default(""),
+  });
+}
+
+/**
+ * Save (or rotate) the Shopify Admin API access token. The token goes into the
+ * service-role-only secret store — never back into the workspace data the
+ * browser hydrates (P0-3 pattern, same as savePublishSecretFn). Empty input is
+ * a no-op so the Setup form can re-save settings without knowing the current
+ * token.
+ */
+export const saveShopifyAdminTokenFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ projectId: z.string().min(1), adminAccessToken: z.string().max(500) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const token = data.adminAccessToken.trim();
+    if (!token) return { tokenSet: false };
+    const { storeProjectSecret } = await import("./publish-secret.server");
+    await storeProjectSecret(context.userId as string, data.projectId, "shopifyAdminToken", token);
+    return { tokenSet: true };
+  });
+
+/**
+ * The saved Admin token for one of the caller's own projects — store-first
+ * with legacy workspace fallback. Used by the connection test and blog list
+ * when the browser has no token to send (it never receives a saved one).
+ */
+async function savedShopifyToken(userId: string, projectId: string): Promise<string> {
+  const { readWorkspaceRow } = await import("./workspace.server");
+  const { resolveShopifyAdminToken } = await import("./publish-secret.server");
+  const row = await readWorkspaceRow(userId);
+  const projects = (row?.data.projects as Project[] | undefined) ?? [];
+  const project = projects.find((p) => p.id === projectId);
+  return resolveShopifyAdminToken(userId, { id: projectId, shopify: project?.shopify });
+}
+
+async function tokenForCall(
+  userId: string,
+  data: { adminAccessToken: string; projectId: string },
+): Promise<string> {
+  return (
+    data.adminAccessToken.trim() ||
+    (data.projectId ? await savedShopifyToken(userId, data.projectId) : "")
+  );
 }
 
 export const testShopifyConnectionFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => shopDomainSchema().parse(input))
-  .handler(async ({ data }): Promise<ShopifyPublishResult> => {
+  .handler(async ({ data, context }): Promise<ShopifyPublishResult> => {
     try {
       const out = await shopifyGraphQL(
         data.shopDomain,
-        data.adminAccessToken,
+        await tokenForCall(context.userId as string, data),
         `{ shop { name myshopifyDomain primaryDomain { url } } }`,
       );
       const shop = isRecord(out) && isRecord(out.shop) ? out.shop : {};
@@ -143,11 +194,14 @@ export const listShopifyBlogsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => shopDomainSchema().parse(input))
   .handler(
-    async ({ data }): Promise<{ success: boolean; blogs: ShopifyBlogOption[]; error?: string }> => {
+    async ({
+      data,
+      context,
+    }): Promise<{ success: boolean; blogs: ShopifyBlogOption[]; error?: string }> => {
       try {
         const out = await shopifyGraphQL(
           data.shopDomain,
-          data.adminAccessToken,
+          await tokenForCall(context.userId as string, data),
           `{ blogs(first: 50) { nodes { id handle title } } }`,
         );
         const nodes =

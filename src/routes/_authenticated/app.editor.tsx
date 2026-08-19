@@ -41,7 +41,7 @@ import {
   validateAssetSources,
 } from "@/lib/mock-ai";
 import { isControlledImageOrigin } from "@/lib/images";
-import { hasPublishSecret } from "@/lib/launch";
+import { hasPublishSecret, hasShopifyAdminToken, hasWordPressAppPassword } from "@/lib/launch";
 import { normalizeSourceUrl } from "@/lib/sources";
 import { generateArticleImageFn } from "@/lib/image-gen.functions";
 import {
@@ -782,11 +782,11 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   const wpConfigured = Boolean(
     project?.wordpress?.siteUrl &&
     project?.wordpress?.username &&
-    project?.wordpress?.applicationPassword,
+    hasWordPressAppPassword(project?.wordpress),
   );
   const shopifyConfigured = Boolean(
     project?.shopify?.shopDomain &&
-    project?.shopify?.adminAccessToken &&
+    hasShopifyAdminToken(project?.shopify) &&
     project?.shopify?.defaultBlogId,
   );
   const publishConfigured = isWordPress

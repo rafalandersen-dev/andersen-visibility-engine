@@ -1618,8 +1618,10 @@ export async function testWordPressConnection(projectId: string) {
   const s = getState();
   const project = s.projects.find((p) => p.id === projectId);
   if (!project) throw new Error("Project not found.");
+  // creds.applicationPassword is "" for a migrated project (store-held, never
+  // hydrated to the browser); the server resolves it from projectId instead.
   const creds = wpCreds(project);
-  const res = await testWordPressConnectionFn({ data: creds });
+  const res = await testWordPressConnectionFn({ data: { ...creds, projectId } });
   updateProjectConnector(projectId, {
     wordpress: {
       lastTestedAt: new Date().toISOString(),
@@ -1789,8 +1791,10 @@ export async function testShopifyConnection(projectId: string) {
   const s = getState();
   const project = s.projects.find((p) => p.id === projectId);
   if (!project) throw new Error("Project not found.");
+  // creds.adminAccessToken is "" for a migrated project (store-held, never
+  // hydrated to the browser); the server resolves it from projectId instead.
   const creds = shopifyCreds(project);
-  const res = await testShopifyConnectionFn({ data: creds });
+  const res = await testShopifyConnectionFn({ data: { ...creds, projectId } });
   updateProjectConnector(projectId, {
     shopify: {
       lastTestedAt: new Date().toISOString(),
@@ -1808,7 +1812,7 @@ export async function listShopifyBlogs(projectId: string) {
   const project = s.projects.find((p) => p.id === projectId);
   if (!project) throw new Error("Project not found.");
   const creds = shopifyCreds(project);
-  return listShopifyBlogsFn({ data: creds });
+  return listShopifyBlogsFn({ data: { ...creds, projectId } });
 }
 
 async function sendToShopifyDraft(asset: ContentAsset, project: Project) {

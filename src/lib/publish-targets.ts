@@ -118,6 +118,14 @@ export function wpPostTypeFor(asset: ContentAsset, project: Project): "post" | "
   return project.wordpress?.defaultPostType ?? "post";
 }
 
+/**
+ * Credential presence + shape, NOT the secret itself. A migrated project
+ * carries only the browser-safe `applicationPasswordSet` marker — the
+ * password lives in the service-role store and is overlaid onto these args by
+ * the server call sites (connector-guard.server.ts, publish.server.ts) via
+ * resolveWordPressAppPassword. The legacy plaintext field still satisfies the
+ * check (and rides along) for projects that never re-saved.
+ */
 export function wpCreds(project: Project): {
   siteUrl: string;
   username: string;
@@ -127,7 +135,7 @@ export function wpCreds(project: Project): {
   const siteUrl = (wp.siteUrl ?? "").trim();
   const username = (wp.username ?? "").trim();
   const applicationPassword = wp.applicationPassword ?? "";
-  if (!siteUrl || !username || !applicationPassword.trim()) {
+  if (!siteUrl || !username || (!applicationPassword.trim() && !wp.applicationPasswordSet)) {
     throw new Error(
       "Connect WordPress in Project Setup (site URL, username and application password) first.",
     );
@@ -135,11 +143,12 @@ export function wpCreds(project: Project): {
   return { siteUrl, username, applicationPassword };
 }
 
+/** Same contract as wpCreds: `adminAccessTokenSet` marks a store-held token. */
 export function shopifyCreds(project: Project): { shopDomain: string; adminAccessToken: string } {
   const sh = project.shopify ?? {};
   const shopDomain = (sh.shopDomain ?? "").trim();
   const adminAccessToken = sh.adminAccessToken ?? "";
-  if (!shopDomain || !adminAccessToken.trim()) {
+  if (!shopDomain || (!adminAccessToken.trim() && !sh.adminAccessTokenSet)) {
     throw new Error(
       "Connect Shopify in Project Setup (shop domain and Admin API access token) first.",
     );

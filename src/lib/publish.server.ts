@@ -76,7 +76,13 @@ async function runConnectorPublish(
   }
 
   if (isWordPress(project)) {
-    const res = await publishWordPressLiveDirect(wpPublishArgs(asset, project, knownInternalPaths));
+    const args = wpPublishArgs(asset, project, knownInternalPaths);
+    // Service-role store first, legacy workspace field as fallback (P0-3):
+    // migrated projects carry only the applicationPasswordSet marker in the
+    // workspace blob, so the transport credential comes from the resolver.
+    const { resolveWordPressAppPassword } = await import("./publish-secret.server");
+    args.applicationPassword = await resolveWordPressAppPassword(userId, project);
+    const res = await publishWordPressLiveDirect(args);
     if (!res.success) {
       // Retry only when the connector proved nothing was created.
       throw new PublishTransportError(
@@ -109,7 +115,11 @@ async function runConnectorPublish(
   }
 
   if (isShopify(project)) {
-    const res = await upsertArticle(shopifyArticleArgs(asset, project, knownInternalPaths), true);
+    const args = shopifyArticleArgs(asset, project, knownInternalPaths);
+    // Same store-first resolution as WordPress above.
+    const { resolveShopifyAdminToken } = await import("./publish-secret.server");
+    args.adminAccessToken = await resolveShopifyAdminToken(userId, project);
+    const res = await upsertArticle(args, true);
     if (!res.success) {
       throw new PublishTransportError(
         res.error || "Shopify could not publish the article.",
