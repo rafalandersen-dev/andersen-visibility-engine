@@ -22,7 +22,22 @@ describe("public audit architecture boundary", () => {
     expect(config).toContain('"name": "milo-public-audit-staging"');
     expect(config).toContain('"PUBLIC_AUDIT_STAGING_HARNESS_HOST": ""');
     expect(config).toContain('"PUBLIC_AUDIT_STAGING_TURNSTILE_SITE_KEY": ""');
-    expect(config).not.toMatch(/"routes"|"custom_domains"/);
+  });
+
+  it("routes production traffic ONLY to the dedicated audit path on our own zone", () => {
+    // Owner-approved deploy (Aug 2026): the Worker serves exactly
+    // milogrowth.com/api/public-audit. A broader pattern would put the Worker
+    // in front of pages it was never hardened for; a foreign zone would be a
+    // misdeploy. The staging env must stay route-less.
+    const config = readFileSync("workers/public-audit/wrangler.jsonc", "utf-8");
+    const routePatterns = [...config.matchAll(/"pattern":\s*"([^"]+)"/g)].map((m) => m[1]);
+    expect(routePatterns).toEqual(["milogrowth.com/api/public-audit"]);
+    const zones = [...config.matchAll(/"zone_name":\s*"([^"]+)"/g)].map((m) => m[1]);
+    expect(zones).toEqual(["milogrowth.com"]);
+    expect(config).not.toContain('"custom_domains"');
+    // No routes inside the staging env block (it must never shadow production).
+    const stagingBlock = config.slice(config.indexOf('"staging"'));
+    expect(stagingBlock).not.toContain('"routes"');
   });
 
   it("keeps the public audit independent from Lovable-managed AI credentials", () => {
