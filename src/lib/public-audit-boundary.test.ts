@@ -31,8 +31,11 @@ describe("public audit architecture boundary", () => {
     // misdeploy. The staging env must stay route-less.
     const config = readFileSync("workers/public-audit/wrangler.jsonc", "utf-8");
     const routePatterns = [...config.matchAll(/"pattern":\s*"([^"]+)"/g)].map((m) => m[1]);
-    expect(routePatterns).toEqual(["milogrowth.com/api/public-audit"]);
-    const zones = [...config.matchAll(/"zone_name":\s*"([^"]+)"/g)].map((m) => m[1]);
+    expect(routePatterns.sort()).toEqual([
+      "milogrowth.com/api/public-audit",
+      "www.milogrowth.com/api/public-audit",
+    ]);
+    const zones = [...new Set([...config.matchAll(/"zone_name":\s*"([^"]+)"/g)].map((m) => m[1]))];
     expect(zones).toEqual(["milogrowth.com"]);
     expect(config).not.toContain('"custom_domains"');
     // No routes inside the staging env block (it must never shadow production).
