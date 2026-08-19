@@ -178,3 +178,5 @@ Internal — Andersen Innovations.
 <!-- deploy-nudge 2 -->
 
 <!-- deploy-nudge 3: apply Paddle secrets -->
+
+<!-- deploy-nudge: rotate RESEND_API_KEY -->
