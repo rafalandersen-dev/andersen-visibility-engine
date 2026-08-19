@@ -95,16 +95,30 @@ export function hasPublishSecret(p: Pick<Project, "publishSecret" | "publishSecr
   return Boolean(p.publishSecretSet || (p.publishSecret ?? "").trim());
 }
 
+/**
+ * A usable WordPress application password exists: the server-side store has one
+ * (applicationPasswordSet marker) or the legacy plaintext field is still
+ * populated. Same P0-3 pattern as hasPublishSecret.
+ */
+export function hasWordPressAppPassword(w: Project["wordpress"]): boolean {
+  return Boolean(w?.applicationPasswordSet || (w?.applicationPassword ?? "").trim());
+}
+
+/** A usable Shopify Admin access token exists (store marker or legacy field). */
+export function hasShopifyAdminToken(s: Project["shopify"]): boolean {
+  return Boolean(s?.adminAccessTokenSet || (s?.adminAccessToken ?? "").trim());
+}
+
 /** Has the publishing connector got enough config to attempt a send? */
 export function connectorConfigured(p: Project): boolean {
   const type = p.connectorType ?? "custom";
   if (type === "wordpress") {
     const w = p.wordpress ?? {};
-    return Boolean(w.siteUrl && w.username && w.applicationPassword);
+    return Boolean(w.siteUrl && w.username && hasWordPressAppPassword(w));
   }
   if (type === "shopify") {
     const s = p.shopify ?? {};
-    return Boolean(s.shopDomain && s.adminAccessToken && s.defaultBlogId);
+    return Boolean(s.shopDomain && hasShopifyAdminToken(s) && s.defaultBlogId);
   }
   // custom
   return Boolean(p.publishEndpoint && hasPublishSecret(p));

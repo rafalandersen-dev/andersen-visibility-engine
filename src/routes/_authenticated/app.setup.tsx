@@ -20,9 +20,13 @@ import {
   updateProjectConnector,
   saveWorkspaceNow,
 } from "@/lib/store";
-import { testWordPressConnectionFn } from "@/lib/wordpress.functions";
+import { saveWordPressAppPasswordFn, testWordPressConnectionFn } from "@/lib/wordpress.functions";
 import { savePublishSecretFn } from "@/lib/publish.functions";
-import { testShopifyConnectionFn, listShopifyBlogsFn } from "@/lib/shopify.functions";
+import {
+  listShopifyBlogsFn,
+  saveShopifyAdminTokenFn,
+  testShopifyConnectionFn,
+} from "@/lib/shopify.functions";
 import { useAuth } from "@/lib/auth";
 
 import type {
@@ -651,7 +655,9 @@ function PublishingCard({ project }: { project: Project }) {
   );
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
-  const hasSavedWpPassword = Boolean(project.wordpress?.applicationPassword);
+  const hasSavedWpPassword = Boolean(
+    project.wordpress?.applicationPasswordSet || project.wordpress?.applicationPassword,
+  );
 
   // ---- Shopify connector state ----
   const [shopDomain, setShopDomain] = useState(project.shopify?.shopDomain ?? "");
@@ -665,20 +671,24 @@ function PublishingCard({ project }: { project: Project }) {
     project.shopify?.defaultBlogId ? `gid://shopify/Blog/${project.shopify.defaultBlogId}` : "",
   );
   const [loadingBlogs, setLoadingBlogs] = useState(false);
-  const hasSavedShopToken = Boolean(project.shopify?.adminAccessToken);
+  const hasSavedShopToken = Boolean(
+    project.shopify?.adminAccessTokenSet || project.shopify?.adminAccessToken,
+  );
 
   const urlOk = (v: string) => !v.trim() || /^https?:\/\/\S+\.\S+/.test(v.trim());
-
-  function shopTokenForCall(): string {
-    return shopToken.trim() || project.shopify?.adminAccessToken || "";
-  }
 
   async function testShopify() {
     setTesting(true);
     setTestResult(null);
     try {
+      // A typed token tests THAT token (pre-save flow); blank means "test the
+      // saved one", which the server resolves — it is never sent down here.
       const res = await testShopifyConnectionFn({
-        data: { shopDomain: shopDomain.trim(), adminAccessToken: shopTokenForCall() },
+        data: {
+          shopDomain: shopDomain.trim(),
+          adminAccessToken: shopToken.trim(),
+          projectId: project.id,
+        },
       });
       setTestResult({
         ok: res.success,
@@ -697,7 +707,11 @@ function PublishingCard({ project }: { project: Project }) {
     setLoadingBlogs(true);
     try {
       const res = await listShopifyBlogsFn({
-        data: { shopDomain: shopDomain.trim(), adminAccessToken: shopTokenForCall() },
+        data: {
+          shopDomain: shopDomain.trim(),
+          adminAccessToken: shopToken.trim(),
+          projectId: project.id,
+        },
       });
       if (res.success) {
         setShopBlogs(res.blogs);
@@ -733,10 +747,15 @@ function PublishingCard({ project }: { project: Project }) {
     setTesting(true);
     setTestResult(null);
     try {
-      const applicationPassword =
-        wpAppPassword.trim() || project.wordpress?.applicationPassword || "";
+      // A typed password tests THAT password (pre-save flow); blank means
+      // "test the saved one", which the server resolves — never sent down here.
       const res = await testWordPressConnectionFn({
-        data: { siteUrl: wpSiteUrl.trim(), username: wpUsername.trim(), applicationPassword },
+        data: {
+          siteUrl: wpSiteUrl.trim(),
+          username: wpUsername.trim(),
+          applicationPassword: wpAppPassword.trim(),
+          projectId: project.id,
+        },
       });
       setTestResult({
         ok: res.success,
@@ -753,6 +772,19 @@ function PublishingCard({ project }: { project: Project }) {
     setSaving(true);
     try {
       if (connectorType === "wordpress") {
+        const typedWpPassword = wpAppPassword.trim();
+        if (typedWpPassword) {
+          // Server-side store FIRST — the legacy field is only blanked once the
+          // store write succeeded, so a failed call cannot orphan publishing.
+          await saveWordPressAppPasswordFn({
+            data: { projectId: project.id, applicationPassword: typedWpPassword },
+          });
+        }
+        const wpPasswordPatch = typedWpPassword
+          ? { applicationPassword: "", applicationPasswordSet: true }
+          : project.wordpress?.applicationPasswordSet
+            ? { applicationPassword: "" } // store is authoritative; keep the legacy field blank
+            : {}; // legacy-only project, nothing typed: leave the fallback in place
         updateProjectConnector(project.id, {
           connectorType: "wordpress",
           wordpress: {
@@ -761,8 +793,7 @@ function PublishingCard({ project }: { project: Project }) {
             username: wpUsername.trim(),
             defaultPostType: wpPostType,
             defaultStatus: "draft",
-            // Only overwrite the saved password when a new one is typed.
-            ...(wpAppPassword.trim() ? { applicationPassword: wpAppPassword } : {}),
+            ...wpPasswordPatch,
           },
         });
         updateProjectPublishingSettings(project.id, { publishMode: mode });
@@ -771,6 +802,18 @@ function PublishingCard({ project }: { project: Project }) {
           .split(",")
           .map((s) => s.trim())
           .filter(Boolean);
+        const typedShopToken = shopToken.trim();
+        if (typedShopToken) {
+          // Server-side store FIRST — same ordering rationale as WordPress.
+          await saveShopifyAdminTokenFn({
+            data: { projectId: project.id, adminAccessToken: typedShopToken },
+          });
+        }
+        const shopTokenPatch = typedShopToken
+          ? { adminAccessToken: "", adminAccessTokenSet: true }
+          : project.shopify?.adminAccessTokenSet
+            ? { adminAccessToken: "" } // store is authoritative; keep the legacy field blank
+            : {}; // legacy-only project, nothing typed: leave the fallback in place
         updateProjectConnector(project.id, {
           connectorType: "shopify",
           shopify: {
@@ -780,8 +823,7 @@ function PublishingCard({ project }: { project: Project }) {
             defaultBlogHandle: shopBlogHandle.trim(),
             defaultAuthorName: shopAuthor.trim(),
             defaultTags: tags,
-            // Only overwrite the saved token when a new one is typed.
-            ...(shopToken.trim() ? { adminAccessToken: shopToken } : {}),
+            ...shopTokenPatch,
           },
         });
         updateProjectPublishingSettings(project.id, { publishMode: mode });
@@ -937,7 +979,12 @@ function PublishingCard({ project }: { project: Project }) {
                 size="sm"
                 variant="outline"
                 onClick={testWp}
-                disabled={testing || !wpSiteUrl.trim() || !wpUsername.trim()}
+                disabled={
+                  testing ||
+                  !wpSiteUrl.trim() ||
+                  !wpUsername.trim() ||
+                  (!wpAppPassword.trim() && !hasSavedWpPassword)
+                }
               >
                 {testing ? t("wp.testing") : t("wp.test")}
               </Button>

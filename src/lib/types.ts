@@ -123,7 +123,15 @@ export interface WordPressPublishingSettings {
   enabled?: boolean;
   siteUrl?: string;
   username?: string;
+  /**
+   * LEGACY plaintext application password. New saves go to the service-role
+   * project_publish_secrets store ('wordpressAppPassword'); this field is only
+   * read as a fallback for projects that never re-saved, and is blanked on the
+   * next settings save.
+   */
   applicationPassword?: string;
+  /** True once a password exists in the server-side store (browser-safe marker). */
+  applicationPasswordSet?: boolean;
   defaultPostType?: "post" | "page";
   defaultStatus?: "draft";
   lastTestedAt?: string;
@@ -152,7 +160,15 @@ export interface WordPressPublishResult {
 export interface ShopifyPublishingSettings {
   enabled?: boolean;
   shopDomain?: string;
+  /**
+   * LEGACY plaintext Admin API access token. New saves go to the service-role
+   * project_publish_secrets store ('shopifyAdminToken'); this field is only
+   * read as a fallback for projects that never re-saved, and is blanked on the
+   * next settings save.
+   */
   adminAccessToken?: string;
+  /** True once a token exists in the server-side store (browser-safe marker). */
+  adminAccessTokenSet?: boolean;
   defaultBlogId?: string;
   defaultBlogHandle?: string;
   defaultAuthorName?: string;

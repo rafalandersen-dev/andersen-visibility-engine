@@ -13,7 +13,7 @@ import {
   PublishTransportError,
 } from "./publish-outcome";
 import { markdownToHtml, slugifyForPublish, unresolvedInternalLinks } from "./markdown";
-import type { WordPressPublishResult } from "./types";
+import type { Project, WordPressPublishResult } from "./types";
 
 /** Refuse to publish while any in-body internal link is unresolved (link-safety P0). */
 function assertResolvedLinks(contentMarkdown: string, knownInternalPaths: string[]): void {
@@ -133,20 +133,72 @@ async function wpRequest(
   return parsed;
 }
 
+/**
+ * Save (or rotate) the WordPress application password. The password goes into
+ * the service-role-only secret store — never back into the workspace data the
+ * browser hydrates (P0-3 pattern, same as savePublishSecretFn). Empty input is
+ * a no-op so the Setup form can re-save settings without knowing the current
+ * password.
+ */
+export const saveWordPressAppPasswordFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({ projectId: z.string().min(1), applicationPassword: z.string().max(500) })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const password = data.applicationPassword.trim();
+    if (!password) return { passwordSet: false };
+    const { storeProjectSecret } = await import("./publish-secret.server");
+    await storeProjectSecret(
+      context.userId as string,
+      data.projectId,
+      "wordpressAppPassword",
+      password,
+    );
+    return { passwordSet: true };
+  });
+
+/**
+ * The saved application password for one of the caller's own projects —
+ * store-first with legacy workspace fallback. Used by the connection test when
+ * the browser has no password to send (it never receives a saved one).
+ */
+async function savedWpPassword(userId: string, projectId: string): Promise<string> {
+  const { readWorkspaceRow } = await import("./workspace.server");
+  const { resolveWordPressAppPassword } = await import("./publish-secret.server");
+  const row = await readWorkspaceRow(userId);
+  const projects = (row?.data.projects as Project[] | undefined) ?? [];
+  const project = projects.find((p) => p.id === projectId);
+  return resolveWordPressAppPassword(userId, { id: projectId, wordpress: project?.wordpress });
+}
+
 export const testWordPressConnectionFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
     z
-      .object({ siteUrl: z.string(), username: z.string(), applicationPassword: z.string() })
+      .object({
+        siteUrl: z.string(),
+        username: z.string(),
+        // Empty when testing an already-saved password: the browser never
+        // receives it, so the server resolves it from the store instead. A
+        // typed value tests THAT value (the pre-save test flow).
+        applicationPassword: z.string().default(""),
+        projectId: z.string().default(""),
+      })
       .parse(input),
   )
-  .handler(async ({ data }): Promise<WordPressPublishResult> => {
+  .handler(async ({ data, context }): Promise<WordPressPublishResult> => {
     try {
       const base = wpBase(data.siteUrl);
+      const applicationPassword =
+        data.applicationPassword.trim() ||
+        (data.projectId ? await savedWpPassword(context.userId as string, data.projectId) : "");
       const me = await wpRequest(
         base,
         data.username,
-        data.applicationPassword,
+        applicationPassword,
         "/users/me?context=edit",
         "GET",
       );

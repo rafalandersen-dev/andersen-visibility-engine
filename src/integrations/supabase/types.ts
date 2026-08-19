@@ -762,18 +762,21 @@ export type Database = {
         Row: {
           project_id: string
           secret: string
+          secret_name: string
           updated_at: string
           user_id: string
         }
         Insert: {
           project_id: string
           secret: string
+          secret_name?: string
           updated_at?: string
           user_id: string
         }
         Update: {
           project_id?: string
           secret?: string
+          secret_name?: string
           updated_at?: string
           user_id?: string
         }
