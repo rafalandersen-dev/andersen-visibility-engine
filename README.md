@@ -184,3 +184,5 @@ Internal — Andersen Innovations.
 <!-- deploy-nudge: write-smoke window flag ON -->
 
 <!-- deploy-nudge: advertise write scopes -->
+
+<!-- deploy-nudge 2026-08-20: Phase P-A content-draft tools + advertise content.write & actions.propose (PR #59) -->
