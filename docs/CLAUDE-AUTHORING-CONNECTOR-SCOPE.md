@@ -90,16 +90,24 @@ no new scope needed for §4.
   text credits → 0.**
 - **`update_content_draft`**: iterate a draft by id (never touches a published
   asset — refuse if `livePublishStatus === "published"`).
-- **Images** — decision needed (see §5). Recommended: **signed-upload-URL**
-  pattern to dodge the JSON-RPC payload limit:
-  1. `request_content_image_slot(assetId, concept, alt)` → returns a short-lived
-     signed PUT url + imageId.
-  2. Claude PUTs the image bytes directly to storage (not through the MCP call).
-  3. `confirm_content_image(assetId, imageId)` → server re-validates magic bytes
-     (reuse `validateImageBytes` + `stageValidatedImageBytes`), attaches as a
-     `proposed` `ContentImage`. Never public until the owner approves in-editor.
-  - Fallback tool `generate_content_image` (uses Milo's pipeline, costs Milo
-    credits) for when Claude has no image source — clearly the non-arbitrage path.
+- **Images — DECIDED (owner 2026-08-20): build BOTH ingest paths.** Owner's
+  Claude has image sources on its side (ChatGPT connector; Higgsfield can be
+  added), so the arbitrage works for images too. Those connectors typically
+  return a **URL**, so the PRIMARY path is URL-relay, with raw-bytes as fallback:
+  - **Primary — `attach_content_image_from_url(assetId, imageUrl, concept, alt)`:**
+    Claude generates the image via its own connector, hands Milo the URL. Milo
+    fetches it **server-side through the existing egress guard** (`safeFetch` /
+    DNS-rebinding + private-range block from the Article Studio work — see
+    [[article-studio-2-branch]]), re-validates magic bytes, stages to the PRIVATE
+    bucket as a `proposed` `ContentImage`. No bytes cross the JSON-RPC boundary.
+  - **Fallback — raw bytes via signed upload** (for a source that only yields
+    bytes, or Claude-drawn SVG): `request_content_image_slot(assetId, concept,
+    alt)` → short-lived signed PUT url + imageId; Claude PUTs bytes directly to
+    storage; `confirm_content_image(assetId, imageId)` re-validates + attaches.
+  - Both reuse `validateImageBytes` + `stageValidatedImageBytes`; both land
+    `proposed`, never public until the owner approves in-editor.
+  - **Non-arbitrage fallback — `generate_content_image`** (Milo's own pipeline,
+    costs Milo credits) for when Claude has no image source at all.
 
 ### D. 3-month plan / scheduling
 - Claude creates the opportunities + drafts; **scheduling→publishing stays owner-
@@ -119,15 +127,15 @@ no new scope needed for §4.
   pipeline; the owner opens Milo to a workspace full of drafts + a filled profile,
   reviews, and clicks publish. Autonomy without ceding the irreversible actions.
 
-## 5. Open decisions for the owner (before build)
+## 5. Owner decisions — RESOLVED 2026-08-20
 
-1. **Image path** (§3C): build the signed-upload ingest pipe (works only if the
-   owner's Claude can produce images), the Milo-pipeline fallback, or both?
-   Recommend **both** — ingest for when Claude has images, fallback otherwise.
-2. **Draft approval friction**: content drafts as direct writes (recommended —
-   low friction, still non-live) vs. proposals (max control, heavy for a batch)?
-3. **Profile overwrite policy**: fill-empty-only always, or allow Claude to
-   propose overwrites of owner-set fields (via proposals)?
+1. **Image path** → **BOTH** (see §3C). URL-relay primary (owner has ChatGPT
+   connector; Higgsfield addable), raw-bytes fallback, Milo-pipeline last resort.
+2. **Draft approval friction** → **Direct draft.** Claude writes straight to
+   status `Draft` (non-live, editable, never published); owner reviews + publishes
+   in Milo. No per-article approval gate.
+3. **Profile overwrite policy** → **Fill empty, propose changes.** Claude fills
+   blank fields directly; any change to an owner-set field becomes a proposal.
 
 ## 6. Phasing (each phase = its own PR + smoke window, like Phase 1A)
 
