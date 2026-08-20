@@ -1,7 +1,7 @@
 # Milo Growth — Decisions
 
 **Status:** Canonical decision log  
-**Last updated:** 2026-07-28  
+**Last updated:** 2026-08-20  
 **Product Lead:** Rafal Andersen
 
 ## 2026-07-27 — Public-audit guardrails
@@ -156,3 +156,69 @@ account-level read-only discovery of Cloudflare, Supabase and Google Cloud
 state under issue #43, followed by one bounded, separately approved staging
 mutation package. No route, custom domain, secret, widget, key, project,
 migration or deployment exists as a result of the merge.
+
+## 2026-08-20 — Milo category, differentiation and 12-month roadmap focus
+
+**Status:** Accepted strategic direction  
+**Decision authority / Outcome Owner:** Rafal Andersen  
+**Evidence:** `product/STRATEGY_2026_2027.md`; August 2026 competitive/market research
+
+### Decision
+
+Position Milo as an **AI Growth Operator for small businesses**, not as another
+all-purpose SEO suite.
+
+The canonical product loop is:
+
+> **SEE → DECIDE → DO → PROVE**
+
+The core product promise is:
+
+> **See where your business is losing visibility in Google and AI. Fix what matters. Prove what changed.**
+
+Live AI Visibility is promoted to **P0 market table stakes**. Milo's durable
+differentiation must come from turning evidence into a prioritised action,
+preparing or safely executing the work, and showing observed results later.
+
+### Reason
+
+The market is converging rapidly:
+
+- SeoVision already combines audit, live AI visibility, content, publishing,
+  backlinks, rank tracking and MCP under an autopilot positioning;
+- Writesonic is moving toward track → prioritise → act → measure;
+- Semrush is combining classic SEO and AI visibility;
+- Ahrefs is expanding Brand Radar API/MCP access and moving toward more agentic
+  marketing workflows, reducing the strategic value of “we have an AI agent”
+  or “we track AI visibility” as standalone differentiators;
+- specialist trackers such as Peec, Otterly, Profound and Surfer make pure AI
+  visibility analytics increasingly commoditised.
+
+Milo cannot rationally win by recreating the largest keyword index, backlink
+index, crawler or generic SEO feature catalogue. It can win a narrower category
+by making growth decisions and execution dramatically simpler for SMBs.
+
+### Consequences
+
+1. The roadmap is organised around completing the smallest end-to-end
+   `SEE → DECIDE → DO → PROVE` loop, not feature parity.
+2. Pre-launch P0 includes secure public audit, server-authoritative commercial
+   controls, hard AI-cost limits, Live AI Visibility v1, direct GSC sync,
+   action-first Dashboard, safe Claude/MCP execution and Proof Loop v0.
+3. The North Star becomes **Monthly Verified Growth Actions per Active Project
+   (MVGA)** rather than content volume, prompt count or a single opaque score.
+4. Competitor changes enter planning only when they validate a customer problem,
+   strengthen the core loop or are supported by broader customer/market evidence.
+5. Milo will not intentionally build a proprietary backlink exchange, a global
+   keyword/backlink index, uncontrolled autopublishing or high-volume content
+   production as core differentiation.
+6. Agency complexity is gated behind SMB product-market fit or explicit demand
+   evidence.
+7. Public launch remains a gate, not a date promise. Security, methodology,
+   data quality, retention evidence and unit economics may delay launch.
+
+### Review trigger
+
+Review this strategy after the first meaningful paid cohorts, or earlier if
+customer evidence demonstrates that the selected ICP, live-AI methodology or
+core action/proof loop is materially wrong.
