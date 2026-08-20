@@ -77,13 +77,24 @@ export const MCP_PUBLISH_SCOPE = "milo.content.publish";
  * consent screen be the guard (that screen is data-driven from the requested
  * scopes, so it renders these correctly and keeps Publish/Delete/Settings off).
  *
- * Restricted to the two scopes that back a SHIPPED, smoke-verified write tool
- * (create_growth_task, create_project_recommendation). `milo.content.write`
- * (no tool yet) and `milo.actions.propose` (Phase 1B, not smoke-verified) stay
- * issuable-but-UNadvertised — grantable only by an explicit request, exactly
- * as all writes were before this change.
+ * Phase P-A (owner ask 2026-08-20 — "Claude does anything in Milo except
+ * personal data / payments") widens this to the full non-publish write set:
+ * - milo.projects.write / milo.tasks.write — the original 1A tools.
+ * - milo.content.write — the create_content_draft / update_content_draft tools
+ *   (the credit-arbitrage path: Claude authors the article, Milo stores a Draft;
+ *   never publishes).
+ * - milo.actions.propose — the project-setup / opportunity PROPOSAL tools
+ *   (profile + brand fill; nothing applies until the owner approves in Milo).
+ * Publish (milo.content.publish) is still non-issuable and never advertised, so
+ * the amber consent screen renders exactly these four and Publish/Delete/Settings
+ * stay impossible. See docs/CLAUDE-AUTHORING-CONNECTOR-SCOPE.md.
  */
-export const ADVERTISED_WRITE_SCOPES = ["milo.projects.write", "milo.tasks.write"] as const;
+export const ADVERTISED_WRITE_SCOPES = [
+  "milo.projects.write",
+  "milo.content.write",
+  "milo.tasks.write",
+  MILO_ACTIONS_PROPOSE_SCOPE,
+] as const;
 
 /** The scopes the AS may grant, given the write flag. Publish is never included. */
 export function issuableScopes(writeEnabled: boolean): string[] {

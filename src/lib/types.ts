@@ -636,6 +636,8 @@ export interface ContentAsset {
   sourceType?: ContentSourceType;
   language?: Language;
   createdAt?: string;
+  /** Idempotency key for connector-authored drafts (create_content_draft). */
+  requestId?: string;
   // ---- Publishing v1 (all optional → existing assets keep loading) ----
   publishStatus?: PublishStatus;
   publishDestinationType?: PublishDestinationType;

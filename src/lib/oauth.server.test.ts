@@ -1241,12 +1241,14 @@ describe("authorize with write scopes", () => {
   });
 });
 
-describe("metadata advertises the two shipped write scopes ONLY when the flag is on", () => {
-  // Owner decision 2026-08-20: writes on the Claude.ai web connector. The
-  // connector requests exactly the advertised resource scopes, so the two
-  // smoke-verified write scopes must be advertised flag-ON — while
-  // content.write (no tool), propose (Phase 1B), and publish (never) stay OUT.
-  it("flag OFF: byte-identical read-only metadata (no writes, no publish)", () => {
+describe("metadata advertises the full non-publish write set ONLY when the flag is on", () => {
+  // Owner decision 2026-08-20 (Phase P-A): "Claude does anything in Milo except
+  // personal data / payments." The connector requests exactly the advertised
+  // resource scopes, so the four non-publish write scopes must be advertised
+  // flag-ON — while publish (never issuable) stays OUT in every case.
+  const ADVERTISED = ["milo.projects.write", "milo.content.write", "milo.tasks.write", "milo.actions.propose"];
+
+  it("flag OFF: byte-identical read-only metadata (no writes, no propose, no publish)", () => {
     const prm = protectedResourceMetadata(false);
     const as = authorizationServerMetadata(false);
     expect(prm.scopes_supported).toEqual(READ_SCOPES);
@@ -1257,17 +1259,18 @@ describe("metadata advertises the two shipped write scopes ONLY when the flag is
     expect(all).not.toContain("propose");
   });
 
-  it("flag ON: exactly milo.projects.write + milo.tasks.write appended", () => {
+  it("flag ON: exactly the four non-publish write scopes appended", () => {
     const prm = protectedResourceMetadata(true).scopes_supported as string[];
     const as = authorizationServerMetadata(true).scopes_supported as string[];
-    expect(prm).toEqual([...READ_SCOPES, "milo.projects.write", "milo.tasks.write"]);
-    expect(as).toEqual([...ISSUABLE_SCOPES, "milo.projects.write", "milo.tasks.write"]);
-    // The three deliberately-withheld scopes never appear, even flag-on.
+    expect(prm).toEqual([...READ_SCOPES, ...ADVERTISED]);
+    expect(as).toEqual([...ISSUABLE_SCOPES, ...ADVERTISED]);
+    // Publish is never issuable → never advertised, even flag-on.
     for (const scopes of [prm, as]) {
-      expect(scopes).not.toContain("milo.content.write");
-      expect(scopes).not.toContain("milo.actions.propose");
       expect(scopes).not.toContain("milo.content.publish");
     }
+    // Every advertised scope resolves to a consent label so the amber screen
+    // never renders a bare scope id.
+    for (const s of ADVERTISED) expect(SCOPE_LABELS[s]).toBeTruthy();
     // Grant types unchanged by the write flag.
     expect(authorizationServerMetadata(true).grant_types_supported).toEqual([
       "authorization_code",

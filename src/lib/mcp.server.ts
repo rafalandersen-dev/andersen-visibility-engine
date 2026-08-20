@@ -9,6 +9,7 @@
  * resolved user's own workspace. Never import from client code.
  */
 import { newOpportunityRecord } from "./opportunities";
+import { slugifyForPublish } from "./markdown";
 import type {
   Project,
   Opportunity,
@@ -370,6 +371,8 @@ export const TOOL_SCOPES: Record<string, string> = {
   list_authority_opportunities: "milo.authority.read",
   create_growth_task: "milo.tasks.write",
   create_project_recommendation: "milo.projects.write",
+  create_content_draft: "milo.content.write",
+  update_content_draft: "milo.content.write",
   create_pending_action: "milo.actions.propose",
   list_pending_actions: "milo.actions.propose",
   get_pending_action: "milo.actions.propose",
@@ -381,6 +384,14 @@ type WriteToolName = (typeof WRITE_TOOL_NAMES)[number];
 
 function isWriteTool(name: string): name is WriteToolName {
   return (WRITE_TOOL_NAMES as readonly string[]).includes(name);
+}
+
+/** Phase P-A content-draft tools — same double-gating (flag + milo.content.write). */
+export const CONTENT_WRITE_TOOL_NAMES = ["create_content_draft", "update_content_draft"] as const;
+type ContentWriteToolName = (typeof CONTENT_WRITE_TOOL_NAMES)[number];
+
+function isContentWriteTool(name: string): name is ContentWriteToolName {
+  return (CONTENT_WRITE_TOOL_NAMES as readonly string[]).includes(name);
 }
 
 /** Phase 1B pending-action tools — write-CLASS gating (flag + explicit scope). */
@@ -411,7 +422,8 @@ export interface McpGrant {
 export function toolAllowed(name: string, scopes: string[] | null): boolean {
   const required = TOOL_SCOPES[name];
   if (!required) return false;
-  if (isWriteTool(name) || isPendingTool(name)) return scopes !== null && scopes.includes(required);
+  if (isWriteTool(name) || isContentWriteTool(name) || isPendingTool(name))
+    return scopes !== null && scopes.includes(required);
   if (scopes === null) return true;
   return scopes.includes(required);
 }
@@ -425,13 +437,19 @@ function toolDefs(scopes: string[] | null, writeEnabled: boolean) {
     inputSchema: t.inputSchema,
     annotations: t.annotations,
   }));
+  const contentWrites = CONTENT_WRITE_TOOLS.filter((t) => toolAllowed(t.name, scopes)).map((t) => ({
+    name: t.name,
+    description: t.description,
+    inputSchema: t.inputSchema,
+    annotations: t.annotations,
+  }));
   const pending = PENDING_TOOLS.filter((t) => toolAllowed(t.name, scopes)).map((t) => ({
     name: t.name,
     description: t.description,
     inputSchema: t.inputSchema,
     annotations: t.annotations,
   }));
-  return [...reads, ...writes, ...pending];
+  return [...reads, ...writes, ...contentWrites, ...pending];
 }
 
 // ---------------------------------------------------------------------------
@@ -685,6 +703,370 @@ async function dispatchWriteTool(
     if (e instanceof EntityNotFoundError || e instanceof WorkspaceNotFoundError) {
       await hooks?.audit?.("mcp_write", { ...auditBase, ok: false, error: "not_found" });
       // Uniform: unknown project id and foreign user's project id are indistinguishable.
+      return rpcError(id, -32011, "Not found.");
+    }
+    if (e instanceof WriteValidationError) {
+      await hooks?.audit?.("mcp_write", { ...auditBase, ok: false, error: "validation" });
+      return rpcError(id, -32010, `Invalid ${e.field}: ${e.reason}.`);
+    }
+    if (e instanceof WorkspaceConflictError) {
+      await hooks?.audit?.("mcp_write", { ...auditBase, ok: false, error: "conflict" });
+      return rpcError(id, -32012, "Workspace busy — try again.");
+    }
+    await hooks?.audit?.("mcp_write", { ...auditBase, ok: false, error: "internal" });
+    return result(id, { content: [{ type: "text", text: "Milo could not complete that request." }], isError: true });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Phase P-A content-draft tools — the credit-arbitrage path. Claude authors the
+// article natively (body/meta/FAQ/outline) and Milo STORES it, spending zero
+// generation credits. create lands status "Draft"; update patches a draft by id
+// and REFUSES any asset that is already live. Same double-gating (flag +
+// milo.content.write), write rate bucket, names-only audit, and rev-guarded
+// write layer as the 1A tools. Never publishes, never deletes.
+// ---------------------------------------------------------------------------
+
+const DRAFT_ASSET_TYPES = ["article", "servicePage", "landingPage", "faq", "comparison"];
+const MAX_CONTENT_ASSETS = 2000;
+const MAX_MARKDOWN = 120_000;
+const MAX_OUTLINE_ITEMS = 60;
+const MAX_FAQ_ITEMS = 30;
+const MAX_LINKS = 60;
+const MAX_SCHEMA_ITEMS = 30;
+
+interface ContentWriteToolDef {
+  name: ContentWriteToolName;
+  description: string;
+  inputSchema: Record<string, unknown>;
+  annotations: typeof WRITE_ANNOTATIONS;
+}
+
+/** Shared field schemas — every one is optional and reused by create + update. */
+const CONTENT_FIELD_SCHEMAS = {
+  title: { type: "string", minLength: 1, maxLength: 200 },
+  slug: { type: "string", maxLength: 200, description: "URL slug; derived from the title when omitted" },
+  metaTitle: { type: "string", maxLength: 200 },
+  metaDescription: { type: "string", maxLength: 500 },
+  h1: { type: "string", maxLength: 300 },
+  cta: { type: "string", maxLength: 300 },
+  markdown: {
+    type: "string",
+    maxLength: MAX_MARKDOWN,
+    description:
+      "Full article body in Markdown — YOU author this; Milo stores it as a draft and spends no generation credits.",
+  },
+  outline: { type: "array", maxItems: MAX_OUTLINE_ITEMS, items: { type: "string", minLength: 1, maxLength: 300 } },
+  faq: {
+    type: "array",
+    maxItems: MAX_FAQ_ITEMS,
+    items: {
+      type: "object",
+      additionalProperties: false,
+      required: ["q", "a"],
+      properties: { q: { type: "string", minLength: 1, maxLength: 500 }, a: { type: "string", minLength: 1, maxLength: 2000 } },
+    },
+  },
+  internalLinks: { type: "array", maxItems: MAX_LINKS, items: { type: "string", minLength: 1, maxLength: 500 }, description: "Relative or absolute URLs to link internally" },
+  schemaSuggestions: { type: "array", maxItems: MAX_SCHEMA_ITEMS, items: { type: "string", minLength: 1, maxLength: 200 } },
+  editorNotes: { type: "string", maxLength: 2000 },
+} as const;
+
+const CONTENT_WRITE_TOOLS: ContentWriteToolDef[] = [
+  {
+    name: "create_content_draft",
+    description:
+      "Create a content DRAFT in a Milo project from text YOU author (write). Milo stores it as a Draft and spends no generation credits — you write the body, meta, outline and FAQ yourself. It is never published: the owner reviews and publishes it in Milo. Confirm with the user before calling. Pass a stable requestId to make retries safe.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["projectId", "title", "markdown"],
+      properties: {
+        projectId: { type: "string", description: "Milo project id (from list_projects)" },
+        assetType: { type: "string", enum: DRAFT_ASSET_TYPES, description: "Defaults to article" },
+        language: { type: "string", enum: LANGUAGES, description: "Defaults to the project's primary language" },
+        opportunityId: { type: "string", maxLength: 100, description: "Optional — link this draft to an existing opportunity (from list_opportunities)" },
+        ...CONTENT_FIELD_SCHEMAS,
+        markdown: { ...CONTENT_FIELD_SCHEMAS.markdown, minLength: 1 },
+        requestId: { type: "string", maxLength: 100, description: "Idempotency key" },
+      },
+    },
+    annotations: WRITE_ANNOTATIONS,
+  },
+  {
+    name: "update_content_draft",
+    description:
+      "Edit an existing Milo content DRAFT by id (write). Refuses any article that is already published — drafts only. Provide contentId plus at least one field to change. Confirm with the user before calling.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      required: ["contentId"],
+      minProperties: 2,
+      properties: {
+        contentId: { type: "string", description: "Content asset id (from list_content)" },
+        ...CONTENT_FIELD_SCHEMAS,
+      },
+    },
+    annotations: WRITE_ANNOTATIONS,
+  },
+];
+
+/** Thrown when an update targets an asset that is already live (guardrail). */
+class ContentPublishedError extends Error {}
+
+interface ContentDraftInput {
+  projectId?: string;
+  contentId?: string;
+  title?: string;
+  slug?: string;
+  metaTitle?: string;
+  metaDescription?: string;
+  h1?: string;
+  cta?: string;
+  markdown?: string;
+  outline?: string[];
+  faq?: { q: string; a: string }[];
+  internalLinks?: string[];
+  schemaSuggestions?: string[];
+  editorNotes?: string;
+  assetType?: string;
+  language?: string;
+  opportunityId?: string;
+  requestId?: string;
+}
+
+const CONTENT_TEXT_FIELDS = ["title", "slug", "metaTitle", "metaDescription", "h1", "cta", "markdown", "editorNotes"] as const;
+
+/** Validate content-tool args (strict: unknown fields rejected). Throws WriteValidationError. */
+function validateContentArgs(name: ContentWriteToolName, args: Record<string, unknown>): ContentDraftInput {
+  const isCreate = name === "create_content_draft";
+  const allowed = isCreate
+    ? ["projectId", "assetType", "language", "opportunityId", ...CONTENT_TEXT_FIELDS, "outline", "faq", "internalLinks", "schemaSuggestions", "requestId"]
+    : ["contentId", ...CONTENT_TEXT_FIELDS, "outline", "faq", "internalLinks", "schemaSuggestions"];
+  for (const k of Object.keys(args)) if (!allowed.includes(k)) throw new WriteValidationError(k, "unknown field");
+
+  const str = (k: string, v: unknown, min: number, max: number, required: boolean): string | undefined => {
+    if (v === undefined || v === null) {
+      if (required) throw new WriteValidationError(k, "is required");
+      return undefined;
+    }
+    if (typeof v !== "string") throw new WriteValidationError(k, "must be a string");
+    const t = v.trim();
+    if (t.length < min) throw new WriteValidationError(k, `must be at least ${min} character(s)`);
+    if (t.length > max) throw new WriteValidationError(k, `must be at most ${max} characters`);
+    return t;
+  };
+  const strArray = (k: string, v: unknown, maxItems: number, maxLen: number): string[] | undefined => {
+    if (v === undefined || v === null) return undefined;
+    if (!Array.isArray(v)) throw new WriteValidationError(k, "must be an array");
+    if (v.length > maxItems) throw new WriteValidationError(k, `must have at most ${maxItems} items`);
+    return v.map((item, i) => {
+      if (typeof item !== "string") throw new WriteValidationError(`${k}[${i}]`, "must be a string");
+      const t = item.trim();
+      if (!t) throw new WriteValidationError(`${k}[${i}]`, "must not be empty");
+      if (t.length > maxLen) throw new WriteValidationError(`${k}[${i}]`, `must be at most ${maxLen} characters`);
+      return t;
+    });
+  };
+
+  const input: ContentDraftInput = {};
+  const maxOf: Record<string, [number, number]> = {
+    title: [1, 200], slug: [0, 200], metaTitle: [0, 200], metaDescription: [0, 500],
+    h1: [0, 300], cta: [0, 300], markdown: [0, MAX_MARKDOWN], editorNotes: [0, 2000],
+  };
+  for (const f of CONTENT_TEXT_FIELDS) {
+    const required = isCreate && (f === "title" || f === "markdown");
+    const [min, max] = maxOf[f];
+    const val = str(f, args[f], required ? Math.max(1, min) : min, max, required);
+    if (val !== undefined) (input as Record<string, unknown>)[f] = val;
+  }
+  input.outline = strArray("outline", args.outline, MAX_OUTLINE_ITEMS, 300);
+  input.internalLinks = strArray("internalLinks", args.internalLinks, MAX_LINKS, 500);
+  input.schemaSuggestions = strArray("schemaSuggestions", args.schemaSuggestions, MAX_SCHEMA_ITEMS, 200);
+
+  if (args.faq !== undefined && args.faq !== null) {
+    if (!Array.isArray(args.faq)) throw new WriteValidationError("faq", "must be an array");
+    if (args.faq.length > MAX_FAQ_ITEMS) throw new WriteValidationError("faq", `must have at most ${MAX_FAQ_ITEMS} items`);
+    input.faq = args.faq.map((item, i) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) throw new WriteValidationError(`faq[${i}]`, "must be an object");
+      const rec = item as Record<string, unknown>;
+      for (const key of Object.keys(rec)) if (key !== "q" && key !== "a") throw new WriteValidationError(`faq[${i}].${key}`, "unknown field");
+      const q = str(`faq[${i}].q`, rec.q, 1, 500, true)!;
+      const a = str(`faq[${i}].a`, rec.a, 1, 2000, true)!;
+      return { q, a };
+    });
+  }
+
+  if (isCreate) {
+    input.projectId = str("projectId", args.projectId, 1, 100, true)!;
+    input.opportunityId = str("opportunityId", args.opportunityId, 1, 100, false);
+    input.requestId = str("requestId", args.requestId, 1, 100, false);
+    const assetType = str("assetType", args.assetType, 1, 40, false);
+    if (assetType !== undefined && !DRAFT_ASSET_TYPES.includes(assetType)) throw new WriteValidationError("assetType", "must be a valid draft asset type");
+    input.assetType = assetType;
+    const language = str("language", args.language, 1, 20, false);
+    if (language !== undefined && !LANGUAGES.includes(language)) throw new WriteValidationError("language", "must be a valid language");
+    input.language = language;
+  } else {
+    input.contentId = str("contentId", args.contentId, 1, 100, true)!;
+    const hasUpdate = [...CONTENT_TEXT_FIELDS, "outline", "faq", "internalLinks", "schemaSuggestions"].some(
+      (f) => (input as Record<string, unknown>)[f] !== undefined,
+    );
+    if (!hasUpdate) throw new WriteValidationError("body", "provide at least one field to change");
+  }
+  return input;
+}
+
+/** create_content_draft — build a canonical Draft ContentAsset and append it. */
+async function runContentCreate(
+  userId: string,
+  input: ContentDraftInput,
+  ids: { entityId: string; nowIso: string },
+): Promise<{ entityId: string; deduped: boolean }> {
+  const { mutateWorkspace } = await import("./workspace.server");
+  const { result } = await mutateWorkspace<{ entityId: string; deduped: boolean }>(userId, (data) => {
+    const projects = ((data.projects as Partial<Project>[] | undefined) ?? []).filter(Boolean);
+    const project = projects.find((p) => p.id === input.projectId);
+    if (!project) throw new EntityNotFoundError();
+    const content = ((data.content as ContentAsset[] | undefined) ?? []).filter(Boolean);
+    if (input.requestId) {
+      const existing = content.find((c) => c.requestId === input.requestId);
+      if (existing) return { data, result: { entityId: String(existing.id), deduped: true } };
+    }
+    if (content.length >= MAX_CONTENT_ASSETS) throw new WriteValidationError("content", "content limit reached for this workspace");
+    const language = input.language && LANGUAGES.includes(input.language)
+      ? input.language
+      : LANGUAGES.includes(String(project.primaryLanguage))
+        ? String(project.primaryLanguage)
+        : "English";
+    const asset = {
+      id: ids.entityId,
+      projectId: input.projectId!,
+      ...(input.opportunityId ? { opportunityId: input.opportunityId, sourceOpportunityId: input.opportunityId } : {}),
+      title: input.title!,
+      slug: input.slug || slugifyForPublish(input.title!),
+      metaTitle: input.metaTitle ?? "",
+      metaDescription: input.metaDescription ?? "",
+      h1: input.h1 || input.title!,
+      outline: input.outline ?? [],
+      faq: input.faq ?? [],
+      cta: input.cta ?? "",
+      markdown: input.markdown!,
+      internalLinks: input.internalLinks ?? [],
+      schemaSuggestions: input.schemaSuggestions ?? [],
+      editorNotes: input.editorNotes ?? "",
+      status: "Draft",
+      assetType: (input.assetType ?? "article") as ContentAsset["assetType"],
+      language: language as ContentAsset["language"],
+      sourceType: input.opportunityId ? "opportunity" : "manual",
+      publishStatus: "notSent",
+      livePublishStatus: "notPublished",
+      createdAt: ids.nowIso,
+      updatedAt: ids.nowIso,
+      ...(input.requestId ? { requestId: input.requestId } : {}),
+    } as ContentAsset;
+    return { data: { ...data, content: [...content, asset] }, result: { entityId: ids.entityId, deduped: false } };
+  });
+  return result;
+}
+
+/** update_content_draft — patch a Draft by id; refuse anything already live. */
+async function runContentUpdate(
+  userId: string,
+  input: ContentDraftInput,
+  nowIso: string,
+): Promise<{ entityId: string; deduped: boolean }> {
+  const { mutateWorkspace } = await import("./workspace.server");
+  const { result } = await mutateWorkspace<{ entityId: string; deduped: boolean }>(userId, (data) => {
+    const content = ((data.content as ContentAsset[] | undefined) ?? []).filter(Boolean);
+    const idx = content.findIndex((c) => c.id === input.contentId);
+    if (idx === -1) throw new EntityNotFoundError();
+    const cur = content[idx];
+    // Guardrail: never touch a published article — drafts only.
+    if (cur.livePublishStatus === "published" || cur.liveUrl || cur.publishStatus === "sent") {
+      throw new ContentPublishedError();
+    }
+    const patch: Partial<ContentAsset> = { updatedAt: nowIso };
+    if (input.title !== undefined) patch.title = input.title;
+    if (input.slug !== undefined) patch.slug = input.slug;
+    if (input.metaTitle !== undefined) patch.metaTitle = input.metaTitle;
+    if (input.metaDescription !== undefined) patch.metaDescription = input.metaDescription;
+    if (input.h1 !== undefined) patch.h1 = input.h1;
+    if (input.cta !== undefined) patch.cta = input.cta;
+    if (input.markdown !== undefined) patch.markdown = input.markdown;
+    if (input.editorNotes !== undefined) patch.editorNotes = input.editorNotes;
+    if (input.outline !== undefined) patch.outline = input.outline;
+    if (input.faq !== undefined) patch.faq = input.faq;
+    if (input.internalLinks !== undefined) patch.internalLinks = input.internalLinks;
+    if (input.schemaSuggestions !== undefined) patch.schemaSuggestions = input.schemaSuggestions;
+    const next = { ...cur, ...patch };
+    const nextContent = [...content];
+    nextContent[idx] = next;
+    return { data: { ...data, content: nextContent }, result: { entityId: cur.id, deduped: false } };
+  });
+  return result;
+}
+
+/** Names of provided updatable fields (for audit — names only, never values). */
+function contentFieldNames(input: ContentDraftInput): string[] {
+  return (Object.keys(input) as (keyof ContentDraftInput)[])
+    .filter((k) => k !== "projectId" && k !== "contentId" && k !== "requestId" && input[k] !== undefined)
+    .map(String)
+    .sort();
+}
+
+/** Execute one content-write tool end-to-end: rate limit → validate → mutate → audit. */
+async function dispatchContentWriteTool(
+  grant: McpGrant,
+  id: JsonRpcMessage["id"],
+  name: ContentWriteToolName,
+  args: Record<string, unknown>,
+  hooks?: McpHooks,
+): Promise<object> {
+  if (hooks?.checkWriteLimit) {
+    const rl = await hooks.checkWriteLimit();
+    if (rl.shouldAudit) await hooks.audit?.("rate_limited", { bucket: "write", window_start: rl.windowStartIso });
+    if (!rl.allowed) return rpcError(id, -32003, "Rate limit reached for this tool — try again later.");
+  }
+
+  let input: ContentDraftInput;
+  try {
+    input = validateContentArgs(name, args);
+  } catch (e) {
+    if (e instanceof WriteValidationError) return rpcError(id, -32010, `Invalid ${e.field}: ${e.reason}.`);
+    throw e;
+  }
+
+  const isCreate = name === "create_content_draft";
+  // Audit detail: names/ids only — titles, markdown and FAQ are user content.
+  const auditBase: Record<string, unknown> = {
+    tool: name,
+    ...(input.projectId ? { projectId: input.projectId } : {}),
+    ...(input.contentId ? { contentId: input.contentId } : {}),
+    action: isCreate ? "create" : "update",
+    fieldsChanged: contentFieldNames(input),
+    ...(input.requestId ? { requestId: input.requestId } : {}),
+  };
+
+  const entityId = Math.random().toString(36).slice(2, 10);
+  const nowIso = new Date().toISOString();
+  try {
+    const { entityId: outId, deduped } = isCreate
+      ? await runContentCreate(grant.userId, input, { entityId, nowIso })
+      : await runContentUpdate(grant.userId, input, nowIso);
+    await hooks?.audit?.("mcp_write", { ...auditBase, entityIds: [outId], ...(deduped ? { deduped: true } : {}), ok: true });
+    const payload = isCreate
+      ? { contentId: outId, projectId: input.projectId, status: "Draft", ...(deduped ? { deduped: true } : {}) }
+      : { contentId: outId, status: "Draft", updated: true };
+    return result(id, { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }] });
+  } catch (e) {
+    const { WorkspaceConflictError, WorkspaceNotFoundError } = await import("./workspace.server");
+    if (e instanceof ContentPublishedError) {
+      await hooks?.audit?.("mcp_write", { ...auditBase, ok: false, error: "published" });
+      return rpcError(id, -32014, "That article is already published — this tool edits drafts only.");
+    }
+    if (e instanceof EntityNotFoundError || e instanceof WorkspaceNotFoundError) {
+      await hooks?.audit?.("mcp_write", { ...auditBase, ok: false, error: "not_found" });
       return rpcError(id, -32011, "Not found.");
     }
     if (e instanceof WriteValidationError) {
@@ -1097,6 +1479,13 @@ export async function handleMcpMessage(grant: McpGrant, msg: JsonRpcMessage, hoo
       return dispatchWriteTool(grant, id, name, args, hooks);
     }
 
+    if (isContentWriteTool(name)) {
+      // Same registry-view gating as the 1A writes: flag off ⇒ unknown tool.
+      if (!writeEnabled) return rpcError(id, -32602, `Unknown tool: ${name}`);
+      if (!toolAllowed(name, grant.scopes)) return rpcError(id, -32002, "Insufficient scope for this tool.");
+      return dispatchContentWriteTool(grant, id, name, args, hooks);
+    }
+
     if (isPendingTool(name)) {
       // Same registry-view gating as the 1A writes: flag off ⇒ unknown tool.
       if (!writeEnabled) return rpcError(id, -32602, `Unknown tool: ${name}`);
@@ -1150,7 +1539,7 @@ export function buildMcpAuditEvent(msg: Record<string, unknown> | null | undefin
   // dispatch hooks — skip the generic mcp_call to avoid double-logging. Same
   // for create_pending_action (covered by pending_action_created); the
   // read-shaped list/get pending tools keep normal mcp_call rows.
-  if (tool && (isWriteTool(tool) || tool === "create_pending_action")) return null;
+  if (tool && (isWriteTool(tool) || isContentWriteTool(tool) || tool === "create_pending_action")) return null;
   const ok = response === null ? true : !res?.error && !res?.result?.isError;
   return { event: "mcp_call", detail: { method, ...(tool ? { tool } : {}), ok } };
 }
