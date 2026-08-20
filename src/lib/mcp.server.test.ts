@@ -35,6 +35,7 @@ import {
   MCP_TOKEN_PREFIX,
   TOOL_SCOPES,
   WRITE_TOOL_NAMES,
+  CONTENT_WRITE_TOOL_NAMES,
   PENDING_TOOL_NAMES,
   toolAllowed,
   mcpToolNames,
@@ -110,7 +111,7 @@ const freshTouch = (): TouchState => ({ updateCalled: false, updatedWith: null, 
 // ---- scope map regression ---------------------------------------------------
 
 describe("TOOL_SCOPES / toolAllowed", () => {
-  it("maps the 8 read tools + 2 write tools + 3 pending tools (1B) to their scopes exactly", () => {
+  it("maps the 8 read tools + 2 write tools + 2 content-write tools + 3 pending tools to their scopes exactly", () => {
     expect(TOOL_SCOPES).toEqual({
       list_projects: "milo.projects.read",
       get_project_brief: "milo.projects.read",
@@ -122,15 +123,17 @@ describe("TOOL_SCOPES / toolAllowed", () => {
       list_authority_opportunities: "milo.authority.read",
       create_growth_task: "milo.tasks.write",
       create_project_recommendation: "milo.projects.write",
+      create_content_draft: "milo.content.write",
+      update_content_draft: "milo.content.write",
       create_pending_action: "milo.actions.propose",
       list_pending_actions: "milo.actions.propose",
       get_pending_action: "milo.actions.propose",
     });
-    expect([...mcpToolNames(), ...WRITE_TOOL_NAMES, ...PENDING_TOOL_NAMES].sort()).toEqual(Object.keys(TOOL_SCOPES).sort());
+    expect([...mcpToolNames(), ...WRITE_TOOL_NAMES, ...CONTENT_WRITE_TOOL_NAMES, ...PENDING_TOOL_NAMES].sort()).toEqual(Object.keys(TOOL_SCOPES).sort());
   });
   it("null scopes = legacy developer token = every READ tool, NEVER write tools", () => {
     for (const name of mcpToolNames()) expect(toolAllowed(name, null)).toBe(true);
-    for (const name of WRITE_TOOL_NAMES) expect(toolAllowed(name, null)).toBe(false);
+    for (const name of [...WRITE_TOOL_NAMES, ...CONTENT_WRITE_TOOL_NAMES]) expect(toolAllowed(name, null)).toBe(false);
   });
   it("scoped grants only reach their tools; unknown tools are never allowed", () => {
     expect(toolAllowed("list_projects", ["milo.projects.read"])).toBe(true);
@@ -719,6 +722,128 @@ describe("write tools — tools/list gating matrix", () => {
   it("legacy developer token (null scopes) never sees write tools, flag on or off", async () => {
     expect(await listTools(null, true)).toHaveLength(READ_TOOLS_COUNT);
     expect(await listTools(null, false)).toHaveLength(READ_TOOLS_COUNT);
+  });
+});
+
+describe("content-draft tools (Phase P-A)", () => {
+  const contentGrant = writeGrant([...READ_SCOPES_ALL, "milo.content.write"], true);
+  const call = (name: string, args: Record<string, unknown>, hooks?: McpHooks, grant = contentGrant) =>
+    handleMcpMessage(grant, { id: 9, method: "tools/call", params: { name, arguments: args } }, hooks);
+
+  it("tools/list: content.write exposes exactly the two content tools with write annotations", async () => {
+    const r = (await handleMcpMessage(contentGrant, { id: 1, method: "tools/list" })) as {
+      result: { tools: { name: string; annotations?: Record<string, unknown> }[] };
+    };
+    const names = r.result.tools.map((t) => t.name);
+    expect(names).toContain("create_content_draft");
+    expect(names).toContain("update_content_draft");
+    expect(names).not.toContain("create_growth_task"); // different write scope
+    const defs = r.result.tools.filter((t) => (CONTENT_WRITE_TOOL_NAMES as readonly string[]).includes(t.name));
+    expect(defs).toHaveLength(2);
+    for (const d of defs) expect(d.annotations).toEqual({ readOnlyHint: false, destructiveHint: false, idempotentHint: false });
+  });
+
+  it("legacy dev token never sees content tools even with the flag on", async () => {
+    const dev = (await handleMcpMessage({ userId: "u", scopes: null, writeEnabled: true }, { id: 1, method: "tools/list" })) as {
+      result: { tools: { name: string }[] };
+    };
+    expect(dev.result.tools.map((t) => t.name)).not.toContain("create_content_draft");
+  });
+
+  it("create_content_draft lands a canonical Draft and never leaks body/title in the audit", async () => {
+    const captured = fakeMutate(writeBlob());
+    const { audits, hooks } = captureHooks();
+    const r = await call(
+      "create_content_draft",
+      {
+        projectId: "p1",
+        title: "SECRET-DRAFT-TITLE",
+        markdown: "SECRET-BODY-TEXT",
+        metaDescription: "SECRET-META",
+        outline: ["Intro", "Body"],
+        faq: [{ q: "SECRET-Q", a: "SECRET-A" }],
+        assetType: "article",
+        requestId: "cd-1",
+      },
+      hooks,
+    );
+    const payload = parsePayload(r);
+    expect(payload).toMatchObject({ status: "Draft", projectId: "p1" });
+    expect(typeof payload.contentId).toBe("string");
+
+    const content = captured.written?.content as Record<string, unknown>[];
+    expect(content).toHaveLength(1);
+    expect(content[0]).toMatchObject({
+      projectId: "p1",
+      title: "SECRET-DRAFT-TITLE",
+      markdown: "SECRET-BODY-TEXT",
+      status: "Draft",
+      assetType: "article",
+      sourceType: "manual",
+      publishStatus: "notSent",
+      livePublishStatus: "notPublished",
+      requestId: "cd-1",
+      language: "Swedish", // defaulted from the project
+    });
+    expect(content[0].slug).toBe("secret-draft-title");
+    expect(content[0].h1).toBe("SECRET-DRAFT-TITLE"); // defaults to title
+    expect(captured.written?.unknownFutureKey).toEqual({ keep: true }); // untouched keys survive
+
+    const writes = audits.filter((a) => a.event === "mcp_write");
+    expect(writes).toHaveLength(1);
+    expect(writes[0].detail).toMatchObject({ tool: "create_content_draft", projectId: "p1", action: "create", requestId: "cd-1", ok: true });
+    expect(writes[0].detail.fieldsChanged).toEqual(["assetType", "faq", "markdown", "metaDescription", "outline", "title"]);
+    expect(JSON.stringify(audits)).not.toContain("SECRET"); // names-only audit
+  });
+
+  it("create_content_draft is idempotent on requestId", async () => {
+    const blob = { ...writeBlob(), content: [{ id: "existing", requestId: "cd-9", title: "x", status: "Draft" }] };
+    const captured = fakeMutate(blob);
+    const { hooks } = captureHooks();
+    const r = await call("create_content_draft", { projectId: "p1", title: "T", markdown: "M", requestId: "cd-9" }, hooks);
+    const payload = parsePayload(r);
+    expect(payload.deduped).toBe(true);
+    expect(payload.contentId).toBe("existing");
+    expect((captured.written?.content as unknown[]).length).toBe(1); // no duplicate appended
+  });
+
+  it("update_content_draft patches a draft by id and stamps updatedAt", async () => {
+    const blob = { ...writeBlob(), content: [{ id: "c1", projectId: "p1", title: "old", markdown: "old", status: "Draft" }] };
+    const captured = fakeMutate(blob);
+    const { hooks } = captureHooks();
+    const r = await call("update_content_draft", { contentId: "c1", title: "new title", markdown: "new body" }, hooks);
+    expect(parsePayload(r)).toMatchObject({ contentId: "c1", status: "Draft", updated: true });
+    const content = captured.written?.content as Record<string, unknown>[];
+    expect(content[0]).toMatchObject({ id: "c1", title: "new title", markdown: "new body", status: "Draft" });
+    expect(typeof content[0].updatedAt).toBe("string");
+  });
+
+  it("update_content_draft refuses a published article (-32014)", async () => {
+    const blob = { ...writeBlob(), content: [{ id: "c1", status: "Draft", livePublishStatus: "published" }] };
+    fakeMutate(blob);
+    const r = (await call("update_content_draft", { contentId: "c1", title: "x" })) as { error?: { code: number } };
+    expect(r.error?.code).toBe(-32014);
+  });
+
+  it("update_content_draft on a missing id is a uniform not-found (-32011)", async () => {
+    fakeMutate(writeBlob());
+    const r = (await call("update_content_draft", { contentId: "nope", title: "x" })) as { error?: { code: number } };
+    expect(r.error?.code).toBe(-32011);
+  });
+
+  it("create_content_draft rejects unknown fields and requires markdown", async () => {
+    fakeMutate(writeBlob());
+    const bad = (await call("create_content_draft", { projectId: "p1", title: "T", markdown: "M", bogus: 1 })) as { error?: { code: number } };
+    expect(bad.error?.code).toBe(-32010);
+    const noBody = (await call("create_content_draft", { projectId: "p1", title: "T" })) as { error?: { code: number } };
+    expect(noBody.error?.code).toBe(-32010);
+  });
+
+  it("content tools are unknown when the write flag is off (-32602)", async () => {
+    fakeMutate(writeBlob());
+    const off = writeGrant([...READ_SCOPES_ALL, "milo.content.write"], false);
+    const r = (await call("create_content_draft", { projectId: "p1", title: "T", markdown: "M" }, undefined, off)) as { error?: { code: number } };
+    expect(r.error?.code).toBe(-32602);
   });
 });
 
