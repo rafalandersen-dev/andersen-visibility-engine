@@ -182,3 +182,5 @@ Internal — Andersen Innovations.
 <!-- deploy-nudge: rotate RESEND_API_KEY -->
 
 <!-- deploy-nudge: write-smoke window flag ON -->
+
+<!-- deploy-nudge: advertise write scopes -->
