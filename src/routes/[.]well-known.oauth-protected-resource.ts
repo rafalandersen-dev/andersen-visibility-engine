@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
-import { isOAuthEnabled, protectedResourceMetadata } from "@/lib/oauth.server";
+import { isOAuthEnabled, isWriteToolsEnabled, protectedResourceMetadata } from "@/lib/oauth.server";
 
 // RFC 9728 — OAuth 2.0 Protected Resource Metadata for the Milo MCP endpoint.
 // Only served when MCP_OAUTH_ENABLED=true; otherwise 404 (flag-off = today's
@@ -20,9 +20,13 @@ export const Route = createFileRoute("/.well-known/oauth-protected-resource")({
       OPTIONS: async () => new Response(null, { status: 204, headers: CORS }),
       GET: async () => {
         if (!isOAuthEnabled()) return notFound();
-        return new Response(JSON.stringify(protectedResourceMetadata()), {
+        return new Response(JSON.stringify(protectedResourceMetadata(isWriteToolsEnabled())), {
           status: 200,
-          headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=3600", ...CORS },
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "public, max-age=3600",
+            ...CORS,
+          },
         });
       },
     },

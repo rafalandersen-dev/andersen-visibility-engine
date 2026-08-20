@@ -66,6 +66,25 @@ export const MCP_PROPOSE_SCOPE = MILO_ACTIONS_PROPOSE_SCOPE;
 /** Reserved for Phase 1C (approved publishing). NON-ISSUABLE regardless of flags. */
 export const MCP_PUBLISH_SCOPE = "milo.content.publish";
 
+/**
+ * Write scopes ADVERTISED in metadata when MCP_WRITE_TOOLS_ENABLED is on
+ * (owner decision 2026-08-20 — "writes on the claude.ai web connector").
+ *
+ * This is a deliberate, scoped relaxation of the original never-advertise rule:
+ * because Claude.ai's hosted connector requests exactly the advertised resource
+ * scopes and cannot be handed a write token any other way, the ONLY route to
+ * one-click writes on the web app is to advertise them and let the amber
+ * consent screen be the guard (that screen is data-driven from the requested
+ * scopes, so it renders these correctly and keeps Publish/Delete/Settings off).
+ *
+ * Restricted to the two scopes that back a SHIPPED, smoke-verified write tool
+ * (create_growth_task, create_project_recommendation). `milo.content.write`
+ * (no tool yet) and `milo.actions.propose` (Phase 1B, not smoke-verified) stay
+ * issuable-but-UNadvertised — grantable only by an explicit request, exactly
+ * as all writes were before this change.
+ */
+export const ADVERTISED_WRITE_SCOPES = ["milo.projects.write", "milo.tasks.write"] as const;
+
 /** The scopes the AS may grant, given the write flag. Publish is never included. */
 export function issuableScopes(writeEnabled: boolean): string[] {
   return writeEnabled
@@ -88,12 +107,19 @@ export function isWriteToolsEnabled(): boolean {
   return (process.env.MCP_WRITE_TOOLS_ENABLED ?? "").trim().toLowerCase() === "true";
 }
 
-/** RFC 9728 — OAuth 2.0 Protected Resource Metadata for the MCP endpoint. */
-export function protectedResourceMetadata(): Record<string, unknown> {
+/**
+ * RFC 9728 — OAuth 2.0 Protected Resource Metadata for the MCP endpoint.
+ * `writeEnabled` (from MCP_WRITE_TOOLS_ENABLED, passed by the route) appends the
+ * advertised write scopes so the Claude.ai connector requests them; flag-off
+ * this is byte-identical to the original read-only metadata.
+ */
+export function protectedResourceMetadata(writeEnabled = false): Record<string, unknown> {
   return {
     resource: MCP_RESOURCE_URL,
     authorization_servers: [OAUTH_BASE_URL],
-    scopes_supported: [...OAUTH_SCOPES],
+    scopes_supported: writeEnabled
+      ? [...OAUTH_SCOPES, ...ADVERTISED_WRITE_SCOPES]
+      : [...OAUTH_SCOPES],
     bearer_methods_supported: ["header"],
     resource_name: "Milo Growth",
     resource_documentation: `${OAUTH_BASE_URL}/docs`,
@@ -101,7 +127,7 @@ export function protectedResourceMetadata(): Record<string, unknown> {
 }
 
 /** RFC 8414 — OAuth 2.0 Authorization Server Metadata. issuer == OAUTH_BASE_URL. */
-export function authorizationServerMetadata(): Record<string, unknown> {
+export function authorizationServerMetadata(writeEnabled = false): Record<string, unknown> {
   return {
     issuer: OAUTH_BASE_URL,
     authorization_endpoint: OAUTH_AUTHORIZE_ENDPOINT,
@@ -109,8 +135,11 @@ export function authorizationServerMetadata(): Record<string, unknown> {
     registration_endpoint: OAUTH_REGISTRATION_ENDPOINT,
     revocation_endpoint: OAUTH_REVOCATION_ENDPOINT,
     // AS-level scopes include offline_access (refresh tokens, commit 6); the
-    // PRM keeps only the 4 resource scopes.
-    scopes_supported: [...OAUTH_ISSUABLE_SCOPES],
+    // PRM keeps only the resource scopes. Both widen with the advertised write
+    // scopes when MCP_WRITE_TOOLS_ENABLED is on.
+    scopes_supported: writeEnabled
+      ? [...OAUTH_ISSUABLE_SCOPES, ...ADVERTISED_WRITE_SCOPES]
+      : [...OAUTH_ISSUABLE_SCOPES],
     response_types_supported: ["code"],
     response_modes_supported: ["query"],
     grant_types_supported: ["authorization_code", "refresh_token"],
