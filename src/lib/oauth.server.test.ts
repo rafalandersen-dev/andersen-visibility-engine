@@ -77,7 +77,12 @@ import {
 } from "./oauth.server";
 
 const NOW = 1_700_000_000_000;
-const READ_SCOPES = ["milo.projects.read", "milo.content.read", "milo.insights.read", "milo.authority.read"];
+const READ_SCOPES = [
+  "milo.projects.read",
+  "milo.content.read",
+  "milo.insights.read",
+  "milo.authority.read",
+];
 const ISSUABLE_SCOPES = [...READ_SCOPES, "offline_access"];
 const CALLBACK = "https://claude.ai/api/mcp/auth_callback";
 
@@ -141,7 +146,9 @@ describe("authorizationServerMetadata (RFC 8414)", () => {
 
 describe("mcpWwwAuthenticate", () => {
   it("points at protected-resource metadata when enabled", () => {
-    expect(mcpWwwAuthenticate(true)).toBe(`Bearer resource_metadata="${PROTECTED_RESOURCE_METADATA_URL}"`);
+    expect(mcpWwwAuthenticate(true)).toBe(
+      `Bearer resource_metadata="${PROTECTED_RESOURCE_METADATA_URL}"`,
+    );
   });
   it("stays a plain Bearer challenge when disabled", () => {
     expect(mcpWwwAuthenticate(false)).toBe("Bearer");
@@ -154,7 +161,9 @@ describe("mcpWwwAuthenticate", () => {
 
 describe("sha256Hex", () => {
   it("matches the known SHA-256 vector for 'abc'", async () => {
-    expect(await sha256Hex("abc")).toBe("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+    expect(await sha256Hex("abc")).toBe(
+      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+    );
   });
 });
 
@@ -215,7 +224,10 @@ describe("scope validation", () => {
     expect(v).toEqual({ ok: false, invalid: ["milo.content.write", "bogus"] });
   });
   it("passes the full issuable set through unchanged", () => {
-    expect(validateScopes([...OAUTH_ISSUABLE_SCOPES])).toEqual({ ok: true, scopes: ISSUABLE_SCOPES });
+    expect(validateScopes([...OAUTH_ISSUABLE_SCOPES])).toEqual({
+      ok: true,
+      scopes: ISSUABLE_SCOPES,
+    });
   });
 });
 
@@ -245,7 +257,10 @@ describe("validateRedirectUri", () => {
 describe("oauthErrorBody", () => {
   it("includes error_description only when given", () => {
     expect(oauthErrorBody("invalid_request")).toEqual({ error: "invalid_request" });
-    expect(oauthErrorBody("invalid_request", "why")).toEqual({ error: "invalid_request", error_description: "why" });
+    expect(oauthErrorBody("invalid_request", "why")).toEqual({
+      error: "invalid_request",
+      error_description: "why",
+    });
   });
 });
 
@@ -273,30 +288,51 @@ describe("validateRegistration", () => {
     expect(validateRegistration({}).ok).toBe(false);
     expect(validateRegistration({ redirect_uris: [] }).ok).toBe(false);
     expect(validateRegistration({ redirect_uris: ["http://example.com/cb"] }).ok).toBe(false);
-    expect(validateRegistration({ redirect_uris: Array.from({ length: 11 }, (_, i) => `https://a.example/${i}`) }).ok).toBe(false);
+    expect(
+      validateRegistration({
+        redirect_uris: Array.from({ length: 11 }, (_, i) => `https://a.example/${i}`),
+      }).ok,
+    ).toBe(false);
     expect(validateRegistration(null).ok).toBe(false);
     expect(validateRegistration([CALLBACK]).ok).toBe(false);
   });
   it("supports public clients only", () => {
-    const v = validateRegistration({ redirect_uris: [CALLBACK], token_endpoint_auth_method: "client_secret_basic" });
+    const v = validateRegistration({
+      redirect_uris: [CALLBACK],
+      token_endpoint_auth_method: "client_secret_basic",
+    });
     expect(v.ok).toBe(false);
     if (v.ok) return;
     expect(v.body.error).toBe("invalid_client_metadata");
   });
   it("tolerates refresh_token in grant_types but rejects unknown grants and missing authorization_code", () => {
-    expect(validateRegistration({ redirect_uris: [CALLBACK], grant_types: ["authorization_code", "refresh_token"] }).ok).toBe(true);
-    expect(validateRegistration({ redirect_uris: [CALLBACK], grant_types: ["implicit"] }).ok).toBe(false);
-    expect(validateRegistration({ redirect_uris: [CALLBACK], grant_types: ["refresh_token"] }).ok).toBe(false);
+    expect(
+      validateRegistration({
+        redirect_uris: [CALLBACK],
+        grant_types: ["authorization_code", "refresh_token"],
+      }).ok,
+    ).toBe(true);
+    expect(validateRegistration({ redirect_uris: [CALLBACK], grant_types: ["implicit"] }).ok).toBe(
+      false,
+    );
+    expect(
+      validateRegistration({ redirect_uris: [CALLBACK], grant_types: ["refresh_token"] }).ok,
+    ).toBe(false);
   });
   it("rejects response_types beyond code", () => {
-    expect(validateRegistration({ redirect_uris: [CALLBACK], response_types: ["token"] }).ok).toBe(false);
+    expect(validateRegistration({ redirect_uris: [CALLBACK], response_types: ["token"] }).ok).toBe(
+      false,
+    );
     expect(validateRegistration({ redirect_uris: [CALLBACK], response_types: [] }).ok).toBe(false);
   });
   it("defaults scope to the issuable set; keeps offline_access; rejects unknown scopes", () => {
     const dflt = validateRegistration({ redirect_uris: [CALLBACK], scope: "" });
     expect(dflt.ok && dflt.normalized.scope).toBe(ISSUABLE_SCOPES.join(" "));
     // Flipped by commit 6: offline_access is preserved, not stripped.
-    const kept = validateRegistration({ redirect_uris: [CALLBACK], scope: "milo.projects.read offline_access" });
+    const kept = validateRegistration({
+      redirect_uris: [CALLBACK],
+      scope: "milo.projects.read offline_access",
+    });
     expect(kept.ok && kept.normalized.scope).toBe("milo.projects.read offline_access");
     const bad = validateRegistration({ redirect_uris: [CALLBACK], scope: "milo.projects.write" });
     expect(bad.ok).toBe(false);
@@ -326,20 +362,32 @@ describe("buildClientRow / registrationResponse", () => {
 describe("processClientRegistration", () => {
   it("returns 404 not_found when the flag is off", async () => {
     const insertClient = vi.fn();
-    const r = await processClientRegistration(false, { redirect_uris: [CALLBACK] }, { insertClient, clientId: "c", nowMs: NOW });
+    const r = await processClientRegistration(
+      false,
+      { redirect_uris: [CALLBACK] },
+      { insertClient, clientId: "c", nowMs: NOW },
+    );
     expect(r).toEqual({ status: 404, body: { error: "not_found" } });
     expect(insertClient).not.toHaveBeenCalled();
   });
   it("persists and returns 201 for a valid request", async () => {
     const insertClient = vi.fn().mockResolvedValue(undefined);
-    const r = await processClientRegistration(true, { redirect_uris: [CALLBACK], client_name: "Claude" }, { insertClient, clientId: "milo_client_t", nowMs: NOW });
+    const r = await processClientRegistration(
+      true,
+      { redirect_uris: [CALLBACK], client_name: "Claude" },
+      { insertClient, clientId: "milo_client_t", nowMs: NOW },
+    );
     expect(r.status).toBe(201);
     expect(r.body.client_id).toBe("milo_client_t");
     expect(insertClient).toHaveBeenCalledOnce();
   });
   it("surfaces validation failures without persisting", async () => {
     const insertClient = vi.fn();
-    const r = await processClientRegistration(true, { redirect_uris: ["bad"] }, { insertClient, clientId: "c", nowMs: NOW });
+    const r = await processClientRegistration(
+      true,
+      { redirect_uris: ["bad"] },
+      { insertClient, clientId: "c", nowMs: NOW },
+    );
     expect(r.status).toBe(400);
     expect(insertClient).not.toHaveBeenCalled();
   });
@@ -364,10 +412,18 @@ describe("classifyAuthorizeRequest", () => {
 
   it("never redirects for unknown/disabled clients or untrusted redirect_uris", () => {
     expect(classifyAuthorizeRequest(good, null)).toEqual({ kind: "invalid_client" });
-    expect(classifyAuthorizeRequest(good, { ...client, disabled_at: "2026-01-01" })).toEqual({ kind: "invalid_client" });
-    expect(classifyAuthorizeRequest({ ...good, client_id: undefined }, client)).toEqual({ kind: "invalid_client" });
-    expect(classifyAuthorizeRequest({ ...good, redirect_uri: "https://evil.example/cb" }, client)).toEqual({ kind: "invalid_redirect" });
-    expect(classifyAuthorizeRequest({ ...good, redirect_uri: undefined }, client)).toEqual({ kind: "invalid_redirect" });
+    expect(classifyAuthorizeRequest(good, { ...client, disabled_at: "2026-01-01" })).toEqual({
+      kind: "invalid_client",
+    });
+    expect(classifyAuthorizeRequest({ ...good, client_id: undefined }, client)).toEqual({
+      kind: "invalid_client",
+    });
+    expect(
+      classifyAuthorizeRequest({ ...good, redirect_uri: "https://evil.example/cb" }, client),
+    ).toEqual({ kind: "invalid_redirect" });
+    expect(classifyAuthorizeRequest({ ...good, redirect_uri: undefined }, client)).toEqual({
+      kind: "invalid_redirect",
+    });
   });
   it("redirect-errors on bad response_type / missing PKCE / non-S256", () => {
     const rt = classifyAuthorizeRequest({ ...good, response_type: "token" }, client);
@@ -378,7 +434,10 @@ describe("classifyAuthorizeRequest", () => {
     expect(pm.kind === "redirect_error" && pm.error).toBe("invalid_request");
   });
   it("requires resource (when present) to equal the MCP URL, and defaults it when omitted", () => {
-    const bad = classifyAuthorizeRequest({ ...good, resource: "https://other.example/api" }, client);
+    const bad = classifyAuthorizeRequest(
+      { ...good, resource: "https://other.example/api" },
+      client,
+    );
     expect(bad.kind === "redirect_error" && bad.error).toBe("invalid_target");
     const omitted = classifyAuthorizeRequest({ ...good, resource: undefined }, client);
     expect(omitted.kind === "ok" && omitted.normalized.resource).toBe(MCP_RESOURCE_URL);
@@ -387,11 +446,17 @@ describe("classifyAuthorizeRequest", () => {
     const bad = classifyAuthorizeRequest({ ...good, scope: "milo.projects.write" }, client);
     expect(bad.kind === "redirect_error" && bad.error).toBe("invalid_scope");
     // Flipped by commit 6: offline_access is preserved, not stripped.
-    const kept = classifyAuthorizeRequest({ ...good, scope: "milo.projects.read offline_access" }, client);
+    const kept = classifyAuthorizeRequest(
+      { ...good, scope: "milo.projects.read offline_access" },
+      client,
+    );
     expect(kept.kind === "ok" && kept.normalized.scope).toBe("milo.projects.read offline_access");
   });
   it("defaults omitted scope to the client's registered scope (or all issuable)", () => {
-    const fromClient = classifyAuthorizeRequest({ ...good, scope: undefined }, { ...client, scope: "milo.projects.read" });
+    const fromClient = classifyAuthorizeRequest(
+      { ...good, scope: undefined },
+      { ...client, scope: "milo.projects.read" },
+    );
     expect(fromClient.kind === "ok" && fromClient.normalized.scope).toBe("milo.projects.read");
     const all = classifyAuthorizeRequest({ ...good, scope: undefined }, { ...client, scope: null });
     expect(all.kind === "ok" && all.normalized.scope).toBe(ISSUABLE_SCOPES.join(" "));
@@ -477,10 +542,28 @@ describe("issueAuthorizationCode", () => {
 
   it("fails closed for missing user, unknown, consumed, or expired requests", async () => {
     const { deps } = makeDeps(pending);
-    expect(await issueAuthorizationCode("req1", "", deps)).toEqual({ ok: false, reason: "not_found" });
-    expect(await issueAuthorizationCode("req1", "user1", makeDeps(null).deps)).toEqual({ ok: false, reason: "not_found" });
-    expect(await issueAuthorizationCode("req1", "user1", makeDeps({ ...pending, consumed_at: "2026-01-01" }).deps)).toEqual({ ok: false, reason: "already_used" });
-    expect(await issueAuthorizationCode("req1", "user1", makeDeps({ ...pending, expires_at: new Date(NOW - 1).toISOString() }).deps)).toEqual({ ok: false, reason: "expired" });
+    expect(await issueAuthorizationCode("req1", "", deps)).toEqual({
+      ok: false,
+      reason: "not_found",
+    });
+    expect(await issueAuthorizationCode("req1", "user1", makeDeps(null).deps)).toEqual({
+      ok: false,
+      reason: "not_found",
+    });
+    expect(
+      await issueAuthorizationCode(
+        "req1",
+        "user1",
+        makeDeps({ ...pending, consumed_at: "2026-01-01" }).deps,
+      ),
+    ).toEqual({ ok: false, reason: "already_used" });
+    expect(
+      await issueAuthorizationCode(
+        "req1",
+        "user1",
+        makeDeps({ ...pending, expires_at: new Date(NOW - 1).toISOString() }).deps,
+      ),
+    ).toEqual({ ok: false, reason: "expired" });
   });
   it("consumes the request BEFORE minting the code (race safety) and stores only the hash", async () => {
     const { deps, calls, inserted } = makeDeps(pending);
@@ -503,7 +586,15 @@ describe("issueAuthorizationCode", () => {
 describe("buildPendingRequestRow / buildAuthCodeRow shapes", () => {
   it("builds the pending-request row from a normalized authorize request", () => {
     const row = buildPendingRequestRow(
-      { clientId: "c", redirectUri: CALLBACK, scope: "s", codeChallenge: "ch", codeChallengeMethod: "S256", resource: MCP_RESOURCE_URL, state: undefined },
+      {
+        clientId: "c",
+        redirectUri: CALLBACK,
+        scope: "s",
+        codeChallenge: "ch",
+        codeChallengeMethod: "S256",
+        resource: MCP_RESOURCE_URL,
+        state: undefined,
+      },
       "id1",
       "2026-01-01T00:00:00.000Z",
     );
@@ -521,7 +612,14 @@ describe("buildPendingRequestRow / buildAuthCodeRow shapes", () => {
   });
   it("binds the code row to client + redirect + challenge + resource", () => {
     const row = buildAuthCodeRow(
-      { client_id: "c", redirect_uri: CALLBACK, scope: "s", code_challenge: "ch", code_challenge_method: "S256", resource: MCP_RESOURCE_URL },
+      {
+        client_id: "c",
+        redirect_uri: CALLBACK,
+        scope: "s",
+        code_challenge: "ch",
+        code_challenge_method: "S256",
+        resource: MCP_RESOURCE_URL,
+      },
       "user1",
       "hash1",
       "2026-01-01T00:00:00.000Z",
@@ -554,7 +652,13 @@ const codeRow = {
   expires_at: new Date(NOW + 60_000).toISOString(),
   consumed_at: null,
 };
-const clientRow = { client_id: "milo_client_t", client_name: "Claude", redirect_uris: [CALLBACK], scope: READ_SCOPES.join(" "), disabled_at: null as string | null };
+const clientRow = {
+  client_id: "milo_client_t",
+  client_name: "Claude",
+  redirect_uris: [CALLBACK],
+  scope: READ_SCOPES.join(" "),
+  disabled_at: null as string | null,
+};
 const goodParams: TokenParams = {
   grant_type: "authorization_code",
   client_id: "milo_client_t",
@@ -621,12 +725,19 @@ const body = (r: { body: Record<string, unknown> | null }) => r.body as Record<s
 describe("processTokenRequest — authorization_code", () => {
   it("returns 404 not_found when the flag is off", async () => {
     const { deps } = makeDeps();
-    expect(await processTokenRequest(false, goodParams, deps)).toEqual({ status: 404, body: { error: "not_found" } });
+    expect(await processTokenRequest(false, goodParams, deps)).toEqual({
+      status: 404,
+      body: { error: "not_found" },
+    });
   });
   it("rejects missing params and unknown grants", async () => {
     const { deps } = makeDeps();
     expect(body(await processTokenRequest(true, {}, deps)).error).toBe("invalid_request");
-    expect(body(await processTokenRequest(true, { ...goodParams, grant_type: "client_credentials" }, deps)).error).toBe("unsupported_grant_type");
+    expect(
+      body(
+        await processTokenRequest(true, { ...goodParams, grant_type: "client_credentials" }, deps),
+      ).error,
+    ).toBe("unsupported_grant_type");
     for (const missing of ["client_id", "code", "redirect_uri", "code_verifier"] as const) {
       const p = { ...goodParams, [missing]: undefined };
       expect(body(await processTokenRequest(true, p, deps)).error).toBe("invalid_request");
@@ -640,13 +751,31 @@ describe("processTokenRequest — authorization_code", () => {
   });
   it("rejects a mismatched resource; tolerates an omitted one", async () => {
     const { deps } = makeDeps();
-    expect(body(await processTokenRequest(true, { ...goodParams, resource: "https://other.example" }, deps)).error).toBe("invalid_target");
-    const ok = await processTokenRequest(true, { ...goodParams, resource: undefined }, makeDeps().deps);
+    expect(
+      body(
+        await processTokenRequest(true, { ...goodParams, resource: "https://other.example" }, deps),
+      ).error,
+    ).toBe("invalid_target");
+    const ok = await processTokenRequest(
+      true,
+      { ...goodParams, resource: undefined },
+      makeDeps().deps,
+    );
     expect(ok.status).toBe(200);
   });
   it("rejects unknown or disabled clients with 401", async () => {
-    expect((await processTokenRequest(true, goodParams, makeDeps({ client: null }).deps)).status).toBe(401);
-    expect((await processTokenRequest(true, goodParams, makeDeps({ client: { ...clientRow, disabled_at: "2026-01-01" } }).deps)).status).toBe(401);
+    expect(
+      (await processTokenRequest(true, goodParams, makeDeps({ client: null }).deps)).status,
+    ).toBe(401);
+    expect(
+      (
+        await processTokenRequest(
+          true,
+          goodParams,
+          makeDeps({ client: { ...clientRow, disabled_at: "2026-01-01" } }).deps,
+        )
+      ).status,
+    ).toBe(401);
   });
   it("returns a uniform invalid_grant for unknown/consumed/expired/mismatched codes", async () => {
     const cases: (Record<string, unknown> | null)[] = [
@@ -663,7 +792,11 @@ describe("processTokenRequest — authorization_code", () => {
     }
   });
   it("fails PKCE verification with a wrong verifier", async () => {
-    const r = await processTokenRequest(true, { ...goodParams, code_verifier: `${VERIFIER}x` }, makeDeps().deps);
+    const r = await processTokenRequest(
+      true,
+      { ...goodParams, code_verifier: `${VERIFIER}x` },
+      makeDeps().deps,
+    );
     expect(body(r).error).toBe("invalid_grant");
   });
   it("without offline_access: access token only, NO refresh token", async () => {
@@ -682,7 +815,12 @@ describe("processTokenRequest — authorization_code", () => {
     expect(row.refresh_family_id).toBeNull();
     expect(row.access_expires_at).toBe(new Date(NOW + ACCESS_TOKEN_TTL_MS).toISOString());
     expect(JSON.stringify(row)).not.toContain("testtoken");
-    expect(r.audit).toEqual({ event: "token_issued", clientId: "milo_client_t", userId: "user1", detail: { scope: READ_SCOPES.join(" ") } });
+    expect(r.audit).toEqual({
+      event: "token_issued",
+      clientId: "milo_client_t",
+      userId: "user1",
+      detail: { scope: READ_SCOPES.join(" ") },
+    });
   });
   // Flipped by commit 6: offline_access is kept and drives refresh issuance.
   it("with offline_access: keeps the scope and issues a refresh token (hash-only, new family, 30d)", async () => {
@@ -708,7 +846,11 @@ describe("processTokenRequest — refresh_token grant (rotation + reuse detectio
   };
 
   it("requires the refresh_token param", async () => {
-    const r = await processTokenRequest(true, { ...refreshParams, refresh_token: undefined }, makeDeps().deps);
+    const r = await processTokenRequest(
+      true,
+      { ...refreshParams, refresh_token: undefined },
+      makeDeps().deps,
+    );
     expect(body(r).error).toBe("invalid_request");
   });
   it("happy rotation: consumes the old token, issues a new pair, preserves the grant", async () => {
@@ -734,22 +876,33 @@ describe("processTokenRequest — refresh_token grant (rotation + reuse detectio
     expect(JSON.stringify(r.audit)).not.toContain("refresh_token");
   });
   it("REUSE: an already-rotated token revokes the whole family", async () => {
-    const { deps, familyRevokes } = makeDeps({ refresh: { ...refreshRow, rotated_at: "2026-07-08T00:00:00Z" } });
+    const { deps, familyRevokes } = makeDeps({
+      refresh: { ...refreshRow, rotated_at: "2026-07-08T00:00:00Z" },
+    });
     const r = await processTokenRequest(true, refreshParams, deps);
     expect(r.status).toBe(400);
     expect(body(r).error).toBe("invalid_grant");
     expect(familyRevokes).toEqual(["family-1"]);
-    expect(r.audit).toEqual({ event: "token_reuse_detected", clientId: "milo_client_t", userId: "user1", detail: { familySize: 3 } });
+    expect(r.audit).toEqual({
+      event: "token_reuse_detected",
+      clientId: "milo_client_t",
+      userId: "user1",
+      detail: { familySize: 3 },
+    });
     expect(JSON.stringify(r.audit)).not.toContain("family-1"); // family id never audited
   });
   it("REUSE: a revoked token also revokes the family", async () => {
-    const { deps, familyRevokes } = makeDeps({ refresh: { ...refreshRow, revoked_at: "2026-07-08T00:00:00Z" } });
+    const { deps, familyRevokes } = makeDeps({
+      refresh: { ...refreshRow, revoked_at: "2026-07-08T00:00:00Z" },
+    });
     const r = await processTokenRequest(true, refreshParams, deps);
     expect(body(r).error).toBe("invalid_grant");
     expect(familyRevokes).toEqual(["family-1"]);
   });
   it("naturally expired token → invalid_grant WITHOUT family kill", async () => {
-    const { deps, familyRevokes } = makeDeps({ refresh: { ...refreshRow, refresh_expires_at: new Date(NOW - 1).toISOString() } });
+    const { deps, familyRevokes } = makeDeps({
+      refresh: { ...refreshRow, refresh_expires_at: new Date(NOW - 1).toISOString() },
+    });
     const r = await processTokenRequest(true, refreshParams, deps);
     expect(body(r).error).toBe("invalid_grant");
     expect(familyRevokes).toEqual([]);
@@ -762,13 +915,19 @@ describe("processTokenRequest — refresh_token grant (rotation + reuse detectio
     expect(familyRevokes).toEqual([]);
   });
   it("client mismatch → uniform invalid_grant, no family kill", async () => {
-    const { deps, familyRevokes } = makeDeps({ refresh: { ...refreshRow, client_id: "someone_else" } });
+    const { deps, familyRevokes } = makeDeps({
+      refresh: { ...refreshRow, client_id: "someone_else" },
+    });
     const r = await processTokenRequest(true, refreshParams, deps);
     expect(body(r).error).toBe("invalid_grant");
     expect(familyRevokes).toEqual([]);
   });
   it("scope param must equal the original grant; matching or omitted scope is fine", async () => {
-    const mismatch = await processTokenRequest(true, { ...refreshParams, scope: "milo.projects.read" }, makeDeps({ refresh: { ...refreshRow } }).deps);
+    const mismatch = await processTokenRequest(
+      true,
+      { ...refreshParams, scope: "milo.projects.read" },
+      makeDeps({ refresh: { ...refreshRow } }).deps,
+    );
     expect(body(mismatch).error).toBe("invalid_scope");
     const sameReordered = await processTokenRequest(
       true,
@@ -785,8 +944,24 @@ describe("processTokenRequest — refresh_token grant (rotation + reuse detectio
     expect(r.audit?.event).toBe("token_reuse_detected");
   });
   it("rejects a client secret and unknown clients like the code grant", async () => {
-    expect((await processTokenRequest(true, { ...refreshParams, client_secret: "x" }, makeDeps({ refresh: { ...refreshRow } }).deps)).status).toBe(401);
-    expect((await processTokenRequest(true, refreshParams, makeDeps({ client: null, refresh: { ...refreshRow } }).deps)).status).toBe(401);
+    expect(
+      (
+        await processTokenRequest(
+          true,
+          { ...refreshParams, client_secret: "x" },
+          makeDeps({ refresh: { ...refreshRow } }).deps,
+        )
+      ).status,
+    ).toBe(401);
+    expect(
+      (
+        await processTokenRequest(
+          true,
+          refreshParams,
+          makeDeps({ client: null, refresh: { ...refreshRow } }).deps,
+        )
+      ).status,
+    ).toBe(401);
   });
 });
 
@@ -823,7 +998,12 @@ describe("buildAccessTokenRow / tokenSuccessResponse", () => {
     expect(row.refresh_expires_at).toBe("2026-02-01T00:00:00.000Z");
   });
   it("shapes the success body per RFC 6749, with refresh_token only when issued", () => {
-    expect(tokenSuccessResponse("tok", "s", 3600)).toEqual({ access_token: "tok", token_type: "Bearer", expires_in: 3600, scope: "s" });
+    expect(tokenSuccessResponse("tok", "s", 3600)).toEqual({
+      access_token: "tok",
+      token_type: "Bearer",
+      expires_in: 3600,
+      scope: "s",
+    });
     expect(tokenSuccessResponse("tok", "s", 3600, "rtok")).toEqual({
       access_token: "tok",
       token_type: "Bearer",
@@ -850,8 +1030,12 @@ describe("validateAccessTokenRow", () => {
   it("returns null for unknown, revoked, expired, or wrong-audience rows (uniform 401)", () => {
     expect(validateAccessTokenRow(null, NOW)).toBeNull();
     expect(validateAccessTokenRow({ ...row, revoked_at: "2026-01-01" }, NOW)).toBeNull();
-    expect(validateAccessTokenRow({ ...row, access_expires_at: new Date(NOW - 1).toISOString() }, NOW)).toBeNull();
-    expect(validateAccessTokenRow({ ...row, resource: "https://other.example/api" }, NOW)).toBeNull();
+    expect(
+      validateAccessTokenRow({ ...row, access_expires_at: new Date(NOW - 1).toISOString() }, NOW),
+    ).toBeNull();
+    expect(
+      validateAccessTokenRow({ ...row, resource: "https://other.example/api" }, NOW),
+    ).toBeNull();
     expect(validateAccessTokenRow({ ...row, access_expires_at: undefined }, NOW)).toBeNull();
   });
   it("resolves a valid row to its grant", () => {
@@ -879,15 +1063,28 @@ describe("classifyConsentRequest", () => {
   };
   it("fails closed for missing/used/expired requests and bad clients", () => {
     expect(classifyConsentRequest(null, {}, NOW)).toEqual({ ok: false, reason: "not_found" });
-    expect(classifyConsentRequest({ ...req, consumed_at: "2026-01-01" }, {}, NOW)).toEqual({ ok: false, reason: "already_used" });
-    expect(classifyConsentRequest({ ...req, expires_at: new Date(NOW - 1).toISOString() }, {}, NOW)).toEqual({ ok: false, reason: "expired" });
+    expect(classifyConsentRequest({ ...req, consumed_at: "2026-01-01" }, {}, NOW)).toEqual({
+      ok: false,
+      reason: "already_used",
+    });
+    expect(
+      classifyConsentRequest({ ...req, expires_at: new Date(NOW - 1).toISOString() }, {}, NOW),
+    ).toEqual({ ok: false, reason: "expired" });
     expect(classifyConsentRequest(req, null, NOW)).toEqual({ ok: false, reason: "invalid_client" });
-    expect(classifyConsentRequest(req, { disabled_at: "2026-01-01" }, NOW)).toEqual({ ok: false, reason: "invalid_client" });
+    expect(classifyConsentRequest(req, { disabled_at: "2026-01-01" }, NOW)).toEqual({
+      ok: false,
+      reason: "invalid_client",
+    });
   });
   it("normalizes a valid pending request", () => {
     expect(classifyConsentRequest(req, { disabled_at: null }, NOW)).toEqual({
       ok: true,
-      normalized: { clientId: "c", redirectUri: CALLBACK, scope: "milo.projects.read", state: "xyz" },
+      normalized: {
+        clientId: "c",
+        redirectUri: CALLBACK,
+        scope: "milo.projects.read",
+        state: "xyz",
+      },
     });
   });
 });
@@ -921,15 +1118,28 @@ describe("issuableScopes / write scope model", () => {
     expect(issuableScopes(false)).not.toContain(MCP_PUBLISH_SCOPE);
     expect(issuableScopes(true)).not.toContain(MCP_PUBLISH_SCOPE);
     expect(issuableScopes(true)).not.toContain("milo.write");
-    expect(issuableScopes(true).filter((s) => s.includes("settings") || s.includes("insights.write") || s.includes("authority.write"))).toEqual([]);
+    expect(
+      issuableScopes(true).filter(
+        (s) =>
+          s.includes("settings") || s.includes("insights.write") || s.includes("authority.write"),
+      ),
+    ).toEqual([]);
   });
   it("validateScopes rejects write scopes against the default set, accepts them against issuable(true)", () => {
-    expect(validateScopes(["milo.content.write"])).toEqual({ ok: false, invalid: ["milo.content.write"] });
-    expect(validateScopes(["milo.projects.read", "milo.content.write"], issuableScopes(true))).toEqual({
+    expect(validateScopes(["milo.content.write"])).toEqual({
+      ok: false,
+      invalid: ["milo.content.write"],
+    });
+    expect(
+      validateScopes(["milo.projects.read", "milo.content.write"], issuableScopes(true)),
+    ).toEqual({
       ok: true,
       scopes: ["milo.projects.read", "milo.content.write"],
     });
-    expect(validateScopes([MCP_PUBLISH_SCOPE], issuableScopes(true))).toEqual({ ok: false, invalid: [MCP_PUBLISH_SCOPE] });
+    expect(validateScopes([MCP_PUBLISH_SCOPE], issuableScopes(true))).toEqual({
+      ok: false,
+      invalid: [MCP_PUBLISH_SCOPE],
+    });
   });
 });
 
@@ -951,13 +1161,20 @@ describe("DCR with write scopes", () => {
   });
   it("the publish scope is rejected regardless of flag", () => {
     for (const writeEnabled of [false, true]) {
-      const v = validateRegistration({ redirect_uris: [CALLBACK], scope: MCP_PUBLISH_SCOPE }, writeEnabled);
+      const v = validateRegistration(
+        { redirect_uris: [CALLBACK], scope: MCP_PUBLISH_SCOPE },
+        writeEnabled,
+      );
       expect(v.ok).toBe(false);
     }
   });
   it("processClientRegistration threads writeEnabled through deps", async () => {
     const insertClient = vi.fn().mockResolvedValue(undefined);
-    const rejected = await processClientRegistration(true, { redirect_uris: [CALLBACK], scope: "milo.tasks.write" }, { insertClient, clientId: "c1", nowMs: NOW });
+    const rejected = await processClientRegistration(
+      true,
+      { redirect_uris: [CALLBACK], scope: "milo.tasks.write" },
+      { insertClient, clientId: "c1", nowMs: NOW },
+    );
     expect(rejected.status).toBe(400); // deps.writeEnabled defaults false
     const accepted = await processClientRegistration(
       true,
@@ -984,14 +1201,26 @@ describe("authorize with write scopes", () => {
     expect(r.kind === "redirect_error" && r.error).toBe("invalid_scope");
   });
   it("flag on: explicit write scope is granted", () => {
-    const r = classifyAuthorizeRequest({ ...base, scope: "milo.projects.read milo.content.write" }, client, true);
+    const r = classifyAuthorizeRequest(
+      { ...base, scope: "milo.projects.read milo.content.write" },
+      client,
+      true,
+    );
     expect(r.kind === "ok" && r.normalized.scope).toBe("milo.projects.read milo.content.write");
   });
   it("no-scope default behavior is unchanged (client scope / read+offline fallback), flag on or off", () => {
     for (const writeEnabled of [false, true]) {
-      const fromClient = classifyAuthorizeRequest({ ...base, scope: undefined }, client, writeEnabled);
+      const fromClient = classifyAuthorizeRequest(
+        { ...base, scope: undefined },
+        client,
+        writeEnabled,
+      );
       expect(fromClient.kind === "ok" && fromClient.normalized.scope).toBe(READ_SCOPES.join(" "));
-      const dflt = classifyAuthorizeRequest({ ...base, scope: undefined }, { ...client, scope: null }, writeEnabled);
+      const dflt = classifyAuthorizeRequest(
+        { ...base, scope: undefined },
+        { ...client, scope: null },
+        writeEnabled,
+      );
       expect(dflt.kind === "ok" && dflt.normalized.scope).toBe(ISSUABLE_SCOPES.join(" "));
     }
   });
@@ -1002,23 +1231,48 @@ describe("authorize with write scopes", () => {
   });
   it("the publish scope is rejected regardless of flag", () => {
     for (const writeEnabled of [false, true]) {
-      const r = classifyAuthorizeRequest({ ...base, scope: MCP_PUBLISH_SCOPE }, client, writeEnabled);
+      const r = classifyAuthorizeRequest(
+        { ...base, scope: MCP_PUBLISH_SCOPE },
+        client,
+        writeEnabled,
+      );
       expect(r.kind === "redirect_error" && r.error).toBe("invalid_scope");
     }
   });
 });
 
-describe("metadata stays read-only even with the write flag on", () => {
-  it("PRM and AS metadata never mention write/publish scopes", () => {
-    vi.stubEnv("MCP_WRITE_TOOLS_ENABLED", "true");
-    const prm = protectedResourceMetadata();
-    const as = authorizationServerMetadata();
-    expect(prm.scopes_supported).toEqual(READ_SCOPES); // unchanged
-    expect(as.scopes_supported).toEqual(ISSUABLE_SCOPES); // unchanged
-    expect(as.grant_types_supported).toEqual(["authorization_code", "refresh_token"]); // unchanged
+describe("metadata advertises the two shipped write scopes ONLY when the flag is on", () => {
+  // Owner decision 2026-08-20: writes on the Claude.ai web connector. The
+  // connector requests exactly the advertised resource scopes, so the two
+  // smoke-verified write scopes must be advertised flag-ON — while
+  // content.write (no tool), propose (Phase 1B), and publish (never) stay OUT.
+  it("flag OFF: byte-identical read-only metadata (no writes, no publish)", () => {
+    const prm = protectedResourceMetadata(false);
+    const as = authorizationServerMetadata(false);
+    expect(prm.scopes_supported).toEqual(READ_SCOPES);
+    expect(as.scopes_supported).toEqual(ISSUABLE_SCOPES);
     const all = JSON.stringify([prm, as]);
     expect(all).not.toContain(".write");
     expect(all).not.toContain("publish");
+    expect(all).not.toContain("propose");
+  });
+
+  it("flag ON: exactly milo.projects.write + milo.tasks.write appended", () => {
+    const prm = protectedResourceMetadata(true).scopes_supported as string[];
+    const as = authorizationServerMetadata(true).scopes_supported as string[];
+    expect(prm).toEqual([...READ_SCOPES, "milo.projects.write", "milo.tasks.write"]);
+    expect(as).toEqual([...ISSUABLE_SCOPES, "milo.projects.write", "milo.tasks.write"]);
+    // The three deliberately-withheld scopes never appear, even flag-on.
+    for (const scopes of [prm, as]) {
+      expect(scopes).not.toContain("milo.content.write");
+      expect(scopes).not.toContain("milo.actions.propose");
+      expect(scopes).not.toContain("milo.content.publish");
+    }
+    // Grant types unchanged by the write flag.
+    expect(authorizationServerMetadata(true).grant_types_supported).toEqual([
+      "authorization_code",
+      "refresh_token",
+    ]);
   });
 });
 
@@ -1068,7 +1322,9 @@ describe("rateLimitKey", () => {
     expect(await rateLimitKey(RATE_BUCKETS.register, ip)).toBe(k); // deterministic
   });
   it("uses a shared fallback key for a missing identifier", async () => {
-    expect(await rateLimitKey(RATE_BUCKETS.register, "")).toBe(await rateLimitKey(RATE_BUCKETS.register, ""));
+    expect(await rateLimitKey(RATE_BUCKETS.register, "")).toBe(
+      await rateLimitKey(RATE_BUCKETS.register, ""),
+    );
   });
   it("mcp bearer keys are not the oauth token hash", async () => {
     const bearer = "milo_at_sometoken";
@@ -1126,7 +1382,12 @@ describe("checkRateLimit", () => {
 // ---------------------------------------------------------------------------
 
 describe("processRevocationRequest", () => {
-  const info: RevokedTokenInfo = { userId: "user1", clientId: "client1", tokenType: "access", familyRevoked: null };
+  const info: RevokedTokenInfo = {
+    userId: "user1",
+    clientId: "client1",
+    tokenType: "access",
+    familyRevoked: null,
+  };
   function makeDeps(result: RevokedTokenInfo | null) {
     const revokeCalls: { hash: string; nowIso: string; hint?: string }[] = [];
     const deps: RevocationDeps = {
@@ -1181,7 +1442,11 @@ describe("processRevocationRequest", () => {
   it("token_type_hint is advisory: forwarded to the lookup, works with any value", async () => {
     for (const hint of ["access_token", "refresh_token", "nonsense", undefined]) {
       const { deps, revokeCalls } = makeDeps(info);
-      const r = await processRevocationRequest(true, { token: "milo_at_x", token_type_hint: hint }, deps);
+      const r = await processRevocationRequest(
+        true,
+        { token: "milo_at_x", token_type_hint: hint },
+        deps,
+      );
       expect(r.status).toBe(200);
       expect(revokeCalls).toHaveLength(1);
       expect(revokeCalls[0].hint).toBe(hint);
@@ -1189,9 +1454,18 @@ describe("processRevocationRequest", () => {
   });
 
   it("surfaces family revocation context for auditing (refresh token → family kill)", async () => {
-    const familyInfo: RevokedTokenInfo = { userId: "user1", clientId: "client1", tokenType: "refresh", familyRevoked: 4 };
+    const familyInfo: RevokedTokenInfo = {
+      userId: "user1",
+      clientId: "client1",
+      tokenType: "refresh",
+      familyRevoked: 4,
+    };
     const { deps } = makeDeps(familyInfo);
-    const r = await processRevocationRequest(true, { token: "milo_rt_x", token_type_hint: "refresh_token" }, deps);
+    const r = await processRevocationRequest(
+      true,
+      { token: "milo_rt_x", token_type_hint: "refresh_token" },
+      deps,
+    );
     expect(r.status).toBe(200);
     expect(r.body).toBeNull();
     expect(r.revoked).toEqual(familyInfo);
@@ -1205,7 +1479,9 @@ describe("processRevocationRequest", () => {
       hash: sha256Hex,
       nowMs: NOW,
     };
-    await expect(processRevocationRequest(true, { token: "milo_at_x" }, deps)).rejects.toThrow("revoke_failed");
+    await expect(processRevocationRequest(true, { token: "milo_at_x" }, deps)).rejects.toThrow(
+      "revoke_failed",
+    );
   });
 });
 
@@ -1241,7 +1517,17 @@ describe("buildConnectedApps", () => {
     expect(apps.map((a) => a.clientId).sort()).toEqual(["client1", "client2", "client3"]);
     for (const app of apps) {
       expect(Object.keys(app).sort()).toEqual(
-        ["clientId", "clientName", "scopes", "grantedAt", "status", "activeTokenCount", "latestTokenCreatedAt", "latestTokenExpiresAt", "latestTokenLastUsedAt"].sort(),
+        [
+          "clientId",
+          "clientName",
+          "scopes",
+          "grantedAt",
+          "status",
+          "activeTokenCount",
+          "latestTokenCreatedAt",
+          "latestTokenExpiresAt",
+          "latestTokenLastUsedAt",
+        ].sort(),
       );
     }
     expect(JSON.stringify(apps)).not.toMatch(/hash|secret|token_hash/i);
@@ -1250,10 +1536,23 @@ describe("buildConnectedApps", () => {
   });
 
   it("picks the NEWEST token's dates and counts only live tokens", () => {
-    const older = token({ created_at: new Date(NOW - 7_200_000).toISOString(), last_used_at: new Date(NOW - 7_000_000).toISOString() });
-    const newest = token({ created_at: new Date(NOW - 60_000).toISOString(), access_expires_at: new Date(NOW + 60_000).toISOString(), last_used_at: new Date(NOW - 30_000).toISOString() });
-    const revoked = token({ created_at: new Date(NOW - 3_600_000).toISOString(), revoked_at: new Date(NOW - 1_000_000).toISOString() });
-    const expired = token({ created_at: new Date(NOW - 5_000_000).toISOString(), access_expires_at: new Date(NOW - 1).toISOString() });
+    const older = token({
+      created_at: new Date(NOW - 7_200_000).toISOString(),
+      last_used_at: new Date(NOW - 7_000_000).toISOString(),
+    });
+    const newest = token({
+      created_at: new Date(NOW - 60_000).toISOString(),
+      access_expires_at: new Date(NOW + 60_000).toISOString(),
+      last_used_at: new Date(NOW - 30_000).toISOString(),
+    });
+    const revoked = token({
+      created_at: new Date(NOW - 3_600_000).toISOString(),
+      revoked_at: new Date(NOW - 1_000_000).toISOString(),
+    });
+    const expired = token({
+      created_at: new Date(NOW - 5_000_000).toISOString(),
+      access_expires_at: new Date(NOW - 1).toISOString(),
+    });
     const [app] = buildConnectedApps([older, newest, revoked, expired], [consent({})], {}, NOW);
     expect(app.latestTokenCreatedAt).toBe(newest.created_at);
     expect(app.latestTokenExpiresAt).toBe(newest.access_expires_at);
@@ -1266,7 +1565,12 @@ describe("buildConnectedApps", () => {
     const dead = token({ access_expires_at: new Date(NOW - 1).toISOString() });
     const [expired] = buildConnectedApps([dead], [consent({})], {}, NOW);
     expect(expired.status).toBe("expired");
-    const [revoked] = buildConnectedApps([dead], [consent({ revoked_at: new Date(NOW - 1).toISOString() })], {}, NOW);
+    const [revoked] = buildConnectedApps(
+      [dead],
+      [consent({ revoked_at: new Date(NOW - 1).toISOString() })],
+      {},
+      NOW,
+    );
     expect(revoked.status).toBe("revoked");
     expect(revoked.activeTokenCount).toBe(0);
   });
@@ -1274,15 +1578,26 @@ describe("buildConnectedApps", () => {
   it("uses the earliest consent as grantedAt and labels the live token's scopes", () => {
     const first = consent({ granted_at: new Date(NOW - 9_000_000).toISOString() });
     const second = consent({ granted_at: new Date(NOW - 1_000_000).toISOString() });
-    const [app] = buildConnectedApps([token({ scope: "milo.projects.read" })], [first, second], {}, NOW);
+    const [app] = buildConnectedApps(
+      [token({ scope: "milo.projects.read" })],
+      [first, second],
+      {},
+      NOW,
+    );
     expect(app.grantedAt).toBe(first.granted_at);
-    expect(app.scopes).toEqual([{ scope: "milo.projects.read", label: "See your projects and brand profile", kind: "read" }]);
+    expect(app.scopes).toEqual([
+      { scope: "milo.projects.read", label: "See your projects and brand profile", kind: "read" },
+    ]);
   });
 
   it("sorts clients with active tokens first, then by newest token", () => {
     const apps = buildConnectedApps(
       [
-        token({ client_id: "deadClient", access_expires_at: new Date(NOW - 1).toISOString(), created_at: new Date(NOW - 100).toISOString() }),
+        token({
+          client_id: "deadClient",
+          access_expires_at: new Date(NOW - 1).toISOString(),
+          created_at: new Date(NOW - 100).toISOString(),
+        }),
         token({ client_id: "oldActive", created_at: new Date(NOW - 5_000_000).toISOString() }),
         token({ client_id: "newActive", created_at: new Date(NOW - 60_000).toISOString() }),
       ],
@@ -1294,10 +1609,19 @@ describe("buildConnectedApps", () => {
   });
 
   it("a write-scoped grant renders labeled write scopes without breaking the card shape", () => {
-    const [app] = buildConnectedApps([token({ scope: "milo.projects.read milo.content.write" })], [consent({ scope: "milo.projects.read milo.content.write" })], {}, NOW);
+    const [app] = buildConnectedApps(
+      [token({ scope: "milo.projects.read milo.content.write" })],
+      [consent({ scope: "milo.projects.read milo.content.write" })],
+      {},
+      NOW,
+    );
     expect(app.scopes).toEqual([
       { scope: "milo.projects.read", label: "See your projects and brand profile", kind: "read" },
-      { scope: "milo.content.write", label: "Create and edit content drafts (never publishes)", kind: "write" },
+      {
+        scope: "milo.content.write",
+        label: "Create and edit content drafts (never publishes)",
+        kind: "write",
+      },
     ]);
     expect(app.status).toBe("active");
   });
