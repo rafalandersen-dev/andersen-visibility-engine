@@ -19,6 +19,7 @@ import { Route as SecurityRouteImport } from './routes/security'
 import { Route as SeRouteImport } from './routes/se'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as RefundsRouteImport } from './routes/refunds'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as PlRouteImport } from './routes/pl'
 import { Route as MiloAnalyticsDotjsRouteImport } from './routes/milo-analytics[.]js'
@@ -130,6 +131,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RefundsRoute = RefundsRouteImport.update({
+  id: '/refunds',
+  path: '/refunds',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PricingRoute = PricingRouteImport.update({
@@ -481,6 +487,7 @@ export interface FileRoutesByFullPath {
   '/pl': typeof PlRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
+  '/refunds': typeof RefundsRoute
   '/reset-password': typeof ResetPasswordRoute
   '/se': typeof SeRoute
   '/security': typeof SecurityRoute
@@ -554,6 +561,7 @@ export interface FileRoutesByTo {
   '/pl': typeof PlRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
+  '/refunds': typeof RefundsRoute
   '/reset-password': typeof ResetPasswordRoute
   '/se': typeof SeRoute
   '/security': typeof SecurityRoute
@@ -629,6 +637,7 @@ export interface FileRoutesById {
   '/pl': typeof PlRoute
   '/pricing': typeof PricingRoute
   '/privacy': typeof PrivacyRoute
+  '/refunds': typeof RefundsRoute
   '/reset-password': typeof ResetPasswordRoute
   '/se': typeof SeRoute
   '/security': typeof SecurityRoute
@@ -704,6 +713,7 @@ export interface FileRouteTypes {
     | '/pl'
     | '/pricing'
     | '/privacy'
+    | '/refunds'
     | '/reset-password'
     | '/se'
     | '/security'
@@ -777,6 +787,7 @@ export interface FileRouteTypes {
     | '/pl'
     | '/pricing'
     | '/privacy'
+    | '/refunds'
     | '/reset-password'
     | '/se'
     | '/security'
@@ -851,6 +862,7 @@ export interface FileRouteTypes {
     | '/pl'
     | '/pricing'
     | '/privacy'
+    | '/refunds'
     | '/reset-password'
     | '/se'
     | '/security'
@@ -926,6 +938,7 @@ export interface RootRouteChildren {
   PlRoute: typeof PlRoute
   PricingRoute: typeof PricingRoute
   PrivacyRoute: typeof PrivacyRoute
+  RefundsRoute: typeof RefundsRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SeRoute: typeof SeRoute
   SecurityRoute: typeof SecurityRoute
@@ -1029,6 +1042,13 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/refunds': {
+      id: '/refunds'
+      path: '/refunds'
+      fullPath: '/refunds'
+      preLoaderRoute: typeof RefundsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pricing': {
@@ -1543,6 +1563,7 @@ const rootRouteChildren: RootRouteChildren = {
   PlRoute: PlRoute,
   PricingRoute: PricingRoute,
   PrivacyRoute: PrivacyRoute,
+  RefundsRoute: RefundsRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SeRoute: SeRoute,
   SecurityRoute: SecurityRoute,

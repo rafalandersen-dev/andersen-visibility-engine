@@ -9,7 +9,7 @@
  */
 
 /** Fixed publication date shown on every legal page ("Last updated"). */
-export const LEGAL_LAST_UPDATED = "17 August 2026";
+export const LEGAL_LAST_UPDATED = "23 August 2026";
 
 /**
  * Registered seller identity (e-handelslagen §8). Deliberately no street
@@ -37,6 +37,7 @@ export const LEGAL_LOCALIZATION_NOTE =
 export const LEGAL_PAGES: { to: string; title: string }[] = [
   { to: "/imprint", title: "Company Information" },
   { to: "/terms", title: "Terms of Service" },
+  { to: "/refunds", title: "Refund Policy" },
   { to: "/privacy", title: "Privacy Policy" },
   { to: "/dpa", title: "Data Processing Agreement" },
   { to: "/subprocessors", title: "Subprocessors" },

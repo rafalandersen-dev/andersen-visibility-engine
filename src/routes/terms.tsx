@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { LegalPage, LegalSection } from "@/components/LegalPage";
 import { LEGAL_IDENTITY } from "@/lib/legal";
 
@@ -6,7 +6,7 @@ export const Route = createFileRoute("/terms")({
   head: () => ({
     meta: [
       { title: "Terms of Service — Milo Growth" },
-      { name: "description", content: "Terms of Service for Milo Growth — beta readiness." },
+      { name: "description", content: "Terms of Service for Milo Growth — plans, billing, cancellation and your responsibilities." },
     ],
   }),
   component: TermsPage,
@@ -16,7 +16,7 @@ function TermsPage() {
   return (
     <LegalPage
       title="Terms of Service"
-      intro="These terms govern your use of Milo Growth during the private beta. By creating an account or using the service you agree to them."
+      intro="These terms govern your use of Milo Growth. By creating an account, starting a free preview or purchasing a plan you agree to them."
     >
       <LegalSection heading="Service description">
         <p>
@@ -76,18 +76,41 @@ function TermsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection heading="Subscriptions and billing">
+      <LegalSection heading="Plans, subscriptions and billing">
         <p>
-          Milo is currently in private beta. Paid plans, subscriptions and billing terms are not yet active and
-          will be described here before any charges apply. [Subscription and billing terms to be added before
-          paid launch.]
+          Milo offers a free preview plan and paid monthly plans (Starter, Growth, Pro and Agency) as shown on
+          the <Link className="underline underline-offset-4" to="/pricing">pricing page</Link>. Paid plans are
+          billed monthly in advance, per project (Agency per workspace), and renew automatically until cancelled.
+          Prices are shown in your local currency where available and exclude VAT unless stated otherwise; VAT is
+          added at checkout based on your location and VAT status.
+        </p>
+        <p>
+          Payments are processed by Paddle.com Market Ltd (or the Paddle entity shown at checkout) as merchant
+          of record. Paddle handles payment, invoicing, taxes and refunds on behalf of {LEGAL_IDENTITY.operator};
+          Paddle's buyer terms apply to the transaction. We may change prices with at least 30 days' notice by
+          email; changes apply from your next renewal after the notice period.
+        </p>
+        <p>
+          Plans include a monthly allowance of AI generations and audits as described on the pricing page. Usage
+          beyond fair use may be rate-limited; we will tell you before any extra charge applies.
         </p>
       </LegalSection>
 
       <LegalSection heading="Cancellation and refunds">
         <p>
-          [Cancellation and refund terms to be added before paid launch.] During the beta you may stop using the
-          service at any time and request deletion of your data (see the Privacy Policy).
+          You can cancel at any time in the app under Billing or by emailing{" "}
+          <a className="underline underline-offset-4" href={`mailto:${LEGAL_IDENTITY.supportEmail}`}>{LEGAL_IDENTITY.supportEmail}</a>.
+          Cancellation takes effect at the end of the billing period you have paid for; you will not be charged
+          again. New subscriptions carry a 14-day money-back guarantee on the first payment. Renewal payments are
+          not refundable except as required by law or where the service was unavailable through our fault. Full
+          details, including consumer withdrawal rights in the EU and UK, are in our{" "}
+          <Link className="underline underline-offset-4" to="/refunds">Refund Policy</Link>, which forms part of
+          these terms.
+        </p>
+        <p>
+          We may suspend or terminate an account that breaches these terms, with a refund of any prepaid unused
+          period only where the breach was not deliberate. You may delete your account at any time (see the
+          Privacy Policy).
         </p>
       </LegalSection>
 
@@ -109,10 +132,11 @@ function TermsPage() {
 
       <LegalSection heading="Limitation of liability">
         <p>
-          [Limitation of liability to be finalised with legal review.] To the maximum extent permitted by
-          applicable law, Milo is provided "as is" during the beta, and {LEGAL_IDENTITY.operator} is not liable
-          for indirect or consequential losses, lost profits, lost rankings or lost revenue arising from use of
-          the service.
+          To the maximum extent permitted by applicable law, Milo is provided "as is", and{" "}
+          {LEGAL_IDENTITY.operator} is not liable for indirect or consequential losses, lost profits, lost
+          rankings or lost revenue arising from use of the service. Our total liability for any claim relating to
+          the service is limited to the fees you paid for it in the 12 months before the claim. Nothing in these
+          terms limits liability that cannot be limited by law, including consumers' statutory rights.
         </p>
       </LegalSection>
 
