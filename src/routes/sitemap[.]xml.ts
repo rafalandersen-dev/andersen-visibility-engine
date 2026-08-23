@@ -46,6 +46,7 @@ const HINTS: Record<string, { changefreq: string; priority: string }> = {
 const LEGAL = new Set([
   "/privacy",
   "/terms",
+  "/refunds",
   "/cookies",
   "/dpa",
   "/subprocessors",
