@@ -48,15 +48,17 @@ export function StageChip({
   return (
     <span
       className={
-        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] " +
+        "inline-flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded-lg border px-2.5 py-1 text-xs leading-4 " +
         STAGE_CLASSES[stage] +
         (className ? " " + className : "")
       }
       title={detail}
     >
-      {armed ? <Clock className="h-3 w-3" /> : null}
-      {t(`pipeline.stage.${stage}`)}
-      {detail ? <span className="normal-case tracking-normal opacity-80">· {detail}</span> : null}
+      {armed ? <Clock className="h-3 w-3 shrink-0" /> : null}
+      <span className="min-w-0 [overflow-wrap:anywhere]">{t(`pipeline.stage.${stage}`)}</span>
+      {detail ? (
+        <span className="basis-full min-w-0 [overflow-wrap:anywhere] opacity-80">{detail}</span>
+      ) : null}
     </span>
   );
 }

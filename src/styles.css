@@ -1,6 +1,7 @@
 @import "@fontsource/inter/400.css";
 @import "@fontsource/inter/500.css";
 @import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
 @import "@fontsource/fraunces/500.css";
 @import "@fontsource/fraunces/600.css";
 @import "tailwindcss" source(none);
@@ -172,3 +173,73 @@
     background: white !important;
   }
 }
+
+/* Milo workspace · approved Today / list + inspector / calendar set, Sep 2026.
+   Scoped: marketing and legal layouts retain their own typography. */
+.milo-app {
+  --background: #fafbfc;
+  --foreground: #20252c;
+  --card: #fff;
+  --card-foreground: #20252c;
+  --popover: #fff;
+  --popover-foreground: #20252c;
+  --primary: #076ee5;
+  --primary-foreground: #fff;
+  --secondary: #f0f3f7;
+  --secondary-foreground: #3f4e60;
+  --muted: #f0f3f7;
+  --muted-foreground: #667180;
+  --accent: #e9f2ff;
+  --accent-foreground: #095ab9;
+  --border: #e2e6eb;
+  --input: #dce1e7;
+  --ring: #076ee5;
+  --gold: #076ee5;
+  --gold-foreground: #fff;
+  --radius: .75rem;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.milo-app :is(h1, h2, h3, .font-display) { font-family: "Inter", system-ui, -apple-system, sans-serif; font-weight: 600; }
+.milo-app :is(h1,h2,h3,p,button,a,label) { overflow-wrap: anywhere; }
+.milo-app :is(button,a,input,select,textarea):focus-visible { outline: 2px solid #3194ff; outline-offset: 3px; }
+.milo-app button { touch-action: manipulation; }
+.milo-sidebar select option { background: #17212b; color: #fff; }
+.milo-editor-layout > * { min-width: 0; }
+.milo-cockpit { max-width: 1320px; margin-inline: auto; }
+.milo-cockpit-hero { display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); min-height:365px; overflow:hidden; border:1px solid var(--border); border-radius:16px; background:white; }
+.milo-cockpit-image { width:100%; height:100%; min-height:365px; object-fit:cover; }
+.milo-cockpit-copy { display:flex; flex-direction:column; align-items:flex-start; justify-content:center; padding:36px; min-width:0; }
+.milo-cockpit-copy h2 { margin-block:18px; font-size:clamp(25px,2.65vw,36px); line-height:1.25; letter-spacing:-.035em; font-weight:600; }
+.milo-cockpit-excerpt { display:flex; align-items:center; padding:36px; background:#f0f4f8; color:#516173; font-size:18px; line-height:1.8; }
+.milo-next-row { display:grid; grid-template-columns:70px 96px minmax(0,1fr) auto 20px; align-items:center; gap:20px; padding:20px 0; border-top:1px solid var(--border); text-align:left; width:100%; }
+.milo-next-row img { width:96px; height:70px; object-fit:cover; border-radius:8px; }
+.milo-plan-row { display:grid; grid-template-columns:minmax(0,1fr) 160px 140px; gap:20px; align-items:center; width:100%; padding:22px 24px; border-bottom:1px solid var(--border); text-align:left; }
+.milo-plan-row:last-child { border-bottom:0; }
+.milo-plan-row:hover { background:#f6f9ff; }
+.milo-plan-row[aria-pressed="true"] { background:#edf4ff; box-shadow:inset 3px 0 #076ee5; }
+.milo-plan-row > * { min-width:0; }
+.milo-inspector .text-\[9px\], .milo-inspector .text-\[10px\] { font-size:12px; line-height:1.5; }
+@media(max-width:767px) {
+ .milo-cockpit-hero { grid-template-columns:minmax(0,1fr); }
+ .milo-cockpit-image { height:240px; min-height:0; }
+ .milo-cockpit-copy { padding:24px; }
+ .milo-next-row { grid-template-columns:55px minmax(0,1fr) 20px; gap:12px; }
+ .milo-next-row img { display:none; }
+ .milo-next-row > .milo-next-status { grid-column:2; grid-row:2; }
+ .milo-next-row > svg { grid-column:3; grid-row:1; }
+ .milo-plan-row { grid-template-columns:minmax(0,1fr) auto; gap:12px; padding:18px; }
+ .milo-plan-row > :first-child { grid-column:1 / -1; }
+}
+
+.milo-cockpit-hero [data-slot="button"] { min-height:44px; }
+
+.milo-next-row > :first-child { font-weight:500; }
+.milo-next-row strong { font-size:15px; }
+.milo-inspector p { font-size:12px; line-height:1.5; }
+
+.milo-cockpit-copy h2 { font-weight:700; }
+.milo-app .milo-home-heading { font-size:clamp(32px,3.6vw,48px); line-height:1.1; font-weight:700; }
+
+@media (max-width: 767px) { .milo-plan-row[aria-hidden="true"] { display: none; } }

@@ -140,13 +140,9 @@ function AnalyticsPage() {
       ) : data ? (
         <div className="space-y-8">
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-2">Milo Analytics · recorded events</span>
             <span className="inline-flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-emerald-600" /> Milo Analytics is collecting
-              data
-            </span>
-            <span className="inline-flex items-center gap-2">
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> Read-only reporting ·
-              refreshed just now
+              Read-only reporting · last 30 days
             </span>
           </div>
 
@@ -162,17 +158,11 @@ function AnalyticsPage() {
               label="Conversion rate"
               value={`${data.growthSummary.conversionRateLast30}%`}
               detail={`${data.growthSummary.ctaClicksLast30 + data.growthSummary.bookingClicksLast30} tracked actions`}
-              points={data.dailyTrend.map((item, index) =>
-                item.views ? (index % 4) + data.growthSummary.conversionRateLast30 : 0,
-              )}
             />
             <PremiumStat
               label="Published pages"
               value={data.growthSummary.publishedPagesCount}
               detail={`${data.growthSummary.activePublishedPagesCount} receiving visits`}
-              points={data.dailyTrend.map((_, index) =>
-                Math.min(data.growthSummary.publishedPagesCount, Math.ceil((index + 1) / 5)),
-              )}
             />
           </section>
 
@@ -628,9 +618,9 @@ function PremiumStat({
   value: string | number;
   detail: string;
   change?: number | null;
-  points: number[];
+  points?: number[];
 }) {
-  const max = Math.max(1, ...points);
+  const max = Math.max(1, ...(points ?? []));
   return (
     <div className="rounded-xl border border-border bg-card p-5">
       <div className="text-sm font-medium text-foreground/85">{label}</div>
@@ -651,11 +641,11 @@ function PremiumStat({
       </div>
       <div className="mt-1 text-xs text-muted-foreground">{detail}</div>
       <div className="mt-5 flex h-10 items-end gap-1" aria-hidden="true">
-        {points.slice(-18).map((point, index) => (
+        {points?.slice(-18).map((point, index) => (
           <span
             key={index}
-            className="min-h-[2px] flex-1 rounded-t-sm bg-emerald-600/75"
-            style={{ height: `${Math.max(6, Math.round((point / max) * 100))}%` }}
+            className="flex-1 rounded-t-sm bg-primary/75"
+            style={{ height: `${Math.round((point / max) * 100)}%` }}
           />
         ))}
       </div>

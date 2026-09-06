@@ -1,5 +1,6 @@
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
+import { useState, useRef, type ReactNode } from "react";
 import {
   Briefcase,
   CalendarDots,
@@ -148,18 +149,21 @@ const NAV = [
 
 export function AppShell({
   title,
+  eyebrow,
   description,
   actions,
   children,
   flush = false,
 }: {
   title: string;
+  eyebrow?: ReactNode;
   description?: string;
   actions?: ReactNode;
   children: ReactNode;
   flush?: boolean;
 }) {
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const location = useRouterState({ select: (state) => state.location });
+  const pathname = location.pathname;
   const projects = useStore((state) => state.projects);
   const activeProjectId = useStore((state) => state.activeProjectId);
   const pendingCount = useStore((state) => countPendingForBadge(state.pendingActions, Date.now()));
@@ -168,6 +172,7 @@ export function AppShell({
   const navigate = useNavigate();
   const t = useT();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
 
   async function handleSignOut() {
     await signOut();
@@ -179,6 +184,7 @@ export function AppShell({
       t={t}
       key={pathname}
       pathname={pathname}
+      discovery={location.search.view === "discover"}
       projects={projects}
       activeProjectId={activeProjectId}
       activeProjectName={activeProject?.name}
@@ -199,40 +205,35 @@ export function AppShell({
   );
 
   return (
-    <div className="flex min-h-screen bg-[#fbfaf6] text-foreground">
-      <aside className="hidden h-screen w-[250px] shrink-0 lg:block lg:sticky lg:top-0">
+    <div className="milo-app flex min-h-screen bg-background text-foreground">
+      <aside className="hidden h-screen w-[238px] shrink-0 lg:block lg:sticky lg:top-0">
         {sidebar}
       </aside>
 
-      {mobileOpen ? (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <button
-            type="button"
-            aria-label={t("shell.closeNav")}
-            className="absolute inset-0 bg-[#101820]/55 backdrop-blur-sm"
-            onClick={() => setMobileOpen(false)}
-          />
-          <aside className="relative h-full w-[280px] max-w-[86vw] shadow-2xl">
-            {sidebar}
-            <button
-              type="button"
-              aria-label={t("shell.closeNav")}
-              className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-md text-white/70 hover:bg-white/10 hover:text-white"
-              onClick={() => setMobileOpen(false)}
-            >
-              <X size={18} />
-            </button>
-          </aside>
-        </div>
-      ) : null}
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetContent
+          side="left"
+          aria-describedby={undefined}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            menuButton.current?.focus();
+          }}
+          className="milo-app w-[280px] max-w-[86vw] border-0 bg-[#17212b] p-0 [&>button]:text-white [&>button]:h-8 [&>button]:w-8 [&>button]:grid [&>button]:place-items-center"
+        >
+          <SheetTitle className="sr-only">{t("shell.primaryNav")}</SheetTitle>
+          {sidebar}
+        </SheetContent>
+      </Sheet>
 
       <main className="min-w-0 flex-1">
         {/* Print pages at paper width fall below the lg breakpoint, so without
             print:hidden this bar would top every printed report page. */}
-        <div className="flex h-14 items-center justify-between border-b border-[#e5e0d6] bg-[#fffdf8]/90 px-4 backdrop-blur lg:hidden print:hidden">
+        <div className="flex h-14 items-center justify-between border-b border-border bg-background px-4 backdrop-blur lg:hidden print:hidden">
           <button
             type="button"
+            ref={menuButton}
             onClick={() => setMobileOpen(true)}
+            aria-expanded={mobileOpen}
             className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm"
           >
             <ListBullets size={17} /> {t("shell.menu")}
@@ -243,24 +244,28 @@ export function AppShell({
           </Link>
         </div>
 
-        <header className="border-b border-[#e5e0d6] bg-[#fffdf8]/75">
-          <div className="flex flex-wrap items-end justify-between gap-5 px-5 py-6 md:px-9">
+        <header className="milo-page-header bg-background">
+          <div className="flex flex-wrap items-end justify-between gap-5 px-5 pb-6 pt-9 md:px-10">
             <div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#647183]">
-                {activeProject?.name ?? t("appShell.workspace")}
+              <div className="text-xs font-medium text-muted-foreground">
+                {eyebrow ?? activeProject?.name ?? t("appShell.workspace")}
               </div>
-              <h1 className="mt-1 font-display text-[2rem] leading-none tracking-[-0.035em] text-[#202221]">
+              <h1
+                className={`mt-3 text-[2rem] font-semibold leading-tight tracking-[-0.04em] text-foreground md:text-[2.5rem] ${eyebrow ? "milo-home-heading" : ""}`}
+              >
                 {title}
               </h1>
               {description ? (
-                <p className="mt-2 max-w-2xl text-[13px] text-[#697282]">{description}</p>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                  {description}
+                </p>
               ) : null}
             </div>
             {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
           </div>
         </header>
 
-        <div className={flush ? "" : "px-5 py-7 md:px-9"}>{children}</div>
+        <div className={flush ? "" : "px-5 pb-9 pt-3 md:px-10"}>{children}</div>
 
         {!flush ? (
           <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-6 text-[11px] text-muted-foreground md:px-9">
@@ -293,6 +298,7 @@ export function AppShell({
 function SidebarContent({
   t,
   pathname,
+  discovery,
   projects,
   activeProjectId,
   activeProjectName,
@@ -306,6 +312,7 @@ function SidebarContent({
 }: {
   t: (key: string, vars?: Record<string, string | number>) => string;
   pathname: string;
+  discovery: boolean;
   projects: Array<{ id: string; name: string }>;
   activeProjectId: string;
   activeProjectName?: string;
@@ -318,11 +325,11 @@ function SidebarContent({
   onEditProject: () => void;
 }) {
   return (
-    <div className="flex h-full flex-col overflow-y-auto bg-[radial-gradient(circle_at_30%_8%,rgba(86,111,124,.15),transparent_32%),linear-gradient(165deg,#151d24_0%,#18232c_58%,#141c23_100%)] px-4 pb-5 pt-7 text-[#eef0ee]">
-      <Link to="/" onClick={onNavigate} className="mx-3 border-b border-white/[.08] pb-5">
-        <div className="font-display text-[24px] tracking-[-0.02em]">Milo Growth</div>
-        <div className="mt-1.5 max-w-[190px] text-[10px] uppercase leading-[1.55] tracking-[0.22em] text-[#aab0b3]">
-          {t("shell.tagline")}
+    <div className="milo-sidebar flex h-full flex-col overflow-y-auto bg-[#17212b] px-4 pb-5 pt-8 text-[#eef0ee]">
+      <Link to="/app" onClick={onNavigate} className="mx-3 pb-5">
+        <div className="flex items-baseline gap-2 tracking-[-0.04em]">
+          <span className="text-[32px] font-bold">milo</span>
+          <span className="text-xl font-normal text-[#c6d7e8]">Growth</span>
         </div>
       </Link>
 
@@ -330,14 +337,21 @@ function SidebarContent({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="my-4 grid w-full grid-cols-[auto_1fr_auto] items-center gap-2.5 rounded-[7px] border border-white/[.04] bg-white/[.075] p-3 text-left text-[13px] outline-none transition hover:bg-white/[.11] focus-visible:ring-2 focus-visible:ring-[#d2a23f]/50"
+            className="my-4 grid w-full grid-cols-[auto_1fr_auto] items-center gap-2.5 rounded-[7px] border border-white/[.04] bg-white/[.075] p-3 text-left text-[13px] outline-none transition hover:bg-white/[.11] focus-visible:ring-2 focus-visible:ring-[#62adff]"
           >
-            <Briefcase size={18} weight="duotone" className="text-[#d2a23f]" />
-            <span className="truncate">{activeProjectName ?? t("shell.chooseProject")}</span>
+            <Briefcase size={18} weight="duotone" className="text-[#a7b8ca]" />
+            <span className="min-w-0">
+              <span className="block truncate">
+                {activeProjectName ?? t("shell.chooseProject")}
+              </span>
+              {import.meta.env.DEV && import.meta.env.VITE_MILO_VISUAL_QA === "true" ? (
+                <span className="mt-1 block text-[10px] text-[#b0bfce]">{t("today.preview")}</span>
+              ) : null}
+            </span>
             <CaretDown size={15} />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-[232px]">
+        <DropdownMenuContent align="start" className="milo-app w-[232px]">
           <DropdownMenuLabel className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
             {t("shell.projects")}
           </DropdownMenuLabel>
@@ -364,7 +378,7 @@ function SidebarContent({
           >
             <Plus /> {t("shell.addProject")}
             <span className="ml-auto text-[10px] text-muted-foreground">
-              {projects.length}/{MAX_PROJECTS_PER_USER}
+              {projects.length}/{isOwner ? "∞" : MAX_PROJECTS_PER_USER}
             </span>
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -385,11 +399,15 @@ function SidebarContent({
                 className={
                   "flex w-full items-center gap-3 rounded-[7px] px-3.5 py-2.5 text-left text-[14px] transition " +
                   (active
-                    ? "bg-white/[.09] text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,.02)]"
+                    ? "bg-[#0878ed] text-white"
                     : "text-[#ccd1d2] hover:bg-white/[.05] hover:text-white")
                 }
               >
-                <Icon size={20} weight={active ? "fill" : "regular"} className="text-[#d2a23f]" />
+                <Icon
+                  size={20}
+                  weight="regular"
+                  className={active ? "text-white" : "text-[#a7b8ca]"}
+                />
                 <span className="flex-1">{t(item.tKey)}</span>
                 {"badgeKey" in item ? (
                   <span className="rounded bg-white/[.12] px-1.5 py-0.5 text-[10px] text-white">
@@ -404,7 +422,9 @@ function SidebarContent({
                     .filter((child) => !("ownerOnly" in child) || !child.ownerOnly || isOwner)
                     .map((child) => {
                       const ChildIcon = child.icon;
-                      const childActive = pathname === child.to;
+                      const childActive =
+                        pathname === child.to &&
+                        (child.to !== "/app/plan" || ("search" in child ? discovery : !discovery));
                       return (
                         <Link
                           key={`${child.tKey}-${JSON.stringify("search" in child ? child.search : {})}`}
@@ -412,9 +432,9 @@ function SidebarContent({
                           search={("search" in child ? child.search : undefined) as never}
                           onClick={onNavigate}
                           className={
-                            "flex items-center gap-2 rounded px-2.5 py-1.5 text-[11px] transition " +
+                            "flex items-center gap-2 rounded px-2.5 py-2 text-[12px] leading-5 transition " +
                             (childActive
-                              ? "bg-white/[.05] text-white"
+                              ? "bg-white/[.08] text-white"
                               : "text-[#9fa9ad] hover:bg-white/[.04] hover:text-[#eef0ee]")
                           }
                         >
@@ -446,12 +466,12 @@ function SidebarContent({
           <div className="flex justify-between text-[10px] text-[#9ba5a9]">
             <span>{t("shell.projects")}</span>
             <span>
-              {projects.length} / {MAX_PROJECTS_PER_USER}
+              {projects.length} / {isOwner ? "∞" : MAX_PROJECTS_PER_USER}
             </span>
           </div>
           <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/[.12]">
             <span
-              className="block h-full rounded-full bg-[#e0b34e]"
+              className="block h-full rounded-full bg-[#68aaf8]"
               style={{
                 width: `${Math.min(100, (projects.length / MAX_PROJECTS_PER_USER) * 100)}%`,
               }}
@@ -460,7 +480,7 @@ function SidebarContent({
         </Link>
         <div className="mt-4 text-[10px] text-[#8e999e]">{t("shell.account")}</div>
         <div className="mt-1 flex items-center gap-1.5 truncate text-[12px] text-[#eef0ee]">
-          {isOwner ? <Crown size={14} className="text-[#d2a23f]" /> : null}
+          {isOwner ? <Crown size={14} className="text-[#a7b8ca]" /> : null}
           <span className="truncate">{accountEmail ?? "—"}</span>
         </div>
         <Link
@@ -468,7 +488,7 @@ function SidebarContent({
           onClick={onNavigate}
           className="mt-3 flex items-center gap-2 text-[11px] text-[#d7dcdd] hover:text-white"
         >
-          <CreditCard size={16} className="text-[#d2a23f]" /> {t("shell.manageSubscription")}
+          <CreditCard size={16} className="text-[#a7b8ca]" /> {t("shell.manageSubscription")}
         </Link>
         <div className="mt-4">
           <label className="text-[10px] text-[#8e999e]" htmlFor="ui-locale">
@@ -496,7 +516,7 @@ function SidebarContent({
           onClick={onSignOut}
           className="mt-4 flex items-center gap-2 border-0 bg-transparent p-0 text-[12px] text-[#d7dcdd] hover:text-white"
         >
-          <SignOut size={17} className="text-[#d2a23f]" /> {t("shell.signOut")}
+          <SignOut size={17} className="text-[#a7b8ca]" /> {t("shell.signOut")}
         </button>
       </div>
     </div>

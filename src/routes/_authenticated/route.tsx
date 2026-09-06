@@ -44,7 +44,10 @@ function AuthenticatedLayout() {
 
   useEffect(() => {
     if (visualQa) {
-      setHydrating(false);
+      import("@/lib/visual-qa").then(({ initializeVisualQa }) => {
+        initializeVisualQa();
+        setHydrating(false);
+      });
       return;
     }
     if (loading) return;
@@ -97,7 +100,7 @@ function AuthenticatedLayout() {
     visualQa,
   ]);
 
-  if (!visualQa && (loading || !session || hydrating)) {
+  if (visualQa ? hydrating : loading || !session || hydrating) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-sm text-muted-foreground">Loading workspace…</div>
