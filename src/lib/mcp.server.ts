@@ -8,6 +8,7 @@
  * never returned after creation, never logged. All tools are scoped to the
  * resolved user's own workspace. Never import from client code.
  */
+import { projectReadiness } from "./project-readiness";
 import { newOpportunityRecord } from "./opportunities";
 import { slugifyForPublish } from "./markdown";
 import type {
@@ -217,6 +218,16 @@ const TOOLS: McpTool[] = [
     },
   },
   {
+    name: "get_project_readiness",
+    description: "Check recorded profile completeness by business, market, catalog and Brand Intelligence section. Returns filled/missing field names only, not verified quality or publishing readiness. No AI spend or changes. Follow with get_project_brief and owner-reviewed proposals for gaps.",
+    inputSchema: obj({ projectId }, []),
+    run: (ws, args) => {
+      const p = resolveProject(ws, args);
+      if (!p) return { error: "Project not found. Call list_projects." };
+      return projectReadiness(p, ws.services);
+    },
+  },
+  {
     name: "list_opportunities",
     description: "List SEO/content opportunities for a project (title, content type, intent, priority, status).",
     inputSchema: obj({ projectId }, []),
@@ -363,6 +374,7 @@ function rpcError(id: JsonRpcMessage["id"], code: number, message: string) {
 export const TOOL_SCOPES: Record<string, string> = {
   list_projects: "milo.projects.read",
   get_project_brief: "milo.projects.read",
+  get_project_readiness: "milo.projects.read",
   list_opportunities: "milo.content.read",
   list_content: "milo.content.read",
   get_content: "milo.content.read",

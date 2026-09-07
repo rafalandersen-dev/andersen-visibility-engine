@@ -87,10 +87,10 @@ beforeEach(() => {
 });
 
 describe("visibility matrix", () => {
-  it("flag off: 8 read tools only; pending tools are unknown (-32602) even with the scope", async () => {
+  it("flag off: 9 read tools only; pending tools are unknown (-32602) even with the scope", async () => {
     const g = grantOf([...READS, ...WRITES, PROPOSE], false, "client_A");
     const tools = await listTools(g);
-    expect(tools).toHaveLength(8);
+    expect(tools).toHaveLength(9);
     expect(tools.every((t) => !PENDING_TOOL_NAMES.includes(t.name as never))).toBe(true);
     for (const name of PENDING_TOOL_NAMES) {
       const res = await call(g, name, validArgs());
@@ -100,24 +100,24 @@ describe("visibility matrix", () => {
 
   it("flag on + read-only token: no pending tools; direct call → -32002", async () => {
     const g = grantOf(READS, true, "client_A");
-    expect(await listTools(g)).toHaveLength(8);
+    expect(await listTools(g)).toHaveLength(9);
     expect(errOf(await call(g, "create_pending_action", validArgs()))?.code).toBe(-32002);
   });
 
-  it("flag on + direct-write-only token: 10 tools, pending absent", async () => {
+  it("flag on + direct-write-only token: 11 tools, pending absent", async () => {
     const g = grantOf([...READS, ...WRITES], true, "client_A");
     const names = (await listTools(g)).map((t) => t.name);
-    expect(names).toHaveLength(10);
+    expect(names).toHaveLength(11);
     expect(names).toContain("create_growth_task");
     for (const p of PENDING_TOOL_NAMES) expect(names).not.toContain(p);
     expect(errOf(await call(g, "list_pending_actions"))?.code).toBe(-32002);
   });
 
-  it("flag on + propose-only token: 11 tools, direct writes absent", async () => {
+  it("flag on + propose-only token: 12 tools, direct writes absent", async () => {
     const g = grantOf([...READS, PROPOSE], true, "client_A");
     const tools = await listTools(g);
     const names = tools.map((t) => t.name);
-    expect(names).toHaveLength(11);
+    expect(names).toHaveLength(12);
     for (const p of PENDING_TOOL_NAMES) expect(names).toContain(p);
     expect(names).not.toContain("create_growth_task");
     expect(names).not.toContain("create_project_recommendation");
@@ -128,14 +128,14 @@ describe("visibility matrix", () => {
     expect(byName.get_pending_action).toEqual({ readOnlyHint: true, destructiveHint: false, idempotentHint: true });
   });
 
-  it("flag on + write+propose token: 13 tools", async () => {
+  it("flag on + write+propose token: 14 tools", async () => {
     const g = grantOf([...READS, ...WRITES, PROPOSE], true, "client_A");
-    expect(await listTools(g)).toHaveLength(13);
+    expect(await listTools(g)).toHaveLength(14);
   });
 
   it("legacy developer token (null scopes) never sees or calls pending tools", async () => {
     const g = grantOf(null, true);
-    expect(await listTools(g)).toHaveLength(8);
+    expect(await listTools(g)).toHaveLength(9);
     expect(errOf(await call(g, "create_pending_action", validArgs()))?.code).toBe(-32002);
   });
 });
