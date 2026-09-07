@@ -49,6 +49,7 @@ import { Route as ApiOauthTokenRouteImport } from './routes/api.oauth.token'
 import { Route as ApiOauthRevokeRouteImport } from './routes/api.oauth.revoke'
 import { Route as ApiOauthRegisterRouteImport } from './routes/api.oauth.register'
 import { Route as ApiOauthAuthorizeRouteImport } from './routes/api.oauth.authorize'
+import { Route as ApiNotificationsSweepRouteImport } from './routes/api.notifications.sweep'
 import { Route as ApiAutoSchedulerRunRouteImport } from './routes/api.auto-scheduler.run'
 import { Route as ApiAnalyticsTrackRouteImport } from './routes/api.analytics.track'
 import { Route as AuthenticatedAppSetupRouteImport } from './routes/_authenticated/app.setup'
@@ -58,6 +59,7 @@ import { Route as AuthenticatedAppPlanRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedAppOutreachRouteImport } from './routes/_authenticated/app.outreach'
 import { Route as AuthenticatedAppOpportunitiesRouteImport } from './routes/_authenticated/app.opportunities'
 import { Route as AuthenticatedAppOnboardingRouteImport } from './routes/_authenticated/app.onboarding'
+import { Route as AuthenticatedAppNotificationsRouteImport } from './routes/_authenticated/app.notifications'
 import { Route as AuthenticatedAppLinkMarketplaceRouteImport } from './routes/_authenticated/app.link-marketplace'
 import { Route as AuthenticatedAppLaunchChecklistRouteImport } from './routes/_authenticated/app.launch-checklist'
 import { Route as AuthenticatedAppEditorRouteImport } from './routes/_authenticated/app.editor'
@@ -284,6 +286,11 @@ const ApiOauthAuthorizeRoute = ApiOauthAuthorizeRouteImport.update({
   path: '/api/oauth/authorize',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiNotificationsSweepRoute = ApiNotificationsSweepRouteImport.update({
+  id: '/api/notifications/sweep',
+  path: '/api/notifications/sweep',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAutoSchedulerRunRoute = ApiAutoSchedulerRunRouteImport.update({
   id: '/api/auto-scheduler/run',
   path: '/api/auto-scheduler/run',
@@ -331,6 +338,12 @@ const AuthenticatedAppOnboardingRoute =
   AuthenticatedAppOnboardingRouteImport.update({
     id: '/app/onboarding',
     path: '/app/onboarding',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAppNotificationsRoute =
+  AuthenticatedAppNotificationsRouteImport.update({
+    id: '/app/notifications',
+    path: '/app/notifications',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedAppLinkMarketplaceRoute =
@@ -519,6 +532,7 @@ export interface FileRoutesByFullPath {
   '/app/editor': typeof AuthenticatedAppEditorRoute
   '/app/launch-checklist': typeof AuthenticatedAppLaunchChecklistRoute
   '/app/link-marketplace': typeof AuthenticatedAppLinkMarketplaceRoute
+  '/app/notifications': typeof AuthenticatedAppNotificationsRoute
   '/app/onboarding': typeof AuthenticatedAppOnboardingRoute
   '/app/opportunities': typeof AuthenticatedAppOpportunitiesRoute
   '/app/outreach': typeof AuthenticatedAppOutreachRoute
@@ -528,6 +542,7 @@ export interface FileRoutesByFullPath {
   '/app/setup': typeof AuthenticatedAppSetupRoute
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
   '/api/auto-scheduler/run': typeof ApiAutoSchedulerRunRoute
+  '/api/notifications/sweep': typeof ApiNotificationsSweepRoute
   '/api/oauth/authorize': typeof ApiOauthAuthorizeRoute
   '/api/oauth/register': typeof ApiOauthRegisterRoute
   '/api/oauth/revoke': typeof ApiOauthRevokeRoute
@@ -593,6 +608,7 @@ export interface FileRoutesByTo {
   '/app/editor': typeof AuthenticatedAppEditorRoute
   '/app/launch-checklist': typeof AuthenticatedAppLaunchChecklistRoute
   '/app/link-marketplace': typeof AuthenticatedAppLinkMarketplaceRoute
+  '/app/notifications': typeof AuthenticatedAppNotificationsRoute
   '/app/onboarding': typeof AuthenticatedAppOnboardingRoute
   '/app/opportunities': typeof AuthenticatedAppOpportunitiesRoute
   '/app/outreach': typeof AuthenticatedAppOutreachRoute
@@ -602,6 +618,7 @@ export interface FileRoutesByTo {
   '/app/setup': typeof AuthenticatedAppSetupRoute
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
   '/api/auto-scheduler/run': typeof ApiAutoSchedulerRunRoute
+  '/api/notifications/sweep': typeof ApiNotificationsSweepRoute
   '/api/oauth/authorize': typeof ApiOauthAuthorizeRoute
   '/api/oauth/register': typeof ApiOauthRegisterRoute
   '/api/oauth/revoke': typeof ApiOauthRevokeRoute
@@ -669,6 +686,7 @@ export interface FileRoutesById {
   '/_authenticated/app/editor': typeof AuthenticatedAppEditorRoute
   '/_authenticated/app/launch-checklist': typeof AuthenticatedAppLaunchChecklistRoute
   '/_authenticated/app/link-marketplace': typeof AuthenticatedAppLinkMarketplaceRoute
+  '/_authenticated/app/notifications': typeof AuthenticatedAppNotificationsRoute
   '/_authenticated/app/onboarding': typeof AuthenticatedAppOnboardingRoute
   '/_authenticated/app/opportunities': typeof AuthenticatedAppOpportunitiesRoute
   '/_authenticated/app/outreach': typeof AuthenticatedAppOutreachRoute
@@ -678,6 +696,7 @@ export interface FileRoutesById {
   '/_authenticated/app/setup': typeof AuthenticatedAppSetupRoute
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
   '/api/auto-scheduler/run': typeof ApiAutoSchedulerRunRoute
+  '/api/notifications/sweep': typeof ApiNotificationsSweepRoute
   '/api/oauth/authorize': typeof ApiOauthAuthorizeRoute
   '/api/oauth/register': typeof ApiOauthRegisterRoute
   '/api/oauth/revoke': typeof ApiOauthRevokeRoute
@@ -745,6 +764,7 @@ export interface FileRouteTypes {
     | '/app/editor'
     | '/app/launch-checklist'
     | '/app/link-marketplace'
+    | '/app/notifications'
     | '/app/onboarding'
     | '/app/opportunities'
     | '/app/outreach'
@@ -754,6 +774,7 @@ export interface FileRouteTypes {
     | '/app/setup'
     | '/api/analytics/track'
     | '/api/auto-scheduler/run'
+    | '/api/notifications/sweep'
     | '/api/oauth/authorize'
     | '/api/oauth/register'
     | '/api/oauth/revoke'
@@ -819,6 +840,7 @@ export interface FileRouteTypes {
     | '/app/editor'
     | '/app/launch-checklist'
     | '/app/link-marketplace'
+    | '/app/notifications'
     | '/app/onboarding'
     | '/app/opportunities'
     | '/app/outreach'
@@ -828,6 +850,7 @@ export interface FileRouteTypes {
     | '/app/setup'
     | '/api/analytics/track'
     | '/api/auto-scheduler/run'
+    | '/api/notifications/sweep'
     | '/api/oauth/authorize'
     | '/api/oauth/register'
     | '/api/oauth/revoke'
@@ -894,6 +917,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/editor'
     | '/_authenticated/app/launch-checklist'
     | '/_authenticated/app/link-marketplace'
+    | '/_authenticated/app/notifications'
     | '/_authenticated/app/onboarding'
     | '/_authenticated/app/opportunities'
     | '/_authenticated/app/outreach'
@@ -903,6 +927,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/setup'
     | '/api/analytics/track'
     | '/api/auto-scheduler/run'
+    | '/api/notifications/sweep'
     | '/api/oauth/authorize'
     | '/api/oauth/register'
     | '/api/oauth/revoke'
@@ -956,6 +981,7 @@ export interface RootRouteChildren {
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
   ApiAnalyticsTrackRoute: typeof ApiAnalyticsTrackRoute
   ApiAutoSchedulerRunRoute: typeof ApiAutoSchedulerRunRoute
+  ApiNotificationsSweepRoute: typeof ApiNotificationsSweepRoute
   ApiOauthAuthorizeRoute: typeof ApiOauthAuthorizeRoute
   ApiOauthRegisterRoute: typeof ApiOauthRegisterRoute
   ApiOauthRevokeRoute: typeof ApiOauthRevokeRoute
@@ -1254,6 +1280,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiOauthAuthorizeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/notifications/sweep': {
+      id: '/api/notifications/sweep'
+      path: '/api/notifications/sweep'
+      fullPath: '/api/notifications/sweep'
+      preLoaderRoute: typeof ApiNotificationsSweepRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auto-scheduler/run': {
       id: '/api/auto-scheduler/run'
       path: '/api/auto-scheduler/run'
@@ -1315,6 +1348,13 @@ declare module '@tanstack/react-router' {
       path: '/app/onboarding'
       fullPath: '/app/onboarding'
       preLoaderRoute: typeof AuthenticatedAppOnboardingRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/app/notifications': {
+      id: '/_authenticated/app/notifications'
+      path: '/app/notifications'
+      fullPath: '/app/notifications'
+      preLoaderRoute: typeof AuthenticatedAppNotificationsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/app/link-marketplace': {
@@ -1505,6 +1545,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppEditorRoute: typeof AuthenticatedAppEditorRoute
   AuthenticatedAppLaunchChecklistRoute: typeof AuthenticatedAppLaunchChecklistRoute
   AuthenticatedAppLinkMarketplaceRoute: typeof AuthenticatedAppLinkMarketplaceRoute
+  AuthenticatedAppNotificationsRoute: typeof AuthenticatedAppNotificationsRoute
   AuthenticatedAppOnboardingRoute: typeof AuthenticatedAppOnboardingRoute
   AuthenticatedAppOpportunitiesRoute: typeof AuthenticatedAppOpportunitiesRoute
   AuthenticatedAppOutreachRoute: typeof AuthenticatedAppOutreachRoute
@@ -1532,6 +1573,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppEditorRoute: AuthenticatedAppEditorRoute,
   AuthenticatedAppLaunchChecklistRoute: AuthenticatedAppLaunchChecklistRoute,
   AuthenticatedAppLinkMarketplaceRoute: AuthenticatedAppLinkMarketplaceRoute,
+  AuthenticatedAppNotificationsRoute: AuthenticatedAppNotificationsRoute,
   AuthenticatedAppOnboardingRoute: AuthenticatedAppOnboardingRoute,
   AuthenticatedAppOpportunitiesRoute: AuthenticatedAppOpportunitiesRoute,
   AuthenticatedAppOutreachRoute: AuthenticatedAppOutreachRoute,
@@ -1583,6 +1625,7 @@ const rootRouteChildren: RootRouteChildren = {
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
   ApiAnalyticsTrackRoute: ApiAnalyticsTrackRoute,
   ApiAutoSchedulerRunRoute: ApiAutoSchedulerRunRoute,
+  ApiNotificationsSweepRoute: ApiNotificationsSweepRoute,
   ApiOauthAuthorizeRoute: ApiOauthAuthorizeRoute,
   ApiOauthRegisterRoute: ApiOauthRegisterRoute,
   ApiOauthRevokeRoute: ApiOauthRevokeRoute,
