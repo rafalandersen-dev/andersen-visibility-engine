@@ -1,72 +1,38 @@
 # Milo Growth — Launch Readiness
 
-**Status:** Canonical gate checklist  
-**Last updated:** 2026-07-28  
+**Status:** Canonical gate checklist; no new release GO
+
+**Last updated:** 2026-09-07
+
 **Product Lead:** Rafal Andersen
 
-Readiness percentages are operating estimates, not guarantees.
+Unattended paid public launch remains **NO-GO / not verified**. Assisted beta remains supervised with explicit scope and cost limits. July percentages are historical estimates, not current readiness. A merged UI PR or successful Vercel deployment does not close the following gates.
 
-| Launch mode            | Estimate | Verdict                                                     |
-| ---------------------- | -------: | ----------------------------------------------------------- |
-| Assisted private beta  | **~70%** | Proceed only with founder supervision and explicit controls |
-| Unattended public SaaS | **~40%** | Blocked                                                     |
+| Gate | Required evidence | Current disposition |
+| --- | --- | --- |
+| G0 Baseline/release | Current exact-head audit, build identity, migrations/configuration, review and rollback | Main/#63 merge/status checked; wider audit/runtime verification open |
+| G1 Public audit | Verified abuse/privacy/provider/cost boundary or verified disabled/deterministic containment | Worker code exists; #35/#43 open; do not copy obsolete “no routes” state |
+| G2 Commercial authority | Server entitlements and Stripe checkout/portal/webhook lifecycle with replay/failure/cancel/refund tests | Entitlement code exists; Stripe pending |
+| G3 Economics | Bounded paid calls, concurrent reservations, account/global ceilings; typical/high/max cost and viable packages | Fail-open metering found; runtime flag unknown; costs/prices not finalized |
+| G4 Content execution | Setup/edit → Studio → manual/review/auto publication; destination parity and recovery | Existing code + selected QA; complete provider/unattended acceptance open |
+| G5 Autonomy and teams | Solo/team mode independence, permissions, approvals, pause/cancel, logout/overnight jobs | Planned completion and acceptance |
+| G6 Notifications | Missing approval, failed/blocked/manual-overdue, empty week, quota/agent pause; dedupe/recheck/delivery | Helpers exist; complete system pending |
+| G7 Search/AI evidence | Direct GSC; ≥3 trustworthy initial AI surfaces, citations/raw responses/method/history; first proof loop | GSC paths exist; observed AI and end-to-end proof pending |
+| G8 Preserved premium UX | Every mapped action; responsive/long-text/accessibility/error cases for core modules | #63 selected set merged; remaining UI pending |
+| G9 Authority/providers | Backlinks status honestly represented; supplier/outreach acceptance before enabled/promised | Existing intelligence/demo/control code; provider completion pending |
+| G10 AI clients/integrations | Claude/ChatGPT regression + all-major app-specific compatibility matrix; no false connection claims | Existing two; expansion pending. Unsupported clients require recorded disposition |
+| G11 International/local | All 24 EU languages across defined surfaces; app/content/market distinction; local/global coverage audit | Four UI locales present; expansion open |
+| G12 Commercial trust | Actual Stripe/legal/tax/invoicing/refund wording, support, retention/export/deletion/recovery | Identity present; review/payment alignment and operational verification open |
+| G13 Product proof | Setup demo, real product recordings and beta outcomes, without unfinished-feature claims | Pending |
 
-## Security and cost
+## Acceptance before public release
 
-- [x] Public-audit safety implementation merged in PR #36.
-- [x] Guardrails approved: 5/IP/hour, 50 fetches/day, 50 paid-AI claims/day, 24-hour cache.
-- [x] Targeted tests, TypeScript, isolated migration execution, build and security review recorded.
-- [x] Replace the unproven Lovable trust boundary with ADR-0001's dedicated Worker architecture.
-- [x] Implement and merge issue #39 with no environment mutation.
-- [x] Complete independent security review and exact-head verification; merge PR #41 at `cfeff9f`.
-- [x] Replace the unsupported Lovable AI-gateway dependency with the Worker-only direct Gemini boundary; merge PR #45 at `696cb73`.
-- [x] Merge the fail-closed, disabled-by-default minimal staging harness with empty committed configuration; merge PR #46 at `8037524`.
-- [ ] Authorise and complete account-level read-only discovery (Cloudflare zone/Access, Supabase project slot, Google Cloud Gemini quota/budget) with a SET / NOT SET matrix under issue #43.
-- [ ] Approve one bounded staging mutation package and establish isolated Worker staging with a separate data plane.
-- [ ] Apply and verify the two migrations in the approved environment.
-- [ ] Configure secrets and Turnstile without exposing values.
-- [ ] Run staging abuse-boundary and privacy tests on the exact release SHA.
-- [ ] Enable and verify server-authoritative hard AI limits for authenticated users.
+- [ ] Reconcile every R00–R24 scope item to this checklist, with evidence or an explicit owner-approved deferral. Do not silently move agreed launch scope into post-launch months.
+- [ ] Record whether log-based Agent Analytics, deeper source analytics and Slack ship in the first public release; these remain in the plan and cannot be advertised before verified. The first three AI surfaces are a floor, not the all-major target ceiling.
+- [ ] Complete 3–5 assisted testers and at least one solo-autopilot plus one team-review/mixed journey. Include logout operation, failure/recovery, quota conflict and notification cases.
+- [ ] Measure first value, task success, publication reliability, support load, spend and proof coverage. Benchmark practical customer outcomes rather than count competitor logos.
+- [ ] Record exact release SHA/tree, migrations, host, configuration presence, named operator and rollback. Use existing approvals where applicable; obtain only genuinely new environment authority required by the release packet.
+- [ ] Verify custom-domain deployment and low-volume production smoke after authorized release; keep source/deploy/provider evidence separate.
+- [ ] Write back current state, decisions, operations and evidence; ensure a fresh Claude/Codex session can recover the next action.
 
-## Billing
-
-- [ ] Make plan and subscription authority server-only.
-- [ ] Verify Paddle webhook signatures, replay handling and lifecycle states.
-- [ ] Test upgrade, downgrade, cancellation, past-due and entitlement enforcement.
-
-## Legal and privacy
-
-- [ ] Confirm operating legal entity, address, registration and VAT data as applicable.
-- [ ] Finalise Terms, Privacy, DPA, subprocessors, AI disclaimer and cookie/analytics wording.
-- [ ] Confirm support and security contact channels.
-- [ ] Complete qualified review where required.
-
-## Operations and release
-
-- [x] Product Lead and incident owner identified.
-- [x] Public domain and hosting platform recorded.
-- [x] Rollback baseline recorded.
-- [ ] Assign migration operator, secret owner and rollback operator for production.
-- [ ] Record environment configuration as SET / NOT SET without values.
-- [ ] Approve exact release SHA, migrations, hostname and window.
-- [ ] Run low-volume production smoke tests and assisted observation.
-- [ ] Complete learning review, canonical writeback and fresh-session recovery.
-
-## Product and beta
-
-- [ ] Validate the full loop with 3–5 assisted testers.
-- [ ] Record first-value completion, support load, incidents, costs and conversion evidence.
-- [ ] Recalibrate readiness from beta evidence.
-
-## Current release decision
-
-**NO-GO for deploying the public-audit Worker to staging or production.**
-
-Gate 0 is complete. ADR-0001 selects the dedicated Worker boundary; the issue
-#39 implementation merged through PR #41 at `cfeff9f`, the direct Gemini
-provider boundary merged through PR #45 at `696cb73`, and the fail-closed
-disabled-by-default staging harness merged through PR #46 at `8037524`.
-Code-only work under issue #43 is complete. The active gate is account-level
-read-only discovery of Cloudflare, Supabase and Google Cloud state, returning a
-SET / NOT SET matrix and one bounded staging mutation package for separate
-Product Lead approval; production remains separately gated.
+Historical #46 tests/review remain in [staging evidence](../evidence/public-audit-staging-harness-2026-07-28.md). #63 focused design/workflow evidence remains in [design-qa.md](../design-qa.md). Neither is represented as blanket September public-launch approval.

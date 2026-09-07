@@ -1,3 +1,5 @@
+> **Current planning source — 2026-09-07:** [../product/ROADMAP.md](../product/ROADMAP.md), [../product/CURRENT_STATE.md](../product/CURRENT_STATE.md) and the [scope reconciliation](../product/PLAN_REVIEW_2026_09_07.md) supersede the historical state/priority labels below. Preserve existing implementation contracts; do not infer current runtime flags, approvals or missing features from this older snapshot.
+
 # Traceability Matrix
 
 Links each benchmarked capability to a Milo feature/module, its roadmap epic, its acceptance criterion, and the success metric that proves it. **Last revised:** 2026‑07‑20.

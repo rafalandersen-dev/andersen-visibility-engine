@@ -1,13 +1,17 @@
 # Milo Growth — Decisions
 
-**Status:** Canonical decision log  
-**Last updated:** 2026-08-20  
+**Status:** Canonical decision log
+
+**Last updated:** 2026-09-07
+
 **Product Lead:** Rafal Andersen
 
 ## 2026-07-27 — Public-audit guardrails
 
-**Status:** Approved  
-**Decision authority / Outcome Owner:** Rafal Andersen  
+**Status:** Approved
+
+**Decision authority / Outcome Owner:** Rafal Andersen
+
 **Evidence:** issue #35
 
 ### Decision
@@ -31,8 +35,10 @@ The limits are product guardrails. Changing them requires a new Product Lead dec
 
 ## 2026-07-28 — Merge PR #36
 
-**Status:** Approved and completed  
-**Decision authority / Outcome Owner:** Rafal Andersen  
+**Status:** Approved and completed
+
+**Decision authority / Outcome Owner:** Rafal Andersen
+
 **Evidence:** PR #36, merge commit `0d163dd32cd807463fc40e6c41fafd1176b94e5f`, issue #35
 
 ### Decision
@@ -49,8 +55,10 @@ Implementation is canonical on `main`. Production migrations, secrets, edge conf
 
 ## 2026-07-28 — Production release remains NO-GO
 
-**Status:** Approved operating position  
-**Decision authority / Outcome Owner:** Rafal Andersen  
+**Status:** Approved operating position
+
+**Decision authority / Outcome Owner:** Rafal Andersen
+
 **Evidence:** issue #37 Gate 0
 
 ### Decision
@@ -79,8 +87,10 @@ Review when hard platform evidence exists or a revised architecture is ready for
 
 ## 2026-07-28 — Public audit moves to a dedicated Cloudflare Worker
 
-**Status:** Accepted  
-**Decision authority / Outcome Owner:** Rafal Andersen  
+**Status:** Accepted
+
+**Decision authority / Outcome Owner:** Rafal Andersen
+
 **Evidence:** issue #37 Gate 0, ADR-0001, issue #39
 
 ### Decision
@@ -99,8 +109,10 @@ Gate 0 architecture selection is complete. Production remains NO-GO until the Wo
 
 ## 2026-07-28 — Worker AI provider is direct paid Gemini
 
-**Status:** Accepted and merged  
-**Decision authority / Outcome Owner:** Rafal Andersen  
+**Status:** Accepted and merged
+
+**Decision authority / Outcome Owner:** Rafal Andersen
+
 **Evidence:** issue #43 discovery checkpoint, issue #44, PR #45, merge commit `696cb73b8ae68af86bcf6f75c8c73b9a1fc7855a`
 
 ### Decision
@@ -129,8 +141,10 @@ issue #43.
 
 ## 2026-07-28 — Cloudflare-hosted minimal staging harness, code-only
 
-**Status:** Accepted and merged; environment mutation remains NO-GO  
-**Decision authority / Outcome Owner:** Rafal Andersen  
+**Status:** Accepted and merged; environment mutation remains NO-GO
+
+**Decision authority / Outcome Owner:** Rafal Andersen
+
 **Evidence:** issue #43 staging recommendation, PR #46, merge commit `80375249dfcf9e371d82ebf7c28f2983fc4ab047`
 
 ### Decision
@@ -159,8 +173,10 @@ migration or deployment exists as a result of the merge.
 
 ## 2026-08-20 — Milo category, differentiation and 12-month roadmap focus
 
-**Status:** Accepted strategic direction  
-**Decision authority / Outcome Owner:** Rafal Andersen  
+**Status:** Accepted strategic direction
+
+**Decision authority / Outcome Owner:** Rafal Andersen
+
 **Evidence:** `product/STRATEGY_2026_2027.md`; August 2026 competitive/market research
 
 ### Decision
@@ -222,3 +238,48 @@ by making growth decisions and execution dramatically simpler for SMBs.
 Review this strategy after the first meaningful paid cohorts, or earlier if
 customer evidence demonstrates that the selected ICP, live-AI methodology or
 core action/proof loop is materially wrong.
+
+
+## 2026-09-06/07 — Premium rebuild and complete launch scope
+
+**Status:** User-selected direction; selected implementation merged, remaining work planned
+
+**Decision authority / Outcome Owner:** Rafal Andersen
+
+**Evidence:** September user decisions, PR #63, preservation map and `PLAN_REVIEW_2026_09_07.md`
+
+### Decisions
+
+1. Preserve and improve every existing capability. The chosen visual combination is Today cockpit + list/right inspector + light calendar, with premium restrained styling inspired by current Apple product craft. Wombat Ops remains work in progress.
+2. PR #63 is merged at `34cacf695baee8696582d94559c74880133647ed`; selected UI/workflow fixes are code-complete, not completion of the entire product or proof of the custom-domain release.
+3. Serve individuals and companies. Autonomy is independently configurable: Manual, Review, Autopilot and mixed by project/action. Do not assign modes solely by segment.
+4. Add real observed AI answers/citations and evidence-to-action execution. Keep crawler activity, human referrals, conversions and readiness advice separate. Complete backlinks intelligence/provider/outreach work and project setup/edit.
+5. Preserve existing Claude and ChatGPT MCP; extend compatibility to other major AI clients with exact-client evidence. Optional Slack belongs in the plan over the shared agent/job/permission model.
+6. Stripe replaces Paddle. All EU languages, successful setup demo and recordings of real product flows remain launch requirements. Existing features are not rebuilt from outdated “missing” labels.
+
+### Agent identity and sequencing proposals
+
+The agent is a product direction; “Milo” with a stylized, visibly AI face is the current recommendation. Final face/name treatment and increased user trust are not validated facts. Slack's precise public-launch timing, initial measurement surfaces and truly text-only publication policy remain explicit decisions to resolve from prepared evidence.
+
+## 2026-09-07 — Operational communication and sustainable packages
+
+**Status:** Direction accepted by user; specification written; implementation/prices pending
+
+**Evidence:** User accepted the notification/economics proposal; `NOTIFICATIONS_AND_PACKAGING.md`
+
+- Email and in-app communication cover missing approvals, blocked/failed publication, manual overdue work, empty upcoming schedule, quota shortage and stopped autopilot. Slack is optional. Group, deduplicate and recheck notifications; avoid sending resolved alerts.
+- Cadence is user-selected and timezone-aware. Subscription capacity is not a publishing obligation; eight articles is not always two per week.
+- Sell understandable articles, revisions, images, monitoring and agent work, while measuring provider cost internally. No unbounded AI or hidden automatic overages.
+- Measure costs alongside product delivery, before setting prices. Protect account/global budgets and fix metering infrastructure failures that currently allow paid calls.
+- Specification recommendation: charge the article allowance on a usable generated draft, not only on publication; technical failures do not consume the customer's result unit; imported external MCP text consumes no Milo text-generation allowance. Exact allowances, prices and exceptions remain to be finalized.
+- Distinguish “without AI-generated images” from truly image-free publication before changing the Studio featured-image guard.
+
+## 2026-09-07 — Canonical plan reconciliation and evidence discipline
+
+**Status:** Documentation update requested by Product Lead; no new feature/environment release
+
+**Evidence:** User requested a review of all decisions/plans and an updated overall action plan.
+
+`ROADMAP.md` is the current execution order, `STRATEGY_2026_2027.md` supplies strategic rationale, and `CURRENT_STATE.md` separates merged source, historical verification and runtime unknowns. The R00–R24 register preserves omissions and dependencies. Old July P0–P3 IDs remain technical cross-references, not today's prioritization.
+
+The next technical outcome is the exact-head/environment-evidence packet, followed by bounded cost/reliability work. Read-only issue #43 discovery is already authorized; do not repeatedly request that approval. This documentation does not close #43, merge unrelated PRs, set prices, send messages or authorize a new Worker environment release.

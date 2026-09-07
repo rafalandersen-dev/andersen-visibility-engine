@@ -1,367 +1,97 @@
 # Milo Growth — Current State
 
-**Status:** Canonical current state — Product Lead approved  
-**Last updated:** 2026-07-28  
-**Evidence baseline:** `main` at `80375249dfcf9e371d82ebf7c28f2983fc4ab047`; PR #45 Gemini boundary and PR #46 staging harness merged
-**Product Lead / Outcome Owner:** Rafal Andersen  
-**Current phase:** Private beta; transition from BUILD to REVENUE
+**Status:** Canonical state reconciliation; no new release GO
+
+**Last updated:** 2026-09-07
+
+**Repository baseline inspected:** `main` at `34cacf695baee8696582d94559c74880133647ed` (PR #63 merge)
+
+**Product Lead / Outcome Owner:** Rafal Andersen
+
+**Current phase:** Private beta; premium rebuild and launch foundations
 
 ## Recovery brief
 
-Milo Growth remains a supervised private-beta product transitioning from BUILD
-to REVENUE. The first Andersen OS P0 cycle has completed audit, Product Lead
-approval, the original safety implementation, independent review, verification
-and merge. Gate 0 then rejected the unproven Lovable trust assumptions and
-ADR-0001 selected a dedicated Cloudflare Worker as the full audit boundary.
-
-Issue #39 is implemented and merged through PR #41 at `cfeff9f`: the UI calls a
-typed HTTP endpoint, the Worker owns Turnstile, limits, cache, fetch and AI, and
-the old public TanStack paid path is removed. The exact implementation tree
-passed independent verification and the code-only merge.
-
-Two corrections have since merged under issue #43. PR #45 at `696cb73` replaced
-the Worker's unsupported `LOVABLE_API_KEY` / Lovable AI-gateway dependency with
-the native Gemini API behind a Worker-only `GEMINI_API_KEY`, preserving the
-deterministic fallback and all approved limits. PR #46 at `8037524` added a
-fail-closed, disabled-by-default minimal staging harness in a separately named
-Wrangler staging environment; its committed configuration is empty, and the
-harness cannot be enabled on `milogrowth.com` even through configuration.
-
-Production still serves the older deterministic flow. PR #45, PR #46 and this
-writeback created no Worker, route, DNS change, migration, Turnstile resource,
-Gemini key or new secret; account-level Cloudflare, Supabase and Google Cloud
-state remains unverified pending the issue #43 read-only discovery.
-
-Milo is not ready for an unattended paid public launch. Paid launch additionally requires server-authoritative billing, authenticated hard AI limits, completed legal identity and live operational verification.
-
-## Readiness
-
-These are operating estimates, not test-coverage scores.
-
-| Launch mode            | Estimate | Definition                                                                                                                                     | Current verdict                                               |
-| ---------------------- | -------: | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| Assisted private beta  | **~70%** | Small invited cohort, founder support, manual activation/payment, controlled spend and explicit limitations                                    | **Proceed cautiously** after the public-audit P0 is contained |
-| Unattended public SaaS | **~40%** | Open acquisition, self-serve paid billing, enforced cost controls, final legal identity, verified integrations, support and incident ownership | **Blocked**                                                   |
-
-The estimates originate from the approved Andersen OS rollout. They must be
-recalibrated after the first complete beta cohort and a fresh launch-readiness
-review.
-
-## Last verified achievement
-
-**Worker-scoped Gemini provider boundary and fail-closed staging harness merged;
-isolated staging and release remain gated.**
-
-Verified evidence recorded on 2026-07-28 for PR #46 at `8037524`:
-
-- connector tree matched the locally verified tree exactly:
-  `eb6355231d8a161439ec82e761780aed9bf95cd2`;
-- Worker tests: 3 files / 49 tests PASS, including adversarial harness cases;
-- Worker TypeScript, production dry-run and staging dry-run PASS; the staging
-  dry-run showed four empty public bindings only and no route or secret;
-- full Milo suite: 89 files / 1165 tests PASS; production build PASS;
-- changed-file ESLint, Prettier and `git diff --check` PASS;
-- both Claude Code Review runs succeeded with no review comments;
-- no route, custom domain, secret, account resource or deployment was created;
-- the harness cannot be enabled on `milogrowth.com`, even through configuration.
-
-Immediately prior, PR #45 at `696cb73` merged the direct Worker-scoped Gemini
-boundary: Worker tests 39/39 PASS, Milo tests 1164/1164 PASS, TypeScript,
-lint, build and no-bindings dry-run PASS; regression tests now prevent Lovable
-AI-gateway credentials or endpoints from returning to the external Worker.
-
-Supporting evidence:
-
-- [PR #36](https://github.com/rafalandersen-dev/andersen-visibility-engine/pull/36)
-- [Merge commit `0d163dd`](https://github.com/rafalandersen-dev/andersen-visibility-engine/commit/0d163dd32cd807463fc40e6c41fafd1176b94e5f)
-- [Delegation Packet #35](https://github.com/rafalandersen-dev/andersen-visibility-engine/issues/35)
-- [Release Configuration Packet #37](https://github.com/rafalandersen-dev/andersen-visibility-engine/issues/37)
-- [`evidence/public-audit-safety-2026-07-27.md`](../evidence/public-audit-safety-2026-07-27.md)
-- [ADR-0001](../docs/adr/ADR-0001-public-audit-boundary.md)
-- [Issue #39](https://github.com/rafalandersen-dev/andersen-visibility-engine/issues/39)
-- [PR #41](https://github.com/rafalandersen-dev/andersen-visibility-engine/pull/41)
-- [Merge commit `cfeff9f`](https://github.com/rafalandersen-dev/andersen-visibility-engine/commit/cfeff9fcdc0ece06824a8c980061672e27a27282)
-- [`evidence/public-audit-worker-2026-07-28.md`](../evidence/public-audit-worker-2026-07-28.md)
-- [Staging Design Packet #43](https://github.com/rafalandersen-dev/andersen-visibility-engine/issues/43)
-- [Issue #44](https://github.com/rafalandersen-dev/andersen-visibility-engine/issues/44)
-- [PR #45](https://github.com/rafalandersen-dev/andersen-visibility-engine/pull/45)
-- [Merge commit `696cb73`](https://github.com/rafalandersen-dev/andersen-visibility-engine/commit/696cb73b8ae68af86bcf6f75c8c73b9a1fc7855a)
-- [PR #46](https://github.com/rafalandersen-dev/andersen-visibility-engine/pull/46)
-- [Merge commit `8037524`](https://github.com/rafalandersen-dev/andersen-visibility-engine/commit/80375249dfcf9e371d82ebf7c28f2983fc4ab047)
-- [`docs/PUBLIC-AUDIT-STAGING-HARNESS.md`](../docs/PUBLIC-AUDIT-STAGING-HARNESS.md)
-- [`evidence/public-audit-staging-harness-2026-07-28.md`](../evidence/public-audit-staging-harness-2026-07-28.md)
-
-## Verified product baseline
-
-The following is present on canonical `main`; it does not imply every external
-integration has passed a live production E2E.
-
-- Private-beta launch kit and production URL declaration.
-- Authenticated workspaces with per-entity persistence and project caps.
-- Multilingual application shell and product flows.
-- Onboarding that can produce a first draft and open it in the editor.
-- Article Studio with canonical assembly, sources, author, image workflow,
-  structured data, publishing checks and responsive/arrange capabilities.
-- Content calendar, monthly automation, safe publishing controls and audit
-  history.
-- Analytics, GSC import/OAuth code paths and monthly proof reporting.
-- Custom, WordPress and Shopify publishing connectors in code.
-- Agency tier model and white-label monthly proof report.
-- Project-level Claude Code configuration:
-  - Technical Builder default: Opus / high effort.
-  - Security Reviewer: Opus / xhigh / read-only plan mode.
-  - Technical Verifier: Sonnet / medium / guarded read-only Bash.
-
-## Active outcome
-
-**Make Milo safe enough for a small assisted beta while establishing the first
-recoverable Product Operating Template implementation.**
+Read [ROADMAP.md](./ROADMAP.md) for execution order and [PLAN_REVIEW_2026_09_07.md](./PLAN_REVIEW_2026_09_07.md) for all scope/decision gaps. This update corrects the July 28 state file against current source and GitHub evidence. It does not convert a source review into an independent security audit or prove production configuration.
 
-Success requires:
-
-1. no unmetered public path can trigger uncontrolled AI or outbound-fetch cost;
-2. no paid entitlement relies on client-writable subscription state;
-3. a new session can recover objective, evidence, blockers and next action from
-   repository files;
-4. the first 3–5 testers can complete the beta loop with honest limitations and
-   no P0/P1 incident.
+PR #63 is merged. Its selected premium Today/list+inspector/calendar work is implemented. The whole product redesign, real observed AI tracking, production backlinks supplier, Stripe and all EU languages are not complete. The owner's Claude and ChatGPT MCP connections are existing capabilities; further client coverage and authoring work remain.
 
-## Blockers
+Unattended paid public launch remains **not verified / NO-GO** pending [launch gates](./LAUNCH_READINESS.md). The historical ~70% assisted/~40% public estimates are retired as current indicators: they predate substantial work and have no fresh denominator.
 
-### P0 — Dedicated Worker merged; staging and release open
+## Evidence levels
 
-**Status:** Issue #39 implementation merged through PR #41, corrected by PR #45
-(Gemini boundary) and extended by PR #46 (fail-closed staging harness);
-staging and production release remain NO-GO.
+| Evidence | What is known | Limit |
+| --- | --- | --- |
+| Current source | `main` at `34cacf695baee8696582d94559c74880133647ed`; #63 implementation head `1715e4c4212da7984555ab873e3dc950e9ba9741` | Source is not runtime verification |
+| #63 validation | Recorded 190 focused tests, TypeScript/build, responsive browser/workflow checks in `design-qa.md` | Earlier focused scope; not a fresh full release/security review |
+| Deployment status | Vercel success on #63 merge, checked September 7 | No custom-domain build or live provider verification in this reconciliation |
+| Historical independent baseline | #46 `80375249dfcf9e371d82ebf7c28f2983fc4ab047`: Worker 49 tests, Milo 1165 tests/build and recorded review | Valid for that historical tree, not all later commits |
+| External/account configuration | Not inspected in this task | Flag/secret/migration/provider presence cannot be inferred from comments or commit names |
 
-ADR-0001 selected a dedicated Worker after Gate 0 showed that the prior
-Lovable-hosted design relied on unproven controls. The merged implementation
-now:
+An exact-head audit of the current implementation remains the next verification outcome before a new feature sprint. Do not silently relabel July evidence as verification of September main.
 
-- terminates `POST /api/public-audit` in the Worker;
-- enforces exact host/origin/content/body/schema checks;
-- owns Turnstile, salted IP request claims, independent fetch and AI budgets,
-  cache/lease, bounded fetch, AI generation and deterministic fallback;
-- calls the native Gemini API directly behind a Worker-only `GEMINI_API_KEY`
-  with a stable default model; the unsupported `LOVABLE_API_KEY` / Lovable
-  AI-gateway dependency is removed and regression-tested against
-  reintroduction (PR #45);
-- keeps service-role, Gemini, Turnstile and salt secrets Worker-only;
-- removes the public TanStack paid-audit handler and shared-edge-secret bridge;
-- ships a minimal same-origin staging harness that is disabled by default,
-  hard-limited to `staging.milogrowth.com` and unable to be enabled on the
-  production hostname even through configuration (PR #46);
-- commits `workers_dev=false`, `preview_urls=false`, no private binding and an
-  empty staging configuration in the separately named
-  `milo-public-audit-staging` Wrangler environment.
+## Present implementation to preserve
 
-Local evidence at `8037524`: Worker 3 files / 49 tests, TypeScript and both
-dry-runs PASS; full Milo 89 files / 1165 tests and production build PASS.
+- Protected authenticated workspace, persistence/hydration, revision handling, project isolation/caps and owner controls.
+- Premium shell, Today cockpit, searchable Plan list/inspector, board/archive/discovery/bulk workflows, day/week/month calendar and mobile navigation. #63 fixed stale selector caching and layout/field-save defects.
+- Project create/edit, services/products, Brand Intelligence, markets/languages/voice/goals, CMS and automation settings. Full onboarding/setup design remains partial.
+- Article Studio: canonical content assembly, hook, author, sources, internal links, visuals/anchors/arrangement, quality/staleness, preview/export and publishing readiness. Remaining design and connector destination acceptance are separate.
+- Custom/WordPress/Shopify publishing and scheduled/background workflow code; controlled approvals, cancellations and idempotency. Logged-out live end-to-end acceptance is still required.
+- Analytics/referrals, GSC import/OAuth paths, monthly proof and existing agency reporting. Real observed AI answers are not established by readiness advice or referral analytics.
+- Backlinks intelligence/gaps, demo marketplace quotes/orders and controlled outreach path. Current supplier activation and production Linkhouse adapter remain unresolved.
+- MCP OAuth/scopes, read/write/propose paths and idempotent create/update of non-live drafts (#59). Preserve publication restriction and token revocation. Existing client connections do not prove every future tool/client workflow.
+- `entitlements.server.ts` is the authoritative plan read/write layer; metering resolves through it. Publishing secret-store and security-header implementations exist. Verify actual migration/key enforcement and credential fallback paths before claiming operational protection.
+- Four application locales: PL/EN/SV/DA. All 24 EU languages remain a requirement.
 
-Required next:
+The detailed [route/capability map](../docs/premium-redesign/FEATURE_INVENTORY.md) governs preservation; do not rebuild or delete functionality based on July audit labels.
 
-1. obtain Product Lead authority for read-only inspection of Cloudflare,
-   Supabase and Google Cloud account state under issue #43;
-2. return an evidence-backed SET / NOT SET matrix and one bounded staging
-   mutation package for separate approval;
-3. only after that approval: apply migrations/configure secrets in the isolated
-   staging data plane and deploy the exact reviewed merge tree;
-4. repeat abuse/privacy/live-provider tests before any production decision.
+## Current blockers and corrections
 
-Do not deploy the Worker, create routes/secrets/Turnstile/Gemini resources or
-apply its two migrations without the next explicit environment approval in
-issue #43.
+### Cost and billing
 
-Evidence:
+- `claimAiUsage` explicitly allows calls when its RPC errors or returns no row. This concrete fail-open path must be fixed before broad paid/autonomous execution.
+- `AI_METERING_ENFORCED` determines cap enforcement; production value was not inspected. Do not assert that it is currently on or off.
+- Server entitlements already exist; the July claim that the product still trusts the client blob as paid authority is obsolete. Verify deployment/RLS/lifecycle rather than reimplementing from that stale claim.
+- Stripe is the required billing direction after Paddle rejection. Paddle-specific code and terms/refunds remain; no Stripe lifecycle acceptance or new pricing is claimed.
+- Article/image/monitoring/agent unit costs and package counts/prices require measurement. See [NOTIFICATIONS_AND_PACKAGING.md](./NOTIFICATIONS_AND_PACKAGING.md).
 
-- PR #36 and merge commit `0d163dd`
-- issue #35 implementation record
-- issue #37 Gate 0 discovery and platform-documentation follow-up
-- issue #43 staging design packet and its checkpoint comments
-- PR #45 and merge commit `696cb73`; PR #46 and merge commit `8037524`
-- `evidence/public-audit-safety-2026-07-27.md`
-- `evidence/public-audit-staging-harness-2026-07-28.md`
+### Product completeness
 
-### P0 — Paid entitlements are not server-authoritative
+- Real AI observations/citations, shared growth agent, notification lifecycle, remaining premium modules, provider completion and language expansion are registered in R01–R23.
+- Required featured images conflict with a possible truly text-only package. Preserve readiness checks until a documented policy resolves it.
+- Team permission/approval behavior, unattended jobs and provider failure recovery need explicit acceptance; an existing agency price tier is not proof of a complete team experience.
 
-**Status:** Confirmed and documented in code; blocks paid launch.
+### Public audit and operational truth
 
-`workspace_meta.subscription` is still client-writable. Active-status checks
-prevent accidental feature leakage but do not stop a determined client from
-self-declaring an active/manual Agency subscription. Paddle webhook handling and
-authoritative subscription synchronization are deferred.
+- Dedicated Worker, direct Gemini boundary and staging harness code exist. #35/#43 remain open at review time.
+- Later commits **do include production routes and boundary changes** beyond #46. The July assertion “no routes/deployment” cannot be reused as current truth. Committed routes also do not prove a deployed Worker.
+- Account-level discovery and exact runtime/migration state remain unverified here. Read-only discovery is already authorized in #43 and the user history; no repeat permission is needed.
+- No new Worker staging/production release GO is issued by this plan. Finish the concrete evidence and mutation package under the existing release boundary.
 
-Impact:
+### Legal, support and data
 
-- Agency white-label access and project-cap elevation are not a security boundary;
-- paid plan limits cannot be trusted;
-- AI metering cannot safely enforce plan-specific caps.
+- `legal.ts` now contains operator identity/contact data; it is no longer placeholder-only. This is a source observation, not legal approval.
+- Align actual seller/payment/tax/invoice/refund terms with Stripe and the chosen package rules; review localized documents, retention, data export/deletion and support delivery before launch.
+- Do not infer support-email deliverability or provider credential configuration merely from code constants.
 
-Evidence:
+## Open related work
 
-- `supabase/migrations/20260727100000_agency_plan_project_cap.sql`
-- `src/lib/billing.functions.ts`
-- `src/lib/billing.ts`
-- `src/lib/ai-usage.server.ts`
+| Item | September 7 state | Next treatment |
+| --- | --- | --- |
+| #35 public audit | Open | Containment and final outcome evidence |
+| #43 isolated audit staging | Open | Remaining authorized discovery, configuration-presence matrix and bounded release packet |
+| PR #58 Claude authoring scope | Open | Reconcile proposals with #59 draft tools; image ingest/batches/profile/readiness remain explicit |
+| PR #2 AI bootstrap blueprint | Open | Compare existing setup proposal implementation before claiming completion |
+| PR #62 design engineering gate | Open | Review alongside remaining UI work; not merged in this task |
 
-Required before selling any paid plan:
+## Next single action
 
-- service-role-only billing source;
-- verified Paddle webhook lifecycle;
-- client batch writes must be unable to mutate subscription/billing authority;
-- entitlement tests for upgrade, downgrade, cancellation, past-due and replay.
+Complete the **exact-head verification and environment-evidence packet** for current main, resolving the gaps above and in #43 without configuration changes. Then open the bounded cost-control/background-reliability implementation identified in the roadmap. The present documentation reconciliation is complete as a planning deliverable; it does not mark that next technical audit complete.
 
-### P0 — AI usage is recorded but hard enforcement is off
+## References and historical evidence
 
-**Status:** Confirmed; acceptable only for a tightly controlled invite beta.
-
-`claimAiUsage` records calls, but `AI_METERING_ENFORCED` is intentionally off and
-metering infrastructure errors fail open. Authenticated generation therefore has
-no hard per-user refusal while beta access is open.
-
-Impact:
-
-- a tester, bug or automation loop can exhaust shared gateway credits;
-- owner and tester traffic share the same upstream failure domain;
-- autonomous monthly generation magnifies exposure.
-
-Evidence:
-
-- `src/lib/ai-usage.server.ts`
-- `src/lib/auto-scheduler.server.ts`
-- `supabase/migrations/20260719160000_ai_usage.sql`
-
-Required before expanding beyond the first cohort:
-
-- server-authoritative plan source;
-- enable and verify hard caps;
-- add global budget ceiling and alerting;
-- define fail-closed behaviour for paid external calls;
-- test concurrent boundary claims and provider-outage behaviour.
-
-### P1 — Legal identity and public documents remain placeholders
-
-**Status:** Confirmed; blocks broad commercial launch.
-
-The legal pages intentionally state that final legal entity details, address,
-registration data and legal review are incomplete.
-
-Evidence:
-
-- `src/lib/legal.ts`
-- `src/routes/subprocessors.tsx`
-
-Required:
-
-- confirmed operating legal entity and business address;
-- final operator/registration/VAT data where applicable;
-- qualified review of Terms, Privacy, DPA, subprocessors, AI disclaimer and
-  cookie/analytics wording;
-- working support and security mailboxes.
-
-### P1 — External integrations are not fully live-verified
-
-**Status:** Code-verified; live E2E incomplete.
-
-The repository records GSC OAuth, WordPress and Shopify as blocked for live E2E
-without target credentials/accounts. CSV GSC and the custom connector are the
-current demo-safe paths, subject to per-environment verification.
-
-Evidence:
-
-- `docs/LIVE-E2E-TEST-LOG.md`
-- `docs/GSC-OAUTH-SETUP.md`
-- `docs/WORDPRESS-CONNECTOR-SETUP.md`
-- `docs/SHOPIFY-CONNECTOR-SETUP.md`
-
-### P1 — Canonical product documentation is stale and contradictory
-
-**Status:** Confirmed documentation drift.
-
-Examples:
-
-- `README.md` still describes an MVP 0.1 mock/localStorage shell.
-- `docs/PRODUCT-AUDIT-2026-07.md` audits commit `3dd798c` from 2026-07-20,
-  before major later implementation.
-- `docs/ROADMAP.md` still marks already-shipped packages as proposed or awaiting
-  approval.
-- private-beta copy and current publishing/automation capability need one
-  authoritative positioning source.
-
-Impact:
-
-- a new agent can make a wrong product decision from obsolete facts;
-- launch claims, roadmap priorities and technical state can diverge.
-
-Required:
-
-- this file becomes the state entry point;
-- refresh README, roadmap and audit status;
-- never silently treat the July 20 score as the current product score.
-
-## Current risks that do not block the first supervised demo
-
-- The Worker removes the unproven Lovable execution boundary, but DNS rebinding
-  remains a documented residual risk and live AI/Turnstile/Supabase integration
-  is not yet staged.
-- Repository-wide lint/format baseline is intentionally dirty and there is no
-  CI quality gate; changed-file verification remains the current workaround.
-- The build passes but emits widespread `inputValidator()` deprecation warnings.
-- Several `@react-email/*` dependencies report deprecation during clean install.
-- Production incidents can still be amplified by cached old bundles, although
-  stale-bundle detection and per-entity persistence materially reduce the
-  previously observed failure mode.
-- Unmerged remote branches are not canonical state and must not be assumed
-  shipped, especially `codex/milo-worldclass-redesign` and
-  `docs/phase-1c-ai-project-bootstrap-blueprint`.
-
-## Explicitly not claimed
-
-- Live AI visibility/rank monitoring.
-- Multi-page technical crawling or JavaScript rendering.
-- Live WordPress/Shopify/GSC OAuth verification for every customer.
-- Working self-serve paid billing.
-- Final legal/compliance approval.
-- Public-SaaS readiness.
-- That the 2026-07-20 product-audit scores describe the current codebase.
-
-## Public-audit architecture checkpoint
-
-- Gate 0 topology discovery is complete.
-- ADR-0001 selects a dedicated Cloudflare Worker as the full audit execution boundary.
-- Lovable remains the web-app host; the Worker owns Turnstile, limits, cache, outbound fetch and AI.
-- The rejected design must not set `MILO_OUTBOUND_FETCH_MODE=workers` inside Lovable.
-- Issue #39 is the completed bounded implementation packet; PR #41 is merged at `cfeff9f`.
-- The Worker's AI provider is the direct paid Gemini API behind a Worker-only
-  `GEMINI_API_KEY`; PR #45 is merged at `696cb73`. Lovable AI-gateway
-  credentials must not be reintroduced into the external Worker.
-- Issue #43 selected a Cloudflare-hosted minimal staging harness; the code-only,
-  fail-closed, disabled-by-default harness is merged through PR #46 at
-  `8037524`. No harness configuration value is committed, and PR #46 created
-  no runtime environment; account-level state remains unverified.
-- Staging and production remain NO-GO. No production or staging DNS, secret,
-  Turnstile widget, Gemini key, billing, migration or deployment change is
-  authorised.
-
-## Next single recommended action
-
-Obtain Product Lead authority for read-only inspection of Cloudflare, Supabase
-and Google Cloud account state under issue #43. During that inspection create
-nothing — no project, widget, key, billing link, Worker, Access policy, DNS
-record, migration or deploy. Return only an evidence-backed SET / NOT SET
-configuration matrix and one bounded staging mutation package for separate
-approval.
-
-Do not begin billing changes, WombatOps rollout, broad feature work or production configuration inside this discovery action.
-
-## Closure rule for the active outcome
-
-The public-audit outcome remains **implementation complete / outcome open** until:
-
-- a production architecture is explicitly approved;
-- staging or an accepted verification environment passes the abuse, privacy and cost-boundary checks;
-- an exact production release is approved and executed or the audit is intentionally kept disabled/deterministic;
-- the assisted release is observed and residual risks are recorded;
-- `CURRENT_STATE`, `DECISIONS`, `OPERATIONS`, `LAUNCH_READINESS` and evidence reflect the final state;
-- a learning review is completed;
-- a fresh session recovers the next action from repository sources without chat history.
+- [PR #63](https://github.com/rafalandersen-dev/andersen-visibility-engine/pull/63), [design-qa.md](../design-qa.md), [September review](./PLAN_REVIEW_2026_09_07.md).
+- [August strategy](./STRATEGY_2026_2027.md), [decisions](./DECISIONS.md), [operations](./OPERATIONS.md).
+- [ADR-0001](../docs/adr/ADR-0001-public-audit-boundary.md), [#43](https://github.com/rafalandersen-dev/andersen-visibility-engine/issues/43).
+- [Public audit safety evidence](../evidence/public-audit-safety-2026-07-27.md), [Worker evidence](../evidence/public-audit-worker-2026-07-28.md), [staging harness evidence](../evidence/public-audit-staging-harness-2026-07-28.md).
+- [Historical July state as preserved in git](https://github.com/rafalandersen-dev/andersen-visibility-engine/blob/19151c4/product/CURRENT_STATE.md). Historical evidence is retained, not overwritten as a new release assertion.

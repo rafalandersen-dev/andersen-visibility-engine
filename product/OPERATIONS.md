@@ -1,79 +1,66 @@
 # Milo Growth — Operations
 
-**Status:** Canonical operating baseline  
-**Last updated:** 2026-07-28  
+**Status:** Canonical operating record; configuration presence not reverified
+
+**Last updated:** 2026-09-07
+
 **Product Lead / incident owner:** Rafal Andersen
 
-Do not store secret values in this file.
+Do not store secret values or customer data in this file. Read [CURRENT_STATE.md](./CURRENT_STATE.md) for evidence limits and [ROADMAP.md](./ROADMAP.md) for the next outcome.
 
-## Environments and hosting
+## Source, hosting and environment
 
-| Item                              | Current state                                                                                                   |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Public domain                     | `https://milogrowth.com`                                                                                        |
-| Hosting / publishing              | Lovable Cloud                                                                                                   |
-| Platform hostname                 | `milo-growth.lovable.app`, redirected to the custom domain                                                      |
-| Public edge                       | Dedicated Worker code current at `8037524` (Gemini boundary + disabled staging harness); not deployed or routed |
-| Source repository                 | `rafalandersen-dev/andersen-visibility-engine`                                                                  |
-| Current repository implementation | PR #46 merged at `80375249dfcf9e371d82ebf7c28f2983fc4ab047`                                                     |
-| Custom-domain production          | Older pre-PR-#36 deployment confirmed during issue #37 Gate 0                                                   |
-| Database                          | Lovable Cloud / Supabase-backed project                                                                         |
-| Isolated staging data plane       | Not confirmed                                                                                                   |
-| Preview                           | Protected authenticated preview confirmed                                                                       |
+| Item | Recorded state |
+| --- | --- |
+| Source | `rafalandersen-dev/andersen-visibility-engine`, main `34cacf695baee8696582d94559c74880133647ed` at this review |
+| Public domain | `https://milogrowth.com`; current deployed build not independently verified here |
+| App/platform | Lovable-connected application; Vercel deployment status also exists. Verify actual routing/build identity before production assertions |
+| #63 deployment evidence | Vercel success on merge commit; [deployment record](https://vercel.com/andersen-hq/andersen-visibility-engine/2j1J3RS58sT5LHZsie8FxGAKAkxz) |
+| Database | Lovable Cloud / Supabase-backed code; runtime migration state unverified in this task |
+| Public-audit Worker | Direct Gemini boundary and staging harness in source; later production routes committed; actual deployed/account state requires discovery |
+| Isolated staging | Separate data plane/configuration presence still requires evidence under #43 |
+| AI limits | `AI_METERING_ENFORCED` conditional in source; value uninspected. RPC/no-row fail-open behavior confirmed |
+| Billing | Server entitlements exist; Paddle code remains. Stripe is planned replacement |
+| Email | Existing transport/templates and risk helpers; new event-driven notifications are planned, delivery not verified |
 
-## Public-audit release dependencies
+## Existing public-audit boundary
 
-ADR-0001 replaces the edge-to-Lovable shared-header design with a dedicated Worker. The following remain unconfigured until a bounded mutation package under issue #43 authorises the relevant environment stage:
+ADR-0001 selects a dedicated Worker, not an edge-header bridge into Lovable. Preserve approved limits: 5/IP/hour, 50 fetches/day, 50 paid-AI claims/day, 24-hour cache. These values are not changed by the roadmap.
 
-- Worker-only `PUBLIC_AUDIT_IP_SALT`;
-- Worker-only `TURNSTILE_SECRET_KEY`;
-- Worker-only `GEMINI_API_KEY` from a dedicated paid Google Cloud project with
-  quota and budget controls (PR #45 removed the Lovable AI-gateway dependency);
-- Worker-only Supabase URL and service-role credential;
-- exact production/staging hostname allowlists;
-- staging harness names `PUBLIC_AUDIT_STAGING_HARNESS_HOST` and
-  `PUBLIC_AUDIT_STAGING_TURNSTILE_SITE_KEY`, committed empty; the full
-  presence matrix is in `docs/PUBLIC-AUDIT-STAGING-HARNESS.md`;
-- public `VITE_PUBLIC_AUDIT_API_URL` and `VITE_TURNSTILE_SITE_KEY`;
-- migrations `20260727220000_public_audit_safety.sql` and `20260727223000_public_audit_fetch_budget.sql`;
-- Cloudflare Worker route/custom domain, with `workers.dev` and public preview URLs disabled;
-- isolated staging data plane and rollback routing.
+Issue #43 already authorizes read-only discovery. Complete outstanding account/runtime facts and return a configuration-presence matrix plus a concrete mutation/release package. Do not request that same read-only approval again. This plan performs no configuration mutation and issues no new staging/production GO.
 
-`PUBLIC_AUDIT_EDGE_SECRET` and `X-Milo-Edge-Auth` are not part of the selected architecture. Do not configure public-audit service credentials in Lovable, and do not reintroduce `LOVABLE_API_KEY` or Lovable AI-gateway endpoints into the external Worker.
+Required presence checks (record **SET / NOT SET / UNKNOWN**, never values):
 
-## Ownership
+- Worker-only `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `PUBLIC_AUDIT_IP_SALT`, `TURNSTILE_SECRET_KEY`, `GEMINI_API_KEY`.
+- `PUBLIC_AUDIT_ALLOWED_HOSTS`, `PUBLIC_AUDIT_ALLOWED_ORIGINS`, optional `PUBLIC_AUDIT_AI_MODEL`.
+- `PUBLIC_AUDIT_STAGING_HARNESS_HOST`, `PUBLIC_AUDIT_STAGING_TURNSTILE_SITE_KEY` for the isolated harness.
+- Public `VITE_PUBLIC_AUDIT_API_URL`, `VITE_TURNSTILE_SITE_KEY`.
+- Additive migrations `20260727220000_public_audit_safety.sql`, `20260727223000_public_audit_fetch_budget.sql`; check actual environment application rather than infer it from git.
+- Current deployed routes/host allowlists, isolated data plane, bot verification, quota controls, logging/retention and rollback.
 
-| Responsibility                 | Owner                                                          |
-| ------------------------------ | -------------------------------------------------------------- |
-| Product and release decision   | Rafal Andersen                                                 |
-| Production publishing          | Rafal Andersen                                                 |
-| Incident decision and rollback | Rafal Andersen                                                 |
-| Security review                | Named independent reviewer under the Delegation/Release Packet |
-| Database migration execution   | Must be explicitly assigned in the approved production release |
-| Secret ownership and rotation  | Must be explicitly assigned before configuration               |
+Do not reintroduce `PUBLIC_AUDIT_EDGE_SECRET`, `X-Milo-Edge-Auth`, Lovable-side `MILO_OUTBOUND_FETCH_MODE=workers` or Lovable AI-gateway credentials into the dedicated Worker architecture. The July statement that no route is committed is obsolete; runtime activation still needs evidence.
+
+## New operating outcomes from September planning
+
+- [ ] Cost ledger, account/global budget reserve/reconcile, bounded agent tools/retries, alerts and emergency pause. Track user allowances separately from provider expense and supplier placement costs.
+- [ ] Background scheduler/job health, stuck/missed slots, duplicate/uncertain publication, per-project pause and safe recovery. Test while logged out.
+- [ ] Durable notification outbox, dedupe/recheck, delivery/retry history, assigned recipient and preferences. Operational emails remain available during AI budget failure. No approval/publication side effects on email GET links.
+- [ ] Stripe event reconciliation, payment/entitlement drift, quota period/reset/refund handling, existing subscriber migration and public policy alignment.
+- [ ] AI observation freshness, collection method, missing samples and provider failures; separate crawler logs, answer citations, referrals and conversions.
+- [ ] Connector expiration/revocation and credential storage/migration fallback verification. Do not expose credentials in client state, logs or screenshots.
+- [ ] Tenant isolation, data export/deletion and backup/recovery exercise; practical support/incident handling and deploy verification.
+
+## Ownership and release
+
+Rafal owns product/release/incident decisions. Assign execution, migration, secret rotation, rollback and verification operators in each concrete packet; do not assume an unnamed parallel chat is responsible. Existing approval context applies; avoid repeated approvals for already-authorized work.
+
+Every release records exact SHA/tree, test/review scope, environment/build identity, migrations/configuration names, rollout window, observation and rollback. A plan or GitHub status alone does not authorize every external action. No customer emails, provider orders or production changes are executed by this documentation update.
 
 ## Incident and rollback baseline
 
-For a public-audit trust-boundary or cost-control failure:
-
-1. disable the AI audit or route it to deterministic no-AI fallback;
-2. remove public routing to the vulnerable path if necessary;
-3. restore the prior known deployment;
-4. preserve evidence without secret values or personal data;
-5. rotate the edge secret and IP salt only through the designated owner if exposure is suspected;
-6. do not drop additive tables/functions during incident response;
-7. record the incident, decision, evidence and next action.
-
-## Known operating gaps
-
-- dedicated Worker boundary (including the Gemini provider and the disabled
-  staging harness) is implemented, verified and merged but not staged;
-- Worker outbound-fetch residual risk needs staging security verification;
-- account-level Cloudflare, Supabase and Google Cloud state is unverified; the
-  read-only SET / NOT SET discovery under issue #43 has not been authorised;
-- isolated staging is unconfirmed; no staging environment, credential, widget,
-  Gemini key or data plane was created by the reviewed repository outcomes,
-  while actual account configuration and existence remain unverified;
-- production configuration presence matrix is not established;
-- final legal operator and support/security mailboxes remain incomplete;
-- production billing authority and authenticated hard AI limits remain incomplete.
+1. Pause the affected paid/automatic operation; preserve safe reading/manual work and operational communication.
+2. For public-audit failures, use verified deterministic/no-AI containment or disable the affected route through the authorized operator.
+3. Verify destination state before retrying an uncertain publication; never create a duplicate blindly.
+4. Restore the prior verified deployment/configuration under the release packet; retain additive data and evidence.
+5. Rotate actual affected credentials/salts if exposure is suspected; the rejected edge secret is not part of this architecture.
+6. Record incident, customer impact, cost, remediation and next action without secrets or unnecessary personal data.

@@ -1,3 +1,5 @@
+> **Current planning source — 2026-09-07:** [../product/ROADMAP.md](../product/ROADMAP.md), [../product/CURRENT_STATE.md](../product/CURRENT_STATE.md) and the [scope reconciliation](../product/PLAN_REVIEW_2026_09_07.md) supersede the historical state/priority labels below. Preserve existing implementation contracts; do not infer current runtime flags, approvals or missing features from this older snapshot.
+
 # Milo Growth — Product Roadmap (P0–P3)
 
 **Status:** proposal for approval. **Scope of this document:** planning only. No `src/`, migration, environment, or production change is authorised by this file. DataForSEO remains **disabled** until the External‑API Cost‑Control Framework (P2.0) exists or is explicitly approved.
