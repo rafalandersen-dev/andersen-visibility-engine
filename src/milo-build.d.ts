@@ -5,4 +5,5 @@ declare const __MILO_RELEASE_IDENTITY__: {
   algorithm: "milo-source-v1";
   revision: string | null;
   modified: boolean | null;
+  components: Record<string, string | null> | null;
 };

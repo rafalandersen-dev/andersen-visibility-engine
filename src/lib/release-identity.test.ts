@@ -20,6 +20,18 @@ describe("release identity", () => {
     expect(one.revision).toBeNull();
     expect(one.modified).toBeNull();
   });
+  it("locates changed input groups without disclosing their contents", () => {
+    const before = releaseIdentity(root);
+    writeFileSync(join(root, "package-lock.json"), '{"version":2}');
+    const after = releaseIdentity(root);
+    expect(after.components?.src).toBe(before.components?.src);
+    expect(before.components?.["package-lock.json"]).toBeNull();
+    expect(after.components?.["package-lock.json"]).toMatch(/^[a-f0-9]{64}$/);
+    expect(JSON.stringify(after)).not.toContain('"version"');
+    writeFileSync(join(root, "src", ".env.local"), "PRIVATE=test-fixture");
+    expect(releaseIdentity(root).components).toEqual(after.components);
+    expect(Object.keys(after.components!)).not.toContain(".env.local");
+  });
   it("detects changed bundled source", () => {
     const before = sourceFingerprint(root);
     writeFileSync(join(root, "src", "app.ts"), "export const answer=43;");
