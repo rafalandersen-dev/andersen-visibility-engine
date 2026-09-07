@@ -1051,6 +1051,8 @@ async function generateJsonText(prompt: string, maxOutputTokens = 16000, modelId
   const { text } = await generateText({
     model: modelFor(modelId),
     maxOutputTokens,
+    maxRetries: 0,
+    abortSignal: AbortSignal.timeout(60_000),
     prompt,
   });
   return parseJsonFromText(text);
@@ -1919,87 +1921,91 @@ ${auditBlock}${competitorBlock}${authorityBlock}${oppBlock}${sharedRules}`,
 // Onboarding — safe homepage scan + light AI extraction
 // ============================================================
 
-export const scanWebsiteFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ url: z.string().default("") }).parse(input))
-  .handler(async ({ data }) => {
-    // NOT metered. Onboarding website scan: metering it would block signup before the user has a plan.
-    const site = await fetchSiteContext(data.url);
-    if (!site.ok) {
-      return {
-        ok: false as const,
-        title: "",
-        metaDescription: "",
-        businessName: "",
-        businessType: "",
-        description: "",
-        primaryLanguage: "English",
-        services: [] as { name: string; kind: "Service" | "Product"; description: string }[],
-      };
-    }
+export async function scanWebsiteCore(userId: string, url: string) {
+  const site = await fetchSiteContext(url);
+  if (!site.ok) {
+    return {
+      ok: false as const,
+      title: "",
+      metaDescription: "",
+      businessName: "",
+      businessType: "",
+      description: "",
+      primaryLanguage: "English",
+      services: [] as { name: string; kind: "Service" | "Product"; description: string }[],
+    };
+  }
 
-    // Best-effort AI extraction; if it fails we still return title/meta so the
-    // wizard can pre-fill something and the user continues manually.
-    try {
-      const payload = await generateJsonText(
-        `You are extracting a concise business profile from a website homepage for an onboarding form.
+  // Best-effort AI extraction; if it fails we still return title/meta so the
+  // wizard can pre-fill something and the user continues manually.
+  try {
+    // Use the existing free-preview AI allowance; manual setup still works
+    // when the meter is unavailable or that finite allowance is exhausted.
+    await claimAiUsage({ userId, bucket: "aiCredits", enforceLimit: true });
+    const payload = await generateJsonText(
+      `You are extracting a concise business profile from a website homepage for an onboarding form.
 
 Return exactly this JSON shape:
 {"businessName":"","businessType":"","description":"","primaryLanguage":"Polish|Swedish|English|Danish","services":[{"name":"","kind":"Service|Product","description":""}]}
 
 Infer the business name, a short business type (e.g. "bakery", "massage studio"), a 1–2 sentence description, the primary language, and up to 6 real services/products the business offers. Leave fields empty (and services []) if not clearly implied. Do NOT invent offerings not present in the text.
 
-WEBSITE CONTENT (from ${data.url}):
+WEBSITE CONTENT (from ${url}):
 Title: ${site.title || "(none)"}
 Meta description: ${site.metaDescription || "(none)"}
 Visible homepage text (excerpt):
 ${site.text || "(no readable text)"}
 ${sharedRules}`,
-        3000,
-      );
-      const root = isRecord(payload) ? payload : {};
-      const services = extractArray(root, ["services", "products", "offerings", "items"])
-        .slice(0, 6)
-        .map((s) => {
-          const it = isRecord(s) ? s : {};
-          const name = pickString(it, ["name", "title", "service", "product"], "");
-          const kindRaw = pickString(it, ["kind", "type"], "Service").toLowerCase();
-          return {
-            name,
-            kind: (/product|shop|store|buy|goods/.test(kindRaw) ? "Product" : "Service") as
-              "Service" | "Product",
-            description: pickString(it, ["description", "detail", "summary"], ""),
-          };
-        })
-        .filter((s) => s.name);
+      3000,
+    );
+    const root = isRecord(payload) ? payload : {};
+    const services = extractArray(root, ["services", "products", "offerings", "items"])
+      .slice(0, 6)
+      .map((s) => {
+        const it = isRecord(s) ? s : {};
+        const name = pickString(it, ["name", "title", "service", "product"], "");
+        const kindRaw = pickString(it, ["kind", "type"], "Service").toLowerCase();
+        return {
+          name,
+          kind: (/product|shop|store|buy|goods/.test(kindRaw) ? "Product" : "Service") as
+            "Service" | "Product",
+          description: pickString(it, ["description", "detail", "summary"], ""),
+        };
+      })
+      .filter((s) => s.name);
 
-      return {
-        ok: true as const,
-        title: site.title,
-        metaDescription: site.metaDescription,
-        businessName: pickString(root, ["businessName", "business_name", "name"], ""),
-        businessType: pickString(root, ["businessType", "business_type", "type", "category"], ""),
-        description: pickString(
-          root,
-          ["description", "summary", "about"],
-          site.metaDescription || "",
-        ),
-        primaryLanguage: normalizeLanguage(root.primaryLanguage ?? root.language),
-        services,
-      };
-    } catch {
-      return {
-        ok: true as const,
-        title: site.title,
-        metaDescription: site.metaDescription,
-        businessName: "",
-        businessType: "",
-        description: site.metaDescription || "",
-        primaryLanguage: "English",
-        services: [] as { name: string; kind: "Service" | "Product"; description: string }[],
-      };
-    }
-  });
+    return {
+      ok: true as const,
+      title: site.title,
+      metaDescription: site.metaDescription,
+      businessName: pickString(root, ["businessName", "business_name", "name"], ""),
+      businessType: pickString(root, ["businessType", "business_type", "type", "category"], ""),
+      description: pickString(
+        root,
+        ["description", "summary", "about"],
+        site.metaDescription || "",
+      ),
+      primaryLanguage: normalizeLanguage(root.primaryLanguage ?? root.language),
+      services,
+    };
+  } catch {
+    return {
+      ok: true as const,
+      title: site.title,
+      metaDescription: site.metaDescription,
+      businessName: "",
+      businessType: "",
+      description: site.metaDescription || "",
+      primaryLanguage: "English",
+      services: [] as { name: string; kind: "Service" | "Product"; description: string }[],
+    };
+  }
+}
+
+export const scanWebsiteFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ url: z.string().default("") }).parse(input))
+  .handler(async ({ data, context }) => scanWebsiteCore(context.userId as string, data.url));
 
 // ============================================================
 // generateOpportunities
