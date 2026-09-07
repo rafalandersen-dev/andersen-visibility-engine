@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   assertLease: vi.fn(),
   releaseLease: vi.fn(),
   insert: vi.fn(),
+  queue: vi.fn(),
 }));
 vi.mock("./auto-scheduler-lease.server", () => ({
   acquireSchedulerLease: mocks.acquire,
@@ -45,7 +46,7 @@ vi.mock("@/integrations/supabase/client.server", () => ({
         eq: vi.fn().mockReturnThis(),
         in: vi.fn().mockReturnThis(),
         then(resolve: (v: unknown) => unknown) {
-          return Promise.resolve({ data: [], error: null }).then(resolve);
+          return Promise.resolve(mocks.queue()).then(resolve);
         },
       };
     },
@@ -58,6 +59,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv("RESEND_API_KEY", "");
   mocks.remaining.mockResolvedValue(3);
+  mocks.queue.mockReturnValue({ data: [], error: null });
   mocks.acquire.mockResolvedValue("00000000-0000-4000-8000-000000000010");
   mocks.assertLease.mockResolvedValue(undefined);
   mocks.releaseLease.mockResolvedValue(undefined);
@@ -95,6 +97,28 @@ afterEach(() => {
 });
 
 describe("autopilot budget failures", () => {
+  it.each([
+    { data: null, error: { message: "unavailable" } },
+    { data: null, error: null },
+    { data: [{ publish_at: "invalid" }], error: null },
+  ])("does not spend when existing bookings cannot be verified", async (result) => {
+    mocks.queue.mockReturnValue(result);
+    const summary = await runMonthlyAutoScheduler(now);
+    expect(summary.projects[0].error).toContain("queue unavailable");
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(mocks.discover).not.toHaveBeenCalled();
+  });
+  it("resumes with the remaining quota without subtracting prior usage again", async () => {
+    workspace.content = [{ id: "old", projectId: "p1", autoScheduledFor: "2026-10" }];
+    mocks.remaining.mockResolvedValue(2);
+    mocks.generate.mockResolvedValue({ markdown: "Saved", hookProposals: [] });
+    const summary = await runMonthlyAutoScheduler(now);
+    expect(summary.projects[0]).toMatchObject({ target: 2, generated: 2 });
+    expect(mocks.generate).toHaveBeenCalledTimes(2);
+    const saved = (workspace.content as ContentAsset[]).filter((a) => a.id !== "old");
+    expect(saved.every((a) => !!a.autoSchedulerPlannedAt && !a.scheduledPublishAt)).toBe(true);
+    expect(new Set(saved.map((a) => a.autoSchedulerPlannedAt)).size).toBe(2);
+  });
   it("does not generate when another scheduler owns the project", async () => {
     mocks.acquire.mockRejectedValueOnce(new Error("Scheduler already active"));
     const result = await runMonthlyAutoScheduler(now);
