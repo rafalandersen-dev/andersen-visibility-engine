@@ -8,7 +8,13 @@ import { publishReadiness } from "./calendar-schedule";
 import { opportunityLifecycleStatus } from "./opportunities";
 import { effectivePublishMode } from "./publish-targets";
 export type OperationalNotificationKind =
-  "approval_due" | "publication_failed" | "manual_overdue" | "cadence_gap" | "scheduler_recovery";
+  | "approval_due"
+  | "publication_failed"
+  | "manual_overdue"
+  | "cadence_gap"
+  | "scheduler_recovery"
+  | "generation_capacity_low"
+  | "generation_capacity_unavailable";
 export interface OperationalNotificationEvent {
   key: string;
   kind: OperationalNotificationKind;
@@ -16,7 +22,14 @@ export interface OperationalNotificationEvent {
   targetId: string;
   title: string;
   dueAt: string | null;
-  detail: { timeZone: string; missing?: number; total?: number };
+  detail: {
+    timeZone: string;
+    missing?: number;
+    total?: number;
+    remaining?: number;
+    plannedPeriod?: string;
+    usagePeriod?: string;
+  };
 }
 function localDay(now: Date, zone: string) {
   const parts = new Intl.DateTimeFormat("en-CA", {
