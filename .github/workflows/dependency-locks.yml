@@ -33,8 +33,14 @@ jobs:
         with:
           bun-version: "1.4.0"
       - name: Verify Bun manifest and frozen dependency graph
-        run: bun install --frozen-lockfile --lockfile-only --ignore-scripts
+        run: bun install --frozen-lockfile --ignore-scripts
       - name: Verify npm manifest and lock agreement
         run: npm ci --ignore-scripts --dry-run --no-audit --no-fund
       - name: Refuse lock rewrites
         run: git diff --exit-code -- package.json package-lock.json bun.lock bunfig.toml
+      - name: Test the frozen Bun dependency tree
+        run: npm test
+      - name: Typecheck the frozen Bun dependency tree
+        run: npx --no-install tsc --noEmit
+      - name: Build with the frozen Bun dependency tree
+        run: npm run build
