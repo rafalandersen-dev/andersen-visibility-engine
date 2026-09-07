@@ -41,6 +41,21 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 describe("server notification snapshot boundary", () => {
+  it("scopes recovery reads to the verified owner without selecting ownership tokens", async () => {
+    await refreshOperationalNotifications("owner");
+    expect(mocks.eq).toHaveBeenCalledWith("auto_scheduler_leases", "user_id", "owner");
+  });
+  it.each([
+    { data: null, error: { message: "private" } },
+    { data: [{ project_id: "p" }], error: null },
+    { data: Array(1001).fill({}), error: null },
+  ])("preserves the inbox when recovery state is unavailable or malformed", async (response) => {
+    mocks.query.mockImplementation(async (table) =>
+      table === "auto_scheduler_leases" ? response : { data: [], error: null },
+    );
+    await expect(refreshOperationalNotifications("owner")).rejects.toThrow();
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
   it("queues email only after a fresh scan and explicit activation", async () => {
     vi.stubEnv("OPERATIONAL_EMAIL_ENABLED", "true");
     await refreshOperationalNotifications("owner");

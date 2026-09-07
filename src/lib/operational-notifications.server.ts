@@ -24,6 +24,13 @@ const queueSchema = z.object({
   attempts: z.number().int().nonnegative(),
   created_at: z.string(),
 });
+const leaseSchema = z.object({
+  project_id: identity,
+  planned_period: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+  status: z.enum(["active", "released", "unknown"]),
+  acquired_at: z.string().datetime({ offset: true }),
+  lease_until: z.string().datetime({ offset: true }),
+});
 const snapshotSchema = z.object({
   projects: z.array(projectSchema).default([]),
   content: z.array(assetSchema).default([]),
@@ -73,11 +80,30 @@ export async function refreshOperationalNotifications(
       attempts: r.attempts,
       createdAt: r.created_at,
     }));
+  const leaseResponse = await db
+    .from("auto_scheduler_leases")
+    .select("project_id,planned_period,status,acquired_at,lease_until")
+    .eq("user_id", userId)
+    .order("project_id")
+    .limit(1001);
+  if (leaseResponse.error || !Array.isArray(leaseResponse.data) || leaseResponse.data.length > 1000)
+    throw new Error("notification_scheduler_unavailable");
+  const schedulerLeases = z
+    .array(leaseSchema)
+    .parse(leaseResponse.data)
+    .map((r) => ({
+      projectId: r.project_id,
+      plannedPeriod: r.planned_period,
+      status: r.status,
+      acquiredAt: r.acquired_at,
+      leaseUntil: r.lease_until,
+    }));
   const events = operationalNotifications({
     projects: snapshot.projects as unknown as Project[],
     assets: snapshot.content as unknown as ContentAsset[],
     opportunities: snapshot.opportunities as unknown as Opportunity[],
     scheduled,
+    schedulerLeases,
     now,
   });
   const synced = await db.rpc("sync_operational_notifications", {
@@ -101,7 +127,13 @@ export async function refreshOperationalNotifications(
 export const notificationRowSchema = z.object({
   id: z.string().uuid(),
   project_id: identity,
-  kind: z.enum(["approval_due", "publication_failed", "manual_overdue", "cadence_gap"]),
+  kind: z.enum([
+    "approval_due",
+    "publication_failed",
+    "manual_overdue",
+    "cadence_gap",
+    "scheduler_recovery",
+  ]),
   target_id: identity,
   target_title: z.string(),
   due_at: z.string().nullable(),

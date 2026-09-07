@@ -8,7 +8,7 @@ import { publishReadiness } from "./calendar-schedule";
 import { opportunityLifecycleStatus } from "./opportunities";
 import { effectivePublishMode } from "./publish-targets";
 export type OperationalNotificationKind =
-  "approval_due" | "publication_failed" | "manual_overdue" | "cadence_gap";
+  "approval_due" | "publication_failed" | "manual_overdue" | "cadence_gap" | "scheduler_recovery";
 export interface OperationalNotificationEvent {
   key: string;
   kind: OperationalNotificationKind;
@@ -46,6 +46,13 @@ export function operationalNotifications(args: {
   opportunities: Opportunity[];
   scheduled: ScheduledPublish[];
   now: Date;
+  schedulerLeases?: Array<{
+    projectId: string;
+    plannedPeriod: string;
+    status: "active" | "released" | "unknown";
+    acquiredAt: string;
+    leaseUntil: string;
+  }>;
 }): OperationalNotificationEvent[] {
   const events: OperationalNotificationEvent[] = [];
   for (const project of args.projects) {
@@ -73,6 +80,17 @@ export function operationalNotifications(args: {
         detail: { timeZone, ...detail },
       });
     };
+    for (const lease of args.schedulerLeases ?? []) {
+      if (lease.projectId !== project.id || lease.status === "released") continue;
+      if (lease.status === "active" && Date.parse(lease.leaseUntil) > args.now.getTime()) continue;
+      add(
+        "scheduler_recovery",
+        project.id,
+        `${project.businessName || project.name} · ${lease.plannedPeriod}`,
+        lease.leaseUntil,
+        lease.acquiredAt,
+      );
+    }
     for (const q of queue) {
       const asset = byId.get(q.assetId);
       if (!asset || asset.livePublishStatus === "published") continue;

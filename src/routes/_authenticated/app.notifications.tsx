@@ -80,18 +80,20 @@ function NotificationsPage() {
           }
           const editor = item.kind === "approval_due" || item.kind === "publication_failed";
           const body =
-            item.kind === "cadence_gap"
-              ? t("notifications.coverage", {
-                  missing: item.detail.missing ?? 0,
-                  total: item.detail.total ?? 0,
-                })
-              : t(
-                  item.kind === "approval_due"
-                    ? "notifications.approval"
-                    : item.kind === "publication_failed"
-                      ? "notifications.failure"
-                      : "notifications.manual",
-                );
+            item.kind === "scheduler_recovery"
+              ? t("notifications.recovery")
+              : item.kind === "cadence_gap"
+                ? t("notifications.coverage", {
+                    missing: item.detail.missing ?? 0,
+                    total: item.detail.total ?? 0,
+                  })
+                : t(
+                    item.kind === "approval_due"
+                      ? "notifications.approval"
+                      : item.kind === "publication_failed"
+                        ? "notifications.failure"
+                        : "notifications.manual",
+                  );
           return (
             <article key={item.id} className="rounded-2xl border bg-card p-5 sm:p-6">
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -124,14 +126,14 @@ function NotificationsPage() {
                     <Link
                       to="/app/plan"
                       search={
-                        item.kind === "cadence_gap"
+                        item.kind === "cadence_gap" || item.kind === "scheduler_recovery"
                           ? { view: "calendar" }
                           : { selected: item.target_id }
                       }
                       onClick={() => setActiveProject(item.project_id)}
                     >
                       {t(
-                        item.kind === "cadence_gap"
+                        item.kind === "cadence_gap" || item.kind === "scheduler_recovery"
                           ? "notifications.calendar"
                           : "notifications.open",
                       )}

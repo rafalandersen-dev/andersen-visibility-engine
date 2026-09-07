@@ -40,6 +40,9 @@ beforeAll(async () => {
     [user, other],
   );
   await db.exec(migration);
+  await db.exec(
+    readFileSync("supabase/migrations/20260907200000_scheduler_recovery_notifications.sql", "utf8"),
+  );
 }, 30000);
 beforeEach(async () => {
   await db.exec(
@@ -51,6 +54,18 @@ afterAll(async () => {
   await db?.close();
 });
 describe("durable notification inbox", () => {
+  it("persists and deduplicates recovery incidents, resolving them after completion", async () => {
+    const recovery = { ...event, kind: "scheduler_recovery", targetId: "p" };
+    expect(await scan([recovery])).toBe(true);
+    await scan([recovery], 1, "2026-09-01T11:00:00Z");
+    expect(
+      (await db.query("SELECT kind,active FROM public.operational_notifications")).rows,
+    ).toEqual([{ kind: "scheduler_recovery", active: true }]);
+    await scan([], 1, "2026-09-01T12:00:00Z");
+    expect((await db.query("SELECT active FROM public.operational_notifications")).rows).toEqual([
+      { active: false },
+    ]);
+  });
   it("removes project alerts when their source project is deleted", async () => {
     await scan();
     await db.query(

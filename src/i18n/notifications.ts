@@ -1,5 +1,8 @@
 export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, string>> = {
   en: {
+    "notifications.scheduler_recovery": "Automation needs recovery review",
+    "notifications.recovery":
+      "Preparation paused after an interrupted run. Review saved drafts and the last operation before restarting. Existing publication approvals remain unchanged.",
     "notifications.emailTitle": "Email summaries",
     "notifications.emailDescription":
       "Receive one summary of new alerts, at most once per hour, at your confirmed account address. Each incident appears once.",
@@ -46,6 +49,9 @@ export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, str
     "notifications.readError": "Could not mark this notification as read. Please try again.",
   },
   pl: {
+    "notifications.scheduler_recovery": "Automatyzacja wymaga sprawdzenia",
+    "notifications.recovery":
+      "Przygotowanie treści zatrzymało się po przerwanym przebiegu. Przed wznowieniem sprawdź zapisane szkice i wynik ostatniej operacji. Dotychczasowe zgody na publikację pozostają bez zmian.",
     "notifications.emailTitle": "Podsumowania e-mail",
     "notifications.emailDescription":
       "Otrzymuj zestawienie nowych alertów na potwierdzony adres konta, najwyżej raz na godzinę. Każdy incydent pojawia się raz.",
@@ -94,6 +100,9 @@ export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, str
       "Nie udało się oznaczyć powiadomienia jako przeczytanego. Spróbuj ponownie.",
   },
   sv: {
+    "notifications.scheduler_recovery": "Automatiseringen behöver kontrolleras",
+    "notifications.recovery":
+      "Förberedelsen pausades efter en avbruten körning. Kontrollera sparade utkast och den senaste åtgärden före omstart. Befintliga publiceringsgodkännanden gäller fortfarande.",
     "notifications.emailTitle": "Sammanfattningar via e-post",
     "notifications.emailDescription":
       "Få nya aviseringar till din bekräftade kontoadress, högst en gång i timmen. Varje händelse tas med en gång.",
@@ -141,6 +150,9 @@ export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, str
     "notifications.readError": "Kunde inte markera aviseringen som läst. Försök igen.",
   },
   da: {
+    "notifications.scheduler_recovery": "Automatiseringen skal kontrolleres",
+    "notifications.recovery":
+      "Forberedelsen blev sat på pause efter en afbrudt kørsel. Kontrollér gemte kladder og den seneste handling før genstart. Eksisterende godkendelser af publicering gælder fortsat.",
     "notifications.emailTitle": "Opsummeringer via e-mail",
     "notifications.emailDescription":
       "Modtag nye notifikationer på din bekræftede kontoadresse, højst én gang i timen. Hver hændelse medtages én gang.",
