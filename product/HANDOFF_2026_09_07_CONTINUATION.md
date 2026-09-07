@@ -1,6 +1,6 @@
 # Milo Growth — continuous execution handoff
 
-Updated 2026-09-07, approximately 20:24 UTC. Current Codex task: `01a07ba1-c8b6-7582-9ff0-275d64224671`, saved MILO GROWTH project `g-p-6a732f6015948191999fb9beb8f7bc81`. **No successor task exists.**
+Updated 2026-09-07, approximately 21:02 UTC. Current Codex task: `01a07ba1-c8b6-7582-9ff0-275d64224671`, saved MILO GROWTH project `g-p-6a732f6015948191999fb9beb8f7bc81`. **No successor task exists.**
 
 ## Mandate and boundaries
 
@@ -16,15 +16,21 @@ The actual Lovable build log identified Bun 1.3.3 (274e01c7) rejecting #83 lockf
 
 Worktree `/Users/rafi/Projects/milo-growth-bun-compat`, branch `codex/milo-bun-host-compat-20260907`, clean at main #85. Do not repeat the old failed #83 deployments or remove frozen installation.
 
-## Next rollout: PR #82, then #84
+## #82 and #84 are now merged and published
 
-PR #82 branch `codex/milo-mcp-draft-state-20260907`, worktree `/Users/rafi/Projects/milo-growth-mcp-draft-state`, now includes #85 in pushed merge `563c287`. Combined 1577 tests/120 files, types/build pass; check the new head's review before merging. No migration. It restricts external edits to editable Drafts, preserves actual retry status and invalidates stale assessments after substantive edits. This checks workspace state, not authoritative CMS/queue concurrency.
+#82 merged as `3dd8f1a9b24aaafdb05226fd0a7c8619e90a0b15` after final review passed. Deployment `c078c677-d1e8-41d2-b6cf-822b93ececd1` returned build1788813042380, full fingerprint99f69c8e20618bbf86bdd96da61fae0a494117ab3e933f8644b0de0a15177526, every component matching. That build had null Git metadata; the full input comparison is the evidence. 1577 tests/120 files/types/build passed. No migration.
 
-PR #84 branch `codex/milo-profile-fill-20260907`, worktree `/Users/rafi/Projects/milo-growth-profile-fill`, stacked on #82, now includes its #85 merge. It adds fill-empty profile/Brand Intelligence ownership, stable bounded replay receipts and owner-review conflicts. Previous code head 3b5f484 passed review; verify the latest merged head before rollout. Combined 1610 tests/122 files, types and production build passed again after the host correction.
+#84 merged as `ea2b80d1170051628d4baf896fef5b1b490c9550` after final review passed in9m24s with no comments. Deployment `066ba709-4abe-4abe-b7ee-6cbef62389f5` returned build1788813520100, exact revision, modified=false, full fingerprint8bb137e63431e20c13a941525853ea81fee2e56ce942e560572f84211d5214ef and every component matching. 1610 tests/122 files/types/build passed again after the host correction. Its worktree `/Users/rafi/Projects/milo-growth-profile-fill` is clean at the main merge.
 
-Migration `20260907230000` is ALREADY APPLIED AND REGISTERED, protecting profile and topic-batch receipts from stale browser saves. Seven SQL tests and real rolled-back acceptance passed before application; all 13 projects were retained and no fixtures remain. Do not reapply. No customer profile values were filled.
+The fill-empty tool and editable-Draft boundary are deployed. Real owner/client invocation acceptance remains separate; no live customer profile or draft was edited by these tests. Migration230000 was already applied and registered, with13 projects retained; do not repeat it.
 
-After each merge, confirm exact Lovable source, publish and compare full AND every component fingerprint against the clean checkout. Use a unique verification query parameter when checking the domain. Never infer deployment success from generic API ready/completed status.
+## #86 is migrated and published; #87 then capacity alerts are next
+
+PR #86 merged as18d48c6208eebac614d7637159dad91f69584ece after successful review without comments. Exact migration233000 is now APPLIED AND REGISTERED. Both trigger functions have empty search paths, ordinary execute=false, service-role execute=true; all13 projects retained. Do not reapply. Deployment8ab2b0c0-dda2-495d-b68a-7b2151a10972 produced build1788814761259, exact revision, modified=false, fingerprint70a81dedf2e3c9355457f84849622d4f0f44e3690d59331edd4b5c5fe809cb7b and every component matching.
+
+PR #87, branch codex/milo-email-identity-20260907, worktree /Users/rafi/Projects/milo-growth-email-identity, closes the retained-confirmation-timestamp recipient gap. Require strictly verified identity data for the current account address and user; no editable metadata or old linked-provider email. Source head3d42eac passed review; the branch now includes #86 and completion evidence, so inspect final head review before merge/publication. Combined1626 tests/123 files pass. No migration, account change, preference enablement or send.
+
+Next source worktree /Users/rafi/Projects/milo-growth-capacity-alerts, branch codex/milo-capacity-alerts-20260907, starts from #87. Adds strict read-only shared capacity projection over next-month active scheduler demand, preserving saved drafts and separating unavailable evidence from low allowance. It does not run AI, fund budgets or change quotas. Source currently passes1652 tests/124 files, types/build; migration234500 passed catalog acceptance in rollback and is UNAPPLIED. Complete review and migration/application evidence before publishing this packet.
 
 ## Owner email — completed
 
@@ -34,7 +40,7 @@ The new email identity reports email_verified=false; auth.users retains the old 
 
 ## Completed work to preserve
 
-PRs #63–#81, #83 and #85 are merged (including #67). Exact hashes and detailed scope are in their PRs and `evidence/` records.
+PRs #63–#86 are merged (including #67). Exact hashes and detailed scope are in their PRs and `evidence/` records.
 
 - #63 premium Today/list/inspector/calendar improvements; #64 canonical full scope reconciliation.
 - #65 fail-closed metering and atomic first claim. Eight independent real PostgreSQL sessions admitted 3 and denied 5 at cap 3; fixture removed.
@@ -47,13 +53,13 @@ PRs #63–#81, #83 and #85 are merged (including #67). Exact hashes and detailed
 - #80 isolated Stripe test checkout and signed metadata-only receipt journal. No entitlement mutation, portal/live billing lifecycle or actual Stripe exchange accepted. Migration applied, receipts0; empty unsigned webhook POST returned503 Not configured. No account/key/flag/price changed. Runbook: `docs/billing/STRIPE_SANDBOX_ACCEPTANCE.md`.
 - #81 image storage boundary. Migration applied: both buckets 5MiB JPEG/PNG/WebP, restrictive public mutations for anon/authenticated, service_role bypass verified. Both existing objects (one per bucket, 367112 bytes each) retained. This is not signed-image ingestion completion.
 
-Applied AND registered migrations (prefix20260907): `110000`, `140000`, `150000`, `170000`, `190000`, `200000`, `210000`, `220000`, `230000`. **Do not reapply or repeat fixtures/cron.** No temporary SQL fixtures remain. Application tests use mocked providers; distinguish them from real provider acceptance.
+Applied AND registered migrations (prefix20260907): `110000`, `140000`, `150000`, `170000`, `190000`, `200000`, `210000`, `220000`, `230000`, `233000`. **Do not reapply or repeat fixtures/cron.** No temporary SQL fixtures remain. Application tests use mocked providers; distinguish them from real provider acceptance.
 
 ## User-only dependencies and current evidence
 
 1. USD 5 TOTAL for one real scan/article/image owner test remains unapproved. No paid benchmark has run.
 2. Safari access now provides historical AI request metadata: 20 successful calls / 0.20 displayed credits in the last 30 days, all google/gemini-3-flash-preview. Three token samples were inspected. These are unlabelled historical chat calls, not a measured scan/article/image package. Effective account credit conversion and complete workload rates still need acceptance. See evidence/lovable-console-observations-2026-09-07.md.
-3. One operational test email to rafi@anderseninnovations.com remains approved and UNSENT. The Milo account address was changed and verified in stored state. Lovable confirms milogrowth.com is the current Verified sending domain and shows noreply@milogrowth.com. Fresh mailbox verification/login and end-to-end delivery remain unverified; never infer new mailbox verification from the retained old confirmation timestamp. Do not request the email-change authorization again or send to the old Gmail address.
+3. One operational test email to rafi@anderseninnovations.com remains approved and UNSENT. Safari Custom address test was prepared, but user tab changes interrupted before Send test; an asynchronous question asks when the Lovable tab can be left available for one minute. No send button was activated. Wait for that coordination reply before dependent UI actions. The Milo account address was changed and verified in stored state. Lovable confirms milogrowth.com is the current Verified sending domain and shows noreply@milogrowth.com. Fresh mailbox verification/login and end-to-end delivery remain unverified; never infer new mailbox verification from the retained old confirmation timestamp. Do not request the email-change authorization again or send to the old Gmail address.
 4. Existing Stripe company-administered account and sandbox access: status question pending. Do not ask for keys in chat. No account, key, price, subscription or flag has been created.
 5. No successor task exists; continue this task. An earlier local successor attempt failed for the ChatGPT saved project; the cloud successor choice remains unanswered.
 
