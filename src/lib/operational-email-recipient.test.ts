@@ -6,13 +6,27 @@ vi.mock("@/integrations/supabase/client.server", () => ({
 vi.mock("./operational-notifications.server", () => ({ refreshOperationalNotifications: vi.fn() }));
 import { resolveOperationalEmailRecipient } from "./operational-email.server";
 const userId = "00000000-0000-4000-8000-000000000031";
+function confirmedAccount() {
+  return {
+    id: userId,
+    email: "Owner@Example.test",
+    email_confirmed_at: "2026-09-01T10:00:00Z",
+    identities: [
+      {
+        user_id: userId,
+        provider: "email",
+        identity_data: { email: "owner@example.test", email_verified: true },
+      },
+    ],
+  };
+}
 let suppressed: { data: unknown; error: unknown }, tokens: Array<{ data: unknown; error: unknown }>;
 const queries: Array<{ table: string; filters: Array<[string, unknown]> }> = [];
 beforeEach(() => {
   vi.resetAllMocks();
   queries.length = 0;
   mocks.getUserById.mockResolvedValue({
-    data: { user: { email: "Owner@Example.test", email_confirmed_at: "2026-09-01T10:00:00Z" } },
+    data: { user: confirmedAccount() },
     error: null,
   });
   suppressed = { data: null, error: null };
@@ -52,11 +66,70 @@ describe("operational email recipient verification", () => {
     mocks.getUserById.mockResolvedValue({
       data: {
         user: {
+          ...confirmedAccount(),
           email: kind === "missing" ? null : "owner@example.test",
-          email_confirmed_at: kind === "unconfirmed" ? null : "confirmed",
+          email_confirmed_at: kind === "unconfirmed" ? null : "2026-09-01T10:00:00Z",
         },
       },
       error: kind === "auth_error" ? {} : null,
+    });
+    await expect(resolveOperationalEmailRecipient(userId)).rejects.toThrow("recipient_unavailable");
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+  it("blocks a changed address with a retained timestamp and a verified old Google identity", async () => {
+    const user = confirmedAccount();
+    user.identities[0].identity_data.email_verified = false;
+    user.identities.push({
+      user_id: userId,
+      provider: "google",
+      identity_data: { email: "old@example.test", email_verified: true },
+    });
+    mocks.getUserById.mockResolvedValue({ data: { user }, error: null });
+    await expect(resolveOperationalEmailRecipient(userId)).rejects.toThrow("recipient_unavailable");
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+  it("accepts a verified linked-provider identity only for the current address", async () => {
+    const user = confirmedAccount();
+    user.identities[0].provider = "google";
+    user.identities[0].identity_data.email = "OWNER@EXAMPLE.TEST";
+    mocks.getUserById.mockResolvedValue({ data: { user }, error: null });
+    expect((await resolveOperationalEmailRecipient(userId)).email).toBe("owner@example.test");
+  });
+  it.each([
+    { identities: undefined },
+    { identities: [] },
+    { identities: [null] },
+    { identities: [{ ...confirmedAccount().identities[0], identity_data: {} }] },
+    {
+      identities: [
+        {
+          ...confirmedAccount().identities[0],
+          identity_data: { email: "owner@example.test", email_verified: "true" },
+        },
+      ],
+    },
+    {
+      identities: [
+        { ...confirmedAccount().identities[0], user_id: "00000000-0000-4000-8000-000000000099" },
+      ],
+    },
+    { id: "00000000-0000-4000-8000-000000000099" },
+    { email: "not-an-email" },
+    { email_confirmed_at: "confirmed" },
+  ])("blocks missing, malformed or mismatched confirmation: %j", async (override) => {
+    mocks.getUserById.mockResolvedValue({
+      data: { user: { ...confirmedAccount(), ...override } },
+      error: null,
+    });
+    await expect(resolveOperationalEmailRecipient(userId)).rejects.toThrow("recipient_unavailable");
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+  it("never trusts editable user metadata as address verification", async () => {
+    const user = confirmedAccount();
+    user.identities[0].identity_data.email_verified = false;
+    mocks.getUserById.mockResolvedValue({
+      data: { user: { ...user, user_metadata: { email: user.email, email_verified: true } } },
+      error: null,
     });
     await expect(resolveOperationalEmailRecipient(userId)).rejects.toThrow("recipient_unavailable");
     expect(mocks.from).not.toHaveBeenCalled();
