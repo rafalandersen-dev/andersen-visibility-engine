@@ -70,6 +70,61 @@ describe("atomic assistant-authored topic batches", () => {
     expect(() => applyOpportunityBatch(full, prepared)).toThrow("capacity");
     expect(full.opportunities).toHaveLength(999);
   });
+  it("normalizes optional defaults and whitespace before comparing retries", async () => {
+    const first = applyOpportunityBatch(
+      data,
+      await prepare({ ...args, items: [{ title: "First" }] }),
+    );
+    const retry = await prepare({
+      requestId: "batch-1",
+      items: [{ source: "mcp", priority: "Medium", contentType: "Blog Article", title: " First " }],
+      projectId: "p",
+    });
+    expect(applyOpportunityBatch(first.data, retry).result.deduped).toBe(true);
+  });
+  it("does not reset a topic's later lifecycle on replay", async () => {
+    const first = applyOpportunityBatch(data, await prepare());
+    const edited = {
+      ...first.data,
+      opportunities: (first.data.opportunities as Opportunity[]).map((o) => ({
+        ...o,
+        status: "published" as const,
+      })),
+    };
+    const replay = applyOpportunityBatch(edited, await prepare());
+    expect(replay.result.status).toBe("stored");
+    expect(
+      (replay.data.opportunities as Opportunity[]).every((o) => o.status === "published"),
+    ).toBe(true);
+  });
+  it("bounds replay receipts without pruning them and making old requests repeatable", async () => {
+    const full = {
+      ...data,
+      projects: [
+        {
+          ...data.projects[0],
+          mcpOpportunityBatches: Array.from({ length: 1000 }, (_, i) => ({
+            requestId: String(i),
+            fingerprint: "old",
+            ids: [],
+          })),
+        },
+      ],
+    };
+    const prepared = await prepare();
+    expect(() => applyOpportunityBatch(full, prepared)).toThrow("capacity");
+    expect(full.projects[0].mcpOpportunityBatches).toHaveLength(1000);
+  });
+  it("accepts exactly 25 valid topics and refuses a malformed existing collection", async () => {
+    const prepared = await prepare({
+      ...args,
+      items: Array.from({ length: 25 }, (_, i) => ({ title: `Topic ${i}` })),
+    });
+    expect(applyOpportunityBatch(data, prepared).result.opportunityIds).toHaveLength(25);
+    expect(() =>
+      applyOpportunityBatch({ ...data, opportunities: { invalid: true } }, prepared),
+    ).toThrow("conflict");
+  });
   it("refuses an unknown project", async () => {
     const prepared = await prepare({ ...args, projectId: "missing" });
     expect(() => applyOpportunityBatch(data, prepared)).toThrow("not_found");
