@@ -53,6 +53,56 @@ const scan = (args: Partial<Parameters<typeof operationalNotifications>[0]> = {}
     ...args,
   });
 describe("server operational alert conditions", () => {
+  it("reports expired ownership once across the active-to-unknown transition", () => {
+    const lease = {
+      projectId: "p",
+      plannedPeriod: "2026-10",
+      status: "active" as const,
+      acquiredAt: "2026-09-04T09:00:00Z",
+      leaseUntil: "2026-09-04T09:15:00Z",
+    };
+    const expired = scan({ schedulerLeases: [lease] }).find((e) => e.kind === "scheduler_recovery");
+    const unknown = scan({ schedulerLeases: [{ ...lease, status: "unknown" }] }).find(
+      (e) => e.kind === "scheduler_recovery",
+    );
+    expect(expired).toMatchObject({ projectId: "p", targetId: "p", title: "Business · 2026-10" });
+    expect(expired?.key).toBe(unknown?.key);
+    expect(
+      scan({ schedulerLeases: [{ ...lease, status: "released" }] }).some(
+        (e) => e.kind === "scheduler_recovery",
+      ),
+    ).toBe(false);
+  });
+  it("does not warn during a healthy run or for another project", () => {
+    const lease = {
+      projectId: "p",
+      plannedPeriod: "2026-10",
+      status: "active" as const,
+      acquiredAt: now.toISOString(),
+      leaseUntil: "2026-09-04T10:15:00Z",
+    };
+    expect(
+      scan({ schedulerLeases: [lease, { ...lease, projectId: "other", status: "unknown" }] }).some(
+        (e) => e.kind === "scheduler_recovery",
+      ),
+    ).toBe(false);
+  });
+  it("keeps recovery visible when the project schedule is later disabled", () => {
+    expect(
+      scan({
+        projects: [{ ...project, autoScheduler: { ...project.autoScheduler!, enabled: false } }],
+        schedulerLeases: [
+          {
+            projectId: "p",
+            plannedPeriod: "2026-10",
+            status: "unknown",
+            acquiredAt: "2026-09-04T09:00:00Z",
+            leaseUntil: "2026-09-04T09:15:00Z",
+          },
+        ],
+      }).map((e) => e.kind),
+    ).toEqual(["scheduler_recovery"]);
+  });
   it("only marks the current unapproved version near its actual queued deadline", () => {
     const found = scan({ assets: [asset], scheduled: [scheduled] });
     expect(found.filter((e) => e.kind === "approval_due")).toHaveLength(1);
