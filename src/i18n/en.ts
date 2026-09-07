@@ -998,6 +998,11 @@ export const en: Record<string, string> = {
   "connect.error.generic": "Something went wrong. Please start again from Claude.",
 
   // ---- Billing ----
+  "billing.stripeTest.title": "Stripe payment test",
+  "billing.stripeTest.description": "Owner-only test checkout. Use Stripe test payment details. No real charge is made and your Milo plan does not change.",
+  "billing.stripeTest.open": "Open test checkout",
+  "billing.stripeTest.opening": "Opening…",
+  "billing.stripeTest.error": "The test checkout could not be confirmed. Retry here to reuse the same attempt.",
   "billing.title": "Billing & plan",
   "billing.subtitle": "Manage your plan, billing profile and add-ons.",
   "billing.owner.title": "Owner account",

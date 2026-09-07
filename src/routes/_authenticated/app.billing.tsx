@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { StripeSandboxPanel } from "@/components/StripeSandboxPanel";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -201,6 +202,8 @@ function BillingPage() {
           </div>
         </div>
       ) : null}
+
+      {isOwner ? <StripeSandboxPanel /> : null}
 
       {/* Current plan */}
       <section className="rounded-xl border border-border bg-card p-6">

@@ -997,6 +997,11 @@ export const pl: Record<string, string> = {
   "connect.error.generic": "Coś poszło nie tak. Zacznij ponownie z Claude.",
 
   // ---- Billing ----
+  "billing.stripeTest.title": "Test płatności Stripe",
+  "billing.stripeTest.description": "Test dostępny tylko dla właściciela. Użyj testowych danych płatniczych Stripe. Nie pobiera prawdziwych pieniędzy ani nie zmienia planu Milo.",
+  "billing.stripeTest.open": "Otwórz płatność testową",
+  "billing.stripeTest.opening": "Otwieranie…",
+  "billing.stripeTest.error": "Nie udało się potwierdzić płatności testowej. Ponów tutaj, aby użyć tej samej próby.",
   "billing.title": "Rozliczenia i plan",
   "billing.subtitle": "Zarządzaj planem, profilem rozliczeniowym i dodatkami.",
   "billing.owner.title": "Konto właściciela",
