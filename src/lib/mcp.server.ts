@@ -8,6 +8,7 @@
  * never returned after creation, never logged. All tools are scoped to the
  * resolved user's own workspace. Never import from client code.
  */
+import { applyExternalDraftEdits, assertExternalDraftEditable, ExternalDraftStateError } from "./external-draft";
 import { brandProposal, brandProposalEntries } from "./brand-proposal";
 import { opportunityBatchSchema, prepareOpportunityBatch, applyOpportunityBatch, OpportunityBatchError } from "./mcp-opportunity-batch";
 import { projectReadiness } from "./project-readiness";
@@ -858,7 +859,7 @@ const CONTENT_WRITE_TOOLS: ContentWriteToolDef[] = [
   {
     name: "update_content_draft",
     description:
-      "Edit an existing Milo content DRAFT by id (write). Refuses any article that is already published — drafts only. Provide contentId plus at least one field to change. Confirm with the user before calling.",
+      "Edit an existing Milo content DRAFT by id (write). Requires Draft status and no known active or unresolved publication state. Approved or scheduled material must first be reviewed in Milo. Content edits invalidate previous assessment results. Provide contentId plus at least one field to change. Confirm with the user before calling.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -872,9 +873,6 @@ const CONTENT_WRITE_TOOLS: ContentWriteToolDef[] = [
     annotations: WRITE_ANNOTATIONS,
   },
 ];
-
-/** Thrown when an update targets an asset that is already live (guardrail). */
-class ContentPublishedError extends Error {}
 
 interface ContentDraftInput {
   projectId?: string;
@@ -984,16 +982,16 @@ async function runContentCreate(
   userId: string,
   input: ContentDraftInput,
   ids: { entityId: string; nowIso: string },
-): Promise<{ entityId: string; deduped: boolean }> {
+): Promise<{ entityId: string; deduped: boolean; status: string }> {
   const { mutateWorkspace } = await import("./workspace.server");
-  const { result } = await mutateWorkspace<{ entityId: string; deduped: boolean }>(userId, (data) => {
+  const { result } = await mutateWorkspace<{ entityId: string; deduped: boolean; status: string }>(userId, (data) => {
     const projects = ((data.projects as Partial<Project>[] | undefined) ?? []).filter(Boolean);
     const project = projects.find((p) => p.id === input.projectId);
     if (!project) throw new EntityNotFoundError();
     const content = ((data.content as ContentAsset[] | undefined) ?? []).filter(Boolean);
     if (input.requestId) {
       const existing = content.find((c) => c.requestId === input.requestId && c.projectId === input.projectId);
-      if (existing) return { data, result: { entityId: String(existing.id), deduped: true } };
+      if (existing) return { data, result: { entityId: String(existing.id), deduped: true, status: String(existing.status ?? "unknown") } };
     }
     if (input.opportunityId) {
       const opportunities = ((data.opportunities as Opportunity[] | undefined) ?? []).filter(Boolean);
@@ -1031,7 +1029,7 @@ async function runContentCreate(
       updatedAt: ids.nowIso,
       ...(input.requestId ? { requestId: input.requestId } : {}),
     } as ContentAsset;
-    return { data: { ...data, content: [...content, asset] }, result: { entityId: ids.entityId, deduped: false } };
+    return { data: { ...data, content: [...content, asset] }, result: { entityId: ids.entityId, deduped: false, status: "Draft" } };
   });
   return result;
 }
@@ -1041,18 +1039,17 @@ async function runContentUpdate(
   userId: string,
   input: ContentDraftInput,
   nowIso: string,
-): Promise<{ entityId: string; deduped: boolean }> {
+): Promise<{ entityId: string; deduped: boolean; status: string }> {
   const { mutateWorkspace } = await import("./workspace.server");
-  const { result } = await mutateWorkspace<{ entityId: string; deduped: boolean }>(userId, (data) => {
+  const { result } = await mutateWorkspace<{ entityId: string; deduped: boolean; status: string }>(userId, (data) => {
     const content = ((data.content as ContentAsset[] | undefined) ?? []).filter(Boolean);
     const idx = content.findIndex((c) => c.id === input.contentId);
     if (idx === -1) throw new EntityNotFoundError();
     const cur = content[idx];
-    // Guardrail: never touch a published article — drafts only.
-    if (cur.livePublishStatus === "published" || cur.liveUrl || cur.publishStatus === "sent") {
-      throw new ContentPublishedError();
-    }
-    const patch: Partial<ContentAsset> = { updatedAt: nowIso };
+    assertExternalDraftEditable(cur);
+    const projects = ((data.projects as Partial<Project>[] | undefined) ?? []).filter(Boolean);
+    if (!projects.some((project) => project.id === cur.projectId)) throw new EntityNotFoundError();
+    const patch: Partial<ContentAsset> = {};
     if (input.title !== undefined) patch.title = input.title;
     if (input.slug !== undefined) patch.slug = input.slug;
     if (input.metaTitle !== undefined) patch.metaTitle = input.metaTitle;
@@ -1065,10 +1062,10 @@ async function runContentUpdate(
     if (input.faq !== undefined) patch.faq = input.faq;
     if (input.internalLinks !== undefined) patch.internalLinks = input.internalLinks;
     if (input.schemaSuggestions !== undefined) patch.schemaSuggestions = input.schemaSuggestions;
-    const next = { ...cur, ...patch };
+    const next = applyExternalDraftEdits(cur, patch, nowIso);
     const nextContent = [...content];
     nextContent[idx] = next;
-    return { data: { ...data, content: nextContent }, result: { entityId: cur.id, deduped: false } };
+    return { data: { ...data, content: nextContent }, result: { entityId: cur.id, deduped: false, status: next.status } };
   });
   return result;
 }
@@ -1117,19 +1114,19 @@ async function dispatchContentWriteTool(
   const entityId = Math.random().toString(36).slice(2, 10);
   const nowIso = new Date().toISOString();
   try {
-    const { entityId: outId, deduped } = isCreate
+    const { entityId: outId, deduped, status } = isCreate
       ? await runContentCreate(grant.userId, input, { entityId, nowIso })
       : await runContentUpdate(grant.userId, input, nowIso);
     await hooks?.audit?.("mcp_write", { ...auditBase, entityIds: [outId], ...(deduped ? { deduped: true } : {}), ok: true });
     const payload = isCreate
-      ? { contentId: outId, projectId: input.projectId, status: "Draft", ...(deduped ? { deduped: true } : {}) }
-      : { contentId: outId, status: "Draft", updated: true };
+      ? { contentId: outId, projectId: input.projectId, status, ...(deduped ? { deduped: true } : {}) }
+      : { contentId: outId, status, updated: true };
     return result(id, { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }] });
   } catch (e) {
     const { WorkspaceConflictError, WorkspaceNotFoundError } = await import("./workspace.server");
-    if (e instanceof ContentPublishedError) {
-      await hooks?.audit?.("mcp_write", { ...auditBase, ok: false, error: "published" });
-      return rpcError(id, -32014, "That article is already published — this tool edits drafts only.");
+    if (e instanceof ExternalDraftStateError) {
+      await hooks?.audit?.("mcp_write", { ...auditBase, ok: false, error: "not_editable" });
+      return rpcError(id, -32014, "This tool edits unpublished Drafts only. Review any approval or publication attempt in Milo before editing.");
     }
     if (e instanceof EntityNotFoundError || e instanceof WorkspaceNotFoundError) {
       await hooks?.audit?.("mcp_write", { ...auditBase, ok: false, error: "not_found" });
