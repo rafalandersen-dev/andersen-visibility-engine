@@ -59,6 +59,8 @@ function sourceToPrimary(source?: OpportunitySource): OpportunityPrimarySource {
       return "backlinks";
     case "claude":
       return "claude";
+    case "mcp":
+      return "mcp";
     case "manual":
       return "manual";
     default:
@@ -78,6 +80,7 @@ export function opportunitySourceLabel(opportunity: Opportunity): string {
     authority: "Authority",
     backlinks: "Backlinks",
     claude: "Claude",
+    mcp: "Connected assistant",
     manual: opportunity.creationMode === "milo_discovery" ? "Milo discovery" : "Manual",
   };
   return labels[source];
