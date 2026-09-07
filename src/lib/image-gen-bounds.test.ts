@@ -3,6 +3,7 @@ import {
   generateImageBytes,
   IMAGE_GENERATION_TIMEOUT_MS,
   IMAGE_RESPONSE_MAX_BYTES,
+  IMAGE_RESPONSE_MAX_CHUNKS,
   ImageGenError,
 } from "./image-gen.server";
 import { MAX_IMAGE_BYTES } from "./image-storage";
@@ -166,6 +167,29 @@ describe.each(providers)("%s image request bounds", (provider) => {
       expect(cancel).toHaveBeenCalledOnce();
     },
   );
+
+  it("bounds work and storage overhead for excessive empty chunks", async () => {
+    configure(provider);
+    const cancel = vi.fn();
+    let count = 0;
+    const stream = new ReadableStream<Uint8Array>(
+      {
+        pull(controller) {
+          count++;
+          controller.enqueue(new Uint8Array());
+        },
+        cancel,
+      },
+      { highWaterMark: 0 },
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(stream)),
+    );
+    await expect(generateImageBytes("sample")).rejects.toThrow(/oversized/);
+    expect(count).toBe(IMAGE_RESPONSE_MAX_CHUNKS + 1);
+    expect(cancel).toHaveBeenCalledOnce();
+  });
 
   it("accepts the decoded size boundary but rejects one extra byte", async () => {
     configure(provider);

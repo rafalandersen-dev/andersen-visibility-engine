@@ -20,6 +20,7 @@ const OPENAI_IMAGES_URL = "https://api.openai.com/v1/images/generations";
 export const IMAGE_GENERATION_TIMEOUT_MS = 120_000;
 // One 5 MiB image in base64 plus bounded JSON/text metadata.
 export const IMAGE_RESPONSE_MAX_BYTES = 8 * 1024 * 1024;
+export const IMAGE_RESPONSE_MAX_CHUNKS = 16_384;
 const MAX_BASE64_LENGTH = Math.ceil(MAX_IMAGE_BYTES / 3) * 4;
 const RESPONSE_ERROR = "The image service returned an invalid or oversized response.";
 
@@ -106,23 +107,27 @@ async function imageResponse(url: string, init: RequestInit): Promise<unknown> {
       throw new ImageGenError(RESPONSE_ERROR);
     }
     if (!reader) throw new ImageGenError(RESPONSE_ERROR);
-    const chunks: Uint8Array[] = [];
+    // Fixed storage also bounds overhead from many tiny stream chunks.
+    const bytes = new Uint8Array(IMAGE_RESPONSE_MAX_BYTES);
+    let chunkCount = 0;
     let size = 0;
     for (;;) {
       const { done, value } = await reader.read();
       if (controller.signal.aborted) throw controller.signal.reason;
       if (done) break;
+      chunkCount++;
+      if (
+        chunkCount > IMAGE_RESPONSE_MAX_CHUNKS ||
+        size + value.byteLength > IMAGE_RESPONSE_MAX_BYTES
+      ) {
+        throw new ImageGenError(RESPONSE_ERROR);
+      }
+      bytes.set(value, size);
       size += value.byteLength;
-      if (size > IMAGE_RESPONSE_MAX_BYTES) throw new ImageGenError(RESPONSE_ERROR);
-      chunks.push(value);
     }
-    const bytes = new Uint8Array(size);
-    let offset = 0;
-    for (const chunk of chunks) {
-      bytes.set(chunk, offset);
-      offset += chunk.byteLength;
-    }
-    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) as unknown;
+    return JSON.parse(
+      new TextDecoder("utf-8", { fatal: true }).decode(bytes.subarray(0, size)),
+    ) as unknown;
   };
   try {
     return await Promise.race([read(), deadline]);

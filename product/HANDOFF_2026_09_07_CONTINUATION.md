@@ -1,6 +1,6 @@
 # Milo Growth — continuous execution handoff
 
-Updated 2026-09-07, approximately21:53UTC. Current Codex task: `01a07ba1-c8b6-7582-9ff0-275d64224671`, saved MILO GROWTH project `g-p-6a732f6015948191999fb9beb8f7bc81`. **No successor task exists.**
+Updated 2026-09-07, approximately22:06UTC. Current Codex task: `01a07ba1-c8b6-7582-9ff0-275d64224671`, saved MILO GROWTH project `g-p-6a732f6015948191999fb9beb8f7bc81`. **No successor task exists.**
 
 ## Mandate and boundaries
 
@@ -8,13 +8,17 @@ Continue the entire R00–R24 / D01–D08 plan to 100%, deployment first. Preser
 
 Company owner/admin email is rafi@anderseninnovations.com. Never write secrets, JWTs, passwords or private authentication links to chat, logs or repositories. No paid AI benchmark, customer CMS publication or supplier order has run. The approved manual owner email test is now provider-reported delivered; see the latest update below. No provider keys, flags or rates were changed.
 
+## Account and test completion — supersedes historical unverified/UNSENT statements
+
+The company mailbox was opened; the [Test] notification conversation contains23:14 and23:50 Stockholm messages, both fromnoreply@milogrowth.com. The23:50 message's Open workspace link opened authenticated Milo with the company address and10 projects. Based on this observed mailbox/access evidence, the existing account was administratively confirmed via Auth Admin API (same email,email_confirm=true) at22:04:49UTC,HTTP200. Current email identity verified=true; fresh timestamp; sameownerrole/projects/password/Googleidentity. No extra email. This was administrative confirmation, not an Auth-link/fresh-login claim. Credential stayedinsideDB,temporaryhttp extensionrolledbackabsent. First transport preparation failed on unavailablehttp_headershelper before the corrected singularhttp_header request; account was independently unchanged before correcting it. Live settings refresh removed the unverified warning and still shows global sending disabled; operationaloutbox0. DO NOT repeat email update,confirmation orsend.
+
 ## Latest continuation: #90 published; image transport bounds next
 
 Current main is2a722e404a2799a7979f8609b443d62ad6ab22c7 (#90). Review of head2d1395d passed without comments. Lovable deployment297bbe3b-72fd-4760-9c57-6b145f83e8f5 returned public build1788817336040, exact revision, modified=false, full fingerprint21a32ee4514fd28ea79fb7774877c513b8708100f6b74a1dc0fe71b72e90f47a and ALL component matches. No migration. Do not re-publish #90 unnecessarily.
 
-Next worktree /Users/rafi/Projects/milo-growth-image-bounds, branch codex/milo-image-bounds-20260907 from #90. Adds120s request/body deadline,8MiB streamed envelope and5MiB decoded image limit to both existing image suppliers; strict base64, no credential-bearing redirects/retry/fallback, sanitized uncertain timeout. 47 new tests;1734 total/129 files,types/build/lint pass. No dependency, configuration, model, quota, migration or paid call changed. Review/publication pending.
+Next worktree /Users/rafi/Projects/milo-growth-image-bounds, branch codex/milo-image-bounds-20260907 from #90. Adds120s request/body deadline,8MiB streamed envelope and5MiB decoded image limit to both existing image suppliers; strict base64, no credential-bearing redirects/retry/fallback, sanitized uncertain timeout. 49 new tests;1736 total/129 files,types/build/lint pass. No dependency, configuration, model, quota, migration or paid call changed. Review/publication pending.
 
-EMAIL CORRECTION: the owner made Safari available. Current stored company email and current Verified sender domain were confirmed. App emails Notification custom-recipient dialog was freshly checked and Send test clicked ONCE around21:50UTC for rafi@anderseninnovations.com. Provider log shows this completed (129ms send) PLUS an earlier completed test around21:14UTC (107ms), actor not established. Delivered2/bounced0. Earlier UNSENT assertions below are historical and superseded: do not send again. No opt-in/flag change. This sample-template transport test does not confirm Auth identity or exercise the application's outbox. Recipient mailbox inspection remains open. See evidence/operational-email-owner-test-2026-09-07.md.
+EMAIL CORRECTION: the owner made Safari available. Current stored company email and current Verified sender domain were confirmed. App emails Notification custom-recipient dialog was freshly checked and Send test clicked ONCE around21:50UTC for rafi@anderseninnovations.com. Provider log shows this completed (129ms send) PLUS an earlier completed test around21:14UTC (107ms), actor not established. Delivered2/bounced0. Earlier UNSENT assertions below are historical and superseded: do not send again. No opt-in/flag change. This sample-template transport test does not confirm Auth identity or exercise the application's outbox. Recipient mailbox and link inspection are now complete; the account confirmation update above supersedes this initial observation. See evidence/operational-email-owner-test-2026-09-07.md.
 
 ## Deployment discrepancy resolved in PR #85
 

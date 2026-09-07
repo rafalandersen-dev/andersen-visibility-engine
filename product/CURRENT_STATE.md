@@ -10,7 +10,7 @@
 
 **Current phase:** Private beta; premium rebuild and launch foundations
 
-The owner explicitly requested and received an administrative email change to rafi@anderseninnovations.com on2026-09-07. The same Milo account,10 projects, owner role, entitlement and Google identity were preserved. This supersedes older missing-company-account observations. The approved owner test now has provider-reported delivery, with a separate earlier test discovered in the sender log. Fresh Auth mailbox verification/login remains incomplete; see [account ownership](./ACCOUNT_OWNERSHIP.md).
+The owner explicitly requested and received an administrative email change to rafi@anderseninnovations.com on2026-09-07. The same Milo account,10 projects, owner role, entitlement and Google identity were preserved. This supersedes older missing-company-account observations. The approved owner test now has provider-reported delivery, with a separate earlier test discovered in the sender log. The current email identity was administratively confirmed after mailbox/access evidence at22:04:49UTC; fresh login remains untested; see [account ownership](./ACCOUNT_OWNERSHIP.md).
 
 ## Recovery brief
 
@@ -102,9 +102,9 @@ The detailed [route/capability map](../docs/premium-redesign/FEATURE_INVENTORY.m
 
 PR #90 is reviewed, merged and published: build1788817336040, exact revision2a722e404a2799a7979f8609b443d62ad6ab22c7, modified=false and full/every component fingerprints match. It adds read-only inspection of retained drafts/queue records before recovery; it does not perform reset/retry or establish CMS results. No migration. #86–#89 remain migrated/published; do not repeat migrations233000/234500 or cron150.
 
-The next image-provider bounds packet adds a120-second shared deadline, bounded8MiB response/5MiB decoded image, strict base64 and no automatic retries/redirects. Combined1734 tests/129 files/types/build/lint pass; review/publication remain. Continue R05/R06/R09 and the full roadmap after that packet.
+The next image-provider bounds packet adds a120-second shared deadline, bounded8MiB response/5MiB decoded image, strict base64 and no automatic retries/redirects. Combined1736 tests/129 files/types/build/lint pass; review/publication remain. Continue R05/R06/R09 and the full roadmap after that packet.
 
-The approved custom-address owner email test was clicked ONCE around21:50UTC. Lovable reports two tests delivered to the company address: this test and an earlier entry around21:14UTC whose actor is unverified. Do not repeat the send. This corrects the earlier UNSENT global assertion; see evidence/operational-email-owner-test-2026-09-07.md. No application email opt-in/flag was changed; current Auth email identity remains unverified. Active cost accounting still needs verified rates/budget, and Stripe needs existing company sandbox access.
+The approved custom-address owner email test was clicked ONCE around21:50UTC. Lovable reports two tests delivered to the company address: this test and an earlier entry around21:14UTC whose actor is unverified. Do not repeat the send. This corrects the earlier UNSENT global assertion; see evidence/operational-email-owner-test-2026-09-07.md. No application email opt-in/flag was changed; current Auth email identity was administratively confirmed at22:04:49UTC after the new message was opened in the company mailbox; the live warning disappeared. Runtime email settings show global sending disabled. Active cost accounting still needs verified rates/budget, and Stripe needs existing company sandbox access.
 
 ## References and historical evidence
 
