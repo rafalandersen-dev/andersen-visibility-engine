@@ -18,6 +18,24 @@ Fresh isolated Bun frozen installation with lifecycle scripts disabled succeeded
 
 ## Remaining release check
 
+### September 7, 20:10 UTC: host-version failure identified
+
+The owner supplied access to the logged-in Safari Lovable editor. Its History showed #83 synchronized but #81 still marked Published; the preview also remained on c314f1e6 and reported that it was behind. A bounded publication through the UI returned Publishing failed. The More info control exposed the actual build log:
+
+```text
+install (--ignore-scripts) failed with exit status 1
+error: Unknown lockfile version at bun.lock:2:22
+UnknownLockfileVersion: failed to parse lockfile: 'bun.lock'
+error: lockfile had changes, but lockfile is frozen
+bun install v1.3.3 (274e01c7)
+```
+
+This explains why #83 itself could not publish: its Bun 1.4 format version 2 is unreadable by the observed Bun 1.3.3 builder. It does not establish the exact transformation of the earlier #81 lock or the earlier #72 discrepancy. The generic project API status ready/completed was not a successful-publication signal.
+
+The host-compatibility correction changes only lockfileVersion from 2 to 1 in bun.lock. Every package record, resolved version, integrity hash, dependency relationship and manifest entry is byte-for-byte preserved. A separate 1.3.3 npm migration was inspected but not adopted because it would introduce unnecessary metadata differences. The frozen-install guard, 24-hour package-age rule, exception list and release fingerprints remain intact. CI now performs fresh install, tests, types and build on both Bun 1.3.3 (observed host) and 1.4.0.
+
+Before the correction, local Bun 1.3.3+274e01c73 reproduced the exact UnknownLockfileVersion failure. After the one-line format correction, a fresh physical installation with --frozen-lockfile --ignore-scripts passed, followed by 1553 tests in 119 files, TypeScript and production build. Bun 1.3.3 and npm audits both reported zero vulnerabilities. Production equivalence remains a required post-merge check.
+
 Review/merge the correction, require Lovable to synchronize the exact merge, publish, then compare full and all component fingerprints. Report unavailable Git metadata honestly if the build is an archive. Do not claim content mismatch is resolved until the public response matches the corrected source. #82 external Draft-state safety is reviewed/ready but its rollout is held behind this deployment correction. Storage migration220000 is already applied with5MiB JPEG/PNG/WebP bounds, restrictive public-write policies and both existing objects retained; do not repeat it.
 
 Sources: [Bun lockfile migration](https://bun.sh/docs/pm/lockfile), [preserving npm resolved versions](https://bun.com/guides/install/from-npm-install-to-bun-install), [frozen installation](https://bun.com/docs/pm/cli/install), [install.frozenLockfile configuration](https://bun.com/docs/runtime/bunfig).
