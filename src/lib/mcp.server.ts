@@ -9,6 +9,7 @@
  * resolved user's own workspace. Never import from client code.
  */
 import { brandProposal, brandProposalEntries } from "./brand-proposal";
+import { opportunityBatchSchema, prepareOpportunityBatch, applyOpportunityBatch, OpportunityBatchError } from "./mcp-opportunity-batch";
 import { projectReadiness } from "./project-readiness";
 import { newOpportunityRecord } from "./opportunities";
 import { slugifyForPublish } from "./markdown";
@@ -384,6 +385,7 @@ export const TOOL_SCOPES: Record<string, string> = {
   list_authority_opportunities: "milo.authority.read",
   create_growth_task: "milo.tasks.write",
   create_project_recommendation: "milo.projects.write",
+  create_opportunities_batch: "milo.projects.write",
   create_content_draft: "milo.content.write",
   update_content_draft: "milo.content.write",
   create_pending_action: "milo.actions.propose",
@@ -392,7 +394,7 @@ export const TOOL_SCOPES: Record<string, string> = {
 };
 
 /** Names of the Phase 1A write tools (flag- and scope-gated). */
-export const WRITE_TOOL_NAMES = ["create_growth_task", "create_project_recommendation"] as const;
+export const WRITE_TOOL_NAMES = ["create_growth_task", "create_project_recommendation", "create_opportunities_batch"] as const;
 type WriteToolName = (typeof WRITE_TOOL_NAMES)[number];
 
 function isWriteTool(name: string): name is WriteToolName {
@@ -487,6 +489,30 @@ interface WriteToolDef {
 }
 
 const WRITE_TOOLS: WriteToolDef[] = [
+  {
+    name: "create_opportunities_batch",
+    description: "Store 1–25 assistant-authored topics atomically as captured opportunities. No Milo generation, scheduling or publication. Confirm the user's intended project and plan before writing. Use a stable requestId and identical items for retries; changed or partially missing batches require review.",
+    inputSchema: {
+      type: "object", additionalProperties: false, required: ["projectId", "requestId", "items"],
+      properties: {
+        projectId: { type: "string", minLength: 1, maxLength: 100 },
+        requestId: { type: "string", minLength: 1, maxLength: 100 },
+        items: { type: "array", minItems: 1, maxItems: 25, items: {
+          type: "object", additionalProperties: false, required: ["title"],
+          properties: {
+            title: { type: "string", minLength: 1, maxLength: 200 },
+            rationale: { type: "string", minLength: 1, maxLength: 2000 },
+            contentType: { type: "string", enum: CONTENT_TYPES },
+            priority: { type: "string", enum: PRIORITIES },
+            language: { type: "string", enum: LANGUAGES },
+            source: { type: "string", enum: ["mcp", "competitor"] },
+          },
+        } },
+      },
+    },
+    annotations: WRITE_ANNOTATIONS,
+  },
+
   {
     name: "create_growth_task",
     description:
@@ -670,6 +696,27 @@ function providedFieldNames(input: WriteInput): string[] {
     .sort();
 }
 
+async function dispatchOpportunityBatch(grant: McpGrant, id: JsonRpcMessage["id"], args: Record<string, unknown>, hooks?: McpHooks): Promise<object> {
+  const parsed = opportunityBatchSchema.safeParse(args);
+  if (!parsed.success) return rpcError(id, -32010, "Invalid batch: provide a project, stable requestId and 1–25 valid topics.");
+  const { mutateWorkspace, WorkspaceConflictError, WorkspaceNotFoundError } = await import("./workspace.server");
+  const detail = { tool: "create_opportunities_batch", projectId: parsed.data.projectId, requestId: parsed.data.requestId, action: "create", fieldsChanged: ["items"], count: parsed.data.items.length };
+  try {
+    const prepared = await prepareOpportunityBatch(parsed.data);
+    const { result: payload } = await mutateWorkspace(grant.userId, (data) => applyOpportunityBatch(data, prepared));
+    await hooks?.audit?.("mcp_write", { ...detail, entityIds: payload.opportunityIds, deduped: payload.deduped, ok: true });
+    return result(id, { content: [{ type: "text", text: JSON.stringify(payload) }] });
+  } catch (error) {
+    const reason = error instanceof OpportunityBatchError ? error.reason : error instanceof WorkspaceNotFoundError ? "not_found" : error instanceof WorkspaceConflictError ? "busy" : "internal";
+    await hooks?.audit?.("mcp_write", { ...detail, ok: false, error: reason });
+    if (reason === "not_found") return rpcError(id, -32011, "Not found.");
+    if (reason === "conflict") return rpcError(id, -32010, "This requestId already has different or incomplete results. Review the existing plan before using a new requestId.");
+    if (reason === "capacity") return rpcError(id, -32010, "The workspace cannot accept this whole batch. No topics were added.");
+    if (reason === "busy") return rpcError(id, -32012, "Workspace busy — try again with the same requestId.");
+    return result(id, { content: [{ type: "text", text: "Milo could not complete that batch. Check the plan and retry with the same requestId." }], isError: true });
+  }
+}
+
 /** Execute one write tool call end-to-end: rate limit → validate → mutate → audit. */
 async function dispatchWriteTool(
   grant: McpGrant,
@@ -684,6 +731,8 @@ async function dispatchWriteTool(
     if (rl.shouldAudit) await hooks.audit?.("rate_limited", { bucket: "write", window_start: rl.windowStartIso });
     if (!rl.allowed) return rpcError(id, -32003, "Rate limit reached for this tool — try again later.");
   }
+
+  if (name === "create_opportunities_batch") return dispatchOpportunityBatch(grant, id, args, hooks);
 
   let input: WriteInput;
   try {

@@ -1,5 +1,15 @@
 # Milo Growth — continuous execution handoff
 
+## Latest authoritative continuation — approximately14:00 UTC
+
+Main is now `a5904e1473b8a08193ef859eb9552bcdd01627e7` (#77). PRs #63–#77 including #67 are merged. Current public build1788789352664 matches this revision, modified=false, full fingerprint233c69d17ff46d9f3eab86361eedd71062553510fadd56f31e1fc0f9d26c5b1a and every component. #75 notifications are migrated/published; automatic13:45UTC scan checked5 accounts, failed0/stale0. #76 read-only profile completeness and #77 project-scoped MCP replay/reference checks are published. #67 is merged and bundled but remains inactive: monetary tables absent, no budgets funded, no provider wiring. Latest database check:0 email opt-ins and0 outbox rows. No real email or paid provider test has occurred.
+
+Only current implementation worktree: `/Users/rafi/Projects/milo-growth-mcp-batch`, branch `codex/milo-mcp-batch-20260907`, based main #77. Code commit a64a6d6 plus merge f64b9f4, with subsequent validation/evidence updates (inspect exactHEAD and GitHub PR by branch). The atomic 1–25 topic batch tool is implemented under existing projects.write, strict validation and write gate; project receipts preserve request identity after topic deletion. 1,493 tests/114files, types/build/focused helper/domain lint/diff checks pass. No migration required; source/runtime rollout still pending for this packet. Older worktrees are retained audit checkouts, not active parallel agents.
+
+Next: finish batch PR review/merge/publication with full source comparison; preserve all current evidence. Then continue image-ingest/profile proposal and R05/R06/R09/full R00–R24 work as authorized. Remaining real-cost, one-email account-condition, protected-browser and cloud-successor questions below are still pending. Do not repeat completed SQL migrations, create another cron, reset unknown leases or claim100%. No successor exists. The sections below preserve the earlier13:36UTC audit and remain historical where superseded by this latest snapshot.
+
+---
+
 Updated 2026-09-07, approximately 13:36 UTC. Current Codex task `01a07ba1-c8b6-7582-9ff0-275d64224671` (Kontynuuj plan Milo Growth). Saved MILO GROWTH project `g-p-6a732f6015948191999fb9beb8f7bc81`. This supersedes earlier continuation status; preserve historical evidence in Git.
 
 ## Mandate and boundaries

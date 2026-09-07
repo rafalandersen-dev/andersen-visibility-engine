@@ -40,7 +40,7 @@ export type ContentStatus = "Draft" | "In Review" | "Approved" | "Rejected" | "E
 
 /** Where a Linked opportunity originated (Content Engine 2.0 source context). */
 export type OpportunitySource =
-  "audit" | "competitor" | "manual" | "authority" | "aiVisibility" | "claude" | "backlinks";
+  "audit" | "competitor" | "manual" | "authority" | "aiVisibility" | "claude" | "mcp" | "backlinks";
 
 export type OpportunityCreationMode = "milo_discovery" | "manual" | "system_follow_up";
 
@@ -54,6 +54,7 @@ export type OpportunityPrimarySource =
   | "authority"
   | "backlinks"
   | "claude"
+  | "mcp"
   | "manual";
 
 export interface OpportunitySourceRef {
@@ -208,6 +209,8 @@ export type OnboardingLanguage = "en" | "pl" | "sv" | "da";
 
 export interface Project {
   id: string;
+  /** Bounded server-written replay receipts; retained after individual topics are removed. */
+  mcpOpportunityBatches?: Array<{ requestId: string; fingerprint: string; ids: string[] }>;
   name: string;
   websiteUrl: string;
   businessName: string;
@@ -477,6 +480,8 @@ export interface Opportunity {
   status: OpportunityStatus;
   /** Origin of the opportunity (set for audit/competitor-derived ones). */
   source?: OpportunitySource;
+  /** Atomic connector batch identity; never a publication approval. */
+  mcpBatch?: { requestId: string; fingerprint: string; index: number; total: number };
   /** Idempotency key for connector-created opportunities (Phase 1A). */
   requestId?: string;
   /** Set for connector-created opportunities (Phase 1A). */
