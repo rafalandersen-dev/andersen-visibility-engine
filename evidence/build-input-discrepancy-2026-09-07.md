@@ -7,3 +7,7 @@ The new build is present, but source equivalence is **not verified**. Missing Gi
 This diagnostic packet adds hashes of the existing fixed public input groups to the same build-time identity. It retains the original combined algorithm. Only group names and hashes are emitted; no contents, credentials, environment variables or extra filesystem paths are exposed. Missing groups report null. There is still no per-request filesystem or Git operation.
 
 Validation: 1,415 tests across 109 files, including nine release-identity cases for localized lockfile change and environment exclusion. TypeScript, production build and focused lint pass. Source matching, protected user journeys and runtime configuration are separate acceptance claims.
+
+## Current runtime restored
+
+Publication `474ff448-9af4-4a07-8e60-d231903dff56`, after exact Lovable synchronization to #74 merge `1922a85c6d91686597232a84bcf75f4c2dc2a27e`, yielded domain build `1788788051284`. At approximately13:36 UTC the public response matched the revision, modified=false, full fingerprint `9907bdeb086dbce604bd92139c8d41382741eecb8666beacc8b17a21d256378f` and every component hash from the clean checkout. Current source equivalence is restored. The earlier mismatched response remains evidence; its cause is not established and is not attributed to lockfile changes without proof.
