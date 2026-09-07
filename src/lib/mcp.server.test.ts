@@ -1045,7 +1045,7 @@ describe("connector creation project boundaries", () => {
     ["create_project_recommendation", "opportunities", "opportunityId"],
     ["create_content_draft", "content", "contentId"],
   ])("%s scopes idempotency to the requested project", async (name, collection, responseId) => {
-    const blob = writeBlob();
+    const blob: Record<string, unknown> = writeBlob();
     blob[collection] = [{ id: "other-project-record", projectId: "p2", requestId: "same-request" }];
     const captured = fakeMutate(blob);
     const response = parsePayload(await call(name, { projectId: "p1", title: "Own", requestId: "same-request", ...(collection === "content" ? { markdown: "Own draft" } : {}) }));
