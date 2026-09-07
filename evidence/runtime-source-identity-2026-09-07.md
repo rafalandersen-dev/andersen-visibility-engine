@@ -27,3 +27,9 @@ After deployment, compare fingerprint and algorithm to the custom-domain respons
 PR #69 is live: verified Lovable merge `2738d14495e26e31dba1282764f2ad3eda95607d`, deployment `f6936938-a888-494a-89ce-53113f9d3ffe`, domain build `1788784740863`. Its 15-minute private in-app scan is cron job 150; request 14400 scanned five accounts without failure. Four active alerts were observed; no email or publishing occurred.
 
 PR #70 email migration `20260907170000` is now applied and recorded. A real SQL queue/dedupe/lease/prepare/unknown-outcome test was fully rolled back. Afterwards: zero opted-in accounts, zero queued digests, synthetic fixture absent; anon/authenticated cannot claim deliveries. This does not activate customer email. User authorized one test to rafi@anderseninnovations.com, but that address has no Milo auth account. Clarification about account-address migration versus transport-only acceptance is pending; no mail has been sent and the original verified-account condition has not been bypassed.
+
+## Built-handler verification
+
+The clean source commit `030f383b59326c2431ac508e8c09d8b144b46a87` built successfully with fingerprint `bb9b677171dbb9b965066592c2041aaa45e87e62b149df36872072a132339496`. Invoking the actual compiled Cloudflare-module fetch handler locally returned HTTP 200 with that exact fingerprint, revision and modified=false. This checks the baked server response, not only the helper function.
+
+The generic `vite preview` command looked for a missing TanStack `dist/server/server.js` although this project produces a Nitro Cloudflare-module artifact. That preview was stopped; verification used the actual `.output/server/index.mjs` fetch export instead. No production runtime failure is inferred from the incompatible local preview command, and no protected journey is claimed.
