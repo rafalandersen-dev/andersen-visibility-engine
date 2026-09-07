@@ -16,7 +16,7 @@
  *   remapped to the closest real page, everything else is unlinked — the
  *   publish gate still re-checks at fire time).
  */
-import type { DiscoverySuggestion, Opportunity } from "./types";
+import type { ContentAsset, DiscoverySuggestion, Opportunity } from "./types";
 import { opportunityLifecycleStatus } from "./opportunities";
 import {
   classifyInternalLinks,
@@ -310,4 +310,25 @@ export function autoResolveInternalLinks(
 export function runTarget(slotCount: number, remainingQuota: number): number {
   if (remainingQuota < 0) return slotCount;
   return Math.max(0, Math.min(slotCount, remainingQuota));
+}
+
+/** Retain completed work when resuming, including drafts not yet queued. */
+export function unfilledSchedulerSlots(
+  slots: ScheduleSlot[],
+  booked: string[],
+  drafted: Pick<ContentAsset, "autoSchedulerPlannedAt" | "scheduledPublishAt">[],
+): ScheduleSlot[] {
+  const instant = (value: string | undefined) => (value ? Date.parse(value) : NaN);
+  const occupied = new Set(booked.map(instant).filter(Number.isFinite));
+  let legacyDrafts = 0;
+  for (const draft of drafted) {
+    const planned = instant(draft.autoSchedulerPlannedAt);
+    const scheduled = instant(draft.scheduledPublishAt);
+    if (Number.isFinite(planned)) occupied.add(planned);
+    else if (Number.isFinite(scheduled)) occupied.add(scheduled);
+    else legacyDrafts++;
+  }
+  // Older held drafts have only a month marker. Reserve earliest available
+  // places deterministically; never invent actual publication queue rows.
+  return slots.filter((slot) => !occupied.has(instant(slot.publishAt))).slice(legacyDrafts);
 }

@@ -27,3 +27,15 @@ Rollback must not re-enable overlapping paid generation by dropping the lease ta
 - #70 merged `1a4c3d5ab83b75948eb4c356ee58b4a9e11c810a`, synchronized in Lovable before deployment `90c2a741-8752-49f2-9310-f13d3f60939d`; domain build `1788785868741`. Email tables are migrated; real SQL acceptance was rolled back and left zero opted-in accounts/queued messages. No real email has been sent.
 - #71 merged `a79545bcabe9f8a6f18a2f502dfc43d4c201359e`, verified with 1,393 tests, TypeScript/build and clean local identity. Lovable matched before deployment `006df855-c6e6-456a-8404-bcd93570f84a`. Domain returns build `1788786255918`, **that exact revision**, `modified=false`, and fingerprint `2128c8090e97e7dc405b1813d2c391efca3cbf3a82062cf08c173e47dab1e48b`, matching the verified checkout.
 - Production in-app cron continues every 15 minutes. Its 13:00 UTC heartbeat was verified after #70; email opt-ins and queued digests remained zero. Source identity is now verifiable directly; protected user journeys and configuration remain separate acceptance.
+
+## Production database acceptance for #72
+
+PR #72 merged as `a761cd879860db8fc3449953d6c1e652922e204d`. Migration `20260907190000_auto_scheduler_leases.sql` was applied and registered before publishing. Eight independent PostgreSQL sessions contested one owner/project lease: exactly one admitted and seven denied, with eight distinct backend PIDs. The synthetic lease was deleted with the exact project/period/status/start-time predicate: one row removed, follow-up count zero. No provider call, publication or email was triggered.
+
+Lovable source matched this merge before publication request `fbe74576-44ae-413a-a18d-c53053bc3129`. Runtime confirmation is still pending in this record; the last observed domain response remained #71. Expected clean #72 fingerprint: `42ffc64ec49bcceb862d8aff174a149fc4306187664d72c52e72c82970be89ed`.
+
+## Follow-up: resuming calendar capacity
+
+New drafts retain an intended cadence timestamp independently of the publication queue. A resumed runner removes the union of booked places and completed draft places, then caps new generation by the already-remaining server quota. It no longer subtracts previous generation a second time from that quota, or counts the same queued draft twice. Older month-only held drafts conservatively reserve the earliest free places without creating publication rows. Failed/malformed queue reads stop preparation before spending.
+
+Validation: 1,423 tests across 110 files, TypeScript, production build, focused ESLint and diff checks pass. Added regression cases cover queue-read failures, remaining-quota reuse, held/queued/legacy reservations and intended-slot persistence. All providers are mocked. This does not automatically restart unknown leases, reconcile ambiguous provider outcomes or establish live overnight acceptance.
