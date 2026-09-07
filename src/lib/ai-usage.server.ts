@@ -18,17 +18,11 @@
  * The claim is atomic in Postgres. Read-decide-write in three steps would let
  * two tabs both pass the check at the cap boundary.
  *
- * ENFORCEMENT IS GATED. Usage is always RECORDED, but a refusal only fires when
- * AI_METERING_ENFORCED is set. During the invite-only beta it is off: nobody has
- * a subscription yet, so enforcing would wall every tester (and the owner) at the
- * free-preview caps from the moment this shipped. Runaway spend is still bounded
- * because generation remains an eleven-click gauntlet — the meter had to be READY
- * before that changes, not enforcing before the plan source is trustworthy.
- *
- * The plan source is NOT yet trustworthy: it lives in a client-writable blob (see
- * resolvePlan). Enforcement must not be switched on until the plan moves to a
- * service-role-only column written by the Paddle webhook. That is tracked with
- * the billing fixes that gate the paid launch.
+ * Plans resolve from server-owned entitlements. AI_METERING_ENFORCED controls
+ * interactive quota enforcement, not whether an unrecorded call is allowed:
+ * every claim must return a valid confirmation before costly work starts.
+ * Background callers can require enforcement even during a record-only beta.
+ * This counter is not yet a monetary budget or a delivered-result allowance.
  */
 import { PLAN_LIMITS, type PlanId, type PlanLimits } from "./billing";
 
@@ -107,6 +101,38 @@ const FRIENDLY: Record<UsageBucket, string> = {
 
 type Claim = { used: number; cap: number; allowed: boolean };
 
+export class UsageUnavailableError extends Error {
+  readonly code = "usage_unavailable";
+  constructor(readonly bucket: UsageBucket) {
+    super(
+      "Milo cannot verify your AI usage right now. AI work is paused; please try again later. You can still read and edit your content.",
+    );
+    this.name = "UsageUnavailableError";
+  }
+}
+
+const MAX_USAGE = 2_147_483_647;
+
+function validUsed(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= MAX_USAGE;
+}
+
+function unavailable(bucket: UsageBucket, reason: string): never {
+  // Log a bounded reason, never provider responses, credentials or user data.
+  console.error("[ai-usage] work paused", { bucket, reason });
+  throw new UsageUnavailableError(bucket);
+}
+
+function confirmedClaim(data: unknown, cap: number, units: number): Claim | undefined {
+  if (!Array.isArray(data) || data.length !== 1) return undefined;
+  const row = data[0] as Partial<Claim> | null;
+  if (!row || !validUsed(row.used) || row.cap !== cap || typeof row.allowed !== "boolean")
+    return undefined;
+  if (row.allowed && (row.used < units || (cap >= 0 && row.used > cap))) return undefined;
+  if (!row.allowed && (cap < 0 || row.used + units <= cap)) return undefined;
+  return row as Claim;
+}
+
 /**
  * Claim `units` from a bucket, or throw. Returns the post-claim usage so a
  * caller can surface "3 of 10 used" without a second query.
@@ -116,16 +142,18 @@ export async function claimAiUsage(args: {
   bucket: UsageBucket;
   units?: number;
   now?: Date;
+  /** Server-only background work must enforce quotas even in record-only beta. */
+  enforceLimit?: boolean;
   /** Test seams; production resolves both server-side. */
   planOverride?: PlanId;
   isOwnerOverride?: boolean;
 }): Promise<Claim> {
   const { userId, bucket } = args;
   const units = args.units ?? 1;
-  // Both resolved SERVER-side. The plan lives in a client-writable blob today, so
-  // this is a mistake-guard, not yet a trust boundary — enforcement stays gated
-  // until it moves off the blob. isOwner comes from the user_roles table, which
-  // the client cannot write.
+  if (!Number.isInteger(units) || units <= 0 || units > MAX_USAGE) {
+    throw new RangeError("AI usage units must be a positive PostgreSQL integer.");
+  }
+  // Entitlements and owner roles are resolved server-side, never from a workspace blob.
   const [plan, isOwner] = await Promise.all([
     args.planOverride !== undefined ? Promise.resolve(args.planOverride) : resolvePlan(userId),
     args.isOwnerOverride !== undefined
@@ -133,38 +161,36 @@ export async function claimAiUsage(args: {
       : resolveOwner(userId),
   ]);
   const realCap = capFor(plan, bucket, isOwner);
-  // When enforcement is off we still RECORD every claim (pass -1 = never refuse)
-  // but never block. This keeps spend visible during the beta without walling it.
-  const enforcing = (process.env.AI_METERING_ENFORCED ?? "").trim() === "true";
+  // Record-only mode may exceed the plan cap, but still requires a confirmed claim.
+  const enforcing =
+    args.enforceLimit === true || (process.env.AI_METERING_ENFORCED ?? "").trim() === "true";
   const cap = enforcing ? realCap : -1;
 
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  // Proxy — call rpc as a METHOD. PostgREST returns a builder, not a Promise,
-  // so this is awaited rather than .catch()-ed.
-  const admin = supabaseAdmin as unknown as {
-    rpc: (
-      fn: string,
-      params: Record<string, unknown>,
-    ) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
-  };
+  let response: { data: unknown; error: { message: string } | null };
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // Proxy — call rpc as a METHOD. PostgREST returns a builder, not a Promise,
+    // so this is awaited rather than .catch()-ed.
+    const admin = supabaseAdmin as unknown as {
+      rpc: (
+        fn: string,
+        params: Record<string, unknown>,
+      ) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
+    };
 
-  const { data, error } = await admin.rpc("claim_ai_usage", {
-    p_user: userId,
-    p_period: usagePeriod(args.now),
-    p_bucket: bucket,
-    p_cap: cap,
-    p_units: units,
-  });
-
-  if (error) {
-    // Fail OPEN on an infrastructure error. A metering outage must not take the
-    // whole product down for paying customers; the spend alert is the backstop.
-    console.error("[ai-usage] claim failed, allowing the call", { bucket, message: error.message });
-    return { used: 0, cap, allowed: true };
+    response = await admin.rpc("claim_ai_usage", {
+      p_user: userId,
+      p_period: usagePeriod(args.now),
+      p_bucket: bucket,
+      p_cap: cap,
+      p_units: units,
+    });
+  } catch {
+    return unavailable(bucket, "claim_transport_failed");
   }
-
-  const row = Array.isArray(data) ? (data[0] as Claim | undefined) : undefined;
-  if (!row) return { used: 0, cap, allowed: true };
+  if (!response || response.error) return unavailable(bucket, "claim_failed");
+  const row = confirmedClaim(response.data, cap, units);
+  if (!row) return unavailable(bucket, "claim_unconfirmed");
   if (!row.allowed) {
     throw new UsageLimitError(
       bucket,
@@ -174,6 +200,35 @@ export async function claimAiUsage(args: {
     );
   }
   return { ...row, cap: realCap };
+}
+
+/** Planning hint only. The atomic claim remains authoritative for each operation. */
+export async function remainingAiUsage(args: {
+  userId: string;
+  bucket: UsageBucket;
+  now?: Date;
+}): Promise<number> {
+  const [plan, isOwner] = await Promise.all([resolvePlan(args.userId), resolveOwner(args.userId)]);
+  const cap = capFor(plan, args.bucket, isOwner);
+  if (cap < 0) return -1;
+  let response: { data: { used?: unknown } | null; error: unknown };
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    response = await supabaseAdmin
+      .from("ai_usage")
+      .select("used")
+      .eq("user_id", args.userId)
+      .eq("period", usagePeriod(args.now))
+      .eq("bucket", args.bucket)
+      .maybeSingle();
+  } catch {
+    return unavailable(args.bucket, "usage_read_transport_failed");
+  }
+  if (!response || response.error) return unavailable(args.bucket, "usage_read_failed");
+  // Unlike a claim, an absent counter is valid: no successful use this month.
+  const used = response.data === null ? 0 : response.data?.used;
+  if (!validUsed(used)) return unavailable(args.bucket, "usage_read_invalid");
+  return Math.max(0, cap - used);
 }
 
 export class ImageGenerationGateError extends Error {

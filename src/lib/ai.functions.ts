@@ -2013,10 +2013,11 @@ ${sharedRules}`,
 export async function generateOpportunitiesCore(
   userId: string,
   data: { project: Project; services: ServiceItem[]; existingTitles: string[] },
+  metering: { enforceLimit?: boolean } = {},
 ) {
   {
     // Spend limit, claimed before any model call so a refusal costs nothing.
-    await claimAiUsage({ userId, bucket: "aiCredits" });
+    await claimAiUsage({ userId, bucket: "aiCredits", enforceLimit: metering.enforceLimit });
     const project = data.project as Project;
     const services = data.services as ServiceItem[];
     const brief = projectBrief(project, services);
@@ -2289,10 +2290,15 @@ export async function generateContentCore(
     assetType: (typeof CONTENT_ASSET_TYPES)[number];
     modelOverride?: string;
   },
+  metering: { enforceLimit?: boolean } = {},
 ) {
   {
     // Spend limit, claimed before any model call so a refusal costs nothing.
-    await claimAiUsage({ userId, bucket: "contentGeneration" });
+    await claimAiUsage({
+      userId,
+      bucket: "contentGeneration",
+      enforceLimit: metering.enforceLimit,
+    });
     const project = data.project as Project;
     const services = data.services as ServiceItem[];
     const opp = data.opportunity as Opportunity;
