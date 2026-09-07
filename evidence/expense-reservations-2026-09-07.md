@@ -41,3 +41,7 @@ Existing `claim_ai_usage` real-database acceptance: eight concurrent connected S
 ## Validation
 
 31 new tests currently pass: actual SQL migration/permissions/amounts/duplicate settlement/unknown expense/overrun/ownership plus server reservation errors, output preservation, one-attempt callback and deadline signaling. Full suite: 1,334 tests across 102 files; TypeScript, production build and focused lint pass. This is not a claim of live monetary-budget enforcement.
+
+## Refreshed foundation validation
+
+Merged current main #74 into the foundation branch without rewriting published history; preserved main CURRENT_STATE over the outdated branch version. Full 1,455 tests across112 files, TypeScript and production build pass. Existing31 ledger cases still pass with notifications and scheduler recovery changes. Production provider wiring, verified rates, funded budgets, monetary migration and independent-session monetary acceptance remain unapplied/unverified. No paid operation was performed.

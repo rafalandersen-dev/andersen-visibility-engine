@@ -1,6 +1,6 @@
 # Milo Growth — Current State
 
-**Status:** New deployment input discrepancy under investigation; full public launch remains unverified
+**Status:** Current production source matches #74; full public launch remains unverified
 
 **Last updated:** 2026-09-07
 
@@ -37,7 +37,7 @@ The current notification packet adds an in-app inbox for approval deadlines, pub
 
 A following gated email packet adds opt-in owner summaries, a durable outbox, final state checks, suppression, bounded preflight retries and honest uncertain-send handling. Its full 1,385-test suite, types/build/lint pass. Its migration is applied and code is published; zero opted-in accounts and zero queued digests were verified. No real email was sent. See [email evidence](../evidence/operational-email-outbox-2026-09-07.md).
 
-The R05 ownership packet (#72) is merged, its migration applied and eight-session real database contention accepted (one admitted, seven denied; synthetic row removed). A subsequent publication returned a new build whose input fingerprint differs from the clean repository. Runtime equivalence is reopened; see [build discrepancy](../evidence/build-input-discrepancy-2026-09-07.md). PR #73 fixes resume capacity and preserves intended draft slots. See [scheduler recovery evidence](../evidence/scheduler-recovery-2026-09-07.md).
+The R05 ownership packet (#72) is merged, its migration applied and eight-session real database contention accepted (one admitted, seven denied; synthetic row removed). A subsequent publication returned a new build whose input fingerprint differs from the clean repository. The subsequent #74 publication restored matching revision, full and component fingerprints; the earlier mismatch remains unexplained. See [build discrepancy](../evidence/build-input-discrepancy-2026-09-07.md). PR #73 fixes resume capacity and preserves intended draft slots. See [scheduler recovery evidence](../evidence/scheduler-recovery-2026-09-07.md).
 
 ## Present implementation to preserve
 

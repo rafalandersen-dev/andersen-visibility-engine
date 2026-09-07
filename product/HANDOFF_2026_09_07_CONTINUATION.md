@@ -1,67 +1,81 @@
-# Milo Growth — continue after release reconciliation
+# Milo Growth — continuous execution handoff
 
-Date: 2026-09-07. Supersedes the runtime status in HANDOFF_2026_09_07.md; preserves its full-plan mandate. Predecessor Codex task: `01a07ba1-c8b6-7582-9ff0-275d64224671` (Kontynuuj plan Milo Growth). Same saved MILO GROWTH project: `g-p-6a732f6015948191999fb9beb8f7bc81`.
+Updated 2026-09-07, approximately 13:36 UTC. Current Codex task `01a07ba1-c8b6-7582-9ff0-275d64224671` (Kontynuuj plan Milo Growth). Saved MILO GROWTH project `g-p-6a732f6015948191999fb9beb8f7bc81`. This supersedes earlier continuation status; preserve historical evidence in Git.
 
-## Mandate and handoff boundary
+## Mandate and boundaries
 
-The user requests continuous execution of the entire Milo plan to 100%, starting with deployment drift, then successive stages. Do not stop after one PR or planning. Company AGENTS explicitly permits automatic successor tasks in the same saved project at clean milestones for productivity/context reliability. The release discrepancy, metering rollout and onboarding patch are now completed milestones; continue into monetary accounting and durable notifications without repeating them. This handoff does not authorize subagent delegation, new spending, customer messages or public-audit infrastructure mutation.
+Continue the full plan to 100%, beginning with deployment discrepancy and then successive stages. Do not stop after one PR or planning, and never manufacture a completion percentage. Read ROADMAP.md, PLAN_REVIEW_2026_09_07.md (R00–R24, D01–D08), NOTIFICATIONS_AND_PACKAGING.md and the feature preservation map. All observed-AI, premium UI, agent/MCP/integrations, language, commercial and launch commitments remain.
 
-Read product/ROADMAP.md, PLAN_REVIEW_2026_09_07.md, NOTIFICATIONS_AND_PACKAGING.md and the preservation map. Full R00–R24 and D01–D08 remain in scope, including real observed AI, 24 EU languages, Stripe, agent, all integrations, premium journeys, real beta/demos and later proof windows. Never declare these complete based only on unit tests. Current user updates are in Polish, preferably checked/unchecked facts.
+Communicate in Polish. No subagents were authorized. Never rewrite pushed Git history. No customer messages, live AI/provider benchmarks, purchases, orders or actual publication were performed. New public-audit infrastructure mutations remain outside the read-only issue #43 boundary. Preserve existing content, queue, counters and unknown-operation ownership. Never place secrets or private recovery links in code, evidence, logs or messages.
 
-## Repository and local checkouts
+Company administrative address is rafi@anderseninnovations.com. Existing private-address ownership exceptions need verified migration, not duplicate resources. The saved project mirror's sources/ are read-only.
 
-Repository: `rafalandersen-dev/andersen-visibility-engine`.
+An attempted local successor creation failed because this is a ChatGPT project; **no successor exists**. A cloud successor requires the pending explicit user choice. Continue locally until a real successor accepts handoff; never claim nonexistent background work. Original task remains an audit trail.
 
-1. `/Users/rafi/Projects/milo-growth-delivery` — existing isolated worktree, branch `codex/milo-expense-ledger-20260907`, PR #67. Runtime foundation commit `14e99df5d24d0f88f9010a25a910a59d43d25ca7`, canonical state commit `69b176adbd65a93a3cf61d090ef791ac04c33aa8`, this documentation is appended on top. Inspect actual HEAD. node_modules installed. Main predecessor application merge is `41aaf64be9ebb6a6d0f5c37b581acc168990ed6c`.
-2. `/Users/rafi/Projects/milo-growth-dependency-safety` — independent worktree, branch `codex/milo-dependency-safety-20260907`, PR #68, commit `6d337de` (read full actual SHA). Lockfile security fixes only, node_modules installed.
-3. Original user checkout `/Users/rafi/Documents/Codex/2026-07-15/napisz-zwi-z-y-dokument-handoff/andersen-visibility-engine` was left unchanged at its old main; do not overwrite it.
+## Repository and worktrees
 
-Both working checkouts are clean after commits/pushes; verify again. This saved ChatGPT project mirror is not the application repo; sources/ is read-only. Continue with the above existing worktrees for continuity. GitHub CLI fetch/push/PR ready/merge all worked. Never rewrite published history; Lovable sync depends on it.
+Repository rafalandersen-dev/andersen-visibility-engine. Main at this update: `1922a85c6d91686597232a84bcf75f4c2dc2a27e` (#74). Inspect live GitHub state before action.
 
-## Completed; do not redo
+- `/Users/rafi/Projects/milo-growth-build-diagnostics`: branch codex/milo-build-diagnostics-20260907, #74 merged; clean main at 1922a85 when last checked.
+- `/Users/rafi/Projects/milo-growth-scheduler-alerts`: branch codex/milo-scheduler-alerts-20260907, #75 open, pushed `8f71af7` (resolve full SHA); includes #74. Full 1,432 tests/110 files, types/build pass. Review/checks pending.
+- `/Users/rafi/Projects/milo-growth-scheduler-recovery`: branch codex/milo-scheduler-resume-slots-20260907, #73 merged; earlier branch #72 merged. Clean last checked; no live scheduler invocation.
+- `/Users/rafi/Projects/milo-growth-delivery`: branch codex/milo-expense-ledger-20260907, #67 draft, merged current main locally as `9631e77`; fresh 1,455 tests/112 files, TypeScript/build passed. This document updates its previously stale handoff. Migration remains unapplied and production providers unwired. Preserve latest main CURRENT_STATE (merge conflict resolved in its favor).
+- `/Users/rafi/Projects/milo-growth-dependency-safety`: installed compatible root dependencies used by symlinked newer worktrees; #68/#69 merged.
+- `/Users/rafi/Projects/milo-growth-notification-email`: #70 merged; retained clean audit checkout.
+- `/Users/rafi/Projects/milo-growth-release-identity`: #71 merged; retained clean audit checkout.
+- Original checkout under `/Users/rafi/Documents/Codex/2026-07-15/napisz-zwi-z-y-dokument-handoff/andersen-visibility-engine` untouched.
 
-- PR #64 merged `807c478dac567add213dafc993a72a7253817ea5`: canonical full plan.
-- PR #65 merged `34c9093548e369f8960279aff61924c34f55aad6`: fail-closed metering and server-owned enforced scheduler quota.
-- Connected Lovable project `06b696f6-c02b-468f-b0a0-7ab8af92d6a0`, workspace `oC4kAHCUIYuuomG2Hwnl`, enabled Supabase. API account has owner role. Administrative account email itself was not verified; company default remains rafi@anderseninnovations.com.
-- `milo-growth.lovable.app/api/app-version` redirects to `milogrowth.com/api/app-version`. Old published build `1787472935217` was August 23 although editor/Git/Vercel were September. DNS A was `185.158.133.1`. Lovable editor sync and publish are separate.
-- Actual DB had the old first-claim cap-bypassing SQL. Applied exact `20260907110000_ai_usage_fail_closed.sql` and inserted its migration registry row in one transaction through connected query_database. Counters preserved.
-- Real PostgreSQL checks: zero cap denied; two-unit cap2 allowed; next denied; grants anon/authenticated denied, service_role allowed. Synthetic transaction rolled back.
-- Additional contention test: eight concurrent query_database calls, eight distinct backend PIDs, cap3 admitted exactly three and refused five. Single synthetic non-customer row deleted with exact UUID/period/bucket/used match; deletion returned one. No customer quota used.
-- Actual ai_usage, entitlements, project_publish_secrets tables have RLS enabled. Entitlements aggregate showed one agency/manualComped. This does not prove absence of subscriptions outside DB. Migration registry alone was stale (July30) despite newer objects, so inspect actual schema/functions.
-- Verified Lovable latest SHA #65 before deploying. Deployment request `fda80b8a-a428-40f9-b016-e6afbf33d56c`; domain subsequently returned fresh build `1788781144340` (11:39:04.340 UTC).
-- PR #66 merged `41aaf64be9ebb6a6d0f5c37b581acc168990ed6c`: onboarding extraction now claims existing aiCredits with enforcement; preserves site metadata/manual setup on quota/meter/provider failure. Text SDK maxRetries=0, timeout=60s. No new quota price or key. All 1,303 tests/100 files, TypeScript/build pass; five new tests.
-- Verified Lovable latest SHA #66, deployed request `bf8918f0-5c05-4003-b852-82f08886f285`; domain now returns `1788781754158` (11:49:14.158 UTC). No old August build.
-- Public endpoint currently exposes build time only, not source SHA; source revision + publication + new domain build are verified separately. Add a reproducible source/release identity improvement if needed for exact runtime acceptance.
+## Completed work — do not repeat
 
-## Open code ready to continue
+- #64 canonical plan merged `807c478dac567add213dafc993a72a7253817ea5`.
+- #65 metering fail-closed and first-claim safety merged `34c9093548e369f8960279aff61924c34f55aad6`; exact SQL applied/registered. Eight independent PostgreSQL sessions at cap3 admitted3/denied5; synthetic row removed. No customer quota reset.
+- #66 bounded onboarding extraction and zero automatic text retries/60s timeout merged `41aaf64be9ebb6a6d0f5c37b581acc168990ed6c`; 1,303 tests. Site metadata/manual setup preserved on provider/budget failures.
+- #68 compatible lockfile security fixes merged `1111824e845118202b7309b62a2057edbf2e42ae`; seven high advisories became zero reported audit findings; published.
+- #69 durable owner in-app notifications merged `2738d14495e26e31dba1282764f2ad3eda95607d`; migration applied and real SQL acceptance rolled back. Private 15-minute cron job150 operational-notifications exists and works logged out. Real sweep scanned5/failed0/stale0, heartbeat observed; no AI/email/publication. Do not duplicate cron.
+- #70 gated email outbox/settings merged `1a4c3d5ab83b75948eb4c356ee58b4a9e11c810a`; SQL migration and rollback acceptance passed. Zero opted-in accounts/queued messages verified; no real email sent or flags set. Confirmed account recipient, suppression/unsubscribe, final recheck, bounded preflight retries; unknown send never blind retry. Accepted is not delivered.
+- #71 source identity merged `a79545bcabe9f8a6f18a2f502dfc43d4c201359e`; domain build1788786255918 matched revision and clean source fingerprint2128c8090e97e7dc405b1813d2c391efca3cbf3a82062cf08c173e47dab1e48b. Later build discrepancy below reopens equivalence.
+- #72 durable scheduler ownership and incremental output merged `a761cd879860db8fc3449953d6c1e652922e204d`; saves each draft before another generation, queue after durable save, mirror after queue, retains partial counts and unknown ownership. Migration20260907190000 applied/registered. Eight independent sessions admitted1/denied7, distinct PIDs; synthetic lease removed exactly1, remaining0. No monthly runner invoked.
+- #73 resume quota/slot fix merged `94036ec74e61561ecc3c91b490bc9a44a6f97771`; 1,423 tests. Intended draft slot distinct from actual publication, union of bookings and completed slots avoids double-counting; remaining quota not reduced twice. Failed/malformed queue read stops before spending. Legacy month-only held drafts conservatively occupy free slots.
+- #74 fixed-group build diagnostics merged `1922a85c6d91686597232a84bcf75f4c2dc2a27e`; combined 1,424 tests/110 files/types/build. Hashes only, no contents/environment/request-time filesystem access. Published request pending below.
 
-**PR #67, draft:** atomic internal expense foundation. Service-role-only tables/RPCs, USD millionths, account+global monthly budgets, global-then-account locking, stable request dedupe, cost reconciliation, unknown expense held, measured overruns pause both scopes. Wrapper refuses missing/invalid reservation before callback, no retries, preserves output if reconciliation fails. 31 new tests; full 1,334 tests/102 files, TypeScript/build/focused lint pass. CI/Vercel succeeded on canonical-state update; handoff doc push will generate a new head.
+## Deployment — active first priority
 
-IMPORTANT: #67 has NO production provider call-site wiring, NO funded budgets or price configuration, and the new `20260907140000_ai_expense_reservations.sql` is NOT applied to production. Do not claim live monetary enforcement. Need verified maximum-cost policies and input/output/tool bounds, actual usage/request-ID adapters, independent-session ledger tests, explicit budget provisioning and separate delivered-result allowances. See evidence/expense-reservations-2026-09-07.md.
+Lovable project `06b696f6-c02b-468f-b0a0-7ab8af92d6a0`, workspace `oC4kAHCUIYuuomG2Hwnl`. Connected get_project/query_database/deploy_project work. Publish only after latest_commit_sha exactly equals intended main. Public domain `https://milogrowth.com/api/app-version`; lovable.app alias redirects there. Vercel previews do not prove custom-domain rollout.
 
-**PR #68, open:** compatible dependency resolutions fix seven high-severity registry findings. Only package-lock + evidence, 14 entries updated, no package.json ranges. New registry audit: zero findings; 1,303 tests, TypeScript/build pass. Review live checks before merge; then sync and publish Lovable at the verified resulting SHA, confirm new domain build. This branch excludes #67. Do not apply its migration as part of #68.
+After #72 publication `fbe74576-44ae-413a-a18d-c53053bc3129`, domain returned build1788787342893 with fingerprint `b995e307dd3d6553e78181c6d3788d9e8ab29a5d2403513b632c433a2d206723`, revision null, modified null. Clean #72 checkout and Git archive both hash `42ffc64ec49bcceb862d8aff174a149fc4306187664d72c52e72c82970be89ed`. Dropping combinations of the three lock/config files did not reproduce it. Do not call this reconciled; null Git metadata alone does not explain mismatched content.
 
-## Pending user input — no answer/approval yet
+#74 was synchronized and publication `474ff448-9af4-4a07-8e60-d231903dff56` requested around13:33 UTC. Last domain check still showed #72 response. At approximately13:36 UTC domain build1788788051284 matched revision1922a85, modified=false, every component and full fingerprint `9907bdeb086dbce604bd92139c8d41382741eecb8666beacc8b17a21d256378f`. Components locate the differing source/public/build/config/lockfile group. Do not invent revision or weaken the comparison to hide differences. `evidence/build-input-discrepancy-2026-09-07.md` contains evidence.
 
-Two async questions were asked in predecessor. Check its newer messages for a response; elapsed time is not approval.
+No protected production browser/mobile/keyboard journey was verified: computer-use policy rejected Lovable access earlier. Do not bypass that rejection. Public reads/APIs and local compiled fetch handler verification remain available; source/build tests are separate from protected journeys.
 
-1. Proposed first real-provider test envelope: at most one onboarding scan, one article and one image on the owner's project, USD 5 TOTAL maximum globally and for owner, no publication/email/orders, no top-up/new subscription. Only after rates and guards are verified. NOT authorized yet; no paid calls performed.
-2. Need actual Lovable gateway cost metadata from Milo More → AI (model/input+output tokens/credit cost) and Settings → Plans & credit usage → Usage details → Run credits (effective credit conversion). Only nonsecret metadata, never prompts/customer content/keys. Connected APIs lack this activity endpoint. Computer-use browser policy verification failed; do not bypass it. Ask owner for these values or use a newly available legitimate connector.
+## #75 and database state
 
-Source default text model is google/gemini-3-flash-preview. Google standard direct rate read September7: USD0.50/M input, USD3.00/M output including thinking. These are NOT verified invoiced Lovable rates. Lovable docs confirm credit-based billing, per-request summaries and possible charges for canceled requests. Links in expense evidence. No provider switch selected.
+#75 adds scheduler_recovery incidents to the existing background inbox, stable from expired-active to unknown ownership, absent for healthy active/released, retained even if schedule disabled. PL/EN/SV/DA copy, calendar review link, no automatic reset/restart. Optional email supports kind under existing gates.
 
-## Immediate useful work while budget metadata is blocked
+Migration20260907200000 was **already applied and registered** after tests. Real production SQL insert/dedupe/resolution acceptance was entirely rolled back: synthetic fixture0, anon/authenticated cannot sync. No customer inbox changes persisted. Do not reapply it. Review/merge/check final main and publish after #74 diagnosis as appropriate. Update evidence from pending to verified once done. Full task ledger, generic blockers, budget pauses, team recipients and live overnight recovery remain open.
 
-1. Finish review/merge/release of #68 after checks, preserving #67 worktree. Complete a clean writeback.
-2. Continue R05/R06 durable notifications and logged-out reliability. Inspect existing email route/queue and calendar risk helpers before rebuilding. Existing `sendTransactionalEmail` needs JWT; scheduler `sendSummaryEmail` directly calls Resend, takes configured summaryEmail, lacks durable outbox/dedupe/status handling and swallows failures. Do not run real customer sends. Implement explicit recheck/dedupe/preferences/recipient ownership/delivery evidence using existing transport where appropriate; team/approver mapping still needs current source review. Existing code is a starting point, not the complete notification centre.
-3. Continue R09 adapters and delivered-result allowances with synthetic providers while waiting for price/budget input. No automatic refund of unknown supplier costs, no unbounded retries.
-4. Proceed through other roadmap waves as dependencies allow; do not stop simply because cost metadata is missing. All 24 EU languages, UI/setup/Studio, observed AI/GSC/proof, MCP integrations, authority/Linkhouse, Stripe and launch journeys are still required.
+## Monetary foundation #67
 
-## Boundaries and unresolved evidence
+Service-only account/global USD-millionth reserve/reconcile; request/job/provider/model/operation, measured cost provenance/request ID/tokens, unknown holds reservation, measured overrun pauses both scopes, global-then-account locking. Wrapper executes once after confirmed reservation, no retry, useful output preserved if reconcile unavailable. Original31 new tests.
 
-- Issue #43 applies to the isolated public-audit environment. Read-only discovery authorized; no staging/production Worker/DNS/Turnstile/AI-secret mutation approved by this work. General app metering/Lovable release was performed under the user's continuation scope; do not misread #43 as stopping all independent app work.
-- No paid supplier test, customer email, content publication, order, key creation, secret value/flag change or new account/subscription performed.
-- Runtime AI_METERING_ENFORCED, provider keys/settings and protected authenticated live journeys remain unknown. Browser tools were blocked before UI navigation by admin-policy verification. Do not work around browser security controls.
-- PR #58 authoring spec, #2 bootstrap blueprint, #62 design-engineering instructions remain open. #62 body explicitly requests human approval before merge. Read applicable current AGENTS; unmerged skill instructions are not automatically active.
-- Original openai-platform-api-key skill was read because of optional OpenAI image provider; no key inspected/created/reused and no OpenAI request made. Existing selected text provider is Lovable; avoid imposing unrelated credential setup on provider-independent ledger/notification work. Follow applicable current skills and standing user authorization.
-- Do not archive/rename predecessor. Once successor accepts this handoff, predecessor stops implementation to avoid duplicate work. Report real acceptance and a direct task card, never invisible background work without a running successor.
+Migration20260907140000 remains **UNAPPLIED**, no budgets funded, no production provider callers wired. Safe foundation code may be completed/reviewed independently; do not claim active monetary enforcement. Verified rates, cost ceilings, input/output/tool bounds, adapters, independent-session acceptance and explicit budget provisioning remain necessary. Customer delivered-result allowances are distinct. Existing source flag AI_METERING_ENFORCED runtime value was not inspected.
+
+## Pending user decisions/access
+
+- One test email **approved** by user: "Tak, jedna wiadomość testowa", only rafi@anderseninnovations.com after confirmed account address and sender configuration. Exact auth.users lookup found0 matching accounts. Clarification pending: prepare migration of the existing account address, or explicitly permit transport-only test without account workflow. No email sent; elapsed time is not approval to bypass the original condition.
+- USD5 TOTAL real-provider owner test (one scan/article/image, no publish/email/orders/credits/subscription) **not approved**. Do not spend.
+- Need actual Lovable per-request model/tokens/credit charges and effective plan credit conversion from More→AI and Settings→Plans & credit usage. APIs currently lack activity/rate detail. Standard direct Google rates are not proof of invoiced Lovable rates.
+- Local continuation versus explicitly authorized cloud successor pending; no successor created.
+
+## Public audit read-only discovery (#43)
+
+DNS uses ns63/ns64.domaincontrol.com, A185.158.133.1. staging.milogrowth.com NXDOMAIN. Existing Cloudflare OAuth account `0fe72a185502985c75142f4397992504` uses private rafal.andersen@gmail.com (ownership exception); no named prod/staging Workers found (10007), no Turnstile widgets. Do not create company resources under this private owner silently. Vercel authenticated rafalandersen-dev; milogrowth.com absent from scope andersen-hq, although previews exist. Lovable lists Supabase/Stripe enabled but isolated DB/customer billing configuration is not proven. Repo secret name only CLAUDE_CODE_OAUTH_TOKEN, variables empty.
+
+No resource/DNS/secret/account changes performed. Keep a protected isolated staging origin, separate database, Turnstile and bounded gateway design as an explicit future mutation packet. See evidence/public-audit-account-discovery-2026-09-07.md. Wrangler skill was read; CLI pinned4.114.0 in ignored workers/public-audit/node_modules. Avoid raw auth tokens and Turnstile secret-bearing JSON. No Cloudflare debug logs were read.
+
+## Next concrete work
+
+1. Preserve verified #74 runtime comparison; the prior transient mismatch is recorded but its cause remains unknown. Require the same complete comparison on each following release.
+2. Finish #75 reviews, exact-source main publication and production no-send inbox acceptance; migration already applied.
+3. Finish current #67 validation and canonical handoff update without funding/activation. Continue R05/R06/R09 gaps and subsequent full-roadmap stages; ask concrete unresolved provider/account decisions only when dependent work requires them.
+4. Keep canonical state current, including all blocked acceptance, while preserving useful independent implementation. No arbitrary 100% claim or silent removal of R00–R24.
