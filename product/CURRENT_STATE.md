@@ -1,6 +1,6 @@
 # Milo Growth — Current State
 
-**Status:** September application release reconciled; full public launch remains unverified
+**Status:** New deployment input discrepancy under investigation; full public launch remains unverified
 
 **Last updated:** 2026-09-07
 
@@ -37,7 +37,7 @@ The current notification packet adds an in-app inbox for approval deadlines, pub
 
 A following gated email packet adds opt-in owner summaries, a durable outbox, final state checks, suppression, bounded preflight retries and honest uncertain-send handling. Its full 1,385-test suite, types/build/lint pass. Its migration is applied and code is published; zero opted-in accounts and zero queued digests were verified. No real email was sent. See [email evidence](../evidence/operational-email-outbox-2026-09-07.md).
 
-The current R05 packet saves each generated article before the next provider call and adds durable project ownership without blind expiry takeover. Its migration/application rollout is pending. See [scheduler recovery evidence](../evidence/scheduler-recovery-2026-09-07.md).
+The R05 ownership packet (#72) is merged, its migration applied and eight-session real database contention accepted (one admitted, seven denied; synthetic row removed). A subsequent publication returned a new build whose input fingerprint differs from the clean repository. Runtime equivalence is reopened; see [build discrepancy](../evidence/build-input-discrepancy-2026-09-07.md). PR #73 fixes resume capacity and preserves intended draft slots. See [scheduler recovery evidence](../evidence/scheduler-recovery-2026-09-07.md).
 
 ## Present implementation to preserve
 
@@ -75,7 +75,7 @@ The detailed [route/capability map](../docs/premium-redesign/FEATURE_INVENTORY.m
 
 - Dedicated Worker, direct Gemini boundary and staging harness code exist. #35/#43 remain open at review time.
 - Later commits **do include production routes and boundary changes** beyond #46. The July assertion “no routes/deployment” cannot be reused as current truth. Committed routes also do not prove a deployed Worker.
-- Account-level discovery and exact runtime/migration state remain unverified here. Read-only discovery is already authorized in #43 and the user history; no repeat permission is needed.
+- Read-only account discovery verified GoDaddy DNS, missing staging hostname, no named Workers/Turnstile widgets in the inspected Cloudflare account, and no Milo domain in Vercel andersen-hq. Cloudflare ownership uses a personal address and requires reconciliation; see [account discovery](../evidence/public-audit-account-discovery-2026-09-07.md). Separate Supabase staging remains unverified.
 - No new Worker staging/production release GO is issued by this plan. Finish the concrete evidence and mutation package under the existing release boundary.
 
 ### Legal, support and data
