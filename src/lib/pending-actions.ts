@@ -12,6 +12,7 @@
  * opportunity, the owner approves in the Milo UI, apply merges only
  * whitelisted fields. No publish, no delete, no settings, no billing.
  */
+import { brandProposal, type BrandProposal } from "./brand-proposal";
 import type {
   PendingAction,
   PendingActionRiskLevel,
@@ -144,6 +145,7 @@ export interface OpportunityUpdatePayload {
 
 /** Phase 1C — composite setup proposal payload (blueprint §3.2, all groups optional, ≥1 required). */
 export interface ProjectSetupProposalPayload {
+  brandIntelligence?: BrandProposal;
   projectFields?: {
     businessName?: string;
     businessType?: string;
@@ -269,12 +271,17 @@ function httpsUrl(field: string, v: string): string {
  */
 export function validateProjectSetupPayload(payload: Record<string, unknown>): ProjectSetupProposalPayload {
   for (const k of Object.keys(payload)) {
-    if (k !== "projectFields" && k !== "services" && k !== "opportunities") {
+    if (k !== "projectFields" && k !== "services" && k !== "opportunities" && k !== "brandIntelligence") {
       throw new PendingActionValidationError(`payload.${k}`, "unknown field");
     }
   }
 
   const validated: ProjectSetupProposalPayload = {};
+  if (payload.brandIntelligence !== undefined) {
+    const parsed = brandProposal.schema.safeParse(payload.brandIntelligence);
+    if (!parsed.success) throw new PendingActionValidationError("payload.brandIntelligence", "invalid brand fields or limits");
+    validated.brandIntelligence = parsed.data as BrandProposal;
+  }
 
   if (payload.projectFields !== undefined) {
     const raw = payload.projectFields;
@@ -391,8 +398,8 @@ export function validateProjectSetupPayload(payload: Record<string, unknown>): P
     });
   }
 
-  if (!validated.projectFields && !validated.services && !validated.opportunities) {
-    throw new PendingActionValidationError("payload", "must contain at least one of projectFields, services or opportunities");
+  if (!validated.projectFields && !validated.services && !validated.opportunities && !validated.brandIntelligence) {
+    throw new PendingActionValidationError("payload", "must contain at least one of projectFields, brandIntelligence, services or opportunities");
   }
 
   return validated;

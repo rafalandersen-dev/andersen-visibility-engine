@@ -470,3 +470,34 @@ describe("audit metadata — names/ids/counts only", () => {
     expect(applied.detail).not.toHaveProperty("createdServices");
   });
 });
+
+
+describe("owner-approved deep brand proposal", () => {
+  it("keeps the proposal inert, then merges only approved brand leaves in one retry-safe write", async () => {
+    storedProject().brandIntelligence = { voice: { tone: "Old", styleNotes: "Keep style" }, claims: { forbiddenClaims: ["Keep restriction"] } };
+    seedAction({ brandIntelligence: { voice: { tone: "New tone" }, proof: { credentials: ["PlantedXCredential"] } } });
+    expect(storedProject().brandIntelligence?.voice?.tone).toBe("Old");
+    h.retryOnce = true;
+    const result = await approve();
+    expect(result.status).toBe("applied");
+    expect(h.updates).toBe(1);
+    expect(storedProject().brandIntelligence).toEqual({ voice: { tone: "New tone", styleNotes: "Keep style" }, claims: { forbiddenClaims: ["Keep restriction"] }, proof: { credentials: ["PlantedXCredential"] }, updatedAt: T1 });
+    expect(storedProject().publishSecret).toBe("keep-this-secret");
+    const audit = buildPendingActionResolutionAudit(storedAction(), "pending_action_applied", { ok: true });
+    expect(audit.detail.fieldsChanged).toEqual(["brandIntelligence.proof.credentials", "brandIntelligence.voice.tone"]);
+    expect(JSON.stringify(audit)).not.toContain("PlantedX");
+  });
+  it("revalidates tampered stored brand proposals and never changes project state", async () => {
+    const before = structuredClone(storedProject());
+    seedAction({ brandIntelligence: { voice: { tone: "New", publishSecret: "forged" } } });
+    await expect(approve()).rejects.toThrow();
+    expect(storedProject()).toEqual(before);
+    expect(h.updates).toBe(0);
+  });
+  it("rejection preserves all brand fields", async () => {
+    storedProject().brandIntelligence = { voice: { tone: "Original" } };
+    seedAction({ brandIntelligence: { voice: { tone: "New" } } });
+    await resolvePendingActionForWorkspace(USER, { actionId: "ps1", resolution: "reject" }, { nowIso: T1 });
+    expect(storedProject().brandIntelligence?.voice?.tone).toBe("Original");
+  });
+});

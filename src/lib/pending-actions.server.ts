@@ -10,6 +10,7 @@
  * display as expired. Approval/reject/apply server functions are deliberately
  * deferred to 1B.5 (owner-UI work).
  */
+import { mergeBrandProposal, brandProposalEntries } from "./brand-proposal";
 import { newOpportunityRecord } from "./opportunities";
 import type { PendingAction, PendingActionStatus, PendingActionType } from "./types";
 import type { Opportunity, Project, ServiceItem } from "./types";
@@ -320,6 +321,10 @@ export async function resolvePendingActionForWorkspace(
         nextProjects[projIdx] = merged;
       }
 
+      if (setup.brandIntelligence) {
+        nextProjects[projIdx] = { ...nextProjects[projIdx], brandIntelligence: mergeBrandProposal(project.brandIntelligence, setup.brandIntelligence, nowIso) };
+      }
+
       // Services: create-only, ids minted server-side, projectId forced from
       // the envelope. Dedupe case-insensitively by trimmed name against the
       // project's existing services AND earlier items in this proposal —
@@ -458,12 +463,10 @@ export type PendingActionLifecycleEvent =
  * URLs — are never read.
  */
 function projectSetupAuditMeta(action: PendingAction): { fieldsChanged: string[]; serviceCount: number; opportunityCount: number; competitorCount: number } {
-  const p = action.payload as { projectFields?: unknown; services?: unknown; opportunities?: unknown };
+  const p = action.payload as { projectFields?: unknown; brandIntelligence?: unknown; services?: unknown; opportunities?: unknown };
   const pf = p.projectFields && typeof p.projectFields === "object" && !Array.isArray(p.projectFields) ? (p.projectFields as Record<string, unknown>) : {};
   return {
-    fieldsChanged: Object.keys(pf)
-      .filter((k) => (PROJECT_SETUP_PROJECT_FIELDS as readonly string[]).includes(k))
-      .sort(),
+    fieldsChanged: [...Object.keys(pf).filter((k) => (PROJECT_SETUP_PROJECT_FIELDS as readonly string[]).includes(k)), ...brandProposalEntries(p.brandIntelligence).map((entry) => `brandIntelligence.${entry.field}`)].sort(),
     serviceCount: Array.isArray(p.services) ? p.services.length : 0,
     opportunityCount: Array.isArray(p.opportunities) ? p.opportunities.length : 0,
     competitorCount: Array.isArray(pf.competitorUrls) ? (pf.competitorUrls as unknown[]).length : 0,

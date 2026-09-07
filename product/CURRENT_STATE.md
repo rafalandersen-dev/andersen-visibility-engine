@@ -1,10 +1,10 @@
 # Milo Growth — Current State
 
-**Status:** Current production source matches #77; full public launch remains unverified
+**Status:** Current production source matches #78; full public launch remains unverified
 
 **Last updated:** 2026-09-07
 
-**Repository baseline inspected:** `main` at `a5904e1473b8a08193ef859eb9552bcdd01627e7` (PR #77 merge)
+**Repository baseline inspected:** `main` at `af00a736010859b0c24c4b84c74b28b6689a1e1d` (PR #78 merge)
 
 **Product Lead / Outcome Owner:** Rafal Andersen
 
@@ -14,7 +14,7 @@
 
 Read [ROADMAP.md](./ROADMAP.md) for execution order and [PLAN_REVIEW_2026_09_07.md](./PLAN_REVIEW_2026_09_07.md) for all scope/decision gaps. This update corrects the July 28 state file against current source and GitHub evidence. It does not convert a source review into an independent security audit or prove production configuration.
 
-PRs #63–#77 are merged, including the inactive monetary foundation #67. Selected premium Today/list+inspector/calendar work, reconciled plans, fail-closed metering and bounded onboarding extraction are implemented. The whole product redesign, real observed AI tracking, production backlinks supplier, Stripe and all EU languages are not complete. The owner's Claude and ChatGPT MCP connections are existing capabilities; further client coverage and authoring work remain.
+PRs #63–#78 are merged, including the inactive monetary foundation #67. Selected premium Today/list+inspector/calendar work, reconciled plans, fail-closed metering and bounded onboarding extraction are implemented. The whole product redesign, real observed AI tracking, production backlinks supplier, Stripe and all EU languages are not complete. The owner's Claude and ChatGPT MCP connections are existing capabilities; further client coverage and authoring work remain.
 
 Unattended paid public launch remains **not verified / NO-GO** pending [launch gates](./LAUNCH_READINESS.md). The historical ~70% assisted/~40% public estimates are retired as current indicators: they predate substantial work and have no fresh denominator.
 
@@ -22,12 +22,12 @@ Unattended paid public launch remains **not verified / NO-GO** pending [launch g
 
 | Evidence | What is known | Limit |
 | --- | --- | --- |
-| Current source | `main` at `a5904e1473b8a08193ef859eb9552bcdd01627e7` after #77 | Source is not runtime verification |
+| Current source | `main` at `af00a736010859b0c24c4b84c74b28b6689a1e1d` after #78 | Source is not runtime verification |
 | #63 validation | Recorded 190 focused tests, TypeScript/build, responsive browser/workflow checks in `design-qa.md` | Earlier focused scope; not a fresh full release/security review |
-| Application deployment | Lovable project latest revision matched #77 merge before publication; domain now serves build `1788789352664` (2026-09-07) | Domain revision and source fingerprint match the clean verified checkout; protected journeys/configuration remain open |
+| Application deployment | Lovable project latest revision matched #78 merge before publication; domain now serves build `1788790493113` (2026-09-07) | Domain revision and source fingerprint match the clean verified checkout; protected journeys/configuration remain open |
 | Metering acceptance | September SQL applied; eight concurrent PostgreSQL sessions admitted exactly three claims at cap 3; synthetic row cleaned | No real provider expenditure; monetary budgets are a separate layer |
 | #66 validation | 1,303 tests/100 files, TypeScript/build pass | All suppliers mocked; not full launch acceptance |
-| #67 foundation | Merged inactive internal monetary ledger; combined #76 main has 1,469 tests/113 files, TypeScript/build pass | Migration unapplied; production provider callers not yet connected, no funded budgets |
+| #67 foundation | Merged inactive internal monetary ledger; combined #76 main has 1,469 tests/113 files, TypeScript/build pass | Migration applied; isolated eight-session acceptance passed; production provider callers not yet connected, no funded budgets |
 | Historical independent baseline | #46 `80375249dfcf9e371d82ebf7c28f2983fc4ab047`: Worker 49 tests, Milo 1165 tests/build and recorded review | Valid for that historical tree, not all later commits |
 | External/account configuration | Connected Lovable/Supabase read verified project, tables/RLS and one agency/manualComped entitlement; metering function upgraded | Runtime flags, secrets, actual provider pricing and external subscriber state remain unverified |
 
@@ -59,7 +59,7 @@ The detailed [route/capability map](../docs/premium-redesign/FEATURE_INVENTORY.m
 ### Cost and billing
 
 - PR #65 fixes RPC/no-row/malformed-confirmation fail-open behavior and first-claim SQL cap bypass. Migration applied and independent-session acceptance passed. Scheduler uses server entitlements and enforced claims. PR #66 adds finite onboarding extraction and zero automatic text retries/60-second timeout.
-- Merged inactive PR #67 provides internal account/global monetary reserve/reconcile, unknown-cost retention and overrun pauses. It is not connected to production provider callers and its migration is not applied. Verified rates, adapters and explicit budget provisioning remain required. Customer delivered-result allowance accounting remains separate.
+- Merged inactive PR #67 provides internal account/global monetary reserve/reconcile, unknown-cost retention and overrun pauses. It is not connected to production provider callers and its migration is applied with zero production budgets/requests. Verified rates, adapters and explicit budget provisioning remain required. Customer delivered-result allowance accounting remains separate.
 - `AI_METERING_ENFORCED` determines cap enforcement; production value was not inspected. Do not assert that it is currently on or off.
 - Server entitlements already exist; the July claim that the product still trusts the client blob as paid authority is obsolete. Verify deployment/RLS/lifecycle rather than reimplementing from that stale claim.
 - Stripe is the required billing direction after Paddle rejection. Paddle-specific code and terms/refunds remain; no Stripe lifecycle acceptance or new pricing is claimed.
@@ -105,3 +105,5 @@ Continue R09 provider accounting integration once verified rates and owner test 
 - [ADR-0001](../docs/adr/ADR-0001-public-audit-boundary.md), [#43](https://github.com/rafalandersen-dev/andersen-visibility-engine/issues/43).
 - [Public audit safety evidence](../evidence/public-audit-safety-2026-07-27.md), [Worker evidence](../evidence/public-audit-worker-2026-07-28.md), [staging harness evidence](../evidence/public-audit-staging-harness-2026-07-28.md).
 - [Historical July state as preserved in git](https://github.com/rafalandersen-dev/andersen-visibility-engine/blob/19151c4/product/CURRENT_STATE.md). Historical evidence is retained, not overwritten as a new release assertion.
+
+PR #78 bounded topic batches are merged and published with full source equivalence. Brand Intelligence proposal expansion is under validation in the next packet; see evidence/brand-intelligence-proposals-2026-09-07.md.
