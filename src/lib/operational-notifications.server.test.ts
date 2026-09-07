@@ -3,6 +3,7 @@ import {
   refreshOperationalNotifications,
   listOperationalNotifications,
   runOperationalNotificationSweep,
+  notificationRowSchema,
 } from "./operational-notifications.server";
 const mocks = vi.hoisted(() => ({ workspace: vi.fn(), rpc: vi.fn(), query: vi.fn(), eq: vi.fn() }));
 vi.mock("./workspace.server", () => ({ readWorkspaceRow: mocks.workspace }));
@@ -41,6 +42,68 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 describe("server notification snapshot boundary", () => {
+  it("does not render absent capacity evidence as zero", () => {
+    const row = {
+      id: "00000000-0000-4000-8000-000000000001",
+      project_id: "p",
+      kind: "generation_capacity_low",
+      target_id: "p",
+      target_title: "Project",
+      due_at: null,
+      active: true,
+      read_at: null,
+      created_at: "2026-09-07",
+      detail: { timeZone: "UTC" },
+    };
+    expect(notificationRowSchema.safeParse(row).success).toBe(false);
+    const detail = {
+      ...row.detail,
+      missing: 3,
+      total: 5,
+      remaining: 1,
+      usagePeriod: "2026-09",
+      plannedPeriod: "2026-10",
+    };
+    expect(notificationRowSchema.safeParse({ ...row, detail }).success).toBe(true);
+    expect(
+      notificationRowSchema.safeParse({ ...row, kind: "generation_capacity_unavailable", detail })
+        .success,
+    ).toBe(false);
+    expect(
+      notificationRowSchema.safeParse({ ...row, detail: { ...detail, total: 2 } }).success,
+    ).toBe(false);
+  });
+  it("keeps other operational events available when the allowance source fails", async () => {
+    mocks.workspace.mockResolvedValue({
+      rev: 7,
+      data: {
+        projects: [
+          {
+            id: "p",
+            name: "Project",
+            businessName: "Business",
+            autoScheduler: { enabled: true, weekdays: [2], publishTime: "09:00", timeZone: "UTC" },
+          },
+        ],
+        content: [],
+        opportunities: [],
+      },
+    });
+    mocks.query.mockImplementation(async (table) =>
+      table === "ai_usage" ? { data: null, error: {} } : { data: [], error: null },
+    );
+    expect(await refreshOperationalNotifications("owner", new Date("2026-09-07T10:00:00Z"))).toBe(
+      true,
+    );
+    const events = mocks.rpc.mock.calls[0][1].p_events;
+    expect(events.map((event: { kind: string }) => event.kind)).toContain("cadence_gap");
+    expect(events.map((event: { kind: string }) => event.kind)).toContain(
+      "generation_capacity_unavailable",
+    );
+    expect(events.map((event: { kind: string }) => event.kind)).not.toContain(
+      "generation_capacity_low",
+    );
+  });
   it("scopes recovery reads to the verified owner without selecting ownership tokens", async () => {
     await refreshOperationalNotifications("owner");
     expect(mocks.eq).toHaveBeenCalledWith("auto_scheduler_leases", "user_id", "owner");

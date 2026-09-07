@@ -1,5 +1,11 @@
 export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, string>> = {
   en: {
+    "notifications.generation_capacity_low": "Preparation allowance may not cover the plan",
+    "notifications.generation_capacity_unavailable": "Preparation allowance could not be checked",
+    "notifications.capacityLow":
+      "The {period} plan still needs {missing} drafts for this project and {total} across your active schedules. Your account has {remaining} preparation attempts left in {usagePeriod}. This is shared capacity, not a promise of completed articles. Review the schedule; saved drafts remain available for review and publication.",
+    "notifications.capacityUnavailable":
+      "Milo could not verify the shared preparation allowance for {usagePeriod}. The {period} plan still needs {missing} drafts here. Check again later. Saved drafts and other notifications remain available.",
     "notifications.scheduler_recovery": "Automation needs recovery review",
     "notifications.recovery":
       "Preparation paused after an interrupted run. Review saved drafts and the last operation before restarting. Existing publication approvals remain unchanged.",
@@ -49,6 +55,12 @@ export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, str
     "notifications.readError": "Could not mark this notification as read. Please try again.",
   },
   pl: {
+    "notifications.generation_capacity_low": "Limit przygotowania może nie wystarczyć na plan",
+    "notifications.generation_capacity_unavailable": "Nie udało się sprawdzić limitu przygotowania",
+    "notifications.capacityLow":
+      "W planie na {period} brakuje {missing} szkiców tego projektu i {total} we wszystkich aktywnych harmonogramach. Na koncie pozostało {remaining} prób przygotowania w okresie {usagePeriod}. To wspólny limit, a nie gwarancja ukończenia artykułów. Sprawdź harmonogram; zapisane szkice nadal można przeglądać i publikować.",
+    "notifications.capacityUnavailable":
+      "Milo nie mogło potwierdzić wspólnego limitu przygotowania na {usagePeriod}. W planie na {period} brakuje tutaj {missing} szkiców. Sprawdź ponownie później. Zapisane szkice i pozostałe powiadomienia są nadal dostępne.",
     "notifications.scheduler_recovery": "Automatyzacja wymaga sprawdzenia",
     "notifications.recovery":
       "Przygotowanie treści zatrzymało się po przerwanym przebiegu. Przed wznowieniem sprawdź zapisane szkice i wynik ostatniej operacji. Dotychczasowe zgody na publikację pozostają bez zmian.",
@@ -100,6 +112,12 @@ export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, str
       "Nie udało się oznaczyć powiadomienia jako przeczytanego. Spróbuj ponownie.",
   },
   sv: {
+    "notifications.generation_capacity_low": "Kvoten kanske inte räcker för planen",
+    "notifications.generation_capacity_unavailable": "Kvoten kunde inte kontrolleras",
+    "notifications.capacityLow":
+      "Planen för {period} saknar {missing} utkast i detta projekt och {total} i alla aktiva scheman. Kontot har {remaining} försök kvar under {usagePeriod}. Kvoten delas mellan projekten och garanterar inte färdiga artiklar. Granska schemat; sparade utkast kan fortfarande granskas och publiceras.",
+    "notifications.capacityUnavailable":
+      "Milo kunde inte kontrollera den gemensamma kvoten för {usagePeriod}. Planen för {period} saknar {missing} utkast här. Försök igen senare. Sparade utkast och andra aviseringar är fortfarande tillgängliga.",
     "notifications.scheduler_recovery": "Automatiseringen behöver kontrolleras",
     "notifications.recovery":
       "Förberedelsen pausades efter en avbruten körning. Kontrollera sparade utkast och den senaste åtgärden före omstart. Befintliga publiceringsgodkännanden gäller fortfarande.",
@@ -150,6 +168,12 @@ export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, str
     "notifications.readError": "Kunde inte markera aviseringen som läst. Försök igen.",
   },
   da: {
+    "notifications.generation_capacity_low": "Kvoten dækker muligvis ikke planen",
+    "notifications.generation_capacity_unavailable": "Kvoten kunne ikke kontrolleres",
+    "notifications.capacityLow":
+      "Planen for {period} mangler {missing} kladder i dette projekt og {total} i alle aktive tidsplaner. Kontoen har {remaining} forsøg tilbage i {usagePeriod}. Kvoten deles mellem projekterne og garanterer ikke færdige artikler. Gennemgå tidsplanen; gemte kladder kan stadig gennemgås og publiceres.",
+    "notifications.capacityUnavailable":
+      "Milo kunne ikke kontrollere den fælles kvote for {usagePeriod}. Planen for {period} mangler {missing} kladder her. Prøv igen senere. Gemte kladder og andre notifikationer er stadig tilgængelige.",
     "notifications.scheduler_recovery": "Automatiseringen skal kontrolleres",
     "notifications.recovery":
       "Forberedelsen blev sat på pause efter en afbrudt kørsel. Kontrollér gemte kladder og den seneste handling før genstart. Eksisterende godkendelser af publicering gælder fortsat.",

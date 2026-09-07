@@ -43,6 +43,12 @@ beforeAll(async () => {
   await db.exec(
     readFileSync("supabase/migrations/20260907200000_scheduler_recovery_notifications.sql", "utf8"),
   );
+  await db.exec(
+    readFileSync(
+      "supabase/migrations/20260907234500_generation_capacity_notifications.sql",
+      "utf8",
+    ),
+  );
 }, 30000);
 beforeEach(async () => {
   await db.exec(
@@ -54,6 +60,21 @@ afterAll(async () => {
   await db?.close();
 });
 describe("durable notification inbox", () => {
+  it.each(["generation_capacity_low", "generation_capacity_unavailable"])(
+    "deduplicates and resolves %s incidents",
+    async (kind) => {
+      const capacity = { ...event, kind, targetId: "p", dueAt: null };
+      await scan([capacity]);
+      await scan([capacity], 1, "2026-09-01T11:00:00Z");
+      expect(
+        (await db.query("SELECT kind,active FROM public.operational_notifications")).rows,
+      ).toEqual([{ kind, active: true }]);
+      await scan([], 1, "2026-09-01T12:00:00Z");
+      expect((await db.query("SELECT active FROM public.operational_notifications")).rows).toEqual([
+        { active: false },
+      ]);
+    },
+  );
   it("persists and deduplicates recovery incidents, resolving them after completion", async () => {
     const recovery = { ...event, kind: "scheduler_recovery", targetId: "p" };
     expect(await scan([recovery])).toBe(true);
