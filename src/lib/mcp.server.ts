@@ -8,6 +8,7 @@
  * never returned after creation, never logged. All tools are scoped to the
  * resolved user's own workspace. Never import from client code.
  */
+import { brandProposal, brandProposalEntries } from "./brand-proposal";
 import { projectReadiness } from "./project-readiness";
 import { newOpportunityRecord } from "./opportunities";
 import { slugifyForPublish } from "./markdown";
@@ -1146,6 +1147,7 @@ const PROJECT_SETUP_PAYLOAD_SCHEMA = {
   minProperties: 1,
   description: "project_setup_proposal payload — provide at least one non-empty group; total payload ≤16KB",
   properties: {
+    brandIntelligence: brandProposal.json,
     projectFields: {
       type: "object",
       additionalProperties: false,
@@ -1285,7 +1287,7 @@ function previewValue(v: unknown, max = 120): string {
  * turned into markdown links, fences or HTML), clipped to the 4KB cap. */
 function derivePendingPreview(type: unknown, payload: unknown): string {
   if (type === "project_setup_proposal") {
-    const p = (payload ?? {}) as { projectFields?: Record<string, unknown>; services?: unknown[]; opportunities?: unknown[] };
+    const p = (payload ?? {}) as { projectFields?: Record<string, unknown>; brandIntelligence?: unknown; services?: unknown[]; opportunities?: unknown[] };
     const pf = p.projectFields && typeof p.projectFields === "object" && !Array.isArray(p.projectFields) ? p.projectFields : {};
     const services = Array.isArray(p.services) ? p.services : [];
     const opportunities = Array.isArray(p.opportunities) ? p.opportunities : [];
@@ -1295,6 +1297,11 @@ function derivePendingPreview(type: unknown, payload: unknown): string {
     const lines: string[] = ["Project setup proposal:", ""];
     lines.push(`Business profile (${profileEntries.length} field${profileEntries.length === 1 ? "" : "s"}):`);
     for (const [k, v] of profileEntries) lines.push(`- ${previewValue(k, 40)} → ${previewValue(v)}`);
+    const brand = brandProposalEntries(p.brandIntelligence);
+    if (brand.length) {
+      lines.push("", `Brand Intelligence (${brand.length} fields to change on approval):`);
+      for (const entry of brand) lines.push(`- ${previewValue(entry.field, 60)} → ${previewValue(entry.value)}`);
+    }
     lines.push("", `Services to create (${services.length}):`);
     for (const s of services) {
       const item = (s ?? {}) as { name?: unknown; kind?: unknown; priority?: unknown };

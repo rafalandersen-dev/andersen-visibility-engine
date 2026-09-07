@@ -408,3 +408,21 @@ describe("i18n coverage", () => {
     expect(en["actions.empty.title"]).toBe("No pending actions yet.");
   });
 });
+
+
+describe("brand proposal review rows", () => {
+  it("shows the real current and proposed leaf values even when caller preview omits them", () => {
+    const a = action({ type: "project_setup_proposal", preview: "No changes", payload: { brandIntelligence: { voice: { tone: "New" }, claims: { forbiddenClaims: [] } } } });
+    const view = projectSetupView(a, [{ id: "synergy", brandIntelligence: { voice: { tone: "Current" }, claims: { forbiddenClaims: ["Restriction"] } } } as Project]);
+    expect(view?.profile).toEqual([
+      { field: "brandIntelligence.voice.tone", labelKey: "actions.brand.voice.tone", current: "Current", proposed: "New", change: "overwrite" },
+      { field: "brandIntelligence.claims.forbiddenClaims", labelKey: "actions.brand.claims.forbiddenClaims", current: "Restriction", proposed: "", change: "overwrite" },
+    ]);
+    expect(projectSetupCounts(a).fields).toBe(2);
+  });
+  it("does not show unknown or invalid brand fields as approvable changes", () => {
+    const a = action({ type: "project_setup_proposal", payload: { brandIntelligence: { token: "private" } } });
+    expect(projectSetupView(a, [])?.profile).toEqual([]);
+    expect(projectSetupCounts(a).fields).toBe(0);
+  });
+});

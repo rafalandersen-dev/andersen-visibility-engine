@@ -393,10 +393,10 @@ describe("1C.3 — project_setup_proposal via MCP", () => {
       const branches = create?.inputSchema?.properties?.payload?.oneOf ?? [];
       expect(branches).toHaveLength(2);
       const setupBranch = branches[1]!;
-      expect(Object.keys(setupBranch.properties ?? {})).toEqual(["projectFields", "services", "opportunities"]);
+      expect(Object.keys(setupBranch.properties ?? {})).toEqual(["brandIntelligence", "projectFields", "services", "opportunities"]);
       // Excluded fields are not advertised anywhere in the setup branch.
       const flat = JSON.stringify(setupBranch).toLowerCase();
-      for (const banned of ["websiteurl", "setupcomplete", "market", "currency", "applanguage", "publish", "connector", "gsc", "billing", "secret"]) {
+      for (const banned of ["websiteurl", "setupcomplete", "currency", "applanguage", "publish", "connector", "gsc", "billing", "secret"]) {
         expect(flat, `schema must not advertise ${banned}`).not.toContain(banned);
       }
       const listRes = await call(g(), "list_pending_actions", { type: "project_setup_proposal" });
@@ -405,6 +405,21 @@ describe("1C.3 — project_setup_proposal via MCP", () => {
   });
 
   describe("creation", () => {
+    it("brand-only proposals preserve the profile until approval and derive review text from validated values", async () => {
+      const before = structuredClone(h.row!.data.projects);
+      const { actionId } = await createOk(setupArgs({ brandIntelligence: { voice: { tone: "  Clear  " }, avoid: [] } }, "brand-only"));
+      expect(h.row!.data.projects).toEqual(before);
+      const preview = await previewOf(actionId);
+      expect(preview).toContain("voice.tone");
+      expect(preview).toContain("Clear");
+      const created = h.events.find((e) => e.event === "pending_action_created");
+      expect(created?.detail.fieldsChanged).toEqual(["brandIntelligence.avoid", "brandIntelligence.voice.tone"]);
+      expect(JSON.stringify(h.events)).not.toContain("Clear");
+      const invalid = await call(g(), "create_pending_action", setupArgs({ brandIntelligence: { updatedAt: "forged" } }, "brand-invalid"));
+      expect(errOf(invalid)?.code).toBe(-32010);
+      expect((h.row!.data.pendingActions as unknown[]).length).toBe(1);
+    });
+
     it("fields-only, services-only, opportunities-only and composite payloads all create pending actions", async () => {
       const shapes: Record<string, unknown>[] = [
         { projectFields: { businessName: "Fields only" } },

@@ -304,12 +304,12 @@ function PendingActionCard(props: {
                     <tbody>
                       {setup.profile.map((r) => (
                         <tr key={r.field} className="border-t border-border/60 align-top">
-                          <td className="py-1.5 pr-3 font-mono">
-                            {r.field}
+                          <td className="py-1.5 pr-3">
+                            {r.labelKey ? t(r.labelKey) : r.field}
                             {setup.targetExists ? <StateMarker change={r.change} t={t} /> : null}
                           </td>
-                          <td className="py-1.5 pr-3 text-muted-foreground break-words">{r.current ? r.current : "—"}</td>
-                          <td className="py-1.5 text-foreground/90 break-words">{r.proposed}</td>
+                          <td className="py-1.5 pr-3 text-muted-foreground break-words whitespace-pre-wrap">{r.current ? r.current : "—"}</td>
+                          <td className="py-1.5 text-foreground/90 break-words whitespace-pre-wrap">{r.proposed || "—"}</td>
                         </tr>
                       ))}
                     </tbody>
