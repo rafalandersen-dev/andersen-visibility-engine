@@ -45,10 +45,33 @@ export function OperationalEmailSettings() {
       {query.data && (
         <>
           {!query.data.ready && <p className="mt-3 text-sm">{t("notifications.emailDisabled")}</p>}
+          {query.data.addressVerification !== "verified" && (
+            <div className="mt-3 text-sm" role="status">
+              <p>
+                {t(
+                  query.data.addressVerification === "unverified"
+                    ? "notifications.emailAddressUnverified"
+                    : "notifications.emailAddressUnavailable",
+                )}
+              </p>
+              <Button
+                className="mt-2"
+                variant="ghost"
+                disabled={query.isFetching}
+                onClick={() => void query.refetch()}
+              >
+                {t("notifications.refresh")}
+              </Button>
+            </div>
+          )}
           <Button
             className="mt-4"
             variant="outline"
-            disabled={save.isPending || (!query.data.ready && !query.data.preference.enabled)}
+            disabled={
+              save.isPending ||
+              ((!query.data.ready || query.data.addressVerification !== "verified") &&
+                !query.data.preference.enabled)
+            }
             onClick={() => save.mutate(!query.data!.preference.enabled)}
           >
             {t(
