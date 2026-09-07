@@ -1,8 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { operationalEmailEnabled } from "./operational-email.server";
-const preference = z.object({ enabled: z.boolean(), locale: z.enum(["en", "pl", "sv", "da"]) });
+import { operationalEmailEnabled, readOperationalEmailAddress } from "./operational-email.server";
+const preference = z
+  .object({ enabled: z.boolean(), locale: z.enum(["en", "pl", "sv", "da"]) })
+  .strict();
 const history = z
   .array(
     z.object({
@@ -33,7 +35,7 @@ export const getOperationalEmailSettingsFn = createServerFn({ method: "POST" })
       limit(n: number): Query;
     }
     const db = supabaseAdmin as unknown as { from(table: string): Query };
-    const [prefs, sent] = await Promise.all([
+    const [prefs, sent, address] = await Promise.all([
       db
         .from("operational_email_preferences")
         .select("enabled,locale")
@@ -45,10 +47,12 @@ export const getOperationalEmailSettingsFn = createServerFn({ method: "POST" })
         .eq("user_id", context.userId)
         .order("created_at", { ascending: false })
         .limit(20),
+      readOperationalEmailAddress(context.userId as string),
     ]);
     if (prefs.error || sent.error) throw new Error("Email settings are temporarily unavailable.");
     return {
       ready: operationalEmailEnabled(),
+      addressVerification: address.status,
       preference: preference.parse(prefs.data ?? { enabled: false, locale: "en" }),
       history: history.parse(sent.data),
     };
@@ -59,6 +63,11 @@ export const setOperationalEmailSettingsFn = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     if (data.enabled && !operationalEmailEnabled())
       throw new Error("Operational email is not activated yet.");
+    if (
+      data.enabled &&
+      (await readOperationalEmailAddress(context.userId as string)).status !== "verified"
+    )
+      throw new Error("Confirm your current account email before enabling summaries.");
     const db = context.supabase as unknown as {
       rpc(
         name: string,

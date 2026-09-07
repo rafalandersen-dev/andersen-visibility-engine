@@ -101,35 +101,50 @@ async function getDb() {
 const recipientAccountSchema = z.object({
   id: z.string().uuid(),
   email: z.string().email().max(320),
-  email_confirmed_at: z.string().datetime({ offset: true }),
-  identities: z.array(z.unknown()).min(1),
+  email_confirmed_at: z.string().datetime({ offset: true }).nullish(),
+  identities: z.array(z.unknown()),
 });
 const verifiedEmailIdentitySchema = z.object({
   user_id: z.string().uuid(),
   provider: z.string().min(1),
   identity_data: z.object({ email: z.string().email(), email_verified: z.literal(true) }),
 });
+export type OperationalEmailAddress =
+  { status: "verified"; email: string } | { status: "unverified" | "unavailable" };
+/** Read-only: no unsubscribe-token creation or email transport. */
+export async function readOperationalEmailAddress(
+  userId: string,
+): Promise<OperationalEmailAddress> {
+  try {
+    const db = await getDb();
+    const { data, error } = await db.auth.admin.getUserById(userId);
+    const parsed = recipientAccountSchema.safeParse(data?.user);
+    if (error || !parsed.success || parsed.data.id !== userId) return { status: "unavailable" };
+    const account = parsed.data;
+    const email = account.email.toLowerCase();
+    // A replaced address can retain the old confirmation timestamp. Only a
+    // verified server-owned identity for this current address can establish it.
+    const verified =
+      Boolean(account.email_confirmed_at) &&
+      account.identities.some((value) => {
+        const identity = verifiedEmailIdentitySchema.safeParse(value);
+        return (
+          identity.success &&
+          identity.data.user_id === userId &&
+          identity.data.identity_data.email.toLowerCase() === email
+        );
+      });
+    return verified ? { status: "verified", email } : { status: "unverified" };
+  } catch {
+    return { status: "unavailable" };
+  }
+}
 /** No client-provided recipient: verify the current address, not a retained old confirmation timestamp. */
 export async function resolveOperationalEmailRecipient(userId: string) {
+  const address = await readOperationalEmailAddress(userId);
+  if (address.status !== "verified") throw new Error("recipient_unavailable");
+  const { email } = address;
   const db = await getDb();
-  const { data, error } = await db.auth.admin.getUserById(userId);
-  const parsed = recipientAccountSchema.safeParse(data?.user);
-  if (error || !parsed.success || parsed.data.id !== userId)
-    throw new Error("recipient_unavailable");
-  const account = parsed.data;
-  const email = account.email.toLowerCase();
-  // Auth Admin can replace the email while keeping email_confirmed_at from the
-  // old address. Only server-owned identity data for this address can confirm it;
-  // user_metadata and another linked provider's different email cannot.
-  const currentAddressVerified = account.identities.some((value) => {
-    const identity = verifiedEmailIdentitySchema.safeParse(value);
-    return (
-      identity.success &&
-      identity.data.user_id === userId &&
-      identity.data.identity_data.email.toLowerCase() === email
-    );
-  });
-  if (!currentAddressVerified) throw new Error("recipient_unavailable");
   const suppressed = await db
     .from("suppressed_emails")
     .select("id")

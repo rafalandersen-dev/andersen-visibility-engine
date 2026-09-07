@@ -1,5 +1,9 @@
 export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, string>> = {
   en: {
+    "notifications.emailAddressUnverified":
+      "Your current account email has not been verified. Complete email confirmation, then check again. If the address was changed by an administrator and you have no confirmation link, contact Milo support. In-app notifications remain available.",
+    "notifications.emailAddressUnavailable":
+      "Milo could not check your current email verification. Try again later. You can still turn off summaries and use in-app notifications.",
     "notifications.generation_capacity_low": "Preparation allowance may not cover the plan",
     "notifications.generation_capacity_unavailable": "Preparation allowance could not be checked",
     "notifications.capacityLow":
@@ -55,6 +59,10 @@ export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, str
     "notifications.readError": "Could not mark this notification as read. Please try again.",
   },
   pl: {
+    "notifications.emailAddressUnverified":
+      "Bieżący adres e-mail konta nie jest potwierdzony. Dokończ potwierdzanie adresu i sprawdź ponownie. Jeśli adres zmienił administrator i nie masz linku potwierdzającego, skontaktuj się z pomocą Milo. Powiadomienia w aplikacji pozostają dostępne.",
+    "notifications.emailAddressUnavailable":
+      "Milo nie mogło sprawdzić potwierdzenia bieżącego adresu e-mail. Spróbuj później. Nadal możesz wyłączyć podsumowania i korzystać z powiadomień w aplikacji.",
     "notifications.generation_capacity_low": "Limit przygotowania może nie wystarczyć na plan",
     "notifications.generation_capacity_unavailable": "Nie udało się sprawdzić limitu przygotowania",
     "notifications.capacityLow":
@@ -112,6 +120,10 @@ export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, str
       "Nie udało się oznaczyć powiadomienia jako przeczytanego. Spróbuj ponownie.",
   },
   sv: {
+    "notifications.emailAddressUnverified":
+      "Kontots nuvarande e-postadress är inte bekräftad. Slutför bekräftelsen och kontrollera igen. Om en administratör ändrade adressen och du saknar en bekräftelselänk, kontakta Milos support. Aviseringar i appen är fortfarande tillgängliga.",
+    "notifications.emailAddressUnavailable":
+      "Milo kunde inte kontrollera bekräftelsen av din nuvarande e-postadress. Försök senare. Du kan fortfarande stänga av sammanfattningar och använda aviseringar i appen.",
     "notifications.generation_capacity_low": "Kvoten kanske inte räcker för planen",
     "notifications.generation_capacity_unavailable": "Kvoten kunde inte kontrolleras",
     "notifications.capacityLow":
@@ -168,6 +180,10 @@ export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, str
     "notifications.readError": "Kunde inte markera aviseringen som läst. Försök igen.",
   },
   da: {
+    "notifications.emailAddressUnverified":
+      "Kontoens nuværende e-mailadresse er ikke bekræftet. Gennemfør bekræftelsen, og kontrollér igen. Hvis en administrator ændrede adressen, og du mangler et bekræftelseslink, så kontakt Milos support. Notifikationer i appen er stadig tilgængelige.",
+    "notifications.emailAddressUnavailable":
+      "Milo kunne ikke kontrollere bekræftelsen af din nuværende e-mailadresse. Prøv senere. Du kan stadig slå opsummeringer fra og bruge notifikationer i appen.",
     "notifications.generation_capacity_low": "Kvoten dækker muligvis ikke planen",
     "notifications.generation_capacity_unavailable": "Kvoten kunne ikke kontrolleres",
     "notifications.capacityLow":

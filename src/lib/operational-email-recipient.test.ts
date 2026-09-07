@@ -4,7 +4,10 @@ vi.mock("@/integrations/supabase/client.server", () => ({
   supabaseAdmin: { auth: { admin: { getUserById: mocks.getUserById } }, from: mocks.from },
 }));
 vi.mock("./operational-notifications.server", () => ({ refreshOperationalNotifications: vi.fn() }));
-import { resolveOperationalEmailRecipient } from "./operational-email.server";
+import {
+  readOperationalEmailAddress,
+  resolveOperationalEmailRecipient,
+} from "./operational-email.server";
 const userId = "00000000-0000-4000-8000-000000000031";
 function confirmedAccount() {
   return {
@@ -51,6 +54,22 @@ beforeEach(() => {
   });
 });
 describe("operational email recipient verification", () => {
+  it("checks the current address without touching suppression, tokens or transport", async () => {
+    expect(await readOperationalEmailAddress(userId)).toEqual({
+      status: "verified",
+      email: "owner@example.test",
+    });
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+  it("distinguishes an unverified current identity from an unavailable Auth read", async () => {
+    const user = confirmedAccount();
+    user.identities[0].identity_data.email_verified = false;
+    mocks.getUserById.mockResolvedValue({ data: { user }, error: null });
+    expect(await readOperationalEmailAddress(userId)).toEqual({ status: "unverified" });
+    mocks.getUserById.mockRejectedValue(new Error("private auth response"));
+    expect(await readOperationalEmailAddress(userId)).toEqual({ status: "unavailable" });
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
   it("uses only the current confirmed account address and stored unsubscribe token", async () => {
     expect(await resolveOperationalEmailRecipient(userId)).toEqual({
       email: "owner@example.test",
