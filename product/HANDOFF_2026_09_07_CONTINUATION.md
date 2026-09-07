@@ -2,6 +2,12 @@
 
 Updated 2026-09-07, approximately 15:24 UTC. This replaces accumulated historical snapshots; Git preserves their audit trail. Current Codex task: `01a07ba1-c8b6-7582-9ff0-275d64224671`, saved MILO GROWTH project `g-p-6a732f6015948191999fb9beb8f7bc81`. **No successor task exists.**
 
+## Owner email update — 2026-09-07, approximately15:56 UTC
+
+The user explicitly requested changing the existing Milo account email to rafi@anderseninnovations.com. Completed through the official Supabase Auth Admin API (email-only update), with the exact existing owner user preserved. Verified10 owner projects, owner role, agency/manualComped/manual entitlement and the original Google identity retained. No password, role, plan, project or Google-account change. No duplicate account created. A temporary HTTP extension was used solely within a rolled-back database transaction to invoke the supported Auth API; the remote Auth update persisted, and the temporary extension is absent. Credentials stayed inside the database and were not returned or written to files.
+
+Older statements that no company-address auth account exists are superseded. auth.users now has the company email and retains its existing account-confirmation timestamp; the new email identity reports email_verified=false. This was an administrative address change, not a mailbox verification, login or delivery test. Do not silently treat the retained timestamp as new proof of mailbox control. One operational test email remains authorized under its original conditions and has not been sent; sender configuration/delivery still require acceptance. Do not request authorization to change the address again. Account ownership inventory: ACCOUNT_OWNERSHIP.md.
+
 ## Latest continuation — approximately15:49 UTC
 
 PR #83 remains merged at20de90517833d101226fd288310e2768601798b0. First publication2d3ba0af did not change the observed public build1788792945297; no-cache request returned the same with no-store response. One bounded retryb59a4e22-bc19-487a-8ae0-fda2e2aba9f7 was requested15:30UTC for the same synchronized SHA. No more blind retries. Owner question requests Lovable Publish/build history status, because API lacks logs and prior UI access was rejected. Do not claim rollout success without full/components comparison against expecteddb54b4eee170d02673bfcab68e596a3dd4ed1bedb480a5138789b645c5390fd0.

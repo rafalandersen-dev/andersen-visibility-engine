@@ -10,6 +10,8 @@
 
 **Current phase:** Private beta; premium rebuild and launch foundations
 
+The owner explicitly requested and received an administrative email change to rafi@anderseninnovations.com on2026-09-07. The same Milo account,10 projects, owner role, entitlement and Google identity were preserved. This supersedes older missing-company-account observations. No fresh mailbox verification/login or operational test email has been completed; see [account ownership](./ACCOUNT_OWNERSHIP.md).
+
 ## Recovery brief
 
 Read [ROADMAP.md](./ROADMAP.md) for execution order and [PLAN_REVIEW_2026_09_07.md](./PLAN_REVIEW_2026_09_07.md) for all scope/decision gaps. This update corrects the July 28 state file against current source and GitHub evidence. It does not convert a source review into an independent security audit or prove production configuration.
