@@ -1,3 +1,4 @@
+import { profileFillSchema, prepareProfileFill, applyProfileFill, ProfileFillError } from "./mcp-profile-fill";
 /**
  * Claude Connector (MCP) v1 — SERVER-ONLY. Implements a minimal MCP server
  * (JSON-RPC 2.0, Streamable HTTP) exposing READ-ONLY tools over a user's Milo
@@ -387,6 +388,7 @@ export const TOOL_SCOPES: Record<string, string> = {
   create_growth_task: "milo.tasks.write",
   create_project_recommendation: "milo.projects.write",
   create_opportunities_batch: "milo.projects.write",
+  fill_project_profile: "milo.projects.write",
   create_content_draft: "milo.content.write",
   update_content_draft: "milo.content.write",
   create_pending_action: "milo.actions.propose",
@@ -395,7 +397,7 @@ export const TOOL_SCOPES: Record<string, string> = {
 };
 
 /** Names of the Phase 1A write tools (flag- and scope-gated). */
-export const WRITE_TOOL_NAMES = ["create_growth_task", "create_project_recommendation", "create_opportunities_batch"] as const;
+export const WRITE_TOOL_NAMES = ["create_growth_task", "create_project_recommendation", "create_opportunities_batch", "fill_project_profile"] as const;
 type WriteToolName = (typeof WRITE_TOOL_NAMES)[number];
 
 function isWriteTool(name: string): name is WriteToolName {
@@ -489,7 +491,93 @@ interface WriteToolDef {
   annotations: typeof WRITE_ANNOTATIONS;
 }
 
+const SEARCH_INTENTS = ["Informational", "Commercial", "Transactional", "Navigational"];
+const PROJECT_SETUP_PAYLOAD_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  minProperties: 1,
+  description: "project_setup_proposal payload — provide at least one non-empty group; total payload ≤16KB",
+  properties: {
+    brandIntelligence: brandProposal.json,
+    projectFields: {
+      type: "object",
+      additionalProperties: false,
+      minProperties: 1,
+      description: "Whitelisted project profile fields to overwrite on approval",
+      properties: {
+        businessName: { type: "string", minLength: 1, maxLength: 200 },
+        businessType: { type: "string", minLength: 1, maxLength: 200 },
+        description: { type: "string", minLength: 1, maxLength: 2000, description: "Business summary" },
+        targetAudience: { type: "string", minLength: 1, maxLength: 500 },
+        toneOfVoice: { type: "string", minLength: 1, maxLength: 500 },
+        uniqueSellingPoints: { type: "string", minLength: 1, maxLength: 1000 },
+        brandNotes: { type: "string", minLength: 1, maxLength: 1000 },
+        mainLocation: { type: "string", minLength: 1, maxLength: 120 },
+        targetLocations: { type: "array", minItems: 1, maxItems: 10, items: { type: "string", minLength: 1, maxLength: 120 } },
+        primaryLanguage: { type: "string", enum: LANGUAGES },
+        additionalLanguages: { type: "array", minItems: 1, maxItems: 3, items: { type: "string", enum: LANGUAGES } },
+        competitorUrls: { type: "array", minItems: 1, maxItems: 5, items: { type: "string", maxLength: 300, pattern: "^https://" }, description: "https:// URLs only" },
+      },
+    },
+    services: {
+      type: "array",
+      minItems: 1,
+      maxItems: 10,
+      description: "Services/products to create for the project",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["name", "kind"],
+        properties: {
+          name: { type: "string", minLength: 1, maxLength: 120 },
+          kind: { type: "string", enum: ["Service", "Product"] },
+          description: { type: "string", maxLength: 400 },
+          targetAudience: { type: "string", maxLength: 200 },
+          locationRelevance: { type: "string", maxLength: 120 },
+          priority: { type: "string", enum: PRIORITIES },
+        },
+      },
+    },
+    opportunities: {
+      type: "array",
+      minItems: 1,
+      maxItems: 10,
+      description: "First content opportunities to create (keyword research lands here)",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["title"],
+        properties: {
+          title: { type: "string", minLength: 1, maxLength: 200 },
+          contentType: { type: "string", enum: CONTENT_TYPES },
+          searchIntent: { type: "string", enum: SEARCH_INTENTS },
+          targetAudience: { type: "string", maxLength: 200 },
+          businessValue: { type: "string", maxLength: 500 },
+          recommendedCta: { type: "string", maxLength: 200 },
+          priority: { type: "string", enum: PRIORITIES },
+        },
+      },
+    },
+  },
+};
+
 const WRITE_TOOLS: WriteToolDef[] = [
+  {
+    name: "fill_project_profile",
+    description: "Fill empty profile and Brand Intelligence fields in an existing project from your own research. Preserve every owner-set value. Read get_project_brief/get_project_readiness first and confirm the intended project and research with the user. Use a stable requestId. The response lists field names requiring a separate project_setup_proposal; no proposal is auto-created. Replays describe the original result, not current profile state. No crawling, generation, settings, billing or publication.",
+    inputSchema: {
+      type: "object", additionalProperties: false, required: ["projectId", "requestId", "payload"],
+      properties: {
+        projectId: { type: "string", minLength: 1, maxLength: 100 },
+        requestId: { type: "string", minLength: 1, maxLength: 100 },
+        payload: { type: "object", additionalProperties: false, minProperties: 1, description: "At most16KiB. Blank means absent/null/whitespace-only text or an empty array; non-empty lists are preserved as a whole.", properties: {
+          projectFields: { ...PROJECT_SETUP_PAYLOAD_SCHEMA.properties.projectFields, description: "Only empty fields will be filled" },
+          brandIntelligence: brandProposal.json,
+        } },
+      },
+    },
+    annotations: WRITE_ANNOTATIONS,
+  },
   {
     name: "create_opportunities_batch",
     description: "Store 1–25 assistant-authored topics atomically as captured opportunities. No Milo generation, scheduling or publication. Confirm the user's intended project and plan before writing. Use a stable requestId and identical items for retries; changed or partially missing batches require review.",
@@ -718,6 +806,27 @@ async function dispatchOpportunityBatch(grant: McpGrant, id: JsonRpcMessage["id"
   }
 }
 
+async function dispatchProfileFill(grant: McpGrant, id: JsonRpcMessage["id"], args: Record<string, unknown>, hooks?: McpHooks): Promise<object> {
+  const parsed = profileFillSchema.safeParse(args);
+  if (!parsed.success) return rpcError(id, -32010, "Invalid profile: provide a project, stable requestId and bounded profile/brand fields.");
+  const { mutateWorkspace, WorkspaceConflictError, WorkspaceNotFoundError } = await import("./workspace.server");
+  const detail = { tool: "fill_project_profile", projectId: parsed.data.projectId, requestId: parsed.data.requestId, action: "fill_empty" };
+  try {
+    const prepared = await prepareProfileFill(parsed.data);
+    const { result: payload } = await mutateWorkspace(grant.userId, data => applyProfileFill(data, prepared));
+    await hooks?.audit?.("mcp_write", { ...detail, fieldsChanged: payload.deduped ? [] : payload.filled, requiresProposal: payload.requiresProposal, deduped: payload.deduped, ok: true });
+    return result(id, { content: [{ type: "text", text: JSON.stringify(payload) }] });
+  } catch (error) {
+    const reason = error instanceof ProfileFillError ? error.reason : error instanceof WorkspaceNotFoundError ? "not_found" : error instanceof WorkspaceConflictError ? "busy" : "internal";
+    await hooks?.audit?.("mcp_write", { ...detail, ok: false, error: reason });
+    if (reason === "not_found") return rpcError(id, -32011, "Not found.");
+    if (reason === "conflict") return rpcError(id, -32010, "This requestId has different or invalid prior results. Review the profile before creating a new request.");
+    if (reason === "capacity") return rpcError(id, -32010, "This project's profile request history is full. Use the owner-reviewed proposal path.");
+    if (reason === "busy") return rpcError(id, -32012, "Workspace busy — retry with the same requestId.");
+    return result(id, { content: [{ type: "text", text: "Milo could not complete that profile update. Read the profile and retry with the same requestId." }], isError: true });
+  }
+}
+
 /** Execute one write tool call end-to-end: rate limit → validate → mutate → audit. */
 async function dispatchWriteTool(
   grant: McpGrant,
@@ -734,6 +843,7 @@ async function dispatchWriteTool(
   }
 
   if (name === "create_opportunities_batch") return dispatchOpportunityBatch(grant, id, args, hooks);
+  if (name === "fill_project_profile") return dispatchProfileFill(grant, id, args, hooks);
 
   let input: WriteInput;
   try {
@@ -1156,7 +1266,6 @@ async function dispatchContentWriteTool(
 
 const PENDING_STATUSES = ["pending", "approved", "rejected", "applied", "expired"];
 const PENDING_TYPES = ["opportunity_update_proposal", "project_setup_proposal"];
-const SEARCH_INTENTS = ["Informational", "Commercial", "Transactional", "Navigational"];
 const LIST_PENDING_DEFAULT_LIMIT = 50;
 const LIST_PENDING_MAX_LIMIT = 100;
 
@@ -1187,74 +1296,6 @@ const OPPORTUNITY_UPDATE_PAYLOAD_SCHEMA = {
   },
 };
 
-const PROJECT_SETUP_PAYLOAD_SCHEMA = {
-  type: "object",
-  additionalProperties: false,
-  minProperties: 1,
-  description: "project_setup_proposal payload — provide at least one non-empty group; total payload ≤16KB",
-  properties: {
-    brandIntelligence: brandProposal.json,
-    projectFields: {
-      type: "object",
-      additionalProperties: false,
-      minProperties: 1,
-      description: "Whitelisted project profile fields to overwrite on approval",
-      properties: {
-        businessName: { type: "string", minLength: 1, maxLength: 200 },
-        businessType: { type: "string", minLength: 1, maxLength: 200 },
-        description: { type: "string", minLength: 1, maxLength: 2000, description: "Business summary" },
-        targetAudience: { type: "string", minLength: 1, maxLength: 500 },
-        toneOfVoice: { type: "string", minLength: 1, maxLength: 500 },
-        uniqueSellingPoints: { type: "string", minLength: 1, maxLength: 1000 },
-        brandNotes: { type: "string", minLength: 1, maxLength: 1000 },
-        mainLocation: { type: "string", minLength: 1, maxLength: 120 },
-        targetLocations: { type: "array", minItems: 1, maxItems: 10, items: { type: "string", minLength: 1, maxLength: 120 } },
-        primaryLanguage: { type: "string", enum: LANGUAGES },
-        additionalLanguages: { type: "array", minItems: 1, maxItems: 3, items: { type: "string", enum: LANGUAGES } },
-        competitorUrls: { type: "array", minItems: 1, maxItems: 5, items: { type: "string", maxLength: 300, pattern: "^https://" }, description: "https:// URLs only" },
-      },
-    },
-    services: {
-      type: "array",
-      minItems: 1,
-      maxItems: 10,
-      description: "Services/products to create for the project",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["name", "kind"],
-        properties: {
-          name: { type: "string", minLength: 1, maxLength: 120 },
-          kind: { type: "string", enum: ["Service", "Product"] },
-          description: { type: "string", maxLength: 400 },
-          targetAudience: { type: "string", maxLength: 200 },
-          locationRelevance: { type: "string", maxLength: 120 },
-          priority: { type: "string", enum: PRIORITIES },
-        },
-      },
-    },
-    opportunities: {
-      type: "array",
-      minItems: 1,
-      maxItems: 10,
-      description: "First content opportunities to create (keyword research lands here)",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["title"],
-        properties: {
-          title: { type: "string", minLength: 1, maxLength: 200 },
-          contentType: { type: "string", enum: CONTENT_TYPES },
-          searchIntent: { type: "string", enum: SEARCH_INTENTS },
-          targetAudience: { type: "string", maxLength: 200 },
-          businessValue: { type: "string", maxLength: 500 },
-          recommendedCta: { type: "string", maxLength: 200 },
-          priority: { type: "string", enum: PRIORITIES },
-        },
-      },
-    },
-  },
-};
 
 interface PendingToolDef {
   name: PendingToolName;
