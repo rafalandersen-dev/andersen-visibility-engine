@@ -1,21 +1,42 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { AppShell } from "@/components/AppShell";
+import { ClaudeConnectorCard } from "@/components/ClaudeConnectorCard";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { useT } from "@/i18n";
-import { getConsentRequestFn, approveOAuthConsentFn, denyOAuthConsentFn, type ConsentView } from "@/lib/oauth.functions";
+import {
+  getConsentRequestFn,
+  approveOAuthConsentFn,
+  denyOAuthConsentFn,
+  type ConsentView,
+} from "@/lib/oauth.functions";
 import { Bot, Check, Lightbulb, Loader2, Lock, PenLine, ShieldCheck, X } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/app/connect")({
   validateSearch: z.object({ req: z.string().optional() }),
-  head: () => ({ meta: [{ title: "Connect to Claude — Milo Growth" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({
+    meta: [{ title: "Connect to Claude — Milo Growth" }, { name: "robots", content: "noindex" }],
+  }),
   component: ConnectPage,
 });
 
-const CAN_KEYS = ["connect.can.projects", "connect.can.content", "connect.can.insights", "connect.can.authority"];
-const CANNOT_KEYS = ["connect.cannot.create", "connect.cannot.edit", "connect.cannot.publish", "connect.cannot.delete", "connect.cannot.settings", "connect.cannot.billing"];
+const CAN_KEYS = [
+  "connect.can.projects",
+  "connect.can.content",
+  "connect.can.insights",
+  "connect.can.authority",
+];
+const CANNOT_KEYS = [
+  "connect.cannot.create",
+  "connect.cannot.edit",
+  "connect.cannot.publish",
+  "connect.cannot.delete",
+  "connect.cannot.settings",
+  "connect.cannot.billing",
+];
 
 function ConnectPage() {
   const t = useT();
@@ -75,6 +96,23 @@ function ConnectPage() {
     }
   }
 
+  if (!req)
+    return (
+      <AppShell
+        title={t("shell.nav.connectedApps")}
+        description={t("connections.subtitle")}
+        actions={
+          <Button asChild variant="outline">
+            <Link to="/app/setup">{t("connections.publishing")}</Link>
+          </Button>
+        }
+      >
+        <div className="max-w-4xl">
+          <ClaudeConnectorCard />
+        </div>
+      </AppShell>
+    );
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-6 py-12">
       <div className="w-full max-w-lg rounded-xl border border-border bg-card p-8">
@@ -95,22 +133,34 @@ function ConnectPage() {
 
             <div className="mt-4 space-y-1 text-sm">
               {view.clientName ? (
-                <div><span className="text-muted-foreground">{t("connect.requestedBy")}: </span><span className="font-medium">{view.clientName}</span></div>
+                <div>
+                  <span className="text-muted-foreground">{t("connect.requestedBy")}: </span>
+                  <span className="font-medium">{view.clientName}</span>
+                </div>
               ) : null}
               {user?.email ? (
-                <div><span className="text-muted-foreground">{t("connect.account")}: </span><span className="font-mono text-foreground/90">{user.email}</span></div>
+                <div>
+                  <span className="text-muted-foreground">{t("connect.account")}: </span>
+                  <span className="font-mono text-foreground/90">{user.email}</span>
+                </div>
               ) : null}
             </div>
 
             {(() => {
-              const readScopes = (view.scopes ?? []).filter((s) => s.kind !== "write" && s.kind !== "propose");
+              const readScopes = (view.scopes ?? []).filter(
+                (s) => s.kind !== "write" && s.kind !== "propose",
+              );
               const writeScopes = (view.scopes ?? []).filter((s) => s.kind === "write");
               const proposeScopes = (view.scopes ?? []).filter((s) => s.kind === "propose");
               const hasWrite = writeScopes.length > 0;
               const hasPropose = proposeScopes.length > 0;
               // With write scopes granted, "cannot create/edit" would be false.
               // Propose alone keeps the full list: proposals create nothing directly.
-              let cannotKeys = hasWrite ? CANNOT_KEYS.filter((k) => k !== "connect.cannot.create" && k !== "connect.cannot.edit") : CANNOT_KEYS;
+              let cannotKeys = hasWrite
+                ? CANNOT_KEYS.filter(
+                    (k) => k !== "connect.cannot.create" && k !== "connect.cannot.edit",
+                  )
+                : CANNOT_KEYS;
               // Proposals are never self-approving — true for mixed grants too.
               if (hasPropose) cannotKeys = ["connect.cannot.approve", ...cannotKeys];
               return (
@@ -131,7 +181,9 @@ function ConnectPage() {
 
                   {readScopes.length ? (
                     <div className="mt-5">
-                      <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">{t("connect.requesting")}</div>
+                      <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+                        {t("connect.requesting")}
+                      </div>
                       <ul className="mt-2 space-y-1.5">
                         {readScopes.map((s) => (
                           <li key={s.scope} className="flex items-start gap-2 text-sm">
@@ -145,7 +197,9 @@ function ConnectPage() {
 
                   {hasWrite ? (
                     <div className="mt-4 rounded-md border border-amber-600/40 bg-amber-500/5 p-3">
-                      <div className="text-[10px] uppercase tracking-[0.22em] text-amber-700">{t("connect.write.title")}</div>
+                      <div className="text-[10px] uppercase tracking-[0.22em] text-amber-700">
+                        {t("connect.write.title")}
+                      </div>
                       <ul className="mt-2 space-y-1.5">
                         {writeScopes.map((s) => (
                           <li key={s.scope} className="flex items-start gap-2 text-sm">
@@ -160,7 +214,9 @@ function ConnectPage() {
 
                   {hasPropose ? (
                     <div className="mt-4 rounded-md border border-amber-600/40 bg-amber-500/5 p-3">
-                      <div className="text-[10px] uppercase tracking-[0.22em] text-amber-700">{t("connect.propose.title")}</div>
+                      <div className="text-[10px] uppercase tracking-[0.22em] text-amber-700">
+                        {t("connect.propose.title")}
+                      </div>
                       <ul className="mt-2 space-y-1.5">
                         {proposeScopes.map((s) => (
                           <li key={s.scope} className="flex items-start gap-2 text-sm">
@@ -169,24 +225,39 @@ function ConnectPage() {
                           </li>
                         ))}
                       </ul>
-                      <p className="mt-2 text-xs text-amber-700/90">{t("connect.propose.warning")}</p>
+                      <p className="mt-2 text-xs text-amber-700/90">
+                        {t("connect.propose.warning")}
+                      </p>
                     </div>
                   ) : null}
 
                   <div className="mt-5 grid sm:grid-cols-2 gap-4">
                     <div className="rounded-md border border-border p-3">
-                      <div className="text-xs font-medium text-foreground">{t("connect.canTitle")}</div>
+                      <div className="text-xs font-medium text-foreground">
+                        {t("connect.canTitle")}
+                      </div>
                       <ul className="mt-2 space-y-1.5">
                         {CAN_KEYS.map((k) => (
-                          <li key={k} className="flex items-start gap-2 text-xs text-foreground/85"><Check className="mt-0.5 h-3.5 w-3.5 text-emerald-600 shrink-0" />{t(k)}</li>
+                          <li key={k} className="flex items-start gap-2 text-xs text-foreground/85">
+                            <Check className="mt-0.5 h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                            {t(k)}
+                          </li>
                         ))}
                       </ul>
                     </div>
                     <div className="rounded-md border border-border p-3">
-                      <div className="text-xs font-medium text-foreground">{t("connect.cannotTitle")}</div>
+                      <div className="text-xs font-medium text-foreground">
+                        {t("connect.cannotTitle")}
+                      </div>
                       <ul className="mt-2 space-y-1.5">
                         {cannotKeys.map((k) => (
-                          <li key={k} className="flex items-start gap-2 text-xs text-muted-foreground"><X className="mt-0.5 h-3.5 w-3.5 text-destructive shrink-0" />{t(k)}</li>
+                          <li
+                            key={k}
+                            className="flex items-start gap-2 text-xs text-muted-foreground"
+                          >
+                            <X className="mt-0.5 h-3.5 w-3.5 text-destructive shrink-0" />
+                            {t(k)}
+                          </li>
                         ))}
                       </ul>
                     </div>
@@ -197,11 +268,19 @@ function ConnectPage() {
 
             <div className="mt-7 flex flex-wrap gap-3">
               <Button onClick={onAllow} disabled={busy !== null}>
-                {busy === "allow" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                {busy === "allow" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4" />
+                )}
                 {t("connect.allow")}
               </Button>
               <Button variant="outline" onClick={onCancel} disabled={busy !== null}>
-                {busy === "cancel" ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                {busy === "cancel" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <X className="h-4 w-4" />
+                )}
                 {t("connect.cancel")}
               </Button>
             </div>
@@ -216,10 +295,13 @@ function ConnectPage() {
 function ErrorState({ reason }: { reason?: string }) {
   const t = useT();
   const key =
-    reason === "expired" ? "connect.error.expired"
-    : reason === "already_used" ? "connect.error.used"
-    : reason === "invalid_client" ? "connect.error.client"
-    : "connect.error.notFound";
+    reason === "expired"
+      ? "connect.error.expired"
+      : reason === "already_used"
+        ? "connect.error.used"
+        : reason === "invalid_client"
+          ? "connect.error.client"
+          : "connect.error.notFound";
   return (
     <div className="text-center py-6">
       <Lock className="mx-auto h-6 w-6 text-muted-foreground" />

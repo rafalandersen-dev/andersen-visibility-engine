@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,6 +55,7 @@ import { ClaudeConnectorCard } from "@/components/ClaudeConnectorCard";
 import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
+import { projectFormPatch } from "@/lib/project-form";
 
 export const Route = createFileRoute("/_authenticated/app/setup")({
   validateSearch: z.object({ new: z.coerce.boolean().optional() }),
@@ -79,19 +80,17 @@ function ProjectSetup() {
   const { isOwner } = useAuth();
   const t = useT();
   const search = Route.useSearch();
+  const navigate = useNavigate();
   const [form, setForm] = useState<Project>(active ?? blankProject());
   const [creating, setCreating] = useState(Boolean(search.new) || !active);
 
   useEffect(() => {
-    if (!creating && active) setForm(active);
-  }, [active?.id, creating]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (search.new) {
-      setCreating(true);
-      setForm(blankProject());
-    }
-  }, [search.new]);
+    const newProject = Boolean(search.new) || !active;
+    setCreating(newProject);
+    setForm(newProject ? blankProject() : active!);
+    // Synchronize route/project changes only. Other settings panels save
+    // independently and must not reset unsaved fields in this form.
+  }, [search.new, active?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const update = <K extends keyof Project>(k: K, v: Project[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
@@ -135,28 +134,11 @@ function ProjectSetup() {
       // connector config, Brand Intelligence, auto-scheduler toggles — with
       // the stale copies captured at mount ("saving one section reverts
       // another"). An explicit ownership list makes that impossible.
-      updateProject(active.id, {
-        name: form.name,
-        websiteUrl: form.websiteUrl,
-        businessName: form.businessName,
-        businessType: form.businessType,
-        description: form.description,
-        targetAudience: form.targetAudience,
-        toneOfVoice: form.toneOfVoice,
-        brandNotes: form.brandNotes,
-        market: form.market,
-        currency: form.currency,
-        appLanguage: form.appLanguage,
-        primaryContentLanguage: form.primaryContentLanguage,
-        additionalLanguages: form.additionalLanguages,
-        mainLocation: form.mainLocation,
-        targetLocations: form.targetLocations,
-        growthGoals: form.growthGoals,
-        autoScheduler: form.autoScheduler,
-      });
+      updateProject(active.id, projectFormPatch(form));
       toast.success(t("setup.toast.saved"));
     }
     setCreating(false);
+    navigate({ to: "/app/setup", search: { new: undefined }, replace: true });
   };
 
   return (
@@ -168,27 +150,14 @@ function ProjectSetup() {
           {!creating ? (
             <Button
               variant="outline"
-              onClick={() => {
-                setCreating(true);
-                setForm({
-                  ...form,
-                  id: "",
-                  name: "",
-                  websiteUrl: "",
-                  businessName: "",
-                  description: "",
-                });
-              }}
+              onClick={() => navigate({ to: "/app/setup", search: { new: true } })}
             >
               {t("setup.newProject")}
             </Button>
           ) : (
             <Button
               variant="ghost"
-              onClick={() => {
-                setCreating(false);
-                if (active) setForm(active);
-              }}
+              onClick={() => navigate({ to: "/app/setup", search: { new: undefined } })}
             >
               {t("common.cancel")}
             </Button>

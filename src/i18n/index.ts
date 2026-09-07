@@ -14,6 +14,7 @@ import { en } from "./en";
 import { pl } from "./pl";
 import { sv } from "./sv";
 import { da } from "./da";
+import { premium } from "./premium";
 
 type Dict = Record<string, string>;
 const DICTS: Record<OnboardingLanguage, Dict> = { en, pl, sv, da };
@@ -28,7 +29,7 @@ export function translate(
   vars?: Record<string, string | number>,
 ): string {
   const l = isSupported(lang) ? lang : "en";
-  let s = DICTS[l][key] ?? en[key] ?? key;
+  let s = premium[l][key] ?? DICTS[l][key] ?? en[key] ?? key;
   if (vars) {
     for (const [k, v] of Object.entries(vars)) {
       s = s.replace(new RegExp(`\\{${k}\\}`, "g"), String(v));

@@ -17,6 +17,7 @@
  * owner bypass logic lives in `src/lib/auth.tsx`.
  */
 import { useRef, useSyncExternalStore } from "react";
+import { createSelectorCache } from "./selector-cache";
 import { linkedAssetFor } from "./pipeline";
 import { normalizeInternalPath } from "./markdown";
 import type {
@@ -557,32 +558,18 @@ const shallowEqual = (a: unknown, b: unknown): boolean => {
 };
 
 export function useStore<T>(selector: (s: State) => T): T {
-  const cache = useRef<{ state: State | null; value: T }>({
-    state: null,
-    value: undefined as unknown as T,
-  });
-  const getSnap = () => {
-    const cur = state;
-    if (cache.current.state === cur) return cache.current.value;
-    const next = selector(cur);
-    if (cache.current.state !== null && shallowEqual(cache.current.value, next)) {
-      cache.current = { state: cur, value: cache.current.value };
-      return cache.current.value;
-    }
-    cache.current = { state: cur, value: next };
-    return next;
-  };
-  const serverCache = useRef<{ done: boolean; value: T }>({
-    done: false,
-    value: undefined as unknown as T,
-  });
-  const getServerSnap = () => {
-    if (!serverCache.current.done) {
-      serverCache.current = { done: true, value: selector(ssrSnapshot) };
-    }
-    return serverCache.current.value;
-  };
-  return useSyncExternalStore(subscribe, getSnap, getServerSnap);
+  const cache = useRef<ReturnType<typeof createSelectorCache<State, T>> | null>(null);
+  const serverCache = useRef<ReturnType<typeof createSelectorCache<State, T>> | null>(null);
+  if (!cache.current) cache.current = createSelectorCache<State, T>(shallowEqual);
+  if (!serverCache.current) serverCache.current = createSelectorCache<State, T>(shallowEqual);
+  // A notification can run a selector closed over the PREVIOUS project id.
+  // React then rerenders with the new id but the same state object. Cache both
+  // identities, or that second selector is never evaluated and its rows vanish.
+  return useSyncExternalStore(
+    subscribe,
+    () => cache.current!.read(state, selector),
+    () => serverCache.current!.read(ssrSnapshot, selector),
+  );
 }
 
 export const uid = () => Math.random().toString(36).slice(2, 10);

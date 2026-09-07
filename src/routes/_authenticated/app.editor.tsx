@@ -247,8 +247,8 @@ function EditorPage() {
 
   return (
     <AppShell title={t("editor.title")} description={t("editor.subtitle")}>
-      <div className="grid lg:grid-cols-[260px,1fr] gap-6">
-        <aside className="rounded-lg border border-border bg-card p-3 h-fit">
+      <div className="milo-editor-layout grid min-w-0 lg:grid-cols-[260px_minmax(0,1fr)] gap-6">
+        <aside className="rounded-xl border border-border bg-card p-3 h-fit max-h-[50vh] overflow-y-auto lg:sticky lg:top-6 lg:max-h-[calc(100vh-48px)]">
           <div className="px-2 py-1 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
             {t("editor.assets")}
           </div>
@@ -268,7 +268,9 @@ function EditorPage() {
                       (selectedId === a.id ? "bg-accent/25" : "hover:bg-secondary/60")
                     }
                   >
-                    <div className="text-sm font-medium truncate">{a.title}</div>
+                    <div className="text-sm font-medium line-clamp-2 [overflow-wrap:anywhere]">
+                      {a.title}
+                    </div>
                     <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mt-0.5">
                       {a.assetType ? `${ASSET_TYPE_LABELS[a.assetType]} · ` : ""}
                       {t(`status.${a.status}`)}
@@ -281,7 +283,9 @@ function EditorPage() {
         </aside>
 
         {asset ? (
-          <Editor key={asset.id} asset={asset} onRequestDelete={() => setDeleteId(asset.id)} />
+          <div className="min-w-0">
+            <Editor key={asset.id} asset={asset} onRequestDelete={() => setDeleteId(asset.id)} />
+          </div>
         ) : (
           <div className="rounded-lg border border-dashed border-border p-12 text-center">
             <div className="font-display text-lg mb-1">{t("editor.noAssetSelectedTitle")}</div>
