@@ -7,6 +7,8 @@ export interface ReleaseIdentity {
   algorithm: "milo-source-v1";
   revision: string | null;
   modified: boolean | null;
+  /** Fixed public input groups; hashes only, no file contents or environment. */
+  components: Record<string, string | null> | null;
 }
 // Deliberately excludes environment files, credentials, .git contents and dependencies.
 // This identifies bundled application inputs; it cannot prove runtime configuration.
@@ -23,7 +25,7 @@ const inputs = [
 ];
 const excluded = (name: string) =>
   name.startsWith(".env") || name === "node_modules" || name === ".git";
-export function sourceFingerprint(root: string): string {
+export function sourceFingerprint(root: string, selected: readonly string[] = inputs): string {
   const files: string[] = [];
   const walk = (path: string) => {
     const stat = lstatSync(path);
@@ -32,7 +34,7 @@ export function sourceFingerprint(root: string): string {
       for (const name of readdirSync(path).sort()) if (!excluded(name)) walk(join(path, name));
     } else if (stat.isFile()) files.push(path);
   };
-  for (const name of inputs) if (existsSync(join(root, name))) walk(join(root, name));
+  for (const name of selected) if (existsSync(join(root, name))) walk(join(root, name));
   if (!existsSync(join(root, "src")) || !existsSync(join(root, "package.json")))
     throw new Error("source_identity_incomplete");
   const entries = files
@@ -57,9 +59,16 @@ export function releaseIdentity(root = process.cwd()): ReleaseIdentity {
     algorithm: "milo-source-v1",
     revision: null,
     modified: null,
+    components: null,
   };
   try {
     result.fingerprint = sourceFingerprint(resolve(root));
+    result.components = Object.fromEntries(
+      inputs.map((name) => [
+        name,
+        existsSync(join(root, name)) ? sourceFingerprint(resolve(root), [name]) : null,
+      ]),
+    );
   } catch {
     /* expose unknown, never fabricate an identity */
   }
