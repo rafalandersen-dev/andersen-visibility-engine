@@ -111,10 +111,11 @@ const freshTouch = (): TouchState => ({ updateCalled: false, updatedWith: null, 
 // ---- scope map regression ---------------------------------------------------
 
 describe("TOOL_SCOPES / toolAllowed", () => {
-  it("maps the 8 read tools + 2 write tools + 2 content-write tools + 3 pending tools to their scopes exactly", () => {
+  it("maps the 9 read tools + 2 write tools + 2 content-write tools + 3 pending tools to their scopes exactly", () => {
     expect(TOOL_SCOPES).toEqual({
       list_projects: "milo.projects.read",
       get_project_brief: "milo.projects.read",
+      get_project_readiness: "milo.projects.read",
       list_opportunities: "milo.content.read",
       list_content: "milo.content.read",
       get_content: "milo.content.read",
@@ -162,11 +163,11 @@ describe("handleMcpMessage", () => {
     expect(unknown.error.code).toBe(-32601);
   });
 
-  it("tools/list stays the same 8 READ tools even with MCP_WRITE_TOOLS_ENABLED on (no phantom write tools)", async () => {
+  it("tools/list stays the same 9 READ tools even with MCP_WRITE_TOOLS_ENABLED on (no phantom write tools)", async () => {
     vi.stubEnv("MCP_WRITE_TOOLS_ENABLED", "true");
     try {
       const all = (await handleMcpMessage(grantAll, { id: 1, method: "tools/list" })) as { result: { tools: { name: string }[] } };
-      expect(all.result.tools).toHaveLength(8);
+      expect(all.result.tools).toHaveLength(9);
       expect(all.result.tools.map((t) => t.name).join(",")).not.toMatch(/create|update|write|publish|delete/);
     } finally {
       vi.unstubAllEnvs();
@@ -175,9 +176,9 @@ describe("handleMcpMessage", () => {
 
   it("tools/list is filtered to the grant's scopes", async () => {
     const all = (await handleMcpMessage(grantAll, { id: 1, method: "tools/list" })) as { result: { tools: { name: string }[] } };
-    expect(all.result.tools).toHaveLength(8);
+    expect(all.result.tools).toHaveLength(9);
     const scoped = (await handleMcpMessage(grantProjects, { id: 1, method: "tools/list" })) as { result: { tools: { name: string }[] } };
-    expect(scoped.result.tools.map((t) => t.name).sort()).toEqual(["get_project_brief", "list_projects"]);
+    expect(scoped.result.tools.map((t) => t.name).sort()).toEqual(["get_project_brief", "get_project_readiness", "list_projects"]);
     const none = (await handleMcpMessage({ userId: "user1", scopes: [] }, { id: 1, method: "tools/list" })) as { result: { tools: unknown[] } };
     expect(none.result.tools).toHaveLength(0);
   });
@@ -198,6 +199,21 @@ describe("handleMcpMessage", () => {
     expect(r.error.code).toBe(-32602);
   });
 
+  it("readiness rejects grants without project read access before loading data", async () => {
+    h.from = () => { throw new Error("must not read"); };
+    h.rpc = () => { throw new Error("must not read"); };
+    const response = await handleMcpMessage({ userId: "user1", scopes: ["milo.content.read"] }, { id: 20, method: "tools/call", params: { name: "get_project_readiness", arguments: { projectId: "p1" } } });
+    expect(response).toMatchObject({ error: { code: -32002 } });
+  });
+  it("readiness selects only the requested project in the authenticated workspace", async () => {
+    h.rpc = (fn) => Promise.resolve({ data: fn === "read_workspace_bundle" ? null : true, error: null });
+    h.from = () => ({ select: () => selectChain({ data: { projects: [{ id: "p1", businessName: "Own", publishSecret: "private-fixture" }, { id: "p2", businessName: "Other" }], services: [{ projectId: "p2", name: "Other", description: "Other" }] } }) });
+    const call = (projectId: string) => handleMcpMessage(grantProjects, { id: 21, method: "tools/call", params: { name: "get_project_readiness", arguments: { projectId } } });
+    const response = await call("p1") as { result: { content: { text: string }[] } };
+    expect(JSON.parse(response.result.content[0].text)).toMatchObject({ projectId: "p1", catalog: { total: 0 }, integrations: "not_checked" });
+    expect(JSON.stringify(response)).not.toContain("private-fixture");
+    expect(JSON.stringify(await call("unknown"))).toContain("Project not found");
+  });
   it("an allowed tools/call loads the workspace and returns tool output", async () => {
     // Per-entity backend: unmigrated user → bundle null → legacy blob read
     // (+ lazy backfill, which we just acknowledge).
@@ -641,7 +657,7 @@ describe("revokeGrantsForUserClient", () => {
 // ---- Phase 1A write tools (flag + explicit scope gated) -----------------------
 
 const READ_SCOPES_ALL = ["milo.projects.read", "milo.content.read", "milo.insights.read", "milo.authority.read"];
-const READ_TOOLS_COUNT = 8;
+const READ_TOOLS_COUNT = 9;
 
 const writeGrant = (scopes: string[] | null, writeEnabled = true) => ({ userId: "user1", scopes, writeEnabled });
 
@@ -689,11 +705,11 @@ describe("write tools — tools/list gating matrix", () => {
     return r.result.tools.map((t) => t.name);
   };
 
-  it("flag off → 8 read tools even with both write scopes", async () => {
+  it("flag off → 9 read tools even with both write scopes", async () => {
     const names = await listTools([...READ_SCOPES_ALL, "milo.tasks.write", "milo.projects.write"], false);
     expect(names).toHaveLength(READ_TOOLS_COUNT);
   });
-  it("flag on + read-only scopes → still 8", async () => {
+  it("flag on + read-only scopes → still 9", async () => {
     expect(await listTools(READ_SCOPES_ALL, true)).toHaveLength(READ_TOOLS_COUNT);
   });
   it("flag on + tasks.write → only create_growth_task appears", async () => {
