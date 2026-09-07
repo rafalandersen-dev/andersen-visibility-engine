@@ -79,8 +79,25 @@ function NotificationsPage() {
             }
           }
           const editor = item.kind === "approval_due" || item.kind === "publication_failed";
-          const body =
-            item.kind === "scheduler_recovery"
+          const capacity =
+            item.kind === "generation_capacity_low" ||
+            item.kind === "generation_capacity_unavailable";
+          const calendar =
+            item.kind === "cadence_gap" || item.kind === "scheduler_recovery" || capacity;
+          const body = capacity
+            ? t(
+                item.kind === "generation_capacity_low"
+                  ? "notifications.capacityLow"
+                  : "notifications.capacityUnavailable",
+                {
+                  missing: item.detail.missing ?? 0,
+                  total: item.detail.total ?? 0,
+                  remaining: item.detail.remaining ?? 0,
+                  period: item.detail.plannedPeriod ?? "",
+                  usagePeriod: item.detail.usagePeriod ?? "",
+                },
+              )
+            : item.kind === "scheduler_recovery"
               ? t("notifications.recovery")
               : item.kind === "cadence_gap"
                 ? t("notifications.coverage", {
@@ -125,18 +142,10 @@ function NotificationsPage() {
                   <Button asChild>
                     <Link
                       to="/app/plan"
-                      search={
-                        item.kind === "cadence_gap" || item.kind === "scheduler_recovery"
-                          ? { view: "calendar" }
-                          : { selected: item.target_id }
-                      }
+                      search={calendar ? { view: "calendar" } : { selected: item.target_id }}
                       onClick={() => setActiveProject(item.project_id)}
                     >
-                      {t(
-                        item.kind === "cadence_gap" || item.kind === "scheduler_recovery"
-                          ? "notifications.calendar"
-                          : "notifications.open",
-                      )}
+                      {t(calendar ? "notifications.calendar" : "notifications.open")}
                     </Link>
                   </Button>
                 )}

@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { operationalNotifications } from "./operational-notifications";
+import { schedulerDemand, schedulerCapacityNotifications } from "./scheduler-capacity";
+import { readGenerationCapacity } from "./generation-capacity.server";
 import type { Project, ContentAsset, Opportunity } from "./types";
 const identity = z.string().min(1).max(200);
 const entity = z.object({ id: identity }).passthrough();
@@ -106,6 +108,17 @@ export async function refreshOperationalNotifications(
     schedulerLeases,
     now,
   });
+  const demand = schedulerDemand({
+    projects: snapshot.projects as unknown as Project[],
+    assets: snapshot.content as unknown as ContentAsset[],
+    scheduled,
+    now,
+  });
+  if (demand.length) {
+    const capacity = await readGenerationCapacity(userId, now, db);
+    events.push(...schedulerCapacityNotifications(demand, capacity));
+  }
+  if (events.length > 500) throw new Error("notification_scan_too_large");
   const synced = await db.rpc("sync_operational_notifications", {
     p_user: userId,
     p_workspace_rev: row.rev,
@@ -124,28 +137,58 @@ export async function refreshOperationalNotifications(
   }
   return synced.data;
 }
-export const notificationRowSchema = z.object({
-  id: z.string().uuid(),
-  project_id: identity,
-  kind: z.enum([
-    "approval_due",
-    "publication_failed",
-    "manual_overdue",
-    "cadence_gap",
-    "scheduler_recovery",
-  ]),
-  target_id: identity,
-  target_title: z.string(),
-  due_at: z.string().nullable(),
-  active: z.boolean(),
-  read_at: z.string().nullable(),
-  created_at: z.string(),
-  detail: z.object({
-    timeZone: z.string(),
-    missing: z.number().optional(),
-    total: z.number().optional(),
-  }),
-});
+export const notificationRowSchema = z
+  .object({
+    id: z.string().uuid(),
+    project_id: identity,
+    kind: z.enum([
+      "approval_due",
+      "publication_failed",
+      "manual_overdue",
+      "cadence_gap",
+      "scheduler_recovery",
+      "generation_capacity_low",
+      "generation_capacity_unavailable",
+    ]),
+    target_id: identity,
+    target_title: z.string(),
+    due_at: z.string().nullable(),
+    active: z.boolean(),
+    read_at: z.string().nullable(),
+    created_at: z.string(),
+    detail: z.object({
+      timeZone: z.string(),
+      missing: z.number().optional(),
+      total: z.number().optional(),
+      remaining: z.number().int().nonnegative().optional(),
+      plannedPeriod: z
+        .string()
+        .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
+        .optional(),
+      usagePeriod: z
+        .string()
+        .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
+        .optional(),
+    }),
+  })
+  .superRefine((row, ctx) => {
+    if (row.kind !== "generation_capacity_low" && row.kind !== "generation_capacity_unavailable")
+      return;
+    const d = row.detail;
+    if (
+      !d.plannedPeriod ||
+      !d.usagePeriod ||
+      !Number.isInteger(d.missing) ||
+      !Number.isInteger(d.total) ||
+      (d.missing ?? 0) < 1 ||
+      (d.total ?? 0) < (d.missing ?? 0) ||
+      (row.kind === "generation_capacity_low"
+        ? d.remaining === undefined
+        : d.remaining !== undefined)
+    ) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "invalid_capacity_notification" });
+    }
+  });
 export type OperationalNotificationRow = z.infer<typeof notificationRowSchema>;
 export async function listOperationalNotifications(userId: string) {
   const db = await admin();

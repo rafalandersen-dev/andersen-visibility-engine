@@ -4,6 +4,12 @@ export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, str
       "Your current account email has not been verified. Complete email confirmation, then check again. If the address was changed by an administrator and you have no confirmation link, contact Milo support. In-app notifications remain available.",
     "notifications.emailAddressUnavailable":
       "Milo could not check your current email verification. Try again later. You can still turn off summaries and use in-app notifications.",
+    "notifications.generation_capacity_low": "Preparation allowance may not cover the plan",
+    "notifications.generation_capacity_unavailable": "Preparation allowance could not be checked",
+    "notifications.capacityLow":
+      "The {period} plan still needs {missing} drafts for this project and {total} across your active schedules. Your account has {remaining} preparation attempts left in {usagePeriod}. This is shared capacity, not a promise of completed articles. Review the schedule; saved drafts remain available for review and publication.",
+    "notifications.capacityUnavailable":
+      "Milo could not verify the shared preparation allowance for {usagePeriod}. The {period} plan still needs {missing} drafts here. Check again later. Saved drafts and other notifications remain available.",
     "notifications.scheduler_recovery": "Automation needs recovery review",
     "notifications.recovery":
       "Preparation paused after an interrupted run. Review saved drafts and the last operation before restarting. Existing publication approvals remain unchanged.",
@@ -57,6 +63,12 @@ export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, str
       "Bieżący adres e-mail konta nie jest potwierdzony. Dokończ potwierdzanie adresu i sprawdź ponownie. Jeśli adres zmienił administrator i nie masz linku potwierdzającego, skontaktuj się z pomocą Milo. Powiadomienia w aplikacji pozostają dostępne.",
     "notifications.emailAddressUnavailable":
       "Milo nie mogło sprawdzić potwierdzenia bieżącego adresu e-mail. Spróbuj później. Nadal możesz wyłączyć podsumowania i korzystać z powiadomień w aplikacji.",
+    "notifications.generation_capacity_low": "Limit przygotowania może nie wystarczyć na plan",
+    "notifications.generation_capacity_unavailable": "Nie udało się sprawdzić limitu przygotowania",
+    "notifications.capacityLow":
+      "W planie na {period} brakuje {missing} szkiców tego projektu i {total} we wszystkich aktywnych harmonogramach. Na koncie pozostało {remaining} prób przygotowania w okresie {usagePeriod}. To wspólny limit, a nie gwarancja ukończenia artykułów. Sprawdź harmonogram; zapisane szkice nadal można przeglądać i publikować.",
+    "notifications.capacityUnavailable":
+      "Milo nie mogło potwierdzić wspólnego limitu przygotowania na {usagePeriod}. W planie na {period} brakuje tutaj {missing} szkiców. Sprawdź ponownie później. Zapisane szkice i pozostałe powiadomienia są nadal dostępne.",
     "notifications.scheduler_recovery": "Automatyzacja wymaga sprawdzenia",
     "notifications.recovery":
       "Przygotowanie treści zatrzymało się po przerwanym przebiegu. Przed wznowieniem sprawdź zapisane szkice i wynik ostatniej operacji. Dotychczasowe zgody na publikację pozostają bez zmian.",
@@ -112,6 +124,12 @@ export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, str
       "Kontots nuvarande e-postadress är inte bekräftad. Slutför bekräftelsen och kontrollera igen. Om en administratör ändrade adressen och du saknar en bekräftelselänk, kontakta Milos support. Aviseringar i appen är fortfarande tillgängliga.",
     "notifications.emailAddressUnavailable":
       "Milo kunde inte kontrollera bekräftelsen av din nuvarande e-postadress. Försök senare. Du kan fortfarande stänga av sammanfattningar och använda aviseringar i appen.",
+    "notifications.generation_capacity_low": "Kvoten kanske inte räcker för planen",
+    "notifications.generation_capacity_unavailable": "Kvoten kunde inte kontrolleras",
+    "notifications.capacityLow":
+      "Planen för {period} saknar {missing} utkast i detta projekt och {total} i alla aktiva scheman. Kontot har {remaining} försök kvar under {usagePeriod}. Kvoten delas mellan projekten och garanterar inte färdiga artiklar. Granska schemat; sparade utkast kan fortfarande granskas och publiceras.",
+    "notifications.capacityUnavailable":
+      "Milo kunde inte kontrollera den gemensamma kvoten för {usagePeriod}. Planen för {period} saknar {missing} utkast här. Försök igen senare. Sparade utkast och andra aviseringar är fortfarande tillgängliga.",
     "notifications.scheduler_recovery": "Automatiseringen behöver kontrolleras",
     "notifications.recovery":
       "Förberedelsen pausades efter en avbruten körning. Kontrollera sparade utkast och den senaste åtgärden före omstart. Befintliga publiceringsgodkännanden gäller fortfarande.",
@@ -166,6 +184,12 @@ export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, str
       "Kontoens nuværende e-mailadresse er ikke bekræftet. Gennemfør bekræftelsen, og kontrollér igen. Hvis en administrator ændrede adressen, og du mangler et bekræftelseslink, så kontakt Milos support. Notifikationer i appen er stadig tilgængelige.",
     "notifications.emailAddressUnavailable":
       "Milo kunne ikke kontrollere bekræftelsen af din nuværende e-mailadresse. Prøv senere. Du kan stadig slå opsummeringer fra og bruge notifikationer i appen.",
+    "notifications.generation_capacity_low": "Kvoten dækker muligvis ikke planen",
+    "notifications.generation_capacity_unavailable": "Kvoten kunne ikke kontrolleres",
+    "notifications.capacityLow":
+      "Planen for {period} mangler {missing} kladder i dette projekt og {total} i alle aktive tidsplaner. Kontoen har {remaining} forsøg tilbage i {usagePeriod}. Kvoten deles mellem projekterne og garanterer ikke færdige artikler. Gennemgå tidsplanen; gemte kladder kan stadig gennemgås og publiceres.",
+    "notifications.capacityUnavailable":
+      "Milo kunne ikke kontrollere den fælles kvote for {usagePeriod}. Planen for {period} mangler {missing} kladder her. Prøv igen senere. Gemte kladder og andre notifikationer er stadig tilgængelige.",
     "notifications.scheduler_recovery": "Automatiseringen skal kontrolleres",
     "notifications.recovery":
       "Forberedelsen blev sat på pause efter en afbrudt kørsel. Kontrollér gemte kladder og den seneste handling før genstart. Eksisterende godkendelser af publicering gælder fortsat.",

@@ -22,6 +22,8 @@ const digestSchema = z.object({
           "manual_overdue",
           "cadence_gap",
           "scheduler_recovery",
+          "generation_capacity_low",
+          "generation_capacity_unavailable",
         ]),
         dueAt: z.string().nullable(),
         detail: z.object({ timeZone: z.string() }),
