@@ -825,6 +825,37 @@ describe("content-draft tools (Phase P-A)", () => {
     expect((captured.written?.content as unknown[]).length).toBe(1); // no duplicate appended
   });
 
+  it("create replay reports the existing lifecycle without relabeling it Draft", async () => {
+    const original = { id: "existing", projectId: "p1", requestId: "replay-state", title: "Reviewed", status: "Approved" };
+    const captured = fakeMutate({ ...writeBlob(), content: [original] });
+    const r = await call("create_content_draft", { projectId: "p1", title: "T", markdown: "M", requestId: "replay-state" });
+    expect(parsePayload(r)).toMatchObject({ contentId: "existing", status: "Approved", deduped: true });
+    expect(captured.written?.content).toEqual([original]);
+  });
+
+  it("external update refuses a reviewed article without writing", async () => {
+    const captured = fakeMutate({ ...writeBlob(), content: [{ id: "c1", projectId: "p1", status: "Approved", markdown: "Reviewed" }] });
+    const r = await call("update_content_draft", { contentId: "c1", markdown: "Unreviewed" }) as { error?: { code: number } };
+    expect(r.error?.code).toBe(-32014);
+    expect(captured.written).toBeNull();
+  });
+
+  it("external content edits invalidate old assessment caches", async () => {
+    const captured = fakeMutate({ ...writeBlob(), content: [{ id: "c1", projectId: "p1", status: "Draft", markdown: "Old", qualityScore: { total: 80 }, qualityScoreStale: false, assembled: { markdown: "Old assembled" }, readiness: { total: 80 }, checklist: [] }] });
+    const r = await call("update_content_draft", { contentId: "c1", markdown: "New" });
+    expect(parsePayload(r)).toMatchObject({ status: "Draft", updated: true });
+    const edited = (captured.written?.content as Record<string, unknown>[])[0];
+    expect(edited.qualityScoreStale).toBe(true);
+    for (const key of ["assembled", "readiness", "checklist"]) expect(edited).not.toHaveProperty(key);
+  });
+
+  it("external update refuses orphaned project content uniformly", async () => {
+    const captured = fakeMutate({ ...writeBlob(), content: [{ id: "c1", projectId: "missing", status: "Draft" }] });
+    const r = await call("update_content_draft", { contentId: "c1", title: "New" }) as { error?: { code: number } };
+    expect(r.error?.code).toBe(-32011);
+    expect(captured.written).toBeNull();
+  });
+
   it("update_content_draft patches a draft by id and stamps updatedAt", async () => {
     const blob = { ...writeBlob(), content: [{ id: "c1", projectId: "p1", title: "old", markdown: "old", status: "Draft" }] };
     const captured = fakeMutate(blob);
