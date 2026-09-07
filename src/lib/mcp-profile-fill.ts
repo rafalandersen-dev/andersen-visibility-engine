@@ -88,6 +88,8 @@ const canonical = (value: unknown): unknown =>
       : value;
 const same = (a: unknown, b: unknown) =>
   JSON.stringify(canonical(a)) === JSON.stringify(canonical(b));
+const record = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === "object" && !Array.isArray(value);
 const blank = (value: unknown) =>
   value == null ||
   (typeof value === "string" && !value.trim()) ||
@@ -151,9 +153,16 @@ export function applyProfileFill(
   }
   for (const { field, value } of brandProposalEntries(input.payload.brandIntelligence)) {
     const [group, leaf] = field.split(".");
-    const currentGroup = (
-      project.brandIntelligence as unknown as Record<string, unknown> | undefined
-    )?.[group];
+    const currentBrand: unknown = project.brandIntelligence;
+    const currentGroup = record(currentBrand) ? currentBrand[group] : undefined;
+    // Corrupted legacy containers are not blank leaf fields. Preserve them for owner review.
+    if (
+      (currentBrand != null && !record(currentBrand)) ||
+      (leaf && currentGroup != null && !record(currentGroup))
+    ) {
+      if (!blank(value)) requiresProposal.push(`brandIntelligence.${field}`);
+      continue;
+    }
     const current = leaf
       ? (currentGroup as Record<string, unknown> | undefined)?.[leaf]
       : currentGroup;

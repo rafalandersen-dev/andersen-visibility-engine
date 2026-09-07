@@ -2,6 +2,14 @@
 
 Updated 2026-09-07, approximately 15:24 UTC. This replaces accumulated historical snapshots; Git preserves their audit trail. Current Codex task: `01a07ba1-c8b6-7582-9ff0-275d64224671`, saved MILO GROWTH project `g-p-6a732f6015948191999fb9beb8f7bc81`. **No successor task exists.**
 
+## Latest continuation — approximately15:36 UTC
+
+PR #83 remains merged at20de90517833d101226fd288310e2768601798b0. First publication2d3ba0af did not change the observed public build1788792945297; no-cache request returned the same with no-store response. One bounded retryb59a4e22-bc19-487a-8ae0-fda2e2aba9f7 was requested15:30UTC for the same synchronized SHA. No more blind retries. Owner question requests Lovable Publish/build history status, because API lacks logs and prior UI access was rejected. Do not claim rollout success without full/components comparison against expecteddb54b4eee170d02673bfcab68e596a3dd4ed1bedb480a5138789b645c5390fd0.
+
+PR #82 final pushed headfc10663 (including #83) passed review/checks; no review comments. It remains unmerged/unpublished behind the deployment correction. PR #84 is stacked on its branch: `/Users/rafi/Projects/milo-growth-profile-fill`, branchcodex/milo-profile-fill-20260907. Direct fill-empty project/brand ownership, stable bounded receipts, review-directed conflicts and actual MCP gating implemented. Combined1610 tests/122 files/types/build/lint pass; inspect latest pushed head and review. New migration20260907230000 protects both profile and topic-batch receipts against stale browser saves; seven SQL tests plus real rolled-back acceptance passed. **It is NOT applied/registered; temporary fixture and trigger are absent after rollback.** Complete review, then apply/register once before enabling the feature. Read evidence/profile-fill-2026-09-07.md. No live profile was changed.
+
+The snapshots below remain accurate except where this section supersedes their review/publication state. All earlier applied migrations remain applied. No successor, email, AI spend, Stripe activation or customer publication occurred. Pending owner dependencies remain unanswered.
+
 ## Mandate and boundaries
 
 Continue the entire R00–R24 / D01–D08 plan to 100%, starting with deployment discrepancies. Preserve `ROADMAP.md`, `PLAN_REVIEW_2026_09_07.md`, `NOTIFICATIONS_AND_PACKAGING.md` and the feature inventory. Never substitute a PR/test count for full launch acceptance. Communicate in Polish. Do not spawn subagents without authorization or rewrite pushed Git history. The saved project mirror's `sources/` directory is read-only; original user checkout remains untouched.

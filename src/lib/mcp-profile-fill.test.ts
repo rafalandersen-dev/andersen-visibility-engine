@@ -78,6 +78,18 @@ describe("profile field ownership and durable replay", () => {
       expect(out.result.requiresProposal).toEqual(["description"]);
     }
   });
+  it.each(["Legacy owner notes", { voice: false }, { voice: [] }, { voice: "Legacy voice" }])(
+    "preserves malformed existing brand containers for review",
+    async (currentBrand) => {
+      const out = applyProfileFill(
+        { projects: [project({ brandIntelligence: currentBrand })] },
+        await prepare({ brandIntelligence: { voice: { tone: "New tone" } } }),
+      );
+      expect((out.data.projects as Project[])[0].brandIntelligence).toEqual(currentBrand);
+      expect(out.result.filled).toEqual([]);
+      expect(out.result.requiresProposal).toEqual(["brandIntelligence.voice.tone"]);
+    },
+  );
   it("ignores empty proposals and identical values", async () => {
     const out = applyProfileFill(
       { projects: [project({ brandIntelligence: { voice: { tone: "Owner" } } })] },
