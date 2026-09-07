@@ -11,3 +11,5 @@ Twelve additional cases cover the actual retained-timestamp scenario, same-addre
 Primary implementation references: [Supabase Auth admin update](https://github.com/supabase/auth/blob/master/internal/api/admin.go), [Supabase user model](https://github.com/supabase/auth/blob/master/internal/models/user.go), [Supabase user attributes](https://supabase.com/docs/guides/auth/users). The source confirms that email replacement updates identity verification independently of a prior confirmation timestamp.
 
 After merging the reviewed #86 main, the combined suite passes 1,626 tests in 123 files. #86 is already migrated and published with all source fingerprints matching; this email packet remains subject to its final head's review and publication.
+
+Completion: final #87 head3636328e0ae3a15d947484466f4870a142e68a02 passed review without comments and merged as0eb130fee1009fc6f2937d2abed062d51fc0dbc1. Deploymenta3aa58c8-6036-408b-a564-5d9e72b4071e produced build1788815214775, exact revision, modified=false, fingerprintd0b198d25bf731c29c0b2526f53f673db55feb07ea53a22234488896b1daf259 and every component matching. No email was sent or account confirmation changed.
