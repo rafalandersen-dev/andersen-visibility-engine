@@ -39,6 +39,11 @@ export const Route = createFileRoute("/api/notifications/sweep")({
           } catch {
             /* metrics cannot undo completed inbox updates */
           }
+          // Independent notification transport gate; defaults off until acceptance.
+          if (process.env.OPERATIONAL_EMAIL_ENABLED === "true") {
+            const { runOperationalEmailWorker } = await import("@/lib/operational-email.server");
+            await runOperationalEmailWorker();
+          }
           return Response.json(
             { ok: result.failed === 0, ...result },
             { headers: { "Cache-Control": "no-store" } },

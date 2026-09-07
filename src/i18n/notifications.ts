@@ -1,5 +1,23 @@
 export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, string>> = {
   en: {
+    "notifications.emailTitle": "Email summaries",
+    "notifications.emailDescription":
+      "Receive one summary of new alerts, at most once per hour, at your confirmed account address. Each incident appears once.",
+    "notifications.emailDisabled":
+      "Email delivery has not been activated yet. In-app notifications are available.",
+    "notifications.emailEnable": "Enable email summaries",
+    "notifications.emailDisable": "Turn off email summaries",
+    "notifications.emailError": "Email settings are temporarily unavailable.",
+    "notifications.emailSaveError": "Could not save email preferences.",
+    "notifications.emailHistory": "Recent email activity",
+    "notifications.emailStatus.pending": "Waiting",
+    "notifications.emailStatus.leased": "Checking current status",
+    "notifications.emailStatus.sending": "Sending",
+    "notifications.emailStatus.accepted": "Accepted by email provider",
+    "notifications.emailStatus.unknown": "Delivery outcome needs verification",
+    "notifications.emailStatus.cancelled": "Cancelled",
+    "notifications.emailStatus.failed": "Could not prepare email",
+
     "notifications.title": "Notifications",
     "notifications.subtitle":
       "Your upcoming decisions and publishing issues, checked against the latest server state.",
@@ -28,6 +46,24 @@ export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, str
     "notifications.readError": "Could not mark this notification as read. Please try again.",
   },
   pl: {
+    "notifications.emailTitle": "Podsumowania e-mail",
+    "notifications.emailDescription":
+      "Otrzymuj zestawienie nowych alertów na potwierdzony adres konta, najwyżej raz na godzinę. Każdy incydent pojawia się raz.",
+    "notifications.emailDisabled":
+      "Wysyłka e-maili nie została jeszcze uruchomiona. Powiadomienia w aplikacji są dostępne.",
+    "notifications.emailEnable": "Włącz podsumowania e-mail",
+    "notifications.emailDisable": "Wyłącz podsumowania e-mail",
+    "notifications.emailError": "Ustawienia e-maili są chwilowo niedostępne.",
+    "notifications.emailSaveError": "Nie udało się zapisać ustawień e-maili.",
+    "notifications.emailHistory": "Ostatnie wiadomości",
+    "notifications.emailStatus.pending": "Oczekuje",
+    "notifications.emailStatus.leased": "Sprawdzanie aktualnego stanu",
+    "notifications.emailStatus.sending": "Wysyłanie",
+    "notifications.emailStatus.accepted": "Przyjęta przez dostawcę poczty",
+    "notifications.emailStatus.unknown": "Wynik wysyłki wymaga sprawdzenia",
+    "notifications.emailStatus.cancelled": "Anulowana",
+    "notifications.emailStatus.failed": "Nie udało się przygotować wiadomości",
+
     "notifications.title": "Powiadomienia",
     "notifications.subtitle":
       "Nadchodzące decyzje i problemy z publikacją, sprawdzane na podstawie bieżącego stanu serwera.",
@@ -58,6 +94,24 @@ export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, str
       "Nie udało się oznaczyć powiadomienia jako przeczytanego. Spróbuj ponownie.",
   },
   sv: {
+    "notifications.emailTitle": "Sammanfattningar via e-post",
+    "notifications.emailDescription":
+      "Få nya aviseringar till din bekräftade kontoadress, högst en gång i timmen. Varje händelse tas med en gång.",
+    "notifications.emailDisabled":
+      "E-postleverans har inte aktiverats än. Aviseringar i appen är tillgängliga.",
+    "notifications.emailEnable": "Aktivera e-postsammanfattningar",
+    "notifications.emailDisable": "Stäng av e-postsammanfattningar",
+    "notifications.emailError": "E-postinställningar är tillfälligt otillgängliga.",
+    "notifications.emailSaveError": "Kunde inte spara e-postinställningar.",
+    "notifications.emailHistory": "Senaste e-postaktivitet",
+    "notifications.emailStatus.pending": "Väntar",
+    "notifications.emailStatus.leased": "Kontrollerar aktuell status",
+    "notifications.emailStatus.sending": "Skickar",
+    "notifications.emailStatus.accepted": "Accepterat av e-postleverantören",
+    "notifications.emailStatus.unknown": "Leveransresultatet behöver kontrolleras",
+    "notifications.emailStatus.cancelled": "Avbrutet",
+    "notifications.emailStatus.failed": "Kunde inte förbereda e-post",
+
     "notifications.title": "Aviseringar",
     "notifications.subtitle":
       "Kommande beslut och publiceringsproblem, kontrollerade mot aktuell serverstatus.",
@@ -87,6 +141,24 @@ export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, str
     "notifications.readError": "Kunde inte markera aviseringen som läst. Försök igen.",
   },
   da: {
+    "notifications.emailTitle": "Opsummeringer via e-mail",
+    "notifications.emailDescription":
+      "Modtag nye notifikationer på din bekræftede kontoadresse, højst én gang i timen. Hver hændelse medtages én gang.",
+    "notifications.emailDisabled":
+      "E-maillevering er ikke aktiveret endnu. Notifikationer i appen er tilgængelige.",
+    "notifications.emailEnable": "Aktivér e-mailopsummeringer",
+    "notifications.emailDisable": "Slå e-mailopsummeringer fra",
+    "notifications.emailError": "E-mailindstillinger er midlertidigt utilgængelige.",
+    "notifications.emailSaveError": "Kunne ikke gemme e-mailindstillinger.",
+    "notifications.emailHistory": "Seneste e-mailaktivitet",
+    "notifications.emailStatus.pending": "Venter",
+    "notifications.emailStatus.leased": "Kontrollerer aktuel status",
+    "notifications.emailStatus.sending": "Sender",
+    "notifications.emailStatus.accepted": "Accepteret af e-mailudbyderen",
+    "notifications.emailStatus.unknown": "Leveringsresultatet skal kontrolleres",
+    "notifications.emailStatus.cancelled": "Annulleret",
+    "notifications.emailStatus.failed": "Kunne ikke forberede e-mail",
+
     "notifications.title": "Notifikationer",
     "notifications.subtitle":
       "Kommende beslutninger og publiceringsproblemer, kontrolleret mod den aktuelle serverstatus.",
