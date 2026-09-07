@@ -1,0 +1,215 @@
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
+import {
+  capFor,
+  claimAiUsage,
+  remainingAiUsage,
+  UsageLimitError,
+  UsageUnavailableError,
+} from "./ai-usage.server";
+import { generateContentCore, generateOpportunitiesCore } from "./ai.functions";
+import { generateArticleImageCore } from "./image-gen.functions";
+
+const mocks = vi.hoisted(() => ({
+  rpc: vi.fn(),
+  plan: vi.fn(),
+  owner: vi.fn(),
+  usage: vi.fn(),
+  model: vi.fn(),
+  image: vi.fn(),
+}));
+vi.mock("./entitlements.server", () => ({ resolveEntitledPlan: mocks.plan }));
+vi.mock("ai", () => ({ generateText: mocks.model }));
+vi.mock("./image-gen.server", () => ({
+  generateImageBytes: mocks.image,
+  ImageGenError: class extends Error {},
+}));
+vi.mock("@/integrations/supabase/client.server", () => ({
+  supabaseAdmin: {
+    rpc: mocks.rpc,
+    from(table: string) {
+      const query = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: table === "user_roles" ? mocks.owner : mocks.usage,
+      };
+      return query;
+    },
+  },
+}));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.stubEnv("AI_METERING_ENFORCED", "true");
+  mocks.plan.mockResolvedValue("pro");
+  mocks.owner.mockResolvedValue({ data: null, error: null });
+  mocks.usage.mockResolvedValue({ data: null, error: null });
+  vi.spyOn(console, "error").mockImplementation(() => undefined);
+});
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
+});
+
+const args = { userId: "user", bucket: "contentGeneration" as const };
+const cap = capFor("pro", "contentGeneration");
+const confirmation = (used = 1, allowed = true, rpcCap = cap) => ({
+  data: [{ used, cap: rpcCap, allowed }],
+  error: null,
+});
+
+describe("confirmed usage before paid work", () => {
+  it("accepts a valid atomic claim and resolves plan server-side", async () => {
+    mocks.rpc.mockResolvedValue(confirmation(2));
+    await expect(
+      claimAiUsage({ ...args, units: 2, now: new Date("2026-09-30T23:59:59Z") }),
+    ).resolves.toEqual({ used: 2, cap, allowed: true });
+    expect(mocks.plan).toHaveBeenCalledWith("user");
+    expect(mocks.rpc).toHaveBeenCalledWith("claim_ai_usage", {
+      p_user: "user",
+      p_period: "2026-09",
+      p_bucket: "contentGeneration",
+      p_cap: cap,
+      p_units: 2,
+    });
+  });
+
+  it.each(["true", "false", ""])(
+    "blocks infrastructure failure in enforcement mode %s",
+    async (flag) => {
+      vi.stubEnv("AI_METERING_ENFORCED", flag);
+      mocks.rpc.mockResolvedValue({ data: null, error: { message: "private provider detail" } });
+      await expect(claimAiUsage(args)).rejects.toBeInstanceOf(UsageUnavailableError);
+      mocks.rpc.mockRejectedValue(new Error("private provider detail"));
+      await expect(claimAiUsage(args)).rejects.toMatchObject({ code: "usage_unavailable" });
+      expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain(
+        "private provider detail",
+      );
+    },
+  );
+
+  it.each([
+    null,
+    [],
+    {},
+    [
+      { used: 1, cap, allowed: true },
+      { used: 2, cap, allowed: true },
+    ],
+    [null],
+    [{ used: 1, cap, allowed: "true" }],
+    [{ used: "1", cap, allowed: true }],
+    [{ used: -1, cap, allowed: true }],
+    [{ used: 0.5, cap, allowed: true }],
+    [{ used: NaN, cap, allowed: true }],
+    [{ used: Infinity, cap, allowed: true }],
+    [{ used: 0, cap, allowed: true }],
+    [{ used: cap + 1, cap, allowed: true }],
+    [{ used: 1, cap: -1, allowed: true }],
+    [{ used: 0, cap, allowed: false }],
+  ])("rejects a missing or inconsistent confirmation %#", async (data) => {
+    mocks.rpc.mockResolvedValue({ data, error: null });
+    await expect(claimAiUsage(args)).rejects.toBeInstanceOf(UsageUnavailableError);
+  });
+
+  it("keeps an exhausted allowance distinct from an unavailable meter", async () => {
+    mocks.rpc.mockResolvedValue(confirmation(cap, false));
+    await expect(claimAiUsage(args)).rejects.toMatchObject({ code: "usage_limit", used: cap, cap });
+    await expect(claimAiUsage(args)).rejects.toBeInstanceOf(UsageLimitError);
+  });
+
+  it("refuses a first image claim against zero, including an old RPC incorrectly allowing it", async () => {
+    mocks.plan.mockResolvedValue("starter");
+    mocks.rpc.mockResolvedValue(confirmation(0, false, 0));
+    await expect(claimAiUsage({ ...args, bucket: "imageGeneration" })).rejects.toMatchObject({
+      code: "usage_limit",
+      cap: 0,
+    });
+    mocks.rpc.mockResolvedValue(confirmation(1, true, 0));
+    await expect(claimAiUsage({ ...args, bucket: "imageGeneration" })).rejects.toBeInstanceOf(
+      UsageUnavailableError,
+    );
+  });
+
+  it.each([0, -1, 0.1, NaN, Infinity, 2147483648])(
+    "rejects invalid units %s before touching the meter",
+    async (units) => {
+      await expect(claimAiUsage({ ...args, units })).rejects.toBeInstanceOf(RangeError);
+      expect(mocks.rpc).not.toHaveBeenCalled();
+    },
+  );
+
+  it("requires a valid record in beta, while background work always enforces the cap", async () => {
+    vi.stubEnv("AI_METERING_ENFORCED", "false");
+    mocks.rpc.mockResolvedValue(confirmation(cap + 1, true, -1));
+    await expect(claimAiUsage(args)).resolves.toMatchObject({ used: cap + 1, cap, allowed: true });
+    mocks.rpc.mockResolvedValue(confirmation(cap, false));
+    await expect(claimAiUsage({ ...args, enforceLimit: true })).rejects.toBeInstanceOf(
+      UsageLimitError,
+    );
+    expect(mocks.rpc.mock.calls[1][1].p_cap).toBe(cap);
+  });
+
+  it("does not invoke either text or image providers after a failed claim", async () => {
+    mocks.rpc.mockResolvedValue({ data: [], error: null });
+    await expect(generateContentCore("user", {} as never)).rejects.toBeInstanceOf(
+      UsageUnavailableError,
+    );
+    await expect(generateOpportunitiesCore("user", {} as never)).rejects.toBeInstanceOf(
+      UsageUnavailableError,
+    );
+    await expect(generateArticleImageCore("user", {} as never)).rejects.toBeInstanceOf(
+      UsageUnavailableError,
+    );
+    expect(mocks.model).not.toHaveBeenCalled();
+    expect(mocks.image).not.toHaveBeenCalled();
+  });
+
+  it("passes background enforcement to the real content/discovery cores in beta", async () => {
+    vi.stubEnv("AI_METERING_ENFORCED", "false");
+    mocks.rpc.mockImplementation(async (_fn, params) =>
+      confirmation(params.p_cap, false, params.p_cap),
+    );
+    await expect(
+      generateContentCore("user", {} as never, { enforceLimit: true }),
+    ).rejects.toBeInstanceOf(UsageLimitError);
+    await expect(
+      generateOpportunitiesCore("user", {} as never, { enforceLimit: true }),
+    ).rejects.toBeInstanceOf(UsageLimitError);
+    expect(mocks.rpc.mock.calls.every((call) => call[1].p_cap >= 0)).toBe(true);
+    expect(mocks.model).not.toHaveBeenCalled();
+  });
+});
+
+describe("server-owned remaining usage", () => {
+  it("uses the server entitlement, counts existing usage and recognizes a missing counter", async () => {
+    await expect(remainingAiUsage(args)).resolves.toBe(cap);
+    mocks.usage.mockResolvedValue({ data: { used: 3 }, error: null });
+    await expect(remainingAiUsage(args)).resolves.toBe(cap - 3);
+    mocks.plan.mockResolvedValue("freePreview");
+    await expect(remainingAiUsage(args)).resolves.toBe(
+      Math.max(0, capFor("freePreview", args.bucket) - 3),
+    );
+  });
+
+  it("applies the same finite owner ceiling as claims", async () => {
+    mocks.owner.mockResolvedValue({ data: { role: "owner" }, error: null });
+    await expect(remainingAiUsage(args)).resolves.toBe(capFor("pro", args.bucket, true));
+  });
+
+  it.each([
+    { data: null, error: { message: "db unavailable" } },
+    { data: {}, error: null },
+    { data: { used: "4" }, error: null },
+    { data: { used: -1 }, error: null },
+    { data: { used: 1.5 }, error: null },
+    { data: undefined, error: null },
+  ])("pauses on failed or invalid usage reads %#", async (response) => {
+    mocks.usage.mockResolvedValue(response);
+    await expect(remainingAiUsage(args)).rejects.toBeInstanceOf(UsageUnavailableError);
+  });
+
+  it("pauses when a usage read throws", async () => {
+    mocks.usage.mockRejectedValue(new Error("connection closed"));
+    await expect(remainingAiUsage(args)).rejects.toBeInstanceOf(UsageUnavailableError);
+  });
+});

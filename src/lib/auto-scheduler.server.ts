@@ -42,8 +42,7 @@ import { approveHook, newHookFromProposal, validateHook } from "./hook";
 import { isSitemapInventoryFresh } from "./sitemap";
 import { fetchSitemapInventoryCore } from "./sitemap.functions";
 import { slugifyForPublish } from "./markdown";
-import { getPlanLimitsFor, isActivePaid, PLAN_LIMITS } from "./billing";
-import { usagePeriod } from "./ai-usage.server";
+import { remainingAiUsage, UsageLimitError, UsageUnavailableError } from "./ai-usage.server";
 import { contentLangToProjectLanguage } from "./onboarding";
 
 // ---------------------------------------------------------------------------
@@ -103,32 +102,6 @@ interface AdminClient {
 async function admin(): Promise<AdminClient> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   return supabaseAdmin as unknown as AdminClient;
-}
-
-/**
- * Remaining monthly content generations for this user under their plan.
- * Negative means unlimited. Reads the same ai_usage bucket claimAiUsage
- * increments, so the cap holds even while global metering enforcement is off.
- */
-async function remainingContentQuota(userId: string, ws: WorkspaceData): Promise<number> {
-  // The subscription lives in the CLIENT-WRITABLE workspace blob, and this is
-  // an autonomous monthly spend path — so gate on isActivePaid exactly like
-  // claimAiUsage's resolvePlan does. A self-declared planId without an active
-  // paid status gets the freePreview cap, never the declared tier's.
-  const sub = (ws as { subscription?: Parameters<typeof isActivePaid>[0] }).subscription;
-  const limits = isActivePaid(sub) ? getPlanLimitsFor(sub) : PLAN_LIMITS.freePreview;
-  const cap = limits.monthlyContentGenerations;
-  if (cap < 0) return -1;
-  const db = await admin();
-  const { data } = await db
-    .from("ai_usage")
-    .select("used")
-    .eq("user_id", userId)
-    .eq("period", usagePeriod())
-    .eq("bucket", "contentGeneration")
-    .maybeSingle();
-  const used = Number((data as { used?: number } | null)?.used ?? 0);
-  return Math.max(0, cap - used);
 }
 
 /**
@@ -350,7 +323,7 @@ async function runForProject(
   );
   const slots = computeMonthlySlots(planned.year, planned.month, cfg, booked);
   report.slots = slots.length;
-  report.remainingQuota = await remainingContentQuota(userId, ws);
+  report.remainingQuota = await remainingAiUsage({ userId, bucket: "contentGeneration", now });
   // Idempotency: assets this feature already drafted for the planned month
   // count toward the target, so an interrupted run resumed later (or a manual
   // re-trigger) fills only what is still missing instead of re-drafting.
@@ -386,11 +359,18 @@ async function runForProject(
     let refill = refillableSuggestions(suggestions, needed);
     if (refill.length < needed) {
       // Live Discover, exactly like the Plan page button.
-      const fresh = await generateOpportunitiesCore(userId, {
-        project: liveProject,
-        services,
-        existingTitles: [...opportunities, ...candidates].map((o) => o.title),
-      }).catch(() => null);
+      const fresh = await generateOpportunitiesCore(
+        userId,
+        {
+          project: liveProject,
+          services,
+          existingTitles: [...opportunities, ...candidates].map((o) => o.title),
+        },
+        { enforceLimit: true },
+      ).catch((error: unknown) => {
+        if (error instanceof UsageUnavailableError || error instanceof UsageLimitError) throw error;
+        return null;
+      });
       if (fresh?.opportunities?.length) {
         const extra = (fresh.opportunities as Opportunity[])
           .slice(0, needed - refill.length)
@@ -429,13 +409,25 @@ async function runForProject(
     const slot = slots[i];
     let gen: Awaited<ReturnType<typeof generateContentCore>>;
     try {
-      gen = await generateContentCore(userId, {
-        project: liveProject,
-        services,
-        opportunity,
-        assetType: "article",
-      });
+      gen = await generateContentCore(
+        userId,
+        {
+          project: liveProject,
+          services,
+          opportunity,
+          assetType: "article",
+        },
+        { enforceLimit: true },
+      );
     } catch (e) {
+      if (e instanceof UsageUnavailableError || e instanceof UsageLimitError) {
+        report.error = e.message;
+        report.notes.push(
+          "AI work paused. Remaining slots need attention; already prepared drafts are retained.",
+        );
+        report.flaggedEmpty += candidates.length - i;
+        break;
+      }
       report.notes.push(
         `"${opportunity.title}": generation failed (${e instanceof Error ? e.message : "error"}) — slot left empty.`,
       );
