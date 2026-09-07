@@ -1,5 +1,18 @@
 # Milo Growth — continuous execution handoff
 
+## Latest continuation snapshot — 2026-09-07, approximately 14:40 UTC
+
+This supersedes older snapshots below. #78 and #79 are merged and deployed. Current verified main/domain revision f32aa402a2f1b86ef988662cb0de9fe1dfe0b993, deployment7788a62c-d648-4c08-b661-e42e455bd063, build1788791481330, fingerprint2255aee10527f15c1ab7de5a7d21fb695fc97bc58bfde27c4c4fe3de64f83a40, modified=false/all components match. #79 adds inert owner-reviewed Brand Intelligence proposals with actual UI diff/leaf preservation (1512 tests). #78 topic batches are live.
+
+Monetary migration20260907140000 is APPLIED AND REGISTERED. Isolated real eight-session test admitted3/denied5; unknown retention/settlement/replay/overrun pause passed. All isolated fixtures removed. Production budgets0/requests0; provider wiring and actual gateway pricing still missing, no spend/flags changed. Do not reapply migration.
+
+PR #80 on codex/milo-stripe-sandbox-20260907 in /Users/rafi/Projects/milo-growth-stripe-sandbox is open, review pending. Owner-only test checkout plus metadata-only test webhook journal, no entitlement writes; 1546 tests/118 files/types/build/lint passed. Migration210000 only tested in rollback, NOT permanently applied. No Stripe call, key read/write, account/price creation or gate enablement. Runbook docs/billing/STRIPE_SANDBOX_ACCEPTANCE.md. New pending question asks whether existing Stripe account is company-administered and sandbox accessible; no secrets requested.
+
+Current additional worktree /Users/rafi/Projects/milo-growth-image-storage, branch codex/milo-image-storage-boundary-20260907. Storage inspection found null bucket upload limits and direct authenticated public-bucket writes. Additive migration220000 narrows to existing5MiB/raster contract and restricts public mutations to server role. Seven SQL tests; full1519/types/build passed. Real migration assertions rolled back; permanent application/review pending. Both existing storage objects preserved. This precedes signed external image intent/confirm work; URL ingest remains unverified.
+
+No successor task exists. Original full R00–R24/D01–D08 objective persists. Email test approval still conditional on confirmed account+sender; company auth address absent, clarification unanswered, no email sent. USD5 provider test/pricing metadata/cloud successor questions still pending. Continue pending review/deploys and independent implementation; do not call partial sandbox or unit tests a full production launch.
+
+
 ## Latest continuation snapshot — 2026-09-07, approximately 14:18 UTC
 
 This snapshot supersedes older snapshots below. PR #78 merged and published: revision af00a736010859b0c24c4b84c74b28b6689a1e1d, deployment 54134d98-2bc7-45d6-b68e-8df5529b56ea, domain build1788790493113, full fingerprint4c4184e246e4d58c6724f79e0dba339e2c218bf4523c038749b631d65f0a3955, modified=false and all components match. No new migration. Topic batches include project-scoped durable receipts, complete replay checks and bounds; no real-user invocation yet.
