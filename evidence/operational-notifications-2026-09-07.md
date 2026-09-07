@@ -39,3 +39,7 @@ PR #68 merged `1111824e845118202b7309b62a2057edbf2e42ae`. Lovable latest SHA ver
 A requested automatic same-project successor was not created: create_thread rejects local tasks targeting a ChatGPT project and requires explicit cloud selection. Work continues in the original task. Pending user questions about cloud continuation, the USD5 test envelope and actual Lovable pricing remain unanswered; no approval is inferred.
 
 Production migration applied and recorded atomically on September 7. All three tables have RLS; authenticated users can select only inbox rows and cannot insert. Scan state remains service-only. Repeated CMS failures preserve one incident key across retry counts.
+
+## Deployed acceptance
+
+PR #69 merged `2738d14495e26e31dba1282764f2ad3eda95607d`; exact Lovable synchronization verified before deployment `f6936938-a888-494a-89ce-53113f9d3ffe`. Main-domain build `1788784740863` verified, private POST returns 401 without authorization. PostgreSQL synthetic sync/revision test passed and rolled back; fixture absence verified. Cron job 150 runs every 15 minutes. Real private background request 14400 returned 200 with five successful account scans, zero failures and zero stale sources. No AI, email or publication occurred. Protected UI acceptance remains open.

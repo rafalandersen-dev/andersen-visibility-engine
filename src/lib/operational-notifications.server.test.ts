@@ -28,6 +28,7 @@ vi.mock("@/integrations/supabase/client.server", () => ({
 }));
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv("OPERATIONAL_EMAIL_ENABLED", "false");
   mocks.workspace.mockResolvedValue({
     rev: 7,
     data: { projects: [], content: [], opportunities: [] },
@@ -35,8 +36,30 @@ beforeEach(() => {
   mocks.query.mockResolvedValue({ data: [], error: null });
   mocks.rpc.mockResolvedValue({ data: true, error: null });
 });
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllEnvs();
+});
 describe("server notification snapshot boundary", () => {
+  it("queues email only after a fresh scan and explicit activation", async () => {
+    vi.stubEnv("OPERATIONAL_EMAIL_ENABLED", "true");
+    await refreshOperationalNotifications("owner");
+    expect(mocks.rpc).toHaveBeenLastCalledWith("queue_operational_email_digest", {
+      p_user: "owner",
+    });
+    mocks.rpc.mockClear().mockResolvedValueOnce({ data: false, error: null });
+    await refreshOperationalNotifications("owner");
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+  });
+  it("keeps the inbox available when email queueing fails", async () => {
+    vi.stubEnv("OPERATIONAL_EMAIL_ENABLED", "true");
+    mocks.rpc
+      .mockResolvedValueOnce({ data: true, error: null })
+      .mockResolvedValueOnce({ data: null, error: { message: "private" } });
+    const log = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(await refreshOperationalNotifications("owner")).toBe(true);
+    expect(log).toHaveBeenCalledWith("Operational digest could not be queued");
+  });
   it("scopes queue reads and synchronization to the verified workspace owner", async () => {
     expect(await refreshOperationalNotifications("owner", new Date("2026-09-07T10:00:00Z"))).toBe(
       true,

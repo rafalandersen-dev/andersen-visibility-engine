@@ -88,6 +88,14 @@ export async function refreshOperationalNotifications(
   });
   if (synced.error || typeof synced.data !== "boolean")
     throw new Error("notification_sync_unavailable");
+  if (synced.data && process.env.OPERATIONAL_EMAIL_ENABLED === "true") {
+    try {
+      const queued = await db.rpc("queue_operational_email_digest", { p_user: userId });
+      if (queued.error) console.warn("Operational digest could not be queued");
+    } catch {
+      console.warn("Operational digest could not be queued");
+    }
+  }
   return synced.data;
 }
 export const notificationRowSchema = z.object({

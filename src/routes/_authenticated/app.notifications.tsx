@@ -10,6 +10,7 @@ import {
   readOperationalNotificationFn,
 } from "@/lib/operational-notifications.functions";
 import { toast } from "sonner";
+import { OperationalEmailSettings } from "@/components/OperationalEmailSettings";
 
 export const Route = createFileRoute("/_authenticated/app/notifications")({
   component: NotificationsPage,
@@ -43,6 +44,7 @@ function NotificationsPage() {
       }
     >
       <div className="mx-auto max-w-4xl space-y-4">
+        <OperationalEmailSettings />
         <div aria-live="polite">
           {query.isPending && <p className="text-muted-foreground">{t("notifications.loading")}</p>}
           {query.isError && (
