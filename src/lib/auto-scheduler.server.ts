@@ -17,8 +17,8 @@
  * - approve_first NEVER publishes → that branch never touches the queue
  *
  * Mutation discipline (workspace.server.ts contract): all AI/model/network I/O
- * happens FIRST, then one pure re-runnable mutateWorkspace callback per project
- * appends the drafted assets and advances their opportunities. Queue rows are
+ * happens before each pure re-runnable mutateWorkspace callback, which
+ * appends the completed article and advances their opportunities. Queue rows are
  * inserted only AFTER the blob write succeeds, so a lost race can never leave
  * an armed row pointing at an asset that was never persisted.
  */
@@ -31,6 +31,7 @@ import {
   normalizeAutoSchedulerConfig,
   refillableSuggestions,
   runTarget,
+  unfilledSchedulerSlots,
   selectCandidates,
   type ScheduleSlot,
 } from "./auto-scheduler";
@@ -44,6 +45,11 @@ import { fetchSitemapInventoryCore } from "./sitemap.functions";
 import { slugifyForPublish } from "./markdown";
 import { remainingAiUsage, UsageLimitError, UsageUnavailableError } from "./ai-usage.server";
 import { contentLangToProjectLanguage } from "./onboarding";
+import {
+  acquireSchedulerLease,
+  assertSchedulerLease,
+  releaseSchedulerLease,
+} from "./auto-scheduler-lease.server";
 
 // ---------------------------------------------------------------------------
 // Summary shape (heartbeat + email + route response)
@@ -66,6 +72,20 @@ export interface ProjectRunReport {
   /** Recipient for the run-summary email (from the project config). */
   summaryEmailTo?: string;
   error?: string;
+}
+
+class SchedulerPartialFailure extends Error {
+  constructor(
+    readonly report: ProjectRunReport,
+    error: unknown,
+  ) {
+    super(error instanceof Error ? error.message : "Scheduler recovery review required.");
+    this.report = {
+      ...report,
+      held: Math.max(0, report.generated - report.armed),
+      error: this.message,
+    };
+  }
 }
 
 export interface AutoScheduleRunSummary {
@@ -116,15 +136,21 @@ async function bookedInstants(
   content: ContentAsset[],
 ): Promise<string[]> {
   const db = await admin();
-  const { data } = await db
+  const { data, error } = await db
     .from("scheduled_publishes")
     .select("publish_at")
     .eq("user_id", userId)
     .eq("project_id", projectId)
     .in("status", ["pending", "publishing"]);
-  const queue = (Array.isArray(data) ? data : []).map((r) =>
-    String((r as { publish_at?: string }).publish_at ?? ""),
-  );
+  if (
+    error ||
+    !Array.isArray(data) ||
+    data.some(
+      (r) => !r || typeof r.publish_at !== "string" || !Number.isFinite(Date.parse(r.publish_at)),
+    )
+  )
+    throw new Error("Scheduler queue unavailable; preparation paused.");
+  const queue = data.map((r) => String(r.publish_at));
   const mirrors = content.map((a) => a.scheduledPublishAt).filter((v): v is string => Boolean(v));
   return [...queue, ...mirrors].filter(Boolean);
 }
@@ -232,25 +258,38 @@ export async function runMonthlyAutoScheduler(now = new Date()): Promise<AutoSch
       const cfg = normalizeAutoSchedulerConfig(project.autoScheduler);
       let report: ProjectRunReport;
       try {
-        report = await runForProject(userId, project.id, now, planned);
+        const lease = await acquireSchedulerLease(
+          userId,
+          project.id,
+          `${planned.year}-${String(planned.month).padStart(2, "0")}`,
+        );
+        report = await runForProject(userId, project.id, now, planned, lease);
+        try {
+          await releaseSchedulerLease(userId, project.id, lease);
+        } catch (error) {
+          throw new SchedulerPartialFailure(report, error);
+        }
       } catch (e) {
-        report = {
-          projectId: project.id,
-          projectName: project.businessName || project.name,
-          mode: cfg.mode,
-          slots: 0,
-          remainingQuota: 0,
-          target: 0,
-          generated: 0,
-          armed: 0,
-          held: 0,
-          flaggedEmpty: 0,
-          notes: [],
-          // The owner must hear about a run that failed outright (a typo'd
-          // time zone would otherwise fail silently every month forever).
-          ...(cfg.summaryEmail ? { summaryEmailTo: cfg.summaryEmail } : {}),
-          error: e instanceof Error ? e.message : String(e),
-        };
+        report =
+          e instanceof SchedulerPartialFailure
+            ? e.report
+            : {
+                projectId: project.id,
+                projectName: project.businessName || project.name,
+                mode: cfg.mode,
+                slots: 0,
+                remainingQuota: 0,
+                target: 0,
+                generated: 0,
+                armed: 0,
+                held: 0,
+                flaggedEmpty: 0,
+                notes: [],
+                // The owner must hear about a run that failed outright (a typo'd
+                // time zone would otherwise fail silently every month forever).
+                ...(cfg.summaryEmail ? { summaryEmailTo: cfg.summaryEmail } : {}),
+                error: e instanceof Error ? e.message : String(e),
+              };
       }
       summary.projects.push(report);
       // Email + heartbeat PER PROJECT, not at the end: a run that exceeds the
@@ -284,6 +323,7 @@ async function runForProject(
   projectId: string,
   now: Date,
   planned: { year: number; month: number },
+  lease: string,
 ): Promise<ProjectRunReport> {
   const row = await readWorkspaceRow(userId);
   if (!row) throw new Error("workspace_missing");
@@ -321,22 +361,17 @@ async function runForProject(
     projectId,
     content.filter((a) => a.projectId === projectId),
   );
-  const slots = computeMonthlySlots(planned.year, planned.month, cfg, booked);
+  const plannedKey = `${planned.year}-${String(planned.month).padStart(2, "0")}`;
+  const slots = unfilledSchedulerSlots(
+    computeMonthlySlots(planned.year, planned.month, cfg),
+    booked,
+    content.filter((a) => a.projectId === projectId && a.autoScheduledFor === plannedKey),
+  );
   report.slots = slots.length;
   report.remainingQuota = await remainingAiUsage({ userId, bucket: "contentGeneration", now });
-  // Idempotency: assets this feature already drafted for the planned month
-  // count toward the target, so an interrupted run resumed later (or a manual
-  // re-trigger) fills only what is still missing instead of re-drafting.
-  const plannedKey = `${planned.year}-${String(planned.month).padStart(2, "0")}`;
-  const alreadyDrafted = content.filter(
-    (a) => a.projectId === projectId && a.autoScheduledFor === plannedKey,
-  ).length;
-  report.target = Math.max(0, runTarget(slots.length, report.remainingQuota) - alreadyDrafted);
-  if (alreadyDrafted > 0) {
-    report.notes.push(
-      `${alreadyDrafted} draft(s) from an earlier run for ${plannedKey} counted toward the target.`,
-    );
-  }
+  // Remaining quota already excludes prior usage. Remove delivered drafts from
+  // calendar capacity first, then cap only the new work by remaining quota.
+  report.target = runTarget(slots.length, report.remainingQuota);
   if (report.target === 0) return report;
 
   // ---- 2. Sitemap first (page-map rule: never let the model guess paths) --
@@ -358,6 +393,7 @@ async function runForProject(
     ).filter((sug) => sug.projectId === projectId);
     let refill = refillableSuggestions(suggestions, needed);
     if (refill.length < needed) {
+      await assertSchedulerLease(userId, projectId, lease);
       // Live Discover, exactly like the Plan page button.
       const fresh = await generateOpportunitiesCore(
         userId,
@@ -397,7 +433,7 @@ async function runForProject(
   }
   if (candidates.length === 0) return report;
 
-  // ---- 4. Generate + prep each article (ALL I/O before any blob write) ----
+  // ---- 4. Generate, prepare and persist each article before moving on -----
   const nowIso = now.toISOString();
   const prepared: Array<{
     asset: ContentAsset;
@@ -405,7 +441,113 @@ async function runForProject(
     slot: ScheduleSlot;
     armable: boolean;
   }> = [];
+  async function persistPrepared(batch: typeof prepared) {
+    // Persist each completed article before starting another provider operation.
+    // Deliberately WITHOUT schedule mirrors: the queue row is inserted first and
+    // the mirror second (same order as the interactive scheduling fn), so a crash
+    // between the two can never strand an "Approved + Goes live ..." asset that no
+    // queue row will ever publish. A queue row without a mirror is harmless (the
+    // runner publishes it; only the editor badge is missing).
+    const acceptedAndDrafted = acceptedSuggestionIds.filter((id) =>
+      batch.some((p) => p.opportunity.id === id),
+    );
+    await mutateWorkspace(userId, (data) => {
+      const wsContent = Array.isArray(data.content) ? (data.content as ContentAsset[]) : [];
+      const wsOpps = Array.isArray(data.opportunities) ? (data.opportunities as Opportunity[]) : [];
+      const wsSugs = Array.isArray(data.discoverySuggestions)
+        ? (data.discoverySuggestions as DiscoverySuggestion[])
+        : [];
+      const wsProjects = Array.isArray(data.projects) ? (data.projects as Project[]) : [];
+      const existingOppIds = new Set(wsOpps.map((o) => o.id));
+      const existingAssetIds = new Set(wsContent.map((a) => a.id));
+      const newOpps = batch
+        .map((p) => p.opportunity)
+        .filter((o) => !existingOppIds.has(o.id))
+        .map((o) => ({ ...o, status: "drafting" }) as Opportunity);
+      return {
+        data: {
+          ...data,
+          projects:
+            liveProject === project
+              ? wsProjects
+              : wsProjects.map((p) =>
+                  p.id === projectId ? { ...p, sitemapInventory: liveProject.sitemapInventory } : p,
+                ),
+          content: [
+            ...wsContent,
+            // Re-runnable: never append an asset id twice on a mutation retry.
+            ...batch.map((p) => p.asset).filter((a) => !existingAssetIds.has(a.id)),
+          ],
+          opportunities: [
+            ...wsOpps.map((o) =>
+              batch.some((p) => p.opportunity.id === o.id)
+                ? ({
+                    ...o,
+                    status: "drafting",
+                    currentContentAssetId: batch.find((p) => p.opportunity.id === o.id)!.asset.id,
+                  } as Opportunity)
+                : o,
+            ),
+            ...newOpps.map((o) => ({
+              ...o,
+              currentContentAssetId: batch.find((p) => p.opportunity.id === o.id)?.asset.id,
+            })),
+          ],
+          // A suggestion is consumed only when its article actually got drafted —
+          // a failed generation must not burn it (it stays available next run).
+          discoverySuggestions: wsSugs.map((sug) =>
+            acceptedAndDrafted.includes(sug.id)
+              ? { ...sug, status: "accepted" as const, acceptedOpportunityId: sug.id }
+              : sug,
+          ),
+        },
+        result: null,
+      };
+    });
+
+    report.generated++;
+    // ---- 6. Arm go-lives (auto_publish only): queue row FIRST, mirror second --
+    const db = await admin();
+    for (const p of batch) {
+      if (!p.armable) continue;
+      const { error } = await db.from("scheduled_publishes").insert({
+        user_id: userId,
+        project_id: projectId,
+        asset_id: p.asset.id,
+        publish_at: p.slot.publishAt,
+        status: "pending",
+      });
+      if (error) {
+        report.notes.push(`"${p.asset.title}": queue insert failed — left as a ready draft.`);
+        continue;
+      }
+      report.armed++;
+      await mutateWorkspace(userId, (data) => {
+        const wsContent = Array.isArray(data.content) ? (data.content as ContentAsset[]) : [];
+        return {
+          data: {
+            ...data,
+            content: wsContent.map((a) =>
+              a.id === p.asset.id
+                ? {
+                    ...a,
+                    scheduledPublishAt: p.slot.publishAt,
+                    scheduledPublishStatus: "pending" as const,
+                  }
+                : a,
+            ),
+          },
+          result: null,
+        };
+      }).catch(() => undefined); // mirror is UI-only; the queue row is the truth
+    }
+  }
   for (const [i, opportunity] of candidates.entries()) {
+    try {
+      await assertSchedulerLease(userId, projectId, lease);
+    } catch (error) {
+      throw new SchedulerPartialFailure(report, error);
+    }
     const slot = slots[i];
     let gen: Awaited<ReturnType<typeof generateContentCore>>;
     try {
@@ -439,7 +581,10 @@ async function runForProject(
       report.flaggedEmpty++;
       continue;
     }
-    let asset = buildAssetFromGeneration(gen, opportunity, liveProject, nowIso, plannedKey);
+    let asset: ContentAsset = {
+      ...buildAssetFromGeneration(gen, opportunity, liveProject, nowIso, plannedKey),
+      autoSchedulerPlannedAt: slot.publishAt,
+    };
 
     // Auto link resolution against the real page map (owner guardrail).
     const corpus = [...content, ...prepared.map((p) => p.asset)];
@@ -475,108 +620,13 @@ async function runForProject(
         asset = armedShape;
       }
     }
-    prepared.push({ asset, opportunity, slot, armable });
-    report.generated++;
-  }
-  if (!prepared.length) return report;
-
-  // ---- 5. One pure blob mutation for the whole project --------------------
-  // Deliberately WITHOUT schedule mirrors: the queue row is inserted first and
-  // the mirror second (same order as the interactive scheduling fn), so a crash
-  // between the two can never strand an "Approved + Goes live ..." asset that no
-  // queue row will ever publish. A queue row without a mirror is harmless (the
-  // runner publishes it; only the editor badge is missing).
-  const acceptedAndDrafted = acceptedSuggestionIds.filter((id) =>
-    prepared.some((p) => p.opportunity.id === id),
-  );
-  await mutateWorkspace(userId, (data) => {
-    const wsContent = Array.isArray(data.content) ? (data.content as ContentAsset[]) : [];
-    const wsOpps = Array.isArray(data.opportunities) ? (data.opportunities as Opportunity[]) : [];
-    const wsSugs = Array.isArray(data.discoverySuggestions)
-      ? (data.discoverySuggestions as DiscoverySuggestion[])
-      : [];
-    const wsProjects = Array.isArray(data.projects) ? (data.projects as Project[]) : [];
-    const existingOppIds = new Set(wsOpps.map((o) => o.id));
-    const existingAssetIds = new Set(wsContent.map((a) => a.id));
-    const newOpps = prepared
-      .map((p) => p.opportunity)
-      .filter((o) => !existingOppIds.has(o.id))
-      .map((o) => ({ ...o, status: "drafting" }) as Opportunity);
-    return {
-      data: {
-        ...data,
-        projects:
-          liveProject === project
-            ? wsProjects
-            : wsProjects.map((p) =>
-                p.id === projectId ? { ...p, sitemapInventory: liveProject.sitemapInventory } : p,
-              ),
-        content: [
-          ...wsContent,
-          // Re-runnable: never append an asset id twice on a mutation retry.
-          ...prepared.map((p) => p.asset).filter((a) => !existingAssetIds.has(a.id)),
-        ],
-        opportunities: [
-          ...wsOpps.map((o) =>
-            prepared.some((p) => p.opportunity.id === o.id)
-              ? ({
-                  ...o,
-                  status: "drafting",
-                  currentContentAssetId: prepared.find((p) => p.opportunity.id === o.id)!.asset.id,
-                } as Opportunity)
-              : o,
-          ),
-          ...newOpps.map((o) => ({
-            ...o,
-            currentContentAssetId: prepared.find((p) => p.opportunity.id === o.id)?.asset.id,
-          })),
-        ],
-        // A suggestion is consumed only when its article actually got drafted —
-        // a failed generation must not burn it (it stays available next run).
-        discoverySuggestions: wsSugs.map((sug) =>
-          acceptedAndDrafted.includes(sug.id)
-            ? { ...sug, status: "accepted" as const, acceptedOpportunityId: sug.id }
-            : sug,
-        ),
-      },
-      result: null,
-    };
-  });
-
-  // ---- 6. Arm go-lives (auto_publish only): queue row FIRST, mirror second --
-  const db = await admin();
-  for (const p of prepared) {
-    if (!p.armable) continue;
-    const { error } = await db.from("scheduled_publishes").insert({
-      user_id: userId,
-      project_id: projectId,
-      asset_id: p.asset.id,
-      publish_at: p.slot.publishAt,
-      status: "pending",
-    });
-    if (error) {
-      report.notes.push(`"${p.asset.title}": queue insert failed — left as a ready draft.`);
-      continue;
+    const completed = { asset, opportunity, slot, armable };
+    try {
+      await persistPrepared([completed]);
+    } catch (error) {
+      throw new SchedulerPartialFailure(report, error);
     }
-    report.armed++;
-    await mutateWorkspace(userId, (data) => {
-      const wsContent = Array.isArray(data.content) ? (data.content as ContentAsset[]) : [];
-      return {
-        data: {
-          ...data,
-          content: wsContent.map((a) =>
-            a.id === p.asset.id
-              ? {
-                  ...a,
-                  scheduledPublishAt: p.slot.publishAt,
-                  scheduledPublishStatus: "pending" as const,
-                }
-              : a,
-          ),
-        },
-        result: null,
-      };
-    }).catch(() => undefined); // mirror is UI-only; the queue row is the truth
+    prepared.push(completed);
   }
   report.held = prepared.length - report.armed;
   return report;

@@ -11,7 +11,18 @@ const mocks = vi.hoisted(() => ({
   read: vi.fn(),
   mutate: vi.fn(),
   heartbeat: vi.fn(),
+  acquire: vi.fn(),
+  assertLease: vi.fn(),
+  releaseLease: vi.fn(),
+  insert: vi.fn(),
+  queue: vi.fn(),
 }));
+vi.mock("./auto-scheduler-lease.server", () => ({
+  acquireSchedulerLease: mocks.acquire,
+  assertSchedulerLease: mocks.assertLease,
+  releaseSchedulerLease: mocks.releaseLease,
+}));
+vi.mock("./checklist", () => ({ publishBlockers: () => [] }));
 vi.mock("./ai-usage.server", async (original) => ({
   ...(await original<typeof import("./ai-usage.server")>()),
   remainingAiUsage: mocks.remaining,
@@ -30,11 +41,12 @@ vi.mock("@/integrations/supabase/client.server", () => ({
     rpc: mocks.heartbeat,
     from() {
       return {
+        insert: mocks.insert,
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         in: vi.fn().mockReturnThis(),
         then(resolve: (v: unknown) => unknown) {
-          return Promise.resolve({ data: [], error: null }).then(resolve);
+          return Promise.resolve(mocks.queue()).then(resolve);
         },
       };
     },
@@ -47,6 +59,11 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv("RESEND_API_KEY", "");
   mocks.remaining.mockResolvedValue(3);
+  mocks.queue.mockReturnValue({ data: [], error: null });
+  mocks.acquire.mockResolvedValue("00000000-0000-4000-8000-000000000010");
+  mocks.assertLease.mockResolvedValue(undefined);
+  mocks.releaseLease.mockResolvedValue(undefined);
+  mocks.insert.mockResolvedValue({ data: null, error: null });
   mocks.heartbeat.mockResolvedValue({ data: null, error: null });
   mocks.discover.mockResolvedValue({ opportunities: [] });
   workspace = {
@@ -80,6 +97,53 @@ afterEach(() => {
 });
 
 describe("autopilot budget failures", () => {
+  it.each([
+    { data: null, error: { message: "unavailable" } },
+    { data: null, error: null },
+    { data: [{ publish_at: "invalid" }], error: null },
+  ])("does not spend when existing bookings cannot be verified", async (result) => {
+    mocks.queue.mockReturnValue(result);
+    const summary = await runMonthlyAutoScheduler(now);
+    expect(summary.projects[0].error).toContain("queue unavailable");
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(mocks.discover).not.toHaveBeenCalled();
+  });
+  it("resumes with the remaining quota without subtracting prior usage again", async () => {
+    workspace.content = [{ id: "old", projectId: "p1", autoScheduledFor: "2026-10" }];
+    mocks.remaining.mockResolvedValue(2);
+    mocks.generate.mockResolvedValue({ markdown: "Saved", hookProposals: [] });
+    const summary = await runMonthlyAutoScheduler(now);
+    expect(summary.projects[0]).toMatchObject({ target: 2, generated: 2 });
+    expect(mocks.generate).toHaveBeenCalledTimes(2);
+    const saved = (workspace.content as ContentAsset[]).filter((a) => a.id !== "old");
+    expect(saved.every((a) => !!a.autoSchedulerPlannedAt && !a.scheduledPublishAt)).toBe(true);
+    expect(new Set(saved.map((a) => a.autoSchedulerPlannedAt)).size).toBe(2);
+  });
+  it("does not generate when another scheduler owns the project", async () => {
+    mocks.acquire.mockRejectedValueOnce(new Error("Scheduler already active"));
+    const result = await runMonthlyAutoScheduler(now);
+    expect(result.projects[0].error).toBe("Scheduler already active");
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(mocks.discover).not.toHaveBeenCalled();
+    expect(mocks.releaseLease).not.toHaveBeenCalled();
+  });
+  it("retains the first saved draft when ownership is lost before the next generation", async () => {
+    mocks.generate.mockResolvedValue({
+      metaTitle: "First",
+      metaDescription: "D",
+      h1: "First",
+      markdown: "Saved draft",
+      hookProposals: [],
+    });
+    mocks.assertLease
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("Ownership unknown"));
+    const result = await runMonthlyAutoScheduler(now);
+    expect(mocks.generate).toHaveBeenCalledTimes(1);
+    expect(workspace.content).toHaveLength(1);
+    expect(result.projects[0]).toMatchObject({ error: "Ownership unknown", generated: 1, held: 1 });
+    expect(mocks.releaseLease).not.toHaveBeenCalled();
+  });
   it("stops before discovery or generation if the quota cannot be read", async () => {
     mocks.remaining.mockRejectedValue(new UsageUnavailableError("contentGeneration"));
     const summary = await runMonthlyAutoScheduler(now);
@@ -128,6 +192,99 @@ describe("autopilot budget failures", () => {
     expect(workspace.content).toHaveLength(1);
     expect((workspace.content as ContentAsset[])[0].markdown).toBe("A useful prepared article.");
     expect((workspace.opportunities as Opportunity[])[1].status).toBe("captured");
+  });
+
+  it("persists a completed draft before waiting for the next provider call", async () => {
+    let release: (value: unknown) => void = () => undefined;
+    let started: () => void = () => undefined;
+    const secondStarted = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const second = new Promise((resolve) => {
+      release = resolve;
+    });
+    mocks.generate
+      .mockResolvedValueOnce({
+        metaTitle: "First",
+        metaDescription: "D",
+        h1: "First",
+        markdown: "Already delivered draft",
+        hookProposals: [],
+      })
+      .mockImplementationOnce(() => {
+        started();
+        return second;
+      })
+      .mockResolvedValue(null);
+    const running = runMonthlyAutoScheduler(now);
+    await secondStarted;
+    const savedWhileSecondPending = (workspace.content as ContentAsset[]).map((a) => a.markdown);
+    release(null);
+    await running;
+    expect(savedWhileSecondPending).toEqual(["Already delivered draft"]);
+  });
+
+  it("does not spend on another generation after a workspace save fails", async () => {
+    mocks.generate.mockResolvedValue({
+      metaTitle: "First",
+      metaDescription: "D",
+      h1: "First",
+      markdown: "Delivered draft",
+      hookProposals: [],
+    });
+    mocks.mutate.mockRejectedValueOnce(new Error("workspace_write_failed"));
+    const result = await runMonthlyAutoScheduler(now);
+    expect(mocks.generate).toHaveBeenCalledTimes(1);
+    expect(result.projects[0].error).toBe("workspace_write_failed");
+  });
+
+  it("persists an automatic draft before its queue row and adds the mirror only afterwards", async () => {
+    const project = (workspace.projects as Array<Record<string, unknown>>)[0];
+    project.autoScheduler = { enabled: true, mode: "auto_publish" };
+    project.publishMode = "autoPublishApproved";
+    mocks.remaining.mockResolvedValue(1);
+    mocks.generate.mockResolvedValue({
+      metaTitle: "Calm sessions",
+      metaDescription: "D",
+      h1: "Calm sessions",
+      markdown: "A relaxing article body about sessions in our studio.",
+      hookProposals: [{ text: "Need a calmer studio session?", type: "question" }],
+    });
+    let storedBeforeQueue: ContentAsset[] = [];
+    mocks.insert.mockImplementationOnce(async () => {
+      storedBeforeQueue = structuredClone(workspace.content as ContentAsset[]);
+      return { data: null, error: null };
+    });
+    const result = await runMonthlyAutoScheduler(now);
+    expect(result.projects[0]).toMatchObject({ generated: 1, armed: 1, held: 0 });
+    expect(storedBeforeQueue).toHaveLength(1);
+    expect(storedBeforeQueue[0].scheduledPublishAt).toBeUndefined();
+    expect((workspace.content as ContentAsset[])[0].scheduledPublishStatus).toBe("pending");
+    expect(mocks.mutate.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.insert.mock.invocationCallOrder[0],
+    );
+    expect(mocks.insert.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.mutate.mock.invocationCallOrder[1],
+    );
+  });
+
+  it("keeps a saved automatic draft unarmed when queue insertion fails", async () => {
+    const project = (workspace.projects as Array<Record<string, unknown>>)[0];
+    project.autoScheduler = { enabled: true, mode: "auto_publish" };
+    project.publishMode = "autoPublishApproved";
+    mocks.remaining.mockResolvedValue(1);
+    mocks.generate.mockResolvedValue({
+      metaTitle: "Calm sessions",
+      metaDescription: "D",
+      h1: "Calm sessions",
+      markdown: "A relaxing article body about sessions in our studio.",
+      hookProposals: [{ text: "Need a calmer studio session?", type: "question" }],
+    });
+    mocks.insert.mockResolvedValueOnce({ data: null, error: { message: "unavailable" } });
+    const result = await runMonthlyAutoScheduler(now);
+    expect(result.projects[0]).toMatchObject({ generated: 1, armed: 0, held: 1 });
+    expect(workspace.content).toHaveLength(1);
+    expect((workspace.content as ContentAsset[])[0].scheduledPublishAt).toBeUndefined();
   });
 
   it("reports an unavailable discovery meter instead of hiding it as no ideas", async () => {

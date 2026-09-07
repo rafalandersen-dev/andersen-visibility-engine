@@ -670,6 +670,8 @@ export interface ContentAsset {
    * target instead of drafting duplicates.
    */
   autoScheduledFor?: string;
+  /** Intended cadence slot; does not authorize or queue publication. */
+  autoSchedulerPlannedAt?: string;
   /**
    * Set when this draft is a rewrite of a page already live whose original asset
    * was lost. Carries the prior canonical URL forward so the connector UPDATES the

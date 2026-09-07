@@ -1,10 +1,10 @@
 # Milo Growth — Current State
 
-**Status:** September application release reconciled; full public launch remains unverified
+**Status:** New deployment input discrepancy under investigation; full public launch remains unverified
 
 **Last updated:** 2026-09-07
 
-**Repository baseline inspected:** `main` at `41aaf64be9ebb6a6d0f5c37b581acc168990ed6c` (PR #66 merge)
+**Repository baseline inspected:** `main` at `a79545bcabe9f8a6f18a2f502dfc43d4c201359e` (PR #71 merge)
 
 **Product Lead / Outcome Owner:** Rafal Andersen
 
@@ -14,7 +14,7 @@
 
 Read [ROADMAP.md](./ROADMAP.md) for execution order and [PLAN_REVIEW_2026_09_07.md](./PLAN_REVIEW_2026_09_07.md) for all scope/decision gaps. This update corrects the July 28 state file against current source and GitHub evidence. It does not convert a source review into an independent security audit or prove production configuration.
 
-PRs #63–#66 are merged. Selected premium Today/list+inspector/calendar work, reconciled plans, fail-closed metering and bounded onboarding extraction are implemented. The whole product redesign, real observed AI tracking, production backlinks supplier, Stripe and all EU languages are not complete. The owner's Claude and ChatGPT MCP connections are existing capabilities; further client coverage and authoring work remain.
+PRs #63–#66 and #68–#71 are merged. Selected premium Today/list+inspector/calendar work, reconciled plans, fail-closed metering and bounded onboarding extraction are implemented. The whole product redesign, real observed AI tracking, production backlinks supplier, Stripe and all EU languages are not complete. The owner's Claude and ChatGPT MCP connections are existing capabilities; further client coverage and authoring work remain.
 
 Unattended paid public launch remains **not verified / NO-GO** pending [launch gates](./LAUNCH_READINESS.md). The historical ~70% assisted/~40% public estimates are retired as current indicators: they predate substantial work and have no fresh denominator.
 
@@ -22,16 +22,22 @@ Unattended paid public launch remains **not verified / NO-GO** pending [launch g
 
 | Evidence | What is known | Limit |
 | --- | --- | --- |
-| Current source | `main` at `41aaf64be9ebb6a6d0f5c37b581acc168990ed6c` after #66 | Source is not runtime verification |
+| Current source | `main` at `a79545bcabe9f8a6f18a2f502dfc43d4c201359e` after #71 | Source is not runtime verification |
 | #63 validation | Recorded 190 focused tests, TypeScript/build, responsive browser/workflow checks in `design-qa.md` | Earlier focused scope; not a fresh full release/security review |
-| Application deployment | Lovable project latest revision matched #66 merge before publication; domain now serves build `1788781754158` (2026-09-07) | August stale release resolved; protected journeys and independently exposed runtime SHA still open |
+| Application deployment | Lovable project latest revision matched #71 merge before publication; domain now serves build `1788786255918` (2026-09-07) | Domain revision and source fingerprint match the clean verified checkout; protected journeys/configuration remain open |
 | Metering acceptance | September SQL applied; eight concurrent PostgreSQL sessions admitted exactly three claims at cap 3; synthetic row cleaned | No real provider expenditure; monetary budgets are a separate layer |
 | #66 validation | 1,303 tests/100 files, TypeScript/build pass | All suppliers mocked; not full launch acceptance |
 | #67 foundation | Draft internal monetary ledger; 1,334 tests/102 files, TypeScript/build/focused lint pass | Migration unapplied; production provider callers not yet connected, no funded budgets |
 | Historical independent baseline | #46 `80375249dfcf9e371d82ebf7c28f2983fc4ab047`: Worker 49 tests, Milo 1165 tests/build and recorded review | Valid for that historical tree, not all later commits |
 | External/account configuration | Connected Lovable/Supabase read verified project, tables/RLS and one agency/manualComped entitlement; metering function upgraded | Runtime flags, secrets, actual provider pricing and external subscriber state remain unverified |
 
-Full exact-head security and protected-journey acceptance remain open. Source tests, database acceptance, Lovable revision and live build observations have distinct scopes. See [release evidence](../evidence/release-reconciliation-2026-09-07.md) and [expense foundation evidence](../evidence/expense-reservations-2026-09-07.md).
+Full exact-head security and protected-journey acceptance remain open. Source tests, database acceptance, Lovable revision and live build observations have distinct scopes. See [release evidence](../evidence/release-reconciliation-2026-09-07.md) and [draft expense foundation PR #67](https://github.com/rafalandersen-dev/andersen-visibility-engine/pull/67).
+
+The current notification packet adds an in-app inbox for approval deadlines, publication failures, manual overdue tasks and cadence gaps, with a private logged-out sweep endpoint. Its 1,339-test full suite, types, build and focused lint pass. The inbox migration and application release are live; the private 15-minute background scan successfully checked five accounts without failures; delivery acceptance, budget pauses and team recipients remain open. See [notification evidence](../evidence/operational-notifications-2026-09-07.md). Dependency PR #68 is deployed with zero reported lockfile audit vulnerabilities.
+
+A following gated email packet adds opt-in owner summaries, a durable outbox, final state checks, suppression, bounded preflight retries and honest uncertain-send handling. Its full 1,385-test suite, types/build/lint pass. Its migration is applied and code is published; zero opted-in accounts and zero queued digests were verified. No real email was sent. See [email evidence](../evidence/operational-email-outbox-2026-09-07.md).
+
+The R05 ownership packet (#72) is merged, its migration applied and eight-session real database contention accepted (one admitted, seven denied; synthetic row removed). A subsequent publication returned a new build whose input fingerprint differs from the clean repository. Runtime equivalence is reopened; see [build discrepancy](../evidence/build-input-discrepancy-2026-09-07.md). PR #73 fixes resume capacity and preserves intended draft slots. See [scheduler recovery evidence](../evidence/scheduler-recovery-2026-09-07.md).
 
 ## Present implementation to preserve
 
@@ -69,7 +75,7 @@ The detailed [route/capability map](../docs/premium-redesign/FEATURE_INVENTORY.m
 
 - Dedicated Worker, direct Gemini boundary and staging harness code exist. #35/#43 remain open at review time.
 - Later commits **do include production routes and boundary changes** beyond #46. The July assertion “no routes/deployment” cannot be reused as current truth. Committed routes also do not prove a deployed Worker.
-- Account-level discovery and exact runtime/migration state remain unverified here. Read-only discovery is already authorized in #43 and the user history; no repeat permission is needed.
+- Read-only account discovery verified GoDaddy DNS, missing staging hostname, no named Workers/Turnstile widgets in the inspected Cloudflare account, and no Milo domain in Vercel andersen-hq. Cloudflare ownership uses a personal address and requires reconciliation; see [account discovery](../evidence/public-audit-account-discovery-2026-09-07.md). Separate Supabase staging remains unverified.
 - No new Worker staging/production release GO is issued by this plan. Finish the concrete evidence and mutation package under the existing release boundary.
 
 ### Legal, support and data

@@ -7,6 +7,7 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { releaseIdentity } from "./build/release-identity";
 
 export default defineConfig({
   tanstackStart: {
@@ -38,6 +39,7 @@ export default defineConfig({
       // reload when they differ — users were seeing the PRE-REDESIGN app from
       // cached bundles after deploys.
       __MILO_BUILD_ID__: JSON.stringify(String(Date.now())),
+      __MILO_RELEASE_IDENTITY__: JSON.stringify(releaseIdentity()),
     },
   },
 });

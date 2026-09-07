@@ -2,6 +2,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useState, useRef, type ReactNode } from "react";
 import {
+  Bell,
   Briefcase,
   CalendarDots,
   CaretDown,
@@ -51,6 +52,14 @@ const NAV = [
     icon: House,
     exact: true,
     paths: ["/app"],
+    children: [],
+  },
+  {
+    id: "notifications",
+    tKey: "notifications.title",
+    to: "/app/notifications",
+    icon: Bell,
+    paths: ["/app/notifications"],
     children: [],
   },
   {
