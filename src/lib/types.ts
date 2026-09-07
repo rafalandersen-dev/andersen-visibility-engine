@@ -209,6 +209,8 @@ export type OnboardingLanguage = "en" | "pl" | "sv" | "da";
 
 export interface Project {
   id: string;
+  /** Bounded replay receipts prevent old requests refilling owner-cleared profile fields. */
+  mcpProfileFillRequests?: import("./mcp-profile-fill").ProfileFillReceipt[];
   /** Bounded server-written replay receipts; retained after individual topics are removed. */
   mcpOpportunityBatches?: Array<{ requestId: string; fingerprint: string; ids: string[] }>;
   name: string;
