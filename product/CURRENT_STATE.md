@@ -1,10 +1,10 @@
 # Milo Growth — Current State
 
-**Status:** Canonical state reconciliation; no new release GO
+**Status:** September application release reconciled; full public launch remains unverified
 
 **Last updated:** 2026-09-07
 
-**Repository baseline inspected:** `main` at `34cacf695baee8696582d94559c74880133647ed` (PR #63 merge)
+**Repository baseline inspected:** `main` at `41aaf64be9ebb6a6d0f5c37b581acc168990ed6c` (PR #66 merge)
 
 **Product Lead / Outcome Owner:** Rafal Andersen
 
@@ -14,7 +14,7 @@
 
 Read [ROADMAP.md](./ROADMAP.md) for execution order and [PLAN_REVIEW_2026_09_07.md](./PLAN_REVIEW_2026_09_07.md) for all scope/decision gaps. This update corrects the July 28 state file against current source and GitHub evidence. It does not convert a source review into an independent security audit or prove production configuration.
 
-PR #63 is merged. Its selected premium Today/list+inspector/calendar work is implemented. The whole product redesign, real observed AI tracking, production backlinks supplier, Stripe and all EU languages are not complete. The owner's Claude and ChatGPT MCP connections are existing capabilities; further client coverage and authoring work remain.
+PRs #63–#66 are merged. Selected premium Today/list+inspector/calendar work, reconciled plans, fail-closed metering and bounded onboarding extraction are implemented. The whole product redesign, real observed AI tracking, production backlinks supplier, Stripe and all EU languages are not complete. The owner's Claude and ChatGPT MCP connections are existing capabilities; further client coverage and authoring work remain.
 
 Unattended paid public launch remains **not verified / NO-GO** pending [launch gates](./LAUNCH_READINESS.md). The historical ~70% assisted/~40% public estimates are retired as current indicators: they predate substantial work and have no fresh denominator.
 
@@ -22,13 +22,16 @@ Unattended paid public launch remains **not verified / NO-GO** pending [launch g
 
 | Evidence | What is known | Limit |
 | --- | --- | --- |
-| Current source | `main` at `34cacf695baee8696582d94559c74880133647ed`; #63 implementation head `1715e4c4212da7984555ab873e3dc950e9ba9741` | Source is not runtime verification |
+| Current source | `main` at `41aaf64be9ebb6a6d0f5c37b581acc168990ed6c` after #66 | Source is not runtime verification |
 | #63 validation | Recorded 190 focused tests, TypeScript/build, responsive browser/workflow checks in `design-qa.md` | Earlier focused scope; not a fresh full release/security review |
-| Deployment status | Vercel success on #63 merge, checked September 7 | No custom-domain build or live provider verification in this reconciliation |
+| Application deployment | Lovable project latest revision matched #66 merge before publication; domain now serves build `1788781754158` (2026-09-07) | August stale release resolved; protected journeys and independently exposed runtime SHA still open |
+| Metering acceptance | September SQL applied; eight concurrent PostgreSQL sessions admitted exactly three claims at cap 3; synthetic row cleaned | No real provider expenditure; monetary budgets are a separate layer |
+| #66 validation | 1,303 tests/100 files, TypeScript/build pass | All suppliers mocked; not full launch acceptance |
+| #67 foundation | Draft internal monetary ledger; 1,334 tests/102 files, TypeScript/build/focused lint pass | Migration unapplied; production provider callers not yet connected, no funded budgets |
 | Historical independent baseline | #46 `80375249dfcf9e371d82ebf7c28f2983fc4ab047`: Worker 49 tests, Milo 1165 tests/build and recorded review | Valid for that historical tree, not all later commits |
-| External/account configuration | Not inspected in this task | Flag/secret/migration/provider presence cannot be inferred from comments or commit names |
+| External/account configuration | Connected Lovable/Supabase read verified project, tables/RLS and one agency/manualComped entitlement; metering function upgraded | Runtime flags, secrets, actual provider pricing and external subscriber state remain unverified |
 
-An exact-head audit of the current implementation remains the next verification outcome before a new feature sprint. Do not silently relabel July evidence as verification of September main.
+Full exact-head security and protected-journey acceptance remain open. Source tests, database acceptance, Lovable revision and live build observations have distinct scopes. See [release evidence](../evidence/release-reconciliation-2026-09-07.md) and [expense foundation evidence](../evidence/expense-reservations-2026-09-07.md).
 
 ## Present implementation to preserve
 
@@ -49,7 +52,8 @@ The detailed [route/capability map](../docs/premium-redesign/FEATURE_INVENTORY.m
 
 ### Cost and billing
 
-- `claimAiUsage` explicitly allows calls when its RPC errors or returns no row. This concrete fail-open path must be fixed before broad paid/autonomous execution.
+- PR #65 fixes RPC/no-row/malformed-confirmation fail-open behavior and first-claim SQL cap bypass. Migration applied and independent-session acceptance passed. Scheduler uses server entitlements and enforced claims. PR #66 adds finite onboarding extraction and zero automatic text retries/60-second timeout.
+- Draft PR #67 provides internal account/global monetary reserve/reconcile, unknown-cost retention and overrun pauses. It is not connected to production provider callers and its migration is not applied. Verified rates, adapters and explicit budget provisioning remain required. Customer delivered-result allowance accounting remains separate.
 - `AI_METERING_ENFORCED` determines cap enforcement; production value was not inspected. Do not assert that it is currently on or off.
 - Server entitlements already exist; the July claim that the product still trusts the client blob as paid authority is obsolete. Verify deployment/RLS/lifecycle rather than reimplementing from that stale claim.
 - Stripe is the required billing direction after Paddle rejection. Paddle-specific code and terms/refunds remain; no Stripe lifecycle acceptance or new pricing is claimed.
@@ -86,7 +90,7 @@ The detailed [route/capability map](../docs/premium-redesign/FEATURE_INVENTORY.m
 
 ## Next single action
 
-Complete the **exact-head verification and environment-evidence packet** for current main, resolving the gaps above and in #43 without configuration changes. Then open the bounded cost-control/background-reliability implementation identified in the roadmap. The present documentation reconciliation is complete as a planning deliverable; it does not mark that next technical audit complete.
+Continue R09 provider accounting integration once verified rates and owner test budget are available; meanwhile implement R05/R06 durable notifications and logged-out reliability. Keep remaining full-roadmap waves active. Do not repeat completed migration/deployments or treat this release milestone as 100% completion. Issue #43 retains its separate infrastructure mutation boundary.
 
 ## References and historical evidence
 
