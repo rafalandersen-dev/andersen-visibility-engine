@@ -1,5 +1,7 @@
 # Milo Growth — preservation map, 6 September 2026
 
+September 7 execution plan: [product/ROADMAP.md](../../product/ROADMAP.md). Full scope and open decisions: [PLAN_REVIEW_2026_09_07.md](../../product/PLAN_REVIEW_2026_09_07.md). PR #63 is merged; this preservation map remains the regression contract, not blanket live verification.
+
 Baseline: `main` at `0d4057d1e35a1727c04b133958b537c80df849c8`. The July redesign branch is NOT the base: it predates important product and security work. This inventory records source capabilities and the production screens observed in the accompanying audit, not a claim that every provider has been revalidated live.
 
 User-selected design: Today cockpit + list with inspector + light calendar; common ink sidebar, Inter typography, blue actions, readable status labels. Wombat Ops is still in progress, not a finished implementation to copy. No workspace schema migration or wholesale data rewrite is part of this change.

@@ -1,3 +1,5 @@
+> **Current planning source — 2026-09-07:** [../product/ROADMAP.md](../product/ROADMAP.md), [../product/CURRENT_STATE.md](../product/CURRENT_STATE.md) and the [scope reconciliation](../product/PLAN_REVIEW_2026_09_07.md) supersede the historical state/priority labels below. Preserve existing implementation contracts; do not infer current runtime flags, approvals or missing features from this older snapshot.
+
 # Decision Log — 2026‑07 Product Audit & Strategy
 
 Records what was decided, rejected, or postponed and why. **Last revised:** 2026‑07‑21. Cross‑refs: `ROADMAP.md`, `TARGET-ARCHITECTURE.md`, `PRODUCT-AUDIT-2026-07.md`, `AGENCY-BENCHMARK-SEMPIRE.md`, `ARTICLE-STUDIO-3.0.md`.

@@ -1,6 +1,6 @@
 # AI Visibility Monitor — Specification
 
-**Status:** proposal for approval. Planning only. **Roadmap:** epic **P3.1** (Advanced Differentiation), gated by **P2.0** (External‑API Cost‑Control Framework — real AI‑engine probing is paid). **Last revised:** 2026‑07‑20.
+**Status:** Technical design baseline; observed monitoring remains unimplemented/unverified. **Current priority:** pre-launch R10–R12 in [product/ROADMAP.md](../product/ROADMAP.md), with cost controls first. Historical P3.1/P2.0 IDs remain references only. **Reconciled:** 2026-09-07.
 Cross‑refs: `TARGET-ARCHITECTURE.md` (M6), `PRODUCT-AUDIT-2026-07.md` §Domain D, `AGENCY-BENCHMARK-SEMPIRE.md`, `DECISION-LOG.md`.
 
 ---
@@ -11,7 +11,7 @@ Cross‑refs: `TARGET-ARCHITECTURE.md` (M6), `PRODUCT-AUDIT-2026-07.md` §Domain
 - The only genuinely‑measured AI signal today is **`ai_referrer`** — a human clicking from an AI tool, caught by the first‑party JS beacon (`analytics.ts`). Real but thin (referrer stripping under‑counts).
 - `ai_crawler`/`ai_search_bot` UA detection is **architecturally near‑dead**: the endpoint is only reached by the client‑side JS snippet, and GPTBot/ClaudeBot/PerplexityBot do not run JS — so those bots never hit it.
 
-**P0.1 rename:** the current planner becomes **"AI Readiness"** (labelled ADVICE). The **AI Visibility Monitor** (this spec, MEASUREMENT) is a distinct, later module (P3.1).
+**P0.1 rename:** the current planner becomes **"AI Readiness"** (labelled ADVICE). The **AI Visibility Monitor** (this spec, MEASUREMENT) is a distinct pre-launch measurement workstream (R10).
 
 ---
 
@@ -30,7 +30,7 @@ These are reported as three metrics, never averaged into one score.
 ## 3. Design
 
 - **Prompt library** (`ai_visibility_prompts`) — per project + locale, a curated set of realistic buyer/informational prompts (built from GSC queries, services, and conversational phrasings). Human‑reviewable and editable.
-- **Scheduled probing** (`ai_visibility_probes`) — a job runs the prompt library against ≥2 engines (start with API‑accessible ones, e.g. an OpenAI model and Perplexity; add Gemini / AI‑Overview surrogates as feasible). Cadence by plan. **Every probe routes through the Cost‑Control Framework (P2.0): metered, capped, cached, rate‑limited, fail‑closed.**
+- **Scheduled probing** (`ai_visibility_probes`) — a job runs the prompt library against at least three trustworthy initial services/surfaces (selection and cost/method acceptance pending; API probes and consumer web/search modes must be labelled separately, and an API surrogate must never be sold as observed Google AI Overviews). Cadence by plan. **Every probe routes through the Cost‑Control Framework (P2.0): metered, capped, cached, rate‑limited, fail‑closed.**
 - **Response storage** — the raw answer is stored per probe (engine, prompt, timestamp, locale) so a claim is always backed by the actual text, not a summary.
 - **Citation / source extraction** — parse cited URLs/domains from the stored answer; classify each as *our domain* / *competitor* / *third‑party*.
 - **Mention + sentiment classification** — detect brand/product mention; classify sentiment (positive/neutral/negative) with a confidence score.
@@ -47,7 +47,7 @@ These are reported as three metrics, never averaged into one score.
 - **Every result carries a confidence level and an explicit limitations note.** LLM outputs are **non‑deterministic** (the same prompt varies by run/session/region); a probe is a **sample**, not a guaranteed ranking. Referral attribution is **sparse/under‑counted** due to referrer stripping.
 - **Never present a probe as "your AI rank".** No guaranteed‑visibility claims. No implication that adding schema *causes* a mention or citation (correlation, not promise — see `DECISION-LOG.md` §Schema).
 - **Show the evidence.** Every mention/citation claim links to the stored raw answer. This is the direct contrast with the benchmark, which *claims* "AI mention + sentiment monitoring" and "AI Overview reporting" without a shown method.
-- **Cost transparency.** Because probing is paid and non‑deterministic, the module shows probe cost/quota and lets the owner control cadence.
+- **Cost transparency.** Because probing is paid and non‑deterministic, the module shows understandable monitoring allowance and cadence; technical provider costs remain in the internal ledger.
 
 ---
 
@@ -61,7 +61,7 @@ These are reported as three metrics, never averaged into one score.
 
 ## 6. Success metrics, failure states, plan limits
 
-- **Success:** a scheduled prompt returns stored raw answers from ≥2 engines with extracted citations, per‑metric values + confidence; re‑running shows a trend, not a single snapshot; every claim links to evidence.
+- **Success:** a scheduled prompt returns stored raw answers from at least three verified initial services/surfaces with extracted citations, per‑metric values + confidence; re‑running shows a trend, not a single snapshot; every claim links to evidence.
 - **Failure states:** cost cap reached → probing pauses with an honest "paused to stay within budget"; engine unavailable → last‑known + staleness label; ambiguous parse → low‑confidence, not a fabricated result. All fail **closed** (no unmetered spend).
 - **Plan limits:** number of prompts, engines, and probe cadence scale by subscription tier (entitlements enforced by P2.0).
 
@@ -69,5 +69,8 @@ These are reported as three metrics, never averaged into one score.
 
 ## 7. MVP → Later
 
-- **MVP (P3.1):** prompt library + scheduled probing of 2 engines + mention/citation extraction + confidence + trend, all behind P2.0. Referral metric surfaced from existing analytics in P0.6 (earlier).
+- **First delivery (R10):** prompt library + scheduled observations on at least three trustworthy initial services/surfaces + mention/citation extraction + confidence + trend, all behind P2.0. Referral metric surfaced from existing analytics in P0.6 (earlier).
 - **Later:** sentiment nuance, AI‑Overview surrogate probing, more engines/locales, competitor benchmarking dashboards, entity‑accuracy loop into M7.
+
+
+September scope: preserve the all-major coverage ambition, exact-page/domain/intent/source analysis and raw evidence; add server-log/bot analytics separately from answer observations and human referrals. See R10–R12 and D03 in the [scope review](../product/PLAN_REVIEW_2026_09_07.md).
