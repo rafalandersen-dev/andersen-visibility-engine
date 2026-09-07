@@ -1,5 +1,21 @@
 export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, string>> = {
   en: {
+    "notifications.recoveryInspect": "Inspect saved work",
+    "notifications.recoveryReadError":
+      "Saved automation records could not be checked. Try again before deciding whether to restart.",
+    "notifications.recoveryState.absent":
+      "No current run record was found. Refresh notifications to check whether this incident has been resolved.",
+    "notifications.recoveryState.running": "The latest run is marked as active.",
+    "notifications.recoveryState.completed":
+      "The latest run has ended. Refresh notifications for current issues.",
+    "notifications.recoveryState.review_required": "The interrupted run still needs review.",
+    "notifications.recoverySnapshot": "Milo records checked at {at}, in your browser's time zone.",
+    "notifications.recoveryCounts":
+      "Plan {period}: {saved} saved drafts. Queue records for those drafts: {pending} waiting, {publishing} in progress, {published} recorded as published, {failed} failed and {cancelled} cancelled.",
+    "notifications.recoveryEvidenceLimit":
+      "These are records saved in Milo. They do not verify the last AI operation or the destination website. Check the destination before retrying an uncertain publication. This view does not restart work.",
+    "notifications.recoveryMore":
+      "Showing {shown} of {total} saved drafts. Open the calendar to inspect the remaining work.",
     "notifications.emailAddressUnverified":
       "Your current account email has not been verified. Complete email confirmation, then check again. If the address was changed by an administrator and you have no confirmation link, contact Milo support. In-app notifications remain available.",
     "notifications.emailAddressUnavailable":
@@ -59,6 +75,23 @@ export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, str
     "notifications.readError": "Could not mark this notification as read. Please try again.",
   },
   pl: {
+    "notifications.recoveryInspect": "Sprawdź zapisane materiały",
+    "notifications.recoveryReadError":
+      "Nie udało się sprawdzić zapisów automatyzacji. Spróbuj ponownie przed decyzją o wznowieniu.",
+    "notifications.recoveryState.absent":
+      "Nie znaleziono bieżącego zapisu przebiegu. Odśwież powiadomienia, aby sprawdzić, czy problem został rozwiązany.",
+    "notifications.recoveryState.running": "Ostatni przebieg jest oznaczony jako aktywny.",
+    "notifications.recoveryState.completed":
+      "Ostatni przebieg został zakończony. Odśwież powiadomienia, aby sprawdzić aktualne problemy.",
+    "notifications.recoveryState.review_required": "Przerwany przebieg nadal wymaga sprawdzenia.",
+    "notifications.recoverySnapshot":
+      "Dane Milo sprawdzono {at}, w strefie czasowej Twojej przeglądarki.",
+    "notifications.recoveryCounts":
+      "Plan {period}. Zapisane szkice: {saved}. Wpisy kolejki dla tych szkiców — oczekujące: {pending}, w trakcie: {publishing}, zapisane jako opublikowane: {published}, nieudane: {failed}, anulowane: {cancelled}.",
+    "notifications.recoveryEvidenceLimit":
+      "To zapisy przechowywane w Milo. Nie potwierdzają wyniku ostatniej operacji AI ani stanu strony docelowej. Przed ponowieniem niepewnej publikacji sprawdź stronę. Ten widok nie wznawia pracy.",
+    "notifications.recoveryMore":
+      "Wyświetlono {shown} z {total} zapisanych szkiców. Pozostałe materiały sprawdzisz w kalendarzu.",
     "notifications.emailAddressUnverified":
       "Bieżący adres e-mail konta nie jest potwierdzony. Dokończ potwierdzanie adresu i sprawdź ponownie. Jeśli adres zmienił administrator i nie masz linku potwierdzającego, skontaktuj się z pomocą Milo. Powiadomienia w aplikacji pozostają dostępne.",
     "notifications.emailAddressUnavailable":
@@ -120,6 +153,24 @@ export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, str
       "Nie udało się oznaczyć powiadomienia jako przeczytanego. Spróbuj ponownie.",
   },
   sv: {
+    "notifications.recoveryInspect": "Granska sparat arbete",
+    "notifications.recoveryReadError":
+      "Automatiseringens sparade uppgifter kunde inte kontrolleras. Försök igen innan du beslutar om omstart.",
+    "notifications.recoveryState.absent":
+      "Ingen aktuell körning hittades. Uppdatera aviseringarna för att se om problemet är löst.",
+    "notifications.recoveryState.running": "Den senaste körningen är markerad som aktiv.",
+    "notifications.recoveryState.completed":
+      "Den senaste körningen har avslutats. Uppdatera aviseringarna för aktuella problem.",
+    "notifications.recoveryState.review_required":
+      "Den avbrutna körningen behöver fortfarande granskas.",
+    "notifications.recoverySnapshot":
+      "Milos uppgifter kontrollerades {at}, i webbläsarens tidszon.",
+    "notifications.recoveryCounts":
+      "Plan {period}: {saved} sparade utkast. Köposter för dessa utkast: {pending} väntar, {publishing} pågår, {published} registrerade som publicerade, {failed} misslyckade och {cancelled} avbrutna.",
+    "notifications.recoveryEvidenceLimit":
+      "Detta är uppgifter som sparats i Milo. De bekräftar inte den senaste AI-åtgärden eller målwebbplatsens status. Kontrollera målsidan innan en osäker publicering provas igen. Den här vyn startar inte om arbetet.",
+    "notifications.recoveryMore":
+      "Visar {shown} av {total} sparade utkast. Öppna kalendern för återstående material.",
     "notifications.emailAddressUnverified":
       "Kontots nuvarande e-postadress är inte bekräftad. Slutför bekräftelsen och kontrollera igen. Om en administratör ändrade adressen och du saknar en bekräftelselänk, kontakta Milos support. Aviseringar i appen är fortfarande tillgängliga.",
     "notifications.emailAddressUnavailable":
@@ -180,6 +231,23 @@ export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, str
     "notifications.readError": "Kunde inte markera aviseringen som läst. Försök igen.",
   },
   da: {
+    "notifications.recoveryInspect": "Gennemgå gemt arbejde",
+    "notifications.recoveryReadError":
+      "Automatiseringens gemte oplysninger kunne ikke kontrolleres. Prøv igen, før du beslutter at genstarte.",
+    "notifications.recoveryState.absent":
+      "Ingen aktuel kørsel blev fundet. Opdatér notifikationerne for at se, om problemet er løst.",
+    "notifications.recoveryState.running": "Den seneste kørsel er markeret som aktiv.",
+    "notifications.recoveryState.completed":
+      "Den seneste kørsel er afsluttet. Opdatér notifikationerne for aktuelle problemer.",
+    "notifications.recoveryState.review_required": "Den afbrudte kørsel skal stadig gennemgås.",
+    "notifications.recoverySnapshot":
+      "Milos oplysninger blev kontrolleret {at}, i din browsers tidszone.",
+    "notifications.recoveryCounts":
+      "Plan {period}: {saved} gemte kladder. Køposter for disse kladder: {pending} venter, {publishing} i gang, {published} registreret som publiceret, {failed} mislykkede og {cancelled} annullerede.",
+    "notifications.recoveryEvidenceLimit":
+      "Dette er oplysninger gemt i Milo. De bekræfter ikke den seneste AI-handling eller målwebstedets status. Kontrollér målsiden, før en usikker publicering forsøges igen. Denne visning genstarter ikke arbejdet.",
+    "notifications.recoveryMore":
+      "Viser {shown} af {total} gemte kladder. Åbn kalenderen for det resterende materiale.",
     "notifications.emailAddressUnverified":
       "Kontoens nuværende e-mailadresse er ikke bekræftet. Gennemfør bekræftelsen, og kontrollér igen. Hvis en administrator ændrede adressen, og du mangler et bekræftelseslink, så kontakt Milos support. Notifikationer i appen er stadig tilgængelige.",
     "notifications.emailAddressUnavailable":

@@ -5,6 +5,23 @@ import {
   listOperationalNotifications,
   refreshOperationalNotifications,
 } from "./operational-notifications.server";
+import { inspectSchedulerRecovery } from "./scheduler-recovery.server";
+
+export const getSchedulerRecoveryFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({ projectId: z.string().min(1).max(200) })
+      .strict()
+      .parse(input),
+  )
+  .handler(async ({ context, data }) => {
+    try {
+      return await inspectSchedulerRecovery(context.userId as string, data.projectId);
+    } catch {
+      throw new Error("Saved automation records are temporarily unavailable.");
+    }
+  });
 
 export const getOperationalNotificationsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
