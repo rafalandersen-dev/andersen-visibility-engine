@@ -1,5 +1,11 @@
 # Milo Growth — continuous execution handoff
 
+## Latest continuation snapshot — 2026-09-07, approximately 14:18 UTC
+
+This snapshot supersedes older snapshots below. PR #78 merged and published: revision af00a736010859b0c24c4b84c74b28b6689a1e1d, deployment 54134d98-2bc7-45d6-b68e-8df5529b56ea, domain build1788790493113, full fingerprint4c4184e246e4d58c6724f79e0dba339e2c218bf4523c038749b631d65f0a3955, modified=false and all components match. No new migration. Topic batches include project-scoped durable receipts, complete replay checks and bounds; no real-user invocation yet.
+
+Current worktree /Users/rafi/Projects/milo-growth-brand-proposals on codex/milo-brand-proposals-20260907, based on merged #78. Brand Intelligence owner-reviewed proposals are implemented and combined validation passed 1512 tests/115 files, types/build. No deployment yet. Next: complete review and publish exact merged source, then continue R00–R24. No successor task exists. All pending email, provider-budget, pricing and cloud-task questions below remain unanswered; no test email or paid benchmark executed. Monetary migration140000 remains unapplied; previous notification/scheduler migrations remain applied, do not repeat them.
+
 ## Latest authoritative continuation — approximately14:00 UTC
 
 Main is now `a5904e1473b8a08193ef859eb9552bcdd01627e7` (#77). PRs #63–#77 including #67 are merged. Current public build1788789352664 matches this revision, modified=false, full fingerprint233c69d17ff46d9f3eab86361eedd71062553510fadd56f31e1fc0f9d26c5b1a and every component. #75 notifications are migrated/published; automatic13:45UTC scan checked5 accounts, failed0/stale0. #76 read-only profile completeness and #77 project-scoped MCP replay/reference checks are published. #67 is merged and bundled but remains inactive: monetary tables absent, no budgets funded, no provider wiring. Latest database check:0 email opt-ins and0 outbox rows. No real email or paid provider test has occurred.
