@@ -1,12 +1,20 @@
 # Milo Growth — continuous execution handoff
 
-Updated 2026-09-07, approximately 21:33 UTC. Current Codex task: `01a07ba1-c8b6-7582-9ff0-275d64224671`, saved MILO GROWTH project `g-p-6a732f6015948191999fb9beb8f7bc81`. **No successor task exists.**
+Updated 2026-09-07, approximately21:53UTC. Current Codex task: `01a07ba1-c8b6-7582-9ff0-275d64224671`, saved MILO GROWTH project `g-p-6a732f6015948191999fb9beb8f7bc81`. **No successor task exists.**
 
 ## Mandate and boundaries
 
 Continue the entire R00–R24 / D01–D08 plan to 100%, deployment first. Preserve ROADMAP.md, PLAN_REVIEW_2026_09_07.md, NOTIFICATIONS_AND_PACKAGING.md and the feature inventory. A PR or test count does not establish launch readiness. Communicate in Polish. No subagents without authorization, no rewrite of pushed Git history. The project mirror sources/ remains read-only; the original user checkout is untouched.
 
-Company owner/admin email is rafi@anderseninnovations.com. Never write secrets, JWTs, passwords or private authentication links to chat, logs or repositories. No paid AI benchmark, customer CMS publication, supplier order or real email has run. No provider keys, flags or rates were changed.
+Company owner/admin email is rafi@anderseninnovations.com. Never write secrets, JWTs, passwords or private authentication links to chat, logs or repositories. No paid AI benchmark, customer CMS publication or supplier order has run. The approved manual owner email test is now provider-reported delivered; see the latest update below. No provider keys, flags or rates were changed.
+
+## Latest continuation: #90 published; image transport bounds next
+
+Current main is2a722e404a2799a7979f8609b443d62ad6ab22c7 (#90). Review of head2d1395d passed without comments. Lovable deployment297bbe3b-72fd-4760-9c57-6b145f83e8f5 returned public build1788817336040, exact revision, modified=false, full fingerprint21a32ee4514fd28ea79fb7774877c513b8708100f6b74a1dc0fe71b72e90f47a and ALL component matches. No migration. Do not re-publish #90 unnecessarily.
+
+Next worktree /Users/rafi/Projects/milo-growth-image-bounds, branch codex/milo-image-bounds-20260907 from #90. Adds120s request/body deadline,8MiB streamed envelope and5MiB decoded image limit to both existing image suppliers; strict base64, no credential-bearing redirects/retry/fallback, sanitized uncertain timeout. 47 new tests;1734 total/129 files,types/build/lint pass. No dependency, configuration, model, quota, migration or paid call changed. Review/publication pending.
+
+EMAIL CORRECTION: the owner made Safari available. Current stored company email and current Verified sender domain were confirmed. App emails Notification custom-recipient dialog was freshly checked and Send test clicked ONCE around21:50UTC for rafi@anderseninnovations.com. Provider log shows this completed (129ms send) PLUS an earlier completed test around21:14UTC (107ms), actor not established. Delivered2/bounced0. Earlier UNSENT assertions below are historical and superseded: do not send again. No opt-in/flag change. This sample-template transport test does not confirm Auth identity or exercise the application's outbox. Recipient mailbox inspection remains open. See evidence/operational-email-owner-test-2026-09-07.md.
 
 ## Deployment discrepancy resolved in PR #85
 
@@ -63,7 +71,7 @@ Applied AND registered migrations (prefix20260907): `110000`, `140000`, `150000`
 
 1. USD 5 TOTAL for one real scan/article/image owner test remains unapproved. No paid benchmark has run.
 2. Safari access now provides historical AI request metadata: 20 successful calls / 0.20 displayed credits in the last 30 days, all google/gemini-3-flash-preview. Three token samples were inspected. These are unlabelled historical chat calls, not a measured scan/article/image package. Effective account credit conversion and complete workload rates still need acceptance. See evidence/lovable-console-observations-2026-09-07.md.
-3. One operational test email to rafi@anderseninnovations.com remains approved and UNSENT. Safari Custom address test was prepared, but user tab changes interrupted before Send test; an asynchronous question asks when the Lovable tab can be left available for one minute. No send button was activated. Wait for that coordination reply before dependent UI actions. The Milo account address was changed and verified in stored state. Lovable confirms milogrowth.com is the current Verified sending domain and shows noreply@milogrowth.com. Fresh mailbox verification/login and end-to-end delivery remain unverified; never infer new mailbox verification from the retained old confirmation timestamp. Do not request the email-change authorization again or send to the old Gmail address.
+3. The one owner email approval is consumed; the latest provider log correction above supersedes this historical UNSENT narrative. Safari Custom address test was prepared, but user tab changes interrupted before Send test; an asynchronous question asks when the Lovable tab can be left available for one minute. No send button was activated. The owner subsequently made Safari available and the action completed; no repeated send. The Milo account address was changed and verified in stored state. Lovable confirms milogrowth.com is the current Verified sending domain and shows noreply@milogrowth.com. Fresh mailbox verification/login and end-to-end delivery remain unverified; never infer new mailbox verification from the retained old confirmation timestamp. Do not request the email-change authorization again or send to the old Gmail address.
 4. Existing Stripe company-administered account and sandbox access: status question pending. Do not ask for keys in chat. No account, key, price, subscription or flag has been created.
 5. No successor task exists; continue this task. An earlier local successor attempt failed for the ChatGPT saved project; the cloud successor choice remains unanswered.
 

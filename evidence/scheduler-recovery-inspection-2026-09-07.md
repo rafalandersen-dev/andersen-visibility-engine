@@ -10,4 +10,6 @@ Seventeen added tests verify account/project isolation, minimized response/query
 
 Local visual inspection rendered the actual recovery and email-settings components with fictional data, mocked hooks/router and the built application CSS. At390px and1200px, body scrollWidth equalled clientWidth. Screenshots confirmed readable wrapped titles/copy and disabled email opt-in for unverified status. The fixture was explicitly labelled as sample data; it does not establish authenticated server access, editor navigation or live CMS behavior. Temporary fixture test/HTML files were removed, the local browser tab closed and the local server stopped. No customer data or paid provider was used.
 
-Final combined #89 source passes1,687 tests in128 files, TypeScript, production build, focused lint and diff checks. No migration. This packet remains pending review/publication.
+Final combined #89 source passes1,687 tests in128 files, TypeScript, production build, focused lint and diff checks. PR #90 exact head2d1395d02fc855333dea1f68ad78abca998ff356 passed review without comments and merged as2a722e404a2799a7979f8609b443d62ad6ab22c7. No migration.
+
+Lovable synchronized that merge before deployment297bbe3b-72fd-4760-9c57-6b145f83e8f5. The cache-busted public domain response returned build1788817336040, exact revision, modified=false and fingerprint21a32ee4514fd28ea79fb7774877c513b8708100f6b74a1dc0fe71b72e90f47a, with the full input and every component matching the clean merged worktree. This establishes publication, not live provider/CMS recovery acceptance.

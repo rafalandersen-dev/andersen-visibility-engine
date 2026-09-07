@@ -1,0 +1,9 @@
+# Single approved owner email test
+
+The owner approved exactly one operational test message to rafi@anderseninnovations.com. The address was independently confirmed on the existing Milo owner account, and Lovable's Safari panel confirmed milogrowth.com as the current Verified sender domain, with Milo Growth <noreply@milogrowth.com>.
+
+On September 7 around 21:50 UTC, the App emails → Notification → More send options → Send to custom address dialog was filled with exactly rafi@anderseninnovations.com. A fresh UI read confirmed that recipient before the Send test button was clicked ONCE. Do not repeat the send, including if the result is uncertain.
+
+The preview subject was Your monthly plan is ready, with sample Butelki Wodorowe content and Open workspace pointing to https://milogrowth.com/app. This is a transport/template test with sample content, not evidence of a newly generated monthly plan. No automatic email opt-in or application flag was changed. It does not exercise the application's operational outbox or confirm the new Auth email identity. The retained old account confirmation timestamp remains insufficient evidence for automatic email verification.
+
+Lovable Analytics and logs subsequently showed Sent2, Delivered2, Bounced0. The newest company-recipient transactional_email_test was completed approximately2 minutes earlier, with its Email send step129ms. A second company-recipient completed test appeared approximately38 minutes earlier (107ms). Its actor was not established. This contradicts the earlier handoff's global UNSENT assertion: there was already an earlier provider-side test record, although this continued segment clicked Send test only once. No further test is authorized or scheduled. Provider-reported delivery is confirmed; opening the new message in the recipient mailbox remains unverified.
