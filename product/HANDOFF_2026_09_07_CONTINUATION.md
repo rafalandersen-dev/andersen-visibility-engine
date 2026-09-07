@@ -1,6 +1,6 @@
 # Milo Growth — continuous execution handoff
 
-Updated 2026-09-07, approximately 20:40 UTC. Current Codex task: `01a07ba1-c8b6-7582-9ff0-275d64224671`, saved MILO GROWTH project `g-p-6a732f6015948191999fb9beb8f7bc81`. **No successor task exists.**
+Updated 2026-09-07, approximately 21:02 UTC. Current Codex task: `01a07ba1-c8b6-7582-9ff0-275d64224671`, saved MILO GROWTH project `g-p-6a732f6015948191999fb9beb8f7bc81`. **No successor task exists.**
 
 ## Mandate and boundaries
 
@@ -24,11 +24,13 @@ Worktree `/Users/rafi/Projects/milo-growth-bun-compat`, branch `codex/milo-bun-h
 
 The fill-empty tool and editable-Draft boundary are deployed. Real owner/client invocation acceptance remains separate; no live customer profile or draft was edited by these tests. Migration230000 was already applied and registered, with13 projects retained; do not repeat it.
 
-## Next prepared packet: workspace trigger hygiene
+## #86 is migrated and published; #87 then capacity alerts are next
 
-Worktree `/Users/rafi/Projects/milo-growth-trigger-hygiene`, branch `codex/milo-trigger-hygiene-20260907`, includes main #84. Migration `20260907233000_workspace_trigger_privileges.sql` fixes two legacy trigger search paths and unnecessary ordinary execute privileges without changing function bodies, bindings or data. Four PostgreSQL tests plus full combined1614 tests/123 files/types/build/focused lint pass. The exact migration passed live PostgreSQL acceptance in a rolled-back transaction, then original settings and13 projects were reverified. It remains UNAPPLIED pending review; see evidence/workspace-trigger-hygiene-2026-09-07.md. Do not confuse this with the already-applied230000 migration.
+PR #86 merged as18d48c6208eebac614d7637159dad91f69584ece after successful review without comments. Exact migration233000 is now APPLIED AND REGISTERED. Both trigger functions have empty search paths, ordinary execute=false, service-role execute=true; all13 projects retained. Do not reapply. Deployment8ab2b0c0-dda2-495d-b68a-7b2151a10972 produced build1788814761259, exact revision, modified=false, fingerprint70a81dedf2e3c9355457f84849622d4f0f44e3690d59331edd4b5c5fe809cb7b and every component matching.
 
-After review/merge, apply and register the exact migration atomically, confirm both trigger settings/privileges and retained projects, then synchronize/publish and compare the full source fingerprint (the new test file changes the src component). Keep frozen installation and all release-identity inputs intact.
+PR #87, branch codex/milo-email-identity-20260907, worktree /Users/rafi/Projects/milo-growth-email-identity, closes the retained-confirmation-timestamp recipient gap. Require strictly verified identity data for the current account address and user; no editable metadata or old linked-provider email. Source head3d42eac passed review; the branch now includes #86 and completion evidence, so inspect final head review before merge/publication. Combined1626 tests/123 files pass. No migration, account change, preference enablement or send.
+
+Next source worktree /Users/rafi/Projects/milo-growth-capacity-alerts, branch codex/milo-capacity-alerts-20260907, starts from #87. Adds strict read-only shared capacity projection over next-month active scheduler demand, preserving saved drafts and separating unavailable evidence from low allowance. It does not run AI, fund budgets or change quotas. Source currently passes1652 tests/124 files, types/build; migration234500 passed catalog acceptance in rollback and is UNAPPLIED. Complete review and migration/application evidence before publishing this packet.
 
 ## Owner email — completed
 
@@ -38,7 +40,7 @@ The new email identity reports email_verified=false; auth.users retains the old 
 
 ## Completed work to preserve
 
-PRs #63–#85 are merged (including #67). Exact hashes and detailed scope are in their PRs and `evidence/` records.
+PRs #63–#86 are merged (including #67). Exact hashes and detailed scope are in their PRs and `evidence/` records.
 
 - #63 premium Today/list/inspector/calendar improvements; #64 canonical full scope reconciliation.
 - #65 fail-closed metering and atomic first claim. Eight independent real PostgreSQL sessions admitted 3 and denied 5 at cap 3; fixture removed.
@@ -51,7 +53,7 @@ PRs #63–#85 are merged (including #67). Exact hashes and detailed scope are in
 - #80 isolated Stripe test checkout and signed metadata-only receipt journal. No entitlement mutation, portal/live billing lifecycle or actual Stripe exchange accepted. Migration applied, receipts0; empty unsigned webhook POST returned503 Not configured. No account/key/flag/price changed. Runbook: `docs/billing/STRIPE_SANDBOX_ACCEPTANCE.md`.
 - #81 image storage boundary. Migration applied: both buckets 5MiB JPEG/PNG/WebP, restrictive public mutations for anon/authenticated, service_role bypass verified. Both existing objects (one per bucket, 367112 bytes each) retained. This is not signed-image ingestion completion.
 
-Applied AND registered migrations (prefix20260907): `110000`, `140000`, `150000`, `170000`, `190000`, `200000`, `210000`, `220000`, `230000`. **Do not reapply or repeat fixtures/cron.** No temporary SQL fixtures remain. Application tests use mocked providers; distinguish them from real provider acceptance.
+Applied AND registered migrations (prefix20260907): `110000`, `140000`, `150000`, `170000`, `190000`, `200000`, `210000`, `220000`, `230000`, `233000`. **Do not reapply or repeat fixtures/cron.** No temporary SQL fixtures remain. Application tests use mocked providers; distinguish them from real provider acceptance.
 
 ## User-only dependencies and current evidence
 

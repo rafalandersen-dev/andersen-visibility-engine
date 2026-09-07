@@ -1,0 +1,13 @@
+# Confirm the current operational email recipient
+
+The operational digest preflight previously accepted any non-empty account email_confirmed_at. The authorized owner email update demonstrated a concrete counterexample: Auth Admin replaced the account email, retained its older confirmation timestamp, and created an unverified email identity while the verified Google identity still belonged to the previous address. A read-only follow-up confirmed this combination, ten owner projects and zero operational outbox rows. No private identity payload or credential was returned.
+
+The preflight now validates the Auth Admin account ID and email, requires a valid confirmation timestamp, and requires a server-owned identity for the same user with email_verified strictly true and an email matching the current account address case-insensitively. It supports matching verified email and OAuth identities. An old linked-provider email or editable user_metadata cannot establish verification. Missing or malformed evidence fails before suppression or unsubscribe-token access. This does not change login, identities, roles or accounts, and never falls back to sending to the old address.
+
+The existing suppression checks, concurrent unsubscribe-token creation, final token re-read, bounded outbox worker, transport idempotency and unknown-delivery handling remain. This verifies a point-in-time Auth snapshot; it does not make a later account change atomic with the external provider accepting a send.
+
+Twelve additional cases cover the actual retained-timestamp scenario, same-address OAuth verification, missing/malformed identity data, strict boolean verification, mismatched user IDs and untrusted metadata. All 41 recipient and delivery tests pass. The full suite passes 1,622 tests in 122 files; TypeScript, production build, focused lint and diff checks pass. Tests use fixtures and mock transport; no email was sent or opt-in enabled. The one owner-approved manual transport test remains separately pending Safari coordination and must not be represented as a complete production digest acceptance.
+
+Primary implementation references: [Supabase Auth admin update](https://github.com/supabase/auth/blob/master/internal/api/admin.go), [Supabase user model](https://github.com/supabase/auth/blob/master/internal/models/user.go), [Supabase user attributes](https://supabase.com/docs/guides/auth/users). The source confirms that email replacement updates identity verification independently of a prior confirmation timestamp.
+
+After merging the reviewed #86 main, the combined suite passes 1,626 tests in 123 files. #86 is already migrated and published with all source fingerprints matching; this email packet remains subject to its final head's review and publication.

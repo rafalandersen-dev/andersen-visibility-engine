@@ -11,3 +11,7 @@ Live PostgreSQL acceptance temporarily applied the exact ALTER/REVOKE/GRANT stat
 Sources: [PostgreSQL ALTER FUNCTION](https://www.postgresql.org/docs/current/sql-alterfunction.html), [PostgreSQL CREATE TRIGGER](https://www.postgresql.org/docs/current/sql-createtrigger.html). This scoped hygiene check is not a complete application security audit.
 
 Combined with reviewed/merged #84, 1614 tests in123 files, TypeScript, production build, focused lint and diff checks pass. Migration233000 remains unapplied pending this packet's review.
+
+Completion: PR #86 head455b49b3d8790a97885c368e3afa2aa2557db2f3 passed review without comments and merged as18d48c6208eebac614d7637159dad91f69584ece. The exact reviewed migration was applied and registered atomically on2026-09-07 at approximately20:58UTC; both functions now have empty search paths, anon/authenticated execute=false and service_role execute=true. All13 projects remain. Do not reapply migration233000.
+
+Deployment8ab2b0c0-dda2-495d-b68a-7b2151a10972 produced domain build1788814761259, exact merge revision, modified=false, full fingerprint70a81dedf2e3c9355457f84849622d4f0f44e3690d59331edd4b5c5fe809cb7b and all components matching the clean merge checkout. This closes this packet, not the remaining product/security scope.
