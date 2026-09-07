@@ -1,0 +1,9 @@
+# Owner-reviewed Brand Intelligence proposals
+
+The existing project_setup_proposal accepts a bounded optional brandIntelligence group for voice, claims, offers, proof, CTAs, internal links, market/language notes and exclusions. The existing propose scope, feature gate, owner resolution and revision guard remain authoritative. Proposal creation cannot apply changes. Runtime validation and the advertised schema share the same bounded field definition. Unknown fields, server timestamps, credentials in URLs and non-HTTPS URLs are rejected; URLs are stored only, never fetched. The existing total 16KB proposal cap remains.
+
+On owner approval, only explicitly supplied leaf fields are merged. Unmentioned profile and brand fields survive. Empty strings/arrays explicitly clear reviewed values; arrays are replaced as a whole. Timestamps come from the server. Stored proposals are revalidated before application, and retries preserve the original applied result. Audit metadata contains field names/counts, not brand values.
+
+The owner inbox displays actual current and proposed brand values independently of caller-supplied preview text, including clearing. Labels are provided in PL/EN/SV/DA. Full array/object values remain available as plain text; supplied URLs do not become fetched or executable content. This is proposal support, not the separate direct fill-empty workflow or external image ingestion.
+
+Combined with main #78: 1,512 tests/115 files, TypeScript and production build pass. Nineteen new cases cover strict bounds, merge/preservation/clear, inert proposal creation, approval/rejection/replay, tampered payload rejection, safe audit and actual review rows. New helper/tests pass standard lint; existing domain modules pass lint with their pre-existing formatting rule disabled. Diff checks pass. Protected browser/mobile/keyboard acceptance remains open; no live customer profile was edited and no AI call, image fetch, email or publication occurred.

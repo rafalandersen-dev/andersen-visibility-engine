@@ -12,12 +12,12 @@ The server wrapper validates reservation confirmation before invoking its callba
 
 ## Limits and integration gate
 
-This foundation is not yet called by production text/image functions. It therefore does not claim that every provider expense is currently tracked or monetarily capped. The reviewed migration remains unapplied to production. Activation requires all of:
+This foundation is not yet called by production text/image functions. It therefore does not claim that every provider expense is currently tracked or monetarily capped. The reviewed migration was applied and registered on 2026-09-07 after isolated real PostgreSQL acceptance (details below). Production budgets and requests remain empty. Activation requires all of:
 
 1. Server-owned, verified per-model cost ceilings; the caller must enforce model, maximum input/output and tool restrictions that justify its reserve. Never accept price, ceiling, account or provider from an untrusted client.
 2. Provider usage/request-ID adapters and known-versus-unknown cost evidence, including image generation. Unknown cost remains reserved; no assumed zero. No automatic replay of timed-out callbacks.
 3. Explicit budget provisioning and an owner-approved bounded real-provider acceptance run.
-4. Real independent-session contention tests for this new ledger (PGlite SQL tests use one serialized connection).
+4. Real independent-session contention acceptance is now recorded below; repeat when locking semantics change.
 5. Separate customer result-allowance reserve/deliver/refund design; internal expense settlement does not consume or refund a customer's article result.
 
 Calendar month is deliberately an internal cost-safety window. It does not yet implement Stripe billing periods or customer allowance resets.
@@ -45,3 +45,13 @@ Existing `claim_ai_usage` real-database acceptance: eight concurrent connected S
 ## Refreshed foundation validation
 
 Merged current main #74 into the foundation branch without rewriting published history; preserved main CURRENT_STATE over the outdated branch version. Full 1,455 tests across112 files, TypeScript and production build pass. Existing31 ledger cases still pass with notifications and scheduler recovery changes. Production provider wiring, verified rates, funded budgets, monetary migration and independent-session monetary acceptance remain unapplied/unverified. No paid operation was performed.
+
+## Real PostgreSQL acceptance and migration — 2026-09-07, approximately 14:21 UTC
+
+The exact reviewed migration from merged #67/#78 was tested in a dedicated isolated schema, with all public schema references substituted consistently. Eight concurrent requests used distinct backend PIDs3840122–3840129. With synthetic global/account cap300 and reservation100, exactly3 were admitted and5 denied budget_exhausted. No provider was called.
+
+A rolled-back assertion transaction verified duplicate execution denial, unknown reservation retention, measured settlement30, identical settlement replay without double debit, measured overrun150 on reserve100, both-budget pause and denial of further reservations. Anonymous/authenticated RPC access and authenticated ledger reads were denied. This is real database concurrency/SQL evidence, not supplier billing acceptance.
+
+The original unmodified migration20260907140000 was then applied atomically in public and recorded in supabase_migrations.schema_migrations. The isolated schema and all synthetic records were removed. Final verification: production budgets0, production requests0, migration registered=true, fixture schema absent=true. No production budget provisioned, price selected, provider wired, runtime flag altered or customer quota changed. Do not reapply the migration.
+
+Separate billing inventory: the production entitlement table contains one manual/manualComped agency account, zero provider-customer links and zero subscription links. This does not independently prove the Stripe/Paddle vendor account has no external subscriptions.
