@@ -111,7 +111,7 @@ const freshTouch = (): TouchState => ({ updateCalled: false, updatedWith: null, 
 // ---- scope map regression ---------------------------------------------------
 
 describe("TOOL_SCOPES / toolAllowed", () => {
-  it("maps the 9 read tools + 3 write tools + 2 content-write tools + 3 pending tools to their scopes exactly", () => {
+  it("maps the 9 read tools + 4 write tools + 2 content-write tools + 3 pending tools to their scopes exactly", () => {
     expect(TOOL_SCOPES).toEqual({
       list_projects: "milo.projects.read",
       get_project_brief: "milo.projects.read",
@@ -125,6 +125,7 @@ describe("TOOL_SCOPES / toolAllowed", () => {
       create_growth_task: "milo.tasks.write",
       create_project_recommendation: "milo.projects.write",
       create_opportunities_batch: "milo.projects.write",
+      fill_project_profile: "milo.projects.write",
       create_content_draft: "milo.content.write",
       update_content_draft: "milo.content.write",
       create_pending_action: "milo.actions.propose",
@@ -719,11 +720,12 @@ describe("write tools — tools/list gating matrix", () => {
     expect(names).toContain("create_growth_task");
     expect(names).not.toContain("create_project_recommendation");
   });
-  it("flag on + projects.write → recommendation and batch appear", async () => {
+  it("flag on + projects.write → recommendation, batch and profile fill appear", async () => {
     const names = await listTools([...READ_SCOPES_ALL, "milo.projects.write"], true);
-    expect(names).toHaveLength(READ_TOOLS_COUNT + 2);
+    expect(names).toHaveLength(READ_TOOLS_COUNT + 3);
     expect(names).toContain("create_project_recommendation");
     expect(names).toContain("create_opportunities_batch");
+    expect(names).toContain("fill_project_profile");
     expect(names).not.toContain("create_growth_task");
   });
   it("flag on + both write scopes → both write tools with write annotations", async () => {
@@ -731,7 +733,7 @@ describe("write tools — tools/list gating matrix", () => {
       id: 1,
       method: "tools/list",
     })) as { result: { tools: { name: string; annotations?: Record<string, unknown> }[] } };
-    expect(r.result.tools).toHaveLength(READ_TOOLS_COUNT + 3);
+    expect(r.result.tools).toHaveLength(READ_TOOLS_COUNT + 4);
     const writeDefs = r.result.tools.filter((t) => (WRITE_TOOL_NAMES as readonly string[]).includes(t.name));
     for (const def of writeDefs) {
       expect(def.annotations).toEqual({ readOnlyHint: false, destructiveHint: false, idempotentHint: false });
@@ -1124,5 +1126,33 @@ describe("connector creation project boundaries", () => {
     const captured = fakeMutate({ ...writeBlob(), opportunities: [{ id: "topic", projectId: "p1" }] });
     await call("create_content_draft", { projectId: "p1", title: "Own", markdown: "Own", opportunityId: "topic" });
     expect((captured.written?.content as unknown[])[0]).toMatchObject({ projectId: "p1", opportunityId: "topic", sourceOpportunityId: "topic", status: "Draft" });
+  });
+});
+
+
+describe("fill-empty project profile dispatch", () => {
+  const grant = writeGrant([...READ_SCOPES_ALL, "milo.projects.write"], true);
+  const args = { projectId: "p1", requestId: "fill1", payload: { projectFields: { description: "PRIVATE RESEARCH" } } };
+  const call = (input = args, hooks?: McpHooks, selected = grant) => handleMcpMessage(selected, { id: 61, method: "tools/call", params: { name: "fill_project_profile", arguments: input } }, hooks);
+  it("fills a blank in the actual dispatch and logs names only", async () => {
+    const blob = writeBlob();
+    (blob.projects as Record<string, unknown>[])[0].description = "";
+    const captured = fakeMutate(blob);
+    const { hooks, audits } = captureHooks();
+    expect(parsePayload(await call(args, hooks))).toMatchObject({ filled: ["description"], requiresProposal: [], deduped: false });
+    expect((captured.written?.projects as Record<string, unknown>[])[0].description).toBe("PRIVATE RESEARCH");
+    expect(JSON.stringify(audits)).not.toContain("PRIVATE");
+  });
+  it("honors write gate, project scope and rate denial before mutation", async () => {
+    const captured = fakeMutate(writeBlob());
+    expect(await call(args, undefined, writeGrant(["milo.content.write"], true))).toMatchObject({ error: { code: -32002 } });
+    expect(await call(args, undefined, writeGrant(["milo.projects.write"], false))).toMatchObject({ error: { code: -32602 } });
+    expect(await call(args, captureHooks({ allowed: false, shouldAudit: true }).hooks)).toMatchObject({ error: { code: -32003 } });
+    expect(captured.calls).toBe(0);
+  });
+  it("uses the uniform not-found result for a foreign project", async () => {
+    const captured = fakeMutate(writeBlob());
+    expect(await call({ ...args, projectId: "foreign" })).toMatchObject({ error: { code: -32011 } });
+    expect(captured.written).toBeNull();
   });
 });
