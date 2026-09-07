@@ -17,8 +17,8 @@
  * - approve_first NEVER publishes → that branch never touches the queue
  *
  * Mutation discipline (workspace.server.ts contract): all AI/model/network I/O
- * happens FIRST, then one pure re-runnable mutateWorkspace callback per project
- * appends the drafted assets and advances their opportunities. Queue rows are
+ * happens before each pure re-runnable mutateWorkspace callback, which
+ * appends the completed article and advances their opportunities. Queue rows are
  * inserted only AFTER the blob write succeeds, so a lost race can never leave
  * an armed row pointing at an asset that was never persisted.
  */
@@ -31,6 +31,7 @@ import {
   normalizeAutoSchedulerConfig,
   refillableSuggestions,
   runTarget,
+  unfilledSchedulerSlots,
   selectCandidates,
   type ScheduleSlot,
 } from "./auto-scheduler";
@@ -135,15 +136,21 @@ async function bookedInstants(
   content: ContentAsset[],
 ): Promise<string[]> {
   const db = await admin();
-  const { data } = await db
+  const { data, error } = await db
     .from("scheduled_publishes")
     .select("publish_at")
     .eq("user_id", userId)
     .eq("project_id", projectId)
     .in("status", ["pending", "publishing"]);
-  const queue = (Array.isArray(data) ? data : []).map((r) =>
-    String((r as { publish_at?: string }).publish_at ?? ""),
-  );
+  if (
+    error ||
+    !Array.isArray(data) ||
+    data.some(
+      (r) => !r || typeof r.publish_at !== "string" || !Number.isFinite(Date.parse(r.publish_at)),
+    )
+  )
+    throw new Error("Scheduler queue unavailable; preparation paused.");
+  const queue = data.map((r) => String(r.publish_at));
   const mirrors = content.map((a) => a.scheduledPublishAt).filter((v): v is string => Boolean(v));
   return [...queue, ...mirrors].filter(Boolean);
 }
@@ -354,22 +361,17 @@ async function runForProject(
     projectId,
     content.filter((a) => a.projectId === projectId),
   );
-  const slots = computeMonthlySlots(planned.year, planned.month, cfg, booked);
+  const plannedKey = `${planned.year}-${String(planned.month).padStart(2, "0")}`;
+  const slots = unfilledSchedulerSlots(
+    computeMonthlySlots(planned.year, planned.month, cfg),
+    booked,
+    content.filter((a) => a.projectId === projectId && a.autoScheduledFor === plannedKey),
+  );
   report.slots = slots.length;
   report.remainingQuota = await remainingAiUsage({ userId, bucket: "contentGeneration", now });
-  // Idempotency: assets this feature already drafted for the planned month
-  // count toward the target, so an interrupted run resumed later (or a manual
-  // re-trigger) fills only what is still missing instead of re-drafting.
-  const plannedKey = `${planned.year}-${String(planned.month).padStart(2, "0")}`;
-  const alreadyDrafted = content.filter(
-    (a) => a.projectId === projectId && a.autoScheduledFor === plannedKey,
-  ).length;
-  report.target = Math.max(0, runTarget(slots.length, report.remainingQuota) - alreadyDrafted);
-  if (alreadyDrafted > 0) {
-    report.notes.push(
-      `${alreadyDrafted} draft(s) from an earlier run for ${plannedKey} counted toward the target.`,
-    );
-  }
+  // Remaining quota already excludes prior usage. Remove delivered drafts from
+  // calendar capacity first, then cap only the new work by remaining quota.
+  report.target = runTarget(slots.length, report.remainingQuota);
   if (report.target === 0) return report;
 
   // ---- 2. Sitemap first (page-map rule: never let the model guess paths) --
@@ -579,7 +581,10 @@ async function runForProject(
       report.flaggedEmpty++;
       continue;
     }
-    let asset = buildAssetFromGeneration(gen, opportunity, liveProject, nowIso, plannedKey);
+    let asset: ContentAsset = {
+      ...buildAssetFromGeneration(gen, opportunity, liveProject, nowIso, plannedKey),
+      autoSchedulerPlannedAt: slot.publishAt,
+    };
 
     // Auto link resolution against the real page map (owner guardrail).
     const corpus = [...content, ...prepared.map((p) => p.asset)];
