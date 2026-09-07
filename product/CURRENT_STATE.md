@@ -1,10 +1,10 @@
 # Milo Growth — Current State
 
-**Status:** Deployment reconciled in #85; #82/#84 rollout pending; full public launch remains unverified
+**Status:** Deployment reconciled; #82 and #84 published and source-equivalent; full public launch remains unverified
 
 **Last updated:** 2026-09-07
 
-**Repository baseline inspected:** `main` at `1b73e889a238066b6ecd4484c5c6cccc7d37bc5c` (PR #85 merge)
+**Repository baseline inspected:** `main` at `ea2b80d1170051628d4baf896fef5b1b490c9550` (PR #84 merge)
 
 **Product Lead / Outcome Owner:** Rafal Andersen
 
@@ -16,7 +16,7 @@ The owner explicitly requested and received an administrative email change to ra
 
 Read [ROADMAP.md](./ROADMAP.md) for execution order and [PLAN_REVIEW_2026_09_07.md](./PLAN_REVIEW_2026_09_07.md) for all scope/decision gaps. This update corrects the July 28 state file against current source and GitHub evidence. It does not convert a source review into an independent security audit or prove production configuration.
 
-PRs #63–#81, #83 and #85 are merged, including the inactive monetary foundation #67. Selected premium Today/list+inspector/calendar work, reconciled plans, fail-closed metering and bounded onboarding extraction are implemented. The whole product redesign, real observed AI tracking, production backlinks supplier, Stripe and all EU languages are not complete. The owner's Claude and ChatGPT MCP connections are existing capabilities; further client coverage and authoring work remain.
+PRs #63–#85 are merged, including the inactive monetary foundation #67. Selected premium Today/list+inspector/calendar work, reconciled plans, fail-closed metering and bounded onboarding extraction are implemented. The whole product redesign, real observed AI tracking, production backlinks supplier, Stripe and all EU languages are not complete. The owner's Claude and ChatGPT MCP connections are existing capabilities; further client coverage and authoring work remain.
 
 Unattended paid public launch remains **not verified / NO-GO** pending [launch gates](./LAUNCH_READINESS.md). The historical ~70% assisted/~40% public estimates are retired as current indicators: they predate substantial work and have no fresh denominator.
 
@@ -24,9 +24,9 @@ Unattended paid public launch remains **not verified / NO-GO** pending [launch g
 
 | Evidence | What is known | Limit |
 | --- | --- | --- |
-| Current source | `main` at `1b73e889a238066b6ecd4484c5c6cccc7d37bc5c` after #85 | Source is not runtime verification |
+| Current source | `main` at `ea2b80d1170051628d4baf896fef5b1b490c9550` after #84 | Source is not runtime verification |
 | #63 validation | Recorded 190 focused tests, TypeScript/build, responsive browser/workflow checks in `design-qa.md` | Earlier focused scope; not a fresh full release/security review |
-| Application deployment | #85 domain build `1788812447438`, exact revision, modified=false, full and every component fingerprint match | #83 failed on host Bun 1.3.3 rejecting format 2; #85 preserves the graph in compatible format 1 and passes CI on both Bun versions |
+| Application deployment | #84 domain build `1788813520100`, exact revision, modified=false, full and every component fingerprint match | #83 failed on host Bun 1.3.3 rejecting format 2; #85 preserves the graph in compatible format 1 and passes CI on both Bun versions |
 | Metering acceptance | September SQL applied; eight concurrent PostgreSQL sessions admitted exactly three claims at cap 3; synthetic row cleaned | No real provider expenditure; monetary budgets are a separate layer |
 | #66 validation | 1,303 tests/100 files, TypeScript/build pass | All suppliers mocked; not full launch acceptance |
 | #67 foundation | Merged inactive internal monetary ledger; combined #76 main has 1,469 tests/113 files, TypeScript/build pass | Migration applied; isolated eight-session acceptance passed; production provider callers not yet connected, no funded budgets |
@@ -41,7 +41,7 @@ A following gated email packet adds opt-in owner summaries, a durable outbox, fi
 
 The R05 ownership packet (#72) is merged, its migration applied and eight-session real database contention accepted (one admitted, seven denied; synthetic row removed). A subsequent publication returned a new build whose input fingerprint differs from the clean repository. The subsequent #74 publication restored matching revision, full and component fingerprints; the earlier mismatch remains unexplained. See [build discrepancy](../evidence/build-input-discrepancy-2026-09-07.md). PR #73 fixes resume capacity and preserves intended draft slots; it is published. #75 recovery alerts are migrated and published. #76 project completeness and #77 project-scoped MCP retries/references are also published; source identity matches all component hashes. See [scheduler recovery evidence](../evidence/scheduler-recovery-2026-09-07.md).
 
-Storage migration `20260907220000` is applied and registered: both article buckets now enforce 5 MiB JPEG/PNG/WebP uploads, and public mutations require the server role. Both existing objects were retained. Stripe sandbox migration `20260907210000` is also applied, with zero receipts and no configured test transport verified. No Stripe key, flag or price was changed. PR #82 narrows external edits to editable Drafts and invalidates stale assessments; it is reviewed and remains pending rollout behind #83. Stacked PR #84 adds direct fill-empty profile ownership and protected replay receipts; 1610 tests/122 files/types/build pass, migration230000 real acceptance passed in rollback, then the exact migration was applied/registered after successful review; all13 projects retained. The deployment discrepancy is resolved in #85; #82 and #84 remain pending their own exact-head rollout. Safari also verified the email sender domain and exposed historical AI metadata; see [console observations](../evidence/lovable-console-observations-2026-09-07.md).
+Storage migration `20260907220000` is applied and registered: both article buckets now enforce 5 MiB JPEG/PNG/WebP uploads, and public mutations require the server role. Both existing objects were retained. Stripe sandbox migration `20260907210000` is also applied, with zero receipts and no configured test transport verified. No Stripe key, flag or price was changed. PR #82 narrows external edits to editable Drafts and invalidates stale assessments; it is reviewed, merged and published with full source equivalence. Stacked PR #84 adds direct fill-empty profile ownership and protected replay receipts; 1610 tests/122 files/types/build pass, migration230000 real acceptance passed in rollback, then the exact migration was applied/registered after successful review; all13 projects retained. The deployment discrepancy is resolved in #85; #82 and #84 are also merged and published, each with full and all component equivalence verified. Safari also verified the email sender domain and exposed historical AI metadata; see [console observations](../evidence/lovable-console-observations-2026-09-07.md).
 
 ## Present implementation to preserve
 
@@ -100,7 +100,7 @@ The detailed [route/capability map](../docs/premium-redesign/FEATURE_INVENTORY.m
 
 ## Next single action
 
-Roll out reviewed #82 and #84 after the now-verified #85 host correction. Continue R09 provider accounting once verified rates and the owner test budget are available, then the remaining R05/R06 recovery/budget/team gaps. Keep remaining full-roadmap waves active. Do not repeat completed migration/deployments or treat this release milestone as 100% completion. Issue #43 retains its separate infrastructure mutation boundary.
+Review the two-function workspace trigger hygiene packet (migration233000; 1614 tests/123 files/types/build pass and live acceptance rolled back). It is not applied yet. Continue R09 provider accounting once verified rates and the owner test budget are available, then the remaining R05/R06 recovery/budget/team gaps. Keep remaining full-roadmap waves active. Do not repeat completed migration/deployments or treat this release milestone as 100% completion. Issue #43 retains its separate infrastructure mutation boundary.
 
 ## References and historical evidence
 
