@@ -1,0 +1,7 @@
+# Connected-assistant project completeness
+
+The missing `get_project_readiness` read tool from the authoring expansion scope is implemented under existing `milo.projects.read`. It inspects only the authenticated workspace and selected project, returning per-section filled/missing field names for business, audience/market, positioning, catalog, competitors and Brand Intelligence. Catalog counts are project-scoped. No profile values, credentials or provider payloads are returned by this tool.
+
+It labels the assessment as stored-field completeness, keeps integration/publication checks explicitly not_checked, and ignores the historical setupComplete checkbox as evidence. Empty optional fields can be intentional; the response advises owner review before proposals. This is not a percentage, content quality score, provider verification or permission to publish. No new write scope or flag is introduced, and no generation is called.
+
+Validation on main #75: 1,438 tests/111 files, TypeScript and production build pass; focused new-helper lint and diff checks pass. Coverage includes scope denial before data access, selected-project behavior, unknown project, secret exclusion, whitespace/legacy fields and updated read/write/proposal visibility matrices. Live Claude/ChatGPT consent, refresh and invocation acceptance remain open. No connected client was impersonated or token created for testing.
