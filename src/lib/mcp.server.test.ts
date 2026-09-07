@@ -815,7 +815,7 @@ describe("content-draft tools (Phase P-A)", () => {
   });
 
   it("create_content_draft is idempotent on requestId", async () => {
-    const blob = { ...writeBlob(), content: [{ id: "existing", requestId: "cd-9", title: "x", status: "Draft" }] };
+    const blob = { ...writeBlob(), content: [{ id: "existing", projectId: "p1", requestId: "cd-9", title: "x", status: "Draft" }] };
     const captured = fakeMutate(blob);
     const { hooks } = captureHooks();
     const r = await call("create_content_draft", { projectId: "p1", title: "T", markdown: "M", requestId: "cd-9" }, hooks);
@@ -1064,5 +1064,34 @@ describe("bounded opportunity batch dispatch", () => {
     expect(await call(args, undefined, writeGrant(["milo.projects.write"], false))).toMatchObject({ error: { code: -32602 } });
     expect(await call(args, captureHooks({ allowed: false, shouldAudit: true }).hooks)).toMatchObject({ error: { code: -32003 } });
     expect(captured.calls).toBe(0);
+  });
+});
+
+describe("connector creation project boundaries", () => {
+  const grant = writeGrant([...READ_SCOPES_ALL, "milo.tasks.write", "milo.projects.write", "milo.content.write"], true);
+  const call = (name: string, args: Record<string, unknown>) => handleMcpMessage(grant, { id: 40, method: "tools/call", params: { name, arguments: args } });
+  it.each([
+    ["create_growth_task", "tasks", "taskId"],
+    ["create_project_recommendation", "opportunities", "opportunityId"],
+    ["create_content_draft", "content", "contentId"],
+  ])("%s scopes idempotency to the requested project", async (name, collection, responseId) => {
+    const blob: Record<string, unknown> = writeBlob();
+    blob[collection] = [{ id: "other-project-record", projectId: "p2", requestId: "same-request" }];
+    const captured = fakeMutate(blob);
+    const response = parsePayload(await call(name, { projectId: "p1", title: "Own", requestId: "same-request", ...(collection === "content" ? { markdown: "Own draft" } : {}) }));
+    expect(response[responseId]).not.toBe("other-project-record");
+    expect(response.deduped).toBeUndefined();
+    expect(captured.written?.[collection]).toHaveLength(2);
+    expect((captured.written?.[collection] as { projectId: string }[])[1].projectId).toBe("p1");
+  });
+  it.each([{ opportunities: [] }, { opportunities: [{ id: "topic", projectId: "p2" }] }])("refuses missing and other-project opportunity links before saving a draft", async ({ opportunities }) => {
+    const captured = fakeMutate({ ...writeBlob(), opportunities });
+    expect(await call("create_content_draft", { projectId: "p1", title: "Own", markdown: "Own", opportunityId: "topic" })).toMatchObject({ error: { code: -32011, message: "Not found." } });
+    expect(captured.written).toBeNull();
+  });
+  it("retains a valid same-project opportunity link", async () => {
+    const captured = fakeMutate({ ...writeBlob(), opportunities: [{ id: "topic", projectId: "p1" }] });
+    await call("create_content_draft", { projectId: "p1", title: "Own", markdown: "Own", opportunityId: "topic" });
+    expect((captured.written?.content as unknown[])[0]).toMatchObject({ projectId: "p1", opportunityId: "topic", sourceOpportunityId: "topic", status: "Draft" });
   });
 });

@@ -638,7 +638,7 @@ async function runWriteTool(userId: string, name: WriteToolName, input: WriteInp
     if (name === "create_growth_task") {
       const tasks = ((data.tasks as GrowthTask[] | undefined) ?? []).filter(Boolean);
       if (input.requestId) {
-        const existing = tasks.find((t) => t.requestId === input.requestId);
+        const existing = tasks.find((t) => t.requestId === input.requestId && t.projectId === input.projectId);
         if (existing) return { data, result: { entityId: String(existing.id), deduped: true } };
       }
       if (tasks.length >= MAX_TASKS) throw new WriteValidationError("tasks", "task limit reached for this workspace");
@@ -660,7 +660,7 @@ async function runWriteTool(userId: string, name: WriteToolName, input: WriteInp
 
     const opportunities = ((data.opportunities as Opportunity[] | undefined) ?? []).filter(Boolean);
     if (input.requestId) {
-      const existing = opportunities.find((o) => o.requestId === input.requestId);
+      const existing = opportunities.find((o) => o.requestId === input.requestId && o.projectId === input.projectId);
       if (existing) return { data, result: { entityId: String(existing.id), deduped: true } };
     }
     if (opportunities.length >= MAX_OPPORTUNITIES) throw new WriteValidationError("opportunities", "opportunity limit reached for this workspace");
@@ -991,8 +991,12 @@ async function runContentCreate(
     if (!project) throw new EntityNotFoundError();
     const content = ((data.content as ContentAsset[] | undefined) ?? []).filter(Boolean);
     if (input.requestId) {
-      const existing = content.find((c) => c.requestId === input.requestId);
+      const existing = content.find((c) => c.requestId === input.requestId && c.projectId === input.projectId);
       if (existing) return { data, result: { entityId: String(existing.id), deduped: true } };
+    }
+    if (input.opportunityId) {
+      const opportunities = ((data.opportunities as Opportunity[] | undefined) ?? []).filter(Boolean);
+      if (!opportunities.some((o) => o.id === input.opportunityId && o.projectId === input.projectId)) throw new EntityNotFoundError();
     }
     if (content.length >= MAX_CONTENT_ASSETS) throw new WriteValidationError("content", "content limit reached for this workspace");
     const language = input.language && LANGUAGES.includes(input.language)
