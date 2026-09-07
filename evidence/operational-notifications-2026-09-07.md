@@ -19,7 +19,7 @@ The migration adds no cron schedule. After application acceptance the operator c
 
 ## Verification
 
-35 focused regression cases: 13 event/locale conditions, 11 real SQL/role/cleanup/reconciliation cases, seven server snapshot cases and four private-route authorization cases. Final full suite: 1,338 tests across 104 files passed. TypeScript, production build, focused ESLint and diff checks passed.
+36 focused regression cases: 14 event/locale conditions, 11 real SQL/role/cleanup/reconciliation cases, seven server snapshot cases and four private-route authorization cases. Final full suite: 1,339 tests across 104 files passed. TypeScript, production build, focused ESLint and diff checks passed.
 
 Browser-based protected/mobile/keyboard acceptance remains unverified because computer-use policy verification blocked browser access in this session. No screenshot is presented as proof of a tested UI. Build/type checks are not a replacement for those journeys.
 
@@ -37,3 +37,5 @@ Rollback: unschedule only the new notification sweep (if registered) and restore
 PR #68 merged `1111824e845118202b7309b62a2057edbf2e42ae`. Lovable latest SHA verified before deployment `c577b49e-0e83-4107-b3aa-e3b5d1275557`; domain subsequently returned build `1788782759137` (2026-09-07). Lockfile audit: zero reported vulnerabilities; 1,303 tests/type/build passed on that dependency release.
 
 A requested automatic same-project successor was not created: create_thread rejects local tasks targeting a ChatGPT project and requires explicit cloud selection. Work continues in the original task. Pending user questions about cloud continuation, the USD5 test envelope and actual Lovable pricing remain unanswered; no approval is inferred.
+
+Production migration applied and recorded atomically on September 7. All three tables have RLS; authenticated users can select only inbox rows and cannot insert. Scan state remains service-only. Repeated CMS failures preserve one incident key across retry counts.

@@ -96,6 +96,20 @@ describe("server operational alert conditions", () => {
       ).toBe(false);
     }
   });
+  it("keeps the same failure incident key across CMS retries", () => {
+    const first = scan({
+      assets: [asset],
+      scheduled: [{ ...scheduled, status: "failed", attempts: 1 }],
+    });
+    const retry = scan({
+      assets: [asset],
+      scheduled: [{ ...scheduled, status: "failed", attempts: 5 }],
+    });
+    expect(first.filter((e) => e.kind === "publication_failed")).toHaveLength(1);
+    expect(first.find((e) => e.kind === "publication_failed")?.key).toBe(
+      retry.find((e) => e.kind === "publication_failed")?.key,
+    );
+  });
   it("reports a failed queue separately without including raw supplier errors", () => {
     const events = scan({
       assets: [asset],

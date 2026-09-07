@@ -33,7 +33,7 @@ Unattended paid public launch remains **not verified / NO-GO** pending [launch g
 
 Full exact-head security and protected-journey acceptance remain open. Source tests, database acceptance, Lovable revision and live build observations have distinct scopes. See [release evidence](../evidence/release-reconciliation-2026-09-07.md) and [draft expense foundation PR #67](https://github.com/rafalandersen-dev/andersen-visibility-engine/pull/67).
 
-The current notification packet adds an in-app inbox for approval deadlines, publication failures, manual overdue tasks and cadence gaps, with a private logged-out sweep endpoint. Its 1,338-test full suite, types, build and focused lint pass. Migration and production release are pending; email delivery, preferences, digests, budget pauses and team recipients remain open. See [notification evidence](../evidence/operational-notifications-2026-09-07.md). Dependency PR #68 is deployed with zero reported lockfile audit vulnerabilities.
+The current notification packet adds an in-app inbox for approval deadlines, publication failures, manual overdue tasks and cadence gaps, with a private logged-out sweep endpoint. Its 1,339-test full suite, types, build and focused lint pass. The additive migration is applied; application production release is pending; email delivery, preferences, digests, budget pauses and team recipients remain open. See [notification evidence](../evidence/operational-notifications-2026-09-07.md). Dependency PR #68 is deployed with zero reported lockfile audit vulnerabilities.
 
 ## Present implementation to preserve
 

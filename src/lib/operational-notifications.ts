@@ -82,7 +82,7 @@ export function operationalNotifications(args: {
           asset.id,
           asset.title,
           q.publishAt,
-          `${q.id}:${q.publishAt}:${q.attempts}`,
+          `${q.id}:${q.publishAt}`,
         );
       }
       const left = Date.parse(q.publishAt) - args.now.getTime();
