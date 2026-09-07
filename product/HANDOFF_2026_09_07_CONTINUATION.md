@@ -1,5 +1,14 @@
 # Milo Growth — continuous execution handoff
 
+## Latest continuation snapshot — 2026-09-07, approximately 14:47 UTC
+
+PR #80 is now merged and deployed, migration210000 applied/registered, receipts0. Current verified main/domain revision9dd4d0bba043be29b24896d354202771920655a7; deploymentcf78bd54-a366-4969-922a-65ff01f266c9; build1788792201941; fingerprint164d820c32bc6477e3d4b30ecb3de8420aa0d97c660584716b2a9fce2c23c0b0; modified=false/all components match. Test webhook unsigned empty POST returns503 Not configured. No Stripe key, flag, price or account changed. Existing Stripe/company sandbox access question remains pending.
+
+Storage boundary PR #81 is open; merged #80 into its branch, combined1553 tests/119 files/types/build pass. Migration220000 remains unapplied (real acceptance rolled back, existing objects preserved). Complete current review, apply/register exact migration, publish exact merge and verify source identity. Keep this separate from signed-image feature completion.
+
+New independent worktree /Users/rafi/Projects/milo-growth-mcp-draft-state, codex/milo-mcp-draft-state-20260907, based on #80. Source inspection found update_content_draft can edit an Approved non-live asset while preserving approval and old quality/cache state. Next implementation narrows mutation to editable Draft state and invalidates stale assessment on substantive edits. This prerequisite precedes external-image request/confirm; no signed upload feature has been implemented yet. Earlier snapshots below are historical. All original user-only dependencies, zero emails/AI spend and no successor remain unchanged.
+
+
 ## Latest continuation snapshot — 2026-09-07, approximately 14:40 UTC
 
 This supersedes older snapshots below. #78 and #79 are merged and deployed. Current verified main/domain revision f32aa402a2f1b86ef988662cb0de9fe1dfe0b993, deployment7788a62c-d648-4c08-b661-e42e455bd063, build1788791481330, fingerprint2255aee10527f15c1ab7de5a7d21fb695fc97bc58bfde27c4c4fe3de64f83a40, modified=false/all components match. #79 adds inert owner-reviewed Brand Intelligence proposals with actual UI diff/leaf preservation (1512 tests). #78 topic batches are live.

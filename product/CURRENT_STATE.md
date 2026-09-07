@@ -1,10 +1,10 @@
 # Milo Growth — Current State
 
-**Status:** Current production source matches #79; full public launch remains unverified
+**Status:** Current production source matches #80; full public launch remains unverified
 
 **Last updated:** 2026-09-07
 
-**Repository baseline inspected:** `main` at `f32aa402a2f1b86ef988662cb0de9fe1dfe0b993` (PR #79 merge)
+**Repository baseline inspected:** `main` at `9dd4d0bba043be29b24896d354202771920655a7` (PR #80 merge)
 
 **Product Lead / Outcome Owner:** Rafal Andersen
 
@@ -14,7 +14,7 @@
 
 Read [ROADMAP.md](./ROADMAP.md) for execution order and [PLAN_REVIEW_2026_09_07.md](./PLAN_REVIEW_2026_09_07.md) for all scope/decision gaps. This update corrects the July 28 state file against current source and GitHub evidence. It does not convert a source review into an independent security audit or prove production configuration.
 
-PRs #63–#79 are merged, including the inactive monetary foundation #67. Selected premium Today/list+inspector/calendar work, reconciled plans, fail-closed metering and bounded onboarding extraction are implemented. The whole product redesign, real observed AI tracking, production backlinks supplier, Stripe and all EU languages are not complete. The owner's Claude and ChatGPT MCP connections are existing capabilities; further client coverage and authoring work remain.
+PRs #63–#80 are merged, including the inactive monetary foundation #67. Selected premium Today/list+inspector/calendar work, reconciled plans, fail-closed metering and bounded onboarding extraction are implemented. The whole product redesign, real observed AI tracking, production backlinks supplier, Stripe and all EU languages are not complete. The owner's Claude and ChatGPT MCP connections are existing capabilities; further client coverage and authoring work remain.
 
 Unattended paid public launch remains **not verified / NO-GO** pending [launch gates](./LAUNCH_READINESS.md). The historical ~70% assisted/~40% public estimates are retired as current indicators: they predate substantial work and have no fresh denominator.
 
@@ -22,9 +22,9 @@ Unattended paid public launch remains **not verified / NO-GO** pending [launch g
 
 | Evidence | What is known | Limit |
 | --- | --- | --- |
-| Current source | `main` at `f32aa402a2f1b86ef988662cb0de9fe1dfe0b993` after #79 | Source is not runtime verification |
+| Current source | `main` at `9dd4d0bba043be29b24896d354202771920655a7` after #80 | Source is not runtime verification |
 | #63 validation | Recorded 190 focused tests, TypeScript/build, responsive browser/workflow checks in `design-qa.md` | Earlier focused scope; not a fresh full release/security review |
-| Application deployment | Lovable project latest revision matched #79 merge before publication; domain now serves build `1788791481330` (2026-09-07) | Domain revision and source fingerprint match the clean verified checkout; protected journeys/configuration remain open |
+| Application deployment | Lovable project latest revision matched #80 merge before publication; domain now serves build `1788792201941` (2026-09-07) | Domain revision and source fingerprint match the clean verified checkout; protected journeys/configuration remain open |
 | Metering acceptance | September SQL applied; eight concurrent PostgreSQL sessions admitted exactly three claims at cap 3; synthetic row cleaned | No real provider expenditure; monetary budgets are a separate layer |
 | #66 validation | 1,303 tests/100 files, TypeScript/build pass | All suppliers mocked; not full launch acceptance |
 | #67 foundation | Merged inactive internal monetary ledger; combined #76 main has 1,469 tests/113 files, TypeScript/build pass | Migration applied; isolated eight-session acceptance passed; production provider callers not yet connected, no funded budgets |
@@ -108,4 +108,4 @@ Continue R09 provider accounting integration once verified rates and owner test 
 
 PR #78 bounded topic batches are merged and published with full source equivalence. Brand Intelligence proposal expansion is merged in #79 and deployed; see evidence/brand-intelligence-proposals-2026-09-07.md.
 
-Stripe isolated owner test checkout/metadata receipts are prepared in PR #80; no real Stripe calls, keys or test-price configuration. Permanent receipt migration remains pending. Storage bucket limits/public-write boundaries are the next reviewed hardening packet; signed image import remains open.
+Stripe isolated owner test checkout/metadata receipts are merged and deployed in PR #80; no real Stripe calls, keys or test-price configuration. Receipt migration210000 is applied, receipts0; unsigned endpoint returned503 Not configured. Storage bucket limits/public-write boundaries are the next reviewed hardening packet; signed image import remains open.
