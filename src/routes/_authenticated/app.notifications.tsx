@@ -11,6 +11,7 @@ import {
 } from "@/lib/operational-notifications.functions";
 import { toast } from "sonner";
 import { OperationalEmailSettings } from "@/components/OperationalEmailSettings";
+import { SchedulerRecoveryDetails } from "@/components/SchedulerRecoveryDetails";
 
 export const Route = createFileRoute("/_authenticated/app/notifications")({
   component: NotificationsPage,
@@ -126,6 +127,9 @@ function NotificationsPage() {
                   <time dateTime={item.due_at ?? undefined}>{deadline}</time> ·{" "}
                   {item.detail.timeZone}
                 </p>
+              )}
+              {item.kind === "scheduler_recovery" && (
+                <SchedulerRecoveryDetails projectId={item.project_id} />
               )}
               <div className="mt-4 flex flex-wrap gap-2">
                 {editor ? (
