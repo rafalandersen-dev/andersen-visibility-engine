@@ -4,7 +4,7 @@
 
 This snapshot supersedes older snapshots below. PR #78 merged and published: revision af00a736010859b0c24c4b84c74b28b6689a1e1d, deployment 54134d98-2bc7-45d6-b68e-8df5529b56ea, domain build1788790493113, full fingerprint4c4184e246e4d58c6724f79e0dba339e2c218bf4523c038749b631d65f0a3955, modified=false and all components match. No new migration. Topic batches include project-scoped durable receipts, complete replay checks and bounds; no real-user invocation yet.
 
-Current worktree /Users/rafi/Projects/milo-growth-brand-proposals on codex/milo-brand-proposals-20260907, based on merged #78. Brand Intelligence owner-reviewed proposals are implemented and combined validation passed 1512 tests/115 files, types/build. No deployment yet. Next: complete review and publish exact merged source, then continue R00–R24. No successor task exists. All pending email, provider-budget, pricing and cloud-task questions below remain unanswered; no test email or paid benchmark executed. Monetary migration140000 remains unapplied; previous notification/scheduler migrations remain applied, do not repeat them.
+Current worktree /Users/rafi/Projects/milo-growth-brand-proposals on codex/milo-brand-proposals-20260907, based on merged #78. Brand Intelligence owner-reviewed proposals are implemented and combined validation passed 1512 tests/115 files, types/build. No deployment yet. Next: complete review and publish exact merged source, then continue R00–R24. No successor task exists. All pending email, provider-budget, pricing and cloud-task questions below remain unanswered; no test email or paid benchmark executed. Monetary migration140000 was subsequently applied and registered after isolated real eight-session acceptance (3 admitted/5 denied at cap300/reserve100), zero production budgets/requests, all isolated fixtures removed; previous notification/scheduler migrations remain applied, do not repeat them.
 
 ## Latest authoritative continuation — approximately14:00 UTC
 
@@ -70,7 +70,7 @@ No protected production browser/mobile/keyboard journey was verified: computer-u
 
 Migration20260907200000 was **already applied and registered** after tests. Real production SQL insert/dedupe/resolution acceptance was entirely rolled back: synthetic fixture0, anon/authenticated cannot sync. No customer inbox changes persisted. Do not reapply it. Review/merge/check final main and publish after #74 diagnosis as appropriate. Update evidence from pending to verified once done. Full task ledger, generic blockers, budget pauses, team recipients and live overnight recovery remain open.
 
-## Monetary foundation #67
+## Monetary foundation #67 — historical text; migration status superseded above
 
 Service-only account/global USD-millionth reserve/reconcile; request/job/provider/model/operation, measured cost provenance/request ID/tokens, unknown holds reservation, measured overrun pauses both scopes, global-then-account locking. Wrapper executes once after confirmed reservation, no retry, useful output preserved if reconcile unavailable. Original31 new tests.
 

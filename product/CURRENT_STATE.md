@@ -27,7 +27,7 @@ Unattended paid public launch remains **not verified / NO-GO** pending [launch g
 | Application deployment | Lovable project latest revision matched #78 merge before publication; domain now serves build `1788790493113` (2026-09-07) | Domain revision and source fingerprint match the clean verified checkout; protected journeys/configuration remain open |
 | Metering acceptance | September SQL applied; eight concurrent PostgreSQL sessions admitted exactly three claims at cap 3; synthetic row cleaned | No real provider expenditure; monetary budgets are a separate layer |
 | #66 validation | 1,303 tests/100 files, TypeScript/build pass | All suppliers mocked; not full launch acceptance |
-| #67 foundation | Merged inactive internal monetary ledger; combined #76 main has 1,469 tests/113 files, TypeScript/build pass | Migration unapplied; production provider callers not yet connected, no funded budgets |
+| #67 foundation | Merged inactive internal monetary ledger; combined #76 main has 1,469 tests/113 files, TypeScript/build pass | Migration applied; isolated eight-session acceptance passed; production provider callers not yet connected, no funded budgets |
 | Historical independent baseline | #46 `80375249dfcf9e371d82ebf7c28f2983fc4ab047`: Worker 49 tests, Milo 1165 tests/build and recorded review | Valid for that historical tree, not all later commits |
 | External/account configuration | Connected Lovable/Supabase read verified project, tables/RLS and one agency/manualComped entitlement; metering function upgraded | Runtime flags, secrets, actual provider pricing and external subscriber state remain unverified |
 
@@ -59,7 +59,7 @@ The detailed [route/capability map](../docs/premium-redesign/FEATURE_INVENTORY.m
 ### Cost and billing
 
 - PR #65 fixes RPC/no-row/malformed-confirmation fail-open behavior and first-claim SQL cap bypass. Migration applied and independent-session acceptance passed. Scheduler uses server entitlements and enforced claims. PR #66 adds finite onboarding extraction and zero automatic text retries/60-second timeout.
-- Merged inactive PR #67 provides internal account/global monetary reserve/reconcile, unknown-cost retention and overrun pauses. It is not connected to production provider callers and its migration is not applied. Verified rates, adapters and explicit budget provisioning remain required. Customer delivered-result allowance accounting remains separate.
+- Merged inactive PR #67 provides internal account/global monetary reserve/reconcile, unknown-cost retention and overrun pauses. It is not connected to production provider callers and its migration is applied with zero production budgets/requests. Verified rates, adapters and explicit budget provisioning remain required. Customer delivered-result allowance accounting remains separate.
 - `AI_METERING_ENFORCED` determines cap enforcement; production value was not inspected. Do not assert that it is currently on or off.
 - Server entitlements already exist; the July claim that the product still trusts the client blob as paid authority is obsolete. Verify deployment/RLS/lifecycle rather than reimplementing from that stale claim.
 - Stripe is the required billing direction after Paddle rejection. Paddle-specific code and terms/refunds remain; no Stripe lifecycle acceptance or new pricing is claimed.
