@@ -1,6 +1,6 @@
 # Milo Growth — continuous execution handoff
 
-Updated 2026-09-07, approximately 21:18 UTC. Current Codex task: `01a07ba1-c8b6-7582-9ff0-275d64224671`, saved MILO GROWTH project `g-p-6a732f6015948191999fb9beb8f7bc81`. **No successor task exists.**
+Updated 2026-09-07, approximately 21:33 UTC. Current Codex task: `01a07ba1-c8b6-7582-9ff0-275d64224671`, saved MILO GROWTH project `g-p-6a732f6015948191999fb9beb8f7bc81`. **No successor task exists.**
 
 ## Mandate and boundaries
 
@@ -24,7 +24,7 @@ Worktree `/Users/rafi/Projects/milo-growth-bun-compat`, branch `codex/milo-bun-h
 
 The fill-empty tool and editable-Draft boundary are deployed. Real owner/client invocation acceptance remains separate; no live customer profile or draft was edited by these tests. Migration230000 was already applied and registered, with13 projects retained; do not repeat it.
 
-## #86, #87 and #88 are migrated/published; email settings are next
+## #86–#89 are migrated/published; recovery inspection is next
 
 #86 merged18d48c6208eebac614d7637159dad91f69584ece, migration233000 APPLIED AND REGISTERED. Both trigger functions have empty search paths, ordinary execute=false, service-role execute=true; all13 projects retained. Published build1788814761259 matched the full source and every component.
 
@@ -32,7 +32,9 @@ The fill-empty tool and editable-Draft boundary are deployed. Real owner/client 
 
 #88 merged00d2a6f6d0728f06ce9a8a3012c9bbf14f5cc55f after head1264bbf passed final review without comments. Shared scheduler-capacity alerts use next-month active demand, current UTC-month account limits and retained drafts, separating unavailable verification from low allowance. No AI generation, funded budgets, quota or approval changes. Exact migration234500 is APPLIED AND REGISTERED; all13 projects retained. Deployment8149d4cf-3986-4d02-ac66-4e3647d77279 produced build1788815686498, exact revision, modified=false, fingerprinte090c4957e8fdc8d4182bbee9ea3cfc2433c39560de3efe85dfe99363d05a82e and every component matching. Source1657 tests/125 files/types/build pass. Cron150 remains the single existing15-minute notification job. A server scan actually completed21:15:01UTC; five account scan records and four active alerts exist, zero email opt-ins/outbox rows.
 
-Next worktree /Users/rafi/Projects/milo-growth-email-verification-settings, branch codex/milo-email-verification-settings-20260907, includes current #88 main. The settings screen exposes verified/unverified/unavailable status and a fresh-check action. Opt-in checks the current address again; opt-out remains available during Auth/transport outages. It reuses the read-only #87 identity rule and does not create unsubscribe tokens during settings reads. Combined1670 tests/126 files, types/build/focused lint/diff pass. No migration, auth verification transport, account change or send. Finish PR review/merge/publication and write back exact release proof.
+#89 mergedfb272e91ce74b480b3a0f732986301cf05dbb252 after finaldc2451f passed review without comments. Read-only current-address status is visible in settings; opt-in rechecks it and opt-out remains available. Deployment6ce0bbf5-63ed-4697-9c5d-4c145d7599d9 produced build1788816378475, exact revision, modified=false, fingerprint22d6ddd43d5b3a0eea0619ad30d96f4454317a2120c57365046831bd4dc84819 and every component matching. No migration, verification send, opt-in or account change.
+
+Next worktree /Users/rafi/Projects/milo-growth-recovery-inspection, branch codex/milo-recovery-inspection-20260907, includes current #89 main. Adds an authenticated read-only recovery panel over owner/project/period-scoped saved drafts and queue records. Bounded source checks, no ownership tokens, bodies, private image URLs or raw errors returned. No reset/retry/approval/publication/generation/send/migration. Combined1687 tests/128 files, types/build/focused lint/diff pass. Actual components with fictional data and built CSS were visually checked at390 and1200px with no horizontal overflow; fixture navigation/Auth are not live acceptance. Temporary fixture files removed, browser tab and server closed. Finish PR review/merge/publication and record exact release proof.
 
 ## Owner email — completed
 
@@ -42,7 +44,7 @@ The new email identity reports email_verified=false; auth.users retains the old 
 
 ## Completed work to preserve
 
-PRs #63–#88 are merged (including #67). Exact hashes and detailed scope are in their PRs and `evidence/` records.
+PRs #63–#89 are merged (including #67). Exact hashes and detailed scope are in their PRs and `evidence/` records.
 
 - #63 premium Today/list/inspector/calendar improvements; #64 canonical full scope reconciliation.
 - #65 fail-closed metering and atomic first claim. Eight independent real PostgreSQL sessions admitted 3 and denied 5 at cap 3; fixture removed.

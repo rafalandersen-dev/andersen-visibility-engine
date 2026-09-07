@@ -4,7 +4,7 @@
 
 **Last updated:** 2026-09-07
 
-**Repository baseline inspected:** `main` at `00d2a6f6d0728f06ce9a8a3012c9bbf14f5cc55f` (PR #88 merge)
+**Repository baseline inspected:** `main` at `fb272e91ce74b480b3a0f732986301cf05dbb252` (PR #89 merge)
 
 **Product Lead / Outcome Owner:** Rafal Andersen
 
@@ -16,7 +16,7 @@ The owner explicitly requested and received an administrative email change to ra
 
 Read [ROADMAP.md](./ROADMAP.md) for execution order and [PLAN_REVIEW_2026_09_07.md](./PLAN_REVIEW_2026_09_07.md) for all scope/decision gaps. This update corrects the July 28 state file against current source and GitHub evidence. It does not convert a source review into an independent security audit or prove production configuration.
 
-PRs #63–#88 are merged, including the inactive monetary foundation #67. Selected premium Today/list+inspector/calendar work, reconciled plans, fail-closed metering and bounded onboarding extraction are implemented. The whole product redesign, real observed AI tracking, production backlinks supplier, Stripe and all EU languages are not complete. The owner's Claude and ChatGPT MCP connections are existing capabilities; further client coverage and authoring work remain.
+PRs #63–#89 are merged, including the inactive monetary foundation #67. Selected premium Today/list+inspector/calendar work, reconciled plans, fail-closed metering and bounded onboarding extraction are implemented. The whole product redesign, real observed AI tracking, production backlinks supplier, Stripe and all EU languages are not complete. The owner's Claude and ChatGPT MCP connections are existing capabilities; further client coverage and authoring work remain.
 
 Unattended paid public launch remains **not verified / NO-GO** pending [launch gates](./LAUNCH_READINESS.md). The historical ~70% assisted/~40% public estimates are retired as current indicators: they predate substantial work and have no fresh denominator.
 
@@ -24,9 +24,9 @@ Unattended paid public launch remains **not verified / NO-GO** pending [launch g
 
 | Evidence | What is known | Limit |
 | --- | --- | --- |
-| Current source | `main` at `00d2a6f6d0728f06ce9a8a3012c9bbf14f5cc55f` after #88 | Source is not runtime verification |
+| Current source | `main` at `fb272e91ce74b480b3a0f732986301cf05dbb252` after #89 | Source is not runtime verification |
 | #63 validation | Recorded 190 focused tests, TypeScript/build, responsive browser/workflow checks in `design-qa.md` | Earlier focused scope; not a fresh full release/security review |
-| Application deployment | #88 domain build `1788815686498`, exact revision, modified=false, full and every component fingerprint match | #83 failed on host Bun 1.3.3 rejecting format 2; #85 preserves the graph in compatible format 1 and passes CI on both Bun versions |
+| Application deployment | #89 domain build `1788816378475`, exact revision, modified=false, full and every component fingerprint match | #83 failed on host Bun 1.3.3 rejecting format 2; #85 preserves the graph in compatible format 1 and passes CI on both Bun versions |
 | Metering acceptance | September SQL applied; eight concurrent PostgreSQL sessions admitted exactly three claims at cap 3; synthetic row cleaned | No real provider expenditure; monetary budgets are a separate layer |
 | #66 validation | 1,303 tests/100 files, TypeScript/build pass | All suppliers mocked; not full launch acceptance |
 | #67 foundation | Merged inactive internal monetary ledger; combined #76 main has 1,469 tests/113 files, TypeScript/build pass | Migration applied; isolated eight-session acceptance passed; production provider callers not yet connected, no funded budgets |
@@ -100,7 +100,7 @@ The detailed [route/capability map](../docs/premium-redesign/FEATURE_INVENTORY.m
 
 ## Next single action
 
-Workspace trigger hygiene #86 is reviewed, migrated (233000) and published with all source fingerprints matching; all13 projects retained. Do not reapply. #87 current-address verification and #88 shared scheduler-capacity alerts are reviewed, merged and published with every source component matching. Migration234500 is APPLIED AND REGISTERED; all13 projects retained. Latest server notification scan completed21:15UTC, with zero email opt-ins/outbox rows. Finish the email-settings verification packet, combined1670 tests/126 files/types/build pass, then continue remaining R05/R06 and full-plan work. No email has been sent. Continue R09 provider accounting once verified rates and the owner test budget are available, then the remaining R05/R06 recovery/budget/team gaps. Keep remaining full-roadmap waves active. Do not repeat completed migration/deployments or treat this release milestone as 100% completion. Issue #43 retains its separate infrastructure mutation boundary.
+Workspace trigger hygiene #86 is reviewed, migrated (233000) and published with all source fingerprints matching; all13 projects retained. Do not reapply. #87 current-address verification and #88 shared scheduler-capacity alerts are reviewed, merged and published with every source component matching. Migration234500 is APPLIED AND REGISTERED; all13 projects retained. Latest server notification scan completed21:15UTC, with zero email opt-ins/outbox rows. #89 email verification settings are also published and source-equivalent; 1670 tests/126 files/types/build passed. Finish the read-only scheduler recovery inspection packet, combined1687 tests/128 files/types/build and local390/1200px visual checks pass. No migration; review/publication remain. Then continue remaining R05/R06 and full-plan work. No email has been sent. Continue R09 provider accounting once verified rates and the owner test budget are available, then the remaining R05/R06 recovery/budget/team gaps. Keep remaining full-roadmap waves active. Do not repeat completed migration/deployments or treat this release milestone as 100% completion. Issue #43 retains its separate infrastructure mutation boundary.
 
 ## References and historical evidence
 

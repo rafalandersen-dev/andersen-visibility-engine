@@ -1,0 +1,13 @@
+# Inspect retained work before scheduler recovery
+
+R05 recovery alerts previously linked only to the calendar. The owner could not inspect the current run record and retained work in the incident itself before deciding how to recover an interrupted operation.
+
+The authenticated read-only inspection verifies the requested project in the current owner's workspace before using the service-role client. Both independent lease and queue queries are filtered by owner and project, bounded to detect unexpected/truncated results, and exclude tokens and raw errors. Only content from that project and the run's planned period contributes to saved-work counts. The response contains at most25 deterministically ordered draft links plus complete bounded counts; it omits bodies, image URLs, credentials and private provider payloads. Missing source data, duplicate leases/draft identities and oversized snapshots cannot become a reassuring zero.
+
+The expandable incident panel distinguishes a missing run record, an active marker, an ended run and required recovery review. It shows saved drafts and queue-record counts for those drafts, an explicit check timestamp, and links to the editor. Queue records are not claimed to be unique articles or independent destination verification. Copy in PL/EN/SV/DA makes clear that stored Milo data does not establish the result of the last AI/CMS operation. No lease reset, job retry, approval, generation, publication, email or new migration is performed. Generic job accounting and operator reconciliation remain separate work.
+
+Seventeen added tests verify account/project isolation, minimized response/query columns, failure and truncation handling, run states, retained-work period filtering, bounded output, duplicate-source rejection, authentication middleware, rejected client overrides and sanitized errors. Final full-suite/types/build/lint results are recorded with the PR.
+
+Local visual inspection rendered the actual recovery and email-settings components with fictional data, mocked hooks/router and the built application CSS. At390px and1200px, body scrollWidth equalled clientWidth. Screenshots confirmed readable wrapped titles/copy and disabled email opt-in for unverified status. The fixture was explicitly labelled as sample data; it does not establish authenticated server access, editor navigation or live CMS behavior. Temporary fixture test/HTML files were removed, the local browser tab closed and the local server stopped. No customer data or paid provider was used.
+
+Final combined #89 source passes1,687 tests in128 files, TypeScript, production build, focused lint and diff checks. No migration. This packet remains pending review/publication.
