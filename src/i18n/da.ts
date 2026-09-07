@@ -998,6 +998,11 @@ export const da: Record<string, string> = {
   "connect.error.generic": "Noget gik galt. Start forfra fra Claude.",
 
   // ---- Billing ----
+  "billing.stripeTest.title": "Test Stripe-betaling",
+  "billing.stripeTest.description": "Testen er kun for ejeren. Brug Stripes testbetalingsoplysninger. Der trækkes ingen rigtige penge, og din Milo-plan ændres ikke.",
+  "billing.stripeTest.open": "Åbn testbetaling",
+  "billing.stripeTest.opening": "Åbner…",
+  "billing.stripeTest.error": "Testbetalingen kunne ikke bekræftes. Prøv igen her for at genbruge samme forsøg.",
   "billing.title": "Fakturering & plan",
   "billing.subtitle": "Administrer din plan, faktureringsprofil og tilføjelser.",
   "billing.owner.title": "Ejerkonto",

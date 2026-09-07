@@ -996,6 +996,11 @@ export const sv: Record<string, string> = {
   "connect.error.generic": "Något gick fel. Börja om från Claude.",
 
   // ---- Billing ----
+  "billing.stripeTest.title": "Testa Stripe-betalning",
+  "billing.stripeTest.description": "Testet är endast för ägaren. Använd Stripes testbetalningsuppgifter. Inga riktiga pengar debiteras och din Milo-plan ändras inte.",
+  "billing.stripeTest.open": "Öppna testbetalning",
+  "billing.stripeTest.opening": "Öppnar…",
+  "billing.stripeTest.error": "Testbetalningen kunde inte bekräftas. Försök igen här för att återanvända samma försök.",
   "billing.title": "Fakturering & plan",
   "billing.subtitle": "Hantera din plan, faktureringsprofil och tillägg.",
   "billing.owner.title": "Ägarkonto",
