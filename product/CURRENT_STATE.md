@@ -1,10 +1,10 @@
 # Milo Growth — Current State
 
-**Status:** #94 published with matching build inputs; direct OpenAI migration prepared; full public launch remains unverified
+**Status:** #95 direct OpenAI migration published; native monetary admission prepared; key/controlled benchmark and full launch remain pending
 
 **Last updated:** 2026-09-08
 
-**Repository baseline inspected:** `main` at `ed008c84ff253a4a58b5d7857174284141bc0e9f` (PR #94 merge)
+**Repository baseline inspected:** `main` at `a3f7aec29edaa91a03bbe7f29280beec684f3086` (PR #95 merge)
 
 **Product Lead / Outcome Owner:** Rafal Andersen
 
@@ -14,11 +14,19 @@ The owner explicitly requested and received an administrative email change to ra
 
 ## Recovery brief
 
+Latest authoritative override: #95 is reviewed, merged and published as deployment `b0c4e6ab-84ff-4e19-9f18-0a25bd73b892`, build `1788885770747`, exact revision `a3f7aec29edaa91a03bbe7f29280beec684f3086`, modified=false, full fingerprint `df29cded6a4eeeb0848ddfbda068b28330cfb311416a4b08dc24a30a1d86d820` and every component matching clean main. Native text/images now route directly to OpenAI. No live native generation is verified.
+
+The next packet connects all native provider actions to the existing account/global monetary ledger, retains unknown costs and bounds stalled provider/accounting waits. It passed 1,900 tests/137 files, types/build/focused lint; review/merge/publication remain pending. No budgets or secrets were provisioned. Read [native expense evidence](../evidence/native-provider-expense-2026-09-08.md) for conservative reserves, limitations and the required isolated three-attempt benchmark.
+
+OpenAI account exception: the user explicitly chose the existing account email. Company-email migration is no longer a prerequisite. Reauthentication succeeded and Personal / Default project are available, but no widget-authored confirmed selection/local-save approval has arrived. No key creation/write is claimed. The owner was asked for the form's current message/button text; do not request a plaintext key or blindly reopen the picker. USD5 remains authorized and unused.
+
+The earlier recovery entries below are historical and must not override this current account/release state.
+
 Latest 8 September override: #94 is reviewed, merged and published, including #92–#93. Public build1788855714243 and fingerprint4a7fdd22f3147700f3e518d3e5245c2704cbcb22c1316c621e0dc9e21d0f6099 match clean main and every component; revision/modified metadata are null. 1,836 tests/135 files, TypeScript/build and focused lint passed. Deployment2736ea5f-7fdc-4c42-b5cb-e5411a2980b1; corrected review head d2f5776 passed at08:26:47UTC. Safari verified the actual Butelki content-review incident panel; no retry or publication was triggered.
 
 The owner now explicitly rejects Lovable AI generation and selected direct OpenAI for text and images. The next packet removes all application AI Gateway routes and their fallback, preserving hosting, authentication, email and publishing. Direct OpenAI configuration and the USD5 benchmark remain pending; see [migration evidence](../evidence/direct-openai-2026-09-08.md).
 
-The USD5 benchmark is approved and unused. The proposed two-credit limit across the 21-project Lovable workspace was withdrawn after the provider decision; do not ask it again or change shared limits/top-ups. Creating a new OpenAI key is authorized. The secure picker is open but has not returned confirmed organization/project IDs. The user sees Personal / Default project; those names do not establish the connected account's ownership. Confirm the company account address, then finish the existing secure picker and local destination confirmation. Never request a plaintext key.
+The USD5 benchmark is approved and unused. The proposed two-credit limit across the 21-project Lovable workspace was withdrawn after the provider decision; do not ask it again or change shared limits/top-ups. Creating a new OpenAI key is authorized. The secure picker is open but has not returned confirmed organization/project IDs. The user sees Personal / Default project; those names do not establish the connected account's ownership. This historical company-email prerequisite was superseded by the explicit existing-account exception above; finish the secure picker and local destination confirmation. Never request a plaintext key.
 
 2026-09-08 update: #91 is merged and published with exact revision, modified=false, build1788819251901, fingerprint a76081ad9579fb0a23d0b246bcdae30c7138845d2911775c982054c1488030dc and every component matching. It passed1736 tests. The owner approved USD5 total for the one-scan/article/image benchmark; no benchmark invocation or spend yet. Stripe is deferred by the owner until after coffee. Existing Butelki destination access was found in the Si Longevity workspace, and today's09:00 Stockholm scheduled publication was independently read on the public site. Earlier missing-destination-access assumptions are superseded. See [publication topology](../evidence/publication-topology-2026-09-08.md) and [benchmark preflight](../evidence/owner-ai-benchmark-2026-09-08.md).
 

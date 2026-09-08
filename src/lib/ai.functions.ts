@@ -7,9 +7,11 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { generateBoundedText, AiTextBoundaryError } from "./ai-text-bounds.server";
+import { AiTextBoundaryError } from "./ai-text-bounds.server";
+import { generateBudgetedText, type NativeExpenseContext } from "./ai-provider-expense.server";
+import { AiExpenseUnavailableError } from "./ai-expense.server";
 import { z } from "zod";
-import { modelFor, AiProviderConfigurationError } from "./ai-provider.server";
+import { AiProviderConfigurationError } from "./ai-provider.server";
 import { normalizeQualityScore } from "./quality";
 import { normalizeHookProposals } from "./hook";
 import { internalLinkRule } from "./internal-link-prompt";
@@ -1019,8 +1021,13 @@ function normalizeVisibilityGap(value: unknown, index: number) {
 // budget on internal reasoning before emitting the answer, so the cap must
 // cover reasoning + the JSON payload or the response truncates mid-JSON.
 // 16k leaves ample headroom for our small JSON/markdown outputs.
-async function generateJsonText(prompt: string, maxOutputTokens = 16000, modelId?: string) {
-  const text = await generateBoundedText(prompt, maxOutputTokens, () => modelFor(modelId));
+async function generateJsonText(
+  context: NativeExpenseContext,
+  prompt: string,
+  maxOutputTokens = 16000,
+  modelId?: string,
+) {
+  const text = await generateBudgetedText(context, prompt, maxOutputTokens, modelId);
   return parseJsonFromText(text);
 }
 
@@ -1043,7 +1050,11 @@ function mapGatewayError(e: unknown): Error {
         : null,
     boundary: e instanceof AiTextBoundaryError ? e.reason : null,
   });
-  if (e instanceof AiTextBoundaryError || e instanceof AiProviderConfigurationError)
+  if (
+    e instanceof AiTextBoundaryError ||
+    e instanceof AiProviderConfigurationError ||
+    e instanceof AiExpenseUnavailableError
+  )
     return new Error(e.message);
 
   // 1. Rate limit — transient, retry shortly.
@@ -1320,6 +1331,7 @@ ${site.text || "(no readable text extracted)"}`
       });
 
       const payload = await generateJsonText(
+        { userId: context.userId as string, operation: "generateAuditFn" },
         `You are a senior SEO, local-SEO and AI-visibility (GEO) auditor for small and medium businesses.
 
 Produce a prioritized visibility audit across these five areas: Business Clarity, SEO Basics, Local Visibility, AI Readiness, Conversion & Trust.
@@ -1466,6 +1478,7 @@ ${f.ctx.text || "(no readable text)"}`
       });
 
       const payload = await generateJsonText(
+        { userId: context.userId as string, operation: "generateCompetitorGapFn" },
         `You are a competitive SEO and AI-visibility strategist for small and medium businesses.
 
 Compare THIS business against the competitor websites and produce prioritized, actionable gaps the business should close. Compare across: Service Coverage, FAQ & Answers, Local Positioning, Trust & Authority, Conversion & Offer, Content Themes.
@@ -1611,6 +1624,7 @@ export const generateAuthorityFn = createServerFn({ method: "POST" })
       });
 
       const payload = await generateJsonText(
+        { userId: context.userId as string, operation: "generateAuthorityFn" },
         `You are an off-site authority and digital-PR strategist for small and medium businesses.
 
 Help this business build credibility BEYOND its own website: local directories & citations, industry directories, review & reputation platforms, partner & supplier links, associations & communities, PR & story angles, on-site trust signals, and outreach. This is opportunity PLANNING — do NOT claim any listing, link or contact has been created, and do NOT invent backlink counts, domain authority, traffic numbers or guaranteed rankings.
@@ -1754,6 +1768,7 @@ export const generateAiVisibilityFn = createServerFn({ method: "POST" })
       });
 
       const payload = await generateJsonText(
+        { userId: context.userId as string, operation: "generateAiVisibilityFn" },
         `You are an AI-search readiness strategist for small and medium businesses. AI assistants (ChatGPT, Perplexity, Gemini, Google AI Overviews) answer user questions by drawing on clear, factual, well-sourced content. Your job is to plan how this business can become the kind of clear, citable source those assistants would draw from.
 
 CRITICAL FRAMING — this is PLANNING and READINESS only. You have NOT checked any live AI engine. Never claim the business is currently mentioned, cited, ranked or shown by ChatGPT, Perplexity, Gemini or Google AI Overviews, and never invent citation positions or live results. Use only language like "likely gap", "readiness", "recommended prompt", "AI-answer opportunity", "content that could help AI understand or cite the business". Frame everything as opportunities, not measured facts.
@@ -1914,6 +1929,7 @@ export async function scanWebsiteCore(userId: string, url: string) {
     // when the meter is unavailable or that finite allowance is exhausted.
     await claimAiUsage({ userId, bucket: "aiCredits", enforceLimit: true });
     const payload = await generateJsonText(
+      { userId: userId, operation: "scanWebsiteCore" },
       `You are extracting a concise business profile from a website homepage for an onboarding form.
 
 Return exactly this JSON shape:
@@ -2010,6 +2026,7 @@ export async function generateOpportunitiesCore(
         serviceCount: services.length,
       });
       const payload = await generateJsonText(
+        { userId: userId, operation: "generateOpportunitiesCore" },
         `You are an SEO and AI-visibility strategist for small businesses.
 
 Generate 6 high-quality content opportunities for this business.
@@ -2095,6 +2112,7 @@ export const generateCalendarFn = createServerFn({ method: "POST" })
         opportunityCount: opps.length,
       });
       const payload = await generateJsonText(
+        { userId: context.userId as string, operation: "generateCalendarFn" },
         `Build a realistic 1-month content calendar for "${project.businessName || project.name}" in ${project.primaryLanguage}.
 Return exactly this JSON shape:
 {"calendarItems":[{"opportunityIndex":1,"daysFromToday":4,"topicTitle":"","language":"Polish|Swedish|English|Danish","contentType":"Landing Page|Service Page|Blog Article|Guide|FAQ Page|Comparison|Location Page","searchIntent":"Informational|Commercial|Transactional|Navigational","recommendedCta":""}]}
@@ -2177,6 +2195,7 @@ export const generateContentAssetFn = createServerFn({ method: "POST" })
 
     try {
       const payload = await generateJsonText(
+        { userId: context.userId as string, operation: "generateContentAssetFn" },
         `${kindInstruction}
 
 Return exactly this JSON shape:
@@ -2292,6 +2311,7 @@ export async function generateContentCore(
 
     try {
       const payload = await generateJsonText(
+        { userId: userId, operation: "generateContentCore" },
         `${instruction}
 
 Return exactly this JSON shape. "markdown" is REQUIRED and must contain the full, formatted content for this asset type; fill the other fields that are relevant.
@@ -2375,6 +2395,7 @@ export const regenerateMetadataFn = createServerFn({ method: "POST" })
     await claimAiUsage({ userId: context.userId as string, bucket: "aiCredits" });
     try {
       const payload = await generateJsonText(
+        { userId: context.userId as string, operation: "regenerateMetadataFn" },
         `Write an SEO meta title (≤60 chars) and meta description (≤160 chars) in ${data.language} for the page titled "${data.title}" about "${data.topic}" for "${data.businessName}". One calm sentence for the description, including a soft next step toward "${data.cta}". No quotes, no emojis.
 
 Return exactly this JSON shape:
@@ -2418,6 +2439,7 @@ export const regenerateFaqFn = createServerFn({ method: "POST" })
     await claimAiUsage({ userId: context.userId as string, bucket: "aiCredits" });
     try {
       const payload = await generateJsonText(
+        { userId: context.userId as string, operation: "regenerateFaqFn" },
         `Write 4 realistic FAQ entries in ${data.language} that real customers of "${data.businessName}" would ask about "${data.topic}". Answers must be concrete, 2–4 sentences. No invented prices, no guarantees.
 
 Return exactly this JSON shape:
@@ -2456,6 +2478,7 @@ export const regenerateCtaFn = createServerFn({ method: "POST" })
     await claimAiUsage({ userId: context.userId as string, bucket: "aiCredits" });
     try {
       const payload = await generateJsonText(
+        { userId: context.userId as string, operation: "regenerateCtaFn" },
         `Suggest ONE short, action-oriented CTA button label in ${data.language} for a ${data.intent.toLowerCase()} page about "${data.topic}" for "${data.businessName}". 2–5 words. No emojis, no quotes.
 
 Return exactly this JSON shape:
@@ -2505,6 +2528,7 @@ export const evaluateContentQualityFn = createServerFn({ method: "POST" })
 
     try {
       const payload = await generateJsonText(
+        { userId: context.userId as string, operation: "evaluateContentQualityFn" },
         `You are a careful content reviewer for a small-business website. Evaluate the DRAFT below and produce a practical PUBLISHING READINESS assessment — NOT an SEO ranking guarantee. Be conservative: do not inflate scores, and never imply guaranteed Google or AI rankings.
 
 Score each of these 8 categories from 0–100 with a one-sentence explanation and up to 3 concrete suggestions:
@@ -2582,6 +2606,7 @@ export const improveContentDraftFn = createServerFn({ method: "POST" })
 
     try {
       const payload = await generateJsonText(
+        { userId: context.userId as string, operation: "improveContentDraftFn" },
         `Improve the DRAFT below using the improvement suggestions. Keep the same topic, intent and language (${data.contentLanguage}). Keep the heading structure but improve clarity, structure, answer-readiness and a clear next step. Do NOT invent statistics, prices, guarantees or fake citations. Do NOT add exaggerated SEO/AI ranking claims. If the business context includes a Brand Intelligence block, follow it: improve tone to match the brand voice, remove any forbidden claims and avoid-list wording, add required caveats where appropriate, use the preferred CTA, prefer the listed internal link targets where relevant, and never invent proof points. Return ONLY the improved markdown body.
 
 Improvement suggestions:
@@ -2714,6 +2739,7 @@ export const generateAuthorityOpportunitiesFn = createServerFn({ method: "POST" 
 
     try {
       const payload = await generateJsonText(
+        { userId: context.userId as string, operation: "generateAuthorityOpportunitiesFn" },
         `You are a safe, ethical off-site authority and local-SEO strategist for a small business. Suggest TRUSTWORTHY authority-building opportunities — local directories, industry directories, review profiles, citation/NAP consistency, partner links, supplier listings, associations, local PR/story angles, guest contributions, resource pages, community pages and on-site trust signals.
 
 STRICT SAFETY RULES:
@@ -2990,6 +3016,7 @@ export const generateBacklinksFn = createServerFn({ method: "POST" })
 
     try {
       const payload = await generateJsonText(
+        { userId: context.userId as string, operation: "generateBacklinksFn" },
         `You are a white-hat link-building and digital-PR strategist for small and medium businesses.
 
 You are given REAL backlink-index data (below). Interpret it and produce prioritized, safe, practical link-building recommendations. STRICT SAFETY RULES: never recommend link exchanges, PBNs, mass directory spam or buying links that pass ranking signals; any paid placement you suggest MUST be described as a sponsored publication that should be clearly labeled. Do NOT invent numbers beyond the data provided. Use the gap domains as inspiration for the TYPE of sites to target — only name a specific domain from the data, never fabricate other specific domains.
@@ -3131,6 +3158,7 @@ export const generateOutreachDraftFn = createServerFn({ method: "POST" })
         targetDomain: data.targetDomain,
       });
       const payload = await generateJsonText(
+        { userId: context.userId as string, operation: "generateOutreachDraftFn" },
         `You are an ethical digital-PR outreach writer. Draft one concise, genuinely personalized email and two optional follow-ups for a potential editorial relationship.
 
 Return exactly this JSON shape:

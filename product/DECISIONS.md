@@ -298,5 +298,11 @@ The next technical outcome is the exact-head/environment-evidence packet, follow
 - Native article/text and image generation must use direct providers, preferably OpenAI. Lovable AI credits are not an accepted generation dependency or fallback. Existing Lovable hosting, database, authentication and email are separate costs and services.
 - Implement direct OpenAI text and images; evaluate quality and actual cost before claiming savings or setting customer prices. Initial engineering choice: GPT-5.6 Terra, low reasoning effort, standard tier; GPT Image2 dated snapshot, one1536x1024 medium-quality WebP. These are bounded initial settings, not owner-approved package prices.
 - USD5 total remains authorized for one scan, one article, one image. It has not been spent. The broad Lovable-workspace two-credit cap proposal is withdrawn; no shared limit or automatic top-up change.
-- A new OpenAI key is authorized. Finish secure account/project selection and local destination confirmation. Use company ownership rafi@anderseninnovations.com; Personal / Default project labels alone are not evidence of a personal mailbox. No key values belong in documents or chat.
+- A new OpenAI key is authorized. Finish secure account/project selection and local destination confirmation. The later explicit owner exception permits the existing OpenAI account email; company-email migration is not a setup prerequisite. Personal / Default project labels alone are not evidence of the mailbox. No key values belong in documents or chat.
 - Direct Gemini in the separate public-audit Worker already bypasses Lovable. Its release constraints remain separate. Existing externally authored MCP text still does not invoke Milo's native text generator.
+
+## 2026-09-08 — Existing OpenAI account exception and conservative budget admission
+
+The owner explicitly instructed proceeding with the current OpenAI account email. Record this exception rather than creating a duplicate account or delaying setup for email migration. The API connection has been reauthenticated; secure picker/local destination confirmation remains incomplete.
+
+Native generation now has a prepared account/global reserve gate. Retain full reservations while actual cost is unverified; do not call token estimates invoices or provider attempts customer result allowances. USD5 is still limited to the isolated one-scan/article/image benchmark. It does not permit unrestricted background use of a newly funded monthly owner budget. See evidence/native-provider-expense-2026-09-08.md.

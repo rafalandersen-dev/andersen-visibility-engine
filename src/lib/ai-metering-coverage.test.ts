@@ -74,7 +74,7 @@ describe("every AI server function accounts for its spend", () => {
 describe("image generation accounts for its spend", () => {
   it("claims the imageGeneration bucket BEFORE the model call", () => {
     const claim = IMAGE_SOURCE.indexOf('claimAiUsage({ userId, bucket: "imageGeneration" })');
-    const model = IMAGE_SOURCE.indexOf("generateImageBytes(");
+    const model = IMAGE_SOURCE.indexOf("generateBudgetedImage(");
     expect(claim).toBeGreaterThan(-1);
     expect(model).toBeGreaterThan(-1);
     expect(claim).toBeLessThan(model);

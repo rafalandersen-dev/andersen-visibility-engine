@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { scanWebsiteCore } from "./ai.functions";
 import { UsageLimitError, UsageUnavailableError } from "./ai-usage.server";
 
-const mocks = vi.hoisted(() => ({ claim: vi.fn(), model: vi.fn() }));
+const mocks = vi.hoisted(() => ({ claim: vi.fn(), model: vi.fn(), rpc: vi.fn() }));
+vi.mock("@/integrations/supabase/client.server", () => ({ supabaseAdmin: { rpc: mocks.rpc } }));
 vi.mock("ai", () => ({ generateText: mocks.model }));
 vi.mock("./ai-usage.server", async (original) => ({
   ...(await original<typeof import("./ai-usage.server")>()),
@@ -10,6 +11,11 @@ vi.mock("./ai-usage.server", async (original) => ({
 }));
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.rpc.mockImplementation(async (name) =>
+    name === "reserve_ai_expense"
+      ? { data: [{ allowed: true, reason: "reserved", period: "2026-09" }], error: null }
+      : { data: [{ state: "unknown", overrun: false }], error: null },
+  );
   vi.stubEnv("OPENAI_API_KEY", "synthetic-test-only");
   vi.stubGlobal(
     "fetch",
@@ -36,7 +42,10 @@ describe("onboarding paid extraction", () => {
     new UsageLimitError("aiCredits", 50, 50, "Limit reached"),
   ])("keeps manual setup and site metadata when AI cannot be claimed: %s", async (failure) => {
     mocks.claim.mockRejectedValue(failure);
-    const result = await scanWebsiteCore("verified-user", "https://example.com");
+    const result = await scanWebsiteCore(
+      "00000000-0000-4000-8000-000000000011",
+      "https://example.com",
+    );
     expect(result).toMatchObject({
       ok: true,
       title: "Example bakery",
@@ -46,11 +55,13 @@ describe("onboarding paid extraction", () => {
     expect(mocks.model).not.toHaveBeenCalled();
   });
   it("requires the finite server allowance before calling the provider", async () => {
-    expect(await scanWebsiteCore("verified-user", "https://example.com")).toMatchObject({
+    expect(
+      await scanWebsiteCore("00000000-0000-4000-8000-000000000011", "https://example.com"),
+    ).toMatchObject({
       businessName: "Example bakery",
     });
     expect(mocks.claim).toHaveBeenCalledWith({
-      userId: "verified-user",
+      userId: "00000000-0000-4000-8000-000000000011",
       bucket: "aiCredits",
       enforceLimit: true,
     });
@@ -66,13 +77,17 @@ describe("onboarding paid extraction", () => {
     );
   });
   it("does not claim AI when there is no website input", async () => {
-    expect(await scanWebsiteCore("verified-user", "")).toMatchObject({ ok: false });
+    expect(await scanWebsiteCore("00000000-0000-4000-8000-000000000011", "")).toMatchObject({
+      ok: false,
+    });
     expect(mocks.claim).not.toHaveBeenCalled();
     expect(mocks.model).not.toHaveBeenCalled();
   });
   it("retains metadata after malformed provider output without retrying", async () => {
     mocks.model.mockResolvedValue({ text: "not JSON" });
-    expect(await scanWebsiteCore("verified-user", "https://example.com")).toMatchObject({
+    expect(
+      await scanWebsiteCore("00000000-0000-4000-8000-000000000011", "https://example.com"),
+    ).toMatchObject({
       ok: true,
       description: "Local bread",
       services: [],
