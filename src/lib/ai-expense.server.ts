@@ -31,6 +31,8 @@ const REASONS = new Set([
   "budget_paused",
   "budget_exhausted",
   "duplicate_request",
+  "permit_required",
+  "permit_invalid",
 ]);
 export class AiExpenseUnavailableError extends Error {
   constructor(readonly reason: string) {

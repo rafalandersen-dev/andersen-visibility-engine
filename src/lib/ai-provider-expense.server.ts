@@ -26,6 +26,11 @@ export const NATIVE_IMAGE_RESERVE_MICROUSD = 100_000;
 export interface NativeExpenseContext {
   userId: string;
   operation: string;
+  /** Only a trusted server runner may provide a preallocated attempt. Never
+   * forward this from browser/MCP inputs. Reuse the identity after uncertainty
+   * so the ledger refuses another provider call instead of granting a retry.
+   */
+  attempt?: { requestId: string; jobId: string };
 }
 
 function request(
@@ -36,8 +41,16 @@ function request(
   // Created once per server invocation, reused throughout reservation and
   // reconciliation. No provider retry occurs inside an attempt. A user retry
   // is a new attempt and requires its own account + global reservation.
-  const requestId = crypto.randomUUID();
-  return { ...context, requestId, jobId: requestId, provider: "openai", model, ceilingMicrousd };
+  const requestId = context.attempt?.requestId ?? crypto.randomUUID();
+  return {
+    userId: context.userId,
+    operation: context.operation,
+    requestId,
+    jobId: context.attempt?.jobId ?? requestId,
+    provider: "openai",
+    model,
+    ceilingMicrousd,
+  };
 }
 
 function counter(value: unknown): value is number {

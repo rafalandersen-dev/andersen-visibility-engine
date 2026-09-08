@@ -49,17 +49,21 @@ describe("native provider money admission", () => {
       kind === "text"
         ? generateBudgetedText(context, "private source", 3000)
         : generateBudgetedImage(context, "private image prompt");
-    it.each(["budget_unconfigured", "budget_paused", "budget_exhausted", "duplicate_request"])(
-      `${kind} does no provider work after %s`,
-      async (reason) => {
-        mocks.rpc.mockResolvedValue({
-          data: [{ allowed: false, reason, period: "2026-09" }],
-          error: null,
-        });
-        await expect(run()).rejects.toMatchObject({ reason });
-        expect(mocks.fetch).not.toHaveBeenCalled();
-      },
-    );
+    it.each([
+      "budget_unconfigured",
+      "budget_paused",
+      "budget_exhausted",
+      "duplicate_request",
+      "permit_required",
+      "permit_invalid",
+    ])(`${kind} does no provider work after %s`, async (reason) => {
+      mocks.rpc.mockResolvedValue({
+        data: [{ allowed: false, reason, period: "2026-09" }],
+        error: null,
+      });
+      await expect(run()).rejects.toMatchObject({ reason });
+      expect(mocks.fetch).not.toHaveBeenCalled();
+    });
     it(`${kind} does no provider work after an ambiguous reservation`, async () => {
       mocks.rpc.mockResolvedValue({ data: [], error: null });
       await expect(run()).rejects.toMatchObject({ reason: "reservation_unconfirmed" });
@@ -109,6 +113,26 @@ describe("native provider money admission", () => {
       }),
     ]);
     expect(JSON.stringify(mocks.rpc.mock.calls)).not.toContain("private source");
+    expect(mocks.fetch).toHaveBeenCalledOnce();
+  });
+
+  it("uses a trusted preallocated identity and refuses a second invocation after uncertainty", async () => {
+    const attempt = {
+      requestId: "00000000-0000-4000-8000-000000000021",
+      jobId: "00000000-0000-4000-8000-000000000022",
+    };
+    await generateBudgetedText({ ...context, attempt }, "source", 3000);
+    expect(mocks.rpc.mock.calls[0][1]).toMatchObject({
+      p_request: attempt.requestId,
+      p_job: attempt.jobId,
+    });
+    mocks.rpc.mockResolvedValueOnce({
+      data: [{ allowed: false, reason: "duplicate_request", period: "2026-09" }],
+      error: null,
+    });
+    await expect(
+      generateBudgetedText({ ...context, attempt }, "source", 3000),
+    ).rejects.toMatchObject({ reason: "duplicate_request" });
     expect(mocks.fetch).toHaveBeenCalledOnce();
   });
 

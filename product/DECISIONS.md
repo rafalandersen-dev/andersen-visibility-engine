@@ -6,6 +6,12 @@
 
 **Product Lead:** Rafal Andersen
 
+## 2026-09-08 — Isolate the already authorized benchmark
+
+The owner's USD5 approval covers exactly one scan, one article and one image. Implementation therefore adds optional restricted account/global budgets and one-attempt permits bound to identity, job, model, operation, amount, month and expiry. Ordinary background requests cannot use a restricted budget. This does not provision money, change the approved ceiling, authorize repeat attempts or configure package prices. Secure key setup, a controlled runner and independent expense reconciliation remain required; see [permit evidence](../evidence/restricted-ai-expense-permits-2026-09-08.md).
+
+PR #97 content-language support is merged; its dashboard fallback review finding was corrected. This delivers 24 content choices and authoring contracts, while full interface/email/legal translation and real multilingual quality remain open. The latest owner reconnect confirmation still produced UNAUTHORIZED from OpenAI Platform; the temporary Synergy-account exception remains accepted, not re-questioned.
+
 ## 2026-09-08 — Owner benchmark allowance and publication access
 
 Rafal explicitly approved **USD 5 total** for one real scan, one article and one image. This supersedes the earlier unapproved proposal. No automatic retry, additional paid run, top-up, subscription, email or client publication is included. Execution still requires bounded provider calls and cost evidence; zero benchmark calls have run at this record. Stripe setup is owner-deferred until after coffee, not rejected or complete. See [benchmark preflight](../evidence/owner-ai-benchmark-2026-09-08.md).
