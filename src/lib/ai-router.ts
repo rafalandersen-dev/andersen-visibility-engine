@@ -1,15 +1,8 @@
-/**
- * AI Provider Router v1 (server-only — reads env, never exposes secrets).
- *
- * Production behaviour is unchanged: every task resolves to the existing
- * provider/model by default. A candidate model (e.g. Claude via the same
- * OpenAI-compatible gateway, or OpenRouter) is optional and only used by the
- * internal evaluation tool, or in production if a task is explicitly routed and
- * the candidate is configured. Missing candidate config degrades gracefully.
- */
+/** Server-only routing. Direct OpenAI by default; explicit OpenRouter candidate
+ * for evaluations. No Lovable AI transport or credential fallback. */
 import type { AiTaskType } from "./types";
 
-export type AiProviderId = "existing" | "openrouter" | "anthropic" | "mock";
+export type AiProviderId = "openai" | "openrouter" | "anthropic" | "mock";
 
 export interface AiModelConfig {
   provider: AiProviderId;
@@ -26,8 +19,8 @@ export interface AiRouterConfig {
 }
 
 /** The production model id (mirrors ai.functions MODEL). */
-export const DEFAULT_MODEL_ID = "google/gemini-3-flash-preview";
-export const DEFAULT_MODEL_LABEL = "Gemini (production)";
+export const DEFAULT_MODEL_ID = "gpt-5.6-terra";
+export const DEFAULT_MODEL_LABEL = "GPT-5.6 Terra (OpenAI)";
 
 /** Tasks eligible for experimental candidate routing (evaluation/opt-in only). */
 export const EXPERIMENTAL_CANDIDATE_TASKS: AiTaskType[] = [
@@ -51,8 +44,7 @@ export function candidateUsesOpenRouter(): boolean {
 export function isCandidateConfigured(): boolean {
   const model = getCandidateModelId();
   if (!model) return false;
-  // Either route through OpenRouter (its own key) or the existing gateway key.
-  return candidateUsesOpenRouter() || Boolean((process.env.LOVABLE_API_KEY ?? "").trim());
+  return candidateUsesOpenRouter();
 }
 
 /** Whether experimental production routing is enabled (off by default). */
@@ -61,15 +53,20 @@ export function isEvaluationRoutingEnabled(): boolean {
 }
 
 export function getDefaultModelConfig(): AiModelConfig {
-  return { provider: "existing", model: DEFAULT_MODEL_ID, label: DEFAULT_MODEL_LABEL, enabled: true };
+  return {
+    provider: "openai",
+    model: DEFAULT_MODEL_ID,
+    label: DEFAULT_MODEL_LABEL,
+    enabled: Boolean((process.env.OPENAI_API_KEY ?? "").trim()),
+  };
 }
 
 export function getCandidateModelConfig(): AiModelConfig {
   const model = getCandidateModelId();
   return {
-    provider: candidateUsesOpenRouter() ? "openrouter" : "existing",
+    provider: "openrouter",
     model,
-    label: "Claude candidate",
+    label: "OpenRouter candidate",
     enabled: isCandidateConfigured(),
     experimental: true,
   };
@@ -120,7 +117,11 @@ export function isCandidateModelAvailable(config?: AiModelConfig): boolean {
 export function getRouterStatus() {
   const candidate = getCandidateModelConfig();
   return {
-    defaultModel: { label: DEFAULT_MODEL_LABEL, model: DEFAULT_MODEL_ID },
+    defaultModel: {
+      label: DEFAULT_MODEL_LABEL,
+      model: DEFAULT_MODEL_ID,
+      enabled: getDefaultModelConfig().enabled,
+    },
     candidateConfigured: isCandidateConfigured(),
     candidateLabel: candidate.label,
     candidateModel: candidate.model || null,

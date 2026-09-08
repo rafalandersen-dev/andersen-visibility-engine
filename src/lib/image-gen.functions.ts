@@ -8,8 +8,7 @@
  * pipeline untouched; a generated image is never publishable until the user
  * approves it like any upload.
  *
- * Provider is a seam (image-gen.server.ts): Lovable gateway now, gpt-image-1
- * pre-launch (owner decision). Pro/Agency-only (hard plan gate, active even
+ * Direct OpenAI generates images (image-gen.server.ts). Pro/Agency-only (hard plan gate, active even
  * while AI_METERING_ENFORCED is off) and metered via the imageGeneration
  * bucket — both checked BEFORE the model call so a refusal costs nothing.
  */

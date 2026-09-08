@@ -289,3 +289,14 @@ The agent is a product direction; “Milo” with a stylized, visibly AI face is
 `ROADMAP.md` is the current execution order, `STRATEGY_2026_2027.md` supplies strategic rationale, and `CURRENT_STATE.md` separates merged source, historical verification and runtime unknowns. The R00–R24 register preserves omissions and dependencies. Old July P0–P3 IDs remain technical cross-references, not today's prioritization.
 
 The next technical outcome is the exact-head/environment-evidence packet, followed by bounded cost/reliability work. Read-only issue #43 discovery is already authorized; do not repeatedly request that approval. This documentation does not close #43, merge unrelated PRs, set prices, send messages or authorize a new Worker environment release.
+
+
+## 2026-09-08 — Remove Lovable AI generation
+
+**Authority:** Rafal Andersen, explicit instruction in the current Milo task.
+
+- Native article/text and image generation must use direct providers, preferably OpenAI. Lovable AI credits are not an accepted generation dependency or fallback. Existing Lovable hosting, database, authentication and email are separate costs and services.
+- Implement direct OpenAI text and images; evaluate quality and actual cost before claiming savings or setting customer prices. Initial engineering choice: GPT-5.6 Terra, low reasoning effort, standard tier; GPT Image2 dated snapshot, one1536x1024 medium-quality WebP. These are bounded initial settings, not owner-approved package prices.
+- USD5 total remains authorized for one scan, one article, one image. It has not been spent. The broad Lovable-workspace two-credit cap proposal is withdrawn; no shared limit or automatic top-up change.
+- A new OpenAI key is authorized. Finish secure account/project selection and local destination confirmation. Use company ownership rafi@anderseninnovations.com; Personal / Default project labels alone are not evidence of a personal mailbox. No key values belong in documents or chat.
+- Direct Gemini in the separate public-audit Worker already bypasses Lovable. Its release constraints remain separate. Existing externally authored MCP text still does not invoke Milo's native text generator.

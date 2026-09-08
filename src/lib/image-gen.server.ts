@@ -1,21 +1,10 @@
-/**
- * Image generation provider seam (server-only).
- *
- * ONE function produces image bytes; which model does it is configuration:
- * - "lovable"  (default): the Lovable AI gateway's Gemini image model — no new
- *   keys, spends the project's Lovable credits. Pre-launch phase only.
- * - "openai": gpt-image-1 via an owner-supplied OPENAI_API_KEY — the owner's
- *   decision (2026-07-24) for BEFORE the product goes live, because Lovable
- *   credits do not scale to every user generating images. Switching is env
- *   config (IMAGE_GEN_PROVIDER=openai + OPENAI_API_KEY), never a rebuild.
- *
- * The caller validates the returned bytes with the SAME magic-byte check the
- * upload path uses — a provider response is untrusted input like any upload.
+/** Direct OpenAI image generation (owner decision, 2026-09-08).
+ * A missing key stops generation; no Lovable AI fallback exists. Returned bytes
+ * still pass the shared upload validation and private staging before approval.
  */
 
 import { MAX_IMAGE_BYTES } from "./image-storage";
 
-const LOVABLE_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const OPENAI_IMAGES_URL = "https://api.openai.com/v1/images/generations";
 export const IMAGE_GENERATION_TIMEOUT_MS = 120_000;
 // One 5 MiB image in base64 plus bounded JSON/text metadata.
@@ -24,14 +13,12 @@ export const IMAGE_RESPONSE_MAX_CHUNKS = 16_384;
 const MAX_BASE64_LENGTH = Math.ceil(MAX_IMAGE_BYTES / 3) * 4;
 const RESPONSE_ERROR = "The image service returned an invalid or oversized response.";
 
-/** Overridable per env in case the gateway renames its image model. */
-const LOVABLE_IMAGE_MODEL = () =>
-  (process.env.AI_IMAGE_MODEL ?? "").trim() || "google/gemini-2.5-flash-image-preview";
-
-export type ImageGenProvider = "lovable" | "openai";
+export const IMAGE_PROMPT_MAX_BYTES = 8 * 1024;
+export const OPENAI_IMAGE_MODEL = "gpt-image-2-2026-04-21";
+export type ImageGenProvider = "openai";
 
 export function activeImageProvider(): ImageGenProvider {
-  return (process.env.IMAGE_GEN_PROVIDER ?? "").trim() === "openai" ? "openai" : "lovable";
+  return "openai";
 }
 
 export class ImageGenError extends Error {
@@ -55,13 +42,6 @@ function b64ToBytes(b64: unknown): Uint8Array {
     throw new ImageGenError(RESPONSE_ERROR);
   }
   return new Uint8Array(bytes);
-}
-
-/** Parse a data URL ("data:image/png;base64,...") into bytes. */
-function dataUrlToBytes(url: unknown): Uint8Array | null {
-  if (typeof url !== "string" || url.length > MAX_BASE64_LENGTH + 64) return null;
-  const m = /^data:image\/(?:png|jpeg|webp);base64,(.+)$/i.exec(url);
-  return m ? b64ToBytes(m[1]) : null;
 }
 
 /** Fetch and stream decoding share one deadline. A timeout is an uncertain
@@ -93,7 +73,9 @@ async function imageResponse(url: string, init: RequestInit): Promise<unknown> {
       throw controller.signal.reason;
     }
     if (response.status === 402) {
-      throw new ImageGenError("The AI workspace is out of credits — image generation is paused.");
+      throw new ImageGenError(
+        "The image service requires a billing update — image generation is paused.",
+      );
     }
     if (response.status === 429) {
       throw new ImageGenError("Image generation is rate-limited right now. Try again in a minute.");
@@ -144,39 +126,27 @@ async function imageResponse(url: string, init: RequestInit): Promise<unknown> {
   }
 }
 
-async function generateViaLovable(prompt: string): Promise<Uint8Array> {
-  const key = process.env.LOVABLE_API_KEY;
-  if (!key) throw new ImageGenError("Image generation is not configured on this server.");
-  const body = (await imageResponse(LOVABLE_GATEWAY_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Lovable-API-Key": key },
-    body: JSON.stringify({
-      model: LOVABLE_IMAGE_MODEL(),
-      messages: [{ role: "user", content: prompt }],
-      modalities: ["image", "text"],
-    }),
-  })) as {
-    choices?: Array<{ message?: { images?: Array<{ image_url?: { url?: string } }> } }>;
-  };
-  const url = body?.choices?.[0]?.message?.images?.[0]?.image_url?.url ?? "";
-  const bytes = url ? dataUrlToBytes(url) : null;
-  if (!bytes || bytes.length === 0) {
-    throw new ImageGenError("The model returned no image. Try a more concrete description.");
-  }
-  return bytes;
-}
-
 async function generateViaOpenAi(prompt: string): Promise<Uint8Array> {
-  const key = process.env.OPENAI_API_KEY;
+  const key = (process.env.OPENAI_API_KEY ?? "").trim();
   if (!key) {
     throw new ImageGenError(
-      "OpenAI image generation is selected but no OPENAI_API_KEY is configured.",
+      "Image generation is not configured. The workspace owner needs to connect OpenAI.",
     );
   }
   const body = (await imageResponse(OPENAI_IMAGES_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ model: "gpt-image-1", prompt, size: "1536x1024", n: 1 }),
+    body: JSON.stringify({
+      model: OPENAI_IMAGE_MODEL,
+      prompt,
+      size: "1536x1024",
+      n: 1,
+      quality: "medium",
+      output_format: "webp",
+      output_compression: 85,
+      background: "opaque",
+      moderation: "auto",
+    }),
   })) as { data?: Array<{ b64_json?: string }> };
   const b64 = body?.data?.[0]?.b64_json ?? "";
   if (!b64)
@@ -184,9 +154,14 @@ async function generateViaOpenAi(prompt: string): Promise<Uint8Array> {
   return b64ToBytes(b64);
 }
 
-/** Generate image bytes for a prompt via the configured provider. */
+/** Generate one image with fixed rendering cost parameters and no retries. */
 export async function generateImageBytes(prompt: string): Promise<Uint8Array> {
-  return activeImageProvider() === "openai"
-    ? generateViaOpenAi(prompt)
-    : generateViaLovable(prompt);
+  if (
+    typeof prompt !== "string" ||
+    !prompt.trim() ||
+    prompt.length > IMAGE_PROMPT_MAX_BYTES ||
+    new TextEncoder().encode(prompt).byteLength > IMAGE_PROMPT_MAX_BYTES
+  )
+    throw new ImageGenError("The image description is empty or too long for one request.");
+  return generateViaOpenAi(prompt);
 }

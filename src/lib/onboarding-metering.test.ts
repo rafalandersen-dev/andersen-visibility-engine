@@ -10,7 +10,7 @@ vi.mock("./ai-usage.server", async (original) => ({
 }));
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.stubEnv("LOVABLE_API_KEY", "synthetic-test-only");
+  vi.stubEnv("OPENAI_API_KEY", "synthetic-test-only");
   vi.stubGlobal(
     "fetch",
     vi

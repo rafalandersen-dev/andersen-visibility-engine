@@ -2,7 +2,11 @@
 
 The owner explicitly approved **USD 5 total** on 2026-09-08 for at most one real homepage/onboarding scan, one article and one image. Do not request this approval again. No extra top-up, new subscription, automatic retry, email, client publication or additional paid test is included. Stripe setup is owner-deferred until after coffee.
 
-## Current execution state
+## Latest provider decision — supersedes the historical Lovable preflight below
+
+The owner explicitly rejects Lovable AI and chose direct OpenAI generation. Source migration is prepared; see [direct OpenAI evidence](./direct-openai-2026-09-08.md). Do not run this benchmark through the Lovable AI Gateway, change shared workspace limits or ask the withdrawn two-credit question again. The USD5 approval and zero-call/zero-spend status remain unchanged. New key creation is authorized but the secure picker has not returned confirmed targets. Personal / Default project are labels, not verified account email ownership.
+
+## Historical preflight, before the provider decision
 
 - Benchmark provider invocations: **0**. Benchmark spending: **0**.
 - The monetary ledger migration is already applied but has no funded budgets or active production provider callers. The approval alone does not make that ledger enforce costs.
@@ -14,6 +18,6 @@ The owner explicitly approved **USD 5 total** on 2026-09-08 for at most one real
 
 ## Next executable boundary
 
-Implement/verify server-owned provider and input/output bounds, stable one-attempt IDs and cost evidence before provisioning this allowance. Preserve unknown supplier expense rather than setting it to zero. Reconcile actual gateway usage per request with the billing UI; stop on an uncertain result and do not replay it under this approval. Customer article/image result allowances remain separate from provider attempts.
+Implement/verify server-owned provider and input/output bounds, stable one-attempt IDs and cost evidence before provisioning this allowance. Preserve unknown supplier expense rather than setting it to zero. Reconcile actual direct-provider usage per request with the billing UI; stop on an uncertain result and do not replay it under this approval. Customer article/image result allowances remain separate from provider attempts.
 
 Primary references checked 2026-09-08: https://docs.lovable.dev/features/ai and https://docs.lovable.dev/introduction/credits-and-usage. Keep the complete R00–R24 plan open; this is a bounded acceptance allowance, not launch pricing.

@@ -1,7 +1,6 @@
 /**
  * Image generation v1 — prompt/alt purity + provider seam parsing.
- * The provider response is untrusted input: bytes must round-trip the data-URL
- * parse and the caller re-validates with the upload path's magic-byte check.
+ * The provider response is untrusted input: bytes must round-trip base64 decoding and the caller re-validates with the upload path's magic-byte check.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildImagePrompt, draftAltText } from "./image-gen";
@@ -52,45 +51,42 @@ describe("provider seam", () => {
     vi.unstubAllEnvs();
   });
 
-  it("defaults to lovable; env flips to openai", () => {
-    vi.stubEnv("IMAGE_GEN_PROVIDER", "");
-    expect(activeImageProvider()).toBe("lovable");
-    vi.stubEnv("IMAGE_GEN_PROVIDER", "openai");
-    expect(activeImageProvider()).toBe("openai");
-  });
+  it.each(["", "openai", "lovable", "unknown"])(
+    "always uses OpenAI despite old provider setting %s",
+    (setting) => {
+      vi.stubEnv("IMAGE_GEN_PROVIDER", setting);
+      expect(activeImageProvider()).toBe("openai");
+    },
+  );
 
-  it("lovable branch parses the gateway data-URL image into bytes", async () => {
-    vi.stubEnv("LOVABLE_API_KEY", "test-key");
+  it("parses the direct OpenAI inline image into bytes", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
     const png = Buffer.from([0x89, 0x50, 0x4e, 0x47]).toString("base64");
     vi.stubGlobal(
       "fetch",
-      vi.fn(
-        async () =>
-          new Response(
-            JSON.stringify({
-              choices: [
-                { message: { images: [{ image_url: { url: `data:image/png;base64,${png}` } }] } },
-              ],
-            }),
-            { status: 200 },
-          ),
-      ),
+      vi.fn(async () => new Response(JSON.stringify({ data: [{ b64_json: png }] }))),
     );
     const bytes = await generateImageBytes("prompt");
     expect([...bytes.slice(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
     const call = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(String(call[0])).toContain("ai.gateway.lovable.dev");
+    expect(String(call[0])).toBe("https://api.openai.com/v1/images/generations");
     const sent = JSON.parse((call[1] as RequestInit).body as string);
-    expect(sent.modalities).toEqual(["image", "text"]);
+    expect(sent).toMatchObject({
+      n: 1,
+      quality: "medium",
+      output_format: "webp",
+      output_compression: 85,
+    });
+    expect(sent).not.toHaveProperty("modalities");
   });
 
-  it("maps out-of-credits and empty-image responses to friendly errors", async () => {
-    vi.stubEnv("LOVABLE_API_KEY", "test-key");
+  it("maps billing errors and empty-image responses to friendly errors", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response("{}", { status: 402 })),
     );
-    await expect(generateImageBytes("p")).rejects.toThrow(/out of credits/);
+    await expect(generateImageBytes("p")).rejects.toThrow(/billing update/);
     vi.stubGlobal(
       "fetch",
       vi.fn(
@@ -102,7 +98,8 @@ describe("provider seam", () => {
 
   it("refuses to run unconfigured (no key) instead of calling out", async () => {
     vi.stubEnv("IMAGE_GEN_PROVIDER", "");
-    vi.stubEnv("LOVABLE_API_KEY", "");
+    vi.stubEnv("LOVABLE_API_KEY", "synthetic-legacy-key");
+    vi.stubEnv("OPENAI_API_KEY", "");
     const spy = vi.fn();
     vi.stubGlobal("fetch", spy);
     await expect(generateImageBytes("p")).rejects.toThrow(/not configured/);
