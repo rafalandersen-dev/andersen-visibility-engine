@@ -8,17 +8,19 @@ import { Button } from "@/components/ui/button";
 export function PublicationFailureDetails({
   projectId,
   assetId,
+  queueId,
 }: {
   projectId: string;
   assetId: string;
+  queueId: string;
 }) {
   const [open, setOpen] = useState(false);
   const t = useT(),
     locale = useAppLanguage(),
     { user } = useAuth();
   const query = useQuery({
-    queryKey: ["publication-failure", user?.id, projectId, assetId],
-    queryFn: () => getPublicationFailureFn({ data: { projectId, assetId } }),
+    queryKey: ["publication-failure", user?.id, projectId, assetId, queueId],
+    queryFn: () => getPublicationFailureFn({ data: { projectId, assetId, queueId } }),
     enabled: open && !!user,
     staleTime: 0,
   });

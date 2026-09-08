@@ -42,7 +42,12 @@ export function publicationFailureReason(error: string | null): PublicationFailu
   }
   const http = /^Website returned an error \(status ([45]\d\d)\)\.$/.exec(error);
   if (http) return { kind: "destination", checks: [], httpStatus: Number(http[1]) };
-  if (error === "Could not reach the website endpoint. Check the URL and try again.")
+  if (
+    [
+      "Could not reach the website endpoint. Check the URL and try again.",
+      "Could not reach the live-publish endpoint. Check the URL and try again.",
+    ].includes(error)
+  )
     return { kind: "destination", checks: [] };
   if (
     [
@@ -74,11 +79,13 @@ export async function inspectPublicationFailure(
   userId: string,
   projectId: string,
   assetId: string,
+  queueId: string,
   now = new Date(),
   deps?: Dependencies,
 ) {
   identity.parse(projectId);
   identity.parse(assetId);
+  z.string().uuid().parse(queueId);
   if (!deps) {
     const { readWorkspaceRow } = await import("./workspace.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -98,6 +105,7 @@ export async function inspectPublicationFailure(
     .eq("user_id", userId)
     .eq("project_id", projectId)
     .eq("asset_id", assetId)
+    .eq("id", queueId)
     .limit(2);
   if (response.error) throw new Error("publication_inspection_unavailable");
   const queue = queueSchema.parse(response.data)[0];

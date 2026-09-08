@@ -1,11 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
 import { inspectPublicationFailure, publicationFailureReason } from "./publication-failure.server";
 const now = new Date("2026-09-08T09:00:00Z");
+const queueId = "d47a218a-334f-4fd9-a4c7-67d1ae844601";
 const recordedAt = "2026-09-07T09:00:00Z";
 const reviewError =
   "This draft is not publishable yet: 4 unresolved internal link(s): /private-path. Health/finance/legal claim(s) [medical] need a verified source or a resolved author, plus human review. YMYL content needs a named author with a real bio, credential or profile — add one in the Author panel.";
 
 describe("publication error hints", () => {
+  it("recognizes the live-step network failure as a destination issue", () => {
+    expect(
+      publicationFailureReason(
+        "Could not reach the live-publish endpoint. Check the URL and try again.",
+      ),
+    ).toEqual({ kind: "destination", checks: [] });
+  });
   it("recognizes the observed content checks without returning the error or embedded paths", () => {
     expect(publicationFailureReason(reviewError)).toEqual({
       kind: "contentReview",
@@ -75,7 +83,7 @@ function fixture() {
   };
   const db = { from: vi.fn(() => query) };
   const deps = { workspace, db } as unknown as NonNullable<
-    Parameters<typeof inspectPublicationFailure>[4]
+    Parameters<typeof inspectPublicationFailure>[5]
   >;
   return {
     data,
@@ -84,7 +92,7 @@ function fixture() {
     filters,
     query,
     db,
-    run: () => inspectPublicationFailure("owner", "project", "asset", now, deps),
+    run: () => inspectPublicationFailure("owner", "project", "asset", queueId, now, deps),
   };
 }
 describe("scoped publication inspection", () => {
@@ -104,6 +112,7 @@ describe("scoped publication inspection", () => {
       ["user_id", "owner"],
       ["project_id", "project"],
       ["asset_id", "asset"],
+      ["id", queueId],
     ]);
     expect(f.query.select).toHaveBeenCalledWith("status,attempts,updated_at,last_error");
     expect(f.query.limit).toHaveBeenCalledWith(2);

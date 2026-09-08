@@ -15,6 +15,7 @@ export const getPublicationFailureFn = createServerFn({ method: "POST" })
       .object({
         projectId: z.string().min(1).max(200),
         assetId: z.string().min(1).max(200),
+        queueId: z.string().uuid(),
       })
       .strict()
       .parse(input),
@@ -25,6 +26,7 @@ export const getPublicationFailureFn = createServerFn({ method: "POST" })
         context.userId as string,
         data.projectId,
         data.assetId,
+        data.queueId,
       );
     } catch {
       throw new Error("Saved publication details are temporarily unavailable.");

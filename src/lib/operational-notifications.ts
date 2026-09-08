@@ -29,6 +29,7 @@ export interface OperationalNotificationEvent {
     remaining?: number;
     plannedPeriod?: string;
     usagePeriod?: string;
+    queueId?: string;
   };
 }
 function localDay(now: Date, zone: string) {
@@ -108,7 +109,9 @@ export function operationalNotifications(args: {
       const asset = byId.get(q.assetId);
       if (!asset || asset.livePublishStatus === "published") continue;
       if (q.status === "failed") {
-        add("publication_failed", asset.id, asset.title, q.publishAt, `${q.id}:${q.publishAt}`);
+        add("publication_failed", asset.id, asset.title, q.publishAt, `${q.id}:${q.publishAt}`, {
+          queueId: q.id,
+        });
       }
       const left = Date.parse(q.publishAt) - args.now.getTime();
       if (
