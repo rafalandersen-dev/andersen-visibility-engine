@@ -242,7 +242,7 @@ describe("validateProjectSetupPayload — bounds and caps", () => {
 
 describe("validateProjectSetupPayload — enums", () => {
   it("checks enum-backed fields against the runtime mirrors", () => {
-    expectInvalid({ projectFields: { primaryLanguage: "German" } }, "primaryLanguage");
+    expectInvalid({ projectFields: { primaryLanguage: "Klingon" } }, "primaryLanguage");
     expectInvalid({ projectFields: { additionalLanguages: ["Klingon"] } }, "additionalLanguages[0]");
     expectInvalid({ services: [{ name: "S", kind: "Subscription" }] }, "services[0].kind");
     expectInvalid({ services: [{ name: "S", kind: "Service", priority: "Urgent" }] }, "services[0].priority");

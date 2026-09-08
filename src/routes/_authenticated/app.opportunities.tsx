@@ -1,3 +1,4 @@
+import { CONTENT_LANGUAGES } from "@/lib/content-languages";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -91,7 +92,7 @@ function OpportunitiesPage() {
           label="Language"
           value={fLang}
           onChange={setFLang}
-          options={["Polish", "Swedish", "English", "Danish"]}
+          options={CONTENT_LANGUAGES}
         />
         <Filter
           label="Content type"

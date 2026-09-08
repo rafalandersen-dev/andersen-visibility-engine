@@ -149,6 +149,23 @@ beforeEach(() => {
 });
 
 describe("internal create path (registered in 1C.3)", () => {
+  it("applies a new content language to both settings and the topics created in that proposal", async () => {
+    storedProject().primaryContentLanguage = "en";
+    seedAction({
+      projectFields: { primaryLanguage: "Greek" },
+      opportunities: [{ title: "A new topic" }],
+    });
+    await approve();
+    expect(storedProject()).toMatchObject({
+      primaryLanguage: "Greek",
+      primaryContentLanguage: "el",
+      appLanguage: "sv",
+      market: "SE",
+      currency: "SEK",
+    });
+    expect(storedOpportunities().find((o) => o.title === "A new topic")?.language).toBe("Greek");
+    expect(storedOpportunities().find((o) => o.id === "o0")?.language).toBe("Swedish");
+  });
   it("creates a pending project_setup_proposal when the target project exists", async () => {
     const out = await createPendingActionForWorkspace(
       USER,

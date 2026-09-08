@@ -1,3 +1,4 @@
+import { CONTENT_LANGUAGES } from "./content-languages";
 /**
  * Phase 1B.1 — pending actions (proposals) validation + pure lifecycle helpers.
  *
@@ -72,7 +73,7 @@ export const MAX_PROJECT_SETUP_COMPETITOR_URLS = 5;
 // Runtime mirrors of erased unions (same values as the 1A write tools).
 const PRIORITIES = ["High", "Medium", "Low"];
 const CONTENT_TYPES = ["Landing Page", "Service Page", "Blog Article", "Guide", "FAQ Page", "Comparison", "Location Page"];
-const LANGUAGES = ["Polish", "Swedish", "English", "Danish"];
+const LANGUAGES: readonly string[] = CONTENT_LANGUAGES;
 const SEARCH_INTENTS = ["Informational", "Commercial", "Transactional", "Navigational"];
 const SERVICE_KINDS = ["Service", "Product"];
 
@@ -314,11 +315,27 @@ export function validateProjectSetupPayload(payload: Record<string, unknown>): P
     }
     const primaryLanguage = str("payload.projectFields.primaryLanguage", raw.primaryLanguage, 1, 40, false);
     if (primaryLanguage !== undefined) {
-      f.primaryLanguage = oneOf("payload.projectFields.primaryLanguage", primaryLanguage, LANGUAGES, "Polish, Swedish, English or Danish");
+      f.primaryLanguage = oneOf(
+        "payload.projectFields.primaryLanguage",
+        primaryLanguage,
+        LANGUAGES,
+        "one of the supported EU content languages",
+      );
     }
     if (raw.additionalLanguages !== undefined) {
-      const langs = strArray("payload.projectFields.additionalLanguages", raw.additionalLanguages, 1, 40, MAX_PROJECT_SETUP_ADDITIONAL_LANGUAGES).map(
-        (l, i) => oneOf(`payload.projectFields.additionalLanguages[${i}]`, l, LANGUAGES, "Polish, Swedish, English or Danish"),
+      const langs = strArray(
+        "payload.projectFields.additionalLanguages",
+        raw.additionalLanguages,
+        1,
+        40,
+        MAX_PROJECT_SETUP_ADDITIONAL_LANGUAGES,
+      ).map((l, i) =>
+        oneOf(
+          `payload.projectFields.additionalLanguages[${i}]`,
+          l,
+          LANGUAGES,
+          "one of the supported EU content languages",
+        ),
       );
       f.additionalLanguages = [...new Set(langs)];
     }

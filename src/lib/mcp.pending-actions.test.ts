@@ -456,7 +456,7 @@ describe("1C.3 — project_setup_proposal via MCP", () => {
         [{ opportunities: [{ title: "T", publish: true }] }, "nested unknown opportunity key"],
         [{ projectFields: { competitorUrls: ["http://insecure.se"] } }, "non-https URL"],
         [{ projectFields: { competitorUrls: ["not a url"] } }, "malformed URL"],
-        [{ projectFields: { primaryLanguage: "German" } }, "invalid enum"],
+        [{ projectFields: { primaryLanguage: "Klingon" } }, "invalid enum"],
         [{ projectFields: { businessName: "x".repeat(201) } }, "bounds"],
         [{ services: Array.from({ length: 11 }, (_, i) => ({ name: `S${i}`, kind: "Service" })) }, "array cap"],
         [{}, "empty payload"],

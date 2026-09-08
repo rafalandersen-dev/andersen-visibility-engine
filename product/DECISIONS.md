@@ -306,3 +306,9 @@ The next technical outcome is the exact-head/environment-evidence packet, follow
 The owner explicitly instructed proceeding with the current OpenAI account email. Record this exception rather than creating a duplicate account or delaying setup for email migration. The API connection has been reauthenticated; secure picker/local destination confirmation remains incomplete.
 
 Native generation now has a prepared account/global reserve gate. Retain full reservations while actual cost is unverified; do not call token estimates invoices or provider attempts customer result allowances. USD5 is still limited to the isolated one-scan/article/image benchmark. It does not permit unrestricted background use of a newly funded monthly owner budget. See evidence/native-provider-expense-2026-09-08.md.
+
+## 2026-09-08 — Synergy account exception and EU article languages
+
+The owner reports changing the current OpenAI account to a Synergy email and accepts it temporarily for Milo. This updates the existing-account exception; exact address unverified. It does not change Milo's owner email or every vendor account. A new connector authentication error must be resolved through the already-requested secure reconnect, without requesting secrets in chat.
+
+R20 content-language support is implemented from one 24-language EU registry, separate from the four current application UI dictionaries and billing/market settings. Explicit language edits synchronize the two historical content-language fields. New Greek/Bulgarian/Maltese titles receive basic readable Latin slugs; stored URLs are retained. This is partial R20 delivery, not full UI/email/legal localization or proof of multilingual generation quality.
