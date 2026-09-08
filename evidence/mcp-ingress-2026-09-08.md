@@ -1,0 +1,15 @@
+# MCP request and write admission — 8 September 2026
+
+An authenticated MCP request previously used request.text() before checking a JavaScript character count, and a JSON-RPC batch dispatched every member concurrently. MCP write admission inherited the general OAuth counter's fail-open behavior on database failure. This packet bounds admission before dispatch and requires a confirmed counter for MCP mutations.
+
+- Body: at most 200,000 actual UTF-8 bytes, 4,096 stream chunks and a 10-second body-read deadline, including when cancellation does not finish. Declared length is only an early rejection hint; streamed bytes remain authoritative. Malformed UTF-8, unreadable streams and invalid JSON produce static errors. No provider/token/body fragments are logged.
+- Batch: 1–20 messages, rejected as a whole before any tool starts when outside the cap. Admitted items execute and audit sequentially within that HTTP request. This does not serialize separate HTTP requests; their existing atomic write-rate counter and workspace revision checks remain authoritative.
+- Partial outcomes: earlier responses remain in the returned batch. A known unavailable write counter returns a correlated no-write error. An unexpected later exception is labelled unconfirmed, and later items are labelled not started. No rollback or automatic batch retry is implied.
+- Writes: the existing 30/hour per-bearer write limit now requires an integer counter from 1 through the PostgreSQL integer maximum. Unavailable/malformed confirmation blocks that write. Existing read/auth callers retain their former failure policy. This is a write-rate control, not a monetary allowance or active provider expense ledger.
+- No new tools, scopes, publishing permissions, generation, credentials, database migrations or paid calls. Existing owner-enabled draft/proposal writes and legacy reads remain scoped as before. The public endpoint description now reflects these existing capabilities.
+
+42 new tests cover real streamed bodies, UTF-8 boundary/split characters, understated length, unending/fragmented streams, ignored cancellation, batch sequencing, partial outcomes, counter confirmation, and the actual HTTP route wiring. Full suite: 1,836 tests / 135 files; TypeScript, production build, lint across all changed/new source files and diff checks pass. Providers/database counters are mocked in this acceptance. The touched HTTP route was formatted; no global formatting or rule weakening was performed.
+
+The body limit applies in the application after authentication; it does not establish upstream proxy buffering limits or a complete route-response memory limit. Batch sequencing is not a full job queue, connector image ingestion, or full R08/R09 completion. Real Claude/ChatGPT client acceptance remains separate from HTTP-route tests.
+
+Review correction: failure handling now omits responses for both failed and unstarted JSON-RPC notifications (absent or null ID), preserving notification-only no-response behavior. Three additional regressions pass; the final full suite has1,836 tests/135 files, with types/build/changed-source lint/diff checks passing.

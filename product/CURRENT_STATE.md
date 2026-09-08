@@ -1,10 +1,10 @@
 # Milo Growth — Current State
 
-**Status:** Deployment reconciled through #91; real Butelki scheduled publication verified; full public launch remains unverified
+**Status:** #92–#93 published with matching build inputs; #94 under final review; full public launch remains unverified
 
 **Last updated:** 2026-09-08
 
-**Repository baseline inspected:** `main` at `29b730c227f4b410a5f282935445b561b2b981d5` (PR #91 merge)
+**Repository baseline inspected:** `main` at `5b05690d8f56a314a86a43860503d80dd5bd863b` (PR #93 merge)
 
 **Product Lead / Outcome Owner:** Rafal Andersen
 
@@ -13,6 +13,10 @@
 The owner explicitly requested and received an administrative email change to rafi@anderseninnovations.com on2026-09-07. The same Milo account,10 projects, owner role, entitlement and Google identity were preserved. This supersedes older missing-company-account observations. The approved owner test now has provider-reported delivery, with a separate earlier test discovered in the sender log. The current email identity was administratively confirmed after mailbox/access evidence at22:04:49UTC; fresh login remains untested; see [account ownership](./ACCOUNT_OWNERSHIP.md).
 
 ## Recovery brief
+
+Latest 8 September override: #92 publication-failure diagnostics and #93 shared text-provider bounds are reviewed and merged. Combined 1,794 tests /132 files, TypeScript/build pass. Deployment80fb5f9a-9fff-4704-9537-63105b0bd826 is verified on milogrowth.com: build1788855048521, fingerprint6837f080f32cd964c4cb02e1efa51fd81fd45a4bcaabe0359281160fd77ce5b2 and every component match clean main. This host omits revision/modified metadata (both null). Authenticated Safari confirms the actual Butelki content-review incident details, historical/stale-draft caveat, owner company email,10 projects and globally disabled email summaries. The next MCP admission packet adds42 cases,1,836 tests/135 files, with types/build/focused lint passing; review/publication of that packet remains pending. See [MCP admission evidence](../evidence/mcp-ingress-2026-09-08.md).
+
+The USD5 benchmark is approved and still unused. A separate unanswered question asks whether a temporary two-credit AI limit may affect the entire 21-project personal Lovable workspace. No limit or provider call has been made under that pending question. Do not re-ask the USD5 approval or interpret elapsed time as workspace permission.
 
 2026-09-08 update: #91 is merged and published with exact revision, modified=false, build1788819251901, fingerprint a76081ad9579fb0a23d0b246bcdae30c7138845d2911775c982054c1488030dc and every component matching. It passed1736 tests. The owner approved USD5 total for the one-scan/article/image benchmark; no benchmark invocation or spend yet. Stripe is deferred by the owner until after coffee. Existing Butelki destination access was found in the Si Longevity workspace, and today's09:00 Stockholm scheduled publication was independently read on the public site. Earlier missing-destination-access assumptions are superseded. See [publication topology](../evidence/publication-topology-2026-09-08.md) and [benchmark preflight](../evidence/owner-ai-benchmark-2026-09-08.md).
 
