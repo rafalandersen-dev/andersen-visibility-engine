@@ -3,6 +3,10 @@ import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from "vitest";
 const sql = readFileSync("supabase/migrations/20260907140000_ai_expense_reservations.sql", "utf8");
+const permitsSql = readFileSync(
+  "supabase/migrations/20260908210000_restricted_ai_expense_permits.sql",
+  "utf8",
+);
 let db: PGlite;
 const user = "00000000-0000-4000-8000-000000000011";
 const other = "00000000-0000-4000-8000-000000000012";
@@ -43,6 +47,7 @@ beforeAll(async () => {
   db = new PGlite();
   await db.exec("CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;");
   await db.exec(sql);
+  await db.exec(permitsSql);
 }, 30000);
 beforeEach(async () => {
   await db.exec("TRUNCATE public.ai_expense_requests,public.ai_expense_budgets;");
@@ -129,6 +134,7 @@ describe("atomic internal expense ledger", () => {
     const id = randomUUID();
     await reserve(id);
     await db.exec(sql);
+    await db.exec(permitsSql);
     expect(await reserve(id)).toMatchObject({ allowed: false });
     expect((await balances())[0]).toMatchObject({ held: 100 });
   });

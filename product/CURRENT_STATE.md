@@ -1,10 +1,10 @@
 # Milo Growth — Current State
 
-**Status:** #96 native monetary admission published; 24 EU content languages prepared; secure key, controlled benchmark and full launch remain pending
+**Status:** #97 EU content languages published; #98 restricted expense permits in review; secure key, controlled benchmark and full launch remain pending
 
 **Last updated:** 2026-09-08
 
-**Repository baseline inspected:** `main` at `d33faebd852ab844d152d3884378f68e840acb60` (PR #96 merge)
+**Repository baseline inspected:** `main` at `b49964cc483b6d3b5c9f1a59f43f27248309e634` (PR #97 merge)
 
 **Product Lead / Outcome Owner:** Rafal Andersen
 
@@ -13,6 +13,12 @@
 The owner explicitly requested and received an administrative email change to rafi@anderseninnovations.com on2026-09-07. The same Milo account,10 projects, owner role, entitlement and Google identity were preserved. This supersedes older missing-company-account observations. The approved owner test now has provider-reported delivery, with a separate earlier test discovered in the sender log. The current email identity was administratively confirmed after mailbox/access evidence at22:04:49UTC; fresh login remains untested; see [account ownership](./ACCOUNT_OWNERSHIP.md).
 
 ## Recovery brief
+
+Newest override: #97 is merged at the baseline above after review of `10d46312faccb0ba3a13e3374be7602ebc1a049e`. The review's dashboard language fallback finding is fixed. Deployment `5e78d400-9e16-4861-99ef-9be3a86647a6` is live: build `1788901133476`, exact merge revision, modified=false, full fingerprint `259582255ec1a35abe988b4613dc5d22c43f1c13f857891e2926ffe13a8acc6a` and all source components matching clean main. Public smoke: home200, MCP GET200/OPTIONS204/anonymous POST401. Full suite 1,956 tests; final dashboard correction also passed types, focused tests and build. Visual acceptance remains blocked by the browser administrator-policy check.
+
+The next packet isolates authorized AI tests from background spending using optional restricted budgets and exact one-attempt permits. It preserves the existing reservation RPC, monetary caps, retained unknown costs and replay protection. Migration `20260908210000_restricted_ai_expense_permits.sql` is prepared but not applied; it creates no budgets or permits. 1,982 tests/139 files, types, focused lint and build passed. A secure key and controlled runner still precede funding/execution. See [restricted expense evidence](../evidence/restricted-ai-expense-permits-2026-09-08.md).
+
+After the owner's latest “oki i did it”, the connector still returned UNAUTHORIZED. One specific question now asks for the visible OpenAI Platform connection status, without a key or password. No repeated picker launch, key creation, secret save or spend occurred. Existing Synergy/account and USD5 authorizations persist.
 
 Latest authoritative override: #96 is reviewed, merged and published as deployment `63132b2e-78b5-4afd-adb6-2ac5f5e33705`, build `1788899288773`, exact revision `d33faebd852ab844d152d3884378f68e840acb60`, modified=false, fingerprint `bc369ba9dd442488197fca4034f11f48ee51e9cec5f3a598cdd7ecc78b3031e7` and every component matching clean main. All native OpenAI actions now require account/global monetary admission; no budgets were funded and the latest production read had zero budgets/attempts. See [expense evidence](../evidence/native-provider-expense-2026-09-08.md) and the final PR #96 description for release evidence.
 

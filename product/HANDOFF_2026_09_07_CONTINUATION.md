@@ -1,5 +1,15 @@
 # Milo Growth — continuous execution handoff
 
+## Latest override — PR #97 and isolated expense permits, 2026-09-08
+
+Main `b49964cc483b6d3b5c9f1a59f43f27248309e634` includes #97, the 24 EU content-language registry, dashboard correction and stable Greek/Bulgarian/Maltese URL rendering. Reviewed final head `10d46312faccb0ba3a13e3374be7602ebc1a049e`; final check succeeded. Deployment `5e78d400-9e16-4861-99ef-9be3a86647a6` is verified on the domain: build1788901133476, exact clean merge revision, fingerprint259582255ec1a35abe988b4613dc5d22c43f1c13f857891e2926ffe13a8acc6a and all components matching. Home200/MCP GET200/OPTIONS204/anonymous POST401. Interface/email/legal translation and visual acceptance are still unfinished; do not label R20 complete.
+
+Current independent worktree `/Users/rafi/Projects/milo-growth-restricted-expense-20260908`, branch `codex/milo-restricted-expense-20260908`, prepares one-attempt expense permits. Full 1,982 tests/139 files, types, focused lint and build pass. New migration `20260908210000_restricted_ai_expense_permits.sql` is not applied, and no permits or budgets are provisioned. Read `evidence/restricted-ai-expense-permits-2026-09-08.md` for scope, tests and the funding boundary. Review/merge/release still pending.
+
+Current blocker: OpenAI target lookup still returns UNAUTHORIZED after “oki i did it”. A single question about the visible connection status is pending. Do not reopen the picker until a verified reconnect, infer widget selection from discovery, or send secrets to chat. New-key creation, temporary Synergy email and USD5 for exactly one scan/article/image remain authorized; no paid calls or saved key. Stripe deferred, single email test consumed, operational email off. No successor task, subagents or automation exists; continue the full R00–R24/D01–D08 plan within the established boundaries.
+
+All overrides below are historical and must not replace this newest state.
+
 ## Current override — 2026-09-08
 
 Latest override: #92 and #93 are merged as main5b05690d8f56a314a86a43860503d80dd5bd863b; 1,794 tests/132 files, types/build passed. Combined deployment80fb5f9a-9fff-4704-9537-63105b0bd826 is verified: build1788855048521, full fingerprint6837f080f32cd964c4cb02e1efa51fd81fd45a4bcaabe0359281160fd77ce5b2 and all components match. Revision/modified metadata are null on this host build. Authenticated Safari accepted the real Butelki failure panel and confirmed the company email/10 projects/global email off. The MCP admission branch codex/milo-mcp-ingress-20260908 in /Users/rafi/Projects/milo-growth-mcp-ingress-20260908 adds42 tests (1,836/135 files), types/build/focused lint pass; review/release pending. No new migration, token/scope, budget, paid call or image import. The separate question about a temporary two-credit workspace AI limit is unanswered; the USD5 owner test itself is already approved. Read newer release evidence before repeating any deployment. No successor task exists.
