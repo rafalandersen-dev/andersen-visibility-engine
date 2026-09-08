@@ -7,7 +7,7 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { generateText } from "ai";
+import { generateBoundedText, AiTextBoundaryError } from "./ai-text-bounds.server";
 import { z } from "zod";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
@@ -1048,32 +1048,30 @@ function normalizeVisibilityGap(value: unknown, index: number) {
 // cover reasoning + the JSON payload or the response truncates mid-JSON.
 // 16k leaves ample headroom for our small JSON/markdown outputs.
 async function generateJsonText(prompt: string, maxOutputTokens = 16000, modelId?: string) {
-  const { text } = await generateText({
-    model: modelFor(modelId),
-    maxOutputTokens,
-    maxRetries: 0,
-    abortSignal: AbortSignal.timeout(60_000),
-    prompt,
-  });
+  const text = await generateBoundedText(prompt, maxOutputTokens, () => modelFor(modelId));
   return parseJsonFromText(text);
 }
 
 function mapGatewayError(e: unknown): Error {
   const raw = e instanceof Error ? e.message : String(e);
-  // Surface real cause to server logs so we can debug. The actionable signal
-  // (429, 402, finish_reason=length, schema details) frequently lives on the
-  // error's `cause` or `statusCode`, not the top-level message — so detect
-  // across all of them. Never logs secrets (AI SDK errors omit the API key).
-  const anyErr = e as { cause?: unknown; text?: unknown; statusCode?: unknown; status?: unknown };
+  // Classify locally, but never log provider messages, causes or output text:
+  // SDK/schema errors can contain prompts, private URLs and response content.
+  const anyErr = e as { cause?: unknown; statusCode?: unknown; status?: unknown };
   const causeMsg = anyErr?.cause instanceof Error ? anyErr.cause.message : anyErr?.cause;
-  const text = typeof anyErr?.text === "string" ? anyErr.text.slice(0, 800) : undefined;
   const status = anyErr?.statusCode ?? anyErr?.status;
   const msg = [
     raw,
     typeof causeMsg === "string" ? causeMsg : "",
     status ? `status ${status}` : "",
   ].join(" ");
-  console.error("[ai.functions] gateway/validation error:", raw, { cause: causeMsg, status, text });
+  console.error("[ai.functions] gateway/validation error", {
+    httpStatus:
+      typeof status === "number" && Number.isInteger(status) && status >= 400 && status <= 599
+        ? status
+        : null,
+    boundary: e instanceof AiTextBoundaryError ? e.reason : null,
+  });
+  if (e instanceof AiTextBoundaryError) return new Error(e.message);
 
   // 1. Rate limit — transient, retry shortly.
   if (/\b429\b|rate.?limit|too many requests|overloaded/i.test(msg))
@@ -2240,7 +2238,7 @@ ${sharedRules}`,
       console.error("[ai.functions] content generation failed", {
         projectId: project.id,
         opportunityId: opp.id,
-        error: e instanceof Error ? e.message : String(e),
+        failed: true,
       });
       throw mapGatewayError(e);
     }
@@ -2352,7 +2350,7 @@ ${sharedRules}`,
       console.error("[ai.functions] content generation failed", {
         projectId: project.id,
         opportunityId: opp.id,
-        error: e instanceof Error ? e.message : String(e),
+        failed: true,
       });
       throw mapGatewayError(e);
     }

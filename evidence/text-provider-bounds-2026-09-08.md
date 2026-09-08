@@ -1,0 +1,11 @@
+# Shared text provider bounds — R09, 2026-09-08
+
+Existing text generation now uses one shared boundary: at most64KiB of UTF-8 prompt text, integer output-token cap1–16,000 (existing per-action caps unchanged),60-second wait deadline, no tools and zero automatic model retries. Oversized prompts are rejected before resolving/contacting the model; they are not silently truncated. At most256KiB of returned text reaches the JSON parser. The explicit timeout race ends waiting even if an SDK/provider ignores the abort signal; a late supplier result does not trigger another attempt.
+
+These controls apply to the existing common JSON text path, including onboarding and article generation. They do not change the provider, model, credentials, quotas, customer allowances or monetary budget configuration. They bound the assembled prompt and returned text; they do not claim to bound the entire inbound HTTP request, all upstream context assembly or the SDK's raw network response.
+
+The shared gateway error logger now records only a validated HTTP error status and a known boundary reason. Both article generation catch blocks omit raw exception messages. Supplier messages/causes/output fragments remain local to static error classification and are never returned verbatim or written by those loggers. Unrelated connector logging is outside this packet.
+
+23 new cases cover exact/multibyte input and output boundaries, invalid token caps, cancellation-ignoring providers, late completion, timer cleanup, no tools/retries and actual article-core error privacy. Existing onboarding fallback and metering coverage remain intact. All providers in automated validation are mocked; no benchmark calls or spending occur in these tests.
+
+The owner has approved USD5 total for one real scan/article/image. Execution remains pending: a separate question asks whether a temporary two-credit limit may affect all21 projects in the existing personal Lovable workspace. No answer or elapsed time is permission; no workspace limit, top-up or AI call has been performed under that pending request. The general monetary provider ledger remains inactive; byte/token caps are not an invoiced cost or evidence of full R09 completion.
