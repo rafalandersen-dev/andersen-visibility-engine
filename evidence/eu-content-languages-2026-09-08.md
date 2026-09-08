@@ -12,6 +12,8 @@ Explicit language edits synchronize `primaryLanguage` and `primaryContentLanguag
 
 Normalization recognizes exact English/native names, supported ISO codes and regional tags without fuzzy prefix matches between Slovak and Slovenian. Unsupported or ambiguous language values are rejected by external write schemas; existing legacy generator fallbacks remain. Proposal/batch size, identity, scope, idempotency, approval and publication restrictions remain in place. The existing maximum of three additional languages in one MCP setup proposal is unchanged.
 
+Review correction: upcoming and recent content on Today now resolve their language through the same registry and format the name in the active interface locale. New languages no longer fall through the old four-language map to English. Content without its own language uses the authoritative project content setting; an unrecognized stored language is displayed as supplied rather than mislabeled as English.
+
 The shared slug generator adds basic Latin mappings for Bulgarian, Greek and Maltese letters so newly created non-Latin titles do not collapse to empty URLs. It preserves the ASCII/word-boundary slug contract. This is a readable deterministic URL rendering, not a certified linguistic transliteration. It does not rewrite stored slugs or publish anything.
 
 ## Verification and limits
