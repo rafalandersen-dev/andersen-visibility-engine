@@ -12,6 +12,7 @@ import {
 import { toast } from "sonner";
 import { OperationalEmailSettings } from "@/components/OperationalEmailSettings";
 import { SchedulerRecoveryDetails } from "@/components/SchedulerRecoveryDetails";
+import { PublicationFailureDetails } from "@/components/PublicationFailureDetails";
 
 export const Route = createFileRoute("/_authenticated/app/notifications")({
   component: NotificationsPage,
@@ -130,6 +131,13 @@ function NotificationsPage() {
               )}
               {item.kind === "scheduler_recovery" && (
                 <SchedulerRecoveryDetails projectId={item.project_id} />
+              )}
+              {item.kind === "publication_failed" && item.detail.queueId && (
+                <PublicationFailureDetails
+                  projectId={item.project_id}
+                  assetId={item.target_id}
+                  queueId={item.detail.queueId}
+                />
               )}
               <div className="mt-4 flex flex-wrap gap-2">
                 {editor ? (

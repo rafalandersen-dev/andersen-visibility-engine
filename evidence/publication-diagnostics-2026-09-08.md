@@ -1,0 +1,9 @@
+# Read-only publication diagnostics
+
+The observed Butelki July incident was a content-readiness rejection, while two UK incidents recorded an HTTP502 response. The inbox now exposes a bounded explanation without displaying raw provider errors, credentials, article bodies or private URLs.
+
+The authenticated function verifies the requested project and exactly one matching owned asset from the account workspace before a service-role read scoped by user/project/asset. Missing, malformed, duplicate or unavailable data cannot become a success. The panel distinguishes known content-review/configuration/destination hints and unknown errors, treats changed queue status separately, and labels the result as historical. Draft edits after the recorded queue timestamp show an additional caveat. There are no automatic retries, writes, new migrations, publication approvals or CMS calls.
+
+35 regression cases cover the real message patterns, exact HTTP matching, unknown/oversized/private error suppression, ownership and duplicates, independent query scope, stale queue states and modified drafts. Full suite1771 tests/130 files passes, as do TypeScript, production build, focused lint and diff checks. Live UI acceptance remains pending until this source is merged/published; real destination discovery and an independently scheduled publication are recorded separately in publication-topology-2026-09-08.md.
+
+Review correction: the notification now carries the exact queue-row ID, and the authenticated read applies user/project/asset/queue filters. Cancelled rows preserved by rescheduling no longer make a legitimate incident ambiguous. The live-publish network-error wording is also recognized. Both review findings have regression coverage; full1771 tests, types/build and focused lint pass after these changes.

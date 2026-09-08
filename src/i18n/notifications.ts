@@ -1,5 +1,32 @@
 export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, string>> = {
   en: {
+    "notifications.failureInspect": "Inspect publication details",
+    "notifications.failureReadError":
+      "Publication details could not be checked. Try again before deciding what to do.",
+    "notifications.failureReason.contentReview":
+      "The saved attempt was blocked by content checks. Open the draft to review its current readiness.",
+    "notifications.failureReason.destination":
+      "The saved attempt reported a destination connection or response error. Check the destination before retrying.",
+    "notifications.failureReason.configuration":
+      "The saved attempt reported missing or invalid publishing configuration. Check Project Setup.",
+    "notifications.failureReason.unknown":
+      "The saved error could not be classified. Review the draft and destination before retrying.",
+    "notifications.failureRecorded":
+      "Record updated {at}, in your browser’s time zone. Attempts recorded: {attempts}.",
+    "notifications.failureDraftChanged":
+      "The draft changed after this record. These details may no longer describe its current readiness.",
+    "notifications.failureHttp": "Recorded website response: HTTP {status}.",
+    "notifications.failureCheck.links": "Resolve internal links in the editor’s link-safety panel.",
+    "notifications.failureCheck.sourcesReview":
+      "Verify the claims against sources or a qualified author, and complete human review.",
+    "notifications.failureCheck.author":
+      "Add the real author’s name and a biography, credential or profile.",
+    "notifications.failureHistoryLimit":
+      "This is historical information saved in Milo. It does not check the destination, approve the current draft or restart publication.",
+    "notifications.failureState.absent":
+      "No matching queue record was found. Refresh notifications and review the draft.",
+    "notifications.failureState.changed":
+      "The queue no longer marks this item as failed. Refresh notifications; this alone does not verify the destination website.",
     "notifications.recoveryInspect": "Inspect saved work",
     "notifications.recoveryReadError":
       "Saved automation records could not be checked. Try again before deciding whether to restart.",
@@ -75,6 +102,34 @@ export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, str
     "notifications.readError": "Could not mark this notification as read. Please try again.",
   },
   pl: {
+    "notifications.failureInspect": "Sprawdź powód zatrzymania",
+    "notifications.failureReadError":
+      "Nie udało się sprawdzić szczegółów publikacji. Spróbuj ponownie przed podjęciem decyzji.",
+    "notifications.failureReason.contentReview":
+      "Zapisaną próbę zatrzymała kontrola treści. Otwórz szkic i sprawdź jego bieżącą gotowość.",
+    "notifications.failureReason.destination":
+      "Zapisana próba zgłosiła problem z połączeniem lub odpowiedzią strony docelowej. Sprawdź stronę przed ponowieniem.",
+    "notifications.failureReason.configuration":
+      "Zapisana próba zgłosiła brakującą lub nieprawidłową konfigurację publikacji. Sprawdź ustawienia projektu.",
+    "notifications.failureReason.unknown":
+      "Nie udało się rozpoznać zapisanego błędu. Sprawdź szkic i stronę docelową przed ponowieniem.",
+    "notifications.failureRecorded":
+      "Zapis z {at}, w strefie czasowej przeglądarki. Liczba zapisanych prób: {attempts}.",
+    "notifications.failureDraftChanged":
+      "Szkic zmienił się po tym zapisie. Te szczegóły mogą już nie opisywać jego bieżącej gotowości.",
+    "notifications.failureHttp": "Zapisana odpowiedź strony: HTTP {status}.",
+    "notifications.failureCheck.links":
+      "Rozwiąż linki wewnętrzne w panelu bezpieczeństwa linków w edytorze.",
+    "notifications.failureCheck.sourcesReview":
+      "Zweryfikuj twierdzenia na podstawie źródeł lub kompetentnego autora i przeprowadź kontrolę przez człowieka.",
+    "notifications.failureCheck.author":
+      "Podaj nazwisko rzeczywistego autora oraz jego biografię, kwalifikacje lub profil.",
+    "notifications.failureHistoryLimit":
+      "To historyczne informacje zapisane w Milo. Ten widok nie sprawdza strony docelowej, nie zatwierdza bieżącego szkicu i nie wznawia publikacji.",
+    "notifications.failureState.absent":
+      "Nie znaleziono pasującego wpisu kolejki. Odśwież powiadomienia i sprawdź szkic.",
+    "notifications.failureState.changed":
+      "Kolejka nie oznacza już tej pozycji jako nieudanej. Odśwież powiadomienia; sama zmiana nie potwierdza stanu strony docelowej.",
     "notifications.recoveryInspect": "Sprawdź zapisane materiały",
     "notifications.recoveryReadError":
       "Nie udało się sprawdzić zapisów automatyzacji. Spróbuj ponownie przed decyzją o wznowieniu.",
@@ -153,6 +208,34 @@ export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, str
       "Nie udało się oznaczyć powiadomienia jako przeczytanego. Spróbuj ponownie.",
   },
   sv: {
+    "notifications.failureInspect": "Granska publiceringsdetaljer",
+    "notifications.failureReadError":
+      "Publiceringsdetaljerna kunde inte kontrolleras. Försök igen innan du bestämmer nästa steg.",
+    "notifications.failureReason.contentReview":
+      "Det sparade försöket stoppades av innehållskontroller. Öppna utkastet och granska dess aktuella status.",
+    "notifications.failureReason.destination":
+      "Det sparade försöket rapporterade ett anslutnings- eller svarsfel från målwebbplatsen. Kontrollera webbplatsen innan du försöker igen.",
+    "notifications.failureReason.configuration":
+      "Det sparade försöket rapporterade saknad eller ogiltig publiceringskonfiguration. Kontrollera projektinställningarna.",
+    "notifications.failureReason.unknown":
+      "Det sparade felet kunde inte klassificeras. Granska utkastet och målwebbplatsen innan du försöker igen.",
+    "notifications.failureRecorded":
+      "Posten uppdaterades {at}, i webbläsarens tidszon. Registrerade försök: {attempts}.",
+    "notifications.failureDraftChanged":
+      "Utkastet ändrades efter denna post. Uppgifterna kanske inte längre beskriver dess aktuella status.",
+    "notifications.failureHttp": "Registrerat svar från webbplatsen: HTTP {status}.",
+    "notifications.failureCheck.links":
+      "Kontrollera interna länkar i redigerarens panel för länksäkerhet.",
+    "notifications.failureCheck.sourcesReview":
+      "Verifiera påståenden med källor eller en kvalificerad författare och genomför en mänsklig granskning.",
+    "notifications.failureCheck.author":
+      "Ange den verkliga författarens namn och biografi, kvalifikationer eller profil.",
+    "notifications.failureHistoryLimit":
+      "Detta är historiska uppgifter sparade i Milo. Vyn kontrollerar inte målwebbplatsen, godkänner inte utkastet och startar inte om publiceringen.",
+    "notifications.failureState.absent":
+      "Ingen matchande köpost hittades. Uppdatera aviseringarna och granska utkastet.",
+    "notifications.failureState.changed":
+      "Kön markerar inte längre denna post som misslyckad. Uppdatera aviseringarna; detta bekräftar inte målwebbplatsens status.",
     "notifications.recoveryInspect": "Granska sparat arbete",
     "notifications.recoveryReadError":
       "Automatiseringens sparade uppgifter kunde inte kontrolleras. Försök igen innan du beslutar om omstart.",
@@ -231,6 +314,34 @@ export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, str
     "notifications.readError": "Kunde inte markera aviseringen som läst. Försök igen.",
   },
   da: {
+    "notifications.failureInspect": "Se publiceringsdetaljer",
+    "notifications.failureReadError":
+      "Publiceringsdetaljerne kunne ikke kontrolleres. Prøv igen, før du beslutter næste skridt.",
+    "notifications.failureReason.contentReview":
+      "Det gemte forsøg blev stoppet af indholdskontroller. Åbn kladden og gennemgå dens aktuelle status.",
+    "notifications.failureReason.destination":
+      "Det gemte forsøg rapporterede en forbindelses- eller svarfejl fra målwebstedet. Kontrollér webstedet, før du prøver igen.",
+    "notifications.failureReason.configuration":
+      "Det gemte forsøg rapporterede manglende eller ugyldig publiceringskonfiguration. Kontrollér projektindstillingerne.",
+    "notifications.failureReason.unknown":
+      "Den gemte fejl kunne ikke klassificeres. Gennemgå kladden og målwebstedet, før du prøver igen.",
+    "notifications.failureRecorded":
+      "Posten blev opdateret {at}, i browserens tidszone. Registrerede forsøg: {attempts}.",
+    "notifications.failureDraftChanged":
+      "Kladden blev ændret efter denne post. Oplysningerne beskriver muligvis ikke længere dens aktuelle status.",
+    "notifications.failureHttp": "Registreret svar fra webstedet: HTTP {status}.",
+    "notifications.failureCheck.links":
+      "Kontrollér interne links i editorens panel for linksikkerhed.",
+    "notifications.failureCheck.sourcesReview":
+      "Verificér påstande med kilder eller en kvalificeret forfatter, og gennemfør en menneskelig gennemgang.",
+    "notifications.failureCheck.author":
+      "Angiv den virkelige forfatters navn og biografi, kvalifikationer eller profil.",
+    "notifications.failureHistoryLimit":
+      "Dette er historiske oplysninger gemt i Milo. Visningen kontrollerer ikke målwebstedet, godkender ikke kladden og genstarter ikke publiceringen.",
+    "notifications.failureState.absent":
+      "Ingen tilsvarende køpost blev fundet. Opdatér meddelelserne og gennemgå kladden.",
+    "notifications.failureState.changed":
+      "Køen markerer ikke længere denne post som mislykket. Opdatér meddelelserne; dette bekræfter ikke målwebstedets status.",
     "notifications.recoveryInspect": "Gennemgå gemt arbejde",
     "notifications.recoveryReadError":
       "Automatiseringens gemte oplysninger kunne ikke kontrolleres. Prøv igen, før du beslutter at genstarte.",
