@@ -1032,6 +1032,9 @@ async function generateJsonText(
 }
 
 function mapGatewayError(e: unknown): Error {
+  // Trusted internal pause type must survive for the background scheduler.
+  // Flattening it to Error would make it attempt every remaining slot.
+  if (e instanceof AiExpenseUnavailableError) return e;
   const raw = e instanceof Error ? e.message : String(e);
   // Classify locally, but never log provider messages, causes or output text:
   // SDK/schema errors can contain prompts, private URLs and response content.
@@ -1050,11 +1053,7 @@ function mapGatewayError(e: unknown): Error {
         : null,
     boundary: e instanceof AiTextBoundaryError ? e.reason : null,
   });
-  if (
-    e instanceof AiTextBoundaryError ||
-    e instanceof AiProviderConfigurationError ||
-    e instanceof AiExpenseUnavailableError
-  )
+  if (e instanceof AiTextBoundaryError || e instanceof AiProviderConfigurationError)
     return new Error(e.message);
 
   // 1. Rate limit — transient, retry shortly.

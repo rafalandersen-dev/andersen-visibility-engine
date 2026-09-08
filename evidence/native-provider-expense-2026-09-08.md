@@ -6,6 +6,8 @@ Date: 2026-09-08. Base: PR #95 merge `a3f7aec29edaa91a03bbe7f29280beec684f3086`.
 
 The 17 native text actions and article-image generation now reserve money against both the authenticated user's account and the global budget before invoking OpenAI. They use the previously applied `reserve_ai_expense` / `reconcile_ai_expense` migration. Missing, paused, exhausted or unconfirmed budgets stop provider work. Existing usage claims and image entitlement checks remain in place.
 
+Scheduler discovery and generation preserve the internal monetary pause type, stop remaining attempts and retain completed drafts. Budget failure is not treated as an empty discovery result or an ordinary per-slot generation error.
+
 Each server invocation creates one UUID used throughout that provider attempt; its job ID currently equals its attempt ID. No automatic provider retry occurs. A later user retry is a new paid attempt and requires a new reservation. This is not cross-request idempotency or a grouped multi-step job budget.
 
 Successful responses retain the full reservation with `actualMicrousd: null`. Explicit provider token counts and safe request IDs are recorded for later cost verification. Missing token fields are unknown, including cases where the compatible SDK substitutes zero. The text adapter reads the single step's raw usage because the SDK's aggregate usage drops raw fields. Raw prompts, supplier bodies, images and credentials are not written to the ledger. No unverified cost is settled or refunded.
@@ -30,7 +32,7 @@ These are conservative admission allocations based on published rates and fixed 
 
 ## Verification
 
-- Full suite: 1,900 tests in 137 files passed; TypeScript and production build passed.
+- Full suite: 1,906 tests in 137 files passed; TypeScript and production build passed.
 - Focused lint passed. The existing `no-control-regex` finding in `ai.functions.ts` remains outside changed lines; full-file lint is not claimed clean.
 - New real-SDK transport tests verify reservation before network work, account identity, fixed provider settings, explicit usage capture, unknown-cost retention, configuration/budget refusal, no retry, provider timeout and accounting outages. The ledger also covers stalled RPCs and late provider completion.
 - All supplier/network responses in tests are synthetic. No OpenAI request, benchmark expenditure, customer publication or email was made.

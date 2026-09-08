@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { generateContentCore } from "./ai.functions";
+import { AiExpenseUnavailableError } from "./ai-expense.server";
 import type { Project, Opportunity } from "./types";
 const mocks = vi.hoisted(() => ({ claim: vi.fn(), model: vi.fn(), rpc: vi.fn() }));
 vi.mock("@/integrations/supabase/client.server", () => ({ supabaseAdmin: { rpc: mocks.rpc } }));
@@ -35,6 +36,20 @@ const args = {
   assetType: "article" as const,
 };
 describe("text error privacy in existing article generation", () => {
+  it.each(["budget_unconfigured", "budget_exhausted", "budget_paused", "duplicate_request"])(
+    "preserves the internal %s pause for scheduler callers",
+    async (reason) => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      mocks.rpc.mockResolvedValue({
+        data: [{ allowed: false, reason, period: "2026-09" }],
+        error: null,
+      });
+      await expect(
+        generateContentCore("00000000-0000-4000-8000-000000000011", args),
+      ).rejects.toBeInstanceOf(AiExpenseUnavailableError);
+      expect(mocks.model).not.toHaveBeenCalled();
+    },
+  );
   it("explains missing OpenAI configuration without trying the legacy gateway", async () => {
     vi.stubEnv("OPENAI_API_KEY", "");
     vi.stubEnv("LOVABLE_API_KEY", "synthetic-legacy-key");

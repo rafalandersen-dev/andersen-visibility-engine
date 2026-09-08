@@ -1,6 +1,7 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { runMonthlyAutoScheduler } from "./auto-scheduler.server";
 import { UsageLimitError, UsageUnavailableError } from "./ai-usage.server";
+import { AiExpenseUnavailableError } from "./ai-expense.server";
 import type { WorkspaceData } from "./workspace.server";
 import type { ContentAsset, Opportunity } from "./types";
 
@@ -169,6 +170,7 @@ describe("autopilot budget failures", () => {
   it.each([
     new UsageUnavailableError("contentGeneration"),
     new UsageLimitError("contentGeneration", 3, 3, "Monthly content limit reached."),
+    new AiExpenseUnavailableError("budget_exhausted"),
   ])("retains completed drafts and stops all remaining attempts after %s", async (failure) => {
     mocks.generate
       .mockResolvedValueOnce({
@@ -287,12 +289,18 @@ describe("autopilot budget failures", () => {
     expect((workspace.content as ContentAsset[])[0].scheduledPublishAt).toBeUndefined();
   });
 
-  it("reports an unavailable discovery meter instead of hiding it as no ideas", async () => {
-    workspace.opportunities = [];
-    mocks.discover.mockRejectedValue(new UsageUnavailableError("aiCredits"));
-    const summary = await runMonthlyAutoScheduler(now);
-    expect(mocks.discover.mock.calls[0][2]).toEqual({ enforceLimit: true });
-    expect(summary.projects[0].error).toContain("AI work is paused");
-    expect(mocks.generate).not.toHaveBeenCalled();
-  });
+  it.each([
+    new UsageUnavailableError("aiCredits"),
+    new AiExpenseUnavailableError("budget_unconfigured"),
+  ])(
+    "reports an unavailable discovery budget instead of hiding it as no ideas: %s",
+    async (failure) => {
+      workspace.opportunities = [];
+      mocks.discover.mockRejectedValue(failure);
+      const summary = await runMonthlyAutoScheduler(now);
+      expect(mocks.discover.mock.calls[0][2]).toEqual({ enforceLimit: true });
+      expect(summary.projects[0].error).toContain("AI work is paused");
+      expect(mocks.generate).not.toHaveBeenCalled();
+    },
+  );
 });
