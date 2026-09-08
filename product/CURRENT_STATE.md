@@ -1,6 +1,6 @@
 # Milo Growth — Current State
 
-**Status:** #92–#93 merged; their combined publication is in progress; full public launch remains unverified
+**Status:** #92–#93 published with matching build inputs; #94 under final review; full public launch remains unverified
 
 **Last updated:** 2026-09-08
 
@@ -14,7 +14,7 @@ The owner explicitly requested and received an administrative email change to ra
 
 ## Recovery brief
 
-Latest 8 September override: #92 publication-failure diagnostics and #93 shared text-provider bounds are reviewed and merged. Combined 1,794 tests /132 files, TypeScript/build pass. Deployment80fb5f9a-9fff-4704-9537-63105b0bd826 is pending at this record; final live evidence belongs in the release record/PR body. The next MCP admission packet adds39 cases,1,833 tests/135 files, with types/build/focused lint passing; review/publication of that packet remains pending. See [MCP admission evidence](../evidence/mcp-ingress-2026-09-08.md).
+Latest 8 September override: #92 publication-failure diagnostics and #93 shared text-provider bounds are reviewed and merged. Combined 1,794 tests /132 files, TypeScript/build pass. Deployment80fb5f9a-9fff-4704-9537-63105b0bd826 is verified on milogrowth.com: build1788855048521, fingerprint6837f080f32cd964c4cb02e1efa51fd81fd45a4bcaabe0359281160fd77ce5b2 and every component match clean main. This host omits revision/modified metadata (both null). Authenticated Safari confirms the actual Butelki content-review incident details, historical/stale-draft caveat, owner company email,10 projects and globally disabled email summaries. The next MCP admission packet adds42 cases,1,836 tests/135 files, with types/build/focused lint passing; review/publication of that packet remains pending. See [MCP admission evidence](../evidence/mcp-ingress-2026-09-08.md).
 
 The USD5 benchmark is approved and still unused. A separate unanswered question asks whether a temporary two-credit AI limit may affect the entire 21-project personal Lovable workspace. No limit or provider call has been made under that pending question. Do not re-ask the USD5 approval or interpret elapsed time as workspace permission.
 

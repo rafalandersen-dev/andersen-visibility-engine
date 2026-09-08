@@ -96,6 +96,12 @@ export async function dispatchMcpPayload(
     );
   const responses: object[] = [];
   const failed = (message: unknown, code: number, text: string) => {
+    // Valid JSON-RPC notifications have no correlated response, including
+    // when their own handler fails or a previous batch item prevents dispatch.
+    if (message && typeof message === "object" && !Array.isArray(message)) {
+      const record = message as Record<string, unknown>;
+      if (typeof record.method === "string" && record.id == null) return null;
+    }
     const id =
       message && typeof message === "object" && !Array.isArray(message)
         ? (message as Record<string, unknown>).id
@@ -113,21 +119,20 @@ export async function dispatchMcpPayload(
     } catch {
       // Preserve successful earlier responses when a later outcome is unknown.
       // No raw exceptions, automatic rollback, later dispatch or batch replay.
-      responses.push(
-        failed(
-          payload[index],
-          -32603,
-          "This message's result is unconfirmed. Check Milo before retrying.",
-        ),
+      const failure = failed(
+        payload[index],
+        -32603,
+        "This message's result is unconfirmed. Check Milo before retrying.",
       );
-      for (const later of payload.slice(index + 1))
-        responses.push(
-          failed(
-            later,
-            -32004,
-            "This message was not started because an earlier batch message failed.",
-          ),
+      if (failure) responses.push(failure);
+      for (const later of payload.slice(index + 1)) {
+        const unstarted = failed(
+          later,
+          -32004,
+          "This message was not started because an earlier batch message failed.",
         );
+        if (unstarted) responses.push(unstarted);
+      }
       break;
     }
   }

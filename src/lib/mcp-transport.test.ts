@@ -119,6 +119,34 @@ describe("MCP body admission", () => {
 });
 
 describe("MCP batch dispatch", () => {
+  it.each([undefined, null])(
+    "does not fabricate a failure response for an unstarted notification with id %s",
+    async (id) => {
+      const handle = vi.fn().mockRejectedValue(new Error("private"));
+      const response = await dispatchMcpPayload(
+        [
+          { id: 1, method: "ping" },
+          { id, method: "notifications/initialized" },
+        ],
+        handle,
+        vi.fn(),
+      );
+      expect(response).toHaveLength(1);
+      expect(response).toMatchObject([{ id: 1, error: { code: -32603 } }]);
+      expect(handle).toHaveBeenCalledOnce();
+    },
+  );
+  it("returns no response when a notification-only batch fails", async () => {
+    const handle = vi.fn().mockRejectedValue(new Error("private"));
+    expect(
+      await dispatchMcpPayload(
+        [{ method: "notifications/initialized" }, { id: null, method: "notifications/cancelled" }],
+        handle,
+        vi.fn(),
+      ),
+    ).toBeNull();
+    expect(handle).toHaveBeenCalledOnce();
+  });
   it("runs and audits one message at a time in caller order", async () => {
     const order: string[] = [];
     let active = 0;
