@@ -48,7 +48,7 @@ function b64ToBytes(b64: unknown): Uint8Array {
  * supplier outcome, not proof of cancellation or a refunded usage claim.
  * Never follow redirects with credentials or retry a potentially billed call.
  */
-async function imageResponse(url: string, init: RequestInit): Promise<unknown> {
+async function imageResponse(url: string, init: RequestInit, signal?: AbortSignal) {
   const controller = new AbortController();
   let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
   const cancelBody = () => {
@@ -66,7 +66,11 @@ async function imageResponse(url: string, init: RequestInit): Promise<unknown> {
     }, IMAGE_GENERATION_TIMEOUT_MS);
   });
   const read = async () => {
-    const response = await fetch(url, { ...init, redirect: "error", signal: controller.signal });
+    const response = await fetch(url, {
+      ...init,
+      redirect: "error",
+      signal: signal ? AbortSignal.any([controller.signal, signal]) : controller.signal,
+    });
     reader = response.body?.getReader();
     if (controller.signal.aborted) {
       cancelBody();
@@ -107,9 +111,12 @@ async function imageResponse(url: string, init: RequestInit): Promise<unknown> {
       bytes.set(value, size);
       size += value.byteLength;
     }
-    return JSON.parse(
-      new TextDecoder("utf-8", { fatal: true }).decode(bytes.subarray(0, size)),
-    ) as unknown;
+    return {
+      body: JSON.parse(
+        new TextDecoder("utf-8", { fatal: true }).decode(bytes.subarray(0, size)),
+      ) as unknown,
+      providerRequestId: response.headers.get("x-request-id") ?? undefined,
+    };
   };
   try {
     return await Promise.race([read(), deadline]);
@@ -126,36 +133,41 @@ async function imageResponse(url: string, init: RequestInit): Promise<unknown> {
   }
 }
 
-async function generateViaOpenAi(prompt: string): Promise<Uint8Array> {
+async function generateViaOpenAi(prompt: string, signal?: AbortSignal) {
   const key = (process.env.OPENAI_API_KEY ?? "").trim();
   if (!key) {
     throw new ImageGenError(
       "Image generation is not configured. The workspace owner needs to connect OpenAI.",
     );
   }
-  const body = (await imageResponse(OPENAI_IMAGES_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({
-      model: OPENAI_IMAGE_MODEL,
-      prompt,
-      size: "1536x1024",
-      n: 1,
-      quality: "medium",
-      output_format: "webp",
-      output_compression: 85,
-      background: "opaque",
-      moderation: "auto",
-    }),
-  })) as { data?: Array<{ b64_json?: string }> };
+  const result = await imageResponse(
+    OPENAI_IMAGES_URL,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model: OPENAI_IMAGE_MODEL,
+        prompt,
+        size: "1536x1024",
+        n: 1,
+        quality: "medium",
+        output_format: "webp",
+        output_compression: 85,
+        background: "opaque",
+        moderation: "auto",
+      }),
+    },
+    signal,
+  );
+  const body = result.body as { data?: Array<{ b64_json?: string }>; usage?: unknown };
   const b64 = body?.data?.[0]?.b64_json ?? "";
   if (!b64)
     throw new ImageGenError("The model returned no image. Try a more concrete description.");
-  return b64ToBytes(b64);
+  return { bytes: b64ToBytes(b64), usage: body.usage, providerRequestId: result.providerRequestId };
 }
 
 /** Generate one image with fixed rendering cost parameters and no retries. */
-export async function generateImageBytes(prompt: string): Promise<Uint8Array> {
+export function validateImageRequest(prompt: string) {
   if (
     typeof prompt !== "string" ||
     !prompt.trim() ||
@@ -163,5 +175,13 @@ export async function generateImageBytes(prompt: string): Promise<Uint8Array> {
     new TextEncoder().encode(prompt).byteLength > IMAGE_PROMPT_MAX_BYTES
   )
     throw new ImageGenError("The image description is empty or too long for one request.");
-  return generateViaOpenAi(prompt);
+}
+
+export async function generateImageResult(prompt: string, signal?: AbortSignal) {
+  validateImageRequest(prompt);
+  return generateViaOpenAi(prompt, signal);
+}
+
+export async function generateImageBytes(prompt: string): Promise<Uint8Array> {
+  return (await generateImageResult(prompt)).bytes;
 }

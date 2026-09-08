@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AiExpenseUnavailableError,
+  AI_EXPENSE_RPC_TIMEOUT_MS,
   reserveAiExpense,
   withReservedAiExpense,
   type ExpenseRequest,
@@ -26,6 +27,37 @@ afterEach(() => {
   vi.useRealTimers();
 });
 describe("provider expense execution boundary", () => {
+  it("refuses a hanging reservation and never starts work after its late confirmation", async () => {
+    vi.useFakeTimers();
+    let resolve!: (value: typeof reserved) => void;
+    mocks.rpc.mockImplementationOnce(
+      () =>
+        new Promise<typeof reserved>((done) => {
+          resolve = done;
+        }),
+    );
+    const execute = vi.fn();
+    const assertion = expect(withReservedAiExpense(request, execute)).rejects.toMatchObject({
+      reason: "reservation_unavailable",
+    });
+    await vi.advanceTimersByTimeAsync(AI_EXPENSE_RPC_TIMEOUT_MS + 1);
+    await assertion;
+    resolve(reserved);
+    await vi.runAllTimersAsync();
+    expect(execute).not.toHaveBeenCalled();
+    expect(mocks.rpc).toHaveBeenCalledOnce();
+  });
+  it("returns a usable result with pending accounting when reconciliation hangs", async () => {
+    vi.useFakeTimers();
+    mocks.rpc.mockResolvedValueOnce(reserved).mockImplementationOnce(() => new Promise(() => {}));
+    const execute = vi
+      .fn()
+      .mockResolvedValue({ value: "draft", evidence: { actualMicrousd: null } });
+    const result = withReservedAiExpense(request, execute);
+    await vi.advanceTimersByTimeAsync(AI_EXPENSE_RPC_TIMEOUT_MS + 1);
+    expect(await result).toMatchObject({ value: "draft", accounting: "pending" });
+    expect(execute).toHaveBeenCalledOnce();
+  });
   it.each([
     { data: null, error: null },
     { data: [], error: null },
@@ -119,11 +151,41 @@ describe("provider expense execution boundary", () => {
         ),
     );
     const result = withReservedAiExpense(request, execute, 20);
-    const assertion = expect(result).rejects.toThrow("deadline");
+    const assertion = expect(result).rejects.toMatchObject({ reason: "provider_timeout" });
     await vi.advanceTimersByTimeAsync(21);
     await assertion;
     expect(execute).toHaveBeenCalledTimes(1);
     expect(mocks.rpc.mock.calls[1][1]).toMatchObject({ p_actual: null });
+  });
+  it("stops waiting when a supplier ignores abort and never releases on a late success", async () => {
+    vi.useFakeTimers();
+    mocks.rpc
+      .mockResolvedValueOnce(reserved)
+      .mockResolvedValueOnce({ data: [{ state: "unknown", overrun: false }], error: null });
+    let resolve!: (value: {
+      value: string;
+      evidence: { actualMicrousd: number; costSource: string };
+    }) => void;
+    let signal!: AbortSignal;
+    const execute = vi.fn((s: AbortSignal) => {
+      signal = s;
+      return new Promise<{
+        value: string;
+        evidence: { actualMicrousd: number; costSource: string };
+      }>((done) => {
+        resolve = done;
+      });
+    });
+    const result = withReservedAiExpense(request, execute, 20);
+    const assertion = expect(result).rejects.toMatchObject({ reason: "provider_timeout" });
+    await vi.advanceTimersByTimeAsync(21);
+    await assertion;
+    expect(signal.aborted).toBe(true);
+    resolve({ value: "late draft", evidence: { actualMicrousd: 0, costSource: "late-evidence" } });
+    await vi.runAllTimersAsync();
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(mocks.rpc).toHaveBeenCalledTimes(2);
+    expect(mocks.rpc.mock.calls[1][1]).toMatchObject({ p_actual: null, p_outcome: "uncertain" });
   });
   it.each([0, -1, NaN, 1.5, 1000000000001])(
     "rejects an invalid upper bound %s before RPC",

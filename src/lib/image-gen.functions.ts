@@ -17,7 +17,10 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import type { Project } from "./types";
 import { assertImageGenerationAllowed, claimAiUsage } from "./ai-usage.server";
-import { generateImageBytes, ImageGenError } from "./image-gen.server";
+import { ImageGenError } from "./image-gen.server";
+import { generateBudgetedImage } from "./ai-provider-expense.server";
+import { AiExpenseUnavailableError } from "./ai-expense.server";
+import { AiProviderConfigurationError } from "./ai-provider.server";
 import { buildImagePrompt, draftAltText } from "./image-gen";
 import { stageValidatedImageBytes } from "./image-storage.functions";
 
@@ -52,9 +55,14 @@ export async function generateArticleImageCore(
   });
   let bytes: Uint8Array;
   try {
-    bytes = await generateImageBytes(prompt);
+    bytes = await generateBudgetedImage({ userId, operation: "generateArticleImageCore" }, prompt);
   } catch (e) {
-    if (e instanceof ImageGenError) throw new Error(e.message);
+    if (
+      e instanceof ImageGenError ||
+      e instanceof AiExpenseUnavailableError ||
+      e instanceof AiProviderConfigurationError
+    )
+      throw new Error(e.message);
     throw new Error("Image generation failed. Please try again.");
   }
   const { path, previewUrl } = await stageValidatedImageBytes(

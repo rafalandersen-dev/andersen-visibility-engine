@@ -38,11 +38,7 @@ function fits(value: unknown, maxBytes: number): value is string {
  * retries. Prompt/output bounds are processing controls, not an invoiced
  * supplier price or a customer result allowance.
  */
-export async function generateBoundedText(
-  prompt: string,
-  maxOutputTokens: number,
-  model: () => LanguageModel,
-) {
+export function validateTextRequest(prompt: string, maxOutputTokens: number) {
   if (!fits(prompt, AI_TEXT_PROMPT_MAX_BYTES)) throw new AiTextBoundaryError("input_too_large");
   if (
     !Number.isInteger(maxOutputTokens) ||
@@ -50,6 +46,15 @@ export async function generateBoundedText(
     maxOutputTokens > AI_TEXT_MAX_OUTPUT_TOKENS
   )
     throw new AiTextBoundaryError("invalid_limits");
+}
+
+export async function generateBoundedTextResult(
+  prompt: string,
+  maxOutputTokens: number,
+  model: () => LanguageModel,
+  signal?: AbortSignal,
+) {
+  validateTextRequest(prompt, maxOutputTokens);
   const resolvedModel = model();
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -69,15 +74,29 @@ export async function generateBoundedText(
         prompt,
         maxOutputTokens,
         maxRetries: 0,
-        abortSignal: controller.signal,
+        abortSignal: signal ? AbortSignal.any([controller.signal, signal]) : controller.signal,
       }),
       deadline,
     ]);
     if (!fits(result.text, AI_TEXT_RESULT_MAX_BYTES))
       throw new AiTextBoundaryError("invalid_response");
-    return result.text;
+    return {
+      text: result.text,
+      // Read only explicit raw counters: the compatible SDK substitutes zero
+      // for missing fields, which is not evidence of zero supplier usage.
+      usage: result.steps?.length === 1 ? result.steps[0].usage?.raw : undefined,
+      providerRequestId: result.response?.headers?.["x-request-id"],
+    };
   } finally {
     clearTimeout(timer);
     controller.abort();
   }
+}
+
+export async function generateBoundedText(
+  prompt: string,
+  maxOutputTokens: number,
+  model: () => LanguageModel,
+) {
+  return (await generateBoundedTextResult(prompt, maxOutputTokens, model)).text;
 }

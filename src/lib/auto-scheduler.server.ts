@@ -44,6 +44,7 @@ import { isSitemapInventoryFresh } from "./sitemap";
 import { fetchSitemapInventoryCore } from "./sitemap.functions";
 import { slugifyForPublish } from "./markdown";
 import { remainingAiUsage, UsageLimitError, UsageUnavailableError } from "./ai-usage.server";
+import { AiExpenseUnavailableError } from "./ai-expense.server";
 import { contentLangToProjectLanguage } from "./onboarding";
 import {
   acquireSchedulerLease,
@@ -404,7 +405,12 @@ async function runForProject(
         },
         { enforceLimit: true },
       ).catch((error: unknown) => {
-        if (error instanceof UsageUnavailableError || error instanceof UsageLimitError) throw error;
+        if (
+          error instanceof UsageUnavailableError ||
+          error instanceof UsageLimitError ||
+          error instanceof AiExpenseUnavailableError
+        )
+          throw error;
         return null;
       });
       if (fresh?.opportunities?.length) {
@@ -562,7 +568,11 @@ async function runForProject(
         { enforceLimit: true },
       );
     } catch (e) {
-      if (e instanceof UsageUnavailableError || e instanceof UsageLimitError) {
+      if (
+        e instanceof UsageUnavailableError ||
+        e instanceof UsageLimitError ||
+        e instanceof AiExpenseUnavailableError
+      ) {
         report.error = e.message;
         report.notes.push(
           "AI work paused. Remaining slots need attention; already prepared drafts are retained.",

@@ -24,6 +24,7 @@ type Rpc = (
   args: Record<string, unknown>,
 ) => PromiseLike<{ data: unknown; error: unknown }>;
 const MAX_ATTEMPT_COST = 1_000_000_000_000;
+export const AI_EXPENSE_RPC_TIMEOUT_MS = 10_000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const REASONS = new Set([
   "budget_unconfigured",
@@ -34,7 +35,11 @@ const REASONS = new Set([
 export class AiExpenseUnavailableError extends Error {
   constructor(readonly reason: string) {
     super(
-      "AI work is paused because its cost budget could not be confirmed. Your existing content remains available.",
+      reason === "provider_timeout"
+        ? "AI generation timed out. The provider may still have charged for this attempt; Milo did not retry it."
+        : reason === "unpriced_provider"
+          ? "This AI model has no verified cost limit yet. Generation is paused; your existing content remains available."
+          : "AI work is paused because its cost budget could not be confirmed. Your existing content remains available.",
     );
     this.name = "AiExpenseUnavailableError";
   }
@@ -70,7 +75,22 @@ function validEvidence(e: ExpenseEvidence) {
 async function rpc(): Promise<Rpc> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const admin = supabaseAdmin as unknown as { rpc: Rpc };
-  return (name, args) => admin.rpc(name, args);
+  return async (name, args) => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new AiExpenseUnavailableError("accounting_timeout")),
+        AI_EXPENSE_RPC_TIMEOUT_MS,
+      );
+    });
+    try {
+      // A late database commit may retain a reservation. It never authorizes
+      // provider execution after the caller has lost admission confirmation.
+      return await Promise.race([admin.rpc(name, args), deadline]);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
 }
 function oneRow(data: unknown): Record<string, unknown> | undefined {
   if (!Array.isArray(data) || data.length !== 1 || !data[0] || typeof data[0] !== "object") return;
@@ -153,10 +173,19 @@ export async function withReservedAiExpense<T>(
   }
   await reserveAiExpense(request);
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      const error = new AiExpenseUnavailableError("provider_timeout");
+      // Settle the deadline before notifying the callback: cancellation is
+      // best effort and must not let a late success release this reservation.
+      reject(error);
+      controller.abort(error);
+    }, timeoutMs);
+  });
   let result: { value: T; evidence: ExpenseEvidence };
   try {
-    result = await execute(controller.signal);
+    result = await Promise.race([execute(controller.signal), deadline]);
   } catch (error) {
     // Exceptions/timeouts cannot establish whether the supplier charged.
     try {
@@ -167,6 +196,7 @@ export async function withReservedAiExpense<T>(
     throw error;
   } finally {
     clearTimeout(timer);
+    controller.abort();
   }
   try {
     const { state, overrun } = await reconcileAiExpense(request, result.evidence, "succeeded");

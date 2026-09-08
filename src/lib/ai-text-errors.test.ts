@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { generateContentCore } from "./ai.functions";
+import { AiExpenseUnavailableError } from "./ai-expense.server";
 import type { Project, Opportunity } from "./types";
-const mocks = vi.hoisted(() => ({ claim: vi.fn(), model: vi.fn() }));
+const mocks = vi.hoisted(() => ({ claim: vi.fn(), model: vi.fn(), rpc: vi.fn() }));
+vi.mock("@/integrations/supabase/client.server", () => ({ supabaseAdmin: { rpc: mocks.rpc } }));
 vi.mock("ai", () => ({ generateText: mocks.model }));
 vi.mock("./ai-usage.server", async (original) => ({
   ...(await original<typeof import("./ai-usage.server")>()),
@@ -9,6 +11,11 @@ vi.mock("./ai-usage.server", async (original) => ({
 }));
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.rpc.mockImplementation(async (name) =>
+    name === "reserve_ai_expense"
+      ? { data: [{ allowed: true, reason: "reserved", period: "2026-09" }], error: null }
+      : { data: [{ state: "unknown", overrun: false }], error: null },
+  );
   vi.stubEnv("OPENAI_API_KEY", "synthetic-test-key");
   mocks.claim.mockResolvedValue({ allowed: true, used: 1, cap: 50 });
 });
@@ -29,11 +36,25 @@ const args = {
   assetType: "article" as const,
 };
 describe("text error privacy in existing article generation", () => {
+  it.each(["budget_unconfigured", "budget_exhausted", "budget_paused", "duplicate_request"])(
+    "preserves the internal %s pause for scheduler callers",
+    async (reason) => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      mocks.rpc.mockResolvedValue({
+        data: [{ allowed: false, reason, period: "2026-09" }],
+        error: null,
+      });
+      await expect(
+        generateContentCore("00000000-0000-4000-8000-000000000011", args),
+      ).rejects.toBeInstanceOf(AiExpenseUnavailableError);
+      expect(mocks.model).not.toHaveBeenCalled();
+    },
+  );
   it("explains missing OpenAI configuration without trying the legacy gateway", async () => {
     vi.stubEnv("OPENAI_API_KEY", "");
     vi.stubEnv("LOVABLE_API_KEY", "synthetic-legacy-key");
     vi.spyOn(console, "error").mockImplementation(() => {});
-    await expect(generateContentCore("owner", args)).rejects.toThrow(
+    await expect(generateContentCore("00000000-0000-4000-8000-000000000011", args)).rejects.toThrow(
       "AI generation is not configured",
     );
     expect(mocks.model).not.toHaveBeenCalled();
@@ -50,7 +71,9 @@ describe("text error privacy in existing article generation", () => {
           text: privateText,
         }),
       );
-      await expect(generateContentCore("owner", args)).rejects.not.toThrow(privateText);
+      await expect(
+        generateContentCore("00000000-0000-4000-8000-000000000011", args),
+      ).rejects.not.toThrow(privateText);
       expect(JSON.stringify(log.mock.calls)).not.toContain(privateText);
       expect(log).toHaveBeenCalledWith("[ai.functions] gateway/validation error", {
         httpStatus: statusCode,
@@ -63,7 +86,10 @@ describe("text error privacy in existing article generation", () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const description = "private-source".repeat(6000);
     await expect(
-      generateContentCore("owner", { ...args, project: { ...args.project, description } }),
+      generateContentCore("00000000-0000-4000-8000-000000000011", {
+        ...args,
+        project: { ...args.project, description },
+      }),
     ).rejects.toThrow("too much source text");
     expect(mocks.model).not.toHaveBeenCalled();
     expect(JSON.stringify(log.mock.calls)).not.toContain("private-source");
