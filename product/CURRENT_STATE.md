@@ -1,6 +1,6 @@
 # Milo Growth — Current State
 
-**Status:** #96 native monetary admission published; #97 EU content languages merged, release verification pending; restricted expense permits prepared; secure key, controlled benchmark and full launch remain pending
+**Status:** #97 EU content languages published; #98 restricted expense permits in review; secure key, controlled benchmark and full launch remain pending
 
 **Last updated:** 2026-09-08
 
@@ -14,7 +14,7 @@ The owner explicitly requested and received an administrative email change to ra
 
 ## Recovery brief
 
-Newest override: #97 is merged at the baseline above after review of `10d46312faccb0ba3a13e3374be7602ebc1a049e`. The review's dashboard language fallback finding is fixed. Deployment `5e78d400-9e16-4861-99ef-9be3a86647a6` was requested; the last domain check still showed #96, so #97 is not yet claimed live here. Full suite 1,956 tests; final dashboard correction also passed types, focused tests and build. Visual acceptance remains blocked by the browser administrator-policy check.
+Newest override: #97 is merged at the baseline above after review of `10d46312faccb0ba3a13e3374be7602ebc1a049e`. The review's dashboard language fallback finding is fixed. Deployment `5e78d400-9e16-4861-99ef-9be3a86647a6` is live: build `1788901133476`, exact merge revision, modified=false, full fingerprint `259582255ec1a35abe988b4613dc5d22c43f1c13f857891e2926ffe13a8acc6a` and all source components matching clean main. Public smoke: home200, MCP GET200/OPTIONS204/anonymous POST401. Full suite 1,956 tests; final dashboard correction also passed types, focused tests and build. Visual acceptance remains blocked by the browser administrator-policy check.
 
 The next packet isolates authorized AI tests from background spending using optional restricted budgets and exact one-attempt permits. It preserves the existing reservation RPC, monetary caps, retained unknown costs and replay protection. Migration `20260908210000_restricted_ai_expense_permits.sql` is prepared but not applied; it creates no budgets or permits. 1,982 tests/139 files, types, focused lint and build passed. A secure key and controlled runner still precede funding/execution. See [restricted expense evidence](../evidence/restricted-ai-expense-permits-2026-09-08.md).
 
