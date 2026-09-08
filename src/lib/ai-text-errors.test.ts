@@ -9,7 +9,7 @@ vi.mock("./ai-usage.server", async (original) => ({
 }));
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.stubEnv("LOVABLE_API_KEY", "synthetic-test-key");
+  vi.stubEnv("OPENAI_API_KEY", "synthetic-test-key");
   mocks.claim.mockResolvedValue({ allowed: true, used: 1, cap: 50 });
 });
 afterEach(() => {
@@ -29,6 +29,15 @@ const args = {
   assetType: "article" as const,
 };
 describe("text error privacy in existing article generation", () => {
+  it("explains missing OpenAI configuration without trying the legacy gateway", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "");
+    vi.stubEnv("LOVABLE_API_KEY", "synthetic-legacy-key");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(generateContentCore("owner", args)).rejects.toThrow(
+      "AI generation is not configured",
+    );
+    expect(mocks.model).not.toHaveBeenCalled();
+  });
   it.each([402, 429, 502])(
     "keeps HTTP %s useful without logging private provider content",
     async (statusCode) => {

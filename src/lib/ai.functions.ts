@@ -1,5 +1,5 @@
 /**
- * Server functions wrapping Lovable AI Gateway for the Milo Growth.
+ * Server functions using direct AI providers for Milo Growth.
  *
  * These return plain DTOs matching the shape the client store expects.
  * Auth is required (requireSupabaseAuth) so generation is scoped to
@@ -9,13 +9,12 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { generateBoundedText, AiTextBoundaryError } from "./ai-text-bounds.server";
 import { z } from "zod";
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import { createLovableAiGatewayProvider } from "./ai-gateway.server";
+import { modelFor, AiProviderConfigurationError } from "./ai-provider.server";
 import { normalizeQualityScore } from "./quality";
 import { normalizeHookProposals } from "./hook";
 import { internalLinkRule } from "./internal-link-prompt";
 import { brandIntelligenceBlock } from "./brand";
-import { candidateUsesOpenRouter, getRouterStatus } from "./ai-router";
+import { DEFAULT_MODEL_ID, getRouterStatus } from "./ai-router";
 import {
   isDataForSeoConfigured,
   extractDomain,
@@ -28,7 +27,7 @@ import type { Project, ServiceItem, Opportunity } from "./types";
 
 import { claimAiUsage, type UsageBucket } from "./ai-usage.server";
 
-const MODEL = "google/gemini-3-flash-preview";
+const MODEL = DEFAULT_MODEL_ID;
 
 const LANGUAGES = ["Polish", "Swedish", "English", "Danish"] as const;
 const CONTENT_TYPES = [
@@ -223,33 +222,6 @@ const AiVisibilityGapOutputSchema = z.object({
   suggestedSearchIntent: SearchIntentEnum,
   suggestedCta: cleanString(60),
 });
-
-function getGateway() {
-  const key = process.env.LOVABLE_API_KEY;
-  if (!key) throw new Error("AI Gateway is not configured.");
-  return createLovableAiGatewayProvider(key);
-}
-
-/**
- * Resolve the AI SDK model callable for a request. With no override → the
- * production model via the Lovable gateway (unchanged). With a candidate model
- * id → OpenRouter when its key is set, otherwise the same gateway with that id.
- * Secrets are read server-side only and never returned or logged.
- */
-function modelFor(modelId?: string) {
-  if (!modelId || modelId === MODEL) return getGateway()(MODEL);
-  if (candidateUsesOpenRouter()) {
-    const key = (process.env.OPENROUTER_API_KEY ?? "").trim();
-    if (!key) throw new Error("Candidate model is not configured.");
-    const provider = createOpenAICompatible({
-      name: "openrouter",
-      baseURL: "https://openrouter.ai/api/v1",
-      headers: { Authorization: `Bearer ${key}` },
-    });
-    return provider(modelId);
-  }
-  return getGateway()(modelId);
-}
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -1071,7 +1043,8 @@ function mapGatewayError(e: unknown): Error {
         : null,
     boundary: e instanceof AiTextBoundaryError ? e.reason : null,
   });
-  if (e instanceof AiTextBoundaryError) return new Error(e.message);
+  if (e instanceof AiTextBoundaryError || e instanceof AiProviderConfigurationError)
+    return new Error(e.message);
 
   // 1. Rate limit — transient, retry shortly.
   if (/\b429\b|rate.?limit|too many requests|overloaded/i.test(msg))

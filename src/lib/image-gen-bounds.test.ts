@@ -5,20 +5,17 @@ import {
   IMAGE_RESPONSE_MAX_BYTES,
   IMAGE_RESPONSE_MAX_CHUNKS,
   ImageGenError,
+  IMAGE_PROMPT_MAX_BYTES,
+  OPENAI_IMAGE_MODEL,
 } from "./image-gen.server";
 import { MAX_IMAGE_BYTES } from "./image-storage";
 
 const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 13, 10, 26, 10]);
-const providers = ["lovable", "openai"] as const;
+// Legacy/default settings cannot route generation back through Lovable.
+const providers = ["", "openai", "lovable"] as const;
 type Provider = (typeof providers)[number];
-function responseBody(provider: Provider, b64: unknown = png.toString("base64")) {
-  return provider === "lovable"
-    ? {
-        choices: [
-          { message: { images: [{ image_url: { url: `data:image/png;base64,${b64}` } }] } },
-        ],
-      }
-    : { data: [{ b64_json: b64 }] };
+function responseBody(b64: unknown = png.toString("base64")) {
+  return { data: [{ b64_json: b64 }] };
 }
 function configure(provider: Provider) {
   vi.stubEnv("IMAGE_GEN_PROVIDER", provider);
@@ -35,23 +32,25 @@ describe.each(providers)("%s image request bounds", (provider) => {
   it("keeps the model payload, returns bytes, uses one request and forbids redirects", async () => {
     configure(provider);
     vi.useFakeTimers();
-    const request = vi.fn(async () => new Response(JSON.stringify(responseBody(provider))));
+    const request = vi.fn(async () => new Response(JSON.stringify(responseBody())));
     vi.stubGlobal("fetch", request);
     expect(await generateImageBytes("sample prompt")).toEqual(new Uint8Array(png));
     expect(request).toHaveBeenCalledOnce();
     const [url, init] = (request.mock.calls as unknown as [string, RequestInit][])[0];
-    expect(url).toBe(
-      provider === "lovable"
-        ? "https://ai.gateway.lovable.dev/v1/chat/completions"
-        : "https://api.openai.com/v1/images/generations",
-    );
+    expect(url).toBe("https://api.openai.com/v1/images/generations");
     expect(init.redirect).toBe("error");
     expect(init.signal).toBeInstanceOf(AbortSignal);
-    expect(JSON.parse(init.body as string)).toMatchObject(
-      provider === "lovable"
-        ? { messages: [{ role: "user", content: "sample prompt" }], modalities: ["image", "text"] }
-        : { model: "gpt-image-1", prompt: "sample prompt", n: 1, size: "1536x1024" },
-    );
+    expect(JSON.parse(init.body as string)).toEqual({
+      model: OPENAI_IMAGE_MODEL,
+      prompt: "sample prompt",
+      n: 1,
+      size: "1536x1024",
+      quality: "medium",
+      output_format: "webp",
+      output_compression: 85,
+      background: "opaque",
+      moderation: "auto",
+    });
     expect(vi.getTimerCount()).toBe(0);
   });
 
@@ -196,18 +195,13 @@ describe.each(providers)("%s image request bounds", (provider) => {
     const exact = Buffer.alloc(MAX_IMAGE_BYTES, 1);
     vi.stubGlobal(
       "fetch",
-      vi.fn(
-        async () => new Response(JSON.stringify(responseBody(provider, exact.toString("base64")))),
-      ),
+      vi.fn(async () => new Response(JSON.stringify(responseBody(exact.toString("base64"))))),
     );
     expect((await generateImageBytes("sample")).byteLength).toBe(MAX_IMAGE_BYTES);
     const oversized = Buffer.alloc(MAX_IMAGE_BYTES + 1, 1);
     vi.stubGlobal(
       "fetch",
-      vi.fn(
-        async () =>
-          new Response(JSON.stringify(responseBody(provider, oversized.toString("base64")))),
-      ),
+      vi.fn(async () => new Response(JSON.stringify(responseBody(oversized.toString("base64"))))),
     );
     await expect(generateImageBytes("sample")).rejects.toThrow(/oversized/);
   });
@@ -218,7 +212,7 @@ describe.each(providers)("%s image request bounds", (provider) => {
       configure(provider);
       vi.stubGlobal(
         "fetch",
-        vi.fn(async () => new Response(JSON.stringify(responseBody(provider, b64)))),
+        vi.fn(async () => new Response(JSON.stringify(responseBody(b64)))),
       );
       await expect(generateImageBytes("sample")).rejects.toThrow(ImageGenError);
     },
@@ -274,13 +268,21 @@ it.each([
   "data:text/html;base64,PHN2Zz4=",
 ])("refuses provider URL/MIME %s without downloading it", async (url) => {
   configure("lovable");
-  const request = vi.fn(
-    async () =>
-      new Response(
-        JSON.stringify({ choices: [{ message: { images: [{ image_url: { url } }] } }] }),
-      ),
-  );
+  const request = vi.fn(async () => new Response(JSON.stringify({ data: [{ url }] })));
   vi.stubGlobal("fetch", request);
   await expect(generateImageBytes("sample")).rejects.toThrow(ImageGenError);
   expect(request).toHaveBeenCalledOnce();
+});
+
+it.each([
+  "",
+  "  ",
+  "x".repeat(IMAGE_PROMPT_MAX_BYTES + 1),
+  "ą".repeat(IMAGE_PROMPT_MAX_BYTES / 2 + 1),
+])("rejects empty/oversized image prompts before contacting a provider", async (prompt) => {
+  configure("openai");
+  const request = vi.fn();
+  vi.stubGlobal("fetch", request);
+  await expect(generateImageBytes(prompt)).rejects.toThrow(/empty or too long/);
+  expect(request).not.toHaveBeenCalled();
 });
