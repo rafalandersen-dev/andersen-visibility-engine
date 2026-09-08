@@ -2,6 +2,8 @@
 
 ## Current override — 2026-09-08
 
+Latest override: #92 and #93 are merged as main5b05690d8f56a314a86a43860503d80dd5bd863b; 1,794 tests/132 files, types/build passed. Combined deployment80fb5f9a-9fff-4704-9537-63105b0bd826 is in progress at this commit. The MCP admission branch codex/milo-mcp-ingress-20260908 in /Users/rafi/Projects/milo-growth-mcp-ingress-20260908 adds39 tests (1,833/135 files), types/build/focused lint pass; review/release pending. No new migration, token/scope, budget, paid call or image import. The separate question about a temporary two-credit workspace AI limit is unanswered; the USD5 owner test itself is already approved. Read newer release evidence before repeating any deployment. No successor task exists.
+
 Read this before the historical handoff below. No successor task exists. Main #91 `29b730c227f4b410a5f282935445b561b2b981d5` is published exactly: build1788819251901, modified=false, full/component fingerprint match (a76081ad9579fb0a23d0b246bcdae30c7138845d2911775c982054c1488030dc). The company account address, administrative confirmation after mailbox evidence, and the single authorized email test are finished. Do not repeat any of them; global operational email remains off.
 
 The owner has now explicitly approved **USD5 total** for one real scan/article/image. The earlier spending-approval blocker is superseded. No paid benchmark call has run yet. Stripe is deferred until after coffee. Do not ask for keys on chat or repeat the same spending approval.

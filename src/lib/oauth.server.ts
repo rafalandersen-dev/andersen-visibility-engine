@@ -1222,9 +1222,20 @@ export interface RateLimitDeps {
   /** Atomically increment (bucket,key,window) and return the new count. */
   bump: (bucket: string, key: string, windowStartIso: string) => Promise<number>;
   nowMs: number;
+  /** MCP mutations must confirm the atomic counter before any write. */
+  failureMode?: "allow" | "deny";
 }
 
-/** Increment-then-check. A bump failure fails OPEN (request allowed). */
+export class RateLimitUnavailableError extends Error {
+  constructor() {
+    super("The write limit could not be confirmed.");
+    this.name = "RateLimitUnavailableError";
+  }
+}
+
+/** Increment-then-check. Legacy read/auth callers retain fail-open behavior;
+ * mutation callers explicitly deny unavailable or malformed counter results.
+ */
 export async function checkRateLimit(
   bucket: RateBucket,
   identifier: string,
@@ -1235,11 +1246,11 @@ export async function checkRateLimit(
   let count: number;
   try {
     count = await deps.bump(bucket.bucket, key, startIso);
-  } catch (e) {
-    console.error(
-      "[rate-limit] bump failed (fail-open):",
-      e instanceof Error ? e.message : String(e),
-    );
+    if (!Number.isSafeInteger(count) || count < 1 || count > 2_147_483_647)
+      throw new RateLimitUnavailableError();
+  } catch {
+    if (deps.failureMode === "deny") throw new RateLimitUnavailableError();
+    console.error("[rate-limit] counter unavailable; existing fail-open policy applied");
     return { allowed: true, retryAfterSec: 0, shouldAudit: false, windowStartIso: startIso };
   }
   return {
