@@ -517,6 +517,7 @@ const GREEK_SLUG_TRANSLITERATIONS: Record<string, string> = {
  */
 export function slugifyForPublish(s: string, max = 80): string {
   const full = (s || "")
+    .normalize("NFC")
     .toLowerCase()
     .replace(
       /[\u0142\u00f8\u0111\u00f0\u00fe\u00e6\u0153\u00df\u0127а-я]/g,
