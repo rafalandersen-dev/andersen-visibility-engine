@@ -53,6 +53,19 @@ const scan = (args: Partial<Parameters<typeof operationalNotifications>[0]> = {}
     ...args,
   });
 describe("server operational alert conditions", () => {
+  it("binds each failure to its queue row even when rescheduling preserved cancelled history", () => {
+    const failures = scan({
+      assets: [asset],
+      scheduled: [
+        { ...scheduled, id: "old", status: "cancelled" },
+        { ...scheduled, id: "failed-once", status: "failed" },
+        { ...scheduled, id: "failed-again", status: "failed", publishAt: "2026-09-05T13:00:00Z" },
+      ],
+    }).filter((e) => e.kind === "publication_failed");
+    expect(failures).toHaveLength(2);
+    expect(failures.map((e) => e.detail.queueId)).toEqual(["failed-once", "failed-again"]);
+    expect(failures[0].key).not.toBe(failures[1].key);
+  });
   it("reports expired ownership once across the active-to-unknown transition", () => {
     const lease = {
       projectId: "p",

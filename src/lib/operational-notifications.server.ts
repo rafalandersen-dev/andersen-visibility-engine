@@ -158,6 +158,7 @@ export const notificationRowSchema = z
     created_at: z.string(),
     detail: z.object({
       timeZone: z.string(),
+      queueId: z.string().uuid().optional(),
       missing: z.number().optional(),
       total: z.number().optional(),
       remaining: z.number().int().nonnegative().optional(),

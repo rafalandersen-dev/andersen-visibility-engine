@@ -6,6 +6,32 @@ import {
   refreshOperationalNotifications,
 } from "./operational-notifications.server";
 import { inspectSchedulerRecovery } from "./scheduler-recovery.server";
+import { inspectPublicationFailure } from "./publication-failure.server";
+
+export const getPublicationFailureFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        projectId: z.string().min(1).max(200),
+        assetId: z.string().min(1).max(200),
+        queueId: z.string().uuid(),
+      })
+      .strict()
+      .parse(input),
+  )
+  .handler(async ({ context, data }) => {
+    try {
+      return await inspectPublicationFailure(
+        context.userId as string,
+        data.projectId,
+        data.assetId,
+        data.queueId,
+      );
+    } catch {
+      throw new Error("Saved publication details are temporarily unavailable.");
+    }
+  });
 
 export const getSchedulerRecoveryFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
