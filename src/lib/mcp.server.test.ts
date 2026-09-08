@@ -903,6 +903,20 @@ describe("write tools — execution", () => {
   const call = (name: string, args: Record<string, unknown>, hooks?: McpHooks, grant = fullGrant) =>
     handleMcpMessage(grant, { id: 9, method: "tools/call", params: { name, arguments: args } }, hooks);
 
+  it("uses the selected EU content language for externally authored recommendations", async () => {
+    const blob = writeBlob();
+    (blob.projects as Record<string, unknown>[])[0].primaryContentLanguage = "de";
+    const captured = fakeMutate(blob);
+    const result = await call("create_project_recommendation", {
+      projectId: "p1",
+      title: "Ein neuer Artikel",
+    });
+    expect(parsePayload(result).status).toBe("captured");
+    expect((captured.written?.opportunities as Record<string, unknown>[])[0].language).toBe(
+      "German",
+    );
+  });
+
   it("create_growth_task writes into tasks[] with forced fields and preserves unknown keys", async () => {
     const captured = fakeMutate(writeBlob());
     const { audits, hooks } = captureHooks();

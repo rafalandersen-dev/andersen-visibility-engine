@@ -7,6 +7,11 @@ import { useAppLanguage, useT } from "@/i18n";
 import { computeLaunchChecklist } from "@/lib/launch";
 import { GHOST_STAGES, upNext } from "@/lib/pipeline";
 import { growthWork, contentCover } from "@/lib/growth-work";
+import {
+  CONTENT_LANGUAGE_OPTIONS,
+  projectContentLanguage,
+  resolveContentLanguage,
+} from "@/lib/content-languages";
 import { upcomingPublishRisks } from "@/lib/calendar-schedule";
 import { PublishRiskBanner } from "@/components/PublishRiskBanner";
 import { StageChip } from "@/components/StageChip";
@@ -93,12 +98,13 @@ function Dashboard() {
   });
   const date = (value: string, options: Intl.DateTimeFormatOptions) =>
     new Intl.DateTimeFormat(locale, options).format(new Date(value));
-  const languageName = (language: string) =>
-    new Intl.DisplayNames([locale], { type: "language" }).of(
-      ({ Polish: "pl", English: "en", Swedish: "sv", Danish: "da" } as Record<string, string>)[
-        language
-      ] ?? "en",
-    );
+  const languageName = (language: string) => {
+    const name = resolveContentLanguage(language);
+    const option = CONTENT_LANGUAGE_OPTIONS.find((item) => item.label === name);
+    return option
+      ? (new Intl.DisplayNames([locale], { type: "language" }).of(option.value) ?? option.label)
+      : language;
+  };
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   return (
     <AppShell
@@ -181,7 +187,7 @@ function Dashboard() {
                 </div>
                 <div className="flex flex-wrap gap-x-2">
                   <dt className="sr-only">{t("shell.language")}</dt>
-                  <dd>{languageName(next.language ?? active.primaryLanguage)}</dd>
+                  <dd>{languageName(next.language ?? projectContentLanguage(active))}</dd>
                   <dd>· {timezone}</dd>
                 </div>
               </dl>
@@ -257,7 +263,7 @@ function Dashboard() {
                   {asset.title}
                 </strong>
                 <span className="mt-1 block text-xs text-muted-foreground">
-                  {languageName(asset.language ?? active.primaryLanguage)} ·{" "}
+                  {languageName(asset.language ?? projectContentLanguage(active))} ·{" "}
                   {date(asset.scheduledPublishAt!, { hour: "2-digit", minute: "2-digit" })}
                 </span>
               </span>

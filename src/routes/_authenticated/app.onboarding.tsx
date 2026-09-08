@@ -1,3 +1,4 @@
+import { CONTENT_LANGUAGE_OPTIONS, type ContentLanguageCode } from "@/lib/content-languages";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,7 +58,7 @@ type WizardData = {
   market: Market;
   currency: Currency;
   appLanguage: OnboardingLanguage;
-  primaryContentLanguage: OnboardingLanguage;
+  primaryContentLanguage: ContentLanguageCode;
   websiteUrl: string;
   businessName: string;
   businessType: string;
@@ -397,10 +398,17 @@ function OnboardingWizard() {
                     </Select>
                   </Field>
                   <Field label={t("onboarding.contentLanguage")}>
-                    <Select value={w.primaryContentLanguage} onValueChange={(v) => set("primaryContentLanguage", v as OnboardingLanguage)}>
+                    <Select
+                      value={w.primaryContentLanguage}
+                      onValueChange={(v) => set("primaryContentLanguage", v as ContentLanguageCode)}
+                    >
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {LANGUAGE_OPTIONS.map((l) => <SelectItem key={l.value} value={l.value}>{t(`lang.${l.value}`)}</SelectItem>)}
+                        {CONTENT_LANGUAGE_OPTIONS.map((l) => (
+                          <SelectItem key={l.value} value={l.value}>
+                            {l.native === l.label ? l.label : `${l.native} · ${l.label}`}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </Field>

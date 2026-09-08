@@ -198,6 +198,15 @@ describe("markdownToHtml — adversarial input a model actually writes", () => {
 });
 
 describe("slugifyForPublish", () => {
+  it.each([
+    ["Καλημέρα κόσμε", "kalimera-kosme"],
+    ["Здравей свят", "zdravey-svyat"],
+    ["Ħanut żgħir", "hanut-zghir"],
+  ])("keeps %s usable as a Latin URL slug", (title, slug) => {
+    expect(slugifyForPublish(title)).toBe(slug);
+    expect(slugifyForPublish(title.normalize("NFD"))).toBe(slug);
+    expect(slugifyForPublish(title)).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+  });
   it("folds accents, lowercases and dashes", () => {
     expect(slugifyForPublish("Djupgående Massage i Malmö")).toBe("djupgaende-massage-i-malmo");
   });

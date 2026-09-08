@@ -1,3 +1,10 @@
+import {
+  CONTENT_LANGUAGES,
+  CONTENT_LANGUAGE_OPTIONS,
+  contentLanguageName,
+  contentLanguagePatch,
+  type ContentLanguageCode,
+} from "@/lib/content-languages";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -71,7 +78,7 @@ export const Route = createFileRoute("/_authenticated/app/setup")({
   component: ProjectSetup,
 });
 
-const LANGS: Language[] = ["Polish", "Swedish", "English", "Danish"];
+const LANGS = CONTENT_LANGUAGES;
 
 function ProjectSetup() {
   const projects = useStore((s) => s.projects);
@@ -210,7 +217,9 @@ function ProjectSetup() {
             {(id) => (
               <Select
                 value={form.primaryLanguage}
-                onValueChange={(v) => update("primaryLanguage", v as Language)}
+                onValueChange={(v) =>
+                  setForm((f) => ({ ...f, ...contentLanguagePatch(v as Language) }))
+                }
               >
                 <SelectTrigger id={id}>
                   <SelectValue />
@@ -393,15 +402,20 @@ function ProjectSetup() {
             {(id) => (
               <Select
                 value={form.primaryContentLanguage ?? ""}
-                onValueChange={(v) => update("primaryContentLanguage", v as OnboardingLanguage)}
+                onValueChange={(v) =>
+                  setForm((f) => ({
+                    ...f,
+                    ...contentLanguagePatch(contentLanguageName(v as ContentLanguageCode)),
+                  }))
+                }
               >
                 <SelectTrigger id={id}>
                   <SelectValue placeholder={t("setup.markets.selectLanguage")} />
                 </SelectTrigger>
                 <SelectContent>
-                  {LANGUAGE_OPTIONS.map((l) => (
+                  {CONTENT_LANGUAGE_OPTIONS.map((l) => (
                     <SelectItem key={l.value} value={l.value}>
-                      {t(`lang.${l.value}`)}
+                      {l.native === l.label ? l.label : `${l.native} · ${l.label}`}
                     </SelectItem>
                   ))}
                 </SelectContent>

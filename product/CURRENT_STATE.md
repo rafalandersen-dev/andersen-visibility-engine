@@ -1,10 +1,10 @@
 # Milo Growth — Current State
 
-**Status:** #95 direct OpenAI migration published; native monetary admission prepared; key/controlled benchmark and full launch remain pending
+**Status:** #96 native monetary admission published; 24 EU content languages prepared; secure key, controlled benchmark and full launch remain pending
 
 **Last updated:** 2026-09-08
 
-**Repository baseline inspected:** `main` at `a3f7aec29edaa91a03bbe7f29280beec684f3086` (PR #95 merge)
+**Repository baseline inspected:** `main` at `d33faebd852ab844d152d3884378f68e840acb60` (PR #96 merge)
 
 **Product Lead / Outcome Owner:** Rafal Andersen
 
@@ -14,11 +14,11 @@ The owner explicitly requested and received an administrative email change to ra
 
 ## Recovery brief
 
-Latest authoritative override: #95 is reviewed, merged and published as deployment `b0c4e6ab-84ff-4e19-9f18-0a25bd73b892`, build `1788885770747`, exact revision `a3f7aec29edaa91a03bbe7f29280beec684f3086`, modified=false, full fingerprint `df29cded6a4eeeb0848ddfbda068b28330cfb311416a4b08dc24a30a1d86d820` and every component matching clean main. Native text/images now route directly to OpenAI. No live native generation is verified.
+Latest authoritative override: #96 is reviewed, merged and published as deployment `63132b2e-78b5-4afd-adb6-2ac5f5e33705`, build `1788899288773`, exact revision `d33faebd852ab844d152d3884378f68e840acb60`, modified=false, fingerprint `bc369ba9dd442488197fca4034f11f48ee51e9cec5f3a598cdd7ecc78b3031e7` and every component matching clean main. All native OpenAI actions now require account/global monetary admission; no budgets were funded and the latest production read had zero budgets/attempts. See [expense evidence](../evidence/native-provider-expense-2026-09-08.md) and the final PR #96 description for release evidence.
 
-The next packet connects all native provider actions to the existing account/global monetary ledger, retains unknown costs and bounds stalled provider/accounting waits. It passed 1,906 tests/137 files, types/build/focused lint; review/merge/publication remain pending. No budgets or secrets were provisioned. Read [native expense evidence](../evidence/native-provider-expense-2026-09-08.md) for conservative reserves, limitations and the required isolated three-attempt benchmark.
+The next packet adds 24 EU content-language choices across setup/onboarding, generation and MCP; it keeps the four UI dictionaries separate, synchronizes both saved content-language fields and prevents empty Greek/Bulgarian slugs. 1,956 tests/138 files, types and focused lint passed. Build passed; review/merge/publication remain pending. Local visual acceptance was blocked because CUA could not verify its administrator policy; no bypass was attempted. See [EU content evidence](../evidence/eu-content-languages-2026-09-08.md).
 
-OpenAI account exception: the user explicitly chose the existing account email. Company-email migration is no longer a prerequisite. Reauthentication succeeded and Personal / Default project are available, but no widget-authored confirmed selection/local-save approval has arrived. No key creation/write is claimed. The owner was asked for the form's current message/button text; do not request a plaintext key or blindly reopen the picker. USD5 remains authorized and unused.
+OpenAI account exception: the owner now reports changing the existing account email to Synergy and authorizes its temporary use for Milo. Exact address not provided/independently verified. Milo's own email remains rafi@anderseninnovations.com. A fresh connector check returned UNAUTHORIZED / openai_platform_authentication_failed. The owner has already received the exact Codex Plugins → OpenAI Developers → OpenAI Platform reconnect instruction; do not duplicate the question or mistake another “continue” instruction for a completed reconnect. No secure picker selection/local-save approval or saved key is claimed. USD5 remains authorized and unused for the isolated three-attempt benchmark.
 
 The earlier recovery entries below are historical and must not override this current account/release state.
 
@@ -81,7 +81,7 @@ The detailed [route/capability map](../docs/premium-redesign/FEATURE_INVENTORY.m
 ### Cost and billing
 
 - PR #65 fixes RPC/no-row/malformed-confirmation fail-open behavior and first-claim SQL cap bypass. Migration applied and independent-session acceptance passed. Scheduler uses server entitlements and enforced claims. PR #66 adds finite onboarding extraction and zero automatic text retries/60-second timeout.
-- Merged inactive PR #67 provides internal account/global monetary reserve/reconcile, unknown-cost retention and overrun pauses. It is not connected to production provider callers and its migration is applied with zero production budgets/requests. Verified rates, adapters and explicit budget provisioning remain required. Customer delivered-result allowance accounting remains separate.
+- PR #67 provides internal account/global monetary reserve/reconcile, unknown-cost retention and overrun pauses. Published #96 connects native providers with conservative reserves; production still has zero funded budgets/requests. Actual cost reconciliation, a benchmark isolated from background jobs, explicit budget provisioning and customer delivered-result allowances remain open.
 - `AI_METERING_ENFORCED` determines cap enforcement; production value was not inspected. Do not assert that it is currently on or off.
 - Server entitlements already exist; the July claim that the product still trusts the client blob as paid authority is obsolete. Verify deployment/RLS/lifecycle rather than reimplementing from that stale claim.
 - Stripe is the required billing direction after Paddle rejection. Paddle-specific code and terms/refunds remain; no Stripe lifecycle acceptance or new pricing is claimed.

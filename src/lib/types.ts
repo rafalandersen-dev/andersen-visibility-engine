@@ -2,7 +2,9 @@
  * Canonical domain types for the Milo Growth.
  * All store entities, mock-AI generators and UI components import from here.
  */
-export type Language = "Polish" | "Swedish" | "English" | "Danish";
+import type { ContentLanguage, ContentLanguageCode } from "./content-languages";
+export type { ContentLanguageCode } from "./content-languages";
+export type Language = ContentLanguage;
 
 export type ContentType =
   | "Landing Page"
@@ -282,7 +284,7 @@ export interface Project {
   market?: Market;
   currency?: Currency;
   appLanguage?: OnboardingLanguage;
-  primaryContentLanguage?: OnboardingLanguage;
+  primaryContentLanguage?: ContentLanguageCode;
   growthGoals?: string[];
   onboardingCompletedAt?: string;
   onboardingSourceData?: Record<string, unknown>;

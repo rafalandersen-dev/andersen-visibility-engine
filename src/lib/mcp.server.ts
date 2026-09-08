@@ -1,3 +1,4 @@
+import { CONTENT_LANGUAGES, projectContentLanguage } from "./content-languages";
 import { profileFillSchema, prepareProfileFill, applyProfileFill, ProfileFillError } from "./mcp-profile-fill";
 /**
  * Claude Connector (MCP) v1 — SERVER-ONLY. Implements a minimal MCP server
@@ -478,7 +479,7 @@ function toolDefs(scopes: string[] | null, writeEnabled: boolean) {
 /** Runtime mirror of the ContentType union (types are erased at runtime). */
 const CONTENT_TYPES = ["Landing Page", "Service Page", "Blog Article", "Guide", "FAQ Page", "Comparison", "Location Page"];
 const PRIORITIES = ["High", "Medium", "Low"];
-const LANGUAGES = ["Polish", "Swedish", "English", "Danish"];
+const LANGUAGES: readonly string[] = CONTENT_LANGUAGES;
 const MAX_TASKS = 500;
 const MAX_OPPORTUNITIES = 1000;
 
@@ -754,7 +755,7 @@ async function runWriteTool(userId: string, name: WriteToolName, input: WriteInp
       if (existing) return { data, result: { entityId: String(existing.id), deduped: true } };
     }
     if (opportunities.length >= MAX_OPPORTUNITIES) throw new WriteValidationError("opportunities", "opportunity limit reached for this workspace");
-    const language = LANGUAGES.includes(String(project.primaryLanguage)) ? (project.primaryLanguage as Opportunity["language"]) : "English";
+    const language = projectContentLanguage(project);
     // Built through newOpportunityRecord so the connector writes the canonical
     // lifecycle (captured) rather than minting another legacy "Linked" record.
     const opportunity: Opportunity = newOpportunityRecord({
@@ -1110,9 +1111,7 @@ async function runContentCreate(
     if (content.length >= MAX_CONTENT_ASSETS) throw new WriteValidationError("content", "content limit reached for this workspace");
     const language = input.language && LANGUAGES.includes(input.language)
       ? input.language
-      : LANGUAGES.includes(String(project.primaryLanguage))
-        ? String(project.primaryLanguage)
-        : "English";
+      : projectContentLanguage(project);
     const asset = {
       id: ids.entityId,
       projectId: input.projectId!,

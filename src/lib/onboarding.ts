@@ -5,6 +5,8 @@
  * Onboarding data lives in the workspace JSONB (Project), so there is no DB
  * schema change. All fields are optional → existing projects keep working.
  */
+import { contentLanguageName, type ContentLanguageCode } from "./content-languages";
+export { CONTENT_LANGUAGE_OPTIONS } from "./content-languages";
 import type { Currency, Market, OnboardingLanguage, Language, Opportunity, Project } from "./types";
 
 export const MARKETS: {
@@ -12,7 +14,7 @@ export const MARKETS: {
   label: string;
   currency: Currency;
   appLanguage: OnboardingLanguage;
-  primaryContentLanguage: OnboardingLanguage;
+  primaryContentLanguage: ContentLanguageCode;
 }[] = [
   { value: "PL", label: "Poland", currency: "PLN", appLanguage: "pl", primaryContentLanguage: "pl" },
   { value: "SE", label: "Sweden", currency: "SEK", appLanguage: "sv", primaryContentLanguage: "sv" },
@@ -64,16 +66,9 @@ export function marketDefaults(market: Market) {
   return { currency: m.currency, appLanguage: m.appLanguage, primaryContentLanguage: m.primaryContentLanguage };
 }
 
-/**
- * Map an onboarding content language to the Project.primaryLanguage / content
- * asset Language enum used by the AI generators. The enum now supports
- * Polish/Swedish/English/Danish.
- */
-export function contentLangToProjectLanguage(lang: OnboardingLanguage): Language {
-  if (lang === "pl") return "Polish";
-  if (lang === "sv") return "Swedish";
-  if (lang === "da") return "Danish";
-  return "English"; // en → English
+/** Map content language codes to the canonical stored language name. */
+export function contentLangToProjectLanguage(lang: ContentLanguageCode): Language {
+  return contentLanguageName(lang);
 }
 
 /**

@@ -1,3 +1,4 @@
+import { projectContentLanguage, contentLanguagePatch } from "./content-languages";
 /**
  * Phase 1B.2 — server-side pending action operations (dark: nothing exposes
  * these yet; the MCP tools arrive in 1B.3 and the UI in 1B.4/1B.5).
@@ -28,7 +29,6 @@ import {
 
 // Runtime mirrors of the 1A write layer's conventions (mcp.server.ts keeps its
 // own copies; importing from there would be circular).
-const LANGUAGES = ["Polish", "Swedish", "English", "Danish"];
 const MAX_OPPORTUNITIES = 1000;
 
 /** Uniform not-found (unknown project/opportunity/action — callers map to -32011). */
@@ -314,7 +314,11 @@ export async function resolvePendingActionForWorkspace(
         if (f.brandNotes !== undefined) merged.brandNotes = f.brandNotes;
         if (f.mainLocation !== undefined) merged.mainLocation = f.mainLocation;
         if (f.targetLocations !== undefined) merged.targetLocations = [...f.targetLocations];
-        if (f.primaryLanguage !== undefined) merged.primaryLanguage = f.primaryLanguage as Project["primaryLanguage"];
+        if (f.primaryLanguage !== undefined)
+          Object.assign(
+            merged,
+            contentLanguagePatch(f.primaryLanguage as Project["primaryLanguage"]),
+          );
         if (f.additionalLanguages !== undefined) merged.additionalLanguages = [...f.additionalLanguages] as Project["additionalLanguages"];
         // Overwritten ONLY when explicitly present in the validated payload.
         if (f.competitorUrls !== undefined) merged.competitorUrls = [...f.competitorUrls];
@@ -359,7 +363,7 @@ export async function resolvePendingActionForWorkspace(
       // items (payload order) and counting them.
       const existingOpportunities = ((data.opportunities as Opportunity[] | undefined) ?? []).filter(Boolean);
       const seenTitles = new Set(existingOpportunities.filter((o) => o.projectId === action.projectId).map((o) => norm(o.title)));
-      const language = LANGUAGES.includes(String(project.primaryLanguage)) ? (project.primaryLanguage as Opportunity["language"]) : "English";
+      const language = projectContentLanguage(nextProjects[projIdx]);
       const createdOpportunities: Opportunity[] = [];
       let skippedOpportunityDuplicates = 0;
       let skippedOpportunityOverflow = 0;

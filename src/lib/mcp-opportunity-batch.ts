@@ -1,3 +1,4 @@
+import { CONTENT_LANGUAGES, projectContentLanguage } from "./content-languages";
 import { z } from "zod";
 import { newOpportunityRecord } from "./opportunities";
 import type { Opportunity, Project } from "./types";
@@ -25,7 +26,7 @@ export const opportunityBatchSchema = z
               ])
               .default("Blog Article"),
             priority: z.enum(["High", "Medium", "Low"]).default("Medium"),
-            language: z.enum(["Polish", "Swedish", "English", "Danish"]).optional(),
+            language: z.enum(CONTENT_LANGUAGES).optional(),
             source: z.enum(["mcp", "competitor"]).default("mcp"),
           })
           .strict(),
@@ -103,9 +104,7 @@ export function applyOpportunityBatch(
   )
     throw new OpportunityBatchError("capacity");
   if (opportunities.length + input.items.length > 1000) throw new OpportunityBatchError("capacity");
-  const language = ["Polish", "Swedish", "English", "Danish"].includes(project.primaryLanguage)
-    ? project.primaryLanguage
-    : "English";
+  const language = projectContentLanguage(project);
   const added = input.items.map((item, index) =>
     newOpportunityRecord(
       {

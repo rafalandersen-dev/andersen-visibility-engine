@@ -1,3 +1,8 @@
+import {
+  CONTENT_LANGUAGES,
+  resolveContentLanguage,
+  projectContentLanguage,
+} from "./content-languages";
 /**
  * Server functions using direct AI providers for Milo Growth.
  *
@@ -31,7 +36,7 @@ import { claimAiUsage, type UsageBucket } from "./ai-usage.server";
 
 const MODEL = DEFAULT_MODEL_ID;
 
-const LANGUAGES = ["Polish", "Swedish", "English", "Danish"] as const;
+const LANGUAGES = CONTENT_LANGUAGES;
 const CONTENT_TYPES = [
   "Landing Page",
   "Service Page",
@@ -104,7 +109,10 @@ const AI_VISIBILITY_CATEGORIES = [
   "Authority Gaps for AI Answers",
 ] as const;
 
-const LanguageEnum = normalizedEnum(LANGUAGES);
+const LanguageEnum = z.preprocess(
+  (value) => resolveContentLanguage(value) ?? value,
+  z.enum(LANGUAGES),
+);
 const ContentTypeEnum = normalizedEnum(CONTENT_TYPES);
 const SearchIntentEnum = normalizedEnum(SEARCH_INTENTS);
 const PriorityEnum = normalizedEnum(PRIORITIES);
@@ -279,17 +287,11 @@ function normalizeValue<const T extends readonly [string, ...string[]]>(
 }
 
 function normalizeLanguage(value: unknown, project?: Project) {
-  const raw = asString(value).toLowerCase();
-  if (/svensk|svenska|swedish|sverige|sweden/.test(raw)) return "Swedish";
-  if (/polsk|polska|polski|polish|poland|polska/.test(raw)) return "Polish";
-  if (/dansk|danish|danmark|denmark/.test(raw)) return "Danish";
-  if (/engelsk|english|angielski/.test(raw)) return "English";
-  return normalizeValue(
-    value,
-    LANGUAGES,
-    project?.primaryLanguage && LANGUAGES.includes(project.primaryLanguage)
-      ? project.primaryLanguage
-      : "English",
+  return (
+    resolveContentLanguage(value) ??
+    resolveContentLanguage(project?.primaryContentLanguage) ??
+    resolveContentLanguage(project?.primaryLanguage) ??
+    "English"
   );
 }
 
@@ -1095,23 +1097,12 @@ function mapGatewayError(e: unknown): Error {
 
 /**
  * Human-readable language for AI content generation. Prefers the project's
- * `primaryContentLanguage` (en/pl/sv/da, incl. Danish), then the legacy
+ * `primaryContentLanguage` (one of the 24 EU language codes), then the legacy
  * `primaryLanguage` enum, then English. Used to tell generators which language
  * to write in — separate from the app UI language.
  */
 export function contentLanguageLabel(p: Project): string {
-  switch (p.primaryContentLanguage) {
-    case "pl":
-      return "Polish";
-    case "sv":
-      return "Swedish";
-    case "da":
-      return "Danish";
-    case "en":
-      return "English";
-    default:
-      return p.primaryLanguage || "English";
-  }
+  return projectContentLanguage(p);
 }
 
 function projectBrief(p: Project, services: ServiceItem[]) {
@@ -1777,7 +1768,7 @@ Produce: (a) prompt SETS — the AI-search questions this business should be rea
 Cover these categories: Discovery Prompts, Comparison Prompts, Problem / Solution Prompts, Local-Intent Prompts, Trust & Citation Readiness, Content Gaps for AI Answers, Authority Gaps for AI Answers.
 
 Return exactly this JSON shape:
-{"overallAiVisibilityScore":0,"promptCoverageScore":0,"answerReadinessScore":0,"localAiReadinessScore":0,"trustCitationScore":0,"contentGapScore":0,"authorityGapScore":0,"summary":"","topAiVisibilityActions":[""],"promptSets":[{"category":"Discovery Prompts|Comparison Prompts|Problem / Solution Prompts|Local-Intent Prompts|Trust & Citation Readiness|Content Gaps for AI Answers|Authority Gaps for AI Answers","prompt":"","language":"Polish|Swedish|English|Danish","intent":"Informational|Commercial|Transactional|Navigational","targetAudience":"","whyItMatters":"","readiness":"Low|Medium|High","recommendedSourcePageOrAsset":""}],"visibilityGaps":[{"title":"","category":"Discovery Prompts|Comparison Prompts|Problem / Solution Prompts|Local-Intent Prompts|Trust & Citation Readiness|Content Gaps for AI Answers|Authority Gaps for AI Answers","priority":"Low|Medium|High","explanation":"","likelyReason":"","recommendation":"","suggestedPrompt":"","suggestedOpportunityTitle":"","suggestedContentType":"Landing Page|Service Page|Blog Article|Guide|FAQ Page|Comparison|Location Page","suggestedSearchIntent":"Informational|Commercial|Transactional|Navigational","suggestedCta":""}]}
+{"overallAiVisibilityScore":0,"promptCoverageScore":0,"answerReadinessScore":0,"localAiReadinessScore":0,"trustCitationScore":0,"contentGapScore":0,"authorityGapScore":0,"summary":"","topAiVisibilityActions":[""],"promptSets":[{"category":"Discovery Prompts|Comparison Prompts|Problem / Solution Prompts|Local-Intent Prompts|Trust & Citation Readiness|Content Gaps for AI Answers|Authority Gaps for AI Answers","prompt":"","language":"${LANGUAGES.join("|")}","intent":"Informational|Commercial|Transactional|Navigational","targetAudience":"","whyItMatters":"","readiness":"Low|Medium|High","recommendedSourcePageOrAsset":""}],"visibilityGaps":[{"title":"","category":"Discovery Prompts|Comparison Prompts|Problem / Solution Prompts|Local-Intent Prompts|Trust & Citation Readiness|Content Gaps for AI Answers|Authority Gaps for AI Answers","priority":"Low|Medium|High","explanation":"","likelyReason":"","recommendation":"","suggestedPrompt":"","suggestedOpportunityTitle":"","suggestedContentType":"Landing Page|Service Page|Blog Article|Guide|FAQ Page|Comparison|Location Page","suggestedSearchIntent":"Informational|Commercial|Transactional|Navigational","suggestedCta":""}]}
 
 Scores are 0–100 where HIGHER means BETTER current readiness (more likely to be a good AI answer). Be realistic for a small business.
 promptSets: provide 10–14 realistic prompts a real person would type into an AI assistant, spread across the prompt-style categories (Discovery, Comparison, Problem/Solution, Local-Intent), using the business's real services, audience and location. "readiness" = how ready the business likely is to be cited for that prompt today. Use the primary language plus additional languages where relevant.
@@ -1932,7 +1923,7 @@ export async function scanWebsiteCore(userId: string, url: string) {
       `You are extracting a concise business profile from a website homepage for an onboarding form.
 
 Return exactly this JSON shape:
-{"businessName":"","businessType":"","description":"","primaryLanguage":"Polish|Swedish|English|Danish","services":[{"name":"","kind":"Service|Product","description":""}]}
+{"businessName":"","businessType":"","description":"","primaryLanguage":"${LANGUAGES.join("|")}","services":[{"name":"","kind":"Service|Product","description":""}]}
 
 Infer the business name, a short business type (e.g. "bakery", "massage studio"), a 1–2 sentence description, the primary language, and up to 6 real services/products the business offers. Leave fields empty (and services []) if not clearly implied. Do NOT invent offerings not present in the text.
 
@@ -2030,7 +2021,7 @@ export async function generateOpportunitiesCore(
 
 Generate 6 high-quality content opportunities for this business.
 Return exactly this JSON shape:
-{"opportunities":[{"title":"","language":"Polish|Swedish|English|Danish","contentType":"Landing Page|Service Page|Blog Article|Guide|FAQ Page|Comparison|Location Page","searchIntent":"Informational|Commercial|Transactional|Navigational","targetAudience":"","businessValue":"","recommendedCta":"","priority":"Low|Medium|High"}]}
+{"opportunities":[{"title":"","language":"${LANGUAGES.join("|")}","contentType":"Landing Page|Service Page|Blog Article|Guide|FAQ Page|Comparison|Location Page","searchIntent":"Informational|Commercial|Transactional|Navigational","targetAudience":"","businessValue":"","recommendedCta":"","priority":"Low|Medium|High"}]}
 
 ${brief}
 ${existing}
@@ -2114,7 +2105,7 @@ export const generateCalendarFn = createServerFn({ method: "POST" })
         { userId: context.userId as string, operation: "generateCalendarFn" },
         `Build a realistic 1-month content calendar for "${project.businessName || project.name}" in ${project.primaryLanguage}.
 Return exactly this JSON shape:
-{"calendarItems":[{"opportunityIndex":1,"daysFromToday":4,"topicTitle":"","language":"Polish|Swedish|English|Danish","contentType":"Landing Page|Service Page|Blog Article|Guide|FAQ Page|Comparison|Location Page","searchIntent":"Informational|Commercial|Transactional|Navigational","recommendedCta":""}]}
+{"calendarItems":[{"opportunityIndex":1,"daysFromToday":4,"topicTitle":"","language":"${LANGUAGES.join("|")}","contentType":"Landing Page|Service Page|Blog Article|Guide|FAQ Page|Comparison|Location Page","searchIntent":"Informational|Commercial|Transactional|Navigational","recommendedCta":""}]}
 
 Pick the strongest opportunities below and schedule them with sensible cadence (every 3–5 days, no clustering on one date). Prefer high-priority items first.
 
