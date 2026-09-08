@@ -1,5 +1,15 @@
 # Milo Growth — continuous execution handoff
 
+## Current override — 2026-09-08
+
+Read this before the historical handoff below. No successor task exists. Main #91 `29b730c227f4b410a5f282935445b561b2b981d5` is published exactly: build1788819251901, modified=false, full/component fingerprint match (a76081ad9579fb0a23d0b246bcdae30c7138845d2911775c982054c1488030dc). The company account address, administrative confirmation after mailbox evidence, and the single authorized email test are finished. Do not repeat any of them; global operational email remains off.
+
+The owner has now explicitly approved **USD5 total** for one real scan/article/image. The earlier spending-approval blocker is superseded. No paid benchmark call has run yet. Stripe is deferred until after coffee. Do not ask for keys on chat or repeat the same spending approval.
+
+Exact Butelki destination found: Lovable workspace Si Longevity `0YrLHHf6fq9algeLZJY0`, project `bef4e87a-5b83-44fc-8e98-d3871690d545`, repo si-longevity-design-refresh, Supabase ojowadobpddypiotwipq. Existing read access works. WordPress is the ecommerce backend; Milo uses separate milo_content draft/published snapshots. Today's07:00UTC unattended publication was verified in both databases and on the public page. July asset62tomerb failed content readiness (links/medical evidence/author/review); no CMS retry should bypass these gates. UK repo scandi-system-studio maps to umxhrseiwwzjeiqjkcwn but has no current Milo content table/functions/routes; its historical HTTP502 failures remain unresolved.
+
+Current working branch `codex/milo-publication-diagnostics-20260908` in `/Users/rafi/Projects/milo-growth-benchmark-20260908` adds read-only historical failure details in the inbox (33 new cases,1769 total tests, types/build/lint pass). Merge/release pending at this revision. See evidence/publication-topology-2026-09-08.md and evidence/owner-ai-benchmark-2026-09-08.md. Full R00–R24 remains open; no general launch GO.
+
 Updated 2026-09-07, approximately22:06UTC. Current Codex task: `01a07ba1-c8b6-7582-9ff0-275d64224671`, saved MILO GROWTH project `g-p-6a732f6015948191999fb9beb8f7bc81`. **No successor task exists.**
 
 ## Mandate and boundaries

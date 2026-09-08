@@ -1,10 +1,10 @@
 # Milo Growth — Current State
 
-**Status:** Deployment reconciled; #90 recovery inspection published and source-equivalent; full public launch remains unverified
+**Status:** Deployment reconciled through #91; real Butelki scheduled publication verified; full public launch remains unverified
 
-**Last updated:** 2026-09-07
+**Last updated:** 2026-09-08
 
-**Repository baseline inspected:** `main` at `2a722e404a2799a7979f8609b443d62ad6ab22c7` (PR #90 merge)
+**Repository baseline inspected:** `main` at `29b730c227f4b410a5f282935445b561b2b981d5` (PR #91 merge)
 
 **Product Lead / Outcome Owner:** Rafal Andersen
 
@@ -13,6 +13,10 @@
 The owner explicitly requested and received an administrative email change to rafi@anderseninnovations.com on2026-09-07. The same Milo account,10 projects, owner role, entitlement and Google identity were preserved. This supersedes older missing-company-account observations. The approved owner test now has provider-reported delivery, with a separate earlier test discovered in the sender log. The current email identity was administratively confirmed after mailbox/access evidence at22:04:49UTC; fresh login remains untested; see [account ownership](./ACCOUNT_OWNERSHIP.md).
 
 ## Recovery brief
+
+2026-09-08 update: #91 is merged and published with exact revision, modified=false, build1788819251901, fingerprint a76081ad9579fb0a23d0b246bcdae30c7138845d2911775c982054c1488030dc and every component matching. It passed1736 tests. The owner approved USD5 total for the one-scan/article/image benchmark; no benchmark invocation or spend yet. Stripe is deferred by the owner until after coffee. Existing Butelki destination access was found in the Si Longevity workspace, and today's09:00 Stockholm scheduled publication was independently read on the public site. Earlier missing-destination-access assumptions are superseded. See [publication topology](../evidence/publication-topology-2026-09-08.md) and [benchmark preflight](../evidence/owner-ai-benchmark-2026-09-08.md).
+
+The current publication-inspection packet adds a scoped read-only explanation of historical queue failures, distinguishes content checks/configuration/destination/unknown reasons, and warns when the draft changed after the saved record. It does not retry, publish or approve. 33 new cases, full1769 tests/130 files, TypeScript/build/focused lint pass; merge/release and live UI acceptance remain pending at this documentation revision.
 
 Read [ROADMAP.md](./ROADMAP.md) for execution order and [PLAN_REVIEW_2026_09_07.md](./PLAN_REVIEW_2026_09_07.md) for all scope/decision gaps. This update corrects the July 28 state file against current source and GitHub evidence. It does not convert a source review into an independent security audit or prove production configuration.
 

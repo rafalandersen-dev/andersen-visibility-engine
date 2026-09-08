@@ -6,6 +6,12 @@
 
 **Product Lead:** Rafal Andersen
 
+## 2026-09-08 — Owner benchmark allowance and publication access
+
+Rafal explicitly approved **USD 5 total** for one real scan, one article and one image. This supersedes the earlier unapproved proposal. No automatic retry, additional paid run, top-up, subscription, email or client publication is included. Execution still requires bounded provider calls and cost evidence; zero benchmark calls have run at this record. Stripe setup is owner-deferred until after coffee, not rejected or complete. See [benchmark preflight](../evidence/owner-ai-benchmark-2026-09-08.md).
+
+The owner's WordPress/Lovable hint led to the exact Butelki destination in the existing **Si Longevity** workspace. Current collaborator access permits the required database reads; no new Supabase account/access is needed for this inspection. WordPress handles ecommerce; Milo articles use the separate Lovable/Supabase content path. One existing unattended publication on 2026-09-08 was verified across the Milo queue, destination snapshot and public page. The July draft remains blocked by content readiness and human-review requirements. See [destination evidence](../evidence/publication-topology-2026-09-08.md).
+
 ## 2026-07-27 — Public-audit guardrails
 
 **Status:** Approved
