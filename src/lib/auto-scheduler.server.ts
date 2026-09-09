@@ -35,6 +35,7 @@ import {
   selectCandidates,
   type ScheduleSlot,
 } from "./auto-scheduler";
+import { GenerationResultUnavailableError } from "./generation-result.server";
 import { generateContentCore, generateOpportunitiesCore } from "./ai.functions";
 import { readWorkspaceRow, mutateWorkspace, type WorkspaceData } from "./workspace.server";
 import { buildActiveInternalPaths } from "./publish-targets";
@@ -169,7 +170,7 @@ export function buildAssetFromGeneration(
   plannedKey: string,
 ): ContentAsset {
   return {
-    id: crypto.randomUUID(),
+    id: gen.resultId ?? crypto.randomUUID(),
     projectId: opp.projectId,
     opportunityId: opp.id,
     title: opp.title,
@@ -457,7 +458,7 @@ async function runForProject(
     const acceptedAndDrafted = acceptedSuggestionIds.filter((id) =>
       batch.some((p) => p.opportunity.id === id),
     );
-    await mutateWorkspace(userId, (data) => {
+    const persisted = await mutateWorkspace(userId, (data) => {
       const wsContent = Array.isArray(data.content) ? (data.content as ContentAsset[]) : [];
       const wsOpps = Array.isArray(data.opportunities) ? (data.opportunities as Opportunity[]) : [];
       const wsSugs = Array.isArray(data.discoverySuggestions)
@@ -470,6 +471,7 @@ async function runForProject(
         .map((p) => p.opportunity)
         .filter((o) => !existingOppIds.has(o.id))
         .map((o) => ({ ...o, status: "drafting" }) as Opportunity);
+      const newAssetIds = batch.map((p) => p.asset.id).filter((id) => !existingAssetIds.has(id));
       return {
         data: {
           ...data,
@@ -486,7 +488,7 @@ async function runForProject(
           ],
           opportunities: [
             ...wsOpps.map((o) =>
-              batch.some((p) => p.opportunity.id === o.id)
+              batch.some((p) => p.opportunity.id === o.id && newAssetIds.includes(p.asset.id))
                 ? ({
                     ...o,
                     status: "drafting",
@@ -507,7 +509,7 @@ async function runForProject(
               : sug,
           ),
         },
-        result: null,
+        result: { newAssetIds },
       };
     });
 
@@ -515,7 +517,9 @@ async function runForProject(
     // ---- 6. Arm go-lives (auto_publish only): queue row FIRST, mirror second --
     const db = await admin();
     for (const p of batch) {
-      if (!p.armable) continue;
+      // A recovery/owner save may have won while generation was returning.
+      // Only a draft inserted by this mutation can inherit its auto approval.
+      if (!p.armable || !persisted.result.newAssetIds.includes(p.asset.id)) continue;
       const { error } = await db.from("scheduled_publishes").insert({
         user_id: userId,
         project_id: projectId,
@@ -569,6 +573,7 @@ async function runForProject(
       );
     } catch (e) {
       if (
+        e instanceof GenerationResultUnavailableError ||
         e instanceof UsageUnavailableError ||
         e instanceof UsageLimitError ||
         e instanceof AiExpenseUnavailableError

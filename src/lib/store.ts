@@ -213,7 +213,6 @@ function applyRev(rev: number) {
 
 // P0 fix 2026-07-25: conflict recovery merges instead of wiping (see
 // workspace-merge.ts for the incident and the per-field contract).
-// eslint-disable-next-line import/order -- grouped with the fix block
 import { type WorkspaceSnapshot } from "./workspace-merge";
 import {
   assembleWorkspaceDoc,
@@ -333,13 +332,23 @@ async function saveWorkspaceUnchained(): Promise<void> {
     snapshot as Record<string, unknown>,
   );
   if (diff.isEmpty) return;
+  const savedContent = Array.isArray(lastSavedDoc?.content)
+    ? (lastSavedDoc.content as ContentAsset[])
+    : [];
 
   const applyBatch = () =>
     supabase.rpc(
       "apply_workspace_entity_batch" as never,
       {
         p_user_id: userId,
-        p_upserts: diff.upserts,
+        p_upserts: diff.upserts.map((row) =>
+          row.collection === "content"
+            ? {
+                ...row,
+                expected_data: savedContent.find((a) => a.id === row.entity_id) ?? null,
+              }
+            : row,
+        ),
         p_deletes: diff.deletes,
         p_meta: diff.meta,
         p_expected_rev: null,
@@ -371,6 +380,15 @@ async function saveWorkspaceUnchained(): Promise<void> {
     // discard every local edit. Retry the batch against the now-existing
     // meta row instead, and fall through to the shared confirm/throw path.
     ({ data: newRev, error } = await applyBatch());
+  }
+  if (error && /workspace_content_changed/i.test(error.message ?? "")) {
+    const { toast } = await import("sonner");
+    toast.error(
+      "This draft changed in another session. Your local edits are still here. Copy them before refreshing to open the saved version.",
+    );
+    throw new Error(
+      "This draft changed in another session. Copy your local edits before refreshing.",
+    );
   }
   if (error) throw error; // project-cap + all other errors keep their existing paths
   if (state.userId === userId) {

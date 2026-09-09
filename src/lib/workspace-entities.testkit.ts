@@ -4,6 +4,7 @@
  * tests: bundle reads assemble from an in-memory doc, batches mutate it,
  * backfill adopts a doc once. Imported ONLY from *.test.ts files.
  */
+import { isDeepStrictEqual } from "node:util";
 import { assembleWorkspaceDoc, splitWorkspaceDoc, type EntityRow } from "./workspace-entities";
 
 export interface EntityBackendState {
@@ -49,6 +50,17 @@ export function makeEntityBackend(): {
     const cur = state.doc === null ? null : splitWorkspaceDoc(state.doc);
     if (cur === null) throw Object.assign(new Error("workspace_not_migrated"), { code: "P0002" });
     const byKey = new Map(cur.entities.map((e) => [`${e.collection} ${e.entity_id}`, e]));
+    for (const u of upserts as (EntityRow & { expected_data?: unknown })[]) {
+      const current = byKey.get(`${u.collection} ${u.entity_id}`)?.data ?? null;
+      if (
+        u.collection === "content" &&
+        "expected_data" in u &&
+        !isDeepStrictEqual(current, u.expected_data) &&
+        !isDeepStrictEqual(current, u.data)
+      ) {
+        throw Object.assign(new Error("workspace_content_changed"), { code: "40001" });
+      }
+    }
     for (const u of upserts) byKey.set(`${u.collection} ${u.entity_id}`, u);
     for (const d of deletes) byKey.delete(`${d.collection} ${d.entity_id}`);
     const merged = { ...cur.meta, ...metaPatch } as typeof cur.meta & {

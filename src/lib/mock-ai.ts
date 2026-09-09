@@ -254,6 +254,7 @@ export async function generateContentCalendar(projectId: string) {
 // Content assets (landing brief / article draft)
 // ============================================================
 type AssetResult = {
+  resultId?: string;
   metaTitle: string;
   metaDescription: string;
   h1: string;
@@ -285,8 +286,10 @@ async function generateAsset(opportunityId: string, kind: "landing" | "article")
 
     // P1-4: this generation path resolves invented links too.
     const resolvedBody = await resolveGeneratedLinks(result.markdown, project);
+    const existing = getState().content.find((a) => a.id === result.resultId);
+    if (existing) return existing; // Recovery may have finished while this response was delayed.
     const asset: ContentAsset = {
-      id: uid(),
+      id: result.resultId ?? uid(),
       projectId: opp.projectId,
       opportunityId: opp.id,
       title: opp.title,
@@ -1511,6 +1514,7 @@ function sourceTypeForOpportunity(opp: Opportunity): ContentSourceType {
 }
 
 type GeneratedContent = {
+  resultId?: string;
   metaTitle: string;
   metaDescription: string;
   h1: string;
@@ -1557,8 +1561,10 @@ export async function generateContentForOpportunity(
 
     const now = new Date().toISOString();
     const resolvedBody = await resolveGeneratedLinks(result.markdown, project);
+    const existing = getState().content.find((a) => a.id === result.resultId);
+    if (existing) return existing; // Recovery may have finished while this response was delayed.
     const asset: ContentAsset = {
-      id: uid(),
+      id: result.resultId ?? uid(),
       projectId: opp.projectId,
       opportunityId: opp.id,
       title: opp.title,

@@ -1,3 +1,4 @@
+import { GenerationResultUnavailableError } from "./generation-result.server";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { runMonthlyAutoScheduler } from "./auto-scheduler.server";
 import { UsageLimitError, UsageUnavailableError } from "./ai-usage.server";
@@ -90,7 +91,9 @@ beforeEach(() => {
   };
   mocks.read.mockImplementation(async () => ({ data: workspace }));
   mocks.mutate.mockImplementation(async (_user, change) => {
-    workspace = change(workspace).data;
+    const next = change(workspace);
+    workspace = next.data;
+    return { result: next.result, rev: 1 };
   });
 });
 afterEach(() => {
@@ -168,6 +171,7 @@ describe("autopilot budget failures", () => {
   });
 
   it.each([
+    new GenerationResultUnavailableError(),
     new UsageUnavailableError("contentGeneration"),
     new UsageLimitError("contentGeneration", 3, 3, "Monthly content limit reached."),
     new AiExpenseUnavailableError("budget_exhausted"),
@@ -268,6 +272,40 @@ describe("autopilot budget failures", () => {
     expect(mocks.insert.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.mutate.mock.invocationCallOrder[1],
     );
+  });
+
+  it("never queues or overwrites a draft already restored and edited while generation returned", async () => {
+    const project = (workspace.projects as Array<Record<string, unknown>>)[0];
+    project.autoScheduler = { enabled: true, mode: "auto_publish" };
+    project.publishMode = "autoPublishApproved";
+    mocks.remaining.mockResolvedValue(1);
+    const recovered = {
+      id: "recovered",
+      projectId: "p1",
+      opportunityId: "o1",
+      markdown: "Owner correction",
+      status: "Draft",
+    };
+    mocks.generate.mockImplementationOnce(async () => {
+      workspace.content = [recovered];
+      (workspace.opportunities as Array<Record<string, unknown>>)[0].currentContentAssetId =
+        "owner-choice";
+      return {
+        resultId: "recovered",
+        metaTitle: "Calm sessions",
+        metaDescription: "D",
+        h1: "Calm sessions",
+        markdown: "A relaxing article body about sessions in our studio.",
+        hookProposals: [{ text: "Need a calmer studio session?", type: "question" }],
+      };
+    });
+    const result = await runMonthlyAutoScheduler(now);
+    expect(result.projects[0]).toMatchObject({ generated: 1, armed: 0, held: 1 });
+    expect(workspace.content).toEqual([recovered]);
+    expect(
+      (workspace.opportunities as Array<Record<string, unknown>>)[0].currentContentAssetId,
+    ).toBe("owner-choice");
+    expect(mocks.insert).not.toHaveBeenCalled();
   });
 
   it("keeps a saved automatic draft unarmed when queue insertion fails", async () => {

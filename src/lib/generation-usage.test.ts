@@ -89,10 +89,13 @@ function reply(name: string, p: Record<string, unknown>) {
         { used: 1, cap: p.p_cap, allowed: true, receipt_id: p.p_id, claim_status: "reserved" },
       ],
     };
+  if (name === "record_generation_result")
+    return { error: null, data: [{ receipt_id: p.p_id, state: "retained" }] };
   if (name === "settle_generation_usage")
     return { error: null, data: [{ receipt_id: p.p_id, state: p.p_outcome }] };
   throw new Error("Unexpected RPC");
 }
+const retained = () => h.rpc.mock.calls.filter((c) => c[0] === "record_generation_result");
 const settlements = () => h.rpc.mock.calls.filter((c) => c[0] === "settle_generation_usage");
 beforeEach(() => {
   vi.resetAllMocks();
@@ -103,7 +106,7 @@ beforeEach(() => {
     JSON.stringify({ markdown: "## A usable generated draft\n\nActual text." }),
   );
   h.image.mockResolvedValue(new Uint8Array([1, 2, 3]));
-  h.stage.mockResolvedValue({ path: "private/image.webp", previewUrl: "private-preview" });
+  h.stage.mockResolvedValue({ path: `${user}/p/a/image.webp`, previewUrl: "private-preview" });
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 afterEach(() => {
@@ -127,9 +130,18 @@ describe("confirmed generation quota and technical failures", () => {
       userId: user,
       attempt: { requestId: p.p_native_attempt, jobId: p.p_id },
     });
-    expect(settlements()).toEqual([
-      ["settle_generation_usage", { p_id: p.p_id, p_user: user, p_outcome: "completed" }],
-    ]);
+    expect(settlements()).toEqual([]);
+    expect(retained()).toHaveLength(1);
+    expect(retained()[0][1]).toMatchObject({
+      p_user: user,
+      p_id: p.p_id,
+      p_result: {
+        kind: "content",
+        assetId: result.resultId,
+        output: { markdown: result.markdown },
+      },
+    });
+    expect(result.resultId).toBe(p.p_id);
     expect(h.rpc.mock.invocationCallOrder[0]).toBeLessThan(h.text.mock.invocationCallOrder[0]);
   });
   it.each(["text", "image"])(
@@ -184,10 +196,16 @@ describe("confirmed generation quota and technical failures", () => {
   );
   it("completes image quota after private staging", async () => {
     await expect(generateArticleImageCore(user, imageArgs)).resolves.toMatchObject({
-      path: "private/image.webp",
+      path: `${user}/p/a/image.webp`,
     });
     expect(h.stage.mock.invocationCallOrder[0]).toBeLessThan(h.rpc.mock.invocationCallOrder[1]);
-    expect(settlements()[0][1].p_outcome).toBe("completed");
+    expect(settlements()).toEqual([]);
+    expect(retained()[0][1].p_result).toMatchObject({
+      kind: "image",
+      assetId: "a",
+      output: { path: `${user}/p/a/image.webp` },
+    });
+    expect(retained()[0][1].p_result.output).not.toHaveProperty("previewUrl");
   });
   it("keeps the image feature gate before any receipt or paid work", async () => {
     h.plan.mockResolvedValue("starter");

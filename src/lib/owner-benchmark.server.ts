@@ -245,7 +245,7 @@ export async function runOwnerBenchmarkStage(
           opportunity: run.snapshot.opportunity,
           assetType: "article",
         },
-        { enforceLimit: true, attempt },
+        { enforceLimit: true, attempt, assetId: run.asset_id },
       );
       if (!gen.markdown || gen.markdown.trim().length < 200) throw new Error("incomplete_article");
       const { autoScheduledFor: unused, ...draft } = deps.buildAsset(
@@ -269,7 +269,7 @@ export async function runOwnerBenchmarkStage(
           articleTitle: run.snapshot.opportunity.title,
           project: run.snapshot.project,
         },
-        { attempt },
+        { attempt, imageId: run.image_id },
       );
       if (
         !generated.path.startsWith(`${userId}/${run.project_id}/${run.asset_id}/`) ||
