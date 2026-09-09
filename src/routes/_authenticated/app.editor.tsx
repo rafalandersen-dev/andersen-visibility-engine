@@ -51,7 +51,7 @@ import {
   removeArticleImageFn,
 } from "@/lib/image-storage.functions";
 import { reusedImageMeta } from "@/lib/image-storage";
-import { editorFormDirty } from "@/lib/editor-form";
+import { editorFormDirty, mergeEditorFormFields } from "@/lib/editor-form";
 import {
   HOOK_TYPES,
   validateHook,
@@ -847,7 +847,8 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         stored.h1 !== f.h1 ||
         stored.metaTitle !== f.metaTitle ||
         stored.metaDescription !== f.metaDescription ||
-        stored.cta !== f.cta);
+        stored.cta !== f.cta ||
+        JSON.stringify(stored.faq ?? null) !== JSON.stringify(f.faq ?? null));
     // Reconcile the section index against the current body at the persistence
     // boundary so stable-anchor ids are consistent with what publishes (P1.2C).
     const reconciled: ContentAsset = {
@@ -910,45 +911,15 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
    * wordpressPostId is the dangerous one: the next publish takes the CREATE
    * branch and puts a duplicate post on the customer's live site.
    *
-   * Only these eleven fields belong to the form. Everything else is authored
-   * elsewhere and must survive untouched.
+   * The form-owned field list lives in `EDITOR_FORM_FIELDS` (shared with
+   * `editorFormDirty`) so this can never silently drift from what the dirty
+   * check considers an edit — the bug class that let FAQ edits pass the
+   * dirty/beforeunload guard as "saved" while Save actually discarded them.
    */
   const mergeEditorEdits = (local: ContentAsset): ContentAsset => {
     const stored = getState().content.find((c) => c.id === local.id);
     if (!stored) return local;
-    return {
-      ...stored,
-      title: local.title,
-      slug: local.slug,
-      markdown: local.markdown,
-      metaTitle: local.metaTitle,
-      metaDescription: local.metaDescription,
-      h1: local.h1,
-      outline: local.outline,
-      internalLinks: local.internalLinks,
-      schemaSuggestions: local.schemaSuggestions,
-      cta: local.cta,
-      editorNotes: local.editorNotes,
-      // Article Studio 2.0 fields the editor forms own — must survive save (P1.1 J):
-      author: local.author,
-      sources: local.sources,
-      images: local.images,
-      tldr: local.tldr,
-      keyTakeaways: local.keyTakeaways,
-      breadcrumbs: local.breadcrumbs,
-      // Article Studio 3.0 / P1.2A — the opening hook the Hook panel owns. Must be
-      // merged so an edited/approved hook survives Save (the P1.1 image-loss class).
-      hook: local.hook,
-      // P1.2B — the featured image the Featured panel owns; same survival rule.
-      featuredImage: local.featuredImage,
-      // P1.2H upgrade markers — without these, "Upgrade to 3.0" would be
-      // silently dropped by Save/flushPendingEdits (the P1.1 defect class).
-      visualState: local.visualState,
-      visualModelVersion: local.visualModelVersion,
-      // Article Studio 3.0 / P1.2C — persisted section identities for stable image
-      // anchors. Reconciled at Save (see save()) so ids stay stable across edits.
-      sectionIndex: local.sectionIndex,
-    };
+    return mergeEditorFormFields(local, stored);
   };
 
   /**
