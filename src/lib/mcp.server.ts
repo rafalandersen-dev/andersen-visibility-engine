@@ -1,3 +1,5 @@
+import type { McpImageWorkTracker } from "./mcp-transport.server";
+import { MCP_IMAGE_TOOL, mcpImageSchema, McpImageError } from "./mcp-image";
 import { CONTENT_LANGUAGES, projectContentLanguage } from "./content-languages";
 import { profileFillSchema, prepareProfileFill, applyProfileFill, ProfileFillError } from "./mcp-profile-fill";
 /**
@@ -392,6 +394,7 @@ export const TOOL_SCOPES: Record<string, string> = {
   fill_project_profile: "milo.projects.write",
   create_content_draft: "milo.content.write",
   update_content_draft: "milo.content.write",
+  add_content_image: "milo.content.write",
   create_pending_action: "milo.actions.propose",
   list_pending_actions: "milo.actions.propose",
   get_pending_action: "milo.actions.propose",
@@ -441,7 +444,7 @@ export interface McpGrant {
 export function toolAllowed(name: string, scopes: string[] | null): boolean {
   const required = TOOL_SCOPES[name];
   if (!required) return false;
-  if (isWriteTool(name) || isContentWriteTool(name) || isPendingTool(name))
+  if (isWriteTool(name) || isContentWriteTool(name) || isPendingTool(name) || name === MCP_IMAGE_TOOL)
     return scopes !== null && scopes.includes(required);
   if (scopes === null) return true;
   return scopes.includes(required);
@@ -468,7 +471,102 @@ function toolDefs(scopes: string[] | null, writeEnabled: boolean) {
     inputSchema: t.inputSchema,
     annotations: t.annotations,
   }));
-  return [...reads, ...writes, ...contentWrites, ...pending];
+  return [...reads, ...writes, ...contentWrites, ...(toolAllowed(MCP_IMAGE_TOOL, scopes) ? [MCP_IMAGE_TOOL_DEF] : []), ...pending];
+}
+
+const MCP_IMAGE_TOOL_DEF = {
+  name: MCP_IMAGE_TOOL,
+  description:
+    "Attach an image file YOU supply to an existing unpublished Draft. Confirm the intended image and draft with the user. JPEG/PNG/WebP, at most 5MiB binary; send canonical base64, not a URL. Use one tools/call request (no batch for large images) and a stable requestId; retry only the identical file and metadata. Milo validates and privately stages the file as a proposed inline image. The owner reviews placement and approves it in Milo. No Milo AI generation, approval, scheduling or publication. Replays report the existing image without restoring removed images or undoing owner edits.",
+  inputSchema: {
+    type: "object",
+    additionalProperties: false,
+    required: ["projectId", "contentId", "requestId", "dataBase64", "concept", "alt"],
+    properties: {
+      projectId: { type: "string", pattern: "^[A-Za-z0-9_-]{1,64}$" },
+      contentId: { type: "string", pattern: "^[A-Za-z0-9_-]{1,64}$" },
+      requestId: { type: "string", minLength: 1, maxLength: 100 },
+      dataBase64: {
+        type: "string",
+        minLength: 4,
+        maxLength: 6990508,
+        description:
+          "Canonical padded base64 of the binary image, without data URL prefix or whitespace",
+      },
+      concept: { type: "string", minLength: 1, maxLength: 500 },
+      alt: { type: "string", minLength: 1, maxLength: 500 },
+      caption: { type: "string", maxLength: 500 },
+    },
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+};
+
+async function dispatchImageTool(
+  grant: McpGrant,
+  id: JsonRpcMessage["id"],
+  args: Record<string, unknown>,
+  hooks?: McpHooks,
+): Promise<object> {
+  if (!grant.clientId || id == null)
+    return rpcError(
+      id,
+      -32010,
+      "Use an OAuth connection and a correlated request with a stable requestId.",
+    );
+  // This tool must never run without the route's confirmed write quota.
+  if (!hooks?.checkWriteLimit)
+    return rpcError(id, -32003, "Milo could not confirm the write limit.");
+  const rl = await hooks.checkWriteLimit();
+  if (rl.shouldAudit)
+    await hooks.audit?.("rate_limited", { bucket: "write", window_start: rl.windowStartIso });
+  if (!rl.allowed)
+    return rpcError(id, -32003, "Rate limit reached for this tool — try again later.");
+  const parsed = mcpImageSchema.safeParse(args);
+  if (!parsed.success)
+    return rpcError(
+      id,
+      -32010,
+      "Provide a draft, stable requestId, image file, concept and alt text within the documented limits.",
+    );
+  const detail = {
+    tool: MCP_IMAGE_TOOL,
+    projectId: parsed.data.projectId,
+    contentId: parsed.data.contentId,
+    action: "attach_proposed_image",
+  };
+  try {
+    const { addMcpContentImage } = await import("./mcp-image.server");
+    const payload = await addMcpContentImage(grant.userId, grant.clientId, parsed.data, hooks.trackImageWork);
+    await hooks.audit?.("mcp_write", {
+      ...detail,
+      imageId: payload.imageId,
+      deduped: payload.deduped,
+      ok: true,
+    });
+    return result(id, { content: [{ type: "text", text: JSON.stringify(payload) }] });
+  } catch (error) {
+    const reason =
+      error instanceof ExternalDraftStateError
+        ? "not_editable"
+        : error instanceof McpImageError
+          ? error.reason
+          : "unavailable";
+    await hooks.audit?.("mcp_write", { ...detail, ok: false, error: reason });
+    const messages = {
+      not_editable:
+        "Images can only be added to unpublished Drafts. Review approval or publication state in Milo.",
+      not_found: "Not found.",
+      invalid:
+        "Invalid image. Supply canonical base64 containing a JPEG, PNG or WebP file of at most 5MiB.",
+      conflict:
+        "This requestId has different or missing results. Inspect the draft in Milo before starting a new request.",
+      capacity:
+        "This draft or project's image import history is full. Review existing images in Milo.",
+      unavailable:
+        "The image result is unconfirmed. Inspect the draft, then retry only the identical file and metadata with the same requestId.",
+    };
+    return result(id, { content: [{ type: "text", text: messages[reason] }], isError: true });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -707,6 +805,8 @@ function validateWriteArgs(name: WriteToolName, args: Record<string, unknown>): 
 
 /** Hooks the route supplies so this module stays DB/audit-agnostic for writes. */
 export interface McpHooks {
+  /** Retain request admission through physical I/O settlement after timeouts. */
+  trackImageWork?: McpImageWorkTracker;
   /** Rate-limit verdict for a write call (fail-open handled by the limiter). */
   checkWriteLimit?: () => Promise<{ allowed: boolean; shouldAudit: boolean; windowStartIso: string; retryAfterSec: number }>;
   /** Awaited audit sink (mcp_write / rate_limited). Must never throw. */
@@ -1581,6 +1681,12 @@ export async function handleMcpMessage(grant: McpGrant, msg: JsonRpcMessage, hoo
     const name = typeof msg.params?.name === "string" ? msg.params.name : "";
     const args = (msg.params?.arguments as Record<string, unknown>) ?? {};
 
+    if (name === MCP_IMAGE_TOOL) {
+      if (!writeEnabled) return rpcError(id, -32602, `Unknown tool: ${name}`);
+      if (!toolAllowed(name, grant.scopes)) return rpcError(id, -32002, "Insufficient scope for this tool.");
+      return dispatchImageTool(grant, id, args, hooks);
+    }
+
     if (isWriteTool(name)) {
       // Flag off ⇒ write tools are not part of the registry view at all.
       if (!writeEnabled) return rpcError(id, -32602, `Unknown tool: ${name}`);
@@ -1648,7 +1754,7 @@ export function buildMcpAuditEvent(msg: Record<string, unknown> | null | undefin
   // dispatch hooks — skip the generic mcp_call to avoid double-logging. Same
   // for create_pending_action (covered by pending_action_created); the
   // read-shaped list/get pending tools keep normal mcp_call rows.
-  if (tool && (isWriteTool(tool) || isContentWriteTool(tool) || tool === "create_pending_action")) return null;
+  if (tool && (isWriteTool(tool) || isContentWriteTool(tool) || tool === MCP_IMAGE_TOOL || tool === "create_pending_action")) return null;
   const ok = response === null ? true : !res?.error && !res?.result?.isError;
   return { event: "mcp_call", detail: { method, ...(tool ? { tool } : {}), ok } };
 }

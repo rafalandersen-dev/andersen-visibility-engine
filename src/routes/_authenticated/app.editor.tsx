@@ -1,3 +1,4 @@
+import { ArticleImageThumbnail } from "@/components/ArticleImageThumbnail";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -2374,9 +2375,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                     className="rounded-md border border-border bg-background px-3 py-2 text-xs space-y-1.5"
                   >
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      {im.previewUrl || im.url ? (
-                        <img
-                          src={im.previewUrl || im.url}
+                      {im.storagePath || im.previewUrl || im.url ? (
+                        <ArticleImageThumbnail
+                          image={im}
                           alt=""
                           className="h-8 w-8 rounded object-cover border border-border"
                         />
@@ -3221,9 +3222,9 @@ function ArrangeSurface(props: {
         }
       >
         <div className="flex items-center gap-2">
-          {img.previewUrl || img.url ? (
-            <img
-              src={img.previewUrl || img.url}
+          {img.storagePath || img.previewUrl || img.url ? (
+            <ArticleImageThumbnail
+              image={img}
               alt=""
               className="h-9 w-12 rounded object-cover"
               draggable={false}

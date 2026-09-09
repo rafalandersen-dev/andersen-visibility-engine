@@ -4,6 +4,9 @@ import {
   readMcpPayload,
   MCP_BODY_TIMEOUT_MS,
   MCP_MAX_BODY_BYTES,
+  MCP_MAX_IMAGE_BODY_BYTES,
+  acquireMcpImageRequest,
+  MCP_MAX_ACTIVE_IMAGE_REQUESTS,
   MCP_MAX_BODY_CHUNKS,
   MCP_MAX_BATCH,
 } from "./mcp-transport.server";
@@ -253,4 +256,91 @@ describe("MCP batch dispatch", () => {
       expect(handle).not.toHaveBeenCalled();
     },
   );
+});
+
+describe("scoped large MCP image bodies", () => {
+  const large = {
+    jsonrpc: "2.0",
+    id: 1,
+    method: "tools/call",
+    params: {
+      name: "add_content_image",
+      arguments: { dataBase64: "A".repeat(MCP_MAX_BODY_BYTES) },
+    },
+  };
+  it("admits one large image only when the route has resolved an OAuth content writer", async () => {
+    const body = JSON.stringify(large);
+    await expect(readMcpPayload(request(body))).rejects.toMatchObject({ status: 413 });
+    await expect(readMcpPayload(request(body), { allowImageUpload: true })).resolves.toEqual(large);
+  });
+  it.each([
+    [large],
+    { ...large, id: null },
+    { ...large, jsonrpc: "wrong" },
+    { ...large, method: "other" },
+    { ...large, params: { ...large.params, name: "create_content_draft" } },
+  ])("rejects large batches, notifications and other tools before dispatch %#", async (payload) => {
+    await expect(
+      readMcpPayload(request(JSON.stringify(payload)), { allowImageUpload: true }),
+    ).rejects.toMatchObject({ status: 413 });
+  });
+  it("retains a hard image body byte cap despite a false content length", async () => {
+    await expect(
+      readMcpPayload(request("A".repeat(MCP_MAX_IMAGE_BODY_BYTES + 1), { "content-length": "1" }), {
+        allowImageUpload: true,
+      }),
+    ).rejects.toMatchObject({ status: 413 });
+  });
+});
+
+describe("large-body memory admission", () => {
+  it("keeps timed-out request slots until tracked I/O settles", async () => {
+    const leases = Array.from({ length: MCP_MAX_ACTIVE_IMAGE_REQUESTS }, () =>
+      acquireMcpImageRequest(),
+    );
+    const replies: Array<() => void> = [];
+    const pending = leases.map((lease) =>
+      lease.track(() => new Promise<void>((resolve) => replies.push(resolve))),
+    );
+    await Promise.resolve();
+    for (const lease of leases) lease();
+    expect(acquireMcpImageRequest).toThrow("Image uploads are busy");
+    replies[0]();
+    await pending[0];
+    const replacement = acquireMcpImageRequest();
+    replacement();
+    for (const reply of replies.slice(1)) reply();
+    await Promise.all(pending);
+    await expect(leases[0].track(async () => {})).rejects.toThrow("already ended");
+  });
+
+  it("limits concurrent image requests and releases each slot once", () => {
+    const releases = Array.from({ length: MCP_MAX_ACTIVE_IMAGE_REQUESTS }, () =>
+      acquireMcpImageRequest(),
+    );
+    try {
+      expect(acquireMcpImageRequest).toThrow("Image uploads are busy");
+      releases[0]();
+      releases[0]();
+      const replacement = acquireMcpImageRequest();
+      expect(acquireMcpImageRequest).toThrow("Image uploads are busy");
+      replacement();
+    } finally {
+      for (const release of releases) release();
+    }
+  });
+  it("takes a slot on actual bytes even when content length is falsely small", async () => {
+    const onLargeBody = vi.fn();
+    const body = JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: { name: "add_content_image", arguments: { dataBase64: "A".repeat(210000) } },
+    });
+    await readMcpPayload(request(body, { "content-length": "1" }), {
+      allowImageUpload: true,
+      onLargeBody,
+    });
+    expect(onLargeBody).toHaveBeenCalledOnce();
+  });
 });

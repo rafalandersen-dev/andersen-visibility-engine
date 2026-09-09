@@ -1,3 +1,4 @@
+import { workspaceWriteTimestamp } from "./workspace-time";
 import type { ContentAsset, ContentImage, Opportunity, Project, ServiceItem } from "./types";
 import type { WorkspaceData, WorkspaceMutation } from "./workspace.server";
 import {
@@ -154,7 +155,7 @@ function persistImage(run: BenchmarkRun, image: ContentImage): WorkspaceMutation
                 ? {
                     ...a,
                     images: [...(a.images ?? []), image],
-                    updatedAt,
+                    updatedAt: workspaceWriteTimestamp(a.updatedAt, updatedAt),
                   }
                 : a,
             ),

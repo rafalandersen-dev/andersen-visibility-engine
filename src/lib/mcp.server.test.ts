@@ -111,7 +111,7 @@ const freshTouch = (): TouchState => ({ updateCalled: false, updatedWith: null, 
 // ---- scope map regression ---------------------------------------------------
 
 describe("TOOL_SCOPES / toolAllowed", () => {
-  it("maps the 9 read tools + 4 write tools + 2 content-write tools + 3 pending tools to their scopes exactly", () => {
+  it("maps the 9 read tools + 4 write tools + 2 content-write tools + 1 image tool + 3 pending tools to their scopes exactly", () => {
     expect(TOOL_SCOPES).toEqual({
       list_projects: "milo.projects.read",
       get_project_brief: "milo.projects.read",
@@ -128,11 +128,12 @@ describe("TOOL_SCOPES / toolAllowed", () => {
       fill_project_profile: "milo.projects.write",
       create_content_draft: "milo.content.write",
       update_content_draft: "milo.content.write",
+      add_content_image: "milo.content.write",
       create_pending_action: "milo.actions.propose",
       list_pending_actions: "milo.actions.propose",
       get_pending_action: "milo.actions.propose",
     });
-    expect([...mcpToolNames(), ...WRITE_TOOL_NAMES, ...CONTENT_WRITE_TOOL_NAMES, ...PENDING_TOOL_NAMES].sort()).toEqual(Object.keys(TOOL_SCOPES).sort());
+    expect([...mcpToolNames(), ...WRITE_TOOL_NAMES, ...CONTENT_WRITE_TOOL_NAMES, "add_content_image", ...PENDING_TOOL_NAMES].sort()).toEqual(Object.keys(TOOL_SCOPES).sort());
   });
   it("null scopes = legacy developer token = every READ tool, NEVER write tools", () => {
     for (const name of mcpToolNames()) expect(toolAllowed(name, null)).toBe(true);

@@ -132,6 +132,19 @@ afterEach(() => {
   vi.useRealTimers();
 });
 describe("controlled benchmark orchestration", () => {
+  it("preserves a newer draft timestamp when attaching a retained image", async () => {
+    await runOwnerBenchmarkStage(user, runId, "scan", deps);
+    await runOwnerBenchmarkStage(user, runId, "article", deps);
+    const asset = (workspace.content as ContentAsset[])[0];
+    const later = "2099-09-09T10:00:00.000001Z";
+    asset.updatedAt = later;
+    expect(await runOwnerBenchmarkStage(user, runId, "image", deps)).toEqual({
+      outcome: "completed_stage",
+    });
+    expect((workspace.content as ContentAsset[])[0].updatedAt).toBe(later);
+    expect((workspace.content as ContentAsset[])[0].images).toHaveLength(1);
+  });
+
   it("uses the three existing cores once and leaves an unapproved draft with a private proposed image", async () => {
     for (const stage of ["scan", "article", "image"] as const) {
       expect(await runOwnerBenchmarkStage(user, runId, stage, deps)).toEqual({
