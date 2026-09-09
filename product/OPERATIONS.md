@@ -2,7 +2,7 @@
 
 **Status:** Canonical operating record; configuration presence not reverified
 
-**Last updated:** 2026-09-07
+**Last updated:** 2026-09-09
 
 **Product Lead / incident owner:** Rafal Andersen
 
@@ -12,16 +12,16 @@ Do not store secret values or customer data in this file. Read [CURRENT_STATE.md
 
 | Item | Recorded state |
 | --- | --- |
-| Source | `rafalandersen-dev/andersen-visibility-engine`, main `34cacf695baee8696582d94559c74880133647ed` at this review |
-| Public domain | `https://milogrowth.com`; current deployed build not independently verified here |
+| Source | `rafalandersen-dev/andersen-visibility-engine`, application baseline main `c99a398177b55828e2e8e642a59304fd85421859` (#98), rechecked 9 September |
+| Public domain | `https://milogrowth.com`; build `1788901947226` and #98 fingerprint rechecked 9 September; see CURRENT_STATE.md |
 | App/platform | Lovable-connected application; Vercel deployment status also exists. Verify actual routing/build identity before production assertions |
 | #63 deployment evidence | Vercel success on merge commit; [deployment record](https://vercel.com/andersen-hq/andersen-visibility-engine/2j1J3RS58sT5LHZsie8FxGAKAkxz) |
-| Database | Lovable Cloud / Supabase-backed code; runtime migration state unverified in this task |
+| Database | Lovable Cloud / Supabase-backed code; latest #98 permit migration applied/verified 8 September; no migration rerun in this review |
 | Public-audit Worker | Direct Gemini boundary and staging harness in source; later production routes committed; actual deployed/account state requires discovery |
 | Isolated staging | Separate data plane/configuration presence still requires evidence under #43 |
-| AI limits | `AI_METERING_ENFORCED` conditional in source; value uninspected. RPC/no-row fail-open behavior confirmed |
-| Billing | Server entitlements exist; Paddle code remains. Stripe is planned replacement |
-| Email | Existing transport/templates and risk helpers; new event-driven notifications are planned, delivery not verified |
+| AI limits | RPC/no-row metering fixed #65; native monetary admission #96 and restricted permits #98 live; zero budgets/permits/attempts in last recorded read; runner and actual reconciliation pending |
+| Billing | Server entitlements and #80 isolated Stripe sandbox/receipts exist; configuration/lifecycle acceptance deferred; legacy Paddle alignment remains |
+| Email | Inbox/outbox/sweep deployed; owner test delivered/opened; global operational sending last recorded disabled, team/lifecycle acceptance open |
 
 ## Existing public-audit boundary
 

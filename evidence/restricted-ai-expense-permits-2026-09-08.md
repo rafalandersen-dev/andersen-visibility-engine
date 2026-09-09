@@ -18,7 +18,7 @@ The native provider adapter accepts optional preallocated attempt IDs from trust
 - Existing expense tests also run after the new migration, covering unknown expense retention, evidenced settlement and overrun pauses. Adapter tests verify no supplier call after permit denial and reuse of the preallocated identity without a second supplier invocation.
 - TypeScript, focused lint of every changed TypeScript module, production build and whitespace checks passed. This is synthetic local verification; it does not claim a live supplier result or a multiconnection production concurrency stress test.
 - No prices, transport bounds, dependencies, keys, customer data or publication rules changed. The migration itself provisions no budgets and no permits. No paid API call or email was sent.
-- At this record the change is prepared for review; migration application and release are still pending. A controlled benchmark runner and secure OpenAI configuration remain necessary before funding any allowance.
+- Final release reconciliation, recorded 9 September from PR #98: reviewed and merged as `c99a398177b55828e2e8e642a59304fd85421859`; migration applied and verified 8 September; deployment `6836d9f2-38c3-44eb-8163-d6990fe1b3bd`, build `1788901947226`, fingerprint `1045bfb5005a289e1806ea134f76ec45025a1a9bd5a9ba25749b0da18a4bc0ae`. Same live fingerprint rechecked 9 September. Latest recorded counts zero budgets/permits/attempts. A controlled benchmark runner and secure OpenAI configuration still precede funding.
 
 ## Provisioning boundary
 
