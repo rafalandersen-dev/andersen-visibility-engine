@@ -1,0 +1,32 @@
+{
+  "rows": [
+    {
+      "editor_notes": "Reviewed 9 September 2026. Aligns with the verified public article: assess relevant traffic, test the enquiry route, clarify the offer and choose one measurable improvement. Avoid universal conversion-rate targets, fixed speed thresholds or promises of more enquiries. Sweden registration and remote UK service context retained. Original publication identity and dates must remain unchanged.",
+      "entity_id": "l1558844",
+      "faq": [
+        {
+          "a": "There is no universal conversion rate that proves a service website is working well. Compare relevant traffic with actual enquiries over a useful period, and check the contact route before assuming a design problem.",
+          "q": "What is a good conversion rate for a service business website?"
+        },
+        {
+          "a": "A low enquiry count does not establish that your prices are the problem. First check whether visitors understand the service, what affects the price and how to contact you. Use evidence from relevant enquiries before deciding whether a pricing change is appropriate.",
+          "q": "Should I lower my prices to get more enquiries?"
+        },
+        {
+          "a": "A slow or unreliable page can make it harder for visitors to use your site. Check the mobile experience and the contact process, then address observed problems. A faster page alone does not guarantee more enquiries.",
+          "q": "Does website speed affect enquiries?"
+        }
+      ],
+      "outline": [
+        "First, establish what the numbers mean",
+        "Four common obstacles to enquiries",
+        "1. The offer is difficult to understand",
+        "2. Important questions remain unanswered",
+        "3. The contact process takes too much work",
+        "4. The page offers little evidence of the business",
+        "Choose one improvement to assess"
+      ],
+      "updated_at": "2026-09-09T14:18:10.932Z"
+    }
+  ]
+}

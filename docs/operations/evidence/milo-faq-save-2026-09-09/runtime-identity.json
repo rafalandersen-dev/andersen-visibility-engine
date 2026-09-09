@@ -1,0 +1,12 @@
+{
+  "url": "https://milogrowth.com/api/app-version",
+  "buildId": "1788962498641",
+  "source": {
+    "revision": "064a6d8b7233f86b29e19f097ac0e63bd283d253",
+    "modified": false,
+    "algorithm": "milo-source-v1",
+    "fingerprint": "dd5b70c1c862cdcfee8a27a8d551353cab3387b3c45e13bbd9b6e373d9e06b9b"
+  },
+  "independent_local_fingerprint_match": true,
+  "deployment_id": "5810d486-d72f-402b-b930-ca294282a145"
+}
