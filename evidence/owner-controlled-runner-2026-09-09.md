@@ -14,7 +14,7 @@ Each stage invokes the existing production core: strict AI scan, article generat
 
 ## Verification
 
-- Full suite: 2,069 tests / 143 files passed. The benchmark and i18n parity selection passed 50/50. TypeScript, production build, lint of the new/changed implementation files and whitespace checks passed.
+- Full suite: 2,069 tests / 143 files passed. After the final insert-stage/ceiling guard, the benchmark and i18n parity selection passed 51/51. TypeScript, production build, lint of the new/changed implementation files and whitespace checks passed.
 - Real PostgreSQL semantics through PGlite cover service permissions, immutable plans, matching permits/restricted budgets, duplicate and concurrent claims, expected stage, retained output, token binding and no recovery by rerunning a paid attempt.
 - Server tests cover existing-core/attempt forwarding, only draft/proposed output, credential exclusion, changed target/context, provider failure, late admission, conflicting workspace writes, preserved output and truthful completion vs merely recorded output.
 - Authorization tests reject non-owner/unknown roles and injected privileged input; status never executes and errors do not expose supplier details.

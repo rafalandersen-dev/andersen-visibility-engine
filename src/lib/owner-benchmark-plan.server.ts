@@ -2,7 +2,7 @@ import { z } from "zod";
 import { CONTENT_LANGUAGES, projectContentLanguage } from "./content-languages";
 import type { Project, ServiceItem, Opportunity } from "./types";
 const text = z.string().max(4000);
-const id = z.string().min(1).max(200);
+const id = z.string().regex(/^[A-Za-z0-9_-]{1,200}$/);
 const language = z.enum(CONTENT_LANGUAGES);
 const priority = z.enum(["Low", "Medium", "High"]);
 export const benchmarkStages = ["scan", "article", "image"] as const;

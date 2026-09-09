@@ -29,6 +29,13 @@ GRANT SELECT,INSERT ON public.owner_ai_benchmark_runs TO service_role;
 CREATE OR REPLACE FUNCTION public.keep_owner_benchmark_plan_immutable()
 RETURNS trigger LANGUAGE plpgsql SET search_path='' AS $$
 BEGIN
+  IF TG_OP='INSERT' THEN
+    IF NEW.stage<>'scan' OR NEW.state<>'ready' OR NEW.results<>'{}'::jsonb
+       OR NEW.claim_token IS NOT NULL OR NEW.claimed_at IS NOT NULL THEN
+      RAISE EXCEPTION 'benchmark_must_start_at_scan';
+    END IF;
+    RETURN NEW;
+  END IF;
   IF (NEW.id,NEW.user_id,NEW.project_id,NEW.opportunity_id,NEW.asset_id,NEW.image_id,
       NEW.snapshot,NEW.scan_request,NEW.article_request,NEW.image_request,NEW.created_at,NEW.expires_at)
      IS DISTINCT FROM
@@ -39,7 +46,7 @@ BEGIN
   RETURN NEW;
 END $$;
 DROP TRIGGER IF EXISTS owner_benchmark_plan_immutable ON public.owner_ai_benchmark_runs;
-CREATE TRIGGER owner_benchmark_plan_immutable BEFORE UPDATE ON public.owner_ai_benchmark_runs
+CREATE TRIGGER owner_benchmark_plan_immutable BEFORE INSERT OR UPDATE ON public.owner_ai_benchmark_runs
 FOR EACH ROW EXECUTE FUNCTION public.keep_owner_benchmark_plan_immutable();
 REVOKE ALL ON FUNCTION public.keep_owner_benchmark_plan_immutable() FROM PUBLIC,anon,authenticated,service_role;
 

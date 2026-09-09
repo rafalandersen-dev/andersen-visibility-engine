@@ -74,6 +74,20 @@ afterAll(async () => {
   await db?.close();
 });
 describe("durable three-stage owner benchmark", () => {
+  it("refuses a new plan that skips the scan or exceeds the approved total ceiling", async () => {
+    const refusal = await db.query<{ value: boolean }>(
+      "SELECT public.claim_owner_benchmark_stage($1,$2,'scan',$3,'text','image',3000000,100000) AS value",
+      [run, user, randomUUID()],
+    );
+    expect(refusal.rows[0].value).toBe(false);
+    await db.exec("DELETE FROM public.owner_ai_benchmark_runs;");
+    await expect(
+      db.query(
+        "INSERT INTO public.owner_ai_benchmark_runs(id,user_id,project_id,opportunity_id,asset_id,image_id,snapshot,scan_request,article_request,image_request,expires_at,stage) VALUES($1,$2,'project','topic',$3,$4,'{}',$5,$6,$7,now()+interval '1 hour','image')",
+        [run, user, randomUUID(), randomUUID(), ...attempts],
+      ),
+    ).rejects.toThrow("benchmark_must_start_at_scan");
+  });
   it("does not install any executable plan or fund a test", async () => {
     await db.exec(
       "TRUNCATE public.owner_ai_benchmark_runs,public.ai_expense_permits,public.ai_expense_budgets;",
