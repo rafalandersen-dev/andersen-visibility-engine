@@ -24,13 +24,24 @@ The owner's 17 screenshots describe seven SEO workflows. They are reference chec
 | Search Researcher | Customer demand, competitors, topic clusters and content gaps | Sourced opportunity and brief; hypotheses labelled |
 | Content Editor | New articles and improvement of existing blogs | Versioned draft/revision with evidence and CTA fit |
 | Visual Creator | Brand style, article visuals and product references | Image brief, proposed image and alt text |
-| SEO Specialist | On-page, links, technical and local/entity checks | Evidence-backed recommendations and permitted fixes |
+| SEO Specialist | On-page, internal links, technical and local/entity checks | Evidence-backed recommendations and permitted fixes |
+| Backlinks & Authority Specialist | Relevant external link opportunities, referring-domain gaps, new/lost links and placement workflows | Prioritized sourced opportunities, reviewable outreach/placement proposals and verified link status |
 | AI Visibility Analyst | Answer clarity and observed AI mentions/citations | Readiness advice separate from dated actual observations |
 | Performance Analyst | Results, experiments and prioritization | Comparable measurement windows and supported or tentative lessons |
 
 These are working role labels; final names, visual designs and tone stay in D05. Keep one main conversation with Milo and an optional team view. Cards show role, project, actual job status, last completed work and next action. Never simulate a working or learning specialist before that capability exists. Build and validate the faces as product assets; no human credentials or invented improvement scores.
 
 Visible roles do not require continuously running processes, separate models, or all specialists on every article. Share authenticated project context and stable job/asset versions. Route only relevant work; use deterministic checks and combine compatible tasks where evaluation supports it. Prevent circular agent handoffs and duplicate research/generation.
+
+### Backlinks & Authority specialist — owner follow-up
+
+The owner explicitly requested a dedicated backlinks agent when the backlinks workstream is reached. It shares the project’s brand, niche, audience and content inventory, with its own role/face and the same bounded execution, permissions and learning controls. It owns R14/R15 work; the SEO Specialist retains on-site/internal-link checks.
+
+The specialist researches relevant websites and competitor referring-domain gaps, assesses opportunities using available relevance/quality evidence rather than one score alone, and monitors observed new/lost links. It coordinates with Search and Content to propose useful assets worth referencing, then prepares outreach drafts or supplier-placement proposals tied to a target page, rationale, available price and budget. Record unknown prices or unavailable provider data honestly.
+
+Separate research/proposals from sending outreach or placing orders. External messages and purchases require the applicable explicit authorization, scoped recipients/suppliers and budget; adding this role grants none. Preserve sender review, suppression, deduplication and the existing Linkhouse/DataForSEO acceptance boundaries. Verify actual placement URLs, destination and observed link status independently of a supplier’s completed-order label; track failures/refunds and later outcomes without ranking guarantees.
+
+Deliver it with the authority phase after the relevant provider/contract, cost and outreach prerequisites are ready. Do not invoke it for every weekly article. Acceptance includes project-specific opportunity evidence, new/lost observations with dates, authorized-only send/order behavior, duplicate/uncertain-order recovery, placement verification and bounded expense. Save reviewed project preferences and measured outcomes through the shared learning system.
 
 ## Project knowledge and setup
 
@@ -89,10 +100,10 @@ Every packet needs an executor/verifier, recorded source baseline, dependencies,
 | P1 | Project knowledge, optional brand upload and shared text/visual context | R02, R03, R18, R20 | Traceable editable profile; website/skip paths; accepted rules influence the next draft and image brief; isolation, replacement and revoke tests pass |
 | P2 | Website/catalog refresh and output dependencies | R03, R05, R13, R18 | Changes detected with source coverage/dates; price/variant/offer conflicts handled; affected drafts identified without unrelated regeneration |
 | P3 | First complete weekly workflow with specialist handoffs | R04–R07, R09, R18 | Next-week slots prepared once, checked before publication, correctly approved/held, cost-bounded and destination-verified; monthly cutover tested |
-| P4 | Full specialist team, faces and scoped editorial learning | R02, R03, R07, R10–R11, R17 | Real role jobs and truthful team states; seven screenshot capabilities covered; lessons editable/reversible; observed AI not confused with readiness |
+| P4 | Full specialist team, faces and scoped editorial learning | R02, R03, R07, R10–R11, R14–R15, R17 | Real role jobs and truthful team states; seven screenshot capabilities plus dedicated backlinks/authority workflow covered; lessons editable/reversible; provider-dependent roles accepted in their workstream |
 | P5 | Outcome learning and evaluated workflow improvement | R07, R09, R16, R23 | Action→published revision→later observations traceable; fixed comparisons show useful quality/cost changes without isolation/authority regressions |
 
-P1/P2 can proceed while provider login or Stripe work is blocked. P3 depends on P0–P2 and the permission/cost controls; it includes Brand, Search, Content and relevant Visual/SEO checks. P4 completes role breadth and visual treatment, not a fake team display before functioning jobs. Initial memory/corrections and this weekly workflow belong to current delivery; Month 8 deepens outcome optimization rather than delaying their foundation.
+P1/P2 can proceed while provider login or Stripe work is blocked. P3 depends on P0–P2 and the permission/cost controls; it includes Brand, Search, Content and relevant Visual/SEO checks. P4 completes role breadth and visual treatment, not a fake team display before functioning jobs. The Backlinks & Authority specialist is delivered with R14/R15 after the relevant D04 provider/contract and cost/outreach prerequisites; it does not block the first weekly content workflow. Initial memory/corrections and this weekly workflow belong to current delivery; Month 8 deepens outcome optimization rather than delaying their foundation.
 
 ### Required acceptance examples
 

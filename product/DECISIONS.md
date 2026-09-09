@@ -14,6 +14,8 @@ The owner accepted multiple specialists with faces, learning each project’s br
 
 The [specialist/knowledge/weekly specification](AGENT_WEEKLY_PLAN_2026_09_09.md) is the implementation specification. Extend existing Brand Intelligence and keep project knowledge isolated, sourced, versioned and reversible. Preserve Manual/Review/Autopilot permissions; changed text needs the appropriate version-bound authority. Learning improves context and evaluated workflows, not an agent’s own spending/publication permissions. Weekly preparation and monthly package allowances are separate.
 
+Owner follow-up: include a dedicated **Backlinks & Authority specialist** when implementing R14/R15. It uses project brand/niche knowledge to research relevant opportunities, monitor new/lost links, prepare outreach/placement proposals and verify results. Provider/contract readiness, explicit outreach/purchase authority and expense limits remain prerequisites. This role joins the team without making backlink work mandatory for every article or changing the immediate P0–P3 sequence.
+
 Working role labels, final faces/names, first document formats and configurable Friday preparation example are design proposals. Exact package maintenance allowances/prices remain D01; visual identity remains D05. No perpetual-accuracy, ranking or citation guarantee. No additional provider budget, external message or publication is authorized by recording this plan. Finish durable result recovery first, then knowledge, refresh, weekly coordination, team/lessons and measured outcomes. All R00–R24/D01–D08 commitments remain.
 
 ## 2026-09-08 — Isolate the already authorized benchmark
