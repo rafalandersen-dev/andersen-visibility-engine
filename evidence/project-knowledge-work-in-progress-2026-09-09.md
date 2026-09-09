@@ -2,6 +2,16 @@
 
 Updated 9 September 2026. **WIP: local implementation, not release-reviewed, migrated or deployed.** The successor accepted the handoff and fast-forwarded exactly to pushed foundation `d4490b13fa7167d9a2a11608a4f7bb34a74e2666`. Active worktree is `/Users/rafi/.codex/worktrees/72f1/milo-growth-generation-result-recovery-20260909`, branch `codex/milo-knowledge-continuation-20260909`. The original P1 tree stays preserved; do not implement there concurrently. No P1 PR exists at this writeback. The full [P1–P5 specification](../product/AGENT_WEEKLY_PLAN_2026_09_09.md) and R00–R24/D01–D08 remain active.
 
+## Product-review continuation checkpoint
+
+The product-review successor accepted the handoff and fast-forwarded exactly to pushed checkpoint `c055a1e7bb77c5be53474df8878357bf3cbe972b`. Active worktree is `/Users/rafi/.codex/worktrees/feb9/milo-growth-generation-result-recovery-20260909`, branch `codex/milo-p1-product-review-20260909`. The previous tree is an audit checkpoint; do not implement there concurrently.
+
+- Record history now exposes older pages and a return to the latest saved versions. Source history also supports return to latest. Empty older pages are explicit, and close buttons are disabled during history requests.
+- New pagination labels are translated into English, Polish, Swedish and Danish through the existing i18n system. Remaining knowledge/onboarding controls still need localization; this is not full P1 or R20 acceptance.
+- Added actual migration regression coverage for 42 record revisions: complete descending pages without overlap/gaps, empty end, account isolation, oldest-version restore with compare-and-set protection, and forget removing history. Focused verification passes **27 tests / 3 files**, TypeScript, focused lint and diff whitespace checks. Logs: `/tmp/milo-product-history-tests.log`, `/tmp/milo-product-types.log`, `/tmp/milo-product-lint.log`. No new full-suite/build or browser acceptance is claimed.
+- Examined `brand-proposal.ts`, `mcp-profile-fill.ts` and `BrandIntelligenceCard.tsx`. Canonical field integration remains unfinished. Do not simply copy source records into canonical brand settings: source-backed values must stop contributing after revoke/replacement while independent owner edits survive. Existing fill receipts and populated-field conflict behavior need to be retained.
+- No PR, migration, deployment, provider call, browser attempt, spend, email or account change in this continuation. Next implementation remains mapped editable brand proposals with lifecycle-safe field provenance, then remaining localization/onboarding review and release sequencing; P2–P5 and R00–R24/D01–D08 remain active.
+
 ## Implemented locally
 
 - Scoped accepted/proposed/disputed/expired/rejected records, source references, conflict holding and bounded text/visual selection remain in `project-knowledge.ts`.
@@ -18,7 +28,7 @@ Updated 9 September 2026. **WIP: local implementation, not release-reviewed, mig
 The final combined suite passed **2,392 tests / 166 files**, including four worker-lifecycle tests. TypeScript and focused lint pass. The final integrated production build passes. Logs use `/tmp/milo-p1-*` (full-tests, types, lint, build, parser-tests, client-tests). The first integrated build caught a `.client` import in server rendering; it was fixed using `createClientOnlyFn` and the subsequent integrated build passed. An earlier full-suite failure came from two existing provider-test fixtures lacking the new lookup; they were updated and coverage added for authenticated retrieval, retained references and no-provider-on-failure behavior.
 
 P1 is **not accepted or released**. Still required:
-1. Finish product review of this initial text-proposal UI: it exposes manual extracted passages rather than an automatically mapped brand summary. Confirm integration with existing field ownership/proposals, improve review ergonomics, paginate record history, and translate the new English controls into supported UI locales. Wider 24-language delivery remains R20.
+1. Finish product review of this initial text-proposal UI: it exposes manual extracted passages rather than an automatically mapped brand summary. Confirm integration with existing field ownership/proposals, improve remaining review ergonomics and translate the new English controls into supported UI locales. Wider 24-language delivery remains R20.
 2. Final regression/types/build/lint and release review, including migration/backfill/rollback sequencing. Do not deploy the new generation lookup ahead of its migration. Do not alter or reapply the already released P0 migration.
 3. Real signed-in upload/edit/revoke/reload and responsive acceptance remain unavailable under the standing browser-policy restriction. Node parser tests and successful builds are not browser acceptance. Do not retry or bypass that restriction.
 4. Continue P2 website/catalog changes and dependent-output freshness, then P3 weekly preparation/final holds, P4 real specialist work/faces and scoped lessons, P5 measured outcomes/evaluated workflow improvement. Retain all R00–R24/D01–D08 requirements. No overall completion claim.

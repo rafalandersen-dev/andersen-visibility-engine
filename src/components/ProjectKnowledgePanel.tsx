@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { useT } from "@/i18n";
 import { saveWorkspaceNow } from "@/lib/store";
 import * as api from "@/lib/project-knowledge.functions";
 import type { KnowledgeRecord, KnowledgeSource } from "@/lib/project-knowledge";
@@ -51,6 +52,7 @@ export function ProjectKnowledgePanel({
   initialWebsiteUrl?: string;
   onBusyChange?: (busy: boolean) => void;
 }) {
+  const t = useT();
   const [websiteUrl, setWebsiteUrl] = useState(initialWebsiteUrl);
   const [state, setState] = useState<State>({ sources: [], records: [] });
   const [loading, setLoading] = useState(true),
@@ -183,6 +185,22 @@ export function ProjectKnowledgePanel({
       if (alive.current) setBusy(false);
     }
   }
+  async function showRecordHistory(record: KnowledgeRecord, before?: number) {
+    if (working.current) return;
+    working.current = true;
+    setBusy(true);
+    try {
+      const versions = await api.knowledgeHistoryFn({
+        data: { projectId, id: record.id, kind: "record", before },
+      });
+      if (alive.current) setHistory({ record, versions: versions as KnowledgeRecord[] });
+    } catch {
+      if (alive.current) setFailed(true);
+    } finally {
+      working.current = false;
+      if (alive.current) setBusy(false);
+    }
+  }
   const disabled = busy || loading || failed;
   const conflicts = new Set(
     ["text", "visual"].flatMap(
@@ -268,23 +286,7 @@ export function ProjectKnowledgePanel({
                 size="sm"
                 variant="ghost"
                 disabled={disabled}
-                onClick={async () => {
-                  if (working.current) return;
-                  working.current = true;
-                  setBusy(true);
-                  try {
-                    const versions = await api.knowledgeHistoryFn({
-                      data: { projectId, kind: "record", id: record.id },
-                    });
-                    if (alive.current)
-                      setHistory({ record, versions: versions as KnowledgeRecord[] });
-                  } catch {
-                    if (alive.current) setFailed(true);
-                  } finally {
-                    working.current = false;
-                    if (alive.current) setBusy(false);
-                  }
-                }}
+                onClick={() => void showRecordHistory(record)}
               >
                 History / revert
               </Button>
@@ -339,7 +341,32 @@ export function ProjectKnowledgePanel({
               )}
             </div>
           ))}
-          <Button type="button" variant="ghost" onClick={() => setHistory(null)}>
+          {history.versions.length === 0 && (
+            <p className="text-sm text-muted-foreground">{t("knowledge.history.empty")}</p>
+          )}
+          {history.versions.length === 20 && (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={disabled}
+              onClick={() =>
+                void showRecordHistory(history.record, history.versions.at(-1)!.revision)
+              }
+            >
+              {t("knowledge.history.older")}
+            </Button>
+          )}
+          {history.versions[0]?.revision !== history.record.revision && (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={disabled}
+              onClick={() => void showRecordHistory(history.record)}
+            >
+              {t("knowledge.history.latest")}
+            </Button>
+          )}
+          <Button type="button" variant="ghost" disabled={busy} onClick={() => setHistory(null)}>
             Close history
           </Button>
         </div>
@@ -631,7 +658,25 @@ export function ProjectKnowledgePanel({
               Older source versions
             </Button>
           )}
-          <Button type="button" variant="ghost" onClick={() => setSourceHistory(null)}>
+          {sourceHistory.versions.length === 0 && (
+            <p className="text-sm text-muted-foreground">{t("knowledge.sourceHistory.empty")}</p>
+          )}
+          {sourceHistory.versions[0]?.revision !== sourceHistory.source.revision && (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={disabled}
+              onClick={() => void showSourceHistory(sourceHistory.source)}
+            >
+              {t("knowledge.sourceHistory.latest")}
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={busy}
+            onClick={() => setSourceHistory(null)}
+          >
             Close source history
           </Button>
         </div>

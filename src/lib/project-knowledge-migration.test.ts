@@ -177,6 +177,36 @@ describe("private revisioned project knowledge", () => {
       ).rows,
     ).toEqual([{ revision: 1 }, { revision: 2 }]);
   });
+  it("pages complete scoped histories without gaps and keeps old-version restores conditional", async () => {
+    await save("source", source);
+    for (let revision = 1; revision <= 42; revision++) {
+      await save("record", { ...record, revision, value: `Instruction ${revision}` }, revision - 1);
+    }
+    const page = async (before: number | null = null, owner = user) =>
+      (
+        await db.query<{ result: Array<typeof record> }>(
+          "SELECT public.read_project_knowledge_history($1,'p','record',$2,$3) result",
+          [owner, rid, before],
+        )
+      ).rows[0].result;
+    const latest = await page();
+    const middle = await page(latest.at(-1)!.revision);
+    const oldest = await page(middle.at(-1)!.revision);
+    expect([latest.length, middle.length, oldest.length]).toEqual([20, 20, 2]);
+    expect([...latest, ...middle, ...oldest].map((r) => r.revision)).toEqual(
+      Array.from({ length: 42 }, (_, index) => 42 - index),
+    );
+    expect(await page(1)).toEqual([]);
+    expect(await page(null, other)).toEqual([]);
+    // The oldest page remains a valid restore source, but cannot overwrite a later edit.
+    await save("record", { ...oldest.at(-1)!, revision: 43 }, 42);
+    await expect(save("record", { ...middle[0], revision: 43 }, 42)).rejects.toThrow(
+      "knowledge_changed",
+    );
+    expect((await page())[0]).toMatchObject({ revision: 43, value: "Instruction 1" });
+    await forget("record", rid, 43);
+    expect(await page()).toEqual([]);
+  });
   it("accepts identical lost-response replay but rejects changed replay and stale owner edits", async () => {
     await save("source", source);
     await save("source", source);
