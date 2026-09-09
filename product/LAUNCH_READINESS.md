@@ -2,7 +2,7 @@
 
 **Status:** Canonical gate checklist; no new release GO
 
-**Last updated:** 2026-09-07
+**Last updated:** 2026-09-09
 
 **Product Lead:** Rafal Andersen
 
@@ -10,18 +10,18 @@ Unattended paid public launch remains **NO-GO / not verified**. Assisted beta re
 
 | Gate | Required evidence | Current disposition |
 | --- | --- | --- |
-| G0 Baseline/release | Current exact-head audit, build identity, migrations/configuration, review and rollback | Main/#63 merge/status checked; wider audit/runtime verification open |
+| G0 Baseline/release | Current exact-head audit, build identity, migrations/configuration, review and rollback | Main #98 and live build/fingerprint checked; release/migration evidence recorded; wider audit open |
 | G1 Public audit | Verified abuse/privacy/provider/cost boundary or verified disabled/deterministic containment | Worker code exists; #35/#43 open; do not copy obsolete “no routes” state |
-| G2 Commercial authority | Server entitlements and Stripe checkout/portal/webhook lifecycle with replay/failure/cancel/refund tests | Entitlement code exists; Stripe pending |
-| G3 Economics | Bounded paid calls, concurrent reservations, account/global ceilings; typical/high/max cost and viable packages | Fail-open metering found; runtime flag unknown; costs/prices not finalized |
+| G2 Commercial authority | Server entitlements and Stripe checkout/portal/webhook lifecycle with replay/failure/cancel/refund tests | Server entitlements and #80 sandbox foundations exist; configured Stripe lifecycle acceptance pending |
+| G3 Economics | Bounded paid calls, concurrent reservations, account/global ceilings; typical/high/max cost and viable packages | Fail-closed metering and native monetary/permit admission deployed; isolated runner, real benchmark/costs and prices unfinished |
 | G4 Content execution | Setup/edit → Studio → manual/review/auto publication; destination parity and recovery | Existing code + selected QA; complete provider/unattended acceptance open |
 | G5 Autonomy and teams | Solo/team mode independence, permissions, approvals, pause/cancel, logout/overnight jobs | Planned completion and acceptance |
-| G6 Notifications | Missing approval, failed/blocked/manual-overdue, empty week, quota/agent pause; dedupe/recheck/delivery | Helpers exist; complete system pending |
+| G6 Notifications | Missing approval, failed/blocked/manual-overdue, empty week, quota/agent pause; dedupe/recheck/delivery | Inbox/outbox and background sweep deployed; owner test delivered; team/full delivery acceptance pending |
 | G7 Search/AI evidence | Direct GSC; ≥3 trustworthy initial AI surfaces, citations/raw responses/method/history; first proof loop | GSC paths exist; observed AI and end-to-end proof pending |
 | G8 Preserved premium UX | Every mapped action; responsive/long-text/accessibility/error cases for core modules | #63 selected set merged; remaining UI pending |
 | G9 Authority/providers | Backlinks status honestly represented; supplier/outreach acceptance before enabled/promised | Existing intelligence/demo/control code; provider completion pending |
 | G10 AI clients/integrations | Claude/ChatGPT regression + all-major app-specific compatibility matrix; no false connection claims | Existing two; expansion pending. Unsupported clients require recorded disposition |
-| G11 International/local | All 24 EU languages across defined surfaces; app/content/market distinction; local/global coverage audit | Four UI locales present; expansion open |
+| G11 International/local | All 24 EU languages across defined surfaces; app/content/market distinction; local/global coverage audit | 24 EU content-language plumbing deployed; four UI locales; wider translations and quality acceptance open |
 | G12 Commercial trust | Actual Stripe/legal/tax/invoicing/refund wording, support, retention/export/deletion/recovery | Identity present; review/payment alignment and operational verification open |
 | G13 Product proof | Setup demo, real product recordings and beta outcomes, without unfinished-feature claims | Pending |
 

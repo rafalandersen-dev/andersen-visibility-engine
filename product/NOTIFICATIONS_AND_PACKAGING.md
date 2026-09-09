@@ -1,5 +1,7 @@
 # Milo Growth — powiadomienia, pakiety i ochrona marży
 
+> Current implementation and release status: [CURRENT_STATE.md](CURRENT_STATE.md), reconciled 9 September 2026. This document retains its decision/specification role; dated proposals do not establish delivery.
+
 Plan nadrzędny: [ROADMAP.md](./ROADMAP.md). Pełny rejestr zakresu: [PLAN_REVIEW_2026_09_07.md](./PLAN_REVIEW_2026_09_07.md).
 
 Data: 7 września 2026. Status: wymagania użytkownika i rekomendowana specyfikacja do dalszego wdrożenia. Nie jest to uruchomiony system ani zatwierdzony cennik. Nie zmieniono abonamentów, konfiguracji produkcyjnej ani wysyłki.

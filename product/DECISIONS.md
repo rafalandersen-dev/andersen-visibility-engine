@@ -1,5 +1,7 @@
 # Milo Growth — Decisions
 
+> Current implementation and release status: [CURRENT_STATE.md](CURRENT_STATE.md), reconciled 9 September 2026. This document retains its decision/specification role; dated proposals do not establish delivery.
+
 **Status:** Canonical decision log
 
 **Last updated:** 2026-09-07

@@ -2,7 +2,7 @@
 
 **Status:** Canonical execution plan; delivery and release remain evidence-gated
 
-**Last updated:** 2026-09-07
+**Last updated:** 2026-09-09
 
 **Product Lead / Outcome Owner:** Rafal Andersen
 
@@ -19,6 +19,10 @@ This plan consolidates the August strategy and September 5–7 launch, redesign,
 - [LAUNCH_READINESS.md](./LAUNCH_READINESS.md) and [OPERATIONS.md](./OPERATIONS.md): evidence and operating gates.
 - [NOTIFICATIONS_AND_PACKAGING.md](./NOTIFICATIONS_AND_PACKAGING.md): detailed notification and economics specification.
 - [Feature preservation map](../docs/premium-redesign/FEATURE_INVENTORY.md): routes, actions and regression contracts.
+
+## Current checkpoint — 9 September
+
+PRs through #98 are merged; live build/fingerprint rechecked. Spending admission, restricted permits and 24 content languages are delivered. The controlled benchmark, full localization and launch acceptance remain open. See [current state](CURRENT_STATE.md) and [weighted progress review](PROGRESS_REVIEW_2026_09_09.md). The checklist below specifies full outcomes; partly delivered compound items remain unchecked.
 
 ## Already delivered in code
 

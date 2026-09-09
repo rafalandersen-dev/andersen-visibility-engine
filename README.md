@@ -1,5 +1,7 @@
 > **Current planning source — 2026-09-07:** [./product/ROADMAP.md](./product/ROADMAP.md), [./product/CURRENT_STATE.md](./product/CURRENT_STATE.md) and the [scope reconciliation](./product/PLAN_REVIEW_2026_09_07.md) supersede the historical state/priority labels below. Preserve existing implementation contracts; do not infer current runtime flags, approvals or missing features from this older snapshot.
 
+Current project status: [product/CURRENT_STATE.md](product/CURRENT_STATE.md). Full-plan progress and task cleanup: [9 September review](product/PROGRESS_REVIEW_2026_09_09.md).
+
 # Milo Growth
 
 Milo Growth is a monthly AI growth planner for small businesses, built by
