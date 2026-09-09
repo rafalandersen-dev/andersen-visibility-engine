@@ -16,7 +16,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import type { Project } from "./types";
-import { assertImageGenerationAllowed, claimAiUsage } from "./ai-usage.server";
+import { assertImageGenerationAllowed } from "./ai-usage.server";
+import { withGenerationUsage } from "./generation-usage.server";
 import { ImageGenError } from "./image-gen.server";
 import { generateBudgetedImage, type NativeExpenseContext } from "./ai-provider-expense.server";
 import { AiExpenseUnavailableError } from "./ai-expense.server";
@@ -48,34 +49,43 @@ export async function generateArticleImageCore(
   // Pro/Agency plan gate first (active even while metering enforcement is off),
   // then the metered claim — both before the model call so a refusal costs nothing.
   await assertImageGenerationAllowed({ userId });
-  await claimAiUsage({ userId, bucket: "imageGeneration" });
-  const prompt = buildImagePrompt({
-    concept: args.concept,
-    ...(args.articleTitle ? { articleTitle: args.articleTitle } : {}),
-    project: args.project,
-  });
-  let bytes: Uint8Array;
-  try {
-    bytes = await generateBudgetedImage(
-      { userId, operation: "generateArticleImageCore", attempt: execution.attempt },
-      prompt,
-    );
-  } catch (e) {
-    if (
-      e instanceof ImageGenError ||
-      e instanceof AiExpenseUnavailableError ||
-      e instanceof AiProviderConfigurationError
-    )
-      throw new Error(e.message);
-    throw new Error("Image generation failed. Please try again.");
-  }
-  const { path, previewUrl } = await stageValidatedImageBytes(
-    userId,
-    args.projectId,
-    args.assetId,
-    bytes,
+  return withGenerationUsage(
+    {
+      userId,
+      bucket: "imageGeneration",
+      operation: "generateArticleImageCore",
+      attempt: execution.attempt,
+    },
+    async (attempt) => {
+      const prompt = buildImagePrompt({
+        concept: args.concept,
+        ...(args.articleTitle ? { articleTitle: args.articleTitle } : {}),
+        project: args.project,
+      });
+      let bytes: Uint8Array;
+      try {
+        bytes = await generateBudgetedImage(
+          { userId, operation: "generateArticleImageCore", attempt },
+          prompt,
+        );
+      } catch (e) {
+        if (
+          e instanceof ImageGenError ||
+          e instanceof AiExpenseUnavailableError ||
+          e instanceof AiProviderConfigurationError
+        )
+          throw new Error(e.message);
+        throw new Error("Image generation failed. Please try again.");
+      }
+      const { path, previewUrl } = await stageValidatedImageBytes(
+        userId,
+        args.projectId,
+        args.assetId,
+        bytes,
+      );
+      return { path, previewUrl, alt: draftAltText(args.concept, args.project.businessName) };
+    },
   );
-  return { path, previewUrl, alt: draftAltText(args.concept, args.project.businessName) };
 }
 
 export const generateArticleImageFn = createServerFn({ method: "POST" })

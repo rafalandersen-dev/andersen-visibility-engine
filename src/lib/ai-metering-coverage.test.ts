@@ -46,7 +46,7 @@ describe("every AI server function accounts for its spend", () => {
 
   it.each(fns.map((f) => f.name))("%s either claims usage or says why it does not", (name) => {
     const fn = fns.find((f) => f.name === name)!;
-    const metered = fn.body.includes("claimAiUsage(");
+    const metered = fn.body.includes("claimAiUsage(") || fn.body.includes("withGenerationUsage(");
     const deliberatelyUncounted = /NOT metered\.\s+\S/.test(fn.body);
     expect(
       metered || deliberatelyUncounted,
@@ -56,9 +56,12 @@ describe("every AI server function accounts for its spend", () => {
 
   it("claims the limit BEFORE the model call, so a refusal costs nothing", () => {
     for (const fn of fns) {
-      if (!fn.body.includes("claimAiUsage(")) continue;
+      const boundary = fn.body.includes("withGenerationUsage(")
+        ? "withGenerationUsage("
+        : "claimAiUsage(";
+      if (!fn.body.includes(boundary)) continue;
       expect(
-        fn.body.indexOf("claimAiUsage("),
+        fn.body.indexOf(boundary),
         `${fn.name} claims usage after it has already called the model`,
       ).toBeLessThan(fn.body.indexOf("generateJsonText("));
     }
@@ -73,7 +76,8 @@ describe("every AI server function accounts for its spend", () => {
 
 describe("image generation accounts for its spend", () => {
   it("claims the imageGeneration bucket BEFORE the model call", () => {
-    const claim = IMAGE_SOURCE.indexOf('claimAiUsage({ userId, bucket: "imageGeneration" })');
+    const claim = IMAGE_SOURCE.indexOf("withGenerationUsage(");
+    expect(IMAGE_SOURCE).toContain('bucket: "imageGeneration"');
     const model = IMAGE_SOURCE.indexOf("generateBudgetedImage(");
     expect(claim).toBeGreaterThan(-1);
     expect(model).toBeGreaterThan(-1);
@@ -85,7 +89,7 @@ describe("image generation accounts for its spend", () => {
     // off — removing or reordering it would re-open image generation (the most
     // expensive AI click) to every free-preview account.
     const gate = IMAGE_SOURCE.indexOf("assertImageGenerationAllowed({ userId })");
-    const claim = IMAGE_SOURCE.indexOf('claimAiUsage({ userId, bucket: "imageGeneration" })');
+    const claim = IMAGE_SOURCE.indexOf("withGenerationUsage(");
     expect(gate).toBeGreaterThan(-1);
     expect(gate).toBeLessThan(claim);
   });

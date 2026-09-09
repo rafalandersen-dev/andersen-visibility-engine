@@ -6,11 +6,12 @@ This is the current operational entry point. Read [progress review](PROGRESS_REV
 
 ## Verified baseline
 
-- Remote main: `1699bc8b384726cd501da7492b4212b499f06f77`, merge of PR #102 on 9 September. PRs through #102 are merged; #2, #58 and #62 remain open documentation/design proposals.
-- PR #102 deployment: `83462c20-45f2-4e69-8fd9-25e1cb62faec`; public build `1788951348074`; full fingerprint `eaff25e83e2526d6f060394c4107b771b0ab3cee4f8d98ccc650f7a78c765e41`. Full/every component match clean merged source; runtime reports the exact merge revision and `modified: false`.
-- Home/owner-test GET 200; MCP GET 200, OPTIONS 204, anonymous MCP POST 401. The anonymous owner-test page is the SPA shell; no authenticated or visual acceptance is claimed.
-- #102 verification: final full suite 2,082 tests / 143 files, eight new deadline cases, TypeScript, production build, focused lint and whitespace checks passed. Review run 34342110521 succeeded with no new inline findings.
-- Migration `20260909120000_owner_ai_benchmark_runs.sql` is applied; do not repeat it. Registry RLS/service permissions verified. After installation: zero runs, budgets, permits and native provider attempts. The restricted financial migration from #98 remains applied.
+- Remote main: `f4a9d45d1990b6d14d80f4103c3bd6b4f9846592`, normal merge of PR #103 on 9 September. PRs through #103 are merged; #2, #58 and #62 remain open documentation/design proposals.
+- PR #103 deployment: `3328a39c-4cb6-4881-b16f-e1316dba265e`; public build `1788954649760`; full fingerprint `bf20266799aad8e41a842bbdea8146ad4c1f4814a49d7ea24b32c20cce48fd87`. Full/every component match clean merged source; runtime reports the exact merge revision and `modified: false`. Verified 11:53 UTC on 9 September.
+- Home/MCP GET 200; MCP OPTIONS 204, anonymous MCP POST 401. These are HTTP checks; no authenticated client transfer or visual acceptance is claimed.
+- #103 verification: 2,159 tests / 149 files, types/build/focused lint passed. Final-head review 34344974858 succeeded (`is_error: false`); no new original-head inline findings. The workflow reported permission denials, so success does not establish unrestricted automated review.
+- Migration `20260909140000_preserve_mcp_image_receipts.sql` is applied once from the reviewed head. All three receipt fields and the enabled trigger were verified; zero existing image-import receipts. Do not repeat it. The #101 controlled-runner migration and #98 restricted permits remain installed.
+- Latest read-only cost preflight: zero expense budgets, permits and native requests. Existing usage: 10 rows / 226 recorded units. No live benchmark calls or financial funding.
 
 ## Delivered work to preserve
 
@@ -24,15 +25,15 @@ This is the current operational entry point. Read [progress review](PROGRESS_REV
 | Monetary admission (#96/#98) | Native calls reserve account/global funds; unknown costs retain reserves; restricted budgets and one-attempt permits deployed | Funding the isolated test, real costs/reconciliation and customer result allowances |
 | Controlled owner test (#101) | Durable scan/article/image stages, exact one-attempt identities, retained private output and owner-only controls deployed | Secure key configuration, provisioning, actual generation, cost/quality and visual acceptance |
 | Languages (#97) | All 24 EU content-language choices and authoring plumbing; language sync and title slugs fixed | UI remains four locales; full UI/email/report/legal translations and language quality acceptance |
-| MCP and notifications | Scoped draft/profile/batch work, ingress limits, inbox/outbox and scheduler recovery foundations | Live client matrix, secure external image ingest, team recipients and complete delivery acceptance |
+| MCP and notifications | Scoped draft/profile/batch/image import, bounded ingress, renewed private previews, inbox/outbox and scheduler recovery foundations | Actual client image transfers, CMS fidelity, team recipients and complete delivery acceptance |
 | Stripe (#80) | Isolated sandbox checkout/receipt foundations and migration | Configured sandbox, real lifecycle acceptance and commercial rollout; owner deferred setup |
 
 ## Current work and blockers
 
-The implementation task **Kontynuuj plan Milo Growth** (`01a07ba1-c8b6-7582-9ff0-275d64224671`) continues the full plan. PR #100's bounded homepage reads and trusted attempt inputs and PR #101's controlled runner are deployed. See [homepage prerequisites](../evidence/homepage-benchmark-prerequisites-2026-09-09.md) and [controlled runner evidence](../evidence/owner-controlled-runner-2026-09-09.md). PR #102 bounds entitlement and quota waits to ten seconds per lookup and is now released. The next packet adds private, scoped MCP image import from supplied files and renews private thumbnails for owner review; 2,159 tests/149 files, types/build and focused lint passed, with pre-existing registry lint debt documented. Review, receipt migration and release are pending. See [image import evidence](../evidence/mcp-image-import-2026-09-09.md). No duplicate implementation stream is active.
+The implementation task **Kontynuuj plan Milo Growth** (`01a07ba1-c8b6-7582-9ff0-275d64224671`) continues the full plan. Private MCP image import and preview renewal (#103) are released. See [image import evidence](../evidence/mcp-image-import-2026-09-09.md). The next R09 packet adds atomic generation-quota receipts and returns a confirmed reservation on server-side technical failures, while keeping supplier expenses/permits separate. Full 2,212 tests / 151 files, types/build/focused lint passed; review, receipt migration and release are pending. See [generation quota evidence](../evidence/generation-usage-receipts-2026-09-09.md). No duplicate implementation stream is active.
 
 1. Resolve the recorded OpenAI Platform reauthentication problem and finish secure key selection/save/configuration. A fresh check on 9 September returned UNAUTHORIZED / openai_platform_authentication_failed. The owner clarified that no reconnection or key creation had been performed; do not treat the earlier “done” as setup confirmation. No key creation or installation is confirmed. Continue independent implementation without repeatedly retrying unchanged authentication.
-2. Complete review/migration/release of private MCP image import and preview renewal, then finish visual approval and live client acceptance. Preserve the installed runner and zero-funded state. Do not confuse its screen or synthetic results with a completed live benchmark.
+2. Complete review/migration/release of generation-quota receipts, then continue durable result recovery and customer delivery acceptance. MCP image import is released; visual approval and live-client transfer acceptance remain open. Preserve the installed runner and zero-funded state. Do not confuse its screen or synthetic results with a completed live benchmark.
 3. Recheck current budget state and model/rate contract, provision restricted global/account budgets plus exactly three permits within the already authorized USD5 total, run once, and reconcile actual usage. Errors/uncertain results retain reservations and do not authorize another attempt. Do not fund an ordinary owner budget that background jobs could spend.
 4. Continue delivered-result allowances, team notifications/recovery, Stripe sandbox lifecycle, real AI observations/proof loop, remaining product/integration/localization work and beta/demo evidence in roadmap order.
 
@@ -48,6 +49,6 @@ Open decisions D01–D08 remain tracked. A changed email, a language dropdown or
 
 - Product repo: `rafalandersen-dev/andersen-visibility-engine`.
 - Lovable project: `06b696f6-c02b-468f-b0a0-7ab8af92d6a0`; workspace `oC4kAHCUIYuuomG2Hwnl`; database `fguokeheqoqunadhdbsz`.
-- Current implementation worktree: `/Users/rafi/Projects/milo-growth-mcp-image-upload-20260909`, branch `codex/milo-mcp-image-upload-20260909`, based on #102. The previous quota worktree is clean at the #102 merge; earlier worktrees are preserved.
+- Current implementation worktree: `/Users/rafi/Projects/milo-growth-generation-usage-receipts-20260909`, branch `codex/milo-generation-usage-receipts-20260909`, based on #103. The image-import worktree is clean at the #103 merge; earlier worktrees are preserved.
 - [PR #101 release evidence](https://github.com/rafalandersen-dev/andersen-visibility-engine/pull/101), [permit evidence](../evidence/restricted-ai-expense-permits-2026-09-08.md), [benchmark preflight](../evidence/owner-ai-benchmark-2026-09-08.md), [account inventory](ACCOUNT_OWNERSHIP.md).
 - Previous cumulative current-state text is retained at [historical snapshot](../evidence/current-state-history-through-2026-09-08.md). Its pre-release pending states are superseded here.

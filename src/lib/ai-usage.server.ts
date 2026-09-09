@@ -169,11 +169,21 @@ export async function claimAiUsage(args: {
   /** Test seams; production resolves both server-side. */
   planOverride?: PlanId;
   isOwnerOverride?: boolean;
+  /** Server-minted generation receipt; never accepted from browser input. */
+  generationReceipt?: {
+    id: string;
+    operation: "generateContentCore" | "generateContentAssetFn" | "generateArticleImageCore";
+    nativeAttemptId?: string;
+  };
 }): Promise<Claim> {
   const { userId, bucket } = args;
   const units = args.units ?? 1;
   if (!Number.isInteger(units) || units <= 0 || units > MAX_USAGE) {
     throw new RangeError("AI usage units must be a positive PostgreSQL integer.");
+  }
+  const receipt = args.generationReceipt;
+  if (receipt && (units !== 1 || !["contentGeneration", "imageGeneration"].includes(bucket))) {
+    throw new RangeError("Generation receipts require one content or image generation.");
   }
   // Entitlements and owner roles are resolved server-side, never from a workspace blob.
   const [plan, isOwner] = await boundedUsageLookup(
@@ -205,18 +215,33 @@ export async function claimAiUsage(args: {
 
     response = await boundedUsageLookup(
       bucket,
-      admin.rpc("claim_ai_usage", {
+      admin.rpc(receipt ? "claim_generation_usage" : "claim_ai_usage", {
         p_user: userId,
         p_period: usagePeriod(args.now),
         p_bucket: bucket,
         p_cap: cap,
-        p_units: units,
+        ...(receipt
+          ? {
+              p_id: receipt.id,
+              p_operation: receipt.operation,
+              p_native_attempt: receipt.nativeAttemptId ?? null,
+            }
+          : { p_units: units }),
       }),
     );
   } catch {
     return unavailable(bucket, "claim_transport_failed");
   }
   if (!response || response.error) return unavailable(bucket, "claim_failed");
+  if (receipt) {
+    const row = Array.isArray(response.data) ? response.data[0] : null;
+    if (
+      !row ||
+      row.receipt_id !== receipt.id ||
+      row.claim_status !== (row.allowed === true ? "reserved" : "denied")
+    )
+      return unavailable(bucket, "generation_claim_unconfirmed");
+  }
   const row = confirmedClaim(response.data, cap, units);
   if (!row) return unavailable(bucket, "claim_unconfirmed");
   if (!row.allowed) {

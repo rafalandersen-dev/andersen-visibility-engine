@@ -21,3 +21,12 @@ The immutable upload behavior follows the installed Supabase storage client and 
 - Attachment time is captured after storage. Shared draft writes preserve a later current timestamp (including sub-millisecond precision), so the actual newer-wins database trigger cannot silently drop an image while the project receipt reports attached. A PGlite regression applies the real trigger and verifies that both content and receipt persist. The same guard protects the existing controlled benchmark's image attachment.
 - Request admission now tracks the physical promises as well as the caller lifetime. A timeout does not release the slot while upload/download/workspace I/O still owns buffers. If both slots remain unresolved, further image work is refused until settlement or process recovery; ordinary reads remain available. Route/core tests cover the late-settlement boundary.
 - Private image preview renewal is included in this same packet, with 19 authenticated-read and lifecycle tests. No signed URL cache is shared across mounted views/login sessions, no URL is returned in MCP audit/results and no preview refresh performs a mutation. Browser visual acceptance remains unavailable.
+
+
+## Release verified — 9 September, 11:53 UTC
+
+Final head `7e9c0a0d9e87bdd196ba57db894fe82d69a865a3` received workflow 34344974858 success (`is_error: false`), with no new original-head inline findings. The workflow reported permission denials, limiting what its success establishes. The three initial findings are fixed and have regression coverage. Normal merge `f4a9d45d1990b6d14d80f4103c3bd6b4f9846592` is deployed as `3328a39c-4cb6-4881-b16f-e1316dba265e`, build `1788954649760`.
+
+Full fingerprint `bf20266799aad8e41a842bbdea8146ad4c1f4814a49d7ea24b32c20cce48fd87` and every component match clean merged source. Runtime reports the exact merge revision and `modified: false`. Home/MCP GET 200, OPTIONS 204, anonymous MCP POST 401. No authenticated/client or visual acceptance is inferred.
+
+The exact reviewed `20260909140000_preserve_mcp_image_receipts.sql` was applied once in a transaction. All three receipt fields and the enabled trigger were verified, with zero image-import receipts. Do not repeat the migration. No file transfer, paid provider call, email or publication was performed for acceptance.
