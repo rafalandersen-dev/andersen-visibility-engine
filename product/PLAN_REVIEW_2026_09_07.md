@@ -18,11 +18,11 @@ Current execution order is in [ROADMAP.md](./ROADMAP.md). Route-level preservati
 
 ## Full scope register
 
-Assessments refreshed 9 September through #98; original rationale below remains dated 7 September. See [current state](CURRENT_STATE.md).
+Assessments refreshed 9 September through #101; original rationale below remains dated 7 September. See [current state](CURRENT_STATE.md).
 
 | ID | Workstream / retained commitment | Current assessment | Completion evidence |
 | --- | --- | --- | --- |
-| R00 | Exact implementation, deployment and plan baseline | Main #98 and same live build/fingerprint rechecked 9 September; wider audit still open | Commit, tests/review scope, runtime build identity and environment facts recorded separately; fresh-session pickup works |
+| R00 | Exact implementation, deployment and plan baseline | Main #101 and exact clean runtime revision/full/component fingerprints verified 9 September; wider audit still open | Commit, tests/review scope, runtime build identity and environment facts recorded separately; fresh-session pickup works |
 | R01 | Premium Today, Plan list/inspector, calendar and responsive shell | Merged in #63; selected QA recorded | Preserve search/board/archive/bulk/discovery; finish outstanding cross-device/locale cases and production verification |
 | R02 | Remaining premium UI | Partial; Studio grid fixed, full modules not complete | Studio/setup/audits/competitors/authority/links/analytics/reports/billing/onboarding meet common design and mapped action checks |
 | R03 | Project setup, later edit, Brand Intelligence and catalog | Setup/profile ownership, completeness and safe proposal improvements deployed; full journey acceptance open | URL-first setup, complete profile/market/voice/goals/services/competitors, safe field ownership, edit/save/reload and incomplete-state recovery |
@@ -31,7 +31,7 @@ Assessments refreshed 9 September through #98; original rationale below remains 
 | R06 | Clean operational notifications | Inbox/outbox and background sweep foundations deployed; owner transport test delivered; team/full lifecycle acceptance open | Approval/blocked/failed/manual-overdue/empty-week/low-quota/paused-agent alerts, digest, dedupe/recheck, delivery history and assigned recipients |
 | R07 | Milo agent that completes growth work | Existing tools; orchestrator and identity planned | Evidence → plan → permitted tool execution → check → report; resumable jobs, project boundaries and bounded spend. Avatar tested separately |
 | R08 | Existing Claude/ChatGPT MCP and wider AI-client access | Scoped draft/profile/batch tools and ingress bounds deployed; secure image ingest and live client matrix open | Revalidate read/write/propose/revoke; app-specific compatibility matrix for Perplexity/Gemini/Copilot/Grok/Mistral; no generic unsupported logos |
-| R09 | Unit economics, limits and understandable packages | Fail-closed metering, native monetary admission and restricted permits deployed #65/#96/#98; runner, real costs, result allowances and prices open | Atomic account/global budget controls; real cost model; clear article/revision/image/monitoring/agent allowances and failure/refund policy |
+| R09 | Unit economics, limits and understandable packages | Fail-closed metering, native monetary admission and restricted permits deployed #65/#96/#98; controlled runner deployed #101; actual benchmark, real costs, result allowances and prices open | Atomic account/global budget controls; real cost model; clear article/revision/image/monitoring/agent allowances and failure/refund policy |
 | R10 | Real observed AI visibility and citations | Current readiness advice is not observed tracking | ≥3 initial trustworthy surfaces, raw answer/citation evidence, history, method/market/language/mode and missing-vs-zero semantics |
 | R11 | Nimt-style analytical depth | Requirements recovered from screenshots; not claimed built | Mentions/citations, model/service/mode filters, prompt intent, sentiment, share of voice, cited pages/domains, source ownership/content types and actionable gaps |
 | R12 | Profound-style Agent Analytics | Explicit gap beyond referral beacon | Server/edge log ingestion, verified/unknown bot identity, page/time/status analysis; crawler requests kept separate from answers/referrals/conversions |

@@ -22,7 +22,7 @@ This plan consolidates the August strategy and September 5–7 launch, redesign,
 
 ## Current checkpoint — 9 September
 
-PRs through #98 are merged; live build/fingerprint rechecked. Spending admission, restricted permits and 24 content languages are delivered. The controlled benchmark, full localization and launch acceptance remain open. See [current state](CURRENT_STATE.md) and [weighted progress review](PROGRESS_REVIEW_2026_09_09.md). The checklist below specifies full outcomes; partly delivered compound items remain unchecked.
+PRs through #101 are merged and the exact clean runtime revision/full/component fingerprints are verified. Spending admission, restricted permits, the controlled owner-test runner and 24 content languages are delivered. Actual benchmark generation/cost/quality, full localization and launch acceptance remain open. See [current state](CURRENT_STATE.md) and [weighted progress review](PROGRESS_REVIEW_2026_09_09.md). The checklist below specifies full outcomes; partly delivered compound items remain unchecked.
 
 ## Already delivered in code
 

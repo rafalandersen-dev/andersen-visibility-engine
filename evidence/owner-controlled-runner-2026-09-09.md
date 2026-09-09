@@ -1,6 +1,6 @@
 # Controlled owner benchmark runner — 9 September 2026
 
-Status: implemented and locally verified; review, migration and deployment pending. Base is the verified PR #100 merge `849df9ff05ee406f4254079e81a0d93de16c16ed`. This packet does not provision or execute the approved test. Full-plan/public-launch acceptance remains incomplete.
+Status: PR #101 merged, migration applied and release verified on 9 September. Base is the verified PR #100 merge `849df9ff05ee406f4254079e81a0d93de16c16ed`. This packet does not provision or execute the approved test. Full-plan/public-launch acceptance remains incomplete.
 
 ## Behavior and boundaries
 
@@ -14,7 +14,7 @@ Each stage invokes the existing production core: strict AI scan, article generat
 
 ## Verification
 
-- Full suite: 2,069 tests / 143 files passed. After review fixes, the benchmark and i18n parity selection passed 55/55, including previously completed permit expiry/revocation and transient status errors. TypeScript, production build, lint of the new/changed implementation files and whitespace checks passed.
+- Final full suite: 2,074 tests / 143 files passed after review fixes. The benchmark and i18n parity selection passed 55/55, including previously completed permit expiry/revocation and transient status errors. TypeScript, production build, lint of the new/changed implementation files and whitespace checks passed.
 - Real PostgreSQL semantics through PGlite cover service permissions, immutable plans, matching permits/restricted budgets, duplicate and concurrent claims, expected stage, retained output, token binding and no recovery by rerunning a paid attempt.
 - Server tests cover existing-core/attempt forwarding, only draft/proposed output, credential exclusion, changed target/context, provider failure, late admission, conflicting workspace writes, preserved output and truthful completion vs merely recorded output.
 - Authorization tests reject non-owner/unknown roles and injected privileged input; status never executes and errors do not expose supplier details.
@@ -36,3 +36,11 @@ The runner is infrastructure for R09/R18 acceptance. Useful-result customer allo
 Completed-stage permits retain their identity binding but their later expiry/revocation cannot block the remaining authorized stages. Current and future stages still require active permits. A transient status failure remains distinct from a missing run: the owner screen retains its last status, shows a refreshable error and does not dispatch generation. New plans must start at scan with no prior results; IDs used in storage paths are restricted to safe segments.
 
 Production rechecked 9 September during review: zero budgets, zero permits and zero native provider attempts. No test has been provisioned or executed.
+
+## Verified release
+
+- Final reviewed head `ada37cacc788b9be1a698d09ee6b82d02ec89bc5`; review `34339705167` succeeded with `is_error: false` and no new inline findings. Normal merge `806636237f4f7ae89baef090759de92da6e4d3ec`.
+- Migration `20260909120000_owner_ai_benchmark_runs.sql` applied from that reviewed head in one production transaction. Do not reapply it. RLS enabled; anonymous read and authenticated insert/claim denied; service insert/claim allowed, direct service UPDATE denied. Runs, budgets, permits and native provider attempts all zero after installation.
+- Deployment `95b35d27-6771-4d6f-8565-4cb79f148d7a`; public build `1788950127754`; fingerprint `5b5757913917c3f0a154b9fc6ccd3a0f2f2a421d07af2e9304c0b66d8a63e602`. Full and every component match clean merged source. Runtime reports exact merge revision with `modified: false`.
+- Home/owner-test GET 200; MCP GET 200, OPTIONS 204, anonymous POST 401. The anonymous owner-test response is the SPA shell, not evidence of authenticated access or a live test.
+- OpenAI still requires reauthentication. The owner clarified no setup action had been performed. No live test, new email or customer publication occurred.

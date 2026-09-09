@@ -6,11 +6,11 @@ This is the current operational entry point. Read [progress review](PROGRESS_REV
 
 ## Verified baseline
 
-- Remote main: `849df9ff05ee406f4254079e81a0d93de16c16ed`, merge of PR #100 on 9 September. PRs #98–#100 are merged. PRs #2, #58 and #62 remain open documentation/design proposals.
-- PR #100 deployment: `621f0738-ac7c-43d8-bd85-b0dcc074731b`; public build `1788948225765`; full fingerprint `ec6aaf00ba8e77f95ac6a4e5a94ef167ee98489e0046af026e7d8b01f8bf4714`. Full and all component fingerprints match clean merged source. Runtime revision/modified remain null; the deployed runtime version is not reported.
-- Home/MCP GET 200, OPTIONS 204, anonymous MCP POST 401. These are public smoke checks, not authenticated generation or visual acceptance.
-- #100 verification: full suite 2,031 tests / 140 files before the final empty-profile guard; final affected suites 55/55, TypeScript, build, focused lint and whitespace checks passed. Direct public homepage reads passed under Bun 1.3.3 (the recorded hosting builder version), Bun 1.4.0 and Node 26.5.0. Review run 34337173059 succeeded with no inline findings.
-- Migration `20260908210000_restricted_ai_expense_permits.sql` remains the latest applied financial migration. Production counts rechecked on 9 September during runner review: zero budgets, zero permits and zero native provider attempts.
+- Remote main: `806636237f4f7ae89baef090759de92da6e4d3ec`, merge of PR #101 on 9 September. PRs through #101 are merged; #2, #58 and #62 remain open documentation/design proposals.
+- PR #101 deployment: `95b35d27-6771-4d6f-8565-4cb79f148d7a`; public build `1788950127754`; full fingerprint `5b5757913917c3f0a154b9fc6ccd3a0f2f2a421d07af2e9304c0b66d8a63e602`. Full/every component match clean merged source; runtime reports the exact merge revision and `modified: false`.
+- Home/owner-test GET 200; MCP GET 200, OPTIONS 204, anonymous MCP POST 401. The anonymous owner-test page is the SPA shell; no authenticated or visual acceptance is claimed.
+- #101 verification: final full suite 2,074 tests / 143 files, 55 focused benchmark/locale cases, TypeScript, production build, focused lint and whitespace checks passed. Review run 34339705167 succeeded with no new inline findings.
+- Migration `20260909120000_owner_ai_benchmark_runs.sql` is applied; do not repeat it. Registry RLS/service permissions verified. After installation: zero runs, budgets, permits and native provider attempts. The restricted financial migration from #98 remains applied.
 
 ## Delivered work to preserve
 
@@ -21,17 +21,18 @@ This is the current operational entry point. Read [progress review](PROGRESS_REV
 | Account and email | Milo owner is rafi@anderseninnovations.com; 10 owner projects and role preserved; delivered/opened test and administrative verification recorded | Fresh login acceptance; full team notification delivery. Approved test email is consumed |
 | Publishing | One scheduled Butelki Wodorowe article verified on 8 September at 09:00 Stockholm in both databases and public destination | Historical content-review failure and Andersen UK destination errors; WP/Shopify/custom parity |
 | Direct OpenAI (#95) | Native text/image generation no longer uses or falls back to Lovable AI | Secure key setup and actual provider generation not verified |
-| Monetary admission (#96/#98) | Native calls reserve account/global funds; unknown costs retain reserves; restricted budgets and one-attempt permits deployed | Controlled runner, funding the isolated test, real costs/reconciliation and customer result allowances |
+| Monetary admission (#96/#98) | Native calls reserve account/global funds; unknown costs retain reserves; restricted budgets and one-attempt permits deployed | Funding the isolated test, real costs/reconciliation and customer result allowances |
+| Controlled owner test (#101) | Durable scan/article/image stages, exact one-attempt identities, retained private output and owner-only controls deployed | Secure key configuration, provisioning, actual generation, cost/quality and visual acceptance |
 | Languages (#97) | All 24 EU content-language choices and authoring plumbing; language sync and title slugs fixed | UI remains four locales; full UI/email/report/legal translations and language quality acceptance |
 | MCP and notifications | Scoped draft/profile/batch work, ingress limits, inbox/outbox and scheduler recovery foundations | Live client matrix, secure external image ingest, team recipients and complete delivery acceptance |
 | Stripe (#80) | Isolated sandbox checkout/receipt foundations and migration | Configured sandbox, real lifecycle acceptance and commercial rollout; owner deferred setup |
 
 ## Current work and blockers
 
-The implementation task **Kontynuuj plan Milo Growth** (`01a07ba1-c8b6-7582-9ff0-275d64224671`) resumed on 9 September. It is preparing the controlled one-scan, one-article, one-image benchmark. PR #100 is deployed: it replaces unbounded homepage reads with pinned public-address transport, including Bun 1.3.3 compatibility, and adds trusted attempt inputs to the three existing cores. See [homepage/benchmark prerequisite evidence](../evidence/homepage-benchmark-prerequisites-2026-09-09.md). The durable runner, owner test screen and new migration are implemented and locally verified in the next review packet; they are not yet deployed or provisioned. See [controlled runner evidence](../evidence/owner-controlled-runner-2026-09-09.md). The separate progress review is complete; no duplicate implementation stream is active.
+The implementation task **Kontynuuj plan Milo Growth** (`01a07ba1-c8b6-7582-9ff0-275d64224671`) continues the full plan. PR #100's bounded homepage reads and trusted attempt inputs and PR #101's controlled runner are deployed. See [homepage prerequisites](../evidence/homepage-benchmark-prerequisites-2026-09-09.md) and [controlled runner evidence](../evidence/owner-controlled-runner-2026-09-09.md). A follow-up packet now bounds entitlement and quota waits to ten seconds per lookup, preventing late confirmation from starting AI after a timeout. That packet is not yet released. No duplicate implementation stream is active.
 
 1. Resolve the recorded OpenAI Platform reauthentication problem and finish secure key selection/save/configuration. A fresh check on 9 September returned UNAUTHORIZED / openai_platform_authentication_failed. The owner clarified that no reconnection or key creation had been performed; do not treat the earlier “done” as setup confirmation. No key creation or installation is confirmed. Continue independent implementation without repeatedly retrying unchanged authentication.
-2. Finish review/release of the controlled runner packet and verify its service-only database permissions. Its installation must create zero plans, permits, budgets or scheduled work. Do not confuse the test screen or synthetic results with a completed live benchmark.
+2. Complete review/release of the quota-deadline follow-up. Preserve the already installed runner and zero-funded state. Do not confuse its screen or synthetic results with a completed live benchmark.
 3. Recheck current budget state and model/rate contract, provision restricted global/account budgets plus exactly three permits within the already authorized USD5 total, run once, and reconcile actual usage. Errors/uncertain results retain reservations and do not authorize another attempt. Do not fund an ordinary owner budget that background jobs could spend.
 4. Continue delivered-result allowances, team notifications/recovery, Stripe sandbox lifecycle, real AI observations/proof loop, remaining product/integration/localization work and beta/demo evidence in roadmap order.
 
@@ -47,6 +48,6 @@ Open decisions D01–D08 remain tracked. A changed email, a language dropdown or
 
 - Product repo: `rafalandersen-dev/andersen-visibility-engine`.
 - Lovable project: `06b696f6-c02b-468f-b0a0-7ab8af92d6a0`; workspace `oC4kAHCUIYuuomG2Hwnl`; database `fguokeheqoqunadhdbsz`.
-- Current implementation worktree: `/Users/rafi/Projects/milo-growth-controlled-runner-20260909`, branch `codex/milo-controlled-runner-20260909`, based on #100. The previous homepage worktree is clean at the #100 merge; earlier worktrees are preserved.
-- [PR #100 release evidence](https://github.com/rafalandersen-dev/andersen-visibility-engine/pull/100), [permit evidence](../evidence/restricted-ai-expense-permits-2026-09-08.md), [benchmark preflight](../evidence/owner-ai-benchmark-2026-09-08.md), [account inventory](ACCOUNT_OWNERSHIP.md).
+- Current implementation worktree: `/Users/rafi/Projects/milo-growth-usage-deadlines-20260909`, branch `codex/milo-usage-deadlines-20260909`, based on #101. The previous runner worktree is clean at the #101 merge; earlier worktrees are preserved.
+- [PR #101 release evidence](https://github.com/rafalandersen-dev/andersen-visibility-engine/pull/101), [permit evidence](../evidence/restricted-ai-expense-permits-2026-09-08.md), [benchmark preflight](../evidence/owner-ai-benchmark-2026-09-08.md), [account inventory](ACCOUNT_OWNERSHIP.md).
 - Previous cumulative current-state text is retained at [historical snapshot](../evidence/current-state-history-through-2026-09-08.md). Its pre-release pending states are superseded here.
