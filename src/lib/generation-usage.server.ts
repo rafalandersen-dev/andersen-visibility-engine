@@ -54,7 +54,8 @@ async function settle(id: string, userId: string, outcome: "completed" | "releas
  */
 export async function withGenerationUsage<T>(
   args: GenerationUsage,
-  work: (attempt: NonNullable<NativeExpenseContext["attempt"]>) => Promise<T>,
+  work: (attempt: NonNullable<NativeExpenseContext["attempt"]>, receiptId: string) => Promise<T>,
+  retain?: (result: T) => Promise<void>,
 ): Promise<T> {
   const id = randomUUID();
   const attempt = args.attempt ?? { requestId: randomUUID(), jobId: id };
@@ -66,11 +67,14 @@ export async function withGenerationUsage<T>(
   });
   let result: T;
   try {
-    result = await work(attempt);
+    result = await work(attempt, id);
   } catch (error) {
     await settle(id, args.userId, "released");
     throw error;
   }
-  await settle(id, args.userId, "completed");
+  // A retention timeout can still commit. Keep this outside the failure/refund
+  // block: the result may already be durable, and no provider retry is safe.
+  if (retain) await retain(result);
+  else await settle(id, args.userId, "completed");
   return result;
 }

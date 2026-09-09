@@ -160,11 +160,13 @@ describe("controlled benchmark orchestration", () => {
     });
     expect(deps.article).toHaveBeenCalledTimes(1);
     expect(vi.mocked(deps.article).mock.calls[0][2]).toEqual({
+      assetId: run.asset_id,
       enforceLimit: true,
       attempt: { requestId: run.article_request, jobId: runId },
     });
     expect(deps.image).toHaveBeenCalledTimes(1);
     expect(vi.mocked(deps.image).mock.calls[0][2]).toEqual({
+      imageId: run.image_id,
       attempt: { requestId: run.image_request, jobId: runId },
     });
     const asset = (workspace.content as ContentAsset[])[0];

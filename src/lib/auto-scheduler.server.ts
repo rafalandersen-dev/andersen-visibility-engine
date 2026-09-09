@@ -169,7 +169,7 @@ export function buildAssetFromGeneration(
   plannedKey: string,
 ): ContentAsset {
   return {
-    id: crypto.randomUUID(),
+    id: gen.resultId ?? crypto.randomUUID(),
     projectId: opp.projectId,
     opportunityId: opp.id,
     title: opp.title,

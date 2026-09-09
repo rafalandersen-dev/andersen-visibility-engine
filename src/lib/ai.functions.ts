@@ -34,6 +34,7 @@ import type { Project, ServiceItem, Opportunity } from "./types";
 
 import { claimAiUsage, type UsageBucket } from "./ai-usage.server";
 import { withGenerationUsage } from "./generation-usage.server";
+import { contentRecoveryTarget, retainContentGeneration } from "./generation-result.server";
 
 const MODEL = DEFAULT_MODEL_ID;
 
@@ -2163,13 +2164,14 @@ export const generateContentAssetFn = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
+    let target: ReturnType<typeof contentRecoveryTarget>;
     return withGenerationUsage(
       {
         userId: context.userId as string,
         bucket: "contentGeneration",
         operation: "generateContentAssetFn",
       },
-      async (attempt) => {
+      async (attempt, receiptId) => {
         const project = data.project as Project;
         const services = data.services as ServiceItem[];
         const opp = data.opportunity as Opportunity;
@@ -2181,6 +2183,7 @@ export const generateContentAssetFn = createServerFn({ method: "POST" })
         // the project's content language is only the fallback when the opportunity
         // carries none.
         const contentLang = opp.language || contentLanguageLabel(project);
+        target = contentRecoveryTarget({projectId:project.id,opportunityId:opp.id,title:opp.title,language:contentLang,assetType:data.kind === "landing" ? "landingPage" : "article"});
 
         const kindInstruction =
           data.kind === "landing"
@@ -2217,7 +2220,7 @@ ${sharedRules}`,
             8000,
           );
 
-          return normalizeContentAsset(payload, project, opp);
+          return {...normalizeContentAsset(payload, project, opp), generationReceiptId:receiptId,resultId:receiptId};
         } catch (e) {
           // P1-5: generation failures must be visible in server logs, not only
           // as a transient client toast.
@@ -2229,6 +2232,7 @@ ${sharedRules}`,
           throw mapGatewayError(e);
         }
       },
+      result => retainContentGeneration(context.userId as string,target,result),
     );
   });
 
@@ -2282,8 +2286,9 @@ export async function generateContentCore(
     assetType: (typeof CONTENT_ASSET_TYPES)[number];
     modelOverride?: string;
   },
-  metering: { enforceLimit?: boolean; attempt?: NativeExpenseContext["attempt"] } = {},
+  metering: { enforceLimit?: boolean; attempt?: NativeExpenseContext["attempt"]; assetId?: string } = {},
 ) {
+  let target: ReturnType<typeof contentRecoveryTarget>;
   return withGenerationUsage(
     {
       userId,
@@ -2292,7 +2297,7 @@ export async function generateContentCore(
       enforceLimit: metering.enforceLimit,
       attempt: metering.attempt,
     },
-    async (attempt) => {
+    async (attempt, receiptId) => {
       const project = data.project as Project;
       const services = data.services as ServiceItem[];
       const opp = data.opportunity as Opportunity;
@@ -2302,6 +2307,7 @@ export async function generateContentCore(
       // the project's content language is only the fallback when the opportunity
       // carries none.
       const contentLang = opp.language || contentLanguageLabel(project);
+      target = contentRecoveryTarget({projectId:project.id,opportunityId:opp.id,title:opp.title,language:contentLang,assetType:data.assetType});
       const instruction = ASSET_INSTRUCTIONS[data.assetType] ?? ASSET_INSTRUCTIONS.article;
       const sourceLine = opp.source
         ? `Source: this opportunity came from ${opp.source === "audit" ? "a Site Audit finding" : opp.source === "competitor" ? "a Competitor Gap" : opp.source === "authority" ? "an Authority-building action" : opp.source === "aiVisibility" ? "an AI Visibility gap" : "manual planning"} — keep that intent in mind.`
@@ -2334,7 +2340,7 @@ ${sharedRules}`,
           data.modelOverride,
         );
 
-        return normalizeContentAsset(payload, project, opp);
+        return {...normalizeContentAsset(payload, project, opp),generationReceiptId:receiptId,resultId:metering.assetId ?? receiptId};
       } catch (e) {
         // P1-5: generation failures must be visible in server logs, not only
         // as a transient client toast.
@@ -2346,6 +2352,7 @@ ${sharedRules}`,
         throw mapGatewayError(e);
       }
     },
+    result => retainContentGeneration(userId,target,result),
   );
 }
 
