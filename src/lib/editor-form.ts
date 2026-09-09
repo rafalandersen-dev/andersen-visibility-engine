@@ -15,9 +15,9 @@
 import type { ContentAsset } from "./types";
 
 /**
- * The asset fields the editor form owns. MUST stay in sync with
- * `mergeEditorEdits` in app.editor.tsx — anything the form can edit must be here
- * so the dirty check and the merge agree on what "an edit" is.
+ * The asset fields the editor form owns. Backs both `editorFormDirty` and
+ * `mergeEditorFormFields` below — anything the form can edit must be listed
+ * here so the dirty check and the merge always agree on what "an edit" is.
  */
 export const EDITOR_FORM_FIELDS = [
   "title",
@@ -42,6 +42,7 @@ export const EDITOR_FORM_FIELDS = [
   "visualState",
   "visualModelVersion",
   "sectionIndex",
+  "faq",
 ] as const;
 
 const norm = (v: unknown): string => JSON.stringify(v ?? null);
@@ -57,4 +58,19 @@ export function editorFormDirty(form: ContentAsset, stored: ContentAsset | undef
   const f = form as unknown as Record<string, unknown>;
   const s = stored as unknown as Record<string, unknown>;
   return EDITOR_FORM_FIELDS.some((k) => norm(f[k]) !== norm(s[k]));
+}
+
+/**
+ * Merge the form-owned fields (`EDITOR_FORM_FIELDS`) from `local` onto the
+ * CURRENT `stored` record, leaving every other field — publish/schedule
+ * metadata, quality score, connector ids, etc. — exactly as persisted. Single
+ * source of truth for "what the editor form owns", shared with
+ * `editorFormDirty` so the two can never drift (a field added to the form only
+ * needs to be added to `EDITOR_FORM_FIELDS` once).
+ */
+export function mergeEditorFormFields(local: ContentAsset, stored: ContentAsset): ContentAsset {
+  const merged = { ...stored } as unknown as Record<string, unknown>;
+  const l = local as unknown as Record<string, unknown>;
+  for (const k of EDITOR_FORM_FIELDS) merged[k] = l[k];
+  return merged as unknown as ContentAsset;
 }
