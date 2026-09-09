@@ -1,6 +1,6 @@
 # Historical snapshot — superseded by product/CURRENT_STATE.md
 
-Snapshot preserved 9 September 2026. Contains contradictory intermediate states; consult the current entry point before acting. Relative links below originally resolve from product/.
+Snapshot preserved 9 September 2026. Contains contradictory intermediate states; consult the current entry point before acting. Product-document links have been retargeted so the preserved snapshot remains navigable.
 
 # Milo Growth — Current State
 
@@ -14,7 +14,7 @@ Snapshot preserved 9 September 2026. Contains contradictory intermediate states;
 
 **Current phase:** Private beta; premium rebuild and launch foundations
 
-The owner explicitly requested and received an administrative email change to rafi@anderseninnovations.com on2026-09-07. The same Milo account,10 projects, owner role, entitlement and Google identity were preserved. This supersedes older missing-company-account observations. The approved owner test now has provider-reported delivery, with a separate earlier test discovered in the sender log. The current email identity was administratively confirmed after mailbox/access evidence at22:04:49UTC; fresh login remains untested; see [account ownership](./ACCOUNT_OWNERSHIP.md).
+The owner explicitly requested and received an administrative email change to rafi@anderseninnovations.com on2026-09-07. The same Milo account,10 projects, owner role, entitlement and Google identity were preserved. This supersedes older missing-company-account observations. The approved owner test now has provider-reported delivery, with a separate earlier test discovered in the sender log. The current email identity was administratively confirmed after mailbox/access evidence at22:04:49UTC; fresh login remains untested; see [account ownership](../product/ACCOUNT_OWNERSHIP.md).
 
 ## Recovery brief
 
@@ -42,11 +42,11 @@ The USD5 benchmark is approved and unused. The proposed two-credit limit across 
 
 The current publication-inspection packet adds a scoped read-only explanation of historical queue failures, distinguishes content checks/configuration/destination/unknown reasons, and warns when the draft changed after the saved record. It does not retry, publish or approve. 35 new cases, full1771 tests/130 files, TypeScript/build/focused lint pass; merge/release and live UI acceptance remain pending at this documentation revision.
 
-Read [ROADMAP.md](./ROADMAP.md) for execution order and [PLAN_REVIEW_2026_09_07.md](./PLAN_REVIEW_2026_09_07.md) for all scope/decision gaps. This update corrects the July 28 state file against current source and GitHub evidence. It does not convert a source review into an independent security audit or prove production configuration.
+Read [ROADMAP.md](../product/ROADMAP.md) for execution order and [PLAN_REVIEW_2026_09_07.md](../product/PLAN_REVIEW_2026_09_07.md) for all scope/decision gaps. This update corrects the July 28 state file against current source and GitHub evidence. It does not convert a source review into an independent security audit or prove production configuration.
 
 PRs #63–#90 are merged, including the inactive monetary foundation #67. Selected premium Today/list+inspector/calendar work, reconciled plans, fail-closed metering and bounded onboarding extraction are implemented. The whole product redesign, real observed AI tracking, production backlinks supplier, Stripe and all EU languages are not complete. The owner's Claude and ChatGPT MCP connections are existing capabilities; further client coverage and authoring work remain.
 
-Unattended paid public launch remains **not verified / NO-GO** pending [launch gates](./LAUNCH_READINESS.md). The historical ~70% assisted/~40% public estimates are retired as current indicators: they predate substantial work and have no fresh denominator.
+Unattended paid public launch remains **not verified / NO-GO** pending [launch gates](../product/LAUNCH_READINESS.md). The historical ~70% assisted/~40% public estimates are retired as current indicators: they predate substantial work and have no fresh denominator.
 
 ## Evidence levels
 
@@ -95,7 +95,7 @@ The detailed [route/capability map](../docs/premium-redesign/FEATURE_INVENTORY.m
 - `AI_METERING_ENFORCED` determines cap enforcement; production value was not inspected. Do not assert that it is currently on or off.
 - Server entitlements already exist; the July claim that the product still trusts the client blob as paid authority is obsolete. Verify deployment/RLS/lifecycle rather than reimplementing from that stale claim.
 - Stripe is the required billing direction after Paddle rejection. Paddle-specific code and terms/refunds remain; no Stripe lifecycle acceptance or new pricing is claimed.
-- Article/image/monitoring/agent unit costs and package counts/prices require measurement. See [NOTIFICATIONS_AND_PACKAGING.md](./NOTIFICATIONS_AND_PACKAGING.md).
+- Article/image/monitoring/agent unit costs and package counts/prices require measurement. See [NOTIFICATIONS_AND_PACKAGING.md](../product/NOTIFICATIONS_AND_PACKAGING.md).
 
 ### Product completeness
 
@@ -136,8 +136,8 @@ The approved custom-address owner email test was clicked ONCE around21:50UTC. Lo
 
 ## References and historical evidence
 
-- [PR #63](https://github.com/rafalandersen-dev/andersen-visibility-engine/pull/63), [design-qa.md](../design-qa.md), [September review](./PLAN_REVIEW_2026_09_07.md).
-- [August strategy](./STRATEGY_2026_2027.md), [decisions](./DECISIONS.md), [operations](./OPERATIONS.md).
+- [PR #63](https://github.com/rafalandersen-dev/andersen-visibility-engine/pull/63), [design-qa.md](../design-qa.md), [September review](../product/PLAN_REVIEW_2026_09_07.md).
+- [August strategy](../product/STRATEGY_2026_2027.md), [decisions](../product/DECISIONS.md), [operations](../product/OPERATIONS.md).
 - [ADR-0001](../docs/adr/ADR-0001-public-audit-boundary.md), [#43](https://github.com/rafalandersen-dev/andersen-visibility-engine/issues/43).
 - [Public audit safety evidence](../evidence/public-audit-safety-2026-07-27.md), [Worker evidence](../evidence/public-audit-worker-2026-07-28.md), [staging harness evidence](../evidence/public-audit-staging-harness-2026-07-28.md).
 - [Historical July state as preserved in git](https://github.com/rafalandersen-dev/andersen-visibility-engine/blob/19151c4/product/CURRENT_STATE.md). Historical evidence is retained, not overwritten as a new release assertion.
