@@ -18,7 +18,7 @@ import { z } from "zod";
 import type { Project } from "./types";
 import { assertImageGenerationAllowed, claimAiUsage } from "./ai-usage.server";
 import { ImageGenError } from "./image-gen.server";
-import { generateBudgetedImage } from "./ai-provider-expense.server";
+import { generateBudgetedImage, type NativeExpenseContext } from "./ai-provider-expense.server";
 import { AiExpenseUnavailableError } from "./ai-expense.server";
 import { AiProviderConfigurationError } from "./ai-provider.server";
 import { buildImagePrompt, draftAltText } from "./image-gen";
@@ -43,6 +43,7 @@ export async function generateArticleImageCore(
     articleTitle?: string;
     project: Pick<Project, "businessName" | "businessType" | "toneOfVoice">;
   },
+  execution: { attempt?: NativeExpenseContext["attempt"] } = {},
 ): Promise<GeneratedArticleImage> {
   // Pro/Agency plan gate first (active even while metering enforcement is off),
   // then the metered claim — both before the model call so a refusal costs nothing.
@@ -55,7 +56,10 @@ export async function generateArticleImageCore(
   });
   let bytes: Uint8Array;
   try {
-    bytes = await generateBudgetedImage({ userId, operation: "generateArticleImageCore" }, prompt);
+    bytes = await generateBudgetedImage(
+      { userId, operation: "generateArticleImageCore", attempt: execution.attempt },
+      prompt,
+    );
   } catch (e) {
     if (
       e instanceof ImageGenError ||

@@ -1168,25 +1168,9 @@ function stripTags(html: string): string {
 }
 
 /** Fetch a single URL as text with a hard timeout. Returns "" on any failure. */
-async function fetchHtml(url: string, timeoutMs: number): Promise<string> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, {
-      signal: controller.signal,
-      redirect: "follow",
-      headers: { "User-Agent": "MiloGrowthAuditBot/1.0 (+https://milogrowth.com)" },
-    });
-    if (!res.ok) return "";
-    const ct = res.headers.get("content-type") ?? "";
-    if (ct && !/text\/html|application\/xhtml|text\/plain/i.test(ct)) return "";
-    const body = await res.text();
-    return body.slice(0, 300_000);
-  } catch {
-    return "";
-  } finally {
-    clearTimeout(timer);
-  }
+async function fetchHtml(url: string): Promise<string> {
+  const { fetchHomepageHtml } = await import("./homepage-fetch.server");
+  return fetchHomepageHtml(url);
 }
 
 interface SiteContext {
@@ -1215,7 +1199,7 @@ async function fetchSiteContext(rawUrl: string): Promise<SiteContext> {
   }
   if (base.protocol !== "http:" && base.protocol !== "https:") return empty;
 
-  const html = await fetchHtml(base.toString(), 8000);
+  const html = await fetchHtml(base.toString());
   if (!html) return empty;
 
   const title = stripTags(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "").slice(0, 200);
@@ -1897,11 +1881,17 @@ ${auditBlock}${competitorBlock}${authorityBlock}${oppBlock}${sharedRules}`,
 // Onboarding — safe homepage scan + light AI extraction
 // ============================================================
 
-export async function scanWebsiteCore(userId: string, url: string) {
+export async function scanWebsiteCore(
+  userId: string,
+  url: string,
+  execution: { attempt?: NativeExpenseContext["attempt"]; requireAi?: boolean } = {},
+) {
   const site = await fetchSiteContext(url);
   if (!site.ok) {
+    if (execution.requireAi) throw new Error("The homepage could not be read. The test stopped.");
     return {
       ok: false as const,
+      aiGenerated: false,
       title: "",
       metaDescription: "",
       businessName: "",
@@ -1919,7 +1909,7 @@ export async function scanWebsiteCore(userId: string, url: string) {
     // when the meter is unavailable or that finite allowance is exhausted.
     await claimAiUsage({ userId, bucket: "aiCredits", enforceLimit: true });
     const payload = await generateJsonText(
-      { userId: userId, operation: "scanWebsiteCore" },
+      { userId, operation: "scanWebsiteCore", attempt: execution.attempt },
       `You are extracting a concise business profile from a website homepage for an onboarding form.
 
 Return exactly this JSON shape:
@@ -1951,11 +1941,16 @@ ${sharedRules}`,
       })
       .filter((s) => s.name);
 
+    const businessName = pickString(root, ["businessName", "business_name", "name"], "");
+    if (execution.requireAi && !businessName.trim()) {
+      throw new Error("The AI scan returned an incomplete business profile. The test stopped.");
+    }
     return {
       ok: true as const,
+      aiGenerated: true,
       title: site.title,
       metaDescription: site.metaDescription,
-      businessName: pickString(root, ["businessName", "business_name", "name"], ""),
+      businessName,
       businessType: pickString(root, ["businessType", "business_type", "type", "category"], ""),
       description: pickString(
         root,
@@ -1965,9 +1960,11 @@ ${sharedRules}`,
       primaryLanguage: normalizeLanguage(root.primaryLanguage ?? root.language),
       services,
     };
-  } catch {
+  } catch (error) {
+    if (execution.requireAi) throw mapGatewayError(error);
     return {
       ok: true as const,
+      aiGenerated: false,
       title: site.title,
       metaDescription: site.metaDescription,
       businessName: "",
@@ -2276,7 +2273,7 @@ export async function generateContentCore(
     assetType: (typeof CONTENT_ASSET_TYPES)[number];
     modelOverride?: string;
   },
-  metering: { enforceLimit?: boolean } = {},
+  metering: { enforceLimit?: boolean; attempt?: NativeExpenseContext["attempt"] } = {},
 ) {
   {
     // Spend limit, claimed before any model call so a refusal costs nothing.
@@ -2301,7 +2298,7 @@ export async function generateContentCore(
 
     try {
       const payload = await generateJsonText(
-        { userId: userId, operation: "generateContentCore" },
+        { userId, operation: "generateContentCore", attempt: metering.attempt },
         `${instruction}
 
 Return exactly this JSON shape. "markdown" is REQUIRED and must contain the full, formatted content for this asset type; fill the other fields that are relevant.
