@@ -6,7 +6,7 @@ This is the current operational entry point. Read [progress review](PROGRESS_REV
 
 ## Verified baseline
 
-- Remote main checked 9 September: `c99a398177b55828e2e8e642a59304fd85421859`, merge of PR #98. PR #98 is MERGED. PRs #2, #58 and #62 remain open documentation/design proposals.
+- Remote main checked 9 September: `743ce55ef00864a5d6e24d2113f7598249ee4136`, merge of documentation PR #99. Runtime baseline remains PR #98; documentation changes do not alter its fingerprint. PRs #98 and #99 are MERGED. PRs #2, #58 and #62 remain open documentation/design proposals.
 - Live version endpoint rechecked 9 September: build `1788901947226`; full fingerprint `1045bfb5005a289e1806ea134f76ec45025a1a9bd5a9ba25749b0da18a4bc0ae`, matching the prior release evidence. Runtime revision/modified are null, so the host does not supply a Git revision.
 - Recorded deployment: `6836d9f2-38c3-44eb-8163-d6990fe1b3bd`. Source/component equivalence and home/MCP smoke were verified in the 8 September release. Today's check confirms the same build/fingerprint; it is not a fresh authenticated workflow test.
 - Recorded validation for #98: 1,982 tests / 139 files, TypeScript, production build and lint of changed sources passed. Tests use synthetic suppliers; no paid AI benchmark is implied. No code tests rerun for this documentation review.
@@ -28,9 +28,9 @@ This is the current operational entry point. Read [progress review](PROGRESS_REV
 
 ## Current work and blockers
 
-The implementation task **Kontynuuj plan Milo Growth** (`01a07ba1-c8b6-7582-9ff0-275d64224671`) is idle at this review, not executing in the background. Its next outcome is the controlled one-scan, one-article, one-image benchmark. The review task **Review project progress** consolidates records and archives duplicate status tasks; it does not start a second implementation stream.
+The implementation task **Kontynuuj plan Milo Growth** (`01a07ba1-c8b6-7582-9ff0-275d64224671`) resumed on 9 September. It is preparing the controlled one-scan, one-article, one-image benchmark. A prerequisite now under review replaces unbounded homepage reads with pinned public-address transport, including Bun 1.3.3 compatibility, and adds trusted attempt inputs to the three existing cores. See [homepage/benchmark prerequisite evidence](../evidence/homepage-benchmark-prerequisites-2026-09-09.md). The durable runner is still unfinished. The separate progress review is complete; no duplicate implementation stream is active.
 
-1. Resolve the recorded OpenAI Platform reauthentication problem and finish secure key selection/save/configuration. Latest check on 8 September still returned UNAUTHORIZED after a previously successful reconnect. No key creation or installation is confirmed. Do not infer today's connection state without a fresh diagnostic when implementation resumes.
+1. Resolve the recorded OpenAI Platform reauthentication problem and finish secure key selection/save/configuration. A fresh check on 9 September returned UNAUTHORIZED / openai_platform_authentication_failed. The owner clarified that no reconnection or key creation had been performed; do not treat the earlier “done” as setup confirmation. No key creation or installation is confirmed. Continue independent implementation without repeatedly retrying unchanged authentication.
 2. Finish the server-only benchmark runner. It must use the same core functions and preallocated permit identities; normal browser/MCP/scheduler input must not accept them. Distinguish scan metadata fallback from an actual AI result.
 3. Recheck current budget state and model/rate contract, provision restricted global/account budgets plus exactly three permits within the already authorized USD5 total, run once, and reconcile actual usage. Errors/uncertain results retain reservations and do not authorize another attempt. Do not fund an ordinary owner budget that background jobs could spend.
 4. Continue delivered-result allowances, team notifications/recovery, Stripe sandbox lifecycle, real AI observations/proof loop, remaining product/integration/localization work and beta/demo evidence in roadmap order.
@@ -47,6 +47,6 @@ Open decisions D01–D08 remain tracked. A changed email, a language dropdown or
 
 - Product repo: `rafalandersen-dev/andersen-visibility-engine`.
 - Lovable project: `06b696f6-c02b-468f-b0a0-7ab8af92d6a0`; workspace `oC4kAHCUIYuuomG2Hwnl`; database `fguokeheqoqunadhdbsz`.
-- Latest implementation worktree: `/Users/rafi/Projects/milo-growth-restricted-expense-20260908`, branch `codex/milo-restricted-expense-20260908`, clean at #98 when inspected. Documentation work uses a separate review worktree.
+- Current implementation worktree: `/Users/rafi/Projects/milo-growth-owner-benchmark-20260909`, branch `codex/milo-owner-benchmark-20260909`, based on #99. Previous #98 and #99 worktrees are preserved.
 - [PR #98 final evidence](https://github.com/rafalandersen-dev/andersen-visibility-engine/pull/98), [permit evidence](../evidence/restricted-ai-expense-permits-2026-09-08.md), [benchmark preflight](../evidence/owner-ai-benchmark-2026-09-08.md), [account inventory](ACCOUNT_OWNERSHIP.md).
 - Previous cumulative current-state text is retained at [historical snapshot](../evidence/current-state-history-through-2026-09-08.md). Its pre-release pending states are superseded here.

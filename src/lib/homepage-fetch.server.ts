@@ -1,0 +1,303 @@
+/** Server-only public-page reader. Resolve once and pin the socket to that
+ * address while preserving HTTP Host and TLS certificate/SNI verification.
+ * No runtime declaration or global fetch proxy can bypass this boundary.
+ */
+import { lookup } from "node:dns/promises";
+import { request as httpRequest, type IncomingMessage } from "node:http";
+import { request as httpsRequest, type RequestOptions } from "node:https";
+import { BlockList, isIP } from "node:net";
+import { checkServerIdentity, type PeerCertificate } from "node:tls";
+import { isSafePublicUrl } from "./safe-fetch";
+
+export const HOMEPAGE_MAX_BYTES = 300_000;
+export const HOMEPAGE_MAX_CHUNKS = 4096;
+export const HOMEPAGE_TIMEOUT_MS = 8000;
+const forbidden4 = new BlockList();
+const proxyVariables = [
+  "HTTP_PROXY",
+  "HTTPS_PROXY",
+  "ALL_PROXY",
+  "http_proxy",
+  "https_proxy",
+  "all_proxy",
+];
+for (const [address, prefix] of [
+  ["0.0.0.0", 8],
+  ["10.0.0.0", 8],
+  ["100.64.0.0", 10],
+  ["127.0.0.0", 8],
+  ["169.254.0.0", 16],
+  ["172.16.0.0", 12],
+  ["192.0.0.0", 24],
+  ["192.0.2.0", 24],
+  ["192.88.99.0", 24],
+  ["192.168.0.0", 16],
+  ["198.18.0.0", 15],
+  ["198.51.100.0", 24],
+  ["203.0.113.0", 24],
+  ["224.0.0.0", 4],
+  ["240.0.0.0", 4],
+] as const)
+  forbidden4.addSubnet(address, prefix, "ipv4");
+const public6 = new BlockList();
+public6.addSubnet("2000::", 3, "ipv6");
+const forbidden6 = new BlockList();
+// Conservative exclusion of special protocol ranges (including transition
+// mechanisms), documentation and benchmarking. IANA registries, 2026-09-09.
+for (const [address, prefix] of [
+  ["2001::", 23],
+  ["2001:db8::", 32],
+  ["2002::", 16],
+  ["3fff::", 20],
+] as const)
+  forbidden6.addSubnet(address, prefix, "ipv6");
+
+export function isPublicHomepageAddress(address: string): boolean {
+  const family = isIP(address);
+  if (family === 4) return !forbidden4.check(address, "ipv4");
+  if (family === 6) return public6.check(address, "ipv6") && !forbidden6.check(address, "ipv6");
+  return false;
+}
+
+function pageUrl(raw: string): URL {
+  if (raw.length > 4096 || !isSafePublicUrl(raw)) throw new Error("blocked_url");
+  const url = new URL(raw);
+  const hostname = url.hostname.replace(/^\[|\]$/g, "");
+  if (
+    !isIP(hostname) &&
+    (!hostname.includes(".") || /\.(local|internal|localhost)\.?$/i.test(hostname))
+  )
+    throw new Error("blocked_host");
+  url.hash = "";
+  return url;
+}
+
+async function addressFor(url: URL, signal: AbortSignal) {
+  const hostname = url.hostname.replace(/^\[|\]$/g, "");
+  const family = isIP(hostname);
+  const addresses = family
+    ? [{ address: hostname, family }]
+    : await lookup(hostname, { all: true, verbatim: true });
+  signal.throwIfAborted();
+  if (
+    !addresses.length ||
+    addresses.length > 64 ||
+    addresses.some((r) => !isPublicHomepageAddress(r.address))
+  )
+    throw new Error("blocked_address");
+  // One connection attempt. No DNS re-resolution or fallback to unvetted IPs.
+  return addresses.find((r) => r.family === 4) ?? addresses[0];
+}
+
+type PageResponse = AsyncIterable<Uint8Array> & {
+  statusCode?: number;
+  headers: Record<string, string | string[] | undefined>;
+  readonly complete: boolean;
+  destroy(): unknown;
+};
+
+async function openBunPage(
+  url: URL,
+  address: { address: string; family: number },
+  signal: AbortSignal,
+): Promise<PageResponse> {
+  const destination = new URL(url);
+  destination.hostname = address.family === 6 ? `[${address.address}]` : address.address;
+  const hostname = url.hostname.replace(/^\[|\]$/g, "");
+  let identityVerified = url.protocol === "http:";
+  // Bun 1.3.3 node:https does not forward checkServerIdentity. Use its native
+  // transport with a literal vetted IP and explicitly verify the original
+  // hostname. Refuse a runtime that does not execute this certificate check.
+  const options: RequestInit & {
+    proxy: string;
+    decompress: boolean;
+    tls: {
+      servername?: string;
+      rejectUnauthorized: boolean;
+      checkServerIdentity: (name: string, certificate: PeerCertificate) => Error | undefined;
+    };
+  } = {
+    method: "GET",
+    redirect: "manual",
+    signal,
+    keepalive: false,
+    proxy: "",
+    decompress: false,
+    headers: {
+      Host: url.host,
+      "User-Agent": "MiloGrowthAuditBot/1.0 (+https://milogrowth.com)",
+      Accept: "text/html,application/xhtml+xml,text/plain",
+      "Accept-Encoding": "identity",
+    },
+    tls: {
+      servername: isIP(hostname) ? undefined : hostname,
+      rejectUnauthorized: true,
+      checkServerIdentity: (_name, certificate) => {
+        const error = checkServerIdentity(hostname, certificate);
+        identityVerified = !error;
+        return error;
+      },
+    },
+  };
+  const result = await fetch(destination, options);
+  const reader = result.body?.getReader();
+  const cancel = () => {
+    void reader?.cancel().catch(() => {});
+  };
+  if (signal.aborted || !identityVerified) {
+    cancel();
+    throw new Error("unverified_connection");
+  }
+  let complete = false;
+  return {
+    statusCode: result.status,
+    headers: Object.fromEntries(result.headers),
+    get complete() {
+      return complete;
+    },
+    destroy: cancel,
+    async *[Symbol.asyncIterator]() {
+      if (!reader) {
+        complete = true;
+        return;
+      }
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) {
+            complete = true;
+            return;
+          }
+          yield value;
+        }
+      } finally {
+        cancel();
+      }
+    },
+  };
+}
+
+function openPage(
+  url: URL,
+  address: { address: string; family: number },
+  signal: AbortSignal,
+): Promise<PageResponse> {
+  if ((globalThis as { Bun?: unknown }).Bun) return openBunPage(url, address, signal);
+  return new Promise<IncomingMessage>((resolve, reject) => {
+    signal.throwIfAborted();
+    const options: RequestOptions & { autoSelectFamily: boolean } = {
+      method: "GET",
+      agent: false,
+      family: address.family,
+      autoSelectFamily: false,
+      // Explicit original Host and TLS identity; the connection still uses
+      // only the vetted address returned by the custom lookup below.
+      servername: isIP(url.hostname.replace(/^\[|\]$/g, "")) ? undefined : url.hostname,
+      rejectUnauthorized: true,
+      signal,
+      maxHeaderSize: 16_384,
+      headers: {
+        Host: url.host,
+        "User-Agent": "MiloGrowthAuditBot/1.0 (+https://milogrowth.com)",
+        Accept: "text/html,application/xhtml+xml,text/plain",
+        "Accept-Encoding": "identity",
+      },
+      lookup: (_hostname, options, callback) => {
+        if (options.all) callback(null, [address]);
+        else callback(null, address.address, address.family);
+      },
+    };
+    const request = (url.protocol === "https:" ? httpsRequest : httpRequest)(
+      url,
+      options,
+      (response) => {
+        // Attach before a redirect or a rejected response is destroyed.
+        response.on("error", () => {});
+        if (signal.aborted) {
+          response.destroy();
+          reject(new Error("timeout"));
+        } else resolve(response);
+      },
+    );
+    request.on("error", reject);
+    request.on("upgrade", (_response, socket) => {
+      socket.destroy();
+      reject(new Error("upgrade_refused"));
+    });
+    request.end();
+  });
+}
+
+export async function fetchHomepageHtml(raw: string): Promise<string> {
+  const controller = new AbortController();
+  let response: PageResponse | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error("homepage_timeout"));
+      controller.abort();
+      response?.destroy();
+    }, HOMEPAGE_TIMEOUT_MS);
+  });
+  const read = async () => {
+    // Older Bun versions can inherit proxy settings inside node:http. Refuse
+    // that environment rather than handing a proxy control of DNS/routing.
+    if (proxyVariables.some((key) => process.env[key]?.trim())) throw new Error("proxy_refused");
+    let url = pageUrl(raw);
+    for (let hop = 0; hop <= 3; hop++) {
+      const address = await addressFor(url, controller.signal);
+      controller.signal.throwIfAborted();
+      response = await openPage(url, address, controller.signal);
+      const status = response.statusCode ?? 0;
+      if ([301, 302, 303, 307, 308].includes(status)) {
+        const location = response.headers.location;
+        response.destroy();
+        if (typeof location !== "string" || !location || hop === 3)
+          throw new Error("redirect_refused");
+        const next = pageUrl(new URL(location, url).toString());
+        if (url.protocol === "https:" && next.protocol !== "https:")
+          throw new Error("downgrade_refused");
+        url = next;
+        continue;
+      }
+      if (status < 200 || status >= 300) throw new Error("http_error");
+      const type = response.headers["content-type"] ?? "";
+      if (
+        typeof type !== "string" ||
+        !/^(text\/(html|plain)|application\/xhtml\+xml)(?:\s*;|$)/i.test(type)
+      )
+        throw new Error("unsupported_content");
+      const encoding = response.headers["content-encoding"];
+      if (encoding && encoding !== "identity") throw new Error("unsupported_encoding");
+      const chunks: Buffer[] = [];
+      let bytes = 0;
+      let count = 0;
+      let truncated = false;
+      for await (const rawChunk of response) {
+        controller.signal.throwIfAborted();
+        const chunk = Buffer.isBuffer(rawChunk) ? rawChunk : Buffer.from(rawChunk);
+        if (++count > HOMEPAGE_MAX_CHUNKS) throw new Error("too_many_chunks");
+        const take = Math.min(chunk.length, HOMEPAGE_MAX_BYTES - bytes);
+        chunks.push(Buffer.from(chunk.subarray(0, take)));
+        bytes += take;
+        if (bytes === HOMEPAGE_MAX_BYTES) {
+          truncated = true;
+          break;
+        }
+      }
+      if (!truncated && !response.complete) throw new Error("incomplete_page");
+      return Buffer.concat(chunks, bytes).toString("utf8");
+    }
+    throw new Error("redirect_refused");
+  };
+  try {
+    return await Promise.race([read(), deadline]);
+  } catch {
+    // No bodies, URLs, DNS answers or transport errors enter logs.
+    return "";
+  } finally {
+    clearTimeout(timer);
+    controller.abort();
+    response?.destroy();
+  }
+}
