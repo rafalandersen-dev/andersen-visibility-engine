@@ -1,6 +1,6 @@
 # Generated-result recovery — P0 validation and release packet
 
-Updated 9 September 2026. Executor/verifier: current Codex implementation task. Status: implemented and locally validated; review, migration and runtime verification pending. Authenticated browser acceptance remains blocked by the recorded administrator-policy verification denial. Do not retry that unchanged access path or claim visual acceptance.
+Updated 9 September 2026. Executor/verifier: current Codex implementation task. Status: merged, migration applied once, deployed and runtime-verified; authenticated browser acceptance remains open. Authenticated browser acceptance remains blocked by the recorded administrator-policy verification denial. Do not retry that unchanged access path or claim visual acceptance.
 
 ## Preserved baseline
 
@@ -46,3 +46,14 @@ Rollback application code to the prior verified release while retaining archive/
 Live lost-response/recovery/download and responsive signed-in browser journeys remain unverified under the recorded access restriction. Project-deletion retention policy, broader privacy/export acceptance and complete delivered-result packaging remain explicit work; discard removes only the archived payload, not attached copies or storage assets. No automatic retention purge is selected.
 
 After P0 review/release, follow [P1–P5](../product/AGENT_WEEKLY_PLAN_2026_09_09.md), preserving R00–R24/D01–D08. Provider setup and owner-deferred Stripe work do not justify retries or new spending. Public paid launch remains NO-GO.
+
+
+## Release verified — 9 September 2026, 19:26 UTC
+
+PR #107 merged normally at `17372b78d65ada90a418a336f4473bc125626b41`, including reviewed head `36267b983b153828492398f7ac22f561c8609ed2`. Exact-head review 34393404657 succeeded (`is_error: false`); seven permission denials limit automated review coverage. Earlier code/security review completed on `cada743`; its three findings were addressed and resolved with focused regression tests. Two superseded workflow runs were cancelled after their heads were replaced. Final full suite: 2,321 tests / 158 files, types/build/focused lint/diff checks passed.
+
+Migration `20260909160000_generation_result_recovery.sql` was applied **once**, transactionally, after an absence check and advisory lock. Its stored SQL SHA-256 is `5befeab7b70fc46c3b4a87e3b564c85eab5f927a346ec138a40e3096e31b6ed7`, identical to reviewed source. Verified RLS, denied anon/browser archive access, service-only RPCs/read, denied service direct writes, and the installed content baseline guard. New archive/receipt rows, budgets, permits and expense requests all remain zero; existing usage stays 10 rows / 226 units. Do not reapply this or earlier migrations.
+
+Lovable deployment `f9fbd9dc-f391-4494-a5f8-b00b359e65f8`; public build `1788981897171`; full fingerprint `abb0ea3a5308a3817e36a522c185d790e8440ff4c3e3871d808e7ecafe33161c`. The custom domain reports exact merge `17372b78d65ada90a418a336f4473bc125626b41`, `modified: false`, matching algorithm/full/every component fingerprint. Home/MCP GET 200, MCP OPTIONS 204, anonymous MCP POST 401. Machine-readable local evidence: `/tmp/milo-recovery-runtime-verification.json`.
+
+These checks establish code/database/runtime release, not a completed real signed-in recovery/download, paid-provider benchmark or visual journey. The existing browser-policy limitation and zero-spend boundary persist. P1 implementation continues separately in `/Users/rafi/Projects/milo-growth-project-knowledge-20260909`, branch `codex/milo-project-knowledge-20260909`; its source/record groundwork and proposed migration are not released.
