@@ -247,9 +247,19 @@ describe("confirmed usage before paid work", () => {
 
   it("passes background enforcement to the real content/discovery cores in beta", async () => {
     vi.stubEnv("AI_METERING_ENFORCED", "false");
-    mocks.rpc.mockImplementation(async (_fn, params) =>
-      confirmation(params.p_cap, false, params.p_cap),
-    );
+    mocks.rpc.mockImplementation(async (fn, params) => ({
+      error: null,
+      data: [
+        {
+          used: params.p_cap,
+          allowed: false,
+          cap: params.p_cap,
+          ...(fn === "claim_generation_usage"
+            ? { receipt_id: params.p_id, claim_status: "denied" }
+            : {}),
+        },
+      ],
+    }));
     await expect(
       generateContentCore("user", {} as never, { enforceLimit: true }),
     ).rejects.toBeInstanceOf(UsageLimitError);

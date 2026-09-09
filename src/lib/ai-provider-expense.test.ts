@@ -2,9 +2,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { generateBudgetedImage, generateBudgetedText } from "./ai-provider-expense.server";
 import { DEFAULT_MODEL_ID } from "./ai-router";
 import { AI_TEXT_TIMEOUT_MS } from "./ai-text-bounds.server";
+import { withGenerationUsage } from "./generation-usage.server";
 
 const mocks = vi.hoisted(() => ({ rpc: vi.fn(), fetch: vi.fn() }));
-vi.mock("@/integrations/supabase/client.server", () => ({ supabaseAdmin: { rpc: mocks.rpc } }));
+vi.mock("./entitlements.server", () => ({ resolveEntitledPlan: async () => "pro" }));
+vi.mock("@/integrations/supabase/client.server", () => ({
+  supabaseAdmin: {
+    rpc: mocks.rpc,
+    from: () => {
+      const q = {
+        select: () => q,
+        eq: () => q,
+        maybeSingle: async () => ({ data: null, error: null }),
+      };
+      return q;
+    },
+  },
+}));
 const context = { userId: "00000000-0000-4000-8000-000000000011", operation: "owner_benchmark" };
 const reserved = { data: [{ allowed: true, reason: "reserved", period: "2026-09" }], error: null };
 const unknown = { data: [{ state: "unknown", overrun: false }], error: null };
@@ -44,6 +58,59 @@ afterEach(() => {
 });
 
 describe("native provider money admission", () => {
+  it.each(["provider_failure", "invalid_result"])(
+    "returning quota after %s retains the provider's unknown expense",
+    async (kind) => {
+      const rpc = mocks.rpc.getMockImplementation()!;
+      mocks.rpc.mockImplementation(async (name, p) => {
+        if (name === "claim_generation_usage")
+          return {
+            data: [
+              {
+                used: 1,
+                cap: p.p_cap,
+                allowed: true,
+                receipt_id: p.p_id,
+                claim_status: "reserved",
+              },
+            ],
+            error: null,
+          };
+        if (name === "settle_generation_usage")
+          return { data: [{ receipt_id: p.p_id, state: p.p_outcome }], error: null };
+        return rpc(name, p);
+      });
+      if (kind === "provider_failure")
+        mocks.fetch.mockResolvedValue(new Response("{}", { status: 500 }));
+      await expect(
+        withGenerationUsage(
+          { ...context, bucket: "contentGeneration", operation: "generateContentCore" },
+          async (attempt) => {
+            await generateBudgetedText(
+              { ...context, operation: "generateContentCore", attempt },
+              "private source",
+              3000,
+            );
+            throw new Error("invalid result");
+          },
+        ),
+      ).rejects.toThrow();
+      const calls = mocks.rpc.mock.calls;
+      expect(calls.map((c) => c[0])).toEqual([
+        "claim_generation_usage",
+        "reserve_ai_expense",
+        "reconcile_ai_expense",
+        "settle_generation_usage",
+      ]);
+      expect(calls[1][1].p_request).toBe(calls[0][1].p_native_attempt);
+      expect(calls[2][1]).toMatchObject({
+        p_actual: null,
+        p_outcome: kind === "provider_failure" ? "uncertain" : "succeeded",
+      });
+      expect(calls[3][1].p_outcome).toBe("released");
+      expect(mocks.fetch).toHaveBeenCalledOnce();
+    },
+  );
   for (const kind of ["text", "image"] as const) {
     const run = () =>
       kind === "text"

@@ -33,6 +33,7 @@ import {
 import type { Project, ServiceItem, Opportunity } from "./types";
 
 import { claimAiUsage, type UsageBucket } from "./ai-usage.server";
+import { withGenerationUsage } from "./generation-usage.server";
 
 const MODEL = DEFAULT_MODEL_ID;
 
@@ -553,8 +554,9 @@ function normalizeContentAsset(payload: unknown, project: Project, opp: Opportun
       "pageDraft",
       "page_draft",
     ],
-    `## ${opp.title}\n\nCreate a focused page for ${project.businessName || project.name} that answers the search intent clearly and guides readers toward ${opp.recommendedCta}.`,
+    "",
   );
+  if (!markdown.trim()) throw new Error("AI returned no usable content. Please try again.");
   const parsed = ContentAssetSchema.parse({
     metaTitle: pickString(
       item,
@@ -2161,29 +2163,34 @@ export const generateContentAssetFn = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    // Spend limit, claimed before any model call so a refusal costs nothing.
-    await claimAiUsage({ userId: context.userId as string, bucket: "contentGeneration" });
-    const project = data.project as Project;
-    const services = data.services as ServiceItem[];
-    const opp = data.opportunity as Opportunity;
-    const brief = projectBrief(project, services);
-    // Generate in the project's primary content language (covers Danish too),
-    // falling back to the opportunity's language if none is set.
-    // P1-7 fix (2026-07-25): the OPPORTUNITY's language wins. A Polish-language
-    // opportunity on a Swedish-market project must generate a Polish article —
-    // the project's content language is only the fallback when the opportunity
-    // carries none.
-    const contentLang = opp.language || contentLanguageLabel(project);
+    return withGenerationUsage(
+      {
+        userId: context.userId as string,
+        bucket: "contentGeneration",
+        operation: "generateContentAssetFn",
+      },
+      async (attempt) => {
+        const project = data.project as Project;
+        const services = data.services as ServiceItem[];
+        const opp = data.opportunity as Opportunity;
+        const brief = projectBrief(project, services);
+        // Generate in the project's primary content language (covers Danish too),
+        // falling back to the opportunity's language if none is set.
+        // P1-7 fix (2026-07-25): the OPPORTUNITY's language wins. A Polish-language
+        // opportunity on a Swedish-market project must generate a Polish article —
+        // the project's content language is only the fallback when the opportunity
+        // carries none.
+        const contentLang = opp.language || contentLanguageLabel(project);
 
-    const kindInstruction =
-      data.kind === "landing"
-        ? `Generate a LANDING / SERVICE page brief. Outline should follow: problem → approach → what you get → proof → pricing/timing → FAQ → single CTA. Markdown should be a draft of the page in ${contentLang}.`
-        : `Generate a BLOG ARTICLE draft. Lead with a 2–3 sentence direct answer (AI-overview friendly), then context, key factors, what to do next, and FAQ. Markdown should be the article body in ${contentLang}.`;
+        const kindInstruction =
+          data.kind === "landing"
+            ? `Generate a LANDING / SERVICE page brief. Outline should follow: problem → approach → what you get → proof → pricing/timing → FAQ → single CTA. Markdown should be a draft of the page in ${contentLang}.`
+            : `Generate a BLOG ARTICLE draft. Lead with a 2–3 sentence direct answer (AI-overview friendly), then context, key factors, what to do next, and FAQ. Markdown should be the article body in ${contentLang}.`;
 
-    try {
-      const payload = await generateJsonText(
-        { userId: context.userId as string, operation: "generateContentAssetFn" },
-        `${kindInstruction}
+        try {
+          const payload = await generateJsonText(
+            { userId: context.userId as string, operation: "generateContentAssetFn", attempt },
+            `${kindInstruction}
 
 Return exactly this JSON shape:
 {"metaTitle":"","metaDescription":"","h1":"","outline":[""],"faq":[{"q":"","a":""}],"cta":"","markdown":"","internalLinks":[""],"schemaSuggestions":[""],"editorNotes":"","hookProposals":[{"text":"","type":"question","purpose":""}]}
@@ -2207,20 +2214,22 @@ ${internalLinkRule(project)}
 
 hookProposals: 2–3 alternative one-sentence opening hooks in ${contentLang}. Each has a "type" from: question, problem-to-solution, surprising-fact, contrarian, story, result, promise, and an optional short "purpose". Never invent statistics, testimonials, outcomes or guarantees in a hook.
 ${sharedRules}`,
-        8000,
-      );
+            8000,
+          );
 
-      return normalizeContentAsset(payload, project, opp);
-    } catch (e) {
-      // P1-5: generation failures must be visible in server logs, not only
-      // as a transient client toast.
-      console.error("[ai.functions] content generation failed", {
-        projectId: project.id,
-        opportunityId: opp.id,
-        failed: true,
-      });
-      throw mapGatewayError(e);
-    }
+          return normalizeContentAsset(payload, project, opp);
+        } catch (e) {
+          // P1-5: generation failures must be visible in server logs, not only
+          // as a transient client toast.
+          console.error("[ai.functions] content generation failed", {
+            projectId: project.id,
+            opportunityId: opp.id,
+            failed: true,
+          });
+          throw mapGatewayError(e);
+        }
+      },
+    );
   });
 
 // ============================================================
@@ -2275,31 +2284,33 @@ export async function generateContentCore(
   },
   metering: { enforceLimit?: boolean; attempt?: NativeExpenseContext["attempt"] } = {},
 ) {
-  {
-    // Spend limit, claimed before any model call so a refusal costs nothing.
-    await claimAiUsage({
+  return withGenerationUsage(
+    {
       userId,
       bucket: "contentGeneration",
+      operation: "generateContentCore",
       enforceLimit: metering.enforceLimit,
-    });
-    const project = data.project as Project;
-    const services = data.services as ServiceItem[];
-    const opp = data.opportunity as Opportunity;
-    const brief = projectBrief(project, services);
-    // P1-7 fix (2026-07-25): the OPPORTUNITY's language wins. A Polish-language
-    // opportunity on a Swedish-market project must generate a Polish article —
-    // the project's content language is only the fallback when the opportunity
-    // carries none.
-    const contentLang = opp.language || contentLanguageLabel(project);
-    const instruction = ASSET_INSTRUCTIONS[data.assetType] ?? ASSET_INSTRUCTIONS.article;
-    const sourceLine = opp.source
-      ? `Source: this opportunity came from ${opp.source === "audit" ? "a Site Audit finding" : opp.source === "competitor" ? "a Competitor Gap" : opp.source === "authority" ? "an Authority-building action" : opp.source === "aiVisibility" ? "an AI Visibility gap" : "manual planning"} — keep that intent in mind.`
-      : "";
+      attempt: metering.attempt,
+    },
+    async (attempt) => {
+      const project = data.project as Project;
+      const services = data.services as ServiceItem[];
+      const opp = data.opportunity as Opportunity;
+      const brief = projectBrief(project, services);
+      // P1-7 fix (2026-07-25): the OPPORTUNITY's language wins. A Polish-language
+      // opportunity on a Swedish-market project must generate a Polish article —
+      // the project's content language is only the fallback when the opportunity
+      // carries none.
+      const contentLang = opp.language || contentLanguageLabel(project);
+      const instruction = ASSET_INSTRUCTIONS[data.assetType] ?? ASSET_INSTRUCTIONS.article;
+      const sourceLine = opp.source
+        ? `Source: this opportunity came from ${opp.source === "audit" ? "a Site Audit finding" : opp.source === "competitor" ? "a Competitor Gap" : opp.source === "authority" ? "an Authority-building action" : opp.source === "aiVisibility" ? "an AI Visibility gap" : "manual planning"} — keep that intent in mind.`
+        : "";
 
-    try {
-      const payload = await generateJsonText(
-        { userId, operation: "generateContentCore", attempt: metering.attempt },
-        `${instruction}
+      try {
+        const payload = await generateJsonText(
+          { userId, operation: "generateContentCore", attempt },
+          `${instruction}
 
 Return exactly this JSON shape. "markdown" is REQUIRED and must contain the full, formatted content for this asset type; fill the other fields that are relevant.
 {"metaTitle":"","metaDescription":"","h1":"","outline":[""],"faq":[{"q":"","a":""}],"cta":"","markdown":"","internalLinks":[""],"schemaSuggestions":[""],"editorNotes":"","hookProposals":[{"text":"","type":"question","purpose":""}]}
@@ -2319,22 +2330,23 @@ Markdown rules:
 ${internalLinkRule(project)}
 - hookProposals: 2-3 alternative one-sentence opening hooks in ${contentLang} (types: question, problem-to-solution, surprising-fact, contrarian, story, result, promise). Never invent statistics, testimonials, outcomes or guarantees in a hook. Do NOT open the markdown body with the hook text.
 ${sharedRules}`,
-        8000,
-        data.modelOverride,
-      );
+          8000,
+          data.modelOverride,
+        );
 
-      return normalizeContentAsset(payload, project, opp);
-    } catch (e) {
-      // P1-5: generation failures must be visible in server logs, not only
-      // as a transient client toast.
-      console.error("[ai.functions] content generation failed", {
-        projectId: project.id,
-        opportunityId: opp.id,
-        failed: true,
-      });
-      throw mapGatewayError(e);
-    }
-  }
+        return normalizeContentAsset(payload, project, opp);
+      } catch (e) {
+        // P1-5: generation failures must be visible in server logs, not only
+        // as a transient client toast.
+        console.error("[ai.functions] content generation failed", {
+          projectId: project.id,
+          opportunityId: opp.id,
+          failed: true,
+        });
+        throw mapGatewayError(e);
+      }
+    },
+  );
 }
 
 export const generateContentFn = createServerFn({ method: "POST" })
