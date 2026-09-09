@@ -97,9 +97,10 @@ const NAV = [
     tKey: "shell.nav.content",
     to: "/app/editor",
     icon: FileText,
-    paths: ["/app/editor", "/app/ai-evaluation"],
+    paths: ["/app/editor", "/app/ai-evaluation", "/app/generations"],
     children: [
       { tKey: "shell.nav.contentLibrary", to: "/app/editor", icon: FileText },
+      { tKey: "generationResults.title", to: "/app/generations", icon: Tray },
       { tKey: "shell.nav.aiEvaluation", to: "/app/ai-evaluation", icon: Flask },
     ],
   },

@@ -18,6 +18,7 @@ import { z } from "zod";
 import type { Project } from "./types";
 import { assertImageGenerationAllowed } from "./ai-usage.server";
 import { withGenerationUsage } from "./generation-usage.server";
+import { imageRecoveryTarget, retainImageGeneration } from "./generation-result.server";
 import { ImageGenError } from "./image-gen.server";
 import { generateBudgetedImage, type NativeExpenseContext } from "./ai-provider-expense.server";
 import { AiExpenseUnavailableError } from "./ai-expense.server";
@@ -26,6 +27,8 @@ import { buildImagePrompt, draftAltText } from "./image-gen";
 import { stageValidatedImageBytes } from "./image-storage.functions";
 
 export interface GeneratedArticleImage {
+  generationReceiptId?: string;
+  resultId?: string;
   path: string;
   previewUrl: string;
   alt: string;
@@ -44,11 +47,12 @@ export async function generateArticleImageCore(
     articleTitle?: string;
     project: Pick<Project, "businessName" | "businessType" | "toneOfVoice">;
   },
-  execution: { attempt?: NativeExpenseContext["attempt"] } = {},
+  execution: { attempt?: NativeExpenseContext["attempt"]; imageId?: string } = {},
 ): Promise<GeneratedArticleImage> {
   // Pro/Agency plan gate first (active even while metering enforcement is off),
   // then the metered claim — both before the model call so a refusal costs nothing.
   await assertImageGenerationAllowed({ userId });
+  let target: ReturnType<typeof imageRecoveryTarget>;
   return withGenerationUsage(
     {
       userId,
@@ -56,7 +60,13 @@ export async function generateArticleImageCore(
       operation: "generateArticleImageCore",
       attempt: execution.attempt,
     },
-    async (attempt) => {
+    async (attempt, receiptId) => {
+      target = imageRecoveryTarget({
+        projectId: args.projectId,
+        assetId: args.assetId,
+        title: args.articleTitle || args.concept,
+        concept: args.concept,
+      });
       const prompt = buildImagePrompt({
         concept: args.concept,
         ...(args.articleTitle ? { articleTitle: args.articleTitle } : {}),
@@ -83,8 +93,15 @@ export async function generateArticleImageCore(
         args.assetId,
         bytes,
       );
-      return { path, previewUrl, alt: draftAltText(args.concept, args.project.businessName) };
+      return {
+        path,
+        previewUrl,
+        alt: draftAltText(args.concept, args.project.businessName),
+        generationReceiptId: receiptId,
+        resultId: execution.imageId ?? receiptId,
+      };
     },
+    (result) => retainImageGeneration(userId, target, result),
   );
 }
 
