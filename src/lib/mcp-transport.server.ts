@@ -1,15 +1,18 @@
+import { MCP_IMAGE_TOOL } from "./mcp-image";
 /** Bounds the authenticated MCP body before parsing or dispatching any work.
  * This is an application read limit, not a claim about upstream proxy buffering.
  */
 export const MCP_MAX_BODY_BYTES = 200_000;
+// Only an OAuth content writer may submit one image tool call at this size.
+export const MCP_MAX_IMAGE_BODY_BYTES = 7_100_000;
 export const MCP_MAX_BATCH = 20;
 export const MCP_BODY_TIMEOUT_MS = 10_000;
 export const MCP_MAX_BODY_CHUNKS = 4096;
 
 export class McpRequestError extends Error {
   constructor(
-    readonly status: 400 | 408 | 413,
-    readonly code: -32600 | -32700,
+    readonly status: 400 | 408 | 413 | 429,
+    readonly code: -32600 | -32700 | -32003,
     message: string,
   ) {
     super(message);
@@ -17,10 +20,44 @@ export class McpRequestError extends Error {
   }
 }
 
-export async function readMcpPayload(request: Request): Promise<unknown> {
+// Per-process memory admission for the larger bodies, held through dispatch.
+// This complements the persistent write quota; it is not a cross-host quota.
+export const MCP_MAX_ACTIVE_IMAGE_REQUESTS = 2;
+let activeImageRequests = 0;
+export function acquireMcpImageRequest(): () => void {
+  if (activeImageRequests >= MCP_MAX_ACTIVE_IMAGE_REQUESTS)
+    throw new McpRequestError(
+      429,
+      -32003,
+      "Image uploads are busy. No tool was started; retry the same request later.",
+    );
+  activeImageRequests++;
+  let held = true;
+  return () => {
+    if (held) {
+      activeImageRequests--;
+      held = false;
+    }
+  };
+}
+
+export async function readMcpPayload(
+  request: Request,
+  options: { allowImageUpload?: boolean; onLargeBody?: () => void } = {},
+): Promise<unknown> {
+  let admittedLargeBody = false;
+  const admitLargeBody = () => {
+    if (!admittedLargeBody) {
+      options.onLargeBody?.();
+      admittedLargeBody = true;
+    }
+  };
+  const maxBytes =
+    options.allowImageUpload === true ? MCP_MAX_IMAGE_BODY_BYTES : MCP_MAX_BODY_BYTES;
   const length = request.headers.get("content-length");
-  if (length !== null && (!/^\d+$/.test(length) || Number(length) > MCP_MAX_BODY_BYTES))
+  if (length !== null && (!/^\d+$/.test(length) || Number(length) > maxBytes))
     throw new McpRequestError(413, -32600, "Request is too large.");
+  if (length !== null && Number(length) > MCP_MAX_BODY_BYTES) admitLargeBody();
   if (!request.body) throw new McpRequestError(400, -32600, "Invalid request.");
   const reader = request.body.getReader();
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -39,8 +76,9 @@ export async function readMcpPayload(request: Request): Promise<unknown> {
       if (item.done) break;
       chunks++;
       bytes += item.value.byteLength;
-      if (bytes > MCP_MAX_BODY_BYTES || chunks > MCP_MAX_BODY_CHUNKS)
+      if (bytes > maxBytes || chunks > MCP_MAX_BODY_CHUNKS)
         throw new McpRequestError(413, -32600, "Request is too large.");
+      if (bytes > MCP_MAX_BODY_BYTES) admitLargeBody();
       parts.push(decoder.decode(item.value, { stream: true }));
     }
     parts.push(decoder.decode());
@@ -49,6 +87,28 @@ export async function readMcpPayload(request: Request): Promise<unknown> {
       payload = JSON.parse(parts.join(""));
     } catch {
       throw new McpRequestError(400, -32700, "Parse error.");
+    }
+    if (bytes > MCP_MAX_BODY_BYTES) {
+      const record =
+        payload && typeof payload === "object" && !Array.isArray(payload)
+          ? (payload as Record<string, unknown>)
+          : null;
+      const params =
+        record?.params && typeof record.params === "object" && !Array.isArray(record.params)
+          ? (record.params as Record<string, unknown>)
+          : null;
+      if (
+        options.allowImageUpload !== true ||
+        record?.jsonrpc !== "2.0" ||
+        record.method !== "tools/call" ||
+        record.id == null ||
+        params?.name !== MCP_IMAGE_TOOL
+      )
+        throw new McpRequestError(
+          413,
+          -32600,
+          "Only one image upload may exceed the ordinary request limit. No tool was started.",
+        );
     }
     if (Array.isArray(payload) && (payload.length === 0 || payload.length > MCP_MAX_BATCH))
       throw new McpRequestError(

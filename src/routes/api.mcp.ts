@@ -5,7 +5,12 @@ import type {} from "@tanstack/react-start";
 // token (milo_mcp_…) the user generates in Milo; it resolves to their workspace
 // and tools are scoped to that user. OAuth writes also require the write flag,
 // explicit tool scopes and confirmed write limits. Never logs tokens.
-import { McpRequestError, readMcpPayload, dispatchMcpPayload } from "@/lib/mcp-transport.server";
+import {
+  McpRequestError,
+  acquireMcpImageRequest,
+  readMcpPayload,
+  dispatchMcpPayload,
+} from "@/lib/mcp-transport.server";
 import { RateLimitUnavailableError } from "@/lib/oauth.server";
 
 const CORS = {
@@ -40,6 +45,7 @@ export const Route = createFileRoute("/api/mcp")({
           auth: "Bearer token (generate in Milo → Project Setup → Claude connector)",
         }),
       POST: async ({ request }) => {
+        let releaseImageRequest: (() => void) | undefined;
         try {
           const token = bearer(request);
           const { resolveUser, handleMcpMessage, buildMcpAuditEvent } =
@@ -164,7 +170,15 @@ export const Route = createFileRoute("/api/mcp")({
             },
           };
 
-          const parsed = await readMcpPayload(request);
+          const parsed = await readMcpPayload(request, {
+            onLargeBody: () => {
+              releaseImageRequest ??= acquireMcpImageRequest();
+            },
+            allowImageUpload:
+              grant.writeEnabled &&
+              !!grant.clientId &&
+              grant.scopes?.includes("milo.content.write") === true,
+          });
           const response = await dispatchMcpPayload(
             parsed,
             async (message) => {
@@ -197,6 +211,8 @@ export const Route = createFileRoute("/api/mcp")({
             { jsonrpc: "2.0", id: null, error: { code: -32603, message: "Internal error." } },
             500,
           );
+        } finally {
+          releaseImageRequest?.();
         }
       },
     },

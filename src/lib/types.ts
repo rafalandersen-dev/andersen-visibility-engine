@@ -213,6 +213,8 @@ export interface Project {
   id: string;
   /** Bounded replay receipts prevent old requests refilling owner-cleared profile fields. */
   mcpProfileFillRequests?: import("./mcp-profile-fill").ProfileFillReceipt[];
+  /** Server-preserved image import receipts; no image bytes or upload credentials. */
+  mcpImageRequests?: import("./mcp-image").McpImageReceipt[];
   /** Bounded server-written replay receipts; retained after individual topics are removed. */
   mcpOpportunityBatches?: Array<{ requestId: string; fingerprint: string; ids: string[] }>;
   name: string;

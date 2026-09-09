@@ -7,6 +7,7 @@ const original = {
   description: "Original",
   mcpProfileFillRequests: [{ requestId: "old" }],
   mcpOpportunityBatches: [{ requestId: "batch" }],
+  mcpImageRequests: [{ requestId: "image" }],
 };
 const role = (name: string) =>
   db.query("SELECT set_config('request.jwt.claim.role',$1,false)", [name]);
@@ -32,6 +33,9 @@ beforeAll(async () => {
   await db.exec(
     readFileSync("supabase/migrations/20260907230000_preserve_mcp_project_receipts.sql", "utf8"),
   );
+  await db.exec(
+    readFileSync("supabase/migrations/20260909140000_preserve_mcp_image_receipts.sql", "utf8"),
+  );
 }, 30000);
 beforeEach(async () => {
   await db.exec("RESET ROLE; TRUNCATE workspace_entities");
@@ -44,7 +48,7 @@ afterAll(async () => {
   await db?.close();
 });
 describe("server-owned project replay receipts", () => {
-  it("preserves both histories when a stale browser payload omits them", async () => {
+  it("preserves all histories when a stale browser payload omits them", async () => {
     await role("authenticated");
     await db.exec("SET ROLE authenticated");
     await write({ id: "p", description: "Owner edit" });
@@ -58,6 +62,7 @@ describe("server-owned project replay receipts", () => {
       description: "Owner",
       mcpProfileFillRequests: [],
       mcpOpportunityBatches: [{ requestId: "forged" }],
+      mcpImageRequests: [],
     });
     expect(await read()).toEqual({ ...original, description: "Owner" });
   });
@@ -77,6 +82,7 @@ describe("server-owned project replay receipts", () => {
     const updated = {
       ...original,
       mcpProfileFillRequests: [...original.mcpProfileFillRequests, { requestId: "new" }],
+      mcpImageRequests: [...original.mcpImageRequests, { requestId: "new-image" }],
     };
     await write(updated);
     expect(await read()).toEqual(updated);

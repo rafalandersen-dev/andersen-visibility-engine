@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { acquireMcpImageRequest, MCP_MAX_ACTIVE_IMAGE_REQUESTS } from "./mcp-transport.server";
 import { Route } from "@/routes/api.mcp";
 import { checkRateLimit, RATE_BUCKETS } from "./oauth.server";
 
@@ -61,6 +62,47 @@ beforeEach(async () => {
 });
 afterEach(() => vi.restoreAllMocks());
 describe("actual MCP HTTP admission and dispatch", () => {
+  it("releases large-body slots after dispatch failure and refuses overflow before tool execution", async () => {
+    const image = {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: { name: "add_content_image", arguments: { dataBase64: "A".repeat(210000) } },
+    };
+    mocks.handle.mockRejectedValue(new Error("private"));
+    for (let i = 0; i < MCP_MAX_ACTIVE_IMAGE_REQUESTS + 1; i++)
+      expect((await call(image)).status).toBe(500);
+    mocks.handle.mockClear();
+    const releases = Array.from({ length: MCP_MAX_ACTIVE_IMAGE_REQUESTS }, () =>
+      acquireMcpImageRequest(),
+    );
+    try {
+      expect((await call(image)).status).toBe(429);
+      expect(mocks.handle).not.toHaveBeenCalled();
+    } finally {
+      for (const release of releases) release();
+    }
+  });
+
+  it("only grants the larger image body to an OAuth content writer", async () => {
+    const image = {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: { name: "add_content_image", arguments: { dataBase64: "A".repeat(210000) } },
+    };
+    expect((await call(image)).status).toBe(200);
+    expect(mocks.handle).toHaveBeenCalledOnce();
+    mocks.handle.mockClear();
+    mocks.resolve.mockResolvedValue({
+      userId: "owner",
+      scope: "milo.content.read",
+      clientId: "client",
+    });
+    expect((await call(image)).status).toBe(413);
+    expect(mocks.handle).not.toHaveBeenCalled();
+  });
+
   it("does not read the body or dispatch without authentication", async () => {
     mocks.resolve.mockResolvedValue(null);
     const response = await call(Array.from({ length: 21 }, () => ({ method: "write-fixture" })));
