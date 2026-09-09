@@ -5,6 +5,8 @@ import {
   remainingAiUsage,
   UsageLimitError,
   UsageUnavailableError,
+  assertImageGenerationAllowed,
+  AI_USAGE_LOOKUP_TIMEOUT_MS,
 } from "./ai-usage.server";
 import { generateContentCore, generateOpportunitiesCore } from "./ai.functions";
 import { generateArticleImageCore } from "./image-gen.functions";
@@ -21,6 +23,7 @@ vi.mock("./entitlements.server", () => ({ resolveEntitledPlan: mocks.plan }));
 vi.mock("ai", () => ({ generateText: mocks.model }));
 vi.mock("./image-gen.server", () => ({
   generateImageBytes: mocks.image,
+  generateImageResult: mocks.image,
   ImageGenError: class extends Error {},
 }));
 vi.mock("@/integrations/supabase/client.server", () => ({
@@ -46,6 +49,7 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => undefined);
 });
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
 });
@@ -55,6 +59,83 @@ const cap = capFor("pro", "contentGeneration");
 const confirmation = (used = 1, allowed = true, rpcCap = cap) => ({
   data: [{ used, cap: rpcCap, allowed }],
   error: null,
+});
+
+describe("bounded usage admission", () => {
+  it.each(["plan", "owner"] as const)(
+    "stops a hanging %s lookup before a quota mutation, even after a late answer",
+    async (kind) => {
+      vi.useFakeTimers();
+      let finish!: (result: unknown) => void;
+      mocks[kind].mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finish = resolve;
+          }),
+      );
+      const result = expect(claimAiUsage(args)).rejects.toBeInstanceOf(UsageUnavailableError);
+      await vi.advanceTimersByTimeAsync(AI_USAGE_LOOKUP_TIMEOUT_MS + 1);
+      await result;
+      finish(kind === "plan" ? "pro" : { data: { role: "owner" }, error: null });
+      await vi.runAllTimersAsync();
+      expect(mocks.rpc).not.toHaveBeenCalled();
+    },
+  );
+  it.each([
+    { kind: "text", core: generateContentCore, enforcement: "true" },
+    { kind: "image", core: generateArticleImageCore, enforcement: "true" },
+    { kind: "text", core: generateContentCore, enforcement: "false" },
+    { kind: "image", core: generateArticleImageCore, enforcement: "false" },
+  ] as const)(
+    "never starts $kind work after a late claim in enforcement mode $enforcement",
+    async ({ core, enforcement }) => {
+      vi.stubEnv("AI_METERING_ENFORCED", enforcement);
+      vi.useFakeTimers();
+      let reply!: (result: unknown) => void;
+      let claimEntered!: () => void;
+      const entered = new Promise<void>((resolve) => {
+        claimEntered = resolve;
+      });
+      mocks.rpc.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            reply = resolve;
+            claimEntered();
+          }),
+      );
+      const result = expect(core("user", {} as never)).rejects.toBeInstanceOf(
+        UsageUnavailableError,
+      );
+      await entered;
+      await vi.advanceTimersByTimeAsync(AI_USAGE_LOOKUP_TIMEOUT_MS + 1);
+      await result;
+      const claimedCap = mocks.rpc.mock.calls[0][1].p_cap;
+      reply(confirmation(1, true, claimedCap));
+      await vi.runAllTimersAsync();
+      expect(mocks.model).not.toHaveBeenCalled();
+      expect(mocks.image).not.toHaveBeenCalled();
+      expect(mocks.rpc).toHaveBeenCalledTimes(1);
+      expect(vi.getTimerCount()).toBe(0);
+    },
+  );
+  it("bounds the remaining-usage read without turning a timeout into free quota", async () => {
+    vi.useFakeTimers();
+    mocks.usage.mockImplementationOnce(() => new Promise(() => {}));
+    const result = expect(remainingAiUsage(args)).rejects.toBeInstanceOf(UsageUnavailableError);
+    await vi.advanceTimersByTimeAsync(AI_USAGE_LOOKUP_TIMEOUT_MS + 1);
+    await result;
+  });
+  it("bounds the image entitlement gate before claiming or generating", async () => {
+    vi.useFakeTimers();
+    mocks.plan.mockImplementationOnce(() => new Promise(() => {}));
+    const result = expect(assertImageGenerationAllowed({ userId: "user" })).rejects.toBeInstanceOf(
+      UsageUnavailableError,
+    );
+    await vi.advanceTimersByTimeAsync(AI_USAGE_LOOKUP_TIMEOUT_MS + 1);
+    await result;
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.image).not.toHaveBeenCalled();
+  });
 });
 
 describe("confirmed usage before paid work", () => {

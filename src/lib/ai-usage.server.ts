@@ -112,6 +112,28 @@ export class UsageUnavailableError extends Error {
 }
 
 const MAX_USAGE = 2_147_483_647;
+export const AI_USAGE_LOOKUP_TIMEOUT_MS = 10_000;
+
+/** A late entitlement read must not claim quota, and a late quota claim must
+ * not start a provider after the caller has already received an error. A claim
+ * may still commit in Postgres; that uncertain usage is not assumed refunded.
+ */
+async function boundedUsageLookup<T>(bucket: UsageBucket, work: PromiseLike<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      work,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new UsageUnavailableError(bucket)),
+          AI_USAGE_LOOKUP_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 function validUsed(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= MAX_USAGE;
@@ -154,12 +176,15 @@ export async function claimAiUsage(args: {
     throw new RangeError("AI usage units must be a positive PostgreSQL integer.");
   }
   // Entitlements and owner roles are resolved server-side, never from a workspace blob.
-  const [plan, isOwner] = await Promise.all([
-    args.planOverride !== undefined ? Promise.resolve(args.planOverride) : resolvePlan(userId),
-    args.isOwnerOverride !== undefined
-      ? Promise.resolve(args.isOwnerOverride)
-      : resolveOwner(userId),
-  ]);
+  const [plan, isOwner] = await boundedUsageLookup(
+    bucket,
+    Promise.all([
+      args.planOverride !== undefined ? Promise.resolve(args.planOverride) : resolvePlan(userId),
+      args.isOwnerOverride !== undefined
+        ? Promise.resolve(args.isOwnerOverride)
+        : resolveOwner(userId),
+    ]),
+  );
   const realCap = capFor(plan, bucket, isOwner);
   // Record-only mode may exceed the plan cap, but still requires a confirmed claim.
   const enforcing =
@@ -178,13 +203,16 @@ export async function claimAiUsage(args: {
       ) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
     };
 
-    response = await admin.rpc("claim_ai_usage", {
-      p_user: userId,
-      p_period: usagePeriod(args.now),
-      p_bucket: bucket,
-      p_cap: cap,
-      p_units: units,
-    });
+    response = await boundedUsageLookup(
+      bucket,
+      admin.rpc("claim_ai_usage", {
+        p_user: userId,
+        p_period: usagePeriod(args.now),
+        p_bucket: bucket,
+        p_cap: cap,
+        p_units: units,
+      }),
+    );
   } catch {
     return unavailable(bucket, "claim_transport_failed");
   }
@@ -208,19 +236,25 @@ export async function remainingAiUsage(args: {
   bucket: UsageBucket;
   now?: Date;
 }): Promise<number> {
-  const [plan, isOwner] = await Promise.all([resolvePlan(args.userId), resolveOwner(args.userId)]);
+  const [plan, isOwner] = await boundedUsageLookup(
+    args.bucket,
+    Promise.all([resolvePlan(args.userId), resolveOwner(args.userId)]),
+  );
   const cap = capFor(plan, args.bucket, isOwner);
   if (cap < 0) return -1;
   let response: { data: { used?: unknown } | null; error: unknown };
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    response = await supabaseAdmin
-      .from("ai_usage")
-      .select("used")
-      .eq("user_id", args.userId)
-      .eq("period", usagePeriod(args.now))
-      .eq("bucket", args.bucket)
-      .maybeSingle();
+    response = await boundedUsageLookup(
+      args.bucket,
+      supabaseAdmin
+        .from("ai_usage")
+        .select("used")
+        .eq("user_id", args.userId)
+        .eq("period", usagePeriod(args.now))
+        .eq("bucket", args.bucket)
+        .maybeSingle(),
+    );
   } catch {
     return unavailable(args.bucket, "usage_read_transport_failed");
   }
@@ -255,12 +289,17 @@ export async function assertImageGenerationAllowed(args: {
   planOverride?: PlanId;
   isOwnerOverride?: boolean;
 }): Promise<void> {
-  const [plan, isOwner] = await Promise.all([
-    args.planOverride !== undefined ? Promise.resolve(args.planOverride) : resolvePlan(args.userId),
-    args.isOwnerOverride !== undefined
-      ? Promise.resolve(args.isOwnerOverride)
-      : resolveOwner(args.userId),
-  ]);
+  const [plan, isOwner] = await boundedUsageLookup(
+    "imageGeneration",
+    Promise.all([
+      args.planOverride !== undefined
+        ? Promise.resolve(args.planOverride)
+        : resolvePlan(args.userId),
+      args.isOwnerOverride !== undefined
+        ? Promise.resolve(args.isOwnerOverride)
+        : resolveOwner(args.userId),
+    ]),
+  );
   if (isOwner) return;
   if (!PLAN_LIMITS[plan].imageGenerationEnabled) {
     throw new ImageGenerationGateError(
