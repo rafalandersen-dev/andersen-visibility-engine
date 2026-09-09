@@ -286,6 +286,8 @@ async function generateAsset(opportunityId: string, kind: "landing" | "article")
 
     // P1-4: this generation path resolves invented links too.
     const resolvedBody = await resolveGeneratedLinks(result.markdown, project);
+    const existing = getState().content.find((a) => a.id === result.resultId);
+    if (existing) return existing; // Recovery may have finished while this response was delayed.
     const asset: ContentAsset = {
       id: result.resultId ?? uid(),
       projectId: opp.projectId,
@@ -1559,6 +1561,8 @@ export async function generateContentForOpportunity(
 
     const now = new Date().toISOString();
     const resolvedBody = await resolveGeneratedLinks(result.markdown, project);
+    const existing = getState().content.find((a) => a.id === result.resultId);
+    if (existing) return existing; // Recovery may have finished while this response was delayed.
     const asset: ContentAsset = {
       id: result.resultId ?? uid(),
       projectId: opp.projectId,

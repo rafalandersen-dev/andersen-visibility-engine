@@ -34,6 +34,12 @@ beforeAll(async () => {
   db = new PGlite();
   await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS;
     CREATE SCHEMA auth; CREATE TABLE auth.users (id uuid PRIMARY KEY);
+    CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$ SELECT null::uuid $$;
+    CREATE TABLE public.workspace_meta (user_id uuid PRIMARY KEY, rev bigint DEFAULT 0,
+      active_project_id text, billing_profile jsonb, extras jsonb, subscription jsonb);
+    CREATE TABLE public.workspace_entities (user_id uuid, collection text, entity_id text,
+      ord int, data jsonb, updated_at timestamptz,
+      PRIMARY KEY(user_id,collection,entity_id));
     INSERT INTO auth.users VALUES ('${user}'),('${other}');`);
   for (const name of [
     "20260719160000_ai_usage.sql",
@@ -45,7 +51,7 @@ beforeAll(async () => {
 }, 30000);
 beforeEach(async () => {
   await db.exec(
-    "TRUNCATE public.ai_generation_results,public.ai_generation_usage_receipts,public.ai_usage;",
+    "TRUNCATE public.workspace_meta,public.workspace_entities,public.ai_generation_results,public.ai_generation_usage_receipts,public.ai_usage;",
   );
 });
 afterAll(async () => {
@@ -200,5 +206,84 @@ describe("durable private generation results", () => {
     await expect(
       db.query("SELECT * FROM public.list_generation_results($1,'../other')", [user]),
     ).rejects.toThrow("invalid_generation_result_cursor");
+  });
+});
+
+describe("late browser save versus recovered owner edits", () => {
+  const ownerDraft = {
+    id: "a",
+    markdown: "Recovered and corrected",
+    updatedAt: "2026-09-09T10:00:00Z",
+  };
+  const staleDraft = { id: "a", markdown: "Delayed original", updatedAt: "2026-09-09T12:00:00Z" };
+  async function savedDraft() {
+    await db.query(
+      'INSERT INTO public.workspace_meta(user_id,rev,extras,subscription) VALUES ($1,7,\'{"keep":true}\', \'{"planId":"freePreview"}\')',
+      [user],
+    );
+    await db.query(
+      "INSERT INTO public.workspace_entities(user_id,collection,entity_id,ord,data) VALUES ($1,'content','a',0,$2)",
+      [user, JSON.stringify(ownerDraft)],
+    );
+  }
+  const batch = (upserts: unknown[], meta = {}, rev: number | null = null) =>
+    db.query("SELECT public.apply_workspace_entity_batch($1,$2,'[]',$3,$4)", [
+      user,
+      JSON.stringify(upserts),
+      JSON.stringify(meta),
+      rev,
+    ]);
+  it.each([null, { id: "a", markdown: "Before recovery" }])(
+    "rejects stale creation/update despite its newer timestamp %#",
+    async (expected) => {
+      await savedDraft();
+      await expect(
+        batch(
+          [
+            {
+              collection: "opportunities",
+              entity_id: "o",
+              data: { id: "o", currentContentAssetId: "wrong" },
+            },
+            { collection: "content", entity_id: "a", data: staleDraft, expected_data: expected },
+          ],
+          { extras: { bad: true } },
+        ),
+      ).rejects.toThrow("workspace_content_changed");
+      expect((await db.query("SELECT data FROM public.workspace_entities")).rows).toEqual([
+        { data: ownerDraft },
+      ]);
+      expect((await db.query("SELECT rev,extras FROM public.workspace_meta")).rows).toEqual([
+        { rev: 7, extras: { keep: true } },
+      ]);
+    },
+  );
+  it("accepts a current edit and its identical late replay; preserves entitlements and extras", async () => {
+    await savedDraft();
+    const upserts = [
+      { collection: "content", entity_id: "a", data: staleDraft, expected_data: ownerDraft },
+    ];
+    await batch(upserts, { subscription: { planId: "agency" }, extras: { new: true } });
+    await batch(upserts);
+    expect((await db.query("SELECT data FROM public.workspace_entities")).rows).toEqual([
+      { data: staleDraft },
+    ]);
+    expect((await db.query("SELECT subscription,extras FROM public.workspace_meta")).rows).toEqual([
+      { subscription: { planId: "freePreview" }, extras: { keep: true, new: true } },
+    ]);
+  });
+  it("preserves existing server revision checks", async () => {
+    await savedDraft();
+    await expect(batch([], {}, 6)).rejects.toThrow("workspace_conflict");
+    await batch([], {}, 7);
+  });
+  it("does not resurrect a deleted draft through a stale update", async () => {
+    await savedDraft();
+    await db.exec("DELETE FROM public.workspace_entities");
+    await expect(
+      batch([
+        { collection: "content", entity_id: "a", data: staleDraft, expected_data: ownerDraft },
+      ]),
+    ).rejects.toThrow("workspace_content_changed");
   });
 });

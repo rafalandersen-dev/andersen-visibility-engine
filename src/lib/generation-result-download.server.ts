@@ -14,12 +14,12 @@ export async function getGenerationImageDownload(
   read: typeof readGenerationResult = readGenerationResult,
   supplied?: Storage,
 ) {
-  const result = await read(userId, receiptId);
-  if (!result) throw new Error("The saved image is unavailable.");
-  const payload = parseGenerationResult(result.result, userId);
-  if (payload.kind !== "image") throw new Error("The saved image is unavailable.");
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
+    const result = await read(userId, receiptId);
+    if (!result) throw new Error("unavailable");
+    const payload = parseGenerationResult(result.result, userId);
+    if (payload.kind !== "image") throw new Error("unavailable");
     const storage =
       supplied ??
       (await import("@/integrations/supabase/client.server")).supabaseAdmin.storage.from(

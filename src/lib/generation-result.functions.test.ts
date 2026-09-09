@@ -1,11 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const h = vi.hoisted(() => ({ list: vi.fn(), read: vi.fn(), discard: vi.fn(), recover: vi.fn() }));
-vi.mock("@/integrations/supabase/auth-middleware", () => ({ requireSupabaseAuth: {} }));
+const h = vi.hoisted(() => ({
+  list: vi.fn(),
+  read: vi.fn(),
+  discard: vi.fn(),
+  recover: vi.fn(),
+  download: vi.fn(),
+  auth: Symbol("auth"),
+  registered: [] as unknown[][],
+}));
+vi.mock("@/integrations/supabase/auth-middleware", () => ({ requireSupabaseAuth: h.auth }));
 vi.mock("@tanstack/react-start", () => ({
   createServerFn: () => {
     let parse = (v: unknown) => v;
     const b = {
-      middleware: () => b,
+      middleware: (items: unknown[]) => {
+        h.registered.push(items);
+        return b;
+      },
       inputValidator: (fn: typeof parse) => {
         parse = fn;
         return b;
@@ -22,7 +33,9 @@ vi.mock("./generation-result.server", () => ({
   discardGenerationResult: h.discard,
 }));
 vi.mock("./generation-recovery.server", () => ({ recoverGenerationResult: h.recover }));
+vi.mock("./generation-result-download.server", () => ({ getGenerationImageDownload: h.download }));
 import {
+  getGenerationImageDownloadFn,
   listGenerationResultsFn,
   readGenerationResultFn,
   discardGenerationResultFn,
@@ -33,30 +46,37 @@ const call = (fn: unknown, data: unknown) =>
   (fn as (v: unknown) => Promise<unknown>)({ data, context: { userId: "authenticated-owner" } });
 beforeEach(() => vi.resetAllMocks());
 describe("authenticated generation-result functions", () => {
+  it("registers mandatory authentication on every result endpoint", () => {
+    expect(h.registered).toHaveLength(5);
+    for (const middleware of h.registered) expect(middleware).toEqual([h.auth]);
+  });
   it("uses the authenticated account for all reads and writes", async () => {
+    await call(getGenerationImageDownloadFn, { receiptId: id });
     await call(listGenerationResultsFn, { projectId: "p" });
     await call(readGenerationResultFn, { receiptId: id });
     await call(discardGenerationResultFn, { receiptId: id });
     await call(recoverGenerationResultFn, { receiptId: id });
     expect(h.list).toHaveBeenCalledExactlyOnceWith("authenticated-owner", "p", undefined);
-    for (const fn of [h.read, h.discard, h.recover])
+    for (const fn of [h.read, h.discard, h.recover, h.download])
       expect(fn).toHaveBeenCalledExactlyOnceWith("authenticated-owner", id);
   });
-  it.each([readGenerationResultFn, discardGenerationResultFn, recoverGenerationResultFn])(
-    "refuses caller-supplied ownership, artifact or approval fields %#",
-    (fn) => {
-      for (const extra of [
-        { userId: "victim" },
-        { assetId: "override" },
-        { approved: true },
-        { retry: true },
-        { payload: { markdown: "overwrite" } },
-        { receiptId: "invalid" },
-      ])
-        expect(() => call(fn, { receiptId: id, ...extra })).toThrow();
-      expect(h.recover).not.toHaveBeenCalled();
-    },
-  );
+  it.each([
+    readGenerationResultFn,
+    discardGenerationResultFn,
+    recoverGenerationResultFn,
+    getGenerationImageDownloadFn,
+  ])("refuses caller-supplied ownership, artifact or approval fields %#", (fn) => {
+    for (const extra of [
+      { userId: "victim" },
+      { assetId: "override" },
+      { approved: true },
+      { retry: true },
+      { payload: { markdown: "overwrite" } },
+      { receiptId: "invalid" },
+    ])
+      expect(() => call(fn, { receiptId: id, ...extra })).toThrow();
+    expect(h.recover).not.toHaveBeenCalled();
+  });
   it("rejects unsafe list filters and unexpected scope", () => {
     for (const data of [
       { userId: "victim" },

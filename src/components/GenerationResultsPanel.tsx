@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ArticleImageThumbnail } from "@/components/ArticleImageThumbnail";
 import { useT } from "@/i18n";
-import { useStore, reloadWorkspaceForUser, setActiveProject } from "@/lib/store";
+import { useStore, reloadWorkspaceForUser, saveWorkspaceNow, setActiveProject } from "@/lib/store";
 import {
   getGenerationImageDownloadFn,
   listGenerationResultsFn,
@@ -101,6 +101,8 @@ export function GenerationResultsPanel({
     working.current = true;
     setBusy(true);
     try {
+      await saveWorkspaceNow();
+      if (!alive.current) return;
       const result = await recoverGenerationResultFn({ data: { receiptId: detail.id } });
       if (!alive.current) return;
       await reloadWorkspaceForUser(userId);

@@ -123,3 +123,39 @@ describe("Article Studio 2.0 ContentAsset fields persist", () => {
     expect(saved.breadcrumbs).toEqual(richAsset.breadcrumbs);
   });
 });
+
+describe("recovery cannot be overwritten by a late original browser save", () => {
+  it("sends the exact saved baseline and preserves both remote and local edits on conflict", async () => {
+    seedServer();
+    await hydrateForUser("user1");
+    const recovered = { ...richAsset, markdown: "Recovered owner's correction" };
+    h.backend.state.doc!.content = [recovered];
+    setState((s) => ({
+      ...s,
+      content: s.content.map((c) => ({
+        ...c,
+        markdown: "Delayed original output",
+        updatedAt: "2099-01-01T00:00:00Z",
+      })),
+    }));
+    await expect(saveWorkspaceNow()).rejects.toThrow("draft changed in another session");
+    expect(h.backend.state.doc!.content).toEqual([recovered]);
+    expect(getState().content[0].markdown).toBe("Delayed original output");
+    expect(h.backend.state.batches[0].upserts[0]).toMatchObject({ expected_data: richAsset });
+    resetStore();
+  });
+  it("does not replace a newly recovered draft absent from this tab's baseline", async () => {
+    seedServer();
+    h.backend.state.doc!.content = [];
+    await hydrateForUser("user1");
+    h.backend.state.doc!.content = [richAsset];
+    setState((s) => ({
+      ...s,
+      content: [{ ...richAsset, markdown: "Delayed original" } as (typeof s.content)[number]],
+    }));
+    await expect(saveWorkspaceNow()).rejects.toThrow("draft changed in another session");
+    expect(h.backend.state.doc!.content).toEqual([richAsset]);
+    expect(h.backend.state.batches[0].upserts[0]).toMatchObject({ expected_data: null });
+    resetStore();
+  });
+});
