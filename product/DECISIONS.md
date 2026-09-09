@@ -4,9 +4,17 @@
 
 **Status:** Canonical decision log
 
-**Last updated:** 2026-09-07
+**Last updated:** 2026-09-09
 
 **Product Lead:** Rafal Andersen
+
+## 2026-09-09 — Specialist team, project learning and weekly preparation
+
+The owner accepted multiple specialists with faces, learning each project’s brand/business/niche and improving its blogs, optional brand-guidelines upload at setup, and preparation before the coming week after checking website/catalog changes. Recheck relevant prices, products and offers before each publication. Native content/images use direct OpenAI; no Lovable AI-credit dependency.
+
+The [specialist/knowledge/weekly specification](AGENT_WEEKLY_PLAN_2026_09_09.md) is the implementation specification. Extend existing Brand Intelligence and keep project knowledge isolated, sourced, versioned and reversible. Preserve Manual/Review/Autopilot permissions; changed text needs the appropriate version-bound authority. Learning improves context and evaluated workflows, not an agent’s own spending/publication permissions. Weekly preparation and monthly package allowances are separate.
+
+Working role labels, final faces/names, first document formats and configurable Friday preparation example are design proposals. Exact package maintenance allowances/prices remain D01; visual identity remains D05. No perpetual-accuracy, ranking or citation guarantee. No additional provider budget, external message or publication is authorized by recording this plan. Finish durable result recovery first, then knowledge, refresh, weekly coordination, team/lessons and measured outcomes. All R00–R24/D01–D08 commitments remain.
 
 ## 2026-09-08 — Isolate the already authorized benchmark
 

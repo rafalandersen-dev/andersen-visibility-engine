@@ -10,11 +10,11 @@ Unattended paid public launch remains **NO-GO / not verified**. Assisted beta re
 
 | Gate | Required evidence | Current disposition |
 | --- | --- | --- |
-| G0 Baseline/release | Current exact-head audit, build identity, migrations/configuration, review and rollback | Main #98 and live build/fingerprint checked; release/migration evidence recorded; wider audit open |
+| G0 Baseline/release | Current exact-head audit, build identity, migrations/configuration, review and rollback | Main #105 inspected; last runtime verification recorded by this task is #104; #105 deployment not checked here; wider audit open |
 | G1 Public audit | Verified abuse/privacy/provider/cost boundary or verified disabled/deterministic containment | Worker code exists; #35/#43 open; do not copy obsolete “no routes” state |
 | G2 Commercial authority | Server entitlements and Stripe checkout/portal/webhook lifecycle with replay/failure/cancel/refund tests | Server entitlements and #80 sandbox foundations exist; configured Stripe lifecycle acceptance pending |
-| G3 Economics | Bounded paid calls, concurrent reservations, account/global ceilings; typical/high/max cost and viable packages | Fail-closed metering and native monetary/permit admission deployed; isolated runner, real benchmark/costs and prices unfinished |
-| G4 Content execution | Setup/edit → Studio → manual/review/auto publication; destination parity and recovery | Existing code + selected QA; complete provider/unattended acceptance open |
+| G3 Economics | Bounded paid calls, concurrent reservations, account/global ceilings; typical/high/max cost and viable packages | Fail-closed metering and native monetary/permit admission deployed; controlled runner and #104 quota receipts delivered; durable result recovery, real benchmark/costs and prices unfinished |
+| G4 Content execution | Brand upload/website/skip setup → project knowledge → weekly preparation → final freshness/approval → publication; destination parity and recovery | Existing code + selected QA; new knowledge/weekly specification and complete provider/unattended acceptance open |
 | G5 Autonomy and teams | Solo/team mode independence, permissions, approvals, pause/cancel, logout/overnight jobs | Planned completion and acceptance |
 | G6 Notifications | Missing approval, failed/blocked/manual-overdue, empty week, quota/agent pause; dedupe/recheck/delivery | Inbox/outbox and background sweep deployed; owner test delivered; team/full delivery acceptance pending |
 | G7 Search/AI evidence | Direct GSC; ≥3 trustworthy initial AI surfaces, citations/raw responses/method/history; first proof loop | GSC paths exist; observed AI and end-to-end proof pending |
@@ -24,6 +24,10 @@ Unattended paid public launch remains **NO-GO / not verified**. Assisted beta re
 | G11 International/local | All 24 EU languages across defined surfaces; app/content/market distinction; local/global coverage audit | 24 EU content-language plumbing deployed; four UI locales; wider translations and quality acceptance open |
 | G12 Commercial trust | Actual Stripe/legal/tax/invoicing/refund wording, support, retention/export/deletion/recovery | Identity present; review/payment alignment and operational verification open |
 | G13 Product proof | Setup demo, real product recordings and beta outcomes, without unfinished-feature claims | Pending |
+
+## Agent, knowledge and weekly-work acceptance
+
+The [specialist/knowledge/weekly specification](AGENT_WEEKLY_PLAN_2026_09_09.md) is part of G3–G8, G11–G13: verify project isolation and revocation, traceable brand extraction, editorial lessons, business-source freshness, single scheduler ownership, version-specific approvals/holds, cost-bounded specialist work and truthful team states. Demonstrate two next-week slots plus an intervening price/offer change, source outage, duplicate job, quota shortfall and paused project. Validate across representative niches/languages with owner editing effort and cost per accepted output. No new agent/learning capability is accepted by this documentation update.
 
 ## Acceptance before public release
 
