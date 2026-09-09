@@ -13,6 +13,12 @@ Data: 7 września 2026. Status: wymagania użytkownika i rekomendowana specyfika
 - Model kosztowy powstaje równolegle z funkcjami. Kwoty abonamentów ustalamy dopiero po pomiarze kosztów reprezentatywnych scenariuszy i określeniu limitów.
 - Powiadomienia operacyjne są częścią podstawowego produktu i nie powinny być płatnym dodatkiem.
 
+## Uzupełnienie — 9 września: wiedza marki i przygotowanie tygodnia
+
+Obowiązuje [specyfikacja agentów, wiedzy projektu i pracy tygodniowej](AGENT_WEEKLY_PLAN_2026_09_09.md). Milo sprawdza zmiany strony/katalogu przed przygotowaniem następnego tygodnia i ponownie sprawdza istotne fakty przed publikacją. Podsumowanie pokazuje wykryte zmiany, gotowe sloty, oczekujące akceptacje i konkretne blokady. Cena lub oferta zmieniona po przygotowaniu może wymagać poprawki i akceptacji nowej wersji; nie wysyłamy osobnego alertu o każdej próbie sprawdzenia.
+
+Koszt pakietu obejmuje także analizę dokumentów marki, interpretację wizualną, przechowywanie/wyszukiwanie wiedzy, odświeżanie źródeł oraz ustalony zakres aktualizacji istniejących treści. Uruchamiamy potrzebne role i wykorzystujemy aktualne wyniki ponownie. Liczba twarzy agentów nie jest liczbą płatnych wywołań dla każdego artykułu. Dokładne limity utrzymania/poprawek i ceny pozostają w D01. Tygodniowy harmonogram nie zmienia miesięcznego limitu ani dotychczasowej zgody na wydatki.
+
 ## 1. Centrum powiadomień i e-mail
 
 Jedna historia zdarzeń w aplikacji. E-mail jest podstawowym kanałem dla informacji wymagających działania; Slack może być dodatkowym kanałem zespołu. Rozdzielamy powiadomienia operacyjne, podsumowania i marketing. Ustawienia częstotliwości i odbiorcy są jawne.

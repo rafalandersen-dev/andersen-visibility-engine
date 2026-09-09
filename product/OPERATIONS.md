@@ -50,6 +50,12 @@ Do not reintroduce `PUBLIC_AUDIT_EDGE_SECRET`, `X-Milo-Edge-Auth`, Lovable-side 
 - [ ] Connector expiration/revocation and credential storage/migration fallback verification. Do not expose credentials in client state, logs or screenshots.
 - [ ] Tenant isolation, data export/deletion and backup/recovery exercise; practical support/incident handling and deploy verification.
 
+## Weekly business refresh and specialist jobs — required implementation
+
+Follow the [specialist/knowledge/weekly specification](AGENT_WEEKLY_PLAN_2026_09_09.md). Persist project-scoped source versions, affected-output dependencies, slot/job/asset identity, last-check time and bounded cost. One coordinator owns each slot across monthly→weekly cutover and rollback. Preserve completed output, pauses, cancellations, owner edits and approval versions through retries. Recheck relevant facts before publication; hold unresolved critical conflicts and show the specific next action. Source outages are unknown observations.
+
+Use scoped, bounded refreshes and relevant specialist tasks, with authenticated/deduplicated store events where implemented and periodic reconciliation. Revoke extracted/cached knowledge when its source access is removed. Recheck notification state/recipient before a grouped readiness or blocked-content alert. Version/evaluate workflow changes and retain rollback; agents cannot alter their own authority or budgets. These are operating requirements, not evidence that weekly monitoring is running.
+
 ## Ownership and release
 
 Rafal owns product/release/incident decisions. Assign execution, migration, secret rotation, rollback and verification operators in each concrete packet; do not assume an unnamed parallel chat is responsible. Existing approval context applies; avoid repeated approvals for already-authorized work.
