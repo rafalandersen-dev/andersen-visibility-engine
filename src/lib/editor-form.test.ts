@@ -7,7 +7,7 @@
  * so if this drifts from `mergeEditorEdits` the user can silently lose an upload.
  */
 import { describe, it, expect } from "vitest";
-import { editorFormDirty, EDITOR_FORM_FIELDS } from "./editor-form";
+import { editorFormDirty, mergeEditorFormFields, EDITOR_FORM_FIELDS } from "./editor-form";
 import type { ContentAsset } from "./types";
 
 const base = (over: Partial<ContentAsset> = {}): ContentAsset =>
@@ -93,13 +93,14 @@ describe("editorFormDirty", () => {
     expect(editorFormDirty(form, stored)).toBe(false);
   });
 
-  it("EDITOR_FORM_FIELDS stays in sync with the 20 fields mergeEditorEdits owns", () => {
+  it("EDITOR_FORM_FIELDS stays in sync with the fields mergeEditorEdits owns", () => {
     expect([...EDITOR_FORM_FIELDS].sort()).toEqual(
       [
         "author",
         "breadcrumbs",
         "cta",
         "editorNotes",
+        "faq",
         "featuredImage",
         "visualState",
         "visualModelVersion",
@@ -122,6 +123,85 @@ describe("editorFormDirty", () => {
     );
   });
 
+  it("is TRUE when a FAQ question or answer is edited (production defect: Save discarded FAQ edits)", () => {
+    const stored = base({ faq: [{ q: "What is X?", a: "X is Y." }] as never });
+    expect(
+      editorFormDirty(base({ faq: [{ q: "What is X, exactly?", a: "X is Y." }] as never }), stored),
+    ).toBe(true);
+    expect(
+      editorFormDirty(base({ faq: [{ q: "What is X?", a: "X is Z." }] as never }), stored),
+    ).toBe(true);
+  });
+
+  it("is TRUE when a FAQ entry is removed, FALSE when unchanged", () => {
+    const stored = base({ faq: [{ q: "Q1", a: "A1" }, { q: "Q2", a: "A2" }] as never });
+    expect(editorFormDirty(base({ faq: [{ q: "Q1", a: "A1" }] as never }), stored)).toBe(true);
+    expect(
+      editorFormDirty(
+        base({ faq: [{ q: "Q1", a: "A1" }, { q: "Q2", a: "A2" }] as never }),
+        stored,
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("mergeEditorFormFields", () => {
+  it("carries a changed FAQ answer/question onto the merged record (the Save-discards-FAQ defect)", () => {
+    const stored = base({ faq: [{ q: "Old Q?", a: "Old A." }] as never });
+    const local = base({ faq: [{ q: "New Q?", a: "New A." }] as never });
+    const merged = mergeEditorFormFields(local, stored);
+    expect(merged.faq).toEqual([{ q: "New Q?", a: "New A." }]);
+  });
+
+  it("persists an emptied/removed FAQ list", () => {
+    const stored = base({ faq: [{ q: "Q", a: "A" }] as never });
+    const local = base({ faq: [] as never });
+    expect(mergeEditorFormFields(local, stored).faq).toEqual([]);
+  });
+
+  it("merges other form-owned fields (title, markdown) alongside faq", () => {
+    const stored = base({ title: "Old", markdown: "Old body.", faq: [] as never });
+    const local = base({
+      title: "New",
+      markdown: "New body.",
+      faq: [{ q: "Q", a: "A" }] as never,
+    });
+    const merged = mergeEditorFormFields(local, stored);
+    expect(merged.title).toBe("New");
+    expect(merged.markdown).toBe("New body.");
+    expect(merged.faq).toEqual([{ q: "Q", a: "A" }]);
+  });
+
+  it("preserves CURRENT stored publish/schedule metadata over a stale local snapshot", () => {
+    const stored = base({
+      faq: [{ q: "Q", a: "A" }] as never,
+      liveUrl: "https://site.com/live-page",
+      publishExternalId: "ext-123",
+      wordpressPostId: 42 as never,
+      scheduledPublishAt: "2026-09-10T09:00:00.000Z",
+      scheduledPublishStatus: "pending" as never,
+    });
+    // `local` is a stale in-memory snapshot from before a publish/schedule
+    // wrote those fields — it must never win over the current stored values.
+    const local = base({
+      faq: [{ q: "Q2", a: "A2" }] as never,
+      liveUrl: undefined,
+      publishExternalId: undefined,
+      wordpressPostId: undefined,
+      scheduledPublishAt: undefined,
+      scheduledPublishStatus: undefined,
+    });
+    const merged = mergeEditorFormFields(local, stored);
+    expect(merged.faq).toEqual([{ q: "Q2", a: "A2" }]); // form-owned edit wins
+    expect(merged.liveUrl).toBe("https://site.com/live-page");
+    expect(merged.publishExternalId).toBe("ext-123");
+    expect(merged.wordpressPostId).toBe(42);
+    expect(merged.scheduledPublishAt).toBe("2026-09-10T09:00:00.000Z");
+    expect(merged.scheduledPublishStatus).toBe("pending");
+  });
+});
+
+describe("editorFormDirty (continued)", () => {
   // ---- Stable image anchors (Article Studio 3.0 / P1.2C) ----
   it("is TRUE when an image anchor / order changes, or the sectionIndex changes (must persist)", () => {
     const withImg = (over: Record<string, unknown>) =>

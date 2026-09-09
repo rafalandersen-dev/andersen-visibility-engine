@@ -8,12 +8,13 @@
 
 Milo is an AI Growth Operator for individuals and businesses: **SEE → DECIDE → DO → PROVE**. Local and international SEO, AI answers and citations, content, authority and measurement belong to the same product. Premium design and reliable execution are requirements throughout.
 
-This plan consolidates the August strategy and September 5–7 launch, redesign, competitor, agent, integration, notification and packaging decisions. It preserves existing capabilities and distinguishes implemented code from verified live behavior. It is not a promise of market leadership or a new production release approval.
+This plan consolidates the August strategy and September 5–9 launch, redesign, competitor, specialist-agent, project-learning, weekly preparation, integration, notification and packaging decisions. It preserves existing capabilities and distinguishes implemented code from verified live behavior. It is not a promise of market leadership or a new production release approval.
 
 ## Start here
 
 - [CURRENT_STATE.md](./CURRENT_STATE.md): repository baseline, implementation and open verification.
 - [PLAN_REVIEW_2026_09_07.md](./PLAN_REVIEW_2026_09_07.md): full scope register, omissions and conflicts.
+- [AGENT_WEEKLY_PLAN_2026_09_09.md](./AGENT_WEEKLY_PLAN_2026_09_09.md): specialist team, brand upload, project learning, weekly refresh/preparation and acceptance packets.
 - [DECISIONS.md](./DECISIONS.md): accepted decisions versus implementation proposals.
 - [STRATEGY_2026_2027.md](./STRATEGY_2026_2027.md): rationale, North Star and post-launch learning.
 - [LAUNCH_READINESS.md](./LAUNCH_READINESS.md) and [OPERATIONS.md](./OPERATIONS.md): evidence and operating gates.
@@ -22,7 +23,7 @@ This plan consolidates the August strategy and September 5–7 launch, redesign,
 
 ## Current checkpoint — 9 September
 
-PRs through #101 are merged and the exact clean runtime revision/full/component fingerprints are verified. Spending admission, restricted permits, the controlled owner-test runner and 24 content languages are delivered. Actual benchmark generation/cost/quality, full localization and launch acceptance remain open. See [current state](CURRENT_STATE.md) and [weighted progress review](PROGRESS_REVIEW_2026_09_09.md). The checklist below specifies full outcomes; partly delivered compound items remain unchecked.
+Repository main is #105 (`064a6d8b7233f86b29e19f097ac0e63bd283d253`). The last runtime verification recorded by this task is #104; #105 deployment was not checked in this planning update. Generation quota receipts are released; durable result recovery is unfinished in its separate worktree. The owner now explicitly includes specialist agents with faces, optional brand-guidelines setup, isolated project knowledge and weekly preparation with freshness checks. These are planned capabilities, not shipped features. See [current state](CURRENT_STATE.md) and the [specialist/knowledge/weekly specification](AGENT_WEEKLY_PLAN_2026_09_09.md). The older weighted progress estimate predates this expanded specification and is historical. Compound outcomes below remain unchecked until fully accepted.
 
 ## Already delivered in code
 
@@ -41,12 +42,16 @@ Each wave produces bounded outcomes. Independent discovery/design can run alongs
 | --- | --- | --- | --- |
 | 0 — next | Establish current evidence and close planning drift | R00, R24 | Exact implementation assessed; code, deployment, environment and review evidence separated; next packet recoverable |
 | 1 | Reliable execution and bounded costs | R04–R06, R09, R21 | Cost controls, background workflow and notifications verified; package scenarios costed; Stripe lifecycle sandbox passes before paid rollout |
-| 2 | Complete the premium project/content journey | R01–R03, R18 | Setup → edit → plan → article/images → preview → manual or authorized automatic publication works responsively |
-| 3 | Evidence that drives work | R07, R10–R13, R16 | Trustworthy AI observations + direct GSC + one evidence/action/publication/measurement loop; agent executes within scope |
+| 2 | Complete the premium project/content journey and business knowledge | R01–R03, R18 | Optional brand upload/website setup → reviewed project knowledge → refreshed business facts → weekly drafts/images → permitted publication works responsively |
+| 3 | Specialist execution and evidence that drives work | R05–R07, R10–R13, R16 | Weekly preparation and final freshness checks run within authority; specialists share project knowledge; trustworthy AI/GSC observations feed an evidence/action/publication/measurement loop |
 | 4 | Authority, integrations and market coverage | R08, R14–R15, R17–R20 | Backlinks provider work, client compatibility, optional Slack and language/local/global coverage meet registered criteria |
 | 5 | Prove launch readiness and release | R21–R24 | Solo/team beta journeys pass, costs/reliability measured, real demos complete, release gate recorded |
 
 Waves overlap where dependencies allow. Cost research, UI design and AI-method discovery can proceed together; external AI jobs cannot bypass budget controls while those controls are being built. Public-audit environment changes retain the separate issue #43 release boundary.
+
+### Immediate implementation sequence — September 9 refinement
+
+Follow P0–P5 in the [specialist/knowledge/weekly specification](AGENT_WEEKLY_PLAN_2026_09_09.md): **finish generated-result recovery → project knowledge and brand upload → website/catalog refresh → weekly specialist workflow → full team/faces and scoped lessons → measured outcome learning**. P1/P2 implementation can proceed while external provider/Stripe setup is blocked. Preserve the wider waves below; the new sequence does not discard billing, observed AI, integrations, localization or launch proof.
 
 ### 0. Baseline before the next feature sprint
 
@@ -54,13 +59,14 @@ Waves overlap where dependencies allow. Cost research, UI design and AI-method d
 - [ ] Reconcile actual migrations, runtime build identity and configuration presence with code. Record names/status only. Vercel success does not verify the custom domain.
 - [ ] Finish remaining read-only discovery under issue #43; it is already authorized. Prepare the concrete environment package before any required release decision. Do not ask again for read-only permission.
 - [ ] Review open PR #58 (authoring expansion), PR #2 (bootstrap blueprint) and PR #62 (design engineering). Carry requirements forward without claiming they are merged or automatically merging them.
-- [ ] Select the first bounded cost/reliability implementation packet with acceptance evidence, owner, cost ceiling and rollback.
+- [ ] Finish the existing durable-result recovery packet before adding the learning redesign to runtime. Preserve uncommitted work, reconcile #105 FAQ save changes, and record acceptance/release before starting P1.
 
 ### 1. Costs, autonomy, notifications and subscriptions
 
 - [ ] Measure research/writing/revisions, images/retries, AI observations, agent tools, crawl/backlink APIs, storage and delivery costs. Model typical, high-use and maximum supported usage; set prices from evidence.
-- [ ] Preserve server entitlements; fix metering RPC/no-row fail-open behavior. Reserve/reconcile budgets atomically, bound retries/time/tool calls, enforce account/global ceilings. Keep reading, manual editing and operational alerts available when paid AI pauses.
+- [ ] Preserve delivered server entitlements, fail-closed metering and atomic budget admission. Complete expense reconciliation and acceptance of retry/time/tool and account/global limits. Keep reading, manual editing and operational alerts available when paid AI pauses.
 - [ ] Implement explicit Manual / Review / Autopilot modes, with mixed settings by action/project. Solo/team are a separate axis. Keep version-specific approvals, pause, cancellation, retries and uncertain publication results understandable.
+- [ ] Replace monthly content preparation with a configurable pre-week business refresh and preparation cycle, followed by article-specific freshness checks before publication. Migrate scheduler ownership once; preserve booked slots, owner edits and approval versions. Missing critical facts hold the affected article. See [specialist/knowledge/weekly specification](AGENT_WEEKLY_PLAN_2026_09_09.md).
 - [ ] Verify background work with the user logged out: duplicate/concurrent jobs, expired CMS credentials, missed slots and late approvals. Check destination state before retrying uncertain publication.
 - [ ] Add email + in-app alerts for missing approval, blocked/failed publication, overdue manual action, empty/partly covered next week, quota shortage and paused autopilot. Add grouped weekly digest, timezone/cadence and responsible recipient. Deduplicate and recheck before sending.
 - [ ] Build Stripe checkout, portal, webhook replay/order handling and entitlement lifecycle: renewal, upgrade/downgrade, failed payment, cancellation and refunds. Inspect existing subscribers before selecting migration. Sandbox first, live configuration later.
@@ -70,6 +76,7 @@ Waves overlap where dependencies allow. Cost research, UI design and AI-method d
 ### 2. Premium experience and content quality
 
 - [ ] Finish setup/edit/onboarding: identity, services/products, markets, content language, voice, goals, competitors, Brand Intelligence, cadence, autonomy, integrations and incomplete-setup recovery. Preserve unrelated settings and content during edits.
+- [ ] Add optional brand-guidelines upload, website-led and skip setup paths; review extracted facts/style with provenance. Extend What Milo knows / Teach Milo with isolated, versioned project knowledge, explicit corrections, conflict/staleness and removal controls. Use accepted context in both text and visual briefs.
 - [ ] Apply the chosen Today/list+inspector/calendar design across Studio, setup, audits, competitors, authority, backlinks, analytics, reports, connected apps, billing and onboarding. Keep board/archive/bulk/discovery and every mapped action.
 - [ ] Verify mobile/tablet/desktop, long translations, overflow, empty/loading/error states, keyboard/focus and reduced motion. Wombat Ops remains a direction in progress, not a completed reference.
 - [ ] Finish Studio image/hook/author/source/internal-link/quality flows and canonical preview/export/CMS parity; preserve legacy compatibility, stable image anchors and stale-approval/score handling.
@@ -84,12 +91,12 @@ Waves overlap where dependencies allow. Cost research, UI design and AI-method d
 - [ ] Keep mentions, citations, crawler access, human AI referrals and conversions separate. Profound-style crawler analytics requires server/edge logs and bot verification; a JavaScript referral beacon is insufficient. Log ingestion/attribution are explicit work, not an inferred benefit of an agent.
 - [ ] Verify direct GSC OAuth/API and actionable query/page movement; CSV stays fallback. Preserve audits, schema/content consistency, indexability, internal-link safety and analytics; fill verified technical gaps.
 - [ ] Complete `evidence → action → draft/change → publication evidence → later measurement`. Report observed changes and limitations, not unsupported causality. Extend existing monthly proof reports and action history.
-- [ ] Make the Milo agent use existing tools: inspect evidence, propose a plan, execute permitted steps, verify results and explain blockers. Jobs need resumable status and visible cost/permission bounds across app, Slack and MCP.
-- [ ] Explore the proposed “Milo” identity and stylized AI face. Final avatar and any trust improvement require validation; do not imply a fictional human operator or mistake an avatar for capability.
+- [ ] Deliver Milo as Growth Lead with Brand, Search, Content, Visual, SEO, Backlinks & Authority, AI Visibility and Performance specialists over existing tools. Share only the correct project context; inspect evidence, research, prepare/update content, check results and explain blockers. Run relevant bounded workflows, with resumable jobs and shared permissions across app, Slack and MCP.
+- [ ] Implement and validate the specialist team view and visibly AI faces with real status, last work and next action. Final character names/designs remain D05. Add scoped, editable/reversible editorial lessons and evaluated workflow improvements; agents cannot expand their own budget or permissions.
 
 ### 4. Authority, distribution and international coverage
 
-- [ ] Finish backlinks intelligence (DataForSEO revalidation, gaps, new/lost monitoring), Linkhouse adapter (private contract; quote/order/status/error/refund acceptance) and controlled outreach (sender, recipient review, suppression, idempotency). Separate supplier expense from subscription margin. No guaranteed placements or own exchange network.
+- [ ] Deliver a dedicated Backlinks & Authority specialist in this phase, using project brand/niche knowledge for sourced opportunities, outreach/placement proposals and verified results. Finish backlinks intelligence (DataForSEO revalidation, gaps, new/lost monitoring), Linkhouse adapter (private contract; quote/order/status/error/refund acceptance) and controlled outreach (sender, recipient review, suppression, idempotency). Separate supplier expense from subscription margin. No guaranteed placements or own exchange network.
 - [ ] Preserve Claude/ChatGPT MCP; finish secure external image ingest, profile/bootstrap proposals, opportunity batches/readiness and pipeline ergonomics. Track open proposals versus implemented tools.
 - [ ] Maintain a client matrix: Claude, ChatGPT, Perplexity, Gemini, Copilot, Grok, Mistral/Le Chat; DeepSeek is a candidate. Verify exact app/CLI, transport/auth, plan requirements, supported actions and reconnect/revoke behavior. Provider API access does not prove consumer custom-MCP support. Keep unsupported routes visibly blocked with alternatives; do not silently delete coverage goals.
 - [ ] Add optional Slack alerts, summaries, @Milo/DM and authenticated review/action controls over the same permissions. Reuse execution jobs. Slack is planned; public-launch timing remains an open sequencing decision.
@@ -116,7 +123,7 @@ Waves overlap where dependencies allow. Cost research, UI design and AI-method d
 | M5 | Local playbooks and deeper GBP/entity/review capabilities |
 | M6 | Authority quality and supplier/outreach improvements |
 | M7 | Additional agency portfolios if demand/PMF gate passes |
-| M8 | Recommendation learning and further cost optimization |
+| M8 | Deepen measured outcome learning, recommendation calibration and cost optimization; initial project memory/weekly workflows ship in the current plan |
 | M9 | Customer-consented case studies and experiments |
 | M10 | Partner distribution and validated integrations |
 | M11 | Language/market quality and broader trustworthy AI coverage |

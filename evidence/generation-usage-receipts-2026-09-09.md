@@ -36,9 +36,10 @@ After review, apply the exact reviewed migration once in a transaction before de
 
 Rollback is an application rollback to #103 while retaining receipts and counters for audit. Do not drop the registry, reset usage, or refund reserved receipts just because they are old: some may have produced valid output or have late database commits. Historical charges cannot be reconstructed reliably from the old aggregate counter alone.
 
-
 ## Release verified — 9 September, 12:34 UTC
 
-Normal merge `9b2d26b74654ad6cd5e05876ddf1c0f72623a8fa` includes reviewed head `63f28754e1a9834cbf5f455e23621f5d4b965942`. Review34349698388 succeeded/is_errorfalse with no inline findings; five reported permission denials limit review completeness. Deployment `1bb89306-cf0b-401e-bdb8-47e7968ca217`, build `1788956633294`, full fingerprint `21b86a318dc2154f741579e4fd70587fe2787177b8676ed9470542a097e09489` and every component match clean source. Runtime reports the exact merge and modifiedfalse.
+This release writeback supersedes the pending procedure above. It was recovered from the implementation worktree during the later documentation reconciliation; no migration or deployment was repeated.
 
-The exact reviewed migration20260909150000 was applied once in a transaction. RLS is active; service RPCs/read are allowed, service direct writes and browser roles are denied. New registry has zero receipts; original usage remains10rows/226units; budgets/permits/native requests all0. Do not reapply. Home/MCP GET200, OPTIONS204, anonymousPOST401. First HTTP check timed out, subsequent verification passed. No live AI/provider, authenticated UI, funding, email or publication was performed.
+Normal merge `9b2d26b74654ad6cd5e05876ddf1c0f72623a8fa` includes reviewed head `63f28754e1a9834cbf5f455e23621f5d4b965942`. Review 34349698388 succeeded (`is_error: false`) with no inline findings; five reported permission denials limit review completeness. Deployment `1bb89306-cf0b-401e-bdb8-47e7968ca217`, build `1788956633294`, full fingerprint `21b86a318dc2154f741579e4fd70587fe2787177b8676ed9470542a097e09489` and every component match clean source. Runtime reports the exact merge and `modified: false`.
+
+The exact reviewed migration `20260909150000_generation_usage_receipts.sql` was applied once in a transaction. RLS is active; service RPCs/read are allowed, service direct writes and browser roles are denied. New registry has zero receipts; original usage remains 10 rows / 226 units; budgets/permits/native requests are all zero. Do not reapply. Home/MCP GET 200, OPTIONS 204, anonymous POST 401. First HTTP check timed out; subsequent verification passed. No live AI/provider, authenticated UI, funding, email or publication was performed.

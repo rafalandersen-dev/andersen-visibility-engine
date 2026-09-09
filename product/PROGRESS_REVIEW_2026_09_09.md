@@ -1,5 +1,7 @@
 # Milo Growth — progress review, 9 September 2026
 
+> Historical estimate: the assessment below was made earlier on September 9, before the specialist-team, brand-upload and weekly-preparation refinement and later releases. It is not a current completion percentage. Use [CURRENT_STATE.md](CURRENT_STATE.md) and [specialist/knowledge/weekly specification](AGENT_WEEKLY_PLAN_2026_09_09.md) for current scope and next work; re-estimate from implementation/acceptance evidence after the next milestone. Earlier task states and release baselines below remain dated history.
+
 ## Overall assessment
 
 **Approximately 40% complete / 60% remaining against the full agreed delivery scope.** Working uncertainty range: **50–70% remaining**. This is a new planning judgment, not a measured time-sheet percentage, launch approval, completion probability or deadline. It includes implementation and acceptance; it excludes ongoing post-launch business operation. No earlier percentage is reused.
