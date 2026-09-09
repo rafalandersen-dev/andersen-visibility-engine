@@ -1,5 +1,7 @@
 export const generationResults: Record<"en" | "pl" | "sv" | "da", Record<string, string>> = {
   en: {
+    "generationResults.downloadOnly":
+      "This result is available to download. Its current target cannot be restored.",
     "generationResults.title": "Recent generations",
     "generationResults.description":
       "Recover a draft or image after an interrupted connection, without generating it again.",
@@ -34,6 +36,8 @@ export const generationResults: Record<"en" | "pl" | "sv" | "da", Record<string,
     "generationResults.timezone": "Times use your device’s time zone.",
   },
   pl: {
+    "generationResults.downloadOnly":
+      "Ten wynik możesz pobrać. Nie można go przywrócić do bieżącego miejsca docelowego.",
     "generationResults.title": "Ostatnie generacje",
     "generationResults.description":
       "Odzyskaj szkic lub obraz po przerwanym połączeniu bez ponownego generowania.",
@@ -69,6 +73,8 @@ export const generationResults: Record<"en" | "pl" | "sv" | "da", Record<string,
     "generationResults.timezone": "Godziny są podane w strefie czasowej Twojego urządzenia.",
   },
   sv: {
+    "generationResults.downloadOnly":
+      "Du kan ladda ner resultatet. Det kan inte återställas till sitt nuvarande mål.",
     "generationResults.title": "Senaste genereringar",
     "generationResults.description":
       "Återställ ett utkast eller en bild efter en avbruten anslutning utan att generera igen.",
@@ -104,6 +110,8 @@ export const generationResults: Record<"en" | "pl" | "sv" | "da", Record<string,
     "generationResults.timezone": "Tider visas i enhetens tidszon.",
   },
   da: {
+    "generationResults.downloadOnly":
+      "Du kan downloade resultatet. Det kan ikke gendannes til sit nuværende mål.",
     "generationResults.title": "Seneste genereringer",
     "generationResults.description":
       "Gendan et udkast eller et billede efter en afbrudt forbindelse uden at generere igen.",

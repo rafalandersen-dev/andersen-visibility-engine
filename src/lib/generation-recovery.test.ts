@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseGenerationResult } from "./generation-result";
 import {
+  canRestoreGenerationResult,
   recoverGeneratedResultMutation,
   recoverGenerationResult,
 } from "./generation-recovery.server";
@@ -19,7 +20,7 @@ const output = {
   internalLinks: [],
   schemaSuggestions: [],
   editorNotes: "Review",
-  hookProposals: [{ text: "A clear hook", type: "question" }],
+  hookProposals: [{ text: "A clear hook", type: "question" as const }],
 };
 const article = parseGenerationResult(
   {
@@ -35,6 +36,7 @@ const article = parseGenerationResult(
   },
   user,
 );
+if (article.kind !== "content") throw new Error("Invalid content fixture");
 const image = parseGenerationResult(
   {
     version: 1,
@@ -229,5 +231,74 @@ describe("recovering one saved generation", () => {
     await vi.runAllTimersAsync();
     expect(update).toHaveBeenCalledTimes(1);
     expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+describe("recovered content has the normal generation safeguards", () => {
+  it("rederives the canonical rewrite destination and keeps the draft unapproved", () => {
+    const data = base();
+    Object.assign((data.opportunities as Opportunity[])[0], {
+      canonicalUrl: "https://example.com/services/original-page",
+    });
+    const result = recoverGeneratedResultMutation(data, article, now);
+    expect((result.data.content as ContentAsset[])[0]).toMatchObject({
+      publishSlug: "services/original-page",
+      republishTargetUrl: "https://example.com/services/original-page",
+      status: "Draft",
+    });
+    expect((result.data.content as ContentAsset[])[0].liveUrl).toBeUndefined();
+  });
+  it.each(["wordpress", "shopify"])(
+    "holds missing-ID rewrites for %s rather than creating a second URL",
+    (connectorType) => {
+      const data = base();
+      data.projects = [{ id: "p", connectorType }];
+      Object.assign((data.opportunities as Opportunity[])[0], {
+        canonicalUrl: "https://example.com/old",
+      });
+      expect(() => recoverGeneratedResultMutation(data, article, now)).toThrow(
+        "rewrite_target_unavailable",
+      );
+      expect(canRestoreGenerationResult(data, article)).toBe(false);
+    },
+  );
+  it.each([
+    "not a URL",
+    "javascript:alert(1)",
+    "https://user:password@example.com/old",
+    "https://example.com/",
+  ])("holds unsafe or ambiguous rewrite targets %#", (canonicalUrl) => {
+    const data = base();
+    Object.assign((data.opportunities as Opportunity[])[0], { canonicalUrl });
+    expect(() => recoverGeneratedResultMutation(data, article, now)).toThrow(
+      "rewrite_target_unavailable",
+    );
+  });
+  it("resolves or removes invented internal links using only this project's inventory", () => {
+    const data = base();
+    data.projects = [
+      { id: "p", websiteUrl: "https://example.com", sitemapInventory: { paths: ["/services"] } },
+    ];
+    data.content = [
+      { id: "other", projectId: "other", liveUrl: "https://example.com/private-other-project" },
+    ];
+    const source = {
+      ...article,
+      output: {
+        ...output,
+        markdown:
+          "[Services](/services) and [Invented](/totally-unrelated-fiction) and [Other](/private-other-project).",
+      },
+    };
+    const result = recoverGeneratedResultMutation(data, source, now);
+    const saved = (result.data.content as ContentAsset[]).find((a) => a.id === "a")!;
+    expect(saved.markdown).toContain("[Services](/services)");
+    expect(saved.markdown).not.toContain("](/totally-unrelated-fiction)");
+    expect(saved.markdown).not.toContain("](/private-other-project)");
+    expect(source.output.markdown).toContain("](/totally-unrelated-fiction)");
+  });
+  it("offers download only for an evaluation target that was never stored", () => {
+    expect(canRestoreGenerationResult(base(), { ...article, opportunityId: "eval" })).toBe(false);
+    expect(canRestoreGenerationResult(base(), article)).toBe(true);
   });
 });

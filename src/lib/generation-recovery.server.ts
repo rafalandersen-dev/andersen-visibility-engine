@@ -3,6 +3,8 @@ import { parseGenerationResult } from "./generation-result";
 import { readGenerationResult } from "./generation-result.server";
 import { applyExternalDraftEdits } from "./external-draft";
 import { resolveContentLanguage } from "./content-languages";
+import { autoResolveInternalLinks } from "./auto-scheduler";
+import { buildActiveInternalPaths } from "./publish-targets";
 import { slugifyForPublish } from "./markdown";
 import { isArticleLikeAssetType } from "./visual-model";
 import type { ContentAsset, ContentImage, Opportunity, Project } from "./types";
@@ -24,8 +26,8 @@ export function recoverGeneratedResultMutation(
 ): WorkspaceMutationOutcome<Recovered> {
   const projects = records<Project>(data, "projects"),
     content = records<ContentAsset>(data, "content");
-  if (!projects.some((p) => p.id === result.projectId))
-    throw new Error("recovery_target_unavailable");
+  const project = projects.find((p) => p.id === result.projectId);
+  if (!project) throw new Error("recovery_target_unavailable");
   const existing = content.find((a) => a.id === result.assetId);
   const base = { assetId: result.assetId, projectId: result.projectId };
   if (existing && existing.projectId !== result.projectId)
@@ -47,8 +49,45 @@ export function recoverGeneratedResultMutation(
       throw new Error("recovery_target_unavailable");
     const language = resolveContentLanguage(result.language);
     if (!language) throw new Error("recovery_language_unavailable");
+    let rewrite: Pick<ContentAsset, "publishSlug" | "republishTargetUrl"> = {};
+    if (opp.canonicalUrl) {
+      // The live destination survives the lost draft on the opportunity. Use
+      // current authoritative provenance, never a title-derived duplicate URL.
+      if (
+        project.publishMode !== "manualLive" &&
+        project.connectorType &&
+        project.connectorType !== "custom"
+      )
+        throw new Error("recovery_rewrite_target_unavailable");
+      let target: URL;
+      try {
+        target = new URL(opp.canonicalUrl);
+      } catch {
+        throw new Error("recovery_rewrite_target_unavailable");
+      }
+      const publishSlug = target.pathname.replace(/^\//, "");
+      if (
+        !["http:", "https:"].includes(target.protocol) ||
+        target.username ||
+        target.password ||
+        !publishSlug
+      )
+        throw new Error("recovery_rewrite_target_unavailable");
+      rewrite = { publishSlug, republishTargetUrl: opp.canonicalUrl };
+    }
+    const resolved = autoResolveInternalLinks(
+      result.output.markdown,
+      new Set(
+        buildActiveInternalPaths(
+          project,
+          content.filter((a) => a.projectId === project.id),
+        ),
+      ),
+    );
     const asset: ContentAsset = {
       ...result.output,
+      markdown: resolved.markdown,
+      ...rewrite,
       id: result.assetId,
       projectId: result.projectId,
       opportunityId: result.opportunityId,
@@ -192,4 +231,21 @@ export async function recoverGenerationResult(
   // deletion/edit must not be resurrected by an internal retry.
   if (rev === null) throw new Error("recovery_workspace_changed");
   return next.result;
+}
+
+/** Availability is checked against current owned targets; retained evaluation
+ * output and removed targets remain downloadable without a broken Restore CTA.
+ */
+export function canRestoreGenerationResult(data: WorkspaceData, result: GenerationResult): boolean {
+  try {
+    recoverGeneratedResultMutation(
+      structuredClone(data),
+      result,
+      new Date().toISOString(),
+      "availability-check",
+    );
+    return true;
+  } catch {
+    return false;
+  }
 }

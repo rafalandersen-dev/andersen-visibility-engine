@@ -33,7 +33,27 @@ export const readGenerationResultFn = createServerFn({ method: "POST" })
   .inputValidator((v: unknown) => idInput.parse(v))
   .handler(async ({ data, context }) => {
     const { readGenerationResult } = await import("./generation-result.server");
-    return readGenerationResult(context.userId, data.receiptId);
+    const result = await readGenerationResult(context.userId, data.receiptId);
+    if (!result) return null;
+    const { readWorkspaceRow } = await import("./workspace.server");
+    const { canRestoreGenerationResult } = await import("./generation-recovery.server");
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const workspace = await Promise.race([
+        readWorkspaceRow(context.userId),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error("timeout")), 10000);
+        }),
+      ]);
+      return {
+        ...result,
+        canRestore: !!workspace && canRestoreGenerationResult(workspace.data, result.result),
+      };
+    } catch {
+      return { ...result, canRestore: false };
+    } finally {
+      clearTimeout(timer);
+    }
   });
 export const discardGenerationResultFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

@@ -263,9 +263,15 @@ export function GenerationResultsPanel({
                 </figure>
               )}
               <div className="mt-4 flex flex-wrap gap-2">
-                <Button disabled={busy} onClick={() => void restore()}>
-                  {t("generationResults.restore")}
-                </Button>
+                {detail.canRestore ? (
+                  <Button disabled={busy} onClick={() => void restore()}>
+                    {t("generationResults.restore")}
+                  </Button>
+                ) : (
+                  <p className="w-full text-sm text-muted-foreground">
+                    {t("generationResults.downloadOnly")}
+                  </p>
+                )}
                 <Button variant="outline" onClick={() => void download()} disabled={busy}>
                   {t(
                     detail.result.kind === "content"

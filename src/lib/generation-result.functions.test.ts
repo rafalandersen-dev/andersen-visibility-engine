@@ -5,6 +5,8 @@ const h = vi.hoisted(() => ({
   discard: vi.fn(),
   recover: vi.fn(),
   download: vi.fn(),
+  workspace: vi.fn(),
+  canRestore: vi.fn(),
   auth: Symbol("auth"),
   registered: [] as unknown[][],
 }));
@@ -32,7 +34,11 @@ vi.mock("./generation-result.server", () => ({
   readGenerationResult: h.read,
   discardGenerationResult: h.discard,
 }));
-vi.mock("./generation-recovery.server", () => ({ recoverGenerationResult: h.recover }));
+vi.mock("./generation-recovery.server", () => ({
+  recoverGenerationResult: h.recover,
+  canRestoreGenerationResult: h.canRestore,
+}));
+vi.mock("./workspace.server", () => ({ readWorkspaceRow: h.workspace }));
 vi.mock("./generation-result-download.server", () => ({ getGenerationImageDownload: h.download }));
 import {
   getGenerationImageDownloadFn,
@@ -93,4 +99,15 @@ describe("authenticated generation-result functions", () => {
       "Milo could not restore this result",
     );
   });
+});
+
+it("marks retained evaluation or missing-target output as download-only", async () => {
+  h.read.mockResolvedValue({ id, result: { kind: "content", opportunityId: "eval" } });
+  h.workspace.mockResolvedValue({ data: { projects: [], content: [] }, rev: 1 });
+  h.canRestore.mockReturnValue(false);
+  await expect(call(readGenerationResultFn, { receiptId: id })).resolves.toMatchObject({
+    id,
+    canRestore: false,
+  });
+  expect(h.workspace).toHaveBeenCalledExactlyOnceWith("authenticated-owner");
 });

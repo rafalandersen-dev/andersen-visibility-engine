@@ -20,9 +20,13 @@ Active worktree: `/Users/rafi/Projects/milo-growth-generation-result-recovery-20
 - The monthly scheduler preserves a draft already restored/edited during a delayed generation response: it neither replaces its opportunity pointer nor queues it using the original automatic approval. Unknown result retention stops further provider work in that run. Focused scheduler tests pass (24 tests / 2 files).
 - Recovery flushes pending local workspace edits before its server mutation and reload. An original generation returning after same-tab recovery opens the existing draft instead of replacing it.
 
+## Review findings addressed
+
+Codex review of `cada743` identified three real issues. Recovery now rederives the canonical rewrite URL/path from the current owned opportunity, holds missing-ID WordPress/Shopify rewrites rather than creating duplicates, and runs the same deterministic internal-link cleanup as normal generation against only this project's inventory. Result detail computes current restoration availability; synthetic evaluation/missing targets retain download access without a failing Restore action. Focused fixes: 38 tests / 3 files pass; full suite updated below.
+
 ## Validation
 
-- Full suite: **2,311 tests / 158 files passed**, captured exit 0; `/tmp/milo-recovery-full-final.log`.
+- Full suite: **2,321 tests / 158 files passed**, captured exit 0; `/tmp/milo-recovery-full-final.log`.
 - Focused recovery/download/authentication-wiring/migration/FAQ checks: **87 tests / 5 files passed**. Browser-store integration: **18 tests / 3 files passed**.
 - TypeScript `--noEmit`, production build, focused lint on new recovery and changed persistence files, and diff whitespace checks passed with captured successful exits. Logs: `/tmp/milo-recovery-types-final.log`, `/tmp/milo-recovery-build-final.log`, `/tmp/milo-recovery-lint-final.log`.
 - Database tests execute the proposed migration in PGlite and cover owner isolation/roles, immutable replay, discard tombstones, atomic quota completion, pagination, stale creation/update/deletion, identical save replay and preserved entitlement/metadata rules.
