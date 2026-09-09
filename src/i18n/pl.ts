@@ -1,5 +1,23 @@
 // Milo Growth — Polish dictionary. Mirrors the keys in en.ts.
 export const pl: Record<string, string> = {
+  "benchmark.statusError": "Stan testu jest niedostępny. Możesz bezpiecznie odświeżyć — nie ponowi to generowania.",
+  "benchmark.title": "Test generowania dla właściciela",
+  "benchmark.description": "Jeden skan strony, jeden artykuł i jeden obraz w zatwierdzonym limicie 5 USD. Wyniki zostają w szkicu do sprawdzenia.",
+  "benchmark.scan": "Skan strony",
+  "benchmark.article": "Artykuł",
+  "benchmark.image": "Obraz",
+  "benchmark.done": "Gotowe",
+  "benchmark.working": "Trwa…",
+  "benchmark.waiting": "Oczekuje",
+  "benchmark.configuration": "Połącz OpenAI przed uruchomieniem testu.",
+  "benchmark.expired": "Zezwolenie na ten test wygasło. Zapisane wyniki pozostają dostępne.",
+  "benchmark.stopped": "Test wymaga sprawdzenia. Odświeżenie sprawdza stan bez ponawiania wywołania AI.",
+  "benchmark.complete": "Artykuł i proponowany obraz czekają na sprawdzenie w edytorze.",
+  "benchmark.start": "Uruchom zatwierdzony test",
+  "benchmark.continue": "Kontynuuj pozostałe etapy",
+  "benchmark.refresh": "Odśwież stan",
+  "benchmark.openDraft": "Otwórz szkic",
+
   "common.back": "Wstecz",
   "common.continue": "Dalej",
   "common.save": "Zapisz",

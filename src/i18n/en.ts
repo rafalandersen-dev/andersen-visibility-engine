@@ -2,6 +2,24 @@
 // Keys are stable; other languages mirror these keys. Missing keys fall back to
 // English (see ../i18n). Interpolation uses {var} tokens.
 export const en: Record<string, string> = {
+  "benchmark.statusError": "The test status is unavailable. You can refresh safely; this does not repeat generation.",
+  "benchmark.title": "Owner generation test",
+  "benchmark.description": "One website scan, one article and one image, within the approved $5 total. Results stay in a draft for your review.",
+  "benchmark.scan": "Website scan",
+  "benchmark.article": "Article",
+  "benchmark.image": "Image",
+  "benchmark.done": "Done",
+  "benchmark.working": "Working…",
+  "benchmark.waiting": "Waiting",
+  "benchmark.configuration": "Connect OpenAI before starting this test.",
+  "benchmark.expired": "This test authorization has expired. Its saved results remain available.",
+  "benchmark.stopped": "The test needs review. Refresh checks its status without repeating an AI request.",
+  "benchmark.complete": "The article and proposed image are ready in the editor for review.",
+  "benchmark.start": "Start approved test",
+  "benchmark.continue": "Continue remaining steps",
+  "benchmark.refresh": "Refresh status",
+  "benchmark.openDraft": "Open draft",
+
   // ---- Common ----
   "common.back": "Back",
   "common.continue": "Continue",

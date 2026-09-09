@@ -56,6 +56,7 @@ import { Route as AuthenticatedAppSetupRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAppServicesRouteImport } from './routes/_authenticated/app.services'
 import { Route as AuthenticatedAppReportRouteImport } from './routes/_authenticated/app.report'
 import { Route as AuthenticatedAppPlanRouteImport } from './routes/_authenticated/app.plan'
+import { Route as AuthenticatedAppOwnerTestRouteImport } from './routes/_authenticated/app.owner-test'
 import { Route as AuthenticatedAppOutreachRouteImport } from './routes/_authenticated/app.outreach'
 import { Route as AuthenticatedAppOpportunitiesRouteImport } from './routes/_authenticated/app.opportunities'
 import { Route as AuthenticatedAppOnboardingRouteImport } from './routes/_authenticated/app.onboarding'
@@ -323,6 +324,12 @@ const AuthenticatedAppPlanRoute = AuthenticatedAppPlanRouteImport.update({
   path: '/app/plan',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAppOwnerTestRoute =
+  AuthenticatedAppOwnerTestRouteImport.update({
+    id: '/app/owner-test',
+    path: '/app/owner-test',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAppOutreachRoute =
   AuthenticatedAppOutreachRouteImport.update({
     id: '/app/outreach',
@@ -543,6 +550,7 @@ export interface FileRoutesByFullPath {
   '/app/onboarding': typeof AuthenticatedAppOnboardingRoute
   '/app/opportunities': typeof AuthenticatedAppOpportunitiesRoute
   '/app/outreach': typeof AuthenticatedAppOutreachRoute
+  '/app/owner-test': typeof AuthenticatedAppOwnerTestRoute
   '/app/plan': typeof AuthenticatedAppPlanRoute
   '/app/report': typeof AuthenticatedAppReportRoute
   '/app/services': typeof AuthenticatedAppServicesRoute
@@ -620,6 +628,7 @@ export interface FileRoutesByTo {
   '/app/onboarding': typeof AuthenticatedAppOnboardingRoute
   '/app/opportunities': typeof AuthenticatedAppOpportunitiesRoute
   '/app/outreach': typeof AuthenticatedAppOutreachRoute
+  '/app/owner-test': typeof AuthenticatedAppOwnerTestRoute
   '/app/plan': typeof AuthenticatedAppPlanRoute
   '/app/report': typeof AuthenticatedAppReportRoute
   '/app/services': typeof AuthenticatedAppServicesRoute
@@ -699,6 +708,7 @@ export interface FileRoutesById {
   '/_authenticated/app/onboarding': typeof AuthenticatedAppOnboardingRoute
   '/_authenticated/app/opportunities': typeof AuthenticatedAppOpportunitiesRoute
   '/_authenticated/app/outreach': typeof AuthenticatedAppOutreachRoute
+  '/_authenticated/app/owner-test': typeof AuthenticatedAppOwnerTestRoute
   '/_authenticated/app/plan': typeof AuthenticatedAppPlanRoute
   '/_authenticated/app/report': typeof AuthenticatedAppReportRoute
   '/_authenticated/app/services': typeof AuthenticatedAppServicesRoute
@@ -778,6 +788,7 @@ export interface FileRouteTypes {
     | '/app/onboarding'
     | '/app/opportunities'
     | '/app/outreach'
+    | '/app/owner-test'
     | '/app/plan'
     | '/app/report'
     | '/app/services'
@@ -855,6 +866,7 @@ export interface FileRouteTypes {
     | '/app/onboarding'
     | '/app/opportunities'
     | '/app/outreach'
+    | '/app/owner-test'
     | '/app/plan'
     | '/app/report'
     | '/app/services'
@@ -933,6 +945,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/onboarding'
     | '/_authenticated/app/opportunities'
     | '/_authenticated/app/outreach'
+    | '/_authenticated/app/owner-test'
     | '/_authenticated/app/plan'
     | '/_authenticated/app/report'
     | '/_authenticated/app/services'
@@ -1343,6 +1356,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppPlanRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/app/owner-test': {
+      id: '/_authenticated/app/owner-test'
+      path: '/app/owner-test'
+      fullPath: '/app/owner-test'
+      preLoaderRoute: typeof AuthenticatedAppOwnerTestRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/app/outreach': {
       id: '/_authenticated/app/outreach'
       path: '/app/outreach'
@@ -1570,6 +1590,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppOnboardingRoute: typeof AuthenticatedAppOnboardingRoute
   AuthenticatedAppOpportunitiesRoute: typeof AuthenticatedAppOpportunitiesRoute
   AuthenticatedAppOutreachRoute: typeof AuthenticatedAppOutreachRoute
+  AuthenticatedAppOwnerTestRoute: typeof AuthenticatedAppOwnerTestRoute
   AuthenticatedAppPlanRoute: typeof AuthenticatedAppPlanRoute
   AuthenticatedAppReportRoute: typeof AuthenticatedAppReportRoute
   AuthenticatedAppServicesRoute: typeof AuthenticatedAppServicesRoute
@@ -1598,6 +1619,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppOnboardingRoute: AuthenticatedAppOnboardingRoute,
   AuthenticatedAppOpportunitiesRoute: AuthenticatedAppOpportunitiesRoute,
   AuthenticatedAppOutreachRoute: AuthenticatedAppOutreachRoute,
+  AuthenticatedAppOwnerTestRoute: AuthenticatedAppOwnerTestRoute,
   AuthenticatedAppPlanRoute: AuthenticatedAppPlanRoute,
   AuthenticatedAppReportRoute: AuthenticatedAppReportRoute,
   AuthenticatedAppServicesRoute: AuthenticatedAppServicesRoute,
