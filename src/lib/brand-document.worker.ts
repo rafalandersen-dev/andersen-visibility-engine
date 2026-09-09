@@ -1,6 +1,7 @@
 import mammoth from "mammoth";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import { verifyBrandDocumentExpansion } from "./brand-document-zip";
 import {
   boundedBrandSegments,
   inspectBrandDocument,
@@ -18,6 +19,7 @@ worker.onmessage = async ({ data }) => {
     const bytes = new Uint8Array(data.bytes);
     const kind = inspectBrandDocument(bytes);
     if (kind === "docx") {
+      await verifyBrandDocumentExpansion(bytes);
       // Browser-only ArrayBuffer input: no filesystem paths or external file
       // access. Extract plain text; never render document-provided HTML.
       const result = await mammoth.extractRawText({ arrayBuffer: data.bytes });

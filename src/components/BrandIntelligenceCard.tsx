@@ -21,6 +21,8 @@ import type {
 } from "@/lib/types";
 import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
+import { ProjectKnowledgePanel } from "./ProjectKnowledgePanel";
+import { useAuth } from "@/lib/auth";
 
 const OFFER_TYPES: BrandOffer["type"][] = ["service", "product", "package", "membership", "other"];
 const LINK_TYPES: BrandInternalLink["type"][] = ["service", "product", "article", "booking", "contact", "other"];
@@ -129,6 +131,7 @@ function buildBrand(f: Form): BrandIntelligence {
 
 export function BrandIntelligenceCard({ project }: { project: Project }) {
   const t = useT();
+  const { user } = useAuth();
   const services = useStore((s) => s.services.filter((x) => x.projectId === project.id));
   const [f, setF] = useState<Form>(() => toForm(project.brandIntelligence));
   const [saving, setSaving] = useState(false);
@@ -286,6 +289,7 @@ export function BrandIntelligenceCard({ project }: { project: Project }) {
       <div className="mt-5 flex justify-end">
         <Button onClick={save} disabled={saving}>{saving ? t("brand.saving") : t("brand.save")}</Button>
       </div>
+      {user && <ProjectKnowledgePanel key={`${user.id}:${project.id}`} ownerId={user.id} projectId={project.id} initialWebsiteUrl={project.websiteUrl} />}
     </section>
   );
 }

@@ -27,6 +27,7 @@ import { buildImagePrompt, draftAltText } from "./image-gen";
 import { stageValidatedImageBytes } from "./image-storage.functions";
 
 export interface GeneratedArticleImage {
+  knowledgeReferences?: import("./project-knowledge").KnowledgeReference[];
   generationReceiptId?: string;
   resultId?: string;
   path: string;
@@ -67,11 +68,20 @@ export async function generateArticleImageCore(
         title: args.articleTitle || args.concept,
         concept: args.concept,
       });
-      const prompt = buildImagePrompt({
+      const { loadProjectKnowledgeContext } = await import("./project-knowledge.server");
+      const knowledge = await loadProjectKnowledgeContext(
+        { ownerId: userId, projectId: args.projectId },
+        "visual",
+        undefined,
+        undefined,
+        5500,
+      );
+      const basePrompt = buildImagePrompt({
         concept: args.concept,
         ...(args.articleTitle ? { articleTitle: args.articleTitle } : {}),
         project: args.project,
       });
+      const prompt = [basePrompt, knowledge.context].filter(Boolean).join("\n\n");
       let bytes: Uint8Array;
       try {
         bytes = await generateBudgetedImage(
@@ -98,6 +108,7 @@ export async function generateArticleImageCore(
         previewUrl,
         alt: draftAltText(args.concept, args.project.businessName),
         generationReceiptId: receiptId,
+        knowledgeReferences: knowledge.references,
         resultId: execution.imageId ?? receiptId,
       };
     },

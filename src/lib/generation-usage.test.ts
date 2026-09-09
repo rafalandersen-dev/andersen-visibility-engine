@@ -5,7 +5,9 @@ const h = vi.hoisted(() => ({
   image: vi.fn(),
   stage: vi.fn(),
   plan: vi.fn(),
+  knowledge: vi.fn(),
 }));
+vi.mock("./project-knowledge.server", () => ({ loadProjectKnowledgeContext: h.knowledge }));
 vi.mock("@/integrations/supabase/auth-middleware", () => ({ requireSupabaseAuth: {} }));
 vi.mock("@tanstack/react-start", () => ({
   createServerFn: () => {
@@ -101,6 +103,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.stubEnv("AI_METERING_ENFORCED", "true");
   h.plan.mockResolvedValue("pro");
+  h.knowledge.mockResolvedValue({ context: "", references: [], conflicts: [], omitted: 0 });
   h.rpc.mockImplementation(async (name, p) => reply(name, p));
   h.text.mockResolvedValue(
     JSON.stringify({ markdown: "## A usable generated draft\n\nActual text." }),
@@ -116,6 +119,53 @@ afterEach(() => {
 });
 
 describe("confirmed generation quota and technical failures", () => {
+  it.each(["text", "image", "legacy"])(
+    "uses fresh authenticated knowledge and retains exact references for %s",
+    async (kind) => {
+      const references = [
+        {
+          recordId: user,
+          recordRevision: 2,
+          sourceId: attempt.jobId,
+          sourceRevision: 3,
+          sourceFingerprint: "a".repeat(64),
+        },
+      ];
+      h.knowledge.mockResolvedValue({
+        context: "Approved scoped voice: understated",
+        references,
+        conflicts: [],
+        omitted: 0,
+      });
+      if (kind === "text") await generateContentCore(user, content);
+      else if (kind === "image") await generateArticleImageCore(user, imageArgs);
+      else await fn(generateContentAssetFn, { ...content, kind: "article" });
+      expect(h.knowledge.mock.calls[0].slice(0, 2)).toEqual([
+        { ownerId: user, projectId: "p" },
+        kind === "image" ? "visual" : "text",
+      ]);
+      const provider = kind === "image" ? h.image : h.text;
+      expect(provider.mock.calls[0][1]).toContain("Approved scoped voice: understated");
+      expect(h.knowledge.mock.invocationCallOrder[0]).toBeLessThan(
+        provider.mock.invocationCallOrder[0],
+      );
+      expect(retained()[0][1].p_result.output.knowledgeReferences).toEqual(references);
+    },
+  );
+  it.each(["text", "image"])(
+    "makes no provider call when %s knowledge cannot be authorized",
+    async (kind) => {
+      h.knowledge.mockRejectedValue(new Error("knowledge unavailable"));
+      await expect(
+        kind === "image"
+          ? generateArticleImageCore(user, imageArgs)
+          : generateContentCore(user, content),
+      ).rejects.toThrow("knowledge unavailable");
+      expect(h.text).not.toHaveBeenCalled();
+      expect(h.image).not.toHaveBeenCalled();
+      expect(retained()).toEqual([]);
+    },
+  );
   it("completes one result and correlates server quota to the provider expense identity", async () => {
     const result = await generateContentCore(user, content);
     expect(result.markdown).toContain("usable generated draft");

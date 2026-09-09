@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isValidStorageObjectPath } from "./image-storage";
+import { knowledgeReferencesSchema } from "./project-knowledge";
 
 const identity = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const text = (max: number) => z.string().max(max);
@@ -51,6 +52,7 @@ export const generatedContentResultSchema = z
         internalLinks: strings(2000, 200),
         schemaSuggestions: strings(200, 64),
         editorNotes: text(400),
+        knowledgeReferences: knowledgeReferencesSchema.optional(),
         hookProposals: z
           .array(
             z
@@ -81,6 +83,7 @@ export const generatedImageResultSchema = z
       .object({
         path: z.string().max(280).refine(isValidStorageObjectPath),
         alt: nonempty(500),
+        knowledgeReferences: knowledgeReferencesSchema.optional(),
       })
       .strict(),
   })

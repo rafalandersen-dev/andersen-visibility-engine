@@ -254,6 +254,7 @@ export async function generateContentCalendar(projectId: string) {
 // Content assets (landing brief / article draft)
 // ============================================================
 type AssetResult = {
+  knowledgeReferences?: ContentAsset["knowledgeReferences"];
   resultId?: string;
   metaTitle: string;
   metaDescription: string;
@@ -290,6 +291,7 @@ async function generateAsset(opportunityId: string, kind: "landing" | "article")
     if (existing) return existing; // Recovery may have finished while this response was delayed.
     const asset: ContentAsset = {
       id: result.resultId ?? uid(),
+      knowledgeReferences: result.knowledgeReferences,
       projectId: opp.projectId,
       opportunityId: opp.id,
       title: opp.title,
@@ -1514,6 +1516,7 @@ function sourceTypeForOpportunity(opp: Opportunity): ContentSourceType {
 }
 
 type GeneratedContent = {
+  knowledgeReferences?: ContentAsset["knowledgeReferences"];
   resultId?: string;
   metaTitle: string;
   metaDescription: string;
@@ -1565,6 +1568,7 @@ export async function generateContentForOpportunity(
     if (existing) return existing; // Recovery may have finished while this response was delayed.
     const asset: ContentAsset = {
       id: result.resultId ?? uid(),
+      knowledgeReferences: result.knowledgeReferences,
       projectId: opp.projectId,
       opportunityId: opp.id,
       title: opp.title,

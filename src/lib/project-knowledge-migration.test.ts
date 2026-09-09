@@ -1,5 +1,6 @@
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from "vitest";
 import { selectProjectKnowledge } from "./project-knowledge";
 let db: PGlite;
@@ -15,7 +16,7 @@ const source = {
   revision: 1,
   kind: "document",
   label: "Brand",
-  fingerprint: "a".repeat(64),
+  fingerprint: createHash("sha256").update("PDF").digest("hex"),
   observedAt: now,
   status: "active",
 };
@@ -73,13 +74,96 @@ beforeAll(async () => {
 }, 30000);
 beforeEach(async () => {
   await db.exec(
-    "RESET ROLE; TRUNCATE public.project_knowledge_records,public.project_knowledge_sources,public.project_knowledge_history,public.project_knowledge_tombstones;",
+    "RESET ROLE; TRUNCATE public.project_knowledge_documents,public.project_knowledge_records,public.project_knowledge_sources,public.project_knowledge_history,public.project_knowledge_tombstones;",
   );
 });
 afterAll(async () => {
   await db?.close();
 });
 describe("private revisioned project knowledge", () => {
+  it("rolls back a paired source save if its record cannot be saved", async () => {
+    const ownerSource = { ...source, kind: "owner" };
+    await expect(
+      db.query("SELECT public.save_project_knowledge_pair($1,'p',$2,$3,0,0)", [
+        user,
+        JSON.stringify(ownerSource),
+        JSON.stringify({ ...record, sourceRevision: 9 }),
+      ]),
+    ).rejects.toThrow("source_changed");
+    expect(await read()).toEqual({ sources: [], records: [] });
+    const result = await db.query(
+      "SELECT public.save_project_knowledge_pair($1,'p',$2,$3,0,0) result",
+      [user, JSON.stringify(ownerSource), JSON.stringify(record)],
+    );
+    expect(result.rows).toEqual([{ result: { source: ownerSource, record } }]);
+  });
+  const documentRead = (owner = user, expected = 1) =>
+    db.query("SELECT public.read_project_knowledge_document($1,'p',$2,$3) result", [
+      owner,
+      sid,
+      expected,
+    ]);
+  it("returns only the current owned original and denies stale, foreign and revoked reads", async () => {
+    await upload();
+    expect((await documentRead()).rows).toEqual([{ result: { source, base64: "UERG" } }]);
+    await expect(documentRead(other)).rejects.toThrow("document_unavailable");
+    await expect(documentRead(user, 2)).rejects.toThrow("document_unavailable");
+    await save("source", { ...source, revision: 2, status: "revoked" }, 1);
+    await expect(documentRead(user, 2)).rejects.toThrow("document_unavailable");
+  });
+  it("purges private text and originals when a project is deleted, blocking late resurrection", async () => {
+    await upload();
+    await save("record", record);
+    await db.query(
+      "DELETE FROM public.workspace_entities WHERE user_id=$1 AND collection='projects' AND entity_id='p'",
+      [user],
+    );
+    expect(
+      (await db.query("SELECT count(*)::int n FROM public.project_knowledge_documents")).rows,
+    ).toEqual([{ n: 0 }]);
+    expect(
+      (await db.query("SELECT count(*)::int n FROM public.project_knowledge_history")).rows,
+    ).toEqual([{ n: 0 }]);
+    await db.query("INSERT INTO public.workspace_entities VALUES($1,'projects','p')", [user]);
+    await expect(upload()).rejects.toThrow("knowledge_forgotten");
+    await expect(save("record", record)).rejects.toThrow("knowledge_forgotten");
+  });
+  const upload = (payload = source, expected = 0, owner = user, bytes = "UERG") =>
+    db.query("SELECT public.save_project_knowledge_document($1,'p',$2,$3,$4,$5)", [
+      owner,
+      sid,
+      expected,
+      JSON.stringify(payload),
+      bytes,
+    ]);
+  it("retains original bytes transactionally and removes them on revoke or forget", async () => {
+    await upload();
+    expect(
+      (await db.query("SELECT encode(bytes,'base64') data FROM public.project_knowledge_documents"))
+        .rows,
+    ).toEqual([{ data: "UERG" }]);
+    await save("source", { ...source, revision: 2, status: "revoked" }, 1);
+    expect(
+      (await db.query("SELECT count(*)::int n FROM public.project_knowledge_documents")).rows,
+    ).toEqual([{ n: 0 }]);
+    await upload({ ...source, revision: 3 }, 2);
+    await forget("source", sid, 3);
+    expect(
+      (await db.query("SELECT count(*)::int n FROM public.project_knowledge_documents")).rows,
+    ).toEqual([{ n: 0 }]);
+    await expect(upload()).rejects.toThrow("knowledge_forgotten");
+  });
+  it("rejects document writes for foreign projects and stale replacements without changing bytes", async () => {
+    await upload();
+    await expect(upload(source, 0, other)).rejects.toThrow("invalid_project_knowledge");
+    await expect(upload({ ...source, revision: 2 }, 0)).rejects.toThrow(
+      "invalid_project_knowledge",
+    );
+    expect(
+      (await db.query("SELECT encode(bytes,'base64') data FROM public.project_knowledge_documents"))
+        .rows,
+    ).toEqual([{ data: "UERG" }]);
+  });
   it("stores current records and immutable prior revisions", async () => {
     await save("source", source);
     await save("record", record);
@@ -124,6 +208,11 @@ describe("private revisioned project knowledge", () => {
         "permission denied",
       );
       await expect(read()).rejects.toThrow("permission denied");
+      await expect(db.query("SELECT * FROM public.project_knowledge_documents")).rejects.toThrow(
+        "permission denied",
+      );
+      await expect(upload()).rejects.toThrow("permission denied");
+      await expect(documentRead()).rejects.toThrow("permission denied");
       await expect(save("record", record)).rejects.toThrow("permission denied");
     } finally {
       await db.exec("RESET ROLE");

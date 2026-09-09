@@ -280,6 +280,7 @@ export async function runOwnerBenchmarkStage(
         id: run.image_id,
         concept: run.snapshot.imageConcept,
         storagePath: generated.path,
+        knowledgeReferences: generated.knowledgeReferences,
         alt: generated.alt,
         placement: "featured",
         source: "generated",

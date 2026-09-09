@@ -43,7 +43,8 @@ import {
 } from "@/lib/mock-ai";
 import { defaultAssetTypeFor } from "@/components/CreateContentDialog";
 import type { Market, Currency, OnboardingLanguage, Priority, Project } from "@/lib/types";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ProjectKnowledgePanel } from "@/components/ProjectKnowledgePanel";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, Check, Globe, Loader2, Plus, Sparkles, X } from "lucide-react";
 
@@ -108,7 +109,12 @@ function hostFromUrl(url: string): string {
 
 function OnboardingWizard() {
   const navigate = useNavigate();
-  const { isOwner } = useAuth();
+  const { isOwner, user } = useAuth();
+  const pendingProjectId = useRef("");
+  const [reviewProjectId, setReviewProjectId] = useState("");
+  const [knowledgeBusy, setKnowledgeBusy] = useState(false);
+  const [setupPath, setSetupPath] = useState<"website" | "document" | "skip">("website");
+  const [intakeProjectId, setIntakeProjectId] = useState("");
   const [step, setStep] = useState(1);
   const [w, setW] = useState<WizardData>(initialData);
   // Translate using the language picked in the wizard so the UI updates live as
@@ -172,6 +178,8 @@ function OnboardingWizard() {
     if (!url) return;
     setScanning(true);
     try {
+      // Establish an owned, durable project before the first provider work.
+      await persistSetupProject(false);
       const res = await scanWebsiteFn({ data: { url } });
       if (res.ok) {
         setW((p) => ({
@@ -199,7 +207,7 @@ function OnboardingWizard() {
   async function handleContinue() {
     if (step === 2) {
       // Best-effort scan on leaving the website step (non-blocking on failure).
-      if (w.websiteUrl.trim() && !w.scan) await runScan();
+      if (setupPath === "website" && w.websiteUrl.trim() && !w.scan) await runScan();
       setStep(3);
       return;
     }
@@ -249,22 +257,30 @@ function OnboardingWizard() {
     };
   }
 
-  async function handleGenerate() {
+  async function persistSetupProject(complete: boolean) {
+    const payload = {...buildProjectPayload(), setupComplete: complete, onboardingCompletedAt: complete ? new Date().toISOString() : undefined};
+    const state = getState();
+    const existing = state.projects.find(p => p.id === (pendingProjectId.current || state.activeProjectId));
+    if (existing && (pendingProjectId.current === existing.id || existing.setupComplete === false || !isProjectSetupComplete(existing))) {
+      updateProject(existing.id, payload);
+      pendingProjectId.current = existing.id;
+    } else {
+      pendingProjectId.current = addProject(payload, {isOwner});
+    }
+    setActiveProject(pendingProjectId.current);
+    await saveWorkspaceNow();
+    return pendingProjectId.current;
+  }
+
+  async function handleGenerate(reviewed = false) {
     setGenerating(true);
     setGenStatus(t("onboarding.genStatus.saving"));
     let projectId = "";
     try {
-      const payload = buildProjectPayload();
-      const s = getState();
-      const existing = s.projects.find((p) => p.id === s.activeProjectId);
-      if (existing && !isProjectSetupComplete(existing)) {
-        updateProject(existing.id, payload);
-        projectId = existing.id;
-      } else {
-        projectId = addProject(payload, { isOwner });
-      }
-      setActiveProject(projectId);
+      projectId = await persistSetupProject(reviewed);
+      const existingServices = getState().services.filter(s => s.projectId === projectId);
       for (const sv of w.services.filter((x) => x.name.trim())) {
+        if (existingServices.some(s => s.name.trim().toLowerCase() === sv.name.trim().toLowerCase() && s.kind === sv.kind)) continue;
         addService({
           projectId,
           name: sv.name.trim(),
@@ -284,6 +300,12 @@ function OnboardingWizard() {
         return;
       }
       toast.error(t("onboarding.toast.saveError"));
+      setGenerating(false);
+      return;
+    }
+
+    if (!reviewed) {
+      setReviewProjectId(projectId);
       setGenerating(false);
       return;
     }
@@ -357,6 +379,21 @@ function OnboardingWizard() {
   const canContinue =
     step === 3 ? Boolean(w.businessName.trim()) : true; // only business name is required
 
+  if (reviewProjectId && !generating && user) return (
+    <main className="min-h-screen bg-background text-foreground px-6 py-10">
+      <div className="mx-auto max-w-2xl space-y-5">
+        <h1 className="font-display text-3xl">Review what Milo knows</h1>
+        <p className="text-sm text-muted-foreground">Your project is saved. Optionally upload brand guidelines, build from your website, or teach Milo a recurring instruction before preparing content. You can also skip this step and return in Project Setup.</p>
+        <ProjectKnowledgePanel key={`${user.id}:${reviewProjectId}`} ownerId={user.id} projectId={reviewProjectId} initialWebsiteUrl={w.websiteUrl} onBusyChange={setKnowledgeBusy}/>
+        <div className="flex flex-wrap gap-3">
+          <Button disabled={knowledgeBusy} onClick={() => void handleGenerate(true)}>Continue with reviewed knowledge</Button>
+          <Button variant="outline" disabled={knowledgeBusy} onClick={() => void handleGenerate(true)}>Skip for now</Button>
+          <Button variant="ghost" disabled={knowledgeBusy} onClick={() => navigate({to: "/app/setup", search: {new: undefined}})}>Keep project and finish later</Button>
+        </div>
+      </div>
+    </main>
+  );
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <header className="px-6 md:px-10 py-6 border-b border-border flex items-center justify-between">
@@ -417,6 +454,20 @@ function OnboardingWizard() {
             )}
 
             {step === 2 && (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">Choose an optional starting point for your brand knowledge.</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant={setupPath === "website" ? "default" : "outline"} disabled={scanning || knowledgeBusy} onClick={() => setSetupPath("website")}>Build from website</Button>
+                  <Button type="button" variant={setupPath === "document" ? "default" : "outline"} disabled={scanning || knowledgeBusy} onClick={async () => {
+                    setSetupPath("document"); setScanning(true);
+                    try {setIntakeProjectId(await persistSetupProject(false));}
+                    catch {toast.error(t("onboarding.toast.saveError"));}
+                    finally {setScanning(false);}
+                  }}>Upload brand guidelines</Button>
+                  <Button type="button" variant="ghost" disabled={scanning || knowledgeBusy} onClick={() => {setSetupPath("skip"); setStep(3);}}>Skip for now</Button>
+                </div>
+                {setupPath === "document" && intakeProjectId && user ? <ProjectKnowledgePanel key={`${user.id}:${intakeProjectId}`} ownerId={user.id} projectId={intakeProjectId} initialWebsiteUrl={w.websiteUrl} onBusyChange={setKnowledgeBusy}/> : null}
+                {setupPath === "website" && (
               <Field label={t("onboarding.websiteUrl")}>
                 <Input value={w.websiteUrl} onChange={(e) => set("websiteUrl", e.target.value)} placeholder="https://yourbusiness.com" disabled={scanning} />
                 <Helper>{t("onboarding.websiteHint")}</Helper>
@@ -426,6 +477,8 @@ function OnboardingWizard() {
                   </div>
                 ) : null}
               </Field>
+                )}
+              </div>
             )}
 
             {step === 3 && (
@@ -570,16 +623,16 @@ function OnboardingWizard() {
 
           {/* Footer */}
           <div className="mt-9 flex items-center justify-between">
-            <Button variant="ghost" onClick={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1 || generating}>
+            <Button variant="ghost" onClick={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1 || generating || scanning || knowledgeBusy}>
               <ArrowLeft className="h-4 w-4" /> {t("common.back")}
             </Button>
             {step < 7 ? (
-              <Button onClick={handleContinue} disabled={scanning || !canContinue}>
+              <Button onClick={handleContinue} disabled={scanning || knowledgeBusy || !canContinue}>
                 {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 {t("common.continue")} <ArrowRight className="h-4 w-4" />
               </Button>
             ) : (
-              <Button onClick={handleGenerate} disabled={generating}>
+              <Button onClick={() => void handleGenerate()} disabled={generating}>
                 {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                 {generating ? t("onboarding.generating") : t("onboarding.generate")}
               </Button>

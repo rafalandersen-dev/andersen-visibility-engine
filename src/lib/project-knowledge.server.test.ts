@@ -4,6 +4,8 @@ import {
   loadProjectKnowledgeContext,
   readProjectKnowledge,
   writeProjectKnowledge,
+  saveProjectKnowledgeDocument,
+  revertProjectKnowledgeRecord,
 } from "./project-knowledge.server";
 import type { KnowledgeSource } from "./project-knowledge";
 const scope = { ownerId: "00000000-0000-4000-8000-000000000001", projectId: "p" };
@@ -19,6 +21,70 @@ const source: KnowledgeSource = {
 };
 afterEach(() => vi.useRealTimers());
 describe("server project-knowledge boundary", () => {
+  it("requires an exact forget acknowledgement", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
+    await expect(forgetProjectKnowledge(scope, "source", source.id, 1, rpc)).rejects.toThrow(
+      "could not be confirmed",
+    );
+    rpc.mockResolvedValue({
+      data: { forgotten: true, id: source.id, kind: "source" },
+      error: null,
+    });
+    await expect(
+      forgetProjectKnowledge(scope, "source", source.id, 1, rpc),
+    ).resolves.toBeUndefined();
+  });
+  it("computes the document fingerprint from bytes on the server", async () => {
+    const rpc = vi.fn(async (_name, args) => ({ data: args.p_payload, error: null }));
+    const bytes = new TextEncoder().encode("%PDF-synthetic");
+    const expected = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), (b) =>
+      b.toString(16).padStart(2, "0"),
+    ).join("");
+    const result = await saveProjectKnowledgeDocument(
+      scope,
+      { id: source.id, expectedRevision: 0, label: "Brand", base64: btoa("%PDF-synthetic") },
+      rpc,
+    );
+    expect(result.fingerprint).toBe(expected);
+    expect(result.kind).toBe("document");
+    expect(rpc).toHaveBeenCalledTimes(1);
+    await expect(
+      saveProjectKnowledgeDocument(
+        scope,
+        { id: source.id, expectedRevision: 0, label: "Brand", base64: btoa("not a document") },
+        rpc,
+      ),
+    ).rejects.toThrow("format");
+    expect(rpc).toHaveBeenCalledTimes(1);
+  });
+  it("does not restore a record whose source was replaced", async () => {
+    const record = {
+      ...scope,
+      id: "00000000-0000-4000-8000-000000000003",
+      revision: 1,
+      sourceId: source.id,
+      sourceRevision: 1,
+      key: "voice",
+      category: "voice",
+      appliesTo: "both",
+      value: "Calm",
+      locator: "Owner",
+      status: "accepted",
+      updatedAt: source.observedAt,
+      reviewedAt: source.observedAt,
+    };
+    const rpc = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: { sources: [{ ...source, revision: 2 }], records: [{ ...record, revision: 2 }] },
+        error: null,
+      })
+      .mockResolvedValueOnce({ data: [record], error: null });
+    await expect(revertProjectKnowledgeRecord(scope, record.id, 2, 1, rpc)).rejects.toThrow(
+      "could not be confirmed",
+    );
+    expect(rpc).toHaveBeenCalledTimes(2);
+  });
   it("always forwards the authenticated scope and refuses mismatched stored records", async () => {
     const rpc = vi
       .fn()

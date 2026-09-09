@@ -120,12 +120,22 @@ export async function retainContentGeneration(
 export async function retainImageGeneration(
   userId: string,
   target: z.infer<typeof imageTarget>,
-  result: { generationReceiptId: string; resultId: string; path: string; alt: string },
+  result: {
+    generationReceiptId: string;
+    resultId: string;
+    path: string;
+    alt: string;
+    knowledgeReferences?: import("./project-knowledge").KnowledgeReference[];
+  },
 ) {
   await retainGenerationResult(userId, result.generationReceiptId, {
     ...target,
     imageId: result.resultId,
-    output: { path: result.path, alt: result.alt },
+    output: {
+      path: result.path,
+      alt: result.alt,
+      ...(result.knowledgeReferences ? { knowledgeReferences: result.knowledgeReferences } : {}),
+    },
   });
 }
 export async function listGenerationResults(

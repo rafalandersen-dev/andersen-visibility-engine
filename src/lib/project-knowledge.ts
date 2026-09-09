@@ -81,6 +81,19 @@ export type KnowledgeReference = {
   sourceRevision: number;
   sourceFingerprint: string;
 };
+export const knowledgeReferencesSchema = z
+  .array(
+    z
+      .object({
+        recordId: id,
+        recordRevision: z.number().int().positive(),
+        sourceId: id,
+        sourceRevision: z.number().int().positive(),
+        sourceFingerprint: z.string().regex(/^[a-f0-9]{64}$/),
+      })
+      .strict(),
+  )
+  .max(300);
 export type KnowledgeSelection = {
   records: KnowledgeRecord[];
   references: KnowledgeReference[];

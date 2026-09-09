@@ -80,6 +80,11 @@ export function inspectBrandDocument(bytes: Uint8Array): BrandDocumentKind {
     const localNameLength = view.getUint16(local + 26, true),
       localExtra = view.getUint16(local + 28, true);
     if (
+      view.getUint16(local + 6, true) !== flags ||
+      view.getUint16(local + 8, true) !== method ||
+      (!(flags & 8) &&
+        (view.getUint32(local + 18, true) !== compressed ||
+          view.getUint32(local + 22, true) !== original)) ||
       local + 30 + localNameLength + localExtra + compressed > start ||
       new TextDecoder().decode(bytes.slice(local + 30, local + 30 + localNameLength)) !== name
     )

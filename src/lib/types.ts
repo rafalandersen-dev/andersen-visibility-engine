@@ -623,6 +623,7 @@ export interface CalendarItem {
 }
 
 export interface ContentAsset {
+  knowledgeReferences?: import("./project-knowledge").KnowledgeReference[];
   id: string;
   projectId: string;
   opportunityId?: string;
@@ -858,6 +859,7 @@ export type ContentImageSource = "uploaded" | "existing" | "generated";
 
 /** An image for the article. No hotlinking; alt text is a hard publish gate (C18/C19). */
 export interface ContentImage {
+  knowledgeReferences?: import("./project-knowledge").KnowledgeReference[];
   id: string;
   /** What the image should convey (the visual concept). */
   concept: string;

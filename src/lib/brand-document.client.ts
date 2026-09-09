@@ -20,9 +20,10 @@ export async function extractBrandDocument(
   const worker = new Worker(new URL("./brand-document.worker.ts", import.meta.url), {
     type: "module",
   });
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const result = await new Promise<BrandDocumentText>((resolve, reject) => {
-      const timer = setTimeout(() => {
+      timer = setTimeout(() => {
         worker.terminate();
         reject(new Error("brand_document_timeout"));
       }, 20000);
@@ -35,14 +36,17 @@ export async function extractBrandDocument(
         if (data.ok && data.result) resolve(data.result);
         else reject(new Error(data.error ?? "brand_document_parse_failed"));
       };
-      worker.onerror = () => {
+      const fail = () => {
         clearTimeout(timer);
         reject(new Error("brand_document_parse_failed"));
       };
+      worker.onerror = fail;
+      worker.onmessageerror = fail;
       worker.postMessage({ bytes }, [bytes]);
     });
     return { ...result, fingerprint };
   } finally {
+    clearTimeout(timer);
     worker.terminate();
   }
 }
