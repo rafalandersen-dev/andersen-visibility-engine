@@ -2,6 +2,7 @@
 // Keys are stable; other languages mirror these keys. Missing keys fall back to
 // English (see ../i18n). Interpolation uses {var} tokens.
 export const en: Record<string, string> = {
+  "benchmark.statusError": "The test status is unavailable. You can refresh safely; this does not repeat generation.",
   "benchmark.title": "Owner generation test",
   "benchmark.description": "One website scan, one article and one image, within the approved $5 total. Results stay in a draft for your review.",
   "benchmark.scan": "Website scan",

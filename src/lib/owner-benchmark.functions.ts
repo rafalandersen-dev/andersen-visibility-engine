@@ -18,7 +18,7 @@ export const getOwnerBenchmarkStatusFn = createServerFn({ method: "POST" })
     try {
       return await getOwnerBenchmarkStatus(context.userId, data.runId);
     } catch {
-      return null;
+      throw new Error("The test status could not be read. Refresh to check again.");
     }
   });
 export const runOwnerBenchmarkStageFn = createServerFn({ method: "POST" })

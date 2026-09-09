@@ -1,5 +1,6 @@
 // Milo Growth — Polish dictionary. Mirrors the keys in en.ts.
 export const pl: Record<string, string> = {
+  "benchmark.statusError": "Stan testu jest niedostępny. Możesz bezpiecznie odświeżyć — nie ponowi to generowania.",
   "benchmark.title": "Test generowania dla właściciela",
   "benchmark.description": "Jeden skan strony, jeden artykuł i jeden obraz w zatwierdzonym limicie 5 USD. Wyniki zostają w szkicu do sprawdzenia.",
   "benchmark.scan": "Skan strony",

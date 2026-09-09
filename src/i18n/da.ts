@@ -1,5 +1,6 @@
 // Milo Growth — Danish dictionary. Mirrors the keys in en.ts.
 export const da: Record<string, string> = {
+  "benchmark.statusError": "Testens status er ikke tilgængelig. Du kan opdatere sikkert uden at gentage genereringen.",
   "benchmark.title": "Genereringstest for ejeren",
   "benchmark.description": "Én hjemmesidescanning, én artikel og ét billede inden for det godkendte samlede budget på 5 USD. Resultaterne gemmes som kladde til gennemgang.",
   "benchmark.scan": "Hjemmesidescanning",

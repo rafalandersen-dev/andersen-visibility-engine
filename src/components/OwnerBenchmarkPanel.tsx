@@ -17,12 +17,18 @@ export function OwnerBenchmarkPanel({ runId }: { runId: string }) {
     alive = useRef(true);
   const refresh = useCallback(async () => {
     const result = await getOwnerBenchmarkStatusFn({ data: { runId } });
-    if (alive.current) setStatus(result);
+    if (!result) throw new Error("test_unavailable");
+    if (alive.current) {
+      setStatus(result);
+      setFailed(false);
+    }
     return result;
   }, [runId]);
   useEffect(() => {
     alive.current = true;
-    void refresh().catch(() => {});
+    void refresh().catch(() => {
+      if (alive.current) setFailed(true);
+    });
     return () => {
       alive.current = false;
     };
@@ -30,12 +36,30 @@ export function OwnerBenchmarkPanel({ runId }: { runId: string }) {
   useEffect(() => {
     if (status?.state !== "running") return;
     const timer = setInterval(() => {
-      void refresh().catch(() => {});
+      void refresh().catch(() => {
+        if (alive.current) setFailed(true);
+      });
     }, 5000);
     return () => clearInterval(timer);
   }, [status?.state, refresh]);
-  if (!status) return null;
-  const ready = status.state === "ready" && status.configured && !status.expired;
+  if (!status)
+    return failed ? (
+      <section className="mb-6 rounded-xl border border-border bg-card p-5">
+        <h2 className="font-display text-xl">{t("benchmark.title")}</h2>
+        <p role="alert" className="mt-3 text-sm">
+          {t("benchmark.statusError")}
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          className="mt-4"
+          onClick={() => void refresh().catch(() => setFailed(true))}
+        >
+          {t("benchmark.refresh")}
+        </Button>
+      </section>
+    ) : null;
+  const ready = status.state === "ready" && status.configured && !status.expired && !failed;
   async function start() {
     if (running.current || !ready || !status) return;
     running.current = true;
@@ -47,8 +71,8 @@ export function OwnerBenchmarkPanel({ runId }: { runId: string }) {
         const result = await runOwnerBenchmarkStageFn({ data: { runId, stage: next.stage } });
         if (!alive.current) break;
         if (result.outcome !== "completed_stage") {
-          setFailed(true);
           await refresh();
+          setFailed(true);
           break;
         }
         const updated = await refresh();

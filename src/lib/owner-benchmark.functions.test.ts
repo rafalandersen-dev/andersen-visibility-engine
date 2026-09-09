@@ -75,6 +75,16 @@ describe("owner benchmark authorization boundary", () => {
       await call(runOwnerBenchmarkStageFn, { data: true, error: null }, { runId, stage: "image" }),
     ).toEqual({ outcome: "uncertain" });
   });
+  it("distinguishes a transient status failure from an absent run without leaking details", async () => {
+    mocks.status.mockRejectedValue(new Error("private database details"));
+    await expect(
+      call(getOwnerBenchmarkStatusFn, { data: true, error: null }, { runId }),
+    ).rejects.toThrow("The test status could not be read");
+    mocks.status.mockResolvedValue(null);
+    expect(
+      await call(getOwnerBenchmarkStatusFn, { data: true, error: null }, { runId }),
+    ).toBeNull();
+  });
   it("status only reads and cannot start a test", async () => {
     await call(getOwnerBenchmarkStatusFn, { data: true, error: null }, { runId });
     expect(mocks.status).toHaveBeenCalledExactlyOnceWith(user, runId);

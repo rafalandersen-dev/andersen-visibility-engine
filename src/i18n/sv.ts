@@ -1,5 +1,6 @@
 // Milo Growth — Swedish dictionary. Mirrors the keys in en.ts.
 export const sv: Record<string, string> = {
+  "benchmark.statusError": "Testets status är inte tillgänglig. Du kan uppdatera säkert utan att upprepa genereringen.",
   "benchmark.title": "Genereringstest för ägaren",
   "benchmark.description": "En webbplatsskanning, en artikel och en bild inom den godkända totalbudgeten på 5 USD. Resultaten sparas som utkast för granskning.",
   "benchmark.scan": "Webbplatsskanning",

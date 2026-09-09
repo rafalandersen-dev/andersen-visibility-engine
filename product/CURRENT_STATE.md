@@ -10,7 +10,7 @@ This is the current operational entry point. Read [progress review](PROGRESS_REV
 - PR #100 deployment: `621f0738-ac7c-43d8-bd85-b0dcc074731b`; public build `1788948225765`; full fingerprint `ec6aaf00ba8e77f95ac6a4e5a94ef167ee98489e0046af026e7d8b01f8bf4714`. Full and all component fingerprints match clean merged source. Runtime revision/modified remain null; the deployed runtime version is not reported.
 - Home/MCP GET 200, OPTIONS 204, anonymous MCP POST 401. These are public smoke checks, not authenticated generation or visual acceptance.
 - #100 verification: full suite 2,031 tests / 140 files before the final empty-profile guard; final affected suites 55/55, TypeScript, build, focused lint and whitespace checks passed. Direct public homepage reads passed under Bun 1.3.3 (the recorded hosting builder version), Bun 1.4.0 and Node 26.5.0. Review run 34337173059 succeeded with no inline findings.
-- Migration `20260908210000_restricted_ai_expense_permits.sql` remains the latest applied financial migration. Latest recorded production counts: zero budgets, permits and attempts (8 September; not re-read during #100 release).
+- Migration `20260908210000_restricted_ai_expense_permits.sql` remains the latest applied financial migration. Production counts rechecked on 9 September during runner review: zero budgets, zero permits and zero native provider attempts.
 
 ## Delivered work to preserve
 

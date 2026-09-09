@@ -70,18 +70,19 @@ BEGIN
      OR r.results ? p_stage THEN RETURN false; END IF;
   v_request := CASE p_stage WHEN 'scan' THEN r.scan_request WHEN 'article' THEN r.article_request ELSE r.image_request END;
   v_ceiling := CASE p_stage WHEN 'image' THEN p_image_ceiling ELSE p_text_ceiling END;
-  -- All three permits must match the immutable plan. Prior completed steps may
-  -- have consumed theirs; only this step must still be unused.
+  -- All identities must match. Completed steps may have expired or been
+  -- revoked after use; only this and future steps must still be active.
   IF (SELECT count(*) FROM (VALUES
-      (r.scan_request,'scanWebsiteCore',p_text_model,p_text_ceiling),
-      (r.article_request,'generateContentCore',p_text_model,p_text_ceiling),
-      (r.image_request,'generateArticleImageCore',p_image_model,p_image_ceiling)
-    ) expected(request_id,operation,model,ceiling)
+      (r.scan_request,'scanWebsiteCore',p_text_model,p_text_ceiling,1),
+      (r.article_request,'generateContentCore',p_text_model,p_text_ceiling,2),
+      (r.image_request,'generateArticleImageCore',p_image_model,p_image_ceiling,3)
+    ) expected(request_id,operation,model,ceiling,step_rank)
     JOIN public.ai_expense_permits p ON p.request_id=expected.request_id
-    WHERE p.user_id=r.user_id AND p.job_id=r.id AND p.period=v_period
+    WHERE p.user_id=r.user_id AND p.job_id=r.id
       AND p.provider='openai' AND p.model=expected.model AND p.operation=expected.operation
-      AND p.ceiling_microusd=expected.ceiling AND NOT p.revoked
-      AND p.expires_at>clock_timestamp()) <> 3 THEN RETURN false; END IF;
+      AND p.ceiling_microusd=expected.ceiling
+      AND (expected.step_rank < CASE p_stage WHEN 'scan' THEN 1 WHEN 'article' THEN 2 ELSE 3 END
+        OR (p.period=v_period AND NOT p.revoked AND p.expires_at>clock_timestamp()))) <> 3 THEN RETURN false; END IF;
   IF EXISTS (SELECT 1 FROM public.ai_expense_requests WHERE request_id=v_request) THEN RETURN false; END IF;
   -- Readiness only; reserve_ai_expense remains the atomic financial authority.
   -- Both budgets must be restricted so unrelated background calls cannot spend.

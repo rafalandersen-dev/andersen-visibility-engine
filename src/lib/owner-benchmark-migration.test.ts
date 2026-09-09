@@ -111,6 +111,20 @@ describe("durable three-stage owner benchmark", () => {
       { state: "completed" },
     ]);
   });
+  it.each([
+    "revoked=true",
+    "created_at=now()-interval '2 hours',expires_at=now()-interval '1 hour'",
+    "period='2000-01'",
+  ])("allows the next stage after a completed permit becomes inactive: %s", async (assignment) => {
+    const token = randomUUID();
+    expect(await claim("scan", token)).toBe(true);
+    await record("scan", token);
+    await finish("scan", token);
+    await db.query(`UPDATE public.ai_expense_permits SET ${assignment} WHERE request_id=$1`, [
+      attempts[0],
+    ]);
+    expect(await claim("article")).toBe(true);
+  });
   it("requires the correct owner, stage and claim token", async () => {
     expect(await claim("scan", randomUUID(), other)).toBe(false);
     expect(await claim("article")).toBe(false);
