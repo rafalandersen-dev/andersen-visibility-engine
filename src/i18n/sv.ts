@@ -1,5 +1,22 @@
 // Milo Growth — Swedish dictionary. Mirrors the keys in en.ts.
 export const sv: Record<string, string> = {
+  "benchmark.title": "Genereringstest för ägaren",
+  "benchmark.description": "En webbplatsskanning, en artikel och en bild inom den godkända totalbudgeten på 5 USD. Resultaten sparas som utkast för granskning.",
+  "benchmark.scan": "Webbplatsskanning",
+  "benchmark.article": "Artikel",
+  "benchmark.image": "Bild",
+  "benchmark.done": "Klart",
+  "benchmark.working": "Arbetar…",
+  "benchmark.waiting": "Väntar",
+  "benchmark.configuration": "Anslut OpenAI innan testet startas.",
+  "benchmark.expired": "Godkännandet för testet har gått ut. Sparade resultat finns kvar.",
+  "benchmark.stopped": "Testet behöver granskas. Uppdatering kontrollerar status utan att upprepa AI-anropet.",
+  "benchmark.complete": "Artikeln och den föreslagna bilden är klara för granskning i redigeraren.",
+  "benchmark.start": "Starta godkänt test",
+  "benchmark.continue": "Fortsätt återstående steg",
+  "benchmark.refresh": "Uppdatera status",
+  "benchmark.openDraft": "Öppna utkast",
+
   "common.back": "Tillbaka",
   "common.continue": "Fortsätt",
   "common.save": "Spara",

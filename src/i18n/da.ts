@@ -1,5 +1,22 @@
 // Milo Growth — Danish dictionary. Mirrors the keys in en.ts.
 export const da: Record<string, string> = {
+  "benchmark.title": "Genereringstest for ejeren",
+  "benchmark.description": "Én hjemmesidescanning, én artikel og ét billede inden for det godkendte samlede budget på 5 USD. Resultaterne gemmes som kladde til gennemgang.",
+  "benchmark.scan": "Hjemmesidescanning",
+  "benchmark.article": "Artikel",
+  "benchmark.image": "Billede",
+  "benchmark.done": "Færdig",
+  "benchmark.working": "Arbejder…",
+  "benchmark.waiting": "Venter",
+  "benchmark.configuration": "Forbind OpenAI, før testen startes.",
+  "benchmark.expired": "Godkendelsen af denne test er udløbet. Gemte resultater er stadig tilgængelige.",
+  "benchmark.stopped": "Testen kræver gennemgang. Opdatering kontrollerer status uden at gentage AI-kaldet.",
+  "benchmark.complete": "Artiklen og det foreslåede billede er klar til gennemgang i editoren.",
+  "benchmark.start": "Start godkendt test",
+  "benchmark.continue": "Fortsæt resterende trin",
+  "benchmark.refresh": "Opdater status",
+  "benchmark.openDraft": "Åbn kladde",
+
   "common.back": "Tilbage",
   "common.continue": "Fortsæt",
   "common.save": "Gem",

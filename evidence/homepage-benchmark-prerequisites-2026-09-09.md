@@ -1,6 +1,6 @@
 # Homepage reader and controlled benchmark prerequisites — 9 September 2026
 
-Status: implementation and local verification complete; review and deployment pending. This packet does not complete the controlled benchmark or authorize additional spending. Base: main `743ce55ef00864a5d6e24d2113f7598249ee4136` (documentation PR #99); production remains the recorded #98 fingerprint until a verified release.
+Status: PR #100 merged and deployed on 9 September. This packet does not complete the controlled benchmark or authorize additional spending. Base: main `743ce55ef00864a5d6e24d2113f7598249ee4136` (documentation PR #99); release evidence below supersedes the recorded #98 runtime.
 
 ## Problem and behavior
 
@@ -8,7 +8,7 @@ The existing scan followed redirects with global fetch, buffered the complete re
 
 Node uses native HTTP(S) with custom lookup and original Host/TLS identity. Bun uses a literal-IP native fetch with manual redirects, no decompression/connection reuse, original Host, certificate-chain validation and an explicit check of the original certificate hostname. The response is refused if that check was skipped or failed. This is an implemented connection boundary, not an environment flag asserting that arbitrary fetch is safe. Node additionally requests a 16 KiB header limit; that option is not claimed for Bun's native fetch.
 
-The first Node-compatible implementation worked in Bun 1.4 but failed in 1.3.3. Inspection of the official 1.3.3 HTTP client showed its fetch bridge and limited TLS-option forwarding. The final adapter explicitly enforces certificate identity and was retested with the hosting version. No TLS validation was disabled.
+The first Node-compatible implementation worked in Bun 1.4 but failed in 1.3.3. Inspection of the official 1.3.3 HTTP client showed its fetch bridge and limited TLS-option forwarding. The final adapter explicitly enforces certificate identity and was retested with Bun 1.3.3, the recorded hosting builder version. The actual deployed runtime version is not reported. No TLS validation was disabled.
 
 The scan, article and image cores accept optional preallocated attempts only as trusted server arguments. Browser/MCP/scheduler validators do not forward these. The controlled scan can require a real AI extraction, rejects an empty business profile, and cannot pass by silently using homepage metadata. Ordinary onboarding retains its manual fallback. The scan reports `aiGenerated` explicitly.
 
@@ -31,3 +31,7 @@ Implement the durable owner-only three-stage runner with immutable permit bindin
 - [Bun native fetch TLS and streaming](https://bun.com/docs/runtime/networking/fetch)
 - [IANA IPv4 special registry](https://www.iana.org/assignments/iana-ipv4-special-registry)
 - [IANA IPv6 special registry](https://www.iana.org/assignments/iana-ipv6-special-registry)
+
+## Verified release
+
+PR #100 merged `849df9ff05ee406f4254079e81a0d93de16c16ed`. Review 34337173059 passed (`is_error=false`, no inline findings). Deployment `621f0738-ac7c-43d8-bd85-b0dcc074731b`, public build `1788948225765`, fingerprint `ec6aaf00ba8e77f95ac6a4e5a94ef167ee98489e0046af026e7d8b01f8bf4714`, all components matching clean merged source. Runtime revision/modified remain null. Home/MCP GET 200, OPTIONS 204, anonymous MCP POST 401. No database changes or paid generation.
