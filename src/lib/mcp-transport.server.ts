@@ -24,7 +24,9 @@ export class McpRequestError extends Error {
 // This complements the persistent write quota; it is not a cross-host quota.
 export const MCP_MAX_ACTIVE_IMAGE_REQUESTS = 2;
 let activeImageRequests = 0;
-export function acquireMcpImageRequest(): () => void {
+export type McpImageWorkTracker = <T>(work: () => PromiseLike<T>) => Promise<T>;
+export type McpImageRequestLease = (() => void) & { track: McpImageWorkTracker };
+export function acquireMcpImageRequest(): McpImageRequestLease {
   if (activeImageRequests >= MCP_MAX_ACTIVE_IMAGE_REQUESTS)
     throw new McpRequestError(
       429,
@@ -32,13 +34,36 @@ export function acquireMcpImageRequest(): () => void {
       "Image uploads are busy. No tool was started; retry the same request later.",
     );
   activeImageRequests++;
-  let held = true;
-  return () => {
-    if (held) {
+  let held = true,
+    callerFinished = false,
+    pending = 0;
+  const releaseWhenSettled = () => {
+    if (held && callerFinished && pending === 0) {
       activeImageRequests--;
       held = false;
     }
   };
+  const release = () => {
+    callerFinished = true;
+    releaseWhenSettled();
+  };
+  const track: McpImageWorkTracker = <T>(work: () => PromiseLike<T>): Promise<T> => {
+    if (callerFinished)
+      return Promise.reject(
+        new McpRequestError(429, -32003, "The image request has already ended."),
+      );
+    pending++;
+    const result = Promise.resolve().then(work);
+    const settled = () => {
+      pending--;
+      releaseWhenSettled();
+    };
+    // Both handlers consume the observer promise. The original rejection still
+    // reaches the caller; no discarded rejecting finally() promise is created.
+    void result.then(settled, settled);
+    return result;
+  };
+  return Object.assign(release, { track });
 }
 
 export async function readMcpPayload(

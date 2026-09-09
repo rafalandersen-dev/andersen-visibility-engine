@@ -1,3 +1,4 @@
+import type { McpImageWorkTracker } from "./mcp-transport.server";
 import { MCP_IMAGE_TOOL, mcpImageSchema, McpImageError } from "./mcp-image";
 import { CONTENT_LANGUAGES, projectContentLanguage } from "./content-languages";
 import { profileFillSchema, prepareProfileFill, applyProfileFill, ProfileFillError } from "./mcp-profile-fill";
@@ -535,7 +536,7 @@ async function dispatchImageTool(
   };
   try {
     const { addMcpContentImage } = await import("./mcp-image.server");
-    const payload = await addMcpContentImage(grant.userId, grant.clientId, parsed.data);
+    const payload = await addMcpContentImage(grant.userId, grant.clientId, parsed.data, hooks.trackImageWork);
     await hooks.audit?.("mcp_write", {
       ...detail,
       imageId: payload.imageId,
@@ -804,6 +805,8 @@ function validateWriteArgs(name: WriteToolName, args: Record<string, unknown>): 
 
 /** Hooks the route supplies so this module stays DB/audit-agnostic for writes. */
 export interface McpHooks {
+  /** Retain request admission through physical I/O settlement after timeouts. */
+  trackImageWork?: McpImageWorkTracker;
   /** Rate-limit verdict for a write call (fail-open handled by the limiter). */
   checkWriteLimit?: () => Promise<{ allowed: boolean; shouldAudit: boolean; windowStartIso: string; retryAfterSec: number }>;
   /** Awaited audit sink (mcp_write / rate_limited). Must never throw. */

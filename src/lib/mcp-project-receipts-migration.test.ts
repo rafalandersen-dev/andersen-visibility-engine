@@ -1,3 +1,5 @@
+import { prepareMcpImage, reserveMcpImage, attachMcpImage } from "./mcp-image";
+import type { ContentAsset } from "./types";
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -36,6 +38,16 @@ beforeAll(async () => {
   await db.exec(
     readFileSync("supabase/migrations/20260909140000_preserve_mcp_image_receipts.sql", "utf8"),
   );
+  const migration = readFileSync(
+    "supabase/migrations/20260726120000_workspace_entities.sql",
+    "utf8",
+  );
+  await db.exec(
+    migration.slice(
+      migration.indexOf("CREATE OR REPLACE FUNCTION public.workspace_entities_newer_wins()"),
+      migration.indexOf("-- Project cap"),
+    ),
+  );
 }, 30000);
 beforeEach(async () => {
   await db.exec("RESET ROLE; TRUNCATE workspace_entities");
@@ -48,6 +60,57 @@ afterAll(async () => {
   await db?.close();
 });
 describe("server-owned project replay receipts", () => {
+  it("stores the image and receipt together despite a newer concurrent content stamp", async () => {
+    const prepared = await prepareMcpImage("user", "client", {
+      projectId: "p",
+      contentId: "c",
+      requestId: "image-1",
+      concept: "Example",
+      alt: "Example",
+      dataBase64:
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jWZkAAAAASUVORK5CYII=",
+    });
+    prepared.now = "2026-09-09T10:00:00.000Z";
+    const current = {
+      id: "c",
+      projectId: "p",
+      status: "Draft",
+      markdown: "Concurrent owner edit",
+      updatedAt: "2026-09-09T10:01:00.000001Z",
+    };
+    const reserved = reserveMcpImage(
+      { projects: [{ ...original, mcpImageRequests: [] }], content: [current] },
+      prepared,
+    );
+    const attached = attachMcpImage(
+      reserved.data,
+      prepared,
+      reserved.result.receipt,
+      "private-preview",
+    );
+    const updated = (attached.data.content as ContentAsset[])[0];
+    await db.query("INSERT INTO workspace_entities VALUES ('content','c',$1::jsonb)", [
+      JSON.stringify(current),
+    ]);
+    await db.exec("BEGIN");
+    await db.query("UPDATE workspace_entities SET data=$1::jsonb WHERE entity_id='c'", [
+      JSON.stringify(updated),
+    ]);
+    await write((attached.data.projects as unknown[])[0]);
+    await db.exec("COMMIT");
+    const stored = (
+      await db.query<{ data: ContentAsset }>(
+        "SELECT data FROM workspace_entities WHERE entity_id='c'",
+      )
+    ).rows[0].data;
+    expect(stored.images).toHaveLength(1);
+    expect(stored.updatedAt).toBe(current.updatedAt);
+    expect(stored.markdown).toBe("Concurrent owner edit");
+    expect((await read()).mcpImageRequests).toMatchObject([
+      { state: "attached", imageId: attached.result.imageId },
+    ]);
+  });
+
   it("preserves all histories when a stale browser payload omits them", async () => {
     await role("authenticated");
     await db.exec("SET ROLE authenticated");

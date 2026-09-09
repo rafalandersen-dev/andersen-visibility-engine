@@ -1,3 +1,4 @@
+import { workspaceWriteTimestamp } from "./workspace-time";
 import type { ContentAsset } from "./types";
 
 export class ExternalDraftStateError extends Error {
@@ -52,7 +53,11 @@ export function applyExternalDraftEdits(
       key !== "editorNotes" &&
       JSON.stringify(value) !== JSON.stringify(current[key as keyof ContentAsset]),
   );
-  const next = { ...current, ...patch, updatedAt: nowIso };
+  const next = {
+    ...current,
+    ...patch,
+    updatedAt: workspaceWriteTimestamp(current.updatedAt, nowIso),
+  };
   if (changed) {
     if (current.qualityScore) next.qualityScoreStale = true;
     delete next.assembled;

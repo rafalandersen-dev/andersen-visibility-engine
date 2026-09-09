@@ -12,6 +12,17 @@ const asset = (patch: Partial<ContentAsset> = {}) =>
     ...patch,
   }) as ContentAsset;
 describe("external draft edit boundary", () => {
+  it("preserves newer and sub-millisecond timestamps across revision retries", () => {
+    const current = asset({ updatedAt: "2026-09-09T10:00:01.000001Z" });
+    for (const proposed of ["2026-09-09T10:00:00.000Z", "2026-09-09T10:00:01.000Z"])
+      expect(applyExternalDraftEdits(current, { title: "New" }, proposed).updatedAt).toBe(
+        current.updatedAt,
+      );
+    expect(
+      applyExternalDraftEdits(current, { title: "New" }, "2026-09-09T10:00:02.000Z").updatedAt,
+    ).toBe("2026-09-09T10:00:02.000Z");
+  });
+
   it.each([
     { status: "Approved" },
     { status: "In Review" },

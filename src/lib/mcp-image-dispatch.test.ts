@@ -90,7 +90,7 @@ describe("image import OAuth boundary", () => {
     ).resolves.toMatchObject({ error: { code: -32010 } });
     expect(h.add).not.toHaveBeenCalled();
     await expect(handleMcpMessage(grant, message, hooks)).resolves.toHaveProperty("result");
-    expect(h.add).toHaveBeenCalledWith("user", "client", args);
+    expect(h.add).toHaveBeenCalledWith("user", "client", args, undefined);
     const audit = JSON.stringify(h.audit.mock.calls);
     expect(audit).not.toContain("AAAA");
     expect(audit).not.toContain("private concept");

@@ -8,6 +8,8 @@ import type {} from "@tanstack/react-start";
 import {
   McpRequestError,
   acquireMcpImageRequest,
+  type McpImageRequestLease,
+  type McpImageWorkTracker,
   readMcpPayload,
   dispatchMcpPayload,
 } from "@/lib/mcp-transport.server";
@@ -45,7 +47,7 @@ export const Route = createFileRoute("/api/mcp")({
           auth: "Bearer token (generate in Milo → Project Setup → Claude connector)",
         }),
       POST: async ({ request }) => {
-        let releaseImageRequest: (() => void) | undefined;
+        let releaseImageRequest: McpImageRequestLease | undefined;
         try {
           const token = bearer(request);
           const { resolveUser, handleMcpMessage, buildMcpAuditEvent } =
@@ -157,7 +159,12 @@ export const Route = createFileRoute("/api/mcp")({
           };
 
           // Hooks for write tools: rate limiting + awaited mcp_write auditing.
+          const trackImageWork: McpImageWorkTracker = (work) => {
+            releaseImageRequest ??= acquireMcpImageRequest();
+            return releaseImageRequest.track(work);
+          };
           const hooks = {
+            trackImageWork,
             checkWriteLimit: () =>
               checkRateLimit(RATE_BUCKETS.write, token, {
                 bump: bumpRateLimit,

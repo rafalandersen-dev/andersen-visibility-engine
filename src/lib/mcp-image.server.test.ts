@@ -1,3 +1,4 @@
+import { acquireMcpImageRequest } from "./mcp-transport.server";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { addMcpContentImage, MCP_IMAGE_STORAGE_TIMEOUT_MS } from "./mcp-image.server";
 const h = vi.hoisted(() => ({
@@ -134,9 +135,15 @@ describe("private MCP image import execution", () => {
     await uploading;
     await vi.advanceTimersByTimeAsync(MCP_IMAGE_STORAGE_TIMEOUT_MS + 1);
     await result;
+    // The response ended, but the underlying upload still owns its slot.
+    const otherSlot = acquireMcpImageRequest();
+    expect(acquireMcpImageRequest).toThrow("Image uploads are busy");
+    otherSlot();
     finish({ error: null });
     await vi.runAllTimersAsync();
     expect(h.signed).not.toHaveBeenCalled();
     expect(h.mutations).toHaveBeenCalledOnce();
+    const recoveredSlot = acquireMcpImageRequest();
+    recoveredSlot();
   });
 });

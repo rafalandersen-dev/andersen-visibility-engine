@@ -294,6 +294,26 @@ describe("scoped large MCP image bodies", () => {
 });
 
 describe("large-body memory admission", () => {
+  it("keeps timed-out request slots until tracked I/O settles", async () => {
+    const leases = Array.from({ length: MCP_MAX_ACTIVE_IMAGE_REQUESTS }, () =>
+      acquireMcpImageRequest(),
+    );
+    const replies: Array<() => void> = [];
+    const pending = leases.map((lease) =>
+      lease.track(() => new Promise<void>((resolve) => replies.push(resolve))),
+    );
+    await Promise.resolve();
+    for (const lease of leases) lease();
+    expect(acquireMcpImageRequest).toThrow("Image uploads are busy");
+    replies[0]();
+    await pending[0];
+    const replacement = acquireMcpImageRequest();
+    replacement();
+    for (const reply of replies.slice(1)) reply();
+    await Promise.all(pending);
+    await expect(leases[0].track(async () => {})).rejects.toThrow("already ended");
+  });
+
   it("limits concurrent image requests and releases each slot once", () => {
     const releases = Array.from({ length: MCP_MAX_ACTIVE_IMAGE_REQUESTS }, () =>
       acquireMcpImageRequest(),

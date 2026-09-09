@@ -62,6 +62,37 @@ beforeEach(async () => {
 });
 afterEach(() => vi.restoreAllMocks());
 describe("actual MCP HTTP admission and dispatch", () => {
+  it("retains the route lease after responding while tracked storage work is still pending", async () => {
+    let reply!: () => void;
+    let pending!: Promise<void>;
+    mocks.handle.mockImplementationOnce(async (_grant, _message, hooks) => {
+      pending = hooks.trackImageWork(
+        () =>
+          new Promise<void>((resolve) => {
+            reply = resolve;
+          }),
+      );
+      return { id: 1, result: { isError: true } };
+    });
+    const image = {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: { name: "add_content_image", arguments: { dataBase64: "A".repeat(210000) } },
+    };
+    expect((await call(image)).status).toBe(200);
+    const other = acquireMcpImageRequest();
+    try {
+      expect(acquireMcpImageRequest).toThrow("Image uploads are busy");
+    } finally {
+      other();
+      reply();
+      await pending;
+    }
+    const reusable = acquireMcpImageRequest();
+    reusable();
+  });
+
   it("releases large-body slots after dispatch failure and refuses overflow before tool execution", async () => {
     const image = {
       jsonrpc: "2.0",
