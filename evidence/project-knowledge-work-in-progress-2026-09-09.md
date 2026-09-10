@@ -12,7 +12,7 @@ Active implementation is `/Users/rafi/.codex/worktrees/feb9/milo-growth-generati
 - Onboarding drafts are account-keyed and retain the saved project identity/baseline across refreshes. Later owner edits survive wizard saves, review completion does not replay old profile values, duplicate service entries are prevented, and a synchronous generation guard blocks repeat submission.
 - Latest full suite: **2,413 tests / 169 files pass**. TypeScript and focused lint pass. Production build passes; a clean candidate build follows checkpointing. Logs use `/tmp/milo-product-*`. Browser acceptance is still unavailable and is not claimed.
 - Read-only live preflight confirms P1 objects/migration absent and the P0 recovery migration installed. No migration, deployment, paid call, email, client publication, account change or browser attempt occurred.
-- The [P1 release-review packet](project-knowledge-release-review-2026-09-10.md) records architecture, verification, preflight, migration hash/order, rollback and remaining acceptance limits. Next: independent PR review, address findings, migration/runtime release verification, then P2–P5 under R00–R24/D01–D08.
+- The [P1 release-review packet](project-knowledge-release-review-2026-09-10.md) records architecture, verification, preflight, migration hash/order, rollback and remaining acceptance limits. PR #108 is open. The clean product commit is `66882cf`; CI found the missing Bun parser lock updates, now reconciled from the pinned npm graph. Next: final lock matrix and independent ready-for-review run, address findings, migration/runtime release verification, then P2–P5 under R00–R24/D01–D08.
 
 ## Product-review continuation checkpoint
 

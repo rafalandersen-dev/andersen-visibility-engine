@@ -1,6 +1,6 @@
 # P1 project knowledge — release review packet
 
-Updated 10 September 2026. Status: local product implementation complete enough for independent release review; **not merged, migrated, deployed, browser-accepted or a public paid launch**. Executor: current Codex task; independent verifier remains the PR review. Broader P2–P5 and R00–R24/D01–D08 remain active.
+Updated 10 September 2026. Status: PR #108 open for independent release review; **not merged, migrated, deployed, browser-accepted or a public paid launch**. Executor: current Codex task; independent verifier remains the PR review. Broader P2–P5 and R00–R24/D01–D08 remain active.
 
 ## Baseline and scope
 
@@ -43,3 +43,11 @@ Return application code to the previously verified P0 release while retaining P1
 No paid generation, funding, email, client publication, secret/account changes or browser attempts occurred. Exactly USD5 total for one scan, one article and one image (no retries) remains the recorded unused authorization; OpenAI remains last known unauthorized, with no successful key setup. Do not repeat unchanged auth/picker attempts or ask for secrets. The operational test-email authorization is consumed. Stripe stays owner-deferred; company admin/billing owner stays `rafi@anderseninnovations.com`, with the accepted OpenAI account exception. No subagents.
 
 After P1 release review, continue P2 scoped website/catalog refresh and output dependencies, followed by P3–P5. Backlinks/Authority remains behind R14/R15 provider/outreach prerequisites. The owner's latest instruction is to continue autonomously and stop only for an action actually requiring them, such as signing in; independent local work must continue around those constraints.
+
+## PR and lock reconciliation
+
+PR #108: https://github.com/rafalandersen-dev/andersen-visibility-engine/pull/108. Product candidate `66882cfc7fceaea99ff2917839a40a6b7554fb7d` passed 2,413 tests/169 files, TypeScript, focused lint and a clean production build (`/tmp/milo-product-clean-build.log`).
+
+The first CI dependency-lock run failed because the earlier P1 parser additions updated npm but not Bun. Regenerated Bun from the pinned npm graph in a disposable directory; retained lockfile format 1 for the observed Bun 1.3.3 host. Manifest and npm lock unchanged. Adds the 39 parser-related dependency records; the argparse root/nested placement follows npm (Mammoth uses 1.0.10; js-yaml retains 2.0.1). No unrelated dependency upgrade, production frozen-install change or release-age exception. Local Bun 1.4 frozen lock-only verification passes; final Linux 1.3.3/1.4 matrix validation remains required.
+
+The initial draft-PR review workflow reported success with zero permission denials but posted no review/findings. This does not establish substantive independent review of the candidate; obtain the ready-for-review run on the final head. The pre-existing workflow reports model-account usage separately from Milo's untouched native OpenAI benchmark budget. No live Milo generation/provider benchmark ran.
