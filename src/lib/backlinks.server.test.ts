@@ -7,6 +7,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   readBacklinkBody,
   fetchBacklinkSummary,
+  fetchBacklinkGap,
   extractDomain,
   isDataForSeoConfigured,
   assertAccountUsable,
@@ -238,7 +239,7 @@ describe("normalizeIntersectionItems", () => {
     );
     expect(gaps).toHaveLength(2);
     expect(gaps[0]).toMatchObject({
-      domain: "www.xroxy.com",
+      domain: "xroxy.com",
       rank: 113,
       intersections: 2,
       competitorsLinked: ["moz.com", "ahrefs.com"],
@@ -251,6 +252,22 @@ describe("normalizeIntersectionItems", () => {
     });
   });
 
+  it("deduplicates www aliases without loosening requested target identity", () => {
+    expect(() =>
+      normalizeIntersectionItems(
+        [
+          {
+            targets: keyMap,
+            items: [
+              { domain_intersection: { "1": { target: "www.x.com" } } },
+              { domain_intersection: { "2": { target: "x.com" } } },
+            ],
+          },
+        ],
+        keyMap,
+      ),
+    ).toThrow();
+  });
   it("rejects malformed, unknown-key, mismatched and duplicate domains", () => {
     const normalize = (intersection: unknown) =>
       normalizeIntersectionItems(
@@ -336,6 +353,44 @@ describe("bounded safe provider transport", () => {
       rank: null,
       fetchStatus: "partial",
     });
+  });
+  it("excludes own and competitor www aliases from actual gap fetch results", async () => {
+    vi.stubEnv("DATAFORSEO_LOGIN", "fixture");
+    vi.stubEnv("DATAFORSEO_PASSWORD", "fixture");
+    const targets = { "1": "competitor.com" };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          status_code: 20000,
+          tasks: [
+            {
+              status_code: 20000,
+              data: { targets, exclude_targets: ["example.com"] },
+              result: [
+                {
+                  targets,
+                  items: ["www.example.com", "www.competitor.com", "www.other.com"].map(
+                    (target) => ({
+                      domain_intersection: { "1": { target, rank: 5, backlinks: 2 } },
+                    }),
+                  ),
+                },
+              ],
+            },
+          ],
+        }),
+      ),
+    );
+    await expect(fetchBacklinkGap("example.com", ["competitor.com"])).resolves.toEqual([
+      {
+        domain: "other.com",
+        rank: 5,
+        intersections: 1,
+        competitorsLinked: ["competitor.com"],
+        totalCompetitorBacklinks: 2,
+      },
+    ]);
   });
   it("rejects oversized, duplicate and invalid referring rows", () => {
     const row = { domain: "x.com", backlinks: 0 };

@@ -401,7 +401,8 @@ export function normalizeIntersectionItems(
       if (!Object.hasOwn(targetKeyToCompetitor, key)) throw invalid();
       if (entry === null) continue;
       if (!isRecord(entry)) throw invalid();
-      const entryDomain = domainIdentity(entry.target);
+      // Match the existing own/competitor domain extraction for referring-domain comparisons.
+      const entryDomain = domainIdentity(entry.target).replace(/^www\./, "");
       if (domain && domain !== entryDomain) throw invalid();
       domain = entryDomain;
       const entryRank = metric(entry.rank, 1000);
