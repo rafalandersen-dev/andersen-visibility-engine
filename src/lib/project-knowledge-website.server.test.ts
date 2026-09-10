@@ -16,6 +16,25 @@ beforeEach(() => {
   h.save.mockImplementation(async (_scope, source, record) => ({ source, record }));
 });
 describe("website reference proposals", () => {
+  it("captures bare onboarding hostnames under the same HTTPS source identity", async () => {
+    const first = await captureProjectWebsiteKnowledge(scope, "  example.com  ");
+    expect(h.fetch).toHaveBeenCalledWith("https://example.com");
+    expect(first.source.url).toBe("https://example.com");
+    h.read.mockResolvedValue({ sources: [first.source], records: [] });
+    h.save.mockClear();
+    expect((await captureProjectWebsiteKnowledge(scope, "https://example.com")).changed).toBe(
+      false,
+    );
+    expect(h.save).not.toHaveBeenCalled();
+  });
+  it.each(["http://example.com", "javascript:alert(1)", "user:password@example.com", ""])(
+    "rejects unsupported or credential-bearing input %s before fetching",
+    async (url) => {
+      await expect(captureProjectWebsiteKnowledge(scope, url)).rejects.toThrow();
+      expect(h.fetch).not.toHaveBeenCalled();
+      expect(h.save).not.toHaveBeenCalled();
+    },
+  );
   it("authorizes before fetching and stores actual excerpt as an unaccepted proposal", async () => {
     await captureProjectWebsiteKnowledge(scope, "https://example.com");
     expect(h.read).toHaveBeenCalledExactlyOnceWith(scope);

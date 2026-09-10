@@ -10,7 +10,12 @@ import {
  * business claims. Failed fetches do not replace the last successful source. */
 export async function captureProjectWebsiteKnowledge(scope: KnowledgeScope, url: string) {
   const now = new Date().toISOString();
-  const sourceUrl = knowledgeSourceSchema.shape.url.unwrap().parse(url);
+  const trimmedUrl = url.trim();
+  // Match website-led onboarding's bare-hostname input without upgrading an
+  // explicitly supplied unsupported protocol or accepting URL credentials.
+  const sourceUrl = knowledgeSourceSchema.shape.url
+    .unwrap()
+    .parse(/^[a-z][a-z\d+.-]*:/i.test(trimmedUrl) ? trimmedUrl : `https://${trimmedUrl}`);
   const state = await readProjectKnowledge(scope);
   const { fetchSiteContext } = await import("./ai.functions");
   const site = await fetchSiteContext(sourceUrl);
