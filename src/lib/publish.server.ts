@@ -12,7 +12,13 @@
  * with the browser path (`publish-targets.ts`, `*Direct` functions) so a
  * scheduled publish and a manual one can never diverge.
  */
-import { mutateWorkspace, type WorkspaceData } from "./workspace.server";
+import {
+  mutateWorkspace as mutateWorkspaceUnserialized,
+  type WorkspaceData,
+} from "./workspace.server";
+import { serializePublicationWrite } from "./publication-write.server";
+const mutateWorkspace: typeof mutateWorkspaceUnserialized = (userId, mutate) =>
+  serializePublicationWrite(userId, () => mutateWorkspaceUnserialized(userId, mutate));
 import { draftPayloadFor, publishDraftDirect, publishLiveDirect } from "./publish.functions";
 import { publishWordPressLiveDirect } from "./wordpress.functions";
 import { upsertArticle } from "./shopify.functions";

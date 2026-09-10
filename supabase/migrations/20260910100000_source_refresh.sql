@@ -258,3 +258,47 @@ $$;
 CREATE TRIGGER forget_output_source_dependencies AFTER DELETE ON public.project_knowledge_sources
 FOR EACH ROW EXECUTE FUNCTION public.forget_output_source_dependencies();
 REVOKE ALL ON FUNCTION public.forget_output_source_dependencies() FROM PUBLIC,anon,authenticated,service_role;
+
+-- Image lifecycle is recorded in the same workspace transaction as the saved
+-- edit. Reuses copy server-owned dependencies by the approved shared public URL;
+-- browser omission of evidence fields cannot erase them. Copy before removal so
+-- moving an image within one saved edit preserves its evidence.
+CREATE FUNCTION public.sync_image_source_dependencies()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE image jsonb; deps jsonb; forgotten boolean; matches integer; project text:=NEW.data->>'projectId';
+BEGIN
+  IF NEW.collection<>'content' THEN RETURN NEW; END IF;
+  FOR image IN SELECT value FROM jsonb_array_elements(CASE WHEN jsonb_typeof(NEW.data->'images')='array' THEN NEW.data->'images' ELSE '[]'::jsonb END) LOOP
+    IF coalesce(image->>'id','') !~ '^[A-Za-z0-9_-]{1,64}$' OR coalesce(image->>'url','')='' THEN CONTINUE; END IF;
+    IF EXISTS(SELECT 1 FROM public.project_output_source_dependencies WHERE user_id=NEW.user_id AND project_id=project AND asset_id=NEW.entity_id AND kind='image' AND output_id=image->>'id') THEN CONTINUE; END IF;
+    SELECT coalesce(jsonb_agg(DISTINCT dependency) FILTER(WHERE dependency IS NOT NULL),'[]'::jsonb),coalesce(bool_or(r.source_forgotten),false),count(DISTINCT r.output_id)
+      INTO deps,forgotten,matches
+      FROM public.workspace_entities e
+      CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(e.data->'images')='array' THEN e.data->'images' ELSE '[]'::jsonb END) original
+      JOIN public.project_output_source_dependencies r ON r.user_id=e.user_id AND r.project_id=project AND r.asset_id=e.entity_id AND r.kind='image' AND r.output_id=original->>'id'
+      LEFT JOIN LATERAL jsonb_array_elements(r.dependencies) dependency ON true
+      WHERE e.user_id=NEW.user_id AND e.collection='content' AND e.data->>'projectId'=project
+        AND original->>'status'='accepted' AND original->>'url'=image->>'url';
+    IF matches=0 THEN CONTINUE; END IF;
+    IF jsonb_array_length(deps)>100 OR octet_length(deps::text)>100000 THEN RAISE EXCEPTION 'output_source_capacity'; END IF;
+    IF (SELECT count(*) FROM public.project_output_source_dependencies WHERE user_id=NEW.user_id AND project_id=project)
+      - CASE WHEN TG_OP='UPDATE' THEN (SELECT count(*) FROM public.project_output_source_dependencies r WHERE r.user_id=OLD.user_id AND r.project_id=project AND r.asset_id=OLD.entity_id AND r.kind='image'
+        AND EXISTS(SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(OLD.data->'images')='array' THEN OLD.data->'images' ELSE '[]'::jsonb END) old_image WHERE old_image->>'id'=r.output_id)
+        AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(NEW.data->'images')='array' THEN NEW.data->'images' ELSE '[]'::jsonb END) kept WHERE kept->>'id'=r.output_id)) ELSE 0 END
+      >=1000 THEN RAISE EXCEPTION 'output_source_capacity'; END IF;
+    INSERT INTO public.project_output_source_dependencies(user_id,project_id,asset_id,output_id,kind,dependencies,source_forgotten)
+      VALUES(NEW.user_id,project,NEW.entity_id,image->>'id','image',deps,forgotten);
+  END LOOP;
+  IF TG_OP='UPDATE' THEN
+    DELETE FROM public.project_output_source_dependencies r WHERE r.user_id=OLD.user_id AND r.asset_id=OLD.entity_id AND r.kind='image'
+      AND EXISTS(SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(OLD.data->'images')='array' THEN OLD.data->'images' ELSE '[]'::jsonb END) old_image WHERE old_image->>'id'=r.output_id)
+      AND (OLD.data->>'projectId' IS DISTINCT FROM project OR NOT EXISTS(
+        SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(NEW.data->'images')='array' THEN NEW.data->'images' ELSE '[]'::jsonb END) kept WHERE kept->>'id'=r.output_id
+      ));
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER sync_image_source_dependencies BEFORE INSERT OR UPDATE ON public.workspace_entities
+FOR EACH ROW EXECUTE FUNCTION public.sync_image_source_dependencies();
+REVOKE ALL ON FUNCTION public.sync_image_source_dependencies() FROM PUBLIC,anon,authenticated,service_role;

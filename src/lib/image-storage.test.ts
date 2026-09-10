@@ -147,4 +147,14 @@ describe("reusedImageMeta — a reuse must not delete the shared object (fix B)"
     expect(reuse.status).toBe("accepted");
     expect(reuse.required).toBe(false); // a reuse is never itself a required slot
   });
+  it("carries source and knowledge references without retaining deletion authority", () => {
+    const evidence = {
+      sourceDependencies: [{ sourceId: "source" }],
+      knowledgeReferences: [{ id: "record" }],
+    };
+    const copy = reusedImageMeta({ ...source, ...evidence } as unknown as ContentImage);
+    expect(copy.sourceDependencies).toEqual(evidence.sourceDependencies);
+    expect(copy.knowledgeReferences).toEqual(evidence.knowledgeReferences);
+    expect(copy.storagePath).toBeUndefined();
+  });
 });
