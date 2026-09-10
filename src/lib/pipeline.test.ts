@@ -325,3 +325,13 @@ describe("isDropped", () => {
     expect(isDropped(undefined)).toBe(false);
   });
 });
+
+it("keeps rollout-held approved assets in review rather than presenting them as armed or ready", () => {
+  expect(
+    stage(undefined, {
+      status: "Approved",
+      scheduledPublishStatus: "review_required",
+      scheduledPublishAt: "2026-07-20T09:00:00Z",
+    }),
+  ).toBe("in_review");
+});

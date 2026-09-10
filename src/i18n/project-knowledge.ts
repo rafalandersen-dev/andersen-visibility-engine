@@ -67,6 +67,12 @@ export const projectKnowledge = {
     "approval.loading": "Checking publication approval…",
     "approval.current": "This exact saved content and destination are approved.",
     "approval.needed": "This version needs publication approval.",
+    "approval.heldCount": "{count} schedules need approval.",
+    "approval.scheduleHeld": "Schedule needs approval",
+    "approval.scheduleHeldBody":
+      "The original time is {when}. Approve this saved version, then resume that time. If it has passed, choose a new time below.",
+    "approval.resumeTime": "Resume original time",
+    "approval.resumed": "Schedule resumed",
     "approval.saveDestination": "Save destination and review",
     "approval.unavailable": "Publication approval could not be checked.",
 
@@ -320,6 +326,12 @@ export const projectKnowledge = {
     "approval.loading": "Sprawdzanie zgody na publikację…",
     "approval.current": "Dokładnie ta zapisana treść i miejsce publikacji są zatwierdzone.",
     "approval.needed": "Ta wersja wymaga zgody na publikację.",
+    "approval.heldCount": "Liczba harmonogramów wymagających zgody: {count}.",
+    "approval.scheduleHeld": "Harmonogram wymaga zgody",
+    "approval.scheduleHeldBody":
+      "Pierwotny termin: {when}. Zatwierdź zapisaną wersję i wznów ten termin. Jeśli minął, wybierz nowy termin poniżej.",
+    "approval.resumeTime": "Wznów pierwotny termin",
+    "approval.resumed": "Harmonogram wznowiony",
     "approval.saveDestination": "Zapisz miejsce docelowe i sprawdź",
     "approval.unavailable": "Nie udało się sprawdzić zgody na publikację.",
 
@@ -575,6 +587,12 @@ export const projectKnowledge = {
     "approval.loading": "Kontrollerar publiceringsgodkännande…",
     "approval.current": "Exakt detta sparade innehåll och denna destination är godkända.",
     "approval.needed": "Denna version behöver publiceringsgodkännande.",
+    "approval.heldCount": "{count} scheman behöver godkännas.",
+    "approval.scheduleHeld": "Schemat behöver godkännas",
+    "approval.scheduleHeldBody":
+      "Den ursprungliga tiden är {when}. Godkänn den sparade versionen och återuppta den tiden. Om den har passerat, välj en ny tid nedan.",
+    "approval.resumeTime": "Återuppta ursprunglig tid",
+    "approval.resumed": "Schemat har återupptagits",
     "approval.saveDestination": "Spara destination och granska",
     "approval.unavailable": "Publiceringsgodkännandet kunde inte kontrolleras.",
 
@@ -832,6 +850,12 @@ export const projectKnowledge = {
     "approval.loading": "Kontrollerer publiceringsgodkendelse…",
     "approval.current": "Præcis dette gemte indhold og denne destination er godkendt.",
     "approval.needed": "Denne version kræver publiceringsgodkendelse.",
+    "approval.heldCount": "{count} tidsplaner kræver godkendelse.",
+    "approval.scheduleHeld": "Tidsplanen kræver godkendelse",
+    "approval.scheduleHeldBody":
+      "Det oprindelige tidspunkt er {when}. Godkend den gemte version, og genoptag tidspunktet. Hvis det er passeret, vælg et nyt tidspunkt nedenfor.",
+    "approval.resumeTime": "Genoptag oprindeligt tidspunkt",
+    "approval.resumed": "Tidsplanen er genoptaget",
     "approval.saveDestination": "Gem destination og gennemgå",
     "approval.unavailable": "Publiceringsgodkendelsen kunne ikke kontrolleres.",
 

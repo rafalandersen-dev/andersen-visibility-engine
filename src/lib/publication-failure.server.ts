@@ -9,7 +9,14 @@ const workspaceSchema = z.object({
 const queueSchema = z
   .array(
     z.object({
-      status: z.enum(["pending", "publishing", "published", "failed", "cancelled"]),
+      status: z.enum([
+        "pending",
+        "publishing",
+        "published",
+        "failed",
+        "cancelled",
+        "review_required",
+      ]),
       attempts: z.number().int().nonnegative(),
       updated_at: instant,
       last_error: z.string().nullable(),

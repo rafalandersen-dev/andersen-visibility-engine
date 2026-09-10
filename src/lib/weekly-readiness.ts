@@ -7,7 +7,14 @@ export const weeklyQueueSchema = z
       .object({
         assetId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/),
         publishAt: z.string().datetime({ offset: true }),
-        status: z.enum(["pending", "publishing", "published", "failed", "cancelled"]),
+        status: z.enum([
+          "pending",
+          "publishing",
+          "published",
+          "failed",
+          "cancelled",
+          "review_required",
+        ]),
       })
       .strict(),
   )
@@ -50,7 +57,7 @@ export function weeklyReadiness(
               ? "queued"
               : row?.status === "cancelled"
                 ? "cancelled"
-                : row?.status === "failed"
+                : row?.status === "failed" || row?.status === "review_required"
                   ? "held"
                   : asset
                     ? "drafted"

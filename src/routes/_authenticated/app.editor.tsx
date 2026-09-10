@@ -1057,6 +1057,28 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     }
   }
 
+  async function resumeReviewedSchedule() {
+    if (isDirty || !live.scheduledPublishAt) return;
+    setScheduling(true);
+    try {
+      await scheduleContentPublishFn({
+        data: { assetId: asset.id, publishAt: live.scheduledPublishAt },
+      });
+      await refreshWorkspace();
+      toast.success(t("approval.resumed"));
+    } catch (e) {
+      toast.error(
+        e instanceof Error && e.message === "publication_approval_required"
+          ? t("approval.needed")
+          : e instanceof Error
+            ? e.message
+            : t("approval.failed"),
+      );
+    } finally {
+      setScheduling(false);
+    }
+  }
+
   async function cancelSchedule() {
     setScheduling(true);
     try {
@@ -1426,7 +1448,36 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           could fail and the only way to find out was to query the database.
           Shown regardless of connector, since the runner covers all of them.
         */}
-        {live.scheduledPublishStatus === "failed" && live.scheduledPublishError ? (
+        {live.scheduledPublishStatus === "review_required" ? (
+          <div
+            className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-3 space-y-2"
+            role="status"
+          >
+            <p className="text-sm font-medium">{t("approval.scheduleHeld")}</p>
+            <p className="text-xs">
+              {t("approval.scheduleHeldBody", {
+                when: live.scheduledPublishAt ? formatDateTimeLocal(live.scheduledPublishAt) : "—",
+              })}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={resumeReviewedSchedule}
+                disabled={
+                  isDirty ||
+                  scheduling ||
+                  !live.scheduledPublishAt ||
+                  Date.parse(live.scheduledPublishAt) < Date.now() + 5 * 60000
+                }
+              >
+                {t("approval.resumeTime")}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={cancelSchedule} disabled={scheduling}>
+                {t("common.cancel")}
+              </Button>
+            </div>
+          </div>
+        ) : live.scheduledPublishStatus === "failed" && live.scheduledPublishError ? (
           <div className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2">
             <div className="text-xs font-medium text-destructive">
               {t("editor.schedule.failedTitle")}

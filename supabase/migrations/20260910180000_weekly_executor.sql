@@ -66,7 +66,7 @@ BEGIN
   IF EXISTS(SELECT 1 FROM public.auto_scheduler_leases WHERE user_id=p_user AND project_id=p_project AND status='active' AND lease_until>clock_timestamp()) THEN RAISE EXCEPTION 'weekly_worker_active'; END IF;
   SELECT publish_at INTO slot FROM public.weekly_preparation_stages WHERE user_id=p_user AND project_id=p_project AND request_id=p_request;
   IF slot IS NULL THEN RAISE EXCEPTION 'weekly_stage_unavailable'; END IF;
-  IF EXISTS(SELECT 1 FROM public.scheduled_publishes WHERE user_id=p_user AND project_id=p_project AND publish_at=slot AND status IN ('pending','publishing')) THEN RAISE EXCEPTION 'weekly_cancel_queue_first'; END IF;
+  IF EXISTS(SELECT 1 FROM public.scheduled_publishes WHERE user_id=p_user AND project_id=p_project AND publish_at=slot AND status IN ('pending','publishing','review_required')) THEN RAISE EXCEPTION 'weekly_cancel_queue_first'; END IF;
   UPDATE public.weekly_preparation_stages SET state='cancelled',finished_at=clock_timestamp() WHERE user_id=p_user AND project_id=p_project AND publish_at=slot;
   IF NOT EXISTS(SELECT 1 FROM public.weekly_preparation_stages WHERE user_id=p_user AND project_id=p_project AND state IN ('running','unknown')) THEN
     UPDATE public.auto_scheduler_leases SET status='released',finished_at=clock_timestamp() WHERE user_id=p_user AND project_id=p_project AND planned_period LIKE 'week:%';
@@ -169,9 +169,69 @@ BEGIN
     OR NOT EXISTS(SELECT 1 FROM public.workspace_entities WHERE user_id=p_user AND collection='content' AND entity_id=p_asset AND data->>'projectId'=p_project AND data->>'status' IN ('Approved','Exported'))
     THEN RAISE EXCEPTION 'schedule_approval_changed'; END IF;
   IF EXISTS(SELECT 1 FROM public.scheduled_publishes WHERE user_id=p_user AND asset_id=p_asset AND status='publishing') THEN RAISE EXCEPTION 'schedule_in_flight'; END IF;
-  UPDATE public.scheduled_publishes SET status='cancelled',updated_at=clock_timestamp() WHERE user_id=p_user AND asset_id=p_asset AND status='pending';
+  UPDATE public.scheduled_publishes SET status='cancelled',updated_at=clock_timestamp() WHERE user_id=p_user AND asset_id=p_asset AND status IN ('pending','review_required');
   INSERT INTO public.scheduled_publishes(user_id,project_id,asset_id,publish_at,status) VALUES(p_user,p_project,p_asset,p_publish,'pending') RETURNING * INTO queued;
   RETURN to_jsonb(queued);
 END; $$;
 REVOKE ALL ON FUNCTION public.schedule_approved_publication(uuid,text,text,bigint,text,timestamptz) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.schedule_approved_publication(uuid,text,text,bigint,text,timestamptz) TO service_role;
+
+-- Rollout preserves booked times as explicit review holds, never generic
+-- failures or inferred approvals. Stop if a connector request may be in flight.
+LOCK TABLE public.scheduled_publishes IN SHARE ROW EXCLUSIVE MODE;
+DO $$ BEGIN
+  IF EXISTS(SELECT 1 FROM public.scheduled_publishes WHERE status='publishing') THEN
+    RAISE EXCEPTION 'publication_rollout_wait_for_in_flight';
+  END IF;
+END; $$;
+ALTER TABLE public.scheduled_publishes DROP CONSTRAINT IF EXISTS scheduled_publishes_status_check;
+ALTER TABLE public.scheduled_publishes ADD CONSTRAINT scheduled_publishes_status_check
+  CHECK(status IN ('pending','publishing','published','failed','cancelled','review_required'));
+DROP INDEX IF EXISTS public.scheduled_publishes_active_asset_idx;
+CREATE UNIQUE INDEX scheduled_publishes_active_asset_idx ON public.scheduled_publishes(asset_id)
+  WHERE status IN ('pending','publishing','review_required');
+
+-- Also cover writes from the old application during migration-before-deploy.
+-- New scheduling RPCs grant an exact version before inserting their queue row.
+CREATE FUNCTION public.hold_unapproved_scheduled_publish()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+  IF NEW.status='pending' AND NOT EXISTS(SELECT 1 FROM public.publication_approvals a
+      WHERE a.user_id=NEW.user_id AND a.project_id=NEW.project_id AND a.asset_id=NEW.asset_id AND a.approved) THEN
+    NEW.status:='review_required';
+  END IF;
+  IF NEW.status='review_required' THEN
+    NEW.last_error:='publication_approval_required';
+    UPDATE public.workspace_entities e SET data=e.data||jsonb_build_object(
+      'scheduledPublishStatus','review_required','scheduledPublishAt',NEW.publish_at,
+      'scheduledPublishError','publication_approval_required')
+      WHERE e.user_id=NEW.user_id AND e.collection='content' AND e.entity_id=NEW.asset_id AND e.data->>'projectId'=NEW.project_id;
+    IF FOUND THEN UPDATE public.workspace_meta SET rev=rev+1 WHERE user_id=NEW.user_id; END IF;
+  END IF;
+  RETURN NEW;
+END; $$;
+REVOKE ALL ON FUNCTION public.hold_unapproved_scheduled_publish() FROM PUBLIC,anon,authenticated,service_role;
+CREATE TRIGGER hold_unapproved_scheduled_publish BEFORE INSERT OR UPDATE OF status ON public.scheduled_publishes
+  FOR EACH ROW EXECUTE FUNCTION public.hold_unapproved_scheduled_publish();
+UPDATE public.scheduled_publishes SET status='review_required',updated_at=clock_timestamp() WHERE status='pending';
+
+-- A stale pre-deploy tab/runner cannot relabel a held queue as armed in the
+-- workspace mirror. Content edits remain intact; cancelling/resuming the real
+-- queue removes this override before the normal mirror write.
+CREATE FUNCTION public.preserve_schedule_review_hold()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE held_at timestamptz;
+BEGIN
+  IF NEW.collection='content' THEN
+    SELECT publish_at INTO held_at FROM public.scheduled_publishes
+      WHERE user_id=NEW.user_id AND project_id=NEW.data->>'projectId' AND asset_id=NEW.entity_id AND status='review_required' LIMIT 1;
+    IF held_at IS NOT NULL THEN
+      NEW.data:=NEW.data||jsonb_build_object('scheduledPublishStatus','review_required',
+        'scheduledPublishAt',held_at,'scheduledPublishError','publication_approval_required');
+    END IF;
+  END IF;
+  RETURN NEW;
+END; $$;
+REVOKE ALL ON FUNCTION public.preserve_schedule_review_hold() FROM PUBLIC,anon,authenticated,service_role;
+CREATE TRIGGER preserve_schedule_review_hold BEFORE INSERT OR UPDATE OF data ON public.workspace_entities
+  FOR EACH ROW EXECUTE FUNCTION public.preserve_schedule_review_hold();

@@ -2,6 +2,12 @@ import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from "vitest";
 let db: PGlite;
+let rolloutEvidence: {
+  status: string;
+  publishAt: string;
+  attempts: number;
+  data: Record<string, unknown>;
+};
 const user = "00000000-0000-4000-8000-000000000001";
 const other = "00000000-0000-4000-8000-000000000002";
 const settings = { preparationWeekday: 5, preparationTime: "16:00", reviewLeadHours: 48 };
@@ -22,7 +28,7 @@ const claim = async (period = "2026-10") =>
 beforeAll(async () => {
   db = new PGlite();
   await db.exec(
-    "CREATE TABLE ai_generation_usage_receipts(id uuid PRIMARY KEY,user_id uuid,native_attempt_id uuid);CREATE TABLE ai_generation_results(receipt_id uuid PRIMARY KEY,user_id uuid,payload jsonb,discarded_at timestamptz);CREATE ROLE anon;CREATE ROLE authenticated;CREATE ROLE service_role;CREATE SCHEMA auth;CREATE TABLE auth.users(id uuid PRIMARY KEY);CREATE TABLE workspace_meta(user_id uuid PRIMARY KEY,rev bigint DEFAULT 0);CREATE TABLE scheduled_publishes(id uuid DEFAULT gen_random_uuid(),user_id uuid,project_id text,asset_id text,publish_at timestamptz,status text,attempts integer DEFAULT 0,created_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now());CREATE TABLE workspace_entities(user_id uuid,collection text,entity_id text,data jsonb DEFAULT '{}'::jsonb,PRIMARY KEY(user_id,collection,entity_id));",
+    "CREATE TABLE ai_generation_usage_receipts(id uuid PRIMARY KEY,user_id uuid,native_attempt_id uuid);CREATE TABLE ai_generation_results(receipt_id uuid PRIMARY KEY,user_id uuid,payload jsonb,discarded_at timestamptz);CREATE ROLE anon;CREATE ROLE authenticated;CREATE ROLE service_role;CREATE SCHEMA auth;CREATE TABLE auth.users(id uuid PRIMARY KEY);CREATE TABLE workspace_meta(user_id uuid PRIMARY KEY,rev bigint DEFAULT 0);CREATE TABLE scheduled_publishes(id uuid DEFAULT gen_random_uuid(),user_id uuid,project_id text,asset_id text,publish_at timestamptz,status text,attempts integer DEFAULT 0,last_error text,created_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now());CREATE TABLE workspace_entities(user_id uuid,collection text,entity_id text,data jsonb DEFAULT '{}'::jsonb,PRIMARY KEY(user_id,collection,entity_id));",
   );
   await db.query("INSERT INTO auth.users VALUES($1),($2)", [user, other]);
   await db.query("INSERT INTO workspace_meta(user_id) VALUES($1),($2)", [user, other]);
@@ -40,8 +46,27 @@ beforeAll(async () => {
     "20260910170000_publication_approval.sql",
     "20260910180000_weekly_executor.sql",
     "20260910190000_weekly_dispatch.sql",
-  ])
+  ]) {
+    if (migration === "20260910180000_weekly_executor.sql") {
+      await db.query(
+        'INSERT INTO workspace_entities VALUES($1,\'content\',\'rollout-asset\',\'{"projectId":"p","title":"Preserved article","status":"Approved"}\')',
+        [user],
+      );
+      await db.query(
+        "INSERT INTO scheduled_publishes(user_id,project_id,asset_id,publish_at,status) VALUES($1,'p','rollout-asset','2099-09-15T07:00:00Z','pending')",
+        [user],
+      );
+    }
     await db.exec(readFileSync(`supabase/migrations/${migration}`, "utf8"));
+    if (migration === "20260910180000_weekly_executor.sql") {
+      rolloutEvidence = (
+        await db.query<typeof rolloutEvidence>(
+          `SELECT q.status,q.publish_at::text AS "publishAt",q.attempts,e.data FROM scheduled_publishes q JOIN workspace_entities e ON e.entity_id=q.asset_id AND e.collection='content' WHERE q.asset_id='rollout-asset'`,
+        )
+      ).rows[0];
+      await db.query("DELETE FROM workspace_entities WHERE entity_id='rollout-asset'");
+    }
+  }
 }, 30000);
 beforeEach(async () => {
   await db.exec(
@@ -470,8 +495,40 @@ describe("weekly executor durable cancellation, delivery and summaries", () => {
 });
 
 describe("manual exact-approval scheduling admission", () => {
+  it("rolls existing booked work into explicit review without changing its time, content or attempts", () => {
+    expect(rolloutEvidence.status).toBe("review_required");
+    expect(Date.parse(rolloutEvidence.publishAt)).toBe(Date.parse("2099-09-15T07:00:00Z"));
+    expect(rolloutEvidence.attempts).toBe(0);
+    expect(rolloutEvidence.data).toMatchObject({
+      title: "Preserved article",
+      status: "Approved",
+      scheduledPublishStatus: "review_required",
+      scheduledPublishError: "publication_approval_required",
+    });
+  });
+  it("refuses approval rollout while a publish may be in flight", async () => {
+    await db.query(
+      "INSERT INTO scheduled_publishes(user_id,project_id,asset_id,publish_at,status) VALUES($1,'p','in-flight','2099-09-15T07:00:00Z','publishing')",
+      [user],
+    );
+    const guard = readFileSync("supabase/migrations/20260910180000_weekly_executor.sql", "utf8")
+      .split("-- Rollout preserves")[1]
+      .split("ALTER TABLE")[0];
+    await expect(db.exec("BEGIN; -- Rollout preserves" + guard + "COMMIT;")).rejects.toThrow(
+      "publication_rollout_wait_for_in_flight",
+    );
+    await db.exec("ROLLBACK");
+    expect(
+      (
+        await db.query<{ status: string }>(
+          "SELECT status FROM scheduled_publishes WHERE asset_id='in-flight'",
+        )
+      ).rows[0].status,
+    ).toBe("publishing");
+  });
+
   const hash = "d".repeat(64);
-  it("preserves a pending schedule on missing/stale approval and atomically replaces it after approval", async () => {
+  it("preserves a held schedule on missing/stale approval and atomically replaces it after approval", async () => {
     await db.query(
       'INSERT INTO workspace_entities(user_id,collection,entity_id,data) VALUES($1,\'content\',\'manual-asset\',\'{"projectId":"p","status":"Approved"}\')',
       [user],
@@ -480,20 +537,31 @@ describe("manual exact-approval scheduling admission", () => {
       "INSERT INTO scheduled_publishes(user_id,project_id,asset_id,publish_at,status) VALUES($1,'p','manual-asset','2099-09-15T07:00:00Z','pending')",
       [user],
     );
-    const schedule = (expected = 0) =>
+    await db.query(
+      'UPDATE workspace_entities SET data=data||\'{"scheduledPublishStatus":"pending","title":"Owner edit retained"}\'::jsonb WHERE user_id=$1 AND entity_id=\'manual-asset\'',
+      [user],
+    );
+    expect(
+      (
+        await db.query<{ data: Record<string, unknown> }>(
+          "SELECT data FROM workspace_entities WHERE entity_id='manual-asset'",
+        )
+      ).rows[0].data,
+    ).toMatchObject({ scheduledPublishStatus: "review_required", title: "Owner edit retained" });
+    const schedule = (expected = 1) =>
       db.query<{ result: { status: string; publish_at: string } }>(
         "SELECT schedule_approved_publication($1,'p','manual-asset',$2,$3,'2099-09-17T07:00:00Z') result",
         [user, expected, hash],
       );
     await expect(schedule()).rejects.toThrow("schedule_approval_changed");
     expect(
-      (await db.query("SELECT * FROM scheduled_publishes WHERE status='pending'")).rows,
+      (await db.query("SELECT * FROM scheduled_publishes WHERE status='review_required'")).rows,
     ).toHaveLength(1);
-    await db.query("SELECT set_publication_approval($1,'p','manual-asset',0,$2,true)", [
+    await db.query("SELECT set_publication_approval($1,'p','manual-asset',1,$2,true)", [
       user,
       hash,
     ]);
-    await expect(schedule(1)).rejects.toThrow("schedule_approval_changed");
+    await expect(schedule(0)).rejects.toThrow("schedule_approval_changed");
     expect(
       (await db.query("SELECT * FROM scheduled_publishes WHERE status='cancelled'")).rows,
     ).toHaveLength(0);

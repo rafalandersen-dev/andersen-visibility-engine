@@ -97,7 +97,7 @@ async function cancelPendingRows(
     .update({ status: "cancelled", updated_at: new Date().toISOString() })
     .eq("user_id", userId)
     .eq("asset_id", assetId)
-    .eq("status", "pending")
+    .in("status", ["pending", "review_required"])
     .select("id");
   if (error) throw new Error("Could not update the existing schedule. Please try again.");
 

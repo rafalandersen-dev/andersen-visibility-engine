@@ -18,7 +18,14 @@ const queueSchema = z
   .array(
     z.object({
       asset_id: identity,
-      status: z.enum(["pending", "publishing", "published", "failed", "cancelled"]),
+      status: z.enum([
+        "pending",
+        "publishing",
+        "published",
+        "failed",
+        "cancelled",
+        "review_required",
+      ]),
     }),
   )
   .max(1000);
@@ -100,6 +107,7 @@ export async function inspectSchedulerRecovery(
     published: 0,
     failed: 0,
     cancelled: 0,
+    review_required: 0,
   };
   for (const q of queue) if (savedIds.has(q.asset_id)) counts[q.status]++;
   // These are saved Milo records, not destination/provider verification. Never

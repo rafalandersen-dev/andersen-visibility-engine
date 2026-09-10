@@ -143,7 +143,7 @@ async function bookedInstants(
     .select("publish_at")
     .eq("user_id", userId)
     .eq("project_id", projectId)
-    .in("status", ["pending", "publishing"]);
+    .in("status", ["pending", "publishing", "review_required"]);
   if (
     error ||
     !Array.isArray(data) ||

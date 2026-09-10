@@ -24,7 +24,7 @@ const queueSchema = z.object({
   project_id: identity,
   asset_id: identity,
   publish_at: z.string().datetime({ offset: true }),
-  status: z.enum(["pending", "publishing", "published", "failed", "cancelled"]),
+  status: z.enum(["pending", "publishing", "published", "failed", "cancelled", "review_required"]),
   attempts: z.number().int().nonnegative(),
   created_at: z.string(),
 });

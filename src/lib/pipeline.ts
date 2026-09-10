@@ -178,6 +178,8 @@ export function pipelineStage(input: StageInput): PipelineStage {
     return "needs_fixing";
   }
 
+  if (a?.scheduledPublishStatus === "review_required") return "in_review";
+
   // 4. Armed: the queue will publish this without further input.
   if (a?.scheduledPublishStatus === "pending" && a.scheduledPublishAt) return "armed";
 

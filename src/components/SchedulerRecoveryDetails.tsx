@@ -52,6 +52,9 @@ export function SchedulerRecoveryDetails({ projectId }: { projectId: string }) {
                       cancelled: report.counts.cancelled,
                     })}
                   </p>
+                  {report.counts.review_required > 0 && (
+                    <p>{t("approval.heldCount", { count: report.counts.review_required })}</p>
+                  )}
                   <p className="text-muted-foreground">
                     {t("notifications.recoveryEvidenceLimit")}
                   </p>

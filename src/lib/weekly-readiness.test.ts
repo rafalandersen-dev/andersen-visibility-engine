@@ -29,7 +29,14 @@ describe("truthful weekly readiness", () => {
     expect(result.missing.map((s) => s.localDate)).toEqual(["2026-09-17"]);
   });
   it("reports actual queue state and preserves cancellation instead of refilling it", () => {
-    for (const status of ["pending", "publishing", "published", "failed", "cancelled"] as const) {
+    for (const status of [
+      "pending",
+      "publishing",
+      "published",
+      "failed",
+      "cancelled",
+      "review_required",
+    ] as const) {
       const result = weeklyReadiness({
         ...base,
         assets: [asset],
@@ -41,6 +48,7 @@ describe("truthful weekly readiness", () => {
           publishing: "publishing",
           published: "published",
           failed: "held",
+          review_required: "held",
           cancelled: "cancelled",
         }[status],
       );

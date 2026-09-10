@@ -103,7 +103,7 @@ export type LivePublishStatus = "notPublished" | "published" | "failed";
  * `failed` for a human decision instead of risking a duplicate live post.
  */
 export type ScheduledPublishStatus =
-  "pending" | "publishing" | "published" | "failed" | "cancelled";
+  "pending" | "publishing" | "published" | "failed" | "cancelled" | "review_required";
 
 /** One queued publish. Mirrors a `scheduled_publishes` row. */
 export interface ScheduledPublish {
