@@ -35,7 +35,9 @@ describe("brand document production worker bundle", () => {
       `
       import { parentPort } from 'node:worker_threads';
       globalThis.self = globalThis;
-      globalThis.pdfjsWorker = await import(${JSON.stringify(pathToFileURL(resolve("node_modules/pdfjs-dist/build/pdf.worker.min.mjs")).href)});
+      // Exercise the compatibility build even on newer local Node versions.
+      delete Promise.try;
+      globalThis.pdfjsWorker = await import(${JSON.stringify(pathToFileURL(resolve("node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs")).href)});
       globalThis.postMessage = value => parentPort.postMessage(value);
       await import(${JSON.stringify(pathToFileURL(join(folder, "assets", worker!)).href)});
       parentPort.on('message', bytes => globalThis.onmessage({data: {bytes}}));

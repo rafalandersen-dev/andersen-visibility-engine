@@ -1,6 +1,6 @@
 import mammoth from "mammoth";
-import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
-import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import { getDocument, GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
+import pdfWorkerUrl from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
 import { verifyBrandDocumentExpansion } from "./brand-document-zip";
 import {
   boundedBrandSegments,
