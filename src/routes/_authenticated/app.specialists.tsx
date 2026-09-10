@@ -224,6 +224,9 @@ function TeamProject({
           key={`${ownerId}:${project.id}`}
           ownerId={ownerId}
           projectId={project.id}
+          onKnowledgeChange={() => {
+            void knowledgeQuery.refetch();
+          }}
         />
       )}
     </div>

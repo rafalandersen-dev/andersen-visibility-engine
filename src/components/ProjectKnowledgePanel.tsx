@@ -63,11 +63,13 @@ export function ProjectKnowledgePanel({
   ownerId,
   initialWebsiteUrl = "",
   onBusyChange,
+  onKnowledgeChange,
 }: {
   projectId: string;
   ownerId: string;
   initialWebsiteUrl?: string;
   onBusyChange?: (busy: boolean) => void;
+  onKnowledgeChange?: () => void;
 }) {
   const t = useT();
   const profile = useStore((store) => store.projects.find((project) => project.id === projectId));
@@ -174,7 +176,10 @@ export function ProjectKnowledgePanel({
       }
     } finally {
       working.current = false;
-      if (alive.current) setBusy(false);
+      if (alive.current) {
+        setBusy(false);
+        onKnowledgeChange?.();
+      }
     }
   }
   async function upload(file: File, replacement?: KnowledgeSource) {
