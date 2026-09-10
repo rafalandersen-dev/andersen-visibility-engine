@@ -494,6 +494,32 @@ describe("weekly executor durable cancellation, delivery and summaries", () => {
     expect(
       (await db.query("SELECT * FROM scheduled_publishes WHERE status='pending'")).rows,
     ).toHaveLength(1);
+    await db.exec(
+      "UPDATE scheduled_publishes SET status='publishing',attempts=1 WHERE asset_id='atomic-asset'",
+    );
+    await db.exec(
+      "UPDATE scheduled_publishes SET status='pending',last_error='Retryable rejection' WHERE asset_id='atomic-asset'",
+    );
+    expect(
+      (
+        await db.query<{ status: string; attempts: number }>(
+          "SELECT status,attempts FROM scheduled_publishes WHERE asset_id='atomic-asset'",
+        )
+      ).rows[0],
+    ).toEqual({ status: "pending", attempts: 1 });
+    await db.exec(
+      "UPDATE scheduled_publishes SET status='publishing' WHERE asset_id='atomic-asset'",
+    );
+    await db.exec(
+      "UPDATE scheduled_publishes SET status='pending',publish_at='2099-09-16T07:00:00Z' WHERE asset_id='atomic-asset'",
+    );
+    expect(
+      (
+        await db.query<{ status: string }>(
+          "SELECT status FROM scheduled_publishes WHERE asset_id='atomic-asset'",
+        )
+      ).rows[0].status,
+    ).toBe("review_required");
     await db.query("DELETE FROM workspace_entities WHERE entity_id='atomic-asset'");
     await db.exec(
       "UPDATE workspace_entities SET data='{\"autoScheduler\":{\"enabled\":true}}' WHERE collection='projects'",

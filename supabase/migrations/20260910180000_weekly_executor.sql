@@ -197,10 +197,16 @@ CREATE UNIQUE INDEX scheduled_publishes_active_asset_idx ON public.scheduled_pub
 -- Also cover writes from the old application during migration-before-deploy.
 -- Only revision-locked exact-version RPCs issue a one-row transaction-local
 -- admission proof. A historical approval row cannot authorize a legacy insert.
+-- A claimed row may return to pending after a proven retryable rejection only
+-- with the same identity, date and attempt count and an unwithdrawn approval.
+-- Every subsequent fire still rederives exact version approval and freshness.
 CREATE FUNCTION public.hold_unapproved_scheduled_publish()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 BEGIN
-  IF NEW.status='pending' AND (current_setting('milo.approved_queue_id',true) IS DISTINCT FROM NEW.id::text
+  IF NEW.status='pending' AND ((current_setting('milo.approved_queue_id',true) IS DISTINCT FROM NEW.id::text
+      AND NOT (TG_OP='UPDATE' AND OLD.status='publishing'
+        AND (NEW.id,NEW.user_id,NEW.project_id,NEW.asset_id,NEW.publish_at,NEW.attempts)
+          IS NOT DISTINCT FROM (OLD.id,OLD.user_id,OLD.project_id,OLD.asset_id,OLD.publish_at,OLD.attempts)))
     OR NOT EXISTS(SELECT 1 FROM public.publication_approvals a
       WHERE a.user_id=NEW.user_id AND a.project_id=NEW.project_id AND a.asset_id=NEW.asset_id AND a.approved)) THEN
     NEW.status:='review_required';
