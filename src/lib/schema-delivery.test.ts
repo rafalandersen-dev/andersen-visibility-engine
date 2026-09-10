@@ -2,14 +2,14 @@
  * Schema delivery capability (Article Studio 2.0 / P1.1 H).
  *
  * "Generated" is not "delivered": the matrix must report WordPress/Shopify as
- * included-in-payload-but-unverified, and the custom endpoint as UNSUPPORTED —
+ * planned-in-payload-but-unverified, and the custom endpoint as UNSUPPORTED —
  * never claiming the schema is live.
  */
 import { describe, it, expect } from "vitest";
 import { schemaConnectorCapability } from "./schema-delivery";
 
 describe("schema delivery capability — generated ≠ delivered (H)", () => {
-  it("wordpress/shopify: in payload, but retention + destination unverified", () => {
+  it("wordpress/shopify: planned payload, retention + destination unverified", () => {
     for (const c of ["wordpress", "shopify"] as const) {
       const cap = schemaConnectorCapability(c, true);
       expect(cap.generated).toBe(true);

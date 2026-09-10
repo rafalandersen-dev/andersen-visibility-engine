@@ -74,15 +74,21 @@ describe("rendered article and actual connector payload fidelity", () => {
       const output = assembleContentAsset(asset, project);
       expect(output.html).toContain("<figure");
       expect(output.html).toContain("<figcaption>Visible caption</figcaption>");
-      const fetch = vi.fn(async (_url: unknown, init: RequestInit) => {
-        expect(JSON.parse(String(init.body)).content).toBe(output.html + output.jsonLdScript);
+      const fetch = vi.fn(async (_url: unknown, _init: RequestInit) => {
+        // Capture only: transport error handling must never swallow a test assertion.
         return new Response(JSON.stringify({ id: 1, link: "https://site.com/title" }), {
           status: 200,
         });
       });
       vi.stubGlobal("fetch", fetch);
       const args = wpPublishArgs(asset, project);
-      await (live ? publishWordPressLiveDirect(args) : sendWordPressDraftDirect(args));
+      const result = await (live
+        ? publishWordPressLiveDirect(args)
+        : sendWordPressDraftDirect(args));
+      expect(result.success).toBe(true);
+      expect(JSON.parse(String(fetch.mock.calls[0]?.[1].body)).content).toBe(
+        output.html + output.jsonLdScript,
+      );
       expect(fetch).toHaveBeenCalledTimes(1);
       expect(
         ContentInput.parse({ ...args, assembledHtml: "<script>untrusted</script>" }),
@@ -93,10 +99,7 @@ describe("rendered article and actual connector payload fidelity", () => {
     "Shopify transport preserves vetted figures and schema (live=%s)",
     async (live) => {
       const output = assembleContentAsset(asset, project);
-      const fetch = vi.fn(async (_url: unknown, init: RequestInit) => {
-        expect(JSON.parse(String(init.body)).variables.article.body).toBe(
-          output.html + output.jsonLdScript,
-        );
+      const fetch = vi.fn(async (_url: unknown, _init: RequestInit) => {
         return new Response(
           JSON.stringify({
             data: {
@@ -115,7 +118,11 @@ describe("rendered article and actual connector payload fidelity", () => {
       });
       vi.stubGlobal("fetch", fetch);
       const args = shopifyArticleArgs(asset, project);
-      await upsertArticle(args, live);
+      const result = await upsertArticle(args, live);
+      expect(result.success).toBe(true);
+      expect(JSON.parse(String(fetch.mock.calls[0]?.[1].body)).variables.article.body).toBe(
+        output.html + output.jsonLdScript,
+      );
       expect(fetch).toHaveBeenCalledTimes(1);
       expect(
         ArticleInput.parse({ ...args, assembledHtml: "<script>untrusted</script>" }),
