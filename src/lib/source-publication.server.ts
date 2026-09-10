@@ -25,19 +25,23 @@ export class SourcePublicationHeldError extends Error {
 export function assetSourceDependencies(asset: ContentAsset) {
   // Conservative: retained image references are checked even before attachment
   // approval. Removing an image removes its references from this asset's gate.
-  if (!Array.isArray(asset.images ?? []) || (asset.images?.length ?? 0) > 30)
-    throw new SourcePublicationHeldError();
+  if (!Array.isArray(asset.images ?? [])) throw new SourcePublicationHeldError();
+  const imageDependencies = (asset.images ?? [])
+    .map((image) =>
+      z
+        .array(outputDependencySchema)
+        .max(100)
+        .parse(image.sourceDependencies ?? []),
+    )
+    .filter((dependencies) => dependencies.length > 0);
+  // Legacy uploads have no source references and consume no evaluation capacity.
+  if (imageDependencies.length > 30) throw new SourcePublicationHeldError();
   const dependencies = [
     ...z
       .array(outputDependencySchema)
       .max(100)
       .parse(asset.sourceDependencies ?? []),
-    ...(asset.images ?? []).flatMap((image) =>
-      z
-        .array(outputDependencySchema)
-        .max(100)
-        .parse(image.sourceDependencies ?? []),
-    ),
+    ...imageDependencies.flat(),
   ];
   const unique = new Map(dependencies.map((d) => [JSON.stringify(d), d]));
   return z
