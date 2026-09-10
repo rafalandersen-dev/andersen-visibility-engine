@@ -77,6 +77,15 @@ describe("serverWpArgs — WordPress checklist parity + server re-derivation", (
     expect(args.contentMarkdown.length).toBeGreaterThan(0); // assembled server-side
   });
 
+  it("refuses a changed WordPress dialog slug before approval or transport", async () => {
+    setWorkspace(wpProject(), asset({ publishSlug: "approved-slug" }));
+    await expect(serverWpArgs("u1", "p1", "a1", "different-slug")).rejects.toThrow(
+      "publication_approval_required",
+    );
+    expect(approval.check).not.toHaveBeenCalled();
+    expect((await serverWpArgs("u1", "p1", "a1", "approved-slug")).slug).toBe("approved-slug");
+  });
+
   it("REFUSES a rewrite that would create a duplicate post (hard blocker enforced)", async () => {
     // republishTargetUrl set but no wordpressPostId → duplicateTarget blocker.
     setWorkspace(wpProject(), asset({ republishTargetUrl: "https://site.com/old-post" }));

@@ -1023,6 +1023,10 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   }
 
   async function armSchedule() {
+    if (isDirty) {
+      toast.info(t("approval.needed"));
+      return;
+    }
     if (!goLiveValid) return;
     setScheduling(true);
     try {
@@ -1134,6 +1138,11 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   }
 
   async function doPublishLive() {
+    if (isDirty) {
+      setLiveConfirmOpen(false);
+      toast.info(t("approval.needed"));
+      return;
+    }
     setPublishingLive(true);
     try {
       await publishContentLive(asset.id);
@@ -1363,7 +1372,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 <Button
                   size="sm"
                   onClick={() => setLiveConfirmOpen(true)}
-                  disabled={!liveConfigured || publishingLive || publishBlocked}
+                  disabled={!liveConfigured || publishingLive || publishBlocked || isDirty}
                 >
                   {publishingLive ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1488,7 +1497,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               <Button
                 size="sm"
                 onClick={armSchedule}
-                disabled={!goLiveLocal || scheduling || publishBlocked}
+                disabled={!goLiveLocal || scheduling || publishBlocked || isDirty}
               >
                 {scheduling ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1569,7 +1578,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               <Select
                 value={destType}
                 onValueChange={(v) => setDestType(v as PublishDestinationType)}
-                disabled={sending}
+                disabled={sending || isWordPress || isShopify}
               >
                 <SelectTrigger className="mt-1.5">
                   <SelectValue />
@@ -1610,12 +1619,15 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               )}
               {sending
                 ? t("editor.sendModal.sending")
-                : !isWordPress &&
-                    !isShopify &&
-                    project &&
+                : project &&
                     draftSelectionChanged(asset, project, {
                       slug: (publishSlug || asset.publishSlug || asset.slug || "").trim(),
-                      destinationType: destType,
+                      destinationType:
+                        isWordPress || isShopify
+                          ? (asset.publishDestinationType ??
+                            project.defaultDestinationType ??
+                            "blogPost")
+                          : destType,
                     })
                   ? t("approval.saveDestination")
                   : t("editor.sendModal.send")}
@@ -1653,7 +1665,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 e.preventDefault();
                 doPublishLive();
               }}
-              disabled={publishingLive}
+              disabled={publishingLive || isDirty}
             >
               {publishingLive ? t("editor.liveModal.publishing") : t("editor.liveModal.publish")}
             </AlertDialogAction>

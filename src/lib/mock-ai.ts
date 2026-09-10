@@ -1913,9 +1913,22 @@ export async function sendContentToWebsite(
     if (!project) throw new Error("Project not found.");
     assertPublishable(asset, project);
 
+    const finalSlug = (slug || asset.publishSlug || asset.slug || "").trim();
+    const selectedType =
+      isWordPress(project) || isShopify(project)
+        ? (asset.publishDestinationType ?? project.defaultDestinationType ?? "blogPost")
+        : destinationType;
+    if (draftSelectionChanged(asset, project, { slug: finalSlug, destinationType: selectedType })) {
+      upsertContent({ ...asset, publishSlug: finalSlug, publishDestinationType: selectedType });
+      await saveWorkspaceNow();
+      // Saving the selection changes the version. It does not grant publication
+      // permission or send anything; the owner must approve this saved version.
+      throw new Error("publication_approval_required");
+    }
+
     // WordPress connector branch — create/update a WordPress draft.
     if (isWordPress(project)) {
-      return sendToWordPressDraft(asset, project, slug);
+      return sendToWordPressDraft(asset, project, finalSlug);
     }
     // Shopify connector branch — create/update an unpublished article.
     if (isShopify(project)) {
@@ -1925,15 +1938,6 @@ export async function sendContentToWebsite(
     const endpoint = (project.publishEndpoint ?? "").trim();
     if (!endpoint || !hasPublishSecret(project)) {
       throw new Error("Connect a website in Project Setup before sending drafts.");
-    }
-
-    const finalSlug = (slug || asset.publishSlug || asset.slug || "").trim();
-    if (draftSelectionChanged(asset, project, { slug: finalSlug, destinationType })) {
-      upsertContent({ ...asset, publishSlug: finalSlug, publishDestinationType: destinationType });
-      await saveWorkspaceNow();
-      // Saving the selection changes the version. It does not grant publication
-      // permission or send anything; the owner must approve this saved version.
-      throw new Error("publication_approval_required");
     }
 
     try {
