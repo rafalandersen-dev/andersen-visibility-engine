@@ -121,6 +121,24 @@ describe("autopilot budget failures", () => {
       expect(mocks.generate).not.toHaveBeenCalled();
     },
   );
+  it("contains an unavailable control to its project and sends no unverified monthly email", async () => {
+    const first = (workspace.projects as Array<Record<string, unknown>>)[0];
+    workspace.projects = [first, { ...first, id: "p2" }];
+    first.autoScheduler = { enabled: true, summaryEmail: "owner@example.com" };
+    mocks.control
+      .mockRejectedValueOnce(new Error("scheduler_control_unavailable"))
+      .mockResolvedValue({ engine: "monthly" });
+    mocks.remaining.mockResolvedValue(0);
+    const summary = await runMonthlyAutoScheduler(now);
+    expect(summary.projects).toHaveLength(2);
+    expect(summary.projects[0]).toMatchObject({
+      projectId: "p1",
+      error: "scheduler_control_unavailable",
+    });
+    expect(summary.projects[0].summaryEmailTo).toBeUndefined();
+    expect(mocks.acquire).toHaveBeenCalledTimes(1);
+    expect(mocks.acquire).toHaveBeenCalledWith("user", "p2", expect.any(String));
+  });
   it.each([
     { data: null, error: { message: "unavailable" } },
     { data: null, error: null },

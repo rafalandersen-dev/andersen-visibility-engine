@@ -1,19 +1,25 @@
 import { z } from "zod";
 import { localWeekStart } from "./weekly-preparation";
-import { readWeeklyPreparation, readSchedulerControl } from "./weekly-preparation.server";
+import {
+  readWeeklyPreparation as readWeeklyPreparationRaw,
+  readSchedulerControl,
+} from "./weekly-preparation.server";
 import { readWeeklyStages, runWeeklyStage } from "./weekly-stage.server";
 import { refreshWeeklySources } from "./weekly-sources.server";
 import {
-  acquireSchedulerLease,
-  assertSchedulerLease,
-  releaseSchedulerLease,
+  acquireSchedulerLease as acquireSchedulerLeaseRaw,
+  assertSchedulerLease as assertSchedulerLeaseRaw,
+  releaseSchedulerLease as releaseSchedulerLeaseRaw,
 } from "./auto-scheduler-lease.server";
-import { readWorkspaceRow, updateWorkspaceRow } from "./workspace.server";
+import {
+  readWorkspaceRow as readWorkspaceRowRaw,
+  updateWorkspaceRow as updateWorkspaceRowRaw,
+} from "./workspace.server";
 import { generateContentCore, generateOpportunitiesCore, projectBrief } from "./ai.functions";
 import { generateArticleImageCore } from "./image-gen.functions";
 import { readGenerationResult } from "./generation-result.server";
 import { recoverGeneratedResultMutation } from "./generation-recovery.server";
-import { loadProjectKnowledgeContext } from "./project-knowledge.server";
+import { loadProjectKnowledgeContext as loadProjectKnowledgeContextRaw } from "./project-knowledge.server";
 import { normalizeAutoSchedulerConfig, selectCandidates } from "./auto-scheduler";
 import {
   weeklyInputHash,
@@ -28,6 +34,36 @@ import { assertPublicationApproved } from "./publication-approval.server";
 import { buildActiveInternalPaths } from "./publish-targets";
 import { armSchedulerPublication } from "./scheduler-approval.server";
 import type { ContentAsset, Opportunity, Project, ServiceItem } from "./types";
+
+/** A timed-out write/provider may still finish. The durable stage and delivery
+ * transaction retain that uncertainty; this visit never retries the operation. */
+async function bounded<T>(promise: PromiseLike<T>, ms = 10000): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("weekly_operation_timeout")), ms);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+const readWorkspaceRow = (...args: Parameters<typeof readWorkspaceRowRaw>) =>
+  bounded(readWorkspaceRowRaw(...args));
+const updateWorkspaceRow = (...args: Parameters<typeof updateWorkspaceRowRaw>) =>
+  bounded(updateWorkspaceRowRaw(...args));
+const readWeeklyPreparation = (...args: Parameters<typeof readWeeklyPreparationRaw>) =>
+  bounded(readWeeklyPreparationRaw(...args));
+const loadProjectKnowledgeContext = (...args: Parameters<typeof loadProjectKnowledgeContextRaw>) =>
+  bounded(loadProjectKnowledgeContextRaw(...args));
+const acquireSchedulerLease = (...args: Parameters<typeof acquireSchedulerLeaseRaw>) =>
+  bounded(acquireSchedulerLeaseRaw(...args));
+const assertSchedulerLease = (...args: Parameters<typeof assertSchedulerLeaseRaw>) =>
+  bounded(assertSchedulerLeaseRaw(...args));
+const releaseSchedulerLease = (...args: Parameters<typeof releaseSchedulerLeaseRaw>) =>
+  bounded(releaseSchedulerLeaseRaw(...args));
 
 const scopeSchema = z
   .object({ ownerId: z.string().uuid(), projectId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/) })
@@ -201,6 +237,7 @@ export async function runWeeklyProject(scope: Scope, now = new Date()) {
     for (const completed of stages.filter(
       (s) => s.stage === "content" && s.deliveredAt && s.state === "retained",
     )) {
+      if (Date.now() - started > 60000) break;
       const asset = state.content.find(
         (a) => a.id === completed.outputId && a.projectId === scope.projectId,
       );
@@ -280,7 +317,8 @@ export async function runWeeklyProject(scope: Scope, now = new Date()) {
       );
       const candidate = selectCandidates(
         state.opportunities.filter(
-          (o) => !alreadyPinned.has(o.id) && !o.canonicalUrl && !o.currentContentAssetId,
+          (o) =>
+            !alreadyPinned.has(o.id) && !o.canonicalUrl && !o.currentContentAssetId && !o.dueAt,
         ),
         1,
       )[0];
@@ -297,7 +335,7 @@ export async function runWeeklyProject(scope: Scope, now = new Date()) {
           await assertActive();
           if ((await context(scope, state)).contextHash !== ctx.contextHash)
             throw new Error("weekly_context_changed");
-          if (Date.now() - started > 100000) throw new Error("weekly_visit_deadline");
+          if (Date.now() - started > 60000) throw new Error("weekly_visit_deadline");
           const opportunity = candidate ?? {
             ...(
               await generateOpportunitiesCore(
@@ -335,12 +373,16 @@ export async function runWeeklyProject(scope: Scope, now = new Date()) {
     const opportunity = pinnedOpportunity(research.opportunity);
     const ownerOpportunity = state.opportunities.find((o) => o.id === opportunity.id);
     if (
-      research.origin === "owner-plan" &&
-      (!ownerOpportunity ||
-        ownerOpportunity.archivedAt ||
-        ownerOpportunity.deletedAt ||
-        (await weeklyInputHash(weeklyOpportunitySchema.parse(ownerOpportunity))) !==
-          (await weeklyInputHash(research.opportunity)))
+      (research.origin === "owner-plan" && !ownerOpportunity) ||
+      (ownerOpportunity &&
+        (ownerOpportunity.archivedAt ||
+          ownerOpportunity.deletedAt ||
+          ["archived", "Discarded", "published", "scheduled"].includes(ownerOpportunity.status) ||
+          ownerOpportunity.dueAt ||
+          ownerOpportunity.canonicalUrl ||
+          ownerOpportunity.publishedAt ||
+          (await weeklyInputHash(weeklyOpportunitySchema.parse(ownerOpportunity))) !==
+            (await weeklyInputHash(research.opportunity))))
     )
       throw new Error("weekly_context_changed");
     if (!ownerOpportunity) {
@@ -364,22 +406,39 @@ export async function runWeeklyProject(scope: Scope, now = new Date()) {
     let contentStage = sameSlot().find((s) => s.stage === "content");
     if (!contentStage) {
       await assertActive();
+      const latestOpportunity = state.opportunities.find((o) => o.id === opportunity.id);
+      if (
+        !latestOpportunity ||
+        latestOpportunity.currentContentAssetId ||
+        !selectCandidates([latestOpportunity], 1).length ||
+        latestOpportunity.dueAt ||
+        (await context(scope, state)).contextHash !== research.contextHash
+      )
+        throw new Error("weekly_context_changed");
       await runWeeklyStage({
         ...stageArgs,
         stage: "content",
         inputHash: await weeklyInputHash(research),
         parseResult: (v) => weeklyReceiptSchema.parse(v),
         work: async (identity) => {
-          if (Date.now() - started > 100000) throw new Error("weekly_visit_deadline");
-          const gen = await generateContentCore(
-            scope.ownerId,
-            { project: state.project, services: state.services, opportunity, assetType: "article" },
-            {
-              enforceLimit: true,
-              attempt: { requestId: identity.requestId, jobId: token },
-              assetId: identity.outputId,
-              expectedKnowledgeHash: research.knowledgeHash,
-            },
+          if (Date.now() - started > 60000) throw new Error("weekly_visit_deadline");
+          const gen = await bounded(
+            generateContentCore(
+              scope.ownerId,
+              {
+                project: state.project,
+                services: state.services,
+                opportunity,
+                assetType: "article",
+              },
+              {
+                enforceLimit: true,
+                attempt: { requestId: identity.requestId, jobId: token },
+                assetId: identity.outputId,
+                expectedKnowledgeHash: research.knowledgeHash,
+              },
+            ),
+            180000,
           );
           return weeklyReceiptSchema.parse({ receiptId: gen.generationReceiptId });
         },
@@ -448,21 +507,24 @@ export async function runWeeklyProject(scope: Scope, now = new Date()) {
         }),
         parseResult: (v) => weeklyReceiptSchema.parse(v),
         work: async (identity) => {
-          if (Date.now() - started > 100000) throw new Error("weekly_visit_deadline");
-          const gen = await generateArticleImageCore(
-            scope.ownerId,
-            {
-              projectId: scope.projectId,
-              assetId: asset!.id,
-              articleTitle: asset!.title,
-              concept,
-              project: state.project,
-            },
-            {
-              attempt: { requestId: identity.requestId, jobId: token },
-              imageId: identity.outputId,
-              expectedKnowledgeHash: visualHash,
-            },
+          if (Date.now() - started > 60000) throw new Error("weekly_visit_deadline");
+          const gen = await bounded(
+            generateArticleImageCore(
+              scope.ownerId,
+              {
+                projectId: scope.projectId,
+                assetId: asset!.id,
+                articleTitle: asset!.title,
+                concept,
+                project: state.project,
+              },
+              {
+                attempt: { requestId: identity.requestId, jobId: token },
+                imageId: identity.outputId,
+                expectedKnowledgeHash: visualHash,
+              },
+            ),
+            180000,
           );
           return weeklyReceiptSchema.parse({ receiptId: gen.generationReceiptId });
         },
@@ -487,7 +549,9 @@ export async function runWeeklyProject(scope: Scope, now = new Date()) {
       throw new Error("weekly_result_unavailable");
     if (!finalImage.deliveredAt) {
       const { readArticleImagePreview } = await import("./image-preview.server");
-      const preview = await readArticleImagePreview(scope.ownerId, imageResult.result.output.path);
+      const preview = await bounded(
+        readArticleImagePreview(scope.ownerId, imageResult.result.output.path),
+      );
       // Preserve any owner edit during image generation by holding on a CAS
       // mismatch. The private archive stays recoverable in the existing UI.
       await assertActive();

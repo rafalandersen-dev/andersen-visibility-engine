@@ -1,3 +1,4 @@
+import { normalizeAutoSchedulerConfig } from "./auto-scheduler";
 import { schedulerPeriodSchema } from "./weekly-preparation";
 import { z } from "zod";
 import { operationalNotifications } from "./operational-notifications";
@@ -101,8 +102,33 @@ export async function refreshOperationalNotifications(
       acquiredAt: r.acquired_at,
       leaseUntil: r.lease_until,
     }));
+  const enabledProjects = snapshot.projects.filter(
+    (p) => (p as unknown as Project).autoScheduler?.enabled === true,
+  );
+  let controls: Array<{ projectId: string; engine: "monthly" | "weekly" | "paused" }> = [];
+  if (enabledProjects.length) {
+    const response = await db.rpc("read_workspace_scheduler_controls", { p_user: userId });
+    if (response.error) throw new Error("notification_scheduler_control_unavailable");
+    controls = z
+      .array(
+        z.object({ projectId: identity, engine: z.enum(["monthly", "weekly", "paused"]) }).strict(),
+      )
+      .max(1000)
+      .parse(response.data);
+    if (new Set(controls.map((c) => c.projectId)).size !== controls.length)
+      throw new Error("notification_scheduler_control_unavailable");
+  }
+  const engine = (id: string) => controls.find((c) => c.projectId === id)?.engine ?? "monthly";
+  const notificationProjects = (snapshot.projects as unknown as Project[]).map((p) =>
+    engine(p.id) === "paused"
+      ? {
+          ...p,
+          autoScheduler: { ...normalizeAutoSchedulerConfig(p.autoScheduler), enabled: false },
+        }
+      : p,
+  );
   const events = operationalNotifications({
-    projects: snapshot.projects as unknown as Project[],
+    projects: notificationProjects,
     assets: snapshot.content as unknown as ContentAsset[],
     opportunities: snapshot.opportunities as unknown as Opportunity[],
     scheduled,
@@ -110,7 +136,7 @@ export async function refreshOperationalNotifications(
     now,
   });
   const demand = schedulerDemand({
-    projects: snapshot.projects as unknown as Project[],
+    projects: (snapshot.projects as unknown as Project[]).filter((p) => engine(p.id) === "monthly"),
     assets: snapshot.content as unknown as ContentAsset[],
     scheduled,
     now,

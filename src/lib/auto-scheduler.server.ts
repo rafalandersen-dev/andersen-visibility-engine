@@ -259,12 +259,14 @@ export async function runMonthlyAutoScheduler(now = new Date()): Promise<AutoSch
     if (!userId || enabled.length === 0) continue;
     summary.workspaces++;
     for (const project of enabled) {
-      const { readSchedulerControl } = await import("./weekly-preparation.server");
-      const control = await readSchedulerControl({ ownerId: userId, projectId: project.id });
-      if (control.engine !== "monthly") continue;
       const cfg = normalizeAutoSchedulerConfig(project.autoScheduler);
       let report: ProjectRunReport;
+      let monthlyConfirmed = false;
       try {
+        const { readSchedulerControl } = await import("./weekly-preparation.server");
+        const control = await readSchedulerControl({ ownerId: userId, projectId: project.id });
+        if (control.engine !== "monthly") continue;
+        monthlyConfirmed = true;
         const lease = await acquireSchedulerLease(
           userId,
           project.id,
@@ -294,7 +296,7 @@ export async function runMonthlyAutoScheduler(now = new Date()): Promise<AutoSch
                 notes: [],
                 // The owner must hear about a run that failed outright (a typo'd
                 // time zone would otherwise fail silently every month forever).
-                ...(cfg.summaryEmail ? { summaryEmailTo: cfg.summaryEmail } : {}),
+                ...(monthlyConfirmed && cfg.summaryEmail ? { summaryEmailTo: cfg.summaryEmail } : {}),
                 error: e instanceof Error ? e.message : String(e),
               };
       }

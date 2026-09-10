@@ -44,6 +44,8 @@ BEGIN
   INSERT INTO public.project_scheduler_control(user_id,project_id,revision,engine,preparation)
     VALUES(p_user,p_project,p_expected+1,p_engine,p_preparation)
     ON CONFLICT(user_id,project_id) DO UPDATE SET revision=p_expected+1,engine=p_engine,preparation=p_preparation,updated_at=now();
+  -- Control changes invalidate in-flight workspace-based notification snapshots.
+  UPDATE public.workspace_meta SET rev=rev+1 WHERE user_id=p_user;
   RETURN public.read_project_scheduler_control(p_user,p_project);
 END; $$;
 

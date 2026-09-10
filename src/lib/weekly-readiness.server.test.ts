@@ -60,6 +60,53 @@ describe("weekly readiness authenticated storage boundary", () => {
       p_project: "p",
     });
   });
+  it("shows permanent cancellation while retaining the linked draft", async () => {
+    const data = (await mocked.workspace()).data;
+    data.content = [
+      {
+        id: "asset",
+        projectId: "p",
+        title: "Retained draft",
+        autoSchedulerPlannedAt: "2026-09-15T07:00:00Z",
+      },
+    ];
+    mocked.rpc.mockImplementation(async (name) => ({
+      data:
+        name === "read_project_scheduler_control"
+          ? {
+              revision: 1,
+              engine: "weekly",
+              preparation: { preparationWeekday: 5, preparationTime: "16:00", reviewLeadHours: 48 },
+            }
+          : name === "read_weekly_preparation_summary"
+            ? null
+            : [
+                {
+                  publishAt: "2026-09-15T07:00:00Z",
+                  stage: "content",
+                  state: "cancelled",
+                  requestId: "00000000-0000-4000-8000-000000000003",
+                  outputId: "00000000-0000-4000-8000-000000000004",
+                  inputHash: "a".repeat(64),
+                  result: null,
+                  deliveredAt: "2026-09-11T14:00:00Z",
+                  outputChanged: false,
+                },
+              ],
+      error: null,
+    }));
+    const result = await readWeeklyPreparation(
+      scope,
+      "2026-09-14",
+      new Date("2026-09-11T14:00:00Z"),
+    );
+    expect(result.readiness[0]).toMatchObject({
+      state: "cancelled",
+      assetId: "asset",
+      title: "Retained draft",
+    });
+    expect(result.missing.some((s) => s.publishAt === "2026-09-15T07:00:00.000Z")).toBe(false);
+  });
   it("refuses missing project and incomplete queue reads", async () => {
     await expect(
       readWeeklyPreparation({ ...scope, projectId: "foreign" }, "2026-09-14"),

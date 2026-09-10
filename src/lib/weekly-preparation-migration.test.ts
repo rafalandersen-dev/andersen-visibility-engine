@@ -41,7 +41,7 @@ beforeAll(async () => {
 }, 30000);
 beforeEach(async () => {
   await db.exec(
-    "RESET ROLE;TRUNCATE project_scheduler_control,auto_scheduler_leases,weekly_preparation_stages,ai_generation_results,ai_generation_usage_receipts,weekly_preparation_summaries,publication_approvals,scheduled_publishes;",
+    "RESET ROLE;UPDATE workspace_meta SET rev=0;TRUNCATE project_scheduler_control,auto_scheduler_leases,weekly_preparation_stages,ai_generation_results,ai_generation_usage_receipts,weekly_preparation_summaries,publication_approvals,scheduled_publishes;",
   );
 });
 afterAll(async () => {

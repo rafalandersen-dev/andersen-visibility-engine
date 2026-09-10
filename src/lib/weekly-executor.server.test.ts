@@ -79,9 +79,11 @@ type Stage = {
 let stages: Stage[];
 let archives: Map<string, GenerationResult>;
 let rev: number;
+let queue: Array<{ assetId: string; publishAt: string; status: "pending" }>;
 beforeEach(() => {
   vi.resetAllMocks();
   stages = [];
+  queue = [];
   archives = new Map();
   rev = 0;
   workspace = {
@@ -163,7 +165,7 @@ beforeEach(() => {
       preparation: prep,
       assets: workspace.content,
       booked: [],
-      queue: [],
+      queue,
     }),
     enabled: workspace.projects[0].autoScheduler?.enabled,
     control,
@@ -257,6 +259,23 @@ describe("weekly executor integrated orchestration without live providers", () =
     expect(h.image).toHaveBeenCalledTimes(2);
     expect(h.arm).not.toHaveBeenCalled();
   });
+  it("uses real queued current-week rows to move to next week even without display mirrors", async () => {
+    for (let i = 0; i < 6; i++) await runWeeklyProject(scope, now);
+    workspace.projects[0].autoScheduler!.mode = "auto_publish";
+    for (const asset of workspace.content) {
+      asset.status = "Approved";
+      queue.push({
+        assetId: asset.id,
+        publishAt: asset.autoSchedulerPlannedAt!,
+        status: "pending",
+      });
+    }
+    expect(await runWeeklyProject(scope, new Date("2026-09-16T08:00:00Z"))).toMatchObject({
+      period: "week:2026-09-21",
+      action: "waiting",
+    });
+    expect(h.generate).toHaveBeenCalledTimes(2);
+  });
   it("retains article when visual budget fails and never replays the uncertain visual", async () => {
     await runWeeklyProject(scope, now);
     await runWeeklyProject(scope, now);
@@ -273,6 +292,16 @@ describe("weekly executor integrated orchestration without live providers", () =
   it("holds changed owner brief before any content call", async () => {
     await runWeeklyProject(scope, now);
     workspace.opportunities[0].title = "Owner changed topic";
+    expect(await runWeeklyProject(scope, now)).toMatchObject({ action: "context-changed" });
+    expect(h.generate).not.toHaveBeenCalled();
+  });
+  it.each([
+    { status: "Discarded" },
+    { dueAt: "2026-09-18T09:00:00Z" },
+    { currentContentAssetId: "owner-draft" },
+  ])("holds an owner lifecycle change before generation: %s", async (change) => {
+    await runWeeklyProject(scope, now);
+    Object.assign(workspace.opportunities[0], change);
     expect(await runWeeklyProject(scope, now)).toMatchObject({ action: "context-changed" });
     expect(h.generate).not.toHaveBeenCalled();
   });

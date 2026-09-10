@@ -150,7 +150,9 @@ export async function readWeeklyPreparation(
     );
   readiness.missing = readiness.missing.filter((s) => !cancelled(s.publishAt));
   readiness.readiness = readiness.readiness.map((s) =>
-    s.state === "missing" && cancelled(s.publishAt) ? { ...s, state: "cancelled" } : s,
+    cancelled(s.publishAt) && !["queued", "publishing", "published", "conflict"].includes(s.state)
+      ? { ...s, state: "cancelled" }
+      : s,
   );
 
   return {

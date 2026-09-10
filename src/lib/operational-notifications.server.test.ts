@@ -35,7 +35,10 @@ beforeEach(() => {
     data: { projects: [], content: [], opportunities: [] },
   });
   mocks.query.mockResolvedValue({ data: [], error: null });
-  mocks.rpc.mockResolvedValue({ data: true, error: null });
+  mocks.rpc.mockImplementation(async (name) => ({
+    data: name === "read_workspace_scheduler_controls" ? [] : true,
+    error: null,
+  }));
 });
 afterEach(() => {
   vi.restoreAllMocks();
@@ -95,7 +98,9 @@ describe("server notification snapshot boundary", () => {
     expect(await refreshOperationalNotifications("owner", new Date("2026-09-07T10:00:00Z"))).toBe(
       true,
     );
-    const events = mocks.rpc.mock.calls[0][1].p_events;
+    const events = mocks.rpc.mock.calls.find(
+      (call) => call[0] === "sync_operational_notifications",
+    )![1].p_events;
     expect(events.map((event: { kind: string }) => event.kind)).toContain("cadence_gap");
     expect(events.map((event: { kind: string }) => event.kind)).toContain(
       "generation_capacity_unavailable",
@@ -103,6 +108,57 @@ describe("server notification snapshot boundary", () => {
     expect(events.map((event: { kind: string }) => event.kind)).not.toContain(
       "generation_capacity_low",
     );
+  });
+  it.each(["weekly", "paused"])(
+    "excludes %s projects from monthly capacity alerts",
+    async (engine) => {
+      mocks.workspace.mockResolvedValue({
+        rev: 7,
+        data: {
+          projects: [
+            {
+              id: "p",
+              name: "Project",
+              businessName: "Business",
+              autoScheduler: { enabled: true, timeZone: "UTC" },
+            },
+          ],
+          content: [],
+          opportunities: [],
+        },
+      });
+      mocks.rpc.mockImplementation(async (name) => ({
+        data: name === "read_workspace_scheduler_controls" ? [{ projectId: "p", engine }] : true,
+        error: null,
+      }));
+      await refreshOperationalNotifications("owner", new Date("2026-09-07T10:00:00Z"));
+      const events = mocks.rpc.mock.calls.find(
+        (call) => call[0] === "sync_operational_notifications",
+      )![1].p_events;
+      expect(
+        events.some((event: { kind: string }) => event.kind.startsWith("generation_capacity")),
+      ).toBe(false);
+      if (engine === "paused")
+        expect(events.some((event: { kind: string }) => event.kind === "cadence_gap")).toBe(false);
+      expect(mocks.query).not.toHaveBeenCalledWith("ai_usage");
+    },
+  );
+  it("preserves the inbox when coordinator state cannot be verified", async () => {
+    mocks.workspace.mockResolvedValue({
+      rev: 7,
+      data: {
+        projects: [
+          { id: "p", name: "Project", businessName: "Business", autoScheduler: { enabled: true } },
+        ],
+        content: [],
+        opportunities: [],
+      },
+    });
+    mocks.rpc.mockResolvedValue({ data: null, error: {} });
+    await expect(refreshOperationalNotifications("owner")).rejects.toThrow(
+      "notification_scheduler_control_unavailable",
+    );
+    expect(mocks.rpc).not.toHaveBeenCalledWith("sync_operational_notifications", expect.anything());
   });
   it("scopes recovery reads to the verified owner without selecting ownership tokens", async () => {
     await refreshOperationalNotifications("owner");

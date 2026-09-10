@@ -120,3 +120,15 @@ BEGIN
 END; $$;
 REVOKE ALL ON FUNCTION public.arm_scheduler_publication(uuid,text,text,bigint,text,timestamptz,uuid) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.arm_scheduler_publication(uuid,text,text,bigint,text,timestamptz,uuid) TO service_role;
+
+-- One bounded account-scoped read for operational capacity sweeps. An absent
+-- row means the existing monthly default; an unavailable read is never defaulted.
+CREATE FUNCTION public.read_workspace_scheduler_controls(p_user uuid)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+  IF NOT EXISTS(SELECT 1 FROM public.workspace_meta WHERE user_id=p_user) THEN RAISE EXCEPTION 'scheduler_workspace_unavailable'; END IF;
+  IF (SELECT count(*) FROM public.project_scheduler_control WHERE user_id=p_user)>1000 THEN RAISE EXCEPTION 'scheduler_control_capacity'; END IF;
+  RETURN coalesce((SELECT jsonb_agg(jsonb_build_object('projectId',project_id,'engine',engine)) FROM public.project_scheduler_control WHERE user_id=p_user),'[]'::jsonb);
+END; $$;
+REVOKE ALL ON FUNCTION public.read_workspace_scheduler_controls(uuid) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.read_workspace_scheduler_controls(uuid) TO service_role;
