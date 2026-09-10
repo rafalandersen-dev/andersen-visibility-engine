@@ -13,7 +13,12 @@ import { readWeeklyPreparationFn } from "@/lib/weekly-preparation.functions";
 import { readProjectKnowledgeFn } from "@/lib/project-knowledge.functions";
 import { localWeekStart } from "@/lib/weekly-preparation";
 import { normalizeAutoSchedulerConfig } from "@/lib/auto-scheduler";
-import { specialistRoles, stageRoleEvidence, type SpecialistRole } from "@/lib/specialist-team";
+import {
+  specialistRoles,
+  stageRoleEvidence,
+  schedulerRoleLabel,
+  type SpecialistRole,
+} from "@/lib/specialist-team";
 import type { Project } from "@/lib/types";
 
 export const Route = createFileRoute("/_authenticated/app/specialists")({
