@@ -134,14 +134,21 @@ describe("local/global coverage source and publication boundaries", () => {
     const global = {
       ...record,
       key: "coverage.global.one",
-      value: JSON.stringify({ ...value, kind: "global", language: "sv" }),
+      value: JSON.stringify({
+        ...emptyCoverage,
+        target: value.target,
+        pageUrl: value.pageUrl,
+        kind: "global",
+        language: "sv",
+      }),
     };
     const other = {
       ...global,
       id: source.id,
       key: "coverage.global.two",
       value: JSON.stringify({
-        ...value,
+        ...emptyCoverage,
+        target: value.target,
         kind: "global",
         language: "sv",
         pageUrl: "https://example.com/different",
@@ -185,4 +192,27 @@ it("allows several directories and review sites for the same business", () => {
     }),
   };
   expect(select([first, second]).records).toHaveLength(2);
+});
+
+it.each([
+  ["local", "language"],
+  ["local", "alternateUrl"],
+  ["global", "name"],
+  ["global", "service"],
+  ["global", "address"],
+  ["global", "phone"],
+  ["global", "citationUrl"],
+  ["global", "reviewUrl"],
+  ["global", "gbpUrl"],
+])("rejects unseen %s/%s claims instead of passing them to generation", (kind, field) => {
+  const hidden = {
+    ...emptyCoverage,
+    kind,
+    target: "Target",
+    [field]: field.endsWith("Url") ? "https://example.com/hidden" : "Unseen claim",
+  };
+  expect(coverageSchema.safeParse(hidden).success).toBe(false);
+  expect(
+    select([{ ...record, key: `coverage.${kind}.hidden`, value: JSON.stringify(hidden) }]).records,
+  ).toEqual([]);
 });

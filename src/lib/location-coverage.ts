@@ -32,6 +32,19 @@ export const coverageSchema = z
     notes: z.string().trim().max(400),
   })
   .strict()
+  .superRefine((value, context) => {
+    const hidden =
+      value.kind === "local"
+        ? (["language", "alternateUrl"] as const)
+        : (["service", "name", "address", "phone", "citationUrl", "reviewUrl", "gbpUrl"] as const);
+    for (const field of hidden)
+      if (value[field] !== "")
+        context.addIssue({
+          code: "custom",
+          path: [field],
+          message: "Field is not available for this coverage type",
+        });
+  })
   .refine((value) => JSON.stringify(value).length <= 2000, "Coverage record is too long");
 export type Coverage = z.infer<typeof coverageSchema>;
 export const emptyCoverage: Coverage = {
