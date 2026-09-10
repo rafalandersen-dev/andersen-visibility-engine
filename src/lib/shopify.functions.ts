@@ -24,17 +24,8 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
   Boolean(v) && typeof v === "object" && !Array.isArray(v);
 const asString = (v: unknown): string => (typeof v === "string" ? v : "");
 
-/** Normalize a shop domain: strip protocol/path; append .myshopify.com if bare. */
-export function normalizeShopDomain(raw: string): string {
-  let d = (raw || "").trim().toLowerCase();
-  d = d
-    .replace(/^https?:\/\//, "")
-    .replace(/\/.*$/, "")
-    .replace(/\/+$/, "");
-  if (!d) return "";
-  if (!d.includes(".")) d = `${d}.myshopify.com`;
-  return d;
-}
+import { normalizeShopDomain } from "./shopify-domain";
+export { normalizeShopDomain } from "./shopify-domain";
 
 /** Numeric id from a Shopify GID (e.g. gid://shopify/Article/123 → "123"). */
 export function idFromGid(gid: string): string {

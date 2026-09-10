@@ -330,16 +330,22 @@ export async function loadSourceFactContext(
 
 export async function readOutputSourceDependencies(
   target: KnowledgeScope,
-  assetId?: string,
+  assetId?: string | string[],
   rpc?: KnowledgeRpc,
 ) {
   const scope = scopeSchema.parse(target);
   const { outputDependencySchema } = await import("./source-refresh");
   const identity = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
-  const asset = assetId === undefined ? null : identity.parse(assetId);
+  const assetIds = Array.isArray(assetId) ? z.array(identity).max(100).parse(assetId) : null;
+  const asset = assetId === undefined || assetIds !== null ? null : identity.parse(assetId);
   const raw = await call(
     "read_output_source_dependencies",
-    { p_user: scope.ownerId, p_project: scope.projectId, p_asset: asset },
+    {
+      p_user: scope.ownerId,
+      p_project: scope.projectId,
+      p_asset: asset,
+      ...(assetIds !== null ? { p_assets: assetIds } : {}),
+    },
     rpc,
   );
   const parsed = z
@@ -361,6 +367,7 @@ export async function readOutputSourceDependencies(
     parsed.data.some(
       (row) =>
         (asset !== null && row.assetId !== asset) ||
+        (assetIds !== null && !assetIds.includes(row.assetId)) ||
         row.dependencies.some(
           (d) => d.ownerId !== scope.ownerId || d.projectId !== scope.projectId,
         ),
@@ -380,8 +387,8 @@ export async function configureShopifyCatalogSource(target: KnowledgeScope) {
   );
   if (!project || project.connectorType !== "shopify" || !project.shopify)
     throw new KnowledgeUnavailableError();
-  const { catalogShopDomain } = await import("./source-refresh-shopify.server");
-  const domain = catalogShopDomain.parse(project.shopify.shopDomain);
+  const { configuredCatalogDomain } = await import("./source-refresh-shopify.server");
+  const domain = configuredCatalogDomain(project.shopify.shopDomain);
   const url = `https://${domain}`;
   const existing = knowledge.sources.find(
     (s) => s.refreshAdapter === "shopify-catalog" && s.url === url && s.status === "active",

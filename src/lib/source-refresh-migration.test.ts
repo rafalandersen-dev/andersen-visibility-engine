@@ -292,6 +292,16 @@ describe("scoped source refresh storage", () => {
         sourceForgotten: false,
       },
     ]);
+    const filtered = await db.query<{ result: unknown[] }>(
+      "SELECT public.read_output_source_dependencies($1,'p',NULL,ARRAY['other']) result",
+      [user],
+    );
+    expect(filtered.rows[0].result).toEqual([]);
+    const selected = await db.query<{ result: unknown[] }>(
+      "SELECT public.read_output_source_dependencies($1,'p',NULL,ARRAY['asset']) result",
+      [user],
+    );
+    expect(selected.rows[0].result).toEqual(retained.rows[0].result);
     await expect(
       db.query("INSERT INTO public.ai_generation_results VALUES($1,$2,$3)", [
         other,

@@ -1,12 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ContentAsset } from "./types";
-import { assertAssetSourcesCurrent, sourceIssuesForAsset } from "./source-publication.server";
-const mocked = vi.hoisted(() => ({ read: vi.fn(), refresh: vi.fn(), registry: vi.fn() }));
+import {
+  assertAssetSourcesCurrent,
+  sourceIssuesForAsset,
+  readProjectSourceImpact,
+} from "./source-publication.server";
+const mocked = vi.hoisted(() => ({
+  read: vi.fn(),
+  refresh: vi.fn(),
+  registry: vi.fn(),
+  workspace: vi.fn(),
+}));
 vi.mock("./source-refresh.server", () => ({
   readSourceRefresh: mocked.read,
   refreshProjectSource: mocked.refresh,
   readOutputSourceDependencies: mocked.registry,
 }));
+vi.mock("./workspace.server", () => ({ readWorkspaceRow: mocked.workspace }));
 const ownerId = "00000000-0000-4000-8000-000000000001",
   sourceId = "00000000-0000-4000-8000-000000000002";
 const dependency = {
@@ -210,4 +220,39 @@ describe("source publication authorization", () => {
     );
     expect(mocked.refresh).toHaveBeenCalledOnce();
   });
+});
+
+it("bounds impact registry reads to the first 100 project assets even when browser references are absent", async () => {
+  const content = Array.from({ length: 101 }, (_, i) => ({
+    ...asset,
+    id: `asset_${i}`,
+    sourceDependencies: [],
+  }));
+  mocked.workspace.mockResolvedValue({
+    data: { content: [{ ...asset, projectId: "foreign" }, ...content] },
+  });
+  mocked.registry.mockResolvedValue([
+    {
+      assetId: "asset_0",
+      outputId: "asset_0",
+      kind: "content",
+      dependencies: [],
+      sourceForgotten: true,
+    },
+  ]);
+  const result = await readProjectSourceImpact(ownerId, "p");
+  expect(mocked.registry).toHaveBeenCalledExactlyOnceWith(
+    { ownerId, projectId: "p" },
+    content.slice(0, 100).map((a) => a.id),
+  );
+  expect(result).toMatchObject({ checked: 100, remaining: 1, affected: [{ assetId: "asset_0" }] });
+});
+it("does not request an unfiltered registry for an empty project", async () => {
+  mocked.workspace.mockResolvedValue({ data: { content: [] } });
+  expect(await readProjectSourceImpact(ownerId, "p")).toEqual({
+    checked: 0,
+    remaining: 0,
+    affected: [],
+  });
+  expect(mocked.registry).not.toHaveBeenCalled();
 });

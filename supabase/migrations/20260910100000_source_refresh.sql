@@ -214,15 +214,16 @@ CREATE TRIGGER retain_output_source_dependencies AFTER INSERT ON public.ai_gener
 FOR EACH ROW EXECUTE FUNCTION public.retain_output_source_dependencies();
 REVOKE ALL ON FUNCTION public.retain_output_source_dependencies() FROM PUBLIC,anon,authenticated,service_role;
 
-CREATE FUNCTION public.read_output_source_dependencies(p_user uuid,p_project text,p_asset text DEFAULT NULL)
+CREATE FUNCTION public.read_output_source_dependencies(p_user uuid,p_project text,p_asset text DEFAULT NULL,p_assets text[] DEFAULT NULL)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 BEGIN
   PERFORM public.assert_knowledge_project(p_user,p_project);
-  RETURN coalesce((SELECT jsonb_agg(jsonb_build_object('assetId',asset_id,'outputId',output_id,'kind',kind,'dependencies',dependencies,'sourceForgotten',source_forgotten)) FROM public.project_output_source_dependencies WHERE user_id=p_user AND project_id=p_project AND (p_asset IS NULL OR asset_id=p_asset)),'[]'::jsonb);
+  IF p_assets IS NOT NULL AND (cardinality(p_assets)>100 OR array_position(p_assets,NULL) IS NOT NULL) THEN RAISE EXCEPTION 'invalid_asset_filter'; END IF;
+  RETURN coalesce((SELECT jsonb_agg(jsonb_build_object('assetId',asset_id,'outputId',output_id,'kind',kind,'dependencies',dependencies,'sourceForgotten',source_forgotten)) FROM public.project_output_source_dependencies WHERE user_id=p_user AND project_id=p_project AND (p_asset IS NULL OR asset_id=p_asset) AND (p_assets IS NULL OR asset_id=ANY(p_assets))),'[]'::jsonb);
 END;
 $$;
-REVOKE ALL ON FUNCTION public.read_output_source_dependencies(uuid,text,text) FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.read_output_source_dependencies(uuid,text,text) TO service_role;
+REVOKE ALL ON FUNCTION public.read_output_source_dependencies(uuid,text,text,text[]) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.read_output_source_dependencies(uuid,text,text,text[]) TO service_role;
 
 CREATE FUNCTION public.purge_output_source_dependencies()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizeShopDomain } from "./shopify-domain";
 import { observedFactSchema, type ObservedFact } from "./source-refresh";
 import type { KnowledgeScope, KnowledgeSource } from "./project-knowledge";
 import type { Project } from "./types";
@@ -8,6 +9,8 @@ export const catalogShopDomain = z
   .trim()
   .toLowerCase()
   .regex(/^[a-z0-9][a-z0-9-]{0,61}\.myshopify\.com$/);
+export const configuredCatalogDomain = (raw: string | undefined) =>
+  catalogShopDomain.parse(normalizeShopDomain(raw ?? ""));
 // Fixed read-only query: default shop currency, not country-specific pricing.
 export const SHOPIFY_CATALOG_QUERY = `query MiloSourceCatalog {
   shop { myshopifyDomain currencyCode }
@@ -172,7 +175,7 @@ export async function captureConfiguredShopifyCatalog(
   );
   if (!project || project.connectorType !== "shopify" || !project.shopify)
     throw new Error("catalog_unavailable");
-  const domain = catalogShopDomain.parse(project.shopify.shopDomain);
+  const domain = configuredCatalogDomain(project.shopify.shopDomain);
   if (source.url !== `https://${domain}` || source.refreshAdapter !== "shopify-catalog")
     throw new Error("catalog_identity_changed");
   const { resolveShopifyAdminToken } = await import("./publish-secret.server");
