@@ -116,7 +116,7 @@ export async function readSourceRefresh(target: KnowledgeScope, rpc?: KnowledgeR
   }
   const { conflictingSourceFacts } = await import("./source-refresh");
   const conflicts = conflictingSourceFacts(
-    parsed.data.flatMap((row) => (row.status === "ok" && row.snapshot ? [row.snapshot] : [])),
+    parsed.data.flatMap((row) => (row.snapshot ? [row.snapshot] : [])),
   );
   return parsed.data.map((row) => ({
     ...row,
@@ -266,7 +266,7 @@ export async function loadSourceFactContext(
     throw new KnowledgeUnavailableError();
   const rows = await readSourceRefresh(target, rpc);
   const conflicts = conflictingSourceFacts(
-    rows.flatMap((row) => (row.status === "ok" && row.snapshot ? [row.snapshot] : [])),
+    rows.flatMap((row) => (row.snapshot ? [row.snapshot] : [])),
   );
   const dependencies: import("./source-refresh").OutputDependency[] = [];
   const lines: string[] = [];

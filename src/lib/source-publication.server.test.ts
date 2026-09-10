@@ -110,6 +110,52 @@ describe("source publication authorization", () => {
       assertAssetSourcesCurrent(ownerId, { ...asset, sourceDependencies: undefined }),
     ).rejects.toThrow();
   });
+  it("retains unresolved contradictions when the competing source becomes unavailable", async () => {
+    const current = row();
+    const fact = { ...current.snapshot.facts[0], productId: "product" };
+    const second = {
+      ...current,
+      sourceId: "00000000-0000-4000-8000-000000000003",
+      status: "unknown",
+      snapshot: {
+        ...current.snapshot,
+        sourceId: "00000000-0000-4000-8000-000000000003",
+        facts: [{ ...fact, value: "125", fingerprint: "b".repeat(64) }],
+      },
+    };
+    mocked.read.mockResolvedValue([
+      { ...current, snapshot: { ...current.snapshot, facts: [fact] } },
+      second,
+    ]);
+    const target = { ...asset, sourceDependencies: [{ ...dependency, productId: "product" }] };
+    expect(await sourceIssuesForAsset(ownerId, target)).toMatchObject([
+      { sourceId, reason: "unavailable" },
+    ]);
+    await expect(assertAssetSourcesCurrent(ownerId, target)).rejects.toThrow(
+      "Source facts need review",
+    );
+  });
+  it("accepts more than 100 combined dependencies across individually valid outputs", async () => {
+    const current = row();
+    const facts = Array.from({ length: 100 }, (_, i) => ({
+      ...current.snapshot.facts[0],
+      key: `fact-${i}`,
+    }));
+    current.snapshot.facts = facts;
+    current.accepted = Object.fromEntries(
+      facts.map((f) => [f.key, f.fingerprint]),
+    ) as typeof current.accepted;
+    mocked.read.mockResolvedValue([current]);
+    const primary = facts.map((f) => ({ ...dependency, key: f.key, snapshotRevision: 1 }));
+    const image = facts.map((f) => ({ ...dependency, key: f.key, snapshotRevision: 2 }));
+    const target = {
+      ...asset,
+      sourceDependencies: primary,
+      images: [{ id: "image", sourceDependencies: image }],
+    } as ContentAsset;
+    expect(await sourceIssuesForAsset(ownerId, target)).toEqual([]);
+    await expect(assertAssetSourcesCurrent(ownerId, target)).resolves.toBeUndefined();
+  });
   it("holds an unconfirmed refresh without replay", async () => {
     mocked.refresh.mockRejectedValue(new Error("private failure"));
     await expect(assertAssetSourcesCurrent(ownerId, asset)).rejects.toThrow(
