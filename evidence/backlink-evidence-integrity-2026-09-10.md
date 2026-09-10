@@ -7,3 +7,5 @@ Implemented bounded DataForSEO envelopes/body/deadline, exact echoed request and
 Local full suite: 2,875 tests / 211 files passed; TypeScript, production build and focused lint pass. Final focused suite: 38 tests / 3 files, including malformed/missing metrics, exact target scope, intersection contamination, bounded/invalid response bodies and an after-headers timeout, model-input failure-vs-empty labels, and actual static UI rendering in four locales. No live provider health/data/model request, paid work/funding/retry, credentials, external outreach/email/client publication, browser-policy retry, migration or timer mutation occurred. Review, Linux CI and guarded deployment remain pending at this candidate checkpoint.
 
 R14 provider/supplier/ongoing monitoring and D04 actual acceptance remain open. Preserve full R00–R24/D01–D08, R06 team and R13 Google/technical SEO acceptance, and separate PR2/58/62/Worker35/43 boundaries. Public paid launch remains NO-GO.
+
+Released through PR117; this candidate checkpoint is historical. See [final release evidence](backlink-evidence-integrity-release-2026-09-10.md).

@@ -1,0 +1,55 @@
+import { z } from "zod";
+export const outreachReceiptSchema = z.object({
+  draft_id: z.string().min(1).max(200),
+  project_id: z.string().min(1).max(200),
+  step: z.enum(["initial", "followup-0", "followup-1"]),
+  version_hash: z.string().regex(/^[a-f0-9]{64}$/),
+  recipient: z.string().min(3).max(254),
+  state: z.enum(["reserved", "dispatching", "accepted", "unknown", "blocked"]),
+  reserved_at: z.string().datetime({ offset: true }),
+  updated_at: z.string().datetime({ offset: true }),
+  provider_message_id: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]{1,200}$/)
+    .nullable(),
+});
+export type OutreachReceipt = z.infer<typeof outreachReceiptSchema>;
+export const outreachReviewSchema = z.object({
+  draftId: z.string().min(1).max(200),
+  followUpIndex: z.number().int().min(0).max(1).optional(),
+});
+export const outreachSendInput = outreachReviewSchema.extend({
+  expectedHash: z.string().regex(/^[a-f0-9]{64}$/),
+  acknowledgedRecipient: z.literal(true),
+  acknowledgedContent: z.literal(true),
+});
+
+/** Editable delays can suggest timing only alongside the original private receipt. */
+export function outreachReceiptDueAt(
+  receipt: OutreachReceipt | undefined,
+  recipient: string,
+  delayDays: number,
+): string | null {
+  if (
+    !receipt ||
+    receipt.state !== "accepted" ||
+    receipt.step !== "initial" ||
+    receipt.recipient !== recipient.trim().toLowerCase() ||
+    !Number.isInteger(delayDays) ||
+    delayDays < 2 ||
+    delayDays > 365
+  )
+    return null;
+  const at = Date.parse(receipt.updated_at) + delayDays * 86400000;
+  return Number.isFinite(at) ? new Date(at).toISOString() : null;
+}
+
+/** A lost browser/server response may follow an actual send. Never suggest replay. */
+export function outreachSendErrorKey(message: string): string {
+  if (message.includes("suppressed")) return "outreach.toast.suppressed";
+  if (message.includes("daily_limit")) return "outreach.toast.limit";
+  if (message.includes("followup_not_due")) return "outreach.toast.notDue";
+  if (message.includes("not_configured")) return "outreach.toast.notConfigured";
+  if (message.includes("changed")) return "outreach.integrity.reviewError";
+  return "outreach.integrity.held";
+}
