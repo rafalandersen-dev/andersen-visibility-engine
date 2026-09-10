@@ -1,0 +1,17 @@
+# P2 source refresh — work in progress
+
+P1 release review continues separately in the main task worktree. P2 checkout `/tmp/milo-p2-source-refresh-20260910`, branch `codex/milo-p2-source-refresh-20260910`, starts from P1 candidate `ebd61fe`. No P2 migration, deployment, provider invocation, browser acceptance or client publication.
+
+## Implemented foundation
+
+`source-refresh.ts` defines bounded account/project-scoped source facts, snapshots, exact output dependencies, change comparison and a publication-time freshness evaluator. Partial/public observations cannot establish removal. Only successive complete catalog enumerations establish removal. Failed attempts are supplied separately and never replace a last successful observation. Product/variant/market/currency identity is checked alongside exact fact fingerprints. Changed/unknown/stale/expired facts return explicit issues without rewriting assets, changing schedules, retrying providers or publishing. Unrelated changed facts do not invalidate an unchanged dependency.
+
+Fourteen deterministic tests pass, including changed price, offer expiry at the scheduled time, missing catalog coverage, source outage, future/stale observations, cross-project state and duplicate source identity. TypeScript and focused lint pass. Logs `/tmp/milo-p2-refresh-tests.log`, `/tmp/milo-p2-types.log`. This is not an integrated P2 product or release candidate.
+
+## Next integration
+
+1. Add a bounded public-page adapter using the existing pinned-address reader. Source-reported Schema.org Product/Offer fields must preserve explicit identity/market/currency, uncertain date-only offer expiry and conflicting offers. Never infer catalog completeness from HTML or execute page content. Existing Shopify support is article publishing, not authenticated catalog ingestion; do not claim the latter exists.
+2. Persist configured sources, attempt/last-success metadata and bounded snapshots transactionally with project authorization, concurrent refresh leases/cooldown, compare-and-set revisions, replay identity and retained failure state. Revoke/forget/project deletion must remove future retrieval and retained private evidence under P1 rules. Add actual SQL isolation/concurrency tests before proposing a migration.
+3. Integrate reviewable change/coverage/last-checked UI in all four locales; connect selected accepted facts to bounded generation context and durable exact output references. Distinguish source-reported facts, acceptance and independent verification. Keep source conflicts visible; no last-value-wins resolution.
+4. Identify affected saved drafts from exact dependencies without touching owner text, unrelated drafts, approvals or schedules. Persist reviewed input/source versions. Add pre-publication recheck/holds through every existing manual/scheduled connector authorization path; changed assets require the new version's approval. P3 owns weekly coordination/cutover.
+5. Full review/checks, migration-before-code release and exact runtime verification follow P1's established process. Signed-in browser/provider acceptance remains pending under inherited restrictions. R00–R24/D01–D08 and P3–P5 remain active; no new spend, key setup, outreach or publication authorization.
