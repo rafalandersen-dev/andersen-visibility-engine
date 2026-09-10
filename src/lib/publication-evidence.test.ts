@@ -6,15 +6,28 @@ import {
   comparePublicationObservations,
   type PublicationEvidence,
 } from "./publication-evidence";
-import { withPublicationEvidence } from "./publication-evidence.server";
-import { PublishRecordingFailedError, PublishTransportError } from "./publish-outcome";
+import {
+  withPublicationEvidence,
+  withManualPublicationEvidence,
+} from "./publication-evidence.server";
+import {
+  PublishRecordingFailedError,
+  PublishTransportError,
+  retainedManualPublicationPatch,
+} from "./publish-outcome";
 import type { ContentAsset, Project, GscImport } from "./types";
+import { wpPublishArgs, shopifyArticleArgs } from "./publish-targets";
 const ownerId = "00000000-0000-4000-8000-000000000001";
 const project = {
   id: "p",
   name: "Project",
   websiteUrl: "https://example.com",
-  wordpress: { applicationPassword: "synthetic-private-value" },
+  wordpress: {
+    siteUrl: "https://example.com",
+    username: "fixture-user",
+    applicationPassword: "synthetic-private-value",
+  },
+  shopify: { shopDomain: "fixture.myshopify.com", adminAccessTokenSet: true },
 } as Project;
 const asset = {
   id: "a",
@@ -213,4 +226,46 @@ describe("later measurements", () => {
       comparePublicationObservations(before, { ...after, truncated: true }, []).comparable,
     ).toBe(false);
   });
+});
+
+it("retains manual connector identity and permanent uncertainty after evidence recording fails", async () => {
+  for (const platform of ["wordpress", "shopify"] as const) {
+    const rpc = vi
+      .fn()
+      .mockResolvedValueOnce({ data: true, error: null })
+      .mockRejectedValueOnce(Error("recording unavailable"));
+    const publish = vi.fn(async () => ({
+      success: true,
+      liveUrl: "https://example.com/article",
+      postId: 42,
+      postType: "post" as const,
+      articleId: "43",
+      articleGid: "gid://shopify/Article/43",
+      blogId: "9",
+      blogGid: "gid://shopify/Blog/9",
+      handle: "article",
+    }));
+    const result = await withManualPublicationEvidence({
+      ownerId,
+      asset,
+      project,
+      paths: [],
+      rpc,
+      publish,
+      outcome,
+    });
+    expect(result).toMatchObject({
+      success: false,
+      recordingFailed: true,
+      retryable: false,
+      postId: 42,
+      articleGid: "gid://shopify/Article/43",
+      liveUrl: "https://example.com/article",
+    });
+    expect(publish).toHaveBeenCalledTimes(1);
+    const retained = { ...asset, ...retainedManualPublicationPatch(result, platform) };
+    if (platform === "wordpress") expect(wpPublishArgs(retained, project).postId).toBe(42);
+    else expect(shopifyArticleArgs(retained, project).articleGid).toBe("gid://shopify/Article/43");
+    expect(retained.livePublishStatus).not.toBe("published");
+  }
 });

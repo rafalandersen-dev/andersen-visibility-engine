@@ -144,6 +144,8 @@ export interface WordPressPublishingSettings {
 
 export interface WordPressPublishResult {
   success: boolean;
+  /** Connector responded, but its durable evidence acknowledgement is uncertain. Never auto-retry. */
+  recordingFailed?: boolean;
   postId?: number;
   postType?: "post" | "page";
   status?: "draft" | "publish";
@@ -190,6 +192,8 @@ export interface ShopifyBlogOption {
 
 export interface ShopifyPublishResult {
   success: boolean;
+  /** Same permanent uncertainty contract as WordPress. Returned connector IDs must be retained. */
+  recordingFailed?: boolean;
   articleId?: string;
   articleGid?: string;
   blogId?: string;

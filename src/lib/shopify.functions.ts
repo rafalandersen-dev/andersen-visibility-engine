@@ -414,8 +414,8 @@ export const publishShopifyContentFn = createServerFn({ method: "POST" })
     try {
       if (!plan.args.blogGid && !plan.args.articleGid)
         return { success: false, error: "Select a Shopify blog in Project Setup first." };
-      const { withPublicationEvidence } = await import("./publication-evidence.server");
-      return await withPublicationEvidence({
+      const { withManualPublicationEvidence } = await import("./publication-evidence.server");
+      return await withManualPublicationEvidence({
         ownerId: context.userId,
         ...plan,
         publish: () => upsertArticle(plan.args, true),

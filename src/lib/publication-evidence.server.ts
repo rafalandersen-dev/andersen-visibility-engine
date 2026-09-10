@@ -136,6 +136,31 @@ export async function withPublicationEvidence<T>(args: {
   }
   return result;
 }
+/** Manual RPCs keep the returned connector identity even when evidence acknowledgement fails. */
+export async function withManualPublicationEvidence<T extends { success: boolean; error?: string }>(
+  args: Parameters<typeof withPublicationEvidence<T>>[0],
+): Promise<T & { recordingFailed?: boolean }> {
+  let reported: T | undefined;
+  try {
+    return await withPublicationEvidence({
+      ...args,
+      publish: async () => {
+        reported = await args.publish();
+        return reported;
+      },
+    });
+  } catch (error) {
+    if (!(error instanceof PublishRecordingFailedError) || !reported) throw error;
+    return {
+      ...reported,
+      success: false,
+      recordingFailed: true,
+      retryable: false,
+      error: error.message,
+    };
+  }
+}
+
 export async function readPublicationEvidence(
   target: Scope,
   page = 0,
