@@ -1,3 +1,4 @@
+import { logSafeAlphabet } from "./log-evidence-alphabet";
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
 import { beforeAll, beforeEach, afterAll, describe, it, expect } from "vitest";
@@ -132,6 +133,104 @@ describe("real log history SQL/server integration", () => {
         ]),
       ).rejects.toThrow();
     expect(await readLogEvidence(scope, rpc)).toEqual([]);
+  });
+  it("refuses incomplete or malformed direct-service records without poisoning history", async () => {
+    await importLogEvidence(scope, doc(), rpc);
+    const rejected: unknown[] = [];
+    for (const key of Object.keys(doc())) {
+      const d = structuredClone(doc()) as Record<string, unknown>;
+      delete d[key];
+      rejected.push(d);
+    }
+    for (const key of Object.keys(doc().input)) {
+      const d = structuredClone(doc());
+      delete (d.input as Record<string, unknown>)[key];
+      rejected.push(d);
+    }
+    for (const key of Object.keys(doc().input.rows[0])) {
+      const d = structuredClone(doc());
+      delete (d.input.rows[0] as Record<string, unknown>)[key];
+      rejected.push(d);
+    }
+    for (const patch of [
+      { source: [] },
+      { source: " " },
+      { source: "x".repeat(81) },
+      { source: "\u0345" },
+      { source: "𝒜" },
+      { method: 7 },
+      { hostname: "user:pass@example.com" },
+      { hostname: "private.local" },
+      { layer: "browser" },
+      { completeness: "verified" },
+      { windowStart: "not a date" },
+      { windowStart: "2026-08-01T24:00:00.000Z" },
+      { windowEnd: "2026-07-31T00:00:00.000Z" },
+      { supersedesId: 7 },
+    ])
+      rejected.push({ ...doc(), input: { ...doc().input, ...patch } });
+    for (const patch of [
+      { time: null },
+      { time: "infinity" },
+      { time: "2026-08-02T00:00:00.000Z" },
+      { time: "2026-08-01T24:00:00.000Z" },
+      { status: 200.5 },
+      { status: "200" },
+      { status: 600 },
+      { method: "TRACE" },
+      { page: "//evil/path" },
+      { page: "/.." },
+      { page: "/x\\y" },
+      { page: "/x".repeat(121) },
+      { page: "/𝒜" },
+      { page: "/\u0345" },
+      { claimedAgent: "verified" },
+    ])
+      rejected.push({
+        ...doc(),
+        input: { ...doc().input, rows: [{ ...doc().input.rows[0], ...patch }] },
+      });
+    for (const patch of [
+      { submittedRows: 2 },
+      { duplicateRows: 0.5 },
+      { duplicateRows: -1 },
+      { submittedRows: "1" },
+    ])
+      rejected.push({ ...doc(), ...patch });
+    rejected.push({ ...doc(), input: { ...doc().input, rows: [] }, duplicateRows: 1 });
+    rejected.push({
+      ...doc(),
+      input: { ...doc().input, rows: [doc().input.rows[0], doc().input.rows[0]] },
+      submittedRows: 2,
+    });
+    for (const value of rejected)
+      await expect(
+        db.query("SELECT save_project_log_evidence($1,$2,$3)", [user, "p", value]),
+      ).rejects.toThrow();
+    expect(await readLogEvidence(scope, rpc)).toHaveLength(1);
+  });
+  it("round-trips multilingual safe labels and paths with the exact accepted grammar", async () => {
+    const d = doc();
+    d.input.source = "Åäö Żółć 中文 Ελληνικά";
+    d.input.rows[0].page = "/żółć/översikt/中文";
+    const id = await importLogEvidence(scope, d, rpc);
+    expect((await readLogEvidence(scope, rpc)).find((r) => r.id === id)?.input).toEqual(d.input);
+  });
+  it("keeps SQL and runtime path alphabets identical across Unicode engine versions", async () => {
+    const sql = readFileSync("supabase/migrations/20260910220000_log_evidence.sql", "utf8");
+    expect(sql).toContain(`'^[${logSafeAlphabet} ._()/-]+$'`);
+    expect(sql).toContain(`'^/([${logSafeAlphabet}_.~-]+/)*[${logSafeAlphabet}_.~-]*$'`);
+    const pattern = new RegExp(`^[${logSafeAlphabet}]$`, "u");
+    const accepted = (
+      await db.query<{ cp: number }>(
+        'SELECT cp FROM generate_series(1,65535) cp WHERE cp NOT BETWEEN 55296 AND 57343 AND chr(cp) COLLATE "C" ~ $1',
+        [`^[${logSafeAlphabet}]$`],
+      )
+    ).rows.map((r) => r.cp);
+    const expected = Array.from({ length: 65535 }, (_, i) => i + 1).filter((cp) =>
+      pattern.test(String.fromCharCode(cp)),
+    );
+    expect(accepted).toEqual(expected);
   });
   it("caps full history and allows identical dedupe at capacity", async () => {
     const saved = await importLogEvidence(scope, doc(), rpc);

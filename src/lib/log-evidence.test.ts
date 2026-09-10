@@ -73,6 +73,9 @@ describe("private log normalization", () => {
     "/../x",
     "/x\\y",
     "/x\nsecret",
+    "/x\n",
+    "/x\r\n",
+    "/𝒜",
   ])("refuses unsafe path %s", (page) =>
     expect(() =>
       prepareLogImport({ ...logFixture, rows: [{ ...logFixture.rows[0], page }] }),

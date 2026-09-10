@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { logSafeAlphabet } from "./log-evidence-alphabet";
+const labelPattern = new RegExp(`^[${logSafeAlphabet} ._()/-]+$`, "u");
+const pathPattern = new RegExp(`^/([${logSafeAlphabet}_.~-]+/)*[${logSafeAlphabet}_.~-]*$`, "u");
 import { evidenceUrl } from "./answer-evidence";
 
 export const logAgentSchema = z.enum([
@@ -30,7 +33,8 @@ const label = z
   .trim()
   .min(1)
   .max(80)
-  .regex(/^[\p{L}\p{N} ._()/-]+$/u);
+  .regex(labelPattern)
+  .refine((v) => !/[\uD800-\uDFFF]/.test(v), "Use BMP letters and numbers");
 const page = z
   .string()
   .min(1)
@@ -38,7 +42,8 @@ const page = z
   .refine((v) => {
     // Only explicitly sanitized public paths: no query, fragment, encoding, email, or URL credentials.
     return (
-      /^\/(?:[\p{L}\p{N}_.~-]+\/)*[\p{L}\p{N}_.~-]*$/u.test(v) &&
+      !/[\uD800-\uDFFF\s]/.test(v) &&
+      pathPattern.test(v) &&
       !v.split("/").some((p) => p === "." || p === "..")
     );
   }, "Use a sanitized public path without query, fragment or encoded data");
