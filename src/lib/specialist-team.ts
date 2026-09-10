@@ -41,3 +41,13 @@ export function stageRoleEvidence(stages: TeamStage[] | undefined, role: TeamSta
     .sort((a, b) => Date.parse(b) - Date.parse(a));
   return { status, jobs, lastDeliveredAt: delivered[0] ?? null };
 }
+
+export function schedulerRoleLabel(
+  report: { enabled: boolean; control: { engine: "monthly" | "weekly" | "paused" } } | undefined,
+) {
+  return !report
+    ? "team.state.unavailable"
+    : !report.enabled
+      ? "weekly.disabled"
+      : `weekly.engine.${report.control.engine}`;
+}

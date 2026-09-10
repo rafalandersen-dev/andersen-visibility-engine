@@ -99,8 +99,7 @@ function TeamProject({
   const shift = (days: number) =>
     setWeek(new Date(Date.parse(week + "T00:00:00Z") + days * 86400000).toISOString().slice(0, 10));
   function savedEvidence(role: SpecialistRole) {
-    if (role === "lead")
-      return report ? t(`weekly.engine.${report.control.engine}`) : t("team.state.unavailable");
+    if (role === "lead") return t(schedulerRoleLabel(report));
     if (role === "brand")
       return knowledge
         ? t("team.records", { count: knowledge.records.length })
