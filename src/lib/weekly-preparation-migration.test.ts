@@ -380,6 +380,35 @@ describe("weekly executor durable cancellation, delivery and summaries", () => {
       expect((await read())?.outputChanged).toBe(true);
     },
   );
+  it("dispatches a fair bounded batch and skips projects with active workers", async () => {
+    for (let i = 0; i < 25; i++) {
+      const id = `batch-${i.toString().padStart(2, "0")}`;
+      await db.query(
+        "INSERT INTO workspace_entities(user_id,collection,entity_id,data) VALUES($1,'projects',$2,'{\"autoScheduler\":{\"enabled\":true}}')",
+        [user, id],
+      );
+      await db.query(
+        "INSERT INTO project_scheduler_control(user_id,project_id,revision,engine,preparation) VALUES($1,$2,1,'weekly',$3)",
+        [user, id, JSON.stringify(settings)],
+      );
+    }
+    const take = async () =>
+      (
+        await db.query<{ targets: Array<{ ownerId: string; projectId: string }> }>(
+          "SELECT next_weekly_preparation_targets() targets",
+        )
+      ).rows[0].targets;
+    const first = await take();
+    expect(first).toHaveLength(20);
+    const second = await take();
+    expect(new Set([...first, ...second].map((s) => s.projectId)).size).toBe(25);
+    await db.query("SELECT claim_auto_scheduler_lease($1,$2,$3)", [
+      user,
+      first[0].projectId,
+      period,
+    ]);
+    expect((await take()).some((s) => s.projectId === first[0].projectId)).toBe(false);
+  });
   it("deduplicates identical in-app summaries without changing their update time", async () => {
     const summary = { slots: 2, drafted: 1, queued: 0, uncovered: 1, action: "review-required" };
     const save = () =>

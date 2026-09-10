@@ -1,16 +1,21 @@
 -- P3 executor recovery and fair dispatch. No project is switched or funded.
 ALTER TABLE public.project_scheduler_control ADD COLUMN last_dispatch_at timestamptz;
-CREATE FUNCTION public.next_weekly_preparation_target()
+CREATE FUNCTION public.next_weekly_preparation_targets()
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
-DECLARE target public.project_scheduler_control%ROWTYPE;
+DECLARE targets jsonb;
 BEGIN
-  SELECT c.* INTO target FROM public.project_scheduler_control c
-    JOIN public.workspace_entities p ON p.user_id=c.user_id AND p.collection='projects' AND p.entity_id=c.project_id
-    WHERE c.engine='weekly' AND p.data->'autoScheduler'->'enabled'='true'::jsonb
-    ORDER BY c.last_dispatch_at NULLS FIRST,c.user_id,c.project_id LIMIT 1 FOR UPDATE OF c SKIP LOCKED;
-  IF target.project_id IS NULL THEN RETURN NULL; END IF;
-  UPDATE public.project_scheduler_control SET last_dispatch_at=clock_timestamp() WHERE user_id=target.user_id AND project_id=target.project_id;
-  RETURN jsonb_build_object('ownerId',target.user_id,'projectId',target.project_id);
+  WITH selected AS (
+    SELECT c.user_id,c.project_id FROM public.project_scheduler_control c
+      JOIN public.workspace_entities p ON p.user_id=c.user_id AND p.collection='projects' AND p.entity_id=c.project_id
+      WHERE c.engine='weekly' AND p.data->'autoScheduler'->'enabled'='true'::jsonb
+        AND NOT EXISTS(SELECT 1 FROM public.auto_scheduler_leases l WHERE l.user_id=c.user_id AND l.project_id=c.project_id AND l.status='active' AND l.lease_until>clock_timestamp())
+      ORDER BY c.last_dispatch_at NULLS FIRST,c.user_id,c.project_id LIMIT 20 FOR UPDATE OF c SKIP LOCKED
+  ), dispatched AS (
+    UPDATE public.project_scheduler_control c SET last_dispatch_at=clock_timestamp()
+      FROM selected s WHERE c.user_id=s.user_id AND c.project_id=s.project_id
+      RETURNING c.user_id,c.project_id
+  ) SELECT coalesce(jsonb_agg(jsonb_build_object('ownerId',user_id,'projectId',project_id)),'[]'::jsonb) INTO targets FROM dispatched;
+  RETURN targets;
 END; $$;
 
 -- Delivery evidence is written in the SAME transaction as the workspace entity.
@@ -113,8 +118,8 @@ BEGIN
   PERFORM public.assert_knowledge_project(p_user,p_project);
   RETURN (SELECT jsonb_build_object('summary',summary,'updatedAt',updated_at) FROM public.weekly_preparation_summaries WHERE user_id=p_user AND project_id=p_project AND period=p_period);
 END; $$;
-REVOKE ALL ON FUNCTION public.next_weekly_preparation_target(),public.cancel_weekly_preparation_slot(uuid,text,uuid),public.reconcile_weekly_preparation(uuid,text,text),public.save_weekly_preparation_summary(uuid,text,text,jsonb),public.read_weekly_preparation_summary(uuid,text,text) FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.next_weekly_preparation_target(),public.cancel_weekly_preparation_slot(uuid,text,uuid),public.reconcile_weekly_preparation(uuid,text,text),public.save_weekly_preparation_summary(uuid,text,text,jsonb),public.read_weekly_preparation_summary(uuid,text,text) TO service_role;
+REVOKE ALL ON FUNCTION public.next_weekly_preparation_targets(),public.cancel_weekly_preparation_slot(uuid,text,uuid),public.reconcile_weekly_preparation(uuid,text,text),public.save_weekly_preparation_summary(uuid,text,text,jsonb),public.read_weekly_preparation_summary(uuid,text,text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.next_weekly_preparation_targets(),public.cancel_weekly_preparation_slot(uuid,text,uuid),public.reconcile_weekly_preparation(uuid,text,text),public.save_weekly_preparation_summary(uuid,text,text,jsonb),public.read_weekly_preparation_summary(uuid,text,text) TO service_role;
 
 -- Automatic approval and queue admission share the workspace lock and lease.
 -- A withdrawn grant is never revived by the service. Browser status alone does

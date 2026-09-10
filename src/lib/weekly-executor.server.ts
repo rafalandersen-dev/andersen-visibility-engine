@@ -1,3 +1,4 @@
+import { dispatchWeeklyBatch } from "./weekly-dispatch";
 import { z } from "zod";
 import { localWeekStart } from "./weekly-preparation";
 import {
@@ -138,14 +139,12 @@ async function context(scope: Scope, state: Awaited<ReturnType<typeof snapshot>>
     sourceDependencies: knowledge.sourceDependencies,
   };
 }
-/** One fair-dispatched project and at most ONE provider stage per HTTP visit.
- * The five-minute scheduler continues retained stages. No provider retry follows
- * an uncertain stage; existing native admission still requires funded budgets. */
+/** At most twenty concurrent projects per tick, and one paid stage per project.
+ * Native admission remains scoped/funded; unknown stages never authorize replay.
+ * Project failures are isolated, and SQL selection skips active project leases. */
 export async function runWeeklyAutoScheduler(now = new Date()) {
-  const target = await rpc("next_weekly_preparation_target");
-  if (target === null) return { projects: [] };
-  const scope = scopeSchema.parse(target);
-  return { projects: [await runWeeklyProject(scope, now)] };
+  const targets = await rpc("next_weekly_preparation_targets");
+  return { projects: await dispatchWeeklyBatch(targets, (scope) => runWeeklyProject(scope, now)) };
 }
 export async function runWeeklyProject(scope: Scope, now = new Date()) {
   scope = scopeSchema.parse(scope);
