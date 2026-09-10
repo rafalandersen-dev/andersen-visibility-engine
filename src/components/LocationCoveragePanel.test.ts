@@ -100,6 +100,11 @@ describe("actual coverage panel", () => {
     expect(html).toContain(locationCoverage.en["coverage.unverified"]);
     expect(html).toContain(locationCoverage.en["coverage.missing"]);
     expect(html).toContain("Owner observation");
+    h.records = h.records.map((record) => ({
+      ...(record as object),
+      validUntil: "2020-01-01T00:00:00Z",
+    }));
+    expect(render()).toMatch(/<button[^>]*disabled=""[^>]*>knowledge.ui.review<\/button>/);
   });
   it("hides cached evidence on read failure", () => {
     h.error = true;

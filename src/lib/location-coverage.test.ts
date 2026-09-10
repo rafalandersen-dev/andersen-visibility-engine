@@ -50,6 +50,7 @@ describe("local/global coverage source and publication boundaries", () => {
       sourceFingerprint: source.fingerprint,
     });
     expect(coverageRows([source], [record], scope, now)[0].state).toBe("reviewed");
+    expect(coverageRows([source], [record], scope, now)[0].canReview).toBe(true);
     expect(coverageSchema.parse(value)).not.toHaveProperty("verified");
   });
   it.each([
@@ -80,6 +81,7 @@ describe("local/global coverage source and publication boundaries", () => {
     { observedAt: "2027-01-01T00:00:00Z" },
   ])("removes coverage when source is unavailable %#", (patch) => {
     expect(select([record], [{ ...source, ...patch }]).records).toEqual([]);
+    expect(coverageRows([{ ...source, ...patch }], [record], scope, now)[0].canReview).toBe(false);
     expect(coverageRows([{ ...source, ...patch }], [record], scope, now)[0].state).toBe(
       "unavailable",
     );
@@ -152,4 +154,13 @@ describe("local/global coverage source and publication boundaries", () => {
     expect(select([invalid]).records).toEqual([]);
     expect(coverageRows([source], [invalid], scope, now)[0].state).toBe("invalid");
   });
+});
+
+it("does not offer an ineffective review for elapsed expiry", () => {
+  expect(coverageRows([source], [{ ...record, validUntil: now }], scope, now)[0].canReview).toBe(
+    false,
+  );
+  expect(coverageRows([source], [{ ...record, status: "proposed" }], scope, now)[0].canReview).toBe(
+    true,
+  );
 });

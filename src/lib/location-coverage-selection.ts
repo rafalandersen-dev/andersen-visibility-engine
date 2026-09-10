@@ -29,7 +29,19 @@ export function coverageRows(
         : eligible.has(record.id)
           ? "reviewed"
           : "unavailable";
+    const source = sources.find(
+      (s) =>
+        s.id === record.sourceId && s.ownerId === scope.ownerId && s.projectId === scope.projectId,
+    );
+    const canReview =
+      !!value &&
+      !!source &&
+      source.status === "active" &&
+      source.revision === record.sourceRevision &&
+      Date.parse(source.observedAt) <= Date.parse(now) &&
+      (!record.validUntil || Date.parse(record.validUntil) > Date.parse(now));
     return {
+      canReview,
       record,
       value,
       state,

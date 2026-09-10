@@ -205,7 +205,7 @@ function CoverageProject({ ownerId, project }: { ownerId: string; project: Proje
                 <p className="text-xs text-muted-foreground">{t("coverage.unverified")}</p>
                 <Button
                   variant="outline"
-                  disabled={busy || !row.value}
+                  disabled={busy || failed || !row.canReview}
                   onClick={() => {
                     setEditing(row.record);
                     setDraft(row.value!);
@@ -224,6 +224,21 @@ function CoverageProject({ ownerId, project }: { ownerId: string; project: Proje
               event.preventDefault();
               if (!valid || busy) return;
               void change(async () => {
+                if (
+                  editing &&
+                  !coverageRows(
+                    query.data!.sources,
+                    query.data!.records,
+                    { ownerId, projectId },
+                    new Date().toISOString(),
+                  ).some(
+                    (row) =>
+                      row.record.id === editing.id &&
+                      row.record.revision === editing.revision &&
+                      row.canReview,
+                  )
+                )
+                  throw Error("coverage_review_unavailable");
                 const value = coverageSchema.parse(draft);
                 const fields = {
                   key: editing?.key ?? `coverage.${value.kind}.${crypto.randomUUID()}`,
