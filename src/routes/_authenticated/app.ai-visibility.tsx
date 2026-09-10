@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { AnswerEvidencePanel } from "@/components/AnswerEvidencePanel";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store";
@@ -139,6 +140,7 @@ function AiVisibilityPage() {
       title="AI Visibility"
       description="Find the AI-search questions your business should be ready to answer."
     >
+      <AnswerEvidencePanel projectId={project.id} />
       {/* Input card */}
       <div className="rounded-lg border border-border bg-card p-5 mb-6">
         <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">

@@ -1,6 +1,6 @@
 # AI Visibility Monitor — Specification
 
-**Status:** Technical design baseline; observed monitoring remains unimplemented/unverified. **Current priority:** pre-launch R10–R12 in [product/ROADMAP.md](../product/ROADMAP.md), with cost controls first. Historical P3.1/P2.0 IDs remain references only. **Reconciled:** 2026-09-07.
+**Status:** Technical design baseline; automated observed monitoring remains unimplemented/unverified. Project-scoped owner-supplied prompt/answer intake is implemented for review; see [intake guide](AI-ANSWER-EVIDENCE.md). This does not establish provider collection or three-surface acceptance. **Current priority:** pre-launch R10–R12 in [product/ROADMAP.md](../product/ROADMAP.md), with cost controls first. Historical P3.1/P2.0 IDs remain references only. **Reconciled:** 2026-09-07.
 Cross‑refs: `TARGET-ARCHITECTURE.md` (M6), `PRODUCT-AUDIT-2026-07.md` §Domain D, `AGENCY-BENCHMARK-SEMPIRE.md`, `DECISION-LOG.md`.
 
 ---
