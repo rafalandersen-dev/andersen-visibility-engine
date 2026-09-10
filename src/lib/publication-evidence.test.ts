@@ -168,6 +168,11 @@ describe("later measurements", () => {
     expect(() =>
       observationFromImport({ ...imp(), integrityVersion: undefined }, pub, now),
     ).toThrow("legacy");
+    for (const selectedSiteUrl of [undefined, "", "sc-domain:bad", "https://other.example/"]) {
+      expect(() => observationFromImport({ ...imp(), selectedSiteUrl }, pub, now)).toThrow(
+        "property_mismatch",
+      );
+    }
     const missing = imp();
     missing.rows[0].clicks = null;
     expect(() => observationFromImport(missing, pub, now)).toThrow();

@@ -10,6 +10,7 @@ import {
   formatGscMetric,
   gscPageRecommendation,
   MAX_GSC_BYTES,
+  retainGscApiImport,
 } from "./gsc";
 import type { ContentAsset, GscImport, GscRow } from "./types";
 import { buildMonthlyProofReport } from "./proof-report";
@@ -87,6 +88,15 @@ describe("bounded local GSC intake", () => {
   });
 });
 describe("measurement boundaries", () => {
+  it("refreshes a full API window while preserving retained evidence unchanged", () => {
+    const existing = Array.from({ length: 5 }, (_, i) => ({ ...imp(), id: `old-${i}` }));
+    const before = JSON.stringify(existing);
+    const fresh = { ...imp(), source: "api" as const, id: "fresh" };
+    const kept = retainGscApiImport(existing, fresh);
+    expect(kept.map((i) => i.id)).toEqual(["fresh", "old-0", "old-1", "old-2", "old-3"]);
+    expect(kept[1]).toBe(existing[0]);
+    expect(JSON.stringify(existing)).toBe(before);
+  });
   it("never adds overlapping dimensions or duplicate rows", () => {
     expect(
       summarizeGscRows([row, { ...row, type: "query", page: undefined, query: "q" }])
@@ -116,6 +126,11 @@ describe("measurement boundaries", () => {
       "https://example.com/A",
     ].map(asset);
     const matches = matchGscToPublishedContent(assets, imp());
+    expect(
+      matchGscToPublishedContent(assets, { ...imp(), selectedSiteUrl: undefined }).every(
+        (m) => !m.hasGscData,
+      ),
+    ).toBe(true);
     expect(matches.filter((m) => m.hasGscData).map((m) => m.liveUrl)).toEqual([
       "https://example.com/a",
     ]);

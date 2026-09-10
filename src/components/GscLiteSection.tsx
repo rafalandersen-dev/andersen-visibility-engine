@@ -17,6 +17,7 @@ import {
   gscPageRecommendation,
   GscParseError,
   MAX_IMPORTS,
+  retainGscApiImport,
   MAX_GSC_BYTES,
   gscImportSummary,
   gscSummaryBasis,
@@ -619,13 +620,6 @@ function GscConnectionCard({ project }: { project: Project }) {
 
   async function onSync(range: "28d" | "90d") {
     if (!selectedSiteUrl) return;
-    if (
-      (getState().projects.find((p) => p.id === project.id)?.gscLite?.imports.length ?? 0) >=
-      MAX_IMPORTS
-    ) {
-      toast.error(t("gsc.integrity.capacity"));
-      return;
-    }
     setBusy(range === "28d" ? "sync28" : "sync90");
     try {
       const res = await syncGscSearchAnalyticsFn({ data: { siteUrl: selectedSiteUrl, range } });
@@ -640,8 +634,7 @@ function GscConnectionCard({ project }: { project: Project }) {
       }
       const imp = res.import;
       const existing = getState().projects.find((p) => p.id === project.id)?.gscLite?.imports ?? [];
-      if (existing.length >= MAX_IMPORTS) throw Error("import_capacity");
-      const imports = [imp, ...existing];
+      const imports = retainGscApiImport(existing, imp);
       updateProject(project.id, {
         gscLite: { imports, latestImportId: imp.id },
         gscOAuth: {

@@ -167,7 +167,7 @@ export function observationFromImport(
     throw Error("observation_window_unavailable");
   const relation = end < publishedDay ? "before" : start > publishedDay ? "later" : null;
   if (!relation) throw Error("observation_window_overlaps_publication");
-  if (imp.selectedSiteUrl && !gscPageInProperty(page, imp.selectedSiteUrl))
+  if (!imp.selectedSiteUrl || !gscPageInProperty(page, imp.selectedSiteUrl))
     throw Error("observation_property_mismatch");
   const rows = imp.rows.filter(
     (r) => r.type === "page" && !r.query && !r.date && gscPageUrl(r.page) === page,

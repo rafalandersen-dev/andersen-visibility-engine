@@ -9,6 +9,11 @@ import type {
 } from "./types";
 export const MAX_ROWS_PER_IMPORT = 1000;
 export const MAX_IMPORTS = 5;
+/** API refresh keeps the established rolling window; retained records are not rewritten. */
+export function retainGscApiImport(existing: GscImport[], imp: GscImport): GscImport[] {
+  return [imp, ...existing].slice(0, MAX_IMPORTS);
+}
+
 export const MAX_GSC_BYTES = 2_000_000;
 export class GscParseError extends Error {}
 
@@ -363,7 +368,8 @@ export function matchGscToPublishedContent(
         row.query ||
         row.date ||
         !url ||
-        (imp.selectedSiteUrl && !gscPageInProperty(url, imp.selectedSiteUrl))
+        !imp.selectedSiteUrl ||
+        !gscPageInProperty(url, imp.selectedSiteUrl)
       )
         continue;
       byUrl.set(url, [...(byUrl.get(url) ?? []), safeGscRow(row)]);
