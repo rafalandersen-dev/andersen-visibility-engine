@@ -25,6 +25,8 @@ export class SourcePublicationHeldError extends Error {
 export function assetSourceDependencies(asset: ContentAsset) {
   // Conservative: retained image references are checked even before attachment
   // approval. Removing an image removes its references from this asset's gate.
+  if (!Array.isArray(asset.images ?? []) || (asset.images?.length ?? 0) > 30)
+    throw new SourcePublicationHeldError();
   const dependencies = [
     ...z
       .array(outputDependencySchema)
@@ -40,7 +42,7 @@ export function assetSourceDependencies(asset: ContentAsset) {
   const unique = new Map(dependencies.map((d) => [JSON.stringify(d), d]));
   return z
     .array(outputDependencySchema)
-    .max(100)
+    .max(3100)
     .parse([...unique.values()]);
 }
 
@@ -105,35 +107,44 @@ function issuesFromRows(
   const dependencies = assetSourceDependencies(asset);
   const scope = { ownerId: userId, projectId: asset.projectId };
   const conflicts = conflictingSourceFacts(
-    rows.flatMap((row) => (row.status === "ok" && row.snapshot ? [row.snapshot] : [])),
+    rows.flatMap((row) => (row.snapshot ? [row.snapshot] : [])),
   );
   const replaced = dependencies.filter(
     (d) =>
       d.sourceRevision !== undefined &&
       rows.find((row) => row.sourceId === d.sourceId)?.sourceRevision !== d.sourceRevision,
   );
-  const issues = checkOutputDependencies({
-    scope,
-    dependencies,
-    snapshots: rows.flatMap((row) =>
-      row.snapshot
-        ? [
-            {
-              ...row.snapshot,
-              facts: row.snapshot.facts.filter(
-                (f) =>
-                  row.accepted[f.key] === f.fingerprint &&
-                  !conflicts.has(`${row.sourceId}:${f.key}`),
-              ),
-            },
-          ]
-        : [],
-    ),
-    unavailableSourceIds: rows.filter((row) => row.status !== "ok").map((row) => row.sourceId),
-    now,
-    useAt,
-    maxAgeMs: 86400000,
-  });
+  const snapshots = rows.flatMap((row) =>
+    row.snapshot
+      ? [
+          {
+            ...row.snapshot,
+            facts: row.snapshot.facts.filter(
+              (f) =>
+                row.accepted[f.key] === f.fingerprint && !conflicts.has(`${row.sourceId}:${f.key}`),
+            ),
+          },
+        ]
+      : [],
+  );
+  const unavailableSourceIds = rows.filter((row) => row.status !== "ok").map((row) => row.sourceId);
+  const issues: import("./source-refresh").DependencyIssue[] = [];
+  // Each article/image is bounded at 100 references. Evaluate the combined
+  // article + up to 30 images in equally bounded batches instead of rejecting
+  // valid independently generated outputs after attachment.
+  for (let index = 0; index < dependencies.length; index += 100) {
+    issues.push(
+      ...checkOutputDependencies({
+        scope,
+        dependencies: dependencies.slice(index, index + 100),
+        snapshots,
+        unavailableSourceIds,
+        now,
+        useAt,
+        maxAgeMs: 86400000,
+      }),
+    );
+  }
   return [
     ...issues,
     ...replaced

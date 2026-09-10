@@ -180,3 +180,55 @@ describe("accepted source generation context", () => {
     expect((await loadSourceFactContext(scope, now, rpc)).dependencies).toEqual([]);
   });
 });
+
+it("keeps a retained contradictory source out of generation after an outage", async () => {
+  const { loadSourceFactContext } = await import("./source-refresh.server");
+  const now = "2026-09-10T09:00:00Z";
+  const sid = "00000000-0000-4000-8000-000000000003";
+  const fact = {
+    key: "price",
+    productId: "product",
+    field: "price",
+    value: "100",
+    locator: "Offer",
+    fingerprint: "b".repeat(64),
+  };
+  const snapshot = {
+    ...scope,
+    sourceId,
+    revision: 1,
+    observedAt: now,
+    coverage: "public-page",
+    facts: [fact],
+  };
+  const row = {
+    sourceId,
+    sourceRevision: 1,
+    revision: 1,
+    lastAttempt: now,
+    status: "ok",
+    snapshot,
+    history: [],
+    accepted: { price: fact.fingerprint },
+  };
+  const competing = {
+    ...row,
+    sourceId: sid,
+    status: "unknown",
+    snapshot: {
+      ...snapshot,
+      sourceId: sid,
+      facts: [{ ...fact, value: "125", fingerprint: "c".repeat(64) }],
+    },
+    accepted: {},
+  };
+  const rpc = async (name: string) =>
+    ok(
+      name === "read_project_knowledge"
+        ? { sources: [source, { ...source, id: sid }], records: [] }
+        : [row, competing],
+    );
+  expect(await loadSourceFactContext(scope, now, rpc)).toEqual({ context: "", dependencies: [] });
+  const state = await readSourceRefresh(scope, rpc);
+  expect(state.map((s) => s.conflictingKeys)).toEqual([["price"], ["price"]]);
+});
