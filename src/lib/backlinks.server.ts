@@ -49,6 +49,9 @@ const isRecord = (value: unknown): value is UnknownRecord =>
 const asNumber = (value: unknown, fallback = 0): number =>
   typeof value === "number" && Number.isFinite(value) ? value : fallback;
 
+// Only locally authored messages use this class; upstream text never does.
+class SafeBacklinkError extends Error {}
+
 const invalid = () => new Error("Backlink data response could not be validated.");
 
 function metric(value: unknown, max = Number.MAX_SAFE_INTEGER, integer = true): number | null {
@@ -160,11 +163,11 @@ export async function readBacklinkBody(res: Response, signal?: AbortSignal): Pro
  */
 export function assertAccountUsable(statusCode: number, statusMessage: string): void {
   if (statusCode === 40200 || /payment|money|funds/i.test(statusMessage))
-    throw new Error(
+    throw new SafeBacklinkError(
       "The backlink data account has no remaining balance. Top up DataForSEO to continue.",
     );
   if (statusCode === 40201 || /blocked|paused|suspend|unusual activity/i.test(statusMessage))
-    throw new Error(
+    throw new SafeBacklinkError(
       "The backlink data account is temporarily paused by DataForSEO. Contact support@dataforseo.com to reactivate it, then try again.",
     );
 }
@@ -292,7 +295,7 @@ async function dfsRequest(path: string, payload: UnknownRecord): Promise<unknown
       body: JSON.stringify([payload]),
     });
     if (res.status === 401 || res.status === 403)
-      throw new Error("Backlink data source rejected the credentials.");
+      throw new SafeBacklinkError("Backlink data source rejected the credentials.");
     if (!res.ok) throw invalid();
     const body = await readBacklinkBody(res, controller.signal);
     if (!isRecord(body)) throw invalid();
@@ -313,7 +316,8 @@ async function dfsRequest(path: string, payload: UnknownRecord): Promise<unknown
       if (payload[key] !== undefined && !sameScope(task.data[key], payload[key])) throw invalid();
     }
     return task.result;
-  } catch {
+  } catch (error) {
+    if (error instanceof SafeBacklinkError) throw error;
     // Never surface raw upstream messages, URLs, response bodies or network errors.
     throw new Error(
       controller.signal.aborted

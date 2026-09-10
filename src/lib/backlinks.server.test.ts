@@ -354,6 +354,37 @@ describe("bounded safe provider transport", () => {
       fetchStatus: "partial",
     });
   });
+  it.each([
+    [40200, /remaining balance/],
+    [40201, /temporarily paused/],
+  ] as const)(
+    "preserves safe mapped account code %s without upstream text",
+    async (code, message) => {
+      vi.stubEnv("DATAFORSEO_LOGIN", "fixture");
+      vi.stubEnv("DATAFORSEO_PASSWORD", "fixture");
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () =>
+          Response.json({
+            status_code: 20000,
+            tasks: [{ status_code: code, status_message: "PRIVATE sentinel", result: [] }],
+          }),
+        ),
+      );
+      await expect(fetchBacklinkSummary("example.com")).rejects.toThrow(message);
+    },
+  );
+  it.each([401, 403])("preserves safe credential errors for HTTP %s", async (status) => {
+    vi.stubEnv("DATAFORSEO_LOGIN", "fixture");
+    vi.stubEnv("DATAFORSEO_PASSWORD", "fixture");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("PRIVATE sentinel", { status })),
+    );
+    await expect(fetchBacklinkSummary("example.com")).rejects.toThrow(
+      "Backlink data source rejected the credentials.",
+    );
+  });
   it("excludes own and competitor www aliases from actual gap fetch results", async () => {
     vi.stubEnv("DATAFORSEO_LOGIN", "fixture");
     vi.stubEnv("DATAFORSEO_PASSWORD", "fixture");
