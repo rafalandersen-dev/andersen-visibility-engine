@@ -39,7 +39,7 @@ export const input: AnswerEvidence = {
   surface: "Synthetic test surface",
   mode: "consumer-web",
   method: "manual copy v1",
-  modelVersion: null,
+  modelVersion: "synthetic-v1",
   capturedAt: "2026-08-10T12:00:00Z",
   status: "complete",
   rawAnswer: "Milo is mentioned.",
@@ -123,6 +123,8 @@ describe("supplied answer evidence", () => {
     { capturedAt: "2026-02-30T00:00:00Z" },
     { capturedAt: "2026-08-01T00:00:00" },
     { capturedAt: "2999-01-01T00:00:00Z" },
+    { capturedAt: "2026-08-10T12:00:00+99:99" },
+    { capturedAt: "2026-08-10T12:00:00+24:00" },
     { status: "complete", rawAnswer: " " },
     { status: "failed", failure: null },
     { status: "truncated", failure: "" },
@@ -149,6 +151,19 @@ describe("supplied answer evidence", () => {
     });
     expect(rows[1].analysis.mention).toBeNull();
     expect(rows[2].analysis.ownCitation).toBeNull();
+  });
+  it("never pools separate samples with unknown model versions", () => {
+    const groups = evidenceCohorts(
+      [
+        row(1, { modelVersion: null }),
+        row(2, { modelVersion: null, rawAnswer: "Another business" }),
+      ],
+      "2026-08-01",
+      "2026-09-01",
+    );
+    expect(groups).toHaveLength(2);
+    expect(groups.map((g) => g.mentionSamples)).toEqual([1, 1]);
+    expect(groups.map((g) => g.mentions)).toEqual([1, 0]);
   });
   it("separates all cohort dimensions and half-open capture windows", () => {
     const rows = [

@@ -12,7 +12,7 @@ This independent R10/R11/R16 delivery adds a usable prompt library and evidence 
 
 ## Denominators and scope
 
-The date window is UTC, start inclusive and end exclusive. Each cohort has exactly the same prompt identity/version, market, language, surface, mode, collection method and declared model version. Unknown versions are labelled unknown and do not establish version equivalence. A supplied sample is not a representative survey; this UI does not claim a longitudinal trend or benchmark.
+The date window is UTC, start inclusive and end exclusive. Each cohort has exactly the same prompt identity/version, market, language, surface, mode, collection method and declared model version. Unknown model versions are labelled unknown and remain individual, unpooled samples; they do not establish version equivalence. A supplied sample is not a representative survey; this UI does not claim a longitudinal trend or benchmark.
 
 Mention denominators include only nonempty complete answers. Citation denominators additionally require the owner to declare a complete citation list. A complete answer with an explicitly complete empty citation list may yield zero citations; missing lists, failed answers and truncated answers remain unknown and do not yield measured zero. Counts show their numerators, eligible denominators and total supplied samples separately. Superseded records remain reviewable/exportable but do not inflate denominators. Referral traffic remains a separate existing analytics signal.
 

@@ -67,7 +67,12 @@ export const answerEvidenceSchema = z
   })
   .strict()
   .superRefine((v, ctx) => {
-    if (Date.parse(v.capturedAt) > Date.now() || Date.parse(v.capturedAt) < Date.UTC(2020, 0, 1))
+    const capturedAt = Date.parse(v.capturedAt);
+    if (
+      !Number.isFinite(capturedAt) ||
+      capturedAt > Date.now() ||
+      capturedAt < Date.UTC(2020, 0, 1)
+    )
       ctx.addIssue({
         code: "custom",
         path: ["capturedAt"],
@@ -186,7 +191,10 @@ export function evidenceCohorts(rows: EvidenceRow[], start: string, end: string)
   for (const r of rows) {
     const at = Date.parse(r.input.capturedAt);
     if (superseded.has(r.id) || at < after || at >= before) continue;
-    const key = r.analysis.cohort;
+    // Unknown is not evidence of a shared model version. Keep each such
+    // observation independent even when all other declared dimensions match.
+    const key =
+      r.input.modelVersion === null ? JSON.stringify([r.analysis.cohort, r.id]) : r.analysis.cohort;
     const g = groups.get(key) ?? {
       key,
       sample: r,
