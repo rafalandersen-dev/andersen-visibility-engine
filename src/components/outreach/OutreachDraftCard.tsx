@@ -303,7 +303,7 @@ export function OutreachDraftCard({
       ) : null}
 
       <div className="mt-4 flex flex-wrap gap-2">
-        {initialSent && draft.status !== "Sent" ? (
+        {initialSent && (draft.status === "Approved" || draft.status === "Failed") ? (
           <Button size="sm" variant="outline" disabled={sending} onClick={recover}>
             {t("outreach.integrity.recover")}
           </Button>
