@@ -1,3 +1,5 @@
+import { gscIntegrity } from "@/i18n/gsc-integrity";
+import { formatGscMetric } from "./gsc";
 /**
  * Monthly Proof Report — server functions.
  *
@@ -9,7 +11,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import type { CalendarItem, ContentAsset, Project } from "./types";
+import type { CalendarItem, ContentAsset, Project, OnboardingLanguage } from "./types";
 import { readWorkspaceRow } from "./workspace.server";
 import { isEmailAddress } from "./outreach-delivery.server";
 import { buildMonthlyProofReport, type MonthlyProofReport } from "./proof-report";
@@ -106,8 +108,10 @@ export function renderProofReportEmailHtml(
   report: MonthlyProofReport,
   projectName: string,
   branding: AgencyBranding | null = null,
+  language: OnboardingLanguage = "en",
 ): string {
   const e = escapeHtml;
+  const copy = gscIntegrity[language] ?? gscIntegrity.en;
   const row = (label: string, value: string) =>
     `<tr><td style="padding:6px 12px 6px 0;color:#666;">${label}</td><td style="padding:6px 0;font-weight:600;">${value}</td></tr>`;
   const publishedList = report.published.length
@@ -130,10 +134,10 @@ export function renderProofReportEmailHtml(
         .join("")}</ul>`
     : `<p style="color:#666;">Nothing planned yet — open the Plan page to schedule next month.</p>`;
   const gsc = report.gsc
-    ? `<table style="border-collapse:collapse;">${row("Clicks", String(report.gsc.totalClicks))}${row(
+    ? `<table style="border-collapse:collapse;">${row("Clicks", formatGscMetric(report.gsc.totalClicks))}${row(
         "Impressions",
-        String(report.gsc.totalImpressions),
-      )}${row("Avg. position", report.gsc.averagePosition.toFixed(1))}</table><p style="color:#999;font-size:12px;">Google Search Console${
+        formatGscMetric(report.gsc.totalImpressions),
+      )}${row("Avg. position", formatGscMetric(report.gsc.averagePosition))}</table><p style="color:#999;font-size:12px;">${e(copy[`gsc.integrity.${report.gsc.basis ?? "unknown"}`])} ${e(copy["gsc.integrity.disclaimer"])} ${e(report.gsc.property ?? "—")} · ${e(report.gsc.windowStart ?? "—")} → ${e(report.gsc.windowEnd ?? "—")}.${
         report.gsc.rangeLabel ? ` · ${e(report.gsc.rangeLabel)}` : ""
       }</p>`
     : `<p style="color:#666;">Connect Google Search Console in Milo to include search metrics.</p>`;
@@ -190,7 +194,7 @@ export const emailProofReportFn = createServerFn({ method: "POST" })
       data.projectId,
       data.monthKey,
     );
-    const html = renderProofReportEmailHtml(report, project.name, branding);
+    const html = renderProofReportEmailHtml(report, project.name, branding, project.appLanguage);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 20_000);
     try {

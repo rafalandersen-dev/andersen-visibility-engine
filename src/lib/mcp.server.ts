@@ -1,3 +1,4 @@
+import { gscImportSummary, gscSummaryBasis, safeGscRow, sortGscRows } from "./gsc";
 import type { McpImageWorkTracker } from "./mcp-transport.server";
 import { MCP_IMAGE_TOOL, mcpImageSchema, McpImageError } from "./mcp-image";
 import { CONTENT_LANGUAGES, projectContentLanguage } from "./content-languages";
@@ -336,13 +337,17 @@ const TOOLS: McpTool[] = [
       const imports = p.gscLite?.imports ?? [];
       const latest = imports.find((i) => i.id === p.gscLite?.latestImportId) ?? imports[0];
       if (!latest) return { note: "No Search Console data (CSV or API) imported for this project yet." };
-      const topQueries = latest.rows.filter((r) => r.query).sort((a, b) => b.clicks - a.clicks).slice(0, 10).map((r) => ({ query: r.query, clicks: r.clicks, impressions: r.impressions, ctr: r.ctr, position: r.position }));
-      const topPages = latest.rows.filter((r) => r.page).sort((a, b) => b.clicks - a.clicks).slice(0, 10).map((r) => ({ page: r.page, clicks: r.clicks, impressions: r.impressions, ctr: r.ctr, position: r.position }));
+      const topQueries = (latest.integrityVersion === 2 ? latest.rows.map(safeGscRow) : []).filter((r) => r.query).sort(sortGscRows).slice(0, 10).map((r) => ({ query: r.query, clicks: r.clicks, impressions: r.impressions, ctr: r.ctr, position: r.position }));
+      const topPages = (latest.integrityVersion === 2 ? latest.rows.map(safeGscRow) : []).filter((r) => r.page).sort(sortGscRows).slice(0, 10).map((r) => ({ page: r.page, clicks: r.clicks, impressions: r.impressions, ctr: r.ctr, position: r.position }));
       return {
         source: latest.source === "api" ? "api" : "csv",
         importedAt: latest.importedAt,
         dateRange: latest.dateRange,
-        summary: latest.summary,
+        summary: gscImportSummary(latest),
+        basis: gscSummaryBasis(latest),
+        property: latest.selectedSiteUrl,
+        independentlyVerified: false,
+        note: "Saved observation only. Row subtotals are not property totals. Windows are independent of publication or report month; no causality or conversions.",
         topQueries,
         topPages,
       };
@@ -1461,8 +1466,8 @@ const PENDING_TOOLS: PendingToolDef[] = [
  * their own preview lines or markdown constructs across lines), then clip. */
 function previewValue(v: unknown, max = 120): string {
   const raw = typeof v === "string" ? v : JSON.stringify(v);
-  // eslint-disable-next-line no-control-regex
   const flat = String(raw ?? "")
+    // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u001f\u007f]+/g, " ")
     .trim();
   return flat.length > max ? `${flat.slice(0, max)}…` : flat;

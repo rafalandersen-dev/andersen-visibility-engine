@@ -9,7 +9,13 @@
  * - Offline access (refresh token) is requested ONLY when secure encryption is
  *   configured; otherwise sync is reported "not configured" and CSV remains.
  */
-import { summarizeGscRows, detectImportType } from "./gsc";
+import {
+  gscMetric,
+  gscPageUrl,
+  gscPageInProperty,
+  gscImportSummary,
+  detectImportType,
+} from "./gsc";
 import { normalizePath } from "./analytics";
 import { encryptSecret, decryptSecret, isEncryptionConfigured } from "./crypto.server";
 import type { GscRow, GscImport, GscConnectionStatus, GscSiteEntry } from "./types";
@@ -65,7 +71,13 @@ function b64urlToBytes(s: string): Uint8Array {
 
 async function hmac(secret: string, message: string): Promise<Uint8Array> {
   const subtle = globalThis.crypto.subtle;
-  const key = await subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const key = await subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
   const sig = await subtle.sign("HMAC", key, new TextEncoder().encode(message));
   return new Uint8Array(sig);
 }
@@ -79,7 +91,11 @@ export interface GscOAuthState {
 
 export async function signState(payload: Omit<GscOAuthState, "n" | "e">): Promise<string> {
   const { clientSecret } = gscOAuthConfig();
-  const state: GscOAuthState = { ...payload, n: globalThis.crypto.randomUUID(), e: Date.now() + 10 * 60 * 1000 };
+  const state: GscOAuthState = {
+    ...payload,
+    n: globalThis.crypto.randomUUID(),
+    e: Date.now() + 10 * 60 * 1000,
+  };
   const body = b64url(new TextEncoder().encode(JSON.stringify(state)));
   const sig = b64url(await hmac(clientSecret, body));
   return `${body}.${sig}`;
@@ -97,7 +113,8 @@ export async function verifyState(state: string): Promise<GscOAuthState | null> 
     for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ sig.charCodeAt(i);
     if (diff !== 0) return null;
     const parsed = JSON.parse(new TextDecoder().decode(b64urlToBytes(body))) as GscOAuthState;
-    if (!parsed.u || !parsed.p || typeof parsed.e !== "number" || parsed.e < Date.now()) return null;
+    if (!parsed.u || !parsed.p || typeof parsed.e !== "number" || parsed.e < Date.now())
+      return null;
     return parsed;
   } catch {
     return null;
@@ -185,9 +202,26 @@ function emailFromIdToken(idToken?: string): string | undefined {
 // ---- service-role DB access (tokens never leave the server) ----
 type AdminClient = {
   from: (t: string) => {
-    select: (c: string) => { eq: (k: string, v: string) => { eq: (k: string, v: string) => { maybeSingle: () => Promise<{ data: ConnRow | null; error: { message: string } | null }> } } };
+    select: (c: string) => {
+      eq: (
+        k: string,
+        v: string,
+      ) => {
+        eq: (
+          k: string,
+          v: string,
+        ) => {
+          maybeSingle: () => Promise<{ data: ConnRow | null; error: { message: string } | null }>;
+        };
+      };
+    };
     upsert: (r: unknown, opts?: unknown) => Promise<{ error: { message: string } | null }>;
-    update: (r: unknown) => { eq: (k: string, v: string) => { eq: (k: string, v: string) => Promise<{ error: { message: string } | null }> } };
+    update: (r: unknown) => {
+      eq: (
+        k: string,
+        v: string,
+      ) => { eq: (k: string, v: string) => Promise<{ error: { message: string } | null }> };
+    };
   };
 };
 interface ConnRow {
@@ -208,7 +242,12 @@ async function admin(): Promise<AdminClient> {
 
 async function getConnRow(userId: string): Promise<ConnRow | null> {
   const db = await admin();
-  const { data, error } = await db.from("google_connections").select("*").eq("user_id", userId).eq("provider", PROVIDER).maybeSingle();
+  const { data, error } = await db
+    .from("google_connections")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("provider", PROVIDER)
+    .maybeSingle();
   if (error) {
     console.warn("[gsc-oauth] getConnRow error", error.message);
     return null;
@@ -226,7 +265,9 @@ export async function saveConnection(args: {
 }): Promise<void> {
   const db = await admin();
   const encrypted = args.refreshToken ? await encryptSecret(args.refreshToken) : undefined;
-  const expiresAt = args.expiresInSec ? new Date(Date.now() + args.expiresInSec * 1000).toISOString() : null;
+  const expiresAt = args.expiresInSec
+    ? new Date(Date.now() + args.expiresInSec * 1000).toISOString()
+    : null;
   const row: Record<string, unknown> = {
     user_id: args.userId,
     workspace_id: args.userId,
@@ -239,7 +280,9 @@ export async function saveConnection(args: {
   };
   // Only overwrite the stored refresh token when we received a new one.
   if (encrypted) row.encrypted_refresh_token = encrypted;
-  const { error } = await db.from("google_connections").upsert(row, { onConflict: "user_id,provider" });
+  const { error } = await db
+    .from("google_connections")
+    .upsert(row, { onConflict: "user_id,provider" });
   if (error) {
     console.warn("[gsc-oauth] saveConnection error", error.message);
     throw new Error("save_connection_failed");
@@ -248,7 +291,15 @@ export async function saveConnection(args: {
 
 export async function markRevoked(userId: string): Promise<void> {
   const db = await admin();
-  await db.from("google_connections").update({ encrypted_refresh_token: null, revoked_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("user_id", userId).eq("provider", PROVIDER);
+  await db
+    .from("google_connections")
+    .update({
+      encrypted_refresh_token: null,
+      revoked_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", userId)
+    .eq("provider", PROVIDER);
 }
 
 /** Safe connection status (no tokens) derived from the stored row + config. */
@@ -274,7 +325,12 @@ async function getAccessToken(userId: string): Promise<string> {
   const tok = await refreshAccessToken(refresh).catch(() => null);
   if (!tok?.access_token) throw new Error("expired");
   // refresh the stored expiry window (refresh token unchanged)
-  await saveConnection({ userId, expiresInSec: tok.expires_in, scope: tok.scope, email: row.google_account_email ?? undefined }).catch(() => {});
+  await saveConnection({
+    userId,
+    expiresInSec: tok.expires_in,
+    scope: tok.scope,
+    email: row.google_account_email ?? undefined,
+  }).catch(() => {});
   return tok.access_token;
 }
 
@@ -286,51 +342,144 @@ export async function listSites(userId: string): Promise<GscSiteEntry[]> {
   });
   if (res.status === 401 || res.status === 403) throw new Error("expired");
   if (!res.ok) throw new Error("api_error");
-  const json = (await res.json().catch(() => ({}))) as { siteEntry?: { siteUrl?: string; permissionLevel?: string }[] };
+  const json = (await res.json().catch(() => ({}))) as {
+    siteEntry?: { siteUrl?: string; permissionLevel?: string }[];
+  };
   return (json.siteEntry ?? [])
     .filter((s) => typeof s.siteUrl === "string")
     .map((s) => ({ siteUrl: s.siteUrl as string, permissionLevel: s.permissionLevel }));
 }
 
-interface SaRow { keys?: string[]; clicks?: number; impressions?: number; ctr?: number; position?: number }
+export interface SaRow {
+  keys?: string[];
+  clicks?: number;
+  impressions?: number;
+  ctr?: number;
+  position?: number;
+}
 
-async function querySearchAnalytics(accessToken: string, siteUrl: string, body: Record<string, unknown>): Promise<SaRow[]> {
+/** Malformed responses are failures; an omitted rows array is a valid empty table. */
+export function normalizeSearchAnalyticsResponse(
+  value: unknown,
+  dimension: "query" | "page" | "aggregate",
+  limit: number,
+): SaRow[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw Error("api_error");
+  const raw = (value as { rows?: unknown }).rows;
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw) || raw.length > limit) throw Error("api_error");
+  const seen = new Set<string>();
+  return raw.map((r) => {
+    if (!r || typeof r !== "object" || Array.isArray(r)) throw Error("api_error");
+    const keys = r.keys;
+    if (dimension === "aggregate") {
+      if (keys !== undefined && (!Array.isArray(keys) || keys.length)) throw Error("api_error");
+    } else {
+      if (
+        !Array.isArray(keys) ||
+        keys.length !== 1 ||
+        typeof keys[0] !== "string" ||
+        !keys[0].trim() ||
+        keys[0].length > 4000 ||
+        seen.has(keys[0])
+      )
+        throw Error("api_error");
+      seen.add(keys[0]);
+    }
+    for (const key of ["clicks", "impressions", "ctr", "position"] as const) {
+      if (r[key] === undefined || r[key] === null) continue;
+      // A zero position with zero impressions is unavailable, not rank zero.
+      if (key === "position" && r.position === 0 && r.impressions === 0) continue;
+      const val = key === "ctr" && typeof r[key] === "number" ? r[key] * 100 : r[key];
+      if (gscMetric(val, key === "clicks" || key === "impressions" ? "count" : key) === null)
+        throw Error("api_error");
+    }
+    if (
+      typeof r.clicks === "number" &&
+      typeof r.impressions === "number" &&
+      r.clicks > r.impressions
+    )
+      throw Error("api_error");
+    return r as SaRow;
+  });
+}
+async function querySearchAnalytics(
+  accessToken: string,
+  siteUrl: string,
+  body: Record<string, unknown>,
+  dimension: "query" | "page" | "aggregate",
+  limit: number,
+): Promise<SaRow[]> {
   const res = await fetch(
     `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
     {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(20000),
     },
   );
   if (res.status === 401 || res.status === 403) throw new Error("expired");
   if (!res.ok) throw new Error("api_error");
-  const json = (await res.json().catch(() => ({}))) as { rows?: SaRow[] };
-  return json.rows ?? [];
+  // Bound the body while reading, before parsing or retaining provider fields.
+  const reader = res.body?.getReader();
+  if (!reader) throw Error("api_error");
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > 2_000_000) {
+        await reader.cancel();
+        throw Error("api_error");
+      }
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.length;
+    }
+    return normalizeSearchAnalyticsResponse(
+      JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)),
+      dimension,
+      limit,
+    );
+  } catch {
+    throw Error("api_error");
+  } finally {
+    reader.releaseLock();
+  }
 }
-
-function ymd(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
-function computeRange(range: "28d" | "90d"): { startDate: string; endDate: string } {
-  const end = new Date();
+/** API calendar days are Pacific time; both endpoints are included. */
+export function computeRange(
+  range: "28d" | "90d",
+  now = new Date(),
+): { startDate: string; endDate: string } {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const get = (type: string) => parts.find((p) => p.type === type)!.value;
+  const end = new Date(`${get("year")}-${get("month")}-${get("day")}T00:00:00Z`);
   end.setUTCDate(end.getUTCDate() - SYNC_DELAY_DAYS);
   const start = new Date(end);
-  start.setUTCDate(start.getUTCDate() - (range === "90d" ? 90 : 28));
-  return { startDate: ymd(start), endDate: ymd(end) };
+  start.setUTCDate(start.getUTCDate() - (range === "90d" ? 89 : 27));
+  return { startDate: start.toISOString().slice(0, 10), endDate: end.toISOString().slice(0, 10) };
 }
-
-function toGscRowCtr(ctrFraction?: number): number {
-  const n = typeof ctrFraction === "number" ? ctrFraction * 100 : 0;
-  return Math.max(0, Math.min(100, Math.round(n * 100) / 100));
+function apiMetrics(r: SaRow) {
+  return {
+    clicks: gscMetric(r.clicks, "count"),
+    impressions: gscMetric(r.impressions, "count"),
+    ctr: gscMetric(typeof r.ctr === "number" ? r.ctr * 100 : null, "ctr"),
+    position: gscMetric(r.position, "position"),
+  };
 }
-
-/**
- * Sync Search Analytics for a property and normalize into the existing GscImport
- * format. Runs three queries: aggregate totals (accurate summary), top queries,
- * top pages (for matching). Rows are mixed (query + page) like a combined import.
- */
 export async function syncSearchAnalytics(args: {
   userId: string;
   siteUrl: string;
@@ -339,66 +488,61 @@ export async function syncSearchAnalytics(args: {
   const accessToken = await getAccessToken(args.userId);
   const { startDate, endDate } = computeRange(args.range);
   const half = Math.floor(GSC_MAX_API_ROWS / 2);
-
+  const common = { startDate, endDate, type: "web", dataState: "final" };
   const [totalsRows, queryRows, pageRows] = await Promise.all([
-    querySearchAnalytics(accessToken, args.siteUrl, { startDate, endDate, dimensions: [] }),
-    querySearchAnalytics(accessToken, args.siteUrl, { startDate, endDate, dimensions: ["query"], rowLimit: half }),
-    querySearchAnalytics(accessToken, args.siteUrl, { startDate, endDate, dimensions: ["page"], rowLimit: half }),
+    querySearchAnalytics(
+      accessToken,
+      args.siteUrl,
+      { ...common, dimensions: [], aggregationType: "byProperty", rowLimit: 1 },
+      "aggregate",
+      1,
+    ),
+    querySearchAnalytics(
+      accessToken,
+      args.siteUrl,
+      { ...common, dimensions: ["query"], rowLimit: half },
+      "query",
+      half,
+    ),
+    querySearchAnalytics(
+      accessToken,
+      args.siteUrl,
+      { ...common, dimensions: ["page"], rowLimit: half },
+      "page",
+      half,
+    ),
   ]);
-
-  const rows: GscRow[] = [];
-  for (const r of queryRows) {
-    const q = r.keys?.[0]?.trim();
-    if (!q) continue;
-    rows.push({
-      type: "query",
-      query: q,
-      clicks: Math.round(r.clicks ?? 0),
-      impressions: Math.round(r.impressions ?? 0),
-      ctr: toGscRowCtr(r.ctr),
-      position: Math.round((r.position ?? 0) * 10) / 10,
-    });
-  }
+  const rows: GscRow[] = queryRows.map((r) => ({
+    type: "query",
+    query: r.keys![0],
+    ...apiMetrics(r),
+  }));
   for (const r of pageRows) {
-    const page = r.keys?.[0]?.trim();
-    if (!page) continue;
-    rows.push({
-      type: "page",
-      page,
-      path: normalizePath(page),
-      clicks: Math.round(r.clicks ?? 0),
-      impressions: Math.round(r.impressions ?? 0),
-      ctr: toGscRowCtr(r.ctr),
-      position: Math.round((r.position ?? 0) * 10) / 10,
-    });
+    const page = r.keys![0];
+    if (!gscPageUrl(page) || !gscPageInProperty(page, args.siteUrl)) throw Error("api_error");
+    rows.push({ type: "page", page, path: normalizePath(page), ...apiMetrics(r) });
   }
-
-  // Accurate totals from the no-dimension aggregate; fall back to row sums.
-  const agg = totalsRows[0];
-  const base = summarizeGscRows(rows);
-  const summary = agg
-    ? {
-        totalClicks: Math.round(agg.clicks ?? 0),
-        totalImpressions: Math.round(agg.impressions ?? 0),
-        averageCtr: toGscRowCtr(agg.ctr) ,
-        averagePosition: Math.round((agg.position ?? 0) * 10) / 10,
-        rowCount: rows.length,
-        topQuery: base.topQuery,
-        topPage: base.topPage,
-      }
-    : base;
-
-  return {
-    id: `gsc_api_${Date.now().toString(36)}_${globalThis.crypto.randomUUID().slice(0, 8)}`,
+  const imp: GscImport = {
+    id: `gsc_api_${globalThis.crypto.randomUUID()}`,
     importedAt: new Date().toISOString(),
+    integrityVersion: 2,
     source: "api",
     importType: detectImportType(rows),
     rows,
-    summary,
+    aggregate: totalsRows[0] ? apiMetrics(totalsRows[0]) : undefined,
+    summary: {
+      totalClicks: null,
+      totalImpressions: null,
+      averageCtr: null,
+      averagePosition: null,
+      rowCount: rows.length,
+    },
     selectedSiteUrl: args.siteUrl,
-    dateRange: { start: startDate, end: endDate, label: `${args.range} · ${args.siteUrl}` },
+    dateRange: { start: startDate, end: endDate, label: `${args.range} · PT · web · final` },
     truncated: queryRows.length >= half || pageRows.length >= half,
   };
+  imp.summary = gscImportSummary(imp);
+  return imp;
 }
 
 /** Revoke the refresh token at Google (best effort), then mark the row revoked. */

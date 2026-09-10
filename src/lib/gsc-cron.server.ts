@@ -23,7 +23,7 @@
  * - Nothing sensitive is logged or returned: counts and short codes only.
  */
 import { mutateWorkspace as realMutateWorkspace, readWorkspaceRow, type WorkspaceData } from "./workspace.server";
-import { MAX_IMPORTS } from "./gsc";
+import { retainGscApiImport } from "./gsc";
 import type { GscImport } from "./types";
 
 export const AUTO_SYNC_MIN_INTERVAL_HOURS = 20;
@@ -77,7 +77,7 @@ export function applyImportToWorkspace(data: WorkspaceData, projectId: string, i
   if (idx === -1) return data;
   const project = projects[idx];
   const existing = project.gscLite?.imports ?? [];
-  const imports = [imp, ...existing].slice(0, MAX_IMPORTS);
+  const imports = retainGscApiImport(existing, imp);
   projects[idx] = {
     ...project,
     gscLite: { ...(project.gscLite ?? {}), imports, latestImportId: imp.id },

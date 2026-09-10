@@ -423,7 +423,8 @@ export function computeConnectionStatuses(input: LaunchInputs): ConnectionStatus
   let gscLevel: ConnectionStatusCard["level"];
   let gscDetailKey: string;
   if (gscImports > 0) {
-    gscLevel = "ok";
+    // Browser-writable source labels establish saved evidence, not provider verification.
+    gscLevel = "partial";
     gscDetailKey = hasApiImport ? "launch.conn.gsc.synced" : "launch.conn.gsc.csvOnly";
   } else if (oauthStatus === "connected") {
     gscLevel = "partial";

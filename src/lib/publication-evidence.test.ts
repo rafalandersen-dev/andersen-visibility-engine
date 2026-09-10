@@ -3,6 +3,7 @@ import {
   capturePublicationSnapshot,
   evidencePublicUrl,
   observationFromImport,
+  observationSchema,
   comparePublicationObservations,
   type PublicationEvidence,
 } from "./publication-evidence";
@@ -49,6 +50,7 @@ const pub = {
 } as PublicationEvidence;
 const imp = (start = "2026-08-16", end = "2026-08-22"): GscImport => ({
   id: "gsc",
+  integrityVersion: 2,
   source: "api",
   selectedSiteUrl: "sc-domain:example.com",
   importedAt: "2026-09-01T00:00:00Z",
@@ -163,6 +165,58 @@ describe("publication evidence transport boundary", () => {
   });
 });
 describe("later measurements", () => {
+  it("rejects over-limit imports before selecting a matching page", () => {
+    const over = imp();
+    over.rows.push(
+      ...Array.from({ length: 1000 }, (_, i) => ({
+        ...over.rows[0],
+        page: `https://example.com/other-${i}`,
+      })),
+    );
+    expect(() => observationFromImport(over, pub, now)).toThrow("import_limit");
+    over.rows.pop();
+    expect(observationFromImport(over, pub, now).page).toBe("https://example.com/article");
+  });
+  it("revalidates browser-edited v2 metrics before freezing new evidence", () => {
+    for (const patch of [
+      { clicks: 3, impressions: 2 },
+      { clicks: 1.5 },
+      { impressions: 50.5 },
+      { clicks: -1 },
+      { ctr: 101 },
+      { ctr: -1 },
+      { position: 0 },
+      { position: Infinity },
+      { clicks: NaN },
+      { clicks: "2" },
+    ]) {
+      const edited = imp();
+      Object.assign(edited.rows[0], patch);
+      expect(() => observationFromImport(edited, pub, now)).toThrow("metrics_invalid");
+    }
+    // Do not tighten the reader schema and make old immutable evidence unreadable.
+    const historical = observationFromImport(imp(), pub, now);
+    expect(
+      observationSchema.parse({ ...historical, metrics: { ...historical.metrics, position: 0 } })
+        .metrics.position,
+    ).toBe(0);
+  });
+  it("refuses new observations from legacy or incomplete metrics without changing old evidence", () => {
+    expect(() =>
+      observationFromImport({ ...imp(), integrityVersion: undefined }, pub, now),
+    ).toThrow("legacy");
+    for (const selectedSiteUrl of [undefined, "", "sc-domain:bad", "https://other.example/"]) {
+      expect(() => observationFromImport({ ...imp(), selectedSiteUrl }, pub, now)).toThrow(
+        "property_mismatch",
+      );
+    }
+    const missing = imp();
+    missing.rows[0].clicks = null;
+    expect(() => observationFromImport(missing, pub, now)).toThrow();
+    expect(() =>
+      observationFromImport({ ...imp(), selectedSiteUrl: "sc-domain:other.example" }, pub, now),
+    ).toThrow("property_mismatch");
+  });
   it("freezes the exact page/window and marks workspace provenance unverified", () => {
     const o = observationFromImport(imp(), pub, now);
     expect(o).toMatchObject({
