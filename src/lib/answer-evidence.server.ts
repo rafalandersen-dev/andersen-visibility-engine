@@ -81,7 +81,10 @@ export async function importAnswerEvidence(
     (p) => p.id === input.promptId && p.revision === input.promptRevision,
   );
   if (!prompt) throw Error("evidence_prompt_missing");
-  const document = { input, prompt, analysis: analyzeAnswer(input, prompt) };
+  // A write must satisfy the same derived-data contract as subsequent reads.
+  const document = evidenceRowSchema
+    .omit({ id: true, createdAt: true, hash: true })
+    .parse({ input, prompt, analysis: analyzeAnswer(input, prompt) });
   if (new TextEncoder().encode(JSON.stringify(document)).length > 90000)
     throw Error("answer_evidence_too_large");
   return z

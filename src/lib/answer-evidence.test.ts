@@ -196,6 +196,27 @@ describe("scoped evidence server, no provider or URL calls", () => {
       p_document: { prompt, analysis: { verified: false, mention: true } },
     });
   });
+  it("rejects oversized derived cohorts before persistence without poisoning readable state", async () => {
+    const escapedPrompt = {
+      ...prompt,
+      data: { ...prompt.data, market: "\u0001".repeat(80), language: "\u0001".repeat(40) },
+    };
+    const escapedInput = {
+      ...input,
+      surface: "\u0001".repeat(100),
+      method: "\u0001".repeat(120),
+      modelVersion: "\u0001".repeat(120),
+    };
+    // Each source field is legal; their JSON escaping expands the derived key.
+    expect(answerEvidenceSchema.safeParse(escapedInput).success).toBe(true);
+    expect(analyzeAnswer(escapedInput, escapedPrompt).cohort.length).toBeGreaterThan(1000);
+    const rpc = vi
+      .fn()
+      .mockResolvedValue({ data: { prompts: [escapedPrompt], answers: [] }, error: null });
+    await expect(importAnswerEvidence(scope, escapedInput, rpc)).rejects.toThrow();
+    expect(rpc.mock.calls.map((c) => c[0])).toEqual(["read_ai_answer_evidence"]);
+    expect((await readAnswerEvidence(scope, rpc)).answers).toEqual([]);
+  });
   it("rejects missing prompt versions before any write", async () => {
     const rpc = vi.fn().mockResolvedValue({ data: { prompts: [], answers: [] }, error: null });
     await expect(importAnswerEvidence(scope, input, rpc)).rejects.toThrow("prompt_missing");
