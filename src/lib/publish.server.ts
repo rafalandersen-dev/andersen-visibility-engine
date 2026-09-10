@@ -60,16 +60,12 @@ export interface ServerPublishResult {
  * Run the connector call for one asset. Pure I/O against the external site —
  * no workspace writes, so the caller decides how to record the outcome.
  */
-async function runConnectorPublish(
+async function runConnectorPublishTransport(
   asset: ContentAsset,
   project: Project,
   userId: string,
   knownInternalPaths: string[] = [],
 ): Promise<{ result: ServerPublishResult; assetPatch: Partial<ContentAsset> }> {
-  const { assertAssetSourcesCurrent } = await import("./source-publication.server");
-  const { assertPublicationApproved } = await import("./publication-approval.server");
-  await assertPublicationApproved(userId, asset, project, knownInternalPaths);
-  await assertAssetSourcesCurrent(userId, asset);
   const publishedAt = new Date().toISOString();
 
   // Link-safety gate for EVERY connector, including the custom endpoint (which
@@ -230,6 +226,32 @@ async function runConnectorPublish(
       publishStatus: "sent",
     },
   };
+}
+
+async function runConnectorPublish(
+  asset: ContentAsset,
+  project: Project,
+  userId: string,
+  knownInternalPaths: string[],
+) {
+  const { assertAssetSourcesCurrent } = await import("./source-publication.server");
+  const { assertPublicationApproved } = await import("./publication-approval.server");
+  await assertPublicationApproved(userId, asset, project, knownInternalPaths);
+  await assertAssetSourcesCurrent(userId, asset);
+  const { withPublicationEvidence } = await import("./publication-evidence.server");
+  return withPublicationEvidence({
+    ownerId: userId,
+    asset,
+    project,
+    paths: knownInternalPaths,
+    publish: () => runConnectorPublishTransport(asset, project, userId, knownInternalPaths),
+    outcome: (r) => ({
+      success: true,
+      liveUrl: r.result.liveUrl,
+      publishedAt: r.result.publishedAt,
+      externalId: r.assetPatch.publishExternalId,
+    }),
+  });
 }
 
 /**

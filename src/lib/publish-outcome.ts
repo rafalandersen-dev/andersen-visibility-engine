@@ -5,7 +5,7 @@
  * the decision logic — which asset, which project, what the blob looks like
  * afterwards — is unit-testable without a database or a request context.
  */
-import type { ContentAsset, Project } from "./types";
+import type { ContentAsset, Project, WordPressPublishResult, ShopifyPublishResult } from "./types";
 import type { WorkspaceData } from "./workspace.server";
 
 /** Thrown when the asset/project cannot support a publish at all (never retried). */
@@ -35,6 +35,25 @@ export class PublishRecordingFailedError extends Error {
     super(message);
     this.name = "PublishRecordingFailedError";
   }
+}
+
+/** A second storage failure must not replace a permanent connector warning. */
+export async function persistManualPublicationFailure(
+  result: { recordingFailed?: boolean; liveUrl?: string },
+  message: string,
+  persist: () => Promise<unknown>,
+): Promise<never> {
+  try {
+    await persist();
+  } catch (error) {
+    if (!result.recordingFailed) throw error;
+    throw new PublishRecordingFailedError(
+      `${message} The returned destination details could not be saved. Do not publish again; inspect the destination and publication history.`,
+      result.liveUrl,
+    );
+  }
+  if (result.recordingFailed) throw new PublishRecordingFailedError(message, result.liveUrl);
+  throw new Error(message);
 }
 
 /** True for any error the runner must not retry, across module boundaries. */
@@ -194,5 +213,34 @@ export function scheduledPublishFailurePatch(
     ...(preserveSourceSchedule
       ? { sourceHeldPublishAt: asset.scheduledPublishAt ?? asset.sourceHeldPublishAt }
       : {}),
+  };
+}
+
+/** Preserve identities from a returned live publication without claiming recording succeeded. */
+export function retainedManualPublicationPatch(
+  result: WordPressPublishResult | ShopifyPublishResult,
+  platform: "wordpress" | "shopify",
+): Partial<ContentAsset> {
+  if (!result.recordingFailed) return {};
+  const common: Partial<ContentAsset> = {
+    publishPlatform: platform,
+    ...(result.liveUrl ? { liveUrl: result.liveUrl } : {}),
+  };
+  if (platform === "wordpress") {
+    const r = result as WordPressPublishResult;
+    return {
+      ...common,
+      ...(r.postId ? { wordpressPostId: r.postId, publishExternalId: String(r.postId) } : {}),
+      ...(r.postType ? { wordpressPostType: r.postType } : {}),
+    };
+  }
+  const r = result as ShopifyPublishResult;
+  return {
+    ...common,
+    ...(r.articleId ? { shopifyArticleId: r.articleId, publishExternalId: r.articleId } : {}),
+    ...(r.articleGid ? { shopifyArticleGid: r.articleGid } : {}),
+    ...(r.blogId ? { shopifyBlogId: r.blogId } : {}),
+    ...(r.blogGid ? { shopifyBlogGid: r.blogGid } : {}),
+    ...(r.handle ? { shopifyHandle: r.handle } : {}),
   };
 }

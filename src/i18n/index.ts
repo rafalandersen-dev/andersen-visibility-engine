@@ -17,6 +17,7 @@ import { da } from "./da";
 import { premium } from "./premium";
 import { notifications } from "./notifications";
 import { projectKnowledge } from "./project-knowledge";
+import { proofEvidence } from "./proof-evidence";
 import { specialistTeam } from "./specialist-team";
 import { generationResults } from "./generation-results";
 
@@ -34,6 +35,7 @@ export function translate(
 ): string {
   const l = isSupported(lang) ? lang : "en";
   let s =
+    proofEvidence[l][key] ??
     specialistTeam[l][key] ??
     (projectKnowledge[l] as Dict)[key] ??
     generationResults[l][key] ??

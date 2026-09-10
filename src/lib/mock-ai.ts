@@ -16,6 +16,7 @@
  * Filename retained as "mock-ai.ts" so existing call sites and history
  * keep working — the behavior is no longer mocked.
  */
+import { retainedManualPublicationPatch, persistManualPublicationFailure } from "./publish-outcome";
 import { draftSelectionChanged } from "./draft-selection";
 import { contentLangToProjectLanguage } from "./onboarding";
 import {
@@ -1780,9 +1781,19 @@ async function publishToWordPressLive(asset: ContentAsset, project: Project) {
   });
   if (!res.success || !res.liveUrl) {
     const msg = res.error || "WordPress published but did not return a live URL.";
+    if (res.recordingFailed) {
+      const current = getState().content.find(
+        (c) => c.id === asset.id && c.projectId === project.id,
+      );
+      if (current)
+        upsertContent({
+          ...current,
+          ...retainedManualPublicationPatch(res, "wordpress"),
+          updatedAt: new Date().toISOString(),
+        });
+    }
     markContentAssetLivePublishFailed(asset.id, msg, new Date().toISOString());
-    await saveWorkspaceNow();
-    throw new Error(msg);
+    return persistManualPublicationFailure(res, msg, saveWorkspaceNow);
   }
   markContentAssetPublishedLive(asset.id, {
     liveUrl: res.liveUrl,
@@ -1867,9 +1878,19 @@ async function publishToShopifyLive(asset: ContentAsset, project: Project) {
   });
   if (!res.success || !res.liveUrl) {
     const msg = res.error || "Shopify published but did not return a live URL.";
+    if (res.recordingFailed) {
+      const current = getState().content.find(
+        (c) => c.id === asset.id && c.projectId === project.id,
+      );
+      if (current)
+        upsertContent({
+          ...current,
+          ...retainedManualPublicationPatch(res, "shopify"),
+          updatedAt: new Date().toISOString(),
+        });
+    }
     markContentAssetLivePublishFailed(asset.id, msg, new Date().toISOString());
-    await saveWorkspaceNow();
-    throw new Error(msg);
+    return persistManualPublicationFailure(res, msg, saveWorkspaceNow);
   }
   markContentAssetPublishedLive(asset.id, {
     liveUrl: res.liveUrl,

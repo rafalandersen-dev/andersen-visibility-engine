@@ -4,6 +4,7 @@
  * dependencies) + "Email me this report" (server-side rebuild, Resend).
  */
 import { createFileRoute } from "@tanstack/react-router";
+import { PublicationEvidencePanel } from "@/components/PublicationEvidencePanel";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import {
@@ -253,6 +254,7 @@ function ReportPage() {
           </p>
         </div>
       )}
+      {project && <PublicationEvidencePanel projectId={project.id} />}
     </AppShell>
   );
 }
