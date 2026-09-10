@@ -1,3 +1,4 @@
+import { specialistSavedEvidence } from "./specialist-team";
 import { z } from "zod";
 import { weeklyPreparationSchema } from "./weekly-preparation";
 import type { KnowledgeRpc } from "./project-knowledge.server";
@@ -157,10 +158,32 @@ export async function readWeeklyPreparation(
 
   return {
     ...readiness,
-    stages: stages.map(({ result: _result, inputHash: _hash, ...stage }) => stage),
+    stages: stages.map(({ result: _result, inputHash: _hash, ...stage }) => ({
+      ...stage,
+      asset:
+        stage.stage === "content"
+          ? weeklyStageAsset(assets, scope.projectId, stage.outputId)
+          : null,
+    })),
     summary,
+    specialistEvidence: specialistSavedEvidence({
+      project,
+      audits: (workspace?.audits ?? []) as import("./types").AuditResult[],
+      advice: (workspace?.aiVisibilityAnalyses ??
+        []) as import("./types").AiVisibilityAnalysisResult[],
+    }),
     control,
     enabled: schedule.enabled,
     timeZone: schedule.timeZone,
   };
+}
+
+/** Fresh authenticated workspace data supplies links; a retained archive alone is not a saved editor asset. */
+export function weeklyStageAsset(
+  assets: Pick<import("./types").ContentAsset, "id" | "projectId" | "title">[],
+  projectId: string,
+  outputId: string,
+) {
+  const asset = assets.find((a) => a.projectId === projectId && a.id === outputId);
+  return asset ? { id: asset.id, title: asset.title } : null;
 }

@@ -33,6 +33,7 @@ import {
   reloadWorkspaceForUser,
 } from "@/lib/store";
 import { useT } from "@/i18n";
+import { EditorialLesson } from "@/components/EditorialLesson";
 import { PublicationApprovalStatus } from "@/components/PublicationApprovalStatus";
 import { publicationVersion } from "@/lib/publication-version";
 import { setPublicationApprovalFn } from "@/lib/publication-approval.functions";
@@ -1762,6 +1763,11 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         </TabsList>
 
         <TabsContent value="content" className="space-y-4 py-5">
+          <EditorialLesson
+            key={asset.projectId + ":" + asset.id}
+            projectId={asset.projectId}
+            assetId={asset.id}
+          />
           {/* ---- Opening hook (Article Studio 3.0 / P1.2A) ---- */}
           <div className="space-y-3 rounded-md border border-border p-3">
             <div className="flex items-center justify-between">
