@@ -156,6 +156,34 @@ describe("source publication authorization", () => {
     expect(await sourceIssuesForAsset(ownerId, target)).toEqual([]);
     await expect(assertAssetSourcesCurrent(ownerId, target)).resolves.toBeUndefined();
   });
+  it("permits legacy image collections and counts only dependency-bearing images", async () => {
+    const images = Array.from({ length: 31 }, (_, i) => ({ id: `image-${i}` }));
+    const legacy = { ...asset, sourceDependencies: undefined, images } as ContentAsset;
+    await expect(assertAssetSourcesCurrent(ownerId, legacy)).resolves.toBeUndefined();
+    expect(mocked.read).not.toHaveBeenCalled();
+    const sourced = {
+      ...legacy,
+      images: [...images, { id: "sourced", sourceDependencies: [dependency] }],
+    } as ContentAsset;
+    mocked.read.mockResolvedValue([row()]);
+    expect(await sourceIssuesForAsset(ownerId, sourced)).toEqual([]);
+    mocked.read.mockResolvedValue([]);
+    await expect(assertAssetSourcesCurrent(ownerId, sourced)).rejects.toThrow(
+      "Source facts need review",
+    );
+  });
+  it("retains the bounded source-image evaluation capacity", async () => {
+    const target = {
+      ...asset,
+      images: Array.from({ length: 31 }, (_, i) => ({
+        id: `sourced-${i}`,
+        sourceDependencies: [dependency],
+      })),
+    } as ContentAsset;
+    await expect(assertAssetSourcesCurrent(ownerId, target)).rejects.toThrow(
+      "Source facts need review",
+    );
+  });
   it("holds an unconfirmed refresh without replay", async () => {
     mocked.refresh.mockRejectedValue(new Error("private failure"));
     await expect(assertAssetSourcesCurrent(ownerId, asset)).rejects.toThrow(
