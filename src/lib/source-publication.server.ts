@@ -292,12 +292,26 @@ export async function readProjectSourceImpact(userId: string, projectId: string)
         asset.scheduledPublishAt && Date.parse(asset.scheduledPublishAt) > Date.parse(now)
           ? asset.scheduledPublishAt
           : now;
-      const issues = [
+      const candidates = [
         ...issuesFromRows(userId, asset, rows, now, planned),
         ...evaluateAssetKnowledge(userId, asset, knowledge, knowledgeRegistry, now, profile),
         ...(planned !== now
           ? evaluateAssetKnowledge(userId, asset, knowledge, knowledgeRegistry, planned, profile)
           : []),
+      ];
+      const issues = [
+        ...new Map(
+          candidates.map((issue) => [
+            JSON.stringify([
+              "evidence" in issue ? issue.evidence : "source",
+              issue.sourceId,
+              issue.key,
+              issue.reason,
+              issue.critical,
+            ]),
+            issue,
+          ]),
+        ).values(),
       ];
       const knowledgeIssueCount = new Set(issues.filter((i) => "evidence" in i).map((i) => i.key))
         .size;

@@ -302,6 +302,45 @@ describe("durable output knowledge", () => {
       [user],
     );
   });
+  it.each(["content", "image"])(
+    "records discarded %s identity after workspace cleanup has removed its registry",
+    async (kind) => {
+      await retain(kind);
+      const saved = { projectId: "p", images: kind === "image" ? [{ id: "im" }] : [] };
+      await db.query("INSERT INTO public.workspace_entities VALUES($1,'content','a',$2)", [
+        user,
+        JSON.stringify(saved),
+      ]);
+      if (kind === "content")
+        await db.query(
+          "DELETE FROM public.workspace_entities WHERE user_id=$1 AND collection='content' AND entity_id='a'",
+          [user],
+        );
+      else
+        await db.query(
+          "UPDATE public.workspace_entities SET data=$2 WHERE user_id=$1 AND collection='content' AND entity_id='a'",
+          [user, JSON.stringify({ projectId: "p", images: [] })],
+        );
+      expect(await registry()).toEqual([]);
+      await db.query("UPDATE public.ai_generation_results SET payload=NULL WHERE receipt_id=$1", [
+        token,
+      ]);
+      if (kind === "content")
+        await expect(
+          db.query("INSERT INTO public.workspace_entities VALUES($1,'content','a',$2)", [
+            user,
+            JSON.stringify(saved),
+          ]),
+        ).rejects.toThrow("discarded_output_cannot_be_attached");
+      else
+        await expect(
+          db.query(
+            "UPDATE public.workspace_entities SET data=$2 WHERE user_id=$1 AND collection='content' AND entity_id='a'",
+            [user, JSON.stringify(saved)],
+          ),
+        ).rejects.toThrow("discarded_output_cannot_be_attached");
+    },
+  );
   it("denies direct writes and non-service reads", async () => {
     await db.exec("SET ROLE authenticated");
     await expect(registry()).rejects.toThrow();

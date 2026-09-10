@@ -145,10 +145,10 @@ BEGIN
     AND (target->>'kind'='content' OR EXISTS(SELECT 1 FROM jsonb_array_elements(coalesce(e.data->'images','[]'::jsonb)) im WHERE im->>'id'=target_output_id))) THEN
     RETURN NEW;
   END IF;
-  IF EXISTS(SELECT 1 FROM public.project_output_source_dependencies r WHERE r.user_id=OLD.user_id AND r.project_id=target->>'projectId' AND r.asset_id=target->>'assetId' AND r.output_id=target_output_id AND r.kind=target->>'kind') THEN
+  -- Workspace removal may already have purged the registry; the archive is
+  -- still authoritative for the discarded identity. Never depend on that row.
     NEW.discarded_output_identity:=jsonb_build_object('projectId',target->>'projectId','assetId',target->>'assetId','outputId',target_output_id,'kind',target->>'kind','path',CASE WHEN target->>'kind'='image' THEN target->'output'->>'path' ELSE NULL END);
     DELETE FROM public.project_output_source_dependencies r WHERE r.user_id=OLD.user_id AND r.project_id=target->>'projectId' AND r.asset_id=target->>'assetId' AND r.output_id=target_output_id AND r.kind=target->>'kind';
-  END IF;
   RETURN NEW;
 END;
 $$;
