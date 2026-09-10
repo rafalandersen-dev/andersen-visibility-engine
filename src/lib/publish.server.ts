@@ -27,6 +27,7 @@ import { unresolvedInternalLinks } from "./markdown";
 import { publishBlockers } from "./checklist";
 import {
   applyAssetPatch,
+  scheduledPublishFailurePatch,
   applyPublishSuccess,
   findAssetAndProject,
   CLEARED_SCHEDULE_FIELDS,
@@ -351,13 +352,12 @@ export async function recordScheduledPublishFailure(
     data: applyAssetPatch(
       data,
       assetId,
-      terminal
-        ? {
-            scheduledPublishStatus: "failed",
-            scheduledPublishError: message,
-            ...(preserveSourceSchedule ? {} : { scheduledPublishAt: undefined }),
-          }
-        : { scheduledPublishError: message },
+      scheduledPublishFailurePatch(
+        findAssetAndProject(data, assetId).asset,
+        message,
+        terminal,
+        preserveSourceSchedule,
+      ),
     ),
     result: null,
   }));
@@ -383,6 +383,7 @@ export async function writeScheduleMirror(
   await mutateWorkspace(userId, (data) => ({
     data: applyAssetPatch(data, assetId, {
       scheduledPublishAt: publishAt,
+      sourceHeldPublishAt: undefined,
       scheduledPublishStatus: "pending",
       scheduledPublishError: undefined,
     }),

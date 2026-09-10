@@ -679,6 +679,8 @@ export interface ContentAsset {
   scheduledPublishAt?: string;
   scheduledPublishStatus?: ScheduledPublishStatus;
   scheduledPublishError?: string;
+  /** Intended date retained after a source hold; never an armed queue mirror. */
+  sourceHeldPublishAt?: string;
   /**
    * "YYYY-MM" of the month the Monthly Auto-Scheduler drafted this asset for.
    * Idempotency marker: a re-run for the same month counts these toward its

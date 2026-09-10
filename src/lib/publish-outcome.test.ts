@@ -7,6 +7,7 @@
 import { describe, it, expect } from "vitest";
 import {
   applyAssetPatch,
+  scheduledPublishFailurePatch,
   applyPublishSuccess,
   findAssetAndProject,
   isPermanentPublishError,
@@ -306,5 +307,35 @@ describe("schedule mirror lifecycle", () => {
     expect(asset.scheduledPublishAt).toBeUndefined();
     expect(asset.scheduledPublishStatus).toBe("failed");
     expect(asset.scheduledPublishError).toBe("WordPress rejected the credentials.");
+  });
+});
+
+describe("source-held scheduling intent", () => {
+  it("keeps the original intended date outside the active schedule mirror", () => {
+    const asset = {
+      ...findAssetAndProject(blob(), "a1").asset,
+      scheduledPublishAt: "2026-09-15T07:00:00Z",
+      status: "Approved" as const,
+      markdown: "Owner edit",
+    };
+    const held = {
+      ...asset,
+      ...scheduledPublishFailurePatch(asset, "Sources need review", true, true),
+    };
+    expect(held).toMatchObject({
+      sourceHeldPublishAt: asset.scheduledPublishAt,
+      scheduledPublishStatus: "failed",
+      status: "Approved",
+      markdown: "Owner edit",
+    });
+    expect(held.scheduledPublishAt).toBeUndefined();
+    expect(
+      { ...held, ...scheduledPublishFailurePatch(held, "Sources need review", true, true) }
+        .sourceHeldPublishAt,
+    ).toBe(asset.scheduledPublishAt);
+    expect({ ...held, ...CLEARED_SCHEDULE_FIELDS }.sourceHeldPublishAt).toBeUndefined();
+    expect(scheduledPublishFailurePatch(asset, "Temporary", false, false)).toEqual({
+      scheduledPublishError: "Temporary",
+    });
   });
 });

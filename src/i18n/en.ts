@@ -1558,6 +1558,8 @@ export const en: Record<string, string> = {
   "outreach.toast.sendFailed": "The email could not be sent. Review the draft and try again.",
 
   // ---- Scheduled publishing ----
+  "editor.schedule.sourceHeldAt":
+    "Original date: {when}. Held for source review; no publication is queued.",
   "editor.schedule.failedTitle": "Scheduled publishing failed",
   "editor.schedule.pending": "Scheduled to go live {when}.",
 
