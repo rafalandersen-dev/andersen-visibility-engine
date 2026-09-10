@@ -16,6 +16,7 @@
  * Filename retained as "mock-ai.ts" so existing call sites and history
  * keep working — the behavior is no longer mocked.
  */
+import { draftSelectionChanged } from "./draft-selection";
 import { contentLangToProjectLanguage } from "./onboarding";
 import {
   getState,
@@ -1926,7 +1927,14 @@ export async function sendContentToWebsite(
       throw new Error("Connect a website in Project Setup before sending drafts.");
     }
 
-    const finalSlug = (slug || asset.slug || "").trim();
+    const finalSlug = (slug || asset.publishSlug || asset.slug || "").trim();
+    if (draftSelectionChanged(asset, project, { slug: finalSlug, destinationType })) {
+      upsertContent({ ...asset, publishSlug: finalSlug, publishDestinationType: destinationType });
+      await saveWorkspaceNow();
+      // Saving the selection changes the version. It does not grant publication
+      // permission or send anything; the owner must approve this saved version.
+      throw new Error("publication_approval_required");
+    }
 
     try {
       const res = await publishContentFn({

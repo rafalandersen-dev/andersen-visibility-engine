@@ -1,3 +1,4 @@
+import { assertSavedDraftSelection } from "./draft-selection";
 /**
  * Publishing v1 — outbound "create draft on website" server function.
  *
@@ -279,6 +280,7 @@ export const publishContentFn = createServerFn({ method: "POST" })
       draftEndpoint: endpoint,
       secret,
     } = await resolvePublishContext(context.userId as string, data.projectId, data.assetId);
+    assertSavedDraftSelection(asset, project, data);
     assertPublishableServerSide(asset, project, corpus);
     const { assertAssetSourcesCurrent } = await import("./source-publication.server");
     const paths = buildActiveInternalPaths(

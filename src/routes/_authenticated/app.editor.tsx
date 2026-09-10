@@ -1,3 +1,4 @@
+import { draftSelectionChanged } from "@/lib/draft-selection";
 import { ArticleImageThumbnail } from "@/components/ArticleImageThumbnail";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
@@ -1071,20 +1072,27 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   }
 
   function openSend() {
-    setPublishSlug(f.slug || asset.slug);
-    setDestType(project?.defaultDestinationType ?? "blogPost");
+    setPublishSlug(asset.publishSlug || f.slug || asset.slug);
+    setDestType(asset.publishDestinationType ?? project?.defaultDestinationType ?? "blogPost");
     setSendOpen(true);
   }
 
   async function doSend() {
     setSending(true);
     try {
+      flushPendingEdits();
+      await saveWorkspaceNow();
       await sendContentToWebsite(asset.id, destType, publishSlug);
       toast.success("Draft sent to website");
       setSendOpen(false);
     } catch (e) {
-      // Status is now stored as "failed" with the error; keep the modal open for retry.
-      toast.error(e instanceof Error ? e.message : "Could not send draft to website");
+      if (e instanceof Error && e.message === "publication_approval_required") {
+        setSendOpen(false);
+        setApprovalRevision((v) => v + 1);
+        toast.info(t("approval.needed"));
+      } else {
+        toast.error(e instanceof Error ? e.message : "Could not send draft to website");
+      }
     } finally {
       setSending(false);
     }
@@ -1600,7 +1608,17 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               ) : (
                 <Send className="h-4 w-4" />
               )}
-              {sending ? t("editor.sendModal.sending") : t("editor.sendModal.send")}
+              {sending
+                ? t("editor.sendModal.sending")
+                : !isWordPress &&
+                    !isShopify &&
+                    project &&
+                    draftSelectionChanged(asset, project, {
+                      slug: (publishSlug || asset.publishSlug || asset.slug || "").trim(),
+                      destinationType: destType,
+                    })
+                  ? t("approval.saveDestination")
+                  : t("editor.sendModal.send")}
             </Button>
           </DialogFooter>
         </DialogContent>

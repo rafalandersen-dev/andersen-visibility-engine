@@ -67,6 +67,7 @@ export const projectKnowledge = {
     "approval.loading": "Checking publication approval…",
     "approval.current": "This exact saved content and destination are approved.",
     "approval.needed": "This version needs publication approval.",
+    "approval.saveDestination": "Save destination and review",
     "approval.unavailable": "Publication approval could not be checked.",
 
     "approval.withdraw": "Withdraw approval",
@@ -319,6 +320,7 @@ export const projectKnowledge = {
     "approval.loading": "Sprawdzanie zgody na publikację…",
     "approval.current": "Dokładnie ta zapisana treść i miejsce publikacji są zatwierdzone.",
     "approval.needed": "Ta wersja wymaga zgody na publikację.",
+    "approval.saveDestination": "Zapisz miejsce docelowe i sprawdź",
     "approval.unavailable": "Nie udało się sprawdzić zgody na publikację.",
 
     "approval.withdraw": "Wycofaj zatwierdzenie",
@@ -573,6 +575,7 @@ export const projectKnowledge = {
     "approval.loading": "Kontrollerar publiceringsgodkännande…",
     "approval.current": "Exakt detta sparade innehåll och denna destination är godkända.",
     "approval.needed": "Denna version behöver publiceringsgodkännande.",
+    "approval.saveDestination": "Spara destination och granska",
     "approval.unavailable": "Publiceringsgodkännandet kunde inte kontrolleras.",
 
     "approval.withdraw": "Dra tillbaka godkännande",
@@ -829,6 +832,7 @@ export const projectKnowledge = {
     "approval.loading": "Kontrollerer publiceringsgodkendelse…",
     "approval.current": "Præcis dette gemte indhold og denne destination er godkendt.",
     "approval.needed": "Denne version kræver publiceringsgodkendelse.",
+    "approval.saveDestination": "Gem destination og gennemgå",
     "approval.unavailable": "Publiceringsgodkendelsen kunne ikke kontrolleres.",
 
     "approval.withdraw": "Træk godkendelse tilbage",
