@@ -90,7 +90,7 @@ export function coverageConflictKeys(records: KnowledgeRecord[]): string[] {
         normal(a.value.service) === normal(b.value.service) &&
         normal(a.value.language) === normal(b.value.language)
       )
-        fields.push("pageUrl", "alternateUrl", "citationUrl", "reviewUrl", "gbpUrl");
+        fields.push("pageUrl", "alternateUrl");
       if (
         fields.some(
           (field) =>

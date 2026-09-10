@@ -164,3 +164,25 @@ it("does not offer an ineffective review for elapsed expiry", () => {
     true,
   );
 });
+
+it("allows several directories and review sites for the same business", () => {
+  const first = {
+    ...record,
+    value: JSON.stringify({
+      ...value,
+      citationUrl: "https://directory.example/business",
+      reviewUrl: "https://reviews.example/business",
+    }),
+  };
+  const second = {
+    ...record,
+    id: source.id,
+    key: "coverage.local.two",
+    value: JSON.stringify({
+      ...value,
+      citationUrl: "https://another.example/business",
+      reviewUrl: "https://other-reviews.example/business",
+    }),
+  };
+  expect(select([first, second]).records).toHaveLength(2);
+});
