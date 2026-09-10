@@ -57,6 +57,15 @@ const uniqueDependencies = (values: unknown[]) =>
     ...new Map(values.map((value) => [JSON.stringify(value), value])).values(),
   ] as import("./source-refresh").OutputDependency[];
 
+const forgottenSource = Symbol("forgotten source evidence");
+type RegistryAsset = ContentAsset & { [forgottenSource]?: boolean };
+const forgottenIssue = () => ({
+  sourceId: "",
+  key: "forgotten-source",
+  critical: true,
+  reason: "unavailable" as const,
+});
+
 function mergeRegisteredDependencies(
   asset: ContentAsset,
   rows: Awaited<ReturnType<typeof readOutputSourceDependencies>>,
@@ -64,6 +73,11 @@ function mergeRegisteredDependencies(
   const applicable = rows.filter((row) => row.assetId === asset.id);
   return {
     ...asset,
+    [forgottenSource]: applicable.some(
+      (row) =>
+        row.sourceForgotten &&
+        (row.kind === "content" || asset.images?.some((image) => image.id === row.outputId)),
+    ),
     sourceDependencies: uniqueDependencies([
       ...(asset.sourceDependencies ?? []),
       ...applicable.filter((row) => row.kind === "content").flatMap((row) => row.dependencies),
@@ -82,7 +96,7 @@ function mergeRegisteredDependencies(
 
 export async function sourceIssuesForAsset(
   userId: string,
-  asset: ContentAsset,
+  asset: RegistryAsset,
   now = new Date().toISOString(),
   rpc?: KnowledgeRpc,
 ) {
@@ -94,6 +108,7 @@ export async function sourceIssuesForAsset(
       rpc,
     ),
   );
+  if (asset[forgottenSource]) return [forgottenIssue()];
   const dependencies = assetSourceDependencies(asset);
   if (!dependencies.length) return [];
   const scope = { ownerId: userId, projectId: asset.projectId };
@@ -103,11 +118,12 @@ export async function sourceIssuesForAsset(
 
 function issuesFromRows(
   userId: string,
-  asset: ContentAsset,
+  asset: RegistryAsset,
   rows: Awaited<ReturnType<typeof readSourceRefresh>>,
   now: string,
   useAt = now,
 ) {
+  if (asset[forgottenSource]) return [forgottenIssue()];
   const dependencies = assetSourceDependencies(asset);
   const scope = { ownerId: userId, projectId: asset.projectId };
   const conflicts = conflictingSourceFacts(
@@ -167,7 +183,7 @@ function issuesFromRows(
  * unconfirmed check holds publication; no provider retry or draft edit occurs. */
 export async function assertAssetSourcesCurrent(
   userId: string,
-  asset: ContentAsset,
+  asset: RegistryAsset,
   rpc?: KnowledgeRpc,
 ) {
   try {
@@ -179,6 +195,7 @@ export async function assertAssetSourcesCurrent(
         rpc,
       ),
     );
+    if (asset[forgottenSource]) throw new SourcePublicationHeldError();
     const dependencies = assetSourceDependencies(asset);
     if (!dependencies.length) return;
     const scope = { ownerId: userId, projectId: asset.projectId };
@@ -215,7 +232,8 @@ export async function readProjectSourceImpact(userId: string, projectId: string)
     .filter(
       (asset) =>
         asset.projectId === projectId &&
-        (asset.sourceDependencies?.length ||
+        (asset[forgottenSource] ||
+          asset.sourceDependencies?.length ||
           asset.images?.some((image) => image.sourceDependencies?.length)),
     );
   const inspected = assets.slice(0, 100);

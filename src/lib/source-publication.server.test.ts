@@ -184,6 +184,25 @@ describe("source publication authorization", () => {
       "Source facts need review",
     );
   });
+  it("keeps forgotten-source output tombstones held without retaining source identifiers", async () => {
+    mocked.registry.mockResolvedValue([
+      {
+        assetId: asset.id,
+        outputId: asset.id,
+        kind: "content",
+        dependencies: [],
+        sourceForgotten: true,
+      },
+    ]);
+    const target = { ...asset, sourceDependencies: undefined };
+    expect(await sourceIssuesForAsset(ownerId, target)).toEqual([
+      { sourceId: "", key: "forgotten-source", critical: true, reason: "unavailable" },
+    ]);
+    await expect(assertAssetSourcesCurrent(ownerId, target)).rejects.toThrow(
+      "Source facts need review",
+    );
+    expect(mocked.refresh).not.toHaveBeenCalled();
+  });
   it("holds an unconfirmed refresh without replay", async () => {
     mocked.refresh.mockRejectedValue(new Error("private failure"));
     await expect(assertAssetSourcesCurrent(ownerId, asset)).rejects.toThrow(

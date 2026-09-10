@@ -349,6 +349,7 @@ export async function readOutputSourceDependencies(
           assetId: identity,
           outputId: identity,
           kind: z.enum(["content", "image"]),
+          sourceForgotten: z.boolean().optional().default(false),
           dependencies: z.array(outputDependencySchema).max(100),
         })
         .strict(),
