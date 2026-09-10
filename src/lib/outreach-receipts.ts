@@ -43,3 +43,13 @@ export function outreachReceiptDueAt(
   const at = Date.parse(receipt.updated_at) + delayDays * 86400000;
   return Number.isFinite(at) ? new Date(at).toISOString() : null;
 }
+
+/** A lost browser/server response may follow an actual send. Never suggest replay. */
+export function outreachSendErrorKey(message: string): string {
+  if (message.includes("suppressed")) return "outreach.toast.suppressed";
+  if (message.includes("daily_limit")) return "outreach.toast.limit";
+  if (message.includes("followup_not_due")) return "outreach.toast.notDue";
+  if (message.includes("not_configured")) return "outreach.toast.notConfigured";
+  if (message.includes("changed")) return "outreach.integrity.reviewError";
+  return "outreach.integrity.held";
+}

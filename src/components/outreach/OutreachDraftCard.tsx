@@ -18,7 +18,11 @@ import {
   reviewOutreachMessageFn,
   sendOutreachEmailFn,
 } from "@/lib/outreach-delivery.functions";
-import { outreachReceiptDueAt, type OutreachReceipt } from "@/lib/outreach-receipts";
+import {
+  outreachReceiptDueAt,
+  outreachSendErrorKey,
+  type OutreachReceipt,
+} from "@/lib/outreach-receipts";
 import type { OutreachMessage } from "@/lib/outreach-delivery.server";
 import {
   reloadWorkspaceForUser,
@@ -174,24 +178,7 @@ export function OutreachDraftCard({
       toast.success(t("outreach.integrity.accepted"));
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
-      const key = message.includes("suppressed")
-        ? "outreach.toast.suppressed"
-        : message.includes("daily_limit")
-          ? "outreach.toast.limit"
-          : message.includes("followup_not_due")
-            ? "outreach.toast.notDue"
-            : message.includes("not_configured")
-              ? "outreach.toast.notConfigured"
-              : "outreach.toast.sendFailed";
-      toast.error(
-        t(
-          message.includes("unknown") || message.includes("reserved") || message.includes("storage")
-            ? "outreach.integrity.held"
-            : message.includes("changed")
-              ? "outreach.integrity.reviewError"
-              : key,
-        ),
-      );
+      toast.error(t(outreachSendErrorKey(message)));
     } finally {
       setSendStep(null);
       setReview(null);
