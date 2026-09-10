@@ -148,6 +148,19 @@ describe("scoped source refresh storage", () => {
     expect((await read())[0]).toMatchObject({ revision: 1, status: "ok", accepted: {} });
     expect((await begin()).rows[0].result.acquired).toBe(false);
   });
+  it("does not replace the winning source lease with a competing request token", async () => {
+    await begin();
+    const competing = await db.query<{ result: { acquired: boolean } }>(
+      "SELECT begin_project_source_refresh($1,'p',$2,1,$3) result",
+      [user, sid, other],
+    );
+    expect(competing.rows[0].result.acquired).toBe(false);
+    await expect(
+      db.query("SELECT finish_project_source_refresh($1,'p',$2,$3,NULL)", [user, sid, other]),
+    ).rejects.toThrow("source_refresh_changed");
+    await finish(await snapshot());
+    expect((await read())[0].status).toBe("ok");
+  });
   it("keeps last successful evidence when a later fetch fails", async () => {
     await begin();
     const first = await snapshot();
