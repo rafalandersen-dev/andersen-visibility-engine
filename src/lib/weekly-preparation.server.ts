@@ -88,3 +88,57 @@ export async function setSchedulerControl(
     throw new SchedulerControlUnavailableError();
   return result;
 }
+
+export async function readWeeklyPreparation(
+  target: z.infer<typeof scopeSchema>,
+  weekStart: string,
+  now = new Date(),
+) {
+  const scope = scopeSchema.parse(target);
+  z.string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .parse(weekStart);
+  const { readWorkspaceRow } = await import("./workspace.server");
+  const { normalizeAutoSchedulerConfig } = await import("./auto-scheduler");
+  const { weeklyReadiness, weeklyQueueSchema } = await import("./weekly-readiness");
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const workspace = (await readWorkspaceRow(scope.ownerId))?.data;
+  const projects = Array.isArray(workspace?.projects)
+    ? (workspace.projects as import("./types").Project[])
+    : [];
+  const project = projects.find((p) => p.id === scope.projectId);
+  if (!project) throw new SchedulerControlUnavailableError();
+  const control = await readSchedulerControl(scope);
+  const schedule = normalizeAutoSchedulerConfig(project.autoScheduler);
+  const assets = (
+    Array.isArray(workspace?.content) ? (workspace.content as import("./types").ContentAsset[]) : []
+  ).filter((a) => a.projectId === scope.projectId);
+  // Include cancellations/failures as reservations, so a retry cannot replace an
+  // owner's decision. A bounded complete queue is required; never hide overflow.
+  const { data, error } = await supabaseAdmin
+    .from("scheduled_publishes")
+    .select("asset_id,publish_at,status")
+    .eq("user_id", scope.ownerId)
+    .eq("project_id", scope.projectId)
+    .limit(1001);
+  if (error || !Array.isArray(data) || data.length > 1000)
+    throw new SchedulerControlUnavailableError();
+  const queue = weeklyQueueSchema.parse(
+    data.map((r) => ({
+      assetId: r.asset_id,
+      publishAt: r.publish_at,
+      status: r.status,
+    })),
+  );
+  const readiness = weeklyReadiness({
+    projectId: scope.projectId,
+    weekStart,
+    now,
+    schedule,
+    preparation: control.preparation,
+    assets,
+    booked: [],
+    queue,
+  });
+  return { ...readiness, control, enabled: schedule.enabled, timeZone: schedule.timeZone };
+}

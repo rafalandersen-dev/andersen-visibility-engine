@@ -26,3 +26,16 @@ export const setSchedulerControlFn = createServerFn({ method: "POST" })
     const { projectId, ...input } = data;
     return setSchedulerControl({ ownerId: context.userId, projectId }, input);
   });
+
+export const readWeeklyPreparationFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) =>
+    project.extend({ weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }).parse(v),
+  )
+  .handler(async ({ data, context }) => {
+    const { readWeeklyPreparation } = await import("./weekly-preparation.server");
+    return readWeeklyPreparation(
+      { ownerId: context.userId, projectId: data.projectId },
+      data.weekStart,
+    );
+  });
