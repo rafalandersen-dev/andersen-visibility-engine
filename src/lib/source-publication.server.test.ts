@@ -4,6 +4,7 @@ import {
   assertAssetSourcesCurrent,
   sourceIssuesForAsset,
   readProjectSourceImpact,
+  SOURCE_PUBLICATION_DEADLINE_MS,
 } from "./source-publication.server";
 const mocked = vi.hoisted(() => ({
   read: vi.fn(),
@@ -255,4 +256,29 @@ it("does not request an unfiltered registry for an empty project", async () => {
     affected: [],
   });
   expect(mocked.registry).not.toHaveBeenCalled();
+});
+
+it("starts source refreshes together and holds within one deadline if all stall", async () => {
+  vi.useFakeTimers();
+  try {
+    const sources = Array.from(
+      { length: 10 },
+      (_, i) => `00000000-0000-4000-8000-${String(i + 100).padStart(12, "0")}`,
+    );
+    mocked.read.mockResolvedValue(sources.map((sourceId) => ({ ...row(), sourceId })));
+    mocked.refresh.mockImplementation(() => new Promise(() => {}));
+    const waiting = expect(
+      assertAssetSourcesCurrent(ownerId, {
+        ...asset,
+        sourceDependencies: sources.map((sourceId) => ({ ...dependency, sourceId })),
+      }),
+    ).rejects.toThrow("Source facts need review");
+    await vi.advanceTimersByTimeAsync(1);
+    expect(mocked.refresh).toHaveBeenCalledTimes(10);
+    await vi.advanceTimersByTimeAsync(SOURCE_PUBLICATION_DEADLINE_MS);
+    await waiting;
+    expect(mocked.read).toHaveBeenCalledTimes(1);
+  } finally {
+    vi.useRealTimers();
+  }
 });

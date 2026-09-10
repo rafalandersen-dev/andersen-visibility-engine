@@ -120,10 +120,7 @@ describe("scoped source refresh storage", () => {
       JSON.stringify({ ...source, revision: 2, fingerprint: "b".repeat(64) }),
     ]);
     expect(await read()).toEqual([]);
-    await db.exec(
-      "UPDATE public.project_source_refresh SET last_attempt=clock_timestamp()-interval '11 minutes'",
-    );
-    await begin(user, 2);
+    expect((await begin(user, 2)).rows[0].result.acquired).toBe(true);
     expect((await read())[0]).toMatchObject({ snapshot: null, accepted: {}, status: "running" });
     await finish(await snapshot(2));
     expect((await read())[0].accepted).toEqual({});

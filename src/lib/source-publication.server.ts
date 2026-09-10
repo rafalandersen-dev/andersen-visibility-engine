@@ -181,42 +181,65 @@ function issuesFromRows(
 /** All manual and scheduled connector authorization enters here before
  * transport. Refresh admission is bounded and cooldown protected. A failed or
  * unconfirmed check holds publication; no provider retry or draft edit occurs. */
+export const SOURCE_PUBLICATION_DEADLINE_MS = 20000;
 export async function assertAssetSourcesCurrent(
   userId: string,
   asset: RegistryAsset,
   rpc?: KnowledgeRpc,
 ) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let expired = false;
+  const checkDeadline = () => {
+    if (expired) throw new SourcePublicationHeldError();
+  };
   try {
-    asset = mergeRegisteredDependencies(
-      asset,
-      await readOutputSourceDependencies(
-        { ownerId: userId, projectId: asset.projectId },
-        asset.id,
-        rpc,
-      ),
-    );
-    if (asset[forgottenSource]) throw new SourcePublicationHeldError();
-    const dependencies = assetSourceDependencies(asset);
-    if (!dependencies.length) return;
-    const scope = { ownerId: userId, projectId: asset.projectId };
-    if (dependencies.some((d) => d.ownerId !== userId || d.projectId !== asset.projectId))
-      throw new SourcePublicationHeldError();
-    const rows = await readSourceRefresh(scope, rpc);
-    const sourceIds = [...new Set(dependencies.map((d) => d.sourceId))];
-    if (sourceIds.length > 10) throw new SourcePublicationHeldError();
-    for (const sourceId of sourceIds) {
-      const row = rows.find((row) => row.sourceId === sourceId);
-      if (!row) throw new SourcePublicationHeldError();
-      await refreshProjectSource(
-        scope,
-        { sourceId, expectedRevision: row.sourceRevision },
-        { rpc },
-      );
-    }
-    if ((await sourceIssuesForAsset(userId, asset, new Date().toISOString(), rpc)).length)
-      throw new SourcePublicationHeldError();
+    await Promise.race([
+      (async () => {
+        asset = mergeRegisteredDependencies(
+          asset,
+          await readOutputSourceDependencies(
+            { ownerId: userId, projectId: asset.projectId },
+            asset.id,
+            rpc,
+          ),
+        );
+        checkDeadline();
+        if (asset[forgottenSource]) throw new SourcePublicationHeldError();
+        const dependencies = assetSourceDependencies(asset);
+        if (!dependencies.length) return;
+        const scope = { ownerId: userId, projectId: asset.projectId };
+        if (dependencies.some((d) => d.ownerId !== userId || d.projectId !== asset.projectId))
+          throw new SourcePublicationHeldError();
+        const rows = await readSourceRefresh(scope, rpc);
+        checkDeadline();
+        const sourceIds = [...new Set(dependencies.map((d) => d.sourceId))];
+        if (sourceIds.length > 10) throw new SourcePublicationHeldError();
+        await Promise.all(
+          sourceIds.map(async (sourceId) => {
+            const row = rows.find((row) => row.sourceId === sourceId);
+            if (!row) throw new SourcePublicationHeldError();
+            await refreshProjectSource(
+              scope,
+              { sourceId, expectedRevision: row.sourceRevision },
+              { rpc },
+            );
+          }),
+        );
+        checkDeadline();
+        if ((await sourceIssuesForAsset(userId, asset, new Date().toISOString(), rpc)).length)
+          throw new SourcePublicationHeldError();
+      })(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          expired = true;
+          reject(new SourcePublicationHeldError());
+        }, SOURCE_PUBLICATION_DEADLINE_MS);
+      }),
+    ]);
   } catch {
     throw new SourcePublicationHeldError();
+  } finally {
+    clearTimeout(timer);
   }
 }
 

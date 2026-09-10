@@ -79,7 +79,7 @@ async function setRow(
  * Claim and process one batch of due publishes.
  * Errors on individual rows never abort the batch.
  */
-export async function runScheduledPublishes(batchSize = 20): Promise<RunSummary> {
+export async function runScheduledPublishes(batchSize = 1): Promise<RunSummary> {
   const admin = await adminClient();
 
   // Park anything a dead run left claimed, before taking new work — and tell each
@@ -102,7 +102,10 @@ export async function runScheduledPublishes(batchSize = 20): Promise<RunSummary>
   const reaped = reapedRows.length;
 
   const { data, error } = await admin.rpc("claim_scheduled_publishes", {
-    batch_size: batchSize,
+    // Source verification has a 20-second deadline; leave the rest of the
+    // 110-second HTTP window for this one transport and durable outcome. Never
+    // preclaim rows that this request may not reach. Later ticks claim the rest.
+    batch_size: Math.max(1, Math.min(1, Number.isFinite(batchSize) ? Math.floor(batchSize) : 1)),
     max_attempts: MAX_PUBLISH_ATTEMPTS,
   });
   if (error) {
