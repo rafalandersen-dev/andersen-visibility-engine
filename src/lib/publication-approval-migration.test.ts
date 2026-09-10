@@ -51,6 +51,19 @@ describe("server-owned exact publication approval", () => {
     await approve(false);
     expect(await read()).toBe(false);
   });
+  it("withdraws approval on status withdrawal and does not revive it on a later browser status change", async () => {
+    await approve();
+    await db.exec(
+      `UPDATE workspace_entities SET data=jsonb_set(data,'{status}','"Draft"') WHERE collection='content'`,
+    );
+    expect(await read()).toBe(false);
+    await db.exec(
+      `UPDATE workspace_entities SET data=jsonb_set(data,'{status}','"Approved"') WHERE collection='content'`,
+    );
+    expect(await read()).toBe(false);
+    await approve();
+    expect(await read()).toBe(true);
+  });
   it("rejects stale workspace revisions without replacing the existing approval", async () => {
     await approve();
     await db.exec("UPDATE workspace_meta SET rev=2");

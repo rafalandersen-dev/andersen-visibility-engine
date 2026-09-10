@@ -66,6 +66,8 @@ export async function serverWpArgs(userId: string, projectId: string, assetId: s
   const { asset, project, corpus } = await readAssetAndProject(userId, projectId, assetId);
   assertPublishable(asset, project, corpus);
   const { assertAssetSourcesCurrent } = await import("./source-publication.server");
+  const { assertPublicationApproved } = await import("./publication-approval.server");
+  await assertPublicationApproved(userId, asset, project, activePaths(project, corpus));
   await assertAssetSourcesCurrent(userId, asset);
   const args = wpPublishArgs(asset, project, activePaths(project, corpus));
   // Service-role store first, legacy workspace field as fallback (P0-3): the
@@ -80,6 +82,8 @@ export async function serverShopifyArgs(userId: string, projectId: string, asset
   const { asset, project, corpus } = await readAssetAndProject(userId, projectId, assetId);
   assertPublishable(asset, project, corpus);
   const { assertAssetSourcesCurrent } = await import("./source-publication.server");
+  const { assertPublicationApproved } = await import("./publication-approval.server");
+  await assertPublicationApproved(userId, asset, project, activePaths(project, corpus));
   await assertAssetSourcesCurrent(userId, asset);
   const args = shopifyArticleArgs(asset, project, activePaths(project, corpus));
   // Same store-first resolution as WordPress above.

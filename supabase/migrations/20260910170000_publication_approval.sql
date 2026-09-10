@@ -48,3 +48,21 @@ BEGIN
 END; $$;
 REVOKE ALL ON FUNCTION public.set_publication_approval(uuid,text,text,bigint,text,boolean),public.read_publication_approval(uuid,text,text,text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.set_publication_approval(uuid,text,text,bigint,text,boolean),public.read_publication_approval(uuid,text,text,text) TO service_role;
+
+-- Returning content to review/draft/rejected or moving it withdraws the old
+-- grant. A later browser status change cannot restore that service-owned grant.
+CREATE FUNCTION public.withdraw_publication_approval()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+  IF NEW.collection='content' AND (
+    NEW.data->>'status' IS NULL OR NEW.data->>'status' NOT IN ('Approved','Exported')
+    OR NEW.data->>'projectId' IS DISTINCT FROM OLD.data->>'projectId'
+  ) THEN
+    UPDATE public.publication_approvals SET approved=false,updated_at=clock_timestamp()
+      WHERE user_id=NEW.user_id AND asset_id=NEW.entity_id;
+  END IF;
+  RETURN NEW;
+END; $$;
+CREATE TRIGGER withdraw_publication_approval AFTER UPDATE ON public.workspace_entities
+FOR EACH ROW EXECUTE FUNCTION public.withdraw_publication_approval();
+REVOKE ALL ON FUNCTION public.withdraw_publication_approval() FROM PUBLIC,anon,authenticated,service_role;

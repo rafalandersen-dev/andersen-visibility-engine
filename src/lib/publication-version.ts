@@ -55,6 +55,7 @@ export async function publicationVersion(
       websiteUrl: project.websiteUrl,
       publishMode: project.publishMode,
       endpoint: project.publishEndpoint,
+      liveEndpoint: project.livePublishEndpoint,
       type: asset.publishDestinationType ?? project.defaultDestinationType,
       republishTarget: asset.republishTargetUrl,
       externalId: asset.publishExternalId,

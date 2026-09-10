@@ -61,6 +61,8 @@ async function runConnectorPublish(
   knownInternalPaths: string[] = [],
 ): Promise<{ result: ServerPublishResult; assetPatch: Partial<ContentAsset> }> {
   const { assertAssetSourcesCurrent } = await import("./source-publication.server");
+  const { assertPublicationApproved } = await import("./publication-approval.server");
+  await assertPublicationApproved(userId, asset, project, knownInternalPaths);
   await assertAssetSourcesCurrent(userId, asset);
   const publishedAt = new Date().toISOString();
 
@@ -171,7 +173,7 @@ async function runConnectorPublish(
   let externalId = asset.publishExternalId ?? "";
   {
     const draft = await publishDraftDirect({
-      ...draftPayloadFor(asset, project),
+      ...draftPayloadFor(asset, project, knownInternalPaths),
       endpoint: (project.publishEndpoint ?? "").trim(),
       secret,
     });

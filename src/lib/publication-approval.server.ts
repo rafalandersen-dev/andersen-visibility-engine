@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PublishNotPossibleError } from "./publish-outcome";
 import {
   publicationVersion,
   publicationVersionSchema,
@@ -39,6 +40,41 @@ async function call(name: string, args: Record<string, unknown>, injected?: Know
   } finally {
     clearTimeout(timer);
   }
+}
+/** Read the saved deliverable's approval state; unavailable storage stays an
+ * error so the editor never represents an uncertain grant as a known result. */
+export async function readPublicationApproval(
+  target: z.infer<typeof scopeSchema>,
+  dependencies: { read?: typeof readWorkspaceRow; rpc?: KnowledgeRpc } = {},
+) {
+  const scope = scopeSchema.parse(target);
+  const read = dependencies.read ?? (await import("./workspace.server")).readWorkspaceRow;
+  const row = await read(scope.ownerId);
+  const project = (row?.data.projects as Project[] | undefined)?.find(
+    (p) => p.id === scope.projectId,
+  );
+  const content = (row?.data.content as ContentAsset[] | undefined) ?? [];
+  const asset = content.find((a) => a.id === scope.assetId && a.projectId === scope.projectId);
+  if (!row || !project || !asset) throw new Error("publication_asset_unavailable");
+  const version = await publicationVersion(
+    asset,
+    project,
+    buildActiveInternalPaths(
+      project,
+      content.filter((a) => a.projectId === project.id),
+    ),
+  );
+  const approved = await call(
+    "read_publication_approval",
+    {
+      p_user: scope.ownerId,
+      p_project: scope.projectId,
+      p_asset: scope.assetId,
+      p_hash: version.hash,
+    },
+    dependencies.rpc,
+  );
+  return { version, approved };
 }
 /** Authenticated handlers supply ownerId. The browser supplies the version it
  * reviewed, never a replacement asset or the version stored as approved. */
@@ -105,5 +141,5 @@ export async function assertPublicationApproved(
       rpc,
     ))
   )
-    throw new Error("publication_approval_required");
+    throw new PublishNotPossibleError("publication_approval_required");
 }

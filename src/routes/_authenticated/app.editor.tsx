@@ -32,6 +32,9 @@ import {
   reloadWorkspaceForUser,
 } from "@/lib/store";
 import { useT } from "@/i18n";
+import { PublicationApprovalStatus } from "@/components/PublicationApprovalStatus";
+import { publicationVersion } from "@/lib/publication-version";
+import { setPublicationApprovalFn } from "@/lib/publication-approval.functions";
 import {
   generateMetadata,
   generateFaq,
@@ -656,19 +659,20 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     }
     setGeneratingImage(true);
     try {
-      const { path, previewUrl, alt, resultId, knowledgeReferences, sourceDependencies } = await generateArticleImageFn({
-        data: {
-          projectId: f.projectId,
-          assetId: f.id,
-          concept,
-          articleTitle: f.title,
-          project: {
-            businessName: project?.businessName ?? "",
-            businessType: project?.businessType ?? "",
-            toneOfVoice: project?.toneOfVoice ?? "",
+      const { path, previewUrl, alt, resultId, knowledgeReferences, sourceDependencies } =
+        await generateArticleImageFn({
+          data: {
+            projectId: f.projectId,
+            assetId: f.id,
+            concept,
+            articleTitle: f.title,
+            project: {
+              businessName: project?.businessName ?? "",
+              businessType: project?.businessType ?? "",
+              toneOfVoice: project?.toneOfVoice ?? "",
+            },
           },
-        },
-      });
+        });
       // Identical shape to an upload: proposed + staged. Nothing publishes
       // until the user approves it (promote-to-public), same as any upload.
       // FUNCTIONAL update: generation takes seconds — appending onto the
@@ -883,6 +887,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       });
     }
     toast.success(status ? `Marked ${status}` : "Saved");
+    return next;
   };
 
   // Unsaved-changes detection. An uploaded-but-unsaved image lives only in `f`
@@ -1087,9 +1092,29 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
    * owner's reported surprise, and it is now structurally impossible: approving
    * and publishing are different verbs and this one never distributes.
    */
-  function approve() {
-    save("Approved");
-    toast.success(t("editor.approve.readyToast"));
+  const [approvalRevision, setApprovalRevision] = useState(0);
+  async function approve(approved = true) {
+    if (!project || busy) return;
+    setBusy("approval");
+    try {
+      const reviewed = save(approved ? "Approved" : "In Review");
+      const expectedVersion = await publicationVersion(reviewed, project, activePaths);
+      await saveWorkspaceNow();
+      await setPublicationApprovalFn({
+        data: {
+          projectId: project.id,
+          assetId: reviewed.id,
+          expectedVersion,
+          approved,
+        },
+      });
+      setApprovalRevision((v) => v + 1);
+      toast.success(t(approved ? "approval.saved" : "approval.withdrawn"));
+    } catch {
+      toast.error(t("approval.failed"));
+    } finally {
+      setBusy(null);
+    }
   }
 
   async function doPublishLive() {
@@ -1157,10 +1182,23 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         </div>
         <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-foreground/80">
           <Sparkles className="h-3.5 w-3.5 shrink-0 text-gold/80 mt-0.5" />
-          <span>{t("editor.aiReviewNote")}</span>
+          <span>
+            {t("editor.aiReviewNote")} {t("approval.help")}
+          </span>
         </div>
       </div>
 
+      {project && (
+        <div className="px-5 py-2">
+          <PublicationApprovalStatus
+            asset={f}
+            project={project}
+            paths={activePaths}
+            dirty={isDirty}
+            revision={approvalRevision}
+          />
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-border">
         <div className="flex items-center gap-3">
           <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
@@ -1200,10 +1238,11 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           <Button size="sm" variant="outline" onClick={() => save("In Review")}>
             {t("editor.action.markInReview")}
           </Button>
-          {/* No busy state: approving is a local status write now, not a network
-              publish. The spinner existed only for the auto-publish call. */}
-          <Button size="sm" variant="outline" onClick={approve}>
+          <Button size="sm" variant="outline" onClick={() => approve()} disabled={Boolean(busy)}>
             <Check className="h-3.5 w-3.5" /> {t("editor.action.approve")}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => approve(false)} disabled={Boolean(busy)}>
+            {t("approval.withdraw")}
           </Button>
           <Button size="sm" variant="ghost" onClick={() => save("Rejected")}>
             <FileX className="h-3.5 w-3.5" /> {t("editor.action.reject")}

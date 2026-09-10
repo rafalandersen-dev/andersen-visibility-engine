@@ -1,6 +1,19 @@
 /** Project knowledge review strings. Wider intake/review localization remains in P1. */
 export const projectKnowledge = {
   en: {
+    "approval.loading": "Checking publication approval…",
+    "approval.current": "This exact saved content and destination are approved.",
+    "approval.needed": "This version needs publication approval.",
+    "approval.unavailable": "Publication approval could not be checked.",
+
+    "approval.withdraw": "Withdraw approval",
+    "approval.withdrawn": "Approval withdrawn. This content needs review.",
+    "approval.saved": "This saved version is approved. Publication remains a separate action.",
+    "approval.failed":
+      "Approval was not confirmed. Save and review the current version before trying again.",
+    "approval.help":
+      "Use Approve to approve this exact content and destination. Changes require approval again; a status label alone does not grant publication approval.",
+
     "refresh.reviewHistory": "Recent fact decisions (up to 20)",
     "refresh.addCatalog": "Add connected Shopify catalog",
     "refresh.catalogHelp":
@@ -176,6 +189,20 @@ export const projectKnowledge = {
     "knowledge.sourceHistory.latest": "Latest source versions",
   },
   pl: {
+    "approval.loading": "Sprawdzanie zgody na publikację…",
+    "approval.current": "Dokładnie ta zapisana treść i miejsce publikacji są zatwierdzone.",
+    "approval.needed": "Ta wersja wymaga zgody na publikację.",
+    "approval.unavailable": "Nie udało się sprawdzić zgody na publikację.",
+
+    "approval.withdraw": "Wycofaj zatwierdzenie",
+    "approval.withdrawn": "Zatwierdzenie wycofane. Ta treść wymaga sprawdzenia.",
+    "approval.saved":
+      "Ta zapisana wersja została zatwierdzona. Publikacja pozostaje osobną czynnością.",
+    "approval.failed":
+      "Nie potwierdzono zatwierdzenia. Zapisz i sprawdź aktualną wersję przed ponowną próbą.",
+    "approval.help":
+      "Użyj Zatwierdź, aby zatwierdzić dokładnie tę treść i miejsce publikacji. Zmiany wymagają ponownego zatwierdzenia; sama etykieta statusu nie daje zgody na publikację.",
+
     "refresh.reviewHistory": "Ostatnie decyzje o faktach (do 20)",
     "refresh.addCatalog": "Dodaj połączony katalog Shopify",
     "refresh.catalogHelp":
@@ -351,6 +378,20 @@ export const projectKnowledge = {
     "knowledge.sourceHistory.latest": "Najnowsze wersje źródła",
   },
   sv: {
+    "approval.loading": "Kontrollerar publiceringsgodkännande…",
+    "approval.current": "Exakt detta sparade innehåll och denna destination är godkända.",
+    "approval.needed": "Denna version behöver publiceringsgodkännande.",
+    "approval.unavailable": "Publiceringsgodkännandet kunde inte kontrolleras.",
+
+    "approval.withdraw": "Dra tillbaka godkännande",
+    "approval.withdrawn": "Godkännandet har dragits tillbaka. Innehållet behöver granskas.",
+    "approval.saved":
+      "Den sparade versionen är godkänd. Publicering är fortfarande en separat åtgärd.",
+    "approval.failed":
+      "Godkännandet bekräftades inte. Spara och granska den aktuella versionen innan du försöker igen.",
+    "approval.help":
+      "Använd Godkänn för att godkänna exakt detta innehåll och denna destination. Ändringar kräver nytt godkännande; en statusetikett ger inte publiceringstillstånd.",
+
     "refresh.reviewHistory": "Senaste beslut om uppgifter (högst 20)",
     "refresh.addCatalog": "Lägg till ansluten Shopify-katalog",
     "refresh.catalogHelp":
@@ -529,6 +570,19 @@ export const projectKnowledge = {
     "knowledge.sourceHistory.latest": "Senaste källversionerna",
   },
   da: {
+    "approval.loading": "Kontrollerer publiceringsgodkendelse…",
+    "approval.current": "Præcis dette gemte indhold og denne destination er godkendt.",
+    "approval.needed": "Denne version kræver publiceringsgodkendelse.",
+    "approval.unavailable": "Publiceringsgodkendelsen kunne ikke kontrolleres.",
+
+    "approval.withdraw": "Træk godkendelse tilbage",
+    "approval.withdrawn": "Godkendelsen er trukket tilbage. Indholdet skal gennemgås.",
+    "approval.saved": "Denne gemte version er godkendt. Publicering er stadig en separat handling.",
+    "approval.failed":
+      "Godkendelsen blev ikke bekræftet. Gem og gennemgå den aktuelle version, før du prøver igen.",
+    "approval.help":
+      "Brug Godkend til at godkende præcis dette indhold og denne destination. Ændringer kræver ny godkendelse; en statusetiket giver ikke tilladelse til publicering.",
+
     "refresh.reviewHistory": "Seneste beslut om oplysninger (op til 20)",
     "refresh.addCatalog": "Tilføj tilsluttet Shopify-katalog",
     "refresh.catalogHelp":

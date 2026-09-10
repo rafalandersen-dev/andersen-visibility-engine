@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { setPublicationApproval, assertPublicationApproved } from "./publication-approval.server";
+import {
+  readPublicationApproval,
+  setPublicationApproval,
+  assertPublicationApproved,
+} from "./publication-approval.server";
 import { publicationVersion } from "./publication-version";
 import { buildActiveInternalPaths } from "./publish-targets";
 import type { ContentAsset, Project } from "./types";
@@ -25,6 +29,37 @@ const read = () =>
     data: { projects: [project], content: [asset] },
   })) as unknown as typeof readWorkspaceRow;
 describe("authenticated version approval boundary", () => {
+  it("reads the exact saved version and refuses missing or foreign content before approval lookup", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: false, error: null });
+    expect(await readPublicationApproval(scope, { read: read(), rpc })).toEqual({
+      version: await version(),
+      approved: false,
+    });
+    expect(rpc).toHaveBeenCalledExactlyOnceWith("read_publication_approval", {
+      p_user: scope.ownerId,
+      p_project: "p",
+      p_asset: "a",
+      p_hash: (await version()).hash,
+    });
+    rpc.mockClear();
+    await expect(
+      readPublicationApproval({ ...scope, projectId: "foreign" }, { read: read(), rpc }),
+    ).rejects.toThrow("publication_asset_unavailable");
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("invalidates approval when the live custom destination changes", async () => {
+    expect(
+      await publicationVersion(asset, {
+        ...project,
+        livePublishEndpoint: "https://example.com/live-one",
+      }),
+    ).not.toEqual(
+      await publicationVersion(asset, {
+        ...project,
+        livePublishEndpoint: "https://example.com/live-two",
+      }),
+    );
+  });
   it("stores a server-derived version with the saved revision and owner scope", async () => {
     const expectedVersion = await version(),
       rpc = vi.fn().mockResolvedValue({ data: true, error: null });

@@ -14,6 +14,7 @@ import { z } from "zod";
 import { ambiguousTransportFailure, classifyHttpFailure } from "./publish-outcome";
 import { publishBlockers } from "./checklist";
 import { assembleContentAsset } from "./content-assembler";
+import { buildActiveInternalPaths } from "./publish-targets";
 import type { ContentAsset, Project } from "./types";
 
 const DESTINATION_TYPES = ["blogPost", "servicePage", "faq", "landingPage"] as const;
@@ -131,6 +132,7 @@ const asString = (v: unknown): string => (typeof v === "string" ? v : "");
 export function draftPayloadFor(
   asset: ContentAsset,
   project: Project,
+  paths: string[] = [],
 ): z.infer<typeof PublishInputSchema> {
   return {
     projectId: project.id,
@@ -140,7 +142,8 @@ export function draftPayloadFor(
     assetType: asset.assetType ?? "article",
     destinationType: asset.publishDestinationType ?? project.defaultDestinationType ?? "blogPost",
     language: asset.language ?? project.primaryLanguage ?? "English",
-    markdown: assembleContentAsset(asset, project).markdown,
+    markdown: assembleContentAsset(asset, project, { activeInternalPaths: new Set(paths) })
+      .markdown,
     metaTitle: asset.metaTitle ?? "",
     metaDescription: asset.metaDescription ?? "",
     sourceOpportunityTitle: asset.sourceOpportunityTitle ?? asset.title,
@@ -278,10 +281,15 @@ export const publishContentFn = createServerFn({ method: "POST" })
     } = await resolvePublishContext(context.userId as string, data.projectId, data.assetId);
     assertPublishableServerSide(asset, project, corpus);
     const { assertAssetSourcesCurrent } = await import("./source-publication.server");
+    const paths = buildActiveInternalPaths(
+      project,
+      corpus.filter((a) => a.projectId === project.id),
+    );
+    const { assertPublicationApproved } = await import("./publication-approval.server");
+    await assertPublicationApproved(context.userId, asset, project, paths);
     await assertAssetSourcesCurrent(context.userId as string, asset);
     // Re-derive the body server-side — never forward client-supplied markdown.
-    const markdown = assembleContentAsset(asset, project).markdown;
-    return publishDraftDirect({ ...data, markdown, endpoint, secret });
+    return publishDraftDirect({ ...draftPayloadFor(asset, project, paths), endpoint, secret });
   });
 
 // ============================================================
@@ -426,6 +434,12 @@ export const publishLiveFn = createServerFn({ method: "POST" })
     // Refuse to flip a draft live if the asset now fails a hard blocker.
     assertPublishableServerSide(asset, project, corpus);
     const { assertAssetSourcesCurrent } = await import("./source-publication.server");
+    const paths = buildActiveInternalPaths(
+      project,
+      corpus.filter((a) => a.projectId === project.id),
+    );
+    const { assertPublicationApproved } = await import("./publication-approval.server");
+    await assertPublicationApproved(context.userId, asset, project, paths);
     await assertAssetSourcesCurrent(context.userId as string, asset);
     // ALWAYS refresh the draft before flipping live. The live instruction
     // carries NO content — the site's draft endpoint is the only thing that
@@ -435,7 +449,7 @@ export const publishLiveFn = createServerFn({ method: "POST" })
     // Milo recorded "Published", and the live page kept serving the old copy
     // (verified live on synergymassage.se, 2026-07-23).
     const draft = await publishDraftDirect({
-      ...draftPayloadFor(asset, project),
+      ...draftPayloadFor(asset, project, paths),
       endpoint: draftEndpoint,
       secret,
     });

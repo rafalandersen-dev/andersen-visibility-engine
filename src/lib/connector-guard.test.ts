@@ -18,6 +18,9 @@ vi.mock("./workspace.server", () => ({
 
 vi.mock("./source-refresh.server", () => ({ readOutputSourceDependencies: vi.fn(async () => []) }));
 
+const approval = vi.hoisted(() => ({ check: vi.fn() }));
+vi.mock("./publication-approval.server", () => ({ assertPublicationApproved: approval.check }));
+
 import { serverWpArgs, serverShopifyArgs } from "./connector-guard.server";
 
 const wpProject = (): Project =>
@@ -59,6 +62,7 @@ function setWorkspace(project: Project, ...assets: ContentAsset[]) {
 }
 
 beforeEach(() => {
+  approval.check.mockReset().mockResolvedValue(undefined);
   ROW = null;
 });
 
@@ -104,5 +108,18 @@ describe("serverShopifyArgs — Shopify checklist parity + server re-derivation"
   it("REFUSES a rewrite with no article identity (duplicate guard) — same gate as WP", async () => {
     setWorkspace(shopifyProject(), asset({ republishTargetUrl: "https://site.com/old" }));
     await expect(serverShopifyArgs("u1", "p1", "a1")).rejects.toThrow(/not publishable/i);
+  });
+});
+
+describe("exact version publication approval", () => {
+  it("blocks both manual connectors before returning transport credentials when approval is missing", async () => {
+    approval.check.mockRejectedValue(new Error("publication_approval_required"));
+    setWorkspace(wpProject(), asset());
+    await expect(serverWpArgs("u1", "p1", "a1")).rejects.toThrow("publication_approval_required");
+    setWorkspace(shopifyProject(), asset());
+    await expect(serverShopifyArgs("u1", "p1", "a1")).rejects.toThrow(
+      "publication_approval_required",
+    );
+    expect(approval.check).toHaveBeenCalledTimes(2);
   });
 });
