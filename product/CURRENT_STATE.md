@@ -29,7 +29,7 @@ This is the current operational entry point. Read [progress review](PROGRESS_REV
 | MCP and notifications | Scoped draft/profile/batch/image import, bounded ingress, renewed private previews, inbox/outbox and scheduler recovery foundations | Actual client image transfers, CMS fidelity, team recipients and complete delivery acceptance |
 | Stripe (#80) | Isolated sandbox checkout/receipt foundations and migration | Configured sandbox, real lifecycle acceptance and commercial rollout; owner deferred setup |
 
-Product-review continuation recovered P1 checkpoint `c055a1e7` into `codex/milo-p1-product-review-20260909`. Record/source history navigation is improved and new labels cover the four supported UI locales; 27 focused tests, types and focused lint pass. Mapped canonical brand proposals, remaining localization, onboarding acceptance and release review are still pending. See the [P1 work record](../evidence/project-knowledge-work-in-progress-2026-09-09.md). No new migration or deployment.
+P1 product completion is ready for independent release review on `codex/milo-p1-product-review-20260909`: source-linked canonical brand proposals, owner-clear/stale-edit protection, account-scoped onboarding resume, history navigation and four-locale review controls. Full local verification passes **2,413 tests / 169 files**, TypeScript and focused lint; production build passes. Read-only live preflight confirms the P1 schema/migration remains absent. See the [P1 release-review packet](../evidence/project-knowledge-release-review-2026-09-10.md). No P1 migration or deployment has occurred; signed-in/browser acceptance remains unverified. P2–P5 and R00–R24/D01–D08 remain active.
 
 ## Current work and blockers
 

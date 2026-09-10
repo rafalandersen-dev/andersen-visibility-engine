@@ -140,7 +140,11 @@ export function applyProfileFill(
   const brand: Record<string, unknown> = {};
   const accept = (name: string, current: unknown, proposed: unknown) => {
     if (blank(proposed) || same(current, proposed)) return false;
-    if (!blank(current)) {
+    if (
+      !blank(current) ||
+      (name.startsWith("brandIntelligence.") &&
+        project.brandOwnerFields?.includes(name.slice("brandIntelligence.".length)))
+    ) {
       requiresProposal.push(name);
       return false;
     }

@@ -295,6 +295,8 @@ export interface Project {
   competitorUrls?: string[];
   // ---- Brand Intelligence / Content Memory v1 (all optional) ----
   brandIntelligence?: BrandIntelligence;
+  /** Explicitly edited/cleared canonical fields; source proposals cannot refill these. */
+  brandOwnerFields?: string[];
   // ---- GSC Lite / SEO Proof Import v1 (all optional) ----
   gscLite?: GscLite;
   // ---- GSC OAuth / API Sync v1 (safe metadata only — no tokens) ----

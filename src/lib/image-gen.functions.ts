@@ -79,7 +79,7 @@ export async function generateArticleImageCore(
       const basePrompt = buildImagePrompt({
         concept: args.concept,
         ...(args.articleTitle ? { articleTitle: args.articleTitle } : {}),
-        project: args.project,
+        project: knowledge.toneOfVoice !== undefined ? { ...args.project, toneOfVoice: knowledge.toneOfVoice.slice(0, 400) } : args.project,
       });
       const prompt = [basePrompt, knowledge.context].filter(Boolean).join("\n\n");
       let bytes: Uint8Array;

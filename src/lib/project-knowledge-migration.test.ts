@@ -67,9 +67,9 @@ beforeAll(async () => {
     CREATE SCHEMA auth; CREATE TABLE auth.users(id uuid PRIMARY KEY);
     INSERT INTO auth.users VALUES('${user}'),('${other}');
     CREATE TABLE public.workspace_meta(user_id uuid PRIMARY KEY);
-    CREATE TABLE public.workspace_entities(user_id uuid,collection text,entity_id text);
+    CREATE TABLE public.workspace_entities(user_id uuid,collection text,entity_id text,data jsonb DEFAULT '{}'::jsonb);
     INSERT INTO public.workspace_meta VALUES('${user}'),('${other}');
-    INSERT INTO public.workspace_entities VALUES('${user}','projects','p'),('${other}','projects','p');`);
+    INSERT INTO public.workspace_entities(user_id,collection,entity_id) VALUES('${user}','projects','p'),('${other}','projects','p');`);
   await db.exec(readFileSync("supabase/migrations/20260909200000_project_knowledge.sql", "utf8"));
 }, 30000);
 beforeEach(async () => {
@@ -81,6 +81,36 @@ afterAll(async () => {
   await db?.close();
 });
 describe("private revisioned project knowledge", () => {
+  it("reads only the scoped canonical brand profile including owner-cleared fields", async () => {
+    await db.query("UPDATE public.workspace_entities SET data=$1 WHERE user_id=$2", [
+      JSON.stringify({
+        brandIntelligence: { voice: { wordsToUse: ["precise"] } },
+        brandOwnerFields: ["voice.tone"],
+        toneOfVoice: "",
+        privateUnrelatedValue: "not returned",
+      }),
+      user,
+    ]);
+    const profile = await db.query("SELECT public.read_project_knowledge_brand($1,'p') result", [
+      user,
+    ]);
+    expect(profile.rows).toEqual([
+      {
+        result: {
+          brandIntelligence: { voice: { wordsToUse: ["precise"] } },
+          brandOwnerFields: ["voice.tone"],
+          toneOfVoice: "",
+        },
+      },
+    ]);
+    expect(
+      (await db.query("SELECT public.read_project_knowledge_brand($1,'p') result", [other])).rows,
+    ).toEqual([{ result: { brandIntelligence: null, brandOwnerFields: [], toneOfVoice: "" } }]);
+    await expect(
+      db.query("SELECT public.read_project_knowledge_brand($1,'missing')", [user]),
+    ).rejects.toThrow("project_unavailable");
+    await db.query("UPDATE public.workspace_entities SET data='{}'");
+  });
   it("rolls back a paired source save if its record cannot be saved", async () => {
     const ownerSource = { ...source, kind: "owner" };
     await expect(
@@ -124,7 +154,10 @@ describe("private revisioned project knowledge", () => {
     expect(
       (await db.query("SELECT count(*)::int n FROM public.project_knowledge_history")).rows,
     ).toEqual([{ n: 0 }]);
-    await db.query("INSERT INTO public.workspace_entities VALUES($1,'projects','p')", [user]);
+    await db.query(
+      "INSERT INTO public.workspace_entities(user_id,collection,entity_id) VALUES($1,'projects','p')",
+      [user],
+    );
     await expect(upload()).rejects.toThrow("knowledge_forgotten");
     await expect(save("record", record)).rejects.toThrow("knowledge_forgotten");
   });
@@ -238,6 +271,9 @@ describe("private revisioned project knowledge", () => {
         "permission denied",
       );
       await expect(read()).rejects.toThrow("permission denied");
+      await expect(
+        db.query("SELECT public.read_project_knowledge_brand($1,'p')", [user]),
+      ).rejects.toThrow("permission denied");
       await expect(db.query("SELECT * FROM public.project_knowledge_documents")).rejects.toThrow(
         "permission denied",
       );

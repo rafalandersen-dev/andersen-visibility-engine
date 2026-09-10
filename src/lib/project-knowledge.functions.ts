@@ -1,3 +1,4 @@
+import { brandRecordPatch, mappedBrandField } from "./knowledge-brand";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
@@ -6,15 +7,21 @@ import { knowledgeRecordSchema } from "./project-knowledge";
 const project = z.object({ projectId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/) }).strict();
 const revision = z.number().int().min(1).max(9999);
 const item = project.extend({ id: z.string().uuid(), expectedRevision: revision });
-const fields = knowledgeRecordSchema.innerType().pick({
-  key: true,
-  category: true,
-  appliesTo: true,
-  value: true,
-  locator: true,
-  excerpt: true,
-  validUntil: true,
-});
+const fields = knowledgeRecordSchema
+  .innerType()
+  .pick({
+    key: true,
+    category: true,
+    appliesTo: true,
+    value: true,
+    locator: true,
+    excerpt: true,
+    validUntil: true,
+  })
+  .superRefine((record, context) => {
+    if (mappedBrandField(record.key) && !brandRecordPatch(record))
+      context.addIssue({ code: "custom", message: "Invalid canonical brand field value" });
+  });
 
 export const buildWebsiteKnowledgeFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

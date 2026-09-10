@@ -5,22 +5,33 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useT } from "@/i18n";
-import { saveWorkspaceNow } from "@/lib/store";
+import { useStore, saveWorkspaceNow } from "@/lib/store";
 import * as api from "@/lib/project-knowledge.functions";
 import type { KnowledgeRecord, KnowledgeSource } from "@/lib/project-knowledge";
 import { selectProjectKnowledge } from "@/lib/project-knowledge";
+import {
+  brandFieldValue,
+  brandRecordDisposition,
+  brandRecordPatch,
+  extractLabelledBrandProposals,
+  filterBrandKnowledge,
+  knowledgeBrandFields,
+  mappedBrandField,
+  resolveKnowledgeBrand,
+} from "@/lib/knowledge-brand";
+import { displayBrandValue } from "@/lib/brand-proposal";
 import type { BrandDocumentText } from "@/lib/brand-document";
 
 const categories: [KnowledgeRecord["category"], string][] = [
-  ["voice", "Voice"],
-  ["audience", "Audience"],
-  ["offer", "Products and services"],
-  ["fact", "Business fact"],
-  ["claimRestriction", "Claim restrictions"],
-  ["visualStyle", "Visual style"],
-  ["terminology", "Terminology"],
-  ["lesson", "Editorial lesson"],
-  ["writingExample", "Writing example"],
+  ["voice", "knowledge.category.voice"],
+  ["audience", "knowledge.category.audience"],
+  ["offer", "knowledge.category.offer"],
+  ["fact", "knowledge.category.fact"],
+  ["claimRestriction", "knowledge.category.claimRestriction"],
+  ["visualStyle", "knowledge.category.visualStyle"],
+  ["terminology", "knowledge.category.terminology"],
+  ["lesson", "knowledge.category.lesson"],
+  ["writingExample", "knowledge.category.writingExample"],
 ];
 type State = { sources: KnowledgeSource[]; records: KnowledgeRecord[] };
 type Draft = Pick<
@@ -53,6 +64,7 @@ export function ProjectKnowledgePanel({
   onBusyChange?: (busy: boolean) => void;
 }) {
   const t = useT();
+  const profile = useStore((store) => store.projects.find((project) => project.id === projectId));
   const [websiteUrl, setWebsiteUrl] = useState(initialWebsiteUrl);
   const [state, setState] = useState<State>({ sources: [], records: [] });
   const [loading, setLoading] = useState(true),
@@ -89,6 +101,17 @@ export function ProjectKnowledgePanel({
       const next = await api.readProjectKnowledgeFn({ data: { projectId } });
       if (alive.current && current === request.current) {
         setState(next);
+        setDocument((current) =>
+          current &&
+          next.sources.some(
+            (source) =>
+              source.id === current.source.id &&
+              source.revision === current.source.revision &&
+              source.status === "active",
+          )
+            ? current
+            : null,
+        );
         setFailed(false);
       }
     } catch {
@@ -125,15 +148,13 @@ export function ProjectKnowledgePanel({
         if (error instanceof Error && error.message.startsWith("brand_document_")) {
           toast.error(
             error.message === "brand_document_no_text"
-              ? "No readable text was found. Use a text-based PDF or DOCX, or enter an instruction manually."
-              : "This document could not be extracted within the supported limits. Use a smaller, unencrypted PDF or DOCX, or enter an instruction manually.",
+              ? t("knowledge.ui.noText")
+              : t("knowledge.ui.parseFailed"),
           );
           return;
         }
         setFailed(true);
-        toast.error(
-          "This change could not be confirmed. Refresh and check the saved version before trying again.",
-        );
+        toast.error(t("knowledge.ui.changeFailed"));
       }
     } finally {
       working.current = false;
@@ -214,6 +235,18 @@ export function ProjectKnowledgePanel({
         ).conflicts,
     ),
   );
+  const selection = selectProjectKnowledge(
+    state.sources,
+    state.records,
+    { ownerId, projectId },
+    "text",
+    new Date().toISOString(),
+  );
+  const effectiveBrand = resolveKnowledgeBrand(
+    profile ?? {},
+    filterBrandKnowledge(selection, profile ?? {}).records,
+    new Date().toISOString(),
+  );
   const fields = (record: KnowledgeRecord): Draft => ({
     key: record.key,
     category: record.category,
@@ -225,7 +258,7 @@ export function ProjectKnowledgePanel({
   return (
     <div className="mt-7 border-t border-border pt-6 space-y-4">
       <div className="flex flex-wrap justify-between gap-2">
-        <h3 className="font-display text-lg">What Milo knows</h3>
+        <h3 className="font-display text-lg"> {t("knowledge.ui.title")} </h3>
         <Button
           type="button"
           variant="outline"
@@ -233,22 +266,36 @@ export function ProjectKnowledgePanel({
           disabled={busy || loading}
           onClick={() => void load()}
         >
-          Refresh saved knowledge
+          {" "}
+          {t("knowledge.ui.refresh")}{" "}
         </Button>
       </div>
-      <p className="text-sm text-muted-foreground">
-        Project references and recurring instructions supplement your brand settings above. Review
-        source material before accepting it. An accepted claim is still source-reported evidence.
-      </p>
-      {loading && <p role="status">Loading project knowledge…</p>}
+      <p className="text-sm text-muted-foreground"> {t("knowledge.ui.intro")} </p>
+      {loading && <p role="status"> {t("knowledge.ui.loading")} </p>}
       {failed && (
         <p role="alert" className="text-sm text-destructive">
-          Saved knowledge could not be confirmed. Refresh before making another change.
+          {" "}
+          {t("knowledge.ui.failed")}{" "}
         </p>
       )}
       {!loading && !failed && state.records.length === 0 && (
-        <p className="text-sm text-muted-foreground">No additional project knowledge saved yet.</p>
+        <p className="text-sm text-muted-foreground"> {t("knowledge.ui.empty")} </p>
       )}
+      <details className="rounded-md border p-3 space-y-2" open>
+        <summary className="font-medium">{t("knowledge.brand.summary")}</summary>
+        <p className="text-xs text-muted-foreground">{t("knowledge.brand.explanation")}</p>
+        {knowledgeBrandFields.map((field) => (
+          <div key={field.field} className="text-sm">
+            <span className="font-medium">{t(field.label)}: </span>
+            <span className="whitespace-pre-wrap">
+              {displayBrandValue(
+                brandFieldValue(effectiveBrand, field.field) ||
+                  (field.field === "voice.tone" ? profile?.toneOfVoice : undefined),
+              ) || t("knowledge.brand.empty")}
+            </span>
+          </div>
+        ))}
+      </details>
       {state.records.map((record) => {
         const source = state.sources.find((s) => s.id === record.sourceId);
         const inactive =
@@ -256,17 +303,30 @@ export function ProjectKnowledgePanel({
         return (
           <article key={record.id} className="rounded-md border border-border p-3 space-y-2">
             <p className="text-xs text-muted-foreground">
-              {categories.find(([key]) => key === record.category)?.[1]} ·{" "}
+              {t(`knowledge.category.${record.category}`)} ·{" "}
               {inactive
-                ? "Source removed or replaced — held"
+                ? t("knowledge.ui.removed")
                 : conflicts.has(record.key)
-                  ? "Conflicting accepted instructions — held"
-                  : record.status}{" "}
-              · Version {record.revision}
+                  ? t("knowledge.ui.conflict")
+                  : t(
+                      `knowledge.status.${record.validUntil && Date.parse(record.validUntil) <= Date.now() ? "expired" : record.status}`,
+                    )}{" "}
+              {t("knowledge.ui.versionDot")} {record.revision}
             </p>
+            {mappedBrandField(record.key) && (
+              <p className="text-sm font-medium">
+                {t(mappedBrandField(record.key)!.label)} ·{" "}
+                {t(
+                  brandRecordDisposition(profile ?? {}, record) === "owner"
+                    ? "knowledge.brand.owner"
+                    : "knowledge.brand.source",
+                )}
+              </p>
+            )}
             <p className="text-sm whitespace-pre-wrap break-words">{record.value}</p>
             <p className="text-xs text-muted-foreground">
-              {source?.label} · {record.locator} · Source version {record.sourceRevision}
+              {source?.label} · {record.locator} {t("knowledge.ui.sourceVersion")}{" "}
+              {record.sourceRevision}
             </p>
             <div className="flex flex-wrap gap-2">
               <Button
@@ -279,7 +339,8 @@ export function ProjectKnowledgePanel({
                   setDraft(fields(record));
                 }}
               >
-                Review / edit
+                {" "}
+                {t("knowledge.ui.review")}{" "}
               </Button>
               <Button
                 type="button"
@@ -288,7 +349,8 @@ export function ProjectKnowledgePanel({
                 disabled={disabled}
                 onClick={() => void showRecordHistory(record)}
               >
-                History / revert
+                {" "}
+                {t("knowledge.ui.history")}{" "}
               </Button>
               <Button
                 type="button"
@@ -297,7 +359,8 @@ export function ProjectKnowledgePanel({
                 disabled={disabled}
                 onClick={() => setRemove({ kind: "record", item: record })}
               >
-                Forget
+                {" "}
+                {t("knowledge.ui.forget")}{" "}
               </Button>
             </div>
           </article>
@@ -305,16 +368,19 @@ export function ProjectKnowledgePanel({
       })}
       {history && (
         <div className="rounded-md border p-3 space-y-2">
-          <h4 className="font-medium">Saved versions</h4>
+          <h4 className="font-medium"> {t("knowledge.ui.savedVersions")} </h4>
           {history.versions.map((version) => (
             <div key={version.revision} className="space-y-1">
               <p className="text-sm">
-                Version {version.revision} · {version.status}: {version.value}
+                {" "}
+                {t("knowledge.ui.version")} {version.revision} ·{" "}
+                {t(`knowledge.status.${version.status}`)}: {version.value}
               </p>
               <p className="text-xs text-muted-foreground">
-                Saved {new Date(version.updatedAt).toLocaleString()}
+                {" "}
+                {t("knowledge.ui.savedDate")} {new Date(version.updatedAt).toLocaleString()}
                 {version.reviewedAt
-                  ? ` · Reviewed ${new Date(version.reviewedAt).toLocaleString()}`
+                  ? ` · ${t("knowledge.ui.reviewedDate", { date: new Date(version.reviewedAt).toLocaleString() })}`
                   : ""}
               </p>
               {version.revision < history.record.revision && (
@@ -336,7 +402,8 @@ export function ProjectKnowledgePanel({
                     )
                   }
                 >
-                  Restore as a new version
+                  {" "}
+                  {t("knowledge.ui.restore")}{" "}
                 </Button>
               )}
             </div>
@@ -367,14 +434,18 @@ export function ProjectKnowledgePanel({
             </Button>
           )}
           <Button type="button" variant="ghost" disabled={busy} onClick={() => setHistory(null)}>
-            Close history
+            {" "}
+            {t("knowledge.ui.closeHistory")}{" "}
           </Button>
         </div>
       )}
       <div className="space-y-3 rounded-md border p-4">
-        <h4 className="font-medium">{editing ? "Review project knowledge" : "Teach Milo"}</h4>
+        <h4 className="font-medium">
+          {editing ? t("knowledge.ui.reviewKnowledge") : t("knowledge.ui.teach")}
+        </h4>
         <label className="block text-sm">
-          Category
+          {" "}
+          {t("knowledge.ui.category")}{" "}
           <select
             className="mt-1 block w-full rounded-md border bg-background p-2"
             value={draft.category}
@@ -389,17 +460,43 @@ export function ProjectKnowledgePanel({
           >
             {categories.map(([key, label]) => (
               <option key={key} value={key}>
-                {label}
+                {t(label)}
               </option>
             ))}
           </select>
         </label>
-        <p className="text-xs text-muted-foreground">
-          Save one combined instruction per category. Conflicting accepted alternatives are held for
-          review; edit the existing instruction to expand it.
-        </p>
+        <p className="text-xs text-muted-foreground"> {t("knowledge.ui.categoryHelp")} </p>
         <label className="block text-sm">
-          Instruction
+          {t("knowledge.brand.target")}
+          <select
+            className="mt-1 block w-full rounded-md border bg-background p-2"
+            value={mappedBrandField(draft.key) ? draft.key : "general"}
+            disabled={disabled}
+            onChange={(event) => {
+              const field = mappedBrandField(event.target.value);
+              setDraft((current) => ({
+                ...current,
+                key: field ? `brand.${field.field}` : `${current.category}.guidance`,
+                ...(field ? { category: field.category } : {}),
+              }));
+            }}
+          >
+            <option value="general">{t("knowledge.brand.general")}</option>
+            {knowledgeBrandFields.map((field) => (
+              <option key={field.field} value={`brand.${field.field}`}>
+                {t(field.label)}
+              </option>
+            ))}
+          </select>
+        </label>
+        {mappedBrandField(draft.key) && !brandRecordPatch(draft) && (
+          <p role="alert" className="text-sm text-destructive">
+            {t("knowledge.brand.invalid")}
+          </p>
+        )}
+        <label className="block text-sm">
+          {" "}
+          {t("knowledge.ui.instruction")}{" "}
           <Textarea
             value={draft.value}
             maxLength={2000}
@@ -408,7 +505,8 @@ export function ProjectKnowledgePanel({
           />
         </label>
         <label className="block text-sm">
-          Use for
+          {" "}
+          {t("knowledge.ui.useFor")}{" "}
           <select
             className="mt-1 block w-full rounded-md border bg-background p-2"
             value={draft.appliesTo}
@@ -417,15 +515,19 @@ export function ProjectKnowledgePanel({
               setDraft((d) => ({ ...d, appliesTo: e.target.value as Draft["appliesTo"] }))
             }
           >
-            <option value="both">Writing and images</option>
-            <option value="text">Writing</option>
-            <option value="visual">Images</option>
+            <option value="both"> {t("knowledge.ui.both")} </option>
+            <option value="text"> {t("knowledge.ui.text")} </option>
+            <option value="visual"> {t("knowledge.ui.visual")} </option>
           </select>
         </label>
         <div className="flex flex-wrap gap-2">
           <Button
             type="button"
-            disabled={disabled || !draft.value.trim()}
+            disabled={
+              disabled ||
+              !draft.value.trim() ||
+              (!!mappedBrandField(draft.key) && !brandRecordPatch(draft))
+            }
             onClick={() =>
               void change(() =>
                 editing
@@ -442,7 +544,7 @@ export function ProjectKnowledgePanel({
               )
             }
           >
-            {editing ? "Accept this version" : "Remember for this project"}
+            {editing ? t("knowledge.ui.accept") : t("knowledge.ui.remember")}
           </Button>
           {editing && (
             <>
@@ -464,7 +566,8 @@ export function ProjectKnowledgePanel({
                   )
                 }
               >
-                Reject
+                {" "}
+                {t("knowledge.ui.reject")}{" "}
               </Button>
               <Button
                 type="button"
@@ -475,16 +578,18 @@ export function ProjectKnowledgePanel({
                   setDraft(blank());
                 }}
               >
-                Cancel
+                {" "}
+                {t("knowledge.ui.cancel")}{" "}
               </Button>
             </>
           )}
         </div>
       </div>
       <div className="space-y-3">
-        <h4 className="font-medium">Brand guidelines and sources</h4>
+        <h4 className="font-medium"> {t("knowledge.ui.sources")} </h4>
         <label className="block text-sm">
-          Website reference
+          {" "}
+          {t("knowledge.ui.website")}{" "}
           <Input
             type="url"
             value={websiteUrl}
@@ -504,24 +609,18 @@ export function ProjectKnowledgePanel({
               const result = await api.buildWebsiteKnowledgeFn({
                 data: { projectId, url: websiteUrl.trim() },
               });
-              if (!result.changed && alive.current)
-                toast.message("The captured homepage excerpt is unchanged.");
+              if (!result.changed && alive.current) toast.message(t("knowledge.ui.unchanged"));
             })
           }
         >
-          Build from website
+          {" "}
+          {t("knowledge.ui.buildWebsite")}{" "}
         </Button>
-        <p className="text-xs text-muted-foreground">
-          Captures a limited homepage text excerpt for your review. This does not verify business
-          claims or scan the full site.
-        </p>
-        <p className="text-xs text-muted-foreground">
-          PDF or DOCX, up to 5 MiB and 40 PDF pages. Text extraction only: scanned pages, logos and
-          graphic rules need manual review. Current originals are private; replacement, revoke and
-          forget remove the previous original.
-        </p>
+        <p className="text-xs text-muted-foreground"> {t("knowledge.ui.websiteHelp")} </p>
+        <p className="text-xs text-muted-foreground"> {t("knowledge.ui.limits")} </p>
         <label className="block text-sm">
-          Upload brand guidelines
+          {" "}
+          {t("knowledge.ui.upload")}{" "}
           <Input
             type="file"
             accept=".pdf,.docx"
@@ -536,10 +635,12 @@ export function ProjectKnowledgePanel({
         {state.sources.map((source) => (
           <div key={source.id} className="rounded-md border p-3 space-y-2">
             <p className="text-sm">
-              {source.label} · Version {source.revision} · {source.status}
+              {source.label} {t("knowledge.ui.versionDot")} {source.revision} ·{" "}
+              {t(`knowledge.status.${source.status}`)}
             </p>
             <p className="text-xs text-muted-foreground">
-              Observed {new Date(source.observedAt).toLocaleString()}
+              {" "}
+              {t("knowledge.ui.observed")} {new Date(source.observedAt).toLocaleString()}
               {source.url && (
                 <>
                   {" "}
@@ -550,7 +651,8 @@ export function ProjectKnowledgePanel({
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    View source website
+                    {" "}
+                    {t("knowledge.ui.viewWebsite")}{" "}
                   </a>
                 </>
               )}
@@ -563,7 +665,8 @@ export function ProjectKnowledgePanel({
                 disabled={disabled}
                 onClick={() => void showSourceHistory(source)}
               >
-                Source history
+                {" "}
+                {t("knowledge.ui.sourceHistory")}{" "}
               </Button>
               {source.status === "active" && (
                 <Button
@@ -580,7 +683,8 @@ export function ProjectKnowledgePanel({
                     })
                   }
                 >
-                  Revoke source
+                  {" "}
+                  {t("knowledge.ui.revoke")}{" "}
                 </Button>
               )}
               {source.kind === "document" && source.status === "active" && (
@@ -603,7 +707,8 @@ export function ProjectKnowledgePanel({
                     })
                   }
                 >
-                  Review original text
+                  {" "}
+                  {t("knowledge.ui.original")}{" "}
                 </Button>
               )}
               <Button
@@ -613,12 +718,14 @@ export function ProjectKnowledgePanel({
                 disabled={disabled}
                 onClick={() => setRemove({ kind: "source", item: source })}
               >
-                Forget source and history
+                {" "}
+                {t("knowledge.ui.forgetSource")}{" "}
               </Button>
             </div>
             {source.kind === "document" && (
               <label className="block text-xs">
-                Replace document (existing records will need review)
+                {" "}
+                {t("knowledge.ui.replace")}{" "}
                 <Input
                   type="file"
                   accept=".pdf,.docx"
@@ -636,10 +743,15 @@ export function ProjectKnowledgePanel({
       </div>
       {sourceHistory && (
         <div className="rounded-md border p-3 space-y-2">
-          <h4 className="font-medium">Source history: {sourceHistory.source.label}</h4>
+          <h4 className="font-medium">
+            {" "}
+            {t("knowledge.ui.sourceHistoryTitle")} {sourceHistory.source.label}
+          </h4>
           {sourceHistory.versions.map((version) => (
             <p className="text-sm" key={version.revision}>
-              Version {version.revision} · {version.label} · {version.status} ·{" "}
+              {" "}
+              {t("knowledge.ui.version")} {version.revision} · {version.label} ·{" "}
+              {t(`knowledge.status.${version.status}`)} ·{" "}
               {new Date(version.observedAt).toLocaleString()}
             </p>
           ))}
@@ -655,7 +767,8 @@ export function ProjectKnowledgePanel({
                 )
               }
             >
-              Older source versions
+              {" "}
+              {t("knowledge.ui.olderSource")}{" "}
             </Button>
           )}
           {sourceHistory.versions.length === 0 && (
@@ -677,23 +790,59 @@ export function ProjectKnowledgePanel({
             disabled={busy}
             onClick={() => setSourceHistory(null)}
           >
-            Close source history
+            {" "}
+            {t("knowledge.ui.closeSource")}{" "}
           </Button>
         </div>
       )}
       {document && (
         <div className="space-y-2">
-          <h4 className="font-medium">Review extracted text: {document.source.label}</h4>
+          <h4 className="font-medium">
+            {" "}
+            {t("knowledge.ui.extractedTitle")} {document.source.label}
+          </h4>
           {document.text.warnings.includes("parser_warnings") && (
             <p role="status" className="text-sm">
-              The document parser reported warnings. Compare extracted passages with your original
-              before accepting them.
+              {" "}
+              {t("knowledge.ui.parserWarning")}{" "}
             </p>
           )}
-          <p className="text-xs text-muted-foreground">
-            Choose a passage to save as a proposal, then edit and accept the instruction. No AI
-            summary or visual interpretation has been performed.
-          </p>
+          <p className="text-xs text-muted-foreground"> {t("knowledge.ui.passageHelp")} </p>
+          <div className="space-y-3">
+            <h4 className="font-medium">{t("knowledge.brand.extracted")}</h4>
+            <p className="text-xs text-muted-foreground">{t("knowledge.brand.extractionNote")}</p>
+            {extractLabelledBrandProposals(document.text.segments).length === 0 && (
+              <p className="text-sm">{t("knowledge.brand.noLabels")}</p>
+            )}
+            {extractLabelledBrandProposals(document.text.segments).map((proposal) => (
+              <MappedBrandProposal
+                key={`${document.source.id}:${document.source.revision}:${proposal.key}:${proposal.locator}:${proposal.value}`}
+                proposal={proposal}
+                disabled={disabled}
+                saved={state.records.some(
+                  (record) =>
+                    record.sourceId === document.source.id &&
+                    record.sourceRevision === document.source.revision &&
+                    record.key === proposal.key &&
+                    record.locator === proposal.locator &&
+                    record.excerpt === proposal.excerpt,
+                )}
+                onSave={(value) =>
+                  void change(() =>
+                    api.proposeKnowledgeRecordFn({
+                      data: {
+                        projectId,
+                        id: crypto.randomUUID(),
+                        sourceId: document.source.id,
+                        sourceRevision: document.source.revision,
+                        fields: { ...proposal, value },
+                      },
+                    }),
+                  )
+                }
+              />
+            ))}
+          </div>
           {document.text.segments.map((segment, index) => (
             <details key={index} className="rounded border p-2">
               <summary>{segment.locator}</summary>
@@ -724,23 +873,26 @@ export function ProjectKnowledgePanel({
                   )
                 }
               >
-                Save first 2,000 characters as a proposal
+                {" "}
+                {t("knowledge.ui.savePassage")}{" "}
               </Button>
             </details>
           ))}
           <Button type="button" variant="ghost" onClick={() => setDocument(null)}>
-            Close extracted text
+            {" "}
+            {t("knowledge.ui.closeText")}{" "}
           </Button>
         </div>
       )}
       {remove && (
         <div role="alert" className="rounded border border-destructive p-3 space-y-2">
           <p className="text-sm">
-            Permanently forget{" "}
+            {" "}
+            {t("knowledge.ui.permanent")}{" "}
             {remove.kind === "source"
-              ? "this source, its original document, derived records and history"
-              : "this record and its history"}
-            ? This cannot be reverted. Existing published pages stay as they are.
+              ? t("knowledge.ui.forgetAll")
+              : t("knowledge.ui.forgetRecord")}{" "}
+            {t("knowledge.ui.irreversible")}{" "}
           </p>
           <Button
             type="button"
@@ -760,13 +912,54 @@ export function ProjectKnowledgePanel({
               })
             }
           >
-            Permanently forget
+            {" "}
+            {t("knowledge.ui.permanent")}{" "}
           </Button>
           <Button type="button" variant="ghost" disabled={busy} onClick={() => setRemove(null)}>
-            Cancel
+            {" "}
+            {t("knowledge.ui.cancel")}{" "}
           </Button>
         </div>
       )}
+    </div>
+  );
+}
+
+function MappedBrandProposal({
+  proposal,
+  disabled,
+  saved,
+  onSave,
+}: {
+  proposal: ReturnType<typeof extractLabelledBrandProposals>[number];
+  disabled: boolean;
+  saved: boolean;
+  onSave: (value: string) => void;
+}) {
+  const t = useT();
+  const [value, setValue] = useState(proposal.value);
+  return (
+    <div className="rounded border p-3 space-y-2">
+      <label className="block text-sm font-medium">
+        {t(mappedBrandField(proposal.key)!.label)}
+        <Textarea
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          disabled={disabled || saved}
+          maxLength={2000}
+        />
+      </label>
+      <p className="text-xs text-muted-foreground">
+        {proposal.locator} · {proposal.excerpt}
+      </p>
+      <Button
+        type="button"
+        variant="outline"
+        disabled={disabled || saved || !brandRecordPatch({ ...proposal, value })}
+        onClick={() => onSave(value)}
+      >
+        {t(saved ? "knowledge.brand.saved" : "knowledge.brand.save")}
+      </Button>
     </div>
   );
 }

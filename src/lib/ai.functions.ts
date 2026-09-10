@@ -2179,7 +2179,7 @@ export const generateContentAssetFn = createServerFn({ method: "POST" })
         const knowledge = await loadProjectKnowledgeContext(
           { ownerId: context.userId as string, projectId: project.id }, "text",
         );
-        const brief = [projectBrief(project, services), knowledge.context].filter(Boolean).join("\n\n");
+        const brief = [projectBrief(knowledge.brandIntelligence ? { ...project, brandIntelligence: knowledge.brandIntelligence } : project, services), knowledge.context].filter(Boolean).join("\n\n");
         // Generate in the project's primary content language (covers Danish too),
         // falling back to the opportunity's language if none is set.
         // P1-7 fix (2026-07-25): the OPPORTUNITY's language wins. A Polish-language
@@ -2307,7 +2307,7 @@ export async function generateContentCore(
       const opp = data.opportunity as Opportunity;
       const { loadProjectKnowledgeContext } = await import("./project-knowledge.server");
       const knowledge = await loadProjectKnowledgeContext({ownerId: userId, projectId: project.id}, "text");
-      const brief = [projectBrief(project, services), knowledge.context].filter(Boolean).join("\n\n");
+      const brief = [projectBrief(knowledge.brandIntelligence ? { ...project, brandIntelligence: knowledge.brandIntelligence } : project, services), knowledge.context].filter(Boolean).join("\n\n");
       // P1-7 fix (2026-07-25): the OPPORTUNITY's language wins. A Polish-language
       // opportunity on a Swedish-market project must generate a Polish article —
       // the project's content language is only the fallback when the opportunity

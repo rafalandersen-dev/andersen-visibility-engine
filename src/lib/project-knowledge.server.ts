@@ -1,3 +1,9 @@
+import {
+  filterBrandKnowledge,
+  mappedBrandField,
+  resolveKnowledgeBrand,
+  type BrandProfile,
+} from "./knowledge-brand";
 import { z } from "zod";
 import {
   knowledgeRecordSchema,
@@ -349,8 +355,42 @@ export async function loadProjectKnowledgeContext(
   maxBytes = 8000,
 ) {
   const state = await readProjectKnowledge(target, rpc);
-  return projectKnowledgeContext(
-    selectProjectKnowledge(state.sources, state.records, target, output, nowIso),
-    maxBytes,
-  );
+  let selection = selectProjectKnowledge(state.sources, state.records, target, output, nowIso);
+  let profile: BrandProfile | undefined;
+  if (selection.records.some((record) => mappedBrandField(record.key))) {
+    const raw = await call(
+      "read_project_knowledge_brand",
+      { p_user: target.ownerId, p_project: target.projectId },
+      rpc,
+    );
+    const parsed = z
+      .object({
+        brandIntelligence: z.record(z.unknown()).nullable(),
+        brandOwnerFields: z.array(z.string().max(100)).max(100),
+        toneOfVoice: z.string().max(2000),
+      })
+      .strict()
+      .safeParse(raw);
+    if (!parsed.success) throw new KnowledgeUnavailableError();
+    profile = parsed.data as BrandProfile;
+    selection = filterBrandKnowledge(selection, profile);
+  }
+  const result = projectKnowledgeContext(selection, maxBytes);
+  const included = new Set(result.references.map((reference) => reference.recordId));
+  const resolvedBrand = profile
+    ? resolveKnowledgeBrand(
+        profile,
+        selection.records.filter((record) => included.has(record.id)),
+        nowIso,
+      )
+    : undefined;
+  return {
+    ...result,
+    ...(profile
+      ? {
+          brandIntelligence: resolvedBrand,
+          toneOfVoice: resolvedBrand?.voice?.tone || profile.toneOfVoice || "",
+        }
+      : {}),
+  };
 }

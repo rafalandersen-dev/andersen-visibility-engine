@@ -281,3 +281,19 @@ $$;
 REVOKE ALL ON FUNCTION public.purge_deleted_project_knowledge() FROM PUBLIC,anon,authenticated,service_role;
 CREATE TRIGGER purge_deleted_project_knowledge AFTER DELETE ON public.workspace_entities
   FOR EACH ROW EXECUTE FUNCTION public.purge_deleted_project_knowledge();
+
+-- Read the canonical profile under the same account/project boundary. This is
+-- used only when mapped source records are candidates for generation.
+CREATE FUNCTION public.read_project_knowledge_brand(p_user uuid,p_project text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+  PERFORM public.assert_knowledge_project(p_user,p_project);
+  RETURN (SELECT jsonb_build_object(
+    'brandIntelligence',data->'brandIntelligence',
+    'brandOwnerFields',coalesce(data->'brandOwnerFields','[]'::jsonb),
+    'toneOfVoice',coalesce(data->'toneOfVoice','""'::jsonb)
+  ) FROM public.workspace_entities WHERE user_id=p_user AND collection='projects' AND entity_id=p_project);
+END;
+$$;
+REVOKE ALL ON FUNCTION public.read_project_knowledge_brand(uuid,text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.read_project_knowledge_brand(uuid,text) TO service_role;
