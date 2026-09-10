@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store";
 import { useT } from "@/i18n";
 import { getAnalyticsSummaryFn, type AnalyticsSummary } from "@/lib/analytics.functions";
+import { LogEvidencePanel } from "@/components/LogEvidencePanel";
 import { GscLiteSection } from "@/components/GscLiteSection";
 import {
   BarChart3,
@@ -118,6 +119,7 @@ function AnalyticsPage() {
         </div>
       }
     >
+      <LogEvidencePanel projectId={project.id} />
       {loading && !data ? (
         <div className="rounded-lg border border-dashed border-border p-12 text-center text-muted-foreground">
           <Loader2 className="mx-auto h-6 w-6 animate-spin" />{" "}
