@@ -27,7 +27,7 @@ beforeAll(async () => {
   await db.query("INSERT INTO auth.users VALUES($1),($2)", [user, other]);
   await db.query("INSERT INTO workspace_meta VALUES($1),($2)", [user, other]);
   await db.query(
-    "INSERT INTO workspace_entities(user_id,collection,entity_id) VALUES($1,'projects','p')",
+    "INSERT INTO workspace_entities(user_id,collection,entity_id,data) VALUES($1,'projects','p','{\"autoScheduler\":{\"enabled\":true}}')",
     [user],
   );
   for (const migration of [
@@ -213,6 +213,14 @@ describe("durable weekly stage identity", () => {
       state: "retained",
       requestId: first.requestId,
     });
+  });
+  it("rechecks a project pause before admitting another stage", async () => {
+    await set();
+    const token = await claim(period);
+    await db.exec('UPDATE workspace_entities SET data=\'{"autoScheduler":{"enabled":false}}\'');
+    await expect(begin(token)).rejects.toThrow("scheduler_disabled");
+    await db.exec('UPDATE workspace_entities SET data=\'{"autoScheduler":{"enabled":true}}\'');
+    expect((await begin(token)).acquired).toBe(true);
   });
   it("rejects foreign scope, expired lease, another period and browser direct access", async () => {
     await set();

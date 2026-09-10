@@ -114,7 +114,8 @@ BEGIN
     OR lease.planned_period NOT LIKE 'week:%' THEN RAISE EXCEPTION 'scheduler_engine_changed' USING ERRCODE='40001'; END IF;
   IF p_publish IS NULL OR NOT isfinite(p_publish) OR p_publish<=clock_timestamp() OR p_stage IS NULL OR p_stage NOT IN ('research','content','image')
     OR p_hash IS NULL OR p_hash !~ '^[a-f0-9]{64}$' THEN RAISE EXCEPTION 'invalid_weekly_stage' USING ERRCODE='22023'; END IF;
-  SELECT coalesce(nullif(data->'autoScheduler'->>'timeZone',''),'Europe/Stockholm') INTO zone FROM public.workspace_entities WHERE user_id=p_user AND collection='projects' AND entity_id=p_project;
+  IF NOT EXISTS(SELECT 1 FROM public.workspace_entities WHERE user_id=p_user AND collection='projects' AND entity_id=p_project AND data->'autoScheduler'->'enabled'='true'::jsonb) THEN RAISE EXCEPTION 'scheduler_disabled'; END IF;
+  SELECT coalesce(nullif(btrim(data->'autoScheduler'->>'timeZone'),''),'Europe/Stockholm') INTO zone FROM public.workspace_entities WHERE user_id=p_user AND collection='projects' AND entity_id=p_project;
   IF to_char(date_trunc('week',p_publish AT TIME ZONE zone),'YYYY-MM-DD')<>substring(lease.planned_period FROM 6) THEN RAISE EXCEPTION 'invalid_weekly_stage'; END IF;
   SELECT * INTO current FROM public.weekly_preparation_stages WHERE user_id=p_user AND project_id=p_project AND publish_at=p_publish AND stage=p_stage;
   IF current.request_id IS NOT NULL THEN
