@@ -1996,14 +1996,16 @@ export const scanWebsiteFn = createServerFn({ method: "POST" })
 export async function generateOpportunitiesCore(
   userId: string,
   data: { project: Project; services: ServiceItem[]; existingTitles: string[] },
-  metering: { enforceLimit?: boolean } = {},
+  metering: { enforceLimit?: boolean; attempt?: NativeExpenseContext["attempt"] } = {},
 ) {
   {
     // Spend limit, claimed before any model call so a refusal costs nothing.
     await claimAiUsage({ userId, bucket: "aiCredits", enforceLimit: metering.enforceLimit });
     const project = data.project as Project;
     const services = data.services as ServiceItem[];
-    const brief = projectBrief(project, services);
+    const { loadProjectKnowledgeContext } = await import("./project-knowledge.server");
+    const knowledge = await loadProjectKnowledgeContext({ownerId:userId,projectId:project.id},"text");
+    const brief = [projectBrief(knowledge.brandIntelligence ? {...project,brandIntelligence:knowledge.brandIntelligence} : project, services),knowledge.context].filter(Boolean).join("\n\n");
     const existing = data.existingTitles.length
       ? `\nAvoid duplicating these existing titles:\n- ${data.existingTitles.join("\n- ")}`
       : "";
@@ -2016,7 +2018,7 @@ export async function generateOpportunitiesCore(
         serviceCount: services.length,
       });
       const payload = await generateJsonText(
-        { userId: userId, operation: "generateOpportunitiesCore" },
+        { userId: userId, operation: "generateOpportunitiesCore", attempt: metering.attempt },
         `You are an SEO and AI-visibility strategist for small businesses.
 
 Generate 6 high-quality content opportunities for this business.
