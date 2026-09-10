@@ -147,7 +147,7 @@ import { buildKnownInternalPaths, buildActiveInternalPaths } from "@/lib/publish
 import { assembleContentAsset } from "@/lib/content-assembler";
 import { buildPublishingChecklist } from "@/lib/checklist";
 import { schemaConnectorCapability } from "@/lib/schema-delivery";
-import type { ChecklistItem } from "@/lib/types";
+import { PublishingChecklist } from "@/components/PublishingChecklist";
 
 /** Presentation-only styling for the preview's canonical semantic HTML. */
 const PREVIEW_STYLE = `
@@ -3067,72 +3067,6 @@ function ReplaceControl({
  * (with a resolution hint each), advisory warnings, and the honest structured-data
  * delivery status. The publish buttons are disabled while any hard blocker fails.
  */
-function PublishingChecklist({
-  items,
-  schema,
-}: {
-  items: ChecklistItem[];
-  schema: ReturnType<typeof schemaConnectorCapability>;
-}) {
-  const blockers = items.filter((i) => i.blocking && !i.passed);
-  const warnings = items.filter((i) => !i.blocking && !i.passed);
-  return (
-    <div className="space-y-2.5">
-      <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-        {blockers.length ? (
-          <>
-            <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
-            Publishing blocked — {blockers.length} to resolve
-          </>
-        ) : (
-          <>
-            <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-500" />
-            Ready to publish — all safety checks pass
-          </>
-        )}
-      </div>
-      {blockers.length ? (
-        <ul className="space-y-1.5">
-          {blockers.map((b) => (
-            <li
-              key={b.key}
-              className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs"
-            >
-              <div className="font-medium text-foreground">{b.label}</div>
-              {b.detail ? <p className="mt-0.5 text-muted-foreground">{b.detail}</p> : null}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {warnings.length ? (
-        <details className="text-xs">
-          <summary className="cursor-pointer text-muted-foreground">
-            {warnings.length} advisory warning{warnings.length === 1 ? "" : "s"} (won&apos;t block
-            publishing)
-          </summary>
-          <ul className="mt-1.5 space-y-1">
-            {warnings.map((w) => (
-              <li key={w.key} className="text-muted-foreground">
-                <span className="text-foreground/80">{w.label}</span>
-                {w.detail ? ` — ${w.detail}` : ""}
-              </li>
-            ))}
-          </ul>
-        </details>
-      ) : null}
-      <p className="text-[11px] text-muted-foreground">
-        Structured data: {schema.generated ? "generated" : "none generated"}
-        {" · "}
-        {!schema.generated
-          ? "nothing to deliver"
-          : schema.connector === "custom"
-            ? "custom endpoint — JSON-LD delivery not supported"
-            : `included in the ${schema.connector} payload (retention on your site is not verified — implementation, not confirmed appearance)`}
-        .
-      </p>
-    </div>
-  );
-}
 
 function LinkSafetyPanel({
   links,

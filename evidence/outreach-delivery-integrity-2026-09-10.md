@@ -1,5 +1,7 @@
 # R15 outreach delivery integrity — candidate, 10 September 2026
 
+**Released through PR118.** The later [release record](outreach-delivery-integrity-release-2026-09-10.md) supersedes all pending/unapplied states below. Migration20260910230000 is now applied once and must never be edited or replayed. Runtime source hashes match; optional runtime Git metadata is unavailable, explicitly qualified in that record.
+
 Recovered exact clean PR117 release record `09207924a7b10ccbee26599ca1e407d6d4145ac7` in an isolated `codex/milo-outreach-integrity-20260910` branch. Predecessor confirmed exclusive sequential handoff and stopped implementation. PR117 final Claude34521671640 completed with10permissiondenials/no buffered inline comments; its release evidence is updated without rerun.
 
 Code inspection confirmed browser-writable delivery events and timestamps controlled daily/cooldown admission and follow-up timing; admission was non-atomic before provider I/O; ambiguous provider results became retryable Failed drafts; confirmation did not bind the exact reviewed message. This candidate replaces authority with private service-owned, bounded, once-only reservations/receipts and locked account admission, exact review snapshot/confirmation, immediate pre-I/O suppression/revision gate, held unknown outcomes, bounded safe provider transport, actual project receipt history and safe accepted-result recovery. Four locales and regression coverage are integrated. [Behavior and limitations](../docs/OUTREACH-DELIVERY-INTEGRITY.md).

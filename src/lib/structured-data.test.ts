@@ -46,7 +46,7 @@ describe("extractFaqFromMarkdown (P0.5)", () => {
     const md = "## FAQ\n\n### Is it **safe**?\n\nYes — see [our guide](/guide) and `notes`.";
     const [faq] = extractFaqFromMarkdown(md);
     expect(faq.question).toBe("Is it safe?");
-    expect(faq.answer).toBe("Yes — see our guide and notes.");
+    expect(faq.answer).toBe("Yes — see our guide and `notes`.");
   });
 });
 

@@ -5,20 +5,20 @@
  * from the canonical visible content, but what a connector does with it varies,
  * and Milo does not (yet) verify the live destination. This module reports the
  * honest per-connector status so the UI never claims a schema is live when it
- * only left our side.
+ * is only planned for a payload.
  *
  * Levels never conflate implementation / eligibility / appearance (C15): this is
  * strictly about DELIVERY of the markup, not whether Google shows a rich result.
  */
 import type { PublishingConnectorType } from "./types";
 
-export type SchemaDeliveryLevel = "yes" | "no" | "unverified" | "unsupported";
+export type SchemaDeliveryLevel = "planned" | "no" | "unverified" | "unsupported";
 
 export interface SchemaConnectorCapability {
-  connector: "wordpress" | "shopify" | "custom";
+  connector: "wordpress" | "shopify" | "custom" | "none";
   /** Milo produced valid JSON-LD for the asset. */
   generated: boolean;
-  /** Was the JSON-LD included in what we sent to the connector? */
+  /** Planned inclusion only. This capability is not a receipt of a sent payload. */
   includedInPayload: SchemaDeliveryLevel;
   /** Did the destination keep it? WordPress/Shopify may strip inline <script>. */
   retainedByConnector: SchemaDeliveryLevel;
@@ -31,10 +31,9 @@ export interface SchemaConnectorCapability {
  * The honest schema-delivery matrix for a connector. `hasSchema` is whether Milo
  * generated any JSON-LD for the asset.
  *
- * - WordPress / Shopify: the JSON-LD is appended to the post/article body we
- *   send, but security plugins / theme sanitisation may strip an inline
+ * - WordPress / Shopify: JSON-LD is planned for the post/article body, but security plugins / theme sanitisation may strip an inline
  *   <script>, and Milo does not read back the live page — so retention and
- *   destination-verification are UNVERIFIED, not "delivered".
+ *   destination-verification are UNVERIFIED. This function has no dispatch receipt.
  * - Custom endpoint: receives markdown only; JSON-LD delivery is UNSUPPORTED
  *   without a connector-contract change (which needs approval). Never reported as
  *   complete for this connector.
@@ -43,6 +42,16 @@ export function schemaConnectorCapability(
   connectorType: PublishingConnectorType | undefined,
   hasSchema: boolean,
 ): SchemaConnectorCapability {
+  if (!connectorType) {
+    return {
+      connector: "none",
+      generated: hasSchema,
+      includedInPayload: "unverified",
+      retainedByConnector: "unverified",
+      verifiedOnDestination: "unverified",
+      note: "No publishing connector selected. No payload delivery is established.",
+    };
+  }
   if (connectorType === "custom") {
     return {
       connector: "custom",
@@ -57,9 +66,9 @@ export function schemaConnectorCapability(
   return {
     connector,
     generated: hasSchema,
-    includedInPayload: hasSchema ? "yes" : "no",
+    includedInPayload: hasSchema ? "planned" : "no",
     retainedByConnector: "unverified",
     verifiedOnDestination: "unverified",
-    note: "Structured data is appended to the published body. Retention depends on the site's sanitisation, and Milo does not verify the live page — implementation, not confirmed appearance.",
+    note: "Structured data is planned for the outgoing body; this is not a dispatch receipt. Retention depends on the site's sanitisation, and Milo does not verify the live page — implementation, not confirmed appearance.",
   };
 }

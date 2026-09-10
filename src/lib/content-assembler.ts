@@ -427,6 +427,7 @@ export function assembleContentAsset(
     title: asset.title,
     description: asset.metaDescription ?? "",
     bodyMarkdown: markdown,
+    renderedBodyHtml: html,
     businessName: project.businessName || project.name,
     url: asset.liveUrl,
     datePublished: asset.livePublishedAt,

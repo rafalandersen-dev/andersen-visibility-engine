@@ -40,6 +40,12 @@ export async function publicationVersion(
     markdown: assembled.markdown,
     html: assembled.html,
     jsonLd: assembled.jsonLd,
+    // Transport now preserves the approved assembled HTML, including figures.
+    // Existing CMS approvals require a fresh review; custom Markdown is unchanged.
+    htmlDeliveryRevision:
+      project.connectorType === "wordpress" || project.connectorType === "shopify"
+        ? "assembled-html-v1"
+        : undefined,
     // Preserve reviewed evidence identity independently of visible rendering.
     knowledgeReferences: asset.knowledgeReferences ?? [],
     sourceDependencies: asset.sourceDependencies ?? [],
