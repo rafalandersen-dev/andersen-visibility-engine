@@ -1,5 +1,26 @@
 export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, string>> = {
   en: {
+    "awareness.title": "Current project work",
+    "awareness.help":
+      "In-app only. These checks do not send email. Holds stay visible until the queue changes; opening them does not approve or restart work.",
+    "awareness.project": "Choose project",
+    "awareness.approval": "Exact version needs approval",
+    "awareness.resume": "Approved version is still held",
+    "awareness.late":
+      "This date has passed. Review the draft and choose an explicit scheduling action.",
+    "awareness.paused":
+      "Automation is intentionally paused. Existing publication holds remain separate.",
+    "awareness.disabled": "Automation is disabled.",
+    "awareness.settings": "Open schedule settings",
+    "awareness.history":
+      "Last saved weekly result — historical, not a new check of capacity or sources",
+    "awareness.empty": "No approval holds on this page.",
+    "awareness.page": "Queue page {page} of {pages}",
+    "awareness.error": "Current records could not be checked. Refresh before acting.",
+    "awareness.checked": "Checked {at}",
+    "awareness.weekly": "Current weekly slot records",
+    "awareness.earlier": "Earlier inbox alerts",
+
     "notifications.failureInspect": "Inspect publication details",
     "notifications.failureReadError":
       "Publication details could not be checked. Try again before deciding what to do.",
@@ -102,6 +123,26 @@ export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, str
     "notifications.readError": "Could not mark this notification as read. Please try again.",
   },
   pl: {
+    "awareness.title": "Bieżąca praca projektu",
+    "awareness.help":
+      "Tylko w aplikacji. Te kontrole nie wysyłają e-maili. Wstrzymania pozostają widoczne do zmiany kolejki; otwarcie nie zatwierdza ani nie wznawia pracy.",
+    "awareness.project": "Wybierz projekt",
+    "awareness.approval": "Ta wersja wymaga zatwierdzenia",
+    "awareness.resume": "Zatwierdzona wersja nadal jest wstrzymana",
+    "awareness.late": "Termin minął. Sprawdź szkic i świadomie wybierz działanie w harmonogramie.",
+    "awareness.paused":
+      "Automatyzacja jest celowo wstrzymana. Wstrzymania publikacji pozostają osobne.",
+    "awareness.disabled": "Automatyzacja jest wyłączona.",
+    "awareness.settings": "Otwórz ustawienia harmonogramu",
+    "awareness.history":
+      "Ostatni zapisany wynik tygodnia — historyczny, bez ponownej kontroli limitu lub źródeł",
+    "awareness.empty": "Brak wstrzymań zatwierdzenia na tej stronie.",
+    "awareness.page": "Strona kolejki {page} z {pages}",
+    "awareness.error": "Nie udało się sprawdzić aktualnych danych. Odśwież przed działaniem.",
+    "awareness.checked": "Sprawdzono {at}",
+    "awareness.weekly": "Aktualne wpisy tygodniowego harmonogramu",
+    "awareness.earlier": "Wcześniejsze alerty skrzynki",
+
     "notifications.failureInspect": "Sprawdź powód zatrzymania",
     "notifications.failureReadError":
       "Nie udało się sprawdzić szczegółów publikacji. Spróbuj ponownie przed podjęciem decyzji.",
@@ -208,6 +249,26 @@ export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, str
       "Nie udało się oznaczyć powiadomienia jako przeczytanego. Spróbuj ponownie.",
   },
   sv: {
+    "awareness.title": "Aktuellt projektarbete",
+    "awareness.help":
+      "Endast i appen. Kontrollerna skickar ingen e-post. Stopp visas tills kön ändras; att öppna dem godkänner eller startar inte arbetet.",
+    "awareness.project": "Välj projekt",
+    "awareness.approval": "Den exakta versionen behöver godkännas",
+    "awareness.resume": "Godkänd version är fortfarande stoppad",
+    "awareness.late":
+      "Datumet har passerat. Granska utkastet och välj en uttrycklig schemaläggningsåtgärd.",
+    "awareness.paused": "Automatiken är avsiktligt pausad. Publikationsstopp hanteras separat.",
+    "awareness.disabled": "Automatiken är avstängd.",
+    "awareness.settings": "Öppna schemainställningar",
+    "awareness.history":
+      "Senast sparade veckoresultat — historik, ingen ny kontroll av kapacitet eller källor",
+    "awareness.empty": "Inga godkännandestopp på denna sida.",
+    "awareness.page": "Kösida {page} av {pages}",
+    "awareness.error": "Aktuella uppgifter kunde inte kontrolleras. Uppdatera innan du agerar.",
+    "awareness.checked": "Kontrollerat {at}",
+    "awareness.weekly": "Aktuella veckoposter",
+    "awareness.earlier": "Tidigare inkorgsaviseringar",
+
     "notifications.failureInspect": "Granska publiceringsdetaljer",
     "notifications.failureReadError":
       "Publiceringsdetaljerna kunde inte kontrolleras. Försök igen innan du bestämmer nästa steg.",
@@ -314,6 +375,26 @@ export const notifications: Record<"en" | "pl" | "sv" | "da", Record<string, str
     "notifications.readError": "Kunde inte markera aviseringen som läst. Försök igen.",
   },
   da: {
+    "awareness.title": "Aktuelt projektarbejde",
+    "awareness.help":
+      "Kun i appen. Kontrollerne sender ikke e-mail. Stop vises indtil køen ændres; åbning godkender eller genstarter ikke arbejdet.",
+    "awareness.project": "Vælg projekt",
+    "awareness.approval": "Den præcise version kræver godkendelse",
+    "awareness.resume": "Godkendt version er stadig stoppet",
+    "awareness.late":
+      "Datoen er passeret. Gennemgå kladden og vælg en konkret planlægningshandling.",
+    "awareness.paused": "Automatikken er bevidst sat på pause. Publiceringsstop håndteres separat.",
+    "awareness.disabled": "Automatikken er slået fra.",
+    "awareness.settings": "Åbn planlægningsindstillinger",
+    "awareness.history":
+      "Senest gemte ugeresultat — historik, ingen ny kontrol af kapacitet eller kilder",
+    "awareness.empty": "Ingen godkendelsesstop på denne side.",
+    "awareness.page": "Køside {page} af {pages}",
+    "awareness.error": "Aktuelle oplysninger kunne ikke kontrolleres. Opdater før du handler.",
+    "awareness.checked": "Kontrolleret {at}",
+    "awareness.weekly": "Aktuelle ugeposter",
+    "awareness.earlier": "Tidligere indbakkeadvarsler",
+
     "notifications.failureInspect": "Se publiceringsdetaljer",
     "notifications.failureReadError":
       "Publiceringsdetaljerne kunne ikke kontrolleres. Prøv igen, før du beslutter næste skridt.",

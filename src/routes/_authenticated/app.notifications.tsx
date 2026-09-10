@@ -1,3 +1,4 @@
+import { WorkAwareness } from "@/components/WorkAwareness";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
@@ -46,6 +47,8 @@ function NotificationsPage() {
       }
     >
       <div className="mx-auto max-w-4xl space-y-4">
+        <WorkAwareness />
+        <h2 className="text-lg font-semibold">{t("awareness.earlier")}</h2>
         <OperationalEmailSettings />
         <div aria-live="polite">
           {query.isPending && <p className="text-muted-foreground">{t("notifications.loading")}</p>}

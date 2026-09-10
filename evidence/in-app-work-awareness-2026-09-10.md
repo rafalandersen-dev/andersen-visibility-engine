@@ -1,0 +1,7 @@
+# R06 private in-app work awareness — implementation candidate
+
+Recovered clean released record c271738e0b505f99ac7af360092fccd2249d75fb on isolated branch codex/milo-in-app-awareness-20260910, exclusive sequential acceptance confirmed to predecessor. PR114 final Claude34509888331 completed SUCCESS17:54:38UTC with27permissiondenials; inspected without rerun and recorded in its release evidence.
+
+Implemented actual Notifications UI, authenticated selected-project feed, exact-version approval checks for review holds and imminent/late pending rows, bounded pagination, explicit valid-approval-but-held state, expired-date guidance, paused/disabled distinction, current/next local weekly queue state and dated historical blocker summaries. Editor/calendar/setup links preserve project scope. Four locales. Separate read-only feed structurally avoids shared notification storage and both email outbox selectors. No migration/timer mutation is needed. See docs/IN-APP-WORK-AWARENESS.md for usage and limits.
+
+Validation and final release status will be recorded after exact candidate review. Local initial full suite passes2,804tests/207files; types/build/focused lint pass. Additional static component checks exercise failed rechecks, holds, intentional pause and historical summaries. No signed-in/browser acceptance, provider generation/funding, email, client publication, production data import or policy retry performed. Team membership/recipients and fullR06 remain open; public paid launch remains NO-GO.
