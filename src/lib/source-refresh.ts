@@ -32,6 +32,7 @@ export const observedFactSchema = z
     locator: bounded(200),
     fingerprint: hash,
     validUntil: instant.optional(),
+    validityUnknown: z.boolean().optional(),
   })
   .strict();
 export type ObservedFact = z.infer<typeof observedFactSchema>;
@@ -168,7 +169,8 @@ export function checkOutputDependencies(input: {
     const snapshot = sources.get(dependency.sourceId);
     const fact = snapshot?.facts.find((f) => f.key === dependency.key);
     let reason: DependencyIssue["reason"] | undefined;
-    if (!snapshot || !fact || unavailable.has(dependency.sourceId)) reason = "unavailable";
+    if (!snapshot || !fact || fact.validityUnknown || unavailable.has(dependency.sourceId))
+      reason = "unavailable";
     else if (
       Date.parse(snapshot.observedAt) > now ||
       useAt - Date.parse(snapshot.observedAt) > input.maxAgeMs

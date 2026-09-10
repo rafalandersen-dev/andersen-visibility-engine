@@ -8,6 +8,8 @@ P1 release review continues separately in the main task worktree. P2 checkout `/
 
 Fourteen deterministic tests pass, including changed price, offer expiry at the scheduled time, missing catalog coverage, source outage, future/stale observations, cross-project state and duplicate source identity. TypeScript and focused lint pass. Logs `/tmp/milo-p2-refresh-tests.log`, `/tmp/milo-p2-types.log`. This is not an integrated P2 product or release candidate.
 
+The bounded public-page parsing adapter is now implemented and tested (22 tests across both modules; types and focused lint pass). It extracts explicit Product/Offer identity, names/descriptions/specifications, price with explicit currency, reported availability and offset-qualified expiry from Schema.org JSON-LD, plus a bounded readable-text excerpt. It does not execute page scripts, fetch linked data, infer missing IDs/currencies/markets/timezones, resolve conflicting offers, or treat AggregateOffer ranges as exact prices. Date-only expiry is retained as unknown validity and holds dependent use. Source definitions checked against https://schema.org/Product and https://schema.org/Offer. Network capture/persistence integration remains next; no live source fetch ran.
+
 ## Next integration
 
 1. Add a bounded public-page adapter using the existing pinned-address reader. Source-reported Schema.org Product/Offer fields must preserve explicit identity/market/currency, uncertain date-only offer expiry and conflicting offers. Never infer catalog completeness from HTML or execute page content. Existing Shopify support is article publishing, not authenticated catalog ingestion; do not claim the latter exists.
