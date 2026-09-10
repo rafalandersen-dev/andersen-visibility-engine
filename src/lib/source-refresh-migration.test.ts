@@ -434,4 +434,130 @@ describe("scoped source refresh storage", () => {
     );
     expect((await begin()).rows[0].result.acquired).toBe(true);
   });
+  it("copies durable source evidence on image reuse and releases removed-image capacity", async () => {
+    const dep = {
+      ownerId: user,
+      projectId: "p",
+      sourceId: sid,
+      key: "price",
+      fingerprint: "a".repeat(64),
+    };
+    const original = {
+      id: "original-image",
+      url: "https://cdn.example.com/image.jpg",
+      status: "accepted",
+    };
+    await db.query(
+      "INSERT INTO workspace_entities(user_id,collection,entity_id,data) VALUES($1,'content','image-origin',$2)",
+      [user, JSON.stringify({ projectId: "p", images: [original] })],
+    );
+    await db.query(
+      "INSERT INTO project_output_source_dependencies(user_id,project_id,asset_id,output_id,kind,dependencies) VALUES($1,'p','image-origin','original-image','image',$2)",
+      [user, JSON.stringify([dep])],
+    );
+    // No browser dependency fields are supplied. The shared public URL resolves
+    // the original saved image and copies its private registry entry atomically.
+    const copy = { id: "copied-image", url: original.url, status: "accepted", source: "existing" };
+    await db.query(
+      "INSERT INTO workspace_entities(user_id,collection,entity_id,data) VALUES($1,'content','image-copy',$2)",
+      [user, JSON.stringify({ projectId: "p", images: [copy] })],
+    );
+    expect(
+      (
+        await db.query<{ dependencies: unknown }>(
+          "SELECT dependencies FROM project_output_source_dependencies WHERE asset_id='image-copy'",
+        )
+      ).rows[0].dependencies,
+    ).toEqual([dep]);
+    await db.exec(
+      `UPDATE workspace_entities SET data=jsonb_set(data,'{images}','[]') WHERE entity_id='image-origin'`,
+    );
+    expect(
+      (await db.query("SELECT asset_id FROM project_output_source_dependencies")).rows,
+    ).toEqual([{ asset_id: "image-copy" }]);
+    // Editing away evidence fields cannot erase the copied durable evidence.
+    await db.exec(
+      `UPDATE workspace_entities SET data=data || '{"title":"Edited"}' WHERE entity_id='image-copy'`,
+    );
+    expect(
+      (await db.query("SELECT asset_id FROM project_output_source_dependencies")).rows,
+    ).toHaveLength(1);
+    await db.exec(
+      `UPDATE workspace_entities SET data=jsonb_set(data,'{images}','[]') WHERE entity_id='image-copy'`,
+    );
+    expect((await db.query("SELECT * FROM project_output_source_dependencies")).rows).toEqual([]);
+    await db.exec(
+      "DELETE FROM workspace_entities WHERE entity_id IN ('image-origin','image-copy')",
+    );
+  });
+  it("retains forgotten-source holds on copies but never copies another owner's private evidence", async () => {
+    const original = {
+      id: "forgotten-image",
+      url: "https://cdn.example.com/forgotten.jpg",
+      status: "accepted",
+    };
+    await db.query(
+      "INSERT INTO workspace_entities(user_id,collection,entity_id,data) VALUES($1,'content','forgotten-origin',$2)",
+      [user, JSON.stringify({ projectId: "p", images: [original] })],
+    );
+    await db.query(
+      "INSERT INTO project_output_source_dependencies(user_id,project_id,asset_id,output_id,kind,dependencies,source_forgotten) VALUES($1,'p','forgotten-origin','forgotten-image','image','[]',true)",
+      [user],
+    );
+    for (const owner of [user, other])
+      await db.query(
+        "INSERT INTO workspace_entities(user_id,collection,entity_id,data) VALUES($1,'content','forgotten-copy',$2)",
+        [
+          owner,
+          JSON.stringify({
+            projectId: "p",
+            images: [{ ...original, id: "copy-id", source: "existing" }],
+          }),
+        ],
+      );
+    expect(
+      (
+        await db.query(
+          "SELECT user_id,source_forgotten,dependencies FROM project_output_source_dependencies WHERE asset_id='forgotten-copy'",
+        )
+      ).rows,
+    ).toEqual([{ user_id: user, source_forgotten: true, dependencies: [] }]);
+    await db.exec(
+      "DELETE FROM workspace_entities WHERE entity_id IN ('forgotten-origin','forgotten-copy')",
+    );
+  });
+  it("permits moving an image at full registry capacity without leaving its old row", async () => {
+    const original = {
+      id: "capacity-original",
+      url: "https://cdn.example.com/capacity.jpg",
+      status: "accepted",
+    };
+    await db.query(
+      "INSERT INTO workspace_entities(user_id,collection,entity_id,data) VALUES($1,'content','capacity-images',$2)",
+      [user, JSON.stringify({ projectId: "p", images: [original] })],
+    );
+    await db.query(
+      "INSERT INTO project_output_source_dependencies(user_id,project_id,asset_id,output_id,kind,dependencies,source_forgotten) VALUES($1,'p','capacity-images','capacity-original','image','[]',true)",
+      [user],
+    );
+    await db.query(
+      "INSERT INTO project_output_source_dependencies(user_id,project_id,asset_id,output_id,kind,dependencies) SELECT $1,'p','capacity-'||n,'capacity-'||n,'content','[]' FROM generate_series(1,999) n",
+      [user],
+    );
+    await db.query(
+      "UPDATE workspace_entities SET data=$2 WHERE user_id=$1 AND entity_id='capacity-images'",
+      [user, JSON.stringify({ projectId: "p", images: [{ ...original, id: "capacity-copy" }] })],
+    );
+    expect(
+      (
+        await db.query(
+          "SELECT output_id,source_forgotten FROM project_output_source_dependencies WHERE asset_id='capacity-images'",
+        )
+      ).rows,
+    ).toEqual([{ output_id: "capacity-copy", source_forgotten: true }]);
+    expect(
+      (await db.query("SELECT count(*)::int count FROM project_output_source_dependencies")).rows,
+    ).toEqual([{ count: 1000 }]);
+    await db.exec("DELETE FROM workspace_entities WHERE entity_id='capacity-images'");
+  });
 });
