@@ -109,7 +109,15 @@ describe("exact output knowledge publication", () => {
     const imageAsset = {
       ...asset,
       knowledgeReferences: [],
-      images: [{ id: "im" }],
+      images: [
+        {
+          id: "im",
+          concept: "Product",
+          alt: "Blue glass",
+          placement: "inline",
+          status: "proposed",
+        },
+      ],
     } as ContentAsset;
     const registry = [
       { assetId: "a", outputId: "im", kind: "image" as const, references: [ref], forgotten: false },
