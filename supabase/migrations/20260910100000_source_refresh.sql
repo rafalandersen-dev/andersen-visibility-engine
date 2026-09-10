@@ -46,7 +46,10 @@ DECLARE source public.project_knowledge_sources%ROWTYPE; current public.project_
 BEGIN
   PERFORM public.assert_knowledge_project(p_user,p_project,true);
   IF p_source IS NULL OR p_expected IS NULL OR p_expected<1 OR p_token IS NULL THEN RAISE EXCEPTION 'invalid_source_refresh' USING ERRCODE='22023'; END IF;
-  SELECT * INTO source FROM public.project_knowledge_sources WHERE user_id=p_user AND project_id=p_project AND id=p_source;
+  -- The account lock above already serializes ordinary workspace requests.
+  -- Lock the existing source as well before reading/upserting its refresh row.
+  SELECT * INTO source FROM public.project_knowledge_sources WHERE user_id=p_user AND project_id=p_project AND id=p_source FOR UPDATE;
+  instant:=clock_timestamp();
   IF source.id IS NULL OR source.revision<>p_expected OR source.payload->>'kind'<>'website' OR source.payload->>'status'<>'active' THEN
     RAISE EXCEPTION 'knowledge_source_changed' USING ERRCODE='40001';
   END IF;

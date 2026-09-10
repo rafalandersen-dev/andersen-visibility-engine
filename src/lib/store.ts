@@ -1,3 +1,4 @@
+import { CLEARED_SCHEDULE_FIELDS } from "./publish-outcome";
 import { changedBrandOwnerFields } from "./knowledge-brand";
 /**
  * Milo Growth — global app store.
@@ -682,7 +683,23 @@ export const addProject = (p: Omit<Project, "id">, opts: { isOwner: boolean }) =
 export const updateProject = (id: string, patch: Partial<Project>) =>
   setState((s) => ({
     ...s,
-    projects: s.projects.map((p) => (p.id === id ? { ...p, ...patch, ...(patch.brandIntelligence ? { brandOwnerFields: changedBrandOwnerFields(p.brandIntelligence, patch.brandIntelligence, p.brandOwnerFields) } : {}) } : p)),
+    projects: s.projects.map((p) =>
+      p.id === id
+        ? {
+            ...p,
+            ...patch,
+            ...(patch.brandIntelligence
+              ? {
+                  brandOwnerFields: changedBrandOwnerFields(
+                    p.brandIntelligence,
+                    patch.brandIntelligence,
+                    p.brandOwnerFields,
+                  ),
+                }
+              : {}),
+          }
+        : p,
+    ),
   }));
 
 /**
@@ -1115,6 +1132,8 @@ export const markContentAssetPublishedLive = (
       c.id === assetId
         ? {
             ...c,
+            ...CLEARED_SCHEDULE_FIELDS,
+            scheduledPublishError: undefined,
             livePublishStatus: "published" as const,
             liveUrl: data.liveUrl,
             livePublishedAt: data.livePublishedAt,
