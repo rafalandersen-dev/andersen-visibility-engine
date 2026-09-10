@@ -54,7 +54,7 @@ BEGIN
     RAISE EXCEPTION 'knowledge_source_changed' USING ERRCODE='40001';
   END IF;
   SELECT * INTO current FROM public.project_source_refresh WHERE user_id=p_user AND project_id=p_project AND source_id=p_source;
-  IF current.source_id IS NOT NULL AND (current.lease_until>instant OR current.last_attempt>instant-interval '10 minutes') THEN
+  IF current.source_id IS NOT NULL AND current.source_revision=p_expected AND (current.lease_until>instant OR current.last_attempt>instant-interval '10 minutes') THEN
     RETURN jsonb_build_object('acquired',false);
   END IF;
   IF current.source_id IS NULL AND (SELECT count(*) FROM public.project_source_refresh WHERE user_id=p_user AND project_id=p_project)>=10 THEN
