@@ -10,6 +10,7 @@
  */
 import { useStore } from "@/lib/store";
 import type { OnboardingLanguage } from "@/lib/types";
+import { backlinkIntegrity } from "./backlink-integrity";
 import { gscIntegrity } from "./gsc-integrity";
 import { logEvidenceCopy } from "./log-evidence";
 import { answerEvidenceCopy } from "./answer-evidence";
@@ -38,6 +39,7 @@ export function translate(
 ): string {
   const l = isSupported(lang) ? lang : "en";
   let s =
+    backlinkIntegrity[l][key] ??
     gscIntegrity[l][key] ??
     logEvidenceCopy[l][key] ??
     answerEvidenceCopy[l][key] ??

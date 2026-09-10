@@ -1,3 +1,4 @@
+import { backlinkEvidencePrompt } from "./backlinks";
 import {
   CONTENT_LANGUAGES,
   resolveContentLanguage,
@@ -2967,6 +2968,8 @@ export const generateBacklinksFn = createServerFn({ method: "POST" })
 
     // 1. Raw index data. Own summary is required; everything else degrades.
     const own = await fetchBacklinkSummary(ownDomain);
+    if (own.fetchStatus === "unavailable")
+      throw new Error("Backlink summary metrics are unavailable.");
     const [competitorResults, referringResult, gapResult] = await Promise.all([
       Promise.all(
         competitorDomains.map(async (domain) => {
@@ -2980,12 +2983,12 @@ export const generateBacklinksFn = createServerFn({ method: "POST" })
             return {
               target: domain,
               fetchStatus: "failed" as const,
-              rank: 0,
-              backlinks: 0,
-              referringDomains: 0,
-              referringMainDomains: 0,
-              brokenBacklinks: 0,
-              spamScore: 0,
+              rank: null,
+              backlinks: null,
+              referringDomains: null,
+              referringMainDomains: null,
+              brokenBacklinks: null,
+              spamScore: null,
             };
           }
         }),
@@ -2995,48 +2998,30 @@ export const generateBacklinksFn = createServerFn({ method: "POST" })
           "[ai.functions] backlinks referring domains failed",
           e instanceof Error ? e.message : e,
         );
-        return [];
+        return null;
       }),
       fetchBacklinkGap(ownDomain, competitorDomains, 30).catch((e) => {
         console.warn("[ai.functions] backlinks gap failed", e instanceof Error ? e.message : e);
-        return [];
+        return null;
       }),
     ]);
 
-    const fetchedCompetitors = competitorResults.filter((c) => c.fetchStatus === "fetched");
-    const summaryLine = (s: typeof own) =>
-      `${s.target}: domain rank ${s.rank}, backlinks ${s.backlinks}, referring domains ${s.referringDomains} (main: ${s.referringMainDomains}), broken backlinks ${s.brokenBacklinks}, spam score ${s.spamScore}${s.firstSeen ? `, first link seen ${s.firstSeen}` : ""}`;
-
-    const competitorBlock = competitorResults.length
-      ? `COMPETITOR LINK PROFILES (from the same index):\n${competitorResults
-          .map((c) =>
-            c.fetchStatus === "fetched"
-              ? `- ${summaryLine(c)}`
-              : `- ${c.target}: data could not be fetched — ignore.`,
-          )
-          .join("\n")}\n`
-      : "COMPETITOR LINK PROFILES: none provided (no competitor URLs on the project).\n";
-
-    const gapBlock = gapResult.length
-      ? `LINK GAP — domains that link to competitors but NOT to ${ownDomain} (top ${Math.min(gapResult.length, 20)} by overlap/rank):\n${gapResult
-          .slice(0, 20)
-          .map((g) => `- ${g.domain} (rank ${g.rank}) links to: ${g.competitorsLinked.join(", ")}`)
-          .join("\n")}\n`
-      : "LINK GAP: no gap data available (no competitors fetched or no overlap found).\n";
-
-    const referringBlock = referringResult.length
-      ? `TOP REFERRING DOMAINS already linking to ${ownDomain}:\n${referringResult
-          .slice(0, 15)
-          .map((r) => `- ${r.domain} (rank ${r.rank}, links ${r.backlinks}, spam ${r.spamScore})`)
-          .join("\n")}\n`
-      : `TOP REFERRING DOMAINS: none found for ${ownDomain} in the index yet.\n`;
+    const {
+      referringStatus,
+      gapStatus,
+      fetchedCompetitors,
+      ownBlock,
+      competitorBlock,
+      gapBlock,
+      referringBlock,
+    } = backlinkEvidencePrompt(own, competitorResults, referringResult, gapResult);
 
     try {
       const payload = await generateJsonText(
         { userId: context.userId as string, operation: "generateBacklinksFn" },
         `You are a white-hat link-building and digital-PR strategist for small and medium businesses.
 
-You are given REAL backlink-index data (below). Interpret it and produce prioritized, safe, practical link-building recommendations. STRICT SAFETY RULES: never recommend link exchanges, PBNs, mass directory spam or buying links that pass ranking signals; any paid placement you suggest MUST be described as a sponsored publication that should be clearly labeled. Do NOT invent numbers beyond the data provided. Use the gap domains as inspiration for the TYPE of sites to target — only name a specific domain from the data, never fabricate other specific domains.
+You are given a dated DataForSEO index response (below), not an independent crawl or complete web coverage. Tables are bounded top-N samples. Missing/failed/partial metrics are unavailable, never zero. Never infer absent or lost links from omitted sample rows. Scores are AI estimates, not provider metrics or measured outcomes. Interpret it and produce prioritized, safe, practical link-building recommendations. STRICT SAFETY RULES: never recommend link exchanges, PBNs, mass directory spam or buying links that pass ranking signals; any paid placement you suggest MUST be described as a sponsored publication that should be clearly labeled. Do NOT invent numbers beyond the data provided. Use the gap domains as inspiration for the TYPE of sites to target — only name a specific domain from the data, never fabricate other specific domains.
 
 Return exactly this JSON shape:
 {"overallLinkScore":0,"linkProfileScore":0,"linkGapScore":0,"linkQualityScore":0,"summary":"","topLinkActions":[""],"recommendations":[{"title":"","category":"Link Gap Targets|Content for Links|Digital PR|Partnerships & Sponsorships|Directories & Profiles|Link Hygiene","priority":"Low|Medium|High","effort":"Low|Medium|High","explanation":"","recommendation":"","targetDomainOrPlatform":"","suggestedApproach":"","suggestedOpportunityTitle":"","suggestedContentType":"Landing Page|Service Page|Blog Article|Guide|FAQ Page|Comparison|Location Page","suggestedSearchIntent":"Informational|Commercial|Transactional|Navigational","suggestedCta":""}]}
@@ -3047,7 +3032,7 @@ topLinkActions: 3–5 short strings naming the highest-impact link moves.
 Write summary, explanations, recommendations and titles in ${data.explanationLanguage}.
 
 BUSINESS LINK PROFILE (real index data for ${ownDomain}):
-${summaryLine(own)}
+${ownBlock}
 
 ${competitorBlock}
 ${gapBlock}
@@ -3106,8 +3091,8 @@ ${sharedRules}`,
 
       console.info("[ai.functions] backlinks parsed", {
         recommendations: recommendations.length,
-        gapDomains: gapResult.length,
-        referring: referringResult.length,
+        gapDomains: gapResult?.length ?? 0,
+        referring: referringResult?.length ?? 0,
       });
 
       return {
@@ -3115,12 +3100,29 @@ ${sharedRules}`,
         ownDomain,
         own,
         competitors: competitorResults,
-        topReferringDomains: referringResult,
-        gapDomains: gapResult,
-        overallLinkScore,
-        linkProfileScore,
-        linkGapScore,
-        linkQualityScore,
+        evidenceVersion: 1 as const,
+        referringStatus,
+        gapStatus,
+        topReferringDomains: referringResult ?? [],
+        gapDomains: gapResult ?? [],
+        overallLinkScore:
+          own.fetchStatus === "fetched" &&
+          gapStatus === "sample" &&
+          fetchedCompetitors.length === competitorDomains.length &&
+          competitorDomains.length > 0 &&
+          competitorResults.every((c) => c.fetchStatus === "fetched")
+            ? overallLinkScore
+            : null,
+        linkProfileScore: own.fetchStatus === "fetched" ? linkProfileScore : null,
+        linkGapScore:
+          own.fetchStatus === "fetched" &&
+          gapStatus === "sample" &&
+          competitorDomains.length > 0 &&
+          competitorResults.every((c) => c.fetchStatus === "fetched")
+            ? linkGapScore
+            : null,
+        linkQualityScore:
+          own.spamScore !== null && own.brokenBacklinks !== null ? linkQualityScore : null,
         summary,
         topLinkActions,
         recommendations,

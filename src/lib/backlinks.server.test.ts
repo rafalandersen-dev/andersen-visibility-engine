@@ -3,8 +3,10 @@
  * and response normalization. Fixtures mirror the documented live-endpoint
  * response shapes (summary, referring_domains, domain_intersection).
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import {
+  readBacklinkBody,
+  fetchBacklinkSummary,
   extractDomain,
   isDataForSeoConfigured,
   assertAccountUsable,
@@ -147,21 +149,34 @@ describe("normalizeSummaryResult", () => {
     });
   });
 
-  it("degrades to zeros for an empty/unknown target", () => {
-    const summary = normalizeSummaryResult([null], "new-domain.pl");
-    expect(summary).toMatchObject({
-      target: "new-domain.pl",
-      fetchStatus: "fetched",
-      rank: 0,
-      backlinks: 0,
-      referringDomains: 0,
-    });
-    expect(summary.firstSeen).toBeUndefined();
+  it("rejects missing payloads and keeps absent metrics unavailable", () => {
+    expect(() => normalizeSummaryResult([null], "new-domain.pl")).toThrow(/validated/);
+    expect(
+      normalizeSummaryResult([{ target: "new-domain.pl", backlinks: 0 }], "new-domain.pl"),
+    ).toMatchObject({ fetchStatus: "partial", backlinks: 0, rank: null, referringDomains: null });
+    expect(normalizeSummaryResult([{ target: "new-domain.pl" }], "new-domain.pl").fetchStatus).toBe(
+      "unavailable",
+    );
+  });
+  it.each(["12junk", "12", -1, Infinity, NaN, 1.2])("rejects malformed count %s", (value) => {
+    expect(() =>
+      normalizeSummaryResult([{ target: "example.com", backlinks: value }], "example.com"),
+    ).toThrow();
+  });
+  it("rejects mismatched target, extra results and invalid dates", () => {
+    expect(() => normalizeSummaryResult([{ target: "www.example.com" }], "example.com")).toThrow();
+    expect(() => normalizeSummaryResult([{ target: "example.com" }, {}], "example.com")).toThrow();
+    expect(() =>
+      normalizeSummaryResult(
+        [{ target: "example.com", first_seen: "2026-02-30 00:00:00" }],
+        "example.com",
+      ),
+    ).toThrow();
   });
 });
 
 describe("normalizeReferringDomainItems", () => {
-  it("maps items and drops entries without a domain", () => {
+  it("maps valid items", () => {
     const rows = normalizeReferringDomainItems([
       {
         target: "example.com",
@@ -173,7 +188,6 @@ describe("normalizeReferringDomainItems", () => {
             backlinks_spam_score: 5,
             first_seen: "2021-10-16 16:46:16 +00:00",
           },
-          { rank: 100, backlinks: 3 },
         ],
       },
     ]);
@@ -188,8 +202,11 @@ describe("normalizeReferringDomainItems", () => {
   });
 
   it("returns [] for an empty result", () => {
-    expect(normalizeReferringDomainItems([])).toEqual([]);
-    expect(normalizeReferringDomainItems([{ items: null }])).toEqual([]);
+    expect(() => normalizeReferringDomainItems([])).toThrow();
+    expect(() => normalizeReferringDomainItems([{ items: null }])).toThrow();
+    expect(
+      normalizeReferringDomainItems([{ items: null, items_count: 0, total_count: 0 }]),
+    ).toEqual([]);
   });
 });
 
@@ -200,6 +217,7 @@ describe("normalizeIntersectionItems", () => {
     const gaps = normalizeIntersectionItems(
       [
         {
+          targets: keyMap,
           items: [
             {
               domain_intersection: {
@@ -220,7 +238,7 @@ describe("normalizeIntersectionItems", () => {
     );
     expect(gaps).toHaveLength(2);
     expect(gaps[0]).toMatchObject({
-      domain: "xroxy.com",
+      domain: "www.xroxy.com",
       rank: 113,
       intersections: 2,
       competitorsLinked: ["moz.com", "ahrefs.com"],
@@ -233,12 +251,101 @@ describe("normalizeIntersectionItems", () => {
     });
   });
 
-  it("skips items with no resolvable domain", () => {
-    expect(
+  it("rejects malformed, unknown-key, mismatched and duplicate domains", () => {
+    const normalize = (intersection: unknown) =>
       normalizeIntersectionItems(
-        [{ items: [{ domain_intersection: { "1": { rank: 10 } } }] }],
+        [{ targets: keyMap, items: [{ domain_intersection: intersection }] }],
         keyMap,
-      ),
-    ).toEqual([]);
+      );
+    expect(() => normalize({ "1": { rank: 10 } })).toThrow();
+    expect(() => normalize({ "3": { target: "x.com", backlinks: 500 } })).toThrow();
+    expect(() => normalize({ "1": { target: "x.com" }, "2": { target: "y.com" } })).toThrow();
+    expect(() =>
+      normalizeIntersectionItems([{ targets: { "1": "wrong.com" }, items: [] }], keyMap),
+    ).toThrow();
+  });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+  vi.useRealTimers();
+});
+describe("bounded safe provider transport", () => {
+  it("rejects overlarge bodies and invalid JSON", async () => {
+    await expect(readBacklinkBody(new Response("x".repeat(2_000_001)))).rejects.toThrow(
+      /validated/,
+    );
+    await expect(readBacklinkBody(new Response("private upstream text"))).rejects.toThrow(
+      /validated/,
+    );
+  });
+  it("expires during a stalled body, after headers arrived", async () => {
+    vi.useFakeTimers();
+    vi.stubEnv("DATAFORSEO_LOGIN", "fixture");
+    vi.stubEnv("DATAFORSEO_PASSWORD", "fixture");
+    const cancel = vi.fn();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(new ReadableStream({ cancel }))),
+    );
+    const request = expect(fetchBacklinkSummary("example.com")).rejects.toThrow(/timed out/);
+    await vi.advanceTimersByTimeAsync(25_001);
+    await request;
+    expect(cancel).toHaveBeenCalledOnce();
+  });
+  it("rejects raw task errors safely and requires the exact echoed scope", async () => {
+    vi.stubEnv("DATAFORSEO_LOGIN", "fixture");
+    vi.stubEnv("DATAFORSEO_PASSWORD", "fixture");
+    const body = {
+      status_code: 20000,
+      tasks: [{ status_code: 50000, status_message: "PRIVATE sentinel", result: [] }],
+    };
+    const fetch = vi.fn(async () => Response.json(body));
+    vi.stubGlobal("fetch", fetch);
+    await expect(fetchBacklinkSummary("example.com")).rejects.toThrow(
+      "Backlink data request failed. Check the provider status before another analysis.",
+    );
+    fetch.mockImplementation(async () =>
+      Response.json({
+        status_code: 20000,
+        tasks: [
+          {
+            status_code: 20000,
+            data: { target: "other.com" },
+            result: [{ target: "example.com", backlinks: 0 }],
+          },
+        ],
+      }),
+    );
+    await expect(fetchBacklinkSummary("example.com")).rejects.toThrow(/request failed/);
+    fetch.mockImplementation(async () =>
+      Response.json({
+        status_code: 20000,
+        tasks: [
+          {
+            status_code: 20000,
+            data: { target: "example.com" },
+            result: [{ target: "example.com", backlinks: 0 }],
+          },
+        ],
+      }),
+    );
+    await expect(fetchBacklinkSummary("example.com")).resolves.toMatchObject({
+      backlinks: 0,
+      rank: null,
+      fetchStatus: "partial",
+    });
+  });
+  it("rejects oversized, duplicate and invalid referring rows", () => {
+    const row = { domain: "x.com", backlinks: 0 };
+    expect(() => normalizeReferringDomainItems([{ items: Array(26).fill(row) }])).toThrow();
+    expect(() => normalizeReferringDomainItems([{ items: [row, row] }])).toThrow();
+    expect(() =>
+      normalizeReferringDomainItems([{ target: "other.com", items: [] }], "example.com"),
+    ).toThrow();
+    expect(() =>
+      normalizeReferringDomainItems([{ items: [{ domain: "x.com/private?secret=a" }] }]),
+    ).toThrow();
   });
 });
