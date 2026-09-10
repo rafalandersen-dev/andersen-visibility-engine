@@ -1,6 +1,9 @@
 /** Project knowledge review strings. Wider intake/review localization remains in P1. */
 export const projectKnowledge = {
   en: {
+    "knowledge.impactHelp":
+      "Knowledge checks use the exact reviewed versions used in each article and image, including expiry at a saved publication date. Changed or withdrawn knowledge requires review; existing text and approvals are not changed.",
+    "knowledge.impactCount": "knowledge checks need review",
     "weekly.summary": "Latest preparation update",
     "weekly.stage.research": "Research brief",
     "weekly.stage.content": "Article",
@@ -259,6 +262,9 @@ export const projectKnowledge = {
     "knowledge.sourceHistory.latest": "Latest source versions",
   },
   pl: {
+    "knowledge.impactHelp":
+      "Sprawdzamy dokładne wersje wiedzy użyte w artykułach i obrazach, także ich ważność w zapisanym terminie publikacji. Zmieniona lub wycofana wiedza wymaga weryfikacji; tekst i zatwierdzenia pozostają bez zmian.",
+    "knowledge.impactCount": "kontroli wiedzy wymaga weryfikacji",
     "weekly.summary": "Ostatnia aktualizacja przygotowania",
     "weekly.stage.research": "Brief badawczy",
     "weekly.stage.content": "Artykuł",
@@ -519,6 +525,9 @@ export const projectKnowledge = {
     "knowledge.sourceHistory.latest": "Najnowsze wersje źródła",
   },
   sv: {
+    "knowledge.impactHelp":
+      "Kontrollen använder de exakta granskade versionerna för varje artikel och bild, även giltighet vid sparad publiceringstid. Ändrad eller återkallad kunskap behöver granskas; text och godkännanden ändras inte.",
+    "knowledge.impactCount": "kunskapskontroller behöver granskas",
     "weekly.summary": "Senaste uppdatering av förberedelsen",
     "weekly.stage.research": "Researchunderlag",
     "weekly.stage.content": "Artikel",
@@ -783,6 +792,9 @@ export const projectKnowledge = {
     "knowledge.sourceHistory.latest": "Senaste källversionerna",
   },
   da: {
+    "knowledge.impactHelp":
+      "Kontrollen bruger de præcise gennemgåede versioner for hver artikel og hvert billede, også gyldighed på det gemte udgivelsestidspunkt. Ændret eller tilbagekaldt viden kræver gennemgang; tekst og godkendelser ændres ikke.",
+    "knowledge.impactCount": "videnskontroller kræver gennemgang",
     "weekly.summary": "Seneste opdatering af forberedelsen",
     "weekly.stage.research": "Researchoplæg",
     "weekly.stage.content": "Artikel",

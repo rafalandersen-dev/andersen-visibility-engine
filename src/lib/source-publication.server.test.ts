@@ -17,6 +17,14 @@ vi.mock("./source-refresh.server", () => ({
   refreshProjectSource: mocked.refresh,
   readOutputSourceDependencies: mocked.registry,
 }));
+vi.mock("./knowledge-publication.server", () => ({
+  knowledgeIssuesForAsset: vi.fn(async () => []),
+  readOutputKnowledgeDependencies: vi.fn(async () => []),
+  evaluateAssetKnowledge: vi.fn(() => []),
+}));
+vi.mock("./project-knowledge.server", () => ({
+  readProjectKnowledge: vi.fn(async () => ({ sources: [], records: [] })),
+}));
 vi.mock("./workspace.server", () => ({ readWorkspaceRow: mocked.workspace }));
 const ownerId = "00000000-0000-4000-8000-000000000001",
   sourceId = "00000000-0000-4000-8000-000000000002";
@@ -281,4 +289,25 @@ it("starts source refreshes together and holds within one deadline if all stall"
   } finally {
     vi.useRealTimers();
   }
+});
+
+it("reports the same revoked knowledge once across current and future publication checks", async () => {
+  const { evaluateAssetKnowledge } = await import("./knowledge-publication.server");
+  const issue = {
+    sourceId: "source",
+    key: "record",
+    reason: "unavailable" as const,
+    evidence: "knowledge" as const,
+    critical: true as const,
+  };
+  vi.mocked(evaluateAssetKnowledge).mockReturnValue([issue]);
+  mocked.workspace.mockResolvedValue({
+    data: {
+      content: [{ ...asset, sourceDependencies: [], scheduledPublishAt: "2099-01-01T00:00:00Z" }],
+    },
+  });
+  const result = await readProjectSourceImpact(ownerId, "p");
+  expect(result.affected[0].issues).toEqual([issue]);
+  expect(result.affected[0].knowledgeIssueCount).toBe(1);
+  expect(evaluateAssetKnowledge).toHaveBeenCalledTimes(2);
 });

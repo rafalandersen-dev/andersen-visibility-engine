@@ -344,6 +344,28 @@ export async function revertProjectKnowledgeRecord(
     rpc,
   );
 }
+export async function readProjectKnowledgeBrand(
+  target: KnowledgeScope,
+  rpc?: KnowledgeRpc,
+): Promise<BrandProfile> {
+  scopeSchema.parse(target);
+  const raw = await call(
+    "read_project_knowledge_brand",
+    { p_user: target.ownerId, p_project: target.projectId },
+    rpc,
+  );
+  const parsed = z
+    .object({
+      brandIntelligence: z.record(z.unknown()).nullable(),
+      brandOwnerFields: z.array(z.string().max(100)).max(100),
+      toneOfVoice: z.string().max(2000),
+    })
+    .strict()
+    .safeParse(raw);
+  if (!parsed.success) throw new KnowledgeUnavailableError();
+  return parsed.data as BrandProfile;
+}
+
 /** Fetch immediately before generation; never accept a browser-supplied
  * knowledge snapshot or a cached summary after a revoke/replacement.
  */
@@ -358,21 +380,7 @@ export async function loadProjectKnowledgeContext(
   let selection = selectProjectKnowledge(state.sources, state.records, target, output, nowIso);
   let profile: BrandProfile | undefined;
   if (selection.records.some((record) => mappedBrandField(record.key))) {
-    const raw = await call(
-      "read_project_knowledge_brand",
-      { p_user: target.ownerId, p_project: target.projectId },
-      rpc,
-    );
-    const parsed = z
-      .object({
-        brandIntelligence: z.record(z.unknown()).nullable(),
-        brandOwnerFields: z.array(z.string().max(100)).max(100),
-        toneOfVoice: z.string().max(2000),
-      })
-      .strict()
-      .safeParse(raw);
-    if (!parsed.success) throw new KnowledgeUnavailableError();
-    profile = parsed.data as BrandProfile;
+    profile = await readProjectKnowledgeBrand(target, rpc);
     selection = filterBrandKnowledge(selection, profile);
   }
   const result = projectKnowledgeContext(selection, maxBytes);

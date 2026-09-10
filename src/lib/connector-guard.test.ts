@@ -16,6 +16,9 @@ vi.mock("./workspace.server", () => ({
   readWorkspaceRow: vi.fn(async () => ROW),
 }));
 
+vi.mock("./knowledge-publication.server", () => ({
+  knowledgeIssuesForAsset: vi.fn(async () => []),
+}));
 vi.mock("./source-refresh.server", () => ({ readOutputSourceDependencies: vi.fn(async () => []) }));
 
 const approval = vi.hoisted(() => ({ check: vi.fn() }));
