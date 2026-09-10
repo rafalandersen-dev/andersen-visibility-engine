@@ -1038,7 +1038,15 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       toast.success(t("editor.schedule.armed", { when: goLiveLabel }));
       setGoLiveLocal("");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not schedule the publish");
+      toast.error(
+        e instanceof Error && e.message === "publication_approval_required"
+          ? t("approval.needed")
+          : e instanceof Error && e.message === "publication_approval_unavailable"
+            ? t("approval.unavailable")
+            : e instanceof Error
+              ? e.message
+              : "Could not schedule the publish",
+      );
     } finally {
       setScheduling(false);
     }

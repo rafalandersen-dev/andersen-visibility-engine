@@ -22,7 +22,7 @@ const claim = async (period = "2026-10") =>
 beforeAll(async () => {
   db = new PGlite();
   await db.exec(
-    "CREATE TABLE ai_generation_usage_receipts(id uuid PRIMARY KEY,user_id uuid,native_attempt_id uuid);CREATE TABLE ai_generation_results(receipt_id uuid PRIMARY KEY,user_id uuid,payload jsonb,discarded_at timestamptz);CREATE ROLE anon;CREATE ROLE authenticated;CREATE ROLE service_role;CREATE SCHEMA auth;CREATE TABLE auth.users(id uuid PRIMARY KEY);CREATE TABLE workspace_meta(user_id uuid PRIMARY KEY,rev bigint DEFAULT 0);CREATE TABLE scheduled_publishes(user_id uuid,project_id text,asset_id text,publish_at timestamptz,status text);CREATE TABLE workspace_entities(user_id uuid,collection text,entity_id text,data jsonb DEFAULT '{}'::jsonb,PRIMARY KEY(user_id,collection,entity_id));",
+    "CREATE TABLE ai_generation_usage_receipts(id uuid PRIMARY KEY,user_id uuid,native_attempt_id uuid);CREATE TABLE ai_generation_results(receipt_id uuid PRIMARY KEY,user_id uuid,payload jsonb,discarded_at timestamptz);CREATE ROLE anon;CREATE ROLE authenticated;CREATE ROLE service_role;CREATE SCHEMA auth;CREATE TABLE auth.users(id uuid PRIMARY KEY);CREATE TABLE workspace_meta(user_id uuid PRIMARY KEY,rev bigint DEFAULT 0);CREATE TABLE scheduled_publishes(id uuid DEFAULT gen_random_uuid(),user_id uuid,project_id text,asset_id text,publish_at timestamptz,status text,attempts integer DEFAULT 0,created_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now());CREATE TABLE workspace_entities(user_id uuid,collection text,entity_id text,data jsonb DEFAULT '{}'::jsonb,PRIMARY KEY(user_id,collection,entity_id));",
   );
   await db.query("INSERT INTO auth.users VALUES($1),($2)", [user, other]);
   await db.query("INSERT INTO workspace_meta(user_id) VALUES($1),($2)", [user, other]);
@@ -372,5 +372,46 @@ describe("weekly executor durable cancellation, delivery and summaries", () => {
     await db.exec(
       "UPDATE workspace_entities SET data='{\"autoScheduler\":{\"enabled\":true}}' WHERE collection='projects'",
     );
+  });
+});
+
+describe("manual exact-approval scheduling admission", () => {
+  const hash = "d".repeat(64);
+  it("preserves a pending schedule on missing/stale approval and atomically replaces it after approval", async () => {
+    await db.query(
+      'INSERT INTO workspace_entities(user_id,collection,entity_id,data) VALUES($1,\'content\',\'manual-asset\',\'{"projectId":"p","status":"Approved"}\')',
+      [user],
+    );
+    await db.query(
+      "INSERT INTO scheduled_publishes(user_id,project_id,asset_id,publish_at,status) VALUES($1,'p','manual-asset','2099-09-15T07:00:00Z','pending')",
+      [user],
+    );
+    const schedule = (expected = 0) =>
+      db.query<{ result: { status: string; publish_at: string } }>(
+        "SELECT schedule_approved_publication($1,'p','manual-asset',$2,$3,'2099-09-17T07:00:00Z') result",
+        [user, expected, hash],
+      );
+    await expect(schedule()).rejects.toThrow("schedule_approval_changed");
+    expect(
+      (await db.query("SELECT * FROM scheduled_publishes WHERE status='pending'")).rows,
+    ).toHaveLength(1);
+    await db.query("SELECT set_publication_approval($1,'p','manual-asset',0,$2,true)", [
+      user,
+      hash,
+    ]);
+    await expect(schedule(1)).rejects.toThrow("schedule_approval_changed");
+    expect(
+      (await db.query("SELECT * FROM scheduled_publishes WHERE status='cancelled'")).rows,
+    ).toHaveLength(0);
+    expect((await schedule()).rows[0].result.status).toBe("pending");
+    expect(
+      (await db.query("SELECT * FROM scheduled_publishes WHERE status='cancelled'")).rows,
+    ).toHaveLength(1);
+    await db.exec("UPDATE scheduled_publishes SET status='publishing' WHERE status='pending'");
+    await expect(schedule()).rejects.toThrow("schedule_in_flight");
+    expect(
+      (await db.query("SELECT * FROM scheduled_publishes WHERE status='publishing'")).rows,
+    ).toHaveLength(1);
+    await db.query("DELETE FROM workspace_entities WHERE entity_id='manual-asset'");
   });
 });

@@ -480,7 +480,15 @@ function PlanPage() {
       );
       setDropIntent(null);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not schedule the go-live");
+      toast.error(
+        error instanceof Error && error.message === "publication_approval_required"
+          ? t("approval.needed")
+          : error instanceof Error && error.message === "publication_approval_unavailable"
+            ? t("approval.unavailable")
+            : error instanceof Error
+              ? error.message
+              : "Could not schedule the go-live",
+      );
     } finally {
       setArming(false);
     }

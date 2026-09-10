@@ -132,3 +132,23 @@ BEGIN
 END; $$;
 REVOKE ALL ON FUNCTION public.read_workspace_scheduler_controls(uuid) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.read_workspace_scheduler_controls(uuid) TO service_role;
+
+-- Manual rescheduling preserves the old queue until exact approval, revision
+-- and in-flight checks pass. Cancellation plus replacement is one transaction.
+CREATE FUNCTION public.schedule_approved_publication(p_user uuid,p_project text,p_asset text,p_expected bigint,p_hash text,p_publish timestamptz)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE queued public.scheduled_publishes%ROWTYPE;
+BEGIN
+  PERFORM public.assert_knowledge_project(p_user,p_project,true);
+  IF p_expected IS NULL OR p_expected IS DISTINCT FROM (SELECT rev FROM public.workspace_meta WHERE user_id=p_user)
+    OR p_publish IS NULL OR NOT isfinite(p_publish) OR p_publish<clock_timestamp()+interval '5 minutes'
+    OR NOT public.read_publication_approval(p_user,p_project,p_asset,p_hash)
+    OR NOT EXISTS(SELECT 1 FROM public.workspace_entities WHERE user_id=p_user AND collection='content' AND entity_id=p_asset AND data->>'projectId'=p_project AND data->>'status' IN ('Approved','Exported'))
+    THEN RAISE EXCEPTION 'schedule_approval_changed'; END IF;
+  IF EXISTS(SELECT 1 FROM public.scheduled_publishes WHERE user_id=p_user AND asset_id=p_asset AND status='publishing') THEN RAISE EXCEPTION 'schedule_in_flight'; END IF;
+  UPDATE public.scheduled_publishes SET status='cancelled',updated_at=clock_timestamp() WHERE user_id=p_user AND asset_id=p_asset AND status='pending';
+  INSERT INTO public.scheduled_publishes(user_id,project_id,asset_id,publish_at,status) VALUES(p_user,p_project,p_asset,p_publish,'pending') RETURNING * INTO queued;
+  RETURN to_jsonb(queued);
+END; $$;
+REVOKE ALL ON FUNCTION public.schedule_approved_publication(uuid,text,text,bigint,text,timestamptz) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.schedule_approved_publication(uuid,text,text,bigint,text,timestamptz) TO service_role;
