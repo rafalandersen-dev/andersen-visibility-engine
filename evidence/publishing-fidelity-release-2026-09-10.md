@@ -14,6 +14,6 @@ Home/MCP GET200, MCP OPTIONS204, anonymous MCP/weekly scheduler POST401. Earlier
 
 Read-only post-release verification /tmp/milo-schema-post-release-baseline.json exactly matches the pre-release baseline, including zero approvals/private/native/outreach counters, usage10/226, queue101/31/5, unchanged old triggers and monthly/weekly command hashes. No database mutation or timer activation.
 
-Initial Claude34528722322 completed successfully21:01:18UTC with17permissiondenials/no buffered inline comments; inspected /tmp/milo-schema-claude-fa61a57.log without rerun. Intermediate34529067243 and final34529178769 remain running at21:03UTC; eventual results and denials must be recorded without rerun. Workflow success alone is not substantive coverage.
+Initial Claude34528722322 completed successfully21:01:18UTC with17permissiondenials/no buffered inline comments; inspected /tmp/milo-schema-claude-fa61a57.log without rerun. Intermediate34529067243 completed successfully21:03:51UTC with22permissiondenials/no buffered inline comments; inspected /tmp/milo-schema-claude-a585cdd.log without rerun. Final34529178769 remains running at21:05UTC; eventual result and denials must be recorded without rerun. Workflow success alone is not substantive coverage.
 
 Next independent R17 candidate /tmp/milo-after-schema-plan.md is read-only and not implemented. R18 real product-reference/CMS/signed-in acceptance remains open. No atomic operation remains underway.
