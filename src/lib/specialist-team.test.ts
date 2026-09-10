@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { stageRoleEvidence, type TeamStage } from "./specialist-team";
+import { stageRoleEvidence, schedulerRoleLabel, type TeamStage } from "./specialist-team";
 const stage = (patch: Partial<TeamStage> = {}): TeamStage => ({
   stage: "content",
   state: "retained",
@@ -43,4 +43,17 @@ describe("truthful specialist job evidence", () => {
     ).toBe("cancelled");
     expect(stageRoleEvidence([stage({ outputChanged: true })], "content").status).toBe("review");
   });
+});
+
+it("shows disabled schedules before their default engine", () => {
+  expect(schedulerRoleLabel({ enabled: false, control: { engine: "monthly" } })).toBe(
+    "weekly.disabled",
+  );
+  expect(schedulerRoleLabel({ enabled: true, control: { engine: "weekly" } })).toBe(
+    "weekly.engine.weekly",
+  );
+  expect(schedulerRoleLabel({ enabled: true, control: { engine: "paused" } })).toBe(
+    "weekly.engine.paused",
+  );
+  expect(schedulerRoleLabel(undefined)).toBe("team.state.unavailable");
 });
