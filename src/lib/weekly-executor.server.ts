@@ -1,3 +1,4 @@
+import { assertImageGenerationAllowed } from "./ai-usage.server";
 import { dispatchWeeklyBatch } from "./weekly-dispatch";
 import { z } from "zod";
 import { localWeekStart } from "./weekly-preparation";
@@ -500,6 +501,11 @@ export async function runWeeklyProject(scope: Scope, now = new Date()) {
     const imageStage = sameSlot().find((s) => s.stage === "image");
     if (!imageStage) {
       await assertActive();
+      try {
+        await bounded(assertImageGenerationAllowed({ userId: scope.ownerId }));
+      } catch {
+        throw new Error("weekly_image_entitlement_capacity_required");
+      }
       const visual = await loadProjectKnowledgeContext(scope, "visual", undefined, undefined, 5500);
       const visualHash = await weeklyInputHash(visual);
       const concept = `${asset.title}. ${opportunity.targetAudience}`.slice(0, 500);

@@ -484,9 +484,16 @@ describe("weekly executor durable cancellation, delivery and summaries", () => {
       user,
       hash,
     ]);
+    for (const status of ["cancelled", "failed"])
+      await db.query(
+        "INSERT INTO scheduled_publishes(user_id,project_id,asset_id,publish_at,status) VALUES($1,'p',$2,'2099-09-15T07:00:00Z',$3)",
+        [user, `historical-${status}`, status],
+      );
     expect((await arm()).rows[0].ok).toBe(true);
     expect((await arm()).rows[0].ok).toBe(false);
-    expect((await db.query("SELECT * FROM scheduled_publishes")).rows).toHaveLength(1);
+    expect(
+      (await db.query("SELECT * FROM scheduled_publishes WHERE status='pending'")).rows,
+    ).toHaveLength(1);
     await db.query("DELETE FROM workspace_entities WHERE entity_id='atomic-asset'");
     await db.exec(
       "UPDATE workspace_entities SET data='{\"autoScheduler\":{\"enabled\":true}}' WHERE collection='projects'",

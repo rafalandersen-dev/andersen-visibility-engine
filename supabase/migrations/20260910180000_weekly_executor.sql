@@ -137,7 +137,7 @@ BEGIN
     OR EXISTS(SELECT 1 FROM public.publication_approvals WHERE user_id=p_user AND project_id=p_project AND asset_id=p_asset AND NOT approved)
     OR EXISTS(SELECT 1 FROM public.weekly_preparation_stages WHERE user_id=p_user AND project_id=p_project AND publish_at=p_publish AND state IN ('cancelled','running','unknown'))
     THEN RAISE EXCEPTION 'scheduler_authority_changed'; END IF;
-  IF EXISTS(SELECT 1 FROM public.scheduled_publishes WHERE user_id=p_user AND project_id=p_project AND (asset_id=p_asset OR publish_at=p_publish)) THEN RETURN false; END IF;
+  IF EXISTS(SELECT 1 FROM public.scheduled_publishes WHERE user_id=p_user AND project_id=p_project AND status IN ('pending','publishing','review_required') AND (asset_id=p_asset OR publish_at=p_publish)) THEN RETURN false; END IF;
   PERFORM public.set_publication_approval(p_user,p_project,p_asset,p_expected,p_hash,true);
   PERFORM set_config('milo.approved_queue_id',queue_id::text,true);
   INSERT INTO public.scheduled_publishes(id,user_id,project_id,asset_id,publish_at,status) VALUES(queue_id,p_user,p_project,p_asset,p_publish,'pending');

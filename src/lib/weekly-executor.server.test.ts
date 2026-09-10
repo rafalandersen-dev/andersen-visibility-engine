@@ -13,6 +13,7 @@ const h = vi.hoisted(() => ({
   rpc: vi.fn(),
   generate: vi.fn(),
   image: vi.fn(),
+  imageAllowed: vi.fn(),
   discover: vi.fn(),
   archive: vi.fn(),
   active: vi.fn(),
@@ -24,6 +25,7 @@ const h = vi.hoisted(() => ({
   mirror: vi.fn(),
   approved: vi.fn(),
 }));
+vi.mock("./ai-usage.server", () => ({ assertImageGenerationAllowed: h.imageAllowed }));
 vi.mock("./publish.server", () => ({ writeScheduleMirror: h.mirror }));
 vi.mock("./workspace.server", () => ({ readWorkspaceRow: h.read, updateWorkspaceRow: h.update }));
 vi.mock("./weekly-preparation.server", () => ({
@@ -299,6 +301,20 @@ describe("weekly executor integrated orchestration without live providers", () =
       action: "waiting",
     });
     expect(h.generate).toHaveBeenCalledTimes(2);
+  });
+  it("leaves image work unclaimed on entitlement refusal and resumes after eligibility changes", async () => {
+    await runWeeklyProject(scope, now);
+    await runWeeklyProject(scope, now);
+    h.imageAllowed.mockRejectedValueOnce(new Error("Pro or Agency required"));
+    expect(await runWeeklyProject(scope, now)).toMatchObject({
+      action: "capacity-required",
+      drafted: 1,
+    });
+    expect(stages.some((s) => s.stage === "image")).toBe(false);
+    expect(h.image).not.toHaveBeenCalled();
+    expect(await runWeeklyProject(scope, now)).toMatchObject({ action: "review-required" });
+    expect(h.image).toHaveBeenCalledTimes(1);
+    expect(h.generate).toHaveBeenCalledTimes(1);
   });
   it("retains article when visual budget fails and never replays the uncertain visual", async () => {
     await runWeeklyProject(scope, now);
