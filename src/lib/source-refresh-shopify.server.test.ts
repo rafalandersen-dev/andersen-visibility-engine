@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   catalogShopDomain,
+  configuredCatalogDomain,
   fetchShopifyCatalog,
   observeShopifyCatalog,
   SHOPIFY_CATALOG_QUERY,
@@ -101,4 +102,19 @@ describe("bounded authenticated Shopify catalog", () => {
       fetchShopifyCatalog(domain, "synthetic-token", huge as typeof fetch),
     ).rejects.toThrow("catalog_unavailable");
   });
+});
+
+it.each(["example", " EXAMPLE ", "https://example.myshopify.com/path", "example.myshopify.com/"])(
+  "normalizes connector-supported saved domain %s",
+  (raw) => {
+    expect(configuredCatalogDomain(raw)).toBe(domain);
+  },
+);
+it.each([
+  "https://example.com/path",
+  "user@example.myshopify.com",
+  "example.myshopify.com.evil.test",
+  "example.myshopify.com:443",
+])("rejects unsafe configured catalog domain %s", (raw) => {
+  expect(() => configuredCatalogDomain(raw)).toThrow();
 });

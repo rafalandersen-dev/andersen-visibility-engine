@@ -225,18 +225,18 @@ export async function readProjectSourceImpact(userId: string, projectId: string)
   const { readWorkspaceRow } = await import("./workspace.server");
   const workspace = await readWorkspaceRow(userId);
   if (!workspace) throw new SourcePublicationHeldError();
-  const registry = await readOutputSourceDependencies({ ownerId: userId, projectId });
+  const assets = ((workspace.data.content ?? []) as ContentAsset[]).filter(
+    (asset) => asset.projectId === projectId,
+  );
+  const selected = assets.slice(0, 100);
+  const registry = selected.length
+    ? await readOutputSourceDependencies(
+        { ownerId: userId, projectId },
+        selected.map((asset) => asset.id),
+      )
+    : [];
   const now = new Date().toISOString();
-  const assets = ((workspace.data.content ?? []) as ContentAsset[])
-    .map((asset) => mergeRegisteredDependencies(asset, registry))
-    .filter(
-      (asset) =>
-        asset.projectId === projectId &&
-        (asset[forgottenSource] ||
-          asset.sourceDependencies?.length ||
-          asset.images?.some((image) => image.sourceDependencies?.length)),
-    );
-  const inspected = assets.slice(0, 100);
+  const inspected = selected.map((asset) => mergeRegisteredDependencies(asset, registry));
   return {
     checked: inspected.length,
     remaining: Math.max(0, assets.length - inspected.length),
