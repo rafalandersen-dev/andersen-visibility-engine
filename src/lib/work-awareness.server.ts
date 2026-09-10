@@ -77,6 +77,9 @@ export async function readWorkAwareness(
   const scope = { ownerId, projectId: project.id };
   const control = await readSchedulerControl(scope);
   const schedule = normalizeAutoSchedulerConfig(project.autoScheduler);
+  // Paused/monthly projects do not enter the weekly planner, so validate their
+  // saved zone here too before returning a successful report.
+  new Intl.DateTimeFormat("en", { timeZone: schedule.timeZone }).format(now);
   const pages = Math.max(1, Math.ceil(candidates.length / 50));
   const page = Math.min(input.page, pages - 1);
   const selected = candidates.slice(page * 50, (page + 1) * 50);

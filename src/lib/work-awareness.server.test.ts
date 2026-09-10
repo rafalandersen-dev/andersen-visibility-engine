@@ -71,6 +71,24 @@ beforeEach(() => {
   }));
 });
 describe("private live awareness", () => {
+  it.each(["monthly", "paused", "weekly"])(
+    "rejects an invalid saved zone for %s instead of returning a crashing report",
+    async (engine) => {
+      const saved = row();
+      saved.data.projects[0].autoScheduler.timeZone = "Invalid/Zone";
+      m.workspace.mockResolvedValue(saved);
+      m.control.mockResolvedValue({ engine });
+      await expect(readWorkAwareness(owner, { projectId: "p", page: 0 }, now)).rejects.toThrow();
+      expect(m.approval).not.toHaveBeenCalled();
+    },
+  );
+  it("rejects an invalid zone even when scheduling is disabled", async () => {
+    const saved = row();
+    saved.data.projects[0].autoScheduler = { enabled: false, timeZone: "Invalid/Zone" };
+    m.workspace.mockResolvedValue(saved);
+    await expect(readWorkAwareness(owner, { projectId: "p", page: 0 }, now)).rejects.toThrow();
+  });
+
   it("filters terminal history before the cap and requests an exact relevant count", async () => {
     await readWorkAwareness(owner, { projectId: "p", page: 0 }, now);
     expect(m.statuses).toHaveBeenCalledWith("status", ["pending", "review_required"]);

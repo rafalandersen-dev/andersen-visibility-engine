@@ -39,6 +39,17 @@ beforeEach(() => {
   m.query.mockReturnValue({ data: report, isError: false, isPending: false });
 });
 describe("in-app work presentation", () => {
+  it("falls back to explicit UTC dates if a retained report has an invalid zone", () => {
+    m.query.mockReturnValue({
+      data: { ...report, timeZone: "Invalid/Zone" },
+      isError: false,
+      isPending: false,
+    });
+    const html = renderToStaticMarkup(createElement(WorkAwareness));
+    expect(html).toContain("2026-09-01T12:00:00.000Z");
+    expect(html).toContain("Held draft");
+  });
+
   it("renders intentional pause, exact approval hold and late-date guidance together", () => {
     const html = renderToStaticMarkup(createElement(WorkAwareness));
     for (const text of [

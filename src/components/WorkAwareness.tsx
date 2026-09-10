@@ -66,12 +66,19 @@ function ProjectWork({
   });
   // Hide stale retained data on failed rechecks; never imply a cleared queue.
   const report = query.isError ? undefined : query.data;
-  const date = (value: string) =>
-    new Intl.DateTimeFormat(locale, {
-      dateStyle: "medium",
-      timeStyle: "short",
-      timeZone: report?.timeZone ?? "UTC",
-    }).format(new Date(value));
+  const date = (value: string) => {
+    const parsed = new Date(value);
+    if (!Number.isFinite(parsed.getTime())) return t("awareness.error");
+    try {
+      return new Intl.DateTimeFormat(locale, {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone: report?.timeZone ?? "UTC",
+      }).format(parsed);
+    } catch {
+      return parsed.toISOString();
+    }
+  };
   return (
     <div className="space-y-4">
       <Button variant="outline" disabled={query.isFetching} onClick={() => void query.refetch()}>
