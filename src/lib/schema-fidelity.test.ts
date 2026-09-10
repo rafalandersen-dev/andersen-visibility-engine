@@ -57,6 +57,30 @@ describe("rendered article and actual connector payload fidelity", () => {
       { question: "Choices?", answer: "First Second Key Value A B Use `notes` & <b>literal</b>." },
     ]);
   });
+  it("keeps quoted image URL delimiters out of visible FAQ text", () => {
+    const output = assembleContentAsset(
+      {
+        ...asset,
+        images: asset.images!.map((image) => ({
+          ...image,
+          url: "https://site.com/image>tail.png",
+        })),
+      },
+      project,
+    );
+    expect(output.html).toContain('src="https://site.com/image>tail.png"');
+    const faq = output.jsonLd.find((item) => item["@type"] === "FAQPage")!;
+    expect(faq.mainEntity).toEqual([
+      {
+        "@type": "Question",
+        name: "Options?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "First Second Visible caption",
+        },
+      },
+    ]);
+  });
   it.each(FAQ_HEADINGS)("recognizes rendered FAQ heading %s", (heading) => {
     expect(
       extractFaqFromMarkdown(`## ${heading}\n### Question?\nAnswer.\n## CTA\n### Buy?\nNow.`),

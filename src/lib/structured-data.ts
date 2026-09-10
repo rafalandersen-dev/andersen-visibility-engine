@@ -83,16 +83,19 @@ const faqHeadings = new Set(FAQ_HEADINGS.map((h) => h.normalize("NFC").toLowerCa
  * Block/cell boundaries separate words; inline formatting never inserts spaces.
  */
 function renderedText(html: string): string {
-  return html
-    .replace(/<\/(?:p|li|tr|td|th|h[1-6]|figcaption|figure|div)>|<br\s*\/?>/gi, " ")
-    .replace(/<[^>]*>/g, "")
-    .replace(
-      /&(amp|lt|gt|quot|#39|apos);/g,
-      (_, entity: string) =>
-        ({ amp: "&", lt: "<", gt: ">", quot: '"', "#39": "'", apos: "'" })[entity]!,
-    )
-    .replace(/\s+/g, " ")
-    .trim();
+  return (
+    html
+      .replace(/<\/(?:p|li|tr|td|th|h[1-6]|figcaption|figure|div)>|<br\s*\/?>/gi, " ")
+      // Quoted URL attributes can contain literal >; those are not tag ends.
+      .replace(/<(?:[^"'<>]|"[^"]*"|'[^']*')*>/g, "")
+      .replace(
+        /&(amp|lt|gt|quot|#39|apos);/g,
+        (_, entity: string) =>
+          ({ amp: "&", lt: "<", gt: ">", quot: '"', "#39": "'", apos: "'" })[entity]!,
+      )
+      .replace(/\s+/g, " ")
+      .trim()
+  );
 }
 
 /** FAQ structure and text are read from the exact HTML used by preview/export/CMS.

@@ -11,3 +11,5 @@ Initial local focused checks:33 existing schema/assembler tests passed. New33 FA
 R15 final Claude results inspected without rerun and recorded in the R15 release evidence: cc94446 run34526207042 success with28denials, final f759 run34526378686 success with15denials, both no buffered inline comments. Success is not substantive coverage.
 
 No live Google/model/provider/CMS fetch, funding, generation, client publication, email/outreach/contact, purchases, credentials/MFA changes, browser-policy retry or synthetic production records. No subagents or new automation. Full R00–R24/D01–D08 and R17/R18 real product-reference/CMS/R20 wider UI acceptance remain open. Public paid launch NO-GO. Released SQL/timers/deployments remain untouched.
+
+Initial Codex review of fa61a57 completed20:53:44UTC and security review20:54:05UTC. Finding3983401192 identified quoted `>` in a controlled image URL leaking attribute text into FAQ schema. Fixed with quote-aware tag removal and an actual approved-figure regression;54tests/3files pass. Exact corrected review and Linux checks remain required.
