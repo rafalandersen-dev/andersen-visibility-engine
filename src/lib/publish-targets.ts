@@ -180,7 +180,7 @@ export function shopifyArticleArgs(
     contentMarkdown: assembled.markdown,
     jsonLd: assembled.jsonLdScript,
     knownInternalPaths,
-    handle: asset.slug || "",
+    handle: (asset.publishSlug || asset.slug || "").trim(),
     summary: asset.metaDescription ?? "",
     tags: sh.defaultTags ?? [],
     author: sh.defaultAuthorName ?? "",

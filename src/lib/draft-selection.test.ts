@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { assertSavedDraftSelection, draftSelectionChanged } from "./draft-selection";
 import { publicationVersion } from "./publication-version";
+import { shopifyArticleArgs } from "./publish-targets";
 import { draftPayloadFor } from "./publish.functions";
 import type { ContentAsset, Project } from "./types";
 const project = { id: "p", defaultDestinationType: "blogPost" } as Project;
@@ -42,4 +43,18 @@ describe("custom draft selections bind to the saved approved version", () => {
       destinationType: "faq",
     });
   });
+});
+
+it("uses the same approved Shopify slug in draft and live connector arguments", async () => {
+  const shop = {
+    ...project,
+    connectorType: "shopify",
+    shopify: { shopDomain: "example.myshopify.com", adminAccessTokenSet: true },
+  } as Project;
+  const saved = { ...asset, publishSlug: "selected-handle" };
+  expect(shopifyArticleArgs(saved, shop).handle).toBe("selected-handle");
+  expect(shopifyArticleArgs(asset, shop).handle).toBe("original");
+  expect((await publicationVersion(saved, shop)).hash).not.toBe(
+    (await publicationVersion(asset, shop)).hash,
+  );
 });
