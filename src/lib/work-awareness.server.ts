@@ -50,12 +50,21 @@ export async function readWorkAwareness(
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const result = await supabaseAdmin
     .from("scheduled_publishes")
-    .select("id,asset_id,publish_at,status")
+    .select("id,asset_id,publish_at,status", { count: "exact" })
     .eq("user_id", ownerId)
     .eq("project_id", project.id)
+    .in("status", ["pending", "review_required"])
     .order("id")
     .limit(1001);
-  if (result.error) throw new Error("awareness_unavailable");
+  if (
+    result.error ||
+    !Number.isInteger(result.count) ||
+    (result.count ?? -1) < 0 ||
+    (result.count ?? 1001) > 1000 ||
+    !Array.isArray(result.data) ||
+    result.data.length !== result.count
+  )
+    throw new Error("awareness_unavailable");
   const queue = queueSchema.parse(result.data);
   const candidates = queue.filter((q) => {
     const asset = assets.find((a) => a.id === q.asset_id);

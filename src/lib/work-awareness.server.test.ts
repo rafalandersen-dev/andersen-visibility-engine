@@ -7,6 +7,8 @@ const m = vi.hoisted(() => ({
   weekly: vi.fn(),
   query: vi.fn(),
   eq: vi.fn(),
+  statuses: vi.fn(),
+  select: vi.fn(),
 }));
 vi.mock("./workspace.server", () => ({ readWorkspaceRow: m.workspace }));
 vi.mock("./publication-approval.server", () => ({ readPublicationApproval: m.approval }));
@@ -19,7 +21,14 @@ vi.mock("@/integrations/supabase/client.server", () => ({
     from: (table: string) => {
       if (table !== "scheduled_publishes") throw new Error("unexpected_table");
       const q = {
-        select: () => q,
+        select: (...args: unknown[]) => {
+          m.select(...args);
+          return q;
+        },
+        in: (...args: unknown[]) => {
+          m.statuses(...args);
+          return q;
+        },
         eq: (...args: unknown[]) => {
           m.eq(...args);
           return q;
@@ -53,7 +62,7 @@ beforeEach(() => {
   m.workspace.mockResolvedValue(row());
   m.approval.mockResolvedValue({ approved: false });
   m.control.mockResolvedValue({ engine: "monthly" });
-  m.query.mockResolvedValue({ data: [qrow()], error: null });
+  m.query.mockResolvedValue({ data: [qrow()], count: 1, error: null });
   m.weekly.mockImplementation(async (_scope, week) => ({
     period: `week:${week}`,
     summary: null,
@@ -62,6 +71,22 @@ beforeEach(() => {
   }));
 });
 describe("private live awareness", () => {
+  it("filters terminal history before the cap and requests an exact relevant count", async () => {
+    await readWorkAwareness(owner, { projectId: "p", page: 0 }, now);
+    expect(m.statuses).toHaveBeenCalledWith("status", ["pending", "review_required"]);
+    expect(m.select).toHaveBeenCalledWith("id,asset_id,publish_at,status", { count: "exact" });
+  });
+  it.each([1001, 2, null])(
+    "rejects incomplete relevant data with exact count %s",
+    async (count) => {
+      m.query.mockResolvedValueOnce({ data: [qrow()], count, error: null });
+      await expect(readWorkAwareness(owner, { projectId: "p", page: 0 }, now)).rejects.toThrow(
+        "awareness_unavailable",
+      );
+      expect(m.approval).not.toHaveBeenCalled();
+    },
+  );
+
   it("includes old review holds despite browser Approved and reads exact saved approval", async () => {
     const result = await readWorkAwareness(owner, { projectId: "p", page: 0 }, now);
     expect(result.approvals).toMatchObject([{ assetId: "a", state: "approval", late: true }]);
@@ -76,7 +101,7 @@ describe("private live awareness", () => {
     expect(
       (await readWorkAwareness(owner, { projectId: "p", page: 0 }, now)).approvals[0].state,
     ).toBe("resume");
-    m.query.mockResolvedValue({ data: [qrow("pending")], error: null });
+    m.query.mockResolvedValue({ data: [qrow("pending")], count: 1, error: null });
     expect((await readWorkAwareness(owner, { projectId: "p", page: 0 }, now)).approvals).toEqual(
       [],
     );
@@ -84,7 +109,7 @@ describe("private live awareness", () => {
   it.each(["cancelled", "published", "publishing", "failed"])(
     "does not turn %s into an approval demand",
     async (status) => {
-      m.query.mockResolvedValue({ data: [qrow(status)], error: null });
+      m.query.mockResolvedValue({ data: [qrow(status)], count: 1, error: null });
       expect((await readWorkAwareness(owner, { projectId: "p", page: 0 }, now)).approvals).toEqual(
         [],
       );
@@ -92,7 +117,7 @@ describe("private live awareness", () => {
     },
   );
   it("does not demand early approval for distant pending work", async () => {
-    m.query.mockResolvedValue({ data: [qrow("pending", "25")], error: null });
+    m.query.mockResolvedValue({ data: [qrow("pending", "25")], count: 1, error: null });
     expect((await readWorkAwareness(owner, { projectId: "p", page: 0 }, now)).approvals).toEqual(
       [],
     );
@@ -132,6 +157,7 @@ describe("private live awareness", () => {
   });
   it("bounds approval work per page and does not repeat queue identities", async () => {
     m.query.mockResolvedValue({
+      count: 51,
       data: Array.from({ length: 51 }, (_, i) => ({
         ...qrow(),
         id: `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`,

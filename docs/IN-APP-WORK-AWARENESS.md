@@ -1,6 +1,6 @@
 # Current project work in Notifications
 
-The top of Notifications now offers a private, read-only view of the selected saved project. Choose a project, then refresh to check its current records. Each queue page checks up to 50 candidates; use the page controls to inspect the rest. The source queue must be complete within 1,000 records or the check fails visibly. No truncated queue is represented as empty.
+The top of Notifications now offers a private, read-only view of the selected saved project. Choose a project, then refresh to check its current records. Each queue page checks up to 50 candidates; use the page controls to inspect the rest. The database filters pending/review-required rows before applying the bound, so terminal history cannot hide current holds. Its exact matching count must equal the returned data and stay within 1,000 records or the check fails visibly. No truncated queue is represented as empty.
 
 Review-required queue rows appear even when their original dates have passed or their browser status says Approved. Milo rederives the saved publication version and reads its private approval. A valid approval on a held queue is shown as **Approved version is still held**; it does not resume publication. Pending rows due within 24 hours or already late also appear when their exact version lacks approval. Cancelled, published, publishing and failed rows do not become approval demands. Existing failure/recovery inbox entries remain available below.
 
