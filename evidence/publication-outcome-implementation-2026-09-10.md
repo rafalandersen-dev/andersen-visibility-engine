@@ -1,3 +1,5 @@
+> Historical implementation checkpoint. P5 is now released; see [verified release evidence](publication-outcome-release-2026-09-10.md). Do not use the earlier unapplied status below as an instruction to repeat the migration.
+
 # Publication and workflow evidence — implementation pending release
 
 P5 implementation, 10 September 2026. The migration `20260910200000_publication_evidence.sql` is **unapplied**. This record is implementation evidence, not production or provider acceptance.
