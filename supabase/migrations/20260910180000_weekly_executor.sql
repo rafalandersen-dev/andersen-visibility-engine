@@ -235,3 +235,21 @@ END; $$;
 REVOKE ALL ON FUNCTION public.preserve_schedule_review_hold() FROM PUBLIC,anon,authenticated,service_role;
 CREATE TRIGGER preserve_schedule_review_hold BEFORE INSERT OR UPDATE OF data ON public.workspace_entities
   FOR EACH ROW EXECUTE FUNCTION public.preserve_schedule_review_hold();
+
+-- Deletion remains safe even when a stale client has no queue mirror or its
+-- best-effort cancellation request failed. Never alter in-flight/live history.
+CREATE FUNCTION public.cancel_deleted_workspace_schedules()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+  IF OLD.collection='content' THEN
+    UPDATE public.scheduled_publishes SET status='cancelled',updated_at=clock_timestamp()
+      WHERE user_id=OLD.user_id AND project_id=OLD.data->>'projectId' AND asset_id=OLD.entity_id AND status IN ('pending','review_required');
+  ELSIF OLD.collection='projects' THEN
+    UPDATE public.scheduled_publishes SET status='cancelled',updated_at=clock_timestamp()
+      WHERE user_id=OLD.user_id AND project_id=OLD.entity_id AND status IN ('pending','review_required');
+  END IF;
+  RETURN OLD;
+END; $$;
+REVOKE ALL ON FUNCTION public.cancel_deleted_workspace_schedules() FROM PUBLIC,anon,authenticated,service_role;
+CREATE TRIGGER cancel_deleted_workspace_schedules AFTER DELETE ON public.workspace_entities
+  FOR EACH ROW EXECUTE FUNCTION public.cancel_deleted_workspace_schedules();

@@ -224,7 +224,8 @@ function EditorPage() {
     // queue. The runner would otherwise wake up, fail to find it, and park the
     // row as a failure the user cannot explain. Best-effort — a queue that is
     // already draining should never block the delete the user asked for.
-    const wasScheduled = assets.find((a) => a.id === id)?.scheduledPublishStatus === "pending";
+    const scheduleState = assets.find((a) => a.id === id)?.scheduledPublishStatus;
+    const wasScheduled = scheduleState === "pending" || scheduleState === "review_required";
     if (wasScheduled) {
       try {
         await cancelScheduledPublishFn({ data: { assetId: id } });

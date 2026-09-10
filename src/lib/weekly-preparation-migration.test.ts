@@ -506,6 +506,46 @@ describe("manual exact-approval scheduling admission", () => {
       scheduledPublishError: "publication_approval_required",
     });
   });
+  it("cancels held reservations transactionally when the asset is deleted without a client cancellation", async () => {
+    await db.query(
+      'INSERT INTO workspace_entities VALUES($1,\'content\',\'delete-held\',\'{"projectId":"p","title":"Delete me"}\')',
+      [user],
+    );
+    await db.query(
+      "INSERT INTO scheduled_publishes(user_id,project_id,asset_id,publish_at,status) VALUES($1,'p','delete-held','2099-09-15T07:00:00Z','pending')",
+      [user],
+    );
+    await db.query("DELETE FROM workspace_entities WHERE user_id=$1 AND entity_id='delete-held'", [
+      user,
+    ]);
+    expect(
+      (
+        await db.query<{ status: string }>(
+          "SELECT status FROM scheduled_publishes WHERE asset_id='delete-held'",
+        )
+      ).rows[0].status,
+    ).toBe("cancelled");
+  });
+  it("cancels project holds without altering in-flight or historical publications", async () => {
+    await db.query("INSERT INTO workspace_entities VALUES($1,'projects','delete-project','{}')", [
+      user,
+    ]);
+    for (const status of ["pending", "publishing", "published", "failed"])
+      await db.query(
+        "INSERT INTO scheduled_publishes(user_id,project_id,asset_id,publish_at,status) VALUES($1,'delete-project',$2,'2099-09-15T07:00:00Z',$3)",
+        [user, `project-delete-${status}`, status],
+      );
+    await db.query(
+      "DELETE FROM workspace_entities WHERE user_id=$1 AND collection='projects' AND entity_id='delete-project'",
+      [user],
+    );
+    const rows = (
+      await db.query<{ status: string }>(
+        "SELECT status FROM scheduled_publishes WHERE project_id='delete-project' ORDER BY status",
+      )
+    ).rows.map((r) => r.status);
+    expect(rows).toEqual(["cancelled", "failed", "published", "publishing"]);
+  });
   it("refuses approval rollout while a publish may be in flight", async () => {
     await db.query(
       "INSERT INTO scheduled_publishes(user_id,project_id,asset_id,publish_at,status) VALUES($1,'p','in-flight','2099-09-15T07:00:00Z','publishing')",
