@@ -2,7 +2,7 @@
 
 PR111 merged normally at72fb1fddf69fc7dbbf660d76cb7211ad8f154c3b, 15:51:24UTC. Final reviewed candidate5e04ce96e7: Codex no-major-issues comment5621496879, review completed15:50:56UTC. All five earlier findings resolved; review bodies and inline threads inspected. Security review completed on initial4e30de3, not an exact-final security audit.
 
-Linux34497899561 passes2,648 tests/194files on Bun1.3.3 and1.4.0, types/build/frozenlocks. Log /tmp/milo-p4-linux-5e04ce9.log. Claude34497899284 remains running at this record and is not claimed as substantive acceptance.
+Linux34497899561 passes2,648 tests/194files on Bun1.3.3 and1.4.0, types/build/frozenlocks. Log /tmp/milo-p4-linux-5e04ce9.log. Claude34497899284 completed SUCCESS with14 permission denials; its coverage is limited and not claimed as substantive acceptance. Log /tmp/milo-p4-claude-5e04ce9.log.
 
 Lovable synced exact mergedmain, then deployed existingproject once: b037331d-dcce-402e-a902-7e01abbf28ec. Production verified15:53:58.523UTC, build1789055540776, source revision72fb1fdd, fingerprint36b9fc4e5e344fe963fca42539117277e7ec076c77c9b8c7728757a528ae5043. Every component matches clean source. HomeGET200, MCPGET200/OPTIONS204, anonymousMCPPOST401 and weeklyschedulerPOST401. /tmp/milo-p4-runtime-verification.json. First check still saw P3 during rollout; subsequent check above verified P4 without a second deployment.
 
