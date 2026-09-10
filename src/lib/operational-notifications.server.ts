@@ -1,3 +1,4 @@
+import { schedulerPeriodSchema } from "./weekly-preparation";
 import { z } from "zod";
 import { operationalNotifications } from "./operational-notifications";
 import { schedulerDemand, schedulerCapacityNotifications } from "./scheduler-capacity";
@@ -28,7 +29,7 @@ const queueSchema = z.object({
 });
 const leaseSchema = z.object({
   project_id: identity,
-  planned_period: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+  planned_period: schedulerPeriodSchema,
   status: z.enum(["active", "released", "unknown"]),
   acquired_at: z.string().datetime({ offset: true }),
   lease_until: z.string().datetime({ offset: true }),
@@ -162,10 +163,7 @@ export const notificationRowSchema = z
       missing: z.number().optional(),
       total: z.number().optional(),
       remaining: z.number().int().nonnegative().optional(),
-      plannedPeriod: z
-        .string()
-        .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
-        .optional(),
+      plannedPeriod: schedulerPeriodSchema.optional(),
       usagePeriod: z
         .string()
         .regex(/^\d{4}-(0[1-9]|1[0-2])$/)

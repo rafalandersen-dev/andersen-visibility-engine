@@ -97,3 +97,11 @@ describe("weekly preparation horizon", () => {
     ).toThrow();
   });
 });
+
+import { schedulerPeriodSchema } from "./weekly-preparation";
+it("accepts exact weekly lease periods without confusing monthly billing periods", () => {
+  for (const value of ["2026-10", "week:2026-09-14"])
+    expect(schedulerPeriodSchema.parse(value)).toBe(value);
+  for (const value of ["week:2026-09-15", "week:2026-02-30", "week:invalid", "2026-13"])
+    expect(schedulerPeriodSchema.safeParse(value).success).toBe(false);
+});

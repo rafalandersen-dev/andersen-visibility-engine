@@ -179,3 +179,14 @@ export function planWeeklyPreparation(input: {
     reserved: slots.filter((s) => !available.has(s.publishAt)),
   };
 }
+
+/** Shared lease/read-model period validation. Usage billing periods remain monthly. */
+export const schedulerPeriodSchema = z.string().refine((value) => {
+  if (/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) return true;
+  if (!value.startsWith("week:")) return false;
+  try {
+    return calendarDate(value.slice(5)).getUTCDay() === 1;
+  } catch {
+    return false;
+  }
+}, "invalid_scheduler_period");

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useT } from "@/i18n";
+import { useAuth } from "@/lib/auth";
 import { readPublicationApprovalFn } from "@/lib/publication-approval.functions";
 import { publicationVersion, samePublicationVersion } from "@/lib/publication-version";
 import type { ContentAsset, Project } from "@/lib/types";
@@ -17,9 +18,15 @@ export function PublicationApprovalStatus({
   revision: number;
 }) {
   const t = useT();
+  const { user } = useAuth();
+  const userId = user?.id;
   const [state, setState] = useState<"loading" | "current" | "needed" | "unavailable">("loading");
   useEffect(() => {
     let cancelled = false;
+    if (!userId) {
+      setState("unavailable");
+      return;
+    }
     if (dirty) {
       setState("needed");
       return;
@@ -41,7 +48,7 @@ export function PublicationApprovalStatus({
     return () => {
       cancelled = true;
     };
-  }, [asset, project, paths, dirty, revision]);
+  }, [asset, project, paths, dirty, revision, userId]);
   return (
     <p className="text-xs text-muted-foreground" role="status">
       {t(`approval.${dirty ? "needed" : state}`)}

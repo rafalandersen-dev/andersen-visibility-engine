@@ -1,3 +1,4 @@
+import { schedulerPeriodSchema } from "./weekly-preparation";
 import { z } from "zod";
 import { normalizeAutoSchedulerConfig } from "./auto-scheduler";
 import type { Project } from "./types";
@@ -6,7 +7,7 @@ const instant = z.string().datetime({ offset: true });
 const leaseSchema = z
   .array(
     z.object({
-      planned_period: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+      planned_period: schedulerPeriodSchema,
       status: z.enum(["active", "released", "unknown"]),
       acquired_at: instant,
       lease_until: instant,
