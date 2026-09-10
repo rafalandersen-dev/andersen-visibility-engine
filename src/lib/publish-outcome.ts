@@ -37,6 +37,25 @@ export class PublishRecordingFailedError extends Error {
   }
 }
 
+/** A second storage failure must not replace a permanent connector warning. */
+export async function persistManualPublicationFailure(
+  result: { recordingFailed?: boolean; liveUrl?: string },
+  message: string,
+  persist: () => Promise<unknown>,
+): Promise<never> {
+  try {
+    await persist();
+  } catch (error) {
+    if (!result.recordingFailed) throw error;
+    throw new PublishRecordingFailedError(
+      `${message} The returned destination details could not be saved. Do not publish again; inspect the destination and publication history.`,
+      result.liveUrl,
+    );
+  }
+  if (result.recordingFailed) throw new PublishRecordingFailedError(message, result.liveUrl);
+  throw new Error(message);
+}
+
 /** True for any error the runner must not retry, across module boundaries. */
 export function isPermanentPublishError(e: unknown): boolean {
   return Boolean(e && typeof e === "object" && (e as { permanent?: unknown }).permanent === true);

@@ -16,8 +16,48 @@ import {
   CLEARED_SCHEDULE_FIELDS,
   PublishNotPossibleError,
   PublishRecordingFailedError,
+  persistManualPublicationFailure,
 } from "./publish-outcome";
 import type { WorkspaceData } from "./workspace.server";
+
+describe("manual publication fallback persistence", () => {
+  it.each(["database unavailable", "entity conflict"])(
+    "preserves permanent uncertainty after %s",
+    async (reason) => {
+      let saves = 0;
+      const error = await persistManualPublicationFailure(
+        { recordingFailed: true, liveUrl: "https://example.com/post" },
+        "Connector publication could not be recorded.",
+        async () => {
+          saves++;
+          throw new Error(reason);
+        },
+      ).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(PublishRecordingFailedError);
+      expect(isPermanentPublishError(error)).toBe(true);
+      expect(error).toMatchObject({ liveUrl: "https://example.com/post" });
+      expect((error as Error).message).toContain("Do not publish again");
+      expect(saves).toBe(1);
+    },
+  );
+  it("keeps the permanent warning even when fallback storage succeeds", async () => {
+    await expect(
+      persistManualPublicationFailure(
+        { recordingFailed: true },
+        "Inspect the destination",
+        async () => {},
+      ),
+    ).rejects.toBeInstanceOf(PublishRecordingFailedError);
+  });
+  it("does not recategorize ordinary failed publication storage errors", async () => {
+    const failure = new Error("workspace conflict");
+    await expect(
+      persistManualPublicationFailure({}, "Publication rejected", async () => {
+        throw failure;
+      }),
+    ).rejects.toBe(failure);
+  });
+});
 
 function blob(): WorkspaceData {
   return {
