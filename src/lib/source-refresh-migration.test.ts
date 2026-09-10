@@ -526,4 +526,38 @@ describe("scoped source refresh storage", () => {
       "DELETE FROM workspace_entities WHERE entity_id IN ('forgotten-origin','forgotten-copy')",
     );
   });
+  it("permits moving an image at full registry capacity without leaving its old row", async () => {
+    const original = {
+      id: "capacity-original",
+      url: "https://cdn.example.com/capacity.jpg",
+      status: "accepted",
+    };
+    await db.query(
+      "INSERT INTO workspace_entities(user_id,collection,entity_id,data) VALUES($1,'content','capacity-images',$2)",
+      [user, JSON.stringify({ projectId: "p", images: [original] })],
+    );
+    await db.query(
+      "INSERT INTO project_output_source_dependencies(user_id,project_id,asset_id,output_id,kind,dependencies,source_forgotten) VALUES($1,'p','capacity-images','capacity-original','image','[]',true)",
+      [user],
+    );
+    await db.query(
+      "INSERT INTO project_output_source_dependencies(user_id,project_id,asset_id,output_id,kind,dependencies) SELECT $1,'p','capacity-'||n,'capacity-'||n,'content','[]' FROM generate_series(1,999) n",
+      [user],
+    );
+    await db.query(
+      "UPDATE workspace_entities SET data=$2 WHERE user_id=$1 AND entity_id='capacity-images'",
+      [user, JSON.stringify({ projectId: "p", images: [{ ...original, id: "capacity-copy" }] })],
+    );
+    expect(
+      (
+        await db.query(
+          "SELECT output_id,source_forgotten FROM project_output_source_dependencies WHERE asset_id='capacity-images'",
+        )
+      ).rows,
+    ).toEqual([{ output_id: "capacity-copy", source_forgotten: true }]);
+    expect(
+      (await db.query("SELECT count(*)::int count FROM project_output_source_dependencies")).rows,
+    ).toEqual([{ count: 1000 }]);
+    await db.exec("DELETE FROM workspace_entities WHERE entity_id='capacity-images'");
+  });
 });
