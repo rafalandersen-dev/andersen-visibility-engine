@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -13,8 +13,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { sendOutreachEmailFn } from "@/lib/outreach-delivery.functions";
-import { getOutreachFollowUpDueAt } from "@/lib/outreach";
+import {
+  recoverOutreachReceiptFn,
+  reviewOutreachMessageFn,
+  sendOutreachEmailFn,
+} from "@/lib/outreach-delivery.functions";
+import type { OutreachReceipt } from "@/lib/outreach-receipts";
+import type { OutreachMessage } from "@/lib/outreach-delivery.server";
 import {
   reloadWorkspaceForUser,
   saveWorkspaceNow,
@@ -31,10 +36,14 @@ type SendStep = { kind: "initial" } | { kind: "followUp"; followUpIndex: number 
 export function OutreachDraftCard({
   draft,
   deliveryReady,
+  receipts,
+  refreshHistory,
   t,
 }: {
   draft: OutreachDraft;
   deliveryReady: boolean;
+  receipts: OutreachReceipt[];
+  refreshHistory: () => Promise<void>;
   t: Translate;
 }) {
   const userId = useStore((state) => state.userId);
@@ -48,18 +57,33 @@ export function OutreachDraftCard({
   const [acknowledgedContent, setAcknowledgedContent] = useState(false);
   const [sending, setSending] = useState(false);
 
-  const selectedMessage =
-    sendStep?.kind === "followUp"
-      ? draft.followUps[sendStep.followUpIndex]
-      : { subject: draft.subject, body: draft.body };
+  const [review, setReview] = useState<{ message: OutreachMessage; hash: string } | null>(null);
+  const [reviewing, setReviewing] = useState(false);
+  const selectedMessage = review?.message;
+  const initialReceipt = receipts.find((r) => r.draft_id === draft.id && r.step === "initial");
+  const initialSent = initialReceipt?.state === "accepted";
+  useEffect(() => {
+    setSendStep(null);
+    setReview(null);
+    setAcknowledgedContent(false);
+    setAcknowledgedRecipient(false);
+  }, [userId, draft.projectId, draft.id]);
 
-  // A failed FOLLOW-UP also flips the draft to "Failed", but the initial email
-  // is already accepted — re-sending it throws outreach_step_already_sent. Gate
-  // the retry affordances on what actually shipped, not on the draft status.
-  const initialSent = (draft.deliveryEvents ?? []).some(
-    (event) => event.kind === "initial" && event.status === "accepted",
-  );
-
+  async function recover() {
+    if (!userId || sending) return;
+    setSending(true);
+    try {
+      const result = await recoverOutreachReceiptFn({ data: { draftId: draft.id } });
+      if (!result.restored) throw new Error();
+      await reloadWorkspaceForUser(userId);
+      toast.success(t("outreach.integrity.recovered"));
+    } catch {
+      toast.error(t("outreach.integrity.recoveryError"));
+    } finally {
+      await refreshHistory();
+      setSending(false);
+    }
+  }
   async function setStatus(status: OutreachStatus) {
     updateOutreachDraft(draft.id, {
       status,
@@ -101,19 +125,45 @@ export function OutreachDraftCard({
     toast.success(t("outreach.toast.copied"));
   }
 
-  function reviewSend(step: SendStep) {
+  async function reviewSend(step: SendStep) {
+    if (reviewing) return;
     setAcknowledgedRecipient(false);
     setAcknowledgedContent(false);
-    setSendStep(step);
+    setReview(null);
+    setReviewing(true);
+    try {
+      await saveWorkspaceNow();
+      const snapshot = await reviewOutreachMessageFn({
+        data: {
+          draftId: draft.id,
+          followUpIndex: step.kind === "followUp" ? step.followUpIndex : undefined,
+        },
+      });
+      setReview(snapshot);
+      setSendStep(step);
+    } catch {
+      toast.error(t("outreach.integrity.reviewError"));
+    } finally {
+      setReviewing(false);
+    }
   }
 
   async function confirmSend() {
-    if (!sendStep || !userId || sending || !acknowledgedRecipient || !acknowledgedContent) return;
+    if (
+      !sendStep ||
+      !review ||
+      !userId ||
+      sending ||
+      !acknowledgedRecipient ||
+      !acknowledgedContent
+    )
+      return;
     setSending(true);
     try {
       await sendOutreachEmailFn({
         data: {
           draftId: draft.id,
+          expectedHash: review.hash,
           followUpIndex: sendStep.kind === "followUp" ? sendStep.followUpIndex : undefined,
           acknowledgedRecipient: true,
           acknowledgedContent: true,
@@ -121,9 +171,7 @@ export function OutreachDraftCard({
       });
       await reloadWorkspaceForUser(userId);
       setSendStep(null);
-      toast.success(
-        t(sendStep.kind === "initial" ? "outreach.toast.sent" : "outreach.toast.followUpSent"),
-      );
+      toast.success(t("outreach.integrity.accepted"));
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
       const key = message.includes("suppressed")
@@ -135,8 +183,19 @@ export function OutreachDraftCard({
             : message.includes("not_configured")
               ? "outreach.toast.notConfigured"
               : "outreach.toast.sendFailed";
-      toast.error(t(key));
+      toast.error(
+        t(
+          message.includes("unknown") || message.includes("reserved") || message.includes("storage")
+            ? "outreach.integrity.held"
+            : message.includes("changed")
+              ? "outreach.integrity.reviewError"
+              : key,
+        ),
+      );
     } finally {
+      setSendStep(null);
+      setReview(null);
+      await refreshHistory();
       setSending(false);
     }
   }
@@ -147,7 +206,13 @@ export function OutreachDraftCard({
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-medium">{draft.targetDomain}</h3>
-            <Badge variant="outline">{t(`outreach.status.${draft.status}`)}</Badge>
+            <Badge variant="outline">
+              {t(
+                initialReceipt
+                  ? `outreach.integrity.${initialReceipt.state}`
+                  : `outreach.status.${draft.status}`,
+              )}
+            </Badge>
             <Badge variant="secondary">{t(`outreach.source.${draft.source}`)}</Badge>
           </div>
           {draft.contactEmail ? (
@@ -176,11 +241,7 @@ export function OutreachDraftCard({
         <p className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">{draft.body}</p>
       </div>
 
-      {draft.lastDeliveryError ? (
-        <p className="mt-3 text-xs text-destructive">
-          {t("outreach.lastError")}: {draft.lastDeliveryError}
-        </p>
-      ) : null}
+      <p className="mt-3 text-xs text-muted-foreground">{t("outreach.integrity.legacy")}</p>
 
       {draft.followUps.length ? (
         <details className="mt-3">
@@ -189,13 +250,17 @@ export function OutreachDraftCard({
           </summary>
           <div className="mt-2 space-y-2">
             {draft.followUps.map((followUp, index) => {
-              const sent = (draft.deliveryEvents ?? []).some(
-                (event) =>
-                  event.kind === "followUp" &&
-                  event.followUpIndex === index &&
-                  event.status === "accepted",
+              const receipt = receipts.find(
+                (r) => r.draft_id === draft.id && r.step === `followup-${index}`,
               );
-              const dueAt = getOutreachFollowUpDueAt(draft, followUp);
+              const sent = receipt?.state === "accepted";
+              const dueAt =
+                initialSent && initialReceipt.recipient === draft.contactEmail.trim().toLowerCase()
+                  ? new Date(
+                      Date.parse(initialReceipt.updated_at) +
+                        Math.max(2, followUp.delayDays) * 86400000,
+                    ).toISOString()
+                  : null;
               const due = !!dueAt && Date.parse(dueAt) <= Date.now();
               return (
                 <div
@@ -209,12 +274,13 @@ export function OutreachDraftCard({
                     {sent ? (
                       <Badge variant="secondary">
                         <MailCheck className="mr-1 h-3 w-3" />
-                        {t("outreach.followUpSent")}
+                        {t("outreach.integrity.accepted")}
                       </Badge>
+                    ) : receipt ? (
+                      <Badge variant="outline">{t(`outreach.integrity.${receipt.state}`)}</Badge>
                     ) : due &&
                       deliveryReady &&
-                      (draft.status === "Sent" ||
-                        (draft.status === "Failed" && initialSent)) ? (
+                      (draft.status === "Sent" || (draft.status === "Failed" && initialSent)) ? (
                       <Button
                         size="sm"
                         variant="outline"
@@ -239,17 +305,22 @@ export function OutreachDraftCard({
       ) : null}
 
       <div className="mt-4 flex flex-wrap gap-2">
+        {initialSent && draft.status !== "Sent" ? (
+          <Button size="sm" variant="outline" disabled={sending} onClick={recover}>
+            {t("outreach.integrity.recover")}
+          </Button>
+        ) : null}
         {draft.status === "Draft" ? (
           <Button size="sm" variant="outline" onClick={approve}>
             <Check className="h-3.5 w-3.5" />
             {t("outreach.approve")}
           </Button>
         ) : null}
-        {(draft.status === "Approved" || draft.status === "Failed") && !initialSent ? (
+        {draft.status === "Approved" && !initialReceipt ? (
           <Button
             size="sm"
             onClick={() => reviewSend({ kind: "initial" })}
-            disabled={!deliveryReady}
+            disabled={!deliveryReady || reviewing}
           >
             <Send className="h-3.5 w-3.5" />
             {t("outreach.reviewSend")}
@@ -315,13 +386,13 @@ export function OutreachDraftCard({
                 ? t("outreach.reviewFollowUpTitle")
                 : t("outreach.reviewSendTitle")}
             </DialogTitle>
-            <DialogDescription>{t("outreach.reviewSendDescription")}</DialogDescription>
+            <DialogDescription>{t("outreach.integrity.reviewHelp")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm">
               <p>
                 <span className="text-muted-foreground">{t("outreach.to")}:</span>{" "}
-                {draft.contactEmail}
+                {selectedMessage?.recipient}
               </p>
               <p className="mt-2">
                 <span className="text-muted-foreground">{t("outreach.subject")}:</span>{" "}
@@ -352,7 +423,13 @@ export function OutreachDraftCard({
             </Button>
             <Button
               onClick={confirmSend}
-              disabled={sending || !acknowledgedRecipient || !acknowledgedContent}
+              disabled={
+                !deliveryReady ||
+                sending ||
+                !review ||
+                !acknowledgedRecipient ||
+                !acknowledgedContent
+              }
             >
               {sending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

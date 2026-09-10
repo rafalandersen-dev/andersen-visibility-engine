@@ -1,16 +1,35 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildOutreachEmailContent,
   buildOutreachUnsubscribeUrls,
-  enforceOutreachRateLimits,
   getOutreachDailyLimit,
   isEmailAddress,
   isHttpsUrl,
   resolveOutreachMessage,
+  outreachVersion,
+  readOutreachResponse,
+  sendWithResend,
 } from "./outreach-delivery.server";
 import { getOutreachFollowUpDueAt } from "./outreach";
 import type { OutreachDraft } from "./types";
 
+import type { OutreachReceipt } from "./outreach-receipts";
+const receipt = (patch: Partial<OutreachReceipt> = {}): OutreachReceipt => ({
+  draft_id: "draft-1",
+  project_id: "project-1",
+  step: "initial",
+  version_hash: "a".repeat(64),
+  recipient: "editor@publisher.example",
+  state: "accepted",
+  reserved_at: "2026-07-10T10:00:00.000Z",
+  updated_at: "2026-07-10T10:00:00.000Z",
+  provider_message_id: "message-1",
+  ...patch,
+});
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
 const now = Date.parse("2026-07-16T10:00:00.000Z");
 
 function draft(patch: Partial<OutreachDraft> = {}): OutreachDraft {
@@ -79,9 +98,11 @@ describe("outreach delivery safety", () => {
         },
       ],
     });
-    expect(() => resolveOutreachMessage(sent, { kind: "followUp", followUpIndex: 0 }, now)).toThrow(
-      "outreach_followup_not_due",
-    );
+    expect(() =>
+      resolveOutreachMessage(sent, { kind: "followUp", followUpIndex: 0 }, now, [
+        receipt({ updated_at: "2026-07-14T10:00:00.000Z" }),
+      ]),
+    ).toThrow("outreach_followup_not_due");
     expect(getOutreachFollowUpDueAt(sent, sent.followUps[0])).toBe("2026-07-18T10:00:00.000Z");
   });
 
@@ -95,9 +116,9 @@ describe("outreach delivery safety", () => {
       note: "accepted",
     };
     const sent = draft({ status: "Sent", deliveryEvents: [initialEvent] });
-    expect(resolveOutreachMessage(sent, { kind: "followUp", followUpIndex: 0 }, now)).toMatchObject(
-      { subject: "Following up" },
-    );
+    expect(
+      resolveOutreachMessage(sent, { kind: "followUp", followUpIndex: 0 }, now, [receipt()]),
+    ).toMatchObject({ subject: "Following up" });
     expect(() =>
       resolveOutreachMessage(
         {
@@ -117,32 +138,111 @@ describe("outreach delivery safety", () => {
         },
         { kind: "followUp", followUpIndex: 0 },
         now,
+        [receipt(), receipt({ step: "followup-0" })],
       ),
-    ).toThrow("outreach_step_already_sent");
+    ).toThrow("outreach_step_reserved");
   });
 
-  it("enforces daily and per-recipient cooldowns", () => {
-    const existing = draft({
-      id: "draft-existing",
-      deliveryEvents: [
-        {
-          kind: "initial",
-          status: "accepted",
-          at: "2026-07-16T09:00:00.000Z",
-          provider: "resend",
-          providerMessageId: "message-existing",
-          note: "accepted",
+  it("never authorizes a follow-up from browser timestamps or events", () => {
+    expect(() =>
+      resolveOutreachMessage(
+        draft({ status: "Sent", sentAt: "2020-01-01T00:00:00Z" }),
+        { kind: "followUp", followUpIndex: 0 },
+        now,
+      ),
+    ).toThrow("outreach_initial_not_sent");
+    expect(() =>
+      resolveOutreachMessage(
+        draft({ status: "Sent", contactEmail: "different@example.com" }),
+        { kind: "followUp", followUpIndex: 0 },
+        now,
+        [receipt()],
+      ),
+    ).toThrow("outreach_initial_not_sent");
+    expect(() =>
+      resolveOutreachMessage(
+        draft({ status: "Paused" }),
+        { kind: "followUp", followUpIndex: 0 },
+        now,
+        [receipt()],
+      ),
+    ).toThrow("outreach_approval_required");
+  });
+  it("holds failed/legacy/unknown attempts", () => {
+    expect(() => resolveOutreachMessage(draft({ status: "Failed" }), { kind: "initial" })).toThrow(
+      "outreach_approval_required",
+    );
+    expect(() =>
+      resolveOutreachMessage(draft({ sentAt: "2020-01-01T00:00:00Z" }), { kind: "initial" }),
+    ).toThrow("outreach_legacy_attempt_held");
+    for (const state of ["reserved", "dispatching", "unknown", "blocked"] as const)
+      expect(() =>
+        resolveOutreachMessage(draft(), { kind: "initial" }, now, [receipt({ state })]),
+      ).toThrow("outreach_step_reserved");
+  });
+  it("pins recipient, content, project, step and delay in the reviewed version", async () => {
+    const d = draft(),
+      m = resolveOutreachMessage(d, { kind: "initial" }),
+      h = await outreachVersion(d, m);
+    for (const patch of [
+      { recipient: "other@example.com" },
+      { subject: "Changed" },
+      { body: "Changed" },
+      { step: { kind: "followUp" as const, followUpIndex: 0 } },
+    ])
+      expect(await outreachVersion(d, { ...m, ...patch })).not.toBe(h);
+    expect(await outreachVersion({ ...d, projectId: "other" }, m)).not.toBe(h);
+  });
+  it("bounds response bytes, JSON, encoding and body deadline", async () => {
+    const controller = new AbortController();
+    await expect(
+      readOutreachResponse(new Response("x".repeat(16385)), controller.signal),
+    ).rejects.toThrow("outreach_provider_unknown");
+    await expect(readOutreachResponse(new Response("{broken"), controller.signal)).rejects.toThrow(
+      "outreach_provider_unknown",
+    );
+    await expect(
+      readOutreachResponse(new Response(new Uint8Array([255])), controller.signal),
+    ).rejects.toThrow("outreach_provider_unknown");
+    const stalled = new Response(
+      new ReadableStream({
+        start(c) {
+          c.enqueue(new TextEncoder().encode("{"));
         },
-      ],
-    });
-    const next = draft({ id: "draft-next" });
-    const message = resolveOutreachMessage(next, { kind: "initial" }, now);
-    expect(() => enforceOutreachRateLimits([existing, next], next, message, 1, now)).toThrow(
-      "outreach_daily_limit_reached",
+      }),
     );
-    expect(() => enforceOutreachRateLimits([existing, next], next, message, 5, now)).toThrow(
-      "outreach_recipient_cooldown",
+    const pending = readOutreachResponse(stalled, controller.signal);
+    controller.abort();
+    await expect(pending).rejects.toThrow("outreach_provider_unknown");
+  });
+  it("returns only a valid provider receipt and sanitizes failures without retry", async () => {
+    const args = {
+      config: {
+        apiKey: "test",
+        fromEmail: "sender@example.com",
+        fromName: "Sender",
+        replyToEmail: "reply@example.com",
+        sendingEnabled: true,
+        siteUrl: "https://example.com",
+        dailyLimit: 5,
+      },
+      message: resolveOutreachMessage(draft(), { kind: "initial" }),
+      unsubscribePageUrl: "https://example.com/u",
+      oneClickUnsubscribeUrl: "https://example.com/u",
+      idempotencyKey: "test-only",
+      draftId: "draft-1",
+    };
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: "message-1" })));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(sendWithResend(args)).resolves.toBe("message-1");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    fetchMock.mockRejectedValueOnce(new Error("private body secret"));
+    await expect(sendWithResend(args)).rejects.toThrow(/^outreach_provider_unknown$/);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ id: "message-1" }), { status: 500 }),
     );
+    await expect(sendWithResend(args)).rejects.toThrow("outreach_provider_unknown");
   });
 
   it("adds plain-text and escaped HTML unsubscribe content", () => {

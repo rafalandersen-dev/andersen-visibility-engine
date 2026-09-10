@@ -12,6 +12,7 @@ import { useStore } from "@/lib/store";
 import type { OnboardingLanguage } from "@/lib/types";
 import { backlinkIntegrity } from "./backlink-integrity";
 import { gscIntegrity } from "./gsc-integrity";
+import { outreachIntegrityCopy } from "./outreach-integrity";
 import { logEvidenceCopy } from "./log-evidence";
 import { answerEvidenceCopy } from "./answer-evidence";
 import { en } from "./en";
@@ -41,6 +42,7 @@ export function translate(
   let s =
     backlinkIntegrity[l][key] ??
     gscIntegrity[l][key] ??
+    outreachIntegrityCopy[l][key] ??
     logEvidenceCopy[l][key] ??
     answerEvidenceCopy[l][key] ??
     proofEvidence[l][key] ??

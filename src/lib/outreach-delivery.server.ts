@@ -4,7 +4,8 @@ import { mutateWorkspace, readWorkspaceRow, type WorkspaceData } from "./workspa
 const RESEND_SEND_URL = "https://api.resend.com/emails";
 const DEFAULT_DAILY_LIMIT = 5;
 const MAX_DAILY_LIMIT = 20;
-const RECIPIENT_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
+import { outreachRpc, readOutreachDeliveries } from "./outreach-receipts.server";
+import type { OutreachReceipt } from "./outreach-receipts";
 
 export interface OutreachDeliveryStatus {
   provider: "resend";
@@ -33,10 +34,6 @@ interface DeliveryConfig {
   sendingEnabled: boolean;
   siteUrl: string;
   dailyLimit: number;
-}
-
-interface ResendResponse {
-  id?: string;
 }
 
 function cleanEnv(value: string | undefined): string {
@@ -113,82 +110,88 @@ export function findOutreachDraft(data: WorkspaceData, draftId: string): Outreac
   return draft;
 }
 
-function acceptedEvents(draft: OutreachDraft): OutreachDeliveryEvent[] {
-  return (draft.deliveryEvents ?? []).filter((event) => event.status === "accepted");
-}
-
-function eventMatchesStep(event: OutreachDeliveryEvent, step: OutreachSendStep): boolean {
-  return step.kind === "initial"
-    ? event.kind === "initial"
-    : event.kind === "followUp" && event.followUpIndex === step.followUpIndex;
-}
-
 export function resolveOutreachMessage(
   draft: OutreachDraft,
   step: OutreachSendStep,
   now = Date.now(),
+  receipts: OutreachReceipt[] = [],
 ): OutreachMessage {
   const recipient = draft.contactEmail.trim().toLowerCase();
-  if (!isEmailAddress(recipient)) throw new Error("outreach_recipient_required");
-  if (!draft.subject.trim() || !draft.body.trim()) throw new Error("outreach_content_required");
-
-  if (acceptedEvents(draft).some((event) => eventMatchesStep(event, step))) {
-    throw new Error("outreach_step_already_sent");
-  }
-
+  if (!isEmailAddress(recipient) || recipient.length > 254)
+    throw new Error("outreach_recipient_required");
+  if (receipts.some((r) => r.draft_id === draft.id && r.step === stepKey(step)))
+    throw new Error("outreach_step_reserved");
+  let subject: string, body: string;
   if (step.kind === "initial") {
-    if (draft.status !== "Approved" && draft.status !== "Failed") {
+    if (draft.status !== "Approved") throw new Error("outreach_approval_required");
+    // Old editable labels can only hold work; they can never authorize sending.
+    if (draft.sentAt || draft.providerMessageId || draft.deliveryEvents?.length)
+      throw new Error("outreach_legacy_attempt_held");
+    subject = draft.subject.trim();
+    body = draft.body.trim();
+  } else {
+    if (draft.status !== "Sent" && draft.status !== "Failed")
       throw new Error("outreach_approval_required");
-    }
-    return {
-      recipient,
-      subject: draft.subject.trim(),
-      body: draft.body.trim(),
-      step,
-    };
+    const followUp = draft.followUps[step.followUpIndex];
+    if (
+      !followUp ||
+      !Number.isInteger(followUp.delayDays) ||
+      followUp.delayDays < 2 ||
+      followUp.delayDays > 365
+    )
+      throw new Error("outreach_followup_not_found");
+    const initial = receipts.find(
+      (r) =>
+        r.draft_id === draft.id &&
+        r.project_id === draft.projectId &&
+        r.step === "initial" &&
+        r.state === "accepted" &&
+        r.recipient === recipient,
+    );
+    if (!initial) throw new Error("outreach_initial_not_sent");
+    const dueAt = Date.parse(initial.updated_at) + followUp.delayDays * 86400000;
+    if (!Number.isFinite(dueAt) || now < dueAt) throw new Error("outreach_followup_not_due");
+    subject = followUp.subject.trim();
+    body = followUp.body.trim();
   }
-
-  const followUp = draft.followUps[step.followUpIndex];
-  if (!followUp) throw new Error("outreach_followup_not_found");
-  const initialSentAt =
-    acceptedEvents(draft).find((event) => event.kind === "initial")?.at ?? draft.sentAt;
-  if (!initialSentAt) throw new Error("outreach_initial_not_sent");
-  const dueAt = Date.parse(initialSentAt) + Math.max(2, followUp.delayDays) * 24 * 60 * 60 * 1000;
-  if (!Number.isFinite(dueAt) || now < dueAt) {
-    throw new Error("outreach_followup_not_due");
-  }
-  return {
-    recipient,
-    subject: followUp.subject.trim(),
-    body: followUp.body.trim(),
-    step,
-  };
+  if (!subject || subject.length > 500 || /[\r\n]/.test(subject) || !body || body.length > 30000)
+    throw new Error("outreach_content_required");
+  return { recipient, subject, body, step };
 }
 
-export function enforceOutreachRateLimits(
-  drafts: OutreachDraft[],
+export async function outreachVersion(
   draft: OutreachDraft,
   message: OutreachMessage,
-  dailyLimit: number,
-  now = Date.now(),
-): void {
-  const allAccepted = drafts.flatMap((item) =>
-    acceptedEvents(item).map((event) => ({ draft: item, event })),
-  );
-  const last24Hours = now - 24 * 60 * 60 * 1000;
-  const sentToday = allAccepted.filter(({ event }) => Date.parse(event.at) >= last24Hours).length;
-  if (sentToday >= dailyLimit) throw new Error("outreach_daily_limit_reached");
-
-  if (message.step.kind !== "initial") return;
-  const cooldownStart = now - RECIPIENT_COOLDOWN_MS;
-  const duplicate = allAccepted.some(
-    ({ draft: existingDraft, event }) =>
-      existingDraft.id !== draft.id &&
-      existingDraft.contactEmail.trim().toLowerCase() === message.recipient &&
-      event.kind === "initial" &&
-      Date.parse(event.at) >= cooldownStart,
-  );
-  if (duplicate) throw new Error("outreach_recipient_cooldown");
+): Promise<string> {
+  const canonical = outreachCanonical(draft, message);
+  return Array.from(
+    new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical))),
+    (b) => b.toString(16).padStart(2, "0"),
+  ).join("");
+}
+function outreachCanonical(draft: OutreachDraft, message: OutreachMessage) {
+  return JSON.stringify([
+    "milo-outreach-v1",
+    draft.projectId,
+    draft.id,
+    message.recipient,
+    message.subject,
+    message.body,
+    stepKey(message.step),
+    message.step.kind === "followUp" ? draft.followUps[message.step.followUpIndex].delayDays : null,
+  ]);
+}
+export async function reviewOutreachMessage(
+  userId: string,
+  draftId: string,
+  step: OutreachSendStep,
+) {
+  const row = await readWorkspaceRow(userId);
+  if (!row) throw new Error("workspace_not_found");
+  const draft = findOutreachDraft(row.data, draftId);
+  const receipts = await readOutreachDeliveries(userId, draft.projectId);
+  const message = resolveOutreachMessage(draft, step, Date.now(), receipts);
+  return { message, hash: await outreachVersion(draft, message) };
 }
 
 function escapeHtml(value: string): string {
@@ -282,7 +285,7 @@ function stepKey(step: OutreachSendStep): string {
   return step.kind === "initial" ? "initial" : `followup-${step.followUpIndex}`;
 }
 
-async function sendWithResend(args: {
+export async function sendWithResend(args: {
   config: DeliveryConfig;
   message: OutreachMessage;
   unsubscribePageUrl: string;
@@ -319,16 +322,20 @@ async function sendWithResend(args: {
       }),
       signal: controller.signal,
     });
-    const payload = (await response.json().catch(() => ({}))) as ResendResponse;
-    if (!response.ok || !payload.id) {
-      throw new Error(`outreach_provider_failed_${response.status}`);
-    }
+    const payload = await readOutreachResponse(response, controller.signal);
+    if (
+      !response.ok ||
+      !payload ||
+      typeof payload !== "object" ||
+      !("id" in payload) ||
+      typeof payload.id !== "string" ||
+      !/^[A-Za-z0-9_-]{1,200}$/.test(payload.id)
+    )
+      throw new Error("outreach_provider_unknown");
     return payload.id;
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("outreach_provider_timeout");
-    }
-    throw error;
+  } catch {
+    // Any result without a bounded valid acceptance receipt is uncertain.
+    throw new Error("outreach_provider_unknown");
   } finally {
     clearTimeout(timeout);
   }
@@ -343,13 +350,6 @@ function appendDeliveryEvent(
   const index = drafts.findIndex((item) => item.id === draftId);
   if (index < 0) throw new Error("outreach_draft_not_found");
   const draft = drafts[index];
-  const existing = (draft.deliveryEvents ?? []).some(
-    (item) =>
-      item.status === "accepted" &&
-      item.kind === event.kind &&
-      item.followUpIndex === event.followUpIndex,
-  );
-  if (existing) return data;
   const nextDraft: OutreachDraft = {
     ...draft,
     status:
@@ -364,7 +364,12 @@ function appendDeliveryEvent(
       event.kind === "initial" && event.status === "accepted"
         ? event.providerMessageId
         : draft.providerMessageId,
-    deliveryEvents: [...(draft.deliveryEvents ?? []), event],
+    deliveryEvents: [
+      ...(draft.deliveryEvents ?? [])
+        .filter((item) => item.kind !== event.kind || item.followUpIndex !== event.followUpIndex)
+        .slice(-99),
+      event,
+    ],
     lastDeliveryError: event.status === "accepted" ? undefined : event.note,
     updatedAt: event.at,
   };
@@ -377,116 +382,192 @@ export async function sendOutreachEmail(args: {
   userId: string;
   draftId: string;
   step: OutreachSendStep;
+  expectedHash: string;
   acknowledgedRecipient: true;
   acknowledgedContent: true;
 }): Promise<{ status: "Sent"; providerMessageId: string; sentAt: string }> {
-  if (!args.acknowledgedRecipient || !args.acknowledgedContent) {
+  if (!args.acknowledgedRecipient || !args.acknowledgedContent)
     throw new Error("outreach_confirmation_required");
-  }
   const config = deliveryConfig();
-  const status = getOutreachDeliveryStatus();
-  if (!status.ready) throw new Error("outreach_delivery_not_configured");
-
+  if (!getOutreachDeliveryStatus().ready) throw new Error("outreach_delivery_not_configured");
   const row = await readWorkspaceRow(args.userId);
   if (!row) throw new Error("workspace_not_found");
   const draft = findOutreachDraft(row.data, args.draftId);
-  const message = resolveOutreachMessage(draft, args.step);
-  enforceOutreachRateLimits(outreachDrafts(row.data), draft, message, config.dailyLimit);
-
-  let token: string;
-  try {
-    token = await getUnsubscribeToken(message.recipient);
-  } catch (error) {
-    const note = error instanceof Error ? error.message : "outreach_suppression_check_failed";
-    if (note === "outreach_recipient_suppressed") {
-      const suppressedAt = new Date().toISOString();
-      const metadata = {
-        user_id: args.userId,
-        draft_id: args.draftId,
-        step: stepKey(args.step),
-      };
-      await logDelivery({
-        recipient: message.recipient,
-        status: "suppressed",
-        error: note,
-        metadata,
-      });
-      await mutateWorkspace(args.userId, (data) => ({
-        data: appendDeliveryEvent(data, args.draftId, {
-          kind: args.step.kind,
-          followUpIndex: args.step.kind === "followUp" ? args.step.followUpIndex : undefined,
-          status: "suppressed",
-          at: suppressedAt,
-          provider: "resend",
-          note,
-        }),
-        result: null,
-      }));
-    }
-    throw new Error(note);
-  }
-  const unsubscribeUrls = buildOutreachUnsubscribeUrls(config.siteUrl, token);
-  const idempotencyKey = `outreach-${args.userId}-${args.draftId}-${stepKey(args.step)}`;
-  const metadata = {
-    user_id: args.userId,
-    draft_id: args.draftId,
-    step: stepKey(args.step),
+  const history = await readOutreachDeliveries(args.userId, draft.projectId);
+  const message = resolveOutreachMessage(draft, args.step, Date.now(), history);
+  const hash = await outreachVersion(draft, message);
+  if (hash !== args.expectedHash) throw new Error("outreach_version_changed");
+  const token = await getUnsubscribeToken(message.recipient);
+  const keys = {
+    p_user: args.userId,
+    p_draft: args.draftId,
+    p_step: stepKey(args.step),
+    p_hash: hash,
   };
-
+  if (
+    (await outreachRpc("reserve_outreach_delivery", {
+      ...keys,
+      p_project: draft.projectId,
+      p_expected: row.rev,
+      p_recipient: message.recipient,
+      p_limit: config.dailyLimit,
+      p_delay:
+        args.step.kind === "initial" ? 2 : draft.followUps[args.step.followUpIndex].delayDays,
+    })) !== true
+  )
+    throw new Error("outreach_storage_unavailable");
+  // No retries of admission/dispatch, including timeouts whose transaction may
+  // have committed. The exact reviewed snapshot is the only outgoing message.
+  if (!getOutreachDeliveryStatus().ready) throw new Error("outreach_delivery_not_configured");
+  if ((await outreachRpc("dispatch_outreach_delivery", { ...keys, p_expected: row.rev })) !== true)
+    throw new Error("outreach_dispatch_blocked");
+  const urls = buildOutreachUnsubscribeUrls(config.siteUrl, token);
   let providerMessageId: string;
   try {
     providerMessageId = await sendWithResend({
       config,
       message,
-      unsubscribePageUrl: unsubscribeUrls.pageUrl,
-      oneClickUnsubscribeUrl: unsubscribeUrls.oneClickUrl,
-      idempotencyKey,
+      unsubscribePageUrl: urls.pageUrl,
+      oneClickUnsubscribeUrl: urls.oneClickUrl,
+      idempotencyKey: `outreach-${args.userId}-${args.draftId}-${stepKey(args.step)}`,
       draftId: args.draftId,
     });
-  } catch (error) {
-    const note = error instanceof Error ? error.message : "outreach_provider_failed";
-    const failedAt = new Date().toISOString();
-    await logDelivery({
-      recipient: message.recipient,
-      status: "failed",
-      error: note,
-      metadata,
-    });
-    await mutateWorkspace(args.userId, (data) => ({
-      data: appendDeliveryEvent(data, args.draftId, {
-        kind: args.step.kind,
-        followUpIndex: args.step.kind === "followUp" ? args.step.followUpIndex : undefined,
-        status: "failed",
-        at: failedAt,
-        provider: "resend",
-        note,
-      }),
-      result: null,
-    }));
-    throw new Error(note.startsWith("outreach_provider_") ? note : "outreach_provider_failed");
+  } catch {
+    await outreachRpc("finish_outreach_delivery", {
+      ...keys,
+      p_state: "unknown",
+      p_message: null,
+    }).catch(() => {});
+    throw new Error("outreach_provider_unknown");
   }
-
+  // Receipt persistence precedes optional workspace/log mirrors. A failed ack
+  // leaves dispatching held forever; it must never return replay permission.
+  if (
+    (await outreachRpc("finish_outreach_delivery", {
+      ...keys,
+      p_state: "accepted",
+      p_message: providerMessageId,
+    })) !== true
+  )
+    throw new Error("outreach_receipt_unknown");
   const sentAt = new Date().toISOString();
   await logDelivery({
     messageId: providerMessageId,
     recipient: message.recipient,
     status: "sent",
-    metadata,
-  });
+    metadata: { user_id: args.userId, draft_id: args.draftId, step: stepKey(args.step) },
+  }).catch(() => {});
   await mutateWorkspace(args.userId, (data) => ({
-    data: appendDeliveryEvent(data, args.draftId, {
+    data: mirrorAccepted(data, draft, message, {
       kind: args.step.kind,
       followUpIndex: args.step.kind === "followUp" ? args.step.followUpIndex : undefined,
       status: "accepted",
       at: sentAt,
       provider: "resend",
       providerMessageId,
-      note:
-        args.step.kind === "initial"
-          ? "Initial outreach accepted by Resend."
-          : `Follow-up ${args.step.followUpIndex + 1} accepted by Resend.`,
+      note: "Provider accepted; delivery is not verified.",
     }),
     result: null,
-  }));
+  })).catch(() => {});
   return { status: "Sent", providerMessageId, sentAt };
+}
+
+function mirrorAccepted(
+  data: WorkspaceData,
+  draft: OutreachDraft,
+  message: OutreachMessage,
+  event: OutreachDeliveryEvent,
+): WorkspaceData {
+  const current = outreachDrafts(data).find((d) => d.id === draft.id);
+  if (!current || !["Approved", "Sent", "Failed"].includes(current.status)) return data;
+  const selected =
+    message.step.kind === "initial" ? current : current.followUps[message.step.followUpIndex];
+  if (
+    !selected ||
+    outreachCanonical(current, {
+      ...message,
+      recipient: current.contactEmail.trim().toLowerCase(),
+      subject: selected.subject.trim(),
+      body: selected.body.trim(),
+    }) !== outreachCanonical(draft, message)
+  )
+    return data;
+  return appendDeliveryEvent(data, draft.id, event);
+}
+export async function recoverOutreachReceipt(
+  userId: string,
+  draftId: string,
+  step: OutreachSendStep,
+) {
+  const row = await readWorkspaceRow(userId);
+  if (!row) throw new Error("workspace_not_found");
+  const draft = findOutreachDraft(row.data, draftId);
+  const history = await readOutreachDeliveries(userId, draft.projectId);
+  const receipt = history.find(
+    (r) => r.draft_id === draftId && r.step === stepKey(step) && r.state === "accepted",
+  );
+  const selected = step.kind === "initial" ? draft : draft.followUps[step.followUpIndex];
+  if (!receipt || !selected || !receipt.provider_message_id)
+    throw new Error("outreach_receipt_unavailable");
+  const message = {
+    recipient: draft.contactEmail.trim().toLowerCase(),
+    subject: selected.subject.trim(),
+    body: selected.body.trim(),
+    step,
+  };
+  if ((await outreachVersion(draft, message)) !== receipt.version_hash)
+    throw new Error("outreach_version_changed");
+  const result = await mutateWorkspace(userId, (data) => {
+    const next = mirrorAccepted(data, draft, message, {
+      kind: step.kind,
+      followUpIndex: step.kind === "followUp" ? step.followUpIndex : undefined,
+      status: "accepted",
+      at: receipt.updated_at,
+      provider: "resend",
+      providerMessageId: receipt.provider_message_id!,
+      note: "Provider accepted; delivery is not verified.",
+    });
+    return { data: next, result: next !== data };
+  });
+  return { restored: result.result };
+}
+
+export async function readOutreachResponse(
+  response: Response,
+  signal: AbortSignal,
+): Promise<unknown> {
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("outreach_provider_unknown");
+  const abort = () => {
+    void reader.cancel().catch(() => {});
+  };
+  signal.addEventListener("abort", abort, { once: true });
+  try {
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    while (true) {
+      if (signal.aborted) throw new Error();
+      const { done, value } = await reader.read();
+      if (signal.aborted) throw new Error();
+      if (done) break;
+      size += value.byteLength;
+      if (size > 16384) {
+        void reader.cancel().catch(() => {});
+        throw new Error();
+      }
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.length;
+    }
+    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+  } catch {
+    throw new Error("outreach_provider_unknown");
+  } finally {
+    signal.removeEventListener("abort", abort);
+    reader.releaseLock();
+  }
 }
