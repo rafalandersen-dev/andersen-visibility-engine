@@ -1,3 +1,4 @@
+import { validCoverageRecord } from "./location-coverage";
 import { brandRecordPatch, mappedBrandField } from "./knowledge-brand";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -19,6 +20,8 @@ const fields = knowledgeRecordSchema
     validUntil: true,
   })
   .superRefine((record, context) => {
+    if (!validCoverageRecord(record))
+      context.addIssue({ code: "custom", message: "Invalid location coverage record" });
     if (mappedBrandField(record.key) && !brandRecordPatch(record))
       context.addIssue({ code: "custom", message: "Invalid canonical brand field value" });
   });
@@ -163,6 +166,26 @@ export const reviewProjectKnowledgeFn = createServerFn({ method: "POST" })
     );
     if (!record) throw new KnowledgeUnavailableError();
     const now = new Date().toISOString();
+    if (
+      data.status === "accepted" &&
+      (record.key.startsWith("coverage.") || data.fields.key.startsWith("coverage."))
+    ) {
+      const source = state.sources.find(
+        (source) =>
+          source.id === record.sourceId &&
+          source.ownerId === scope.ownerId &&
+          source.projectId === scope.projectId,
+      );
+      const validUntil = data.fields.validUntil ?? record.validUntil;
+      if (
+        !source ||
+        source.status !== "active" ||
+        source.revision !== record.sourceRevision ||
+        Date.parse(source.observedAt) > Date.parse(now) ||
+        (validUntil && Date.parse(validUntil) <= Date.parse(now))
+      )
+        throw new KnowledgeUnavailableError();
+    }
     return writeProjectKnowledge(
       scope,
       "record",

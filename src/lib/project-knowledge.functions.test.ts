@@ -179,3 +179,107 @@ describe("authenticated project knowledge endpoints", () => {
     );
   });
 });
+
+it("rejects malformed or forged structured coverage through teach/propose/review", async () => {
+  const badFields = {
+    ...fields,
+    key: "coverage.local.test",
+    category: "fact",
+    appliesTo: "text",
+    value: '{"verified":true}',
+  };
+  for (const [fn, data] of [
+    [endpoints.teachProjectKnowledgeFn, { projectId: "p", fields: badFields }],
+    [
+      endpoints.proposeKnowledgeRecordFn,
+      { projectId: "p", id, sourceId: id, sourceRevision: 1, fields: badFields },
+    ],
+    [
+      endpoints.reviewProjectKnowledgeFn,
+      { projectId: "p", id, expectedRevision: 1, status: "accepted", fields: badFields },
+    ],
+  ])
+    expect(() => call(fn, data)).toThrow();
+  expect(h.pair).not.toHaveBeenCalled();
+  expect(h.write).not.toHaveBeenCalled();
+});
+
+const coverageFields = {
+  key: "coverage.local.test",
+  category: "fact",
+  appliesTo: "text",
+  value: JSON.stringify({
+    kind: "local",
+    target: "Stockholm",
+    service: "",
+    name: "Example",
+    address: "",
+    phone: "",
+    language: "",
+    pageUrl: "",
+    alternateUrl: "",
+    citationUrl: "",
+    reviewUrl: "",
+    gbpUrl: "",
+    notes: "",
+  }),
+  locator: "Owner statement",
+};
+const coverageSource = {
+  ...scope,
+  id,
+  revision: 1,
+  status: "active",
+  observedAt: "2020-01-01T00:00:00Z",
+};
+const coverageRecord = {
+  ...scope,
+  ...coverageFields,
+  id,
+  revision: 1,
+  sourceId: id,
+  sourceRevision: 1,
+};
+it.each([
+  { sources: [] },
+  { sources: [{ ...coverageSource, status: "revoked" }] },
+  { sources: [{ ...coverageSource, revision: 2 }] },
+  { sources: [{ ...coverageSource, observedAt: "2099-01-01T00:00:00Z" }] },
+  { records: [{ ...coverageRecord, validUntil: "2020-01-01T00:00:00Z" }] },
+])("rechecks current coverage source and expiry before an acceptance write %#", async (patch) => {
+  h.read.mockResolvedValue({ sources: [coverageSource], records: [coverageRecord], ...patch });
+  await expect(
+    call(endpoints.reviewProjectKnowledgeFn, {
+      projectId: "p",
+      id,
+      expectedRevision: 1,
+      fields: coverageFields,
+      status: "accepted",
+    }),
+  ).rejects.toThrow("unavailable");
+  expect(h.write).not.toHaveBeenCalled();
+});
+it("accepts current coverage and an explicitly reviewed future expiry renewal", async () => {
+  h.read.mockResolvedValue({
+    sources: [coverageSource],
+    records: [{ ...coverageRecord, validUntil: "2020-01-01T00:00:00Z" }],
+  });
+  await call(endpoints.reviewProjectKnowledgeFn, {
+    projectId: "p",
+    id,
+    expectedRevision: 1,
+    fields: { ...coverageFields, validUntil: "2099-01-01T00:00:00Z" },
+    status: "accepted",
+  });
+  expect(h.write).toHaveBeenCalledWith(
+    scope,
+    "record",
+    expect.objectContaining({
+      status: "accepted",
+      validUntil: "2099-01-01T00:00:00Z",
+      sourceRevision: 1,
+      revision: 2,
+    }),
+    1,
+  );
+});

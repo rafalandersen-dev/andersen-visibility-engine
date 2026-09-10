@@ -1,6 +1,6 @@
 # R18 publishing fidelity implementation — 10 September 2026
 
-PR119 in review; not released. Recovered clean released record d9ff96bb205cb853fb7a488bd7358cc5e77a629d onto codex/milo-schema-fidelity-20260910. Predecessor confirmed exclusive handoff and stopped overlapping implementation.
+PR119 technically released; see [release evidence](publishing-fidelity-release-2026-09-10.md). The following implementation checkpoints are historical. Recovered clean released record d9ff96bb205cb853fb7a488bd7358cc5e77a629d onto codex/milo-schema-fidelity-20260910. Predecessor confirmed exclusive handoff and stopped overlapping implementation.
 
 Baseline fixtures in /tmp/milo-schema-divergence-before.jsonl demonstrate: list markers and table separators retained in old FAQ schema despite absent visible markers/separators; backticks removed in old schema despite visible literal backticks; Swedish FAQ heading rendered but no FAQ schema. Code inspection additionally found WordPress and Shopify re-rendering the degraded Markdown, omitting approved figure presentation already present in Studio/snapshot HTML.
 
