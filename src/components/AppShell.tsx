@@ -55,6 +55,14 @@ const NAV = [
     children: [],
   },
   {
+    id: "specialists",
+    tKey: "team.title",
+    to: "/app/specialists",
+    icon: UsersThree,
+    paths: ["/app/specialists"],
+    children: [],
+  },
+  {
     id: "notifications",
     tKey: "notifications.title",
     to: "/app/notifications",
