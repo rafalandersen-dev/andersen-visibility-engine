@@ -21,8 +21,10 @@ const h = vi.hoisted(() => ({
   refresh: vi.fn(),
   knowledge: vi.fn(),
   arm: vi.fn(),
+  mirror: vi.fn(),
   approved: vi.fn(),
 }));
+vi.mock("./publish.server", () => ({ writeScheduleMirror: h.mirror }));
 vi.mock("./workspace.server", () => ({ readWorkspaceRow: h.read, updateWorkspaceRow: h.update }));
 vi.mock("./weekly-preparation.server", () => ({
   readWeeklyPreparation: h.readiness,
@@ -259,6 +261,28 @@ describe("weekly executor integrated orchestration without live providers", () =
     expect(h.image).toHaveBeenCalledTimes(2);
     expect(h.arm).not.toHaveBeenCalled();
   });
+  it.each([false, true])(
+    "mirrors admitted weekly schedules and retains queue success if the mirror fails: %s",
+    async (mirrorFails) => {
+      for (let i = 0; i < 3; i++) await runWeeklyProject(scope, now);
+      workspace.projects[0].autoScheduler!.mode = "auto_publish";
+      const asset = workspace.content[0];
+      asset.status = "Approved";
+      h.arm.mockImplementation(async () => {
+        queue.push({
+          assetId: asset.id,
+          publishAt: asset.autoSchedulerPlannedAt!,
+          status: "pending",
+        });
+      });
+      if (mirrorFails) h.mirror.mockRejectedValueOnce(new Error("workspace_unavailable"));
+      expect(await runWeeklyProject(scope, now)).toMatchObject({ action: "queued" });
+      expect(h.mirror).toHaveBeenCalledWith(scope.ownerId, asset.id, asset.autoSchedulerPlannedAt);
+      expect(h.arm.mock.invocationCallOrder[0]).toBeLessThan(h.mirror.mock.invocationCallOrder[0]);
+      expect(queue).toHaveLength(1);
+      expect(h.generate).toHaveBeenCalledTimes(1);
+    },
+  );
   it("uses real queued current-week rows to move to next week even without display mirrors", async () => {
     for (let i = 0; i < 6; i++) await runWeeklyProject(scope, now);
     workspace.projects[0].autoScheduler!.mode = "auto_publish";

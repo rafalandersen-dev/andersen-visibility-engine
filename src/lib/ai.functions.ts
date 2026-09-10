@@ -1999,13 +1999,14 @@ export async function generateOpportunitiesCore(
   metering: { enforceLimit?: boolean; attempt?: NativeExpenseContext["attempt"]; expectedKnowledgeHash?: string } = {},
 ) {
   {
-    // Spend limit, claimed before any model call so a refusal costs nothing.
-    await claimAiUsage({ userId, bucket: "aiCredits", enforceLimit: metering.enforceLimit });
     const project = data.project as Project;
     const services = data.services as ServiceItem[];
     const { loadProjectKnowledgeContext } = await import("./project-knowledge.server");
     const knowledge = await loadProjectKnowledgeContext({ownerId:userId,projectId:project.id},"text");
     if (metering.expectedKnowledgeHash && await (await import("./weekly-executor")).weeklyInputHash(knowledge) !== metering.expectedKnowledgeHash) throw new Error("weekly_context_changed");
+    // Validate retrieval and the pinned context before consuming a result unit.
+    // The claim still precedes every model request.
+    await claimAiUsage({ userId, bucket: "aiCredits", enforceLimit: metering.enforceLimit });
     const brief = [projectBrief(knowledge.brandIntelligence ? {...project,brandIntelligence:knowledge.brandIntelligence} : project, services),knowledge.context].filter(Boolean).join("\n\n");
     const existing = data.existingTitles.length
       ? `\nAvoid duplicating these existing titles:\n- ${data.existingTitles.join("\n- ")}`

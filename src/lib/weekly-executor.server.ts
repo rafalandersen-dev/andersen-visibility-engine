@@ -270,6 +270,10 @@ export async function runWeeklyProject(scope: Scope, now = new Date()) {
           token,
           completed.publishAt,
         );
+        const { writeScheduleMirror } = await import("./publish.server");
+        await bounded(writeScheduleMirror(scope.ownerId, asset.id, completed.publishAt)).catch(
+          () => undefined,
+        );
         action = "queued";
         return await report();
       } catch {
