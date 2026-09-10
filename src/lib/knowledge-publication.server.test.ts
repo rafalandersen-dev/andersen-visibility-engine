@@ -145,6 +145,28 @@ describe("exact output knowledge publication", () => {
     );
     expect(issues[0]).toMatchObject({ key: "forgotten-knowledge", sourceId: "" });
   });
+  it("uses the same explicit owner override filter as generation", async () => {
+    const current = state();
+    current.records[0].key = "brand.voice.tone";
+    expect(evaluateAssetKnowledge(owner, asset, current, [], now, {})).toEqual([]);
+    expect(
+      evaluateAssetKnowledge(owner, asset, current, [], now, { toneOfVoice: "Owner tone" }),
+    ).toHaveLength(1);
+    expect(
+      evaluateAssetKnowledge(owner, asset, current, [], now, { brandOwnerFields: ["voice.tone"] }),
+    ).toHaveLength(1);
+    const rpc = vi.fn(async (name: string) => ({
+      error: null,
+      data:
+        name === "read_output_knowledge_dependencies"
+          ? []
+          : name === "read_project_knowledge_brand"
+            ? { brandIntelligence: null, brandOwnerFields: ["voice.tone"], toneOfVoice: "" }
+            : current,
+    }));
+    expect(await knowledgeIssuesForAsset(owner, asset, now, rpc)).toHaveLength(1);
+    expect(rpc.mock.calls.some((c) => c[0] === "read_project_knowledge_brand")).toBe(true);
+  });
   it("holds known future expiry at planned publication time", () => {
     const s = state();
     s.records[0].validUntil = "2026-09-11T00:00:00Z";

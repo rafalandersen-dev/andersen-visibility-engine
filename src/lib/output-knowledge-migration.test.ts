@@ -58,17 +58,20 @@ const ref = {
   sourceFingerprint: "a".repeat(64),
 };
 const retain = (kind = "content", refs = [ref], id = token) =>
-  db.query("INSERT INTO public.ai_generation_results VALUES($1,$2,$3)", [
-    id,
-    user,
-    JSON.stringify({
-      kind,
-      projectId: "p",
-      assetId: "a",
-      imageId: "im",
-      output: { knowledgeReferences: refs },
-    }),
-  ]);
+  db.query(
+    "INSERT INTO public.ai_generation_results(receipt_id,user_id,payload) VALUES($1,$2,$3)",
+    [
+      id,
+      user,
+      JSON.stringify({
+        kind,
+        projectId: "p",
+        assetId: "a",
+        imageId: "im",
+        output: { knowledgeReferences: refs },
+      }),
+    ],
+  );
 const registry = async (owner = user) =>
   (
     await db.query<{ result: { references: unknown[]; forgotten: boolean; outputId: string }[] }>(
@@ -77,8 +80,12 @@ const registry = async (owner = user) =>
     )
   ).rows[0].result;
 describe("durable output knowledge", () => {
-  it("retains immutable refs after archive discard and scopes reads", async () => {
+  it("retains immutable refs for saved output after archive discard and scopes reads", async () => {
     await retain();
+    await db.query("INSERT INTO public.workspace_entities VALUES($1,'content','a',$2)", [
+      user,
+      JSON.stringify({ projectId: "p" }),
+    ]);
     await db.query("UPDATE public.ai_generation_results SET payload=NULL WHERE receipt_id=$1", [
       token,
     ]);
@@ -86,28 +93,31 @@ describe("durable output knowledge", () => {
     expect(await registry(other)).toEqual([]);
   });
   it("retains website and knowledge dependencies in the same row", async () => {
-    await db.query("INSERT INTO public.ai_generation_results VALUES($1,$2,$3)", [
-      token,
-      user,
-      JSON.stringify({
-        kind: "content",
-        projectId: "p",
-        assetId: "a",
-        output: {
-          knowledgeReferences: [ref],
-          sourceDependencies: [
-            {
-              ownerId: user,
-              projectId: "p",
-              sourceId: sid,
-              key: "price",
-              fingerprint: "a".repeat(64),
-              critical: true,
-            },
-          ],
-        },
-      }),
-    ]);
+    await db.query(
+      "INSERT INTO public.ai_generation_results(receipt_id,user_id,payload) VALUES($1,$2,$3)",
+      [
+        token,
+        user,
+        JSON.stringify({
+          kind: "content",
+          projectId: "p",
+          assetId: "a",
+          output: {
+            knowledgeReferences: [ref],
+            sourceDependencies: [
+              {
+                ownerId: user,
+                projectId: "p",
+                sourceId: sid,
+                key: "price",
+                fingerprint: "a".repeat(64),
+                critical: true,
+              },
+            ],
+          },
+        }),
+      ],
+    );
     const rows = (
       await db.query<{ n: number }>(
         "SELECT jsonb_array_length(dependencies) n FROM public.project_output_source_dependencies",
@@ -198,6 +208,99 @@ describe("durable output knowledge", () => {
     expect(await registry()).toMatchObject([
       { outputId: "moved", references: [], forgotten: true },
     ]);
+  });
+  it("releases discarded orphan rows and refuses a late content save", async () => {
+    await retain();
+    await db.query("UPDATE public.ai_generation_results SET payload=NULL WHERE receipt_id=$1", [
+      token,
+    ]);
+    expect(await registry()).toEqual([]);
+    await expect(
+      db.query("INSERT INTO public.workspace_entities VALUES($1,'content','a',$2)", [
+        user,
+        JSON.stringify({ projectId: "p" }),
+      ]),
+    ).rejects.toThrow("discarded_output_cannot_be_attached");
+  });
+  it("refuses a late discarded image attachment but preserves unrelated owner edits", async () => {
+    await retain("image");
+    await db.query("INSERT INTO public.workspace_entities VALUES($1,'content','a',$2)", [
+      user,
+      JSON.stringify({ projectId: "p", images: [] }),
+    ]);
+    await db.query("UPDATE public.ai_generation_results SET payload=NULL WHERE receipt_id=$1", [
+      token,
+    ]);
+    expect(await registry()).toEqual([]);
+    await expect(
+      db.query(
+        "UPDATE public.workspace_entities SET data=$2 WHERE user_id=$1 AND collection='content' AND entity_id='a'",
+        [user, JSON.stringify({ projectId: "p", images: [{ id: "im" }] })],
+      ),
+    ).rejects.toThrow("discarded_output_cannot_be_attached");
+    await db.query(
+      "UPDATE public.workspace_entities SET data=$2 WHERE user_id=$1 AND collection='content' AND entity_id='a'",
+      [user, JSON.stringify({ projectId: "p", markdown: "Owner edit", images: [] })],
+    );
+  });
+  it("blocks renamed discarded image reuse by path while keeping an existing copy editable", async () => {
+    const path = `${user}/p/a/file.webp`;
+    await db.query(
+      "INSERT INTO public.ai_generation_results(receipt_id,user_id,payload) VALUES($1,$2,$3)",
+      [
+        token,
+        user,
+        JSON.stringify({
+          kind: "image",
+          projectId: "p",
+          assetId: "a",
+          imageId: "im",
+          output: { path, knowledgeReferences: [ref] },
+        }),
+      ],
+    );
+    const copy = {
+      projectId: "p",
+      images: [
+        {
+          id: "copy",
+          url: `https://example.com/storage/v1/object/public/article-assets-public/${path}`,
+          status: "accepted",
+        },
+      ],
+    };
+    await db.query("INSERT INTO public.workspace_entities VALUES($1,'content','b',$2)", [
+      user,
+      JSON.stringify(copy),
+    ]);
+    await db.query("UPDATE public.ai_generation_results SET payload=NULL WHERE receipt_id=$1", [
+      token,
+    ]);
+    await expect(
+      db.query("INSERT INTO public.workspace_entities VALUES($1,'content','c',$2)", [
+        user,
+        JSON.stringify({ projectId: "p", images: [{ id: "renamed", storagePath: path }] }),
+      ]),
+    ).rejects.toThrow("discarded_output_cannot_be_attached");
+    await db.query(
+      "UPDATE public.workspace_entities SET data=$2 WHERE user_id=$1 AND entity_id='b' AND collection='content'",
+      [user, JSON.stringify({ ...copy, markdown: "Owner edit" })],
+    );
+    await db.query(
+      "DELETE FROM public.workspace_entities WHERE user_id=$1 AND collection='projects' AND entity_id='p'",
+      [user],
+    );
+    expect(
+      (
+        await db.query<{ n: number }>(
+          "SELECT count(*)::int n FROM public.ai_generation_results WHERE discarded_output_identity IS NOT NULL",
+        )
+      ).rows[0].n,
+    ).toBe(0);
+    await db.query(
+      "INSERT INTO public.workspace_entities(user_id,collection,entity_id) VALUES($1,'projects','p')",
+      [user],
+    );
   });
   it("denies direct writes and non-service reads", async () => {
     await db.exec("SET ROLE authenticated");

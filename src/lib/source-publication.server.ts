@@ -1,9 +1,10 @@
+import { mappedBrandField } from "./knowledge-brand";
 import {
   knowledgeIssuesForAsset,
   readOutputKnowledgeDependencies,
   evaluateAssetKnowledge,
 } from "./knowledge-publication.server";
-import { readProjectKnowledge } from "./project-knowledge.server";
+import { readProjectKnowledge, readProjectKnowledgeBrand } from "./project-knowledge.server";
 import type { ContentAsset } from "./types";
 import type { KnowledgeRpc } from "./project-knowledge.server";
 import {
@@ -278,6 +279,9 @@ export async function readProjectSourceImpact(userId: string, projectId: string)
   const knowledge = selected.length
     ? await readProjectKnowledge({ ownerId: userId, projectId })
     : { sources: [], records: [] };
+  const profile = knowledge.records.some((r) => mappedBrandField(r.key))
+    ? await readProjectKnowledgeBrand({ ownerId: userId, projectId })
+    : undefined;
   const now = new Date().toISOString();
   const inspected = selected.map((asset) => mergeRegisteredDependencies(asset, registry));
   return {
@@ -290,9 +294,9 @@ export async function readProjectSourceImpact(userId: string, projectId: string)
           : now;
       const issues = [
         ...issuesFromRows(userId, asset, rows, now, planned),
-        ...evaluateAssetKnowledge(userId, asset, knowledge, knowledgeRegistry, now),
+        ...evaluateAssetKnowledge(userId, asset, knowledge, knowledgeRegistry, now, profile),
         ...(planned !== now
-          ? evaluateAssetKnowledge(userId, asset, knowledge, knowledgeRegistry, planned)
+          ? evaluateAssetKnowledge(userId, asset, knowledge, knowledgeRegistry, planned, profile)
           : []),
       ];
       const knowledgeIssueCount = new Set(issues.filter((i) => "evidence" in i).map((i) => i.key))

@@ -82,10 +82,13 @@ beforeAll(async () => {
     "CREATE TABLE public.ai_generation_results(receipt_id uuid PRIMARY KEY,user_id uuid,payload jsonb)",
   );
   await db.exec(readFileSync("supabase/migrations/20260910100000_source_refresh.sql", "utf8"));
+  await db.exec(
+    readFileSync("supabase/migrations/20260911000000_output_knowledge_integrity.sql", "utf8"),
+  );
 }, 30000);
 beforeEach(async () => {
   await db.exec(
-    "RESET ROLE; TRUNCATE public.ai_generation_results,public.project_output_source_dependencies,public.project_source_refresh,public.project_knowledge_documents,public.project_knowledge_records,public.project_knowledge_sources,public.project_knowledge_history,public.project_knowledge_tombstones;",
+    "RESET ROLE; DELETE FROM public.workspace_entities WHERE collection='content'; TRUNCATE public.ai_generation_results,public.project_output_source_dependencies,public.project_source_refresh,public.project_knowledge_documents,public.project_knowledge_records,public.project_knowledge_sources,public.project_knowledge_history,public.project_knowledge_tombstones;",
   );
   await db.query("SELECT public.save_project_knowledge($1,'p','source',$2,0,$3)", [
     user,
@@ -270,10 +273,13 @@ describe("scoped source refresh storage", () => {
       assetId: "asset",
       output: { sourceDependencies: [dependency] },
     };
-    await db.query("INSERT INTO public.ai_generation_results VALUES($1,$2,$3)", [
-      token,
+    await db.query(
+      "INSERT INTO public.ai_generation_results(receipt_id,user_id,payload) VALUES($1,$2,$3)",
+      [token, user, JSON.stringify(payload)],
+    );
+    await db.query("INSERT INTO public.workspace_entities VALUES($1,'content','asset',$2)", [
       user,
-      JSON.stringify(payload),
+      JSON.stringify({ projectId: "p" }),
     ]);
     await db.exec("UPDATE public.ai_generation_results SET payload=NULL");
     const retained = await db.query<{ result: unknown[] }>(
@@ -300,14 +306,17 @@ describe("scoped source refresh storage", () => {
     );
     expect(selected.rows[0].result).toEqual(retained.rows[0].result);
     await expect(
-      db.query("INSERT INTO public.ai_generation_results VALUES($1,$2,$3)", [
-        other,
-        user,
-        JSON.stringify({
-          ...payload,
-          output: { sourceDependencies: [{ ...dependency, ownerId: other }] },
-        }),
-      ]),
+      db.query(
+        "INSERT INTO public.ai_generation_results(receipt_id,user_id,payload) VALUES($1,$2,$3)",
+        [
+          other,
+          user,
+          JSON.stringify({
+            ...payload,
+            output: { sourceDependencies: [{ ...dependency, ownerId: other }] },
+          }),
+        ],
+      ),
     ).rejects.toThrow("invalid_output_source_dependencies");
     expect((await db.query("SELECT * FROM public.ai_generation_results")).rows).toHaveLength(1);
     await db.query(
@@ -332,16 +341,19 @@ describe("scoped source refresh storage", () => {
       fingerprint: fact.fingerprint,
       critical: true,
     };
-    await db.query("INSERT INTO public.ai_generation_results VALUES($1,$2,$3)", [
-      token,
-      user,
-      JSON.stringify({
-        kind: "content",
-        projectId: "p",
-        assetId: "asset",
-        output: { sourceDependencies: [dependency] },
-      }),
-    ]);
+    await db.query(
+      "INSERT INTO public.ai_generation_results(receipt_id,user_id,payload) VALUES($1,$2,$3)",
+      [
+        token,
+        user,
+        JSON.stringify({
+          kind: "content",
+          projectId: "p",
+          assetId: "asset",
+          output: { sourceDependencies: [dependency] },
+        }),
+      ],
+    );
     await db.query("SELECT forget_project_knowledge($1,'p','source',$2,1)", [user, sid]);
     const retained = await db.query<{ result: unknown[] }>(
       "SELECT read_output_source_dependencies($1,'p','asset') result",
@@ -360,16 +372,19 @@ describe("scoped source refresh storage", () => {
     for (const privateValue of [sid, dependency.key, dependency.productId, dependency.fingerprint])
       expect(serialized).not.toContain(privateValue);
     expect(await read()).toEqual([]);
-    await db.query("INSERT INTO public.ai_generation_results VALUES($1,$2,$3)", [
-      other,
-      user,
-      JSON.stringify({
-        kind: "content",
-        projectId: "p",
-        assetId: "late",
-        output: { sourceDependencies: [dependency] },
-      }),
-    ]);
+    await db.query(
+      "INSERT INTO public.ai_generation_results(receipt_id,user_id,payload) VALUES($1,$2,$3)",
+      [
+        other,
+        user,
+        JSON.stringify({
+          kind: "content",
+          projectId: "p",
+          assetId: "late",
+          output: { sourceDependencies: [dependency] },
+        }),
+      ],
+    );
     const late = await db.query<{ result: unknown[] }>(
       "SELECT read_output_source_dependencies($1,'p','late') result",
       [user],
@@ -385,16 +400,19 @@ describe("scoped source refresh storage", () => {
     ]);
   });
   it("does not consume source registry capacity for empty dependencies even at capacity", async () => {
-    await db.query("INSERT INTO public.ai_generation_results VALUES($1,$2,$3)", [
-      token,
-      user,
-      JSON.stringify({
-        kind: "content",
-        projectId: "p",
-        assetId: "empty",
-        output: { sourceDependencies: [] },
-      }),
-    ]);
+    await db.query(
+      "INSERT INTO public.ai_generation_results(receipt_id,user_id,payload) VALUES($1,$2,$3)",
+      [
+        token,
+        user,
+        JSON.stringify({
+          kind: "content",
+          projectId: "p",
+          assetId: "empty",
+          output: { sourceDependencies: [] },
+        }),
+      ],
+    );
     expect(
       (await db.query("SELECT * FROM public.project_output_source_dependencies")).rows,
     ).toHaveLength(0);
@@ -402,17 +420,20 @@ describe("scoped source refresh storage", () => {
       "INSERT INTO public.project_output_source_dependencies(user_id,project_id,asset_id,output_id,kind,dependencies) SELECT $1,'p','asset-'||n,'asset-'||n,'content','[]'::jsonb FROM generate_series(1,1000) n",
       [user],
     );
-    await db.query("INSERT INTO public.ai_generation_results VALUES($1,$2,$3)", [
-      other,
-      user,
-      JSON.stringify({
-        kind: "image",
-        projectId: "p",
-        assetId: "empty",
-        imageId: "empty-image",
-        output: { sourceDependencies: [] },
-      }),
-    ]);
+    await db.query(
+      "INSERT INTO public.ai_generation_results(receipt_id,user_id,payload) VALUES($1,$2,$3)",
+      [
+        other,
+        user,
+        JSON.stringify({
+          kind: "image",
+          projectId: "p",
+          assetId: "empty",
+          imageId: "empty-image",
+          output: { sourceDependencies: [] },
+        }),
+      ],
+    );
     expect(
       (await db.query("SELECT * FROM public.project_output_source_dependencies")).rows,
     ).toHaveLength(1000);

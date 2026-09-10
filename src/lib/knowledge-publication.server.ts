@@ -1,3 +1,4 @@
+import { filterBrandKnowledge, mappedBrandField, type BrandProfile } from "./knowledge-brand";
 import { z } from "zod";
 import type { ContentAsset } from "./types";
 import {
@@ -7,6 +8,7 @@ import {
 } from "./project-knowledge";
 import {
   readProjectKnowledge,
+  readProjectKnowledgeBrand,
   type KnowledgeRpc,
   KnowledgeUnavailableError,
 } from "./project-knowledge.server";
@@ -83,6 +85,7 @@ export function evaluateAssetKnowledge(
   state: Awaited<ReturnType<typeof readProjectKnowledge>>,
   registry: KnowledgeRegistry,
   now: string,
+  profile?: BrandProfile,
 ): KnowledgePublicationIssue[] {
   if (!Array.isArray(asset.images ?? []) || (asset.images?.length ?? 0) > 30)
     throw new KnowledgeUnavailableError();
@@ -130,13 +133,17 @@ export function evaluateAssetKnowledge(
     ]);
   for (const group of groups) {
     if (!group.refs.length) continue;
-    const selection = selectProjectKnowledge(
+    let selection = selectProjectKnowledge(
       state.sources,
       state.records,
       { ownerId: userId, projectId: asset.projectId },
       group.output,
       now,
     );
+    if (selection.records.some((r) => mappedBrandField(r.key))) {
+      if (!profile) throw new KnowledgeUnavailableError();
+      selection = filterBrandKnowledge(selection, profile);
+    }
     const current = new Set(selection.references.map(key));
     for (const ref of new Map(group.refs.map((r) => [key(r), r])).values()) {
       if (!current.has(key(ref)))
@@ -168,5 +175,8 @@ export async function knowledgeIssuesForAsset(
   const state = hasRefs
     ? await readProjectKnowledge({ ownerId: userId, projectId: asset.projectId }, rpc)
     : { sources: [], records: [] };
-  return evaluateAssetKnowledge(userId, asset, state, registry, now);
+  const profile = state.records.some((r) => mappedBrandField(r.key))
+    ? await readProjectKnowledgeBrand({ ownerId: userId, projectId: asset.projectId }, rpc)
+    : undefined;
+  return evaluateAssetKnowledge(userId, asset, state, registry, now, profile);
 }
