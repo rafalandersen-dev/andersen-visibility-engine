@@ -14,6 +14,21 @@ const project = (patch: Record<string, unknown> = {}) =>
 const prepare = (payload: Record<string, unknown>, requestId = "r1", projectId = "p1") =>
   prepareProfileFill(profileFillSchema.parse({ projectId, requestId, payload }));
 describe("profile field ownership and durable replay", () => {
+  it("does not refill an explicitly owner-cleared brand field under a new request", async () => {
+    const original = project({
+      brandIntelligence: { voice: {} },
+      brandOwnerFields: ["voice.tone"],
+    });
+    const result = applyProfileFill(
+      { projects: [original] },
+      await prepare({
+        brandIntelligence: { voice: { tone: "Suggested", styleNotes: "Short sentences" } },
+      }),
+    );
+    expect(result.result.filled).toEqual(["brandIntelligence.voice.styleNotes"]);
+    expect(result.result.requiresProposal).toEqual(["brandIntelligence.voice.tone"]);
+    expect((result.data.projects as Project[])[0].brandIntelligence?.voice?.tone).toBeUndefined();
+  });
   it("fills blanks but reports owner-set values for a separate proposal", async () => {
     const original = project();
     const out = applyProfileFill(

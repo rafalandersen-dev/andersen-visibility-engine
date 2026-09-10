@@ -16,6 +16,7 @@ import { sv } from "./sv";
 import { da } from "./da";
 import { premium } from "./premium";
 import { notifications } from "./notifications";
+import { projectKnowledge } from "./project-knowledge";
 import { generationResults } from "./generation-results";
 
 type Dict = Record<string, string>;
@@ -32,6 +33,7 @@ export function translate(
 ): string {
   const l = isSupported(lang) ? lang : "en";
   let s =
+    (projectKnowledge[l] as Dict)[key] ??
     generationResults[l][key] ??
     notifications[l][key] ??
     premium[l][key] ??

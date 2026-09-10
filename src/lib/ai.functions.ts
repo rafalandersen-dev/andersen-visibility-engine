@@ -1189,7 +1189,7 @@ interface SiteContext {
  * extracts title/meta/visible text and discovers up to 5 same-domain internal
  * links (path + anchor text). Never throws — returns ok:false on any problem.
  */
-async function fetchSiteContext(rawUrl: string): Promise<SiteContext> {
+export async function fetchSiteContext(rawUrl: string): Promise<SiteContext> {
   const empty: SiteContext = { ok: false, title: "", metaDescription: "", text: "", links: [] };
   let url = (rawUrl || "").trim();
   if (!url) return empty;
@@ -2175,7 +2175,11 @@ export const generateContentAssetFn = createServerFn({ method: "POST" })
         const project = data.project as Project;
         const services = data.services as ServiceItem[];
         const opp = data.opportunity as Opportunity;
-        const brief = projectBrief(project, services);
+        const { loadProjectKnowledgeContext } = await import("./project-knowledge.server");
+        const knowledge = await loadProjectKnowledgeContext(
+          { ownerId: context.userId as string, projectId: project.id }, "text",
+        );
+        const brief = [projectBrief(knowledge.brandIntelligence ? { ...project, brandIntelligence: knowledge.brandIntelligence } : project, services), knowledge.context].filter(Boolean).join("\n\n");
         // Generate in the project's primary content language (covers Danish too),
         // falling back to the opportunity's language if none is set.
         // P1-7 fix (2026-07-25): the OPPORTUNITY's language wins. A Polish-language
@@ -2220,7 +2224,7 @@ ${sharedRules}`,
             8000,
           );
 
-          return {...normalizeContentAsset(payload, project, opp), generationReceiptId:receiptId,resultId:receiptId};
+          return {...normalizeContentAsset(payload, project, opp),knowledgeReferences: knowledge.references, generationReceiptId:receiptId,resultId:receiptId};
         } catch (e) {
           // P1-5: generation failures must be visible in server logs, not only
           // as a transient client toast.
@@ -2301,7 +2305,9 @@ export async function generateContentCore(
       const project = data.project as Project;
       const services = data.services as ServiceItem[];
       const opp = data.opportunity as Opportunity;
-      const brief = projectBrief(project, services);
+      const { loadProjectKnowledgeContext } = await import("./project-knowledge.server");
+      const knowledge = await loadProjectKnowledgeContext({ownerId: userId, projectId: project.id}, "text");
+      const brief = [projectBrief(knowledge.brandIntelligence ? { ...project, brandIntelligence: knowledge.brandIntelligence } : project, services), knowledge.context].filter(Boolean).join("\n\n");
       // P1-7 fix (2026-07-25): the OPPORTUNITY's language wins. A Polish-language
       // opportunity on a Swedish-market project must generate a Polish article —
       // the project's content language is only the fallback when the opportunity
@@ -2340,7 +2346,7 @@ ${sharedRules}`,
           data.modelOverride,
         );
 
-        return {...normalizeContentAsset(payload, project, opp),generationReceiptId:receiptId,resultId:metering.assetId ?? receiptId};
+        return {...normalizeContentAsset(payload, project, opp),knowledgeReferences: knowledge.references,generationReceiptId:receiptId,resultId:metering.assetId ?? receiptId};
       } catch (e) {
         // P1-5: generation failures must be visible in server logs, not only
         // as a transient client toast.

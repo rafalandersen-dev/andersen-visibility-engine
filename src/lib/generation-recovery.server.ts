@@ -143,6 +143,7 @@ export function recoverGeneratedResultMutation(
     storagePath: result.output.path,
     previewUrl,
     alt: result.output.alt,
+    knowledgeReferences: result.output.knowledgeReferences,
     placement: "inline",
     source: "generated",
     status: "proposed",

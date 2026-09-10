@@ -1,3 +1,4 @@
+import { changedBrandOwnerFields } from "./knowledge-brand";
 import { projectContentLanguage, contentLanguagePatch } from "./content-languages";
 /**
  * Phase 1B.2 — server-side pending action operations (dark: nothing exposes
@@ -326,7 +327,8 @@ export async function resolvePendingActionForWorkspace(
       }
 
       if (setup.brandIntelligence) {
-        nextProjects[projIdx] = { ...nextProjects[projIdx], brandIntelligence: mergeBrandProposal(project.brandIntelligence, setup.brandIntelligence, nowIso) };
+        const brandIntelligence = mergeBrandProposal(project.brandIntelligence, setup.brandIntelligence, nowIso);
+        nextProjects[projIdx] = { ...nextProjects[projIdx], brandIntelligence, brandOwnerFields: changedBrandOwnerFields(project.brandIntelligence, brandIntelligence, project.brandOwnerFields) };
       }
 
       // Services: create-only, ids minted server-side, projectId forced from

@@ -1,3 +1,4 @@
+import { mergeOwnerBrandEdits } from "@/lib/knowledge-brand";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useStore, updateProject, saveWorkspaceNow } from "@/lib/store";
+import { useStore, getState, updateProject, saveWorkspaceNow } from "@/lib/store";
 import { useT } from "@/i18n";
 import type {
   Project,
@@ -21,14 +22,26 @@ import type {
 } from "@/lib/types";
 import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
+import { ProjectKnowledgePanel } from "./ProjectKnowledgePanel";
+import { useAuth } from "@/lib/auth";
 
 const OFFER_TYPES: BrandOffer["type"][] = ["service", "product", "package", "membership", "other"];
-const LINK_TYPES: BrandInternalLink["type"][] = ["service", "product", "article", "booking", "contact", "other"];
+const LINK_TYPES: BrandInternalLink["type"][] = [
+  "service",
+  "product",
+  "article",
+  "booking",
+  "contact",
+  "other",
+];
 const PRIORITIES: BrandOffer["priority"][] = ["high", "medium", "low"];
 
 // ---- list <-> string helpers (forgiving: comma or newline separated) ----
 const toArr = (s: string): string[] =>
-  s.split(/[\n,]/).map((x) => x.trim()).filter(Boolean);
+  s
+    .split(/[\n,]/)
+    .map((x) => x.trim())
+    .filter(Boolean);
 const fromArr = (a: string[] | undefined): string => (a ?? []).join("\n");
 
 type Form = {
@@ -128,10 +141,17 @@ function buildBrand(f: Form): BrandIntelligence {
 }
 
 export function BrandIntelligenceCard({ project }: { project: Project }) {
+  const { user } = useAuth();
+  return <BrandIntelligenceEditor key={`${user?.id}:${project.id}`} project={project} />;
+}
+
+function BrandIntelligenceEditor({ project }: { project: Project }) {
   const t = useT();
+  const { user } = useAuth();
   const services = useStore((s) => s.services.filter((x) => x.projectId === project.id));
   const [f, setF] = useState<Form>(() => toForm(project.brandIntelligence));
   const [saving, setSaving] = useState(false);
+  const [baseline, setBaseline] = useState(project.brandIntelligence);
 
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setF((p) => ({ ...p, [k]: v }));
 
@@ -157,11 +177,27 @@ export function BrandIntelligenceCard({ project }: { project: Project }) {
   async function save() {
     setSaving(true);
     try {
-      updateProject(project.id, { brandIntelligence: buildBrand(f) });
+      const current = getState().projects.find((item) => item.id === project.id);
+      if (!current) throw new Error("brand_profile_changed");
+      const brandIntelligence = mergeOwnerBrandEdits(
+        baseline,
+        buildBrand(f),
+        current.brandIntelligence,
+        new Date().toISOString(),
+      );
+      if (brandIntelligence) updateProject(project.id, { brandIntelligence });
       await saveWorkspaceNow();
+      setBaseline(brandIntelligence);
+      setF(toForm(brandIntelligence));
       toast.success(t("brand.toast.saved"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not save");
+      toast.error(
+        e instanceof Error && e.message === "brand_profile_changed"
+          ? t("knowledge.ui.projectChanged")
+          : e instanceof Error
+            ? e.message
+            : t("onboarding.toast.saveError"),
+      );
     } finally {
       setSaving(false);
     }
@@ -169,23 +205,54 @@ export function BrandIntelligenceCard({ project }: { project: Project }) {
 
   return (
     <section className="rounded-lg border border-border bg-card p-6">
-      <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">{t("brand.title")}</div>
+      <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+        {t("brand.title")}
+      </div>
       <div className="my-4 gold-rule" />
       <p className="text-sm text-muted-foreground max-w-2xl">{t("brand.intro")}</p>
 
       {/* 1. Brand voice */}
       <Group title={t("brand.section.voice")} help={t("brand.voice.help")}>
         <TextField label={t("brand.voice.tone")} value={f.tone} onChange={(v) => set("tone", v)} />
-        <TextField label={t("brand.voice.styleNotes")} value={f.styleNotes} onChange={(v) => set("styleNotes", v)} />
-        <ListField label={t("brand.voice.wordsToUse")} value={f.wordsToUse} onChange={(v) => set("wordsToUse", v)} hint={t("brand.listHint")} />
-        <ListField label={t("brand.voice.wordsToAvoid")} value={f.wordsToAvoid} onChange={(v) => set("wordsToAvoid", v)} hint={t("brand.listHint")} />
+        <TextField
+          label={t("brand.voice.styleNotes")}
+          value={f.styleNotes}
+          onChange={(v) => set("styleNotes", v)}
+        />
+        <ListField
+          label={t("brand.voice.wordsToUse")}
+          value={f.wordsToUse}
+          onChange={(v) => set("wordsToUse", v)}
+          hint={t("brand.listHint")}
+        />
+        <ListField
+          label={t("brand.voice.wordsToAvoid")}
+          value={f.wordsToAvoid}
+          onChange={(v) => set("wordsToAvoid", v)}
+          hint={t("brand.listHint")}
+        />
       </Group>
 
       {/* 2. Claims & safety */}
       <Group title={t("brand.section.claims")} help={t("brand.claims.help")}>
-        <ListField label={t("brand.claims.allowed")} value={f.allowedClaims} onChange={(v) => set("allowedClaims", v)} hint={t("brand.listHint")} />
-        <ListField label={t("brand.claims.forbidden")} value={f.forbiddenClaims} onChange={(v) => set("forbiddenClaims", v)} hint={t("brand.listHint")} />
-        <ListField label={t("brand.claims.caveats")} value={f.requiredCaveats} onChange={(v) => set("requiredCaveats", v)} hint={t("brand.listHint")} />
+        <ListField
+          label={t("brand.claims.allowed")}
+          value={f.allowedClaims}
+          onChange={(v) => set("allowedClaims", v)}
+          hint={t("brand.listHint")}
+        />
+        <ListField
+          label={t("brand.claims.forbidden")}
+          value={f.forbiddenClaims}
+          onChange={(v) => set("forbiddenClaims", v)}
+          hint={t("brand.listHint")}
+        />
+        <ListField
+          label={t("brand.claims.caveats")}
+          value={f.requiredCaveats}
+          onChange={(v) => set("requiredCaveats", v)}
+          hint={t("brand.listHint")}
+        />
       </Group>
 
       {/* 3. Offers */}
@@ -194,63 +261,206 @@ export function BrandIntelligenceCard({ project }: { project: Project }) {
         action={
           <div className="flex gap-2">
             {services.length ? (
-              <Button size="sm" variant="outline" onClick={importFromServices}>{t("brand.offers.import")}</Button>
+              <Button size="sm" variant="outline" onClick={importFromServices}>
+                {t("brand.offers.import")}
+              </Button>
             ) : null}
-            <Button size="sm" variant="outline" onClick={() => set("primaryOffers", [...f.primaryOffers, { name: "", type: "service", priority: "medium" }])}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                set("primaryOffers", [
+                  ...f.primaryOffers,
+                  { name: "", type: "service", priority: "medium" },
+                ])
+              }
+            >
               <Plus className="h-3.5 w-3.5" /> {t("brand.offers.add")}
             </Button>
           </div>
         }
       >
         <div className="md:col-span-2 space-y-3">
-          <div className="text-xs font-medium text-muted-foreground">{t("brand.offers.primary")}</div>
+          <div className="text-xs font-medium text-muted-foreground">
+            {t("brand.offers.primary")}
+          </div>
           <OfferList offers={f.primaryOffers} onChange={(o) => set("primaryOffers", o)} t={t} />
-          <div className="text-xs font-medium text-muted-foreground pt-2">{t("brand.offers.secondary")}</div>
-          <OfferList offers={f.secondaryOffers} onChange={(o) => set("secondaryOffers", o)} t={t} addLabel={t("brand.offers.add")} />
+          <div className="text-xs font-medium text-muted-foreground pt-2">
+            {t("brand.offers.secondary")}
+          </div>
+          <OfferList
+            offers={f.secondaryOffers}
+            onChange={(o) => set("secondaryOffers", o)}
+            t={t}
+            addLabel={t("brand.offers.add")}
+          />
         </div>
       </Group>
 
       {/* 4. Proof & trust */}
       <Group title={t("brand.section.proof")}>
-        <ListField label={t("brand.proof.points")} value={f.proofPoints} onChange={(v) => set("proofPoints", v)} hint={t("brand.listHint")} />
-        <ListField label={t("brand.proof.credentials")} value={f.credentials} onChange={(v) => set("credentials", v)} hint={t("brand.listHint")} />
-        <ListField label={t("brand.proof.trustSignals")} value={f.trustSignals} onChange={(v) => set("trustSignals", v)} hint={t("brand.listHint")} />
-        <TextField label={t("brand.proof.testimonials")} value={f.testimonialsNotes} onChange={(v) => set("testimonialsNotes", v)} />
+        <ListField
+          label={t("brand.proof.points")}
+          value={f.proofPoints}
+          onChange={(v) => set("proofPoints", v)}
+          hint={t("brand.listHint")}
+        />
+        <ListField
+          label={t("brand.proof.credentials")}
+          value={f.credentials}
+          onChange={(v) => set("credentials", v)}
+          hint={t("brand.listHint")}
+        />
+        <ListField
+          label={t("brand.proof.trustSignals")}
+          value={f.trustSignals}
+          onChange={(v) => set("trustSignals", v)}
+          hint={t("brand.listHint")}
+        />
+        <TextField
+          label={t("brand.proof.testimonials")}
+          value={f.testimonialsNotes}
+          onChange={(v) => set("testimonialsNotes", v)}
+        />
       </Group>
 
       {/* 5. CTA preferences */}
       <Group title={t("brand.section.cta")}>
-        <TextField label={t("brand.cta.primaryLabel")} value={f.primaryCtaLabel} onChange={(v) => set("primaryCtaLabel", v)} />
-        <TextField label={t("brand.cta.primaryUrl")} value={f.primaryCtaUrl} onChange={(v) => set("primaryCtaUrl", v)} placeholder="/book" />
-        <TextField label={t("brand.cta.secondaryLabel")} value={f.secondaryCtaLabel} onChange={(v) => set("secondaryCtaLabel", v)} />
-        <TextField label={t("brand.cta.secondaryUrl")} value={f.secondaryCtaUrl} onChange={(v) => set("secondaryCtaUrl", v)} placeholder="/pricing" />
-        <TextField label={t("brand.cta.styleNotes")} value={f.ctaStyleNotes} onChange={(v) => set("ctaStyleNotes", v)} full />
+        <TextField
+          label={t("brand.cta.primaryLabel")}
+          value={f.primaryCtaLabel}
+          onChange={(v) => set("primaryCtaLabel", v)}
+        />
+        <TextField
+          label={t("brand.cta.primaryUrl")}
+          value={f.primaryCtaUrl}
+          onChange={(v) => set("primaryCtaUrl", v)}
+          placeholder="/book"
+        />
+        <TextField
+          label={t("brand.cta.secondaryLabel")}
+          value={f.secondaryCtaLabel}
+          onChange={(v) => set("secondaryCtaLabel", v)}
+        />
+        <TextField
+          label={t("brand.cta.secondaryUrl")}
+          value={f.secondaryCtaUrl}
+          onChange={(v) => set("secondaryCtaUrl", v)}
+          placeholder="/pricing"
+        />
+        <TextField
+          label={t("brand.cta.styleNotes")}
+          value={f.ctaStyleNotes}
+          onChange={(v) => set("ctaStyleNotes", v)}
+          full
+        />
       </Group>
 
       {/* 6. Internal links */}
       <Group
         title={t("brand.section.links")}
         action={
-          <Button size="sm" variant="outline" onClick={() => set("internalLinks", [...f.internalLinks, { label: "", url: "", type: "service", priority: "medium" }])}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              set("internalLinks", [
+                ...f.internalLinks,
+                { label: "", url: "", type: "service", priority: "medium" },
+              ])
+            }
+          >
             <Plus className="h-3.5 w-3.5" /> {t("brand.links.add")}
           </Button>
         }
       >
         <div className="md:col-span-2 space-y-2">
-          {f.internalLinks.length === 0 ? <p className="text-sm text-muted-foreground">{t("brand.links.empty")}</p> : null}
+          {f.internalLinks.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t("brand.links.empty")}</p>
+          ) : null}
           {f.internalLinks.map((l, i) => (
-            <div key={i} className="rounded-md border border-border p-2 grid sm:grid-cols-[1fr,1fr,140px,120px,auto] gap-2 items-center">
-              <Input placeholder={t("brand.field.label")} value={l.label} onChange={(e) => set("internalLinks", f.internalLinks.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} />
-              <Input placeholder="/your-page-path" value={l.url} onChange={(e) => set("internalLinks", f.internalLinks.map((x, j) => j === i ? { ...x, url: e.target.value } : x))} />
-              <Select value={l.type} onValueChange={(v) => set("internalLinks", f.internalLinks.map((x, j) => j === i ? { ...x, type: v as BrandInternalLink["type"] } : x))}>
-                <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>{LINK_TYPES.map((tp) => <SelectItem key={tp} value={tp}>{tp}</SelectItem>)}</SelectContent>
+            <div
+              key={i}
+              className="rounded-md border border-border p-2 grid sm:grid-cols-[1fr,1fr,140px,120px,auto] gap-2 items-center"
+            >
+              <Input
+                placeholder={t("brand.field.label")}
+                value={l.label}
+                onChange={(e) =>
+                  set(
+                    "internalLinks",
+                    f.internalLinks.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)),
+                  )
+                }
+              />
+              <Input
+                placeholder="/your-page-path"
+                value={l.url}
+                onChange={(e) =>
+                  set(
+                    "internalLinks",
+                    f.internalLinks.map((x, j) => (j === i ? { ...x, url: e.target.value } : x)),
+                  )
+                }
+              />
+              <Select
+                value={l.type}
+                onValueChange={(v) =>
+                  set(
+                    "internalLinks",
+                    f.internalLinks.map((x, j) =>
+                      j === i ? { ...x, type: v as BrandInternalLink["type"] } : x,
+                    ),
+                  )
+                }
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {LINK_TYPES.map((tp) => (
+                    <SelectItem key={tp} value={tp}>
+                      {tp}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
-              <Select value={l.priority} onValueChange={(v) => set("internalLinks", f.internalLinks.map((x, j) => j === i ? { ...x, priority: v as BrandInternalLink["priority"] } : x))}>
-                <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>{PRIORITIES.map((pr) => <SelectItem key={pr} value={pr}>{t(`common.${pr}`)}</SelectItem>)}</SelectContent>
+              <Select
+                value={l.priority}
+                onValueChange={(v) =>
+                  set(
+                    "internalLinks",
+                    f.internalLinks.map((x, j) =>
+                      j === i ? { ...x, priority: v as BrandInternalLink["priority"] } : x,
+                    ),
+                  )
+                }
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PRIORITIES.map((pr) => (
+                    <SelectItem key={pr} value={pr}>
+                      {t(`common.${pr}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
-              <Button size="icon" variant="ghost" className="h-9 w-9 text-muted-foreground hover:text-destructive" onClick={() => set("internalLinks", f.internalLinks.filter((_, j) => j !== i))} aria-label={t("brand.remove")}><X className="h-4 w-4" /></Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                onClick={() =>
+                  set(
+                    "internalLinks",
+                    f.internalLinks.filter((_, j) => j !== i),
+                  )
+                }
+                aria-label={t("brand.remove")}
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
           ))}
         </div>
@@ -260,19 +470,79 @@ export function BrandIntelligenceCard({ project }: { project: Project }) {
       <Group
         title={t("brand.section.rules")}
         action={
-          <Button size="sm" variant="outline" onClick={() => set("marketLanguageRules", [...f.marketLanguageRules, { market: "", language: "", notes: "" }])}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              set("marketLanguageRules", [
+                ...f.marketLanguageRules,
+                { market: "", language: "", notes: "" },
+              ])
+            }
+          >
             <Plus className="h-3.5 w-3.5" /> {t("brand.rules.add")}
           </Button>
         }
       >
         <div className="md:col-span-2 space-y-2">
-          {f.marketLanguageRules.length === 0 ? <p className="text-sm text-muted-foreground">{t("brand.rules.empty")}</p> : null}
+          {f.marketLanguageRules.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t("brand.rules.empty")}</p>
+          ) : null}
           {f.marketLanguageRules.map((r, i) => (
-            <div key={i} className="rounded-md border border-border p-2 grid sm:grid-cols-[120px,120px,1fr,auto] gap-2 items-center">
-              <Input placeholder={t("brand.rules.market")} value={r.market ?? ""} onChange={(e) => set("marketLanguageRules", f.marketLanguageRules.map((x, j) => j === i ? { ...x, market: e.target.value } : x))} />
-              <Input placeholder={t("brand.rules.language")} value={r.language ?? ""} onChange={(e) => set("marketLanguageRules", f.marketLanguageRules.map((x, j) => j === i ? { ...x, language: e.target.value } : x))} />
-              <Input placeholder={t("brand.field.notes")} value={r.notes ?? ""} onChange={(e) => set("marketLanguageRules", f.marketLanguageRules.map((x, j) => j === i ? { ...x, notes: e.target.value } : x))} />
-              <Button size="icon" variant="ghost" className="h-9 w-9 text-muted-foreground hover:text-destructive" onClick={() => set("marketLanguageRules", f.marketLanguageRules.filter((_, j) => j !== i))} aria-label={t("brand.remove")}><X className="h-4 w-4" /></Button>
+            <div
+              key={i}
+              className="rounded-md border border-border p-2 grid sm:grid-cols-[120px,120px,1fr,auto] gap-2 items-center"
+            >
+              <Input
+                placeholder={t("brand.rules.market")}
+                value={r.market ?? ""}
+                onChange={(e) =>
+                  set(
+                    "marketLanguageRules",
+                    f.marketLanguageRules.map((x, j) =>
+                      j === i ? { ...x, market: e.target.value } : x,
+                    ),
+                  )
+                }
+              />
+              <Input
+                placeholder={t("brand.rules.language")}
+                value={r.language ?? ""}
+                onChange={(e) =>
+                  set(
+                    "marketLanguageRules",
+                    f.marketLanguageRules.map((x, j) =>
+                      j === i ? { ...x, language: e.target.value } : x,
+                    ),
+                  )
+                }
+              />
+              <Input
+                placeholder={t("brand.field.notes")}
+                value={r.notes ?? ""}
+                onChange={(e) =>
+                  set(
+                    "marketLanguageRules",
+                    f.marketLanguageRules.map((x, j) =>
+                      j === i ? { ...x, notes: e.target.value } : x,
+                    ),
+                  )
+                }
+              />
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                onClick={() =>
+                  set(
+                    "marketLanguageRules",
+                    f.marketLanguageRules.filter((_, j) => j !== i),
+                  )
+                }
+                aria-label={t("brand.remove")}
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
           ))}
         </div>
@@ -280,12 +550,28 @@ export function BrandIntelligenceCard({ project }: { project: Project }) {
 
       {/* 8. Things to avoid */}
       <Group title={t("brand.section.avoid")} help={t("brand.avoid.help")}>
-        <ListField label={t("brand.section.avoid")} value={f.avoid} onChange={(v) => set("avoid", v)} hint={t("brand.listHint")} full />
+        <ListField
+          label={t("brand.section.avoid")}
+          value={f.avoid}
+          onChange={(v) => set("avoid", v)}
+          hint={t("brand.listHint")}
+          full
+        />
       </Group>
 
       <div className="mt-5 flex justify-end">
-        <Button onClick={save} disabled={saving}>{saving ? t("brand.saving") : t("brand.save")}</Button>
+        <Button onClick={save} disabled={saving}>
+          {saving ? t("brand.saving") : t("brand.save")}
+        </Button>
       </div>
+      {user && (
+        <ProjectKnowledgePanel
+          key={`${user.id}:${project.id}`}
+          ownerId={user.id}
+          projectId={project.id}
+          initialWebsiteUrl={project.websiteUrl}
+        />
+      )}
     </section>
   );
 }
@@ -301,32 +587,84 @@ function OfferList({
   t: (k: string, v?: Record<string, string | number>) => string;
   addLabel?: string;
 }) {
-  const upd = (i: number, patch: Partial<BrandOffer>) => onChange(offers.map((o, j) => (j === i ? { ...o, ...patch } : o)));
+  const upd = (i: number, patch: Partial<BrandOffer>) =>
+    onChange(offers.map((o, j) => (j === i ? { ...o, ...patch } : o)));
   return (
     <div className="space-y-2">
       {offers.map((o, i) => (
         <div key={i} className="rounded-md border border-border p-3 space-y-2">
           <div className="flex gap-2">
-            <Input className="flex-1" placeholder={t("brand.field.name")} value={o.name} onChange={(e) => upd(i, { name: e.target.value })} />
+            <Input
+              className="flex-1"
+              placeholder={t("brand.field.name")}
+              value={o.name}
+              onChange={(e) => upd(i, { name: e.target.value })}
+            />
             <Select value={o.type} onValueChange={(v) => upd(i, { type: v as BrandOffer["type"] })}>
-              <SelectTrigger className="h-9 w-32 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>{OFFER_TYPES.map((tp) => <SelectItem key={tp} value={tp}>{tp}</SelectItem>)}</SelectContent>
+              <SelectTrigger className="h-9 w-32 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {OFFER_TYPES.map((tp) => (
+                  <SelectItem key={tp} value={tp}>
+                    {tp}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
-            <Select value={o.priority} onValueChange={(v) => upd(i, { priority: v as BrandOffer["priority"] })}>
-              <SelectTrigger className="h-9 w-28 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>{PRIORITIES.map((pr) => <SelectItem key={pr} value={pr}>{t(`common.${pr}`)}</SelectItem>)}</SelectContent>
+            <Select
+              value={o.priority}
+              onValueChange={(v) => upd(i, { priority: v as BrandOffer["priority"] })}
+            >
+              <SelectTrigger className="h-9 w-28 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PRIORITIES.map((pr) => (
+                  <SelectItem key={pr} value={pr}>
+                    {t(`common.${pr}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
-            <Button size="icon" variant="ghost" className="h-9 w-9 text-muted-foreground hover:text-destructive" onClick={() => onChange(offers.filter((_, j) => j !== i))} aria-label={t("brand.remove")}><X className="h-4 w-4" /></Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-9 w-9 text-muted-foreground hover:text-destructive"
+              onClick={() => onChange(offers.filter((_, j) => j !== i))}
+              aria-label={t("brand.remove")}
+            >
+              <X className="h-4 w-4" />
+            </Button>
           </div>
           <div className="grid sm:grid-cols-2 gap-2">
-            <Input className="text-xs" placeholder={t("brand.field.url")} value={o.url ?? ""} onChange={(e) => upd(i, { url: e.target.value })} />
-            <Input className="text-xs" placeholder={t("brand.field.audience")} value={o.targetAudience ?? ""} onChange={(e) => upd(i, { targetAudience: e.target.value })} />
+            <Input
+              className="text-xs"
+              placeholder={t("brand.field.url")}
+              value={o.url ?? ""}
+              onChange={(e) => upd(i, { url: e.target.value })}
+            />
+            <Input
+              className="text-xs"
+              placeholder={t("brand.field.audience")}
+              value={o.targetAudience ?? ""}
+              onChange={(e) => upd(i, { targetAudience: e.target.value })}
+            />
           </div>
-          <Input className="text-xs" placeholder={t("brand.field.description")} value={o.description ?? ""} onChange={(e) => upd(i, { description: e.target.value })} />
+          <Input
+            className="text-xs"
+            placeholder={t("brand.field.description")}
+            value={o.description ?? ""}
+            onChange={(e) => upd(i, { description: e.target.value })}
+          />
         </div>
       ))}
       {addLabel ? (
-        <Button size="sm" variant="ghost" onClick={() => onChange([...offers, { name: "", type: "service", priority: "medium" }])}>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => onChange([...offers, { name: "", type: "service", priority: "medium" }])}
+        >
           <Plus className="h-3.5 w-3.5" /> {addLabel}
         </Button>
       ) : null}
@@ -334,7 +672,17 @@ function OfferList({
   );
 }
 
-function Group({ title, help, action, children }: { title: string; help?: string; action?: React.ReactNode; children: React.ReactNode }) {
+function Group({
+  title,
+  help,
+  action,
+  children,
+}: {
+  title: string;
+  help?: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <div className="mt-7">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -347,20 +695,54 @@ function Group({ title, help, action, children }: { title: string; help?: string
   );
 }
 
-function TextField({ label, value, onChange, placeholder, full }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; full?: boolean }) {
+function TextField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  full,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  full?: boolean;
+}) {
   return (
     <div className={full ? "md:col-span-2" : ""}>
       <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
-      <Input className="mt-1.5" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
+      <Input
+        className="mt-1.5"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+      />
     </div>
   );
 }
 
-function ListField({ label, value, onChange, hint, full }: { label: string; value: string; onChange: (v: string) => void; hint?: string; full?: boolean }) {
+function ListField({
+  label,
+  value,
+  onChange,
+  hint,
+  full,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  hint?: string;
+  full?: boolean;
+}) {
   return (
     <div className={full ? "md:col-span-2" : ""}>
       <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
-      <Textarea className="mt-1.5" rows={3} value={value} onChange={(e) => onChange(e.target.value)} />
+      <Textarea
+        className="mt-1.5"
+        rows={3}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
       {hint ? <p className="mt-1 text-[11px] text-muted-foreground">{hint}</p> : null}
     </div>
   );

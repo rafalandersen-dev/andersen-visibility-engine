@@ -656,7 +656,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     }
     setGeneratingImage(true);
     try {
-      const { path, previewUrl, alt, resultId } = await generateArticleImageFn({
+      const { path, previewUrl, alt, resultId, knowledgeReferences } = await generateArticleImageFn({
         data: {
           projectId: f.projectId,
           assetId: f.id,
@@ -682,6 +682,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
             id: resultId ?? crypto.randomUUID(),
             concept,
             storagePath: path,
+            knowledgeReferences,
             previewUrl,
             alt,
             placement: "inline",

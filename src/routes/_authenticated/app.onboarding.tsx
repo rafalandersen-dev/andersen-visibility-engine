@@ -1,3 +1,4 @@
+import { onboardingProjectPatch } from "@/lib/onboarding-project";
 import { CONTENT_LANGUAGE_OPTIONS, type ContentLanguageCode } from "@/lib/content-languages";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
@@ -43,7 +44,8 @@ import {
 } from "@/lib/mock-ai";
 import { defaultAssetTypeFor } from "@/components/CreateContentDialog";
 import type { Market, Currency, OnboardingLanguage, Priority, Project } from "@/lib/types";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ProjectKnowledgePanel } from "@/components/ProjectKnowledgePanel";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, Check, Globe, Loader2, Plus, Sparkles, X } from "lucide-react";
 
@@ -52,7 +54,12 @@ export const Route = createFileRoute("/_authenticated/app/onboarding")({
   component: OnboardingWizard,
 });
 
-type WizardService = { name: string; kind: "Service" | "Product"; priority: Priority; description: string };
+type WizardService = {
+  name: string;
+  kind: "Service" | "Product";
+  priority: Priority;
+  description: string;
+};
 
 type WizardData = {
   market: Market;
@@ -107,15 +114,37 @@ function hostFromUrl(url: string): string {
 }
 
 function OnboardingWizard() {
+  const { user } = useAuth();
+  return user ? <OwnedOnboardingWizard key={user.id} ownerId={user.id} /> : null;
+}
+
+function OwnedOnboardingWizard({ ownerId }: { ownerId: string }) {
   const navigate = useNavigate();
-  const { isOwner } = useAuth();
+  const { isOwner, user } = useAuth();
+  const draftKey = `${DRAFT_KEY}:${ownerId}`;
+  const alive = useRef(true);
+  const baseline = useRef<Partial<Project> | undefined>(undefined);
+  const [restoredDraft, setRestoredDraft] = useState(false);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+  const pendingProjectId = useRef("");
+  const [reviewProjectId, setReviewProjectId] = useState("");
+  const [knowledgeBusy, setKnowledgeBusy] = useState(false);
+  const [setupPath, setSetupPath] = useState<"website" | "document" | "skip">("website");
+  const [intakeProjectId, setIntakeProjectId] = useState("");
   const [step, setStep] = useState(1);
   const [w, setW] = useState<WizardData>(initialData);
   // Translate using the language picked in the wizard so the UI updates live as
   // the user changes "App language" in step 1 (no project exists in the store yet).
-  const t = (key: string, vars?: Record<string, string | number>) => translate(w.appLanguage, key, vars);
+  const t = (key: string, vars?: Record<string, string | number>) =>
+    translate(w.appLanguage, key, vars);
   const [scanning, setScanning] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const generatingRef = useRef(false);
   const [genStatus, setGenStatus] = useState("");
 
   // Restore draft (resilient to refresh mid-wizard), then apply any handoff from
@@ -123,10 +152,29 @@ function OnboardingWizard() {
   useEffect(() => {
     let restored = false;
     try {
-      const raw = sessionStorage.getItem(DRAFT_KEY);
+      const raw = sessionStorage.getItem(draftKey);
       if (raw) {
-        const saved = JSON.parse(raw) as { step?: number; data?: WizardData };
-        if (saved.data) { setW({ ...initialData(), ...saved.data }); restored = true; }
+        const saved = JSON.parse(raw) as {
+          step?: number;
+          data?: WizardData;
+          projectId?: string;
+          review?: boolean;
+          setupPath?: "website" | "document" | "skip";
+          baseline?: Partial<Project>;
+        };
+        const ownedProject = getState().projects.find((project) => project.id === saved.projectId);
+        if (ownedProject) {
+          pendingProjectId.current = ownedProject.id;
+          baseline.current = saved.baseline;
+          setIntakeProjectId(ownedProject.id);
+          if (saved.review) setReviewProjectId(ownedProject.id);
+        }
+        if (["website", "document", "skip"].includes(saved.setupPath ?? ""))
+          setSetupPath(saved.setupPath!);
+        if (saved.data) {
+          setW({ ...initialData(), ...saved.data });
+          restored = true;
+        }
         if (saved.step) setStep(Math.min(7, Math.max(1, saved.step)));
       }
     } catch {
@@ -148,23 +196,42 @@ function OnboardingWizard() {
     } catch {
       /* ignore */
     }
+    setRestoredDraft(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Persist draft on change.
   useEffect(() => {
     try {
-      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ step, data: w }));
+      if (restoredDraft)
+        sessionStorage.setItem(
+          draftKey,
+          JSON.stringify({
+            step,
+            data: w,
+            projectId: pendingProjectId.current,
+            review: Boolean(reviewProjectId),
+            setupPath,
+            baseline: baseline.current,
+          }),
+        );
     } catch {
       /* ignore */
     }
-  }, [step, w]);
+  }, [step, w, draftKey, reviewProjectId, setupPath, restoredDraft]);
 
-  const set = <K extends keyof WizardData>(k: K, v: WizardData[K]) => setW((p) => ({ ...p, [k]: v }));
+  const set = <K extends keyof WizardData>(k: K, v: WizardData[K]) =>
+    setW((p) => ({ ...p, [k]: v }));
 
   const setMarket = (market: Market) => {
     const d = marketDefaults(market);
-    setW((p) => ({ ...p, market, currency: d.currency, appLanguage: d.appLanguage, primaryContentLanguage: d.primaryContentLanguage }));
+    setW((p) => ({
+      ...p,
+      market,
+      currency: d.currency,
+      appLanguage: d.appLanguage,
+      primaryContentLanguage: d.primaryContentLanguage,
+    }));
   };
 
   async function runScan() {
@@ -172,7 +239,11 @@ function OnboardingWizard() {
     if (!url) return;
     setScanning(true);
     try {
+      // Establish an owned, durable project before the first provider work.
+      await persistSetupProject(false);
+      if (!alive.current) return;
       const res = await scanWebsiteFn({ data: { url } });
+      if (!alive.current) return;
       if (res.ok) {
         setW((p) => ({
           ...p,
@@ -182,8 +253,19 @@ function OnboardingWizard() {
           services:
             p.services.length > 0
               ? p.services
-              : (res.services ?? []).map((s) => ({ name: s.name, kind: s.kind, priority: "Medium" as Priority, description: s.description })),
-          scan: { title: res.title, metaDescription: res.metaDescription, businessName: res.businessName, businessType: res.businessType, primaryLanguage: res.primaryLanguage },
+              : (res.services ?? []).map((s) => ({
+                  name: s.name,
+                  kind: s.kind,
+                  priority: "Medium" as Priority,
+                  description: s.description,
+                })),
+          scan: {
+            title: res.title,
+            metaDescription: res.metaDescription,
+            businessName: res.businessName,
+            businessType: res.businessType,
+            primaryLanguage: res.primaryLanguage,
+          },
         }));
         toast.success(t("onboarding.toast.scanned"));
       } else {
@@ -199,7 +281,7 @@ function OnboardingWizard() {
   async function handleContinue() {
     if (step === 2) {
       // Best-effort scan on leaving the website step (non-blocking on failure).
-      if (w.websiteUrl.trim() && !w.scan) await runScan();
+      if (setupPath === "website" && w.websiteUrl.trim() && !w.scan) await runScan();
       setStep(3);
       return;
     }
@@ -209,15 +291,23 @@ function OnboardingWizard() {
   function toggleGoal(goal: string) {
     setW((p) => ({
       ...p,
-      growthGoals: p.growthGoals.includes(goal) ? p.growthGoals.filter((g) => g !== goal) : [...p.growthGoals, goal],
+      growthGoals: p.growthGoals.includes(goal)
+        ? p.growthGoals.filter((g) => g !== goal)
+        : [...p.growthGoals, goal],
     }));
   }
 
   function addServiceRow() {
-    setW((p) => ({ ...p, services: [...p.services, { name: "", kind: "Service", priority: "Medium", description: "" }] }));
+    setW((p) => ({
+      ...p,
+      services: [...p.services, { name: "", kind: "Service", priority: "Medium", description: "" }],
+    }));
   }
   function updateServiceRow(i: number, patch: Partial<WizardService>) {
-    setW((p) => ({ ...p, services: p.services.map((s, idx) => (idx === i ? { ...s, ...patch } : s)) }));
+    setW((p) => ({
+      ...p,
+      services: p.services.map((s, idx) => (idx === i ? { ...s, ...patch } : s)),
+    }));
   }
   function removeServiceRow(i: number) {
     setW((p) => ({ ...p, services: p.services.filter((_, idx) => idx !== i) }));
@@ -232,7 +322,10 @@ function OnboardingWizard() {
       primaryLanguage: contentLangToProjectLanguage(w.primaryContentLanguage),
       additionalLanguages: [],
       mainLocation: w.mainLocation.trim(),
-      targetLocations: w.targetLocations.split(",").map((s) => s.trim()).filter(Boolean),
+      targetLocations: w.targetLocations
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
       description: w.description.trim(),
       targetAudience: w.targetAudience.trim(),
       toneOfVoice: w.toneOfVoice.trim(),
@@ -249,22 +342,77 @@ function OnboardingWizard() {
     };
   }
 
-  async function handleGenerate() {
+  async function persistSetupProject(complete: boolean) {
+    const payload = {
+      ...buildProjectPayload(),
+      setupComplete: complete,
+      onboardingCompletedAt: complete ? new Date().toISOString() : undefined,
+    };
+    const state = getState();
+    const existing = state.projects.find(
+      (p) => p.id === (pendingProjectId.current || state.activeProjectId),
+    );
+    if (
+      existing &&
+      (pendingProjectId.current === existing.id ||
+        existing.setupComplete === false ||
+        !isProjectSetupComplete(existing))
+    ) {
+      updateProject(existing.id, onboardingProjectPatch(existing, payload, baseline.current));
+      pendingProjectId.current = existing.id;
+    } else {
+      pendingProjectId.current = addProject(payload, { isOwner });
+    }
+    baseline.current = payload;
+    // Save the stable identity before awaiting the network acknowledgement.
+    try {
+      sessionStorage.setItem(
+        draftKey,
+        JSON.stringify({
+          step,
+          data: w,
+          projectId: pendingProjectId.current,
+          review: Boolean(reviewProjectId),
+          setupPath,
+          baseline: baseline.current,
+        }),
+      );
+    } catch {
+      /* Private browsing: durable project still saves. */
+    }
+    setActiveProject(pendingProjectId.current);
+    await saveWorkspaceNow();
+    return pendingProjectId.current;
+  }
+
+  async function handleGenerate(reviewed = false) {
+    if (generatingRef.current) return;
+    generatingRef.current = true;
     setGenerating(true);
     setGenStatus(t("onboarding.genStatus.saving"));
     let projectId = "";
     try {
-      const payload = buildProjectPayload();
-      const s = getState();
-      const existing = s.projects.find((p) => p.id === s.activeProjectId);
-      if (existing && !isProjectSetupComplete(existing)) {
-        updateProject(existing.id, payload);
-        projectId = existing.id;
-      } else {
-        projectId = addProject(payload, { isOwner });
-      }
-      setActiveProject(projectId);
+      if (
+        reviewed &&
+        reviewProjectId &&
+        getState().projects.some((project) => project.id === reviewProjectId)
+      ) {
+        projectId = reviewProjectId;
+        updateProject(projectId, {
+          setupComplete: true,
+          onboardingCompletedAt: new Date().toISOString(),
+        });
+        await saveWorkspaceNow();
+      } else projectId = await persistSetupProject(reviewed);
+      if (!alive.current) return;
+      const existingServices = getState().services.filter((s) => s.projectId === projectId);
+      const serviceKeys = new Set(
+        existingServices.map((service) => `${service.kind}:${service.name.trim().toLowerCase()}`),
+      );
       for (const sv of w.services.filter((x) => x.name.trim())) {
+        const key = `${sv.kind}:${sv.name.trim().toLowerCase()}`;
+        if (serviceKeys.has(key)) continue;
+        serviceKeys.add(key);
         addService({
           projectId,
           name: sv.name.trim(),
@@ -280,10 +428,26 @@ function OnboardingWizard() {
     } catch (e) {
       if (e instanceof ProjectLimitError) {
         toast.error(e.message);
+        generatingRef.current = false;
         setGenerating(false);
         return;
       }
-      toast.error(t("onboarding.toast.saveError"));
+      toast.error(
+        t(
+          e instanceof Error && e.message === "onboarding_project_changed"
+            ? "knowledge.ui.projectChanged"
+            : "onboarding.toast.saveError",
+        ),
+      );
+      generatingRef.current = false;
+      setGenerating(false);
+      return;
+    }
+
+    if (!alive.current) return;
+    if (!reviewed) {
+      setReviewProjectId(projectId);
+      generatingRef.current = false;
       setGenerating(false);
       return;
     }
@@ -296,7 +460,7 @@ function OnboardingWizard() {
         (async () => {
           try {
             await generateSeoOpportunities(projectId);
-            await generateContentCalendar(projectId);
+            if (alive.current) await generateContentCalendar(projectId);
           } catch {
             /* non-fatal */
           }
@@ -319,6 +483,7 @@ function OnboardingWizard() {
     // best fresh opportunity, and land them in the editor on it. Best-effort:
     // any failure (empty AI balance, no opportunities) falls back to /app.
     // Asset type derives from the opportunity's contentType (P1-6 contract).
+    if (!alive.current) return;
     let sampleAssetId = "";
     try {
       const s = getState();
@@ -338,7 +503,7 @@ function OnboardingWizard() {
     }
 
     try {
-      sessionStorage.removeItem(DRAFT_KEY);
+      sessionStorage.removeItem(draftKey);
     } catch {
       /* ignore */
     }
@@ -351,25 +516,69 @@ function OnboardingWizard() {
     }
     // Only now: the Generate button must stay dead until the route is gone
     // (a re-click would addProject() a duplicate — CreateContentDialog pattern).
+    generatingRef.current = false;
     setGenerating(false);
   }
 
-  const canContinue =
-    step === 3 ? Boolean(w.businessName.trim()) : true; // only business name is required
+  const canContinue = step === 3 ? Boolean(w.businessName.trim()) : true; // only business name is required
+
+  if (reviewProjectId && !generating && user)
+    return (
+      <main className="min-h-screen bg-background text-foreground px-6 py-10">
+        <div className="mx-auto max-w-2xl space-y-5">
+          <h1 className="font-display text-3xl"> {t("knowledge.ui.setupReview")} </h1>
+          <p className="text-sm text-muted-foreground"> {t("knowledge.ui.setupIntro")} </p>
+          <ProjectKnowledgePanel
+            key={`${user.id}:${reviewProjectId}`}
+            ownerId={user.id}
+            projectId={reviewProjectId}
+            initialWebsiteUrl={w.websiteUrl}
+            onBusyChange={setKnowledgeBusy}
+          />
+          <div className="flex flex-wrap gap-3">
+            <Button disabled={knowledgeBusy} onClick={() => void handleGenerate(true)}>
+              {" "}
+              {t("knowledge.ui.continue")}{" "}
+            </Button>
+            <Button
+              variant="outline"
+              disabled={knowledgeBusy}
+              onClick={() => void handleGenerate(true)}
+            >
+              {" "}
+              {t("knowledge.ui.skip")}{" "}
+            </Button>
+            <Button
+              variant="ghost"
+              disabled={knowledgeBusy}
+              onClick={() => navigate({ to: "/app/setup", search: { new: undefined } })}
+            >
+              {" "}
+              {t("knowledge.ui.finishLater")}{" "}
+            </Button>
+          </div>
+        </div>
+      </main>
+    );
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <header className="px-6 md:px-10 py-6 border-b border-border flex items-center justify-between">
         <div>
           <div className="font-display text-xl leading-tight">Milo Growth</div>
-          <div className="mt-0.5 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">{t("onboarding.getStarted")}</div>
+          <div className="mt-0.5 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+            {t("onboarding.getStarted")}
+          </div>
         </div>
         <div className="text-xs text-muted-foreground">{t("onboarding.stepOf", { step })}</div>
       </header>
 
       {/* Progress */}
       <div className="h-1 bg-secondary">
-        <div className="h-full bg-gold/80 transition-all" style={{ width: `${(step / 7) * 100}%` }} />
+        <div
+          className="h-full bg-gold/80 transition-all"
+          style={{ width: `${(step / 7) * 100}%` }}
+        />
       </div>
 
       <main className="flex-1 px-6 md:px-10 py-10">
@@ -381,19 +590,34 @@ function OnboardingWizard() {
               <>
                 <Field label={t("onboarding.market")}>
                   <Select value={w.market} onValueChange={(v) => setMarket(v as Market)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
-                      {MARKETS.map((m) => <SelectItem key={m.value} value={m.value}>{t(marketKey(m.value))}</SelectItem>)}
+                      {MARKETS.map((m) => (
+                        <SelectItem key={m.value} value={m.value}>
+                          {t(marketKey(m.value))}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <Helper>{t("onboarding.marketHint", { currency: w.currency })}</Helper>
                 </Field>
                 <div className="grid md:grid-cols-2 gap-5">
                   <Field label={t("onboarding.appLanguage")}>
-                    <Select value={w.appLanguage} onValueChange={(v) => set("appLanguage", v as OnboardingLanguage)}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                    <Select
+                      value={w.appLanguage}
+                      onValueChange={(v) => set("appLanguage", v as OnboardingLanguage)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
                       <SelectContent>
-                        {LANGUAGE_OPTIONS.map((l) => <SelectItem key={l.value} value={l.value}>{t(`lang.${l.value}`)}</SelectItem>)}
+                        {LANGUAGE_OPTIONS.map((l) => (
+                          <SelectItem key={l.value} value={l.value}>
+                            {t(`lang.${l.value}`)}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </Field>
@@ -402,7 +626,9 @@ function OnboardingWizard() {
                       value={w.primaryContentLanguage}
                       onValueChange={(v) => set("primaryContentLanguage", v as ContentLanguageCode)}
                     >
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
                       <SelectContent>
                         {CONTENT_LANGUAGE_OPTIONS.map((l) => (
                           <SelectItem key={l.value} value={l.value}>
@@ -417,15 +643,76 @@ function OnboardingWizard() {
             )}
 
             {step === 2 && (
-              <Field label={t("onboarding.websiteUrl")}>
-                <Input value={w.websiteUrl} onChange={(e) => set("websiteUrl", e.target.value)} placeholder="https://yourbusiness.com" disabled={scanning} />
-                <Helper>{t("onboarding.websiteHint")}</Helper>
-                {scanning ? (
-                  <div className="mt-2 inline-flex items-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" /> {t("onboarding.reading")}
-                  </div>
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground"> {t("knowledge.ui.startingPoint")} </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant={setupPath === "website" ? "default" : "outline"}
+                    disabled={scanning || knowledgeBusy}
+                    onClick={() => setSetupPath("website")}
+                  >
+                    {" "}
+                    {t("knowledge.ui.buildWebsite")}{" "}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={setupPath === "document" ? "default" : "outline"}
+                    disabled={scanning || knowledgeBusy}
+                    onClick={async () => {
+                      setSetupPath("document");
+                      setScanning(true);
+                      try {
+                        setIntakeProjectId(await persistSetupProject(false));
+                      } catch {
+                        toast.error(t("onboarding.toast.saveError"));
+                      } finally {
+                        setScanning(false);
+                      }
+                    }}
+                  >
+                    {" "}
+                    {t("knowledge.ui.upload")}{" "}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={scanning || knowledgeBusy}
+                    onClick={() => {
+                      setSetupPath("skip");
+                      setStep(3);
+                    }}
+                  >
+                    {" "}
+                    {t("knowledge.ui.skip")}{" "}
+                  </Button>
+                </div>
+                {setupPath === "document" && intakeProjectId && user ? (
+                  <ProjectKnowledgePanel
+                    key={`${user.id}:${intakeProjectId}`}
+                    ownerId={user.id}
+                    projectId={intakeProjectId}
+                    initialWebsiteUrl={w.websiteUrl}
+                    onBusyChange={setKnowledgeBusy}
+                  />
                 ) : null}
-              </Field>
+                {setupPath === "website" && (
+                  <Field label={t("onboarding.websiteUrl")}>
+                    <Input
+                      value={w.websiteUrl}
+                      onChange={(e) => set("websiteUrl", e.target.value)}
+                      placeholder="https://yourbusiness.com"
+                      disabled={scanning}
+                    />
+                    <Helper>{t("onboarding.websiteHint")}</Helper>
+                    {scanning ? (
+                      <div className="mt-2 inline-flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" /> {t("onboarding.reading")}
+                      </div>
+                    ) : null}
+                  </Field>
+                )}
+              </div>
             )}
 
             {step === 3 && (
@@ -437,31 +724,61 @@ function OnboardingWizard() {
                 ) : null}
                 <div className="grid md:grid-cols-2 gap-5">
                   <Field label={`${t("onboarding.businessName")} *`}>
-                    <Input value={w.businessName} onChange={(e) => set("businessName", e.target.value)} />
+                    <Input
+                      value={w.businessName}
+                      onChange={(e) => set("businessName", e.target.value)}
+                    />
                   </Field>
                   <Field label={t("onboarding.businessType")}>
-                    <Input value={w.businessType} onChange={(e) => set("businessType", e.target.value)} placeholder="e.g. bakery, law firm" />
+                    <Input
+                      value={w.businessType}
+                      onChange={(e) => set("businessType", e.target.value)}
+                      placeholder="e.g. bakery, law firm"
+                    />
                   </Field>
                 </div>
                 <Field label={t("onboarding.description")}>
-                  <Textarea rows={3} value={w.description} onChange={(e) => set("description", e.target.value)} />
+                  <Textarea
+                    rows={3}
+                    value={w.description}
+                    onChange={(e) => set("description", e.target.value)}
+                  />
                 </Field>
                 <Field label={t("onboarding.targetAudience")}>
-                  <Textarea rows={2} value={w.targetAudience} onChange={(e) => set("targetAudience", e.target.value)} />
+                  <Textarea
+                    rows={2}
+                    value={w.targetAudience}
+                    onChange={(e) => set("targetAudience", e.target.value)}
+                  />
                 </Field>
                 <div className="grid md:grid-cols-2 gap-5">
                   <Field label={t("onboarding.mainLocation")}>
-                    <Input value={w.mainLocation} onChange={(e) => set("mainLocation", e.target.value)} placeholder="City / area" />
+                    <Input
+                      value={w.mainLocation}
+                      onChange={(e) => set("mainLocation", e.target.value)}
+                      placeholder="City / area"
+                    />
                   </Field>
                   <Field label={t("onboarding.targetLocations")}>
-                    <Input value={w.targetLocations} onChange={(e) => set("targetLocations", e.target.value)} />
+                    <Input
+                      value={w.targetLocations}
+                      onChange={(e) => set("targetLocations", e.target.value)}
+                    />
                   </Field>
                 </div>
                 <Field label={t("onboarding.toneOfVoice")}>
-                  <Input value={w.toneOfVoice} onChange={(e) => set("toneOfVoice", e.target.value)} placeholder="e.g. warm, expert, concise" />
+                  <Input
+                    value={w.toneOfVoice}
+                    onChange={(e) => set("toneOfVoice", e.target.value)}
+                    placeholder="e.g. warm, expert, concise"
+                  />
                 </Field>
                 <Field label={t("onboarding.brandNotes")}>
-                  <Textarea rows={2} value={w.brandNotes} onChange={(e) => set("brandNotes", e.target.value)} />
+                  <Textarea
+                    rows={2}
+                    value={w.brandNotes}
+                    onChange={(e) => set("brandNotes", e.target.value)}
+                  />
                 </Field>
               </>
             )}
@@ -474,32 +791,62 @@ function OnboardingWizard() {
                 {w.services.map((sv, i) => (
                   <div key={i} className="rounded-lg border border-border bg-card p-3 space-y-2">
                     <div className="flex gap-2">
-                      <Input className="flex-1" placeholder={t("onboarding.serviceName")} value={sv.name} onChange={(e) => updateServiceRow(i, { name: e.target.value })} />
-                      <Button size="icon" variant="ghost" className="h-9 w-9 text-muted-foreground hover:text-destructive" onClick={() => removeServiceRow(i)} aria-label={t("common.delete")}>
+                      <Input
+                        className="flex-1"
+                        placeholder={t("onboarding.serviceName")}
+                        value={sv.name}
+                        onChange={(e) => updateServiceRow(i, { name: e.target.value })}
+                      />
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                        onClick={() => removeServiceRow(i)}
+                        aria-label={t("common.delete")}
+                      >
                         <X className="h-4 w-4" />
                       </Button>
                     </div>
                     <div className="flex gap-2">
-                      <Select value={sv.kind} onValueChange={(v) => updateServiceRow(i, { kind: v as "Service" | "Product" })}>
-                        <SelectTrigger className="h-9 w-32 text-xs"><SelectValue /></SelectTrigger>
+                      <Select
+                        value={sv.kind}
+                        onValueChange={(v) =>
+                          updateServiceRow(i, { kind: v as "Service" | "Product" })
+                        }
+                      >
+                        <SelectTrigger className="h-9 w-32 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="Service">{t("common.service")}</SelectItem>
                           <SelectItem value="Product">{t("common.product")}</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Select value={sv.priority} onValueChange={(v) => updateServiceRow(i, { priority: v as Priority })}>
-                        <SelectTrigger className="h-9 w-32 text-xs"><SelectValue /></SelectTrigger>
+                      <Select
+                        value={sv.priority}
+                        onValueChange={(v) => updateServiceRow(i, { priority: v as Priority })}
+                      >
+                        <SelectTrigger className="h-9 w-32 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="High">{t("common.high")}</SelectItem>
                           <SelectItem value="Medium">{t("common.medium")}</SelectItem>
                           <SelectItem value="Low">{t("common.low")}</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Input className="flex-1 text-xs" placeholder={t("onboarding.serviceDesc")} value={sv.description} onChange={(e) => updateServiceRow(i, { description: e.target.value })} />
+                      <Input
+                        className="flex-1 text-xs"
+                        placeholder={t("onboarding.serviceDesc")}
+                        value={sv.description}
+                        onChange={(e) => updateServiceRow(i, { description: e.target.value })}
+                      />
                     </div>
                   </div>
                 ))}
-                <Button variant="outline" size="sm" onClick={addServiceRow}><Plus className="h-3.5 w-3.5" /> {t("onboarding.addService")}</Button>
+                <Button variant="outline" size="sm" onClick={addServiceRow}>
+                  <Plus className="h-3.5 w-3.5" /> {t("onboarding.addService")}
+                </Button>
               </div>
             )}
 
@@ -511,7 +858,16 @@ function OnboardingWizard() {
                     key={i}
                     placeholder={`https://competitor${i + 1}.com`}
                     value={w.competitorUrls[i]}
-                    onChange={(e) => set("competitorUrls", w.competitorUrls.map((c, idx) => (idx === i ? e.target.value : c)) as [string, string, string])}
+                    onChange={(e) =>
+                      set(
+                        "competitorUrls",
+                        w.competitorUrls.map((c, idx) => (idx === i ? e.target.value : c)) as [
+                          string,
+                          string,
+                          string,
+                        ],
+                      )
+                    }
                   />
                 ))}
               </div>
@@ -519,31 +875,38 @@ function OnboardingWizard() {
 
             {step === 6 && (
               <>
-              <p className="text-sm text-muted-foreground mb-4">{t("onboarding.goalsHint")}</p>
-              <div className="grid sm:grid-cols-2 gap-2.5">
-                {GROWTH_GOALS.map((goal) => {
-                  const on = w.growthGoals.includes(goal);
-                  return (
-                    <button
-                      key={goal}
-                      type="button"
-                      aria-pressed={on}
-                      onClick={() => toggleGoal(goal)}
-                      className={
-                        "text-left rounded-lg border px-4 py-3 text-sm transition-colors " +
-                        (on ? "border-accent bg-accent/15 text-foreground" : "border-border hover:border-accent/60 text-foreground/80")
-                      }
-                    >
-                      <span className="inline-flex items-center gap-2">
-                        <span className={"h-4 w-4 rounded-sm border flex items-center justify-center " + (on ? "bg-accent border-accent" : "border-border")}>
-                          {on ? <Check className="h-3 w-3 text-accent-foreground" /> : null}
+                <p className="text-sm text-muted-foreground mb-4">{t("onboarding.goalsHint")}</p>
+                <div className="grid sm:grid-cols-2 gap-2.5">
+                  {GROWTH_GOALS.map((goal) => {
+                    const on = w.growthGoals.includes(goal);
+                    return (
+                      <button
+                        key={goal}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => toggleGoal(goal)}
+                        className={
+                          "text-left rounded-lg border px-4 py-3 text-sm transition-colors " +
+                          (on
+                            ? "border-accent bg-accent/15 text-foreground"
+                            : "border-border hover:border-accent/60 text-foreground/80")
+                        }
+                      >
+                        <span className="inline-flex items-center gap-2">
+                          <span
+                            className={
+                              "h-4 w-4 rounded-sm border flex items-center justify-center " +
+                              (on ? "bg-accent border-accent" : "border-border")
+                            }
+                          >
+                            {on ? <Check className="h-3 w-3 text-accent-foreground" /> : null}
+                          </span>
+                          {t(GOAL_KEYS[goal] ?? goal)}
                         </span>
-                        {t(GOAL_KEYS[goal] ?? goal)}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </>
             )}
 
@@ -551,13 +914,32 @@ function OnboardingWizard() {
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">{t("onboarding.summaryIntro")}</p>
                 <div className="rounded-lg border border-border bg-card p-5 space-y-2 text-sm">
-                  <Summary k={t("onboarding.summary.market")} v={`${t(marketKey(w.market))} · ${w.currency}`} />
-                  <Summary k={t("onboarding.summary.language")} v={`${t("onboarding.appLanguage")} ${w.appLanguage.toUpperCase()} · ${t("onboarding.contentLanguage")} ${w.primaryContentLanguage.toUpperCase()}`} />
+                  <Summary
+                    k={t("onboarding.summary.market")}
+                    v={`${t(marketKey(w.market))} · ${w.currency}`}
+                  />
+                  <Summary
+                    k={t("onboarding.summary.language")}
+                    v={`${t("onboarding.appLanguage")} ${w.appLanguage.toUpperCase()} · ${t("onboarding.contentLanguage")} ${w.primaryContentLanguage.toUpperCase()}`}
+                  />
                   <Summary k={t("onboarding.summary.website")} v={w.websiteUrl || "—"} />
                   <Summary k={t("onboarding.summary.business")} v={w.businessName || "—"} />
-                  <Summary k={t("onboarding.summary.services")} v={`${w.services.filter((s) => s.name.trim()).length}`} />
-                  <Summary k={t("onboarding.summary.competitors")} v={`${w.competitorUrls.filter((c) => c.trim()).length}`} />
-                  <Summary k={t("onboarding.summary.goals")} v={w.growthGoals.length ? w.growthGoals.map((g) => t(GOAL_KEYS[g] ?? g)).join(", ") : "—"} />
+                  <Summary
+                    k={t("onboarding.summary.services")}
+                    v={`${w.services.filter((s) => s.name.trim()).length}`}
+                  />
+                  <Summary
+                    k={t("onboarding.summary.competitors")}
+                    v={`${w.competitorUrls.filter((c) => c.trim()).length}`}
+                  />
+                  <Summary
+                    k={t("onboarding.summary.goals")}
+                    v={
+                      w.growthGoals.length
+                        ? w.growthGoals.map((g) => t(GOAL_KEYS[g] ?? g)).join(", ")
+                        : "—"
+                    }
+                  />
                 </div>
                 {generating ? (
                   <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
@@ -570,17 +952,25 @@ function OnboardingWizard() {
 
           {/* Footer */}
           <div className="mt-9 flex items-center justify-between">
-            <Button variant="ghost" onClick={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1 || generating}>
+            <Button
+              variant="ghost"
+              onClick={() => setStep((s) => Math.max(1, s - 1))}
+              disabled={step === 1 || generating || scanning || knowledgeBusy}
+            >
               <ArrowLeft className="h-4 w-4" /> {t("common.back")}
             </Button>
             {step < 7 ? (
-              <Button onClick={handleContinue} disabled={scanning || !canContinue}>
+              <Button onClick={handleContinue} disabled={scanning || knowledgeBusy || !canContinue}>
                 {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 {t("common.continue")} <ArrowRight className="h-4 w-4" />
               </Button>
             ) : (
-              <Button onClick={handleGenerate} disabled={generating}>
-                {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              <Button onClick={() => void handleGenerate()} disabled={generating}>
+                {generating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
                 {generating ? t("onboarding.generating") : t("onboarding.generate")}
               </Button>
             )}
@@ -607,7 +997,9 @@ function Helper({ children }: { children: React.ReactNode }) {
 function Summary({ k, v }: { k: string; v: string }) {
   return (
     <div className="flex gap-3">
-      <span className="w-40 shrink-0 text-muted-foreground uppercase tracking-[0.14em] text-[11px]">{k}</span>
+      <span className="w-40 shrink-0 text-muted-foreground uppercase tracking-[0.14em] text-[11px]">
+        {k}
+      </span>
       <span className="text-foreground/85">{v}</span>
     </div>
   );

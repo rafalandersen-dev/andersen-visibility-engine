@@ -3,6 +3,14 @@ import { generateContentCore } from "./ai.functions";
 import { AiExpenseUnavailableError } from "./ai-expense.server";
 import type { Project, Opportunity } from "./types";
 const mocks = vi.hoisted(() => ({ claim: vi.fn(), model: vi.fn(), rpc: vi.fn() }));
+vi.mock("./project-knowledge.server", () => ({
+  loadProjectKnowledgeContext: async () => ({
+    context: "",
+    references: [],
+    conflicts: [],
+    omitted: 0,
+  }),
+}));
 vi.mock("@/integrations/supabase/client.server", () => ({ supabaseAdmin: { rpc: mocks.rpc } }));
 vi.mock("ai", () => ({ generateText: mocks.model }));
 vi.mock("./ai-usage.server", async (original) => ({
