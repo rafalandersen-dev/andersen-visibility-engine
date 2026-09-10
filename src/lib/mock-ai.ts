@@ -2023,10 +2023,6 @@ export async function publishContentLive(assetId: string) {
           // endpoint/secret intentionally not sent — see publishContentFn above.
           projectId: project.id,
           assetId: asset.id,
-          externalId: asset.publishExternalId ?? "",
-          slug: asset.publishSlug ?? asset.slug,
-          destinationType:
-            asset.publishDestinationType ?? project.defaultDestinationType ?? "blogPost",
         },
       });
       markContentAssetPublishedLive(assetId, {

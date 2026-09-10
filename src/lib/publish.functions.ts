@@ -50,7 +50,7 @@ async function resolvePublishContext(
   const project = projects.find((p) => p.id === projectId);
   if (!project) throw new Error("Project not found in your workspace.");
   const asset = content.find((c) => c.id === assetId);
-  if (!asset) throw new Error("Content not found in your workspace.");
+  if (!asset || asset.projectId !== project.id) throw new Error("Content not found in your workspace.");
   const { resolvePublishSecret } = await import("./publish-secret.server");
   return {
     asset,
@@ -428,7 +428,7 @@ export const publishLiveFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
     // The browser sends ids only; endpoint/secret are resolved server-side.
-    PublishLiveInputSchema.omit({ endpoint: true, secret: true }).parse(input),
+    z.object({ projectId: z.string().min(1), assetId: z.string().min(1) }).parse(input),
   )
   .handler(async ({ data, context }) => {
     const { asset, project, corpus, draftEndpoint, liveEndpoint, secret } =
@@ -456,8 +456,11 @@ export const publishLiveFn = createServerFn({ method: "POST" })
       secret,
     });
     return publishLiveDirect({
-      ...data,
-      externalId: draft.externalId || data.externalId,
+      projectId: project.id,
+      assetId: asset.id,
+      slug: asset.publishSlug || asset.slug || "",
+      destinationType: asset.publishDestinationType ?? project.defaultDestinationType ?? "blogPost",
+      externalId: draft.externalId || asset.publishExternalId || "",
       endpoint: liveEndpoint,
       secret,
     });
