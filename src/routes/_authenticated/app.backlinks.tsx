@@ -326,7 +326,7 @@ function CompetitorContextNote({
   );
 }
 
-function AnalysisView({
+export function AnalysisView({
   analysis,
   projectId,
   competitors,
@@ -357,16 +357,33 @@ function AnalysisView({
       </div>
       {analysis.note ? <p className="mt-2 text-xs text-amber-600">{analysis.note}</p> : null}
 
+      <p className="mt-3 text-xs text-muted-foreground">
+        {t(
+          analysis.evidenceVersion === 1
+            ? "backlinks.integrity.source"
+            : "backlinks.integrity.legacy",
+        )}
+      </p>
+      <p className="mt-2 text-xs text-muted-foreground">{t("backlinks.integrity.scores")}</p>
       {/* Scores */}
       <div className="mt-5 grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <ScoreCard label={t("backlinks.score.overall")} value={analysis.overallLinkScore} />
-        <ScoreCard label={t("backlinks.score.profile")} value={analysis.linkProfileScore} />
+        <ScoreCard
+          label={t("backlinks.score.overall")}
+          value={analysis.evidenceVersion === 1 ? analysis.overallLinkScore : null}
+        />
+        <ScoreCard
+          label={t("backlinks.score.profile")}
+          value={analysis.evidenceVersion === 1 ? analysis.linkProfileScore : null}
+        />
         <ScoreCard
           label={t("backlinks.score.gap")}
-          value={analysis.linkGapScore}
+          value={analysis.evidenceVersion === 1 ? analysis.linkGapScore : null}
           hint={t("backlinks.gapHint")}
         />
-        <ScoreCard label={t("backlinks.score.quality")} value={analysis.linkQualityScore} />
+        <ScoreCard
+          label={t("backlinks.score.quality")}
+          value={analysis.evidenceVersion === 1 ? analysis.linkQualityScore : null}
+        />
       </div>
 
       {/* Summary + top actions */}
@@ -409,15 +426,19 @@ function AnalysisView({
               <ProfileRow
                 summary={analysis.own}
                 you
+                legacy={analysis.evidenceVersion !== 1}
                 youLabel={t("backlinks.you")}
                 notFetchedLabel={t("backlinks.table.notFetched")}
+                partialLabel={t("backlinks.integrity.partial")}
               />
               {analysis.competitors.map((c) => (
                 <ProfileRow
                   key={c.target}
                   summary={c}
+                  legacy={analysis.evidenceVersion !== 1}
                   youLabel={t("backlinks.you")}
                   notFetchedLabel={t("backlinks.table.notFetched")}
+                  partialLabel={t("backlinks.integrity.partial")}
                 />
               ))}
             </tbody>
@@ -429,8 +450,13 @@ function AnalysisView({
       <section className="mt-8">
         <h2 className="font-display text-lg">{t("backlinks.gapHeading")}</h2>
         <p className="mt-1 text-xs text-muted-foreground max-w-3xl">{t("backlinks.gapNote")}</p>
+        <p className="mt-2 text-xs text-muted-foreground">
+          {t(
+            `backlinks.integrity.${analysis.evidenceVersion !== 1 ? "unknown" : (analysis.gapStatus ?? "unknown")}`,
+          )}
+        </p>
         {analysis.gapDomains.length === 0 ? (
-          <p className="mt-3 text-sm text-muted-foreground">{t("backlinks.gapEmpty")}</p>
+          <p className="mt-3 text-sm text-muted-foreground">{t("backlinks.integrity.empty")}</p>
         ) : (
           <div className="mt-3 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {analysis.gapDomains.slice(0, 18).map((g) => (
@@ -438,7 +464,8 @@ function AnalysisView({
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-medium truncate">{g.domain}</span>
                   <span className="shrink-0 text-[10px] uppercase tracking-[0.12em] px-2 py-0.5 rounded-full border border-border bg-secondary">
-                    {t("backlinks.table.rank")} {g.rank}
+                    {t("backlinks.table.rank")}{" "}
+                    {analysis.evidenceVersion === 1 ? (g.rank ?? "—") : "—"}
                   </span>
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground truncate">
@@ -453,8 +480,13 @@ function AnalysisView({
       {/* Top referring domains */}
       <section className="mt-8">
         <h2 className="font-display text-lg mb-2">{t("backlinks.referringHeading")}</h2>
+        <p className="mb-2 text-xs text-muted-foreground">
+          {t(
+            `backlinks.integrity.${analysis.evidenceVersion !== 1 ? "unknown" : (analysis.referringStatus ?? "unknown")}`,
+          )}
+        </p>
         {analysis.topReferringDomains.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("backlinks.referringEmpty")}</p>
+          <p className="text-sm text-muted-foreground">{t("backlinks.integrity.empty")}</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {analysis.topReferringDomains.slice(0, 15).map((r) => (
@@ -462,7 +494,10 @@ function AnalysisView({
                 key={r.domain}
                 className="text-xs px-2.5 py-1 rounded-full border border-border bg-card"
               >
-                {r.domain} <span className="text-muted-foreground">· {r.rank}</span>
+                {r.domain}{" "}
+                <span className="text-muted-foreground">
+                  · {analysis.evidenceVersion === 1 ? (r.rank ?? "—") : "—"}
+                </span>
               </span>
             ))}
           </div>
@@ -512,19 +547,27 @@ function AnalysisView({
 function ProfileRow({
   summary,
   you = false,
+  legacy = false,
   youLabel,
   notFetchedLabel,
+  partialLabel,
 }: {
   summary: BacklinkTargetSummary;
   you?: boolean;
+  legacy?: boolean;
   youLabel: string;
   notFetchedLabel: string;
+  partialLabel: string;
 }) {
-  const failed = summary.fetchStatus === "failed";
+  const failed =
+    legacy || summary.fetchStatus === "failed" || summary.fetchStatus === "unavailable";
   return (
     <tr className={`border-b border-border last:border-0 ${you ? "bg-accent/10" : ""}`}>
       <td className="px-4 py-2.5">
         <span className="font-medium">{summary.target}</span>
+        {!legacy && summary.fetchStatus === "partial" ? (
+          <span className="ml-2 text-xs text-muted-foreground">{partialLabel}</span>
+        ) : null}
         {you ? (
           <span className="ml-2 text-[10px] uppercase tracking-[0.12em] px-1.5 py-0.5 rounded-full border border-accent/40 bg-accent/30 text-accent-foreground">
             {youLabel}
@@ -537,11 +580,11 @@ function ProfileRow({
         </td>
       ) : (
         <>
-          <td className="px-4 py-2.5">{summary.rank}</td>
-          <td className="px-4 py-2.5">{summary.backlinks.toLocaleString()}</td>
-          <td className="px-4 py-2.5">{summary.referringDomains.toLocaleString()}</td>
-          <td className="px-4 py-2.5">{summary.brokenBacklinks.toLocaleString()}</td>
-          <td className="px-4 py-2.5">{summary.spamScore}</td>
+          <td className="px-4 py-2.5">{summary.rank ?? "—"}</td>
+          <td className="px-4 py-2.5">{summary.backlinks?.toLocaleString() ?? "—"}</td>
+          <td className="px-4 py-2.5">{summary.referringDomains?.toLocaleString() ?? "—"}</td>
+          <td className="px-4 py-2.5">{summary.brokenBacklinks?.toLocaleString() ?? "—"}</td>
+          <td className="px-4 py-2.5">{summary.spamScore ?? "—"}</td>
         </>
       )}
     </tr>
@@ -621,12 +664,12 @@ function RecommendationCard({
   );
 }
 
-function ScoreCard({ label, value, hint }: { label: string; value: number; hint?: string }) {
+function ScoreCard({ label, value, hint }: { label: string; value: number | null; hint?: string }) {
   return (
     <div className="rounded-lg border border-border bg-card p-4">
       <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
       <div className="mt-1.5 font-display text-3xl text-foreground">
-        {value}
+        {value ?? "—"}
         <span className="text-sm text-muted-foreground">/100</span>
       </div>
       {hint ? <div className="mt-0.5 text-[10px] text-muted-foreground">{hint}</div> : null}

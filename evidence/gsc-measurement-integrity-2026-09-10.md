@@ -1,5 +1,7 @@
 # R13 Search Console measurement integrity — implementation
 
+Released through PR116 at19:16:18UTC. See [release evidence](gsc-measurement-integrity-release-2026-09-10.md); candidate statuses below are historical.
+
 Recovered released record46d689b by fetch/fast-forward in8035 checkout; exclusive handoff from01a08c75. Previous PR115 release is complete and is not repeated. Final PR115 Claude34513905364 completedSUCCESS18:29:58UTC with6permissiondenials; log inspected and release record updated without rerun.
 
 Code findings confirmed in existing CSV/API/Analytics/proof paths: blank/malformed numbers became0; mixed page/query/date rows were added together; path-only matches merged distinct hostnames; API absence fell back to overlapping samples; inclusive ranges were one day too long. Existing OAuth/auth/property membership plumbing is preserved.

@@ -1465,34 +1465,34 @@ export type BacklinkRecommendationCategory =
 /** Aggregate backlink metrics for one domain (own site or a competitor). */
 export interface BacklinkTargetSummary {
   target: string;
-  fetchStatus: "fetched" | "failed";
+  fetchStatus: "fetched" | "partial" | "unavailable" | "failed";
   /** DataForSEO domain rank (0–1000 scale, higher is stronger). */
-  rank: number;
-  backlinks: number;
-  referringDomains: number;
-  referringMainDomains: number;
-  brokenBacklinks: number;
+  rank: number | null;
+  backlinks: number | null;
+  referringDomains: number | null;
+  referringMainDomains: number | null;
+  brokenBacklinks: number | null;
   /** 0–100, higher = more spam signals in the link profile. */
-  spamScore: number;
+  spamScore: number | null;
   firstSeen?: string;
 }
 
 export interface BacklinkReferringDomain {
   domain: string;
-  rank: number;
-  backlinks: number;
-  spamScore: number;
+  rank: number | null;
+  backlinks: number | null;
+  spamScore: number | null;
   firstSeen?: string;
 }
 
 /** A domain that links to competitors but NOT to the business (link gap). */
 export interface BacklinkGapDomain {
   domain: string;
-  rank: number;
+  rank: number | null;
   /** How many of the analyzed competitors this domain links to. */
   intersections: number;
   competitorsLinked: string[];
-  totalCompetitorBacklinks: number;
+  totalCompetitorBacklinks: number | null;
 }
 
 export interface BacklinkRecommendation {
@@ -1516,14 +1516,18 @@ export interface BacklinkAnalysisResult {
   projectId: string;
   note?: string;
   ownDomain: string;
+  /** Versioned declaration in browser-writable workspace data, not independent verification. */
+  evidenceVersion?: 1;
+  referringStatus?: "sample" | "failed";
+  gapStatus?: "sample" | "failed" | "not_requested";
   own: BacklinkTargetSummary;
   competitors: BacklinkTargetSummary[];
   topReferringDomains: BacklinkReferringDomain[];
   gapDomains: BacklinkGapDomain[];
-  overallLinkScore: number;
-  linkProfileScore: number;
-  linkGapScore: number;
-  linkQualityScore: number;
+  overallLinkScore: number | null;
+  linkProfileScore: number | null;
+  linkGapScore: number | null;
+  linkQualityScore: number | null;
   summary: string;
   topLinkActions: string[];
   recommendations: BacklinkRecommendation[];
