@@ -39,3 +39,11 @@ export const readWeeklyPreparationFn = createServerFn({ method: "POST" })
       data.weekStart,
     );
   });
+
+export const cancelWeeklySlotFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => project.extend({ requestId: z.string().uuid() }).parse(v))
+  .handler(async ({ data, context }) => {
+    const { cancelWeeklySlot } = await import("./weekly-stage.server");
+    return cancelWeeklySlot({ ownerId: context.userId, projectId: data.projectId }, data.requestId);
+  });

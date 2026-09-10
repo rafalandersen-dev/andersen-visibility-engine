@@ -15,14 +15,19 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocked.eq.mockReturnValue({ eq: mocked.eq, limit: mocked.limit });
   mocked.limit.mockResolvedValue({ data: [], error: null });
-  mocked.rpc.mockResolvedValue({
-    data: {
-      revision: 0,
-      engine: "monthly",
-      preparation: { preparationWeekday: 5, preparationTime: "16:00", reviewLeadHours: 48 },
-    },
+  mocked.rpc.mockImplementation(async (name: string) => ({
+    data:
+      name === "read_weekly_preparation_stages"
+        ? []
+        : name === "read_weekly_preparation_summary"
+          ? null
+          : {
+              revision: 0,
+              engine: "monthly",
+              preparation: { preparationWeekday: 5, preparationTime: "16:00", reviewLeadHours: 48 },
+            },
     error: null,
-  });
+  }));
   mocked.workspace.mockResolvedValue({
     data: {
       projects: [

@@ -259,6 +259,9 @@ export async function runMonthlyAutoScheduler(now = new Date()): Promise<AutoSch
     if (!userId || enabled.length === 0) continue;
     summary.workspaces++;
     for (const project of enabled) {
+      const { readSchedulerControl } = await import("./weekly-preparation.server");
+      const control = await readSchedulerControl({ ownerId: userId, projectId: project.id });
+      if (control.engine !== "monthly") continue;
       const cfg = normalizeAutoSchedulerConfig(project.autoScheduler);
       let report: ProjectRunReport;
       try {
@@ -517,19 +520,14 @@ async function runForProject(
 
     report.generated++;
     // ---- 6. Arm go-lives (auto_publish only): queue row FIRST, mirror second --
-    const db = await admin();
     for (const p of batch) {
       // A recovery/owner save may have won while generation was returning.
       // Only a draft inserted by this mutation can inherit its auto approval.
       if (!p.armable || !persisted.result.newAssetIds.includes(p.asset.id)) continue;
-      const { error } = await db.from("scheduled_publishes").insert({
-        user_id: userId,
-        project_id: projectId,
-        asset_id: p.asset.id,
-        publish_at: p.slot.publishAt,
-        status: "pending",
-      });
-      if (error) {
+      try {
+        const { armSchedulerPublication } = await import("./scheduler-approval.server");
+        await armSchedulerPublication(userId, p.asset, liveProject, [...content, ...prepared.map(item => item.asset), p.asset], lease, p.slot.publishAt);
+      } catch {
         report.notes.push(`"${p.asset.title}": queue insert failed — left as a ready draft.`);
         continue;
       }

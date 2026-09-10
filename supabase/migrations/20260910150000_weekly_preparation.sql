@@ -97,6 +97,8 @@ CREATE TABLE public.weekly_preparation_stages (
   result jsonb CHECK(result IS NULL OR (jsonb_typeof(result)='object' AND octet_length(result::text)<=32000)),
   started_at timestamptz NOT NULL DEFAULT now(),
   finished_at timestamptz,
+  delivered_at timestamptz,
+  delivery_hash text,
   PRIMARY KEY(user_id,project_id,publish_at,stage),
   FOREIGN KEY(user_id,project_collection,project_id) REFERENCES public.workspace_entities(user_id,collection,entity_id) ON DELETE CASCADE
 );
@@ -122,6 +124,7 @@ BEGIN
     -- No takeover, even if a setting, input hash, period or lease changed.
     RETURN jsonb_build_object('acquired',false,'requestId',current.request_id,'outputId',current.output_id,'state',CASE WHEN current.state='running' THEN 'unknown' ELSE current.state END,'inputHash',current.input_hash,'result',current.result);
   END IF;
+  IF EXISTS(SELECT 1 FROM public.weekly_preparation_stages WHERE user_id=p_user AND project_id=p_project AND publish_at=p_publish AND state='cancelled') THEN RAISE EXCEPTION 'weekly_slot_cancelled'; END IF;
   IF (SELECT count(*) FROM public.weekly_preparation_stages WHERE user_id=p_user AND project_id=p_project)>=3000 THEN RAISE EXCEPTION 'weekly_stage_capacity'; END IF;
   INSERT INTO public.weekly_preparation_stages(user_id,project_id,publish_at,stage,period,control_revision,lease_token,input_hash,state)
     VALUES(p_user,p_project,p_publish,p_stage,lease.planned_period,p_revision,p_lease,p_hash,'running') RETURNING * INTO current;
@@ -155,7 +158,7 @@ CREATE FUNCTION public.read_weekly_preparation_stages(p_user uuid,p_project text
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 BEGIN
   PERFORM public.assert_knowledge_project(p_user,p_project);
-  RETURN coalesce((SELECT jsonb_agg(jsonb_build_object('publishAt',s.publish_at,'stage',s.stage,'requestId',s.request_id,'outputId',s.output_id,'inputHash',s.input_hash,'state',CASE WHEN s.state='running' AND NOT EXISTS(SELECT 1 FROM public.auto_scheduler_leases l WHERE l.user_id=s.user_id AND l.project_id=s.project_id AND l.token=s.lease_token AND l.status='active' AND l.lease_until>clock_timestamp()) THEN 'unknown' ELSE s.state END,'result',s.result) ORDER BY s.publish_at,s.stage) FROM public.weekly_preparation_stages s WHERE s.user_id=p_user AND s.project_id=p_project AND s.period=p_period),'[]'::jsonb);
+  RETURN coalesce((SELECT jsonb_agg(jsonb_build_object('publishAt',s.publish_at,'stage',s.stage,'requestId',s.request_id,'outputId',s.output_id,'inputHash',s.input_hash,'state',CASE WHEN s.state='running' AND NOT EXISTS(SELECT 1 FROM public.auto_scheduler_leases l WHERE l.user_id=s.user_id AND l.project_id=s.project_id AND l.token=s.lease_token AND l.status='active' AND l.lease_until>clock_timestamp()) THEN 'unknown' ELSE s.state END,'result',s.result,'deliveredAt',s.delivered_at,'outputChanged',coalesce(s.stage='content' AND s.delivery_hash IS NOT NULL AND EXISTS(SELECT 1 FROM public.workspace_entities e WHERE e.user_id=s.user_id AND e.collection='content' AND e.entity_id=s.output_id::text AND md5(e.data::text)<>s.delivery_hash),false)) ORDER BY s.publish_at,s.stage) FROM public.weekly_preparation_stages s WHERE s.user_id=p_user AND s.project_id=p_project AND s.period=p_period),'[]'::jsonb);
 END; $$;
 REVOKE ALL ON FUNCTION public.begin_weekly_preparation_stage(uuid,text,uuid,integer,timestamptz,text,text),public.finish_weekly_preparation_stage(uuid,text,uuid,text,jsonb),public.read_weekly_preparation_stages(uuid,text,text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.begin_weekly_preparation_stage(uuid,text,uuid,integer,timestamptz,text,text),public.finish_weekly_preparation_stage(uuid,text,uuid,text,jsonb),public.read_weekly_preparation_stages(uuid,text,text) TO service_role;

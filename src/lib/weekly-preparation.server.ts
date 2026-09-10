@@ -140,5 +140,25 @@ export async function readWeeklyPreparation(
     booked: [],
     queue,
   });
-  return { ...readiness, control, enabled: schedule.enabled, timeZone: schedule.timeZone };
+  const { readWeeklyStages } = await import("./weekly-stage.server");
+  const { readWeeklySummary } = await import("./weekly-executor.server");
+  const stages = await readWeeklyStages(scope, readiness.period);
+  const summary = await readWeeklySummary(scope, readiness.period);
+  const cancelled = (publishAt: string) =>
+    stages.some(
+      (s) => Date.parse(s.publishAt) === Date.parse(publishAt) && s.state === "cancelled",
+    );
+  readiness.missing = readiness.missing.filter((s) => !cancelled(s.publishAt));
+  readiness.readiness = readiness.readiness.map((s) =>
+    s.state === "missing" && cancelled(s.publishAt) ? { ...s, state: "cancelled" } : s,
+  );
+
+  return {
+    ...readiness,
+    stages: stages.map(({ result: _result, inputHash: _hash, ...stage }) => stage),
+    summary,
+    control,
+    enabled: schedule.enabled,
+    timeZone: schedule.timeZone,
+  };
 }

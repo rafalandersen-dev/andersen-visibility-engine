@@ -1,6 +1,30 @@
 /** Project knowledge review strings. Wider intake/review localization remains in P1. */
 export const projectKnowledge = {
   en: {
+    "weekly.summary": "Latest preparation update",
+    "weekly.stage.research": "Research brief",
+    "weekly.stage.content": "Article",
+    "weekly.stage.image": "Required visual",
+    "weekly.stageState.running": "Running",
+    "weekly.stageState.unknown": "Outcome uncertain",
+    "weekly.stageState.retained": "Retained",
+    "weekly.stageState.cancelled": "Cancelled",
+    "weekly.outputChanged": "Edited since delivery",
+    "weekly.cancelSlot": "Cancel preparation for this slot",
+    "weekly.cancelFailed":
+      "Cancellation unavailable. Wait for active work to finish and cancel any queued publication first.",
+    "weekly.recoveryHelp":
+      "Cancellation preserves saved drafts and private results, reserves this date and never retries uncertain research. Unknown generation is reconciled only from its existing archive. Review and approve proposed visuals in the editor.",
+    "weekly.action.waiting": "Waiting for preparation time",
+    "weekly.action.research-retained": "Research brief retained",
+    "weekly.action.content-retained": "Article retained",
+    "weekly.action.image-retained": "Visual retained",
+    "weekly.action.review-required": "Review required",
+    "weekly.action.queued": "Queued for publication",
+    "weekly.action.recovery-required": "Recovery review required; completed work retained",
+    "weekly.action.capacity-required": "Capacity required; completed work retained",
+    "weekly.action.context-changed": "Project context or owner output changed; held",
+
     "weekly.title": "Weekly preparation",
     "weekly.help":
       "Uses the project’s saved publication days, time and timezone above. Save project changes first. Changing coordinator preserves existing work and requires any active or uncertain run to be resolved.",
@@ -228,6 +252,31 @@ export const projectKnowledge = {
     "knowledge.sourceHistory.latest": "Latest source versions",
   },
   pl: {
+    "weekly.summary": "Ostatnia aktualizacja przygotowania",
+    "weekly.stage.research": "Brief badawczy",
+    "weekly.stage.content": "Artykuł",
+    "weekly.stage.image": "Wymagana grafika",
+    "weekly.stageState.running": "W toku",
+    "weekly.stageState.unknown": "Wynik niepewny",
+    "weekly.stageState.retained": "Zachowano",
+    "weekly.stageState.cancelled": "Anulowano",
+    "weekly.outputChanged": "Edytowano po dostarczeniu",
+    "weekly.cancelSlot": "Anuluj przygotowanie tego terminu",
+    "weekly.cancelFailed":
+      "Anulowanie niedostępne. Poczekaj na koniec aktywnej pracy i najpierw anuluj publikację w kolejce.",
+    "weekly.recoveryHelp":
+      "Anulowanie zachowuje szkice i prywatne wyniki, rezerwuje termin i nie ponawia niepewnego badania. Niepewne generowanie jest uzgadniane wyłącznie z istniejącym archiwum. Sprawdź i zatwierdź proponowane grafiki w edytorze.",
+    "weekly.action.waiting": "Oczekiwanie na czas przygotowania",
+    "weekly.action.research-retained": "Brief badawczy zachowany",
+    "weekly.action.content-retained": "Artykuł zachowany",
+    "weekly.action.image-retained": "Grafika zachowana",
+    "weekly.action.review-required": "Wymagana weryfikacja",
+    "weekly.action.queued": "Publikacja w kolejce",
+    "weekly.action.recovery-required":
+      "Wymagana weryfikacja odzyskiwania; ukończona praca zachowana",
+    "weekly.action.capacity-required": "Wymagane środki lub limit; ukończona praca zachowana",
+    "weekly.action.context-changed": "Zmieniono kontekst projektu lub wynik; wstrzymano",
+
     "weekly.title": "Przygotowanie tygodnia",
     "weekly.help":
       "Korzysta z zapisanych powyżej dni, godziny i strefy czasowej publikacji. Najpierw zapisz zmiany projektu. Zmiana koordynatora zachowuje istniejącą pracę i wymaga wyjaśnienia aktywnych lub niepewnych przebiegów.",
@@ -456,6 +505,31 @@ export const projectKnowledge = {
     "knowledge.sourceHistory.latest": "Najnowsze wersje źródła",
   },
   sv: {
+    "weekly.summary": "Senaste uppdatering av förberedelsen",
+    "weekly.stage.research": "Researchunderlag",
+    "weekly.stage.content": "Artikel",
+    "weekly.stage.image": "Obligatorisk bild",
+    "weekly.stageState.running": "Pågår",
+    "weekly.stageState.unknown": "Osäkert resultat",
+    "weekly.stageState.retained": "Sparat",
+    "weekly.stageState.cancelled": "Avbrutet",
+    "weekly.outputChanged": "Redigerat efter leverans",
+    "weekly.cancelSlot": "Avbryt förberedelsen för denna tid",
+    "weekly.cancelFailed":
+      "Kan inte avbryta. Vänta tills pågående arbete är klart och avbryt först eventuell köad publicering.",
+    "weekly.recoveryHelp":
+      "Avbrott behåller utkast och privata resultat, reserverar datumet och gör aldrig om osäker research. Osäker generering stäms endast av mot befintligt arkiv. Granska och godkänn föreslagna bilder i redigeraren.",
+    "weekly.action.waiting": "Väntar på förberedelsetiden",
+    "weekly.action.research-retained": "Researchunderlag sparat",
+    "weekly.action.content-retained": "Artikel sparad",
+    "weekly.action.image-retained": "Bild sparad",
+    "weekly.action.review-required": "Granskning krävs",
+    "weekly.action.queued": "I publiceringskön",
+    "weekly.action.recovery-required": "Återställning behöver granskas; slutfört arbete sparat",
+    "weekly.action.capacity-required": "Kapacitet krävs; slutfört arbete sparat",
+    "weekly.action.context-changed":
+      "Projektets sammanhang eller ägarens innehåll ändrades; pausat",
+
     "weekly.title": "Veckoförberedelse",
     "weekly.help":
       "Använder projektets sparade publiceringsdagar, tid och tidszon ovan. Spara projektändringar först. Byte av samordnare bevarar befintligt arbete och kräver att aktiva eller osäkra körningar hanteras.",
@@ -688,6 +762,30 @@ export const projectKnowledge = {
     "knowledge.sourceHistory.latest": "Senaste källversionerna",
   },
   da: {
+    "weekly.summary": "Seneste opdatering af forberedelsen",
+    "weekly.stage.research": "Researchoplæg",
+    "weekly.stage.content": "Artikel",
+    "weekly.stage.image": "Påkrævet billede",
+    "weekly.stageState.running": "I gang",
+    "weekly.stageState.unknown": "Usikkert resultat",
+    "weekly.stageState.retained": "Gemt",
+    "weekly.stageState.cancelled": "Annulleret",
+    "weekly.outputChanged": "Redigeret efter levering",
+    "weekly.cancelSlot": "Annuller forberedelse til dette tidspunkt",
+    "weekly.cancelFailed":
+      "Kan ikke annullere. Vent til aktivt arbejde er færdigt, og annuller først eventuel publicering i kø.",
+    "weekly.recoveryHelp":
+      "Annullering bevarer kladder og private resultater, reserverer datoen og gentager aldrig usikker research. Usikker generering afstemmes kun med det eksisterende arkiv. Gennemgå og godkend foreslåede billeder i editoren.",
+    "weekly.action.waiting": "Venter på forberedelsestidspunktet",
+    "weekly.action.research-retained": "Researchoplæg gemt",
+    "weekly.action.content-retained": "Artikel gemt",
+    "weekly.action.image-retained": "Billede gemt",
+    "weekly.action.review-required": "Gennemgang påkrævet",
+    "weekly.action.queued": "I kø til publicering",
+    "weekly.action.recovery-required": "Gendannelse kræver gennemgang; færdigt arbejde gemt",
+    "weekly.action.capacity-required": "Kapacitet påkrævet; færdigt arbejde gemt",
+    "weekly.action.context-changed": "Projektkontekst eller ejerens indhold ændret; sat på hold",
+
     "weekly.title": "Ugeforberedelse",
     "weekly.help":
       "Bruger projektets gemte publiceringsdage, tidspunkt og tidszone ovenfor. Gem projektændringer først. Skift af koordinator bevarer eksisterende arbejde og kræver, at aktive eller usikre kørsler afklares.",

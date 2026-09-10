@@ -5,7 +5,11 @@ import { useT, useAppLanguage } from "@/i18n";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { readWeeklyPreparationFn, setSchedulerControlFn } from "@/lib/weekly-preparation.functions";
+import {
+  readWeeklyPreparationFn,
+  setSchedulerControlFn,
+  cancelWeeklySlotFn,
+} from "@/lib/weekly-preparation.functions";
 import { localWeekStart } from "@/lib/weekly-preparation";
 import { normalizeAutoSchedulerConfig } from "@/lib/auto-scheduler";
 import type { Project } from "@/lib/types";
@@ -187,6 +191,49 @@ export function WeeklyPreparationPanel({ project }: { project: Project }) {
               {issue.localDate}: {t(`weekly.issue.${issue.reason}`)}
             </p>
           ))}
+          {report.summary && (
+            <p role="status" className="text-sm">
+              {t("weekly.summary")}: {t(`weekly.action.${report.summary.summary.action}`)} ·{" "}
+              {date(report.summary.updatedAt)}
+            </p>
+          )}
+          <ul className="divide-y divide-border">
+            {report.stages.map((stage) => (
+              <li
+                key={stage.requestId}
+                className="py-2 flex flex-wrap items-center justify-between gap-2 text-sm"
+              >
+                <span>
+                  {date(stage.publishAt)} · {t(`weekly.stage.${stage.stage}`)} ·{" "}
+                  {t(`weekly.stageState.${stage.state}`)}
+                  {stage.outputChanged ? ` · ${t("weekly.outputChanged")}` : ""}
+                </span>
+                {stage.state !== "cancelled" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={saving}
+                    onClick={async () => {
+                      setSaving(true);
+                      try {
+                        await cancelWeeklySlotFn({
+                          data: { projectId: project.id, requestId: stage.requestId },
+                        });
+                        await query.refetch();
+                      } catch {
+                        toast.error(t("weekly.cancelFailed"));
+                      } finally {
+                        setSaving(false);
+                      }
+                    }}
+                  >
+                    {t("weekly.cancelSlot")}
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-muted-foreground">{t("weekly.recoveryHelp")}</p>
           <p className="text-xs text-muted-foreground">{t("weekly.queueHelp")}</p>
         </>
       )}

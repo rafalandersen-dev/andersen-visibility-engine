@@ -7,6 +7,7 @@ import type { WorkspaceData } from "./workspace.server";
 import type { ContentAsset, Opportunity } from "./types";
 
 const mocks = vi.hoisted(() => ({
+  control: vi.fn(),
   remaining: vi.fn(),
   generate: vi.fn(),
   discover: vi.fn(),
@@ -18,6 +19,13 @@ const mocks = vi.hoisted(() => ({
   releaseLease: vi.fn(),
   insert: vi.fn(),
   queue: vi.fn(),
+}));
+vi.mock("./weekly-preparation.server", () => ({ readSchedulerControl: mocks.control }));
+vi.mock("./scheduler-approval.server", () => ({
+  armSchedulerPublication: async () => {
+    const result = await mocks.insert();
+    if (result.error) throw new Error("queue_failed");
+  },
 }));
 vi.mock("./auto-scheduler-lease.server", () => ({
   acquireSchedulerLease: mocks.acquire,
@@ -59,6 +67,7 @@ const now = new Date("2026-09-25T06:00:00Z");
 let workspace: WorkspaceData;
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.control.mockResolvedValue({ engine: "monthly" });
   vi.stubEnv("RESEND_API_KEY", "");
   mocks.remaining.mockResolvedValue(3);
   mocks.queue.mockReturnValue({ data: [], error: null });
@@ -101,6 +110,17 @@ afterEach(() => {
 });
 
 describe("autopilot budget failures", () => {
+  it.each(["weekly", "paused"])(
+    "skips %s projects without generation or summary email",
+    async (engine) => {
+      mocks.control.mockResolvedValue({ engine });
+      const summary = await runMonthlyAutoScheduler(now);
+      expect(summary.projects).toEqual([]);
+      expect(mocks.acquire).not.toHaveBeenCalled();
+      expect(mocks.discover).not.toHaveBeenCalled();
+      expect(mocks.generate).not.toHaveBeenCalled();
+    },
+  );
   it.each([
     { data: null, error: { message: "unavailable" } },
     { data: null, error: null },

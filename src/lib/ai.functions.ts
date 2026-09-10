@@ -1108,7 +1108,7 @@ export function contentLanguageLabel(p: Project): string {
   return projectContentLanguage(p);
 }
 
-function projectBrief(p: Project, services: ServiceItem[]) {
+export function projectBrief(p: Project, services: ServiceItem[]) {
   const contentLang = contentLanguageLabel(p);
   return [
     `Business: ${p.businessName || p.name}`,
@@ -1996,7 +1996,7 @@ export const scanWebsiteFn = createServerFn({ method: "POST" })
 export async function generateOpportunitiesCore(
   userId: string,
   data: { project: Project; services: ServiceItem[]; existingTitles: string[] },
-  metering: { enforceLimit?: boolean; attempt?: NativeExpenseContext["attempt"] } = {},
+  metering: { enforceLimit?: boolean; attempt?: NativeExpenseContext["attempt"]; expectedKnowledgeHash?: string } = {},
 ) {
   {
     // Spend limit, claimed before any model call so a refusal costs nothing.
@@ -2005,6 +2005,7 @@ export async function generateOpportunitiesCore(
     const services = data.services as ServiceItem[];
     const { loadProjectKnowledgeContext } = await import("./project-knowledge.server");
     const knowledge = await loadProjectKnowledgeContext({ownerId:userId,projectId:project.id},"text");
+    if (metering.expectedKnowledgeHash && await (await import("./weekly-executor")).weeklyInputHash(knowledge) !== metering.expectedKnowledgeHash) throw new Error("weekly_context_changed");
     const brief = [projectBrief(knowledge.brandIntelligence ? {...project,brandIntelligence:knowledge.brandIntelligence} : project, services),knowledge.context].filter(Boolean).join("\n\n");
     const existing = data.existingTitles.length
       ? `\nAvoid duplicating these existing titles:\n- ${data.existingTitles.join("\n- ")}`
@@ -2292,7 +2293,7 @@ export async function generateContentCore(
     assetType: (typeof CONTENT_ASSET_TYPES)[number];
     modelOverride?: string;
   },
-  metering: { enforceLimit?: boolean; attempt?: NativeExpenseContext["attempt"]; assetId?: string } = {},
+  metering: { enforceLimit?: boolean; attempt?: NativeExpenseContext["attempt"]; assetId?: string; expectedKnowledgeHash?: string } = {},
 ) {
   let target: ReturnType<typeof contentRecoveryTarget>;
   return withGenerationUsage(
@@ -2309,6 +2310,7 @@ export async function generateContentCore(
       const opp = data.opportunity as Opportunity;
       const { loadProjectKnowledgeContext } = await import("./project-knowledge.server");
       const knowledge = await loadProjectKnowledgeContext({ownerId: userId, projectId: project.id}, "text");
+      if (metering.expectedKnowledgeHash && await (await import("./weekly-executor")).weeklyInputHash(knowledge) !== metering.expectedKnowledgeHash) throw new Error("weekly_context_changed");
       const brief = [projectBrief(knowledge.brandIntelligence ? { ...project, brandIntelligence: knowledge.brandIntelligence } : project, services), knowledge.context].filter(Boolean).join("\n\n");
       // P1-7 fix (2026-07-25): the OPPORTUNITY's language wins. A Polish-language
       // opportunity on a Swedish-market project must generate a Polish article —

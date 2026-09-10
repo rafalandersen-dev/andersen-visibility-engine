@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { KnowledgeRpc } from "./project-knowledge.server";
+import { schedulerPeriodSchema } from "./weekly-preparation";
 const scopeSchema = z
   .object({ ownerId: z.string().uuid(), projectId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/) })
   .strict();
@@ -43,6 +44,52 @@ async function call(name: string, args: Record<string, unknown>, injected?: Know
   } finally {
     clearTimeout(timer);
   }
+}
+export const weeklyStageRecordSchema = acknowledgement.omit({ acquired: true }).extend({
+  publishAt: z.string().datetime({ offset: true }),
+  stage: stageSchema,
+  deliveredAt: z.string().datetime({ offset: true }).nullable(),
+  outputChanged: z.boolean(),
+});
+export async function readWeeklyStages(
+  target: z.infer<typeof scopeSchema>,
+  period: string,
+  rpc?: KnowledgeRpc,
+) {
+  const scope = scopeSchema.parse(target);
+  return z
+    .array(weeklyStageRecordSchema)
+    .max(3000)
+    .parse(
+      await call(
+        "read_weekly_preparation_stages",
+        {
+          p_user: scope.ownerId,
+          p_project: scope.projectId,
+          p_period: schedulerPeriodSchema.parse(period),
+        },
+        rpc,
+      ),
+    );
+}
+export async function cancelWeeklySlot(
+  target: z.infer<typeof scopeSchema>,
+  requestId: string,
+  rpc?: KnowledgeRpc,
+) {
+  const scope = scopeSchema.parse(target);
+  if (
+    (await call(
+      "cancel_weekly_preparation_slot",
+      {
+        p_user: scope.ownerId,
+        p_project: scope.projectId,
+        p_request: z.string().uuid().parse(requestId),
+      },
+      rpc,
+    )) !== true
+  )
+    throw new WeeklyStageUnavailableError();
 }
 /** A refused or uncertain claim never executes work. A duplicate completed stage
  * returns its saved acknowledgement. The callback must durably retain a paid

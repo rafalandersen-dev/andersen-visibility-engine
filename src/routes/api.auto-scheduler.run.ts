@@ -43,6 +43,13 @@ export const Route = createFileRoute("/api/auto-scheduler/run")({
             return Response.json({ error: "forbidden" }, { status: 403 });
           }
 
+          const engine = new URL(request.url).searchParams.get("engine") ?? "monthly";
+          if (engine === "weekly") {
+            const { runWeeklyAutoScheduler } = await import("@/lib/weekly-executor.server");
+            return Response.json({ ok: true, engine, ...(await runWeeklyAutoScheduler()) });
+          }
+          if (engine !== "monthly")
+            return Response.json({ error: "invalid_engine" }, { status: 400 });
           const { runMonthlyAutoScheduler } = await import("@/lib/auto-scheduler.server");
           const summary = await runMonthlyAutoScheduler();
           return Response.json({
