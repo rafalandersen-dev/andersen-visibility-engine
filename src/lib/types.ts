@@ -314,17 +314,17 @@ export interface GscRow {
   page?: string;
   path?: string;
   date?: string;
-  clicks: number;
-  impressions: number;
-  ctr: number; // 0–100
-  position: number;
+  clicks: number | null;
+  impressions: number | null;
+  ctr: number | null; // 0–100
+  position: number | null;
 }
 
 export interface GscImportSummary {
-  totalClicks: number;
-  totalImpressions: number;
-  averageCtr: number;
-  averagePosition: number;
+  totalClicks: number | null;
+  totalImpressions: number | null;
+  averageCtr: number | null;
+  averagePosition: number | null;
   rowCount: number;
   topQuery?: string;
   topPage?: string;
@@ -338,6 +338,10 @@ export interface GscImport {
   importedAt: string;
   source: GscImportSource;
   importType: "queries" | "pages" | "dates" | "mixed" | "unknown";
+  /** Format version only; never independent proof of provider provenance. */
+  integrityVersion?: 2;
+  /** Declared aggregate retained separately from overlapping dimension tables. */
+  aggregate?: Pick<GscRow, "clicks" | "impressions" | "ctr" | "position">;
   fileName?: string;
   dateRange?: { start?: string; end?: string; label?: string };
   rows: GscRow[];
@@ -393,16 +397,16 @@ export interface MatchedGscPagePerformance {
   liveUrl: string;
   path: string;
   publishedAt?: string;
-  gscClicks: number;
-  gscImpressions: number;
-  gscCtr: number;
-  gscPosition: number;
+  gscClicks: number | null;
+  gscImpressions: number | null;
+  gscCtr: number | null;
+  gscPosition: number | null;
   topQueries: {
     query: string;
-    clicks: number;
-    impressions: number;
-    ctr: number;
-    position: number;
+    clicks: number | null;
+    impressions: number | null;
+    ctr: number | null;
+    position: number | null;
   }[];
   hasGscData: boolean;
 }

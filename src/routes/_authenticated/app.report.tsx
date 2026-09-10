@@ -1,3 +1,4 @@
+import { formatGscMetric } from "@/lib/gsc";
 /**
  * Monthly Proof Report (Europe-#1 move 3) — "what did Milo actually do for
  * you this month?" In-app view + browser-print PDF (print stylesheet, no
@@ -194,7 +195,7 @@ function ReportPage() {
             />
             <Stat
               label={t("report.stat.gscClicks")}
-              value={report.gsc ? String(report.gsc.totalClicks) : "—"}
+              value={report.gsc ? formatGscMetric(report.gsc.totalClicks) : "—"}
             />
           </section>
 
@@ -203,11 +204,17 @@ function ReportPage() {
             <h2 className="font-display text-lg mb-2">{t("report.gsc.title")}</h2>
             {report.gsc ? (
               <div className="text-sm space-y-1">
+                <p>{t(`gsc.integrity.${report.gsc.basis ?? "unknown"}`)}</p>
+                <p>{t("gsc.integrity.disclaimer")}</p>
+                <p>
+                  {report.gsc.property ?? "—"} · {report.gsc.windowStart ?? "—"} →{" "}
+                  {report.gsc.windowEnd ?? "—"}
+                </p>
                 <p>
                   {t("report.gsc.line", {
-                    clicks: report.gsc.totalClicks,
-                    impressions: report.gsc.totalImpressions,
-                    position: report.gsc.averagePosition.toFixed(1),
+                    clicks: formatGscMetric(report.gsc.totalClicks),
+                    impressions: formatGscMetric(report.gsc.totalImpressions),
+                    position: formatGscMetric(report.gsc.averagePosition),
                   })}
                 </p>
                 <p className="text-xs text-muted-foreground">

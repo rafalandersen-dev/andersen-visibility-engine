@@ -49,6 +49,7 @@ const pub = {
 } as PublicationEvidence;
 const imp = (start = "2026-08-16", end = "2026-08-22"): GscImport => ({
   id: "gsc",
+  integrityVersion: 2,
   source: "api",
   selectedSiteUrl: "sc-domain:example.com",
   importedAt: "2026-09-01T00:00:00Z",
@@ -163,6 +164,17 @@ describe("publication evidence transport boundary", () => {
   });
 });
 describe("later measurements", () => {
+  it("refuses new observations from legacy or incomplete metrics without changing old evidence", () => {
+    expect(() =>
+      observationFromImport({ ...imp(), integrityVersion: undefined }, pub, now),
+    ).toThrow("legacy");
+    const missing = imp();
+    missing.rows[0].clicks = null;
+    expect(() => observationFromImport(missing, pub, now)).toThrow();
+    expect(() =>
+      observationFromImport({ ...imp(), selectedSiteUrl: "sc-domain:other.example" }, pub, now),
+    ).toThrow("property_mismatch");
+  });
   it("freezes the exact page/window and marks workspace provenance unverified", () => {
     const o = observationFromImport(imp(), pub, now);
     expect(o).toMatchObject({

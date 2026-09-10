@@ -35,7 +35,7 @@ import {
   completeOAuthCallback,
   saveConnection,
   listSites,
-  GSC_DEFAULT_SCOPE,
+  GSC_DEFAULT_SCOPE, syncSearchAnalytics, computeRange, normalizeSearchAnalyticsResponse,
 } from "./gsc-oauth.server";
 import { encryptSecret } from "./crypto.server";
 
@@ -239,5 +239,48 @@ describe("listSites", () => {
     await connectUser();
     stubTokenEndpoint({ error: "invalid_grant" }, 400);
     await expect(listSites("user-1")).rejects.toThrow("expired");
+  });
+});
+
+
+describe("Search Analytics measurement integrity", () => {
+  it("uses exactly 28/90 inclusive Pacific days, even before UTC/Pacific midnight aligns", () => {
+    for (const range of ["28d", "90d"] as const) {
+      const r = computeRange(range, new Date("2026-09-10T01:00:00Z"));
+      expect(r.endDate).toBe("2026-09-06");
+      expect((Date.parse(r.endDate) - Date.parse(r.startDate)) / 86400000 + 1).toBe(range === "28d" ? 28 : 90);
+    }
+  });
+  it("rejects malformed response shapes, duplicate keys and invalid metrics", () => {
+    for (const r of [null, [], { rows: null }, { rows: {} }, { rows: [{ keys: ["a"], clicks: -1 }] }, { rows: [{ keys: ["a"], ctr: 2 }] }, { rows: [{ keys: ["a"] }, { keys: ["a"] }] }])
+      expect(() => normalizeSearchAnalyticsResponse(r, "query", 500)).toThrow("api_error");
+    expect(normalizeSearchAnalyticsResponse({}, "aggregate", 1)).toEqual([]);
+    expect(normalizeSearchAnalyticsResponse({ rows: [{ clicks: 0 }] }, "aggregate", 1)).toEqual([{ clicks: 0 }]);
+  });
+  async function setupSync(aggregate: unknown, raw = false) {
+    dbState.row = { encrypted_refresh_token: await encryptSecret("stored-refresh"), revoked_at: null };
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).startsWith("https://oauth2.googleapis.com/token")) return new Response(JSON.stringify({ access_token: "at" }));
+      const body = JSON.parse(String(init?.body));
+      if (!body.dimensions.length) return new Response(raw ? String(aggregate) : JSON.stringify(aggregate));
+      return new Response(JSON.stringify({ rows: [{ keys: [body.dimensions[0] === "page" ? "https://example.com/a" : "q"], clicks: 4, impressions: 20, ctr: 0.2, position: 8.2 }] }));
+    }));
+  }
+  it("retains aggregate unknowns without adding query/page samples", async () => {
+    await setupSync({ rows: [{ clicks: 0 }] });
+    const result = await syncSearchAnalytics({ userId:"u", siteUrl:"sc-domain:example.com", range:"28d" });
+    expect(result.summary).toMatchObject({ totalClicks:0, totalImpressions:null, averagePosition:null });
+    expect(result.rows).toHaveLength(2);
+    expect(result.rows[0].position).toBe(8.2);
+    expect(result.integrityVersion).toBe(2);
+  });
+  it("empty aggregate does not fabricate zero traffic", async () => {
+    await setupSync({});
+    const result = await syncSearchAnalytics({ userId:"u", siteUrl:"sc-domain:example.com", range:"28d" });
+    expect(result.summary.totalClicks).toBeNull();
+  });
+  it.each(["not json", "null", "[1]"])("malformed provider response fails instead of saving an empty import: %s", async raw => {
+    await setupSync(raw, true);
+    await expect(syncSearchAnalytics({ userId:"u", siteUrl:"sc-domain:example.com", range:"28d" })).rejects.toThrow("api_error");
   });
 });

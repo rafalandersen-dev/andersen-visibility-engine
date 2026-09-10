@@ -8,6 +8,7 @@
  * No I/O and no store access: the /app/report page feeds it store state, the
  * email server fn feeds it the workspace row it re-reads itself.
  */
+import { gscImportSummary, gscSummaryBasis } from "./gsc";
 import type { CalendarItem, ContentAsset, GscImport, GscLite, Project } from "./types";
 
 export interface ProofPublishedItem {
@@ -24,12 +25,16 @@ export interface ProofPlanItem {
 }
 
 export interface ProofGscSnapshot {
-  totalClicks: number;
-  totalImpressions: number;
-  averageCtr: number;
-  averagePosition: number;
+  totalClicks: number | null;
+  totalImpressions: number | null;
+  averageCtr: number | null;
+  averagePosition: number | null;
   importedAt: string;
   rangeLabel?: string;
+  basis?: "legacy" | "aggregate" | "rows" | "unknown";
+  property?: string;
+  windowStart?: string;
+  windowEnd?: string;
 }
 
 export interface MonthlyProofReport {
@@ -120,14 +125,19 @@ export function buildMonthlyProofReport(args: {
     .sort((a, b) => (a.plannedDate < b.plannedDate ? -1 : 1));
 
   const imp = latestGscImport(project.gscLite);
+  const summary = imp ? gscImportSummary(imp) : null;
   const gsc: ProofGscSnapshot | null = imp
     ? {
-        totalClicks: imp.summary.totalClicks,
-        totalImpressions: imp.summary.totalImpressions,
-        averageCtr: imp.summary.averageCtr,
-        averagePosition: imp.summary.averagePosition,
+        totalClicks: summary!.totalClicks,
+        totalImpressions: summary!.totalImpressions,
+        averageCtr: summary!.averageCtr,
+        averagePosition: summary!.averagePosition,
         importedAt: imp.importedAt,
         rangeLabel: imp.dateRange?.label,
+        basis: gscSummaryBasis(imp),
+        property: imp.selectedSiteUrl,
+        windowStart: imp.dateRange?.start,
+        windowEnd: imp.dateRange?.end,
       }
     : null;
 

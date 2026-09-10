@@ -188,7 +188,8 @@ describe("buildMonthlyProofReport", () => {
       monthKey: "2026-07",
       linksLive: 0,
     });
-    expect(r.gsc?.totalClicks).toBe(42);
+    expect(r.gsc?.totalClicks).toBeNull();
+    expect(r.gsc?.basis).toBe("legacy");
     expect(r.gsc?.rangeLabel).toBe("Last 28 days");
   });
 });

@@ -1,3 +1,4 @@
+import { gscPageUrl, gscPageInProperty } from "./gsc";
 import { z } from "zod";
 import { assembleContentAsset } from "./content-assembler";
 import { publicationVersion } from "./publication-version";
@@ -149,7 +150,8 @@ export function observationFromImport(
 ): PublicationObservation {
   if (publication.outcome !== "published" || !publication.outcomeData?.publishedAt)
     throw Error("publication_unconfirmed");
-  const page = evidencePublicUrl(publication.outcomeData.liveUrl);
+  if (imp.integrityVersion !== 2) throw Error("observation_legacy_import");
+  const page = gscPageUrl(publication.outcomeData.liveUrl);
   if (!page) throw Error("publication_url_unavailable");
   const start = sourceDay.parse(imp.dateRange?.start),
     end = sourceDay.parse(imp.dateRange?.end);
@@ -165,7 +167,11 @@ export function observationFromImport(
     throw Error("observation_window_unavailable");
   const relation = end < publishedDay ? "before" : start > publishedDay ? "later" : null;
   if (!relation) throw Error("observation_window_overlaps_publication");
-  const rows = imp.rows.filter((r) => r.type === "page" && evidencePublicUrl(r.page) === page);
+  if (imp.selectedSiteUrl && !gscPageInProperty(page, imp.selectedSiteUrl))
+    throw Error("observation_property_mismatch");
+  const rows = imp.rows.filter(
+    (r) => r.type === "page" && !r.query && !r.date && gscPageUrl(r.page) === page,
+  );
   // Absent page is unknown, not zero; duplicate rows cannot be safely summed.
   if (rows.length !== 1) throw Error("observation_page_missing_or_ambiguous");
   const { clicks, impressions, ctr, position } = rows[0];
