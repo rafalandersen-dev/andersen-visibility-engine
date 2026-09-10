@@ -1,3 +1,4 @@
+import { coverageConflictKeys, validCoverageRecord } from "./location-coverage";
 import { z } from "zod";
 
 const id = z.string().uuid();
@@ -133,6 +134,7 @@ export function selectProjectKnowledge(
   const candidates = scopedRecords.filter((r) => {
     const source = activeSources.get(r.sourceId);
     return (
+      validCoverageRecord(r) &&
       source &&
       source.revision === r.sourceRevision &&
       r.status === "accepted" &&
@@ -145,10 +147,14 @@ export function selectProjectKnowledge(
   const groups = new Map<string, KnowledgeRecord[]>();
   for (const record of candidates)
     groups.set(record.key, [...(groups.get(record.key) ?? []), record]);
-  const conflicts = [...groups]
-    .filter(([, rs]) => new Set(rs.map((r) => r.value)).size > 1)
-    .map(([key]) => key)
-    .sort();
+  const conflicts = [
+    ...new Set(
+      [...groups]
+        .filter(([, rs]) => new Set(rs.map((r) => r.value)).size > 1)
+        .map(([key]) => key)
+        .concat(coverageConflictKeys(candidates)),
+    ),
+  ].sort();
   const selected = candidates
     .filter((r) => !conflicts.includes(r.key))
     .sort((a, b) => a.key.localeCompare(b.key) || a.id.localeCompare(b.id));

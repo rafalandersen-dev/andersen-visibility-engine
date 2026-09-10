@@ -1,0 +1,11 @@
+# R17 location and international coverage implementation — 10 September 2026
+
+Exclusive successor f03f recovered clean released record661fb5001f16ba75596b804ec044301ab77cc606 on codex/milo-location-coverage-20260910. Predecessor confirmed no overlapping implementation. PR119 final Claude34529178769 completed21:05:30UTC with10permissiondenials/no buffered inline comments; final release evidence updated without rerun. No prior migration or deployment repeated.
+
+Code inspection confirmed the existing homepage audit already describes its limited scope; its Local score is not a structured local/global coverage workflow. Existing Project mainLocation/targetLocations/market/content-language and versioned source/knowledge storage were reused. Milo's own marketing hreflang is not customer evidence.
+
+Actual On-page Review now integrates owner/source-reviewed local entity/NAP/service/location/citation/review/GBP and international market/language/page/alternate-page records, missing target entry points, truthful missing/unavailable/conflicting/source-reported labels and saved publication receipt linkage. Setup, source/history/review, manual Plan and immutable Reports paths are linked. Existing knowledge storage/auth/revisions/source freshness/revocation/expiry/history are reused; no migration. Conflicting saved claims are withheld from generation, not merely flagged in UI. Public URLs reject credentials/query/fragment; structured values reject invented verification fields and excessive length. Four UI locales.
+
+Focused local46tests/4files pass: scope isolation, source revocation/replacement/expiry/future review, malformed/forged inputs through all three write endpoints, conflicting NAP/market URLs and actual panel static render/error state/locales. Broader tests/types/lint/build are running; no final review, merge or deployment yet. No live provider/Google/CMS fetch, generation/funding, emails/outreach/contact/clientpublication, account/credential changes, browser-policy retry or production synthetic records.
+
+See docs/LOCATION-COVERAGE.md for behavior and limits. This is an integrated saved-evidence workflow, not completed fullR17 acceptance. Real GBP/international verification/vertical playbooks, R18 product-reference/liveCMS, R20 widerEU and fullR00–R24/D01–D08 remain open. Public paid launch NO-GO.

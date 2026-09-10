@@ -179,3 +179,27 @@ describe("authenticated project knowledge endpoints", () => {
     );
   });
 });
+
+it("rejects malformed or forged structured coverage through teach/propose/review", async () => {
+  const badFields = {
+    ...fields,
+    key: "coverage.local.test",
+    category: "fact",
+    appliesTo: "text",
+    value: '{"verified":true}',
+  };
+  for (const [fn, data] of [
+    [endpoints.teachProjectKnowledgeFn, { projectId: "p", fields: badFields }],
+    [
+      endpoints.proposeKnowledgeRecordFn,
+      { projectId: "p", id, sourceId: id, sourceRevision: 1, fields: badFields },
+    ],
+    [
+      endpoints.reviewProjectKnowledgeFn,
+      { projectId: "p", id, expectedRevision: 1, status: "accepted", fields: badFields },
+    ],
+  ])
+    expect(() => call(fn, data)).toThrow();
+  expect(h.pair).not.toHaveBeenCalled();
+  expect(h.write).not.toHaveBeenCalled();
+});

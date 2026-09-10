@@ -1,3 +1,4 @@
+import { validCoverageRecord } from "./location-coverage";
 import { brandRecordPatch, mappedBrandField } from "./knowledge-brand";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -19,6 +20,8 @@ const fields = knowledgeRecordSchema
     validUntil: true,
   })
   .superRefine((record, context) => {
+    if (!validCoverageRecord(record))
+      context.addIssue({ code: "custom", message: "Invalid location coverage record" });
     if (mappedBrandField(record.key) && !brandRecordPatch(record))
       context.addIssue({ code: "custom", message: "Invalid canonical brand field value" });
   });
