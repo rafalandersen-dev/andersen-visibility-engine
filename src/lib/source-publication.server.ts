@@ -1,3 +1,9 @@
+import {
+  knowledgeIssuesForAsset,
+  readOutputKnowledgeDependencies,
+  evaluateAssetKnowledge,
+} from "./knowledge-publication.server";
+import { readProjectKnowledge } from "./project-knowledge.server";
 import type { ContentAsset } from "./types";
 import type { KnowledgeRpc } from "./project-knowledge.server";
 import {
@@ -17,7 +23,7 @@ export class SourcePublicationHeldError extends Error {
   readonly sourceHold = true;
   constructor() {
     super(
-      "Source facts need review before this draft can be sent or published. Check source observations in Project Setup.",
+      "Source facts need review before this draft can be sent or published. Check source observations and project knowledge in Project Setup.",
     );
   }
 }
@@ -108,12 +114,13 @@ export async function sourceIssuesForAsset(
       rpc,
     ),
   );
-  if (asset[forgottenSource]) return [forgottenIssue()];
+  const knowledgeIssues = await knowledgeIssuesForAsset(userId, asset, now, rpc);
+  if (asset[forgottenSource]) return [forgottenIssue(), ...knowledgeIssues];
   const dependencies = assetSourceDependencies(asset);
-  if (!dependencies.length) return [];
+  if (!dependencies.length) return knowledgeIssues;
   const scope = { ownerId: userId, projectId: asset.projectId };
   const rows = await readSourceRefresh(scope, rpc);
-  return issuesFromRows(userId, asset, rows, now);
+  return [...issuesFromRows(userId, asset, rows, now), ...knowledgeIssues];
 }
 
 function issuesFromRows(
@@ -206,6 +213,9 @@ export async function assertAssetSourcesCurrent(
         checkDeadline();
         if (asset[forgottenSource]) throw new SourcePublicationHeldError();
         const dependencies = assetSourceDependencies(asset);
+        if ((await knowledgeIssuesForAsset(userId, asset, new Date().toISOString(), rpc)).length)
+          throw new SourcePublicationHeldError();
+        checkDeadline();
         if (!dependencies.length) return;
         const scope = { ownerId: userId, projectId: asset.projectId };
         if (dependencies.some((d) => d.ownerId !== userId || d.projectId !== asset.projectId))
@@ -258,6 +268,16 @@ export async function readProjectSourceImpact(userId: string, projectId: string)
         selected.map((asset) => asset.id),
       )
     : [];
+  const knowledgeRegistry = selected.length
+    ? await readOutputKnowledgeDependencies(
+        userId,
+        projectId,
+        selected.map((a) => a.id),
+      )
+    : [];
+  const knowledge = selected.length
+    ? await readProjectKnowledge({ ownerId: userId, projectId })
+    : { sources: [], records: [] };
   const now = new Date().toISOString();
   const inspected = selected.map((asset) => mergeRegisteredDependencies(asset, registry));
   return {
@@ -268,13 +288,22 @@ export async function readProjectSourceImpact(userId: string, projectId: string)
         asset.scheduledPublishAt && Date.parse(asset.scheduledPublishAt) > Date.parse(now)
           ? asset.scheduledPublishAt
           : now;
-      const issues = issuesFromRows(userId, asset, rows, now, planned);
+      const issues = [
+        ...issuesFromRows(userId, asset, rows, now, planned),
+        ...evaluateAssetKnowledge(userId, asset, knowledge, knowledgeRegistry, now),
+        ...(planned !== now
+          ? evaluateAssetKnowledge(userId, asset, knowledge, knowledgeRegistry, planned)
+          : []),
+      ];
+      const knowledgeIssueCount = new Set(issues.filter((i) => "evidence" in i).map((i) => i.key))
+        .size;
       return issues.length
         ? [
             {
               assetId: asset.id,
               title: (asset.h1 || asset.metaTitle || asset.id).slice(0, 300),
               issues,
+              knowledgeIssueCount,
               plannedAt: asset.scheduledPublishAt ?? null,
             },
           ]

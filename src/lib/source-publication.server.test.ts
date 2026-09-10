@@ -17,6 +17,14 @@ vi.mock("./source-refresh.server", () => ({
   refreshProjectSource: mocked.refresh,
   readOutputSourceDependencies: mocked.registry,
 }));
+vi.mock("./knowledge-publication.server", () => ({
+  knowledgeIssuesForAsset: vi.fn(async () => []),
+  readOutputKnowledgeDependencies: vi.fn(async () => []),
+  evaluateAssetKnowledge: vi.fn(() => []),
+}));
+vi.mock("./project-knowledge.server", () => ({
+  readProjectKnowledge: vi.fn(async () => ({ sources: [], records: [] })),
+}));
 vi.mock("./workspace.server", () => ({ readWorkspaceRow: mocked.workspace }));
 const ownerId = "00000000-0000-4000-8000-000000000001",
   sourceId = "00000000-0000-4000-8000-000000000002";

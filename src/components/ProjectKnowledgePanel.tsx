@@ -670,7 +670,9 @@ export function ProjectKnowledgePanel({
         {sourceImpact && sourceImpact.checked > 0 && (
           <div className="rounded-md border p-3 space-y-2">
             <h5 className="font-medium">{t("refresh.affected")}</h5>
-            <p className="text-xs text-muted-foreground">{t("refresh.impactHelp")}</p>
+            <p className="text-xs text-muted-foreground">
+              {t("refresh.impactHelp")} {t("knowledge.impactHelp")}
+            </p>
             {sourceImpact.affected.map((asset) => (
               <p key={asset.assetId} className="text-sm">
                 <a
@@ -680,6 +682,12 @@ export function ProjectKnowledgePanel({
                   {asset.title}
                 </a>{" "}
                 · {asset.issues.length} {t("refresh.issues")}
+                {asset.knowledgeIssueCount ? (
+                  <>
+                    {" "}
+                    · {asset.knowledgeIssueCount} {t("knowledge.impactCount")}
+                  </>
+                ) : null}
               </p>
             ))}
             {!sourceImpact.affected.length && <p className="text-sm">{t("refresh.noImpact")}</p>}
