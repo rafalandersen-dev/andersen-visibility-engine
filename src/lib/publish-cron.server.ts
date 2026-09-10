@@ -102,7 +102,10 @@ export async function runScheduledPublishes(batchSize = 20): Promise<RunSummary>
   const reaped = reapedRows.length;
 
   const { data, error } = await admin.rpc("claim_scheduled_publishes", {
-    batch_size: batchSize,
+    // Every claimed row starts immediately below. The bounded concurrent batch
+    // shares the request window instead of multiplying the source-check deadline
+    // by twenty through serial processing. Never claim more than twenty rows.
+    batch_size: Math.max(1, Math.min(20, Number.isFinite(batchSize) ? Math.floor(batchSize) : 20)),
     max_attempts: MAX_PUBLISH_ATTEMPTS,
   });
   if (error) {
@@ -119,59 +122,67 @@ export async function runScheduledPublishes(batchSize = 20): Promise<RunSummary>
     reaped,
   };
 
-  for (const row of rows) {
-    try {
-      const result = await publishAssetServerSide(row.user_id, row.asset_id);
-      await setRow(admin, row.id, {
-        status: "published",
-        published_at: result.publishedAt,
-        last_error: null,
-      });
-      summary.published += 1;
-      console.info("[publish-cron] published", {
-        rowId: row.id,
-        platform: result.platform,
-        attempts: row.attempts,
-      });
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "Publishing failed.";
-      // Duck-typed rather than instanceof: PublishNotPossibleError (cannot
-      // publish), PublishRecordingFailedError (published but unrecorded) and an
-      // ambiguous PublishTransportError are all non-retryable, and instanceof is
-      // fragile across module instances.
-      const permanent = isPermanentPublishError(e);
-      // attempts was already incremented by the claim.
-      const exhausted = row.attempts >= MAX_PUBLISH_ATTEMPTS;
+  await Promise.all(
+    rows.map(async (row) => {
+      try {
+        const result = await publishAssetServerSide(row.user_id, row.asset_id);
+        await setRow(admin, row.id, {
+          status: "published",
+          published_at: result.publishedAt,
+          last_error: null,
+        });
+        summary.published += 1;
+        console.info("[publish-cron] published", {
+          rowId: row.id,
+          platform: result.platform,
+          attempts: row.attempts,
+        });
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "Publishing failed.";
+        // Duck-typed rather than instanceof: PublishNotPossibleError (cannot
+        // publish), PublishRecordingFailedError (published but unrecorded) and an
+        // ambiguous PublishTransportError are all non-retryable, and instanceof is
+        // fragile across module instances.
+        const permanent = isPermanentPublishError(e);
+        // attempts was already incremented by the claim.
+        const exhausted = row.attempts >= MAX_PUBLISH_ATTEMPTS;
 
-      // Record on the asset on EVERY attempt, not only the last one. A user
-      // whose credentials were rotated should see why nothing published now,
-      // not after the third silent retry.
-      const terminal = permanent || exhausted;
-      await recordScheduledPublishFailure(row.user_id, row.asset_id, message, terminal).catch(
-        (err) =>
+        // Record on the asset on EVERY attempt, not only the last one. A user
+        // whose credentials were rotated should see why nothing published now,
+        // not after the third silent retry.
+        const terminal = permanent || exhausted;
+        const sourceHold = Boolean(
+          e && typeof e === "object" && (e as { sourceHold?: unknown }).sourceHold === true,
+        );
+        await (
+          sourceHold
+            ? recordScheduledPublishFailure(row.user_id, row.asset_id, message, terminal, true)
+            : recordScheduledPublishFailure(row.user_id, row.asset_id, message, terminal)
+        ).catch((err) =>
           console.error("[publish-cron] could not record failure on asset", {
             rowId: row.id,
             message: err instanceof Error ? err.message : "error",
           }),
-      );
+        );
 
-      if (terminal) {
-        await setRow(admin, row.id, { status: "failed", last_error: message });
-        summary.failed += 1;
-      } else {
-        // Retryable means the connector PROVED nothing was created on the site,
-        // so another attempt cannot produce a duplicate.
-        await setRow(admin, row.id, { status: "pending", last_error: message });
-        summary.retrying += 1;
+        if (terminal) {
+          await setRow(admin, row.id, { status: "failed", last_error: message });
+          summary.failed += 1;
+        } else {
+          // Retryable means the connector PROVED nothing was created on the site,
+          // so another attempt cannot produce a duplicate.
+          await setRow(admin, row.id, { status: "pending", last_error: message });
+          summary.retrying += 1;
+        }
+        console.error("[publish-cron] publish failed", {
+          rowId: row.id,
+          permanent,
+          exhausted,
+          attempts: row.attempts,
+        });
       }
-      console.error("[publish-cron] publish failed", {
-        rowId: row.id,
-        permanent,
-        exhausted,
-        attempts: row.attempts,
-      });
-    }
-  }
+    }),
+  );
 
   // Heartbeat last: a dead cron and an empty queue are otherwise
   // indistinguishable — both look like "nothing happened" — while a user's

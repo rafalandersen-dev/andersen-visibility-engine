@@ -1559,6 +1559,8 @@ export const sv: Record<string, string> = {
   "outreach.toast.sendFailed": "Mejlet kunde inte skickas. Granska utkastet och försök igen.",
 
   // ---- Scheduled publishing ----
+  "editor.schedule.sourceHeldAt":
+    "Ursprunglig tid: {when}. Väntar på källgranskning; ingen publicering är köad.",
   "editor.schedule.failedTitle": "Den schemalagda publiceringen misslyckades",
   "editor.schedule.pending": "Schemalagd att publiceras {when}.",
 

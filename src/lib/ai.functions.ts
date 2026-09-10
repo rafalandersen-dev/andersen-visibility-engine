@@ -2224,7 +2224,7 @@ ${sharedRules}`,
             8000,
           );
 
-          return {...normalizeContentAsset(payload, project, opp),knowledgeReferences: knowledge.references, generationReceiptId:receiptId,resultId:receiptId};
+          return {...normalizeContentAsset(payload, project, opp),knowledgeReferences: knowledge.references,sourceDependencies: knowledge.sourceDependencies, generationReceiptId:receiptId,resultId:receiptId};
         } catch (e) {
           // P1-5: generation failures must be visible in server logs, not only
           // as a transient client toast.
@@ -2346,7 +2346,7 @@ ${sharedRules}`,
           data.modelOverride,
         );
 
-        return {...normalizeContentAsset(payload, project, opp),knowledgeReferences: knowledge.references,generationReceiptId:receiptId,resultId:metering.assetId ?? receiptId};
+        return {...normalizeContentAsset(payload, project, opp),knowledgeReferences: knowledge.references,sourceDependencies: knowledge.sourceDependencies,generationReceiptId:receiptId,resultId:metering.assetId ?? receiptId};
       } catch (e) {
         // P1-5: generation failures must be visible in server logs, not only
         // as a transient client toast.

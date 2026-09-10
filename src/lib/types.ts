@@ -626,6 +626,7 @@ export interface CalendarItem {
 
 export interface ContentAsset {
   knowledgeReferences?: import("./project-knowledge").KnowledgeReference[];
+  sourceDependencies?: import("./source-refresh").OutputDependency[];
   id: string;
   projectId: string;
   opportunityId?: string;
@@ -678,6 +679,8 @@ export interface ContentAsset {
   scheduledPublishAt?: string;
   scheduledPublishStatus?: ScheduledPublishStatus;
   scheduledPublishError?: string;
+  /** Intended date retained after a source hold; never an armed queue mirror. */
+  sourceHeldPublishAt?: string;
   /**
    * "YYYY-MM" of the month the Monthly Auto-Scheduler drafted this asset for.
    * Idempotency marker: a re-run for the same month counts these toward its
@@ -862,6 +865,7 @@ export type ContentImageSource = "uploaded" | "existing" | "generated";
 /** An image for the article. No hotlinking; alt text is a hard publish gate (C18/C19). */
 export interface ContentImage {
   knowledgeReferences?: import("./project-knowledge").KnowledgeReference[];
+  sourceDependencies?: import("./source-refresh").OutputDependency[];
   id: string;
   /** What the image should convey (the visual concept). */
   concept: string;

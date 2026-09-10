@@ -277,6 +277,8 @@ export const publishContentFn = createServerFn({ method: "POST" })
       secret,
     } = await resolvePublishContext(context.userId as string, data.projectId, data.assetId);
     assertPublishableServerSide(asset, project, corpus);
+    const { assertAssetSourcesCurrent } = await import("./source-publication.server");
+    await assertAssetSourcesCurrent(context.userId as string, asset);
     // Re-derive the body server-side — never forward client-supplied markdown.
     const markdown = assembleContentAsset(asset, project).markdown;
     return publishDraftDirect({ ...data, markdown, endpoint, secret });
@@ -423,6 +425,8 @@ export const publishLiveFn = createServerFn({ method: "POST" })
       await resolvePublishContext(context.userId as string, data.projectId, data.assetId);
     // Refuse to flip a draft live if the asset now fails a hard blocker.
     assertPublishableServerSide(asset, project, corpus);
+    const { assertAssetSourcesCurrent } = await import("./source-publication.server");
+    await assertAssetSourcesCurrent(context.userId as string, asset);
     // ALWAYS refresh the draft before flipping live. The live instruction
     // carries NO content — the site's draft endpoint is the only thing that
     // transmits the body, and it upserts idempotently by assetId. Skipping this

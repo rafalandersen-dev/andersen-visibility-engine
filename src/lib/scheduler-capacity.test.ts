@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { computeMonthlySlots, normalizeAutoSchedulerConfig } from "./auto-scheduler";
 import { schedulerCapacityNotifications, schedulerDemand } from "./scheduler-capacity";
 import type { ContentAsset, Project, ScheduledPublish } from "./types";
+import { scheduledPublishFailurePatch } from "./publish-outcome";
 import { notifications } from "@/i18n/notifications";
 import { renderOperationalDigest } from "./operational-email.server";
 const now = new Date("2026-09-07T10:00:00Z");
@@ -47,6 +48,40 @@ describe("shared preparation-capacity alerts", () => {
       { projectId: "p", autoScheduledFor: "2026-10" },
     ] as ContentAsset[];
     expect(scan({ scheduled, assets })[0].missing).toBe(slots.length - 3);
+  });
+  it("does not count a terminal source-held date as an armed publication", () => {
+    const original = {
+      id: "held",
+      projectId: "p",
+      scheduledPublishAt: slots[0].publishAt,
+    } as ContentAsset;
+    const held = {
+      ...original,
+      ...scheduledPublishFailurePatch(original, "Source review", true, true),
+    };
+    expect(
+      scan({
+        assets: [held],
+        scheduled: [
+          {
+            projectId: "p",
+            assetId: "held",
+            status: "failed",
+            publishAt: slots[0].publishAt,
+          } as ScheduledPublish,
+        ],
+      })[0].missing,
+    ).toBe(slots.length);
+    expect(held.sourceHeldPublishAt).toBe(slots[0].publishAt);
+    // A delivered monthly draft still counts as prepared work independently of
+    // publication readiness; a source hold never authorizes a replacement draft.
+    expect(
+      scan({
+        assets: [
+          { ...held, autoScheduledFor: "2026-10", autoSchedulerPlannedAt: slots[0].publishAt },
+        ],
+      })[0].missing,
+    ).toBe(slots.length - 1);
   });
   it("never borrows another project's drafts or queue slots", () => {
     const assets = slots.map((s) => ({

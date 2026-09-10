@@ -255,6 +255,7 @@ export async function generateContentCalendar(projectId: string) {
 // ============================================================
 type AssetResult = {
   knowledgeReferences?: ContentAsset["knowledgeReferences"];
+  sourceDependencies?: ContentAsset["sourceDependencies"];
   resultId?: string;
   metaTitle: string;
   metaDescription: string;
@@ -292,6 +293,7 @@ async function generateAsset(opportunityId: string, kind: "landing" | "article")
     const asset: ContentAsset = {
       id: result.resultId ?? uid(),
       knowledgeReferences: result.knowledgeReferences,
+      sourceDependencies: result.sourceDependencies,
       projectId: opp.projectId,
       opportunityId: opp.id,
       title: opp.title,
@@ -1517,6 +1519,7 @@ function sourceTypeForOpportunity(opp: Opportunity): ContentSourceType {
 
 type GeneratedContent = {
   knowledgeReferences?: ContentAsset["knowledgeReferences"];
+  sourceDependencies?: ContentAsset["sourceDependencies"];
   resultId?: string;
   metaTitle: string;
   metaDescription: string;
@@ -1569,6 +1572,7 @@ export async function generateContentForOpportunity(
     const asset: ContentAsset = {
       id: result.resultId ?? uid(),
       knowledgeReferences: result.knowledgeReferences,
+      sourceDependencies: result.sourceDependencies,
       projectId: opp.projectId,
       opportunityId: opp.id,
       title: opp.title,

@@ -24,7 +24,14 @@ vi.mock("@/integrations/supabase/client", () => ({
 
 vi.mock("sonner", () => ({ toast: { info: vi.fn(), error: vi.fn(), success: vi.fn() } }));
 
-import { hydrateForUser, saveWorkspaceNow, resetStore, getState, setState } from "./store";
+import {
+  markContentAssetPublishedLive,
+  hydrateForUser,
+  saveWorkspaceNow,
+  resetStore,
+  getState,
+  setState,
+} from "./store";
 
 const richAsset = {
   id: "a1",
@@ -74,6 +81,32 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Article Studio 2.0 ContentAsset fields persist", () => {
+  it("clears the source-held schedule after manual publication and persists that cleanup", async () => {
+    seedServer();
+    await hydrateForUser("user1");
+    setState((s) => ({
+      ...s,
+      content: s.content.map((a) => ({
+        ...a,
+        scheduledPublishStatus: "failed",
+        scheduledPublishError: "Sources need review",
+        sourceHeldPublishAt: "2026-09-15T07:00:00Z",
+      })),
+    }));
+    markContentAssetPublishedLive("a1", {
+      liveUrl: "https://site.com/t",
+      livePublishedAt: "2026-09-16T07:00:00Z",
+    });
+    await saveWorkspaceNow();
+    resetStore();
+    await hydrateForUser("user1");
+    const asset = getState().content[0];
+    expect(asset.liveUrl).toBe("https://site.com/t");
+    expect(asset.markdown).toBe("Body.");
+    expect(asset.scheduledPublishStatus).toBeUndefined();
+    expect(asset.scheduledPublishError).toBeUndefined();
+    expect(asset.sourceHeldPublishAt).toBeUndefined();
+  });
   it("hydrate preserves author/sources/images/tldr/keyTakeaways/breadcrumbs", async () => {
     seedServer();
     await hydrateForUser("user1");

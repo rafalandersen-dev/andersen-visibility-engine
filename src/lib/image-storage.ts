@@ -138,6 +138,8 @@ export function reusedImageMeta(
     url: src.url,
     alt: src.alt ?? "",
     caption: src.caption,
+    knowledgeReferences: src.knowledgeReferences,
+    sourceDependencies: src.sourceDependencies,
     placement: "inline",
     source: "existing",
     status: "accepted",

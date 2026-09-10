@@ -126,6 +126,7 @@ export async function retainImageGeneration(
     path: string;
     alt: string;
     knowledgeReferences?: import("./project-knowledge").KnowledgeReference[];
+    sourceDependencies?: import("./source-refresh").OutputDependency[];
   },
 ) {
   await retainGenerationResult(userId, result.generationReceiptId, {
@@ -135,6 +136,7 @@ export async function retainImageGeneration(
       path: result.path,
       alt: result.alt,
       ...(result.knowledgeReferences ? { knowledgeReferences: result.knowledgeReferences } : {}),
+      ...(result.sourceDependencies ? { sourceDependencies: result.sourceDependencies } : {}),
     },
   });
 }

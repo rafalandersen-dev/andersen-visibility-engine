@@ -111,6 +111,7 @@ export function findAssetAndProject(
  * promising a go-live that will never happen.
  */
 export const CLEARED_SCHEDULE_FIELDS: Partial<ContentAsset> = {
+  sourceHeldPublishAt: undefined,
   scheduledPublishAt: undefined,
   scheduledPublishStatus: undefined,
 };
@@ -175,5 +176,23 @@ export function applyPublishSuccess(
           }
         : o,
     ),
+  };
+}
+
+/** A parked source hold retains intent without pretending a failed queue will fire. */
+export function scheduledPublishFailurePatch(
+  asset: ContentAsset,
+  message: string,
+  terminal: boolean,
+  preserveSourceSchedule: boolean,
+): Partial<ContentAsset> {
+  if (!terminal) return { scheduledPublishError: message };
+  return {
+    scheduledPublishStatus: "failed",
+    scheduledPublishError: message,
+    scheduledPublishAt: undefined,
+    ...(preserveSourceSchedule
+      ? { sourceHeldPublishAt: asset.scheduledPublishAt ?? asset.sourceHeldPublishAt }
+      : {}),
   };
 }

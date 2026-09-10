@@ -656,7 +656,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     }
     setGeneratingImage(true);
     try {
-      const { path, previewUrl, alt, resultId, knowledgeReferences } = await generateArticleImageFn({
+      const { path, previewUrl, alt, resultId, knowledgeReferences, sourceDependencies } = await generateArticleImageFn({
         data: {
           projectId: f.projectId,
           assetId: f.id,
@@ -683,6 +683,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
             concept,
             storagePath: path,
             knowledgeReferences,
+            sourceDependencies,
             previewUrl,
             alt,
             placement: "inline",
@@ -1365,6 +1366,13 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           <div className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2">
             <div className="text-xs font-medium text-destructive">
               {t("editor.schedule.failedTitle")}
+              {live.sourceHeldPublishAt ? (
+                <span className="mt-1 block text-xs font-normal">
+                  {t("editor.schedule.sourceHeldAt", {
+                    when: formatDateTimeLocal(live.sourceHeldPublishAt),
+                  })}
+                </span>
+              ) : null}
             </div>
             <p className="mt-0.5 text-xs text-destructive/90">{live.scheduledPublishError}</p>
           </div>

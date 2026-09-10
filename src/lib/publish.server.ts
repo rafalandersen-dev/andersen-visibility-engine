@@ -12,7 +12,13 @@
  * with the browser path (`publish-targets.ts`, `*Direct` functions) so a
  * scheduled publish and a manual one can never diverge.
  */
-import { mutateWorkspace, type WorkspaceData } from "./workspace.server";
+import {
+  mutateWorkspace as mutateWorkspaceUnserialized,
+  type WorkspaceData,
+} from "./workspace.server";
+import { serializePublicationWrite } from "./publication-write.server";
+const mutateWorkspace: typeof mutateWorkspaceUnserialized = (userId, mutate) =>
+  serializePublicationWrite(userId, () => mutateWorkspaceUnserialized(userId, mutate));
 import { draftPayloadFor, publishDraftDirect, publishLiveDirect } from "./publish.functions";
 import { publishWordPressLiveDirect } from "./wordpress.functions";
 import { upsertArticle } from "./shopify.functions";
@@ -27,6 +33,7 @@ import { unresolvedInternalLinks } from "./markdown";
 import { publishBlockers } from "./checklist";
 import {
   applyAssetPatch,
+  scheduledPublishFailurePatch,
   applyPublishSuccess,
   findAssetAndProject,
   CLEARED_SCHEDULE_FIELDS,
@@ -59,6 +66,8 @@ async function runConnectorPublish(
   userId: string,
   knownInternalPaths: string[] = [],
 ): Promise<{ result: ServerPublishResult; assetPatch: Partial<ContentAsset> }> {
+  const { assertAssetSourcesCurrent } = await import("./source-publication.server");
+  await assertAssetSourcesCurrent(userId, asset);
   const publishedAt = new Date().toISOString();
 
   // Link-safety gate for EVERY connector, including the custom endpoint (which
@@ -343,18 +352,18 @@ export async function recordScheduledPublishFailure(
   assetId: string,
   message: string,
   terminal = true,
+  preserveSourceSchedule = false,
 ): Promise<void> {
   await mutateWorkspace(userId, (data) => ({
     data: applyAssetPatch(
       data,
       assetId,
-      terminal
-        ? {
-            scheduledPublishStatus: "failed",
-            scheduledPublishError: message,
-            scheduledPublishAt: undefined,
-          }
-        : { scheduledPublishError: message },
+      scheduledPublishFailurePatch(
+        findAssetAndProject(data, assetId).asset,
+        message,
+        terminal,
+        preserveSourceSchedule,
+      ),
     ),
     result: null,
   }));
@@ -380,6 +389,7 @@ export async function writeScheduleMirror(
   await mutateWorkspace(userId, (data) => ({
     data: applyAssetPatch(data, assetId, {
       scheduledPublishAt: publishAt,
+      sourceHeldPublishAt: undefined,
       scheduledPublishStatus: "pending",
       scheduledPublishError: undefined,
     }),

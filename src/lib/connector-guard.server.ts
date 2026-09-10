@@ -34,7 +34,8 @@ async function readAssetAndProject(
   const project = projects.find((p) => p.id === projectId);
   if (!project) throw new Error("Project not found in your workspace.");
   const asset = content.find((c) => c.id === assetId);
-  if (!asset) throw new Error("Content not found in your workspace.");
+  if (!asset || asset.projectId !== projectId)
+    throw new Error("Content not found in your workspace.");
   return { asset, project, corpus: content };
 }
 
@@ -64,6 +65,8 @@ function activePaths(project: Project, corpus: ContentAsset[]): string[] {
 export async function serverWpArgs(userId: string, projectId: string, assetId: string) {
   const { asset, project, corpus } = await readAssetAndProject(userId, projectId, assetId);
   assertPublishable(asset, project, corpus);
+  const { assertAssetSourcesCurrent } = await import("./source-publication.server");
+  await assertAssetSourcesCurrent(userId, asset);
   const args = wpPublishArgs(asset, project, activePaths(project, corpus));
   // Service-role store first, legacy workspace field as fallback (P0-3): the
   // workspace copy of the application password is blanked once migrated, so
@@ -76,6 +79,8 @@ export async function serverWpArgs(userId: string, projectId: string, assetId: s
 export async function serverShopifyArgs(userId: string, projectId: string, assetId: string) {
   const { asset, project, corpus } = await readAssetAndProject(userId, projectId, assetId);
   assertPublishable(asset, project, corpus);
+  const { assertAssetSourcesCurrent } = await import("./source-publication.server");
+  await assertAssetSourcesCurrent(userId, asset);
   const args = shopifyArticleArgs(asset, project, activePaths(project, corpus));
   // Same store-first resolution as WordPress above.
   const { resolveShopifyAdminToken } = await import("./publish-secret.server");
