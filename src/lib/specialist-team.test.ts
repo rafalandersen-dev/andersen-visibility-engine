@@ -57,3 +57,20 @@ it("shows disabled schedules before their default engine", () => {
   );
   expect(schedulerRoleLabel(undefined)).toBe("team.state.unavailable");
 });
+
+import { specialistSavedEvidence } from "./specialist-team";
+it("uses fresh scoped saved-role evidence without another project's newer records", () => {
+  const audit = (projectId: string, createdAt: string) =>
+    ({ projectId, createdAt, fetchedWebsite: false }) as import("./types").AuditResult;
+  expect(
+    specialistSavedEvidence({
+      project: { id: "p" },
+      audits: [audit("p", "2026-09-10T10:00:00Z"), audit("foreign", "2026-09-11T10:00:00Z")],
+      advice: [],
+    }),
+  ).toEqual({
+    audit: { createdAt: "2026-09-10T10:00:00Z", fetchedWebsite: false },
+    advice: null,
+    gscImportCount: 0,
+  });
+});
