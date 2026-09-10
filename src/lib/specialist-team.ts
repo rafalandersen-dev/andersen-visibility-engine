@@ -19,6 +19,7 @@ export type TeamStage = {
   outputId: string;
   publishAt: string;
   requestId: string;
+  asset?: { id: string; title: string } | null;
 };
 export function stageRoleEvidence(stages: TeamStage[] | undefined, role: TeamStage["stage"]) {
   if (!stages) return { status: "unavailable" as const, jobs: [], lastDeliveredAt: null };
@@ -50,4 +51,22 @@ export function schedulerRoleLabel(
     : !report.enabled
       ? "weekly.disabled"
       : `weekly.engine.${report.control.engine}`;
+}
+
+export function specialistSavedEvidence(input: {
+  project: Pick<import("./types").Project, "id" | "gscLite">;
+  audits: import("./types").AuditResult[];
+  advice: import("./types").AiVisibilityAnalysisResult[];
+}) {
+  const audit = input.audits
+    .filter((a) => a.projectId === input.project.id)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  const advice = input.advice
+    .filter((a) => a.projectId === input.project.id)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  return {
+    audit: audit ? { createdAt: audit.createdAt, fetchedWebsite: audit.fetchedWebsite } : null,
+    advice: advice ? { createdAt: advice.createdAt } : null,
+    gscImportCount: input.project.gscLite?.imports.length ?? 0,
+  };
 }

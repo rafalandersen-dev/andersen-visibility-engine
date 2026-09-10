@@ -67,8 +67,7 @@ function TeamProject({
   showKnowledge: boolean;
 }) {
   const t = useT(),
-    locale = useAppLanguage(),
-    state = useStore((s) => s);
+    locale = useAppLanguage();
   const config = normalizeAutoSchedulerConfig(project.autoScheduler);
   const [week, setWeek] = useState(() => localWeekStart(new Date(), config.timeZone));
   const [memoryOpen, setMemoryOpen] = useState(showKnowledge);
@@ -86,13 +85,6 @@ function TeamProject({
   // A failed refresh never keeps showing a stale Running/Retained badge.
   const report = reportQuery.isError ? undefined : reportQuery.data;
   const knowledge = knowledgeQuery.isError ? undefined : knowledgeQuery.data;
-  const audits = state.audits
-    .filter((a) => a.projectId === project.id)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  const advice = state.aiVisibilityAnalyses
-    .filter((a) => a.projectId === project.id)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  const imports = project.gscLite?.imports ?? [];
   const date = (value: string) =>
     Number.isFinite(Date.parse(value))
       ? new Intl.DateTimeFormat(locale, {
@@ -110,17 +102,23 @@ function TeamProject({
         ? t("team.records", { count: knowledge.records.length })
         : t("team.state.unavailable");
     if (role === "seo")
-      return audits[0]
-        ? `${t(audits[0].fetchedWebsite ? "team.auditFetched" : "team.auditPartial")} · ${date(audits[0].createdAt)}`
-        : t("team.state.none");
+      return !report
+        ? t("team.state.unavailable")
+        : report.specialistEvidence.audit
+          ? `${t(report.specialistEvidence.audit.fetchedWebsite ? "team.auditFetched" : "team.auditPartial")} · ${date(report.specialistEvidence.audit.createdAt)}`
+          : t("team.state.none");
     if (role === "ai")
-      return advice[0]
-        ? `${t("team.adviceSaved")} · ${date(advice[0].createdAt)}`
-        : t("team.state.none");
+      return !report
+        ? t("team.state.unavailable")
+        : report.specialistEvidence.advice
+          ? `${t("team.adviceSaved")} · ${date(report.specialistEvidence.advice.createdAt)}`
+          : t("team.state.none");
     if (role === "performance")
-      return imports.length
-        ? t("team.imports", { count: imports.length })
-        : t("team.measurementMissing");
+      return !report
+        ? t("team.state.unavailable")
+        : report.specialistEvidence.gscImportCount
+          ? t("team.imports", { count: report.specialistEvidence.gscImportCount })
+          : t("team.measurementMissing");
     return t("team.authorityPrerequisite");
   }
   return (
@@ -180,12 +178,7 @@ function TeamProject({
               {!!evidence?.jobs.length && (
                 <ul className="text-sm space-y-2">
                   {evidence.jobs.map((job) => {
-                    const saved =
-                      role === "content"
-                        ? state.content.find(
-                            (a) => a.projectId === project.id && a.id === job.outputId,
-                          )
-                        : undefined;
+                    const saved = job.asset;
                     return (
                       <li key={job.requestId}>
                         {date(job.publishAt)} · {t(`weekly.stageState.${job.state}`)}

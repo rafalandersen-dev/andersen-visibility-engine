@@ -50,3 +50,17 @@ describe("authenticated scheduler settings boundary", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 });
+
+import { weeklyStageAsset } from "./weekly-preparation.server";
+it("resolves new retained editor links from current scoped server assets", () => {
+  const current = [
+    { id: "new", projectId: "p", title: "New retained article" },
+    { id: "foreign", projectId: "other", title: "Private" },
+  ];
+  expect(weeklyStageAsset(current, "p", "new")).toEqual({
+    id: "new",
+    title: "New retained article",
+  });
+  expect(weeklyStageAsset(current, "p", "foreign")).toBeNull();
+  expect(weeklyStageAsset([], "p", "deleted")).toBeNull();
+});
