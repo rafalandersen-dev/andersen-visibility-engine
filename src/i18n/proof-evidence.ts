@@ -38,7 +38,7 @@ export const proofEvidence: Record<string, Record<string, string>> = {
       "Tentative observation; this does not establish causation. Source timezone is unspecified.",
     "proof.lowVolume": "Low measurement volume.",
     "proof.incomparable":
-      "Inconclusive: windows differ, evidence is truncated, or another publication attempt affects this comparison.",
+      "Inconclusive: windows or source context differ or are missing, evidence is truncated, or another publication attempt affects this comparison.",
     "workflow.title": "Fixed workflow comparisons",
     "workflow.help":
       "Compare two named versions on the same briefs, with owner review and all cost steps, including revisions. Importing a comparison runs no models and changes no live workflow.",
@@ -98,7 +98,7 @@ export const proofEvidence: Record<string, Record<string, string>> = {
       "Wstępna obserwacja; nie dowodzi związku przyczynowego. Strefa czasowa źródła nie jest określona.",
     "proof.lowVolume": "Mała liczba pomiarów.",
     "proof.incomparable":
-      "Brak wniosków: okresy różnią się, dane są ucięte lub inna próba publikacji wpływa na porównanie.",
+      "Brak wniosków: okresy lub kontekst źródła różnią się albo są nieznane, dane są ucięte lub inna próba publikacji wpływa na porównanie.",
     "workflow.title": "Porównania procesów na stałych briefach",
     "workflow.help":
       "Porównaj dwie nazwane wersje na tych samych briefach, z oceną właściciela i wszystkimi etapami kosztów, także poprawkami. Import nie uruchamia modeli ani nie zmienia działającego procesu.",
@@ -157,7 +157,7 @@ export const proofEvidence: Record<string, Record<string, string>> = {
       "Preliminär observation; detta bevisar inte orsak. Källans tidszon är ospecificerad.",
     "proof.lowVolume": "Låg mätvolym.",
     "proof.incomparable":
-      "Inget säkert resultat: perioderna skiljer sig, data är kapade eller ett annat publiceringsförsök påverkar jämförelsen.",
+      "Inget säkert resultat: perioder eller källkontext skiljer sig eller saknas, data är kapade eller ett annat publiceringsförsök påverkar jämförelsen.",
     "workflow.title": "Jämförelser av arbetsflöden med fasta underlag",
     "workflow.help":
       "Jämför två namngivna versioner med samma underlag, ägargranskning och alla kostnadssteg, inklusive revisioner. Importen kör inga modeller och ändrar inget aktivt arbetsflöde.",
@@ -216,7 +216,7 @@ export const proofEvidence: Record<string, Record<string, string>> = {
       "Foreløbig observation; dette beviser ikke årsag. Kildens tidszone er uspecificeret.",
     "proof.lowVolume": "Lav målevolumen.",
     "proof.incomparable":
-      "Uafklaret: perioderne er forskellige, data er afkortet, eller et andet publiceringsforsøg påvirker sammenligningen.",
+      "Uafklaret: perioder eller kildekontekst er forskellige eller mangler, data er afkortet, eller et andet publiceringsforsøg påvirker sammenligningen.",
     "workflow.title": "Sammenligninger af arbejdsgange med faste oplæg",
     "workflow.help":
       "Sammenlign to navngivne versioner med samme oplæg, ejergennemgang og alle omkostningstrin, inklusive rettelser. Importen kører ingen modeller og ændrer ingen aktiv arbejdsgang.",

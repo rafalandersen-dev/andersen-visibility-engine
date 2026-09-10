@@ -83,6 +83,7 @@ export const observationSchema = z
   .object({
     source: z.literal("saved_project_gsc_import"),
     declaredImportSource: z.enum(["api", "manual_csv"]),
+    selectedSiteUrl: z.string().max(2000).nullable(),
     independentlyVerified: z.literal(false),
     importedAt: instant,
     windowStart: sourceDay,
@@ -171,6 +172,7 @@ export function observationFromImport(
   return observationSchema.parse({
     source: "saved_project_gsc_import",
     declaredImportSource: imp.source,
+    selectedSiteUrl: imp.selectedSiteUrl ?? null,
     independentlyVerified: false,
     importedAt: imp.importedAt,
     windowStart: start,
@@ -195,13 +197,18 @@ export function comparePublicationObservations(
     before.windowDays !== after.windowDays ||
     before.windowEnd >= after.windowStart ||
     before.declaredImportSource !== after.declaredImportSource ||
+    // CSV exports do not retain their property/search filters. Keep individual
+    // observations, but do not infer comparability from matching page names.
+    before.declaredImportSource !== "api" ||
+    !before.selectedSiteUrl ||
+    before.selectedSiteUrl !== after.selectedSiteUrl ||
     before.truncated ||
     after.truncated
   )
     return { comparable: false as const, reason: "incomparable_windows" };
   if (
     otherPublicationAt.some(
-      (at) => at.slice(0, 10) > before.windowEnd && at.slice(0, 10) <= after.windowEnd,
+      (at) => at.slice(0, 10) >= before.windowStart && at.slice(0, 10) <= after.windowEnd,
     )
   )
     return { comparable: false as const, reason: "another_publication" };

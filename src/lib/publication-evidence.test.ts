@@ -36,7 +36,8 @@ const pub = {
 } as PublicationEvidence;
 const imp = (start = "2026-08-16", end = "2026-08-22"): GscImport => ({
   id: "gsc",
-  source: "manual_csv",
+  source: "api",
+  selectedSiteUrl: "sc-domain:example.com",
   importedAt: "2026-09-01T00:00:00Z",
   importType: "pages",
   dateRange: { start, end },
@@ -185,6 +186,23 @@ describe("later measurements", () => {
       lowVolume: true,
       clickChange: 0,
     });
+    expect(comparePublicationObservations(before, after, ["2026-08-10T10:00:00Z"]).comparable).toBe(
+      false,
+    );
+    expect(
+      comparePublicationObservations(
+        before,
+        { ...after, selectedSiteUrl: "https://example.com/" },
+        [],
+      ).comparable,
+    ).toBe(false);
+    expect(
+      comparePublicationObservations(
+        { ...before, declaredImportSource: "manual_csv" },
+        { ...after, declaredImportSource: "manual_csv" },
+        [],
+      ).comparable,
+    ).toBe(false);
     expect(comparePublicationObservations(before, { ...after, windowDays: 6 }, []).comparable).toBe(
       false,
     );
