@@ -11,6 +11,8 @@ CREATE TABLE public.project_source_refresh (
   lease_token uuid,
   lease_until timestamptz,
   snapshot jsonb CHECK(snapshot IS NULL OR (jsonb_typeof(snapshot)='object' AND octet_length(snapshot::text)<=300000)),
+  history jsonb NOT NULL DEFAULT '[]'::jsonb CHECK(jsonb_typeof(history)='array' AND jsonb_array_length(history)<=5 AND octet_length(history::text)<=1600000),
+  review_history jsonb NOT NULL DEFAULT '[]'::jsonb CHECK(jsonb_typeof(review_history)='array' AND jsonb_array_length(review_history)<=20 AND octet_length(review_history::text)<=20000),
   accepted jsonb NOT NULL DEFAULT '{}'::jsonb CHECK(jsonb_typeof(accepted)='object' AND octet_length(accepted::text)<=18000),
   PRIMARY KEY(user_id,project_id,source_id),
   FOREIGN KEY(user_id,project_id,source_id) REFERENCES public.project_knowledge_sources(user_id,project_id,id) ON DELETE CASCADE
@@ -28,7 +30,7 @@ BEGIN
   SELECT coalesce(jsonb_agg(jsonb_build_object(
     'sourceId',r.source_id,'sourceRevision',r.source_revision,'revision',r.revision,
     'lastAttempt',r.last_attempt,'status',CASE WHEN r.last_status='running' AND r.lease_until<=clock_timestamp() THEN 'unknown' ELSE r.last_status END,
-    'snapshot',r.snapshot,'accepted',r.accepted
+    'snapshot',r.snapshot,'accepted',r.accepted,'history',r.history,'reviewHistory',r.review_history
   ) ORDER BY r.source_id),'[]'::jsonb) INTO result
   FROM public.project_source_refresh r JOIN public.project_knowledge_sources s
     ON s.user_id=r.user_id AND s.project_id=r.project_id AND s.id=r.source_id
@@ -60,6 +62,8 @@ BEGIN
   ON CONFLICT(user_id,project_id,source_id) DO UPDATE SET
     source_revision=p_expected,last_attempt=instant,last_status='running',lease_token=p_token,lease_until=instant+interval '2 minutes',
     snapshot=CASE WHEN project_source_refresh.source_revision=p_expected THEN project_source_refresh.snapshot ELSE NULL END,
+    review_history=CASE WHEN project_source_refresh.source_revision=p_expected THEN project_source_refresh.review_history ELSE '[]'::jsonb END,
+    history=CASE WHEN project_source_refresh.source_revision=p_expected THEN project_source_refresh.history ELSE '[]'::jsonb END,
     accepted=CASE WHEN project_source_refresh.source_revision=p_expected THEN project_source_refresh.accepted ELSE '{}'::jsonb END;
   RETURN jsonb_build_object('acquired',true,'revision',coalesce(current.revision,0),'source',source.payload);
 END;
@@ -89,6 +93,20 @@ BEGIN
     OR (p_snapshot->>'observedAt') IS NULL OR (p_snapshot->>'observedAt')::timestamptz<current.last_attempt OR (p_snapshot->>'observedAt')::timestamptz>clock_timestamp() THEN
     RAISE EXCEPTION 'invalid_source_snapshot' USING ERRCODE='22023';
   END IF;
+  IF (p_snapshot ? 'conflicts' AND (jsonb_typeof(p_snapshot->'conflicts') IS DISTINCT FROM 'array' OR jsonb_array_length(p_snapshot->'conflicts')>100))
+    OR (p_snapshot ? 'warnings' AND (jsonb_typeof(p_snapshot->'warnings') IS DISTINCT FROM 'array' OR jsonb_array_length(p_snapshot->'warnings')>9)) THEN
+    RAISE EXCEPTION 'invalid_source_snapshot' USING ERRCODE='22023';
+  END IF;
+  FOR entry IN SELECT value FROM jsonb_array_elements(coalesce(p_snapshot->'conflicts','[]'::jsonb)) LOOP
+    IF jsonb_typeof(entry)<>'string' OR entry#>>'{}' !~ '^[a-f0-9]{64}$' OR EXISTS(
+      SELECT 1 FROM jsonb_array_elements(p_snapshot->'facts') f WHERE f->>'key'=entry#>>'{}'
+    ) THEN RAISE EXCEPTION 'invalid_source_snapshot' USING ERRCODE='22023'; END IF;
+  END LOOP;
+  FOR entry IN SELECT value FROM jsonb_array_elements(coalesce(p_snapshot->'warnings','[]'::jsonb)) LOOP
+    IF jsonb_typeof(entry)<>'string' OR entry#>>'{}' NOT IN ('fact_limit','limited_readable_text','structured_data_limit','invalid_structured_data','missing_product_identity','unsupported_offer','unsupported_market','offer_expiry_unknown','unresolved_price') THEN
+      RAISE EXCEPTION 'invalid_source_snapshot' USING ERRCODE='22023';
+    END IF;
+  END LOOP;
   IF (SELECT count(*) FROM jsonb_array_elements(p_snapshot->'facts'))<>(SELECT count(DISTINCT value->>'key') FROM jsonb_array_elements(p_snapshot->'facts')) THEN
     RAISE EXCEPTION 'invalid_source_snapshot' USING ERRCODE='22023';
   END IF;
@@ -98,7 +116,13 @@ BEGIN
       RAISE EXCEPTION 'invalid_source_snapshot' USING ERRCODE='22023';
     END IF;
   END LOOP;
-  UPDATE public.project_source_refresh SET snapshot=p_snapshot,revision=current.revision+1,last_status='ok',lease_token=NULL,lease_until=NULL,
+  UPDATE public.project_source_refresh SET
+    history=coalesce((SELECT jsonb_agg(item ORDER BY ordinal) FROM (
+      SELECT value AS item, ordinality AS ordinal FROM jsonb_array_elements(
+        CASE WHEN current.snapshot IS NULL THEN current.history ELSE jsonb_build_array(current.snapshot)||current.history END
+      ) WITH ORDINALITY WHERE ordinality<=5
+    ) recent),'[]'::jsonb),
+    snapshot=p_snapshot,revision=current.revision+1,last_status='ok',lease_token=NULL,lease_until=NULL,
     accepted=coalesce((SELECT jsonb_object_agg(a.key,a.value) FROM jsonb_each(current.accepted) a
       WHERE EXISTS(SELECT 1 FROM jsonb_array_elements(p_snapshot->'facts') f WHERE f->>'key'=a.key AND f->>'fingerprint'=a.value#>>'{}')),'{}'::jsonb)
     WHERE user_id=p_user AND project_id=p_project AND source_id=p_source;
@@ -119,7 +143,12 @@ BEGIN
     OR coalesce(current.accepted->>p_key=p_fingerprint,false) IS DISTINCT FROM p_previous OR NOT EXISTS(
       SELECT 1 FROM jsonb_array_elements(current.snapshot->'facts') f WHERE f->>'key'=p_key AND f->>'fingerprint'=p_fingerprint
     ) THEN RAISE EXCEPTION 'source_refresh_changed' USING ERRCODE='40001'; END IF;
-  UPDATE public.project_source_refresh SET accepted=CASE WHEN p_accept THEN accepted||jsonb_build_object(p_key,p_fingerprint) ELSE accepted-p_key END
+  IF p_accept=p_previous THEN RETURN true; END IF;
+  UPDATE public.project_source_refresh SET
+    review_history=(SELECT jsonb_agg(value ORDER BY ordinality) FROM jsonb_array_elements(
+      jsonb_build_array(jsonb_build_object('revision',p_expected,'key',p_key,'fingerprint',p_fingerprint,'accepted',p_accept,'reviewedAt',clock_timestamp()))||current.review_history
+    ) WITH ORDINALITY WHERE ordinality<=20),
+    accepted=CASE WHEN p_accept THEN accepted||jsonb_build_object(p_key,p_fingerprint) ELSE accepted-p_key END
     WHERE user_id=p_user AND project_id=p_project AND source_id=p_source;
   RETURN true;
 END;
@@ -127,3 +156,75 @@ $$;
 
 REVOKE ALL ON FUNCTION public.read_project_source_refresh(uuid,text),public.begin_project_source_refresh(uuid,text,uuid,integer,uuid),public.finish_project_source_refresh(uuid,text,uuid,uuid,jsonb),public.review_project_source_fact(uuid,text,uuid,integer,text,text,boolean,boolean) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.read_project_source_refresh(uuid,text),public.begin_project_source_refresh(uuid,text,uuid,integer,uuid),public.finish_project_source_refresh(uuid,text,uuid,uuid,jsonb),public.review_project_source_fact(uuid,text,uuid,integer,text,text,boolean,boolean) TO service_role;
+
+-- Exact generated input dependencies survive client saves and archive discard.
+-- This contains identities/hashes only, never source values or credentials.
+CREATE TABLE public.project_output_source_dependencies (
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  project_id text NOT NULL,
+  asset_id text NOT NULL,
+  output_id text NOT NULL,
+  kind text NOT NULL CHECK(kind IN ('content','image')),
+  dependencies jsonb NOT NULL CHECK(jsonb_typeof(dependencies)='array' AND jsonb_array_length(dependencies)<=100 AND octet_length(dependencies::text)<=100000),
+  PRIMARY KEY(user_id,project_id,asset_id,kind,output_id)
+);
+ALTER TABLE public.project_output_source_dependencies ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.project_output_source_dependencies FROM PUBLIC,anon,authenticated,service_role;
+CREATE FUNCTION public.retain_output_source_dependencies()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE deps jsonb:=NEW.payload->'output'->'sourceDependencies'; entry jsonb;
+BEGIN
+  IF deps IS NULL THEN RETURN NEW; END IF;
+  IF jsonb_typeof(deps)<>'array' OR jsonb_array_length(deps)>100 OR octet_length(deps::text)>100000
+    OR NEW.payload->>'kind' NOT IN ('content','image')
+    OR coalesce(NEW.payload->>'projectId','') !~ '^[A-Za-z0-9_-]{1,64}$'
+    OR coalesce(NEW.payload->>'assetId','') !~ '^[A-Za-z0-9_-]{1,64}$'
+    OR (NEW.payload->>'kind'='image' AND coalesce(NEW.payload->>'imageId','') !~ '^[A-Za-z0-9_-]{1,64}$') THEN
+    RAISE EXCEPTION 'invalid_output_source_dependencies' USING ERRCODE='22023';
+  END IF;
+  PERFORM public.assert_knowledge_project(NEW.user_id,NEW.payload->>'projectId',true);
+  FOR entry IN SELECT value FROM jsonb_array_elements(deps) LOOP
+    IF entry->>'ownerId' IS DISTINCT FROM NEW.user_id::text OR entry->>'projectId' IS DISTINCT FROM NEW.payload->>'projectId'
+      OR coalesce(entry->>'sourceId','') !~ '^[a-f0-9-]{36}$' OR coalesce(entry->>'fingerprint','') !~ '^[a-f0-9]{64}$'
+      OR coalesce(entry->>'key','')='' OR length(entry->>'key')>200 THEN
+      RAISE EXCEPTION 'invalid_output_source_dependencies' USING ERRCODE='22023';
+    END IF;
+  END LOOP;
+  IF NOT EXISTS(SELECT 1 FROM public.project_output_source_dependencies WHERE user_id=NEW.user_id AND project_id=NEW.payload->>'projectId' AND asset_id=NEW.payload->>'assetId' AND kind=NEW.payload->>'kind' AND output_id=CASE WHEN NEW.payload->>'kind'='image' THEN NEW.payload->>'imageId' ELSE NEW.payload->>'assetId' END)
+    AND (SELECT count(*) FROM public.project_output_source_dependencies WHERE user_id=NEW.user_id AND project_id=NEW.payload->>'projectId')>=1000 THEN
+    RAISE EXCEPTION 'output_source_capacity' USING ERRCODE='22023';
+  END IF;
+  INSERT INTO public.project_output_source_dependencies(user_id,project_id,asset_id,output_id,kind,dependencies)
+  VALUES(NEW.user_id,NEW.payload->>'projectId',NEW.payload->>'assetId',CASE WHEN NEW.payload->>'kind'='image' THEN NEW.payload->>'imageId' ELSE NEW.payload->>'assetId' END,NEW.payload->>'kind',deps)
+  ON CONFLICT(user_id,project_id,asset_id,kind,output_id) DO UPDATE SET dependencies=EXCLUDED.dependencies;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER retain_output_source_dependencies AFTER INSERT ON public.ai_generation_results
+FOR EACH ROW EXECUTE FUNCTION public.retain_output_source_dependencies();
+REVOKE ALL ON FUNCTION public.retain_output_source_dependencies() FROM PUBLIC,anon,authenticated,service_role;
+
+CREATE FUNCTION public.read_output_source_dependencies(p_user uuid,p_project text,p_asset text DEFAULT NULL)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+  PERFORM public.assert_knowledge_project(p_user,p_project);
+  RETURN coalesce((SELECT jsonb_agg(jsonb_build_object('assetId',asset_id,'outputId',output_id,'kind',kind,'dependencies',dependencies)) FROM public.project_output_source_dependencies WHERE user_id=p_user AND project_id=p_project AND (p_asset IS NULL OR asset_id=p_asset)),'[]'::jsonb);
+END;
+$$;
+REVOKE ALL ON FUNCTION public.read_output_source_dependencies(uuid,text,text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.read_output_source_dependencies(uuid,text,text) TO service_role;
+
+CREATE FUNCTION public.purge_output_source_dependencies()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+  IF OLD.collection='projects' THEN
+    DELETE FROM public.project_output_source_dependencies WHERE user_id=OLD.user_id AND project_id=OLD.entity_id;
+  ELSIF OLD.collection='content' THEN
+    DELETE FROM public.project_output_source_dependencies WHERE user_id=OLD.user_id AND asset_id=OLD.entity_id;
+  END IF;
+  RETURN OLD;
+END;
+$$;
+CREATE TRIGGER purge_output_source_dependencies AFTER DELETE ON public.workspace_entities
+FOR EACH ROW EXECUTE FUNCTION public.purge_output_source_dependencies();
+REVOKE ALL ON FUNCTION public.purge_output_source_dependencies() FROM PUBLIC,anon,authenticated,service_role;

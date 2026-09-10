@@ -31,6 +31,7 @@ export const knowledgeSourceSchema = z
     observedAt: instant,
     status: z.enum(["active", "revoked"]),
     url: sourceUrl.optional(),
+    refreshAdapter: z.literal("shopify-catalog").optional(),
   })
   .strict();
 

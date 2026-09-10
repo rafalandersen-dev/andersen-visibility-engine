@@ -16,6 +16,8 @@ vi.mock("./workspace.server", () => ({
   readWorkspaceRow: vi.fn(async () => ROW),
 }));
 
+vi.mock("./source-refresh.server", () => ({ readOutputSourceDependencies: vi.fn(async () => []) }));
+
 import { serverWpArgs, serverShopifyArgs } from "./connector-guard.server";
 
 const wpProject = (): Project =>

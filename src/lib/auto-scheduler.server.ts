@@ -172,6 +172,7 @@ export function buildAssetFromGeneration(
   return {
     id: gen.resultId ?? crypto.randomUUID(),
     knowledgeReferences: gen.knowledgeReferences,
+      sourceDependencies: gen.sourceDependencies,
     projectId: opp.projectId,
     opportunityId: opp.id,
     title: opp.title,

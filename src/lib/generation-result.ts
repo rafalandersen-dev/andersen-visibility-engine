@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isValidStorageObjectPath } from "./image-storage";
+import { outputDependencySchema } from "./source-refresh";
 import { knowledgeReferencesSchema } from "./project-knowledge";
 
 const identity = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
@@ -53,6 +54,7 @@ export const generatedContentResultSchema = z
         schemaSuggestions: strings(200, 64),
         editorNotes: text(400),
         knowledgeReferences: knowledgeReferencesSchema.optional(),
+        sourceDependencies: z.array(outputDependencySchema).max(100).optional(),
         hookProposals: z
           .array(
             z
@@ -84,6 +86,7 @@ export const generatedImageResultSchema = z
         path: z.string().max(280).refine(isValidStorageObjectPath),
         alt: nonempty(500),
         knowledgeReferences: knowledgeReferencesSchema.optional(),
+        sourceDependencies: z.array(outputDependencySchema).max(100).optional(),
       })
       .strict(),
   })
@@ -104,5 +107,11 @@ export function parseGenerationResult(value: unknown, userId: string): Generatio
     !result.output.path.startsWith(`${userId}/${result.projectId}/${result.assetId}/`)
   )
     throw new Error("generation_result_image_owner_mismatch");
+  if (
+    result.output.sourceDependencies?.some(
+      (d) => d.ownerId !== userId || d.projectId !== result.projectId,
+    )
+  )
+    throw new Error("generation_result_source_owner_mismatch");
   return result;
 }

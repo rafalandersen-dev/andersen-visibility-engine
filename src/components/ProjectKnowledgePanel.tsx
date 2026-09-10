@@ -6,6 +6,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useT } from "@/i18n";
 import { useStore, saveWorkspaceNow } from "@/lib/store";
+import { SourceRefreshPanel } from "./SourceRefreshPanel";
+import {
+  readSourceRefreshFn,
+  readSourceImpactFn,
+  configureShopifyCatalogFn,
+} from "@/lib/source-refresh.functions";
 import * as api from "@/lib/project-knowledge.functions";
 import type { KnowledgeRecord, KnowledgeSource } from "@/lib/project-knowledge";
 import { selectProjectKnowledge } from "@/lib/project-knowledge";
@@ -65,6 +71,12 @@ export function ProjectKnowledgePanel({
 }) {
   const t = useT();
   const profile = useStore((store) => store.projects.find((project) => project.id === projectId));
+  const [sourceImpact, setSourceImpact] = useState<Awaited<
+    ReturnType<typeof readSourceImpactFn>
+  > | null>(null);
+  const [refreshState, setRefreshState] = useState<Awaited<ReturnType<typeof readSourceRefreshFn>>>(
+    [],
+  );
   const [websiteUrl, setWebsiteUrl] = useState(initialWebsiteUrl);
   const [state, setState] = useState<State>({ sources: [], records: [] });
   const [loading, setLoading] = useState(true),
@@ -99,7 +111,11 @@ export function ProjectKnowledgePanel({
     setLoading(true);
     try {
       const next = await api.readProjectKnowledgeFn({ data: { projectId } });
+      const observations = await readSourceRefreshFn({ data: { projectId } });
+      const impact = await readSourceImpactFn({ data: { projectId } });
       if (alive.current && current === request.current) {
+        setRefreshState(observations);
+        setSourceImpact(impact);
         setState(next);
         setDocument((current) =>
           current &&
@@ -632,6 +648,43 @@ export function ProjectKnowledgePanel({
             }}
           />
         </label>
+        {profile?.connectorType === "shopify" && (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">{t("refresh.catalogHelp")}</p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={disabled}
+              onClick={() => void change(() => configureShopifyCatalogFn({ data: { projectId } }))}
+            >
+              {t("refresh.addCatalog")}
+            </Button>
+          </div>
+        )}
+        {sourceImpact && sourceImpact.checked > 0 && (
+          <div className="rounded-md border p-3 space-y-2">
+            <h5 className="font-medium">{t("refresh.affected")}</h5>
+            <p className="text-xs text-muted-foreground">{t("refresh.impactHelp")}</p>
+            {sourceImpact.affected.map((asset) => (
+              <p key={asset.assetId} className="text-sm">
+                <a
+                  className="underline"
+                  href={`/app/editor?id=${encodeURIComponent(asset.assetId)}`}
+                >
+                  {asset.title}
+                </a>{" "}
+                · {asset.issues.length} {t("refresh.issues")}
+              </p>
+            ))}
+            {!sourceImpact.affected.length && <p className="text-sm">{t("refresh.noImpact")}</p>}
+            {sourceImpact.remaining > 0 && (
+              <p className="text-xs">
+                {t("refresh.moreImpact")}: {sourceImpact.remaining}
+              </p>
+            )}
+          </div>
+        )}
         {state.sources.map((source) => (
           <div key={source.id} className="rounded-md border p-3 space-y-2">
             <p className="text-sm">
@@ -657,6 +710,16 @@ export function ProjectKnowledgePanel({
                 </>
               )}
             </p>
+            {source.kind === "website" && source.status === "active" && (
+              <SourceRefreshPanel
+                source={source}
+                state={refreshState.find(
+                  (row) => row.sourceId === source.id && row.sourceRevision === source.revision,
+                )}
+                disabled={disabled}
+                change={change}
+              />
+            )}
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"

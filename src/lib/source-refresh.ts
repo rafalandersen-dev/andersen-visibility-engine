@@ -47,9 +47,28 @@ export const sourceSnapshotSchema = z
     // that completed its configured authenticated enumeration may say complete.
     coverage: z.enum(["public-page", "catalog-partial", "catalog-complete"]),
     facts: z.array(observedFactSchema).max(100),
+    conflicts: z.array(hash).max(100).optional(),
+    warnings: z
+      .array(
+        z.enum([
+          "fact_limit",
+          "limited_readable_text",
+          "structured_data_limit",
+          "invalid_structured_data",
+          "missing_product_identity",
+          "unsupported_offer",
+          "unsupported_market",
+          "offer_expiry_unknown",
+          "unresolved_price",
+        ]),
+      )
+      .max(9)
+      .optional(),
   })
   .strict()
   .superRefine((snapshot, ctx) => {
+    if (snapshot.conflicts?.some((key) => snapshot.facts.some((fact) => fact.key === key)))
+      ctx.addIssue({ code: "custom", message: "Conflicting source fact cannot be usable" });
     if (new Set(snapshot.facts.map((f) => f.key)).size !== snapshot.facts.length)
       ctx.addIssue({ code: "custom", message: "Duplicate source fact identity" });
   });
@@ -111,6 +130,8 @@ export const outputDependencySchema = z
   .object({
     ...scope,
     sourceId: z.string().uuid(),
+    sourceRevision: z.number().int().positive().optional(),
+    snapshotRevision: z.number().int().positive().optional(),
     key: bounded(200),
     fingerprint: hash,
     productId: bounded(200).optional(),
@@ -195,4 +216,37 @@ export function checkOutputDependencies(input: {
         ]
       : [];
   });
+}
+
+/** Cross-source contradiction detection requires explicit matching identity.
+ * We never equate a SKU, URL and Shopify GID by guessing. Generic page excerpts
+ * and independently named specifications cannot be matched by field alone. */
+export function conflictingSourceFacts(snapshots: SourceSnapshot[]) {
+  const groups = new Map<string, { sourceId: string; key: string; value: string }[]>();
+  for (const snapshot of snapshots)
+    for (const fact of snapshot.facts) {
+      if (!fact.productId || fact.field === "pageText" || fact.field === "specification") continue;
+      const identity = JSON.stringify([
+        fact.productId,
+        fact.variantId ?? "",
+        fact.market ?? "",
+        fact.currency ?? "",
+        fact.field,
+      ]);
+      const group = groups.get(identity) ?? [];
+      group.push({
+        sourceId: snapshot.sourceId,
+        key: fact.key,
+        value: JSON.stringify([fact.value, fact.validUntil ?? "", fact.validityUnknown ?? false]),
+      });
+      groups.set(identity, group);
+    }
+  const conflicts = new Set<string>();
+  for (const group of groups.values())
+    if (
+      new Set(group.map((f) => f.sourceId)).size > 1 &&
+      new Set(group.map((f) => f.value)).size > 1
+    )
+      for (const fact of group) conflicts.add(`${fact.sourceId}:${fact.key}`);
+  return conflicts;
 }

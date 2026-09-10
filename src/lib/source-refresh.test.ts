@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   checkOutputDependencies,
+  conflictingSourceFacts,
   compareSourceSnapshots,
   type SourceSnapshot,
   type OutputDependency,
@@ -170,5 +171,28 @@ describe("exact output source dependencies", () => {
     ).toThrow();
     expect(() => checkOutputDependencies({ ...input, snapshots: [snapshot, snapshot] })).toThrow();
     expect(() => checkOutputDependencies({ ...input, maxAgeMs: Infinity })).toThrow();
+  });
+});
+
+describe("cross-source identity conflicts", () => {
+  it("holds matching identities with contradictory values without guessing SKU/GID aliases", () => {
+    const other = {
+      ...snapshot,
+      sourceId: "00000000-0000-4000-8000-000000000003",
+      facts: [{ ...fact, value: "125", fingerprint: "b".repeat(64) }],
+    };
+    expect(conflictingSourceFacts([snapshot, other]).size).toBe(2);
+    expect(
+      conflictingSourceFacts([
+        snapshot,
+        { ...other, facts: [{ ...other.facts[0], variantId: "red" }] },
+      ]).size,
+    ).toBe(0);
+    expect(
+      conflictingSourceFacts([
+        snapshot,
+        { ...other, facts: [{ ...other.facts[0], productId: "gid://shopify/Product/1" }] },
+      ]).size,
+    ).toBe(0);
   });
 });

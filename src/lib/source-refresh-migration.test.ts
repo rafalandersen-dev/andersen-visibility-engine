@@ -42,6 +42,8 @@ const read = async () =>
     await db.query<{
       result: {
         snapshot: unknown;
+        history: { revision: number }[];
+        reviewHistory: { accepted: boolean; revision: number }[];
         accepted: Record<string, string>;
         status: string;
         revision: number;
@@ -76,11 +78,14 @@ beforeAll(async () => {
     INSERT INTO public.workspace_meta VALUES('${user}'),('${other}');
     INSERT INTO public.workspace_entities(user_id,collection,entity_id) VALUES('${user}','projects','p'),('${other}','projects','p');`);
   await db.exec(readFileSync("supabase/migrations/20260909200000_project_knowledge.sql", "utf8"));
+  await db.exec(
+    "CREATE TABLE public.ai_generation_results(receipt_id uuid PRIMARY KEY,user_id uuid,payload jsonb)",
+  );
   await db.exec(readFileSync("supabase/migrations/20260910100000_source_refresh.sql", "utf8"));
 }, 30000);
 beforeEach(async () => {
   await db.exec(
-    "RESET ROLE; TRUNCATE public.project_source_refresh,public.project_knowledge_documents,public.project_knowledge_records,public.project_knowledge_sources,public.project_knowledge_history,public.project_knowledge_tombstones;",
+    "RESET ROLE; TRUNCATE public.ai_generation_results,public.project_output_source_dependencies,public.project_source_refresh,public.project_knowledge_documents,public.project_knowledge_records,public.project_knowledge_sources,public.project_knowledge_history,public.project_knowledge_tombstones;",
   );
   await db.query("SELECT public.save_project_knowledge($1,'p','source',$2,0,$3)", [
     user,
@@ -101,6 +106,7 @@ describe("scoped source refresh storage", () => {
     );
     expect((await read())[0].accepted).toEqual({ price: fact.fingerprint });
     await review(false);
+    expect((await read())[0].reviewHistory.map((r) => r.accepted)).toEqual([false, true]);
     expect((await read())[0].accepted).toEqual({});
   });
 
@@ -207,6 +213,88 @@ describe("scoped source refresh storage", () => {
     await expect(finish(await snapshot(2))).rejects.toThrow();
     await db.query("SELECT public.forget_project_knowledge($1,'p','source',$2,2)", [user, sid]);
     expect((await db.query("SELECT * FROM public.project_source_refresh")).rows).toEqual([]);
+  });
+  it("retains only five preceding snapshots and preserves history during outage", async () => {
+    for (let revision = 1; revision <= 8; revision++) {
+      await db.exec(
+        "UPDATE public.project_source_refresh SET last_attempt=clock_timestamp()-interval '11 minutes'",
+      );
+      await begin();
+      await finish(await snapshot(revision));
+    }
+    expect((await read())[0].history.map((s) => s.revision)).toEqual([7, 6, 5, 4, 3]);
+    await db.exec(
+      "UPDATE public.project_source_refresh SET last_attempt=clock_timestamp()-interval '11 minutes'",
+    );
+    await begin();
+    await finish(null);
+    expect((await read())[0].history.map((s) => s.revision)).toEqual([7, 6, 5, 4, 3]);
+  });
+  it("persists bounded diagnostics and rejects usable conflicting facts", async () => {
+    await begin();
+    const key = "a".repeat(64);
+    await expect(
+      finish({ ...(await snapshot(1, [{ ...fact, key }])), conflicts: [key] }),
+    ).rejects.toThrow("invalid_source_snapshot");
+    await expect(
+      finish({ ...(await snapshot()), warnings: ["arbitrary page instruction"] }),
+    ).rejects.toThrow("invalid_source_snapshot");
+    await finish({ ...(await snapshot()), warnings: ["unresolved_price"], conflicts: [key] });
+    expect((await read())[0].snapshot).toMatchObject({
+      warnings: ["unresolved_price"],
+      conflicts: [key],
+    });
+  });
+  it("atomically retains generated dependencies across archive discard and rejects foreign ownership", async () => {
+    const dependency = {
+      ownerId: user,
+      projectId: "p",
+      sourceId: sid,
+      key: "price",
+      fingerprint: fact.fingerprint,
+      critical: true,
+    };
+    const payload = {
+      kind: "content",
+      projectId: "p",
+      assetId: "asset",
+      output: { sourceDependencies: [dependency] },
+    };
+    await db.query("INSERT INTO public.ai_generation_results VALUES($1,$2,$3)", [
+      token,
+      user,
+      JSON.stringify(payload),
+    ]);
+    await db.exec("UPDATE public.ai_generation_results SET payload=NULL");
+    const retained = await db.query<{ result: unknown[] }>(
+      "SELECT public.read_output_source_dependencies($1,'p','asset') result",
+      [user],
+    );
+    expect(retained.rows[0].result).toEqual([
+      { assetId: "asset", outputId: "asset", kind: "content", dependencies: [dependency] },
+    ]);
+    await expect(
+      db.query("INSERT INTO public.ai_generation_results VALUES($1,$2,$3)", [
+        other,
+        user,
+        JSON.stringify({
+          ...payload,
+          output: { sourceDependencies: [{ ...dependency, ownerId: other }] },
+        }),
+      ]),
+    ).rejects.toThrow("invalid_output_source_dependencies");
+    expect((await db.query("SELECT * FROM public.ai_generation_results")).rows).toHaveLength(1);
+    await db.query(
+      "INSERT INTO public.workspace_entities(user_id,collection,entity_id) VALUES($1,'content','asset')",
+      [user],
+    );
+    await db.query(
+      "DELETE FROM public.workspace_entities WHERE user_id=$1 AND collection='content' AND entity_id='asset'",
+      [user],
+    );
+    expect(
+      (await db.query("SELECT * FROM public.project_output_source_dependencies")).rows,
+    ).toEqual([]);
   });
   it("denies browser roles and direct service table access", async () => {
     for (const role of ["anon", "authenticated"]) {

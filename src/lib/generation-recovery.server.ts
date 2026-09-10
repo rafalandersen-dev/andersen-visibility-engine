@@ -144,6 +144,7 @@ export function recoverGeneratedResultMutation(
     previewUrl,
     alt: result.output.alt,
     knowledgeReferences: result.output.knowledgeReferences,
+    sourceDependencies: result.output.sourceDependencies,
     placement: "inline",
     source: "generated",
     status: "proposed",

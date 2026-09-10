@@ -28,6 +28,7 @@ import { stageValidatedImageBytes } from "./image-storage.functions";
 
 export interface GeneratedArticleImage {
   knowledgeReferences?: import("./project-knowledge").KnowledgeReference[];
+  sourceDependencies?: import("./source-refresh").OutputDependency[];
   generationReceiptId?: string;
   resultId?: string;
   path: string;
@@ -109,6 +110,7 @@ export async function generateArticleImageCore(
         alt: draftAltText(args.concept, args.project.businessName),
         generationReceiptId: receiptId,
         knowledgeReferences: knowledge.references,
+        sourceDependencies: knowledge.sourceDependencies,
         resultId: execution.imageId ?? receiptId,
       };
     },

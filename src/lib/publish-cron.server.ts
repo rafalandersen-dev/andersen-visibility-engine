@@ -147,12 +147,18 @@ export async function runScheduledPublishes(batchSize = 20): Promise<RunSummary>
       // whose credentials were rotated should see why nothing published now,
       // not after the third silent retry.
       const terminal = permanent || exhausted;
-      await recordScheduledPublishFailure(row.user_id, row.asset_id, message, terminal).catch(
-        (err) =>
-          console.error("[publish-cron] could not record failure on asset", {
-            rowId: row.id,
-            message: err instanceof Error ? err.message : "error",
-          }),
+      const sourceHold = Boolean(
+        e && typeof e === "object" && (e as { sourceHold?: unknown }).sourceHold === true,
+      );
+      await (
+        sourceHold
+          ? recordScheduledPublishFailure(row.user_id, row.asset_id, message, terminal, true)
+          : recordScheduledPublishFailure(row.user_id, row.asset_id, message, terminal)
+      ).catch((err) =>
+        console.error("[publish-cron] could not record failure on asset", {
+          rowId: row.id,
+          message: err instanceof Error ? err.message : "error",
+        }),
       );
 
       if (terminal) {

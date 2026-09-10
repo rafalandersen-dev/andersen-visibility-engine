@@ -656,7 +656,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     }
     setGeneratingImage(true);
     try {
-      const { path, previewUrl, alt, resultId, knowledgeReferences } = await generateArticleImageFn({
+      const { path, previewUrl, alt, resultId, knowledgeReferences, sourceDependencies } = await generateArticleImageFn({
         data: {
           projectId: f.projectId,
           assetId: f.id,
@@ -683,6 +683,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
             concept,
             storagePath: path,
             knowledgeReferences,
+            sourceDependencies,
             previewUrl,
             alt,
             placement: "inline",

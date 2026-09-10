@@ -59,6 +59,8 @@ async function runConnectorPublish(
   userId: string,
   knownInternalPaths: string[] = [],
 ): Promise<{ result: ServerPublishResult; assetPatch: Partial<ContentAsset> }> {
+  const { assertAssetSourcesCurrent } = await import("./source-publication.server");
+  await assertAssetSourcesCurrent(userId, asset);
   const publishedAt = new Date().toISOString();
 
   // Link-safety gate for EVERY connector, including the custom endpoint (which
@@ -343,6 +345,7 @@ export async function recordScheduledPublishFailure(
   assetId: string,
   message: string,
   terminal = true,
+  preserveSourceSchedule = false,
 ): Promise<void> {
   await mutateWorkspace(userId, (data) => ({
     data: applyAssetPatch(
@@ -352,7 +355,7 @@ export async function recordScheduledPublishFailure(
         ? {
             scheduledPublishStatus: "failed",
             scheduledPublishError: message,
-            scheduledPublishAt: undefined,
+            ...(preserveSourceSchedule ? {} : { scheduledPublishAt: undefined }),
           }
         : { scheduledPublishError: message },
     ),

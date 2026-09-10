@@ -384,8 +384,23 @@ export async function loadProjectKnowledgeContext(
         nowIso,
       )
     : undefined;
+  const sourceFacts = state.sources.some((s) => s.kind === "website" && s.status === "active")
+    ? await (
+        await import("./source-refresh.server")
+      ).loadSourceFactContext(
+        target,
+        nowIso,
+        rpc,
+        Math.min(
+          4000,
+          Math.max(0, maxBytes - new TextEncoder().encode(result.context).byteLength - 2),
+        ),
+      )
+    : { context: "", dependencies: [] };
   return {
     ...result,
+    context: [result.context, sourceFacts.context].filter(Boolean).join("\n\n"),
+    sourceDependencies: sourceFacts.dependencies,
     ...(profile
       ? {
           brandIntelligence: resolvedBrand,
