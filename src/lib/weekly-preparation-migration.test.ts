@@ -568,6 +568,37 @@ describe("manual exact-approval scheduling admission", () => {
   });
 
   const hash = "d".repeat(64);
+  it("holds legacy inserts even with approval retained after an old application edits content", async () => {
+    await db.query("INSERT INTO workspace_entities VALUES($1,'content','legacy-approved',$2)", [
+      user,
+      JSON.stringify({ projectId: "p", status: "Approved", title: "Approved title" }),
+    ]);
+    await db.query("SELECT set_publication_approval($1,'p','legacy-approved',0,$2,true)", [
+      user,
+      hash,
+    ]);
+    await db.exec(
+      "UPDATE workspace_entities SET data=data||'{\"title\":\"Unreviewed old-app edit\"}'::jsonb WHERE entity_id='legacy-approved'",
+    );
+    await db.query(
+      "INSERT INTO scheduled_publishes(user_id,project_id,asset_id,publish_at,status) VALUES($1,'p','legacy-approved','2099-09-15T07:00:00Z','pending')",
+      [user],
+    );
+    expect(
+      (
+        await db.query<{ status: string }>(
+          "SELECT status FROM scheduled_publishes WHERE asset_id='legacy-approved'",
+        )
+      ).rows[0].status,
+    ).toBe("review_required");
+    expect(
+      (
+        await db.query<{ proof: string | null }>(
+          "SELECT current_setting('milo.approved_queue_id',true) proof",
+        )
+      ).rows[0].proof || "",
+    ).toBe("");
+  });
   it("preserves a held schedule on missing/stale approval and atomically replaces it after approval", async () => {
     await db.query(
       'INSERT INTO workspace_entities(user_id,collection,entity_id,data) VALUES($1,\'content\',\'manual-asset\',\'{"projectId":"p","status":"Approved"}\')',

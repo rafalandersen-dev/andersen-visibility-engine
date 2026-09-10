@@ -126,6 +126,7 @@ GRANT EXECUTE ON FUNCTION public.next_weekly_preparation_targets(),public.cancel
 -- not call this function; the server rederives output, blockers and authority.
 CREATE FUNCTION public.arm_scheduler_publication(p_user uuid,p_project text,p_asset text,p_expected bigint,p_hash text,p_publish timestamptz,p_token uuid)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE queue_id uuid := gen_random_uuid();
 BEGIN
   PERFORM public.assert_knowledge_project(p_user,p_project,true);
   IF p_expected IS NULL OR p_expected IS DISTINCT FROM (SELECT rev FROM public.workspace_meta WHERE user_id=p_user)
@@ -138,7 +139,8 @@ BEGIN
     THEN RAISE EXCEPTION 'scheduler_authority_changed'; END IF;
   IF EXISTS(SELECT 1 FROM public.scheduled_publishes WHERE user_id=p_user AND project_id=p_project AND (asset_id=p_asset OR publish_at=p_publish)) THEN RETURN false; END IF;
   PERFORM public.set_publication_approval(p_user,p_project,p_asset,p_expected,p_hash,true);
-  INSERT INTO public.scheduled_publishes(user_id,project_id,asset_id,publish_at,status) VALUES(p_user,p_project,p_asset,p_publish,'pending');
+  PERFORM set_config('milo.approved_queue_id',queue_id::text,true);
+  INSERT INTO public.scheduled_publishes(id,user_id,project_id,asset_id,publish_at,status) VALUES(queue_id,p_user,p_project,p_asset,p_publish,'pending');
   RETURN true;
 END; $$;
 REVOKE ALL ON FUNCTION public.arm_scheduler_publication(uuid,text,text,bigint,text,timestamptz,uuid) FROM PUBLIC,anon,authenticated;
@@ -160,7 +162,7 @@ GRANT EXECUTE ON FUNCTION public.read_workspace_scheduler_controls(uuid) TO serv
 -- and in-flight checks pass. Cancellation plus replacement is one transaction.
 CREATE FUNCTION public.schedule_approved_publication(p_user uuid,p_project text,p_asset text,p_expected bigint,p_hash text,p_publish timestamptz)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
-DECLARE queued public.scheduled_publishes%ROWTYPE;
+DECLARE queued public.scheduled_publishes%ROWTYPE; queue_id uuid := gen_random_uuid();
 BEGIN
   PERFORM public.assert_knowledge_project(p_user,p_project,true);
   IF p_expected IS NULL OR p_expected IS DISTINCT FROM (SELECT rev FROM public.workspace_meta WHERE user_id=p_user)
@@ -170,7 +172,8 @@ BEGIN
     THEN RAISE EXCEPTION 'schedule_approval_changed'; END IF;
   IF EXISTS(SELECT 1 FROM public.scheduled_publishes WHERE user_id=p_user AND asset_id=p_asset AND status='publishing') THEN RAISE EXCEPTION 'schedule_in_flight'; END IF;
   UPDATE public.scheduled_publishes SET status='cancelled',updated_at=clock_timestamp() WHERE user_id=p_user AND asset_id=p_asset AND status IN ('pending','review_required');
-  INSERT INTO public.scheduled_publishes(user_id,project_id,asset_id,publish_at,status) VALUES(p_user,p_project,p_asset,p_publish,'pending') RETURNING * INTO queued;
+  PERFORM set_config('milo.approved_queue_id',queue_id::text,true);
+  INSERT INTO public.scheduled_publishes(id,user_id,project_id,asset_id,publish_at,status) VALUES(queue_id,p_user,p_project,p_asset,p_publish,'pending') RETURNING * INTO queued;
   RETURN to_jsonb(queued);
 END; $$;
 REVOKE ALL ON FUNCTION public.schedule_approved_publication(uuid,text,text,bigint,text,timestamptz) FROM PUBLIC,anon,authenticated;
@@ -192,14 +195,17 @@ CREATE UNIQUE INDEX scheduled_publishes_active_asset_idx ON public.scheduled_pub
   WHERE status IN ('pending','publishing','review_required');
 
 -- Also cover writes from the old application during migration-before-deploy.
--- New scheduling RPCs grant an exact version before inserting their queue row.
+-- Only revision-locked exact-version RPCs issue a one-row transaction-local
+-- admission proof. A historical approval row cannot authorize a legacy insert.
 CREATE FUNCTION public.hold_unapproved_scheduled_publish()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 BEGIN
-  IF NEW.status='pending' AND NOT EXISTS(SELECT 1 FROM public.publication_approvals a
-      WHERE a.user_id=NEW.user_id AND a.project_id=NEW.project_id AND a.asset_id=NEW.asset_id AND a.approved) THEN
+  IF NEW.status='pending' AND (current_setting('milo.approved_queue_id',true) IS DISTINCT FROM NEW.id::text
+    OR NOT EXISTS(SELECT 1 FROM public.publication_approvals a
+      WHERE a.user_id=NEW.user_id AND a.project_id=NEW.project_id AND a.asset_id=NEW.asset_id AND a.approved)) THEN
     NEW.status:='review_required';
   END IF;
+  PERFORM set_config('milo.approved_queue_id','',true);
   IF NEW.status='review_required' THEN
     NEW.last_error:='publication_approval_required';
     UPDATE public.workspace_entities e SET data=e.data||jsonb_build_object(
