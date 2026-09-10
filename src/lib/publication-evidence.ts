@@ -1,4 +1,4 @@
-import { gscPageUrl, gscPageInProperty } from "./gsc";
+import { gscPageUrl, gscPageInProperty, safeGscRow } from "./gsc";
 import { z } from "zod";
 import { assembleContentAsset } from "./content-assembler";
 import { publicationVersion } from "./publication-version";
@@ -174,7 +174,18 @@ export function observationFromImport(
   );
   // Absent page is unknown, not zero; duplicate rows cannot be safely summed.
   if (rows.length !== 1) throw Error("observation_page_missing_or_ambiguous");
-  const { clicks, impressions, ctr, position } = rows[0];
+  // The workspace format marker is client-controlled. Revalidate at creation;
+  // leave the historical observation schema unchanged for retained evidence.
+  const normalized = safeGscRow(rows[0]);
+  if (
+    ["clicks", "impressions", "ctr", "position"].some((key) => {
+      const metric = key as "clicks" | "impressions" | "ctr" | "position";
+      return normalized[metric] === null || normalized[metric] !== rows[0][metric];
+    }) ||
+    normalized.clicks! > normalized.impressions!
+  )
+    throw Error("observation_metrics_invalid");
+  const { clicks, impressions, ctr, position } = normalized;
   return observationSchema.parse({
     source: "saved_project_gsc_import",
     declaredImportSource: imp.source,

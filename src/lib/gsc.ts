@@ -391,7 +391,7 @@ export function matchGscToPublishedContent(
         gscCtr: r?.ctr ?? null,
         gscPosition: r?.position ?? null,
         topQueries: [],
-        hasGscData: !!r,
+        hasGscData: !!r && [r.clicks, r.impressions, r.ctr, r.position].some((n) => n !== null),
       };
     })
     .sort(

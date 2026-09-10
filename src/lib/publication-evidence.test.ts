@@ -3,6 +3,7 @@ import {
   capturePublicationSnapshot,
   evidencePublicUrl,
   observationFromImport,
+  observationSchema,
   comparePublicationObservations,
   type PublicationEvidence,
 } from "./publication-evidence";
@@ -164,6 +165,30 @@ describe("publication evidence transport boundary", () => {
   });
 });
 describe("later measurements", () => {
+  it("revalidates browser-edited v2 metrics before freezing new evidence", () => {
+    for (const patch of [
+      { clicks: 3, impressions: 2 },
+      { clicks: 1.5 },
+      { impressions: 50.5 },
+      { clicks: -1 },
+      { ctr: 101 },
+      { ctr: -1 },
+      { position: 0 },
+      { position: Infinity },
+      { clicks: NaN },
+      { clicks: "2" },
+    ]) {
+      const edited = imp();
+      Object.assign(edited.rows[0], patch);
+      expect(() => observationFromImport(edited, pub, now)).toThrow("metrics_invalid");
+    }
+    // Do not tighten the reader schema and make old immutable evidence unreadable.
+    const historical = observationFromImport(imp(), pub, now);
+    expect(
+      observationSchema.parse({ ...historical, metrics: { ...historical.metrics, position: 0 } })
+        .metrics.position,
+    ).toBe(0);
+  });
   it("refuses new observations from legacy or incomplete metrics without changing old evidence", () => {
     expect(() =>
       observationFromImport({ ...imp(), integrityVersion: undefined }, pub, now),

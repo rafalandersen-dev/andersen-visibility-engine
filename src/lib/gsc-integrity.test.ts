@@ -154,6 +154,20 @@ describe("measurement boundaries", () => {
     expect(matchGscToPublishedContent([asset(row.page!)], legacy)[0].hasGscData).toBe(false);
     expect(JSON.stringify(legacy)).toBe(before);
   });
+  it("marks a metric-less matching page unavailable but preserves an explicit zero", () => {
+    const missing = matchGscToPublishedContent(
+      [asset(row.page!)],
+      imp([{ ...row, clicks: null, impressions: null, ctr: null, position: null }]),
+    )[0];
+    expect(missing.hasGscData).toBe(false);
+    expect(gscPageRecommendation(missing)).toBe("waitOrPromote");
+    const zero = matchGscToPublishedContent(
+      [asset(row.page!)],
+      imp([{ ...row, clicks: 0, impressions: null, ctr: null, position: null }]),
+    )[0];
+    expect(zero.hasGscData).toBe(true);
+    expect(zero.gscClicks).toBe(0);
+  });
   it("does not recommend CTR edits based on unknown metrics", () => {
     const match = matchGscToPublishedContent(
       [asset(row.page!)],
