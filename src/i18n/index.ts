@@ -8,6 +8,7 @@
  * - English fallback for unknown language and for any missing key.
  * - Never throws: a missing key returns the key string itself.
  */
+import { publishingFidelity } from "./publishing-fidelity";
 import { useStore } from "@/lib/store";
 import type { OnboardingLanguage } from "@/lib/types";
 import { backlinkIntegrity } from "./backlink-integrity";
@@ -40,6 +41,7 @@ export function translate(
 ): string {
   const l = isSupported(lang) ? lang : "en";
   let s =
+    publishingFidelity[l][key] ??
     backlinkIntegrity[l][key] ??
     gscIntegrity[l][key] ??
     outreachIntegrityCopy[l][key] ??

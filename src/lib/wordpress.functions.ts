@@ -252,16 +252,17 @@ function editUrlFor(base: URL, id: number): string {
  * future server caller can share it. Mirrors publishWordPressLiveDirect.
  */
 export async function sendWordPressDraftDirect(
-  data: z.infer<typeof ContentInput>,
+  data: z.infer<typeof ContentInput> & { assembledHtml?: string },
 ): Promise<WordPressPublishResult> {
   {
     try {
       const base = wpBase(data.siteUrl);
       assertResolvedLinks(data.contentMarkdown, data.knownInternalPaths);
       const html =
-        markdownToHtml(data.contentMarkdown, {
-          knownInternalPaths: new Set(data.knownInternalPaths),
-        }) + data.jsonLd;
+        (data.assembledHtml ??
+          markdownToHtml(data.contentMarkdown, {
+            knownInternalPaths: new Set(data.knownInternalPaths),
+          })) + data.jsonLd;
       const type = restType(data.postType);
       let result: unknown;
       if (data.postId) {
@@ -351,16 +352,17 @@ export const sendContentToWordPressDraftFn = createServerFn({ method: "POST" })
  * a new post, which is why interrupted scheduled runs are never blindly retried.
  */
 export async function publishWordPressLiveDirect(
-  data: z.infer<typeof ContentInput>,
+  data: z.infer<typeof ContentInput> & { assembledHtml?: string },
 ): Promise<WordPressPublishResult> {
   {
     try {
       const base = wpBase(data.siteUrl);
       assertResolvedLinks(data.contentMarkdown, data.knownInternalPaths);
       const html =
-        markdownToHtml(data.contentMarkdown, {
-          knownInternalPaths: new Set(data.knownInternalPaths),
-        }) + data.jsonLd;
+        (data.assembledHtml ??
+          markdownToHtml(data.contentMarkdown, {
+            knownInternalPaths: new Set(data.knownInternalPaths),
+          })) + data.jsonLd;
       const type = restType(data.postType);
       let result: unknown;
       if (data.postId) {

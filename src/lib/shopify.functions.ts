@@ -266,13 +266,17 @@ function assertResolvedLinks(contentMarkdown: string, knownInternalPaths: string
   }
 }
 
-function buildArticleFields(data: z.infer<typeof ArticleInput>, isPublished: boolean) {
+function buildArticleFields(
+  data: z.infer<typeof ArticleInput> & { assembledHtml?: string },
+  isPublished: boolean,
+) {
   const fields: Record<string, unknown> = {
     title: data.title,
     body:
-      markdownToHtml(data.contentMarkdown, {
-        knownInternalPaths: new Set(data.knownInternalPaths),
-      }) + data.jsonLd,
+      (data.assembledHtml ??
+        markdownToHtml(data.contentMarkdown, {
+          knownInternalPaths: new Set(data.knownInternalPaths),
+        })) + data.jsonLd,
     isPublished,
   };
   if (data.handle || data.title) fields.handle = slugifyForPublish(data.handle || data.title);
@@ -317,7 +321,7 @@ function readArticleResult(
  * cron runner has no session for.
  */
 export async function upsertArticle(
-  data: z.infer<typeof ArticleInput>,
+  data: z.infer<typeof ArticleInput> & { assembledHtml?: string },
   isPublished: boolean,
 ): Promise<ShopifyPublishResult> {
   assertResolvedLinks(data.contentMarkdown, data.knownInternalPaths);

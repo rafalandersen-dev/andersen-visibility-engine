@@ -12,13 +12,13 @@
  */
 import type { PublishingConnectorType } from "./types";
 
-export type SchemaDeliveryLevel = "yes" | "no" | "unverified" | "unsupported";
+export type SchemaDeliveryLevel = "planned" | "no" | "unverified" | "unsupported";
 
 export interface SchemaConnectorCapability {
-  connector: "wordpress" | "shopify" | "custom";
+  connector: "wordpress" | "shopify" | "custom" | "none";
   /** Milo produced valid JSON-LD for the asset. */
   generated: boolean;
-  /** Was the JSON-LD included in what we sent to the connector? */
+  /** Planned inclusion only. This capability is not a receipt of a sent payload. */
   includedInPayload: SchemaDeliveryLevel;
   /** Did the destination keep it? WordPress/Shopify may strip inline <script>. */
   retainedByConnector: SchemaDeliveryLevel;
@@ -43,6 +43,16 @@ export function schemaConnectorCapability(
   connectorType: PublishingConnectorType | undefined,
   hasSchema: boolean,
 ): SchemaConnectorCapability {
+  if (!connectorType) {
+    return {
+      connector: "none",
+      generated: hasSchema,
+      includedInPayload: "unverified",
+      retainedByConnector: "unverified",
+      verifiedOnDestination: "unverified",
+      note: "No publishing connector selected. No payload delivery is established.",
+    };
+  }
   if (connectorType === "custom") {
     return {
       connector: "custom",
@@ -57,9 +67,9 @@ export function schemaConnectorCapability(
   return {
     connector,
     generated: hasSchema,
-    includedInPayload: hasSchema ? "yes" : "no",
+    includedInPayload: hasSchema ? "planned" : "no",
     retainedByConnector: "unverified",
     verifiedOnDestination: "unverified",
-    note: "Structured data is appended to the published body. Retention depends on the site's sanitisation, and Milo does not verify the live page — implementation, not confirmed appearance.",
+    note: "Structured data is planned for the outgoing body; this is not a dispatch receipt. Retention depends on the site's sanitisation, and Milo does not verify the live page — implementation, not confirmed appearance.",
   };
 }

@@ -13,7 +13,7 @@ describe("schema delivery capability — generated ≠ delivered (H)", () => {
     for (const c of ["wordpress", "shopify"] as const) {
       const cap = schemaConnectorCapability(c, true);
       expect(cap.generated).toBe(true);
-      expect(cap.includedInPayload).toBe("yes");
+      expect(cap.includedInPayload).toBe("planned");
       expect(cap.retainedByConnector).toBe("unverified");
       expect(cap.verifiedOnDestination).toBe("unverified");
     }

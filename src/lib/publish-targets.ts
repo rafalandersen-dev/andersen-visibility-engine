@@ -178,6 +178,8 @@ export function shopifyArticleArgs(
     articleGid: asset.shopifyArticleGid,
     title: asset.title,
     contentMarkdown: assembled.markdown,
+    // Re-derived server-side after approval; absent from public RPC input schemas.
+    assembledHtml: assembled.html,
     jsonLd: assembled.jsonLdScript,
     knownInternalPaths,
     handle: (asset.publishSlug || asset.slug || "").trim(),
@@ -205,6 +207,8 @@ export function wpPublishArgs(
     postId: asset.wordpressPostId,
     title: asset.title,
     contentMarkdown: assembled.markdown,
+    // Re-derived server-side after approval; absent from public RPC input schemas.
+    assembledHtml: assembled.html,
     jsonLd: assembled.jsonLdScript,
     knownInternalPaths,
     slug: (asset.publishSlug || asset.slug || "").trim(),
