@@ -42,3 +42,29 @@ export const recoverOutreachReceiptFn = createServerFn({ method: "POST" })
     const { recoverOutreachReceipt } = await import("./outreach-delivery.server");
     return recoverOutreachReceipt(context.userId, data.draftId, step(data.followUpIndex));
   });
+
+export const cancelOutreachReservationFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        projectId: z.string().min(1).max(200),
+        draftId: z.string().min(1).max(200),
+        step: z.enum(["initial", "followup-0", "followup-1"]),
+        hash: z.string().regex(/^[a-f0-9]{64}$/),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { outreachRpc } = await import("./outreach-receipts.server");
+    return {
+      cancelled:
+        (await outreachRpc("cancel_outreach_reservation", {
+          p_user: context.userId,
+          p_project: data.projectId,
+          p_draft: data.draftId,
+          p_step: data.step,
+          p_hash: data.hash,
+        })) === true,
+    };
+  });

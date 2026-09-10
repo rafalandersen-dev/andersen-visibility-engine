@@ -97,6 +97,22 @@ describe("durable once-only outreach admission", () => {
     );
     await expect(reserve("b")).rejects.toThrow("outreach_recipient_cooldown");
   });
+  it("cancels only pre-dispatch reservations and never reopens the step", async () => {
+    const cancel = () =>
+      db.query<{ ok: boolean }>("SELECT cancel_outreach_reservation($1,'p','a','initial',$2) ok", [
+        user,
+        hash,
+      ]);
+    await reserve();
+    expect((await cancel()).rows[0].ok).toBe(true);
+    expect((await dispatch()).rows[0].ok).toBe(false);
+    await expect(reserve()).rejects.toThrow("outreach_step_reserved");
+    await db.exec("TRUNCATE outreach_delivery_receipts");
+    await reserve();
+    await dispatch();
+    expect((await cancel()).rows[0].ok).toBe(false);
+    expect((await read())[0].state).toBe("dispatching");
+  });
   it("checks the exact revision on reservation and final dispatch", async () => {
     await expect(reserve("a", "editor@example.com", "initial", 5, 0)).rejects.toThrow(
       "outreach_workspace_changed",

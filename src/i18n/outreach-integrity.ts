@@ -114,3 +114,29 @@ for (const [locale, values] of Object.entries({ en: Object.values(en), pl, sv, d
     Object.keys(en).map((key, i) => [`outreach.integrity.${key}`, values[i]]),
   );
 }
+
+const recoveryCopy: Record<string, string[]> = {
+  en: [
+    "Cancel before dispatch",
+    "Cancelled before dispatch. This step stays blocked; no email was sent by this reservation.",
+    "Cancellation was not confirmed. Refresh history; dispatch may already have started. Unknown or started attempts cannot be cancelled or retried.",
+  ],
+  pl: [
+    "Anuluj przed wysyłką",
+    "Anulowano przed wysyłką. Ten krok pozostaje zablokowany; ta rezerwacja nie wysłała wiadomości.",
+    "Nie potwierdzono anulowania. Odśwież historię; wysyłka mogła się rozpocząć. Nie można anulować ani ponawiać rozpoczętych lub niepewnych prób.",
+  ],
+  sv: [
+    "Avbryt före sändning",
+    "Avbruten före sändning. Steget förblir blockerat; denna reservation skickade inget mejl.",
+    "Avbrottet är inte bekräftat. Uppdatera historiken; sändningen kan redan ha börjat. Okända eller påbörjade försök kan inte avbrytas eller upprepas.",
+  ],
+  da: [
+    "Annuller før afsendelse",
+    "Annulleret før afsendelse. Trinnet forbliver blokeret; denne reservation sendte ingen mail.",
+    "Annulleringen er ikke bekræftet. Opdater historikken; afsendelsen kan være startet. Ukendte eller startede forsøg kan ikke annulleres eller gentages.",
+  ],
+};
+for (const [locale, values] of Object.entries(recoveryCopy))
+  for (const [i, key] of ["cancel", "cancelled", "cancelError"].entries())
+    outreachIntegrityCopy[locale][`outreach.integrity.${key}`] = values[i];

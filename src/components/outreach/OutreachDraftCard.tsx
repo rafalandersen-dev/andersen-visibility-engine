@@ -18,7 +18,7 @@ import {
   reviewOutreachMessageFn,
   sendOutreachEmailFn,
 } from "@/lib/outreach-delivery.functions";
-import type { OutreachReceipt } from "@/lib/outreach-receipts";
+import { outreachReceiptDueAt, type OutreachReceipt } from "@/lib/outreach-receipts";
 import type { OutreachMessage } from "@/lib/outreach-delivery.server";
 import {
   reloadWorkspaceForUser,
@@ -254,13 +254,11 @@ export function OutreachDraftCard({
                 (r) => r.draft_id === draft.id && r.step === `followup-${index}`,
               );
               const sent = receipt?.state === "accepted";
-              const dueAt =
-                initialSent && initialReceipt.recipient === draft.contactEmail.trim().toLowerCase()
-                  ? new Date(
-                      Date.parse(initialReceipt.updated_at) +
-                        Math.max(2, followUp.delayDays) * 86400000,
-                    ).toISOString()
-                  : null;
+              const dueAt = outreachReceiptDueAt(
+                initialReceipt,
+                draft.contactEmail,
+                followUp.delayDays,
+              );
               const due = !!dueAt && Date.parse(dueAt) <= Date.now();
               return (
                 <div

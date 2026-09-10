@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, it, expect } from "vitest";
 import { OutreachHistory } from "./OutreachHistory";
 import { outreachIntegrityCopy } from "@/i18n/outreach-integrity";
-import type { OutreachReceipt } from "@/lib/outreach-receipts";
+import { outreachReceiptDueAt, type OutreachReceipt } from "@/lib/outreach-receipts";
 const row: OutreachReceipt = {
   draft_id: "deleted-draft",
   project_id: "p",
@@ -22,6 +22,7 @@ const render = (rows: OutreachReceipt[], ready = true, locale = "en") =>
       ready,
       loading: false,
       refresh: async () => {},
+      cancel: async () => {},
       t: (key) => outreachIntegrityCopy[locale][key] ?? key,
     }),
   );
@@ -40,6 +41,13 @@ describe("actual outreach receipt history UI", () => {
     expect(html).toContain("Unknown outcome");
     expect(html).toContain("do not retry");
     expect(html).not.toContain("Send now");
+  });
+  it("refuses malformed editable delays and changed recipient identities", () => {
+    const initial = { ...row, state: "accepted" as const };
+    for (const delay of [NaN, Infinity, 0, 1, 2.5, 366])
+      expect(outreachReceiptDueAt(initial, row.recipient, delay)).toBeNull();
+    expect(outreachReceiptDueAt(initial, "different@example.com", 2)).toBeNull();
+    expect(outreachReceiptDueAt(initial, row.recipient, 2)).toBe("2026-09-12T10:00:01.000Z");
   });
   it("labels provider acceptance separately from delivery and renders every locale", () => {
     for (const locale of ["en", "pl", "sv", "da"]) {

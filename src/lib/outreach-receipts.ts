@@ -23,3 +23,23 @@ export const outreachSendInput = outreachReviewSchema.extend({
   acknowledgedRecipient: z.literal(true),
   acknowledgedContent: z.literal(true),
 });
+
+/** Editable delays can suggest timing only alongside the original private receipt. */
+export function outreachReceiptDueAt(
+  receipt: OutreachReceipt | undefined,
+  recipient: string,
+  delayDays: number,
+): string | null {
+  if (
+    !receipt ||
+    receipt.state !== "accepted" ||
+    receipt.step !== "initial" ||
+    receipt.recipient !== recipient.trim().toLowerCase() ||
+    !Number.isInteger(delayDays) ||
+    delayDays < 2 ||
+    delayDays > 365
+  )
+    return null;
+  const at = Date.parse(receipt.updated_at) + delayDays * 86400000;
+  return Number.isFinite(at) ? new Date(at).toISOString() : null;
+}

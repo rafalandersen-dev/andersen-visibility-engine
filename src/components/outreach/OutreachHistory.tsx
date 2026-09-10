@@ -5,12 +5,14 @@ export function OutreachHistory({
   ready,
   loading,
   refresh,
+  cancel,
   t,
 }: {
   receipts: OutreachReceipt[];
   ready: boolean;
   loading: boolean;
   refresh: () => Promise<void>;
+  cancel: (receipt: OutreachReceipt) => Promise<void>;
   t: (key: string) => string;
 }) {
   return (
@@ -56,6 +58,16 @@ export function OutreachHistory({
                 <p className="break-all text-xs text-muted-foreground">
                   {t("outreach.integrity.version")}: {r.version_hash}
                 </p>
+                {r.state === "reserved" ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={loading}
+                    onClick={() => void cancel(r)}
+                  >
+                    {t("outreach.integrity.cancel")}
+                  </Button>
+                ) : null}
                 {r.provider_message_id ? (
                   <p className="break-all text-xs">
                     {t("outreach.integrity.receipt")}: {r.provider_message_id}

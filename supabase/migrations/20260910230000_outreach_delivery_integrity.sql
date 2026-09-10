@@ -103,3 +103,16 @@ BEGIN
 END; $$;
 REVOKE ALL ON FUNCTION public.reserve_outreach_delivery(uuid,text,text,text,bigint,text,text,integer,integer),public.dispatch_outreach_delivery(uuid,text,text,text,bigint),public.finish_outreach_delivery(uuid,text,text,text,text,text),public.read_outreach_deliveries(uuid,text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.reserve_outreach_delivery(uuid,text,text,text,bigint,text,text,integer,integer),public.dispatch_outreach_delivery(uuid,text,text,text,bigint),public.finish_outreach_delivery(uuid,text,text,text,text,text),public.read_outreach_deliveries(uuid,text) TO service_role;
+
+-- Recovery can cancel only work that has never won dispatch authority. The
+-- owner lock makes cancellation and dispatch mutually exclusive transactions.
+CREATE FUNCTION public.cancel_outreach_reservation(p_user uuid,p_project text,p_draft text,p_step text,p_hash text)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+ PERFORM 1 FROM public.workspace_meta WHERE user_id=p_user FOR UPDATE;
+ UPDATE public.outreach_delivery_receipts SET state='blocked',updated_at=clock_timestamp()
+ WHERE user_id=p_user AND project_id=p_project AND draft_id=p_draft AND step=p_step AND version_hash=p_hash AND state='reserved';
+ RETURN FOUND;
+END; $$;
+REVOKE ALL ON FUNCTION public.cancel_outreach_reservation(uuid,text,text,text,text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.cancel_outreach_reservation(uuid,text,text,text,text) TO service_role;

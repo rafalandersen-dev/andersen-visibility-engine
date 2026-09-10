@@ -9,6 +9,7 @@ import { OutreachDraftCard } from "@/components/outreach/OutreachDraftCard";
 import { useT } from "@/i18n";
 import { generateOutreachDraft } from "@/lib/mock-ai";
 import {
+  cancelOutreachReservationFn,
   readOutreachDeliveriesFn,
   getOutreachDeliveryStatusFn,
 } from "@/lib/outreach-delivery.functions";
@@ -86,6 +87,7 @@ function OutreachPage() {
   currentScope.current = scope;
   const historySequence = useRef(0);
   const refreshHistory = useCallback(async () => {
+    if (currentScope.current !== scope) return;
     const sequence = ++historySequence.current;
     setHistory(null);
     setHistoryLoading(true);
@@ -105,6 +107,28 @@ function OutreachPage() {
   }, [refreshHistory]);
   const historyReady = history?.scope === scope;
   const receipts = historyReady ? history.rows : [];
+
+  async function cancelReservation(receipt: OutreachReceipt) {
+    if (historyLoading) return;
+    setHistoryLoading(true);
+    try {
+      const result = await cancelOutreachReservationFn({
+        data: {
+          projectId: activeProjectId,
+          draftId: receipt.draft_id,
+          step: receipt.step,
+          hash: receipt.version_hash,
+        },
+      });
+      toast[result.cancelled ? "success" : "error"](
+        t(result.cancelled ? "outreach.integrity.cancelled" : "outreach.integrity.cancelError"),
+      );
+    } catch {
+      toast.error(t("outreach.integrity.cancelError"));
+    } finally {
+      await refreshHistory();
+    }
+  }
 
   if (!project) {
     return (
@@ -184,6 +208,7 @@ function OutreachPage() {
         ready={historyReady}
         loading={historyLoading}
         refresh={refreshHistory}
+        cancel={cancelReservation}
         t={t}
       />
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.8fr)]">
