@@ -1,3 +1,5 @@
+import { normalizeAutoSchedulerConfig } from "./auto-scheduler";
+import { schedulerPeriodSchema } from "./weekly-preparation";
 import { z } from "zod";
 import { operationalNotifications } from "./operational-notifications";
 import { schedulerDemand, schedulerCapacityNotifications } from "./scheduler-capacity";
@@ -22,13 +24,13 @@ const queueSchema = z.object({
   project_id: identity,
   asset_id: identity,
   publish_at: z.string().datetime({ offset: true }),
-  status: z.enum(["pending", "publishing", "published", "failed", "cancelled"]),
+  status: z.enum(["pending", "publishing", "published", "failed", "cancelled", "review_required"]),
   attempts: z.number().int().nonnegative(),
   created_at: z.string(),
 });
 const leaseSchema = z.object({
   project_id: identity,
-  planned_period: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+  planned_period: schedulerPeriodSchema,
   status: z.enum(["active", "released", "unknown"]),
   acquired_at: z.string().datetime({ offset: true }),
   lease_until: z.string().datetime({ offset: true }),
@@ -100,8 +102,33 @@ export async function refreshOperationalNotifications(
       acquiredAt: r.acquired_at,
       leaseUntil: r.lease_until,
     }));
+  const enabledProjects = snapshot.projects.filter(
+    (p) => (p as unknown as Project).autoScheduler?.enabled === true,
+  );
+  let controls: Array<{ projectId: string; engine: "monthly" | "weekly" | "paused" }> = [];
+  if (enabledProjects.length) {
+    const response = await db.rpc("read_workspace_scheduler_controls", { p_user: userId });
+    if (response.error) throw new Error("notification_scheduler_control_unavailable");
+    controls = z
+      .array(
+        z.object({ projectId: identity, engine: z.enum(["monthly", "weekly", "paused"]) }).strict(),
+      )
+      .max(1000)
+      .parse(response.data);
+    if (new Set(controls.map((c) => c.projectId)).size !== controls.length)
+      throw new Error("notification_scheduler_control_unavailable");
+  }
+  const engine = (id: string) => controls.find((c) => c.projectId === id)?.engine ?? "monthly";
+  const notificationProjects = (snapshot.projects as unknown as Project[]).map((p) =>
+    engine(p.id) === "paused"
+      ? {
+          ...p,
+          autoScheduler: { ...normalizeAutoSchedulerConfig(p.autoScheduler), enabled: false },
+        }
+      : p,
+  );
   const events = operationalNotifications({
-    projects: snapshot.projects as unknown as Project[],
+    projects: notificationProjects,
     assets: snapshot.content as unknown as ContentAsset[],
     opportunities: snapshot.opportunities as unknown as Opportunity[],
     scheduled,
@@ -109,7 +136,7 @@ export async function refreshOperationalNotifications(
     now,
   });
   const demand = schedulerDemand({
-    projects: snapshot.projects as unknown as Project[],
+    projects: (snapshot.projects as unknown as Project[]).filter((p) => engine(p.id) === "monthly"),
     assets: snapshot.content as unknown as ContentAsset[],
     scheduled,
     now,
@@ -162,10 +189,7 @@ export const notificationRowSchema = z
       missing: z.number().optional(),
       total: z.number().optional(),
       remaining: z.number().int().nonnegative().optional(),
-      plannedPeriod: z
-        .string()
-        .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
-        .optional(),
+      plannedPeriod: schedulerPeriodSchema.optional(),
       usagePeriod: z
         .string()
         .regex(/^\d{4}-(0[1-9]|1[0-2])$/)

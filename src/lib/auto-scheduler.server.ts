@@ -143,7 +143,7 @@ async function bookedInstants(
     .select("publish_at")
     .eq("user_id", userId)
     .eq("project_id", projectId)
-    .in("status", ["pending", "publishing"]);
+    .in("status", ["pending", "publishing", "review_required"]);
   if (
     error ||
     !Array.isArray(data) ||
@@ -261,7 +261,12 @@ export async function runMonthlyAutoScheduler(now = new Date()): Promise<AutoSch
     for (const project of enabled) {
       const cfg = normalizeAutoSchedulerConfig(project.autoScheduler);
       let report: ProjectRunReport;
+      let monthlyConfirmed = false;
       try {
+        const { readSchedulerControl } = await import("./weekly-preparation.server");
+        const control = await readSchedulerControl({ ownerId: userId, projectId: project.id });
+        if (control.engine !== "monthly") continue;
+        monthlyConfirmed = true;
         const lease = await acquireSchedulerLease(
           userId,
           project.id,
@@ -291,7 +296,7 @@ export async function runMonthlyAutoScheduler(now = new Date()): Promise<AutoSch
                 notes: [],
                 // The owner must hear about a run that failed outright (a typo'd
                 // time zone would otherwise fail silently every month forever).
-                ...(cfg.summaryEmail ? { summaryEmailTo: cfg.summaryEmail } : {}),
+                ...(monthlyConfirmed && cfg.summaryEmail ? { summaryEmailTo: cfg.summaryEmail } : {}),
                 error: e instanceof Error ? e.message : String(e),
               };
       }
@@ -517,19 +522,14 @@ async function runForProject(
 
     report.generated++;
     // ---- 6. Arm go-lives (auto_publish only): queue row FIRST, mirror second --
-    const db = await admin();
     for (const p of batch) {
       // A recovery/owner save may have won while generation was returning.
       // Only a draft inserted by this mutation can inherit its auto approval.
       if (!p.armable || !persisted.result.newAssetIds.includes(p.asset.id)) continue;
-      const { error } = await db.from("scheduled_publishes").insert({
-        user_id: userId,
-        project_id: projectId,
-        asset_id: p.asset.id,
-        publish_at: p.slot.publishAt,
-        status: "pending",
-      });
-      if (error) {
+      try {
+        const { armSchedulerPublication } = await import("./scheduler-approval.server");
+        await armSchedulerPublication(userId, p.asset, liveProject, [...content, ...prepared.map(item => item.asset), p.asset], lease, p.slot.publishAt);
+      } catch {
         report.notes.push(`"${p.asset.title}": queue insert failed — left as a ready draft.`);
         continue;
       }

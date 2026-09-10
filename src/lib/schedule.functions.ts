@@ -97,7 +97,7 @@ async function cancelPendingRows(
     .update({ status: "cancelled", updated_at: new Date().toISOString() })
     .eq("user_id", userId)
     .eq("asset_id", assetId)
-    .eq("status", "pending")
+    .in("status", ["pending", "review_required"])
     .select("id");
   if (error) throw new Error("Could not update the existing schedule. Please try again.");
 
@@ -157,32 +157,13 @@ export const scheduleContentPublishFn = createServerFn({ method: "POST" })
     // Ownership: the project comes from the caller's workspace, never the client.
     const { projectId } = await resolveOwnedAsset(userId, data.assetId);
 
-    // Re-arming replaces any pending row. If one is already going out we must
-    // not queue a second: the article is being published right now.
-    const cancelled = await cancelPendingRows(userId, data.assetId);
-    if (!cancelled.cancelled) {
-      throw new Error(
-        "This article is being published right now, so it cannot be rescheduled. Wait for it to finish, then publish or schedule again.",
-      );
-    }
-
-    const db = await admin();
-    const { data: inserted, error } = await db
-      .from("scheduled_publishes")
-      .insert({
-        user_id: userId,
-        project_id: projectId,
-        asset_id: data.assetId,
-        publish_at: when.toISOString(),
-        status: "pending",
-      })
-      .select("*")
-      .single();
-
-    if (error || !inserted) {
-      console.error("[schedule.functions] insert failed", error?.message ?? "no row");
-      throw new Error("Could not schedule the publish. Please try again.");
-    }
+    const { scheduleApprovedPublication } = await import("./schedule-approval.server");
+    const inserted = await scheduleApprovedPublication(
+      userId,
+      projectId,
+      data.assetId,
+      when.toISOString(),
+    );
     // Mirror onto the asset so the editor can render "Goes live ..." without a
     // round-trip. Declared on ContentAsset but, until now, written by nobody —
     // every scheduling UI would have rendered blank.
@@ -196,20 +177,18 @@ export const scheduleContentPublishFn = createServerFn({ method: "POST" })
 export const cancelScheduledPublishFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ assetId: z.string().min(1) }).parse(input))
-  .handler(
-    async ({ data, context }): Promise<{ cancelled: boolean; reason?: "in_flight" }> => {
-      const userId = context.userId as string;
-      await resolveOwnedAsset(userId, data.assetId);
-      const outcome = await cancelPendingRows(userId, data.assetId);
-      if (!outcome.cancelled) return outcome;
+  .handler(async ({ data, context }): Promise<{ cancelled: boolean; reason?: "in_flight" }> => {
+    const userId = context.userId as string;
+    await resolveOwnedAsset(userId, data.assetId);
+    const outcome = await cancelPendingRows(userId, data.assetId);
+    if (!outcome.cancelled) return outcome;
 
-      // Only clear the mirror once the queue row is really gone, so the UI never
-      // shows "not scheduled" for something that is still going out.
-      const { clearScheduleMirror } = await import("./publish.server");
-      await clearScheduleMirror(userId, data.assetId);
-      return { cancelled: true };
-    },
-  );
+    // Only clear the mirror once the queue row is really gone, so the UI never
+    // shows "not scheduled" for something that is still going out.
+    const { clearScheduleMirror } = await import("./publish.server");
+    await clearScheduleMirror(userId, data.assetId);
+    return { cancelled: true };
+  });
 
 /** The caller's schedules for one project (UI listing). */
 export const listScheduledPublishesFn = createServerFn({ method: "POST" })

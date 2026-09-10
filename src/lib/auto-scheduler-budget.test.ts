@@ -7,6 +7,7 @@ import type { WorkspaceData } from "./workspace.server";
 import type { ContentAsset, Opportunity } from "./types";
 
 const mocks = vi.hoisted(() => ({
+  control: vi.fn(),
   remaining: vi.fn(),
   generate: vi.fn(),
   discover: vi.fn(),
@@ -18,6 +19,13 @@ const mocks = vi.hoisted(() => ({
   releaseLease: vi.fn(),
   insert: vi.fn(),
   queue: vi.fn(),
+}));
+vi.mock("./weekly-preparation.server", () => ({ readSchedulerControl: mocks.control }));
+vi.mock("./scheduler-approval.server", () => ({
+  armSchedulerPublication: async () => {
+    const result = await mocks.insert();
+    if (result.error) throw new Error("queue_failed");
+  },
 }));
 vi.mock("./auto-scheduler-lease.server", () => ({
   acquireSchedulerLease: mocks.acquire,
@@ -59,6 +67,7 @@ const now = new Date("2026-09-25T06:00:00Z");
 let workspace: WorkspaceData;
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.control.mockResolvedValue({ engine: "monthly" });
   vi.stubEnv("RESEND_API_KEY", "");
   mocks.remaining.mockResolvedValue(3);
   mocks.queue.mockReturnValue({ data: [], error: null });
@@ -101,6 +110,35 @@ afterEach(() => {
 });
 
 describe("autopilot budget failures", () => {
+  it.each(["weekly", "paused"])(
+    "skips %s projects without generation or summary email",
+    async (engine) => {
+      mocks.control.mockResolvedValue({ engine });
+      const summary = await runMonthlyAutoScheduler(now);
+      expect(summary.projects).toEqual([]);
+      expect(mocks.acquire).not.toHaveBeenCalled();
+      expect(mocks.discover).not.toHaveBeenCalled();
+      expect(mocks.generate).not.toHaveBeenCalled();
+    },
+  );
+  it("contains an unavailable control to its project and sends no unverified monthly email", async () => {
+    const first = (workspace.projects as Array<Record<string, unknown>>)[0];
+    workspace.projects = [first, { ...first, id: "p2" }];
+    first.autoScheduler = { enabled: true, summaryEmail: "owner@example.com" };
+    mocks.control
+      .mockRejectedValueOnce(new Error("scheduler_control_unavailable"))
+      .mockResolvedValue({ engine: "monthly" });
+    mocks.remaining.mockResolvedValue(0);
+    const summary = await runMonthlyAutoScheduler(now);
+    expect(summary.projects).toHaveLength(2);
+    expect(summary.projects[0]).toMatchObject({
+      projectId: "p1",
+      error: "scheduler_control_unavailable",
+    });
+    expect(summary.projects[0].summaryEmailTo).toBeUndefined();
+    expect(mocks.acquire).toHaveBeenCalledTimes(1);
+    expect(mocks.acquire).toHaveBeenCalledWith("user", "p2", expect.any(String));
+  });
   it.each([
     { data: null, error: { message: "unavailable" } },
     { data: null, error: null },

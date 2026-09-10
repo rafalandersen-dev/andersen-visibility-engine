@@ -18,7 +18,9 @@ const mocks = vi.hoisted(() => ({
   usage: vi.fn(),
   model: vi.fn(),
   image: vi.fn(),
+  knowledge: vi.fn(),
 }));
+vi.mock("./project-knowledge.server", () => ({ loadProjectKnowledgeContext: mocks.knowledge }));
 vi.mock("./entitlements.server", () => ({ resolveEntitledPlan: mocks.plan }));
 vi.mock("ai", () => ({ generateText: mocks.model }));
 vi.mock("./image-gen.server", () => ({
@@ -42,6 +44,9 @@ vi.mock("@/integrations/supabase/client.server", () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.knowledge
+    .mockReset()
+    .mockResolvedValue({ context: "", references: [], conflicts: [], omitted: 0 });
   vi.stubEnv("AI_METERING_ENFORCED", "true");
   mocks.plan.mockResolvedValue("pro");
   mocks.owner.mockResolvedValue({ data: null, error: null });
@@ -230,14 +235,36 @@ describe("confirmed usage before paid work", () => {
     expect(mocks.rpc.mock.calls[1][1].p_cap).toBe(cap);
   });
 
+  it.each(["retrieval", "changed"])(
+    "does not consume a research credit when knowledge is %s",
+    async (failure) => {
+      if (failure === "retrieval")
+        mocks.knowledge.mockRejectedValueOnce(new Error("knowledge_unavailable"));
+      await expect(
+        generateOpportunitiesCore(
+          "user",
+          { project: { id: "p" }, services: [], existingTitles: [] } as never,
+          { expectedKnowledgeHash: "0".repeat(64) },
+        ),
+      ).rejects.toThrow(
+        failure === "retrieval" ? "knowledge_unavailable" : "weekly_context_changed",
+      );
+      expect(mocks.rpc).not.toHaveBeenCalled();
+      expect(mocks.model).not.toHaveBeenCalled();
+    },
+  );
   it("does not invoke either text or image providers after a failed claim", async () => {
     mocks.rpc.mockResolvedValue({ data: [], error: null });
     await expect(generateContentCore("user", {} as never)).rejects.toBeInstanceOf(
       UsageUnavailableError,
     );
-    await expect(generateOpportunitiesCore("user", {} as never)).rejects.toBeInstanceOf(
-      UsageUnavailableError,
-    );
+    await expect(
+      generateOpportunitiesCore("user", {
+        project: { id: "p" },
+        services: [],
+        existingTitles: [],
+      } as never),
+    ).rejects.toBeInstanceOf(UsageUnavailableError);
     await expect(generateArticleImageCore("user", {} as never)).rejects.toBeInstanceOf(
       UsageUnavailableError,
     );
@@ -264,7 +291,11 @@ describe("confirmed usage before paid work", () => {
       generateContentCore("user", {} as never, { enforceLimit: true }),
     ).rejects.toBeInstanceOf(UsageLimitError);
     await expect(
-      generateOpportunitiesCore("user", {} as never, { enforceLimit: true }),
+      generateOpportunitiesCore(
+        "user",
+        { project: { id: "p" }, services: [], existingTitles: [] } as never,
+        { enforceLimit: true },
+      ),
     ).rejects.toBeInstanceOf(UsageLimitError);
     expect(mocks.rpc.mock.calls.every((call) => call[1].p_cap >= 0)).toBe(true);
     expect(mocks.model).not.toHaveBeenCalled();

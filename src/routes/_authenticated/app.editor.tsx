@@ -1,3 +1,4 @@
+import { draftSelectionChanged } from "@/lib/draft-selection";
 import { ArticleImageThumbnail } from "@/components/ArticleImageThumbnail";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
@@ -32,6 +33,9 @@ import {
   reloadWorkspaceForUser,
 } from "@/lib/store";
 import { useT } from "@/i18n";
+import { PublicationApprovalStatus } from "@/components/PublicationApprovalStatus";
+import { publicationVersion } from "@/lib/publication-version";
+import { setPublicationApprovalFn } from "@/lib/publication-approval.functions";
 import {
   generateMetadata,
   generateFaq,
@@ -220,7 +224,8 @@ function EditorPage() {
     // queue. The runner would otherwise wake up, fail to find it, and park the
     // row as a failure the user cannot explain. Best-effort — a queue that is
     // already draining should never block the delete the user asked for.
-    const wasScheduled = assets.find((a) => a.id === id)?.scheduledPublishStatus === "pending";
+    const scheduleState = assets.find((a) => a.id === id)?.scheduledPublishStatus;
+    const wasScheduled = scheduleState === "pending" || scheduleState === "review_required";
     if (wasScheduled) {
       try {
         await cancelScheduledPublishFn({ data: { assetId: id } });
@@ -656,19 +661,20 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     }
     setGeneratingImage(true);
     try {
-      const { path, previewUrl, alt, resultId, knowledgeReferences, sourceDependencies } = await generateArticleImageFn({
-        data: {
-          projectId: f.projectId,
-          assetId: f.id,
-          concept,
-          articleTitle: f.title,
-          project: {
-            businessName: project?.businessName ?? "",
-            businessType: project?.businessType ?? "",
-            toneOfVoice: project?.toneOfVoice ?? "",
+      const { path, previewUrl, alt, resultId, knowledgeReferences, sourceDependencies } =
+        await generateArticleImageFn({
+          data: {
+            projectId: f.projectId,
+            assetId: f.id,
+            concept,
+            articleTitle: f.title,
+            project: {
+              businessName: project?.businessName ?? "",
+              businessType: project?.businessType ?? "",
+              toneOfVoice: project?.toneOfVoice ?? "",
+            },
           },
-        },
-      });
+        });
       // Identical shape to an upload: proposed + staged. Nothing publishes
       // until the user approves it (promote-to-public), same as any upload.
       // FUNCTIONAL update: generation takes seconds — appending onto the
@@ -883,6 +889,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       });
     }
     toast.success(status ? `Marked ${status}` : "Saved");
+    return next;
   };
 
   // Unsaved-changes detection. An uploaded-but-unsaved image lives only in `f`
@@ -1017,6 +1024,10 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   }
 
   async function armSchedule() {
+    if (isDirty) {
+      toast.info(t("approval.needed"));
+      return;
+    }
     if (!goLiveValid) return;
     setScheduling(true);
     try {
@@ -1033,7 +1044,37 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       toast.success(t("editor.schedule.armed", { when: goLiveLabel }));
       setGoLiveLocal("");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not schedule the publish");
+      toast.error(
+        e instanceof Error && e.message === "publication_approval_required"
+          ? t("approval.needed")
+          : e instanceof Error && e.message === "publication_approval_unavailable"
+            ? t("approval.unavailable")
+            : e instanceof Error
+              ? e.message
+              : "Could not schedule the publish",
+      );
+    } finally {
+      setScheduling(false);
+    }
+  }
+
+  async function resumeReviewedSchedule() {
+    if (isDirty || !live.scheduledPublishAt) return;
+    setScheduling(true);
+    try {
+      await scheduleContentPublishFn({
+        data: { assetId: asset.id, publishAt: live.scheduledPublishAt },
+      });
+      await refreshWorkspace();
+      toast.success(t("approval.resumed"));
+    } catch (e) {
+      toast.error(
+        e instanceof Error && e.message === "publication_approval_required"
+          ? t("approval.needed")
+          : e instanceof Error
+            ? e.message
+            : t("approval.failed"),
+      );
     } finally {
       setScheduling(false);
     }
@@ -1058,20 +1099,27 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   }
 
   function openSend() {
-    setPublishSlug(f.slug || asset.slug);
-    setDestType(project?.defaultDestinationType ?? "blogPost");
+    setPublishSlug(asset.publishSlug || f.slug || asset.slug);
+    setDestType(asset.publishDestinationType ?? project?.defaultDestinationType ?? "blogPost");
     setSendOpen(true);
   }
 
   async function doSend() {
     setSending(true);
     try {
+      flushPendingEdits();
+      await saveWorkspaceNow();
       await sendContentToWebsite(asset.id, destType, publishSlug);
       toast.success("Draft sent to website");
       setSendOpen(false);
     } catch (e) {
-      // Status is now stored as "failed" with the error; keep the modal open for retry.
-      toast.error(e instanceof Error ? e.message : "Could not send draft to website");
+      if (e instanceof Error && e.message === "publication_approval_required") {
+        setSendOpen(false);
+        setApprovalRevision((v) => v + 1);
+        toast.info(t("approval.needed"));
+      } else {
+        toast.error(e instanceof Error ? e.message : "Could not send draft to website");
+      }
     } finally {
       setSending(false);
     }
@@ -1087,12 +1135,37 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
    * owner's reported surprise, and it is now structurally impossible: approving
    * and publishing are different verbs and this one never distributes.
    */
-  function approve() {
-    save("Approved");
-    toast.success(t("editor.approve.readyToast"));
+  const [approvalRevision, setApprovalRevision] = useState(0);
+  async function approve(approved = true) {
+    if (!project || busy) return;
+    setBusy("approval");
+    try {
+      const reviewed = save(approved ? "Approved" : "In Review");
+      const expectedVersion = await publicationVersion(reviewed, project, activePaths);
+      await saveWorkspaceNow();
+      await setPublicationApprovalFn({
+        data: {
+          projectId: project.id,
+          assetId: reviewed.id,
+          expectedVersion,
+          approved,
+        },
+      });
+      setApprovalRevision((v) => v + 1);
+      toast.success(t(approved ? "approval.saved" : "approval.withdrawn"));
+    } catch {
+      toast.error(t("approval.failed"));
+    } finally {
+      setBusy(null);
+    }
   }
 
   async function doPublishLive() {
+    if (isDirty) {
+      setLiveConfirmOpen(false);
+      toast.info(t("approval.needed"));
+      return;
+    }
     setPublishingLive(true);
     try {
       await publishContentLive(asset.id);
@@ -1157,10 +1230,23 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         </div>
         <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-foreground/80">
           <Sparkles className="h-3.5 w-3.5 shrink-0 text-gold/80 mt-0.5" />
-          <span>{t("editor.aiReviewNote")}</span>
+          <span>
+            {t("editor.aiReviewNote")} {t("approval.help")}
+          </span>
         </div>
       </div>
 
+      {project && (
+        <div className="px-5 py-2">
+          <PublicationApprovalStatus
+            asset={f}
+            project={project}
+            paths={activePaths}
+            dirty={isDirty}
+            revision={approvalRevision}
+          />
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-border">
         <div className="flex items-center gap-3">
           <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
@@ -1200,10 +1286,11 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           <Button size="sm" variant="outline" onClick={() => save("In Review")}>
             {t("editor.action.markInReview")}
           </Button>
-          {/* No busy state: approving is a local status write now, not a network
-              publish. The spinner existed only for the auto-publish call. */}
-          <Button size="sm" variant="outline" onClick={approve}>
+          <Button size="sm" variant="outline" onClick={() => approve()} disabled={Boolean(busy)}>
             <Check className="h-3.5 w-3.5" /> {t("editor.action.approve")}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => approve(false)} disabled={Boolean(busy)}>
+            {t("approval.withdraw")}
           </Button>
           <Button size="sm" variant="ghost" onClick={() => save("Rejected")}>
             <FileX className="h-3.5 w-3.5" /> {t("editor.action.reject")}
@@ -1308,7 +1395,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 <Button
                   size="sm"
                   onClick={() => setLiveConfirmOpen(true)}
-                  disabled={!liveConfigured || publishingLive || publishBlocked}
+                  disabled={!liveConfigured || publishingLive || publishBlocked || isDirty}
                 >
                   {publishingLive ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1362,7 +1449,36 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           could fail and the only way to find out was to query the database.
           Shown regardless of connector, since the runner covers all of them.
         */}
-        {live.scheduledPublishStatus === "failed" && live.scheduledPublishError ? (
+        {live.scheduledPublishStatus === "review_required" ? (
+          <div
+            className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-3 space-y-2"
+            role="status"
+          >
+            <p className="text-sm font-medium">{t("approval.scheduleHeld")}</p>
+            <p className="text-xs">
+              {t("approval.scheduleHeldBody", {
+                when: live.scheduledPublishAt ? formatDateTimeLocal(live.scheduledPublishAt) : "—",
+              })}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={resumeReviewedSchedule}
+                disabled={
+                  isDirty ||
+                  scheduling ||
+                  !live.scheduledPublishAt ||
+                  Date.parse(live.scheduledPublishAt) < Date.now() + 5 * 60000
+                }
+              >
+                {t("approval.resumeTime")}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={cancelSchedule} disabled={scheduling}>
+                {t("common.cancel")}
+              </Button>
+            </div>
+          </div>
+        ) : live.scheduledPublishStatus === "failed" && live.scheduledPublishError ? (
           <div className="mt-3 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2">
             <div className="text-xs font-medium text-destructive">
               {t("editor.schedule.failedTitle")}
@@ -1433,7 +1549,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               <Button
                 size="sm"
                 onClick={armSchedule}
-                disabled={!goLiveLocal || scheduling || publishBlocked}
+                disabled={!goLiveLocal || scheduling || publishBlocked || isDirty}
               >
                 {scheduling ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1514,7 +1630,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               <Select
                 value={destType}
                 onValueChange={(v) => setDestType(v as PublishDestinationType)}
-                disabled={sending}
+                disabled={sending || isWordPress || isShopify}
               >
                 <SelectTrigger className="mt-1.5">
                   <SelectValue />
@@ -1553,7 +1669,20 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               ) : (
                 <Send className="h-4 w-4" />
               )}
-              {sending ? t("editor.sendModal.sending") : t("editor.sendModal.send")}
+              {sending
+                ? t("editor.sendModal.sending")
+                : project &&
+                    draftSelectionChanged(asset, project, {
+                      slug: (publishSlug || asset.publishSlug || asset.slug || "").trim(),
+                      destinationType:
+                        isWordPress || isShopify
+                          ? (asset.publishDestinationType ??
+                            project.defaultDestinationType ??
+                            "blogPost")
+                          : destType,
+                    })
+                  ? t("approval.saveDestination")
+                  : t("editor.sendModal.send")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1588,7 +1717,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 e.preventDefault();
                 doPublishLive();
               }}
-              disabled={publishingLive}
+              disabled={publishingLive || isDirty}
             >
               {publishingLive ? t("editor.liveModal.publishing") : t("editor.liveModal.publish")}
             </AlertDialogAction>

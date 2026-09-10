@@ -18,6 +18,9 @@ vi.mock("./workspace.server", () => ({
 
 vi.mock("./source-refresh.server", () => ({ readOutputSourceDependencies: vi.fn(async () => []) }));
 
+const approval = vi.hoisted(() => ({ check: vi.fn() }));
+vi.mock("./publication-approval.server", () => ({ assertPublicationApproved: approval.check }));
+
 import { serverWpArgs, serverShopifyArgs } from "./connector-guard.server";
 
 const wpProject = (): Project =>
@@ -59,6 +62,7 @@ function setWorkspace(project: Project, ...assets: ContentAsset[]) {
 }
 
 beforeEach(() => {
+  approval.check.mockReset().mockResolvedValue(undefined);
   ROW = null;
 });
 
@@ -71,6 +75,15 @@ describe("serverWpArgs — WordPress checklist parity + server re-derivation", (
     expect(args.siteUrl).toBe("https://site.com"); // from the stored project, not the request
     expect(args.postId).toBe(42); // in-place update identity preserved
     expect(args.contentMarkdown.length).toBeGreaterThan(0); // assembled server-side
+  });
+
+  it("refuses a changed WordPress dialog slug before approval or transport", async () => {
+    setWorkspace(wpProject(), asset({ publishSlug: "approved-slug" }));
+    await expect(serverWpArgs("u1", "p1", "a1", "different-slug")).rejects.toThrow(
+      "publication_approval_required",
+    );
+    expect(approval.check).not.toHaveBeenCalled();
+    expect((await serverWpArgs("u1", "p1", "a1", "approved-slug")).slug).toBe("approved-slug");
   });
 
   it("REFUSES a rewrite that would create a duplicate post (hard blocker enforced)", async () => {
@@ -104,5 +117,18 @@ describe("serverShopifyArgs — Shopify checklist parity + server re-derivation"
   it("REFUSES a rewrite with no article identity (duplicate guard) — same gate as WP", async () => {
     setWorkspace(shopifyProject(), asset({ republishTargetUrl: "https://site.com/old" }));
     await expect(serverShopifyArgs("u1", "p1", "a1")).rejects.toThrow(/not publishable/i);
+  });
+});
+
+describe("exact version publication approval", () => {
+  it("blocks both manual connectors before returning transport credentials when approval is missing", async () => {
+    approval.check.mockRejectedValue(new Error("publication_approval_required"));
+    setWorkspace(wpProject(), asset());
+    await expect(serverWpArgs("u1", "p1", "a1")).rejects.toThrow("publication_approval_required");
+    setWorkspace(shopifyProject(), asset());
+    await expect(serverShopifyArgs("u1", "p1", "a1")).rejects.toThrow(
+      "publication_approval_required",
+    );
+    expect(approval.check).toHaveBeenCalledTimes(2);
   });
 });

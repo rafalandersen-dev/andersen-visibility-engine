@@ -49,7 +49,7 @@ export async function generateArticleImageCore(
     articleTitle?: string;
     project: Pick<Project, "businessName" | "businessType" | "toneOfVoice">;
   },
-  execution: { attempt?: NativeExpenseContext["attempt"]; imageId?: string } = {},
+  execution: { attempt?: NativeExpenseContext["attempt"]; imageId?: string; expectedKnowledgeHash?: string } = {},
 ): Promise<GeneratedArticleImage> {
   // Pro/Agency plan gate first (active even while metering enforcement is off),
   // then the metered claim — both before the model call so a refusal costs nothing.
@@ -77,6 +77,7 @@ export async function generateArticleImageCore(
         undefined,
         5500,
       );
+      if (execution.expectedKnowledgeHash && await (await import("./weekly-executor")).weeklyInputHash(knowledge) !== execution.expectedKnowledgeHash) throw new Error("weekly_context_changed");
       const basePrompt = buildImagePrompt({
         concept: args.concept,
         ...(args.articleTitle ? { articleTitle: args.articleTitle } : {}),

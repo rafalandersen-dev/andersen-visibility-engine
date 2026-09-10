@@ -322,7 +322,7 @@ export async function sendWordPressDraftDirect(
  * credentials and connector identity from the caller's own stored asset and runs
  * the SAME publishing checklist as the editor and cron — a hand-rolled call to
  * this endpoint cannot bypass a hard blocker (review fix C). The request's content
- * and credential fields are ignored; only the chosen draft slug is honoured.
+ * and credential fields are ignored; a chosen slug must match the saved version.
  */
 export const sendContentToWordPressDraftFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -331,10 +331,7 @@ export const sendContentToWordPressDraftFn = createServerFn({ method: "POST" })
     let args: z.infer<typeof ContentInput>;
     try {
       const { serverWpArgs } = await import("./connector-guard.server");
-      const derived = await serverWpArgs(context.userId as string, data.projectId, data.assetId);
-      // Honour the user's chosen draft slug (a non-security UI choice); everything
-      // else comes from the server-derived, checklist-passed args.
-      args = { ...derived, slug: data.slug || derived.slug };
+      args = await serverWpArgs(context.userId as string, data.projectId, data.assetId, data.slug);
     } catch (e) {
       return {
         success: false,

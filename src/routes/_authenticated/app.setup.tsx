@@ -7,6 +7,7 @@ import {
 } from "@/lib/content-languages";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
+import { WeeklyPreparationPanel } from "@/components/WeeklyPreparationPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -583,6 +584,8 @@ function ProjectSetup() {
             );
           })()}
         </Section>
+
+        {!creating && active ? <WeeklyPreparationPanel key={active.id} project={active} /> : null}
 
         {!creating && active ? <BrandIntelligenceCard key={active.id} project={active} /> : null}
 
