@@ -232,6 +232,37 @@ describe("real log history SQL/server integration", () => {
     );
     expect(accepted).toEqual(expected);
   });
+  it("rejects reordered service imports before hashing and agrees with canonical JSON order", async () => {
+    const d = doc();
+    const requests = ["/a", "/a-b", "/a/b", "/ab", "/ö", "/中文"].flatMap((page) =>
+      [200, 404].flatMap((status) =>
+        ["GET", "HEAD"].map((method) => ({
+          ...d.input.rows[0],
+          page,
+          status,
+          method,
+          userAgent: "GPTBot",
+        })),
+      ),
+    );
+    const canonical = prepareLogImport({
+      ...d.input,
+      rows: requests.map(({ claimedAgent: _claim, ...r }) => r),
+    });
+    const id = await importLogEvidence(scope, canonical, rpc);
+    const reversed = {
+      ...canonical,
+      input: { ...canonical.input, rows: [...canonical.input.rows].reverse() },
+    };
+    await expect(
+      db.query("SELECT save_project_log_evidence($1,$2,$3)", [user, "p", reversed]),
+    ).rejects.toThrow("log_noncanonical_order");
+    expect(
+      (await db.query("SELECT save_project_log_evidence($1,$2,$3) id", [user, "p", canonical]))
+        .rows[0],
+    ).toEqual({ id });
+    expect(await readLogEvidence(scope, rpc)).toHaveLength(1);
+  });
   it("caps full history and allows identical dedupe at capacity", async () => {
     const saved = await importLogEvidence(scope, doc(), rpc);
     await db.query(

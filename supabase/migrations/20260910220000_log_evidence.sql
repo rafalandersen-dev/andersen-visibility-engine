@@ -76,6 +76,12 @@ BEGIN
    row_time:=(r->>'time')::timestamptz;
    IF to_char(row_time AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')<>r->>'time' OR row_time<from_time OR row_time>=until_time THEN RAISE EXCEPTION 'invalid_safe_log_time'; END IF;
  END LOOP;
+ -- Safe rows have fixed UTC times, three-digit status, BMP paths without quotes,
+ -- and enum fields. This tuple order equals the application's canonical JSON order.
+ IF i->'rows' IS DISTINCT FROM coalesce((SELECT jsonb_agg(value ORDER BY
+   (value->>'time') COLLATE "C", (value->>'page') COLLATE "C", (value->>'status')::integer,
+   (value->>'method') COLLATE "C", (value->>'claimedAgent') COLLATE "C")
+   FROM jsonb_array_elements(i->'rows')),'[]'::jsonb) THEN RAISE EXCEPTION 'log_noncanonical_order'; END IF;
  replaced:=(i->>'supersedesId')::uuid;
  -- Canonical safe input identity ignores transient import counters and original UA text.
  digest:=encode(sha256(convert_to(i::text,'UTF8')),'hex');
