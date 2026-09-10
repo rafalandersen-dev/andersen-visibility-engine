@@ -1565,6 +1565,8 @@ export const pl: Record<string, string> = {
   "outreach.toast.sendFailed": "Nie udało się wysłać wiadomości. Sprawdź szkic i spróbuj ponownie.",
 
   // ---- Scheduled publishing ----
+  "editor.schedule.sourceHeldAt":
+    "Pierwotny termin: {when}. Wstrzymano do przeglądu źródeł; publikacja nie jest w kolejce.",
   "editor.schedule.failedTitle": "Zaplanowana publikacja nie powiodła się",
   "editor.schedule.pending": "Zaplanowano publikację na {when}.",
 
