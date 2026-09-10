@@ -284,7 +284,13 @@ describe("scoped source refresh storage", () => {
       [user],
     );
     expect(retained.rows[0].result).toEqual([
-      { assetId: "asset", outputId: "asset", kind: "content", dependencies: [dependency] },
+      {
+        assetId: "asset",
+        outputId: "asset",
+        kind: "content",
+        dependencies: [dependency],
+        sourceForgotten: false,
+      },
     ]);
     await expect(
       db.query("INSERT INTO public.ai_generation_results VALUES($1,$2,$3)", [
@@ -308,6 +314,68 @@ describe("scoped source refresh storage", () => {
     expect(
       (await db.query("SELECT * FROM public.project_output_source_dependencies")).rows,
     ).toEqual([]);
+  });
+  it("forgets source identities while retaining only an output-level publication hold", async () => {
+    const dependency = {
+      ownerId: user,
+      projectId: "p",
+      sourceId: sid,
+      key: "private-key",
+      productId: "private-product",
+      fingerprint: fact.fingerprint,
+      critical: true,
+    };
+    await db.query("INSERT INTO public.ai_generation_results VALUES($1,$2,$3)", [
+      token,
+      user,
+      JSON.stringify({
+        kind: "content",
+        projectId: "p",
+        assetId: "asset",
+        output: { sourceDependencies: [dependency] },
+      }),
+    ]);
+    await db.query("SELECT forget_project_knowledge($1,'p','source',$2,1)", [user, sid]);
+    const retained = await db.query<{ result: unknown[] }>(
+      "SELECT read_output_source_dependencies($1,'p','asset') result",
+      [user],
+    );
+    expect(retained.rows[0].result).toEqual([
+      {
+        assetId: "asset",
+        outputId: "asset",
+        kind: "content",
+        dependencies: [],
+        sourceForgotten: true,
+      },
+    ]);
+    const serialized = JSON.stringify(retained.rows[0].result);
+    for (const privateValue of [sid, dependency.key, dependency.productId, dependency.fingerprint])
+      expect(serialized).not.toContain(privateValue);
+    expect(await read()).toEqual([]);
+    await db.query("INSERT INTO public.ai_generation_results VALUES($1,$2,$3)", [
+      other,
+      user,
+      JSON.stringify({
+        kind: "content",
+        projectId: "p",
+        assetId: "late",
+        output: { sourceDependencies: [dependency] },
+      }),
+    ]);
+    const late = await db.query<{ result: unknown[] }>(
+      "SELECT read_output_source_dependencies($1,'p','late') result",
+      [user],
+    );
+    expect(late.rows[0].result).toEqual([
+      {
+        assetId: "late",
+        outputId: "late",
+        kind: "content",
+        dependencies: [],
+        sourceForgotten: true,
+      },
+    ]);
   });
   it("does not consume source registry capacity for empty dependencies even at capacity", async () => {
     await db.query("INSERT INTO public.ai_generation_results VALUES($1,$2,$3)", [

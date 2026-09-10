@@ -168,6 +168,7 @@ CREATE TABLE public.project_output_source_dependencies (
   asset_id text NOT NULL,
   output_id text NOT NULL,
   kind text NOT NULL CHECK(kind IN ('content','image')),
+  source_forgotten boolean NOT NULL DEFAULT false,
   dependencies jsonb NOT NULL CHECK(jsonb_typeof(dependencies)='array' AND jsonb_array_length(dependencies)<=100 AND octet_length(dependencies::text)<=100000),
   PRIMARY KEY(user_id,project_id,asset_id,kind,output_id)
 );
@@ -175,7 +176,7 @@ ALTER TABLE public.project_output_source_dependencies ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.project_output_source_dependencies FROM PUBLIC,anon,authenticated,service_role;
 CREATE FUNCTION public.retain_output_source_dependencies()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
-DECLARE deps jsonb:=NEW.payload->'output'->'sourceDependencies'; entry jsonb;
+DECLARE deps jsonb:=NEW.payload->'output'->'sourceDependencies'; entry jsonb; sanitized jsonb; forgotten boolean:=false;
 BEGIN
   IF deps IS NULL OR deps='[]'::jsonb THEN RETURN NEW; END IF;
   IF jsonb_typeof(deps)<>'array' OR jsonb_array_length(deps)>100 OR octet_length(deps::text)>100000
@@ -193,13 +194,19 @@ BEGIN
       RAISE EXCEPTION 'invalid_output_source_dependencies' USING ERRCODE='22023';
     END IF;
   END LOOP;
+  -- A generation may finish after the source was forgotten. Never reintroduce
+  -- its identifiers from that late archive; keep the same minimal output hold.
+  SELECT coalesce(jsonb_agg(d),'[]'::jsonb) INTO sanitized FROM jsonb_array_elements(deps) d
+    WHERE NOT EXISTS(SELECT 1 FROM public.project_knowledge_tombstones t WHERE t.user_id=NEW.user_id AND t.project_id=NEW.payload->>'projectId' AND t.kind='source' AND t.id::text=d->>'sourceId');
+  forgotten:=jsonb_array_length(sanitized)<>jsonb_array_length(deps);
+  deps:=sanitized;
   IF NOT EXISTS(SELECT 1 FROM public.project_output_source_dependencies WHERE user_id=NEW.user_id AND project_id=NEW.payload->>'projectId' AND asset_id=NEW.payload->>'assetId' AND kind=NEW.payload->>'kind' AND output_id=CASE WHEN NEW.payload->>'kind'='image' THEN NEW.payload->>'imageId' ELSE NEW.payload->>'assetId' END)
     AND (SELECT count(*) FROM public.project_output_source_dependencies WHERE user_id=NEW.user_id AND project_id=NEW.payload->>'projectId')>=1000 THEN
     RAISE EXCEPTION 'output_source_capacity' USING ERRCODE='22023';
   END IF;
-  INSERT INTO public.project_output_source_dependencies(user_id,project_id,asset_id,output_id,kind,dependencies)
-  VALUES(NEW.user_id,NEW.payload->>'projectId',NEW.payload->>'assetId',CASE WHEN NEW.payload->>'kind'='image' THEN NEW.payload->>'imageId' ELSE NEW.payload->>'assetId' END,NEW.payload->>'kind',deps)
-  ON CONFLICT(user_id,project_id,asset_id,kind,output_id) DO UPDATE SET dependencies=EXCLUDED.dependencies;
+  INSERT INTO public.project_output_source_dependencies(user_id,project_id,asset_id,output_id,kind,dependencies,source_forgotten)
+  VALUES(NEW.user_id,NEW.payload->>'projectId',NEW.payload->>'assetId',CASE WHEN NEW.payload->>'kind'='image' THEN NEW.payload->>'imageId' ELSE NEW.payload->>'assetId' END,NEW.payload->>'kind',deps,forgotten)
+  ON CONFLICT(user_id,project_id,asset_id,kind,output_id) DO UPDATE SET dependencies=EXCLUDED.dependencies,source_forgotten=project_output_source_dependencies.source_forgotten OR EXCLUDED.source_forgotten;
   RETURN NEW;
 END;
 $$;
@@ -211,7 +218,7 @@ CREATE FUNCTION public.read_output_source_dependencies(p_user uuid,p_project tex
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 BEGIN
   PERFORM public.assert_knowledge_project(p_user,p_project);
-  RETURN coalesce((SELECT jsonb_agg(jsonb_build_object('assetId',asset_id,'outputId',output_id,'kind',kind,'dependencies',dependencies)) FROM public.project_output_source_dependencies WHERE user_id=p_user AND project_id=p_project AND (p_asset IS NULL OR asset_id=p_asset)),'[]'::jsonb);
+  RETURN coalesce((SELECT jsonb_agg(jsonb_build_object('assetId',asset_id,'outputId',output_id,'kind',kind,'dependencies',dependencies,'sourceForgotten',source_forgotten)) FROM public.project_output_source_dependencies WHERE user_id=p_user AND project_id=p_project AND (p_asset IS NULL OR asset_id=p_asset)),'[]'::jsonb);
 END;
 $$;
 REVOKE ALL ON FUNCTION public.read_output_source_dependencies(uuid,text,text) FROM PUBLIC,anon,authenticated;
@@ -231,3 +238,22 @@ $$;
 CREATE TRIGGER purge_output_source_dependencies AFTER DELETE ON public.workspace_entities
 FOR EACH ROW EXECUTE FUNCTION public.purge_output_source_dependencies();
 REVOKE ALL ON FUNCTION public.purge_output_source_dependencies() FROM PUBLIC,anon,authenticated,service_role;
+
+-- Forget private source identities/hashes while retaining only output-level
+-- evidence-loss markers. These markers cannot authorize publication or be
+-- erased by a browser save; deleting the output/project removes them normally.
+CREATE FUNCTION public.forget_output_source_dependencies()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+  UPDATE public.project_output_source_dependencies r SET
+    dependencies=coalesce((SELECT jsonb_agg(d) FROM jsonb_array_elements(r.dependencies) d WHERE d->>'sourceId'<>OLD.id::text),'[]'::jsonb),
+    source_forgotten=true
+    WHERE r.user_id=OLD.user_id AND r.project_id=OLD.project_id AND EXISTS(
+      SELECT 1 FROM jsonb_array_elements(r.dependencies) d WHERE d->>'sourceId'=OLD.id::text
+    );
+  RETURN OLD;
+END;
+$$;
+CREATE TRIGGER forget_output_source_dependencies AFTER DELETE ON public.project_knowledge_sources
+FOR EACH ROW EXECUTE FUNCTION public.forget_output_source_dependencies();
+REVOKE ALL ON FUNCTION public.forget_output_source_dependencies() FROM PUBLIC,anon,authenticated,service_role;
