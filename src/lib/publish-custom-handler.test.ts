@@ -21,6 +21,9 @@ vi.mock("./publish-secret.server", () => ({
   resolvePublishSecret: async () => "synthetic-test-secret",
 }));
 vi.mock("./publication-approval.server", () => ({ assertPublicationApproved: h.approval }));
+vi.mock("./publication-evidence.server", () => ({
+  withPublicationEvidence: async (args: { publish: () => Promise<unknown> }) => args.publish(),
+}));
 vi.mock("./source-publication.server", () => ({ assertAssetSourcesCurrent: h.sources }));
 import { publishLiveFn } from "./publish.functions";
 const run = publishLiveFn as unknown as (args: {

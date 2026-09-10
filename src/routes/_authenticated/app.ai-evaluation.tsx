@@ -1,3 +1,4 @@
+import { WorkflowComparisonPanel } from "@/components/WorkflowComparisonPanel";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -273,7 +274,8 @@ function AiEvaluationPage() {
           </div>
         </section>
       ) : null}
-    </AppShell>
+    {project && <WorkflowComparisonPanel projectId={project.id}/>}
+      </AppShell>
   );
 }
 

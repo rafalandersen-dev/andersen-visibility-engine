@@ -21,7 +21,12 @@ vi.mock("./source-refresh.server", () => ({ readOutputSourceDependencies: vi.fn(
 const approval = vi.hoisted(() => ({ check: vi.fn() }));
 vi.mock("./publication-approval.server", () => ({ assertPublicationApproved: approval.check }));
 
-import { serverWpArgs, serverShopifyArgs } from "./connector-guard.server";
+import {
+  serverWpArgs,
+  serverShopifyArgs,
+  serverWpPublication,
+  serverShopifyPublication,
+} from "./connector-guard.server";
 
 const wpProject = (): Project =>
   ({
@@ -131,4 +136,17 @@ describe("exact version publication approval", () => {
     );
     expect(approval.check).toHaveBeenCalledTimes(2);
   });
+});
+
+it("keeps the guarded asset snapshot paired with the exact connector arguments", async () => {
+  setWorkspace(wpProject(), asset());
+  const wp = await serverWpPublication("u1", "p1", "a1");
+  expect(wp.asset.title).toBe(wp.args.title);
+  expect(wp.asset.id).toBe(wp.args.assetId);
+  expect(wp.project.id).toBe(wp.args.projectId);
+  setWorkspace(shopifyProject(), asset());
+  const shop = await serverShopifyPublication("u1", "p1", "a1");
+  expect(shop.asset.title).toBe(shop.args.title);
+  expect(shop.asset.id).toBe(shop.args.assetId);
+  expect(shop.project.id).toBe(shop.args.projectId);
 });

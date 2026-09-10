@@ -427,10 +427,10 @@ export const publishWordPressContentFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => ContentInput.parse(input))
   .handler(async ({ data, context }): Promise<WordPressPublishResult> => {
-    let args: z.infer<typeof ContentInput>;
+    let plan: Awaited<ReturnType<typeof import("./connector-guard.server").serverWpPublication>>;
     try {
-      const { serverWpArgs } = await import("./connector-guard.server");
-      args = await serverWpArgs(context.userId as string, data.projectId, data.assetId);
+      const { serverWpPublication } = await import("./connector-guard.server");
+      plan = await serverWpPublication(context.userId as string, data.projectId, data.assetId);
     } catch (e) {
       return {
         success: false,
@@ -438,5 +438,24 @@ export const publishWordPressContentFn = createServerFn({ method: "POST" })
         retryable: false,
       };
     }
-    return publishWordPressLiveDirect(args);
+    try {
+      const { withPublicationEvidence } = await import("./publication-evidence.server");
+      return await withPublicationEvidence({
+        ownerId: context.userId,
+        ...plan,
+        publish: () => publishWordPressLiveDirect(plan.args),
+        outcome: (r) => ({
+          success: r.success,
+          retryable: r.retryable,
+          liveUrl: r.liveUrl,
+          externalId: r.postId ? String(r.postId) : undefined,
+        }),
+      });
+    } catch (e) {
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : FRIENDLY_CONNECT,
+        retryable: e instanceof PublishTransportError ? e.retryable : false,
+      };
+    }
   });

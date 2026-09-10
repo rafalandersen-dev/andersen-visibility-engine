@@ -62,7 +62,7 @@ function activePaths(project: Project, corpus: ContentAsset[]): string[] {
 }
 
 /** Authorise + re-derive the WordPress publish args for the caller's own asset. */
-export async function serverWpArgs(
+export async function serverWpPublication(
   userId: string,
   projectId: string,
   assetId: string,
@@ -81,11 +81,16 @@ export async function serverWpArgs(
   // workspace copy of the application password is blanked once migrated, so
   // the transport credential must come from the resolver, never the blob.
   const { resolveWordPressAppPassword } = await import("./publish-secret.server");
-  return { ...args, applicationPassword: await resolveWordPressAppPassword(userId, project) };
+  return {
+    asset,
+    project,
+    paths: activePaths(project, corpus),
+    args: { ...args, applicationPassword: await resolveWordPressAppPassword(userId, project) },
+  };
 }
 
 /** Authorise + re-derive the Shopify article args for the caller's own asset. */
-export async function serverShopifyArgs(userId: string, projectId: string, assetId: string) {
+export async function serverShopifyPublication(userId: string, projectId: string, assetId: string) {
   const { asset, project, corpus } = await readAssetAndProject(userId, projectId, assetId);
   assertPublishable(asset, project, corpus);
   const { assertAssetSourcesCurrent } = await import("./source-publication.server");
@@ -95,5 +100,22 @@ export async function serverShopifyArgs(userId: string, projectId: string, asset
   const args = shopifyArticleArgs(asset, project, activePaths(project, corpus));
   // Same store-first resolution as WordPress above.
   const { resolveShopifyAdminToken } = await import("./publish-secret.server");
-  return { ...args, adminAccessToken: await resolveShopifyAdminToken(userId, project) };
+  return {
+    asset,
+    project,
+    paths: activePaths(project, corpus),
+    args: { ...args, adminAccessToken: await resolveShopifyAdminToken(userId, project) },
+  };
+}
+
+export async function serverWpArgs(
+  userId: string,
+  projectId: string,
+  assetId: string,
+  selectedSlug?: string,
+) {
+  return (await serverWpPublication(userId, projectId, assetId, selectedSlug)).args;
+}
+export async function serverShopifyArgs(userId: string, projectId: string, assetId: string) {
+  return (await serverShopifyPublication(userId, projectId, assetId)).args;
 }

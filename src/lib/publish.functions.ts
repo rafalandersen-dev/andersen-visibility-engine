@@ -50,7 +50,8 @@ async function resolvePublishContext(
   const project = projects.find((p) => p.id === projectId);
   if (!project) throw new Error("Project not found in your workspace.");
   const asset = content.find((c) => c.id === assetId);
-  if (!asset || asset.projectId !== project.id) throw new Error("Content not found in your workspace.");
+  if (!asset || asset.projectId !== project.id)
+    throw new Error("Content not found in your workspace.");
   const { resolvePublishSecret } = await import("./publish-secret.server");
   return {
     asset,
@@ -450,18 +451,34 @@ export const publishLiveFn = createServerFn({ method: "POST" })
     // receiving endpoint answered `alreadyPublished: ok` without writing a byte,
     // Milo recorded "Published", and the live page kept serving the old copy
     // (verified live on synergymassage.se, 2026-07-23).
-    const draft = await publishDraftDirect({
-      ...draftPayloadFor(asset, project, paths),
-      endpoint: draftEndpoint,
-      secret,
-    });
-    return publishLiveDirect({
-      projectId: project.id,
-      assetId: asset.id,
-      slug: asset.publishSlug || asset.slug || "",
-      destinationType: asset.publishDestinationType ?? project.defaultDestinationType ?? "blogPost",
-      externalId: draft.externalId || asset.publishExternalId || "",
-      endpoint: liveEndpoint,
-      secret,
+    const { withPublicationEvidence } = await import("./publication-evidence.server");
+    return withPublicationEvidence({
+      ownerId: context.userId,
+      asset,
+      project,
+      paths,
+      publish: async () => {
+        const draft = await publishDraftDirect({
+          ...draftPayloadFor(asset, project, paths),
+          endpoint: draftEndpoint,
+          secret,
+        });
+        return publishLiveDirect({
+          projectId: project.id,
+          assetId: asset.id,
+          slug: asset.publishSlug || asset.slug || "",
+          destinationType:
+            asset.publishDestinationType ?? project.defaultDestinationType ?? "blogPost",
+          externalId: draft.externalId || asset.publishExternalId || "",
+          endpoint: liveEndpoint,
+          secret,
+        });
+      },
+      outcome: (r) => ({
+        success: r.ok,
+        liveUrl: r.liveUrl,
+        externalId: r.externalId,
+        publishedAt: r.publishedAt,
+      }),
     });
   });

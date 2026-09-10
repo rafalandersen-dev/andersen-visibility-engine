@@ -1,0 +1,13 @@
+# Fixed workflow comparisons
+
+This evaluator compares **owner-reviewed evidence** from two named workflow versions against one fixed set of project-specific briefs. It does not call models, certify receipts, pool private client data, or change deployed workflows. A favourable result is eligibility for development review, not authorization to release or spend.
+
+Prepare the two outputs under separately authorized execution/cost controls. Record every stage, including research, review, revision, images and uncertain expenses. Unknown or estimated expenses remain incomplete, not zero. The owner rates factual support, brand fit, usefulness, language and visual fidelity from0–5; these are not model self-scores. Candidate regressions and lower case-level scores block eligibility even when a global average might improve.
+
+Use one JSON file per project, following `workflowComparisonSchema` in `src/lib/workflow-comparison.ts`: projectId, suiteName, baselineVersion, candidateVersion, reviewedAt, cases. Every case has a unique id, shared brief/language, and separate baseline/candidate records. Each record contains the retained output, reviewer:"owner", all five scores, regression tags and1–30 cost steps. Cost steps contain name, costUsd (or null), costBasis (recorded/estimated/unknown), and a receiptReference when recorded. Refer to safe receipt identifiers, never credentials or private recovery URLs. There are at most24 cases; the complete file is at most250kB.
+
+Run `bun scripts/compare-workflows.ts input.json separate-report.json` for an offline report. Output is created with restrictive file permissions and never overwrites an existing artifact. The manifest hash binds the exact shared briefs, case IDs, order and languages. Compare the same fixed cases for both versions; include failures rather than dropping difficult cases. Do not present synthetic fixtures as real provider benchmarks.
+
+The AI Evaluation page can import the reviewed **input** file for its currently selected project. The server recalculates the verdict, validates ownership and saves the immutable document, deduplicated by content hash. It will not import a different project's file by silently changing projectId. The existing model-preview evaluation remains separate.
+
+A reviewed improvement still needs a concrete development change, exact-candidate tests/review, release identification and rollback. Private-client comparisons remain isolated. The existing one-scan/article/imageUSD5 scope does not fund this benchmark; real execution and cost/quality acceptance remain blocked on secure provider setup and any additional applicable authorization.

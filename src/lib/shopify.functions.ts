@@ -402,17 +402,30 @@ export const publishShopifyContentFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => ArticleInput.parse(input))
   .handler(async ({ data, context }): Promise<ShopifyPublishResult> => {
-    let args: z.infer<typeof ArticleInput>;
+    let plan: Awaited<
+      ReturnType<typeof import("./connector-guard.server").serverShopifyPublication>
+    >;
     try {
-      const { serverShopifyArgs } = await import("./connector-guard.server");
-      args = await serverShopifyArgs(context.userId as string, data.projectId, data.assetId);
+      const { serverShopifyPublication } = await import("./connector-guard.server");
+      plan = await serverShopifyPublication(context.userId as string, data.projectId, data.assetId);
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : FRIENDLY_CONNECT };
     }
     try {
-      if (!args.blogGid && !args.articleGid)
+      if (!plan.args.blogGid && !plan.args.articleGid)
         return { success: false, error: "Select a Shopify blog in Project Setup first." };
-      return await upsertArticle(args, true);
+      const { withPublicationEvidence } = await import("./publication-evidence.server");
+      return await withPublicationEvidence({
+        ownerId: context.userId,
+        ...plan,
+        publish: () => upsertArticle(plan.args, true),
+        outcome: (r) => ({
+          success: r.success,
+          retryable: r.retryable,
+          liveUrl: r.liveUrl,
+          externalId: r.articleGid || r.articleId,
+        }),
+      });
     } catch (e) {
       // Preserve the transport classification: only a proven-nothing-created
       // failure may be retried by the scheduled runner.
