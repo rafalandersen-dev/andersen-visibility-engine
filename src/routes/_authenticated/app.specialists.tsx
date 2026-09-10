@@ -69,7 +69,12 @@ function TeamProject({
   const t = useT(),
     locale = useAppLanguage();
   const config = normalizeAutoSchedulerConfig(project.autoScheduler);
-  const [week, setWeek] = useState(() => localWeekStart(new Date(), config.timeZone));
+  // Match the preparation panel: normal pre-week work targets next week.
+  const [week, setWeek] = useState(() =>
+    new Date(Date.parse(localWeekStart(new Date(), config.timeZone) + "T00:00:00Z") + 7 * 86400000)
+      .toISOString()
+      .slice(0, 10),
+  );
   const [memoryOpen, setMemoryOpen] = useState(showKnowledge);
   const reportQuery = useQuery({
     queryKey: ["specialist-week", ownerId, project.id, week],
