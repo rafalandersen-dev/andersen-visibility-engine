@@ -174,7 +174,7 @@ CREATE FUNCTION public.retain_output_source_dependencies()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE deps jsonb:=NEW.payload->'output'->'sourceDependencies'; entry jsonb;
 BEGIN
-  IF deps IS NULL THEN RETURN NEW; END IF;
+  IF deps IS NULL OR deps='[]'::jsonb THEN RETURN NEW; END IF;
   IF jsonb_typeof(deps)<>'array' OR jsonb_array_length(deps)>100 OR octet_length(deps::text)>100000
     OR NEW.payload->>'kind' NOT IN ('content','image')
     OR coalesce(NEW.payload->>'projectId','') !~ '^[A-Za-z0-9_-]{1,64}$'

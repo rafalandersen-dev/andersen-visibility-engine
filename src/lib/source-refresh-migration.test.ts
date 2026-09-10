@@ -296,6 +296,40 @@ describe("scoped source refresh storage", () => {
       (await db.query("SELECT * FROM public.project_output_source_dependencies")).rows,
     ).toEqual([]);
   });
+  it("does not consume source registry capacity for empty dependencies even at capacity", async () => {
+    await db.query("INSERT INTO public.ai_generation_results VALUES($1,$2,$3)", [
+      token,
+      user,
+      JSON.stringify({
+        kind: "content",
+        projectId: "p",
+        assetId: "empty",
+        output: { sourceDependencies: [] },
+      }),
+    ]);
+    expect(
+      (await db.query("SELECT * FROM public.project_output_source_dependencies")).rows,
+    ).toHaveLength(0);
+    await db.query(
+      "INSERT INTO public.project_output_source_dependencies(user_id,project_id,asset_id,output_id,kind,dependencies) SELECT $1,'p','asset-'||n,'asset-'||n,'content','[]'::jsonb FROM generate_series(1,1000) n",
+      [user],
+    );
+    await db.query("INSERT INTO public.ai_generation_results VALUES($1,$2,$3)", [
+      other,
+      user,
+      JSON.stringify({
+        kind: "image",
+        projectId: "p",
+        assetId: "empty",
+        imageId: "empty-image",
+        output: { sourceDependencies: [] },
+      }),
+    ]);
+    expect(
+      (await db.query("SELECT * FROM public.project_output_source_dependencies")).rows,
+    ).toHaveLength(1000);
+    expect((await db.query("SELECT * FROM public.ai_generation_results")).rows).toHaveLength(2);
+  });
   it("denies browser roles and direct service table access", async () => {
     for (const role of ["anon", "authenticated"]) {
       await db.exec(`SET ROLE ${role}`);
