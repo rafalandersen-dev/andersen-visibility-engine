@@ -330,6 +330,56 @@ describe("weekly executor durable cancellation, delivery and summaries", () => {
     await db.query("DELETE FROM workspace_entities WHERE entity_id=$1", [s.outputId]);
     expect((await read()).deliveredAt).toBeTruthy();
   });
+  it.each(["none", "before", "alongside"])(
+    "tracks retained image delivery without hiding %s owner edits",
+    async (edit) => {
+      const content = await stage("content");
+      await db.query(
+        "INSERT INTO workspace_entities(user_id,collection,entity_id,data) VALUES($1,'content',$2,$3)",
+        [
+          user,
+          content.outputId,
+          JSON.stringify({ projectId: "p", title: "Original", status: "Draft", images: [] }),
+        ],
+      );
+      const image = (
+        await db.query<{ result: { requestId: string; outputId: string } }>(
+          "SELECT begin_weekly_preparation_stage($1,'p',$2,1,'2099-09-15T07:00:00Z','image',$3) result",
+          [user, content.token, hash],
+        )
+      ).rows[0].result;
+      await db.query("UPDATE weekly_preparation_stages SET state='retained' WHERE request_id=$1", [
+        image.requestId,
+      ]);
+      if (edit === "before")
+        await db.query(
+          'UPDATE workspace_entities SET data=data||\'{"title":"Owner edit"}\'::jsonb WHERE entity_id=$1',
+          [content.outputId],
+        );
+      const patch = {
+        images: [{ id: image.outputId, status: "proposed" }],
+        updatedAt: "2099-09-10T10:00:00Z",
+        ...(edit === "alongside" ? { title: "Owner edit" } : {}),
+      };
+      await db.query("UPDATE workspace_entities SET data=data||$2::jsonb WHERE entity_id=$1", [
+        content.outputId,
+        JSON.stringify(patch),
+      ]);
+      const read = async () =>
+        (
+          await db.query<{ result: Array<{ stage: string; outputChanged: boolean }> }>(
+            "SELECT read_weekly_preparation_stages($1,'p',$2) result",
+            [user, period],
+          )
+        ).rows[0].result.find((s) => s.stage === "content");
+      expect((await read())?.outputChanged).toBe(edit !== "none");
+      await db.query(
+        'UPDATE workspace_entities SET data=data||\'{"title":"Later owner edit"}\'::jsonb WHERE entity_id=$1',
+        [content.outputId],
+      );
+      expect((await read())?.outputChanged).toBe(true);
+    },
+  );
   it("deduplicates identical in-app summaries without changing their update time", async () => {
     const summary = { slots: 2, drafted: 1, queued: 0, uncovered: 1, action: "review-required" };
     const save = () =>

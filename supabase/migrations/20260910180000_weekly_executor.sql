@@ -22,6 +22,24 @@ BEGIN
     UPDATE public.weekly_preparation_stages SET delivered_at=coalesce(delivered_at,clock_timestamp()) WHERE user_id=NEW.user_id AND project_id=NEW.data->>'projectId' AND stage='research' AND result->'opportunity'->>'id'=NEW.entity_id;
   END IF;
   IF NEW.collection='content' THEN
+    -- Advance the baseline only for a first retained-image attachment to the
+    -- untouched delivered draft. Other content and existing images must match;
+    -- owner changes before, alongside or after delivery remain visible.
+    IF TG_OP='UPDATE' AND OLD.data->>'status'='Draft'
+      AND (OLD.data-ARRAY['images','updatedAt','assembled','checklist','readiness','qualityScoreStale'])
+        = (NEW.data-ARRAY['images','updatedAt','assembled','checklist','readiness','qualityScoreStale']) THEN
+      UPDATE public.weekly_preparation_stages c SET delivery_hash=md5(NEW.data::text)
+      WHERE c.user_id=NEW.user_id AND c.project_id=NEW.data->>'projectId'
+        AND c.stage='content' AND c.output_id::text=NEW.entity_id
+        AND c.delivery_hash=md5(OLD.data::text)
+        AND EXISTS(SELECT 1 FROM public.weekly_preparation_stages i
+          WHERE i.user_id=c.user_id AND i.project_id=c.project_id AND i.publish_at=c.publish_at
+            AND i.stage='image' AND i.state='retained' AND i.delivered_at IS NULL
+            AND jsonb_typeof(NEW.data->'images')='array'
+            AND jsonb_array_length(NEW.data->'images')=jsonb_array_length(coalesce(OLD.data->'images','[]'::jsonb))+1
+            AND ((NEW.data->'images') - (jsonb_array_length(NEW.data->'images')-1))=coalesce(OLD.data->'images','[]'::jsonb)
+            AND (NEW.data->'images')->-1->>'id'=i.output_id::text);
+    END IF;
     UPDATE public.weekly_preparation_stages SET delivered_at=coalesce(delivered_at,clock_timestamp()),delivery_hash=coalesce(delivery_hash,md5(NEW.data::text))
       WHERE user_id=NEW.user_id AND project_id=NEW.data->>'projectId' AND stage='content' AND output_id::text=NEW.entity_id;
     UPDATE public.weekly_preparation_stages s SET delivered_at=coalesce(s.delivered_at,clock_timestamp())

@@ -475,7 +475,11 @@ export async function runWeeklyProject(scope: Scope, now = new Date()) {
       );
       next.data.content = (next.data.content as ContentAsset[]).map((a) =>
         a.id === retained.result.assetId
-          ? { ...a, autoScheduledFor: period, autoSchedulerPlannedAt: slot.publishAt }
+          ? {
+              ...(attachBestHook(a, now.toISOString()) ?? a),
+              autoScheduledFor: period,
+              autoSchedulerPlannedAt: slot.publishAt,
+            }
           : a,
       );
       if (
@@ -575,7 +579,7 @@ export async function runWeeklyProject(scope: Scope, now = new Date()) {
               : i,
           ),
         };
-        return attachBestHook(proposed, now.toISOString()) ?? proposed;
+        return proposed;
       });
       if (
         (await updateWorkspaceRow(scope.ownerId, next.data, before.row.rev, before.row.data)) ===
