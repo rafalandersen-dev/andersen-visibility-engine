@@ -30,12 +30,16 @@ beforeAll(async () => {
     "INSERT INTO workspace_entities(user_id,collection,entity_id,data) VALUES($1,'projects','p','{\"autoScheduler\":{\"enabled\":true}}')",
     [user],
   );
+  await db.exec(
+    "CREATE SCHEMA cron;CREATE TABLE cron.job(jobid bigserial PRIMARY KEY,jobname text UNIQUE,schedule text,command text,active boolean DEFAULT true);CREATE FUNCTION cron.schedule(p_name text,p_schedule text,p_command text) RETURNS bigint LANGUAGE plpgsql AS $$ DECLARE id bigint; BEGIN INSERT INTO cron.job(jobname,schedule,command) VALUES(p_name,p_schedule,p_command) RETURNING jobid INTO id; RETURN id; END; $$;CREATE FUNCTION cron.alter_job(job_id bigint,active boolean) RETURNS void LANGUAGE sql AS $$ UPDATE cron.job SET active=$2 WHERE jobid=$1; $$;INSERT INTO cron.job(jobname,schedule,command) VALUES('monthly-auto-scheduler','0 6 25 * *','existing-monthly-command');",
+  );
   for (const migration of [
     "20260907190000_auto_scheduler_leases.sql",
     "20260909200000_project_knowledge.sql",
     "20260910150000_weekly_preparation.sql",
     "20260910170000_publication_approval.sql",
     "20260910180000_weekly_executor.sql",
+    "20260910190000_weekly_dispatch.sql",
   ])
     await db.exec(readFileSync(`supabase/migrations/${migration}`, "utf8"));
 }, 30000);
@@ -48,6 +52,17 @@ afterAll(async () => {
   await db?.close();
 });
 describe("single scheduler cutover ownership", () => {
+  it("creates weekly dispatch disabled until runtime verification, preserving the existing monthly timer", async () => {
+    expect(
+      (await db.query("SELECT jobname,schedule,active FROM cron.job ORDER BY jobname")).rows,
+    ).toEqual([
+      { jobname: "monthly-auto-scheduler", schedule: "0 6 25 * *", active: true },
+      { jobname: "weekly-preparation", schedule: "*/5 * * * *", active: false },
+    ]);
+    await expect(
+      db.exec(readFileSync("supabase/migrations/20260910190000_weekly_dispatch.sql", "utf8")),
+    ).rejects.toThrow("weekly_dispatch_already_exists");
+  });
   it("keeps existing projects monthly until explicit cutover and refuses the old engine afterward", async () => {
     await expect(claim("week:2026-09-14")).rejects.toThrow("scheduler_engine_changed");
     await set();
