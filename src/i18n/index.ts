@@ -10,6 +10,7 @@
  */
 import { useStore } from "@/lib/store";
 import type { OnboardingLanguage } from "@/lib/types";
+import { answerEvidenceCopy } from "./answer-evidence";
 import { en } from "./en";
 import { pl } from "./pl";
 import { sv } from "./sv";
@@ -35,6 +36,7 @@ export function translate(
 ): string {
   const l = isSupported(lang) ? lang : "en";
   let s =
+    answerEvidenceCopy[l][key] ??
     proofEvidence[l][key] ??
     specialistTeam[l][key] ??
     (projectKnowledge[l] as Dict)[key] ??
