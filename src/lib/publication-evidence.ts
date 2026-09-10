@@ -1,4 +1,4 @@
-import { gscPageUrl, gscPageInProperty, safeGscRow } from "./gsc";
+import { gscPageUrl, gscPageInProperty, safeGscRow, MAX_ROWS_PER_IMPORT } from "./gsc";
 import { z } from "zod";
 import { assembleContentAsset } from "./content-assembler";
 import { publicationVersion } from "./publication-version";
@@ -151,6 +151,8 @@ export function observationFromImport(
   if (publication.outcome !== "published" || !publication.outcomeData?.publishedAt)
     throw Error("publication_unconfirmed");
   if (imp.integrityVersion !== 2) throw Error("observation_legacy_import");
+  if (!Array.isArray(imp.rows) || imp.rows.length > MAX_ROWS_PER_IMPORT)
+    throw Error("observation_import_limit");
   const page = gscPageUrl(publication.outcomeData.liveUrl);
   if (!page) throw Error("publication_url_unavailable");
   const start = sourceDay.parse(imp.dateRange?.start),

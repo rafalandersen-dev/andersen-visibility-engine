@@ -17,3 +17,7 @@ Corrected candidate local final2,855tests/210files/types/build/lint pass. Missin
 Review8ff7130completed19:00:00UTC found3982505285/3982505288: metric-lessmatchmustbeunavailable; browser-editedv2rowmustrevalidatemetricsbeforefreezing. Fixedbyusablemetricpresence andcreation-only strictcount/position/CTR/click-impressionvalidation, leavinghistoricalobservationschemaunchanged. Addedmalformedv2andhistoricalreadabilityregressions. Prior8ffLinux34517303077passes2,855/210bothBunversions. InitialClaude34516532328SUCCESS18:58:21with4permissiondenials/nobufferedcommentsinspected; final8ffClaude34517302987stillpending. No productionmutation.
 
 Metric-fix candidate local2,857tests/210files/types/build/focusedlint pass; /tmp/milo-gsc-metrics-{full,types,build,lint}.log. Historical observation schema is deliberately unchanged; stricter invariants apply only before creating a new frozen observation. Final review/release pending.
+
+Review88a6dfcompleted19:05:32UTC found3982549285 (over-limitbrowserimportcouldstillfreezeonepage). Creationnowrequiresanarraywith<=MAX_ROWS_PER_IMPORT beforefiltering; regressioncovers1,001rejectionand1,000admission. Allpriorfourfixespreserved. Finalreview/releasepending,no productionmutation.
+
+Bound-fix focused44tests/3files/types/build/lint pass; /tmp/milo-gsc-bound-{focused,types,build,lint}.log. Previous88a6dfLinux34517997927 passed2,857tests/210files on bothBunversions/types/build/locks, /tmp/milo-gsc-final-linux-88a6df0.log. Final exact Linux/review pending.

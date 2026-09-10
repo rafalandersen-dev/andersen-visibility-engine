@@ -165,6 +165,18 @@ describe("publication evidence transport boundary", () => {
   });
 });
 describe("later measurements", () => {
+  it("rejects over-limit imports before selecting a matching page", () => {
+    const over = imp();
+    over.rows.push(
+      ...Array.from({ length: 1000 }, (_, i) => ({
+        ...over.rows[0],
+        page: `https://example.com/other-${i}`,
+      })),
+    );
+    expect(() => observationFromImport(over, pub, now)).toThrow("import_limit");
+    over.rows.pop();
+    expect(observationFromImport(over, pub, now).page).toBe("https://example.com/article");
+  });
   it("revalidates browser-edited v2 metrics before freezing new evidence", () => {
     for (const patch of [
       { clicks: 3, impressions: 2 },
