@@ -132,7 +132,14 @@ BEGIN
   SELECT id INTO result FROM public.workflow_evaluations WHERE user_id=p_user AND project_id=p_project AND document_hash=digest;
   IF FOUND THEN RETURN result; END IF;
   IF (SELECT count(*) FROM public.workflow_evaluations WHERE user_id=p_user AND project_id=p_project)>=100 THEN RAISE EXCEPTION 'workflow_evaluation_capacity'; END IF;
-  INSERT INTO public.workflow_evaluations(user_id,project_id,document_hash,document) VALUES(p_user,p_project,digest,p_document) RETURNING id INTO result;
+  -- The account lock above serializes normal writers. Also handle the unique
+  -- constraint atomically so an identical winner is returned without rewriting it.
+  INSERT INTO public.workflow_evaluations(user_id,project_id,document_hash,document) VALUES(p_user,p_project,digest,p_document)
+    ON CONFLICT (user_id,project_id,document_hash) DO NOTHING RETURNING id INTO result;
+  IF result IS NULL THEN
+    SELECT id INTO result FROM public.workflow_evaluations WHERE user_id=p_user AND project_id=p_project AND document_hash=digest;
+  END IF;
+  IF result IS NULL THEN RAISE EXCEPTION 'workflow_evaluation_unavailable'; END IF;
   RETURN result;
 END; $$;
 CREATE FUNCTION public.read_workflow_evaluations(p_user uuid,p_project text)
