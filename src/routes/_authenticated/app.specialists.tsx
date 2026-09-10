@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { AppShell } from "@/components/AppShell";
@@ -184,13 +184,14 @@ function TeamProject({
                         {date(job.publishAt)} · {t(`weekly.stageState.${job.state}`)}
                         {job.outputChanged ? ` · ${t("weekly.outputChanged")}` : ""}
                         {saved && (
-                          <Link
+                          // A document navigation reruns authenticated workspace hydration.
+                          // SPA navigation alone cannot open newly retained server assets.
+                          <a
                             className="block underline"
-                            to="/app/editor"
-                            search={{ id: saved.id }}
+                            href={`/app/editor?id=${encodeURIComponent(saved.id)}`}
                           >
                             {saved.title}
-                          </Link>
+                          </a>
                         )}
                       </li>
                     );
@@ -204,7 +205,7 @@ function TeamProject({
                   </Button>
                 ) : (
                   <Button asChild variant="outline">
-                    <Link to={destinations[role]}>{t(`team.open.${role}`)}</Link>
+                    <a href={destinations[role]}>{t(`team.open.${role}`)}</a>
                   </Button>
                 )}
               </div>
