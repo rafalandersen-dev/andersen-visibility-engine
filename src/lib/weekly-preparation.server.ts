@@ -115,14 +115,24 @@ export async function readWeeklyPreparation(
     Array.isArray(workspace?.content) ? (workspace.content as import("./types").ContentAsset[]) : []
   ).filter((a) => a.projectId === scope.projectId);
   // Include cancellations/failures as reservations, so a retry cannot replace an
-  // owner's decision. A bounded complete queue is required; never hide overflow.
-  const { data, error } = await supabaseAdmin
+  // owner's decision. Whole-month legacy reservations also need earlier queue
+  // instants. Keep the full bounded source and verify its exact count because
+  // PostgREST may return fewer rows than the requested limit. Never accept a
+  // silently truncated history as current readiness.
+  const { data, error, count } = await supabaseAdmin
     .from("scheduled_publishes")
-    .select("asset_id,publish_at,status")
+    .select("asset_id,publish_at,status", { count: "exact" })
     .eq("user_id", scope.ownerId)
     .eq("project_id", scope.projectId)
     .limit(1001);
-  if (error || !Array.isArray(data) || data.length > 1000)
+  if (
+    error ||
+    !Number.isInteger(count) ||
+    (count ?? -1) < 0 ||
+    (count ?? 1001) > 1000 ||
+    !Array.isArray(data) ||
+    data.length !== count
+  )
     throw new SchedulerControlUnavailableError();
   const queue = weeklyQueueSchema.parse(
     data.map((r) => ({
