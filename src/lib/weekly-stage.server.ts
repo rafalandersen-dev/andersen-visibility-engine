@@ -78,9 +78,29 @@ export async function runWeeklyStage<T extends Record<string, unknown>>(
   const started = parsed.data;
   if (started.inputHash !== args.inputHash) throw new WeeklyStageUnavailableError();
   if (!started.acquired) {
-    if (started.state !== "retained" || started.result === null)
-      throw new WeeklyStageUnavailableError();
-    return args.parseResult(started.result);
+    if (started.state === "retained" && started.result !== null)
+      return args.parseResult(started.result);
+    // An archived output may exist even though the final stage acknowledgement
+    // was lost. Reconcile that exact request; never run the callback again.
+    if (started.state === "unknown" && args.stage !== "research") {
+      const retained = await call(
+        "recover_weekly_preparation_stage",
+        {
+          p_user: scope.ownerId,
+          p_project: scope.projectId,
+          p_request: started.requestId,
+        },
+        rpc,
+      );
+      if (retained !== null) {
+        try {
+          return args.parseResult(retained);
+        } catch {
+          throw new WeeklyStageUnavailableError();
+        }
+      }
+    }
+    throw new WeeklyStageUnavailableError();
   }
   if (started.state !== "running" || started.result !== null)
     throw new WeeklyStageUnavailableError();

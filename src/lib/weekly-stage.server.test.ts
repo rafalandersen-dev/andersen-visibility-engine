@@ -55,6 +55,20 @@ describe("weekly stage paid replay prevention", () => {
       expect(args.work).not.toHaveBeenCalled();
     }
   });
+  it("recovers a lost stage acknowledgement from the exact archived request", async () => {
+    const args = config();
+    const rpc = vi
+      .fn()
+      .mockResolvedValueOnce({ data: { ...start, acquired: false, state: "unknown" } })
+      .mockResolvedValueOnce({ data: { receiptId: uuid } });
+    await expect(runWeeklyStage(args, rpc)).resolves.toEqual({ receiptId: uuid });
+    expect(args.work).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenLastCalledWith("recover_weekly_preparation_stage", {
+      p_user: uuid,
+      p_project: "p",
+      p_request: uuid,
+    });
+  });
   it("does not replay work or mark it failed after losing the retention acknowledgement", async () => {
     const args = config();
     const rpc = vi
