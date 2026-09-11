@@ -24,6 +24,8 @@ Rendered preview assembly now has private actor and owner admission budgets befo
 
 The final server-side preview projection now preserves known image URLs in article prose, code, links and captions, replacing only image sources. Fourteen focused tests, types and changed-file lint pass. Security review of the preceding preview-admission commit reported no issues; fresh code review of this follow-up remains required. No migration source changed.
 
+Image preview matching now decodes HTML source attributes once before comparing raw saved URLs, fixing valid query-string images emitted with literal ampersands. Nineteen focused tests, types, changed-file lint and dependency lock checks pass; no SQL source changed.
+
 ## Recorded baseline and latest repository check
 
 - Remote main: `083d1fa6e8d0a4e6e2e12d28b1c27591830b772d`, normal merge of output knowledge revalidation PR #122. P0–P5, prompt/answer/log evidence and all prior fixes are preserved.

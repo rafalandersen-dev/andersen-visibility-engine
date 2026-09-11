@@ -70,6 +70,27 @@ describe("collaborator canonical preview", () => {
     expect(result.imageIds).toEqual(["content_im"]);
     expect(result.unknownImages).toBe(0);
   });
+  it.each(["&", "&amp;", "&#38;", "&#x26;"])(
+    "matches canonical query separators represented as %s",
+    (separator) => {
+      const result = teamPreviewHtml(
+        `<img src="https://site.example/im.png?a=1${separator}b=2" />`,
+        [{ id: "content_im", url: "https://site.example/im.png?a=1&b=2" }],
+      );
+      expect(result).toEqual({
+        html: '<img src="milo-review-image:content_im" />',
+        imageIds: ["content_im"],
+        unknownImages: 0,
+      });
+    },
+  );
+  it("decodes attributes once and retains literal entity text in saved URLs", () => {
+    const result = teamPreviewHtml('<img src="https://site.example/im.png?a=1&amp;amp;b=2" />', [
+      { id: "literal", url: "https://site.example/im.png?a=1&amp;b=2" },
+      { id: "decoded", url: "https://site.example/im.png?a=1&b=2" },
+    ]);
+    expect(result.imageIds).toEqual(["literal"]);
+  });
   it("handles repeated use of the same image without requiring duplicate downloads", () => {
     const result = teamPreviewHtml(
       '<img src="https://site.example/im.png" /><img src="https://site.example/im.png" />',

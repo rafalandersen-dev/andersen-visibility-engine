@@ -1,3 +1,4 @@
+import { decodeHTMLAttribute } from "entities";
 import { acquireTeamPreview, releaseTeamPreview } from "./project-team-preview-limit.server";
 import { createHash } from "node:crypto";
 import { readTeamReviewAuthority } from "./project-team-authority.server";
@@ -29,12 +30,12 @@ export function teamPreviewHtml(html: string, images: { id: string; url?: string
   const byUrl = new Map<string, string>();
   for (const image of images)
     if (image.url) {
-      const url = escape(image.url.trim());
+      const url = image.url.trim();
       if (!byUrl.has(url)) byUrl.set(url, image.id);
     }
   const projected = html.replace(/<img\b[^>]*>/gi, (tag) => {
     const match = tag.match(/\ssrc="([^"]*)"/i);
-    const id = match ? byUrl.get(match[1]) : undefined;
+    const id = match ? byUrl.get(decodeHTMLAttribute(match[1])) : undefined;
     if (!id) {
       unknownImages++;
       return '<span role="img" aria-label="Image unavailable">[Image unavailable]</span>';
