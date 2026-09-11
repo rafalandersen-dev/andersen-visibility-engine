@@ -1698,6 +1698,40 @@ describe("explicit saved invitation email delivery", () => {
         [c.id, c.lease_token],
       )
     ).rows[0].ok;
+  it("requeues only failed pre-transport work on an explicit bounded owner request", async () => {
+    await create();
+    const id = await request();
+    for (let cycle = 1; cycle <= 20; cycle++) {
+      await db.query(
+        "UPDATE project_team_invitation_deliveries SET status='failed',attempts=3,finished_at=now() WHERE id=$1",
+        [id],
+      );
+      if (cycle === 20)
+        await expect(request()).rejects.toThrow("team_invitation_delivery_capacity");
+      else {
+        expect(await request()).toBe(id);
+        expect(
+          (
+            await db.query(
+              "SELECT status,attempts,lease_token,finished_at FROM project_team_invitation_deliveries WHERE id=$1",
+              [id],
+            )
+          ).rows[0],
+        ).toEqual({ status: "pending", attempts: 0, lease_token: null, finished_at: null });
+      }
+    }
+    for (const status of ["accepted", "unknown", "sending"]) {
+      await db.query("UPDATE project_team_invitation_deliveries SET status=$2 WHERE id=$1", [
+        id,
+        status,
+      ]);
+      expect(await request()).toBe(id);
+      expect(
+        (await db.query("SELECT status FROM project_team_invitation_deliveries WHERE id=$1", [id]))
+          .rows[0],
+      ).toEqual({ status });
+    }
+  });
   it("requires owner review of the exact saved recipient and is retry-idempotent", async () => {
     await create();
     await expect(request("wrong@example.test")).rejects.toThrow("team_invitation_delivery_changed");

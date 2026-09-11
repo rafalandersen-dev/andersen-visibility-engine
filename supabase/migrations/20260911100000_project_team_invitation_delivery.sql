@@ -6,6 +6,8 @@ CREATE TABLE public.project_team_invitation_deliveries (
  project_id text NOT NULL,
  status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','leased','sending','accepted','unknown','cancelled','failed')),
  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+ last_requested_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+ requested_at timestamptz[] NOT NULL DEFAULT ARRAY[clock_timestamp()] CHECK(cardinality(requested_at) BETWEEN 1 AND 20),
  available_at timestamptz NOT NULL DEFAULT clock_timestamp(),
  lease_token uuid,lease_until timestamptz,
  attempts integer NOT NULL DEFAULT 0 CHECK(attempts BETWEEN 0 AND 3),
@@ -16,17 +18,25 @@ CREATE TABLE public.project_team_invitation_deliveries (
 ALTER TABLE public.project_team_invitation_deliveries ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.project_team_invitation_deliveries FROM PUBLIC,anon,authenticated;
 GRANT ALL ON public.project_team_invitation_deliveries TO service_role;
+CREATE INDEX project_team_invitation_request_window ON public.project_team_invitation_deliveries(owner_id,last_requested_at);
 CREATE INDEX project_team_invitation_delivery_claim ON public.project_team_invitation_deliveries(status,available_at);
 CREATE FUNCTION public.request_project_team_invitation_delivery(p_actor uuid,p_project text,p_invite uuid,p_email text,p_role text)
 RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
-DECLARE invitation public.project_team_invitations%ROWTYPE; result uuid;
+DECLARE invitation public.project_team_invitations%ROWTYPE; result uuid; previous_status text;
 BEGIN
  PERFORM public.read_project_team_snapshot(p_actor,p_actor,p_project,NULL,0,true);
  SELECT * INTO invitation FROM public.project_team_invitations WHERE owner_id=p_actor AND project_id=p_project AND invite_id=p_invite;
  IF invitation.invite_id IS NULL OR invitation.state<>'pending' OR invitation.expires_at<=clock_timestamp() OR invitation.recipient_email IS DISTINCT FROM lower(btrim(p_email)) OR invitation.role IS DISTINCT FROM p_role THEN RAISE EXCEPTION 'team_invitation_delivery_changed'; END IF;
- SELECT id INTO result FROM public.project_team_invitation_deliveries WHERE owner_id=p_actor AND invite_id=p_invite;
- IF result IS NOT NULL THEN RETURN result; END IF;
- IF (SELECT count(*) FROM public.project_team_invitation_deliveries WHERE owner_id=p_actor AND created_at>clock_timestamp()-interval '1 hour')>=20 THEN RAISE EXCEPTION 'team_invitation_delivery_capacity'; END IF;
+ SELECT id,status INTO result,previous_status FROM public.project_team_invitation_deliveries WHERE owner_id=p_actor AND invite_id=p_invite FOR UPDATE NOWAIT;
+ IF result IS NOT NULL AND previous_status<>'failed' THEN RETURN result; END IF;
+ IF (SELECT count(*) FROM public.project_team_invitation_deliveries d CROSS JOIN LATERAL unnest(d.requested_at) stamp WHERE d.owner_id=p_actor AND d.last_requested_at>clock_timestamp()-interval '1 hour' AND stamp>clock_timestamp()-interval '1 hour')>=20 THEN RAISE EXCEPTION 'team_invitation_delivery_capacity'; END IF;
+ -- Failed proves pre-transport exhaustion; accepted/unknown never enter here.
+ IF result IS NOT NULL THEN
+   UPDATE public.project_team_invitation_deliveries SET status='pending',attempts=0,lease_token=NULL,lease_until=NULL,finished_at=NULL,available_at=clock_timestamp(),last_requested_at=clock_timestamp(),
+     requested_at=ARRAY(SELECT stamp FROM unnest(requested_at) stamp WHERE stamp>clock_timestamp()-interval '1 hour') || clock_timestamp()
+     WHERE id=result AND status='failed';
+   RETURN result;
+ END IF;
  INSERT INTO public.project_team_invitation_deliveries(owner_id,invite_id,project_id) VALUES(p_actor,p_invite,p_project) RETURNING id INTO result;
  RETURN result;
 END; $$;

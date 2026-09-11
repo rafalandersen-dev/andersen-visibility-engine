@@ -49,21 +49,20 @@ export function ProjectTeamInvitationDelivery({
       {query.isError && <p role="alert">{t("collaboration.error")}</p>}
       {query.data && !query.isError && (
         <>
-          {query.data.delivery ? (
+          {query.data.delivery && (
             <p>{t(`notifications.emailStatus.${query.data.delivery.status}`)}</p>
-          ) : (
-            pending && (
-              <>
-                <p className="text-muted-foreground">{t("collaboration.invitationEmailHelp")}</p>
-                <Button
-                  variant="outline"
-                  disabled={mutation.isPending || query.isFetching}
-                  onClick={() => mutation.mutate()}
-                >
-                  {t("collaboration.emailInvitation")}
-                </Button>
-              </>
-            )
+          )}
+          {pending && (!query.data.delivery || query.data.delivery.status === "failed") && (
+            <>
+              <p className="text-muted-foreground">{t("collaboration.invitationEmailHelp")}</p>
+              <Button
+                variant="outline"
+                disabled={mutation.isPending || query.isFetching}
+                onClick={() => mutation.mutate()}
+              >
+                {t("collaboration.emailInvitation")}
+              </Button>
+            </>
           )}
         </>
       )}
