@@ -44,10 +44,10 @@ export async function assertReviewedPublicationImages(
   )
     throw new Error("publication_review_images_changed");
   const deadline = Date.now() + 65000;
-  for (let offset = 0; offset < preview.media.length; offset += 6) {
+  for (let offset = 0; offset < preview.media.length; offset += 4) {
     if (Date.now() >= deadline) throw new Error("publication_review_images_timed_out");
     await Promise.all(
-      preview.media.slice(offset, offset + 6).map(async (image) => {
+      preview.media.slice(offset, offset + 4).map(async (image) => {
         const bytes = await (deps.media ?? readProjectTeamMedia)(scope.ownerId, {
           ...scope,
           imageId: image.imageId,

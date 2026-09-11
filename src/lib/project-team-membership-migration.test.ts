@@ -596,6 +596,38 @@ describe("durable project invitation and membership lifecycle", () => {
       active: false,
     });
   });
+  it("coalesces fresh-ID unchanged receipts and isolates an editor's save quota", async () => {
+    await create();
+    await accept();
+    const hash = (
+      await db.query<{ hash: string }>(
+        "SELECT read_project_team_snapshot($1,$2,'p','a')->>'draftHash' hash",
+        [actor, owner],
+      )
+    ).rows[0].hash;
+    const save = (id: string, who = actor, patch: unknown = { title: "Draft" }) =>
+      db.query("SELECT save_project_team_draft($1,$2,'p','a',$3,$4,1,$5)", [
+        who,
+        owner,
+        id,
+        hash,
+        patch,
+      ]);
+    await save(second);
+    await save(other);
+    await save(second);
+    expect((await db.query("SELECT * FROM project_team_edits")).rows).toHaveLength(1);
+    await db.query(
+      "INSERT INTO project_team_edits(owner_id,project_id,asset_id,edit_id,actor_id,before_hash,after_hash,patch_hash,membership_revision) SELECT $1,'p','a',gen_random_uuid(),$2,repeat('a',64),repeat('b',64),repeat('c',64),1 FROM generate_series(1,119)",
+      [owner, actor],
+    );
+    await expect(save(other, actor, { markdown: "Edit" })).rejects.toThrow("team_edit_capacity");
+    await save(second); // Exact recorded retry remains usable at capacity.
+    await save(invite, owner, { markdown: "Owner edit" });
+    expect((await db.query("SELECT count(*)::int n FROM project_team_edits")).rows).toEqual([
+      { n: 121 },
+    ]);
+  });
   it("preserves approved content, scores, reviews and schedules for an unchanged populated form", async () => {
     await create();
     await accept();
@@ -1117,6 +1149,13 @@ describe("durable project invitation and membership lifecycle", () => {
           [actor, owner],
         )
       ).rows[0].result;
+      const authority = (
+        await db.query<{ result: { canReview: boolean } }>(
+          "SELECT read_project_team_review_authority($1,$2,'p','a') result",
+          [actor, owner],
+        )
+      ).rows[0].result;
+      expect(authority.canReview).toBe(mode === "owner-rewrite");
       const review = db.query(
         "SELECT public.save_project_team_approval($1,$2,'p','a',$3,$6,$4,$5,2,1,true)",
         [actor, owner, other, after.draftHash, "a".repeat(64), mode === "owner-rewrite" ? 3 : 2],

@@ -60,16 +60,26 @@ describe("exact collaborator review acknowledgement", () => {
     }));
     const current = await d.preview();
     d.preview.mockResolvedValue({ ...current, media, imageIds: media.map((item) => item.key) });
-    d.media.mockImplementation(async (...args: unknown[]) => ({
-      imageId: (args[1] as { imageId: string }).imageId,
-      draftHash: hash,
-      byteHash,
-      contentType: "image/png",
-      base64: "fixture",
-    }));
+    let active = 0,
+      peak = 0;
+    d.media.mockImplementation(async (...args: unknown[]) => {
+      active++;
+      peak = Math.max(peak, active);
+      if (active > 4) throw new Error("team_media_capacity");
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      active--;
+      return {
+        imageId: (args[1] as { imageId: string }).imageId,
+        draftHash: hash,
+        byteHash,
+        contentType: "image/png",
+        base64: "fixture",
+      };
+    });
     const images = media.map(({ key }) => ({ key, byteHash }));
     await saveProjectTeamReview(actor, { ...input, images }, d);
     expect(d.media).toHaveBeenCalledTimes(40);
+    expect(peak).toBe(4);
     expect(d.rpc).toHaveBeenCalledWith(
       "save_project_team_approval",
       expect.objectContaining({ p_images: images }),
