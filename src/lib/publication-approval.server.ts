@@ -142,4 +142,11 @@ export async function assertPublicationApproved(
     ))
   )
     throw new PublishNotPossibleError("publication_approval_required");
+  try {
+    const { assertReviewedPublicationImages } =
+      await import("./publication-reviewed-images.server");
+    await assertReviewedPublicationImages(scope, current.hash, { rpc });
+  } catch {
+    throw new PublishNotPossibleError("publication_approval_required");
+  }
 }

@@ -513,6 +513,38 @@ describe("durable project invitation and membership lifecycle", () => {
       );
     },
   );
+  it("persists the reviewed image hashes and clears them on explicit legacy owner approval", async () => {
+    await create();
+    await accept();
+    await db.query(
+      "SELECT public.set_project_team_approval_policy($1,$1,'p',0,'editors_can_approve')",
+      [owner],
+    );
+    const snap = (
+      await db.query<{ result: { draftHash: string } }>(
+        "SELECT public.read_project_team_snapshot($1,$2,'p','a') result",
+        [actor, owner],
+      )
+    ).rows[0].result;
+    const images = [{ key: "social_im", byteHash: "b".repeat(64) }];
+    await db.query(
+      "SELECT public.save_project_team_approval($1,$2,'p','a',$3,1,$4,$5,1,1,true,$6::jsonb)",
+      [actor, owner, second, snap.draftHash, "a".repeat(64), JSON.stringify(images)],
+    );
+    const read = async () =>
+      (
+        await db.query<{ result: unknown }>(
+          "SELECT public.read_publication_reviewed_images($1,'p','a',$2) result",
+          [owner, "a".repeat(64)],
+        )
+      ).rows[0].result;
+    expect(await read()).toEqual({ images });
+    await db.query("SELECT public.set_publication_approval($1,'p','a',2,$2,true)", [
+      owner,
+      "a".repeat(64),
+    ]);
+    expect(await read()).toEqual({ images: null });
+  });
   it("preserves later owner approval across policy changes and member removal", async () => {
     await create();
     await accept();

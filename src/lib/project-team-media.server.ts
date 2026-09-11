@@ -110,15 +110,25 @@ export async function readProjectTeamMedia(
       const matches = images.filter((i) => i.id === input.imageId);
       if (matches.length !== 1) throw new Error("media_missing");
       const media =
-        input.kind === "featured"
-          ? z
-              .object({
-                imageId: z.literal(input.imageId),
-                storagePath: z.string().optional(),
-                url: z.string().optional(),
-              })
-              .parse(before.asset.featuredImage)
-          : matches[0];
+        input.kind === "social"
+          ? {
+              url: z
+                .object({
+                  imageId: z.literal(input.imageId),
+                  social: z.object({ physicalUrl: z.string().url() }),
+                })
+                .parse(before.asset.featuredImage).social.physicalUrl,
+              storagePath: undefined,
+            }
+          : input.kind === "featured"
+            ? z
+                .object({
+                  imageId: z.literal(input.imageId),
+                  storagePath: z.string().optional(),
+                  url: z.string().optional(),
+                })
+                .parse(before.asset.featuredImage)
+            : matches[0];
       let bytes: Uint8Array | undefined;
       const download =
         deps.download ??

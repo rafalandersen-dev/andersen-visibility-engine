@@ -157,7 +157,7 @@ export const teamPolicyChange = teamRosterInput
 export const teamMediaInput = teamCommentTarget
   .extend({
     imageId: id,
-    kind: z.enum(["content", "featured"]).optional(),
+    kind: z.enum(["content", "featured", "social"]).optional(),
     expectedHash: z.string().regex(/^[a-f0-9]{64}$/),
   })
   .strict();
@@ -180,11 +180,11 @@ export const teamReviewDecision = teamCommentTarget
       .array(
         z
           .object({
-            key: z.string().regex(/^(content|featured)_[A-Za-z0-9_-]{1,64}$/),
+            key: z.string().regex(/^(content|featured|social)_[A-Za-z0-9_-]{1,64}$/),
             byteHash: z.string().regex(/^[a-f0-9]{64}$/),
           })
           .strict(),
       )
-      .max(31),
+      .max(32),
   })
   .strict();

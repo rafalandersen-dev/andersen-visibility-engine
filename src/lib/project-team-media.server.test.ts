@@ -73,6 +73,25 @@ describe("scoped collaborator media", () => {
     await expect(readProjectTeamMedia(actor, input, bad)).rejects.toThrow();
     expect(bad.download).not.toHaveBeenCalled();
   });
+  it("reads the saved social object rather than substituting the hero bytes", async () => {
+    const d = deps();
+    const ctx = context();
+    const socialPath = `${owner}/p/a/social.png`;
+    ctx.asset.featuredImage = {
+      imageId: "im",
+      storagePath: path,
+      social: {
+        physicalUrl: `${storageOrigin}/storage/v1/object/public/article-assets-public/${socialPath}`,
+      },
+    } as typeof ctx.asset.featuredImage;
+    d.read.mockResolvedValue(ctx);
+    await readProjectTeamMedia(actor, { ...input, kind: "social" }, d);
+    expect(d.download).toHaveBeenCalledWith("article-assets-public", socialPath);
+    ctx.asset.featuredImage!.social!.physicalUrl = `${storageOrigin}/storage/v1/object/public/article-assets-public/${owner}/other/a/social.png`;
+    d.download.mockClear();
+    await expect(readProjectTeamMedia(actor, { ...input, kind: "social" }, d)).rejects.toThrow();
+    expect(d.download).not.toHaveBeenCalled();
+  });
   it("rejects browser path overrides and stale draft hashes before downloading", async () => {
     const d = deps();
     await expect(

@@ -68,6 +68,26 @@ describe("collaborator canonical preview", () => {
     expect(JSON.stringify(result)).not.toContain("fixture-private");
     expect(read).toHaveBeenCalledTimes(2);
   });
+  it("visibly includes a separate social image while preserving the publication version", async () => {
+    const ctx = context();
+    ctx.asset.images = [
+      { id: "im", url: "https://client.example/hero.png" },
+    ] as typeof ctx.asset.images;
+    ctx.asset.featuredImage = {
+      imageId: "im",
+      url: "https://client.example/hero.png",
+      storagePath: "fixture",
+      alt: "Hero",
+      hero: {},
+      approval: "approved",
+      social: { physicalUrl: "https://client.example/social.png", alt: 'Social " image' },
+    } as typeof ctx.asset.featuredImage;
+    const result = await readProjectTeamPreview(actor, target, async () => ctx, authority);
+    expect(result.media).toContainEqual({ key: "social_im", imageId: "im", kind: "social" });
+    expect(result.html).toContain('src="milo-review-image:social_im"');
+    expect(result.html).toContain('alt="Social &quot; image"');
+    expect(result.version).toEqual(await publicationVersion(ctx.asset, ctx.project, ["/"]));
+  });
   it("rejects a context that changed while the preview was being assembled", async () => {
     const read = vi
       .fn(async () => context())

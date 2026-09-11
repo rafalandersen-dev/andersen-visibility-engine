@@ -112,6 +112,24 @@ describe("authenticated version approval boundary", () => {
         ),
       ).rejects.toThrow();
   });
+  it("requires the reviewed-image boundary even for a valid version grant", async () => {
+    const rpc = vi.fn(async (name: string): Promise<{ data: unknown; error: null }> => ({
+      data: name === "read_publication_approval" ? true : { images: null },
+      error: null,
+    }));
+    await assertPublicationApproved(scope.ownerId, asset, project, [], rpc);
+    expect(rpc).toHaveBeenCalledWith(
+      "read_publication_reviewed_images",
+      expect.objectContaining({ p_user: scope.ownerId, p_asset: asset.id }),
+    );
+    rpc.mockImplementation(async (name: string) => ({
+      data: name === "read_publication_approval" ? true : null,
+      error: null,
+    }));
+    await expect(
+      assertPublicationApproved(scope.ownerId, asset, project, [], rpc),
+    ).rejects.toThrow();
+  });
   it("refuses a foreign asset before reading approval storage", async () => {
     const rpc = vi.fn();
     await expect(

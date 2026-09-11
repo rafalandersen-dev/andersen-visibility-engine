@@ -61,7 +61,7 @@ export async function readProjectTeamPreview(
   const media = images.map((image) => ({
     key: `content_${image.id}`,
     imageId: image.id,
-    kind: "content" as "content" | "featured",
+    kind: "content" as "content" | "featured" | "social",
     url: image.url,
   }));
   const featured = before.asset.featuredImage;
@@ -72,8 +72,21 @@ export async function readProjectTeamPreview(
       kind: "featured",
       url: featured.url,
     });
+  let reviewHtml = assembled.html;
+  if (featured?.social?.physicalUrl) {
+    // JSON-LD/OG may use a different object from the hero. Include it visibly
+    // even though it does not occur in the article body.
+    if (images.some((image) => image.id === featured.imageId))
+      media.push({
+        key: `social_${featured.imageId}`,
+        imageId: featured.imageId,
+        kind: "social",
+        url: featured.social.physicalUrl,
+      });
+    reviewHtml += `<section><h2>Social image</h2><img src="${escape(featured.social.physicalUrl)}" alt="${escape(featured.social.alt ?? featured.alt ?? "")}" /></section>`;
+  }
   const preview = teamPreviewHtml(
-    assembled.html,
+    reviewHtml,
     media.map((image) => ({ id: image.key, url: image.url })),
   );
   const version = await publicationVersion(before.asset, before.project, paths);

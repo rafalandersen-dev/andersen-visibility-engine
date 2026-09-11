@@ -88,6 +88,7 @@ export async function saveProjectTeamReview(
       p_membership: final.membershipRevision,
       p_policy: final.policyRevision,
       p_approved: input.approved,
+      p_images: input.approved ? input.images : [],
     },
     deps.rpc ?? projectTeamRpc,
   );
