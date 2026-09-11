@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readTeamReviewAuthority } from "./project-team-authority.server";
 import { z } from "zod";
 import { teamCommentTarget } from "./project-team";
@@ -6,6 +7,12 @@ import { assembleContentAsset } from "./content-assembler";
 import { publicationVersion } from "./publication-version";
 import { buildActiveInternalPaths } from "./publish-targets";
 import type { ContentAsset } from "./types";
+export function teamImageReviewKey(kind: "content" | "featured" | "social", id: string) {
+  const key = /^[A-Za-z0-9_-]{1,64}$/.test(id)
+    ? id
+    : "~" + createHash("sha256").update(JSON.stringify(id)).digest("hex");
+  return kind + "_" + key;
+}
 const escape = (s: string) =>
   s
     .replace(/&/g, "&amp;")
@@ -51,26 +58,19 @@ export async function readProjectTeamPreview(
     activeInternalPaths: new Set(paths),
   });
   const images = z
-    .array(
-      z
-        .object({ id: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/), url: z.string().optional() })
-        .passthrough(),
-    )
+    .array(z.object({ id: z.string(), url: z.string().optional() }).passthrough())
     .parse(before.asset.images ?? []);
   const media = images.map((image) => ({
-    key: `content_${image.id}`,
+    key: teamImageReviewKey("content", image.id),
     imageId: image.id,
     kind: "content" as "content" | "featured" | "social",
     url: image.url,
   }));
   const featured = before.asset.featuredImage;
-  if (featured)
-    z.string()
-      .regex(/^[A-Za-z0-9_-]{1,64}$/)
-      .parse(featured.imageId);
+  if (featured) z.string().parse(featured.imageId);
   if (featured)
     media.push({
-      key: `featured_${featured.imageId}`,
+      key: teamImageReviewKey("featured", featured.imageId),
       imageId: featured.imageId,
       kind: "featured",
       url: featured.url,
@@ -80,7 +80,7 @@ export async function readProjectTeamPreview(
     // JSON-LD/OG may use a different object from the hero. Include it visibly
     // even though it does not occur in the article body.
     media.push({
-      key: `social_${featured.imageId}`,
+      key: teamImageReviewKey("social", featured.imageId),
       imageId: featured.imageId,
       kind: "social",
       url: featured.social.physicalUrl,

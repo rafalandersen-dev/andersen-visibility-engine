@@ -100,3 +100,11 @@ describe("project collaborator projection", () => {
     ).toThrow();
   });
 });
+
+it("preserves legacy image identifiers without exposing storage fields", () => {
+  const result = projectTeamDraft(scope, "a", {
+    ...draft,
+    images: [{ id: "bad id)with paren", alt: "Legacy", storagePath: "hidden" }],
+  });
+  expect(result.images).toEqual([{ id: "bad id)with paren", alt: "Legacy" }]);
+});

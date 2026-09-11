@@ -136,7 +136,7 @@ export function ProjectTeamRenderedReview({
     media.stamp === query.dataUpdatedAt;
   const html = ready
     ? query.data.html.replace(
-        /milo-review-image:([A-Za-z0-9_-]+)/g,
+        /milo-review-image:([A-Za-z0-9_~-]+)/g,
         (_, key: string) => media.urls[key] ?? "",
       )
     : "";

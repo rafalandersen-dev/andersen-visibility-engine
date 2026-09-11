@@ -994,7 +994,7 @@ describe("durable project invitation and membership lifecycle", () => {
       )
     ).rows[0].result;
     const images = Array.from({ length: 40 }, (_, i) => ({
-      key: `content_im${i}`,
+      key: i === 0 ? "content_~" + "a".repeat(64) : `content_im${i}`,
       byteHash: "b".repeat(64),
     }));
     await db.query(

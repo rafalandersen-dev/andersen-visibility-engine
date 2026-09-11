@@ -264,3 +264,12 @@ describe("scoped collaborator media", () => {
     }
   });
 });
+
+it("loads the exact stored legacy image ID through the scoped reader", async () => {
+  const id = "bad id)with paren";
+  const d = deps({ id, url: "https://client.example/image.png" });
+  const remote = vi.fn(async () => bytes);
+  const result = await readProjectTeamMedia(actor, { ...input, imageId: id }, { ...d, remote });
+  expect(result.imageId).toBe(id);
+  expect(remote).toHaveBeenCalledOnce();
+});
