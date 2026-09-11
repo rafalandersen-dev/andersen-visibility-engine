@@ -374,6 +374,33 @@ describe("durable project invitation and membership lifecycle", () => {
     );
     await expect(create(second)).rejects.toThrow("team_invitation_exists");
   });
+  it("checks invitation eligibility before owner locks and rechecks with nonblocking locks", () => {
+    const sql = readFileSync(
+      "supabase/migrations/20260911030000_project_team_membership.sql",
+      "utf8",
+    )
+      .split("CREATE FUNCTION public.accept_project_team_invitation")[1]
+      .split("CREATE FUNCTION public.change_project_team_member")[0];
+    const workspaceLock = sql.indexOf("FOR UPDATE NOWAIT");
+    expect(sql.indexOf("v.recipient_email")).toBeLessThan(workspaceLock);
+    expect(sql.indexOf("v.state='pending'")).toBeLessThan(workspaceLock);
+    expect(sql.indexOf("assert_knowledge_project")).toBeGreaterThan(workspaceLock);
+    expect(sql.indexOf("FOR SHARE OF u,i NOWAIT")).toBeGreaterThan(workspaceLock);
+    expect(sql.indexOf("invitation.recipient_email<>recipient")).toBeGreaterThan(workspaceLock);
+    expect(sql).toContain("invite_id=p_invite FOR UPDATE NOWAIT");
+  });
+  it("rejects a forged invitation without requiring an owner workspace", async () => {
+    await expect(
+      db.query("SELECT public.accept_project_team_invitation($1,$2,'p',$3)", [
+        actor,
+        second,
+        invite,
+      ]),
+    ).rejects.toThrow("team_invitation_unavailable");
+    await create();
+    await expect(accept(second)).rejects.toThrow("team_invitation_unavailable");
+    expect((await db.query("SELECT * FROM public.project_team_members")).rows).toHaveLength(0);
+  });
   it("rejects wrong recipient, unverified, deleted, banned and changed-email accounts", async () => {
     await create();
     await expect(accept(invite, other)).rejects.toThrow("team_invitation_unavailable");

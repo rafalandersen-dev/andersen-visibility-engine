@@ -89,6 +89,21 @@ RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE invitation public.project_team_invitations%ROWTYPE; recipient text; member_revision bigint;
 BEGIN
   IF p_actor IS NULL OR p_actor=p_owner THEN RAISE EXCEPTION 'team_invitation_unavailable'; END IF;
+  -- Admit only a current verified recipient of this pending invitation before
+  -- touching owner locks. Repeat all eligibility checks under the lock below.
+  IF NOT EXISTS(SELECT 1 FROM public.project_team_invitations v
+    JOIN auth.users u ON u.id=p_actor AND lower(btrim(u.email))=v.recipient_email
+    JOIN auth.identities i ON i.user_id=u.id
+      AND lower(btrim(i.identity_data->>'email'))=lower(btrim(u.email))
+      AND i.identity_data->>'email_verified'='true'
+    WHERE v.owner_id=p_owner AND v.project_id=p_project AND v.invite_id=p_invite
+      AND v.state='pending' AND v.expires_at>clock_timestamp()
+      AND u.email_confirmed_at IS NOT NULL AND u.deleted_at IS NULL
+      AND (u.banned_until IS NULL OR u.banned_until<=clock_timestamp()))
+    THEN RAISE EXCEPTION 'team_invitation_unavailable'; END IF;
+  -- A caller must never queue a workspace lock behind ongoing owner work.
+  PERFORM 1 FROM public.workspace_meta WHERE user_id=p_owner FOR UPDATE NOWAIT;
+  IF NOT FOUND THEN RAISE EXCEPTION 'team_project_unavailable'; END IF;
   PERFORM public.assert_knowledge_project(p_owner,p_project,true);
   PERFORM public.assert_project_team_account(p_owner);
   -- Use authoritative current auth state; JWT/browser email is not evidence.
@@ -97,10 +112,10 @@ BEGIN
       AND lower(btrim(i.identity_data->>'email'))=lower(btrim(u.email))
       AND i.identity_data->>'email_verified'='true'
     WHERE u.id=p_actor AND u.email_confirmed_at IS NOT NULL AND u.deleted_at IS NULL
-      AND (u.banned_until IS NULL OR u.banned_until<=clock_timestamp()) LIMIT 1 FOR SHARE OF u,i;
+      AND (u.banned_until IS NULL OR u.banned_until<=clock_timestamp()) LIMIT 1 FOR SHARE OF u,i NOWAIT;
   IF NOT FOUND OR recipient IS NULL THEN RAISE EXCEPTION 'team_invitation_unavailable'; END IF;
   SELECT * INTO invitation FROM public.project_team_invitations
-    WHERE owner_id=p_owner AND project_id=p_project AND invite_id=p_invite FOR UPDATE;
+    WHERE owner_id=p_owner AND project_id=p_project AND invite_id=p_invite FOR UPDATE NOWAIT;
   IF NOT FOUND OR invitation.recipient_email<>recipient OR invitation.state<>'pending' OR invitation.expires_at<=clock_timestamp()
     THEN RAISE EXCEPTION 'team_invitation_unavailable'; END IF;
   IF EXISTS(SELECT 1 FROM public.project_team_members WHERE owner_id=p_owner AND project_id=p_project AND actor_id=p_actor AND active AND (expires_at IS NULL OR expires_at>clock_timestamp()))
