@@ -85,6 +85,25 @@ describe("Bun pinned transport", () => {
     expect(mocks.request).not.toHaveBeenCalled();
   });
 
+  it("negotiates gzip sitemaps in Bun while bounding decompression locally", async () => {
+    nativeFetch.mockImplementation(async (_url, options) => {
+      expect(options.headers.Accept).toContain("application/gzip");
+      expect(options.headers["Accept-Encoding"]).toBe("gzip,identity");
+      expect(options.decompress).toBe(false);
+      options.tls.checkServerIdentity("example.com", { subjectaltname: "DNS:example.com" });
+      return new Response(gzipSync("<urlset/>"), {
+        headers: { "content-type": "application/xml", "content-encoding": "gzip" },
+      });
+    });
+    const result = await fetchPinnedResource("https://example.com/sitemap.xml", {
+      purpose: "sitemap",
+      origin: "https://example.com",
+      authorize: () => true,
+    });
+    expect(result).toMatchObject({ body: "<urlset/>", truncated: false });
+    expect(mocks.request).not.toHaveBeenCalled();
+  });
+
   it.each([false, true])(
     "refuses missing or mismatched certificate checks (callback executed: %s)",
     async (invoke) => {
@@ -544,7 +563,11 @@ describe("structured pinned technical observations", () => {
   });
   it.each([
     ["robots", "text/plain", "text/plain"],
-    ["sitemap", "application/xml,text/xml,text/plain", "application/xml"],
+    [
+      "sitemap",
+      "application/xml,text/xml,text/plain,application/gzip,application/x-gzip,application/octet-stream",
+      "application/xml",
+    ],
     ["technical", "text/html,application/xhtml+xml,text/plain", "text/html"],
   ] as const)(
     "requests the supported representation for %s on every redirect",
@@ -561,7 +584,12 @@ describe("structured pinned technical observations", () => {
       });
       expect(result).toMatchObject({ body: "resource", contentAccepted: true });
       expect(mocks.request).toHaveBeenCalledTimes(2);
-      for (const call of mocks.request.mock.calls) expect(call[1].headers.Accept).toBe(accept);
+      for (const call of mocks.request.mock.calls) {
+        expect(call[1].headers.Accept).toBe(accept);
+        expect(call[1].headers["Accept-Encoding"]).toBe(
+          purpose === "sitemap" ? "gzip,identity" : "identity",
+        );
+      }
     },
   );
   it.each(["technical", "sitemap"] as const)(

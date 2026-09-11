@@ -257,3 +257,9 @@ Sitemap transport accepts gzip media files and HTTP gzip content coding, includi
 Explicitly captured crawl opportunities append after the owner's existing opportunity order under the existing workspace lock. Replaying an existing capture preserves its identity and does not append another row.
 
 Validation:127 focused transport, sitemap and actual-SQL tests pass, together with TypeScript and changed-file lint (`/tmp/milo-gzip-{tests,types,lint}.log`). Tests cover gzip media, HTTP coding, double gzip, octet-stream .gz, inflated-size overflow, corruption, sequential ordering and idempotent replay. Review findings3991853180 and3991853193 addressed. No live crawl, provider request or production migration occurred.
+
+## Sitemap content negotiation
+
+Both pinned Node and Bun transports now advertise the supported gzip media types and gzip/identity content coding only for sitemap requests. Bun automatic decompression remains disabled, preserving the local compressed and inflated size bounds. Redirect requests retain the same negotiation. Other fetch purposes still request identity coding.
+
+Validation:77 pinned transport tests, TypeScript and changed-file lint pass (`/tmp/milo-gzip-negotiation-{tests,types,lint}.log`), including Node redirect headers and a Bun gzip response with explicit TLS verification and bounded local decoding. Finding3991956910 addressed. No live crawl or provider call occurred. The separate cross-writer ordinal finding3991956903 remains open.

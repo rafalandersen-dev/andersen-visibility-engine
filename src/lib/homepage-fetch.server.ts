@@ -109,6 +109,7 @@ async function openBunPage(
   address: { address: string; family: number },
   signal: AbortSignal,
   accept = "text/html,application/xhtml+xml,text/plain",
+  acceptEncoding = "identity",
 ): Promise<PageResponse> {
   const destination = new URL(url);
   destination.hostname = address.family === 6 ? `[${address.address}]` : address.address;
@@ -136,7 +137,7 @@ async function openBunPage(
       Host: url.host,
       "User-Agent": "MiloGrowthAuditBot/1.0 (+https://milogrowth.com)",
       Accept: accept,
-      "Accept-Encoding": "identity",
+      "Accept-Encoding": acceptEncoding,
     },
     tls: {
       servername: isIP(hostname) ? undefined : hostname,
@@ -191,8 +192,10 @@ function openPage(
   address: { address: string; family: number },
   signal: AbortSignal,
   accept = "text/html,application/xhtml+xml,text/plain",
+  acceptEncoding = "identity",
 ): Promise<PageResponse> {
-  if ((globalThis as { Bun?: unknown }).Bun) return openBunPage(url, address, signal, accept);
+  if ((globalThis as { Bun?: unknown }).Bun)
+    return openBunPage(url, address, signal, accept, acceptEncoding);
   return new Promise<IncomingMessage>((resolve, reject) => {
     signal.throwIfAborted();
     const options: RequestOptions & { autoSelectFamily: boolean } = {
@@ -210,7 +213,7 @@ function openPage(
         Host: url.host,
         "User-Agent": "MiloGrowthAuditBot/1.0 (+https://milogrowth.com)",
         Accept: accept,
-        "Accept-Encoding": "identity",
+        "Accept-Encoding": acceptEncoding,
       },
       lookup: (_hostname, options, callback) => {
         if (options.all) callback(null, [address]);
@@ -298,11 +301,17 @@ export async function fetchPinnedResource(
         controller.signal.throwIfAborted();
         const accept =
           options.purpose === "sitemap"
-            ? "application/xml,text/xml,text/plain"
+            ? "application/xml,text/xml,text/plain,application/gzip,application/x-gzip,application/octet-stream"
             : options.purpose === "robots"
               ? "text/plain"
               : "text/html,application/xhtml+xml,text/plain";
-        response = await openPage(url, address, controller.signal, accept);
+        response = await openPage(
+          url,
+          address,
+          controller.signal,
+          accept,
+          options.purpose === "sitemap" ? "gzip,identity" : "identity",
+        );
         const status = response.statusCode ?? 0;
         if ([301, 302, 303, 307, 308].includes(status)) {
           const location = response.headers.location;
