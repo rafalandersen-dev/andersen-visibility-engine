@@ -25,7 +25,7 @@ const response = (url: string, body: string) => ({
   body,
 });
 describe("resumable technical crawl", () => {
-  it.each([{ "content-type": "text/plain" }, {}])(
+  it.each([{ "content-type": "text/plain" }, {}] as Record<string, string>[])(
     "retains HTTP errors without parsing a non-HTML body: %j",
     async (headers) => {
       const next = await advanceTechnicalCrawl(
