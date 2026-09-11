@@ -16,6 +16,7 @@ export type CrawlPage = {
     | "non_html"
     | "storage_limited";
   observation?: TechnicalPageObservation;
+  blockedUrl?: string;
 };
 export type TechnicalCrawl = {
   origin: string;
@@ -39,6 +40,7 @@ export type TechnicalCrawl = {
 };
 export type TechnicalPageFetcher = (url: string) => Promise<
   | { state: "failed" }
+  | { state: "policy_refused"; url: string }
   | {
       state: "response";
       url: string;
@@ -164,7 +166,17 @@ export async function advanceTechnicalCrawl(
   else {
     try {
       const response = await fetchPage(target.url);
-      if (response.state === "response") {
+      if (response.state === "policy_refused") {
+        const blocked = scoped(response.url, next.origin);
+        if (!blocked) page.state = "out_of_scope";
+        else {
+          const decision = evaluateRobots(next.robots, BOT, blocked).decision;
+          if (decision !== "allowed") {
+            page.state = decision === "disallowed" ? "robots_disallowed" : "robots_unknown";
+            page.blockedUrl = blocked;
+          }
+        }
+      } else if (response.state === "response") {
         const finalUrl = scoped(response.url, next.origin);
         if (!finalUrl) page.state = "out_of_scope";
         else if (evaluateRobots(next.robots, BOT, finalUrl).decision !== "allowed")

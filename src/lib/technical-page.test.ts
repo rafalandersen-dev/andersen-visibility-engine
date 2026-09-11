@@ -117,3 +117,38 @@ it("accepts namespaced XHTML and external doctype without resolving external res
   expect(result.complete).toBe(true);
   expect(result.title).toBe("Namespaced");
 });
+
+it("ignores foreign SVG title metadata in an HTML document", () => {
+  const result = inspect("<svg><title>Icon label</title></svg><p>Body</p>");
+  expect(result.title).toBe("");
+  expect(result.complete).toBe(true);
+});
+it.each(["<feed/>", "<html><title>Wrong namespace</title></html>", '<html xmlns="urn:foreign"/>'])(
+  "marks a non-XHTML root incomplete: %s",
+  (html) => {
+    expect(xhtml(html).complete).toBe(false);
+  },
+);
+it("bounds expanded URLs during traversal rather than after collecting them", () => {
+  const base = "https://example.test/" + "x".repeat(7000) + "/";
+  const html =
+    `<base href="${base}">` +
+    Array.from(
+      { length: 4000 },
+      (_, i) =>
+        `<a href="${i}">x</a><link rel="canonical" href="c${i}"><link rel="alternate" hreflang="sv" href="s${i}">`,
+    ).join("");
+  expect(new TextEncoder().encode(html).byteLength).toBeLessThan(TECHNICAL_HTML_MAX_BYTES);
+  const result = inspect(html);
+  expect(result.complete).toBe(false);
+  const urls = [
+    ...result.internalLinks,
+    ...result.canonicals,
+    ...result.alternateLanguages.map((v) => v.url),
+  ];
+  expect(
+    urls.reduce((sum, url) => sum + new TextEncoder().encode(JSON.stringify(url)).byteLength, 0),
+  ).toBeLessThanOrEqual(256 * 1024);
+  expect(result.internalLinks.length).toBeLessThan(500);
+  expect(result.canonicals.length).toBeLessThanOrEqual(20);
+});

@@ -189,3 +189,23 @@ describe("resumable technical crawl", () => {
     ]);
   });
 });
+
+it("persists a robots-disallowed redirect without inventing a page observation", async () => {
+  const state = start("User-agent: *\nDisallow: /private");
+  const next = await advanceTechnicalCrawl(
+    state,
+    async () => ({ state: "policy_refused", url: "https://example.test/private" }),
+    now,
+  );
+  expect(next.pages[0]).toMatchObject({
+    requestedUrl: "https://example.test/",
+    state: "robots_disallowed",
+    blockedUrl: "https://example.test/private",
+  });
+  expect(next.pages[0].observation).toBeUndefined();
+  expect(parseTechnicalCrawlState(next, next.origin).pages[0].blockedUrl).toBe(
+    "https://example.test/private",
+  );
+  next.pages[0].blockedUrl = "https://other.test/private";
+  expect(() => parseTechnicalCrawlState(next, next.origin)).toThrow();
+});

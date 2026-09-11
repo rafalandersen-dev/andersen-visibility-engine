@@ -1,3 +1,4 @@
+import { TechnicalPolicyRefusedError } from "./technical-crawl-admission";
 import {
   TechnicalCrawlAdmissionError,
   type CrawlConnectionAdmission,
@@ -285,8 +286,10 @@ export async function fetchPinnedResource(
         if (
           ["technical", "sitemap"].includes(options.purpose) &&
           (!options.authorize || !options.authorize(url.href))
-        )
+        ) {
+          if (options.purpose === "technical") throw new TechnicalPolicyRefusedError(url.href);
           throw new Error("crawl_policy_refused");
+        }
         const address = await addressFor(url, controller.signal);
         controller.signal.throwIfAborted();
         if (options.admit)
@@ -375,7 +378,11 @@ export async function fetchPinnedResource(
   try {
     return await Promise.race([read(), deadline]);
   } catch (error) {
-    if (error instanceof TechnicalCrawlAdmissionError) throw error;
+    if (
+      error instanceof TechnicalCrawlAdmissionError ||
+      error instanceof TechnicalPolicyRefusedError
+    )
+      throw error;
     // No bodies, URLs, DNS answers or transport errors enter logs.
     return null;
   } finally {

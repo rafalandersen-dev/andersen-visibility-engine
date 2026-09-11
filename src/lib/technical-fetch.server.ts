@@ -1,3 +1,4 @@
+import { TechnicalPolicyRefusedError } from "./technical-crawl-admission";
 import type { CrawlConnectionAdmission } from "./technical-crawl-admission";
 import type { TechnicalSitemapFetcher } from "./technical-sitemap";
 import { fetchPinnedResource } from "./homepage-fetch.server";
@@ -26,14 +27,20 @@ export function technicalPageFetcher(
   admit: CrawlConnectionAdmission,
 ): TechnicalPageFetcher {
   return async (url) => {
-    const response = await fetchPinnedResource(url, {
-      purpose: "technical",
-      origin,
-      admit,
-      authorize: (target) =>
-        evaluateRobots(robots, "MiloGrowthAuditBot", target).decision === "allowed",
-    });
-    return response ? { state: "response", ...response } : { state: "failed" };
+    try {
+      const response = await fetchPinnedResource(url, {
+        purpose: "technical",
+        origin,
+        admit,
+        authorize: (target) =>
+          evaluateRobots(robots, "MiloGrowthAuditBot", target).decision === "allowed",
+      });
+      return response ? { state: "response", ...response } : { state: "failed" };
+    } catch (error) {
+      if (error instanceof TechnicalPolicyRefusedError)
+        return { state: "policy_refused", url: error.url };
+      throw error;
+    }
   };
 }
 

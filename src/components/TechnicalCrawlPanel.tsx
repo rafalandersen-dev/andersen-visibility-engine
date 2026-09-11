@@ -264,6 +264,11 @@ function ProjectCrawl({ owner, projectId }: { owner: string; projectId: string }
                   <p className="mt-2 text-sm">
                     {t("crawl.depth")}: {page.depth ?? t("crawl.unknown")}
                   </p>
+                  {page.blockedUrl && (
+                    <p className="text-sm break-all">
+                      {t("crawl.finalUrl")}: {page.blockedUrl}
+                    </p>
+                  )}
                   {state.sitemaps && (
                     <p className="text-sm break-all">
                       {t("crawl.sitemapMembership")}:{" "}

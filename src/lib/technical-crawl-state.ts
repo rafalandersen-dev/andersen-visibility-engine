@@ -124,6 +124,7 @@ const schema = z
               "storage_limited",
             ]),
             observation: observation.optional(),
+            blockedUrl: url.optional(),
           })
           .strict(),
       )
@@ -200,7 +201,10 @@ export function parseTechnicalCrawlState(raw: unknown, origin: string): Technica
     state.pages.some(
       (p) =>
         new URL(p.requestedUrl).origin !== origin ||
-        (p.observation && new URL(p.observation.url).origin !== origin),
+        (p.observation && new URL(p.observation.url).origin !== origin) ||
+        (p.blockedUrl &&
+          (new URL(p.blockedUrl).origin !== origin ||
+            !["robots_disallowed", "robots_unknown"].includes(p.state))),
     ) ||
     (state.sitemaps &&
       [

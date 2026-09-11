@@ -10,6 +10,8 @@ function parseXhtml(html: string): DefaultTreeAdapterMap["document"] | null {
     if (value.includes("[")) throw new Error("xhtml_dtd_subset");
   });
   parser.on("opentag", (tag) => {
+    if (stack.length === 1 && (tag.local !== "html" || tag.uri !== XHTML_NAMESPACE))
+      throw new Error("xhtml_root");
     if (++nodes > 100000 || stack.length > 100) throw new Error("xhtml_limit");
     const node = defaultTreeAdapter.createElement(
       tag.local,
@@ -109,7 +111,7 @@ export function inspectTechnicalPage(input: {
       result.complete = false;
       break;
     }
-    if ("tagName" in node && (!isXhtml || node.namespaceURI === XHTML_NAMESPACE)) nodes.push(node);
+    if ("tagName" in node && node.namespaceURI === XHTML_NAMESPACE) nodes.push(node);
     if (
       isXhtml &&
       "tagName" in node &&
@@ -166,37 +168,63 @@ export function inspectTechnicalPage(input: {
       if (value.length > 4000) result.complete = false;
       result.robots.push({ source: "header", agent: "header-scoped", value: value.slice(0, 4000) });
     }
+  // Apply retention bounds while walking, before any expanded URL can accumulate.
+  let urlBytes = 0;
+  const retainUrl = (url: string): boolean => {
+    const bytes = new TextEncoder().encode(JSON.stringify(url)).byteLength;
+    if (urlBytes + bytes > 256 * 1024) {
+      result.complete = false;
+      return false;
+    }
+    urlBytes += bytes;
+    return true;
+  };
+  const append = <T>(items: T[], value: T, maximum: number) => {
+    if (items.length >= maximum) result.complete = false;
+    else items.push(value);
+  };
   const internal = new Set<string>();
   const external = new Set<string>();
   for (const node of nodes) {
     if (node.tagName === "title" && !result.title) result.title = text(node).slice(0, 1000);
-    if (node.tagName === "h1") result.headings.push(text(node).slice(0, 1000));
+    if (node.tagName === "h1") append(result.headings, text(node).slice(0, 1000), 100);
     if (node.tagName === "meta") {
       const name = attr(node, "name").toLowerCase();
       const content = attr(node, "content");
-      if (name === "description") result.descriptions.push(content.slice(0, 4000));
+      if (name === "description") append(result.descriptions, content.slice(0, 4000), 20);
       if (["robots", "googlebot", "bingbot"].includes(name))
-        result.robots.push({ source: "meta", agent: name, value: content.slice(0, 4000) });
+        append(result.robots, { source: "meta", agent: name, value: content.slice(0, 4000) }, 100);
       if (content.length > 4000) result.complete = false;
     }
     if (node.tagName === "link") {
       const rel = attr(node, "rel").toLowerCase().split(/\s+/);
       const href = resolve(attr(node, "href"));
-      if (href && rel.includes("canonical")) result.canonicals.push(href);
-      if (href && rel.includes("alternate") && attr(node, "hreflang"))
-        result.alternateLanguages.push({
-          language: attr(node, "hreflang").slice(0, 100),
-          url: href,
-        });
+      if (href && rel.includes("canonical") && retainUrl(href)) append(result.canonicals, href, 20);
+      if (href && rel.includes("alternate") && attr(node, "hreflang") && retainUrl(href))
+        append(
+          result.alternateLanguages,
+          { language: attr(node, "hreflang").slice(0, 100), url: href },
+          100,
+        );
     }
     if (node.tagName === "a" || node.tagName === "area") {
       const href = resolve(attr(node, "href"));
-      if (href) (new URL(href).origin === target.origin ? internal : external).add(href);
+      if (href) {
+        const links = new URL(href).origin === target.origin ? internal : external;
+        if (!links.has(href)) {
+          if (links.size >= 500) result.complete = false;
+          else if (retainUrl(href)) links.add(href);
+        }
+      }
     }
     if (
       node.tagName === "script" &&
       attr(node, "type").trim().toLowerCase() === "application/ld+json"
     ) {
+      if (result.structuredData.length >= 100) {
+        result.complete = false;
+        continue;
+      }
       const raw = node.childNodes
         .filter((n) => n.nodeName === "#text")
         .map((n) => ("value" in n ? n.value : ""))

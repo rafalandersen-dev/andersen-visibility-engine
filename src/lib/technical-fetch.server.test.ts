@@ -1,3 +1,4 @@
+import { TechnicalPolicyRefusedError } from "./technical-crawl-admission";
 import { describe, it, expect, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ fetch: vi.fn() }));
 vi.mock("./homepage-fetch.server", () => ({ fetchPinnedResource: mocks.fetch }));
@@ -60,5 +61,14 @@ describe("technical transport policy boundary", () => {
       origin + "/sitemap.xml",
       expect.objectContaining({ admit, authorize: expect.any(Function) }),
     );
+  });
+});
+
+it("preserves a policy-refused redirect destination", async () => {
+  mocks.fetch.mockRejectedValueOnce(new TechnicalPolicyRefusedError(origin + "/private"));
+  const policy = robotsEvidence(200, "User-agent: *\nDisallow: /private", "text/plain");
+  await expect(technicalPageFetcher(origin, policy, admit)(origin + "/start")).resolves.toEqual({
+    state: "policy_refused",
+    url: origin + "/private",
   });
 });

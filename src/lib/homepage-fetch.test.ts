@@ -296,6 +296,21 @@ describe("public homepage transport", () => {
 });
 
 describe("structured pinned technical observations", () => {
+  it("preserves denied redirect policy before destination DNS or connection", async () => {
+    mocks.request.mockImplementationOnce(reply(response([], 302, { location: "/private" })));
+    await expect(
+      fetchPinnedResource("https://example.com/", {
+        purpose: "technical",
+        origin: "https://example.com",
+        authorize: (url) => !url.endsWith("/private"),
+      }),
+    ).rejects.toMatchObject({
+      name: "TechnicalPolicyRefusedError",
+      url: "https://example.com/private",
+    });
+    expect(mocks.lookup).toHaveBeenCalledOnce();
+    expect(mocks.request).toHaveBeenCalledOnce();
+  });
   it("closes an unaccepted response before releasing its connection slot", async () => {
     const stream = response([Buffer.from("ignored")], 200, { "content-type": "application/json" });
     mocks.request.mockImplementation(reply(stream));
@@ -538,13 +553,17 @@ describe("structured pinned technical observations", () => {
       expect(mocks.lookup).toHaveBeenCalledTimes(1);
       mocks.request.mockImplementation(reply(response([], 302, { location: "/private" })));
       mocks.lookup.mockClear();
-      expect(
-        await fetchPinnedResource("https://example.com/", {
-          purpose,
-          origin: "https://example.com",
-          authorize: (url) => !url.endsWith("/private"),
-        }),
-      ).toBeNull();
+      const refused = fetchPinnedResource("https://example.com/", {
+        purpose,
+        origin: "https://example.com",
+        authorize: (url) => !url.endsWith("/private"),
+      });
+      if (purpose === "technical")
+        await expect(refused).rejects.toMatchObject({
+          name: "TechnicalPolicyRefusedError",
+          url: "https://example.com/private",
+        });
+      else await expect(refused).resolves.toBeNull();
       expect(mocks.lookup).toHaveBeenCalledTimes(1);
     },
   );

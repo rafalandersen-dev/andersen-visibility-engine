@@ -9,3 +9,11 @@ export type CrawlConnectionAdmission = (
   signal: AbortSignal,
   address: string,
 ) => Promise<() => Promise<void>>;
+
+/** Known policy refusal before a connection; the destination is scoped by the caller. */
+export class TechnicalPolicyRefusedError extends Error {
+  constructor(readonly url: string) {
+    super("technical_policy_refused");
+    this.name = "TechnicalPolicyRefusedError";
+  }
+}
