@@ -1,3 +1,4 @@
+import { runTeamRequest } from "@/lib/team-request-queue";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
@@ -109,7 +110,11 @@ export function ProjectTeamReviewHistory({
   const { user } = useAuth();
   const query = useQuery({
     queryKey: ["project-teams", user?.id, "review-history", ownerId, projectId, assetId],
-    queryFn: () => readProjectTeamReviewHistoryFn({ data: { ownerId, projectId, assetId } }),
+    queryFn: ({ signal }) =>
+      runTeamRequest(
+        () => readProjectTeamReviewHistoryFn({ data: { ownerId, projectId, assetId } }),
+        signal,
+      ),
     enabled: !!user,
     staleTime: 0,
     gcTime: 0,

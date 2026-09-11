@@ -39,13 +39,15 @@ BEGIN
  SELECT array_agg(id) INTO ids FROM (SELECT n.id FROM public.operational_notifications n
  WHERE n.user_id=p_owner AND n.project_id=p_project AND n.active
  AND n.kind IN ('approval_due','publication_failed','manual_overdue','cadence_gap','scheduler_recovery')
- AND NOT EXISTS(SELECT 1 FROM public.project_team_notification_items i WHERE i.notification_id=n.id AND i.recipient_id=p_recipient)
+ AND NOT EXISTS(SELECT 1 FROM public.project_team_notification_items i JOIN public.project_team_notification_outbox old ON old.id=i.outbox_id WHERE i.notification_id=n.id AND i.recipient_id=p_recipient AND old.status<>'failed')
  ORDER BY n.created_at,n.id LIMIT 50) eligible;
  IF coalesce(cardinality(ids),0)=0 THEN RETURN NULL; END IF;
  -- Bound outstanding work, retaining terminal history and its once-only item identities.
  IF (SELECT count(*) FROM public.project_team_notification_outbox WHERE owner_id=p_owner AND project_id=p_project AND status IN ('pending','leased','sending'))>=10000 THEN RAISE EXCEPTION 'team_notification_capacity'; END IF;
  INSERT INTO public.project_team_notification_outbox(owner_id,project_id,recipient_id,settings_revision,membership_revision) VALUES(p_owner,p_project,p_recipient,settings.revision,settings.membership_revision) RETURNING id INTO result;
- INSERT INTO public.project_team_notification_items(notification_id,recipient_id,outbox_id) SELECT unnest(ids),p_recipient,result;
+ INSERT INTO public.project_team_notification_items(notification_id,recipient_id,outbox_id) SELECT unnest(ids),p_recipient,result
+ ON CONFLICT(notification_id,recipient_id) DO UPDATE SET outbox_id=EXCLUDED.outbox_id
+ WHERE EXISTS(SELECT 1 FROM public.project_team_notification_outbox old WHERE old.id=project_team_notification_items.outbox_id AND old.status='failed' AND old.owner_id=p_owner AND old.project_id=p_project AND old.recipient_id=p_recipient);
  RETURN result;
 END; $$;
 CREATE FUNCTION public.claim_project_team_notification_digest()

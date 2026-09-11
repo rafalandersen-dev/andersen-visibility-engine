@@ -273,3 +273,28 @@ it("loads the exact stored legacy image ID through the scoped reader", async () 
   expect(result.imageId).toBe(id);
   expect(remote).toHaveBeenCalledOnce();
 });
+
+it.each(["?download=1#image", "?width=300&quality=80"])(
+  "verifies the exact scoped public representation %s",
+  async (suffix) => {
+    const url = `${storageOrigin}/storage/v1/object/public/article-assets-public/${path}${suffix}`;
+    const d = deps({ id: "im", url });
+    const remote = vi.fn(async () => bytes);
+    await readProjectTeamMedia(actor, input, { ...d, remote });
+    expect(remote).toHaveBeenCalledWith(url.split("#")[0], storageOrigin, expect.any(AbortSignal));
+    expect(d.download).not.toHaveBeenCalled();
+    const bad = deps({ id: "im", url: url.replace("/p/", "/other/") });
+    remote.mockClear();
+    await expect(readProjectTeamMedia(actor, input, { ...bad, remote })).rejects.toThrow();
+    expect(remote).not.toHaveBeenCalled();
+    expect(bad.download).not.toHaveBeenCalled();
+  },
+);
+it("ignores a fragment on a scoped public storage object", async () => {
+  const d = deps({
+    id: "im",
+    url: `${storageOrigin}/storage/v1/object/public/article-assets-public/${path}#image`,
+  });
+  await readProjectTeamMedia(actor, input, d);
+  expect(d.download).toHaveBeenCalledWith("article-assets-public", path);
+});

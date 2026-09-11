@@ -1,3 +1,4 @@
+import { runTeamRequest } from "@/lib/team-request-queue";
 import { ProjectTeamDetails } from "@/components/ProjectTeamDetails";
 import { ProjectTeamInvitationDelivery } from "@/components/ProjectTeamInvitationDelivery";
 import { ProjectTeamNotificationSettings } from "@/components/ProjectTeamNotificationSettings";
@@ -67,7 +68,7 @@ function CollaboratorsPage() {
   const client = useQueryClient();
   const query = useQuery({
     queryKey: ["project-teams", user?.id, "mine"],
-    queryFn: () => listMyProjectTeamsFn({ data: {} }),
+    queryFn: ({ signal }) => runTeamRequest(() => listMyProjectTeamsFn({ data: {} }), signal),
     enabled: !!user,
     staleTime: 0,
     gcTime: 0,
@@ -393,8 +394,11 @@ function SharedProject({ target }: { target: { ownerId: string; projectId: strin
       assetId,
       offset,
     ],
-    queryFn: () =>
-      readTeamProjectFn({ data: { ...target, assetId, offset: assetId ? 0 : offset } }),
+    queryFn: ({ signal }) =>
+      runTeamRequest(
+        () => readTeamProjectFn({ data: { ...target, assetId, offset: assetId ? 0 : offset } }),
+        signal,
+      ),
     enabled: !!user,
     staleTime: 0,
     gcTime: 0,

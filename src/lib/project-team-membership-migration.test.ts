@@ -73,6 +73,24 @@ const change = (expected = 1, remove = false, who = owner) =>
 const revoke = (id = invite, who = owner) =>
   db.query("SELECT public.revoke_project_team_invitation($1,$2,'p',$3)", [who, owner, id]);
 describe("durable project invitation and membership lifecycle", () => {
+  it("admits bounded account discovery without project membership", async () => {
+    const acquire = (who = actor, target = actor) =>
+      db.query("SELECT acquire_project_team_preview($1,$2,NULL)", [who, target]);
+    await acquire();
+    await acquire();
+    await expect(acquire()).rejects.toThrow("team_preview_capacity");
+    await expect(acquire(other, actor)).rejects.toThrow("team_preview_unavailable");
+    await db.exec(
+      "UPDATE project_team_preview_limits SET leases='{}',hour_count=600 WHERE scope='actor'",
+    );
+    await expect(acquire()).rejects.toThrow("team_preview_capacity");
+    await db.exec("UPDATE project_team_preview_limits SET hour_start=now()-interval '2 hours'");
+    await acquire();
+    await db.query("UPDATE auth.users SET banned_until=now()+interval '1 hour' WHERE id=$1", [
+      actor,
+    ]);
+    await expect(acquire()).rejects.toThrow("team_preview_unavailable");
+  });
   it("admits previews only for current scopes and bounds independent actor/owner slots", async () => {
     const acquire = async (who = actor) =>
       (
@@ -118,7 +136,12 @@ describe("durable project invitation and membership lifecycle", () => {
       db.query("SELECT acquire_project_team_preview($1,$2,'p')", [actor, owner]);
     await acquire();
     await db.query(
-      "UPDATE project_team_preview_limits SET leases='{}',hour_count=240 WHERE scope='actor' AND account_id=$1",
+      "UPDATE project_team_preview_limits SET leases='{}',hour_count=360 WHERE scope='actor' AND account_id=$1",
+      [actor],
+    );
+    await acquire();
+    await db.query(
+      "UPDATE project_team_preview_limits SET leases='{}',hour_count=600 WHERE scope='actor' AND account_id=$1",
       [actor],
     );
     await expect(acquire()).rejects.toThrow("team_preview_capacity");
@@ -1728,6 +1751,44 @@ describe("scoped team notification outbox", () => {
     );
     expect(await begin(c)).toBeNull();
   });
+  it.each(["finish", "expired"])(
+    "requeues exhausted pre-transport items after the hourly interval: %s",
+    async (mode) => {
+      await prepare();
+      const first = await queue();
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const c = await claim();
+        if (mode === "expired") {
+          await db.exec(
+            "UPDATE project_team_notification_outbox SET lease_until=now()-interval '1 minute'",
+          );
+        } else {
+          await db.query(
+            "SELECT finish_project_team_notification_delivery($1,$2,'preflight_unavailable')",
+            [c.id, c.lease_token],
+          );
+          await db.exec(
+            "UPDATE project_team_notification_outbox SET available_at=now()-interval '1 minute'",
+          );
+        }
+      }
+      if (mode === "expired") expect(await claim()).toBeUndefined();
+      expect(await queue()).toBeNull();
+      await db.exec(
+        "UPDATE project_team_notification_outbox SET created_at=now()-interval '2 hours'",
+      );
+      const next = await queue();
+      expect(next).toBeTruthy();
+      expect(next).not.toBe(first);
+      expect(
+        (await db.query("SELECT outbox_id FROM project_team_notification_items")).rows,
+      ).toEqual([{ outbox_id: next }]);
+      expect(
+        (await db.query("SELECT status FROM project_team_notification_outbox WHERE id=$1", [first]))
+          .rows,
+      ).toEqual([{ status: "failed" }]);
+    },
+  );
   it("holds uncertain sends and only retries failures before transport", async () => {
     await prepare();
     await queue();

@@ -237,3 +237,11 @@ it("admits before context and releases after success or failure", async () => {
   );
   expect(read).not.toHaveBeenCalled();
 });
+
+it("matches whitespace-padded generated source URLs after decoding", () => {
+  const result = teamPreviewHtml('<img src="  https://site.example/im.png?a=1&amp;b=2  " />', [
+    { id: "content_im", url: "  https://site.example/im.png?a=1&b=2  " },
+  ]);
+  expect(result.imageIds).toEqual(["content_im"]);
+  expect(result.unknownImages).toBe(0);
+});

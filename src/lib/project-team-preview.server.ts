@@ -35,7 +35,7 @@ export function teamPreviewHtml(html: string, images: { id: string; url?: string
     }
   const projected = html.replace(/<img\b[^>]*>/gi, (tag) => {
     const match = tag.match(/\ssrc="([^"]*)"/i);
-    const id = match ? byUrl.get(decodeHTMLAttribute(match[1])) : undefined;
+    const id = match ? byUrl.get(decodeHTMLAttribute(match[1]).trim()) : undefined;
     if (!id) {
       unknownImages++;
       return '<span role="img" aria-label="Image unavailable">[Image unavailable]</span>';

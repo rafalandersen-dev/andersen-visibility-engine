@@ -1,3 +1,4 @@
+import { runTeamRequest } from "@/lib/team-request-queue";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
@@ -25,7 +26,11 @@ export function ProjectTeamComments({
   const [offset, setOffset] = useState(0);
   const query = useQuery({
     queryKey: ["project-teams", user?.id, "comments", ownerId, projectId, assetId, offset],
-    queryFn: () => readProjectTeamCommentsFn({ data: { ownerId, projectId, assetId, offset } }),
+    queryFn: ({ signal }) =>
+      runTeamRequest(
+        () => readProjectTeamCommentsFn({ data: { ownerId, projectId, assetId, offset } }),
+        signal,
+      ),
     enabled: !!user,
     staleTime: 0,
     gcTime: 0,
@@ -33,9 +38,11 @@ export function ProjectTeamComments({
   });
   const mutation = useMutation({
     mutationFn: () =>
-      addProjectTeamCommentFn({
-        data: { ownerId, projectId, assetId, commentId, expectedRevision: revision, body },
-      }),
+      runTeamRequest(() =>
+        addProjectTeamCommentFn({
+          data: { ownerId, projectId, assetId, commentId, expectedRevision: revision, body },
+        }),
+      ),
     onSuccess: () => {
       setBody("");
       setCommentId(crypto.randomUUID());

@@ -5,7 +5,7 @@ import type { TeamReadRpc } from "./project-team-read.server";
 export async function acquireTeamPreview(
   actor: string,
   owner: string,
-  project: string,
+  project: string | null,
   rpc: TeamReadRpc = projectTeamRpc,
 ) {
   const result = await rpc("acquire_project_team_preview", {

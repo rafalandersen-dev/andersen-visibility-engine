@@ -177,12 +177,15 @@ END; $$;
 
 -- Discovery includes only current memberships and invitations for a verified
 -- current email. The invitation UUID is an identifier, never a bearer grant.
+CREATE INDEX project_team_members_actor_lookup ON public.project_team_members(actor_id,owner_id,project_id) WHERE active;
+CREATE INDEX project_team_invitations_recipient_lookup ON public.project_team_invitations(recipient_email,owner_id,invite_id) WHERE state='pending';
 CREATE FUNCTION public.list_my_project_teams(p_actor uuid)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
-DECLARE projects jsonb; invitations jsonb;
+DECLARE projects jsonb; invitations jsonb; recipient text;
 BEGIN
   IF p_actor IS NULL OR NOT EXISTS(SELECT 1 FROM auth.users WHERE id=p_actor AND deleted_at IS NULL AND (banned_until IS NULL OR banned_until<=clock_timestamp()))
     THEN RAISE EXCEPTION 'team_project_unavailable'; END IF;
+  SELECT lower(btrim(email)) INTO recipient FROM auth.users WHERE id=p_actor AND email_confirmed_at IS NOT NULL;
   SELECT coalesce(jsonb_agg(jsonb_build_object('ownerId',owner_id,'projectId',project_id,'name',name,'role',role,'revision',revision) ORDER BY owner_id,project_id),'[]'::jsonb)
     INTO projects FROM (
       SELECT m.owner_id,m.project_id,p.data->>'name' name,m.role,m.revision FROM public.project_team_members m
@@ -195,7 +198,7 @@ BEGIN
     INTO invitations FROM (
       SELECT inv.owner_id,inv.project_id,p.data->>'name' name,inv.role,inv.invite_id,inv.expires_at FROM public.project_team_invitations inv
         JOIN public.workspace_entities p ON p.user_id=inv.owner_id AND p.collection='projects' AND p.entity_id=inv.project_id
-        WHERE EXISTS(SELECT 1 FROM auth.users owner_account WHERE owner_account.id=inv.owner_id AND owner_account.deleted_at IS NULL AND (owner_account.banned_until IS NULL OR owner_account.banned_until<=clock_timestamp())) AND inv.state='pending' AND inv.expires_at>clock_timestamp() AND EXISTS(
+        WHERE EXISTS(SELECT 1 FROM auth.users owner_account WHERE owner_account.id=inv.owner_id AND owner_account.deleted_at IS NULL AND (owner_account.banned_until IS NULL OR owner_account.banned_until<=clock_timestamp())) AND inv.recipient_email=recipient AND inv.state='pending' AND inv.expires_at>clock_timestamp() AND EXISTS(
           SELECT 1 FROM auth.users u JOIN auth.identities i ON i.user_id=u.id
             WHERE u.id=p_actor AND u.email_confirmed_at IS NOT NULL
               AND lower(btrim(u.email))=inv.recipient_email
