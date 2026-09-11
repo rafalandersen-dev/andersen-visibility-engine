@@ -1,4 +1,8 @@
 const en = {
+  "collaboration.renderedReview": "Rendered review",
+  "collaboration.loadingReview": "Loading the complete review and its images…",
+  "collaboration.incompleteReview":
+    "The complete review could not be loaded. Refresh to check the draft and all its images.",
   "collaboration.policyTitle": "Approval policy",
   "collaboration.policyHelp":
     "Choose who can approve project work. Changing this policy withdraws existing collaborator approvals; independent owner approvals remain.",
@@ -73,6 +77,10 @@ const en = {
 };
 type Copy = Record<keyof typeof en, string>;
 const pl: Copy = {
+  "collaboration.renderedReview": "Podgląd do oceny",
+  "collaboration.loadingReview": "Wczytywanie pełnego podglądu i obrazów…",
+  "collaboration.incompleteReview":
+    "Nie udało się wczytać pełnego podglądu. Odśwież, aby sprawdzić szkic i wszystkie obrazy.",
   "collaboration.policyTitle": "Zasady zatwierdzania",
   "collaboration.policyHelp":
     "Wybierz, kto może zatwierdzać pracę. Zmiana zasad cofa zatwierdzenia współpracowników; niezależne zatwierdzenia właściciela pozostają.",
@@ -147,6 +155,10 @@ const pl: Copy = {
   "collaboration.revoked": "Cofnięte",
 };
 const sv: Copy = {
+  "collaboration.renderedReview": "Förhandsvisning för granskning",
+  "collaboration.loadingReview": "Läser in hela granskningen och dess bilder…",
+  "collaboration.incompleteReview":
+    "Hela granskningen kunde inte läsas in. Uppdatera för att kontrollera utkastet och alla bilder.",
   "collaboration.policyTitle": "Godkännandepolicy",
   "collaboration.policyHelp":
     "Välj vem som får godkänna projektarbete. En policyändring återkallar samarbetares godkännanden; ägarens egna godkännanden behålls.",
@@ -220,6 +232,10 @@ const sv: Copy = {
   "collaboration.revoked": "Återkallad",
 };
 const da: Copy = {
+  "collaboration.renderedReview": "Visning til gennemgang",
+  "collaboration.loadingReview": "Indlæser hele gennemgangen og dens billeder…",
+  "collaboration.incompleteReview":
+    "Hele gennemgangen kunne ikke indlæses. Opdater for at kontrollere kladden og alle billeder.",
   "collaboration.policyTitle": "Godkendelsespolitik",
   "collaboration.policyHelp":
     "Vælg, hvem der kan godkende projektarbejde. En ændring tilbagekalder samarbejdspartneres godkendelser; ejerens selvstændige godkendelser bevares.",

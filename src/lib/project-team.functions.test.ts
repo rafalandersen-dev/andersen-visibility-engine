@@ -11,6 +11,8 @@ const h = vi.hoisted(() => ({
   edit: vi.fn(),
   policyRead: vi.fn(),
   policyChange: vi.fn(),
+  media: vi.fn(),
+  preview: vi.fn(),
 }));
 vi.mock("@/integrations/supabase/auth-middleware", () => ({ requireSupabaseAuth: h.auth }));
 vi.mock("@tanstack/react-start", () => ({
@@ -44,6 +46,8 @@ vi.mock("./project-team-policy.server", () => ({
   readOwnerTeamPolicy: h.policyRead,
   changeOwnerTeamPolicy: h.policyChange,
 }));
+vi.mock("./project-team-media.server", () => ({ readProjectTeamMedia: h.media }));
+vi.mock("./project-team-preview.server", () => ({ readProjectTeamPreview: h.preview }));
 import * as endpoints from "./project-team.functions";
 const actor = "00000000-0000-4000-8000-000000000001";
 const owner = "00000000-0000-4000-8000-000000000002";
@@ -52,7 +56,7 @@ const invoke = (fn: unknown, data: unknown) =>
   (fn as (args: unknown) => Promise<unknown>)({ data, context: { userId: actor } });
 describe("team authentication entry points", () => {
   it("requires authentication on every entry point", () => {
-    expect(h.registered).toHaveLength(10);
+    expect(h.registered).toHaveLength(12);
     expect(h.registered.every((items) => items.length === 1 && items[0] === h.auth)).toBe(true);
   });
   it("derives owner administration from authentication and rejects supplied actor/owner overrides", async () => {
@@ -134,6 +138,20 @@ describe("team authentication entry points", () => {
     expect(() => invoke(endpoints.changeOwnerTeamPolicyFn, { ...data, ownerId: owner })).toThrow();
     expect(() =>
       invoke(endpoints.changeOwnerTeamPolicyFn, { projectId: "p", expectedRevision: 0 }),
+    ).toThrow();
+  });
+  it("binds preview and image reads to the authenticated actor without accepting storage paths", async () => {
+    const target = { ownerId: owner, projectId: "p", assetId: "a" };
+    await invoke(endpoints.readProjectTeamPreviewFn, target);
+    expect(h.preview).toHaveBeenCalledWith(actor, target);
+    const image = { ...target, imageId: "im", expectedHash: "a".repeat(64) };
+    await invoke(endpoints.readProjectTeamMediaFn, image);
+    expect(h.media).toHaveBeenCalledWith(actor, image);
+    expect(() =>
+      invoke(endpoints.readProjectTeamMediaFn, { ...image, path: "private/path" }),
+    ).toThrow();
+    expect(() =>
+      invoke(endpoints.readProjectTeamPreviewFn, { ...target, actorId: owner }),
     ).toThrow();
   });
 });

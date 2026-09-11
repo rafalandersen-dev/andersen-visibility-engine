@@ -1,3 +1,4 @@
+import { ProjectTeamRenderedReview } from "@/components/ProjectTeamRenderedReview";
 import { ProjectTeamApprovalPolicy } from "@/components/ProjectTeamApprovalPolicy";
 import { ProjectTeamDraftEditor } from "@/components/ProjectTeamDraftEditor";
 import { ProjectTeamComments } from "@/components/ProjectTeamComments";
@@ -367,6 +368,12 @@ function SharedProject({ target }: { target: { ownerId: string; projectId: strin
               <Button variant="outline" onClick={() => setAssetId(undefined)}>
                 {t("collaboration.back")}
               </Button>
+              <ProjectTeamRenderedReview
+                key={query.data.draft.id}
+                ownerId={target.ownerId}
+                projectId={target.projectId}
+                assetId={query.data.draft.id}
+              />
               <h3 className="text-xl font-semibold">{query.data.draft.title}</h3>
               <pre className="whitespace-pre-wrap break-words font-sans">
                 {query.data.draft.markdown}

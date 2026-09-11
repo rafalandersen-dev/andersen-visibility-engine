@@ -154,3 +154,10 @@ export const teamPolicyChange = teamRosterInput
     expectedRevision: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
   })
   .strict();
+export const teamMediaInput = teamCommentTarget
+  .extend({
+    imageId: id,
+    kind: z.enum(["content", "featured"]).optional(),
+    expectedHash: z.string().regex(/^[a-f0-9]{64}$/),
+  })
+  .strict();

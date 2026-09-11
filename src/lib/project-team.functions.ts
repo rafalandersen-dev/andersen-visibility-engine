@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import {
+  teamCommentTarget,
+  teamMediaInput,
   teamPolicyChange,
   teamAcceptInput,
   teamOwnerAction,
@@ -78,4 +80,18 @@ export const changeOwnerTeamPolicyFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { changeOwnerTeamPolicy } = await import("./project-team-policy.server");
     return changeOwnerTeamPolicy(context.userId, data);
+  });
+export const readProjectTeamMediaFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => teamMediaInput.parse(v))
+  .handler(async ({ data, context }) => {
+    const { readProjectTeamMedia } = await import("./project-team-media.server");
+    return readProjectTeamMedia(context.userId, data);
+  });
+export const readProjectTeamPreviewFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => teamCommentTarget.parse(v))
+  .handler(async ({ data, context }) => {
+    const { readProjectTeamPreview } = await import("./project-team-preview.server");
+    return readProjectTeamPreview(context.userId, data);
   });

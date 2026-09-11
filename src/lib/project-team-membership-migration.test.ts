@@ -32,6 +32,7 @@ beforeAll(async () => {
     "20260910170000_publication_approval.sql",
     "20260911050000_project_team_edits.sql",
     "20260911060000_project_team_approval_policy.sql",
+    "20260911070000_project_team_review_context.sql",
   ])
     await db.exec(readFileSync(`supabase/migrations/${file}`, "utf8"));
 }, 30000);
@@ -549,6 +550,37 @@ describe("durable project invitation and membership lifecycle", () => {
       ]),
     ).rejects.toThrow("team_independent_reviewer_required");
   });
+
+  it("limits private review context to the exact assigned project and asset", async () => {
+    await create();
+    await accept();
+    await db.exec(
+      `INSERT INTO public.workspace_entities VALUES('${other}','content','other','{"projectId":"p","liveUrl":"https://other.example/private"}') ON CONFLICT DO NOTHING`,
+    );
+    const result = (
+      await db.query<{
+        result: {
+          actorId: string;
+          project: { id: string };
+          asset: { id: string };
+          links: unknown[];
+        };
+      }>("SELECT public.read_project_team_review_context($1,$2,'p','a') result", [actor, owner])
+    ).rows[0].result;
+    expect(result).toMatchObject({
+      actorId: actor,
+      project: { id: "p" },
+      asset: { id: "a" },
+      links: [],
+    });
+    await expect(
+      db.query("SELECT public.read_project_team_review_context($1,$2,'p','a')", [actor, other]),
+    ).rejects.toThrow();
+    await change(1, true);
+    await expect(
+      db.query("SELECT public.read_project_team_review_context($1,$2,'p','a')", [actor, owner]),
+    ).rejects.toThrow();
+  });
   it("restricts all lifecycle functions and private tables to service-mediated calls", async () => {
     for (const role of ["anon", "authenticated", "service_role"]) {
       await db.exec(`SET ROLE ${role}`);
@@ -566,6 +598,9 @@ describe("durable project invitation and membership lifecycle", () => {
         );
       if (role !== "service_role") {
         await expect(create()).rejects.toThrow(/permission denied/);
+        await expect(
+          db.query("SELECT public.read_project_team_review_context($1,$2,'p','a')", [actor, owner]),
+        ).rejects.toThrow(/permission denied/);
         await expect(
           db.query("SELECT public.read_project_team_approval_policy($1,$2,'p')", [actor, owner]),
         ).rejects.toThrow(/permission denied/);
