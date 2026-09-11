@@ -53,3 +53,11 @@ Validation:116 focused detail normalization/history/lifecycle/actual-SQL/endpoin
 Every request sorts by the selected provider timestamp descending, then referring URL ascending and destination URL ascending. The unique retained URL pair breaks timestamp ties without changing the three-field provider sorting limit. The exact sort tuple is also required in the provider request echo. This addresses review3992604363; live-index changes between requests remain possible and explicitly disclosed.
 
 Validation:43 normalization/transport tests, TypeScript and changed-file lint pass (`/tmp/milo-pagination-order-{tests,types,lint}.log`). Full3581tests/265files and build at636244d predate these sort tie-breakers. Current review/build are required; no provider call or production mutation occurred.
+
+### Deep continuation contract foundation — 12 September 2026 (unreleased)
+
+An isolated pure pagination module now preserves every initial request parameter while adding the provider's opaque search-after token. It verifies exact saved scope and echoed token, refuses repeated/non-progressing cursors, bounds token bytes and chain length, and counts returned observations separately from unique backlink inventory. The original offset stays unchanged; continuation can advance beyond it. Missing continuation is not a claim that the web backlink inventory is complete.
+
+Official contract rechecked at https://docs.dataforseo.com/v3/backlinks-backlinks-live/: all other parameters must match the previous request, and each response supplies the next unique token. Tokens are not decoded or reconstructed. This module performs no request and is not connected to production endpoints. Private owner/project/parent-request persistence, expense admission, transport/controller wiring, history and explicit UI continuation remain required before this feature is usable. Published migration180000 is unchanged.
+
+Validation:43 existing-detail and new-pagination tests, TypeScript and changed-file lint pass (`/tmp/milo-pagination-foundation-{tests,types,lint}.log`). No provider request, SQL mutation or deployment occurred. Overall estimate remains approximately55% and implementation70% pending meaningful release/acceptance milestones.
