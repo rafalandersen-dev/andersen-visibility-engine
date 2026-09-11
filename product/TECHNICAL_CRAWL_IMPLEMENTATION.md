@@ -29,3 +29,11 @@ The transport posts only to Google's URL Inspection API with redirects refused, 
 This is not yet an owner-facing feature: canonical project/property authorization, OAuth integration, durable attempt/result storage, history and localized UI still need implementation. No live Google call, account change, migration or deployment was performed. Current owner OAuth helpers were inspected but not changed.
 
 Foundation validation: 3,332 tests across 251 files pass (14 new Google inspection cases), TypeScript and changed-file lint pass. Provider responses are mocked; no live acceptance is claimed. Logs: `/tmp/milo-google-index-full.log`, `/tmp/milo-google-index-types.log`, `/tmp/milo-google-index-lint.log`.
+
+## Durable Google inspection request history (unreleased)
+
+Migration `20260911130000_google_index_inspections.sql` adds private owner/project-scoped inspection requests with exact request IDs, canonical saved Google property, 60-second leases, one active request per project and 100 new requests per project/hour. Exact retries return their record without reclaiming a request. Expired or unavailable outcomes are unknown and cannot replay automatically; changed properties hold late results. Success binds the exact URL/property/indexed-version source, and history hides lease tokens and returns the latest 20 records while retaining older history. Service-only entrypoints use current owner/account checks and the existing workspace lock. No migration has been applied.
+
+Seven actual-SQL regression cases cover request deduplication, exact query evidence, owner isolation, account restrictions, property changes, late-result refusal, private table permissions, quota isolation from history, expiry recovery and unknown outcomes. OAuth dispatch/last-moment authorization and the localized interface remain next; this persistence milestone does not yet expose a runnable Google inspection feature.
+
+Durable history validation: full 3,339 tests / 252 files pass, including seven actual-SQL cases; TypeScript and changed-file lint pass. Logs `/tmp/milo-google-durable-{full,types,lint}.log`.
