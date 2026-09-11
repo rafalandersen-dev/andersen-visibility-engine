@@ -162,7 +162,11 @@ describe("durable project invitation and membership lifecycle", () => {
   it("never restores access through accepted or pending old invitations after removal", async () => {
     await create();
     await accept();
-    await create(second);
+    // Model a pre-existing pending invitation, bypassing current creation guards.
+    await db.query(
+      "INSERT INTO public.project_team_invitations(owner_id,project_id,invite_id,recipient_email,role,expires_at) VALUES($1,'p',$2,'member@example.test','editor',now()+interval '1 day')",
+      [owner, second],
+    );
     await change(1, true);
     await expect(accept()).rejects.toThrow("team_invitation_unavailable");
     await expect(accept(second)).rejects.toThrow("team_invitation_unavailable");
@@ -173,11 +177,38 @@ describe("durable project invitation and membership lifecycle", () => {
   it("does not let a new pending invitation overwrite active membership", async () => {
     await create();
     await accept();
-    await create(second, owner, "member@example.test", "reviewer");
-    await expect(accept(second)).rejects.toThrow("team_membership_exists");
+    await expect(create(second, owner, "MEMBER@example.test", "reviewer")).rejects.toThrow(
+      "team_membership_exists",
+    );
+    expect(
+      (
+        await db.query(
+          "SELECT count(*)::int n FROM public.project_team_invitations WHERE state='pending'",
+        )
+      ).rows[0],
+    ).toEqual({ n: 0 });
     expect((await db.query("SELECT role FROM public.project_team_members")).rows[0]).toEqual({
       role: "editor",
     });
+  });
+  it.each(["active=false", "expires_at=now()-interval '1 second'"])(
+    "allows a fresh invitation after membership ends: %s",
+    async (update) => {
+      await create();
+      await accept();
+      await db.exec(`UPDATE public.project_team_members SET ${update}`);
+      await create(second);
+      expect((await accept(second)).rows[0]).toEqual({ revision: 2 });
+    },
+  );
+  it("matches the member's current address when preventing duplicate invitations", async () => {
+    await create();
+    await accept();
+    await db.query("UPDATE auth.users SET email='changed@example.test' WHERE id=$1", [actor]);
+    await expect(create(second, owner, "changed@example.test")).rejects.toThrow(
+      "team_membership_exists",
+    );
+    await create(second, owner, "member@example.test");
   });
   it("provides owner-only roster and actor-only discovery with valid response contracts", async () => {
     await create();

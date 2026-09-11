@@ -41,6 +41,13 @@ BEGIN
   recipient:=lower(btrim(p_email));
   IF EXISTS(SELECT 1 FROM auth.users WHERE id=p_owner AND lower(btrim(auth.users.email))=recipient)
     THEN RAISE EXCEPTION 'team_invitation_unavailable'; END IF;
+  -- Membership is scoped to this project and the account's current address.
+  -- The owner workspace lock above serializes invitation and membership changes.
+  IF EXISTS(SELECT 1 FROM public.project_team_members m JOIN auth.users u ON u.id=m.actor_id
+    WHERE m.owner_id=p_owner AND m.project_id=p_project AND m.active
+      AND (m.expires_at IS NULL OR m.expires_at>clock_timestamp())
+      AND lower(btrim(u.email))=recipient)
+    THEN RAISE EXCEPTION 'team_membership_exists'; END IF;
   SELECT * INTO previous FROM public.project_team_invitations WHERE owner_id=p_owner AND invite_id=p_invite;
   IF FOUND THEN
     IF previous.project_id=p_project AND previous.recipient_email=recipient AND previous.role=p_role AND previous.state='pending' AND previous.expires_at>clock_timestamp() THEN RETURN true; END IF;
