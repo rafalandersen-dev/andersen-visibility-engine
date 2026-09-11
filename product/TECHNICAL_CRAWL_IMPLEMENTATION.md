@@ -80,3 +80,14 @@ The authenticated server controller derives scope from the saved project website
 Provider contracts checked against the official [CrUX API documentation](https://developer.chrome.com/docs/crux/api/) and [PageSpeed Insights v5 reference](https://developers.google.com/speed/docs/insights/v5/reference/pagespeedapi/runpagespeed) on 11 September 2026.
 
 Performance-core validation: full 3,386 tests / 257 files pass with one worker (74.77 seconds), including 12 performance normalization cases, 12 bounded provider transport cases and 10 actual-SQL/controller cases. No live provider or customer request was used. Log `/tmp/milo-performance-core-full.log`; TypeScript, changed-file lint and production build pass (`/tmp/milo-performance-core-types-final.log`, `/tmp/milo-performance-core-build.log`).
+
+
+## Performance interface (local, unreleased)
+
+The On-page Review route now includes TechnicalPerformancePanel with separate CrUX field and PageSpeed lab selection, supported device choices, explicit page/origin scope for field data, and exact project-origin URL admission. Owner/project keys isolate component state and history. Opening or refreshing the panel reads saved history only. A submitted request saves current workspace changes before dispatch and checks that the component is still mounted; a synchronous lock prevents double submission. Unconfirmed responses retain the same immutable request ID/query for a status check without repeating the provider request. A separate-request action explicitly resets the attempt.
+
+The latest 20 saved requests expose source, device, scope, requested/received timestamps, collection window, returned identity and unknown/held/error states. Field LCP/INP/CLS p75 values retain zero and unknown distinctly. Lab LCP/CLS/TBT, score, final URL and measurement time remain separate from field assessment. The view parser verifies saved identity and types, suppresses mismatched or failed-run metrics, and never converts missing collection evidence into a passed assessment. The interface remains available for history when a provider is not configured and reveals no environment-variable names or secrets. Copy covers English, Polish, Swedish and Danish.
+
+Seven focused copy/pure-view/static-render tests pass, including exact URL/device/source/scope rejection, missing-window uncertainty, retained zero values, lab TBT versus field INP, and history without configuration. TypeScript and changed-file lint pass. Actual browser interaction and live-provider acceptance remain unverified under the existing boundaries. No provider request, key/account change or SQL deployment was performed.
+
+Performance-UI validation: full 3,393 tests / 258 files pass (57.16 seconds, one worker). The final project-origin helper refinement is covered by the rerun seven focused tests. TypeScript, changed-file lint and production build pass. Logs `/tmp/milo-performance-ui-{full,focused-final,types-final,lint-final,build}.log`.

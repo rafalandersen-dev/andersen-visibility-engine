@@ -1,3 +1,4 @@
+import { TechnicalPerformancePanel } from "@/components/TechnicalPerformancePanel";
 import { GoogleIndexPanel } from "@/components/GoogleIndexPanel";
 import { TechnicalCrawlPanel } from "@/components/TechnicalCrawlPanel";
 import { LocationCoveragePanel } from "@/components/LocationCoveragePanel";
@@ -142,6 +143,7 @@ function AuditPage() {
       <LocationCoveragePanel project={project} />
       <TechnicalCrawlPanel projectId={project.id} />
       <GoogleIndexPanel project={project} />
+      <TechnicalPerformancePanel project={project} />
       {/* Input card */}
       <div className="rounded-lg border border-border bg-card p-5 mb-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
