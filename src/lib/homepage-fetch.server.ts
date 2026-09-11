@@ -59,8 +59,8 @@ export function isPublicHomepageAddress(address: string): boolean {
   return false;
 }
 
-function pageUrl(raw: string): URL {
-  if (raw.length > 4096 || !isSafePublicUrl(raw)) throw new Error("blocked_url");
+function pageUrl(raw: string, maximum = 4096): URL {
+  if (raw.length > maximum || !isSafePublicUrl(raw)) throw new Error("blocked_url");
   const url = new URL(raw);
   const hostname = url.hostname.replace(/^\[|\]$/g, "");
   if (
@@ -69,6 +69,7 @@ function pageUrl(raw: string): URL {
   )
     throw new Error("blocked_host");
   url.hash = "";
+  if (url.href.length > maximum) throw new Error("blocked_url");
   return url;
 }
 
@@ -268,7 +269,8 @@ export async function fetchPinnedResource(
     // Older Bun versions can inherit proxy settings inside node:http. Refuse
     // that environment rather than handing a proxy control of DNS/routing.
     if (proxyVariables.some((key) => process.env[key]?.trim())) throw new Error("proxy_refused");
-    let url = pageUrl(raw);
+    const urlLimit = options.purpose === "homepage" ? 4096 : 8192;
+    let url = pageUrl(raw, urlLimit);
     for (let hop = 0; hop <= 3; hop++) {
       if (options.purpose !== "homepage" && (!options.origin || url.origin !== options.origin))
         throw new Error("scope_refused");
@@ -292,7 +294,7 @@ export async function fetchPinnedResource(
         response.destroy();
         if (typeof location !== "string" || !location || hop === 3)
           throw new Error("redirect_refused");
-        const next = pageUrl(new URL(location, url).toString());
+        const next = pageUrl(new URL(location, url).toString(), urlLimit);
         if (url.protocol === "https:" && next.protocol !== "https:")
           throw new Error("downgrade_refused");
         url = next;

@@ -101,3 +101,5 @@ Combined validation: all 3,463 tests / 262 files pass (56.36 seconds, one worker
 Combined production build passes: /tmp/milo-technical-merge-build.log. No live requests or deployment performed.
 
 Resource content negotiation (2026-09-11): sitemap requests now advertise XML/plain text and robots requests plain text; HTML page and exact image headers remain separate. Headers are retained for each permitted redirect. All 66 focused native transport/crawl tests, TypeScript and changed-file lint pass; no live network request.
+
+Technical URL boundary fix (2026-09-11): the native resource transport accepts up to 8,192 serialized characters for technical/robots/sitemap requests, matching discovery; homepage/image callers retain 4,096. Initial and redirected URLs are checked before their connection. The 68 focused transport/crawl tests pass including exact limit, oversized initial/redirect refusal and preserved homepage limit.

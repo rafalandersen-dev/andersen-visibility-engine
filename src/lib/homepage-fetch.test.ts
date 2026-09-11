@@ -340,6 +340,36 @@ describe("structured pinned technical observations", () => {
     },
   );
   it.each(["technical", "sitemap"] as const)(
+    "honors the 8192-character %s URL boundary for initial and redirected URLs",
+    async (purpose) => {
+      const base = "https://example.com/";
+      const longest = base + "a".repeat(8192 - base.length);
+      const options = { purpose, origin: "https://example.com", authorize: () => true };
+      const mime = purpose === "sitemap" ? "application/xml" : "text/html";
+      mocks.request.mockImplementation(
+        reply(response([Buffer.from("body")], 200, { "content-type": mime })),
+      );
+      expect((await fetchPinnedResource(longest, options))?.url).toBe(longest);
+      mocks.request.mockClear();
+      mocks.lookup.mockClear();
+      expect(await fetchPinnedResource(longest + "x", options)).toBeNull();
+      expect(mocks.lookup).not.toHaveBeenCalled();
+      mocks.request
+        .mockImplementationOnce(reply(response([], 302, { location: longest })))
+        .mockImplementationOnce(
+          reply(response([Buffer.from("body")], 200, { "content-type": mime })),
+        );
+      expect((await fetchPinnedResource(base, options))?.url).toBe(longest);
+      mocks.request.mockClear();
+      mocks.request.mockImplementationOnce(reply(response([], 302, { location: longest + "x" })));
+      expect(await fetchPinnedResource(base, options)).toBeNull();
+      expect(mocks.request).toHaveBeenCalledTimes(1);
+      mocks.request.mockClear();
+      expect(await fetchHomepageHtml(longest)).toBe("");
+      expect(mocks.request).not.toHaveBeenCalled();
+    },
+  );
+  it.each(["technical", "sitemap"] as const)(
     "rejects %s redirect scope and robots policy before resolving or connecting",
     async (purpose) => {
       mocks.request.mockImplementation(
