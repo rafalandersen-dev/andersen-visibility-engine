@@ -62,7 +62,14 @@ function MonitoringHistory({
   const run = useMutation({
     mutationFn: (id: string) =>
       requestBacklinkMonitoringFn({
-        data: { projectId, requestId: id, dateFrom, dateTo, includeSubdomains },
+        data: {
+          projectId,
+          requestId: id,
+          dateFrom,
+          dateTo,
+          includeSubdomains,
+          expectedWebsite: website.trim(),
+        },
       }),
     retry: false,
     onSettled: () => {
@@ -110,9 +117,10 @@ function MonitoringHistory({
           e.preventDefault();
           if (disabled || !query.isSuccess) return;
           try {
+            const savedWebsite = website.trim();
             monitoringScope({
               target: new URL(
-                /^https?:\/\//i.test(website) ? website : `https://${website}`,
+                /^https?:\/\//i.test(savedWebsite) ? savedWebsite : `https://${savedWebsite}`,
               ).hostname.toLowerCase(),
               dateFrom,
               dateTo,

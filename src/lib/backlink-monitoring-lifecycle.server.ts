@@ -39,6 +39,8 @@ export async function runBacklinkMonitoring(
   const context = z
     .object({ website: z.string().min(1).max(8192) })
     .parse(await call("read_backlink_monitoring_context", target));
+  if (context.website.trim() !== input.expectedWebsite)
+    return { state: "website_changed" as const, requestId: input.requestId };
   const website = new URL(
     /^https?:\/\//i.test(context.website.trim())
       ? context.website.trim()

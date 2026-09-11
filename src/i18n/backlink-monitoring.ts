@@ -1,6 +1,8 @@
 import type { OnboardingLanguage } from "@/lib/types";
 export const backlinkMonitoringCopy: Record<OnboardingLanguage, Record<string, string>> = {
   en: {
+    "backlinkMonitor.website_changed":
+      "The displayed website does not match the saved project. Save or reload the project before collecting. No collection was started.",
     "backlinkMonitor.unavailable":
       "Collection is unavailable until the provider status confirms an active account with available balance. Saved history remains accessible.",
     "backlinkMonitor.yes": "Yes",
@@ -49,6 +51,8 @@ export const backlinkMonitoringCopy: Record<OnboardingLanguage, Record<string, s
     "backlinkMonitor.invalid": "Choose a valid interval of 1–92 days, ending no later than today.",
   },
   pl: {
+    "backlinkMonitor.website_changed":
+      "Wyświetlana witryna nie odpowiada zapisanemu projektowi. Zapisz lub wczytaj projekt ponownie przed pobraniem danych. Pobieranie nie zostało rozpoczęte.",
     "backlinkMonitor.unavailable":
       "Pobieranie danych jest niedostępne, dopóki status dostawcy nie potwierdzi aktywnego konta z dostępnym saldem. Zapisana historia pozostaje dostępna.",
     "backlinkMonitor.yes": "Tak",
@@ -97,6 +101,8 @@ export const backlinkMonitoringCopy: Record<OnboardingLanguage, Record<string, s
     "backlinkMonitor.invalid": "Wybierz poprawny okres 1–92 dni, kończący się najpóźniej dzisiaj.",
   },
   sv: {
+    "backlinkMonitor.website_changed":
+      "Den visade webbplatsen matchar inte det sparade projektet. Spara eller ladda om projektet innan du hämtar data. Ingen hämtning startades.",
     "backlinkMonitor.unavailable":
       "Hämtning är inte tillgänglig förrän leverantörens status bekräftar ett aktivt konto med tillgängligt saldo. Sparad historik är fortfarande tillgänglig.",
     "backlinkMonitor.yes": "Ja",
@@ -147,6 +153,8 @@ export const backlinkMonitoringCopy: Record<OnboardingLanguage, Record<string, s
     "backlinkMonitor.invalid": "Välj ett giltigt intervall på 1–92 dagar som slutar senast idag.",
   },
   da: {
+    "backlinkMonitor.website_changed":
+      "Den viste hjemmeside matcher ikke det gemte projekt. Gem eller genindlæs projektet, før du indsamler data. Ingen indsamling blev startet.",
     "backlinkMonitor.unavailable":
       "Indsamling er utilgængelig, indtil leverandørens status bekræfter en aktiv konto med tilgængelig saldo. Gemt historik er stadig tilgængelig.",
     "backlinkMonitor.yes": "Ja",

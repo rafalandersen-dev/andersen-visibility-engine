@@ -7,6 +7,7 @@ const user = "00000000-0000-4000-8000-000000000001",
 const now = new Date("2026-09-11T12:00:00Z");
 const input = {
   projectId: "p",
+  expectedWebsite: "https://www.example.com/path",
   requestId,
   dateFrom: "2026-09-01",
   dateTo: "2026-09-01",
@@ -165,4 +166,32 @@ it("passes normalized credentials to the admitted provider dispatch", async () =
   d.credentials = () => ({ login: " fixture ", password: "\tfixture-secret\n" });
   await runBacklinkMonitoring(user, input, d);
   expect(d.fetch.mock.calls[0][1]).toEqual({ login: "fixture", password: "fixture-secret" });
+});
+
+it("refuses an optimistic or stale displayed website before reserving or dispatching", async () => {
+  const d = setup();
+  expect(
+    await runBacklinkMonitoring(
+      user,
+      { ...input, expectedWebsite: "https://different.example/" },
+      d,
+    ),
+  ).toEqual({ state: "website_changed", requestId });
+  expect(d.rpc.mock.calls.map(([name]) => name)).toEqual(["read_backlink_monitoring_context"]);
+  expect(d.fetch).not.toHaveBeenCalled();
+});
+it("matches surrounding whitespace without changing the saved request identity", async () => {
+  const d = setup();
+  d.record.website_value = "  https://www.example.com/path  ";
+  expect(
+    (
+      await runBacklinkMonitoring(
+        user,
+        { ...input, expectedWebsite: "  https://www.example.com/path  " },
+        d,
+      )
+    ).state,
+  ).toBe("stored");
+  expect(d.fetch).toHaveBeenCalledTimes(1);
+  expect(d.fetch.mock.calls[0][0].target).toBe("www.example.com");
 });
