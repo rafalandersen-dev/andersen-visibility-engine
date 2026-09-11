@@ -1,3 +1,4 @@
+import { TechnicalCrawlAdmissionError } from "./technical-crawl-admission";
 import { SaxesParser, type SaxesTagNS } from "saxes";
 import { isSafePublicUrl } from "./safe-fetch";
 import { evaluateRobots, type RobotsEvidence } from "./technical-robots";
@@ -263,7 +264,8 @@ export async function advanceTechnicalSitemaps(
           }
         }
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof TechnicalCrawlAdmissionError) throw error;
       file.state = "fetch_failed";
     }
   }

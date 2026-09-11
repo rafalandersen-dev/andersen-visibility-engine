@@ -1,3 +1,7 @@
+import {
+  TechnicalCrawlAdmissionError,
+  type CrawlConnectionAdmission,
+} from "./technical-crawl-admission";
 import { decodeTechnicalHtml } from "./technical-html-decoding.server";
 /** Server-only public-page reader. Resolve once and pin the socket to that
  * address while preserving HTTP Host and TLS certificate/SNI verification.
@@ -247,6 +251,7 @@ export async function fetchPinnedResource(
     purpose: "homepage" | "technical" | "robots" | "sitemap";
     origin?: string;
     authorize?: (url: string) => boolean;
+    admit?: CrawlConnectionAdmission;
   },
 ): Promise<PinnedResource | null> {
   const maxBytes = options.purpose === "homepage" ? HOMEPAGE_MAX_BYTES : 512_000;
@@ -273,88 +278,99 @@ export async function fetchPinnedResource(
     const urlLimit = options.purpose === "homepage" ? 4096 : 8192;
     let url = pageUrl(raw, urlLimit);
     for (let hop = 0; hop <= 3; hop++) {
-      if (options.purpose !== "homepage" && (!options.origin || url.origin !== options.origin))
-        throw new Error("scope_refused");
-      if (
-        ["technical", "sitemap"].includes(options.purpose) &&
-        (!options.authorize || !options.authorize(url.href))
-      )
-        throw new Error("crawl_policy_refused");
-      const address = await addressFor(url, controller.signal);
-      controller.signal.throwIfAborted();
-      const accept =
-        options.purpose === "sitemap"
-          ? "application/xml,text/xml,text/plain"
-          : options.purpose === "robots"
-            ? "text/plain"
-            : "text/html,application/xhtml+xml,text/plain";
-      response = await openPage(url, address, controller.signal, accept);
-      const status = response.statusCode ?? 0;
-      if ([301, 302, 303, 307, 308].includes(status)) {
-        const location = response.headers.location;
-        response.destroy();
-        if (typeof location !== "string" || !location || hop === 3)
-          throw new Error("redirect_refused");
-        const next = pageUrl(new URL(location, url).toString(), urlLimit);
-        if (url.protocol === "https:" && next.protocol !== "https:")
-          throw new Error("downgrade_refused");
-        url = next;
-        continue;
-      }
-      if (!Number.isInteger(status) || status < 100 || status > 599) throw new Error("http_error");
-      const headers: Record<string, string> = {};
-      for (const key of ["content-type", "x-robots-tag", "link"]) {
-        const rawValue = response.headers[key];
-        const value = Array.isArray(rawValue) ? rawValue.join(", ") : rawValue;
-        if (value && value.length > 32000) throw new Error("header_limit");
-        if (value) headers[key] = value;
-      }
-      const type = headers["content-type"] ?? "";
-      const contentAccepted = acceptedType.test(type);
-      const evidence = {
-        url: url.href,
-        status,
-        headers,
-        body: "",
-        truncated: false,
-        contentAccepted,
-        observedAt: new Date().toISOString(),
-      };
-      if (!contentAccepted) return evidence;
-      const encoding = response.headers["content-encoding"];
-      if (encoding && encoding !== "identity") throw new Error("unsupported_encoding");
-      const chunks: Buffer[] = [];
-      let bytes = 0;
-      let count = 0;
-      let truncated = false;
-      for await (const rawChunk of response) {
+      let release: (() => Promise<void>) | undefined;
+      try {
+        if (options.purpose !== "homepage" && (!options.origin || url.origin !== options.origin))
+          throw new Error("scope_refused");
+        if (
+          ["technical", "sitemap"].includes(options.purpose) &&
+          (!options.authorize || !options.authorize(url.href))
+        )
+          throw new Error("crawl_policy_refused");
+        const address = await addressFor(url, controller.signal);
         controller.signal.throwIfAborted();
-        const chunk = Buffer.isBuffer(rawChunk) ? rawChunk : Buffer.from(rawChunk);
-        if (++count > HOMEPAGE_MAX_CHUNKS) throw new Error("too_many_chunks");
-        const take = Math.min(chunk.length, maxBytes - bytes);
-        chunks.push(Buffer.from(chunk.subarray(0, take)));
-        bytes += take;
-        if (chunk.length > take) {
-          truncated = true;
-          break;
+        if (options.admit) release = await options.admit(url.href, controller.signal);
+        controller.signal.throwIfAborted();
+        const accept =
+          options.purpose === "sitemap"
+            ? "application/xml,text/xml,text/plain"
+            : options.purpose === "robots"
+              ? "text/plain"
+              : "text/html,application/xhtml+xml,text/plain";
+        response = await openPage(url, address, controller.signal, accept);
+        const status = response.statusCode ?? 0;
+        if ([301, 302, 303, 307, 308].includes(status)) {
+          const location = response.headers.location;
+          response.destroy();
+          if (typeof location !== "string" || !location || hop === 3)
+            throw new Error("redirect_refused");
+          const next = pageUrl(new URL(location, url).toString(), urlLimit);
+          if (url.protocol === "https:" && next.protocol !== "https:")
+            throw new Error("downgrade_refused");
+          url = next;
+          continue;
         }
+        if (!Number.isInteger(status) || status < 100 || status > 599)
+          throw new Error("http_error");
+        const headers: Record<string, string> = {};
+        for (const key of ["content-type", "x-robots-tag", "link"]) {
+          const rawValue = response.headers[key];
+          const value = Array.isArray(rawValue) ? rawValue.join(", ") : rawValue;
+          if (value && value.length > 32000) throw new Error("header_limit");
+          if (value) headers[key] = value;
+        }
+        const type = headers["content-type"] ?? "";
+        const contentAccepted = acceptedType.test(type);
+        const evidence = {
+          url: url.href,
+          status,
+          headers,
+          body: "",
+          truncated: false,
+          contentAccepted,
+          observedAt: new Date().toISOString(),
+        };
+        if (!contentAccepted) return evidence;
+        const encoding = response.headers["content-encoding"];
+        if (encoding && encoding !== "identity") throw new Error("unsupported_encoding");
+        const chunks: Buffer[] = [];
+        let bytes = 0;
+        let count = 0;
+        let truncated = false;
+        for await (const rawChunk of response) {
+          controller.signal.throwIfAborted();
+          const chunk = Buffer.isBuffer(rawChunk) ? rawChunk : Buffer.from(rawChunk);
+          if (++count > HOMEPAGE_MAX_CHUNKS) throw new Error("too_many_chunks");
+          const take = Math.min(chunk.length, maxBytes - bytes);
+          chunks.push(Buffer.from(chunk.subarray(0, take)));
+          bytes += take;
+          if (chunk.length > take) {
+            truncated = true;
+            break;
+          }
+        }
+        if (!truncated && !response.complete) throw new Error("incomplete_page");
+        return {
+          ...evidence,
+          body:
+            options.purpose === "technical"
+              ? decodeTechnicalHtml(Buffer.concat(chunks, bytes), type, truncated)
+              : Buffer.concat(chunks, bytes).toString("utf8"),
+          truncated,
+          observedAt: new Date().toISOString(),
+        };
+      } finally {
+        // This belongs to actual request work, not the outer timeout race.
+        response?.destroy();
+        if (release) await release().catch(() => {});
       }
-      if (!truncated && !response.complete) throw new Error("incomplete_page");
-      return {
-        ...evidence,
-        body:
-          options.purpose === "technical"
-            ? decodeTechnicalHtml(Buffer.concat(chunks, bytes), type, truncated)
-            : Buffer.concat(chunks, bytes).toString("utf8"),
-        truncated,
-        observedAt: new Date().toISOString(),
-      };
     }
     throw new Error("redirect_refused");
   };
   try {
     return await Promise.race([read(), deadline]);
-  } catch {
+  } catch (error) {
+    if (error instanceof TechnicalCrawlAdmissionError) throw error;
     // No bodies, URLs, DNS answers or transport errors enter logs.
     return null;
   } finally {

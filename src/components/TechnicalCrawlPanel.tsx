@@ -54,7 +54,7 @@ function ProjectCrawl({ owner, projectId }: { owner: string; projectId: string }
     const reads = await Promise.all([history.refetch(), ...(runId ? [result.refetch()] : [])]);
     if (mounted.current) setFailed(reads.some((read) => read.isError));
   }
-  async function execute(id: string, create: boolean) {
+  async function execute(id: string, create: boolean, resumeAdmission = false) {
     if (lock.current || cancelling) return;
     lock.current = true;
     stop.current = false;
@@ -62,6 +62,7 @@ function ProjectCrawl({ owner, projectId }: { owner: string; projectId: string }
     setFailed(false);
     setRunId(id);
     try {
+      if (resumeAdmission) await api.resumeTechnicalAdmissionFn({ data: { projectId, runId: id } });
       if (create) await api.startTechnicalCrawlFn({ data: { projectId, runId: id } });
       await processTechnicalCrawl(
         () => api.stepTechnicalCrawlFn({ data: { projectId, runId: id } }),
@@ -114,6 +115,12 @@ function ProjectCrawl({ owner, projectId }: { owner: string; projectId: string }
       <p className="text-sm text-muted-foreground">{t("crawl.help")}</p>
       <p className="text-sm text-muted-foreground">{t("crawl.scope")}</p>
       <CrawlOwnershipPanel owner={owner} projectId={projectId} />
+      {saved?.admissionHold && (
+        <p className="text-sm text-muted-foreground">
+          {t(`crawl.admission_${saved.admissionHold}`)}
+          {saved.retryAfter ? ` ${new Date(saved.retryAfter).toLocaleString()}` : ""}
+        </p>
+      )}
       <div className="flex flex-wrap gap-2">
         <Button
           disabled={
@@ -129,6 +136,14 @@ function ProjectCrawl({ owner, projectId }: { owner: string; projectId: string }
         >
           {t("crawl.start")}
         </Button>
+        {saved?.status === "held" && saved.admissionHold && !busy && (
+          <Button
+            disabled={!ownsSite || cancelling || failed}
+            onClick={() => void execute(runId!, false, true)}
+          >
+            {t("crawl.retryAdmission")}
+          </Button>
+        )}
         {active && !busy && (
           <Button
             disabled={!ownsSite || cancelling || failed}

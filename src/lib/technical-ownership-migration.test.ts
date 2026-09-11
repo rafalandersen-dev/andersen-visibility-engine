@@ -17,12 +17,13 @@ beforeAll(async () => {
     "20260911130000_google_index_inspections.sql",
     "20260911140000_technical_performance_requests.sql",
     "20260911150000_technical_crawl_ownership.sql",
+    "20260911160000_technical_crawl_dispatch.sql",
   ])
     await db.exec(readFileSync(`supabase/migrations/${file}`, "utf8"));
 }, 30000);
 beforeEach(async () => {
   await db.exec(
-    `RESET ROLE;TRUNCATE technical_crawls,technical_crawl_ownership,technical_ownership_limits CASCADE;UPDATE auth.users SET deleted_at=NULL,banned_until=NULL;UPDATE workspace_entities SET data='{"websiteUrl":"https://example.test"}';`,
+    `RESET ROLE;TRUNCATE technical_crawls,technical_crawl_ownership,technical_ownership_limits,technical_crawl_dispatch_limits CASCADE;UPDATE auth.users SET deleted_at=NULL,banned_until=NULL;UPDATE workspace_entities SET data='{"websiteUrl":"https://example.test"}';`,
   );
 });
 afterAll(async () => await db?.close());
@@ -181,6 +182,9 @@ describe("durable crawl ownership", () => {
       await expect(db.query("SELECT * FROM technical_ownership_limits")).rejects.toThrow(
         "permission denied",
       );
+      await expect(db.query("SELECT * FROM technical_crawl_dispatch_limits")).rejects.toThrow(
+        "permission denied",
+      );
       if (role !== "service_role") await expect(issue()).rejects.toThrow("permission denied");
       await db.exec("RESET ROLE");
     }
@@ -249,5 +253,182 @@ describe("durable crawl ownership", () => {
     await expect(authorized()).rejects.toThrow();
     await expect(begin()).rejects.toThrow();
     await expect(issue()).rejects.toThrow();
+  });
+});
+
+describe("per-connection crawl dispatch", () => {
+  const run = "00000000-0000-4000-8000-000000000003";
+  async function ready() {
+    await issue();
+    await finish(await begin());
+    await db.query(
+      "SELECT start_technical_crawl($1,'p',$2,1,'https://example.test','https://example.test')",
+      [owner, run],
+    );
+    return (
+      await db.query<{ result: { lease_token: string } }>(
+        "SELECT claim_technical_crawl($1,'p',$2) result",
+        [owner, run],
+      )
+    ).rows[0].result.lease_token;
+  }
+  const acquire = async (lease: string, origin = "https://example.test") =>
+    (
+      await db.query<{ result: { lease: string; expiresAt: string } }>(
+        "SELECT acquire_technical_crawl_dispatch($1,'p',$2,$3,$4) result",
+        [owner, run, lease, origin],
+      )
+    ).rows[0].result;
+  const release = (lease: string, who = owner) =>
+    db.query("SELECT release_technical_crawl_dispatch($1,'https://example.test',$2)", [who, lease]);
+  it("admits two connections, scopes release ownership and recovers expired leases", async () => {
+    const runLease = await ready();
+    const first = await acquire(runLease);
+    await acquire(runLease);
+    await expect(acquire(runLease)).rejects.toThrow("technical_dispatch_capacity");
+    await release(first.lease, other);
+    await expect(acquire(runLease)).rejects.toThrow("technical_dispatch_capacity");
+    await release(first.lease);
+    await acquire(runLease);
+    await db.query(
+      "UPDATE technical_crawl_dispatch_limits SET leases=jsonb_build_object($1::text,now()-interval '1 second')",
+      [other],
+    );
+    await acquire(runLease);
+  });
+  it("requires current proof, origin and live run lease before touching budgets", async () => {
+    const runLease = await ready();
+    await expect(acquire(runLease, "https://foreign.test")).rejects.toThrow();
+    await expect(acquire(other)).rejects.toThrow("technical_dispatch_ownership");
+    expect((await db.query("SELECT * FROM technical_crawl_dispatch_limits")).rows).toEqual([]);
+    await db.query("SELECT revoke_technical_crawl_ownership($1,'p')", [owner]);
+    await expect(acquire(runLease)).rejects.toThrow("technical_ownership_required");
+  });
+  it("enforces target rate atomically without consuming the failed account allowance", async () => {
+    const runLease = await ready();
+    const first = await acquire(runLease);
+    await release(first.lease);
+    await db.query(
+      "UPDATE technical_crawl_dispatch_limits SET minute_count=60 WHERE scope='target'",
+    );
+    await expect(acquire(runLease)).rejects.toThrow("technical_dispatch_capacity");
+    expect(
+      (
+        await db.query(
+          "SELECT minute_count FROM technical_crawl_dispatch_limits WHERE scope='account'",
+        )
+      ).rows,
+    ).toEqual([{ minute_count: 1 }]);
+    await db.query(
+      "UPDATE technical_crawl_dispatch_limits SET minute_start=now()-interval '2 minutes',hour_count=600 WHERE scope='target'",
+    );
+    await expect(acquire(runLease)).rejects.toThrow("technical_dispatch_capacity");
+    await db.query(
+      "UPDATE technical_crawl_dispatch_limits SET hour_start=now()-interval '2 hours'",
+    );
+    await acquire(runLease);
+  });
+  it("enforces account minute and hour limits and denies expired run leases", async () => {
+    const runLease = await ready();
+    const first = await acquire(runLease);
+    await release(first.lease);
+    await db.query(
+      "UPDATE technical_crawl_dispatch_limits SET minute_count=120 WHERE scope='account'",
+    );
+    await expect(acquire(runLease)).rejects.toThrow("technical_dispatch_capacity");
+    await db.query(
+      "UPDATE technical_crawl_dispatch_limits SET minute_start=now()-interval '2 minutes',hour_count=1200 WHERE scope='account'",
+    );
+    await expect(acquire(runLease)).rejects.toThrow("technical_dispatch_capacity");
+    await db.query(
+      "UPDATE technical_crawl_dispatch_limits SET hour_start=now()-interval '2 hours'",
+    );
+    await db.query("UPDATE technical_crawls SET lease_until=now()+interval '1 second'");
+    await expect(acquire(runLease)).rejects.toThrow("technical_dispatch_ownership");
+  });
+  it("holds and explicitly resumes without altering saved evidence or queue", async () => {
+    const runLease = await ready();
+    const state = { origin: "https://example.test", retained: "evidence", queue: ["pending"] };
+    await db.query("UPDATE technical_crawls SET state=$1", [state]);
+    expect(
+      (
+        await db.query<{ result: boolean }>(
+          "SELECT hold_technical_crawl_admission($1,'p',$2,$3,1,'capacity') result",
+          [owner, run, runLease],
+        )
+      ).rows[0].result,
+    ).toBe(true);
+    expect(
+      (
+        await db.query<{ result: boolean }>(
+          "SELECT resume_technical_crawl_admission($1,'p',$2) result",
+          [owner, run],
+        )
+      ).rows[0].result,
+    ).toBe(false);
+    await db.query("UPDATE technical_crawls SET retry_after=now()-interval '1 second'");
+    expect(
+      (
+        await db.query<{ result: boolean }>(
+          "SELECT resume_technical_crawl_admission($1,'p',$2) result",
+          [owner, run],
+        )
+      ).rows[0].result,
+    ).toBe(true);
+    expect(
+      (await db.query("SELECT status,state,admission_hold FROM technical_crawls")).rows,
+    ).toEqual([{ status: "preparing", state, admission_hold: null }]);
+  });
+  it("keeps global target quotas shared between verified owners", async () => {
+    const runLease = await ready();
+    const first = await acquire(runLease);
+    await release(first.lease);
+    await db.query(
+      "UPDATE technical_crawl_dispatch_limits SET minute_count=60 WHERE scope='target'",
+    );
+    await db.query(
+      "INSERT INTO workspace_entities(user_id,collection,entity_id,data) VALUES($1,'projects','p',$2)",
+      [other, { websiteUrl: "https://example.test" }],
+    );
+    try {
+      await issue("p", other);
+      const attempt = (
+        await db.query<{ result: { attempt_token: string } }>(
+          "SELECT begin_technical_ownership_verification($1,'p') result",
+          [other],
+        )
+      ).rows[0].result.attempt_token;
+      await db.query("SELECT finish_technical_ownership_verification($1,'p',$2,true)", [
+        other,
+        attempt,
+      ]);
+      await db.query(
+        "SELECT start_technical_crawl($1,'p',$2,1,'https://example.test','https://example.test')",
+        [other, run],
+      );
+      const lease = (
+        await db.query<{ result: { lease_token: string } }>(
+          "SELECT claim_technical_crawl($1,'p',$2) result",
+          [other, run],
+        )
+      ).rows[0].result.lease_token;
+      await expect(
+        db.query("SELECT acquire_technical_crawl_dispatch($1,'p',$2,$3,'https://example.test')", [
+          other,
+          run,
+          lease,
+        ]),
+      ).rejects.toThrow("technical_dispatch_capacity");
+      expect(
+        (
+          await db.query(
+            "SELECT * FROM technical_crawl_dispatch_limits WHERE scope='account' AND scope_key=$1",
+            [other],
+          )
+        ).rows,
+      ).toEqual([]);
+    } finally {
+      await db.query("DELETE FROM workspace_entities WHERE user_id=$1", [other]);
+    }
   });
 });

@@ -1,3 +1,8 @@
+import { TechnicalCrawlAdmissionError } from "./technical-crawl-admission";
+import {
+  technicalConnectionAdmission,
+  technicalDispatchRpc,
+} from "./technical-crawl-admission.server";
 import { startTechnicalSitemaps, advanceTechnicalSitemaps } from "./technical-sitemap";
 import { z } from "zod";
 import { isSafePublicUrl } from "./safe-fetch";
@@ -34,6 +39,8 @@ const row = z
     updated_at: z.string(),
     lease_token: z.string().uuid().nullable().optional(),
     lease_until: z.string().nullable().optional(),
+    admission_hold: z.enum(["capacity", "ownership"]).nullable().optional(),
+    retry_after: z.string().nullable().optional(),
   })
   .passthrough();
 function originFor(value: string) {
@@ -74,6 +81,8 @@ function view(r: z.infer<typeof row>) {
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     state,
+    admissionHold: r.admission_hold ?? null,
+    retryAfter: r.retry_after ?? null,
   };
 }
 export async function readTechnicalRun(
@@ -184,10 +193,18 @@ export async function stepTechnicalRun(
     Date.parse(current.lease_until) <= deps.now().getTime()
   )
     throw new Error("technical_crawl_lease_invalid");
+  const admit = technicalConnectionAdmission(
+    user,
+    target.projectId,
+    target.runId,
+    current.lease_token,
+    current.origin,
+    deps.rpc === technicalCrawlRpc ? technicalDispatchRpc : deps.rpc,
+  );
   let state: unknown, status: string;
   try {
     if (current.status === "preparing") {
-      const robots = await deps.robots(current.origin);
+      const robots = await deps.robots(current.origin, admit);
       const now = deps.now().toISOString();
       state = fitTechnicalCrawlState({
         ...startTechnicalCrawl({ siteUrl: current.origin, robots, robotsFetchedAt: now, now }),
@@ -208,7 +225,7 @@ export async function stepTechnicalRun(
             saved.sitemaps,
             current.origin,
             saved.robots,
-            deps.sitemaps(current.origin, saved.robots),
+            deps.sitemaps(current.origin, saved.robots, admit),
             now,
           );
           for (const entry of saved.sitemaps.entries) {
@@ -231,7 +248,7 @@ export async function stepTechnicalRun(
         state = fitTechnicalCrawlState(
           await advanceTechnicalCrawl(
             saved,
-            deps.fetcher(current.origin, saved.robots),
+            deps.fetcher(current.origin, saved.robots, admit),
             deps.now().toISOString(),
           ),
         );
@@ -243,7 +260,18 @@ export async function stepTechnicalRun(
         : parsed.status === "cancelled"
           ? "cancelled"
           : parsed.status;
-  } catch {
+  } catch (error) {
+    if (error instanceof TechnicalCrawlAdmissionError) {
+      await call(deps.rpc, "hold_technical_crawl_admission", {
+        p_user: user,
+        p_project: target.projectId,
+        p_run: target.runId,
+        p_lease: current.lease_token,
+        p_revision: current.revision,
+        p_reason: error.reason,
+      });
+      return readTechnicalRun(user, target, deps.rpc);
+    }
     state = { origin: current.origin, failure: "observation_unavailable" };
     status = "failed";
   }
@@ -258,4 +286,18 @@ export async function stepTechnicalRun(
     p_status: status,
   });
   return readTechnicalRun(user, target, deps.rpc);
+}
+
+export async function resumeTechnicalAdmission(
+  user: string,
+  raw: unknown,
+  rpc: TechnicalRpc = technicalCrawlRpc,
+) {
+  const target = technicalRunTarget.parse(raw);
+  await call(rpc, "resume_technical_crawl_admission", {
+    p_user: user,
+    p_project: target.projectId,
+    p_run: target.runId,
+  });
+  return readTechnicalRun(user, target, rpc);
 }

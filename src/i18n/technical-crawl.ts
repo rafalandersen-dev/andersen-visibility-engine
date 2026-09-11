@@ -1,5 +1,11 @@
 export const technicalCrawlCopy: Record<string, Record<string, string>> = {
   en: {
+    "crawl.admission_capacity":
+      "Request limits reached. Saved evidence and pending pages are retained. Retry after:",
+    "crawl.admission_ownership":
+      "Crawl permission could not be confirmed. Check ownership verification before retrying.",
+    "crawl.retryAdmission": "Retry saved crawl",
+
     "crawl.ownershipTitle": "Website ownership",
     "crawl.ownershipHelp":
       "Verify control of this website before starting a crawl. Verification expires after 24 hours.",
@@ -117,6 +123,12 @@ export const technicalCrawlCopy: Record<string, Record<string, string>> = {
     "crawl.links": "Observed internal links",
   },
   pl: {
+    "crawl.admission_capacity":
+      "Osiągnięto limit żądań. Zachowano dowody i oczekujące strony. Spróbuj ponownie po:",
+    "crawl.admission_ownership":
+      "Nie udało się potwierdzić uprawnienia do skanowania. Przed ponowną próbą sprawdź weryfikację własności.",
+    "crawl.retryAdmission": "Ponów zapisane skanowanie",
+
     "crawl.ownershipTitle": "Własność witryny",
     "crawl.ownershipHelp":
       "Potwierdź kontrolę nad witryną przed rozpoczęciem skanowania. Weryfikacja wygasa po 24 godzinach.",
@@ -234,6 +246,12 @@ export const technicalCrawlCopy: Record<string, Record<string, string>> = {
     "crawl.links": "Zaobserwowane linki wewnętrzne",
   },
   sv: {
+    "crawl.admission_capacity":
+      "Gränsen för förfrågningar har nåtts. Sparade belägg och väntande sidor finns kvar. Försök igen efter:",
+    "crawl.admission_ownership":
+      "Behörigheten för genomsökning kunde inte bekräftas. Kontrollera ägarskapsverifieringen innan du försöker igen.",
+    "crawl.retryAdmission": "Försök med sparad genomsökning igen",
+
     "crawl.ownershipTitle": "Ägarskap för webbplatsen",
     "crawl.ownershipHelp":
       "Verifiera kontrollen över webbplatsen innan du startar en genomsökning. Verifieringen löper ut efter 24 timmar.",
@@ -351,6 +369,12 @@ export const technicalCrawlCopy: Record<string, Record<string, string>> = {
     "crawl.links": "Observerade interna länkar",
   },
   da: {
+    "crawl.admission_capacity":
+      "Grænsen for forespørgsler er nået. Gemte belæg og ventende sider er bevaret. Prøv igen efter:",
+    "crawl.admission_ownership":
+      "Tilladelsen til scanning kunne ikke bekræftes. Kontrollér ejerskabet, før du prøver igen.",
+    "crawl.retryAdmission": "Prøv den gemte scanning igen",
+
     "crawl.ownershipTitle": "Ejerskab af websted",
     "crawl.ownershipHelp":
       "Bekræft kontrollen over webstedet, før du starter en scanning. Bekræftelsen udløber efter 24 timer.",

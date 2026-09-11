@@ -1,3 +1,4 @@
+import { TechnicalCrawlAdmissionError } from "./technical-crawl-admission";
 import type { TechnicalSitemaps } from "./technical-sitemap";
 import { isSafePublicUrl } from "./safe-fetch";
 import { evaluateRobots, type RobotsEvidence } from "./technical-robots";
@@ -185,6 +186,7 @@ export async function advanceTechnicalCrawl(
             });
             if (response.truncated) page.observation.complete = false;
             page.state = "observed";
+            next.queue = next.queue.filter((pending) => pending.url !== finalUrl);
             if (!page.observation.complete) limitation(next, "partial_page");
             if (response.status >= 200 && response.status < 300)
               for (const link of page.observation.internalLinks) {
@@ -216,7 +218,8 @@ export async function advanceTechnicalCrawl(
           }
         }
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof TechnicalCrawlAdmissionError) throw error;
       /* A failed observation is retained; it never becomes a zero or pass. */
     }
   }

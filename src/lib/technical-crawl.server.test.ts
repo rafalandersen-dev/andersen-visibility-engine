@@ -1,3 +1,4 @@
+import { TechnicalCrawlAdmissionError } from "./technical-crawl-admission";
 import { describe, it, expect, vi } from "vitest";
 import { startTechnicalRun, stepTechnicalRun } from "./technical-crawl.server";
 import { robotsEvidence } from "./technical-robots";
@@ -26,6 +27,15 @@ function setup() {
   const rpc = vi.fn(async (name: string, args: Record<string, unknown>) => {
     if (name === "read_technical_crawl_context")
       return { data: { website: "https://example.test", revision: 1 }, error: null };
+    if (name === "hold_technical_crawl_admission") {
+      Object.assign(record, {
+        status: "held",
+        revision: 2,
+        admission_hold: args.p_reason,
+        retry_after: null,
+      });
+      return { data: true, error: null };
+    }
     if (name === "save_technical_crawl_step") {
       if (record.status === "cancelled") return { data: false, error: null };
       record = { ...record, status: args.p_status as string, state: args.p_state, revision: 2 };
@@ -51,6 +61,28 @@ function setup() {
   };
 }
 describe("authenticated crawl controller core", () => {
+  it.each(["capacity", "ownership"] as const)(
+    "persists a %s hold without replacing saved state",
+    async (reason) => {
+      const d = setup();
+      d.robots.mockRejectedValueOnce(new TechnicalCrawlAdmissionError(reason));
+      const result = await stepTechnicalRun(user, target, d);
+      expect(result).toMatchObject({ status: "held", admissionHold: reason });
+      expect(d.rpc).toHaveBeenCalledWith(
+        "hold_technical_crawl_admission",
+        expect.objectContaining({
+          p_user: user,
+          p_project: "p",
+          p_run: runId,
+          p_lease: lease,
+          p_revision: 1,
+          p_reason: reason,
+        }),
+      );
+      expect(d.rpc.mock.calls.some(([name]) => name === "save_technical_crawl_step")).toBe(false);
+    },
+  );
+
   it("uses canonical server website and rejects browser owner/URL overrides", async () => {
     const d = setup();
     const result = await startTechnicalRun(user, target, d.rpc);
@@ -66,7 +98,7 @@ describe("authenticated crawl controller core", () => {
     const d = setup();
     const result = await stepTechnicalRun(user, target, d);
     expect(d.rpc.mock.calls[0][0]).toBe("claim_technical_crawl");
-    expect(d.robots).toHaveBeenCalledWith("https://example.test");
+    expect(d.robots).toHaveBeenCalledWith("https://example.test", expect.any(Function));
     expect(result?.status).toBe("running");
     expect(result?.revision).toBe(2);
     expect(JSON.stringify(result)).not.toContain(lease);

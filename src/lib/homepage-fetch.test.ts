@@ -1,3 +1,4 @@
+import { TechnicalCrawlAdmissionError } from "./technical-crawl-admission";
 import { EventEmitter } from "node:events";
 import { Readable } from "node:stream";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -295,6 +296,83 @@ describe("public homepage transport", () => {
 });
 
 describe("structured pinned technical observations", () => {
+  it("closes an unaccepted response before releasing its connection slot", async () => {
+    const stream = response([Buffer.from("ignored")], 200, { "content-type": "application/json" });
+    mocks.request.mockImplementation(reply(stream));
+    const release = vi.fn(async () => {
+      expect(stream.destroyed).toBe(true);
+    });
+    await fetchPinnedResource("https://example.com/", {
+      purpose: "robots",
+      origin: "https://example.com",
+      admit: async () => release,
+    });
+    expect(release).toHaveBeenCalledOnce();
+  });
+
+  it("admits every redirect separately and releases the preceding connection first", async () => {
+    const events: string[] = [];
+    const admit = vi.fn(async (url: string) => {
+      events.push("admit:" + url);
+      return async () => {
+        events.push("release:" + url);
+      };
+    });
+    mocks.request
+      .mockImplementationOnce(reply(response([], 302, { location: "/next" })))
+      .mockImplementationOnce(reply(response()));
+    await fetchPinnedResource("https://example.com/", {
+      purpose: "robots",
+      origin: "https://example.com",
+      admit,
+    });
+    expect(events).toEqual([
+      "admit:https://example.com/",
+      "release:https://example.com/",
+      "admit:https://example.com/next",
+      "release:https://example.com/next",
+    ]);
+    expect(mocks.request).toHaveBeenCalledTimes(2);
+  });
+  it("propagates explicit admission refusal without opening a connection", async () => {
+    const admit = vi.fn(async () => {
+      throw new TechnicalCrawlAdmissionError("capacity");
+    });
+    await expect(
+      fetchPinnedResource("https://example.com/", {
+        purpose: "robots",
+        origin: "https://example.com",
+        admit,
+      }),
+    ).rejects.toMatchObject({ reason: "capacity" });
+    expect(mocks.request).not.toHaveBeenCalled();
+  });
+  it("does not dispatch after a late admission, and releases its returned lease", async () => {
+    vi.useFakeTimers();
+    const release = vi.fn(async () => {});
+    let complete!: (value: typeof release) => void;
+    const admit = vi.fn(
+      () =>
+        new Promise<typeof release>((resolve) => {
+          complete = resolve;
+        }),
+    );
+    const pending = fetchPinnedResource("https://example.com/", {
+      purpose: "robots",
+      origin: "https://example.com",
+      admit,
+    });
+    await vi.advanceTimersByTimeAsync(1);
+    expect(admit).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(HOMEPAGE_TIMEOUT_MS + 1);
+    expect(await pending).toBeNull();
+    expect(release).not.toHaveBeenCalled();
+    complete(release);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(mocks.request).not.toHaveBeenCalled();
+    expect(release).toHaveBeenCalledOnce();
+  });
+
   it("decodes declared legacy HTML before returning technical evidence", async () => {
     mocks.request.mockImplementation(
       reply(

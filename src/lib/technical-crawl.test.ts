@@ -1,3 +1,4 @@
+import { TechnicalCrawlAdmissionError } from "./technical-crawl-admission";
 import { describe, it, expect, vi } from "vitest";
 import {
   advanceTechnicalCrawl,
@@ -22,6 +23,43 @@ const response = (url: string, body: string) => ({
   body,
 });
 describe("resumable technical crawl", () => {
+  it("removes an accepted redirect destination from the pending queue", async () => {
+    const saved = start();
+    saved.queue = [
+      { url: "https://example.test/old", depth: 1 },
+      { url: "https://example.test/new", depth: 1 },
+      { url: "https://example.test/other", depth: 1 },
+    ];
+    const fetch = vi
+      .fn<TechnicalPageFetcher>()
+      .mockResolvedValueOnce(response("https://example.test/new", "<title>New</title>"))
+      .mockResolvedValueOnce(response("https://example.test/other", "<title>Other</title>"));
+    const first = await advanceTechnicalCrawl(saved, fetch, now);
+    expect(first.queue).toEqual([{ url: "https://example.test/other", depth: 1 }]);
+    const second = await advanceTechnicalCrawl(first, fetch, now);
+    expect(fetch.mock.calls.map(([url]) => url)).toEqual([
+      "https://example.test/old",
+      "https://example.test/other",
+    ]);
+    expect(second.pages).toHaveLength(2);
+    expect(saved.queue).toHaveLength(3);
+  });
+
+  it("propagates admission holds without consuming the queued page", async () => {
+    const saved = start();
+    const before = structuredClone(saved);
+    await expect(
+      advanceTechnicalCrawl(
+        saved,
+        async () => {
+          throw new TechnicalCrawlAdmissionError("capacity");
+        },
+        now,
+      ),
+    ).rejects.toMatchObject({ reason: "capacity" });
+    expect(saved).toEqual(before);
+  });
+
   it("resumes one page at a time and preserves the prior snapshot", async () => {
     const original = start();
     const fetch = vi

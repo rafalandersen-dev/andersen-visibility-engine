@@ -38,3 +38,11 @@ export const listTechnicalCrawlsFn = createServerFn({ method: "POST" })
     const { listTechnicalRuns } = await import("./technical-crawl.server");
     return listTechnicalRuns(context.userId, data);
   });
+
+export const resumeTechnicalAdmissionFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => run.parse(v))
+  .handler(async ({ context, data }) => {
+    const { resumeTechnicalAdmission } = await import("./technical-crawl.server");
+    return resumeTechnicalAdmission(context.userId, data);
+  });

@@ -1,3 +1,4 @@
+import { TechnicalCrawlAdmissionError } from "./technical-crawl-admission";
 import { startTechnicalCrawl } from "./technical-crawl";
 import { parseTechnicalCrawlState } from "./technical-crawl-state";
 import { describe, it, expect, vi } from "vitest";
@@ -22,6 +23,23 @@ const response = (body: string, url = origin + "/sitemap.xml") => ({
   observedAt: now,
 });
 describe("observed sitemap XML", () => {
+  it("propagates admission holds without consuming the sitemap queue", async () => {
+    const saved = startTechnicalSitemaps(origin, []);
+    const before = structuredClone(saved);
+    await expect(
+      advanceTechnicalSitemaps(
+        saved,
+        origin,
+        robots,
+        async () => {
+          throw new TechnicalCrawlAdmissionError("capacity");
+        },
+        now,
+      ),
+    ).rejects.toMatchObject({ reason: "capacity" });
+    expect(saved).toEqual(before);
+  });
+
   it("does not invent membership from missing or duplicate required locs", () => {
     const parsed = inspectSitemapXml(
       `<urlset><url/><url><loc>${origin}/a</loc><loc>${origin}/b</loc></url><url><loc>${origin}/valid</loc></url></urlset>`,
