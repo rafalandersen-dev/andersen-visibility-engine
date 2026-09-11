@@ -245,3 +245,5 @@ Legacy image compatibility (2026-09-11): team projections and scoped media reque
 Latest exact team-branch validation: all 3,312 tests / 245 files pass (63.30 seconds); TypeScript, changed-file lint and production build pass. Logs /tmp/milo-legacy-image-{full,types,lint,build}.log. Real browser/owner-collaborator acceptance and release remain open.
 
 Validation correction: the initial legacy-image TypeScript run found a missing required concept field in the new preview fixture. The fixture is corrected, and the final TypeScript run passes (/tmp/milo-legacy-image-types-final.log). Production code is unchanged by this fixture correction; the 3312-test regression and build results above remain applicable.
+
+Preview substitution and explicit invitation retry validation: full 3316 tests / 246 files pass (56.67 seconds); 96 focused tests, TypeScript, changed-file lint and production build pass. Logs /tmp/milo-invite-retry-{full,tests,types,lint,build}.log. Invitation delivery SQL remains unapplied and the gate remains disabled. Rendered-preview rate/concurrency admission is still an open release review finding.

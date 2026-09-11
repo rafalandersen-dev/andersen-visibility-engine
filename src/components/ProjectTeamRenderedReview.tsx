@@ -1,3 +1,4 @@
+import { substituteTeamPreviewImages } from "@/lib/project-team-preview-images";
 import { createReviewImageBudget, REVIEW_IMAGE_LIMITS } from "@/lib/project-team-image-budget";
 import { ProjectTeamReviewDecision, ProjectTeamReviewHistory } from "./ProjectTeamReviewDecision";
 import { useEffect, useState } from "react";
@@ -134,12 +135,7 @@ export function ProjectTeamRenderedReview({
     media &&
     !media.error &&
     media.stamp === query.dataUpdatedAt;
-  const html = ready
-    ? query.data.html.replace(
-        /milo-review-image:([A-Za-z0-9_~-]+)/g,
-        (_, key: string) => media.urls[key] ?? "",
-      )
-    : "";
+  const html = ready ? substituteTeamPreviewImages(query.data.html, media.urls) : "";
   return (
     <section className="space-y-3 rounded-xl border p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
