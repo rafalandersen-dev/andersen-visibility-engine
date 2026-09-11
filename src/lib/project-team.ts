@@ -111,6 +111,8 @@ export const teamComments = teamCommentTarget
             commentId: uuid,
             mine: z.boolean(),
             authorName: z.string().max(120),
+            authorRole: z.enum(["owner", "viewer", "editor", "reviewer"]),
+            authorRef: z.string().regex(/^[a-f0-9]{12}$/),
             body: z.string().min(1).max(4000),
             workspaceRevision: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
             createdAt: date,
