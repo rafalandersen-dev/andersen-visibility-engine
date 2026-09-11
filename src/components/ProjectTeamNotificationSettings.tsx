@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
-import { useT } from "@/i18n";
+import { useT, useAppLanguage } from "@/i18n";
 import {
+  readTeamNotificationHistoryFn,
   readTeamNotificationSettingsFn,
   changeTeamNotificationSettingsFn,
 } from "@/lib/project-team-notifications.functions";
@@ -23,6 +24,14 @@ export function ProjectTeamNotificationSettings({
   const query = useQuery({
     queryKey: ["project-teams", user?.id, "notification-settings", ownerId, projectId, recipientId],
     queryFn: () => readTeamNotificationSettingsFn({ data: target }),
+    enabled: !!user,
+    staleTime: 0,
+    gcTime: 0,
+  });
+  const locale = useAppLanguage();
+  const history = useQuery({
+    queryKey: ["project-teams", user?.id, "notification-history", ownerId, projectId, recipientId],
+    queryFn: () => readTeamNotificationHistoryFn({ data: target }),
     enabled: !!user,
     staleTime: 0,
     gcTime: 0,
@@ -86,6 +95,27 @@ export function ProjectTeamNotificationSettings({
                   : "collaboration.notificationOptIn",
             )}
           </Button>
+        </>
+      )}
+      <h4 className="font-medium">{t("collaboration.notificationHistory")}</h4>
+      <Button
+        variant="outline"
+        disabled={history.isFetching}
+        onClick={() => void history.refetch()}
+      >
+        {t("collaboration.refresh")}
+      </Button>
+      {history.isPending && <p role="status">{t("collaboration.loading")}</p>}
+      {history.isError && <p role="alert">{t("collaboration.error")}</p>}
+      {history.data && !history.isError && (
+        <>
+          {!history.data.deliveries.length && <p>{t("collaboration.empty")}</p>}
+          {history.data.deliveries.map((d) => (
+            <p key={d.id}>
+              {t(`notifications.emailStatus.${d.status}`)} ·{" "}
+              <time dateTime={d.createdAt}>{new Date(d.createdAt).toLocaleString(locale)}</time>
+            </p>
+          ))}
         </>
       )}
     </section>

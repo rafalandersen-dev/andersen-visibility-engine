@@ -4,6 +4,7 @@ const h = vi.hoisted(() => ({
   registered: [] as unknown[][],
   read: vi.fn(),
   change: vi.fn(),
+  history: vi.fn(),
 }));
 vi.mock("@/integrations/supabase/auth-middleware", () => ({ requireSupabaseAuth: h.auth }));
 vi.mock("@tanstack/react-start", () => ({
@@ -27,8 +28,10 @@ vi.mock("@tanstack/react-start", () => ({
 vi.mock("./project-team-notifications.server", () => ({
   readTeamNotificationSettings: h.read,
   changeTeamNotificationSettings: h.change,
+  readTeamNotificationHistory: h.history,
 }));
 import {
+  readTeamNotificationHistoryFn,
   readTeamNotificationSettingsFn,
   changeTeamNotificationSettingsFn,
 } from "./project-team-notifications.functions";
@@ -38,10 +41,12 @@ const invoke = (fn: unknown, data: unknown) =>
   (fn as (args: unknown) => Promise<unknown>)({ data, context: { userId: actor } });
 describe("recipient settings authentication", () => {
   it("requires authentication for both endpoints and derives the actor from the session", async () => {
-    expect(h.registered).toEqual([[h.auth], [h.auth]]);
+    expect(h.registered).toEqual([[h.auth], [h.auth], [h.auth]]);
     const target = { ownerId: owner, projectId: "p", recipientId: actor };
     await invoke(readTeamNotificationSettingsFn, target);
     expect(h.read).toHaveBeenCalledWith(actor, target);
+    await invoke(readTeamNotificationHistoryFn, target);
+    expect(h.history).toHaveBeenCalledWith(actor, target);
     const data = {
       ...target,
       action: "opt_in",

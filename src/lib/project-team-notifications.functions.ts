@@ -15,3 +15,10 @@ export const changeTeamNotificationSettingsFn = createServerFn({ method: "POST" 
     const { changeTeamNotificationSettings } = await import("./project-team-notifications.server");
     return changeTeamNotificationSettings(context.userId, data);
   });
+export const readTeamNotificationHistoryFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => teamNotificationTarget.parse(v))
+  .handler(async ({ context, data }) => {
+    const { readTeamNotificationHistory } = await import("./project-team-notifications.server");
+    return readTeamNotificationHistory(context.userId, data);
+  });

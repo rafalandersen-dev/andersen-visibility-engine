@@ -20,3 +20,27 @@ export const teamNotificationChange = teamNotificationTarget
     expectedMembershipRevision: revision.min(1),
   })
   .strict();
+export const teamNotificationHistory = teamNotificationTarget
+  .extend({
+    deliveries: z
+      .array(
+        z
+          .object({
+            id: z.string().uuid(),
+            status: z.enum([
+              "pending",
+              "leased",
+              "sending",
+              "accepted",
+              "unknown",
+              "cancelled",
+              "failed",
+            ]),
+            createdAt: z.string().datetime({ offset: true }),
+            finishedAt: z.string().datetime({ offset: true }).nullable(),
+          })
+          .strict(),
+      )
+      .max(20),
+  })
+  .strict();

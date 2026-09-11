@@ -44,6 +44,12 @@ export const Route = createFileRoute("/api/notifications/sweep")({
             const { runOperationalEmailWorker } = await import("@/lib/operational-email.server");
             await runOperationalEmailWorker();
           }
+          if (process.env.TEAM_NOTIFICATION_EMAIL_ENABLED === "true") {
+            const { runTeamNotificationWorker } =
+              await import("@/lib/project-team-delivery.server");
+            const team = await runTeamNotificationWorker();
+            if (team.failed) throw new Error("team_notification_sweep_incomplete");
+          }
           return Response.json(
             { ok: result.failed === 0, ...result },
             { headers: { "Cache-Control": "no-store" } },

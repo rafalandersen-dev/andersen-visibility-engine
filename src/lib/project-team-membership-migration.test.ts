@@ -11,7 +11,7 @@ const second = "00000000-0000-4000-8000-000000000005";
 beforeAll(async () => {
   db = new PGlite();
   await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS;
-    CREATE SCHEMA auth; CREATE TABLE auth.identities(user_id uuid,identity_data jsonb); CREATE TABLE auth.users(id uuid PRIMARY KEY,email text,email_confirmed_at timestamptz,deleted_at timestamptz,banned_until timestamptz,raw_user_meta_data jsonb DEFAULT '{}');
+    CREATE SCHEMA auth; CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$ SELECT NULL::uuid $$; CREATE TABLE auth.identities(user_id uuid,identity_data jsonb); CREATE TABLE auth.users(id uuid PRIMARY KEY,email text,email_confirmed_at timestamptz,deleted_at timestamptz,banned_until timestamptz,raw_user_meta_data jsonb DEFAULT '{}');
     INSERT INTO auth.users(id,email,email_confirmed_at) VALUES('${owner}','owner@example.test',now()),('${actor}','member@example.test',now()),('${other}','other@example.test',now());
     INSERT INTO auth.identities VALUES('${actor}','{"email":"member@example.test","email_verified":true}');
     CREATE TABLE public.scheduled_publishes(user_id uuid,project_id text,asset_id text,status text,updated_at timestamptz);
@@ -22,6 +22,8 @@ beforeAll(async () => {
     INSERT INTO public.workspace_meta(user_id) VALUES('${owner}'),('${other}');
     INSERT INTO public.workspace_entities VALUES('${owner}','projects','p','{"name":"Assigned"}'),('${other}','projects','p','{"name":"Other"}');`);
   for (const file of [
+    "20260907150000_operational_notifications.sql",
+    "20260907170000_operational_email_outbox.sql",
     "20260909200000_project_knowledge.sql",
     "20260910100000_source_refresh.sql",
     "20260911000000_output_knowledge_integrity.sql",
@@ -34,11 +36,12 @@ beforeAll(async () => {
     "20260911060000_project_team_approval_policy.sql",
     "20260911070000_project_team_review_context.sql",
     "20260911080000_project_team_notification_recipients.sql",
+    "20260911090000_project_team_notification_outbox.sql",
   ])
     await db.exec(readFileSync(`supabase/migrations/${file}`, "utf8"));
 }, 30000);
 beforeEach(async () => {
-  await db.exec(`RESET ROLE; TRUNCATE public.project_team_notification_recipient_audit,public.project_team_notification_recipients,public.project_team_approval_history,public.project_team_approval_policy,public.output_knowledge_reviews,public.project_team_edits,public.scheduled_publishes,public.publication_approvals,public.project_team_comments,public.project_team_members,public.project_team_invitations,public.project_team_audit;
+  await db.exec(`RESET ROLE; TRUNCATE public.project_team_notification_items,public.project_team_notification_outbox,public.operational_email_items,public.operational_email_outbox,public.operational_notifications,public.operational_notification_scans,public.operational_email_preferences,public.project_team_notification_recipient_audit,public.project_team_notification_recipients,public.project_team_approval_history,public.project_team_approval_policy,public.output_knowledge_reviews,public.project_team_edits,public.scheduled_publishes,public.publication_approvals,public.project_team_comments,public.project_team_members,public.project_team_invitations,public.project_team_audit;
     UPDATE public.workspace_meta SET rev=1;
     INSERT INTO public.workspace_entities VALUES('${owner}','content','a','{"projectId":"p","title":"Draft","status":"Draft","updatedAt":"now","markdown":"Saved draft"}') ON CONFLICT(user_id,collection,entity_id) DO UPDATE SET data=EXCLUDED.data;
     UPDATE auth.identities SET identity_data='{"email":"member@example.test","email_verified":true}';
@@ -836,5 +839,174 @@ describe("shared-project notification recipient controls", () => {
       ).rejects.toThrow("permission denied");
       await db.exec("RESET ROLE");
     }
+  });
+});
+
+describe("scoped team notification outbox", () => {
+  const queue = async () =>
+    (
+      await db.query<{ id: string | null }>(
+        "SELECT public.queue_project_team_notification_digest($1,'p',$2) id",
+        [owner, actor],
+      )
+    ).rows[0].id;
+  const claim = async () =>
+    (
+      await db.query<{ id: string; lease_token: string }>(
+        "SELECT * FROM public.claim_project_team_notification_digest()",
+      )
+    ).rows[0];
+  const begin = async (c: Awaited<ReturnType<typeof claim>>) =>
+    (
+      await db.query<{ body: unknown }>(
+        "SELECT public.begin_project_team_notification_delivery($1,$2,encode(sha256(convert_to('member@example.test','UTF8')),'hex')) body",
+        [c.id, c.lease_token],
+      )
+    ).rows[0].body;
+  const prepare = async () => {
+    await create();
+    await accept();
+    await db.query(
+      "SELECT public.set_project_team_notification_recipient($1,$1,'p',$2,'assign',true,0,1)",
+      [owner, actor],
+    );
+    await db.query(
+      "SELECT public.set_project_team_notification_recipient($1,$2,'p',$1,'opt_in',true,1,1)",
+      [actor, owner],
+    );
+    await db.query(
+      "SELECT public.sync_operational_notifications($1,1,clock_timestamp(),$2::jsonb)",
+      [
+        owner,
+        JSON.stringify([
+          {
+            key: "event",
+            projectId: "p",
+            targetId: "a",
+            title: "Draft",
+            kind: "approval_due",
+            detail: { timeZone: "UTC", private: "must not escape" },
+          },
+        ]),
+      ],
+    );
+  };
+  it("queues once per recipient and returns only scoped safe current event fields", async () => {
+    await prepare();
+    expect(
+      (await db.query("SELECT * FROM public.project_team_notification_scan_targets()")).rows,
+    ).toEqual([{ owner_id: owner, project_id: "p", recipient_id: actor }]);
+    expect(await queue()).toEqual(expect.any(String));
+    expect(await queue()).toBeNull();
+    const c = await claim();
+    expect(await begin(c)).toEqual({
+      locale: "en",
+      items: [
+        {
+          id: expect.any(String),
+          projectId: "p",
+          targetId: "a",
+          title: "Draft",
+          kind: "approval_due",
+          dueAt: null,
+          detail: { timeZone: "UTC" },
+        },
+      ],
+    });
+    expect(
+      (
+        await db.query(
+          "SELECT public.finish_project_team_notification_delivery($1,$2,'accepted') ok",
+          [c.id, c.lease_token],
+        )
+      ).rows[0],
+    ).toEqual({ ok: true });
+    await db.exec(
+      "UPDATE public.project_team_notification_outbox SET created_at=now()-interval '2 hours'",
+    );
+    expect(await queue()).toBeNull();
+  });
+  it("cancels when consent changes or the underlying incident resolves", async () => {
+    await prepare();
+    await queue();
+    const c = await claim();
+    await db.query(
+      "SELECT public.set_project_team_notification_recipient($1,$2,'p',$1,'opt_in',false,2,1)",
+      [actor, owner],
+    );
+    expect(await begin(c)).toBeNull();
+    expect(
+      (await db.query("SELECT status FROM public.project_team_notification_outbox")).rows[0],
+    ).toEqual({ status: "cancelled" });
+  });
+  it("cancels resolved incidents and refuses stale source scans", async () => {
+    await prepare();
+    await queue();
+    const c = await claim();
+    await db.exec("UPDATE public.workspace_meta SET rev=2");
+    await expect(begin(c)).rejects.toThrow("team_notification_source_stale");
+    await db.exec(
+      "UPDATE public.workspace_meta SET rev=1; UPDATE public.operational_notifications SET active=false",
+    );
+    expect(await begin(c)).toBeNull();
+  });
+  it("cancels if the verified current address no longer matches the resolved recipient", async () => {
+    await prepare();
+    await queue();
+    const c = await claim();
+    await db.query("UPDATE auth.users SET email='new@example.test' WHERE id=$1", [actor]);
+    await db.query(
+      `UPDATE auth.identities SET identity_data='{"email":"new@example.test","email_verified":true}' WHERE user_id=$1`,
+      [actor],
+    );
+    expect(await begin(c)).toBeNull();
+  });
+  it("holds uncertain sends and only retries failures before transport", async () => {
+    await prepare();
+    await queue();
+    const c = await claim();
+    await db.query(
+      "SELECT public.finish_project_team_notification_delivery($1,$2,'preflight_unavailable')",
+      [c.id, c.lease_token],
+    );
+    await db.exec(
+      "UPDATE public.project_team_notification_outbox SET available_at=now()-interval '1 minute'",
+    );
+    const retry = await claim();
+    expect(retry.lease_token).not.toBe(c.lease_token);
+    await begin(retry);
+    await db.exec(
+      "UPDATE public.project_team_notification_outbox SET lease_until=now()-interval '1 minute'",
+    );
+    expect(await claim()).toBeUndefined();
+    expect(
+      (await db.query("SELECT status FROM public.project_team_notification_outbox")).rows[0],
+    ).toEqual({ status: "unknown" });
+  });
+  it("scopes history and denies direct browser access", async () => {
+    await prepare();
+    await queue();
+    await expect(
+      db.query("SELECT public.read_project_team_notification_history($1,$2,'p',$3)", [
+        other,
+        owner,
+        actor,
+      ]),
+    ).rejects.toThrow();
+    expect(
+      (
+        await db.query<{ body: { deliveries: unknown[] } }>(
+          "SELECT public.read_project_team_notification_history($1,$2,'p',$1) body",
+          [actor, owner],
+        )
+      ).rows[0].body.deliveries,
+    ).toHaveLength(1);
+    await db.exec("SET ROLE authenticated");
+    await expect(queue()).rejects.toThrow("permission denied");
+    await expect(claim()).rejects.toThrow("permission denied");
+    await expect(db.query("SELECT * FROM public.project_team_notification_outbox")).rejects.toThrow(
+      "permission denied",
+    );
+    await db.exec("RESET ROLE");
   });
 });

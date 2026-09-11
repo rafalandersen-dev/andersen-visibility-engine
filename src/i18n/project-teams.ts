@@ -1,4 +1,5 @@
 const en = {
+  "collaboration.notificationHistory": "Notification delivery history",
   "collaboration.notificationSettings": "Project notifications",
   "collaboration.notificationConsentHelp":
     "Both owner assignment and your own consent are required. Changes to your project role require renewed settings.",
@@ -104,6 +105,7 @@ const en = {
 };
 type Copy = Record<keyof typeof en, string>;
 const pl: Copy = {
+  "collaboration.notificationHistory": "Historia wysyłki powiadomień",
   "collaboration.notificationSettings": "Powiadomienia projektu",
   "collaboration.notificationConsentHelp":
     "Wymagane są przypisanie przez właściciela i Twoja zgoda. Zmiana roli w projekcie wymaga ponownego ustawienia.",
@@ -209,6 +211,7 @@ const pl: Copy = {
   "collaboration.revoked": "Cofnięte",
 };
 const sv: Copy = {
+  "collaboration.notificationHistory": "Aviseringarnas leveranshistorik",
   "collaboration.notificationSettings": "Projektaviseringar",
   "collaboration.notificationConsentHelp":
     "Både ägarens tilldelning och ditt eget samtycke krävs. Ändringar av din projektroll kräver nya inställningar.",
@@ -314,6 +317,7 @@ const sv: Copy = {
   "collaboration.revoked": "Återkallad",
 };
 const da: Copy = {
+  "collaboration.notificationHistory": "Notifikationernes leveringshistorik",
   "collaboration.notificationSettings": "Projektnotifikationer",
   "collaboration.notificationConsentHelp":
     "Både ejerens tildeling og dit eget samtykke kræves. Ændringer af din projektrolle kræver nye indstillinger.",
