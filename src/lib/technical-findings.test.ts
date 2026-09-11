@@ -89,6 +89,22 @@ describe("technical findings", () => {
     p.observation.complete = false;
     expect(technicalFindings(p)).not.toContain("invalid_jsonld");
   });
+  it.each(["none", "NONE", "googlebot: none", "follow, none"])(
+    "recognizes the none alias: %s",
+    (value) => {
+      const p = page();
+      p.observation.robots = [{ source: "header", agent: "*", value }];
+      expect(technicalFindings(p)).toContain("noindex");
+    },
+  );
+  it.each(["nonetheless", "x-none", "none-other", "index, follow"])(
+    "does not infer noindex from %s",
+    (value) => {
+      const p = page();
+      p.observation.robots = [{ source: "meta", agent: "*", value }];
+      expect(technicalFindings(p)).not.toContain("noindex");
+    },
+  );
   it("uses authenticated saved scope and canonical project language", async () => {
     const d = setup();
     expect(await captureTechnicalFinding(user, target, d.rpc)).toEqual(d.receipt);

@@ -25,7 +25,8 @@ export function technicalFindings(page: CrawlPage): TechnicalFindingCode[] {
   }
   if (o.complete && o.structuredData.some((s) => s.state === "invalid_json" && s.complete))
     result.push("invalid_jsonld");
-  if (o.robots.some((r) => /(?:^|[\s,:])noindex(?:$|[\s,])/i.test(r.value))) result.push("noindex");
+  if (o.robots.some((r) => /(?:^|[\s,:])(?:noindex|none)(?:$|[\s,])/i.test(r.value)))
+    result.push("noindex");
   return result;
 }
 export const technicalFindingLabels: Record<string, Record<TechnicalFindingCode, string>> = {

@@ -213,6 +213,28 @@ describe("immutable crawl evidence to opportunity", () => {
       "SELECT capture_technical_crawl_finding($1,'p',$2,$3,0,$4,'Review observed title') result",
       [owner, run, revision, code],
     );
+  it.each(["none", "NONE", "googlebot: none", "follow, none"])(
+    "captures the observed none alias %s",
+    async (value) => {
+      await prepare();
+      await db.query(
+        "UPDATE technical_crawls SET state=jsonb_set(state,'{pages,0,observation,robots}',$1) WHERE run_id=$2",
+        [JSON.stringify([{ source: "header", agent: "*", value }]), run],
+      );
+      expect((await capture("noindex")).rows[0].result.evidenceId).toBeTruthy();
+    },
+  );
+  it.each(["nonetheless", "x-none", "none-other", "index, follow"])(
+    "refuses an unsupported noindex capture for %s",
+    async (value) => {
+      await prepare();
+      await db.query(
+        "UPDATE technical_crawls SET state=jsonb_set(state,'{pages,0,observation,robots}',$1) WHERE run_id=$2",
+        [JSON.stringify([{ source: "meta", agent: "*", value }]), run],
+      );
+      await expect(capture("noindex")).rejects.toThrow();
+    },
+  );
   it("atomically creates one captured opportunity and immutable source receipt, retaining idempotency", async () => {
     await prepare();
     const first = (await capture()).rows[0].result;
