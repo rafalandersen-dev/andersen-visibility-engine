@@ -1,6 +1,7 @@
--- UNRELEASED. Per-connection proof, account and hostname admission.
+-- UNRELEASED. Per-connection proof and deployment/account/destination admission.
+-- Deployment ceiling:8 concurrent connections,120 starts/minute,1200 starts/hour.
 CREATE TABLE public.technical_crawl_dispatch_limits (
- scope text NOT NULL CHECK(scope IN ('account','target','account_address','address')),
+ scope text NOT NULL CHECK(scope IN ('global','account','target','account_address','address')),
  scope_key text NOT NULL CHECK(length(scope_key) BETWEEN 1 AND 253),
  minute_start timestamptz NOT NULL,
  minute_count integer NOT NULL CHECK(minute_count BETWEEN 0 AND 120),
@@ -26,16 +27,16 @@ BEGIN
  IF target IS NULL OR length(target)>253 THEN RAISE EXCEPTION 'technical_dispatch_ownership'; END IF;
  IF p_address IS NULL OR masklen(p_address)<>(CASE WHEN family(p_address)=4 THEN 32 ELSE 128 END) THEN RAISE EXCEPTION 'technical_dispatch_ownership'; END IF;
  expires:=least(run.lease_until,clock_timestamp()+interval '20 seconds');
- FOREACH kind IN ARRAY ARRAY['account','target','account_address','address'] LOOP
-   key:=CASE WHEN kind='account' THEN p_user::text WHEN kind='target' THEN target WHEN kind='account_address' THEN p_user::text||':'||host(p_address) ELSE host(p_address) END;
+ FOREACH kind IN ARRAY ARRAY['global','account','target','account_address','address'] LOOP
+   key:=CASE WHEN kind='global' THEN 'deployment' WHEN kind='account' THEN p_user::text WHEN kind='target' THEN target WHEN kind='account_address' THEN p_user::text||':'||host(p_address) ELSE host(p_address) END;
    IF NOT pg_try_advisory_xact_lock(hashtext('technical-dispatch-'||kind),hashtext(key)) THEN RAISE EXCEPTION 'technical_dispatch_capacity'; END IF;
    INSERT INTO public.technical_crawl_dispatch_limits VALUES(kind,key,stamp,0,stamp,0,'{}',stamp) ON CONFLICT DO NOTHING;
    SELECT * INTO budget FROM public.technical_crawl_dispatch_limits WHERE scope=kind AND scope_key=key FOR UPDATE NOWAIT;
    SELECT coalesce(jsonb_object_agg(e.key,e.value),'{}') INTO active_leases FROM jsonb_each(budget.leases) e WHERE (e.value#>>'{}')::timestamptz>clock_timestamp();
-   IF (SELECT count(*) FROM jsonb_object_keys(active_leases))>=(CASE WHEN kind='address' THEN 4 ELSE 2 END) THEN RAISE EXCEPTION 'technical_dispatch_capacity'; END IF;
+   IF (SELECT count(*) FROM jsonb_object_keys(active_leases))>=(CASE WHEN kind='global' THEN 8 WHEN kind='address' THEN 4 ELSE 2 END) THEN RAISE EXCEPTION 'technical_dispatch_capacity'; END IF;
    IF budget.minute_start<=stamp-interval '1 minute' THEN budget.minute_start:=stamp;budget.minute_count:=0; END IF;
    IF budget.hour_start<=stamp-interval '1 hour' THEN budget.hour_start:=stamp;budget.hour_count:=0; END IF;
-   IF budget.minute_count>=(CASE WHEN kind='account' THEN 120 WHEN kind='account_address' THEN 30 ELSE 60 END) OR budget.hour_count>=(CASE WHEN kind='account' THEN 1200 WHEN kind='account_address' THEN 300 ELSE 600 END) THEN RAISE EXCEPTION 'technical_dispatch_capacity'; END IF;
+   IF budget.minute_count>=(CASE WHEN kind IN ('global','account') THEN 120 WHEN kind='account_address' THEN 30 ELSE 60 END) OR budget.hour_count>=(CASE WHEN kind IN ('global','account') THEN 1200 WHEN kind='account_address' THEN 300 ELSE 600 END) THEN RAISE EXCEPTION 'technical_dispatch_capacity'; END IF;
    UPDATE public.technical_crawl_dispatch_limits SET minute_start=budget.minute_start,minute_count=budget.minute_count+1,hour_start=budget.hour_start,hour_count=budget.hour_count+1,leases=active_leases||jsonb_build_object(lease::text,expires),last_used=stamp WHERE scope=kind AND scope_key=key;
  END LOOP;
  -- Bounded cleanup of idle operational rows; active/rate windows are never pruned.
@@ -48,9 +49,9 @@ RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE target text:=substring(p_origin from '^https?://([^/:]+)');
 BEGIN
  IF p_user IS NULL OR p_lease IS NULL OR target IS NULL OR p_address IS NULL THEN RETURN; END IF;
- IF NOT pg_try_advisory_xact_lock(hashtext('technical-dispatch-account'),hashtext(p_user::text)) OR NOT pg_try_advisory_xact_lock(hashtext('technical-dispatch-target'),hashtext(target)) OR NOT pg_try_advisory_xact_lock(hashtext('technical-dispatch-account_address'),hashtext(p_user::text||':'||host(p_address))) OR NOT pg_try_advisory_xact_lock(hashtext('technical-dispatch-address'),hashtext(host(p_address))) THEN RETURN; END IF;
+ IF NOT pg_try_advisory_xact_lock(hashtext('technical-dispatch-global'),hashtext('deployment')) OR NOT pg_try_advisory_xact_lock(hashtext('technical-dispatch-account'),hashtext(p_user::text)) OR NOT pg_try_advisory_xact_lock(hashtext('technical-dispatch-target'),hashtext(target)) OR NOT pg_try_advisory_xact_lock(hashtext('technical-dispatch-account_address'),hashtext(p_user::text||':'||host(p_address))) OR NOT pg_try_advisory_xact_lock(hashtext('technical-dispatch-address'),hashtext(host(p_address))) THEN RETURN; END IF;
  IF NOT EXISTS(SELECT 1 FROM public.technical_crawl_dispatch_limits WHERE scope='account' AND scope_key=p_user::text AND leases ? p_lease::text) THEN RETURN; END IF;
- UPDATE public.technical_crawl_dispatch_limits SET leases=leases-p_lease::text WHERE (scope='account' AND scope_key=p_user::text) OR (scope='target' AND scope_key=target) OR (scope='account_address' AND scope_key=p_user::text||':'||host(p_address)) OR (scope='address' AND scope_key=host(p_address));
+ UPDATE public.technical_crawl_dispatch_limits SET leases=leases-p_lease::text WHERE (scope='global' AND scope_key='deployment') OR (scope='account' AND scope_key=p_user::text) OR (scope='target' AND scope_key=target) OR (scope='account_address' AND scope_key=p_user::text||':'||host(p_address)) OR (scope='address' AND scope_key=host(p_address));
 END; $$;
 
 CREATE FUNCTION public.hold_technical_crawl_admission(p_user uuid,p_project text,p_run uuid,p_lease uuid,p_revision bigint,p_reason text)

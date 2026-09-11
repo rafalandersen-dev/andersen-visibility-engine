@@ -380,6 +380,30 @@ describe("per-connection crawl dispatch", () => {
     );
     await acquire(runLease);
   });
+  it.each(["leases", "minute", "hour"])(
+    "refuses saturated deployment %s without consuming scoped budgets",
+    async (limit) => {
+      const runLease = await ready();
+      const first = await acquire(runLease);
+      await release(first.lease);
+      if (limit === "leases")
+        await db.exec(
+          "UPDATE technical_crawl_dispatch_limits SET leases=(SELECT jsonb_object_agg(gen_random_uuid()::text,clock_timestamp()+interval '1 minute') FROM generate_series(1,8)) WHERE scope='global'",
+        );
+      else
+        await db.exec(
+          `UPDATE technical_crawl_dispatch_limits SET ${limit === "minute" ? "minute_count=120" : "hour_count=1200"} WHERE scope='global'`,
+        );
+      const before = (
+        await db.query("SELECT * FROM technical_crawl_dispatch_limits ORDER BY scope,scope_key")
+      ).rows;
+      await expect(acquire(runLease)).rejects.toThrow("technical_dispatch_capacity");
+      expect(
+        (await db.query("SELECT * FROM technical_crawl_dispatch_limits ORDER BY scope,scope_key"))
+          .rows,
+      ).toEqual(before);
+    },
+  );
   it("requires current proof, origin and live run lease before touching budgets", async () => {
     const runLease = await ready();
     await expect(acquire(runLease, "https://foreign.test")).rejects.toThrow();
@@ -645,60 +669,64 @@ describe("per-connection crawl dispatch", () => {
       }
     },
   );
-  it("shares address quotas across different verified hostnames and owners", async () => {
-    const runLease = await ready();
-    const first = await acquire(runLease);
-    await release(first.lease);
-    await db.query(
-      "UPDATE technical_crawl_dispatch_limits SET minute_count=60 WHERE scope='address'",
-    );
-    await db.query(
-      "INSERT INTO workspace_entities(user_id,collection,entity_id,data) VALUES($1,'projects','p',$2)",
-      [other, { websiteUrl: "https://alias.test" }],
-    );
-    try {
-      await db.query(
-        "SELECT issue_technical_crawl_ownership($1,'p','https://alias.test','https://alias.test',$2)",
-        [other, token],
-      );
-      const attempt = (
-        await db.query<{ result: { attempt_token: string } }>(
-          "SELECT begin_technical_ownership_verification($1,'p') result",
-          [other],
-        )
-      ).rows[0].result.attempt_token;
-      await db.query("SELECT finish_technical_ownership_verification($1,'p',$2,true)", [
-        other,
-        attempt,
+  it.each(["address", "global"] as const)(
+    "shares %s quotas across different verified hostnames and owners",
+    async (scope) => {
+      const runLease = await ready();
+      const first = await acquire(runLease);
+      await release(first.lease);
+      await db.query("UPDATE technical_crawl_dispatch_limits SET minute_count=$1 WHERE scope=$2", [
+        scope === "global" ? 120 : 60,
+        scope,
       ]);
       await db.query(
-        "SELECT start_technical_crawl($1,'p',$2,1,'https://alias.test','https://alias.test')",
-        [other, run],
+        "INSERT INTO workspace_entities(user_id,collection,entity_id,data) VALUES($1,'projects','p',$2)",
+        [other, { websiteUrl: "https://alias.test" }],
       );
-      const lease = (
-        await db.query<{ result: { lease_token: string } }>(
-          "SELECT claim_technical_crawl($1,'p',$2) result",
-          [other, run],
-        )
-      ).rows[0].result.lease_token;
-      await expect(
-        db.query(
-          "SELECT acquire_technical_crawl_dispatch($1,'p',$2,$3,'https://alias.test','8.8.8.8')",
-          [other, run, lease],
-        ),
-      ).rejects.toThrow("technical_dispatch_capacity");
-      expect(
-        (
-          await db.query(
-            "SELECT * FROM technical_crawl_dispatch_limits WHERE scope='account' AND scope_key=$1",
+      try {
+        await db.query(
+          "SELECT issue_technical_crawl_ownership($1,'p','https://alias.test','https://alias.test',$2)",
+          [other, token],
+        );
+        const attempt = (
+          await db.query<{ result: { attempt_token: string } }>(
+            "SELECT begin_technical_ownership_verification($1,'p') result",
             [other],
           )
-        ).rows,
-      ).toEqual([]);
-    } finally {
-      await db.query("DELETE FROM workspace_entities WHERE user_id=$1", [other]);
-    }
-  });
+        ).rows[0].result.attempt_token;
+        await db.query("SELECT finish_technical_ownership_verification($1,'p',$2,true)", [
+          other,
+          attempt,
+        ]);
+        await db.query(
+          "SELECT start_technical_crawl($1,'p',$2,1,'https://alias.test','https://alias.test')",
+          [other, run],
+        );
+        const lease = (
+          await db.query<{ result: { lease_token: string } }>(
+            "SELECT claim_technical_crawl($1,'p',$2) result",
+            [other, run],
+          )
+        ).rows[0].result.lease_token;
+        await expect(
+          db.query(
+            "SELECT acquire_technical_crawl_dispatch($1,'p',$2,$3,'https://alias.test',$4::inet)",
+            [other, run, lease, scope === "global" ? "8.8.4.4" : "8.8.8.8"],
+          ),
+        ).rejects.toThrow("technical_dispatch_capacity");
+        expect(
+          (
+            await db.query(
+              "SELECT * FROM technical_crawl_dispatch_limits WHERE scope='account' AND scope_key=$1",
+              [other],
+            )
+          ).rows,
+        ).toEqual([]);
+      } finally {
+        await db.query("DELETE FROM workspace_entities WHERE user_id=$1", [other]);
+      }
+    },
+  );
 });
 
 it.each([false, true])(
