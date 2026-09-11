@@ -29,6 +29,16 @@ CREATE UNIQUE INDEX technical_performance_one_active_owner ON public.technical_p
 CREATE INDEX technical_performance_requests_owner_activity ON public.technical_performance_requests(user_id,created_at DESC);
 CREATE INDEX technical_performance_requests_history ON public.technical_performance_requests(user_id,project_id,created_at DESC,request_id);
 
+-- Deployment-wide provider admission survives project/account deletion.
+CREATE TABLE public.technical_performance_provider_limits (
+ source text PRIMARY KEY CHECK(source IN ('crux','pagespeed')),
+ minute_start timestamptz NOT NULL, minute_count integer NOT NULL CHECK(minute_count BETWEEN 0 AND 10),
+ hour_start timestamptz NOT NULL, hour_count integer NOT NULL CHECK(hour_count BETWEEN 0 AND 100),
+ leases jsonb NOT NULL DEFAULT '{}' CHECK(jsonb_typeof(leases)='object' AND octet_length(leases::text)<4096)
+);
+ALTER TABLE public.technical_performance_provider_limits ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.technical_performance_provider_limits FROM PUBLIC,anon,authenticated,service_role;
+
 CREATE FUNCTION public.read_technical_performance_context(p_user uuid,p_project text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE website text;
@@ -62,7 +72,7 @@ END; $$;
 
 CREATE FUNCTION public.authorize_technical_performance_dispatch(p_user uuid,p_project text,p_request uuid,p_lease uuid)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
-DECLARE context jsonb; current public.technical_performance_requests%ROWTYPE;
+DECLARE context jsonb; current public.technical_performance_requests%ROWTYPE; budget public.technical_performance_provider_limits%ROWTYPE; stamp timestamptz:=clock_timestamp(); active_leases jsonb;
 BEGIN
  PERFORM public.assert_technical_crawl_owner(p_user,p_project);
  context:=public.read_technical_performance_context(p_user,p_project);
@@ -72,6 +82,18 @@ BEGIN
    UPDATE public.technical_performance_requests SET status=CASE WHEN current.website_value IS DISTINCT FROM context->>'website' THEN 'held' ELSE 'unknown' END,updated_at=clock_timestamp() WHERE user_id=p_user AND request_id=p_request;
    RETURN false;
  END IF;
+ IF NOT pg_try_advisory_xact_lock(hashtext('technical-performance-provider'),hashtext(current.source)) THEN RAISE EXCEPTION 'performance_provider_busy' USING ERRCODE='55P03'; END IF;
+ INSERT INTO public.technical_performance_provider_limits VALUES(current.source,stamp,0,stamp,0,'{}') ON CONFLICT DO NOTHING;
+ SELECT * INTO budget FROM public.technical_performance_provider_limits WHERE source=current.source FOR UPDATE NOWAIT;
+ SELECT coalesce(jsonb_object_agg(e.key,e.value),'{}') INTO active_leases FROM jsonb_each(budget.leases) e WHERE (e.value#>>'{}')::timestamptz>stamp;
+ IF budget.minute_start<=stamp-interval '1 minute' THEN budget.minute_start:=stamp;budget.minute_count:=0; END IF;
+ IF budget.hour_start<=stamp-interval '1 hour' THEN budget.hour_start:=stamp;budget.hour_count:=0; END IF;
+ IF budget.minute_count>=10 OR budget.hour_count>=100 OR (SELECT count(*) FROM jsonb_object_keys(active_leases))>=4 THEN
+   UPDATE public.technical_performance_requests SET status='held',error_code='quota',updated_at=stamp WHERE user_id=p_user AND request_id=p_request;
+   RETURN false;
+ END IF;
+ -- Slots remain until the run deadline, including after client timeout or project deletion.
+ UPDATE public.technical_performance_provider_limits SET minute_start=budget.minute_start,minute_count=budget.minute_count+1,hour_start=budget.hour_start,hour_count=budget.hour_count+1,leases=active_leases||jsonb_build_object(current.lease_token::text,current.lease_until) WHERE source=current.source;
  UPDATE public.technical_performance_requests SET dispatched_at=clock_timestamp(),updated_at=clock_timestamp() WHERE user_id=p_user AND request_id=p_request;
  RETURN true;
 END; $$;

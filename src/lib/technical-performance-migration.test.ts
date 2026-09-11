@@ -23,7 +23,7 @@ beforeAll(async () => {
 }, 30000);
 beforeEach(async () => {
   await db.exec(
-    `RESET ROLE; TRUNCATE technical_performance_requests; UPDATE auth.users SET deleted_at=NULL,banned_until=NULL; UPDATE workspace_entities SET data='{"websiteUrl":"https://example.test"}' WHERE user_id='${owner}';`,
+    `RESET ROLE; TRUNCATE technical_performance_requests,technical_performance_provider_limits; UPDATE auth.users SET deleted_at=NULL,banned_until=NULL; UPDATE workspace_entities SET data='{"websiteUrl":"https://example.test"}' WHERE user_id='${owner}';`,
   );
 });
 afterAll(async () => {
@@ -259,3 +259,93 @@ it("requires a common workspace row before admitting a performance request", asy
     await db.query("INSERT INTO workspace_meta(user_id,rev) VALUES($1,1)", [owner]);
   }
 });
+
+it("shares provider dispatch quota across accounts while isolating providers", async () => {
+  const first = await reserve();
+  expect(await authorize(first.record.lease_token)).toBe(true);
+  await db.exec("UPDATE technical_performance_provider_limits SET hour_count=100");
+  await db.query(
+    'UPDATE workspace_entities SET data=\'{"websiteUrl":"https://example.test"}\' WHERE user_id=$1',
+    [other],
+  );
+  const secondRequest = await reserve(second, "p", other);
+  const dispatch = async (request: string, token: string) =>
+    (
+      await db.query<{ result: boolean }>(
+        "SELECT authorize_technical_performance_dispatch($1,'p',$2,$3) result",
+        [other, request, token],
+      )
+    ).rows[0].result;
+  expect(await dispatch(second, secondRequest.record.lease_token)).toBe(false);
+  expect(
+    (
+      await db.query(
+        "SELECT status,error_code,dispatched_at FROM technical_performance_requests WHERE user_id=$1",
+        [other],
+      )
+    ).rows,
+  ).toEqual([{ status: "held", error_code: "quota", dispatched_at: null }]);
+  const lab = await reserve(id, "p", other, "pagespeed", "mobile");
+  expect(await dispatch(id, lab.record.lease_token)).toBe(true);
+  expect(
+    (
+      await db.query(
+        "SELECT source,hour_count FROM technical_performance_provider_limits ORDER BY source",
+      )
+    ).rows,
+  ).toEqual([
+    { source: "crux", hour_count: 100 },
+    { source: "pagespeed", hour_count: 1 },
+  ]);
+});
+it("retains provider capacity through project deletion and denies direct writes", async () => {
+  const first = await reserve();
+  await authorize(first.record.lease_token);
+  await db.query("DELETE FROM workspace_entities WHERE user_id=$1 AND entity_id='p'", [owner]);
+  expect(
+    (await db.query("SELECT hour_count FROM technical_performance_provider_limits")).rows,
+  ).toEqual([{ hour_count: 1 }]);
+  for (const role of ["anon", "authenticated", "service_role"]) {
+    await db.exec(`SET ROLE ${role}`);
+    await expect(db.query("SELECT * FROM technical_performance_provider_limits")).rejects.toThrow(
+      "permission denied",
+    );
+    await db.exec("RESET ROLE");
+  }
+  await db.query(
+    "INSERT INTO workspace_entities VALUES($1,'projects','p','{\"websiteUrl\":\"https://example.test\"}',0)",
+    [owner],
+  );
+});
+
+it.each(["minute", "hour", "active"])(
+  "bounds deployment %s admission and recovers expired windows",
+  async (limit) => {
+    const first = await reserve();
+    await db.query(
+      "INSERT INTO technical_performance_provider_limits VALUES('crux',now(),$1,now(),$2,$3)",
+      [
+        limit === "minute" ? 10 : 0,
+        limit === "hour" ? 100 : 0,
+        limit === "active"
+          ? Object.fromEntries(
+              [1, 2, 3, 4].map((n) => [String(n), new Date(Date.now() + 90000).toISOString()]),
+            )
+          : {},
+      ],
+    );
+    expect(await authorize(first.record.lease_token)).toBe(false);
+    await db.exec(
+      "UPDATE technical_performance_provider_limits SET minute_start=now()-interval '2 minutes',hour_start=now()-interval '2 hours',leases=jsonb_build_object('expired',now()-interval '1 second')",
+    );
+    const next = await reserve(second);
+    expect(await authorize(next.record.lease_token, second)).toBe(true);
+    expect(
+      (
+        await db.query(
+          "SELECT minute_count,hour_count,(SELECT count(*) FROM jsonb_object_keys(leases)) AS active FROM technical_performance_provider_limits",
+        )
+      ).rows,
+    ).toHaveLength(1);
+  },
+);
