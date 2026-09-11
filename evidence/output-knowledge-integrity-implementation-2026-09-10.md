@@ -1,6 +1,6 @@
 # Output knowledge integrity implementation — 10 September 2026
 
-Status: implemented locally, review and release pending. No SQL applied or deployment started.
+Status: RELEASED and verified at 22:24:39 UTC. See [final release evidence](output-knowledge-integrity-release-2026-09-10.md). The entries below are chronological implementation history; their pending/unapplied statements are superseded by the release record.
 
 Recovered exact released record08688d5c2787fe6648df460700d3ca349637ca53 under exclusive sequential handoff. PR120 final Claude34532856536 completed21:42:47UTC with13permissiondenials/no buffered comments; inspected without rerun. All five completed runs15/11/10/9/13 remain limited review evidence.
 

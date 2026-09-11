@@ -1,0 +1,19 @@
+# Review saved output against current knowledge
+
+Status: implemented locally; release review and production verification pending. Migration `20260911010000_output_knowledge_reviews.sql` is UNAPPLIED. Do not repeat any earlier released migration.
+
+When saved output is held because its original knowledge versions changed, Project Setup offers an inspection of the saved assembled text, visual HTML preview, metadata, original record/source versions and current records. The owner checks each displayed fact against the output and confirms the complete deliverable before recording a review. Content changes must be saved first. This action does not edit text, regenerate content, alter original provenance or grant publication approval.
+
+Revalidation is available only when every original reference has a currently accepted, applicable record from its original source, with the same owner/project and output medium. Current selection includes conflict, expiry and explicit brand override rules. Forgotten, unavailable, withdrawn, disputed, conflicting or incompatible evidence cannot be waived. Review eligibility is not a claim of factual correctness; the owner remains responsible for inspecting the actual material.
+
+The server re-reads the saved workspace and an atomic knowledge/brand/registry context, checks exact publication and context hashes, and requires the exact complete set of fact acknowledgements. The database saves only after comparing the locked workspace revision and current context hash. An identical acknowledgement retry is idempotent; withdrawn or superseded review IDs cannot be revived.
+
+Publication rechecks the actual deliverable against the saved version, current evidence context, review history and current eligibility/expiry. Website-source freshness, exact publication approval and all existing transport/spending controls still apply. Retained original references are never replaced with newer values. The affected-draft list uses one bounded project read for up to 100 drafts, evaluates present and planned publication times, and retains history access after a current knowledge hold clears. It reports the uninspected remainder.
+
+History contains only owner/project/output/review identifiers, opaque hashes, active state and timestamps. It does not copy facts, documents, images or output text. The interface shows the latest 100 reviews and supports explicit withdrawal. A recorded historical review is not proof of current applicability. Project capacity is 10,000 history rows; project/output deletion removes its history.
+
+Relevant saved output/project edits and knowledge/registry mutations withdraw active reviews. Edit-then-revert cannot revive authority. Status, updatedAt, scheduledPublishAt and sourceHeldPublishAt changes alone preserve knowledge review, because those fields cannot change the publication-version content. Future publication expiry is still checked independently. Project timestamp-only edits also preserve it.
+
+One new private RLS table has no direct anonymous/authenticated/service-role privileges. Five service-only RPCs provide atomic individual/batch context, save, withdrawal and bounded history. Two trigger-only functions invalidate output or evidence changes through four triggers. Existing approval and schedule functions/triggers are unchanged. All new SQL remains unapplied pending the complete release process.
+
+The visual preview is sandboxed, disallows scripts/forms/base URLs, and renders the saved assembled HTML; content is never treated as executable instructions. The current work has offline server, SQL and build checks. It has not established signed-in visual acceptance, multi-session database concurrency, live provider/CMS behavior or factual accuracy. The full R00–R24/D01–D08 scope remains open; overall delivery is approximately 55% complete, with no completion credit yet for this unreleased milestone.

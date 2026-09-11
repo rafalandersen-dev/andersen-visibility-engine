@@ -11,6 +11,7 @@ const mocked = vi.hoisted(() => ({
   refresh: vi.fn(),
   registry: vi.fn(),
   workspace: vi.fn(),
+  reviewBatch: vi.fn(),
 }));
 vi.mock("./source-refresh.server", () => ({
   readSourceRefresh: mocked.read,
@@ -26,6 +27,9 @@ vi.mock("./project-knowledge.server", () => ({
   readProjectKnowledge: vi.fn(async () => ({ sources: [], records: [] })),
 }));
 vi.mock("./workspace.server", () => ({ readWorkspaceRow: mocked.workspace }));
+vi.mock("./knowledge-review-context.server", () => ({
+  readKnowledgeReviewBatch: mocked.reviewBatch,
+}));
 const ownerId = "00000000-0000-4000-8000-000000000001",
   sourceId = "00000000-0000-4000-8000-000000000002";
 const dependency = {
@@ -69,11 +73,44 @@ const row = () => ({
 });
 beforeEach(() => {
   vi.resetAllMocks();
+  mocked.reviewBatch.mockImplementation(async (_scope, assets: string[]) => ({
+    knowledge: { sources: [], records: [] },
+    brand: {},
+    outputs: assets.map((assetId) => ({
+      assetId,
+      registry: [],
+      contextHash: "a".repeat(64),
+      activeReview: null,
+      hasHistory: false,
+    })),
+  }));
   mocked.registry.mockResolvedValue([]);
   mocked.read.mockResolvedValue([row()]);
   mocked.refresh.mockResolvedValue({ status: "cooldown" });
 });
 describe("source publication authorization", () => {
+  it("checks reviewed versions against the original asset while refreshing retained dependencies", async () => {
+    const { knowledgeIssuesForAsset } = await import("./knowledge-publication.server");
+    const original = { ...asset, sourceDependencies: [], images: [] };
+    mocked.registry.mockResolvedValue([
+      {
+        assetId: original.id,
+        outputId: original.id,
+        kind: "content",
+        dependencies: [dependency],
+        sourceForgotten: false,
+      },
+    ]);
+    await expect(assertAssetSourcesCurrent(ownerId, original)).resolves.toBeUndefined();
+    expect(mocked.refresh).toHaveBeenCalledOnce();
+    expect(vi.mocked(knowledgeIssuesForAsset)).toHaveBeenCalledTimes(2);
+    for (const call of vi.mocked(knowledgeIssuesForAsset).mock.calls)
+      expect(call[1]).toBe(original);
+    expect(original.sourceDependencies).toEqual([]);
+    vi.mocked(knowledgeIssuesForAsset).mockClear();
+    await expect(sourceIssuesForAsset(ownerId, original)).resolves.toEqual([]);
+    expect(vi.mocked(knowledgeIssuesForAsset).mock.calls[0][1]).toBe(original);
+  });
   it("refreshes then rechecks accepted current evidence without editing asset", async () => {
     const before = structuredClone(asset);
     await assertAssetSourcesCurrent(ownerId, asset);
@@ -262,6 +299,7 @@ it("does not request an unfiltered registry for an empty project", async () => {
     checked: 0,
     remaining: 0,
     affected: [],
+    reviewHistory: [],
   });
   expect(mocked.registry).not.toHaveBeenCalled();
 });
@@ -310,4 +348,56 @@ it("reports the same revoked knowledge once across current and future publicatio
   expect(result.affected[0].issues).toEqual([issue]);
   expect(result.affected[0].knowledgeIssueCount).toBe(1);
   expect(evaluateAssetKnowledge).toHaveBeenCalledTimes(2);
+});
+
+it("clears current reviewed impact while preserving history and future-expiry holds", async () => {
+  const { evaluateAssetKnowledge } = await import("./knowledge-publication.server");
+  const { publicationVersion } = await import("./publication-version");
+  const project = {
+    id: "p",
+    websiteUrl: "https://example.com",
+    connectorType: "wordpress",
+  } as import("./types").Project;
+  const saved = { ...asset, sourceDependencies: [], scheduledPublishAt: undefined };
+  const version = await publicationVersion(saved, project, []);
+  const context = "a".repeat(64);
+  const output = {
+    assetId: "a",
+    registry: [],
+    contextHash: context,
+    activeReview: { versionHash: version.hash, contextHash: context },
+    hasHistory: true,
+  };
+  mocked.reviewBatch.mockResolvedValue({
+    knowledge: { sources: [], records: [] },
+    brand: {},
+    outputs: [output],
+  });
+  mocked.workspace.mockResolvedValue({ rev: 1, data: { projects: [project], content: [saved] } });
+  const issue = {
+    sourceId: "source",
+    key: "record",
+    reason: "changed" as const,
+    evidence: "knowledge" as const,
+    critical: true as const,
+  };
+  vi.mocked(evaluateAssetKnowledge).mockImplementation(
+    (_owner, _asset, _state, _registry, when, _profile, reviewed) =>
+      reviewed && when !== "2099-01-01T00:00:00Z" ? [] : [issue],
+  );
+  const current = await readProjectSourceImpact(ownerId, "p");
+  expect(current.affected).toEqual([]);
+  expect(current.reviewHistory).toEqual([{ assetId: "a", title: "a" }]);
+  expect(mocked.reviewBatch).toHaveBeenCalledExactlyOnceWith({ ownerId, projectId: "p" }, ["a"]);
+  mocked.workspace.mockResolvedValue({
+    rev: 1,
+    data: {
+      projects: [project],
+      content: [{ ...saved, scheduledPublishAt: "2099-01-01T00:00:00Z" }],
+    },
+  });
+  expect((await readProjectSourceImpact(ownerId, "p")).affected[0].knowledgeIssueCount).toBe(1);
+  output.activeReview.contextHash = "b".repeat(64);
+  mocked.workspace.mockResolvedValue({ rev: 1, data: { projects: [project], content: [saved] } });
+  expect((await readProjectSourceImpact(ownerId, "p")).affected[0].knowledgeIssueCount).toBe(1);
 });

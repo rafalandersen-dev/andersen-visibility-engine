@@ -12,6 +12,10 @@ const h = vi.hoisted(() => ({
   forget: vi.fn(),
   history: vi.fn(),
   revert: vi.fn(),
+  outputRead: vi.fn(),
+  outputSave: vi.fn(),
+  outputHistory: vi.fn(),
+  outputWithdraw: vi.fn(),
 }));
 vi.mock("@/integrations/supabase/auth-middleware", () => ({ requireSupabaseAuth: h.auth }));
 vi.mock("@tanstack/react-start", () => ({
@@ -52,6 +56,12 @@ vi.mock("./project-knowledge-website.server", () => ({
   captureProjectWebsiteKnowledge: h.website,
 }));
 import * as endpoints from "./project-knowledge.functions";
+vi.mock("./knowledge-output-review.server", () => ({ readKnowledgeOutputReview: h.outputRead }));
+vi.mock("./knowledge-output-review-actions.server", () => ({
+  saveKnowledgeOutputReview: h.outputSave,
+  readKnowledgeOutputReviewHistory: h.outputHistory,
+  withdrawKnowledgeOutputReview: h.outputWithdraw,
+}));
 const id = "00000000-0000-4000-8000-000000000001";
 const scope = { ownerId: "authenticated-owner", projectId: "p" };
 const fields = {
@@ -66,8 +76,31 @@ const call = (fn: unknown, data: unknown) =>
 beforeEach(() => vi.resetAllMocks());
 describe("authenticated project knowledge endpoints", () => {
   it("requires authentication for every endpoint", () => {
-    expect(h.registered).toHaveLength(11);
+    expect(h.registered).toHaveLength(Object.keys(endpoints).length);
     for (const registered of h.registered) expect(registered).toEqual([h.auth]);
+  });
+  it("binds all output review actions to authenticated ownership", async () => {
+    const target = { projectId: "p", assetId: "a" };
+    const bound = { ...scope, assetId: "a" };
+    const review = {
+      reviewId: id,
+      expectedVersion: { algorithm: "milo-publication-v1", hash: "a".repeat(64) },
+      expectedContext: "b".repeat(64),
+      reviewedFacts: ["fact"],
+      confirmDeliverable: true,
+    };
+    await call(endpoints.readKnowledgeOutputReviewFn, target);
+    await call(endpoints.readKnowledgeOutputReviewHistoryFn, target);
+    await call(endpoints.saveKnowledgeOutputReviewFn, { ...target, review });
+    await call(endpoints.withdrawKnowledgeOutputReviewFn, { ...target, reviewId: id });
+    expect(h.outputRead).toHaveBeenCalledExactlyOnceWith(bound);
+    expect(h.outputHistory).toHaveBeenCalledExactlyOnceWith(bound);
+    expect(h.outputSave).toHaveBeenCalledExactlyOnceWith(bound, review);
+    expect(h.outputWithdraw).toHaveBeenCalledExactlyOnceWith(bound, id);
+    expect(() =>
+      call(endpoints.saveKnowledgeOutputReviewFn, { ...target, ownerId: "forged", review }),
+    ).toThrow();
+    expect(h.outputSave).toHaveBeenCalledTimes(1);
   });
   it("binds read, upload, revoke, forget, history and revert to the signed-in owner", async () => {
     await call(endpoints.readProjectKnowledgeFn, { projectId: "p" });

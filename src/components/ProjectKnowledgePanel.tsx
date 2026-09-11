@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useT } from "@/i18n";
 import { useStore, saveWorkspaceNow } from "@/lib/store";
 import { SourceRefreshPanel } from "./SourceRefreshPanel";
+import { KnowledgeOutputInspection } from "./KnowledgeOutputInspection";
 import {
   readSourceRefreshFn,
   readSourceImpactFn,
@@ -674,7 +675,7 @@ export function ProjectKnowledgePanel({
               {t("refresh.impactHelp")} {t("knowledge.impactHelp")}
             </p>
             {sourceImpact.affected.map((asset) => (
-              <p key={asset.assetId} className="text-sm">
+              <div key={asset.assetId} className="text-sm">
                 <a
                   className="underline"
                   href={`/app/editor?id=${encodeURIComponent(asset.assetId)}`}
@@ -688,9 +689,38 @@ export function ProjectKnowledgePanel({
                     · {asset.knowledgeIssueCount} {t("knowledge.impactCount")}
                   </>
                 ) : null}
-              </p>
+                {asset.knowledgeIssueCount > 0 && (
+                  <KnowledgeOutputInspection
+                    key={`${ownerId}:${projectId}:${asset.assetId}:${request.current}`}
+                    projectId={projectId}
+                    assetId={asset.assetId}
+                    onReviewChange={() => void load()}
+                  />
+                )}
+              </div>
             ))}
             {!sourceImpact.affected.length && <p className="text-sm">{t("refresh.noImpact")}</p>}
+            {sourceImpact.reviewHistory
+              .filter(
+                (asset) =>
+                  !sourceImpact.affected.some(
+                    (affected) =>
+                      affected.assetId === asset.assetId && affected.knowledgeIssueCount > 0,
+                  ),
+              )
+              .map((asset) => (
+                <div key={`review:${asset.assetId}`} className="text-sm">
+                  <p>
+                    {asset.title} · {t("knowledge.review.history")}
+                  </p>
+                  <KnowledgeOutputInspection
+                    key={`${ownerId}:${projectId}:${asset.assetId}:${request.current}`}
+                    projectId={projectId}
+                    assetId={asset.assetId}
+                    onReviewChange={() => void load()}
+                  />
+                </div>
+              ))}
             {sourceImpact.remaining > 0 && (
               <p className="text-xs">
                 {t("refresh.moreImpact")}: {sourceImpact.remaining}

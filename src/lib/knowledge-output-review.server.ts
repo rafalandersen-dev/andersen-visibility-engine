@@ -1,0 +1,174 @@
+import { z } from "zod";
+import type { ContentAsset, Project } from "./types";
+import type { KnowledgeRpc } from "./project-knowledge.server";
+import type { readWorkspaceRow } from "./workspace.server";
+import { evaluateAssetKnowledge } from "./knowledge-publication.server";
+import { readKnowledgeReviewContext } from "./knowledge-review-context.server";
+import { knowledgeReferencesSchema, selectProjectKnowledge } from "./project-knowledge";
+import { filterBrandKnowledge } from "./knowledge-brand";
+import { publicationVersion, samePublicationVersion } from "./publication-version";
+import { buildActiveInternalPaths } from "./publish-targets";
+import { assembleContentAsset } from "./content-assembler";
+
+export const knowledgeOutputReviewScope = z
+  .object({
+    ownerId: z.string().uuid(),
+    projectId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/),
+    assetId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/),
+  })
+  .strict();
+
+/** Inspection only. This snapshot cannot approve publication or replace retained
+ * provenance. A later review write must re-read and atomically bind its state. */
+export async function readKnowledgeOutputReview(
+  target: z.infer<typeof knowledgeOutputReviewScope>,
+  dependencies: {
+    read?: typeof readWorkspaceRow;
+    rpc?: KnowledgeRpc;
+    now?: string;
+    candidate?: ContentAsset;
+  } = {},
+) {
+  const scope = knowledgeOutputReviewScope.parse(target);
+  const read = dependencies.read ?? (await import("./workspace.server")).readWorkspaceRow;
+  const workspace = await read(scope.ownerId);
+  const project = (workspace?.data.projects as Project[] | undefined)?.find(
+    (p) => p.id === scope.projectId,
+  );
+  const content = (workspace?.data.content ?? []) as ContentAsset[];
+  const asset = content.find((a) => a.id === scope.assetId && a.projectId === scope.projectId);
+  if (!workspace || !project || !asset) throw new Error("knowledge_output_unavailable");
+  if ((asset.images?.length ?? 0) > 30) throw new Error("knowledge_output_unavailable");
+  const knowledgeScope = { ownerId: scope.ownerId, projectId: scope.projectId };
+  const context = await readKnowledgeReviewContext(knowledgeScope, asset.id, dependencies.rpc);
+  const { registry, knowledge: state, brand: profile } = context;
+  const now = z
+    .string()
+    .datetime({ offset: true })
+    .parse(dependencies.now ?? new Date().toISOString());
+  const relevant = registry.filter(
+    (r) => r.kind === "content" || asset.images?.some((i) => i.id === r.outputId),
+  );
+  const groups = [
+    {
+      kind: "content" as const,
+      outputId: asset.id,
+      references: knowledgeReferencesSchema.parse(asset.knowledgeReferences ?? []),
+    },
+    ...(asset.images ?? []).map((i) => ({
+      kind: "image" as const,
+      outputId: i.id,
+      references: knowledgeReferencesSchema.parse(i.knowledgeReferences ?? []),
+    })),
+    ...relevant,
+  ];
+  const original = [
+    ...new Map(
+      groups.flatMap((group) =>
+        group.references.map((reference) => {
+          const item = { kind: group.kind, outputId: group.outputId, reference };
+          return [JSON.stringify(item), item] as const;
+        }),
+      ),
+    ).values(),
+  ];
+  if (original.length > 9300) throw new Error("knowledge_output_unavailable");
+  const issues = evaluateAssetKnowledge(scope.ownerId, asset, state, registry, now, profile);
+  const version = await publicationVersion(
+    asset,
+    project,
+    buildActiveInternalPaths(
+      project,
+      content.filter((a) => a.projectId === project.id),
+    ),
+  );
+  if (
+    dependencies.candidate &&
+    !samePublicationVersion(
+      version,
+      await publicationVersion(
+        dependencies.candidate,
+        project,
+        buildActiveInternalPaths(
+          project,
+          content.filter((a) => a.projectId === project.id),
+        ),
+      ),
+    )
+  )
+    throw new Error("knowledge_output_changed");
+  const selections = {
+    content: filterBrandKnowledge(
+      selectProjectKnowledge(state.sources, state.records, knowledgeScope, "text", now),
+      profile,
+    ),
+    image: filterBrandKnowledge(
+      selectProjectKnowledge(state.sources, state.records, knowledgeScope, "visual", now),
+      profile,
+    ),
+  };
+  const facts = original.map((item) => {
+    const record = state.records.find(
+      (r) =>
+        r.id === item.reference.recordId &&
+        r.ownerId === scope.ownerId &&
+        r.projectId === scope.projectId,
+    );
+    const source = state.sources.find(
+      (s) =>
+        s.id === item.reference.sourceId &&
+        s.ownerId === scope.ownerId &&
+        s.projectId === scope.projectId,
+    );
+    // Never reconstruct forgotten facts from archives or another project.
+    const currentReference = selections[item.kind].references.find(
+      (reference) =>
+        reference.recordId === item.reference.recordId &&
+        reference.sourceId === item.reference.sourceId,
+    );
+    return {
+      ...item,
+      reviewKey: JSON.stringify([item.kind, item.outputId, item.reference]),
+      record: record ?? null,
+      source: source ?? null,
+      currentReference: currentReference ?? null,
+    };
+  });
+  const assembled = assembleContentAsset(asset, project, {
+    activeInternalPaths: new Set(
+      buildActiveInternalPaths(
+        project,
+        content.filter((a) => a.projectId === project.id),
+      ),
+    ),
+  });
+  const result = {
+    assetId: asset.id,
+    title: asset.title,
+    markdown: asset.markdown ?? "",
+    deliverable: {
+      markdown: assembled.markdown,
+      html: assembled.html,
+      structuredData: JSON.stringify(assembled.jsonLd),
+      metaTitle: asset.metaTitle ?? "",
+      metaDescription: asset.metaDescription ?? "",
+      slug: asset.publishSlug || asset.slug || "",
+    },
+    version,
+    workspaceRevision: workspace.rev,
+    contextHash: context.contextHash,
+    checkedAt: now,
+    facts,
+    forgotten: relevant.some((r) => r.forgotten),
+    reviewable:
+      original.length > 0 &&
+      !relevant.some((r) => r.forgotten) &&
+      facts.every((fact) => fact.currentReference !== null),
+    issues,
+  };
+  if (new TextEncoder().encode(JSON.stringify(result)).byteLength > 2000000)
+    throw new Error("knowledge_output_too_large");
+  const latest = await read(scope.ownerId);
+  if (!latest || latest.rev !== workspace.rev) throw new Error("knowledge_output_changed");
+  return result;
+}

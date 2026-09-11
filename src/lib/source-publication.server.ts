@@ -1,11 +1,8 @@
-import { mappedBrandField } from "./knowledge-brand";
-import {
-  knowledgeIssuesForAsset,
-  readOutputKnowledgeDependencies,
-  evaluateAssetKnowledge,
-} from "./knowledge-publication.server";
-import { readProjectKnowledge, readProjectKnowledgeBrand } from "./project-knowledge.server";
-import type { ContentAsset } from "./types";
+import { knowledgeIssuesForAsset, evaluateAssetKnowledge } from "./knowledge-publication.server";
+import { readKnowledgeReviewBatch } from "./knowledge-review-context.server";
+import { publicationVersion } from "./publication-version";
+import { buildActiveInternalPaths } from "./publish-targets";
+import type { ContentAsset, Project } from "./types";
 import type { KnowledgeRpc } from "./project-knowledge.server";
 import {
   checkOutputDependencies,
@@ -107,6 +104,7 @@ export async function sourceIssuesForAsset(
   now = new Date().toISOString(),
   rpc?: KnowledgeRpc,
 ) {
+  const reviewedAsset = asset;
   asset = mergeRegisteredDependencies(
     asset,
     await readOutputSourceDependencies(
@@ -115,7 +113,7 @@ export async function sourceIssuesForAsset(
       rpc,
     ),
   );
-  const knowledgeIssues = await knowledgeIssuesForAsset(userId, asset, now, rpc);
+  const knowledgeIssues = await knowledgeIssuesForAsset(userId, reviewedAsset, now, rpc);
   if (asset[forgottenSource]) return [forgottenIssue(), ...knowledgeIssues];
   const dependencies = assetSourceDependencies(asset);
   if (!dependencies.length) return knowledgeIssues;
@@ -195,6 +193,7 @@ export async function assertAssetSourcesCurrent(
   asset: RegistryAsset,
   rpc?: KnowledgeRpc,
 ) {
+  const reviewedAsset = asset;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let expired = false;
   const checkDeadline = () => {
@@ -214,7 +213,10 @@ export async function assertAssetSourcesCurrent(
         checkDeadline();
         if (asset[forgottenSource]) throw new SourcePublicationHeldError();
         const dependencies = assetSourceDependencies(asset);
-        if ((await knowledgeIssuesForAsset(userId, asset, new Date().toISOString(), rpc)).length)
+        if (
+          (await knowledgeIssuesForAsset(userId, reviewedAsset, new Date().toISOString(), rpc))
+            .length
+        )
           throw new SourcePublicationHeldError();
         checkDeadline();
         if (!dependencies.length) return;
@@ -237,7 +239,9 @@ export async function assertAssetSourcesCurrent(
           }),
         );
         checkDeadline();
-        if ((await sourceIssuesForAsset(userId, asset, new Date().toISOString(), rpc)).length)
+        if (
+          (await sourceIssuesForAsset(userId, reviewedAsset, new Date().toISOString(), rpc)).length
+        )
           throw new SourcePublicationHeldError();
       })(),
       new Promise<never>((_, reject) => {
@@ -269,24 +273,44 @@ export async function readProjectSourceImpact(userId: string, projectId: string)
         selected.map((asset) => asset.id),
       )
     : [];
-  const knowledgeRegistry = selected.length
-    ? await readOutputKnowledgeDependencies(
-        userId,
-        projectId,
+  const batch = selected.length
+    ? await readKnowledgeReviewBatch(
+        { ownerId: userId, projectId },
         selected.map((a) => a.id),
       )
-    : [];
-  const knowledge = selected.length
-    ? await readProjectKnowledge({ ownerId: userId, projectId })
-    : { sources: [], records: [] };
-  const profile = knowledge.records.some((r) => mappedBrandField(r.key))
-    ? await readProjectKnowledgeBrand({ ownerId: userId, projectId })
-    : undefined;
+    : null;
+  const knowledgeRegistry = batch?.outputs.flatMap((row) => row.registry) ?? [];
+  const knowledge = batch?.knowledge ?? { sources: [], records: [] };
+  const profile = batch?.brand;
+  const project = (workspace.data.projects as Project[] | undefined)?.find(
+    (p) => p.id === projectId,
+  );
+  const reviewed = new Set<string>();
+  if (project && batch) {
+    const paths = buildActiveInternalPaths(project, assets);
+    await Promise.all(
+      selected.map(async (asset) => {
+        const context = batch.outputs.find((row) => row.assetId === asset.id);
+        if (!context?.activeReview || context.activeReview.contextHash !== context.contextHash)
+          return;
+        const version = await publicationVersion(asset, project, paths);
+        if (context.activeReview.versionHash === version.hash) reviewed.add(asset.id);
+      }),
+    );
+  }
+  const latest = await readWorkspaceRow(userId);
+  if (!latest || latest.rev !== workspace.rev) throw new SourcePublicationHeldError();
   const now = new Date().toISOString();
   const inspected = selected.map((asset) => mergeRegisteredDependencies(asset, registry));
   return {
     checked: inspected.length,
     remaining: Math.max(0, assets.length - inspected.length),
+    reviewHistory: selected
+      .filter((asset) => batch?.outputs.some((row) => row.assetId === asset.id && row.hasHistory))
+      .map((asset) => ({
+        assetId: asset.id,
+        title: (asset.h1 || asset.metaTitle || asset.id).slice(0, 300),
+      })),
     affected: inspected.flatMap((asset) => {
       const planned =
         asset.scheduledPublishAt && Date.parse(asset.scheduledPublishAt) > Date.parse(now)
@@ -294,9 +318,25 @@ export async function readProjectSourceImpact(userId: string, projectId: string)
           : now;
       const candidates = [
         ...issuesFromRows(userId, asset, rows, now, planned),
-        ...evaluateAssetKnowledge(userId, asset, knowledge, knowledgeRegistry, now, profile),
+        ...evaluateAssetKnowledge(
+          userId,
+          asset,
+          knowledge,
+          knowledgeRegistry,
+          now,
+          profile,
+          reviewed.has(asset.id),
+        ),
         ...(planned !== now
-          ? evaluateAssetKnowledge(userId, asset, knowledge, knowledgeRegistry, planned, profile)
+          ? evaluateAssetKnowledge(
+              userId,
+              asset,
+              knowledge,
+              knowledgeRegistry,
+              planned,
+              profile,
+              reviewed.has(asset.id),
+            )
           : []),
       ];
       const issues = [

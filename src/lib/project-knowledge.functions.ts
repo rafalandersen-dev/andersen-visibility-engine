@@ -4,9 +4,49 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { knowledgeRecordSchema } from "./project-knowledge";
+import { knowledgeReviewInput } from "./knowledge-output-review";
 
 const project = z.object({ projectId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/) }).strict();
 const revision = z.number().int().min(1).max(9999);
+const outputTarget = project.extend({ assetId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/) });
+export const saveKnowledgeOutputReviewFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => outputTarget.extend({ review: knowledgeReviewInput }).parse(v))
+  .handler(async ({ data, context }) => {
+    const { saveKnowledgeOutputReview } = await import("./knowledge-output-review-actions.server");
+    return saveKnowledgeOutputReview(
+      { ownerId: context.userId, projectId: data.projectId, assetId: data.assetId },
+      data.review,
+    );
+  });
+export const readKnowledgeOutputReviewHistoryFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => outputTarget.parse(v))
+  .handler(async ({ data, context }) => {
+    const { readKnowledgeOutputReviewHistory } =
+      await import("./knowledge-output-review-actions.server");
+    return readKnowledgeOutputReviewHistory({ ownerId: context.userId, ...data });
+  });
+export const withdrawKnowledgeOutputReviewFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => outputTarget.extend({ reviewId: z.string().uuid() }).parse(v))
+  .handler(async ({ data, context }) => {
+    const { withdrawKnowledgeOutputReview } =
+      await import("./knowledge-output-review-actions.server");
+    return withdrawKnowledgeOutputReview(
+      { ownerId: context.userId, projectId: data.projectId, assetId: data.assetId },
+      data.reviewId,
+    );
+  });
+export const readKnowledgeOutputReviewFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) =>
+    project.extend({ assetId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/) }).parse(v),
+  )
+  .handler(async ({ data, context }) => {
+    const { readKnowledgeOutputReview } = await import("./knowledge-output-review.server");
+    return readKnowledgeOutputReview({ ownerId: context.userId, ...data });
+  });
 const item = project.extend({ id: z.string().uuid(), expectedRevision: revision });
 const fields = knowledgeRecordSchema
   .innerType()
