@@ -72,3 +72,24 @@ it("preserves a policy-refused redirect destination", async () => {
     url: origin + "/private",
   });
 });
+
+it.each([
+  { status: 206, headers: { "content-type": "text/plain" } },
+  { status: 226, headers: { "content-type": "text/plain" } },
+  { status: 200, headers: { "content-type": "text/plain", "Content-Range": "bytes 50-99/100" } },
+])(
+  "refuses partial robots evidence before it can grant crawl permission: %j",
+  async ({ status, headers }) => {
+    mocks.fetch.mockResolvedValue({
+      status,
+      headers,
+      contentAccepted: true,
+      truncated: false,
+      body: "User-agent: *\nAllow: /",
+    });
+    expect(await fetchTechnicalRobots(origin, admit)).toEqual({
+      state: "unknown",
+      reason: "partial",
+    });
+  },
+);

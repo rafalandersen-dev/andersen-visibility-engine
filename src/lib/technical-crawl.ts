@@ -200,7 +200,7 @@ export async function advanceTechnicalCrawl(
             page.state = "observed";
             next.queue = next.queue.filter((pending) => pending.url !== finalUrl);
             if (!page.observation.complete) limitation(next, "partial_page");
-            if (response.status >= 200 && response.status < 300)
+            if (page.observation.complete && response.status >= 200 && response.status < 300)
               for (const link of page.observation.internalLinks) {
                 const url = scoped(link, next.origin);
                 if (

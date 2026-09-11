@@ -18,6 +18,8 @@ export async function fetchTechnicalRobots(
   if (!response) return robotsEvidence(null);
   if (response.status >= 200 && response.status < 300 && !response.contentAccepted)
     return { state: "unknown", reason: "content_type" };
+  if (Object.keys(response.headers).some((key) => key.toLowerCase() === "content-range"))
+    return { state: "unknown", reason: "partial" };
   if (response.truncated) return { state: "unknown", reason: "oversize" };
   return robotsEvidence(response.status, response.body, response.headers["content-type"] ?? "");
 }

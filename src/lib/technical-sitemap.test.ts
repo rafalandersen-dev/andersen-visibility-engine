@@ -339,3 +339,24 @@ it.each(["/private.xml", "https://other.test/map.xml"])(
     }
   },
 );
+
+it.each<{ status: number; headers: Record<string, string> }>([
+  { status: 206, headers: { "content-type": "text/plain" } },
+  { status: 226, headers: { "content-type": "text/plain" } },
+  { status: 200, headers: { "content-type": "text/plain", "Content-Range": "bytes 50-99/100" } },
+])("does not discover URLs from a partial sitemap: %j", async (partial) => {
+  const sitemaps = await advanceTechnicalSitemaps(
+    startTechnicalSitemaps(origin, []),
+    origin,
+    robots,
+    async () => ({ ...response(origin + "/fabricated-prefix"), ...partial }),
+    now,
+  );
+  expect(sitemaps.files[0].state).toBe("partial");
+  expect(sitemaps.entries).toEqual([]);
+  expect(sitemaps.limitations).toContain("unreadable");
+  const crawl = startTechnicalCrawl({ siteUrl: origin, robots, robotsFetchedAt: now, now });
+  expect(parseTechnicalCrawlState({ ...crawl, sitemaps }, origin).sitemaps?.files[0].state).toBe(
+    "partial",
+  );
+});

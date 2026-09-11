@@ -117,3 +117,28 @@ it("promotes the exact pre-DNS grant and releases the validated address", async 
     expect.objectContaining({ p_address: "8.8.8.8", p_lease: lease }),
   );
 });
+
+it("holds an uncertain address promotion and cleans only the confirmed reservation", async () => {
+  const rpc = vi
+    .fn(async () => record())
+    .mockResolvedValueOnce(record())
+    .mockRejectedValueOnce(new Error("private promotion timeout"));
+  const grant = await technicalConnectionAdmission(
+    user,
+    "p",
+    run,
+    lease,
+    origin,
+    rpc,
+  )(origin, new AbortController().signal, null);
+  await expect(grant.promote!("8.8.8.8")).rejects.toMatchObject({
+    reason: "capacity",
+    message: "technical_crawl_admission_capacity",
+  });
+  await grant();
+  expect(rpc).toHaveBeenCalledTimes(3);
+  expect(rpc).toHaveBeenLastCalledWith(
+    "release_technical_crawl_dispatch",
+    expect.objectContaining({ p_address: null, p_lease: lease }),
+  );
+});

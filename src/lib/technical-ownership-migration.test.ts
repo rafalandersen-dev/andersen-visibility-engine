@@ -25,7 +25,7 @@ beforeAll(async () => {
 }, 30000);
 beforeEach(async () => {
   await db.exec(
-    `RESET ROLE;TRUNCATE technical_crawls,technical_crawl_ownership,technical_ownership_limits,technical_crawl_dispatch_limits CASCADE;UPDATE auth.users SET deleted_at=NULL,banned_until=NULL;UPDATE workspace_entities SET data='{"websiteUrl":"https://example.test"}';`,
+    `RESET ROLE;UPDATE technical_ownership_dns_limits SET minute_start=clock_timestamp(),minute_count=0,hour_start=clock_timestamp(),hour_count=0,active_leases='{}'::jsonb;TRUNCATE technical_crawls,technical_crawl_ownership,technical_ownership_limits,technical_crawl_dispatch_limits CASCADE;UPDATE auth.users SET deleted_at=NULL,banned_until=NULL;UPDATE workspace_entities SET data='{"websiteUrl":"https://example.test"}';`,
   );
 });
 afterAll(async () => await db?.close());
@@ -34,11 +34,11 @@ const issue = (project = "p", who = owner) =>
     "SELECT issue_technical_crawl_ownership($1,$2,'https://example.test','https://example.test',$3) result",
     [who, project, token],
   );
-const begin = async (project = "p") =>
+const begin = async (project = "p", who = owner) =>
   (
     await db.query<{ result: { attempt_token: string } }>(
       "SELECT begin_technical_ownership_verification($1,$2) result",
-      [owner, project],
+      [who, project],
     )
   ).rows[0].result.attempt_token;
 const finish = async (attempt: string, verified = true) =>
@@ -871,3 +871,112 @@ it.each([false, true])(
     ).toEqual([{ status: "held", state: {}, admission_hold: null, resume_status: null }]);
   },
 );
+
+const dnsBudget = async () =>
+  (
+    await db.query<{
+      minute_count: number;
+      hour_count: number;
+      active_leases: Record<string, string>;
+    }>("SELECT minute_count,hour_count,active_leases FROM technical_ownership_dns_limits")
+  ).rows[0];
+
+it("caps DNS attempts across eight separate owners and admits after exact finish", async () => {
+  await db.exec("BEGIN");
+  try {
+    for (let index = 10; index < 18; index++) {
+      const who = `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
+      await db.query("INSERT INTO auth.users(id) VALUES($1)", [who]);
+      await db.query("INSERT INTO workspace_meta VALUES($1,1)", [who]);
+      await db.query(
+        `INSERT INTO workspace_entities VALUES($1,'projects','p','{"websiteUrl":"https://example.test"}')`,
+        [who],
+      );
+      await issue("p", who);
+      await begin("p", who);
+    }
+    expect(Object.keys((await dnsBudget()).active_leases)).toHaveLength(8);
+    await issue();
+    await db.exec("SAVEPOINT full_dns");
+    await expect(begin()).rejects.toThrow("technical_ownership_capacity");
+    await db.exec("ROLLBACK TO SAVEPOINT full_dns");
+    expect(
+      (
+        await db.query(
+          "SELECT verify_count,active_token FROM technical_ownership_limits WHERE user_id=$1",
+          [owner],
+        )
+      ).rows,
+    ).toEqual([{ verify_count: 0, active_token: null }]);
+    const first = "00000000-0000-4000-8000-000000000010";
+    const attempt = (
+      await db.query<{ attempt_token: string }>(
+        "SELECT attempt_token FROM technical_crawl_ownership WHERE user_id=$1",
+        [first],
+      )
+    ).rows[0].attempt_token;
+    await db.query("SELECT finish_technical_ownership_verification($1,'p',$2,false)", [
+      first,
+      attempt,
+    ]);
+    await begin();
+    expect(Object.keys((await dnsBudget()).active_leases)).toHaveLength(8);
+    expect((await dnsBudget()).hour_count).toBe(9);
+  } finally {
+    await db.exec("ROLLBACK");
+  }
+});
+
+it.each(["minute_count=120", "hour_count=600"])(
+  "atomically refuses global DNS rate exhaustion: %s",
+  async (capacity) => {
+    await issue();
+    await db.exec(`UPDATE technical_ownership_dns_limits SET ${capacity}`);
+    const before = await dnsBudget();
+    await expect(begin()).rejects.toThrow("technical_ownership_capacity");
+    expect(await dnsBudget()).toEqual(before);
+    expect(
+      (await db.query("SELECT verify_count,active_token FROM technical_ownership_limits")).rows,
+    ).toEqual([{ verify_count: 0, active_token: null }]);
+  },
+);
+
+it("retains the global lease through revocation and rejects forged cleanup", async () => {
+  await issue();
+  const attempt = await begin();
+  await finish(other, false);
+  expect((await dnsBudget()).active_leases).toHaveProperty(attempt);
+  await db.query("SELECT revoke_technical_crawl_ownership($1,'p')", [owner]);
+  await finish(attempt, false);
+  expect((await dnsBudget()).active_leases).toHaveProperty(attempt);
+  await db.exec(
+    "UPDATE technical_ownership_dns_limits SET active_leases=jsonb_build_object('expired',clock_timestamp()-interval '1 second');UPDATE technical_ownership_limits SET active_until=clock_timestamp()-interval '1 second'",
+  );
+  await issue();
+  const fresh = await begin();
+  expect(Object.keys((await dnsBudget()).active_leases)).toEqual([fresh]);
+});
+
+it("does not reset global counters or active DNS leases when an account is deleted", async () => {
+  await db.exec("BEGIN");
+  try {
+    await issue();
+    await begin();
+    const before = await dnsBudget();
+    await db.query("DELETE FROM auth.users WHERE id=$1", [owner]);
+    expect(await dnsBudget()).toEqual(before);
+  } finally {
+    await db.exec("ROLLBACK");
+  }
+});
+
+it("refuses direct access to the private global DNS budget for every exposed role", async () => {
+  for (const role of ["anon", "authenticated", "service_role"]) {
+    await db.exec(`SET ROLE ${role}`);
+    await expect(db.query("SELECT * FROM technical_ownership_dns_limits")).rejects.toThrow();
+    await expect(
+      db.query("UPDATE technical_ownership_dns_limits SET hour_count=0"),
+    ).rejects.toThrow();
+    await db.exec("RESET ROLE");
+  }
+});

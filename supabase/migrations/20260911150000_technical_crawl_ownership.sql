@@ -28,6 +28,18 @@ CREATE TABLE public.technical_ownership_limits (
  active_token uuid,
  active_until timestamptz
 );
+-- One deployment-wide row survives project/account deletion and cannot be reset by a tenant.
+CREATE TABLE public.technical_ownership_dns_limits (
+ singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton),
+ minute_start timestamptz NOT NULL,
+ minute_count integer NOT NULL CHECK(minute_count BETWEEN 0 AND 120),
+ hour_start timestamptz NOT NULL,
+ hour_count integer NOT NULL CHECK(hour_count BETWEEN 0 AND 600),
+ active_leases jsonb NOT NULL DEFAULT '{}'::jsonb CHECK(jsonb_typeof(active_leases)='object' AND octet_length(active_leases::text)<=2048)
+);
+INSERT INTO public.technical_ownership_dns_limits VALUES(true,clock_timestamp(),0,clock_timestamp(),0,'{}'::jsonb);
+ALTER TABLE public.technical_ownership_dns_limits ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.technical_ownership_dns_limits FROM PUBLIC,anon,authenticated,service_role;
 ALTER TABLE public.technical_crawl_ownership ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.technical_ownership_limits ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.technical_crawl_ownership,public.technical_ownership_limits FROM PUBLIC,anon,authenticated,service_role;
@@ -65,7 +77,7 @@ END; $$;
 
 CREATE FUNCTION public.begin_technical_ownership_verification(p_user uuid,p_project text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
-DECLARE website text; proof public.technical_crawl_ownership%ROWTYPE; budget public.technical_ownership_limits%ROWTYPE; stamp timestamptz:=clock_timestamp(); attempt uuid:=gen_random_uuid();
+DECLARE website text; proof public.technical_crawl_ownership%ROWTYPE; budget public.technical_ownership_limits%ROWTYPE; stamp timestamptz:=clock_timestamp(); attempt uuid:=gen_random_uuid(); dns public.technical_ownership_dns_limits%ROWTYPE;
 BEGIN
  website:=public.assert_technical_crawl_owner(p_user,p_project);
  SELECT * INTO proof FROM public.technical_crawl_ownership WHERE user_id=p_user AND project_id=p_project FOR UPDATE NOWAIT;
@@ -75,6 +87,13 @@ BEGIN
  IF budget.active_until>stamp THEN RAISE EXCEPTION 'technical_ownership_capacity'; END IF;
  IF budget.hour_start<=stamp-interval '1 hour' THEN budget.hour_start:=stamp;budget.issue_count:=0;budget.verify_count:=0; END IF;
  IF budget.verify_count>=60 THEN RAISE EXCEPTION 'technical_ownership_capacity'; END IF;
+ SELECT * INTO dns FROM public.technical_ownership_dns_limits WHERE singleton=true FOR UPDATE NOWAIT;
+ IF NOT FOUND THEN RAISE EXCEPTION 'technical_ownership_capacity'; END IF;
+ IF dns.minute_start<=stamp-interval '1 minute' THEN dns.minute_start:=stamp;dns.minute_count:=0; END IF;
+ IF dns.hour_start<=stamp-interval '1 hour' THEN dns.hour_start:=stamp;dns.hour_count:=0; END IF;
+ SELECT COALESCE(jsonb_object_agg(key,value),'{}'::jsonb) INTO dns.active_leases FROM jsonb_each_text(dns.active_leases) WHERE value::timestamptz>stamp;
+ IF dns.minute_count>=120 OR dns.hour_count>=600 OR (SELECT count(*) FROM jsonb_object_keys(dns.active_leases))>=8 THEN RAISE EXCEPTION 'technical_ownership_capacity'; END IF;
+ UPDATE public.technical_ownership_dns_limits SET minute_start=dns.minute_start,minute_count=dns.minute_count+1,hour_start=dns.hour_start,hour_count=dns.hour_count+1,active_leases=dns.active_leases||jsonb_build_object(attempt::text,stamp+interval '15 seconds') WHERE singleton=true;
  UPDATE public.technical_ownership_limits SET hour_start=budget.hour_start,issue_count=budget.issue_count,verify_count=budget.verify_count+1,active_token=attempt,active_until=stamp+interval '15 seconds' WHERE user_id=p_user;
  UPDATE public.technical_crawl_ownership SET attempt_token=attempt,attempt_until=stamp+interval '15 seconds' WHERE user_id=p_user AND project_id=p_project RETURNING * INTO proof;
  RETURN to_jsonb(proof);
@@ -82,14 +101,17 @@ END; $$;
 
 CREATE FUNCTION public.finish_technical_ownership_verification(p_user uuid,p_project text,p_attempt uuid,p_verified boolean)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
-DECLARE website text; proof public.technical_crawl_ownership%ROWTYPE; budget public.technical_ownership_limits%ROWTYPE; stamp timestamptz:=clock_timestamp(); valid boolean;
+DECLARE website text; proof public.technical_crawl_ownership%ROWTYPE; budget public.technical_ownership_limits%ROWTYPE; stamp timestamptz:=clock_timestamp(); valid boolean; dns public.technical_ownership_dns_limits%ROWTYPE;
 BEGIN
  website:=public.assert_technical_crawl_owner(p_user,p_project);
  SELECT * INTO proof FROM public.technical_crawl_ownership WHERE user_id=p_user AND project_id=p_project FOR UPDATE NOWAIT;
  IF NOT FOUND THEN RETURN false; END IF;
  SELECT * INTO budget FROM public.technical_ownership_limits WHERE user_id=p_user FOR UPDATE NOWAIT;
  IF NOT FOUND OR p_attempt IS NULL OR proof.attempt_token IS DISTINCT FROM p_attempt OR budget.active_token IS DISTINCT FROM p_attempt THEN RETURN false; END IF;
- valid:=proof.website_value IS NOT DISTINCT FROM website AND proof.revoked_at IS NULL AND proof.expires_at>stamp AND proof.attempt_until>stamp AND budget.active_until>stamp AND p_verified IS TRUE;
+ SELECT * INTO dns FROM public.technical_ownership_dns_limits WHERE singleton=true FOR UPDATE NOWAIT;
+ IF NOT FOUND OR NOT (dns.active_leases ? p_attempt::text) THEN RETURN false; END IF;
+ valid:= (dns.active_leases->>p_attempt::text)::timestamptz>stamp AND proof.website_value IS NOT DISTINCT FROM website AND proof.revoked_at IS NULL AND proof.expires_at>stamp AND proof.attempt_until>stamp AND budget.active_until>stamp AND p_verified IS TRUE;
+ UPDATE public.technical_ownership_dns_limits SET active_leases=active_leases-p_attempt::text WHERE singleton=true;
  UPDATE public.technical_ownership_limits SET active_token=NULL,active_until=NULL WHERE user_id=p_user;
  UPDATE public.technical_crawl_ownership SET attempt_token=NULL,attempt_until=NULL,verified_until=CASE WHEN valid THEN expires_at ELSE NULL END WHERE user_id=p_user AND project_id=p_project;
  RETURN valid;
@@ -102,7 +124,7 @@ BEGIN
  PERFORM public.assert_technical_crawl_owner(p_user,p_project);
  SELECT attempt_token INTO attempt FROM public.technical_crawl_ownership WHERE user_id=p_user AND project_id=p_project FOR UPDATE NOWAIT;
  UPDATE public.technical_crawl_ownership SET revoked_at=clock_timestamp(),verified_until=NULL,attempt_token=NULL,attempt_until=NULL WHERE user_id=p_user AND project_id=p_project;
- -- Revocation does not release a possibly still-running DNS request. Its account lease expires.
+ -- Revocation does not release a possibly still-running DNS request. Its account and global leases expire.
 END; $$;
 
 CREATE FUNCTION public.assert_technical_crawl_ownership(p_user uuid,p_project text,p_origin text)

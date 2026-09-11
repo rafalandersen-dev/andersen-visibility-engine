@@ -33,7 +33,15 @@ const robots = z.discriminatedUnion("state", [
   z
     .object({
       state: z.literal("unknown"),
-      reason: z.enum(["network", "server", "rate_limited", "redirect", "oversize", "content_type"]),
+      reason: z.enum([
+        "network",
+        "server",
+        "rate_limited",
+        "redirect",
+        "oversize",
+        "content_type",
+        "partial",
+      ]),
     })
     .strict(),
   z
@@ -146,6 +154,7 @@ const schema = z
                   "read",
                   "invalid_xml",
                   "invalid_text",
+                  "partial",
                   "oversize",
                   "non_xml",
                   "http_error",

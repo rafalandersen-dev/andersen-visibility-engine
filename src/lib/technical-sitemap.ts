@@ -17,6 +17,7 @@ export type SitemapObservation = {
     | "read"
     | "invalid_xml"
     | "invalid_text"
+    | "partial"
     | "oversize"
     | "non_xml"
     | "http_error"
@@ -221,6 +222,12 @@ export async function advanceTechnicalSitemaps(
         file.status = response.status;
         file.observedAt = response.observedAt;
         if (response.status < 200 || response.status >= 300) file.state = "http_error";
+        else if (
+          response.status === 206 ||
+          response.status === 226 ||
+          Object.keys(response.headers ?? {}).some((key) => key.toLowerCase() === "content-range")
+        )
+          file.state = "partial";
         else if (response.truncated) file.state = "oversize";
         else if (!response.contentAccepted) file.state = "non_xml";
         else {

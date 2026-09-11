@@ -16,7 +16,14 @@ export type RobotsEvidence =
   | { state: "unavailable"; status: number }
   | {
       state: "unknown";
-      reason: "network" | "server" | "rate_limited" | "redirect" | "oversize" | "content_type";
+      reason:
+        | "network"
+        | "server"
+        | "rate_limited"
+        | "redirect"
+        | "oversize"
+        | "content_type"
+        | "partial";
     };
 
 export function parseRobots(text: string): RobotsDocument {
@@ -98,6 +105,7 @@ export function robotsEvidence(
 ): RobotsEvidence {
   if (status === null || !Number.isInteger(status) || status < 100 || status > 599)
     return { state: "unknown", reason: "network" };
+  if (status === 206 || status === 226) return { state: "unknown", reason: "partial" };
   if (status === 429) return { state: "unknown", reason: "rate_limited" };
   if (status >= 400 && status < 500) return { state: "unavailable", status };
   if (status >= 500 || status < 200) return { state: "unknown", reason: "server" };

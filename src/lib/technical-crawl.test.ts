@@ -246,3 +246,37 @@ it("does not infer missing headings when extraction leaves text unread", async (
   expect(next.pages[0].observation?.complete).toBe(false);
   expect(technicalFindings(next.pages[0])).not.toContain("missing_h1");
 });
+
+it.each<{ status: number; headers: Record<string, string>; truncated?: boolean }>([
+  { status: 206, headers: { "content-type": "text/html" } },
+  { status: 226, headers: { "content-type": "text/html" } },
+  { status: 200, headers: { "content-type": "text/html", "content-range": "bytes 50-99/100" } },
+  { status: 200, headers: { "content-type": "text/html" }, truncated: true },
+])(
+  "retains partial page evidence without discovering possibly misresolved links: %j",
+  async (partial) => {
+    const next = await advanceTechnicalCrawl(
+      start(),
+      async (url) => ({
+        ...response(url, '<a href="relative">Link without its original base</a>'),
+        ...partial,
+      }),
+      now,
+    );
+    expect(next.pages[0].observation?.complete).toBe(false);
+    expect(next.coverageLimits).toContain("partial_page");
+    expect(next.queue).toEqual([]);
+    expect(parseTechnicalCrawlState(next, "https://example.test").pages).toHaveLength(1);
+  },
+);
+
+it("persists partial robots refusal as unknown without fetching pages", async () => {
+  const saved = start("", { robots: robotsEvidence(206, "User-agent: *\nAllow: /") });
+  const fetch = vi.fn<TechnicalPageFetcher>();
+  expect(parseTechnicalCrawlState(saved, "https://example.test").robots).toEqual({
+    state: "unknown",
+    reason: "partial",
+  });
+  await advanceTechnicalCrawl(saved, fetch, now);
+  expect(fetch).not.toHaveBeenCalled();
+});

@@ -65,21 +65,26 @@ export function technicalConnectionAdmission(
       grant.promote = async (next) => {
         if (!isIP(next) || signal.aborted || Date.parse(lease.expiresAt) - Date.now() < 10000)
           throw new TechnicalCrawlAdmissionError("capacity");
-        const result = await rpc("acquire_technical_crawl_dispatch", {
-          p_user: user,
-          p_project: project,
-          p_run: run,
-          p_run_lease: runLease,
-          p_origin: origin,
-          p_address: next,
-          p_prior_lease: lease.lease,
-        });
-        if (
-          result.error ||
-          !result.data ||
-          (result.data as { lease?: unknown }).lease !== lease.lease
-        )
+        try {
+          const result = await rpc("acquire_technical_crawl_dispatch", {
+            p_user: user,
+            p_project: project,
+            p_run: run,
+            p_run_lease: runLease,
+            p_origin: origin,
+            p_address: next,
+            p_prior_lease: lease.lease,
+          });
+          if (
+            result.error ||
+            !result.data ||
+            (result.data as { lease?: unknown }).lease !== lease.lease
+          )
+            throw new TechnicalCrawlAdmissionError("capacity");
+        } catch {
+          // An uncertain promotion may already own an address slot. Hold until it expires.
           throw new TechnicalCrawlAdmissionError("capacity");
+        }
         address = next;
         if (signal.aborted) throw new TechnicalCrawlAdmissionError("capacity");
       };
