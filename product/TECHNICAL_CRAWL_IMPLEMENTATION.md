@@ -1,3 +1,7 @@
+# Release status — 12 September 2026
+
+PR124 is released at674ed192a9ea359ee94dff9fb26028d3b1f6c5ab, verified23:50:11UTC11September (12SeptemberStockholm). All six technical migrations are applied once. Exact runtime identity, all catalog fields and public/authentication checks pass; prior production baselines are unchanged. [Canonical release evidence](../evidence/technical-seo-release-2026-09-12.md). Real-use acceptance remains open. The dated implementation entries below are historical and their earlier unapplied/unreleased labels are superseded by this release status.
+
 # Technical website inspection — R13
 
 Status: local implementation, unreleased. Overall delivery remains approximately55%, with implementation approximately70%. Full R13 and real-use acceptance remain open.
