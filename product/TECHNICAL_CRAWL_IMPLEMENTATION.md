@@ -211,3 +211,5 @@ Google sitemap and referring-URL evidence now share a 256 KiB serialized-string 
 Ownership failure at claim/save retains resumable metadata only when the saved project website remains identical to the run. Changed-website runs remain held with saved evidence and no admission-resume action; a new crawl is required for the new website. Existing expiry/revocation renewal tests remain valid for unchanged websites.
 
 Validation:38 focused Google/actual-SQL tests, TypeScript and changed-file lint pass (`/tmp/milo-google-size-{tests,types,lint}.log`). Migration150000 remains unapplied; no Google or crawl request occurred. Findings3990999791 and3990999803 addressed.
+
+Combined validation after merging team e4dcd6d: all3630 tests across273 files pass (115.71seconds), TypeScript, changed-file lint and production build pass. Logs `/tmp/milo-url-final-{types,lint,full,build}.log`. Guarded six-migration/eight-table rehearsal passes including all four refusal scenarios; new packet135729bytes. No production or provider action. Final-head external reviews and real-use acceptance remain pending.
