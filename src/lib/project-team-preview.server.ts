@@ -1,3 +1,4 @@
+import { readTeamReviewAuthority } from "./project-team-authority.server";
 import { z } from "zod";
 import { teamCommentTarget } from "./project-team";
 import { readTeamReviewContext } from "./project-team-context.server";
@@ -41,6 +42,7 @@ export async function readProjectTeamPreview(
   actorId: string,
   raw: z.infer<typeof teamCommentTarget>,
   read: typeof readTeamReviewContext = readTeamReviewContext,
+  authority: typeof readTeamReviewAuthority = readTeamReviewAuthority,
 ) {
   const input = teamCommentTarget.parse(raw);
   const before = await read(actorId, input);
@@ -75,6 +77,7 @@ export async function readProjectTeamPreview(
     media.map((image) => ({ id: image.key, url: image.url })),
   );
   const version = await publicationVersion(before.asset, before.project, paths);
+  const permissions = await authority(actorId, input);
   const after = await read(actorId, input);
   if (
     after.draftHash !== before.draftHash ||
@@ -83,6 +86,8 @@ export async function readProjectTeamPreview(
   )
     throw new Error("The saved review changed. Refresh before continuing.");
   const result = {
+    canReview: permissions.canReview,
+    policyRevision: permissions.policyRevision,
     assetId: input.assetId,
     title: z.string().max(1000).parse(before.asset.title),
     metaTitle: z

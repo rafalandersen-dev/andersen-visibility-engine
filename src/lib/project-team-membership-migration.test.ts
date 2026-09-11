@@ -324,6 +324,74 @@ describe("durable project invitation and membership lifecycle", () => {
     expect((await db.query("SELECT * FROM public.project_team_edits")).rows).toHaveLength(0);
   });
 
+  it("records an owner review without delegation and exposes only scoped decision history", async () => {
+    await create();
+    await accept();
+    const authority = async (who: string) =>
+      (
+        await db.query<{ result: { canReview: boolean; policyRevision: number } }>(
+          "SELECT public.read_project_team_review_authority($1,$2,'p','a') result",
+          [who, owner],
+        )
+      ).rows[0].result;
+    expect(await authority(owner)).toMatchObject({ canReview: true, policyRevision: 0 });
+    expect(await authority(actor)).toMatchObject({ canReview: false, policyRevision: 0 });
+    const snap = (
+      await db.query<{ result: { draftHash: string; membershipRevision: number } }>(
+        "SELECT public.read_project_team_snapshot($1,$1,'p','a') result",
+        [owner],
+      )
+    ).rows[0].result;
+    await db.query("SELECT public.save_project_team_approval($1,$1,'p','a',$2,1,$3,$4,$5,0,true)", [
+      owner,
+      second,
+      snap.draftHash,
+      "a".repeat(64),
+      snap.membershipRevision,
+    ]);
+    expect(
+      (
+        await db.query(
+          "SELECT approved,delegate_actor_id,delegate_policy_revision FROM public.publication_approvals",
+        )
+      ).rows[0],
+    ).toEqual({ approved: true, delegate_actor_id: null, delegate_policy_revision: null });
+    const history = (
+      await db.query<{ result: { reviews: unknown[] } }>(
+        "SELECT public.read_project_team_review_history($1,$2,'p','a') result",
+        [actor, owner],
+      )
+    ).rows[0].result;
+    expect(history.reviews).toHaveLength(1);
+    expect(history.reviews[0]).toEqual({
+      reviewId: second,
+      mine: false,
+      owner: true,
+      approved: true,
+      versionHash: "a".repeat(64),
+      createdAt: expect.any(String),
+    });
+    await expect(
+      db.query("SELECT public.read_project_team_review_history($1,$2,'p','a')", [other, owner]),
+    ).rejects.toThrow();
+    await db.query(
+      "SELECT public.set_project_team_approval_policy($1,$1,'p',0,'editors_can_approve')",
+      [owner],
+    );
+    expect(await authority(actor)).toMatchObject({ canReview: true, policyRevision: 1 });
+  });
+  it("denies direct browser-role calls to review authority and history", async () => {
+    for (const role of ["anon", "authenticated"]) {
+      await db.exec(`SET ROLE ${role}`);
+      for (const fn of ["read_project_team_review_authority", "read_project_team_review_history"]) {
+        await expect(
+          db.query(`SELECT public.${fn}($1,$2,'p','a')`, [actor, owner]),
+        ).rejects.toThrow("permission denied");
+      }
+      await db.exec("RESET ROLE");
+    }
+  });
+
   it("keeps delegation off by default and only permits the owner to select a current policy", async () => {
     await create();
     await accept();

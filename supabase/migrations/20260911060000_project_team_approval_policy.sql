@@ -117,16 +117,16 @@ CREATE FUNCTION public.save_project_team_approval(p_actor uuid,p_owner uuid,p_pr
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE snapshot jsonb; membership public.project_team_members%ROWTYPE; policy public.project_team_approval_policy%ROWTYPE;
 BEGIN
-  IF p_actor IS NULL OR p_actor=p_owner OR p_review IS NULL OR p_expected IS NULL OR p_expected<0 OR p_approved IS NULL
+  IF p_actor IS NULL OR p_review IS NULL OR p_expected IS NULL OR p_expected<0 OR p_approved IS NULL
     OR p_draft_hash IS NULL OR p_draft_hash !~ '^[a-f0-9]{64}$' OR p_version IS NULL OR p_version !~ '^[a-f0-9]{64}$'
     OR p_membership IS NULL OR p_policy IS NULL THEN RAISE EXCEPTION 'team_approval_unavailable'; END IF;
   snapshot:=public.read_project_team_snapshot(p_actor,p_owner,p_project,p_asset,0);
   IF p_asset IS NULL OR (snapshot->>'workspaceRevision')::bigint<>p_expected OR snapshot->>'draftHash' IS DISTINCT FROM p_draft_hash THEN RAISE EXCEPTION 'team_approval_draft_changed' USING ERRCODE='40001'; END IF;
   SELECT * INTO membership FROM public.project_team_members WHERE owner_id=p_owner AND project_id=p_project AND actor_id=p_actor;
   SELECT * INTO policy FROM public.project_team_approval_policy WHERE owner_id=p_owner AND project_id=p_project;
-  IF policy.revision IS NULL OR policy.revision<>p_policy OR membership.revision<>p_membership
-    OR NOT ((policy.mode IN ('separate_reviewers','editors_can_approve') AND membership.role='reviewer') OR (policy.mode='editors_can_approve' AND membership.role='editor')) THEN RAISE EXCEPTION 'team_approval_policy_changed'; END IF;
-  IF policy.mode='separate_reviewers' AND (SELECT actor_id FROM public.project_team_edits WHERE owner_id=p_owner AND project_id=p_project AND asset_id=p_asset ORDER BY created_at DESC,edit_id DESC LIMIT 1)=p_actor THEN RAISE EXCEPTION 'team_independent_reviewer_required'; END IF;
+  IF coalesce(policy.revision,0)<>p_policy OR (snapshot->>'membershipRevision')::bigint<>p_membership
+    OR (p_actor<>p_owner AND (policy.revision IS NULL OR NOT ((policy.mode IN ('separate_reviewers','editors_can_approve') AND membership.role='reviewer') OR (policy.mode='editors_can_approve' AND membership.role='editor')))) THEN RAISE EXCEPTION 'team_approval_policy_changed'; END IF;
+  IF p_actor<>p_owner AND policy.mode='separate_reviewers' AND (SELECT actor_id FROM public.project_team_edits WHERE owner_id=p_owner AND project_id=p_project AND asset_id=p_asset ORDER BY created_at DESC,edit_id DESC LIMIT 1)=p_actor THEN RAISE EXCEPTION 'team_independent_reviewer_required'; END IF;
   IF NOT EXISTS(SELECT 1 FROM auth.users WHERE id=p_actor AND deleted_at IS NULL AND (banned_until IS NULL OR banned_until<=clock_timestamp())) THEN RAISE EXCEPTION 'team_approval_unavailable'; END IF;
   IF NOT EXISTS(SELECT 1 FROM public.publication_approvals WHERE user_id=p_owner AND project_id=p_project AND asset_id=p_asset)
     AND (SELECT count(*) FROM public.publication_approvals WHERE user_id=p_owner AND project_id=p_project)>=1000 THEN RAISE EXCEPTION 'publication_approval_capacity'; END IF;
@@ -140,8 +140,8 @@ BEGIN
     WHERE user_id=p_owner AND collection='content' AND entity_id=p_asset;
   UPDATE public.workspace_meta SET rev=rev+1 WHERE user_id=p_owner;
   INSERT INTO public.publication_approvals(user_id,project_id,asset_id,algorithm,version_hash,approved,delegate_actor_id,delegate_membership_revision,delegate_policy_revision)
-    VALUES(p_owner,p_project,p_asset,'milo-publication-v1',p_version,p_approved,p_actor,p_membership,p_policy)
-    ON CONFLICT(user_id,project_id,asset_id) DO UPDATE SET version_hash=p_version,approved=p_approved,updated_at=clock_timestamp(),delegate_actor_id=p_actor,delegate_membership_revision=p_membership,delegate_policy_revision=p_policy;
+    VALUES(p_owner,p_project,p_asset,'milo-publication-v1',p_version,p_approved,CASE WHEN p_actor=p_owner THEN NULL ELSE p_actor END,CASE WHEN p_actor=p_owner THEN NULL ELSE p_membership END,CASE WHEN p_actor=p_owner THEN NULL ELSE p_policy END)
+    ON CONFLICT(user_id,project_id,asset_id) DO UPDATE SET version_hash=p_version,approved=p_approved,updated_at=clock_timestamp(),delegate_actor_id=EXCLUDED.delegate_actor_id,delegate_membership_revision=EXCLUDED.delegate_membership_revision,delegate_policy_revision=EXCLUDED.delegate_policy_revision;
   INSERT INTO public.project_team_approval_history(owner_id,project_id,asset_id,review_id,actor_id,membership_revision,policy_revision,version_hash,approved)
     VALUES(p_owner,p_project,p_asset,p_review,p_actor,p_membership,p_policy,p_version,p_approved);
   RETURN true;

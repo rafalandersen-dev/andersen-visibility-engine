@@ -38,7 +38,7 @@ describe("scoped collaborator media", () => {
     const result = await readProjectTeamMedia(actor, input, d);
     expect(d.download).toHaveBeenCalledWith("article-assets-private", path);
     expect(d.read).toHaveBeenCalledTimes(2);
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       imageId: "im",
       draftHash: input.expectedHash,
       contentType: "image/png",

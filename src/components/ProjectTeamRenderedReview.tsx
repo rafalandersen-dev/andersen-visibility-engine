@@ -1,3 +1,4 @@
+import { ProjectTeamReviewDecision, ProjectTeamReviewHistory } from "./ProjectTeamReviewDecision";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
@@ -25,18 +26,22 @@ export function ProjectTeamRenderedReview({
   const [media, setMedia] = useState<{
     stamp: number;
     urls: Record<string, string>;
+    hashes: Record<string, string>;
     error: boolean;
   } | null>(null);
+  const [frameStamp, setFrameStamp] = useState(0);
   useEffect(() => {
     const preview = query.data;
     if (!preview || query.isError) return;
     let cancelled = false;
     const created: string[] = [];
     setMedia(null);
+    setFrameStamp(0);
     void (async () => {
       try {
         if (preview.unknownImages) throw new Error("unknown_images");
         const urls: Record<string, string> = {};
+        const hashes: Record<string, string> = {};
         for (const item of preview.media) {
           const image = await readProjectTeamMediaFn({
             data: {
@@ -52,6 +57,7 @@ export function ProjectTeamRenderedReview({
           if (
             image.draftHash !== preview.draftHash ||
             image.imageId !== item.imageId ||
+            !/^[a-f0-9]{64}$/.test(image.byteHash) ||
             !["image/png", "image/jpeg", "image/webp"].includes(image.contentType)
           )
             throw new Error("image_changed");
@@ -67,11 +73,12 @@ export function ProjectTeamRenderedReview({
             return;
           }
           urls[item.key] = url;
+          hashes[item.key] = image.byteHash;
         }
-        if (!cancelled) setMedia({ stamp: query.dataUpdatedAt, urls, error: false });
+        if (!cancelled) setMedia({ stamp: query.dataUpdatedAt, urls, hashes, error: false });
       } catch {
         created.forEach((url) => URL.revokeObjectURL(url));
-        if (!cancelled) setMedia({ stamp: query.dataUpdatedAt, urls: {}, error: true });
+        if (!cancelled) setMedia({ stamp: query.dataUpdatedAt, urls: {}, hashes: {}, error: true });
       }
     })();
     return () => {
@@ -105,14 +112,38 @@ export function ProjectTeamRenderedReview({
           <p className="text-sm text-muted-foreground">{query.data.metaTitle}</p>
           <p className="text-sm text-muted-foreground">{query.data.metaDescription}</p>
           <iframe
+            key={query.dataUpdatedAt}
+            onLoad={(event) => {
+              const doc = event.currentTarget.contentDocument;
+              const images = doc ? Array.from(doc.images) : [];
+              const expected = (query.data.html.match(/<img\b/gi) ?? []).length;
+              setFrameStamp(
+                doc &&
+                  images.length === expected &&
+                  images.every((image) => image.complete && image.naturalWidth > 0)
+                  ? query.dataUpdatedAt
+                  : 0,
+              );
+            }}
             title={t("collaboration.renderedReview")}
             className="h-[36rem] w-full rounded-lg border bg-white"
-            sandbox=""
+            sandbox="allow-same-origin"
             referrerPolicy="no-referrer"
             srcDoc={`<!doctype html><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src blob:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><meta name="referrer" content="no-referrer"><style>body{font:16px system-ui;line-height:1.6;padding:16px;overflow-wrap:anywhere}img{max-width:100%;height:auto}a{pointer-events:none}</style>${html}`}
           />
         </>
       )}
+      {query.data && !query.isError && (
+        <ProjectTeamReviewDecision
+          key={`${query.dataUpdatedAt}:${query.data.draftHash}:${query.data.membershipRevision}:${query.data.policyRevision}`}
+          ownerId={ownerId}
+          projectId={projectId}
+          preview={query.data}
+          ready={Boolean(ready) && frameStamp === query.dataUpdatedAt && !query.isFetching}
+          hashes={media?.hashes ?? {}}
+        />
+      )}
+      <ProjectTeamReviewHistory ownerId={ownerId} projectId={projectId} assetId={assetId} />
     </section>
   );
 }

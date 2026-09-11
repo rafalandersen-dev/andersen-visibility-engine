@@ -28,6 +28,12 @@ function context() {
     links: [],
   } as unknown as Awaited<ReturnType<typeof readTeamReviewContext>>;
 }
+const authority = vi.fn(async () => ({
+  ...target,
+  actorId: actor,
+  canReview: true,
+  policyRevision: 1,
+}));
 describe("collaborator canonical preview", () => {
   it("replaces known media URLs and flags unknown images without returning their locations", () => {
     const url = "https://project.supabase.co/image.png?token=fixture&other=1";
@@ -55,7 +61,7 @@ describe("collaborator canonical preview", () => {
   it("uses the canonical publication version while projecting only the rendered deliverable", async () => {
     const ctx = context();
     const read = vi.fn(async () => ctx);
-    const result = await readProjectTeamPreview(actor, target, read);
+    const result = await readProjectTeamPreview(actor, target, read, authority);
     expect(result.version).toEqual(await publicationVersion(ctx.asset, ctx.project, ["/"]));
     expect(result.html).toContain("Saved body");
     expect(result).not.toHaveProperty("project");
@@ -67,7 +73,7 @@ describe("collaborator canonical preview", () => {
       .fn(async () => context())
       .mockResolvedValueOnce(context())
       .mockResolvedValueOnce({ ...context(), workspaceRevision: 2 });
-    await expect(readProjectTeamPreview(actor, target, read)).rejects.toThrow(
+    await expect(readProjectTeamPreview(actor, target, read, authority)).rejects.toThrow(
       "saved review changed",
     );
   });

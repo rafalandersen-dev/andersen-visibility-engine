@@ -13,6 +13,8 @@ const h = vi.hoisted(() => ({
   policyChange: vi.fn(),
   media: vi.fn(),
   preview: vi.fn(),
+  decision: vi.fn(),
+  history: vi.fn(),
 }));
 vi.mock("@/integrations/supabase/auth-middleware", () => ({ requireSupabaseAuth: h.auth }));
 vi.mock("@tanstack/react-start", () => ({
@@ -48,6 +50,10 @@ vi.mock("./project-team-policy.server", () => ({
 }));
 vi.mock("./project-team-media.server", () => ({ readProjectTeamMedia: h.media }));
 vi.mock("./project-team-preview.server", () => ({ readProjectTeamPreview: h.preview }));
+vi.mock("./project-team-review.server", () => ({
+  saveProjectTeamReview: h.decision,
+  readProjectTeamReviewHistory: h.history,
+}));
 import * as endpoints from "./project-team.functions";
 const actor = "00000000-0000-4000-8000-000000000001";
 const owner = "00000000-0000-4000-8000-000000000002";
@@ -56,7 +62,7 @@ const invoke = (fn: unknown, data: unknown) =>
   (fn as (args: unknown) => Promise<unknown>)({ data, context: { userId: actor } });
 describe("team authentication entry points", () => {
   it("requires authentication on every entry point", () => {
-    expect(h.registered).toHaveLength(12);
+    expect(h.registered).toHaveLength(14);
     expect(h.registered.every((items) => items.length === 1 && items[0] === h.auth)).toBe(true);
   });
   it("derives owner administration from authentication and rejects supplied actor/owner overrides", async () => {
@@ -138,6 +144,29 @@ describe("team authentication entry points", () => {
     expect(() => invoke(endpoints.changeOwnerTeamPolicyFn, { ...data, ownerId: owner })).toThrow();
     expect(() =>
       invoke(endpoints.changeOwnerTeamPolicyFn, { projectId: "p", expectedRevision: 0 }),
+    ).toThrow();
+  });
+  it("binds decisions and history to authenticated identity", async () => {
+    const scope = { ownerId: owner, projectId: "p", assetId: "a" };
+    const data = {
+      ...scope,
+      reviewId: invite,
+      expectedVersion: { algorithm: "milo-publication-v1", hash: "a".repeat(64) },
+      expectedHash: "a".repeat(64),
+      expectedWorkspaceRevision: 1,
+      expectedMembershipRevision: 1,
+      expectedPolicyRevision: 0,
+      approved: false,
+      acknowledged: false,
+      images: [],
+    };
+    await invoke(endpoints.saveProjectTeamReviewFn, data);
+    expect(h.decision).toHaveBeenCalledWith(actor, data);
+    await invoke(endpoints.readProjectTeamReviewHistoryFn, scope);
+    expect(h.history).toHaveBeenCalledWith(actor, scope);
+    expect(() => invoke(endpoints.saveProjectTeamReviewFn, { ...data, actorId: owner })).toThrow();
+    expect(() =>
+      invoke(endpoints.readProjectTeamReviewHistoryFn, { ...scope, actorId: owner }),
     ).toThrow();
   });
   it("binds preview and image reads to the authenticated actor without accepting storage paths", async () => {

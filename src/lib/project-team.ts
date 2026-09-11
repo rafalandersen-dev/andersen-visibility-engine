@@ -161,3 +161,30 @@ export const teamMediaInput = teamCommentTarget
     expectedHash: z.string().regex(/^[a-f0-9]{64}$/),
   })
   .strict();
+export const teamReviewDecision = teamCommentTarget
+  .extend({
+    reviewId: uuid,
+    expectedVersion: z
+      .object({
+        algorithm: z.literal("milo-publication-v1"),
+        hash: z.string().regex(/^[a-f0-9]{64}$/),
+      })
+      .strict(),
+    expectedHash: z.string().regex(/^[a-f0-9]{64}$/),
+    expectedWorkspaceRevision: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+    expectedMembershipRevision: revision,
+    expectedPolicyRevision: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+    approved: z.boolean(),
+    acknowledged: z.boolean(),
+    images: z
+      .array(
+        z
+          .object({
+            key: z.string().regex(/^(content|featured)_[A-Za-z0-9_-]{1,64}$/),
+            byteHash: z.string().regex(/^[a-f0-9]{64}$/),
+          })
+          .strict(),
+      )
+      .max(31),
+  })
+  .strict();

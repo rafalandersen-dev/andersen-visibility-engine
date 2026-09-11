@@ -184,7 +184,11 @@ export async function readProjectTeamMedia(
         after.membershipRevision !== before.membershipRevision
       )
         throw new Error("media_changed");
+      const digest = await crypto.subtle.digest("SHA-256", new Uint8Array(bytes));
       return {
+        byteHash: Array.from(new Uint8Array(digest), (byte) =>
+          byte.toString(16).padStart(2, "0"),
+        ).join(""),
         imageId: input.imageId,
         draftHash: input.expectedHash,
         contentType: contentTypeForFormat(checked.format),

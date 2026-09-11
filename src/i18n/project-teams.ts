@@ -1,4 +1,19 @@
 const en = {
+  "collaboration.decisionRecorded": "Review decision recorded.",
+  "collaboration.decisionUnknown":
+    "The decision could not be confirmed. Refresh past decisions before trying again.",
+  "collaboration.reviewNotAllowed":
+    "Your current role or project policy does not permit review decisions.",
+  "collaboration.acknowledgeReview": "I inspected this rendered draft and all its images.",
+  "collaboration.approveVersion": "Approve this version",
+  "collaboration.returnForChanges": "Return for changes",
+  "collaboration.reviewDoesNotPublish":
+    "Recording a review does not publish the draft or resume a held schedule.",
+  "collaboration.reviewHistory": "Past review decisions",
+  "collaboration.approvalRecorded": "Approval recorded",
+  "collaboration.changesRequested": "Changes requested",
+  "collaboration.owner": "Owner",
+  "collaboration.collaborator": "Collaborator",
   "collaboration.renderedReview": "Rendered review",
   "collaboration.loadingReview": "Loading the complete review and its images…",
   "collaboration.incompleteReview":
@@ -77,6 +92,21 @@ const en = {
 };
 type Copy = Record<keyof typeof en, string>;
 const pl: Copy = {
+  "collaboration.decisionRecorded": "Zapisano decyzję.",
+  "collaboration.decisionUnknown":
+    "Nie można potwierdzić decyzji. Odśwież historię przed ponowną próbą.",
+  "collaboration.reviewNotAllowed":
+    "Twoja rola lub zasady projektu nie pozwalają podejmować decyzji o ocenie.",
+  "collaboration.acknowledgeReview": "Sprawdziłem ten podgląd szkicu i wszystkie jego obrazy.",
+  "collaboration.approveVersion": "Zatwierdź tę wersję",
+  "collaboration.returnForChanges": "Zwróć do poprawy",
+  "collaboration.reviewDoesNotPublish":
+    "Zapisanie oceny nie publikuje szkicu ani nie wznawia wstrzymanego harmonogramu.",
+  "collaboration.reviewHistory": "Historia decyzji",
+  "collaboration.approvalRecorded": "Zapisano zatwierdzenie",
+  "collaboration.changesRequested": "Poproszono o zmiany",
+  "collaboration.owner": "Właściciel",
+  "collaboration.collaborator": "Współpracownik",
   "collaboration.renderedReview": "Podgląd do oceny",
   "collaboration.loadingReview": "Wczytywanie pełnego podglądu i obrazów…",
   "collaboration.incompleteReview":
@@ -155,6 +185,22 @@ const pl: Copy = {
   "collaboration.revoked": "Cofnięte",
 };
 const sv: Copy = {
+  "collaboration.decisionRecorded": "Granskningsbeslutet har sparats.",
+  "collaboration.decisionUnknown":
+    "Beslutet kunde inte bekräftas. Uppdatera tidigare beslut innan du försöker igen.",
+  "collaboration.reviewNotAllowed":
+    "Din nuvarande roll eller projektpolicy tillåter inte granskningsbeslut.",
+  "collaboration.acknowledgeReview":
+    "Jag har granskat det här renderade utkastet och alla dess bilder.",
+  "collaboration.approveVersion": "Godkänn den här versionen",
+  "collaboration.returnForChanges": "Begär ändringar",
+  "collaboration.reviewDoesNotPublish":
+    "Ett granskningsbeslut publicerar inte utkastet och återupptar inte ett pausat schema.",
+  "collaboration.reviewHistory": "Tidigare granskningsbeslut",
+  "collaboration.approvalRecorded": "Godkännande registrerat",
+  "collaboration.changesRequested": "Ändringar begärda",
+  "collaboration.owner": "Ägare",
+  "collaboration.collaborator": "Samarbetare",
   "collaboration.renderedReview": "Förhandsvisning för granskning",
   "collaboration.loadingReview": "Läser in hela granskningen och dess bilder…",
   "collaboration.incompleteReview":
@@ -232,6 +278,21 @@ const sv: Copy = {
   "collaboration.revoked": "Återkallad",
 };
 const da: Copy = {
+  "collaboration.decisionRecorded": "Gennemgangsbeslutningen er gemt.",
+  "collaboration.decisionUnknown":
+    "Beslutningen kunne ikke bekræftes. Opdater tidligere beslutninger, før du prøver igen.",
+  "collaboration.reviewNotAllowed":
+    "Din nuværende rolle eller projektpolitik tillader ikke beslutninger om gennemgang.",
+  "collaboration.acknowledgeReview": "Jeg har gennemgået denne viste kladde og alle dens billeder.",
+  "collaboration.approveVersion": "Godkend denne version",
+  "collaboration.returnForChanges": "Bed om ændringer",
+  "collaboration.reviewDoesNotPublish":
+    "En beslutning om gennemgang udgiver ikke kladden eller genoptager en tilbageholdt tidsplan.",
+  "collaboration.reviewHistory": "Tidligere beslutninger",
+  "collaboration.approvalRecorded": "Godkendelse registreret",
+  "collaboration.changesRequested": "Ændringer ønsket",
+  "collaboration.owner": "Ejer",
+  "collaboration.collaborator": "Samarbejdspartner",
   "collaboration.renderedReview": "Visning til gennemgang",
   "collaboration.loadingReview": "Indlæser hele gennemgangen og dens billeder…",
   "collaboration.incompleteReview":
