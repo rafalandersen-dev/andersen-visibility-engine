@@ -337,11 +337,11 @@ export async function fetchPinnedResource(
         if (!Number.isInteger(status) || status < 100 || status > 599)
           throw new Error("http_error");
         const headers: Record<string, string> = {};
-        for (const key of ["content-type", "x-robots-tag", "link"]) {
+        for (const key of ["content-type", "content-range", "x-robots-tag", "link"]) {
           const rawValue = response.headers[key];
           const value = Array.isArray(rawValue) ? rawValue.join(", ") : rawValue;
           if (value && value.length > 32000) throw new Error("header_limit");
-          if (value) headers[key] = value;
+          if (value !== undefined) headers[key] = value;
         }
         const type = headers["content-type"] ?? "";
         const gzipFile =

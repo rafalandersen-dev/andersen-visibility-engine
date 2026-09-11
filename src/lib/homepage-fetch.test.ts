@@ -770,3 +770,30 @@ describe("pinned collaborator image fetches", () => {
     expect(mocks.lookup).not.toHaveBeenCalled();
   });
 });
+
+it.each(["node", "bun"])(
+  "retains ranged-response evidence through the %s adapter and blocks robots permission",
+  async (runtime) => {
+    const body = "User-agent: *\nAllow: /";
+    const headers = { "content-type": "text/plain", "content-range": "bytes 50-99/100" };
+    if (runtime === "bun") {
+      vi.stubGlobal("Bun", { version: "1.4.0" });
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (_url, options) => {
+          options.tls.checkServerIdentity("example.com", { subjectaltname: "DNS:example.com" });
+          return new Response(body, { headers });
+        }),
+      );
+    } else {
+      vi.stubGlobal("Bun", undefined);
+      mocks.request.mockImplementation(reply(response([Buffer.from(body)], 200, headers)));
+    }
+    const grant = Object.assign(async () => {}, { promote: async () => {} });
+    const { fetchTechnicalRobots } = await import("./technical-fetch.server");
+    expect(await fetchTechnicalRobots("https://example.com", async () => grant)).toEqual({
+      state: "unknown",
+      reason: "partial",
+    });
+  },
+);

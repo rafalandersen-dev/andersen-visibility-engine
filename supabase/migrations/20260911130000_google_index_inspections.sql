@@ -23,6 +23,23 @@ REVOKE ALL ON public.google_index_inspections FROM PUBLIC,anon,authenticated,ser
 CREATE UNIQUE INDEX google_index_one_active_project ON public.google_index_inspections(user_id,project_id) WHERE status='running';
 CREATE INDEX google_index_inspections_history ON public.google_index_inspections(user_id,project_id,created_at DESC,request_id);
 
+-- Reserve before OAuth refresh as well as inspection. Buckets survive tenant/project deletion.
+CREATE TABLE public.google_index_dispatch_limits (
+ source text PRIMARY KEY CHECK(source='google_index'),
+ minute_start timestamptz NOT NULL, minute_count integer NOT NULL CHECK(minute_count BETWEEN 0 AND 30),
+ hour_start timestamptz NOT NULL, hour_count integer NOT NULL CHECK(hour_count BETWEEN 0 AND 300),
+ leases jsonb NOT NULL DEFAULT '{}' CHECK(jsonb_typeof(leases)='object' AND octet_length(leases::text)<4096)
+);
+CREATE TABLE public.google_index_account_limits (
+ user_id uuid PRIMARY KEY,
+ minute_start timestamptz NOT NULL, minute_count integer NOT NULL CHECK(minute_count BETWEEN 0 AND 5),
+ hour_start timestamptz NOT NULL, hour_count integer NOT NULL CHECK(hour_count BETWEEN 0 AND 30),
+ leases jsonb NOT NULL DEFAULT '{}' CHECK(jsonb_typeof(leases)='object' AND octet_length(leases::text)<1024)
+);
+ALTER TABLE public.google_index_dispatch_limits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.google_index_account_limits ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.google_index_dispatch_limits,public.google_index_account_limits FROM PUBLIC,anon,authenticated,service_role;
+
 CREATE FUNCTION public.read_google_index_context(p_user uuid,p_project text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE project jsonb;
@@ -34,7 +51,8 @@ END; $$;
 
 CREATE FUNCTION public.reserve_google_index_inspection(p_user uuid,p_project text,p_request uuid,p_property text,p_url text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
-DECLARE context jsonb; current public.google_index_inspections%ROWTYPE;
+DECLARE context jsonb; current public.google_index_inspections%ROWTYPE; stamp timestamptz:=clock_timestamp(); new_lease uuid:=gen_random_uuid(); new_until timestamptz;
+ budget public.google_index_dispatch_limits%ROWTYPE; account_budget public.google_index_account_limits%ROWTYPE; active_leases jsonb; account_leases jsonb;
 BEGIN
  PERFORM public.assert_technical_crawl_owner(p_user,p_project);
  context:=public.read_google_index_context(p_user,p_project);
@@ -50,8 +68,25 @@ BEGIN
  UPDATE public.google_index_inspections SET status='unknown',updated_at=clock_timestamp() WHERE user_id=p_user AND project_id=p_project AND status='running' AND lease_until<=clock_timestamp();
  IF EXISTS(SELECT 1 FROM public.google_index_inspections WHERE user_id=p_user AND project_id=p_project AND status='running') THEN RAISE EXCEPTION 'google_inspection_active'; END IF;
  IF (SELECT count(*) FROM public.google_index_inspections WHERE user_id=p_user AND project_id=p_project AND created_at>clock_timestamp()-interval '1 hour')>=100 THEN RAISE EXCEPTION 'google_inspection_quota'; END IF;
+ -- Shared admission happens before returning a claim, so token refresh also consumes retained capacity.
+ new_until:=stamp+interval '60 seconds';
+ IF NOT pg_try_advisory_xact_lock(hashtext('google-index-dispatch'),0) THEN RAISE EXCEPTION 'google_inspection_busy' USING ERRCODE='55P03'; END IF;
+ INSERT INTO public.google_index_dispatch_limits VALUES('google_index',stamp,0,stamp,0,'{}') ON CONFLICT DO NOTHING;
+ SELECT * INTO budget FROM public.google_index_dispatch_limits WHERE source='google_index' FOR UPDATE NOWAIT;
+ SELECT coalesce(jsonb_object_agg(e.key,e.value),'{}') INTO active_leases FROM jsonb_each(budget.leases) e WHERE (e.value#>>'{}')::timestamptz>stamp;
+ IF budget.minute_start<=stamp-interval '1 minute' THEN budget.minute_start:=stamp;budget.minute_count:=0; END IF;
+ IF budget.hour_start<=stamp-interval '1 hour' THEN budget.hour_start:=stamp;budget.hour_count:=0; END IF;
+ INSERT INTO public.google_index_account_limits VALUES(p_user,stamp,0,stamp,0,'{}') ON CONFLICT DO NOTHING;
+ SELECT * INTO account_budget FROM public.google_index_account_limits WHERE user_id=p_user FOR UPDATE NOWAIT;
+ SELECT coalesce(jsonb_object_agg(e.key,e.value),'{}') INTO account_leases FROM jsonb_each(account_budget.leases) e WHERE (e.value#>>'{}')::timestamptz>stamp;
+ IF account_budget.minute_start<=stamp-interval '1 minute' THEN account_budget.minute_start:=stamp;account_budget.minute_count:=0; END IF;
+ IF account_budget.hour_start<=stamp-interval '1 hour' THEN account_budget.hour_start:=stamp;account_budget.hour_count:=0; END IF;
+ IF budget.minute_count>=30 OR budget.hour_count>=300 OR (SELECT count(*) FROM jsonb_object_keys(active_leases))>=8 OR account_budget.minute_count>=5 OR account_budget.hour_count>=30 OR (SELECT count(*) FROM jsonb_object_keys(account_leases))>=2 THEN RAISE EXCEPTION 'google_inspection_quota'; END IF;
+ -- Keep capacity through completion, timeout and deletion until the original deadline.
+ UPDATE public.google_index_dispatch_limits SET minute_start=budget.minute_start,minute_count=budget.minute_count+1,hour_start=budget.hour_start,hour_count=budget.hour_count+1,leases=active_leases||jsonb_build_object(new_lease::text,new_until) WHERE source='google_index';
+ UPDATE public.google_index_account_limits SET minute_start=account_budget.minute_start,minute_count=account_budget.minute_count+1,hour_start=account_budget.hour_start,hour_count=account_budget.hour_count+1,leases=account_leases||jsonb_build_object(new_lease::text,new_until) WHERE user_id=p_user;
  INSERT INTO public.google_index_inspections(user_id,project_id,request_id,property,url,status,lease_token,lease_until)
- VALUES(p_user,p_project,p_request,p_property,p_url,'running',gen_random_uuid(),clock_timestamp()+interval '60 seconds') RETURNING * INTO current;
+ VALUES(p_user,p_project,p_request,p_property,p_url,'running',new_lease,new_until) RETURNING * INTO current;
  RETURN jsonb_build_object('claimed',true,'record',to_jsonb(current));
 END; $$;
 
@@ -67,6 +102,7 @@ BEGIN
    UPDATE public.google_index_inspections SET status=CASE WHEN current.property IS DISTINCT FROM context->>'property' THEN 'held' ELSE 'unknown' END,updated_at=clock_timestamp() WHERE user_id=p_user AND request_id=p_request;
    RETURN false;
  END IF;
+ IF NOT EXISTS(SELECT 1 FROM public.google_index_dispatch_limits WHERE source='google_index' AND (leases->>p_lease::text)::timestamptz=current.lease_until) OR NOT EXISTS(SELECT 1 FROM public.google_index_account_limits WHERE user_id=p_user AND (leases->>p_lease::text)::timestamptz=current.lease_until) THEN RETURN false; END IF;
  UPDATE public.google_index_inspections SET dispatched_at=clock_timestamp(),updated_at=clock_timestamp() WHERE user_id=p_user AND request_id=p_request;
  RETURN true;
 END; $$;

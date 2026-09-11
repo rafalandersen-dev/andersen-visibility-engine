@@ -25,7 +25,7 @@ beforeAll(async () => {
 }, 30000);
 beforeEach(async () => {
   await db.exec(
-    `RESET ROLE;TRUNCATE google_index_inspections,technical_crawls CASCADE;DELETE FROM workspace_entities WHERE collection='opportunities';UPDATE workspace_meta SET rev=1;UPDATE auth.users SET deleted_at=NULL,banned_until=NULL;UPDATE workspace_entities SET data='{"websiteUrl":"https://example.test"}' WHERE user_id='${owner}';`,
+    `RESET ROLE;TRUNCATE google_index_inspections,google_index_dispatch_limits,google_index_account_limits,technical_crawls CASCADE;DELETE FROM workspace_entities WHERE collection='opportunities';UPDATE workspace_meta SET rev=1;UPDATE auth.users SET deleted_at=NULL,banned_until=NULL;UPDATE workspace_entities SET data='{"websiteUrl":"https://example.test"}' WHERE user_id='${owner}';`,
   );
   await db.exec(
     `UPDATE workspace_entities SET data=data || '{"gscOAuth":{"selectedSite":{"siteUrl":"sc-domain:example.test"}}}' WHERE user_id='${owner}'`,
@@ -229,5 +229,137 @@ it("refuses reservation without the common owner workspace lock row", async () =
     await expect(reserve()).rejects.toThrow("technical_crawl_unavailable");
   } finally {
     await db.query("INSERT INTO workspace_meta(user_id,rev) VALUES($1,1)", [owner]);
+  }
+});
+
+const requestAt = async (user: string, project: string, id: string) =>
+  (
+    await db.query<{ result: { claimed: boolean; record: { lease_token: string } } }>(
+      "SELECT reserve_google_index_inspection($1,$2,$3,'sc-domain:example.test','https://example.test/page?q=1') result",
+      [user, project, id],
+    )
+  ).rows[0].result;
+const addProject = (user: string, project: string) =>
+  db.query(
+    `INSERT INTO workspace_entities(user_id,collection,entity_id,data) VALUES($1,'projects',$2,'{"websiteUrl":"https://example.test","gscOAuth":{"selectedSite":{"siteUrl":"sc-domain:example.test"}}}')`,
+    [user, project],
+  );
+const sharedBudget = async () =>
+  (
+    await db.query<{ minute_count: number; hour_count: number; leases: Record<string, string> }>(
+      "SELECT minute_count,hour_count,leases FROM google_index_dispatch_limits",
+    )
+  ).rows[0];
+
+it("bounds one account across projects while preserving capacity for another", async () => {
+  await db.exec("BEGIN");
+  try {
+    await addProject(owner, "q");
+    await addProject(owner, "r");
+    await addProject(other, "q");
+    await requestAt(owner, "p", run);
+    await requestAt(owner, "q", second);
+    const before = await sharedBudget();
+    await db.exec("SAVEPOINT account_full");
+    await expect(requestAt(owner, "r", other)).rejects.toThrow("google_inspection_quota");
+    await db.exec("ROLLBACK TO SAVEPOINT account_full");
+    expect(await sharedBudget()).toEqual(before);
+    expect((await requestAt(other, "q", other)).claimed).toBe(true);
+    expect(Object.keys((await sharedBudget()).leases)).toHaveLength(3);
+  } finally {
+    await db.exec("ROLLBACK");
+  }
+});
+
+it("caps simultaneous Google work across independent accounts before any claim", async () => {
+  await db.exec("BEGIN");
+  try {
+    for (let i = 10; i < 18; i++) {
+      const who = `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`;
+      await db.query("INSERT INTO auth.users(id) VALUES($1)", [who]);
+      await db.query("INSERT INTO workspace_meta VALUES($1,1)", [who]);
+      await addProject(who, "p");
+      await requestAt(who, "p", who);
+    }
+    const before = await sharedBudget();
+    expect(Object.keys(before.leases)).toHaveLength(8);
+    await db.exec("SAVEPOINT global_full");
+    await expect(reserve()).rejects.toThrow("google_inspection_quota");
+    await db.exec("ROLLBACK TO SAVEPOINT global_full");
+    expect(await sharedBudget()).toEqual(before);
+    expect(
+      (
+        await db.query("SELECT count(*)::int n FROM google_index_inspections WHERE user_id=$1", [
+          owner,
+        ])
+      ).rows,
+    ).toEqual([{ n: 0 }]);
+  } finally {
+    await db.exec("ROLLBACK");
+  }
+});
+
+it.each([
+  ["google_index_dispatch_limits", "minute_count=30"],
+  ["google_index_dispatch_limits", "hour_count=300"],
+  ["google_index_account_limits", "minute_count=5"],
+  ["google_index_account_limits", "hour_count=30"],
+])("retains rate limits after completion and refuses %s %s", async (table, limit) => {
+  const first = await reserve();
+  await finish(first.record.lease_token!);
+  await db.exec(`UPDATE ${table} SET ${limit}`);
+  const before = await sharedBudget();
+  await expect(reserve(second)).rejects.toThrow("google_inspection_quota");
+  expect(await sharedBudget()).toEqual(before);
+  expect((await reserve()).claimed).toBe(false);
+});
+
+it("keeps exact request replay free of new reservations and retains leases after deletion", async () => {
+  await db.exec("BEGIN");
+  try {
+    await reserve();
+    const before = await sharedBudget();
+    await reserve();
+    expect(await sharedBudget()).toEqual(before);
+    await db.query("DELETE FROM workspace_entities WHERE user_id=$1 AND entity_id='p'", [owner]);
+    await db.query("DELETE FROM auth.users WHERE id=$1", [owner]);
+    expect(await sharedBudget()).toEqual(before);
+    expect(
+      (
+        await db.query("SELECT count(*)::int n FROM google_index_account_limits WHERE user_id=$1", [
+          owner,
+        ])
+      ).rows,
+    ).toEqual([{ n: 1 }]);
+  } finally {
+    await db.exec("ROLLBACK");
+  }
+});
+
+it("refuses dispatch when the saved shared lease is absent", async () => {
+  const first = await reserve();
+  await db.exec("UPDATE google_index_dispatch_limits SET leases='{}'");
+  expect(
+    (
+      await db.query<{ ok: boolean }>("SELECT authorize_google_index_dispatch($1,'p',$2,$3) ok", [
+        owner,
+        run,
+        first.record.lease_token,
+      ])
+    ).rows[0].ok,
+  ).toBe(false);
+  expect((await list())[0].dispatched_at).toBeNull();
+});
+
+it("protects shared and account admission tables from every exposed role", async () => {
+  for (const role of ["anon", "authenticated", "service_role"]) {
+    await db.exec(`SET ROLE ${role}`);
+    for (const table of ["google_index_dispatch_limits", "google_index_account_limits"]) {
+      await expect(db.query(`SELECT * FROM ${table}`)).rejects.toThrow("permission denied");
+      await expect(db.query(`UPDATE ${table} SET hour_count=0`)).rejects.toThrow(
+        "permission denied",
+      );
+    }
+    await db.exec("RESET ROLE");
   }
 });
