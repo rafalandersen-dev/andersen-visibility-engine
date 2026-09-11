@@ -128,6 +128,24 @@ BEGIN
  RETURN true;
 END; $$;
 
+-- Retry accounting using saved immutable evidence; this never invokes a provider.
+CREATE FUNCTION public.reconcile_backlink_monitoring(p_user uuid,p_project text,p_request uuid)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE current public.backlink_monitoring_requests%ROWTYPE; actual bigint;
+BEGIN
+ PERFORM public.read_backlink_monitoring_owner(p_user,p_project,true);
+ SELECT * INTO current FROM public.backlink_monitoring_requests WHERE user_id=p_user AND project_id=p_project AND request_id=p_request FOR UPDATE NOWAIT;
+ IF NOT FOUND OR current.status<>'succeeded' OR current.observation IS NULL THEN RETURN false; END IF;
+ IF current.accounting_state='settled' THEN RETURN true; END IF;
+ actual:=ceil((current.observation->>'providerReportedCostUsd')::numeric*1000000)::bigint;
+ IF actual IS NULL OR actual<0 OR actual>1000000000000 THEN RAISE EXCEPTION 'backlink_monitoring_result'; END IF;
+ PERFORM public.reconcile_ai_expense(p_request,p_user,actual,'succeeded','DataForSEO task cost',current.observation->>'providerTaskId',NULL,NULL);
+ UPDATE public.backlink_monitoring_requests SET accounting_state='settled',updated_at=clock_timestamp() WHERE user_id=p_user AND request_id=p_request;
+ RETURN true;
+END; $$;
+REVOKE ALL ON FUNCTION public.reconcile_backlink_monitoring(uuid,text,uuid) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.reconcile_backlink_monitoring(uuid,text,uuid) TO service_role;
+
 CREATE FUNCTION public.list_backlink_monitoring(p_user uuid,p_project text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 BEGIN

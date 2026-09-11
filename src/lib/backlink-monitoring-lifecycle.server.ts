@@ -3,15 +3,7 @@ import { monitoringScope } from "./backlink-monitoring";
 import { fetchBacklinkMonitoring } from "./backlink-monitoring-transport.server";
 import { projectTeamRpc, teamCall } from "./project-team-membership.server";
 import type { TeamReadRpc } from "./project-team-read.server";
-export const backlinkMonitoringRequest = z
-  .object({
-    projectId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/),
-    requestId: z.string().uuid(),
-    dateFrom: z.string(),
-    dateTo: z.string(),
-    includeSubdomains: z.boolean(),
-  })
-  .strict();
+import { backlinkMonitoringRequest } from "./backlink-monitoring-history";
 type Dependencies = {
   rpc?: TeamReadRpc;
   fetch?: typeof fetchBacklinkMonitoring;

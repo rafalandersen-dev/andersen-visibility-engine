@@ -91,7 +91,11 @@ it("reserves money atomically with a once-only dispatch", async () => {
     (await db.query("SELECT status,dispatched_at FROM backlink_monitoring_requests")).rows,
   ).toEqual([{ status: "reserved", dispatched_at: null }]);
   expect(
-    (await db.query("SELECT dispatches FROM backlink_monitoring_limits WHERE scope='global'")).rows,
+    (
+      await db.query<{ dispatches: string[] }>(
+        "SELECT dispatches FROM backlink_monitoring_limits WHERE scope='global'",
+      )
+    ).rows,
   ).toEqual([{ dispatches: [] }]);
   await fund();
   expect((await dispatch(lease)).rows[0].result).toBe(true);
@@ -231,5 +235,86 @@ it("refuses negative or wrong-scope expense evidence without settling money", as
   ).rejects.toThrow("backlink_monitoring_result");
   expect((await db.query("SELECT state FROM ai_expense_requests")).rows).toEqual([
     { state: "reserved" },
+  ]);
+});
+
+it("recovers accounting from immutable saved cost without new dispatch or duplicate charges", async () => {
+  const lease = (await reserve()).rows[0].result.record.lease_token!;
+  await fund();
+  await dispatch(lease);
+  // Model temporarily unavailable accounting while retaining the exact budgets for restoration.
+  const budgets = (
+    await db.query<{
+      scope: string;
+      period: string;
+      cap_microusd: number;
+      reserved_microusd: number;
+      spent_microusd: number;
+      paused: boolean;
+      requires_permit: boolean;
+    }>("SELECT * FROM ai_expense_budgets")
+  ).rows;
+  await db.exec("DELETE FROM ai_expense_budgets");
+  const saved = observation();
+  await finish(lease, saved);
+  for (const b of budgets)
+    await db.query(
+      "INSERT INTO ai_expense_budgets(scope,period,cap_microusd,reserved_microusd,spent_microusd,paused,requires_permit) VALUES($1,$2,$3,$4,$5,$6,$7)",
+      [
+        b.scope,
+        b.period,
+        b.cap_microusd,
+        b.reserved_microusd,
+        b.spent_microusd,
+        b.paused,
+        b.requires_permit,
+      ],
+    );
+  const reconcile = () =>
+    db.query<{ result: boolean }>("SELECT reconcile_backlink_monitoring($1,'p',$2) result", [
+      owner,
+      request,
+    ]);
+  expect((await reconcile()).rows[0].result).toBe(true);
+  expect((await reconcile()).rows[0].result).toBe(true);
+  expect(
+    (await db.query("SELECT accounting_state,observation FROM backlink_monitoring_requests")).rows,
+  ).toEqual([{ accounting_state: "settled", observation: saved }]);
+  expect(
+    (
+      await db.query(
+        "SELECT spent_microusd,reserved_microusd FROM ai_expense_budgets ORDER BY scope",
+      )
+    ).rows,
+  ).toEqual([
+    { spent_microusd: 24000, reserved_microusd: 0 },
+    { spent_microusd: 24000, reserved_microusd: 0 },
+  ]);
+  expect(
+    (
+      await db.query<{ dispatches: string[] }>(
+        "SELECT dispatches FROM backlink_monitoring_limits WHERE scope='global'",
+      )
+    ).rows[0].dispatches,
+  ).toHaveLength(1);
+  await expect(
+    db.query("SELECT reconcile_backlink_monitoring($1,'p',$2)", [other, request]),
+  ).rejects.toThrow("backlink_monitoring_access");
+});
+it("cannot turn unknown provider outcomes into zero-cost settlements", async () => {
+  const lease = (await reserve()).rows[0].result.record.lease_token!;
+  await fund();
+  await dispatch(lease);
+  await finish(lease, null);
+  expect(
+    (
+      await db.query<{ result: boolean }>(
+        "SELECT reconcile_backlink_monitoring($1,'p',$2) result",
+        [owner, request],
+      )
+    ).rows[0].result,
+  ).toBe(false);
+  expect((await db.query("SELECT state,actual_microusd FROM ai_expense_requests")).rows).toEqual([
+    { state: "unknown", actual_microusd: null },
   ]);
 });
