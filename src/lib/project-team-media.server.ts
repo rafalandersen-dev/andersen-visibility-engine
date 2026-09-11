@@ -9,7 +9,6 @@ import {
   validateImageBytes,
   contentTypeForFormat,
 } from "./image-storage";
-import { outboundFetchAllowed } from "./safe-fetch";
 import { isControlledImageOrigin } from "./images";
 import { fetchPinnedImage } from "./homepage-fetch.server";
 type ContextReader = typeof readTeamReviewContext;
@@ -18,7 +17,6 @@ type Dependencies = {
   storageOrigin?: string;
   download?: (bucket: string, path: string) => Promise<Blob>;
   remote?: typeof fetchPinnedImage;
-  outboundAllowed?: () => boolean;
 };
 export async function readProjectTeamMedia(
   actorId: string,
@@ -103,11 +101,9 @@ export async function readProjectTeamMedia(
           throw new Error("media_scope");
       } else if (media.url) {
         const origin = new URL(media.url).origin;
-        if (
-          !isControlledImageOrigin(media.url, before.project) ||
-          !(deps.outboundAllowed ?? outboundFetchAllowed)()
-        )
-          throw new Error("media_outbound");
+        // This native reader validates DNS and pins each connection itself.
+        // The separate public-audit runtime switch is not its admission policy.
+        if (!isControlledImageOrigin(media.url, before.project)) throw new Error("media_outbound");
         bytes =
           (await (deps.remote ?? fetchPinnedImage)(media.url, origin, controller.signal)) ??
           undefined;

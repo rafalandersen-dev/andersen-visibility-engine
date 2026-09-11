@@ -39,7 +39,7 @@ describe("scoped collaborator media", () => {
       const url = `https://${host}/storage/v1/object/public/article-assets-public/image.png`;
       const d = deps({ id: "im", url });
       const remote = vi.fn(async () => bytes);
-      await readProjectTeamMedia(actor, input, { ...d, remote, outboundAllowed: () => true });
+      await readProjectTeamMedia(actor, input, { ...d, remote });
       expect(remote).toHaveBeenCalledWith(url, `https://${host}`, expect.any(AbortSignal));
     },
   );
@@ -166,7 +166,6 @@ describe("scoped collaborator media", () => {
     const result = await readProjectTeamMedia(actor, input, {
       ...d,
       remote: fetcher,
-      outboundAllowed: () => true,
     });
     expect(result.contentType).toBe("image/png");
     expect(d.download).not.toHaveBeenCalled();
@@ -177,25 +176,16 @@ describe("scoped collaborator media", () => {
       expect.any(AbortSignal),
     );
   });
-  it("honors a rejected pinned fetch and disabled outbound transport", async () => {
+  it("honors a rejected pinned fetch", async () => {
     const d = deps({ id: "im", url: "https://client.example/image.png" });
     const fetcher = vi.fn(async () => null);
-    await expect(
-      readProjectTeamMedia(actor, input, { ...d, remote: fetcher, outboundAllowed: () => true }),
-    ).rejects.toThrow();
+    await expect(readProjectTeamMedia(actor, input, { ...d, remote: fetcher })).rejects.toThrow();
     expect(fetcher).toHaveBeenCalledTimes(1);
-    fetcher.mockClear();
-    await expect(
-      readProjectTeamMedia(actor, input, { ...d, remote: fetcher, outboundAllowed: () => false }),
-    ).rejects.toThrow();
-    expect(fetcher).not.toHaveBeenCalled();
   });
   it("rejects oversized public streams even without a declared length", async () => {
     const d = deps({ id: "im", url: "https://client.example/image.png" });
     const fetcher = vi.fn(async () => new Uint8Array(5 * 1024 * 1024 + 1));
-    await expect(
-      readProjectTeamMedia(actor, input, { ...d, remote: fetcher, outboundAllowed: () => true }),
-    ).rejects.toThrow();
+    await expect(readProjectTeamMedia(actor, input, { ...d, remote: fetcher })).rejects.toThrow();
   });
   it("loads the saved featured variant instead of a different inline image", async () => {
     const featuredPath = `${owner}/p/a/im.png`;
