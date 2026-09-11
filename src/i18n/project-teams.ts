@@ -1,4 +1,10 @@
 const en = {
+  "collaboration.emailInvitation": "Email invitation",
+  "collaboration.invitationEmailHelp":
+    "Send an invitation to the email address shown above for the displayed role. Opening the email link does not grant access.",
+  "collaboration.invitationEmailQueued":
+    "Invitation email requested. Check its delivery status here.",
+
   "collaboration.notificationHistory": "Notification delivery history",
   "collaboration.notificationSettings": "Project notifications",
   "collaboration.notificationConsentHelp":
@@ -105,6 +111,12 @@ const en = {
 };
 type Copy = Record<keyof typeof en, string>;
 const pl: Copy = {
+  "collaboration.emailInvitation": "Wyślij zaproszenie e-mailem",
+  "collaboration.invitationEmailHelp":
+    "Wyślij zaproszenie na powyższy adres e-mail z widoczną rolą. Otwarcie linku nie przyznaje dostępu.",
+  "collaboration.invitationEmailQueued":
+    "Zlecono wysyłkę zaproszenia. Tutaj sprawdzisz jej status.",
+
   "collaboration.notificationHistory": "Historia wysyłki powiadomień",
   "collaboration.notificationSettings": "Powiadomienia projektu",
   "collaboration.notificationConsentHelp":
@@ -211,6 +223,12 @@ const pl: Copy = {
   "collaboration.revoked": "Cofnięte",
 };
 const sv: Copy = {
+  "collaboration.emailInvitation": "Skicka inbjudan via e-post",
+  "collaboration.invitationEmailHelp":
+    "Skicka en inbjudan till e-postadressen ovan för den visade rollen. Att öppna länken ger inte åtkomst.",
+  "collaboration.invitationEmailQueued":
+    "Inbjudan har begärts via e-post. Kontrollera leveransstatus här.",
+
   "collaboration.notificationHistory": "Aviseringarnas leveranshistorik",
   "collaboration.notificationSettings": "Projektaviseringar",
   "collaboration.notificationConsentHelp":
@@ -317,6 +335,12 @@ const sv: Copy = {
   "collaboration.revoked": "Återkallad",
 };
 const da: Copy = {
+  "collaboration.emailInvitation": "Send invitation via e-mail",
+  "collaboration.invitationEmailHelp":
+    "Send en invitation til e-mailadressen ovenfor med den viste rolle. Åbning af linket giver ikke adgang.",
+  "collaboration.invitationEmailQueued":
+    "Afsendelse af invitation er anmodet. Se leveringsstatus her.",
+
   "collaboration.notificationHistory": "Notifikationernes leveringshistorik",
   "collaboration.notificationSettings": "Projektnotifikationer",
   "collaboration.notificationConsentHelp":

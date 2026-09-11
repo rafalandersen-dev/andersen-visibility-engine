@@ -44,6 +44,11 @@ export const Route = createFileRoute("/api/notifications/sweep")({
             const { runOperationalEmailWorker } = await import("@/lib/operational-email.server");
             await runOperationalEmailWorker();
           }
+          if (process.env.TEAM_INVITATION_EMAIL_ENABLED === "true") {
+            const { runTeamInvitationWorker } =
+              await import("@/lib/project-team-invitation-delivery.server");
+            await runTeamInvitationWorker();
+          }
           if (process.env.TEAM_NOTIFICATION_EMAIL_ENABLED === "true") {
             const { runTeamNotificationWorker } =
               await import("@/lib/project-team-delivery.server");

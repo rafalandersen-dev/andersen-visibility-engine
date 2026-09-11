@@ -115,7 +115,7 @@ REVOKE ALL ON FUNCTION public.invalidate_project_team_approvals() FROM PUBLIC,an
 
 CREATE FUNCTION public.save_project_team_approval(p_actor uuid,p_owner uuid,p_project text,p_asset text,p_review uuid,p_expected bigint,p_draft_hash text,p_version text,p_membership bigint,p_policy bigint,p_approved boolean)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
-DECLARE snapshot jsonb; membership public.project_team_members%ROWTYPE; policy public.project_team_approval_policy%ROWTYPE;
+DECLARE snapshot jsonb; membership public.project_team_members%ROWTYPE; policy public.project_team_approval_policy%ROWTYPE; keep_owner_grant boolean:=false;
 BEGIN
   IF p_actor IS NULL OR p_review IS NULL OR p_expected IS NULL OR p_expected<0 OR p_approved IS NULL
     OR p_draft_hash IS NULL OR p_draft_hash !~ '^[a-f0-9]{64}$' OR p_version IS NULL OR p_version !~ '^[a-f0-9]{64}$'
@@ -134,13 +134,16 @@ BEGIN
   IF (SELECT count(*) FROM public.project_team_approval_history WHERE owner_id=p_owner AND project_id=p_project)>=10000 THEN RAISE EXCEPTION 'team_approval_capacity'; END IF;
   PERFORM 1 FROM public.scheduled_publishes WHERE user_id=p_owner AND project_id=p_project AND asset_id=p_asset FOR UPDATE;
   IF EXISTS(SELECT 1 FROM public.scheduled_publishes WHERE user_id=p_owner AND project_id=p_project AND asset_id=p_asset AND status='publishing') THEN RAISE EXCEPTION 'team_publication_in_flight'; END IF;
+  -- Preserve an independent owner approval only for this same approved version.
+  -- Capture before the asset status update invokes approval-withdrawal triggers.
+  SELECT p_approved AND EXISTS(SELECT 1 FROM public.publication_approvals WHERE user_id=p_owner AND project_id=p_project AND asset_id=p_asset AND approved AND algorithm='milo-publication-v1' AND version_hash=p_version AND delegate_actor_id IS NULL) INTO keep_owner_grant;
   -- Rejection also holds pending work. Approval never arms a held queue.
   IF NOT p_approved THEN UPDATE public.scheduled_publishes SET status='review_required',updated_at=clock_timestamp() WHERE user_id=p_owner AND project_id=p_project AND asset_id=p_asset AND status='pending'; END IF;
   UPDATE public.workspace_entities SET data=data || jsonb_build_object('status',CASE WHEN p_approved THEN 'Approved' ELSE 'Rejected' END,'updatedAt',clock_timestamp()),updated_at=clock_timestamp()
     WHERE user_id=p_owner AND collection='content' AND entity_id=p_asset;
   UPDATE public.workspace_meta SET rev=rev+1 WHERE user_id=p_owner;
   INSERT INTO public.publication_approvals(user_id,project_id,asset_id,algorithm,version_hash,approved,delegate_actor_id,delegate_membership_revision,delegate_policy_revision)
-    VALUES(p_owner,p_project,p_asset,'milo-publication-v1',p_version,p_approved,CASE WHEN p_actor=p_owner THEN NULL ELSE p_actor END,CASE WHEN p_actor=p_owner THEN NULL ELSE p_membership END,CASE WHEN p_actor=p_owner THEN NULL ELSE p_policy END)
+    VALUES(p_owner,p_project,p_asset,'milo-publication-v1',p_version,p_approved,CASE WHEN p_actor=p_owner OR keep_owner_grant THEN NULL ELSE p_actor END,CASE WHEN p_actor=p_owner OR keep_owner_grant THEN NULL ELSE p_membership END,CASE WHEN p_actor=p_owner OR keep_owner_grant THEN NULL ELSE p_policy END)
     ON CONFLICT(user_id,project_id,asset_id) DO UPDATE SET version_hash=p_version,approved=p_approved,updated_at=clock_timestamp(),delegate_actor_id=EXCLUDED.delegate_actor_id,delegate_membership_revision=EXCLUDED.delegate_membership_revision,delegate_policy_revision=EXCLUDED.delegate_policy_revision;
   INSERT INTO public.project_team_approval_history(owner_id,project_id,asset_id,review_id,actor_id,membership_revision,policy_revision,version_hash,approved)
     VALUES(p_owner,p_project,p_asset,p_review,p_actor,p_membership,p_policy,p_version,p_approved);

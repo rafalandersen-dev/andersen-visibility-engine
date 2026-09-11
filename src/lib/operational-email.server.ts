@@ -146,7 +146,11 @@ export async function readOperationalEmailAddress(
 export async function resolveOperationalEmailRecipient(userId: string) {
   const address = await readOperationalEmailAddress(userId);
   if (address.status !== "verified") throw new Error("recipient_unavailable");
-  const { email } = address;
+  return resolveInvitationEmailRecipient(address.email);
+}
+/** For a server-authorized saved invitation only; this grants no team access. */
+export async function resolveInvitationEmailRecipient(rawEmail: string) {
+  const email = z.string().email().max(320).parse(rawEmail).toLowerCase();
   const db = await getDb();
   const suppressed = await db
     .from("suppressed_emails")

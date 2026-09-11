@@ -37,11 +37,12 @@ beforeAll(async () => {
     "20260911070000_project_team_review_context.sql",
     "20260911080000_project_team_notification_recipients.sql",
     "20260911090000_project_team_notification_outbox.sql",
+    "20260911100000_project_team_invitation_delivery.sql",
   ])
     await db.exec(readFileSync(`supabase/migrations/${file}`, "utf8"));
 }, 30000);
 beforeEach(async () => {
-  await db.exec(`RESET ROLE; TRUNCATE public.project_team_notification_items,public.project_team_notification_outbox,public.operational_email_items,public.operational_email_outbox,public.operational_notifications,public.operational_notification_scans,public.operational_email_preferences,public.project_team_notification_recipient_audit,public.project_team_notification_recipients,public.project_team_approval_history,public.project_team_approval_policy,public.output_knowledge_reviews,public.project_team_edits,public.scheduled_publishes,public.publication_approvals,public.project_team_comments,public.project_team_members,public.project_team_invitations,public.project_team_audit;
+  await db.exec(`RESET ROLE; TRUNCATE public.project_team_invitation_deliveries,public.project_team_notification_items,public.project_team_notification_outbox,public.operational_email_items,public.operational_email_outbox,public.operational_notifications,public.operational_notification_scans,public.operational_email_preferences,public.project_team_notification_recipient_audit,public.project_team_notification_recipients,public.project_team_approval_history,public.project_team_approval_policy,public.output_knowledge_reviews,public.project_team_edits,public.scheduled_publishes,public.publication_approvals,public.project_team_comments,public.project_team_members,public.project_team_invitations,public.project_team_audit;
     UPDATE public.workspace_meta SET rev=1;
     INSERT INTO public.workspace_entities VALUES('${owner}','content','a','{"projectId":"p","title":"Draft","status":"Draft","updatedAt":"now","markdown":"Saved draft"}') ON CONFLICT(user_id,collection,entity_id) DO UPDATE SET data=EXCLUDED.data;
     UPDATE auth.identities SET identity_data='{"email":"member@example.test","email_verified":true}';
@@ -471,6 +472,47 @@ describe("durable project invitation and membership lifecycle", () => {
     await change(1, true);
     expect(await approved()).toBe(false);
   });
+  it.each([
+    { sameVersion: true, approved: true, kept: true },
+    { sameVersion: false, approved: true, kept: false },
+    { sameVersion: true, approved: false, kept: false },
+  ])(
+    "preserves an earlier independent owner grant only for the same approved version %j",
+    async ({ sameVersion, approved, kept }) => {
+      await create();
+      await accept();
+      await db.query(
+        "SELECT public.set_project_team_approval_policy($1,$1,'p',0,'editors_can_approve')",
+        [owner],
+      );
+      await db.query("SELECT public.set_publication_approval($1,'p','a',1,$2,true)", [
+        owner,
+        "a".repeat(64),
+      ]);
+      const snap = (
+        await db.query<{ result: { draftHash: string; workspaceRevision: number } }>(
+          "SELECT public.read_project_team_snapshot($1,$2,'p','a') result",
+          [actor, owner],
+        )
+      ).rows[0].result;
+      await db.query("SELECT public.save_project_team_approval($1,$2,'p','a',$3,$4,$5,$6,1,1,$7)", [
+        actor,
+        owner,
+        second,
+        snap.workspaceRevision,
+        snap.draftHash,
+        (sameVersion ? "a" : "b").repeat(64),
+        approved,
+      ]);
+      expect(
+        (await db.query("SELECT delegate_actor_id FROM public.publication_approvals")).rows[0],
+      ).toEqual({ delegate_actor_id: kept ? null : actor });
+      await change(1, true);
+      expect((await db.query("SELECT approved FROM public.publication_approvals")).rows[0]).toEqual(
+        { approved: kept },
+      );
+    },
+  );
   it("preserves later owner approval across policy changes and member removal", async () => {
     await create();
     await accept();
@@ -1007,6 +1049,79 @@ describe("scoped team notification outbox", () => {
     await expect(db.query("SELECT * FROM public.project_team_notification_outbox")).rejects.toThrow(
       "permission denied",
     );
+    await db.exec("RESET ROLE");
+  });
+});
+
+describe("explicit saved invitation email delivery", () => {
+  const request = async (email = "member@example.test", who = owner) =>
+    (
+      await db.query<{ id: string }>(
+        "SELECT public.request_project_team_invitation_delivery($1,'p',$2,$3,'editor') id",
+        [who, invite, email],
+      )
+    ).rows[0].id;
+  const claim = async () =>
+    (
+      await db.query<{ id: string; lease_token: string }>(
+        "SELECT * FROM public.claim_project_team_invitation_delivery()",
+      )
+    ).rows[0];
+  const begin = async (c: Awaited<ReturnType<typeof claim>>) =>
+    (
+      await db.query<{ ok: boolean }>(
+        "SELECT public.begin_project_team_invitation_delivery($1,$2,encode(sha256(convert_to('member@example.test','UTF8')),'hex'),'editor') ok",
+        [c.id, c.lease_token],
+      )
+    ).rows[0].ok;
+  it("requires owner review of the exact saved recipient and is retry-idempotent", async () => {
+    await create();
+    await expect(request("wrong@example.test")).rejects.toThrow("team_invitation_delivery_changed");
+    await expect(request("member@example.test", other)).rejects.toThrow();
+    const id = await request();
+    expect(await request()).toBe(id);
+    expect(
+      (await db.query("SELECT * FROM public.project_team_invitation_deliveries")).rows,
+    ).toHaveLength(1);
+    const c = await claim();
+    expect(await begin(c)).toBe(true);
+    await db.query("SELECT public.finish_project_team_invitation_delivery($1,$2,'accepted')", [
+      c.id,
+      c.lease_token,
+    ]);
+    expect(await request()).toBe(id);
+    expect(await claim()).toBeUndefined();
+  });
+  it.each(["revoke", "expire", "accept"])("cancels %s before transport", async (action) => {
+    await create();
+    await request();
+    const c = await claim();
+    if (action === "revoke") await revoke();
+    else if (action === "accept") await accept();
+    else
+      await db.exec(
+        "UPDATE public.project_team_invitations SET expires_at=now()-interval '1 second'",
+      );
+    expect(await begin(c)).toBe(false);
+    expect(
+      (await db.query("SELECT status FROM public.project_team_invitation_deliveries")).rows[0],
+    ).toEqual({ status: "cancelled" });
+  });
+  it("holds expired sends as unknown and denies direct browser calls", async () => {
+    await create();
+    await request();
+    const c = await claim();
+    await begin(c);
+    await db.exec(
+      "UPDATE public.project_team_invitation_deliveries SET lease_until=now()-interval '1 second'",
+    );
+    expect(await claim()).toBeUndefined();
+    expect(
+      (await db.query("SELECT status FROM public.project_team_invitation_deliveries")).rows[0],
+    ).toEqual({ status: "unknown" });
+    await db.exec("SET ROLE authenticated");
+    await expect(request()).rejects.toThrow("permission denied");
+    await expect(claim()).rejects.toThrow("permission denied");
     await db.exec("RESET ROLE");
   });
 });

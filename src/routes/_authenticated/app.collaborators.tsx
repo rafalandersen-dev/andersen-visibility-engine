@@ -1,3 +1,4 @@
+import { ProjectTeamInvitationDelivery } from "@/components/ProjectTeamInvitationDelivery";
 import { ProjectTeamNotificationSettings } from "@/components/ProjectTeamNotificationSettings";
 import { ProjectTeamRenderedReview } from "@/components/ProjectTeamRenderedReview";
 import { ProjectTeamApprovalPolicy } from "@/components/ProjectTeamApprovalPolicy";
@@ -288,6 +289,13 @@ function OwnerTeam({ projectId }: { projectId: string }) {
               {t("collaboration.expires")} {new Date(i.expiresAt).toLocaleDateString(locale)}
             </p>
           </div>
+          <ProjectTeamInvitationDelivery
+            projectId={projectId}
+            inviteId={i.inviteId}
+            email={i.email}
+            role={i.role}
+            pending={i.state === "pending"}
+          />
           {i.state === "pending" && (
             <Button
               variant="outline"
