@@ -29,6 +29,30 @@ describe("technical HTML observations", () => {
     expect(r.internalLinks).toEqual(["https://example.test/docs/next?q=1"]);
     expect(r.alternateLanguages).toEqual([{ language: "sv", url: "https://example.test/sv/" }]);
   });
+  it("bounds resolved links, canonicals and language alternates without losing other evidence", () => {
+    const long = "x".repeat(8192);
+    const r = inspect(
+      `<title>Retained</title><a href="${long}">Huge</a><link rel="canonical" href="${long}"><link rel="alternate" hreflang="sv" href="${long}"><a href="/safe">Safe</a>`,
+    );
+    expect(r.title).toBe("Retained");
+    expect(r.complete).toBe(false);
+    expect(r.internalLinks).toEqual(["https://example.test/safe"]);
+    expect(r.canonicals).toEqual([]);
+    expect(r.alternateLanguages).toEqual([]);
+  });
+  it("retains the exact absolute limit and rejects serialization expansion", () => {
+    const prefix = "https://example.test/folder/";
+    const exact = "x".repeat(8192 - prefix.length);
+    expect(inspect(`<a href="${exact}">Exact</a>`).internalLinks).toEqual([prefix + exact]);
+    const expanded = inspect(`<a href="${"é".repeat(2000)}">Encoded</a>`);
+    expect(expanded.internalLinks).toEqual([]);
+    expect(expanded.complete).toBe(false);
+  });
+  it("ignores an oversized base and resolves later references against the page", () => {
+    const r = inspect(`<base href="${"x".repeat(8192)}"><a href="next">Next</a>`);
+    expect(r.complete).toBe(false);
+    expect(r.internalLinks).toEqual(["https://example.test/folder/next"]);
+  });
   it("labels JSON syntax evidence without claiming schema validity", () => {
     const r = inspect(
       '<script type="application/ld+json">{"@graph":[{"@type":"Article"},{"@type":["Organization","Thing"]}]}</script><script type="application/ld+json">bad json</script>',

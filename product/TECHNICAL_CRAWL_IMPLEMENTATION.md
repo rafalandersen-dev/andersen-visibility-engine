@@ -125,3 +125,7 @@ Validation: full 3502 tests / 263 files pass (55.53 seconds), TypeScript and pro
 ## Robots none alias (unreleased)
 
 The finding detector and database capture predicate both recognize the complete `none` directive as noindex, including case, comma-separated lists and agent-scoped headers. Substrings such as `nonetheless`, `x-none` and `none-other` do not qualify. Eight detector cases and eight actual SQL cases cover recognition and rejection; all 37 focused finding/crawl migration tests pass, along with TypeScript and changed-file lint. Initial test fixtures omitted the required agent property; final fixtures include it and the final checks pass. The migration remains unapplied and crawl ownership enforcement remains open.
+
+## Resolved page-reference bounds (unreleased)
+
+Page references are now checked after resolution, fragment removal and URL serialization. Oversized relative links, canonicals, language alternates and base URLs are omitted with `complete: false`; valid page evidence and safe links remain available. Tests cover exact 8192-character boundaries, UTF-8 percent expansion and fallback after an oversized base. Fourteen focused page/state tests, TypeScript and changed-file lint pass. Before this final boundary change, the combined branch (team admission plus robots none) passed 3528 tests / 265 files, TypeScript and production build. No live crawl or production migration.

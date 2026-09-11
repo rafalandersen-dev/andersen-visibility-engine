@@ -76,12 +76,20 @@ export function inspectTechnicalPage(input: {
     node.attrs.find((a) => a.name === name)?.value ?? "";
   let base = target.href;
   const resolve = (raw: string): string | null => {
-    if (!raw || raw.length > 8192) return null;
+    if (!raw) return null;
+    if (raw.length > 8192) {
+      result.complete = false;
+      return null;
+    }
     try {
       const value = new URL(raw, base);
       if (!["http:", "https:"].includes(value.protocol) || value.username || value.password)
         return null;
       value.hash = "";
+      if (value.href.length > 8192) {
+        result.complete = false;
+        return null;
+      }
       return value.href;
     } catch {
       return null;
