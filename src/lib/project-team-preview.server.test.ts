@@ -1,3 +1,7 @@
+vi.mock("./project-team-preview-limit.server", () => ({
+  acquireTeamPreview: vi.fn(async () => "00000000-0000-4000-8000-000000000009"),
+  releaseTeamPreview: vi.fn(async () => {}),
+}));
 import { teamReviewDecision } from "./project-team";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -178,4 +182,23 @@ it("uses disjoint safe keys for legacy identifiers while preserving the stored I
   expect(result.html).toContain("milo-review-image:" + key);
   expect(teamImageReviewKey("content", key.slice(9))).not.toBe(key);
   expect(teamImageReviewKey("content", "\ud800")).not.toBe(teamImageReviewKey("content", "\ud801"));
+});
+
+it("admits before context and releases after success or failure", async () => {
+  const budget = { acquire: vi.fn(async () => owner), release: vi.fn(async () => {}) };
+  const read = vi.fn(async () => context());
+  await readProjectTeamPreview(actor, target, read, authority, budget);
+  expect(budget.acquire.mock.invocationCallOrder[0]).toBeLessThan(read.mock.invocationCallOrder[0]);
+  expect(budget.release).toHaveBeenCalledWith(actor, owner, owner);
+  read.mockRejectedValueOnce(new Error("removed"));
+  await expect(readProjectTeamPreview(actor, target, read, authority, budget)).rejects.toThrow(
+    "removed",
+  );
+  expect(budget.release).toHaveBeenCalledTimes(2);
+  read.mockClear();
+  budget.acquire.mockRejectedValueOnce(new Error("busy"));
+  await expect(readProjectTeamPreview(actor, target, read, authority, budget)).rejects.toThrow(
+    "busy",
+  );
+  expect(read).not.toHaveBeenCalled();
 });

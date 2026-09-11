@@ -20,6 +20,8 @@ Further release review fixes now bound fresh decisions per collaborator and coal
 
 The rendered review now refreshes with the parent draft hash and refuses stale preview content. Notification queue preparation refreshes each owner once per sweep, while keeping recipient-specific queue admission and final delivery checks. These follow-up fixes remain unreleased.
 
+Rendered preview assembly now has private actor and owner admission budgets before context reads, with current account/membership checks, nonwaiting capacity admission and expiring leases. Media admission permits four complete 128-image passes per minute (512 starts), retaining four concurrent downloads and 600 starts per hour. Preview changes passed 3,321 tests and the production build; the final image quota follow-up passed 99 focused tests, types and changed-file lint. Fourteen private/team tables across nine migrations remain unapplied; release and real-use acceptance remain open.
+
 ## Recorded baseline and latest repository check
 
 - Remote main: `083d1fa6e8d0a4e6e2e12d28b1c27591830b772d`, normal merge of output knowledge revalidation PR #122. P0–P5, prompt/answer/log evidence and all prior fixes are preserved.

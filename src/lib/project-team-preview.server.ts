@@ -1,3 +1,4 @@
+import { acquireTeamPreview, releaseTeamPreview } from "./project-team-preview-limit.server";
 import { createHash } from "node:crypto";
 import { readTeamReviewAuthority } from "./project-team-authority.server";
 import { z } from "zod";
@@ -45,7 +46,7 @@ export function teamPreviewHtml(html: string, images: { id: string; url?: string
   for (const [url, id] of byUrl) projected = projected.split(url).join(`milo-review-image:${id}`);
   return { html: projected, imageIds: [...needed], unknownImages };
 }
-export async function readProjectTeamPreview(
+async function renderProjectTeamPreview(
   actorId: string,
   raw: z.infer<typeof teamCommentTarget>,
   read: typeof readTeamReviewContext = readTeamReviewContext,
@@ -125,4 +126,25 @@ export async function readProjectTeamPreview(
   if (new TextEncoder().encode(JSON.stringify(result)).byteLength > 2000000)
     throw new Error("Project preview is too large.");
   return result;
+}
+
+export async function readProjectTeamPreview(
+  actorId: string,
+  raw: z.infer<typeof teamCommentTarget>,
+  read: typeof readTeamReviewContext = readTeamReviewContext,
+  authority: typeof readTeamReviewAuthority = readTeamReviewAuthority,
+  budget = { acquire: acquireTeamPreview, release: releaseTeamPreview },
+) {
+  const input = teamCommentTarget.parse(raw);
+  const lease = await budget.acquire(actorId, input.ownerId, input.projectId);
+  const started = Date.now();
+  try {
+    const result = await renderProjectTeamPreview(actorId, input, read, authority);
+    if (Date.now() - started >= 45000)
+      throw new Error("Project preview expired. Refresh and try again.");
+    return result;
+  } finally {
+    // Release only after actual assembly/context work ends, never on caller disconnect.
+    await budget.release(actorId, input.ownerId, lease).catch(() => {});
+  }
 }
