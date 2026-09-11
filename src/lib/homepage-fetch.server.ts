@@ -228,7 +228,30 @@ function openPage(
   });
 }
 
-export async function fetchHomepageHtml(raw: string): Promise<string> {
+export type PinnedResource = {
+  url: string;
+  status: number;
+  headers: Record<string, string>;
+  body: string;
+  truncated: boolean;
+  contentAccepted: boolean;
+  observedAt: string;
+};
+export async function fetchPinnedResource(
+  raw: string,
+  options: {
+    purpose: "homepage" | "technical" | "robots" | "sitemap";
+    origin?: string;
+    authorize?: (url: string) => boolean;
+  },
+): Promise<PinnedResource | null> {
+  const maxBytes = options.purpose === "homepage" ? HOMEPAGE_MAX_BYTES : 512_000;
+  const acceptedType =
+    options.purpose === "robots"
+      ? /^text\/plain(?:\s*;|$)/i
+      : options.purpose === "sitemap"
+        ? /^(?:text\/(?:plain|xml)|application\/(?:xml|[a-z0-9.-]+\+xml))(?:\s*;|$)/i
+        : /^(text\/(html|plain)|application\/xhtml\+xml)(?:\s*;|$)/i;
   const controller = new AbortController();
   let response: PageResponse | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -245,6 +268,10 @@ export async function fetchHomepageHtml(raw: string): Promise<string> {
     if (proxyVariables.some((key) => process.env[key]?.trim())) throw new Error("proxy_refused");
     let url = pageUrl(raw);
     for (let hop = 0; hop <= 3; hop++) {
+      if (options.purpose !== "homepage" && (!options.origin || url.origin !== options.origin))
+        throw new Error("scope_refused");
+      if (options.purpose === "technical" && (!options.authorize || !options.authorize(url.href)))
+        throw new Error("crawl_policy_refused");
       const address = await addressFor(url, controller.signal);
       controller.signal.throwIfAborted();
       response = await openPage(url, address, controller.signal);
@@ -260,13 +287,26 @@ export async function fetchHomepageHtml(raw: string): Promise<string> {
         url = next;
         continue;
       }
-      if (status < 200 || status >= 300) throw new Error("http_error");
-      const type = response.headers["content-type"] ?? "";
-      if (
-        typeof type !== "string" ||
-        !/^(text\/(html|plain)|application\/xhtml\+xml)(?:\s*;|$)/i.test(type)
-      )
-        throw new Error("unsupported_content");
+      if (!Number.isInteger(status) || status < 100 || status > 599) throw new Error("http_error");
+      const headers: Record<string, string> = {};
+      for (const key of ["content-type", "x-robots-tag", "link"]) {
+        const rawValue = response.headers[key];
+        const value = Array.isArray(rawValue) ? rawValue.join(", ") : rawValue;
+        if (value && value.length > 32000) throw new Error("header_limit");
+        if (value) headers[key] = value;
+      }
+      const type = headers["content-type"] ?? "";
+      const contentAccepted = acceptedType.test(type);
+      const evidence = {
+        url: url.href,
+        status,
+        headers,
+        body: "",
+        truncated: false,
+        contentAccepted,
+        observedAt: new Date().toISOString(),
+      };
+      if (!contentAccepted) return evidence;
       const encoding = response.headers["content-encoding"];
       if (encoding && encoding !== "identity") throw new Error("unsupported_encoding");
       const chunks: Buffer[] = [];
@@ -277,16 +317,21 @@ export async function fetchHomepageHtml(raw: string): Promise<string> {
         controller.signal.throwIfAborted();
         const chunk = Buffer.isBuffer(rawChunk) ? rawChunk : Buffer.from(rawChunk);
         if (++count > HOMEPAGE_MAX_CHUNKS) throw new Error("too_many_chunks");
-        const take = Math.min(chunk.length, HOMEPAGE_MAX_BYTES - bytes);
+        const take = Math.min(chunk.length, maxBytes - bytes);
         chunks.push(Buffer.from(chunk.subarray(0, take)));
         bytes += take;
-        if (bytes === HOMEPAGE_MAX_BYTES) {
+        if (chunk.length > take) {
           truncated = true;
           break;
         }
       }
       if (!truncated && !response.complete) throw new Error("incomplete_page");
-      return Buffer.concat(chunks, bytes).toString("utf8");
+      return {
+        ...evidence,
+        body: Buffer.concat(chunks, bytes).toString("utf8"),
+        truncated,
+        observedAt: new Date().toISOString(),
+      };
     }
     throw new Error("redirect_refused");
   };
@@ -294,10 +339,18 @@ export async function fetchHomepageHtml(raw: string): Promise<string> {
     return await Promise.race([read(), deadline]);
   } catch {
     // No bodies, URLs, DNS answers or transport errors enter logs.
-    return "";
+    return null;
   } finally {
     clearTimeout(timer);
     controller.abort();
     response?.destroy();
   }
+}
+
+/** Preserve the existing homepage-only caller contract. */
+export async function fetchHomepageHtml(raw: string): Promise<string> {
+  const result = await fetchPinnedResource(raw, { purpose: "homepage" });
+  return result && result.status >= 200 && result.status < 300 && result.contentAccepted
+    ? result.body
+    : "";
 }

@@ -35,6 +35,8 @@ export type TechnicalPageFetcher = (url: string) => Promise<
       url: string;
       status: number;
       headers: Record<string, string>;
+      truncated?: boolean;
+      observedAt?: string;
       body: string;
     }
 >;
@@ -169,10 +171,11 @@ export async function advanceTechnicalCrawl(
             page.observation = inspectTechnicalPage({
               url: finalUrl,
               status: response.status,
-              observedAt: now,
+              observedAt: response.observedAt ?? now,
               html: response.body,
               headers: response.headers,
             });
+            if (response.truncated) page.observation.complete = false;
             page.state = "observed";
             if (!page.observation.complete) limitation(next, "partial_page");
             if (response.status >= 200 && response.status < 300)

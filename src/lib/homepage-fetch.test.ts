@@ -8,6 +8,7 @@ vi.mock("node:http", () => ({ request: mocks.request }));
 vi.mock("node:https", () => ({ request: mocks.request }));
 import {
   fetchHomepageHtml,
+  fetchPinnedResource,
   isPublicHomepageAddress,
   HOMEPAGE_MAX_BYTES,
   HOMEPAGE_TIMEOUT_MS,
@@ -289,5 +290,84 @@ describe("public homepage transport", () => {
     await vi.advanceTimersByTimeAsync(HOMEPAGE_TIMEOUT_MS + 1);
     expect(await result).toBe("");
     expect(mocks.request.mock.calls[0][1].signal.aborted).toBe(true);
+  });
+});
+
+describe("structured pinned technical observations", () => {
+  it("retains HTTP failures and selected headers without cookie data", async () => {
+    mocks.request.mockImplementation(
+      reply(
+        response([Buffer.from("<h1>Missing</h1>")], 404, {
+          "x-robots-tag": "noindex",
+          "set-cookie": "private",
+        }),
+      ),
+    );
+    const result = await fetchPinnedResource("https://example.com/missing", {
+      purpose: "technical",
+      origin: "https://example.com",
+      authorize: () => true,
+    });
+    expect(result).toMatchObject({
+      status: 404,
+      body: "<h1>Missing</h1>",
+      headers: { "x-robots-tag": "noindex" },
+      truncated: false,
+    });
+    expect(JSON.stringify(result)).not.toContain("private");
+  });
+  it("rejects redirect scope and robots policy before resolving or connecting", async () => {
+    mocks.request.mockImplementation(
+      reply(response([], 302, { location: "https://other.test/private" })),
+    );
+    expect(
+      await fetchPinnedResource("https://example.com/", {
+        purpose: "technical",
+        origin: "https://example.com",
+        authorize: () => true,
+      }),
+    ).toBeNull();
+    expect(mocks.lookup).toHaveBeenCalledTimes(1);
+    mocks.request.mockImplementation(reply(response([], 302, { location: "/private" })));
+    mocks.lookup.mockClear();
+    expect(
+      await fetchPinnedResource("https://example.com/", {
+        purpose: "technical",
+        origin: "https://example.com",
+        authorize: (url) => !url.endsWith("/private"),
+      }),
+    ).toBeNull();
+    expect(mocks.lookup).toHaveBeenCalledTimes(1);
+  });
+  it("distinguishes an exact size response from a truncated response", async () => {
+    mocks.request.mockImplementation(reply(response([Buffer.alloc(512000, 97)])));
+    expect(
+      (
+        await fetchPinnedResource("https://example.com/", {
+          purpose: "technical",
+          origin: "https://example.com",
+          authorize: () => true,
+        })
+      )?.truncated,
+    ).toBe(false);
+    mocks.request.mockImplementation(reply(response([Buffer.alloc(512001, 97)])));
+    expect(
+      (
+        await fetchPinnedResource("https://example.com/", {
+          purpose: "technical",
+          origin: "https://example.com",
+          authorize: () => true,
+        })
+      )?.truncated,
+    ).toBe(true);
+  });
+  it("preserves missing robots status without accepting an HTML body as rules", async () => {
+    mocks.request.mockImplementation(reply(response([Buffer.from("<html>Missing</html>")], 404)));
+    expect(
+      await fetchPinnedResource("https://example.com/robots.txt", {
+        purpose: "robots",
+        origin: "https://example.com",
+      }),
+    ).toMatchObject({ status: 404, body: "", contentAccepted: false });
   });
 });
