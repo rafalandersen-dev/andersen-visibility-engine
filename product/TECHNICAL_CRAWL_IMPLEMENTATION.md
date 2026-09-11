@@ -1,0 +1,356 @@
+# Release status — 12 September 2026
+
+PR124 is released at674ed192a9ea359ee94dff9fb26028d3b1f6c5ab, verified23:50:11UTC11September (12SeptemberStockholm). All six technical migrations are applied once. Exact runtime identity, all catalog fields and public/authentication checks pass; prior production baselines are unchanged. [Canonical release evidence](../evidence/technical-seo-release-2026-09-12.md). Real-use acceptance remains open. The dated implementation entries below are historical and their earlier unapplied/unreleased labels are superseded by this release status.
+
+# Technical website inspection — R13
+
+Status: local implementation, unreleased. Overall delivery remains approximately55%, with implementation approximately70%. Full R13 and real-use acceptance remain open.
+
+The On-page Review includes an authenticated inspection panel with start, sequential resume, pause after the current page, cancellation, saved-status refresh and the latest20 inspections. Opening or reloading a page never initiates network processing. Errors stop automatic execution; the owner refreshes saved status before continuing. Repeated unchanged lease state, unmount and cancellation stop the client loop. Customer copy is available in English, Polish, Swedish and Danish.
+
+The controller derives the website and workspace revision from the authenticated owner's saved project. Each robots, sitemap or page step requires a short exclusive database lease. Cancellation invalidates late saves, changed websites hold processing, and responses are read from persisted state. The unapplied migration20260911110000 adds private history and seven service-only owner-scoped operations. Current-account checks, revision comparisons, one active run per project and20new runs per hour preserve ownership and bounded work without deleting history.
+
+The native transport validates and pins public addresses before every connection and redirect. Robots policy is checked before sitemap and page connections. Sitemap files are processed individually, up to10files, three nested index levels and2,000exact query-preserving URLs. Files retain requested/final URL, response status, observation time, parsed kind, entry count and rejected count. Membership records identify the sitemap files that actually listed a URL. Sitemap seeds have unknown link depth until a page link is observed. Failed, oversized, non-XML, malformed, out-of-scope and limited reads stay explicit; missing membership is not proof that a URL is absent from all sitemaps.
+
+XML parsing uses saxes6.0.0 with namespace-aware loc selection, no DTD/entity resolution,512KB input and explicit nesting/node limits. Malformed XML yields no membership. Missing or repeated required locs are rejected; extension image/video locs are not page URLs. The dependency is pinned by both lockfiles; its upstream repository is archived, so bounded input and local regression coverage remain important. Implementation references: [sitemap protocol](https://www.sitemaps.org/protocol.html) and [parser documentation](https://github.com/lddubeau/saxes).
+
+Page processing defaults to100pages and four link levels. Saved observations include status/time/finalURL, title, descriptions, H1, canonical and language declarations, robots directives, structured-data JSON syntax/types and internal links. These describe observed HTML; they do not establish Google index state, schema eligibility or measured Core Web Vitals. No raw HTML or XML is returned or executed. Full-site coverage is never inferred from processing completion.
+
+Saved state is validated and bounded to a2.5MBbudget before persistence. Storage overflow stops processing with explicit partial coverage and reduces stored discovery/evidence. Tests exercise parsing, query identity, namespace/extension handling, DTD rejection, index cycles/depth/URL limits, robots admission, saved storage bounds and real PGlite controller transitions through sitemap discovery and page observations. The prior controller milestone passed3,279tests/246files; UI-focused26tests/3files, types/lint/build passed. Final sitemap validation:3,308tests/249files pass (four workers,15-second per-test timeout), TypeScript and changed-filelint pass, productionbuild passes, and frozenBun dependency-lock verification makes no changes.
+
+Remaining work: any missing authoritative Google/CWV integrations; review, release verification and authorized real-use acceptance. Merge final team/main changes normally before release, preserving both generalized resource transport and the later pinned image reader. This branch must remain separate from PR123 until that release is complete. No production migration, live customer crawl or external message has been performed during implementation.
+
+Owner-selected findings now create captured opportunities atomically with private immutable evidence. The server rereads the selected completed/cancelled/held run and derives the finding from its saved page; the database repeats revision, scope and observation checks. Saved receipts include the exact page, crawl revision, code, coverage and sitemap context plus a SHA-256 digest. Duplicate requests return the original record, even after the opportunity was deleted; deletion does not silently recreate it. Editing an opportunity leaves the evidence unchanged. Plan reads the private matching receipt and displays original observations. Source references and the dedicated evidence pointer preserve the link through the normal opportunity lifecycle. Four-locale controls and titles use canonical project locale. Missing-element and invalid-JSON claims require complete observed input; noindex is framed as a review of intended scope, not necessarily a defect.
+
+The second unapplied migration20260911120000 creates the receipt table and capture/read functions;20260911110000 now includes the canonical project locale in its context response. No production schema has changed. Validation:3,318tests/250files pass, TypeScript/changed-filelint and the productionbuild pass. Database tests cover idempotency, missing/partial/stale evidence, owner isolation, direct-access refusal, immutable receipts after edits, and deleted-opportunity outcomes. Source-provenance implementation is complete locally; review/release and real-use acceptance remain open.
+
+## Google indexed-version inspection foundation (unreleased)
+
+Added a separate Google index observation normalizer and fixed-endpoint transport. Exact query URLs are preserved and checked against a validated Search Console domain/prefix property. Missing/unknown verdicts, crawl times and index states remain nullable. Google last-crawl time is separate from observation time. Canonical URLs are observations, not fetch authority; Google sitemap/referrer lists retain explicit local truncation flags and are not exhaustive site coverage. Only official Search Console result links survive normalization. No raw provider payload is returned.
+
+The transport posts only to Google's URL Inspection API with redirects refused, a 15-second abort deadline, 1 MiB/4,096-chunk response bounds and safe authentication/quota/unavailable errors. No retry or live-test/indexing submission is provided. This follows Google's indexed-version-only API contract: https://developers.google.com/webmaster-tools/v1/urlInspection.index/inspect and https://developers.google.com/webmaster-tools/v1/urlInspection.index/UrlInspectionResult .
+
+This is not yet an owner-facing feature: canonical project/property authorization, OAuth integration, durable attempt/result storage, history and localized UI still need implementation. No live Google call, account change, migration or deployment was performed. Current owner OAuth helpers were inspected but not changed.
+
+Foundation validation: 3,332 tests across 251 files pass (14 new Google inspection cases), TypeScript and changed-file lint pass. Provider responses are mocked; no live acceptance is claimed. Logs: `/tmp/milo-google-index-full.log`, `/tmp/milo-google-index-types.log`, `/tmp/milo-google-index-lint.log`.
+
+## Durable Google inspection request history (unreleased)
+
+Migration `20260911130000_google_index_inspections.sql` adds private owner/project-scoped inspection requests with exact request IDs, canonical saved Google property, 60-second leases, one active request per project and 100 new requests per project/hour. Exact retries return their record without reclaiming a request. Expired or unavailable outcomes are unknown and cannot replay automatically; changed properties hold late results. Success binds the exact URL/property/indexed-version source, and history hides lease tokens and returns the latest 20 records while retaining older history. Service-only entrypoints use current owner/account checks and the existing workspace lock. No migration has been applied.
+
+Seven actual-SQL regression cases cover request deduplication, exact query evidence, owner isolation, account restrictions, property changes, late-result refusal, private table permissions, quota isolation from history, expiry recovery and unknown outcomes. OAuth dispatch/last-moment authorization and the localized interface remain next; this persistence milestone does not yet expose a runnable Google inspection feature.
+
+Durable history validation: full 3,339 tests / 252 files pass, including seven actual-SQL cases; TypeScript and changed-file lint pass. Logs `/tmp/milo-google-durable-{full,types,lint}.log`.
+
+## Owner inspection controller and OAuth dispatch (unreleased)
+
+The authenticated server entrypoints now accept only project ID, request ID and inspected URL, derive the selected Search Console property from canonical owner/project storage and validate the exact query-preserving URL before reservation. Exact retries return stored records without refreshing Google tokens or repeating the inspection. Private lease tokens and raw provider errors are not returned to the browser; normalized observations are serialized separately for the server-function transport.
+
+The existing OAuth module provides a server-only helper that refreshes the owner's encrypted connection, then invokes a durable authorization check immediately before the fixed-endpoint inspection. The new service-only dispatch RPC rechecks the current owner, saved property and lease, requires at least 20 seconds remaining for the 15-second transport, and records dispatch once. Changed or expired authority holds/marks unknown without contacting the inspection endpoint. Successful result storage requires that dispatch was authorized. OAuth/token refresh and all provider traffic remain mocked in tests; no live customer call was performed.
+
+The request/result interface and localization remain next. The database migration is still unapplied, and the technical branch remains unreleased.
+
+Controller validation: full 3,344 tests / 252 files pass, TypeScript and production build pass; lint passes for the new controller/functions, migration tests and modified OAuth server module. The existing OAuth test file received two focused dispatch-order tests without broad formatting changes. Logs `/tmp/milo-google-controller-{full,types,build,lint,test-lint,focused}.log`.
+
+## Google inspection interface and localization (unreleased)
+
+On-page Review now includes an owner/project-keyed Google inspection panel. It shows the current selected property, an exact URL input, explicit request action and the latest 20 saved attempts. Mounting or refreshing history does not call Google. A failed/interrupted request retains its ID and URL for explicit same-request recovery; a separate-request action clears the local attempt deliberately. Pending saves and requests have a synchronous click lock, and leaving the project before dispatch prevents the request from starting. Saved workspace state is flushed before the canonical server check.
+
+The details show outcome, request/observation/Google crawl timestamps, index verdict, coverage description, canonical addresses, robots/indexing/fetch results, crawler and reported sitemap/referrer lists with local truncation and non-exhaustiveness notices. Missing data is unknown; no live test or indexing submission is implied. Saved evidence must match the URL/property and indexed-version source before display. Provider text is escaped by React; navigation is restricted to official Search Console result links. English, Polish, Swedish and Danish labels include human-readable status translations. Google’s own coverage description is preserved as reported.
+
+Focused evidence/translation/static-render checks pass (8 tests); this is not signed-in browser acceptance. No live Google or customer-site call was performed. Full validation is recorded below when complete.
+
+UI validation: focused 8 evidence/copy/static-render tests pass; TypeScript, new-file/i18n lint and production build pass. The broad run covered 3,352 tests / 254 files but hit timing failures and skipped setup cases in eight existing files (3,292 passed, 7 failed, 53 skipped). Re-running all eight complete files serially passed 131 tests / 8 files in 21.56 seconds, including the setup cases and the weekly assertion affected by the interrupted run. No test deadlines or assertions were weakened. Logs `/tmp/milo-google-ui-{full,recheck,focused,types-final,build}.log`. A single fully green broad run is not claimed; later CI and signed-in browser acceptance remain required.
+
+## Performance evidence normalization (unreleased foundation)
+
+Added `technical-performance.ts` with separate CrUX field and PageSpeed/Lighthouse lab observation contracts. CrUX binds the returned URL/origin and device to the requested dimensions, preserves p75 LCP/INP in milliseconds and CLS as unitless, and retains the collection dates separately from observation time. Missing, nonnumeric, mismatched or incomplete metrics cannot produce a good assessment. Invalid/future collection windows also suppress the aggregate assessment. Origin evidence never silently substitutes for page evidence; provider URL normalization that changes the exact query identity is held as a mismatch.
+
+Lighthouse retains the requested/final URL, device, fetch time, performance score and explicitly named lab LCP/CLS/total blocking time. Missing/wrong-unit audits, runtime failures or mismatched identity do not yield fabricated values. Lab total blocking time is never presented as real-user INP, and lab scores do not determine the CrUX assessment.
+
+Contracts verified against primary documentation: https://developer.chrome.com/docs/crux/api/ (record keys, device dimensions, p75 units and collection window); https://developers.google.com/speed/docs/insights/v5/reference/pagespeedapi/runpagespeed (Lighthouse response); https://web.dev/articles/vitals (Core Web Vitals thresholds). No API key, account or live performance request was created. Provider transport, owner-scoped persistence, interface and actual measurement acceptance remain open. This unused pure module does not yet expose a runnable performance feature. Focused semantic tests cover 12 boundary, unknown-data, identity and lab/field-separation cases.
+
+Performance-foundation validation: 12 focused tests pass, TypeScript and changed-file lint pass. This pure module is not imported into a production route yet, so the full application suite was not repeated for this isolated change. Logs `/tmp/milo-performance-focused-final.log`, `/tmp/milo-performance-types-final.log`, `/tmp/milo-performance-lint.log`.
+
+
+## Performance requests and provider connection (local, unreleased)
+
+Explicit CrUX field queries and PageSpeed Lighthouse lab runs now have separate bounded transports to fixed Google endpoints. Requests preserve exact page query parameters, scope and device. CrUX NOT_FOUND produces unavailable/unknown evidence without origin fallback. Provider redirects, non-JSON, oversized bodies, invalid envelopes and stalled reads fail closed; at most one request is issued. CrUX is limited to 15 seconds, PageSpeed to 60 seconds, responses to 4 MiB/8,192 chunks. Provider errors and keys are not returned or logged. No live API call has been executed.
+
+The unapplied `20260911140000_technical_performance_requests.sql` adds private request records and five service-only functions. Each owner may have one active performance request across projects and 20 new requests/hour. An exact request ID is admitted only once; expired/uncertain work remains unknown and is never automatically reclaimed. A 90-second lease must retain 75 seconds at dispatch. Canonical website changes hold work before dispatch or result acceptance. Success requires a dispatch mark and exact source/evidence-kind/URL/scope/device. History returns the latest 20 records, keeps earlier history and hides private lease fields.
+
+The authenticated server controller derives scope from the saved project website, admits the request, checks current authority immediately before dispatch, saves a sanitized observation, and reads back the canonical result. It requires server-only GOOGLE_CRUX_API_KEY or GOOGLE_PAGESPEED_API_KEY configuration; no key/account was created or changed. Missing configuration is a recorded failure with no dispatch. These names are deployment documentation, not browser input. User interface integration, live-provider acceptance and release are still outstanding.
+
+Provider contracts checked against the official [CrUX API documentation](https://developer.chrome.com/docs/crux/api/) and [PageSpeed Insights v5 reference](https://developers.google.com/speed/docs/insights/v5/reference/pagespeedapi/runpagespeed) on 11 September 2026.
+
+Performance-core validation: full 3,386 tests / 257 files pass with one worker (74.77 seconds), including 12 performance normalization cases, 12 bounded provider transport cases and 10 actual-SQL/controller cases. No live provider or customer request was used. Log `/tmp/milo-performance-core-full.log`; TypeScript, changed-file lint and production build pass (`/tmp/milo-performance-core-types-final.log`, `/tmp/milo-performance-core-build.log`).
+
+
+## Performance interface (local, unreleased)
+
+The On-page Review route now includes TechnicalPerformancePanel with separate CrUX field and PageSpeed lab selection, supported device choices, explicit page/origin scope for field data, and exact project-origin URL admission. Owner/project keys isolate component state and history. Opening or refreshing the panel reads saved history only. A submitted request saves current workspace changes before dispatch and checks that the component is still mounted; a synchronous lock prevents double submission. Unconfirmed responses retain the same immutable request ID/query for a status check without repeating the provider request. A separate-request action explicitly resets the attempt.
+
+The latest 20 saved requests expose source, device, scope, requested/received timestamps, collection window, returned identity and unknown/held/error states. Field LCP/INP/CLS p75 values retain zero and unknown distinctly. Lab LCP/CLS/TBT, score, final URL and measurement time remain separate from field assessment. The view parser verifies saved identity and types, suppresses mismatched or failed-run metrics, and never converts missing collection evidence into a passed assessment. The interface remains available for history when a provider is not configured and reveals no environment-variable names or secrets. Copy covers English, Polish, Swedish and Danish.
+
+Seven focused copy/pure-view/static-render tests pass, including exact URL/device/source/scope rejection, missing-window uncertainty, retained zero values, lab TBT versus field INP, and history without configuration. TypeScript and changed-file lint pass. Actual browser interaction and live-provider acceptance remain unverified under the existing boundaries. No provider request, key/account change or SQL deployment was performed.
+
+Performance-UI validation: full 3,393 tests / 258 files pass (57.16 seconds, one worker). The final project-origin helper refinement is covered by the rerun seven focused tests. TypeScript, changed-file lint and production build pass. Logs `/tmp/milo-performance-ui-{full,focused-final,types-final,lint-final,build}.log`.
+
+## Integration with current team-access fixes (local, unreleased)
+
+Merged team branch head 2dacf08 into the technical checkout using a normal merge. The shared native transport retains the technical resource/robots/sitemap reader and the separate exact-image-byte reader, including image Accept headers on both Node and Bun, public-address pinning, scope checks and cancellation. Both transport test groups are retained. The current account, invitation, resource-limit, approval, notification and preview fixes are now present alongside technical SEO.
+
+Combined validation: all 3,463 tests / 262 files pass (56.36 seconds, one worker); TypeScript and resolved-file lint pass. The 63 focused transport/crawl tests also pass. Logs: /tmp/milo-technical-merge-{full,types,lint,focused}.log. Production build validation is recorded separately after completion. This integration does not release either feature set, apply migrations or constitute live-provider/browser acceptance.
+
+Combined production build passes: /tmp/milo-technical-merge-build.log. No live requests or deployment performed.
+
+Resource content negotiation (2026-09-11): sitemap requests now advertise XML/plain text and robots requests plain text; HTML page and exact image headers remain separate. Headers are retained for each permitted redirect. All 66 focused native transport/crawl tests, TypeScript and changed-file lint pass; no live network request.
+
+Technical URL boundary fix (2026-09-11): the native resource transport accepts up to 8,192 serialized characters for technical/robots/sitemap requests, matching discovery; homepage/image callers retain 4,096. Initial and redirected URLs are checked before their connection. The 68 focused transport/crawl tests pass including exact limit, oversized initial/redirect refusal and preserved homepage limit.
+
+## Domain ownership verification foundation (unreleased, not connected)
+
+Added a server-only DNS TXT verifier and random 256-bit challenge generator for the exact canonical DNS host. Proof is one exact TXT record (multiple character-strings within that record are concatenated); unrelated records, suffix matches, separate partial records, malformed scope, IP addresses and private-style names cannot establish proof. The per-attempt resolver has a four-second outer deadline, cancellation, a single resolver try and bounded record/character-string/byte processing. Resolver failures and late answers yield false without disclosing details. No live DNS or HTTP request was made.
+
+Sixteen mocked tests, TypeScript and new-file lint pass (/tmp/milo-ownership-{tests,types,lint}.log). Resolver behavior was checked against https://nodejs.org/api/dns.html (Resolver, cancellation, TXT character-strings). This unused component does not authorize any crawl: private challenge lifecycle, authenticated UI, expiry/revocation, current project binding and shared account/target egress quotas still need implementation. PR124 security finding3989430579 remains open.
+
+Provider reservation admission clarification: both Google inspection and performance reservations already call read-context → assert_technical_crawl_owner → assert_knowledge_project(...,true), which acquires the shared owner workspace row before active/quota checks. The reported absent request-row lock is not the only lock. The helper now explicitly requires the workspace row and obtains it with NOWAIT before that chain, preventing the missing-workspace edge case. Partial unique indexes also enforce one running inspection per owner/project and one running performance request per owner across projects. Thirty-nine actual-SQL tests across inspection/performance/crawl pass, including direct-storage invariant enforcement and absent-workspace rejection. Single-session tests do not claim real concurrent-session acceptance. Three existing technical migrations changed; all remain unapplied.
+
+Validation for the ownership foundation and explicit provider admission invariants: all 3,494 tests / 263 files pass (56.90 seconds); TypeScript and changed-file lint pass. Logs /tmp/milo-provider-ownership-full.log and /tmp/milo-provider-admission-{types,lint}.log. No runtime route imports the DNS verifier yet.
+
+## Plain-text sitemap support (unreleased)
+
+Sitemap responses served as text/plain now support one absolute URL per line, with BOM/CRLF/blank-line handling and literal query parameters. XML-looking bodies still use the XML parser even when served as text/plain. Text observations retain their own kind and invalid-text status in durable crawl state. Invalid entries and foreign URLs remain explicit limitations; duplicates coalesce and existing file/depth/URL/storage limits still apply. The serialized URL length is checked against the 8192-character transport bound. Four locales now cover invalid-text and unsupported-content status. No live sitemap request was made.
+
+The parser limits body size to 512000 bytes and lines to 50001, rejects binary controls, and does not reinterpret XML entities in text URLs. Tests cover exact membership, rejection counts, XML served as text, malformed input, byte/line limits and persisted-state roundtrip. Google’s text sitemap format was checked against https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap.
+
+Validation: full 3502 tests / 263 files pass (55.53 seconds), TypeScript and production build pass (/tmp/milo-text-sitemap-{full,types-final,build}.log). Lint initially objected to the control-character regex; equivalent character-code checks replace it. Final 20 sitemap tests and changed-file lint pass (/tmp/milo-text-sitemap-tests-verified.log, /tmp/milo-text-sitemap-lint-verified.log). Ownership enforcement and shared crawl egress limits remain open.
+
+## Robots none alias (unreleased)
+
+The finding detector and database capture predicate both recognize the complete `none` directive as noindex, including case, comma-separated lists and agent-scoped headers. Substrings such as `nonetheless`, `x-none` and `none-other` do not qualify. Eight detector cases and eight actual SQL cases cover recognition and rejection; all 37 focused finding/crawl migration tests pass, along with TypeScript and changed-file lint. Initial test fixtures omitted the required agent property; final fixtures include it and the final checks pass. The migration remains unapplied and crawl ownership enforcement remains open.
+
+## Resolved page-reference bounds (unreleased)
+
+Page references are now checked after resolution, fragment removal and URL serialization. Oversized relative links, canonicals, language alternates and base URLs are omitted with `complete: false`; valid page evidence and safe links remain available. Tests cover exact 8192-character boundaries, UTF-8 percent expansion and fallback after an oversized base. Fourteen focused page/state tests, TypeScript and changed-file lint pass. Before this final boundary change, the combined branch (team admission plus robots none) passed 3528 tests / 265 files, TypeScript and production build. No live crawl or production migration.
+
+## Durable ownership lifecycle and owner controls (unreleased)
+
+The DNS verifier is now connected to authenticated read/issue/verify/revoke actions and the crawl panel. A fifth technical migration, `20260911150000_technical_crawl_ownership.sql`, adds two private tables for project proof and account verification budgets. The server generates a fresh challenge against the saved website and returns DNS TXT instructions. Only an admitted saved attempt can reach DNS; browser inputs contain the project ID only. Proof is bound to the exact saved website/origin and expires within 24 hours. Repeated issue requests preserve a current challenge; changed, revoked or expired challenges are replaced within an account-wide issuance limit.
+
+Account budgets allow 20 new challenges and 60 verification attempts per hour, with one verification in flight across projects and a 15-second recovery lease. Revocation invalidates proof immediately without releasing possibly active DNS work early. Finishing requires the exact current attempt, account lease, unchanged website and non-revoked/unexpired proof. Failed verification clears earlier verification. Direct table access, including service-role writes, is denied; lifecycle functions are service-only.
+
+Migration overrides now require proof at crawl creation, hold a run at claim if proof is invalid, and refuse step saving after revocation while retaining prior state. English, Polish, Swedish and Danish ownership controls show instructions, current status, expiry and explicit verification/revocation actions. Loading or refreshing the panel never verifies DNS or starts a crawl. Workspace changes are saved before explicit actions; start/resume controls require current verified status and SQL remains authoritative.
+
+Validation: 34 focused DNS/lifecycle/database tests pass; the combined full suite passes 3549 tests / 267 files (142.98 seconds), and production build passes. Initial fixture type annotations were corrected. A component-export lint warning was addressed by moving the shared query hook to `use-crawl-ownership.ts`; final types and changed-file lint are checked separately. Logs `/tmp/milo-durable-ownership-{tests,full,build}.log` and `/tmp/milo-durable-ownership-{types-verified,lint-verified}.log`. No live DNS, crawl, provider, browser acceptance or production migration occurred.
+
+Security finding 3989430579 remains open: shared deployment-wide target/account dispatch quotas and a fresh proof/run-lease check before each page, robots, sitemap and redirect connection still need to be wired. Explicit resumable holds must preserve evidence on quota contention. The current start/claim/save checks do not replace per-connection authorization. Code review also identified exclusive locks on read-only history (3989942700) and unsupported HTML decoding (3989942712); both remain open. PR124 stays draft and all five technical migrations remain unapplied.
+
+## Read-only history admission and declared HTML encoding (unreleased)
+
+Read/list/context functions for crawl history, findings, Google inspection, performance and ownership now use a nonlocking ownership helper that checks the current account, project and workspace. Reservation, dispatch, completion and other mutations retain the exclusive owner admission helper; Google/performance mutation functions now request it explicitly before reading context. Local SQL tests replace exclusive admission with a deterministic busy failure: all history/context reads still work, while ownership issuance and provider reservations remain refused. Wrong-owner and banned-account reads remain refused. This verifies admission dependencies, not a real multi-session acceptance run. All five technical migration sources changed and remain unapplied.
+
+Technical HTML bytes are decoded before parsing, using pinned `html-encoding-sniffer` 6.0.0 and the runtime TextDecoder. The decoder follows BOM/HTTP/meta precedence, supports declared legacy charsets and XHTML declarations, uses a standards-based MIME parser, and rejects malformed complete responses instead of recording replacement characters as complete evidence. Truncated responses keep only the valid decoded prefix and retain their partial status. Other resource purposes retain their existing decoding behavior. Tests include windows-1252/Latin-1 labels, UTF-8/UTF-16 BOMs, metadata, quoted MIME parameters, XML declarations, malformed bytes and an actual mocked transport roundtrip.
+
+The detection rules were checked against the [HTML standard](https://html.spec.whatwg.org/multipage/parsing.html#determining-the-character-encoding) and the [sniffer implementation documentation](https://github.com/jsdom/html-encoding-sniffer). Both dependency locks are updated; the production frozen-lock and minimum-release-age settings remain unchanged. Shared per-connection ownership/egress admission is still open, so the security finding remains unresolved and PR124 stays draft.
+
+Validation for history/encoding fixes: all 3561 tests / 268 files pass (135.38 seconds), TypeScript and changed-file lint pass, and production build passes. The new SQL fixture initially needed cascading cleanup after adding dependent tables; corrected before the passing run. Bun lock regeneration used a temporary development configuration preserving the release-age guard; production `bunfig.toml` remains unchanged. Final frozen Bun 1.4 install and npm lock agreement pass, and decoding was exercised directly in Bun. Final Bun-installed-tree type/focused checks are recorded in `/tmp/milo-history-decoding-bun-{types,tests}.log`; full-suite/build logs are `/tmp/milo-history-decoding-{full,build}.log`. The browser and Bun 1.3.3 production acceptance remain unclaimed pending CI/live acceptance.
+
+## Per-connection crawl admission and preserved holds (unreleased)
+
+The sixth technical migration, `20260911160000_technical_crawl_dispatch.sql`, adds private account/hostname request budgets and admission-hold metadata. Every runtime robots, sitemap, page and redirect connection receives a server-bound admission callback after public-address resolution and before opening the socket. Admission checks current ownership proof, the exact saved website/origin, current crawl status and the exact live run lease before touching budgets. Account limits are two active connections, 120 starts/minute and 1200/hour; hostname limits are two active connections shared across owners, 60 starts/minute and 600/hour. Both scopes are acquired atomically with nonwaiting budget locks; failed target admission rolls back account consumption. Idle operational rows are pruned in bounded batches after 24 hours.
+
+A connection lease lasts at most 20 seconds and never beyond the run lease. A returned grant must retain at least ten seconds of validity. Actual database transport uses a five-second abort signal. Each redirect releases its prior connection slot before acquiring another; responses are destroyed before release. Release checks the account's exact token and does not need still-active ownership, so revocation does not prevent cleanup. Lost releases recover by lease expiry. The outer fetch timeout never releases a still-pending admission early; after a late grant, an abort check prevents a connection and releases the grant.
+
+Explicit capacity or permission uncertainty propagates through page and sitemap transitions without consuming their original queues. The controller records an admission hold using the current run lease and revision, leaving saved evidence/state unchanged. An explicit authenticated resume action rechecks current ownership and capacity retry time; it does not automatically replay requests. Four locales explain capacity/ownership holds and expose a retry for the saved crawl. Cancellation and stale revisions cannot be overwritten by the hold.
+
+The same change fixes two further review findings: an unaccepted successful robots response (including a missing Content-Type header) stays unknown, while a genuine 404 retains its unavailable-policy semantics; accepted redirected page destinations are removed from the pending queue so they do not spend another page slot.
+
+Validation: admission implementation passed all 3586 tests / 269 files and production build before the final response-close/robots/redirect refinements. Final 132 focused tests / seven files, TypeScript and changed-file lint pass, covering actual SQL shared cross-account target quotas, rollback of failed admission, expired/revoked/wrong grants, protected tables, retained state/resume, per-redirect admission and late-grant timeout behavior. Logs `/tmp/milo-dispatch-{full,build}.log` and `/tmp/milo-dispatch-final-{focused,types,lint}.log`. An initial controller expectation was updated to include the new admission callback. No live DNS, crawl, provider, browser acceptance or production SQL was performed. All six technical migrations remain unapplied and release review remains required.
+
+## Sitemap redirect, membership and directive bounds (unreleased)
+
+Successful sitemap redirects remove their observed destination from the pending queue and do not requeue a self-referencing index. Page membership combines the requested alias and observed destination, with deduplicated file references in the UI and immutable SQL finding snapshot. Oversized or excess robots sitemap directives are omitted with an explicit completeness limitation, preserving usable access rules.
+
+Validation: all 3596 tests / 271 files and production build pass. The 69 focused tests / five files, TypeScript and changed-file lint also pass. Logs `/tmp/milo-sitemap-edge-{full,build,tests,types,lint}.log`. All six technical migrations remain unapplied. Security review now requires an additional connected-address budget; the existing hostname/account budgets do not yet address rotating verified subdomains.
+
+## Connected-address admission (unreleased)
+
+The pinned transport passes its selected, already validated public IP address to admission for every connection and redirect. A third deployment-wide address bucket shares the existing target limits (two active connections, 60 starts/minute, 600/hour) across hostnames and owners. PostgreSQL inet canonicalization prevents equivalent IPv6 spellings from splitting budgets. The account, hostname and address grants are atomic; rejection rolls back earlier budget updates. Exact-token release removes all three leases after the response closes. Browser inputs cannot select the admitted address.
+
+Validation: 92 focused tests / three files, TypeScript and changed-file lint pass. The full suite passes 3598 tests / 271 files and production build passes. Coverage includes separate verified hostnames/owners resolving to the same address, canonical IPv6 keys, rollback and per-redirect address propagation. Initial SQL CASE syntax and a hostname-specific test fixture were corrected before passing validation. Logs `/tmp/milo-address-{focused,types,lint,full,build}.log`. All six migrations remain unapplied; this addresses review finding 3990420327 and still needs fresh release review.
+
+## Parser cardinality bounds (unreleased)
+
+A robots group now retains at most 20000 user-agent entries and marks further input incomplete, preserving unknown access policy rather than exceeding the durable state schema. Text sitemap input is rejected above 50000 lines before its rejected-entry count can exceed storage validation. Tests cover the exact invalid-line boundary and persisted malformed-file evidence.
+
+Validation: 48 focused tests / three files, TypeScript and changed-file lint pass (`/tmp/milo-parser-cardinality-{focused,types,lint}.log`). The sitemap fixture initially omitted its observation time and used the wrong response header shape; corrected before passing checks. Prior b51dc96 CI passed all3598/271 in both Bun environments. No migration source changed. Release review and final-head CI remain required; no live crawl or production mutation occurred.
+
+## Deployment-wide performance-provider admission (unreleased)
+
+Performance dispatch now acquires an atomic deployment-wide provider bucket after current owner/run authorization and before marking dispatch. CrUX and PageSpeed each allow at most four live dispatch leases, ten starts/minute and 100/hour across accounts. These are local operational limits, not claims about purchased Google quota. The private two-key budget table has no project/account deletion dependency and denies direct access to all API roles. Slots remain until the original run deadline, covering timeout, deletion and lost cleanup. Expired slots/windows recover during admission. A full bucket holds the request with quota evidence and leaves dispatched_at empty; exact request IDs never dispatch twice. Other providers remain independently usable.
+
+Validation: 17 actual-SQL/controller tests, TypeScript and changed-file lint pass (`/tmp/milo-provider-global-{focused,types,lint}.log`). Tests cover cross-account exhaustion, isolated providers, minute/hour/concurrent limits, expired windows, project deletion and direct-role denial. This modifies migration140000 and adds one private table, bringing the technical release to six unapplied migrations and eight new tables. No live API/key/account change or production mutation occurred. Full combined-branch verification and release review remain required.
+
+## Final HTTP and limitation evidence (unreleased)
+
+Non-HTML error responses retain their observed HTTP status, destination and timestamp. Their bodies are not interpreted as HTML; the observation remains incomplete and supports only applicable HTTP/header findings. Successful non-HTML responses retain their existing state. All eight sitemap limitation values, including storage truncation, now fit the persisted schema. Fifty-one focused crawl/finding/actual-SQL tests pass, including plain-text and missing Content-Type HTTP errors and all limitation values.
+
+The combined team/provider branch passed all 3612 tests / 272 files before these final observation refinements. Final focused tests, TypeScript, changed-file lint and production build pass. Logs `/tmp/milo-final-read-provider-{full,types,build}.log` and `/tmp/milo-http-error-evidence-{focused,types-final,lint}.log`. No technical SQL change in this final refinement. The branch now incorporates team12e20b6 via a normal merge; six technical migrations/eight tables remain unapplied and final-head CI/review remain required.
+
+## Ownership recovery, shared-address fairness and CI fixture correction (unreleased)
+
+Ownership failures during claim/save now preserve the previous preparing/running status as explicit admission-resume metadata, retaining the saved evidence unchanged. Renewed verification permits explicit resume. The three metadata columns move into the ownership migration before these functions are defined. Actual SQL exercises revocation before claim and save, and expiry after saving a real running crawl state.
+
+A new account-and-address budget prevents one account from consuming the entire address allowance through different hostnames: two active connections, 30 starts/minute and 300/hour per account/IP. Aggregate address starts remain 60/minute and600/hour, with four active slots so one account's two slots leave room for another. Account/hostname caps and atomic all-scope rollback remain; exact-token cleanup releases all four scopes. This bounds one account's share, not a guarantee against coordinated accounts exhausting shared capacity. Tests verify that another verified owner/hostname can use the same IP after either the first account's minute or hour share is full.
+
+Validation correction: f980f44 CI failed TypeScript because the empty-header test fixture inferred an optional undefined header. Its earlier final-local-type claim must not be used as release evidence. An explicit Record<string,string> fixture type fixes that mismatch without changing runtime behavior; fresh type checking and13 crawl tests pass (`/tmp/milo-http-fixture-{types,tests}.log`). Ownership/fair-share checks pass34 focused tests / two files (`/tmp/milo-crawl-fairshare-focused.log`). Full combined validation is next. Migrations150000/160000 changed and remain unapplied. No live requests or production changes occurred.
+
+Combined ownership/fairness validation: after incorporating team715926f by normal merge, all 3623 tests / 273 files, TypeScript, changed-file lint and production build pass. Logs `/tmp/milo-fairshare-final-{types,lint,full,build}.log`. The CI fixture mismatch is corrected in this tree. Final-head CI/review and guarded release remain outstanding; this does not prove real concurrent-session, browser or provider acceptance.
+
+### Google evidence size and changed-website holds — 11 September 2026
+
+Google sitemap and referring-URL evidence now share a 256 KiB serialized-string budget; omissions are explicitly incomplete and other index evidence is retained. URL validity also bounds serialized href length after Unicode escaping. This leaves room below the durable 1.5 MB observation limit and avoids losing an otherwise valid response when its normalized URLs expand.
+
+Ownership failure at claim/save retains resumable metadata only when the saved project website remains identical to the run. Changed-website runs remain held with saved evidence and no admission-resume action; a new crawl is required for the new website. Existing expiry/revocation renewal tests remain valid for unchanged websites.
+
+Validation:38 focused Google/actual-SQL tests, TypeScript and changed-file lint pass (`/tmp/milo-google-size-{tests,types,lint}.log`). Migration150000 remains unapplied; no Google or crawl request occurred. Findings3990999791 and3990999803 addressed.
+
+Combined validation after merging team e4dcd6d: all3630 tests across273 files pass (115.71seconds), TypeScript, changed-file lint and production build pass. Logs `/tmp/milo-url-final-{types,lint,full,build}.log`. Guarded six-migration/eight-table rehearsal passes including all four refusal scenarios; new packet135729bytes. No production or provider action. Final-head external reviews and real-use acceptance remain pending.
+
+### XHTML parsing and installed dependency identity — 11 September 2026
+
+Accepted application/xhtml+xml now uses Saxes XML parsing with namespace and case-sensitive element/attribute semantics, self-closing nodes and CDATA. XHTML namespace elements feed the existing observation logic; foreign elements and inert template content do not become HTML findings. Malformed XML, internal DTD subsets and exceeded100-level/100000-node bounds yield incomplete evidence without HTML error recovery. External doctype declarations never trigger external resolution.13 page tests cover these cases alongside existing HTML behavior.
+
+Bun's root entities resolution is restored to the application's exact4.5.0 compatibility pin; parse5 retains8.1.0 underneath it. A new CI check reads the actual installed package identity and compares it to the manifest pin. It rejected the previous local8.1.0 root, then passed after a frozen install of the corrected lock. An independent clean frozen install also resolved root4.5.0 and nested parse5 entities. Prior tests on the old installed tree do not prove the pin was honored.
+
+After refreshing the actual dependency tree, all3638 tests/273files, TypeScript, changed-file lint and production build pass (`/tmp/milo-xhtml-final-{types,full}.log`, `/tmp/milo-xhtml-build.log`, `/tmp/milo-entities-guard.log`). This includes the corrected notification endpoint expectation from MAINb4c589d. Findings3991143208 and3991143221 addressed. SQL sources unchanged; all six migrations remain unapplied. No live crawl or provider request.
+
+### Per-account performance provider share
+
+Unreleased migration140000 now includes a private persistent account/provider admission table, bringing the technical packet to nine tables. Each account/provider has one retained in-flight lease, two starts/minute and ten/hour within the existing global four leases, ten/minute and100/hour. Atomic admission checks both scopes before consuming capacity; counters survive project/account deletion. Five accounts can use at most50 hourly starts for a provider, leaving capacity for independent accounts in the reported scenario. These limits bound an account's share; they do not guarantee availability against unlimited coordinated accounts or aggregate legitimate demand. The original total20 request-attempt/hour account limit remains.
+
+Validation:44 actual-SQL performance/ownership tests and TypeScript/changed-file lint pass (`/tmp/milo-performance-share-{types,lint}.log`, `/tmp/milo-performance-share-final-tests.log`). Full3638 tests and build preceded this SQL-only extension; runtime application code is unchanged. Finding3991173636 addressed. No migration or provider request occurred.
+
+### Per-connection website holds and non-HTML error transport
+
+Connection-admission holds now compare the run's saved website against the current project. Changed websites clear resume/admission metadata and retry timestamps, retaining the saved evidence; same-site capacity/ownership holds remain resumable. This completes the per-connection path in addition to prior claim/save checks.
+
+Technical transport decodes only HTML/XHTML bodies. Accepted non-HTML responses preserve status and selected headers while omitting body text that the crawler would not parse. Legacy-encoded text/plain error pages therefore retain HTTP error evidence without failing fatal UTF-8 decoding. Other fetch purposes retain their existing decoding behavior.
+
+Validation:93 focused pinned-transport/actual-SQL ownership tests, TypeScript and changed-file lint pass (`/tmp/milo-connection-hold-{tests,types,lint}.log`). Findings3991310073 and3991310082 addressed. Migration160000 remains unapplied; no network crawl or production write occurred.
+
+## Sitemap decoding and bounded immutable findings
+
+Sitemap transport now requires valid UTF-8 before parsing. Invalid byte sequences fail the read instead of becoming replacement characters in queued URLs. The immutable finding snapshot now retains only common observation identity/status/time and evidence relevant to its finding code. Multiple-heading/canonical findings store exact counts; missing fields retain the corresponding absence evidence; noindex retains one matching directive; invalid JSON-LD retains its invalid-complete state. Traversal links and unrelated page metadata are excluded. Both capture and the table enforce a 32KiB serialized snapshot limit, and the evidence panel renders only the fields actually retained.
+
+Validation:108 focused tests across transport, actual crawl/finding SQL and finding normalization, TypeScript and changed-file lint pass (`/tmp/milo-snapshot-final-tests.log`, `/tmp/milo-snapshot-types.log`, `/tmp/milo-snapshot-lint.log`). A SQL regression uses500 long traversal links and six valid finding codes: every saved snapshot stays below2KiB, includes no internalLinks, preserves relevant counts, and rejects an oversized row. No live crawl, migration or provider invocation occurred. Combined validation and review remain required before release.
+
+## Namespace, traversal and redirect-policy evidence
+
+HTML metadata extraction now ignores foreign-namespace nodes, including SVG icon titles. XHTML requires an html root in the XHTML namespace; unrelated XML roots remain incomplete and cannot establish missing-metadata findings. Resolved URL retention is bounded while traversing, with a shared256KiB serialized-URL budget and per-field entry limits, including internal/external link sets. Exhaustion marks the observation partial rather than constructing unbounded expanded-URL collections.
+
+A robots-refused same-origin redirect now carries a typed destination from the pinned transport before destination DNS/connection. The controller rechecks that destination against its saved robots policy, persists the known refusal and blockedUrl without a fetched-page observation, and the page panel shows the blocked destination. Saved-state validation bounds and scopes blockedUrl and restricts it to robots refusal states.
+
+Validation:120 focused tests across page parsing, findings, crawl transitions, transport and policy adaptation, TypeScript and changed-file lint pass (`/tmp/milo-crawler-final-{tests,types,lint}.log`). Regression cases include SVG titles, wrong XML roots,4000 expanding relative-link/metadata tuples, no destination DNS after refusal, and state round-trip with foreign blocked-URL rejection. No live crawl, provider request, migration or browser acceptance occurred. Combined validation and fresh review remain required.
+
+## Compressed sitemaps and opportunity ordering
+
+Sitemap transport accepts gzip media files and HTTP gzip content coding, including their distinct double-encoded representation. Every compressed and inflated layer remains capped at512000bytes before strict UTF-8 decoding and XML/text parsing. Oversized output is reported as truncated evidence; corrupt gzip fails the read. Compressed plaintext sitemaps retain their source content type while using the plaintext parser.
+
+Explicitly captured crawl opportunities append after the owner's existing opportunity order under the existing workspace lock. Replaying an existing capture preserves its identity and does not append another row.
+
+Validation:127 focused transport, sitemap and actual-SQL tests pass, together with TypeScript and changed-file lint (`/tmp/milo-gzip-{tests,types,lint}.log`). Tests cover gzip media, HTTP coding, double gzip, octet-stream .gz, inflated-size overflow, corruption, sequential ordering and idempotent replay. Review findings3991853180 and3991853193 addressed. No live crawl, provider request or production migration occurred.
+
+## Sitemap content negotiation
+
+Both pinned Node and Bun transports now advertise the supported gzip media types and gzip/identity content coding only for sitemap requests. Bun automatic decompression remains disabled, preserving the local compressed and inflated size bounds. Redirect requests retain the same negotiation. Other fetch purposes still request identity coding.
+
+Validation:77 pinned transport tests, TypeScript and changed-file lint pass (`/tmp/milo-gzip-negotiation-{tests,types,lint}.log`), including Node redirect headers and a Bun gzip response with explicit TLS verification and bounded local decoding. Finding3991956910 addressed. No live crawl or provider call occurred. The separate cross-writer ordinal finding3991956903 remains open.
+
+## Existing cross-writer serialization verified
+
+Review3991956903 cited the July batch definition. Released migration20260909160000 already replaces it: the unconditional workspace_meta UPDATE precedes content checks, entity deletes and entity upserts, including null expected revisions. A read-only check of the current production function confirms that exact body (definition SHA25687fed86e8543d7fbe1d48b31915d21b6e4fd97548b5d4d3c9c9d96d661549e16). It acquires the same workspace row that crawl capture locks before calculating its appended ordinal. No replacement of the released function is needed for the reported interleaving.
+
+Two new actual-SQL regressions attach a BEFORE entity mutation observer and verify the incremented workspace revision is already visible during both deletion and insertion, for null and explicit expected revisions.52 recovery/crawl SQL tests, TypeScript and changed-file lint pass (`/tmp/milo-batch-order-{tests,types,lint}.log`). These are single-session order regressions, not a claim of live concurrent acceptance. The offline release packet now also pins the verified batch function definition and rehearses refusal on drift. Client-requested explicit ordinals and intentional reordering retain their existing semantics.
+
+## Page metadata and Lighthouse redirect scope
+
+Description and robots meta elements are retained only within the document head for HTML and XHTML. Body metadata cannot suppress a missing-description finding or create a noindex directive. Header robots evidence remains independent. Lighthouse identity additionally requires the final URL to share the requested origin. Cross-origin destinations remain visible as identity evidence but their score and metrics are unknown. Saved-observation projection repeats the origin check, suppressing metrics from older stored observations that had an overly permissive identity flag.
+
+Validation:62 focused page, performance, crawl and finding tests, TypeScript and changed-file lint pass (`/tmp/milo-evidence-scope-{tests,types,lint}.log`). Includes body-versus-head metadata in both document types, cross-origin normalization and legacy stored-score projection; existing same-origin redirect metrics remain valid. Findings3992073933 and3992073939 addressed. No network/provider request or migration occurred.
+
+## Canonical and language metadata head scope
+
+Canonical and hreflang link metadata now require the same head ancestry as description/robots metadata. Body links cannot appear as valid canonical evidence or create a duplicate-canonical finding. HTML and XHTML regressions retain valid head links and exclude conflicting body links. The existing URL-resolution fixture now places its valid hreflang link before body anchors.
+
+Validation:50 page/finding/crawl tests, TypeScript and changed-file lint pass (`/tmp/milo-canonical-head-{tests,types,lint}.log`). Finding3992174823 addressed. Before this focused change, the clean89a9aac branch passed all3690 tests/274files and production build (`/tmp/milo-technical-release-full-tests.log`, `/tmp/milo-technical-release-build.log`). The later head-scope change is covered by the focused checks, not that earlier full run. No production migration or live crawl occurred.
+
+## Deployment-wide crawl admission
+
+Every connection now acquires a constant deployment bucket before the existing account, hostname, account-address and public-address buckets. The deployment ceiling is8 retained concurrent connections,120 starts/minute and1200 starts/hour. Acquisition and release use the same global-first advisory lock order. Current ownership and run checks still precede admission. Global refusal rolls back the entire attempt without consuming scoped allowances; the shared row has no account/project foreign key and cannot be reset by deleting a project.
+
+Validation:55 actual ownership/admission/crawl SQL tests, TypeScript and changed-file lint pass (`/tmp/milo-global-crawl-{tests,types,lint}.log`). New checks cover global concurrency/minute/hour saturation with unchanged rows after refusal, and a second verified account using a different hostname and public IP still sharing the deployment limit. These are single-session SQL checks, not real concurrent production acceptance. Finding3992206644 addressed. Migration160000 remains unapplied; no live crawl or production mutation occurred.
+
+
+### Combined release follow-up — 11 September
+
+Merged the already released backlink monitoring implementation and release evidence at ca76abb using a normal merge. Technical release preparation now requires its recorded migration170000 alongside the22 earlier prerequisites; only the six technical migrations remain unapplied. The local guard rehearsal seeds the exact backlink registry source as a prerequisite and does not claim to replay that feature.
+
+Head-only title detection now applies to HTML and XHTML. Sitemap context over4096bytes is omitted from a finding snapshot with an explicit truncation flag and original membership count, keeping long page URLs capturable. Account crawl limits are60 starts/minute and600/hour within the deployment120/minute and1200/hour, with existing two-account/eight-global concurrent limits retained.
+
+Validation:80 focused page/crawl/ownership tests passed, then30 ownership tests passed including another verified account admitted after the first account reaches its allowance. These are local fixtures and single-session database checks. The combined full suite was intentionally interrupted to apply newly received review findings; it is not a completed validation result. No technical migration or deployment has occurred.
+
+
+### Actual document head identity
+
+Metadata ancestry now starts only at the XHTML/HTML document root's direct head child. Nested body elements named head cannot supply title, description, robots, canonical, alternate-language or base-URL metadata. A regression covers these fields together and verifies that relative body links still resolve against the observed page.39 focused page/finding tests pass. Earlier combined3797tests/282files and production build passed at0fc4f87 before this final parser correction; fresh validation and review are required for the new commit. No production migration or crawl occurred.
+
+
+### Typed redirect refusals for pages and sitemaps
+
+Native transport now preserves the refused destination for both technical-page and sitemap policy decisions. Cross-origin redirects produce the known out_of_scope outcome; same-origin robots refusals are re-evaluated using saved policy and retained as robots_disallowed/robots_unknown. No destination DNS or connection occurs after refusal. Sitemap blocked URLs are retained only for same-origin robots outcomes, with saved-state scope validation; no response status, content or observation is fabricated.
+
+Validation:123 focused transport/adapter/page/sitemap tests pass, including both transport purpose modes, cross-origin page transitions, sitemap robots refusals and stored-state round-trip with foreign blocked-URL rejection (`/tmp/milo-redirect-evidence-tests.log`). The first new sitemap fixture used an incorrect initializer argument; corrected to an empty declared-sitemap list before the passing run. Review findings3992490476/3992490488 addressed. No production mutation/provider call occurred; current review and release validation remain required.
+
+
+### Incomplete representations cannot establish missing content
+
+Page inspection marks no-content/reset-content/partial/delta responses (204,205,206,226), non-success statuses and explicit Content-Range responses incomplete. Text extraction also marks the observation incomplete whenever its16000-character work cap leaves unread nodes or a text node exceeds the cap. This prevents truncated heading text or representation-free HTML responses from supporting missing title/description/H1 findings while preserving HTTP error evidence.
+
+Validation:62 page/crawl/finding tests pass (`/tmp/milo-incomplete-page-tests.log`), including five status transitions, Content-Range with status200, late meaningful H1 text after a long whitespace span, and an oversized single text node. Findings3992597169/3992597180 addressed. No production migration, crawl or provider call occurred. Current build/review remain required before release.
+
+
+### Reserve shared capacity before destination DNS
+
+Unreleased migration160000 now adds private dispatch tickets bound to owner, project, run, run lease and origin. An initial NULL-address admission acquires global/account/hostname capacity before resolver work. Exactly one validated-address promotion retains that same token and expiry, verifies the run binding and consumes only the address/account-address counters. Refused promotion rolls back address mutations while preserving the original reservation. Scoped cleanup releases the reservation after transport; uncertain address-side completion can retain its bounded slots until expiry. The release packet now has ten private tables across the six unapplied technical migrations.
+
+Admitted DNS uses a per-request Resolver with A/AAAA resolution and abort-driven cancel. It validates all returned addresses before promotion, rejects unexpected resolver failures and caps the combined address set. Timeout abort cancels outstanding resolver work; a grant arriving after cancellation is released before lookup. Tests cover pre-DNS denial, cancelled pending work, one-time promotion and counter conservation, plus address-capacity rollback. Node/Bun transport remains pinned to the validated address.
+
+Validation:123 focused transport/admission/actual-SQL/resolver tests pass (`/tmp/milo-predns-tests.log`). Initial promotion tests exposed an ambiguous SQL lease reference, which is now qualified. The local Bun1.4.0 runtime exposes resolve4/resolve6/cancel (read-only API inspection; no DNS request). This is local/mocked validation, not live concurrent acceptance. Finding3992611362 implementation is ready for combined checks and fresh review; no production migration, destination DNS, crawl or provider call occurred.
+
+## Combined release integration and review corrections — 12 September 2026
+
+The crawler branch now includes the released PR126 backlink details code, migration180000 and canonical release evidence through087a13c. The technical release must require all24 released migration sources and must not reapply either backlink migration.
+
+Partial robots representations (206/226 or Content-Range) remain unknown and cannot grant crawl permission. Incomplete page observations no longer enqueue discovered links, since an omitted base element may change their meaning. Sitemap fragments likewise retain a partial/unreadable outcome without supplying discovered URLs. Both refusal states survive saved-state validation. Address-promotion transport uncertainty now becomes an explicit capacity hold; cleanup targets only the confirmed reservation and any uncertain address slot expires without automatic provider replay.
+
+Ownership verification now atomically reserves one deployment-wide DNS lease inside the existing begin RPC before TXT resolution. The private singleton survives account/project deletion, permits eight concurrent leases,120 starts/minute and600/hour, and retains the account allowance of one active attempt and60/hour. Finish releases only the exact matched account/project attempt; revocation and uncertain outcomes leave expiring leases. Direct table access is revoked for all exposed roles. Tests cover eight independent owners, exact release, rollback on rate exhaustion, forged cleanup, expiry and deletion persistence.
+
+Focused validation:134 tests across seven files pass, including the related sitemap correction. The first TypeScript pass identified a new test-fixture union typing issue, corrected with an explicit header-record type. TypeScript and changed-file lint also pass. Full combined validation, updated migration rehearsal and fresh review are still required. Six technical migrations remain unapplied; no production, DNS, provider, credential or budget change occurred. Overall progress remains approximately55%, implementation70%.
+
+## Transport header and Google capacity follow-up — 12 September 2026
+
+The combined09f89c6 source passed all3,955 tests/290files and production build, but fresh code review found two further gaps. The native resource header whitelist now retains Content-Range, including empty malformed values, so the partial-evidence checks receive the actual origin header. Node and Bun transport-to-robots regressions cover the complete boundary rather than injecting a post-transport response.
+
+Google inspection now reserves shared and account capacity atomically before returning a new request claim, covering OAuth refresh as well as inspection. Limits are eight retained requests,30 starts/minute and300/hour globally, and two retained requests,5/minute and30/hour per account across projects. The current request's original60-second lease remains in both private buckets through completion, uncertain outcomes and deletion; expired entries are pruned during later admission. Exact request replay does not reserve again. Dispatch requires the matching retained lease plus fresh owner/property/time checks. Quota failure rolls back allocation before any token or provider work can start. No published migration changed;130000 remains unapplied.
+
+Focused boundary tests pass163 cases across five files; TypeScript and changed-file lint also pass. New database regressions cover independent-account global saturation, cross-project account limits, retained rate counters, deletion persistence, replay, missing shared lease and role permissions. Fresh validation/review of this follow-up remains required. No production mutation or provider call occurred.
+
+## Independent HTTP status and complete meta evidence — 12 September 2026
+
+Further review findings3994201264/3994201265 are implemented. Once a scoped, admitted response supplies a valid4xx/5xx status, the technical transport retains that known error and safe headers even if subsequent body transfer, decoding or timeout fails. The fallback body is empty and incomplete; admission and redirect-policy refusals still propagate unchanged. Node/Bun transport-to-crawl fixtures preserve HTTP503 and its independent noindex header through invalid UTF-8.
+
+Meta-derived noindex requires complete page evidence. Response-header directives remain independently applicable. Both SQL eligibility and immutable snapshot selection use the same condition, so a partial synthetic-head directive cannot be captured or substituted for a later valid header. A database regression refuses partial meta-only evidence and retains only the header from a mixed list.
+
+Validation:152 focused tests across four files, TypeScript and changed-file lint pass. Prior source2d77caa passed all3,966 tests/290files, types and production builds on both Bun versions in CI34658136231. That earlier CI does not validate this follow-up; fresh current-source CI/review/rehearsal remain required. The six technical migrations remain unapplied. No live request or production change occurred.

@@ -1,13 +1,31 @@
+import { gzipSync } from "node:zlib";
+import { TechnicalCrawlAdmissionError } from "./technical-crawl-admission";
 import { EventEmitter } from "node:events";
 import { Readable } from "node:stream";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ lookup: vi.fn(), request: vi.fn() }));
-vi.mock("node:dns/promises", () => ({ lookup: mocks.lookup }));
+vi.mock("node:dns/promises", () => ({
+  lookup: mocks.lookup,
+  Resolver: class {
+    cancel() {}
+    async resolve4(host: string) {
+      return (await mocks.lookup(host))
+        .filter((r: { family: number }) => r.family === 4)
+        .map((r: { address: string }) => r.address);
+    }
+    async resolve6(host: string) {
+      return (await mocks.lookup(host))
+        .filter((r: { family: number }) => r.family === 6)
+        .map((r: { address: string }) => r.address);
+    }
+  },
+}));
 vi.mock("node:http", () => ({ request: mocks.request }));
 vi.mock("node:https", () => ({ request: mocks.request }));
 import {
   fetchHomepageHtml,
+  fetchPinnedResource,
   fetchPinnedImage,
   isPublicHomepageAddress,
   HOMEPAGE_MAX_BYTES,
@@ -79,6 +97,25 @@ describe("Bun pinned transport", () => {
     });
     expect(await fetchHomepageHtml("https://example.com/path?q=1")).toContain("Bakery");
     expect(mocks.lookup).toHaveBeenCalledOnce();
+    expect(mocks.request).not.toHaveBeenCalled();
+  });
+
+  it("negotiates gzip sitemaps in Bun while bounding decompression locally", async () => {
+    nativeFetch.mockImplementation(async (_url, options) => {
+      expect(options.headers.Accept).toContain("application/gzip");
+      expect(options.headers["Accept-Encoding"]).toBe("gzip,identity");
+      expect(options.decompress).toBe(false);
+      options.tls.checkServerIdentity("example.com", { subjectaltname: "DNS:example.com" });
+      return new Response(gzipSync("<urlset/>"), {
+        headers: { "content-type": "application/xml", "content-encoding": "gzip" },
+      });
+    });
+    const result = await fetchPinnedResource("https://example.com/sitemap.xml", {
+      purpose: "sitemap",
+      origin: "https://example.com",
+      authorize: () => true,
+    });
+    expect(result).toMatchObject({ body: "<urlset/>", truncated: false });
     expect(mocks.request).not.toHaveBeenCalled();
   });
 
@@ -293,6 +330,385 @@ describe("public homepage transport", () => {
   });
 });
 
+describe("structured pinned technical observations", () => {
+  it.each(["media", "encoding", "both", "octet"])(
+    "decodes bounded gzip sitemap representation: %s",
+    async (mode) => {
+      const xml =
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://example.com/a</loc></url></urlset>';
+      let body = gzipSync(Buffer.from(xml));
+      if (mode === "both") body = gzipSync(body);
+      mocks.request.mockImplementation(
+        reply(
+          response([body], 200, {
+            "content-type":
+              mode === "encoding"
+                ? "application/xml"
+                : mode === "octet"
+                  ? "application/octet-stream"
+                  : "application/gzip",
+            ...(mode === "encoding" || mode === "both" ? { "content-encoding": "gzip" } : {}),
+          }),
+        ),
+      );
+      const result = await fetchPinnedResource("https://example.com/sitemap.xml.gz", {
+        purpose: "sitemap",
+        origin: "https://example.com",
+        authorize: () => true,
+      });
+      expect(result).toMatchObject({ body: xml, contentAccepted: true, truncated: false });
+    },
+  );
+  it("marks an inflated sitemap beyond the byte limit oversized before parsing", async () => {
+    mocks.request.mockImplementation(
+      reply(
+        response([gzipSync(Buffer.alloc(512001, 65))], 200, { "content-type": "application/gzip" }),
+      ),
+    );
+    await expect(
+      fetchPinnedResource("https://example.com/sitemap.xml.gz", {
+        purpose: "sitemap",
+        origin: "https://example.com",
+        authorize: () => true,
+      }),
+    ).resolves.toMatchObject({ body: "", truncated: true });
+  });
+  it("refuses corrupt gzip sitemap data", async () => {
+    const broken = gzipSync(Buffer.from("<urlset/>"));
+    broken[broken.length - 5] ^= 255;
+    mocks.request.mockImplementation(
+      reply(response([broken], 200, { "content-type": "application/gzip" })),
+    );
+    await expect(
+      fetchPinnedResource("https://example.com/sitemap.xml.gz", {
+        purpose: "sitemap",
+        origin: "https://example.com",
+        authorize: () => true,
+      }),
+    ).resolves.toBeNull();
+  });
+  it("preserves denied redirect policy before destination DNS or connection", async () => {
+    mocks.request.mockImplementationOnce(reply(response([], 302, { location: "/private" })));
+    await expect(
+      fetchPinnedResource("https://example.com/", {
+        purpose: "technical",
+        origin: "https://example.com",
+        authorize: (url) => !url.endsWith("/private"),
+      }),
+    ).rejects.toMatchObject({
+      name: "TechnicalPolicyRefusedError",
+      url: "https://example.com/private",
+    });
+    expect(mocks.lookup).toHaveBeenCalledOnce();
+    expect(mocks.request).toHaveBeenCalledOnce();
+  });
+  it("closes an unaccepted response before releasing its connection slot", async () => {
+    const stream = response([Buffer.from("ignored")], 200, { "content-type": "application/json" });
+    mocks.request.mockImplementation(reply(stream));
+    const release = vi.fn(async () => {
+      expect(stream.destroyed).toBe(true);
+    });
+    await fetchPinnedResource("https://example.com/", {
+      purpose: "robots",
+      origin: "https://example.com",
+      admit: async () => Object.assign(release, { promote: async () => {} }),
+    });
+    expect(release).toHaveBeenCalledOnce();
+  });
+
+  it("admits every redirect separately and releases the preceding connection first", async () => {
+    const events: string[] = [];
+    const admit = vi.fn(async (url: string, _signal: AbortSignal, address: string | null) => {
+      expect(address).toBeNull();
+      events.push("admit:" + url);
+      return Object.assign(
+        async () => {
+          events.push("release:" + url);
+        },
+        {
+          promote: async (address: string) => {
+            expect(address).toBe("93.184.216.34");
+          },
+        },
+      );
+    });
+    mocks.request
+      .mockImplementationOnce(reply(response([], 302, { location: "/next" })))
+      .mockImplementationOnce(reply(response()));
+    await fetchPinnedResource("https://example.com/", {
+      purpose: "robots",
+      origin: "https://example.com",
+      admit,
+    });
+    expect(events).toEqual([
+      "admit:https://example.com/",
+      "release:https://example.com/",
+      "admit:https://example.com/next",
+      "release:https://example.com/next",
+    ]);
+    expect(mocks.request).toHaveBeenCalledTimes(2);
+  });
+  it("propagates explicit admission refusal without opening a connection", async () => {
+    const admit = vi.fn(async () => {
+      throw new TechnicalCrawlAdmissionError("capacity");
+    });
+    await expect(
+      fetchPinnedResource("https://example.com/", {
+        purpose: "robots",
+        origin: "https://example.com",
+        admit,
+      }),
+    ).rejects.toMatchObject({ reason: "capacity" });
+    expect(mocks.lookup).not.toHaveBeenCalled();
+    expect(mocks.request).not.toHaveBeenCalled();
+  });
+  it("does not dispatch after a late admission, and releases its returned lease", async () => {
+    vi.useFakeTimers();
+    const release = vi.fn(async () => {});
+    let complete!: (value: typeof release) => void;
+    const admit = vi.fn(
+      () =>
+        new Promise<typeof release>((resolve) => {
+          complete = resolve;
+        }),
+    );
+    const pending = fetchPinnedResource("https://example.com/", {
+      purpose: "robots",
+      origin: "https://example.com",
+      admit,
+    });
+    await vi.advanceTimersByTimeAsync(1);
+    expect(admit).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(HOMEPAGE_TIMEOUT_MS + 1);
+    expect(await pending).toBeNull();
+    expect(release).not.toHaveBeenCalled();
+    complete(Object.assign(release, { promote: async () => {} }));
+    await vi.advanceTimersByTimeAsync(1);
+    expect(mocks.request).not.toHaveBeenCalled();
+    expect(release).toHaveBeenCalledOnce();
+  });
+
+  it("refuses malformed UTF-8 sitemap bytes instead of fabricating a replacement-character URL", async () => {
+    mocks.request.mockImplementation(
+      reply(
+        response(
+          [
+            Buffer.concat([
+              Buffer.from("<urlset><url><loc>https://example.com/"),
+              Buffer.from([0xff]),
+              Buffer.from("</loc></url></urlset>"),
+            ]),
+          ],
+          200,
+          { "content-type": "application/xml" },
+        ),
+      ),
+    );
+    await expect(
+      fetchPinnedResource("https://example.com/sitemap.xml", {
+        purpose: "sitemap",
+        origin: "https://example.com",
+        authorize: () => true,
+      }),
+    ).resolves.toBeNull();
+  });
+  it("retains legacy-encoded non-HTML HTTP errors without decoding their body", async () => {
+    mocks.request.mockImplementation(
+      reply(
+        response([Buffer.from([0x43, 0x61, 0x66, 0xe9])], 500, {
+          "content-type": "text/plain",
+          "x-robots-tag": "noindex",
+        }),
+      ),
+    );
+    const result = await fetchPinnedResource("https://example.com/", {
+      purpose: "technical",
+      origin: "https://example.com",
+      authorize: () => true,
+    });
+    expect(result).toMatchObject({
+      status: 500,
+      body: "",
+      headers: { "content-type": "text/plain", "x-robots-tag": "noindex" },
+    });
+  });
+  it("decodes declared legacy HTML before returning technical evidence", async () => {
+    mocks.request.mockImplementation(
+      reply(
+        response([Buffer.from("<title>Caf\xe9</title>", "latin1")], 200, {
+          "content-type": "text/html; charset=windows-1252",
+        }),
+      ),
+    );
+    const result = await fetchPinnedResource("https://example.com/", {
+      purpose: "technical",
+      origin: "https://example.com",
+      authorize: () => true,
+    });
+    expect(result).toMatchObject({
+      body: "<title>Café</title>",
+      truncated: false,
+      contentAccepted: true,
+    });
+    mocks.request.mockImplementation(
+      reply(response([Buffer.from([0xff])], 200, { "content-type": "text/html; charset=utf-8" })),
+    );
+    expect(
+      await fetchPinnedResource("https://example.com/", {
+        purpose: "technical",
+        origin: "https://example.com",
+        authorize: () => true,
+      }),
+    ).toBeNull();
+  });
+
+  it("retains HTTP failures and selected headers without cookie data", async () => {
+    mocks.request.mockImplementation(
+      reply(
+        response([Buffer.from("<h1>Missing</h1>")], 404, {
+          "x-robots-tag": "noindex",
+          "set-cookie": "private",
+        }),
+      ),
+    );
+    const result = await fetchPinnedResource("https://example.com/missing", {
+      purpose: "technical",
+      origin: "https://example.com",
+      authorize: () => true,
+    });
+    expect(result).toMatchObject({
+      status: 404,
+      body: "<h1>Missing</h1>",
+      headers: { "x-robots-tag": "noindex" },
+      truncated: false,
+    });
+    expect(JSON.stringify(result)).not.toContain("private");
+  });
+  it.each([
+    ["robots", "text/plain", "text/plain"],
+    [
+      "sitemap",
+      "application/xml,text/xml,text/plain,application/gzip,application/x-gzip,application/octet-stream",
+      "application/xml",
+    ],
+    ["technical", "text/html,application/xhtml+xml,text/plain", "text/html"],
+  ] as const)(
+    "requests the supported representation for %s on every redirect",
+    async (purpose, accept, contentType) => {
+      mocks.request
+        .mockImplementationOnce(reply(response([], 302, { location: "/next" })))
+        .mockImplementationOnce(
+          reply(response([Buffer.from("resource")], 200, { "content-type": contentType })),
+        );
+      const result = await fetchPinnedResource("https://example.com/start", {
+        purpose,
+        origin: "https://example.com",
+        authorize: () => true,
+      });
+      expect(result).toMatchObject({ body: "resource", contentAccepted: true });
+      expect(mocks.request).toHaveBeenCalledTimes(2);
+      for (const call of mocks.request.mock.calls) {
+        expect(call[1].headers.Accept).toBe(accept);
+        expect(call[1].headers["Accept-Encoding"]).toBe(
+          purpose === "sitemap" ? "gzip,identity" : "identity",
+        );
+      }
+    },
+  );
+  it.each(["technical", "sitemap"] as const)(
+    "honors the 8192-character %s URL boundary for initial and redirected URLs",
+    async (purpose) => {
+      const base = "https://example.com/";
+      const longest = base + "a".repeat(8192 - base.length);
+      const options = { purpose, origin: "https://example.com", authorize: () => true };
+      const mime = purpose === "sitemap" ? "application/xml" : "text/html";
+      mocks.request.mockImplementation(
+        reply(response([Buffer.from("body")], 200, { "content-type": mime })),
+      );
+      expect((await fetchPinnedResource(longest, options))?.url).toBe(longest);
+      mocks.request.mockClear();
+      mocks.lookup.mockClear();
+      expect(await fetchPinnedResource(longest + "x", options)).toBeNull();
+      expect(mocks.lookup).not.toHaveBeenCalled();
+      mocks.request
+        .mockImplementationOnce(reply(response([], 302, { location: longest })))
+        .mockImplementationOnce(
+          reply(response([Buffer.from("body")], 200, { "content-type": mime })),
+        );
+      expect((await fetchPinnedResource(base, options))?.url).toBe(longest);
+      mocks.request.mockClear();
+      mocks.request.mockImplementationOnce(reply(response([], 302, { location: longest + "x" })));
+      expect(await fetchPinnedResource(base, options)).toBeNull();
+      expect(mocks.request).toHaveBeenCalledTimes(1);
+      mocks.request.mockClear();
+      expect(await fetchHomepageHtml(longest)).toBe("");
+      expect(mocks.request).not.toHaveBeenCalled();
+    },
+  );
+  it.each(["technical", "sitemap"] as const)(
+    "rejects %s redirect scope and robots policy before resolving or connecting",
+    async (purpose) => {
+      mocks.request.mockImplementation(
+        reply(response([], 302, { location: "https://other.test/private" })),
+      );
+      await expect(
+        fetchPinnedResource("https://example.com/", {
+          purpose,
+          origin: "https://example.com",
+          authorize: () => true,
+        }),
+      ).rejects.toMatchObject({
+        name: "TechnicalPolicyRefusedError",
+        url: "https://other.test/private",
+      });
+      expect(mocks.lookup).toHaveBeenCalledTimes(1);
+      mocks.request.mockImplementation(reply(response([], 302, { location: "/private" })));
+      mocks.lookup.mockClear();
+      const refused = fetchPinnedResource("https://example.com/", {
+        purpose,
+        origin: "https://example.com",
+        authorize: (url) => !url.endsWith("/private"),
+      });
+      await expect(refused).rejects.toMatchObject({
+        name: "TechnicalPolicyRefusedError",
+        url: "https://example.com/private",
+      });
+      expect(mocks.lookup).toHaveBeenCalledTimes(1);
+    },
+  );
+  it("distinguishes an exact size response from a truncated response", async () => {
+    mocks.request.mockImplementation(reply(response([Buffer.alloc(512000, 97)])));
+    expect(
+      (
+        await fetchPinnedResource("https://example.com/", {
+          purpose: "technical",
+          origin: "https://example.com",
+          authorize: () => true,
+        })
+      )?.truncated,
+    ).toBe(false);
+    mocks.request.mockImplementation(reply(response([Buffer.alloc(512001, 97)])));
+    expect(
+      (
+        await fetchPinnedResource("https://example.com/", {
+          purpose: "technical",
+          origin: "https://example.com",
+          authorize: () => true,
+        })
+      )?.truncated,
+    ).toBe(true);
+  });
+  it("preserves missing robots status without accepting an HTML body as rules", async () => {
+    mocks.request.mockImplementation(reply(response([Buffer.from("<html>Missing</html>")], 404)));
+    expect(
+      await fetchPinnedResource("https://example.com/robots.txt", {
+        purpose: "robots",
+        origin: "https://example.com",
+      }),
+    ).toMatchObject({ status: 404, body: "", contentAccepted: false });
+  });
+});
+
 describe("pinned collaborator image fetches", () => {
   const get = (url = "https://example.com/image.png") =>
     fetchPinnedImage(url, "https://example.com", new AbortController().signal);
@@ -354,3 +770,66 @@ describe("pinned collaborator image fetches", () => {
     expect(mocks.lookup).not.toHaveBeenCalled();
   });
 });
+
+it.each(["node", "bun"])(
+  "retains ranged-response evidence through the %s adapter and blocks robots permission",
+  async (runtime) => {
+    const body = "User-agent: *\nAllow: /";
+    const headers = { "content-type": "text/plain", "content-range": "bytes 50-99/100" };
+    if (runtime === "bun") {
+      vi.stubGlobal("Bun", { version: "1.4.0" });
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (_url, options) => {
+          options.tls.checkServerIdentity("example.com", { subjectaltname: "DNS:example.com" });
+          return new Response(body, { headers });
+        }),
+      );
+    } else {
+      vi.stubGlobal("Bun", undefined);
+      mocks.request.mockImplementation(reply(response([Buffer.from(body)], 200, headers)));
+    }
+    const grant = Object.assign(async () => {}, { promote: async () => {} });
+    const { fetchTechnicalRobots } = await import("./technical-fetch.server");
+    expect(await fetchTechnicalRobots("https://example.com", async () => grant)).toEqual({
+      state: "unknown",
+      reason: "partial",
+    });
+  },
+);
+
+it.each(["node", "bun"])(
+  "preserves a known HTTP error through invalid HTML decoding in %s",
+  async (runtime) => {
+    const headers = { "content-type": "text/html; charset=utf-8", "x-robots-tag": "noindex" };
+    const bytes = Buffer.from([0xc3, 0x28]);
+    if (runtime === "bun") {
+      vi.stubGlobal("Bun", { version: "1.4.0" });
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (_url, options) => {
+          options.tls.checkServerIdentity("example.com", { subjectaltname: "DNS:example.com" });
+          return new Response(bytes, { status: 503, headers });
+        }),
+      );
+    } else {
+      vi.stubGlobal("Bun", undefined);
+      mocks.request.mockImplementation(reply(response([bytes], 503, headers)));
+    }
+    const { technicalPageFetcher } = await import("./technical-fetch.server");
+    const { robotsEvidence } = await import("./technical-robots");
+    const { advanceTechnicalCrawl, startTechnicalCrawl } = await import("./technical-crawl");
+    const { technicalFindings } = await import("./technical-findings");
+    const origin = "https://example.com",
+      now = new Date().toISOString(),
+      robots = robotsEvidence(404);
+    const grant = Object.assign(async () => {}, { promote: async () => {} });
+    const next = await advanceTechnicalCrawl(
+      startTechnicalCrawl({ siteUrl: origin, robots, robotsFetchedAt: now, now }),
+      technicalPageFetcher(origin, robots, async () => grant),
+      now,
+    );
+    expect(next.pages[0].observation).toMatchObject({ status: 503, complete: false, title: "" });
+    expect(technicalFindings(next.pages[0])).toEqual(["http_error", "noindex"]);
+  },
+);

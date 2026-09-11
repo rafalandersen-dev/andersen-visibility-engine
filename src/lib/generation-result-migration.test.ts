@@ -287,3 +287,41 @@ describe("late browser save versus recovered owner edits", () => {
     ).rejects.toThrow("workspace_content_changed");
   });
 });
+
+describe("workspace lock precedes entity mutations", () => {
+  it.each([null, 7])(
+    "updates the account revision before deletes and upserts with expected revision %s",
+    async (expected) => {
+      await db.query("INSERT INTO workspace_meta(user_id,rev) VALUES($1,7)", [user]);
+      await db.query(
+        "INSERT INTO workspace_entities(user_id,collection,entity_id,ord,data) VALUES($1,'opportunities','old',0,'{}')",
+        [user],
+      );
+      await db.exec(`CREATE FUNCTION assert_batch_meta_first() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN
+        IF (SELECT rev FROM workspace_meta WHERE user_id=coalesce(NEW.user_id,OLD.user_id)) <> 8 THEN
+          RAISE EXCEPTION 'entity_write_preceded_account_update';
+        END IF;
+        RETURN coalesce(NEW,OLD);
+      END; $$;
+      CREATE TRIGGER assert_batch_meta_first BEFORE INSERT OR UPDATE OR DELETE ON workspace_entities
+      FOR EACH ROW EXECUTE FUNCTION assert_batch_meta_first();`);
+      try {
+        await db.query("SELECT apply_workspace_entity_batch($1,$2,$3,'{}',$4)", [
+          user,
+          [{ collection: "opportunities", entity_id: "new", ord: 1, data: { id: "new" } }],
+          [{ collection: "opportunities", entity_id: "old" }],
+          expected,
+        ]);
+        expect((await db.query("SELECT entity_id,ord FROM workspace_entities")).rows).toEqual([
+          { entity_id: "new", ord: 1 },
+        ]);
+        expect((await db.query("SELECT rev FROM workspace_meta")).rows).toEqual([{ rev: 8 }]);
+      } finally {
+        await db.exec(
+          "DROP TRIGGER assert_batch_meta_first ON workspace_entities; DROP FUNCTION assert_batch_meta_first();",
+        );
+      }
+    },
+  );
+});

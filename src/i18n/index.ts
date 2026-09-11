@@ -1,3 +1,6 @@
+import { technicalPerformanceCopy } from "./technical-performance";
+import { googleIndexCopy } from "./google-index";
+import { technicalCrawlCopy } from "./technical-crawl";
 import { backlinkDetailsCopy } from "./backlink-details";
 import { backlinkMonitoringCopy } from "./backlink-monitoring";
 import { projectTeams } from "./project-teams";
@@ -45,6 +48,9 @@ export function translate(
 ): string {
   const l = isSupported(lang) ? lang : "en";
   let s =
+    technicalPerformanceCopy[l][key] ??
+    googleIndexCopy[l][key] ??
+    technicalCrawlCopy[l][key] ??
     projectTeams[l][key] ??
     locationCoverage[l][key] ??
     publishingFidelity[l][key] ??
