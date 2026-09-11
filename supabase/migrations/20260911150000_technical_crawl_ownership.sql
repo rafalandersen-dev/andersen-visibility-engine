@@ -33,7 +33,7 @@ CREATE FUNCTION public.read_technical_crawl_ownership(p_user uuid,p_project text
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE website text; proof public.technical_crawl_ownership%ROWTYPE;
 BEGIN
- website:=public.assert_technical_crawl_owner(p_user,p_project);
+ website:=public.read_technical_crawl_owner(p_user,p_project);
  SELECT * INTO proof FROM public.technical_crawl_ownership WHERE user_id=p_user AND project_id=p_project;
  IF NOT FOUND OR proof.website_value IS DISTINCT FROM website THEN RETURN NULL; END IF;
  RETURN to_jsonb(proof)-ARRAY['attempt_token','attempt_until'];

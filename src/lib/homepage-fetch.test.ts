@@ -295,6 +295,36 @@ describe("public homepage transport", () => {
 });
 
 describe("structured pinned technical observations", () => {
+  it("decodes declared legacy HTML before returning technical evidence", async () => {
+    mocks.request.mockImplementation(
+      reply(
+        response([Buffer.from("<title>Caf\xe9</title>", "latin1")], 200, {
+          "content-type": "text/html; charset=windows-1252",
+        }),
+      ),
+    );
+    const result = await fetchPinnedResource("https://example.com/", {
+      purpose: "technical",
+      origin: "https://example.com",
+      authorize: () => true,
+    });
+    expect(result).toMatchObject({
+      body: "<title>Café</title>",
+      truncated: false,
+      contentAccepted: true,
+    });
+    mocks.request.mockImplementation(
+      reply(response([Buffer.from([0xff])], 200, { "content-type": "text/html; charset=utf-8" })),
+    );
+    expect(
+      await fetchPinnedResource("https://example.com/", {
+        purpose: "technical",
+        origin: "https://example.com",
+        authorize: () => true,
+      }),
+    ).toBeNull();
+  });
+
   it("retains HTTP failures and selected headers without cookie data", async () => {
     mocks.request.mockImplementation(
       reply(

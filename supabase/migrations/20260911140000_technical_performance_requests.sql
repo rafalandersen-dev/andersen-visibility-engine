@@ -33,7 +33,7 @@ CREATE FUNCTION public.read_technical_performance_context(p_user uuid,p_project 
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE website text;
 BEGIN
- website:=public.assert_technical_crawl_owner(p_user,p_project);
+ website:=public.read_technical_crawl_owner(p_user,p_project);
  RETURN jsonb_build_object('website',website);
 END; $$;
 
@@ -41,6 +41,7 @@ CREATE FUNCTION public.reserve_technical_performance_request(p_user uuid,p_proje
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE context jsonb; current public.technical_performance_requests%ROWTYPE;
 BEGIN
+ PERFORM public.assert_technical_crawl_owner(p_user,p_project);
  context:=public.read_technical_performance_context(p_user,p_project);
  IF p_request IS NULL OR p_website IS NULL OR p_website IS DISTINCT FROM context->>'website' OR p_origin IS NULL OR p_source IS NULL OR p_scope IS NULL OR p_device IS NULL OR p_url IS NULL OR p_url !~ '^https?://[^/@[:space:]]+' OR p_url ~ '[[:space:]]' OR p_origin !~ '^https?://[^/?#@[:space:]]+$' OR left(p_url,length(p_origin)+1)<>p_origin || '/' OR p_url ~ '#'  THEN RAISE EXCEPTION 'performance_scope'; END IF;
  SELECT * INTO current FROM public.technical_performance_requests WHERE user_id=p_user AND request_id=p_request FOR UPDATE;
@@ -63,6 +64,7 @@ CREATE FUNCTION public.authorize_technical_performance_dispatch(p_user uuid,p_pr
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE context jsonb; current public.technical_performance_requests%ROWTYPE;
 BEGIN
+ PERFORM public.assert_technical_crawl_owner(p_user,p_project);
  context:=public.read_technical_performance_context(p_user,p_project);
  SELECT * INTO current FROM public.technical_performance_requests WHERE user_id=p_user AND project_id=p_project AND request_id=p_request FOR UPDATE;
  IF NOT FOUND OR current.status<>'running' OR p_lease IS NULL OR current.lease_token IS DISTINCT FROM p_lease OR current.dispatched_at IS NOT NULL THEN RETURN false; END IF;
@@ -78,6 +80,7 @@ CREATE FUNCTION public.finish_technical_performance_request(p_user uuid,p_projec
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE context jsonb; current public.technical_performance_requests%ROWTYPE;
 BEGIN
+ PERFORM public.assert_technical_crawl_owner(p_user,p_project);
  context:=public.read_technical_performance_context(p_user,p_project);
  SELECT * INTO current FROM public.technical_performance_requests WHERE user_id=p_user AND project_id=p_project AND request_id=p_request FOR UPDATE;
  IF NOT FOUND OR current.status<>'running' OR p_lease IS NULL OR current.lease_token IS DISTINCT FROM p_lease THEN RETURN false; END IF;

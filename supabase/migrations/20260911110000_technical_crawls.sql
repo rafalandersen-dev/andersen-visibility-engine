@@ -21,6 +21,18 @@ CREATE INDEX technical_crawl_history ON public.technical_crawls(user_id,project_
 ALTER TABLE public.technical_crawls ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.technical_crawls FROM PUBLIC,anon,authenticated,service_role;
 
+-- Read-only scope checks do not acquire the exclusive account admission lock.
+CREATE FUNCTION public.read_technical_crawl_owner(p_user uuid,p_project text)
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE website text;
+BEGIN
+ PERFORM public.assert_knowledge_project(p_user,p_project,false);
+ IF NOT EXISTS(SELECT 1 FROM public.workspace_meta WHERE user_id=p_user) OR NOT EXISTS(SELECT 1 FROM auth.users WHERE id=p_user AND deleted_at IS NULL AND (banned_until IS NULL OR banned_until<=clock_timestamp())) THEN RAISE EXCEPTION 'technical_crawl_unavailable'; END IF;
+ SELECT data->>'websiteUrl' INTO website FROM public.workspace_entities WHERE user_id=p_user AND collection='projects' AND entity_id=p_project;
+ RETURN website;
+END; $$;
+REVOKE ALL ON FUNCTION public.read_technical_crawl_owner(uuid,text) FROM PUBLIC,anon,authenticated,service_role;
+
 CREATE FUNCTION public.assert_technical_crawl_owner(p_user uuid,p_project text)
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE website text;
@@ -101,7 +113,7 @@ CREATE FUNCTION public.read_technical_crawl(p_user uuid,p_project text,p_run uui
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE result jsonb;
 BEGIN
- PERFORM public.assert_technical_crawl_owner(p_user,p_project);
+ PERFORM public.read_technical_crawl_owner(p_user,p_project);
  SELECT to_jsonb(c)-ARRAY['lease_token','lease_until'] INTO result FROM public.technical_crawls c WHERE user_id=p_user AND project_id=p_project AND run_id=p_run;
  RETURN result;
 END; $$;
@@ -109,7 +121,7 @@ CREATE FUNCTION public.list_technical_crawls(p_user uuid,p_project text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE result jsonb;
 BEGIN
- PERFORM public.assert_technical_crawl_owner(p_user,p_project);
+ PERFORM public.read_technical_crawl_owner(p_user,p_project);
  SELECT coalesce(jsonb_agg(to_jsonb(c) ORDER BY created_at DESC,run_id),'[]'::jsonb) INTO result
  FROM (SELECT run_id,origin,status,revision,created_at,updated_at FROM public.technical_crawls WHERE user_id=p_user AND project_id=p_project ORDER BY created_at DESC,run_id LIMIT 20) c;
  RETURN result;
@@ -121,7 +133,7 @@ CREATE FUNCTION public.read_technical_crawl_context(p_user uuid,p_project text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE website text;
 BEGIN
- website:=public.assert_technical_crawl_owner(p_user,p_project);
+ website:=public.read_technical_crawl_owner(p_user,p_project);
  RETURN jsonb_build_object('website',website,'revision',(SELECT rev FROM public.workspace_meta WHERE user_id=p_user),'appLanguage',(SELECT coalesce(data->>'appLanguage','en') FROM public.workspace_entities WHERE user_id=p_user AND collection='projects' AND entity_id=p_project));
 END; $$;
 REVOKE ALL ON FUNCTION public.read_technical_crawl_context(uuid,text) FROM PUBLIC,anon,authenticated;

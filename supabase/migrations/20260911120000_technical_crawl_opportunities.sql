@@ -57,7 +57,7 @@ CREATE FUNCTION public.read_technical_crawl_finding(p_user uuid,p_project text,p
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE result jsonb;
 BEGIN
- PERFORM public.assert_technical_crawl_owner(p_user,p_project);
+ PERFORM public.read_technical_crawl_owner(p_user,p_project);
  SELECT jsonb_build_object('evidenceId',evidence_id,'opportunityId',opportunity_id,'hash',snapshot_hash,'snapshot',snapshot,'createdAt',created_at,
  'opportunityExists',EXISTS(SELECT 1 FROM public.workspace_entities WHERE user_id=p_user AND collection='opportunities' AND entity_id=f.opportunity_id AND data->>'projectId'=p_project))
  INTO result FROM public.technical_crawl_findings f WHERE user_id=p_user AND project_id=p_project AND evidence_id=p_evidence;

@@ -27,7 +27,7 @@ CREATE FUNCTION public.read_google_index_context(p_user uuid,p_project text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE project jsonb;
 BEGIN
- PERFORM public.assert_technical_crawl_owner(p_user,p_project);
+ PERFORM public.read_technical_crawl_owner(p_user,p_project);
  SELECT data INTO project FROM public.workspace_entities WHERE user_id=p_user AND collection='projects' AND entity_id=p_project;
  RETURN jsonb_build_object('property',project#>>'{gscOAuth,selectedSite,siteUrl}');
 END; $$;
@@ -36,6 +36,7 @@ CREATE FUNCTION public.reserve_google_index_inspection(p_user uuid,p_project tex
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE context jsonb; current public.google_index_inspections%ROWTYPE;
 BEGIN
+ PERFORM public.assert_technical_crawl_owner(p_user,p_project);
  context:=public.read_google_index_context(p_user,p_project);
  IF p_request IS NULL OR p_property IS NULL OR p_property IS DISTINCT FROM context->>'property' OR p_url IS NULL OR p_url !~ '^https?://[^/@[:space:]]+' OR p_url ~ '[[:space:]]' THEN RAISE EXCEPTION 'google_inspection_scope'; END IF;
  SELECT * INTO current FROM public.google_index_inspections WHERE user_id=p_user AND request_id=p_request FOR UPDATE;
@@ -58,6 +59,7 @@ CREATE FUNCTION public.authorize_google_index_dispatch(p_user uuid,p_project tex
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE context jsonb; current public.google_index_inspections%ROWTYPE;
 BEGIN
+ PERFORM public.assert_technical_crawl_owner(p_user,p_project);
  context:=public.read_google_index_context(p_user,p_project);
  SELECT * INTO current FROM public.google_index_inspections WHERE user_id=p_user AND project_id=p_project AND request_id=p_request FOR UPDATE;
  IF NOT FOUND OR current.status<>'running' OR p_lease IS NULL OR current.lease_token IS DISTINCT FROM p_lease OR current.dispatched_at IS NOT NULL THEN RETURN false; END IF;
@@ -73,6 +75,7 @@ CREATE FUNCTION public.finish_google_index_inspection(p_user uuid,p_project text
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE context jsonb; current public.google_index_inspections%ROWTYPE;
 BEGIN
+ PERFORM public.assert_technical_crawl_owner(p_user,p_project);
  context:=public.read_google_index_context(p_user,p_project);
  SELECT * INTO current FROM public.google_index_inspections WHERE user_id=p_user AND project_id=p_project AND request_id=p_request FOR UPDATE;
  IF NOT FOUND OR current.status<>'running' OR p_lease IS NULL OR current.lease_token IS DISTINCT FROM p_lease THEN RETURN false; END IF;

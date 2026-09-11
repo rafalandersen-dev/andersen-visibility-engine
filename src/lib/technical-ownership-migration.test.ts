@@ -13,13 +13,16 @@ beforeAll(async () => {
   for (const file of [
     "20260909200000_project_knowledge.sql",
     "20260911110000_technical_crawls.sql",
+    "20260911120000_technical_crawl_opportunities.sql",
+    "20260911130000_google_index_inspections.sql",
+    "20260911140000_technical_performance_requests.sql",
     "20260911150000_technical_crawl_ownership.sql",
   ])
     await db.exec(readFileSync(`supabase/migrations/${file}`, "utf8"));
 }, 30000);
 beforeEach(async () => {
   await db.exec(
-    `RESET ROLE;TRUNCATE technical_crawls,technical_crawl_ownership,technical_ownership_limits;UPDATE auth.users SET deleted_at=NULL,banned_until=NULL;UPDATE workspace_entities SET data='{"websiteUrl":"https://example.test"}';`,
+    `RESET ROLE;TRUNCATE technical_crawls,technical_crawl_ownership,technical_ownership_limits CASCADE;UPDATE auth.users SET deleted_at=NULL,banned_until=NULL;UPDATE workspace_entities SET data='{"websiteUrl":"https://example.test"}';`,
   );
 });
 afterAll(async () => await db?.close());
@@ -45,6 +48,62 @@ const finish = async (attempt: string, verified = true) =>
 const authorized = () =>
   db.query("SELECT assert_technical_crawl_ownership($1,'p','https://example.test')", [owner]);
 describe("durable crawl ownership", () => {
+  it("keeps history/context reads independent of exclusive mutation admission", async () => {
+    await db.exec("BEGIN");
+    try {
+      await db.exec(
+        "CREATE OR REPLACE FUNCTION public.assert_technical_crawl_owner(p_user uuid,p_project text) RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$ BEGIN RAISE EXCEPTION 'exclusive_admission_busy' USING ERRCODE='55P03'; END; $$;",
+      );
+      for (const name of [
+        "list_technical_crawls",
+        "read_technical_crawl_context",
+        "list_google_index_inspections",
+        "read_google_index_context",
+        "list_technical_performance_requests",
+        "read_technical_performance_context",
+        "read_technical_crawl_ownership",
+      ]) {
+        await db.query(`SELECT ${name}($1,'p')`, [owner]);
+      }
+      await db.query("SELECT read_technical_crawl($1,'p',$2)", [owner, other]);
+      await db.query("SELECT read_technical_crawl_finding($1,'p',$2)", [owner, other]);
+      for (const statement of [
+        "SELECT reserve_google_index_inspection($1,'p',$2,'sc-domain:example.test','https://example.test/')",
+        "SELECT reserve_technical_performance_request($1,'p',$2,'https://example.test','https://example.test','https://example.test/','crux','url','mobile')",
+      ]) {
+        await db.exec("SAVEPOINT mutation_check");
+        await expect(db.query(statement, [owner, other])).rejects.toThrow(
+          "exclusive_admission_busy",
+        );
+        await db.exec("ROLLBACK TO SAVEPOINT mutation_check");
+      }
+      await expect(issue()).rejects.toThrow("exclusive_admission_busy");
+    } finally {
+      await db.exec("ROLLBACK");
+    }
+  });
+  it("still refuses read-only history for a banned or wrong project owner", async () => {
+    for (const name of [
+      "list_technical_crawls",
+      "list_google_index_inspections",
+      "list_technical_performance_requests",
+      "read_technical_crawl_ownership",
+    ]) {
+      await expect(db.query(`SELECT ${name}($1,'p')`, [other])).rejects.toThrow();
+    }
+    await db.query("UPDATE auth.users SET banned_until=now()+interval '1 hour' WHERE id=$1", [
+      owner,
+    ]);
+    for (const name of [
+      "list_technical_crawls",
+      "list_google_index_inspections",
+      "list_technical_performance_requests",
+      "read_technical_crawl_ownership",
+    ]) {
+      await expect(db.query(`SELECT ${name}($1,'p')`, [owner])).rejects.toThrow();
+    }
+  });
+
   it("requires proof at run creation and holds a saved run after revocation", async () => {
     const run = "00000000-0000-4000-8000-000000000003";
     const start = () =>

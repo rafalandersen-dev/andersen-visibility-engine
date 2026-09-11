@@ -1,3 +1,4 @@
+import { decodeTechnicalHtml } from "./technical-html-decoding.server";
 /** Server-only public-page reader. Resolve once and pin the socket to that
  * address while preserving HTTP Host and TLS certificate/SNI verification.
  * No runtime declaration or global fetch proxy can bypass this boundary.
@@ -341,7 +342,10 @@ export async function fetchPinnedResource(
       if (!truncated && !response.complete) throw new Error("incomplete_page");
       return {
         ...evidence,
-        body: Buffer.concat(chunks, bytes).toString("utf8"),
+        body:
+          options.purpose === "technical"
+            ? decodeTechnicalHtml(Buffer.concat(chunks, bytes), type, truncated)
+            : Buffer.concat(chunks, bytes).toString("utf8"),
         truncated,
         observedAt: new Date().toISOString(),
       };
