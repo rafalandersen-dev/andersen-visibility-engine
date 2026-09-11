@@ -162,7 +162,7 @@ BEGIN
  -- The context read will repeat authoritative authorization after admission.
  IF NOT EXISTS(SELECT 1 FROM auth.users WHERE id=p_actor AND deleted_at IS NULL AND (banned_until IS NULL OR banned_until<=stamp))
  OR NOT EXISTS(SELECT 1 FROM auth.users WHERE id=p_owner AND deleted_at IS NULL AND (banned_until IS NULL OR banned_until<=stamp))
- OR NOT EXISTS(SELECT 1 FROM public.workspace_entities WHERE user_id=p_owner AND collection='projects' AND entity_id=p_project)
+ OR (NOT (p_actor=p_owner AND p_project IS NULL) AND NOT EXISTS(SELECT 1 FROM public.workspace_entities WHERE user_id=p_owner AND collection='projects' AND entity_id=p_project))
  OR (p_actor<>p_owner AND NOT EXISTS(SELECT 1 FROM public.project_team_members WHERE owner_id=p_owner AND project_id=p_project AND actor_id=p_actor AND active AND (expires_at IS NULL OR expires_at>stamp)))
  THEN RAISE EXCEPTION 'team_preview_unavailable'; END IF;
  FOREACH scope_name IN ARRAY ARRAY['actor','owner'] LOOP
@@ -174,7 +174,7 @@ BEGIN
    IF (SELECT count(*) FROM jsonb_object_keys(active_leases))>=(CASE WHEN scope_name='actor' THEN 2 ELSE 8 END) THEN RAISE EXCEPTION 'team_preview_capacity'; END IF;
    IF current.hour_start<=stamp-interval '1 hour' THEN current.hour_start:=stamp;current.hour_count:=0; END IF;
    IF current.minute_start<=stamp-interval '1 minute' THEN current.minute_start:=stamp;current.minute_count:=0; END IF;
-   IF current.hour_count>=(CASE WHEN scope_name='actor' THEN 240 ELSE 1200 END) OR current.minute_count>=(CASE WHEN scope_name='actor' THEN 60 ELSE 240 END) THEN RAISE EXCEPTION 'team_preview_capacity'; END IF;
+   IF current.hour_count>=(CASE WHEN scope_name='actor' THEN 600 ELSE 1200 END) OR current.minute_count>=(CASE WHEN scope_name='actor' THEN 60 ELSE 240 END) THEN RAISE EXCEPTION 'team_preview_capacity'; END IF;
    UPDATE public.project_team_preview_limits SET hour_start=current.hour_start,hour_count=current.hour_count+1,minute_start=current.minute_start,minute_count=current.minute_count+1,
      leases=active_leases || jsonb_build_object(lease::text,stamp+interval '60 seconds') WHERE scope=scope_name AND account_id=account;
  END LOOP;

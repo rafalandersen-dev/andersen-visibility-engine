@@ -99,7 +99,7 @@ describe("team authentication entry points", () => {
     await invoke(endpoints.readProjectTeamRosterFn, { projectId: "p" });
     expect(h.roster).toHaveBeenCalledWith(actor, { projectId: "p" });
     await invoke(endpoints.listMyProjectTeamsFn, {});
-    expect(h.list).toHaveBeenCalledWith(actor);
+    expect(h.list).toHaveBeenCalledWith(actor, h.rpc);
     expect(() => invoke(endpoints.listMyProjectTeamsFn, { actorId: owner })).toThrow();
   });
   it("binds draft edits to the authenticated actor and rejects approval/evidence fields", async () => {

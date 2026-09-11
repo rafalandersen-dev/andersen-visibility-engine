@@ -1,3 +1,4 @@
+import { runTeamRequest } from "@/lib/team-request-queue";
 import { substituteTeamPreviewImages } from "@/lib/project-team-preview-images";
 import { createReviewImageBudget, REVIEW_IMAGE_LIMITS } from "@/lib/project-team-image-budget";
 import { ProjectTeamReviewDecision, ProjectTeamReviewHistory } from "./ProjectTeamReviewDecision";
@@ -30,7 +31,11 @@ export function ProjectTeamRenderedReview({
       assetId,
       expectedDraftHash ?? null,
     ],
-    queryFn: () => readProjectTeamPreviewFn({ data: { ownerId, projectId, assetId } }),
+    queryFn: ({ signal }) =>
+      runTeamRequest(
+        () => readProjectTeamPreviewFn({ data: { ownerId, projectId, assetId } }),
+        signal,
+      ),
     enabled: !!user,
     staleTime: 0,
     gcTime: 0,

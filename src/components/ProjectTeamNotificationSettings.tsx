@@ -1,3 +1,4 @@
+import { runTeamRequest } from "@/lib/team-request-queue";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { useT, useAppLanguage } from "@/i18n";
@@ -23,7 +24,8 @@ export function ProjectTeamNotificationSettings({
   const target = { ownerId, projectId, recipientId };
   const query = useQuery({
     queryKey: ["project-teams", user?.id, "notification-settings", ownerId, projectId, recipientId],
-    queryFn: () => readTeamNotificationSettingsFn({ data: target }),
+    queryFn: ({ signal }) =>
+      runTeamRequest(() => readTeamNotificationSettingsFn({ data: target }), signal),
     enabled: !!user,
     staleTime: 0,
     gcTime: 0,
@@ -31,7 +33,8 @@ export function ProjectTeamNotificationSettings({
   const locale = useAppLanguage();
   const history = useQuery({
     queryKey: ["project-teams", user?.id, "notification-history", ownerId, projectId, recipientId],
-    queryFn: () => readTeamNotificationHistoryFn({ data: target }),
+    queryFn: ({ signal }) =>
+      runTeamRequest(() => readTeamNotificationHistoryFn({ data: target }), signal),
     enabled: !!user,
     staleTime: 0,
     gcTime: 0,

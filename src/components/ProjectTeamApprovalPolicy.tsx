@@ -1,3 +1,4 @@
+import { runTeamRequest } from "@/lib/team-request-queue";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
@@ -11,7 +12,8 @@ export function ProjectTeamApprovalPolicy({ projectId }: { projectId: string }) 
   const { user } = useAuth();
   const query = useQuery({
     queryKey: ["project-teams", user?.id, "policy", projectId],
-    queryFn: () => readOwnerTeamPolicyFn({ data: { projectId } }),
+    queryFn: ({ signal }) =>
+      runTeamRequest(() => readOwnerTeamPolicyFn({ data: { projectId } }), signal),
     enabled: !!user,
     staleTime: 0,
     gcTime: 0,
