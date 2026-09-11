@@ -257,3 +257,7 @@ Media's 512 starts/minute cover initial 128-image rendering, one refresh, approv
 ## Canonical URLs in visible article text
 
 Server projection now substitutes known media URLs only in generated image `src` attributes. Prose, inline code, link destinations/labels, captions, alt text and other attributes retain the canonical publication text. The previous global replacement could leave visible internal markers after the client correctly limited its own replacement to image sources. The regression test covers all these positions and encoded query parameters; 14 focused tests, TypeScript and changed-file lint pass. This runtime-only fix changes no migration source.
+
+## Image URL attribute normalization
+
+Image source attributes are now decoded once using the standards-based `entities` attribute decoder before matching the raw saved URL. Literal ampersands, `&amp;`, decimal and hexadecimal references all match the intended saved image without changing visible article text. Literal entity text in an actual URL is not decoded twice. The existing pinned transitive `entities` 4.5.0 package is now an explicit runtime dependency, with both locks updated. Nineteen focused preview tests, TypeScript, changed-file lint and both lock agreement checks pass; no migration source changed.
