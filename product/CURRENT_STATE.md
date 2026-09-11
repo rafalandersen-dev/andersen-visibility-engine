@@ -16,6 +16,8 @@ A further security follow-up authorizes current accounts/membership before works
 
 Reviewer independence now uses a private hash of the eight editable content fields, retaining authorship through approval/rejection status changes and excluding unchanged-save receipts. Raw draft hashes still protect exact-version saves and reviews. This further review fix remains unreleased.
 
+Further release review fixes now bound fresh decisions per collaborator and coalesce repeated unchanged rejections, bound aggregate preview image bytes and decoded dimensions, exclude unapproved social images from the review manifest, and load roster notification/invitation details only on expansion. All 3,298 tests / 245 files pass; production release and real acceptance remain pending.
+
 ## Recorded baseline and latest repository check
 
 - Remote main: `083d1fa6e8d0a4e6e2e12d28b1c27591830b772d`, normal merge of output knowledge revalidation PR #122. P0–P5, prompt/answer/log evidence and all prior fixes are preserved.

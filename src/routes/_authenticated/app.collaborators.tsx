@@ -1,3 +1,4 @@
+import { ProjectTeamDetails } from "@/components/ProjectTeamDetails";
 import { ProjectTeamInvitationDelivery } from "@/components/ProjectTeamInvitationDelivery";
 import { ProjectTeamNotificationSettings } from "@/components/ProjectTeamNotificationSettings";
 import { ProjectTeamRenderedReview } from "@/components/ProjectTeamRenderedReview";
@@ -306,13 +307,15 @@ function OwnerTeam({ projectId }: { projectId: string }) {
                 {t("collaboration.expires")} {new Date(i.expiresAt).toLocaleDateString(locale)}
               </p>
             </div>
-            <ProjectTeamInvitationDelivery
-              projectId={projectId}
-              inviteId={i.inviteId}
-              email={i.email}
-              role={i.role}
-              pending={pending}
-            />
+            <ProjectTeamDetails label={t("collaboration.emailInvitation")}>
+              <ProjectTeamInvitationDelivery
+                projectId={projectId}
+                inviteId={i.inviteId}
+                email={i.email}
+                role={i.role}
+                pending={pending}
+              />
+            </ProjectTeamDetails>
             {pending && (
               <Button
                 variant="outline"
@@ -361,11 +364,13 @@ function MemberRow({
           <Button variant="outline" disabled={disabled} onClick={() => change(role, true)}>
             {t("collaboration.remove")}
           </Button>
-          <ProjectTeamNotificationSettings
-            ownerId={ownerId}
-            projectId={projectId}
-            recipientId={member.actorId}
-          />
+          <ProjectTeamDetails label={t("collaboration.notificationSettings")}>
+            <ProjectTeamNotificationSettings
+              ownerId={ownerId}
+              projectId={projectId}
+              recipientId={member.actorId}
+            />
+          </ProjectTeamDetails>
         </>
       ) : (
         <p>{t("collaboration.removed")}</p>

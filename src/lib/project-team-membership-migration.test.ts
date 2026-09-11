@@ -1687,3 +1687,48 @@ describe("explicit saved invitation email delivery", () => {
     await db.exec("RESET ROLE");
   });
 });
+
+async function currentDecision(who: string, approved: boolean, version = "a".repeat(64)) {
+  const snap = (
+    await db.query<{ s: { draftHash: string; workspaceRevision: number } }>(
+      "SELECT read_project_team_snapshot($1,$2,'p','a') s",
+      [who, owner],
+    )
+  ).rows[0].s;
+  return db.query(
+    "SELECT save_project_team_approval($1,$2,'p','a',gen_random_uuid(),$3,$4,$5,1,1,$6)",
+    [who, owner, snap.workspaceRevision, snap.draftHash, version, approved],
+  );
+}
+it("coalesces fresh-ID unchanged rejections without growing history or changing the draft/revision", async () => {
+  await create();
+  await accept();
+  await db.query("SELECT set_project_team_approval_policy($1,$1,'p',0,'editors_can_approve')", [
+    owner,
+  ]);
+  await currentDecision(actor, false);
+  const before = await db.query("SELECT data FROM workspace_entities WHERE collection='content'");
+  const revision = await db.query("SELECT rev FROM workspace_meta");
+  for (let i = 0; i < 3; i++) await currentDecision(actor, false);
+  expect(
+    (await db.query("SELECT data FROM workspace_entities WHERE collection='content'")).rows,
+  ).toEqual(before.rows);
+  expect((await db.query("SELECT rev FROM workspace_meta")).rows).toEqual(revision.rows);
+  expect(
+    (await db.query("SELECT count(*)::int n FROM project_team_approval_history")).rows,
+  ).toEqual([{ n: 1 }]);
+});
+it("limits all fresh decisions per actor while preserving owner access", async () => {
+  await create();
+  await accept();
+  await db.query("SELECT set_project_team_approval_policy($1,$1,'p',0,'editors_can_approve')", [
+    owner,
+  ]);
+  await db.query(
+    "INSERT INTO project_team_approval_history(owner_id,project_id,asset_id,review_id,actor_id,membership_revision,policy_revision,version_hash,approved) SELECT $1,'p','a',gen_random_uuid(),$2,1,1,repeat('b',64),false FROM generate_series(1,120)",
+    [owner, actor],
+  );
+  await expect(currentDecision(actor, false)).rejects.toThrow("team_approval_capacity");
+  await expect(currentDecision(actor, true)).rejects.toThrow("team_approval_capacity");
+  await expect(currentDecision(owner, false)).resolves.toBeDefined();
+});

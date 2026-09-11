@@ -131,3 +131,20 @@ describe("collaborator canonical preview", () => {
     );
   });
 });
+
+it("excludes retained social images while the featured image is unapproved", async () => {
+  const ctx = context();
+  ctx.asset.featuredImage = {
+    imageId: "im",
+    url: "https://client.example/hero.png",
+    storagePath: "fixture",
+    alt: "Hero",
+    hero: {},
+    approval: "draft",
+    social: { physicalUrl: "https://client.example/old-social.png" },
+  } as typeof ctx.asset.featuredImage;
+  const result = await readProjectTeamPreview(actor, target, async () => ctx, authority);
+  expect(result.media.some((item) => item.kind === "social")).toBe(false);
+  expect(result.html).not.toContain("old-social");
+  expect(result.version).toEqual(await publicationVersion(ctx.asset, ctx.project, ["/"]));
+});

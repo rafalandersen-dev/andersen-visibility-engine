@@ -76,7 +76,7 @@ export async function readProjectTeamPreview(
       url: featured.url,
     });
   let reviewHtml = assembled.html;
-  if (featured?.social?.physicalUrl) {
+  if (featured?.approval === "approved" && featured.social?.physicalUrl) {
     // JSON-LD/OG may use a different object from the hero. Include it visibly
     // even though it does not occur in the article body.
     media.push({

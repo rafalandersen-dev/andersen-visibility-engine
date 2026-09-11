@@ -1,4 +1,6 @@
 const en = {
+  "collaboration.reviewImageLimits":
+    "These images exceed the review limits or cannot be safely displayed. Reduce their number or size and use still PNG, JPEG or WebP images.",
   "collaboration.emailInvitation": "Email invitation",
   "collaboration.invitationEmailHelp":
     "Send an invitation to the email address shown above for the displayed role. Opening the email link does not grant access.",
@@ -112,6 +114,8 @@ const en = {
 };
 type Copy = Record<keyof typeof en, string>;
 const pl: Copy = {
+  "collaboration.reviewImageLimits":
+    "Te obrazy przekraczają limity podglądu lub nie można ich bezpiecznie wyświetlić. Zmniejsz ich liczbę lub rozmiar i użyj statycznych obrazów PNG, JPEG lub WebP.",
   "collaboration.emailInvitation": "Wyślij zaproszenie e-mailem",
   "collaboration.invitationEmailHelp":
     "Wyślij zaproszenie na powyższy adres e-mail z widoczną rolą. Otwarcie linku nie przyznaje dostępu.",
@@ -225,6 +229,8 @@ const pl: Copy = {
   "collaboration.revoked": "Cofnięte",
 };
 const sv: Copy = {
+  "collaboration.reviewImageLimits":
+    "Bilderna överskrider granskningsgränserna eller kan inte visas säkert. Minska antalet eller storleken och använd stillbilder i PNG, JPEG eller WebP.",
   "collaboration.emailInvitation": "Skicka inbjudan via e-post",
   "collaboration.invitationEmailHelp":
     "Skicka en inbjudan till e-postadressen ovan för den visade rollen. Att öppna länken ger inte åtkomst.",
@@ -338,6 +344,8 @@ const sv: Copy = {
   "collaboration.revoked": "Återkallad",
 };
 const da: Copy = {
+  "collaboration.reviewImageLimits":
+    "Billederne overskrider grænserne for gennemgang eller kan ikke vises sikkert. Reducer antallet eller størrelsen, og brug stillbilleder i PNG, JPEG eller WebP.",
   "collaboration.emailInvitation": "Send invitation via e-mail",
   "collaboration.invitationEmailHelp":
     "Send en invitation til e-mailadressen ovenfor med den viste rolle. Åbning af linket giver ikke adgang.",

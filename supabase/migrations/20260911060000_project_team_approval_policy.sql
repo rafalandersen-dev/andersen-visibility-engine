@@ -42,6 +42,7 @@ ALTER TABLE public.project_team_approval_history ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.project_team_approval_history FROM PUBLIC,anon,authenticated,service_role;
 
 CREATE INDEX project_team_approval_history_recent_activity ON public.project_team_approval_history(owner_id,project_id,created_at);
+CREATE INDEX project_team_approval_history_actor_activity ON public.project_team_approval_history(owner_id,project_id,actor_id,created_at);
 CREATE FUNCTION public.set_project_team_approval_policy(p_actor uuid,p_owner uuid,p_project text,p_expected bigint,p_mode text)
 RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE previous bigint;
@@ -136,7 +137,14 @@ BEGIN
   IF NOT EXISTS(SELECT 1 FROM public.publication_approvals WHERE user_id=p_owner AND project_id=p_project AND asset_id=p_asset)
     AND (SELECT count(*) FROM public.publication_approvals WHERE user_id=p_owner AND project_id=p_project)>=1000 THEN RAISE EXCEPTION 'publication_approval_capacity'; END IF;
   IF EXISTS(SELECT 1 FROM public.project_team_approval_history WHERE owner_id=p_owner AND review_id=p_review) THEN RAISE EXCEPTION 'team_approval_replay'; END IF;
-  IF p_approved AND (SELECT count(*) FROM public.project_team_approval_history WHERE owner_id=p_owner AND project_id=p_project AND created_at>clock_timestamp()-interval '1 hour')>=10000 THEN RAISE EXCEPTION 'team_approval_capacity'; END IF;
+  -- Coalesce fresh-ID repetitions of an already recorded, still-current rejection.
+  -- Authority and exact current draft checks above still run on every request.
+  IF NOT p_approved AND EXISTS(SELECT 1 FROM public.workspace_entities WHERE user_id=p_owner AND collection='content' AND entity_id=p_asset AND data->>'status'='Rejected')
+    AND EXISTS(SELECT 1 FROM public.publication_approvals WHERE user_id=p_owner AND project_id=p_project AND asset_id=p_asset AND version_hash=p_version AND NOT approved)
+    AND EXISTS(SELECT 1 FROM public.project_team_approval_history WHERE owner_id=p_owner AND project_id=p_project AND asset_id=p_asset AND actor_id=p_actor AND version_hash=p_version AND membership_revision=p_membership AND policy_revision=p_policy AND NOT approved)
+    THEN RETURN true; END IF;
+  IF (SELECT count(*) FROM public.project_team_approval_history WHERE owner_id=p_owner AND project_id=p_project AND created_at>clock_timestamp()-interval '1 hour')>=10000 THEN RAISE EXCEPTION 'team_approval_capacity'; END IF;
+  IF (SELECT count(*) FROM public.project_team_approval_history WHERE owner_id=p_owner AND project_id=p_project AND actor_id=p_actor AND created_at>clock_timestamp()-interval '1 hour')>=120 THEN RAISE EXCEPTION 'team_approval_capacity'; END IF;
   PERFORM 1 FROM public.scheduled_publishes WHERE user_id=p_owner AND project_id=p_project AND asset_id=p_asset FOR UPDATE;
   IF EXISTS(SELECT 1 FROM public.scheduled_publishes WHERE user_id=p_owner AND project_id=p_project AND asset_id=p_asset AND status='publishing') THEN RAISE EXCEPTION 'team_publication_in_flight'; END IF;
   -- Preserve an independent owner approval only for this same approved version.

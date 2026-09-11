@@ -1,3 +1,4 @@
+import { createReviewImageBudget, REVIEW_IMAGE_LIMITS } from "@/lib/project-team-image-budget";
 import { ProjectTeamReviewDecision, ProjectTeamReviewHistory } from "./ProjectTeamReviewDecision";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -28,6 +29,7 @@ export function ProjectTeamRenderedReview({
     urls: Record<string, string>;
     hashes: Record<string, string>;
     error: boolean;
+    budget?: boolean;
   } | null>(null);
   const [frameStamp, setFrameStamp] = useState(0);
   useEffect(() => {
@@ -40,9 +42,11 @@ export function ProjectTeamRenderedReview({
     void (async () => {
       try {
         if (preview.unknownImages) throw new Error("unknown_images");
+        const budget = createReviewImageBudget(preview.media.length);
         const urls: Record<string, string> = {};
         const hashes: Record<string, string> = {};
         for (const item of preview.media) {
+          budget.beforeDownload();
           const image = await readProjectTeamMediaFn({
             data: {
               ownerId,
@@ -61,13 +65,22 @@ export function ProjectTeamRenderedReview({
             !["image/png", "image/jpeg", "image/webp"].includes(image.contentType)
           )
             throw new Error("image_changed");
+          if (image.base64.length > Math.ceil(REVIEW_IMAGE_LIMITS.imageBytes / 3) * 4)
+            throw new Error("image_budget");
           const bytes = Uint8Array.from(atob(image.base64), (ch) => ch.charCodeAt(0));
+          const size = budget.accept(bytes, image.contentType);
           const url = URL.createObjectURL(new Blob([bytes], { type: image.contentType }));
           created.push(url);
           // A magic-byte check alone does not prove the browser can render a file.
           const check = new Image();
           check.src = url;
           await check.decode();
+          if (
+            check.naturalWidth * check.naturalHeight !== size.width * size.height ||
+            check.naturalWidth > REVIEW_IMAGE_LIMITS.side ||
+            check.naturalHeight > REVIEW_IMAGE_LIMITS.side
+          )
+            throw new Error("image_dimensions");
           if (cancelled) {
             URL.revokeObjectURL(url);
             return;
@@ -76,9 +89,18 @@ export function ProjectTeamRenderedReview({
           hashes[item.key] = image.byteHash;
         }
         if (!cancelled) setMedia({ stamp: query.dataUpdatedAt, urls, hashes, error: false });
-      } catch {
+      } catch (error) {
         created.forEach((url) => URL.revokeObjectURL(url));
-        if (!cancelled) setMedia({ stamp: query.dataUpdatedAt, urls: {}, hashes: {}, error: true });
+        if (!cancelled)
+          setMedia({
+            stamp: query.dataUpdatedAt,
+            urls: {},
+            hashes: {},
+            error: true,
+            budget:
+              error instanceof Error &&
+              ["review_image_budget", "image_budget"].includes(error.message),
+          });
       }
     })();
     return () => {
@@ -105,7 +127,11 @@ export function ProjectTeamRenderedReview({
       {(query.isPending || (!ready && !query.isError && !media?.error)) && (
         <p role="status">{t("collaboration.loadingReview")}</p>
       )}
-      {(query.isError || media?.error) && <p role="alert">{t("collaboration.incompleteReview")}</p>}
+      {(query.isError || media?.error) && (
+        <p role="alert">
+          {t(media?.budget ? "collaboration.reviewImageLimits" : "collaboration.incompleteReview")}
+        </p>
+      )}
       {ready && (
         <>
           <p className="font-medium">{query.data.title}</p>
