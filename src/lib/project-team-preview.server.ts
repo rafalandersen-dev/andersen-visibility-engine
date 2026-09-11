@@ -21,8 +21,8 @@ const escape = (s: string) =>
     .replace(/'/g, "&#39;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
-/** Replace canonical image URLs with identifiers. Raw storage paths, preview
- * tokens and connector settings never cross this projection boundary. */
+/** Replace generated image sources with review identifiers. Canonical prose,
+ * captions and links retain their text; private connector metadata is never projected. */
 export function teamPreviewHtml(html: string, images: { id: string; url?: string }[]) {
   let unknownImages = 0;
   const needed = new Set<string>();
@@ -32,18 +32,19 @@ export function teamPreviewHtml(html: string, images: { id: string; url?: string
       const url = escape(image.url.trim());
       if (!byUrl.has(url)) byUrl.set(url, image.id);
     }
-  let projected = html.replace(/<img\b[^>]*>/gi, (tag) => {
-    const match = tag.match(/\bsrc="([^"]*)"/i);
+  const projected = html.replace(/<img\b[^>]*>/gi, (tag) => {
+    const match = tag.match(/\ssrc="([^"]*)"/i);
     const id = match ? byUrl.get(match[1]) : undefined;
     if (!id) {
       unknownImages++;
       return '<span role="img" aria-label="Image unavailable">[Image unavailable]</span>';
     }
     needed.add(id);
-    return tag.replace(/\bsrc="[^"]*"/i, `src="milo-review-image:${id}"`);
+    return tag.replace(
+      /(\ssrc=")[^"]*"/i,
+      (_, prefix: string) => `${prefix}milo-review-image:${id}"`,
+    );
   });
-  // Also remove any occurrence of a known media URL in a link or caption.
-  for (const [url, id] of byUrl) projected = projected.split(url).join(`milo-review-image:${id}`);
   return { html: projected, imageIds: [...needed], unknownImages };
 }
 async function renderProjectTeamPreview(
