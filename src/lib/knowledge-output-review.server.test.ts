@@ -91,6 +91,16 @@ function fixture() {
   };
 }
 describe("saved knowledge inspection", () => {
+  it("refuses an unsaved transport candidate even when saved review evidence matches", async () => {
+    const f = fixture();
+    const candidate = {
+      ...f.workspace.data.content[0],
+      markdown: "Unsaved replacement",
+    } as unknown as import("./types").ContentAsset;
+    await expect(
+      readKnowledgeOutputReview(scope, { ...f.dependencies, candidate }),
+    ).rejects.toThrow("knowledge_output_changed");
+  });
   it("shows original registry versions and current facts even when the browser omitted references", async () => {
     const f = fixture();
     const result = await readKnowledgeOutputReview(scope, f.dependencies);

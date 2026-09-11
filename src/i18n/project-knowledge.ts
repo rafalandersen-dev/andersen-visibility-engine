@@ -1,6 +1,20 @@
 /** Project knowledge review strings. Wider intake/review localization remains in P1. */
 export const projectKnowledge = {
   en: {
+    "knowledge.review.preview": "Saved publication preview",
+    "knowledge.review.fact": "I checked this current fact against the saved output.",
+    "knowledge.review.confirm":
+      "I reviewed the complete saved text and all visuals shown above against these current facts.",
+    "knowledge.review.save": "Record knowledge review",
+    "knowledge.review.ineligible":
+      "Current evidence cannot support revalidation. Resolve the knowledge issue or prepare fresh output.",
+    "knowledge.review.saved": "Knowledge review recorded. Publication approval remains separate.",
+    "knowledge.review.history": "Knowledge review history",
+    "knowledge.review.historyHelp":
+      "Latest 100 reviews. A recorded review may no longer apply after evidence changes; publishing checks its current validity.",
+    "knowledge.review.recorded": "Recorded",
+    "knowledge.review.withdrawn": "Withdrawn",
+    "knowledge.review.withdraw": "Withdraw review",
     "knowledge.inspect.open": "Inspect saved knowledge",
     "knowledge.inspect.failed": "Inspection could not be loaded. Save changes and try again.",
     "knowledge.inspect.help":
@@ -275,6 +289,21 @@ export const projectKnowledge = {
     "knowledge.sourceHistory.latest": "Latest source versions",
   },
   pl: {
+    "knowledge.review.preview": "Podgląd zapisanej publikacji",
+    "knowledge.review.fact": "Sprawdziłem ten aktualny fakt w odniesieniu do zapisanego materiału.",
+    "knowledge.review.confirm":
+      "Sprawdziłem cały zapisany tekst i wszystkie obrazy powyżej względem tych aktualnych faktów.",
+    "knowledge.review.save": "Zapisz przegląd wiedzy",
+    "knowledge.review.ineligible":
+      "Aktualne źródła nie pozwalają na ponowne zatwierdzenie. Rozwiąż problem z wiedzą lub przygotuj nowy materiał.",
+    "knowledge.review.saved":
+      "Przegląd wiedzy zapisany. Zatwierdzenie publikacji jest osobnym krokiem.",
+    "knowledge.review.history": "Historia przeglądów wiedzy",
+    "knowledge.review.historyHelp":
+      "Ostatnie 100 przeglądów. Zapisany przegląd może utracić ważność po zmianie źródeł; publikacja sprawdza jego aktualność.",
+    "knowledge.review.recorded": "Zapisany",
+    "knowledge.review.withdrawn": "Wycofany",
+    "knowledge.review.withdraw": "Wycofaj przegląd",
     "knowledge.inspect.open": "Sprawdź zapisaną wiedzę",
     "knowledge.inspect.failed": "Nie udało się wczytać podglądu. Zapisz zmiany i spróbuj ponownie.",
     "knowledge.inspect.help":
@@ -551,6 +580,22 @@ export const projectKnowledge = {
     "knowledge.sourceHistory.latest": "Najnowsze wersje źródła",
   },
   sv: {
+    "knowledge.review.preview": "Förhandsvisning av sparad publicering",
+    "knowledge.review.fact":
+      "Jag har kontrollerat denna aktuella uppgift mot det sparade innehållet.",
+    "knowledge.review.confirm":
+      "Jag har granskat hela den sparade texten och alla bilder ovan mot dessa aktuella uppgifter.",
+    "knowledge.review.save": "Spara kunskapsgranskning",
+    "knowledge.review.ineligible":
+      "Aktuellt underlag kan inte stödja en ny granskning. Åtgärda kunskapsproblemet eller skapa nytt innehåll.",
+    "knowledge.review.saved":
+      "Kunskapsgranskningen har sparats. Publiceringsgodkännande är ett separat steg.",
+    "knowledge.review.history": "Historik för kunskapsgranskning",
+    "knowledge.review.historyHelp":
+      "De senaste 100 granskningarna. En sparad granskning kan bli ogiltig när underlaget ändras; publiceringen kontrollerar aktuell giltighet.",
+    "knowledge.review.recorded": "Sparad",
+    "knowledge.review.withdrawn": "Återkallad",
+    "knowledge.review.withdraw": "Återkalla granskningen",
     "knowledge.inspect.open": "Granska sparad kunskap",
     "knowledge.inspect.failed":
       "Granskningen kunde inte laddas. Spara ändringarna och försök igen.",
@@ -832,6 +877,21 @@ export const projectKnowledge = {
     "knowledge.sourceHistory.latest": "Senaste källversionerna",
   },
   da: {
+    "knowledge.review.preview": "Forhåndsvisning af gemt udgivelse",
+    "knowledge.review.fact": "Jeg har kontrolleret denne aktuelle oplysning mod det gemte indhold.",
+    "knowledge.review.confirm":
+      "Jeg har gennemgået hele den gemte tekst og alle billeder ovenfor mod disse aktuelle oplysninger.",
+    "knowledge.review.save": "Gem vidensgennemgang",
+    "knowledge.review.ineligible":
+      "Det aktuelle kildemateriale kan ikke understøtte en ny gennemgang. Løs vidensproblemet eller opret nyt indhold.",
+    "knowledge.review.saved":
+      "Vidensgennemgangen er gemt. Godkendelse af udgivelse er et separat trin.",
+    "knowledge.review.history": "Historik for vidensgennemgang",
+    "knowledge.review.historyHelp":
+      "De seneste 100 gennemgange. En gemt gennemgang kan blive ugyldig efter kildeændringer; udgivelsen kontrollerer dens aktuelle gyldighed.",
+    "knowledge.review.recorded": "Gemt",
+    "knowledge.review.withdrawn": "Tilbagekaldt",
+    "knowledge.review.withdraw": "Tilbagekald gennemgang",
     "knowledge.inspect.open": "Gennemse gemt viden",
     "knowledge.inspect.failed": "Gennemgangen kunne ikke indlæses. Gem ændringerne og prøv igen.",
     "knowledge.inspect.help":

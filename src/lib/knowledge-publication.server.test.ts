@@ -1,5 +1,9 @@
 import { assertAssetSourcesCurrent, sourceIssuesForAsset } from "./source-publication.server";
 import { describe, it, expect, vi } from "vitest";
+import { hasCurrentOutputKnowledgeReview } from "./knowledge-reviewed-publication.server";
+vi.mock("./knowledge-reviewed-publication.server", () => ({
+  hasCurrentOutputKnowledgeReview: vi.fn(async () => false),
+}));
 import {
   evaluateAssetKnowledge,
   knowledgeIssuesForAsset,
@@ -209,6 +213,23 @@ describe("exact output knowledge publication", () => {
 });
 
 describe("shared manual and scheduled publication gate", () => {
+  it("consumes a current explicit knowledge review through the actual shared gate", async () => {
+    const rpc = vi.fn(async (name: string) => ({
+      data: name === "read_project_knowledge" ? { sources: [], records: [] } : [],
+      error: null,
+    }));
+    vi.mocked(hasCurrentOutputKnowledgeReview).mockResolvedValueOnce(true);
+    await expect(assertAssetSourcesCurrent(owner, asset, rpc)).resolves.toBeUndefined();
+    expect(vi.mocked(hasCurrentOutputKnowledgeReview)).toHaveBeenLastCalledWith(
+      owner,
+      expect.objectContaining(asset),
+      expect.any(String),
+      rpc,
+    );
+    expect(
+      rpc.mock.calls.every((call) => !call[0].includes("approval") && !call[0].includes("save")),
+    ).toBe(true);
+  });
   it("holds a stripped article on withdrawn knowledge before any source refresh", async () => {
     const rpc = vi.fn(async (name: string) => ({
       error: null,

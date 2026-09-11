@@ -178,5 +178,9 @@ export async function knowledgeIssuesForAsset(
   const profile = state.records.some((r) => mappedBrandField(r.key))
     ? await readProjectKnowledgeBrand({ ownerId: userId, projectId: asset.projectId }, rpc)
     : undefined;
-  return evaluateAssetKnowledge(userId, asset, state, registry, now, profile);
+  const issues = evaluateAssetKnowledge(userId, asset, state, registry, now, profile);
+  if (!issues.length || issues.some((issue) => issue.key === "forgotten-knowledge")) return issues;
+  const { hasCurrentOutputKnowledgeReview } =
+    await import("./knowledge-reviewed-publication.server");
+  return (await hasCurrentOutputKnowledgeReview(userId, asset, now, rpc)) ? [] : issues;
 }

@@ -92,9 +92,15 @@ RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 BEGIN
   IF NEW.data IS NOT DISTINCT FROM OLD.data THEN RETURN NEW; END IF;
   IF OLD.collection='content' THEN
+    -- These fields are excluded by publicationVersion and cannot change the
+    -- reviewed deliverable. Scheduling or granting separate publication
+    -- approval must not immediately invalidate a completed knowledge review.
+    IF (NEW.data - ARRAY['status','updatedAt','scheduledPublishAt','sourceHeldPublishAt'])
+       IS NOT DISTINCT FROM (OLD.data - ARRAY['status','updatedAt','scheduledPublishAt','sourceHeldPublishAt']) THEN RETURN NEW; END IF;
     UPDATE public.output_knowledge_reviews SET active=false,withdrawn_at=clock_timestamp()
       WHERE user_id=OLD.user_id AND asset_id=OLD.entity_id AND active;
   ELSIF OLD.collection='projects' THEN
+    IF (NEW.data - 'updatedAt') IS NOT DISTINCT FROM (OLD.data - 'updatedAt') THEN RETURN NEW; END IF;
     UPDATE public.output_knowledge_reviews SET active=false,withdrawn_at=clock_timestamp()
       WHERE user_id=OLD.user_id AND project_id=OLD.entity_id AND active;
   END IF;
@@ -103,3 +109,29 @@ END; $$;
 CREATE TRIGGER invalidate_output_knowledge_review AFTER UPDATE ON public.workspace_entities
 FOR EACH ROW EXECUTE FUNCTION public.invalidate_output_knowledge_review();
 REVOKE ALL ON FUNCTION public.invalidate_output_knowledge_review() FROM PUBLIC,anon,authenticated,service_role;
+
+-- Evidence changes withdraw existing reviews immediately as well as changing
+-- the context hash. This also prevents a stale read followed by a newer history
+-- read from treating changed knowledge as an active old review.
+CREATE FUNCTION public.invalidate_knowledge_review_evidence()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE owner_id uuid; project text; output_asset text;
+BEGIN
+  IF TG_OP='UPDATE' AND NEW IS NOT DISTINCT FROM OLD THEN RETURN NEW; END IF;
+  IF TG_OP='DELETE' THEN owner_id:=OLD.user_id; project:=OLD.project_id;
+  ELSE owner_id:=NEW.user_id; project:=NEW.project_id; END IF;
+  IF TG_TABLE_NAME='project_output_source_dependencies' THEN
+    IF TG_OP='DELETE' THEN output_asset:=OLD.asset_id; ELSE output_asset:=NEW.asset_id; END IF;
+  END IF;
+  UPDATE public.output_knowledge_reviews SET active=false,withdrawn_at=clock_timestamp()
+    WHERE user_id=owner_id AND project_id=project AND active AND (output_asset IS NULL OR asset_id=output_asset);
+  IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+  RETURN NEW;
+END; $$;
+CREATE TRIGGER invalidate_knowledge_review_evidence AFTER INSERT OR UPDATE OR DELETE ON public.project_knowledge_sources
+FOR EACH ROW EXECUTE FUNCTION public.invalidate_knowledge_review_evidence();
+CREATE TRIGGER invalidate_knowledge_review_evidence AFTER INSERT OR UPDATE OR DELETE ON public.project_knowledge_records
+FOR EACH ROW EXECUTE FUNCTION public.invalidate_knowledge_review_evidence();
+CREATE TRIGGER invalidate_knowledge_review_evidence AFTER INSERT OR UPDATE OR DELETE ON public.project_output_source_dependencies
+FOR EACH ROW EXECUTE FUNCTION public.invalidate_knowledge_review_evidence();
+REVOKE ALL ON FUNCTION public.invalidate_knowledge_review_evidence() FROM PUBLIC,anon,authenticated,service_role;

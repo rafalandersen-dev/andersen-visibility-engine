@@ -59,6 +59,48 @@ const history = async (owner = user) =>
     )
   ).rows[0].result;
 describe("durable knowledge review storage", () => {
+  it("preserves a knowledge review across separate approval and scheduling metadata", async () => {
+    await save((await context()).contextHash);
+    await db.query(
+      "UPDATE public.workspace_entities SET data=data || $1::jsonb WHERE user_id=$2 AND collection='content' AND entity_id='a'",
+      [
+        JSON.stringify({
+          status: "Approved",
+          updatedAt: "2026-09-11T01:00:00Z",
+          scheduledPublishAt: "2026-09-12T01:00:00Z",
+        }),
+        user,
+      ],
+    );
+    expect((await history())[0].active).toBe(true);
+  });
+  it("withdraws immediately when retained evidence changes", async () => {
+    await save((await context()).contextHash);
+    await db.query(
+      "INSERT INTO public.project_output_source_dependencies(user_id,project_id,asset_id,output_id,kind,dependencies,knowledge_forgotten) VALUES($1,'p','a','a','content','[]',true)",
+      [user],
+    );
+    expect((await history())[0].active).toBe(false);
+  });
+  it("withdraws immediately when project knowledge changes", async () => {
+    await save((await context()).contextHash);
+    await db.query("SELECT public.save_project_knowledge($1,'p','source',$2,0,$3)", [
+      user,
+      sourceId,
+      JSON.stringify({
+        ownerId: user,
+        projectId: "p",
+        id: sourceId,
+        revision: 1,
+        kind: "owner",
+        status: "active",
+        fingerprint: "b".repeat(64),
+        label: "Changed",
+        observedAt: "2026-09-11T00:00:00Z",
+      }),
+    ]);
+    expect((await history())[0].active).toBe(false);
+  });
   it("withdraws on a saved edit and does not revive when the edit is reverted", async () => {
     const hash = (await context()).contextHash;
     await save(hash);

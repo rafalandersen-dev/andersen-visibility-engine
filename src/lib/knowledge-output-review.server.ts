@@ -6,8 +6,9 @@ import { evaluateAssetKnowledge } from "./knowledge-publication.server";
 import { readKnowledgeReviewContext } from "./knowledge-review-context.server";
 import { knowledgeReferencesSchema, selectProjectKnowledge } from "./project-knowledge";
 import { filterBrandKnowledge } from "./knowledge-brand";
-import { publicationVersion } from "./publication-version";
+import { publicationVersion, samePublicationVersion } from "./publication-version";
 import { buildActiveInternalPaths } from "./publish-targets";
+import { assembleContentAsset } from "./content-assembler";
 
 export const knowledgeOutputReviewScope = z
   .object({
@@ -21,7 +22,12 @@ export const knowledgeOutputReviewScope = z
  * provenance. A later review write must re-read and atomically bind its state. */
 export async function readKnowledgeOutputReview(
   target: z.infer<typeof knowledgeOutputReviewScope>,
-  dependencies: { read?: typeof readWorkspaceRow; rpc?: KnowledgeRpc; now?: string } = {},
+  dependencies: {
+    read?: typeof readWorkspaceRow;
+    rpc?: KnowledgeRpc;
+    now?: string;
+    candidate?: ContentAsset;
+  } = {},
 ) {
   const scope = knowledgeOutputReviewScope.parse(target);
   const read = dependencies.read ?? (await import("./workspace.server")).readWorkspaceRow;
@@ -76,6 +82,21 @@ export async function readKnowledgeOutputReview(
       content.filter((a) => a.projectId === project.id),
     ),
   );
+  if (
+    dependencies.candidate &&
+    !samePublicationVersion(
+      version,
+      await publicationVersion(
+        dependencies.candidate,
+        project,
+        buildActiveInternalPaths(
+          project,
+          content.filter((a) => a.projectId === project.id),
+        ),
+      ),
+    )
+  )
+    throw new Error("knowledge_output_changed");
   const selections = {
     content: filterBrandKnowledge(
       selectProjectKnowledge(state.sources, state.records, knowledgeScope, "text", now),
@@ -107,16 +128,34 @@ export async function readKnowledgeOutputReview(
     );
     return {
       ...item,
+      reviewKey: JSON.stringify([item.kind, item.outputId, item.reference]),
       record: record ?? null,
       source: source ?? null,
       currentReference: currentReference ?? null,
     };
   });
+  const assembled = assembleContentAsset(asset, project, {
+    activeInternalPaths: new Set(
+      buildActiveInternalPaths(
+        project,
+        content.filter((a) => a.projectId === project.id),
+      ),
+    ),
+  });
   const result = {
     assetId: asset.id,
     title: asset.title,
     markdown: asset.markdown ?? "",
+    deliverable: {
+      markdown: assembled.markdown,
+      html: assembled.html,
+      structuredData: JSON.stringify(assembled.jsonLd),
+      metaTitle: asset.metaTitle ?? "",
+      metaDescription: asset.metaDescription ?? "",
+      slug: asset.publishSlug || asset.slug || "",
+    },
     version,
+    workspaceRevision: workspace.rev,
     contextHash: context.contextHash,
     checkedAt: now,
     facts,
