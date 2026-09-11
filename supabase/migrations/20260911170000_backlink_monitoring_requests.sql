@@ -82,7 +82,8 @@ BEGIN
  website:=public.read_backlink_monitoring_owner(p_user,p_project,true);
  SELECT * INTO current FROM public.backlink_monitoring_requests WHERE user_id=p_user AND project_id=p_project AND request_id=p_request FOR UPDATE;
  IF NOT FOUND OR current.status<>'reserved' OR p_lease IS NULL OR current.lease_token IS DISTINCT FROM p_lease OR current.dispatched_at IS NOT NULL THEN RETURN false; END IF;
- IF current.website_value IS DISTINCT FROM website OR current.lease_until<=clock_timestamp()+interval '25 seconds' THEN
+ -- Keep30seconds for post-admission transport/persistence plus the10-second admission round trip.
+ IF current.website_value IS DISTINCT FROM website OR current.lease_until<=clock_timestamp()+interval '40 seconds' THEN
    UPDATE public.backlink_monitoring_requests SET status='held',updated_at=clock_timestamp() WHERE user_id=p_user AND request_id=p_request; RETURN false;
  END IF;
  IF NOT pg_try_advisory_xact_lock(hashtext('backlink_monitoring_limits')) THEN RAISE EXCEPTION 'backlink_monitoring_busy' USING ERRCODE='55P03'; END IF;

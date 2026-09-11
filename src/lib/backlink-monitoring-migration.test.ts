@@ -318,3 +318,36 @@ it("cannot turn unknown provider outcomes into zero-cost settlements", async () 
     { state: "unknown", actual_microusd: null },
   ]);
 });
+
+it.each([25, 29, 30, 35, 40])(
+  "does not reserve expense when only %s seconds remain before dispatch admission",
+  async (seconds) => {
+    const lease = (await reserve()).rows[0].result.record.lease_token!;
+    await fund();
+    await db.query(
+      "UPDATE backlink_monitoring_requests SET lease_until=clock_timestamp()+$1*interval '1 second'",
+      [seconds],
+    );
+    expect((await dispatch(lease)).rows[0].result).toBe(false);
+    expect(
+      (await db.query("SELECT status,dispatched_at FROM backlink_monitoring_requests")).rows,
+    ).toEqual([{ status: "held", dispatched_at: null }]);
+    expect(
+      (await db.query<{ n: number }>("SELECT count(*)::int n FROM ai_expense_requests")).rows[0].n,
+    ).toBe(0);
+    expect(
+      (
+        await db.query<{ n: number }>(
+          "SELECT sum(reserved_microusd)::int n FROM ai_expense_budgets",
+        )
+      ).rows[0].n,
+    ).toBe(0);
+    expect(
+      (await db.query("SELECT cardinality(dispatches) n,leases FROM backlink_monitoring_limits"))
+        .rows,
+    ).toEqual([
+      { n: 0, leases: {} },
+      { n: 0, leases: {} },
+    ]);
+  },
+);

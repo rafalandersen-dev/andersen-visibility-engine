@@ -77,3 +77,9 @@ Explicit collection now includes an expectedWebsite precondition from the displa
 Validation:40 focused lifecycle, authenticated endpoint, history and UI tests, TypeScript and changed-file lint pass (`/tmp/milo-monitor-website-{tests,types,lint}.log`). Regressions verify a mismatched displayed domain causes only the context read and no reservation/provider call, while surrounding whitespace remains valid. Findings3992097616 and3992097626 addressed. This pre-dispatch server guard prevents the reported wrong-target collection without trusting optimistic client state.
 
 Immediately before this website-binding change, all3458 tests/258files and production build passed at8c9881d (`/tmp/milo-monitor-release-full-tests.log`, `/tmp/milo-monitor-release-build.log`). Those full results do not cover the later binding change; the40 focused tests/types/lint above do. No production migration or live supplier action occurred.
+
+## Database admission cutoff matches dispatch timing
+
+The unapplied monitoring migration now refuses admission when40seconds or less remain, preserving the server's30-second post-admission requirement plus the10-second admission round trip. This check occurs before quota consumption and expense reservation. Short leases become held with no dispatch timestamp rather than creating a known-undispatched unknown expense.
+
+Validation:36 actual-SQL/lifecycle tests pass, plus TypeScript and changed-file lint (`/tmp/milo-monitor-cutoff-{tests,types,lint}.log`). Five SQL boundaries at25/29/30/35/40seconds verify zero expense rows, zero reserved money and unchanged dispatch quotas. Finding3992172211 addressed. Existing normal60-second admissions still pass. No live supplier or production mutation occurred.
