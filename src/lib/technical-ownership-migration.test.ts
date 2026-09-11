@@ -671,3 +671,41 @@ describe("per-connection crawl dispatch", () => {
     }
   });
 });
+
+it.each([false, true])(
+  "does not offer admission resume for a changed website: save=%s",
+  async (saving) => {
+    const run = "00000000-0000-4000-8000-000000000003";
+    await issue();
+    await finish(await begin());
+    await db.query(
+      "SELECT start_technical_crawl($1,'p',$2,1,'https://example.test','https://example.test')",
+      [owner, run],
+    );
+    const lease = saving
+      ? (
+          await db.query<{ result: { lease_token: string; revision: number } }>(
+            "SELECT claim_technical_crawl($1,'p',$2) result",
+            [owner, run],
+          )
+        ).rows[0].result
+      : null;
+    await db.query("UPDATE workspace_entities SET data=$1 WHERE user_id=$2 AND entity_id='p'", [
+      { websiteUrl: "https://changed.test" },
+      owner,
+    ]);
+    if (lease)
+      await db.query("SELECT save_technical_crawl_step($1,'p',$2,$3,$4,$5,'running')", [
+        owner,
+        run,
+        lease.lease_token,
+        lease.revision,
+        { origin: "https://example.test" },
+      ]);
+    else await db.query("SELECT claim_technical_crawl($1,'p',$2)", [owner, run]);
+    expect(
+      (await db.query("SELECT status,state,admission_hold,resume_status FROM technical_crawls"))
+        .rows,
+    ).toEqual([{ status: "held", state: {}, admission_hold: null, resume_status: null }]);
+  },
+);

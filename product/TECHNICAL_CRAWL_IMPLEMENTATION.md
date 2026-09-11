@@ -203,3 +203,11 @@ A new account-and-address budget prevents one account from consuming the entire 
 Validation correction: f980f44 CI failed TypeScript because the empty-header test fixture inferred an optional undefined header. Its earlier final-local-type claim must not be used as release evidence. An explicit Record<string,string> fixture type fixes that mismatch without changing runtime behavior; fresh type checking and13 crawl tests pass (`/tmp/milo-http-fixture-{types,tests}.log`). Ownership/fair-share checks pass34 focused tests / two files (`/tmp/milo-crawl-fairshare-focused.log`). Full combined validation is next. Migrations150000/160000 changed and remain unapplied. No live requests or production changes occurred.
 
 Combined ownership/fairness validation: after incorporating team715926f by normal merge, all 3623 tests / 273 files, TypeScript, changed-file lint and production build pass. Logs `/tmp/milo-fairshare-final-{types,lint,full,build}.log`. The CI fixture mismatch is corrected in this tree. Final-head CI/review and guarded release remain outstanding; this does not prove real concurrent-session, browser or provider acceptance.
+
+### Google evidence size and changed-website holds — 11 September 2026
+
+Google sitemap and referring-URL evidence now share a 256 KiB serialized-string budget; omissions are explicitly incomplete and other index evidence is retained. URL validity also bounds serialized href length after Unicode escaping. This leaves room below the durable 1.5 MB observation limit and avoids losing an otherwise valid response when its normalized URLs expand.
+
+Ownership failure at claim/save retains resumable metadata only when the saved project website remains identical to the run. Changed-website runs remain held with saved evidence and no admission-resume action; a new crawl is required for the new website. Existing expiry/revocation renewal tests remain valid for unchanged websites.
+
+Validation:38 focused Google/actual-SQL tests, TypeScript and changed-file lint pass (`/tmp/milo-google-size-{tests,types,lint}.log`). Migration150000 remains unapplied; no Google or crawl request occurred. Findings3990999791 and3990999803 addressed.

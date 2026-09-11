@@ -141,3 +141,31 @@ describe("Google indexed-version evidence", () => {
     },
   );
 });
+
+it("bounds shared serialized URL evidence after Unicode expansion", () => {
+  const urls = Array.from(
+    { length: 100 },
+    (_, i) => `https://example.com/${"é".repeat(1250)}?i=${i}`,
+  );
+  const raw = {
+    inspectionResult: {
+      indexStatusResult: { sitemap: urls, referringUrls: urls, verdict: "PASS" },
+    },
+  };
+  expect(new TextEncoder().encode(JSON.stringify(raw)).length).toBeLessThan(1048576);
+  const result = normalizeGoogleIndex(raw, context);
+  expect(new TextEncoder().encode(JSON.stringify(result)).length).toBeLessThan(300000);
+  expect(result.sitemaps.complete).toBe(false);
+  expect(result.referringUrls.complete).toBe(false);
+  expect(result.sitemaps.values.length).toBeGreaterThan(0);
+  expect(result.verdict).toBe("PASS");
+  const oversized = normalizeGoogleIndex(
+    {
+      inspectionResult: {
+        indexStatusResult: { sitemap: [`https://example.com/${"é".repeat(2000)}`] },
+      },
+    },
+    context,
+  );
+  expect(oversized.sitemaps).toEqual({ values: [], complete: false });
+});

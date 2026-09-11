@@ -18,7 +18,7 @@ export function inspectionUrl(value: unknown): string | null {
       !url.hostname.includes(".")
     )
       return null;
-    return url.href;
+    return url.href.length <= 8192 ? url.href : null;
   } catch {
     return null;
   }
@@ -45,13 +45,26 @@ function label(value: unknown, max = 500): string | null {
 function enumeration(value: unknown, allowed: string[]): string | null {
   return typeof value === "string" && allowed.includes(value) ? value : null;
 }
-function urls(value: unknown) {
+function urls(value: unknown, budget: { remaining: number }) {
   if (!Array.isArray(value)) return { values: [] as string[], complete: value === undefined };
-  const values = value
-    .slice(0, 100)
-    .map(inspectionUrl)
-    .filter((url): url is string => url !== null);
-  return { values, complete: value.length <= 100 && values.length === value.length };
+  const values: string[] = [];
+  let complete = value.length <= 100;
+  for (const item of value.slice(0, 100)) {
+    const url = inspectionUrl(item);
+    if (!url) {
+      complete = false;
+      continue;
+    }
+    // Include JSON escaping and separators; both lists consume the same budget.
+    const size = new TextEncoder().encode(JSON.stringify(url)).length + 2;
+    if (size > budget.remaining) {
+      complete = false;
+      continue;
+    }
+    budget.remaining -= size;
+    values.push(url);
+  }
+  return { values, complete };
 }
 export function normalizeGoogleIndex(
   raw: unknown,
@@ -68,6 +81,8 @@ export function normalizeGoogleIndex(
     index = record(result.indexStatusResult);
   const lastCrawlTime = label(index.lastCrawlTime, 64);
   const link = inspectionUrl(result.inspectionResultLink);
+  // Leave ample room below the 1.5 MB durable observation bound for scalar evidence.
+  const urlBudget = { remaining: 256 * 1024 };
   return {
     source: "google_index" as const,
     inspectionMode: "indexed_version" as const,
@@ -102,8 +117,8 @@ export function normalizeGoogleIndex(
       lastCrawlTime && Number.isFinite(Date.parse(lastCrawlTime)) ? lastCrawlTime : null,
     googleCanonical: inspectionUrl(index.googleCanonical),
     userCanonical: inspectionUrl(index.userCanonical),
-    sitemaps: urls(index.sitemap),
-    referringUrls: urls(index.referringUrls),
+    sitemaps: urls(index.sitemap, urlBudget),
+    referringUrls: urls(index.referringUrls, urlBudget),
     inspectionResultLink:
       link && new URL(link).origin === "https://search.google.com" ? link : null,
   };

@@ -154,7 +154,7 @@ BEGIN
  SELECT * INTO current FROM public.technical_crawls WHERE user_id=p_user AND project_id=p_project AND run_id=p_run FOR UPDATE;
  IF NOT FOUND OR current.status NOT IN ('preparing','running') THEN RETURN NULL; END IF;
  IF current.website_value IS DISTINCT FROM website OR NOT EXISTS(SELECT 1 FROM public.technical_crawl_ownership WHERE user_id=p_user AND project_id=p_project AND website_value=website AND origin=current.origin AND revoked_at IS NULL AND expires_at>clock_timestamp() AND verified_until>clock_timestamp()) THEN
-   UPDATE public.technical_crawls SET status='held',admission_hold='ownership',resume_status=status,retry_after=NULL,revision=revision+1,lease_token=NULL,lease_until=NULL,updated_at=clock_timestamp() WHERE user_id=p_user AND run_id=p_run;
+   UPDATE public.technical_crawls SET status='held',admission_hold=CASE WHEN current.website_value IS DISTINCT FROM website THEN NULL ELSE 'ownership' END,resume_status=CASE WHEN current.website_value IS DISTINCT FROM website THEN NULL ELSE status END,retry_after=NULL,revision=revision+1,lease_token=NULL,lease_until=NULL,updated_at=clock_timestamp() WHERE user_id=p_user AND run_id=p_run;
    RETURN NULL;
  END IF;
  IF current.lease_until>clock_timestamp() THEN RETURN NULL; END IF;
@@ -172,7 +172,7 @@ BEGIN
  SELECT * INTO current FROM public.technical_crawls WHERE user_id=p_user AND project_id=p_project AND run_id=p_run FOR UPDATE;
  IF NOT FOUND OR current.status NOT IN ('preparing','running') OR p_lease IS NULL OR current.lease_token IS DISTINCT FROM p_lease OR current.lease_until IS NULL OR current.lease_until<=clock_timestamp() OR current.revision IS DISTINCT FROM p_revision THEN RETURN false; END IF;
  IF current.website_value IS DISTINCT FROM website OR NOT EXISTS(SELECT 1 FROM public.technical_crawl_ownership WHERE user_id=p_user AND project_id=p_project AND website_value=website AND origin=current.origin AND revoked_at IS NULL AND expires_at>clock_timestamp() AND verified_until>clock_timestamp()) THEN
-   UPDATE public.technical_crawls SET status='held',admission_hold='ownership',resume_status=status,retry_after=NULL,revision=revision+1,lease_token=NULL,lease_until=NULL,updated_at=clock_timestamp() WHERE user_id=p_user AND run_id=p_run;
+   UPDATE public.technical_crawls SET status='held',admission_hold=CASE WHEN current.website_value IS DISTINCT FROM website THEN NULL ELSE 'ownership' END,resume_status=CASE WHEN current.website_value IS DISTINCT FROM website THEN NULL ELSE status END,retry_after=NULL,revision=revision+1,lease_token=NULL,lease_until=NULL,updated_at=clock_timestamp() WHERE user_id=p_user AND run_id=p_run;
    RETURN false;
  END IF;
  IF p_status IS NULL OR p_status NOT IN ('running','completed','failed','held') OR p_state IS NULL OR jsonb_typeof(p_state)<>'object' OR p_state->>'origin' IS DISTINCT FROM current.origin OR octet_length(p_state::text)>4000000 THEN RAISE EXCEPTION 'technical_crawl_state_invalid'; END IF;
