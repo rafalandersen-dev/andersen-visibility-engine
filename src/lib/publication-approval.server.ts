@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { PublishNotPossibleError } from "./publish-outcome";
+import { TeamMediaCapacityError } from "./project-team-media-limit.server";
+import { PublishPreflightCapacityError, PublishNotPossibleError } from "./publish-outcome";
 import {
   publicationVersion,
   publicationVersionSchema,
@@ -146,7 +147,8 @@ export async function assertPublicationApproved(
     const { assertReviewedPublicationImages } =
       await import("./publication-reviewed-images.server");
     await assertReviewedPublicationImages(scope, current.hash, { rpc });
-  } catch {
+  } catch (error) {
+    if (error instanceof TeamMediaCapacityError) throw new PublishPreflightCapacityError();
     throw new PublishNotPossibleError("publication_approval_required");
   }
 }

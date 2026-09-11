@@ -93,7 +93,7 @@ export const teamReadInput = teamProjectTarget
   .strict();
 export const teamCommentTarget = teamProjectTarget.extend({ assetId: id }).strict();
 export const teamCommentRead = teamCommentTarget
-  .extend({ offset: z.number().int().min(0).max(5000).default(0) })
+  .extend({ offset: z.number().int().min(0).max(2147483500).default(0) })
   .strict();
 export const teamCommentAdd = teamCommentTarget
   .extend({
@@ -118,7 +118,7 @@ export const teamComments = teamCommentTarget
           .strict(),
       )
       .max(100),
-    remaining: z.number().int().min(0).max(5000),
+    remaining: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
   })
   .strict();
 export const teamDraftFields = z
@@ -185,6 +185,9 @@ export const teamReviewDecision = teamCommentTarget
           })
           .strict(),
       )
-      .max(32),
+      .refine(
+        (images) => new TextEncoder().encode(JSON.stringify(images)).byteLength <= 8_000_000,
+        "Image acknowledgement is too large.",
+      ),
   })
   .strict();

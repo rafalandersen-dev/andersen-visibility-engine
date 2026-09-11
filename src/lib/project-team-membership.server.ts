@@ -9,7 +9,15 @@ import {
 import type { TeamReadRpc } from "./project-team-read.server";
 export const projectTeamRpc: TeamReadRpc = async (method, params) => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return (supabaseAdmin as unknown as { rpc: TeamReadRpc }).rpc(method, params);
+  const client = supabaseAdmin as unknown as {
+    rpc: (
+      name: string,
+      args: Record<string, unknown>,
+    ) => {
+      abortSignal: (signal: AbortSignal) => ReturnType<TeamReadRpc>;
+    };
+  };
+  return client.rpc(method, params).abortSignal(AbortSignal.timeout(9000));
 };
 export async function teamCall(method: string, params: Record<string, unknown>, rpc: TeamReadRpc) {
   let timer: ReturnType<typeof setTimeout> | undefined;

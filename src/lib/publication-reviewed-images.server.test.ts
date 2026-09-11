@@ -40,6 +40,40 @@ function deps() {
   };
 }
 describe("publication image attestation", () => {
+  it("verifies larger manifests within the four active media allowance", async () => {
+    const d = deps(),
+      original = await d.preview();
+    const media = Array.from({ length: 9 }, (_, i) => ({
+      key: `content_im${i}`,
+      imageId: `im${i}`,
+      kind: "content" as const,
+    }));
+    d.preview.mockResolvedValue({ ...original, media, imageIds: media.map((item) => item.key) });
+    d.rpc.mockResolvedValue({
+      data: { images: media.map(({ key }) => ({ key, byteHash })) },
+      error: null,
+    });
+    let active = 0,
+      peak = 0;
+    d.media.mockImplementation(async (...args: unknown[]) => {
+      active++;
+      peak = Math.max(peak, active);
+      if (active > 4) throw new Error("team_media_capacity");
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      active--;
+      return {
+        imageId: (args[1] as { imageId: string }).imageId,
+        draftHash: hash,
+        byteHash,
+        contentType: "image/png",
+        base64: "fixture",
+      };
+    });
+    await assertReviewedPublicationImages(scope, hash, d);
+    expect(d.media).toHaveBeenCalledTimes(9);
+    expect(peak).toBe(4);
+  });
+
   it("rehashes exact saved media before accepting the grant", async () => {
     const d = deps();
     await assertReviewedPublicationImages(scope, hash, d);

@@ -17,28 +17,51 @@ CREATE TABLE public.project_team_members (
 ALTER TABLE public.project_team_members ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.project_team_members FROM PUBLIC,anon,authenticated,service_role;
 
+-- Called only inside service-mediated team operations under the workspace lock.
+CREATE FUNCTION public.assert_project_team_account(p_user uuid)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+  PERFORM 1 FROM auth.users WHERE id=p_user AND deleted_at IS NULL
+    AND (banned_until IS NULL OR banned_until<=clock_timestamp()) FOR SHARE NOWAIT;
+  IF NOT FOUND THEN RAISE EXCEPTION 'team_project_unavailable'; END IF;
+END; $$;
+REVOKE ALL ON FUNCTION public.assert_project_team_account(uuid) FROM PUBLIC,anon,authenticated,service_role;
+
 -- Service-only entry: p_actor is supplied by verified authentication middleware.
 -- Never expose this function directly to authenticated clients. Membership
 -- writers must use the same owner workspace lock before updating membership.
-CREATE FUNCTION public.read_project_team_snapshot(p_actor uuid,p_owner uuid,p_project text,p_asset text DEFAULT NULL,p_offset integer DEFAULT 0)
+CREATE FUNCTION public.read_project_team_snapshot(p_actor uuid,p_owner uuid,p_project text,p_asset text DEFAULT NULL,p_offset integer DEFAULT 0,p_write boolean DEFAULT false)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE project jsonb; drafts jsonb; draft jsonb; membership_revision bigint:=1;
   workspace_revision bigint; remaining bigint; member_role text:='owner'; draft_hash text;
 BEGIN
   IF p_actor IS NULL OR p_owner IS NULL OR p_project IS NULL OR p_project !~ '^[A-Za-z0-9_-]{1,64}$'
-    OR p_offset IS NULL OR p_offset<0 OR p_offset>100000
+    OR p_write IS NULL OR p_offset IS NULL OR p_offset<0 OR p_offset>100000
     OR (p_asset IS NOT NULL AND (p_asset !~ '^[A-Za-z0-9_-]{1,64}$' OR p_offset<>0))
     THEN RAISE EXCEPTION 'team_project_unavailable'; END IF;
-  SELECT rev INTO workspace_revision FROM public.workspace_meta WHERE user_id=p_owner FOR UPDATE;
+  -- Reject unknown/removed/suspended actors without queuing on a victim's locks.
+  -- These optimistic checks are repeated under the workspace lock below.
+  IF NOT EXISTS(SELECT 1 FROM auth.users WHERE id=p_owner AND deleted_at IS NULL AND (banned_until IS NULL OR banned_until<=clock_timestamp()))
+    OR NOT EXISTS(SELECT 1 FROM auth.users WHERE id=p_actor AND deleted_at IS NULL AND (banned_until IS NULL OR banned_until<=clock_timestamp()))
+    OR (p_actor<>p_owner AND NOT EXISTS(SELECT 1 FROM public.project_team_members
+      WHERE owner_id=p_owner AND project_id=p_project AND actor_id=p_actor
+        AND active AND (expires_at IS NULL OR expires_at>clock_timestamp())))
+    THEN RAISE EXCEPTION 'team_project_unavailable'; END IF;
+  -- No queued lock wait survives a disconnected caller. Mutation callers opt
+  -- into exclusive serialization before reading versions or checking quotas.
+  IF p_write THEN
+    SELECT rev INTO workspace_revision FROM public.workspace_meta WHERE user_id=p_owner FOR UPDATE NOWAIT;
+  ELSE
+    SELECT rev INTO workspace_revision FROM public.workspace_meta WHERE user_id=p_owner FOR SHARE NOWAIT;
+  END IF;
   IF NOT FOUND THEN RAISE EXCEPTION 'team_project_unavailable'; END IF;
   -- A previously issued session must not bypass current account suspension.
-  PERFORM 1 FROM auth.users WHERE id=p_actor AND deleted_at IS NULL
-    AND (banned_until IS NULL OR banned_until<=clock_timestamp()) FOR SHARE;
-  IF NOT FOUND THEN RAISE EXCEPTION 'team_project_unavailable'; END IF;
+  PERFORM public.assert_project_team_account(p_owner);
+  IF p_actor<>p_owner THEN PERFORM public.assert_project_team_account(p_actor); END IF;
   IF p_actor<>p_owner THEN
     SELECT revision,role INTO membership_revision,member_role FROM public.project_team_members
       WHERE owner_id=p_owner AND project_id=p_project AND actor_id=p_actor
-        AND active AND (expires_at IS NULL OR expires_at>clock_timestamp()) FOR SHARE;
+        AND active AND (expires_at IS NULL OR expires_at>clock_timestamp()) FOR SHARE NOWAIT;
     IF NOT FOUND THEN RAISE EXCEPTION 'team_project_unavailable'; END IF;
   END IF;
   SELECT jsonb_build_object('id',entity_id,'name',data->'name',
@@ -78,5 +101,42 @@ BEGIN
     'membershipRevision',membership_revision,'workspaceRevision',workspace_revision,
     'project',project,'drafts',drafts,'remaining',remaining,'draft',draft);
 END; $$;
-REVOKE ALL ON FUNCTION public.read_project_team_snapshot(uuid,uuid,text,text,integer) FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.read_project_team_snapshot(uuid,uuid,text,text,integer) TO service_role;
+REVOKE ALL ON FUNCTION public.read_project_team_snapshot(uuid,uuid,text,text,integer,boolean) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.read_project_team_snapshot(uuid,uuid,text,text,integer,boolean) TO service_role;
+
+-- Actor-wide admission runs before private review context or image access.
+-- Bounded counters/leases are operational state, not review history.
+CREATE TABLE public.project_team_media_limits (
+ actor_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+ hour_start timestamptz NOT NULL,
+ hour_count integer NOT NULL CHECK(hour_count BETWEEN 0 AND 600),
+ minute_start timestamptz NOT NULL,
+ minute_count integer NOT NULL CHECK(minute_count BETWEEN 0 AND 120),
+ leases jsonb NOT NULL DEFAULT '{}'::jsonb CHECK(jsonb_typeof(leases)='object' AND octet_length(leases::text)<2000)
+);
+ALTER TABLE public.project_team_media_limits ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.project_team_media_limits FROM PUBLIC,anon,authenticated,service_role;
+CREATE FUNCTION public.acquire_project_team_media(p_actor uuid)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE current public.project_team_media_limits%ROWTYPE; lease uuid; active jsonb; stamp timestamptz:=clock_timestamp();
+BEGIN
+ PERFORM public.assert_project_team_account(p_actor);
+ INSERT INTO public.project_team_media_limits(actor_id,hour_start,hour_count,minute_start,minute_count) VALUES(p_actor,stamp,0,stamp,0) ON CONFLICT DO NOTHING;
+ SELECT * INTO current FROM public.project_team_media_limits WHERE actor_id=p_actor FOR UPDATE;
+ stamp:=clock_timestamp();
+ SELECT coalesce(jsonb_object_agg(key,value),'{}'::jsonb) INTO active FROM jsonb_each_text(current.leases) WHERE value::timestamptz>stamp;
+ IF (SELECT count(*) FROM jsonb_object_keys(active))>=4 THEN RAISE EXCEPTION 'team_media_capacity'; END IF;
+ IF current.hour_start<=stamp-interval '1 hour' THEN current.hour_start:=stamp;current.hour_count:=0; END IF;
+ IF current.minute_start<=stamp-interval '1 minute' THEN current.minute_start:=stamp;current.minute_count:=0; END IF;
+ IF current.hour_count>=600 OR current.minute_count>=120 THEN RAISE EXCEPTION 'team_media_capacity'; END IF;
+ lease:=gen_random_uuid();
+ UPDATE public.project_team_media_limits SET hour_start=current.hour_start,hour_count=current.hour_count+1,minute_start=current.minute_start,minute_count=current.minute_count+1,leases=active || jsonb_build_object(lease::text,stamp+interval '60 seconds') WHERE actor_id=p_actor;
+ RETURN lease;
+END; $$;
+CREATE FUNCTION public.release_project_team_media(p_actor uuid,p_lease uuid)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+ UPDATE public.project_team_media_limits SET leases=leases-p_lease::text WHERE actor_id=p_actor;
+END; $$;
+REVOKE ALL ON FUNCTION public.acquire_project_team_media(uuid),public.release_project_team_media(uuid,uuid) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.acquire_project_team_media(uuid),public.release_project_team_media(uuid,uuid) TO service_role;

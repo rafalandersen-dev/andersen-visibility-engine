@@ -88,6 +88,39 @@ describe("collaborator canonical preview", () => {
     expect(result.html).toContain('alt="Social &quot; image"');
     expect(result.version).toEqual(await publicationVersion(ctx.asset, ctx.project, ["/"]));
   });
+  it("keeps a self-contained approved hero and social image after source removal", async () => {
+    const ctx = context();
+    ctx.asset.featuredImage = {
+      imageId: "detached",
+      url: "https://client.example/hero.png",
+      alt: "Hero",
+      approval: "approved",
+      hero: {},
+      social: { physicalUrl: "https://client.example/social.png" },
+    } as typeof ctx.asset.featuredImage;
+    const result = await readProjectTeamPreview(actor, target, async () => ctx, authority);
+    expect(result.unknownImages).toBe(0);
+    expect(result.media).toContainEqual({
+      key: "featured_detached",
+      imageId: "detached",
+      kind: "featured",
+    });
+    expect(result.media).toContainEqual({
+      key: "social_detached",
+      imageId: "detached",
+      kind: "social",
+    });
+  });
+  it("supports an existing article with 31 images", async () => {
+    const ctx = context();
+    ctx.asset.images = Array.from({ length: 31 }, (_, i) => ({
+      id: `im${i}`,
+      url: `https://client.example/im${i}.png`,
+    })) as typeof ctx.asset.images;
+    await expect(
+      readProjectTeamPreview(actor, target, async () => ctx, authority),
+    ).resolves.toHaveProperty("unknownImages", 0);
+  });
   it("rejects a context that changed while the preview was being assembled", async () => {
     const read = vi
       .fn(async () => context())
@@ -97,4 +130,21 @@ describe("collaborator canonical preview", () => {
       "saved review changed",
     );
   });
+});
+
+it("excludes retained social images while the featured image is unapproved", async () => {
+  const ctx = context();
+  ctx.asset.featuredImage = {
+    imageId: "im",
+    url: "https://client.example/hero.png",
+    storagePath: "fixture",
+    alt: "Hero",
+    hero: {},
+    approval: "draft",
+    social: { physicalUrl: "https://client.example/old-social.png" },
+  } as typeof ctx.asset.featuredImage;
+  const result = await readProjectTeamPreview(actor, target, async () => ctx, authority);
+  expect(result.media.some((item) => item.kind === "social")).toBe(false);
+  expect(result.html).not.toContain("old-social");
+  expect(result.version).toEqual(await publicationVersion(ctx.asset, ctx.project, ["/"]));
 });

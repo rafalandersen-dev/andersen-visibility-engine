@@ -19,6 +19,8 @@ CREATE TABLE public.project_team_comments (
 CREATE INDEX project_team_comments_asset ON public.project_team_comments(owner_id,project_id,asset_id,created_at,comment_id);
 ALTER TABLE public.project_team_comments ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.project_team_comments FROM PUBLIC,anon,authenticated,service_role;
+CREATE INDEX project_team_comments_recent_activity ON public.project_team_comments(owner_id,project_id,created_at);
+CREATE INDEX project_team_comments_actor_activity ON public.project_team_comments(owner_id,project_id,actor_id,created_at);
 CREATE FUNCTION public.add_project_team_comment(p_actor uuid,p_owner uuid,p_project text,p_asset text,p_comment uuid,p_expected bigint,p_body text)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE snapshot jsonb; previous public.project_team_comments%ROWTYPE; author text;
@@ -27,7 +29,7 @@ BEGIN
     THEN RAISE EXCEPTION 'team_comment_unavailable'; END IF;
   -- The snapshot reader takes the workspace lock, then verifies current active
   -- membership and exact project/asset. Keep that lock through insertion.
-  snapshot:=public.read_project_team_snapshot(p_actor,p_owner,p_project,p_asset,0);
+  snapshot:=public.read_project_team_snapshot(p_actor,p_owner,p_project,p_asset,0,true);
   IF p_asset IS NULL THEN RAISE EXCEPTION 'team_comment_unavailable'; END IF;
   SELECT * INTO previous FROM public.project_team_comments WHERE owner_id=p_owner AND comment_id=p_comment;
   IF FOUND THEN
@@ -35,7 +37,8 @@ BEGIN
     RAISE EXCEPTION 'team_comment_replay';
   END IF;
   IF (snapshot->>'workspaceRevision')::bigint<>p_expected THEN RAISE EXCEPTION 'team_comment_draft_changed' USING ERRCODE='40001'; END IF;
-  IF (SELECT count(*) FROM public.project_team_comments WHERE owner_id=p_owner AND project_id=p_project)>=5000 THEN RAISE EXCEPTION 'team_comment_capacity'; END IF;
+  IF (SELECT count(*) FROM public.project_team_comments WHERE owner_id=p_owner AND project_id=p_project AND created_at>clock_timestamp()-interval '1 hour')>=5000 THEN RAISE EXCEPTION 'team_comment_capacity'; END IF;
+  IF (SELECT count(*) FROM public.project_team_comments WHERE owner_id=p_owner AND project_id=p_project AND actor_id=p_actor AND created_at>clock_timestamp()-interval '1 hour')>=100 THEN RAISE EXCEPTION 'team_comment_capacity'; END IF;
   SELECT left(coalesce(nullif(btrim(raw_user_meta_data->>'full_name'),''),'Collaborator'),120) INTO author FROM auth.users WHERE id=p_actor;
   IF NOT FOUND THEN RAISE EXCEPTION 'team_comment_unavailable'; END IF;
   INSERT INTO public.project_team_comments(owner_id,project_id,asset_id,comment_id,actor_id,author_name,body,workspace_revision)
@@ -46,7 +49,7 @@ CREATE FUNCTION public.read_project_team_comments(p_actor uuid,p_owner uuid,p_pr
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE snapshot jsonb; comments jsonb; remaining bigint;
 BEGIN
-  IF p_asset IS NULL OR p_offset IS NULL OR p_offset<0 OR p_offset>5000 THEN RAISE EXCEPTION 'team_comment_unavailable'; END IF;
+  IF p_asset IS NULL OR p_offset IS NULL OR p_offset<0 OR p_offset>2147483500 THEN RAISE EXCEPTION 'team_comment_unavailable'; END IF;
   snapshot:=public.read_project_team_snapshot(p_actor,p_owner,p_project,p_asset,0);
   SELECT coalesce(jsonb_agg(jsonb_build_object('commentId',comment_id,'mine',actor_id=p_actor,'authorName',author_name,'body',body,'workspaceRevision',workspace_revision,'createdAt',created_at) ORDER BY created_at DESC,comment_id DESC),'[]'::jsonb)
     INTO comments FROM (SELECT * FROM public.project_team_comments WHERE owner_id=p_owner AND project_id=p_project AND asset_id=p_asset ORDER BY created_at DESC,comment_id DESC LIMIT 100 OFFSET p_offset) page;

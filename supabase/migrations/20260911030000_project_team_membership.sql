@@ -38,6 +38,7 @@ BEGIN
     OR p_email IS NULL OR length(p_email)>254 OR p_email !~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$'
     OR p_role IS NULL OR p_role NOT IN ('viewer','editor','reviewer') THEN RAISE EXCEPTION 'team_invitation_unavailable'; END IF;
   PERFORM public.assert_knowledge_project(p_owner,p_project,true);
+  PERFORM public.assert_project_team_account(p_owner);
   recipient:=lower(btrim(p_email));
   IF EXISTS(SELECT 1 FROM auth.users WHERE id=p_owner AND lower(btrim(auth.users.email))=recipient)
     THEN RAISE EXCEPTION 'team_invitation_unavailable'; END IF;
@@ -53,7 +54,7 @@ BEGIN
     IF previous.project_id=p_project AND previous.recipient_email=recipient AND previous.role=p_role AND previous.state='pending' AND previous.expires_at>clock_timestamp() THEN RETURN true; END IF;
     RAISE EXCEPTION 'team_invitation_replay';
   END IF;
-  IF (SELECT count(*) FROM public.project_team_invitations WHERE owner_id=p_owner AND project_id=p_project)>=1000
+  IF (SELECT count(*) FROM public.project_team_invitations WHERE owner_id=p_owner AND project_id=p_project AND state='pending' AND expires_at>clock_timestamp())>=1000
     THEN RAISE EXCEPTION 'team_invitation_capacity'; END IF;
   -- Expired invitations are terminal; creating a new invitation never revives
   -- a previously accepted/revoked link or silently changes an existing role.
@@ -72,6 +73,7 @@ RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 BEGIN
   IF p_actor IS NULL OR p_actor IS DISTINCT FROM p_owner THEN RAISE EXCEPTION 'team_invitation_unavailable'; END IF;
   PERFORM public.assert_knowledge_project(p_owner,p_project,true);
+  PERFORM public.assert_project_team_account(p_owner);
   UPDATE public.project_team_invitations SET state='revoked'
     WHERE owner_id=p_owner AND project_id=p_project AND invite_id=p_invite AND state='pending';
   IF FOUND THEN
@@ -87,23 +89,38 @@ RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE invitation public.project_team_invitations%ROWTYPE; recipient text; member_revision bigint;
 BEGIN
   IF p_actor IS NULL OR p_actor=p_owner THEN RAISE EXCEPTION 'team_invitation_unavailable'; END IF;
+  -- Admit only a current verified recipient of this pending invitation before
+  -- touching owner locks. Repeat all eligibility checks under the lock below.
+  IF NOT EXISTS(SELECT 1 FROM public.project_team_invitations v
+    JOIN auth.users u ON u.id=p_actor AND lower(btrim(u.email))=v.recipient_email
+    JOIN auth.identities i ON i.user_id=u.id
+      AND lower(btrim(i.identity_data->>'email'))=lower(btrim(u.email))
+      AND i.identity_data->>'email_verified'='true'
+    WHERE v.owner_id=p_owner AND v.project_id=p_project AND v.invite_id=p_invite
+      AND v.state='pending' AND v.expires_at>clock_timestamp()
+      AND u.email_confirmed_at IS NOT NULL AND u.deleted_at IS NULL
+      AND (u.banned_until IS NULL OR u.banned_until<=clock_timestamp()))
+    THEN RAISE EXCEPTION 'team_invitation_unavailable'; END IF;
+  -- A caller must never queue a workspace lock behind ongoing owner work.
+  PERFORM 1 FROM public.workspace_meta WHERE user_id=p_owner FOR UPDATE NOWAIT;
+  IF NOT FOUND THEN RAISE EXCEPTION 'team_project_unavailable'; END IF;
   PERFORM public.assert_knowledge_project(p_owner,p_project,true);
+  PERFORM public.assert_project_team_account(p_owner);
   -- Use authoritative current auth state; JWT/browser email is not evidence.
   SELECT lower(btrim(u.email)) INTO recipient FROM auth.users u
     JOIN auth.identities i ON i.user_id=u.id
       AND lower(btrim(i.identity_data->>'email'))=lower(btrim(u.email))
       AND i.identity_data->>'email_verified'='true'
     WHERE u.id=p_actor AND u.email_confirmed_at IS NOT NULL AND u.deleted_at IS NULL
-      AND (u.banned_until IS NULL OR u.banned_until<=clock_timestamp()) LIMIT 1 FOR SHARE OF u,i;
+      AND (u.banned_until IS NULL OR u.banned_until<=clock_timestamp()) LIMIT 1 FOR SHARE OF u,i NOWAIT;
   IF NOT FOUND OR recipient IS NULL THEN RAISE EXCEPTION 'team_invitation_unavailable'; END IF;
   SELECT * INTO invitation FROM public.project_team_invitations
-    WHERE owner_id=p_owner AND project_id=p_project AND invite_id=p_invite FOR UPDATE;
+    WHERE owner_id=p_owner AND project_id=p_project AND invite_id=p_invite FOR UPDATE NOWAIT;
   IF NOT FOUND OR invitation.recipient_email<>recipient OR invitation.state<>'pending' OR invitation.expires_at<=clock_timestamp()
     THEN RAISE EXCEPTION 'team_invitation_unavailable'; END IF;
   IF EXISTS(SELECT 1 FROM public.project_team_members WHERE owner_id=p_owner AND project_id=p_project AND actor_id=p_actor AND active AND (expires_at IS NULL OR expires_at>clock_timestamp()))
     THEN RAISE EXCEPTION 'team_membership_exists'; END IF;
-  IF (SELECT count(*) FROM public.project_team_members WHERE owner_id=p_owner AND project_id=p_project)>=1000
-    AND NOT EXISTS(SELECT 1 FROM public.project_team_members WHERE owner_id=p_owner AND project_id=p_project AND actor_id=p_actor)
+  IF (SELECT count(*) FROM public.project_team_members WHERE owner_id=p_owner AND project_id=p_project AND active AND (expires_at IS NULL OR expires_at>clock_timestamp()))>=1000
     THEN RAISE EXCEPTION 'team_membership_capacity'; END IF;
   INSERT INTO public.project_team_members(owner_id,project_id,actor_id,role)
     VALUES(p_owner,p_project,p_actor,invitation.role)
@@ -123,6 +140,7 @@ BEGIN
     OR (NOT p_remove AND (p_role IS NULL OR p_role NOT IN ('viewer','editor','reviewer')))
     THEN RAISE EXCEPTION 'team_membership_unavailable'; END IF;
   PERFORM public.assert_knowledge_project(p_owner,p_project,true);
+  PERFORM public.assert_project_team_account(p_owner);
   UPDATE public.project_team_members SET role=CASE WHEN p_remove THEN role ELSE p_role END,
     active=NOT p_remove,revision=revision+1
     WHERE owner_id=p_owner AND project_id=p_project AND actor_id=p_member AND revision=p_expected AND active
@@ -147,10 +165,11 @@ DECLARE members jsonb; invitations jsonb; audit jsonb;
 BEGIN
   IF p_actor IS NULL OR p_actor IS DISTINCT FROM p_owner THEN RAISE EXCEPTION 'team_project_unavailable'; END IF;
   PERFORM public.assert_knowledge_project(p_owner,p_project,true);
+  PERFORM public.assert_project_team_account(p_owner);
   SELECT coalesce(jsonb_agg(jsonb_build_object('actorId',m.actor_id,'email',u.email,'role',m.role,'revision',m.revision,'active',m.active,'expiresAt',m.expires_at) ORDER BY m.actor_id),'[]'::jsonb)
-    INTO members FROM public.project_team_members m LEFT JOIN auth.users u ON u.id=m.actor_id WHERE m.owner_id=p_owner AND m.project_id=p_project;
+    INTO members FROM (SELECT * FROM public.project_team_members WHERE owner_id=p_owner AND project_id=p_project ORDER BY (active AND (expires_at IS NULL OR expires_at>clock_timestamp())) DESC,actor_id LIMIT 1000) m LEFT JOIN auth.users u ON u.id=m.actor_id;
   SELECT coalesce(jsonb_agg(jsonb_build_object('inviteId',invite_id,'email',recipient_email,'role',role,'state',state,'expiresAt',expires_at,'createdAt',created_at) ORDER BY created_at DESC,invite_id),'[]'::jsonb)
-    INTO invitations FROM public.project_team_invitations WHERE owner_id=p_owner AND project_id=p_project;
+    INTO invitations FROM (SELECT * FROM public.project_team_invitations WHERE owner_id=p_owner AND project_id=p_project ORDER BY (state='pending' AND expires_at>clock_timestamp()) DESC,created_at DESC,invite_id LIMIT 1000) recent;
   SELECT coalesce(jsonb_agg(jsonb_build_object('actorId',actor_id,'subjectId',subject_id,'action',action,'revision',revision,'occurredAt',occurred_at) ORDER BY event_id DESC),'[]'::jsonb)
     INTO audit FROM (SELECT * FROM public.project_team_audit WHERE owner_id=p_owner AND project_id=p_project ORDER BY event_id DESC LIMIT 100) recent;
   RETURN jsonb_build_object('ownerId',p_owner,'projectId',p_project,'members',members,'invitations',invitations,'audit',audit);
@@ -168,7 +187,7 @@ BEGIN
     INTO projects FROM (
       SELECT m.owner_id,m.project_id,p.data->>'name' name,m.role,m.revision FROM public.project_team_members m
         JOIN public.workspace_entities p ON p.user_id=m.owner_id AND p.collection='projects' AND p.entity_id=m.project_id
-        WHERE m.actor_id=p_actor AND m.active AND (m.expires_at IS NULL OR m.expires_at>clock_timestamp())
+        WHERE EXISTS(SELECT 1 FROM auth.users u WHERE u.id=m.owner_id AND u.deleted_at IS NULL AND (u.banned_until IS NULL OR u.banned_until<=clock_timestamp())) AND m.actor_id=p_actor AND m.active AND (m.expires_at IS NULL OR m.expires_at>clock_timestamp())
         ORDER BY m.owner_id,m.project_id LIMIT 1001
     ) assigned;
   IF jsonb_array_length(projects)>1000 THEN RAISE EXCEPTION 'team_project_capacity'; END IF;
@@ -176,7 +195,7 @@ BEGIN
     INTO invitations FROM (
       SELECT inv.owner_id,inv.project_id,p.data->>'name' name,inv.role,inv.invite_id,inv.expires_at FROM public.project_team_invitations inv
         JOIN public.workspace_entities p ON p.user_id=inv.owner_id AND p.collection='projects' AND p.entity_id=inv.project_id
-        WHERE inv.state='pending' AND inv.expires_at>clock_timestamp() AND EXISTS(
+        WHERE EXISTS(SELECT 1 FROM auth.users owner_account WHERE owner_account.id=inv.owner_id AND owner_account.deleted_at IS NULL AND (owner_account.banned_until IS NULL OR owner_account.banned_until<=clock_timestamp())) AND inv.state='pending' AND inv.expires_at>clock_timestamp() AND EXISTS(
           SELECT 1 FROM auth.users u JOIN auth.identities i ON i.user_id=u.id
             WHERE u.id=p_actor AND u.email_confirmed_at IS NOT NULL
               AND lower(btrim(u.email))=inv.recipient_email

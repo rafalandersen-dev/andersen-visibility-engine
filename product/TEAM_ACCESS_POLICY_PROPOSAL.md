@@ -130,3 +130,112 @@ PR123 review of9ea6240 found that owners could create an unusable invitation for
 ### Current account restrictions and notification capacity — 11 September
 
 The next PR123 reviews found two further gaps. The central snapshot now checks and share-locks the actor's current auth row, rejecting deleted/banned accounts even when a previously issued session remains accepted. This protects direct draft/comment/review paths as well as listing. Notification capacity now limits outstanding pending/leased/sending rows using a matching partial index; accepted/cancelled/failed/unknown history and once-only item identities remain retained. A long-lived project is no longer permanently disabled by terminal history. Regressions cover direct restricted-account calls, expired bans,10,000 terminal rows followed by a new digest, retained history/deduplication, and10,000 outstanding rows across recipients. Focused58tests/2files and full3,233tests/241files pass. These SQL files remain unreleased and unapplied; release review/current-head Linux and real-use acceptance remain separate.
+
+### Owner lifecycle and invitation history — 11 September
+
+PR123 code review ofd7c4428 identified owner lifecycle suspension and a lifetime invitation cap. A private internal current-account assertion now protects the central snapshot's owner and actor, all owner membership/invitation/roster operations, invitation acceptance and owner policy changes. Discovery excludes suspended/deleted owners. Invitation capacity counts unexpired pending invitations; terminal history is retained. The roster returns at most1,000 invitations, prioritizing current pending invitations before recent history. Focused62tests/2files and full3,237tests/241files pass, including suspended-owner direct operations/discovery and1,000 historical versus pending invitations. The previous d7c4428 Linux run passed; these new changes require their own checks. All nine migrations remain unapplied and release/real-use acceptance remains open.
+
+### Retained history and active capacity — 11 September
+
+Current membership capacity counts active, unexpired members; the bounded roster prioritizes those members and retains former identities in storage. Comment, edit, review and notification-consent history limits now apply to the last hour, with matching indexes. Retained history and idempotency keys remain intact. Rejecting approval or disabling notifications is exempt from the positive-action rate limits. Comment pagination and its response contract now support history beyond5,000 rows. Existing project/asset capacity and authorization controls remain.
+
+Focused77tests/3files and full3,244tests/241files passed, plus types/changed-file lint/production build. Two later owner-snapshot suspension regressions also pass in the final11-test read suite; they are additional to that full-run count. The completed security review of the older d7c4428 repeated the suspended-owner finding, already fixed in fe3a8c5; the added tests explicitly cover existing collaborators under a suspended owner. Current-head review/Linux/release acceptance remain pending; no team SQL or mail gate has been activated.
+
+### Pinned remote review media — 11 September
+
+Security review ofb192f2d found that a hostname could resolve privately when an outbound-enabled runtime used global fetch without enforced pinning. Remote review images now use a dedicated binary reader built on the existing homepage transport's DNS validation, pinned Node/Bun connections, original-host TLS verification, proxy refusal and per-hop checks. HTTPS and the saved project origin are enforced before each resolution/connection; declared and streamed5MiB limits, chunk bounds, cancellation and a10-second deadline are enforced. Binary bytes remain exact for acknowledgement/publication hashes. The existing outbound gate remains unchanged, and storage-scoped downloads plus final draft/membership and raster checks remain. No remote media was fetched in production.
+
+Final focused74tests/3files, full3,252tests/241files, type checks, changed-file lint and production build pass. Regression cases cover private DNS, changed redirect resolution, off-origin redirects, Node/Bun byte preservation, parent cancellation and oversized streams. Fresh current-head review/Linux and release verification remain pending; all nine SQL files remain unapplied.
+
+Review follow-up: expired pending invitations now display an explicit expired state in all four locales and stop offering email delivery or revocation as pending actions. The owner roster refreshes at the next invitation expiry even when left open. Delivery continues to enforce expiry in the database. Review comment 3988046870 addressed; no migration or delivery-gate change.
+
+Review compatibility follow-up: self-contained featured/social image records remain reviewable after the source gallery entry is removed. Media lookup still checks the exact saved featured identifier and owner/project storage scope. Removed the readers' arbitrary30-image cap so existing larger articles remain accessible; context and projected-response byte budgets remain enforced. Regression coverage includes detached hero/social downloads, canonical preview,31-image preview, shared projection and selected media. Findings3988129036/3988129039 addressed.
+
+Compatibility-fix validation: all3,258tests/241files pass; finalTypeScript, changed-filelint and productionbuild pass. No live image/provider requests or production writes were performed.
+
+Large-article approval contract follow-up: replaced the remaining32-image attestation cap in both request validation and the unapplied approval SQL with an8MB JSON byte limit. Preview remains bounded at2MB; the larger attestation allowance covers hashes for its complete media manifest. Exact identifier/hash matching, unique keys, current authority/version checks and deadlines remain unchanged. A40-image review is exercised through the server and durable SQL receipt. Finding3988199800 addressed; regenerate the release migration manifest because the approval migration bytes changed.
+
+Attestation-contract validation:3,259tests/241files pass, including40-image server verification and stored receipt; TypeScript and changed-filelint pass. Fresh Linux build/lock/review checks are required on the pushed revision.
+
+Controlled-image compatibility follow-up: team media now applies the same controlled-origin policy as authoring/publication, including other approved Supabase deployments, then pins every request and redirect to the selected origin. Outbound admission, public-address checks, exact bytes and scoped current-storage reads remain enforced. Native Node and Bun image requests now advertise only the supported PNG/JPEG/WebP types. Findings3988297672/3988297681 addressed. All3,261tests/241files, TypeScript and changed-filelint pass.
+
+## Unchanged saves and quality score review fixes — 11 September
+
+Latest review findings on `8d255a8` are addressed locally: unchanged populated editor forms are disabled, and the database independently compares submitted fields against saved values with matching optional-field defaults. A no-op records its idempotent receipt while preserving exact content/hash/timestamp, workspace revision, publication approval, knowledge review and pending schedule. Actual changes to any of the eight editable content fields mark an existing quality score stale. Current membership, saved-hash, capacity and in-flight publication checks remain enforced.
+
+Validation: 3,270 tests across 241 files pass, including nine additional database regressions (69 membership/migration tests); TypeScript, changed-file lint and production build pass. The unreleased edit migration changed and requires a refreshed guarded release packet. No migration or production deployment has been executed. Overall remains approximately 55%, implementation 70%; current-head release review and real owner/collaborator acceptance remain open.
+
+The completed security review of `8d255a8` additionally requested per-actor comment limits. The unreleased comment migration now enforces 100 new comments per actor/project/hour beneath the existing 5,000 project/hour ceiling, using the same transaction lock and a supporting actor/time index. Exact retries precede quota checks; old history is retained and stops counting after an hour. Regression coverage verifies one actor is held while another can comment, exact retry behavior, and window recovery. Full suite: 3,271 tests / 241 files pass.
+
+## Native image review admission — 11 September
+
+The `10a2d44` code review identified a deployment incompatibility: the team image reader still required the public-audit `MILO_OUTBOUND_FETCH_MODE` switch, which is explicitly absent from the selected Lovable architecture. Removed that dependency for this separate native image reader. Admission still requires current scoped review authority and an approved image origin; the existing native reader independently enforces public DNS, socket pinning, HTTPS/exact-origin redirects, proxy refusal, deadlines and byte bounds. Public-audit transport policy is unchanged. Focused team media tests pass; no live fetch or production setting change was performed.
+
+Admission-fix validation: types and changed-file lint pass. The full local run recorded 3,267 passes and four 5-second timeouts across two existing test files under concurrent checks; after those checks completed, both complete affected files plus media/native-fetch tests passed serially (159 tests / 4 files, 5.65 seconds). No assertions or test timeouts were changed. Logs `/tmp/milo-team-native-admission-{full,recheck,types,lint}.log`. Fresh Linux checks and current-head reviews remain required.
+
+## Current-version independence and media capacity — 11 September
+
+The reviewer separation check now considers only a content-changing team edit whose resulting hash matches the exact draft under review. An old edit no longer excludes a reviewer after an owner rewrite; a no-op receipt does not disguise the current author's edit. Actual-SQL tests cover own-current-edit refusal, later-owner-version approval and owner no-op preservation.
+
+Media admission is actor-wide and occurs before either private context read or storage/origin access. The unreleased read migration adds a private `project_team_media_limits` table with atomic per-actor limits: four active leases, 120 starts per minute and 600 per hour. The lease lasts 60 seconds for crash recovery; ordinary work releases its own token when the underlying operation settles. A caller timeout does not prematurely release a still-running operation. Native fetching remains bounded/pinned, and SDK storage downloads now receive the same abort signal. Failed admission reads no context or image bytes; actor isolation, wrong-actor release, window/lease recovery, restricted accounts and private permissions are tested. Counters/leases are bounded operational state, not growing review history.
+
+Nine migrations remain unapplied, now introducing 13 private/team tables. Approval and read SQL source hashes changed, so the release manifest and guarded packet require regeneration. No live image fetch, account change, migration or deployment was performed.
+
+Current-fix validation: 3,278 tests / 241 files pass, including seven additional reviewer/media regressions; TypeScript and changed-file lint pass. The added timeout cleanup regression initially failed, exposing post-cancellation hashing; explicit cancellation checks now stop late work and the complete suite passes. Logs `/tmp/milo-team-media-budget-full-final.log`, `/tmp/milo-team-media-budget-types.log`, `/tmp/milo-team-media-budget-final-lint.log`.
+
+## Aligning image batches and review authority — 11 September
+
+The c96a4e7 code review found two prerequisite paths still using older behavior. Both approval and pre-publication image verification now process batches of four, matching the durable active-media allowance. Tests exercise 40-image approval and nine-image publication verification with an enforced four-active-read ceiling. The earlier `read_project_team_review_authority` SQL predicate now matches final approval: a content-changing team edit must produce the current draft hash to exclude its author under reviewer separation. The existing own-edit, owner-rewrite and owner-no-op cases now assert both authority and final admission. These changes remain unreleased.
+
+The completed c96a4e7 security review also requested isolated draft-save limits and coalesced no-op receipts. The unreleased edit migration now limits new receipts to 120 per actor/project/hour beneath the 10,000 project ceiling. A partial unique index coalesces identical unchanged-version/patch/actor/membership receipts submitted with fresh IDs; exact recorded retries still return before capacity checks. No-op saves preserve the original draft and approvals. Actual-SQL coverage verifies fresh-ID coalescing, capacity-safe retries and the owner's ability to save while an editor is limited. Existing history is retained.
+
+Final alignment/quota validation: full 3,280 tests / 241 files pass with one worker (71.50 seconds), TypeScript and changed-file lint pass. This includes the multi-image concurrency checks, shared review-authority predicates and fresh-ID no-op coalescing/per-actor quota. Logs `/tmp/milo-team-batch-authority-full-final.log`, `/tmp/milo-team-batch-authority-types-final.log`, `/tmp/milo-team-edit-quota-focused.log`. No production action has been performed.
+
+
+## Publication image admission contention — 11 September
+
+The 1e35a6a code review found that concurrent publications for one owner can compete for the four actor-wide image leases. Only the database's exact `team_media_capacity` sentinel now becomes a dedicated preflight capacity error. The approval boundary preserves this case as retryable before any connector dispatch; changed images, invalid approvals and other image-check failures still refuse publication. Scheduled work returns to pending and restores the already-incremented claim attempt, including at attempt three, so contention cannot exhaust the connector retry budget. Permanent and uncertain connector outcomes remain held.
+
+Validation: all 3,283 tests / 242 files pass (one worker, 58.49 seconds); TypeScript, changed-file lint and production build pass. New regressions cover the database sentinel versus unrelated errors, approval propagation versus changed-image refusal, and queue retry/attempt restoration. No SQL changed, migration applied, live fetch, message or deployment performed. Current-head review and real acceptance remain open.
+
+
+## Authorize before workspace admission — 11 September
+
+The completed 1e35a6a security review identified that snapshot authorization acquired an exclusive owner workspace lock before rejecting removed or unrelated collaborators. Snapshot admission now checks current accounts and project membership without locks, acquires a shared workspace lock with NOWAIT for reads, and repeats authoritative account/membership checks under that lock. Account and membership share locks also use NOWAIT, preventing queued lock waits after a caller disconnects. A service-only optional `p_write` argument selects exclusive NOWAIT admission for comments, draft edits, approval decisions, recipient settings and invitation-delivery requests; those mutation paths retain version/quota serialization. All read-only callers keep shared admission.
+
+The actual team RPC transport now receives a nine-second AbortSignal deadline beneath the ten-second application deadline. Cancellation is not treated as proof that a mutation rolled back, and existing uncertain-write recovery semantics remain unchanged. SQL regression coverage verifies unauthorized exclusive admission is refused, authorized admission succeeds, preliminary authorization precedes locking, and shared/exclusive NOWAIT paths exist. Transport coverage verifies the signal reaches the RPC builder. True multi-session production acceptance remains unverified.
+
+Six unreleased migration sources changed (020000, 040000, 050000, 060000, 080000 and 100000); all nine remain unapplied. Regenerate the guarded packet and manifest before release. No production reads/writes, live transport, messages or policy activation were performed.
+
+Read-admission validation: all 3,285 tests / 243 files pass with one worker (106.01 seconds), including 88 focused access/membership/transport tests. TypeScript, changed-file lint and production build pass. Logs `/tmp/milo-team-read-admission-{focused,full,types,lint}.log`.
+
+
+## Preserve authorship across review decisions — 11 September
+
+Code review of 12c1ffc found that approval/rejection status updates change the raw draft hash without changing the authored content. Edit receipts now store a private SHA-256 hash of the eight editable content fields, with the same empty defaults as the editor. Reviewer separation and preliminary authority match that content identity and exclude unchanged-save receipts. Status, timestamps, quality markers, schedules and publication bookkeeping no longer erase authorship; an actual owner rewrite still produces a different content identity. The original raw hashes continue to enforce exact-version editing and approval.
+
+Actual-SQL regressions cover own edits, owner rewrites, owner no-ops, and both approved and rejected status transitions. The helper is private; the three modified migrations (050000, 060000 and 070000) remain unapplied. Release review and real acceptance remain open.
+
+Authorship validation: full 3,287 tests / 243 files pass (79.29 seconds). The final stored-content hash readback is additionally verified by the complete 77-test membership/migration file. Changed-file lint passes; runtime application source is unchanged from the previously passing 12c1ffc production build. SQL source hashes and the migration rehearsal remain separate release evidence.
+
+
+## Review budgets and lazy roster details — 11 September
+
+The completed 12c1ffc security review found unrestricted repeated rejection history and unbounded retained preview images. All fresh decisions now share the project admission ceiling and a 120-per-actor/project/hour limit with a supporting index. Fresh-ID rejections of the same already-rejected version, actor, membership and policy coalesce without rewriting the draft, approval, workspace revision or history; current authority and exact draft checks still run. Other actors, including the owner, retain their own allowance.
+
+Rendered previews now admit at most 128 images, reserve the endpoint's worst-case 5 MiB before each download within a 16 MiB aggregate retained-byte budget, and bound base64 before allocation. PNG/JPEG/WebP header inspection checks dimensions before Blob creation or browser decoding: 4,096 pixels per side, 8 Mi pixels per image and 16 Mi pixels per preview. Animated PNG/WebP and inconsistent dimensions are refused; browser decoding still verifies actual renderability. Failure/unmount revokes created object URLs. Forty small images remain supported. A four-locale message explains when images need reduction or a supported still format. These are conservative preview limits; oversized reviews remain incomplete rather than becoming approved without all evidence. Header contracts were checked against the W3C PNG and Google WebP specifications.
+
+The completed d425328 code review found two UI mismatches. Social image evidence is now included only for an approved featured image, matching the assembled publication; retained draft social objects no longer block unrelated reviews. Owner roster notification settings and invitation delivery details mount only when their details panel is expanded. A 1,000-row static render verifies that collapsed details mount no request-consuming child components. Actual browser interaction acceptance remains outstanding.
+
+Validation: all 3,298 tests / 245 files pass with one worker (54.42 seconds), including seven image budget/header checks, two decision-limit SQL regressions, the draft-social case and the lazy-details check. TypeScript, changed-file lint and production build pass. Logs `/tmp/milo-team-review-limits-{full,types-final,lint-final,build}.log`. The unreleased approval-policy migration changed; regenerate the guarded release packet before release. No production SQL, deployment, emails, live image fetch or policy change was performed.
+
+
+## Draft refresh and shared notification preparation — 11 September
+
+The f9a9609 code review found that the rendered preview could lag behind the parent draft after another session edited it. The rendered-review component is now keyed by draft ID/hash and membership revision; its query key includes the expected draft hash, and both loading and readiness refuse a different version. Parent refreshes therefore rebuild the preview and image acknowledgement state instead of displaying new draft text alongside old rendered content.
+
+Notification queue preparation now refreshes each selected owner once per bounded sweep and reuses only that sweep's success/failure across the owner's recipients/projects. A failed refresh is not retried for every recipient; other owners still proceed. Queue admission remains recipient-specific, and each actual delivery retains its own immediate source/recipient checks. Two regressions cover 20 recipients across one owner's projects and isolation after an owner refresh fails. No email transport or gate was activated.
+
+Refresh follow-up validation: all 3,300 tests / 245 files pass with one worker (129.63 seconds), including 11 delivery tests. TypeScript, changed-file lint and production build pass. Logs `/tmp/milo-team-refresh-{full,focused,lint}.log`. No SQL source changed in this follow-up.
+
+Invitation acceptance hardening (2026-09-11): current verified recipient and pending, unexpired invitation eligibility are checked before any owner workspace lock. Workspace, recipient identity and invitation locks use NOWAIT; recipient/invitation eligibility is repeated under the workspace lock. The membership database suite passes 81 tests, including forged invitation rejection. Migration 20260911030000 remains unapplied; no invitations sent or production changes made. Overall progress remains approximately 55%, implementation 70%.

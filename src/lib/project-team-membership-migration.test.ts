@@ -42,7 +42,7 @@ beforeAll(async () => {
     await db.exec(readFileSync(`supabase/migrations/${file}`, "utf8"));
 }, 30000);
 beforeEach(async () => {
-  await db.exec(`RESET ROLE; TRUNCATE public.project_team_invitation_deliveries,public.project_team_notification_items,public.project_team_notification_outbox,public.operational_email_items,public.operational_email_outbox,public.operational_notifications,public.operational_notification_scans,public.operational_email_preferences,public.project_team_notification_recipient_audit,public.project_team_notification_recipients,public.project_team_approval_history,public.project_team_approval_policy,public.output_knowledge_reviews,public.project_team_edits,public.scheduled_publishes,public.publication_approvals,public.project_team_comments,public.project_team_members,public.project_team_invitations,public.project_team_audit;
+  await db.exec(`RESET ROLE; TRUNCATE public.project_team_media_limits,public.project_team_invitation_deliveries,public.project_team_notification_items,public.project_team_notification_outbox,public.operational_email_items,public.operational_email_outbox,public.operational_notifications,public.operational_notification_scans,public.operational_email_preferences,public.project_team_notification_recipient_audit,public.project_team_notification_recipients,public.project_team_approval_history,public.project_team_approval_policy,public.output_knowledge_reviews,public.project_team_edits,public.scheduled_publishes,public.publication_approvals,public.project_team_comments,public.project_team_members,public.project_team_invitations,public.project_team_audit;
     UPDATE public.workspace_meta SET rev=1;
     INSERT INTO public.workspace_entities VALUES('${owner}','content','a','{"projectId":"p","title":"Draft","status":"Draft","updatedAt":"now","markdown":"Saved draft"}') ON CONFLICT(user_id,collection,entity_id) DO UPDATE SET data=EXCLUDED.data;
     UPDATE auth.identities SET identity_data='{"email":"member@example.test","email_verified":true}';
@@ -73,6 +73,67 @@ const change = (expected = 1, remove = false, who = owner) =>
 const revoke = (id = invite, who = owner) =>
   db.query("SELECT public.revoke_project_team_invitation($1,$2,'p',$3)", [who, owner, id]);
 describe("durable project invitation and membership lifecycle", () => {
+  it("enforces actor-wide media concurrency, release ownership and lease recovery", async () => {
+    const acquire = async (who = actor) =>
+      (await db.query<{ lease: string }>("SELECT acquire_project_team_media($1) lease", [who]))
+        .rows[0].lease;
+    const leases = [];
+    for (let i = 0; i < 4; i++) leases.push(await acquire());
+    await expect(acquire()).rejects.toThrow("team_media_capacity");
+    await acquire(owner);
+    await db.query("SELECT release_project_team_media($1,$2)", [owner, leases[0]]);
+    await expect(acquire()).rejects.toThrow("team_media_capacity");
+    await db.query("SELECT release_project_team_media($1,$2)", [actor, leases[0]]);
+    await acquire();
+    await db.query(
+      "UPDATE project_team_media_limits SET leases=jsonb_build_object($2::text,now()-interval '1 second') WHERE actor_id=$1",
+      [actor, leases[1]],
+    );
+    await acquire();
+    expect((await db.query("SELECT count(*)::int n FROM project_team_media_limits")).rows).toEqual([
+      { n: 2 },
+    ]);
+  });
+  it("enforces minute/hour media limits, restores expired windows and rejects banned actors", async () => {
+    await db.query("SELECT acquire_project_team_media($1)", [actor]);
+    await db.query(
+      "UPDATE project_team_media_limits SET leases='{}',minute_count=120 WHERE actor_id=$1",
+      [actor],
+    );
+    await expect(db.query("SELECT acquire_project_team_media($1)", [actor])).rejects.toThrow(
+      "team_media_capacity",
+    );
+    await db.query(
+      "UPDATE project_team_media_limits SET minute_start=now()-interval '2 minutes',hour_count=600 WHERE actor_id=$1",
+      [actor],
+    );
+    await expect(db.query("SELECT acquire_project_team_media($1)", [actor])).rejects.toThrow(
+      "team_media_capacity",
+    );
+    await db.query(
+      "UPDATE project_team_media_limits SET hour_start=now()-interval '2 hours' WHERE actor_id=$1",
+      [actor],
+    );
+    await db.query("SELECT acquire_project_team_media($1)", [actor]);
+    await db.query("UPDATE auth.users SET banned_until=now()+interval '1 hour' WHERE id=$1", [
+      actor,
+    ]);
+    await expect(db.query("SELECT acquire_project_team_media($1)", [actor])).rejects.toThrow(
+      "team_project_unavailable",
+    );
+    for (const role of ["anon", "authenticated", "service_role"]) {
+      await db.exec(`SET ROLE ${role}`);
+      await expect(db.query("SELECT * FROM project_team_media_limits")).rejects.toThrow(
+        "permission denied",
+      );
+      if (role !== "service_role")
+        await expect(db.query("SELECT acquire_project_team_media($1)", [owner])).rejects.toThrow(
+          "permission denied",
+        );
+      await db.exec("RESET ROLE");
+    }
+  });
+
   it.each(["banned_until=now()+interval '1 hour'", "deleted_at=now()"])(
     "blocks direct review, comment and edit calls for restricted accounts: %s",
     async (restriction) => {
@@ -114,6 +175,176 @@ describe("durable project invitation and membership lifecycle", () => {
       ).toEqual({ title: "Draft" });
     },
   );
+  it.each(["banned_until=now()+interval '1 hour'", "deleted_at=now()"])(
+    "rejects suspended owner lifecycle and hides discovery: %s",
+    async (restriction) => {
+      await create();
+      await db.exec(`UPDATE auth.users SET ${restriction} WHERE id='${owner}'`);
+      await expect(create(second, owner, "new@example.test")).rejects.toThrow(
+        "team_project_unavailable",
+      );
+      await expect(revoke()).rejects.toThrow("team_project_unavailable");
+      await expect(accept()).rejects.toThrow("team_project_unavailable");
+      await expect(change()).rejects.toThrow("team_project_unavailable");
+      await expect(db.query("SELECT read_project_team_roster($1,$1,'p')", [owner])).rejects.toThrow(
+        "team_project_unavailable",
+      );
+      const result = (
+        await db.query<{ result: { invitations: unknown[] } }>(
+          "SELECT list_my_project_teams($1) result",
+          [actor],
+        )
+      ).rows[0].result;
+      expect(result.invitations).toEqual([]);
+    },
+  );
+  it("retains terminal invitations without exhausting pending capacity or roster limits", async () => {
+    await db.query(
+      "INSERT INTO project_team_invitations(owner_id,project_id,invite_id,recipient_email,role,state,expires_at,created_at) SELECT $1,'p',gen_random_uuid(),'old-'||i||'@example.test','viewer',(ARRAY['accepted','revoked','pending'])[1+i%3],now()-interval '1 day',now()-interval '2 days' FROM generate_series(1,1000) i",
+      [owner],
+    );
+    await create();
+    const roster = teamRoster.parse(
+      (
+        await db.query<{ result: unknown }>("SELECT read_project_team_roster($1,$1,'p') result", [
+          owner,
+        ])
+      ).rows[0].result,
+    );
+    expect(roster.invitations).toHaveLength(1000);
+    expect(roster.invitations.some((i) => i.inviteId === invite)).toBe(true);
+    expect(
+      (await db.query("SELECT count(*)::int n FROM project_team_invitations")).rows[0],
+    ).toEqual({ n: 1001 });
+  });
+  it("retains the cap on unexpired pending invitations", async () => {
+    await db.query(
+      "INSERT INTO project_team_invitations(owner_id,project_id,invite_id,recipient_email,role,expires_at) SELECT $1,'p',gen_random_uuid(),'pending-'||i||'@example.test','viewer',now()+interval '1 day' FROM generate_series(1,1000) i",
+      [owner],
+    );
+    await expect(create()).rejects.toThrow("team_invitation_capacity");
+  });
+  it.each([false, true])(
+    "counts current memberships instead of former identities: active=%s",
+    async (active) => {
+      await db.query(
+        "WITH accounts AS (INSERT INTO auth.users(id) SELECT gen_random_uuid() FROM generate_series(1,1000) RETURNING id) INSERT INTO project_team_members(owner_id,project_id,actor_id,role,active) SELECT $1,'p',id,'viewer',$2 FROM accounts",
+        [owner, active],
+      );
+      await create();
+      if (active) await expect(accept()).rejects.toThrow("team_membership_capacity");
+      else {
+        await accept();
+        const roster = teamRoster.parse(
+          (
+            await db.query<{ result: unknown }>(
+              "SELECT read_project_team_roster($1,$1,'p') result",
+              [owner],
+            )
+          ).rows[0].result,
+        );
+        expect(roster.members).toHaveLength(1000);
+        expect(roster.members.some((m) => m.actorId === actor && m.active)).toBe(true);
+      }
+    },
+  );
+  it("isolates a collaborator comment quota, permits exact retries and recovers after one hour", async () => {
+    await create();
+    await accept();
+    const add = (who = actor, id = second) =>
+      db.query("SELECT add_project_team_comment($1,$2,'p','a',$3,1,'New comment')", [
+        who,
+        owner,
+        id,
+      ]);
+    await add();
+    await db.query(
+      "INSERT INTO project_team_comments(owner_id,project_id,asset_id,comment_id,actor_id,author_name,body,workspace_revision) SELECT $1,'p','a',gen_random_uuid(),$2,'Member','Recent',1 FROM generate_series(1,99)",
+      [owner, actor],
+    );
+    await add(); // An exact retry does not consume another slot.
+    await expect(add(actor, invite)).rejects.toThrow("team_comment_capacity");
+    await add(owner, invite); // A teammate's quota remains available.
+    expect((await db.query("SELECT * FROM project_team_comments")).rows).toHaveLength(101);
+    await db.exec("UPDATE project_team_comments SET created_at=now()-interval '2 hours'");
+    await add(actor, other);
+    expect((await db.query("SELECT * FROM project_team_comments")).rows).toHaveLength(102);
+  });
+  it.each([false, true])(
+    "preserves comment history with a recent activity limit: recent=%s",
+    async (recent) => {
+      await create();
+      await accept();
+      await db.query(
+        "INSERT INTO project_team_comments(owner_id,project_id,asset_id,comment_id,actor_id,author_name,body,workspace_revision,created_at) SELECT $1,'p','a',gen_random_uuid(),$2,'Member','Historical',1,now()-CASE WHEN $3 THEN interval '1 minute' ELSE interval '2 hours' END FROM generate_series(1,5101)",
+        [owner, actor, recent],
+      );
+      const add = () =>
+        db.query("SELECT add_project_team_comment($1,$2,'p','a',$3,1,'New comment')", [
+          actor,
+          owner,
+          second,
+        ]);
+      if (recent) await expect(add()).rejects.toThrow("team_comment_capacity");
+      else {
+        await add();
+        const result = teamComments.parse(
+          (
+            await db.query<{ result: unknown }>(
+              "SELECT read_project_team_comments($1,$2,'p','a',0) result",
+              [actor, owner],
+            )
+          ).rows[0].result,
+        );
+        expect(result.remaining).toBe(5002);
+        expect(
+          (
+            await db.query<{ result: unknown }>(
+              "SELECT read_project_team_comments($1,$2,'p','a',5100) result",
+              [actor, owner],
+            )
+          ).rows,
+        ).toHaveLength(1);
+      }
+    },
+  );
+  it("permits editing and reviewing after retained history exceeds the former limits", async () => {
+    await create();
+    await accept();
+    await db.query(
+      "INSERT INTO project_team_edits(owner_id,project_id,asset_id,edit_id,actor_id,before_hash,after_hash,content_hash,patch_hash,membership_revision,created_at) SELECT $1,'p','a',gen_random_uuid(),$2,repeat('a',64),repeat('b',64),repeat('d',64),repeat('c',64),1,now()-interval '2 hours' FROM generate_series(1,10000)",
+      [owner, actor],
+    );
+    const snapshot = async () =>
+      (
+        await db.query<{ result: { draftHash: string; workspaceRevision: number } }>(
+          "SELECT read_project_team_snapshot($1,$1,'p','a') result",
+          [owner],
+        )
+      ).rows[0].result;
+    await db.query("SELECT save_project_team_draft($1,$2,'p','a',$3,$4,1,$5)", [
+      actor,
+      owner,
+      second,
+      (await snapshot()).draftHash,
+      { title: "New title" },
+    ]);
+    await db.query(
+      "INSERT INTO project_team_approval_history(owner_id,project_id,asset_id,review_id,actor_id,membership_revision,policy_revision,version_hash,approved,created_at) SELECT $1,'p','a',gen_random_uuid(),$1,1,0,repeat('a',64),true,now()-interval '2 hours' FROM generate_series(1,10000)",
+      [owner],
+    );
+    const current = await snapshot();
+    await db.query("SELECT save_project_team_approval($1,$1,'p','a',$2,$3,$4,$5,1,0,true)", [
+      owner,
+      second,
+      current.workspaceRevision,
+      current.draftHash,
+      "a".repeat(64),
+    ]);
+    expect(
+      (await db.query("SELECT count(*)::int n FROM project_team_approval_history")).rows[0],
+    ).toEqual({ n: 10001 });
+  });
   it("accepts a verified intended recipient, records actor audit and grants scoped reads", async () => {
     await create();
     expect((await accept()).rows[0]).toEqual({ revision: 1 });
@@ -142,6 +373,33 @@ describe("durable project invitation and membership lifecycle", () => {
       "team_invitation_replay",
     );
     await expect(create(second)).rejects.toThrow("team_invitation_exists");
+  });
+  it("checks invitation eligibility before owner locks and rechecks with nonblocking locks", () => {
+    const sql = readFileSync(
+      "supabase/migrations/20260911030000_project_team_membership.sql",
+      "utf8",
+    )
+      .split("CREATE FUNCTION public.accept_project_team_invitation")[1]
+      .split("CREATE FUNCTION public.change_project_team_member")[0];
+    const workspaceLock = sql.indexOf("FOR UPDATE NOWAIT");
+    expect(sql.indexOf("v.recipient_email")).toBeLessThan(workspaceLock);
+    expect(sql.indexOf("v.state='pending'")).toBeLessThan(workspaceLock);
+    expect(sql.indexOf("assert_knowledge_project")).toBeGreaterThan(workspaceLock);
+    expect(sql.indexOf("FOR SHARE OF u,i NOWAIT")).toBeGreaterThan(workspaceLock);
+    expect(sql.indexOf("invitation.recipient_email<>recipient")).toBeGreaterThan(workspaceLock);
+    expect(sql).toContain("invite_id=p_invite FOR UPDATE NOWAIT");
+  });
+  it("rejects a forged invitation without requiring an owner workspace", async () => {
+    await expect(
+      db.query("SELECT public.accept_project_team_invitation($1,$2,'p',$3)", [
+        actor,
+        second,
+        invite,
+      ]),
+    ).rejects.toThrow("team_invitation_unavailable");
+    await create();
+    await expect(accept(second)).rejects.toThrow("team_invitation_unavailable");
+    expect((await db.query("SELECT * FROM public.project_team_members")).rows).toHaveLength(0);
   });
   it("rejects wrong recipient, unverified, deleted, banned and changed-email accounts", async () => {
     await create();
@@ -363,6 +621,143 @@ describe("durable project invitation and membership lifecycle", () => {
     expect((await db.query("SELECT * FROM public.project_team_edits")).rows).toHaveLength(1);
     expect((await db.query("SELECT active FROM public.output_knowledge_reviews")).rows[0]).toEqual({
       active: false,
+    });
+  });
+  it("coalesces fresh-ID unchanged receipts and isolates an editor's save quota", async () => {
+    await create();
+    await accept();
+    const hash = (
+      await db.query<{ hash: string }>(
+        "SELECT read_project_team_snapshot($1,$2,'p','a')->>'draftHash' hash",
+        [actor, owner],
+      )
+    ).rows[0].hash;
+    const save = (id: string, who = actor, patch: unknown = { title: "Draft" }) =>
+      db.query("SELECT save_project_team_draft($1,$2,'p','a',$3,$4,1,$5)", [
+        who,
+        owner,
+        id,
+        hash,
+        patch,
+      ]);
+    await save(second);
+    await save(other);
+    await save(second);
+    expect((await db.query("SELECT * FROM project_team_edits")).rows).toHaveLength(1);
+    await db.query(
+      "INSERT INTO project_team_edits(owner_id,project_id,asset_id,edit_id,actor_id,before_hash,after_hash,content_hash,patch_hash,membership_revision) SELECT $1,'p','a',gen_random_uuid(),$2,repeat('a',64),repeat('b',64),repeat('d',64),repeat('c',64),1 FROM generate_series(1,119)",
+      [owner, actor],
+    );
+    await expect(save(other, actor, { markdown: "Edit" })).rejects.toThrow("team_edit_capacity");
+    await save(second); // Exact recorded retry remains usable at capacity.
+    await save(invite, owner, { markdown: "Owner edit" });
+    expect((await db.query("SELECT count(*)::int n FROM project_team_edits")).rows).toEqual([
+      { n: 121 },
+    ]);
+  });
+  it("preserves approved content, scores, reviews and schedules for an unchanged populated form", async () => {
+    await create();
+    await accept();
+    await db.exec(`UPDATE public.workspace_entities SET data=data || '{"status":"Approved","qualityScore":{"total":80},"qualityScoreStale":false}' WHERE collection='content';
+      INSERT INTO public.scheduled_publishes VALUES('${owner}','p','a','pending',now());`);
+    await db.query("SELECT public.set_publication_approval($1,'p','a',1,$2,true)", [
+      owner,
+      "a".repeat(64),
+    ]);
+    await db.query(
+      "INSERT INTO public.output_knowledge_reviews(user_id,project_id,asset_id,review_id,version_hash,context_hash) VALUES($1,'p','a',$2,$3,$3)",
+      [owner, invite, "a".repeat(64)],
+    );
+    const before = (
+      await db.query(
+        "SELECT data,updated_at FROM public.workspace_entities WHERE user_id=$1 AND collection='content'",
+        [owner],
+      )
+    ).rows;
+    const hash = (
+      await db.query<{ hash: string }>(
+        "SELECT public.read_project_team_snapshot($1,$2,'p','a')->>'draftHash' hash",
+        [actor, owner],
+      )
+    ).rows[0].hash;
+    const patch = {
+      title: "Draft",
+      markdown: "Saved draft",
+      h1: "",
+      metaTitle: "",
+      metaDescription: "",
+      cta: "",
+      outline: [],
+      faq: [],
+    };
+    const save = () =>
+      db.query<{ hash: string }>(
+        "SELECT public.save_project_team_draft($1,$2,'p','a',$3,$4,1,$5) hash",
+        [actor, owner, second, hash, patch],
+      );
+    expect((await save()).rows[0].hash).toBe(hash);
+    expect((await save()).rows[0].hash).toBe(hash);
+    expect(
+      (
+        await db.query(
+          "SELECT data,updated_at FROM public.workspace_entities WHERE user_id=$1 AND collection='content'",
+          [owner],
+        )
+      ).rows,
+    ).toEqual(before);
+    expect((await db.query("SELECT approved FROM public.publication_approvals")).rows).toEqual([
+      { approved: true },
+    ]);
+    expect((await db.query("SELECT active FROM public.output_knowledge_reviews")).rows).toEqual([
+      { active: true },
+    ]);
+    expect((await db.query("SELECT status FROM public.scheduled_publishes")).rows).toEqual([
+      { status: "pending" },
+    ]);
+    expect(
+      (await db.query("SELECT rev FROM public.workspace_meta WHERE user_id=$1", [owner])).rows,
+    ).toEqual([{ rev: 1 }]);
+    expect((await db.query("SELECT * FROM public.project_team_edits")).rows).toHaveLength(1);
+  });
+  it.each([
+    { title: "New title" },
+    { markdown: "New body" },
+    { h1: "New heading" },
+    { metaTitle: "New meta title" },
+    { metaDescription: "New description" },
+    { cta: "New CTA" },
+    { outline: ["New section"] },
+    { faq: [{ q: "Question", a: "Answer" }] },
+  ])("marks the existing quality score stale after content changes: %j", async (patch) => {
+    await create();
+    await accept();
+    await db.exec(
+      `UPDATE public.workspace_entities SET data=data || '{"qualityScore":{"total":80},"qualityScoreStale":false}' WHERE collection='content'`,
+    );
+    const hash = (
+      await db.query<{ hash: string }>(
+        "SELECT public.read_project_team_snapshot($1,$2,'p','a')->>'draftHash' hash",
+        [actor, owner],
+      )
+    ).rows[0].hash;
+    await db.query("SELECT public.save_project_team_draft($1,$2,'p','a',$3,$4,1,$5)", [
+      actor,
+      owner,
+      second,
+      hash,
+      patch,
+    ]);
+    const saved = (
+      await db.query<{ data: unknown }>(
+        "SELECT data FROM public.workspace_entities WHERE user_id=$1 AND collection='content'",
+        [owner],
+      )
+    ).rows[0].data;
+    expect(saved).toMatchObject({
+      ...patch,
+      qualityScore: { total: 80 },
+      qualityScoreStale: true,
+      status: "In Review",
     });
   });
   it("rejects changed draft, changed membership, viewers, private-field patches and in-flight publication", async () => {
@@ -598,7 +993,10 @@ describe("durable project invitation and membership lifecycle", () => {
         [actor, owner],
       )
     ).rows[0].result;
-    const images = [{ key: "social_im", byteHash: "b".repeat(64) }];
+    const images = Array.from({ length: 40 }, (_, i) => ({
+      key: `content_im${i}`,
+      byteHash: "b".repeat(64),
+    }));
     await db.query(
       "SELECT public.save_project_team_approval($1,$2,'p','a',$3,1,$4,$5,1,1,true,$6::jsonb)",
       [actor, owner, second, snap.draftHash, "a".repeat(64), JSON.stringify(images)],
@@ -731,43 +1129,87 @@ describe("durable project invitation and membership lifecycle", () => {
       ).rows[0].ok,
     ).toBe(false);
   });
-  it("does not let an editor approve their own edit by switching to Reviewer under separation", async () => {
-    await create();
-    await accept();
-    const before = (
-      await db.query<{ result: { draftHash: string } }>(
-        "SELECT public.read_project_team_snapshot($1,$2,'p','a') result",
-        [actor, owner],
-      )
-    ).rows[0].result;
-    await db.query("SELECT public.save_project_team_draft($1,$2,'p','a',$3,$4,1,$5)", [
-      actor,
-      owner,
-      second,
-      before.draftHash,
-      { markdown: "My edit" },
-    ]);
-    await change();
-    await db.query(
-      "SELECT public.set_project_team_approval_policy($1,$1,'p',0,'separate_reviewers')",
-      [owner],
-    );
-    const after = (
-      await db.query<{ result: { draftHash: string } }>(
-        "SELECT public.read_project_team_snapshot($1,$2,'p','a') result",
-        [actor, owner],
-      )
-    ).rows[0].result;
-    await expect(
-      db.query("SELECT public.save_project_team_approval($1,$2,'p','a',$3,2,$4,$5,2,1,true)", [
+  it.each(["own", "owner-rewrite", "owner-noop", "review-rejected", "review-approved"])(
+    "binds reviewer separation to the actual current draft: %s",
+    async (mode) => {
+      await create();
+      await accept();
+      const before = (
+        await db.query<{ result: { draftHash: string } }>(
+          "SELECT public.read_project_team_snapshot($1,$2,'p','a') result",
+          [actor, owner],
+        )
+      ).rows[0].result;
+      await db.query("SELECT public.save_project_team_draft($1,$2,'p','a',$3,$4,1,$5)", [
         actor,
         owner,
-        other,
-        after.draftHash,
-        "a".repeat(64),
-      ]),
-    ).rejects.toThrow("team_independent_reviewer_required");
-  });
+        second,
+        before.draftHash,
+        { markdown: "My edit" },
+      ]);
+      if (mode === "owner-rewrite")
+        await db.exec(
+          "UPDATE workspace_entities SET data=data || '{\"markdown\":\"Owner rewritten version\"}' WHERE collection='content'; UPDATE workspace_meta SET rev=rev+1",
+        );
+      if (mode === "owner-noop") {
+        const hash = (
+          await db.query<{ hash: string }>(
+            "SELECT read_project_team_snapshot($1,$2,'p','a')->>'draftHash' hash",
+            [actor, owner],
+          )
+        ).rows[0].hash;
+        await db.query("SELECT save_project_team_draft($1,$1,'p','a',$2,$3,1,$4)", [
+          owner,
+          other,
+          hash,
+          { markdown: "My edit" },
+        ]);
+      }
+      await change();
+      await db.query(
+        "SELECT public.set_project_team_approval_policy($1,$1,'p',0,'separate_reviewers')",
+        [owner],
+      );
+      if (mode.startsWith("review-")) {
+        const current = (
+          await db.query<{ hash: string }>(
+            "SELECT read_project_team_snapshot($1,$1,'p','a')->>'draftHash' hash",
+            [owner],
+          )
+        ).rows[0].hash;
+        await db.query(
+          "SELECT save_project_team_approval($1,$1,'p','a',gen_random_uuid(),2,$2,$3,1,1,$4)",
+          [owner, current, "a".repeat(64), mode === "review-approved"],
+        );
+      }
+      const after = (
+        await db.query<{ result: { draftHash: string } }>(
+          "SELECT public.read_project_team_snapshot($1,$2,'p','a') result",
+          [actor, owner],
+        )
+      ).rows[0].result;
+      const authority = (
+        await db.query<{ result: { canReview: boolean } }>(
+          "SELECT read_project_team_review_authority($1,$2,'p','a') result",
+          [actor, owner],
+        )
+      ).rows[0].result;
+      expect(authority.canReview).toBe(mode === "owner-rewrite");
+      const review = db.query(
+        "SELECT public.save_project_team_approval($1,$2,'p','a',$3,$6,$4,$5,2,1,true)",
+        [
+          actor,
+          owner,
+          other,
+          after.draftHash,
+          "a".repeat(64),
+          mode === "owner-rewrite" || mode.startsWith("review-") ? 3 : 2,
+        ],
+      );
+      if (mode === "owner-rewrite") await expect(review).resolves.toBeDefined();
+      else await expect(review).rejects.toThrow("team_independent_reviewer_required");
+    },
+  );
 
   it("limits private review context to the exact assigned project and asset", async () => {
     await create();
@@ -899,6 +1341,42 @@ describe("shared-project notification recipient controls", () => {
       revision,
       membership,
     ]);
+  it.each([false, true])(
+    "retains consent audit history and never blocks opting out: recent=%s",
+    async (recent) => {
+      await create();
+      await accept();
+      await set(owner, "assign", true, 0);
+      await set(actor, "opt_in", true, 1);
+      await db.query(
+        "INSERT INTO project_team_notification_recipient_audit(owner_id,project_id,recipient_id,actor_id,action,enabled,revision,created_at) SELECT $1,'p',$2,$2,'opt_in',true,2,now()-CASE WHEN $3 THEN interval '1 minute' ELSE interval '2 hours' END FROM generate_series(1,10000)",
+        [owner, actor, recent],
+      );
+      if (recent)
+        await expect(set(actor, "opt_in", true, 2)).rejects.toThrow("team_recipient_capacity");
+      else await set(actor, "opt_in", true, 2);
+      await set(actor, "opt_in", false, recent ? 2 : 3);
+      expect(await settings()).toMatchObject({ optedIn: false });
+    },
+  );
+  it("preserves the first opt-out and coalesces repeated disabled settings", async () => {
+    await create();
+    await accept();
+    await set(actor, "opt_in", false, 0);
+    for (let i = 0; i < 5; i++) await set(actor, "opt_in", false, 1);
+    expect(await settings()).toMatchObject({ optedIn: false, revision: 1 });
+    expect(
+      (await db.query("SELECT * FROM project_team_notification_recipient_audit")).rows,
+    ).toHaveLength(1);
+    await expect(set(actor, "opt_in", false, 0)).rejects.toThrow("team_recipient_changed");
+    await set(actor, "opt_in", true, 1);
+    await set(actor, "opt_in", false, 2);
+    for (let i = 0; i < 5; i++) await set(actor, "opt_in", false, 3);
+    expect(await settings()).toMatchObject({ optedIn: false, revision: 3 });
+    expect(
+      (await db.query("SELECT * FROM project_team_notification_recipient_audit")).rows,
+    ).toHaveLength(3);
+  });
   it("requires independent owner assignment and recipient consent with revision checks", async () => {
     await create();
     await accept();
@@ -1253,4 +1731,49 @@ describe("explicit saved invitation email delivery", () => {
     await expect(claim()).rejects.toThrow("permission denied");
     await db.exec("RESET ROLE");
   });
+});
+
+async function currentDecision(who: string, approved: boolean, version = "a".repeat(64)) {
+  const snap = (
+    await db.query<{ s: { draftHash: string; workspaceRevision: number } }>(
+      "SELECT read_project_team_snapshot($1,$2,'p','a') s",
+      [who, owner],
+    )
+  ).rows[0].s;
+  return db.query(
+    "SELECT save_project_team_approval($1,$2,'p','a',gen_random_uuid(),$3,$4,$5,1,1,$6)",
+    [who, owner, snap.workspaceRevision, snap.draftHash, version, approved],
+  );
+}
+it("coalesces fresh-ID unchanged rejections without growing history or changing the draft/revision", async () => {
+  await create();
+  await accept();
+  await db.query("SELECT set_project_team_approval_policy($1,$1,'p',0,'editors_can_approve')", [
+    owner,
+  ]);
+  await currentDecision(actor, false);
+  const before = await db.query("SELECT data FROM workspace_entities WHERE collection='content'");
+  const revision = await db.query("SELECT rev FROM workspace_meta");
+  for (let i = 0; i < 3; i++) await currentDecision(actor, false);
+  expect(
+    (await db.query("SELECT data FROM workspace_entities WHERE collection='content'")).rows,
+  ).toEqual(before.rows);
+  expect((await db.query("SELECT rev FROM workspace_meta")).rows).toEqual(revision.rows);
+  expect(
+    (await db.query("SELECT count(*)::int n FROM project_team_approval_history")).rows,
+  ).toEqual([{ n: 1 }]);
+});
+it("limits all fresh decisions per actor while preserving owner access", async () => {
+  await create();
+  await accept();
+  await db.query("SELECT set_project_team_approval_policy($1,$1,'p',0,'editors_can_approve')", [
+    owner,
+  ]);
+  await db.query(
+    "INSERT INTO project_team_approval_history(owner_id,project_id,asset_id,review_id,actor_id,membership_revision,policy_revision,version_hash,approved) SELECT $1,'p','a',gen_random_uuid(),$2,1,1,repeat('b',64),false FROM generate_series(1,120)",
+    [owner, actor],
+  );
+  await expect(currentDecision(actor, false)).rejects.toThrow("team_approval_capacity");
+  await expect(currentDecision(actor, true)).rejects.toThrow("team_approval_capacity");
+  await expect(currentDecision(owner, false)).resolves.toBeDefined();
 });

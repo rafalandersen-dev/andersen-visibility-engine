@@ -48,11 +48,11 @@ export async function saveProjectTeamReview(
       throw new Error("Inspect the complete rendered draft and every image before approving.");
     // Up to six bounded downloads at a time. A timeout never leads to a later
     // approval write; remaining work is read-only and admission is checked again.
-    for (let offset = 0; offset < current.media.length; offset += 6) {
+    for (let offset = 0; offset < current.media.length; offset += 4) {
       if (now() >= deadline)
         throw new Error("The image review timed out. Refresh before trying again.");
       await Promise.all(
-        current.media.slice(offset, offset + 6).map(async (image) => {
+        current.media.slice(offset, offset + 4).map(async (image) => {
           const checked = await media(actor, {
             ...scope,
             imageId: image.imageId,

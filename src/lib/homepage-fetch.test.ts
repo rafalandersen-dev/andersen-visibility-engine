@@ -9,6 +9,7 @@ vi.mock("node:https", () => ({ request: mocks.request }));
 import {
   fetchHomepageHtml,
   fetchPinnedResource,
+  fetchPinnedImage,
   isPublicHomepageAddress,
   HOMEPAGE_MAX_BYTES,
   HOMEPAGE_TIMEOUT_MS,
@@ -372,5 +373,67 @@ describe("structured pinned technical observations", () => {
         origin: "https://example.com",
       }),
     ).toMatchObject({ status: 404, body: "", contentAccepted: false });
+  });
+});
+
+describe("pinned collaborator image fetches", () => {
+  const get = (url = "https://example.com/image.png") =>
+    fetchPinnedImage(url, "https://example.com", new AbortController().signal);
+  it("returns exact bytes and uses a pinned socket without global fetch", async () => {
+    const bytes = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 255, 0]);
+    mocks.request.mockImplementation(
+      reply(response([bytes], 200, { "content-type": "image/png" })),
+    );
+    const globalFetch = vi.fn();
+    vi.stubGlobal("fetch", globalFetch);
+    expect(await get()).toEqual(new Uint8Array(bytes));
+    expect(globalFetch).not.toHaveBeenCalled();
+    expect(mocks.request.mock.calls[0][1].headers.Accept).toBe("image/png,image/jpeg,image/webp");
+    expect(mocks.request.mock.calls[0][1].lookup).toEqual(expect.any(Function));
+  });
+  it("pins Bun image requests and preserves binary data after TLS identity verification", async () => {
+    vi.stubGlobal("Bun", { version: "1.3.3" });
+    const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 255, 0]);
+    const native = vi.fn(async (url, options) => {
+      expect(url.toString()).toBe("https://93.184.216.34/image.png");
+      expect(options.headers.Accept).toBe("image/png,image/jpeg,image/webp");
+      expect(
+        options.tls.checkServerIdentity("93.184.216.34", { subjectaltname: "DNS:example.com" }),
+      ).toBeUndefined();
+      return new Response(bytes, { headers: { "content-type": "image/png" } });
+    });
+    vi.stubGlobal("fetch", native);
+    expect(await get()).toEqual(bytes);
+    expect(mocks.request).not.toHaveBeenCalled();
+  });
+  it("blocks private DNS before connection and checks each redirect again", async () => {
+    mocks.lookup.mockResolvedValueOnce([{ address: "127.0.0.1", family: 4 }]);
+    expect(await get()).toBeNull();
+    expect(mocks.request).not.toHaveBeenCalled();
+    mocks.lookup
+      .mockResolvedValueOnce([{ address: "93.184.216.34", family: 4 }])
+      .mockResolvedValueOnce([{ address: "10.0.0.1", family: 4 }]);
+    mocks.request.mockImplementation(reply(response([], 302, { location: "/next.png" })));
+    expect(await get()).toBeNull();
+    expect(mocks.request).toHaveBeenCalledTimes(1);
+  });
+  it("refuses off-origin redirects before resolving the next host", async () => {
+    mocks.request.mockImplementation(
+      reply(response([], 302, { location: "https://other.test/image.png" })),
+    );
+    expect(await get()).toBeNull();
+    expect(mocks.lookup).toHaveBeenCalledTimes(1);
+  });
+  it("rejects oversized streams without returning a truncated image", async () => {
+    mocks.request.mockImplementation(reply(response([Buffer.alloc(5 * 1024 * 1024 + 1)])));
+    expect(await get()).toBeNull();
+  });
+  it("stops before DNS when the parent operation is cancelled", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    expect(
+      await fetchPinnedImage("https://example.com/a", "https://example.com", controller.signal),
+    ).toBeNull();
+    expect(mocks.lookup).not.toHaveBeenCalled();
   });
 });

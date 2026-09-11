@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { deliverOneTeamDigest, runTeamNotificationWorker } from "./project-team-delivery.server";
+import {
+  deliverOneTeamDigest,
+  runTeamNotificationWorker,
+  queueTeamDigestTargets,
+} from "./project-team-delivery.server";
 const owner = "00000000-0000-4000-8000-000000000001",
   recipient = "00000000-0000-4000-8000-000000000002",
   id = "00000000-0000-4000-8000-000000000003";
@@ -29,7 +33,7 @@ function deps(data: unknown = body) {
             : true,
       error: null,
     })),
-    refresh: vi.fn(async () => true),
+    refresh: vi.fn(async (_owner: string) => true),
     recipient: vi.fn(async () => ({ email: "member@example.test", unsubscribeToken: "test-only" })),
     send: vi.fn(async () => ({ success: true })),
   };
@@ -102,4 +106,37 @@ describe("team notification delivery", () => {
     await expect(deliverOneTeamDigest(d)).rejects.toThrow();
     expect(d.send).toHaveBeenCalledTimes(1);
   });
+});
+
+it("refreshes an owner's source once when preparing twenty recipient digests", async () => {
+  const d = deps();
+  d.rpc.mockResolvedValue({ data: id, error: null });
+  const targets = Array.from({ length: 20 }, (_, index) => ({
+    owner_id: owner,
+    project_id: index % 2 ? "p" : "q",
+    recipient_id: `00000000-0000-4000-8000-${String(index + 10).padStart(12, "0")}`,
+  }));
+  expect(await queueTeamDigestTargets(targets, d)).toEqual({ queued: 20, failed: 0 });
+  expect(d.refresh).toHaveBeenCalledExactlyOnceWith(owner);
+  expect(d.rpc).toHaveBeenCalledTimes(20);
+});
+it("does not retry a failed owner refresh for each recipient and still serves other owners", async () => {
+  const d = deps();
+  d.rpc.mockResolvedValue({ data: id, error: null });
+  d.refresh.mockImplementation(async (who) => {
+    if (who === owner) throw new Error("unavailable");
+    return true;
+  });
+  expect(
+    await queueTeamDigestTargets(
+      [
+        { owner_id: owner, project_id: "p", recipient_id: recipient },
+        { owner_id: owner, project_id: "q", recipient_id: recipient },
+        { owner_id: recipient, project_id: "p", recipient_id: owner },
+      ],
+      d,
+    ),
+  ).toEqual({ queued: 1, failed: 2 });
+  expect(d.refresh).toHaveBeenCalledTimes(2);
+  expect(d.rpc).toHaveBeenCalledTimes(1);
 });

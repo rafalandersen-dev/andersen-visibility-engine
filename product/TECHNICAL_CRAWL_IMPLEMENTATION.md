@@ -91,3 +91,11 @@ The latest 20 saved requests expose source, device, scope, requested/received ti
 Seven focused copy/pure-view/static-render tests pass, including exact URL/device/source/scope rejection, missing-window uncertainty, retained zero values, lab TBT versus field INP, and history without configuration. TypeScript and changed-file lint pass. Actual browser interaction and live-provider acceptance remain unverified under the existing boundaries. No provider request, key/account change or SQL deployment was performed.
 
 Performance-UI validation: full 3,393 tests / 258 files pass (57.16 seconds, one worker). The final project-origin helper refinement is covered by the rerun seven focused tests. TypeScript, changed-file lint and production build pass. Logs `/tmp/milo-performance-ui-{full,focused-final,types-final,lint-final,build}.log`.
+
+## Integration with current team-access fixes (local, unreleased)
+
+Merged team branch head 2dacf08 into the technical checkout using a normal merge. The shared native transport retains the technical resource/robots/sitemap reader and the separate exact-image-byte reader, including image Accept headers on both Node and Bun, public-address pinning, scope checks and cancellation. Both transport test groups are retained. The current account, invitation, resource-limit, approval, notification and preview fixes are now present alongside technical SEO.
+
+Combined validation: all 3,463 tests / 262 files pass (56.36 seconds, one worker); TypeScript and resolved-file lint pass. The 63 focused transport/crawl tests also pass. Logs: /tmp/milo-technical-merge-{full,types,lint,focused}.log. Production build validation is recorded separately after completion. This integration does not release either feature set, apply migrations or constitute live-provider/browser acceptance.
+
+Combined production build passes: /tmp/milo-technical-merge-build.log. No live requests or deployment performed.

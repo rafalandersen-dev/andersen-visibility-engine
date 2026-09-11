@@ -21,7 +21,7 @@ CREATE FUNCTION public.request_project_team_invitation_delivery(p_actor uuid,p_p
 RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE invitation public.project_team_invitations%ROWTYPE; result uuid;
 BEGIN
- PERFORM public.read_project_team_snapshot(p_actor,p_actor,p_project,NULL,0);
+ PERFORM public.read_project_team_snapshot(p_actor,p_actor,p_project,NULL,0,true);
  SELECT * INTO invitation FROM public.project_team_invitations WHERE owner_id=p_actor AND project_id=p_project AND invite_id=p_invite;
  IF invitation.invite_id IS NULL OR invitation.state<>'pending' OR invitation.expires_at<=clock_timestamp() OR invitation.recipient_email IS DISTINCT FROM lower(btrim(p_email)) OR invitation.role IS DISTINCT FROM p_role THEN RAISE EXCEPTION 'team_invitation_delivery_changed'; END IF;
  SELECT id INTO result FROM public.project_team_invitation_deliveries WHERE owner_id=p_actor AND invite_id=p_invite;

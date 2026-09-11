@@ -41,6 +41,8 @@ CREATE TABLE public.project_team_approval_history (
 ALTER TABLE public.project_team_approval_history ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.project_team_approval_history FROM PUBLIC,anon,authenticated,service_role;
 
+CREATE INDEX project_team_approval_history_recent_activity ON public.project_team_approval_history(owner_id,project_id,created_at);
+CREATE INDEX project_team_approval_history_actor_activity ON public.project_team_approval_history(owner_id,project_id,actor_id,created_at);
 CREATE FUNCTION public.set_project_team_approval_policy(p_actor uuid,p_owner uuid,p_project text,p_expected bigint,p_mode text)
 RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE previous bigint;
@@ -48,6 +50,7 @@ BEGIN
   IF p_actor IS NULL OR p_actor IS DISTINCT FROM p_owner OR p_expected IS NULL OR p_expected<0
     OR p_mode IS NULL OR p_mode NOT IN ('disabled','separate_reviewers','editors_can_approve') THEN RAISE EXCEPTION 'team_policy_unavailable'; END IF;
   PERFORM public.assert_knowledge_project(p_owner,p_project,true);
+  PERFORM public.assert_project_team_account(p_owner);
   SELECT revision INTO previous FROM public.project_team_approval_policy WHERE owner_id=p_owner AND project_id=p_project;
   IF coalesce(previous,0)<>p_expected THEN RAISE EXCEPTION 'team_policy_changed' USING ERRCODE='40001'; END IF;
   INSERT INTO public.project_team_approval_policy(owner_id,project_id,mode,revision) VALUES(p_owner,p_project,p_mode,p_expected+1)
@@ -121,20 +124,27 @@ BEGIN
   IF p_actor IS NULL OR p_review IS NULL OR p_expected IS NULL OR p_expected<0 OR p_approved IS NULL
     OR p_draft_hash IS NULL OR p_draft_hash !~ '^[a-f0-9]{64}$' OR p_version IS NULL OR p_version !~ '^[a-f0-9]{64}$'
     OR p_membership IS NULL OR p_policy IS NULL THEN RAISE EXCEPTION 'team_approval_unavailable'; END IF;
-  IF p_images IS NULL OR jsonb_typeof(p_images)<>'array' OR jsonb_array_length(p_images)>32 THEN RAISE EXCEPTION 'team_review_images_invalid'; END IF;
+  IF p_images IS NULL OR jsonb_typeof(p_images)<>'array' OR octet_length(p_images::text)>8000000 THEN RAISE EXCEPTION 'team_review_images_invalid'; END IF;
   IF EXISTS(SELECT 1 FROM jsonb_array_elements(p_images) im WHERE jsonb_typeof(im)<>'object' OR im-ARRAY['key','byteHash']<>'{}'::jsonb OR coalesce(im->>'key','') !~ '^(content|featured|social)_[A-Za-z0-9_-]{1,64}$' OR coalesce(im->>'byteHash','') !~ '^[a-f0-9]{64}$') OR (SELECT count(DISTINCT im->>'key') FROM jsonb_array_elements(p_images) im)<>jsonb_array_length(p_images) THEN RAISE EXCEPTION 'team_review_images_invalid'; END IF;
-  snapshot:=public.read_project_team_snapshot(p_actor,p_owner,p_project,p_asset,0);
+  snapshot:=public.read_project_team_snapshot(p_actor,p_owner,p_project,p_asset,0,true);
   IF p_asset IS NULL OR (snapshot->>'workspaceRevision')::bigint<>p_expected OR snapshot->>'draftHash' IS DISTINCT FROM p_draft_hash THEN RAISE EXCEPTION 'team_approval_draft_changed' USING ERRCODE='40001'; END IF;
   SELECT * INTO membership FROM public.project_team_members WHERE owner_id=p_owner AND project_id=p_project AND actor_id=p_actor;
   SELECT * INTO policy FROM public.project_team_approval_policy WHERE owner_id=p_owner AND project_id=p_project;
   IF coalesce(policy.revision,0)<>p_policy OR (snapshot->>'membershipRevision')::bigint<>p_membership
     OR (p_actor<>p_owner AND (policy.revision IS NULL OR NOT ((policy.mode IN ('separate_reviewers','editors_can_approve') AND membership.role='reviewer') OR (policy.mode='editors_can_approve' AND membership.role='editor')))) THEN RAISE EXCEPTION 'team_approval_policy_changed'; END IF;
-  IF p_actor<>p_owner AND policy.mode='separate_reviewers' AND (SELECT actor_id FROM public.project_team_edits WHERE owner_id=p_owner AND project_id=p_project AND asset_id=p_asset ORDER BY created_at DESC,edit_id DESC LIMIT 1)=p_actor THEN RAISE EXCEPTION 'team_independent_reviewer_required'; END IF;
+  IF p_actor<>p_owner AND policy.mode='separate_reviewers' AND (SELECT actor_id FROM public.project_team_edits WHERE owner_id=p_owner AND project_id=p_project AND asset_id=p_asset AND content_hash=(SELECT public.project_team_authorship_hash(data) FROM public.workspace_entities WHERE user_id=p_owner AND collection='content' AND entity_id=p_asset) AND before_hash<>after_hash ORDER BY created_at DESC,edit_id DESC LIMIT 1)=p_actor THEN RAISE EXCEPTION 'team_independent_reviewer_required'; END IF;
   IF NOT EXISTS(SELECT 1 FROM auth.users WHERE id=p_actor AND deleted_at IS NULL AND (banned_until IS NULL OR banned_until<=clock_timestamp())) THEN RAISE EXCEPTION 'team_approval_unavailable'; END IF;
   IF NOT EXISTS(SELECT 1 FROM public.publication_approvals WHERE user_id=p_owner AND project_id=p_project AND asset_id=p_asset)
     AND (SELECT count(*) FROM public.publication_approvals WHERE user_id=p_owner AND project_id=p_project)>=1000 THEN RAISE EXCEPTION 'publication_approval_capacity'; END IF;
   IF EXISTS(SELECT 1 FROM public.project_team_approval_history WHERE owner_id=p_owner AND review_id=p_review) THEN RAISE EXCEPTION 'team_approval_replay'; END IF;
-  IF (SELECT count(*) FROM public.project_team_approval_history WHERE owner_id=p_owner AND project_id=p_project)>=10000 THEN RAISE EXCEPTION 'team_approval_capacity'; END IF;
+  -- Coalesce fresh-ID repetitions of an already recorded, still-current rejection.
+  -- Authority and exact current draft checks above still run on every request.
+  IF NOT p_approved AND EXISTS(SELECT 1 FROM public.workspace_entities WHERE user_id=p_owner AND collection='content' AND entity_id=p_asset AND data->>'status'='Rejected')
+    AND EXISTS(SELECT 1 FROM public.publication_approvals WHERE user_id=p_owner AND project_id=p_project AND asset_id=p_asset AND version_hash=p_version AND NOT approved)
+    AND EXISTS(SELECT 1 FROM public.project_team_approval_history WHERE owner_id=p_owner AND project_id=p_project AND asset_id=p_asset AND actor_id=p_actor AND version_hash=p_version AND membership_revision=p_membership AND policy_revision=p_policy AND NOT approved)
+    THEN RETURN true; END IF;
+  IF (SELECT count(*) FROM public.project_team_approval_history WHERE owner_id=p_owner AND project_id=p_project AND created_at>clock_timestamp()-interval '1 hour')>=10000 THEN RAISE EXCEPTION 'team_approval_capacity'; END IF;
+  IF (SELECT count(*) FROM public.project_team_approval_history WHERE owner_id=p_owner AND project_id=p_project AND actor_id=p_actor AND created_at>clock_timestamp()-interval '1 hour')>=120 THEN RAISE EXCEPTION 'team_approval_capacity'; END IF;
   PERFORM 1 FROM public.scheduled_publishes WHERE user_id=p_owner AND project_id=p_project AND asset_id=p_asset FOR UPDATE;
   IF EXISTS(SELECT 1 FROM public.scheduled_publishes WHERE user_id=p_owner AND project_id=p_project AND asset_id=p_asset AND status='publishing') THEN RAISE EXCEPTION 'team_publication_in_flight'; END IF;
   -- Preserve an independent owner approval only for this same approved version.

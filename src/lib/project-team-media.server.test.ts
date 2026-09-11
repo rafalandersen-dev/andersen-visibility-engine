@@ -28,11 +28,77 @@ function context(image: Record<string, unknown> = { id: "im", storagePath: path 
 }
 const storageOrigin = "https://project.supabase.co";
 const deps = (image?: Record<string, unknown>) => ({
+  acquire: vi.fn(async () => owner),
+  release: vi.fn(async () => {}),
   storageOrigin,
   read: vi.fn(async () => context(image)),
   download: vi.fn(async () => new Blob([bytes])),
 });
 describe("scoped collaborator media", () => {
+  it("requires actor admission before private context or storage access", async () => {
+    const d = deps();
+    d.acquire.mockRejectedValueOnce(new Error("team_media_capacity"));
+    await expect(readProjectTeamMedia(actor, input, d)).rejects.toThrow("team_media_capacity");
+    expect(d.read).not.toHaveBeenCalled();
+    expect(d.download).not.toHaveBeenCalled();
+    expect(d.release).not.toHaveBeenCalled();
+  });
+  it.each([false, true])(
+    "releases admission when actual work finishes: failure=%s",
+    async (failure) => {
+      const d = deps();
+      if (failure) d.download.mockRejectedValueOnce(new Error("unavailable"));
+      if (failure) await expect(readProjectTeamMedia(actor, input, d)).rejects.toThrow();
+      else await readProjectTeamMedia(actor, input, d);
+      expect(d.acquire).toHaveBeenCalledWith(actor);
+      expect(d.release).toHaveBeenCalledWith(actor, owner);
+      expect(d.acquire.mock.invocationCallOrder[0]).toBeLessThan(
+        d.read.mock.invocationCallOrder[0],
+      );
+    },
+  );
+
+  it.each(["external.supabase.co", "external.supabase.in"])(
+    "pins an already controlled storage origin %s",
+    async (host) => {
+      const url = `https://${host}/storage/v1/object/public/article-assets-public/image.png`;
+      const d = deps({ id: "im", url });
+      const remote = vi.fn(async () => bytes);
+      await readProjectTeamMedia(actor, input, { ...d, remote });
+      expect(remote).toHaveBeenCalledWith(url, `https://${host}`, expect.any(AbortSignal));
+    },
+  );
+  it("reads a selected image in a 31-image article", async () => {
+    const d = deps();
+    const ctx = context();
+    ctx.asset.images = [
+      ...ctx.asset.images!,
+      ...Array.from({ length: 30 }, (_, i) => ({ id: `extra${i}` })),
+    ] as typeof ctx.asset.images;
+    d.read.mockResolvedValue(ctx);
+    await expect(readProjectTeamMedia(actor, input, d)).resolves.toHaveProperty("imageId", "im");
+  });
+  it.each(["featured", "social"] as const)(
+    "reads a detached %s from its saved featured record",
+    async (kind) => {
+      const d = deps();
+      const ctx = context();
+      ctx.asset.images = [];
+      ctx.asset.featuredImage = {
+        imageId: "im",
+        storagePath: path,
+        social: {
+          physicalUrl: `${storageOrigin}/storage/v1/object/public/article-assets-public/${path}`,
+        },
+      } as typeof ctx.asset.featuredImage;
+      d.read.mockResolvedValue(ctx);
+      await expect(readProjectTeamMedia(actor, { ...input, kind }, d)).resolves.toHaveProperty(
+        "imageId",
+        "im",
+      );
+      expect(d.download).toHaveBeenCalledTimes(1);
+    },
+  );
   it("returns validated bytes without private paths, credentials or project data", async () => {
     const d = deps();
     const result = await readProjectTeamMedia(actor, input, d);
@@ -121,42 +187,30 @@ describe("scoped collaborator media", () => {
   });
   it("uses bounded same-site public fetching without credentials", async () => {
     const d = deps({ id: "im", url: "https://client.example/image.png" });
-    const fetcher = vi.fn(async () => new Response(bytes));
+    const fetcher = vi.fn(async () => bytes);
     const result = await readProjectTeamMedia(actor, input, {
       ...d,
-      fetch: fetcher,
-      outboundAllowed: () => true,
+      remote: fetcher,
     });
     expect(result.contentType).toBe("image/png");
     expect(d.download).not.toHaveBeenCalled();
-    expect(fetcher.mock.calls[0]).toHaveLength(2);
+    expect(fetcher.mock.calls[0]).toHaveLength(3);
     expect(fetcher).toHaveBeenCalledWith(
       "https://client.example/image.png",
-      expect.objectContaining({ redirect: "manual", credentials: "omit" }),
+      "https://client.example",
+      expect.any(AbortSignal),
     );
   });
-  it("blocks redirects off the project origin and honors disabled outbound transport", async () => {
+  it("honors a rejected pinned fetch", async () => {
     const d = deps({ id: "im", url: "https://client.example/image.png" });
-    const fetcher = vi.fn(
-      async () =>
-        new Response(null, { status: 302, headers: { location: "http://127.0.0.1/private" } }),
-    );
-    await expect(
-      readProjectTeamMedia(actor, input, { ...d, fetch: fetcher, outboundAllowed: () => true }),
-    ).rejects.toThrow();
+    const fetcher = vi.fn(async () => null);
+    await expect(readProjectTeamMedia(actor, input, { ...d, remote: fetcher })).rejects.toThrow();
     expect(fetcher).toHaveBeenCalledTimes(1);
-    fetcher.mockClear();
-    await expect(
-      readProjectTeamMedia(actor, input, { ...d, fetch: fetcher, outboundAllowed: () => false }),
-    ).rejects.toThrow();
-    expect(fetcher).not.toHaveBeenCalled();
   });
   it("rejects oversized public streams even without a declared length", async () => {
     const d = deps({ id: "im", url: "https://client.example/image.png" });
-    const fetcher = vi.fn(async () => new Response(new Uint8Array(5 * 1024 * 1024 + 1)));
-    await expect(
-      readProjectTeamMedia(actor, input, { ...d, fetch: fetcher, outboundAllowed: () => true }),
-    ).rejects.toThrow();
+    const fetcher = vi.fn(async () => new Uint8Array(5 * 1024 * 1024 + 1));
+    await expect(readProjectTeamMedia(actor, input, { ...d, remote: fetcher })).rejects.toThrow();
   });
   it("loads the saved featured variant instead of a different inline image", async () => {
     const featuredPath = `${owner}/p/a/im.png`;
@@ -174,13 +228,23 @@ describe("scoped collaborator media", () => {
     vi.useFakeTimers();
     try {
       const d = deps();
-      d.download.mockImplementation(() => new Promise<Blob>(() => {}));
+      let complete!: (blob: Blob) => void;
+      d.download.mockImplementation(
+        () =>
+          new Promise<Blob>((resolve) => {
+            complete = resolve;
+          }),
+      );
       const pending = expect(readProjectTeamMedia(actor, input, d)).rejects.toThrow(
         "project image could not be confirmed",
       );
       await vi.advanceTimersByTimeAsync(10000);
       await pending;
       expect(vi.getTimerCount()).toBe(0);
+      expect(d.release).not.toHaveBeenCalled();
+      complete(new Blob([bytes]));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(d.release).toHaveBeenCalledWith(actor, owner);
     } finally {
       vi.useRealTimers();
     }

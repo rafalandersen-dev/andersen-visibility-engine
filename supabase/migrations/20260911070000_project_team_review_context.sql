@@ -29,7 +29,7 @@ BEGIN
   SELECT * INTO policy FROM public.project_team_approval_policy WHERE owner_id=p_owner AND project_id=p_project;
   SELECT role INTO member_role FROM public.project_team_members WHERE owner_id=p_owner AND project_id=p_project AND actor_id=p_actor;
   allowed:=p_actor=p_owner OR coalesce((policy.mode IN ('separate_reviewers','editors_can_approve') AND member_role='reviewer') OR (policy.mode='editors_can_approve' AND member_role='editor'),false);
-  IF p_actor<>p_owner AND policy.mode='separate_reviewers' AND (SELECT actor_id FROM public.project_team_edits WHERE owner_id=p_owner AND project_id=p_project AND asset_id=p_asset ORDER BY created_at DESC,edit_id DESC LIMIT 1)=p_actor THEN allowed:=false; END IF;
+  IF p_actor<>p_owner AND policy.mode='separate_reviewers' AND (SELECT actor_id FROM public.project_team_edits WHERE owner_id=p_owner AND project_id=p_project AND asset_id=p_asset AND content_hash=(SELECT public.project_team_authorship_hash(data) FROM public.workspace_entities WHERE user_id=p_owner AND collection='content' AND entity_id=p_asset) AND before_hash<>after_hash ORDER BY created_at DESC,edit_id DESC LIMIT 1)=p_actor THEN allowed:=false; END IF;
   RETURN jsonb_build_object('actorId',p_actor,'ownerId',p_owner,'projectId',p_project,'assetId',p_asset,'policyRevision',coalesce(policy.revision,0),'canReview',allowed);
 END; $$;
 REVOKE ALL ON FUNCTION public.read_project_team_review_authority(uuid,uuid,text,text) FROM PUBLIC,anon,authenticated;

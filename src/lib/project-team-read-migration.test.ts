@@ -74,6 +74,14 @@ describe("project membership scoped database reads", () => {
       await expect(read(actor, owner, "p", "a")).rejects.toThrow("team_project_unavailable");
     },
   );
+  it.each(["banned_until=now()+interval '1 hour'", "deleted_at=now()"])(
+    "blocks existing collaborators when their owner is suspended: %s",
+    async (restriction) => {
+      await read(actor, owner, "p", "a");
+      await db.exec(`UPDATE auth.users SET ${restriction} WHERE id='${owner}'`);
+      await expect(read(actor, owner, "p", "a")).rejects.toThrow("team_project_unavailable");
+    },
+  );
   it("allows access after a temporary ban expires", async () => {
     await db.exec(
       `UPDATE auth.users SET banned_until=now()-interval '1 second' WHERE id='${actor}'`,
@@ -115,4 +123,25 @@ describe("project membership scoped database reads", () => {
     expect((await db.query("SELECT * FROM public.project_team_members")).rows).toHaveLength(0);
     await expect(read()).rejects.toThrow("team_project_unavailable");
   });
+});
+
+it("authorizes before nonwaiting shared read admission and retains explicit exclusive mutation admission", async () => {
+  const definition = (
+    await db.query<{ definition: string }>(
+      "SELECT pg_get_functiondef('public.read_project_team_snapshot(uuid,uuid,text,text,integer,boolean)'::regprocedure) definition",
+    )
+  ).rows[0].definition;
+  expect(definition.indexOf("OR (p_actor<>p_owner AND NOT EXISTS")).toBeLessThan(
+    definition.indexOf("FOR UPDATE NOWAIT"),
+  );
+  expect(definition).toContain("FOR SHARE NOWAIT");
+  expect(definition).toContain("IF p_write THEN");
+  await expect(
+    db.query("SELECT public.read_project_team_snapshot($1,$2,'q',NULL,0,true)", [actor, owner]),
+  ).rejects.toThrow("team_project_unavailable");
+  const result = await db.query<{ snapshot: { workspaceRevision: number } }>(
+    "SELECT public.read_project_team_snapshot($1,$2,'p',NULL,0,true) snapshot",
+    [actor, owner],
+  );
+  expect(result.rows[0].snapshot.workspaceRevision).toBe(1);
 });

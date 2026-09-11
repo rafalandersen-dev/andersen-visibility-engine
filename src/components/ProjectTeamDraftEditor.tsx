@@ -28,9 +28,10 @@ export function ProjectTeamDraftEditor({
   const client = useQueryClient();
   // Keep a fixed base while typing. Background refetches must never overwrite
   // unsaved edits or silently rebase them onto someone else's saved content.
-  const [base, setBase] = useState({ hash, membershipRevision });
+  const [base, setBase] = useState({ hash, membershipRevision, fields: structuredClone(fields) });
   const [draft, setDraft] = useState<Fields>(() => structuredClone(fields));
   const [editId, setEditId] = useState(() => crypto.randomUUID());
+  const dirty = JSON.stringify(draft) !== JSON.stringify(base.fields);
   const changed = base.hash !== hash || base.membershipRevision !== membershipRevision;
   const update = (next: Fields) => {
     setDraft(next);
@@ -50,7 +51,11 @@ export function ProjectTeamDraftEditor({
         },
       }),
     onSuccess: (result) => {
-      setBase({ hash: result.draftHash, membershipRevision: base.membershipRevision });
+      setBase({
+        hash: result.draftHash,
+        membershipRevision: base.membershipRevision,
+        fields: structuredClone(draft),
+      });
       setEditId(crypto.randomUUID());
       toast.success(t("collaboration.draftSaved"));
       void client.invalidateQueries({ queryKey: ["project-teams", user?.id] });
@@ -85,7 +90,7 @@ export function ProjectTeamDraftEditor({
         className="mt-4 space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
-          mutation.mutate();
+          if (dirty && !changed && !mutation.isPending) mutation.mutate();
         }}
       >
         <p className="text-sm text-muted-foreground">{t("collaboration.editHelp")}</p>
@@ -98,7 +103,7 @@ export function ProjectTeamDraftEditor({
               disabled={mutation.isPending}
               onClick={() => {
                 setDraft(structuredClone(fields));
-                setBase({ hash, membershipRevision });
+                setBase({ hash, membershipRevision, fields: structuredClone(fields) });
                 setEditId(crypto.randomUUID());
               }}
             >
@@ -178,7 +183,9 @@ export function ProjectTeamDraftEditor({
         </fieldset>
         <Button
           type="submit"
-          disabled={mutation.isPending || changed || !teamDraftFields.safeParse(draft).success}
+          disabled={
+            mutation.isPending || changed || !dirty || !teamDraftFields.safeParse(draft).success
+          }
         >
           {t("collaboration.saveDraft")}
         </Button>

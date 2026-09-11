@@ -1,3 +1,4 @@
+import { acquireTeamMedia, releaseTeamMedia } from "./project-team-media-limit.server";
 import { z } from "zod";
 import { teamMediaInput } from "./project-team";
 import { readTeamReviewContext } from "./project-team-context.server";
@@ -9,84 +10,24 @@ import {
   validateImageBytes,
   contentTypeForFormat,
 } from "./image-storage";
-import { isSafePublicUrl, outboundFetchAllowed } from "./safe-fetch";
-import { projectOrigin } from "./images";
+import { isControlledImageOrigin } from "./images";
+import { fetchPinnedImage } from "./homepage-fetch.server";
 type ContextReader = typeof readTeamReviewContext;
 type Dependencies = {
+  acquire?: typeof acquireTeamMedia;
+  release?: typeof releaseTeamMedia;
   read?: ContextReader;
   storageOrigin?: string;
   download?: (bucket: string, path: string) => Promise<Blob>;
-  fetch?: typeof fetch;
-  outboundAllowed?: () => boolean;
+  remote?: typeof fetchPinnedImage;
 };
-async function publicBytes(
-  url: string,
-  origin: string,
-  fetcher: typeof fetch,
-  signal: AbortSignal,
-) {
-  let current = url;
-  for (let hop = 0; hop <= 3; hop++) {
-    if (
-      !isSafePublicUrl(current) ||
-      new URL(current).protocol !== "https:" ||
-      new URL(current).origin !== origin
-    )
-      throw new Error("media_origin");
-    const response = await fetcher(current, {
-      redirect: "manual",
-      credentials: "omit",
-      signal,
-      headers: { Accept: "image/png,image/jpeg,image/webp" },
-    });
-    if (response.status >= 300 && response.status < 400) {
-      const next = response.headers.get("location");
-      await response.body?.cancel();
-      if (!next || hop === 3) throw new Error("media_redirect");
-      current = new URL(next, current).href;
-      continue;
-    }
-    if (!response.ok) {
-      await response.body?.cancel();
-      throw new Error("media_http");
-    }
-    const size = Number(response.headers.get("content-length"));
-    if (size > MAX_IMAGE_BYTES) {
-      await response.body?.cancel();
-      throw new Error("media_size");
-    }
-    const reader = response.body?.getReader();
-    if (!reader) throw new Error("media_body");
-    const chunks: Uint8Array[] = [];
-    let total = 0;
-    try {
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        total += value.length;
-        if (total > MAX_IMAGE_BYTES) throw new Error("media_size");
-        chunks.push(value);
-      }
-    } finally {
-      await reader.cancel().catch(() => {});
-      reader.releaseLock();
-    }
-    const bytes = new Uint8Array(total);
-    let offset = 0;
-    for (const chunk of chunks) {
-      bytes.set(chunk, offset);
-      offset += chunk.length;
-    }
-    return bytes;
-  }
-  throw new Error("media_redirect");
-}
 export async function readProjectTeamMedia(
   actorId: string,
   raw: z.infer<typeof teamMediaInput>,
   deps: Dependencies = {},
 ) {
   const input = teamMediaInput.parse(raw);
+  const lease = await (deps.acquire ?? acquireTeamMedia)(actorId);
   const read = deps.read ?? readTeamReviewContext;
   const target = { ownerId: input.ownerId, projectId: input.projectId, assetId: input.assetId };
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -105,10 +46,10 @@ export async function readProjectTeamMedia(
             })
             .passthrough(),
         )
-        .max(30)
         .parse(before.asset.images ?? []);
       const matches = images.filter((i) => i.id === input.imageId);
-      if (matches.length !== 1) throw new Error("media_missing");
+      if ((input.kind ?? "content") === "content" && matches.length !== 1)
+        throw new Error("media_missing");
       const media =
         input.kind === "social"
           ? {
@@ -134,7 +75,9 @@ export async function readProjectTeamMedia(
         deps.download ??
         (async (bucket, path) => {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          const result = await supabaseAdmin.storage.from(bucket).download(path);
+          const result = await supabaseAdmin.storage
+            .from(bucket)
+            .download(path, {}, { signal: controller.signal });
           if (result.error || !result.data) throw new Error("media_missing");
           return result.data;
         });
@@ -163,10 +106,13 @@ export async function readProjectTeamMedia(
         )
           throw new Error("media_scope");
       } else if (media.url) {
-        const origin = projectOrigin(before.project);
-        if (!origin || !(deps.outboundAllowed ?? outboundFetchAllowed)())
-          throw new Error("media_outbound");
-        bytes = await publicBytes(media.url, origin, deps.fetch ?? fetch, controller.signal);
+        const origin = new URL(media.url).origin;
+        // This native reader validates DNS and pins each connection itself.
+        // The separate public-audit runtime switch is not its admission policy.
+        if (!isControlledImageOrigin(media.url, before.project)) throw new Error("media_outbound");
+        bytes =
+          (await (deps.remote ?? fetchPinnedImage)(media.url, origin, controller.signal)) ??
+          undefined;
       } else {
         path = media.storagePath;
         bucket = ARTICLE_IMAGE_BUCKET_PRIVATE;
@@ -182,10 +128,13 @@ export async function readProjectTeamMedia(
       }
       if (bucket && path) {
         const blob = await download(bucket, path);
+        controller.signal.throwIfAborted();
         if (blob.size > MAX_IMAGE_BYTES) throw new Error("media_size");
         bytes = new Uint8Array(await blob.arrayBuffer());
       }
+      controller.signal.throwIfAborted();
       if (!bytes) throw new Error("media_missing");
+      if (bytes.length > MAX_IMAGE_BYTES) throw new Error("media_size");
       const checked = validateImageBytes(bytes);
       if (!checked.ok) throw new Error("media_invalid");
       const after = await read(actorId, target);
@@ -194,6 +143,7 @@ export async function readProjectTeamMedia(
         after.membershipRevision !== before.membershipRevision
       )
         throw new Error("media_changed");
+      controller.signal.throwIfAborted();
       const digest = await crypto.subtle.digest("SHA-256", new Uint8Array(bytes));
       return {
         byteHash: Array.from(new Uint8Array(digest), (byte) =>
@@ -206,7 +156,7 @@ export async function readProjectTeamMedia(
       };
     };
     return await Promise.race([
-      run(),
+      run().finally(() => (deps.release ?? releaseTeamMedia)(actorId, lease).catch(() => {})),
       new Promise<never>((_, reject) => {
         timer = setTimeout(() => {
           controller.abort();

@@ -14,6 +14,7 @@
  * A row left in 'publishing' means this process died mid-flight. Those are
  * NEVER republished — see reap_stale_scheduled_publishes in the migration.
  */
+import { isPublishPreflightCapacityError } from "./publish-outcome";
 import {
   publishAssetServerSide,
   recordScheduledPublishFailure,
@@ -145,7 +146,8 @@ export async function runScheduledPublishes(batchSize = 20): Promise<RunSummary>
         // fragile across module instances.
         const permanent = isPermanentPublishError(e);
         // attempts was already incremented by the claim.
-        const exhausted = row.attempts >= MAX_PUBLISH_ATTEMPTS;
+        const capacity = !permanent && isPublishPreflightCapacityError(e);
+        const exhausted = !capacity && row.attempts >= MAX_PUBLISH_ATTEMPTS;
 
         // Record on the asset on EVERY attempt, not only the last one. A user
         // whose credentials were rotated should see why nothing published now,
@@ -171,7 +173,13 @@ export async function runScheduledPublishes(batchSize = 20): Promise<RunSummary>
         } else {
           // Retryable means the connector PROVED nothing was created on the site,
           // so another attempt cannot produce a duplicate.
-          await setRow(admin, row.id, { status: "pending", last_error: message });
+          await setRow(admin, row.id, {
+            status: "pending",
+            last_error: message,
+            // Admission contention happened before connector dispatch, so restore
+            // the claim attempt instead of exhausting valid same-owner backlogs.
+            ...(capacity ? { attempts: Math.max(0, row.attempts - 1) } : {}),
+          });
           summary.retrying += 1;
         }
         console.error("[publish-cron] publish failed", {
