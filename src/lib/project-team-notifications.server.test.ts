@@ -44,6 +44,34 @@ describe("notification setting boundaries", () => {
       p_membership: 2,
     });
   });
+  it.each(["assign", "opt_in"] as const)(
+    "accepts the existing revision only for a coalesced disabled %s",
+    async (action) => {
+      const actor = action === "assign" ? owner : recipient;
+      const rpc = vi.fn(async () => ({ data: 2, error: null }));
+      const change = {
+        ...target,
+        action,
+        enabled: false,
+        expectedRevision: 2,
+        expectedMembershipRevision: 2,
+      };
+      expect(await changeTeamNotificationSettings(actor, change, rpc)).toEqual({ revision: 2 });
+      await expect(
+        changeTeamNotificationSettings(actor, { ...change, enabled: true }, rpc),
+      ).rejects.toThrow("could not be confirmed");
+      rpc.mockResolvedValue({ data: 1, error: null });
+      await expect(changeTeamNotificationSettings(actor, change, rpc)).rejects.toThrow(
+        "could not be confirmed",
+      );
+      rpc.mockResolvedValue({ data: 4, error: null });
+      await expect(changeTeamNotificationSettings(actor, change, rpc)).rejects.toThrow(
+        "could not be confirmed",
+      );
+      rpc.mockResolvedValue({ data: 3, error: null });
+      expect(await changeTeamNotificationSettings(actor, change, rpc)).toEqual({ revision: 3 });
+    },
+  );
   it("rejects unexpected revisions and forged fields", async () => {
     const rpc = vi.fn(async () => ({ data: 3, error: null }));
     const change = {
