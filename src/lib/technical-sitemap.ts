@@ -127,7 +127,7 @@ export function inspectSitemapText(
     if (code < 32 && code !== 9 && code !== 10 && code !== 13) return null;
   }
   const lines = body.replace(/^\uFEFF/, "").split(/\r\n|\n|\r/);
-  if (lines.length > 50001) return null;
+  if (lines.length > 50000) return null;
   const locs: string[] = [];
   let rejected = 0;
   for (const line of lines) {

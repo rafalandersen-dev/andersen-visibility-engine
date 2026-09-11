@@ -46,6 +46,10 @@ export function parseRobots(text: string): RobotsDocument {
         result.groups.push(group);
         hasRules = false;
       }
+      if (group.agents.length >= 20000) {
+        result.complete = false;
+        break;
+      }
       group.agents.push(value.toLowerCase());
     } else if (key === "allow" || key === "disallow") {
       if (!group) continue;

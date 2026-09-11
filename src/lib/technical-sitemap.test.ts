@@ -23,6 +23,23 @@ const response = (body: string, url = origin + "/sitemap.xml") => ({
   observedAt: now,
 });
 describe("observed sitemap XML", () => {
+  it("rejects text input before rejected entries exceed durable state bounds", async () => {
+    const malformed = Array(50001).fill("x").join("\n");
+    expect(inspectSitemapText(malformed)).toBeNull();
+    expect(inspectSitemapText(Array(50000).fill("x").join("\n"))?.rejected).toBe(50000);
+    const sitemaps = await advanceTechnicalSitemaps(
+      startTechnicalSitemaps(origin, []),
+      origin,
+      robots,
+      async () => ({ ...response(malformed), headers: { "content-type": "text/plain" } }),
+      now,
+    );
+    expect(sitemaps.files[0].state).toBe("invalid_text");
+    const crawl = startTechnicalCrawl({ siteUrl: origin, robots, robotsFetchedAt: now, now });
+    expect(parseTechnicalCrawlState({ ...crawl, sitemaps }, origin).sitemaps?.files[0].state).toBe(
+      "invalid_text",
+    );
+  });
   it("removes accepted redirected sitemap destinations from the pending queue", async () => {
     const initial = startTechnicalSitemaps(origin, []);
     const fetch = vi.fn(async () =>

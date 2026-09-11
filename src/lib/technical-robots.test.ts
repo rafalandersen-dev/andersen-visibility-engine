@@ -3,6 +3,14 @@ import { evaluateRobots, parseRobots, robotsEvidence, ROBOTS_MAX_BYTES } from ".
 const decision = (body: string, path: string, token = "MiloGrowthAuditBot") =>
   evaluateRobots(robotsEvidence(200, body), token, `https://example.test${path}`).decision;
 describe("technical crawl robots evidence", () => {
+  it("bounds consecutive agents and preserves explicit unknown policy", () => {
+    const text = "User-agent: a\n".repeat(20001);
+    const parsed = parseRobots(text);
+    expect(parsed.groups).toHaveLength(1);
+    expect(parsed.groups[0].agents).toHaveLength(20000);
+    expect(parsed.complete).toBe(false);
+    expect(decision(text, "/")).toBe("unknown");
+  });
   it("combines matching groups and uses wildcard only as fallback", () => {
     const text =
       "User-agent: *\nDisallow: /\nUser-agent: milogrowthauditbot\nDisallow: /private\nUser-agent: MiloGrowthAuditBot\nAllow: /private/public";
