@@ -1,3 +1,4 @@
+import { BacklinkDetails } from "@/components/BacklinkDetails";
 import { BacklinkMonitoring } from "@/components/BacklinkMonitoring";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
@@ -236,6 +237,17 @@ function BacklinksPage() {
       )}
       {project ? (
         <BacklinkMonitoring
+          projectId={project.id}
+          website={project.websiteUrl}
+          collectionAvailable={
+            configured === true &&
+            (providerStatus?.state === "ready" ||
+              (providerStatus?.state === "low_balance" && (providerStatus.balanceUsd ?? 0) > 0))
+          }
+        />
+      ) : null}
+      {project ? (
+        <BacklinkDetails
           projectId={project.id}
           website={project.websiteUrl}
           collectionAvailable={
