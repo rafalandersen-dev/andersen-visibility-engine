@@ -1,6 +1,9 @@
 # Milo Growth — current status
 
-Updated: 11 September 2026 (Stockholm; latest release 11 September 06:21 UTC). Owner: Rafal Andersen. Phase: private beta / launch foundations. Public paid launch: **NO-GO / acceptance incomplete**.
+Updated: 11 September 2026 (Stockholm; latest release 11 September 17:56 UTC). Owner: Rafal Andersen. Phase: private beta / launch foundations. Public paid launch: **NO-GO / acceptance incomplete**.
+
+Latest verified release: PR123 project collaboration, merge `af38493f727b4b3ff0b8e61cc12cbb785c84c377`, is live. All ten team migrations are applied once; exact runtime identity and six public/authentication checks passed. Both email gates remain disabled. Real owner/collaborator acceptance and D07 remain open. [Release evidence](../evidence/project-collaboration-release-2026-09-11.md). Earlier implementation entries below describe historical pre-release states and are superseded by this release record. Overall55%/implementation70% remain approximate.
+
 
 Overall delivery estimate: **about 55% complete (50–65% uncertainty range)**; technical implementation **about 70%**. These are planning estimates, not signed-in acceptance or launch approval. See [current progress assessment](PROGRESS_REVIEW_2026_09_11.md) for weights, evidence and remaining work.
 
