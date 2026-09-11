@@ -1,6 +1,5 @@
-import { TeamAdmissionBusyError } from "./project-team-admission";
+import { TeamVerificationMismatchError } from "./project-team-verification";
 import { z } from "zod";
-import { TeamMediaCapacityError } from "./project-team-media-limit.server";
 import { PublishPreflightCapacityError, PublishNotPossibleError } from "./publish-outcome";
 import {
   publicationVersion,
@@ -149,8 +148,10 @@ export async function assertPublicationApproved(
       await import("./publication-reviewed-images.server");
     await assertReviewedPublicationImages(scope, current.hash, { rpc });
   } catch (error) {
-    if (error instanceof TeamMediaCapacityError || error instanceof TeamAdmissionBusyError)
-      throw new PublishPreflightCapacityError();
-    throw new PublishNotPossibleError("publication_approval_required");
+    if (error instanceof TeamVerificationMismatchError)
+      throw new PublishNotPossibleError("publication_approval_required");
+    // This entire phase precedes connector dispatch. An unavailable read is not
+    // evidence that approval or image bytes changed; retry the bounded preflight.
+    throw new PublishPreflightCapacityError();
   }
 }

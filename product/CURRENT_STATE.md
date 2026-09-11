@@ -144,3 +144,27 @@ Editor saves and notification setting writes now acquire the existing actor/owne
 Validation:25 focused endpoint/admission/notification/queue tests, TypeScript and changed-file lint pass (`/tmp/milo-write-admit-{tests,types,lint}.log`, notification lint `/tmp/milo-notification-admit-lint.log`). Findings3991011249 and3991062997 addressed. SQL sources unchanged; no setting or email changed in production. Prior combined3630-test/build result predates these final endpoint changes; final merged validation follows in the technical branch.
 
 CI follow-up:9b084b3's full Bun1.4 run passed3346 tests and failed one stale notification endpoint expectation. The focused selection had omitted that endpoint test. It now verifies the exact admitted RPC and authenticated actor across settings read/write/history. Both affected files (11tests), TypeScript and lint pass; no production implementation or SQL changed. Log `/tmp/milo-9b-ci-failure.log` preserves the failed CI evidence.
+
+### Complete scheduled-publication review workflow
+
+Media admission covers opening, one refresh, approval, scheduling and scheduled dispatch:640 starts/minute and768/hour, with four active leases and byte/pixel bounds retained. Actual SQL exercises all five128-image passes and refuses the next minute start. Actor preview limits remain600/hour/60minute/twoactive; this update changes only media limits. Approval/return decisions now share the same UI request queue as their snapshot-backed reads. Draft title validation rejects blank titles without transforming whitespace, preserving an unchanged title when other fields are saved.
+
+Validation:100 focused endpoint/queue/SQL tests, TypeScript and changed-file lint pass (`/tmp/milo-schedule-title-{tests,types,lint}.log`). Findings3991271735,3991271742,3991271752 addressed. Migration020000 source changed and remains unapplied. No schedule, customer record, media request or production deployment changed.
+
+### Trustworthy comment authorship
+
+Comments now retain the server-verified role at posting and expose a stable project-scoped member reference alongside the display name. Profile names remain presentation only: identically named Owner/Viewer comments have distinct authoritative role badges and references. The saved role is historical and cannot be changed by later profile or membership edits. Reads expose no account email or raw actor ID. Signup display_name is preferred over the legacy full_name field, without treating either as authority. Role badges and their historical-role tooltip use all four existing locales.
+
+Validation:91 actual-SQL membership/comment tests, TypeScript and changed-file lint pass (`/tmp/milo-comment-identity-{tests,types,lint}.log`). Regression verifies identical chosen names, distinct Owner/Viewer identities and preserved role after membership changes. Bulk quota fixtures now supply the required stored role. Finding3991319450 addressed; migration040000 remains unapplied. No production comment or account data changed.
+
+### Collaboration release review follow-up — 11 September 2026
+
+Temporary image verification failures now remain retryable before connector dispatch. A dedicated mismatch error marks confirmed saved approval/image changes as permanent; unknown storage, network, RPC and deadline failures cannot be mistaken for changed approval. Preview lease release raises explicit lock contention and retries the same actor/owner/token up to three times with bounded backoff. Notification target selection now has a partial index matching assigned/opted-in eligibility and oldest-scan ordering.
+
+Validation: 144 focused tests across six files, TypeScript and changed-file lint pass (`/tmp/milo-preflight-final-{tests,types,lint}.log`). The notification-index migration is separately checked by the actual SQL suite. No production migration or publishing call occurred. Release remains held for the separate media-manifest authorization finding (3991484275): direct media requests must be bound to the current rendered review manifest before deployment.
+
+### Review-manifest media authorization
+
+Media requests now recompute the canonical rendered review manifest from the current owner/project-bound context and require the requested image ID and kind to be present before storage or remote bytes are read. The preview and byte reader share the same manifest builder. Candidate content images must be publishable; proposed/rejected records cannot claim a visible image's URL. Featured records enter the candidate list only when approved. Existing hash/membership revalidation and storage scope checks remain in effect.
+
+Validation: 68 focused tests across preview, media, reviewed images and publication approval, TypeScript and changed-file lint pass (`/tmp/milo-manifest-final-tests.log`, `/tmp/milo-manifest-types.log`, `/tmp/milo-manifest-lint.log`). Integration cases use the real canonical assembler: visible accepted media succeeds; proposed/rejected media, a proposal sharing a visible URL, and a staged proposal with only an owner-private path are refused before download. This addresses finding3991484275 locally; final combined validation and review are still required. No live storage read, migration or publishing call occurred.

@@ -31,24 +31,26 @@ export function ProjectTeamReviewDecision({
   const [reviewId] = useState(() => crypto.randomUUID());
   const mutation = useMutation({
     mutationFn: (approved: boolean) =>
-      saveProjectTeamReviewFn({
-        data: {
-          ownerId,
-          projectId,
-          assetId: preview.assetId,
-          reviewId,
-          expectedVersion: preview.version,
-          expectedHash: preview.draftHash,
-          expectedWorkspaceRevision: preview.workspaceRevision,
-          expectedMembershipRevision: preview.membershipRevision,
-          expectedPolicyRevision: preview.policyRevision,
-          approved,
-          acknowledged: approved && acknowledged,
-          images: approved
-            ? preview.media.map((image) => ({ key: image.key, byteHash: hashes[image.key] }))
-            : [],
-        },
-      }),
+      runTeamRequest(() =>
+        saveProjectTeamReviewFn({
+          data: {
+            ownerId,
+            projectId,
+            assetId: preview.assetId,
+            reviewId,
+            expectedVersion: preview.version,
+            expectedHash: preview.draftHash,
+            expectedWorkspaceRevision: preview.workspaceRevision,
+            expectedMembershipRevision: preview.membershipRevision,
+            expectedPolicyRevision: preview.policyRevision,
+            approved,
+            acknowledged: approved && acknowledged,
+            images: approved
+              ? preview.media.map((image) => ({ key: image.key, byteHash: hashes[image.key] }))
+              : [],
+          },
+        }),
+      ),
     onSuccess: () => {
       toast.success(t("collaboration.decisionRecorded"));
       setAcknowledged(false);

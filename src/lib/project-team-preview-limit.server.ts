@@ -31,10 +31,13 @@ export async function releaseTeamPreview(
   lease: string,
   rpc: TeamReadRpc = projectTeamRpc,
 ) {
-  const result = await rpc("release_project_team_preview", {
-    p_actor: actor,
-    p_owner: owner,
-    p_lease: lease,
-  });
-  if (result.error) throw new Error("preview_release_unavailable");
+  const args = { p_actor: actor, p_owner: owner, p_lease: lease };
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const result = await rpc("release_project_team_preview", args);
+    if (!result.error) return;
+    const busy =
+      typeof result.error === "object" && "code" in result.error && result.error.code === "55P03";
+    if (!busy || attempt === 2) throw new Error("preview_release_unavailable");
+    await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 25 : 75));
+  }
 }

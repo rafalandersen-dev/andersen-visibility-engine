@@ -111,6 +111,8 @@ export const teamComments = teamCommentTarget
             commentId: uuid,
             mine: z.boolean(),
             authorName: z.string().max(120),
+            authorRole: z.enum(["owner", "viewer", "editor", "reviewer"]),
+            authorRef: z.string().regex(/^[a-f0-9]{12}$/),
             body: z.string().min(1).max(4000),
             workspaceRevision: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
             createdAt: date,
@@ -123,7 +125,11 @@ export const teamComments = teamCommentTarget
   .strict();
 export const teamDraftFields = z
   .object({
-    title: z.string().trim().min(1).max(1000),
+    title: z
+      .string()
+      .min(1)
+      .max(1000)
+      .refine((value) => value.trim().length > 0),
     markdown: z.string().max(1000000),
     h1: z.string().max(1000),
     metaTitle: z.string().max(1000),

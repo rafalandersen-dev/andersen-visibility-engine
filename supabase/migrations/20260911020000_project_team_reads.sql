@@ -109,9 +109,9 @@ GRANT EXECUTE ON FUNCTION public.read_project_team_snapshot(uuid,uuid,text,text,
 CREATE TABLE public.project_team_media_limits (
  actor_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
  hour_start timestamptz NOT NULL,
- hour_count integer NOT NULL CHECK(hour_count BETWEEN 0 AND 600),
+ hour_count integer NOT NULL CHECK(hour_count BETWEEN 0 AND 768),
  minute_start timestamptz NOT NULL,
- minute_count integer NOT NULL CHECK(minute_count BETWEEN 0 AND 512),
+ minute_count integer NOT NULL CHECK(minute_count BETWEEN 0 AND 640),
  leases jsonb NOT NULL DEFAULT '{}'::jsonb CHECK(jsonb_typeof(leases)='object' AND octet_length(leases::text)<2000)
 );
 ALTER TABLE public.project_team_media_limits ENABLE ROW LEVEL SECURITY;
@@ -128,7 +128,7 @@ BEGIN
  IF (SELECT count(*) FROM jsonb_object_keys(active))>=4 THEN RAISE EXCEPTION 'team_media_capacity'; END IF;
  IF current.hour_start<=stamp-interval '1 hour' THEN current.hour_start:=stamp;current.hour_count:=0; END IF;
  IF current.minute_start<=stamp-interval '1 minute' THEN current.minute_start:=stamp;current.minute_count:=0; END IF;
- IF current.hour_count>=600 OR current.minute_count>=512 THEN RAISE EXCEPTION 'team_media_capacity'; END IF;
+ IF current.hour_count>=768 OR current.minute_count>=640 THEN RAISE EXCEPTION 'team_media_capacity'; END IF;
  lease:=gen_random_uuid();
  UPDATE public.project_team_media_limits SET hour_start=current.hour_start,hour_count=current.hour_count+1,minute_start=current.minute_start,minute_count=current.minute_count+1,leases=active || jsonb_build_object(lease::text,stamp+interval '60 seconds') WHERE actor_id=p_actor;
  RETURN lease;
@@ -183,8 +183,8 @@ END; $$;
 CREATE FUNCTION public.release_project_team_preview(p_actor uuid,p_owner uuid,p_lease uuid)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 BEGIN
- IF NOT pg_try_advisory_xact_lock(hashtext('team-preview-actor'),hashtext(p_actor::text)) THEN RETURN; END IF;
- IF NOT pg_try_advisory_xact_lock(hashtext('team-preview-owner'),hashtext(p_owner::text)) THEN RETURN; END IF;
+ IF NOT pg_try_advisory_xact_lock(hashtext('team-preview-actor'),hashtext(p_actor::text)) THEN RAISE EXCEPTION 'team_preview_release_busy' USING ERRCODE='55P03'; END IF;
+ IF NOT pg_try_advisory_xact_lock(hashtext('team-preview-owner'),hashtext(p_owner::text)) THEN RAISE EXCEPTION 'team_preview_release_busy' USING ERRCODE='55P03'; END IF;
  -- A different actor cannot release an owner's shared slot by presenting its token.
  IF NOT EXISTS(SELECT 1 FROM public.project_team_preview_limits WHERE scope='actor' AND account_id=p_actor AND leases ? p_lease::text) THEN RETURN; END IF;
  UPDATE public.project_team_preview_limits SET leases=leases-p_lease::text WHERE scope='actor' AND account_id=p_actor;

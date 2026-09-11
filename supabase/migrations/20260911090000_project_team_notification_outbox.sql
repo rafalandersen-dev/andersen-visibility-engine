@@ -104,6 +104,8 @@ END; $$;
 REVOKE ALL ON FUNCTION public.queue_project_team_notification_digest(uuid,text,uuid),public.claim_project_team_notification_digest(),public.begin_project_team_notification_delivery(uuid,uuid,text),public.finish_project_team_notification_delivery(uuid,uuid,text),public.read_project_team_notification_history(uuid,uuid,text,uuid) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.queue_project_team_notification_digest(uuid,text,uuid),public.claim_project_team_notification_digest(),public.begin_project_team_notification_delivery(uuid,uuid,text),public.finish_project_team_notification_delivery(uuid,uuid,text),public.read_project_team_notification_history(uuid,uuid,text,uuid) TO service_role;
 ALTER TABLE public.project_team_notification_recipients ADD COLUMN last_scan_at timestamptz;
+CREATE INDEX project_team_notification_scan_order ON public.project_team_notification_recipients
+(last_scan_at ASC NULLS FIRST,owner_id,project_id,recipient_id) WHERE assigned AND opted_in;
 CREATE FUNCTION public.project_team_notification_scan_targets()
 RETURNS TABLE(owner_id uuid,project_id text,recipient_id uuid) LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 BEGIN

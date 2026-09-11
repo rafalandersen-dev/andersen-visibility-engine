@@ -38,3 +38,31 @@ it("releases only the acquired actor/owner token", async () => {
     p_lease: lease,
   });
 });
+it("retries contended release with the same token and stops after three attempts", async () => {
+  vi.useFakeTimers();
+  try {
+    const rpc = vi
+      .fn()
+      .mockResolvedValueOnce({ data: null, error: { code: "55P03" } })
+      .mockResolvedValueOnce({ data: null, error: { code: "55P03" } })
+      .mockResolvedValue({ data: null, error: null });
+    const pending = releaseTeamPreview(actor, owner, lease, rpc);
+    await vi.runAllTimersAsync();
+    await pending;
+    expect(rpc.mock.calls).toEqual(
+      Array.from({ length: 3 }, () => [
+        "release_project_team_preview",
+        { p_actor: actor, p_owner: owner, p_lease: lease },
+      ]),
+    );
+    rpc.mockClear().mockResolvedValue({ data: null, error: { code: "55P03" } });
+    const rejected = expect(releaseTeamPreview(actor, owner, lease, rpc)).rejects.toThrow(
+      "preview_release_unavailable",
+    );
+    await vi.runAllTimersAsync();
+    await rejected;
+    expect(rpc).toHaveBeenCalledTimes(3);
+  } finally {
+    vi.useRealTimers();
+  }
+});
