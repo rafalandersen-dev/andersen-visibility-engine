@@ -91,7 +91,14 @@ export function ProjectTeamComments({
           {query.data.comments.map((c) => (
             <article key={c.commentId} className="space-y-2 rounded-xl border p-4">
               <p className="text-sm text-muted-foreground">
-                {c.mine ? t("collaboration.you") : c.authorName} ·{" "}
+                {c.mine ? t("collaboration.you") : c.authorName}{" "}
+                <span
+                  className="rounded border px-1.5 py-0.5 font-medium"
+                  title={t("collaboration.commentRoleAtPosting")}
+                >
+                  {t(`collaboration.${c.authorRole}`)}
+                </span>{" "}
+                <span className="font-mono">#{c.authorRef}</span> ·{" "}
                 <time dateTime={c.createdAt}>{new Date(c.createdAt).toLocaleString(locale)}</time>
               </p>
               <p className="whitespace-pre-wrap break-words">{c.body}</p>

@@ -383,7 +383,7 @@ describe("durable project invitation and membership lifecycle", () => {
       ]);
     await add();
     await db.query(
-      "INSERT INTO project_team_comments(owner_id,project_id,asset_id,comment_id,actor_id,author_name,body,workspace_revision) SELECT $1,'p','a',gen_random_uuid(),$2,'Member','Recent',1 FROM generate_series(1,99)",
+      "INSERT INTO project_team_comments(owner_id,project_id,asset_id,comment_id,actor_id,author_name,author_role,body,workspace_revision) SELECT $1,'p','a',gen_random_uuid(),$2,'Member','editor','Recent',1 FROM generate_series(1,99)",
       [owner, actor],
     );
     await add(); // An exact retry does not consume another slot.
@@ -400,7 +400,7 @@ describe("durable project invitation and membership lifecycle", () => {
       await create();
       await accept();
       await db.query(
-        "INSERT INTO project_team_comments(owner_id,project_id,asset_id,comment_id,actor_id,author_name,body,workspace_revision,created_at) SELECT $1,'p','a',gen_random_uuid(),$2,'Member','Historical',1,now()-CASE WHEN $3 THEN interval '1 minute' ELSE interval '2 hours' END FROM generate_series(1,5101)",
+        "INSERT INTO project_team_comments(owner_id,project_id,asset_id,comment_id,actor_id,author_name,author_role,body,workspace_revision,created_at) SELECT $1,'p','a',gen_random_uuid(),$2,'Member','editor','Historical',1,now()-CASE WHEN $3 THEN interval '1 minute' ELSE interval '2 hours' END FROM generate_series(1,5101)",
         [owner, actor, recent],
       );
       const add = () =>
@@ -661,6 +661,51 @@ describe("durable project invitation and membership lifecycle", () => {
     ).rejects.toThrow("team_project_unavailable");
     await change(1, true);
     expect((await discover()).projects).toHaveLength(0);
+  });
+  it("distinguishes owner and viewer comments despite identical self-selected names", async () => {
+    await create();
+    await accept();
+    await db.query("UPDATE auth.users SET raw_user_meta_data=$1 WHERE id IN ($2,$3)", [
+      { display_name: "Owner", full_name: "Spoofed" },
+      owner,
+      actor,
+    ]);
+    await db.query(
+      "UPDATE project_team_members SET role='viewer' WHERE owner_id=$1 AND actor_id=$2",
+      [owner, actor],
+    );
+    for (const [who, id] of [
+      [owner, invite],
+      [actor, second],
+    ])
+      await db.query("SELECT add_project_team_comment($1,$2,'p','a',$3,1,'Same instructions')", [
+        who,
+        owner,
+        id,
+      ]);
+    const raw = (
+      await db.query<{ result: unknown }>(
+        "SELECT read_project_team_comments($1,$2,'p','a') result",
+        [actor, owner],
+      )
+    ).rows[0].result;
+    const comments = teamComments.parse(raw).comments;
+    expect(comments.map((c) => c.authorName)).toEqual(["Owner", "Owner"]);
+    expect(new Set(comments.map((c) => c.authorRole))).toEqual(new Set(["owner", "viewer"]));
+    expect(new Set(comments.map((c) => c.authorRef)).size).toBe(2);
+    await db.query(
+      "UPDATE project_team_members SET role='editor' WHERE owner_id=$1 AND actor_id=$2",
+      [owner, actor],
+    );
+    const later = teamComments.parse(
+      (
+        await db.query<{ result: unknown }>(
+          "SELECT read_project_team_comments($1,$2,'p','a') result",
+          [owner, owner],
+        )
+      ).rows[0].result,
+    );
+    expect(later.comments.find((c) => c.mine === false)?.authorRole).toBe("viewer");
   });
   it("binds comments to the saved revision, rejects replays and removes access immediately", async () => {
     await create();
