@@ -14,6 +14,8 @@ Publication review follow-up: explicit database image-admission contention now r
 
 A further security follow-up authorizes current accounts/membership before workspace locking, uses nonwaiting shared locks for reads and explicit exclusive admission for mutations, and cancels the actual team RPC transport after nine seconds. Its six changed migration sources remain unapplied; review and real multi-session acceptance remain open.
 
+Reviewer independence now uses a private hash of the eight editable content fields, retaining authorship through approval/rejection status changes and excluding unchanged-save receipts. Raw draft hashes still protect exact-version saves and reviews. This further review fix remains unreleased.
+
 ## Recorded baseline and latest repository check
 
 - Remote main: `083d1fa6e8d0a4e6e2e12d28b1c27591830b772d`, normal merge of output knowledge revalidation PR #122. P0–P5, prompt/answer/log evidence and all prior fixes are preserved.

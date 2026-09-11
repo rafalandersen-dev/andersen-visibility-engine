@@ -1,4 +1,17 @@
 -- UNRELEASED. Scoped editor writes; no delegated approval or external action.
+-- Authorship follows the eight editable content fields, independently of review
+-- status, timestamps, quality markers, schedules and publication bookkeeping.
+CREATE FUNCTION public.project_team_authorship_hash(p_content jsonb)
+RETURNS text LANGUAGE sql IMMUTABLE SET search_path='' AS $$
+ SELECT encode(sha256(convert_to(jsonb_build_object(
+  'title',coalesce(p_content->'title','""'::jsonb),'markdown',coalesce(p_content->'markdown','""'::jsonb),
+  'h1',coalesce(p_content->'h1','""'::jsonb),'metaTitle',coalesce(p_content->'metaTitle','""'::jsonb),
+  'metaDescription',coalesce(p_content->'metaDescription','""'::jsonb),'cta',coalesce(p_content->'cta','""'::jsonb),
+  'outline',coalesce(p_content->'outline','[]'::jsonb),'faq',coalesce(p_content->'faq','[]'::jsonb)
+ )::text,'UTF8')),'hex');
+$$;
+REVOKE ALL ON FUNCTION public.project_team_authorship_hash(jsonb) FROM PUBLIC,anon,authenticated,service_role;
+
 CREATE TABLE public.project_team_edits (
   owner_id uuid NOT NULL,
   project_id text NOT NULL,
@@ -7,6 +20,7 @@ CREATE TABLE public.project_team_edits (
   actor_id uuid NOT NULL,
   before_hash text NOT NULL,
   after_hash text NOT NULL,
+  content_hash text NOT NULL CHECK(content_hash ~ '^[a-f0-9]{64}$'),
   patch_hash text NOT NULL,
   membership_revision bigint NOT NULL,
   created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
@@ -23,7 +37,7 @@ CREATE INDEX project_team_edits_actor_activity ON public.project_team_edits(owne
 CREATE UNIQUE INDEX project_team_edits_unchanged_receipt ON public.project_team_edits(owner_id,project_id,asset_id,actor_id,before_hash,patch_hash,membership_revision) WHERE before_hash=after_hash;
 CREATE FUNCTION public.save_project_team_draft(p_actor uuid,p_owner uuid,p_project text,p_asset text,p_edit uuid,p_hash text,p_membership bigint,p_patch jsonb)
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
-DECLARE snapshot jsonb; original jsonb; changed jsonb; next_hash text; patch_hash text; field text;
+DECLARE snapshot jsonb; original jsonb; changed jsonb; next_hash text; next_content_hash text; patch_hash text; field text;
   previous public.project_team_edits%ROWTYPE;
 BEGIN
   IF p_edit IS NULL OR p_hash IS NULL OR p_hash !~ '^[a-f0-9]{64}$' OR p_membership IS NULL OR p_membership<1
@@ -62,8 +76,8 @@ BEGIN
   -- saving an unchanged form must preserve the exact approved content/version.
   IF NOT EXISTS(SELECT 1 FROM jsonb_each(p_patch) e WHERE e.value IS DISTINCT FROM
     coalesce(original->e.key, CASE WHEN e.key IN ('outline','faq') THEN '[]'::jsonb ELSE '""'::jsonb END)) THEN
-    INSERT INTO public.project_team_edits(owner_id,project_id,asset_id,edit_id,actor_id,before_hash,after_hash,patch_hash,membership_revision)
-      VALUES(p_owner,p_project,p_asset,p_edit,p_actor,p_hash,p_hash,patch_hash,p_membership) ON CONFLICT DO NOTHING;
+    INSERT INTO public.project_team_edits(owner_id,project_id,asset_id,edit_id,actor_id,before_hash,after_hash,content_hash,patch_hash,membership_revision)
+      VALUES(p_owner,p_project,p_asset,p_edit,p_actor,p_hash,p_hash,public.project_team_authorship_hash(original),patch_hash,p_membership) ON CONFLICT DO NOTHING;
     RETURN p_hash;
   END IF;
   changed:=original || p_patch || jsonb_build_object('status','In Review','updatedAt',clock_timestamp());
@@ -76,9 +90,9 @@ BEGIN
   UPDATE public.workspace_entities SET data=changed,updated_at=clock_timestamp() WHERE user_id=p_owner AND collection='content' AND entity_id=p_asset;
   -- Existing content triggers withdraw exact publication/knowledge review.
   UPDATE public.workspace_meta SET rev=rev+1 WHERE user_id=p_owner;
-  SELECT encode(sha256(convert_to(data::text,'UTF8')),'hex') INTO next_hash FROM public.workspace_entities WHERE user_id=p_owner AND collection='content' AND entity_id=p_asset;
-  INSERT INTO public.project_team_edits(owner_id,project_id,asset_id,edit_id,actor_id,before_hash,after_hash,patch_hash,membership_revision)
-    VALUES(p_owner,p_project,p_asset,p_edit,p_actor,p_hash,next_hash,patch_hash,p_membership);
+  SELECT encode(sha256(convert_to(data::text,'UTF8')),'hex'),public.project_team_authorship_hash(data) INTO next_hash,next_content_hash FROM public.workspace_entities WHERE user_id=p_owner AND collection='content' AND entity_id=p_asset;
+  INSERT INTO public.project_team_edits(owner_id,project_id,asset_id,edit_id,actor_id,before_hash,after_hash,content_hash,patch_hash,membership_revision)
+    VALUES(p_owner,p_project,p_asset,p_edit,p_actor,p_hash,next_hash,next_content_hash,patch_hash,p_membership);
   RETURN next_hash;
 END; $$;
 REVOKE ALL ON FUNCTION public.save_project_team_draft(uuid,uuid,text,text,uuid,text,bigint,jsonb) FROM PUBLIC,anon,authenticated;

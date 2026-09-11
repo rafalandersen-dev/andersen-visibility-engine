@@ -208,3 +208,12 @@ The actual team RPC transport now receives a nine-second AbortSignal deadline be
 Six unreleased migration sources changed (020000, 040000, 050000, 060000, 080000 and 100000); all nine remain unapplied. Regenerate the guarded packet and manifest before release. No production reads/writes, live transport, messages or policy activation were performed.
 
 Read-admission validation: all 3,285 tests / 243 files pass with one worker (106.01 seconds), including 88 focused access/membership/transport tests. TypeScript, changed-file lint and production build pass. Logs `/tmp/milo-team-read-admission-{focused,full,types,lint}.log`.
+
+
+## Preserve authorship across review decisions — 11 September
+
+Code review of 12c1ffc found that approval/rejection status updates change the raw draft hash without changing the authored content. Edit receipts now store a private SHA-256 hash of the eight editable content fields, with the same empty defaults as the editor. Reviewer separation and preliminary authority match that content identity and exclude unchanged-save receipts. Status, timestamps, quality markers, schedules and publication bookkeeping no longer erase authorship; an actual owner rewrite still produces a different content identity. The original raw hashes continue to enforce exact-version editing and approval.
+
+Actual-SQL regressions cover own edits, owner rewrites, owner no-ops, and both approved and rejected status transitions. The helper is private; the three modified migrations (050000, 060000 and 070000) remain unapplied. Release review and real acceptance remain open.
+
+Authorship validation: full 3,287 tests / 243 files pass (79.29 seconds). The final stored-content hash readback is additionally verified by the complete 77-test membership/migration file. Changed-file lint passes; runtime application source is unchanged from the previously passing 12c1ffc production build. SQL source hashes and the migration rehearsal remain separate release evidence.

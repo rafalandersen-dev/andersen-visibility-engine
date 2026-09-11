@@ -312,7 +312,7 @@ describe("durable project invitation and membership lifecycle", () => {
     await create();
     await accept();
     await db.query(
-      "INSERT INTO project_team_edits(owner_id,project_id,asset_id,edit_id,actor_id,before_hash,after_hash,patch_hash,membership_revision,created_at) SELECT $1,'p','a',gen_random_uuid(),$2,repeat('a',64),repeat('b',64),repeat('c',64),1,now()-interval '2 hours' FROM generate_series(1,10000)",
+      "INSERT INTO project_team_edits(owner_id,project_id,asset_id,edit_id,actor_id,before_hash,after_hash,content_hash,patch_hash,membership_revision,created_at) SELECT $1,'p','a',gen_random_uuid(),$2,repeat('a',64),repeat('b',64),repeat('d',64),repeat('c',64),1,now()-interval '2 hours' FROM generate_series(1,10000)",
       [owner, actor],
     );
     const snapshot = async () =>
@@ -618,7 +618,7 @@ describe("durable project invitation and membership lifecycle", () => {
     await save(second);
     expect((await db.query("SELECT * FROM project_team_edits")).rows).toHaveLength(1);
     await db.query(
-      "INSERT INTO project_team_edits(owner_id,project_id,asset_id,edit_id,actor_id,before_hash,after_hash,patch_hash,membership_revision) SELECT $1,'p','a',gen_random_uuid(),$2,repeat('a',64),repeat('b',64),repeat('c',64),1 FROM generate_series(1,119)",
+      "INSERT INTO project_team_edits(owner_id,project_id,asset_id,edit_id,actor_id,before_hash,after_hash,content_hash,patch_hash,membership_revision) SELECT $1,'p','a',gen_random_uuid(),$2,repeat('a',64),repeat('b',64),repeat('d',64),repeat('c',64),1 FROM generate_series(1,119)",
       [owner, actor],
     );
     await expect(save(other, actor, { markdown: "Edit" })).rejects.toThrow("team_edit_capacity");
@@ -1102,7 +1102,7 @@ describe("durable project invitation and membership lifecycle", () => {
       ).rows[0].ok,
     ).toBe(false);
   });
-  it.each(["own", "owner-rewrite", "owner-noop"])(
+  it.each(["own", "owner-rewrite", "owner-noop", "review-rejected", "review-approved"])(
     "binds reviewer separation to the actual current draft: %s",
     async (mode) => {
       await create();
@@ -1143,6 +1143,18 @@ describe("durable project invitation and membership lifecycle", () => {
         "SELECT public.set_project_team_approval_policy($1,$1,'p',0,'separate_reviewers')",
         [owner],
       );
+      if (mode.startsWith("review-")) {
+        const current = (
+          await db.query<{ hash: string }>(
+            "SELECT read_project_team_snapshot($1,$1,'p','a')->>'draftHash' hash",
+            [owner],
+          )
+        ).rows[0].hash;
+        await db.query(
+          "SELECT save_project_team_approval($1,$1,'p','a',gen_random_uuid(),2,$2,$3,1,1,$4)",
+          [owner, current, "a".repeat(64), mode === "review-approved"],
+        );
+      }
       const after = (
         await db.query<{ result: { draftHash: string } }>(
           "SELECT public.read_project_team_snapshot($1,$2,'p','a') result",
@@ -1158,7 +1170,14 @@ describe("durable project invitation and membership lifecycle", () => {
       expect(authority.canReview).toBe(mode === "owner-rewrite");
       const review = db.query(
         "SELECT public.save_project_team_approval($1,$2,'p','a',$3,$6,$4,$5,2,1,true)",
-        [actor, owner, other, after.draftHash, "a".repeat(64), mode === "owner-rewrite" ? 3 : 2],
+        [
+          actor,
+          owner,
+          other,
+          after.draftHash,
+          "a".repeat(64),
+          mode === "owner-rewrite" || mode.startsWith("review-") ? 3 : 2,
+        ],
       );
       if (mode === "owner-rewrite") await expect(review).resolves.toBeDefined();
       else await expect(review).rejects.toThrow("team_independent_reviewer_required");
