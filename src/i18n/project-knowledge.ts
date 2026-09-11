@@ -1,6 +1,19 @@
 /** Project knowledge review strings. Wider intake/review localization remains in P1. */
 export const projectKnowledge = {
   en: {
+    "knowledge.inspect.open": "Inspect saved knowledge",
+    "knowledge.inspect.failed": "Inspection could not be loaded. Save changes and try again.",
+    "knowledge.inspect.help":
+      "This dated snapshot shows saved text and current evidence. Inspection does not approve publication or clear a hold. Review visuals in the editor.",
+    "knowledge.inspect.forgotten":
+      "Some original evidence was forgotten. It cannot be reconstructed or approved here.",
+    "knowledge.inspect.image": "Image",
+    "knowledge.inspect.text": "Article",
+    "knowledge.inspect.original": "Original record / source versions",
+    "knowledge.inspect.current": "Current record / source versions",
+    "knowledge.inspect.until": "Valid until",
+    "knowledge.inspect.unavailable": "The original record or source is unavailable.",
+    "knowledge.inspect.close": "Close inspection",
     "knowledge.impactHelp":
       "Knowledge checks use the exact reviewed versions used in each article and image, including expiry at a saved publication date. Changed or withdrawn knowledge requires review; existing text and approvals are not changed.",
     "knowledge.impactCount": "knowledge checks need review",
@@ -262,6 +275,19 @@ export const projectKnowledge = {
     "knowledge.sourceHistory.latest": "Latest source versions",
   },
   pl: {
+    "knowledge.inspect.open": "Sprawdź zapisaną wiedzę",
+    "knowledge.inspect.failed": "Nie udało się wczytać podglądu. Zapisz zmiany i spróbuj ponownie.",
+    "knowledge.inspect.help":
+      "Ten datowany podgląd pokazuje zapisany tekst i aktualne źródła. Podgląd nie zatwierdza publikacji ani nie usuwa blokady. Obrazy sprawdź w edytorze.",
+    "knowledge.inspect.forgotten":
+      "Część pierwotnych źródeł została usunięta. Nie można ich tutaj odtworzyć ani zatwierdzić.",
+    "knowledge.inspect.image": "Obraz",
+    "knowledge.inspect.text": "Artykuł",
+    "knowledge.inspect.original": "Pierwotne wersje wpisu / źródła",
+    "knowledge.inspect.current": "Aktualne wersje wpisu / źródła",
+    "knowledge.inspect.until": "Ważne do",
+    "knowledge.inspect.unavailable": "Pierwotny wpis lub źródło jest niedostępne.",
+    "knowledge.inspect.close": "Zamknij podgląd",
     "knowledge.impactHelp":
       "Sprawdzamy dokładne wersje wiedzy użyte w artykułach i obrazach, także ich ważność w zapisanym terminie publikacji. Zmieniona lub wycofana wiedza wymaga weryfikacji; tekst i zatwierdzenia pozostają bez zmian.",
     "knowledge.impactCount": "kontroli wiedzy wymaga weryfikacji",
@@ -525,6 +551,20 @@ export const projectKnowledge = {
     "knowledge.sourceHistory.latest": "Najnowsze wersje źródła",
   },
   sv: {
+    "knowledge.inspect.open": "Granska sparad kunskap",
+    "knowledge.inspect.failed":
+      "Granskningen kunde inte laddas. Spara ändringarna och försök igen.",
+    "knowledge.inspect.help":
+      "Denna daterade ögonblicksbild visar sparad text och aktuella underlag. Granskningen godkänner inte publicering och tar inte bort spärrar. Granska bilder i redigeraren.",
+    "knowledge.inspect.forgotten":
+      "En del ursprungligt underlag har raderats. Det kan inte återskapas eller godkännas här.",
+    "knowledge.inspect.image": "Bild",
+    "knowledge.inspect.text": "Artikel",
+    "knowledge.inspect.original": "Ursprungliga post- / källversioner",
+    "knowledge.inspect.current": "Aktuella post- / källversioner",
+    "knowledge.inspect.until": "Giltig till",
+    "knowledge.inspect.unavailable": "Den ursprungliga posten eller källan är inte tillgänglig.",
+    "knowledge.inspect.close": "Stäng granskningen",
     "knowledge.impactHelp":
       "Kontrollen använder de exakta granskade versionerna för varje artikel och bild, även giltighet vid sparad publiceringstid. Ändrad eller återkallad kunskap behöver granskas; text och godkännanden ändras inte.",
     "knowledge.impactCount": "kunskapskontroller behöver granskas",
@@ -792,6 +832,19 @@ export const projectKnowledge = {
     "knowledge.sourceHistory.latest": "Senaste källversionerna",
   },
   da: {
+    "knowledge.inspect.open": "Gennemse gemt viden",
+    "knowledge.inspect.failed": "Gennemgangen kunne ikke indlæses. Gem ændringerne og prøv igen.",
+    "knowledge.inspect.help":
+      "Dette daterede øjebliksbillede viser gemt tekst og aktuelle kilder. Gennemgangen godkender ikke udgivelse og fjerner ikke blokeringer. Gennemse billeder i editoren.",
+    "knowledge.inspect.forgotten":
+      "Noget oprindeligt kildemateriale er slettet. Det kan ikke genskabes eller godkendes her.",
+    "knowledge.inspect.image": "Billede",
+    "knowledge.inspect.text": "Artikel",
+    "knowledge.inspect.original": "Oprindelige post- / kildeversioner",
+    "knowledge.inspect.current": "Aktuelle post- / kildeversioner",
+    "knowledge.inspect.until": "Gyldig indtil",
+    "knowledge.inspect.unavailable": "Den oprindelige post eller kilde er ikke tilgængelig.",
+    "knowledge.inspect.close": "Luk gennemgangen",
     "knowledge.impactHelp":
       "Kontrollen bruger de præcise gennemgåede versioner for hver artikel og hvert billede, også gyldighed på det gemte udgivelsestidspunkt. Ændret eller tilbagekaldt viden kræver gennemgang; tekst og godkendelser ændres ikke.",
     "knowledge.impactCount": "videnskontroller kræver gennemgang",

@@ -7,6 +7,15 @@ import { knowledgeRecordSchema } from "./project-knowledge";
 
 const project = z.object({ projectId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/) }).strict();
 const revision = z.number().int().min(1).max(9999);
+export const readKnowledgeOutputReviewFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) =>
+    project.extend({ assetId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/) }).parse(v),
+  )
+  .handler(async ({ data, context }) => {
+    const { readKnowledgeOutputReview } = await import("./knowledge-output-review.server");
+    return readKnowledgeOutputReview({ ownerId: context.userId, ...data });
+  });
 const item = project.extend({ id: z.string().uuid(), expectedRevision: revision });
 const fields = knowledgeRecordSchema
   .innerType()
