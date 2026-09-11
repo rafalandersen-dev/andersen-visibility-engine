@@ -9,78 +9,17 @@ import {
   validateImageBytes,
   contentTypeForFormat,
 } from "./image-storage";
-import { isSafePublicUrl, outboundFetchAllowed } from "./safe-fetch";
+import { outboundFetchAllowed } from "./safe-fetch";
 import { projectOrigin } from "./images";
+import { fetchPinnedImage } from "./homepage-fetch.server";
 type ContextReader = typeof readTeamReviewContext;
 type Dependencies = {
   read?: ContextReader;
   storageOrigin?: string;
   download?: (bucket: string, path: string) => Promise<Blob>;
-  fetch?: typeof fetch;
+  remote?: typeof fetchPinnedImage;
   outboundAllowed?: () => boolean;
 };
-async function publicBytes(
-  url: string,
-  origin: string,
-  fetcher: typeof fetch,
-  signal: AbortSignal,
-) {
-  let current = url;
-  for (let hop = 0; hop <= 3; hop++) {
-    if (
-      !isSafePublicUrl(current) ||
-      new URL(current).protocol !== "https:" ||
-      new URL(current).origin !== origin
-    )
-      throw new Error("media_origin");
-    const response = await fetcher(current, {
-      redirect: "manual",
-      credentials: "omit",
-      signal,
-      headers: { Accept: "image/png,image/jpeg,image/webp" },
-    });
-    if (response.status >= 300 && response.status < 400) {
-      const next = response.headers.get("location");
-      await response.body?.cancel();
-      if (!next || hop === 3) throw new Error("media_redirect");
-      current = new URL(next, current).href;
-      continue;
-    }
-    if (!response.ok) {
-      await response.body?.cancel();
-      throw new Error("media_http");
-    }
-    const size = Number(response.headers.get("content-length"));
-    if (size > MAX_IMAGE_BYTES) {
-      await response.body?.cancel();
-      throw new Error("media_size");
-    }
-    const reader = response.body?.getReader();
-    if (!reader) throw new Error("media_body");
-    const chunks: Uint8Array[] = [];
-    let total = 0;
-    try {
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        total += value.length;
-        if (total > MAX_IMAGE_BYTES) throw new Error("media_size");
-        chunks.push(value);
-      }
-    } finally {
-      await reader.cancel().catch(() => {});
-      reader.releaseLock();
-    }
-    const bytes = new Uint8Array(total);
-    let offset = 0;
-    for (const chunk of chunks) {
-      bytes.set(chunk, offset);
-      offset += chunk.length;
-    }
-    return bytes;
-  }
-  throw new Error("media_redirect");
-}
 export async function readProjectTeamMedia(
   actorId: string,
   raw: z.infer<typeof teamMediaInput>,
@@ -166,7 +105,9 @@ export async function readProjectTeamMedia(
         const origin = projectOrigin(before.project);
         if (!origin || !(deps.outboundAllowed ?? outboundFetchAllowed)())
           throw new Error("media_outbound");
-        bytes = await publicBytes(media.url, origin, deps.fetch ?? fetch, controller.signal);
+        bytes =
+          (await (deps.remote ?? fetchPinnedImage)(media.url, origin, controller.signal)) ??
+          undefined;
       } else {
         path = media.storagePath;
         bucket = ARTICLE_IMAGE_BUCKET_PRIVATE;
@@ -186,6 +127,7 @@ export async function readProjectTeamMedia(
         bytes = new Uint8Array(await blob.arrayBuffer());
       }
       if (!bytes) throw new Error("media_missing");
+      if (bytes.length > MAX_IMAGE_BYTES) throw new Error("media_size");
       const checked = validateImageBytes(bytes);
       if (!checked.ok) throw new Error("media_invalid");
       const after = await read(actorId, target);

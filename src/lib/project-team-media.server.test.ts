@@ -121,41 +121,39 @@ describe("scoped collaborator media", () => {
   });
   it("uses bounded same-site public fetching without credentials", async () => {
     const d = deps({ id: "im", url: "https://client.example/image.png" });
-    const fetcher = vi.fn(async () => new Response(bytes));
+    const fetcher = vi.fn(async () => bytes);
     const result = await readProjectTeamMedia(actor, input, {
       ...d,
-      fetch: fetcher,
+      remote: fetcher,
       outboundAllowed: () => true,
     });
     expect(result.contentType).toBe("image/png");
     expect(d.download).not.toHaveBeenCalled();
-    expect(fetcher.mock.calls[0]).toHaveLength(2);
+    expect(fetcher.mock.calls[0]).toHaveLength(3);
     expect(fetcher).toHaveBeenCalledWith(
       "https://client.example/image.png",
-      expect.objectContaining({ redirect: "manual", credentials: "omit" }),
+      "https://client.example",
+      expect.any(AbortSignal),
     );
   });
-  it("blocks redirects off the project origin and honors disabled outbound transport", async () => {
+  it("honors a rejected pinned fetch and disabled outbound transport", async () => {
     const d = deps({ id: "im", url: "https://client.example/image.png" });
-    const fetcher = vi.fn(
-      async () =>
-        new Response(null, { status: 302, headers: { location: "http://127.0.0.1/private" } }),
-    );
+    const fetcher = vi.fn(async () => null);
     await expect(
-      readProjectTeamMedia(actor, input, { ...d, fetch: fetcher, outboundAllowed: () => true }),
+      readProjectTeamMedia(actor, input, { ...d, remote: fetcher, outboundAllowed: () => true }),
     ).rejects.toThrow();
     expect(fetcher).toHaveBeenCalledTimes(1);
     fetcher.mockClear();
     await expect(
-      readProjectTeamMedia(actor, input, { ...d, fetch: fetcher, outboundAllowed: () => false }),
+      readProjectTeamMedia(actor, input, { ...d, remote: fetcher, outboundAllowed: () => false }),
     ).rejects.toThrow();
     expect(fetcher).not.toHaveBeenCalled();
   });
   it("rejects oversized public streams even without a declared length", async () => {
     const d = deps({ id: "im", url: "https://client.example/image.png" });
-    const fetcher = vi.fn(async () => new Response(new Uint8Array(5 * 1024 * 1024 + 1)));
+    const fetcher = vi.fn(async () => new Uint8Array(5 * 1024 * 1024 + 1));
     await expect(
-      readProjectTeamMedia(actor, input, { ...d, fetch: fetcher, outboundAllowed: () => true }),
+      readProjectTeamMedia(actor, input, { ...d, remote: fetcher, outboundAllowed: () => true }),
     ).rejects.toThrow();
   });
   it("loads the saved featured variant instead of a different inline image", async () => {

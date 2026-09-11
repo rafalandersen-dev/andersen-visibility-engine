@@ -301,3 +301,74 @@ export async function fetchHomepageHtml(raw: string): Promise<string> {
     response?.destroy();
   }
 }
+
+/** Exact public image bytes for review, using the same pinned DNS/TLS sockets.
+ * Scope and every redirect are checked before DNS or connection. */
+export async function fetchPinnedImage(
+  raw: string,
+  origin: string,
+  parent: AbortSignal,
+): Promise<Uint8Array | null> {
+  const controller = new AbortController();
+  let response: PageResponse | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let rejectStop: ((reason: Error) => void) | undefined;
+  const stop = () => {
+    controller.abort();
+    response?.destroy();
+    rejectStop?.(new Error("image_aborted"));
+  };
+  const stopped = new Promise<never>((_, reject) => {
+    rejectStop = reject;
+    timer = setTimeout(stop, 10000);
+  });
+  parent.addEventListener("abort", stop, { once: true });
+  const read = async () => {
+    if (parent.aborted) throw new Error("image_aborted");
+    if (proxyVariables.some((key) => process.env[key]?.trim())) throw new Error("proxy_refused");
+    let url = pageUrl(raw);
+    for (let hop = 0; hop <= 3; hop++) {
+      if (url.protocol !== "https:" || url.origin !== origin) throw new Error("image_scope");
+      const address = await addressFor(url, controller.signal);
+      controller.signal.throwIfAborted();
+      response = await openPage(url, address, controller.signal);
+      const status = response.statusCode ?? 0;
+      if ([301, 302, 303, 307, 308].includes(status)) {
+        const location = response.headers.location;
+        response.destroy();
+        if (typeof location !== "string" || !location || hop === 3)
+          throw new Error("image_redirect");
+        url = pageUrl(new URL(location, url).href);
+        continue;
+      }
+      if (status < 200 || status >= 300) throw new Error("image_http");
+      const encoding = response.headers["content-encoding"];
+      if (encoding && encoding !== "identity") throw new Error("image_encoding");
+      const maximum = 5 * 1024 * 1024;
+      if (Number(response.headers["content-length"]) > maximum) throw new Error("image_size");
+      const chunks: Buffer[] = [];
+      let total = 0,
+        count = 0;
+      for await (const value of response) {
+        controller.signal.throwIfAborted();
+        const chunk = Buffer.isBuffer(value) ? value : Buffer.from(value);
+        total += chunk.length;
+        if (total > maximum || ++count > HOMEPAGE_MAX_CHUNKS) throw new Error("image_size");
+        chunks.push(Buffer.from(chunk));
+      }
+      if (!response.complete) throw new Error("image_incomplete");
+      return new Uint8Array(Buffer.concat(chunks, total));
+    }
+    throw new Error("image_redirect");
+  };
+  try {
+    return await Promise.race([read(), stopped]);
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+    parent.removeEventListener("abort", stop);
+    controller.abort();
+    response?.destroy();
+  }
+}
