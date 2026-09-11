@@ -5,6 +5,8 @@ const h = vi.hoisted(() => ({
   read: vi.fn(),
   change: vi.fn(),
   history: vi.fn(),
+  rpc: vi.fn(),
+  admit: vi.fn(),
 }));
 vi.mock("@/integrations/supabase/auth-middleware", () => ({ requireSupabaseAuth: h.auth }));
 vi.mock("@tanstack/react-start", () => ({
@@ -23,6 +25,12 @@ vi.mock("@tanstack/react-start", () => ({
         fn({ ...a, data: parse(a.data) }),
     };
     return b;
+  },
+}));
+vi.mock("./project-team-read-admission.server", () => ({
+  admittedReadRpc: (actor: string) => {
+    h.admit(actor);
+    return h.rpc;
   },
 }));
 vi.mock("./project-team-notifications.server", () => ({
@@ -44,9 +52,9 @@ describe("recipient settings authentication", () => {
     expect(h.registered).toEqual([[h.auth], [h.auth], [h.auth]]);
     const target = { ownerId: owner, projectId: "p", recipientId: actor };
     await invoke(readTeamNotificationSettingsFn, target);
-    expect(h.read).toHaveBeenCalledWith(actor, target, expect.any(Function));
+    expect(h.read).toHaveBeenCalledWith(actor, target, h.rpc);
     await invoke(readTeamNotificationHistoryFn, target);
-    expect(h.history).toHaveBeenCalledWith(actor, target, expect.any(Function));
+    expect(h.history).toHaveBeenCalledWith(actor, target, h.rpc);
     const data = {
       ...target,
       action: "opt_in",
@@ -55,7 +63,8 @@ describe("recipient settings authentication", () => {
       expectedMembershipRevision: 1,
     };
     await invoke(changeTeamNotificationSettingsFn, data);
-    expect(h.change).toHaveBeenCalledWith(actor, data);
+    expect(h.change).toHaveBeenCalledWith(actor, data, h.rpc);
+    expect(h.admit.mock.calls).toEqual([[actor], [actor], [actor]]);
     expect(() => invoke(changeTeamNotificationSettingsFn, { ...data, actorId: owner })).toThrow();
   });
 });
