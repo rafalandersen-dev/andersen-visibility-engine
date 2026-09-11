@@ -1,3 +1,5 @@
+import { CrawlOwnershipPanel } from "./CrawlOwnershipPanel";
+import { useCrawlOwnership } from "@/lib/use-crawl-ownership";
 import { TechnicalFindingActions } from "./TechnicalFindingActions";
 import { processTechnicalCrawl } from "@/lib/technical-crawl-client";
 import { useEffect, useRef, useState } from "react";
@@ -15,6 +17,11 @@ export function TechnicalCrawlPanel({ projectId }: { projectId: string }) {
 }
 function ProjectCrawl({ owner, projectId }: { owner: string; projectId: string }) {
   const t = useT();
+  const ownership = useCrawlOwnership(owner, projectId);
+  const ownsSite =
+    !ownership.isError &&
+    ownership.data?.status === "verified" &&
+    Date.parse(ownership.data.expiresAt) > Date.now();
   const [runId, setRunId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -106,17 +113,27 @@ function ProjectCrawl({ owner, projectId }: { owner: string; projectId: string }
       <h2 className="font-display text-xl">{t("crawl.title")}</h2>
       <p className="text-sm text-muted-foreground">{t("crawl.help")}</p>
       <p className="text-sm text-muted-foreground">{t("crawl.scope")}</p>
+      <CrawlOwnershipPanel owner={owner} projectId={projectId} />
       <div className="flex flex-wrap gap-2">
         <Button
           disabled={
-            busy || cancelling || history.isPending || history.isError || existing || failed
+            !ownsSite ||
+            busy ||
+            cancelling ||
+            history.isPending ||
+            history.isError ||
+            existing ||
+            failed
           }
           onClick={() => void execute(crypto.randomUUID(), true)}
         >
           {t("crawl.start")}
         </Button>
         {active && !busy && (
-          <Button disabled={cancelling || failed} onClick={() => void execute(runId!, false)}>
+          <Button
+            disabled={!ownsSite || cancelling || failed}
+            onClick={() => void execute(runId!, false)}
+          >
             {t("crawl.resume")}
           </Button>
         )}

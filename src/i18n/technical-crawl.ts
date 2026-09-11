@@ -1,5 +1,24 @@
 export const technicalCrawlCopy: Record<string, Record<string, string>> = {
   en: {
+    "crawl.ownershipTitle": "Website ownership",
+    "crawl.ownershipHelp":
+      "Verify control of this website before starting a crawl. Verification expires after 24 hours.",
+    "crawl.ownershipLoading": "Loading ownership…",
+    "crawl.ownership_pending": "Awaiting DNS verification",
+    "crawl.ownership_verified": "Ownership verified",
+    "crawl.ownership_expired": "Verification expired",
+    "crawl.ownership_revoked": "Verification revoked",
+    "crawl.ownershipInstructions":
+      "Add this TXT record in your domain’s DNS settings, then check it here. DNS changes can take time to become visible.",
+    "crawl.ownershipName": "TXT record name",
+    "crawl.ownershipValue": "TXT record value",
+    "crawl.ownershipExpires": "Expires:",
+    "crawl.ownershipError":
+      "Ownership could not be confirmed. Refresh the saved status before trying again.",
+    "crawl.ownershipIssue": "Create DNS instructions",
+    "crawl.ownershipVerify": "Check DNS record",
+    "crawl.ownershipRevoke": "Revoke verification",
+
     "crawl.opportunityRemoved":
       "The original opportunity was removed. Its saved evidence is retained; this action will not recreate it.",
     "crawl.findingHelp":
@@ -98,6 +117,25 @@ export const technicalCrawlCopy: Record<string, Record<string, string>> = {
     "crawl.links": "Observed internal links",
   },
   pl: {
+    "crawl.ownershipTitle": "Własność witryny",
+    "crawl.ownershipHelp":
+      "Potwierdź kontrolę nad witryną przed rozpoczęciem skanowania. Weryfikacja wygasa po 24 godzinach.",
+    "crawl.ownershipLoading": "Wczytywanie weryfikacji…",
+    "crawl.ownership_pending": "Oczekiwanie na weryfikację DNS",
+    "crawl.ownership_verified": "Własność potwierdzona",
+    "crawl.ownership_expired": "Weryfikacja wygasła",
+    "crawl.ownership_revoked": "Weryfikacja cofnięta",
+    "crawl.ownershipInstructions":
+      "Dodaj ten rekord TXT w ustawieniach DNS domeny, a następnie sprawdź go tutaj. Zmiany DNS mogą pojawić się z opóźnieniem.",
+    "crawl.ownershipName": "Nazwa rekordu TXT",
+    "crawl.ownershipValue": "Wartość rekordu TXT",
+    "crawl.ownershipExpires": "Wygasa:",
+    "crawl.ownershipError":
+      "Nie udało się potwierdzić własności. Odśwież zapisany status przed ponowną próbą.",
+    "crawl.ownershipIssue": "Utwórz instrukcje DNS",
+    "crawl.ownershipVerify": "Sprawdź rekord DNS",
+    "crawl.ownershipRevoke": "Cofnij weryfikację",
+
     "crawl.opportunityRemoved":
       "Pierwotna szansa została usunięta. Zapisane dane pozostają; ta czynność jej nie odtworzy.",
     "crawl.findingHelp":
@@ -196,6 +234,25 @@ export const technicalCrawlCopy: Record<string, Record<string, string>> = {
     "crawl.links": "Zaobserwowane linki wewnętrzne",
   },
   sv: {
+    "crawl.ownershipTitle": "Ägarskap för webbplatsen",
+    "crawl.ownershipHelp":
+      "Verifiera kontrollen över webbplatsen innan du startar en genomsökning. Verifieringen löper ut efter 24 timmar.",
+    "crawl.ownershipLoading": "Läser verifiering…",
+    "crawl.ownership_pending": "Väntar på DNS-verifiering",
+    "crawl.ownership_verified": "Ägarskap verifierat",
+    "crawl.ownership_expired": "Verifieringen har löpt ut",
+    "crawl.ownership_revoked": "Verifieringen har återkallats",
+    "crawl.ownershipInstructions":
+      "Lägg till denna TXT-post i domänens DNS-inställningar och kontrollera den sedan här. DNS-ändringar kan ta tid att bli synliga.",
+    "crawl.ownershipName": "TXT-postens namn",
+    "crawl.ownershipValue": "TXT-postens värde",
+    "crawl.ownershipExpires": "Löper ut:",
+    "crawl.ownershipError":
+      "Ägarskapet kunde inte bekräftas. Uppdatera den sparade statusen innan du försöker igen.",
+    "crawl.ownershipIssue": "Skapa DNS-instruktioner",
+    "crawl.ownershipVerify": "Kontrollera DNS-posten",
+    "crawl.ownershipRevoke": "Återkalla verifiering",
+
     "crawl.opportunityRemoved":
       "Den ursprungliga möjligheten har tagits bort. Underlaget finns kvar; åtgärden återskapar den inte.",
     "crawl.findingHelp":
@@ -294,6 +351,25 @@ export const technicalCrawlCopy: Record<string, Record<string, string>> = {
     "crawl.links": "Observerade interna länkar",
   },
   da: {
+    "crawl.ownershipTitle": "Ejerskab af websted",
+    "crawl.ownershipHelp":
+      "Bekræft kontrollen over webstedet, før du starter en scanning. Bekræftelsen udløber efter 24 timer.",
+    "crawl.ownershipLoading": "Indlæser bekræftelse…",
+    "crawl.ownership_pending": "Afventer DNS-bekræftelse",
+    "crawl.ownership_verified": "Ejerskab bekræftet",
+    "crawl.ownership_expired": "Bekræftelsen er udløbet",
+    "crawl.ownership_revoked": "Bekræftelsen er tilbagekaldt",
+    "crawl.ownershipInstructions":
+      "Tilføj denne TXT-post i domænens DNS-indstillinger, og kontrollér den her. Det kan tage tid, før DNS-ændringer bliver synlige.",
+    "crawl.ownershipName": "TXT-postens navn",
+    "crawl.ownershipValue": "TXT-postens værdi",
+    "crawl.ownershipExpires": "Udløber:",
+    "crawl.ownershipError":
+      "Ejerskabet kunne ikke bekræftes. Opdatér den gemte status, før du prøver igen.",
+    "crawl.ownershipIssue": "Opret DNS-instruktioner",
+    "crawl.ownershipVerify": "Kontrollér DNS-posten",
+    "crawl.ownershipRevoke": "Tilbagekald bekræftelse",
+
     "crawl.opportunityRemoved":
       "Den oprindelige mulighed er fjernet. Grundlaget bevares; handlingen genskaber den ikke.",
     "crawl.findingHelp":
