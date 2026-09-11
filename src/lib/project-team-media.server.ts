@@ -1,3 +1,4 @@
+import { acquireTeamMedia, releaseTeamMedia } from "./project-team-media-limit.server";
 import { z } from "zod";
 import { teamMediaInput } from "./project-team";
 import { readTeamReviewContext } from "./project-team-context.server";
@@ -13,6 +14,8 @@ import { isControlledImageOrigin } from "./images";
 import { fetchPinnedImage } from "./homepage-fetch.server";
 type ContextReader = typeof readTeamReviewContext;
 type Dependencies = {
+  acquire?: typeof acquireTeamMedia;
+  release?: typeof releaseTeamMedia;
   read?: ContextReader;
   storageOrigin?: string;
   download?: (bucket: string, path: string) => Promise<Blob>;
@@ -24,6 +27,7 @@ export async function readProjectTeamMedia(
   deps: Dependencies = {},
 ) {
   const input = teamMediaInput.parse(raw);
+  const lease = await (deps.acquire ?? acquireTeamMedia)(actorId);
   const read = deps.read ?? readTeamReviewContext;
   const target = { ownerId: input.ownerId, projectId: input.projectId, assetId: input.assetId };
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -71,7 +75,9 @@ export async function readProjectTeamMedia(
         deps.download ??
         (async (bucket, path) => {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          const result = await supabaseAdmin.storage.from(bucket).download(path);
+          const result = await supabaseAdmin.storage
+            .from(bucket)
+            .download(path, {}, { signal: controller.signal });
           if (result.error || !result.data) throw new Error("media_missing");
           return result.data;
         });
@@ -122,9 +128,11 @@ export async function readProjectTeamMedia(
       }
       if (bucket && path) {
         const blob = await download(bucket, path);
+        controller.signal.throwIfAborted();
         if (blob.size > MAX_IMAGE_BYTES) throw new Error("media_size");
         bytes = new Uint8Array(await blob.arrayBuffer());
       }
+      controller.signal.throwIfAborted();
       if (!bytes) throw new Error("media_missing");
       if (bytes.length > MAX_IMAGE_BYTES) throw new Error("media_size");
       const checked = validateImageBytes(bytes);
@@ -135,6 +143,7 @@ export async function readProjectTeamMedia(
         after.membershipRevision !== before.membershipRevision
       )
         throw new Error("media_changed");
+      controller.signal.throwIfAborted();
       const digest = await crypto.subtle.digest("SHA-256", new Uint8Array(bytes));
       return {
         byteHash: Array.from(new Uint8Array(digest), (byte) =>
@@ -147,7 +156,7 @@ export async function readProjectTeamMedia(
       };
     };
     return await Promise.race([
-      run(),
+      run().finally(() => (deps.release ?? releaseTeamMedia)(actorId, lease).catch(() => {})),
       new Promise<never>((_, reject) => {
         timer = setTimeout(() => {
           controller.abort();

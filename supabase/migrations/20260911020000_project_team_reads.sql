@@ -89,3 +89,40 @@ BEGIN
 END; $$;
 REVOKE ALL ON FUNCTION public.read_project_team_snapshot(uuid,uuid,text,text,integer) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.read_project_team_snapshot(uuid,uuid,text,text,integer) TO service_role;
+
+-- Actor-wide admission runs before private review context or image access.
+-- Bounded counters/leases are operational state, not review history.
+CREATE TABLE public.project_team_media_limits (
+ actor_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+ hour_start timestamptz NOT NULL,
+ hour_count integer NOT NULL CHECK(hour_count BETWEEN 0 AND 600),
+ minute_start timestamptz NOT NULL,
+ minute_count integer NOT NULL CHECK(minute_count BETWEEN 0 AND 120),
+ leases jsonb NOT NULL DEFAULT '{}'::jsonb CHECK(jsonb_typeof(leases)='object' AND octet_length(leases::text)<2000)
+);
+ALTER TABLE public.project_team_media_limits ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.project_team_media_limits FROM PUBLIC,anon,authenticated,service_role;
+CREATE FUNCTION public.acquire_project_team_media(p_actor uuid)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE current public.project_team_media_limits%ROWTYPE; lease uuid; active jsonb; stamp timestamptz:=clock_timestamp();
+BEGIN
+ PERFORM public.assert_project_team_account(p_actor);
+ INSERT INTO public.project_team_media_limits(actor_id,hour_start,hour_count,minute_start,minute_count) VALUES(p_actor,stamp,0,stamp,0) ON CONFLICT DO NOTHING;
+ SELECT * INTO current FROM public.project_team_media_limits WHERE actor_id=p_actor FOR UPDATE;
+ stamp:=clock_timestamp();
+ SELECT coalesce(jsonb_object_agg(key,value),'{}'::jsonb) INTO active FROM jsonb_each_text(current.leases) WHERE value::timestamptz>stamp;
+ IF (SELECT count(*) FROM jsonb_object_keys(active))>=4 THEN RAISE EXCEPTION 'team_media_capacity'; END IF;
+ IF current.hour_start<=stamp-interval '1 hour' THEN current.hour_start:=stamp;current.hour_count:=0; END IF;
+ IF current.minute_start<=stamp-interval '1 minute' THEN current.minute_start:=stamp;current.minute_count:=0; END IF;
+ IF current.hour_count>=600 OR current.minute_count>=120 THEN RAISE EXCEPTION 'team_media_capacity'; END IF;
+ lease:=gen_random_uuid();
+ UPDATE public.project_team_media_limits SET hour_start=current.hour_start,hour_count=current.hour_count+1,minute_start=current.minute_start,minute_count=current.minute_count+1,leases=active || jsonb_build_object(lease::text,stamp+interval '60 seconds') WHERE actor_id=p_actor;
+ RETURN lease;
+END; $$;
+CREATE FUNCTION public.release_project_team_media(p_actor uuid,p_lease uuid)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+ UPDATE public.project_team_media_limits SET leases=leases-p_lease::text WHERE actor_id=p_actor;
+END; $$;
+REVOKE ALL ON FUNCTION public.acquire_project_team_media(uuid),public.release_project_team_media(uuid,uuid) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.acquire_project_team_media(uuid),public.release_project_team_media(uuid,uuid) TO service_role;

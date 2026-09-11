@@ -42,7 +42,7 @@ beforeAll(async () => {
     await db.exec(readFileSync(`supabase/migrations/${file}`, "utf8"));
 }, 30000);
 beforeEach(async () => {
-  await db.exec(`RESET ROLE; TRUNCATE public.project_team_invitation_deliveries,public.project_team_notification_items,public.project_team_notification_outbox,public.operational_email_items,public.operational_email_outbox,public.operational_notifications,public.operational_notification_scans,public.operational_email_preferences,public.project_team_notification_recipient_audit,public.project_team_notification_recipients,public.project_team_approval_history,public.project_team_approval_policy,public.output_knowledge_reviews,public.project_team_edits,public.scheduled_publishes,public.publication_approvals,public.project_team_comments,public.project_team_members,public.project_team_invitations,public.project_team_audit;
+  await db.exec(`RESET ROLE; TRUNCATE public.project_team_media_limits,public.project_team_invitation_deliveries,public.project_team_notification_items,public.project_team_notification_outbox,public.operational_email_items,public.operational_email_outbox,public.operational_notifications,public.operational_notification_scans,public.operational_email_preferences,public.project_team_notification_recipient_audit,public.project_team_notification_recipients,public.project_team_approval_history,public.project_team_approval_policy,public.output_knowledge_reviews,public.project_team_edits,public.scheduled_publishes,public.publication_approvals,public.project_team_comments,public.project_team_members,public.project_team_invitations,public.project_team_audit;
     UPDATE public.workspace_meta SET rev=1;
     INSERT INTO public.workspace_entities VALUES('${owner}','content','a','{"projectId":"p","title":"Draft","status":"Draft","updatedAt":"now","markdown":"Saved draft"}') ON CONFLICT(user_id,collection,entity_id) DO UPDATE SET data=EXCLUDED.data;
     UPDATE auth.identities SET identity_data='{"email":"member@example.test","email_verified":true}';
@@ -73,6 +73,67 @@ const change = (expected = 1, remove = false, who = owner) =>
 const revoke = (id = invite, who = owner) =>
   db.query("SELECT public.revoke_project_team_invitation($1,$2,'p',$3)", [who, owner, id]);
 describe("durable project invitation and membership lifecycle", () => {
+  it("enforces actor-wide media concurrency, release ownership and lease recovery", async () => {
+    const acquire = async (who = actor) =>
+      (await db.query<{ lease: string }>("SELECT acquire_project_team_media($1) lease", [who]))
+        .rows[0].lease;
+    const leases = [];
+    for (let i = 0; i < 4; i++) leases.push(await acquire());
+    await expect(acquire()).rejects.toThrow("team_media_capacity");
+    await acquire(owner);
+    await db.query("SELECT release_project_team_media($1,$2)", [owner, leases[0]]);
+    await expect(acquire()).rejects.toThrow("team_media_capacity");
+    await db.query("SELECT release_project_team_media($1,$2)", [actor, leases[0]]);
+    await acquire();
+    await db.query(
+      "UPDATE project_team_media_limits SET leases=jsonb_build_object($2::text,now()-interval '1 second') WHERE actor_id=$1",
+      [actor, leases[1]],
+    );
+    await acquire();
+    expect((await db.query("SELECT count(*)::int n FROM project_team_media_limits")).rows).toEqual([
+      { n: 2 },
+    ]);
+  });
+  it("enforces minute/hour media limits, restores expired windows and rejects banned actors", async () => {
+    await db.query("SELECT acquire_project_team_media($1)", [actor]);
+    await db.query(
+      "UPDATE project_team_media_limits SET leases='{}',minute_count=120 WHERE actor_id=$1",
+      [actor],
+    );
+    await expect(db.query("SELECT acquire_project_team_media($1)", [actor])).rejects.toThrow(
+      "team_media_capacity",
+    );
+    await db.query(
+      "UPDATE project_team_media_limits SET minute_start=now()-interval '2 minutes',hour_count=600 WHERE actor_id=$1",
+      [actor],
+    );
+    await expect(db.query("SELECT acquire_project_team_media($1)", [actor])).rejects.toThrow(
+      "team_media_capacity",
+    );
+    await db.query(
+      "UPDATE project_team_media_limits SET hour_start=now()-interval '2 hours' WHERE actor_id=$1",
+      [actor],
+    );
+    await db.query("SELECT acquire_project_team_media($1)", [actor]);
+    await db.query("UPDATE auth.users SET banned_until=now()+interval '1 hour' WHERE id=$1", [
+      actor,
+    ]);
+    await expect(db.query("SELECT acquire_project_team_media($1)", [actor])).rejects.toThrow(
+      "team_project_unavailable",
+    );
+    for (const role of ["anon", "authenticated", "service_role"]) {
+      await db.exec(`SET ROLE ${role}`);
+      await expect(db.query("SELECT * FROM project_team_media_limits")).rejects.toThrow(
+        "permission denied",
+      );
+      if (role !== "service_role")
+        await expect(db.query("SELECT acquire_project_team_media($1)", [owner])).rejects.toThrow(
+          "permission denied",
+        );
+      await db.exec("RESET ROLE");
+    }
+  });
+
   it.each(["banned_until=now()+interval '1 hour'", "deleted_at=now()"])(
     "blocks direct review, comment and edit calls for restricted accounts: %s",
     async (restriction) => {
@@ -1009,43 +1070,61 @@ describe("durable project invitation and membership lifecycle", () => {
       ).rows[0].ok,
     ).toBe(false);
   });
-  it("does not let an editor approve their own edit by switching to Reviewer under separation", async () => {
-    await create();
-    await accept();
-    const before = (
-      await db.query<{ result: { draftHash: string } }>(
-        "SELECT public.read_project_team_snapshot($1,$2,'p','a') result",
-        [actor, owner],
-      )
-    ).rows[0].result;
-    await db.query("SELECT public.save_project_team_draft($1,$2,'p','a',$3,$4,1,$5)", [
-      actor,
-      owner,
-      second,
-      before.draftHash,
-      { markdown: "My edit" },
-    ]);
-    await change();
-    await db.query(
-      "SELECT public.set_project_team_approval_policy($1,$1,'p',0,'separate_reviewers')",
-      [owner],
-    );
-    const after = (
-      await db.query<{ result: { draftHash: string } }>(
-        "SELECT public.read_project_team_snapshot($1,$2,'p','a') result",
-        [actor, owner],
-      )
-    ).rows[0].result;
-    await expect(
-      db.query("SELECT public.save_project_team_approval($1,$2,'p','a',$3,2,$4,$5,2,1,true)", [
+  it.each(["own", "owner-rewrite", "owner-noop"])(
+    "binds reviewer separation to the actual current draft: %s",
+    async (mode) => {
+      await create();
+      await accept();
+      const before = (
+        await db.query<{ result: { draftHash: string } }>(
+          "SELECT public.read_project_team_snapshot($1,$2,'p','a') result",
+          [actor, owner],
+        )
+      ).rows[0].result;
+      await db.query("SELECT public.save_project_team_draft($1,$2,'p','a',$3,$4,1,$5)", [
         actor,
         owner,
-        other,
-        after.draftHash,
-        "a".repeat(64),
-      ]),
-    ).rejects.toThrow("team_independent_reviewer_required");
-  });
+        second,
+        before.draftHash,
+        { markdown: "My edit" },
+      ]);
+      if (mode === "owner-rewrite")
+        await db.exec(
+          "UPDATE workspace_entities SET data=data || '{\"markdown\":\"Owner rewritten version\"}' WHERE collection='content'; UPDATE workspace_meta SET rev=rev+1",
+        );
+      if (mode === "owner-noop") {
+        const hash = (
+          await db.query<{ hash: string }>(
+            "SELECT read_project_team_snapshot($1,$2,'p','a')->>'draftHash' hash",
+            [actor, owner],
+          )
+        ).rows[0].hash;
+        await db.query("SELECT save_project_team_draft($1,$1,'p','a',$2,$3,1,$4)", [
+          owner,
+          other,
+          hash,
+          { markdown: "My edit" },
+        ]);
+      }
+      await change();
+      await db.query(
+        "SELECT public.set_project_team_approval_policy($1,$1,'p',0,'separate_reviewers')",
+        [owner],
+      );
+      const after = (
+        await db.query<{ result: { draftHash: string } }>(
+          "SELECT public.read_project_team_snapshot($1,$2,'p','a') result",
+          [actor, owner],
+        )
+      ).rows[0].result;
+      const review = db.query(
+        "SELECT public.save_project_team_approval($1,$2,'p','a',$3,$6,$4,$5,2,1,true)",
+        [actor, owner, other, after.draftHash, "a".repeat(64), mode === "owner-rewrite" ? 3 : 2],
+      );
+      if (mode === "owner-rewrite") await expect(review).resolves.toBeDefined();
+      else await expect(review).rejects.toThrow("team_independent_reviewer_required");
+    },
+  );
 
   it("limits private review context to the exact assigned project and asset", async () => {
     await create();
