@@ -1,3 +1,4 @@
+import { gunzipSync } from "node:zlib";
 import { TechnicalPolicyRefusedError } from "./technical-crawl-admission";
 import {
   TechnicalCrawlAdmissionError,
@@ -260,7 +261,7 @@ export async function fetchPinnedResource(
     options.purpose === "robots"
       ? /^text\/plain(?:\s*;|$)/i
       : options.purpose === "sitemap"
-        ? /^(?:text\/(?:plain|xml)|application\/(?:xml|[a-z0-9.-]+\+xml))(?:\s*;|$)/i
+        ? /^(?:text\/(?:plain|xml)|application\/(?:xml|gzip|x-gzip|[a-z0-9.-]+\+xml))(?:\s*;|$)/i
         : /^(text\/(html|plain)|application\/xhtml\+xml)(?:\s*;|$)/i;
   const controller = new AbortController();
   let response: PageResponse | undefined;
@@ -324,7 +325,11 @@ export async function fetchPinnedResource(
           if (value) headers[key] = value;
         }
         const type = headers["content-type"] ?? "";
-        const contentAccepted = acceptedType.test(type);
+        const gzipFile =
+          options.purpose === "sitemap" &&
+          (/^application\/(?:gzip|x-gzip)(?:\s*;|$)/i.test(type) ||
+            (/^application\/octet-stream(?:\s*;|$)/i.test(type) && url.pathname.endsWith(".gz")));
+        const contentAccepted = acceptedType.test(type) || gzipFile;
         const evidence = {
           url: url.href,
           status,
@@ -335,8 +340,12 @@ export async function fetchPinnedResource(
           observedAt: new Date().toISOString(),
         };
         if (!contentAccepted) return evidence;
-        const encoding = response.headers["content-encoding"];
-        if (encoding && encoding !== "identity") throw new Error("unsupported_encoding");
+        const rawEncoding = response.headers["content-encoding"];
+        const encoding =
+          typeof rawEncoding === "string" ? rawEncoding.trim().toLowerCase() : rawEncoding;
+        const gzipEncoding = options.purpose === "sitemap" && encoding === "gzip";
+        if (encoding && encoding !== "identity" && !gzipEncoding)
+          throw new Error("unsupported_encoding");
         const chunks: Buffer[] = [];
         let bytes = 0;
         let count = 0;
@@ -354,16 +363,43 @@ export async function fetchPinnedResource(
           }
         }
         if (!truncated && !response.complete) throw new Error("incomplete_page");
+        let payload = Buffer.concat(chunks, bytes);
+        const gzipMagic = payload[0] === 0x1f && payload[1] === 0x8b;
+        const inferredGzipFile =
+          options.purpose === "sitemap" &&
+          !gzipEncoding &&
+          url.pathname.endsWith(".gz") &&
+          gzipMagic;
+        if (gzipEncoding || gzipFile || inferredGzipFile) {
+          if (truncated) return { ...evidence, truncated: true };
+          try {
+            // HTTP content coding and a gzip media representation are separate
+            // layers. Bound every inflated layer before any UTF-8/XML parsing.
+            if (gzipEncoding) payload = gunzipSync(payload, { maxOutputLength: maxBytes });
+            if (gzipFile || inferredGzipFile)
+              payload = gunzipSync(payload, { maxOutputLength: maxBytes });
+          } catch (error) {
+            if (
+              error &&
+              typeof error === "object" &&
+              "code" in error &&
+              error.code === "ERR_BUFFER_TOO_LARGE"
+            )
+              return { ...evidence, truncated: true };
+            throw error;
+          }
+          controller.signal.throwIfAborted();
+        }
         return {
           ...evidence,
           body:
             options.purpose === "technical"
               ? /^(?:text\/html|application\/xhtml\+xml)(?:\s*;|$)/i.test(type)
-                ? decodeTechnicalHtml(Buffer.concat(chunks, bytes), type, truncated)
+                ? decodeTechnicalHtml(payload, type, truncated)
                 : ""
               : options.purpose === "sitemap"
-                ? new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(chunks, bytes))
-                : Buffer.concat(chunks, bytes).toString("utf8"),
+                ? new TextDecoder("utf-8", { fatal: true }).decode(payload)
+                : payload.toString("utf8"),
           truncated,
           observedAt: new Date().toISOString(),
         };

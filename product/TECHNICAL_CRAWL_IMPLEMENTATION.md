@@ -249,3 +249,11 @@ HTML metadata extraction now ignores foreign-namespace nodes, including SVG icon
 A robots-refused same-origin redirect now carries a typed destination from the pinned transport before destination DNS/connection. The controller rechecks that destination against its saved robots policy, persists the known refusal and blockedUrl without a fetched-page observation, and the page panel shows the blocked destination. Saved-state validation bounds and scopes blockedUrl and restricts it to robots refusal states.
 
 Validation:120 focused tests across page parsing, findings, crawl transitions, transport and policy adaptation, TypeScript and changed-file lint pass (`/tmp/milo-crawler-final-{tests,types,lint}.log`). Regression cases include SVG titles, wrong XML roots,4000 expanding relative-link/metadata tuples, no destination DNS after refusal, and state round-trip with foreign blocked-URL rejection. No live crawl, provider request, migration or browser acceptance occurred. Combined validation and fresh review remain required.
+
+## Compressed sitemaps and opportunity ordering
+
+Sitemap transport accepts gzip media files and HTTP gzip content coding, including their distinct double-encoded representation. Every compressed and inflated layer remains capped at512000bytes before strict UTF-8 decoding and XML/text parsing. Oversized output is reported as truncated evidence; corrupt gzip fails the read. Compressed plaintext sitemaps retain their source content type while using the plaintext parser.
+
+Explicitly captured crawl opportunities append after the owner's existing opportunity order under the existing workspace lock. Replaying an existing capture preserves its identity and does not append another row.
+
+Validation:127 focused transport, sitemap and actual-SQL tests pass, together with TypeScript and changed-file lint (`/tmp/milo-gzip-{tests,types,lint}.log`). Tests cover gzip media, HTTP coding, double gzip, octet-stream .gz, inflated-size overflow, corruption, sequential ordering and idempotent replay. Review findings3991853180 and3991853193 addressed. No live crawl, provider request or production migration occurred.

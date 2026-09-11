@@ -1,3 +1,4 @@
+import { gzipSync } from "node:zlib";
 import { TechnicalCrawlAdmissionError } from "./technical-crawl-admission";
 import { EventEmitter } from "node:events";
 import { Readable } from "node:stream";
@@ -296,6 +297,62 @@ describe("public homepage transport", () => {
 });
 
 describe("structured pinned technical observations", () => {
+  it.each(["media", "encoding", "both", "octet"])(
+    "decodes bounded gzip sitemap representation: %s",
+    async (mode) => {
+      const xml =
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://example.com/a</loc></url></urlset>';
+      let body = gzipSync(Buffer.from(xml));
+      if (mode === "both") body = gzipSync(body);
+      mocks.request.mockImplementation(
+        reply(
+          response([body], 200, {
+            "content-type":
+              mode === "encoding"
+                ? "application/xml"
+                : mode === "octet"
+                  ? "application/octet-stream"
+                  : "application/gzip",
+            ...(mode === "encoding" || mode === "both" ? { "content-encoding": "gzip" } : {}),
+          }),
+        ),
+      );
+      const result = await fetchPinnedResource("https://example.com/sitemap.xml.gz", {
+        purpose: "sitemap",
+        origin: "https://example.com",
+        authorize: () => true,
+      });
+      expect(result).toMatchObject({ body: xml, contentAccepted: true, truncated: false });
+    },
+  );
+  it("marks an inflated sitemap beyond the byte limit oversized before parsing", async () => {
+    mocks.request.mockImplementation(
+      reply(
+        response([gzipSync(Buffer.alloc(512001, 65))], 200, { "content-type": "application/gzip" }),
+      ),
+    );
+    await expect(
+      fetchPinnedResource("https://example.com/sitemap.xml.gz", {
+        purpose: "sitemap",
+        origin: "https://example.com",
+        authorize: () => true,
+      }),
+    ).resolves.toMatchObject({ body: "", truncated: true });
+  });
+  it("refuses corrupt gzip sitemap data", async () => {
+    const broken = gzipSync(Buffer.from("<urlset/>"));
+    broken[broken.length - 5] ^= 255;
+    mocks.request.mockImplementation(
+      reply(response([broken], 200, { "content-type": "application/gzip" })),
+    );
+    await expect(
+      fetchPinnedResource("https://example.com/sitemap.xml.gz", {
+        purpose: "sitemap",
+        origin: "https://example.com",
+        authorize: () => true,
+      }),
+    ).resolves.toBeNull();
+  });
   it("preserves denied redirect policy before destination DNS or connection", async () => {
     mocks.request.mockImplementationOnce(reply(response([], 302, { location: "/private" })));
     await expect(

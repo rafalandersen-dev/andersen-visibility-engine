@@ -297,6 +297,33 @@ describe("immutable crawl evidence to opportunity", () => {
       ),
     ).rejects.toThrow(/check constraint/);
   });
+  it("appends findings after existing workspace opportunities in capture order", async () => {
+    await prepare();
+    await db.query(
+      "INSERT INTO workspace_entities(user_id,collection,entity_id,ord,data) VALUES($1,'opportunities','existing',7,'{}')",
+      [owner],
+    );
+    const first = (await capture("missing_title")).rows[0].result;
+    const second = (await capture("missing_description")).rows[0].result;
+    const rows = (
+      await db.query<{ entity_id: string; ord: number }>(
+        "SELECT entity_id,ord FROM workspace_entities WHERE collection='opportunities' ORDER BY ord,entity_id",
+      )
+    ).rows;
+    expect(rows).toEqual([
+      { entity_id: "existing", ord: 7 },
+      { entity_id: first.opportunityId, ord: 8 },
+      { entity_id: second.opportunityId, ord: 9 },
+    ]);
+    await capture("missing_title");
+    expect(
+      (
+        await db.query(
+          "SELECT count(*)::int n FROM workspace_entities WHERE collection='opportunities'",
+        )
+      ).rows,
+    ).toEqual([{ n: 3 }]);
+  });
   it("atomically creates one captured opportunity and immutable source receipt, retaining idempotency", async () => {
     await prepare();
     const first = (await capture()).rows[0].result;

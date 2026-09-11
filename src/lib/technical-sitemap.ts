@@ -220,8 +220,9 @@ export async function advanceTechnicalSitemaps(
         else if (!response.contentAccepted) file.state = "non_xml";
         else {
           const plain =
-            /^text\/plain(?:\s*;|$)/i.test(response.headers?.["content-type"] ?? "") &&
-            !response.body.trimStart().startsWith("<");
+            /^(?:text\/plain|application\/(?:gzip|x-gzip|octet-stream))(?:\s*;|$)/i.test(
+              response.headers?.["content-type"] ?? "",
+            ) && !response.body.trimStart().startsWith("<");
           const document = plain
             ? inspectSitemapText(response.body)
             : inspectSitemapXml(response.body);
