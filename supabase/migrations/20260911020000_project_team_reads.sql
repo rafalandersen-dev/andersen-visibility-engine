@@ -31,6 +31,10 @@ BEGIN
     THEN RAISE EXCEPTION 'team_project_unavailable'; END IF;
   SELECT rev INTO workspace_revision FROM public.workspace_meta WHERE user_id=p_owner FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'team_project_unavailable'; END IF;
+  -- A previously issued session must not bypass current account suspension.
+  PERFORM 1 FROM auth.users WHERE id=p_actor AND deleted_at IS NULL
+    AND (banned_until IS NULL OR banned_until<=clock_timestamp()) FOR SHARE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'team_project_unavailable'; END IF;
   IF p_actor<>p_owner THEN
     SELECT revision,role INTO membership_revision,member_role FROM public.project_team_members
       WHERE owner_id=p_owner AND project_id=p_project AND actor_id=p_actor

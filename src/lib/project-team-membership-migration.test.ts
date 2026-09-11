@@ -73,6 +73,47 @@ const change = (expected = 1, remove = false, who = owner) =>
 const revoke = (id = invite, who = owner) =>
   db.query("SELECT public.revoke_project_team_invitation($1,$2,'p',$3)", [who, owner, id]);
 describe("durable project invitation and membership lifecycle", () => {
+  it.each(["banned_until=now()+interval '1 hour'", "deleted_at=now()"])(
+    "blocks direct review, comment and edit calls for restricted accounts: %s",
+    async (restriction) => {
+      await create();
+      await accept();
+      const hash = (
+        await db.query<{ hash: string }>(
+          "SELECT encode(sha256(convert_to(data::text,'UTF8')),'hex') hash FROM workspace_entities WHERE user_id=$1 AND collection='content' AND entity_id='a'",
+          [owner],
+        )
+      ).rows[0].hash;
+      await db.exec(`UPDATE auth.users SET ${restriction} WHERE id='${actor}'`);
+      await expect(
+        db.query("SELECT read_project_team_review_context($1,$2,'p','a')", [actor, owner]),
+      ).rejects.toThrow("team_project_unavailable");
+      await expect(
+        db.query("SELECT add_project_team_comment($1,$2,'p','a',$3,1,'Comment')", [
+          actor,
+          owner,
+          second,
+        ]),
+      ).rejects.toThrow("team_project_unavailable");
+      await expect(
+        db.query("SELECT save_project_team_draft($1,$2,'p','a',$3,$4,1,$5)", [
+          actor,
+          owner,
+          second,
+          hash,
+          JSON.stringify({ title: "Changed" }),
+        ]),
+      ).rejects.toThrow("team_project_unavailable");
+      expect(
+        (
+          await db.query(
+            "SELECT data->>'title' title FROM workspace_entities WHERE user_id=$1 AND collection='content' AND entity_id='a'",
+            [owner],
+          )
+        ).rows[0],
+      ).toEqual({ title: "Draft" });
+    },
+  );
   it("accepts a verified intended recipient, records actor audit and grants scoped reads", async () => {
     await create();
     expect((await accept()).rows[0]).toEqual({ revision: 1 });
@@ -996,6 +1037,31 @@ describe("scoped team notification outbox", () => {
       ],
     );
   };
+  it("still refuses excessive outstanding work across recipients", async () => {
+    await prepare();
+    await db.query(
+      "INSERT INTO public.project_team_members(owner_id,project_id,actor_id,role) VALUES($1,'p',$2,'viewer')",
+      [owner, other],
+    );
+    await db.query(
+      "INSERT INTO public.project_team_notification_outbox(owner_id,project_id,recipient_id,settings_revision,membership_revision,status) SELECT $1,'p',$2,1,1,(ARRAY['pending','leased','sending'])[1+(i%3)] FROM generate_series(1,10000) i",
+      [owner, other],
+    );
+    await expect(queue()).rejects.toThrow("team_notification_capacity");
+  });
+  it("allows new work after 10000 terminal digests without deleting deduplication history", async () => {
+    await prepare();
+    await db.query(
+      "INSERT INTO public.project_team_notification_outbox(owner_id,project_id,recipient_id,settings_revision,membership_revision,status,created_at) SELECT $1,'p',$2,2,1,(ARRAY['accepted','cancelled','failed','unknown'])[1+(i%4)],now()-interval '2 hours' FROM generate_series(1,10000) i",
+      [owner, actor],
+    );
+    expect(await queue()).toEqual(expect.any(String));
+    expect(
+      (await db.query("SELECT count(*)::int n FROM public.project_team_notification_outbox"))
+        .rows[0],
+    ).toEqual({ n: 10001 });
+    expect(await queue()).toBeNull();
+  });
   it("queues once per recipient and returns only scoped safe current event fields", async () => {
     await prepare();
     expect(

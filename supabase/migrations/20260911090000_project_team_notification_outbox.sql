@@ -20,6 +20,7 @@ CREATE TABLE public.project_team_notification_items (
  outbox_id uuid NOT NULL REFERENCES public.project_team_notification_outbox(id) ON DELETE CASCADE,
  PRIMARY KEY(notification_id,recipient_id)
 );
+CREATE INDEX project_team_notification_active_capacity ON public.project_team_notification_outbox(owner_id,project_id) WHERE status IN ('pending','leased','sending');
 CREATE INDEX project_team_notification_claim ON public.project_team_notification_outbox(status,available_at);
 CREATE INDEX project_team_notification_recipient_history ON public.project_team_notification_outbox(owner_id,project_id,recipient_id,created_at DESC);
 ALTER TABLE public.project_team_notification_outbox ENABLE ROW LEVEL SECURITY;
@@ -41,7 +42,8 @@ BEGIN
  AND NOT EXISTS(SELECT 1 FROM public.project_team_notification_items i WHERE i.notification_id=n.id AND i.recipient_id=p_recipient)
  ORDER BY n.created_at,n.id LIMIT 50) eligible;
  IF coalesce(cardinality(ids),0)=0 THEN RETURN NULL; END IF;
- IF (SELECT count(*) FROM public.project_team_notification_outbox WHERE owner_id=p_owner AND project_id=p_project)>=10000 THEN RAISE EXCEPTION 'team_notification_capacity'; END IF;
+ -- Bound outstanding work, retaining terminal history and its once-only item identities.
+ IF (SELECT count(*) FROM public.project_team_notification_outbox WHERE owner_id=p_owner AND project_id=p_project AND status IN ('pending','leased','sending'))>=10000 THEN RAISE EXCEPTION 'team_notification_capacity'; END IF;
  INSERT INTO public.project_team_notification_outbox(owner_id,project_id,recipient_id,settings_revision,membership_revision) VALUES(p_owner,p_project,p_recipient,settings.revision,settings.membership_revision) RETURNING id INTO result;
  INSERT INTO public.project_team_notification_items(notification_id,recipient_id,outbox_id) SELECT unnest(ids),p_recipient,result;
  RETURN result;

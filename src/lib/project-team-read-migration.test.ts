@@ -9,15 +9,15 @@ const other = "00000000-0000-4000-8000-000000000003";
 beforeAll(async () => {
   db = new PGlite();
   await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS;
-    CREATE SCHEMA auth; CREATE TABLE auth.users(id uuid PRIMARY KEY);
-    INSERT INTO auth.users VALUES('${owner}'),('${actor}'),('${other}');
+    CREATE SCHEMA auth; CREATE TABLE auth.users(id uuid PRIMARY KEY,deleted_at timestamptz,banned_until timestamptz);
+    INSERT INTO auth.users(id) VALUES('${owner}'),('${actor}'),('${other}');
     CREATE TABLE public.workspace_meta(user_id uuid PRIMARY KEY,rev bigint DEFAULT 1);
     CREATE TABLE public.workspace_entities(user_id uuid,collection text,entity_id text,data jsonb DEFAULT '{}'::jsonb, PRIMARY KEY(user_id,collection,entity_id));
     INSERT INTO public.workspace_meta(user_id) VALUES('${owner}'),('${other}');`);
   await db.exec(readFileSync("supabase/migrations/20260911020000_project_team_reads.sql", "utf8"));
 }, 30000);
 beforeEach(async () => {
-  await db.exec(`RESET ROLE; TRUNCATE public.project_team_members, public.workspace_entities;
+  await db.exec(`RESET ROLE; UPDATE auth.users SET deleted_at=NULL,banned_until=NULL; TRUNCATE public.project_team_members, public.workspace_entities;
     INSERT INTO public.workspace_entities VALUES
     ('${owner}','projects','p','{"name":"Assigned","publishSecret":"fixture-only-private"}'),
     ('${owner}','projects','q','{"name":"Unassigned"}'),
@@ -64,6 +64,21 @@ describe("project membership scoped database reads", () => {
     await expect(read(actor, owner, "q")).rejects.toThrow("team_project_unavailable");
     await expect(read(actor, owner, "p", "b")).rejects.toThrow("team_project_unavailable");
     await expect(read(other, owner)).rejects.toThrow("team_project_unavailable");
+  });
+  it.each(["banned_until=now()+interval '1 hour'", "deleted_at=now()"])(
+    "rejects current account restrictions despite active membership: %s",
+    async (restriction) => {
+      await read();
+      await db.exec(`UPDATE auth.users SET ${restriction} WHERE id='${actor}'`);
+      await expect(read()).rejects.toThrow("team_project_unavailable");
+      await expect(read(actor, owner, "p", "a")).rejects.toThrow("team_project_unavailable");
+    },
+  );
+  it("allows access after a temporary ban expires", async () => {
+    await db.exec(
+      `UPDATE auth.users SET banned_until=now()-interval '1 second' WHERE id='${actor}'`,
+    );
+    expect((await read()).actorId).toBe(actor);
   });
   it("rechecks membership after removal and expiry", async () => {
     await read();
