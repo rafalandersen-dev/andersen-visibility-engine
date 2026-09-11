@@ -4,7 +4,7 @@ import { ProjectTeamRenderedReview } from "@/components/ProjectTeamRenderedRevie
 import { ProjectTeamApprovalPolicy } from "@/components/ProjectTeamApprovalPolicy";
 import { ProjectTeamDraftEditor } from "@/components/ProjectTeamDraftEditor";
 import { ProjectTeamComments } from "@/components/ProjectTeamComments";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
@@ -196,6 +196,21 @@ function OwnerTeam({ projectId }: { projectId: string }) {
     staleTime: 0,
     gcTime: 0,
   });
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => {
+    const next = Math.min(
+      ...(query.data?.invitations ?? [])
+        .filter((invite) => invite.state === "pending")
+        .map((invite) => Date.parse(invite.expiresAt))
+        .filter((expiry) => expiry > Date.now()),
+    );
+    if (!Number.isFinite(next)) return;
+    const timer = setTimeout(
+      () => setClock(Date.now()),
+      Math.min(2147483647, Math.max(1, next - Date.now() + 1)),
+    );
+    return () => clearTimeout(timer);
+  }, [query.data, clock]);
   const mutation = useMutation({
     mutationFn: (data: z.infer<typeof teamOwnerAction>) => updateProjectTeamFn({ data }),
     onSuccess: () => {
@@ -276,37 +291,42 @@ function OwnerTeam({ projectId }: { projectId: string }) {
       ))}
       <h3 className="font-semibold">{t("collaboration.pending")}</h3>
       {!query.data.invitations.length && <p>{t("collaboration.empty")}</p>}
-      {query.data.invitations.map((i) => (
-        <article
-          key={i.inviteId}
-          className="flex flex-wrap items-center justify-between gap-3 border-t pt-3"
-        >
-          <div className="min-w-0 break-words">
-            <p>{i.email}</p>
-            <p className="text-sm text-muted-foreground">
-              {t(`collaboration.${i.role}`)} ·{" "}
-              {t(`collaboration.${i.state === "pending" ? "pendingState" : i.state}`)} ·{" "}
-              {t("collaboration.expires")} {new Date(i.expiresAt).toLocaleDateString(locale)}
-            </p>
-          </div>
-          <ProjectTeamInvitationDelivery
-            projectId={projectId}
-            inviteId={i.inviteId}
-            email={i.email}
-            role={i.role}
-            pending={i.state === "pending"}
-          />
-          {i.state === "pending" && (
-            <Button
-              variant="outline"
-              disabled={mutation.isPending}
-              onClick={() => mutation.mutate({ action: "revoke", projectId, inviteId: i.inviteId })}
-            >
-              {t("collaboration.revoke")}
-            </Button>
-          )}
-        </article>
-      ))}
+      {query.data.invitations.map((i) => {
+        const pending = i.state === "pending" && Date.parse(i.expiresAt) > Date.now();
+        const state = i.state === "pending" ? (pending ? "pendingState" : "expired") : i.state;
+        return (
+          <article
+            key={i.inviteId}
+            className="flex flex-wrap items-center justify-between gap-3 border-t pt-3"
+          >
+            <div className="min-w-0 break-words">
+              <p>{i.email}</p>
+              <p className="text-sm text-muted-foreground">
+                {t(`collaboration.${i.role}`)} · {t(`collaboration.${state}`)} ·{" "}
+                {t("collaboration.expires")} {new Date(i.expiresAt).toLocaleDateString(locale)}
+              </p>
+            </div>
+            <ProjectTeamInvitationDelivery
+              projectId={projectId}
+              inviteId={i.inviteId}
+              email={i.email}
+              role={i.role}
+              pending={pending}
+            />
+            {pending && (
+              <Button
+                variant="outline"
+                disabled={mutation.isPending}
+                onClick={() =>
+                  mutation.mutate({ action: "revoke", projectId, inviteId: i.inviteId })
+                }
+              >
+                {t("collaboration.revoke")}
+              </Button>
+            )}
+          </article>
+        );
+      })}
     </div>
   );
 }

@@ -106,6 +106,7 @@ const en = {
   "collaboration.expires": "Expires",
   "collaboration.history": "Recent access activity",
   "collaboration.pendingState": "Pending",
+  "collaboration.expired": "Expired",
   "collaboration.accepted": "Accepted",
   "collaboration.revoked": "Revoked",
 };
@@ -219,6 +220,7 @@ const pl: Copy = {
   "collaboration.expires": "Wygasa",
   "collaboration.history": "Ostatnie zmiany dostępu",
   "collaboration.pendingState": "Oczekujące",
+  "collaboration.expired": "Wygasłe",
   "collaboration.accepted": "Przyjęte",
   "collaboration.revoked": "Cofnięte",
 };
@@ -331,6 +333,7 @@ const sv: Copy = {
   "collaboration.expires": "Gäller till",
   "collaboration.history": "Senaste åtkomstaktivitet",
   "collaboration.pendingState": "Väntande",
+  "collaboration.expired": "Utgången",
   "collaboration.accepted": "Accepterad",
   "collaboration.revoked": "Återkallad",
 };
@@ -443,6 +446,7 @@ const da: Copy = {
   "collaboration.expires": "Udløber",
   "collaboration.history": "Seneste adgangsaktivitet",
   "collaboration.pendingState": "Afventer",
+  "collaboration.expired": "Udløbet",
   "collaboration.accepted": "Accepteret",
   "collaboration.revoked": "Tilbagekaldt",
 };
