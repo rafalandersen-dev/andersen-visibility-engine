@@ -28,3 +28,6 @@ PR122 revalidation was released and verified at06:21UTC11September. This complet
 PR123 collaboration was released and verified at17:56UTC11September. Ten team migrations and the exact runtime are verified; real owner/collaborator, concurrent-use and email acceptance remain open. The rounded55%overall/70%implementation estimate remains unchanged. See the project collaboration release evidence.
 
 PR125 daily backlink monitoring was released and verified at18:35UTC11September. Runtime/schema verification is complete; individual-link evidence, ongoing monitoring and real provider/signed-in acceptance remain open. Rounded overall55%/implementation70% remain unchanged.
+
+
+PR126 individual backlink detail collection/history/pagination released19:32UTC11September, migration180000appliedonce and sourcefingerprint/public-auth checks verified. [Evidence](../evidence/backlink-details-release-2026-09-11.md). Provider and real-use acceptance, deeper traversal and ongoing monitoring remain open, so rounded55%overall/70%implementation remains unchanged.
