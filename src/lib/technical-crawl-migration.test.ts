@@ -94,8 +94,12 @@ describe("durable technical crawl state", () => {
     expect(
       (await db.query("SELECT read_technical_crawl($1,'p',$2) result", [other, run])).rows[0],
     ).toEqual({ result: null });
-    const r = (await db.query("SELECT read_technical_crawl($1,'p',$2) result", [owner, run]))
-      .rows[0].result;
+    const r = (
+      await db.query<{ result: unknown }>("SELECT read_technical_crawl($1,'p',$2) result", [
+        owner,
+        run,
+      ])
+    ).rows[0].result;
     expect(r).not.toHaveProperty("lease_token");
     expect(r).not.toHaveProperty("lease_until");
   });
