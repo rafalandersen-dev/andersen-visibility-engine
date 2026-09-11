@@ -37,3 +37,13 @@ Migration `20260911130000_google_index_inspections.sql` adds private owner/proje
 Seven actual-SQL regression cases cover request deduplication, exact query evidence, owner isolation, account restrictions, property changes, late-result refusal, private table permissions, quota isolation from history, expiry recovery and unknown outcomes. OAuth dispatch/last-moment authorization and the localized interface remain next; this persistence milestone does not yet expose a runnable Google inspection feature.
 
 Durable history validation: full 3,339 tests / 252 files pass, including seven actual-SQL cases; TypeScript and changed-file lint pass. Logs `/tmp/milo-google-durable-{full,types,lint}.log`.
+
+## Owner inspection controller and OAuth dispatch (unreleased)
+
+The authenticated server entrypoints now accept only project ID, request ID and inspected URL, derive the selected Search Console property from canonical owner/project storage and validate the exact query-preserving URL before reservation. Exact retries return stored records without refreshing Google tokens or repeating the inspection. Private lease tokens and raw provider errors are not returned to the browser; normalized observations are serialized separately for the server-function transport.
+
+The existing OAuth module provides a server-only helper that refreshes the owner's encrypted connection, then invokes a durable authorization check immediately before the fixed-endpoint inspection. The new service-only dispatch RPC rechecks the current owner, saved property and lease, requires at least 20 seconds remaining for the 15-second transport, and records dispatch once. Changed or expired authority holds/marks unknown without contacting the inspection endpoint. Successful result storage requires that dispatch was authorized. OAuth/token refresh and all provider traffic remain mocked in tests; no live customer call was performed.
+
+The request/result interface and localization remain next. The database migration is still unapplied, and the technical branch remains unreleased.
+
+Controller validation: full 3,344 tests / 252 files pass, TypeScript and production build pass; lint passes for the new controller/functions, migration tests and modified OAuth server module. The existing OAuth test file received two focused dispatch-order tests without broad formatting changes. Logs `/tmp/milo-google-controller-{full,types,build,lint,test-lint,focused}.log`.

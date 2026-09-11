@@ -1,3 +1,5 @@
+import { requestGoogleIndex } from "./google-index.server";
+import { normalizeGoogleIndex } from "./google-index";
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
 import { beforeAll, beforeEach, afterAll, describe, it, expect } from "vitest";
@@ -45,13 +47,15 @@ const observation = {
   url: "https://example.test/page?q=1",
   property: "sc-domain:example.test",
 };
-const finish = async (lease: string, result: unknown = observation) =>
-  (
+const finish = async (lease: string, result: unknown = observation) => {
+  await db.query("SELECT authorize_google_index_dispatch($1,'p',$2,$3)", [owner, run, lease]);
+  return (
     await db.query<{ result: boolean }>(
       "SELECT finish_google_index_inspection($1,'p',$2,$3,$4,NULL) result",
       [owner, run, lease, result],
     )
   ).rows[0].result;
+};
 const list = async (user = owner) =>
   (
     await db.query<{ result: Array<Record<string, unknown>> }>(
@@ -60,6 +64,78 @@ const list = async (user = owner) =>
     )
   ).rows[0].result;
 describe("durable Google inspection attempts", () => {
+  it("integrates owner context, once-only dispatch and canonical persisted results", async () => {
+    let calls = 0;
+    const rpc = async (name: string, args: Record<string, unknown>) => {
+      if (
+        ![
+          "read_google_index_context",
+          "reserve_google_index_inspection",
+          "authorize_google_index_dispatch",
+          "finish_google_index_inspection",
+          "list_google_index_inspections",
+        ].includes(name)
+      )
+        throw new Error("unexpected_rpc");
+      const entries = Object.entries(args);
+      const r = await db.query<{ result: unknown }>(
+        `SELECT ${name}(${entries.map(([key], i) => `${key}=>$${i + 1}`).join(",")}) result`,
+        entries.map(([, value]) => value),
+      );
+      return { data: r.rows[0].result, error: null };
+    };
+    const inspect = async (
+      user: string,
+      property: string,
+      url: string,
+      authorize: () => Promise<boolean>,
+    ) => {
+      expect(user).toBe(owner);
+      expect(await authorize()).toBe(true);
+      expect(await authorize()).toBe(false);
+      calls++;
+      return normalizeGoogleIndex(
+        { inspectionResult: { indexStatusResult: { verdict: "PASS" } } },
+        { url, property, observedAt: new Date().toISOString() },
+      );
+    };
+    const input = { projectId: "p", requestId: run, url: "https://example.test/page?q=1" };
+    const first = await requestGoogleIndex(owner, input, { rpc, inspect });
+    expect(first.status).toBe("succeeded");
+    expect(JSON.parse(first.observationJson!)).toMatchObject({ url: input.url, verdict: "PASS" });
+    expect(await requestGoogleIndex(owner, input, { rpc, inspect })).toEqual(first);
+    expect(calls).toBe(1);
+    await expect(
+      requestGoogleIndex(owner, { ...input, property: "sc-domain:other.test" }, { rpc, inspect }),
+    ).rejects.toThrow();
+    await expect(
+      requestGoogleIndex(owner, { ...input, url: "https://other.test/" }, { rpc, inspect }),
+    ).rejects.toThrow("google_inspection_scope");
+    expect(calls).toBe(1);
+  });
+  it.each(["expired", "changed"])(
+    "refuses dispatch after refresh if authorization is %s",
+    async (condition) => {
+      const first = await reserve();
+      if (condition === "expired")
+        await db.exec(
+          "UPDATE google_index_inspections SET lease_until=now()+interval '10 seconds'",
+        );
+      else
+        await db.exec(
+          `UPDATE workspace_entities SET data=jsonb_set(data,'{gscOAuth,selectedSite,siteUrl}','"sc-domain:other.test"') WHERE user_id='${owner}'`,
+        );
+      const result = await db.query<{ ok: boolean }>(
+        "SELECT authorize_google_index_dispatch($1,'p',$2,$3) ok",
+        [owner, run, first.record.lease_token],
+      );
+      expect(result.rows[0].ok).toBe(false);
+      expect(await list()).toMatchObject([
+        { status: condition === "expired" ? "unknown" : "held" },
+      ]);
+    },
+  );
+
   it("claims once, keeps exact query evidence and hides lease tokens from history", async () => {
     const first = await reserve();
     expect(first.claimed).toBe(true);

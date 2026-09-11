@@ -9,6 +9,7 @@ CREATE TABLE public.google_index_inspections (
  status text NOT NULL CHECK(status IN ('running','succeeded','failed','unknown','held')),
  lease_token uuid NOT NULL,
  lease_until timestamptz NOT NULL,
+ dispatched_at timestamptz,
  observation jsonb,
  error_code text CHECK(error_code IN ('access','quota','unavailable')),
  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
@@ -52,6 +53,21 @@ BEGIN
  RETURN jsonb_build_object('claimed',true,'record',to_jsonb(current));
 END; $$;
 
+CREATE FUNCTION public.authorize_google_index_dispatch(p_user uuid,p_project text,p_request uuid,p_lease uuid)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE context jsonb; current public.google_index_inspections%ROWTYPE;
+BEGIN
+ context:=public.read_google_index_context(p_user,p_project);
+ SELECT * INTO current FROM public.google_index_inspections WHERE user_id=p_user AND project_id=p_project AND request_id=p_request FOR UPDATE;
+ IF NOT FOUND OR current.status<>'running' OR p_lease IS NULL OR current.lease_token IS DISTINCT FROM p_lease OR current.dispatched_at IS NOT NULL THEN RETURN false; END IF;
+ IF current.property IS DISTINCT FROM context->>'property' OR current.lease_until<=clock_timestamp()+interval '20 seconds' THEN
+   UPDATE public.google_index_inspections SET status=CASE WHEN current.property IS DISTINCT FROM context->>'property' THEN 'held' ELSE 'unknown' END,updated_at=clock_timestamp() WHERE user_id=p_user AND request_id=p_request;
+   RETURN false;
+ END IF;
+ UPDATE public.google_index_inspections SET dispatched_at=clock_timestamp(),updated_at=clock_timestamp() WHERE user_id=p_user AND request_id=p_request;
+ RETURN true;
+END; $$;
+
 CREATE FUNCTION public.finish_google_index_inspection(p_user uuid,p_project text,p_request uuid,p_lease uuid,p_observation jsonb,p_error text)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE context jsonb; current public.google_index_inspections%ROWTYPE;
@@ -64,6 +80,7 @@ BEGIN
    RETURN false;
  END IF;
  IF p_observation IS NOT NULL THEN
+   IF current.dispatched_at IS NULL THEN RAISE EXCEPTION 'google_inspection_result_invalid'; END IF;
    IF p_error IS NOT NULL OR jsonb_typeof(p_observation)<>'object' OR p_observation->>'source' IS DISTINCT FROM 'google_index' OR p_observation->>'inspectionMode' IS DISTINCT FROM 'indexed_version' OR p_observation->>'url' IS DISTINCT FROM current.url OR p_observation->>'property' IS DISTINCT FROM current.property THEN RAISE EXCEPTION 'google_inspection_result_invalid'; END IF;
  ELSIF p_error IS NULL OR p_error NOT IN ('access','quota','unavailable') THEN RAISE EXCEPTION 'google_inspection_result_invalid'; END IF;
  UPDATE public.google_index_inspections SET status=CASE WHEN p_observation IS NOT NULL THEN 'succeeded' WHEN p_error='unavailable' THEN 'unknown' ELSE 'failed' END,observation=p_observation,error_code=p_error,updated_at=clock_timestamp() WHERE user_id=p_user AND request_id=p_request;
@@ -79,3 +96,6 @@ BEGIN
 END; $$;
 REVOKE ALL ON FUNCTION public.read_google_index_context(uuid,text),public.reserve_google_index_inspection(uuid,text,uuid,text,text),public.finish_google_index_inspection(uuid,text,uuid,uuid,jsonb,text),public.list_google_index_inspections(uuid,text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.read_google_index_context(uuid,text),public.reserve_google_index_inspection(uuid,text,uuid,text,text),public.finish_google_index_inspection(uuid,text,uuid,uuid,jsonb,text),public.list_google_index_inspections(uuid,text) TO service_role;
+
+REVOKE ALL ON FUNCTION public.authorize_google_index_dispatch(uuid,text,uuid,uuid) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.authorize_google_index_dispatch(uuid,text,uuid,uuid) TO service_role;
