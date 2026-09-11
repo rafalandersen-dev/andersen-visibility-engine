@@ -365,6 +365,99 @@ describe("per-connection crawl dispatch", () => {
       who,
       lease,
     ]);
+  it("reserves shared capacity before DNS and promotes exactly once without counting twice", async () => {
+    const runLease = await ready();
+    const reserved = (
+      await db.query<{ result: { lease: string } }>(
+        "SELECT acquire_technical_crawl_dispatch($1,'p',$2,$3,'https://example.test',NULL) result",
+        [owner, run, runLease],
+      )
+    ).rows[0].result;
+    expect(
+      (
+        await db.query(
+          "SELECT scope,minute_count FROM technical_crawl_dispatch_limits ORDER BY scope",
+        )
+      ).rows,
+    ).toEqual([
+      { scope: "account", minute_count: 1 },
+      { scope: "global", minute_count: 1 },
+      { scope: "target", minute_count: 1 },
+    ]);
+    const promote = () =>
+      db.query(
+        "SELECT acquire_technical_crawl_dispatch($1,'p',$2,$3,'https://example.test','8.8.8.8',$4) result",
+        [owner, run, runLease, reserved.lease],
+      );
+    await promote();
+    expect(
+      (
+        await db.query<{ minute_count: number }>(
+          "SELECT minute_count FROM technical_crawl_dispatch_limits",
+        )
+      ).rows.every((r) => r.minute_count === 1),
+    ).toBe(true);
+    await expect(promote()).rejects.toThrow("technical_dispatch_ownership");
+    await release(reserved.lease);
+    expect(
+      (
+        await db.query("SELECT * FROM technical_crawl_dispatch_tickets WHERE lease=$1", [
+          reserved.lease,
+        ])
+      ).rows,
+    ).toEqual([]);
+  });
+  it("refuses DNS reservation before any address row when account capacity is occupied", async () => {
+    const runLease = await ready();
+    const reserve = () =>
+      db.query(
+        "SELECT acquire_technical_crawl_dispatch($1,'p',$2,$3,'https://example.test',NULL)",
+        [owner, run, runLease],
+      );
+    await reserve();
+    await reserve();
+    await expect(reserve()).rejects.toThrow("technical_dispatch_capacity");
+    expect(
+      (
+        await db.query(
+          "SELECT * FROM technical_crawl_dispatch_limits WHERE scope IN ('address','account_address')",
+        )
+      ).rows,
+    ).toEqual([]);
+  });
+  it("keeps the original reservation when address promotion is refused", async () => {
+    const runLease = await ready();
+    const reserved = (
+      await db.query<{ result: { lease: string } }>(
+        "SELECT acquire_technical_crawl_dispatch($1,'p',$2,$3,'https://example.test',NULL) result",
+        [owner, run, runLease],
+      )
+    ).rows[0].result;
+    await db.exec(
+      "INSERT INTO technical_crawl_dispatch_limits VALUES('address','8.8.8.8',now(),60,now(),60,'{}',now())",
+    );
+    await expect(
+      db.query(
+        "SELECT acquire_technical_crawl_dispatch($1,'p',$2,$3,'https://example.test','8.8.8.8',$4)",
+        [owner, run, runLease, reserved.lease],
+      ),
+    ).rejects.toThrow("technical_dispatch_capacity");
+    expect(
+      (
+        await db.query("SELECT address FROM technical_crawl_dispatch_tickets WHERE lease=$1", [
+          reserved.lease,
+        ])
+      ).rows,
+    ).toEqual([{ address: null }]);
+    await db.query("SELECT release_technical_crawl_dispatch($1,'https://example.test',$2,NULL)", [
+      owner,
+      reserved.lease,
+    ]);
+    expect(
+      (await db.query("SELECT leases FROM technical_crawl_dispatch_limits WHERE scope='global'"))
+        .rows,
+    ).toEqual([{ leases: {} }]);
+  });
   it("admits two connections, scopes release ownership and recovers expired leases", async () => {
     const runLease = await ready();
     const first = await acquire(runLease);

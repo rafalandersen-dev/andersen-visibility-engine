@@ -97,3 +97,23 @@ describe("scoped connection admission", () => {
     expect(rpc).toHaveBeenCalledTimes(2);
   });
 });
+
+it("promotes the exact pre-DNS grant and releases the validated address", async () => {
+  const rpc = vi.fn(async () => record());
+  const admission = technicalConnectionAdmission(user, "p", run, lease, origin, rpc);
+  const grant = await admission(origin, new AbortController().signal, null);
+  expect(rpc).toHaveBeenLastCalledWith(
+    "acquire_technical_crawl_dispatch",
+    expect.objectContaining({ p_address: null }),
+  );
+  await grant.promote!("8.8.8.8");
+  expect(rpc).toHaveBeenLastCalledWith(
+    "acquire_technical_crawl_dispatch",
+    expect.objectContaining({ p_address: "8.8.8.8", p_prior_lease: lease }),
+  );
+  await grant();
+  expect(rpc).toHaveBeenLastCalledWith(
+    "release_technical_crawl_dispatch",
+    expect.objectContaining({ p_address: "8.8.8.8", p_lease: lease }),
+  );
+});

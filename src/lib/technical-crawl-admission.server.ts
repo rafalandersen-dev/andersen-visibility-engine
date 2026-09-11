@@ -24,7 +24,7 @@ export function technicalConnectionAdmission(
   rpc: TechnicalRpc = technicalDispatchRpc,
 ): CrawlConnectionAdmission {
   return async (url, signal, address) => {
-    if (!isIP(address) || signal.aborted || new URL(url).origin !== origin)
+    if ((address !== null && !isIP(address)) || signal.aborted || new URL(url).origin !== origin)
       throw new TechnicalCrawlAdmissionError();
     let lease: { lease: string; expiresAt: string };
     try {
@@ -60,10 +60,33 @@ export function technicalConnectionAdmission(
         p_lease: lease.lease,
       });
     };
+    const grant = release as typeof release & { promote?: (next: string) => Promise<void> };
+    if (address === null)
+      grant.promote = async (next) => {
+        if (!isIP(next) || signal.aborted || Date.parse(lease.expiresAt) - Date.now() < 10000)
+          throw new TechnicalCrawlAdmissionError("capacity");
+        const result = await rpc("acquire_technical_crawl_dispatch", {
+          p_user: user,
+          p_project: project,
+          p_run: run,
+          p_run_lease: runLease,
+          p_origin: origin,
+          p_address: next,
+          p_prior_lease: lease.lease,
+        });
+        if (
+          result.error ||
+          !result.data ||
+          (result.data as { lease?: unknown }).lease !== lease.lease
+        )
+          throw new TechnicalCrawlAdmissionError("capacity");
+        address = next;
+        if (signal.aborted) throw new TechnicalCrawlAdmissionError("capacity");
+      };
     if (signal.aborted || Date.parse(lease.expiresAt) - Date.now() < 10000) {
       await release().catch(() => {});
       throw new TechnicalCrawlAdmissionError("capacity");
     }
-    return release;
+    return grant;
   };
 }

@@ -5,7 +5,22 @@ import { Readable } from "node:stream";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ lookup: vi.fn(), request: vi.fn() }));
-vi.mock("node:dns/promises", () => ({ lookup: mocks.lookup }));
+vi.mock("node:dns/promises", () => ({
+  lookup: mocks.lookup,
+  Resolver: class {
+    cancel() {}
+    async resolve4(host: string) {
+      return (await mocks.lookup(host))
+        .filter((r: { family: number }) => r.family === 4)
+        .map((r: { address: string }) => r.address);
+    }
+    async resolve6(host: string) {
+      return (await mocks.lookup(host))
+        .filter((r: { family: number }) => r.family === 6)
+        .map((r: { address: string }) => r.address);
+    }
+  },
+}));
 vi.mock("node:http", () => ({ request: mocks.request }));
 vi.mock("node:https", () => ({ request: mocks.request }));
 import {
@@ -396,19 +411,26 @@ describe("structured pinned technical observations", () => {
     await fetchPinnedResource("https://example.com/", {
       purpose: "robots",
       origin: "https://example.com",
-      admit: async () => release,
+      admit: async () => Object.assign(release, { promote: async () => {} }),
     });
     expect(release).toHaveBeenCalledOnce();
   });
 
   it("admits every redirect separately and releases the preceding connection first", async () => {
     const events: string[] = [];
-    const admit = vi.fn(async (url: string, _signal: AbortSignal, address: string) => {
-      expect(address).toBe("93.184.216.34");
+    const admit = vi.fn(async (url: string, _signal: AbortSignal, address: string | null) => {
+      expect(address).toBeNull();
       events.push("admit:" + url);
-      return async () => {
-        events.push("release:" + url);
-      };
+      return Object.assign(
+        async () => {
+          events.push("release:" + url);
+        },
+        {
+          promote: async (address: string) => {
+            expect(address).toBe("93.184.216.34");
+          },
+        },
+      );
     });
     mocks.request
       .mockImplementationOnce(reply(response([], 302, { location: "/next" })))
@@ -437,6 +459,7 @@ describe("structured pinned technical observations", () => {
         admit,
       }),
     ).rejects.toMatchObject({ reason: "capacity" });
+    expect(mocks.lookup).not.toHaveBeenCalled();
     expect(mocks.request).not.toHaveBeenCalled();
   });
   it("does not dispatch after a late admission, and releases its returned lease", async () => {
@@ -459,7 +482,7 @@ describe("structured pinned technical observations", () => {
     await vi.advanceTimersByTimeAsync(HOMEPAGE_TIMEOUT_MS + 1);
     expect(await pending).toBeNull();
     expect(release).not.toHaveBeenCalled();
-    complete(release);
+    complete(Object.assign(release, { promote: async () => {} }));
     await vi.advanceTimersByTimeAsync(1);
     expect(mocks.request).not.toHaveBeenCalled();
     expect(release).toHaveBeenCalledOnce();

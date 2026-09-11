@@ -7,8 +7,8 @@ export class TechnicalCrawlAdmissionError extends Error {
 export type CrawlConnectionAdmission = (
   url: string,
   signal: AbortSignal,
-  address: string,
-) => Promise<() => Promise<void>>;
+  address: string | null,
+) => Promise<(() => Promise<void>) & { promote?: (address: string) => Promise<void> }>;
 
 /** Known policy refusal before a connection; the destination is scoped by the caller. */
 export class TechnicalPolicyRefusedError extends Error {

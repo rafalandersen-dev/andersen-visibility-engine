@@ -1,3 +1,4 @@
+import { resolveTechnicalAddresses } from "./technical-dns.server";
 import { gunzipSync } from "node:zlib";
 import { TechnicalPolicyRefusedError } from "./technical-crawl-admission";
 import {
@@ -80,12 +81,14 @@ function pageUrl(raw: string, maximum = 4096): URL {
   return url;
 }
 
-async function addressFor(url: URL, signal: AbortSignal) {
+async function addressFor(url: URL, signal: AbortSignal, admitted = false) {
   const hostname = url.hostname.replace(/^\[|\]$/g, "");
   const family = isIP(hostname);
   const addresses = family
     ? [{ address: hostname, family }]
-    : await lookup(hostname, { all: true, verbatim: true });
+    : admitted
+      ? await resolveTechnicalAddresses(hostname, signal)
+      : await lookup(hostname, { all: true, verbatim: true });
   signal.throwIfAborted();
   if (
     !addresses.length ||
@@ -296,10 +299,15 @@ export async function fetchPinnedResource(
         ) {
           throw new TechnicalPolicyRefusedError(url.href);
         }
-        const address = await addressFor(url, controller.signal);
+        const reservation = options.admit
+          ? await options.admit(url.href, controller.signal, null)
+          : undefined;
+        if (reservation) release = reservation;
         controller.signal.throwIfAborted();
-        if (options.admit)
-          release = await options.admit(url.href, controller.signal, address.address);
+        if (reservation && !reservation.promote) throw new TechnicalCrawlAdmissionError("capacity");
+        const address = await addressFor(url, controller.signal, Boolean(reservation));
+        controller.signal.throwIfAborted();
+        if (reservation) await reservation.promote!(address.address);
         controller.signal.throwIfAborted();
         const accept =
           options.purpose === "sitemap"
