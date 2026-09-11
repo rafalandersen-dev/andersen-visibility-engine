@@ -33,6 +33,16 @@ const deps = (image?: Record<string, unknown>) => ({
   download: vi.fn(async () => new Blob([bytes])),
 });
 describe("scoped collaborator media", () => {
+  it.each(["external.supabase.co", "external.supabase.in"])(
+    "pins an already controlled storage origin %s",
+    async (host) => {
+      const url = `https://${host}/storage/v1/object/public/article-assets-public/image.png`;
+      const d = deps({ id: "im", url });
+      const remote = vi.fn(async () => bytes);
+      await readProjectTeamMedia(actor, input, { ...d, remote, outboundAllowed: () => true });
+      expect(remote).toHaveBeenCalledWith(url, `https://${host}`, expect.any(AbortSignal));
+    },
+  );
   it("reads a selected image in a 31-image article", async () => {
     const d = deps();
     const ctx = context();

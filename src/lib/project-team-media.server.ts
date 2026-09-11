@@ -10,7 +10,7 @@ import {
   contentTypeForFormat,
 } from "./image-storage";
 import { outboundFetchAllowed } from "./safe-fetch";
-import { projectOrigin } from "./images";
+import { isControlledImageOrigin } from "./images";
 import { fetchPinnedImage } from "./homepage-fetch.server";
 type ContextReader = typeof readTeamReviewContext;
 type Dependencies = {
@@ -102,8 +102,11 @@ export async function readProjectTeamMedia(
         )
           throw new Error("media_scope");
       } else if (media.url) {
-        const origin = projectOrigin(before.project);
-        if (!origin || !(deps.outboundAllowed ?? outboundFetchAllowed)())
+        const origin = new URL(media.url).origin;
+        if (
+          !isControlledImageOrigin(media.url, before.project) ||
+          !(deps.outboundAllowed ?? outboundFetchAllowed)()
+        )
           throw new Error("media_outbound");
         bytes =
           (await (deps.remote ?? fetchPinnedImage)(media.url, origin, controller.signal)) ??

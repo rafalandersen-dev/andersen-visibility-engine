@@ -100,6 +100,7 @@ async function openBunPage(
   url: URL,
   address: { address: string; family: number },
   signal: AbortSignal,
+  accept = "text/html,application/xhtml+xml,text/plain",
 ): Promise<PageResponse> {
   const destination = new URL(url);
   destination.hostname = address.family === 6 ? `[${address.address}]` : address.address;
@@ -126,7 +127,7 @@ async function openBunPage(
     headers: {
       Host: url.host,
       "User-Agent": "MiloGrowthAuditBot/1.0 (+https://milogrowth.com)",
-      Accept: "text/html,application/xhtml+xml,text/plain",
+      Accept: accept,
       "Accept-Encoding": "identity",
     },
     tls: {
@@ -181,8 +182,9 @@ function openPage(
   url: URL,
   address: { address: string; family: number },
   signal: AbortSignal,
+  accept = "text/html,application/xhtml+xml,text/plain",
 ): Promise<PageResponse> {
-  if ((globalThis as { Bun?: unknown }).Bun) return openBunPage(url, address, signal);
+  if ((globalThis as { Bun?: unknown }).Bun) return openBunPage(url, address, signal, accept);
   return new Promise<IncomingMessage>((resolve, reject) => {
     signal.throwIfAborted();
     const options: RequestOptions & { autoSelectFamily: boolean } = {
@@ -199,7 +201,7 @@ function openPage(
       headers: {
         Host: url.host,
         "User-Agent": "MiloGrowthAuditBot/1.0 (+https://milogrowth.com)",
-        Accept: "text/html,application/xhtml+xml,text/plain",
+        Accept: accept,
         "Accept-Encoding": "identity",
       },
       lookup: (_hostname, options, callback) => {
@@ -331,7 +333,7 @@ export async function fetchPinnedImage(
       if (url.protocol !== "https:" || url.origin !== origin) throw new Error("image_scope");
       const address = await addressFor(url, controller.signal);
       controller.signal.throwIfAborted();
-      response = await openPage(url, address, controller.signal);
+      response = await openPage(url, address, controller.signal, "image/png,image/jpeg,image/webp");
       const status = response.statusCode ?? 0;
       if ([301, 302, 303, 307, 308].includes(status)) {
         const location = response.headers.location;

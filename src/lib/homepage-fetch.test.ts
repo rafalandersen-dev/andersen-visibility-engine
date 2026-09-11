@@ -305,6 +305,7 @@ describe("pinned collaborator image fetches", () => {
     vi.stubGlobal("fetch", globalFetch);
     expect(await get()).toEqual(new Uint8Array(bytes));
     expect(globalFetch).not.toHaveBeenCalled();
+    expect(mocks.request.mock.calls[0][1].headers.Accept).toBe("image/png,image/jpeg,image/webp");
     expect(mocks.request.mock.calls[0][1].lookup).toEqual(expect.any(Function));
   });
   it("pins Bun image requests and preserves binary data after TLS identity verification", async () => {
@@ -312,6 +313,7 @@ describe("pinned collaborator image fetches", () => {
     const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 255, 0]);
     const native = vi.fn(async (url, options) => {
       expect(url.toString()).toBe("https://93.184.216.34/image.png");
+      expect(options.headers.Accept).toBe("image/png,image/jpeg,image/webp");
       expect(
         options.tls.checkServerIdentity("93.184.216.34", { subjectaltname: "DNS:example.com" }),
       ).toBeUndefined();
