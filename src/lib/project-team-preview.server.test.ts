@@ -162,6 +162,7 @@ it("uses disjoint safe keys for legacy identifiers while preserving the stored I
       id,
       url: "https://client.example/legacy.png",
       alt: "Legacy",
+      concept: "Legacy image",
       status: "accepted",
       placement: "inline",
     },
