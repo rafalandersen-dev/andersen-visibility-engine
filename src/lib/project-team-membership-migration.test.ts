@@ -114,6 +114,55 @@ describe("durable project invitation and membership lifecycle", () => {
       ).toEqual({ title: "Draft" });
     },
   );
+  it.each(["banned_until=now()+interval '1 hour'", "deleted_at=now()"])(
+    "rejects suspended owner lifecycle and hides discovery: %s",
+    async (restriction) => {
+      await create();
+      await db.exec(`UPDATE auth.users SET ${restriction} WHERE id='${owner}'`);
+      await expect(create(second, owner, "new@example.test")).rejects.toThrow(
+        "team_project_unavailable",
+      );
+      await expect(revoke()).rejects.toThrow("team_project_unavailable");
+      await expect(accept()).rejects.toThrow("team_project_unavailable");
+      await expect(change()).rejects.toThrow("team_project_unavailable");
+      await expect(db.query("SELECT read_project_team_roster($1,$1,'p')", [owner])).rejects.toThrow(
+        "team_project_unavailable",
+      );
+      const result = (
+        await db.query<{ result: { invitations: unknown[] } }>(
+          "SELECT list_my_project_teams($1) result",
+          [actor],
+        )
+      ).rows[0].result;
+      expect(result.invitations).toEqual([]);
+    },
+  );
+  it("retains terminal invitations without exhausting pending capacity or roster limits", async () => {
+    await db.query(
+      "INSERT INTO project_team_invitations(owner_id,project_id,invite_id,recipient_email,role,state,expires_at,created_at) SELECT $1,'p',gen_random_uuid(),'old-'||i||'@example.test','viewer',(ARRAY['accepted','revoked','pending'])[1+i%3],now()-interval '1 day',now()-interval '2 days' FROM generate_series(1,1000) i",
+      [owner],
+    );
+    await create();
+    const roster = teamRoster.parse(
+      (
+        await db.query<{ result: unknown }>("SELECT read_project_team_roster($1,$1,'p') result", [
+          owner,
+        ])
+      ).rows[0].result,
+    );
+    expect(roster.invitations).toHaveLength(1000);
+    expect(roster.invitations.some((i) => i.inviteId === invite)).toBe(true);
+    expect(
+      (await db.query("SELECT count(*)::int n FROM project_team_invitations")).rows[0],
+    ).toEqual({ n: 1001 });
+  });
+  it("retains the cap on unexpired pending invitations", async () => {
+    await db.query(
+      "INSERT INTO project_team_invitations(owner_id,project_id,invite_id,recipient_email,role,expires_at) SELECT $1,'p',gen_random_uuid(),'pending-'||i||'@example.test','viewer',now()+interval '1 day' FROM generate_series(1,1000) i",
+      [owner],
+    );
+    await expect(create()).rejects.toThrow("team_invitation_capacity");
+  });
   it("accepts a verified intended recipient, records actor audit and grants scoped reads", async () => {
     await create();
     expect((await accept()).rows[0]).toEqual({ revision: 1 });

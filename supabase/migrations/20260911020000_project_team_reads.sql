@@ -17,6 +17,16 @@ CREATE TABLE public.project_team_members (
 ALTER TABLE public.project_team_members ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.project_team_members FROM PUBLIC,anon,authenticated,service_role;
 
+-- Called only inside service-mediated team operations under the workspace lock.
+CREATE FUNCTION public.assert_project_team_account(p_user uuid)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+  PERFORM 1 FROM auth.users WHERE id=p_user AND deleted_at IS NULL
+    AND (banned_until IS NULL OR banned_until<=clock_timestamp()) FOR SHARE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'team_project_unavailable'; END IF;
+END; $$;
+REVOKE ALL ON FUNCTION public.assert_project_team_account(uuid) FROM PUBLIC,anon,authenticated,service_role;
+
 -- Service-only entry: p_actor is supplied by verified authentication middleware.
 -- Never expose this function directly to authenticated clients. Membership
 -- writers must use the same owner workspace lock before updating membership.
@@ -32,9 +42,8 @@ BEGIN
   SELECT rev INTO workspace_revision FROM public.workspace_meta WHERE user_id=p_owner FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'team_project_unavailable'; END IF;
   -- A previously issued session must not bypass current account suspension.
-  PERFORM 1 FROM auth.users WHERE id=p_actor AND deleted_at IS NULL
-    AND (banned_until IS NULL OR banned_until<=clock_timestamp()) FOR SHARE;
-  IF NOT FOUND THEN RAISE EXCEPTION 'team_project_unavailable'; END IF;
+  PERFORM public.assert_project_team_account(p_owner);
+  IF p_actor<>p_owner THEN PERFORM public.assert_project_team_account(p_actor); END IF;
   IF p_actor<>p_owner THEN
     SELECT revision,role INTO membership_revision,member_role FROM public.project_team_members
       WHERE owner_id=p_owner AND project_id=p_project AND actor_id=p_actor

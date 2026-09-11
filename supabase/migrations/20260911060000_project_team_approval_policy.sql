@@ -48,6 +48,7 @@ BEGIN
   IF p_actor IS NULL OR p_actor IS DISTINCT FROM p_owner OR p_expected IS NULL OR p_expected<0
     OR p_mode IS NULL OR p_mode NOT IN ('disabled','separate_reviewers','editors_can_approve') THEN RAISE EXCEPTION 'team_policy_unavailable'; END IF;
   PERFORM public.assert_knowledge_project(p_owner,p_project,true);
+  PERFORM public.assert_project_team_account(p_owner);
   SELECT revision INTO previous FROM public.project_team_approval_policy WHERE owner_id=p_owner AND project_id=p_project;
   IF coalesce(previous,0)<>p_expected THEN RAISE EXCEPTION 'team_policy_changed' USING ERRCODE='40001'; END IF;
   INSERT INTO public.project_team_approval_policy(owner_id,project_id,mode,revision) VALUES(p_owner,p_project,p_mode,p_expected+1)
