@@ -9,20 +9,40 @@ beforeAll(async () => {
   await db.exec("CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS;");
   const prior = readFileSync("supabase/migrations/20260719120000_scheduled_publishes.sql", "utf8");
   await db.exec(prior.slice(prior.indexOf("CREATE TABLE IF NOT EXISTS"), prior.indexOf("-- 3.")));
+  await db.exec(`CREATE TABLE publication_approvals(user_id uuid,project_id text,asset_id text,approved boolean);
+  CREATE TABLE workspace_entities(user_id uuid,collection text,entity_id text,data jsonb);
+  CREATE TABLE workspace_meta(user_id uuid,rev bigint);
+  ALTER TABLE scheduled_publishes DROP CONSTRAINT scheduled_publishes_status_check;
+  ALTER TABLE scheduled_publishes ADD CONSTRAINT scheduled_publishes_status_check CHECK(status IN ('pending','publishing','published','failed','cancelled','review_required'));`);
+  const executor = readFileSync("supabase/migrations/20260910180000_weekly_executor.sql", "utf8");
+  await db.exec(
+    executor.slice(
+      executor.indexOf("CREATE FUNCTION public.hold_unapproved_scheduled_publish()"),
+      executor.indexOf("UPDATE public.scheduled_publishes SET status='review_required'"),
+    ),
+  );
   await db.exec(
     readFileSync("supabase/migrations/20260911105000_scheduled_publish_fairness.sql", "utf8"),
   );
 }, 30000);
 beforeEach(async () => {
-  await db.exec("RESET ROLE; TRUNCATE scheduled_publishes");
+  await db.exec("RESET ROLE; TRUNCATE scheduled_publishes,publication_approvals");
 });
 afterAll(async () => {
   await db?.close();
 });
 async function seed(user = owner, count = 20, age = 60) {
+  await db.exec(
+    "ALTER TABLE scheduled_publishes DISABLE TRIGGER hold_unapproved_scheduled_publish",
+  );
   await db.query(
     "INSERT INTO scheduled_publishes(user_id,project_id,asset_id,publish_at) SELECT $1::uuid,'p',($1::uuid)::text||'/'||i,now()-make_interval(mins=>$3) FROM generate_series(1,$2::int) i",
     [user, count, age],
+  );
+  await db.exec("ALTER TABLE scheduled_publishes ENABLE TRIGGER hold_unapproved_scheduled_publish");
+  await db.query(
+    "INSERT INTO publication_approvals SELECT user_id,project_id,asset_id,true FROM scheduled_publishes WHERE user_id=$1",
+    [user],
   );
 }
 const claim = (batch = 20) =>
@@ -83,3 +103,26 @@ it("denies untrusted queue claiming and enforces the durable preflight count bou
   await db.exec("SET ROLE authenticated");
   await expect(claim()).rejects.toThrow(/permission denied/);
 });
+
+it.each(["valid", "withdrawn", "date", "counter", "cooldown"])(
+  "checks a preflight refund against the real approval trigger: %s",
+  async (mode) => {
+    await seed(owner, 1);
+    const row = (await claim()).rows[0];
+    if (mode === "withdrawn") await db.exec("UPDATE publication_approvals SET approved=false");
+    const result = await db.query<{ status: string; attempts: number }>(
+      `UPDATE scheduled_publishes SET status='pending',attempts=attempts-1,preflight_attempts=$2,preflight_started_at=clock_timestamp(),retry_after=clock_timestamp()+make_interval(mins=>$3),publish_at=publish_at+make_interval(mins=>$4) WHERE id=$1 RETURNING status,attempts`,
+      [row.id, mode === "counter" ? 2 : 1, mode === "cooldown" ? 0 : 1, mode === "date" ? 1 : 0],
+    );
+    expect(result.rows[0].status).toBe(mode === "valid" ? "pending" : "review_required");
+    if (mode === "valid") {
+      expect(result.rows[0].attempts).toBe(0);
+      expect((await claim()).rows).toHaveLength(0);
+      await db.query(
+        "UPDATE scheduled_publishes SET retry_after=clock_timestamp()-interval '1 second' WHERE id=$1",
+        [row.id],
+      );
+      expect((await claim()).rows).toHaveLength(1);
+    }
+  },
+);
