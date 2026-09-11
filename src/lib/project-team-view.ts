@@ -40,7 +40,7 @@ const draftDetail = draftSummary.extend({
   images: z
     .array(
       z.object({
-        id: identity,
+        id: z.string(),
         alt: z.string().max(4000).default(""),
         caption: z.string().max(4000).optional(),
       }),

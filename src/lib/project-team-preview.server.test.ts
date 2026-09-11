@@ -1,5 +1,10 @@
+import { teamReviewDecision } from "./project-team";
 import { describe, expect, it, vi } from "vitest";
-import { teamPreviewHtml, readProjectTeamPreview } from "./project-team-preview.server";
+import {
+  teamImageReviewKey,
+  teamPreviewHtml,
+  readProjectTeamPreview,
+} from "./project-team-preview.server";
 import type { readTeamReviewContext } from "./project-team-context.server";
 import { publicationVersion } from "./publication-version";
 const owner = "00000000-0000-4000-8000-000000000001",
@@ -147,4 +152,29 @@ it("excludes retained social images while the featured image is unapproved", asy
   expect(result.media.some((item) => item.kind === "social")).toBe(false);
   expect(result.html).not.toContain("old-social");
   expect(result.version).toEqual(await publicationVersion(ctx.asset, ctx.project, ["/"]));
+});
+
+it("uses disjoint safe keys for legacy identifiers while preserving the stored ID", async () => {
+  const id = "bad id)with paren";
+  const c = context();
+  c.asset.images = [
+    {
+      id,
+      url: "https://client.example/legacy.png",
+      alt: "Legacy",
+      status: "accepted",
+      placement: "inline",
+    },
+  ];
+  const read = vi.fn(async () => c);
+  const result = await readProjectTeamPreview(actor, target, read, authority);
+  const key = teamImageReviewKey("content", id);
+  expect(key).toMatch(/^content_~[a-f0-9]{64}$/);
+  expect(teamReviewDecision.shape.images.parse([{ key, byteHash: "a".repeat(64) }])).toHaveLength(
+    1,
+  );
+  expect(result.media).toContainEqual({ key, imageId: id, kind: "content" });
+  expect(result.html).toContain("milo-review-image:" + key);
+  expect(teamImageReviewKey("content", key.slice(9))).not.toBe(key);
+  expect(teamImageReviewKey("content", "\ud800")).not.toBe(teamImageReviewKey("content", "\ud801"));
 });

@@ -125,7 +125,7 @@ BEGIN
     OR p_draft_hash IS NULL OR p_draft_hash !~ '^[a-f0-9]{64}$' OR p_version IS NULL OR p_version !~ '^[a-f0-9]{64}$'
     OR p_membership IS NULL OR p_policy IS NULL THEN RAISE EXCEPTION 'team_approval_unavailable'; END IF;
   IF p_images IS NULL OR jsonb_typeof(p_images)<>'array' OR octet_length(p_images::text)>8000000 THEN RAISE EXCEPTION 'team_review_images_invalid'; END IF;
-  IF EXISTS(SELECT 1 FROM jsonb_array_elements(p_images) im WHERE jsonb_typeof(im)<>'object' OR im-ARRAY['key','byteHash']<>'{}'::jsonb OR coalesce(im->>'key','') !~ '^(content|featured|social)_[A-Za-z0-9_-]{1,64}$' OR coalesce(im->>'byteHash','') !~ '^[a-f0-9]{64}$') OR (SELECT count(DISTINCT im->>'key') FROM jsonb_array_elements(p_images) im)<>jsonb_array_length(p_images) THEN RAISE EXCEPTION 'team_review_images_invalid'; END IF;
+  IF EXISTS(SELECT 1 FROM jsonb_array_elements(p_images) im WHERE jsonb_typeof(im)<>'object' OR im-ARRAY['key','byteHash']<>'{}'::jsonb OR coalesce(im->>'key','') !~ '^(content|featured|social)_([A-Za-z0-9_-]{1,64}|~[a-f0-9]{64})$' OR coalesce(im->>'byteHash','') !~ '^[a-f0-9]{64}$') OR (SELECT count(DISTINCT im->>'key') FROM jsonb_array_elements(p_images) im)<>jsonb_array_length(p_images) THEN RAISE EXCEPTION 'team_review_images_invalid'; END IF;
   snapshot:=public.read_project_team_snapshot(p_actor,p_owner,p_project,p_asset,0,true);
   IF p_asset IS NULL OR (snapshot->>'workspaceRevision')::bigint<>p_expected OR snapshot->>'draftHash' IS DISTINCT FROM p_draft_hash THEN RAISE EXCEPTION 'team_approval_draft_changed' USING ERRCODE='40001'; END IF;
   SELECT * INTO membership FROM public.project_team_members WHERE owner_id=p_owner AND project_id=p_project AND actor_id=p_actor;
