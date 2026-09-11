@@ -1,3 +1,4 @@
+import { TeamAdmissionBusyError } from "./project-team-admission";
 import * as reviewedImages from "./publication-reviewed-images.server";
 import { TeamMediaCapacityError } from "./project-team-media-limit.server";
 import { describe, expect, it, vi } from "vitest";
@@ -146,6 +147,10 @@ it("only retries explicit image admission contention before dispatch", async () 
   const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
   try {
     spy.mockRejectedValueOnce(new TeamMediaCapacityError());
+    await expect(
+      assertPublicationApproved(scope.ownerId, asset, project, [], rpc),
+    ).rejects.toMatchObject({ preflightCapacity: true });
+    spy.mockRejectedValueOnce(new TeamAdmissionBusyError());
     await expect(
       assertPublicationApproved(scope.ownerId, asset, project, [], rpc),
     ).rejects.toMatchObject({ preflightCapacity: true });

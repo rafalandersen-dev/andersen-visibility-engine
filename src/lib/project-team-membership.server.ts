@@ -1,3 +1,4 @@
+import { TeamAdmissionBusyError, assertTeamAdmission } from "./project-team-admission";
 import { z } from "zod";
 import {
   myProjectTeams,
@@ -28,9 +29,11 @@ export async function teamCall(method: string, params: Record<string, unknown>, 
         timer = setTimeout(() => reject(new Error("timeout")), 10000);
       }),
     ]);
+    assertTeamAdmission(result?.error);
     if (!result || result.error) throw new Error("unavailable");
     return result.data;
-  } catch {
+  } catch (error) {
+    if (error instanceof TeamAdmissionBusyError) throw error;
     throw new Error("Team access could not be updated or confirmed. Refresh before trying again.");
   } finally {
     clearTimeout(timer);

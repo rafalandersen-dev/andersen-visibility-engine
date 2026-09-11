@@ -1,3 +1,4 @@
+import { TeamAdmissionBusyError } from "./project-team-admission";
 import { acquireTeamMedia, releaseTeamMedia } from "./project-team-media-limit.server";
 import { z } from "zod";
 import { teamMediaInput } from "./project-team";
@@ -164,7 +165,8 @@ export async function readProjectTeamMedia(
         }, 10000);
       }),
     ]);
-  } catch {
+  } catch (error) {
+    if (error instanceof TeamAdmissionBusyError) throw error;
     throw new Error("The project image could not be confirmed. Refresh before trying again.");
   } finally {
     clearTimeout(timer);
