@@ -213,15 +213,8 @@ export function normalizeDataForSeoHealth(body: unknown): BacklinkProviderStatus
   const balanceUsd = Number.isFinite(balance) && balance >= 0 ? balance : undefined;
   if (balanceUsd === undefined) return { configured: true, state: "error", checkedAt };
 
-  // DataForSEO explicitly returns null when the Backlinks API subscription is
-  // inactive. Older responses may omit the field, so only an explicit null is
-  // treated as an account error.
-  if (
-    Object.prototype.hasOwnProperty.call(account, "backlinks_subscription_expiry_date") &&
-    account.backlinks_subscription_expiry_date === null
-  ) {
-    return { configured: true, state: "error", balanceUsd, checkedAt };
-  }
+  // Backlinks moved to pay-as-you-go without monthly commitments on 2026-07-01.
+  // A legacy null subscription expiry no longer establishes account failure.
 
   return {
     configured: true,
