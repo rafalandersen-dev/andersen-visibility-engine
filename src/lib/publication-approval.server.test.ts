@@ -1,3 +1,7 @@
+import { TeamVerificationMismatchError } from "./project-team-verification";
+import { TeamAdmissionBusyError } from "./project-team-admission";
+import * as reviewedImages from "./publication-reviewed-images.server";
+import { TeamMediaCapacityError } from "./project-team-media-limit.server";
 import { describe, expect, it, vi } from "vitest";
 import {
   readPublicationApproval,
@@ -112,6 +116,24 @@ describe("authenticated version approval boundary", () => {
         ),
       ).rejects.toThrow();
   });
+  it("requires the reviewed-image boundary even for a valid version grant", async () => {
+    const rpc = vi.fn(async (name: string): Promise<{ data: unknown; error: null }> => ({
+      data: name === "read_publication_approval" ? true : { images: null },
+      error: null,
+    }));
+    await assertPublicationApproved(scope.ownerId, asset, project, [], rpc);
+    expect(rpc).toHaveBeenCalledWith(
+      "read_publication_reviewed_images",
+      expect.objectContaining({ p_user: scope.ownerId, p_asset: asset.id }),
+    );
+    rpc.mockImplementation(async (name: string) => ({
+      data: name === "read_publication_approval" ? true : null,
+      error: null,
+    }));
+    await expect(
+      assertPublicationApproved(scope.ownerId, asset, project, [], rpc),
+    ).rejects.toThrow();
+  });
   it("refuses a foreign asset before reading approval storage", async () => {
     const rpc = vi.fn();
     await expect(
@@ -119,4 +141,31 @@ describe("authenticated version approval boundary", () => {
     ).rejects.toThrow("publication_version_scope");
     expect(rpc).not.toHaveBeenCalled();
   });
+});
+
+it("retries unavailable preflight reads but permanently refuses confirmed mismatches", async () => {
+  const spy = vi.spyOn(reviewedImages, "assertReviewedPublicationImages");
+  const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
+  try {
+    spy.mockRejectedValueOnce(new TeamMediaCapacityError());
+    await expect(
+      assertPublicationApproved(scope.ownerId, asset, project, [], rpc),
+    ).rejects.toMatchObject({ preflightCapacity: true });
+    spy.mockRejectedValueOnce(new TeamAdmissionBusyError());
+    await expect(
+      assertPublicationApproved(scope.ownerId, asset, project, [], rpc),
+    ).rejects.toMatchObject({ preflightCapacity: true });
+    for (const message of ["storage unavailable", "RPC timeout", "media timeout"]) {
+      spy.mockRejectedValueOnce(new Error(message));
+      await expect(
+        assertPublicationApproved(scope.ownerId, asset, project, [], rpc),
+      ).rejects.toMatchObject({ preflightCapacity: true });
+    }
+    spy.mockRejectedValueOnce(new TeamVerificationMismatchError("image changed"));
+    await expect(
+      assertPublicationApproved(scope.ownerId, asset, project, [], rpc),
+    ).rejects.toMatchObject({ permanent: true, message: "publication_approval_required" });
+  } finally {
+    spy.mockRestore();
+  }
 });

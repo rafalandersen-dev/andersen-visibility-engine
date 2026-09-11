@@ -22,3 +22,5 @@ Evidence reconciled: full scope register, September 9 historical assessment, CUR
 Remaining substantial work: live provider/cost benchmark and secure setup; actual observed AI surfaces and supplier/Google/CMS/client acceptance; team roles and recipients; product-reference images; 24-language UI and QA; premium journey acceptance; Stripe/packages/policies; independent beta/support/recovery and recorded demos. Signed-in and live-provider acceptance are unquantified separately and must not be represented by the 55% figure.
 
 Latest release PR121 is complete. Next implementation candidate is explicit owner revalidation of affected saved output with exact content/evidence versions and durable history. Existing restrictions and all unclosed scope remain. Update this estimate at meaningful milestones, explaining changed group scores; do not increment it for each commit or test run.
+
+PR122 revalidation was released and verified at06:21UTC11September. This completes a bounded core-workflow improvement; the rounded overall55%/technical70% estimate remains unchanged because team, provider, commercial, localization and acceptance workstreams remain substantial.

@@ -1,5 +1,6 @@
+import { TeamVerificationMismatchError } from "./project-team-verification";
 import { z } from "zod";
-import { PublishNotPossibleError } from "./publish-outcome";
+import { PublishPreflightCapacityError, PublishNotPossibleError } from "./publish-outcome";
 import {
   publicationVersion,
   publicationVersionSchema,
@@ -142,4 +143,15 @@ export async function assertPublicationApproved(
     ))
   )
     throw new PublishNotPossibleError("publication_approval_required");
+  try {
+    const { assertReviewedPublicationImages } =
+      await import("./publication-reviewed-images.server");
+    await assertReviewedPublicationImages(scope, current.hash, { rpc });
+  } catch (error) {
+    if (error instanceof TeamVerificationMismatchError)
+      throw new PublishNotPossibleError("publication_approval_required");
+    // This entire phase precedes connector dispatch. An unavailable read is not
+    // evidence that approval or image bytes changed; retry the bounded preflight.
+    throw new PublishPreflightCapacityError();
+  }
 }

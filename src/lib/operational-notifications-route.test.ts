@@ -1,11 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Route } from "@/routes/api.notifications.sweep";
-const mocks = vi.hoisted(() => ({ rpc: vi.fn(), sweep: vi.fn(), email: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  rpc: vi.fn(),
+  sweep: vi.fn(),
+  email: vi.fn(),
+  team: vi.fn(),
+  invitation: vi.fn(),
+}));
 vi.mock("@/integrations/supabase/client.server", () => ({ supabaseAdmin: { rpc: mocks.rpc } }));
 vi.mock("./operational-notifications.server", () => ({
   runOperationalNotificationSweep: mocks.sweep,
 }));
 vi.mock("./operational-email.server", () => ({ runOperationalEmailWorker: mocks.email }));
+vi.mock("./project-team-delivery.server", () => ({ runTeamNotificationWorker: mocks.team }));
+vi.mock("./project-team-invitation-delivery.server", () => ({
+  runTeamInvitationWorker: mocks.invitation,
+}));
 const post = (
   Route.options as unknown as {
     server: { handlers: { POST: (args: { request: Request }) => Promise<Response> } };
@@ -21,12 +31,34 @@ const call = (auth?: string) =>
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv("OPERATIONAL_EMAIL_ENABLED", "false");
+  vi.stubEnv("TEAM_NOTIFICATION_EMAIL_ENABLED", "false");
+  vi.stubEnv("TEAM_INVITATION_EMAIL_ENABLED", "false");
+  mocks.invitation.mockResolvedValue({ enabled: true, processed: 1 });
+  mocks.team.mockResolvedValue({ enabled: true, queued: 1, processed: 1, failed: 0 });
   mocks.email.mockResolvedValue({ enabled: true, processed: 1 });
   mocks.rpc.mockResolvedValue({ data: "synthetic-cron-secret", error: null });
   mocks.sweep.mockResolvedValue({ scanned: 2, failed: 0, stale: 0 });
 });
 afterEach(() => vi.unstubAllEnvs());
 describe("private notification sweep route", () => {
+  it("requires explicit invitation transport activation and private authentication", async () => {
+    await call("Bearer synthetic-cron-secret");
+    expect(mocks.invitation).not.toHaveBeenCalled();
+    vi.stubEnv("TEAM_INVITATION_EMAIL_ENABLED", "true");
+    expect((await call()).status).toBe(401);
+    expect(mocks.invitation).not.toHaveBeenCalled();
+    expect((await call("Bearer synthetic-cron-secret")).status).toBe(200);
+    expect(mocks.invitation).toHaveBeenCalledTimes(1);
+  });
+  it("requires a separate team gate and private authentication", async () => {
+    await call("Bearer synthetic-cron-secret");
+    expect(mocks.team).not.toHaveBeenCalled();
+    vi.stubEnv("TEAM_NOTIFICATION_EMAIL_ENABLED", "true");
+    expect((await call()).status).toBe(401);
+    expect(mocks.team).not.toHaveBeenCalled();
+    expect((await call("Bearer synthetic-cron-secret")).status).toBe(200);
+    expect(mocks.team).toHaveBeenCalledTimes(1);
+  });
   it("keeps email off without the release gate", async () => {
     await call("Bearer synthetic-cron-secret");
     expect(mocks.email).not.toHaveBeenCalled();

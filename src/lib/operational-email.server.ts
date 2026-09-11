@@ -71,7 +71,10 @@ const escape = (s: string) =>
     /[&<>"']/g,
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
   );
-export function renderOperationalDigest(input: unknown) {
+export function renderOperationalDigest(
+  input: unknown,
+  destination: "notifications" | "collaborators" = "notifications",
+) {
   const digest = digestSchema.parse(input),
     c = copy[digest.locale];
   const lines = digest.items.map((item) => {
@@ -85,7 +88,7 @@ export function renderOperationalDigest(input: unknown) {
         }).format(new Date(item.dueAt)) + ` (${item.detail.timeZone})`;
     return `${notifications[digest.locale][`notifications.${item.kind}`]}: ${item.title}${due ? ` — ${due}` : ""}`;
   });
-  const url = "https://milogrowth.com/app/notifications";
+  const url = `https://milogrowth.com/app/${destination}`;
   return {
     subject: c.subject,
     text: [c.intro, ...lines, `${c.open}: ${url}`, c.footer].join("\n\n"),
@@ -143,7 +146,11 @@ export async function readOperationalEmailAddress(
 export async function resolveOperationalEmailRecipient(userId: string) {
   const address = await readOperationalEmailAddress(userId);
   if (address.status !== "verified") throw new Error("recipient_unavailable");
-  const { email } = address;
+  return resolveInvitationEmailRecipient(address.email);
+}
+/** For a server-authorized saved invitation only; this grants no team access. */
+export async function resolveInvitationEmailRecipient(rawEmail: string) {
+  const email = z.string().email().max(320).parse(rawEmail).toLowerCase();
   const db = await getDb();
   const suppressed = await db
     .from("suppressed_emails")
