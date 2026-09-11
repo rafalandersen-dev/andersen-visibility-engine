@@ -174,17 +174,17 @@ export async function advanceTechnicalCrawl(
             Object.entries(response.headers).find(
               ([key]) => key.toLowerCase() === "content-type",
             )?.[1] ?? "";
-          if (!/^(?:text\/html|application\/xhtml\+xml)(?:\s*;|$)/i.test(contentType))
-            page.state = "non_html";
+          const isHtml = /^(?:text\/html|application\/xhtml\+xml)(?:\s*;|$)/i.test(contentType);
+          if (!isHtml && response.status < 400) page.state = "non_html";
           else {
             page.observation = inspectTechnicalPage({
               url: finalUrl,
               status: response.status,
               observedAt: response.observedAt ?? now,
-              html: response.body,
+              html: isHtml ? response.body : "",
               headers: response.headers,
             });
-            if (response.truncated) page.observation.complete = false;
+            if (response.truncated || !isHtml) page.observation.complete = false;
             page.state = "observed";
             next.queue = next.queue.filter((pending) => pending.url !== finalUrl);
             if (!page.observation.complete) limitation(next, "partial_page");

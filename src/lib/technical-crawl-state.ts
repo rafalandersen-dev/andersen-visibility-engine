@@ -172,7 +172,7 @@ const schema = z
               "storage_limit",
             ]),
           )
-          .max(7),
+          .max(8),
       })
       .strict()
       .optional(),

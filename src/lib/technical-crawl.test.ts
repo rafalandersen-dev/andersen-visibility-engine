@@ -1,3 +1,5 @@
+import { technicalFindings } from "./technical-findings";
+import { parseTechnicalCrawlState } from "./technical-crawl-state";
 import { TechnicalCrawlAdmissionError } from "./technical-crawl-admission";
 import { describe, it, expect, vi } from "vitest";
 import {
@@ -23,6 +25,49 @@ const response = (url: string, body: string) => ({
   body,
 });
 describe("resumable technical crawl", () => {
+  it.each([{ "content-type": "text/plain" }, {}])(
+    "retains HTTP errors without parsing a non-HTML body: %j",
+    async (headers) => {
+      const next = await advanceTechnicalCrawl(
+        start(),
+        async (url) => ({
+          ...response(url, "<title>Not HTML evidence</title>"),
+          status: 503,
+          headers,
+        }),
+        now,
+      );
+      expect(next.pages[0]).toMatchObject({
+        state: "observed",
+        observation: { status: 503, title: "", complete: false },
+      });
+      expect(technicalFindings(next.pages[0])).toEqual(["http_error"]);
+      expect(
+        parseTechnicalCrawlState(next, "https://example.test").pages[0].observation?.status,
+      ).toBe(503);
+    },
+  );
+  it("persists every sitemap limitation including final storage truncation", () => {
+    const state = start();
+    state.sitemaps = {
+      queue: [],
+      files: [],
+      entries: [],
+      limitations: [
+        "file_limit",
+        "depth_limit",
+        "url_limit",
+        "out_of_scope",
+        "invalid_entry",
+        "robots_directives",
+        "unreadable",
+        "storage_limit",
+      ],
+    };
+    expect(
+      parseTechnicalCrawlState(state, "https://example.test").sitemaps?.limitations,
+    ).toHaveLength(8);
+  });
   it("removes an accepted redirect destination from the pending queue", async () => {
     const saved = start();
     saved.queue = [
