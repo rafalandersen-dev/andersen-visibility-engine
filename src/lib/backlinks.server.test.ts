@@ -114,8 +114,11 @@ describe("normalizeDataForSeoHealth", () => {
     ).toMatchObject({ state: "low_balance", balanceUsd: 0 });
   });
 
-  it("reports an explicit inactive Backlinks subscription as an error", () => {
-    expect(normalizeDataForSeoHealth(response(10, null))).toMatchObject({ state: "error" });
+  it("accepts pay-as-you-go accounts without a legacy subscription expiry", () => {
+    expect(normalizeDataForSeoHealth(response(10, null))).toMatchObject({
+      state: "ready",
+      balanceUsd: 10,
+    });
   });
 });
 
