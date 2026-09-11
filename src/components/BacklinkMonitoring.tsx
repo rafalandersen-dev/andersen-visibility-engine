@@ -10,7 +10,15 @@ import {
 } from "@/lib/backlink-monitoring.functions";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-export function BacklinkMonitoring({ projectId, website }: { projectId: string; website: string }) {
+export function BacklinkMonitoring({
+  projectId,
+  website,
+  collectionAvailable,
+}: {
+  projectId: string;
+  website: string;
+  collectionAvailable: boolean;
+}) {
   const { user } = useAuth();
   return user ? (
     <MonitoringHistory
@@ -18,6 +26,7 @@ export function BacklinkMonitoring({ projectId, website }: { projectId: string; 
       userId={user.id}
       projectId={projectId}
       website={website}
+      collectionAvailable={collectionAvailable}
     />
   ) : null;
 }
@@ -25,10 +34,12 @@ function MonitoringHistory({
   userId,
   projectId,
   website,
+  collectionAvailable,
 }: {
   userId: string;
   projectId: string;
   website: string;
+  collectionAvailable: boolean;
 }) {
   const t = useT(),
     client = useQueryClient();
@@ -66,7 +77,7 @@ function MonitoringHistory({
       void refresh();
     },
   });
-  const disabled = run.isPending || requestId !== null;
+  const disabled = !collectionAvailable || run.isPending || requestId !== null;
   const fields = [
     "newBacklinks",
     "lostBacklinks",
@@ -88,6 +99,11 @@ function MonitoringHistory({
       <h2 className="font-display text-xl">{t("backlinkMonitor.title")}</h2>
       <p className="break-all text-sm">{website}</p>
       <p className="max-w-3xl text-sm text-muted-foreground">{t("backlinkMonitor.note")}</p>
+      {!collectionAvailable && (
+        <p role="status" className="text-sm text-muted-foreground">
+          {t("backlinkMonitor.unavailable")}
+        </p>
+      )}
       <form
         className="flex flex-wrap items-end gap-3"
         onSubmit={(e) => {

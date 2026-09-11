@@ -1,6 +1,8 @@
 import type { OnboardingLanguage } from "@/lib/types";
 export const backlinkMonitoringCopy: Record<OnboardingLanguage, Record<string, string>> = {
   en: {
+    "backlinkMonitor.unavailable":
+      "Collection is unavailable until the provider status confirms an active account with available balance. Saved history remains accessible.",
     "backlinkMonitor.yes": "Yes",
     "backlinkMonitor.no": "No",
     "backlinkMonitor.title": "Backlink history",
@@ -47,6 +49,8 @@ export const backlinkMonitoringCopy: Record<OnboardingLanguage, Record<string, s
     "backlinkMonitor.invalid": "Choose a valid interval of 1–92 days, ending no later than today.",
   },
   pl: {
+    "backlinkMonitor.unavailable":
+      "Pobieranie danych jest niedostępne, dopóki status dostawcy nie potwierdzi aktywnego konta z dostępnym saldem. Zapisana historia pozostaje dostępna.",
     "backlinkMonitor.yes": "Tak",
     "backlinkMonitor.no": "Nie",
     "backlinkMonitor.title": "Historia linków zwrotnych",
@@ -93,6 +97,8 @@ export const backlinkMonitoringCopy: Record<OnboardingLanguage, Record<string, s
     "backlinkMonitor.invalid": "Wybierz poprawny okres 1–92 dni, kończący się najpóźniej dzisiaj.",
   },
   sv: {
+    "backlinkMonitor.unavailable":
+      "Hämtning är inte tillgänglig förrän leverantörens status bekräftar ett aktivt konto med tillgängligt saldo. Sparad historik är fortfarande tillgänglig.",
     "backlinkMonitor.yes": "Ja",
     "backlinkMonitor.no": "Nej",
     "backlinkMonitor.title": "Bakåtlänkshistorik",
@@ -141,6 +147,8 @@ export const backlinkMonitoringCopy: Record<OnboardingLanguage, Record<string, s
     "backlinkMonitor.invalid": "Välj ett giltigt intervall på 1–92 dagar som slutar senast idag.",
   },
   da: {
+    "backlinkMonitor.unavailable":
+      "Indsamling er utilgængelig, indtil leverandørens status bekræfter en aktiv konto med tilgængelig saldo. Gemt historik er stadig tilgængelig.",
     "backlinkMonitor.yes": "Ja",
     "backlinkMonitor.no": "Nej",
     "backlinkMonitor.title": "Historik for backlinks",

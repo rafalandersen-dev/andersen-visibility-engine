@@ -35,9 +35,13 @@ vi.mock("@/lib/backlink-monitoring.functions", () => ({
   recoverBacklinkMonitoringAccountingFn: h.recover,
 }));
 import { BacklinkMonitoring } from "./BacklinkMonitoring";
-const render = () =>
+const render = (collectionAvailable = true) =>
   renderToStaticMarkup(
-    createElement(BacklinkMonitoring, { projectId: "p", website: "https://example.com" }),
+    createElement(BacklinkMonitoring, {
+      projectId: "p",
+      website: "https://example.com",
+      collectionAvailable,
+    }),
   );
 beforeEach(() => {
   h.rows = [];
@@ -107,4 +111,12 @@ it("hides stale history and disables new collection while the current read is un
   expect(html).not.toContain("stale-private");
   expect(html).toMatch(/<button[^>]*type="submit"[^>]*disabled=""/);
   expect(html).toContain("History is unavailable");
+});
+
+it("disables collection when provider availability is not confirmed while retaining history", () => {
+  const html = render(false);
+  expect(html).toContain(backlinkMonitoringCopy.en["backlinkMonitor.unavailable"]);
+  expect(html).toMatch(/type="submit"[^>]*disabled/);
+  expect(html).toContain(backlinkMonitoringCopy.en["backlinkMonitor.empty"]);
+  expect(h.run).not.toHaveBeenCalled();
 });

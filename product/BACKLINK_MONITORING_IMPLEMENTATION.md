@@ -63,3 +63,9 @@ Validation:22 focused transport/orchestration tests and changed-file lint pass (
 The lifecycle trims both provider credential values consistently with the provider health check, then refuses empty values before any context read, reservation or dispatch. The admitted transport receives the normalized values. Three regressions cover each whitespace-only field and surrounding whitespace without logging credentials.
 
 Validation:25 focused orchestration/transport tests, TypeScript and changed-file lint pass (`/tmp/milo-monitor-credential-{tests,types,lint}.log`). Finding3991903020 addressed. No provider call, credential configuration or production mutation occurred.
+
+## Collection controls follow provider availability
+
+The existing provider status now enables monitoring collection only for a configured ready account or low-balance account with a positive reported balance. Loading, errors, missing configuration, paused accounts and zero/unknown low balance disable the fields and submit handler. Saved history and accounting recovery remain accessible. A localized explanation is supplied in English, Polish, Swedish and Danish. This uses the existing status request; no new provider health request is added.
+
+Validation:7 static-render UI tests, TypeScript and changed-file lint pass (`/tmp/milo-monitor-availability-{tests,types,lint}.log`). The new test verifies disabled submission with retained history and no mutation. This is UI availability feedback, not a replacement for server credentials and durable expense admission; current supplier availability can still change after a status read. Finding3991986446 addressed. No live provider request, migration or configuration action occurred.

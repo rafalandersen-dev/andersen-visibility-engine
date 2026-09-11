@@ -234,7 +234,17 @@ function BacklinksPage() {
           t={t}
         />
       )}
-      {project ? <BacklinkMonitoring projectId={project.id} website={project.websiteUrl} /> : null}
+      {project ? (
+        <BacklinkMonitoring
+          projectId={project.id}
+          website={project.websiteUrl}
+          collectionAvailable={
+            configured === true &&
+            (providerStatus?.state === "ready" ||
+              (providerStatus?.state === "low_balance" && (providerStatus.balanceUsd ?? 0) > 0))
+          }
+        />
+      ) : null}
       {project ? <LinkNetworkSection key={project.id} project={project} t={t} /> : null}
     </AppShell>
   );
