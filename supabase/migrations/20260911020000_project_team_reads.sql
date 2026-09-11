@@ -183,8 +183,8 @@ END; $$;
 CREATE FUNCTION public.release_project_team_preview(p_actor uuid,p_owner uuid,p_lease uuid)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 BEGIN
- IF NOT pg_try_advisory_xact_lock(hashtext('team-preview-actor'),hashtext(p_actor::text)) THEN RETURN; END IF;
- IF NOT pg_try_advisory_xact_lock(hashtext('team-preview-owner'),hashtext(p_owner::text)) THEN RETURN; END IF;
+ IF NOT pg_try_advisory_xact_lock(hashtext('team-preview-actor'),hashtext(p_actor::text)) THEN RAISE EXCEPTION 'team_preview_release_busy' USING ERRCODE='55P03'; END IF;
+ IF NOT pg_try_advisory_xact_lock(hashtext('team-preview-owner'),hashtext(p_owner::text)) THEN RAISE EXCEPTION 'team_preview_release_busy' USING ERRCODE='55P03'; END IF;
  -- A different actor cannot release an owner's shared slot by presenting its token.
  IF NOT EXISTS(SELECT 1 FROM public.project_team_preview_limits WHERE scope='actor' AND account_id=p_actor AND leases ? p_lease::text) THEN RETURN; END IF;
  UPDATE public.project_team_preview_limits SET leases=leases-p_lease::text WHERE scope='actor' AND account_id=p_actor;

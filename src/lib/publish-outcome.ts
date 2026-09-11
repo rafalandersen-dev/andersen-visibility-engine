@@ -21,7 +21,9 @@ export class PublishNotPossibleError extends Error {
 export class PublishPreflightCapacityError extends Error {
   readonly preflightCapacity = true;
   constructor() {
-    super("Image verification is busy; publication has not started. Try again shortly.");
+    super(
+      "Image verification is temporarily unavailable; publication has not started. Try again shortly.",
+    );
     this.name = "PublishPreflightCapacityError";
   }
 }

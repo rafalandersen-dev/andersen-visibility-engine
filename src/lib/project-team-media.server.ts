@@ -1,3 +1,5 @@
+import { projectTeamPreviewManifest } from "./project-team-preview.server";
+import { TeamVerificationMismatchError } from "./project-team-verification";
 import { TeamAdmissionBusyError } from "./project-team-admission";
 import { acquireTeamMedia, releaseTeamMedia } from "./project-team-media-limit.server";
 import { z } from "zod";
@@ -15,6 +17,7 @@ import { isControlledImageOrigin } from "./images";
 import { fetchPinnedImage } from "./homepage-fetch.server";
 type ContextReader = typeof readTeamReviewContext;
 type Dependencies = {
+  manifest?: typeof projectTeamPreviewManifest;
   acquire?: typeof acquireTeamMedia;
   release?: typeof releaseTeamMedia;
   read?: ContextReader;
@@ -37,6 +40,13 @@ export async function readProjectTeamMedia(
     const run = async () => {
       const before = await read(actorId, target);
       if (before.draftHash !== input.expectedHash) throw new Error("media_changed");
+      const manifest = (deps.manifest ?? projectTeamPreviewManifest)(before);
+      if (
+        !manifest.media.some(
+          (image) => image.imageId === input.imageId && image.kind === (input.kind ?? "content"),
+        )
+      )
+        throw new TeamVerificationMismatchError();
       const images = z
         .array(
           z
@@ -50,7 +60,7 @@ export async function readProjectTeamMedia(
         .parse(before.asset.images ?? []);
       const matches = images.filter((i) => i.id === input.imageId);
       if ((input.kind ?? "content") === "content" && matches.length !== 1)
-        throw new Error("media_missing");
+        throw new TeamVerificationMismatchError();
       const media =
         input.kind === "social"
           ? {
@@ -79,7 +89,7 @@ export async function readProjectTeamMedia(
           const result = await supabaseAdmin.storage
             .from(bucket)
             .download(path, {}, { signal: controller.signal });
-          if (result.error || !result.data) throw new Error("media_missing");
+          if (result.error || !result.data) throw new Error("media_download_unavailable");
           return result.data;
         });
       const storageOrigin = new URL(deps.storageOrigin ?? process.env.SUPABASE_URL ?? "").origin;
@@ -173,7 +183,21 @@ export async function readProjectTeamMedia(
       }),
     ]);
   } catch (error) {
-    if (error instanceof TeamAdmissionBusyError) throw error;
+    if (error instanceof TeamAdmissionBusyError || error instanceof TeamVerificationMismatchError)
+      throw error;
+    if (
+      error instanceof z.ZodError ||
+      (error instanceof Error &&
+        [
+          "media_changed",
+          "media_storage_url",
+          "media_scope",
+          "media_outbound",
+          "media_size",
+          "media_invalid",
+        ].includes(error.message))
+    )
+      throw new TeamVerificationMismatchError();
     throw new Error("The project image could not be confirmed. Refresh before trying again.");
   } finally {
     clearTimeout(timer);
