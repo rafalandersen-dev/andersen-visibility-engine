@@ -39,6 +39,17 @@ CREATE TABLE public.technical_performance_provider_limits (
 ALTER TABLE public.technical_performance_provider_limits ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.technical_performance_provider_limits FROM PUBLIC,anon,authenticated,service_role;
 
+-- Each account has a bounded share of each provider, independent of project deletion.
+CREATE TABLE public.technical_performance_account_limits (
+ user_id uuid NOT NULL, source text NOT NULL CHECK(source IN ('crux','pagespeed')),
+ minute_start timestamptz NOT NULL, minute_count integer NOT NULL CHECK(minute_count BETWEEN 0 AND 2),
+ hour_start timestamptz NOT NULL, hour_count integer NOT NULL CHECK(hour_count BETWEEN 0 AND 10),
+ leases jsonb NOT NULL DEFAULT '{}' CHECK(jsonb_typeof(leases)='object' AND octet_length(leases::text)<1024),
+ PRIMARY KEY(user_id,source)
+);
+ALTER TABLE public.technical_performance_account_limits ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.technical_performance_account_limits FROM PUBLIC,anon,authenticated,service_role;
+
 CREATE FUNCTION public.read_technical_performance_context(p_user uuid,p_project text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE website text;
@@ -72,7 +83,7 @@ END; $$;
 
 CREATE FUNCTION public.authorize_technical_performance_dispatch(p_user uuid,p_project text,p_request uuid,p_lease uuid)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
-DECLARE context jsonb; current public.technical_performance_requests%ROWTYPE; budget public.technical_performance_provider_limits%ROWTYPE; stamp timestamptz:=clock_timestamp(); active_leases jsonb;
+DECLARE context jsonb; current public.technical_performance_requests%ROWTYPE; budget public.technical_performance_provider_limits%ROWTYPE; stamp timestamptz:=clock_timestamp(); active_leases jsonb; account_budget public.technical_performance_account_limits%ROWTYPE; account_leases jsonb;
 BEGIN
  PERFORM public.assert_technical_crawl_owner(p_user,p_project);
  context:=public.read_technical_performance_context(p_user,p_project);
@@ -88,12 +99,18 @@ BEGIN
  SELECT coalesce(jsonb_object_agg(e.key,e.value),'{}') INTO active_leases FROM jsonb_each(budget.leases) e WHERE (e.value#>>'{}')::timestamptz>stamp;
  IF budget.minute_start<=stamp-interval '1 minute' THEN budget.minute_start:=stamp;budget.minute_count:=0; END IF;
  IF budget.hour_start<=stamp-interval '1 hour' THEN budget.hour_start:=stamp;budget.hour_count:=0; END IF;
- IF budget.minute_count>=10 OR budget.hour_count>=100 OR (SELECT count(*) FROM jsonb_object_keys(active_leases))>=4 THEN
+ INSERT INTO public.technical_performance_account_limits VALUES(p_user,current.source,stamp,0,stamp,0,'{}') ON CONFLICT DO NOTHING;
+ SELECT * INTO account_budget FROM public.technical_performance_account_limits WHERE user_id=p_user AND source=current.source FOR UPDATE NOWAIT;
+ SELECT coalesce(jsonb_object_agg(e.key,e.value),'{}') INTO account_leases FROM jsonb_each(account_budget.leases) e WHERE (e.value#>>'{}')::timestamptz>stamp;
+ IF account_budget.minute_start<=stamp-interval '1 minute' THEN account_budget.minute_start:=stamp;account_budget.minute_count:=0; END IF;
+ IF account_budget.hour_start<=stamp-interval '1 hour' THEN account_budget.hour_start:=stamp;account_budget.hour_count:=0; END IF;
+ IF budget.minute_count>=10 OR budget.hour_count>=100 OR (SELECT count(*) FROM jsonb_object_keys(active_leases))>=4 OR account_budget.minute_count>=2 OR account_budget.hour_count>=10 OR (SELECT count(*) FROM jsonb_object_keys(account_leases))>=1 THEN
    UPDATE public.technical_performance_requests SET status='held',error_code='quota',updated_at=stamp WHERE user_id=p_user AND request_id=p_request;
    RETURN false;
  END IF;
  -- Slots remain until the run deadline, including after client timeout or project deletion.
  UPDATE public.technical_performance_provider_limits SET minute_start=budget.minute_start,minute_count=budget.minute_count+1,hour_start=budget.hour_start,hour_count=budget.hour_count+1,leases=active_leases||jsonb_build_object(current.lease_token::text,current.lease_until) WHERE source=current.source;
+ UPDATE public.technical_performance_account_limits SET minute_start=account_budget.minute_start,minute_count=account_budget.minute_count+1,hour_start=account_budget.hour_start,hour_count=account_budget.hour_count+1,leases=account_leases||jsonb_build_object(current.lease_token::text,current.lease_until) WHERE user_id=p_user AND source=current.source;
  UPDATE public.technical_performance_requests SET dispatched_at=clock_timestamp(),updated_at=clock_timestamp() WHERE user_id=p_user AND request_id=p_request;
  RETURN true;
 END; $$;

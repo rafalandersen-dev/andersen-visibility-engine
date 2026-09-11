@@ -23,7 +23,7 @@ beforeAll(async () => {
 }, 30000);
 beforeEach(async () => {
   await db.exec(
-    `RESET ROLE; TRUNCATE technical_performance_requests,technical_performance_provider_limits; UPDATE auth.users SET deleted_at=NULL,banned_until=NULL; UPDATE workspace_entities SET data='{"websiteUrl":"https://example.test"}' WHERE user_id='${owner}';`,
+    `RESET ROLE; TRUNCATE technical_performance_requests,technical_performance_provider_limits,technical_performance_account_limits; UPDATE auth.users SET deleted_at=NULL,banned_until=NULL; UPDATE workspace_entities SET data='{"websiteUrl":"https://example.test"}' WHERE user_id='${owner}';`,
   );
 });
 afterAll(async () => {
@@ -349,3 +349,55 @@ it.each(["minute", "hour", "active"])(
     ).toHaveLength(1);
   },
 );
+
+it.each(["hour", "minute", "active"])(
+  "preserves independent account capacity after one account exhausts its provider share: %s",
+  async (limit) => {
+    const first = await reserve();
+    const leases =
+      limit === "active"
+        ? JSON.stringify({ fixture: new Date(Date.now() + 60000).toISOString() })
+        : "{}";
+    await db.query(
+      "INSERT INTO technical_performance_account_limits VALUES($1,'crux',now(),$2,now(),$3,$4)",
+      [owner, limit === "minute" ? 2 : 0, limit === "hour" ? 10 : 0, leases],
+    );
+    // Five exhausted ten-request shares leave half the deployment's hourly pool available.
+    await db.query(
+      "INSERT INTO technical_performance_provider_limits VALUES('crux',now(),0,now(),50,'{}')",
+    );
+    expect(await authorize(first.record.lease_token)).toBe(false);
+    await db.query("UPDATE workspace_entities SET data=$1 WHERE user_id=$2", [
+      { websiteUrl: "https://example.test" },
+      other,
+    ]);
+    const next = await reserve(second, "p", other);
+    const admitted = (
+      await db.query<{ result: boolean }>(
+        "SELECT authorize_technical_performance_dispatch($1,'p',$2,$3) result",
+        [other, second, next.record.lease_token],
+      )
+    ).rows[0].result;
+    expect(admitted).toBe(true);
+    expect(
+      (await db.query("SELECT hour_count FROM technical_performance_provider_limits")).rows,
+    ).toEqual([{ hour_count: 51 }]);
+  },
+);
+it("retains account provider shares after project deletion and rejects direct role access", async () => {
+  const first = await reserve();
+  expect(await authorize(first.record.lease_token)).toBe(true);
+  await db.query("DELETE FROM workspace_entities WHERE user_id=$1 AND entity_id='p'", [owner]);
+  expect(
+    (await db.query("SELECT hour_count FROM technical_performance_account_limits")).rows,
+  ).toEqual([{ hour_count: 1 }]);
+  await db.query("INSERT INTO workspace_entities VALUES($1,'projects','p',$2,0)", [
+    owner,
+    { websiteUrl: "https://example.test" },
+  ]);
+  for (const role of ["anon", "authenticated", "service_role"]) {
+    await db.exec(`SET ROLE ${role}`);
+    await expect(db.query("SELECT * FROM technical_performance_account_limits")).rejects.toThrow();
+    await db.exec("RESET ROLE");
+  }
+});
