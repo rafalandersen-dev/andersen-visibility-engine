@@ -74,6 +74,14 @@ describe("project membership scoped database reads", () => {
       await expect(read(actor, owner, "p", "a")).rejects.toThrow("team_project_unavailable");
     },
   );
+  it.each(["banned_until=now()+interval '1 hour'", "deleted_at=now()"])(
+    "blocks existing collaborators when their owner is suspended: %s",
+    async (restriction) => {
+      await read(actor, owner, "p", "a");
+      await db.exec(`UPDATE auth.users SET ${restriction} WHERE id='${owner}'`);
+      await expect(read(actor, owner, "p", "a")).rejects.toThrow("team_project_unavailable");
+    },
+  );
   it("allows access after a temporary ban expires", async () => {
     await db.exec(
       `UPDATE auth.users SET banned_until=now()-interval '1 second' WHERE id='${actor}'`,

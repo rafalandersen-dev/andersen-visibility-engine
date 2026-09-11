@@ -105,8 +105,7 @@ BEGIN
     THEN RAISE EXCEPTION 'team_invitation_unavailable'; END IF;
   IF EXISTS(SELECT 1 FROM public.project_team_members WHERE owner_id=p_owner AND project_id=p_project AND actor_id=p_actor AND active AND (expires_at IS NULL OR expires_at>clock_timestamp()))
     THEN RAISE EXCEPTION 'team_membership_exists'; END IF;
-  IF (SELECT count(*) FROM public.project_team_members WHERE owner_id=p_owner AND project_id=p_project)>=1000
-    AND NOT EXISTS(SELECT 1 FROM public.project_team_members WHERE owner_id=p_owner AND project_id=p_project AND actor_id=p_actor)
+  IF (SELECT count(*) FROM public.project_team_members WHERE owner_id=p_owner AND project_id=p_project AND active AND (expires_at IS NULL OR expires_at>clock_timestamp()))>=1000
     THEN RAISE EXCEPTION 'team_membership_capacity'; END IF;
   INSERT INTO public.project_team_members(owner_id,project_id,actor_id,role)
     VALUES(p_owner,p_project,p_actor,invitation.role)
@@ -153,7 +152,7 @@ BEGIN
   PERFORM public.assert_knowledge_project(p_owner,p_project,true);
   PERFORM public.assert_project_team_account(p_owner);
   SELECT coalesce(jsonb_agg(jsonb_build_object('actorId',m.actor_id,'email',u.email,'role',m.role,'revision',m.revision,'active',m.active,'expiresAt',m.expires_at) ORDER BY m.actor_id),'[]'::jsonb)
-    INTO members FROM public.project_team_members m LEFT JOIN auth.users u ON u.id=m.actor_id WHERE m.owner_id=p_owner AND m.project_id=p_project;
+    INTO members FROM (SELECT * FROM public.project_team_members WHERE owner_id=p_owner AND project_id=p_project ORDER BY (active AND (expires_at IS NULL OR expires_at>clock_timestamp())) DESC,actor_id LIMIT 1000) m LEFT JOIN auth.users u ON u.id=m.actor_id;
   SELECT coalesce(jsonb_agg(jsonb_build_object('inviteId',invite_id,'email',recipient_email,'role',role,'state',state,'expiresAt',expires_at,'createdAt',created_at) ORDER BY created_at DESC,invite_id),'[]'::jsonb)
     INTO invitations FROM (SELECT * FROM public.project_team_invitations WHERE owner_id=p_owner AND project_id=p_project ORDER BY (state='pending' AND expires_at>clock_timestamp()) DESC,created_at DESC,invite_id LIMIT 1000) recent;
   SELECT coalesce(jsonb_agg(jsonb_build_object('actorId',actor_id,'subjectId',subject_id,'action',action,'revision',revision,'occurredAt',occurred_at) ORDER BY event_id DESC),'[]'::jsonb)

@@ -18,6 +18,7 @@ CREATE TABLE public.project_team_edits (
 );
 ALTER TABLE public.project_team_edits ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.project_team_edits FROM PUBLIC,anon,authenticated,service_role;
+CREATE INDEX project_team_edits_recent_activity ON public.project_team_edits(owner_id,project_id,created_at);
 CREATE FUNCTION public.save_project_team_draft(p_actor uuid,p_owner uuid,p_project text,p_asset text,p_edit uuid,p_hash text,p_membership bigint,p_patch jsonb)
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE snapshot jsonb; original jsonb; changed jsonb; next_hash text; patch_hash text; field text;
@@ -52,7 +53,7 @@ BEGIN
   -- already queued publication while this edit is being saved.
   PERFORM 1 FROM public.scheduled_publishes WHERE user_id=p_owner AND project_id=p_project AND asset_id=p_asset FOR UPDATE;
   IF EXISTS(SELECT 1 FROM public.scheduled_publishes WHERE user_id=p_owner AND project_id=p_project AND asset_id=p_asset AND status='publishing') THEN RAISE EXCEPTION 'team_publication_in_flight'; END IF;
-  IF (SELECT count(*) FROM public.project_team_edits WHERE owner_id=p_owner AND project_id=p_project)>=10000 THEN RAISE EXCEPTION 'team_edit_capacity'; END IF;
+  IF (SELECT count(*) FROM public.project_team_edits WHERE owner_id=p_owner AND project_id=p_project AND created_at>clock_timestamp()-interval '1 hour')>=10000 THEN RAISE EXCEPTION 'team_edit_capacity'; END IF;
   SELECT data INTO original FROM public.workspace_entities WHERE user_id=p_owner AND collection='content' AND entity_id=p_asset AND data->>'projectId'=p_project;
   changed:=original || p_patch || jsonb_build_object('status','In Review','updatedAt',clock_timestamp());
   -- Hold queued work first so the existing mirror trigger preserves the hold.

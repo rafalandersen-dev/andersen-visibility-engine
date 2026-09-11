@@ -163,6 +163,105 @@ describe("durable project invitation and membership lifecycle", () => {
     );
     await expect(create()).rejects.toThrow("team_invitation_capacity");
   });
+  it.each([false, true])(
+    "counts current memberships instead of former identities: active=%s",
+    async (active) => {
+      await db.query(
+        "WITH accounts AS (INSERT INTO auth.users(id) SELECT gen_random_uuid() FROM generate_series(1,1000) RETURNING id) INSERT INTO project_team_members(owner_id,project_id,actor_id,role,active) SELECT $1,'p',id,'viewer',$2 FROM accounts",
+        [owner, active],
+      );
+      await create();
+      if (active) await expect(accept()).rejects.toThrow("team_membership_capacity");
+      else {
+        await accept();
+        const roster = teamRoster.parse(
+          (
+            await db.query<{ result: unknown }>(
+              "SELECT read_project_team_roster($1,$1,'p') result",
+              [owner],
+            )
+          ).rows[0].result,
+        );
+        expect(roster.members).toHaveLength(1000);
+        expect(roster.members.some((m) => m.actorId === actor && m.active)).toBe(true);
+      }
+    },
+  );
+  it.each([false, true])(
+    "preserves comment history with a recent activity limit: recent=%s",
+    async (recent) => {
+      await create();
+      await accept();
+      await db.query(
+        "INSERT INTO project_team_comments(owner_id,project_id,asset_id,comment_id,actor_id,author_name,body,workspace_revision,created_at) SELECT $1,'p','a',gen_random_uuid(),$2,'Member','Historical',1,now()-CASE WHEN $3 THEN interval '1 minute' ELSE interval '2 hours' END FROM generate_series(1,5101)",
+        [owner, actor, recent],
+      );
+      const add = () =>
+        db.query("SELECT add_project_team_comment($1,$2,'p','a',$3,1,'New comment')", [
+          actor,
+          owner,
+          second,
+        ]);
+      if (recent) await expect(add()).rejects.toThrow("team_comment_capacity");
+      else {
+        await add();
+        const result = teamComments.parse(
+          (
+            await db.query<{ result: unknown }>(
+              "SELECT read_project_team_comments($1,$2,'p','a',0) result",
+              [actor, owner],
+            )
+          ).rows[0].result,
+        );
+        expect(result.remaining).toBe(5002);
+        expect(
+          (
+            await db.query<{ result: unknown }>(
+              "SELECT read_project_team_comments($1,$2,'p','a',5100) result",
+              [actor, owner],
+            )
+          ).rows,
+        ).toHaveLength(1);
+      }
+    },
+  );
+  it("permits editing and reviewing after retained history exceeds the former limits", async () => {
+    await create();
+    await accept();
+    await db.query(
+      "INSERT INTO project_team_edits(owner_id,project_id,asset_id,edit_id,actor_id,before_hash,after_hash,patch_hash,membership_revision,created_at) SELECT $1,'p','a',gen_random_uuid(),$2,repeat('a',64),repeat('b',64),repeat('c',64),1,now()-interval '2 hours' FROM generate_series(1,10000)",
+      [owner, actor],
+    );
+    const snapshot = async () =>
+      (
+        await db.query<{ result: { draftHash: string; workspaceRevision: number } }>(
+          "SELECT read_project_team_snapshot($1,$1,'p','a') result",
+          [owner],
+        )
+      ).rows[0].result;
+    await db.query("SELECT save_project_team_draft($1,$2,'p','a',$3,$4,1,$5)", [
+      actor,
+      owner,
+      second,
+      (await snapshot()).draftHash,
+      { title: "New title" },
+    ]);
+    await db.query(
+      "INSERT INTO project_team_approval_history(owner_id,project_id,asset_id,review_id,actor_id,membership_revision,policy_revision,version_hash,approved,created_at) SELECT $1,'p','a',gen_random_uuid(),$1,1,0,repeat('a',64),true,now()-interval '2 hours' FROM generate_series(1,10000)",
+      [owner],
+    );
+    const current = await snapshot();
+    await db.query("SELECT save_project_team_approval($1,$1,'p','a',$2,$3,$4,$5,1,0,true)", [
+      owner,
+      second,
+      current.workspaceRevision,
+      current.draftHash,
+      "a".repeat(64),
+    ]);
+    expect(
+      (await db.query("SELECT count(*)::int n FROM project_team_approval_history")).rows[0],
+    ).toEqual({ n: 10001 });
+  });
   it("accepts a verified intended recipient, records actor audit and grants scoped reads", async () => {
     await create();
     expect((await accept()).rows[0]).toEqual({ revision: 1 });
@@ -948,6 +1047,24 @@ describe("shared-project notification recipient controls", () => {
       revision,
       membership,
     ]);
+  it.each([false, true])(
+    "retains consent audit history and never blocks opting out: recent=%s",
+    async (recent) => {
+      await create();
+      await accept();
+      await set(owner, "assign", true, 0);
+      await set(actor, "opt_in", true, 1);
+      await db.query(
+        "INSERT INTO project_team_notification_recipient_audit(owner_id,project_id,recipient_id,actor_id,action,enabled,revision,created_at) SELECT $1,'p',$2,$2,'opt_in',true,2,now()-CASE WHEN $3 THEN interval '1 minute' ELSE interval '2 hours' END FROM generate_series(1,10000)",
+        [owner, actor, recent],
+      );
+      if (recent)
+        await expect(set(actor, "opt_in", true, 2)).rejects.toThrow("team_recipient_capacity");
+      else await set(actor, "opt_in", true, 2);
+      await set(actor, "opt_in", false, recent ? 2 : 3);
+      expect(await settings()).toMatchObject({ optedIn: false });
+    },
+  );
   it("requires independent owner assignment and recipient consent with revision checks", async () => {
     await create();
     await accept();
