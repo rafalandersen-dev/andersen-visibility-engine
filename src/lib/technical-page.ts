@@ -204,7 +204,7 @@ export function inspectTechnicalPage(input: {
         append(result.robots, { source: "meta", agent: name, value: content.slice(0, 4000) }, 100);
       if (content.length > 4000) result.complete = false;
     }
-    if (node.tagName === "link") {
+    if (node.tagName === "link" && headNodes.has(node)) {
       const rel = attr(node, "rel").toLowerCase().split(/\s+/);
       const href = resolve(attr(node, "href"));
       if (href && rel.includes("canonical") && retainUrl(href)) append(result.canonicals, href, 20);

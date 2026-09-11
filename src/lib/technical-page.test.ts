@@ -23,7 +23,7 @@ describe("technical HTML observations", () => {
   });
   it("resolves first base, records duplicate canonical evidence and preserves query URLs", () => {
     const r = inspect(
-      '<base href="/docs/"><base href="https://other.test/"><link rel=canonical href="a"><link rel=canonical href="b"><a href="next?q=1#anchor">Next</a><a href="mailto:x@example.test">Mail</a><link rel=alternate hreflang=sv href="/sv/">',
+      '<base href="/docs/"><base href="https://other.test/"><link rel=canonical href="a"><link rel=canonical href="b"><link rel=alternate hreflang=sv href="/sv/"><a href="next?q=1#anchor">Next</a><a href="mailto:x@example.test">Mail</a>',
     );
     expect(r.canonicals).toEqual(["https://example.test/docs/a", "https://example.test/docs/b"]);
     expect(r.internalLinks).toEqual(["https://example.test/docs/next?q=1"]);
@@ -165,5 +165,20 @@ it.each(["text/html", "application/xhtml+xml"])(
     });
     expect(r.descriptions).toEqual(["Head description"]);
     expect(r.robots).toEqual([{ source: "meta", agent: "robots", value: "index" }]);
+  },
+);
+
+it.each(["text/html", "application/xhtml+xml"])(
+  "ignores canonical and hreflang links in the body for %s",
+  (contentType) => {
+    const r = inspectTechnicalPage({
+      url: "https://example.test/",
+      status: 200,
+      observedAt: "2026-09-11T00:00:00Z",
+      headers: { "content-type": contentType },
+      html: '<html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="canonical" href="/head"/><link rel="alternate" hreflang="sv" href="/sv"/></head><body><link rel="canonical" href="/body"/><link rel="alternate" hreflang="da" href="/da"/></body></html>',
+    });
+    expect(r.canonicals).toEqual(["https://example.test/head"]);
+    expect(r.alternateLanguages).toEqual([{ language: "sv", url: "https://example.test/sv" }]);
   },
 );
