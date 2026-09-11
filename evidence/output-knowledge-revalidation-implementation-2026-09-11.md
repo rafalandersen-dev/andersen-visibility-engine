@@ -1,6 +1,6 @@
 # Output knowledge revalidation — 11 September 2026
 
-Status: implemented locally; independent review, Linux validation and release gates pending. No new SQL applied or deployment started. Prior PR121 and all earlier releases remain installed and must not be repeated.
+Status: RELEASED and verified at06:21:42UTC. See [final release evidence](output-knowledge-revalidation-release-2026-09-11.md). Pending/unapplied statements below are chronological history superseded by that record. Never repeat released SQL/deployment.
 
 Owners can inspect the saved assembled deliverable and original/current knowledge versions, explicitly acknowledge each current fact and record a version-bound revalidation. Saved text and original provenance are unchanged. Publication rechecks the actual saved candidate, current evidence context, accepted/applicable knowledge, expiry and exact active review history. Forgotten evidence is never waived; website-source and separate publication-approval gates remain.
 
