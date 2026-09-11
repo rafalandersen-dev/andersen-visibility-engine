@@ -1,3 +1,5 @@
+import { stepTechnicalRun } from "./technical-crawl.server";
+import { robotsEvidence } from "./technical-robots";
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
 import { beforeAll, beforeEach, afterAll, describe, it, expect } from "vitest";
@@ -40,6 +42,37 @@ const save = async (lease: string, revision = 1) =>
     )
   ).rows[0].result;
 describe("durable technical crawl state", () => {
+  it("runs the controller through actual scoped SQL and persists one page", async () => {
+    await start();
+    const rpc = async (name: string, args: Record<string, unknown>) => {
+      if (!/^(?:claim|save|read)_technical_crawl(?:_step)?$/.test(name))
+        throw new Error("unexpected_rpc");
+      const entries = Object.entries(args);
+      const result = await db.query<{ result: unknown }>(
+        `SELECT public.${name}(${entries.map(([key], i) => `${key} => $${i + 1}`).join(",")}) result`,
+        entries.map(([, value]) => value),
+      );
+      return { data: result.rows[0].result, error: null };
+    };
+    const deps = {
+      rpc,
+      robots: async () => robotsEvidence(404),
+      fetcher: () => async (url: string) => ({
+        state: "response" as const,
+        url,
+        status: 200,
+        headers: { "content-type": "text/html" },
+        body: "<h1>Observed</h1>",
+      }),
+      now: () => new Date(),
+    };
+    expect((await stepTechnicalRun(owner, { projectId: "p", runId: run }, deps))?.status).toBe(
+      "running",
+    );
+    const finished = await stepTechnicalRun(owner, { projectId: "p", runId: run }, deps);
+    expect(finished?.status).toBe("completed");
+    expect(finished?.state?.pages[0].observation?.headings).toEqual(["Observed"]);
+  });
   it("starts idempotently and refuses a second active run", async () => {
     await start();
     await start();

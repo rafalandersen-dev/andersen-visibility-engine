@@ -11,7 +11,8 @@ export type CrawlPage = {
     | "robots_unknown"
     | "fetch_failed"
     | "out_of_scope"
-    | "non_html";
+    | "non_html"
+    | "storage_limited";
   observation?: TechnicalPageObservation;
 };
 export type TechnicalCrawl = {
@@ -25,7 +26,12 @@ export type TechnicalCrawl = {
   queue: { url: string; depth: number | null }[];
   pages: CrawlPage[];
   coverageLimits: (
-    "page_limit" | "depth_limit" | "discovery_limit" | "partial_page" | "unobserved_pages"
+    | "page_limit"
+    | "depth_limit"
+    | "discovery_limit"
+    | "partial_page"
+    | "unobserved_pages"
+    | "storage_limit"
   )[];
 };
 export type TechnicalPageFetcher = (url: string) => Promise<
@@ -199,7 +205,7 @@ export async function advanceTechnicalCrawl(
                     queued.depth = depth;
                   continue;
                 }
-                if (next.queue.length + next.pages.length >= MAX_DISCOVERY) {
+                if (next.queue.length + next.pages.length + 1 >= MAX_DISCOVERY) {
                   limitation(next, "discovery_limit");
                   continue;
                 }

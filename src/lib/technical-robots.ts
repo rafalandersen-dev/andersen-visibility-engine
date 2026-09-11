@@ -35,6 +35,10 @@ export function parseRobots(text: string): RobotsDocument {
     const key = line.slice(0, colon).trim().toLowerCase();
     const value = line.slice(colon + 1).trim();
     if (key === "user-agent") {
+      if (value.length > 256 || result.groups.length >= 20000) {
+        result.complete = false;
+        break;
+      }
       if (!/^(?:\*|[a-z_-]+)$/i.test(value)) continue;
       if (!group || hasRules) {
         group = { agents: [], rules: [] };

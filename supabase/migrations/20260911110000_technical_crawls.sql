@@ -112,3 +112,13 @@ BEGIN
 END; $$;
 REVOKE ALL ON FUNCTION public.start_technical_crawl(uuid,text,uuid,bigint,text,text),public.claim_technical_crawl(uuid,text,uuid),public.save_technical_crawl_step(uuid,text,uuid,uuid,bigint,jsonb,text),public.cancel_technical_crawl(uuid,text,uuid),public.read_technical_crawl(uuid,text,uuid),public.list_technical_crawls(uuid,text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.start_technical_crawl(uuid,text,uuid,bigint,text,text),public.claim_technical_crawl(uuid,text,uuid),public.save_technical_crawl_step(uuid,text,uuid,uuid,bigint,jsonb,text),public.cancel_technical_crawl(uuid,text,uuid),public.read_technical_crawl(uuid,text,uuid),public.list_technical_crawls(uuid,text) TO service_role;
+
+CREATE FUNCTION public.read_technical_crawl_context(p_user uuid,p_project text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE website text;
+BEGIN
+ website:=public.assert_technical_crawl_owner(p_user,p_project);
+ RETURN jsonb_build_object('website',website,'revision',(SELECT rev FROM public.workspace_meta WHERE user_id=p_user));
+END; $$;
+REVOKE ALL ON FUNCTION public.read_technical_crawl_context(uuid,text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.read_technical_crawl_context(uuid,text) TO service_role;

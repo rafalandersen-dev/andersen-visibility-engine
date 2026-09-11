@@ -1,0 +1,15 @@
+# Technical crawl implementation — R13
+
+Status: local implementation, unreleased. Overall delivery remains approximately 55%, with implementation approximately 70%. This work does not close full R13 or real-use acceptance.
+
+The crawler uses the authenticated owner and the website saved in their project. Browser inputs contain only project and run identifiers. Starting a run reads the current saved website and workspace revision before the database transaction. Every step requires a short exclusive lease; cancellation invalidates late saves, and responses are read back from persisted state.
+
+The transport checks and pins public addresses before each connection, including redirects, and applies robots rules before page connections. The controller captures robots evidence first, then advances one page per call. Defaults are 100 pages and four link levels. The parser records response status, title, description, H1, canonical and language declarations, robots directives, structured-data JSON syntax/types, and internal links. These are HTML observations, not proof of Google index state, schema eligibility or measured Core Web Vitals.
+
+Saved state is strictly validated and bounded. Storage limits, unreadable pages, discovery limits and partial HTML remain explicit coverage limitations. Oversized state is reduced to a partial completed result rather than repeatedly attempting an unsavable step. No raw HTML is returned or executed.
+
+Migration 20260911110000 is unapplied. It adds a private crawl history table and service-only owner-scoped operations for canonical context, start, claim, save, cancel, read and bounded history. Current-account and project checks, leases, revision comparisons and saved-website change holds are enforced in database functions. History is retained; only one active run per project and 20 new runs per hour are allowed.
+
+Validation includes robots/parser/core checks, cancellation and malformed-state handling, storage limits, SQL privilege/scope/lease tests, and an integration test that initializes and completes an observed page through the actual database functions with a mocked network reader. Focused controller validation: 42 tests across five files; changed-file lint and TypeScript checks pass. Full suite: 3,279 tests across 246 files pass with four workers and a 15-second per-test timeout; production build passes. Earlier five-second runs hit load-sensitive timeouts in existing weekly/database fixtures; the weekly files also passed their isolated 23-test recheck. No test assertions or repository timeout settings were changed.
+
+Next work: connect authenticated run/history/cancel/resume controls and readable per-page evidence in the product; collect bounded sitemap evidence; add exact evidence-to-opportunity linkage; complete review, release verification and authorized real-use acceptance. Merge the final team changes normally before release, preserving both the generalized pinned resource transport and the later pinned image reader. This branch is separate from PR123 and must not be included in that release accidentally.
