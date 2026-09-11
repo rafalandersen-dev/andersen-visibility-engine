@@ -289,7 +289,8 @@ export async function fetchPinnedResource(
           throw new Error("crawl_policy_refused");
         const address = await addressFor(url, controller.signal);
         controller.signal.throwIfAborted();
-        if (options.admit) release = await options.admit(url.href, controller.signal);
+        if (options.admit)
+          release = await options.admit(url.href, controller.signal, address.address);
         controller.signal.throwIfAborted();
         const accept =
           options.purpose === "sitemap"

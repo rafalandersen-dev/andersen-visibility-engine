@@ -1,6 +1,6 @@
 -- UNRELEASED. Per-connection proof, account and hostname admission.
 CREATE TABLE public.technical_crawl_dispatch_limits (
- scope text NOT NULL CHECK(scope IN ('account','target')),
+ scope text NOT NULL CHECK(scope IN ('account','target','address')),
  scope_key text NOT NULL CHECK(length(scope_key) BETWEEN 1 AND 253),
  minute_start timestamptz NOT NULL,
  minute_count integer NOT NULL CHECK(minute_count BETWEEN 0 AND 120),
@@ -17,7 +17,7 @@ ALTER TABLE public.technical_crawls ADD COLUMN admission_hold text CHECK(admissi
 ALTER TABLE public.technical_crawls ADD COLUMN resume_status text CHECK(resume_status IN ('preparing','running'));
 ALTER TABLE public.technical_crawls ADD COLUMN retry_after timestamptz;
 
-CREATE FUNCTION public.acquire_technical_crawl_dispatch(p_user uuid,p_project text,p_run uuid,p_run_lease uuid,p_origin text)
+CREATE FUNCTION public.acquire_technical_crawl_dispatch(p_user uuid,p_project text,p_run uuid,p_run_lease uuid,p_origin text,p_address inet)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE run public.technical_crawls%ROWTYPE; budget public.technical_crawl_dispatch_limits%ROWTYPE; stamp timestamptz:=clock_timestamp(); lease uuid:=gen_random_uuid(); target text; kind text; key text; active_leases jsonb; expires timestamptz;
 BEGIN
@@ -27,9 +27,10 @@ BEGIN
  IF NOT FOUND OR run.status NOT IN ('preparing','running') OR run.origin IS DISTINCT FROM p_origin OR run.website_value IS DISTINCT FROM (SELECT data->>'websiteUrl' FROM public.workspace_entities WHERE user_id=p_user AND collection='projects' AND entity_id=p_project) OR p_run_lease IS NULL OR run.lease_token IS DISTINCT FROM p_run_lease OR run.lease_until IS NULL OR run.lease_until<clock_timestamp()+interval '15 seconds' THEN RAISE EXCEPTION 'technical_dispatch_ownership'; END IF;
  target:=substring(run.origin from '^https?://([^/:]+)');
  IF target IS NULL OR length(target)>253 THEN RAISE EXCEPTION 'technical_dispatch_ownership'; END IF;
+ IF p_address IS NULL OR masklen(p_address)<>(CASE WHEN family(p_address)=4 THEN 32 ELSE 128 END) THEN RAISE EXCEPTION 'technical_dispatch_ownership'; END IF;
  expires:=least(run.lease_until,clock_timestamp()+interval '20 seconds');
- FOREACH kind IN ARRAY ARRAY['account','target'] LOOP
-   key:=CASE WHEN kind='account' THEN p_user::text ELSE target END;
+ FOREACH kind IN ARRAY ARRAY['account','target','address'] LOOP
+   key:=CASE WHEN kind='account' THEN p_user::text WHEN kind='target' THEN target ELSE host(p_address) END;
    IF NOT pg_try_advisory_xact_lock(hashtext('technical-dispatch-'||kind),hashtext(key)) THEN RAISE EXCEPTION 'technical_dispatch_capacity'; END IF;
    INSERT INTO public.technical_crawl_dispatch_limits VALUES(kind,key,stamp,0,stamp,0,'{}',stamp) ON CONFLICT DO NOTHING;
    SELECT * INTO budget FROM public.technical_crawl_dispatch_limits WHERE scope=kind AND scope_key=key FOR UPDATE NOWAIT;
@@ -45,14 +46,14 @@ BEGIN
  RETURN jsonb_build_object('lease',lease,'expiresAt',expires);
 END; $$;
 
-CREATE FUNCTION public.release_technical_crawl_dispatch(p_user uuid,p_origin text,p_lease uuid)
+CREATE FUNCTION public.release_technical_crawl_dispatch(p_user uuid,p_origin text,p_lease uuid,p_address inet)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE target text:=substring(p_origin from '^https?://([^/:]+)');
 BEGIN
- IF p_user IS NULL OR p_lease IS NULL OR target IS NULL THEN RETURN; END IF;
- IF NOT pg_try_advisory_xact_lock(hashtext('technical-dispatch-account'),hashtext(p_user::text)) OR NOT pg_try_advisory_xact_lock(hashtext('technical-dispatch-target'),hashtext(target)) THEN RETURN; END IF;
+ IF p_user IS NULL OR p_lease IS NULL OR target IS NULL OR p_address IS NULL THEN RETURN; END IF;
+ IF NOT pg_try_advisory_xact_lock(hashtext('technical-dispatch-account'),hashtext(p_user::text)) OR NOT pg_try_advisory_xact_lock(hashtext('technical-dispatch-target'),hashtext(target)) OR NOT pg_try_advisory_xact_lock(hashtext('technical-dispatch-address'),hashtext(host(p_address))) THEN RETURN; END IF;
  IF NOT EXISTS(SELECT 1 FROM public.technical_crawl_dispatch_limits WHERE scope='account' AND scope_key=p_user::text AND leases ? p_lease::text) THEN RETURN; END IF;
- UPDATE public.technical_crawl_dispatch_limits SET leases=leases-p_lease::text WHERE (scope='account' AND scope_key=p_user::text) OR (scope='target' AND scope_key=target);
+ UPDATE public.technical_crawl_dispatch_limits SET leases=leases-p_lease::text WHERE (scope='account' AND scope_key=p_user::text) OR (scope='target' AND scope_key=target) OR (scope='address' AND scope_key=host(p_address));
 END; $$;
 
 CREATE FUNCTION public.hold_technical_crawl_admission(p_user uuid,p_project text,p_run uuid,p_lease uuid,p_revision bigint,p_reason text)
@@ -77,5 +78,5 @@ BEGIN
  UPDATE public.technical_crawls SET status=resume_status,resume_status=NULL,admission_hold=NULL,retry_after=NULL,revision=revision+1,updated_at=clock_timestamp() WHERE user_id=p_user AND run_id=p_run;
  RETURN true;
 END; $$;
-REVOKE ALL ON FUNCTION public.acquire_technical_crawl_dispatch(uuid,text,uuid,uuid,text),public.release_technical_crawl_dispatch(uuid,text,uuid),public.hold_technical_crawl_admission(uuid,text,uuid,uuid,bigint,text),public.resume_technical_crawl_admission(uuid,text,uuid) FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.acquire_technical_crawl_dispatch(uuid,text,uuid,uuid,text),public.release_technical_crawl_dispatch(uuid,text,uuid),public.hold_technical_crawl_admission(uuid,text,uuid,uuid,bigint,text),public.resume_technical_crawl_admission(uuid,text,uuid) TO service_role;
+REVOKE ALL ON FUNCTION public.acquire_technical_crawl_dispatch(uuid,text,uuid,uuid,text,inet),public.release_technical_crawl_dispatch(uuid,text,uuid,inet),public.hold_technical_crawl_admission(uuid,text,uuid,uuid,bigint,text),public.resume_technical_crawl_admission(uuid,text,uuid) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.acquire_technical_crawl_dispatch(uuid,text,uuid,uuid,text,inet),public.release_technical_crawl_dispatch(uuid,text,uuid,inet),public.hold_technical_crawl_admission(uuid,text,uuid,uuid,bigint,text),public.resume_technical_crawl_admission(uuid,text,uuid) TO service_role;

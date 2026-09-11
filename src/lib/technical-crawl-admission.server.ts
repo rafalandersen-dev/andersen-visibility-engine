@@ -1,3 +1,4 @@
+import { isIP } from "node:net";
 import { z } from "zod";
 import {
   TechnicalCrawlAdmissionError,
@@ -22,8 +23,9 @@ export function technicalConnectionAdmission(
   origin: string,
   rpc: TechnicalRpc = technicalDispatchRpc,
 ): CrawlConnectionAdmission {
-  return async (url, signal) => {
-    if (signal.aborted || new URL(url).origin !== origin) throw new TechnicalCrawlAdmissionError();
+  return async (url, signal, address) => {
+    if (!isIP(address) || signal.aborted || new URL(url).origin !== origin)
+      throw new TechnicalCrawlAdmissionError();
     let lease: { lease: string; expiresAt: string };
     try {
       const result = await rpc("acquire_technical_crawl_dispatch", {
@@ -32,6 +34,7 @@ export function technicalConnectionAdmission(
         p_run: run,
         p_run_lease: runLease,
         p_origin: origin,
+        p_address: address,
       });
       if (result.error) {
         const error = result.error as { code?: unknown; message?: unknown };
@@ -53,6 +56,7 @@ export function technicalConnectionAdmission(
       await rpc("release_technical_crawl_dispatch", {
         p_user: user,
         p_origin: origin,
+        p_address: address,
         p_lease: lease.lease,
       });
     };

@@ -21,7 +21,7 @@ describe("scoped connection admission", () => {
         lease,
         origin,
         rpc,
-      )(origin, new AbortController().signal),
+      )(origin, new AbortController().signal, "8.8.8.8"),
     ).rejects.toMatchObject({
       reason: "ownership",
       message: "technical_crawl_admission_ownership",
@@ -31,28 +31,34 @@ describe("scoped connection admission", () => {
   it("uses server-bound run scope and releases its exact admitted token", async () => {
     const rpc = vi.fn(async () => record());
     const admit = technicalConnectionAdmission(user, "p", run, lease, origin, rpc);
-    const release = await admit(origin + "/page?q=1", new AbortController().signal);
+    const release = await admit(origin + "/page?q=1", new AbortController().signal, "8.8.8.8");
     expect(rpc).toHaveBeenCalledWith("acquire_technical_crawl_dispatch", {
       p_user: user,
       p_project: "p",
       p_run: run,
       p_run_lease: lease,
       p_origin: origin,
+      p_address: "8.8.8.8",
     });
     await release();
     expect(rpc).toHaveBeenLastCalledWith("release_technical_crawl_dispatch", {
       p_user: user,
       p_origin: origin,
+      p_address: "8.8.8.8",
       p_lease: lease,
     });
   });
   it("refuses foreign origins or already cancelled requests before RPC", async () => {
     const rpc = vi.fn(async () => record());
     const admit = technicalConnectionAdmission(user, "p", run, lease, origin, rpc);
-    await expect(admit("https://other.test", new AbortController().signal)).rejects.toMatchObject({
+    await expect(
+      admit("https://other.test", new AbortController().signal, "8.8.8.8"),
+    ).rejects.toMatchObject({
       reason: "ownership",
     });
-    await expect(admit(origin, AbortSignal.abort())).rejects.toMatchObject({ reason: "ownership" });
+    await expect(admit(origin, AbortSignal.abort(), "8.8.8.8")).rejects.toMatchObject({
+      reason: "ownership",
+    });
     expect(rpc).not.toHaveBeenCalled();
   });
   it.each([
@@ -69,7 +75,7 @@ describe("scoped connection admission", () => {
         lease,
         origin,
         rpc,
-      )(origin, new AbortController().signal),
+      )(origin, new AbortController().signal, "8.8.8.8"),
     ).rejects.toMatchObject({ reason });
   });
   it("releases a grant that arrives after cancellation without exposing it to transport", async () => {
@@ -79,7 +85,14 @@ describe("scoped connection admission", () => {
       return record();
     });
     await expect(
-      technicalConnectionAdmission(user, "p", run, lease, origin, rpc)(origin, controller.signal),
+      technicalConnectionAdmission(
+        user,
+        "p",
+        run,
+        lease,
+        origin,
+        rpc,
+      )(origin, controller.signal, "8.8.8.8"),
     ).rejects.toMatchObject({ reason: "capacity" });
     expect(rpc).toHaveBeenCalledTimes(2);
   });

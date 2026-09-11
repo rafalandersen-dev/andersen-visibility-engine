@@ -7,4 +7,5 @@ export class TechnicalCrawlAdmissionError extends Error {
 export type CrawlConnectionAdmission = (
   url: string,
   signal: AbortSignal,
+  address: string,
 ) => Promise<() => Promise<void>>;

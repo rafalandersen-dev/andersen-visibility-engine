@@ -312,7 +312,8 @@ describe("structured pinned technical observations", () => {
 
   it("admits every redirect separately and releases the preceding connection first", async () => {
     const events: string[] = [];
-    const admit = vi.fn(async (url: string) => {
+    const admit = vi.fn(async (url: string, _signal: AbortSignal, address: string) => {
+      expect(address).toBe("93.184.216.34");
       events.push("admit:" + url);
       return async () => {
         events.push("release:" + url);
