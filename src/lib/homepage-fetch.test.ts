@@ -628,13 +628,16 @@ describe("structured pinned technical observations", () => {
       mocks.request.mockImplementation(
         reply(response([], 302, { location: "https://other.test/private" })),
       );
-      expect(
-        await fetchPinnedResource("https://example.com/", {
+      await expect(
+        fetchPinnedResource("https://example.com/", {
           purpose,
           origin: "https://example.com",
           authorize: () => true,
         }),
-      ).toBeNull();
+      ).rejects.toMatchObject({
+        name: "TechnicalPolicyRefusedError",
+        url: "https://other.test/private",
+      });
       expect(mocks.lookup).toHaveBeenCalledTimes(1);
       mocks.request.mockImplementation(reply(response([], 302, { location: "/private" })));
       mocks.lookup.mockClear();
@@ -643,12 +646,10 @@ describe("structured pinned technical observations", () => {
         origin: "https://example.com",
         authorize: (url) => !url.endsWith("/private"),
       });
-      if (purpose === "technical")
-        await expect(refused).rejects.toMatchObject({
-          name: "TechnicalPolicyRefusedError",
-          url: "https://example.com/private",
-        });
-      else await expect(refused).resolves.toBeNull();
+      await expect(refused).rejects.toMatchObject({
+        name: "TechnicalPolicyRefusedError",
+        url: "https://example.com/private",
+      });
       expect(mocks.lookup).toHaveBeenCalledTimes(1);
     },
   );

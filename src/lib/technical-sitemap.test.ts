@@ -1,4 +1,7 @@
-import { TechnicalCrawlAdmissionError } from "./technical-crawl-admission";
+import {
+  TechnicalCrawlAdmissionError,
+  TechnicalPolicyRefusedError,
+} from "./technical-crawl-admission";
 import { startTechnicalCrawl } from "./technical-crawl";
 import { parseTechnicalCrawlState } from "./technical-crawl-state";
 import { describe, it, expect, vi } from "vitest";
@@ -301,3 +304,38 @@ describe("plain-text sitemap observations", () => {
     expect(next.limitations).toContain("unreadable");
   });
 });
+
+it.each(["/private.xml", "https://other.test/map.xml"])(
+  "retains known redirect refusal %s",
+  async (destination) => {
+    const state = startTechnicalSitemaps(origin, []);
+    const policy = robotsEvidence(200, "User-agent: *\nDisallow: /private.xml", "text/plain");
+    const next = await advanceTechnicalSitemaps(
+      state,
+      origin,
+      policy,
+      async () => {
+        throw new TechnicalPolicyRefusedError(new URL(destination, origin).href);
+      },
+      now,
+    );
+    expect(next.files[0].state).toBe(
+      destination.startsWith("/") ? "robots_disallowed" : "out_of_scope",
+    );
+    expect(next.files[0].status).toBeUndefined();
+    expect(next.entries).toEqual([]);
+    const crawl = startTechnicalCrawl({
+      siteUrl: origin,
+      robots: policy,
+      robotsFetchedAt: now,
+      now,
+    });
+    const restored = parseTechnicalCrawlState({ ...crawl, sitemaps: next }, origin);
+    expect(restored.sitemaps?.files[0].state).toBe(next.files[0].state);
+    if (destination.startsWith("/")) {
+      expect(restored.sitemaps?.files[0].blockedUrl).toBe(origin + destination);
+      next.files[0].blockedUrl = "https://other.test/private";
+      expect(() => parseTechnicalCrawlState({ ...crawl, sitemaps: next }, origin)).toThrow();
+    }
+  },
+);

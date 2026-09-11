@@ -140,6 +140,7 @@ const schema = z
                 depth: z.number().int().min(0).max(3),
                 observedAt: date,
                 finalUrl: url.optional(),
+                blockedUrl: url.optional(),
                 status: z.number().int().min(100).max(599).optional(),
                 state: z.enum([
                   "read",
@@ -149,6 +150,7 @@ const schema = z
                   "non_xml",
                   "http_error",
                   "fetch_failed",
+                  "out_of_scope",
                   "robots_disallowed",
                   "robots_unknown",
                 ]),
@@ -205,6 +207,12 @@ export function parseTechnicalCrawlState(raw: unknown, origin: string): Technica
         (p.blockedUrl &&
           (new URL(p.blockedUrl).origin !== origin ||
             !["robots_disallowed", "robots_unknown"].includes(p.state))),
+    ) ||
+    state.sitemaps?.files.some(
+      (f) =>
+        f.blockedUrl &&
+        (new URL(f.blockedUrl).origin !== origin ||
+          !["robots_disallowed", "robots_unknown"].includes(f.state)),
     ) ||
     (state.sitemaps &&
       [

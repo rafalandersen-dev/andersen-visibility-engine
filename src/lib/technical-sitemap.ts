@@ -1,4 +1,7 @@
-import { TechnicalCrawlAdmissionError } from "./technical-crawl-admission";
+import {
+  TechnicalCrawlAdmissionError,
+  TechnicalPolicyRefusedError,
+} from "./technical-crawl-admission";
 import { SaxesParser, type SaxesTagNS } from "saxes";
 import { isSafePublicUrl } from "./safe-fetch";
 import { evaluateRobots, type RobotsEvidence } from "./technical-robots";
@@ -8,6 +11,7 @@ export type SitemapObservation = {
   depth: number;
   observedAt: string;
   finalUrl?: string;
+  blockedUrl?: string;
   status?: number;
   state:
     | "read"
@@ -17,6 +21,7 @@ export type SitemapObservation = {
     | "non_xml"
     | "http_error"
     | "fetch_failed"
+    | "out_of_scope"
     | "robots_disallowed"
     | "robots_unknown";
   kind?: "urlset" | "sitemapindex" | "text";
@@ -276,7 +281,17 @@ export async function advanceTechnicalSitemaps(
       }
     } catch (error) {
       if (error instanceof TechnicalCrawlAdmissionError) throw error;
-      file.state = "fetch_failed";
+      if (error instanceof TechnicalPolicyRefusedError) {
+        const blocked = scoped(error.url, origin);
+        if (!blocked) file.state = "out_of_scope";
+        else {
+          const decision = evaluateRobots(robots, "MiloGrowthAuditBot", blocked).decision;
+          if (decision !== "allowed") {
+            file.state = decision === "disallowed" ? "robots_disallowed" : "robots_unknown";
+            file.blockedUrl = blocked;
+          }
+        }
+      } else file.state = "fetch_failed";
     }
   }
   if (file.state !== "read") limit(next, "unreadable");

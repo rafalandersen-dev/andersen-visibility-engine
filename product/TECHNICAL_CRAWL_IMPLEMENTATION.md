@@ -301,3 +301,10 @@ Validation:80 focused page/crawl/ownership tests passed, then30 ownership tests 
 ### Actual document head identity
 
 Metadata ancestry now starts only at the XHTML/HTML document root's direct head child. Nested body elements named head cannot supply title, description, robots, canonical, alternate-language or base-URL metadata. A regression covers these fields together and verifies that relative body links still resolve against the observed page.39 focused page/finding tests pass. Earlier combined3797tests/282files and production build passed at0fc4f87 before this final parser correction; fresh validation and review are required for the new commit. No production migration or crawl occurred.
+
+
+### Typed redirect refusals for pages and sitemaps
+
+Native transport now preserves the refused destination for both technical-page and sitemap policy decisions. Cross-origin redirects produce the known out_of_scope outcome; same-origin robots refusals are re-evaluated using saved policy and retained as robots_disallowed/robots_unknown. No destination DNS or connection occurs after refusal. Sitemap blocked URLs are retained only for same-origin robots outcomes, with saved-state scope validation; no response status, content or observation is fabricated.
+
+Validation:123 focused transport/adapter/page/sitemap tests pass, including both transport purpose modes, cross-origin page transitions, sitemap robots refusals and stored-state round-trip with foreign blocked-URL rejection (`/tmp/milo-redirect-evidence-tests.log`). The first new sitemap fixture used an incorrect initializer argument; corrected to an empty declared-sitemap list before the passing run. Review findings3992490476/3992490488 addressed. No production mutation/provider call occurred; current review and release validation remain required.

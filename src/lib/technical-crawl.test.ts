@@ -209,3 +209,13 @@ it("persists a robots-disallowed redirect without inventing a page observation",
   next.pages[0].blockedUrl = "https://other.test/private";
   expect(() => parseTechnicalCrawlState(next, next.origin)).toThrow();
 });
+
+it("retains a cross-origin redirect refusal without fabricating an observation", async () => {
+  const next = await advanceTechnicalCrawl(
+    start(),
+    async () => ({ state: "policy_refused", url: "https://other.test/" }),
+    now,
+  );
+  expect(next.pages[0].state).toBe("out_of_scope");
+  expect(next.pages[0].observation).toBeUndefined();
+});
