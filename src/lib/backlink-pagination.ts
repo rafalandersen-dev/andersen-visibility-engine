@@ -64,16 +64,18 @@ export function normalizeBacklinkPage(
       tasks: z
         .array(
           z.object({
-            data: z.object({ search_after_token: token.nullish() }),
-            result: z.array(z.object({ search_after_token: token.nullish() })).length(1),
+            data: z.object({ search_after_token: token.or(z.literal("")).nullish() }),
+            result: z
+              .array(z.object({ search_after_token: token.or(z.literal("")).nullish() }))
+              .length(1),
           }),
         )
         .length(1),
     })
     .parse(raw);
-  const requestToken = envelope.tasks[0].data.search_after_token ?? null;
+  const requestToken = envelope.tasks[0].data.search_after_token || null;
   if (requestToken !== (previous?.token ?? null)) throw Error("backlink_page_echo_mismatch");
-  const nextToken = envelope.tasks[0].result[0].search_after_token ?? null;
+  const nextToken = envelope.tasks[0].result[0].search_after_token || null;
   if (nextToken && (nextToken === previous?.token || observation.providerReturnedCount === 0))
     throw Error("backlink_page_did_not_advance");
   const returnedInChain = (previous?.priorReturnedCount ?? 0) + observation.providerReturnedCount;

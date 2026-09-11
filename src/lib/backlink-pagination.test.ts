@@ -140,3 +140,9 @@ it("never turns cumulative row counts into a unique backlink count", () => {
   expect(next.observation.retainedCount).toBe(1);
   expect(next.observation.links[0].actualPlacedAt).toBeNull();
 });
+
+it("treats an empty response cursor as absent without claiming full coverage", () => {
+  const next = normalizeBacklinkPage(fixture(null, ""), scope, observed);
+  expect(next.continuation).toBeNull();
+  expect(next.observation.moreProviderResults).toBe(true);
+});
