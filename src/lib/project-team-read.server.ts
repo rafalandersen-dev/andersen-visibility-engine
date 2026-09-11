@@ -10,6 +10,11 @@ export type TeamReadRpc = (
 const envelope = teamProjectTarget
   .extend({
     actorId: z.string().uuid(),
+    canEdit: z.boolean(),
+    draftHash: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/)
+      .nullable(),
     membershipRevision: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
     workspaceRevision: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
     project: z.unknown(),
@@ -53,6 +58,8 @@ export async function readTeamProject(
       snapshot.projectId !== input.projectId
     )
       throw new Error("team_read_scope");
+    if (Boolean(input.assetId) !== Boolean(snapshot.draftHash))
+      throw new Error("team_draft_version");
     const result = projectTeamList(
       { ownerId: input.ownerId, projectId: input.projectId },
       snapshot.project,
@@ -69,6 +76,8 @@ export async function readTeamProject(
             snapshot.draft,
           )
         : null,
+      canEdit: snapshot.canEdit,
+      draftHash: snapshot.draftHash,
       membershipRevision: snapshot.membershipRevision,
       workspaceRevision: snapshot.workspaceRevision,
     };

@@ -5,6 +5,8 @@ const actorId = "00000000-0000-4000-8000-000000000002";
 const target = { ownerId, projectId: "p" };
 const snapshot = {
   ...target,
+  canEdit: false,
+  draftHash: null,
   actorId,
   membershipRevision: 1,
   workspaceRevision: 3,

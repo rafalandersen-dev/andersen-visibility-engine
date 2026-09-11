@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
   list: vi.fn(),
   read: vi.fn(),
   rpc: vi.fn(),
+  edit: vi.fn(),
 }));
 vi.mock("@/integrations/supabase/auth-middleware", () => ({ requireSupabaseAuth: h.auth }));
 vi.mock("@tanstack/react-start", () => ({
@@ -36,6 +37,7 @@ vi.mock("./project-team-membership.server", () => ({
   projectTeamRpc: h.rpc,
 }));
 vi.mock("./project-team-read.server", () => ({ readTeamProject: h.read }));
+vi.mock("./project-team-edit.server", () => ({ saveProjectTeamDraft: h.edit }));
 import * as endpoints from "./project-team.functions";
 const actor = "00000000-0000-4000-8000-000000000001";
 const owner = "00000000-0000-4000-8000-000000000002";
@@ -44,7 +46,7 @@ const invoke = (fn: unknown, data: unknown) =>
   (fn as (args: unknown) => Promise<unknown>)({ data, context: { userId: actor } });
 describe("team authentication entry points", () => {
   it("requires authentication on every entry point", () => {
-    expect(h.registered).toHaveLength(7);
+    expect(h.registered).toHaveLength(8);
     expect(h.registered.every((items) => items.length === 1 && items[0] === h.auth)).toBe(true);
   });
   it("derives owner administration from authentication and rejects supplied actor/owner overrides", async () => {
@@ -80,5 +82,41 @@ describe("team authentication entry points", () => {
     await invoke(endpoints.listMyProjectTeamsFn, {});
     expect(h.list).toHaveBeenCalledWith(actor);
     expect(() => invoke(endpoints.listMyProjectTeamsFn, { actorId: owner })).toThrow();
+  });
+  it("binds draft edits to the authenticated actor and rejects approval/evidence fields", async () => {
+    const fields = {
+      title: "Draft",
+      markdown: "Edited",
+      h1: "",
+      metaTitle: "",
+      metaDescription: "",
+      cta: "",
+      outline: [],
+      faq: [],
+    };
+    const data = {
+      ownerId: owner,
+      projectId: "p",
+      assetId: "a",
+      editId: invite,
+      expectedHash: "a".repeat(64),
+      expectedMembershipRevision: 1,
+      fields,
+    };
+    await invoke(endpoints.saveProjectTeamDraftFn, data);
+    expect(h.edit).toHaveBeenCalledWith(actor, data);
+    expect(() => invoke(endpoints.saveProjectTeamDraftFn, { ...data, actorId: owner })).toThrow();
+    expect(() =>
+      invoke(endpoints.saveProjectTeamDraftFn, {
+        ...data,
+        fields: { ...fields, status: "Approved" },
+      }),
+    ).toThrow();
+    expect(() =>
+      invoke(endpoints.saveProjectTeamDraftFn, {
+        ...data,
+        fields: { ...fields, knowledgeReferences: [] },
+      }),
+    ).toThrow();
   });
 });

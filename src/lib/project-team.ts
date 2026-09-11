@@ -121,3 +121,23 @@ export const teamComments = teamCommentTarget
     remaining: z.number().int().min(0).max(5000),
   })
   .strict();
+export const teamDraftFields = z
+  .object({
+    title: z.string().trim().min(1).max(1000),
+    markdown: z.string().max(1000000),
+    h1: z.string().max(1000),
+    metaTitle: z.string().max(1000),
+    metaDescription: z.string().max(4000),
+    cta: z.string().max(16000),
+    outline: z.array(z.string().max(1000)).max(100),
+    faq: z.array(z.object({ q: z.string().max(1000), a: z.string().max(16000) }).strict()).max(100),
+  })
+  .strict();
+export const teamDraftEdit = teamCommentTarget
+  .extend({
+    editId: uuid,
+    expectedHash: z.string().regex(/^[a-f0-9]{64}$/),
+    expectedMembershipRevision: revision,
+    fields: teamDraftFields,
+  })
+  .strict();

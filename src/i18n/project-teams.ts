@@ -1,4 +1,26 @@
 const en = {
+  "collaboration.editDraft": "Edit draft",
+  "collaboration.editHelp":
+    "Saving returns this draft to review and withdraws its previous publication approval.",
+  "collaboration.editConflict":
+    "The saved draft or your role changed. Copy any edits you want to keep before loading the latest saved version.",
+  "collaboration.loadLatest": "Load latest saved version",
+  "collaboration.draftSaved": "Draft saved for review.",
+  "collaboration.editError":
+    "The draft could not be saved. Your edits are still here; check the current version and your access before retrying.",
+  "collaboration.saveDraft": "Save for review",
+  "collaboration.question": "Question",
+  "collaboration.answer": "Answer",
+  "collaboration.removeQuestion": "Remove question",
+  "collaboration.addQuestion": "Add question",
+  "collaboration.field.title": "Title",
+  "collaboration.field.h1": "Main heading",
+  "collaboration.field.metaTitle": "Search title",
+  "collaboration.field.metaDescription": "Search description",
+  "collaboration.field.markdown": "Article (Markdown)",
+  "collaboration.field.cta": "Call to action",
+  "collaboration.field.outline": "Outline — one heading per line",
+  "collaboration.field.faq": "Questions and answers",
   "collaboration.comments": "Comments",
   "collaboration.commentLabel": "Your comment",
   "collaboration.addComment": "Add comment",
@@ -43,6 +65,28 @@ const en = {
 };
 type Copy = Record<keyof typeof en, string>;
 const pl: Copy = {
+  "collaboration.editDraft": "Edytuj szkic",
+  "collaboration.editHelp":
+    "Zapisanie kieruje szkic do ponownej oceny i cofa poprzednią zgodę na publikację.",
+  "collaboration.editConflict":
+    "Szkic lub Twoja rola uległy zmianie. Skopiuj zmiany, które chcesz zachować, przed wczytaniem najnowszej wersji.",
+  "collaboration.loadLatest": "Wczytaj najnowszą wersję",
+  "collaboration.draftSaved": "Zapisano szkic do oceny.",
+  "collaboration.editError":
+    "Nie udało się zapisać szkicu. Twoje zmiany są zachowane tutaj; sprawdź wersję i dostęp przed ponowną próbą.",
+  "collaboration.saveDraft": "Zapisz do oceny",
+  "collaboration.question": "Pytanie",
+  "collaboration.answer": "Odpowiedź",
+  "collaboration.removeQuestion": "Usuń pytanie",
+  "collaboration.addQuestion": "Dodaj pytanie",
+  "collaboration.field.title": "Tytuł",
+  "collaboration.field.h1": "Główny nagłówek",
+  "collaboration.field.metaTitle": "Tytuł w wyszukiwarce",
+  "collaboration.field.metaDescription": "Opis w wyszukiwarce",
+  "collaboration.field.markdown": "Artykuł (Markdown)",
+  "collaboration.field.cta": "Wezwanie do działania",
+  "collaboration.field.outline": "Plan — jeden nagłówek w wierszu",
+  "collaboration.field.faq": "Pytania i odpowiedzi",
   "collaboration.comments": "Komentarze",
   "collaboration.commentLabel": "Twój komentarz",
   "collaboration.addComment": "Dodaj komentarz",
@@ -86,6 +130,28 @@ const pl: Copy = {
   "collaboration.revoked": "Cofnięte",
 };
 const sv: Copy = {
+  "collaboration.editDraft": "Redigera utkast",
+  "collaboration.editHelp":
+    "När du sparar skickas utkastet till granskning och tidigare publiceringsgodkännande återkallas.",
+  "collaboration.editConflict":
+    "Det sparade utkastet eller din roll har ändrats. Kopiera ändringar du vill behålla innan du läser in den senaste versionen.",
+  "collaboration.loadLatest": "Läs in senaste sparade versionen",
+  "collaboration.draftSaved": "Utkast sparat för granskning.",
+  "collaboration.editError":
+    "Utkastet kunde inte sparas. Dina ändringar finns kvar här; kontrollera aktuell version och åtkomst innan du försöker igen.",
+  "collaboration.saveDraft": "Spara för granskning",
+  "collaboration.question": "Fråga",
+  "collaboration.answer": "Svar",
+  "collaboration.removeQuestion": "Ta bort fråga",
+  "collaboration.addQuestion": "Lägg till fråga",
+  "collaboration.field.title": "Titel",
+  "collaboration.field.h1": "Huvudrubrik",
+  "collaboration.field.metaTitle": "Söktitel",
+  "collaboration.field.metaDescription": "Sökbeskrivning",
+  "collaboration.field.markdown": "Artikel (Markdown)",
+  "collaboration.field.cta": "Uppmaning",
+  "collaboration.field.outline": "Disposition — en rubrik per rad",
+  "collaboration.field.faq": "Frågor och svar",
   "collaboration.comments": "Kommentarer",
   "collaboration.commentLabel": "Din kommentar",
   "collaboration.addComment": "Lägg till kommentar",
@@ -129,6 +195,28 @@ const sv: Copy = {
   "collaboration.revoked": "Återkallad",
 };
 const da: Copy = {
+  "collaboration.editDraft": "Rediger kladde",
+  "collaboration.editHelp":
+    "Når du gemmer, sendes kladden til gennemgang, og den tidligere udgivelsesgodkendelse tilbagekaldes.",
+  "collaboration.editConflict":
+    "Den gemte kladde eller din rolle er ændret. Kopier de ændringer, du vil beholde, før du indlæser den nyeste version.",
+  "collaboration.loadLatest": "Indlæs nyeste gemte version",
+  "collaboration.draftSaved": "Kladde gemt til gennemgang.",
+  "collaboration.editError":
+    "Kladden kunne ikke gemmes. Dine ændringer er her stadig; kontroller den aktuelle version og adgang, før du prøver igen.",
+  "collaboration.saveDraft": "Gem til gennemgang",
+  "collaboration.question": "Spørgsmål",
+  "collaboration.answer": "Svar",
+  "collaboration.removeQuestion": "Fjern spørgsmål",
+  "collaboration.addQuestion": "Tilføj spørgsmål",
+  "collaboration.field.title": "Titel",
+  "collaboration.field.h1": "Hovedoverskrift",
+  "collaboration.field.metaTitle": "Søgetitel",
+  "collaboration.field.metaDescription": "Søgebeskrivelse",
+  "collaboration.field.markdown": "Artikel (Markdown)",
+  "collaboration.field.cta": "Opfordring til handling",
+  "collaboration.field.outline": "Disposition — én overskrift pr. linje",
+  "collaboration.field.faq": "Spørgsmål og svar",
   "collaboration.comments": "Kommentarer",
   "collaboration.commentLabel": "Din kommentar",
   "collaboration.addComment": "Tilføj kommentar",

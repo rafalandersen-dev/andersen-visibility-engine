@@ -1,3 +1,4 @@
+import { ProjectTeamDraftEditor } from "@/components/ProjectTeamDraftEditor";
 import { ProjectTeamComments } from "@/components/ProjectTeamComments";
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
@@ -356,8 +357,8 @@ function SharedProject({ target }: { target: { ownerId: string; projectId: strin
       <h2 className="text-lg font-semibold">{t("collaboration.drafts")}</h2>
       {query.isPending && <p role="status">{t("collaboration.loading")}</p>}
       {query.isError && <p role="alert">{t("collaboration.error")}</p>}
-      {query.data && !query.isError && (
-        <>
+      {query.data && (
+        <div hidden={query.isError}>
           <p className="font-medium">{query.data.project.name}</p>
           {query.data.draft ? (
             <>
@@ -368,6 +369,25 @@ function SharedProject({ target }: { target: { ownerId: string; projectId: strin
               <pre className="whitespace-pre-wrap break-words font-sans">
                 {query.data.draft.markdown}
               </pre>
+              {query.data.canEdit && query.data.draftHash && (
+                <ProjectTeamDraftEditor
+                  ownerId={target.ownerId}
+                  projectId={target.projectId}
+                  assetId={query.data.draft.id}
+                  hash={query.data.draftHash}
+                  membershipRevision={query.data.membershipRevision}
+                  fields={{
+                    title: query.data.draft.title,
+                    markdown: query.data.draft.markdown,
+                    h1: query.data.draft.h1,
+                    metaTitle: query.data.draft.metaTitle,
+                    metaDescription: query.data.draft.metaDescription,
+                    cta: query.data.draft.cta,
+                    outline: query.data.draft.outline,
+                    faq: query.data.draft.faq,
+                  }}
+                />
+              )}
               <ProjectTeamComments
                 key={query.data.draft.id}
                 ownerId={target.ownerId}
@@ -407,7 +427,7 @@ function SharedProject({ target }: { target: { ownerId: string; projectId: strin
               </div>
             </>
           )}
-        </>
+        </div>
       )}
     </section>
   );

@@ -8,7 +8,7 @@ This is the current operational entry point. Read [progress review](PROGRESS_REV
 
 ## Current implementation work
 
-Project collaborator workflow is in progress locally on `codex/milo-project-teams-20260911`: safe project reads, verified-recipient invitations, membership changes/removal, actor audit, authenticated management/discovery screens in four locales, and revision-bound draft comments. Local full suite3,122tests/232files, types, build and focused lint pass. Three new team migrations are UNRELEASED and have not been applied. D07 approval policy, scoped editing/approval, notification delivery and real-user acceptance remain open. [Team implementation and policy proposal](TEAM_ACCESS_POLICY_PROPOSAL.md). Overall estimate remains about55%; this work is not a new production release.
+Project collaborator workflow is in progress locally on `codex/milo-project-teams-20260911`: safe project reads, verified-recipient invitations, membership changes/removal, actor audit, authenticated management/discovery screens in four locales, revision-bound draft comments, and exact-snapshot owner/Editor draft editing. Edits preserve private metadata, return content to review and withdraw prior publication/knowledge reviews. Local full suite3,125tests/232files, types, build and focused lint pass. Four new team migrations are UNRELEASED and have not been applied. D07 approval policy, delegated approval, rendered review, notification delivery and real-user acceptance remain open. [Team implementation and policy proposal](TEAM_ACCESS_POLICY_PROPOSAL.md). Overall estimate remains about55%; this work is not a new production release.
 
 ## Recorded baseline and latest repository check
 

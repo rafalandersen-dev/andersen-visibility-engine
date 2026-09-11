@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { teamAcceptInput, teamOwnerAction, teamRosterInput } from "./project-team";
-import { teamCommentRead, teamCommentAdd, teamReadInput } from "./project-team";
+import { teamDraftEdit, teamCommentRead, teamCommentAdd, teamReadInput } from "./project-team";
 export const updateProjectTeamFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v: unknown) => teamOwnerAction.parse(v))
@@ -52,4 +52,11 @@ export const addProjectTeamCommentFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { addProjectTeamComment } = await import("./project-team-comments.server");
     return addProjectTeamComment(context.userId, data);
+  });
+export const saveProjectTeamDraftFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => teamDraftEdit.parse(v))
+  .handler(async ({ data, context }) => {
+    const { saveProjectTeamDraft } = await import("./project-team-edit.server");
+    return saveProjectTeamDraft(context.userId, data);
   });

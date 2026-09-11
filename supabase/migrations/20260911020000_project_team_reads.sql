@@ -23,7 +23,7 @@ REVOKE ALL ON public.project_team_members FROM PUBLIC,anon,authenticated,service
 CREATE FUNCTION public.read_project_team_snapshot(p_actor uuid,p_owner uuid,p_project text,p_asset text DEFAULT NULL,p_offset integer DEFAULT 0)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE project jsonb; drafts jsonb; draft jsonb; membership_revision bigint:=1;
-  workspace_revision bigint; remaining bigint;
+  workspace_revision bigint; remaining bigint; member_role text:='owner'; draft_hash text;
 BEGIN
   IF p_actor IS NULL OR p_owner IS NULL OR p_project IS NULL OR p_project !~ '^[A-Za-z0-9_-]{1,64}$'
     OR p_offset IS NULL OR p_offset<0 OR p_offset>100000
@@ -32,7 +32,7 @@ BEGIN
   SELECT rev INTO workspace_revision FROM public.workspace_meta WHERE user_id=p_owner FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'team_project_unavailable'; END IF;
   IF p_actor<>p_owner THEN
-    SELECT revision INTO membership_revision FROM public.project_team_members
+    SELECT revision,role INTO membership_revision,member_role FROM public.project_team_members
       WHERE owner_id=p_owner AND project_id=p_project AND actor_id=p_actor
         AND active AND (expires_at IS NULL OR expires_at>clock_timestamp()) FOR SHARE;
     IF NOT FOUND THEN RAISE EXCEPTION 'team_project_unavailable'; END IF;
@@ -67,7 +67,10 @@ BEGIN
       WHERE user_id=p_owner AND collection='content' AND entity_id=p_asset AND data->>'projectId'=p_project;
     IF NOT FOUND OR octet_length(draft::text)>2000000 THEN RAISE EXCEPTION 'team_project_unavailable'; END IF;
   END IF;
-  RETURN jsonb_build_object('actorId',p_actor,'ownerId',p_owner,'projectId',p_project,
+  IF p_asset IS NOT NULL THEN
+    SELECT encode(sha256(convert_to(data::text,'UTF8')),'hex') INTO draft_hash FROM public.workspace_entities WHERE user_id=p_owner AND collection='content' AND entity_id=p_asset AND data->>'projectId'=p_project;
+  END IF;
+  RETURN jsonb_build_object('draftHash',draft_hash,'canEdit',member_role IN ('owner','editor'),'actorId',p_actor,'ownerId',p_owner,'projectId',p_project,
     'membershipRevision',membership_revision,'workspaceRevision',workspace_revision,
     'project',project,'drafts',drafts,'remaining',remaining,'draft',draft);
 END; $$;

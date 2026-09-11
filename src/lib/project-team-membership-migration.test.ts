@@ -14,22 +14,30 @@ beforeAll(async () => {
     CREATE SCHEMA auth; CREATE TABLE auth.identities(user_id uuid,identity_data jsonb); CREATE TABLE auth.users(id uuid PRIMARY KEY,email text,email_confirmed_at timestamptz,deleted_at timestamptz,banned_until timestamptz,raw_user_meta_data jsonb DEFAULT '{}');
     INSERT INTO auth.users(id,email,email_confirmed_at) VALUES('${owner}','owner@example.test',now()),('${actor}','member@example.test',now()),('${other}','other@example.test',now());
     INSERT INTO auth.identities VALUES('${actor}','{"email":"member@example.test","email_verified":true}');
+    CREATE TABLE public.scheduled_publishes(user_id uuid,project_id text,asset_id text,status text,updated_at timestamptz);
+    CREATE TABLE public.ai_generation_results(receipt_id uuid PRIMARY KEY,user_id uuid,payload jsonb);
     CREATE TABLE public.workspace_meta(user_id uuid PRIMARY KEY,rev bigint DEFAULT 1);
     CREATE TABLE public.workspace_entities(user_id uuid,collection text,entity_id text,data jsonb DEFAULT '{}'::jsonb, PRIMARY KEY(user_id,collection,entity_id));
+    ALTER TABLE public.workspace_entities ADD COLUMN updated_at timestamptz DEFAULT now();
     INSERT INTO public.workspace_meta(user_id) VALUES('${owner}'),('${other}');
     INSERT INTO public.workspace_entities VALUES('${owner}','projects','p','{"name":"Assigned"}'),('${other}','projects','p','{"name":"Other"}');`);
   for (const file of [
     "20260909200000_project_knowledge.sql",
+    "20260910100000_source_refresh.sql",
+    "20260911000000_output_knowledge_integrity.sql",
+    "20260911010000_output_knowledge_reviews.sql",
     "20260911020000_project_team_reads.sql",
     "20260911030000_project_team_membership.sql",
     "20260911040000_project_team_comments.sql",
+    "20260910170000_publication_approval.sql",
+    "20260911050000_project_team_edits.sql",
   ])
     await db.exec(readFileSync(`supabase/migrations/${file}`, "utf8"));
 }, 30000);
 beforeEach(async () => {
-  await db.exec(`RESET ROLE; TRUNCATE public.project_team_comments,public.project_team_members,public.project_team_invitations,public.project_team_audit;
+  await db.exec(`RESET ROLE; TRUNCATE public.output_knowledge_reviews,public.project_team_edits,public.scheduled_publishes,public.publication_approvals,public.project_team_comments,public.project_team_members,public.project_team_invitations,public.project_team_audit;
     UPDATE public.workspace_meta SET rev=1;
-    INSERT INTO public.workspace_entities VALUES('${owner}','content','a','{"projectId":"p","title":"Draft","status":"Draft","updatedAt":"now","markdown":"Saved draft"}') ON CONFLICT DO NOTHING;
+    INSERT INTO public.workspace_entities VALUES('${owner}','content','a','{"projectId":"p","title":"Draft","status":"Draft","updatedAt":"now","markdown":"Saved draft"}') ON CONFLICT(user_id,collection,entity_id) DO UPDATE SET data=EXCLUDED.data;
     UPDATE auth.identities SET identity_data='{"email":"member@example.test","email_verified":true}';
     UPDATE auth.users SET email_confirmed_at=now(),deleted_at=NULL,banned_until=NULL;
     UPDATE auth.users SET email='member@example.test' WHERE id='${actor}';`);
@@ -226,6 +234,93 @@ describe("durable project invitation and membership lifecycle", () => {
       db.query("SELECT public.read_project_team_comments($1,$2,'p','a')", [actor, owner]),
     ).rejects.toThrow("team_project_unavailable");
   });
+  it("saves an exact editor patch, preserves private evidence and withdraws approval while holding the queue", async () => {
+    await create();
+    await accept();
+    await db.exec(`UPDATE public.workspace_entities SET data=data || '{"status":"Approved","sourceDependencies":[{"sourceId":"retained"}],"publishExternalId":"existing"}' WHERE collection='content';
+      INSERT INTO public.scheduled_publishes VALUES('${owner}','p','a','pending',now());`);
+    await db.query("SELECT public.set_publication_approval($1,'p','a',1,$2,true)", [
+      owner,
+      "a".repeat(64),
+    ]);
+    await db.query(
+      "INSERT INTO public.output_knowledge_reviews(user_id,project_id,asset_id,review_id,version_hash,context_hash) VALUES($1,'p','a',$2,$3,$3)",
+      [owner, invite, "a".repeat(64)],
+    );
+    const snapshot = (
+      await db.query<{ result: { draftHash: string } }>(
+        "SELECT public.read_project_team_snapshot($1,$2,'p','a') result",
+        [actor, owner],
+      )
+    ).rows[0].result;
+    const save = () =>
+      db.query<{ hash: string }>(
+        "SELECT public.save_project_team_draft($1,$2,'p','a',$3,$4,1,$5) hash",
+        [actor, owner, second, snapshot.draftHash, { markdown: "Edited draft" }],
+      );
+    const result = await save();
+    await save();
+    expect(result.rows[0].hash).not.toBe(snapshot.draftHash);
+    const saved = (
+      await db.query<{ data: unknown }>(
+        "SELECT data FROM public.workspace_entities WHERE collection='content'",
+      )
+    ).rows[0].data;
+    expect(saved).toMatchObject({
+      markdown: "Edited draft",
+      status: "In Review",
+      sourceDependencies: [{ sourceId: "retained" }],
+      publishExternalId: "existing",
+    });
+    expect((await db.query("SELECT approved FROM public.publication_approvals")).rows[0]).toEqual({
+      approved: false,
+    });
+    expect((await db.query("SELECT status FROM public.scheduled_publishes")).rows[0]).toEqual({
+      status: "review_required",
+    });
+    expect(
+      (await db.query("SELECT rev FROM public.workspace_meta WHERE user_id=$1", [owner])).rows[0],
+    ).toEqual({ rev: 2 });
+    expect((await db.query("SELECT * FROM public.project_team_edits")).rows).toHaveLength(1);
+    expect((await db.query("SELECT active FROM public.output_knowledge_reviews")).rows[0]).toEqual({
+      active: false,
+    });
+  });
+  it("rejects changed draft, changed membership, viewers, private-field patches and in-flight publication", async () => {
+    await create();
+    await accept();
+    const snapshot = (
+      await db.query<{ result: { draftHash: string } }>(
+        "SELECT public.read_project_team_snapshot($1,$2,'p','a') result",
+        [actor, owner],
+      )
+    ).rows[0].result;
+    const save = (patch: unknown = { markdown: "Edit" }, hash = snapshot.draftHash, revision = 1) =>
+      db.query("SELECT public.save_project_team_draft($1,$2,'p','a',$3,$4,$5,$6)", [
+        actor,
+        owner,
+        second,
+        hash,
+        revision,
+        patch,
+      ]);
+    await expect(save({ status: "Approved" })).rejects.toThrow("team_edit_invalid");
+    await expect(save({ sourceDependencies: [] })).rejects.toThrow("team_edit_invalid");
+    await expect(save({ markdown: "Edit" }, "b".repeat(64))).rejects.toThrow("team_draft_changed");
+    await db.exec(
+      `INSERT INTO public.scheduled_publishes VALUES('${owner}','p','a','publishing',now())`,
+    );
+    await expect(save()).rejects.toThrow("team_publication_in_flight");
+    await db.exec(
+      "TRUNCATE public.scheduled_publishes;UPDATE public.project_team_members SET revision=2",
+    );
+    await expect(save()).rejects.toThrow("team_edit_permission_changed");
+    await db.exec("UPDATE public.project_team_members SET role='viewer'");
+    await expect(save({ markdown: "Edit" }, snapshot.draftHash, 2)).rejects.toThrow(
+      "team_edit_permission_changed",
+    );
+    expect((await db.query("SELECT * FROM public.project_team_edits")).rows).toHaveLength(0);
+  });
   it("restricts all lifecycle functions and private tables to service-mediated calls", async () => {
     for (const role of ["anon", "authenticated", "service_role"]) {
       await db.exec(`SET ROLE ${role}`);
@@ -234,12 +329,22 @@ describe("durable project invitation and membership lifecycle", () => {
         "project_team_audit",
         "project_team_members",
         "project_team_comments",
+        "project_team_edits",
       ])
         await expect(db.query(`SELECT * FROM public.${table}`)).rejects.toThrow(
           /permission denied/,
         );
       if (role !== "service_role") {
         await expect(create()).rejects.toThrow(/permission denied/);
+        await expect(
+          db.query("SELECT public.save_project_team_draft($1,$2,'p','a',$3,$4,1,$5)", [
+            actor,
+            owner,
+            second,
+            "a".repeat(64),
+            { markdown: "Edit" },
+          ]),
+        ).rejects.toThrow(/permission denied/);
         await expect(
           db.query("SELECT public.add_project_team_comment($1,$2,'p','a',$3,1,'Comment')", [
             actor,
