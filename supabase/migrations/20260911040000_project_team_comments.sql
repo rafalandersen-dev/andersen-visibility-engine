@@ -20,6 +20,7 @@ CREATE INDEX project_team_comments_asset ON public.project_team_comments(owner_i
 ALTER TABLE public.project_team_comments ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.project_team_comments FROM PUBLIC,anon,authenticated,service_role;
 CREATE INDEX project_team_comments_recent_activity ON public.project_team_comments(owner_id,project_id,created_at);
+CREATE INDEX project_team_comments_actor_activity ON public.project_team_comments(owner_id,project_id,actor_id,created_at);
 CREATE FUNCTION public.add_project_team_comment(p_actor uuid,p_owner uuid,p_project text,p_asset text,p_comment uuid,p_expected bigint,p_body text)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE snapshot jsonb; previous public.project_team_comments%ROWTYPE; author text;
@@ -37,6 +38,7 @@ BEGIN
   END IF;
   IF (snapshot->>'workspaceRevision')::bigint<>p_expected THEN RAISE EXCEPTION 'team_comment_draft_changed' USING ERRCODE='40001'; END IF;
   IF (SELECT count(*) FROM public.project_team_comments WHERE owner_id=p_owner AND project_id=p_project AND created_at>clock_timestamp()-interval '1 hour')>=5000 THEN RAISE EXCEPTION 'team_comment_capacity'; END IF;
+  IF (SELECT count(*) FROM public.project_team_comments WHERE owner_id=p_owner AND project_id=p_project AND actor_id=p_actor AND created_at>clock_timestamp()-interval '1 hour')>=100 THEN RAISE EXCEPTION 'team_comment_capacity'; END IF;
   SELECT left(coalesce(nullif(btrim(raw_user_meta_data->>'full_name'),''),'Collaborator'),120) INTO author FROM auth.users WHERE id=p_actor;
   IF NOT FOUND THEN RAISE EXCEPTION 'team_comment_unavailable'; END IF;
   INSERT INTO public.project_team_comments(owner_id,project_id,asset_id,comment_id,actor_id,author_name,body,workspace_revision)

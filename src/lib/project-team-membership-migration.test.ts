@@ -187,6 +187,28 @@ describe("durable project invitation and membership lifecycle", () => {
       }
     },
   );
+  it("isolates a collaborator comment quota, permits exact retries and recovers after one hour", async () => {
+    await create();
+    await accept();
+    const add = (who = actor, id = second) =>
+      db.query("SELECT add_project_team_comment($1,$2,'p','a',$3,1,'New comment')", [
+        who,
+        owner,
+        id,
+      ]);
+    await add();
+    await db.query(
+      "INSERT INTO project_team_comments(owner_id,project_id,asset_id,comment_id,actor_id,author_name,body,workspace_revision) SELECT $1,'p','a',gen_random_uuid(),$2,'Member','Recent',1 FROM generate_series(1,99)",
+      [owner, actor],
+    );
+    await add(); // An exact retry does not consume another slot.
+    await expect(add(actor, invite)).rejects.toThrow("team_comment_capacity");
+    await add(owner, invite); // A teammate's quota remains available.
+    expect((await db.query("SELECT * FROM project_team_comments")).rows).toHaveLength(101);
+    await db.exec("UPDATE project_team_comments SET created_at=now()-interval '2 hours'");
+    await add(actor, other);
+    expect((await db.query("SELECT * FROM project_team_comments")).rows).toHaveLength(102);
+  });
   it.each([false, true])(
     "preserves comment history with a recent activity limit: recent=%s",
     async (recent) => {
