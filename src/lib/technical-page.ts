@@ -80,7 +80,11 @@ export function inspectTechnicalPage(input: {
     url: target.href,
     status: input.status,
     observedAt: input.observedAt,
-    complete: true,
+    complete:
+      input.status >= 200 &&
+      input.status < 300 &&
+      ![204, 205, 206, 226].includes(input.status) &&
+      !Object.keys(input.headers ?? {}).some((key) => key.toLowerCase() === "content-range"),
     title: "",
     descriptions: [],
     headings: [],
@@ -175,6 +179,7 @@ export function inspectTechnicalPage(input: {
       } else if ("childNodes" in item)
         for (let i = item.childNodes.length - 1; i >= 0; i--) stack.push(item.childNodes[i]);
     }
+    if (stack.length || size > 16000) result.complete = false;
     return chunks.join("").replace(/\s+/g, " ").trim().slice(0, 16000);
   };
   for (const [name, value] of Object.entries(input.headers ?? {}))

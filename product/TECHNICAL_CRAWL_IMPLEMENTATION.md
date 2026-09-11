@@ -308,3 +308,10 @@ Metadata ancestry now starts only at the XHTML/HTML document root's direct head 
 Native transport now preserves the refused destination for both technical-page and sitemap policy decisions. Cross-origin redirects produce the known out_of_scope outcome; same-origin robots refusals are re-evaluated using saved policy and retained as robots_disallowed/robots_unknown. No destination DNS or connection occurs after refusal. Sitemap blocked URLs are retained only for same-origin robots outcomes, with saved-state scope validation; no response status, content or observation is fabricated.
 
 Validation:123 focused transport/adapter/page/sitemap tests pass, including both transport purpose modes, cross-origin page transitions, sitemap robots refusals and stored-state round-trip with foreign blocked-URL rejection (`/tmp/milo-redirect-evidence-tests.log`). The first new sitemap fixture used an incorrect initializer argument; corrected to an empty declared-sitemap list before the passing run. Review findings3992490476/3992490488 addressed. No production mutation/provider call occurred; current review and release validation remain required.
+
+
+### Incomplete representations cannot establish missing content
+
+Page inspection marks no-content/reset-content/partial/delta responses (204,205,206,226), non-success statuses and explicit Content-Range responses incomplete. Text extraction also marks the observation incomplete whenever its16000-character work cap leaves unread nodes or a text node exceeds the cap. This prevents truncated heading text or representation-free HTML responses from supporting missing title/description/H1 findings while preserving HTTP error evidence.
+
+Validation:62 page/crawl/finding tests pass (`/tmp/milo-incomplete-page-tests.log`), including five status transitions, Content-Range with status200, late meaningful H1 text after a long whitespace span, and an oversized single text node. Findings3992597169/3992597180 addressed. No production migration, crawl or provider call occurred. Current build/review remain required before release.

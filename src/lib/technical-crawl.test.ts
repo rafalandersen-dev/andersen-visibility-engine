@@ -219,3 +219,30 @@ it("retains a cross-origin redirect refusal without fabricating an observation",
   expect(next.pages[0].state).toBe("out_of_scope");
   expect(next.pages[0].observation).toBeUndefined();
 });
+
+it.each([204, 205, 206, 226, 304])(
+  "does not derive absence findings from incomplete HTTP %s",
+  async (status) => {
+    const next = await advanceTechnicalCrawl(
+      start(),
+      async () => ({ ...response("https://example.test/", ""), status }),
+      now,
+    );
+    expect(next.pages[0].observation?.complete).toBe(false);
+    expect(next.coverageLimits).toContain("partial_page");
+    expect(technicalFindings(next.pages[0])).toEqual([]);
+  },
+);
+it("does not infer missing headings when extraction leaves text unread", async () => {
+  const next = await advanceTechnicalCrawl(
+    start(),
+    async () =>
+      response(
+        "https://example.test/",
+        "<h1><span>" + " ".repeat(16000) + "</span><span>Actual heading</span></h1>",
+      ),
+    now,
+  );
+  expect(next.pages[0].observation?.complete).toBe(false);
+  expect(technicalFindings(next.pages[0])).not.toContain("missing_h1");
+});

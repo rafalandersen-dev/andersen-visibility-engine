@@ -214,3 +214,18 @@ it.each(["text/html", "application/xhtml+xml"])(
     expect(r.alternateLanguages).toEqual([{ language: "sv", url: "https://example.test/sv" }]);
   },
 );
+
+it("marks explicit Content-Range incomplete even with status200", () => {
+  expect(
+    inspectTechnicalPage({
+      url: "https://example.test/",
+      status: 200,
+      observedAt: "2026-09-11T00:00:00Z",
+      html: "<h1>Fragment</h1>",
+      headers: { "Content-Range": "bytes 0-99/500" },
+    }).complete,
+  ).toBe(false);
+});
+it("marks an oversized single heading text node incomplete", () => {
+  expect(inspect("<h1>" + "a".repeat(16001) + "</h1>").complete).toBe(false);
+});
