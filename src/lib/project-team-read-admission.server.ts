@@ -1,3 +1,5 @@
+import { projectTeamRpc } from "./project-team-membership.server";
+import { readProjectTeamComments } from "./project-team-comments.server";
 import { acquireTeamPreview, releaseTeamPreview } from "./project-team-preview-limit.server";
 import { readTeamProject, type TeamReadRpc } from "./project-team-read.server";
 
@@ -8,8 +10,18 @@ export async function readAdmittedTeamProject(
   input: Parameters<typeof readTeamProject>[1],
   rpc: TeamReadRpc,
 ) {
+  return readTeamProject(actor, input, admittedReadRpc(actor, rpc));
+}
+export async function readAdmittedTeamComments(
+  actor: string,
+  input: Parameters<typeof readProjectTeamComments>[1],
+  rpc: TeamReadRpc,
+) {
+  return readProjectTeamComments(actor, input, admittedReadRpc(actor, rpc));
+}
+export function admittedReadRpc(actor: string, rpc: TeamReadRpc = projectTeamRpc): TeamReadRpc {
   const deadline = Date.now() + 10000;
-  return readTeamProject(actor, input, async (name, args) => {
+  return async (name, args) => {
     const lease = await acquireTeamPreview(
       args.p_actor as string,
       args.p_owner as string,
@@ -22,5 +34,5 @@ export async function readAdmittedTeamProject(
     } finally {
       await releaseTeamPreview(actor, args.p_owner as string, lease, rpc).catch(() => {});
     }
-  });
+  };
 }

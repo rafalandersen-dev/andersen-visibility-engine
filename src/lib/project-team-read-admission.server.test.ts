@@ -1,5 +1,8 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { readAdmittedTeamProject } from "./project-team-read-admission.server";
+import {
+  readAdmittedTeamProject,
+  readAdmittedTeamComments,
+} from "./project-team-read-admission.server";
 const actor = "00000000-0000-4000-8000-000000000001";
 const ownerId = "00000000-0000-4000-8000-000000000002";
 const lease = "00000000-0000-4000-8000-000000000003";
@@ -62,6 +65,20 @@ it("releases late admission without starting snapshot work", async () => {
   await vi.advanceTimersByTimeAsync(1);
   expect(rpc.mock.calls.map(([name]) => name)).toEqual([
     "acquire_project_team_preview",
+    "release_project_team_preview",
+  ]);
+});
+
+it("admits comment reads before the snapshot-backed comments RPC", async () => {
+  const rpc = vi.fn(async (name: string) =>
+    name === "acquire_project_team_preview"
+      ? { data: lease, error: null }
+      : { data: null, error: "unavailable" },
+  );
+  await expect(readAdmittedTeamComments(actor, { ...input, assetId: "a" }, rpc)).rejects.toThrow();
+  expect(rpc.mock.calls.map(([name]) => name)).toEqual([
+    "acquire_project_team_preview",
+    "read_project_team_comments",
     "release_project_team_preview",
   ]);
 });

@@ -44,9 +44,9 @@ describe("recipient settings authentication", () => {
     expect(h.registered).toEqual([[h.auth], [h.auth], [h.auth]]);
     const target = { ownerId: owner, projectId: "p", recipientId: actor };
     await invoke(readTeamNotificationSettingsFn, target);
-    expect(h.read).toHaveBeenCalledWith(actor, target);
+    expect(h.read).toHaveBeenCalledWith(actor, target, expect.any(Function));
     await invoke(readTeamNotificationHistoryFn, target);
-    expect(h.history).toHaveBeenCalledWith(actor, target);
+    expect(h.history).toHaveBeenCalledWith(actor, target, expect.any(Function));
     const data = {
       ...target,
       action: "opt_in",

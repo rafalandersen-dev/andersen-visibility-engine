@@ -42,7 +42,10 @@ vi.mock("./project-team-membership.server", () => ({
   listMyProjectTeams: h.list,
   projectTeamRpc: h.rpc,
 }));
-vi.mock("./project-team-read-admission.server", () => ({ readAdmittedTeamProject: h.read }));
+vi.mock("./project-team-read-admission.server", () => ({
+  readAdmittedTeamProject: h.read,
+  admittedReadRpc: () => h.rpc,
+}));
 vi.mock("./project-team-edit.server", () => ({ saveProjectTeamDraft: h.edit }));
 vi.mock("./project-team-policy.server", () => ({
   readOwnerTeamPolicy: h.policyRead,
@@ -137,7 +140,7 @@ describe("team authentication entry points", () => {
   });
   it("keeps policy selection owner-scoped and requires an explicit valid choice", async () => {
     await invoke(endpoints.readOwnerTeamPolicyFn, { projectId: "p" });
-    expect(h.policyRead).toHaveBeenCalledWith(actor, { projectId: "p" });
+    expect(h.policyRead).toHaveBeenCalledWith(actor, { projectId: "p" }, h.rpc);
     const data = { projectId: "p", mode: "separate_reviewers", expectedRevision: 0 };
     await invoke(endpoints.changeOwnerTeamPolicyFn, data);
     expect(h.policyChange).toHaveBeenCalledWith(actor, data);
@@ -163,7 +166,7 @@ describe("team authentication entry points", () => {
     await invoke(endpoints.saveProjectTeamReviewFn, data);
     expect(h.decision).toHaveBeenCalledWith(actor, data);
     await invoke(endpoints.readProjectTeamReviewHistoryFn, scope);
-    expect(h.history).toHaveBeenCalledWith(actor, scope);
+    expect(h.history).toHaveBeenCalledWith(actor, scope, h.rpc);
     expect(() => invoke(endpoints.saveProjectTeamReviewFn, { ...data, actorId: owner })).toThrow();
     expect(() =>
       invoke(endpoints.readProjectTeamReviewHistoryFn, { ...scope, actorId: owner }),

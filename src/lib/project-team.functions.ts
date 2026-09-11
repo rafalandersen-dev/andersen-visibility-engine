@@ -51,8 +51,9 @@ export const readProjectTeamCommentsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v: unknown) => teamCommentRead.parse(v))
   .handler(async ({ data, context }) => {
-    const { readProjectTeamComments } = await import("./project-team-comments.server");
-    return readProjectTeamComments(context.userId, data);
+    const { readAdmittedTeamComments } = await import("./project-team-read-admission.server");
+    const { projectTeamRpc } = await import("./project-team-membership.server");
+    return readAdmittedTeamComments(context.userId, data, projectTeamRpc);
   });
 export const addProjectTeamCommentFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -73,7 +74,8 @@ export const readOwnerTeamPolicyFn = createServerFn({ method: "POST" })
   .inputValidator((v: unknown) => teamRosterInput.parse(v))
   .handler(async ({ data, context }) => {
     const { readOwnerTeamPolicy } = await import("./project-team-policy.server");
-    return readOwnerTeamPolicy(context.userId, data);
+    const { admittedReadRpc } = await import("./project-team-read-admission.server");
+    return readOwnerTeamPolicy(context.userId, data, admittedReadRpc(context.userId));
   });
 export const changeOwnerTeamPolicyFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -108,5 +110,6 @@ export const readProjectTeamReviewHistoryFn = createServerFn({ method: "POST" })
   .inputValidator((v: unknown) => teamCommentTarget.parse(v))
   .handler(async ({ data, context }) => {
     const { readProjectTeamReviewHistory } = await import("./project-team-review.server");
-    return readProjectTeamReviewHistory(context.userId, data);
+    const { admittedReadRpc } = await import("./project-team-read-admission.server");
+    return readProjectTeamReviewHistory(context.userId, data, admittedReadRpc(context.userId));
   });
