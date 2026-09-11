@@ -1,3 +1,4 @@
+import { googleIndexCopy } from "./google-index";
 import { technicalCrawlCopy } from "./technical-crawl";
 import { projectTeams } from "./project-teams";
 import { locationCoverage } from "./location-coverage";
@@ -44,6 +45,7 @@ export function translate(
 ): string {
   const l = isSupported(lang) ? lang : "en";
   let s =
+    googleIndexCopy[l][key] ??
     technicalCrawlCopy[l][key] ??
     projectTeams[l][key] ??
     locationCoverage[l][key] ??
