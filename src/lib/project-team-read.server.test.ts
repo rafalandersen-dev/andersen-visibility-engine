@@ -1,3 +1,5 @@
+import { teamCall } from "./project-team-membership.server";
+import { TeamAdmissionBusyError } from "./project-team-admission";
 import { describe, expect, it, vi } from "vitest";
 import { readTeamProject, type TeamReadRpc } from "./project-team-read.server";
 const ownerId = "00000000-0000-4000-8000-000000000001";
@@ -84,4 +86,26 @@ describe("authenticated project team reader contract", () => {
       vi.useRealTimers();
     }
   });
+});
+
+it("preserves only explicit database NOWAIT contention through read and team RPC boundaries", async () => {
+  const rpc = vi.fn(async () => ({
+    data: null,
+    error: { code: "55P03", message: "private table detail" },
+  }));
+  await expect(readTeamProject(actorId, target, rpc)).rejects.toBeInstanceOf(
+    TeamAdmissionBusyError,
+  );
+  await expect(teamCall("read_project_team_snapshot", {}, rpc)).rejects.toBeInstanceOf(
+    TeamAdmissionBusyError,
+  );
+  for (const code of ["42501", "40001", "57014"]) {
+    rpc.mockResolvedValue({ data: null, error: { code, message: "private table detail" } });
+    await expect(readTeamProject(actorId, target, rpc)).rejects.not.toBeInstanceOf(
+      TeamAdmissionBusyError,
+    );
+    await expect(teamCall("read_project_team_snapshot", {}, rpc)).rejects.not.toBeInstanceOf(
+      TeamAdmissionBusyError,
+    );
+  }
 });

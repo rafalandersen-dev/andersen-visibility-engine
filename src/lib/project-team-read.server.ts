@@ -1,3 +1,4 @@
+import { TeamAdmissionBusyError, assertTeamAdmission } from "./project-team-admission";
 import { z } from "zod";
 import { teamReadInput } from "./project-team";
 import { projectTeamDraft, projectTeamList, teamProjectTarget } from "./project-team-view";
@@ -50,6 +51,7 @@ export async function readTeamProject(
         timer = setTimeout(() => reject(new Error("team_read_timeout")), 10000);
       }),
     ]);
+    assertTeamAdmission(response?.error);
     if (!response || response.error) throw new Error("team_read_failed");
     const snapshot = envelope.parse(response.data);
     if (
@@ -81,7 +83,8 @@ export async function readTeamProject(
       membershipRevision: snapshot.membershipRevision,
       workspaceRevision: snapshot.workspaceRevision,
     };
-  } catch {
+  } catch (error) {
+    if (error instanceof TeamAdmissionBusyError) throw error;
     // Same response for absent, revoked, unrelated and unavailable projects;
     // never forward database detail or confirm another client's project exists.
     throw new Error("Project access could not be confirmed. Refresh and try again.");

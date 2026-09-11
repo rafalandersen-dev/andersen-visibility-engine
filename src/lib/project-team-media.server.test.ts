@@ -1,3 +1,4 @@
+import { TeamAdmissionBusyError } from "./project-team-admission";
 import { describe, expect, it, vi } from "vitest";
 import { readProjectTeamMedia } from "./project-team-media.server";
 import type { readTeamReviewContext } from "./project-team-context.server";
@@ -35,6 +36,19 @@ const deps = (image?: Record<string, unknown>) => ({
   download: vi.fn(async () => new Blob([bytes])),
 });
 describe("scoped collaborator media", () => {
+  it.each([false, true])(
+    "preserves workspace contention and releases media admission: afterDownload=%s",
+    async (afterDownload) => {
+      const d = deps();
+      if (afterDownload) d.read.mockResolvedValueOnce(context());
+      d.read.mockRejectedValueOnce(new TeamAdmissionBusyError());
+      await expect(readProjectTeamMedia(actor, input, d)).rejects.toBeInstanceOf(
+        TeamAdmissionBusyError,
+      );
+      expect(d.release).toHaveBeenCalledWith(actor, owner);
+      expect(d.download).toHaveBeenCalledTimes(afterDownload ? 1 : 0);
+    },
+  );
   it("requires actor admission before private context or storage access", async () => {
     const d = deps();
     d.acquire.mockRejectedValueOnce(new Error("team_media_capacity"));

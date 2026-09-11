@@ -1,3 +1,4 @@
+import { TeamAdmissionBusyError } from "./project-team-admission";
 import { z } from "zod";
 import { TeamMediaCapacityError } from "./project-team-media-limit.server";
 import { PublishPreflightCapacityError, PublishNotPossibleError } from "./publish-outcome";
@@ -148,7 +149,8 @@ export async function assertPublicationApproved(
       await import("./publication-reviewed-images.server");
     await assertReviewedPublicationImages(scope, current.hash, { rpc });
   } catch (error) {
-    if (error instanceof TeamMediaCapacityError) throw new PublishPreflightCapacityError();
+    if (error instanceof TeamMediaCapacityError || error instanceof TeamAdmissionBusyError)
+      throw new PublishPreflightCapacityError();
     throw new PublishNotPossibleError("publication_approval_required");
   }
 }
