@@ -1,3 +1,4 @@
+import { BacklinkMonitoring } from "@/components/BacklinkMonitoring";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -233,6 +234,7 @@ function BacklinksPage() {
           t={t}
         />
       )}
+      {project ? <BacklinkMonitoring projectId={project.id} website={project.websiteUrl} /> : null}
       {project ? <LinkNetworkSection key={project.id} project={project} t={t} /> : null}
     </AppShell>
   );

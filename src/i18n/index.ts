@@ -1,3 +1,4 @@
+import { backlinkMonitoringCopy } from "./backlink-monitoring";
 import { projectTeams } from "./project-teams";
 import { locationCoverage } from "./location-coverage";
 /**
@@ -46,6 +47,7 @@ export function translate(
     projectTeams[l][key] ??
     locationCoverage[l][key] ??
     publishingFidelity[l][key] ??
+    backlinkMonitoringCopy[l][key] ??
     backlinkIntegrity[l][key] ??
     gscIntegrity[l][key] ??
     outreachIntegrityCopy[l][key] ??
