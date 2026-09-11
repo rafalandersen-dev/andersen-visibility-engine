@@ -42,7 +42,7 @@ beforeAll(async () => {
     await db.exec(readFileSync(`supabase/migrations/${file}`, "utf8"));
 }, 30000);
 beforeEach(async () => {
-  await db.exec(`RESET ROLE; TRUNCATE public.project_team_media_limits,public.project_team_invitation_deliveries,public.project_team_notification_items,public.project_team_notification_outbox,public.operational_email_items,public.operational_email_outbox,public.operational_notifications,public.operational_notification_scans,public.operational_email_preferences,public.project_team_notification_recipient_audit,public.project_team_notification_recipients,public.project_team_approval_history,public.project_team_approval_policy,public.output_knowledge_reviews,public.project_team_edits,public.scheduled_publishes,public.publication_approvals,public.project_team_comments,public.project_team_members,public.project_team_invitations,public.project_team_audit;
+  await db.exec(`RESET ROLE; TRUNCATE public.project_team_preview_limits,public.project_team_media_limits,public.project_team_invitation_deliveries,public.project_team_notification_items,public.project_team_notification_outbox,public.operational_email_items,public.operational_email_outbox,public.operational_notifications,public.operational_notification_scans,public.operational_email_preferences,public.project_team_notification_recipient_audit,public.project_team_notification_recipients,public.project_team_approval_history,public.project_team_approval_policy,public.output_knowledge_reviews,public.project_team_edits,public.scheduled_publishes,public.publication_approvals,public.project_team_comments,public.project_team_members,public.project_team_invitations,public.project_team_audit;
     UPDATE public.workspace_meta SET rev=1;
     INSERT INTO public.workspace_entities VALUES('${owner}','content','a','{"projectId":"p","title":"Draft","status":"Draft","updatedAt":"now","markdown":"Saved draft"}') ON CONFLICT(user_id,collection,entity_id) DO UPDATE SET data=EXCLUDED.data;
     UPDATE auth.identities SET identity_data='{"email":"member@example.test","email_verified":true}';
@@ -73,6 +73,85 @@ const change = (expected = 1, remove = false, who = owner) =>
 const revoke = (id = invite, who = owner) =>
   db.query("SELECT public.revoke_project_team_invitation($1,$2,'p',$3)", [who, owner, id]);
 describe("durable project invitation and membership lifecycle", () => {
+  it("admits previews only for current scopes and bounds independent actor/owner slots", async () => {
+    const acquire = async (who = actor) =>
+      (
+        await db.query<{ lease: string }>("SELECT acquire_project_team_preview($1,$2,'p') lease", [
+          who,
+          owner,
+        ])
+      ).rows[0].lease;
+    await expect(acquire()).rejects.toThrow("team_preview_unavailable");
+    expect((await db.query("SELECT * FROM project_team_preview_limits")).rows).toHaveLength(0);
+    await create();
+    await accept();
+    const first = await acquire();
+    await acquire();
+    await expect(acquire()).rejects.toThrow("team_preview_capacity");
+    await db.query("SELECT release_project_team_preview($1,$2,$3)", [other, owner, first]);
+    await expect(acquire()).rejects.toThrow("team_preview_capacity");
+    await db.query("SELECT release_project_team_preview($1,$2,$3)", [actor, owner, first]);
+    await acquire();
+    await db.exec("UPDATE project_team_preview_limits SET leases='{}'");
+    await db.query(
+      "UPDATE project_team_preview_limits SET minute_count=60 WHERE scope='actor' AND account_id=$1",
+      [actor],
+    );
+    await expect(acquire()).rejects.toThrow("team_preview_capacity");
+    await acquire(owner);
+    await db.query(
+      "UPDATE project_team_preview_limits SET minute_count=240 WHERE scope='owner' AND account_id=$1",
+      [owner],
+    );
+    await expect(acquire(owner)).rejects.toThrow("team_preview_capacity");
+    await db.exec(
+      "UPDATE project_team_preview_limits SET minute_start=now()-interval '2 minutes',leases='{}'",
+    );
+    await acquire();
+    await change(1, true);
+    await expect(acquire()).rejects.toThrow("team_preview_unavailable");
+  });
+  it("retains preview hourly caps, owner concurrency and expiry recovery", async () => {
+    await create();
+    await accept();
+    const acquire = () =>
+      db.query("SELECT acquire_project_team_preview($1,$2,'p')", [actor, owner]);
+    await acquire();
+    await db.query(
+      "UPDATE project_team_preview_limits SET leases='{}',hour_count=240 WHERE scope='actor' AND account_id=$1",
+      [actor],
+    );
+    await expect(acquire()).rejects.toThrow("team_preview_capacity");
+    await db.exec(
+      "UPDATE project_team_preview_limits SET hour_start=now()-interval '2 hours',leases='{}'",
+    );
+    await db.query(
+      "UPDATE project_team_preview_limits SET leases=(SELECT jsonb_object_agg(gen_random_uuid()::text,now()+interval '1 minute') FROM generate_series(1,8)) WHERE scope='owner' AND account_id=$1",
+      [owner],
+    );
+    await expect(acquire()).rejects.toThrow("team_preview_capacity");
+    expect(
+      (
+        await db.query(
+          "SELECT leases FROM project_team_preview_limits WHERE scope='actor' AND account_id=$1",
+          [actor],
+        )
+      ).rows[0],
+    ).toEqual({ leases: {} });
+    await db.exec(
+      "UPDATE project_team_preview_limits SET leases=jsonb_build_object(gen_random_uuid()::text,now()-interval '1 minute')",
+    );
+    await acquire();
+    await db.query(
+      "UPDATE project_team_preview_limits SET leases='{}',hour_start=now(),hour_count=1200 WHERE scope='owner' AND account_id=$1",
+      [owner],
+    );
+    await expect(acquire()).rejects.toThrow("team_preview_capacity");
+    await db.query("UPDATE auth.users SET banned_until=now()+interval '1 hour' WHERE id=$1", [
+      actor,
+    ]);
+    await expect(acquire()).rejects.toThrow("team_preview_unavailable");
+  });
   it("enforces actor-wide media concurrency, release ownership and lease recovery", async () => {
     const acquire = async (who = actor) =>
       (await db.query<{ lease: string }>("SELECT acquire_project_team_media($1) lease", [who]))
@@ -94,10 +173,32 @@ describe("durable project invitation and membership lifecycle", () => {
       { n: 2 },
     ]);
   });
+  it("admits four complete 128-image review passes within the minute budget", async () => {
+    for (let pass = 0; pass < 4; pass++) {
+      for (let image = 0; image < 128; image++) {
+        const result = await db.query<{ lease: string }>(
+          "SELECT acquire_project_team_media($1) lease",
+          [actor],
+        );
+        await db.query("SELECT release_project_team_media($1,$2)", [actor, result.rows[0].lease]);
+      }
+    }
+    expect(
+      (
+        await db.query(
+          "SELECT minute_count,hour_count FROM project_team_media_limits WHERE actor_id=$1",
+          [actor],
+        )
+      ).rows,
+    ).toEqual([{ minute_count: 512, hour_count: 512 }]);
+    await expect(db.query("SELECT acquire_project_team_media($1)", [actor])).rejects.toThrow(
+      "team_media_capacity",
+    );
+  });
   it("enforces minute/hour media limits, restores expired windows and rejects banned actors", async () => {
     await db.query("SELECT acquire_project_team_media($1)", [actor]);
     await db.query(
-      "UPDATE project_team_media_limits SET leases='{}',minute_count=120 WHERE actor_id=$1",
+      "UPDATE project_team_media_limits SET leases='{}',minute_count=512 WHERE actor_id=$1",
       [actor],
     );
     await expect(db.query("SELECT acquire_project_team_media($1)", [actor])).rejects.toThrow(
