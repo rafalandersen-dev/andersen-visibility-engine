@@ -52,6 +52,11 @@ BEGIN
  IF member.actor_id IS NULL OR NOT member.active OR (member.expires_at IS NOT NULL AND member.expires_at<=clock_timestamp()) OR member.revision<>p_membership THEN RAISE EXCEPTION 'team_recipient_changed'; END IF;
  SELECT * INTO settings FROM public.project_team_notification_recipients WHERE owner_id=p_owner AND project_id=p_project AND recipient_id=p_recipient;
  IF coalesce(settings.revision,0)<>p_expected THEN RAISE EXCEPTION 'team_recipient_changed' USING ERRCODE='40001'; END IF;
+ -- Preserve the first disabled setting, but do not grow revisions/history for
+ -- repeated disabled requests on the same current membership binding.
+ IF NOT p_enabled AND settings.revision IS NOT NULL AND settings.membership_revision=member.revision
+   AND ((p_action='opt_in' AND NOT settings.opted_in) OR (p_action='assign' AND NOT settings.assigned))
+   THEN RETURN settings.revision; END IF;
  IF p_enabled AND (SELECT count(*) FROM public.project_team_notification_recipient_audit WHERE owner_id=p_owner AND project_id=p_project AND created_at>clock_timestamp()-interval '1 hour')>=10000 THEN RAISE EXCEPTION 'team_recipient_capacity'; END IF;
  next_revision:=p_expected+1;
  INSERT INTO public.project_team_notification_recipients(owner_id,project_id,recipient_id,assigned,opted_in,membership_revision,revision)

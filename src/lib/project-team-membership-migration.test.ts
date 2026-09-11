@@ -1359,6 +1359,24 @@ describe("shared-project notification recipient controls", () => {
       expect(await settings()).toMatchObject({ optedIn: false });
     },
   );
+  it("preserves the first opt-out and coalesces repeated disabled settings", async () => {
+    await create();
+    await accept();
+    await set(actor, "opt_in", false, 0);
+    for (let i = 0; i < 5; i++) await set(actor, "opt_in", false, 1);
+    expect(await settings()).toMatchObject({ optedIn: false, revision: 1 });
+    expect(
+      (await db.query("SELECT * FROM project_team_notification_recipient_audit")).rows,
+    ).toHaveLength(1);
+    await expect(set(actor, "opt_in", false, 0)).rejects.toThrow("team_recipient_changed");
+    await set(actor, "opt_in", true, 1);
+    await set(actor, "opt_in", false, 2);
+    for (let i = 0; i < 5; i++) await set(actor, "opt_in", false, 3);
+    expect(await settings()).toMatchObject({ optedIn: false, revision: 3 });
+    expect(
+      (await db.query("SELECT * FROM project_team_notification_recipient_audit")).rows,
+    ).toHaveLength(3);
+  });
   it("requires independent owner assignment and recipient consent with revision checks", async () => {
     await create();
     await accept();
