@@ -11,13 +11,14 @@ export type SitemapObservation = {
   state:
     | "read"
     | "invalid_xml"
+    | "invalid_text"
     | "oversize"
     | "non_xml"
     | "http_error"
     | "fetch_failed"
     | "robots_disallowed"
     | "robots_unknown";
-  kind?: "urlset" | "sitemapindex";
+  kind?: "urlset" | "sitemapindex" | "text";
   locCount: number;
   rejectedCount: number;
 };
@@ -39,6 +40,7 @@ export type TechnicalSitemapFetcher = (url: string) => Promise<{
   url: string;
   status: number;
   body: string;
+  headers?: Record<string, string>;
   contentAccepted: boolean;
   truncated: boolean;
   observedAt: string;
@@ -113,6 +115,30 @@ export function inspectSitemapXml(
     return null;
   }
 }
+/** One absolute URL per line. Limits are local crawl limits, not protocol maxima. */
+export function inspectSitemapText(
+  body: string,
+): { kind: "text"; locs: string[]; rejected: number } | null {
+  if (new TextEncoder().encode(body).byteLength > 512000) return null;
+  for (let i = 0; i < body.length; i++) {
+    const code = body.charCodeAt(i);
+    if (code < 32 && code !== 9 && code !== 10 && code !== 13) return null;
+  }
+  const lines = body.replace(/^\uFEFF/, "").split(/\r\n|\n|\r/);
+  if (lines.length > 50001) return null;
+  const locs: string[] = [];
+  let rejected = 0;
+  for (const line of lines) {
+    const value = line.trim();
+    if (!value) continue;
+    if (value.length > 8192 || !/^https?:\/\/[^\s<>]+$/i.test(value)) {
+      rejected++;
+      continue;
+    }
+    locs.push(value);
+  }
+  return { kind: "text", locs, rejected };
+}
 function scoped(raw: string, origin: string): string | null {
   try {
     if (raw.length > 8192) return null;
@@ -120,7 +146,7 @@ function scoped(raw: string, origin: string): string | null {
     if (!isSafePublicUrl(url.href) || url.origin !== origin || url.username || url.password)
       return null;
     url.hash = "";
-    return url.href;
+    return url.href.length <= 8192 ? url.href : null;
   } catch {
     return null;
   }
@@ -185,8 +211,13 @@ export async function advanceTechnicalSitemaps(
         else if (response.truncated) file.state = "oversize";
         else if (!response.contentAccepted) file.state = "non_xml";
         else {
-          const document = inspectSitemapXml(response.body);
-          if (!document) file.state = "invalid_xml";
+          const plain =
+            /^text\/plain(?:\s*;|$)/i.test(response.headers?.["content-type"] ?? "") &&
+            !response.body.trimStart().startsWith("<");
+          const document = plain
+            ? inspectSitemapText(response.body)
+            : inspectSitemapXml(response.body);
+          if (!document) file.state = plain ? "invalid_text" : "invalid_xml";
           else {
             file.state = "read";
             file.kind = document.kind;

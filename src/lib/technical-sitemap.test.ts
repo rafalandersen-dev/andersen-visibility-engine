@@ -1,6 +1,9 @@
+import { startTechnicalCrawl } from "./technical-crawl";
+import { parseTechnicalCrawlState } from "./technical-crawl-state";
 import { describe, it, expect, vi } from "vitest";
 import {
   inspectSitemapXml,
+  inspectSitemapText,
   startTechnicalSitemaps,
   advanceTechnicalSitemaps,
 } from "./technical-sitemap";
@@ -142,5 +145,75 @@ describe("resumable sitemap evidence", () => {
     );
     expect(deep.queue).toEqual([]);
     expect(deep.limitations).toContain("depth_limit");
+  });
+});
+
+describe("plain-text sitemap observations", () => {
+  it("preserves literal query parameters and handles BOM, blanks and CRLF", () => {
+    expect(
+      inspectSitemapText("\uFEFF" + origin + "/a?q=1&b=2\r\n\r\n" + origin + "/b\nrelative\n"),
+    ).toEqual({ kind: "text", locs: [origin + "/a?q=1&b=2", origin + "/b"], rejected: 1 });
+  });
+  it("keeps text membership within the same scope and coverage limits", async () => {
+    const state = startTechnicalSitemaps(origin, [origin + "/sitemap.txt"]);
+    const next = await advanceTechnicalSitemaps(
+      state,
+      origin,
+      robots,
+      async () => ({
+        ...response(
+          origin + "/a\n" + origin + "/a\nhttps://foreign.test/b\nrelative",
+          origin + "/sitemap.txt",
+        ),
+        headers: { "content-type": "text/plain; charset=utf-8" },
+      }),
+      now,
+    );
+    expect(next.files[0]).toMatchObject({
+      kind: "text",
+      state: "read",
+      locCount: 3,
+      rejectedCount: 2,
+    });
+    expect(next.entries).toEqual([{ url: origin + "/a", files: [origin + "/sitemap.txt"] }]);
+    expect(next.limitations).toEqual(expect.arrayContaining(["out_of_scope", "invalid_entry"]));
+    expect(state.files).toHaveLength(0);
+    const crawl = startTechnicalCrawl({ siteUrl: origin, robots, robotsFetchedAt: now, now });
+    expect(
+      parseTechnicalCrawlState({ ...crawl, sitemaps: next }, origin).sitemaps?.files[0].kind,
+    ).toBe("text");
+  });
+  it("still parses XML served as text/plain", async () => {
+    const next = await advanceTechnicalSitemaps(
+      startTechnicalSitemaps(origin, []),
+      origin,
+      robots,
+      async () => ({
+        ...response(set([origin + "/a"])),
+        headers: { "content-type": "text/plain" },
+      }),
+      now,
+    );
+    expect(next.files[0]).toMatchObject({ state: "read", kind: "urlset" });
+  });
+  it("bounds text bytes, lines and rejects binary controls", () => {
+    expect(inspectSitemapText("x".repeat(512001))).toBeNull();
+    expect(inspectSitemapText("\n".repeat(50001))).toBeNull();
+    expect(inspectSitemapText(origin + "/a\u0000")).toBeNull();
+  });
+  it("reports invalid text without preserving fabricated membership", async () => {
+    const next = await advanceTechnicalSitemaps(
+      startTechnicalSitemaps(origin, []),
+      origin,
+      robots,
+      async () => ({
+        ...response(origin + "/a\u0000"),
+        headers: { "content-type": "text/plain" },
+      }),
+      now,
+    );
+    expect(next.files[0].state).toBe("invalid_text");
+    expect(next.entries).toEqual([]);
+    expect(next.limitations).toContain("unreadable");
   });
 });

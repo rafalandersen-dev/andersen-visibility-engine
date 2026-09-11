@@ -142,6 +142,7 @@ const schema = z
                 state: z.enum([
                   "read",
                   "invalid_xml",
+                  "invalid_text",
                   "oversize",
                   "non_xml",
                   "http_error",
@@ -149,7 +150,7 @@ const schema = z
                   "robots_disallowed",
                   "robots_unknown",
                 ]),
-                kind: z.enum(["urlset", "sitemapindex"]).optional(),
+                kind: z.enum(["urlset", "sitemapindex", "text"]).optional(),
                 locCount: z.number().int().min(0).max(50000),
                 rejectedCount: z.number().int().min(0).max(50000),
               })
