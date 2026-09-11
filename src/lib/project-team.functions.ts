@@ -37,7 +37,8 @@ export const listMyProjectTeamsFn = createServerFn({ method: "POST" })
   .inputValidator((v: unknown) => z.object({}).strict().parse(v))
   .handler(async ({ context }) => {
     const { listMyProjectTeams } = await import("./project-team-membership.server");
-    return listMyProjectTeams(context.userId);
+    const { admittedReadRpc } = await import("./project-team-read-admission.server");
+    return listMyProjectTeams(context.userId, admittedReadRpc(context.userId));
   });
 export const readTeamProjectFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -60,7 +61,8 @@ export const addProjectTeamCommentFn = createServerFn({ method: "POST" })
   .inputValidator((v: unknown) => teamCommentAdd.parse(v))
   .handler(async ({ data, context }) => {
     const { addProjectTeamComment } = await import("./project-team-comments.server");
-    return addProjectTeamComment(context.userId, data);
+    const { admittedReadRpc } = await import("./project-team-read-admission.server");
+    return addProjectTeamComment(context.userId, data, admittedReadRpc(context.userId));
   });
 export const saveProjectTeamDraftFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

@@ -1,5 +1,7 @@
+import { addProjectTeamComment } from "./project-team-comments.server";
 import { afterEach, expect, it, vi } from "vitest";
 import {
+  admittedReadRpc,
   readAdmittedTeamProject,
   readAdmittedTeamComments,
 } from "./project-team-read-admission.server";
@@ -81,4 +83,40 @@ it("admits comment reads before the snapshot-backed comments RPC", async () => {
     "read_project_team_comments",
     "release_project_team_preview",
   ]);
+});
+
+it("refuses comment submissions before snapshot work when actor admission is exhausted", async () => {
+  const rpc = vi.fn(async () => ({ data: null, error: { message: "team_preview_capacity" } }));
+  await expect(
+    addProjectTeamComment(
+      actor,
+      { ...input, assetId: "a", commentId: lease, expectedRevision: 1, body: "Comment" },
+      admittedReadRpc(actor, rpc),
+    ),
+  ).rejects.toThrow();
+  expect(rpc).toHaveBeenCalledOnce();
+  expect(rpc).toHaveBeenCalledWith("acquire_project_team_preview", {
+    p_actor: actor,
+    p_owner: ownerId,
+    p_project: "p",
+  });
+});
+
+it("uses the authenticated actor budget for discovery without a supplied project", async () => {
+  const rpc = vi.fn(async (name: string) =>
+    name === "acquire_project_team_preview"
+      ? { data: lease, error: null }
+      : { data: {}, error: null },
+  );
+  await admittedReadRpc(actor, rpc)("list_my_project_teams", { p_actor: actor });
+  expect(rpc).toHaveBeenCalledWith("acquire_project_team_preview", {
+    p_actor: actor,
+    p_owner: actor,
+    p_project: null,
+  });
+  expect(rpc).toHaveBeenLastCalledWith("release_project_team_preview", {
+    p_actor: actor,
+    p_owner: actor,
+    p_lease: lease,
+  });
 });
