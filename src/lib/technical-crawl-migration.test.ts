@@ -255,6 +255,29 @@ describe("immutable crawl evidence to opportunity", () => {
     ).rows[0].files;
     expect(files).toEqual(entries.slice(0, 2));
   });
+  it("summarizes oversized sitemap context without losing valid findings", async () => {
+    await prepare();
+    const url = "https://example.test/" + "a".repeat(8100);
+    const entries = [{ url, files: ["https://example.test/" + "s".repeat(8100)] }];
+    await db.query(
+      "UPDATE technical_crawls SET state=jsonb_set(jsonb_set(jsonb_set(state,'{pages,0,requestedUrl}',$1),'{pages,0,observation,url}',$1),'{sitemaps}',$2)",
+      [JSON.stringify(url), JSON.stringify({ entries })],
+    );
+    const result = (await capture()).rows[0].result;
+    const snapshot = (
+      await db.query<{
+        snapshot: {
+          sitemapFiles: unknown[];
+          sitemapMembershipCount: number;
+          sitemapFilesTruncated: boolean;
+        };
+      }>("SELECT snapshot FROM technical_crawl_findings WHERE evidence_id=$1", [result.evidenceId])
+    ).rows[0].snapshot;
+    expect(snapshot.sitemapFiles).toEqual([]);
+    expect(snapshot.sitemapMembershipCount).toBe(1);
+    expect(snapshot.sitemapFilesTruncated).toBe(true);
+    expect(Buffer.byteLength(JSON.stringify(snapshot))).toBeLessThan(32768);
+  });
   it("keeps independently valid finding snapshots small even when traversal links are large", async () => {
     await prepare();
     const links = Array.from(

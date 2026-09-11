@@ -194,7 +194,8 @@ export function inspectTechnicalPage(input: {
   const internal = new Set<string>();
   const external = new Set<string>();
   for (const node of nodes) {
-    if (node.tagName === "title" && !result.title) result.title = text(node).slice(0, 1000);
+    if (node.tagName === "title" && headNodes.has(node) && !result.title)
+      result.title = text(node).slice(0, 1000);
     if (node.tagName === "h1") append(result.headings, text(node).slice(0, 1000), 100);
     if (node.tagName === "meta" && headNodes.has(node)) {
       const name = attr(node, "name").toLowerCase();

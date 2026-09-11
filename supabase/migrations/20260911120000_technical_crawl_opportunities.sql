@@ -54,6 +54,10 @@ BEGIN
  END CASE;
  evidence:=gen_random_uuid(); opportunity:=gen_random_uuid()::text; stamp:=to_char(clock_timestamp() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"');
  snapshot:=jsonb_build_object('runId',p_run,'runRevision',p_revision,'pageIndex',p_page,'code',p_code,'origin',current.origin,'runStatus',current.status,'page',jsonb_build_object('requestedUrl',page->'requestedUrl','observation',retained),'coverageLimits',current.state->'coverageLimits','sitemapLimitations',current.state->'sitemaps'->'limitations','sitemapFiles',(SELECT coalesce(jsonb_agg(item),'[]'::jsonb) FROM jsonb_array_elements(coalesce(current.state->'sitemaps'->'entries','[]'::jsonb)) item WHERE item->>'url' IN (page->>'requestedUrl',page->'observation'->>'url')));
+ -- Sitemap context is optional evidence; preserve its count when full URLs exceed the budget.
+ IF octet_length((snapshot->'sitemapFiles')::text)>4096 THEN
+   snapshot:=snapshot||jsonb_build_object('sitemapMembershipCount',jsonb_array_length(snapshot->'sitemapFiles'),'sitemapFilesTruncated',true,'sitemapFiles','[]'::jsonb);
+ END IF;
  IF octet_length(snapshot::text)>32768 THEN RAISE EXCEPTION 'technical_finding_size'; END IF;
  fingerprint:=encode(sha256(convert_to(snapshot::text,'UTF8')),'hex');
  SELECT coalesce(data->>'primaryLanguage','English') INTO language FROM public.workspace_entities WHERE user_id=p_user AND collection='projects' AND entity_id=p_project;

@@ -669,8 +669,8 @@ describe("per-connection crawl dispatch", () => {
       }
     },
   );
-  it.each(["address", "global"] as const)(
-    "shares %s quotas across different verified hostnames and owners",
+  it.each(["address", "global", "account"] as const)(
+    "enforces %s quotas across different verified hostnames and owners",
     async (scope) => {
       const runLease = await ready();
       const first = await acquire(runLease);
@@ -708,20 +708,32 @@ describe("per-connection crawl dispatch", () => {
             [other, run],
           )
         ).rows[0].result.lease_token;
-        await expect(
-          db.query(
-            "SELECT acquire_technical_crawl_dispatch($1,'p',$2,$3,'https://alias.test',$4::inet)",
-            [other, run, lease, scope === "global" ? "8.8.4.4" : "8.8.8.8"],
-          ),
-        ).rejects.toThrow("technical_dispatch_capacity");
-        expect(
-          (
-            await db.query(
-              "SELECT * FROM technical_crawl_dispatch_limits WHERE scope='account' AND scope_key=$1",
-              [other],
-            )
-          ).rows,
-        ).toEqual([]);
+        const admission = db.query(
+          "SELECT acquire_technical_crawl_dispatch($1,'p',$2,$3,'https://alias.test',$4::inet)",
+          [other, run, lease, scope === "address" ? "8.8.8.8" : "8.8.4.4"],
+        );
+        if (scope === "account") {
+          await expect(acquire(runLease)).rejects.toThrow("technical_dispatch_capacity");
+          await expect(admission).resolves.toHaveProperty("rows");
+          expect(
+            (
+              await db.query(
+                "SELECT minute_count FROM technical_crawl_dispatch_limits WHERE scope='account' AND scope_key=$1",
+                [other],
+              )
+            ).rows,
+          ).toEqual([{ minute_count: 1 }]);
+        } else {
+          await expect(admission).rejects.toThrow("technical_dispatch_capacity");
+          expect(
+            (
+              await db.query(
+                "SELECT * FROM technical_crawl_dispatch_limits WHERE scope='account' AND scope_key=$1",
+                [other],
+              )
+            ).rows,
+          ).toEqual([]);
+        }
       } finally {
         await db.query("DELETE FROM workspace_entities WHERE user_id=$1", [other]);
       }

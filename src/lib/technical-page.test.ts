@@ -9,6 +9,19 @@ const inspect = (html: string) =>
     headers: { "X-Robots-Tag": "googlebot: noindex" },
   });
 describe("technical HTML observations", () => {
+  it.each(["text/html", "application/xhtml+xml"])("uses only head titles in %s", (contentType) => {
+    for (const head of ["", "<title>Document title</title>"]) {
+      const result = inspectTechnicalPage({
+        url: "https://example.test/",
+        status: 200,
+        observedAt: "2026-09-11T00:00:00Z",
+        headers: { "content-type": contentType },
+        html: `<html xmlns="http://www.w3.org/1999/xhtml"><head>${head}</head><body><title>Body title</title></body></html>`,
+      });
+      expect(result.title).toBe(head ? "Document title" : "");
+      expect(result.complete).toBe(true);
+    }
+  });
   it("parses markup and entities without treating scripts/comments as elements", () => {
     const r = inspect(
       '<title>A &amp; B</title><!-- <meta name=robots content=noindex> --><script>"<link rel=canonical href=/fake>"</script><meta content="Description" name=description><h1>Main <em>heading</em></h1>',

@@ -36,7 +36,7 @@ BEGIN
    IF (SELECT count(*) FROM jsonb_object_keys(active_leases))>=(CASE WHEN kind='global' THEN 8 WHEN kind='address' THEN 4 ELSE 2 END) THEN RAISE EXCEPTION 'technical_dispatch_capacity'; END IF;
    IF budget.minute_start<=stamp-interval '1 minute' THEN budget.minute_start:=stamp;budget.minute_count:=0; END IF;
    IF budget.hour_start<=stamp-interval '1 hour' THEN budget.hour_start:=stamp;budget.hour_count:=0; END IF;
-   IF budget.minute_count>=(CASE WHEN kind IN ('global','account') THEN 120 WHEN kind='account_address' THEN 30 ELSE 60 END) OR budget.hour_count>=(CASE WHEN kind IN ('global','account') THEN 1200 WHEN kind='account_address' THEN 300 ELSE 600 END) THEN RAISE EXCEPTION 'technical_dispatch_capacity'; END IF;
+   IF budget.minute_count>=(CASE WHEN kind='global' THEN 120 WHEN kind='account_address' THEN 30 ELSE 60 END) OR budget.hour_count>=(CASE WHEN kind='global' THEN 1200 WHEN kind='account_address' THEN 300 ELSE 600 END) THEN RAISE EXCEPTION 'technical_dispatch_capacity'; END IF;
    UPDATE public.technical_crawl_dispatch_limits SET minute_start=budget.minute_start,minute_count=budget.minute_count+1,hour_start=budget.hour_start,hour_count=budget.hour_count+1,leases=active_leases||jsonb_build_object(lease::text,expires),last_used=stamp WHERE scope=kind AND scope_key=key;
  END LOOP;
  -- Bounded cleanup of idle operational rows; active/rate windows are never pruned.

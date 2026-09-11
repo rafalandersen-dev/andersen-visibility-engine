@@ -287,3 +287,12 @@ Validation:50 page/finding/crawl tests, TypeScript and changed-file lint pass (`
 Every connection now acquires a constant deployment bucket before the existing account, hostname, account-address and public-address buckets. The deployment ceiling is8 retained concurrent connections,120 starts/minute and1200 starts/hour. Acquisition and release use the same global-first advisory lock order. Current ownership and run checks still precede admission. Global refusal rolls back the entire attempt without consuming scoped allowances; the shared row has no account/project foreign key and cannot be reset by deleting a project.
 
 Validation:55 actual ownership/admission/crawl SQL tests, TypeScript and changed-file lint pass (`/tmp/milo-global-crawl-{tests,types,lint}.log`). New checks cover global concurrency/minute/hour saturation with unchanged rows after refusal, and a second verified account using a different hostname and public IP still sharing the deployment limit. These are single-session SQL checks, not real concurrent production acceptance. Finding3992206644 addressed. Migration160000 remains unapplied; no live crawl or production mutation occurred.
+
+
+### Combined release follow-up — 11 September
+
+Merged the already released backlink monitoring implementation and release evidence at ca76abb using a normal merge. Technical release preparation now requires its recorded migration170000 alongside the22 earlier prerequisites; only the six technical migrations remain unapplied. The local guard rehearsal seeds the exact backlink registry source as a prerequisite and does not claim to replay that feature.
+
+Head-only title detection now applies to HTML and XHTML. Sitemap context over4096bytes is omitted from a finding snapshot with an explicit truncation flag and original membership count, keeping long page URLs capturable. Account crawl limits are60 starts/minute and600/hour within the deployment120/minute and1200/hour, with existing two-account/eight-global concurrent limits retained.
+
+Validation:80 focused page/crawl/ownership tests passed, then30 ownership tests passed including another verified account admitted after the first account reaches its allowance. These are local fixtures and single-session database checks. The combined full suite was intentionally interrupted to apply newly received review findings; it is not a completed validation result. No technical migration or deployment has occurred.
