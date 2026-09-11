@@ -123,7 +123,11 @@ export const teamComments = teamCommentTarget
   .strict();
 export const teamDraftFields = z
   .object({
-    title: z.string().trim().min(1).max(1000),
+    title: z
+      .string()
+      .min(1)
+      .max(1000)
+      .refine((value) => value.trim().length > 0),
     markdown: z.string().max(1000000),
     h1: z.string().max(1000),
     metaTitle: z.string().max(1000),

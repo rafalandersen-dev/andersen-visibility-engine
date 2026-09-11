@@ -196,8 +196,8 @@ describe("durable project invitation and membership lifecycle", () => {
       { n: 2 },
     ]);
   });
-  it("admits four complete 128-image review passes within the minute budget", async () => {
-    for (let pass = 0; pass < 4; pass++) {
+  it("admits opening, refresh, approval, scheduling and scheduled-dispatch verification passes", async () => {
+    for (let pass = 0; pass < 5; pass++) {
       for (let image = 0; image < 128; image++) {
         const result = await db.query<{ lease: string }>(
           "SELECT acquire_project_team_media($1) lease",
@@ -213,7 +213,7 @@ describe("durable project invitation and membership lifecycle", () => {
           [actor],
         )
       ).rows,
-    ).toEqual([{ minute_count: 512, hour_count: 512 }]);
+    ).toEqual([{ minute_count: 640, hour_count: 640 }]);
     await expect(db.query("SELECT acquire_project_team_media($1)", [actor])).rejects.toThrow(
       "team_media_capacity",
     );
@@ -221,14 +221,14 @@ describe("durable project invitation and membership lifecycle", () => {
   it("enforces minute/hour media limits, restores expired windows and rejects banned actors", async () => {
     await db.query("SELECT acquire_project_team_media($1)", [actor]);
     await db.query(
-      "UPDATE project_team_media_limits SET leases='{}',minute_count=512 WHERE actor_id=$1",
+      "UPDATE project_team_media_limits SET leases='{}',minute_count=640 WHERE actor_id=$1",
       [actor],
     );
     await expect(db.query("SELECT acquire_project_team_media($1)", [actor])).rejects.toThrow(
       "team_media_capacity",
     );
     await db.query(
-      "UPDATE project_team_media_limits SET minute_start=now()-interval '2 minutes',hour_count=600 WHERE actor_id=$1",
+      "UPDATE project_team_media_limits SET minute_start=now()-interval '2 minutes',hour_count=768 WHERE actor_id=$1",
       [actor],
     );
     await expect(db.query("SELECT acquire_project_team_media($1)", [actor])).rejects.toThrow(
