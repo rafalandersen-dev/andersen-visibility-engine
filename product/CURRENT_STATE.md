@@ -2,6 +2,8 @@
 
 Updated: 11 September 2026 (Stockholm; latest release 10 September 22:24 UTC). Owner: Rafal Andersen. Phase: private beta / launch foundations. Public paid launch: **NO-GO / acceptance incomplete**.
 
+Overall delivery estimate: **about 55% complete (50–65% uncertainty range)**; technical implementation **about 70%**. These are planning estimates, not signed-in acceptance or launch approval. See [current progress assessment](PROGRESS_REVIEW_2026_09_11.md) for weights, evidence and remaining work.
+
 This is the current operational entry point. Read [progress review](PROGRESS_REVIEW_2026_09_09.md) for the earlier, now historical estimate and task inventory, [roadmap](ROADMAP.md) for delivery order, and [scope register](PLAN_REVIEW_2026_09_07.md) for R00–R24 and D01–D08. Older dated reports are history, not instructions to repeat completed work.
 
 ## Recorded baseline and latest repository check
