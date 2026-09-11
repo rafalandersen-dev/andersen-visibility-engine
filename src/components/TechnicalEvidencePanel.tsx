@@ -15,15 +15,19 @@ const snapshot = z.object({
       url: z.string(),
       status: z.number(),
       observedAt: z.string(),
-      title: z.string(),
+      title: z.string().optional(),
       complete: z.boolean(),
-      descriptions: z.array(z.string()),
-      headings: z.array(z.string()),
-      canonicals: z.array(z.string()),
-      robots: z.array(z.object({ source: z.string(), agent: z.string(), value: z.string() })),
-      structuredData: z.array(
-        z.object({ state: z.string(), types: z.array(z.string()), complete: z.boolean() }),
-      ),
+      descriptions: z.array(z.string()).optional(),
+      headings: z.array(z.string()).optional(),
+      headingCount: z.number().int().min(2).optional(),
+      canonicals: z.array(z.string()).optional(),
+      canonicalCount: z.number().int().min(2).optional(),
+      robots: z
+        .array(z.object({ source: z.string(), agent: z.string(), value: z.string() }))
+        .optional(),
+      structuredData: z
+        .array(z.object({ state: z.string(), types: z.array(z.string()), complete: z.boolean() }))
+        .optional(),
     }),
   }),
   coverageLimits: z.array(z.string()),
@@ -78,30 +82,50 @@ function Evidence({ userId, opportunity }: { userId: string; opportunity: Opport
           <p>
             {t("crawl.observedAt")}: {evidence.page.observation.observedAt}
           </p>
-          <p>
-            {t("crawl.pageTitle")}: {evidence.page.observation.title || t("crawl.notFound")}
-          </p>
-          <p>
-            {t("crawl.description")}:{" "}
-            {evidence.page.observation.descriptions.join(" | ") || t("crawl.notFound")}
-          </p>
-          <p>H1: {evidence.page.observation.headings.join(" | ") || t("crawl.notFound")}</p>
-          <p>
-            {t("crawl.canonical")}:{" "}
-            {evidence.page.observation.canonicals.join(" | ") || t("crawl.notFound")}
-          </p>
-          <p>
-            {t("crawl.directives")}:{" "}
-            {evidence.page.observation.robots
-              .map((r) => `${r.source}/${r.agent}: ${r.value}`)
-              .join(" | ") || t("crawl.notFound")}
-          </p>
-          <p>
-            {t("crawl.structured")}:{" "}
-            {evidence.page.observation.structuredData
-              .map((d) => `${t(`crawl.${d.state}`)}: ${d.types.join(", ")}`)
-              .join(" | ") || t("crawl.notFound")}
-          </p>
+          {evidence.page.observation.title !== undefined && (
+            <p>
+              {t("crawl.pageTitle")}: {evidence.page.observation.title || t("crawl.notFound")}
+            </p>
+          )}
+          {evidence.page.observation.descriptions && (
+            <p>
+              {t("crawl.description")}:{" "}
+              {evidence.page.observation.descriptions.join(" | ") || t("crawl.notFound")}
+            </p>
+          )}
+          {evidence.page.observation.headings && (
+            <p>H1: {evidence.page.observation.headings.join(" | ") || t("crawl.notFound")}</p>
+          )}
+          {evidence.page.observation.headingCount !== undefined && (
+            <p>H1: {evidence.page.observation.headingCount}</p>
+          )}
+          {evidence.page.observation.canonicals && (
+            <p>
+              {t("crawl.canonical")}:{" "}
+              {evidence.page.observation.canonicals.join(" | ") || t("crawl.notFound")}
+            </p>
+          )}
+          {evidence.page.observation.canonicalCount !== undefined && (
+            <p>
+              {t("crawl.canonical")}: {evidence.page.observation.canonicalCount}
+            </p>
+          )}
+          {evidence.page.observation.robots && (
+            <p>
+              {t("crawl.directives")}:{" "}
+              {evidence.page.observation.robots
+                .map((r) => `${r.source}/${r.agent}: ${r.value}`)
+                .join(" | ")}
+            </p>
+          )}
+          {evidence.page.observation.structuredData && (
+            <p>
+              {t("crawl.structured")}:{" "}
+              {evidence.page.observation.structuredData
+                .map((d) => `${t(`crawl.${d.state}`)}: ${d.types.join(", ")}`)
+                .join(" | ")}
+            </p>
+          )}
           {!evidence.page.observation.complete && <p>{t("crawl.partial_page")}</p>}
           <ul className="list-disc pl-5">
             {evidence.coverageLimits.map((limit) => (

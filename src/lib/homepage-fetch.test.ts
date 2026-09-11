@@ -374,6 +374,30 @@ describe("structured pinned technical observations", () => {
     expect(release).toHaveBeenCalledOnce();
   });
 
+  it("refuses malformed UTF-8 sitemap bytes instead of fabricating a replacement-character URL", async () => {
+    mocks.request.mockImplementation(
+      reply(
+        response(
+          [
+            Buffer.concat([
+              Buffer.from("<urlset><url><loc>https://example.com/"),
+              Buffer.from([0xff]),
+              Buffer.from("</loc></url></urlset>"),
+            ]),
+          ],
+          200,
+          { "content-type": "application/xml" },
+        ),
+      ),
+    );
+    await expect(
+      fetchPinnedResource("https://example.com/sitemap.xml", {
+        purpose: "sitemap",
+        origin: "https://example.com",
+        authorize: () => true,
+      }),
+    ).resolves.toBeNull();
+  });
   it("retains legacy-encoded non-HTML HTTP errors without decoding their body", async () => {
     mocks.request.mockImplementation(
       reply(

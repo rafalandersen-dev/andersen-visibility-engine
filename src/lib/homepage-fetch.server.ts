@@ -358,7 +358,9 @@ export async function fetchPinnedResource(
               ? /^(?:text\/html|application\/xhtml\+xml)(?:\s*;|$)/i.test(type)
                 ? decodeTechnicalHtml(Buffer.concat(chunks, bytes), type, truncated)
                 : ""
-              : Buffer.concat(chunks, bytes).toString("utf8"),
+              : options.purpose === "sitemap"
+                ? new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(chunks, bytes))
+                : Buffer.concat(chunks, bytes).toString("utf8"),
           truncated,
           observedAt: new Date().toISOString(),
         };

@@ -2,7 +2,7 @@
 CREATE TABLE public.technical_crawl_findings (
  user_id uuid NOT NULL, project_id text NOT NULL, evidence_id uuid NOT NULL,
  run_id uuid NOT NULL, run_revision bigint NOT NULL, page_index integer NOT NULL CHECK(page_index BETWEEN 0 AND 199),
- code text NOT NULL, opportunity_id text NOT NULL, snapshot jsonb NOT NULL,
+ code text NOT NULL, opportunity_id text NOT NULL, snapshot jsonb NOT NULL CHECK(octet_length(snapshot::text)<=32768),
  snapshot_hash text NOT NULL, created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
  PRIMARY KEY(user_id,evidence_id),
  UNIQUE(user_id,run_id,run_revision,page_index,code),
@@ -15,7 +15,7 @@ REVOKE ALL ON public.technical_crawl_findings FROM PUBLIC,anon,authenticated,ser
 CREATE FUNCTION public.capture_technical_crawl_finding(p_user uuid,p_project text,p_run uuid,p_revision bigint,p_page integer,p_code text,p_title text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE current public.technical_crawls%ROWTYPE; saved public.technical_crawl_findings%ROWTYPE;
- page jsonb; observation jsonb; valid boolean:=false; evidence uuid; opportunity text; snapshot jsonb; fingerprint text; stamp text; language text;
+ page jsonb; observation jsonb; retained jsonb; valid boolean:=false; evidence uuid; opportunity text; snapshot jsonb; fingerprint text; stamp text; language text;
 BEGIN
  PERFORM public.assert_technical_crawl_owner(p_user,p_project);
  SELECT * INTO current FROM public.technical_crawls WHERE user_id=p_user AND project_id=p_project AND run_id=p_run FOR UPDATE;
@@ -40,8 +40,21 @@ BEGIN
  END IF;
  IF valid IS NOT TRUE THEN RAISE EXCEPTION 'technical_finding_not_observed'; END IF;
  IF (SELECT count(*) FROM public.technical_crawl_findings WHERE user_id=p_user AND project_id=p_project AND created_at>clock_timestamp()-interval '1 hour')>=1000 THEN RAISE EXCEPTION 'technical_finding_rate_limit'; END IF;
+ -- Store only evidence needed for this code, never traversal arrays or unrelated metadata.
+ retained:=jsonb_build_object('url',observation->'url','status',observation->'status','observedAt',observation->'observedAt','complete',observation->'complete');
+ CASE p_code
+ WHEN 'missing_title' THEN retained:=retained||jsonb_build_object('title',btrim(observation->>'title'));
+ WHEN 'missing_description' THEN retained:=retained||jsonb_build_object('descriptions','[]'::jsonb);
+ WHEN 'missing_h1' THEN retained:=retained||jsonb_build_object('headings','[]'::jsonb);
+ WHEN 'multiple_h1' THEN retained:=retained||jsonb_build_object('headingCount',jsonb_array_length(observation->'headings'));
+ WHEN 'multiple_canonicals' THEN retained:=retained||jsonb_build_object('canonicalCount',jsonb_array_length(observation->'canonicals'));
+ WHEN 'invalid_jsonld' THEN retained:=retained||jsonb_build_object('structuredData',jsonb_build_array(jsonb_build_object('state','invalid_json','types','[]'::jsonb,'complete',true)));
+ WHEN 'noindex' THEN retained:=retained||jsonb_build_object('robots',jsonb_build_array((SELECT item FROM jsonb_array_elements(observation->'robots') item WHERE item->>'value' ~* '(^|[[:space:],:])(noindex|none)($|[[:space:],])' LIMIT 1)));
+ ELSE NULL;
+ END CASE;
  evidence:=gen_random_uuid(); opportunity:=gen_random_uuid()::text; stamp:=to_char(clock_timestamp() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"');
- snapshot:=jsonb_build_object('runId',p_run,'runRevision',p_revision,'pageIndex',p_page,'code',p_code,'origin',current.origin,'runStatus',current.status,'page',page,'coverageLimits',current.state->'coverageLimits','sitemapLimitations',current.state->'sitemaps'->'limitations','sitemapFiles',(SELECT coalesce(jsonb_agg(item),'[]'::jsonb) FROM jsonb_array_elements(coalesce(current.state->'sitemaps'->'entries','[]'::jsonb)) item WHERE item->>'url' IN (page->>'requestedUrl',page->'observation'->>'url')));
+ snapshot:=jsonb_build_object('runId',p_run,'runRevision',p_revision,'pageIndex',p_page,'code',p_code,'origin',current.origin,'runStatus',current.status,'page',jsonb_build_object('requestedUrl',page->'requestedUrl','observation',retained),'coverageLimits',current.state->'coverageLimits','sitemapLimitations',current.state->'sitemaps'->'limitations','sitemapFiles',(SELECT coalesce(jsonb_agg(item),'[]'::jsonb) FROM jsonb_array_elements(coalesce(current.state->'sitemaps'->'entries','[]'::jsonb)) item WHERE item->>'url' IN (page->>'requestedUrl',page->'observation'->>'url')));
+ IF octet_length(snapshot::text)>32768 THEN RAISE EXCEPTION 'technical_finding_size'; END IF;
  fingerprint:=encode(sha256(convert_to(snapshot::text,'UTF8')),'hex');
  SELECT coalesce(data->>'primaryLanguage','English') INTO language FROM public.workspace_entities WHERE user_id=p_user AND collection='projects' AND entity_id=p_project;
  INSERT INTO public.technical_crawl_findings VALUES(p_user,p_project,evidence,p_run,p_revision,p_page,p_code,opportunity,snapshot,fingerprint,clock_timestamp());

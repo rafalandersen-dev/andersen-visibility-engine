@@ -255,6 +255,48 @@ describe("immutable crawl evidence to opportunity", () => {
     ).rows[0].files;
     expect(files).toEqual(entries.slice(0, 2));
   });
+  it("keeps independently valid finding snapshots small even when traversal links are large", async () => {
+    await prepare();
+    const links = Array.from(
+      { length: 500 },
+      (_, i) => "https://example.test/" + "a".repeat(3400) + i,
+    );
+    await db.query(
+      "UPDATE technical_crawls SET state=jsonb_set(jsonb_set(jsonb_set(jsonb_set(state,'{pages,0,observation,internalLinks}',$1),'{pages,0,observation,canonicals}',$2),'{pages,0,observation,robots}',$3),'{pages,0,observation,structuredData}',$4)",
+      [
+        JSON.stringify(links),
+        JSON.stringify(["https://example.test/a", "https://example.test/b"]),
+        JSON.stringify([{ source: "meta", agent: "*", value: "noindex" }]),
+        JSON.stringify([{ state: "invalid_json", types: [], complete: true }]),
+      ],
+    );
+    for (const code of [
+      "missing_title",
+      "missing_description",
+      "missing_h1",
+      "multiple_canonicals",
+      "noindex",
+      "invalid_jsonld",
+    ])
+      await capture(code);
+    const rows = (
+      await db.query<{ code: string; bytes: number; observation: Record<string, unknown> }>(
+        "SELECT code,octet_length(snapshot::text) bytes,snapshot->'page'->'observation' observation FROM technical_crawl_findings",
+      )
+    ).rows;
+    expect(rows).toHaveLength(6);
+    for (const row of rows) {
+      expect(row.bytes).toBeLessThan(2000);
+      expect(row.observation).not.toHaveProperty("internalLinks");
+    }
+    expect(rows.find((r) => r.code === "multiple_canonicals")?.observation.canonicalCount).toBe(2);
+    expect(rows.find((r) => r.code === "missing_title")?.observation).not.toHaveProperty("robots");
+    await expect(
+      db.query(
+        "UPDATE technical_crawl_findings SET snapshot=snapshot||jsonb_build_object('padding',repeat('x',33000))",
+      ),
+    ).rejects.toThrow(/check constraint/);
+  });
   it("atomically creates one captured opportunity and immutable source receipt, retaining idempotency", async () => {
     await prepare();
     const first = (await capture()).rows[0].result;
