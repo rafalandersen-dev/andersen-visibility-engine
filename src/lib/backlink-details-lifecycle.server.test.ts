@@ -14,6 +14,7 @@ const input = {
   includeSubdomains: false,
   selection: "first_seen" as const,
   limit: 100,
+  offset: 0,
 };
 function setup() {
   const scope = {
@@ -23,6 +24,7 @@ function setup() {
     includeSubdomains: false,
     selection: "first_seen" as const,
     limit: 100,
+    offset: 0,
   };
   const record = {
     user_id: user,

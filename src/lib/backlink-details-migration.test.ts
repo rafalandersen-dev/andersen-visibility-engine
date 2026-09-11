@@ -12,6 +12,7 @@ const scope = {
   includeSubdomains: false,
   selection: "first_seen",
   limit: 100,
+  offset: 0,
 };
 beforeAll(async () => {
   db = new PGlite();
@@ -383,3 +384,20 @@ it("shares rate admission with daily monitoring", async () => {
   await expect(dispatch(lease)).rejects.toThrow("backlink_details_quota");
   expect((await db.query("SELECT * FROM ai_expense_requests")).rows).toEqual([]);
 });
+
+it("binds the offset to stable replay without changing the per-page expense ceiling", async () => {
+  const first = (await reserve(request, owner, { ...scope, offset: 100 })).rows[0].result;
+  expect(first.record.ceiling_microusd).toBe(27600);
+  await expect(reserve(request, owner, { ...scope, offset: 200 })).rejects.toThrow(
+    "backlink_details_replay",
+  );
+});
+it.each([-1, 20001, 0.5])(
+  "rejects invalid page offset %s before quota consumption",
+  async (offset) => {
+    await expect(reserve(request, owner, { ...scope, offset })).rejects.toThrow(
+      "backlink_details_scope",
+    );
+    expect((await db.query("SELECT * FROM backlink_monitoring_limits")).rows).toEqual([]);
+  },
+);

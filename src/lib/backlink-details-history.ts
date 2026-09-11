@@ -70,9 +70,12 @@ export function savedBacklinkDetails(raw: unknown) {
     value.retainedCount !== value.links.length ||
     value.providerReturnedCount > scope.limit ||
     value.providerTotalCount < value.providerReturnedCount ||
+    (value.providerReturnedCount > 0 &&
+      value.providerTotalCount < scope.offset + value.providerReturnedCount) ||
     value.retainedCount > value.providerReturnedCount ||
     value.retainedTruncated !== value.retainedCount < value.providerReturnedCount ||
-    (!value.moreProviderResults && value.providerTotalCount > value.providerReturnedCount)
+    (!value.moreProviderResults &&
+      value.providerTotalCount > scope.offset + value.providerReturnedCount)
   )
     fail();
   let bytes = 0;

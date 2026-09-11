@@ -10,6 +10,7 @@ const fixture = () => ({
     includeSubdomains: false,
     selection: "first_seen",
     limit: 100,
+    offset: 0,
   },
   observedAt: "2026-09-11T00:00:00Z",
   providerTaskId: "fixture",

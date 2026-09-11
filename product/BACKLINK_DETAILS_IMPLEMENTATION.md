@@ -37,3 +37,12 @@ BacklinkDetails is integrated into the existing backlinks page alongside daily m
 The evidence view shows source/destination links, escaped anchor text, provider first/last seen dates, rank, spam score and reported-lost status. Null values remain distinct from zero; retained/returned/total counts and incomplete-result notices are explicit. Actual placement/removal dates are described as unknown. Additional pages are not automatically collected; pagination and ongoing monitoring remain unfinished.
 
 Validation:6 static-render interface tests across four locales, TypeScript, changed-file lint and production build pass (`/tmp/milo-details-ui-{tests,types,lint,build}.log`). An initial test expected a React hydration comment absent from static markup; the assertion now checks rendered rank text. No browser or live provider acceptance is claimed. Migration180000 remains unapplied; combined suite and review are next.
+
+
+### Explicit bounded result pagination
+
+Each request now includes an offset from0 through20000, using the provider's documented offset pagination contract. The strict scope, immutable replay identity, request echo, lifecycle and SQL reservation all bind this offset. Every page needs a fresh explicit collection request and its own existing expense admission; the requested-row ceiling is unchanged. Counts and further-result detection include the offset, and impossible nonempty page totals are rejected. The four-language interface exposes results to skip and records the offset/limit in history. The live index may change between pages; duplicate-free snapshot coverage is not claimed.
+
+Source: [Backlinks Live request parameters](https://docs.dataforseo.com/v3/backlinks-backlinks-live/), checked11September2026. Search-after tokens for deeper traversal beyond20000 remain unimplemented; the bounded offset feature does not complete arbitrary-depth pagination or ongoing monitoring.
+
+Validation:116 focused detail normalization/history/lifecycle/actual-SQL/endpoint/transport/UI tests, TypeScript and changed-file lint pass (`/tmp/milo-details-pagination-{tests,types,lint}.log`). New regressions cover later-page echo mismatch, total-count consistency, offset limits, stable replay changes and expense ceilings. Full3572 suite/build evidence at33f7aa1 predates pagination. The unapplied180000 migration now requires seven scope fields, including offset; no production migration or provider call occurred.

@@ -48,6 +48,7 @@ const run = {
   includeSubdomains: false,
   selection: "first_seen",
   limit: 100,
+  offset: 0,
 };
 it("authenticates all endpoints and derives the actor from the session", async () => {
   expect(h.registered).toEqual([[h.auth], [h.auth], [h.auth]]);

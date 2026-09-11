@@ -4,9 +4,10 @@ export const backlinkDetailScope = backlinkMonitoringScope
   .extend({
     selection: z.enum(["first_seen", "lost_last_seen"]),
     limit: z.number().int().min(1).max(100),
+    offset: z.number().int().min(0).max(20000).default(0),
   })
   .strict();
-export type BacklinkDetailScope = z.infer<typeof backlinkDetailScope>;
+export type BacklinkDetailScope = z.input<typeof backlinkDetailScope>;
 export function detailScope(raw: unknown, now = new Date()) {
   const scope = backlinkDetailScope.parse(raw);
   monitoringScope(
@@ -36,7 +37,7 @@ export function backlinkDetailPayload(raw: BacklinkDetailScope, now = new Date()
     rank_scale: "one_hundred" as const,
     backlinks_status_type: scope.selection === "first_seen" ? ("all" as const) : ("lost" as const),
     limit: scope.limit,
-    offset: 0,
+    offset: scope.offset,
     filters: [
       hostFilter,
       "and",
@@ -140,7 +141,8 @@ export function normalizeBacklinkDetails(
     result.target !== payload.target ||
     result.items_count !== source.length ||
     source.length > scope.limit ||
-    result.total_count < source.length
+    result.total_count < source.length ||
+    (source.length > 0 && result.total_count < scope.offset + source.length)
   )
     throw Error("backlink_detail_result_mismatch");
   const seen = new Set<string>();
@@ -212,7 +214,8 @@ export function normalizeBacklinkDetails(
     providerReturnedCount: result.items_count,
     retainedCount: links.length,
     retainedTruncated: truncated,
-    moreProviderResults: result.total_count > source.length || Boolean(result.search_after_token),
+    moreProviderResults:
+      result.total_count > scope.offset + source.length || Boolean(result.search_after_token),
     coverage: "representative_links_from_referring_pages" as const,
     links,
   };

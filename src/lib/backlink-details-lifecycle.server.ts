@@ -55,6 +55,7 @@ export async function runBacklinkDetails(
       includeSubdomains: input.includeSubdomains,
       selection: input.selection,
       limit: input.limit,
+      offset: input.offset,
     },
     now(),
   );

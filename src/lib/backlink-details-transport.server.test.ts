@@ -8,6 +8,7 @@ const scope = {
   includeSubdomains: false,
   selection: "first_seen" as const,
   limit: 100,
+  offset: 0,
 };
 const credentials = { login: "fixture-login", password: "fixture-secret" };
 const fixture = () => ({

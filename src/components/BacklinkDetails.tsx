@@ -50,6 +50,7 @@ function DetailsHistory({
   const [includeSubdomains, setSubdomains] = useState(false);
   const [selection, setSelection] = useState<"first_seen" | "lost_last_seen">("first_seen");
   const [limit, setLimit] = useState(100);
+  const [offset, setOffset] = useState(0);
   const [requestId, setRequest] = useState<string | null>(null);
   const [invalid, setInvalid] = useState(false);
   const queryKey = ["backlink-details", userId, projectId, website];
@@ -72,6 +73,7 @@ function DetailsHistory({
           includeSubdomains,
           selection,
           limit,
+          offset,
           expectedWebsite: website.trim(),
         },
       }),
@@ -115,6 +117,7 @@ function DetailsHistory({
               includeSubdomains,
               selection,
               limit,
+              offset,
             });
           } catch {
             setInvalid(true);
@@ -172,6 +175,19 @@ function DetailsHistory({
             value={limit}
             disabled={disabled}
             onChange={(e) => setLimit(Number(e.target.value))}
+          />
+        </label>
+        <label className="space-y-1 text-sm">
+          {t("backlinkDetails.offset")}
+          <Input
+            type="number"
+            required
+            min={0}
+            max={20000}
+            step={1}
+            value={offset}
+            disabled={disabled}
+            onChange={(e) => setOffset(Number(e.target.value))}
           />
         </label>
         <label className="flex items-center gap-2 py-2 text-sm">
@@ -248,6 +264,10 @@ function DetailsHistory({
             <div className="mt-3 space-y-3 text-sm">
               <p className="break-all">
                 {t("backlinkMonitor.request")}: {row.requestId}
+              </p>
+              <p>
+                {t("backlinkDetails.offset")}: {row.scope.offset ?? 0} ·{" "}
+                {t("backlinkDetails.limit")}: {row.scope.limit}
               </p>
               <p>
                 {t("backlinkMonitor.subdomains")}:{" "}

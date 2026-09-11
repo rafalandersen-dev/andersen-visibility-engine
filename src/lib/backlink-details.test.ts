@@ -13,6 +13,7 @@ const scope: BacklinkDetailScope = {
   includeSubdomains: false,
   selection: "first_seen",
   limit: 100,
+  offset: 0,
 };
 const link = () => ({
   type: "backlink",
@@ -148,4 +149,20 @@ it("rejects credentials and non-http link URLs", () => {
   const f = fixture();
   f.tasks[0].result[0].items[0].url_from = "https://name:password@source.test/";
   expect(() => normalizeBacklinkDetails(f, scope, observed)).toThrow();
+});
+
+it("binds a later page and computes remaining results after its offset", () => {
+  const next = { ...scope, offset: 9 };
+  const f = fixture(next);
+  expect(backlinkDetailPayload(next, new Date(observed)).offset).toBe(9);
+  expect(normalizeBacklinkDetails(f, next, observed).moreProviderResults).toBe(false);
+  f.tasks[0].data.offset = 0;
+  expect(() => normalizeBacklinkDetails(f, next, observed)).toThrow("scope_mismatch");
+});
+it.each([-1, 20001, 1.5])("refuses unsupported page offset %s", (offset) =>
+  expect(() => backlinkDetailPayload({ ...scope, offset }, new Date(observed))).toThrow(),
+);
+it("rejects a later-page count inconsistent with total matching results", () => {
+  const next = { ...scope, offset: 10 };
+  expect(() => normalizeBacklinkDetails(fixture(next), next, observed)).toThrow("result_mismatch");
 });

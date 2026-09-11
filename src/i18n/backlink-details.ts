@@ -12,7 +12,7 @@ export const backlinkDetailsCopy: Record<OnboardingLanguage, Record<string, stri
     "backlinkDetails.counts":
       "Showing {retained} of {returned} returned links; {total} provider matches.",
     "backlinkDetails.partial":
-      "More provider results or omitted evidence exist. This view is incomplete; additional pages are not collected automatically.",
+      "More provider results or omitted evidence exist. To collect another page, start another request and set the number of results to skip. Each page uses supplier allowance. The live index may change between pages.",
     "backlinkDetails.noLinks": "No retained links for this request.",
     "backlinkDetails.source": "Referring page",
     "backlinkDetails.target": "Destination",
@@ -22,6 +22,7 @@ export const backlinkDetailsCopy: Record<OnboardingLanguage, Record<string, stri
     "backlinkDetails.rank": "Provider rank",
     "backlinkDetails.spam": "Spam score",
     "backlinkDetails.lost": "Reported lost",
+    "backlinkDetails.offset": "Skip results (0–20,000)",
   },
   pl: {
     "backlinkDetails.title": "Dowody dotyczące linków zwrotnych",
@@ -35,7 +36,7 @@ export const backlinkDetailsCopy: Record<OnboardingLanguage, Record<string, stri
     "backlinkDetails.counts":
       "Wyświetlono {retained} z {returned} zwróconych linków; {total} dopasowań dostawcy.",
     "backlinkDetails.partial":
-      "Istnieją dalsze wyniki lub pominięte dowody. Widok jest niepełny; kolejne strony nie są pobierane automatycznie.",
+      "Istnieją dalsze wyniki lub pominięte dowody. Aby pobrać kolejną stronę, rozpocznij nowe żądanie i ustaw liczbę pomijanych wyników. Każda strona wykorzystuje limit dostawcy. Indeks może się zmieniać między stronami.",
     "backlinkDetails.noLinks": "Brak zachowanych linków dla tego żądania.",
     "backlinkDetails.source": "Strona odsyłająca",
     "backlinkDetails.target": "Strona docelowa",
@@ -45,6 +46,7 @@ export const backlinkDetailsCopy: Record<OnboardingLanguage, Record<string, stri
     "backlinkDetails.rank": "Ocena dostawcy",
     "backlinkDetails.spam": "Wskaźnik spamu",
     "backlinkDetails.lost": "Zgłoszony jako utracony",
+    "backlinkDetails.offset": "Pomiń wyniki (0–20 000)",
   },
   sv: {
     "backlinkDetails.title": "Underlag för enskilda bakåtlänkar",
@@ -58,7 +60,7 @@ export const backlinkDetailsCopy: Record<OnboardingLanguage, Record<string, stri
     "backlinkDetails.counts":
       "Visar {retained} av {returned} returnerade länkar; {total} träffar hos leverantören.",
     "backlinkDetails.partial":
-      "Fler resultat eller utelämnade underlag finns. Vyn är ofullständig; fler sidor hämtas inte automatiskt.",
+      "Fler resultat eller utelämnade underlag finns. Starta en ny begäran och ange antalet resultat att hoppa över för nästa sida. Varje sida använder leverantörsbudgeten. Indexet kan ändras mellan sidorna.",
     "backlinkDetails.noLinks": "Inga sparade länkar för denna begäran.",
     "backlinkDetails.source": "Hänvisande sida",
     "backlinkDetails.target": "Målsida",
@@ -68,6 +70,7 @@ export const backlinkDetailsCopy: Record<OnboardingLanguage, Record<string, stri
     "backlinkDetails.rank": "Leverantörens rang",
     "backlinkDetails.spam": "Spampoäng",
     "backlinkDetails.lost": "Rapporterad förlorad",
+    "backlinkDetails.offset": "Hoppa över resultat (0–20 000)",
   },
   da: {
     "backlinkDetails.title": "Dokumentation for enkelte backlinks",
@@ -81,7 +84,7 @@ export const backlinkDetailsCopy: Record<OnboardingLanguage, Record<string, stri
     "backlinkDetails.counts":
       "Viser {retained} af {returned} returnerede links; {total} leverandørresultater.",
     "backlinkDetails.partial":
-      "Der findes flere resultater eller udeladt dokumentation. Visningen er ufuldstændig; flere sider hentes ikke automatisk.",
+      "Der findes flere resultater eller udeladt dokumentation. Start en ny anmodning og angiv antallet af resultater, der skal springes over, for næste side. Hver side bruger leverandørbudgettet. Indekset kan ændres mellem siderne.",
     "backlinkDetails.noLinks": "Ingen gemte links for denne anmodning.",
     "backlinkDetails.source": "Henvisende side",
     "backlinkDetails.target": "Destination",
@@ -91,5 +94,6 @@ export const backlinkDetailsCopy: Record<OnboardingLanguage, Record<string, stri
     "backlinkDetails.rank": "Leverandørrang",
     "backlinkDetails.spam": "Spamscore",
     "backlinkDetails.lost": "Rapporteret mistet",
+    "backlinkDetails.offset": "Spring resultater over (0–20.000)",
   },
 };
