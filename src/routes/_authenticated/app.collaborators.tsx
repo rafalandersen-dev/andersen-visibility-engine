@@ -1,3 +1,4 @@
+import { ProjectTeamApprovalPolicy } from "@/components/ProjectTeamApprovalPolicy";
 import { ProjectTeamDraftEditor } from "@/components/ProjectTeamDraftEditor";
 import { ProjectTeamComments } from "@/components/ProjectTeamComments";
 import { useState } from "react";
@@ -207,6 +208,7 @@ function OwnerTeam({ projectId }: { projectId: string }) {
   if (query.isError || !query.data) return <p role="alert">{t("collaboration.error")}</p>;
   return (
     <div className="space-y-5">
+      <ProjectTeamApprovalPolicy projectId={projectId} />
       <form
         className="space-y-3"
         onSubmit={(e) => {

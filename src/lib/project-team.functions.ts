@@ -1,7 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { teamAcceptInput, teamOwnerAction, teamRosterInput } from "./project-team";
+import {
+  teamPolicyChange,
+  teamAcceptInput,
+  teamOwnerAction,
+  teamRosterInput,
+} from "./project-team";
 import { teamDraftEdit, teamCommentRead, teamCommentAdd, teamReadInput } from "./project-team";
 export const updateProjectTeamFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -59,4 +64,18 @@ export const saveProjectTeamDraftFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { saveProjectTeamDraft } = await import("./project-team-edit.server");
     return saveProjectTeamDraft(context.userId, data);
+  });
+export const readOwnerTeamPolicyFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => teamRosterInput.parse(v))
+  .handler(async ({ data, context }) => {
+    const { readOwnerTeamPolicy } = await import("./project-team-policy.server");
+    return readOwnerTeamPolicy(context.userId, data);
+  });
+export const changeOwnerTeamPolicyFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => teamPolicyChange.parse(v))
+  .handler(async ({ data, context }) => {
+    const { changeOwnerTeamPolicy } = await import("./project-team-policy.server");
+    return changeOwnerTeamPolicy(context.userId, data);
   });

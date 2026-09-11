@@ -1,4 +1,12 @@
 const en = {
+  "collaboration.policyTitle": "Approval policy",
+  "collaboration.policyHelp":
+    "Choose who can approve project work. Changing this policy withdraws existing collaborator approvals; independent owner approvals remain.",
+  "collaboration.policyUnselected": "Not selected — collaborator approval is inactive",
+  "collaboration.policy.disabled": "Owner approvals only",
+  "collaboration.policy.separate_reviewers": "Separate Reviewers approve; Editors edit",
+  "collaboration.policy.editors_can_approve": "Editors and Reviewers may approve",
+  "collaboration.savePolicy": "Save approval policy",
   "collaboration.editDraft": "Edit draft",
   "collaboration.editHelp":
     "Saving returns this draft to review and withdraws its previous publication approval.",
@@ -65,6 +73,15 @@ const en = {
 };
 type Copy = Record<keyof typeof en, string>;
 const pl: Copy = {
+  "collaboration.policyTitle": "Zasady zatwierdzania",
+  "collaboration.policyHelp":
+    "Wybierz, kto może zatwierdzać pracę. Zmiana zasad cofa zatwierdzenia współpracowników; niezależne zatwierdzenia właściciela pozostają.",
+  "collaboration.policyUnselected":
+    "Nie wybrano — zatwierdzanie przez współpracowników jest nieaktywne",
+  "collaboration.policy.disabled": "Zatwierdza tylko właściciel",
+  "collaboration.policy.separate_reviewers": "Recenzenci zatwierdzają, Redaktorzy edytują",
+  "collaboration.policy.editors_can_approve": "Redaktorzy i Recenzenci mogą zatwierdzać",
+  "collaboration.savePolicy": "Zapisz zasady",
   "collaboration.editDraft": "Edytuj szkic",
   "collaboration.editHelp":
     "Zapisanie kieruje szkic do ponownej oceny i cofa poprzednią zgodę na publikację.",
@@ -130,6 +147,14 @@ const pl: Copy = {
   "collaboration.revoked": "Cofnięte",
 };
 const sv: Copy = {
+  "collaboration.policyTitle": "Godkännandepolicy",
+  "collaboration.policyHelp":
+    "Välj vem som får godkänna projektarbete. En policyändring återkallar samarbetares godkännanden; ägarens egna godkännanden behålls.",
+  "collaboration.policyUnselected": "Inget valt — samarbetare kan inte godkänna",
+  "collaboration.policy.disabled": "Endast ägaren godkänner",
+  "collaboration.policy.separate_reviewers": "Separata granskare godkänner; redaktörer redigerar",
+  "collaboration.policy.editors_can_approve": "Redaktörer och granskare får godkänna",
+  "collaboration.savePolicy": "Spara godkännandepolicy",
   "collaboration.editDraft": "Redigera utkast",
   "collaboration.editHelp":
     "När du sparar skickas utkastet till granskning och tidigare publiceringsgodkännande återkallas.",
@@ -195,6 +220,15 @@ const sv: Copy = {
   "collaboration.revoked": "Återkallad",
 };
 const da: Copy = {
+  "collaboration.policyTitle": "Godkendelsespolitik",
+  "collaboration.policyHelp":
+    "Vælg, hvem der kan godkende projektarbejde. En ændring tilbagekalder samarbejdspartneres godkendelser; ejerens selvstændige godkendelser bevares.",
+  "collaboration.policyUnselected": "Intet valgt — samarbejdspartneres godkendelse er inaktiv",
+  "collaboration.policy.disabled": "Kun ejeren godkender",
+  "collaboration.policy.separate_reviewers":
+    "Separate kontrollanter godkender; redaktører redigerer",
+  "collaboration.policy.editors_can_approve": "Redaktører og kontrollanter kan godkende",
+  "collaboration.savePolicy": "Gem godkendelsespolitik",
   "collaboration.editDraft": "Rediger kladde",
   "collaboration.editHelp":
     "Når du gemmer, sendes kladden til gennemgang, og den tidligere udgivelsesgodkendelse tilbagekaldes.",

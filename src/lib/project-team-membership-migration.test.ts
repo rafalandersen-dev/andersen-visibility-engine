@@ -31,11 +31,12 @@ beforeAll(async () => {
     "20260911040000_project_team_comments.sql",
     "20260910170000_publication_approval.sql",
     "20260911050000_project_team_edits.sql",
+    "20260911060000_project_team_approval_policy.sql",
   ])
     await db.exec(readFileSync(`supabase/migrations/${file}`, "utf8"));
 }, 30000);
 beforeEach(async () => {
-  await db.exec(`RESET ROLE; TRUNCATE public.output_knowledge_reviews,public.project_team_edits,public.scheduled_publishes,public.publication_approvals,public.project_team_comments,public.project_team_members,public.project_team_invitations,public.project_team_audit;
+  await db.exec(`RESET ROLE; TRUNCATE public.project_team_approval_history,public.project_team_approval_policy,public.output_knowledge_reviews,public.project_team_edits,public.scheduled_publishes,public.publication_approvals,public.project_team_comments,public.project_team_members,public.project_team_invitations,public.project_team_audit;
     UPDATE public.workspace_meta SET rev=1;
     INSERT INTO public.workspace_entities VALUES('${owner}','content','a','{"projectId":"p","title":"Draft","status":"Draft","updatedAt":"now","markdown":"Saved draft"}') ON CONFLICT(user_id,collection,entity_id) DO UPDATE SET data=EXCLUDED.data;
     UPDATE auth.identities SET identity_data='{"email":"member@example.test","email_verified":true}';
@@ -321,6 +322,233 @@ describe("durable project invitation and membership lifecycle", () => {
     );
     expect((await db.query("SELECT * FROM public.project_team_edits")).rows).toHaveLength(0);
   });
+
+  it("keeps delegation off by default and only permits the owner to select a current policy", async () => {
+    await create();
+    await accept();
+    const snap = (
+      await db.query<{ result: { draftHash: string } }>(
+        "SELECT public.read_project_team_snapshot($1,$2,'p','a') result",
+        [actor, owner],
+      )
+    ).rows[0].result;
+    await expect(
+      db.query("SELECT public.save_project_team_approval($1,$2,'p','a',$3,1,$4,$5,1,1,true)", [
+        actor,
+        owner,
+        second,
+        snap.draftHash,
+        "a".repeat(64),
+      ]),
+    ).rejects.toThrow("team_approval_policy_changed");
+    await expect(
+      db.query(
+        "SELECT public.set_project_team_approval_policy($1,$2,'p',0,'editors_can_approve')",
+        [actor, owner],
+      ),
+    ).rejects.toThrow();
+    await db.query(
+      "SELECT public.set_project_team_approval_policy($1,$1,'p',0,'separate_reviewers')",
+      [owner],
+    );
+    await expect(
+      db.query(
+        "SELECT public.set_project_team_approval_policy($1,$1,'p',0,'editors_can_approve')",
+        [owner],
+      ),
+    ).rejects.toThrow("team_policy_changed");
+    await expect(
+      db.query("SELECT public.save_project_team_approval($1,$2,'p','a',$3,1,$4,$5,1,1,true)", [
+        actor,
+        owner,
+        second,
+        snap.draftHash,
+        "a".repeat(64),
+      ]),
+    ).rejects.toThrow("team_approval_policy_changed");
+  });
+  it("supports editor approval only under the selected policy and withdraws it on membership removal", async () => {
+    await create();
+    await accept();
+    await db.query(
+      "SELECT public.set_project_team_approval_policy($1,$1,'p',0,'editors_can_approve')",
+      [owner],
+    );
+    const snap = (
+      await db.query<{ result: { draftHash: string } }>(
+        "SELECT public.read_project_team_snapshot($1,$2,'p','a') result",
+        [actor, owner],
+      )
+    ).rows[0].result;
+    await db.query("SELECT public.save_project_team_approval($1,$2,'p','a',$3,1,$4,$5,1,1,true)", [
+      actor,
+      owner,
+      second,
+      snap.draftHash,
+      "a".repeat(64),
+    ]);
+    const approved = async () =>
+      (
+        await db.query<{ ok: boolean }>(
+          "SELECT public.read_publication_approval($1,'p','a',$2) ok",
+          [owner, "a".repeat(64)],
+        )
+      ).rows[0].ok;
+    expect(await approved()).toBe(true);
+    await change(1, true);
+    expect(await approved()).toBe(false);
+  });
+  it("preserves later owner approval across policy changes and member removal", async () => {
+    await create();
+    await accept();
+    await change();
+    await db.query(
+      "SELECT public.set_project_team_approval_policy($1,$1,'p',0,'separate_reviewers')",
+      [owner],
+    );
+    const snap = (
+      await db.query<{ result: { draftHash: string } }>(
+        "SELECT public.read_project_team_snapshot($1,$2,'p','a') result",
+        [actor, owner],
+      )
+    ).rows[0].result;
+    await db.query("SELECT public.save_project_team_approval($1,$2,'p','a',$3,1,$4,$5,2,1,true)", [
+      actor,
+      owner,
+      second,
+      snap.draftHash,
+      "a".repeat(64),
+    ]);
+    await db.query("SELECT public.set_publication_approval($1,'p','a',2,$2,true)", [
+      owner,
+      "a".repeat(64),
+    ]);
+    await change(2, true);
+    await db.query("SELECT public.set_project_team_approval_policy($1,$1,'p',1,'disabled')", [
+      owner,
+    ]);
+    expect(
+      (
+        await db.query<{ ok: boolean }>(
+          "SELECT public.read_publication_approval($1,'p','a',$2) ok",
+          [owner, "a".repeat(64)],
+        )
+      ).rows[0].ok,
+    ).toBe(true);
+    expect(
+      (await db.query("SELECT delegate_actor_id FROM public.publication_approvals")).rows[0],
+    ).toEqual({ delegate_actor_id: null });
+  });
+  it("policy changes cannot revive an old grant", async () => {
+    await create();
+    await accept();
+    await db.query(
+      "SELECT public.set_project_team_approval_policy($1,$1,'p',0,'editors_can_approve')",
+      [owner],
+    );
+    const snap = (
+      await db.query<{ result: { draftHash: string } }>(
+        "SELECT public.read_project_team_snapshot($1,$2,'p','a') result",
+        [actor, owner],
+      )
+    ).rows[0].result;
+    await db.query("SELECT public.save_project_team_approval($1,$2,'p','a',$3,1,$4,$5,1,1,true)", [
+      actor,
+      owner,
+      second,
+      snap.draftHash,
+      "a".repeat(64),
+    ]);
+    await db.query("SELECT public.set_project_team_approval_policy($1,$1,'p',1,'disabled')", [
+      owner,
+    ]);
+    await db.query(
+      "SELECT public.set_project_team_approval_policy($1,$1,'p',2,'editors_can_approve')",
+      [owner],
+    );
+    expect(
+      (
+        await db.query<{ ok: boolean }>(
+          "SELECT public.read_publication_approval($1,'p','a',$2) ok",
+          [owner, "a".repeat(64)],
+        )
+      ).rows[0].ok,
+    ).toBe(false);
+  });
+
+  it("rejects a stale stored grant at read time when membership is expired", async () => {
+    await create();
+    await accept();
+    await db.query(
+      "SELECT public.set_project_team_approval_policy($1,$1,'p',0,'editors_can_approve')",
+      [owner],
+    );
+    const snap = (
+      await db.query<{ result: { draftHash: string } }>(
+        "SELECT public.read_project_team_snapshot($1,$2,'p','a') result",
+        [actor, owner],
+      )
+    ).rows[0].result;
+    await db.query("SELECT public.save_project_team_approval($1,$2,'p','a',$3,1,$4,$5,1,1,true)", [
+      actor,
+      owner,
+      second,
+      snap.draftHash,
+      "a".repeat(64),
+    ]);
+    // Model time passing without a membership mutation's eager invalidation.
+    await db.exec(
+      "ALTER TABLE public.project_team_members DISABLE TRIGGER invalidate_project_team_approvals; UPDATE public.project_team_members SET expires_at=now()-interval '1 second'; ALTER TABLE public.project_team_members ENABLE TRIGGER invalidate_project_team_approvals;",
+    );
+    expect((await db.query("SELECT approved FROM public.publication_approvals")).rows[0]).toEqual({
+      approved: true,
+    });
+    expect(
+      (
+        await db.query<{ ok: boolean }>(
+          "SELECT public.read_publication_approval($1,'p','a',$2) ok",
+          [owner, "a".repeat(64)],
+        )
+      ).rows[0].ok,
+    ).toBe(false);
+  });
+  it("does not let an editor approve their own edit by switching to Reviewer under separation", async () => {
+    await create();
+    await accept();
+    const before = (
+      await db.query<{ result: { draftHash: string } }>(
+        "SELECT public.read_project_team_snapshot($1,$2,'p','a') result",
+        [actor, owner],
+      )
+    ).rows[0].result;
+    await db.query("SELECT public.save_project_team_draft($1,$2,'p','a',$3,$4,1,$5)", [
+      actor,
+      owner,
+      second,
+      before.draftHash,
+      { markdown: "My edit" },
+    ]);
+    await change();
+    await db.query(
+      "SELECT public.set_project_team_approval_policy($1,$1,'p',0,'separate_reviewers')",
+      [owner],
+    );
+    const after = (
+      await db.query<{ result: { draftHash: string } }>(
+        "SELECT public.read_project_team_snapshot($1,$2,'p','a') result",
+        [actor, owner],
+      )
+    ).rows[0].result;
+    await expect(
+      db.query("SELECT public.save_project_team_approval($1,$2,'p','a',$3,2,$4,$5,2,1,true)", [
+        actor,
+        owner,
+        other,
+        after.draftHash,
+        "a".repeat(64),
+      ]),
+    ).rejects.toThrow("team_independent_reviewer_required");
+  });
   it("restricts all lifecycle functions and private tables to service-mediated calls", async () => {
     for (const role of ["anon", "authenticated", "service_role"]) {
       await db.exec(`SET ROLE ${role}`);
@@ -330,12 +558,30 @@ describe("durable project invitation and membership lifecycle", () => {
         "project_team_members",
         "project_team_comments",
         "project_team_edits",
+        "project_team_approval_policy",
+        "project_team_approval_history",
       ])
         await expect(db.query(`SELECT * FROM public.${table}`)).rejects.toThrow(
           /permission denied/,
         );
       if (role !== "service_role") {
         await expect(create()).rejects.toThrow(/permission denied/);
+        await expect(
+          db.query("SELECT public.read_project_team_approval_policy($1,$2,'p')", [actor, owner]),
+        ).rejects.toThrow(/permission denied/);
+        await expect(
+          db.query("SELECT public.set_project_team_approval_policy($1,$1,'p',0,'disabled')", [
+            owner,
+          ]),
+        ).rejects.toThrow(/permission denied/);
+        await expect(
+          db.query("SELECT public.save_project_team_approval($1,$2,'p','a',$3,1,$4,$4,1,1,true)", [
+            actor,
+            owner,
+            second,
+            "a".repeat(64),
+          ]),
+        ).rejects.toThrow(/permission denied/);
         await expect(
           db.query("SELECT public.save_project_team_draft($1,$2,'p','a',$3,$4,1,$5)", [
             actor,

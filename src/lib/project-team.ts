@@ -141,3 +141,16 @@ export const teamDraftEdit = teamCommentTarget
     fields: teamDraftFields,
   })
   .strict();
+export const teamPolicyMode = z.enum(["disabled", "separate_reviewers", "editors_can_approve"]);
+export const teamPolicy = teamProjectTarget
+  .extend({
+    mode: teamPolicyMode.nullable(),
+    revision: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+  })
+  .strict();
+export const teamPolicyChange = teamRosterInput
+  .extend({
+    mode: teamPolicyMode,
+    expectedRevision: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+  })
+  .strict();
