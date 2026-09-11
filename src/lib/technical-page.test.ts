@@ -9,6 +9,25 @@ const inspect = (html: string) =>
     headers: { "X-Robots-Tag": "googlebot: noindex" },
   });
 describe("technical HTML observations", () => {
+  it("ignores a body-nested XHTML head for every document metadata field", () => {
+    const result = inspectTechnicalPage({
+      url: "https://example.test/page",
+      status: 200,
+      observedAt: "2026-09-11T00:00:00Z",
+      headers: { "content-type": "application/xhtml+xml" },
+      html: '<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body><head><title>False</title><meta name="description" content="False"/><meta name="robots" content="noindex"/><link rel="canonical" href="/false"/><link rel="alternate" hreflang="sv" href="/sv"/><base href="https://evil.test/"/></head><a href="next">Next</a></body></html>',
+    });
+    expect(result).toMatchObject({
+      title: "",
+      descriptions: [],
+      robots: [],
+      canonicals: [],
+      alternateLanguages: [],
+      internalLinks: ["https://example.test/next"],
+      complete: true,
+    });
+  });
+
   it.each(["text/html", "application/xhtml+xml"])("uses only head titles in %s", (contentType) => {
     for (const head of ["", "<title>Document title</title>"]) {
       const result = inspectTechnicalPage({

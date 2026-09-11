@@ -296,3 +296,8 @@ Merged the already released backlink monitoring implementation and release evide
 Head-only title detection now applies to HTML and XHTML. Sitemap context over4096bytes is omitted from a finding snapshot with an explicit truncation flag and original membership count, keeping long page URLs capturable. Account crawl limits are60 starts/minute and600/hour within the deployment120/minute and1200/hour, with existing two-account/eight-global concurrent limits retained.
 
 Validation:80 focused page/crawl/ownership tests passed, then30 ownership tests passed including another verified account admitted after the first account reaches its allowance. These are local fixtures and single-session database checks. The combined full suite was intentionally interrupted to apply newly received review findings; it is not a completed validation result. No technical migration or deployment has occurred.
+
+
+### Actual document head identity
+
+Metadata ancestry now starts only at the XHTML/HTML document root's direct head child. Nested body elements named head cannot supply title, description, robots, canonical, alternate-language or base-URL metadata. A regression covers these fields together and verifies that relative body links still resolve against the observed page.39 focused page/finding tests pass. Earlier combined3797tests/282files and production build passed at0fc4f87 before this final parser correction; fresh validation and review are required for the new commit. No production migration or crawl occurred.

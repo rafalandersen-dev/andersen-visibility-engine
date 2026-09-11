@@ -102,15 +102,21 @@ export function inspectTechnicalPage(input: {
   const isXhtml = /^application\/xhtml\+xml(?:\s*;|$)/i.test(contentType);
   const document = isXhtml ? parseXhtml(input.html) : parse(input.html);
   if (!document) return { ...result, complete: false };
+  const root = document.childNodes.find(
+    (node): node is Element =>
+      "tagName" in node && node.tagName === "html" && node.namespaceURI === XHTML_NAMESPACE,
+  );
+  const documentHead = root?.childNodes.find(
+    (node): node is Element =>
+      "tagName" in node && node.tagName === "head" && node.namespaceURI === XHTML_NAMESPACE,
+  );
   const nodes: Element[] = [];
   const headNodes = new Set<Element>();
   const pending: { node: Node; inHead: boolean }[] = [{ node: document, inHead: false }];
   let visited = 0;
   while (pending.length) {
     const { node, inHead } = pending.pop()!;
-    const head =
-      inHead ||
-      ("tagName" in node && node.namespaceURI === XHTML_NAMESPACE && node.tagName === "head");
+    const head = inHead || node === documentHead;
     if (++visited > 100_000) {
       result.complete = false;
       break;
@@ -154,7 +160,7 @@ export function inspectTechnicalPage(input: {
       return null;
     }
   };
-  const firstBase = nodes.find((n) => n.tagName === "base" && attr(n, "href"));
+  const firstBase = nodes.find((n) => n.tagName === "base" && headNodes.has(n) && attr(n, "href"));
   if (firstBase) base = resolve(attr(firstBase, "href")) ?? base;
   const text = (node: Node): string => {
     const stack = [node];
