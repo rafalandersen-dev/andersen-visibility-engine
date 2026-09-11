@@ -43,15 +43,14 @@ export function ProjectTeamNotificationSettings({
   const mutation = useMutation({
     mutationFn: async () => {
       if (!query.data || query.isError) throw new Error("settings_unavailable");
-      return changeTeamNotificationSettingsFn({
-        data: {
-          ...target,
-          action: owner ? "assign" : "opt_in",
-          enabled: !(owner ? query.data.assigned : query.data.optedIn),
-          expectedRevision: query.data.revision,
-          expectedMembershipRevision: query.data.membershipRevision,
-        },
-      });
+      const data = {
+        ...target,
+        action: owner ? ("assign" as const) : ("opt_in" as const),
+        enabled: !(owner ? query.data.assigned : query.data.optedIn),
+        expectedRevision: query.data.revision,
+        expectedMembershipRevision: query.data.membershipRevision,
+      };
+      return runTeamRequest(() => changeTeamNotificationSettingsFn({ data }));
     },
     onSuccess: () => {
       toast.success(t("collaboration.saved"));

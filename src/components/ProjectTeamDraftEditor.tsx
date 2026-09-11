@@ -1,3 +1,4 @@
+import { runTeamRequest } from "@/lib/team-request-queue";
 import { useState } from "react";
 import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -39,17 +40,19 @@ export function ProjectTeamDraftEditor({
   };
   const mutation = useMutation({
     mutationFn: () =>
-      saveProjectTeamDraftFn({
-        data: {
-          ownerId,
-          projectId,
-          assetId,
-          editId,
-          expectedHash: base.hash,
-          expectedMembershipRevision: base.membershipRevision,
-          fields: draft,
-        },
-      }),
+      runTeamRequest(() =>
+        saveProjectTeamDraftFn({
+          data: {
+            ownerId,
+            projectId,
+            assetId,
+            editId,
+            expectedHash: base.hash,
+            expectedMembershipRevision: base.membershipRevision,
+            fields: draft,
+          },
+        }),
+      ),
     onSuccess: (result) => {
       setBase({
         hash: result.draftHash,

@@ -1,3 +1,5 @@
+import { saveProjectTeamDraft } from "./project-team-edit.server";
+import { changeTeamNotificationSettings } from "./project-team-notifications.server";
 import { addProjectTeamComment } from "./project-team-comments.server";
 import { afterEach, expect, it, vi } from "vitest";
 import {
@@ -118,5 +120,65 @@ it("uses the authenticated actor budget for discovery without a supplied project
     p_actor: actor,
     p_owner: actor,
     p_lease: lease,
+  });
+});
+
+it.each([false, true])(
+  "bounds notification writes before no-op snapshot locking: enabled=%s",
+  async (enabled) => {
+    const rpc = vi.fn(async () => ({ data: null, error: { message: "team_preview_capacity" } }));
+    await expect(
+      changeTeamNotificationSettings(
+        actor,
+        {
+          ...input,
+          recipientId: actor,
+          action: "opt_in",
+          enabled,
+          expectedRevision: 1,
+          expectedMembershipRevision: 1,
+        },
+        admittedReadRpc(actor, rpc),
+      ),
+    ).rejects.toThrow();
+    expect(rpc).toHaveBeenCalledOnce();
+    expect(rpc).toHaveBeenCalledWith("acquire_project_team_preview", {
+      p_actor: actor,
+      p_owner: ownerId,
+      p_project: "p",
+    });
+  },
+);
+
+it("bounds coalesced editor saves before snapshot work", async () => {
+  const rpc = vi.fn(async () => ({ data: null, error: { message: "team_preview_capacity" } }));
+  await expect(
+    saveProjectTeamDraft(
+      actor,
+      {
+        ...input,
+        assetId: "a",
+        editId: lease,
+        expectedHash: "a".repeat(64),
+        expectedMembershipRevision: 1,
+        fields: {
+          title: "Saved title",
+          h1: "",
+          metaTitle: "",
+          metaDescription: "",
+          markdown: "",
+          cta: "",
+          outline: [],
+          faq: [],
+        },
+      },
+      admittedReadRpc(actor, rpc),
+    ),
+  ).rejects.toThrow();
+  expect(rpc).toHaveBeenCalledOnce();
+  expect(rpc).toHaveBeenCalledWith("acquire_project_team_preview", {
+    p_actor: actor,
+    p_owner: ownerId,
+    p_project: "p",
   });
 });

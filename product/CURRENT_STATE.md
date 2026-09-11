@@ -136,3 +136,9 @@ Validation: 107 focused SQL/controller/queue tests, TypeScript, changed-file lin
 The rendered team preview now trims the once-decoded generated source before matching saved image URLs, matching existing publication normalization. Scoped public storage objects accept fragments and query strings: fragments do not affect object bytes, while query-bearing representations use the exact saved URL through bounded pinned transport after owner/project object-path checks. Query parameters are not dropped or substituted with the base object's bytes. Credentials and out-of-scope paths remain refused, and draft/membership revalidation remains required after reading bytes.
 
 Validation: 47 focused preview/media tests, TypeScript and changed-file lint pass (`/tmp/milo-media-url-{tests,types,lint}.log`). No SQL source changed and no live image request or production mutation occurred. Review findings3990943592 and3990943604 are addressed; final-head review and real browser acceptance remain outstanding.
+
+### Admission for unchanged collaborator writes — 11 September 2026
+
+Editor saves and notification setting writes now acquire the existing actor/owner request lease before their snapshot-backed RPC. This bounds repeated no-op calls as well as changed values; receipt/audit coalescing and revision semantics remain. Both explicit UI writes share the existing two-slot request queue. No automatic mutation retry was added.
+
+Validation:25 focused endpoint/admission/notification/queue tests, TypeScript and changed-file lint pass (`/tmp/milo-write-admit-{tests,types,lint}.log`, notification lint `/tmp/milo-notification-admit-lint.log`). Findings3991011249 and3991062997 addressed. SQL sources unchanged; no setting or email changed in production. Prior combined3630-test/build result predates these final endpoint changes; final merged validation follows in the technical branch.

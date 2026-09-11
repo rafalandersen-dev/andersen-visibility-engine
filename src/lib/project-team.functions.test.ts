@@ -123,7 +123,7 @@ describe("team authentication entry points", () => {
       fields,
     };
     await invoke(endpoints.saveProjectTeamDraftFn, data);
-    expect(h.edit).toHaveBeenCalledWith(actor, data);
+    expect(h.edit).toHaveBeenCalledWith(actor, data, h.rpc);
     expect(() => invoke(endpoints.saveProjectTeamDraftFn, { ...data, actorId: owner })).toThrow();
     expect(() =>
       invoke(endpoints.saveProjectTeamDraftFn, {

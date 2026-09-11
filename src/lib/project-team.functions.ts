@@ -69,7 +69,8 @@ export const saveProjectTeamDraftFn = createServerFn({ method: "POST" })
   .inputValidator((v: unknown) => teamDraftEdit.parse(v))
   .handler(async ({ data, context }) => {
     const { saveProjectTeamDraft } = await import("./project-team-edit.server");
-    return saveProjectTeamDraft(context.userId, data);
+    const { admittedReadRpc } = await import("./project-team-read-admission.server");
+    return saveProjectTeamDraft(context.userId, data, admittedReadRpc(context.userId));
   });
 export const readOwnerTeamPolicyFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
