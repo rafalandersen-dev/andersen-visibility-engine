@@ -355,7 +355,9 @@ export async function fetchPinnedResource(
           ...evidence,
           body:
             options.purpose === "technical"
-              ? decodeTechnicalHtml(Buffer.concat(chunks, bytes), type, truncated)
+              ? /^(?:text\/html|application\/xhtml\+xml)(?:\s*;|$)/i.test(type)
+                ? decodeTechnicalHtml(Buffer.concat(chunks, bytes), type, truncated)
+                : ""
               : Buffer.concat(chunks, bytes).toString("utf8"),
           truncated,
           observedAt: new Date().toISOString(),

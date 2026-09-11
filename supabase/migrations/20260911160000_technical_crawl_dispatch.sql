@@ -55,10 +55,11 @@ END; $$;
 
 CREATE FUNCTION public.hold_technical_crawl_admission(p_user uuid,p_project text,p_run uuid,p_lease uuid,p_revision bigint,p_reason text)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE website text;
 BEGIN
- PERFORM public.assert_technical_crawl_owner(p_user,p_project);
+ website:=public.assert_technical_crawl_owner(p_user,p_project);
  IF p_reason IS NULL OR p_reason NOT IN ('capacity','ownership') THEN RAISE EXCEPTION 'technical_admission_invalid'; END IF;
- UPDATE public.technical_crawls SET status='held',resume_status=status,admission_hold=p_reason,retry_after=CASE WHEN p_reason='capacity' THEN clock_timestamp()+interval '1 minute' ELSE NULL END,revision=revision+1,lease_token=NULL,lease_until=NULL,updated_at=clock_timestamp()
+ UPDATE public.technical_crawls SET status='held',resume_status=CASE WHEN website_value IS NOT DISTINCT FROM website THEN status ELSE NULL END,admission_hold=CASE WHEN website_value IS NOT DISTINCT FROM website THEN p_reason ELSE NULL END,retry_after=CASE WHEN website_value IS NOT DISTINCT FROM website AND p_reason='capacity' THEN clock_timestamp()+interval '1 minute' ELSE NULL END,revision=revision+1,lease_token=NULL,lease_until=NULL,updated_at=clock_timestamp()
  WHERE user_id=p_user AND project_id=p_project AND run_id=p_run AND status IN ('preparing','running') AND lease_token=p_lease AND lease_until>clock_timestamp() AND revision=p_revision;
  RETURN FOUND;
 END; $$;

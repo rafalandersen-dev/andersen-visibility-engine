@@ -459,6 +459,35 @@ describe("per-connection crawl dispatch", () => {
     await db.query("UPDATE technical_crawls SET lease_until=now()+interval '1 second'");
     await expect(acquire(runLease)).rejects.toThrow("technical_dispatch_ownership");
   });
+  it.each(["capacity", "ownership"])(
+    "keeps changed-website connection holds nonresumable: %s",
+    async (reason) => {
+      const runLease = await ready();
+      const state = { origin: "https://example.test", retained: "evidence", queue: ["pending"] };
+      await db.query("UPDATE technical_crawls SET state=$1", [state]);
+      await db.query("UPDATE workspace_entities SET data=$1 WHERE user_id=$2 AND entity_id='p'", [
+        { websiteUrl: "https://changed.test" },
+        owner,
+      ]);
+      expect(
+        (
+          await db.query<{ result: boolean }>(
+            "SELECT hold_technical_crawl_admission($1,'p',$2,$3,1,$4) result",
+            [owner, run, runLease, reason],
+          )
+        ).rows[0].result,
+      ).toBe(true);
+      expect(
+        (
+          await db.query(
+            "SELECT status,state,admission_hold,resume_status,retry_after FROM technical_crawls",
+          )
+        ).rows,
+      ).toEqual([
+        { status: "held", state, admission_hold: null, resume_status: null, retry_after: null },
+      ]);
+    },
+  );
   it("holds and explicitly resumes without altering saved evidence or queue", async () => {
     const runLease = await ready();
     const state = { origin: "https://example.test", retained: "evidence", queue: ["pending"] };

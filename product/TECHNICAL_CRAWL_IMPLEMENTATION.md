@@ -227,3 +227,11 @@ After refreshing the actual dependency tree, all3638 tests/273files, TypeScript,
 Unreleased migration140000 now includes a private persistent account/provider admission table, bringing the technical packet to nine tables. Each account/provider has one retained in-flight lease, two starts/minute and ten/hour within the existing global four leases, ten/minute and100/hour. Atomic admission checks both scopes before consuming capacity; counters survive project/account deletion. Five accounts can use at most50 hourly starts for a provider, leaving capacity for independent accounts in the reported scenario. These limits bound an account's share; they do not guarantee availability against unlimited coordinated accounts or aggregate legitimate demand. The original total20 request-attempt/hour account limit remains.
 
 Validation:44 actual-SQL performance/ownership tests and TypeScript/changed-file lint pass (`/tmp/milo-performance-share-{types,lint}.log`, `/tmp/milo-performance-share-final-tests.log`). Full3638 tests and build preceded this SQL-only extension; runtime application code is unchanged. Finding3991173636 addressed. No migration or provider request occurred.
+
+### Per-connection website holds and non-HTML error transport
+
+Connection-admission holds now compare the run's saved website against the current project. Changed websites clear resume/admission metadata and retry timestamps, retaining the saved evidence; same-site capacity/ownership holds remain resumable. This completes the per-connection path in addition to prior claim/save checks.
+
+Technical transport decodes only HTML/XHTML bodies. Accepted non-HTML responses preserve status and selected headers while omitting body text that the crawler would not parse. Legacy-encoded text/plain error pages therefore retain HTTP error evidence without failing fatal UTF-8 decoding. Other fetch purposes retain their existing decoding behavior.
+
+Validation:93 focused pinned-transport/actual-SQL ownership tests, TypeScript and changed-file lint pass (`/tmp/milo-connection-hold-{tests,types,lint}.log`). Findings3991310073 and3991310082 addressed. Migration160000 remains unapplied; no network crawl or production write occurred.

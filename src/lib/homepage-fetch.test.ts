@@ -374,6 +374,26 @@ describe("structured pinned technical observations", () => {
     expect(release).toHaveBeenCalledOnce();
   });
 
+  it("retains legacy-encoded non-HTML HTTP errors without decoding their body", async () => {
+    mocks.request.mockImplementation(
+      reply(
+        response([Buffer.from([0x43, 0x61, 0x66, 0xe9])], 500, {
+          "content-type": "text/plain",
+          "x-robots-tag": "noindex",
+        }),
+      ),
+    );
+    const result = await fetchPinnedResource("https://example.com/", {
+      purpose: "technical",
+      origin: "https://example.com",
+      authorize: () => true,
+    });
+    expect(result).toMatchObject({
+      status: 500,
+      body: "",
+      headers: { "content-type": "text/plain", "x-robots-tag": "noindex" },
+    });
+  });
   it("decodes declared legacy HTML before returning technical evidence", async () => {
     mocks.request.mockImplementation(
       reply(
