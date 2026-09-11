@@ -25,6 +25,7 @@ CREATE TABLE public.technical_performance_requests (
 );
 ALTER TABLE public.technical_performance_requests ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.technical_performance_requests FROM PUBLIC,anon,authenticated,service_role;
+CREATE UNIQUE INDEX technical_performance_one_active_owner ON public.technical_performance_requests(user_id) WHERE status='running';
 CREATE INDEX technical_performance_requests_owner_activity ON public.technical_performance_requests(user_id,created_at DESC);
 CREATE INDEX technical_performance_requests_history ON public.technical_performance_requests(user_id,project_id,created_at DESC,request_id);
 

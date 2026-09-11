@@ -20,6 +20,7 @@ CREATE TABLE public.google_index_inspections (
 );
 ALTER TABLE public.google_index_inspections ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.google_index_inspections FROM PUBLIC,anon,authenticated,service_role;
+CREATE UNIQUE INDEX google_index_one_active_project ON public.google_index_inspections(user_id,project_id) WHERE status='running';
 CREATE INDEX google_index_inspections_history ON public.google_index_inspections(user_id,project_id,created_at DESC,request_id);
 
 CREATE FUNCTION public.read_google_index_context(p_user uuid,p_project text)

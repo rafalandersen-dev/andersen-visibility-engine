@@ -240,3 +240,22 @@ it("stores lab evidence under its own identity without accepting a field observa
   );
   expect(await finish(r.record.lease_token, lab)).toBe(true);
 });
+
+it("enforces one active owner request across projects at storage level", async () => {
+  await reserve();
+  await expect(
+    db.query(
+      "INSERT INTO technical_performance_requests SELECT user_id,'q',$1,project_collection,website_value,origin,source,scope,device,url,status,lease_token,lease_until,dispatched_at,observation,error_code,created_at,updated_at FROM technical_performance_requests",
+      [second],
+    ),
+  ).rejects.toThrow("technical_performance_one_active_owner");
+  expect((await reserve()).claimed).toBe(false);
+});
+it("requires a common workspace row before admitting a performance request", async () => {
+  await db.query("DELETE FROM workspace_meta WHERE user_id=$1", [owner]);
+  try {
+    await expect(reserve()).rejects.toThrow("technical_crawl_unavailable");
+  } finally {
+    await db.query("INSERT INTO workspace_meta(user_id,rev) VALUES($1,1)", [owner]);
+  }
+});

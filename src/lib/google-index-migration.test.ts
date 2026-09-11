@@ -212,3 +212,22 @@ describe("durable Google inspection attempts", () => {
     }
   });
 });
+
+it("enforces the active-project invariant even for direct storage insertion", async () => {
+  await reserve();
+  await expect(
+    db.query(
+      "INSERT INTO google_index_inspections(user_id,project_id,request_id,property,url,status,lease_token,lease_until) VALUES($1,'p',$2,'sc-domain:example.test','https://example.test/','running',gen_random_uuid(),now()+interval '1 minute')",
+      [owner, second],
+    ),
+  ).rejects.toThrow("google_index_one_active_project");
+  expect((await reserve()).claimed).toBe(false);
+});
+it("refuses reservation without the common owner workspace lock row", async () => {
+  await db.query("DELETE FROM workspace_meta WHERE user_id=$1", [owner]);
+  try {
+    await expect(reserve()).rejects.toThrow("technical_crawl_unavailable");
+  } finally {
+    await db.query("INSERT INTO workspace_meta(user_id,rev) VALUES($1,1)", [owner]);
+  }
+});

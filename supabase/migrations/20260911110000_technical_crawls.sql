@@ -25,6 +25,10 @@ CREATE FUNCTION public.assert_technical_crawl_owner(p_user uuid,p_project text)
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE website text;
 BEGIN
+ -- Shared account admission lock, also used by inspection/performance reservations.
+ -- Require the row: an absent request or workspace row is not a lock.
+ PERFORM 1 FROM public.workspace_meta WHERE user_id=p_user FOR UPDATE NOWAIT;
+ IF NOT FOUND THEN RAISE EXCEPTION 'technical_crawl_unavailable'; END IF;
  PERFORM public.assert_knowledge_project(p_user,p_project,true);
  PERFORM 1 FROM auth.users WHERE id=p_user AND deleted_at IS NULL AND (banned_until IS NULL OR banned_until<=clock_timestamp()) FOR SHARE;
  IF NOT FOUND THEN RAISE EXCEPTION 'technical_crawl_unavailable'; END IF;
