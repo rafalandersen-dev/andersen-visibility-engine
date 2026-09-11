@@ -1,3 +1,4 @@
+import { TeamVerificationMismatchError } from "./project-team-verification";
 import { TeamAdmissionBusyError } from "./project-team-admission";
 import { describe, expect, it, vi } from "vitest";
 import { readProjectTeamMedia } from "./project-team-media.server";
@@ -297,4 +298,27 @@ it("ignores a fragment on a scoped public storage object", async () => {
   });
   await readProjectTeamMedia(actor, input, d);
   expect(d.download).toHaveBeenCalledWith("article-assets-public", path);
+});
+
+it("distinguishes confirmed image changes from unavailable image bytes", async () => {
+  const changed = deps();
+  changed.read.mockResolvedValue({ ...context(), draftHash: "b".repeat(64) });
+  await expect(readProjectTeamMedia(actor, input, changed)).rejects.toBeInstanceOf(
+    TeamVerificationMismatchError,
+  );
+  const unavailable = deps();
+  unavailable.download.mockRejectedValueOnce(new Error("private storage outage"));
+  await expect(readProjectTeamMedia(actor, input, unavailable)).rejects.not.toBeInstanceOf(
+    TeamVerificationMismatchError,
+  );
+  const remote = deps({
+    id: "im",
+    url:
+      "https://project.supabase.co/storage/v1/object/public/article-assets-public/" +
+      owner +
+      "/p/a/im.png?representation=1",
+  });
+  await expect(
+    readProjectTeamMedia(actor, input, { ...remote, remote: vi.fn(async () => null) }),
+  ).rejects.not.toBeInstanceOf(TeamVerificationMismatchError);
 });

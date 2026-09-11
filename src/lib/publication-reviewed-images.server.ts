@@ -1,3 +1,4 @@
+import { TeamVerificationMismatchError } from "./project-team-verification";
 import { z } from "zod";
 import { teamCall, projectTeamRpc } from "./project-team-membership.server";
 import { teamReviewDecision } from "./project-team";
@@ -42,7 +43,7 @@ export async function assertReviewedPublicationImages(
     expected.size !== preview.media.length ||
     preview.media.some((image) => !expected.has(image.key))
   )
-    throw new Error("publication_review_images_changed");
+    throw new TeamVerificationMismatchError("publication_review_images_changed");
   const deadline = Date.now() + 65000;
   for (let offset = 0; offset < preview.media.length; offset += 4) {
     if (Date.now() >= deadline) throw new Error("publication_review_images_timed_out");
@@ -59,17 +60,14 @@ export async function assertReviewedPublicationImages(
           bytes.draftHash !== preview.draftHash ||
           bytes.byteHash !== expected.get(image.key)
         )
-          throw new Error("publication_review_images_changed");
+          throw new TeamVerificationMismatchError("publication_review_images_changed");
       }),
     );
   }
   const final = await (deps.preview ?? readProjectTeamPreview)(scope.ownerId, scope);
-  if (
-    Date.now() >= deadline ||
-    final.version.hash !== versionHash ||
-    final.draftHash !== preview.draftHash
-  )
-    throw new Error("publication_review_images_changed");
+  if (Date.now() >= deadline) throw new Error("publication_review_images_timed_out");
+  if (final.version.hash !== versionHash || final.draftHash !== preview.draftHash)
+    throw new TeamVerificationMismatchError("publication_review_images_changed");
   if (JSON.stringify(await load()) !== JSON.stringify(saved))
-    throw new Error("publication_review_images_changed");
+    throw new TeamVerificationMismatchError("publication_review_images_changed");
 }
