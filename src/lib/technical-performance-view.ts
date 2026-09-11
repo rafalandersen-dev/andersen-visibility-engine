@@ -108,6 +108,8 @@ export function readPerformanceObservation(row: {
         value.assessment = "unknown";
     } else {
       if (row.scope !== "url") return null;
+      if (!value.finalUrl || new URL(value.finalUrl).origin !== new URL(row.url).origin)
+        value.identityMatches = false;
       if (!value.identityMatches || value.runtimeFailed) {
         value.performanceScore = null;
         value.metrics = { lcpMs: null, cls: null, totalBlockingTimeMs: null };

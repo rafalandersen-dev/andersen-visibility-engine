@@ -1,3 +1,4 @@
+import { readPerformanceObservation } from "./technical-performance-view";
 import { describe, it, expect } from "vitest";
 import { normalizeCrux, normalizeLighthouse } from "./technical-performance";
 const target = {
@@ -124,5 +125,55 @@ describe("scoped field and lab performance evidence", () => {
     expect(result.metrics).not.toHaveProperty("inp");
     Object.assign(data.lighthouseResult, { runtimeError: { code: "FAILED_DOCUMENT_REQUEST" } });
     expect(normalizeLighthouse(data, { ...target, device: "mobile" }).performanceScore).toBeNull();
+  });
+});
+
+it("does not attribute cross-origin Lighthouse redirects to the requested project", () => {
+  const result = normalizeLighthouse(
+    {
+      lighthouseResult: {
+        requestedUrl: "https://example.test/",
+        finalUrl: "https://other.test/",
+        configSettings: { formFactor: "mobile" },
+        categories: { performance: { score: 0.99 } },
+        audits: { "largest-contentful-paint": { numericValue: 100, numericUnit: "millisecond" } },
+      },
+    },
+    { url: "https://example.test/", device: "mobile", observedAt: "2026-09-11T00:00:00Z" },
+  );
+  expect(result.identityMatches).toBe(false);
+  expect(result.finalUrl).toBe("https://other.test/");
+  expect(result.performanceScore).toBeNull();
+  expect(result.metrics).toEqual({ lcpMs: null, cls: null, totalBlockingTimeMs: null });
+});
+
+it("suppresses legacy saved cross-origin Lighthouse scores during projection", () => {
+  const url = "https://example.test/";
+  const result = normalizeLighthouse(
+    {
+      lighthouseResult: {
+        requestedUrl: url,
+        finalUrl: "https://other.test/",
+        configSettings: { formFactor: "mobile" },
+      },
+    },
+    { url, device: "mobile", observedAt: "2026-09-11T00:00:00Z" },
+  );
+  const view = readPerformanceObservation({
+    url,
+    source: "pagespeed",
+    scope: "url",
+    device: "mobile",
+    observationJson: JSON.stringify({
+      ...result,
+      identityMatches: true,
+      performanceScore: 99,
+      metrics: { lcpMs: 100, cls: 0, totalBlockingTimeMs: 0 },
+    }),
+  });
+  expect(view).toMatchObject({
+    identityMatches: false,
+    performanceScore: null,
+    metrics: { lcpMs: null, cls: null, totalBlockingTimeMs: null },
   });
 });

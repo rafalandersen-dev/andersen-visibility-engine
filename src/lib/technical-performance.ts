@@ -120,7 +120,11 @@ export function normalizeLighthouse(
   const returnedRequested = inspectionUrl(result.requestedUrl),
     finalUrl = inspectionUrl(result.finalUrl);
   const device = config.formFactor ?? config.emulatedFormFactor;
-  const matches = returnedRequested === requested && finalUrl !== null && device === target.device;
+  const matches =
+    returnedRequested === requested &&
+    finalUrl !== null &&
+    new URL(finalUrl).origin === new URL(requested).origin &&
+    device === target.device;
   const failed = Object.keys(object(result.runtimeError)).length > 0;
   const value = (name: string, unit: string) => {
     const audit = object(audits[name]);

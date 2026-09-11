@@ -103,15 +103,22 @@ export function inspectTechnicalPage(input: {
   const document = isXhtml ? parseXhtml(input.html) : parse(input.html);
   if (!document) return { ...result, complete: false };
   const nodes: Element[] = [];
-  const pending: Node[] = [document];
+  const headNodes = new Set<Element>();
+  const pending: { node: Node; inHead: boolean }[] = [{ node: document, inHead: false }];
   let visited = 0;
   while (pending.length) {
-    const node = pending.pop()!;
+    const { node, inHead } = pending.pop()!;
+    const head =
+      inHead ||
+      ("tagName" in node && node.namespaceURI === XHTML_NAMESPACE && node.tagName === "head");
     if (++visited > 100_000) {
       result.complete = false;
       break;
     }
-    if ("tagName" in node && node.namespaceURI === XHTML_NAMESPACE) nodes.push(node);
+    if ("tagName" in node && node.namespaceURI === XHTML_NAMESPACE) {
+      nodes.push(node);
+      if (head) headNodes.add(node);
+    }
     if (
       isXhtml &&
       "tagName" in node &&
@@ -121,7 +128,8 @@ export function inspectTechnicalPage(input: {
       continue;
     // Template contents are not rendered content. Never execute any script.
     if ("childNodes" in node)
-      for (let i = node.childNodes.length - 1; i >= 0; i--) pending.push(node.childNodes[i]);
+      for (let i = node.childNodes.length - 1; i >= 0; i--)
+        pending.push({ node: node.childNodes[i], inHead: head });
   }
   const attr = (node: Element, name: string) =>
     node.attrs.find((a) => a.name === name)?.value ?? "";
@@ -188,7 +196,7 @@ export function inspectTechnicalPage(input: {
   for (const node of nodes) {
     if (node.tagName === "title" && !result.title) result.title = text(node).slice(0, 1000);
     if (node.tagName === "h1") append(result.headings, text(node).slice(0, 1000), 100);
-    if (node.tagName === "meta") {
+    if (node.tagName === "meta" && headNodes.has(node)) {
       const name = attr(node, "name").toLowerCase();
       const content = attr(node, "content");
       if (name === "description") append(result.descriptions, content.slice(0, 4000), 20);

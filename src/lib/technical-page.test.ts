@@ -11,7 +11,7 @@ const inspect = (html: string) =>
 describe("technical HTML observations", () => {
   it("parses markup and entities without treating scripts/comments as elements", () => {
     const r = inspect(
-      '<title>A &amp; B</title><!-- <meta name=robots content=noindex> --><script>"<link rel=canonical href=/fake>"</script><h1>Main <em>heading</em></h1><meta content="Description" name=description>',
+      '<title>A &amp; B</title><!-- <meta name=robots content=noindex> --><script>"<link rel=canonical href=/fake>"</script><meta content="Description" name=description><h1>Main <em>heading</em></h1>',
     );
     expect(r.title).toBe("A & B");
     expect(r.headings).toEqual(["Main heading"]);
@@ -152,3 +152,18 @@ it("bounds expanded URLs during traversal rather than after collecting them", ()
   expect(result.internalLinks.length).toBeLessThan(500);
   expect(result.canonicals.length).toBeLessThanOrEqual(20);
 });
+
+it.each(["text/html", "application/xhtml+xml"])(
+  "ignores body description and robots metadata for %s",
+  (contentType) => {
+    const r = inspectTechnicalPage({
+      url: "https://example.test/",
+      status: 200,
+      observedAt: "2026-09-11T00:00:00Z",
+      headers: { "content-type": contentType },
+      html: '<html xmlns="http://www.w3.org/1999/xhtml"><head><meta name="description" content="Head description"/><meta name="robots" content="index"/></head><body><meta name="description" content="Body description"/><meta name="robots" content="noindex"/><h1>Page</h1></body></html>',
+    });
+    expect(r.descriptions).toEqual(["Head description"]);
+    expect(r.robots).toEqual([{ source: "meta", agent: "robots", value: "index" }]);
+  },
+);
