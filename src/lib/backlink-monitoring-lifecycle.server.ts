@@ -10,7 +10,7 @@ type Dependencies = {
   credentials?: () => { login: string; password: string };
   now?: () => Date;
 };
-/** Owner-only internal lifecycle, not connected to a route or scheduler yet.
+/** Owner-only lifecycle for explicit authenticated collection requests.
  * The request's target is derived from the current saved website, never input. */
 export async function runBacklinkMonitoring(
   userId: string,
@@ -92,11 +92,13 @@ export async function runBacklinkMonitoring(
   const attempt = { ...target, p_request: input.requestId, p_lease: record.lease_token };
   const controller = new AbortController();
   try {
-    if (Date.parse(record.lease_until) - now().getTime() < 30000)
+    // Reserve 10s for dispatch admission, 15s for transport, 10s for saving,
+    // and 5s for processing/round-trip overhead. Recheck after admission.
+    if (Date.parse(record.lease_until) - now().getTime() < 40000)
       return { state: "held" as const, requestId: input.requestId };
     const allowed = await call("authorize_backlink_monitoring_dispatch", attempt);
     if (allowed !== true) return { state: "held" as const, requestId: input.requestId };
-    if (Date.parse(record.lease_until) - now().getTime() < 20000)
+    if (Date.parse(record.lease_until) - now().getTime() < 30000)
       throw new Error("backlink_monitoring_expired");
     const observation = await (deps.fetch ?? fetchBacklinkMonitoring)(
       scope,

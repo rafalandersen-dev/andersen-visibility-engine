@@ -114,3 +114,36 @@ it("records provider failure as unknown without retrying", async () => {
     p_observation: null,
   });
 });
+
+it.each([20000, 25000, 29999, 30000])(
+  "keeps enough post-admission lease for collection and persistence: %s ms",
+  async (remaining) => {
+    const d = setup();
+    let current = now;
+    d.now = () => current;
+    const rpc = d.rpc;
+    d.rpc = vi.fn(async (name) => {
+      const result = await rpc(name);
+      if (name === "authorize_backlink_monitoring_dispatch")
+        current = new Date(now.getTime() + 60000 - remaining);
+      return result;
+    });
+    const result = await runBacklinkMonitoring(user, input, d);
+    if (remaining < 30000) {
+      expect(result.state).toBe("unknown");
+      expect(d.fetch).not.toHaveBeenCalled();
+    } else {
+      expect(result.state).toBe("stored");
+      expect(d.fetch).toHaveBeenCalledOnce();
+    }
+  },
+);
+it("does not enter dispatch admission when the combined operation budget is unavailable", async () => {
+  const d = setup();
+  d.record.lease_until = new Date(now.getTime() + 39999).toISOString();
+  expect((await runBacklinkMonitoring(user, input, d)).state).toBe("held");
+  expect(d.rpc.mock.calls.some(([name]) => name === "authorize_backlink_monitoring_dispatch")).toBe(
+    false,
+  );
+  expect(d.fetch).not.toHaveBeenCalled();
+});
