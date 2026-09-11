@@ -9,6 +9,7 @@ on:
       - package-lock.json
       - bun.lock
       - bunfig.toml
+      - scripts/check-entities-resolution.mjs
       - .github/workflows/dependency-locks.yml
   push:
     branches: [main]
@@ -19,6 +20,7 @@ on:
       - package-lock.json
       - bun.lock
       - bunfig.toml
+      - scripts/check-entities-resolution.mjs
       - .github/workflows/dependency-locks.yml
 
 permissions:
@@ -46,6 +48,8 @@ jobs:
         run: npm ci --ignore-scripts --dry-run --no-audit --no-fund
       - name: Refuse lock rewrites
         run: git diff --exit-code -- package.json package-lock.json bun.lock bunfig.toml
+      - name: Verify the direct entities compatibility pin
+        run: node scripts/check-entities-resolution.mjs
       - name: Test the frozen Bun dependency tree
         run: npm test
       - name: Typecheck the frozen Bun dependency tree

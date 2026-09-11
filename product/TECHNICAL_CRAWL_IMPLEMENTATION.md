@@ -213,3 +213,11 @@ Ownership failure at claim/save retains resumable metadata only when the saved p
 Validation:38 focused Google/actual-SQL tests, TypeScript and changed-file lint pass (`/tmp/milo-google-size-{tests,types,lint}.log`). Migration150000 remains unapplied; no Google or crawl request occurred. Findings3990999791 and3990999803 addressed.
 
 Combined validation after merging team e4dcd6d: all3630 tests across273 files pass (115.71seconds), TypeScript, changed-file lint and production build pass. Logs `/tmp/milo-url-final-{types,lint,full,build}.log`. Guarded six-migration/eight-table rehearsal passes including all four refusal scenarios; new packet135729bytes. No production or provider action. Final-head external reviews and real-use acceptance remain pending.
+
+### XHTML parsing and installed dependency identity — 11 September 2026
+
+Accepted application/xhtml+xml now uses Saxes XML parsing with namespace and case-sensitive element/attribute semantics, self-closing nodes and CDATA. XHTML namespace elements feed the existing observation logic; foreign elements and inert template content do not become HTML findings. Malformed XML, internal DTD subsets and exceeded100-level/100000-node bounds yield incomplete evidence without HTML error recovery. External doctype declarations never trigger external resolution.13 page tests cover these cases alongside existing HTML behavior.
+
+Bun's root entities resolution is restored to the application's exact4.5.0 compatibility pin; parse5 retains8.1.0 underneath it. A new CI check reads the actual installed package identity and compares it to the manifest pin. It rejected the previous local8.1.0 root, then passed after a frozen install of the corrected lock. An independent clean frozen install also resolved root4.5.0 and nested parse5 entities. Prior tests on the old installed tree do not prove the pin was honored.
+
+After refreshing the actual dependency tree, all3638 tests/273files, TypeScript, changed-file lint and production build pass (`/tmp/milo-xhtml-final-{types,full}.log`, `/tmp/milo-xhtml-build.log`, `/tmp/milo-entities-guard.log`). This includes the corrected notification endpoint expectation from MAINb4c589d. Findings3991143208 and3991143221 addressed. SQL sources unchanged; all six migrations remain unapplied. No live crawl or provider request.

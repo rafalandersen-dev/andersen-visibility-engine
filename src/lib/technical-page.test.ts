@@ -76,3 +76,44 @@ describe("technical HTML observations", () => {
     expect(JSON.stringify(r)).not.toContain("secret");
   });
 });
+
+const xhtml = (html: string) =>
+  inspectTechnicalPage({
+    url: "https://example.test/",
+    status: 200,
+    observedAt: "2026-09-11T00:00:00Z",
+    html,
+    headers: { "Content-Type": "application/xhtml+xml; charset=utf-8" },
+  });
+it("uses XHTML case, namespace, self-closing and CDATA semantics", () => {
+  const result = xhtml(
+    `<html xmlns="http://www.w3.org/1999/xhtml"><head><script/><Title>Ignored</Title><title>A &amp; B</title><link rel="canonical" href="/real"/><script type="application/ld+json"><![CDATA[{"@type":"Article"}]]></script></head><body><h1>Main</h1><a HREF="/wrong">Ignored attribute</a><a href="/right">Right</a><f:a xmlns:f="urn:foreign" href="/foreign"/><template><a href="/inert"/></template></body></html>`,
+  );
+  expect(result.complete).toBe(true);
+  expect(result.title).toBe("A & B");
+  expect(result.headings).toEqual(["Main"]);
+  expect(result.canonicals).toEqual(["https://example.test/real"]);
+  expect(result.internalLinks).toEqual(["https://example.test/right"]);
+  expect(result.structuredData).toEqual([
+    { state: "valid_json", types: ["Article"], complete: true },
+  ]);
+});
+it.each([
+  '<html xmlns="http://www.w3.org/1999/xhtml"><title>Broken</html>',
+  '<!DOCTYPE html [<!ENTITY x "expanded">]><html xmlns="http://www.w3.org/1999/xhtml"><title>&x;</title></html>',
+  '<html xmlns="http://www.w3.org/1999/xhtml">' +
+    "<div>".repeat(101) +
+    "</div>".repeat(101) +
+    "</html>",
+])("marks unusable XML incomplete without HTML recovery", (html) => {
+  const result = xhtml(html);
+  expect(result.complete).toBe(false);
+  expect(result.title).toBe("");
+});
+it("accepts namespaced XHTML and external doctype without resolving external resources", () => {
+  const result = xhtml(
+    '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "https://example.invalid/xhtml.dtd"><h:html xmlns:h="http://www.w3.org/1999/xhtml"><h:head><h:title>Namespaced</h:title></h:head></h:html>',
+  );
+  expect(result.complete).toBe(true);
+  expect(result.title).toBe("Namespaced");
+});

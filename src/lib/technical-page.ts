@@ -1,4 +1,40 @@
-import { parse, type DefaultTreeAdapterMap } from "parse5";
+import { parse, defaultTreeAdapter, type DefaultTreeAdapterMap } from "parse5";
+import { SaxesParser } from "saxes";
+const XHTML_NAMESPACE = "http://www.w3.org/1999/xhtml";
+function parseXhtml(html: string): DefaultTreeAdapterMap["document"] | null {
+  const document = defaultTreeAdapter.createDocument();
+  const stack: DefaultTreeAdapterMap["parentNode"][] = [document];
+  const parser = new SaxesParser({ xmlns: true });
+  let nodes = 0;
+  parser.on("doctype", (value) => {
+    if (value.includes("[")) throw new Error("xhtml_dtd_subset");
+  });
+  parser.on("opentag", (tag) => {
+    if (++nodes > 100000 || stack.length > 100) throw new Error("xhtml_limit");
+    const node = defaultTreeAdapter.createElement(
+      tag.local,
+      tag.uri as DefaultTreeAdapterMap["element"]["namespaceURI"],
+      Object.values(tag.attributes).map((a) => ({ name: a.name, value: a.value })),
+    );
+    defaultTreeAdapter.appendChild(stack[stack.length - 1], node);
+    stack.push(node);
+  });
+  parser.on("closetag", () => {
+    stack.pop();
+  });
+  const text = (value: string) => {
+    if (++nodes > 100000) throw new Error("xhtml_limit");
+    defaultTreeAdapter.insertText(stack[stack.length - 1], value);
+  };
+  parser.on("text", text);
+  parser.on("cdata", text);
+  try {
+    parser.write(html).close();
+    return document;
+  } catch {
+    return null;
+  }
+}
 
 export const TECHNICAL_HTML_MAX_BYTES = 512_000;
 export type TechnicalPageObservation = {
@@ -57,7 +93,13 @@ export function inspectTechnicalPage(input: {
     return { ...result, complete: false };
   type Node = DefaultTreeAdapterMap["node"];
   type Element = DefaultTreeAdapterMap["element"];
-  const document = parse(input.html);
+  const contentType =
+    Object.entries(input.headers ?? {}).find(
+      ([key]) => key.toLowerCase() === "content-type",
+    )?.[1] ?? "";
+  const isXhtml = /^application\/xhtml\+xml(?:\s*;|$)/i.test(contentType);
+  const document = isXhtml ? parseXhtml(input.html) : parse(input.html);
+  if (!document) return { ...result, complete: false };
   const nodes: Element[] = [];
   const pending: Node[] = [document];
   let visited = 0;
@@ -67,7 +109,14 @@ export function inspectTechnicalPage(input: {
       result.complete = false;
       break;
     }
-    if ("tagName" in node) nodes.push(node);
+    if ("tagName" in node && (!isXhtml || node.namespaceURI === XHTML_NAMESPACE)) nodes.push(node);
+    if (
+      isXhtml &&
+      "tagName" in node &&
+      node.namespaceURI === XHTML_NAMESPACE &&
+      node.tagName === "template"
+    )
+      continue;
     // Template contents are not rendered content. Never execute any script.
     if ("childNodes" in node)
       for (let i = node.childNodes.length - 1; i >= 0; i--) pending.push(node.childNodes[i]);
