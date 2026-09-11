@@ -12,6 +12,8 @@ Project collaborator workflow is in progress locally on `codex/milo-project-team
 
 Publication review follow-up: explicit database image-admission contention now remains retryable before connector dispatch. Scheduled publication restores the claim attempt on this narrow failure, so same-owner image checks cannot permanently exhaust an otherwise valid schedule. Changed images, invalid approvals and ambiguous connector outcomes retain their holds. The fix passes all 3,283 tests, types, changed-file lint and production build; release review remains open.
 
+A further security follow-up authorizes current accounts/membership before workspace locking, uses nonwaiting shared locks for reads and explicit exclusive admission for mutations, and cancels the actual team RPC transport after nine seconds. Its six changed migration sources remain unapplied; review and real multi-session acceptance remain open.
+
 ## Recorded baseline and latest repository check
 
 - Remote main: `083d1fa6e8d0a4e6e2e12d28b1c27591830b772d`, normal merge of output knowledge revalidation PR #122. P0–P5, prompt/answer/log evidence and all prior fixes are preserved.

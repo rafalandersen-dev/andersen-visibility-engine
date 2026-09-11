@@ -29,7 +29,7 @@ BEGIN
     THEN RAISE EXCEPTION 'team_comment_unavailable'; END IF;
   -- The snapshot reader takes the workspace lock, then verifies current active
   -- membership and exact project/asset. Keep that lock through insertion.
-  snapshot:=public.read_project_team_snapshot(p_actor,p_owner,p_project,p_asset,0);
+  snapshot:=public.read_project_team_snapshot(p_actor,p_owner,p_project,p_asset,0,true);
   IF p_asset IS NULL THEN RAISE EXCEPTION 'team_comment_unavailable'; END IF;
   SELECT * INTO previous FROM public.project_team_comments WHERE owner_id=p_owner AND comment_id=p_comment;
   IF FOUND THEN

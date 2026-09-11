@@ -124,3 +124,24 @@ describe("project membership scoped database reads", () => {
     await expect(read()).rejects.toThrow("team_project_unavailable");
   });
 });
+
+it("authorizes before nonwaiting shared read admission and retains explicit exclusive mutation admission", async () => {
+  const definition = (
+    await db.query<{ definition: string }>(
+      "SELECT pg_get_functiondef('public.read_project_team_snapshot(uuid,uuid,text,text,integer,boolean)'::regprocedure) definition",
+    )
+  ).rows[0].definition;
+  expect(definition.indexOf("OR (p_actor<>p_owner AND NOT EXISTS")).toBeLessThan(
+    definition.indexOf("FOR UPDATE NOWAIT"),
+  );
+  expect(definition).toContain("FOR SHARE NOWAIT");
+  expect(definition).toContain("IF p_write THEN");
+  await expect(
+    db.query("SELECT public.read_project_team_snapshot($1,$2,'q',NULL,0,true)", [actor, owner]),
+  ).rejects.toThrow("team_project_unavailable");
+  const result = await db.query<{ snapshot: { workspaceRevision: number } }>(
+    "SELECT public.read_project_team_snapshot($1,$2,'p',NULL,0,true) snapshot",
+    [actor, owner],
+  );
+  expect(result.rows[0].snapshot.workspaceRevision).toBe(1);
+});

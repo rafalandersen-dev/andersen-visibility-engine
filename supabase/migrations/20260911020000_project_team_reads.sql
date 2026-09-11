@@ -22,7 +22,7 @@ CREATE FUNCTION public.assert_project_team_account(p_user uuid)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 BEGIN
   PERFORM 1 FROM auth.users WHERE id=p_user AND deleted_at IS NULL
-    AND (banned_until IS NULL OR banned_until<=clock_timestamp()) FOR SHARE;
+    AND (banned_until IS NULL OR banned_until<=clock_timestamp()) FOR SHARE NOWAIT;
   IF NOT FOUND THEN RAISE EXCEPTION 'team_project_unavailable'; END IF;
 END; $$;
 REVOKE ALL ON FUNCTION public.assert_project_team_account(uuid) FROM PUBLIC,anon,authenticated,service_role;
@@ -30,16 +30,30 @@ REVOKE ALL ON FUNCTION public.assert_project_team_account(uuid) FROM PUBLIC,anon
 -- Service-only entry: p_actor is supplied by verified authentication middleware.
 -- Never expose this function directly to authenticated clients. Membership
 -- writers must use the same owner workspace lock before updating membership.
-CREATE FUNCTION public.read_project_team_snapshot(p_actor uuid,p_owner uuid,p_project text,p_asset text DEFAULT NULL,p_offset integer DEFAULT 0)
+CREATE FUNCTION public.read_project_team_snapshot(p_actor uuid,p_owner uuid,p_project text,p_asset text DEFAULT NULL,p_offset integer DEFAULT 0,p_write boolean DEFAULT false)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE project jsonb; drafts jsonb; draft jsonb; membership_revision bigint:=1;
   workspace_revision bigint; remaining bigint; member_role text:='owner'; draft_hash text;
 BEGIN
   IF p_actor IS NULL OR p_owner IS NULL OR p_project IS NULL OR p_project !~ '^[A-Za-z0-9_-]{1,64}$'
-    OR p_offset IS NULL OR p_offset<0 OR p_offset>100000
+    OR p_write IS NULL OR p_offset IS NULL OR p_offset<0 OR p_offset>100000
     OR (p_asset IS NOT NULL AND (p_asset !~ '^[A-Za-z0-9_-]{1,64}$' OR p_offset<>0))
     THEN RAISE EXCEPTION 'team_project_unavailable'; END IF;
-  SELECT rev INTO workspace_revision FROM public.workspace_meta WHERE user_id=p_owner FOR UPDATE;
+  -- Reject unknown/removed/suspended actors without queuing on a victim's locks.
+  -- These optimistic checks are repeated under the workspace lock below.
+  IF NOT EXISTS(SELECT 1 FROM auth.users WHERE id=p_owner AND deleted_at IS NULL AND (banned_until IS NULL OR banned_until<=clock_timestamp()))
+    OR NOT EXISTS(SELECT 1 FROM auth.users WHERE id=p_actor AND deleted_at IS NULL AND (banned_until IS NULL OR banned_until<=clock_timestamp()))
+    OR (p_actor<>p_owner AND NOT EXISTS(SELECT 1 FROM public.project_team_members
+      WHERE owner_id=p_owner AND project_id=p_project AND actor_id=p_actor
+        AND active AND (expires_at IS NULL OR expires_at>clock_timestamp())))
+    THEN RAISE EXCEPTION 'team_project_unavailable'; END IF;
+  -- No queued lock wait survives a disconnected caller. Mutation callers opt
+  -- into exclusive serialization before reading versions or checking quotas.
+  IF p_write THEN
+    SELECT rev INTO workspace_revision FROM public.workspace_meta WHERE user_id=p_owner FOR UPDATE NOWAIT;
+  ELSE
+    SELECT rev INTO workspace_revision FROM public.workspace_meta WHERE user_id=p_owner FOR SHARE NOWAIT;
+  END IF;
   IF NOT FOUND THEN RAISE EXCEPTION 'team_project_unavailable'; END IF;
   -- A previously issued session must not bypass current account suspension.
   PERFORM public.assert_project_team_account(p_owner);
@@ -47,7 +61,7 @@ BEGIN
   IF p_actor<>p_owner THEN
     SELECT revision,role INTO membership_revision,member_role FROM public.project_team_members
       WHERE owner_id=p_owner AND project_id=p_project AND actor_id=p_actor
-        AND active AND (expires_at IS NULL OR expires_at>clock_timestamp()) FOR SHARE;
+        AND active AND (expires_at IS NULL OR expires_at>clock_timestamp()) FOR SHARE NOWAIT;
     IF NOT FOUND THEN RAISE EXCEPTION 'team_project_unavailable'; END IF;
   END IF;
   SELECT jsonb_build_object('id',entity_id,'name',data->'name',
@@ -87,8 +101,8 @@ BEGIN
     'membershipRevision',membership_revision,'workspaceRevision',workspace_revision,
     'project',project,'drafts',drafts,'remaining',remaining,'draft',draft);
 END; $$;
-REVOKE ALL ON FUNCTION public.read_project_team_snapshot(uuid,uuid,text,text,integer) FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.read_project_team_snapshot(uuid,uuid,text,text,integer) TO service_role;
+REVOKE ALL ON FUNCTION public.read_project_team_snapshot(uuid,uuid,text,text,integer,boolean) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.read_project_team_snapshot(uuid,uuid,text,text,integer,boolean) TO service_role;
 
 -- Actor-wide admission runs before private review context or image access.
 -- Bounded counters/leases are operational state, not review history.

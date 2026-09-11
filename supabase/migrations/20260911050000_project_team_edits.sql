@@ -42,7 +42,7 @@ BEGIN
       IF EXISTS(SELECT 1 FROM jsonb_array_elements(p_patch->field) v WHERE jsonb_typeof(v)<>'object' OR NOT(v ? 'q' AND v ? 'a') OR v-ARRAY['q','a']<>'{}'::jsonb OR jsonb_typeof(v->'q')<>'string' OR jsonb_typeof(v->'a')<>'string' OR length(v->>'q')>1000 OR length(v->>'a')>16000) THEN RAISE EXCEPTION 'team_edit_invalid'; END IF;
     END IF;
   END LOOP;
-  snapshot:=public.read_project_team_snapshot(p_actor,p_owner,p_project,p_asset,0);
+  snapshot:=public.read_project_team_snapshot(p_actor,p_owner,p_project,p_asset,0,true);
   IF p_asset IS NULL OR NOT(snapshot->>'canEdit')::boolean OR (snapshot->>'membershipRevision')::bigint<>p_membership THEN RAISE EXCEPTION 'team_edit_permission_changed'; END IF;
   patch_hash:=encode(sha256(convert_to(p_patch::text,'UTF8')),'hex');
   SELECT * INTO previous FROM public.project_team_edits WHERE owner_id=p_owner AND edit_id=p_edit;

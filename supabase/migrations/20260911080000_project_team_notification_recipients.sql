@@ -47,7 +47,7 @@ DECLARE snapshot jsonb; member public.project_team_members%ROWTYPE; settings pub
 BEGIN
  IF p_action IS NULL OR p_action NOT IN ('assign','opt_in') OR p_enabled IS NULL OR p_expected IS NULL OR p_expected<0 OR p_membership IS NULL
  OR p_actor IS NULL OR p_recipient IS NULL OR p_recipient=p_owner OR (p_action='assign' AND p_actor<>p_owner) OR (p_action='opt_in' AND p_actor<>p_recipient) THEN RAISE EXCEPTION 'team_recipient_unavailable'; END IF;
- snapshot:=public.read_project_team_snapshot(p_actor,p_owner,p_project,NULL,0);
+ snapshot:=public.read_project_team_snapshot(p_actor,p_owner,p_project,NULL,0,true);
  SELECT * INTO member FROM public.project_team_members WHERE owner_id=p_owner AND project_id=p_project AND actor_id=p_recipient;
  IF member.actor_id IS NULL OR NOT member.active OR (member.expires_at IS NOT NULL AND member.expires_at<=clock_timestamp()) OR member.revision<>p_membership THEN RAISE EXCEPTION 'team_recipient_changed'; END IF;
  SELECT * INTO settings FROM public.project_team_notification_recipients WHERE owner_id=p_owner AND project_id=p_project AND recipient_id=p_recipient;
