@@ -1,3 +1,4 @@
+import { TechnicalCrawlPanel } from "@/components/TechnicalCrawlPanel";
 import { LocationCoveragePanel } from "@/components/LocationCoveragePanel";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
@@ -138,6 +139,7 @@ function AuditPage() {
       description="A review of your homepage and business details — not a full technical crawl. Turns on-page gaps into growth opportunities."
     >
       <LocationCoveragePanel project={project} />
+      <TechnicalCrawlPanel projectId={project.id} />
       {/* Input card */}
       <div className="rounded-lg border border-border bg-card p-5 mb-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
