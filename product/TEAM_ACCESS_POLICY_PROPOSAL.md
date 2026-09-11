@@ -228,3 +228,12 @@ Rendered previews now admit at most 128 images, reserve the endpoint's worst-cas
 The completed d425328 code review found two UI mismatches. Social image evidence is now included only for an approved featured image, matching the assembled publication; retained draft social objects no longer block unrelated reviews. Owner roster notification settings and invitation delivery details mount only when their details panel is expanded. A 1,000-row static render verifies that collapsed details mount no request-consuming child components. Actual browser interaction acceptance remains outstanding.
 
 Validation: all 3,298 tests / 245 files pass with one worker (54.42 seconds), including seven image budget/header checks, two decision-limit SQL regressions, the draft-social case and the lazy-details check. TypeScript, changed-file lint and production build pass. Logs `/tmp/milo-team-review-limits-{full,types-final,lint-final,build}.log`. The unreleased approval-policy migration changed; regenerate the guarded release packet before release. No production SQL, deployment, emails, live image fetch or policy change was performed.
+
+
+## Draft refresh and shared notification preparation — 11 September
+
+The f9a9609 code review found that the rendered preview could lag behind the parent draft after another session edited it. The rendered-review component is now keyed by draft ID/hash and membership revision; its query key includes the expected draft hash, and both loading and readiness refuse a different version. Parent refreshes therefore rebuild the preview and image acknowledgement state instead of displaying new draft text alongside old rendered content.
+
+Notification queue preparation now refreshes each selected owner once per bounded sweep and reuses only that sweep's success/failure across the owner's recipients/projects. A failed refresh is not retried for every recipient; other owners still proceed. Queue admission remains recipient-specific, and each actual delivery retains its own immediate source/recipient checks. Two regressions cover 20 recipients across one owner's projects and isolation after an owner refresh fails. No email transport or gate was activated.
+
+Refresh follow-up validation: all 3,300 tests / 245 files pass with one worker (129.63 seconds), including 11 delivery tests. TypeScript, changed-file lint and production build pass. Logs `/tmp/milo-team-refresh-{full,focused,lint}.log`. No SQL source changed in this follow-up.

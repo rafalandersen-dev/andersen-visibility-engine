@@ -417,7 +417,8 @@ function SharedProject({ target }: { target: { ownerId: string; projectId: strin
                 {t("collaboration.back")}
               </Button>
               <ProjectTeamRenderedReview
-                key={query.data.draft.id}
+                key={`${query.data.draft.id}:${query.data.draftHash}:${query.data.membershipRevision}`}
+                expectedDraftHash={query.data.draftHash ?? undefined}
                 ownerId={target.ownerId}
                 projectId={target.projectId}
                 assetId={query.data.draft.id}

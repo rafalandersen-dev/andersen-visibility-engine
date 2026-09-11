@@ -99,22 +99,23 @@ export async function deliverOneTeamDigest(deps: OperationalEmailDependencies) {
   await finish("accepted");
   return "accepted";
 }
-export async function runTeamNotificationWorker() {
-  if (process.env.TEAM_NOTIFICATION_EMAIL_ENABLED !== "true")
-    return { enabled: false, queued: 0, processed: 0, failed: 0 };
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) throw new Error("team_transport_unavailable");
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const db = supabaseAdmin as unknown as Pick<OperationalEmailDependencies, "rpc">;
-  const targets = await db.rpc("project_team_notification_scan_targets");
-  if (targets.error) throw new Error("team_targets_unavailable");
+/** Refresh each owner once per bounded queue-preparation sweep. Delivery retains
+ * its own immediate preflight refresh and recipient checks. */
+export async function queueTeamDigestTargets(
+  raw: unknown,
+  deps: Pick<OperationalEmailDependencies, "rpc" | "refresh">,
+) {
   let queued = 0,
-    failed = 0,
-    processed = 0;
-  for (const t of z.array(target).max(20).parse(targets.data)) {
+    failed = 0;
+  const refreshed = new Map<string, boolean>();
+  for (const t of z.array(target).max(20).parse(raw)) {
     try {
-      if (!(await refreshOperationalNotifications(t.owner_id))) throw new Error("stale_source");
-      const r = await db.rpc("queue_project_team_notification_digest", {
+      if (!refreshed.has(t.owner_id)) {
+        refreshed.set(t.owner_id, false);
+        refreshed.set(t.owner_id, await deps.refresh(t.owner_id));
+      }
+      if (!refreshed.get(t.owner_id)) throw new Error("stale_source");
+      const r = await deps.rpc("queue_project_team_notification_digest", {
         p_owner: t.owner_id,
         p_project: t.project_id,
         p_recipient: t.recipient_id,
@@ -128,6 +129,22 @@ export async function runTeamNotificationWorker() {
       failed++;
     }
   }
+  return { queued, failed };
+}
+export async function runTeamNotificationWorker() {
+  if (process.env.TEAM_NOTIFICATION_EMAIL_ENABLED !== "true")
+    return { enabled: false, queued: 0, processed: 0, failed: 0 };
+  const apiKey = process.env.LOVABLE_API_KEY;
+  if (!apiKey) throw new Error("team_transport_unavailable");
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const db = supabaseAdmin as unknown as Pick<OperationalEmailDependencies, "rpc">;
+  const targets = await db.rpc("project_team_notification_scan_targets");
+  if (targets.error) throw new Error("team_targets_unavailable");
+  const { queued, failed } = await queueTeamDigestTargets(targets.data, {
+    rpc: (name, args) => db.rpc(name, args),
+    refresh: refreshOperationalNotifications,
+  });
+  let processed = 0;
   const { sendLovableEmail } = await import("@lovable.dev/email-js");
   for (let i = 0; i < 2; i++) {
     const status = await deliverOneTeamDigest({

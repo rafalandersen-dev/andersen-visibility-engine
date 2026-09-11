@@ -18,6 +18,8 @@ Reviewer independence now uses a private hash of the eight editable content fiel
 
 Further release review fixes now bound fresh decisions per collaborator and coalesce repeated unchanged rejections, bound aggregate preview image bytes and decoded dimensions, exclude unapproved social images from the review manifest, and load roster notification/invitation details only on expansion. All 3,298 tests / 245 files pass; production release and real acceptance remain pending.
 
+The rendered review now refreshes with the parent draft hash and refuses stale preview content. Notification queue preparation refreshes each owner once per sweep, while keeping recipient-specific queue admission and final delivery checks. These follow-up fixes remain unreleased.
+
 ## Recorded baseline and latest repository check
 
 - Remote main: `083d1fa6e8d0a4e6e2e12d28b1c27591830b772d`, normal merge of output knowledge revalidation PR #122. P0–P5, prompt/answer/log evidence and all prior fixes are preserved.

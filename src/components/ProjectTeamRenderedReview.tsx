@@ -10,15 +10,25 @@ export function ProjectTeamRenderedReview({
   ownerId,
   projectId,
   assetId,
+  expectedDraftHash,
 }: {
   ownerId: string;
   projectId: string;
   assetId: string;
+  expectedDraftHash?: string;
 }) {
   const t = useT();
   const { user } = useAuth();
   const query = useQuery({
-    queryKey: ["project-teams", user?.id, "preview", ownerId, projectId, assetId],
+    queryKey: [
+      "project-teams",
+      user?.id,
+      "preview",
+      ownerId,
+      projectId,
+      assetId,
+      expectedDraftHash ?? null,
+    ],
     queryFn: () => readProjectTeamPreviewFn({ data: { ownerId, projectId, assetId } }),
     enabled: !!user,
     staleTime: 0,
@@ -41,7 +51,8 @@ export function ProjectTeamRenderedReview({
     setFrameStamp(0);
     void (async () => {
       try {
-        if (preview.unknownImages) throw new Error("unknown_images");
+        if (preview.unknownImages || (expectedDraftHash && preview.draftHash !== expectedDraftHash))
+          throw new Error("unknown_images");
         const budget = createReviewImageBudget(preview.media.length);
         const urls: Record<string, string> = {};
         const hashes: Record<string, string> = {};
@@ -107,9 +118,22 @@ export function ProjectTeamRenderedReview({
       cancelled = true;
       created.forEach((url) => URL.revokeObjectURL(url));
     };
-  }, [query.data, query.dataUpdatedAt, query.isError, ownerId, projectId, assetId]);
+  }, [
+    query.data,
+    query.dataUpdatedAt,
+    query.isError,
+    ownerId,
+    projectId,
+    assetId,
+    expectedDraftHash,
+  ]);
   const ready =
-    query.data && !query.isError && media && !media.error && media.stamp === query.dataUpdatedAt;
+    query.data &&
+    (!expectedDraftHash || query.data.draftHash === expectedDraftHash) &&
+    !query.isError &&
+    media &&
+    !media.error &&
+    media.stamp === query.dataUpdatedAt;
   const html = ready
     ? query.data.html.replace(
         /milo-review-image:([A-Za-z0-9_-]+)/g,
