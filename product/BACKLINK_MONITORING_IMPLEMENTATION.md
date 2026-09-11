@@ -57,3 +57,9 @@ Validation: 24 focused tests across server-rendered UI, history projection and a
 Collection now requires40seconds remaining before dispatch authorization and30seconds afterward. This reserves the bounded10-second admission call,15-second supplier transport,10-second persistence call and5seconds of processing/round-trip margin. Short remaining leases cannot trigger the supplier. Unknown authorization outcomes retain the existing fail-closed expense behavior.
 
 Validation:22 focused transport/orchestration tests and changed-file lint pass (`/tmp/milo-monitor-lease-tests.log`, `/tmp/milo-monitor-lease-lint.log`), including20/25/29.999/30second post-admission boundaries and a39.999second pre-admission refusal. Combined type/test/build verification follows the merge with the latest team release branch. No supplier request or production mutation occurred.
+
+## Normalize provider configuration before expense admission
+
+The lifecycle trims both provider credential values consistently with the provider health check, then refuses empty values before any context read, reservation or dispatch. The admitted transport receives the normalized values. Three regressions cover each whitespace-only field and surrounding whitespace without logging credentials.
+
+Validation:25 focused orchestration/transport tests, TypeScript and changed-file lint pass (`/tmp/milo-monitor-credential-{tests,types,lint}.log`). Finding3991903020 addressed. No provider call, credential configuration or production mutation occurred.

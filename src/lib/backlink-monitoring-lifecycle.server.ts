@@ -21,13 +21,17 @@ export async function runBacklinkMonitoring(
   const input = backlinkMonitoringRequest.parse(raw);
   const rpc = deps.rpc ?? projectTeamRpc;
   const now = deps.now ?? (() => new Date());
-  const credentials = (
+  const suppliedCredentials = (
     deps.credentials ??
     (() => ({
       login: process.env.DATAFORSEO_LOGIN ?? "",
       password: process.env.DATAFORSEO_PASSWORD ?? "",
     }))
   )();
+  const credentials = {
+    login: suppliedCredentials.login.trim(),
+    password: suppliedCredentials.password.trim(),
+  };
   if (!credentials.login || !credentials.password)
     throw new Error("backlink_monitoring_unconfigured");
   const call = (name: string, args: Record<string, unknown>) => teamCall(name, args, rpc);

@@ -147,3 +147,22 @@ it("does not enter dispatch admission when the combined operation budget is unav
   );
   expect(d.fetch).not.toHaveBeenCalled();
 });
+
+it.each(["login", "password"] as const)(
+  "rejects whitespace-only %s before expense admission",
+  async (field) => {
+    const d = setup();
+    d.credentials = () => ({ login: "fixture", password: "fixture-secret", [field]: " \t\n " });
+    await expect(runBacklinkMonitoring(user, input, d)).rejects.toThrow(
+      "backlink_monitoring_unconfigured",
+    );
+    expect(d.rpc).not.toHaveBeenCalled();
+    expect(d.fetch).not.toHaveBeenCalled();
+  },
+);
+it("passes normalized credentials to the admitted provider dispatch", async () => {
+  const d = setup();
+  d.credentials = () => ({ login: " fixture ", password: "\tfixture-secret\n" });
+  await runBacklinkMonitoring(user, input, d);
+  expect(d.fetch.mock.calls[0][1]).toEqual({ login: "fixture", password: "fixture-secret" });
+});
