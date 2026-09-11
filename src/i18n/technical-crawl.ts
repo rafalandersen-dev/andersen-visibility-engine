@@ -1,5 +1,7 @@
 export const technicalCrawlCopy: Record<string, Record<string, string>> = {
   en: {
+    "crawl.sitemap_robots_directives":
+      "Some robots sitemap directives exceeded the saved URL or count limits",
     "crawl.admission_capacity":
       "Request limits reached. Saved evidence and pending pages are retained. Retry after:",
     "crawl.admission_ownership":
@@ -123,6 +125,8 @@ export const technicalCrawlCopy: Record<string, Record<string, string>> = {
     "crawl.links": "Observed internal links",
   },
   pl: {
+    "crawl.sitemap_robots_directives":
+      "Niektóre dyrektywy map witryny w robots przekroczyły limit długości adresu lub liczby wpisów",
     "crawl.admission_capacity":
       "Osiągnięto limit żądań. Zachowano dowody i oczekujące strony. Spróbuj ponownie po:",
     "crawl.admission_ownership":
@@ -246,6 +250,8 @@ export const technicalCrawlCopy: Record<string, Record<string, string>> = {
     "crawl.links": "Zaobserwowane linki wewnętrzne",
   },
   sv: {
+    "crawl.sitemap_robots_directives":
+      "Vissa sitemap-direktiv i robots överskred gränsen för URL-längd eller antal",
     "crawl.admission_capacity":
       "Gränsen för förfrågningar har nåtts. Sparade belägg och väntande sidor finns kvar. Försök igen efter:",
     "crawl.admission_ownership":
@@ -369,6 +375,8 @@ export const technicalCrawlCopy: Record<string, Record<string, string>> = {
     "crawl.links": "Observerade interna länkar",
   },
   da: {
+    "crawl.sitemap_robots_directives":
+      "Nogle sitemap-direktiver i robots overskred grænsen for URL-længde eller antal",
     "crawl.admission_capacity":
       "Grænsen for forespørgsler er nået. Gemte belæg og ventende sider er bevaret. Prøv igen efter:",
     "crawl.admission_ownership":

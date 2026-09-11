@@ -45,6 +45,7 @@ const robots = z.discriminatedUnion("state", [
       document: z
         .object({
           complete: z.boolean(),
+          sitemapsComplete: z.boolean().optional(),
           sitemaps: z.array(observedUrl).max(100),
           groups: z
             .array(
@@ -166,6 +167,7 @@ const schema = z
               "url_limit",
               "out_of_scope",
               "invalid_entry",
+              "robots_directives",
               "unreadable",
               "storage_limit",
             ]),

@@ -33,6 +33,7 @@ export type TechnicalSitemaps = {
     | "url_limit"
     | "out_of_scope"
     | "invalid_entry"
+    | "robots_directives"
     | "unreadable"
     | "storage_limit"
   )[];
@@ -155,8 +156,13 @@ function scoped(raw: string, origin: string): string | null {
 function limit(state: TechnicalSitemaps, value: TechnicalSitemaps["limitations"][number]) {
   if (!state.limitations.includes(value)) state.limitations.push(value);
 }
-export function startTechnicalSitemaps(origin: string, declared: string[]): TechnicalSitemaps {
+export function startTechnicalSitemaps(
+  origin: string,
+  declared: string[],
+  declaredComplete = true,
+): TechnicalSitemaps {
   const state: TechnicalSitemaps = { queue: [], files: [], entries: [], limitations: [] };
+  if (!declaredComplete) limit(state, "robots_directives");
   for (const raw of [...declared, `${origin}/sitemap.xml`, `${origin}/sitemap_index.xml`]) {
     const url = scoped(raw, origin);
     if (!url) {
@@ -204,8 +210,9 @@ export async function advanceTechnicalSitemaps(
   else {
     try {
       const response = await fetch(target.url);
-      if (response && scoped(response.url, origin)) {
-        file.finalUrl = response.url;
+      const finalUrl = response ? scoped(response.url, origin) : null;
+      if (response && finalUrl) {
+        file.finalUrl = finalUrl;
         file.status = response.status;
         file.observedAt = response.observedAt;
         if (response.status < 200 || response.status >= 300) file.state = "http_error";
@@ -221,6 +228,7 @@ export async function advanceTechnicalSitemaps(
           if (!document) file.state = plain ? "invalid_text" : "invalid_xml";
           else {
             file.state = "read";
+            next.queue = next.queue.filter((pending) => pending.url !== finalUrl);
             file.kind = document.kind;
             file.locCount = document.locs.length;
             file.rejectedCount = document.rejected;
@@ -235,6 +243,7 @@ export async function advanceTechnicalSitemaps(
               if (document.kind === "sitemapindex") {
                 if (
                   url === target.url ||
+                  url === finalUrl ||
                   next.files.some((f) => f.requestedUrl === url || f.finalUrl === url) ||
                   next.queue.some((q) => q.url === url)
                 )

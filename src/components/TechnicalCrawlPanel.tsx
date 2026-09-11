@@ -1,3 +1,4 @@
+import { sitemapFilesForPage } from "@/lib/technical-sitemap-membership";
 import { CrawlOwnershipPanel } from "./CrawlOwnershipPanel";
 import { useCrawlOwnership } from "@/lib/use-crawl-ownership";
 import { TechnicalFindingActions } from "./TechnicalFindingActions";
@@ -266,9 +267,11 @@ function ProjectCrawl({ owner, projectId }: { owner: string; projectId: string }
                   {state.sitemaps && (
                     <p className="text-sm break-all">
                       {t("crawl.sitemapMembership")}:{" "}
-                      {state.sitemaps.entries
-                        .find((entry) => entry.url === page.requestedUrl)
-                        ?.files.join(" | ") || t("crawl.notFound")}
+                      {sitemapFilesForPage(
+                        state.sitemaps.entries,
+                        page.requestedUrl,
+                        page.observation?.url,
+                      ).join(" | ") || t("crawl.notFound")}
                     </p>
                   )}
                   {["completed", "cancelled", "held"].includes(saved.status) && (

@@ -23,6 +23,55 @@ const response = (body: string, url = origin + "/sitemap.xml") => ({
   observedAt: now,
 });
 describe("observed sitemap XML", () => {
+  it("removes accepted redirected sitemap destinations from the pending queue", async () => {
+    const initial = startTechnicalSitemaps(origin, []);
+    const fetch = vi.fn(async () =>
+      response(set([origin + "/page"]), origin + "/sitemap_index.xml"),
+    );
+    const next = await advanceTechnicalSitemaps(initial, origin, robots, fetch, now);
+    expect(next.queue).toEqual([]);
+    expect(next.files).toHaveLength(1);
+    expect(initial.queue).toHaveLength(2);
+    await advanceTechnicalSitemaps(next, origin, robots, fetch, now);
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+  it("retains robots policy and a durable limitation for oversized sitemap directives", () => {
+    const evidence = robotsEvidence(
+      200,
+      `User-agent: *\nDisallow: /private\nSitemap: ${origin}/${"é".repeat(2000)}\nSitemap: ${origin}/valid.xml`,
+    );
+    expect(evidence.state).toBe("read");
+    if (evidence.state !== "read") throw Error("policy lost");
+    expect(evidence.document.complete).toBe(true);
+    expect(evidence.document.sitemapsComplete).toBe(false);
+    expect(evidence.document.sitemaps).toEqual([origin + "/valid.xml"]);
+    expect(evidence.document.groups[0].rules[0].pattern).toBe("/private");
+    const state = startTechnicalCrawl({
+      siteUrl: origin,
+      robots: evidence,
+      robotsFetchedAt: now,
+      now,
+    });
+    state.sitemaps = startTechnicalSitemaps(
+      origin,
+      evidence.document.sitemaps,
+      evidence.document.sitemapsComplete !== false,
+    );
+    const restored = parseTechnicalCrawlState(state, origin);
+    expect(restored.sitemaps?.limitations).toContain("robots_directives");
+  });
+  it("records the robots sitemap count limit independently of its access rules", () => {
+    const evidence = robotsEvidence(
+      200,
+      "User-agent: *\nAllow: /\n" +
+        Array.from({ length: 101 }, (_, i) => `Sitemap: ${origin}/${i}.xml`).join("\n"),
+    );
+    expect(evidence.state).toBe("read");
+    if (evidence.state !== "read") throw Error("policy lost");
+    expect(evidence.document.sitemaps).toHaveLength(100);
+    expect(evidence.document.sitemapsComplete).toBe(false);
+  });
+
   it("propagates admission holds without consuming the sitemap queue", async () => {
     const saved = startTechnicalSitemaps(origin, []);
     const before = structuredClone(saved);

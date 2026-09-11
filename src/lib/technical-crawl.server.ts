@@ -211,6 +211,7 @@ export async function stepTechnicalRun(
         sitemaps: startTechnicalSitemaps(
           current.origin,
           robots.state === "read" ? robots.document.sitemaps : [],
+          robots.state !== "read" || robots.document.sitemapsComplete !== false,
         ),
       });
     } else {

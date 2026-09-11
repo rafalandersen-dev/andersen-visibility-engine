@@ -235,6 +235,26 @@ describe("immutable crawl evidence to opportunity", () => {
       await expect(capture("noindex")).rejects.toThrow();
     },
   );
+  it("captures sitemap membership for both requested and observed URLs", async () => {
+    await prepare();
+    const entries = [
+      { url: "https://example.test/a", files: ["old.xml"] },
+      { url: "https://example.test/final", files: ["final.xml"] },
+      { url: "https://example.test/other", files: ["other.xml"] },
+    ];
+    await db.query(
+      "UPDATE technical_crawls SET state=jsonb_set(jsonb_set(state,'{pages,0,observation,url}',$1),'{sitemaps}',$2)",
+      [JSON.stringify("https://example.test/final"), JSON.stringify({ entries })],
+    );
+    const result = (await capture()).rows[0].result;
+    const files = (
+      await db.query<{ files: unknown }>(
+        "SELECT read_technical_crawl_finding($1,'p',$2)->'snapshot'->'sitemapFiles' files",
+        [owner, result.evidenceId],
+      )
+    ).rows[0].files;
+    expect(files).toEqual(entries.slice(0, 2));
+  });
   it("atomically creates one captured opportunity and immutable source receipt, retaining idempotency", async () => {
     await prepare();
     const first = (await capture()).rows[0].result;

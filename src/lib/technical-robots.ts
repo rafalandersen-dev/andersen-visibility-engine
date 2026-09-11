@@ -9,6 +9,7 @@ export type RobotsDocument = {
   groups: RobotsGroup[];
   sitemaps: string[];
   complete: boolean;
+  sitemapsComplete?: boolean;
 };
 export type RobotsEvidence =
   | { state: "read"; document: RobotsDocument }
@@ -55,9 +56,22 @@ export function parseRobots(text: string): RobotsDocument {
         break;
       }
       group.rules.push({ allow: key === "allow", pattern: value, line: index + 1 });
-    } else if (key === "sitemap" && result.sitemaps.length < 100) {
+    } else if (key === "sitemap") {
+      if (value.length > 8192) {
+        result.sitemapsComplete = false;
+        continue;
+      }
       try {
         const url = new URL(value);
+        if (url.href.length > 8192) {
+          result.sitemapsComplete = false;
+          continue;
+        }
+        if (result.sitemaps.includes(url.href)) continue;
+        if (result.sitemaps.length >= 100) {
+          result.sitemapsComplete = false;
+          continue;
+        }
         if (
           ["https:", "http:"].includes(url.protocol) &&
           !url.username &&
