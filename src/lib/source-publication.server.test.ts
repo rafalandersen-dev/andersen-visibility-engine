@@ -89,6 +89,28 @@ beforeEach(() => {
   mocked.refresh.mockResolvedValue({ status: "cooldown" });
 });
 describe("source publication authorization", () => {
+  it("checks reviewed versions against the original asset while refreshing retained dependencies", async () => {
+    const { knowledgeIssuesForAsset } = await import("./knowledge-publication.server");
+    const original = { ...asset, sourceDependencies: [], images: [] };
+    mocked.registry.mockResolvedValue([
+      {
+        assetId: original.id,
+        outputId: original.id,
+        kind: "content",
+        dependencies: [dependency],
+        sourceForgotten: false,
+      },
+    ]);
+    await expect(assertAssetSourcesCurrent(ownerId, original)).resolves.toBeUndefined();
+    expect(mocked.refresh).toHaveBeenCalledOnce();
+    expect(vi.mocked(knowledgeIssuesForAsset)).toHaveBeenCalledTimes(2);
+    for (const call of vi.mocked(knowledgeIssuesForAsset).mock.calls)
+      expect(call[1]).toBe(original);
+    expect(original.sourceDependencies).toEqual([]);
+    vi.mocked(knowledgeIssuesForAsset).mockClear();
+    await expect(sourceIssuesForAsset(ownerId, original)).resolves.toEqual([]);
+    expect(vi.mocked(knowledgeIssuesForAsset).mock.calls[0][1]).toBe(original);
+  });
   it("refreshes then rechecks accepted current evidence without editing asset", async () => {
     const before = structuredClone(asset);
     await assertAssetSourcesCurrent(ownerId, asset);

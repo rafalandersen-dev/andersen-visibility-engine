@@ -104,6 +104,7 @@ export async function sourceIssuesForAsset(
   now = new Date().toISOString(),
   rpc?: KnowledgeRpc,
 ) {
+  const reviewedAsset = asset;
   asset = mergeRegisteredDependencies(
     asset,
     await readOutputSourceDependencies(
@@ -112,7 +113,7 @@ export async function sourceIssuesForAsset(
       rpc,
     ),
   );
-  const knowledgeIssues = await knowledgeIssuesForAsset(userId, asset, now, rpc);
+  const knowledgeIssues = await knowledgeIssuesForAsset(userId, reviewedAsset, now, rpc);
   if (asset[forgottenSource]) return [forgottenIssue(), ...knowledgeIssues];
   const dependencies = assetSourceDependencies(asset);
   if (!dependencies.length) return knowledgeIssues;
@@ -192,6 +193,7 @@ export async function assertAssetSourcesCurrent(
   asset: RegistryAsset,
   rpc?: KnowledgeRpc,
 ) {
+  const reviewedAsset = asset;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let expired = false;
   const checkDeadline = () => {
@@ -211,7 +213,10 @@ export async function assertAssetSourcesCurrent(
         checkDeadline();
         if (asset[forgottenSource]) throw new SourcePublicationHeldError();
         const dependencies = assetSourceDependencies(asset);
-        if ((await knowledgeIssuesForAsset(userId, asset, new Date().toISOString(), rpc)).length)
+        if (
+          (await knowledgeIssuesForAsset(userId, reviewedAsset, new Date().toISOString(), rpc))
+            .length
+        )
           throw new SourcePublicationHeldError();
         checkDeadline();
         if (!dependencies.length) return;
@@ -234,7 +239,9 @@ export async function assertAssetSourcesCurrent(
           }),
         );
         checkDeadline();
-        if ((await sourceIssuesForAsset(userId, asset, new Date().toISOString(), rpc)).length)
+        if (
+          (await sourceIssuesForAsset(userId, reviewedAsset, new Date().toISOString(), rpc)).length
+        )
           throw new SourcePublicationHeldError();
       })(),
       new Promise<never>((_, reject) => {
