@@ -144,3 +144,9 @@ Editor saves and notification setting writes now acquire the existing actor/owne
 Validation:25 focused endpoint/admission/notification/queue tests, TypeScript and changed-file lint pass (`/tmp/milo-write-admit-{tests,types,lint}.log`, notification lint `/tmp/milo-notification-admit-lint.log`). Findings3991011249 and3991062997 addressed. SQL sources unchanged; no setting or email changed in production. Prior combined3630-test/build result predates these final endpoint changes; final merged validation follows in the technical branch.
 
 CI follow-up:9b084b3's full Bun1.4 run passed3346 tests and failed one stale notification endpoint expectation. The focused selection had omitted that endpoint test. It now verifies the exact admitted RPC and authenticated actor across settings read/write/history. Both affected files (11tests), TypeScript and lint pass; no production implementation or SQL changed. Log `/tmp/milo-9b-ci-failure.log` preserves the failed CI evidence.
+
+### Complete scheduled-publication review workflow
+
+Media admission covers opening, one refresh, approval, scheduling and scheduled dispatch:640 starts/minute and768/hour, with four active leases and byte/pixel bounds retained. Actual SQL exercises all five128-image passes and refuses the next minute start. Actor preview limits remain600/hour/60minute/twoactive; this update changes only media limits. Approval/return decisions now share the same UI request queue as their snapshot-backed reads. Draft title validation rejects blank titles without transforming whitespace, preserving an unchanged title when other fields are saved.
+
+Validation:100 focused endpoint/queue/SQL tests, TypeScript and changed-file lint pass (`/tmp/milo-schedule-title-{tests,types,lint}.log`). Findings3991271735,3991271742,3991271752 addressed. Migration020000 source changed and remains unapplied. No schedule, customer record, media request or production deployment changed.

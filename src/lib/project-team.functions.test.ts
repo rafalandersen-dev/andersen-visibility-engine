@@ -124,6 +124,12 @@ describe("team authentication entry points", () => {
     };
     await invoke(endpoints.saveProjectTeamDraftFn, data);
     expect(h.edit).toHaveBeenCalledWith(actor, data, h.rpc);
+    const padded = { ...data, fields: { ...fields, title: "  Saved title  " } };
+    await invoke(endpoints.saveProjectTeamDraftFn, padded);
+    expect(h.edit).toHaveBeenLastCalledWith(actor, padded, h.rpc);
+    expect(() =>
+      invoke(endpoints.saveProjectTeamDraftFn, { ...data, fields: { ...fields, title: "   " } }),
+    ).toThrow();
     expect(() => invoke(endpoints.saveProjectTeamDraftFn, { ...data, actorId: owner })).toThrow();
     expect(() =>
       invoke(endpoints.saveProjectTeamDraftFn, {
