@@ -1,3 +1,4 @@
+import { ProjectTeamNotificationSettings } from "@/components/ProjectTeamNotificationSettings";
 import { ProjectTeamRenderedReview } from "@/components/ProjectTeamRenderedReview";
 import { ProjectTeamApprovalPolicy } from "@/components/ProjectTeamApprovalPolicy";
 import { ProjectTeamDraftEditor } from "@/components/ProjectTeamDraftEditor";
@@ -248,6 +249,8 @@ function OwnerTeam({ projectId }: { projectId: string }) {
       {query.data.members.map((member) => (
         <MemberRow
           key={`${member.actorId}:${member.revision}`}
+          projectId={projectId}
+          ownerId={query.data.ownerId}
           member={member}
           disabled={mutation.isPending}
           change={(next, remove) =>
@@ -300,10 +303,14 @@ function OwnerTeam({ projectId }: { projectId: string }) {
   );
 }
 function MemberRow({
+  projectId,
+  ownerId,
   member,
   disabled,
   change,
 }: {
+  projectId: string;
+  ownerId: string;
   member: z.infer<typeof teamRoster>["members"][number];
   disabled: boolean;
   change: (role: Role, remove: boolean) => void;
@@ -326,6 +333,11 @@ function MemberRow({
           <Button variant="outline" disabled={disabled} onClick={() => change(role, true)}>
             {t("collaboration.remove")}
           </Button>
+          <ProjectTeamNotificationSettings
+            ownerId={ownerId}
+            projectId={projectId}
+            recipientId={member.actorId}
+          />
         </>
       ) : (
         <p>{t("collaboration.removed")}</p>
@@ -363,6 +375,9 @@ function SharedProject({ target }: { target: { ownerId: string; projectId: strin
       {query.data && (
         <div hidden={query.isError}>
           <p className="font-medium">{query.data.project.name}</p>
+          {user && user.id !== target.ownerId && (
+            <ProjectTeamNotificationSettings {...target} recipientId={user.id} />
+          )}
           {query.data.draft ? (
             <>
               <Button variant="outline" onClick={() => setAssetId(undefined)}>

@@ -1,4 +1,16 @@
 const en = {
+  "collaboration.notificationSettings": "Project notifications",
+  "collaboration.notificationConsentHelp":
+    "Both owner assignment and your own consent are required. Changes to your project role require renewed settings.",
+  "collaboration.notificationAssigned": "Assigned by owner",
+  "collaboration.notificationNotAssigned": "Not assigned by owner",
+  "collaboration.notificationOptedIn": "Recipient opted in",
+  "collaboration.notificationOptedOut": "Recipient has not opted in",
+  "collaboration.notificationAssign": "Assign notifications",
+  "collaboration.notificationUnassign": "Remove assignment",
+  "collaboration.notificationOptIn": "Allow project notifications",
+  "collaboration.notificationOptOut": "Turn off project notifications",
+
   "collaboration.decisionRecorded": "Review decision recorded.",
   "collaboration.decisionUnknown":
     "The decision could not be confirmed. Refresh past decisions before trying again.",
@@ -92,6 +104,18 @@ const en = {
 };
 type Copy = Record<keyof typeof en, string>;
 const pl: Copy = {
+  "collaboration.notificationSettings": "Powiadomienia projektu",
+  "collaboration.notificationConsentHelp":
+    "Wymagane są przypisanie przez właściciela i Twoja zgoda. Zmiana roli w projekcie wymaga ponownego ustawienia.",
+  "collaboration.notificationAssigned": "Przypisane przez właściciela",
+  "collaboration.notificationNotAssigned": "Nieprzypisane przez właściciela",
+  "collaboration.notificationOptedIn": "Odbiorca wyraził zgodę",
+  "collaboration.notificationOptedOut": "Odbiorca nie wyraził zgody",
+  "collaboration.notificationAssign": "Przypisz powiadomienia",
+  "collaboration.notificationUnassign": "Usuń przypisanie",
+  "collaboration.notificationOptIn": "Zezwól na powiadomienia projektu",
+  "collaboration.notificationOptOut": "Wyłącz powiadomienia projektu",
+
   "collaboration.decisionRecorded": "Zapisano decyzję.",
   "collaboration.decisionUnknown":
     "Nie można potwierdzić decyzji. Odśwież historię przed ponowną próbą.",
@@ -185,6 +209,18 @@ const pl: Copy = {
   "collaboration.revoked": "Cofnięte",
 };
 const sv: Copy = {
+  "collaboration.notificationSettings": "Projektaviseringar",
+  "collaboration.notificationConsentHelp":
+    "Både ägarens tilldelning och ditt eget samtycke krävs. Ändringar av din projektroll kräver nya inställningar.",
+  "collaboration.notificationAssigned": "Tilldelad av ägaren",
+  "collaboration.notificationNotAssigned": "Inte tilldelad av ägaren",
+  "collaboration.notificationOptedIn": "Mottagaren har samtyckt",
+  "collaboration.notificationOptedOut": "Mottagaren har inte samtyckt",
+  "collaboration.notificationAssign": "Tilldela aviseringar",
+  "collaboration.notificationUnassign": "Ta bort tilldelning",
+  "collaboration.notificationOptIn": "Tillåt projektaviseringar",
+  "collaboration.notificationOptOut": "Stäng av projektaviseringar",
+
   "collaboration.decisionRecorded": "Granskningsbeslutet har sparats.",
   "collaboration.decisionUnknown":
     "Beslutet kunde inte bekräftas. Uppdatera tidigare beslut innan du försöker igen.",
@@ -278,6 +314,18 @@ const sv: Copy = {
   "collaboration.revoked": "Återkallad",
 };
 const da: Copy = {
+  "collaboration.notificationSettings": "Projektnotifikationer",
+  "collaboration.notificationConsentHelp":
+    "Både ejerens tildeling og dit eget samtykke kræves. Ændringer af din projektrolle kræver nye indstillinger.",
+  "collaboration.notificationAssigned": "Tildelt af ejeren",
+  "collaboration.notificationNotAssigned": "Ikke tildelt af ejeren",
+  "collaboration.notificationOptedIn": "Modtageren har givet samtykke",
+  "collaboration.notificationOptedOut": "Modtageren har ikke givet samtykke",
+  "collaboration.notificationAssign": "Tildel notifikationer",
+  "collaboration.notificationUnassign": "Fjern tildeling",
+  "collaboration.notificationOptIn": "Tillad projektnotifikationer",
+  "collaboration.notificationOptOut": "Slå projektnotifikationer fra",
+
   "collaboration.decisionRecorded": "Gennemgangsbeslutningen er gemt.",
   "collaboration.decisionUnknown":
     "Beslutningen kunne ikke bekræftes. Opdater tidligere beslutninger, før du prøver igen.",

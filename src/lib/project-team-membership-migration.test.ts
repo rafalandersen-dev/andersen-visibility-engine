@@ -33,11 +33,12 @@ beforeAll(async () => {
     "20260911050000_project_team_edits.sql",
     "20260911060000_project_team_approval_policy.sql",
     "20260911070000_project_team_review_context.sql",
+    "20260911080000_project_team_notification_recipients.sql",
   ])
     await db.exec(readFileSync(`supabase/migrations/${file}`, "utf8"));
 }, 30000);
 beforeEach(async () => {
-  await db.exec(`RESET ROLE; TRUNCATE public.project_team_approval_history,public.project_team_approval_policy,public.output_knowledge_reviews,public.project_team_edits,public.scheduled_publishes,public.publication_approvals,public.project_team_comments,public.project_team_members,public.project_team_invitations,public.project_team_audit;
+  await db.exec(`RESET ROLE; TRUNCATE public.project_team_notification_recipient_audit,public.project_team_notification_recipients,public.project_team_approval_history,public.project_team_approval_policy,public.output_knowledge_reviews,public.project_team_edits,public.scheduled_publishes,public.publication_approvals,public.project_team_comments,public.project_team_members,public.project_team_invitations,public.project_team_audit;
     UPDATE public.workspace_meta SET rev=1;
     INSERT INTO public.workspace_entities VALUES('${owner}','content','a','{"projectId":"p","title":"Draft","status":"Draft","updatedAt":"now","markdown":"Saved draft"}') ON CONFLICT(user_id,collection,entity_id) DO UPDATE SET data=EXCLUDED.data;
     UPDATE auth.identities SET identity_data='{"email":"member@example.test","email_verified":true}';
@@ -718,6 +719,121 @@ describe("durable project invitation and membership lifecycle", () => {
         await accept();
         await change();
       }
+      await db.exec("RESET ROLE");
+    }
+  });
+});
+
+describe("shared-project notification recipient controls", () => {
+  const settings = async (who = actor) =>
+    (
+      await db.query<{
+        result: {
+          assigned: boolean;
+          optedIn: boolean;
+          revision: number;
+          membershipRevision: number;
+        };
+      }>("SELECT public.read_project_team_notification_recipient($1,$2,'p',$3) result", [
+        who,
+        owner,
+        actor,
+      ])
+    ).rows[0].result;
+  const set = (who: string, action: string, enabled: boolean, revision: number, membership = 1) =>
+    db.query("SELECT public.set_project_team_notification_recipient($1,$2,'p',$3,$4,$5,$6,$7)", [
+      who,
+      owner,
+      actor,
+      action,
+      enabled,
+      revision,
+      membership,
+    ]);
+  it("requires independent owner assignment and recipient consent with revision checks", async () => {
+    await create();
+    await accept();
+    expect(await settings()).toMatchObject({ assigned: false, optedIn: false, revision: 0 });
+    await set(owner, "assign", true, 0);
+    expect(await settings()).toMatchObject({ assigned: true, optedIn: false, revision: 1 });
+    await expect(set(owner, "opt_in", true, 1)).rejects.toThrow("team_recipient_unavailable");
+    await expect(set(actor, "assign", true, 1)).rejects.toThrow("team_recipient_unavailable");
+    await set(actor, "opt_in", true, 1);
+    expect(await settings(owner)).toMatchObject({ assigned: true, optedIn: true, revision: 2 });
+    await expect(set(actor, "opt_in", false, 1)).rejects.toThrow("team_recipient_changed");
+    await set(actor, "opt_in", false, 2);
+    expect(await settings()).toMatchObject({ assigned: true, optedIn: false });
+    expect(
+      (
+        await db.query(
+          "SELECT actor_id,action,enabled FROM public.project_team_notification_recipient_audit ORDER BY event_id",
+        )
+      ).rows,
+    ).toEqual([
+      { actor_id: owner, action: "assign", enabled: true },
+      { actor_id: actor, action: "opt_in", enabled: true },
+      { actor_id: actor, action: "opt_in", enabled: false },
+    ]);
+  });
+  it("invalidates old assignment and consent after role changes or removal", async () => {
+    await create();
+    await accept();
+    await set(owner, "assign", true, 0);
+    await set(actor, "opt_in", true, 1);
+    await change();
+    expect(await settings()).toMatchObject({
+      assigned: false,
+      optedIn: false,
+      membershipRevision: 2,
+    });
+    await expect(set(actor, "opt_in", true, 2)).rejects.toThrow("team_recipient_changed");
+    await set(owner, "assign", true, 2, 2);
+    expect(await settings()).toMatchObject({ assigned: true, optedIn: false });
+    await change(2, true);
+    expect(await settings(owner)).toMatchObject({ assigned: false, optedIn: false });
+    await expect(settings()).rejects.toThrow();
+  });
+  it("admits only current assigned and consenting verified recipients", async () => {
+    await create();
+    await accept();
+    const eligible = async (revision = 2) =>
+      (
+        await db.query<{ ok: boolean }>(
+          "SELECT public.project_team_notification_recipient_eligible($1,'p',$2,$3,1) ok",
+          [owner, actor, revision],
+        )
+      ).rows[0].ok;
+    expect(await eligible(0)).toBe(false);
+    await set(owner, "assign", true, 0);
+    await set(actor, "opt_in", true, 1);
+    expect(await eligible()).toBe(true);
+    expect(await eligible(1)).toBe(false);
+    await db.query("UPDATE auth.users SET banned_until=now()+interval '1 hour' WHERE id=$1", [
+      actor,
+    ]);
+    expect(await eligible()).toBe(false);
+    await db.query(
+      "UPDATE auth.users SET banned_until=NULL,email='changed@example.test' WHERE id=$1",
+      [actor],
+    );
+    expect(await eligible()).toBe(false);
+    await db.query("UPDATE auth.users SET email='member@example.test' WHERE id=$1", [actor]);
+    await set(actor, "opt_in", false, 2);
+    expect(await eligible(3)).toBe(false);
+  });
+  it("denies unrelated accounts, expired membership and browser-role access", async () => {
+    await create();
+    await accept();
+    await expect(settings(other)).rejects.toThrow("team_recipient_unavailable");
+    await db.exec("UPDATE public.project_team_members SET expires_at=now()-interval '1 second'");
+    await expect(set(owner, "assign", true, 0)).rejects.toThrow("team_recipient_changed");
+    for (const role of ["anon", "authenticated"]) {
+      await db.exec(`SET ROLE ${role}`);
+      await expect(settings(owner)).rejects.toThrow("permission denied");
+      await expect(set(owner, "assign", true, 0)).rejects.toThrow("permission denied");
+      await expect(
+        db.query("SELECT * FROM public.project_team_notification_recipients"),
+      ).rejects.toThrow("permission denied");
       await db.exec("RESET ROLE");
     }
   });
