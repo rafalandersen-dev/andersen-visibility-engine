@@ -6,7 +6,8 @@ export const readTeamNotificationSettingsFn = createServerFn({ method: "POST" })
   .inputValidator((v: unknown) => teamNotificationTarget.parse(v))
   .handler(async ({ context, data }) => {
     const { readTeamNotificationSettings } = await import("./project-team-notifications.server");
-    return readTeamNotificationSettings(context.userId, data);
+    const { admittedReadRpc } = await import("./project-team-read-admission.server");
+    return readTeamNotificationSettings(context.userId, data, admittedReadRpc(context.userId));
   });
 export const changeTeamNotificationSettingsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -20,5 +21,6 @@ export const readTeamNotificationHistoryFn = createServerFn({ method: "POST" })
   .inputValidator((v: unknown) => teamNotificationTarget.parse(v))
   .handler(async ({ context, data }) => {
     const { readTeamNotificationHistory } = await import("./project-team-notifications.server");
-    return readTeamNotificationHistory(context.userId, data);
+    const { admittedReadRpc } = await import("./project-team-read-admission.server");
+    return readTeamNotificationHistory(context.userId, data, admittedReadRpc(context.userId));
   });

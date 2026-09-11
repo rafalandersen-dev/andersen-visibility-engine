@@ -1728,6 +1728,44 @@ describe("scoped team notification outbox", () => {
     );
     expect(await begin(c)).toBeNull();
   });
+  it.each(["finish", "expired"])(
+    "requeues exhausted pre-transport items after the hourly interval: %s",
+    async (mode) => {
+      await prepare();
+      const first = await queue();
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const c = await claim();
+        if (mode === "expired") {
+          await db.exec(
+            "UPDATE project_team_notification_outbox SET lease_until=now()-interval '1 minute'",
+          );
+        } else {
+          await db.query(
+            "SELECT finish_project_team_notification_delivery($1,$2,'preflight_unavailable')",
+            [c.id, c.lease_token],
+          );
+          await db.exec(
+            "UPDATE project_team_notification_outbox SET available_at=now()-interval '1 minute'",
+          );
+        }
+      }
+      if (mode === "expired") expect(await claim()).toBeUndefined();
+      expect(await queue()).toBeNull();
+      await db.exec(
+        "UPDATE project_team_notification_outbox SET created_at=now()-interval '2 hours'",
+      );
+      const next = await queue();
+      expect(next).toBeTruthy();
+      expect(next).not.toBe(first);
+      expect(
+        (await db.query("SELECT outbox_id FROM project_team_notification_items")).rows,
+      ).toEqual([{ outbox_id: next }]);
+      expect(
+        (await db.query("SELECT status FROM project_team_notification_outbox WHERE id=$1", [first]))
+          .rows,
+      ).toEqual([{ status: "failed" }]);
+    },
+  );
   it("holds uncertain sends and only retries failures before transport", async () => {
     await prepare();
     await queue();
