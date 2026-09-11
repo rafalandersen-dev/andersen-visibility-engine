@@ -279,7 +279,13 @@ export async function fetchPinnedResource(
         throw new Error("crawl_policy_refused");
       const address = await addressFor(url, controller.signal);
       controller.signal.throwIfAborted();
-      response = await openPage(url, address, controller.signal);
+      const accept =
+        options.purpose === "sitemap"
+          ? "application/xml,text/xml,text/plain"
+          : options.purpose === "robots"
+            ? "text/plain"
+            : "text/html,application/xhtml+xml,text/plain";
+      response = await openPage(url, address, controller.signal, accept);
       const status = response.statusCode ?? 0;
       if ([301, 302, 303, 307, 308].includes(status)) {
         const location = response.headers.location;

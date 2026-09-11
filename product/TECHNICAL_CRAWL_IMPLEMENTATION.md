@@ -99,3 +99,5 @@ Merged team branch head 2dacf08 into the technical checkout using a normal merge
 Combined validation: all 3,463 tests / 262 files pass (56.36 seconds, one worker); TypeScript and resolved-file lint pass. The 63 focused transport/crawl tests also pass. Logs: /tmp/milo-technical-merge-{full,types,lint,focused}.log. Production build validation is recorded separately after completion. This integration does not release either feature set, apply migrations or constitute live-provider/browser acceptance.
 
 Combined production build passes: /tmp/milo-technical-merge-build.log. No live requests or deployment performed.
+
+Resource content negotiation (2026-09-11): sitemap requests now advertise XML/plain text and robots requests plain text; HTML page and exact image headers remain separate. Headers are retained for each permitted redirect. All 66 focused native transport/crawl tests, TypeScript and changed-file lint pass; no live network request.

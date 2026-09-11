@@ -317,6 +317,28 @@ describe("structured pinned technical observations", () => {
     });
     expect(JSON.stringify(result)).not.toContain("private");
   });
+  it.each([
+    ["robots", "text/plain", "text/plain"],
+    ["sitemap", "application/xml,text/xml,text/plain", "application/xml"],
+    ["technical", "text/html,application/xhtml+xml,text/plain", "text/html"],
+  ] as const)(
+    "requests the supported representation for %s on every redirect",
+    async (purpose, accept, contentType) => {
+      mocks.request
+        .mockImplementationOnce(reply(response([], 302, { location: "/next" })))
+        .mockImplementationOnce(
+          reply(response([Buffer.from("resource")], 200, { "content-type": contentType })),
+        );
+      const result = await fetchPinnedResource("https://example.com/start", {
+        purpose,
+        origin: "https://example.com",
+        authorize: () => true,
+      });
+      expect(result).toMatchObject({ body: "resource", contentAccepted: true });
+      expect(mocks.request).toHaveBeenCalledTimes(2);
+      for (const call of mocks.request.mock.calls) expect(call[1].headers.Accept).toBe(accept);
+    },
+  );
   it.each(["technical", "sitemap"] as const)(
     "rejects %s redirect scope and robots policy before resolving or connecting",
     async (purpose) => {
