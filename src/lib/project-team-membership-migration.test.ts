@@ -1352,13 +1352,30 @@ describe("shared-project notification recipient controls", () => {
         "INSERT INTO project_team_notification_recipient_audit(owner_id,project_id,recipient_id,actor_id,action,enabled,revision,created_at) SELECT $1,'p',$2,$2,'opt_in',true,2,now()-CASE WHEN $3 THEN interval '1 minute' ELSE interval '2 hours' END FROM generate_series(1,10000)",
         [owner, actor, recent],
       );
+      await set(actor, "opt_in", true, 2);
+      await set(actor, "opt_in", false, 2);
       if (recent)
-        await expect(set(actor, "opt_in", true, 2)).rejects.toThrow("team_recipient_capacity");
-      else await set(actor, "opt_in", true, 2);
-      await set(actor, "opt_in", false, recent ? 2 : 3);
+        await expect(set(actor, "opt_in", true, 3)).rejects.toThrow("team_recipient_capacity");
+      else {
+        await set(actor, "opt_in", true, 3);
+        await set(actor, "opt_in", false, 4);
+      }
       expect(await settings()).toMatchObject({ optedIn: false });
     },
   );
+  it("bounds each collaborator's toggles while allowing owner assignment and opt-out", async () => {
+    await create();
+    await accept();
+    for (let revision = 0; revision < 120; revision++)
+      await set(actor, "opt_in", revision % 2 === 0, revision);
+    await expect(set(actor, "opt_in", true, 120)).rejects.toThrow("team_recipient_capacity");
+    await set(actor, "opt_in", false, 120);
+    await set(owner, "assign", true, 120);
+    expect(await settings()).toMatchObject({ revision: 121, assigned: true, optedIn: false });
+    expect(
+      (await db.query("SELECT * FROM project_team_notification_recipient_audit")).rows,
+    ).toHaveLength(121);
+  });
   it("preserves the first opt-out and coalesces repeated disabled settings", async () => {
     await create();
     await accept();

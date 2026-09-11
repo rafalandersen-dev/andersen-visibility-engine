@@ -45,7 +45,7 @@ describe("notification setting boundaries", () => {
     });
   });
   it.each(["assign", "opt_in"] as const)(
-    "accepts the existing revision only for a coalesced disabled %s",
+    "accepts the existing revision for either coalesced state of %s",
     async (action) => {
       const actor = action === "assign" ? owner : recipient;
       const rpc = vi.fn(async () => ({ data: 2, error: null }));
@@ -57,9 +57,9 @@ describe("notification setting boundaries", () => {
         expectedMembershipRevision: 2,
       };
       expect(await changeTeamNotificationSettings(actor, change, rpc)).toEqual({ revision: 2 });
-      await expect(
-        changeTeamNotificationSettings(actor, { ...change, enabled: true }, rpc),
-      ).rejects.toThrow("could not be confirmed");
+      expect(
+        await changeTeamNotificationSettings(actor, { ...change, enabled: true }, rpc),
+      ).toEqual({ revision: 2 });
       rpc.mockResolvedValue({ data: 1, error: null });
       await expect(changeTeamNotificationSettings(actor, change, rpc)).rejects.toThrow(
         "could not be confirmed",

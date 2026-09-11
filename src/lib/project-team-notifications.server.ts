@@ -66,10 +66,7 @@ export async function changeTeamNotificationSettings(
         rpc,
       ),
     );
-  if (
-    revision !== input.expectedRevision + 1 &&
-    !(!input.enabled && revision === input.expectedRevision)
-  )
+  if (revision !== input.expectedRevision + 1 && revision !== input.expectedRevision)
     throw new Error("Notification settings could not be confirmed.");
   return { revision };
 }
