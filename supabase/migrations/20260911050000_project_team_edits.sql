@@ -55,7 +55,18 @@ BEGIN
   IF EXISTS(SELECT 1 FROM public.scheduled_publishes WHERE user_id=p_owner AND project_id=p_project AND asset_id=p_asset AND status='publishing') THEN RAISE EXCEPTION 'team_publication_in_flight'; END IF;
   IF (SELECT count(*) FROM public.project_team_edits WHERE owner_id=p_owner AND project_id=p_project AND created_at>clock_timestamp()-interval '1 hour')>=10000 THEN RAISE EXCEPTION 'team_edit_capacity'; END IF;
   SELECT data INTO original FROM public.workspace_entities WHERE user_id=p_owner AND collection='content' AND entity_id=p_asset AND data->>'projectId'=p_project;
+  -- Compare the form's empty defaults with absent optional fields. Opening and
+  -- saving an unchanged form must preserve the exact approved content/version.
+  IF NOT EXISTS(SELECT 1 FROM jsonb_each(p_patch) e WHERE e.value IS DISTINCT FROM
+    coalesce(original->e.key, CASE WHEN e.key IN ('outline','faq') THEN '[]'::jsonb ELSE '""'::jsonb END)) THEN
+    INSERT INTO public.project_team_edits(owner_id,project_id,asset_id,edit_id,actor_id,before_hash,after_hash,patch_hash,membership_revision)
+      VALUES(p_owner,p_project,p_asset,p_edit,p_actor,p_hash,p_hash,patch_hash,p_membership);
+    RETURN p_hash;
+  END IF;
   changed:=original || p_patch || jsonb_build_object('status','In Review','updatedAt',clock_timestamp());
+  IF original->'qualityScore' IS NOT NULL AND original->'qualityScore'<>'null'::jsonb THEN
+    changed:=changed || jsonb_build_object('qualityScoreStale',true);
+  END IF;
   -- Hold queued work first so the existing mirror trigger preserves the hold.
   UPDATE public.scheduled_publishes SET status='review_required',updated_at=clock_timestamp()
     WHERE user_id=p_owner AND project_id=p_project AND asset_id=p_asset AND status='pending';

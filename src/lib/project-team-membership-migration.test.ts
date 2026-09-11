@@ -513,6 +513,111 @@ describe("durable project invitation and membership lifecycle", () => {
       active: false,
     });
   });
+  it("preserves approved content, scores, reviews and schedules for an unchanged populated form", async () => {
+    await create();
+    await accept();
+    await db.exec(`UPDATE public.workspace_entities SET data=data || '{"status":"Approved","qualityScore":{"total":80},"qualityScoreStale":false}' WHERE collection='content';
+      INSERT INTO public.scheduled_publishes VALUES('${owner}','p','a','pending',now());`);
+    await db.query("SELECT public.set_publication_approval($1,'p','a',1,$2,true)", [
+      owner,
+      "a".repeat(64),
+    ]);
+    await db.query(
+      "INSERT INTO public.output_knowledge_reviews(user_id,project_id,asset_id,review_id,version_hash,context_hash) VALUES($1,'p','a',$2,$3,$3)",
+      [owner, invite, "a".repeat(64)],
+    );
+    const before = (
+      await db.query(
+        "SELECT data,updated_at FROM public.workspace_entities WHERE user_id=$1 AND collection='content'",
+        [owner],
+      )
+    ).rows;
+    const hash = (
+      await db.query<{ hash: string }>(
+        "SELECT public.read_project_team_snapshot($1,$2,'p','a')->>'draftHash' hash",
+        [actor, owner],
+      )
+    ).rows[0].hash;
+    const patch = {
+      title: "Draft",
+      markdown: "Saved draft",
+      h1: "",
+      metaTitle: "",
+      metaDescription: "",
+      cta: "",
+      outline: [],
+      faq: [],
+    };
+    const save = () =>
+      db.query<{ hash: string }>(
+        "SELECT public.save_project_team_draft($1,$2,'p','a',$3,$4,1,$5) hash",
+        [actor, owner, second, hash, patch],
+      );
+    expect((await save()).rows[0].hash).toBe(hash);
+    expect((await save()).rows[0].hash).toBe(hash);
+    expect(
+      (
+        await db.query(
+          "SELECT data,updated_at FROM public.workspace_entities WHERE user_id=$1 AND collection='content'",
+          [owner],
+        )
+      ).rows,
+    ).toEqual(before);
+    expect((await db.query("SELECT approved FROM public.publication_approvals")).rows).toEqual([
+      { approved: true },
+    ]);
+    expect((await db.query("SELECT active FROM public.output_knowledge_reviews")).rows).toEqual([
+      { active: true },
+    ]);
+    expect((await db.query("SELECT status FROM public.scheduled_publishes")).rows).toEqual([
+      { status: "pending" },
+    ]);
+    expect(
+      (await db.query("SELECT rev FROM public.workspace_meta WHERE user_id=$1", [owner])).rows,
+    ).toEqual([{ rev: 1 }]);
+    expect((await db.query("SELECT * FROM public.project_team_edits")).rows).toHaveLength(1);
+  });
+  it.each([
+    { title: "New title" },
+    { markdown: "New body" },
+    { h1: "New heading" },
+    { metaTitle: "New meta title" },
+    { metaDescription: "New description" },
+    { cta: "New CTA" },
+    { outline: ["New section"] },
+    { faq: [{ q: "Question", a: "Answer" }] },
+  ])("marks the existing quality score stale after content changes: %j", async (patch) => {
+    await create();
+    await accept();
+    await db.exec(
+      `UPDATE public.workspace_entities SET data=data || '{"qualityScore":{"total":80},"qualityScoreStale":false}' WHERE collection='content'`,
+    );
+    const hash = (
+      await db.query<{ hash: string }>(
+        "SELECT public.read_project_team_snapshot($1,$2,'p','a')->>'draftHash' hash",
+        [actor, owner],
+      )
+    ).rows[0].hash;
+    await db.query("SELECT public.save_project_team_draft($1,$2,'p','a',$3,$4,1,$5)", [
+      actor,
+      owner,
+      second,
+      hash,
+      patch,
+    ]);
+    const saved = (
+      await db.query<{ data: unknown }>(
+        "SELECT data FROM public.workspace_entities WHERE user_id=$1 AND collection='content'",
+        [owner],
+      )
+    ).rows[0].data;
+    expect(saved).toMatchObject({
+      ...patch,
+      qualityScore: { total: 80 },
+      qualityScoreStale: true,
+      status: "In Review",
+    });
+  });
   it("rejects changed draft, changed membership, viewers, private-field patches and in-flight publication", async () => {
     await create();
     await accept();

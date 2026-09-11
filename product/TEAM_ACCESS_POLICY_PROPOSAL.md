@@ -158,3 +158,9 @@ Large-article approval contract follow-up: replaced the remaining32-image attest
 Attestation-contract validation:3,259tests/241files pass, including40-image server verification and stored receipt; TypeScript and changed-filelint pass. Fresh Linux build/lock/review checks are required on the pushed revision.
 
 Controlled-image compatibility follow-up: team media now applies the same controlled-origin policy as authoring/publication, including other approved Supabase deployments, then pins every request and redirect to the selected origin. Outbound admission, public-address checks, exact bytes and scoped current-storage reads remain enforced. Native Node and Bun image requests now advertise only the supported PNG/JPEG/WebP types. Findings3988297672/3988297681 addressed. All3,261tests/241files, TypeScript and changed-filelint pass.
+
+## Unchanged saves and quality score review fixes — 11 September
+
+Latest review findings on `8d255a8` are addressed locally: unchanged populated editor forms are disabled, and the database independently compares submitted fields against saved values with matching optional-field defaults. A no-op records its idempotent receipt while preserving exact content/hash/timestamp, workspace revision, publication approval, knowledge review and pending schedule. Actual changes to any of the eight editable content fields mark an existing quality score stale. Current membership, saved-hash, capacity and in-flight publication checks remain enforced.
+
+Validation: 3,270 tests across 241 files pass, including nine additional database regressions (69 membership/migration tests); TypeScript, changed-file lint and production build pass. The unreleased edit migration changed and requires a refreshed guarded release packet. No migration or production deployment has been executed. Overall remains approximately 55%, implementation 70%; current-head release review and real owner/collaborator acceptance remain open.
