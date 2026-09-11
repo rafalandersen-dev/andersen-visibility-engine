@@ -33,6 +33,37 @@ const deps = (image?: Record<string, unknown>) => ({
   download: vi.fn(async () => new Blob([bytes])),
 });
 describe("scoped collaborator media", () => {
+  it("reads a selected image in a 31-image article", async () => {
+    const d = deps();
+    const ctx = context();
+    ctx.asset.images = [
+      ...ctx.asset.images!,
+      ...Array.from({ length: 30 }, (_, i) => ({ id: `extra${i}` })),
+    ] as typeof ctx.asset.images;
+    d.read.mockResolvedValue(ctx);
+    await expect(readProjectTeamMedia(actor, input, d)).resolves.toHaveProperty("imageId", "im");
+  });
+  it.each(["featured", "social"] as const)(
+    "reads a detached %s from its saved featured record",
+    async (kind) => {
+      const d = deps();
+      const ctx = context();
+      ctx.asset.images = [];
+      ctx.asset.featuredImage = {
+        imageId: "im",
+        storagePath: path,
+        social: {
+          physicalUrl: `${storageOrigin}/storage/v1/object/public/article-assets-public/${path}`,
+        },
+      } as typeof ctx.asset.featuredImage;
+      d.read.mockResolvedValue(ctx);
+      await expect(readProjectTeamMedia(actor, { ...input, kind }, d)).resolves.toHaveProperty(
+        "imageId",
+        "im",
+      );
+      expect(d.download).toHaveBeenCalledTimes(1);
+    },
+  );
   it("returns validated bytes without private paths, credentials or project data", async () => {
     const d = deps();
     const result = await readProjectTeamMedia(actor, input, d);

@@ -56,7 +56,6 @@ export async function readProjectTeamPreview(
         .object({ id: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/), url: z.string().optional() })
         .passthrough(),
     )
-    .max(30)
     .parse(before.asset.images ?? []);
   const media = images.map((image) => ({
     key: `content_${image.id}`,
@@ -65,7 +64,11 @@ export async function readProjectTeamPreview(
     url: image.url,
   }));
   const featured = before.asset.featuredImage;
-  if (featured && images.some((image) => image.id === featured.imageId))
+  if (featured)
+    z.string()
+      .regex(/^[A-Za-z0-9_-]{1,64}$/)
+      .parse(featured.imageId);
+  if (featured)
     media.push({
       key: `featured_${featured.imageId}`,
       imageId: featured.imageId,
@@ -76,13 +79,12 @@ export async function readProjectTeamPreview(
   if (featured?.social?.physicalUrl) {
     // JSON-LD/OG may use a different object from the hero. Include it visibly
     // even though it does not occur in the article body.
-    if (images.some((image) => image.id === featured.imageId))
-      media.push({
-        key: `social_${featured.imageId}`,
-        imageId: featured.imageId,
-        kind: "social",
-        url: featured.social.physicalUrl,
-      });
+    media.push({
+      key: `social_${featured.imageId}`,
+      imageId: featured.imageId,
+      kind: "social",
+      url: featured.social.physicalUrl,
+    });
     reviewHtml += `<section><h2>Social image</h2><img src="${escape(featured.social.physicalUrl)}" alt="${escape(featured.social.alt ?? featured.alt ?? "")}" /></section>`;
   }
   const preview = teamPreviewHtml(

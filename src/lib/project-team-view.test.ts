@@ -32,6 +32,16 @@ const draft = {
   futurePrivateField: { hidden: true },
 };
 describe("project collaborator projection", () => {
+  it("projects existing drafts beyond 30 images while retaining the byte limit", () => {
+    const images = Array.from({ length: 31 }, (_, i) => ({
+      id: `im${i}`,
+      alt: "Image",
+      storagePath: "hidden",
+    }));
+    const result = projectTeamDraft(scope, "a", { ...draft, images });
+    expect(result.images).toHaveLength(31);
+    expect(JSON.stringify(result)).not.toContain("hidden");
+  });
   it("exposes only explicit project/list fields, excluding current and future private configuration", () => {
     const result = projectTeamList(scope, project, [draft], 4);
     expect(Object.keys(result.project).sort()).toEqual([

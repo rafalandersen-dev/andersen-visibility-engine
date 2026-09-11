@@ -44,10 +44,10 @@ export async function readProjectTeamMedia(
             })
             .passthrough(),
         )
-        .max(30)
         .parse(before.asset.images ?? []);
       const matches = images.filter((i) => i.id === input.imageId);
-      if (matches.length !== 1) throw new Error("media_missing");
+      if ((input.kind ?? "content") === "content" && matches.length !== 1)
+        throw new Error("media_missing");
       const media =
         input.kind === "social"
           ? {

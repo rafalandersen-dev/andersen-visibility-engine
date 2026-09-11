@@ -45,7 +45,6 @@ const draftDetail = draftSummary.extend({
         caption: z.string().max(4000).optional(),
       }),
     )
-    .max(30)
     .default([]),
 });
 
