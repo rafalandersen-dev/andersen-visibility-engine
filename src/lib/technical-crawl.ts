@@ -1,3 +1,4 @@
+import type { TechnicalSitemaps } from "./technical-sitemap";
 import { isSafePublicUrl } from "./safe-fetch";
 import { evaluateRobots, type RobotsEvidence } from "./technical-robots";
 import { inspectTechnicalPage, type TechnicalPageObservation } from "./technical-page";
@@ -23,6 +24,7 @@ export type TechnicalCrawl = {
   limits: { pages: number; depth: number };
   robots: RobotsEvidence;
   robotsFetchedAt: string;
+  sitemaps?: TechnicalSitemaps;
   queue: { url: string; depth: number | null }[];
   pages: CrawlPage[];
   coverageLimits: (

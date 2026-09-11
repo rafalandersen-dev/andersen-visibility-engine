@@ -180,6 +180,47 @@ function ProjectCrawl({ owner, projectId }: { owner: string; projectId: string }
                   ))}
                 </ul>
               )}
+              {state.sitemaps && (
+                <details className="rounded border p-3" open>
+                  <summary>{t("crawl.sitemaps")}</summary>
+                  <p className="mt-2 text-sm">{t("crawl.sitemapHelp")}</p>
+                  <p>
+                    {t("crawl.sitemapCounts", {
+                      files: state.sitemaps.files.length,
+                      queued: state.sitemaps.queue.length,
+                      urls: state.sitemaps.entries.length,
+                    })}
+                  </p>
+                  <ul className="list-disc pl-5">
+                    {state.sitemaps.limitations.map((limit) => (
+                      <li key={limit}>{t(`crawl.sitemap_${limit}`)}</li>
+                    ))}
+                  </ul>
+                  {state.sitemaps.files.map((file) => (
+                    <div key={file.requestedUrl} className="mt-2 border-t pt-2 text-sm break-all">
+                      <p>
+                        {file.requestedUrl} · {t(`crawl.sitemap_${file.state}`)}
+                        {file.status ? ` · HTTP ${file.status}` : ""}
+                      </p>
+                      <p>
+                        {t("crawl.observedAt")}: {file.observedAt}
+                      </p>
+                      {file.finalUrl && (
+                        <p>
+                          {t("crawl.finalUrl")}: {file.finalUrl}
+                        </p>
+                      )}
+                      <p>
+                        {t("crawl.sitemapEntries", {
+                          locs: file.locCount,
+                          rejected: file.rejectedCount,
+                        })}
+                        {file.kind ? ` · ${file.kind}` : ""}
+                      </p>
+                    </div>
+                  ))}
+                </details>
+              )}
               {state.pages.map((page) => (
                 <details key={page.requestedUrl} className="rounded border p-3">
                   <summary className="cursor-pointer break-all">
@@ -189,6 +230,14 @@ function ProjectCrawl({ owner, projectId }: { owner: string; projectId: string }
                   <p className="mt-2 text-sm">
                     {t("crawl.depth")}: {page.depth ?? t("crawl.unknown")}
                   </p>
+                  {state.sitemaps && (
+                    <p className="text-sm break-all">
+                      {t("crawl.sitemapMembership")}:{" "}
+                      {state.sitemaps.entries
+                        .find((entry) => entry.url === page.requestedUrl)
+                        ?.files.join(" | ") || t("crawl.notFound")}
+                    </p>
+                  )}
                   {page.observation && (
                     <div className="mt-2 space-y-2 break-words text-sm">
                       <p>

@@ -127,6 +127,52 @@ const schema = z
           .strict(),
       )
       .max(200),
+    sitemaps: z
+      .object({
+        queue: z.array(z.object({ url, depth: z.number().int().min(0).max(3) }).strict()).max(10),
+        files: z
+          .array(
+            z
+              .object({
+                requestedUrl: url,
+                depth: z.number().int().min(0).max(3),
+                observedAt: date,
+                finalUrl: url.optional(),
+                status: z.number().int().min(100).max(599).optional(),
+                state: z.enum([
+                  "read",
+                  "invalid_xml",
+                  "oversize",
+                  "non_xml",
+                  "http_error",
+                  "fetch_failed",
+                  "robots_disallowed",
+                  "robots_unknown",
+                ]),
+                kind: z.enum(["urlset", "sitemapindex"]).optional(),
+                locCount: z.number().int().min(0).max(50000),
+                rejectedCount: z.number().int().min(0).max(50000),
+              })
+              .strict(),
+          )
+          .max(10),
+        entries: z.array(z.object({ url, files: z.array(url).max(10) }).strict()).max(2000),
+        limitations: z
+          .array(
+            z.enum([
+              "file_limit",
+              "depth_limit",
+              "url_limit",
+              "out_of_scope",
+              "invalid_entry",
+              "unreadable",
+              "storage_limit",
+            ]),
+          )
+          .max(7),
+      })
+      .strict()
+      .optional(),
     coverageLimits: z
       .array(
         z.enum([
@@ -153,6 +199,15 @@ export function parseTechnicalCrawlState(raw: unknown, origin: string): Technica
         new URL(p.requestedUrl).origin !== origin ||
         (p.observation && new URL(p.observation.url).origin !== origin),
     ) ||
+    (state.sitemaps &&
+      [
+        ...state.sitemaps.queue.map((q) => q.url),
+        ...state.sitemaps.files.flatMap((f) => [
+          f.requestedUrl,
+          ...(f.finalUrl ? [f.finalUrl] : []),
+        ]),
+        ...state.sitemaps.entries.flatMap((e) => [e.url, ...e.files]),
+      ].some((u) => new URL(u).origin !== origin)) ||
     state.pages.length > state.limits.pages
   )
     throw new Error("technical_state_scope_invalid");
@@ -167,6 +222,13 @@ export function fitTechnicalCrawlState(raw: TechnicalCrawl): TechnicalCrawl {
   if (size() <= budget) return parseTechnicalCrawlState(state, state.origin);
   if (!state.coverageLimits.includes("storage_limit")) state.coverageLimits.push("storage_limit");
   state.status = "completed";
+  if (state.sitemaps) {
+    if (!state.sitemaps.limitations.includes("storage_limit"))
+      state.sitemaps.limitations.push("storage_limit");
+    state.sitemaps.queue = [];
+    while (state.sitemaps.entries.length && size() > budget)
+      state.sitemaps.entries.splice(Math.floor(state.sitemaps.entries.length / 2));
+  }
   while (state.queue.length && size() > budget)
     state.queue.splice(Math.floor(state.queue.length / 2));
   for (const page of [...state.pages].reverse()) {

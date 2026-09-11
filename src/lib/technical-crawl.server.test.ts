@@ -39,6 +39,7 @@ function setup() {
     rpc,
     robots,
     fetcher,
+    sitemaps: () => async () => null,
     now: () => new Date(now),
     cancel: () => {
       record.status = "cancelled";
@@ -106,7 +107,18 @@ describe("authenticated crawl controller core", () => {
       url: "https://example.test/" + i + "x".repeat(2000),
       depth: null,
     }));
+    state.sitemaps = {
+      queue: [{ url: "https://example.test/sitemap.xml", depth: 0 }],
+      files: [],
+      limitations: [],
+      entries: state.queue.map((entry) => ({
+        url: entry.url,
+        files: ["https://example.test/sitemap.xml"],
+      })),
+    };
     const fitted = fitTechnicalCrawlState(state);
+    expect(fitted.sitemaps?.limitations).toContain("storage_limit");
+    expect(fitted.sitemaps?.queue).toEqual([]);
     expect(new TextEncoder().encode(JSON.stringify(fitted)).byteLength).toBeLessThanOrEqual(
       2500000,
     );

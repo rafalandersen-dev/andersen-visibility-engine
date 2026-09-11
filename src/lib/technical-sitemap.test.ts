@@ -1,0 +1,146 @@
+import { describe, it, expect, vi } from "vitest";
+import {
+  inspectSitemapXml,
+  startTechnicalSitemaps,
+  advanceTechnicalSitemaps,
+} from "./technical-sitemap";
+import { robotsEvidence } from "./technical-robots";
+const origin = "https://example.test",
+  now = "2026-09-11T10:00:00.000Z",
+  robots = robotsEvidence(404);
+const set = (locs: string[]) =>
+  `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${locs.map((loc) => `<url><loc>${loc}</loc></url>`).join("")}</urlset>`;
+const response = (body: string, url = origin + "/sitemap.xml") => ({
+  body,
+  url,
+  status: 200,
+  contentAccepted: true,
+  truncated: false,
+  observedAt: now,
+});
+describe("observed sitemap XML", () => {
+  it("does not invent membership from missing or duplicate required locs", () => {
+    const parsed = inspectSitemapXml(
+      `<urlset><url/><url><loc>${origin}/a</loc><loc>${origin}/b</loc></url><url><loc>${origin}/valid</loc></url></urlset>`,
+    );
+    expect(parsed).toEqual({ kind: "urlset", locs: [origin + "/valid"], rejected: 2 });
+  });
+  it("handles namespace prefixes, XML entities and CDATA without extension-image locs", () => {
+    const result = inspectSitemapXml(
+      `<s:urlset xmlns:s="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:i="urn:images"><s:url><s:loc><![CDATA[https://example.test/a?q=1&b=2]]></s:loc><i:image><i:loc>https://example.test/ignore.png</i:loc></i:image></s:url><s:url><s:loc>https://example.test/&#98;?q=1&amp;x=2</s:loc></s:url></s:urlset>`,
+    );
+    expect(result?.locs).toEqual([origin + "/a?q=1&b=2", origin + "/b?q=1&x=2"]);
+    expect(result?.kind).toBe("urlset");
+  });
+  it.each([
+    "<urlset><url></urlset>",
+    "<!DOCTYPE x SYSTEM 'https://example.test/private'><urlset/>",
+    "<html><loc>https://example.test/a</loc></html>",
+    "<urlset><url><loc>&custom;</loc></url></urlset>",
+    "<urlset><url><loc><b>https://example.test/a</b></loc></url></urlset>",
+  ])("rejects malformed or unsupported XML %s", (xml) => {
+    expect(inspectSitemapXml(xml)).toBeNull();
+  });
+  it("rejects oversized and deeply nested input without retaining partial locations", () => {
+    expect(inspectSitemapXml(" ".repeat(512001))).toBeNull();
+    expect(
+      inspectSitemapXml(`<urlset>${"<x>".repeat(51)}${"</x>".repeat(51)}</urlset>`),
+    ).toBeNull();
+  });
+});
+describe("resumable sitemap evidence", () => {
+  it("keeps exact query-bearing URLs, file membership, and out-of-scope limitations", async () => {
+    const saved = startTechnicalSitemaps(origin, []);
+    const next = await advanceTechnicalSitemaps(
+      saved,
+      origin,
+      robots,
+      async () => response(set([origin + "/a?q=1", origin + "/a?q=2", "https://other.test/a"])),
+      now,
+    );
+    expect(next.entries.map((e) => e.url)).toEqual([origin + "/a?q=1", origin + "/a?q=2"]);
+    expect(next.entries[0].files).toEqual([origin + "/sitemap.xml"]);
+    expect(next.files[0]).toMatchObject({
+      state: "read",
+      status: 200,
+      locCount: 3,
+      rejectedCount: 1,
+    });
+    expect(next.limitations).toContain("out_of_scope");
+    expect(saved.files).toEqual([]);
+  });
+  it("advances one file, follows bounded indexes and never queues a cycle", async () => {
+    const fetch = vi.fn(async () =>
+      response(
+        `<sitemapindex><sitemap><loc>${origin}/sitemap.xml</loc></sitemap><sitemap><loc>${origin}/child.xml?q=2</loc></sitemap></sitemapindex>`,
+      ),
+    );
+    const next = await advanceTechnicalSitemaps(
+      startTechnicalSitemaps(origin, []),
+      origin,
+      robots,
+      fetch,
+      now,
+    );
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(next.queue).toContainEqual({ url: origin + "/child.xml?q=2", depth: 1 });
+    expect(next.queue.some((q) => q.url === origin + "/sitemap.xml")).toBe(false);
+  });
+  it("records unknown robots without any request", async () => {
+    const fetch = vi.fn(async () => response(set([])));
+    const next = await advanceTechnicalSitemaps(
+      startTechnicalSitemaps(origin, []),
+      origin,
+      robotsEvidence(null),
+      fetch,
+      now,
+    );
+    expect(fetch).not.toHaveBeenCalled();
+    expect(next.files[0].state).toBe("robots_unknown");
+    expect(next.limitations).toContain("unreadable");
+  });
+  it.each(["oversize", "non_xml", "http_error"] as const)(
+    "preserves %s as unobserved membership",
+    async (state) => {
+      const r = response(set([origin + "/a"]));
+      if (state === "oversize") r.truncated = true;
+      if (state === "non_xml") r.contentAccepted = false;
+      if (state === "http_error") r.status = 503;
+      const next = await advanceTechnicalSitemaps(
+        startTechnicalSitemaps(origin, []),
+        origin,
+        robots,
+        async () => r,
+        now,
+      );
+      expect(next.files[0].state).toBe(state);
+      expect(next.entries).toEqual([]);
+    },
+  );
+  it("bounds URL discovery and index depth with explicit limitations", async () => {
+    const next = await advanceTechnicalSitemaps(
+      startTechnicalSitemaps(origin, []),
+      origin,
+      robots,
+      async () => response(set(Array.from({ length: 2001 }, (_, i) => origin + `/p${i}`))),
+      now,
+    );
+    expect(next.entries).toHaveLength(2000);
+    expect(next.limitations).toContain("url_limit");
+    const saved = startTechnicalSitemaps(origin, []);
+    saved.queue = [{ url: origin + "/deep.xml", depth: 3 }];
+    const deep = await advanceTechnicalSitemaps(
+      saved,
+      origin,
+      robots,
+      async () =>
+        response(
+          `<sitemapindex><sitemap><loc>${origin}/deeper.xml</loc></sitemap></sitemapindex>`,
+          origin + "/deep.xml",
+        ),
+      now,
+    );
+    expect(deep.queue).toEqual([]);
+    expect(deep.limitations).toContain("depth_limit");
+  });
+});

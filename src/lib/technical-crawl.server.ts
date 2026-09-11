@@ -1,8 +1,13 @@
+import { startTechnicalSitemaps, advanceTechnicalSitemaps } from "./technical-sitemap";
 import { z } from "zod";
 import { isSafePublicUrl } from "./safe-fetch";
 import { advanceTechnicalCrawl, startTechnicalCrawl } from "./technical-crawl";
 import { fitTechnicalCrawlState, parseTechnicalCrawlState } from "./technical-crawl-state";
-import { fetchTechnicalRobots, technicalPageFetcher } from "./technical-fetch.server";
+import {
+  fetchTechnicalRobots,
+  technicalPageFetcher,
+  technicalSitemapFetcher,
+} from "./technical-fetch.server";
 export type TechnicalRpc = (
   name: string,
   args: Record<string, unknown>,
@@ -151,11 +156,13 @@ export async function stepTechnicalRun(
     rpc: TechnicalRpc;
     robots: typeof fetchTechnicalRobots;
     fetcher: typeof technicalPageFetcher;
+    sitemaps: typeof technicalSitemapFetcher;
     now: () => Date;
   } = {
     rpc: technicalCrawlRpc,
     robots: fetchTechnicalRobots,
     fetcher: technicalPageFetcher,
+    sitemaps: technicalSitemapFetcher,
     now: () => new Date(),
   },
 ) {
@@ -178,19 +185,52 @@ export async function stepTechnicalRun(
     if (current.status === "preparing") {
       const robots = await deps.robots(current.origin);
       const now = deps.now().toISOString();
-      state = fitTechnicalCrawlState(
-        startTechnicalCrawl({ siteUrl: current.origin, robots, robotsFetchedAt: now, now }),
-      );
+      state = fitTechnicalCrawlState({
+        ...startTechnicalCrawl({ siteUrl: current.origin, robots, robotsFetchedAt: now, now }),
+        sitemaps: startTechnicalSitemaps(
+          current.origin,
+          robots.state === "read" ? robots.document.sitemaps : [],
+        ),
+      });
     } else {
       const saved = parseTechnicalCrawlState(current.state, current.origin);
       if (saved.status !== "running") throw new Error("technical_state_invalid");
-      state = fitTechnicalCrawlState(
-        await advanceTechnicalCrawl(
-          saved,
-          deps.fetcher(current.origin, saved.robots),
-          deps.now().toISOString(),
-        ),
-      );
+      if (saved.sitemaps?.queue.length) {
+        const now = deps.now().toISOString();
+        const age = Date.parse(now) - Date.parse(saved.robotsFetchedAt);
+        if (age < 0 || age > 24 * 60 * 60 * 1000) saved.status = "robots_stale";
+        else {
+          saved.sitemaps = await advanceTechnicalSitemaps(
+            saved.sitemaps,
+            current.origin,
+            saved.robots,
+            deps.sitemaps(current.origin, saved.robots),
+            now,
+          );
+          for (const entry of saved.sitemaps.entries) {
+            if (
+              saved.queue.some((q) => q.url === entry.url) ||
+              saved.pages.some((p) => p.requestedUrl === entry.url)
+            )
+              continue;
+            if (saved.queue.length + saved.pages.length >= 2000) {
+              if (!saved.coverageLimits.includes("discovery_limit"))
+                saved.coverageLimits.push("discovery_limit");
+              break;
+            }
+            saved.queue.push({ url: entry.url, depth: null });
+          }
+        }
+        saved.updatedAt = now;
+        state = fitTechnicalCrawlState(saved);
+      } else
+        state = fitTechnicalCrawlState(
+          await advanceTechnicalCrawl(
+            saved,
+            deps.fetcher(current.origin, saved.robots),
+            deps.now().toISOString(),
+          ),
+        );
     }
     const parsed = parseTechnicalCrawlState(state, current.origin);
     status =

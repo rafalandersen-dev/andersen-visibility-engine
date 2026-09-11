@@ -270,7 +270,10 @@ export async function fetchPinnedResource(
     for (let hop = 0; hop <= 3; hop++) {
       if (options.purpose !== "homepage" && (!options.origin || url.origin !== options.origin))
         throw new Error("scope_refused");
-      if (options.purpose === "technical" && (!options.authorize || !options.authorize(url.href)))
+      if (
+        ["technical", "sitemap"].includes(options.purpose) &&
+        (!options.authorize || !options.authorize(url.href))
+      )
         throw new Error("crawl_policy_refused");
       const address = await addressFor(url, controller.signal);
       controller.signal.throwIfAborted();

@@ -57,6 +57,14 @@ describe("durable technical crawl state", () => {
     const deps = {
       rpc,
       robots: async () => robotsEvidence(404),
+      sitemaps: () => async (url: string) => ({
+        url,
+        status: url.endsWith("/sitemap.xml") ? 200 : 404,
+        contentAccepted: true,
+        truncated: false,
+        observedAt: new Date().toISOString(),
+        body: "<urlset><url><loc>https://example.test/from-map?q=2</loc></url></urlset>",
+      }),
       fetcher: () => async (url: string) => ({
         state: "response" as const,
         url,
@@ -69,9 +77,20 @@ describe("durable technical crawl state", () => {
     expect((await stepTechnicalRun(owner, { projectId: "p", runId: run }, deps))?.status).toBe(
       "running",
     );
+    await stepTechnicalRun(owner, { projectId: "p", runId: run }, deps);
+    await stepTechnicalRun(owner, { projectId: "p", runId: run }, deps);
+    await stepTechnicalRun(owner, { projectId: "p", runId: run }, deps);
     const finished = await stepTechnicalRun(owner, { projectId: "p", runId: run }, deps);
     expect(finished?.status).toBe("completed");
     expect(finished?.state?.pages[0].observation?.headings).toEqual(["Observed"]);
+    expect(finished?.state?.pages[1]).toMatchObject({
+      requestedUrl: "https://example.test/from-map?q=2",
+      depth: null,
+      state: "observed",
+    });
+    expect(finished?.state?.sitemaps?.entries[0].files).toEqual([
+      "https://example.test/sitemap.xml",
+    ]);
   });
   it("starts idempotently and refuses a second active run", async () => {
     await start();

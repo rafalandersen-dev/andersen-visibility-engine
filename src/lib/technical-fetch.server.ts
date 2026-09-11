@@ -1,3 +1,4 @@
+import type { TechnicalSitemapFetcher } from "./technical-sitemap";
 import { fetchPinnedResource } from "./homepage-fetch.server";
 import { evaluateRobots, robotsEvidence, type RobotsEvidence } from "./technical-robots";
 import type { TechnicalPageFetcher } from "./technical-crawl";
@@ -19,4 +20,17 @@ export function technicalPageFetcher(origin: string, robots: RobotsEvidence): Te
     });
     return response ? { state: "response", ...response } : { state: "failed" };
   };
+}
+
+export function technicalSitemapFetcher(
+  origin: string,
+  robots: RobotsEvidence,
+): TechnicalSitemapFetcher {
+  return (url) =>
+    fetchPinnedResource(url, {
+      purpose: "sitemap",
+      origin,
+      authorize: (target) =>
+        evaluateRobots(robots, "MiloGrowthAuditBot", target).decision === "allowed",
+    });
 }

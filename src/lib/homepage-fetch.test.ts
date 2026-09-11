@@ -316,29 +316,32 @@ describe("structured pinned technical observations", () => {
     });
     expect(JSON.stringify(result)).not.toContain("private");
   });
-  it("rejects redirect scope and robots policy before resolving or connecting", async () => {
-    mocks.request.mockImplementation(
-      reply(response([], 302, { location: "https://other.test/private" })),
-    );
-    expect(
-      await fetchPinnedResource("https://example.com/", {
-        purpose: "technical",
-        origin: "https://example.com",
-        authorize: () => true,
-      }),
-    ).toBeNull();
-    expect(mocks.lookup).toHaveBeenCalledTimes(1);
-    mocks.request.mockImplementation(reply(response([], 302, { location: "/private" })));
-    mocks.lookup.mockClear();
-    expect(
-      await fetchPinnedResource("https://example.com/", {
-        purpose: "technical",
-        origin: "https://example.com",
-        authorize: (url) => !url.endsWith("/private"),
-      }),
-    ).toBeNull();
-    expect(mocks.lookup).toHaveBeenCalledTimes(1);
-  });
+  it.each(["technical", "sitemap"] as const)(
+    "rejects %s redirect scope and robots policy before resolving or connecting",
+    async (purpose) => {
+      mocks.request.mockImplementation(
+        reply(response([], 302, { location: "https://other.test/private" })),
+      );
+      expect(
+        await fetchPinnedResource("https://example.com/", {
+          purpose,
+          origin: "https://example.com",
+          authorize: () => true,
+        }),
+      ).toBeNull();
+      expect(mocks.lookup).toHaveBeenCalledTimes(1);
+      mocks.request.mockImplementation(reply(response([], 302, { location: "/private" })));
+      mocks.lookup.mockClear();
+      expect(
+        await fetchPinnedResource("https://example.com/", {
+          purpose,
+          origin: "https://example.com",
+          authorize: (url) => !url.endsWith("/private"),
+        }),
+      ).toBeNull();
+      expect(mocks.lookup).toHaveBeenCalledTimes(1);
+    },
+  );
   it("distinguishes an exact size response from a truncated response", async () => {
     mocks.request.mockImplementation(reply(response([Buffer.alloc(512000, 97)])));
     expect(
