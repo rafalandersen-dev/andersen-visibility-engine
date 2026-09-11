@@ -17,6 +17,23 @@ export class PublishNotPossibleError extends Error {
   }
 }
 
+/** Only emitted by approval preflight, before any publication connector dispatch. */
+export class PublishPreflightCapacityError extends Error {
+  readonly preflightCapacity = true;
+  constructor() {
+    super("Image verification is busy; publication has not started. Try again shortly.");
+    this.name = "PublishPreflightCapacityError";
+  }
+}
+
+export function isPublishPreflightCapacityError(error: unknown): boolean {
+  return Boolean(
+    error &&
+    typeof error === "object" &&
+    (error as { preflightCapacity?: unknown }).preflightCapacity === true,
+  );
+}
+
 /**
  * Thrown when the connector call SUCCEEDED — the post is live — but recording
  * that outcome in the workspace failed (rev conflict exhausted, DB error).

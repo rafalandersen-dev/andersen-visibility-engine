@@ -1,3 +1,5 @@
+import * as reviewedImages from "./publication-reviewed-images.server";
+import { TeamMediaCapacityError } from "./project-team-media-limit.server";
 import { describe, expect, it, vi } from "vitest";
 import {
   readPublicationApproval,
@@ -137,4 +139,21 @@ describe("authenticated version approval boundary", () => {
     ).rejects.toThrow("publication_version_scope");
     expect(rpc).not.toHaveBeenCalled();
   });
+});
+
+it("only retries explicit image admission contention before dispatch", async () => {
+  const spy = vi.spyOn(reviewedImages, "assertReviewedPublicationImages");
+  const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
+  try {
+    spy.mockRejectedValueOnce(new TeamMediaCapacityError());
+    await expect(
+      assertPublicationApproved(scope.ownerId, asset, project, [], rpc),
+    ).rejects.toMatchObject({ preflightCapacity: true });
+    spy.mockRejectedValueOnce(new Error("image changed"));
+    await expect(
+      assertPublicationApproved(scope.ownerId, asset, project, [], rpc),
+    ).rejects.toMatchObject({ permanent: true, message: "publication_approval_required" });
+  } finally {
+    spy.mockRestore();
+  }
 });
