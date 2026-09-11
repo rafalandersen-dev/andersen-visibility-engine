@@ -56,6 +56,20 @@ describe("collaborator canonical preview", () => {
     expect(result.html).not.toContain("fixture");
     expect(result.html).not.toContain("unknown.example");
   });
+  it("preserves a saved image URL in visible text and other attributes", () => {
+    const url = "https://site.example/image.png?a=1&b=2";
+    const escaped = url.replace("&", "&amp;");
+    const text = `<p>${escaped}</p><code>${escaped}</code><a href="${escaped}">${escaped}</a><figcaption>${escaped}</figcaption>`;
+    const result = teamPreviewHtml(
+      `${text}<img data-src="${escaped}" src="${escaped}" alt="${escaped}" />`,
+      [{ id: "content_im", url }],
+    );
+    expect(result.html).toBe(
+      `${text}<img data-src="${escaped}" src="milo-review-image:content_im" alt="${escaped}" />`,
+    );
+    expect(result.imageIds).toEqual(["content_im"]);
+    expect(result.unknownImages).toBe(0);
+  });
   it("handles repeated use of the same image without requiring duplicate downloads", () => {
     const result = teamPreviewHtml(
       '<img src="https://site.example/im.png" /><img src="https://site.example/im.png" />',
