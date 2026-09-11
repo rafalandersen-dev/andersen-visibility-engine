@@ -6,4 +6,9 @@ The payload uses the documented domain target syntax with an explicit domain_to 
 
 Source: [DataForSEO Backlinks Live](https://docs.dataforseo.com/v3/backlinks-backlinks-live/), checked11September2026. Provider acceptance of the exact filters must still be verified under the existing controlled-call boundaries.
 
-Validation:22 fixture tests, TypeScript and changed-file lint pass (`/tmp/milo-details-{tests,types,lint}.log`). Remaining work includes private request/history storage, exact project and displayed-website binding, bounded expense/concurrency admission, transport, accounting recovery, pagination, localized UI, provider acceptance and ongoing monitor configuration. No provider call, purchase, credential, migration or production mutation occurred.
+Validation:22 fixture tests, TypeScript and changed-file lint pass (`/tmp/milo-details-{tests,types,lint}.log`). Remaining work includes private request/history storage, exact project and displayed-website binding, bounded expense/concurrency admission, accounting recovery, pagination, localized UI, provider acceptance and ongoing monitor configuration. No provider call, purchase, credential, migration or production mutation occurred.
+
+
+Internal transport is implemented for the fixed Backlinks Live endpoint, with one POST, redirects refused, a15-second deadline,1MiB body and4096-chunk ceilings, strict UTF-8/JSON and full scope normalization. Cancellation aborts transport and cancels a stalled response reader. Provider bodies and credentials are not propagated in errors. Unusable responses remain ambiguous for charging; callers must preserve accounting recovery. Credentials are trimmed and blanks rejected before dispatch. No route or lifecycle currently calls this transport: durable expense and dispatch admission must precede connection.
+
+Validation:35 detail normalization and transport fixture tests pass, including HTTP failures without retries, oversized/malformed bodies, scope mismatch, prior cancellation, stalled-body cancellation and blank credentials. These tests make no provider request.
