@@ -185,6 +185,9 @@ export const teamReviewDecision = teamCommentTarget
           })
           .strict(),
       )
-      .max(32),
+      .refine(
+        (images) => new TextEncoder().encode(JSON.stringify(images)).byteLength <= 8_000_000,
+        "Image acknowledgement is too large.",
+      ),
   })
   .strict();

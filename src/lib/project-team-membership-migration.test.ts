@@ -746,7 +746,10 @@ describe("durable project invitation and membership lifecycle", () => {
         [actor, owner],
       )
     ).rows[0].result;
-    const images = [{ key: "social_im", byteHash: "b".repeat(64) }];
+    const images = Array.from({ length: 40 }, (_, i) => ({
+      key: `content_im${i}`,
+      byteHash: "b".repeat(64),
+    }));
     await db.query(
       "SELECT public.save_project_team_approval($1,$2,'p','a',$3,1,$4,$5,1,1,true,$6::jsonb)",
       [actor, owner, second, snap.draftHash, "a".repeat(64), JSON.stringify(images)],

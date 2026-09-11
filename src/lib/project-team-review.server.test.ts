@@ -51,6 +51,30 @@ function deps() {
   };
 }
 describe("exact collaborator review acknowledgement", () => {
+  it("verifies and saves all 40 media acknowledgements for a larger article", async () => {
+    const d = deps();
+    const media = Array.from({ length: 40 }, (_, i) => ({
+      key: `content_im${i}`,
+      imageId: `im${i}`,
+      kind: "content" as const,
+    }));
+    const current = await d.preview();
+    d.preview.mockResolvedValue({ ...current, media, imageIds: media.map((item) => item.key) });
+    d.media.mockImplementation(async (...args: unknown[]) => ({
+      imageId: (args[1] as { imageId: string }).imageId,
+      draftHash: hash,
+      byteHash,
+      contentType: "image/png",
+      base64: "fixture",
+    }));
+    const images = media.map(({ key }) => ({ key, byteHash }));
+    await saveProjectTeamReview(actor, { ...input, images }, d);
+    expect(d.media).toHaveBeenCalledTimes(40);
+    expect(d.rpc).toHaveBeenCalledWith(
+      "save_project_team_approval",
+      expect.objectContaining({ p_images: images }),
+    );
+  });
   it("verifies media and repeats context checks before issuing the scoped server grant", async () => {
     const d = deps();
     expect(await saveProjectTeamReview(actor, input, d)).toEqual({ saved: true, approved: true });
