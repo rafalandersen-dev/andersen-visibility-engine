@@ -1,3 +1,4 @@
+import { projectTeams } from "./project-teams";
 import { locationCoverage } from "./location-coverage";
 /**
  * Milo Growth — lightweight i18n (no dependency).
@@ -42,6 +43,7 @@ export function translate(
 ): string {
   const l = isSupported(lang) ? lang : "en";
   let s =
+    projectTeams[l][key] ??
     locationCoverage[l][key] ??
     publishingFidelity[l][key] ??
     backlinkIntegrity[l][key] ??

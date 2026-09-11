@@ -142,6 +142,7 @@ const NAV = [
     to: "/app/setup",
     icon: GearSix,
     paths: [
+      "/app/collaborators",
       "/app/setup",
       "/app/services",
       "/app/connect",
@@ -150,6 +151,7 @@ const NAV = [
       "/app/beta-validation",
     ],
     children: [
+      { tKey: "collaboration.title", to: "/app/collaborators", icon: UsersThree },
       { tKey: "shell.nav.projectSetup", to: "/app/setup", icon: PencilSimple },
       { tKey: "shell.nav.services", to: "/app/services", icon: Package },
       { tKey: "shell.nav.connectedApps", to: "/app/connect", icon: PlugsConnected },

@@ -10,7 +10,7 @@ Owners can inspect saved assembled content and current knowledge, explicitly ack
 
 Reviewed commit `53b9151411a4b426812b838c582e803a70a7fccc`. Final code review completed at 06:15:53.956880 UTC with no major issues, comment5630312633. Finding3986371795 was fixed and threadPRRT_kwDOTCO8kM6hW3Kh resolved: knowledge version checks use the original saved asset, while retained source dependencies are independently restored and checked. The regression covers both pre-refresh and final checks.
 
-Linux workflow34568787512 passed 3,083 tests / 227 files on Bun1.3.3 and1.4.0, types, build and frozen locks. Local full pre-fix3,082/227 and final65focused/4files/types/lint/build passed. Initial security review covered b96e20d and completed06:09:02.619679UTC; it is not a security audit of the later fix. Claude runs34568423923 and34568787495 remained in progress at final release verification; no completion or substantive coverage is claimed. Do not rerun them merely to remove that qualification.
+Linux workflow34568787512 passed 3,083 tests / 227 files on Bun1.3.3 and1.4.0, types, build and frozen locks. Local full pre-fix3,082/227 and final65focused/4files/types/lint/build passed. Initial security review covered b96e20d and completed06:09:02.619679UTC; it is not a security audit of the later fix. Claude runs34568423923 and34568787495 were still running at release verification and have since completed successfully. Initial run logs at06:45:25UTC record8permission denials; final run logs at06:50:15UTC record17permission denials. Both report no buffered inline comments. These permission limits qualify substantive coverage; workflow success is not an unrestricted audit. No review was rerun to remove a qualification.
 
 ## Database
 

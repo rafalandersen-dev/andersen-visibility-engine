@@ -6,6 +6,10 @@ Overall delivery estimate: **about 55% complete (50–65% uncertainty range)**; 
 
 This is the current operational entry point. Read [progress review](PROGRESS_REVIEW_2026_09_09.md) for the earlier, now historical estimate and task inventory, [roadmap](ROADMAP.md) for delivery order, and [scope register](PLAN_REVIEW_2026_09_07.md) for R00–R24 and D01–D08. Older dated reports are history, not instructions to repeat completed work.
 
+## Current implementation work
+
+Project collaborator workflow is in progress locally on `codex/milo-project-teams-20260911`: safe project reads, verified-recipient invitations, membership changes/removal, actor audit, authenticated management/discovery screens in four locales, and revision-bound draft comments. Local full suite3,122tests/232files, types, build and focused lint pass. Three new team migrations are UNRELEASED and have not been applied. D07 approval policy, scoped editing/approval, notification delivery and real-user acceptance remain open. [Team implementation and policy proposal](TEAM_ACCESS_POLICY_PROPOSAL.md). Overall estimate remains about55%; this work is not a new production release.
+
 ## Recorded baseline and latest repository check
 
 - Remote main: `083d1fa6e8d0a4e6e2e12d28b1c27591830b772d`, normal merge of output knowledge revalidation PR #122. P0–P5, prompt/answer/log evidence and all prior fixes are preserved.
