@@ -797,3 +797,39 @@ it.each(["node", "bun"])(
     });
   },
 );
+
+it.each(["node", "bun"])(
+  "preserves a known HTTP error through invalid HTML decoding in %s",
+  async (runtime) => {
+    const headers = { "content-type": "text/html; charset=utf-8", "x-robots-tag": "noindex" };
+    const bytes = Buffer.from([0xc3, 0x28]);
+    if (runtime === "bun") {
+      vi.stubGlobal("Bun", { version: "1.4.0" });
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (_url, options) => {
+          options.tls.checkServerIdentity("example.com", { subjectaltname: "DNS:example.com" });
+          return new Response(bytes, { status: 503, headers });
+        }),
+      );
+    } else {
+      vi.stubGlobal("Bun", undefined);
+      mocks.request.mockImplementation(reply(response([bytes], 503, headers)));
+    }
+    const { technicalPageFetcher } = await import("./technical-fetch.server");
+    const { robotsEvidence } = await import("./technical-robots");
+    const { advanceTechnicalCrawl, startTechnicalCrawl } = await import("./technical-crawl");
+    const { technicalFindings } = await import("./technical-findings");
+    const origin = "https://example.com",
+      now = new Date().toISOString(),
+      robots = robotsEvidence(404);
+    const grant = Object.assign(async () => {}, { promote: async () => {} });
+    const next = await advanceTechnicalCrawl(
+      startTechnicalCrawl({ siteUrl: origin, robots, robotsFetchedAt: now, now }),
+      technicalPageFetcher(origin, robots, async () => grant),
+      now,
+    );
+    expect(next.pages[0].observation).toMatchObject({ status: 503, complete: false, title: "" });
+    expect(technicalFindings(next.pages[0])).toEqual(["http_error", "noindex"]);
+  },
+);

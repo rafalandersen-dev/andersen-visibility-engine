@@ -27,7 +27,7 @@ BEGIN
  IF page->>'state' IS DISTINCT FROM 'observed' OR jsonb_typeof(observation) IS DISTINCT FROM 'object' THEN RAISE EXCEPTION 'technical_finding_unobserved'; END IF;
  IF p_code='http_error' THEN valid:=(observation->>'status')::integer>=400;
  ELSIF p_code='invalid_jsonld' THEN valid:=(observation->>'complete')::boolean AND EXISTS(SELECT 1 FROM jsonb_array_elements(observation->'structuredData') item WHERE item->>'state'='invalid_json' AND (item->>'complete')::boolean);
- ELSIF p_code='noindex' THEN valid:=EXISTS(SELECT 1 FROM jsonb_array_elements(observation->'robots') item WHERE item->>'value' ~* '(^|[[:space:],:])(noindex|none)($|[[:space:],])');
+ ELSIF p_code='noindex' THEN valid:=EXISTS(SELECT 1 FROM jsonb_array_elements(observation->'robots') item WHERE ((observation->>'complete')::boolean OR item->>'source'='header') AND item->>'value' ~* '(^|[[:space:],:])(noindex|none)($|[[:space:],])');
  ELSIF (observation->>'complete')::boolean AND (observation->>'status')::integer BETWEEN 200 AND 299 THEN
    CASE p_code
    WHEN 'missing_title' THEN valid:=length(btrim(coalesce(observation->>'title','')))=0;
@@ -49,7 +49,7 @@ BEGIN
  WHEN 'multiple_h1' THEN retained:=retained||jsonb_build_object('headingCount',jsonb_array_length(observation->'headings'));
  WHEN 'multiple_canonicals' THEN retained:=retained||jsonb_build_object('canonicalCount',jsonb_array_length(observation->'canonicals'));
  WHEN 'invalid_jsonld' THEN retained:=retained||jsonb_build_object('structuredData',jsonb_build_array(jsonb_build_object('state','invalid_json','types','[]'::jsonb,'complete',true)));
- WHEN 'noindex' THEN retained:=retained||jsonb_build_object('robots',jsonb_build_array((SELECT item FROM jsonb_array_elements(observation->'robots') item WHERE item->>'value' ~* '(^|[[:space:],:])(noindex|none)($|[[:space:],])' LIMIT 1)));
+ WHEN 'noindex' THEN retained:=retained||jsonb_build_object('robots',jsonb_build_array((SELECT item FROM jsonb_array_elements(observation->'robots') item WHERE ((observation->>'complete')::boolean OR item->>'source'='header') AND item->>'value' ~* '(^|[[:space:],:])(noindex|none)($|[[:space:],])' LIMIT 1)));
  ELSE NULL;
  END CASE;
  evidence:=gen_random_uuid(); opportunity:=gen_random_uuid()::text; stamp:=to_char(clock_timestamp() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"');

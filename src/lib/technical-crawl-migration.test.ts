@@ -235,6 +235,28 @@ describe("immutable crawl evidence to opportunity", () => {
       await expect(capture("noindex")).rejects.toThrow();
     },
   );
+  it("refuses partial meta noindex and retains only independently known header evidence", async () => {
+    await prepare();
+    const meta = { source: "meta", agent: "*", value: "noindex" };
+    const header = { source: "header", agent: "googlebot", value: "googlebot: noindex" };
+    await db.query(
+      "UPDATE technical_crawls SET state=jsonb_set(jsonb_set(state,'{pages,0,observation,complete}','false'),'{pages,0,observation,robots}',$1)",
+      [JSON.stringify([meta])],
+    );
+    await expect(capture("noindex")).rejects.toThrow();
+    await db.query(
+      "UPDATE technical_crawls SET state=jsonb_set(state,'{pages,0,observation,robots}',$1)",
+      [JSON.stringify([meta, header])],
+    );
+    const id = (await capture("noindex")).rows[0].result.evidenceId;
+    const saved = (
+      await db.query<{ robots: unknown }>(
+        "SELECT snapshot->'page'->'observation'->'robots' robots FROM technical_crawl_findings WHERE evidence_id=$1",
+        [id],
+      )
+    ).rows[0].robots;
+    expect(saved).toEqual([header]);
+  });
   it("captures sitemap membership for both requested and observed URLs", async () => {
     await prepare();
     const entries = [

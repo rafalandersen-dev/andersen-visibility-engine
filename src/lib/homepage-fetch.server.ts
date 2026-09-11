@@ -271,6 +271,7 @@ export async function fetchPinnedResource(
         : /^(text\/(html|plain)|application\/xhtml\+xml)(?:\s*;|$)/i;
   const controller = new AbortController();
   let response: PageResponse | undefined;
+  let knownHttpError: PinnedResource | null = null;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
@@ -337,6 +338,16 @@ export async function fetchPinnedResource(
         if (!Number.isInteger(status) || status < 100 || status > 599)
           throw new Error("http_error");
         const headers: Record<string, string> = {};
+        if (options.purpose === "technical" && status >= 400)
+          knownHttpError = {
+            url: url.href,
+            status,
+            headers,
+            body: "",
+            truncated: true,
+            contentAccepted: false,
+            observedAt: new Date().toISOString(),
+          };
         for (const key of ["content-type", "content-range", "x-robots-tag", "link"]) {
           const rawValue = response.headers[key];
           const value = Array.isArray(rawValue) ? rawValue.join(", ") : rawValue;
@@ -438,8 +449,9 @@ export async function fetchPinnedResource(
       error instanceof TechnicalPolicyRefusedError
     )
       throw error;
+    // Preserve independently observed HTTP errors when body transfer/decoding fails.
     // No bodies, URLs, DNS answers or transport errors enter logs.
-    return null;
+    return knownHttpError;
   } finally {
     clearTimeout(timer);
     controller.abort();

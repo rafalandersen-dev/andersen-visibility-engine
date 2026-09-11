@@ -137,3 +137,21 @@ describe("technical findings", () => {
     );
   });
 });
+
+it.each([206, 226, 200])(
+  "does not capture synthetic-head noindex from an incomplete representation (%s)",
+  (status) => {
+    const observation = inspectTechnicalPage({
+      url: origin,
+      status,
+      observedAt: now,
+      html: '<meta name="robots" content="noindex">',
+      headers: status === 200 ? { "content-range": "bytes 50-99/100" } : {},
+    });
+    expect(observation.complete).toBe(false);
+    const p = { requestedUrl: origin, depth: 0, state: "observed" as const, observation };
+    expect(technicalFindings(p)).not.toContain("noindex");
+    observation.robots.push({ source: "header", agent: "googlebot", value: "googlebot: noindex" });
+    expect(technicalFindings(p)).toContain("noindex");
+  },
+);

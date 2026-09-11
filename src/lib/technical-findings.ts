@@ -25,7 +25,13 @@ export function technicalFindings(page: CrawlPage): TechnicalFindingCode[] {
   }
   if (o.complete && o.structuredData.some((s) => s.state === "invalid_json" && s.complete))
     result.push("invalid_jsonld");
-  if (o.robots.some((r) => /(?:^|[\s,:])(?:noindex|none)(?:$|[\s,])/i.test(r.value)))
+  if (
+    o.robots.some(
+      (r) =>
+        (o.complete || r.source === "header") &&
+        /(?:^|[\s,:])(?:noindex|none)(?:$|[\s,])/i.test(r.value),
+    )
+  )
     result.push("noindex");
   return result;
 }
