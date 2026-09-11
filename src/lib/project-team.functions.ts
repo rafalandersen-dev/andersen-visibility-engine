@@ -43,9 +43,9 @@ export const readTeamProjectFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v: unknown) => teamReadInput.parse(v))
   .handler(async ({ data, context }) => {
-    const { readTeamProject } = await import("./project-team-read.server");
+    const { readAdmittedTeamProject } = await import("./project-team-read-admission.server");
     const { projectTeamRpc } = await import("./project-team-membership.server");
-    return readTeamProject(context.userId, data, projectTeamRpc);
+    return readAdmittedTeamProject(context.userId, data, projectTeamRpc);
   });
 export const readProjectTeamCommentsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

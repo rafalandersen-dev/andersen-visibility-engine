@@ -42,7 +42,7 @@ vi.mock("./project-team-membership.server", () => ({
   listMyProjectTeams: h.list,
   projectTeamRpc: h.rpc,
 }));
-vi.mock("./project-team-read.server", () => ({ readTeamProject: h.read }));
+vi.mock("./project-team-read-admission.server", () => ({ readAdmittedTeamProject: h.read }));
 vi.mock("./project-team-edit.server", () => ({ saveProjectTeamDraft: h.edit }));
 vi.mock("./project-team-policy.server", () => ({
   readOwnerTeamPolicy: h.policyRead,
