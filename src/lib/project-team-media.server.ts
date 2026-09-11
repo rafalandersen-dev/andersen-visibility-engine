@@ -90,13 +90,7 @@ export async function readProjectTeamMedia(
       if (media.url && new URL(media.url).origin === storageOrigin) {
         const parsed = new URL(media.url);
         const prefix = `/storage/v1/object/public/${ARTICLE_IMAGE_BUCKET_PUBLIC}/`;
-        if (
-          parsed.search ||
-          parsed.hash ||
-          parsed.username ||
-          parsed.password ||
-          !parsed.pathname.startsWith(prefix)
-        )
+        if (parsed.username || parsed.password || !parsed.pathname.startsWith(prefix))
           throw new Error("media_storage_url");
         path = decodeURIComponent(parsed.pathname.slice(prefix.length));
         bucket = ARTICLE_IMAGE_BUCKET_PUBLIC;
@@ -106,6 +100,19 @@ export async function readProjectTeamMedia(
           path.split("/")[1] !== input.projectId
         )
           throw new Error("media_scope");
+        // Query parameters may affect the public representation. Verify those
+        // exact bytes after object-scope validation; fragments never reach HTTP.
+        if (parsed.search) {
+          parsed.hash = "";
+          bytes =
+            (await (deps.remote ?? fetchPinnedImage)(
+              parsed.href,
+              storageOrigin,
+              controller.signal,
+            )) ?? undefined;
+          bucket = undefined;
+          path = undefined;
+        }
       } else if (media.url) {
         const origin = new URL(media.url).origin;
         // This native reader validates DNS and pins each connection itself.
