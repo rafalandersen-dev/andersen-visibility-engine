@@ -17,3 +17,9 @@ DataForSEO's [July pricing update](https://dataforseo.com/update/pricing-update-
 A pure pricing helper validates the monitoring scope and computes an integer micro-USD ceiling from the inclusive daily row bound: 24,036 for one day and 27,312 for 92 days. It records the source and verification date. This does not provision expense budgets or authorize dispatch; pricing must be revalidated before activation.
 
 Validation: 59 focused tests across three files, TypeScript and changed-file lint pass. Logs `/tmp/milo-backlink-paygo-{focused,types,lint}.log`. Official documentation was read; no account health call, paid provider call, credential change or production mutation occurred. Durable request lifecycle and live acceptance remain outstanding as listed above.
+
+## Isolated transport foundation
+
+An internal transport posts one exact daily request to the fixed DataForSEO live timeseries endpoint. Redirects are refused; a15-second cancellation deadline spans headers and streamed body; responses are bounded to1MiB and4096chunks with fatalUTF-8 decoding and exact normalizer scope checks. Cancellation cancels the reader; safe generic errors do not expose credentials or provider bodies. HTTP or invalid-result failures do not establish zero supplier cost. No retries are performed. Successful output retains the provider task and reported cost for future accounting reconciliation.
+
+Validation:12 mocked transport tests, TypeScript and changed-file lint pass (`/tmp/milo-monitor-transport-{tests,types,lint}.log`). No network request occurred. This module has no UI, route, scheduler or automatic-analysis caller; durable request/expense admission must be implemented before any activation.
