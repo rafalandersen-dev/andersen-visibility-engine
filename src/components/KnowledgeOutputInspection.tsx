@@ -12,9 +12,11 @@ import { useT } from "@/i18n";
 export function KnowledgeOutputInspection({
   projectId,
   assetId,
+  onReviewChange,
 }: {
   projectId: string;
   assetId: string;
+  onReviewChange?: () => void;
 }) {
   const t = useT();
   const [snapshot, setSnapshot] = useState<Awaited<
@@ -47,11 +49,14 @@ export function KnowledgeOutputInspection({
     setHistory([]);
     reviewId.current = null;
     try {
-      const result = await readKnowledgeOutputReviewFn({ data: { projectId, assetId } });
-      const reviews = await readKnowledgeOutputReviewHistoryFn({ data: { projectId, assetId } });
+      const [result, reviews] = await Promise.allSettled([
+        readKnowledgeOutputReviewFn({ data: { projectId, assetId } }),
+        readKnowledgeOutputReviewHistoryFn({ data: { projectId, assetId } }),
+      ]);
       if (id === request.current) {
-        setSnapshot(result);
-        setHistory(reviews);
+        if (result.status === "fulfilled") setSnapshot(result.value);
+        if (reviews.status === "fulfilled") setHistory(reviews.value);
+        if (result.status === "rejected" || reviews.status === "rejected") setFailed(true);
       }
     } catch {
       if (id === request.current) setFailed(true);
@@ -60,7 +65,7 @@ export function KnowledgeOutputInspection({
     }
   }
   async function mutate(withdrawId?: string) {
-    if (!snapshot) return;
+    if (!snapshot && !withdrawId) return;
     const id = request.current;
     setBusy(true);
     setFailed(false);
@@ -70,7 +75,7 @@ export function KnowledgeOutputInspection({
         await withdrawKnowledgeOutputReviewFn({
           data: { projectId, assetId, reviewId: withdrawId },
         });
-      else {
+      else if (snapshot) {
         reviewId.current ??= crypto.randomUUID();
         await saveKnowledgeOutputReviewFn({
           data: {
@@ -95,6 +100,7 @@ export function KnowledgeOutputInspection({
           setAcknowledged([]);
           setConfirmed(false);
         }
+        onReviewChange?.();
       }
     } catch {
       if (id === request.current) setFailed(true);
@@ -218,29 +224,6 @@ export function KnowledgeOutputInspection({
             <p className="text-sm">{t("knowledge.review.ineligible")}</p>
           )}
           {saved && <p role="status">{t("knowledge.review.saved")}</p>}
-          {history.length > 0 && (
-            <div className="space-y-2 border-t pt-2">
-              <h6 className="font-medium">{t("knowledge.review.history")}</h6>
-              <p className="text-xs">{t("knowledge.review.historyHelp")}</p>
-              {history.map((row) => (
-                <div key={row.reviewId} className="text-sm">
-                  {new Date(row.reviewedAt).toLocaleString()} ·{" "}
-                  {t(row.active ? "knowledge.review.recorded" : "knowledge.review.withdrawn")}
-                  {row.active && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      disabled={busy}
-                      onClick={() => void mutate(row.reviewId)}
-                    >
-                      {t("knowledge.review.withdraw")}
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
           <Button
             type="button"
             size="sm"
@@ -253,6 +236,29 @@ export function KnowledgeOutputInspection({
           >
             {t("knowledge.inspect.close")}
           </Button>
+        </div>
+      )}
+      {history.length > 0 && (
+        <div className="space-y-2 border-t pt-2">
+          <h6 className="font-medium">{t("knowledge.review.history")}</h6>
+          <p className="text-xs">{t("knowledge.review.historyHelp")}</p>
+          {history.map((row) => (
+            <div key={row.reviewId} className="text-sm">
+              {new Date(row.reviewedAt).toLocaleString()} ·{" "}
+              {t(row.active ? "knowledge.review.recorded" : "knowledge.review.withdrawn")}
+              {row.active && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => void mutate(row.reviewId)}
+                >
+                  {t("knowledge.review.withdraw")}
+                </Button>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>

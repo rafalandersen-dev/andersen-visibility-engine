@@ -59,6 +59,40 @@ const history = async (owner = user) =>
     )
   ).rows[0].result;
 describe("durable knowledge review storage", () => {
+  it("batch context matches the individual snapshot and retains withdrawn history access", async () => {
+    const expected = await context();
+    await save(expected.contextHash);
+    const batch = async () =>
+      (
+        await db.query<{
+          result: {
+            outputs: {
+              assetId: string;
+              contextHash: string;
+              activeReview: unknown;
+              hasHistory: boolean;
+            }[];
+          };
+        }>("SELECT public.read_output_knowledge_review_batch($1,'p',ARRAY['a']) result", [user])
+      ).rows[0].result;
+    expect((await batch()).outputs[0]).toMatchObject({
+      assetId: "a",
+      contextHash: expected.contextHash,
+      hasHistory: true,
+      activeReview: { versionHash: version, contextHash: expected.contextHash },
+    });
+    await db.query("SELECT public.withdraw_output_knowledge_review($1,'p','a',$2)", [user, review]);
+    expect((await batch()).outputs[0]).toMatchObject({ hasHistory: true, activeReview: null });
+    await expect(
+      db.query("SELECT public.read_output_knowledge_review_batch($1,'p',ARRAY['a','a'])", [user]),
+    ).rejects.toThrow(/invalid_review_asset_filter/);
+    await expect(
+      db.query(
+        "SELECT public.read_output_knowledge_review_batch($1,'p',ARRAY(SELECT 'a'||i FROM generate_series(1,101) i))",
+        [user],
+      ),
+    ).rejects.toThrow(/invalid_review_asset_filter/);
+  });
   it("preserves a knowledge review across separate approval and scheduling metadata", async () => {
     await save((await context()).contextHash);
     await db.query(

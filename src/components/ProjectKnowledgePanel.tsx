@@ -694,11 +694,33 @@ export function ProjectKnowledgePanel({
                     key={`${ownerId}:${projectId}:${asset.assetId}:${request.current}`}
                     projectId={projectId}
                     assetId={asset.assetId}
+                    onReviewChange={() => void load()}
                   />
                 )}
               </div>
             ))}
             {!sourceImpact.affected.length && <p className="text-sm">{t("refresh.noImpact")}</p>}
+            {sourceImpact.reviewHistory
+              .filter(
+                (asset) =>
+                  !sourceImpact.affected.some(
+                    (affected) =>
+                      affected.assetId === asset.assetId && affected.knowledgeIssueCount > 0,
+                  ),
+              )
+              .map((asset) => (
+                <div key={`review:${asset.assetId}`} className="text-sm">
+                  <p>
+                    {asset.title} · {t("knowledge.review.history")}
+                  </p>
+                  <KnowledgeOutputInspection
+                    key={`${ownerId}:${projectId}:${asset.assetId}:${request.current}`}
+                    projectId={projectId}
+                    assetId={asset.assetId}
+                    onReviewChange={() => void load()}
+                  />
+                </div>
+              ))}
             {sourceImpact.remaining > 0 && (
               <p className="text-xs">
                 {t("refresh.moreImpact")}: {sourceImpact.remaining}

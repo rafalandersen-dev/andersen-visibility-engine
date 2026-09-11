@@ -86,6 +86,7 @@ export function evaluateAssetKnowledge(
   registry: KnowledgeRegistry,
   now: string,
   profile?: BrandProfile,
+  reviewedVersions = false,
 ): KnowledgePublicationIssue[] {
   if (!Array.isArray(asset.images ?? []) || (asset.images?.length ?? 0) > 30)
     throw new KnowledgeUnavailableError();
@@ -146,7 +147,13 @@ export function evaluateAssetKnowledge(
     }
     const current = new Set(selection.references.map(key));
     for (const ref of new Map(group.refs.map((r) => [key(r), r])).values()) {
-      if (!current.has(key(ref)))
+      if (
+        !(reviewedVersions
+          ? selection.references.some(
+              (current) => current.recordId === ref.recordId && current.sourceId === ref.sourceId,
+            )
+          : current.has(key(ref)))
+      )
         issues.push({
           sourceId: ref.sourceId,
           key: ref.recordId,

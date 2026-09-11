@@ -98,3 +98,63 @@ export async function readKnowledgeReviewContext(
     throw new Error("knowledge_review_scope");
   return { ...context, brand: context.brand as BrandProfile };
 }
+
+export async function readKnowledgeReviewBatch(
+  scope: KnowledgeScope,
+  assets: string[],
+  rpc?: KnowledgeRpc,
+) {
+  z.string().uuid().parse(scope.ownerId);
+  identity.parse(scope.projectId);
+  z.array(identity).max(100).parse(assets);
+  if (new Set(assets).size !== assets.length) throw new Error("knowledge_review_scope");
+  const batch = z
+    .object({
+      knowledge: contextSchema.shape.knowledge,
+      brand: contextSchema.shape.brand,
+      outputs: z
+        .array(
+          z
+            .object({
+              assetId: identity,
+              registry: contextSchema.shape.registry,
+              contextHash: contextSchema.shape.contextHash,
+              activeReview: z
+                .object({
+                  versionHash: contextSchema.shape.contextHash,
+                  contextHash: contextSchema.shape.contextHash,
+                })
+                .strict()
+                .nullable(),
+              hasHistory: z.boolean(),
+            })
+            .strict(),
+        )
+        .max(100),
+    })
+    .strict()
+    .parse(
+      await knowledgeReviewRpc(
+        "read_output_knowledge_review_batch",
+        { p_user: scope.ownerId, p_project: scope.projectId, p_assets: assets },
+        rpc,
+      ),
+    );
+  if (
+    batch.outputs.length !== assets.length ||
+    new Set(batch.outputs.map((row) => row.assetId)).size !== assets.length ||
+    batch.outputs.some(
+      (row) =>
+        !assets.includes(row.assetId) ||
+        row.registry.some((entry) => entry.assetId !== row.assetId) ||
+        new Set(row.registry.map((entry) => `${entry.kind}:${entry.outputId}`)).size !==
+          row.registry.length,
+    ) ||
+    batch.outputs.reduce((total, row) => total + row.registry.length, 0) > 1000 ||
+    [...batch.knowledge.sources, ...batch.knowledge.records].some(
+      (row) => row.ownerId !== scope.ownerId || row.projectId !== scope.projectId,
+    )
+  )
+    throw new Error("knowledge_review_scope");
+  return { ...batch, brand: batch.brand as BrandProfile };
+}

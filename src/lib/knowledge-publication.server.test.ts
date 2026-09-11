@@ -56,6 +56,24 @@ const asset = {
 const now = "2026-09-10T23:00:00Z";
 const state = () => ({ sources: [structuredClone(source)], records: [structuredClone(record)] });
 describe("exact output knowledge publication", () => {
+  it("a reviewed replacement still expires and cannot waive withdrawal or conflicts", () => {
+    const current = state();
+    current.records[0].revision = 2;
+    current.records[0].validUntil = "2026-09-12T00:00:00Z";
+    expect(evaluateAssetKnowledge(owner, asset, current, [], now, undefined, true)).toEqual([]);
+    expect(
+      evaluateAssetKnowledge(owner, asset, current, [], "2026-09-12T00:00:00Z", undefined, true),
+    ).toHaveLength(1);
+    current.sources[0].status = "revoked";
+    expect(evaluateAssetKnowledge(owner, asset, current, [], now, undefined, true)).toHaveLength(1);
+    current.sources[0].status = "active";
+    current.records.push({
+      ...current.records[0],
+      id: "00000000-0000-4000-8000-000000000008",
+      value: "Conflicting",
+    });
+    expect(evaluateAssetKnowledge(owner, asset, current, [], now, undefined, true)).toHaveLength(1);
+  });
   it("allows unchanged reviewed references and leaves owner text untouched", () => {
     const before = structuredClone(asset);
     expect(evaluateAssetKnowledge(owner, asset, state(), [], now)).toEqual([]);
