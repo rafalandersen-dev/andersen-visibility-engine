@@ -1,3 +1,4 @@
+import { TechnicalFindingActions } from "./TechnicalFindingActions";
 import { processTechnicalCrawl } from "@/lib/technical-crawl-client";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -221,7 +222,7 @@ function ProjectCrawl({ owner, projectId }: { owner: string; projectId: string }
                   ))}
                 </details>
               )}
-              {state.pages.map((page) => (
+              {state.pages.map((page, pageIndex) => (
                 <details key={page.requestedUrl} className="rounded border p-3">
                   <summary className="cursor-pointer break-all">
                     {page.requestedUrl} · {t(`crawl.${page.state}`)}
@@ -237,6 +238,16 @@ function ProjectCrawl({ owner, projectId }: { owner: string; projectId: string }
                         .find((entry) => entry.url === page.requestedUrl)
                         ?.files.join(" | ") || t("crawl.notFound")}
                     </p>
+                  )}
+                  {["completed", "cancelled", "held"].includes(saved.status) && (
+                    <TechnicalFindingActions
+                      owner={owner}
+                      projectId={projectId}
+                      runId={saved.runId}
+                      revision={saved.revision}
+                      pageIndex={pageIndex}
+                      page={page}
+                    />
                   )}
                   {page.observation && (
                     <div className="mt-2 space-y-2 break-words text-sm">

@@ -13,12 +13,16 @@ beforeAll(async () => {
   await db.exec(
     `CREATE ROLE anon;CREATE ROLE authenticated;CREATE ROLE service_role BYPASSRLS;CREATE SCHEMA auth;CREATE TABLE auth.users(id uuid PRIMARY KEY,deleted_at timestamptz,banned_until timestamptz);INSERT INTO auth.users(id) VALUES('${owner}'),('${other}');CREATE TABLE workspace_meta(user_id uuid PRIMARY KEY,rev bigint);INSERT INTO workspace_meta VALUES('${owner}',1),('${other}',1);CREATE TABLE workspace_entities(user_id uuid,collection text,entity_id text,data jsonb,PRIMARY KEY(user_id,collection,entity_id));INSERT INTO workspace_entities VALUES('${owner}','projects','p','{"websiteUrl":"https://example.test"}'),('${other}','projects','p','{"websiteUrl":"https://other.test"}');`,
   );
+  await db.exec("ALTER TABLE workspace_entities ADD COLUMN ord integer NOT NULL DEFAULT 0");
   await db.exec(readFileSync("supabase/migrations/20260909200000_project_knowledge.sql", "utf8"));
   await db.exec(readFileSync("supabase/migrations/20260911110000_technical_crawls.sql", "utf8"));
+  await db.exec(
+    readFileSync("supabase/migrations/20260911120000_technical_crawl_opportunities.sql", "utf8"),
+  );
 }, 30000);
 beforeEach(async () => {
   await db.exec(
-    `RESET ROLE;TRUNCATE technical_crawls;UPDATE auth.users SET deleted_at=NULL,banned_until=NULL;UPDATE workspace_entities SET data='{"websiteUrl":"https://example.test"}' WHERE user_id='${owner}';`,
+    `RESET ROLE;TRUNCATE technical_crawls CASCADE;DELETE FROM workspace_entities WHERE collection='opportunities';UPDATE workspace_meta SET rev=1;UPDATE auth.users SET deleted_at=NULL,banned_until=NULL;UPDATE workspace_entities SET data='{"websiteUrl":"https://example.test"}' WHERE user_id='${owner}';`,
   );
 });
 afterAll(async () => await db?.close());
@@ -172,5 +176,119 @@ describe("durable technical crawl state", () => {
     }
     await db.exec("SET ROLE service_role");
     await expect(db.query("SELECT * FROM technical_crawls")).rejects.toThrow();
+  });
+});
+
+describe("immutable crawl evidence to opportunity", () => {
+  async function prepare() {
+    await start();
+    const page = {
+      requestedUrl: "https://example.test/a",
+      depth: 1,
+      state: "observed",
+      observation: {
+        url: "https://example.test/a",
+        status: 200,
+        observedAt: "2026-09-11T00:00:00Z",
+        complete: true,
+        title: "",
+        descriptions: [],
+        headings: [],
+        canonicals: [],
+        robots: [],
+        structuredData: [],
+      },
+    };
+    await db.query(
+      "UPDATE technical_crawls SET status='completed',revision=3,state=$1 WHERE user_id=$2 AND run_id=$3",
+      [
+        { origin: "https://example.test", pages: [page], coverageLimits: ["page_limit"] },
+        owner,
+        run,
+      ],
+    );
+  }
+  const capture = (code = "missing_title", revision = 3) =>
+    db.query<{ result: { evidenceId: string; opportunityId: string; hash: string } }>(
+      "SELECT capture_technical_crawl_finding($1,'p',$2,$3,0,$4,'Review observed title') result",
+      [owner, run, revision, code],
+    );
+  it("atomically creates one captured opportunity and immutable source receipt, retaining idempotency", async () => {
+    await prepare();
+    const first = (await capture()).rows[0].result;
+    expect((await capture()).rows[0].result).toEqual(first);
+    expect(
+      (
+        await db.query(
+          "SELECT count(*)::int n FROM workspace_entities WHERE collection='opportunities'",
+        )
+      ).rows[0],
+    ).toEqual({ n: 1 });
+    const evidence = (
+      await db.query<{
+        result: { snapshot: { page: unknown; coverageLimits: string[] }; hash: string };
+      }>("SELECT read_technical_crawl_finding($1,'p',$2) result", [owner, first.evidenceId])
+    ).rows[0].result;
+    expect(evidence.snapshot.coverageLimits).toEqual(["page_limit"]);
+    expect(evidence.hash).toMatch(/^[a-f0-9]{64}$/);
+    await db.query(
+      "UPDATE workspace_entities SET data=jsonb_set(data,'{title}','\"Edited opportunity\"') WHERE collection='opportunities'",
+    );
+    const unchanged = (
+      await db.query<{ result: { snapshot: unknown; hash: string } }>(
+        "SELECT read_technical_crawl_finding($1,'p',$2) result",
+        [owner, first.evidenceId],
+      )
+    ).rows[0].result;
+    expect(unchanged.snapshot).toEqual(evidence.snapshot);
+    expect(unchanged.hash).toBe(evidence.hash);
+    await db.query(
+      "DELETE FROM workspace_entities WHERE collection='opportunities' AND entity_id=$1",
+      [first.opportunityId],
+    );
+    expect((await capture()).rows[0].result).toEqual({ ...first, opportunityExists: false });
+    expect(
+      (
+        await db.query(
+          "SELECT count(*)::int n FROM workspace_entities WHERE collection='opportunities'",
+        )
+      ).rows[0],
+    ).toEqual({ n: 0 });
+  });
+  it("denies direct evidence access and unauthenticated RPC use", async () => {
+    await prepare();
+    await db.exec("SET ROLE authenticated");
+    await expect(db.query("SELECT * FROM technical_crawl_findings")).rejects.toThrow(
+      "permission denied",
+    );
+    await expect(capture()).rejects.toThrow("permission denied");
+    await db.exec("RESET ROLE;SET ROLE service_role");
+    await expect(db.query("UPDATE technical_crawl_findings SET code='noindex'")).rejects.toThrow(
+      "permission denied",
+    );
+    await db.exec("RESET ROLE");
+  });
+  it("rejects stale or invented findings and prevents cross-owner reads", async () => {
+    await prepare();
+    await expect(capture("missing_title", 2)).rejects.toThrow("technical_finding_changed");
+    await expect(capture("http_error")).rejects.toThrow("technical_finding_not_observed");
+    const record = (await capture()).rows[0].result;
+    expect(
+      (
+        await db.query("SELECT read_technical_crawl_finding($1,'p',$2) result", [
+          other,
+          record.evidenceId,
+        ])
+      ).rows[0],
+    ).toEqual({ result: null });
+  });
+  it("does not infer absent elements from a partial read or admit active crawls", async () => {
+    await prepare();
+    await db.query(
+      "UPDATE technical_crawls SET state=jsonb_set(state,'{pages,0,observation,complete}','false')",
+    );
+    await expect(capture()).rejects.toThrow("technical_finding_not_observed");
+    await db.query("UPDATE technical_crawls SET status='running'");
+    await expect(capture()).rejects.toThrow("technical_finding_changed");
   });
 });

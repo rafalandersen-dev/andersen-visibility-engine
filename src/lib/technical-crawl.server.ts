@@ -96,7 +96,11 @@ export async function startTechnicalRun(
 ) {
   const target = technicalRunTarget.parse(raw);
   const context = z
-    .object({ website: z.string().min(1).max(8192), revision: z.number().int().nonnegative() })
+    .object({
+      website: z.string().min(1).max(8192),
+      revision: z.number().int().nonnegative(),
+      appLanguage: z.string().max(100).optional(),
+    })
     .strict()
     .parse(
       await call(rpc, "read_technical_crawl_context", {

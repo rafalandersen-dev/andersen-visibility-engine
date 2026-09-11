@@ -483,6 +483,8 @@ export interface ServiceItem {
 }
 
 export interface Opportunity {
+  /** Pointer to an immutable server-owned technical observation receipt. */
+  technicalEvidence?: { id: string; hash: string };
   id: string;
   projectId: string;
   title: string;

@@ -1,5 +1,26 @@
 export const technicalCrawlCopy: Record<string, Record<string, string>> = {
   en: {
+    "crawl.opportunityRemoved":
+      "The original opportunity was removed. Its saved evidence is retained; this action will not recreate it.",
+    "crawl.findingHelp":
+      "Create a review opportunity from this saved observation. Changes still require your decision.",
+    "crawl.captureError":
+      "The result could not be confirmed. Retrying this same finding returns its existing record if it was saved.",
+    "crawl.openOpportunity": "Open opportunity",
+    "crawl.capture": "Create opportunity",
+    "crawl.savedEvidence": "Saved technical evidence",
+    "crawl.evidenceLoading": "Loading saved evidence…",
+    "crawl.evidenceUnavailable": "The matching evidence record is unavailable.",
+    "crawl.savedEvidenceHelp":
+      "This is the original saved observation. Editing the opportunity does not change it or prove the issue has been fixed.",
+    "crawl.finding_http_error": "Investigate the observed HTTP error",
+    "crawl.finding_missing_title": "Review the missing page title",
+    "crawl.finding_missing_description": "Review the missing meta description",
+    "crawl.finding_missing_h1": "Review the missing main heading",
+    "crawl.finding_multiple_h1": "Review the multiple main headings",
+    "crawl.finding_multiple_canonicals": "Review the multiple canonical declarations",
+    "crawl.finding_invalid_jsonld": "Repair invalid structured-data JSON syntax",
+    "crawl.finding_noindex": "Review the observed noindex directive and its intended scope",
     "crawl.sitemaps": "Sitemap evidence",
     "crawl.sitemapHelp":
       "Up to 10 files and 2,000 URLs. A listed URL is a declaration, not proof that a page exists or is indexed. Unlisted URLs may occur in unread or undiscovered files.",
@@ -76,6 +97,27 @@ export const technicalCrawlCopy: Record<string, Record<string, string>> = {
     "crawl.links": "Observed internal links",
   },
   pl: {
+    "crawl.opportunityRemoved":
+      "Pierwotna szansa została usunięta. Zapisane dane pozostają; ta czynność jej nie odtworzy.",
+    "crawl.findingHelp":
+      "Utwórz szansę do przeglądu na podstawie zapisanej obserwacji. Zmiany nadal wymagają Twojej decyzji.",
+    "crawl.captureError":
+      "Nie udało się potwierdzić wyniku. Ponowienie tego samego ustalenia zwróci istniejący zapis, jeśli został utworzony.",
+    "crawl.openOpportunity": "Otwórz szansę",
+    "crawl.capture": "Utwórz szansę",
+    "crawl.savedEvidence": "Zapisane dane techniczne",
+    "crawl.evidenceLoading": "Wczytywanie zapisanych danych…",
+    "crawl.evidenceUnavailable": "Powiązany zapis danych jest niedostępny.",
+    "crawl.savedEvidenceHelp":
+      "To pierwotna zapisana obserwacja. Edycja szansy nie zmienia jej i nie potwierdza naprawy problemu.",
+    "crawl.finding_http_error": "Sprawdź zaobserwowany błąd HTTP",
+    "crawl.finding_missing_title": "Sprawdź brak tytułu strony",
+    "crawl.finding_missing_description": "Sprawdź brak opisu meta",
+    "crawl.finding_missing_h1": "Sprawdź brak nagłówka głównego",
+    "crawl.finding_multiple_h1": "Sprawdź wiele nagłówków głównych",
+    "crawl.finding_multiple_canonicals": "Sprawdź wiele deklaracji kanonicznych",
+    "crawl.finding_invalid_jsonld": "Popraw składnię JSON danych strukturalnych",
+    "crawl.finding_noindex": "Sprawdź dyrektywę noindex i jej zamierzony zakres",
     "crawl.sitemaps": "Dane map witryny",
     "crawl.sitemapHelp":
       "Do 10 plików i 2000 adresów URL. Wpis jest deklaracją, a nie dowodem istnienia lub indeksowania strony. Pozostałe adresy mogą być w nieodczytanych plikach.",
@@ -152,6 +194,28 @@ export const technicalCrawlCopy: Record<string, Record<string, string>> = {
     "crawl.links": "Zaobserwowane linki wewnętrzne",
   },
   sv: {
+    "crawl.opportunityRemoved":
+      "Den ursprungliga möjligheten har tagits bort. Underlaget finns kvar; åtgärden återskapar den inte.",
+    "crawl.findingHelp":
+      "Skapa en granskningsmöjlighet från denna sparade observation. Ändringar kräver fortfarande ditt beslut.",
+    "crawl.captureError":
+      "Resultatet kunde inte bekräftas. Ett nytt försök för samma fynd returnerar den befintliga posten om den sparades.",
+    "crawl.openOpportunity": "Öppna möjlighet",
+    "crawl.capture": "Skapa möjlighet",
+    "crawl.savedEvidence": "Sparat tekniskt underlag",
+    "crawl.evidenceLoading": "Läser sparat underlag…",
+    "crawl.evidenceUnavailable": "Motsvarande underlag är inte tillgängligt.",
+    "crawl.savedEvidenceHelp":
+      "Detta är den ursprungliga sparade observationen. Att redigera möjligheten ändrar inte underlaget eller bevisar att problemet är löst.",
+    "crawl.finding_http_error": "Undersök det observerade HTTP-felet",
+    "crawl.finding_missing_title": "Granska den saknade sidtiteln",
+    "crawl.finding_missing_description": "Granska den saknade metabeskrivningen",
+    "crawl.finding_missing_h1": "Granska den saknade huvudrubriken",
+    "crawl.finding_multiple_h1": "Granska de flera huvudrubrikerna",
+    "crawl.finding_multiple_canonicals": "Granska flera kanoniska deklarationer",
+    "crawl.finding_invalid_jsonld": "Rätta ogiltig JSON-syntax för strukturerad data",
+    "crawl.finding_noindex":
+      "Granska det observerade noindex-direktivet och dess avsedda omfattning",
     "crawl.sitemaps": "Underlag från webbplatskartor",
     "crawl.sitemapHelp":
       "Högst 10 filer och 2 000 URL:er. En listad URL är en uppgift, inte bevis för att sidan finns eller är indexerad. Andra URL:er kan finnas i olästa eller oupptäckta filer.",
@@ -227,6 +291,27 @@ export const technicalCrawlCopy: Record<string, Record<string, string>> = {
     "crawl.links": "Observerade interna länkar",
   },
   da: {
+    "crawl.opportunityRemoved":
+      "Den oprindelige mulighed er fjernet. Grundlaget bevares; handlingen genskaber den ikke.",
+    "crawl.findingHelp":
+      "Opret en gennemgangsmulighed fra denne gemte observation. Ændringer kræver stadig din beslutning.",
+    "crawl.captureError":
+      "Resultatet kunne ikke bekræftes. Et nyt forsøg for samme fund returnerer den eksisterende post, hvis den blev gemt.",
+    "crawl.openOpportunity": "Åbn mulighed",
+    "crawl.capture": "Opret mulighed",
+    "crawl.savedEvidence": "Gemt teknisk grundlag",
+    "crawl.evidenceLoading": "Indlæser gemt grundlag…",
+    "crawl.evidenceUnavailable": "Det tilknyttede grundlag er ikke tilgængeligt.",
+    "crawl.savedEvidenceHelp":
+      "Dette er den oprindelige gemte observation. Redigering af muligheden ændrer den ikke og beviser ikke, at problemet er løst.",
+    "crawl.finding_http_error": "Undersøg den observerede HTTP-fejl",
+    "crawl.finding_missing_title": "Gennemgå den manglende sidetitel",
+    "crawl.finding_missing_description": "Gennemgå den manglende metabeskrivelse",
+    "crawl.finding_missing_h1": "Gennemgå den manglende hovedoverskrift",
+    "crawl.finding_multiple_h1": "Gennemgå de flere hovedoverskrifter",
+    "crawl.finding_multiple_canonicals": "Gennemgå flere kanoniske erklæringer",
+    "crawl.finding_invalid_jsonld": "Ret ugyldig JSON-syntaks for strukturerede data",
+    "crawl.finding_noindex": "Gennemgå det observerede noindex-direktiv og dets tilsigtede omfang",
     "crawl.sitemaps": "Grundlag fra sitemaps",
     "crawl.sitemapHelp":
       "Op til 10 filer og 2.000 URL-adresser. En angivet URL er en erklæring, ikke bevis for at siden findes eller er indekseret. Andre URL-adresser kan findes i ulæste filer.",
