@@ -30,6 +30,12 @@ interface ScheduledRow {
   project_id: string;
   asset_id: string;
   attempts: number;
+  preflight_attempts?: number;
+  preflight_started_at?: string | null;
+}
+
+function preflightRetryAt(attempt: number): string {
+  return new Date(Date.now() + Math.min(60, 2 ** Math.min(attempt - 1, 6)) * 60000).toISOString();
 }
 
 export interface RunSummary {
@@ -147,7 +153,21 @@ export async function runScheduledPublishes(batchSize = 20): Promise<RunSummary>
         const permanent = isPermanentPublishError(e);
         // attempts was already incremented by the claim.
         const capacity = !permanent && isPublishPreflightCapacityError(e);
-        const exhausted = !capacity && row.attempts >= MAX_PUBLISH_ATTEMPTS;
+        const preflightAttempts = (row.preflight_attempts ?? 0) + 1;
+        const firstPreflight = row.preflight_started_at ?? new Date().toISOString();
+        const preflightAge = Date.now() - Date.parse(firstPreflight);
+        const exhausted = capacity
+          ? preflightAttempts >= 12 ||
+            !Number.isFinite(preflightAge) ||
+            preflightAge >= 24 * 60 * 60 * 1000
+          : row.attempts >= MAX_PUBLISH_ATTEMPTS;
+        const preflightPatch = capacity
+          ? {
+              preflight_attempts: Math.min(preflightAttempts, 12),
+              preflight_started_at: firstPreflight,
+              retry_after: preflightRetryAt(preflightAttempts),
+            }
+          : {};
 
         // Record on the asset on EVERY attempt, not only the last one. A user
         // whose credentials were rotated should see why nothing published now,
@@ -168,7 +188,12 @@ export async function runScheduledPublishes(batchSize = 20): Promise<RunSummary>
         );
 
         if (terminal) {
-          await setRow(admin, row.id, { status: "failed", last_error: message });
+          await setRow(admin, row.id, {
+            status: "failed",
+            last_error: message,
+            ...preflightPatch,
+            retry_after: null,
+          });
           summary.failed += 1;
         } else {
           // Retryable means the connector PROVED nothing was created on the site,
@@ -176,8 +201,9 @@ export async function runScheduledPublishes(batchSize = 20): Promise<RunSummary>
           await setRow(admin, row.id, {
             status: "pending",
             last_error: message,
-            // Admission contention happened before connector dispatch, so restore
-            // the claim attempt instead of exhausting valid same-owner backlogs.
+            // Preflight consumes its own bounded retry budget, without spending a
+            // connector attempt. Exponential cooldown preserves other owners' turns.
+            ...preflightPatch,
             ...(capacity ? { attempts: Math.max(0, row.attempts - 1) } : {}),
           });
           summary.retrying += 1;
