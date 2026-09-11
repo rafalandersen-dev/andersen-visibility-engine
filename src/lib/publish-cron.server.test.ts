@@ -106,7 +106,7 @@ describe("scheduled publication refresh budget", () => {
   });
 });
 
-it("restores capacity-blocked claims even at the final attempt without exhausting the queue", async () => {
+it("defers preflight failures with a separate retry budget and preserves connector attempts", async () => {
   mocked.rpc.mockImplementation(async (name) => ({
     data:
       name === "claim_scheduled_publishes"
@@ -122,6 +122,60 @@ it("restores capacity-blocked claims even at the final attempt without exhaustin
     updated_at: expect.any(String),
     last_error: error.message,
     attempts: 2,
+    preflight_attempts: 1,
+    preflight_started_at: expect.any(String),
+    retry_after: expect.any(String),
   });
   expect(mocked.failure).toHaveBeenCalledExactlyOnceWith("owner", "a", error.message, false);
+});
+
+it.each(["attempts", "age"])("parks unavailable preflight after its %s limit", async (limit) => {
+  mocked.rpc.mockImplementation(async (name) => ({
+    data:
+      name === "claim_scheduled_publishes"
+        ? [
+            {
+              id: "row",
+              user_id: "owner",
+              project_id: "p",
+              asset_id: "a",
+              attempts: 1,
+              preflight_attempts: limit === "attempts" ? 11 : 1,
+              preflight_started_at: new Date(
+                Date.now() - (limit === "age" ? 25 : 1) * 3600000,
+              ).toISOString(),
+            },
+          ]
+        : [],
+    error: null,
+  }));
+  mocked.publish.mockRejectedValue(new PublishPreflightCapacityError());
+  expect(await runScheduledPublishes()).toMatchObject({ failed: 1, retrying: 0 });
+  expect(mocked.update).toHaveBeenCalledWith(
+    expect.objectContaining({ status: "failed", retry_after: null }),
+  );
+});
+it("backs off repeated preflight failures without changing the requested publication date", async () => {
+  mocked.rpc.mockImplementation(async (name) => ({
+    data:
+      name === "claim_scheduled_publishes"
+        ? [
+            {
+              id: "row",
+              user_id: "owner",
+              project_id: "p",
+              asset_id: "a",
+              attempts: 1,
+              preflight_attempts: 5,
+            },
+          ]
+        : [],
+    error: null,
+  }));
+  mocked.publish.mockRejectedValue(new PublishPreflightCapacityError());
+  const before = Date.now();
+  await runScheduledPublishes();
+  const patch = mocked.update.mock.calls[0][0];
+  expect(Date.parse(patch.retry_after) - before).toBeGreaterThanOrEqual(32 * 60000);
+  expect(patch).not.toHaveProperty("publish_at");
 });
