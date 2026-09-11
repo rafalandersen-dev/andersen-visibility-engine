@@ -34,7 +34,7 @@ import {
   verifyState,
   completeOAuthCallback,
   saveConnection,
-  listSites,
+  listSites, inspectGoogleIndexForOwner,
   GSC_DEFAULT_SCOPE, syncSearchAnalytics, computeRange, normalizeSearchAnalyticsResponse,
 } from "./gsc-oauth.server";
 import { encryptSecret } from "./crypto.server";
@@ -282,5 +282,20 @@ describe("Search Analytics measurement integrity", () => {
   it.each(["not json", "null", "[1]"])("malformed provider response fails instead of saving an empty import: %s", async raw => {
     await setupSync(raw, true);
     await expect(syncSearchAnalytics({ userId:"u", siteUrl:"sc-domain:example.com", range:"28d" })).rejects.toThrow("api_error");
+  });
+});
+
+describe("Google inspection dispatch authorization", () => {
+  it.each([false,true])("checks authorization after refresh and only dispatches when allowed: %s", async allowed => {
+    dbState.row = { encrypted_refresh_token: await encryptSecret("stored-refresh"), revoked_at:null };
+    const events:string[]=[];
+    const request=vi.fn(async(input:RequestInfo|URL)=>{
+      if(String(input)==="https://oauth2.googleapis.com/token") { events.push("refresh");return new Response(JSON.stringify({access_token:"at"})); }
+      events.push("inspect");return new Response(JSON.stringify({inspectionResult:{indexStatusResult:{verdict:"PASS"}}}),{headers:{"content-type":"application/json"}});
+    });
+    vi.stubGlobal("fetch",request);
+    const result=inspectGoogleIndexForOwner("user-1","sc-domain:example.com","https://example.com/page?q=1",async()=>{events.push("authorize");return allowed;});
+    if(allowed) {expect((await result).verdict).toBe("PASS");expect(events).toEqual(["refresh","authorize","inspect"]);}
+    else {await expect(result).rejects.toThrow("google_inspection_not_dispatched");expect(events).toEqual(["refresh","authorize"]);}
   });
 });

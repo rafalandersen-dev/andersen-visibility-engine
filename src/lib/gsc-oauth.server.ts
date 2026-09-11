@@ -594,3 +594,19 @@ export async function completeOAuthCallback(params: {
 }
 
 export { emailFromIdToken };
+
+/** Server-only inspection; the caller owns the durable once-only dispatch gate. */
+export async function inspectGoogleIndexForOwner(
+  userId: string,
+  property: string,
+  url: string,
+  authorize: () => Promise<boolean>,
+) {
+  const { inspectionInProperty } = await import("./google-index");
+  if (!inspectionInProperty(url, property)) throw new Error("google_inspection_scope");
+  const accessToken = await getAccessToken(userId);
+  // Token refresh can take time. Recheck current owner/property/lease afterwards.
+  if (!(await authorize())) throw new Error("google_inspection_not_dispatched");
+  const { fetchGoogleIndex } = await import("./google-index-transport.server");
+  return fetchGoogleIndex(accessToken, property, url);
+}

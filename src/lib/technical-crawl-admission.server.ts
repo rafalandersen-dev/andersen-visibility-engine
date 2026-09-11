@@ -1,0 +1,97 @@
+import { isIP } from "node:net";
+import { z } from "zod";
+import {
+  TechnicalCrawlAdmissionError,
+  type CrawlConnectionAdmission,
+} from "./technical-crawl-admission";
+import type { TechnicalRpc } from "./technical-crawl.server";
+export async function technicalDispatchRpc(name: string, args: Record<string, unknown>) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const client = supabaseAdmin as unknown as {
+    rpc(
+      name: string,
+      args: Record<string, unknown>,
+    ): ReturnType<TechnicalRpc> & { abortSignal(signal: AbortSignal): ReturnType<TechnicalRpc> };
+  };
+  return await client.rpc(name, args).abortSignal(AbortSignal.timeout(5000));
+}
+export function technicalConnectionAdmission(
+  user: string,
+  project: string,
+  run: string,
+  runLease: string,
+  origin: string,
+  rpc: TechnicalRpc = technicalDispatchRpc,
+): CrawlConnectionAdmission {
+  return async (url, signal, address) => {
+    if ((address !== null && !isIP(address)) || signal.aborted || new URL(url).origin !== origin)
+      throw new TechnicalCrawlAdmissionError();
+    let lease: { lease: string; expiresAt: string };
+    try {
+      const result = await rpc("acquire_technical_crawl_dispatch", {
+        p_user: user,
+        p_project: project,
+        p_run: run,
+        p_run_lease: runLease,
+        p_origin: origin,
+        p_address: address,
+      });
+      if (result.error) {
+        const error = result.error as { code?: unknown; message?: unknown };
+        throw new TechnicalCrawlAdmissionError(
+          error.code === "55P03" || error.message === "technical_dispatch_capacity"
+            ? "capacity"
+            : "ownership",
+        );
+      }
+      lease = z
+        .object({ lease: z.string().uuid(), expiresAt: z.string().datetime({ offset: true }) })
+        .strict()
+        .parse(result.data);
+    } catch (error) {
+      if (error instanceof TechnicalCrawlAdmissionError) throw error;
+      throw new TechnicalCrawlAdmissionError("ownership");
+    }
+    const release = async () => {
+      await rpc("release_technical_crawl_dispatch", {
+        p_user: user,
+        p_origin: origin,
+        p_address: address,
+        p_lease: lease.lease,
+      });
+    };
+    const grant = release as typeof release & { promote?: (next: string) => Promise<void> };
+    if (address === null)
+      grant.promote = async (next) => {
+        if (!isIP(next) || signal.aborted || Date.parse(lease.expiresAt) - Date.now() < 10000)
+          throw new TechnicalCrawlAdmissionError("capacity");
+        try {
+          const result = await rpc("acquire_technical_crawl_dispatch", {
+            p_user: user,
+            p_project: project,
+            p_run: run,
+            p_run_lease: runLease,
+            p_origin: origin,
+            p_address: next,
+            p_prior_lease: lease.lease,
+          });
+          if (
+            result.error ||
+            !result.data ||
+            (result.data as { lease?: unknown }).lease !== lease.lease
+          )
+            throw new TechnicalCrawlAdmissionError("capacity");
+        } catch {
+          // An uncertain promotion may already own an address slot. Hold until it expires.
+          throw new TechnicalCrawlAdmissionError("capacity");
+        }
+        address = next;
+        if (signal.aborted) throw new TechnicalCrawlAdmissionError("capacity");
+      };
+    if (signal.aborted || Date.parse(lease.expiresAt) - Date.now() < 10000) {
+      await release().catch(() => {});
+      throw new TechnicalCrawlAdmissionError("capacity");
+    }
+    return grant;
+  };
+}

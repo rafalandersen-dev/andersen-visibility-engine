@@ -1,3 +1,4 @@
+import { TechnicalEvidencePanel } from "@/components/TechnicalEvidencePanel";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
@@ -2321,6 +2322,7 @@ function OpportunityDrawer({
           </Button>
         </div>
       ) : null}
+      <TechnicalEvidencePanel opportunity={opportunity} />
       <details className="mt-5 border-t border-border pt-4">
         <summary className="cursor-pointer text-sm font-medium">
           {t("plan.detail.stage")} · {t("plan.detail.source")} · Milo Score

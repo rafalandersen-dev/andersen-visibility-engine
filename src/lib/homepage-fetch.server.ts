@@ -1,3 +1,11 @@
+import { resolveTechnicalAddresses } from "./technical-dns.server";
+import { gunzipSync } from "node:zlib";
+import { TechnicalPolicyRefusedError } from "./technical-crawl-admission";
+import {
+  TechnicalCrawlAdmissionError,
+  type CrawlConnectionAdmission,
+} from "./technical-crawl-admission";
+import { decodeTechnicalHtml } from "./technical-html-decoding.server";
 /** Server-only public-page reader. Resolve once and pin the socket to that
  * address while preserving HTTP Host and TLS certificate/SNI verification.
  * No runtime declaration or global fetch proxy can bypass this boundary.
@@ -59,8 +67,8 @@ export function isPublicHomepageAddress(address: string): boolean {
   return false;
 }
 
-function pageUrl(raw: string): URL {
-  if (raw.length > 4096 || !isSafePublicUrl(raw)) throw new Error("blocked_url");
+function pageUrl(raw: string, maximum = 4096): URL {
+  if (raw.length > maximum || !isSafePublicUrl(raw)) throw new Error("blocked_url");
   const url = new URL(raw);
   const hostname = url.hostname.replace(/^\[|\]$/g, "");
   if (
@@ -69,15 +77,18 @@ function pageUrl(raw: string): URL {
   )
     throw new Error("blocked_host");
   url.hash = "";
+  if (url.href.length > maximum) throw new Error("blocked_url");
   return url;
 }
 
-async function addressFor(url: URL, signal: AbortSignal) {
+async function addressFor(url: URL, signal: AbortSignal, admitted = false) {
   const hostname = url.hostname.replace(/^\[|\]$/g, "");
   const family = isIP(hostname);
   const addresses = family
     ? [{ address: hostname, family }]
-    : await lookup(hostname, { all: true, verbatim: true });
+    : admitted
+      ? await resolveTechnicalAddresses(hostname, signal)
+      : await lookup(hostname, { all: true, verbatim: true });
   signal.throwIfAborted();
   if (
     !addresses.length ||
@@ -101,6 +112,7 @@ async function openBunPage(
   address: { address: string; family: number },
   signal: AbortSignal,
   accept = "text/html,application/xhtml+xml,text/plain",
+  acceptEncoding = "identity",
 ): Promise<PageResponse> {
   const destination = new URL(url);
   destination.hostname = address.family === 6 ? `[${address.address}]` : address.address;
@@ -128,7 +140,7 @@ async function openBunPage(
       Host: url.host,
       "User-Agent": "MiloGrowthAuditBot/1.0 (+https://milogrowth.com)",
       Accept: accept,
-      "Accept-Encoding": "identity",
+      "Accept-Encoding": acceptEncoding,
     },
     tls: {
       servername: isIP(hostname) ? undefined : hostname,
@@ -183,8 +195,10 @@ function openPage(
   address: { address: string; family: number },
   signal: AbortSignal,
   accept = "text/html,application/xhtml+xml,text/plain",
+  acceptEncoding = "identity",
 ): Promise<PageResponse> {
-  if ((globalThis as { Bun?: unknown }).Bun) return openBunPage(url, address, signal, accept);
+  if ((globalThis as { Bun?: unknown }).Bun)
+    return openBunPage(url, address, signal, accept, acceptEncoding);
   return new Promise<IncomingMessage>((resolve, reject) => {
     signal.throwIfAborted();
     const options: RequestOptions & { autoSelectFamily: boolean } = {
@@ -202,7 +216,7 @@ function openPage(
         Host: url.host,
         "User-Agent": "MiloGrowthAuditBot/1.0 (+https://milogrowth.com)",
         Accept: accept,
-        "Accept-Encoding": "identity",
+        "Accept-Encoding": acceptEncoding,
       },
       lookup: (_hostname, options, callback) => {
         if (options.all) callback(null, [address]);
@@ -230,9 +244,34 @@ function openPage(
   });
 }
 
-export async function fetchHomepageHtml(raw: string): Promise<string> {
+export type PinnedResource = {
+  url: string;
+  status: number;
+  headers: Record<string, string>;
+  body: string;
+  truncated: boolean;
+  contentAccepted: boolean;
+  observedAt: string;
+};
+export async function fetchPinnedResource(
+  raw: string,
+  options: {
+    purpose: "homepage" | "technical" | "robots" | "sitemap";
+    origin?: string;
+    authorize?: (url: string) => boolean;
+    admit?: CrawlConnectionAdmission;
+  },
+): Promise<PinnedResource | null> {
+  const maxBytes = options.purpose === "homepage" ? HOMEPAGE_MAX_BYTES : 512_000;
+  const acceptedType =
+    options.purpose === "robots"
+      ? /^text\/plain(?:\s*;|$)/i
+      : options.purpose === "sitemap"
+        ? /^(?:text\/(?:plain|xml)|application\/(?:xml|gzip|x-gzip|[a-z0-9.-]+\+xml))(?:\s*;|$)/i
+        : /^(text\/(html|plain)|application\/xhtml\+xml)(?:\s*;|$)/i;
   const controller = new AbortController();
   let response: PageResponse | undefined;
+  let knownHttpError: PinnedResource | null = null;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
@@ -245,63 +284,187 @@ export async function fetchHomepageHtml(raw: string): Promise<string> {
     // Older Bun versions can inherit proxy settings inside node:http. Refuse
     // that environment rather than handing a proxy control of DNS/routing.
     if (proxyVariables.some((key) => process.env[key]?.trim())) throw new Error("proxy_refused");
-    let url = pageUrl(raw);
+    const urlLimit = options.purpose === "homepage" ? 4096 : 8192;
+    let url = pageUrl(raw, urlLimit);
     for (let hop = 0; hop <= 3; hop++) {
-      const address = await addressFor(url, controller.signal);
-      controller.signal.throwIfAborted();
-      response = await openPage(url, address, controller.signal);
-      const status = response.statusCode ?? 0;
-      if ([301, 302, 303, 307, 308].includes(status)) {
-        const location = response.headers.location;
-        response.destroy();
-        if (typeof location !== "string" || !location || hop === 3)
-          throw new Error("redirect_refused");
-        const next = pageUrl(new URL(location, url).toString());
-        if (url.protocol === "https:" && next.protocol !== "https:")
-          throw new Error("downgrade_refused");
-        url = next;
-        continue;
-      }
-      if (status < 200 || status >= 300) throw new Error("http_error");
-      const type = response.headers["content-type"] ?? "";
-      if (
-        typeof type !== "string" ||
-        !/^(text\/(html|plain)|application\/xhtml\+xml)(?:\s*;|$)/i.test(type)
-      )
-        throw new Error("unsupported_content");
-      const encoding = response.headers["content-encoding"];
-      if (encoding && encoding !== "identity") throw new Error("unsupported_encoding");
-      const chunks: Buffer[] = [];
-      let bytes = 0;
-      let count = 0;
-      let truncated = false;
-      for await (const rawChunk of response) {
-        controller.signal.throwIfAborted();
-        const chunk = Buffer.isBuffer(rawChunk) ? rawChunk : Buffer.from(rawChunk);
-        if (++count > HOMEPAGE_MAX_CHUNKS) throw new Error("too_many_chunks");
-        const take = Math.min(chunk.length, HOMEPAGE_MAX_BYTES - bytes);
-        chunks.push(Buffer.from(chunk.subarray(0, take)));
-        bytes += take;
-        if (bytes === HOMEPAGE_MAX_BYTES) {
-          truncated = true;
-          break;
+      let release: (() => Promise<void>) | undefined;
+      try {
+        if (options.purpose !== "homepage" && (!options.origin || url.origin !== options.origin)) {
+          if (["technical", "sitemap"].includes(options.purpose))
+            throw new TechnicalPolicyRefusedError(url.href);
+          throw new Error("scope_refused");
         }
+        if (
+          ["technical", "sitemap"].includes(options.purpose) &&
+          (!options.authorize || !options.authorize(url.href))
+        ) {
+          throw new TechnicalPolicyRefusedError(url.href);
+        }
+        const reservation = options.admit
+          ? await options.admit(url.href, controller.signal, null)
+          : undefined;
+        if (reservation) release = reservation;
+        controller.signal.throwIfAborted();
+        if (reservation && !reservation.promote) throw new TechnicalCrawlAdmissionError("capacity");
+        const address = await addressFor(url, controller.signal, Boolean(reservation));
+        controller.signal.throwIfAborted();
+        if (reservation) await reservation.promote!(address.address);
+        controller.signal.throwIfAborted();
+        const accept =
+          options.purpose === "sitemap"
+            ? "application/xml,text/xml,text/plain,application/gzip,application/x-gzip,application/octet-stream"
+            : options.purpose === "robots"
+              ? "text/plain"
+              : "text/html,application/xhtml+xml,text/plain";
+        response = await openPage(
+          url,
+          address,
+          controller.signal,
+          accept,
+          options.purpose === "sitemap" ? "gzip,identity" : "identity",
+        );
+        const status = response.statusCode ?? 0;
+        if ([301, 302, 303, 307, 308].includes(status)) {
+          const location = response.headers.location;
+          response.destroy();
+          if (typeof location !== "string" || !location || hop === 3)
+            throw new Error("redirect_refused");
+          const next = pageUrl(new URL(location, url).toString(), urlLimit);
+          if (url.protocol === "https:" && next.protocol !== "https:")
+            throw new Error("downgrade_refused");
+          url = next;
+          continue;
+        }
+        if (!Number.isInteger(status) || status < 100 || status > 599)
+          throw new Error("http_error");
+        const headers: Record<string, string> = {};
+        if (options.purpose === "technical" && status >= 400)
+          knownHttpError = {
+            url: url.href,
+            status,
+            headers,
+            body: "",
+            truncated: true,
+            contentAccepted: false,
+            observedAt: new Date().toISOString(),
+          };
+        for (const key of ["content-type", "content-range", "x-robots-tag", "link"]) {
+          const rawValue = response.headers[key];
+          const value = Array.isArray(rawValue) ? rawValue.join(", ") : rawValue;
+          if (value && value.length > 32000) throw new Error("header_limit");
+          if (value !== undefined) headers[key] = value;
+        }
+        const type = headers["content-type"] ?? "";
+        const gzipFile =
+          options.purpose === "sitemap" &&
+          (/^application\/(?:gzip|x-gzip)(?:\s*;|$)/i.test(type) ||
+            (/^application\/octet-stream(?:\s*;|$)/i.test(type) && url.pathname.endsWith(".gz")));
+        const contentAccepted = acceptedType.test(type) || gzipFile;
+        const evidence = {
+          url: url.href,
+          status,
+          headers,
+          body: "",
+          truncated: false,
+          contentAccepted,
+          observedAt: new Date().toISOString(),
+        };
+        if (!contentAccepted) return evidence;
+        const rawEncoding = response.headers["content-encoding"];
+        const encoding =
+          typeof rawEncoding === "string" ? rawEncoding.trim().toLowerCase() : rawEncoding;
+        const gzipEncoding = options.purpose === "sitemap" && encoding === "gzip";
+        if (encoding && encoding !== "identity" && !gzipEncoding)
+          throw new Error("unsupported_encoding");
+        const chunks: Buffer[] = [];
+        let bytes = 0;
+        let count = 0;
+        let truncated = false;
+        for await (const rawChunk of response) {
+          controller.signal.throwIfAborted();
+          const chunk = Buffer.isBuffer(rawChunk) ? rawChunk : Buffer.from(rawChunk);
+          if (++count > HOMEPAGE_MAX_CHUNKS) throw new Error("too_many_chunks");
+          const take = Math.min(chunk.length, maxBytes - bytes);
+          chunks.push(Buffer.from(chunk.subarray(0, take)));
+          bytes += take;
+          if (chunk.length > take) {
+            truncated = true;
+            break;
+          }
+        }
+        if (!truncated && !response.complete) throw new Error("incomplete_page");
+        let payload = Buffer.concat(chunks, bytes);
+        const gzipMagic = payload[0] === 0x1f && payload[1] === 0x8b;
+        const inferredGzipFile =
+          options.purpose === "sitemap" &&
+          !gzipEncoding &&
+          url.pathname.endsWith(".gz") &&
+          gzipMagic;
+        if (gzipEncoding || gzipFile || inferredGzipFile) {
+          if (truncated) return { ...evidence, truncated: true };
+          try {
+            // HTTP content coding and a gzip media representation are separate
+            // layers. Bound every inflated layer before any UTF-8/XML parsing.
+            if (gzipEncoding) payload = gunzipSync(payload, { maxOutputLength: maxBytes });
+            if (gzipFile || inferredGzipFile)
+              payload = gunzipSync(payload, { maxOutputLength: maxBytes });
+          } catch (error) {
+            if (
+              error &&
+              typeof error === "object" &&
+              "code" in error &&
+              error.code === "ERR_BUFFER_TOO_LARGE"
+            )
+              return { ...evidence, truncated: true };
+            throw error;
+          }
+          controller.signal.throwIfAborted();
+        }
+        return {
+          ...evidence,
+          body:
+            options.purpose === "technical"
+              ? /^(?:text\/html|application\/xhtml\+xml)(?:\s*;|$)/i.test(type)
+                ? decodeTechnicalHtml(payload, type, truncated)
+                : ""
+              : options.purpose === "sitemap"
+                ? new TextDecoder("utf-8", { fatal: true }).decode(payload)
+                : payload.toString("utf8"),
+          truncated,
+          observedAt: new Date().toISOString(),
+        };
+      } finally {
+        // This belongs to actual request work, not the outer timeout race.
+        response?.destroy();
+        if (release) await release().catch(() => {});
       }
-      if (!truncated && !response.complete) throw new Error("incomplete_page");
-      return Buffer.concat(chunks, bytes).toString("utf8");
     }
     throw new Error("redirect_refused");
   };
   try {
     return await Promise.race([read(), deadline]);
-  } catch {
+  } catch (error) {
+    if (
+      error instanceof TechnicalCrawlAdmissionError ||
+      error instanceof TechnicalPolicyRefusedError
+    )
+      throw error;
+    // Preserve independently observed HTTP errors when body transfer/decoding fails.
     // No bodies, URLs, DNS answers or transport errors enter logs.
-    return "";
+    return knownHttpError;
   } finally {
     clearTimeout(timer);
     controller.abort();
     response?.destroy();
   }
+}
+
+/** Preserve the existing homepage-only caller contract. */
+export async function fetchHomepageHtml(raw: string): Promise<string> {
+  const result = await fetchPinnedResource(raw, { purpose: "homepage" });
+  return result && result.status >= 200 && result.status < 300 && result.contentAccepted
+    ? result.body
+    : "";
 }
 
 /** Exact public image bytes for review, using the same pinned DNS/TLS sockets.

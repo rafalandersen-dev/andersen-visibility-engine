@@ -1,6 +1,14 @@
 # Milo Growth — current status
 
-Updated: 11 September 2026 (Stockholm; latest release 11 September 06:21 UTC). Owner: Rafal Andersen. Phase: private beta / launch foundations. Public paid launch: **NO-GO / acceptance incomplete**.
+Updated: 11 September 2026 (Stockholm; latest release 11 September 19:32 UTC). Owner: Rafal Andersen. Phase: private beta / launch foundations. Public paid launch: **NO-GO / acceptance incomplete**.
+
+Latest verified release: PR126 individual backlink details is live from merge `35e64056c5c3f0b149658ed82743309285240f2b`. Migration180000 applied once; source fingerprint/component hashes and six public/authentication checks pass. Runtime Git revision is unavailable. Provider/signed-in acceptance, deeper traversal and ongoing monitoring remain open. [Release evidence](../evidence/backlink-details-release-2026-09-11.md).
+
+Previous verified release: PR125 daily backlink monitoring is live at `a4d10a6eb9badb0365f65fe0dfaf6e2a93f7c9c1`. Its single migration is applied once; exact runtime and six public/authentication checks pass. Provider/signed-in acceptance and the remainder of R14 remain open. [Release evidence](../evidence/backlink-monitoring-release-2026-09-11.md).
+
+
+Previous verified release: PR123 project collaboration, merge `af38493f727b4b3ff0b8e61cc12cbb785c84c377`, is live. All ten team migrations are applied once; exact runtime identity and six public/authentication checks passed. Both email gates remain disabled. Real owner/collaborator acceptance and D07 remain open. [Release evidence](../evidence/project-collaboration-release-2026-09-11.md). Earlier implementation entries below describe historical pre-release states and are superseded by this release record. Overall55%/implementation70% remain approximate.
+
 
 Overall delivery estimate: **about 55% complete (50–65% uncertainty range)**; technical implementation **about 70%**. These are planning estimates, not signed-in acceptance or launch approval. See [current progress assessment](PROGRESS_REVIEW_2026_09_11.md) for weights, evidence and remaining work.
 
