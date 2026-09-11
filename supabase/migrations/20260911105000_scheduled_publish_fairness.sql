@@ -31,3 +31,35 @@ BEGIN
 END; $$;
 REVOKE ALL ON FUNCTION public.claim_scheduled_publishes(integer,integer) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.claim_scheduled_publishes(integer,integer) TO service_role;
+
+-- Preserve exact-version approval holds while recognizing a bounded preflight refund.
+CREATE OR REPLACE FUNCTION public.hold_unapproved_scheduled_publish()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+  IF NEW.status='pending' AND ((current_setting('milo.approved_queue_id',true) IS DISTINCT FROM NEW.id::text
+      AND NOT (TG_OP='UPDATE' AND OLD.status='publishing'
+        AND (NEW.id,NEW.user_id,NEW.project_id,NEW.asset_id,NEW.publish_at)
+          IS NOT DISTINCT FROM (OLD.id,OLD.user_id,OLD.project_id,OLD.asset_id,OLD.publish_at)
+        AND ((NEW.attempts,NEW.preflight_attempts,NEW.preflight_started_at,NEW.retry_after)
+          IS NOT DISTINCT FROM (OLD.attempts,OLD.preflight_attempts,OLD.preflight_started_at,OLD.retry_after)
+          OR (NEW.attempts=greatest(0,OLD.attempts-1)
+            AND NEW.preflight_attempts=OLD.preflight_attempts+1 AND NEW.preflight_attempts BETWEEN 1 AND 11
+            AND NEW.retry_after>clock_timestamp() AND NEW.retry_after<=clock_timestamp()+interval '61 minutes'
+            AND NEW.preflight_started_at<=clock_timestamp() AND NEW.preflight_started_at>clock_timestamp()-interval '24 hours'
+            AND (NEW.preflight_started_at=OLD.preflight_started_at OR (OLD.preflight_started_at IS NULL AND NEW.preflight_started_at>clock_timestamp()-interval '1 minute'))))))
+    OR NOT EXISTS(SELECT 1 FROM public.publication_approvals a
+      WHERE a.user_id=NEW.user_id AND a.project_id=NEW.project_id AND a.asset_id=NEW.asset_id AND a.approved)) THEN
+    NEW.status:='review_required';
+  END IF;
+  PERFORM set_config('milo.approved_queue_id','',true);
+  IF NEW.status='review_required' THEN
+    NEW.last_error:='publication_approval_required';
+    UPDATE public.workspace_entities e SET data=e.data||jsonb_build_object(
+      'scheduledPublishStatus','review_required','scheduledPublishAt',NEW.publish_at,
+      'scheduledPublishError','publication_approval_required')
+      WHERE e.user_id=NEW.user_id AND e.collection='content' AND e.entity_id=NEW.asset_id AND e.data->>'projectId'=NEW.project_id;
+    IF FOUND THEN UPDATE public.workspace_meta SET rev=rev+1 WHERE user_id=NEW.user_id; END IF;
+  END IF;
+  RETURN NEW;
+END; $$;
+REVOKE ALL ON FUNCTION public.hold_unapproved_scheduled_publish() FROM PUBLIC,anon,authenticated,service_role;
