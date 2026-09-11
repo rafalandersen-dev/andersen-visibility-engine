@@ -1,3 +1,4 @@
+import { publishableImages } from "./images";
 import { decodeHTMLAttribute } from "entities";
 import { acquireTeamPreview, releaseTeamPreview } from "./project-team-preview-limit.server";
 import { createHash } from "node:crypto";
@@ -48,21 +49,14 @@ export function teamPreviewHtml(html: string, images: { id: string; url?: string
   });
   return { html: projected, imageIds: [...needed], unknownImages };
 }
-async function renderProjectTeamPreview(
-  actorId: string,
-  raw: z.infer<typeof teamCommentTarget>,
-  read: typeof readTeamReviewContext = readTeamReviewContext,
-  authority: typeof readTeamReviewAuthority = readTeamReviewAuthority,
+export function projectTeamPreviewManifest(
+  before: Awaited<ReturnType<typeof readTeamReviewContext>>,
 ) {
-  const input = teamCommentTarget.parse(raw);
-  const before = await read(actorId, input);
   const paths = buildActiveInternalPaths(before.project, before.links as ContentAsset[]);
   const assembled = assembleContentAsset(before.asset, before.project, {
     activeInternalPaths: new Set(paths),
   });
-  const images = z
-    .array(z.object({ id: z.string(), url: z.string().optional() }).passthrough())
-    .parse(before.asset.images ?? []);
+  const images = publishableImages(before.asset.images, before.project);
   const media = images.map((image) => ({
     key: teamImageReviewKey("content", image.id),
     imageId: image.id,
@@ -71,7 +65,7 @@ async function renderProjectTeamPreview(
   }));
   const featured = before.asset.featuredImage;
   if (featured) z.string().parse(featured.imageId);
-  if (featured)
+  if (featured?.approval === "approved")
     media.push({
       key: teamImageReviewKey("featured", featured.imageId),
       imageId: featured.imageId,
@@ -94,6 +88,23 @@ async function renderProjectTeamPreview(
     reviewHtml,
     media.map((image) => ({ id: image.key, url: image.url })),
   );
+  return {
+    paths,
+    preview,
+    media: media
+      .filter((image) => preview.imageIds.includes(image.key))
+      .map(({ key, imageId, kind }) => ({ key, imageId, kind })),
+  };
+}
+async function renderProjectTeamPreview(
+  actorId: string,
+  raw: z.infer<typeof teamCommentTarget>,
+  read: typeof readTeamReviewContext = readTeamReviewContext,
+  authority: typeof readTeamReviewAuthority = readTeamReviewAuthority,
+) {
+  const input = teamCommentTarget.parse(raw);
+  const before = await read(actorId, input);
+  const { paths, preview, media } = projectTeamPreviewManifest(before);
   const version = await publicationVersion(before.asset, before.project, paths);
   const permissions = await authority(actorId, input);
   const after = await read(actorId, input);
@@ -121,9 +132,7 @@ async function renderProjectTeamPreview(
     workspaceRevision: before.workspaceRevision,
     membershipRevision: before.membershipRevision,
     ...preview,
-    media: media
-      .filter((image) => preview.imageIds.includes(image.key))
-      .map(({ key, imageId, kind }) => ({ key, imageId, kind })),
+    media,
   };
   if (new TextEncoder().encode(JSON.stringify(result)).byteLength > 2000000)
     throw new Error("Project preview is too large.");

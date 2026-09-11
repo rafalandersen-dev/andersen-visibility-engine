@@ -1,3 +1,4 @@
+import { projectTeamPreviewManifest } from "./project-team-preview.server";
 import { TeamVerificationMismatchError } from "./project-team-verification";
 import { TeamAdmissionBusyError } from "./project-team-admission";
 import { describe, expect, it, vi } from "vitest";
@@ -29,7 +30,17 @@ function context(image: Record<string, unknown> = { id: "im", storagePath: path 
   } as unknown as Awaited<ReturnType<typeof readTeamReviewContext>>;
 }
 const storageOrigin = "https://project.supabase.co";
+// Storage/transport unit fixtures isolate rendering; integration cases below use the real manifest.
 const deps = (image?: Record<string, unknown>) => ({
+  manifest: vi.fn(() => ({
+    paths: [],
+    preview: { html: "", imageIds: [], unknownImages: 0 },
+    media: (["content", "featured", "social"] as const).map((kind) => ({
+      key: kind + "_im",
+      imageId: typeof image?.id === "string" ? image.id : "im",
+      kind,
+    })),
+  })),
   acquire: vi.fn(async () => owner),
   release: vi.fn(async () => {}),
   storageOrigin,
@@ -321,4 +332,70 @@ it("distinguishes confirmed image changes from unavailable image bytes", async (
   await expect(
     readProjectTeamMedia(actor, input, { ...remote, remote: vi.fn(async () => null) }),
   ).rejects.not.toBeInstanceOf(TeamVerificationMismatchError);
+});
+
+it.each(["proposed", "rejected", "accepted"])(
+  "binds private media to the real rendered manifest: %s",
+  async (status) => {
+    const url = `${storageOrigin}/storage/v1/object/public/article-assets-public/${owner}/p/a/im.png`;
+    const d = deps({
+      id: "im",
+      status,
+      placement: "inline",
+      url,
+      storagePath: path,
+      alt: "Saved image",
+    });
+    const ctx = await d.read();
+    ctx.asset.title = "Draft";
+    ctx.asset.markdown = "# Draft\n\nSaved body";
+    d.read.mockResolvedValue(ctx);
+    const pending = readProjectTeamMedia(actor, input, {
+      ...d,
+      manifest: projectTeamPreviewManifest,
+    });
+    if (status === "accepted") {
+      await expect(pending).resolves.toHaveProperty("imageId", "im");
+      expect(d.download).toHaveBeenCalledTimes(1);
+    } else {
+      await expect(pending).rejects.toBeInstanceOf(TeamVerificationMismatchError);
+      expect(d.download).not.toHaveBeenCalled();
+    }
+  },
+);
+it("does not disclose a proposed private object sharing a visible image URL", async () => {
+  const url = `${storageOrigin}/storage/v1/object/public/article-assets-public/${owner}/p/a/visible.png`;
+  const d = deps({ id: "im", status: "proposed", url, storagePath: path, alt: "Private proposal" });
+  const ctx = await d.read();
+  ctx.asset.title = "Draft";
+  ctx.asset.markdown = "Saved body";
+  ctx.asset.images!.push({
+    ...ctx.asset.images![0],
+    id: "visible",
+    status: "accepted",
+    placement: "inline",
+    storagePath: `${owner}/p/a/visible.png`,
+  });
+  d.read.mockResolvedValue(ctx);
+  expect(projectTeamPreviewManifest(ctx).media).toContainEqual({
+    key: "content_visible",
+    imageId: "visible",
+    kind: "content",
+  });
+  await expect(
+    readProjectTeamMedia(actor, input, { ...d, manifest: projectTeamPreviewManifest }),
+  ).rejects.toBeInstanceOf(TeamVerificationMismatchError);
+  expect(d.download).not.toHaveBeenCalled();
+});
+it("refuses a staged proposal with only an owner-private storage path before download", async () => {
+  const d = deps({ id: "im", status: "proposed", storagePath: path, alt: "Private proposal" });
+  const ctx = await d.read();
+  ctx.asset.title = "Draft";
+  ctx.asset.markdown = "Saved body";
+  d.read.mockResolvedValue(ctx);
+  await expect(
+    readProjectTeamMedia(actor, input, { ...d, manifest: undefined }),
+  ).rejects.toBeInstanceOf(TeamVerificationMismatchError);
+  expect(d.download).not.toHaveBeenCalled();
+  expect(d.release).toHaveBeenCalled();
 });

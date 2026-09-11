@@ -1,3 +1,4 @@
+import { projectTeamPreviewManifest } from "./project-team-preview.server";
 import { TeamVerificationMismatchError } from "./project-team-verification";
 import { TeamAdmissionBusyError } from "./project-team-admission";
 import { acquireTeamMedia, releaseTeamMedia } from "./project-team-media-limit.server";
@@ -16,6 +17,7 @@ import { isControlledImageOrigin } from "./images";
 import { fetchPinnedImage } from "./homepage-fetch.server";
 type ContextReader = typeof readTeamReviewContext;
 type Dependencies = {
+  manifest?: typeof projectTeamPreviewManifest;
   acquire?: typeof acquireTeamMedia;
   release?: typeof releaseTeamMedia;
   read?: ContextReader;
@@ -38,6 +40,13 @@ export async function readProjectTeamMedia(
     const run = async () => {
       const before = await read(actorId, target);
       if (before.draftHash !== input.expectedHash) throw new Error("media_changed");
+      const manifest = (deps.manifest ?? projectTeamPreviewManifest)(before);
+      if (
+        !manifest.media.some(
+          (image) => image.imageId === input.imageId && image.kind === (input.kind ?? "content"),
+        )
+      )
+        throw new TeamVerificationMismatchError();
       const images = z
         .array(
           z
