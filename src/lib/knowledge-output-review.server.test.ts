@@ -69,12 +69,14 @@ function fixture() {
   ];
   const read = vi.fn(async () => structuredClone(workspace));
   const rpc = vi.fn(async (name: string) => {
-    if (name === "read_project_knowledge") return { data: structuredClone(state), error: null };
-    if (name === "read_output_knowledge_dependencies")
-      return { data: structuredClone(registry), error: null };
-    if (name === "read_project_knowledge_brand")
+    if (name === "read_output_knowledge_review_context")
       return {
-        data: { brandIntelligence: null, brandOwnerFields: [], toneOfVoice: "" },
+        data: {
+          knowledge: structuredClone(state),
+          registry: structuredClone(registry),
+          brand: { brandIntelligence: null, brandOwnerFields: [], toneOfVoice: "" },
+          contextHash: "c".repeat(64),
+        },
         error: null,
       };
     throw new Error(`Unexpected RPC ${name}`);
@@ -97,11 +99,9 @@ describe("saved knowledge inspection", () => {
     expect(result.facts[0].record?.revision).toBe(2);
     expect(result.facts[0].record?.value).toBe("Blue");
     expect(result.issues).toHaveLength(1);
-    expect(f.rpc.mock.calls.map((c) => c[0])).toEqual([
-      "read_output_knowledge_dependencies",
-      "read_project_knowledge",
-      "read_project_knowledge_brand",
-    ]);
+    expect(result.reviewable).toBe(true);
+    expect(result.facts[0].currentReference?.recordRevision).toBe(2);
+    expect(f.rpc.mock.calls.map((c) => c[0])).toEqual(["read_output_knowledge_review_context"]);
     expect(result).not.toHaveProperty("approved");
     expect(f.workspace.data.content[0].status).toBe("Draft");
   });
@@ -126,6 +126,7 @@ describe("saved knowledge inspection", () => {
     const result = await readKnowledgeOutputReview(scope, f.dependencies);
     expect(result.facts).toEqual([]);
     expect(result.forgotten).toBe(true);
+    expect(result.reviewable).toBe(false);
     expect(result.issues[0].key).toBe("forgotten-knowledge");
   });
   it("rejects an inspection when saved content changes during its reads", async () => {
@@ -149,4 +150,17 @@ describe("saved knowledge inspection", () => {
     f.rpc.mockRejectedValueOnce(new Error("offline"));
     await expect(readKnowledgeOutputReview(scope, f.dependencies)).rejects.toThrow();
   });
+  it.each(["expired", "disputed", "revoked", "visual-only"])(
+    "does not offer revalidation for %s current evidence",
+    async (reason) => {
+      const f = fixture();
+      if (reason === "expired") f.state.records[0].status = "expired";
+      if (reason === "disputed") f.state.records[0].status = "disputed";
+      if (reason === "revoked") f.state.sources[0].status = "revoked";
+      if (reason === "visual-only") f.state.records[0].appliesTo = "visual";
+      const result = await readKnowledgeOutputReview(scope, f.dependencies);
+      expect(result.reviewable).toBe(false);
+      expect(result.facts[0].currentReference).toBeNull();
+    },
+  );
 });

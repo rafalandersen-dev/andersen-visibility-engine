@@ -2,12 +2,10 @@ import { z } from "zod";
 import type { ContentAsset, Project } from "./types";
 import type { KnowledgeRpc } from "./project-knowledge.server";
 import type { readWorkspaceRow } from "./workspace.server";
-import { readProjectKnowledge, readProjectKnowledgeBrand } from "./project-knowledge.server";
-import {
-  evaluateAssetKnowledge,
-  readOutputKnowledgeDependencies,
-} from "./knowledge-publication.server";
-import { knowledgeReferencesSchema } from "./project-knowledge";
+import { evaluateAssetKnowledge } from "./knowledge-publication.server";
+import { readKnowledgeReviewContext } from "./knowledge-review-context.server";
+import { knowledgeReferencesSchema, selectProjectKnowledge } from "./project-knowledge";
+import { filterBrandKnowledge } from "./knowledge-brand";
 import { publicationVersion } from "./publication-version";
 import { buildActiveInternalPaths } from "./publish-targets";
 
@@ -35,15 +33,9 @@ export async function readKnowledgeOutputReview(
   const asset = content.find((a) => a.id === scope.assetId && a.projectId === scope.projectId);
   if (!workspace || !project || !asset) throw new Error("knowledge_output_unavailable");
   if ((asset.images?.length ?? 0) > 30) throw new Error("knowledge_output_unavailable");
-  const registry = await readOutputKnowledgeDependencies(
-    scope.ownerId,
-    scope.projectId,
-    [asset.id],
-    dependencies.rpc,
-  );
   const knowledgeScope = { ownerId: scope.ownerId, projectId: scope.projectId };
-  const state = await readProjectKnowledge(knowledgeScope, dependencies.rpc);
-  const profile = await readProjectKnowledgeBrand(knowledgeScope, dependencies.rpc);
+  const context = await readKnowledgeReviewContext(knowledgeScope, asset.id, dependencies.rpc);
+  const { registry, knowledge: state, brand: profile } = context;
   const now = z
     .string()
     .datetime({ offset: true })
@@ -84,6 +76,16 @@ export async function readKnowledgeOutputReview(
       content.filter((a) => a.projectId === project.id),
     ),
   );
+  const selections = {
+    content: filterBrandKnowledge(
+      selectProjectKnowledge(state.sources, state.records, knowledgeScope, "text", now),
+      profile,
+    ),
+    image: filterBrandKnowledge(
+      selectProjectKnowledge(state.sources, state.records, knowledgeScope, "visual", now),
+      profile,
+    ),
+  };
   const facts = original.map((item) => {
     const record = state.records.find(
       (r) =>
@@ -98,16 +100,31 @@ export async function readKnowledgeOutputReview(
         s.projectId === scope.projectId,
     );
     // Never reconstruct forgotten facts from archives or another project.
-    return { ...item, record: record ?? null, source: source ?? null };
+    const currentReference = selections[item.kind].references.find(
+      (reference) =>
+        reference.recordId === item.reference.recordId &&
+        reference.sourceId === item.reference.sourceId,
+    );
+    return {
+      ...item,
+      record: record ?? null,
+      source: source ?? null,
+      currentReference: currentReference ?? null,
+    };
   });
   const result = {
     assetId: asset.id,
     title: asset.title,
     markdown: asset.markdown ?? "",
     version,
+    contextHash: context.contextHash,
     checkedAt: now,
     facts,
     forgotten: relevant.some((r) => r.forgotten),
+    reviewable:
+      original.length > 0 &&
+      !relevant.some((r) => r.forgotten) &&
+      facts.every((fact) => fact.currentReference !== null),
     issues,
   };
   if (new TextEncoder().encode(JSON.stringify(result)).byteLength > 2000000)
