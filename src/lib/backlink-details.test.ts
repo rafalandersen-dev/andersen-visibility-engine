@@ -166,3 +166,22 @@ it("rejects a later-page count inconsistent with total matching results", () => 
   const next = { ...scope, offset: 10 };
   expect(() => normalizeBacklinkDetails(fixture(next), next, observed)).toThrow("result_mismatch");
 });
+
+it.each(["first_seen", "lost_last_seen"] as const)(
+  "uses deterministic URL tie-breakers for %s pagination",
+  (selection) => {
+    const first = backlinkDetailPayload({ ...scope, selection, offset: 0 }, new Date(observed));
+    const next = backlinkDetailPayload({ ...scope, selection, offset: 100 }, new Date(observed));
+    expect(first.order_by).toEqual([
+      selection === "first_seen" ? "first_seen,desc" : "last_seen,desc",
+      "url_from,asc",
+      "url_to,asc",
+    ]);
+    expect(next.order_by).toEqual(first.order_by);
+  },
+);
+it("rejects provider echo that omits deterministic pagination tie-breakers", () => {
+  const f = fixture();
+  f.tasks[0].data.order_by = ["first_seen,desc"];
+  expect(() => normalizeBacklinkDetails(f, scope, observed)).toThrow("scope_mismatch");
+});

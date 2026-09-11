@@ -46,3 +46,10 @@ Each request now includes an offset from0 through20000, using the provider's doc
 Source: [Backlinks Live request parameters](https://docs.dataforseo.com/v3/backlinks-backlinks-live/), checked11September2026. Search-after tokens for deeper traversal beyond20000 remain unimplemented; the bounded offset feature does not complete arbitrary-depth pagination or ongoing monitoring.
 
 Validation:116 focused detail normalization/history/lifecycle/actual-SQL/endpoint/transport/UI tests, TypeScript and changed-file lint pass (`/tmp/milo-details-pagination-{tests,types,lint}.log`). New regressions cover later-page echo mismatch, total-count consistency, offset limits, stable replay changes and expense ceilings. Full3572 suite/build evidence at33f7aa1 predates pagination. The unapplied180000 migration now requires seven scope fields, including offset; no production migration or provider call occurred.
+
+
+### Deterministic pagination ordering
+
+Every request sorts by the selected provider timestamp descending, then referring URL ascending and destination URL ascending. The unique retained URL pair breaks timestamp ties without changing the three-field provider sorting limit. The exact sort tuple is also required in the provider request echo. This addresses review3992604363; live-index changes between requests remain possible and explicitly disclosed.
+
+Validation:43 normalization/transport tests, TypeScript and changed-file lint pass (`/tmp/milo-pagination-order-{tests,types,lint}.log`). Full3581tests/265files and build at636244d predate these sort tie-breakers. Current review/build are required; no provider call or production mutation occurred.

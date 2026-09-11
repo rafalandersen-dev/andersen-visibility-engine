@@ -45,7 +45,7 @@ export function backlinkDetailPayload(raw: BacklinkDetailScope, now = new Date()
       "and",
       [field, "<", `${end} 00:00:00 +00:00`],
     ],
-    order_by: [`${field},desc`],
+    order_by: [`${field},desc`, "url_from,asc", "url_to,asc"],
   };
 }
 const safeUrl = z
