@@ -3,18 +3,25 @@ import { esAuditScreen } from "./es-audit-screen";
 import { esAuthScreen } from "./es-auth-screen";
 import { esBillingScreen } from "./es-billing-screen";
 import { esCollaboration } from "./es-collaboration";
+import { esCommerce } from "./es-commerce";
+import { esConfiguration } from "./es-configuration";
 import { esCore } from "./es-core";
 import { esEditorScreen } from "./es-editor-screen";
 import { esEvidenceScreen } from "./es-evidence-screen";
+import { esEvidence } from "./es-evidence";
+import { esGrowth } from "./es-growth";
 import { esKnowledge } from "./es-knowledge";
+import { esMeasurements } from "./es-measurements";
 import { esPlanScreen } from "./es-plan-screen";
+import { esPublicHome } from "./es-public-home";
+import { esPublicPricing } from "./es-public-pricing";
 import { esServicesScreen } from "./es-services-screen";
 import { esSetupScreen } from "./es-setup-screen";
 import { esSharedUi } from "./es-shared-ui";
 import { esTechnical } from "./es-technical";
 import { esWorkflow } from "./es-workflow";
 
-/** Incomplete Spanish authoring: 1858 messages / 15 batches.
+/** Incomplete Spanish authoring: 3007 messages / 22 batches.
  * Baseline: 3,734 English keys at 47bb01c; newer source needs reconciliation.
  * Legacy monthly scheduler, publication guarantees and provider/product claims
  * require review before activation. No fluent-user or full-interface acceptance.
@@ -56,6 +63,20 @@ export const ES_STAGED_BATCHES = [
     sourceHash: "429e59f16a866242f25a373ebd6b52332ae3f04534230101422ebab727f77ed0",
   },
   {
+    name: "commerce",
+    copy: esCommerce,
+    namespaces: ["billing", "launch", "beta"],
+    sourceRevision: "47bb01ca49620ff2005ecebba60dced85e9f68d8",
+    sourceHash: "2d58b596b76d994df2999d70c42588c8a48ec57ab846dbe5b88238580e59387c",
+  },
+  {
+    name: "configuration",
+    copy: esConfiguration,
+    namespaces: ["brand", "wp", "shopify", "claude", "connect", "connections", "coverage"],
+    sourceRevision: "47bb01ca49620ff2005ecebba60dced85e9f68d8",
+    sourceHash: "c5fffe69452f29226bfabcf4cd8633801d03536d5fd9f9681092c425569e6561",
+  },
+  {
     name: "core",
     copy: esCore,
     namespaces: [
@@ -88,6 +109,20 @@ export const ES_STAGED_BATCHES = [
     sourceHash: "2c7e9ccb48b02cd12911d0df6c31a96ec8ddfc6c558dfda3b3e14790d156c136",
   },
   {
+    name: "evidence",
+    copy: esEvidence,
+    namespaces: ["answer", "logs", "proof", "aiEval", "benchmark"],
+    sourceRevision: "47bb01ca49620ff2005ecebba60dced85e9f68d8",
+    sourceHash: "2911f87d7691a2bf04548e0b7c0e63b3c93f25cdcd73c9af1ba5d22ffdee211d",
+  },
+  {
+    name: "growth",
+    copy: esGrowth,
+    namespaces: ["authority", "actions", "publicAudit"],
+    sourceRevision: "47bb01ca49620ff2005ecebba60dced85e9f68d8",
+    sourceHash: "79460ac604f31155136687fbf43e146ccd11625f12316625da192cdb8188f136",
+  },
+  {
     name: "knowledge",
     copy: esKnowledge,
     namespaces: ["knowledge", "weekly", "approval", "refresh"],
@@ -95,11 +130,32 @@ export const ES_STAGED_BATCHES = [
     sourceHash: "a3a3297006f23628e422ddedfb5b6f5a51c6dd5f6abbc6d6e589481e49915816",
   },
   {
+    name: "measurements",
+    copy: esMeasurements,
+    namespaces: ["analytics", "gsc", "report"],
+    sourceRevision: "47bb01ca49620ff2005ecebba60dced85e9f68d8",
+    sourceHash: "d5a84c283031ca1ef2c696e427fb9d9327a475370d497840df4293c1c9840cd9",
+  },
+  {
     name: "plan screen",
     copy: esPlanScreen,
     namespaces: ["planScreen"],
     sourceRevision: "47bb01ca49620ff2005ecebba60dced85e9f68d8",
     sourceHash: "288f529ed3a18c00623c05011262d3cce0374158e558959fa8fc9dbc63174bb7",
+  },
+  {
+    name: "public home",
+    copy: esPublicHome,
+    namespaces: ["publicHome"],
+    sourceRevision: "47bb01ca49620ff2005ecebba60dced85e9f68d8",
+    sourceHash: "4e132895babfb222b37e92719be5ad2a8be90d9503869e9df9845b00d982adeb",
+  },
+  {
+    name: "public pricing",
+    copy: esPublicPricing,
+    namespaces: ["publicPricing"],
+    sourceRevision: "47bb01ca49620ff2005ecebba60dced85e9f68d8",
+    sourceHash: "4202dd4c670e4a227660092955e20b89d3aa24b792855d72b11264330b325ed6",
   },
   {
     name: "services screen",
