@@ -188,7 +188,7 @@ export const frCore: Readonly<Record<string, string>> = {
   "nav.actions": "Actions en attente",
   "nav.backlinks": "Liens entrants",
   "nav.linkMarketplace": "Place de marché de liens",
-  "nav.outreach": "Prospection avec l’IA",
+  "nav.outreach": "Prise de contact IA",
   "pipeline.stage.idea": "Idée",
   "pipeline.stage.queued": "En file d’attente",
   "pipeline.stage.planned": "Prévu",

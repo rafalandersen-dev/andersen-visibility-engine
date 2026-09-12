@@ -23,9 +23,9 @@ it("keeps each French key in one authoring batch", () => {
   expect(keys.length).toBe(new Set(keys).size);
   expect(Object.keys(FR_STAGED_CATALOG).sort()).toEqual([...keys].sort());
 });
-it("keeps incomplete French copy unavailable as an interface language", () => {
+it("covers the current dictionary while keeping French unavailable pending interface acceptance", () => {
   expect(isUiLanguage("fr")).toBe(false);
-  expect(Object.keys(FR_STAGED_CATALOG).length).toBeLessThan(Object.keys(UI_CATALOGS.en).length);
+  expect(Object.keys(FR_STAGED_CATALOG).sort()).toEqual(Object.keys(UI_CATALOGS.en).sort());
 });
 it("distinguishes planned, scheduled, sent and published work", () => {
   const labels = ["planned", "armed", "sent", "live"].map(

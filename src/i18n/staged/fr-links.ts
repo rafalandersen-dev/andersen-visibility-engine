@@ -4,7 +4,7 @@ export const frLinks: Readonly<Record<string, string>> = {
   "linknet.subtitle":
     "Trouvez des sites pertinents dans le réseau Milo, envoyez une présentation personnelle et laissez Milo vérifier la présence du lien en ligne.",
   "linknet.policyNote":
-    "La pertinence est prioritaire : les correspondances exigent des sujets communs, les simples échanges de liens sont signalés et rien n’est placé automatiquement. Ces contrôles visent à limiter les risques pour votre profil de liens.",
+    "La pertinence est prioritaire : les correspondances exigent des sujets communs, les échanges directs de liens sont signalés et rien n’est placé automatiquement. Ces contrôles ne garantissent pas le respect des règles des moteurs de recherche.",
   "linknet.topics": "Sujets",
   "linknet.topicsPlaceholder": "Sujets (séparés par des virgules)",
   "linknet.contact": "E-mail de contact",

@@ -9,10 +9,16 @@ import { frConfiguration } from "./fr-configuration";
 import { frGrowth } from "./fr-growth";
 import { frCommerce } from "./fr-commerce";
 import { frLinks } from "./fr-links";
+import { frOutreach } from "./fr-outreach";
 
-/** Authoring batches only. This catalog is incomplete and is not registered by
- * the runtime or offered in the language picker. */
+/** Authoring batches only. Dictionary coverage does not establish full interface
+ * acceptance. This catalog is not registered by the runtime or language picker. */
 export const FR_STAGED_BATCHES = [
+  {
+    name: "outreach",
+    copy: frOutreach,
+    namespaces: ["outreach", "hook", "anchor"],
+  },
   {
     name: "links",
     copy: frLinks,
