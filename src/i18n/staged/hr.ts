@@ -1,3 +1,4 @@
+import { hrEvidenceScreen } from "./hr-evidence-screen";
 import { hrAnalyticsScreen } from "./hr-analytics-screen";
 import { hrBillingScreen } from "./hr-billing-screen";
 import { hrSetupScreen } from "./hr-setup-screen";
@@ -8,6 +9,13 @@ import { hrAuthScreen } from "./hr-auth-screen";
 import { hrSharedUi } from "./hr-shared-ui";
 /** Croatian authoring; never imported by the runtime catalog. */
 export const HR_STAGED_BATCHES = [
+  {
+    name: "evidence screen",
+    copy: hrEvidenceScreen,
+    namespaces: ["evidenceScreen"],
+    sourceRevision: "5b2f76a",
+    sourceHash: "2c7e9ccb48b02cd12911d0df6c31a96ec8ddfc6c558dfda3b3e14790d156c136",
+  },
   {
     name: "analytics screen",
     copy: hrAnalyticsScreen,
