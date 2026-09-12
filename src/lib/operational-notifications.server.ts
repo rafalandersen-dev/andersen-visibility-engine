@@ -1,3 +1,4 @@
+import { readWorkspaceRow } from "./workspace.server";
 import { normalizeAutoSchedulerConfig } from "./auto-scheduler";
 import { schedulerPeriodSchema } from "./weekly-preparation";
 import { z } from "zod";
@@ -68,21 +69,35 @@ async function admin(): Promise<Admin> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   return supabaseAdmin as unknown as Admin;
 }
+async function notificationOperation<T>(operation: PromiseLike<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("notification_operation_timeout")), 10000);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 export async function refreshOperationalNotifications(
   userId: string,
   now = new Date(),
 ): Promise<boolean> {
-  const { readWorkspaceRow } = await import("./workspace.server");
-  const row = await readWorkspaceRow(userId);
+  const row = await notificationOperation(readWorkspaceRow(userId));
   if (!row) return false; // unavailable source must never clear an existing inbox
   const snapshot = snapshotSchema.parse(row.data);
   const db = await admin();
-  const response = await db
-    .from("scheduled_publishes")
-    .select("id,project_id,asset_id,publish_at,status,attempts,created_at", { count: "exact" })
-    .eq("user_id", userId)
-    .order("id")
-    .limit(1001);
+  const response = await notificationOperation(
+    db
+      .from("scheduled_publishes")
+      .select("id,project_id,asset_id,publish_at,status,attempts,created_at", { count: "exact" })
+      .eq("user_id", userId)
+      .order("id")
+      .limit(1001),
+  );
   if (!completeNotificationSource(response)) throw new Error("notification_queue_unavailable");
   const scheduled = z
     .array(queueSchema)
@@ -96,12 +111,14 @@ export async function refreshOperationalNotifications(
       attempts: r.attempts,
       createdAt: r.created_at,
     }));
-  const leaseResponse = await db
-    .from("auto_scheduler_leases")
-    .select("project_id,planned_period,status,acquired_at,lease_until", { count: "exact" })
-    .eq("user_id", userId)
-    .order("project_id")
-    .limit(1001);
+  const leaseResponse = await notificationOperation(
+    db
+      .from("auto_scheduler_leases")
+      .select("project_id,planned_period,status,acquired_at,lease_until", { count: "exact" })
+      .eq("user_id", userId)
+      .order("project_id")
+      .limit(1001),
+  );
   if (!completeNotificationSource(leaseResponse))
     throw new Error("notification_scheduler_unavailable");
   const schedulerLeases = z
@@ -119,7 +136,9 @@ export async function refreshOperationalNotifications(
   );
   let controls: Array<{ projectId: string; engine: "monthly" | "weekly" | "paused" }> = [];
   if (enabledProjects.length) {
-    const response = await db.rpc("read_workspace_scheduler_controls", { p_user: userId });
+    const response = await notificationOperation(
+      db.rpc("read_workspace_scheduler_controls", { p_user: userId }),
+    );
     if (response.error) throw new Error("notification_scheduler_control_unavailable");
     controls = z
       .array(
@@ -154,21 +173,25 @@ export async function refreshOperationalNotifications(
     now,
   });
   if (demand.length) {
-    const capacity = await readGenerationCapacity(userId, now, db);
+    const capacity = await notificationOperation(readGenerationCapacity(userId, now, db));
     events.push(...schedulerCapacityNotifications(demand, capacity));
   }
   if (events.length > 500) throw new Error("notification_scan_too_large");
-  const synced = await db.rpc("sync_operational_notifications", {
-    p_user: userId,
-    p_workspace_rev: row.rev,
-    p_scanned_at: now.toISOString(),
-    p_events: events,
-  });
+  const synced = await notificationOperation(
+    db.rpc("sync_operational_notifications", {
+      p_user: userId,
+      p_workspace_rev: row.rev,
+      p_scanned_at: now.toISOString(),
+      p_events: events,
+    }),
+  );
   if (synced.error || typeof synced.data !== "boolean")
     throw new Error("notification_sync_unavailable");
   if (synced.data && process.env.OPERATIONAL_EMAIL_ENABLED === "true") {
     try {
-      const queued = await db.rpc("queue_operational_email_digest", { p_user: userId });
+      const queued = await notificationOperation(
+        db.rpc("queue_operational_email_digest", { p_user: userId }),
+      );
       if (queued.error) console.warn("Operational digest could not be queued");
     } catch {
       console.warn("Operational digest could not be queued");
@@ -242,20 +265,24 @@ export async function listOperationalNotifications(userId: string) {
 /** Bounded, fair server sweep. No active browser session and no AI/email needed. */
 export async function runOperationalNotificationSweep() {
   const db = await admin();
-  const response = await db.rpc("operational_notification_scan_targets", { p_limit: 20 });
+  const response = await notificationOperation(
+    db.rpc("operational_notification_scan_targets", { p_limit: 20 }),
+  );
   if (response.error) throw new Error("notification_targets_unavailable");
   const targets = z
     .array(z.object({ user_id: z.string().uuid() }))
     .max(20)
     .parse(response.data);
   const result = { scanned: 0, failed: 0, stale: 0 };
-  for (const target of targets) {
-    try {
-      if (await refreshOperationalNotifications(target.user_id)) result.scanned++;
-      else result.stale++;
-    } catch {
-      result.failed++;
-    }
-  }
+  await Promise.all(
+    targets.map(async (target) => {
+      try {
+        if (await refreshOperationalNotifications(target.user_id)) result.scanned++;
+        else result.stale++;
+      } catch {
+        result.failed++;
+      }
+    }),
+  );
   return result;
 }

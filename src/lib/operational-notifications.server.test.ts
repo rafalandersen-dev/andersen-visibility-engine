@@ -41,10 +41,47 @@ beforeEach(() => {
   }));
 });
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllEnvs();
 });
 describe("server notification snapshot boundary", () => {
+  it("finishes healthy accounts while a stalled account times out without late sync", async () => {
+    const first = "00000000-0000-4000-8000-000000000001";
+    const second = "00000000-0000-4000-8000-000000000002";
+    let complete!: (value: unknown) => void;
+    mocks.workspace.mockImplementation((user) =>
+      user === first
+        ? new Promise((resolve) => {
+            complete = resolve;
+          })
+        : Promise.resolve({ rev: 7, data: { projects: [], content: [], opportunities: [] } }),
+    );
+    mocks.rpc.mockImplementation(async (name) => ({
+      data:
+        name === "operational_notification_scan_targets"
+          ? [{ user_id: first }, { user_id: second }]
+          : true,
+      error: null,
+    }));
+    vi.useFakeTimers();
+    const sweep = runOperationalNotificationSweep();
+    await vi.waitFor(() =>
+      expect(mocks.rpc).toHaveBeenCalledWith(
+        "sync_operational_notifications",
+        expect.objectContaining({ p_user: second }),
+      ),
+    );
+    await vi.advanceTimersByTimeAsync(10000);
+    expect(await sweep).toEqual({ scanned: 1, failed: 1, stale: 0 });
+    complete({ rev: 7, data: { projects: [], content: [], opportunities: [] } });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(mocks.rpc).not.toHaveBeenCalledWith(
+      "sync_operational_notifications",
+      expect.objectContaining({ p_user: first }),
+    );
+  });
+
   it.each(["scheduled_publishes", "auto_scheduler_leases"])(
     "preserves alerts when %s completeness is unverified",
     async (tableName) => {
