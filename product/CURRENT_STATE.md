@@ -1,5 +1,8 @@
 # Milo Growth — current status
 
+
+Latest prepared delivery: public pricing `72c0417` adds36 messages in EN/PL/SV/DA plus stagedFrench, shared device language and independent market/currency.13 prepared UI batches/682 additions/3734 keys/27French batches.68 focused checks, types/build/zero lint and four-language390px/market-retention/Danish-reload smoke pass. Unreleased; overall60%/implementation75% unchanged. Next case studies, then market/policy gaps. See `HANDOFF_2026_09_12_PRICING_DELIVERY.md`.
+
 Updated: 12 September 2026 (Stockholm; latest release 12 September 05:52 UTC). Owner: Rafal Andersen. Phase: private beta / launch foundations. Public paid launch: **NO-GO / acceptance incomplete**.
 
 Public home localization is prepared in `6c4a243`, final combined source `934f718`:100 messages, shared device language in EN/PL/SV/DA and staged French, canonical limits, independent market suggestion and stable FAQ disclosure. The candidate now has12 prepared UI batches/646 added messages/3698 keys per catalog/26 French batches. Final137 focused tests, types/build and zero home lint pass; built four-language390px interaction, FAQ, reload and beta-navigation smoke pass. Report-email24-language `eaed45f` and scoped app/auth language semantics `934e134` are now normally integrated via `a8ed751`; no real sends or fluent/provider acceptance. Overall60%/implementation75% and security-review/release holds are unchanged. Next: pricing and case studies, then market/policy gaps. See `HANDOFF_2026_09_12_HOME_DELIVERY.md` and `UI_PUBLIC_HOME_LOCALIZATION_2026_09_12.md`.
