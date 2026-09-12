@@ -141,6 +141,7 @@ export function selectProjectKnowledge(
       (r.appliesTo === forOutput || r.appliesTo === "both") &&
       Date.parse(r.updatedAt) <= now &&
       Date.parse(r.reviewedAt!) <= now &&
+      Date.parse(r.reviewedAt!) >= Date.parse(r.updatedAt) &&
       (!r.validUntil || Date.parse(r.validUntil) > now)
     );
   });

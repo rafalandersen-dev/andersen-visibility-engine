@@ -83,6 +83,26 @@ describe("scoped sourced project knowledge", () => {
     expect(select([], [record]).records).toEqual([]);
     expect(record.status).toBe("accepted");
   });
+  it.each(["text", "visual"] as const)(
+    "excludes a lesson changed after review from %s context and provenance",
+    (output) => {
+      const lesson = {
+        ...record,
+        category: "lesson" as const,
+        key: "lesson.tone",
+        reviewedAt: "2026-09-09T09:00:00Z",
+      };
+      const selected = select([source], [lesson], output);
+      expect(selected.records).toEqual([]);
+      expect(selected.references).toEqual([]);
+      expect(selected.omitted).toBe(1);
+      expect(projectKnowledgeContext(selected).context).toBe("");
+      const reviewed = select([source], [{ ...lesson, reviewedAt: now }], output);
+      expect(reviewed.records).toHaveLength(1);
+      expect(projectKnowledgeContext(reviewed).context).toContain(lesson.value);
+      expect(reviewed.references[0].recordRevision).toBe(lesson.revision);
+    },
+  );
   it("requires review of the new source revision before it contributes", () => {
     const replaced = { ...source, revision: 2 };
     expect(
