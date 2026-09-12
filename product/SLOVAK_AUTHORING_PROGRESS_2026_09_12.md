@@ -1,6 +1,6 @@
 # Slovak interface authoring — 12 September 2026
 
-Slovak is staged only: 2,779 of the current 3,768 English interface keys, across twenty-four complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS retain separate staged acceptance status.
+Slovak is staged only: 2,971 of the current 3,768 English interface keys, across twenty-five complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS retain separate staged acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -28,14 +28,15 @@ Slovak is staged only: 2,779 of the current 3,768 English interface keys, across
 | Analytics, Search Console and reports | 204 | 2f06d69 |
 | Outreach, hooks and image placement | 158 | 8b4032a |
 | Authority opportunities, public audit and proposals | 201 | 7c7795f |
+| Billing, launch checklist and beta limitations | 192 | a5d2a42 |
 
-The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 35 Slovak/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovak-growth-types.log.
+The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 36 Slovak/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovak-commerce-types.log.
 
 Terminology: pracovný priestor (workspace), projekt, heslo (password), obnovenie hesla (password recovery), bočný panel (sidebar), archivovať (archive). Prefer formal-plural instructions and infinitive actions. Program denotes a subscription plan; workflow plans use plán. Network listing is zápis. Preserve provider/product names and placeholders.
 
 Recovery text preserves conditional eligibility and does not confirm that an account exists. Source claims about monthly planning and successful sign-in after password update retain implementation/acceptance obligations; translation does not prove them. No email, authentication, password, account or provider operation occurred.
 
-Remaining: 989 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next complete batch: commerce using current composed English. This staged work does not complete R20 or alter release gates.
+Remaining: 797 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next complete batch: links using current composed English. This staged work does not complete R20 or alter release gates.
 
 Core copy preserves interface versus content language, work target dates versus publication times, sent drafts versus published pages, and partial-generation recovery. Navigation uses Plán, Obsah, Viditeľnosť, Nastavenia and Analytika; publication scheduling is Čas zverejnenia nastavený. No generation, scheduling or publication occurred. Current source fingerprints are checked against composed English.
 
@@ -72,3 +73,5 @@ Measurements/report copy retains historical publication and email-delivery limit
 Outreach/hooks/placement preserves exact-recipient/message approval, separate follow-up review, provider acceptance versus inbox outcomes and uncertain-attempt holds. Hook is pútavý úvod; Zdroje a autor matches the editor tab. Follow-up timing uses Odstup v dňoch to avoid implying automatic dispatch. No generation, approval, email or image-placement operation occurred.
 
 Growth copy preserves suggested authority work, public-audit readiness limits and approximate homepage signals. Proposal approval applies changes immediately; duplicate and capacity exclusions remain explicit and setup-complete status is unchanged. Authority listing uses zápis and publication-style labels remain source workflow labels. No audit, generation, outreach or proposal application occurred.
+
+Commerce copy preserves test checkout versus actual charges, manual activation versus payment verification, subscription program terminology and incomplete live payment/CMS acceptance. Checklist completion does not establish readiness for paid self-service; historical GSC imports do not establish current connection provenance. No payment, activation, connector, Google or publication operation occurred.
