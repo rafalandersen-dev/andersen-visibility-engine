@@ -1,0 +1,9 @@
+# Ongoing backlink monitor — isolated planning foundation
+
+12 September 2026: a pure settings and occurrence planner is implemented independently of the continuation release. It is not called by a route, scheduler or supplier transport. No monitor is created or enabled and no production timer, database or budget is changed.
+
+The owner settings contract has an explicit enable state, daily/weekly UTC cadence, 1–92 complete days of aggregate new/lost observations, subdomain scope and a monthly supplier cap. Enabling requires a cap sufficient for one full bounded request; this check does not provision account/global funds or authorize collection. The current implementation bounds the configurable cap at 100 USD per monitor, with zero permitted only while paused. This is an implementation bound, not a pricing plan or a suggested spend.
+
+Planning takes a server-saved due time, skips missed occurrences without a backlog burst, preserves the original cadence anchor, and returns the most recent due occurrence and the next due time. Date windows exclude the current partial UTC day, including at midnight and leap-day boundaries. Exact saved hostname/subdomain scope and the released daily-series price bound are preserved.
+
+Fourteen pure fixture tests and changed-file lint pass. Type checking and integration remain. Required next work: private settings/revision/monthly expense and occurrence storage; authenticated owner configuration; atomic due-work claims; current website/account/configuration fences; remaining monitor/account/global budget admission before dispatch; one request identity and immutable history per occurrence; paused/unknown/pending accounting holds; bounded shared-secret executor and localized controls. Existing manual monitoring lifecycle can be factored but cannot be invoked in a way that bypasses per-monitor admission. Real provider and browser acceptance remain open. No full-feature completion credit is claimed.
