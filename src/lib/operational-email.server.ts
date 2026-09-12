@@ -1,14 +1,16 @@
 import { z } from "zod";
-import { notifications } from "@/i18n/notifications";
+import { emailCopy } from "@/i18n/email-copy";
+import { emailLocaleSchema } from "./email-languages";
+import { escapeEmailText as escape } from "./email-render";
 import { refreshOperationalNotifications } from "./operational-notifications.server";
-const localeSchema = z.enum(["en", "pl", "sv", "da"]);
+
 const claimSchema = z.object({
   id: z.string().uuid(),
   user_id: z.string().uuid(),
   lease_token: z.string().uuid(),
 });
 const digestSchema = z.object({
-  locale: localeSchema,
+  locale: emailLocaleSchema,
   items: z
     .array(
       z.object({
@@ -32,51 +34,13 @@ const digestSchema = z.object({
     .min(1)
     .max(50),
 });
-const copy = {
-  en: {
-    subject: "Your Milo Growth tasks need attention",
-    intro:
-      "These tasks still need attention at the latest check. Open Milo to review their current status.",
-    open: "Review notifications",
-    footer:
-      "Manage operational email preferences in Milo. Opening this link never approves or publishes content.",
-  },
-  pl: {
-    subject: "Zadania w Milo Growth wymagają uwagi",
-    intro:
-      "Te zadania wymagały uwagi podczas ostatniego sprawdzenia. Otwórz Milo, aby zobaczyć ich aktualny stan.",
-    open: "Sprawdź powiadomienia",
-    footer:
-      "Ustawienia e-maili operacyjnych zmienisz w Milo. Otwarcie linku nie zatwierdza ani nie publikuje treści.",
-  },
-  sv: {
-    subject: "Dina uppgifter i Milo Growth behöver uppmärksamhet",
-    intro:
-      "Dessa uppgifter behövde uppmärksamhet vid den senaste kontrollen. Öppna Milo för aktuell status.",
-    open: "Visa aviseringar",
-    footer:
-      "Hantera e-postinställningar i Milo. Länken godkänner eller publicerar aldrig innehåll.",
-  },
-  da: {
-    subject: "Dine opgaver i Milo Growth kræver opmærksomhed",
-    intro:
-      "Disse opgaver krævede opmærksomhed ved seneste kontrol. Åbn Milo for den aktuelle status.",
-    open: "Se notifikationer",
-    footer:
-      "Administrer e-mailindstillinger i Milo. Linket godkender eller udgiver aldrig indhold.",
-  },
-};
-const escape = (s: string) =>
-  s.replace(
-    /[&<>"']/g,
-    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
-  );
+
 export function renderOperationalDigest(
   input: unknown,
   destination: "notifications" | "collaborators" = "notifications",
 ) {
   const digest = digestSchema.parse(input),
-    c = copy[digest.locale];
+    c = emailCopy[digest.locale].digest;
   const lines = digest.items.map((item) => {
     let due = "";
     if (item.dueAt)
@@ -86,13 +50,13 @@ export function renderOperationalDigest(
           timeStyle: "short",
           timeZone: item.detail.timeZone,
         }).format(new Date(item.dueAt)) + ` (${item.detail.timeZone})`;
-    return `${notifications[digest.locale][`notifications.${item.kind}`]}: ${item.title}${due ? ` — ${due}` : ""}`;
+    return `${c.kinds[item.kind]}: ${item.title}${due ? ` — ${due}` : ""}`;
   });
   const url = `https://milogrowth.com/app/${destination}`;
   return {
     subject: c.subject,
     text: [c.intro, ...lines, `${c.open}: ${url}`, c.footer].join("\n\n"),
-    html: `<p>${escape(c.intro)}</p><ul>${lines.map((line) => `<li>${escape(line)}</li>`).join("")}</ul><p><a href="${url}">${escape(c.open)}</a></p><p>${escape(c.footer)}</p>`,
+    html: `<div lang="${digest.locale}"><p>${escape(c.intro)}</p><ul>${lines.map((line) => `<li>${escape(line)}</li>`).join("")}</ul><p><a href="${url}">${escape(c.open)}</a></p><p>${escape(c.footer)}</p></div>`,
   };
 }
 export function operationalEmailEnabled() {

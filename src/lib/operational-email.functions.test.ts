@@ -53,7 +53,9 @@ vi.mock("@/integrations/supabase/client.server", () => ({
 import {
   getOperationalEmailSettingsFn,
   setOperationalEmailSettingsFn,
+  setOperationalEmailLanguageFn,
 } from "./operational-email.functions";
+import { EMAIL_LANGUAGE_CODES } from "./email-languages";
 const userId = "00000000-0000-4000-8000-000000000011";
 const call = (fn: unknown, ctx: unknown, data?: unknown) =>
   (fn as (args: unknown) => Promise<unknown>)({ context: ctx, data });
@@ -74,7 +76,7 @@ beforeEach(() => {
 });
 describe("operational email settings recipient boundary", () => {
   it("keeps authentication middleware on both settings actions", () => {
-    expect(mocks.middleware.mock.calls).toHaveLength(2);
+    expect(mocks.middleware.mock.calls).toHaveLength(3);
     for (const [middlewares] of mocks.middleware.mock.calls)
       expect(middlewares).toEqual([{ kind: "authenticated" }]);
   });
@@ -166,4 +168,54 @@ describe("operational email settings recipient boundary", () => {
     ).toThrow();
     expect(ctx.supabase.rpc).not.toHaveBeenCalled();
   });
+});
+it.each(EMAIL_LANGUAGE_CODES)(
+  "saves %s as a language-only preference without enabling, resolving a recipient or checking the delivery gate",
+  async (locale) => {
+    const ctx = context();
+    mocks.enabled.mockReturnValue(false);
+    mocks.address.mockResolvedValue({ status: "unavailable" });
+    await expect(call(setOperationalEmailLanguageFn, ctx, { locale })).resolves.toEqual({
+      saved: true,
+    });
+    expect(ctx.supabase.rpc).toHaveBeenCalledExactlyOnceWith("set_operational_email_language", {
+      p_locale: locale,
+    });
+    expect(mocks.enabled).not.toHaveBeenCalled();
+    expect(mocks.address).not.toHaveBeenCalled();
+  },
+);
+it("refuses enabling or addressing fields in a language-only save", () => {
+  const ctx = context();
+  for (const data of [
+    { locale: "de", enabled: true },
+    { locale: "de", userId },
+    { locale: "de", email: "foreign@example.test" },
+    { locale: "xx" },
+    { locale: "en-US" },
+  ])
+    expect(() => call(setOperationalEmailLanguageFn, ctx, data)).toThrow();
+  expect(ctx.supabase.rpc).not.toHaveBeenCalled();
+});
+it("withholds private RPC errors from a language-only response", async () => {
+  const ctx = context();
+  ctx.supabase.rpc.mockRejectedValue(new Error("private database and credential information"));
+  await expect(call(setOperationalEmailLanguageFn, ctx, { locale: "de" })).rejects.toThrow(
+    "Email language could not be confirmed.",
+  );
+  expect(ctx.supabase.rpc).toHaveBeenCalledOnce();
+});
+it("bounds a lost language-save response without retrying the uncertain mutation", async () => {
+  vi.useFakeTimers();
+  try {
+    const ctx = context();
+    ctx.supabase.rpc.mockImplementation(() => new Promise(() => {}));
+    const pending = call(setOperationalEmailLanguageFn, ctx, { locale: "de" });
+    const assertion = expect(pending).rejects.toThrow("Reload the saved settings");
+    await vi.advanceTimersByTimeAsync(10001);
+    await assertion;
+    expect(ctx.supabase.rpc).toHaveBeenCalledOnce();
+  } finally {
+    vi.useRealTimers();
+  }
 });
