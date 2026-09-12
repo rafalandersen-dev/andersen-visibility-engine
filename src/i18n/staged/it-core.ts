@@ -123,7 +123,7 @@ export const itCore: Readonly<Record<string, string>> = {
   "setup.section.marketsGoals": "Mercati e obiettivi",
   "shell.loadError.title": "Impossibile caricare l’area di lavoro",
   "shell.loadError.body":
-    "I tuoi dati sono al sicuro: la connessione al backend di Milo non è riuscita. Controlla la connessione di rete e riprova.",
+    "Riprova. Se sei offline, riconnettiti prima. Il salvataggio è disabilitato finché l’area di lavoro non viene caricata.",
   "shell.loadError.retry": "Riprova",
   "shell.nav.monthlyReport": "Report mensile",
   "shell.trust": "Centro fiducia UE",

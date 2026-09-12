@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Workspace load-error guidance now gives retry/offline instructions and the verified saving-disabled behavior, removing unsupported data-safety and failure-cause assertions across four runtime and four staged languages. 185 catalog/persistence checks pass; reviewed core fingerprints updated only for this source change. See WORKSPACE_LOAD_ERROR_COPY_2026_09_12.md. Prepared, unreleased; language/user acceptance and release gates remain.
+
 New workspace sessions now start a fresh save queue, so an unfinished old-account write cannot prevent the current account from saving. Old queued/in-flight requests retain lifecycle guards. Two new race regressions; 52 store tests/six files pass. See WORKSPACE_SAVE_QUEUE_LIFECYCLE_2026_09_12.md. Prepared, unreleased; issued writes are not cancelled and real-use/release gates remain.
 
 Workspace content refresh now retains the latest separate entitlement display instead of resetting paid accounts to Free Preview. Workspace data still cannot grant a plan, and a newer authoritative downgrade remains effective. Two new regressions; 88 focused tests/12 files, types and scoped lint pass. See WORKSPACE_RELOAD_ENTITLEMENT_2026_09_12.md. Prepared, unreleased; real billing and release gates remain.

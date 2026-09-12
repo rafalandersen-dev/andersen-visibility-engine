@@ -244,7 +244,7 @@ export const pl: Record<string, string> = {
   "editor.schedule.blockedCta": "Otwórz checklistę publikacji",
   "shell.loadError.title": "Nie udało się wczytać Twojego workspace'u",
   "shell.loadError.body":
-    "Twoje dane są bezpieczne — połączenie z backendem Milo nie powiodło się. Sprawdź sieć i spróbuj ponownie.",
+    "Spróbuj ponownie. Jeśli nie masz połączenia z internetem, najpierw je przywróć. Zapisywanie jest wyłączone do czasu wczytania workspace’u.",
   "shell.loadError.retry": "Spróbuj ponownie",
   "shell.nav.monthlyReport": "Raport miesięczny",
   "report.branding.title": "Branding raportu (Agency)",

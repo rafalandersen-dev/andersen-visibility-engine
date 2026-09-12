@@ -244,7 +244,7 @@ export const da: Record<string, string> = {
   "editor.schedule.blockedCta": "Åbn udgivelsestjeklisten",
   "shell.loadError.title": "Vi kunne ikke indlæse dit workspace",
   "shell.loadError.body":
-    "Dine data er sikre — forbindelsen til Milos backend fejlede. Tjek dit netværk og prøv igen.",
+    "Prøv igen. Hvis du er offline, skal du først oprette forbindelse til internettet. Du kan ikke gemme, før dit workspace er indlæst.",
   "shell.loadError.retry": "Prøv igen",
   "shell.nav.monthlyReport": "Månedsrapport",
   "report.branding.title": "Rapportbranding (Agency)",

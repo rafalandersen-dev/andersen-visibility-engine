@@ -123,7 +123,7 @@ export const esCore: Readonly<Record<string, string>> = {
   "setup.section.marketsGoals": "Mercados y objetivos",
   "shell.loadError.title": "No hemos podido cargar tu espacio de trabajo",
   "shell.loadError.body":
-    "Tus datos están a salvo: ha fallado la conexión con el servidor de Milo. Comprueba tu conexión e inténtalo de nuevo.",
+    "Inténtalo de nuevo. Si no tienes conexión, vuelve a conectarte primero. No podrás guardar hasta que se cargue tu espacio de trabajo.",
   "shell.loadError.retry": "Reintentar",
   "shell.nav.monthlyReport": "Informe mensual",
   "shell.trust": "Centro de confianza de la UE",

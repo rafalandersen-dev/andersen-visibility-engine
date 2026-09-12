@@ -125,7 +125,7 @@ export const deCore: Readonly<Record<string, string>> = {
   "setup.section.marketsGoals": "Märkte und Ziele",
   "shell.loadError.title": "Dein Arbeitsbereich konnte nicht geladen werden",
   "shell.loadError.body":
-    "Deine Daten sind sicher — die Verbindung zu Milos Backend ist fehlgeschlagen. Prüfe deine Netzwerkverbindung und versuche es erneut.",
+    "Versuche es erneut. Wenn du offline bist, stelle zuerst die Internetverbindung wieder her. Speichern ist erst möglich, wenn dein Arbeitsbereich geladen ist.",
   "shell.loadError.retry": "Erneut versuchen",
   "shell.nav.monthlyReport": "Monatsbericht",
   "shell.trust": "EU-Vertrauenszentrum",

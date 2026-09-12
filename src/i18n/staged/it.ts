@@ -45,7 +45,7 @@ export const IT_STAGED_BATCHES = [
       "pipeline",
     ],
     sourceRevision: "6002253",
-    sourceHash: "924a5d23d5cf76e52c2cae0dbb90b23f1989e850603d1b0462fc4e569e204bcf",
+    sourceHash: "845b2b1ade4a0935ab924dcc4bdc27d72a7a120388740354bd69a697aa1c7ff2",
   },
   {
     name: "authentication",

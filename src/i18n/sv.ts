@@ -244,7 +244,7 @@ export const sv: Record<string, string> = {
   "editor.schedule.blockedCta": "Öppna publiceringschecklistan",
   "shell.loadError.title": "Vi kunde inte ladda din arbetsyta",
   "shell.loadError.body":
-    "Din data är säker — anslutningen till Milos backend misslyckades. Kontrollera nätverket och försök igen.",
+    "Försök igen. Om du är offline, anslut till internet först. Det går inte att spara förrän arbetsytan har laddats.",
   "shell.loadError.retry": "Försök igen",
   "shell.nav.monthlyReport": "Månadsrapport",
   "report.branding.title": "Rapportens varumärke (Agency)",

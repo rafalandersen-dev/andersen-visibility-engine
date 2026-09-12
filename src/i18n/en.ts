@@ -250,7 +250,7 @@ export const en: Record<string, string> = {
   "editor.schedule.blockedCta": "Open the publishing checklist",
   "shell.loadError.title": "We couldn't load your workspace",
   "shell.loadError.body":
-    "Your data is safe — the connection to Milo's backend failed. Check your network and try again.",
+    "Try again. If you are offline, reconnect first. Saving is disabled until your workspace loads.",
   "shell.loadError.retry": "Try again",
   "shell.nav.monthlyReport": "Monthly report",
   "report.branding.title": "Report branding (Agency)",
