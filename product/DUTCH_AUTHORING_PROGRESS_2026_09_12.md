@@ -1,6 +1,6 @@
 # Dutch interface authoring — 12 September 2026
 
-R20 requires full EU-language coverage. Dutch authoring has begun with 3,423 of the current 3,768 English interface messages (345 remain). This is a partial staged catalog; Dutch is not registered in UI_CATALOGS or the language picker.
+R20 requires full EU-language coverage. Dutch authoring now covers all 3,768 current English interface messages across 28 batches. This is a fully authored staged catalog; Dutch is not registered in UI_CATALOGS or the language picker.
 
 ## Completed authoring batches
 
@@ -15,6 +15,7 @@ R20 requires full EU-language coverage. Dutch authoring has begun with 3,423 of 
 | Evidence screens | 89 | src/i18n/staged/nl-evidence-screen.ts |
 | Plan screen | 113 | src/i18n/staged/nl-plan-screen.ts |
 | Editor screen | 148 | src/i18n/staged/nl-editor-screen.ts |
+| Workflow, calendar, editor and recovery | 345 | src/i18n/staged/nl-workflow.ts |
 | Answers, logs, publication evidence and evaluation | 196 | src/i18n/staged/nl-evidence.ts |
 | Backlinks, network, marketplace and monitoring | 256 | src/i18n/staged/nl-links.ts |
 | Billing, launch checklist and beta notes | 192 | src/i18n/staged/nl-commerce.ts |
@@ -186,3 +187,12 @@ All thirty-seven Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch
 At a8ba393, authored all 196 answer/logs/proof/aiEval/benchmark messages. Owner-supplied provenance, incomplete samples, noncausal comparisons, connector-reported publication and separate model evaluation remain explicit. Privacy/import limits and permanent-removal warnings are preserved. The benchmark $5 label is source copy only and neither renews nor consumes spending authorization.
 
 All thirty-eight Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-evidence-domain-types.log), scoped lint and whitespace checks. Total staged coverage is 3,423; 345 workflow messages remain. No provider generation, evidence import, log collection, publication or runtime activation occurred. Fluent/rendered and full real-use acceptance remain open.
+
+
+## Workflow and complete-authoring checkpoint
+
+At 93eea4e, authored all 345 remaining workflow messages across autoSched/prev/imgGen/arrange/visual/editor/dashboard/status/quality/calsched/pres/featured/today/plan/generationResults/workflow/publishingFidelity. Copy preserves target-versus-schedule distinctions, overdue uncertainty, exact review, destination-dependent rendering, recovery without regeneration and local checks versus delivery evidence. Existing source claims about unapproved draft delivery, certain calendar failure/live labels and legacy Article Studio requirements require behavior review before activation.
+
+Dutch now covers exactly 3,768/3,768 current English keys across 28 batches. Replaced the partial-coverage assertion with exact full-English key parity; runtime exclusion remains enforced. All thirty-nine focused Dutch/catalog tests pass. The broader staged-language/catalog run passes 193 tests across seven files. Full TypeScript (/tmp/milo-dutch-workflow-types.log), scoped lint and whitespace checks pass. No build was needed for copy excluded from runtime.
+
+This completes Dutch message authoring only. The source-claim notes throughout this record, fluent terminology review, responsive rendering, accessibility, email/content/formatting coverage and real-use acceptance remain open. Dutch is not activated. No provider, publication, payment or deployment operation occurred. Continue with acceptance work and the remaining R20 languages without changing the full roadmap or release holds.

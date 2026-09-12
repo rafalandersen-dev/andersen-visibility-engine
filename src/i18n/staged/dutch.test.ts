@@ -34,13 +34,13 @@ it.each(NL_STAGED_BATCHES)("Dutch $name matches reviewed source and parameters",
       expect(tokens(value, pattern), key).toEqual(tokens(source[key], pattern));
   }
 });
-it("keeps partially authored Dutch outside runtime and assigns each key once", () => {
+it("keeps fully authored Dutch outside runtime and assigns each key once", () => {
   expect(isUiLanguage("nl")).toBe(false);
   expect(Object.keys(UI_CATALOGS)).not.toContain("nl");
   const keys = NL_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(new Set(keys).size).toBe(keys.length);
   expect(Object.keys(NL_STAGED_CATALOG).sort()).toEqual(keys.sort());
-  expect(keys).toHaveLength(3423);
-  expect(keys.length).toBeLessThan(Object.keys(UI_CATALOGS.en).length);
+  expect(keys).toHaveLength(3768);
+  expect(keys.sort()).toEqual(Object.keys(UI_CATALOGS.en).sort());
   expect(Object.isFrozen(NL_STAGED_CATALOG)).toBe(true);
 });

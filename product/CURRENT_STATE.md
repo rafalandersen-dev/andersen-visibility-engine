@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Dutch authoring is complete at 3,768/3,768 messages across 28 staged batches, adding the final 345 workflow messages. Exact English-key parity and runtime exclusion pass; 39 focused Dutch/catalog tests and the broader 193-test staged/catalog run across seven files pass, plus types/scoped lint/whitespace. Language, rendered, source-claim and real-use acceptance remain open. See DUTCH_AUTHORING_PROGRESS_2026_09_12.md. Dutch remains inactive; release gates and the full roadmap are unchanged.
+
 Dutch staged authoring now covers 3,423/3,768 messages, adding answers/logs/publication proof/evaluation (196). Thirty-eight Dutch/catalog tests plus types/scoped lint/whitespace pass; 345 workflow messages and quality acceptance remain. Owner-supplied evidence and benchmark authorization limits are preserved. See DUTCH_AUTHORING_PROGRESS_2026_09_12.md. No runtime activation or release-gate change.
 
 Dutch staged authoring now covers 3,227/3,768 messages, adding backlinks/network/marketplace/monitoring (256). Thirty-seven Dutch/catalog tests plus types/scoped lint/whitespace pass; 541 messages and quality acceptance remain. Supplier evidence, order and spending distinctions are preserved. See DUTCH_AUTHORING_PROGRESS_2026_09_12.md. No runtime activation or release-gate change.

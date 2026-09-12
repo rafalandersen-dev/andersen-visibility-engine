@@ -1,3 +1,4 @@
+import { nlWorkflow } from "./nl-workflow";
 import { nlEvidence } from "./nl-evidence";
 import { nlLinks } from "./nl-links";
 import { nlCommerce } from "./nl-commerce";
@@ -26,8 +27,33 @@ import { nlCore } from "./nl-core";
 import { nlAuthScreen } from "./nl-auth-screen";
 import { nlSharedUi } from "./nl-shared-ui";
 
-/** Partial Dutch authoring; never imported by the runtime catalog. */
+/** Dutch authoring; never imported by the runtime catalog. */
 export const NL_STAGED_BATCHES = [
+  {
+    name: "workflow",
+    copy: nlWorkflow,
+    namespaces: [
+      "autoSched",
+      "prev",
+      "imgGen",
+      "arrange",
+      "visual",
+      "editor",
+      "dashboard",
+      "status",
+      "quality",
+      "calsched",
+      "pres",
+      "featured",
+      "today",
+      "plan",
+      "generationResults",
+      "workflow",
+      "publishingFidelity",
+    ],
+    sourceRevision: "93eea4e",
+    sourceHash: "649e9d723e890e3a356652ad7a515080081167e2d06a4dc5d3ad58cc5e2b6615",
+  },
   {
     name: "evidence",
     copy: nlEvidence,
