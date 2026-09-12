@@ -1,3 +1,5 @@
+import { dePublicPricing } from "./de-public-pricing";
+import { dePublicStudies } from "./de-public-studies";
 import { dePublicHome } from "./de-public-home";
 import { dePublicBeta } from "./de-public-beta";
 import { deBetaGuide } from "./de-beta-guide";
@@ -25,8 +27,8 @@ import { deBillingScreen } from "./de-billing-screen";
 import { deEvidenceScreen } from "./de-evidence-screen";
 import { dePlanScreen } from "./de-plan-screen";
 
-/** Incomplete German authoring. This registry never registers a runtime language.
- * Complete namespace coverage is checked per batch; unlisted areas remain open. */
+/** Complete German catalog authoring, staged for review. This registry never registers a runtime language.
+ * Source fingerprints and full catalog parity must pass before integration. */
 export const DE_STAGED_BATCHES = [
   {
     name: "core",
@@ -118,6 +120,8 @@ export const DE_STAGED_BATCHES = [
   { name: "public beta", copy: dePublicBeta, namespaces: ["publicBeta"] },
   { name: "beta guide", copy: deBetaGuide, namespaces: ["betaGuide"] },
   { name: "beta controls", copy: deBetaScreen, namespaces: ["betaScreen"] },
+  { name: "public pricing", copy: dePublicPricing, namespaces: ["publicPricing"] },
+  { name: "public studies", copy: dePublicStudies, namespaces: ["publicStudies"] },
 ] as const;
 export const DE_STAGED_CATALOG: Readonly<Record<string, string>> = Object.assign(
   {},

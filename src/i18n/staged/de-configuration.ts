@@ -80,7 +80,7 @@ export const deConfiguration: Readonly<Record<string, string>> = {
     "Prüfe alle Inhalte vor der Veröffentlichung. Milo kann Entwürfe an WordPress senden, aber du bleibst für die Prüfung von Richtigkeit, Aussagen, Formatierung, Links und Regelkonformität verantwortlich.",
   "shopify.shopify": "Shopify",
   "shopify.intro":
-    "Verbinde einen Shopify-Shop, um Milo-Inhalte als Blogartikel zu veröffentlichen. Milo sendet Artikel zunächst als unveröffentlichte Entwürfe an einen Shopify-Blog und veröffentlicht sie live, wenn du sie freigibst.",
+    "Verbinde einen Shopify-Shop, um Milo-Inhalte als unveröffentlichte Entwürfe an einen Blog zu senden. Freigabe und Veröffentlichung sind getrennte Schritte: Eine Freigabe allein veröffentlicht keinen Artikel.",
   "shopify.shopDomain": "Shop-Domain",
   "shopify.shopDomainHelp": "Deine Shop-Domain, z. B. mystore.myshopify.com.",
   "shopify.token": "Admin-API-Zugriffstoken",
@@ -90,7 +90,7 @@ export const deConfiguration: Readonly<Record<string, string>> = {
   "shopify.security":
     "Dein Zugriffstoken wird nach dem Speichern nicht mehr angezeigt und nur serverseitig verwendet. Du kannst es jederzeit ersetzen.",
   "shopify.minPerms":
-    "Erteile nur Inhaltsberechtigungen (Blogs und Artikel lesen/schreiben). Milo greift niemals auf Bestellungen, Kunden, Produkte oder Zahlungsdaten zu.",
+    "Erteile für Blogveröffentlichungen Lese- und Schreibzugriff auf Blogs und Artikel. Optionale Katalogaktualisierung erfordert zusätzlich Produktleseberechtigung. Diese Funktionen nutzen keine Bestell-, Kunden- oder Zahlungsdaten.",
   "shopify.test": "Verbindung testen",
   "shopify.testing": "Wird getestet…",
   "shopify.testOk": "Mit Shopify verbunden.",

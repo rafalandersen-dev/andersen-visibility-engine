@@ -57,7 +57,7 @@ export const deBillingScreen: Readonly<Record<string, string>> = {
   "billingScreen.feature.evaluationConfigured": "KI-Bewertung (sofern konfiguriert)",
   "billingScreen.feature.prioritySupport": "Priorisierter Support",
   "billingScreen.feature.clientProjects": "Bis zu 15 Kundenprojekte",
-  "billingScreen.feature.reports": "Monatliche Ergebnisberichte mit eigenem Branding",
+  "billingScreen.feature.reports": "Monatliche Berichte unter eigener Marke (auf Abruf)",
   "billingScreen.feature.highestLimits": "Höchste monatliche Limits",
-  "billingScreen.feature.allConnectors": "Alle Integrationen und KI-Bewertung",
+  "billingScreen.feature.allConnectors": "Integrationen + KI-Bewertung (sofern konfiguriert)",
 };

@@ -53,3 +53,7 @@ it("distinguishes planned work, scheduled publication, delivery and live publica
   );
   expect(new Set(labels).size).toBe(4);
 });
+
+it("covers the complete current English catalog while German remains staged", () => {
+  expect(Object.keys(DE_STAGED_CATALOG).sort()).toEqual(Object.keys(UI_CATALOGS.en).sort());
+});
