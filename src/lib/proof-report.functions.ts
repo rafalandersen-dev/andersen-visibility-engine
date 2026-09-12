@@ -1,9 +1,14 @@
-import { translate } from "@/i18n/translate";
 import {
-  formatReportDate,
-  formatReportNumber,
-  proofReportSubject,
-} from "./proof-report-presentation";
+  translateProofReportEmail as translate,
+  reportEmailLanguage,
+} from "./proof-report-email-presentation";
+import { readProofReportEmailLocale } from "./proof-report-email-preference.server";
+import type { EmailLanguage } from "./email-languages";
+import {
+  formatReportEmailDate as formatReportDate,
+  formatReportEmailNumber as formatReportNumber,
+  proofReportEmailSubject as proofReportSubject,
+} from "./proof-report-email-presentation";
 /**
  * Monthly Proof Report — server functions.
  *
@@ -15,7 +20,7 @@ import {
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import type { CalendarItem, ContentAsset, Project, OnboardingLanguage } from "./types";
+import type { CalendarItem, ContentAsset, Project } from "./types";
 import { readWorkspaceRow } from "./workspace.server";
 import { isEmailAddress } from "./outreach-delivery.server";
 import { buildMonthlyProofReport, type MonthlyProofReport } from "./proof-report";
@@ -112,7 +117,7 @@ export function renderProofReportEmailHtml(
   report: MonthlyProofReport,
   projectName: string,
   branding: AgencyBranding | null = null,
-  language: OnboardingLanguage = "en",
+  language: EmailLanguage = "en",
 ): string {
   const e = escapeHtml;
   const t = (key: string, vars?: Record<string, string | number>) => translate(language, key, vars);
@@ -162,7 +167,7 @@ export function renderProofReportEmailHtml(
           : ""
       }`
     : "";
-  return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1c1917;">
+  return `<div lang="${reportEmailLanguage(language)}" style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1c1917;">
   ${brandHeader}
   <h1 style="font-size:22px;">${e(proofReportSubject(projectName, report.monthKey, language))}</h1>
   <h2 style="font-size:16px;">${e(t("report.published.title", { count: number(report.published.length) }))}</h2>
@@ -205,7 +210,8 @@ export const emailProofReportFn = createServerFn({ method: "POST" })
       data.projectId,
       data.monthKey,
     );
-    const html = renderProofReportEmailHtml(report, project.name, branding, project.appLanguage);
+    const language = await readProofReportEmailLocale(context.userId);
+    const html = renderProofReportEmailHtml(report, project.name, branding, language);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 20_000);
     try {
@@ -215,7 +221,7 @@ export const emailProofReportFn = createServerFn({ method: "POST" })
         body: JSON.stringify({
           from: `Milo Growth <${fromEmail}>`,
           to: [recipient],
-          subject: proofReportSubject(project.name, report.monthKey, project.appLanguage),
+          subject: proofReportSubject(project.name, report.monthKey, language),
           html,
           tags: [{ name: "source", value: "milo-proof-report" }],
         }),
