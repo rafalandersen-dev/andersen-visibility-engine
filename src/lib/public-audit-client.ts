@@ -1,4 +1,4 @@
-import type { PublicAiVisibilityAudit } from "./public-audit";
+import { PUBLIC_AUDIT_CATEGORY_KEYS, type PublicAiVisibilityAudit } from "./public-audit";
 
 /** The endpoint did not provide a usable audit error response. The UI offers
  * project setup instead of encouraging an immediate retry of this request. */
@@ -16,15 +16,61 @@ export interface PublicAuditHttpInput {
   botProof: string;
 }
 
-function isAudit(value: unknown): value is PublicAiVisibilityAudit {
-  if (!value || typeof value !== "object") return false;
-  const row = value as Record<string, unknown>;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function isScore(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 100;
+}
+
+function isStatus(value: unknown): boolean {
+  return value === "strong" || value === "okay" || value === "needsWork";
+}
+
+function isSignals(value: unknown): boolean {
+  if (!isRecord(value)) return false;
   return (
-    typeof row.id === "string" &&
-    typeof row.normalizedUrl === "string" &&
-    typeof row.auditedAt === "string" &&
-    typeof row.overall === "number" &&
-    Boolean(row.categories && typeof row.categories === "object")
+    ["title", "metaDescription", "h1", "detectedBusinessName"].every(
+      (key) => value[key] === undefined || typeof value[key] === "string",
+    ) &&
+    ["headings", "detectedServices", "detectedLocations"].every(
+      (key) => value[key] === undefined || isStringArray(value[key]),
+    ) &&
+    ["hasFaqSignals", "hasContactSignals", "hasTrustSignals"].every(
+      (key) => value[key] === undefined || typeof value[key] === "boolean",
+    )
+  );
+}
+
+/** Validate the wire contract before rendering. Do not normalize missing results
+ * here: doing so would invent scores or evidence after a broken response. */
+function isAudit(value: unknown): value is PublicAiVisibilityAudit {
+  if (!isRecord(value)) return false;
+  const categories = value.categories;
+  return (
+    ["id", "url", "normalizedUrl", "auditedAt", "summary", "disclaimer"].every(
+      (key) => typeof value[key] === "string",
+    ) &&
+    isScore(value.overall) &&
+    isStatus(value.status) &&
+    isRecord(categories) &&
+    PUBLIC_AUDIT_CATEGORY_KEYS.every((key) => {
+      const category = categories[key];
+      return (
+        isRecord(category) &&
+        isScore(category.score) &&
+        isStatus(category.status) &&
+        typeof category.explanation === "string" &&
+        isStringArray(category.suggestions)
+      );
+    }) &&
+    ["topIssues", "quickWins", "recommendedActions"].every((key) => isStringArray(value[key])) &&
+    (value.extractedSignals === undefined || isSignals(value.extractedSignals))
   );
 }
 
