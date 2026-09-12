@@ -1,3 +1,4 @@
+import { itCollaboration } from "./it-collaboration";
 import { itEditorScreen } from "./it-editor-screen";
 import { itPlanScreen } from "./it-plan-screen";
 import { itEvidenceScreen } from "./it-evidence-screen";
@@ -99,6 +100,13 @@ export const IT_STAGED_BATCHES = [
     namespaces: ["editorScreen"],
     sourceRevision: "f729cd2",
     sourceHash: "1e827d2744ea1f2d3364b54983f06b42082f45ab6dfb0eda7b1375fdddd9ec9f",
+  },
+  {
+    name: "collaboration",
+    copy: itCollaboration,
+    namespaces: ["collaboration", "team", "notifications", "awareness", "emailSettings"],
+    sourceRevision: "36bcbae",
+    sourceHash: "429e59f16a866242f25a373ebd6b52332ae3f04534230101422ebab727f77ed0",
   },
 ] as const;
 export const IT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

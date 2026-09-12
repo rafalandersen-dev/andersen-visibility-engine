@@ -1,6 +1,6 @@
 # Milo Growth — current status
 
-Italian UI authoring now includes 785/3768 messages across 11/28 groups, staged-only and incomplete. Latest addition: 350 messages for evidence/readiness, Plan and the editor. 22 focused checks/types/build/zero lint pass. No runtime registration or fluent/interface acceptance; remaining17groups recorded in ITALIAN_AUTHORING_PROGRESS_2026_09_12.md. Overall60%/implementation75% unchanged.
+Italian UI authoring now includes 1033/3768 messages across 12/28 groups, staged-only and incomplete. Latest addition: 248 messages for collaboration, team views, notifications, work awareness and email settings. 23 focused checks/types/build/zero lint pass. No runtime registration or fluent/interface acceptance; remaining16groups recorded in ITALIAN_AUTHORING_PROGRESS_2026_09_12.md. Overall60%/implementation75% unchanged.
 
 Latest prepared localization: signup and recovery emails now support24email languages with a separate pre-auth email-language selector and validated English-default request field.69rendering/dispatch tests, full types/build, zero new lint pass; built selector/mode independence verified. No actual email/account or fluent/inbox acceptance. UI/staged catalogs remain3768keys unchanged. See AUTH_EMAIL_LOCALIZATION_2026_09_12.md. Overall60%/implementation75% unchanged.
 
