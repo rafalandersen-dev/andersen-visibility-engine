@@ -1,3 +1,4 @@
+import { csGrowth } from "./cs-growth";
 import { csOutreach } from "./cs-outreach";
 import { csMeasurements } from "./cs-measurements";
 import { csTechnical } from "./cs-technical";
@@ -23,6 +24,13 @@ import { csAuthScreen } from "./cs-auth-screen";
 import { csSharedUi } from "./cs-shared-ui";
 /** Czech authoring; never imported by the runtime catalog. */
 export const CS_STAGED_BATCHES = [
+  {
+    name: "growth",
+    copy: csGrowth,
+    namespaces: ["authority", "actions", "publicAudit"],
+    sourceRevision: "eb5ac28",
+    sourceHash: "79460ac604f31155136687fbf43e146ccd11625f12316625da192cdb8188f136",
+  },
   {
     name: "outreach",
     copy: csOutreach,
