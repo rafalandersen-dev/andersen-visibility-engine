@@ -1,6 +1,6 @@
 # Readiness and competitor interface localization — 12 September 2026
 
-Status: candidate; no release or migration issued for this batch. Includes Plan PR133 through normal main integration before submission.
+Status: released through PR134, merge `68bed8fba311e75fe39e1ae3b59ed6558669bc39`, verified at05:52:23UTC. Exact clean runtime, seven public/authentication checks and ten unchanged baselines pass. No migration was required. Final-head CI34676357545 passes4,361 tests/304files, types/builds/frozenlocks on both runtimes. Candidate validation wording below is historical. [Release evidence](../evidence/ui-evidence-release-2026-09-12.md).
 
 AI Readiness and Competitors displayed English controls, categories and action results regardless of the selected interface language. This change adds 89 messages in English, Polish, Swedish and Danish, with matching staged French. Current and staged dictionaries each contain 3,052 keys; French stays outside the runtime and picker.
 
