@@ -1,31 +1,57 @@
-// Deterministic, locale-independent date formatters to keep SSR and client output identical.
+// Audit dates stay UTC; schedule dates use the browser-local calendar and clock.
+// The optional interface locale changes displayed calendar text only. Existing
+// callers keep their original English representation until explicitly migrated.
 
-const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const DAYS_SHORT = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const MONTHS_SHORT = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function parseISO(input: string | Date): Date {
   return typeof input === "string" ? new Date(input) : input;
 }
 
+function localizedDate(d: Date, locale: string, local: boolean, short = false): string {
+  return new Intl.DateTimeFormat(locale, {
+    day: "2-digit",
+    month: "short",
+    ...(short ? { weekday: "short" as const } : { year: "numeric" as const }),
+    ...(local ? {} : { timeZone: "UTC" }),
+  }).format(d);
+}
+
 // 21 Jun 2026
-export function formatDate(input: string | Date): string {
+export function formatDate(input: string | Date, locale = "en"): string {
   const d = parseISO(input);
   if (Number.isNaN(d.getTime())) return "—";
+  if (locale !== "en") return localizedDate(d, locale, false);
   return `${String(d.getUTCDate()).padStart(2, "0")} ${MONTHS_SHORT[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
 // Sun, 21 Jun
-export function formatDateShort(input: string | Date): string {
+export function formatDateShort(input: string | Date, locale = "en"): string {
   const d = parseISO(input);
   if (Number.isNaN(d.getTime())) return "—";
+  if (locale !== "en") return localizedDate(d, locale, false, true);
   return `${DAYS_SHORT[d.getUTCDay()]} · ${String(d.getUTCDate()).padStart(2, "0")} ${MONTHS_SHORT[d.getUTCMonth()]}`;
 }
 
 // 21 Jun 2026 · 14:32
-export function formatDateTime(input: string | Date): string {
+export function formatDateTime(input: string | Date, locale = "en"): string {
   const d = parseISO(input);
   if (Number.isNaN(d.getTime())) return "—";
-  return `${formatDate(d)} · ${formatTime(d)}`;
+  return `${formatDate(d, locale)} · ${formatTime(d)}`;
 }
 
 // 14:32 — UTC (SSR-deterministic), for audit-style timestamps (created/updated/
@@ -47,9 +73,10 @@ export function formatTime(input: string | Date): string {
  */
 
 // 21 Jun 2026 (browser-local calendar day)
-export function formatDateLocal(input: string | Date): string {
+export function formatDateLocal(input: string | Date, locale = "en"): string {
   const d = parseISO(input);
   if (Number.isNaN(d.getTime())) return "—";
+  if (locale !== "en") return localizedDate(d, locale, true);
   return `${String(d.getDate()).padStart(2, "0")} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`;
 }
 
@@ -61,8 +88,8 @@ export function formatTimeLocal(input: string | Date): string {
 }
 
 // 21 Jun 2026 · 09:00 (browser-local)
-export function formatDateTimeLocal(input: string | Date): string {
+export function formatDateTimeLocal(input: string | Date, locale = "en"): string {
   const d = parseISO(input);
   if (Number.isNaN(d.getTime())) return "—";
-  return `${formatDateLocal(d)} · ${formatTimeLocal(d)}`;
+  return `${formatDateLocal(d, locale)} · ${formatTimeLocal(d)}`;
 }

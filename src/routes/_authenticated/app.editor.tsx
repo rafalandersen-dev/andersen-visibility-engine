@@ -32,7 +32,7 @@ import {
   getState,
   reloadWorkspaceForUser,
 } from "@/lib/store";
-import { useT } from "@/i18n";
+import { useAppLanguage, useT } from "@/i18n";
 import { EditorialLesson } from "@/components/EditorialLesson";
 import { PublicationApprovalStatus } from "@/components/PublicationApprovalStatus";
 import { publicationVersion } from "@/lib/publication-version";
@@ -109,7 +109,7 @@ import {
   scheduleContentPublishFn,
   SCHEDULE_TICK_MS,
 } from "@/lib/schedule.functions";
-import { CreateContentDialog, ASSET_TYPE_LABELS } from "@/components/CreateContentDialog";
+import { CreateContentDialog } from "@/components/CreateContentDialog";
 import { MiloScorePanel } from "@/components/MiloScorePanel";
 import {
   AlertDialog,
@@ -240,7 +240,7 @@ function EditorPage() {
     setDeleteId(null);
     if (id === selectedId) setSelectedId(next?.id);
     await saveWorkspaceNow();
-    toast.success("Content asset deleted");
+    toast.success(t("editorScreen.deleted"));
   }
 
   // Follow ?id changes (e.g. generating from the Editor entry point, which
@@ -261,10 +261,7 @@ function EditorPage() {
           </div>
           <ul className="mt-1 space-y-0.5">
             {assets.length === 0 ? (
-              <li className="px-2 py-6 text-xs text-muted-foreground">
-                Open Plan and use “Create linked draft” on an opportunity to generate your first
-                asset.
-              </li>
+              <li className="px-2 py-6 text-xs text-muted-foreground">{t("editorScreen.empty")}</li>
             ) : (
               assets.map((a) => (
                 <li key={a.id}>
@@ -279,7 +276,7 @@ function EditorPage() {
                       {a.title}
                     </div>
                     <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mt-0.5">
-                      {a.assetType ? `${ASSET_TYPE_LABELS[a.assetType]} · ` : ""}
+                      {a.assetType ? `${t(`editorScreen.assetType.${a.assetType}`)} · ` : ""}
                       {t(`status.${a.status}`)}
                     </div>
                   </button>
@@ -297,9 +294,7 @@ function EditorPage() {
           <div className="rounded-lg border border-dashed border-border p-12 text-center">
             <div className="font-display text-lg mb-1">{t("editor.noAssetSelectedTitle")}</div>
             <p className="text-sm text-muted-foreground max-w-md mx-auto">
-              Open <span className="font-medium text-foreground">Plan</span> and click{" "}
-              <span className="font-medium text-foreground">Create linked draft</span> on an
-              opportunity to generate your first asset. It will appear in this editor.
+              {t("editorScreen.empty")}
             </p>
           </div>
         )}
@@ -314,10 +309,7 @@ function EditorPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("editor.action.delete")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              This permanently removes this draft from the editor. The opportunity it came from
-              stays, and any scheduled publish for it is cancelled.
-            </AlertDialogDescription>
+            <AlertDialogDescription>{t("editorScreen.deleteDescription")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
@@ -333,6 +325,7 @@ function EditorPage() {
 
 function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDelete: () => void }) {
   const t = useT();
+  const locale = useAppLanguage();
   const [f, setF] = useState<ContentAsset>(asset);
   const [busy, setBusy] = useState<string | null>(null);
   const [contentOpen, setContentOpen] = useState(false);
@@ -441,9 +434,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     setValidatingSources(true);
     try {
       await validateAssetSources(f.id, true);
-      toast.success("Sources re-checked");
+      toast.success(t("editorScreen.sources.rechecked"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not validate sources");
+      toast.error(e instanceof Error ? e.message : t("editorScreen.sources.failed"));
     } finally {
       setValidatingSources(false);
     }
@@ -616,7 +609,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         const s = String(r.result);
         resolve(s.slice(s.indexOf(",") + 1));
       };
-      r.onerror = () => reject(new Error("Could not read the file"));
+      r.onerror = () => reject(new Error(t("editorScreen.fileReadFailed")));
       r.readAsDataURL(file);
     });
   const onUploadImage = async (file: File | undefined) => {
@@ -646,9 +639,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         ],
       }));
       setNewImageConcept("");
-      toast.success("Uploaded — add alt text, then Approve to make it publishable.");
+      toast.success(t("editorScreen.images.uploaded"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Upload failed");
+      toast.error(e instanceof Error ? e.message : t("editorScreen.images.uploadFailed"));
     } finally {
       setUploadingImage(false);
     }
@@ -703,7 +696,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       setNewImageConcept("");
       toast.success(t("imgGen.done"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Image generation failed");
+      toast.error(e instanceof Error ? e.message : t("editorScreen.images.generationFailed"));
     } finally {
       setGeneratingImage(false);
     }
@@ -719,9 +712,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       } else {
         updImage(i, { status: "accepted" }); // an already-controlled-origin URL
       }
-      toast.success("Image approved");
+      toast.success(t("editorScreen.images.approved"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not approve the image");
+      toast.error(e instanceof Error ? e.message : t("editorScreen.images.approvalFailed"));
     }
   };
   const removeImage = async (i: number) => {
@@ -776,7 +769,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     if (!project) return;
     approveProjectInternalPath(project.id, path);
     await saveWorkspaceNow();
-    toast.success(`Approved ${path} — it will now publish as a link.`);
+    toast.success(t("editorScreen.links.approved", { path }));
   }
   // Occurrence-scoped: each action targets exactly the ROW the user clicked.
   // The old path-scoped versions swept every link sharing the path — five
@@ -784,15 +777,18 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   const replaceLink = (link: ClassifiedInternalLink, newPath: string) =>
     persistMarkdown(
       replaceLinkPathAt(f.markdown, link.path, link.occurrence, newPath),
-      `Repointed “${link.anchor}” to ${newPath}`,
+      t("editorScreen.links.replaced", { anchor: link.anchor, path: newPath }),
     );
   const linkToText = (link: ClassifiedInternalLink) =>
     persistMarkdown(
       linkPathToTextAt(f.markdown, link.path, link.occurrence),
-      "Converted to plain text",
+      t("editorScreen.links.textOnly"),
     );
   const removeLink = (link: ClassifiedInternalLink) =>
-    persistMarkdown(removeLinkAt(f.markdown, link.path, link.occurrence), "Removed the link");
+    persistMarkdown(
+      removeLinkAt(f.markdown, link.path, link.occurrence),
+      t("editorScreen.links.removed"),
+    );
   const wpConfigured = Boolean(
     project?.wordpress?.siteUrl &&
     project?.wordpress?.username &&
@@ -889,7 +885,11 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         currentContentAssetId: next.id,
       });
     }
-    toast.success(status ? `Marked ${status}` : "Saved");
+    toast.success(
+      status
+        ? t("editorScreen.marked", { status: t(`status.${status}`) })
+        : t("editorScreen.savedNotification"),
+    );
     return next;
   };
 
@@ -945,14 +945,24 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     return snapshot;
   };
 
-  const aiAction = async (name: string, fn: () => Promise<void>) => {
+  const aiAction = async (name: "metadata" | "cta" | "faq", fn: () => Promise<void>) => {
     flushPendingEdits();
     setBusy(name);
     try {
       await fn();
-      toast.success(`Regenerated ${name}`);
+      toast.success(
+        t("editorScreen.regenerated", {
+          name: t(
+            {
+              metadata: "editorScreen.tab.metadata",
+              cta: "editorScreen.field.cta",
+              faq: "editorScreen.faq",
+            }[name],
+          ),
+        }),
+      );
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Regeneration failed");
+      toast.error(e instanceof Error ? e.message : t("editorScreen.regenerationFailed"));
     } finally {
       setBusy(null);
     }
@@ -984,7 +994,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     // Copy the CANONICAL assembled markdown — what actually publishes — matching
     // Export Markdown (review fix; raw f.markdown diverged from both).
     await navigator.clipboard.writeText(assembled?.markdown ?? f.markdown);
-    toast.success("Copied Markdown to clipboard");
+    toast.success(t("editorScreen.copiedMarkdown"));
   };
 
   // Publish status reads from the live store value (publish actions don't bump
@@ -1005,7 +1015,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   const goLiveValid = Boolean(goLiveInstant && !Number.isNaN(goLiveInstant.getTime()));
   // Local rendering: the label must echo the wall-clock time the user just
   // typed into the datetime-local input, not its UTC translation.
-  const goLiveLabel = goLiveValid ? formatDateTimeLocal(goLiveInstant!.toISOString()) : "…";
+  const goLiveLabel = goLiveValid ? formatDateTimeLocal(goLiveInstant!.toISOString(), locale) : "…";
   // The runner ticks every five minutes, so a nearer slot would render a
   // minute-precise promise on a five-minute grid.
   const minGoLiveLocal = new Date(Date.now() + SCHEDULE_TICK_MS).toISOString().slice(0, 16);
@@ -1052,7 +1062,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
             ? t("approval.unavailable")
             : e instanceof Error
               ? e.message
-              : "Could not schedule the publish",
+              : t("editorScreen.scheduleFailed"),
       );
     } finally {
       setScheduling(false);
@@ -1093,7 +1103,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       await refreshWorkspace();
       toast.success(t("editor.schedule.cancelled"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not cancel the go-live");
+      toast.error(e instanceof Error ? e.message : t("editorScreen.cancelScheduleFailed"));
     } finally {
       setScheduling(false);
     }
@@ -1111,7 +1121,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       flushPendingEdits();
       await saveWorkspaceNow();
       await sendContentToWebsite(asset.id, destType, publishSlug);
-      toast.success("Draft sent to website");
+      toast.success(t("editorScreen.sent"));
       setSendOpen(false);
     } catch (e) {
       if (e instanceof Error && e.message === "publication_approval_required") {
@@ -1119,7 +1129,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         setApprovalRevision((v) => v + 1);
         toast.info(t("approval.needed"));
       } else {
-        toast.error(e instanceof Error ? e.message : "Could not send draft to website");
+        toast.error(e instanceof Error ? e.message : t("editorScreen.sendFailed"));
       }
     } finally {
       setSending(false);
@@ -1181,11 +1191,11 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           measurementStatus: "collecting",
         });
       }
-      toast.success("Published live");
+      toast.success(t("editorScreen.published"));
       setLiveConfirmOpen(false);
     } catch (e) {
       // Status stored as "failed"; keep draft state + content intact for retry.
-      toast.error(e instanceof Error ? e.message : "Could not publish live");
+      toast.error(e instanceof Error ? e.message : t("editorScreen.publishFailed"));
     } finally {
       setPublishingLive(false);
     }
@@ -1198,7 +1208,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         <div className="flex flex-wrap items-center gap-2">
           {f.assetType ? (
             <span className="text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full border bg-accent/30 border-accent/40 text-accent-foreground">
-              {ASSET_TYPE_LABELS[f.assetType]}
+              {t(`editorScreen.assetType.${f.assetType}`)}
             </span>
           ) : null}
           <h2 className="font-display text-lg text-foreground">{f.title}</h2>
@@ -1206,8 +1216,10 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
           {f.sourceOpportunityTitle ? (
             <span>
-              Source: <span className="text-foreground/75">{f.sourceOpportunityTitle}</span>
-              {f.sourceType && f.sourceType !== "opportunity" ? ` (${f.sourceType})` : ""}
+              {t("editorScreen.create.source", { source: f.sourceOpportunityTitle })}
+              {f.sourceType && f.sourceType !== "opportunity"
+                ? ` (${t(`editorScreen.sourceType.${f.sourceType}`)})`
+                : ""}
             </span>
           ) : null}
           {f.language ? (
@@ -1215,7 +1227,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               {t("onboarding.summary.language")}: {f.language}
             </span>
           ) : null}
-          <span>{formatDateTime(f.createdAt ?? f.updatedAt)}</span>
+          <span>{formatDateTime(f.createdAt ?? f.updatedAt, locale)}</span>
           <span>
             {t("editor.status")}: {t(`status.${f.status}`)}
           </span>
@@ -1225,7 +1237,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           <StageChip
             stage={editorStage}
             detail={
-              live.scheduledPublishAt ? formatDateTimeLocal(live.scheduledPublishAt) : undefined
+              live.scheduledPublishAt
+                ? formatDateTimeLocal(live.scheduledPublishAt, locale)
+                : undefined
             }
           />
         </div>
@@ -1352,8 +1366,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               {hasUnresolvedLinks ? (
                 <span className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-500">
                   <AlertTriangle className="h-3 w-3" />
-                  Resolve {unresolvedLinks.length} internal link
-                  {unresolvedLinks.length === 1 ? "" : "s"} above to send or publish.
+                  {t("editorScreen.links.resolve", { count: unresolvedLinks.length })}
                 </span>
               ) : null}
               {live.publishPlatform === "wordpress" && live.wordpressPostId ? (
@@ -1372,8 +1385,14 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               ) : null}
               {live.lastPublishedAt ? (
                 <span className="text-xs text-muted-foreground">
-                  {live.publishStatus === "failed" ? "Last attempt" : "Sent"}{" "}
-                  {formatDateTime(live.lastPublishedAt)}
+                  {t(
+                    live.publishStatus === "failed"
+                      ? "editorScreen.lastAttemptAt"
+                      : "editorScreen.sentAt",
+                    {
+                      date: formatDateTime(live.lastPublishedAt, locale),
+                    },
+                  )}
                 </span>
               ) : null}
               {live.publishedDraftUrl ? (
@@ -1410,8 +1429,14 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 <LivePublishStatusBadge status={live.livePublishStatus} />
                 {live.livePublishedAt ? (
                   <span className="text-xs text-muted-foreground">
-                    {live.livePublishStatus === "failed" ? "Last attempt" : "Published"}{" "}
-                    {formatDateTime(live.livePublishedAt)}
+                    {t(
+                      live.livePublishStatus === "failed"
+                        ? "editorScreen.lastAttemptAt"
+                        : "editorScreen.publishedAt",
+                      {
+                        date: formatDateTime(live.livePublishedAt, locale),
+                      },
+                    )}
                   </span>
                 ) : null}
                 {live.liveUrl ? (
@@ -1426,14 +1451,13 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 ) : null}
                 {!liveConfigured ? (
                   <span className="text-xs text-muted-foreground">
-                    Add a live publish endpoint in{" "}
+                    {t("editorScreen.publication.configure")}{" "}
                     <Link
                       to="/app/setup"
                       className="underline underline-offset-4 hover:text-foreground"
                     >
-                      Project Setup
+                      {t("editorScreen.publication.setup")}
                     </Link>
-                    .
                   </span>
                 ) : null}
                 {live.livePublishStatus === "failed" && live.livePublishError ? (
@@ -1458,7 +1482,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
             <p className="text-sm font-medium">{t("approval.scheduleHeld")}</p>
             <p className="text-xs">
               {t("approval.scheduleHeldBody", {
-                when: live.scheduledPublishAt ? formatDateTimeLocal(live.scheduledPublishAt) : "—",
+                when: live.scheduledPublishAt
+                  ? formatDateTimeLocal(live.scheduledPublishAt, locale)
+                  : "—",
               })}
             </p>
             <div className="flex gap-2">
@@ -1486,7 +1512,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               {live.sourceHeldPublishAt ? (
                 <span className="mt-1 block text-xs font-normal">
                   {t("editor.schedule.sourceHeldAt", {
-                    when: formatDateTimeLocal(live.sourceHeldPublishAt),
+                    when: formatDateTimeLocal(live.sourceHeldPublishAt, locale),
                   })}
                 </span>
               ) : null}
@@ -1513,10 +1539,10 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                     exact lie this increment exists to remove. */}
                 {scheduleOverdue
                   ? t("editor.schedule.overdue", {
-                      when: formatDateTimeLocal(live.scheduledPublishAt),
+                      when: formatDateTimeLocal(live.scheduledPublishAt, locale),
                     })
                   : t("editor.schedule.pending", {
-                      when: formatDateTimeLocal(live.scheduledPublishAt),
+                      when: formatDateTimeLocal(live.scheduledPublishAt, locale),
                     })}
               </span>
               <Button size="sm" variant="ghost" onClick={cancelSchedule} disabled={scheduling}>
@@ -1637,10 +1663,14 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="blogPost">Blog post</SelectItem>
-                  <SelectItem value="servicePage">Service page</SelectItem>
-                  <SelectItem value="faq">FAQ section</SelectItem>
-                  <SelectItem value="landingPage">Landing page</SelectItem>
+                  <SelectItem value="blogPost">{t("editorScreen.destination.blogPost")}</SelectItem>
+                  <SelectItem value="servicePage">
+                    {t("editorScreen.assetType.servicePage")}
+                  </SelectItem>
+                  <SelectItem value="faq">{t("editorScreen.assetType.faq")}</SelectItem>
+                  <SelectItem value="landingPage">
+                    {t("editorScreen.assetType.landingPage")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
               {isShopify && destType !== "blogPost" ? (
@@ -1755,11 +1785,11 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
 
       <Tabs defaultValue="content" className="px-5 pt-3">
         <TabsList>
-          <TabsTrigger value="content">Content</TabsTrigger>
-          <TabsTrigger value="meta">Metadata</TabsTrigger>
-          <TabsTrigger value="structure">Structure</TabsTrigger>
-          <TabsTrigger value="eeat">Sources &amp; Author</TabsTrigger>
-          <TabsTrigger value="preview">Preview</TabsTrigger>
+          <TabsTrigger value="content">{t("editorScreen.tab.content")}</TabsTrigger>
+          <TabsTrigger value="meta">{t("editorScreen.tab.metadata")}</TabsTrigger>
+          <TabsTrigger value="structure">{t("editorScreen.tab.structure")}</TabsTrigger>
+          <TabsTrigger value="eeat">{t("editorScreen.tab.sourcesAuthor")}</TabsTrigger>
+          <TabsTrigger value="preview">{t("editorScreen.tab.preview")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="content" className="space-y-4 py-5">
@@ -1947,15 +1977,15 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
             )}
           </div>
 
-          <Field label="Title">
+          <Field label={t("editorScreen.field.title")}>
             {(id) => (
               <Input id={id} value={f.title} onChange={(e) => upd("title", e.target.value)} />
             )}
           </Field>
-          <Field label="H1">
+          <Field label={t("editorScreen.field.h1")}>
             {(id) => <Input id={id} value={f.h1} onChange={(e) => upd("h1", e.target.value)} />}
           </Field>
-          <Field label="Markdown content">
+          <Field label={t("editorScreen.field.markdown")}>
             {(id) => (
               <Textarea
                 id={id}
@@ -1966,7 +1996,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               />
             )}
           </Field>
-          <Field label="Editor notes">
+          <Field label={t("editorScreen.field.notes")}>
             {(id) => (
               <Textarea
                 id={id}
@@ -1991,7 +2021,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               ) : (
                 <Sparkles className="h-3.5 w-3.5" />
               )}
-              Regenerate metadata
+              {t("editorScreen.regenerateMetadata")}
             </Button>
             <Button
               size="sm"
@@ -2004,13 +2034,13 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               ) : (
                 <Sparkles className="h-3.5 w-3.5" />
               )}
-              Regenerate CTA
+              {t("editorScreen.regenerateCta")}
             </Button>
           </div>
-          <Field label="Slug">
+          <Field label={t("editorScreen.field.slug")}>
             {(id) => <Input id={id} value={f.slug} onChange={(e) => upd("slug", e.target.value)} />}
           </Field>
-          <Field label={`Meta title (${f.metaTitle.length}/60)`}>
+          <Field label={t("editorScreen.field.metaTitle", { count: f.metaTitle.length })}>
             {(id) => (
               <Input
                 id={id}
@@ -2019,7 +2049,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               />
             )}
           </Field>
-          <Field label={`Meta description (${f.metaDescription.length}/160)`}>
+          <Field
+            label={t("editorScreen.field.metaDescription", { count: f.metaDescription.length })}
+          >
             {(id) => (
               <Textarea
                 id={id}
@@ -2029,7 +2061,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               />
             )}
           </Field>
-          <Field label="Primary CTA">
+          <Field label={t("editorScreen.field.cta")}>
             {(id) => <Input id={id} value={f.cta} onChange={(e) => upd("cta", e.target.value)} />}
           </Field>
         </TabsContent>
@@ -2038,7 +2070,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           <div>
             <div className="flex items-center justify-between">
               <Label htmlFor={outlineId} className="text-xs">
-                Outline
+                {t("editorScreen.outline")}
               </Label>
             </div>
             <Textarea
@@ -2052,7 +2084,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
 
           <div>
             <div className="flex items-center justify-between">
-              <Label className="text-xs">FAQ</Label>
+              <Label className="text-xs">{t("editorScreen.faq")}</Label>
               <Button
                 size="sm"
                 variant="ghost"
@@ -2064,7 +2096,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 ) : (
                   <Sparkles className="h-3.5 w-3.5" />
                 )}
-                Regenerate
+                {t("editorScreen.regenerate")}
               </Button>
             </div>
             <div className="mt-2 space-y-3">
@@ -2099,7 +2131,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor={internalLinksId} className="text-xs">
-                Internal link suggestions
+                {t("editorScreen.linkSuggestions")}
               </Label>
               <Textarea
                 id={internalLinksId}
@@ -2111,30 +2143,15 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
             </div>
             <div>
               <Label htmlFor={schemaId} className="text-xs">
-                Schema notes
+                {t("editorScreen.schemaNotes")}
               </Label>
               <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
-                {isWordPress || isShopify ? (
-                  <>
-                    When you publish to {isWordPress ? "WordPress" : "Shopify"}, Milo includes valid
-                    Article and FAQ structured data (schema.org JSON-LD) built from this
-                    article&apos;s title and the FAQ written into the body. Whether your site keeps
-                    inline structured data depends on your CMS setup (for example, a WordPress user
-                    without the <span className="font-mono">unfiltered_html</span> capability, or an
-                    SEO plugin that already outputs schema), so Milo can&apos;t confirm it was
-                    retained — check with Google&apos;s Rich Results Test after publishing. Even
-                    when retained, this makes the page <strong>eligible</strong> for rich results
-                    where it qualifies; it does not guarantee a rich result <strong>appears</strong>{" "}
-                    (the search engine decides that).
-                  </>
-                ) : (
-                  <>
-                    Structured data (schema.org JSON-LD) is generated for this article, but Milo
-                    does not yet send it to a custom endpoint — your connector would need to add it.
-                    Milo never guarantees a rich result appears; the search engine decides that.
-                  </>
-                )}{" "}
-                The notes below are for your own reference and are not published.
+                {isWordPress || isShopify
+                  ? t("editorScreen.schema.managed", {
+                      platform: isWordPress ? "WordPress" : "Shopify",
+                    })
+                  : t("editorScreen.schema.custom")}{" "}
+                {t("editorScreen.schema.privateNotes")}
               </p>
               <Textarea
                 id={schemaId}
@@ -2153,7 +2170,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           {/* ---- Sources (P1.1 C) ---- */}
           <section className="space-y-2.5">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium text-foreground">Sources</h3>
+              <h3 className="text-sm font-medium text-foreground">
+                {t("editorScreen.sources.title")}
+              </h3>
               <Button
                 size="sm"
                 variant="outline"
@@ -2161,14 +2180,10 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 disabled={validatingSources || !(f.sources?.length ?? 0)}
               >
                 {validatingSources ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                Re-check sources
+                {t("editorScreen.sources.recheck")}
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Attach real reference URLs. Milo checks each resolves — only <strong>verified</strong>{" "}
-              sources are cited on the page. &ldquo;Verified&rdquo; is set by validation, never
-              chosen by hand.
-            </p>
+            <p className="text-xs text-muted-foreground">{t("editorScreen.sources.help")}</p>
             <ul className="space-y-1.5">
               {(f.sources ?? []).map((s, i) => (
                 <li
@@ -2187,7 +2202,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                           : "bg-amber-500/10 text-amber-700 dark:text-amber-500")
                       }
                     >
-                      {s.status}
+                      {t(`editorScreen.sources.status.${s.status}`)}
                       {s.checkNote && s.status !== "verified" ? ` · ${s.checkNote}` : ""}
                     </span>
                     <Button
@@ -2196,18 +2211,22 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                       className="ml-auto"
                       onClick={() => removeSource(i)}
                     >
-                      <Trash2 className="h-3 w-3" /> Remove
+                      <Trash2 className="h-3 w-3" /> {t("editorScreen.sources.remove")}
                     </Button>
                   </div>
                   {s.claim ? (
-                    <p className="mt-1 text-muted-foreground">Supports: {s.claim}</p>
+                    <p className="mt-1 text-muted-foreground">
+                      {t("editorScreen.sources.supports", { claim: s.claim })}
+                    </p>
                   ) : null}
                 </li>
               ))}
             </ul>
             <div className="flex flex-wrap items-end gap-2">
               <div className="flex-1 min-w-[220px]">
-                <Label className="text-xs text-muted-foreground">Source URL</Label>
+                <Label className="text-xs text-muted-foreground">
+                  {t("editorScreen.sources.url")}
+                </Label>
                 <Input
                   className="mt-1"
                   placeholder="https://…"
@@ -2216,16 +2235,18 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 />
               </div>
               <div className="flex-1 min-w-[220px]">
-                <Label className="text-xs text-muted-foreground">Supported claim (optional)</Label>
+                <Label className="text-xs text-muted-foreground">
+                  {t("editorScreen.sources.claim")}
+                </Label>
                 <Input
                   className="mt-1"
-                  placeholder="What this source backs"
+                  placeholder={t("editorScreen.sources.claimPlaceholder")}
                   value={newSourceClaim}
                   onChange={(e) => setNewSourceClaim(e.target.value)}
                 />
               </div>
               <Button size="sm" onClick={addSource} disabled={!newSourceUrl.trim()}>
-                Add source
+                {t("editorScreen.sources.add")}
               </Button>
             </div>
           </section>
@@ -2393,21 +2414,20 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
 
           {/* ---- Author / E-E-A-T (P1.1 F) ---- */}
           <section className="space-y-2.5 border-t border-border pt-5">
-            <h3 className="text-sm font-medium text-foreground">Author (E-E-A-T)</h3>
-            <p className="text-xs text-muted-foreground">
-              A named byline must be a <strong>real, consenting person</strong> — Milo never invents
-              a name or credential.
-            </p>
+            <h3 className="text-sm font-medium text-foreground">
+              {t("editorScreen.author.title")}
+            </h3>
+            <p className="text-xs text-muted-foreground">{t("editorScreen.author.help")}</p>
             {checklist.some((b) => b.key === "author" && !b.passed) ? (
               <p className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-500">
-                <AlertTriangle className="h-3 w-3" /> Recommended for E-E-A-T: add a resolved author
-                (name + a real bio/credential/profile) for health/finance/legal content. This no
-                longer blocks publishing.
+                <AlertTriangle className="h-3 w-3" /> {t("editorScreen.author.recommendation")}
               </p>
             ) : null}
             <div className="grid gap-2.5 sm:grid-cols-2">
               <div>
-                <Label className="text-xs text-muted-foreground">Name</Label>
+                <Label className="text-xs text-muted-foreground">
+                  {t("editorScreen.author.name")}
+                </Label>
                 <Input
                   className="mt-1"
                   value={f.author?.name ?? ""}
@@ -2415,7 +2435,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 />
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground">Role</Label>
+                <Label className="text-xs text-muted-foreground">
+                  {t("editorScreen.author.role")}
+                </Label>
                 <Input
                   className="mt-1"
                   value={f.author?.role ?? ""}
@@ -2424,17 +2446,19 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">
-                  Qualifications / credentials
+                  {t("editorScreen.author.credentials")}
                 </Label>
                 <Input
                   className="mt-1"
-                  placeholder="e.g. PT, MSc"
+                  placeholder={t("editorScreen.author.credentialsPlaceholder")}
                   value={f.author?.credentials ?? ""}
                   onChange={(e) => updAuthor({ credentials: e.target.value })}
                 />
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground">Profile URL</Label>
+                <Label className="text-xs text-muted-foreground">
+                  {t("editorScreen.author.profile")}
+                </Label>
                 <Input
                   className="mt-1"
                   placeholder="https://…"
@@ -2443,7 +2467,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 />
               </div>
               <div className="sm:col-span-2">
-                <Label className="text-xs text-muted-foreground">Bio</Label>
+                <Label className="text-xs text-muted-foreground">
+                  {t("editorScreen.author.bio")}
+                </Label>
                 <Textarea
                   rows={2}
                   className="mt-1"
@@ -2453,7 +2479,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               </div>
               <div className="sm:col-span-2">
                 <Label className="text-xs text-muted-foreground">
-                  sameAs profiles (one per line)
+                  {t("editorScreen.author.sameAs")}
                 </Label>
                 <Textarea
                   rows={2}
@@ -2474,13 +2500,10 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
 
           {/* ---- Images (P1.1 G — non-upload MVP) ---- */}
           <section className="space-y-2.5 border-t border-border pt-5">
-            <h3 className="text-sm font-medium text-foreground">Images</h3>
-            <p className="text-xs text-muted-foreground">
-              Upload an image (JPEG/PNG/WebP, ≤5&nbsp;MB), reuse an approved project asset, or paste
-              a controlled-origin URL. Uploads are staged privately; an image publishes only once it
-              has alt text and you <strong>approve</strong> it (which promotes it to a stable public
-              URL). Pasted third-party URLs never publish — approval requires a controlled origin.
-            </p>
+            <h3 className="text-sm font-medium text-foreground">
+              {t("editorScreen.images.title")}
+            </h3>
+            <p className="text-xs text-muted-foreground">{t("editorScreen.images.help")}</p>
             <ul className="space-y-1.5">
               {(f.images ?? []).map((im, i) => {
                 const controlled = project ? isControlledImageOrigin(im.url ?? "", project) : false;
@@ -2497,8 +2520,12 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                           className="h-8 w-8 rounded object-cover border border-border"
                         />
                       ) : null}
-                      <span className="font-medium">{im.concept || "Image"}</span>
-                      <span className="text-muted-foreground">{im.placement}</span>
+                      <span className="font-medium">
+                        {im.concept || t("editorScreen.images.image")}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {t(`editorScreen.images.${im.placement}`)}
+                      </span>
                       <span
                         className={
                           "rounded-full px-1.5 py-0.5 text-[10px] uppercase " +
@@ -2507,16 +2534,21 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                             : "bg-secondary text-muted-foreground")
                         }
                       >
-                        {im.status}
+                        {t(`editorScreen.images.status.${im.status}`)}
                       </span>
-                      {im.required ? <span className="text-amber-600">required</span> : null}
+                      {im.required ? (
+                        <span className="text-amber-600">{t("editorScreen.images.required")}</span>
+                      ) : null}
                       {im.url && !controlled ? (
-                        <span className="text-destructive">not a controlled origin</span>
+                        <span className="text-destructive">
+                          {t("editorScreen.images.uncontrolled")}
+                        </span>
                       ) : null}
                       <Button
                         size="sm"
                         variant="ghost"
                         className="ml-auto"
+                        aria-label={t("editorScreen.sources.remove")}
                         onClick={() => removeImage(i)}
                       >
                         <Trash2 className="h-3 w-3" />
@@ -2524,7 +2556,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                     </div>
                     <Input
                       className="text-xs"
-                      placeholder="Alt text (required to publish)"
+                      placeholder={t("editorScreen.images.alt")}
                       value={im.alt}
                       onChange={(e) => updImage(i, { alt: e.target.value })}
                     />
@@ -2538,21 +2570,25 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                           })
                         }
                       >
-                        {im.placement === "featured" ? "Featured" : "Inline"}
+                        {t(`editorScreen.images.${im.placement}`)}
                       </Button>
                       <Button
                         size="sm"
                         variant="ghost"
                         onClick={() => updImage(i, { required: !im.required })}
                       >
-                        {im.required ? "Required" : "Optional"}
+                        {t(
+                          im.required
+                            ? "editorScreen.images.required"
+                            : "editorScreen.images.optional",
+                        )}
                       </Button>
                       <Button
                         size="sm"
                         disabled={!im.alt.trim() || (!im.storagePath && !controlled)}
                         onClick={() => approveImage(i)}
                       >
-                        Approve
+                        {t("editorScreen.images.approve")}
                       </Button>
                     </div>
                     {im.placement === "inline"
@@ -2797,11 +2833,13 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               })}
             </ul>
             {(f.images?.length ?? 0) === 0 ? (
-              <p className="text-xs text-muted-foreground">No images yet.</p>
+              <p className="text-xs text-muted-foreground">{t("editorScreen.images.none")}</p>
             ) : null}
             <div className="flex flex-wrap items-end gap-2">
               <div className="flex-1 min-w-[160px]">
-                <Label className="text-xs text-muted-foreground">Concept (for a new image)</Label>
+                <Label className="text-xs text-muted-foreground">
+                  {t("editorScreen.images.concept")}
+                </Label>
                 <Input
                   className="mt-1"
                   maxLength={500}
@@ -2821,7 +2859,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               <Button size="sm" variant="outline" asChild disabled={uploadingImage}>
                 <label className="cursor-pointer">
                   {uploadingImage ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                  Upload image
+                  {t("editorScreen.images.upload")}
                   <input
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
@@ -2835,7 +2873,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               </Button>
               {existingApprovedImages.length ? (
                 <select
-                  aria-label="Reuse an approved project image"
+                  aria-label={t("editorScreen.images.reuseLabel")}
                   className="h-9 rounded-md border border-border bg-background px-2 text-xs"
                   defaultValue=""
                   onChange={(e) => {
@@ -2843,7 +2881,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                     e.target.value = "";
                   }}
                 >
-                  <option value="">Reuse approved asset…</option>
+                  <option value="">{t("editorScreen.images.reusePlaceholder")}</option>
                   {existingApprovedImages.map((im) => (
                     <option key={im.url} value={im.url}>
                       {im.concept || im.url}
@@ -2855,25 +2893,22 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
             <div className="flex flex-wrap items-end gap-2">
               <div className="flex-1 min-w-[220px]">
                 <Label className="text-xs text-muted-foreground">
-                  …or paste a controlled-origin URL
+                  {t("editorScreen.images.urlLabel")}
                 </Label>
                 <Input
                   className="mt-1"
-                  placeholder="https://your-site/image.jpg"
+                  placeholder="https://example.com/image.jpg"
                   value={newImageUrl}
                   onChange={(e) => setNewImageUrl(e.target.value)}
                 />
               </div>
               <Button size="sm" variant="ghost" onClick={addImage} disabled={!newImageUrl.trim()}>
-                Add URL
+                {t("editorScreen.images.addUrl")}
               </Button>
             </div>
           </section>
 
-          <p className="text-xs text-muted-foreground">
-            Author, sources and images are saved with the <strong>Save</strong> button in the footer
-            below — uploads aren&apos;t kept until you Save.
-          </p>
+          <p className="text-xs text-muted-foreground">{t("editorScreen.images.saveReminder")}</p>
         </TabsContent>
 
         <TabsContent value="preview" className="py-5">
@@ -2884,29 +2919,24 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           <style>{PREVIEW_STYLE}</style>
           {hasUnresolvedLinks ? (
             <div className="mb-3 rounded-md border border-amber-500/40 bg-amber-500/5 px-4 py-3 text-xs text-foreground/80">
-              This is exactly how the article publishes. {unresolvedLinks.length} internal link
-              {unresolvedLinks.length === 1 ? "" : "s"} can&apos;t be confirmed to point to a real
-              page on your site, so {unresolvedLinks.length === 1 ? "it shows" : "they show"} as
-              plain text here and <strong>publishing is blocked</strong> until{" "}
-              {unresolvedLinks.length === 1 ? "it is" : "they are"} resolved. Use the link-safety
-              panel below the tabs to approve, replace, keep as text, or remove each one.
+              {t("editorScreen.preview.blocked", { count: unresolvedLinks.length })}
             </div>
           ) : null}
           <div className="mb-3 flex items-center gap-1.5">
-            <span className="text-xs text-muted-foreground">Preview:</span>
+            <span className="text-xs text-muted-foreground">{t("editorScreen.preview.label")}</span>
             <Button
               size="sm"
               variant={previewMobile ? "ghost" : "outline"}
               onClick={() => setPreviewMobile(false)}
             >
-              Desktop
+              {t("editorScreen.preview.desktop")}
             </Button>
             <Button
               size="sm"
               variant={previewMobile ? "outline" : "ghost"}
               onClick={() => setPreviewMobile(true)}
             >
-              Mobile
+              {t("editorScreen.preview.mobile")}
             </Button>
             <span className="mx-2 h-4 w-px bg-border" aria-hidden="true" />
             <Button
@@ -2992,28 +3022,28 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
             uploaded images) to the store. save() preserves the current status
             and never approves; repeated clicks are idempotent (no re-upload). */}
         <Button size="sm" variant="default" onClick={() => save()}>
-          <Save className="h-3.5 w-3.5" /> Save
+          <Save className="h-3.5 w-3.5" /> {t("common.save")}
         </Button>
         {isDirty ? (
           <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-600">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden="true" />
-            Unsaved changes
+            {t("editorScreen.unsaved")}
           </span>
         ) : (
-          <span className="text-xs text-muted-foreground">All changes saved</span>
+          <span className="text-xs text-muted-foreground">{t("editorScreen.saved")}</span>
         )}
         <span className="mx-1 hidden h-4 w-px bg-border sm:inline-block" aria-hidden="true" />
         <Button size="sm" variant="outline" onClick={() => exportText("md")}>
-          <Download className="h-3.5 w-3.5" /> Export Markdown
+          <Download className="h-3.5 w-3.5" /> {t("editorScreen.exportMarkdown")}
         </Button>
         <Button size="sm" variant="outline" onClick={() => exportText("html")}>
-          <Download className="h-3.5 w-3.5" /> Export HTML
+          <Download className="h-3.5 w-3.5" /> {t("editorScreen.exportHtml")}
         </Button>
         <Button size="sm" variant="ghost" onClick={copy}>
-          <Copy className="h-3.5 w-3.5" /> Copy Markdown
+          <Copy className="h-3.5 w-3.5" /> {t("editorScreen.copyMarkdown")}
         </Button>
         <div className="ml-auto text-xs text-muted-foreground">
-          Updated {formatDateTime(f.updatedAt)}
+          {t("editorScreen.updated", { date: formatDateTime(f.updatedAt, locale) })}
         </div>
       </div>
     </div>
@@ -3033,10 +3063,11 @@ function ReplaceControl({
   onReplace: (to: string) => void;
 }) {
   const id = useId();
+  const t = useT();
   return (
     <select
       id={id}
-      aria-label="Replace with a verified page"
+      aria-label={t("editorScreen.links.replaceLabel")}
       className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground"
       defaultValue=""
       onChange={(e) => {
@@ -3045,7 +3076,7 @@ function ReplaceControl({
         if (to) onReplace(to);
       }}
     >
-      <option value="">Replace with…</option>
+      <option value="">{t("editorScreen.links.replacePlaceholder")}</option>
       {options.map((o) => (
         <option key={o} value={o}>
           {o}
@@ -3085,17 +3116,14 @@ function LinkSafetyPanel({
   onTextOnly: (link: ClassifiedInternalLink) => void;
   onRemove: (link: ClassifiedInternalLink) => void;
 }) {
+  const t = useT();
   return (
     <div className="rounded-md border border-amber-500/40 bg-amber-500/5 px-4 py-3">
       <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
         <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
-        {links.length} unresolved internal link{links.length === 1 ? "" : "s"} — publishing is
-        blocked
+        {t("editorScreen.links.heading", { count: links.length })}
       </div>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Each link below points to a path Milo can&apos;t confirm exists on your site. Nothing sends
-        or publishes — on any connector — until every one is resolved. Choose an action per link.
-      </p>
+      <p className="mt-1 text-xs text-muted-foreground">{t("editorScreen.links.help")}</p>
       <ul className="mt-3 space-y-2.5">
         {links.map((l, i) => (
           <li
@@ -3107,23 +3135,23 @@ function LinkSafetyPanel({
               <span className="font-mono text-foreground/70">{l.href}</span>
               {l.section ? (
                 <span className="text-muted-foreground">
-                  in “<span className="text-foreground/80">{l.section}</span>”
+                  {t("editorScreen.links.section", { section: l.section })}
                 </span>
               ) : null}
             </div>
             <p className="mt-1 text-muted-foreground">{l.reason}</p>
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <Button size="sm" variant="outline" onClick={() => onApprove(l.path)}>
-                <Check className="h-3 w-3" /> Approve this URL
+                <Check className="h-3 w-3" /> {t("editorScreen.links.approve")}
               </Button>
               {replaceOptions.length ? (
                 <ReplaceControl options={replaceOptions} onReplace={(to) => onReplace(l, to)} />
               ) : null}
               <Button size="sm" variant="ghost" onClick={() => onTextOnly(l)}>
-                Keep as text
+                {t("editorScreen.links.keepText")}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => onRemove(l)}>
-                <Trash2 className="h-3 w-3" /> Remove
+                <Trash2 className="h-3 w-3" /> {t("editorScreen.sources.remove")}
               </Button>
             </div>
           </li>
@@ -3319,7 +3347,7 @@ function ArrangeSurface(props: {
               ).map(([field, options, value]) => (
                 <select
                   key={field}
-                  aria-label={field}
+                  aria-label={t(`pres.field.${field}`)}
                   className="h-8 rounded-md border border-border bg-background px-1.5 text-xs"
                   value={value}
                   onChange={(e) =>
@@ -3345,7 +3373,7 @@ function ArrangeSurface(props: {
                     value={pres.focalPoint?.x ?? 0.5}
                     onChange={(e) => props.setPresFocal(idx, "x", e.target.value)}
                     className="h-8 w-16 text-xs"
-                    aria-label="focal x"
+                    aria-label={t("editorScreen.images.focalX")}
                   />
                   <Input
                     type="number"
@@ -3355,7 +3383,7 @@ function ArrangeSurface(props: {
                     value={pres.focalPoint?.y ?? 0.5}
                     onChange={(e) => props.setPresFocal(idx, "y", e.target.value)}
                     className="h-8 w-16 text-xs"
-                    aria-label="focal y"
+                    aria-label={t("editorScreen.images.focalY")}
                   />
                 </>
               ) : null}
