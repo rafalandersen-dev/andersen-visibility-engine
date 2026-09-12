@@ -32,7 +32,7 @@ import {
   getState,
   reloadWorkspaceForUser,
 } from "@/lib/store";
-import { useT } from "@/i18n";
+import { useAppLanguage, useT } from "@/i18n";
 import { EditorialLesson } from "@/components/EditorialLesson";
 import { PublicationApprovalStatus } from "@/components/PublicationApprovalStatus";
 import { publicationVersion } from "@/lib/publication-version";
@@ -325,6 +325,7 @@ function EditorPage() {
 
 function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDelete: () => void }) {
   const t = useT();
+  const locale = useAppLanguage();
   const [f, setF] = useState<ContentAsset>(asset);
   const [busy, setBusy] = useState<string | null>(null);
   const [contentOpen, setContentOpen] = useState(false);
@@ -997,7 +998,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   const goLiveValid = Boolean(goLiveInstant && !Number.isNaN(goLiveInstant.getTime()));
   // Local rendering: the label must echo the wall-clock time the user just
   // typed into the datetime-local input, not its UTC translation.
-  const goLiveLabel = goLiveValid ? formatDateTimeLocal(goLiveInstant!.toISOString()) : "…";
+  const goLiveLabel = goLiveValid ? formatDateTimeLocal(goLiveInstant!.toISOString(), locale) : "…";
   // The runner ticks every five minutes, so a nearer slot would render a
   // minute-precise promise on a five-minute grid.
   const minGoLiveLocal = new Date(Date.now() + SCHEDULE_TICK_MS).toISOString().slice(0, 16);
@@ -1207,7 +1208,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               {t("onboarding.summary.language")}: {f.language}
             </span>
           ) : null}
-          <span>{formatDateTime(f.createdAt ?? f.updatedAt)}</span>
+          <span>{formatDateTime(f.createdAt ?? f.updatedAt, locale)}</span>
           <span>
             {t("editor.status")}: {t(`status.${f.status}`)}
           </span>
@@ -1217,7 +1218,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           <StageChip
             stage={editorStage}
             detail={
-              live.scheduledPublishAt ? formatDateTimeLocal(live.scheduledPublishAt) : undefined
+              live.scheduledPublishAt
+                ? formatDateTimeLocal(live.scheduledPublishAt, locale)
+                : undefined
             }
           />
         </div>
@@ -1365,7 +1368,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               {live.lastPublishedAt ? (
                 <span className="text-xs text-muted-foreground">
                   {live.publishStatus === "failed" ? "Last attempt" : "Sent"}{" "}
-                  {formatDateTime(live.lastPublishedAt)}
+                  {formatDateTime(live.lastPublishedAt, locale)}
                 </span>
               ) : null}
               {live.publishedDraftUrl ? (
@@ -1403,7 +1406,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 {live.livePublishedAt ? (
                   <span className="text-xs text-muted-foreground">
                     {live.livePublishStatus === "failed" ? "Last attempt" : "Published"}{" "}
-                    {formatDateTime(live.livePublishedAt)}
+                    {formatDateTime(live.livePublishedAt, locale)}
                   </span>
                 ) : null}
                 {live.liveUrl ? (
@@ -1450,7 +1453,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
             <p className="text-sm font-medium">{t("approval.scheduleHeld")}</p>
             <p className="text-xs">
               {t("approval.scheduleHeldBody", {
-                when: live.scheduledPublishAt ? formatDateTimeLocal(live.scheduledPublishAt) : "—",
+                when: live.scheduledPublishAt
+                  ? formatDateTimeLocal(live.scheduledPublishAt, locale)
+                  : "—",
               })}
             </p>
             <div className="flex gap-2">
@@ -1478,7 +1483,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               {live.sourceHeldPublishAt ? (
                 <span className="mt-1 block text-xs font-normal">
                   {t("editor.schedule.sourceHeldAt", {
-                    when: formatDateTimeLocal(live.sourceHeldPublishAt),
+                    when: formatDateTimeLocal(live.sourceHeldPublishAt, locale),
                   })}
                 </span>
               ) : null}
@@ -1505,10 +1510,10 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                     exact lie this increment exists to remove. */}
                 {scheduleOverdue
                   ? t("editor.schedule.overdue", {
-                      when: formatDateTimeLocal(live.scheduledPublishAt),
+                      when: formatDateTimeLocal(live.scheduledPublishAt, locale),
                     })
                   : t("editor.schedule.pending", {
-                      when: formatDateTimeLocal(live.scheduledPublishAt),
+                      when: formatDateTimeLocal(live.scheduledPublishAt, locale),
                     })}
               </span>
               <Button size="sm" variant="ghost" onClick={cancelSchedule} disabled={scheduling}>
@@ -3007,7 +3012,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           <Copy className="h-3.5 w-3.5" /> {t("editorScreen.copyMarkdown")}
         </Button>
         <div className="ml-auto text-xs text-muted-foreground">
-          {t("editorScreen.updated", { date: formatDateTime(f.updatedAt) })}
+          {t("editorScreen.updated", { date: formatDateTime(f.updatedAt, locale) })}
         </div>
       </div>
     </div>
