@@ -20,6 +20,7 @@ export function KnowledgeOutputInspection({
 }) {
   const locale = useAppLanguage();
   const inspectionId = useId();
+  const opener = useRef<HTMLButtonElement>(null);
   const t = useT();
   const [snapshot, setSnapshot] = useState<Awaited<
     ReturnType<typeof readKnowledgeOutputReviewFn>
@@ -136,6 +137,7 @@ export function KnowledgeOutputInspection({
   return (
     <div className="space-y-2" lang={locale} aria-busy={busy}>
       <Button
+        ref={opener}
         type="button"
         size="sm"
         variant="outline"
@@ -266,6 +268,7 @@ export function KnowledgeOutputInspection({
             onClick={() => {
               request.current++;
               setSnapshot(null);
+              opener.current?.focus();
             }}
           >
             {t("knowledge.inspect.close")}

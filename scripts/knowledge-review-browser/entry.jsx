@@ -248,6 +248,17 @@ async function confirm() {
   assert(document.querySelector("[role=alert]"), "Partial inspection lacks failure alert");
   assert(button("knowledge.review.save").disabled, "Failed history inspection permits save");
   results.push("Current facts with unavailable review history cannot be saved as reviewed");
+  const close = button("knowledge.inspect.close");
+  close.focus();
+  assert(document.activeElement === close, "Close control did not receive focus");
+  close.click();
+  await tick();
+  assert(!button("knowledge.inspect.close"), "Closed inspection remains visible");
+  assert(
+    document.activeElement === button("knowledge.inspect.open"),
+    "Closing inspection lost keyboard focus instead of returning it to the opener",
+  );
+  results.push("Closing inspection returns keyboard focus to its opener");
   document.getElementById("results").textContent = JSON.stringify(
     { passed: true, locale, results },
     null,
