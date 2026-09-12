@@ -1,8 +1,32 @@
+import { hrSetupScreen } from "./hr-setup-screen";
+import { hrServicesScreen } from "./hr-services-screen";
+import { hrAuditScreen } from "./hr-audit-screen";
 import { hrCore } from "./hr-core";
 import { hrAuthScreen } from "./hr-auth-screen";
 import { hrSharedUi } from "./hr-shared-ui";
 /** Croatian authoring; never imported by the runtime catalog. */
 export const HR_STAGED_BATCHES = [
+  {
+    name: "setup screen",
+    copy: hrSetupScreen,
+    namespaces: ["setupScreen"],
+    sourceRevision: "cae5a6d",
+    sourceHash: "565b0bcd89f346fd85f3b87d4e44716826a65bee54fd60eaa3b677c4d732a5ca",
+  },
+  {
+    name: "services screen",
+    copy: hrServicesScreen,
+    namespaces: ["servicesScreen"],
+    sourceRevision: "cae5a6d",
+    sourceHash: "c769d10ab21c34754c6c4a6c57c3ee5f04881605b1dabc10030bca0e9122313d",
+  },
+  {
+    name: "audit screen",
+    copy: hrAuditScreen,
+    namespaces: ["auditScreen"],
+    sourceRevision: "cae5a6d",
+    sourceHash: "2c15a7061c169b3f2da7446d4280ff94cb6b5ce2e6cb56d156af72ab154f1aed",
+  },
   {
     name: "core",
     copy: hrCore,
