@@ -1,3 +1,4 @@
+import { fiOutreach } from "./fi-outreach";
 import { fiMeasurements } from "./fi-measurements";
 import { fiTechnical } from "./fi-technical";
 import { fiKnowledge } from "./fi-knowledge";
@@ -23,6 +24,13 @@ import { fiSharedUi } from "./fi-shared-ui";
 
 /** Finnish authoring; never imported by the runtime catalog. */
 export const FI_STAGED_BATCHES = [
+  {
+    name: "outreach",
+    copy: fiOutreach,
+    namespaces: ["outreach", "hook", "anchor"],
+    sourceRevision: "9e77223",
+    sourceHash: "c2bfe98eb710f1587237c92b04696e6f9221e67def7d1080eb7ce08e3d1161b4",
+  },
   {
     name: "measurements",
     copy: fiMeasurements,
