@@ -1,3 +1,4 @@
+import { hrLinks } from "./hr-links";
 import { hrCommerce } from "./hr-commerce";
 import { hrGrowth } from "./hr-growth";
 import { hrOutreach } from "./hr-outreach";
@@ -25,6 +26,20 @@ import { hrAuthScreen } from "./hr-auth-screen";
 import { hrSharedUi } from "./hr-shared-ui";
 /** Croatian authoring; never imported by the runtime catalog. */
 export const HR_STAGED_BATCHES = [
+  {
+    name: "links",
+    copy: hrLinks,
+    namespaces: [
+      "linknet",
+      "backlinks",
+      "marketplace",
+      "backlinkMonitor",
+      "backlinkDetails",
+      "backlinkRecurring",
+    ],
+    sourceRevision: "7194081",
+    sourceHash: "7b8c4cfd6fb08b518e7e0eb7fd53e767b72972a0048a75521eda0d4b9ebd40d7",
+  },
   {
     name: "commerce",
     copy: hrCommerce,

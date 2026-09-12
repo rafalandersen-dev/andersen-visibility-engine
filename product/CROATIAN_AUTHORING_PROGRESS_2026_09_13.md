@@ -1,6 +1,6 @@
 # Croatian interface authoring — 13 September 2026
 
-Croatian is staged only: 2,971 of the current 3,768 English interface keys across twenty-five complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK/SL retain complete staged authoring and incomplete acceptance status.
+Croatian is staged only: 3,227 of the current 3,768 English interface keys across twenty-six complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK/SL retain complete staged authoring and incomplete acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -29,8 +29,9 @@ Croatian is staged only: 2,971 of the current 3,768 English interface keys acros
 | Outreach | 158 | 11dab5c |
 | Growth | 201 | 3a7929e |
 | Commerce | 192 | c2a33a6 |
+| Links | 256 | 7194081 |
 
-The frozen staged registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 36 Croatian/catalog tests, scoped lint, whitespace and type checking pass. Changed code formatted. Type log: /tmp/milo-croatian-commerce-types.log.
+The frozen staged registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 37 Croatian/catalog tests, scoped lint, whitespace and type checking pass. Changed code formatted. Type log: /tmp/milo-croatian-links-types.log.
 
 Terminology: radni prostor (workspace), projekt, lozinka (password), ponovno postavljanje lozinke (password reset), bočna traka (sidebar), unos (network listing), paket (subscription plan), plan (workflow plan), smjernice za sadržaj (content brief), poveznica (link). Use polite plural explanatory instructions and concise action labels. Preserve provider/product names and placeholders.
 
@@ -74,4 +75,6 @@ Growth copy preserves suggested authority outcomes, readiness versus ranking lim
 
 Commerce copy preserves test-payment versus real-charge distinctions, retry reuse, manual activation states, pricing eligibility, connection-test limits and unverified saved-import provenance. Checklist completion remains distinct from paid-launch and real-site acceptance. No payment, billing-profile, activation, connection, import or publication operation occurred.
 
-Remaining: 797 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: links using the current composed English source. This staged work does not complete R20 or change release gates.
+Links copy preserves network relevance limits, review requests versus explicitly approved paid orders, uncertain-outcome holds, incomplete provider-index evidence, UTC collection windows, paging limits and supplier-budget accounting. Pausing does not cancel already admitted collection; saved source labels do not independently verify live placements. No network listing, outreach, purchase, provider collection, monitoring activation or accounting operation occurred.
+
+Remaining: 541 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: evidence using the current composed English source. This staged work does not complete R20 or change release gates.
