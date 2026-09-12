@@ -1,6 +1,6 @@
 # Dutch interface authoring — 12 September 2026
 
-R20 requires full EU-language coverage. Dutch authoring has begun with 3,227 of the current 3,768 English interface messages (541 remain). This is a partial staged catalog; Dutch is not registered in UI_CATALOGS or the language picker.
+R20 requires full EU-language coverage. Dutch authoring has begun with 3,423 of the current 3,768 English interface messages (345 remain). This is a partial staged catalog; Dutch is not registered in UI_CATALOGS or the language picker.
 
 ## Completed authoring batches
 
@@ -15,6 +15,7 @@ R20 requires full EU-language coverage. Dutch authoring has begun with 3,227 of 
 | Evidence screens | 89 | src/i18n/staged/nl-evidence-screen.ts |
 | Plan screen | 113 | src/i18n/staged/nl-plan-screen.ts |
 | Editor screen | 148 | src/i18n/staged/nl-editor-screen.ts |
+| Answers, logs, publication evidence and evaluation | 196 | src/i18n/staged/nl-evidence.ts |
 | Backlinks, network, marketplace and monitoring | 256 | src/i18n/staged/nl-links.ts |
 | Billing, launch checklist and beta notes | 192 | src/i18n/staged/nl-commerce.ts |
 | Authority, proposals and public audit | 201 | src/i18n/staged/nl-growth.ts |
@@ -178,3 +179,10 @@ All thirty-six Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-c
 At 6b144e9, authored all 256 linknet/backlinks/marketplace/backlinkMonitor/backlinkDetails/backlinkRecurring messages. Copy preserves provider-index uncertainty, partial evidence, exact-total order confirmation, demo-versus-live ordering, UTC monitoring windows, supplier caps and already-admitted costs after pause. Numeric rates retain decimal points as in the source; grouped limits use spaces without changing values. Live verification and policy-compliance implications, generic order-error no-payment claims and legacy provider-setup copy require behavior/source review before activation.
 
 All thirty-seven Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-links-types.log), scoped lint and whitespace checks. Total staged coverage is 3,227; 541 messages remain across evidence and workflow. No provider request, network listing, order, purchase, monitoring activation or runtime activation occurred; fluent/rendered and full real-use acceptance remain open.
+
+
+## Evidence-domain follow-up
+
+At a8ba393, authored all 196 answer/logs/proof/aiEval/benchmark messages. Owner-supplied provenance, incomplete samples, noncausal comparisons, connector-reported publication and separate model evaluation remain explicit. Privacy/import limits and permanent-removal warnings are preserved. The benchmark $5 label is source copy only and neither renews nor consumes spending authorization.
+
+All thirty-eight Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-evidence-domain-types.log), scoped lint and whitespace checks. Total staged coverage is 3,423; 345 workflow messages remain. No provider generation, evidence import, log collection, publication or runtime activation occurred. Fluent/rendered and full real-use acceptance remain open.

@@ -1,3 +1,4 @@
+import { nlEvidence } from "./nl-evidence";
 import { nlLinks } from "./nl-links";
 import { nlCommerce } from "./nl-commerce";
 import { nlGrowth } from "./nl-growth";
@@ -27,6 +28,13 @@ import { nlSharedUi } from "./nl-shared-ui";
 
 /** Partial Dutch authoring; never imported by the runtime catalog. */
 export const NL_STAGED_BATCHES = [
+  {
+    name: "evidence",
+    copy: nlEvidence,
+    namespaces: ["answer", "logs", "proof", "aiEval", "benchmark"],
+    sourceRevision: "a8ba393",
+    sourceHash: "2911f87d7691a2bf04548e0b7c0e63b3c93f25cdcd73c9af1ba5d22ffdee211d",
+  },
   {
     name: "links",
     copy: nlLinks,
