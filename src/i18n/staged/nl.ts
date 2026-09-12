@@ -1,3 +1,4 @@
+import { nlEvidenceScreen } from "./nl-evidence-screen";
 import { nlBillingScreen } from "./nl-billing-screen";
 import { nlAnalyticsScreen } from "./nl-analytics-screen";
 import { nlAuditScreen } from "./nl-audit-screen";
@@ -9,6 +10,13 @@ import { nlSharedUi } from "./nl-shared-ui";
 
 /** Partial Dutch authoring; never imported by the runtime catalog. */
 export const NL_STAGED_BATCHES = [
+  {
+    name: "evidence screen",
+    copy: nlEvidenceScreen,
+    namespaces: ["evidenceScreen"],
+    sourceRevision: "fb56499",
+    sourceHash: "2c7e9ccb48b02cd12911d0df6c31a96ec8ddfc6c558dfda3b3e14790d156c136",
+  },
   {
     name: "analytics screen",
     copy: nlAnalyticsScreen,
