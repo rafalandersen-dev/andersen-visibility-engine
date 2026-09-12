@@ -110,7 +110,7 @@ export function buildMonthlyProofReport(args: {
   const draftedCount = content.filter((c) => monthKeyOf(c.createdAt) === monthKey).length;
 
   const scheduledCount = content.filter(
-    (c) => !c.liveUrl && monthKeyOf(c.scheduledPublishAt) === monthKey,
+    (c) => c.scheduledPublishStatus === "pending" && monthKeyOf(c.scheduledPublishAt) === monthKey,
   ).length;
 
   const nextMonthPlan = calendar
