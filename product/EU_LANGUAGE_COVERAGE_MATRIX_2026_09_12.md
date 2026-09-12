@@ -112,3 +112,5 @@ Slovak analytics/billing adds 90 messages, bringing staged coverage to 435/3,768
 Slovak evidence screen adds 89 messages, bringing staged coverage to 524/3,768 across nine batches. The remaining UI authoring backlog is 44,692 messages at this composed-English baseline. All 20 focused tests, types, scoped lint and whitespace pass. Activation and language/rendered acceptance remain open.
 
 Slovak plan screen adds 113 messages, bringing staged coverage to 637/3,768 across ten batches. The remaining UI authoring backlog is 44,579 messages at this composed-English baseline. All 21 focused tests, types, scoped lint and whitespace pass. Activation and language/rendered acceptance remain open.
+
+Slovak editor screen adds 148 messages, bringing staged coverage to 785/3,768 across eleven batches. The remaining UI authoring backlog is 44,431 messages at this composed-English baseline. All 22 focused tests, types, scoped lint and whitespace pass. Activation and language/rendered acceptance remain open.
