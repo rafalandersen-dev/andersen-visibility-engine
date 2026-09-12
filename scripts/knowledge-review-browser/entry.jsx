@@ -26,8 +26,14 @@ const snapshot = {
       outputId: "a",
       reviewKey: "fact-1",
       reference: { recordRevision: 1, sourceRevision: 1 },
-      record: null,
-      source: null,
+      record: {
+        key: "business.service",
+        value: "Current service fact for review",
+        revision: 2,
+        status: "accepted",
+        validUntil: "2026-10-01T00:00:00Z",
+      },
+      source: { label: "Owner supplied source", revision: 2, status: "active" },
     },
   ],
   reviewable: true,
@@ -83,6 +89,18 @@ async function confirm() {
     description?.textContent.includes("knowledge.inspect.original") ||
       description?.textContent.includes(t("knowledge.inspect.original")),
     "Fact description does not include evidence context",
+  );
+  assert(
+    description.textContent.includes("Current service fact for review"),
+    "Current fact text missing from acknowledgement context",
+  );
+  assert(
+    description.textContent.includes("Owner supplied source"),
+    "Source missing from acknowledgement context",
+  );
+  assert(
+    description.textContent.includes(t("knowledge.inspect.current")),
+    "Current versions missing from acknowledgement context",
   );
   const panel = document.querySelector("[aria-busy]");
   assert(
@@ -197,6 +215,39 @@ async function confirm() {
   results.push(
     "Confirmed withdrawal clears acknowledgements and refreshes parent despite history failure",
   );
+  window.h.history = async () => [];
+  window.h.read = async () => ({
+    ...snapshot,
+    reviewable: false,
+    forgotten: true,
+    facts: snapshot.facts.map((fact) => ({ ...fact, record: null, source: null })),
+  });
+  await mount("forgotten");
+  await inspect();
+  assert(
+    document.body.textContent.includes(t("knowledge.inspect.forgotten")),
+    "Missing forgotten-evidence status",
+  );
+  assert(
+    document.body.textContent.includes(t("knowledge.review.ineligible")),
+    "Missing ineligible-review explanation",
+  );
+  assert(
+    !document.querySelector("input[type=checkbox]"),
+    "Ineligible evidence exposes acknowledgements",
+  );
+  assert(!button("knowledge.review.save"), "Ineligible evidence exposes save control");
+  results.push("Forgotten ineligible evidence displays its limits without approval controls");
+  window.h.read = async () => snapshot;
+  window.h.history = async () => {
+    throw Error("history unavailable");
+  };
+  await mount("inspection-history-failure");
+  await inspect();
+  await confirm();
+  assert(document.querySelector("[role=alert]"), "Partial inspection lacks failure alert");
+  assert(button("knowledge.review.save").disabled, "Failed history inspection permits save");
+  results.push("Current facts with unavailable review history cannot be saved as reviewed");
   document.getElementById("results").textContent = JSON.stringify(
     { passed: true, locale, results },
     null,
