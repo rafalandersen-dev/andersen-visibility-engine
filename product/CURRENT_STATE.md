@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Password-reset session lifecycle corrected: readiness follows sign-out, stale checks cannot override newer auth events or update after cleanup, and lookup rejections are handled. Existing-session eligibility and eight-second recheck are preserved. See PASSWORD_RESET_SESSION_2026_09_12.md. Prepared, unreleased; real password recovery and resend acceptance remain open.
+
 Branded signup/recovery now share application-level request admission before administrative link generation: recipient minute/hour and service-hour caps, HMAC counter identities and denial on unverifiable counters. Reuses the existing atomic service-role RPC. See AUTH_EMAIL_ADMISSION_2026_09_12.md for exact policy and operational limitations. Prepared, unreleased; live rate-limit, delivery and resend acceptance remain open.
 
 Authentication token diagnostics now use fixed categories for database response errors and rejected requests, preserving the generic user error and concurrent-token recovery without logging raw row details. Twelve new mocked regressions; see AUTH_TOKEN_DIAGNOSTICS_2026_09_12.md. Prepared, unreleased; real authentication and confirmation resend acceptance remain open.

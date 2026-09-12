@@ -7,6 +7,10 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useAuthLanguage } from "@/hooks/use-auth-language";
 import { AuthLanguagePicker } from "@/components/AuthLanguagePicker";
+import {
+  observePasswordResetSession,
+  type PasswordResetStatus,
+} from "@/lib/password-reset-session";
 
 export const Route = createFileRoute("/reset-password")({
   head: () => ({
@@ -19,55 +23,19 @@ export const Route = createFileRoute("/reset-password")({
   component: ResetPasswordPage,
 });
 
-type Status = "checking" | "ready" | "invalid";
-
 function ResetPasswordPage() {
   const { language, chooseLanguage, t } = useAuthLanguage();
   const navigate = useNavigate();
-  const [status, setStatus] = useState<Status>("checking");
+  const [status, setStatus] = useState<PasswordResetStatus>("checking");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    // Supabase parses the recovery token from the URL automatically (detectSessionInUrl).
-    // We accept the user as "ready to reset" only when a recovery event fires
-    // OR a session is already present (auto-handled).
-    let resolved = false;
-    const finish = (ok: boolean) => {
-      if (resolved) return;
-      resolved = true;
-      setStatus(ok ? "ready" : "invalid");
-    };
-
-    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "PASSWORD_RECOVERY") finish(true);
-      else if (event === "SIGNED_IN" && session) finish(true);
-    });
-
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) finish(true);
-    });
-
-    // Slow networks / slow token exchange used to trip a 2.5s verdict and show
-    // a false "invalid link". Wait longer, then re-check the session once more
-    // before declaring the link dead.
-    const t = setTimeout(() => {
-      if (resolved) return;
-      supabase.auth
-        .getSession()
-        .then(({ data }) => finish(Boolean(data.session)))
-        .catch(() => finish(false));
-    }, 8000);
-    return () => {
-      clearTimeout(t);
-      sub.subscription.unsubscribe();
-    };
-  }, []);
+  useEffect(() => observePasswordResetSession(supabase.auth, setStatus), []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (busy) return;
+    if (busy || status !== "ready") return;
     if (password.length < 8) {
       toast.error(t("authScreen.passwordShort"));
       return;
