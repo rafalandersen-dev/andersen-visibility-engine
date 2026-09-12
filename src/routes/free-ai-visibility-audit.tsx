@@ -10,7 +10,7 @@ import {
   type PublicAiVisibilityAudit,
   type PublicAuditStatus,
 } from "@/lib/public-audit";
-import { Gauge, Loader2, Search, AlertTriangle, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Gauge, Loader2, Search, AlertTriangle, ArrowRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 export const Route = createFileRoute("/free-ai-visibility-audit")({
@@ -27,13 +27,6 @@ export const Route = createFileRoute("/free-ai-visibility-audit")({
   component: PublicAuditPage,
 });
 
-const STEP_KEYS = [
-  "publicAudit.loading.fetching",
-  "publicAudit.loading.reading",
-  "publicAudit.loading.checking",
-  "publicAudit.loading.preparing",
-];
-
 function statusClasses(s: PublicAuditStatus) {
   return s === "strong"
     ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-600"
@@ -48,7 +41,6 @@ function PublicAuditPage() {
 
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [unavailable, setUnavailable] = useState(false);
   const [result, setResult] = useState<PublicAiVisibilityAudit | null>(null);
@@ -70,8 +62,6 @@ function PublicAuditPage() {
     setError(null);
     setUnavailable(false);
     setResult(null);
-    setStep(0);
-    const timer = setInterval(() => setStep((s) => Math.min(STEP_KEYS.length - 1, s + 1)), 1500);
     try {
       const audit = await runPublicAudit({
         url: trimmed,
@@ -83,7 +73,6 @@ function PublicAuditPage() {
       setUnavailable(e instanceof PublicAuditUnavailableError);
       setError(e instanceof Error ? e.message : t("publicAudit.genericError"));
     } finally {
-      clearInterval(timer);
       setLoading(false);
       setBotProof("");
       setTurnstileReset((value) => value + 1);
@@ -176,30 +165,23 @@ function PublicAuditPage() {
           </p>
         ) : null}
 
-        {/* Loading */}
+        {/* The endpoint returns a final result, not stage progress. */}
         {loading ? (
-          <div className="mt-8 rounded-lg border border-border bg-card p-5 space-y-2">
-            {STEP_KEYS.map((k, i) => (
-              <div
-                key={k}
-                className={`flex items-center gap-2 text-sm ${i <= step ? "text-foreground" : "text-muted-foreground/50"}`}
-              >
-                {i < step ? (
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                ) : i === step ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-gold" />
-                ) : (
-                  <span className="h-4 w-4 rounded-full border border-border inline-block" />
-                )}
-                {t(k)}
-              </div>
-            ))}
+          <div
+            role="status"
+            className="mt-8 rounded-lg border border-border bg-card p-5 flex items-center gap-2 text-sm"
+          >
+            <Loader2 className="h-4 w-4 animate-spin text-gold" aria-hidden="true" />
+            {t("publicAudit.running")}
           </div>
         ) : null}
 
         {/* Error */}
         {error && !loading ? (
-          <div className="mt-8 rounded-lg border border-border bg-card p-6 text-center">
+          <div
+            role="alert"
+            className="mt-8 rounded-lg border border-border bg-card p-6 text-center"
+          >
             <AlertTriangle className="mx-auto h-7 w-7 text-amber-500" strokeWidth={1.5} />
             <p className="mt-2 text-sm text-muted-foreground max-w-md mx-auto">{error}</p>
             {/* Offer project setup when no usable service response was received. */}
