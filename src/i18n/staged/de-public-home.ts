@@ -66,7 +66,7 @@ export const dePublicHome: Readonly<Record<string, string>> = {
   "publicHome.everythingRetained": "Alles bleibt erhalten",
   "publicHome.connectedWork": "Verbundene Arbeit. Klare nächste Schritte.",
   "publicHome.settingsBody":
-    "Audit, Wettbewerber, Autorität und KI-Sichtbarkeit fließen jetzt in einen Plan. Projekteinrichtung, Dienstleistungen, Verbindungen und Abrechnung sind in den Einstellungen vereint. Inhalte und Erkenntnisse haben jeweils eine klare Aufgabe.",
+    "Audit, Wettbewerber, Autorität und KI-Sichtbarkeit fließen jetzt in einen Plan. Projekteinrichtung, Dienstleistungen, Verbindungen und Abrechnung sind in den Einstellungen vereint. Inhalte und Sichtbarkeit haben jeweils eine klare Aufgabe.",
   "publicHome.startProject": "Mit einem Projekt starten",
   "publicHome.linkProfile": "Linkprofil und Lücken",
   "publicHome.marketplace": "Kostenpflichtiger Marktplatz",

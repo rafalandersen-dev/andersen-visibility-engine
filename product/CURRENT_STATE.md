@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Public home copy now names the app’s Visibility section consistently across active EN/PL/SV/DA and all staged translations. Reviewed English fingerprints updated; 193 staged/catalog tests plus scoped lint/whitespace pass. The Dutch navigation source discrepancy is resolved; other acceptance and release holds remain.
+
 Dutch post-authoring review corrected approval-versus-review wording in the editor and aligned five recurring labels. All 39 Dutch/catalog tests plus scoped lint/whitespace pass. Full 3,768-key coverage remains; fluent/rendered and source-claim acceptance are still open. See DUTCH_AUTHORING_PROGRESS_2026_09_12.md. No activation or release-gate change.
 
 Dutch authoring is complete at 3,768/3,768 messages across 28 staged batches, adding the final 345 workflow messages. Exact English-key parity and runtime exclusion pass; 39 focused Dutch/catalog tests and the broader 193-test staged/catalog run across seven files pass, plus types/scoped lint/whitespace. Language, rendered, source-claim and real-use acceptance remain open. See DUTCH_AUTHORING_PROGRESS_2026_09_12.md. Dutch remains inactive; release gates and the full roadmap are unchanged.

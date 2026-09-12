@@ -23,7 +23,7 @@ export const DE_AUTHORING_SOURCE_HASHES: Readonly<Record<string, string>> = {
   outreach: "c2bfe98eb710f1587237c92b04696e6f9221e67def7d1080eb7ce08e3d1161b4",
   growth: "79460ac604f31155136687fbf43e146ccd11625f12316625da192cdb8188f136",
   commerce: "6cd0596e8ff09ae38f9decb763ab31a3fe2c311109c9b5f85edc9721d7058ff2",
-  "public home": "4e132895babfb222b37e92719be5ad2a8be90d9503869e9df9845b00d982adeb",
+  "public home": "2855ce0efcce2fc714afc7f61a15d64ed5975809acefb98df75a3e275ccae141",
   "public beta": "e670953b131c40fc4433b5ce6e5b256556bf37ea8709bc495b211efc361fb59e",
   "beta guide": "8c815e10a73590a6e2911d1b5618d5d545c15a47b3a75462ccaaae6faf33520d",
   "beta controls": "c4dcf4827cb49219199aab22d2969e33f643ade8a8c2c348bb899d61f3a08119",

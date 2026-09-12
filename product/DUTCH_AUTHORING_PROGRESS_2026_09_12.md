@@ -203,3 +203,10 @@ This completes Dutch message authoring only. The source-claim notes throughout t
 At b629a2e, reviewed all English approval-bearing messages against Dutch approval wording and compared repeated short English labels across the full catalog. Corrected editor.subtitle, which had translated approve as review, to explicitly say keur ze goed. Aligned five other labels: Analytics in the Plan source label, Premiumanalyses and Verbonden apps in navigation, the link-network contact email label, and the last-30-days range. Contextual distinctions remain deliberate: account Owner versus work-item responsible person, subscription cancellation versus task cancellation, and a named Plan versus the verb planning. The public Insights versus current Visibility discrepancy originates in English and remains flagged for cross-language source reconciliation.
 
 All 39 Dutch/catalog checks, scoped lint and whitespace checks pass. No new tests or repeated full type/build checks were needed for six string-only corrections. This is a targeted semantic/terminology pass, not a fluent or rendered acceptance sign-off. Full coverage remains 3,768 keys; Dutch remains inactive.
+
+
+## Public navigation source reconciliation
+
+At 4b2e674, confirmed AppShell uses shell.nav.insights and the composed runtime catalog resolves that label to Visibility/Widoczność/Synlighet/Synlighed. Updated publicHome.settingsBody to match in all four active languages and FR/DE/ES/IT/NL staged copy. Portuguese already used Visibilidade. Updated the reviewed public-home English fingerprints for DE/ES/IT/PT/NL. This resolves the previously flagged Insights-versus-Visibility source discrepancy.
+
+All 193 staged-language/catalog tests across seven files pass, plus scoped lint and whitespace checks. String-only navigation wording; no layout or behavior change and no runtime language activation. Other source-claim and rendered acceptance items remain open.

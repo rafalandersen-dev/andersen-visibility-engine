@@ -195,8 +195,8 @@ export const ES_STAGED_BATCHES = [
     name: "public home",
     copy: esPublicHome,
     namespaces: ["publicHome"],
-    sourceRevision: "5a9416d74f532b65f78c0f19b89d221c6b2af6c2",
-    sourceHash: "4e132895babfb222b37e92719be5ad2a8be90d9503869e9df9845b00d982adeb",
+    sourceRevision: "4b2e674",
+    sourceHash: "2855ce0efcce2fc714afc7f61a15d64ed5975809acefb98df75a3e275ccae141",
   },
   {
     name: "public pricing",

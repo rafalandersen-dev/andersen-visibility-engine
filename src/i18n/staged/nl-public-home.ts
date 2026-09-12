@@ -66,7 +66,7 @@ export const nlPublicHome: Readonly<Record<string, string>> = {
   "publicHome.everythingRetained": "Alles blijft bewaard",
   "publicHome.connectedWork": "Samenhangend werk. Duidelijke volgende acties.",
   "publicHome.settingsBody":
-    "Audit, concurrenten, autoriteit en AI-zichtbaarheid leveren nu input voor één Plan. Projectinstellingen, diensten, koppelingen en facturering staan samen in Instellingen. Content en Inzichten hebben elk een duidelijke taak.",
+    "Audit, concurrenten, autoriteit en AI-zichtbaarheid leveren nu input voor één Plan. Projectinstellingen, diensten, koppelingen en facturering staan samen in Instellingen. Content en Zichtbaarheid hebben elk een duidelijke taak.",
   "publicHome.startProject": "Begin met één project",
   "publicHome.linkProfile": "Linkprofiel en hiaten",
   "publicHome.marketplace": "Betaalde marktplaats",

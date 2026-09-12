@@ -156,8 +156,8 @@ export const NL_STAGED_BATCHES = [
     name: "public home",
     copy: nlPublicHome,
     namespaces: ["publicHome"],
-    sourceRevision: "2a88d38",
-    sourceHash: "4e132895babfb222b37e92719be5ad2a8be90d9503869e9df9845b00d982adeb",
+    sourceRevision: "4b2e674",
+    sourceHash: "2855ce0efcce2fc714afc7f61a15d64ed5975809acefb98df75a3e275ccae141",
   },
   {
     name: "public pricing",

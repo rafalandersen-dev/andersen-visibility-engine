@@ -66,7 +66,7 @@ export const esPublicHome: Readonly<Record<string, string>> = {
   "publicHome.everythingRetained": "Todo se conserva",
   "publicHome.connectedWork": "Trabajo conectado. Próximas acciones claras.",
   "publicHome.settingsBody":
-    "Auditoría, competidores, autoridad y visibilidad en IA alimentan ahora un único Plan. La configuración del proyecto, los servicios, las conexiones y la facturación se reúnen en Configuración. Contenido e Información tienen cada uno una función clara.",
+    "Auditoría, competidores, autoridad y visibilidad en IA alimentan ahora un único Plan. La configuración del proyecto, los servicios, las conexiones y la facturación se reúnen en Configuración. Contenido y Visibilidad tienen cada uno una función clara.",
   "publicHome.startProject": "Empieza con un proyecto",
   "publicHome.linkProfile": "Perfil de enlaces y carencias",
   "publicHome.marketplace": "Marketplace de pago",
