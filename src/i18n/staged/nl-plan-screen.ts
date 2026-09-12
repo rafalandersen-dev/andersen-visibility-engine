@@ -52,7 +52,7 @@ export const nlPlanScreen: Readonly<Record<string, string>> = {
   "planScreen.sourceLabel.search_console": "Search Console",
   "planScreen.sourceLabel.competitor": "Concurrenten",
   "planScreen.sourceLabel.ai_visibility": "AI-zichtbaarheid",
-  "planScreen.sourceLabel.analytics": "Analytics",
+  "planScreen.sourceLabel.analytics": "Analyses",
   "planScreen.sourceLabel.services_products": "Diensten en producten",
   "planScreen.sourceLabel.authority": "Autoriteit",
   "planScreen.sourceLabel.backlinks": "Backlinks",

@@ -90,7 +90,7 @@ export const nlWorkflow: Readonly<Record<string, string>> = {
   "dashboard.tone": "Toon",
   "dashboard.reviewCalendar": "Contentkalender beoordelen",
   "editor.title": "Contenteditor",
-  "editor.subtitle": "Verfijn, beoordeel en exporteer met AI opgestelde items.",
+  "editor.subtitle": "Verfijn met AI opgestelde items, keur ze goed en exporteer ze.",
   "editor.assets": "Items",
   "editor.aiReviewNote":
     "Concept met AI-ondersteuning. Beoordeel vóór publicatie, vooral claims, prijzen, medische/juridische/financiële uitspraken en lokale regels.",

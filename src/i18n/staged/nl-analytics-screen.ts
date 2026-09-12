@@ -7,7 +7,7 @@ export const nlAnalyticsScreen: Readonly<Record<string, string>> = {
     "Analytics volgt één website per project. Maak een project aan en voeg daarna het trackingfragment toe.",
   "analyticsScreen.description":
     "Bekijk geregistreerde websiteactiviteit naast rapporten van Search Console en gepubliceerde content.",
-  "analyticsScreen.last30": "Afgelopen 30 dagen",
+  "analyticsScreen.last30": "Laatste 30 dagen",
   "analyticsScreen.recorded": "Milo Analytics · geregistreerde gebeurtenissen",
   "analyticsScreen.readOnly": "Rapportage alleen-lezen · activiteit van 30 dagen",
   "analyticsScreen.views": "Geregistreerde paginaweergaven",

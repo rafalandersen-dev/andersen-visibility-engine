@@ -7,7 +7,7 @@ export const nlLinks: Readonly<Record<string, string>> = {
     "Relevantie staat voorop: matches vereisen gedeelde onderwerpen, directe linkruil wordt gemarkeerd en niets wordt automatisch geplaatst. Deze controles garanderen geen naleving van zoekmachinebeleid.",
   "linknet.topics": "Onderwerpen",
   "linknet.topicsPlaceholder": "Onderwerpen (gescheiden door komma's)",
-  "linknet.contact": "Contactadres",
+  "linknet.contact": "E-mailadres contactpersoon",
   "linknet.contactPlaceholder": "E-mailadres voor partners",
   "linknet.join": "Deelnemen aan het netwerk",
   "linknet.update": "Vermelding bijwerken",

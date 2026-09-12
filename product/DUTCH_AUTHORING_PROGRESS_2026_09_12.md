@@ -196,3 +196,10 @@ At 93eea4e, authored all 345 remaining workflow messages across autoSched/prev/i
 Dutch now covers exactly 3,768/3,768 current English keys across 28 batches. Replaced the partial-coverage assertion with exact full-English key parity; runtime exclusion remains enforced. All thirty-nine focused Dutch/catalog tests pass. The broader staged-language/catalog run passes 193 tests across seven files. Full TypeScript (/tmp/milo-dutch-workflow-types.log), scoped lint and whitespace checks pass. No build was needed for copy excluded from runtime.
 
 This completes Dutch message authoring only. The source-claim notes throughout this record, fluent terminology review, responsive rendering, accessibility, email/content/formatting coverage and real-use acceptance remain open. Dutch is not activated. No provider, publication, payment or deployment operation occurred. Continue with acceptance work and the remaining R20 languages without changing the full roadmap or release holds.
+
+
+## First terminology and approval-semantic review
+
+At b629a2e, reviewed all English approval-bearing messages against Dutch approval wording and compared repeated short English labels across the full catalog. Corrected editor.subtitle, which had translated approve as review, to explicitly say keur ze goed. Aligned five other labels: Analytics in the Plan source label, Premiumanalyses and Verbonden apps in navigation, the link-network contact email label, and the last-30-days range. Contextual distinctions remain deliberate: account Owner versus work-item responsible person, subscription cancellation versus task cancellation, and a named Plan versus the verb planning. The public Insights versus current Visibility discrepancy originates in English and remains flagged for cross-language source reconciliation.
+
+All 39 Dutch/catalog checks, scoped lint and whitespace checks pass. No new tests or repeated full type/build checks were needed for six string-only corrections. This is a targeted semantic/terminology pass, not a fluent or rendered acceptance sign-off. Full coverage remains 3,768 keys; Dutch remains inactive.
