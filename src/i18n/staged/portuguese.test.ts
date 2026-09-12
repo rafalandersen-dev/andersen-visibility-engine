@@ -29,6 +29,7 @@ it.each(PT_STAGED_BATCHES)("Portuguese $name matches reviewed source and paramet
       /\{[a-zA-Z][\w]*\}/g,
       /\b\d+(?:\.\d+)?(?=\b|(?:st|nd|rd|th)\b)/g,
       /https?:\/\/[^\s"<>]+/g,
+      /[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi,
     ])
       expect(tokens(value, pattern), key).toEqual(tokens(source[key], pattern));
   }

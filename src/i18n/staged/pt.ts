@@ -1,3 +1,6 @@
+import { ptAnalyticsScreen } from "./pt-analytics-screen";
+import { ptBillingScreen } from "./pt-billing-screen";
+import { ptEvidenceScreen } from "./pt-evidence-screen";
 import { ptSetupScreen } from "./pt-setup-screen";
 import { ptServicesScreen } from "./pt-services-screen";
 import { ptAuditScreen } from "./pt-audit-screen";
@@ -59,6 +62,27 @@ export const PT_STAGED_BATCHES = [
     namespaces: ["auditScreen"],
     sourceRevision: "30eef6d",
     sourceHash: "2c15a7061c169b3f2da7446d4280ff94cb6b5ce2e6cb56d156af72ab154f1aed",
+  },
+  {
+    name: "analytics screen",
+    copy: ptAnalyticsScreen,
+    namespaces: ["analyticsScreen"],
+    sourceRevision: "2d9acd2",
+    sourceHash: "d86d151031ad82c4dbc559e9816ad14cecaa3e4f1b0de2ff8de3c484de5b02c5",
+  },
+  {
+    name: "billing screen",
+    copy: ptBillingScreen,
+    namespaces: ["billingScreen"],
+    sourceRevision: "2d9acd2",
+    sourceHash: "d0e701bae4247d1129cc13dd6df6d9b569e725edbf5136255b68ca3fb2307194",
+  },
+  {
+    name: "evidence screen",
+    copy: ptEvidenceScreen,
+    namespaces: ["evidenceScreen"],
+    sourceRevision: "2d9acd2",
+    sourceHash: "2c7e9ccb48b02cd12911d0df6c31a96ec8ddfc6c558dfda3b3e14790d156c136",
   },
 ] as const;
 export const PT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.assign(
