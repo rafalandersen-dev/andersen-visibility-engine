@@ -165,6 +165,22 @@ describe("publication evidence transport boundary", () => {
   });
 });
 describe("later measurements", () => {
+  it.each([
+    ["2026-08-07T23:30:00-02:00", false], // UTC Aug 8: inside the first day
+    ["2026-08-23T00:30:00+02:00", false], // UTC Aug 22: inside the last day
+    ["2026-08-08T00:30:00+02:00", true], // UTC Aug 7: before the window
+    ["2026-08-22T23:30:00-02:00", true], // UTC Aug 23: after the window
+    ["unreadable", false],
+  ])("compares competing receipt %s on the observation UTC-day basis", (at, comparable) => {
+    const before = observationFromImport(imp("2026-08-08", "2026-08-14"), pub, now);
+    const after = observationFromImport(imp(), pub, now);
+    expect(comparePublicationObservations(before, after, [at]).comparable).toBe(comparable);
+    if (Number.isFinite(Date.parse(at))) {
+      expect(comparePublicationObservations(before, after, [at])).toEqual(
+        comparePublicationObservations(before, after, [new Date(at).toISOString()]),
+      );
+    }
+  });
   it("rejects over-limit imports before selecting a matching page", () => {
     const over = imp();
     over.rows.push(

@@ -226,9 +226,15 @@ export function comparePublicationObservations(
   )
     return { comparable: false as const, reason: "incomparable_windows" };
   if (
-    otherPublicationAt.some(
-      (at) => at.slice(0, 10) >= before.windowStart && at.slice(0, 10) <= after.windowEnd,
-    )
+    otherPublicationAt.some((at) => {
+      // Publication receipts allow timezone offsets. Compare UTC days, as in
+      // observationFromImport, rather than the timestamp's local date text.
+      // An unreadable competing receipt cannot establish a clean comparison.
+      const instant = Date.parse(at);
+      if (!Number.isFinite(instant)) return true;
+      const day = new Date(instant).toISOString().slice(0, 10);
+      return day >= before.windowStart && day <= after.windowEnd;
+    })
   )
     return { comparable: false as const, reason: "another_publication" };
   return {

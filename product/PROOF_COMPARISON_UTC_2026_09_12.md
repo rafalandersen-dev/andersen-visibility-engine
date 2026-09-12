@@ -1,0 +1,9 @@
+# Proof comparison receipt dates — 12 September 2026
+
+Prepared, unreleased afterd3e5112 on codex/milo-report-branding-authority-20260912. Source review confirms P5 already implements immutable action/source/asset/published-version snapshots, saved observation linkage and fixed owner-reviewed workflow comparisons (released PR112). Do not rebuild those systems or repeat their migration. Required real destination/measurement/provider and signed-in acceptance remain open.
+
+Found and fixed a comparison guard inconsistency: observations classify publication days in UTC, but competing publication receipts were compared by the first10characters of offset-bearing timestamps. A receipt with local date just outside a comparison window could actually fall inside it in UTC and fail to suppress a misleading before/after comparison. Conversely, an outside UTC receipt could unnecessarily suppress comparison. Receipt dates now normalize to UTC; an unreadable competing receipt conservatively prevents comparison. No persistence/schema, data capture, metric, translation or causal/tentative labeling changes.
+
+28focused publication/workflow tests pass, including5new regressions for both boundary crossings, opposite outside-window crossings, malformed receipts and equivalence to the same ISO UTC instant. Full types/build, changed-file lint and diff whitespace pass. Logs /tmp/milo-proof-utc-{tests,types,lint,build}.log. No actual source import, provider, account, publication, migration, review request or deployment. No broader outcome or real-use acceptance claimed.
+
+Overall60%/implementation75%, weighted58.25%/73.5%, paid NO-GO unchanged. All security quota/cost/provider/owner boundaries persist. Continue in the current task; no duplicate goal successor while predecessor lifecycle remains unresolved.
