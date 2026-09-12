@@ -140,6 +140,9 @@ export const signupWithBrandedEmailFn = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => signupSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabase, supabaseUrl } = getAdminClient();
+    // Refuse known missing email configuration before generating a signup link,
+    // because that administrative call can create an unconfirmed account.
+    getEmailApiKey();
     const email = data.email.trim().toLowerCase();
     const { data: linkData, error } = await supabase.auth.admin.generateLink({
       type: "signup",
@@ -160,33 +163,18 @@ export const signupWithBrandedEmailFn = createServerFn({ method: "POST" })
       confirmationUrl,
     });
 
-    // generateLink already CREATED the auth user. If the branded send fails we
-    // would leave an unreachable, unconfirmable account behind that also blocks
-    // a clean retry ("user already registered"). Roll the user back instead.
-    try {
-      await sendDirectAuthEmail({
-        templateName: "signup",
-        to: email,
-        subject: "Confirm your Milo Growth account",
-        html: await render(element),
-        text: await render(element, { plainText: true }),
-        supabase,
-      });
-    } catch (sendError) {
-      // Only roll back an account this call actually created — generateLink on
-      // an existing (unconfirmed) user returns that user, and deleting it would
-      // destroy someone else's account.
-      const createdUser = linkData.user;
-      const createdAt = createdUser?.created_at ? Date.parse(createdUser.created_at) : NaN;
-      const justCreated = Number.isFinite(createdAt) && Date.now() - createdAt < 60_000;
-      if (createdUser?.id && justCreated) {
-        const { error: deleteError } = await supabase.auth.admin.deleteUser(createdUser.id);
-        if (deleteError) {
-          console.error("[auth-email] orphan cleanup failed", deleteError.message);
-        }
-      }
-      throw sendError;
-    }
+    // generateLink returns account metadata, not proof that this request alone
+    // created the account. A recent created_at can belong to another request;
+    // an email failure must never authorize deleting that account. Preserve it
+    // and propagate the failure so confirmation/recovery can be handled later.
+    await sendDirectAuthEmail({
+      templateName: "signup",
+      to: email,
+      subject: "Confirm your Milo Growth account",
+      html: await render(element),
+      text: await render(element, { plainText: true }),
+      supabase,
+    });
     return { ok: true };
   });
 
