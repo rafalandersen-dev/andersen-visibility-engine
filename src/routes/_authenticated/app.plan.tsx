@@ -99,7 +99,7 @@ import {
   PIPELINE_STAGES,
   type PipelineStage,
 } from "@/lib/pipeline";
-import { formatDateTimeLocal, formatTimeLocal } from "@/lib/format";
+import { formatDateTimeLocal, formatTimeLocal, parseDateTimeLocalInput } from "@/lib/format";
 import { formatPlanningDate as formatDate } from "@/lib/planning-date";
 import { StageChip } from "@/components/StageChip";
 import { OrphanLane } from "@/components/OrphanLane";
@@ -458,8 +458,8 @@ function PlanPage() {
 
   async function armGoLive() {
     if (!dropIntent?.asset || !dropTime) return;
-    const instant = new Date(dropTime);
-    if (Number.isNaN(instant.getTime())) return;
+    const instant = parseDateTimeLocalInput(dropTime);
+    if (!instant) return;
     setArming(true);
     try {
       // Persist the target FIRST: scheduleContentPublishFn writes its mirror into
@@ -803,7 +803,8 @@ function ScheduleDropDialog({
   const { readiness, reschedule } = intent;
   const title = intent.asset?.title ?? intent.opportunity?.title ?? "";
   const day = formatDate(intent.date, locale);
-  const canArm = Boolean(intent.asset) && time !== "" && (readiness.ready || reschedule);
+  const validTime = Boolean(parseDateTimeLocalInput(time));
+  const canArm = Boolean(intent.asset) && validTime && (readiness.ready || reschedule);
   return (
     <Dialog open onOpenChange={(open) => (!open ? onClose() : undefined)}>
       <DialogContent className="max-w-md">
@@ -836,13 +837,27 @@ function ScheduleDropDialog({
             <p className="text-xs text-amber-700">{t("calsched.pastDay")}</p>
           ) : (
             <div>
-              <Label className="text-xs text-muted-foreground">{t("calsched.timeLabel")}</Label>
+              <Label htmlFor="calendar-go-live-time" className="text-xs text-muted-foreground">
+                {t("calsched.timeLabel")}
+              </Label>
               <Input
+                id="calendar-go-live-time"
                 type="datetime-local"
+                aria-invalid={!validTime}
+                aria-describedby={!validTime ? "calendar-go-live-error" : undefined}
                 className="mt-1 h-9 w-60 text-sm"
                 value={time}
                 onChange={(event) => onTime(event.target.value)}
               />
+              {!validTime ? (
+                <p
+                  id="calendar-go-live-error"
+                  role="alert"
+                  className="mt-1 text-xs text-destructive"
+                >
+                  {t("weekly.invalidTime")}
+                </p>
+              ) : null}
             </div>
           )
         ) : null}

@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Calendar scheduling now shares strict local-time validation with the editor, blocking invalid submissions before target saves. Preferred defaults reject clock-gap normalization/day overflow and use the displayed fallback. All 44 calendar/formatter tests pass in three time zones; full types/build/scoped lint pass. See CALENDAR_LOCAL_TIME_VALIDATION_2026_09_12.md. Prepared, unreleased; browser/live acceptance and release gates remain.
+
 The editor now rejects nonexistent local scheduling times and calendar overflow instead of silently normalizing them. Invalid selections disable scheduling and expose a linked localized field error. All 24 format tests pass in three time zones; full types/build/scoped lint pass. See SCHEDULE_LOCAL_TIME_VALIDATION_2026_09_12.md. Prepared, unreleased; autumn ambiguity, browser and real-use acceptance remain scoped separately.
 
 The editor scheduling minimum now uses the browser-local calendar and clock instead of a UTC slice, rounded upward to minute precision. Seventeen format tests pass in three time zones; full types/build/scoped lint pass. See SCHEDULE_LOCAL_INPUT_MINIMUM_2026_09_12.md. Prepared, unreleased; server lead checks remain authoritative and real-use/release gates remain.

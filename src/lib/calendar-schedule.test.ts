@@ -186,3 +186,21 @@ describe("upcomingPublishRisks — dated soon but will not publish", () => {
     expect(risks.map((r) => r.opportunityId)).toEqual(["o2", "o1"]);
   });
 });
+
+describe("calendar preferred time validity", () => {
+  it("falls back to 09:00 rather than overflowing the selected day", () => {
+    expect(
+      defaultGoLiveLocal(new Date(2026, 6, 25), new Date(2026, 6, 22), { hours: 24, minutes: 0 }),
+    ).toBe("2026-07-25T09:00");
+  });
+  it("does not silently normalize a preferred spring gap", () => {
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const day = zone === "America/Los_Angeles" ? 8 : 29;
+    const result = defaultGoLiveLocal(new Date(2026, 2, day), new Date(2026, 2, 1), {
+      hours: 2,
+      minutes: 30,
+    });
+    const hasGap = zone === "Europe/Stockholm" || zone === "America/Los_Angeles";
+    expect(result).toBe(`2026-03-${String(day).padStart(2, "0")}T${hasGap ? "09:00" : "02:30"}`);
+  });
+});

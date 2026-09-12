@@ -92,6 +92,8 @@ export function defaultGoLiveLocal(
   const slotAt = (hours: number, minutes: number): Date | null => {
     const slot = new Date(day);
     slot.setHours(hours, minutes, 0, 0);
+    if (!sameLocalDay(slot, day) || slot.getHours() !== hours || slot.getMinutes() !== minutes)
+      return null;
     return slot.getTime() >= earliest ? slot : null;
   };
 
