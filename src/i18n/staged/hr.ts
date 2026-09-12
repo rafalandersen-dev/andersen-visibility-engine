@@ -1,7 +1,26 @@
+import { hrCore } from "./hr-core";
 import { hrAuthScreen } from "./hr-auth-screen";
 import { hrSharedUi } from "./hr-shared-ui";
 /** Croatian authoring; never imported by the runtime catalog. */
 export const HR_STAGED_BATCHES = [
+  {
+    name: "core",
+    copy: hrCore,
+    namespaces: [
+      "common",
+      "nav",
+      "appShell",
+      "shell",
+      "onboarding",
+      "setup",
+      "lang",
+      "market",
+      "goal",
+      "pipeline",
+    ],
+    sourceRevision: "9146c53",
+    sourceHash: "845b2b1ade4a0935ab924dcc4bdc27d72a7a120388740354bd69a697aa1c7ff2",
+  },
   {
     name: "authentication",
     copy: hrAuthScreen,

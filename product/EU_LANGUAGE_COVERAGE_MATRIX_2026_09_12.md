@@ -1,6 +1,6 @@
 # R20 language coverage matrix — 12 September 2026
 
-Latest authoring checkpoint — 13 September (English source b450bc5): four active complete catalogs, ten complete staged catalogs (FR/DE/ES/IT/PT/NL/FI/CS/SK/SL), Croatian partial at 72/3,768 and nine unauthored catalogs. Remaining UI authoring backlog: 37,608 messages. Croatian authentication/shared copy passes all 13 focused tests, types, scoped lint and whitespace. The original audit and incremental history below retain their dated baselines; none constitutes activation or fluent/rendered acceptance.
+Latest authoring checkpoint — 13 September (core English source 9146c53): four active complete catalogs, ten complete staged catalogs (FR/DE/ES/IT/PT/NL/FI/CS/SK/SL), Croatian partial at 274/3,768 and nine unauthored catalogs. Remaining UI authoring backlog: 37,406 messages. Croatian authentication/shared/core copy passes all 14 focused tests, types, scoped lint and whitespace. The original audit and incremental history below retain their dated baselines; none constitutes activation or fluent/rendered acceptance.
 
 Prior Slovak authoring checkpoint (source aef1c2c plus Slovak workflow): Slovak now has all 3,768 current English UI keys across 28 staged batches. Four catalogs are active and nine are fully staged (FR/DE/ES/IT/PT/NL/FI/CS/SK); eleven remain unauthored. Remaining UI authoring backlog: 41,448 messages (11 × 3,768). All 40 Slovak/catalog tests, types, scoped lint and whitespace pass. This is authoring coverage, not activation or language/rendered acceptance. The original audit and incremental history below retain their own evidence baselines.
 
@@ -200,3 +200,6 @@ Slovenian outreach adds 158 messages at source 2705f3f: 2,578/3,768 in twenty-th
 13 September: complete staged Slovenian passed nine local knowledge-review browser groups at a575210 with actual translated copy, plus focused repeated-label terminology checks. All 40 Slovenian/catalog tests pass. Evidence and limitations: SLOVENIAN_COMPONENT_ACCEPTANCE_2026_09_13.md. Counts and activation status are unchanged; full-page/fluent-language/screen-reader and real-use acceptance remain open.
 
 13 September: Croatian authoring starts with 72 authentication/shared messages at b450bc5. All 13 focused tests, types, scoped lint and whitespace pass; changed code formatted. Runtime exclusion is checked. See CROATIAN_AUTHORING_PROGRESS_2026_09_13.md. Remaining UI authoring backlog: 37,608; activation and language/rendered acceptance remain open.
+
+
+13 September Croatian core checkpoint: 202 navigation, onboarding, setup and pipeline messages added at English source 9146c53; total 274/3,768 across three batches. All 14 Croatian/catalog tests, types, scoped lint, formatting and whitespace pass. Recovery and target/publication distinctions remain explicit. Croatian stays excluded from runtime and picker. Remaining Croatian authoring: 3,494 messages; next setup, services and audit screens.
