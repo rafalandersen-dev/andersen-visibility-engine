@@ -1,8 +1,32 @@
+import { csAuditScreen } from "./cs-audit-screen";
+import { csServicesScreen } from "./cs-services-screen";
+import { csSetupScreen } from "./cs-setup-screen";
 import { csCore } from "./cs-core";
 import { csAuthScreen } from "./cs-auth-screen";
 import { csSharedUi } from "./cs-shared-ui";
 /** Czech authoring; never imported by the runtime catalog. */
 export const CS_STAGED_BATCHES = [
+  {
+    name: "audit screen",
+    copy: csAuditScreen,
+    namespaces: ["auditScreen"],
+    sourceRevision: "2028903",
+    sourceHash: "2c15a7061c169b3f2da7446d4280ff94cb6b5ce2e6cb56d156af72ab154f1aed",
+  },
+  {
+    name: "services screen",
+    copy: csServicesScreen,
+    namespaces: ["servicesScreen"],
+    sourceRevision: "2028903",
+    sourceHash: "c769d10ab21c34754c6c4a6c57c3ee5f04881605b1dabc10030bca0e9122313d",
+  },
+  {
+    name: "setup screen",
+    copy: csSetupScreen,
+    namespaces: ["setupScreen"],
+    sourceRevision: "2028903",
+    sourceHash: "565b0bcd89f346fd85f3b87d4e44716826a65bee54fd60eaa3b677c4d732a5ca",
+  },
   {
     name: "core",
     copy: csCore,

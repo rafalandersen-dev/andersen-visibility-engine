@@ -58,3 +58,5 @@ Next safe work: author the absent UI catalogs using the current composed English
 Post-audit authoring update: Czech authentication/shared controls now have 72 staged keys (English source baseline 78cd575). The baseline table above is retained as dated audit evidence. Current UI authoring has four active full catalogs, seven complete staged catalogs, one partial Czech catalog and twelve absent catalogs; the unfilled-key backlog is now 48,912. Czech activation and quality acceptance remain open. See CZECH_AUTHORING_PROGRESS_2026_09_12.md.
 
 Further Czech progress: core adds 202 messages, bringing the partial catalog to 274/3,768. The remaining UI authoring backlog across incomplete/absent catalogs is 48,710 messages at this English baseline. Acceptance and activation status are unchanged.
+
+Czech setup/services/audit adds 71 messages: partial coverage is now 345/3,768, and the remaining UI authoring backlog across incomplete/absent catalogs is 48,639 at this source baseline. Active language availability and acceptance gates are unchanged.
