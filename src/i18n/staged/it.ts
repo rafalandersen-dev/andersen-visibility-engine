@@ -1,3 +1,4 @@
+import { itMeasurements } from "./it-measurements";
 import { itTechnical } from "./it-technical";
 import { itKnowledge } from "./it-knowledge";
 import { itCollaboration } from "./it-collaboration";
@@ -123,6 +124,13 @@ export const IT_STAGED_BATCHES = [
     namespaces: ["crawl", "gindex", "perf"],
     sourceRevision: "b88d167",
     sourceHash: "106a19b8ceaf725528ddc9d4de7317d823108425584418d93729346f29c135e6",
+  },
+  {
+    name: "measurements",
+    copy: itMeasurements,
+    namespaces: ["analytics", "gsc", "report"],
+    sourceRevision: "4efe62c",
+    sourceHash: "d5a84c283031ca1ef2c696e427fb9d9327a475370d497840df4293c1c9840cd9",
   },
 ] as const;
 export const IT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
