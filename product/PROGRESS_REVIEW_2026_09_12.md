@@ -2,6 +2,8 @@
 
 Overall delivery is approximately **60% complete** and technical implementation approximately **75% complete**, rounded to five-percentage-point planning estimates. The underlying weighted judgments are58.25% and73.5%. The broad50–65% overall uncertainty range remains; these numbers are not measured working hours, a delivery-time prediction, signed-in acceptance or paid-launch approval. Public paid launch remains **NO-GO**.
 
+Prepared billing/Shopify copy reconciliation makes report delivery and connector configuration conditions explicit across four runtime languages plus staged French.73 focused tests/types/build and zero new lint diagnostics pass. No real-use/release evidence added; all estimates remain unchanged. See `FEATURE_CLAIMS_RECONCILIATION_2026_09_12.md`.
+
 The denominator remains the full agreed R00–R24 scope. D01–D08 remain dependencies within these groups. Group weights are unchanged from the previous assessment. This milestone review credits the released technical crawler/Google/performance workflows and the completed daily/detail backlink releases. Implementation receives partial credit; absent real-use acceptance and incomplete scope retain substantial deductions. Deeper continuation and ongoing monitoring are now released; each retains deductions for required real-use acceptance.
 
 | Group | Scope | Weight | Technical implementation | Overall delivery |

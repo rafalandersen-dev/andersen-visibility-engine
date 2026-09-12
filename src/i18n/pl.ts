@@ -893,7 +893,7 @@ export const pl: Record<string, string> = {
   // ---- Shopify connector ----
   "shopify.shopify": "Shopify",
   "shopify.intro":
-    "Połącz sklep Shopify, aby publikować treści Milo jako artykuły na blogu. Milo najpierw wysyła artykuły na blog Shopify jako nieopublikowane wersje robocze, a po Twojej akceptacji publikuje je na żywo.",
+    "Połącz sklep Shopify, aby wysyłać treści Milo na blog jako nieopublikowane wersje robocze. Zatwierdzenie i publikacja to osobne kroki: samo zatwierdzenie nie publikuje artykułu.",
   "shopify.shopDomain": "Domena sklepu",
   "shopify.shopDomainHelp": "Domena Twojego sklepu, np. mojsklep.myshopify.com.",
   "shopify.token": "Token dostępu Admin API",
@@ -903,7 +903,7 @@ export const pl: Record<string, string> = {
   "shopify.security":
     "Twój token dostępu nigdy nie jest ponownie pokazywany po zapisaniu i jest używany wyłącznie po stronie serwera. Możesz go wymienić w dowolnym momencie.",
   "shopify.minPerms":
-    "Nadaj tylko uprawnienia do treści (odczyt/zapis blogów i artykułów). Milo nigdy nie ma dostępu do zamówień, klientów, produktów ani danych płatności.",
+    "Do publikacji na blogu nadaj uprawnienia odczytu i zapisu blogów oraz artykułów. Opcjonalne odświeżanie katalogu wymaga też uprawnień do odczytu produktów. Te funkcje nie korzystają z danych zamówień, klientów ani płatności.",
   "shopify.test": "Testuj połączenie",
   "shopify.testing": "Testowanie…",
   "shopify.testOk": "Połączono z Shopify.",

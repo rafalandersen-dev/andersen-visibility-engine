@@ -1,7 +1,7 @@
 # Milo Growth — current status
 
 
-Latest prepared delivery: public case studies227cfbf and integrated server-core isolation2916799.30messages EN/PL/SV/DA+stagedFrench;14prepared UIbatches/712additions/3764keys/28French batches.113combined focused tests, types/build/zero public lint, four-language390px and Danish-reload smoke pass. Pricing menu lang/accessibility name fixed; comparison-table semantics and market pages next. Unreleased; overall60%/implementation75% unchanged. See HANDOFF_2026_09_12_STUDIES_DELIVERY.md.
+Latest prepared delivery: evidence-based billing feature and Shopify copy reconciliation on `codex/milo-feature-claims-20260912` (base19377f2). Reports explicitly remain monthly/on demand and connectors/AI Evaluation require configuration; setup separates approval/publication and optional catalog product reads. EN/PL/SV/DA plus staged French;3768 keys unchanged.73 focused tests, full types/build and zero new lint diagnostics pass (37 preexisting dictionary formatting findings). The billing checkout hold and all preceding market/policy/auth-retention deliveries are included. Unreleased; overall60%/implementation75% unchanged. See FEATURE_CLAIMS_RECONCILIATION_2026_09_12.md. Next: remaining nested link/button accessibility cleanup and later real acceptance under existing security/authorization holds.
 
 Updated: 12 September 2026 (Stockholm; latest release 12 September 05:52 UTC). Owner: Rafal Andersen. Phase: private beta / launch foundations. Public paid launch: **NO-GO / acceptance incomplete**.
 
