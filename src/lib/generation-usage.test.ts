@@ -98,6 +98,22 @@ function reply(name: string, p: Record<string, unknown>) {
   throw new Error("Unexpected RPC");
 }
 const retained = () => h.rpc.mock.calls.filter((c) => c[0] === "record_generation_result");
+it("refuses selected product photos before usage admission or prompt-only generation", async () => {
+  const args = {
+    ...imageArgs,
+    imageReferences: [{ imageId: "photo", metadataHash: "a".repeat(64) }],
+  };
+  await expect(generateArticleImageCore(user, args)).rejects.toThrow(
+    "Generation with product photos is not available yet",
+  );
+  await expect(fn(generateArticleImageFn, args)).rejects.toThrow(
+    "Generation with product photos is not available yet",
+  );
+  expect(h.plan).not.toHaveBeenCalled();
+  expect(h.rpc).not.toHaveBeenCalled();
+  expect(h.image).not.toHaveBeenCalled();
+  expect(h.stage).not.toHaveBeenCalled();
+});
 const settlements = () => h.rpc.mock.calls.filter((c) => c[0] === "settle_generation_usage");
 beforeEach(() => {
   vi.resetAllMocks();

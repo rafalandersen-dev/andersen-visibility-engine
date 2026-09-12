@@ -1,6 +1,6 @@
 # Ongoing backlink monitor — implementation and release record
 
-Current status: the integrated worker, authenticated owner controls, recurring history and disabled scheduler migration are ready for release review. See the final section for current validation and release boundaries. Earlier foundation entries below are historical. No recurring release or production activation has occurred.
+Current status: RELEASED through PR128 atd622575eb8d2017cbe67cfd750dfb6ae8f0339bb. Two migrations applied once; exact live runtime/seven authentication checks/catalog and prior records verified. The new scheduler is active; zero owner monitor configurations/occurrences were created. [Release evidence](../evidence/backlink-recurring-release-2026-09-12.md). Earlier foundation and pre-release entries below are historical; do not reapply migrations or repeat activation. Real provider/browser/concurrency acceptance remains open.
 
 12 September 2026: a pure settings and occurrence planner is implemented independently of the continuation release. It is not called by a route, scheduler or supplier transport. No monitor is created or enabled and no production timer, database or budget is changed.
 

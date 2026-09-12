@@ -34,6 +34,7 @@ export const EDITOR_FORM_FIELDS = [
   "author",
   "sources",
   "images",
+  "imageReferences",
   "tldr",
   "keyTakeaways",
   "breadcrumbs",

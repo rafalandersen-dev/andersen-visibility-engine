@@ -25,6 +25,7 @@ import { AiExpenseUnavailableError } from "./ai-expense.server";
 import { AiProviderConfigurationError } from "./ai-provider.server";
 import { buildImagePrompt, draftAltText } from "./image-gen";
 import { stageValidatedImageBytes } from "./image-storage.functions";
+import { imageReferenceChoices, type ImageReferenceChoice } from "./image-references";
 
 export interface GeneratedArticleImage {
   knowledgeReferences?: import("./project-knowledge").KnowledgeReference[];
@@ -46,11 +47,18 @@ export async function generateArticleImageCore(
     projectId: string;
     assetId: string;
     concept: string;
+    imageReferences?: ImageReferenceChoice[];
     articleTitle?: string;
     project: Pick<Project, "businessName" | "businessType" | "toneOfVoice">;
   },
   execution: { attempt?: NativeExpenseContext["attempt"]; imageId?: string; expectedKnowledgeHash?: string } = {},
 ): Promise<GeneratedArticleImage> {
+  // Fail before any plan lookup, usage claim, private fetch or model call.
+  // The fixed prompt-only reserve does not cover reference-image input costs.
+  if (imageReferenceChoices.parse(args.imageReferences ?? []).length > 0)
+    throw new Error(
+      "Generation with product photos is not available yet. Clear the photo selection to generate from the description only.",
+    );
   // Pro/Agency plan gate first (active even while metering enforcement is off),
   // then the metered claim — both before the model call so a refusal costs nothing.
   await assertImageGenerationAllowed({ userId });
@@ -127,6 +135,7 @@ export const generateArticleImageFn = createServerFn({ method: "POST" })
         projectId: z.string().min(1),
         assetId: z.string().min(1),
         concept: z.string().min(3).max(500),
+        imageReferences: imageReferenceChoices.optional(),
         articleTitle: z.string().max(300).optional(),
         project: z.object({
           businessName: z.string().max(200).default(""),
@@ -141,6 +150,7 @@ export const generateArticleImageFn = createServerFn({ method: "POST" })
       projectId: data.projectId,
       assetId: data.assetId,
       concept: data.concept,
+      imageReferences: data.imageReferences,
       ...(data.articleTitle ? { articleTitle: data.articleTitle } : {}),
       project: data.project as Pick<Project, "businessName" | "businessType" | "toneOfVoice">,
     }),

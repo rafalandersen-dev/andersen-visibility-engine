@@ -1,12 +1,14 @@
 # Milo Growth — current status
 
-Updated: 12 September 2026 (Stockholm; latest release 12 September00:24UTC). Owner: Rafal Andersen. Phase: private beta / launch foundations. Public paid launch: **NO-GO / acceptance incomplete**.
+Updated: 12 September 2026 (Stockholm; latest release 12 September01:16UTC). Owner: Rafal Andersen. Phase: private beta / launch foundations. Public paid launch: **NO-GO / acceptance incomplete**.
 
-Latest verified release: PR127 deeper backlink continuation is live at `5f0f82e2b34be2c1c81b7b8e580c240b354b056b`. Migration20260912000000 was applied once; all catalog fields, exact runtime identity and six public/authentication checks pass. Prior content, collaboration, notifications, backlinks and technical SEO records remain unchanged. [Release evidence](../evidence/backlink-continuation-release-2026-09-12.md). Real provider and signed-in acceptance remain open.
+Latest verified release: PR128 ongoing backlink monitoring is live at `d622575eb8d2017cbe67cfd750dfb6ae8f0339bb`. Two migrations were applied once, the exact runtime and seven public/authentication checks pass, and the new scheduler is active after guarded verification. No owner monitor, funding or supplier request was created; all five existing schedules and seven prior data baselines remain unchanged. [Release evidence](../evidence/backlink-recurring-release-2026-09-12.md). Real supplier, signed-in and unattended concurrency acceptance remain open.
+
+Previous verified release: PR127 deeper backlink continuation is live at `5f0f82e2b34be2c1c81b7b8e580c240b354b056b`. Migration20260912000000 was applied once; all catalog fields, exact runtime identity and six public/authentication checks pass. Prior content, collaboration, notifications, backlinks and technical SEO records remain unchanged. [Release evidence](../evidence/backlink-continuation-release-2026-09-12.md). Real provider and signed-in acceptance remain open.
 
 Previous verified release: PR124 technical SEO is live at `674ed192a9ea359ee94dff9fb26028d3b1f6c5ab`. Six technical migrations were applied once; every catalog field, exact runtime source identity and six public/authentication checks pass. Existing content, collaboration, notifications and backlinks baselines are unchanged. Required signed-in, live crawl/Google/provider and multi-session acceptance remain open. [Release evidence](../evidence/technical-seo-release-2026-09-12.md).
 
-PR126 backlink details and PR125 daily monitoring remain released and verified. Deeper continuation is now released through PR127; ongoing monitoring remains in implementation.
+PR126 backlink details and PR125 daily monitoring remain released and verified. Deeper continuation is now released through PR127; ongoing monitoring is now released through PR128, with real-use acceptance still open.
 
 Previous verified release: PR125 daily backlink monitoring is live at `a4d10a6eb9badb0365f65fe0dfaf6e2a93f7c9c1`. Its single migration is applied once; exact runtime and six public/authentication checks pass. Provider/signed-in acceptance and the remainder of R14 remain open. [Release evidence](../evidence/backlink-monitoring-release-2026-09-11.md).
 
@@ -14,7 +16,7 @@ Previous verified release: PR125 daily backlink monitoring is live at `a4d10a6eb
 Previous verified release: PR123 project collaboration, merge `af38493f727b4b3ff0b8e61cc12cbb785c84c377`, is live. All ten team migrations are applied once; exact runtime identity and six public/authentication checks passed. Both email gates remain disabled. Real owner/collaborator acceptance and D07 remain open. [Release evidence](../evidence/project-collaboration-release-2026-09-11.md). Earlier implementation entries below describe historical pre-release states and are superseded by this release record. That earlier progress estimate is superseded by the12September assessment below.
 
 
-Overall delivery estimate: **about60% complete**; technical implementation **about75%**. These are rounded milestone judgments (weighted57.5%/72.5%), not measured hours or signed-in acceptance. The broad50–65% overall uncertainty range remains. See [current progress assessment](PROGRESS_REVIEW_2026_09_12.md) for unchanged weights, changed group scores, evidence and remaining work.
+Overall delivery estimate: **about60% complete**; technical implementation **about75%**. These are rounded milestone judgments (weighted58%/73%), not measured hours or signed-in acceptance. The broad50–65% overall uncertainty range remains. See [current progress assessment](PROGRESS_REVIEW_2026_09_12.md) for unchanged weights, changed group scores, evidence and remaining work.
 
 This is the current operational entry point. Read [progress review](PROGRESS_REVIEW_2026_09_09.md) for the earlier, now historical estimate and task inventory, [roadmap](ROADMAP.md) for delivery order, and [scope register](PLAN_REVIEW_2026_09_07.md) for R00–R24 and D01–D08. Older dated reports are history, not instructions to repeat completed work.
 
@@ -22,7 +24,9 @@ This is the current operational entry point. Read [progress review](PROGRESS_REV
 
 The technical SEO release is complete. The six source migrations110000–160000 and the earlier ten team/two backlink migrations are already applied; do not repeat them. Their earlier unreleased status in dated implementation notes is historical.
 
-Ongoing backlink monitoring is ready for release review: authenticated owner controls in four locales, private occurrence and per-monitor expense admission, bounded fair scheduler inspections, one-attempt worker and scheduled origin in saved history are connected. 201 focused tests pass; release review, production verification and real-use acceptance remain required. Migrations20260912010000 and20260912020000 are unapplied; the latter creates the product timer disabled. No owner monitor or funding was activated. See [implementation record](BACKLINK_RECURRING_IMPLEMENTATION.md). Continuation migration20260912000000 is already applied; do not repeat it. Provider and real-use acceptance remain open for the released backlink workflows.
+Ongoing backlink monitoring is released through PR128. Migrations20260912010000 and20260912020000 are already applied once and the new product scheduler is active. Do not repeat deployment, migration or activation. Continuation migration20260912000000 is also already applied. No owner monitor or supplier budget was created. [Implementation record](BACKLINK_RECURRING_IMPLEMENTATION.md).
+
+Product reference-image preparation for R18 is implemented on an isolated, unreleased branch: owner-bound saved-photo selection/thumbnails, article-save persistence, bounded private file checks and four-locale editor controls. 181 focused tests, types and new-module lint pass. Selected photos are explicitly refused before prompt-only usage or provider admission. A verified input-cost contract, priced edits transport, retained generation-input evidence and real fidelity/owner/provider acceptance are still open. [Discovery and implementation](REFERENCE_IMAGE_DISCOVERY_2026_09_12.md). No migration, deployment, actual private download, credential change or model call occurred. The existing fixed model and prompt-only price contract remain unchanged; the full R18 feature and overall progress are not marked complete.
 
 Project collaboration is released, with real owner/collaborator acceptance still open. Invitation and team notification email gates remain disabled; D07 policy selection remains unanswered. The other material scope/dependency items below remain active.
 
