@@ -2,10 +2,16 @@ import { frCore } from "./fr-core";
 import { frWorkflow } from "./fr-workflow";
 import { frCollaboration } from "./fr-collaboration";
 import { frKnowledge } from "./fr-knowledge";
+import { frTechnical } from "./fr-technical";
 
 /** Authoring batches only. This catalog is incomplete and is not registered by
  * the runtime or offered in the language picker. */
 export const FR_STAGED_BATCHES = [
+  {
+    name: "technical",
+    copy: frTechnical,
+    namespaces: ["crawl", "gindex", "perf"],
+  },
   {
     name: "knowledge",
     copy: frKnowledge,
