@@ -17,3 +17,11 @@ At candidate b08d058, traced connector-guard.server.ts through assertAssetSource
 Added WordPress and Shopify authorization cases using the real source-publication gate with mocked stored observations and approval. Each first proves the issue is specifically expired (not a fixture-validation or unrelated failure), then confirms that successful approval cannot bypass that hold, a cooldown refresh does not erase it, and the stored draft remains unchanged. Neither connector returns publication arguments. These are authorization tests, not actual transport or destination checks.
 
 All 48 tests across connector guard, source-publication and source-refresh evaluation pass, plus full TypeScript (/tmp/milo-connector-expiry-types.log), scoped lint and whitespace checks. Existing evaluator/publication tests cover unrelated facts remaining unaffected. This extends local P3/R18 evidence while real CMS, source capture and release acceptance remain open.
+
+## Recorded failure explanation
+
+At candidate 00f5029, confirmed the scheduled runner persists source holds as terminal failed rows, while publicationFailureReason did not recognize the application's fixed SourcePublicationHeldError message. The inspection panel therefore had no source-review hint for that known failure.
+
+Added an exact-message mapping to contentReview/sourcesReview. Unrecognized suffixes remain unknown; raw messages are not returned, and queue state, retry policy and publication authority are unchanged. PublicationFailureDetails already renders these categories through existing translated keys.
+
+Two new regressions reproduced the missing mapping and now pass, including scoped failed-row inspection. All 43 publication-inspection and cron tests pass, plus full TypeScript (/tmp/milo-source-failure-hint-types.log), scoped lint and whitespace checks. No production build repeated for this bounded classification change. Browser and live publication acceptance remain open.

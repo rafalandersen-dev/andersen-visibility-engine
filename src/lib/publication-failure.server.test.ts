@@ -6,7 +6,20 @@ const recordedAt = "2026-09-07T09:00:00Z";
 const reviewError =
   "This draft is not publishable yet: 4 unresolved internal link(s): /private-path. Health/finance/legal claim(s) [medical] need a verified source or a resolved author, plus human review. YMYL content needs a named author with a real bio, credential or profile — add one in the Author panel.";
 
+const sourceReviewError =
+  "Source facts need review before this draft can be sent or published. Check source observations and project knowledge in Project Setup.";
+
 describe("publication error hints", () => {
+  it("maps the exact source hold to source review without returning its text", () => {
+    expect(publicationFailureReason(sourceReviewError)).toEqual({
+      kind: "contentReview",
+      checks: ["sourcesReview"],
+    });
+    expect(publicationFailureReason(sourceReviewError + " private-provider-detail")).toEqual({
+      kind: "unknown",
+      checks: [],
+    });
+  });
   it("recognizes the live-step network failure as a destination issue", () => {
     expect(
       publicationFailureReason(
@@ -96,6 +109,16 @@ function fixture() {
   };
 }
 describe("scoped publication inspection", () => {
+  it("preserves failed queue state while explaining its recorded source-review hold", async () => {
+    const f = fixture();
+    f.response.data = [
+      { status: "failed", attempts: 1, updated_at: recordedAt, last_error: sourceReviewError },
+    ];
+    expect(await f.run()).toMatchObject({
+      state: "failed",
+      reason: { kind: "contentReview", checks: ["sourcesReview"] },
+    });
+  });
   it("checks both owned entities before a bounded account/project/asset query", async () => {
     const f = fixture();
     expect(await f.run()).toEqual({

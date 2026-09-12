@@ -47,6 +47,11 @@ export function publicationFailureReason(error: string | null): PublicationFailu
       checks.push("author");
     return { kind: "contentReview", checks };
   }
+  if (
+    error ===
+    "Source facts need review before this draft can be sent or published. Check source observations and project knowledge in Project Setup."
+  )
+    return { kind: "contentReview", checks: ["sourcesReview"] };
   const http = /^Website returned an error \(status ([45]\d\d)\)\.$/.exec(error);
   if (http) return { kind: "destination", checks: [], httpStatus: Number(http[1]) };
   if (
