@@ -1,3 +1,5 @@
+import { ptPlanScreen } from "./pt-plan-screen";
+import { ptEditorScreen } from "./pt-editor-screen";
 import { ptAnalyticsScreen } from "./pt-analytics-screen";
 import { ptBillingScreen } from "./pt-billing-screen";
 import { ptEvidenceScreen } from "./pt-evidence-screen";
@@ -83,6 +85,20 @@ export const PT_STAGED_BATCHES = [
     namespaces: ["evidenceScreen"],
     sourceRevision: "2d9acd2",
     sourceHash: "2c7e9ccb48b02cd12911d0df6c31a96ec8ddfc6c558dfda3b3e14790d156c136",
+  },
+  {
+    name: "plan screen",
+    copy: ptPlanScreen,
+    namespaces: ["planScreen"],
+    sourceRevision: "13cb098",
+    sourceHash: "288f529ed3a18c00623c05011262d3cce0374158e558959fa8fc9dbc63174bb7",
+  },
+  {
+    name: "editor screen",
+    copy: ptEditorScreen,
+    namespaces: ["editorScreen"],
+    sourceRevision: "13cb098",
+    sourceHash: "1e827d2744ea1f2d3364b54983f06b42082f45ab6dfb0eda7b1375fdddd9ec9f",
   },
 ] as const;
 export const PT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.assign(
