@@ -1,3 +1,5 @@
+import { nlPublicStudies } from "./nl-public-studies";
+import { nlPublicPricing } from "./nl-public-pricing";
 import { nlEditorScreen } from "./nl-editor-screen";
 import { nlPlanScreen } from "./nl-plan-screen";
 import { nlEvidenceScreen } from "./nl-evidence-screen";
@@ -12,6 +14,20 @@ import { nlSharedUi } from "./nl-shared-ui";
 
 /** Partial Dutch authoring; never imported by the runtime catalog. */
 export const NL_STAGED_BATCHES = [
+  {
+    name: "public pricing",
+    copy: nlPublicPricing,
+    namespaces: ["publicPricing"],
+    sourceRevision: "c4fc095",
+    sourceHash: "8e7cecc9d6ca14af722fe8b4131d7982241e9e856335586f8d4e724469d0de60",
+  },
+  {
+    name: "public studies",
+    copy: nlPublicStudies,
+    namespaces: ["publicStudies"],
+    sourceRevision: "c4fc095",
+    sourceHash: "ace563fb757a52abcd667e7e691d3e48024045a4e4f265e6949c66a828f5e8de",
+  },
   {
     name: "editor screen",
     copy: nlEditorScreen,

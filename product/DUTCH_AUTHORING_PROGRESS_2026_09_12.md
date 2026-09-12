@@ -1,6 +1,6 @@
 # Dutch interface authoring — 12 September 2026
 
-R20 requires full EU-language coverage. Dutch authoring has begun with 785 of the current 3,768 English interface messages (2,983 remain). This is a partial staged catalog; Dutch is not registered in UI_CATALOGS or the language picker.
+R20 requires full EU-language coverage. Dutch authoring has begun with 855 of the current 3,768 English interface messages (2,913 remain). This is a partial staged catalog; Dutch is not registered in UI_CATALOGS or the language picker.
 
 ## Completed authoring batches
 
@@ -15,6 +15,8 @@ R20 requires full EU-language coverage. Dutch authoring has begun with 785 of th
 | Evidence screens | 89 | src/i18n/staged/nl-evidence-screen.ts |
 | Plan screen | 113 | src/i18n/staged/nl-plan-screen.ts |
 | Editor screen | 148 | src/i18n/staged/nl-editor-screen.ts |
+| Public pricing | 40 | src/i18n/staged/nl-public-pricing.ts |
+| Public case studies | 30 | src/i18n/staged/nl-public-studies.ts |
 | Authentication | 42 | src/i18n/staged/nl-auth-screen.ts |
 | Shared controls | 30 | src/i18n/staged/nl-shared-ui.ts |
 
@@ -65,3 +67,10 @@ All twenty-one Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-p
 At 388747e, authored all 148 editorScreen messages. Copy preserves save/unsaved state, image approval/public-URL guidance, reference validation, unresolved-link publication blocks, schema delivery limitations, and the distinction between draft delivery and live publication. Placeholder paths/anchors/claims, metadata limits and the 5 MB limit are retained. Source assertions about author non-invention, recommendation versus hard-block behavior, image privacy and CMS schema handling require behavior review before activation; translation does not certify them.
 
 All twenty-two Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-editor-types.log), scoped lint and whitespace checks. Total staged coverage is 785; 2,983 messages remain. Public home/pricing/studies groups are next. No runtime activation, upload, provider or publication operation occurred; fluent/rendered and real-use acceptance remain open.
+
+
+## Public pricing and case-study follow-up
+
+At c4fc095, authored all 70 messages in publicPricing and publicStudies. Pricing preserves paid activation and marketplace holds, supplier acceptance, plan limitations and the distinction between display region and billing eligibility. Case studies preserve internal/demo status and incomplete live acceptance; no growth, traffic, ranking or revenue outcomes are introduced. Existing package and prepared-tracking assertions remain source claims requiring real-use verification before release.
+
+All twenty-four Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-public-commercial-types.log), scoped lint and whitespace checks. Total staged coverage is 855; 2,913 messages remain. Public home and beta guidance are next. Dutch remains excluded from runtime; fluent/rendered and full real-use acceptance remain open.

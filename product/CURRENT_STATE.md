@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Dutch staged authoring now covers 855/3,768 messages, adding public pricing (40) and case studies (30). Twenty-four Dutch/catalog tests plus types/scoped lint/whitespace pass; 2,913 messages and quality acceptance remain. Paid holds and unverified-result qualifications are preserved. See DUTCH_AUTHORING_PROGRESS_2026_09_12.md. No runtime activation or release-gate change.
+
 Dutch staged authoring now covers 785/3,768 messages, adding editor screens (148). Twenty-two Dutch/catalog tests plus types/scoped lint/whitespace pass; 2,983 messages and quality acceptance remain. Source-claim review notes are in DUTCH_AUTHORING_PROGRESS_2026_09_12.md. No runtime activation, provider/publication operation or release-gate change.
 
 Dutch staged authoring now covers 637/3,768 messages, adding Plan screen (113). Twenty-one Dutch/catalog tests plus types/scoped lint/whitespace pass; 3,131 messages and quality acceptance remain. See DUTCH_AUTHORING_PROGRESS_2026_09_12.md. No runtime activation, scheduling or release-gate change.
