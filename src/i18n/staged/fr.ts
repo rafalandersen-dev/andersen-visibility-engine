@@ -7,10 +7,16 @@ import { frMeasurements } from "./fr-measurements";
 import { frEvidence } from "./fr-evidence";
 import { frConfiguration } from "./fr-configuration";
 import { frGrowth } from "./fr-growth";
+import { frCommerce } from "./fr-commerce";
 
 /** Authoring batches only. This catalog is incomplete and is not registered by
  * the runtime or offered in the language picker. */
 export const FR_STAGED_BATCHES = [
+  {
+    name: "commerce",
+    copy: frCommerce,
+    namespaces: ["billing", "launch", "beta"],
+  },
   {
     name: "growth",
     copy: frGrowth,
