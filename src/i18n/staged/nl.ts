@@ -1,3 +1,4 @@
+import { nlTechnical } from "./nl-technical";
 import { nlKnowledge } from "./nl-knowledge";
 import { nlCollaboration } from "./nl-collaboration";
 import { nlConfiguration } from "./nl-configuration";
@@ -21,6 +22,13 @@ import { nlSharedUi } from "./nl-shared-ui";
 
 /** Partial Dutch authoring; never imported by the runtime catalog. */
 export const NL_STAGED_BATCHES = [
+  {
+    name: "technical",
+    copy: nlTechnical,
+    namespaces: ["crawl", "gindex", "perf"],
+    sourceRevision: "3c79c3b",
+    sourceHash: "106a19b8ceaf725528ddc9d4de7317d823108425584418d93729346f29c135e6",
+  },
   {
     name: "knowledge",
     copy: nlKnowledge,
