@@ -19,7 +19,11 @@ vi.mock("./workspace.server", () => ({
 vi.mock("./knowledge-publication.server", () => ({
   knowledgeIssuesForAsset: vi.fn(async () => []),
 }));
-vi.mock("./source-refresh.server", () => ({ readOutputSourceDependencies: vi.fn(async () => []) }));
+vi.mock("./source-refresh.server", () => ({
+  readOutputSourceDependencies: vi.fn(async () => []),
+  readSourceRefresh: vi.fn(),
+  refreshProjectSource: vi.fn(),
+}));
 
 const approval = vi.hoisted(() => ({ check: vi.fn() }));
 vi.mock("./publication-approval.server", () => ({ assertPublicationApproved: approval.check }));
@@ -152,4 +156,78 @@ it("keeps the guarded asset snapshot paired with the exact connector arguments",
   expect(shop.asset.title).toBe(shop.args.title);
   expect(shop.asset.id).toBe(shop.args.assetId);
   expect(shop.project.id).toBe(shop.args.projectId);
+});
+
+describe("connector source expiry admission", () => {
+  it.each([
+    ["WordPress", wpProject, serverWpPublication],
+    ["Shopify", shopifyProject, serverShopifyPublication],
+  ] as const)(
+    "holds an approved expired offer before returning %s publication arguments",
+    async (_name, projectFactory, authorize) => {
+      const ownerId = "00000000-0000-4000-8000-000000000001";
+      const sourceId = "00000000-0000-4000-8000-000000000002";
+      const fingerprint = "a".repeat(64);
+      const instant = "2026-09-12T12:00:00.000Z";
+      const { readSourceRefresh, refreshProjectSource } = await import("./source-refresh.server");
+      vi.mocked(readSourceRefresh).mockResolvedValue([
+        {
+          sourceId,
+          sourceRevision: 1,
+          revision: 1,
+          status: "ok",
+          lastAttempt: instant,
+          history: [],
+          reviewHistory: [],
+          accepted: { offer: fingerprint },
+          conflictingKeys: [],
+          snapshot: {
+            ownerId,
+            projectId: "p1",
+            sourceId,
+            revision: 1,
+            observedAt: instant,
+            coverage: "public-page",
+            facts: [
+              {
+                key: "offer",
+                field: "offer",
+                locator: "Offer",
+                value: "Seasonal offer",
+                fingerprint,
+                validUntil: instant,
+              },
+            ],
+          },
+        },
+      ]);
+      vi.mocked(refreshProjectSource).mockResolvedValue({ status: "cooldown" });
+      const draft = asset({
+        status: "Approved",
+        sourceDependencies: [
+          { ownerId, projectId: "p1", sourceId, key: "offer", fingerprint, critical: true },
+        ],
+      });
+      const original = structuredClone(draft);
+      setWorkspace(projectFactory(), draft);
+      vi.useFakeTimers();
+      vi.setSystemTime(instant);
+      try {
+        const { sourceIssuesForAsset } = await import("./source-publication.server");
+        await expect(sourceIssuesForAsset(ownerId, draft, instant)).resolves.toEqual([
+          { sourceId, key: "offer", critical: true, reason: "expired" },
+        ]);
+        await expect(authorize(ownerId, "p1", "a1")).rejects.toThrow("Source facts need review");
+        expect(approval.check).toHaveBeenCalledOnce();
+        expect(refreshProjectSource).toHaveBeenCalledWith(
+          { ownerId, projectId: "p1" },
+          { sourceId, expectedRevision: 1 },
+          { rpc: undefined },
+        );
+        expect(draft).toEqual(original);
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
 });

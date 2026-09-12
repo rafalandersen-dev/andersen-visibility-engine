@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+WordPress and Shopify authorization now have integrated expiry-boundary coverage: approved content still holds on an expired offer through the real source-publication gate, including cooldown refresh, with no draft mutation. All 48 focused tests plus types/scoped lint/whitespace pass. See the connector follow-up in WEEKLY_SOURCE_REVIEW_OUTCOME_2026_09_12.md. Existing production behavior verified locally; no actual CMS delivery or release acceptance claimed.
+
 Weekly source evidence holds now report review-required instead of generic recovery-required for the explicit source-review error. Three new integrated regressions verify unknown/replaced/uncertain evidence causes no stage claim, generation or schedule admission; 41 focused tests plus types/scoped lint/whitespace pass. See WEEKLY_SOURCE_REVIEW_OUTCOME_2026_09_12.md. Prepared, unreleased; live source and weekly acceptance remain open.
 
 Weekly archive-read recovery is now covered through the actual bounded storage reader with an injected pending RPC: timeout and late response cause no draft delivery, then a later visit recovers the saved result without another content generation. All 36 focused tests plus types/scoped lint/whitespace pass. See the follow-up in WEEKLY_PUBLICATION_WAIT_BOUNDS_2026_09_12.md. No production change was required; real provider/database acceptance remains open.
