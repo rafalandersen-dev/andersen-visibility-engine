@@ -142,7 +142,7 @@ export const sv: Record<string, string> = {
   "setup.section.marketsGoals": "Marknader och mål",
   "autoSched.title": "Månatlig autoplanerare",
   "autoSched.hint":
-    "Runt den 25:e planerar Milo nästa månad: artiklar skrivs för dina valda veckodagar inom planens månadskvot, interna länkar löses mot dina riktiga sidor och varje artikel förbereds med en godkänd inledande hook.",
+    "När funktionen är aktiverad försöker Milo förbereda nästa månads artiklar för dina valda veckodagar inom den tillgängliga kvoten. Interna länkar kontrolleras mot tillgängliga siddata. Om giltiga inledningar eller andra publiceringskrav saknas kan utkast bli kvar för granskning.",
   "autoSched.enable": "Fyll nästa månads kalender automatiskt",
   "autoSched.weekdays": "Publiceringsdagar",
   "autoSched.publishTime": "Publiceringstid",
@@ -151,7 +151,7 @@ export const sv: Record<string, string> = {
   "autoSched.modeAuto": "Publicera automatiskt",
   "autoSched.modeApprove": "Vänta på mitt godkännande",
   "autoSched.modeHint":
-    "”Vänta på mitt godkännande” publicerar aldrig något: utkasten väntar som färdiga artiklar och du aktiverar dem från kalendern. ”Publicera automatiskt” schemalägger riktiga publiceringar i varje lucka.",
+    "”Vänta på mitt godkännande” förbereder utkast utan att schemalägga publicering. ”Publicera automatiskt” försöker schemalägga behöriga utkast när kontrollerna har godkänts; det garanterar inte att varje tid fylls eller att publiceringen lyckas.",
   "autoSched.summaryEmail": "Sammanfattningsmejl (valfritt)",
   "autoSched.day.1": "Mån",
   "autoSched.day.2": "Tis",

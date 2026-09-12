@@ -148,7 +148,7 @@ export const en: Record<string, string> = {
   "setup.section.marketsGoals": "Markets & goals",
   "autoSched.title": "Monthly auto-scheduler",
   "autoSched.hint":
-    "Around the 25th, Milo plans next month: it drafts articles for your chosen weekdays within your plan's monthly quota, resolves internal links against your real pages, and prepares each one with an approved opening hook.",
+    "When enabled, Milo attempts to prepare next month’s articles for your chosen weekdays within the available quota. Internal links are checked against available page data. Missing valid hooks or other publishing requirements can leave drafts waiting for review.",
   "autoSched.enable": "Fill next month's calendar automatically",
   "autoSched.weekdays": "Publish days",
   "autoSched.publishTime": "Publish time",
@@ -157,7 +157,7 @@ export const en: Record<string, string> = {
   "autoSched.modeAuto": "Publish automatically",
   "autoSched.modeApprove": "Hold for my approval",
   "autoSched.modeHint":
-    "“Hold for my approval” never publishes anything: drafts wait as ready articles and you arm them from the calendar. “Publish automatically” schedules real go-lives at each slot.",
+    "“Hold for my approval” prepares drafts without scheduling publication. “Publish automatically” attempts to schedule eligible drafts after checks pass; it does not guarantee that every slot is filled or that publication succeeds.",
   "autoSched.summaryEmail": "Summary email (optional)",
   "autoSched.day.1": "Mon",
   "autoSched.day.2": "Tue",

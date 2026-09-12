@@ -3,7 +3,7 @@
 export const frWorkflow: Readonly<Record<string, string>> = {
   "autoSched.title": "Planification mensuelle automatique",
   "autoSched.hint":
-    "Vers le 25 du mois, Milo prépare le mois suivant : il rédige des articles pour les jours de la semaine que vous avez choisis, dans la limite du quota mensuel de votre offre, associe les liens internes à vos pages réelles et prépare chaque article avec une accroche approuvée.",
+    "Lorsque cette fonction est activée, Milo tente de préparer les articles du mois suivant pour les jours choisis, dans la limite du quota disponible. Les liens internes sont vérifiés à partir des données de pages disponibles. L’absence d’accroches valides ou d’autres conditions de publication peut laisser des brouillons en attente de révision.",
   "autoSched.enable": "Remplir automatiquement le calendrier du mois prochain",
   "autoSched.weekdays": "Jours de publication",
   "autoSched.publishTime": "Heure de publication",
@@ -12,7 +12,7 @@ export const frWorkflow: Readonly<Record<string, string>> = {
   "autoSched.modeAuto": "Publier automatiquement",
   "autoSched.modeApprove": "Attendre mon approbation",
   "autoSched.modeHint":
-    "« Attendre mon approbation » ne publie jamais rien : les brouillons restent prêts et vous programmez leur publication depuis le calendrier. « Publier automatiquement » programme des mises en ligne réelles à chaque créneau.",
+    "« Attendre mon approbation » prépare des brouillons sans programmer leur publication. « Publier automatiquement » tente de programmer les brouillons admissibles après validation des contrôles ; cela ne garantit ni que chaque créneau sera rempli ni que la publication réussira.",
   "autoSched.summaryEmail": "E-mail récapitulatif (facultatif)",
   "autoSched.day.1": "Lun",
   "autoSched.day.2": "Mar",

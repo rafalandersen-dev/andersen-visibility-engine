@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Automatic scheduler guidance corrected across four runtime and four staged languages: preparation and scheduling are conditional, and neither every calendar slot nor successful publication is guaranteed. Approval-first remains unscheduled. See SCHEDULER_GUIDANCE_CLAIM_2026_09_12.md. Prepared, unreleased; real acceptance and release holds remain.
+
 Image Arrange guidance corrected across four runtime and four staged languages: edits can leave placement unresolved, and preview does not verify destination appearance. Existing assembly/checklist behavior is retained. See IMAGE_PLACEMENT_CLAIM_2026_09_12.md. Prepared, unreleased; real acceptance and release holds remain.
 
 Launch connection-test wording corrected across four runtime and four staged languages: access testing does not verify publishing permissions or guarantee later publication. Confirmed from the read-only account/shop test handlers; checklist behavior unchanged. See LAUNCH_CONNECTION_CLAIM_2026_09_12.md. Prepared, unreleased; acceptance and release holds remain.

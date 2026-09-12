@@ -2,7 +2,7 @@
 export const itWorkflow: Readonly<Record<string, string>> = {
   "autoSched.title": "Pianificazione automatica mensile",
   "autoSched.hint":
-    "Intorno al 25, Milo pianifica il mese successivo: prepara bozze di articoli per i giorni della settimana scelti, entro la quota mensile del tuo piano, risolve i link interni rispetto alle tue pagine reali e prepara ogni articolo con un'apertura approvata.",
+    "Quando è abilitato, Milo tenta di preparare gli articoli del mese successivo per i giorni scelti, entro la quota disponibile. I link interni vengono controllati rispetto ai dati delle pagine disponibili. La mancanza di aperture valide o di altri requisiti di pubblicazione può lasciare le bozze in attesa di revisione.",
   "autoSched.enable": "Compila automaticamente il calendario del mese prossimo",
   "autoSched.weekdays": "Giorni di pubblicazione",
   "autoSched.publishTime": "Ora di pubblicazione",
@@ -11,7 +11,7 @@ export const itWorkflow: Readonly<Record<string, string>> = {
   "autoSched.modeAuto": "Pubblica automaticamente",
   "autoSched.modeApprove": "Attendi la mia approvazione",
   "autoSched.modeHint":
-    "“Attendi la mia approvazione” non pubblica mai nulla: le bozze restano articoli pronti e ne attivi la pubblicazione dal calendario. “Pubblica automaticamente” pianifica pubblicazioni effettive per ciascuna fascia oraria.",
+    "“Attendi la mia approvazione” prepara bozze senza pianificare la pubblicazione. “Pubblica automaticamente” tenta di pianificare le bozze idonee dopo il superamento dei controlli; non garantisce che ogni fascia venga riempita o che la pubblicazione riesca.",
   "autoSched.summaryEmail": "Email di riepilogo (facoltativa)",
   "autoSched.day.1": "Lun",
   "autoSched.day.2": "Mar",

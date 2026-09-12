@@ -143,7 +143,7 @@ export const pl: Record<string, string> = {
   "setup.section.marketsGoals": "Rynki i cele",
   "autoSched.title": "Miesięczny auto-planer",
   "autoSched.hint":
-    "Około 25. dnia miesiąca Milo planuje kolejny miesiąc: tworzy artykuły na wybrane dni tygodnia w ramach miesięcznego limitu planu, rozwiązuje linki wewnętrzne względem prawdziwych stron i przygotowuje każdy z zatwierdzonym hookiem otwierającym.",
+    "Po włączeniu Milo próbuje przygotować artykuły na kolejny miesiąc na wybrane dni tygodnia, w ramach dostępnej puli. Linki wewnętrzne są sprawdzane względem dostępnych danych stron. Brak prawidłowego wstępu lub spełnienia innych wymagań publikacji może pozostawić szkice do przeglądu.",
   "autoSched.enable": "Automatycznie wypełniaj kalendarz na kolejny miesiąc",
   "autoSched.weekdays": "Dni publikacji",
   "autoSched.publishTime": "Godzina publikacji",
@@ -152,7 +152,7 @@ export const pl: Record<string, string> = {
   "autoSched.modeAuto": "Publikuj automatycznie",
   "autoSched.modeApprove": "Czekaj na moją akceptację",
   "autoSched.modeHint":
-    "„Czekaj na moją akceptację” nigdy niczego nie publikuje: szkice czekają jako gotowe artykuły, a Ty uzbrajasz je z kalendarza. „Publikuj automatycznie” planuje prawdziwe publikacje w każdym slocie.",
+    "„Czekaj na moją akceptację” przygotowuje szkice bez planowania publikacji. „Publikuj automatycznie” próbuje zaplanować kwalifikujące się szkice po przejściu kontroli; nie gwarantuje obsadzenia każdego terminu ani udanej publikacji.",
   "autoSched.summaryEmail": "E-mail z podsumowaniem (opcjonalnie)",
   "autoSched.day.1": "Pon",
   "autoSched.day.2": "Wt",

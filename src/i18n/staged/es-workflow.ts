@@ -2,7 +2,7 @@
 export const esWorkflow: Readonly<Record<string, string>> = {
   "autoSched.title": "Programador automático mensual",
   "autoSched.hint":
-    "Alrededor del día 25, Milo planifica el mes siguiente: redacta artículos para los días de la semana que hayas elegido, dentro del límite mensual de tu plan, resuelve los enlaces internos con tus páginas reales y prepara cada artículo con una introducción atractiva aprobada.",
+    "Cuando está activado, Milo intenta preparar los artículos del próximo mes para los días elegidos, dentro de la cuota disponible. Los enlaces internos se comprueban con los datos de páginas disponibles. La falta de aperturas válidas u otros requisitos de publicación puede dejar borradores pendientes de revisión.",
   "autoSched.enable": "Completar automáticamente el calendario del próximo mes",
   "autoSched.weekdays": "Días de publicación",
   "autoSched.publishTime": "Hora de publicación",
@@ -11,7 +11,7 @@ export const esWorkflow: Readonly<Record<string, string>> = {
   "autoSched.modeAuto": "Publicar automáticamente",
   "autoSched.modeApprove": "Esperar mi aprobación",
   "autoSched.modeHint":
-    "«Esperar mi aprobación» nunca publica nada: los borradores esperan como artículos listos y tú activas su publicación desde el calendario. «Publicar automáticamente» programa publicaciones reales para cada espacio.",
+    "«Esperar mi aprobación» prepara borradores sin programar la publicación. «Publicar automáticamente» intenta programar los borradores aptos tras superar las comprobaciones; no garantiza que se cubra cada fecha ni que la publicación se complete correctamente.",
   "autoSched.summaryEmail": "Correo de resumen (opcional)",
   "autoSched.day.1": "lun",
   "autoSched.day.2": "mar",

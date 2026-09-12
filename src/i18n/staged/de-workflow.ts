@@ -2,7 +2,7 @@
 export const deWorkflow: Readonly<Record<string, string>> = {
   "autoSched.title": "Monatliche automatische Planung",
   "autoSched.hint":
-    "Um den 25. herum plant Milo den nächsten Monat: Es erstellt Artikelentwürfe für deine gewählten Wochentage innerhalb des monatlichen Tarifkontingents, gleicht interne Links mit deinen tatsächlichen Seiten ab und bereitet jeden Artikel mit einem freigegebenen Einstieg vor.",
+    "Wenn die Funktion aktiviert ist, versucht Milo, die Artikel des nächsten Monats für deine gewählten Wochentage innerhalb des verfügbaren Kontingents vorzubereiten. Interne Links werden anhand verfügbarer Seitendaten geprüft. Fehlende gültige Einstiege oder andere Veröffentlichungsvoraussetzungen können Entwürfe zur Prüfung zurückhalten.",
   "autoSched.enable": "Kalender des nächsten Monats automatisch füllen",
   "autoSched.weekdays": "Veröffentlichungstage",
   "autoSched.publishTime": "Veröffentlichungszeit",
@@ -11,7 +11,7 @@ export const deWorkflow: Readonly<Record<string, string>> = {
   "autoSched.modeAuto": "Automatisch veröffentlichen",
   "autoSched.modeApprove": "Auf meine Freigabe warten",
   "autoSched.modeHint":
-    "„Auf meine Freigabe warten“ veröffentlicht nichts: Entwürfe warten als bereite Artikel und werden von dir im Kalender zur Veröffentlichung terminiert. „Automatisch veröffentlichen“ plant tatsächliche Live-Veröffentlichungen für jeden Termin.",
+    "„Auf meine Freigabe warten“ bereitet Entwürfe vor, ohne eine Veröffentlichung zu planen. „Automatisch veröffentlichen“ versucht, geeignete Entwürfe nach bestandenen Prüfungen einzuplanen; dies garantiert weder die Belegung jedes Termins noch eine erfolgreiche Veröffentlichung.",
   "autoSched.summaryEmail": "E-Mail für Zusammenfassungen (optional)",
   "autoSched.day.1": "Mo",
   "autoSched.day.2": "Di",

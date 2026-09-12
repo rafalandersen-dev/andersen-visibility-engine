@@ -142,7 +142,7 @@ export const da: Record<string, string> = {
   "setup.section.marketsGoals": "Markeder og mål",
   "autoSched.title": "Månedlig autoplanlægger",
   "autoSched.hint":
-    "Omkring den 25. planlægger Milo næste måned: artikler udarbejdes til dine valgte ugedage inden for planens månedlige kvote, interne links matches mod dine rigtige sider, og hver artikel forberedes med en godkendt indledende hook.",
+    "Når funktionen er aktiveret, forsøger Milo at forberede næste måneds artikler til dine valgte ugedage inden for den tilgængelige kvote. Interne links kontrolleres mod tilgængelige sidedata. Manglende gyldige indledninger eller andre publiceringskrav kan efterlade kladder til gennemgang.",
   "autoSched.enable": "Udfyld næste måneds kalender automatisk",
   "autoSched.weekdays": "Udgivelsesdage",
   "autoSched.publishTime": "Udgivelsestidspunkt",
@@ -151,7 +151,7 @@ export const da: Record<string, string> = {
   "autoSched.modeAuto": "Udgiv automatisk",
   "autoSched.modeApprove": "Vent på min godkendelse",
   "autoSched.modeHint":
-    "”Vent på min godkendelse” udgiver aldrig noget: udkast venter som færdige artikler, og du aktiverer dem fra kalenderen. ”Udgiv automatisk” planlægger rigtige udgivelser i hvert slot.",
+    "”Vent på min godkendelse” forbereder kladder uden at planlægge publicering. ”Udgiv automatisk” forsøger at planlægge egnede kladder, når kontrollerne er bestået; det garanterer ikke, at alle tidspunkter udfyldes, eller at publiceringen lykkes.",
   "autoSched.summaryEmail": "Opsummeringsmail (valgfrit)",
   "autoSched.day.1": "Man",
   "autoSched.day.2": "Tir",
