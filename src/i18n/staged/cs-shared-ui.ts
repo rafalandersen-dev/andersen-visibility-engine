@@ -4,7 +4,7 @@ export const csSharedUi: Readonly<Record<string, string>> = {
   "sharedUi.off": "Vypnuto",
   "sharedUi.generationFailed": "Generování se nezdařilo",
   "sharedUi.analysisFailed": "Analýza se nezdařila",
-  "sharedUi.networkSaveFailed": "Nabídku se nepodařilo uložit",
+  "sharedUi.networkSaveFailed": "Zápis se nepodařilo uložit",
   "sharedUi.networkSearchFailed": "Síť se nepodařilo prohledat",
   "sharedUi.networkMatchFailed": "Shodu se nepodařilo aktualizovat",
   "sharedUi.verificationFailed": "Ověření se nezdařilo",

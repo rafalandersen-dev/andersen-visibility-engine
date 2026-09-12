@@ -2,13 +2,13 @@ const fs = require("fs");
 const root = process.cwd();
 const esbuild = require(root + "/node_modules/esbuild");
 const locale = process.argv[2] ?? "keys";
-if (!["keys", "fi"].includes(locale)) throw Error("Use keys or fi");
+if (!["keys", "fi", "cs"].includes(locale)) throw Error("Use keys, fi or cs");
 const dir = "/tmp/milo-knowledge-review-browser";
 fs.mkdirSync(dir, { recursive: true });
 const sourceDir = __dirname;
 fs.writeFileSync(
   dir + "/index.html",
-  `<!doctype html><html lang="${locale === "fi" ? "fi" : "en"}"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><div id="root"></div><pre id="results">Running</pre><script src="/bundle.js"></script></html>`,
+  `<!doctype html><html lang="${locale === "keys" ? "en" : locale}"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><div id="root"></div><pre id="results">Running</pre><script src="/bundle.js"></script></html>`,
 );
 esbuild.buildSync({
   stdin: {

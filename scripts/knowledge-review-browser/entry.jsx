@@ -86,7 +86,7 @@ async function confirm() {
   );
   const panel = document.querySelector("[aria-busy]");
   assert(
-    panel?.getAttribute("lang") === (locale === "fi" ? "fi" : "en"),
+    panel?.getAttribute("lang") === (locale === "keys" ? "en" : locale),
     "Panel language mismatch",
   );
   assert(panel.getAttribute("aria-busy") === "false", "Inspection remained busy");
