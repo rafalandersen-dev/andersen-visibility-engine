@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Integrated application regression at 851ee14 passes all 4,911 tests across 328 files after the weekly and notification changes. See the follow-up in INTEGRATED_CANDIDATE_CHECK_2026_09_12.md. The separate Worker result remains scoped to its earlier run; full types/build passed at 851ee14. Local acceptance evidence has expanded, but real workflow/transport, full R20 language coverage and release gates remain open.
+
 Operational notification sweeps now run the existing bounded account batch concurrently with ten-second operation waits. A stalled account no longer serially blocks healthy accounts, and late read completion cannot resume its timed-out scan. Thirty focused tests, full types/build/scoped lint/whitespace pass. See NOTIFICATION_SWEEP_WAIT_BOUNDS_2026_09_12.md for concurrency and late-mutation limits. Prepared, unreleased; real load/delivery and release acceptance remain open.
 
 Operational notification scans now verify exact queue and scheduler-lease counts before syncing alerts, rejecting truncated/unknown/over-limit histories. Two regressions cover eight invalid-count scenarios; all 47 focused tests plus types/scoped lint/whitespace pass. See NOTIFICATION_SOURCE_COMPLETENESS_2026_09_12.md. Prepared, unreleased; histories over 1,000 rows require pagination and real notification/release acceptance remains open.
