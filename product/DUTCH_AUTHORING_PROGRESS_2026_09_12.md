@@ -1,6 +1,6 @@
 # Dutch interface authoring — 12 September 2026
 
-R20 requires full EU-language coverage. Dutch authoring has begun with 1,736 of the current 3,768 English interface messages (2,032 remain). This is a partial staged catalog; Dutch is not registered in UI_CATALOGS or the language picker.
+R20 requires full EU-language coverage. Dutch authoring has begun with 1,978 of the current 3,768 English interface messages (1,790 remain). This is a partial staged catalog; Dutch is not registered in UI_CATALOGS or the language picker.
 
 ## Completed authoring batches
 
@@ -15,6 +15,7 @@ R20 requires full EU-language coverage. Dutch authoring has begun with 1,736 of 
 | Evidence screens | 89 | src/i18n/staged/nl-evidence-screen.ts |
 | Plan screen | 113 | src/i18n/staged/nl-plan-screen.ts |
 | Editor screen | 148 | src/i18n/staged/nl-editor-screen.ts |
+| Knowledge, weekly preparation and approvals | 242 | src/i18n/staged/nl-knowledge.ts |
 | Collaboration, team and notifications | 248 | src/i18n/staged/nl-collaboration.ts |
 | Configuration and connections | 220 | src/i18n/staged/nl-configuration.ts |
 | Public beta | 100 | src/i18n/staged/nl-public-beta.ts |
@@ -122,3 +123,10 @@ Source assertions about brand-rule prevention, credential storage/logging, immed
 At 6759e9e, authored all 248 collaboration/team/notifications/awareness/emailSettings messages. Invitation creation remains separate from emailing and access acceptance; owner assignment and recipient consent remain separate requirements. Exact-version approvals, withdrawal after edits/policy changes, recovery uncertainty, historical records and provider acceptance versus delivery are preserved. Team role cards retain their dated-evidence limits and do not establish active agents, causal outcomes or observed AI tracking.
 
 All thirty Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-collaboration-types.log), scoped lint and whitespace checks. Total staged coverage is 1,736; 2,032 messages remain. Knowledge is next. Source lifecycle/notification assertions still require real-use acceptance; this authoring neither sends email nor changes permissions or approval state. Runtime activation and fluent/rendered acceptance remain open.
+
+
+## Knowledge follow-up
+
+At b358246, authored all 242 knowledge/weekly/approval/refresh messages. Source acceptance remains distinct from independent verification, review from publication approval, and retained drafts from queued publication. Expiry, conflicting records, owner precedence, irreversible forgetting, extraction limits, partial catalogs, uncertain recovery and nonexistent local times remain explicit. The 2 000-character excerpt limit retains its value with space grouping.
+
+All thirty-one Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-knowledge-types.log), scoped lint and whitespace checks. Total staged coverage is 1,978; 1,790 messages remain. Technical and measurement groups are next. Storage/deletion, source-refresh, approval and recovery descriptions remain subject to real-use acceptance; no source retrieval, upload, deletion, approval or generation operation was performed. Dutch remains outside runtime; fluent/rendered acceptance remains open.
