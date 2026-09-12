@@ -1,3 +1,4 @@
+import { itTechnical } from "./it-technical";
 import { itKnowledge } from "./it-knowledge";
 import { itCollaboration } from "./it-collaboration";
 import { itEditorScreen } from "./it-editor-screen";
@@ -115,6 +116,13 @@ export const IT_STAGED_BATCHES = [
     namespaces: ["knowledge", "weekly", "approval", "refresh"],
     sourceRevision: "88078b9",
     sourceHash: "a3a3297006f23628e422ddedfb5b6f5a51c6dd5f6abbc6d6e589481e49915816",
+  },
+  {
+    name: "technical",
+    copy: itTechnical,
+    namespaces: ["crawl", "gindex", "perf"],
+    sourceRevision: "b88d167",
+    sourceHash: "106a19b8ceaf725528ddc9d4de7317d823108425584418d93729346f29c135e6",
   },
 ] as const;
 export const IT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
