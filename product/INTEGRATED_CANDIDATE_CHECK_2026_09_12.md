@@ -51,3 +51,17 @@ Verified implementation: 67c789d03729dbdce059853eb2fbdd0014aed4db on codex/milo-
 The candidate now includes knowledge review freshness, individual and batch approval-time/withdrawal checks, CMS guard integration evidence, a repeatable rendered review interaction harness, and scheduler queue/heartbeat recording bounds and acknowledgement status. Application environment warnings and build deprecation warnings remain; commands exited successfully.
 
 The migration test applies its declared prerequisite subset locally, not the complete pending migration chain against production. LAUNCH_READINESS.md now identifies the new batch-review migration, preconditions, acceptance and app-rollback compatibility. No migration was applied to a live database. No provider/CMS/notification acceptance or release GO is inferred from these local results; the full R00–R24/D01–D08 objective remains incomplete.
+
+## Czech/knowledge-review follow-up at a677e46
+
+Verified implementation: a677e4625e952d2218e7e8b04f605d522e1a94de on codex/milo-report-branding-authority-20260912. The working tree was clean before and after the checks. This supersedes earlier application regression totals for the candidate only.
+
+- Full application suite: 333 files, 5,039 tests passed in 101.56 seconds. Command: npx vitest run. Log: /tmp/milo-integrated-czech-knowledge-20260912.log.
+- Production build passed. Command: npm run build. Log: /tmp/milo-integrated-czech-knowledge-build-20260912.log.
+- Full TypeScript and scoped component lint passed on this implementation in the preceding history-recovery check. Type log: /tmp/milo-knowledge-history-refresh-types.log.
+- The browser harness passed six interaction groups with Czech text on this implementation, including confirmed mutations followed by failed history reads. See KNOWLEDGE_REVIEW_HISTORY_RECOVERY_2026_09_12.md.
+- The separate Worker suite was not repeated: git comparison against the prior integrated checkpoint shows no Worker/shared public-audit implementation changes. Its recorded 49-test result retains its original scope and date.
+
+This candidate includes completed staged Finnish and Czech catalogs and the knowledge-review accessibility/history-recovery changes. R20 now has four active full UI catalogs and eight complete staged catalogs; twelve UI catalogs remain absent, and staged language quality/activation acceptance is incomplete. Root tests select src/**/*.test.ts in a Node environment and do not prove browser journeys, provider delivery or deployed configuration. Existing canvas/localStorage and build-tool warnings remain non-failing.
+
+Rechecked LAUNCH_READINESS.md: real solo/team journeys, provider/CMS and transport acceptance, observed AI evidence, full responsive/accessibility coverage, client compatibility, payment lifecycle, D07 and other release gates remain open. The batch-review migration still needs an authorized target-ledger/prerequisite inspection and rollout; no live migration or deployment occurred. Local passing results do not lift the recorded release/security holds. No new task, provider action, payment, message or review-consuming action was performed.
