@@ -65,6 +65,7 @@ it.each(UI_LANGUAGE_CODES)(
     const baseline = render();
     state.locale = language;
     const html = render();
+    expect(html).not.toMatch(/<a\b[^>]*>(?:(?!<\/a>).)*<button\b/s);
     expect([...html.matchAll(/href="[^"]*"/g)].map((m) => m[0])).toEqual(
       [...baseline.matchAll(/href="[^"]*"/g)].map((m) => m[0]),
     );

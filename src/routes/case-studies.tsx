@@ -124,14 +124,14 @@ function CaseStudiesPage() {
         <div className="mt-10 rounded-lg border border-gold/40 bg-gold/5 p-6 text-center">
           <h2 className="font-display text-xl">{t("publicStudies.cta")}</h2>
           <div className="mt-4 flex flex-wrap justify-center gap-2">
-            <Link to="/free-ai-visibility-audit">
-              <Button>
+            <Button asChild>
+              <Link to="/free-ai-visibility-audit">
                 {t("publicStudies.audit")} <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
-            <Link to="/beta">
-              <Button variant="outline">{t("publicStudies.beta")}</Button>
-            </Link>
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/beta">{t("publicStudies.beta")}</Link>
+            </Button>
           </div>
         </div>
 

@@ -1,6 +1,9 @@
 import type { OnboardingLanguage } from "@/lib/types";
 export const publicPricingCopy: Record<OnboardingLanguage, Readonly<Record<string, string>>> = {
   en: {
+    "publicPricing.chooseRegion": "Choose region",
+    "publicPricing.regionNote":
+      "Region changes the public page and displayed beta pricing. Billing country will determine final pricing when paid plans are available.",
     "publicPricing.included": "Included",
     "publicPricing.notIncluded": "Not included",
     "publicPricing.title": "Simple plans. Clear limits.",
@@ -48,6 +51,9 @@ export const publicPricingCopy: Record<OnboardingLanguage, Readonly<Record<strin
     "publicPricing.backHome": "Back to home",
   },
   pl: {
+    "publicPricing.chooseRegion": "Wybierz region",
+    "publicPricing.regionNote":
+      "Region zmienia stronę publiczną i wyświetlane ceny beta. Gdy płatne plany będą dostępne, kraj rozliczeń określi ostateczną cenę.",
     "publicPricing.included": "W cenie",
     "publicPricing.notIncluded": "Nie jest w cenie",
     "publicPricing.title": "Proste plany. Jasne limity.",
@@ -97,6 +103,9 @@ export const publicPricingCopy: Record<OnboardingLanguage, Readonly<Record<strin
     "publicPricing.backHome": "Powrót do strony głównej",
   },
   sv: {
+    "publicPricing.chooseRegion": "Välj region",
+    "publicPricing.regionNote":
+      "Regionen ändrar den offentliga sidan och de visade betapriserna. Faktureringslandet avgör det slutliga priset när betalplaner blir tillgängliga.",
     "publicPricing.included": "Ingår",
     "publicPricing.notIncluded": "Ingår inte",
     "publicPricing.title": "Enkla planer. Tydliga gränser.",
@@ -145,6 +154,9 @@ export const publicPricingCopy: Record<OnboardingLanguage, Readonly<Record<strin
     "publicPricing.backHome": "Tillbaka till startsidan",
   },
   da: {
+    "publicPricing.chooseRegion": "Vælg region",
+    "publicPricing.regionNote":
+      "Regionen ændrer den offentlige side og de viste betapriser. Faktureringslandet afgør den endelige pris, når betalte abonnementer bliver tilgængelige.",
     "publicPricing.included": "Inkluderet",
     "publicPricing.notIncluded": "Ikke inkluderet",
     "publicPricing.title": "Enkle planer. Klare grænser.",

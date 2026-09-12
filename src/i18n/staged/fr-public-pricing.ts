@@ -1,4 +1,7 @@
 export const frPublicPricing: Readonly<Record<string, string>> = {
+  "publicPricing.chooseRegion": "Choisir une région",
+  "publicPricing.regionNote":
+    "La région modifie la page publique et les tarifs bêta affichés. Le pays de facturation déterminera le prix final lorsque les abonnements payants seront disponibles.",
   "publicPricing.included": "Inclus",
   "publicPricing.notIncluded": "Non inclus",
   "publicPricing.title": "Des offres simples. Des limites claires.",

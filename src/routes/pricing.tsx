@@ -65,14 +65,12 @@ function PricingPage() {
             </span>
           </Link>
           <div className="flex items-center gap-2">
-            <Link to="/">
-              <Button variant="ghost" size="sm">
-                {t("publicBeta.home")}
-              </Button>
-            </Link>
-            <Link to="/auth">
-              <Button size="sm">{t("onboarding.getStarted")}</Button>
-            </Link>
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/">{t("publicBeta.home")}</Link>
+            </Button>
+            <Button asChild size="sm">
+              <Link to="/auth">{t("onboarding.getStarted")}</Link>
+            </Button>
           </div>
         </div>
         <div className="mx-auto max-w-[1240px] px-6">
@@ -197,13 +195,13 @@ function PricingBody({ t, language }: Pick<ReturnType<typeof useAuthLanguage>, "
                   </li>
                 ))}
               </ul>
-              <Link to="/auth" className="mt-6">
-                <Button className="w-full" variant={meta.recommended ? "default" : "outline"}>
+              <Button asChild className="w-full" variant={meta.recommended ? "default" : "outline"}>
+                <Link to="/auth" className="mt-6">
                   {pid === "freePreview"
                     ? t("publicPricing.startPreview")
                     : t("onboarding.getStarted")}
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             </div>
           );
         })}
