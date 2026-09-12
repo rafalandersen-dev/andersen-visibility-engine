@@ -9,7 +9,7 @@ export const backlinkMonitoringCopy: Record<OnboardingLanguage, Record<string, s
     "backlinkMonitor.no": "No",
     "backlinkMonitor.title": "Backlink history",
     "backlinkMonitor.note":
-      "Daily counts from the DataForSEO index for the saved website. Missing data is shown as —, never zero. These observations do not verify individual link placements. Each request uses the configured supplier allowance; automatic monitoring is not enabled.",
+      "Daily counts from the DataForSEO index for the saved website. Missing data is shown as —, never zero. These observations do not verify individual link placements. Each request uses the configured supplier allowance. Recurring collection is controlled separately above.",
     "backlinkMonitor.from": "From (UTC)",
     "backlinkMonitor.to": "To (UTC)",
     "backlinkMonitor.subdomains": "Include subdomains",
@@ -59,7 +59,7 @@ export const backlinkMonitoringCopy: Record<OnboardingLanguage, Record<string, s
     "backlinkMonitor.no": "Nie",
     "backlinkMonitor.title": "Historia linków zwrotnych",
     "backlinkMonitor.note":
-      "Dzienne dane z indeksu DataForSEO dla zapisanej witryny. Brak danych oznaczamy —, nigdy zerem. Obserwacje nie potwierdzają pojedynczych publikacji linków. Każde żądanie korzysta ze skonfigurowanego limitu dostawcy; automatyczne monitorowanie jest wyłączone.",
+      "Dzienne dane z indeksu DataForSEO dla zapisanej witryny. Brak danych oznaczamy —, nigdy zerem. Obserwacje nie potwierdzają pojedynczych publikacji linków. Każde żądanie korzysta ze skonfigurowanego limitu dostawcy. Pobieranie cykliczne ma osobne ustawienia powyżej.",
     "backlinkMonitor.from": "Od (UTC)",
     "backlinkMonitor.to": "Do (UTC)",
     "backlinkMonitor.subdomains": "Uwzględnij subdomeny",
@@ -109,7 +109,7 @@ export const backlinkMonitoringCopy: Record<OnboardingLanguage, Record<string, s
     "backlinkMonitor.no": "Nej",
     "backlinkMonitor.title": "Bakåtlänkshistorik",
     "backlinkMonitor.note":
-      "Dagliga antal från DataForSEO-indexet för den sparade webbplatsen. Saknade data visas som —, aldrig noll. Observationerna verifierar inte enskilda länkplaceringar. Varje begäran använder den konfigurerade leverantörsbudgeten; automatisk bevakning är inte aktiverad.",
+      "Dagliga antal från DataForSEO-indexet för den sparade webbplatsen. Saknade data visas som —, aldrig noll. Observationerna verifierar inte enskilda länkplaceringar. Varje begäran använder den konfigurerade leverantörsbudgeten. Återkommande hämtning styrs separat ovan.",
     "backlinkMonitor.from": "Från (UTC)",
     "backlinkMonitor.to": "Till (UTC)",
     "backlinkMonitor.subdomains": "Inkludera underdomäner",
@@ -161,7 +161,7 @@ export const backlinkMonitoringCopy: Record<OnboardingLanguage, Record<string, s
     "backlinkMonitor.no": "Nej",
     "backlinkMonitor.title": "Historik for backlinks",
     "backlinkMonitor.note":
-      "Daglige antal fra DataForSEO-indekset for det gemte websted. Manglende data vises som —, aldrig nul. Observationerne bekræfter ikke enkelte linkplaceringer. Hver anmodning bruger det konfigurerede leverandørbudget; automatisk overvågning er ikke aktiveret.",
+      "Daglige antal fra DataForSEO-indekset for det gemte websted. Manglende data vises som —, aldrig nul. Observationerne bekræfter ikke enkelte linkplaceringer. Hver anmodning bruger det konfigurerede leverandørbudget. Tilbagevendende indsamling styres særskilt ovenfor.",
     "backlinkMonitor.from": "Fra (UTC)",
     "backlinkMonitor.to": "Til (UTC)",
     "backlinkMonitor.subdomains": "Medtag underdomæner",

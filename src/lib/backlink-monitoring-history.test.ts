@@ -57,6 +57,7 @@ it("projects only public history fields and preserves missing versus zero", () =
     "accounting",
     "createdAt",
     "observation",
+    "recurring",
   ]);
   expect(row.observation?.days.map((d) => d.newBacklinks)).toEqual([0, null]);
 });
@@ -86,11 +87,11 @@ it("rejects partially labelled complete metrics", () => {
 });
 it("scopes read and accounting recovery to the verified actor and exact request", async () => {
   const rpc = vi.fn(async (name: string) => ({
-    data: name === "list_backlink_monitoring" ? [fixture()] : true,
+    data: name === "list_backlink_monitoring_with_origin" ? [fixture()] : true,
     error: null,
   }));
   expect(await readBacklinkMonitoringHistory(user, { projectId: "p" }, rpc)).toHaveLength(1);
-  expect(rpc).toHaveBeenLastCalledWith("list_backlink_monitoring", {
+  expect(rpc).toHaveBeenLastCalledWith("list_backlink_monitoring_with_origin", {
     p_user: user,
     p_project: "p",
   });
@@ -102,4 +103,18 @@ it("scopes read and accounting recovery to the verified actor and exact request"
     p_project: "p",
     p_request: request,
   });
+});
+it("exposes only validated recurrence timing and confirmed no-dispatch status", () => {
+  const recurring = { occurrenceAt: "2026-09-10T12:00:00Z", undispatched: false };
+  expect(projectBacklinkHistory([{ ...fixture(), recurring }], user, "p")[0].recurring).toEqual(
+    recurring,
+  );
+  expect(() =>
+    projectBacklinkHistory(
+      [{ ...fixture(), recurring: { ...recurring, lease: "forged" } }],
+      user,
+      "p",
+    ),
+  ).toThrow();
+  expect(projectBacklinkHistory([fixture()], user, "p")[0].recurring).toBeNull();
 });

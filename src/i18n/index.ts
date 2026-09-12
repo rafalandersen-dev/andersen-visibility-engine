@@ -1,3 +1,4 @@
+import { backlinkRecurringCopy } from "./backlink-recurring";
 import { technicalPerformanceCopy } from "./technical-performance";
 import { googleIndexCopy } from "./google-index";
 import { technicalCrawlCopy } from "./technical-crawl";
@@ -54,6 +55,7 @@ export function translate(
     projectTeams[l][key] ??
     locationCoverage[l][key] ??
     publishingFidelity[l][key] ??
+    backlinkRecurringCopy[l][key] ??
     backlinkDetailsCopy[l][key] ??
     backlinkMonitoringCopy[l][key] ??
     backlinkIntegrity[l][key] ??

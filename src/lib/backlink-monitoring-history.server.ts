@@ -14,7 +14,11 @@ export async function readBacklinkMonitoringHistory(
   const user = z.string().uuid().parse(userId),
     input = backlinkMonitoringHistoryInput.parse(raw);
   return projectBacklinkHistory(
-    await teamCall("list_backlink_monitoring", { p_user: user, p_project: input.projectId }, rpc),
+    await teamCall(
+      "list_backlink_monitoring_with_origin",
+      { p_user: user, p_project: input.projectId },
+      rpc,
+    ),
     user,
     input.projectId,
   );

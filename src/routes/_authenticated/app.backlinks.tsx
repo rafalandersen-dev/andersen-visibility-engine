@@ -1,3 +1,4 @@
+import { RecurringBacklinkMonitor } from "@/components/RecurringBacklinkMonitor";
 import { BacklinkDetails } from "@/components/BacklinkDetails";
 import { BacklinkMonitoring } from "@/components/BacklinkMonitoring";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -235,6 +236,17 @@ function BacklinksPage() {
           t={t}
         />
       )}
+      {project ? (
+        <RecurringBacklinkMonitor
+          projectId={project.id}
+          website={project.websiteUrl}
+          collectionAvailable={
+            configured === true &&
+            (providerStatus?.state === "ready" ||
+              (providerStatus?.state === "low_balance" && (providerStatus.balanceUsd ?? 0) > 0))
+          }
+        />
+      ) : null}
       {project ? (
         <BacklinkMonitoring
           projectId={project.id}
