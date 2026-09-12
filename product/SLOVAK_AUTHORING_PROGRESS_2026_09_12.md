@@ -1,6 +1,6 @@
 # Slovak interface authoring — 12 September 2026
 
-Slovak is staged only: 1,268 of the current 3,768 English interface keys, across seventeen complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS retain separate staged acceptance status.
+Slovak is staged only: 1,488 of the current 3,768 English interface keys, across eighteen complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS retain separate staged acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -21,14 +21,15 @@ Slovak is staged only: 1,268 of the current 3,768 English interface keys, across
 | Beta screen | 88 | 38b917f |
 | Beta guidance | 125 | 6d09db8 |
 | Public beta | 100 | 865b87a |
+| Configuration | 220 | b5e84bf |
 
-The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 28 Slovak/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovak-public-beta-types.log.
+The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 29 Slovak/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovak-configuration-types.log.
 
 Terminology: pracovný priestor (workspace), projekt, heslo (password), obnovenie hesla (password recovery), bočný panel (sidebar), archivovať (archive). Prefer formal-plural instructions and infinitive actions. Program denotes a subscription plan; workflow plans use plán. Network listing is zápis. Preserve provider/product names and placeholders.
 
 Recovery text preserves conditional eligibility and does not confirm that an account exists. Source claims about monthly planning and successful sign-in after password update retain implementation/acceptance obligations; translation does not prove them. No email, authentication, password, account or provider operation occurred.
 
-Remaining: 2,500 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next complete batch: configuration using current composed English. This staged work does not complete R20 or alter release gates.
+Remaining: 2,280 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next complete batch: collaboration and notifications using current composed English. This staged work does not complete R20 or alter release gates.
 
 Core copy preserves interface versus content language, work target dates versus publication times, sent drafts versus published pages, and partial-generation recovery. Navigation uses Plán, Obsah, Viditeľnosť, Nastavenia and Analytika; publication scheduling is Čas zverejnenia nastavený. No generation, scheduling or publication occurred. Current source fingerprints are checked against composed English.
 
@@ -51,3 +52,5 @@ Beta-screen copy preserves owner-only sales guidance, separate outreach language
 Beta guidance retains prospect/demo counts as validation targets, separates demonstrations from real-use verification and preserves authorization/cost checks for audits, generation and outreach. Manual billing status does not prove payment; payment and supplier acceptance remain open. Copying a template does not send it. No prospect contact, audit, demo, generation, payment or provider operation occurred.
 
 Public beta preserves pilot availability/scope, one-time versus monthly prices, payment holds and incomplete per-site connector/measurement acceptance. Demo data remains distinct from growth evidence. The current four-language page statement matches the active source baseline but must be reconciled during additional-language activation. No audit, application, email, payment or provider operation occurred.
+
+Configuration preserves read/propose/write distinctions, connector draft/approval/publication states, token expiry/revocation and owner-reviewed versus verified coverage evidence. Publication receipts do not establish live coverage or performance. The 2,000-character limit is localized as 2 000 with unchanged value. Shopify menu labels are retained as source UI names; translation does not verify current provider setup instructions. No token, connection test, provider request or settings mutation occurred.

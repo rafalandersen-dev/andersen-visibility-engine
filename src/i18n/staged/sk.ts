@@ -1,3 +1,4 @@
+import { skConfiguration } from "./sk-configuration";
 import { skPublicBeta } from "./sk-public-beta";
 import { skBetaGuide } from "./sk-beta-guide";
 import { skBetaScreen } from "./sk-beta-screen";
@@ -146,6 +147,13 @@ export const SK_STAGED_BATCHES = [
     namespaces: ["publicBeta"],
     sourceRevision: "865b87a",
     sourceHash: "e670953b131c40fc4433b5ce6e5b256556bf37ea8709bc495b211efc361fb59e",
+  },
+  {
+    name: "configuration",
+    copy: skConfiguration,
+    namespaces: ["brand", "wp", "shopify", "claude", "connect", "connections", "coverage"],
+    sourceRevision: "b5e84bf",
+    sourceHash: "0e11ebfcac212ec85d91c8734430e0cd661dc727057c565c1cfcd33f59a1aa60",
   },
 ] as const;
 export const SK_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
