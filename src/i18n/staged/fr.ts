@@ -3,10 +3,16 @@ import { frWorkflow } from "./fr-workflow";
 import { frCollaboration } from "./fr-collaboration";
 import { frKnowledge } from "./fr-knowledge";
 import { frTechnical } from "./fr-technical";
+import { frMeasurements } from "./fr-measurements";
 
 /** Authoring batches only. This catalog is incomplete and is not registered by
  * the runtime or offered in the language picker. */
 export const FR_STAGED_BATCHES = [
+  {
+    name: "measurements",
+    copy: frMeasurements,
+    namespaces: ["analytics", "gsc", "report"],
+  },
   {
     name: "technical",
     copy: frTechnical,
