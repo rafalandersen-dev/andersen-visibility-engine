@@ -109,6 +109,19 @@ function fixture() {
   };
 }
 describe("scoped publication inspection", () => {
+  it.each(["changed", "missing"])(
+    "refuses an inspection if its workspace becomes %s during the queue read",
+    async (mode) => {
+      const f = fixture();
+      f.workspace.mockResolvedValueOnce({ rev: 7, data: f.data });
+      f.workspace.mockResolvedValueOnce(
+        mode === "changed" ? { rev: 8, data: f.data } : (null as never),
+      );
+      await expect(f.run()).rejects.toThrow("publication_inspection_unavailable");
+      expect(f.workspace).toHaveBeenCalledTimes(2);
+    },
+  );
+
   it("preserves failed queue state while explaining its recorded source-review hold", async () => {
     const f = fixture();
     f.response.data = [

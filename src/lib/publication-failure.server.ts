@@ -121,6 +121,10 @@ export async function inspectPublicationFailure(
     .limit(2);
   if (response.error) throw new Error("publication_inspection_unavailable");
   const queue = queueSchema.parse(response.data)[0];
+  // Queue lookup may outlast an owner edit or workspace removal. Do not label
+  // that newer draft using the snapshot taken before the lookup.
+  const latest = await deps.workspace(userId);
+  if (!latest || latest.rev !== row.rev) throw new Error("publication_inspection_unavailable");
   const base = { checkedAt: now.toISOString() };
   if (!queue) return { ...base, state: "absent" as const };
   if (queue.status !== "failed") return { ...base, state: "changed" as const };
