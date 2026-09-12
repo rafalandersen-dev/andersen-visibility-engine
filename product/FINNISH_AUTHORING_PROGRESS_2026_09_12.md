@@ -1,6 +1,6 @@
 # Finnish interface authoring — 12 September 2026
 
-Finnish is staged only: 2,578 of the current 3,768 English interface keys, across twenty-three complete batches. It is not registered in UI_CATALOGS or the language picker. Active UI remains EN/PL/SV/DA; the fully authored FR/DE/ES/IT/PT/NL catalogs retain their separate acceptance status.
+Finnish is staged only: 2,779 of the current 3,768 English interface keys, across twenty-four complete batches. It is not registered in UI_CATALOGS or the language picker. Active UI remains EN/PL/SV/DA; the fully authored FR/DE/ES/IT/PT/NL catalogs retain their separate acceptance status.
 
 | Batch | Keys | English baseline |
 | --- | ---: | --- |
@@ -27,14 +27,15 @@ Finnish is staged only: 2,578 of the current 3,768 English interface keys, acros
 | Technical SEO | 238 | 84f2043 |
 | Measurements and reports | 204 | 9dc100e |
 | Outreach | 158 | 9e77223 |
+| Growth | 201 | 056d33e |
 
 Source material was reviewed against the current composed English values for each registered batch; tests compare the composed English catalog and its SHA-256 fingerprint, exact namespace key coverage, nonempty translations, placeholders, numbers, URLs and email tokens. The combined Finnish catalog is frozen with unique key ownership. Tests also confirm runtime exclusion.
 
 Terminology: työtila (workspace), projekti (project), salasana (password), palautuslinkki (reset link), sivupalkki (sidebar), arkistoi (archive). Use direct, concise Finnish UI instructions. Preserve conditional password-recovery wording and source placeholders. Do not translate product/provider names as ordinary words.
 
-Validation: 35 Finnish/catalog tests pass; TypeScript, scoped lint and whitespace pass. These mechanical checks do not constitute fluent-language or rendered accessibility acceptance. Source claims about monthly planning and successful sign-in after password update retain their existing implementation/acceptance boundaries.
+Validation: 36 Finnish/catalog tests pass; TypeScript, scoped lint and whitespace pass. These mechanical checks do not constitute fluent-language or rendered accessibility acceptance. Source claims about monthly planning and successful sign-in after password update retain their existing implementation/acceptance boundaries.
 
-Remaining: 1,190 English keys, fluent review, consistent terminology across the rest of the product, rendered mobile/desktop and accessibility checks, and approved activation. Next authoring batch covers growth, using current composed English values rather than historical raw base strings. R20 still requires all 24 EU languages across its registered surfaces; this initial batch does not satisfy it.
+Remaining: 989 English keys, fluent review, consistent terminology across the rest of the product, rendered mobile/desktop and accessibility checks, and approved activation. Next authoring batch covers commerce, using current composed English values rather than historical raw base strings. R20 still requires all 24 EU languages across its registered surfaces; this initial batch does not satisfy it.
 
 Core review notes: ajastettu (scheduled), lähetetty sivustolle (sent to site), julkaistu (published), tarkista (review), vahvista (confirm). The Visibility navigation entry is Näkyvyys. Partial onboarding completion remains distinct from success. Inherited monthly-positioning, initial generation and setup-quality claims still require implementation/product acceptance; translation does not verify them.
 
@@ -69,3 +70,5 @@ Technical review: ownership expiry, robots permissions, bounded crawl/sitemap co
 Measurements review: report sending acceptance is distinct from delivery, and saved publication results do not recheck live pages. AI referral visits are distinct from citations and bot signals. Search Console imports preserve declared source/property, date windows, partial table scope, unknown metrics and no-causality limits. Numeric checking now recognizes the English day suffix (30d) alongside Finnish spaced units (30 pv), with a regression that rejects a changed period. Source privacy, conversion labels, live-link status and provider setup claims still require their implementation/live acceptance. No tracking installation, import, Google operation or report email occurred.
 
 Outreach review: exact recipient/content confirmation and each follow-up remain separate approvals. Provider acceptance does not establish delivery, reply or placement; interrupted/unknown reservations stay held, and refreshing never retries. Editable draft labels do not establish a service-recorded send. Hook review preserves unsupported-claim warnings and the non-blocking health/finance/legal recommendation; image placement remains separate from visual approval. No draft generation, outreach send or provider action occurred.
+
+Growth review: Authority Builder ideas remain suggestions without backlink/ranking guarantees. Public audit is homepage-based readiness, not observed live ranking. Proposal approval immediately applies eligible changes while duplicates/limits can reduce created counts; setup completion remains unchanged and Claude cannot self-approve. Manual live labels, privacy claims and no-change error statements retain their implementation acceptance obligations. No audit, generation or proposal application occurred.
