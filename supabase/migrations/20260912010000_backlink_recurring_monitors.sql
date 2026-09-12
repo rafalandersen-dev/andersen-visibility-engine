@@ -1,4 +1,5 @@
--- UNRELEASED. Private owner configuration only; no schedules or provider calls are enabled.
+-- Private recurring configuration, occurrence admission and history. No owner
+-- monitor or supplier allowance is created by this migration.
 CREATE TABLE public.backlink_recurring_monitors (
  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
  project_id text NOT NULL,
@@ -8,6 +9,7 @@ CREATE TABLE public.backlink_recurring_monitors (
  revision bigint NOT NULL CHECK(revision BETWEEN 1 AND 9007199254740991),
  settings jsonb NOT NULL CHECK(jsonb_typeof(settings)='object' AND octet_length(settings::text)<=2000),
  next_due_at timestamptz NOT NULL CHECK(next_due_at=date_trunc('milliseconds',next_due_at)),
+ last_checked_at timestamptz,
  last_change_id uuid NOT NULL,
  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
  updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
@@ -20,12 +22,12 @@ REVOKE ALL ON public.backlink_recurring_monitors FROM PUBLIC,anon,authenticated,
 
 CREATE FUNCTION public.read_backlink_recurring_monitor(p_user uuid,p_project text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
-DECLARE current public.backlink_recurring_monitors%ROWTYPE;
+DECLARE current public.backlink_recurring_monitors%ROWTYPE; billing_month text:=to_char(timezone('UTC',clock_timestamp()),'YYYY-MM');
 BEGIN
  PERFORM public.read_backlink_monitoring_owner(p_user,p_project,false);
  SELECT * INTO current FROM public.backlink_recurring_monitors WHERE user_id=p_user AND project_id=p_project;
  IF NOT FOUND THEN RETURN NULL; END IF;
- RETURN to_jsonb(current)-'last_change_id';
+ RETURN (to_jsonb(current)-'last_change_id')||jsonb_build_object('billingMonth',billing_month,'spending',public.backlink_recurring_spending(p_user,current.monitor_id,billing_month));
 END; $$;
 
 CREATE FUNCTION public.save_backlink_recurring_monitor(p_user uuid,p_project text,p_change uuid,p_revision bigint,p_website text,p_settings jsonb)
@@ -42,7 +44,7 @@ BEGIN
  IF FOUND THEN
    IF current.last_change_id=p_change THEN
      IF current.revision<>p_revision+1 OR current.website_value IS DISTINCT FROM website OR current.settings IS DISTINCT FROM p_settings THEN RAISE EXCEPTION 'backlink_monitor_replay'; END IF;
-     RETURN to_jsonb(current)-'last_change_id';
+     RETURN public.read_backlink_recurring_monitor(p_user,p_project);
    END IF;
    IF current.revision<>p_revision THEN RAISE EXCEPTION 'backlink_monitor_conflict'; END IF;
    -- Preserve the existing due anchor. Editing or pausing is not a new occurrence.
@@ -51,7 +53,7 @@ BEGIN
    IF p_revision<>0 THEN RAISE EXCEPTION 'backlink_monitor_conflict'; END IF;
    INSERT INTO public.backlink_recurring_monitors(user_id,project_id,website_value,revision,settings,next_due_at,last_change_id) VALUES(p_user,p_project,website,1,p_settings,date_trunc('milliseconds',clock_timestamp()),p_change) RETURNING * INTO current;
  END IF;
- RETURN to_jsonb(current)-'last_change_id';
+ RETURN public.read_backlink_recurring_monitor(p_user,p_project);
 END; $$;
 REVOKE ALL ON FUNCTION public.read_backlink_recurring_monitor(uuid,text),public.save_backlink_recurring_monitor(uuid,text,uuid,bigint,text,jsonb) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.read_backlink_recurring_monitor(uuid,text),public.save_backlink_recurring_monitor(uuid,text,uuid,bigint,text,jsonb) TO service_role;
@@ -77,15 +79,20 @@ REVOKE ALL ON public.backlink_recurring_observations FROM PUBLIC,anon,authentica
 
 -- Internal accounting projection. Recovery of the immutable supplier receipt is
 -- reflected immediately; unresolved charges retain at least the whole ceiling.
-CREATE FUNCTION public.backlink_recurring_spending(p_user uuid,p_monitor uuid,p_month text)
+CREATE FUNCTION public.backlink_recurring_spending(p_user uuid,p_monitor uuid,p_month text,p_release_expired boolean DEFAULT false)
 RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $$
+ WITH ledger AS (
+  SELECT o.billing_month,o.ceiling_microusd,r.status,r.accounting_state,r.observation,
+   (o.undispatched_at IS NOT NULL OR (p_release_expired AND r.status IN ('reserved','held') AND r.lease_until<=clock_timestamp()
+    AND NOT EXISTS(SELECT 1 FROM public.ai_expense_requests a WHERE a.request_id=o.request_id))) AS no_dispatch
+  FROM public.backlink_recurring_observations o JOIN public.backlink_monitoring_requests r USING(user_id,request_id)
+  WHERE o.user_id=p_user AND o.monitor_id=p_monitor
+ )
  SELECT jsonb_build_object(
-  'reservedOrSpentMicrousd',coalesce(sum(CASE WHEN o.undispatched_at IS NOT NULL THEN 0
-    WHEN r.status='succeeded' AND r.accounting_state='settled' THEN ceil((r.observation->>'providerReportedCostUsd')::numeric*1000000)
-    ELSE greatest(o.ceiling_microusd,ceil((r.observation->>'providerReportedCostUsd')::numeric*1000000)) END) FILTER(WHERE o.billing_month=p_month),0),
-  'unsettled',coalesce(bool_or(o.undispatched_at IS NULL AND NOT(r.status='succeeded' AND r.accounting_state='settled')),false))
- FROM public.backlink_recurring_observations o JOIN public.backlink_monitoring_requests r USING(user_id,request_id)
- WHERE o.user_id=p_user AND o.monitor_id=p_monitor;
+  'reservedOrSpentMicrousd',coalesce(sum(CASE WHEN no_dispatch THEN 0
+    WHEN status='succeeded' AND accounting_state='settled' THEN ceil((observation->>'providerReportedCostUsd')::numeric*1000000)
+    ELSE greatest(ceiling_microusd,ceil((observation->>'providerReportedCostUsd')::numeric*1000000)) END) FILTER(WHERE billing_month=p_month),0),
+  'unsettled',coalesce(bool_or(NOT no_dispatch AND NOT(status='succeeded' AND accounting_state='settled')),false)) FROM ledger;
 $$;
 
 -- Internal, called only while holding the owner workspace lock. Expiry can prove
@@ -135,7 +142,7 @@ BEGIN
  UPDATE public.backlink_recurring_monitors SET next_due_at=next_due WHERE user_id=p_user AND project_id=p_project;
  RETURN result;
 END; $$;
-REVOKE ALL ON FUNCTION public.backlink_recurring_spending(uuid,uuid,text),public.release_undispatched_backlink_observations(uuid,uuid),public.reserve_backlink_recurring_observation(uuid,text,uuid,text,jsonb,uuid,bigint,timestamptz) FROM PUBLIC,anon,authenticated,service_role;
+REVOKE ALL ON FUNCTION public.backlink_recurring_spending(uuid,uuid,text,boolean),public.release_undispatched_backlink_observations(uuid,uuid),public.reserve_backlink_recurring_observation(uuid,text,uuid,text,jsonb,uuid,bigint,timestamptz) FROM PUBLIC,anon,authenticated,service_role;
 GRANT EXECUTE ON FUNCTION public.reserve_backlink_recurring_observation(uuid,text,uuid,text,jsonb,uuid,bigint,timestamptz) TO service_role;
 
 
@@ -180,3 +187,50 @@ BEGIN
 END; $$;
 REVOKE ALL ON FUNCTION public.authorize_backlink_recurring_dispatch(uuid,text,uuid,uuid),public.finish_backlink_recurring_observation(uuid,text,uuid,uuid,jsonb) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.authorize_backlink_recurring_dispatch(uuid,text,uuid,uuid),public.finish_backlink_recurring_observation(uuid,text,uuid,uuid,jsonb) TO service_role;
+
+
+CREATE INDEX backlink_recurring_due ON public.backlink_recurring_monitors(last_checked_at NULLS FIRST,next_due_at,monitor_id) WHERE (settings->>'enabled')::boolean;
+-- Claim only a bounded scheduler inspection, never supplier dispatch authority.
+-- Oldest unchecked candidates get a turn; invalid websites cannot monopolize
+-- every tick. Concurrent ticks skip rows already being claimed. The owner lock,
+-- exact current configuration and expense admission are still checked at reservation.
+CREATE FUNCTION public.claim_due_backlink_monitors()
+RETURNS jsonb LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path='' AS $$
+ WITH candidates AS (
+  SELECT m.monitor_id FROM public.backlink_recurring_monitors m
+  JOIN auth.users u ON u.id=m.user_id AND u.deleted_at IS NULL AND (u.banned_until IS NULL OR u.banned_until<=clock_timestamp())
+  JOIN public.workspace_meta w ON w.user_id=m.user_id
+  JOIN public.workspace_entities p ON p.user_id=m.user_id AND p.collection='projects' AND p.entity_id=m.project_id AND p.data->>'websiteUrl'=m.website_value
+  -- Selection may consider expired never-admitted work releasable; it does not
+  -- release costs. Reserve must prove this under owner lock and recheck usage.
+  CROSS JOIN LATERAL public.backlink_recurring_spending(m.user_id,m.monitor_id,to_char(timezone('UTC',clock_timestamp()),'YYYY-MM'),true) allowance(value)
+  WHERE (m.settings->>'enabled')::boolean AND m.next_due_at<=clock_timestamp()
+  AND (m.last_checked_at IS NULL OR m.last_checked_at<=clock_timestamp()-interval '5 minutes')
+  AND NOT(allowance.value->>'unsettled')::boolean
+  AND (allowance.value->>'reservedOrSpentMicrousd')::numeric+24000+36*(m.settings->>'lookbackDays')::integer<=(m.settings->>'monthlyCapMicrousd')::numeric
+  ORDER BY m.last_checked_at NULLS FIRST,m.next_due_at,m.monitor_id LIMIT 2 FOR UPDATE OF m SKIP LOCKED
+ ), claimed AS (
+  UPDATE public.backlink_recurring_monitors m SET last_checked_at=clock_timestamp()
+   FROM candidates c WHERE c.monitor_id=m.monitor_id RETURNING m.*
+ )
+ SELECT coalesce(jsonb_agg(jsonb_build_object('userId',user_id,'projectId',project_id,'monitorId',monitor_id,'revision',revision,'website',website_value,'settings',settings,'nextDueAt',next_due_at) ORDER BY next_due_at,monitor_id),'[]'::jsonb) FROM claimed;
+$$;
+REVOKE ALL ON FUNCTION public.claim_due_backlink_monitors() FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_due_backlink_monitors() TO service_role;
+
+-- Preserve the released owner-checked, bounded history and attach only the
+-- occurrence origin. Supplier results and accounting remain in the original record.
+CREATE FUNCTION public.list_backlink_monitoring_with_origin(p_user uuid,p_project text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE item jsonb; origin jsonb; result jsonb:='[]'::jsonb;
+BEGIN
+ FOR item IN SELECT value FROM jsonb_array_elements(public.list_backlink_monitoring(p_user,p_project)) LOOP
+  SELECT jsonb_build_object('occurrenceAt',o.occurrence_at,'undispatched',o.undispatched_at IS NOT NULL)
+   INTO origin FROM public.backlink_recurring_observations o
+   WHERE o.user_id=p_user AND o.project_id=p_project AND o.request_id=(item->>'request_id')::uuid;
+  result:=result||jsonb_build_array(item||jsonb_build_object('recurring',origin));
+ END LOOP;
+ RETURN result;
+END; $$;
+REVOKE ALL ON FUNCTION public.list_backlink_monitoring_with_origin(uuid,text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.list_backlink_monitoring_with_origin(uuid,text) TO service_role;

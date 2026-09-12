@@ -66,6 +66,10 @@ export function savedBacklinkObservation(raw: unknown) {
   return value;
 }
 export const backlinkMonitoringHistoryRow = z.object({
+  recurring: z
+    .object({ occurrenceAt: z.string().datetime({ offset: true }), undispatched: z.boolean() })
+    .strict()
+    .nullish(),
   user_id: z.string().uuid(),
   project_id: z.string(),
   request_id: z.string().uuid(),
@@ -98,6 +102,7 @@ export function projectBacklinkHistory(raw: unknown, userId: string, projectId: 
         accounting: row.accounting_state,
         createdAt: row.created_at,
         observation: saved,
+        recurring: row.recurring ?? null,
       };
     });
 }

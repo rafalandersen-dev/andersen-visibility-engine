@@ -58,7 +58,11 @@ function MonitoringHistory({
     staleTime: 0,
     gcTime: 0,
   });
-  const refresh = () => client.invalidateQueries({ queryKey });
+  const refresh = () =>
+    Promise.all([
+      client.invalidateQueries({ queryKey }),
+      client.invalidateQueries({ queryKey: ["backlink-recurring", userId, projectId] }),
+    ]);
   const run = useMutation({
     mutationFn: (id: string) =>
       requestBacklinkMonitoringFn({
@@ -102,7 +106,7 @@ function MonitoringHistory({
     "lostMainDomains",
   ];
   return (
-    <section className="mt-8 space-y-4 rounded-lg border bg-card p-5">
+    <section id="backlink-history" className="mt-8 space-y-4 rounded-lg border bg-card p-5">
       <h2 className="font-display text-xl">{t("backlinkMonitor.title")}</h2>
       <p className="break-all text-sm">{website}</p>
       <p className="max-w-3xl text-sm text-muted-foreground">{t("backlinkMonitor.note")}</p>
@@ -228,10 +232,19 @@ function MonitoringHistory({
         query.data.map((row) => (
           <details key={row.requestId} className="rounded-md border p-3">
             <summary className="cursor-pointer break-words text-sm">
+              {t(row.recurring ? "backlinkRecurring.scheduled" : "backlinkRecurring.manual")} ·{" "}
               {row.scope.target} · {row.scope.dateFrom} – {row.scope.dateTo} ·{" "}
               {t("backlinkMonitor." + row.status)}
             </summary>
             <div className="mt-3 space-y-3 text-sm">
+              {row.recurring && (
+                <>
+                  <p>
+                    {t("backlinkRecurring.occurrence")}: {row.recurring.occurrenceAt}
+                  </p>
+                  {row.recurring.undispatched && <p>{t("backlinkRecurring.undispatched")}</p>}
+                </>
+              )}
               <p className="break-all">
                 {t("backlinkMonitor.request")}: {row.requestId}
               </p>

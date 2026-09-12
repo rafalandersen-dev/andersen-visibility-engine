@@ -16,6 +16,13 @@ export const backlinkRecurringSave = backlinkRecurringRead
   })
   .strict();
 const stored = z.object({
+  billingMonth: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/),
+  spending: z
+    .object({
+      reservedOrSpentMicrousd: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+      unsettled: z.boolean(),
+    })
+    .strict(),
   user_id: z.string().uuid(),
   project_id: z.string(),
   monitor_id: z.string().uuid(),
@@ -35,6 +42,8 @@ export function projectBacklinkMonitorConfig(raw: unknown, userId: string, proje
     revision: value.revision,
     website: value.website_value,
     settings: value.settings,
+    billingMonth: value.billingMonth,
+    spending: value.spending,
     nextDueAt: value.next_due_at,
     updatedAt: value.updated_at,
   };

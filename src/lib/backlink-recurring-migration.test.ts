@@ -1,3 +1,8 @@
+import { runBacklinkRecurringScheduler } from "./backlink-recurring-executor.server";
+import { monitoringScope } from "./backlink-monitoring";
+import type { TeamReadRpc } from "./project-team-read.server";
+import type { fetchBacklinkMonitoring } from "./backlink-monitoring-transport.server";
+import { vi } from "vitest";
 import { planBacklinkMonitorRun } from "./backlink-recurring";
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
@@ -389,3 +394,258 @@ it.each(["restricted", "paused", "exhausted"])(
     });
   },
 );
+
+const due = async () =>
+  (
+    await db.query<{
+      value: Array<{ userId: string; projectId: string; monitorId: string; nextDueAt: string }>;
+    }>("SELECT claim_due_backlink_monitors() value")
+  ).rows[0].value;
+it("claims only eligible inspections without reserving an occurrence or dispatching", async () => {
+  const monitor = await save();
+  expect(await due()).toMatchObject([
+    { userId: user, projectId: "p", monitorId: monitor.monitor_id },
+  ]);
+  expect((await db.query("SELECT * FROM backlink_monitoring_requests")).rows).toEqual([]);
+  await save({ ...settings, enabled: false }, 1, second);
+  expect(await due()).toEqual([]);
+});
+it("treats expired never-admitted work as a candidate without releasing its costs during an inspection claim", async () => {
+  const r = await occurrence();
+  await db.exec(
+    "UPDATE backlink_monitoring_requests SET lease_until=clock_timestamp()-interval '1 second';UPDATE backlink_recurring_monitors SET next_due_at=date_trunc('milliseconds',clock_timestamp())-interval '1 day'",
+  );
+  expect(await due()).toMatchObject([{ monitorId: r.monitor.monitor_id }]);
+  expect(await spending(r.monitor.monitor_id)).toEqual({
+    reservedOrSpentMicrousd: 24252,
+    unsettled: true,
+  });
+  expect(
+    (
+      await db.query<{ undispatched_at: string | null }>(
+        "SELECT undispatched_at FROM backlink_recurring_observations",
+      )
+    ).rows[0].undispatched_at,
+  ).toBeNull();
+});
+it("excludes unknown outcomes and exhausted monitor caps from the due queue", async () => {
+  await fund();
+  const r = await occurrence();
+  await authorize(r);
+  await finish(r, null);
+  await db.exec(
+    "UPDATE backlink_recurring_monitors SET next_due_at=date_trunc('milliseconds',clock_timestamp())-interval '1 day'",
+  );
+  expect(await due()).toEqual([]);
+});
+it("returns the current receipt-based spending alongside owner configuration", async () => {
+  await fund();
+  const r = await occurrence();
+  await authorize(r);
+  await finish(r, observed(r));
+  const result = (
+    await db.query<{ value: { spending: unknown } }>(
+      "SELECT read_backlink_recurring_monitor($1,'p') value",
+      [user],
+    )
+  ).rows[0].value;
+  expect(result.spending).toEqual({ reservedOrSpentMicrousd: 24000, unsettled: false });
+  await save({ ...settings, monthlyCapMicrousd: 24252 }, 1, second);
+  await db.exec(
+    "UPDATE backlink_recurring_monitors SET next_due_at=date_trunc('milliseconds',clock_timestamp())-interval '1 day'",
+  );
+  expect(await due()).toEqual([]);
+});
+
+function worker() {
+  const rpc: TeamReadRpc = async (name, args) => {
+    try {
+      const entries = Object.entries(args);
+      const result = await db.query<{ value: unknown }>(
+        `SELECT public.${name}(${entries.map(([key], i) => `${key} => $${i + 1}`).join(",")}) value`,
+        entries.map(([, value]) => value),
+      );
+      return { data: result.rows[0].value, error: null };
+    } catch (error) {
+      return { data: null, error: { message: String(error) } };
+    }
+  };
+  const fetch = vi.fn<typeof fetchBacklinkMonitoring>().mockImplementation(async (raw) => {
+    const scope = monitoringScope(raw);
+    const n = (Date.parse(scope.dateTo) - Date.parse(scope.dateFrom)) / 86400000 + 1;
+    const admitted = (
+      await db.query<{ count: number }>("SELECT count(*)::int count FROM ai_expense_requests")
+    ).rows[0].count;
+    expect(admitted).toBeGreaterThan(0);
+    return {
+      source: "dataforseo_index",
+      scope,
+      observedAt: new Date().toISOString(),
+      providerTaskId: "fixture-worker",
+      providerReportedCostUsd: 0.024,
+      complete: true,
+      days: Array.from({ length: n }, (_, i) => ({
+        date: new Date(Date.parse(scope.dateFrom) + i * 86400000).toISOString().slice(0, 10),
+        state: "reported" as const,
+        newBacklinks: 0,
+        lostBacklinks: 0,
+        newReferringDomains: 0,
+        lostReferringDomains: 0,
+        newReferringMainDomains: 0,
+        lostReferringMainDomains: 0,
+      })),
+    };
+  });
+  return { rpc, fetch, credentials: () => ({ login: "fixture", password: "fixture-secret" }) };
+}
+it("runs an eligible occurrence through private SQL and the existing single-dispatch lifecycle", async () => {
+  await fund();
+  await save();
+  const deps = worker();
+  const result = await runBacklinkRecurringScheduler(deps);
+  expect(result).toEqual({ considered: 1, stored: 1, held: 0, unknown: 0, skipped: 0 });
+  expect(deps.fetch).toHaveBeenCalledOnce();
+  expect((await runBacklinkRecurringScheduler(deps)).considered).toBe(0);
+  expect(deps.fetch).toHaveBeenCalledOnce();
+  expect(JSON.stringify(result)).not.toMatch(/example.com|fixture-secret|00000000/);
+  expect((await db.query("SELECT operation FROM ai_expense_requests")).rows).toEqual([
+    { operation: "backlink_monitoring" },
+  ]);
+});
+it("does not call the supplier when only a monitor allowance exists without account funding", async () => {
+  await save();
+  const deps = worker();
+  expect(await runBacklinkRecurringScheduler(deps)).toMatchObject({
+    considered: 1,
+    stored: 0,
+    held: 1,
+  });
+  expect(deps.fetch).not.toHaveBeenCalled();
+  expect((await db.query("SELECT * FROM ai_expense_requests")).rows).toEqual([]);
+});
+it("retains uncertainty after one supplier failure and holds later automatic collection", async () => {
+  await fund();
+  await save();
+  const deps = worker();
+  deps.fetch.mockRejectedValue(Error("fixture-private-failure"));
+  expect(await runBacklinkRecurringScheduler(deps)).toMatchObject({ considered: 1, unknown: 1 });
+  await db.exec(
+    "UPDATE backlink_recurring_monitors SET next_due_at=date_trunc('milliseconds',clock_timestamp())-interval '1 day'",
+  );
+  expect((await runBacklinkRecurringScheduler(deps)).considered).toBe(0);
+  expect(deps.fetch).toHaveBeenCalledOnce();
+});
+it("does not start an occurrence after the worker has spent its admission margin", async () => {
+  await fund();
+  await save();
+  const deps = worker();
+  let calls = 0;
+  expect(
+    await runBacklinkRecurringScheduler({ ...deps, monotonic: () => (calls++ === 0 ? 0 : 10001) }),
+  ).toMatchObject({ considered: 1, skipped: 1 });
+  expect(deps.fetch).not.toHaveBeenCalled();
+  expect((await db.query("SELECT * FROM backlink_recurring_observations")).rows).toEqual([]);
+});
+it("attaches private recurring origin to existing owner history while preserving manual records", async () => {
+  const r = await occurrence();
+  expect((await authorize(r)).rows[0].ok).toBe(false);
+  const manualScope = { ...r.plan.scope };
+  await db.query("SELECT reserve_backlink_monitoring($1,'p',$2,'https://example.com',$3)", [
+    user,
+    nextRequest,
+    manualScope,
+  ]);
+  const rows = (
+    await db.query<{
+      value: Array<{
+        request_id: string;
+        recurring: { occurrenceAt: string; undispatched: boolean } | null;
+      }>;
+    }>("SELECT list_backlink_monitoring_with_origin($1,'p') value", [user])
+  ).rows[0].value;
+  expect(rows).toHaveLength(2);
+  const origin = rows.find((row) => row.request_id === requestId)?.recurring;
+  expect(origin?.undispatched).toBe(true);
+  expect(Date.parse(origin!.occurrenceAt)).toBe(Date.parse(r.plan.occurrenceAt));
+  expect(rows.find((row) => row.request_id === nextRequest)?.recurring).toBeNull();
+  expect(JSON.stringify(rows)).not.toContain("lease_token");
+  await expect(
+    db.query("SELECT list_backlink_monitoring_with_origin($1,'p')", [other]),
+  ).rejects.toThrow();
+});
+it("keeps due enumeration and recurring history unavailable to browser database roles", async () => {
+  for (const role of ["anon", "authenticated"]) {
+    await db.exec(`SET ROLE ${role}`);
+    await expect(db.query("SELECT claim_due_backlink_monitors()")).rejects.toThrow(
+      "permission denied",
+    );
+    await expect(
+      db.query("SELECT list_backlink_monitoring_with_origin($1,'p')", [user]),
+    ).rejects.toThrow("permission denied");
+    await db.exec("RESET ROLE");
+  }
+});
+it("records a disabled scheduler job without touching existing timers and refuses duplicate installation", async () => {
+  await db.exec(
+    `CREATE SCHEMA cron;CREATE TABLE cron.job(jobid bigint GENERATED ALWAYS AS IDENTITY,jobname text,schedule text,command text,active boolean DEFAULT true);CREATE FUNCTION cron.schedule(job_name text,expression text,body text) RETURNS bigint LANGUAGE plpgsql AS $$ DECLARE id bigint;BEGIN INSERT INTO cron.job(jobname,schedule,command) VALUES(job_name,expression,body) RETURNING jobid INTO id;RETURN id;END;$$;CREATE FUNCTION cron.alter_job(id bigint,active boolean) RETURNS void LANGUAGE sql AS $$ UPDATE cron.job SET active=$2 WHERE jobid=$1 $$;INSERT INTO cron.job(jobname,schedule,command) VALUES('existing','0 * * * *','existing command');`,
+  );
+  const sql = readFileSync(
+    "supabase/migrations/20260912020000_backlink_recurring_dispatch.sql",
+    "utf8",
+  );
+  await db.exec(sql);
+  const rows = (
+    await db.query<{ jobname: string; schedule: string; command: string; active: boolean }>(
+      "SELECT jobname,schedule,command,active FROM cron.job ORDER BY jobid",
+    )
+  ).rows;
+  expect(rows[0]).toEqual({
+    jobname: "existing",
+    schedule: "0 * * * *",
+    command: "existing command",
+    active: true,
+  });
+  expect(rows[1]).toMatchObject({
+    jobname: "backlink-monitoring",
+    schedule: "*/5 * * * *",
+    active: false,
+  });
+  expect(rows[1].command).toContain("?engine=backlinks");
+  expect(rows[1].command).toContain("timeout_milliseconds := 80000");
+  await expect(db.exec(sql)).rejects.toThrow("backlink_dispatch_already_exists");
+  expect((await db.query("SELECT * FROM backlink_recurring_monitors")).rows).toHaveLength(0);
+  await db.exec("DROP SCHEMA cron CASCADE");
+});
+it("rotates bounded inspections so invalid websites cannot starve later due monitors", async () => {
+  await fund();
+  await db.exec("UPDATE workspace_entities SET data='{}' WHERE entity_id='p'");
+  for (const [index, website] of ["https://", "https://", "https://example.com"].entries()) {
+    const project = `fair${index}`;
+    await db.query("INSERT INTO workspace_entities VALUES($1,'projects',$2,$3)", [
+      user,
+      project,
+      { websiteUrl: website },
+    ]);
+    await db.query("SELECT save_backlink_recurring_monitor($1,$2,gen_random_uuid(),0,$3,$4)", [
+      user,
+      project,
+      website,
+      settings,
+    ]);
+    await db.query(
+      "UPDATE backlink_recurring_monitors SET next_due_at=date_trunc('milliseconds',clock_timestamp())-interval '3 hours'+$2::int*interval '1 minute' WHERE project_id=$1",
+      [project, index],
+    );
+  }
+  const deps = worker();
+  expect(await runBacklinkRecurringScheduler(deps)).toMatchObject({
+    considered: 2,
+    held: 2,
+    stored: 0,
+  });
+  expect(deps.fetch).not.toHaveBeenCalled();
+  expect(await runBacklinkRecurringScheduler(deps)).toMatchObject({ considered: 1, stored: 1 });
+  expect(deps.fetch).toHaveBeenCalledOnce();
+  expect(await runBacklinkRecurringScheduler(deps)).toMatchObject({ considered: 0 });
+  await db.exec("DELETE FROM workspace_entities WHERE entity_id LIKE 'fair%'");
+});

@@ -20,6 +20,8 @@ const input = {
 };
 function setup() {
   const record = {
+    billingMonth: "2026-09",
+    spending: { reservedOrSpentMicrousd: 0, unsettled: false },
     user_id: user,
     project_id: "p",
     monitor_id: change,
