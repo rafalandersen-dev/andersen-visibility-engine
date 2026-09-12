@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Weekly retained-content finalization now bounds approval and schedule-admission waits and exits as recovery-required on timeout, without continuing stages or inferring admission failure. Two new pending/late-completion regressions pass; 29 focused tests, full types/scoped lint/whitespace pass. See WEEKLY_PUBLICATION_WAIT_BOUNDS_2026_09_12.md. Prepared, unreleased; other dependency bounds and real weekly acceptance remain open.
+
 Integrated local checkpoint at candidate 16b1636: all 4,896 application tests across 328 files and all 49 separate public-audit Worker tests across three files pass. The application suite excludes Worker tests; both runs are recorded separately in INTEGRATED_CANDIDATE_CHECK_2026_09_12.md. These are local tests, not deployment, provider or real-use acceptance. Existing release holds and progress estimates remain unchanged.
 
 Public audit candidate fixes after 4a85cc9: complete success-response validation (61a9ff3), honest pending status/accessibility roles (ec26739), and shared retry/bot-token readiness with duplicate-submission guarding (16b1636). See PUBLIC_AUDIT_SUCCESS_CONTRACT_2026_09_12.md, PUBLIC_AUDIT_PROGRESS_STATUS_2026_09_12.md and PUBLIC_AUDIT_RETRY_READINESS_2026_09_12.md. All remain unreleased; browser/token lifecycle and live acceptance remain open.

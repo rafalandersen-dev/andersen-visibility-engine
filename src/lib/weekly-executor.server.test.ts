@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { weeklyReadiness } from "./weekly-readiness";
 import { normalizeAutoSchedulerConfig } from "./auto-scheduler";
 import type { ContentAsset, Opportunity, Project } from "./types";
@@ -84,6 +84,7 @@ let stages: Stage[];
 let archives: Map<string, GenerationResult>;
 let rev: number;
 let queue: Array<{ assetId: string; publishAt: string; status: "pending" }>;
+afterEach(() => vi.useRealTimers());
 beforeEach(() => {
   vi.resetAllMocks();
   stages = [];
@@ -283,6 +284,53 @@ describe("weekly executor integrated orchestration without live providers", () =
       expect(h.arm.mock.invocationCallOrder[0]).toBeLessThan(h.mirror.mock.invocationCallOrder[0]);
       expect(queue).toHaveLength(1);
       expect(h.generate).toHaveBeenCalledTimes(1);
+    },
+  );
+  it.each(["approved", "arm"] as const)(
+    "bounds a pending %s operation and stops the visit without further work",
+    async (operation) => {
+      for (let i = 0; i < 3; i++) await runWeeklyProject(scope, now);
+      workspace.projects[0].autoScheduler!.mode = "auto_publish";
+      workspace.content[0].status = "Approved";
+      const stageCalls = h.runStage.mock.calls.length;
+      let complete!: () => void;
+      h[operation].mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            complete = resolve;
+          }),
+      );
+      vi.useFakeTimers();
+      let settled = false;
+      const pending = runWeeklyProject(scope, now).then((result) => {
+        settled = true;
+        return result;
+      });
+      await vi.advanceTimersByTimeAsync(10001);
+      expect(settled).toBe(true);
+      expect(await pending).toMatchObject({ action: "recovery-required" });
+      expect(h.runStage).toHaveBeenCalledTimes(stageCalls);
+      expect(h.mirror).not.toHaveBeenCalled();
+      expect(h.release).toHaveBeenCalled();
+      expect(h.arm).toHaveBeenCalledTimes(operation === "arm" ? 1 : 0);
+      if (operation === "arm") {
+        const asset = workspace.content[0];
+        queue.push({
+          assetId: asset.id,
+          publishAt: asset.autoSchedulerPlannedAt!,
+          status: "pending",
+        });
+      }
+      complete();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(h.mirror).not.toHaveBeenCalled();
+      expect(h.arm).toHaveBeenCalledTimes(operation === "arm" ? 1 : 0);
+      if (operation === "arm") {
+        vi.useRealTimers();
+        await runWeeklyProject(scope, now);
+        expect(h.arm).toHaveBeenCalledTimes(1);
+        expect(queue).toHaveLength(1);
+      }
     },
   );
   it("uses real queued current-week rows to move to next week even without display mirrors", async () => {

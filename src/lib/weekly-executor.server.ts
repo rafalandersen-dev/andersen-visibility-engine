@@ -37,6 +37,12 @@ import { buildActiveInternalPaths } from "./publish-targets";
 import { armSchedulerPublication } from "./scheduler-approval.server";
 import type { ContentAsset, Opportunity, Project, ServiceItem } from "./types";
 
+class WeeklyOperationTimeoutError extends Error {
+  constructor() {
+    super("weekly_operation_timeout");
+  }
+}
+
 /** A timed-out write/provider may still finish. The durable stage and delivery
  * transaction retain that uncertainty; this visit never retries the operation. */
 async function bounded<T>(promise: PromiseLike<T>, ms = 10000): Promise<T> {
@@ -45,7 +51,7 @@ async function bounded<T>(promise: PromiseLike<T>, ms = 10000): Promise<T> {
     return await Promise.race([
       promise,
       new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error("weekly_operation_timeout")), ms);
+        timer = setTimeout(() => reject(new WeeklyOperationTimeoutError()), ms);
       }),
     ]);
   } finally {
@@ -253,22 +259,26 @@ export async function runWeeklyProject(scope: Scope, now = new Date()) {
       )
         continue;
       try {
-        await assertPublicationApproved(
-          scope.ownerId,
-          asset,
-          state.project,
-          buildActiveInternalPaths(
+        await bounded(
+          assertPublicationApproved(
+            scope.ownerId,
+            asset,
             state.project,
-            state.content.filter((a) => a.projectId === scope.projectId),
+            buildActiveInternalPaths(
+              state.project,
+              state.content.filter((a) => a.projectId === scope.projectId),
+            ),
           ),
         );
-        await armSchedulerPublication(
-          scope.ownerId,
-          asset,
-          state.project,
-          state.content,
-          token,
-          completed.publishAt,
+        await bounded(
+          armSchedulerPublication(
+            scope.ownerId,
+            asset,
+            state.project,
+            state.content,
+            token,
+            completed.publishAt,
+          ),
         );
         const { writeScheduleMirror } = await import("./publish.server");
         await bounded(writeScheduleMirror(scope.ownerId, asset.id, completed.publishAt)).catch(
@@ -276,7 +286,10 @@ export async function runWeeklyProject(scope: Scope, now = new Date()) {
         );
         action = "queued";
         return await report();
-      } catch {
+      } catch (error) {
+        // Admission may finish after timeout. Stop this visit; only a fresh
+        // authoritative queue read can establish its outcome on the next visit.
+        if (error instanceof WeeklyOperationTimeoutError) throw error;
         action = "review-required";
       }
     }
