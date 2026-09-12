@@ -1,3 +1,4 @@
+import { slBetaScreen } from "./sl-beta-screen";
 import { slPublicHome } from "./sl-public-home";
 import { slPublicStudies } from "./sl-public-studies";
 import { slPublicPricing } from "./sl-public-pricing";
@@ -122,6 +123,13 @@ export const SL_STAGED_BATCHES = [
     namespaces: ["publicHome"],
     sourceRevision: "f1846ab",
     sourceHash: "2855ce0efcce2fc714afc7f61a15d64ed5975809acefb98df75a3e275ccae141",
+  },
+  {
+    name: "beta screen",
+    copy: slBetaScreen,
+    namespaces: ["betaScreen"],
+    sourceRevision: "63e1a10",
+    sourceHash: "c4dcf4827cb49219199aab22d2969e33f643ade8a8c2c348bb899d61f3a08119",
   },
 ] as const;
 export const SL_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
