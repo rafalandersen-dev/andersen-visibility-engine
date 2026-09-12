@@ -1,6 +1,6 @@
 # Czech interface authoring — 12 September 2026
 
-Czech is staged only: 2,420 of the current 3,768 English interface keys, across twenty-two complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI retain their separate staged acceptance status.
+Czech is staged only: 2,578 of the current 3,768 English interface keys, across twenty-three complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI retain their separate staged acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -26,14 +26,15 @@ Czech is staged only: 2,420 of the current 3,768 English interface keys, across 
 | Knowledge, weekly preparation and approval | 242 | 31252eb |
 | Technical crawl, index and performance diagnostics | 238 | defdfea |
 | Analytics, Search Console and reports | 204 | 7448601 |
+| Outreach, opening hooks and image placement | 158 | 55a361d |
 
-The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 33 Czech/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-czech-measurements-types.log.
+The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 34 Czech/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-czech-outreach-types.log.
 
 Terminology: pracovní prostor (workspace), projekt, heslo (password), obnovení hesla (password recovery), postranní panel (sidebar), archivovat (archive). Prefer direct formal-plural instructions; use schválit for approval, potvrdit for confirmation, ověřit for verification and zkontrolovat for review. Product/provider names and placeholders remain intact.
 
 Recovery text preserves conditional account eligibility and does not confirm that an account exists. Source claims about monthly planning and successful sign-in after password update retain their implementation/acceptance obligations; translation does not prove them. No email, authentication, password or provider operation occurred.
 
-Remaining: 1,348 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next complete batch: outreach, using current composed English. This initial Czech batch does not complete R20 or alter release gates.
+Remaining: 1,190 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next complete batch: growth, using current composed English. This initial Czech batch does not complete R20 or alter release gates.
 
 Core review: Plán, Obsah, Viditelnost and Nastavení label the main navigation areas. Work target dates remain distinct from publication times; Naplánováno denotes planned work, while Čas zveřejnění nastaven denotes a publication schedule. Odesláno na web does not mean Zveřejněno. Partial setup success remains separate from completion, and application language, content language and market stay separate settings. Inherited generation/setup claims are translated without proving live behavior. No onboarding, generation, schedule or billing operation occurred.
 
@@ -66,3 +67,5 @@ Knowledge review: accepting a source fact is separate from independent verificat
 Technical review: saved crawl observations do not establish full-site coverage, repaired findings, Google indexing or Core Web Vitals. Sitemap declarations are separate from page existence/indexing. DNS ownership expiry, robots holds, partial coverage and request uncertainty retain source limits. Google index evidence is historical, and CrUX real-user data stays separate from PageSpeed laboratory results and page/origin scope. No DNS change, crawl, Google request or performance measurement occurred.
 
 Measurement review: report publication history does not recheck live pages, and email acceptance is not confirmed delivery. AI referrals stay distinct from mentions/citations and bot activity. CSV declarations, incomplete coverage, query/page samples, unavailable values and reporting windows preserve source limits; search observations do not establish causality or conversions. Search Console uses služba consistently with technical diagnostics. Inherited tracking/privacy, recommendation and provider-setup claims retain implementation acceptance obligations. No email, tracking installation, Google connection/sync or CSV import occurred.
+
+Outreach review: exact recipient/content approval, separate follow-up review, provider acceptance versus inbox delivery and held uncertain attempts retain source meaning. Editable workflow labels are separate from service-owned delivery records; deletion does not clear reservations. Poutavý úvod denotes the article hook, and source instructions match Zdroje a autor. The health/finance/legal recommendation remains non-blocking as in the source. No message generation, approval, email, follow-up or placement operation occurred.

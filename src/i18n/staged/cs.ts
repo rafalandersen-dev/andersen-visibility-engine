@@ -1,3 +1,4 @@
+import { csOutreach } from "./cs-outreach";
 import { csMeasurements } from "./cs-measurements";
 import { csTechnical } from "./cs-technical";
 import { csKnowledge } from "./cs-knowledge";
@@ -22,6 +23,13 @@ import { csAuthScreen } from "./cs-auth-screen";
 import { csSharedUi } from "./cs-shared-ui";
 /** Czech authoring; never imported by the runtime catalog. */
 export const CS_STAGED_BATCHES = [
+  {
+    name: "outreach",
+    copy: csOutreach,
+    namespaces: ["outreach", "hook", "anchor"],
+    sourceRevision: "55a361d",
+    sourceHash: "c2bfe98eb710f1587237c92b04696e6f9221e67def7d1080eb7ce08e3d1161b4",
+  },
   {
     name: "measurements",
     copy: csMeasurements,
