@@ -1,3 +1,4 @@
+import { slGrowth } from "./sl-growth";
 import { slOutreach } from "./sl-outreach";
 import { slMeasurements } from "./sl-measurements";
 import { slTechnical } from "./sl-technical";
@@ -23,6 +24,13 @@ import { slAuthScreen } from "./sl-auth-screen";
 import { slSharedUi } from "./sl-shared-ui";
 /** Slovenian authoring; never imported by the runtime catalog. */
 export const SL_STAGED_BATCHES = [
+  {
+    name: "growth",
+    copy: slGrowth,
+    namespaces: ["authority", "actions", "publicAudit"],
+    sourceRevision: "0704f32",
+    sourceHash: "79460ac604f31155136687fbf43e146ccd11625f12316625da192cdb8188f136",
+  },
   {
     name: "outreach",
     copy: slOutreach,
