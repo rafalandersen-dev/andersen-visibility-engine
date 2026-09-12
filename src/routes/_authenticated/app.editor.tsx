@@ -434,9 +434,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     setValidatingSources(true);
     try {
       await validateAssetSources(f.id, true);
-      toast.success("Sources re-checked");
+      toast.success(t("editorScreen.sources.rechecked"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not validate sources");
+      toast.error(e instanceof Error ? e.message : t("editorScreen.sources.failed"));
     } finally {
       setValidatingSources(false);
     }
@@ -1199,7 +1199,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
           {f.sourceOpportunityTitle ? (
             <span>
-              Source: <span className="text-foreground/75">{f.sourceOpportunityTitle}</span>
+              {t("editorScreen.create.source", { source: f.sourceOpportunityTitle })}
               {f.sourceType && f.sourceType !== "opportunity" ? ` (${f.sourceType})` : ""}
             </span>
           ) : null}
@@ -1347,8 +1347,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               {hasUnresolvedLinks ? (
                 <span className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-500">
                   <AlertTriangle className="h-3 w-3" />
-                  Resolve {unresolvedLinks.length} internal link
-                  {unresolvedLinks.length === 1 ? "" : "s"} above to send or publish.
+                  {t("editorScreen.links.resolve", { count: unresolvedLinks.length })}
                 </span>
               ) : null}
               {live.publishPlatform === "wordpress" && live.wordpressPostId ? (
@@ -1421,14 +1420,13 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 ) : null}
                 {!liveConfigured ? (
                   <span className="text-xs text-muted-foreground">
-                    Add a live publish endpoint in{" "}
+                    {t("editorScreen.publication.configure")}{" "}
                     <Link
                       to="/app/setup"
                       className="underline underline-offset-4 hover:text-foreground"
                     >
-                      Project Setup
+                      {t("editorScreen.publication.setup")}
                     </Link>
-                    .
                   </span>
                 ) : null}
                 {live.livePublishStatus === "failed" && live.livePublishError ? (
@@ -1634,10 +1632,14 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="blogPost">Blog post</SelectItem>
-                  <SelectItem value="servicePage">Service page</SelectItem>
-                  <SelectItem value="faq">FAQ section</SelectItem>
-                  <SelectItem value="landingPage">Landing page</SelectItem>
+                  <SelectItem value="blogPost">{t("editorScreen.destination.blogPost")}</SelectItem>
+                  <SelectItem value="servicePage">
+                    {t("editorScreen.assetType.servicePage")}
+                  </SelectItem>
+                  <SelectItem value="faq">{t("editorScreen.assetType.faq")}</SelectItem>
+                  <SelectItem value="landingPage">
+                    {t("editorScreen.assetType.landingPage")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
               {isShopify && destType !== "blogPost" ? (
@@ -2098,7 +2100,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor={internalLinksId} className="text-xs">
-                Internal link suggestions
+                {t("editorScreen.linkSuggestions")}
               </Label>
               <Textarea
                 id={internalLinksId}
@@ -2110,7 +2112,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
             </div>
             <div>
               <Label htmlFor={schemaId} className="text-xs">
-                Schema notes
+                {t("editorScreen.schemaNotes")}
               </Label>
               <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
                 {isWordPress || isShopify ? (
@@ -2152,7 +2154,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           {/* ---- Sources (P1.1 C) ---- */}
           <section className="space-y-2.5">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium text-foreground">Sources</h3>
+              <h3 className="text-sm font-medium text-foreground">
+                {t("editorScreen.sources.title")}
+              </h3>
               <Button
                 size="sm"
                 variant="outline"
@@ -2160,14 +2164,10 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 disabled={validatingSources || !(f.sources?.length ?? 0)}
               >
                 {validatingSources ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                Re-check sources
+                {t("editorScreen.sources.recheck")}
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Attach real reference URLs. Milo checks each resolves — only <strong>verified</strong>{" "}
-              sources are cited on the page. &ldquo;Verified&rdquo; is set by validation, never
-              chosen by hand.
-            </p>
+            <p className="text-xs text-muted-foreground">{t("editorScreen.sources.help")}</p>
             <ul className="space-y-1.5">
               {(f.sources ?? []).map((s, i) => (
                 <li
@@ -2186,7 +2186,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                           : "bg-amber-500/10 text-amber-700 dark:text-amber-500")
                       }
                     >
-                      {s.status}
+                      {t(`editorScreen.sources.status.${s.status}`)}
                       {s.checkNote && s.status !== "verified" ? ` · ${s.checkNote}` : ""}
                     </span>
                     <Button
@@ -2195,18 +2195,22 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                       className="ml-auto"
                       onClick={() => removeSource(i)}
                     >
-                      <Trash2 className="h-3 w-3" /> Remove
+                      <Trash2 className="h-3 w-3" /> {t("editorScreen.sources.remove")}
                     </Button>
                   </div>
                   {s.claim ? (
-                    <p className="mt-1 text-muted-foreground">Supports: {s.claim}</p>
+                    <p className="mt-1 text-muted-foreground">
+                      {t("editorScreen.sources.supports", { claim: s.claim })}
+                    </p>
                   ) : null}
                 </li>
               ))}
             </ul>
             <div className="flex flex-wrap items-end gap-2">
               <div className="flex-1 min-w-[220px]">
-                <Label className="text-xs text-muted-foreground">Source URL</Label>
+                <Label className="text-xs text-muted-foreground">
+                  {t("editorScreen.sources.url")}
+                </Label>
                 <Input
                   className="mt-1"
                   placeholder="https://…"
@@ -2215,16 +2219,18 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 />
               </div>
               <div className="flex-1 min-w-[220px]">
-                <Label className="text-xs text-muted-foreground">Supported claim (optional)</Label>
+                <Label className="text-xs text-muted-foreground">
+                  {t("editorScreen.sources.claim")}
+                </Label>
                 <Input
                   className="mt-1"
-                  placeholder="What this source backs"
+                  placeholder={t("editorScreen.sources.claimPlaceholder")}
                   value={newSourceClaim}
                   onChange={(e) => setNewSourceClaim(e.target.value)}
                 />
               </div>
               <Button size="sm" onClick={addSource} disabled={!newSourceUrl.trim()}>
-                Add source
+                {t("editorScreen.sources.add")}
               </Button>
             </div>
           </section>
@@ -2392,21 +2398,20 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
 
           {/* ---- Author / E-E-A-T (P1.1 F) ---- */}
           <section className="space-y-2.5 border-t border-border pt-5">
-            <h3 className="text-sm font-medium text-foreground">Author (E-E-A-T)</h3>
-            <p className="text-xs text-muted-foreground">
-              A named byline must be a <strong>real, consenting person</strong> — Milo never invents
-              a name or credential.
-            </p>
+            <h3 className="text-sm font-medium text-foreground">
+              {t("editorScreen.author.title")}
+            </h3>
+            <p className="text-xs text-muted-foreground">{t("editorScreen.author.help")}</p>
             {checklist.some((b) => b.key === "author" && !b.passed) ? (
               <p className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-500">
-                <AlertTriangle className="h-3 w-3" /> Recommended for E-E-A-T: add a resolved author
-                (name + a real bio/credential/profile) for health/finance/legal content. This no
-                longer blocks publishing.
+                <AlertTriangle className="h-3 w-3" /> {t("editorScreen.author.recommendation")}
               </p>
             ) : null}
             <div className="grid gap-2.5 sm:grid-cols-2">
               <div>
-                <Label className="text-xs text-muted-foreground">Name</Label>
+                <Label className="text-xs text-muted-foreground">
+                  {t("editorScreen.author.name")}
+                </Label>
                 <Input
                   className="mt-1"
                   value={f.author?.name ?? ""}
@@ -2414,7 +2419,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 />
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground">Role</Label>
+                <Label className="text-xs text-muted-foreground">
+                  {t("editorScreen.author.role")}
+                </Label>
                 <Input
                   className="mt-1"
                   value={f.author?.role ?? ""}
@@ -2423,17 +2430,19 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">
-                  Qualifications / credentials
+                  {t("editorScreen.author.credentials")}
                 </Label>
                 <Input
                   className="mt-1"
-                  placeholder="e.g. PT, MSc"
+                  placeholder={t("editorScreen.author.credentialsPlaceholder")}
                   value={f.author?.credentials ?? ""}
                   onChange={(e) => updAuthor({ credentials: e.target.value })}
                 />
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground">Profile URL</Label>
+                <Label className="text-xs text-muted-foreground">
+                  {t("editorScreen.author.profile")}
+                </Label>
                 <Input
                   className="mt-1"
                   placeholder="https://…"
@@ -2442,7 +2451,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 />
               </div>
               <div className="sm:col-span-2">
-                <Label className="text-xs text-muted-foreground">Bio</Label>
+                <Label className="text-xs text-muted-foreground">
+                  {t("editorScreen.author.bio")}
+                </Label>
                 <Textarea
                   rows={2}
                   className="mt-1"
@@ -2452,7 +2463,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               </div>
               <div className="sm:col-span-2">
                 <Label className="text-xs text-muted-foreground">
-                  sameAs profiles (one per line)
+                  {t("editorScreen.author.sameAs")}
                 </Label>
                 <Textarea
                   rows={2}
@@ -2883,29 +2894,24 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           <style>{PREVIEW_STYLE}</style>
           {hasUnresolvedLinks ? (
             <div className="mb-3 rounded-md border border-amber-500/40 bg-amber-500/5 px-4 py-3 text-xs text-foreground/80">
-              This is exactly how the article publishes. {unresolvedLinks.length} internal link
-              {unresolvedLinks.length === 1 ? "" : "s"} can&apos;t be confirmed to point to a real
-              page on your site, so {unresolvedLinks.length === 1 ? "it shows" : "they show"} as
-              plain text here and <strong>publishing is blocked</strong> until{" "}
-              {unresolvedLinks.length === 1 ? "it is" : "they are"} resolved. Use the link-safety
-              panel below the tabs to approve, replace, keep as text, or remove each one.
+              {t("editorScreen.preview.blocked", { count: unresolvedLinks.length })}
             </div>
           ) : null}
           <div className="mb-3 flex items-center gap-1.5">
-            <span className="text-xs text-muted-foreground">Preview:</span>
+            <span className="text-xs text-muted-foreground">{t("editorScreen.preview.label")}</span>
             <Button
               size="sm"
               variant={previewMobile ? "ghost" : "outline"}
               onClick={() => setPreviewMobile(false)}
             >
-              Desktop
+              {t("editorScreen.preview.desktop")}
             </Button>
             <Button
               size="sm"
               variant={previewMobile ? "outline" : "ghost"}
               onClick={() => setPreviewMobile(true)}
             >
-              Mobile
+              {t("editorScreen.preview.mobile")}
             </Button>
             <span className="mx-2 h-4 w-px bg-border" aria-hidden="true" />
             <Button
@@ -3032,10 +3038,11 @@ function ReplaceControl({
   onReplace: (to: string) => void;
 }) {
   const id = useId();
+  const t = useT();
   return (
     <select
       id={id}
-      aria-label="Replace with a verified page"
+      aria-label={t("editorScreen.links.replaceLabel")}
       className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground"
       defaultValue=""
       onChange={(e) => {
@@ -3044,7 +3051,7 @@ function ReplaceControl({
         if (to) onReplace(to);
       }}
     >
-      <option value="">Replace with…</option>
+      <option value="">{t("editorScreen.links.replacePlaceholder")}</option>
       {options.map((o) => (
         <option key={o} value={o}>
           {o}
@@ -3084,17 +3091,14 @@ function LinkSafetyPanel({
   onTextOnly: (link: ClassifiedInternalLink) => void;
   onRemove: (link: ClassifiedInternalLink) => void;
 }) {
+  const t = useT();
   return (
     <div className="rounded-md border border-amber-500/40 bg-amber-500/5 px-4 py-3">
       <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
         <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
-        {links.length} unresolved internal link{links.length === 1 ? "" : "s"} — publishing is
-        blocked
+        {t("editorScreen.links.heading", { count: links.length })}
       </div>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Each link below points to a path Milo can&apos;t confirm exists on your site. Nothing sends
-        or publishes — on any connector — until every one is resolved. Choose an action per link.
-      </p>
+      <p className="mt-1 text-xs text-muted-foreground">{t("editorScreen.links.help")}</p>
       <ul className="mt-3 space-y-2.5">
         {links.map((l, i) => (
           <li
@@ -3106,23 +3110,23 @@ function LinkSafetyPanel({
               <span className="font-mono text-foreground/70">{l.href}</span>
               {l.section ? (
                 <span className="text-muted-foreground">
-                  in “<span className="text-foreground/80">{l.section}</span>”
+                  {t("editorScreen.links.section", { section: l.section })}
                 </span>
               ) : null}
             </div>
             <p className="mt-1 text-muted-foreground">{l.reason}</p>
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <Button size="sm" variant="outline" onClick={() => onApprove(l.path)}>
-                <Check className="h-3 w-3" /> Approve this URL
+                <Check className="h-3 w-3" /> {t("editorScreen.links.approve")}
               </Button>
               {replaceOptions.length ? (
                 <ReplaceControl options={replaceOptions} onReplace={(to) => onReplace(l, to)} />
               ) : null}
               <Button size="sm" variant="ghost" onClick={() => onTextOnly(l)}>
-                Keep as text
+                {t("editorScreen.links.keepText")}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => onRemove(l)}>
-                <Trash2 className="h-3 w-3" /> Remove
+                <Trash2 className="h-3 w-3" /> {t("editorScreen.sources.remove")}
               </Button>
             </div>
           </li>
