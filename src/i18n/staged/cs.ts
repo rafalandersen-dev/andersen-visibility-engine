@@ -1,3 +1,4 @@
+import { csKnowledge } from "./cs-knowledge";
 import { csCollaboration } from "./cs-collaboration";
 import { csConfiguration } from "./cs-configuration";
 import { csPublicBeta } from "./cs-public-beta";
@@ -19,6 +20,13 @@ import { csAuthScreen } from "./cs-auth-screen";
 import { csSharedUi } from "./cs-shared-ui";
 /** Czech authoring; never imported by the runtime catalog. */
 export const CS_STAGED_BATCHES = [
+  {
+    name: "knowledge",
+    copy: csKnowledge,
+    namespaces: ["knowledge", "weekly", "approval", "refresh"],
+    sourceRevision: "31252eb",
+    sourceHash: "a3a3297006f23628e422ddedfb5b6f5a51c6dd5f6abbc6d6e589481e49915816",
+  },
   {
     name: "collaboration",
     copy: csCollaboration,
