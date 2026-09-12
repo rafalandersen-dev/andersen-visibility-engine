@@ -1,3 +1,4 @@
+import { hrConfig } from "./hr-config";
 import { hrPublicBeta } from "./hr-public-beta";
 import { hrBetaGuide } from "./hr-beta-guide";
 import { hrBetaScreen } from "./hr-beta-screen";
@@ -17,6 +18,13 @@ import { hrAuthScreen } from "./hr-auth-screen";
 import { hrSharedUi } from "./hr-shared-ui";
 /** Croatian authoring; never imported by the runtime catalog. */
 export const HR_STAGED_BATCHES = [
+  {
+    name: "configuration",
+    copy: hrConfig,
+    namespaces: ["brand", "wp", "shopify", "claude", "connect", "connections", "coverage"],
+    sourceRevision: "aedd7bf",
+    sourceHash: "0e11ebfcac212ec85d91c8734430e0cd661dc727057c565c1cfcd33f59a1aa60",
+  },
   {
     name: "public beta",
     copy: hrPublicBeta,
