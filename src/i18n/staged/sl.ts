@@ -1,3 +1,4 @@
+import { slOutreach } from "./sl-outreach";
 import { slMeasurements } from "./sl-measurements";
 import { slTechnical } from "./sl-technical";
 import { slKnowledge } from "./sl-knowledge";
@@ -22,6 +23,13 @@ import { slAuthScreen } from "./sl-auth-screen";
 import { slSharedUi } from "./sl-shared-ui";
 /** Slovenian authoring; never imported by the runtime catalog. */
 export const SL_STAGED_BATCHES = [
+  {
+    name: "outreach",
+    copy: slOutreach,
+    namespaces: ["outreach", "hook", "anchor"],
+    sourceRevision: "2705f3f",
+    sourceHash: "c2bfe98eb710f1587237c92b04696e6f9221e67def7d1080eb7ce08e3d1161b4",
+  },
   {
     name: "measurements",
     copy: slMeasurements,

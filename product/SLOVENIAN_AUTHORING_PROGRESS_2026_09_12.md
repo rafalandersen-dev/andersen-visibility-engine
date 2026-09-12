@@ -1,6 +1,6 @@
 # Slovenian interface authoring — 12 September 2026
 
-Slovenian is staged only: 2,420 of the current 3,768 English interface keys across twenty-two complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK retain separate complete staged authoring and incomplete acceptance status.
+Slovenian is staged only: 2,578 of the current 3,768 English interface keys across twenty-three complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK retain separate complete staged authoring and incomplete acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -26,14 +26,15 @@ Slovenian is staged only: 2,420 of the current 3,768 English interface keys acro
 | Knowledge | 242 | 99fd1c8 |
 | Technical | 238 | 4ae023a |
 | Measurements | 204 | 324d5f5 |
+| Outreach | 158 | 2705f3f |
 
-The frozen staged registry assigns every key once. Namespace tests verify exact keys, nonempty values, current composed-English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 33 Slovenian/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovenian-measurements-types.log.
+The frozen staged registry assigns every key once. Namespace tests verify exact keys, nonempty values, current composed-English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 34 Slovenian/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovenian-outreach-types.log.
 
 Terminology: delovni prostor (workspace), projekt, geslo (password), ponastavitev gesla (password reset), stranska vrstica (sidebar), vpis (network listing), paket (subscription plan), načrt (workflow plan), vsebinska izhodišča (content brief). Use polite plural explanatory instructions and concise action labels. Preserve provider/product names and placeholders.
 
 Recovery text retains conditional eligibility without confirming account existence. Marketing and successful sign-in source claims retain their implementation and real-use acceptance obligations. No authentication, email, account, credential or provider action occurred.
 
-Remaining: 1,348 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: outreach using current composed English. This staged work does not complete R20 or change release gates.
+Remaining: 1,190 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: growth using current composed English. This staged work does not complete R20 or change release gates.
 
 Core copy preserves interface versus content language, saved setup versus incomplete generation, work target dates versus publication times, and sent drafts versus published pages. Navigation uses Načrt, Vsebina, Vidnost, Nastavitve and Analitika. Subscription plans remain paket; workflow plans use načrt. In-review status is V pregledu; scheduled publication is Čas objave nastavljen. No generation, onboarding, schedule or publication operation occurred.
 
@@ -66,3 +67,5 @@ Knowledge copy preserves source-reported versus independently verified evidence,
 Technical copy preserves ownership verification/expiry, robots permissions, bounded crawl/sitemap coverage and saved observations versus demonstrated fixes. Google index history remains distinct from a live page check or indexing request. Performance copy separates page/origin, lab/real-user evidence, missing metrics and uncertain requests without automatic repetition. Search Console property uses znamka. No DNS, crawl, Google, measurement or provider request occurred.
 
 Measurement copy preserves saved publications versus current live checks, provider acceptance versus email delivery, AI referrals versus mentions/citations and separate bot signals. Search Console retains declared source/property provenance, separate date periods, bounded CSV tables, missing-value semantics and non-causal search observations. Znamka matches technical Search Console terminology. Existing conversion labels retain their source meaning and implementation acceptance obligations. No email, tracking installation, Google connection, sync or import operation occurred.
+
+Outreach copy preserves exact recipient/message approval, separate follow-up review, suppression and frequency limits, provider acceptance versus inbox delivery, and no-retry holds for uncertain or reserved attempts. Hook copy retains source/evidence requirements and the source-defined advisory YMYL wording; image anchors retain unresolved/ambiguous placement states. Opening hook uses privlačen uvod; the sources/author tab remains Viri in avtor. No generation, recipient contact, approval or sending operation occurred.
