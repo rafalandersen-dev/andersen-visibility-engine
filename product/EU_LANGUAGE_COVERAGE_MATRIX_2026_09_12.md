@@ -54,3 +54,5 @@ Requirement disposition:
 | Locale quality and accessibility | Catalog tests; targeted Finnish component browser evidence | Partial; fluent review, full-page mobile/desktop and assistive-technology acceptance open |
 
 Next safe work: author the absent UI catalogs using the current composed English source, beginning with Czech authentication and shared controls, then complete each namespace with exact key and placeholder checks. Continue rendered acceptance for the seven staged catalogs without treating key coverage as approval to activate. Real-use and release actions remain subject to the recorded project boundaries. R20 and G11 remain incomplete; this matrix does not reduce their scope.
+
+Post-audit authoring update: Czech authentication/shared controls now have 72 staged keys (English source baseline 78cd575). The baseline table above is retained as dated audit evidence. Current UI authoring has four active full catalogs, seven complete staged catalogs, one partial Czech catalog and twelve absent catalogs; the unfilled-key backlog is now 48,912. Czech activation and quality acceptance remain open. See CZECH_AUTHORING_PROGRESS_2026_09_12.md.
