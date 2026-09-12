@@ -51,7 +51,7 @@ describe("buildMonthlyProofReport", () => {
       livePublishStatus: "published",
       livePublishedAt: "2026-06-10T09:00:00Z",
     }),
-    // Custom-endpoint draft-send path: publishStatus sent + lastPublishedAt.
+    // A sent draft with a retained live URL is not a live-publication receipt.
     asset({
       id: "sent-jul",
       liveUrl: "https://x.se/c",
@@ -103,10 +103,31 @@ describe("buildMonthlyProofReport", () => {
   });
 
   it("published = liveUrl + STATUS-GATED go-live stamp in month, own project only", () => {
-    // live-jul (WP-style livePublishedAt) + sent-jul (draft-send path);
+    // Only live-jul has a successful live-publication stamp;
     // failed-resend stays in June, failed-live and stamp-less never count.
-    expect(report.published.map((p) => p.id)).toEqual(["live-jul", "sent-jul"]);
+    expect(report.published.map((p) => p.id)).toEqual(["live-jul"]);
     expect(report.published[0].liveUrl).toBe("https://x.se/a");
+  });
+
+  it("does not count draft sends with retained URLs, even after a failed live attempt", () => {
+    const drafts = ([undefined, "failed", "notPublished"] as const).map((status, i) =>
+      asset({
+        id: `draft-send-${i}`,
+        publishStatus: "sent",
+        lastPublishedAt: "2026-07-15T09:00:00Z",
+        liveUrl: "https://x.se/older-version",
+        livePublishStatus: status,
+        livePublishedAt: "2026-07-15T09:00:00Z",
+      }),
+    );
+    const result = buildMonthlyProofReport({
+      project: { id: "p1" },
+      content: drafts,
+      calendar: [],
+      monthKey: "2026-07",
+      linksLive: null,
+    });
+    expect(result.published).toEqual([]);
   });
 
   it("a failed July re-send cannot drag a June publish into July (review HIGH)", () => {

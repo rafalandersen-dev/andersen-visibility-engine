@@ -2,8 +2,8 @@
  * Monthly Proof Report (Europe-#1 move 3) — pure, read-only aggregation.
  *
  * "What did Milo actually do for you this month?" — the retention artifact:
- * pieces that went LIVE (with URLs — the four-state honesty carries over:
- * only liveUrl-bearing assets count as published), drafts written, verified
+ * recorded live publications (successful live status, timestamp and URL;
+ * this aggregation does not independently recheck the destination), drafts written, verified
  * partner links, a GSC snapshot when available, and next month's plan.
  * No I/O and no store access: the /app/report page feeds it store state, the
  * email server fn feeds it the workspace row it re-reads itself.
@@ -68,17 +68,12 @@ export function recentMonthKeys(endMonthKey: string, count: number): string[] {
   return Array.from({ length: count }, (_, i) => addMonths(endMonthKey, -i));
 }
 
-/**
- * The trustworthy go-live timestamp for an asset, or undefined (review HIGH):
- * `lastPublishedAt` is a DRAFT-SEND stamp — the WP/Shopify live paths never
- * write it, and the failure paths attempt-stamp both it and `livePublishedAt`.
- * So: statuses gate the stamps — `livePublishedAt` only when livePublishStatus
- * is "published", else `lastPublishedAt` only when publishStatus is "sent".
+/** Only a successful live-publication status supplies a publication timestamp.
+ * Draft delivery can retain an older live URL and has its own attempt stamp;
+ * neither establishes that the current content was published in that month.
  */
 function goLiveStamp(c: ContentAsset): string | undefined {
-  if (c.livePublishStatus === "published" && c.livePublishedAt) return c.livePublishedAt;
-  if (c.publishStatus === "sent" && c.lastPublishedAt) return c.lastPublishedAt;
-  return undefined;
+  return c.livePublishStatus === "published" ? c.livePublishedAt : undefined;
 }
 
 function latestGscImport(gscLite: GscLite | undefined): GscImport | null {
