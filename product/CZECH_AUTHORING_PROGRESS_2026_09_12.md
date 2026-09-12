@@ -1,6 +1,6 @@
 # Czech interface authoring — 12 September 2026
 
-Czech is staged only: 1,043 of the current 3,768 English interface keys, across fifteen complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI retain their separate staged acceptance status.
+Czech is staged only: 1,168 of the current 3,768 English interface keys, across sixteen complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI retain their separate staged acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -19,14 +19,15 @@ Czech is staged only: 1,043 of the current 3,768 English interface keys, across 
 | Public case studies | 30 | 77f6ac6 |
 | Public home | 100 | b9e714e |
 | Beta screen | 88 | f462e40 |
+| Beta guidance | 125 | cf9c004 |
 
-The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 26 Czech/catalog tests, scoped lint and whitespace pass. Current batch type checking passes (log: /tmp/milo-czech-beta-screen-types.log).
+The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 27 Czech/catalog tests, scoped lint and whitespace pass. Current batch type checking passes (log: /tmp/milo-czech-beta-guidance-types.log).
 
 Terminology: pracovní prostor (workspace), projekt, heslo (password), obnovení hesla (password recovery), postranní panel (sidebar), archivovat (archive). Prefer direct formal-plural instructions; use schválit for approval, potvrdit for confirmation, ověřit for verification and zkontrolovat for review. Product/provider names and placeholders remain intact.
 
 Recovery text preserves conditional account eligibility and does not confirm that an account exists. Source claims about monthly planning and successful sign-in after password update retain their implementation/acceptance obligations; translation does not prove them. No email, authentication, password or provider operation occurred.
 
-Remaining: 2,725 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next complete batch: beta guidance, using current composed English. This initial Czech batch does not complete R20 or alter release gates.
+Remaining: 2,600 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next complete batch: public beta, using current composed English. This initial Czech batch does not complete R20 or alter release gates.
 
 Core review: Plán, Obsah, Viditelnost and Nastavení label the main navigation areas. Work target dates remain distinct from publication times; Naplánováno denotes planned work, while Čas zveřejnění nastaven denotes a publication schedule. Odesláno na web does not mean Zveřejněno. Partial setup success remains separate from completion, and application language, content language and market stay separate settings. Inherited generation/setup claims are translated without proving live behavior. No onboarding, generation, schedule or billing operation occurred.
 
@@ -45,3 +46,5 @@ Public pricing/case-study review: public region and displayed pricing remain dis
 Public-home review: Viditelnost matches interface navigation, Bez marketingové agentury distinguishes agencies from the Agency plan, and Příklady použití includes internal/demo examples. Missing data is not zero activity; saved connection settings do not prove publication success. Billing portal availability stays conditional and paid holds remain explicit. Inherited monthly-planning, retention, autonomy, AI-answer tracking and Captured-stage claims need product/implementation acceptance; translation does not verify them. No provider, generation or activation operation occurred.
 
 Beta-screen review: this is an owner-only sales/validation playbook. Sales discovery is zjištění potřeb, distinct from product hledání příležitostí. UI guidance, separately selected outreach language and unchanged CSV field/value semantics remain distinct. Labels for contact, demos, proposals and acceptance do not establish recruitment or completed live use. No outreach, CSV import, invitation or payment action occurred.
+
+Beta-guidance review: 20–30-prospect validation and scorecard counts remain targets, not achieved results. New audits, generation, demos and outreach retain separate authorization requirements; copying is not sending. Stripe owner setup and payment lifecycle acceptance remain open, and manual billing status is not payment confirmation. Readiness and demonstrations remain distinct from verified live outcomes. No outreach, demo, generation or payment operation occurred.

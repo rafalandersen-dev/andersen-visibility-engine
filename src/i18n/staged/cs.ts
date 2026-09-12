@@ -1,3 +1,4 @@
+import { csBetaGuidance } from "./cs-beta-guidance";
 import { csBetaScreen } from "./cs-beta-screen";
 import { csPublicHome } from "./cs-public-home";
 import { csPublicStudies } from "./cs-public-studies";
@@ -15,6 +16,13 @@ import { csAuthScreen } from "./cs-auth-screen";
 import { csSharedUi } from "./cs-shared-ui";
 /** Czech authoring; never imported by the runtime catalog. */
 export const CS_STAGED_BATCHES = [
+  {
+    name: "beta guidance",
+    copy: csBetaGuidance,
+    namespaces: ["betaGuide"],
+    sourceRevision: "cf9c004",
+    sourceHash: "8c815e10a73590a6e2911d1b5618d5d545c15a47b3a75462ccaaae6faf33520d",
+  },
   {
     name: "beta screen",
     copy: csBetaScreen,
