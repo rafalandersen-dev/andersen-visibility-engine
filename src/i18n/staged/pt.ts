@@ -1,3 +1,4 @@
+import { ptConfiguration } from "./pt-configuration";
 import { ptBetaScreen } from "./pt-beta-screen";
 import { ptBetaGuide } from "./pt-beta-guide";
 import { ptPublicBeta } from "./pt-public-beta";
@@ -147,6 +148,13 @@ export const PT_STAGED_BATCHES = [
     namespaces: ["publicBeta"],
     sourceRevision: "1c5978d",
     sourceHash: "e670953b131c40fc4433b5ce6e5b256556bf37ea8709bc495b211efc361fb59e",
+  },
+  {
+    name: "configuration",
+    copy: ptConfiguration,
+    namespaces: ["brand", "wp", "shopify", "claude", "connect", "connections", "coverage"],
+    sourceRevision: "8446b55",
+    sourceHash: "0e11ebfcac212ec85d91c8734430e0cd661dc727057c565c1cfcd33f59a1aa60",
   },
 ] as const;
 export const PT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.assign(
