@@ -1,3 +1,4 @@
+import { skPublicBeta } from "./sk-public-beta";
 import { skBetaGuide } from "./sk-beta-guide";
 import { skBetaScreen } from "./sk-beta-screen";
 import { skPublicHome } from "./sk-public-home";
@@ -138,6 +139,13 @@ export const SK_STAGED_BATCHES = [
     namespaces: ["betaGuide"],
     sourceRevision: "6d09db8",
     sourceHash: "8c815e10a73590a6e2911d1b5618d5d545c15a47b3a75462ccaaae6faf33520d",
+  },
+  {
+    name: "public beta",
+    copy: skPublicBeta,
+    namespaces: ["publicBeta"],
+    sourceRevision: "865b87a",
+    sourceHash: "e670953b131c40fc4433b5ce6e5b256556bf37ea8709bc495b211efc361fb59e",
   },
 ] as const;
 export const SK_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
