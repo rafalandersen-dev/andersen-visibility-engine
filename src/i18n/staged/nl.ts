@@ -1,9 +1,33 @@
+import { nlAuditScreen } from "./nl-audit-screen";
+import { nlServicesScreen } from "./nl-services-screen";
+import { nlSetupScreen } from "./nl-setup-screen";
 import { nlCore } from "./nl-core";
 import { nlAuthScreen } from "./nl-auth-screen";
 import { nlSharedUi } from "./nl-shared-ui";
 
 /** Partial Dutch authoring; never imported by the runtime catalog. */
 export const NL_STAGED_BATCHES = [
+  {
+    name: "setup screen",
+    copy: nlSetupScreen,
+    namespaces: ["setupScreen"],
+    sourceRevision: "a712c08",
+    sourceHash: "565b0bcd89f346fd85f3b87d4e44716826a65bee54fd60eaa3b677c4d732a5ca",
+  },
+  {
+    name: "services screen",
+    copy: nlServicesScreen,
+    namespaces: ["servicesScreen"],
+    sourceRevision: "a712c08",
+    sourceHash: "c769d10ab21c34754c6c4a6c57c3ee5f04881605b1dabc10030bca0e9122313d",
+  },
+  {
+    name: "audit screen",
+    copy: nlAuditScreen,
+    namespaces: ["auditScreen"],
+    sourceRevision: "a712c08",
+    sourceHash: "2c15a7061c169b3f2da7446d4280ff94cb6b5ce2e6cb56d156af72ab154f1aed",
+  },
   {
     name: "core",
     copy: nlCore,
