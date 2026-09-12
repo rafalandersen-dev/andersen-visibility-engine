@@ -1,6 +1,6 @@
 # Dutch interface authoring — 12 September 2026
 
-R20 requires full EU-language coverage. Dutch authoring has begun with 1,268 of the current 3,768 English interface messages (2,500 remain). This is a partial staged catalog; Dutch is not registered in UI_CATALOGS or the language picker.
+R20 requires full EU-language coverage. Dutch authoring has begun with 1,488 of the current 3,768 English interface messages (2,280 remain). This is a partial staged catalog; Dutch is not registered in UI_CATALOGS or the language picker.
 
 ## Completed authoring batches
 
@@ -15,6 +15,7 @@ R20 requires full EU-language coverage. Dutch authoring has begun with 1,268 of 
 | Evidence screens | 89 | src/i18n/staged/nl-evidence-screen.ts |
 | Plan screen | 113 | src/i18n/staged/nl-plan-screen.ts |
 | Editor screen | 148 | src/i18n/staged/nl-editor-screen.ts |
+| Configuration and connections | 220 | src/i18n/staged/nl-configuration.ts |
 | Public beta | 100 | src/i18n/staged/nl-public-beta.ts |
 | Beta guidance | 125 | src/i18n/staged/nl-beta-guide.ts |
 | Beta validation screen | 88 | src/i18n/staged/nl-beta-screen.ts |
@@ -106,3 +107,10 @@ The initial registration attempt used an incorrect batch label and therefore did
 At a939517, authored all 100 publicBeta messages. Copy preserves pilot scope, review requirements, connector acceptance limits, missing-data semantics, payment holds, quoted currency ranges and week/demo durations. The explicit English/Polish/Swedish/Danish coverage statement remains faithful to the source and must be updated across affected locales when activation actually changes supported languages. Limited-place availability, manual-invoicing plans and proposed deliverables remain source claims requiring commercial/behavior review, not verified outcomes.
 
 All twenty-eight Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-public-beta-types.log), scoped lint and whitespace checks. Total staged coverage is 1,268; 2,500 messages remain. Configuration and collaboration groups are next. No runtime activation, contact, purchase or live connector operation occurred. Fluent/rendered and full real-use acceptance remain open.
+
+
+## Configuration follow-up
+
+At 053f237, authored all 220 messages in brand/wp/shopify/claude/connect/connections/coverage from the composed English catalog. Read, write and proposal permissions remain distinct; proposal self-approval/publication prohibitions and credential replacement guidance are preserved. Coverage copy distinguishes owner/source statements from verified live listings, hreflang, page presence and rankings. The 2 000-character limit retains the source value with space grouping.
+
+Source assertions about brand-rule prevention, credential storage/logging, immediate revocation and Shopify administration instructions require behavior/documentation review before activation; translation is not evidence of those guarantees. No actual credential, authorization or connector operation was performed. All twenty-nine Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-configuration-types.log), scoped lint and whitespace checks. Total staged coverage is 1,488; 2,280 messages remain. Collaboration is next; fluent/rendered and full real-use acceptance remain open.

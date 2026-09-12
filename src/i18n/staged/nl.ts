@@ -1,3 +1,4 @@
+import { nlConfiguration } from "./nl-configuration";
 import { nlPublicBeta } from "./nl-public-beta";
 import { nlBetaGuide } from "./nl-beta-guide";
 import { nlBetaScreen } from "./nl-beta-screen";
@@ -18,6 +19,13 @@ import { nlSharedUi } from "./nl-shared-ui";
 
 /** Partial Dutch authoring; never imported by the runtime catalog. */
 export const NL_STAGED_BATCHES = [
+  {
+    name: "configuration",
+    copy: nlConfiguration,
+    namespaces: ["brand", "wp", "shopify", "claude", "connect", "connections", "coverage"],
+    sourceRevision: "053f237",
+    sourceHash: "0e11ebfcac212ec85d91c8734430e0cd661dc727057c565c1cfcd33f59a1aa60",
+  },
   {
     name: "public beta",
     copy: nlPublicBeta,
