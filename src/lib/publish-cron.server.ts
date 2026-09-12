@@ -44,6 +44,7 @@ export interface RunSummary {
   retrying: number;
   failed: number;
   reaped: number;
+  recordingFailed: number;
 }
 
 /**
@@ -74,12 +75,18 @@ async function setRow(
   admin: AdminClient,
   id: string,
   patch: Record<string, unknown>,
-): Promise<void> {
-  const { error } = await admin
-    .from("scheduled_publishes")
-    .update({ ...patch, updated_at: new Date().toISOString() })
-    .eq("id", id);
-  if (error) console.error("[publish-cron] row update failed", { id, message: error.message });
+): Promise<boolean> {
+  try {
+    const { error } = await admin
+      .from("scheduled_publishes")
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) throw new Error(error.message);
+    return true;
+  } catch {
+    console.error("[publish-cron] queue outcome could not be recorded", { id });
+    return false;
+  }
 }
 
 /**
@@ -127,17 +134,22 @@ export async function runScheduledPublishes(batchSize = 20): Promise<RunSummary>
     retrying: 0,
     failed: 0,
     reaped,
+    recordingFailed: 0,
   };
 
   await Promise.all(
     rows.map(async (row) => {
       try {
         const result = await publishAssetServerSide(row.user_id, row.asset_id);
-        await setRow(admin, row.id, {
+        const recorded = await setRow(admin, row.id, {
           status: "published",
           published_at: result.publishedAt,
           last_error: null,
         });
+        if (!recorded) {
+          summary.recordingFailed += 1;
+          return; // A completed send must never enter the failure/retry handler.
+        }
         summary.published += 1;
         console.info("[publish-cron] published", {
           rowId: row.id,
@@ -188,17 +200,18 @@ export async function runScheduledPublishes(batchSize = 20): Promise<RunSummary>
         );
 
         if (terminal) {
-          await setRow(admin, row.id, {
+          const recorded = await setRow(admin, row.id, {
             status: "failed",
             last_error: message,
             ...preflightPatch,
             retry_after: null,
           });
-          summary.failed += 1;
+          if (recorded) summary.failed += 1;
+          else summary.recordingFailed += 1;
         } else {
           // Retryable means the connector PROVED nothing was created on the site,
           // so another attempt cannot produce a duplicate.
-          await setRow(admin, row.id, {
+          const recorded = await setRow(admin, row.id, {
             status: "pending",
             last_error: message,
             // Preflight consumes its own bounded retry budget, without spending a
@@ -206,7 +219,8 @@ export async function runScheduledPublishes(batchSize = 20): Promise<RunSummary>
             ...preflightPatch,
             ...(capacity ? { attempts: Math.max(0, row.attempts - 1) } : {}),
           });
-          summary.retrying += 1;
+          if (recorded) summary.retrying += 1;
+          else summary.recordingFailed += 1;
         }
         console.error("[publish-cron] publish failed", {
           rowId: row.id,

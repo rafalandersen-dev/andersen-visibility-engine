@@ -179,3 +179,53 @@ it("backs off repeated preflight failures without changing the requested publica
   expect(Date.parse(patch.retry_after) - before).toBeGreaterThanOrEqual(32 * 60000);
   expect(patch).not.toHaveProperty("publish_at");
 });
+
+it.each(["returned error", "rejection"])(
+  "does not reinterpret a published result after queue %s",
+  async (failure) => {
+    mocked.publish.mockResolvedValue({
+      publishedAt: "2026-09-12T12:00:00Z",
+      platform: "wordpress",
+    });
+    if (failure === "returned error")
+      mocked.eq.mockResolvedValue({ error: { message: "unavailable" } });
+    else mocked.eq.mockRejectedValue(new Error("unavailable"));
+    expect(await runScheduledPublishes()).toMatchObject({
+      claimed: 1,
+      published: 0,
+      failed: 0,
+      retrying: 0,
+      recordingFailed: 1,
+    });
+    expect(mocked.publish).toHaveBeenCalledOnce();
+    expect(mocked.failure).not.toHaveBeenCalled();
+    expect(mocked.update).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ status: "published" }),
+    );
+    expect(mocked.rpc).toHaveBeenLastCalledWith(
+      "record_cron_heartbeat",
+      expect.objectContaining({ summary: expect.objectContaining({ recordingFailed: 1 }) }),
+    );
+  },
+);
+
+it.each(["source hold", "preflight retry"])(
+  "reports an unrecorded %s without claiming a saved queue outcome",
+  async (outcome) => {
+    mocked.publish.mockRejectedValue(
+      outcome === "source hold"
+        ? Object.assign(new Error("Source facts need review"), { sourceHold: true })
+        : new PublishPreflightCapacityError(),
+    );
+    mocked.eq.mockRejectedValue(new Error("unavailable"));
+    expect(await runScheduledPublishes()).toMatchObject({
+      published: 0,
+      failed: 0,
+      retrying: 0,
+      recordingFailed: 1,
+    });
+    expect(mocked.failure).toHaveBeenCalledOnce();
+    expect(mocked.update).toHaveBeenCalledOnce();
+    expect(mocked.rpc.mock.calls.at(-1)?.[0]).toBe("record_cron_heartbeat");
+  },
+);
