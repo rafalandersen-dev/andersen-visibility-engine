@@ -1,7 +1,9 @@
 # Milo Growth — current status
 
+Latest prepared delivery:31 nested navigation/button controls now render single native links across10files. All65navigation attribute sets preserved;47focused tests, types/build/zero lint pass. Six built public pages show zero nested link/buttons, with home keyboard hash navigation verified. No real signed-in/full accessibility acceptance; overall60%/implementation75% unchanged. See NATIVE_LINK_ACCESSIBILITY_2026_09_12.md.
 
-Latest prepared delivery: report-email Agency branding now resolves the caller’s authoritative entitlement instead of workspace subscription snapshots, preserving valid manual grants and scheduled cancellation until period end while refusing expired/free/cancelled/read-failure branding. 109 focused tests across four files, full types/build and zero changed-file lint pass. Unreleased on codex/milo-report-branding-authority-20260912; overall60%/implementation75% unchanged. See REPORT_BRANDING_AUTHORITY_2026_09_12.md.
+
+Previous prepared delivery: report-email Agency branding now resolves the caller’s authoritative entitlement instead of workspace subscription snapshots, preserving valid manual grants and scheduled cancellation until period end while refusing expired/free/cancelled/read-failure branding. 109 focused tests across four files, full types/build and zero changed-file lint pass. Unreleased on codex/milo-report-branding-authority-20260912; overall60%/implementation75% unchanged. See REPORT_BRANDING_AUTHORITY_2026_09_12.md.
 
 Task lifecycle correction (user12September): keep a single active owner of the full goal, currently01a094e4-edcb-7ca0-9341-64d08bcadbfc. Predecessor handoffs left old goals active and repeatedly waking for read-only monitoring. Available agent tools cannot pause goals; app computer control is denied. User must pause predecessor goals through the app. Do not create another successor with a duplicated full goal while this is unresolved. German/Spanish staged work remains separately scoped. Preserve predecessor audit trails; do not mark unfinished full goals complete merely to suppress wakeups.
 

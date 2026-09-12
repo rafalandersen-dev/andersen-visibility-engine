@@ -146,17 +146,15 @@ function BetaPage() {
         </p>
         <p className="mt-3 max-w-2xl text-sm text-foreground/80">{t("betaGuide.promise")}</p>
         <div className="mt-7 flex flex-wrap gap-3">
-          <Link to="/free-ai-visibility-audit">
-            <Button size="lg" className="gap-2">
+          <Button asChild size="lg" className="gap-2">
+            <Link to="/free-ai-visibility-audit">
               {t("publicAudit.run")}
               <ArrowRight className="h-4 w-4" />
-            </Button>
-          </Link>
-          <a href="#apply">
-            <Button size="lg" variant="outline">
-              {t("publicBeta.applyForBeta")}
-            </Button>
-          </a>
+            </Link>
+          </Button>
+          <Button asChild size="lg" variant="outline">
+            <a href="#apply">{t("publicBeta.applyForBeta")}</a>
+          </Button>
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
           {t("publicBeta.pilotAvailabilityAndScopeAreAgreedIndividually")}
@@ -326,18 +324,20 @@ function BetaPage() {
             {t("publicBeta.startWithAFreeAuditOrGet")}
           </p>
           <div className="mt-5 flex flex-wrap justify-center gap-2">
-            <Link to={"/auth?source=beta" as never}>
-              <Button>
+            <Button asChild>
+              <Link to={"/auth?source=beta" as never}>
                 {t("publicBeta.applyForBeta")}
                 <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
-            <a href="mailto:support@milogrowth.com?subject=Milo%20Assisted%20Beta">
-              <Button variant="outline">{t("publicBeta.emailUs")}</Button>
-            </a>
-            <Link to="/free-ai-visibility-audit">
-              <Button variant="outline">{t("publicAudit.run")}</Button>
-            </Link>
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <a href="mailto:support@milogrowth.com?subject=Milo%20Assisted%20Beta">
+                {t("publicBeta.emailUs")}
+              </a>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/free-ai-visibility-audit">{t("publicAudit.run")}</Link>
+            </Button>
           </div>
         </div>
 

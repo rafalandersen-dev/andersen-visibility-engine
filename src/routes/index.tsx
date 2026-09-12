@@ -158,14 +158,16 @@ function PublicHeader({ controls }: { controls: ReturnType<typeof useAuthLanguag
           </a>
         </nav>
         <div className="flex items-center gap-2">
-          <Link to="/auth" search={{ mode: "login" }}>
-            <Button variant="ghost" size="sm">
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/auth" search={{ mode: "login" }}>
               {t("publicHome.signIn")}
-            </Button>
-          </Link>
-          <Link to="/auth" search={{ mode: "register" }}>
-            <Button size="sm">{t("publicHome.startFree")}</Button>
-          </Link>
+            </Link>
+          </Button>
+          <Button asChild size="sm">
+            <Link to="/auth" search={{ mode: "register" }}>
+              {t("publicHome.startFree")}
+            </Link>
+          </Button>
         </div>
       </div>
       <div className="mx-auto max-w-[1340px] px-5 md:px-8">
@@ -194,17 +196,15 @@ function Hero({ t }: { t: HomeTranslate }) {
             {t("publicHome.heroBody", { count: PLAN_LIMITS.agency.maxProjects })}
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link to="/auth" search={{ mode: "register" }}>
-              <Button size="lg" className="min-w-[142px] gap-2">
+            <Button asChild size="lg" className="min-w-[142px] gap-2">
+              <Link to="/auth" search={{ mode: "register" }}>
                 {t("publicHome.startFree")}
                 <ArrowRight size={17} />
-              </Button>
-            </Link>
-            <a href="#how">
-              <Button size="lg" variant="outline">
-                {t("publicHome.seeHow")}
-              </Button>
-            </a>
+              </Link>
+            </Button>
+            <Button asChild size="lg" variant="outline">
+              <a href="#how">{t("publicHome.seeHow")}</a>
+            </Button>
           </div>
           <div className="mt-8 flex flex-wrap items-center gap-x-4 gap-y-3 text-[10px] text-[#647183]">
             <TrustItem icon={CheckCircle} label={t("publicHome.noCard")} />
@@ -387,12 +387,12 @@ function ProductSystem({ t }: { t: HomeTranslate }) {
             <p className="mt-4 max-w-md text-sm leading-6 text-[#647183]">
               {t("publicHome.settingsBody")}
             </p>
-            <Link to="/auth" search={{ mode: "register" }} className="mt-6 inline-block">
-              <Button>
+            <Button asChild>
+              <Link to="/auth" search={{ mode: "register" }} className="mt-6">
                 {t("publicHome.startProject")}
                 <ArrowRight size={16} />
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             {capabilities.map((item) => (
@@ -434,19 +434,18 @@ function BacklinksAddOn({ t }: { t: HomeTranslate }) {
             {t("publicHome.backlinksBody")}
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
-            <Link to="/pricing">
-              <Button className="bg-[#eef0ee] text-[#18232c] hover:bg-white">
-                {t("publicHome.addonPricing")}
-              </Button>
-            </Link>
-            <Link to="/auth" search={{ mode: "register" }}>
-              <Button
-                variant="outline"
-                className="border-white/25 bg-transparent text-white hover:bg-white/10 hover:text-white"
-              >
+            <Button asChild className="bg-[#eef0ee] text-[#18232c] hover:bg-white">
+              <Link to="/pricing">{t("publicHome.addonPricing")}</Link>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              className="border-white/25 bg-transparent text-white hover:bg-white/10 hover:text-white"
+            >
+              <Link to="/auth" search={{ mode: "register" }}>
                 {t("publicHome.exploreFirst")}
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -493,15 +492,17 @@ function TrustAndPricing({ t }: { t: HomeTranslate }) {
           </h2>
           <p className="mt-4 text-sm leading-6 text-[#647183]">{t("publicHome.pricingBody")}</p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Link to="/pricing">
-              <Button>
+            <Button asChild>
+              <Link to="/pricing">
                 {t("publicHome.seePricing")}
                 <ArrowRight size={16} />
-              </Button>
-            </Link>
-            <Link to="/auth" search={{ mode: "register" }}>
-              <Button variant="outline">{t("publicHome.startFree")}</Button>
-            </Link>
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/auth" search={{ mode: "register" }}>
+                {t("publicHome.startFree")}
+              </Link>
+            </Button>
           </div>
         </article>
       </div>

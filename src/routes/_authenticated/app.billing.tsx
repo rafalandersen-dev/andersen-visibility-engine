@@ -433,11 +433,11 @@ function BillingPage() {
               {money(addOnPrice(market, "assistedSetup"))} {t("billing.oneTime")}
             </div>
           </div>
-          <a href="mailto:support@milogrowth.com?subject=Assisted%20Setup">
-            <Button variant="outline" size="sm">
+          <Button asChild variant="outline" size="sm">
+            <a href="mailto:support@milogrowth.com?subject=Assisted%20Setup">
               {t("billing.contactSupport")}
-            </Button>
-          </a>
+            </a>
+          </Button>
         </div>
         <div className="rounded-xl border border-border bg-card p-5 flex items-center justify-between gap-4">
           <div>
@@ -446,11 +446,11 @@ function BillingPage() {
               {money(addOnPrice(market, "monthlyCare"))} {t("billing.perMonth")}
             </div>
           </div>
-          <a href="mailto:support@milogrowth.com?subject=Monthly%20Care">
-            <Button variant="outline" size="sm">
+          <Button asChild variant="outline" size="sm">
+            <a href="mailto:support@milogrowth.com?subject=Monthly%20Care">
               {t("billing.contactSupport")}
-            </Button>
-          </a>
+            </a>
+          </Button>
         </div>
         <div className="rounded-xl border border-[#d9c394] bg-[#faf6ec] p-5">
           <div className="flex items-start gap-3">
@@ -469,11 +469,11 @@ function BillingPage() {
               </p>
             </div>
           </div>
-          <a href="mailto:support@milogrowth.com?subject=Backlinks%20add-on">
-            <Button className="mt-4 w-full" variant="outline" size="sm">
+          <Button asChild className="mt-4 w-full" variant="outline" size="sm">
+            <a href="mailto:support@milogrowth.com?subject=Backlinks%20add-on">
               {t("billingScreen.reviewAddon")}
-            </Button>
-          </a>
+            </a>
+          </Button>
         </div>
       </div>
 

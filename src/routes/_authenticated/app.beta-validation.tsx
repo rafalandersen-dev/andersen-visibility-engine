@@ -205,11 +205,9 @@ function BetaValidationPage() {
         <div className="mt-6 rounded-lg border border-border bg-card p-8 text-center">
           <Lock className="mx-auto h-5 w-5 text-muted-foreground" />
           <p className="mt-3 text-sm text-muted-foreground">{t("betaScreen.ownerOnly")}</p>
-          <Link to="/app">
-            <Button className="mt-4" variant="outline">
-              {t("betaScreen.back")}
-            </Button>
-          </Link>
+          <Button asChild className="mt-4" variant="outline">
+            <Link to="/app">{t("betaScreen.back")}</Link>
+          </Button>
         </div>
       </AppShell>
     );
@@ -289,9 +287,11 @@ function BetaValidationPage() {
       title={t("betaScreen.pageTitle")}
       description={t("betaScreen.pageDescription")}
       actions={
-        <a href="/demo-script" target="_blank" rel="noreferrer">
-          <Button variant="outline">{t("betaScreen.publicDemo")}</Button>
-        </a>
+        <Button asChild variant="outline">
+          <a href="/demo-script" target="_blank" rel="noreferrer">
+            {t("betaScreen.publicDemo")}
+          </a>
+        </Button>
       }
     >
       <p className="mb-4 text-xs text-muted-foreground">{t("betaScreen.languageNote")}</p>

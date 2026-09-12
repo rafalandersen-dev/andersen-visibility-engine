@@ -8,7 +8,10 @@ export const Route = createFileRoute("/_authenticated/app/beta-notes")({
   head: () => ({
     meta: [
       { title: "Beta notes — Milo Growth" },
-      { name: "description", content: "Current beta limitations and what to confirm before wider self-service launch." },
+      {
+        name: "description",
+        content: "Current beta limitations and what to confirm before wider self-service launch.",
+      },
     ],
   }),
   component: BetaNotesPage,
@@ -25,7 +28,12 @@ const LIMITATION_KEYS = [
   "beta.limit.images",
 ];
 
-const DEMO_SAFE_KEYS = ["beta.demo.rankings", "beta.demo.payments", "beta.demo.connectors", "beta.demo.data"];
+const DEMO_SAFE_KEYS = [
+  "beta.demo.rankings",
+  "beta.demo.payments",
+  "beta.demo.connectors",
+  "beta.demo.data",
+];
 
 function BetaNotesPage() {
   const t = useT();
@@ -39,7 +47,9 @@ function BetaNotesPage() {
       <section className="mt-8 rounded-lg border border-border bg-card">
         <div className="px-5 py-3 border-b border-border flex items-center gap-2">
           <ListChecks className="h-3.5 w-3.5 text-accent" />
-          <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">{t("beta.limitsTitle")}</span>
+          <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+            {t("beta.limitsTitle")}
+          </span>
         </div>
         <ul className="divide-y divide-border">
           {LIMITATION_KEYS.map((k) => (
@@ -49,13 +59,17 @@ function BetaNotesPage() {
             </li>
           ))}
         </ul>
-        <div className="px-5 py-3 border-t border-border text-xs text-muted-foreground">{t("beta.reassure")}</div>
+        <div className="px-5 py-3 border-t border-border text-xs text-muted-foreground">
+          {t("beta.reassure")}
+        </div>
       </section>
 
       <section className="mt-6 rounded-lg border border-border bg-card">
         <div className="px-5 py-3 border-b border-border flex items-center gap-2">
           <ShieldCheck className="h-3.5 w-3.5 text-accent" />
-          <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">{t("beta.demoSafeTitle")}</span>
+          <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+            {t("beta.demoSafeTitle")}
+          </span>
         </div>
         <ul className="divide-y divide-border">
           {DEMO_SAFE_KEYS.map((k) => (
@@ -68,12 +82,14 @@ function BetaNotesPage() {
       </section>
 
       <div className="mt-8 flex flex-wrap gap-2">
-        <Link to="/app/launch-checklist">
-          <Button variant="outline">{t("beta.backToChecklist")}</Button>
-        </Link>
-        <a href="/demo-script" target="_blank" rel="noreferrer">
-          <Button variant="ghost">{t("beta.openDemoScript")}</Button>
-        </a>
+        <Button asChild variant="outline">
+          <Link to="/app/launch-checklist">{t("beta.backToChecklist")}</Link>
+        </Button>
+        <Button asChild variant="ghost">
+          <a href="/demo-script" target="_blank" rel="noreferrer">
+            {t("beta.openDemoScript")}
+          </a>
+        </Button>
       </div>
     </AppShell>
   );

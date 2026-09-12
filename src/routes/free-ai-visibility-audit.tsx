@@ -127,14 +127,12 @@ function PublicAuditPage() {
             </span>
           </Link>
           <div className="flex items-center gap-2">
-            <Link to="/">
-              <Button variant="ghost" size="sm">
-                Home
-              </Button>
-            </Link>
-            <Link to="/auth">
-              <Button size="sm">Get started</Button>
-            </Link>
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/">Home</Link>
+            </Button>
+            <Button asChild size="sm">
+              <Link to="/auth">Get started</Link>
+            </Button>
           </div>
         </div>
       </header>

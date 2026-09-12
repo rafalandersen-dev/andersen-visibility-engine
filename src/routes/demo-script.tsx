@@ -96,12 +96,12 @@ function DemoScriptPage() {
         </div>
 
         <div className="mt-8 flex flex-wrap gap-2">
-          <Link to="/free-ai-visibility-audit">
-            <Button>{t("publicBeta.startWithTheFreeAudit")}</Button>
-          </Link>
-          <Link to="/beta">
-            <Button variant="outline">{t("publicBeta.seeTheBetaOffer")}</Button>
-          </Link>
+          <Button asChild>
+            <Link to="/free-ai-visibility-audit">{t("publicBeta.startWithTheFreeAudit")}</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/beta">{t("publicBeta.seeTheBetaOffer")}</Link>
+          </Button>
         </div>
 
         <p className="mt-6 text-xs text-muted-foreground">
