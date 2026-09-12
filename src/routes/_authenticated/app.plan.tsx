@@ -804,6 +804,9 @@ function ScheduleDropDialog({
   const title = intent.asset?.title ?? intent.opportunity?.title ?? "";
   const day = formatDate(intent.date, locale);
   const validTime = Boolean(parseDateTimeLocalInput(time));
+  const invalidTime = time !== "" && !validTime;
+  // A cleared field is editable; only an actually exhausted day has no slot.
+  const dayUnavailable = time === "" && defaultGoLiveLocal(intent.date) === null;
   const canArm = Boolean(intent.asset) && validTime && (readiness.ready || reschedule);
   return (
     <Dialog open onOpenChange={(open) => (!open ? onClose() : undefined)}>
@@ -833,7 +836,7 @@ function ScheduleDropDialog({
         ) : null}
 
         {(readiness.ready || reschedule) && intent.asset ? (
-          time === "" ? (
+          dayUnavailable ? (
             <p className="text-xs text-amber-700">{t("calsched.pastDay")}</p>
           ) : (
             <div>
@@ -843,13 +846,13 @@ function ScheduleDropDialog({
               <Input
                 id="calendar-go-live-time"
                 type="datetime-local"
-                aria-invalid={!validTime}
-                aria-describedby={!validTime ? "calendar-go-live-error" : undefined}
+                aria-invalid={invalidTime}
+                aria-describedby={invalidTime ? "calendar-go-live-error" : undefined}
                 className="mt-1 h-9 w-60 text-sm"
                 value={time}
                 onChange={(event) => onTime(event.target.value)}
               />
-              {!validTime ? (
+              {invalidTime ? (
                 <p
                   id="calendar-go-live-error"
                   role="alert"
