@@ -100,3 +100,5 @@ Czech links, marketplace and backlink monitoring adds 256 messages: partial cove
 Czech publication, AI-answer and log evidence adds 196 messages: partial coverage is 3,423/3,768 and the UI authoring backlog is 45,561 messages at this English baseline. Activation and quality acceptance remain open.
 
 Czech final workflow adds 345 messages, completing 3,768/3,768 current composed-English keys across 28 batches. Current authoring status is four active full catalogs, eight complete staged catalogs and twelve absent UI catalogs; the remaining UI authoring backlog is 45,216 messages at this baseline. Full Czech key equality and 40 focused tests pass. This is authoring completion only: fluent-language, rendered-interface and activation acceptance remain open.
+
+Slovak authoring begins with 72 authentication/shared-control messages (English baseline e72328d). Current UI authoring is four active full catalogs, eight complete staged catalogs, one partial Slovak catalog and eleven absent catalogs; the unfilled-key backlog is 45,144. Slovak activation and quality acceptance remain open. See SLOVAK_AUTHORING_PROGRESS_2026_09_12.md.

@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Slovak staged authoring begins at 72/3,768 keys: authentication (42) and shared controls (30), sourced from e72328d. All 13 Slovak/catalog tests, types, scoped lint and whitespace pass. Recovery eligibility remains conditional; no account existence or live behavior is inferred. Slovak stays outside runtime/language picker; 3,696 messages plus quality/rendered acceptance remain. See SLOVAK_AUTHORING_PROGRESS_2026_09_12.md. Next: core. No account, password, email or provider operation occurred; full roadmap/release gates remain open.
+
 Knowledge eligibility browser evidence at f475095: strengthened positive review facts/source/version context and added forgotten/ineligible plus failed-history cases. All eight Czech browser groups pass; no application change required. Source controls already disable mutations under parent loading/failure or non-ok observation state. Temporary local server stopped. See KNOWLEDGE_REVIEW_ELIGIBILITY_BROWSER_2026_09_12.md. Local fixture evidence does not close backend, full-page, real-role or release acceptance.
 
 Knowledge impact freshness UI: retained source-impact results and review controls are now hidden while a reload is pending or failed, preventing a stale no-issues result from appearing current. Existing request-order protection and server checks remain intact. Five focused panel/inspection tests, types, scoped lint and whitespace pass. See KNOWLEDGE_IMPACT_FRESHNESS_UI_2026_09_12.md. No backend mutation or deployment occurred; full real-use and release gates remain open.
