@@ -1,3 +1,4 @@
+import { slMeasurements } from "./sl-measurements";
 import { slTechnical } from "./sl-technical";
 import { slKnowledge } from "./sl-knowledge";
 import { slCollaboration } from "./sl-collaboration";
@@ -21,6 +22,13 @@ import { slAuthScreen } from "./sl-auth-screen";
 import { slSharedUi } from "./sl-shared-ui";
 /** Slovenian authoring; never imported by the runtime catalog. */
 export const SL_STAGED_BATCHES = [
+  {
+    name: "measurements",
+    copy: slMeasurements,
+    namespaces: ["analytics", "gsc", "report"],
+    sourceRevision: "324d5f5",
+    sourceHash: "216126da773525ef913fe7e10a4db7af57539ea07dae497fd349051da3088395",
+  },
   {
     name: "technical",
     copy: slTechnical,
