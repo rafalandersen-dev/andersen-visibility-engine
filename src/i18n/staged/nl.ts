@@ -1,3 +1,4 @@
+import { nlCollaboration } from "./nl-collaboration";
 import { nlConfiguration } from "./nl-configuration";
 import { nlPublicBeta } from "./nl-public-beta";
 import { nlBetaGuide } from "./nl-beta-guide";
@@ -19,6 +20,13 @@ import { nlSharedUi } from "./nl-shared-ui";
 
 /** Partial Dutch authoring; never imported by the runtime catalog. */
 export const NL_STAGED_BATCHES = [
+  {
+    name: "collaboration",
+    copy: nlCollaboration,
+    namespaces: ["collaboration", "team", "notifications", "awareness", "emailSettings"],
+    sourceRevision: "6759e9e",
+    sourceHash: "429e59f16a866242f25a373ebd6b52332ae3f04534230101422ebab727f77ed0",
+  },
   {
     name: "configuration",
     copy: nlConfiguration,

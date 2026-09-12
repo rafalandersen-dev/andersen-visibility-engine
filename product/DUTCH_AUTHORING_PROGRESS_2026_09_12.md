@@ -1,6 +1,6 @@
 # Dutch interface authoring — 12 September 2026
 
-R20 requires full EU-language coverage. Dutch authoring has begun with 1,488 of the current 3,768 English interface messages (2,280 remain). This is a partial staged catalog; Dutch is not registered in UI_CATALOGS or the language picker.
+R20 requires full EU-language coverage. Dutch authoring has begun with 1,736 of the current 3,768 English interface messages (2,032 remain). This is a partial staged catalog; Dutch is not registered in UI_CATALOGS or the language picker.
 
 ## Completed authoring batches
 
@@ -15,6 +15,7 @@ R20 requires full EU-language coverage. Dutch authoring has begun with 1,488 of 
 | Evidence screens | 89 | src/i18n/staged/nl-evidence-screen.ts |
 | Plan screen | 113 | src/i18n/staged/nl-plan-screen.ts |
 | Editor screen | 148 | src/i18n/staged/nl-editor-screen.ts |
+| Collaboration, team and notifications | 248 | src/i18n/staged/nl-collaboration.ts |
 | Configuration and connections | 220 | src/i18n/staged/nl-configuration.ts |
 | Public beta | 100 | src/i18n/staged/nl-public-beta.ts |
 | Beta guidance | 125 | src/i18n/staged/nl-beta-guide.ts |
@@ -114,3 +115,10 @@ All twenty-eight Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch
 At 053f237, authored all 220 messages in brand/wp/shopify/claude/connect/connections/coverage from the composed English catalog. Read, write and proposal permissions remain distinct; proposal self-approval/publication prohibitions and credential replacement guidance are preserved. Coverage copy distinguishes owner/source statements from verified live listings, hreflang, page presence and rankings. The 2 000-character limit retains the source value with space grouping.
 
 Source assertions about brand-rule prevention, credential storage/logging, immediate revocation and Shopify administration instructions require behavior/documentation review before activation; translation is not evidence of those guarantees. No actual credential, authorization or connector operation was performed. All twenty-nine Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-configuration-types.log), scoped lint and whitespace checks. Total staged coverage is 1,488; 2,280 messages remain. Collaboration is next; fluent/rendered and full real-use acceptance remain open.
+
+
+## Collaboration follow-up
+
+At 6759e9e, authored all 248 collaboration/team/notifications/awareness/emailSettings messages. Invitation creation remains separate from emailing and access acceptance; owner assignment and recipient consent remain separate requirements. Exact-version approvals, withdrawal after edits/policy changes, recovery uncertainty, historical records and provider acceptance versus delivery are preserved. Team role cards retain their dated-evidence limits and do not establish active agents, causal outcomes or observed AI tracking.
+
+All thirty Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-collaboration-types.log), scoped lint and whitespace checks. Total staged coverage is 1,736; 2,032 messages remain. Knowledge is next. Source lifecycle/notification assertions still require real-use acceptance; this authoring neither sends email nor changes permissions or approval state. Runtime activation and fluent/rendered acceptance remain open.
