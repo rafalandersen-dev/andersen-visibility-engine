@@ -1,6 +1,6 @@
 # Czech interface authoring — 12 September 2026
 
-Czech is staged only: 2,971 of the current 3,768 English interface keys, across twenty-five complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI retain their separate staged acceptance status.
+Czech is staged only: 3,227 of the current 3,768 English interface keys, across twenty-six complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI retain their separate staged acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -29,14 +29,15 @@ Czech is staged only: 2,971 of the current 3,768 English interface keys, across 
 | Outreach, opening hooks and image placement | 158 | 55a361d |
 | Authority opportunities, public audit and action proposals | 201 | eb5ac28 |
 | Billing, launch checklist and beta limits | 192 | 022a117 |
+| Links, marketplace and backlink monitoring | 256 | 10d8429 |
 
-The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 36 Czech/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-czech-commerce-types.log.
+The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 37 Czech/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-czech-links-types.log.
 
 Terminology: pracovní prostor (workspace), projekt, heslo (password), obnovení hesla (password recovery), postranní panel (sidebar), archivovat (archive). Prefer direct formal-plural instructions; use schválit for approval, potvrdit for confirmation, ověřit for verification and zkontrolovat for review. Product/provider names and placeholders remain intact.
 
 Recovery text preserves conditional account eligibility and does not confirm that an account exists. Source claims about monthly planning and successful sign-in after password update retain their implementation/acceptance obligations; translation does not prove them. No email, authentication, password or provider operation occurred.
 
-Remaining: 797 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next complete batch: links, using current composed English. This initial Czech batch does not complete R20 or alter release gates.
+Remaining: 541 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next complete batch: evidence, using current composed English. This initial Czech batch does not complete R20 or alter release gates.
 
 Core review: Plán, Obsah, Viditelnost and Nastavení label the main navigation areas. Work target dates remain distinct from publication times; Naplánováno denotes planned work, while Čas zveřejnění nastaven denotes a publication schedule. Odesláno na web does not mean Zveřejněno. Partial setup success remains separate from completion, and application language, content language and market stay separate settings. Inherited generation/setup claims are translated without proving live behavior. No onboarding, generation, schedule or billing operation occurred.
 
@@ -75,3 +76,5 @@ Outreach review: exact recipient/content approval, separate follow-up review, pr
 Growth review: authority ideas are suggestions without guaranteed links/rankings/traffic/revenue. Public audit readiness and homepage-derived approximations stay distinct from live ranking evidence. Approval applies eligible proposed fields immediately, preserves setup-complete status, and skips duplicates/over-limit items; connector proposals do not grant Claude approval authority. Inherited live-signal labels, audit claims and error/no-change guarantees retain implementation acceptance obligations. No audit, generation, outreach or proposal application occurred.
 
 Commerce review: Stripe test checkout has no real charge or plan change; manual beta/comped activation is distinct from payment confirmation. Billing-country eligibility is separate from public language/region. Checklist completion does not prove paid-launch readiness, a connector access test does not prove publication permission, and supplied CSV/API declarations do not independently verify OAuth/provenance. Live connector, image-transfer and payment lifecycle acceptance stay open. No checkout, payment, manual activation, connector test or publication occurred.
+
+Links review: provider-index samples, AI estimates and first/last-seen timestamps are distinct from complete inventories and actual placement dates. Marketplace demo requests create no provider order/payment; live orders require exact-total approval, sponsorship disclosure and reconciliation of uncertain outcomes. Recurring caps do not add funds, missed runs are skipped, and already admitted collection may complete with reserved cost after pause. Decimal USD literals remain exact source values pending formatting acceptance. Inherited network-verification and provider-readiness claims retain implementation/live acceptance obligations. No network listing, provider collection, monitoring activation, outreach or purchase occurred.

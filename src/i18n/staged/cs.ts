@@ -1,3 +1,4 @@
+import { csLinks } from "./cs-links";
 import { csCommerce } from "./cs-commerce";
 import { csGrowth } from "./cs-growth";
 import { csOutreach } from "./cs-outreach";
@@ -25,6 +26,20 @@ import { csAuthScreen } from "./cs-auth-screen";
 import { csSharedUi } from "./cs-shared-ui";
 /** Czech authoring; never imported by the runtime catalog. */
 export const CS_STAGED_BATCHES = [
+  {
+    name: "links",
+    copy: csLinks,
+    namespaces: [
+      "linknet",
+      "backlinks",
+      "marketplace",
+      "backlinkMonitor",
+      "backlinkDetails",
+      "backlinkRecurring",
+    ],
+    sourceRevision: "10d8429",
+    sourceHash: "7b8c4cfd6fb08b518e7e0eb7fd53e767b72972a0048a75521eda0d4b9ebd40d7",
+  },
   {
     name: "commerce",
     copy: csCommerce,
