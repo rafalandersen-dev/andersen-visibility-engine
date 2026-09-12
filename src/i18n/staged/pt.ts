@@ -1,3 +1,4 @@
+import { ptCommerce } from "./pt-commerce";
 import { ptGrowth } from "./pt-growth";
 import { ptOutreach } from "./pt-outreach";
 import { ptMeasurements } from "./pt-measurements";
@@ -203,6 +204,13 @@ export const PT_STAGED_BATCHES = [
     namespaces: ["authority", "actions", "publicAudit"],
     sourceRevision: "7d5eaa8",
     sourceHash: "79460ac604f31155136687fbf43e146ccd11625f12316625da192cdb8188f136",
+  },
+  {
+    name: "commerce",
+    copy: ptCommerce,
+    namespaces: ["billing", "launch", "beta"],
+    sourceRevision: "672692c",
+    sourceHash: "6cd0596e8ff09ae38f9decb763ab31a3fe2c311109c9b5f85edc9721d7058ff2",
   },
 ] as const;
 export const PT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.assign(
