@@ -1,6 +1,6 @@
 # Slovenian interface authoring — 12 September 2026
 
-Slovenian is staged only: 1,168 of the current 3,768 English interface keys across sixteen complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK retain separate complete staged authoring and incomplete acceptance status.
+Slovenian is staged only: 1,268 of the current 3,768 English interface keys across seventeen complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK retain separate complete staged authoring and incomplete acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -20,14 +20,15 @@ Slovenian is staged only: 1,168 of the current 3,768 English interface keys acro
 | Public home | 100 | f1846ab |
 | Beta screen | 88 | 63e1a10 |
 | Beta guidance | 125 | 75198c7 |
+| Public beta | 100 | 6a24f17 |
 
-The frozen staged registry assigns every key once. Namespace tests verify exact keys, nonempty values, current composed-English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 27 Slovenian/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovenian-beta-guide-types.log.
+The frozen staged registry assigns every key once. Namespace tests verify exact keys, nonempty values, current composed-English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 28 Slovenian/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovenian-public-beta-types.log.
 
 Terminology: delovni prostor (workspace), projekt, geslo (password), ponastavitev gesla (password reset), stranska vrstica (sidebar), vpis (network listing), paket (subscription plan), načrt (workflow plan), vsebinska izhodišča (content brief). Use polite plural explanatory instructions and concise action labels. Preserve provider/product names and placeholders.
 
 Recovery text retains conditional eligibility without confirming account existence. Marketing and successful sign-in source claims retain their implementation and real-use acceptance obligations. No authentication, email, account, credential or provider action occurred.
 
-Remaining: 2,600 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: public beta using current composed English. This staged work does not complete R20 or change release gates.
+Remaining: 2,500 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: configuration using current composed English. This staged work does not complete R20 or change release gates.
 
 Core copy preserves interface versus content language, saved setup versus incomplete generation, work target dates versus publication times, and sent drafts versus published pages. Navigation uses Načrt, Vsebina, Vidnost, Nastavitve and Analitika. Subscription plans remain paket; workflow plans use načrt. In-review status is V pregledu; scheduled publication is Čas objave nastavljen. No generation, onboarding, schedule or publication operation occurred.
 
@@ -48,3 +49,5 @@ Public home copy preserves missing-data semantics, separate publication prerequi
 Beta-screen copy preserves owner-only sales guidance, separate outreach language and unchanged CSV semantics. Sales discovery uses ugotavljanje potreb, distinct from product odkrivanje. Prospect labels describe recorded stages without creating evidence of contact or acceptance. Validation counts remain source targets. No outreach, recruitment, provider action or CSV data change occurred.
 
 Beta guidance retains prospect/demo counts as validation targets, separates demonstrations from real-use verification and preserves authorization/cost checks for audits, generation and outreach. Manual billing status does not prove payment; payment and supplier acceptance remain open. Copying a template does not send it. No prospect contact, audit, demo, generation, payment or provider operation occurred.
+
+Public beta preserves pilot availability/scope, one-time versus monthly prices, payment holds and incomplete per-site connector/measurement acceptance. Demo data stays distinct from growth evidence. The current four-language page statement matches the active source baseline but must be reconciled during additional-language activation. No audit, application, email, payment or provider operation occurred.
