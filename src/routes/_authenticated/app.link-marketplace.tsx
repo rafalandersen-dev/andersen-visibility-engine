@@ -232,12 +232,21 @@ function LinkMarketplacePage() {
                 quoteReady={integration.mode === "demo" || integration.signingReady}
                 onRequest={() => prepareQuote(offer)}
                 t={t}
+                locale={appLanguage}
               />
             ))}
           </div>
         </TabsContent>
         <TabsContent value="orders" className="mt-5">
-          {orders.length ? <div className="space-y-3">{orders.map((order) => <OrderCard key={order.id} order={order} t={t} />)}</div> : <EmptyOrders t={t} />}
+          {orders.length ? (
+            <div className="space-y-3">
+              {orders.map((order) => (
+                <OrderCard key={order.id} order={order} t={t} locale={appLanguage} />
+              ))}
+            </div>
+          ) : (
+            <EmptyOrders t={t} />
+          )}
         </TabsContent>
       </Tabs>
 
@@ -257,7 +266,12 @@ function LinkMarketplacePage() {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                {t("marketplace.quoteExpires", { time: new Date(quote.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) })}
+                {t("marketplace.quoteExpires", {
+                  time: new Date(quote.expiresAt).toLocaleTimeString(appLanguage, {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  }),
+                })}
               </p>
               <label className="flex items-start gap-3 text-sm">
                 <Checkbox checked={acknowledgedSponsored} onCheckedChange={(checked) => setAcknowledgedSponsored(checked === true)} />
@@ -297,7 +311,23 @@ function LinkMarketplacePage() {
 
 type Translate = (key: string, vars?: Record<string, string | number>) => string;
 
-function OfferCard({ offer, requested, loading, quoteReady, onRequest, t }: { offer: LinkMarketplaceMatch; requested: boolean; loading: boolean; quoteReady: boolean; onRequest: () => void; t: Translate }) {
+function OfferCard({
+  offer,
+  requested,
+  loading,
+  quoteReady,
+  onRequest,
+  t,
+  locale,
+}: {
+  offer: LinkMarketplaceMatch;
+  requested: boolean;
+  loading: boolean;
+  quoteReady: boolean;
+  onRequest: () => void;
+  t: Translate;
+  locale: string;
+}) {
   return (
     <article className="rounded-lg border border-border bg-card p-5">
       <div className="flex items-start justify-between gap-3">
@@ -313,7 +343,10 @@ function OfferCard({ offer, requested, loading, quoteReady, onRequest, t }: { of
       </div>
       <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
         <Metric label={t("marketplace.rank")} value={String(offer.domainRank)} />
-        <Metric label={t("marketplace.traffic")} value={offer.estimatedMonthlyTraffic.toLocaleString()} />
+        <Metric
+          label={t("marketplace.traffic")}
+          value={offer.estimatedMonthlyTraffic.toLocaleString(locale)}
+        />
         <Metric label={t("marketplace.turnaround")} value={t("marketplace.days", { count: offer.turnaroundDays })} />
       </div>
       <div className="mt-5 flex items-end justify-between gap-3">
@@ -335,7 +368,15 @@ function Metric({ label, value }: { label: string; value: string }) {
   return <div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p><p className="mt-0.5 font-medium">{value}</p></div>;
 }
 
-function OrderCard({ order, t }: { order: LinkMarketplaceOrder; t: Translate }) {
+function OrderCard({
+  order,
+  t,
+  locale,
+}: {
+  order: LinkMarketplaceOrder;
+  t: Translate;
+  locale: string;
+}) {
   return (
     <article className="rounded-lg border border-border bg-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -346,7 +387,10 @@ function OrderCard({ order, t }: { order: LinkMarketplaceOrder; t: Translate }) 
         <div className="mt-4 grid gap-2 border-t border-border pt-3 text-xs text-muted-foreground sm:grid-cols-3">
           <span>{t("marketplace.basePrice")}: €{order.basePrice.toFixed(2)}</span>
           <span>{t("marketplace.serviceFee", { count: order.marginPercent ?? 0 })}: €{order.serviceFee.toFixed(2)}</span>
-          <span>{t("marketplace.confirmedAt")}: {order.confirmedAt ? new Date(order.confirmedAt).toLocaleString() : "—"}</span>
+          <span>
+            {t("marketplace.confirmedAt")}:{" "}
+            {order.confirmedAt ? new Date(order.confirmedAt).toLocaleString(locale) : "—"}
+          </span>
         </div>
       ) : null}
       {order.events?.length ? (

@@ -13,7 +13,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ArticleImageThumbnail } from "@/components/ArticleImageThumbnail";
-import { useT } from "@/i18n";
+import { useAppLanguage, useT } from "@/i18n";
 import { useStore, reloadWorkspaceForUser, saveWorkspaceNow, setActiveProject } from "@/lib/store";
 import {
   getGenerationImageDownloadFn,
@@ -31,6 +31,7 @@ export function GenerationResultsPanel({
   userId: string;
   projectId?: string;
 }) {
+  const locale = useAppLanguage();
   const t = useT(),
     navigate = useNavigate(),
     projects = useStore((s) => s.projects);
@@ -198,7 +199,9 @@ export function GenerationResultsPanel({
             <article key={item.id} className="rounded-xl border border-border bg-card p-4">
               <div className="mb-2 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
                 <span>{t(`generationResults.${item.kind}`)}</span>
-                <time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString()}</time>
+                <time dateTime={item.createdAt}>
+                  {new Date(item.createdAt).toLocaleString(locale)}
+                </time>
               </div>
               <h2 className="break-words font-medium">{item.title}</h2>
               <p className="mt-1 text-xs text-muted-foreground">

@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select";
 import { useStore, reloadWorkspaceForUser } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
-import { useT } from "@/i18n";
+import { useAppLanguage, useT } from "@/i18n";
 import type { Opportunity, PendingAction, PendingActionStatus, Project } from "@/lib/types";
 import {
   filterPendingActions,
@@ -148,6 +148,7 @@ function PendingActionCard(props: {
 }) {
   const t = useT();
   const { user } = useAuth();
+  const locale = useAppLanguage();
   const { action, nowMs, projectName, opportunities, projects, expanded, onToggle } = props;
   const status = effectivePendingStatus(action, nowMs);
   const isSetup = action.type === "project_setup_proposal";
@@ -166,7 +167,7 @@ function PendingActionCard(props: {
   // The setup target project must exist to apply — block Approve (keep Reject)
   // when it is gone, rather than encourage an apply the server will reject.
   const setupTargetMissing = isSetup && !projects.some((p) => p.id === action.projectId);
-  const date = (iso?: string) => (iso ? new Date(iso).toLocaleDateString() : "");
+  const date = (iso?: string) => (iso ? new Date(iso).toLocaleDateString(locale) : "");
   const canResolve = canResolvePendingAction(action, nowMs);
   const [busy, setBusy] = useState<"approve_apply" | "reject" | null>(null);
   const [note, setNote] = useState("");

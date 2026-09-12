@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { OutreachDraftCard } from "@/components/outreach/OutreachDraftCard";
-import { useT } from "@/i18n";
+import { useAppLanguage, useT } from "@/i18n";
 import { generateOutreachDraft } from "@/lib/mock-ai";
 import {
   cancelOutreachReservationFn,
@@ -30,6 +30,7 @@ export const Route = createFileRoute("/_authenticated/app/outreach")({
 
 function OutreachPage() {
   const t = useT();
+  const locale = useAppLanguage();
   const navigate = useNavigate();
   const userId = useStore((state) => state.userId);
   const activeProjectId = useStore((state) => state.activeProjectId);
@@ -210,6 +211,7 @@ function OutreachPage() {
         refresh={refreshHistory}
         cancel={cancelReservation}
         t={t}
+        locale={locale}
       />
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.8fr)]">
         <section>
@@ -229,6 +231,7 @@ function OutreachPage() {
                     receipts={receipts}
                     refreshHistory={refreshHistory}
                     t={t}
+                    locale={locale}
                   />
                 ))}
             </div>

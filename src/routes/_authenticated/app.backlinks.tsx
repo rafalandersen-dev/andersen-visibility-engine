@@ -5,7 +5,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store";
-import { useT } from "@/i18n";
+import { useAppLanguage, useT } from "@/i18n";
 import { resolveBacklinkCompetitors } from "@/lib/backlinks";
 import {
   getBacklinksStatus,
@@ -70,6 +70,7 @@ const CATEGORY_KEY: Record<BacklinkRecommendationCategory, string> = {
 function BacklinksPage() {
   const navigate = useNavigate();
   const t = useT();
+  const locale = useAppLanguage();
   const activeProjectId = useStore((s) => s.activeProjectId);
   const project = useStore((s) => s.projects.find((p) => p.id === s.activeProjectId));
   const analysis = useStore((s) =>
@@ -234,6 +235,7 @@ function BacklinksPage() {
           convertTop={convertTop}
           convertingTop={convertingTop}
           t={t}
+          locale={locale}
         />
       )}
       {project ? (
@@ -369,6 +371,7 @@ export function AnalysisView({
   convertTop,
   convertingTop,
   t,
+  locale,
 }: {
   analysis: BacklinkAnalysisResult;
   projectId: string;
@@ -376,6 +379,7 @@ export function AnalysisView({
   convertTop: () => void;
   convertingTop: boolean;
   t: Translate;
+  locale: string;
 }) {
   const remainingTop = analysis.recommendations.filter(
     (r) =>
@@ -461,6 +465,7 @@ export function AnalysisView({
             <tbody>
               <ProfileRow
                 summary={analysis.own}
+                locale={locale}
                 you
                 legacy={analysis.evidenceVersion !== 1}
                 youLabel={t("backlinks.you")}
@@ -471,6 +476,7 @@ export function AnalysisView({
                 <ProfileRow
                   key={c.target}
                   summary={c}
+                  locale={locale}
                   legacy={analysis.evidenceVersion !== 1}
                   youLabel={t("backlinks.you")}
                   notFetchedLabel={t("backlinks.table.notFetched")}
@@ -582,6 +588,7 @@ export function AnalysisView({
 
 function ProfileRow({
   summary,
+  locale,
   you = false,
   legacy = false,
   youLabel,
@@ -589,6 +596,7 @@ function ProfileRow({
   partialLabel,
 }: {
   summary: BacklinkTargetSummary;
+  locale: string;
   you?: boolean;
   legacy?: boolean;
   youLabel: string;
@@ -617,9 +625,9 @@ function ProfileRow({
       ) : (
         <>
           <td className="px-4 py-2.5">{summary.rank ?? "—"}</td>
-          <td className="px-4 py-2.5">{summary.backlinks?.toLocaleString() ?? "—"}</td>
-          <td className="px-4 py-2.5">{summary.referringDomains?.toLocaleString() ?? "—"}</td>
-          <td className="px-4 py-2.5">{summary.brokenBacklinks?.toLocaleString() ?? "—"}</td>
+          <td className="px-4 py-2.5">{summary.backlinks?.toLocaleString(locale) ?? "—"}</td>
+          <td className="px-4 py-2.5">{summary.referringDomains?.toLocaleString(locale) ?? "—"}</td>
+          <td className="px-4 py-2.5">{summary.brokenBacklinks?.toLocaleString(locale) ?? "—"}</td>
           <td className="px-4 py-2.5">{summary.spamScore ?? "—"}</td>
         </>
       )}

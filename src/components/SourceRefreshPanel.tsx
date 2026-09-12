@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "./ui/button";
-import { useT } from "@/i18n";
+import { useAppLanguage, useT } from "@/i18n";
 import type { KnowledgeSource } from "@/lib/project-knowledge";
 import type { readSourceRefresh } from "@/lib/source-refresh.server";
 import { compareSourceSnapshots } from "@/lib/source-refresh";
@@ -18,6 +18,7 @@ export function SourceRefreshPanel({
   disabled: boolean;
   change: (action: () => Promise<unknown>) => Promise<void>;
 }) {
+  const locale = useAppLanguage();
   const t = useT();
   const [cooldown, setCooldown] = useState(false);
   const snapshot = state?.snapshot;
@@ -29,12 +30,12 @@ export function SourceRefreshPanel({
       <p className="text-sm">{state ? t(`refresh.${state.status}`) : t("refresh.never")}</p>
       {state && (
         <p className="text-xs">
-          {t("refresh.lastAttempt")}: {new Date(state.lastAttempt).toLocaleString()}
+          {t("refresh.lastAttempt")}: {new Date(state.lastAttempt).toLocaleString(locale)}
         </p>
       )}
       <p className="text-xs">
         {t("refresh.lastSuccess")}:{" "}
-        {snapshot ? new Date(snapshot.observedAt).toLocaleString() : t("refresh.never")}
+        {snapshot ? new Date(snapshot.observedAt).toLocaleString(locale) : t("refresh.never")}
       </p>
       <Button
         type="button"
@@ -98,7 +99,7 @@ export function SourceRefreshPanel({
                 )}
                 {fact.validUntil && (
                   <p className="text-xs">
-                    {t("refresh.validUntil")}: {new Date(fact.validUntil).toLocaleString()}
+                    {t("refresh.validUntil")}: {new Date(fact.validUntil).toLocaleString(locale)}
                   </p>
                 )}
                 {fact.validityUnknown && <p className="text-xs">{t("refresh.validityUnknown")}</p>}
@@ -141,7 +142,7 @@ export function SourceRefreshPanel({
               <summary className="cursor-pointer text-sm">{t("refresh.reviewHistory")}</summary>
               {state.reviewHistory.map((review, index) => (
                 <p key={index} className="text-xs break-words">
-                  {new Date(review.reviewedAt).toLocaleString()} ·{" "}
+                  {new Date(review.reviewedAt).toLocaleString(locale)} ·{" "}
                   {t(review.accepted ? "refresh.accepted" : "refresh.withdraw")} ·{" "}
                   {t("knowledge.ui.version")} {review.revision} ·{" "}
                   {snapshot.facts.find(
@@ -157,7 +158,8 @@ export function SourceRefreshPanel({
               {state.history.map((old) => (
                 <div key={old.revision} className="mt-2 border-t pt-2 text-xs">
                   <p>
-                    {new Date(old.observedAt).toLocaleString()} · {t(`refresh.${old.coverage}`)}
+                    {new Date(old.observedAt).toLocaleString(locale)} ·{" "}
+                    {t(`refresh.${old.coverage}`)}
                   </p>
                   {old.facts.map((fact) => (
                     <p key={fact.key}>{fact.value}</p>

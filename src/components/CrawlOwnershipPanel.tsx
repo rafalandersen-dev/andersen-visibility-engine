@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useCrawlOwnership } from "@/lib/use-crawl-ownership";
-import { useT } from "@/i18n";
+import { useAppLanguage, useT } from "@/i18n";
 import { saveWorkspaceNow } from "@/lib/store";
 import * as api from "@/lib/technical-ownership.functions";
 import { Button } from "./ui/button";
 export function CrawlOwnershipPanel({ owner, projectId }: { owner: string; projectId: string }) {
+  const locale = useAppLanguage();
   const t = useT();
   const proof = useCrawlOwnership(owner, projectId);
   const [busy, setBusy] = useState(false),
@@ -67,7 +68,7 @@ export function CrawlOwnershipPanel({ owner, projectId }: { owner: string; proje
             </>
           )}
           <p className="text-xs text-muted-foreground">
-            {t("crawl.ownershipExpires")} {new Date(saved.expiresAt).toLocaleString()}
+            {t("crawl.ownershipExpires")} {new Date(saved.expiresAt).toLocaleString(locale)}
           </p>
         </>
       ) : null}

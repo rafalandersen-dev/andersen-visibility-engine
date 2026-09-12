@@ -50,6 +50,7 @@ const render = (status: OutreachDraft["status"]) =>
       receipts: [receipt],
       refreshHistory: async () => {},
       t: (key) => key,
+      locale: "en",
     }),
   );
 describe("outreach receipt recovery affordance", () => {
