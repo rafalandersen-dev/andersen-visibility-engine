@@ -9,9 +9,18 @@ import {
   createOpportunityFromVisibilityGap,
   createOpportunitiesFromTopAiActions,
 } from "@/lib/mock-ai";
-import { Radar, Loader2, Plus, Check, AlertTriangle, RefreshCw, MessageSquareQuote } from "lucide-react";
+import {
+  Radar,
+  Loader2,
+  Plus,
+  Check,
+  AlertTriangle,
+  RefreshCw,
+  MessageSquareQuote,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { useT } from "@/i18n";
 
 export const Route = createFileRoute("/_authenticated/app/ai-visibility")({
   head: () => ({
@@ -38,10 +47,13 @@ const CATEGORY_ORDER: AiVisibilityCategory[] = [
 ];
 
 function AiVisibilityPage() {
+  const t = useT();
   const navigate = useNavigate();
   const project = useStore((s) => s.projects.find((p) => p.id === s.activeProjectId));
   const activeProjectId = useStore((s) => s.activeProjectId);
-  const analysis = useStore((s) => s.aiVisibilityAnalyses.find((a) => a.projectId === s.activeProjectId));
+  const analysis = useStore((s) =>
+    s.aiVisibilityAnalyses.find((a) => a.projectId === s.activeProjectId),
+  );
 
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +65,9 @@ function AiVisibilityPage() {
     (analysis?.promptSets ?? []).forEach((p) => {
       map.set(p.category, [...(map.get(p.category) ?? []), p]);
     });
-    return CATEGORY_ORDER.map((c) => [c, map.get(c) ?? []] as const).filter(([, list]) => list.length);
+    return CATEGORY_ORDER.map((c) => [c, map.get(c) ?? []] as const).filter(
+      ([, list]) => list.length,
+    );
   }, [analysis]);
 
   const groupedGaps = useMemo(() => {
@@ -61,7 +75,9 @@ function AiVisibilityPage() {
     (analysis?.visibilityGaps ?? []).forEach((g) => {
       map.set(g.category, [...(map.get(g.category) ?? []), g]);
     });
-    return CATEGORY_ORDER.map((c) => [c, map.get(c) ?? []] as const).filter(([, list]) => list.length);
+    return CATEGORY_ORDER.map((c) => [c, map.get(c) ?? []] as const).filter(
+      ([, list]) => list.length,
+    );
   }, [analysis]);
 
   const remainingTop = useMemo(
@@ -80,9 +96,9 @@ function AiVisibilityPage() {
     setError(null);
     try {
       await runAiVisibilityAnalysis(activeProjectId);
-      toast.success("AI visibility analysis complete");
+      toast.success(t("evidenceScreen.complete"));
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Analysis failed. Please try again.";
+      const msg = e instanceof Error ? e.message : t("evidenceScreen.failed");
       setError(msg);
       toast.error(msg);
     } finally {
@@ -94,9 +110,9 @@ function AiVisibilityPage() {
     setBusyGapId(gapId);
     try {
       await createOpportunityFromVisibilityGap(activeProjectId, gapId);
-      toast.success("Opportunity created");
+      toast.success(t("evidenceScreen.created"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not create opportunity");
+      toast.error(e instanceof Error ? e.message : t("evidenceScreen.createFailed"));
     } finally {
       setBusyGapId(null);
     }
@@ -106,9 +122,9 @@ function AiVisibilityPage() {
     setBulkBusy(true);
     try {
       const opps = await createOpportunitiesFromTopAiActions(activeProjectId);
-      toast.success(`Created ${opps.length} ${opps.length === 1 ? "opportunity" : "opportunities"} from top AI actions`);
+      toast.success(t("evidenceScreen.bulkCreated", { count: opps.length }));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not create opportunities");
+      toast.error(e instanceof Error ? e.message : t("evidenceScreen.bulkFailed"));
     } finally {
       setBulkBusy(false);
     }
@@ -116,19 +132,15 @@ function AiVisibilityPage() {
 
   if (!project) {
     return (
-      <AppShell
-        title="AI Readiness"
-        description="How ready your business is to appear in AI answers — an estimate from your profile, not live AI results."
-      >
+      <AppShell title={t("evidenceScreen.title")} description={t("evidenceScreen.subtitle")}>
         <div className="rounded-lg border border-dashed border-border p-12 text-center">
           <Radar className="mx-auto h-8 w-8 text-gold/70" strokeWidth={1.4} />
-          <div className="mt-3 font-display text-lg">Set up a project first</div>
+          <div className="mt-3 font-display text-lg">{t("evidenceScreen.setupTitle")}</div>
           <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">
-            AI visibility planning works from one business's details. Create a project with your
-            business information first.
+            {t("evidenceScreen.setupHelp")}
           </p>
           <Button className="mt-4" onClick={() => navigate({ to: "/app/setup" })}>
-            Go to Project Setup
+            {t("evidenceScreen.setup")}
           </Button>
         </div>
       </AppShell>
@@ -136,23 +148,18 @@ function AiVisibilityPage() {
   }
 
   return (
-    <AppShell
-      title="AI Visibility"
-      description="Find the AI-search questions your business should be ready to answer."
-    >
+    <AppShell title={t("evidenceScreen.title")} description={t("evidenceScreen.subtitle")}>
       <AnswerEvidencePanel projectId={project.id} />
       {/* Input card */}
       <div className="rounded-lg border border-border bg-card p-5 mb-6">
         <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-          AI visibility analysis
+          {t("evidenceScreen.analysisLabel")}
         </div>
         <p className="mt-2 text-sm text-muted-foreground max-w-2xl">
-          This v1 plans AI-search <span className="text-foreground/80">readiness and prompt opportunities</span> for{" "}
-          <span className="text-foreground/80">{project.businessName || project.name}</span>
-          {project.mainLocation ? ` · ${project.mainLocation}` : ""} — it does <span className="text-foreground/80">not</span>{" "}
-          check live ChatGPT, Perplexity, Gemini or Google AI Overviews rankings. It uses your project
-          details, services and any existing Site Audit, Competitor and Authority analyses to suggest the
-          questions you should be ready to answer and the likely gaps holding you back.
+          {t("evidenceScreen.inputHelp", {
+            business: project.businessName || project.name,
+            location: project.mainLocation ? ` · ${project.mainLocation}` : "",
+          })}
         </p>
         <div className="mt-4 flex justify-end">
           <Button onClick={runAnalysis} disabled={running}>
@@ -163,7 +170,13 @@ function AiVisibilityPage() {
             ) : (
               <Radar className="h-4 w-4" />
             )}
-            {running ? "Analyzing…" : analysis ? "Re-run analysis" : "Run AI visibility analysis"}
+            {t(
+              running
+                ? "evidenceScreen.running"
+                : analysis
+                  ? "evidenceScreen.rerun"
+                  : "evidenceScreen.run",
+            )}
           </Button>
         </div>
       </div>
@@ -172,10 +185,10 @@ function AiVisibilityPage() {
       {error && !running ? (
         <div className="rounded-lg border border-border bg-card p-8 text-center">
           <AlertTriangle className="mx-auto h-7 w-7 text-amber-500" strokeWidth={1.5} />
-          <div className="mt-2 font-display text-lg">Analysis didn’t complete</div>
+          <div className="mt-2 font-display text-lg">{t("evidenceScreen.incomplete")}</div>
           <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">{error}</p>
           <Button className="mt-4" variant="outline" onClick={runAnalysis}>
-            <RefreshCw className="h-4 w-4" /> Try again
+            <RefreshCw className="h-4 w-4" /> {t("evidenceScreen.retry")}
           </Button>
         </div>
       ) : null}
@@ -184,12 +197,9 @@ function AiVisibilityPage() {
       {!analysis && !error ? (
         <div className="rounded-lg border border-dashed border-border p-12 text-center">
           <Radar className="mx-auto h-8 w-8 text-gold/70" strokeWidth={1.4} />
-          <div className="mt-3 font-display text-lg">Run your first AI visibility analysis</div>
+          <div className="mt-3 font-display text-lg">{t("evidenceScreen.first")}</div>
           <p className="mt-1 text-sm text-muted-foreground max-w-lg mx-auto">
-            Milo maps the AI-search questions your business should be a good answer for — discovery,
-            comparison, problem-solving and local prompts — then flags the likely readiness, content and
-            authority gaps that may keep AI assistants from citing you, with actions you can turn into
-            opportunities in one click. This is readiness planning, not live AI rank tracking.
+            {t("evidenceScreen.emptyHelp")}
           </p>
         </div>
       ) : null}
@@ -197,30 +207,45 @@ function AiVisibilityPage() {
       {/* Results */}
       {analysis && !error ? (
         <div className="space-y-8">
-          {/* Persistent honesty disclaimer: this module never queries an AI engine.
-              The scores are readiness ESTIMATES, not measured AI visibility. */}
+          {/* Readiness estimates and recorded answer evidence are distinct sources. */}
           <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-foreground/80">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
             <span>
               {analysis.note ? <>{analysis.note} </> : null}
-              <strong className="font-medium">Estimates, not measurements.</strong> Milo has not
-              queried ChatGPT, Perplexity, Gemini or Google AI Overviews. These readiness scores are
-              inferred from your business profile — they do not mean your business currently appears
-              in AI answers. To see whether people actually arrive from AI tools, check{" "}
-              <strong className="font-medium">AI referral traffic</strong> in Analytics — a measured,
-              referral-only signal (not mentions or citations).
+              <strong className="font-medium">{t("evidenceScreen.estimateTitle")}</strong>{" "}
+              {t("evidenceScreen.estimateHelp")}
             </span>
           </div>
 
+          <p className="text-sm text-muted-foreground">{t("evidenceScreen.score.help")}</p>
           {/* Score cards (readiness estimates) */}
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-            <ScoreCard label="Overall AI Readiness" score={analysis.overallAiVisibilityScore} primary />
-            <ScoreCard label="Prompt Coverage" score={analysis.promptCoverageScore} />
-            <ScoreCard label="Answer Readiness" score={analysis.answerReadinessScore} />
-            <ScoreCard label="Local AI Readiness" score={analysis.localAiReadinessScore} />
-            <ScoreCard label="Trust & Citation" score={analysis.trustCitationScore} />
-            <ScoreCard label="Content Gaps" score={analysis.contentGapScore} />
-            <ScoreCard label="Authority Gaps" score={analysis.authorityGapScore} />
+            <ScoreCard
+              label={t("evidenceScreen.score.overall")}
+              score={analysis.overallAiVisibilityScore}
+              primary
+            />
+            <ScoreCard
+              label={t("evidenceScreen.score.prompts")}
+              score={analysis.promptCoverageScore}
+            />
+            <ScoreCard
+              label={t("evidenceScreen.score.answer")}
+              score={analysis.answerReadinessScore}
+            />
+            <ScoreCard
+              label={t("evidenceScreen.score.local")}
+              score={analysis.localAiReadinessScore}
+            />
+            <ScoreCard
+              label={t("evidenceScreen.score.trust")}
+              score={analysis.trustCitationScore}
+            />
+            <ScoreCard label={t("evidenceScreen.score.content")} score={analysis.contentGapScore} />
+            <ScoreCard
+              label={t("evidenceScreen.score.authority")}
+              score={analysis.authorityGapScore}
+            />
           </div>
 
           {analysis.summary ? (
@@ -232,18 +257,17 @@ function AiVisibilityPage() {
             <section className="space-y-6">
               <div>
                 <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-                  Readiness planning
+                  {t("evidenceScreen.planning")}
                 </div>
-                <h2 className="font-display text-lg">AI-search prompts to be ready for</h2>
+                <h2 className="font-display text-lg">{t("evidenceScreen.promptsTitle")}</h2>
                 <p className="mt-1 text-sm text-muted-foreground max-w-2xl">
-                  Questions people are likely to ask AI assistants. “Readiness” is an estimate of how well
-                  your current content could be cited — not a live AI ranking.
+                  {t("evidenceScreen.promptsHelp")}
                 </p>
               </div>
               {groupedPrompts.map(([category, list]) => (
                 <div key={category}>
                   <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-2">
-                    {category}
+                    {t(`evidenceScreen.category.${category}`)}
                   </div>
                   <div className="grid md:grid-cols-2 gap-3">
                     {list.map((p) => (
@@ -254,12 +278,14 @@ function AiVisibilityPage() {
                         </div>
                         <p className="mt-2 text-xs text-muted-foreground">{p.whyItMatters}</p>
                         <div className="mt-2 text-xs text-muted-foreground">
-                          <span className="text-foreground/70">Source readiness:</span>{" "}
+                          <span className="text-foreground/70">
+                            {t("evidenceScreen.sourceReadiness")}
+                          </span>{" "}
                           {p.recommendedSourcePageOrAsset}
                         </div>
                         <div className="mt-3 flex flex-wrap gap-1.5">
                           <Tag>{p.language}</Tag>
-                          <Tag>{p.intent}</Tag>
+                          <Tag>{t(`planScreen.intent.${p.intent}`)}</Tag>
                           <ReadinessTag readiness={p.readiness} />
                         </div>
                       </article>
@@ -276,13 +302,17 @@ function AiVisibilityPage() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-                    Priority
+                    {t("evidenceScreen.priority")}
                   </div>
-                  <h2 className="font-display text-lg">Top AI visibility actions</h2>
+                  <h2 className="font-display text-lg">{t("evidenceScreen.topActions")}</h2>
                 </div>
                 <Button size="sm" onClick={convertTop} disabled={bulkBusy || remainingTop === 0}>
-                  {bulkBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-                  Create opportunities from top AI actions
+                  {bulkBusy ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Plus className="h-3.5 w-3.5" />
+                  )}
+                  {t("evidenceScreen.createTop")}
                 </Button>
               </div>
               <ul className="mt-4 space-y-2">
@@ -297,7 +327,7 @@ function AiVisibilityPage() {
               </ul>
               {remainingTop === 0 ? (
                 <p className="mt-3 text-xs text-muted-foreground">
-                  All high/medium AI visibility gaps have been turned into opportunities.
+                  {t("evidenceScreen.noneRemaining")}
                 </p>
               ) : null}
             </section>
@@ -308,36 +338,41 @@ function AiVisibilityPage() {
             <section className="space-y-8">
               <div>
                 <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-                  Likely gaps
+                  {t("evidenceScreen.likelyGaps")}
                 </div>
-                <h2 className="font-display text-lg">AI visibility gaps</h2>
+                <h2 className="font-display text-lg">{t("evidenceScreen.gapsTitle")}</h2>
               </div>
               {groupedGaps.map(([category, list]) => (
                 <div key={category}>
                   <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-3">
-                    {category}
+                    {t(`evidenceScreen.category.${category}`)}
                   </div>
                   <div className="grid md:grid-cols-2 gap-4">
                     {list.map((g) => {
                       const converted = analysis.convertedGapIds.includes(g.id);
                       return (
-                        <article key={g.id} className="rounded-lg border border-border bg-card p-5 flex flex-col">
+                        <article
+                          key={g.id}
+                          className="rounded-lg border border-border bg-card p-5 flex flex-col"
+                        >
                           <div className="flex items-start justify-between gap-3">
-                            <h3 className="font-display text-base leading-snug text-foreground">{g.title}</h3>
+                            <h3 className="font-display text-base leading-snug text-foreground">
+                              {g.title}
+                            </h3>
                             <PriorityBadge priority={g.priority} />
                           </div>
                           <p className="mt-2 text-sm text-muted-foreground">{g.explanation}</p>
 
                           <div className="mt-3 rounded-md bg-secondary/40 border border-border p-3 text-sm">
                             <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                              Likely reason
+                              {t("evidenceScreen.reason")}
                             </div>
                             <div className="mt-1 text-foreground/80">{g.likelyReason}</div>
                           </div>
 
                           <div className="mt-3 rounded-md bg-secondary/50 border border-border p-3 text-sm">
                             <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                              Recommendation
+                              {t("evidenceScreen.recommendation")}
                             </div>
                             <div className="mt-1 text-foreground/85">{g.recommendation}</div>
                           </div>
@@ -345,25 +380,37 @@ function AiVisibilityPage() {
                           {g.suggestedPrompt ? (
                             <div className="mt-3 text-sm flex items-start gap-1.5">
                               <MessageSquareQuote className="h-3.5 w-3.5 mt-0.5 text-gold/80 shrink-0" />
-                              <span className="text-foreground/75 italic">“{g.suggestedPrompt}”</span>
+                              <span className="text-foreground/75 italic">
+                                “{g.suggestedPrompt}”
+                              </span>
                             </div>
                           ) : null}
 
                           <div className="mt-3 text-xs text-muted-foreground space-y-1">
                             <div>
-                              <span className="text-foreground/70">Suggested:</span> {g.suggestedOpportunityTitle}
+                              <span className="text-foreground/70">
+                                {t("evidenceScreen.suggested")}
+                              </span>{" "}
+                              {g.suggestedOpportunityTitle}
                             </div>
                             <div className="flex flex-wrap gap-1.5">
-                              <Tag>{g.suggestedContentType}</Tag>
-                              <Tag>{g.suggestedSearchIntent}</Tag>
-                              <Tag tone={g.priority === "High" ? "gold" : "muted"}>{g.priority}</Tag>
+                              <Tag>{t(`evidenceScreen.contentType.${g.suggestedContentType}`)}</Tag>
+                              <Tag>{t(`planScreen.intent.${g.suggestedSearchIntent}`)}</Tag>
+                              <Tag tone={g.priority === "High" ? "gold" : "muted"}>
+                                {t(`planScreen.priority.${g.priority}`)}
+                              </Tag>
                             </div>
                           </div>
 
                           <div className="mt-4 pt-4 border-t border-border">
                             {converted ? (
-                              <Button size="sm" variant="ghost" disabled className="text-muted-foreground">
-                                <Check className="h-3.5 w-3.5" /> Opportunity created
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled
+                                className="text-muted-foreground"
+                              >
+                                <Check className="h-3.5 w-3.5" /> {t("evidenceScreen.created")}
                               </Button>
                             ) : (
                               <Button
@@ -377,7 +424,7 @@ function AiVisibilityPage() {
                                 ) : (
                                   <Plus className="h-3.5 w-3.5" />
                                 )}
-                                Create opportunity
+                                {t("evidenceScreen.create")}
                               </Button>
                             )}
                           </div>
@@ -395,7 +442,7 @@ function AiVisibilityPage() {
               to="/app/plan"
               className="text-sm text-foreground/70 underline underline-offset-4 hover:text-foreground"
             >
-              View opportunities →
+              {t("evidenceScreen.view")}
             </Link>
           </div>
         </div>
@@ -406,20 +453,28 @@ function AiVisibilityPage() {
 
 function ScoreCard({ label, score, primary }: { label: string; score: number; primary?: boolean }) {
   return (
-    <div className={"rounded-lg border bg-card p-4 " + (primary ? "border-accent/40" : "border-border")}>
+    <div
+      className={
+        "rounded-lg border bg-card p-4 " + (primary ? "border-accent/40" : "border-border")
+      }
+    >
       <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
       <div className="mt-1.5 font-display text-3xl text-foreground">
         {score}
         <span className="text-base text-muted-foreground">/100</span>
       </div>
       <div className="mt-2 h-1.5 rounded-full bg-secondary overflow-hidden">
-        <div className="h-full bg-gold/80 transition-all" style={{ width: `${Math.max(0, Math.min(100, score))}%` }} />
+        <div
+          className="h-full bg-gold/80 transition-all"
+          style={{ width: `${Math.max(0, Math.min(100, score))}%` }}
+        />
       </div>
     </div>
   );
 }
 
 function PriorityBadge({ priority }: { priority: "High" | "Medium" | "Low" }) {
+  const t = useT();
   const cls =
     priority === "High"
       ? "bg-accent/30 border-accent/40 text-accent-foreground"
@@ -427,13 +482,16 @@ function PriorityBadge({ priority }: { priority: "High" | "Medium" | "Low" }) {
         ? "bg-secondary border-border text-secondary-foreground"
         : "bg-muted border-border text-muted-foreground";
   return (
-    <span className={`shrink-0 text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full border ${cls}`}>
-      {priority}
+    <span
+      className={`shrink-0 text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full border ${cls}`}
+    >
+      {t(`planScreen.priority.${priority}`)}
     </span>
   );
 }
 
 function ReadinessTag({ readiness }: { readiness: "High" | "Medium" | "Low" }) {
+  const t = useT();
   // Higher readiness = better (gold); lower = needs work (muted).
   const cls =
     readiness === "High"
@@ -442,13 +500,21 @@ function ReadinessTag({ readiness }: { readiness: "High" | "Medium" | "Low" }) {
         ? "bg-secondary border-border text-secondary-foreground"
         : "bg-muted border-border text-muted-foreground";
   return (
-    <span className={`text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full border ${cls}`}>
-      Readiness {readiness}
+    <span
+      className={`text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full border ${cls}`}
+    >
+      {t("evidenceScreen.readiness", { level: t(`planScreen.priority.${readiness}`) })}
     </span>
   );
 }
 
-function Tag({ children, tone = "default" }: { children: React.ReactNode; tone?: "default" | "gold" | "muted" }) {
+function Tag({
+  children,
+  tone = "default",
+}: {
+  children: React.ReactNode;
+  tone?: "default" | "gold" | "muted";
+}) {
   const cls =
     tone === "gold"
       ? "bg-accent/30 border-accent/40 text-accent-foreground"
@@ -456,7 +522,9 @@ function Tag({ children, tone = "default" }: { children: React.ReactNode; tone?:
         ? "bg-muted text-muted-foreground border-border"
         : "bg-secondary border-border text-secondary-foreground";
   return (
-    <span className={`text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full border ${cls}`}>
+    <span
+      className={`text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full border ${cls}`}
+    >
       {children}
     </span>
   );
