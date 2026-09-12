@@ -1,6 +1,6 @@
 # Slovak interface authoring — 12 September 2026
 
-Slovak is staged only: 1,043 of the current 3,768 English interface keys, across fifteen complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS retain separate staged acceptance status.
+Slovak is staged only: 1,168 of the current 3,768 English interface keys, across sixteen complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS retain separate staged acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -19,14 +19,15 @@ Slovak is staged only: 1,043 of the current 3,768 English interface keys, across
 | Public case studies | 30 | c3a04a7 |
 | Public home | 100 | c5c37bb |
 | Beta screen | 88 | 38b917f |
+| Beta guidance | 125 | 6d09db8 |
 
-The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 26 Slovak/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovak-beta-screen-types.log.
+The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 27 Slovak/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovak-beta-guide-types.log.
 
 Terminology: pracovný priestor (workspace), projekt, heslo (password), obnovenie hesla (password recovery), bočný panel (sidebar), archivovať (archive). Prefer formal-plural instructions and infinitive actions. Program denotes a subscription plan; workflow plans use plán. Network listing is zápis. Preserve provider/product names and placeholders.
 
 Recovery text preserves conditional eligibility and does not confirm that an account exists. Source claims about monthly planning and successful sign-in after password update retain implementation/acceptance obligations; translation does not prove them. No email, authentication, password, account or provider operation occurred.
 
-Remaining: 2,725 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next complete batch: beta guidance using current composed English. This staged work does not complete R20 or alter release gates.
+Remaining: 2,600 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next complete batch: public beta using current composed English. This staged work does not complete R20 or alter release gates.
 
 Core copy preserves interface versus content language, work target dates versus publication times, sent drafts versus published pages, and partial-generation recovery. Navigation uses Plán, Obsah, Viditeľnosť, Nastavenia and Analytika; publication scheduling is Čas zverejnenia nastavený. No generation, scheduling or publication occurred. Current source fingerprints are checked against composed English.
 
@@ -45,3 +46,5 @@ Public pricing/studies preserves billing-country eligibility versus interface re
 Public home preserves missing-data semantics, separate publication prerequisites, linked-subscription portal conditions and paid-service holds. The composed hero reads Váš mesačný systém rastu s AI; source component concatenation was checked. Visibility remains Viditeľnosť, case studies Príklady použitia, and the Captured stage is Zachytené for later workflow alignment. Inherited marketing claims still require implementation/product acceptance; authoring is not proof. No provider operation occurred.
 
 Beta-screen copy preserves owner-only sales guidance, separate outreach language and unchanged CSV semantics. Sales discovery uses zisťovanie potrieb, distinct from product hľadanie príležitostí. Prospect labels describe recorded stages without creating evidence of contact or acceptance. Validation counts remain source targets. No outreach, recruitment, provider action or CSV data change occurred.
+
+Beta guidance retains prospect/demo counts as validation targets, separates demonstrations from real-use verification and preserves authorization/cost checks for audits, generation and outreach. Manual billing status does not prove payment; payment and supplier acceptance remain open. Copying a template does not send it. No prospect contact, audit, demo, generation, payment or provider operation occurred.
