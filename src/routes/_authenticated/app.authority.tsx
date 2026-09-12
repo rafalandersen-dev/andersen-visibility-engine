@@ -211,7 +211,7 @@ function AuthorityCard({ item, projectId, t }: { item: AuthorityOpportunity; pro
   async function copyTemplate() {
     const text = item.outreachTemplate || item.outreachNote || "";
     if (!text) return;
-    try { await navigator.clipboard.writeText(text); toast.success(t("authority.copied")); } catch { toast.error("Could not copy"); }
+    try { await navigator.clipboard.writeText(text); toast.success(t("authority.copied")); } catch { toast.error(t("analyticsScreen.copyFailed")); }
   }
 
   async function convert() {

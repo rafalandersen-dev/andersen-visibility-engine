@@ -1,3 +1,4 @@
+import { frSharedUi } from "./fr-shared-ui";
 import { frAnalyticsScreen } from "./fr-analytics-screen";
 import { frBillingScreen } from "./fr-billing-screen";
 import { frSetupScreen } from "./fr-setup-screen";
@@ -22,6 +23,7 @@ import { frPlanScreen } from "./fr-plan-screen";
 /** Authoring batches only. Dictionary coverage does not establish full interface
  * acceptance. This catalog is not registered by the runtime or language picker. */
 export const FR_STAGED_BATCHES = [
+  { name: "shared UI", copy: frSharedUi, namespaces: ["sharedUi"] },
   { name: "analytics screen", copy: frAnalyticsScreen, namespaces: ["analyticsScreen"] },
   { name: "billing screen", copy: frBillingScreen, namespaces: ["billingScreen"] },
   { name: "setup screen", copy: frSetupScreen, namespaces: ["setupScreen"] },

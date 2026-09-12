@@ -1,3 +1,4 @@
+import { sharedUiCopy } from "./shared-ui";
 import { analyticsScreenCopy } from "./analytics-screen";
 import { billingScreenCopy } from "./billing-screen";
 import { setupScreenCopy } from "./setup-screen";
@@ -72,6 +73,7 @@ const OVERRIDES: readonly Record<OnboardingLanguage, Dictionary>[] = [
   setupScreenCopy,
   billingScreenCopy,
   analyticsScreenCopy,
+  sharedUiCopy,
 ];
 export const UI_LANGUAGE_CODES = ["en", "pl", "sv", "da"] as const;
 export function isUiLanguage(value: unknown): value is OnboardingLanguage {

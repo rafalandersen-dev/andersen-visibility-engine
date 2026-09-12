@@ -733,7 +733,7 @@ function OwnedOnboardingWizard({ ownerId }: { ownerId: string }) {
                     <Input
                       value={w.businessType}
                       onChange={(e) => set("businessType", e.target.value)}
-                      placeholder="e.g. bakery, law firm"
+                      placeholder={t("sharedUi.industryExample")}
                     />
                   </Field>
                 </div>
@@ -756,7 +756,7 @@ function OwnedOnboardingWizard({ ownerId }: { ownerId: string }) {
                     <Input
                       value={w.mainLocation}
                       onChange={(e) => set("mainLocation", e.target.value)}
-                      placeholder="City / area"
+                      placeholder={t("sharedUi.locationExample")}
                     />
                   </Field>
                   <Field label={t("onboarding.targetLocations")}>
@@ -770,7 +770,7 @@ function OwnedOnboardingWizard({ ownerId }: { ownerId: string }) {
                   <Input
                     value={w.toneOfVoice}
                     onChange={(e) => set("toneOfVoice", e.target.value)}
-                    placeholder="e.g. warm, expert, concise"
+                    placeholder={t("sharedUi.toneExample")}
                   />
                 </Field>
                 <Field label={t("onboarding.brandNotes")}>
