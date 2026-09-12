@@ -1,3 +1,4 @@
+import { nlLinks } from "./nl-links";
 import { nlCommerce } from "./nl-commerce";
 import { nlGrowth } from "./nl-growth";
 import { nlOutreach } from "./nl-outreach";
@@ -26,6 +27,20 @@ import { nlSharedUi } from "./nl-shared-ui";
 
 /** Partial Dutch authoring; never imported by the runtime catalog. */
 export const NL_STAGED_BATCHES = [
+  {
+    name: "links",
+    copy: nlLinks,
+    namespaces: [
+      "linknet",
+      "backlinks",
+      "marketplace",
+      "backlinkMonitor",
+      "backlinkDetails",
+      "backlinkRecurring",
+    ],
+    sourceRevision: "6b144e9",
+    sourceHash: "7b8c4cfd6fb08b518e7e0eb7fd53e767b72972a0048a75521eda0d4b9ebd40d7",
+  },
   {
     name: "commerce",
     copy: nlCommerce,
