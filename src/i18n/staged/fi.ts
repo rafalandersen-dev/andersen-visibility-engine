@@ -1,3 +1,4 @@
+import { fiCollaboration } from "./fi-collaboration";
 import { fiConfiguration } from "./fi-configuration";
 import { fiPublicBeta } from "./fi-public-beta";
 import { fiBetaGuidance } from "./fi-beta-guidance";
@@ -19,6 +20,13 @@ import { fiSharedUi } from "./fi-shared-ui";
 
 /** Finnish authoring; never imported by the runtime catalog. */
 export const FI_STAGED_BATCHES = [
+  {
+    name: "collaboration",
+    copy: fiCollaboration,
+    namespaces: ["collaboration", "team", "notifications", "awareness", "emailSettings"],
+    sourceRevision: "30760ec",
+    sourceHash: "429e59f16a866242f25a373ebd6b52332ae3f04534230101422ebab727f77ed0",
+  },
   {
     name: "configuration",
     copy: fiConfiguration,
