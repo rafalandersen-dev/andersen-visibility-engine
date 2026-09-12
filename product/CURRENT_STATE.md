@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Finnish staged interface now covers 274/3,768 messages, adding 202 core shell/onboarding/setup/market/language/pipeline keys. All 14 Finnish/catalog tests pass, plus types/scoped lint/whitespace. Language axes and planned/scheduled/sent/published states remain distinct. See FINNISH_AUTHORING_PROGRESS_2026_09_12.md. Finnish remains inactive; 3,494 keys and language/rendered acceptance remain, with release gates unchanged.
+
 Finnish staged interface authoring started with complete authentication and shared-control namespaces: 72/3,768 messages. Exact namespace/source-fingerprint/token checks, frozen combined catalog and runtime-exclusion checks pass: 13 Finnish/catalog tests plus types/scoped lint/whitespace. See FINNISH_AUTHORING_PROGRESS_2026_09_12.md. Finnish remains inactive; 3,696 keys and language/rendered acceptance remain. Full R20 and release gates stay open.
 
 Integrated knowledge/scheduler candidate 67c789d passes 4,978 application tests across 331 files and the production build. Exact evidence is in INTEGRATED_CANDIDATE_CHECK_2026_09_12.md. LAUNCH_READINESS.md now records prerequisites, acceptance and rollback compatibility for the unapplied batch-review migration. Local regression totals supersede earlier local totals only; full live acceptance and release gates remain open.
