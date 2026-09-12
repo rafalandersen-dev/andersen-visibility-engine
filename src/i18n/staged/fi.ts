@@ -1,3 +1,4 @@
+import { fiConfiguration } from "./fi-configuration";
 import { fiPublicBeta } from "./fi-public-beta";
 import { fiBetaGuidance } from "./fi-beta-guidance";
 import { fiBetaScreen } from "./fi-beta-screen";
@@ -18,6 +19,13 @@ import { fiSharedUi } from "./fi-shared-ui";
 
 /** Finnish authoring; never imported by the runtime catalog. */
 export const FI_STAGED_BATCHES = [
+  {
+    name: "configuration",
+    copy: fiConfiguration,
+    namespaces: ["brand", "wp", "shopify", "claude", "connect", "connections", "coverage"],
+    sourceRevision: "5cb0696",
+    sourceHash: "0e11ebfcac212ec85d91c8734430e0cd661dc727057c565c1cfcd33f59a1aa60",
+  },
   {
     name: "public beta",
     copy: fiPublicBeta,
