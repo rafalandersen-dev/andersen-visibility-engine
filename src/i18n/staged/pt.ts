@@ -1,3 +1,4 @@
+import { ptOutreach } from "./pt-outreach";
 import { ptMeasurements } from "./pt-measurements";
 import { ptTechnical } from "./pt-technical";
 import { ptKnowledge } from "./pt-knowledge";
@@ -187,6 +188,13 @@ export const PT_STAGED_BATCHES = [
     namespaces: ["analytics", "gsc", "report"],
     sourceRevision: "465946b",
     sourceHash: "cfe9102341aed0899846a94191ac4a27f5a7b371e09775137f3ce10481df6199",
+  },
+  {
+    name: "outreach",
+    copy: ptOutreach,
+    namespaces: ["outreach", "hook", "anchor"],
+    sourceRevision: "b89c90d",
+    sourceHash: "c2bfe98eb710f1587237c92b04696e6f9221e67def7d1080eb7ce08e3d1161b4",
   },
 ] as const;
 export const PT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.assign(
