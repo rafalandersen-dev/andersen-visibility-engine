@@ -23,7 +23,7 @@ import { generateContentForOpportunity, createBlankDraftForOpportunity } from "@
 import type { AssetType, ContentType } from "@/lib/types";
 import { useT } from "@/i18n";
 
-export const ASSET_TYPE_OPTIONS: readonly AssetType[] = [
+const ASSET_TYPE_OPTIONS: readonly AssetType[] = [
   "brief",
   "article",
   "servicePage",

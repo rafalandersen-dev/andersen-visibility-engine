@@ -609,7 +609,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         const s = String(r.result);
         resolve(s.slice(s.indexOf(",") + 1));
       };
-      r.onerror = () => reject(new Error("Could not read the file"));
+      r.onerror = () => reject(new Error(t("editorScreen.fileReadFailed")));
       r.readAsDataURL(file);
     });
   const onUploadImage = async (file: File | undefined) => {
@@ -639,9 +639,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         ],
       }));
       setNewImageConcept("");
-      toast.success("Uploaded — add alt text, then Approve to make it publishable.");
+      toast.success(t("editorScreen.images.uploaded"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Upload failed");
+      toast.error(e instanceof Error ? e.message : t("editorScreen.images.uploadFailed"));
     } finally {
       setUploadingImage(false);
     }
@@ -696,7 +696,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       setNewImageConcept("");
       toast.success(t("imgGen.done"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Image generation failed");
+      toast.error(e instanceof Error ? e.message : t("editorScreen.images.generationFailed"));
     } finally {
       setGeneratingImage(false);
     }
@@ -712,9 +712,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       } else {
         updImage(i, { status: "accepted" }); // an already-controlled-origin URL
       }
-      toast.success("Image approved");
+      toast.success(t("editorScreen.images.approved"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not approve the image");
+      toast.error(e instanceof Error ? e.message : t("editorScreen.images.approvalFailed"));
     }
   };
   const removeImage = async (i: number) => {
@@ -769,7 +769,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     if (!project) return;
     approveProjectInternalPath(project.id, path);
     await saveWorkspaceNow();
-    toast.success(`Approved ${path} — it will now publish as a link.`);
+    toast.success(t("editorScreen.links.approved", { path }));
   }
   // Occurrence-scoped: each action targets exactly the ROW the user clicked.
   // The old path-scoped versions swept every link sharing the path — five
@@ -777,15 +777,18 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   const replaceLink = (link: ClassifiedInternalLink, newPath: string) =>
     persistMarkdown(
       replaceLinkPathAt(f.markdown, link.path, link.occurrence, newPath),
-      `Repointed “${link.anchor}” to ${newPath}`,
+      t("editorScreen.links.replaced", { anchor: link.anchor, path: newPath }),
     );
   const linkToText = (link: ClassifiedInternalLink) =>
     persistMarkdown(
       linkPathToTextAt(f.markdown, link.path, link.occurrence),
-      "Converted to plain text",
+      t("editorScreen.links.textOnly"),
     );
   const removeLink = (link: ClassifiedInternalLink) =>
-    persistMarkdown(removeLinkAt(f.markdown, link.path, link.occurrence), "Removed the link");
+    persistMarkdown(
+      removeLinkAt(f.markdown, link.path, link.occurrence),
+      t("editorScreen.links.removed"),
+    );
   const wpConfigured = Boolean(
     project?.wordpress?.siteUrl &&
     project?.wordpress?.username &&
@@ -882,7 +885,11 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         currentContentAssetId: next.id,
       });
     }
-    toast.success(status ? `Marked ${status}` : "Saved");
+    toast.success(
+      status
+        ? t("editorScreen.marked", { status: t(`status.${status}`) })
+        : t("editorScreen.savedNotification"),
+    );
     return next;
   };
 
@@ -938,14 +945,24 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     return snapshot;
   };
 
-  const aiAction = async (name: string, fn: () => Promise<void>) => {
+  const aiAction = async (name: "metadata" | "cta" | "faq", fn: () => Promise<void>) => {
     flushPendingEdits();
     setBusy(name);
     try {
       await fn();
-      toast.success(`Regenerated ${name}`);
+      toast.success(
+        t("editorScreen.regenerated", {
+          name: t(
+            {
+              metadata: "editorScreen.tab.metadata",
+              cta: "editorScreen.field.cta",
+              faq: "editorScreen.faq",
+            }[name],
+          ),
+        }),
+      );
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Regeneration failed");
+      toast.error(e instanceof Error ? e.message : t("editorScreen.regenerationFailed"));
     } finally {
       setBusy(null);
     }
@@ -1045,7 +1062,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
             ? t("approval.unavailable")
             : e instanceof Error
               ? e.message
-              : "Could not schedule the publish",
+              : t("editorScreen.scheduleFailed"),
       );
     } finally {
       setScheduling(false);
@@ -1086,7 +1103,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       await refreshWorkspace();
       toast.success(t("editor.schedule.cancelled"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not cancel the go-live");
+      toast.error(e instanceof Error ? e.message : t("editorScreen.cancelScheduleFailed"));
     } finally {
       setScheduling(false);
     }
@@ -1104,7 +1121,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
       flushPendingEdits();
       await saveWorkspaceNow();
       await sendContentToWebsite(asset.id, destType, publishSlug);
-      toast.success("Draft sent to website");
+      toast.success(t("editorScreen.sent"));
       setSendOpen(false);
     } catch (e) {
       if (e instanceof Error && e.message === "publication_approval_required") {
@@ -1112,7 +1129,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         setApprovalRevision((v) => v + 1);
         toast.info(t("approval.needed"));
       } else {
-        toast.error(e instanceof Error ? e.message : "Could not send draft to website");
+        toast.error(e instanceof Error ? e.message : t("editorScreen.sendFailed"));
       }
     } finally {
       setSending(false);
@@ -1174,11 +1191,11 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           measurementStatus: "collecting",
         });
       }
-      toast.success("Published live");
+      toast.success(t("editorScreen.published"));
       setLiveConfirmOpen(false);
     } catch (e) {
       // Status stored as "failed"; keep draft state + content intact for retry.
-      toast.error(e instanceof Error ? e.message : "Could not publish live");
+      toast.error(e instanceof Error ? e.message : t("editorScreen.publishFailed"));
     } finally {
       setPublishingLive(false);
     }
@@ -1200,7 +1217,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           {f.sourceOpportunityTitle ? (
             <span>
               {t("editorScreen.create.source", { source: f.sourceOpportunityTitle })}
-              {f.sourceType && f.sourceType !== "opportunity" ? ` (${f.sourceType})` : ""}
+              {f.sourceType && f.sourceType !== "opportunity"
+                ? ` (${t(`editorScreen.sourceType.${f.sourceType}`)})`
+                : ""}
             </span>
           ) : null}
           {f.language ? (
@@ -1366,8 +1385,14 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               ) : null}
               {live.lastPublishedAt ? (
                 <span className="text-xs text-muted-foreground">
-                  {live.publishStatus === "failed" ? "Last attempt" : "Sent"}{" "}
-                  {formatDateTime(live.lastPublishedAt, locale)}
+                  {t(
+                    live.publishStatus === "failed"
+                      ? "editorScreen.lastAttemptAt"
+                      : "editorScreen.sentAt",
+                    {
+                      date: formatDateTime(live.lastPublishedAt, locale),
+                    },
+                  )}
                 </span>
               ) : null}
               {live.publishedDraftUrl ? (
@@ -1404,8 +1429,14 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 <LivePublishStatusBadge status={live.livePublishStatus} />
                 {live.livePublishedAt ? (
                   <span className="text-xs text-muted-foreground">
-                    {live.livePublishStatus === "failed" ? "Last attempt" : "Published"}{" "}
-                    {formatDateTime(live.livePublishedAt, locale)}
+                    {t(
+                      live.livePublishStatus === "failed"
+                        ? "editorScreen.lastAttemptAt"
+                        : "editorScreen.publishedAt",
+                      {
+                        date: formatDateTime(live.livePublishedAt, locale),
+                      },
+                    )}
                   </span>
                 ) : null}
                 {live.liveUrl ? (
@@ -2115,27 +2146,12 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 {t("editorScreen.schemaNotes")}
               </Label>
               <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
-                {isWordPress || isShopify ? (
-                  <>
-                    When you publish to {isWordPress ? "WordPress" : "Shopify"}, Milo includes valid
-                    Article and FAQ structured data (schema.org JSON-LD) built from this
-                    article&apos;s title and the FAQ written into the body. Whether your site keeps
-                    inline structured data depends on your CMS setup (for example, a WordPress user
-                    without the <span className="font-mono">unfiltered_html</span> capability, or an
-                    SEO plugin that already outputs schema), so Milo can&apos;t confirm it was
-                    retained — check with Google&apos;s Rich Results Test after publishing. Even
-                    when retained, this makes the page <strong>eligible</strong> for rich results
-                    where it qualifies; it does not guarantee a rich result <strong>appears</strong>{" "}
-                    (the search engine decides that).
-                  </>
-                ) : (
-                  <>
-                    Structured data (schema.org JSON-LD) is generated for this article, but Milo
-                    does not yet send it to a custom endpoint — your connector would need to add it.
-                    Milo never guarantees a rich result appears; the search engine decides that.
-                  </>
-                )}{" "}
-                The notes below are for your own reference and are not published.
+                {isWordPress || isShopify
+                  ? t("editorScreen.schema.managed", {
+                      platform: isWordPress ? "WordPress" : "Shopify",
+                    })
+                  : t("editorScreen.schema.custom")}{" "}
+                {t("editorScreen.schema.privateNotes")}
               </p>
               <Textarea
                 id={schemaId}
@@ -2484,13 +2500,10 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
 
           {/* ---- Images (P1.1 G — non-upload MVP) ---- */}
           <section className="space-y-2.5 border-t border-border pt-5">
-            <h3 className="text-sm font-medium text-foreground">Images</h3>
-            <p className="text-xs text-muted-foreground">
-              Upload an image (JPEG/PNG/WebP, ≤5&nbsp;MB), reuse an approved project asset, or paste
-              a controlled-origin URL. Uploads are staged privately; an image publishes only once it
-              has alt text and you <strong>approve</strong> it (which promotes it to a stable public
-              URL). Pasted third-party URLs never publish — approval requires a controlled origin.
-            </p>
+            <h3 className="text-sm font-medium text-foreground">
+              {t("editorScreen.images.title")}
+            </h3>
+            <p className="text-xs text-muted-foreground">{t("editorScreen.images.help")}</p>
             <ul className="space-y-1.5">
               {(f.images ?? []).map((im, i) => {
                 const controlled = project ? isControlledImageOrigin(im.url ?? "", project) : false;
@@ -2507,8 +2520,12 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                           className="h-8 w-8 rounded object-cover border border-border"
                         />
                       ) : null}
-                      <span className="font-medium">{im.concept || "Image"}</span>
-                      <span className="text-muted-foreground">{im.placement}</span>
+                      <span className="font-medium">
+                        {im.concept || t("editorScreen.images.image")}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {t(`editorScreen.images.${im.placement}`)}
+                      </span>
                       <span
                         className={
                           "rounded-full px-1.5 py-0.5 text-[10px] uppercase " +
@@ -2517,16 +2534,21 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                             : "bg-secondary text-muted-foreground")
                         }
                       >
-                        {im.status}
+                        {t(`editorScreen.images.status.${im.status}`)}
                       </span>
-                      {im.required ? <span className="text-amber-600">required</span> : null}
+                      {im.required ? (
+                        <span className="text-amber-600">{t("editorScreen.images.required")}</span>
+                      ) : null}
                       {im.url && !controlled ? (
-                        <span className="text-destructive">not a controlled origin</span>
+                        <span className="text-destructive">
+                          {t("editorScreen.images.uncontrolled")}
+                        </span>
                       ) : null}
                       <Button
                         size="sm"
                         variant="ghost"
                         className="ml-auto"
+                        aria-label={t("editorScreen.sources.remove")}
                         onClick={() => removeImage(i)}
                       >
                         <Trash2 className="h-3 w-3" />
@@ -2534,7 +2556,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                     </div>
                     <Input
                       className="text-xs"
-                      placeholder="Alt text (required to publish)"
+                      placeholder={t("editorScreen.images.alt")}
                       value={im.alt}
                       onChange={(e) => updImage(i, { alt: e.target.value })}
                     />
@@ -2548,21 +2570,25 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                           })
                         }
                       >
-                        {im.placement === "featured" ? "Featured" : "Inline"}
+                        {t(`editorScreen.images.${im.placement}`)}
                       </Button>
                       <Button
                         size="sm"
                         variant="ghost"
                         onClick={() => updImage(i, { required: !im.required })}
                       >
-                        {im.required ? "Required" : "Optional"}
+                        {t(
+                          im.required
+                            ? "editorScreen.images.required"
+                            : "editorScreen.images.optional",
+                        )}
                       </Button>
                       <Button
                         size="sm"
                         disabled={!im.alt.trim() || (!im.storagePath && !controlled)}
                         onClick={() => approveImage(i)}
                       >
-                        Approve
+                        {t("editorScreen.images.approve")}
                       </Button>
                     </div>
                     {im.placement === "inline"
@@ -2807,11 +2833,13 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               })}
             </ul>
             {(f.images?.length ?? 0) === 0 ? (
-              <p className="text-xs text-muted-foreground">No images yet.</p>
+              <p className="text-xs text-muted-foreground">{t("editorScreen.images.none")}</p>
             ) : null}
             <div className="flex flex-wrap items-end gap-2">
               <div className="flex-1 min-w-[160px]">
-                <Label className="text-xs text-muted-foreground">Concept (for a new image)</Label>
+                <Label className="text-xs text-muted-foreground">
+                  {t("editorScreen.images.concept")}
+                </Label>
                 <Input
                   className="mt-1"
                   maxLength={500}
@@ -2831,7 +2859,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               <Button size="sm" variant="outline" asChild disabled={uploadingImage}>
                 <label className="cursor-pointer">
                   {uploadingImage ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                  Upload image
+                  {t("editorScreen.images.upload")}
                   <input
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
@@ -2845,7 +2873,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               </Button>
               {existingApprovedImages.length ? (
                 <select
-                  aria-label="Reuse an approved project image"
+                  aria-label={t("editorScreen.images.reuseLabel")}
                   className="h-9 rounded-md border border-border bg-background px-2 text-xs"
                   defaultValue=""
                   onChange={(e) => {
@@ -2853,7 +2881,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                     e.target.value = "";
                   }}
                 >
-                  <option value="">Reuse approved asset…</option>
+                  <option value="">{t("editorScreen.images.reusePlaceholder")}</option>
                   {existingApprovedImages.map((im) => (
                     <option key={im.url} value={im.url}>
                       {im.concept || im.url}
@@ -2865,25 +2893,22 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
             <div className="flex flex-wrap items-end gap-2">
               <div className="flex-1 min-w-[220px]">
                 <Label className="text-xs text-muted-foreground">
-                  …or paste a controlled-origin URL
+                  {t("editorScreen.images.urlLabel")}
                 </Label>
                 <Input
                   className="mt-1"
-                  placeholder="https://your-site/image.jpg"
+                  placeholder="https://example.com/image.jpg"
                   value={newImageUrl}
                   onChange={(e) => setNewImageUrl(e.target.value)}
                 />
               </div>
               <Button size="sm" variant="ghost" onClick={addImage} disabled={!newImageUrl.trim()}>
-                Add URL
+                {t("editorScreen.images.addUrl")}
               </Button>
             </div>
           </section>
 
-          <p className="text-xs text-muted-foreground">
-            Author, sources and images are saved with the <strong>Save</strong> button in the footer
-            below — uploads aren&apos;t kept until you Save.
-          </p>
+          <p className="text-xs text-muted-foreground">{t("editorScreen.images.saveReminder")}</p>
         </TabsContent>
 
         <TabsContent value="preview" className="py-5">
@@ -3322,7 +3347,7 @@ function ArrangeSurface(props: {
               ).map(([field, options, value]) => (
                 <select
                   key={field}
-                  aria-label={field}
+                  aria-label={t(`pres.field.${field}`)}
                   className="h-8 rounded-md border border-border bg-background px-1.5 text-xs"
                   value={value}
                   onChange={(e) =>
@@ -3348,7 +3373,7 @@ function ArrangeSurface(props: {
                     value={pres.focalPoint?.x ?? 0.5}
                     onChange={(e) => props.setPresFocal(idx, "x", e.target.value)}
                     className="h-8 w-16 text-xs"
-                    aria-label="focal x"
+                    aria-label={t("editorScreen.images.focalX")}
                   />
                   <Input
                     type="number"
@@ -3358,7 +3383,7 @@ function ArrangeSurface(props: {
                     value={pres.focalPoint?.y ?? 0.5}
                     onChange={(e) => props.setPresFocal(idx, "y", e.target.value)}
                     className="h-8 w-16 text-xs"
-                    aria-label="focal y"
+                    aria-label={t("editorScreen.images.focalY")}
                   />
                 </>
               ) : null}
