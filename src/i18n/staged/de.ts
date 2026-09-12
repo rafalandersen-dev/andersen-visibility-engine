@@ -1,3 +1,5 @@
+import { deCollaboration } from "./de-collaboration";
+import { deKnowledge } from "./de-knowledge";
 import { deEditorScreen } from "./de-editor-screen";
 import { deWorkflow } from "./de-workflow";
 import { deCore } from "./de-core";
@@ -62,6 +64,16 @@ export const DE_STAGED_BATCHES = [
       "dashboard",
       "workflow",
     ],
+  },
+  {
+    name: "collaboration",
+    copy: deCollaboration,
+    namespaces: ["collaboration", "team", "notifications", "awareness", "emailSettings"],
+  },
+  {
+    name: "knowledge",
+    copy: deKnowledge,
+    namespaces: ["knowledge", "weekly", "approval", "refresh"],
   },
 ] as const;
 export const DE_STAGED_CATALOG: Readonly<Record<string, string>> = Object.assign(
