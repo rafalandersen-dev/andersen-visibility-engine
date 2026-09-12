@@ -1,3 +1,4 @@
+import { hrCommerce } from "./hr-commerce";
 import { hrGrowth } from "./hr-growth";
 import { hrOutreach } from "./hr-outreach";
 import { hrMeasurements } from "./hr-measurements";
@@ -24,6 +25,13 @@ import { hrAuthScreen } from "./hr-auth-screen";
 import { hrSharedUi } from "./hr-shared-ui";
 /** Croatian authoring; never imported by the runtime catalog. */
 export const HR_STAGED_BATCHES = [
+  {
+    name: "commerce",
+    copy: hrCommerce,
+    namespaces: ["billing", "launch", "beta"],
+    sourceRevision: "c2a33a6",
+    sourceHash: "6cd0596e8ff09ae38f9decb763ab31a3fe2c311109c9b5f85edc9721d7058ff2",
+  },
   {
     name: "growth",
     copy: hrGrowth,
