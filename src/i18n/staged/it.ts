@@ -1,3 +1,5 @@
+import { itPublicStudies } from "./it-public-studies";
+import { itPublicPricing } from "./it-public-pricing";
 import { itConfiguration } from "./it-configuration";
 import { itMeasurements } from "./it-measurements";
 import { itTechnical } from "./it-technical";
@@ -139,6 +141,20 @@ export const IT_STAGED_BATCHES = [
     namespaces: ["brand", "wp", "shopify", "claude", "connect", "connections", "coverage"],
     sourceRevision: "ebfca0a",
     sourceHash: "0e11ebfcac212ec85d91c8734430e0cd661dc727057c565c1cfcd33f59a1aa60",
+  },
+  {
+    name: "public pricing",
+    copy: itPublicPricing,
+    namespaces: ["publicPricing"],
+    sourceRevision: "554701d",
+    sourceHash: "8e7cecc9d6ca14af722fe8b4131d7982241e9e856335586f8d4e724469d0de60",
+  },
+  {
+    name: "public studies",
+    copy: itPublicStudies,
+    namespaces: ["publicStudies"],
+    sourceRevision: "554701d",
+    sourceHash: "ace563fb757a52abcd667e7e691d3e48024045a4e4f265e6949c66a828f5e8de",
   },
 ] as const;
 export const IT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
