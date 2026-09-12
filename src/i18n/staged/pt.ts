@@ -1,3 +1,4 @@
+import { ptEvidence } from "./pt-evidence";
 import { ptLinks } from "./pt-links";
 import { ptCommerce } from "./pt-commerce";
 import { ptGrowth } from "./pt-growth";
@@ -226,6 +227,13 @@ export const PT_STAGED_BATCHES = [
     ],
     sourceRevision: "4e67219",
     sourceHash: "7b8c4cfd6fb08b518e7e0eb7fd53e767b72972a0048a75521eda0d4b9ebd40d7",
+  },
+  {
+    name: "evidence",
+    copy: ptEvidence,
+    namespaces: ["answer", "logs", "proof", "aiEval", "benchmark"],
+    sourceRevision: "5026e73",
+    sourceHash: "2911f87d7691a2bf04548e0b7c0e63b3c93f25cdcd73c9af1ba5d22ffdee211d",
   },
 ] as const;
 export const PT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.assign(
