@@ -188,3 +188,5 @@ Slovenian outreach adds 158 messages at source 2705f3f: 2,578/3,768 in twenty-th
 13 September: Slovenian growth adds 201 messages at source 0704f32: 2,779/3,768 in twenty-four staged batches. Remaining UI authoring backlog: 38,669 messages. All 35 focused tests, types, scoped lint and whitespace pass; changed code formatted. Runtime activation and language/rendered acceptance remain open.
 
 13 September: Slovenian commerce adds 192 messages at source d3313ba: 2,971/3,768 in twenty-five staged batches. Remaining UI authoring backlog: 38,477 messages. All 36 focused tests, types, scoped lint and whitespace pass; changed code formatted. Runtime activation and language/rendered acceptance remain open.
+
+13 September: Slovenian links adds 256 messages at source bf2af3a: 3,227/3,768 in twenty-six staged batches. Remaining UI authoring backlog: 38,221 messages. All 37 focused tests, types, scoped lint and whitespace pass; changed code formatted. Runtime activation and language/rendered acceptance remain open.

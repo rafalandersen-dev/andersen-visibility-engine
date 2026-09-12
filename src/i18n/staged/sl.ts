@@ -1,3 +1,4 @@
+import { slLinks } from "./sl-links";
 import { slCommerce } from "./sl-commerce";
 import { slGrowth } from "./sl-growth";
 import { slOutreach } from "./sl-outreach";
@@ -25,6 +26,20 @@ import { slAuthScreen } from "./sl-auth-screen";
 import { slSharedUi } from "./sl-shared-ui";
 /** Slovenian authoring; never imported by the runtime catalog. */
 export const SL_STAGED_BATCHES = [
+  {
+    name: "links",
+    copy: slLinks,
+    namespaces: [
+      "linknet",
+      "backlinks",
+      "marketplace",
+      "backlinkMonitor",
+      "backlinkDetails",
+      "backlinkRecurring",
+    ],
+    sourceRevision: "bf2af3a",
+    sourceHash: "7b8c4cfd6fb08b518e7e0eb7fd53e767b72972a0048a75521eda0d4b9ebd40d7",
+  },
   {
     name: "commerce",
     copy: slCommerce,

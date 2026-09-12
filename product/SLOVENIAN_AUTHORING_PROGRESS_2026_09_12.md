@@ -1,6 +1,6 @@
 # Slovenian interface authoring — 12 September 2026
 
-Slovenian is staged only: 2,971 of the current 3,768 English interface keys across twenty-five complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK retain separate complete staged authoring and incomplete acceptance status.
+Slovenian is staged only: 3,227 of the current 3,768 English interface keys across twenty-six complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK retain separate complete staged authoring and incomplete acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -29,14 +29,15 @@ Slovenian is staged only: 2,971 of the current 3,768 English interface keys acro
 | Outreach | 158 | 2705f3f |
 | Growth (13 September) | 201 | 0704f32 |
 | Commerce (13 September) | 192 | d3313ba |
+| Links (13 September) | 256 | bf2af3a |
 
-The frozen staged registry assigns every key once. Namespace tests verify exact keys, nonempty values, current composed-English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 36 Slovenian/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovenian-commerce-types.log.
+The frozen staged registry assigns every key once. Namespace tests verify exact keys, nonempty values, current composed-English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 37 Slovenian/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovenian-links-types.log.
 
 Terminology: delovni prostor (workspace), projekt, geslo (password), ponastavitev gesla (password reset), stranska vrstica (sidebar), vpis (network listing), paket (subscription plan), načrt (workflow plan), vsebinska izhodišča (content brief). Use polite plural explanatory instructions and concise action labels. Preserve provider/product names and placeholders.
 
 Recovery text retains conditional eligibility without confirming account existence. Marketing and successful sign-in source claims retain their implementation and real-use acceptance obligations. No authentication, email, account, credential or provider action occurred.
 
-Remaining: 797 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: links using current composed English. This staged work does not complete R20 or change release gates.
+Remaining: 541 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: evidence using current composed English. This staged work does not complete R20 or change release gates.
 
 Core copy preserves interface versus content language, saved setup versus incomplete generation, work target dates versus publication times, and sent drafts versus published pages. Navigation uses Načrt, Vsebina, Vidnost, Nastavitve and Analitika. Subscription plans remain paket; workflow plans use načrt. In-review status is V pregledu; scheduled publication is Čas objave nastavljen. No generation, onboarding, schedule or publication operation occurred.
 
@@ -75,3 +76,5 @@ Outreach copy preserves exact recipient/message approval, separate follow-up rev
 13 September: growth copy preserves suggested authority opportunities versus guaranteed outcomes, public-audit readiness versus live rankings, and Claude proposals versus immediate owner-approved application. Duplicate/limit skips, missing-target errors and setup-complete status retain source meaning. Brand field terminology aligns with configuration. No generation, audit, outreach, proposal approval or project mutation occurred.
 
 13 September: commerce copy preserves owner-only test checkout versus real charges, manual grants versus confirmed payment and country-based pricing eligibility. Checklist labels retain their acceptance limitations: configured/tested connections do not verify publication, retained CSV does not verify OAuth, and a completed checklist does not establish paid-launch readiness. Stripe/payment and per-site connector acceptance remain explicit. Paket, Brezplačni predogled, Vodena nastavitev and Mesečna skrb match earlier batches. No checkout, billing, payment, connector or launch action occurred.
+
+13 September: links copy preserves index estimates versus live placement checks, incomplete samples, demonstration requests versus paid orders, exact-price confirmation and uncertain-order holds. Monitoring retains UTC windows, supplier allowance/caps, skipped occurrences, accounting recovery and admitted work surviving a pause. V pregledu matches earlier status wording. Numeric input examples remain literal source tokens pending locale-format acceptance. No network listing, provider request, outreach, order, payment or monitoring activation occurred.
