@@ -28,7 +28,7 @@ export const deWorkflow: Readonly<Record<string, string>> = {
   "arrange.modePreview": "Vorschau",
   "arrange.modeArrange": "Anordnen",
   "arrange.hint":
-    "Ziehe eine Bildkarte auf einen Ablagebereich, um sie zu platzieren. Beim Ablegen wird ein semantischer Anker gespeichert, keine Position. So bleibt die Platzierung bei Änderungen erhalten und wird genau wie angezeigt veröffentlicht.",
+    "Ziehe eine Bildkarte auf eine Ablagezone, um sie relativ zum Artikelinhalt zu platzieren. Prüfe die Platzierung nach Änderungen erneut: Entfernte oder mehrdeutige Abschnitte können die Zuordnung von Bildern verhindern. Das veröffentlichte Erscheinungsbild hängt von der Zielwebsite ab und wird durch diese Vorschau nicht verifiziert.",
   "arrange.featured": "Beitragsbild",
   "arrange.featuredNone": "keines — wähle eines unter Quellen und Autor",
   "arrange.hook": "Einstieg",

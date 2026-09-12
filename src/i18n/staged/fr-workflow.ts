@@ -29,7 +29,7 @@ export const frWorkflow: Readonly<Record<string, string>> = {
   "arrange.modePreview": "Aperçu",
   "arrange.modeArrange": "Mise en page",
   "arrange.hint":
-    "Faites glisser une carte d’image vers une zone de dépôt pour la placer. Le dépôt enregistre une ancre sémantique, jamais une position fixe : le placement résiste ainsi aux modifications et se publie tel qu’il apparaît.",
+    "Faites glisser une carte d’image sur une zone de dépôt pour la placer par rapport au contenu de l’article. Vérifiez à nouveau le placement après les modifications : des sections supprimées ou ambiguës peuvent empêcher de déterminer la position des images. L’apparence publiée dépend du site de destination et n’est pas vérifiée par cet aperçu.",
   "arrange.featured": "Image à la une",
   "arrange.featuredNone": "aucune — choisissez-en une dans Sources et auteur",
   "arrange.hook": "Accroche d’ouverture",

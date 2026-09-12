@@ -259,7 +259,7 @@ export const IT_STAGED_BATCHES = [
       "workflow",
     ],
     sourceRevision: "3aba1ad",
-    sourceHash: "51745ca43f59875396b2251d308f4cff913717c3868a9679f6be5c7fa3e0c35f",
+    sourceHash: "56ce0557ddfdf7c192d5c42bc2c15bdf717a4158e0766bd6a6b246f3e695ed4b",
   },
 ] as const;
 export const IT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

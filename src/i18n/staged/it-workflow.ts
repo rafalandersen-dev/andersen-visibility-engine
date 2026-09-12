@@ -28,7 +28,7 @@ export const itWorkflow: Readonly<Record<string, string>> = {
   "arrange.modePreview": "Anteprima",
   "arrange.modeArrange": "Disponi",
   "arrange.hint":
-    "Trascina una scheda immagine su un'area di rilascio per posizionarla. Il rilascio salva un riferimento semantico (mai una posizione), quindi il posizionamento resiste alle modifiche e viene pubblicato esattamente come mostrato.",
+    "Trascina una scheda immagine su un’area di rilascio per posizionarla rispetto al contenuto dell’articolo. Ricontrolla il posizionamento dopo le modifiche: sezioni rimosse o ambigue possono lasciare immagini senza una posizione risolta. L’aspetto pubblicato dipende dal sito di destinazione e non è verificato da questa anteprima.",
   "arrange.featured": "Immagine in evidenza",
   "arrange.featuredNone": "nessuna: impostane una in Fonti e autore",
   "arrange.hook": "Apertura",

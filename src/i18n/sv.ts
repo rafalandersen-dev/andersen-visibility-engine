@@ -168,7 +168,7 @@ export const sv: Record<string, string> = {
   "arrange.modePreview": "Förhandsgranska",
   "arrange.modeArrange": "Arrangera",
   "arrange.hint":
-    "Dra ett bildkort till en släppzon för att placera det. Släpp lagrar ett semantiskt ankare (aldrig en position), så placeringen överlever redigeringar och publiceras exakt som den visas.",
+    "Dra ett bildkort till en släppzon för att placera bilden i förhållande till artikelinnehållet. Kontrollera placeringen igen efter ändringar: borttagna eller tvetydiga avsnitt kan göra bildens placering olöst. Utseendet efter publicering beror på målwebbplatsen och verifieras inte av denna förhandsvisning.",
   "arrange.featured": "Utvald bild",
   "arrange.featuredNone": "ingen — ange i Källor & författare",
   "arrange.hook": "Inledande hook",

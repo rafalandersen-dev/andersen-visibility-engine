@@ -263,7 +263,7 @@ export const ES_STAGED_BATCHES = [
       "workflow",
     ],
     sourceRevision: "5a9416d74f532b65f78c0f19b89d221c6b2af6c2",
-    sourceHash: "51745ca43f59875396b2251d308f4cff913717c3868a9679f6be5c7fa3e0c35f",
+    sourceHash: "56ce0557ddfdf7c192d5c42bc2c15bdf717a4158e0766bd6a6b246f3e695ed4b",
   },
 ] as const;
 

@@ -168,7 +168,7 @@ export const da: Record<string, string> = {
   "arrange.modePreview": "Forhåndsvisning",
   "arrange.modeArrange": "Arrangér",
   "arrange.hint":
-    "Træk et billedkort til en slipzone for at placere det. Slip gemmer et semantisk anker (aldrig en position), så placeringen overlever redigeringer og udgives præcis som vist.",
+    "Træk et billedkort til en slipzone for at placere billedet i forhold til artikelindholdet. Kontrollér placeringen igen efter ændringer: fjernede eller tvetydige afsnit kan efterlade billeder uden en afklaret placering. Udseendet efter publicering afhænger af destinationswebstedet og verificeres ikke af denne forhåndsvisning.",
   "arrange.featured": "Fremhævet billede",
   "arrange.featuredNone": "intet — angiv i Kilder & forfatter",
   "arrange.hook": "Indledende hook",

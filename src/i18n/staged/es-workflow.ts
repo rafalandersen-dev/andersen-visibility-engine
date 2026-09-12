@@ -28,7 +28,7 @@ export const esWorkflow: Readonly<Record<string, string>> = {
   "arrange.modePreview": "Vista previa",
   "arrange.modeArrange": "Organizar",
   "arrange.hint":
-    "Arrastra una tarjeta de imagen a una zona de colocación. Al soltarla se guarda un anclaje semántico (nunca una posición), de modo que la colocación se conserva tras las ediciones y se publica tal como se muestra.",
+    "Arrastra una tarjeta de imagen a una zona de destino para colocarla en relación con el contenido del artículo. Revisa la ubicación después de editar: las secciones eliminadas o ambiguas pueden dejar imágenes sin una ubicación resuelta. La apariencia publicada depende del sitio de destino y esta vista previa no la verifica.",
   "arrange.featured": "Imagen destacada",
   "arrange.featuredNone": "ninguna: establece una en Fuentes y autor",
   "arrange.hook": "Introducción atractiva",

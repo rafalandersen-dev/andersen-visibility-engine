@@ -169,7 +169,7 @@ export const pl: Record<string, string> = {
   "arrange.modePreview": "Podgląd",
   "arrange.modeArrange": "Układ",
   "arrange.hint":
-    "Przeciągnij kartę obrazu na strefę upuszczania, aby go umieścić. Upuszczenie zapisuje semantyczną kotwicę (nigdy pozycję), więc rozmieszczenie przetrwa edycje i publikuje się dokładnie tak, jak widać.",
+    "Przeciągnij kartę obrazu na obszar upuszczania, aby umieścić go względem treści artykułu. Po zmianach ponownie sprawdź położenie: usunięte lub niejednoznaczne sekcje mogą uniemożliwić ustalenie miejsca obrazu. Wygląd po publikacji zależy od witryny docelowej i nie jest weryfikowany przez ten podgląd.",
   "arrange.featured": "Obraz wyróżniający",
   "arrange.featuredNone": "brak — ustaw w Źródła i autor",
   "arrange.hook": "Hook otwierający",

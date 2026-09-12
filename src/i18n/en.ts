@@ -174,7 +174,7 @@ export const en: Record<string, string> = {
   "arrange.modePreview": "Preview",
   "arrange.modeArrange": "Arrange",
   "arrange.hint":
-    "Drag an image card onto a drop zone to place it. Drops store a semantic anchor (never a position), so placement survives edits and publishes exactly as shown.",
+    "Drag an image card onto a drop zone to place it relative to the article content. Check placement again after edits: removed or ambiguous sections can leave images unresolved. The published appearance depends on the destination site and is not verified by this preview.",
   "arrange.featured": "Featured image",
   "arrange.featuredNone": "none — set one in Sources & Author",
   "arrange.hook": "Opening hook",

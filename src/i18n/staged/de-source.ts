@@ -12,7 +12,7 @@ export const DE_AUTHORING_SOURCE_HASHES: Readonly<Record<string, string>> = {
   "evidence screen": "2c7e9ccb48b02cd12911d0df6c31a96ec8ddfc6c558dfda3b3e14790d156c136",
   "plan screen": "288f529ed3a18c00623c05011262d3cce0374158e558959fa8fc9dbc63174bb7",
   "editor screen": "1e827d2744ea1f2d3364b54983f06b42082f45ab6dfb0eda7b1375fdddd9ec9f",
-  workflow: "51745ca43f59875396b2251d308f4cff913717c3868a9679f6be5c7fa3e0c35f",
+  workflow: "56ce0557ddfdf7c192d5c42bc2c15bdf717a4158e0766bd6a6b246f3e695ed4b",
   collaboration: "429e59f16a866242f25a373ebd6b52332ae3f04534230101422ebab727f77ed0",
   knowledge: "a3a3297006f23628e422ddedfb5b6f5a51c6dd5f6abbc6d6e589481e49915816",
   technical: "106a19b8ceaf725528ddc9d4de7317d823108425584418d93729346f29c135e6",
