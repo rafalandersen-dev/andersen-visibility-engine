@@ -1,3 +1,5 @@
+import { fiAnalyticsScreen } from "./fi-analytics-screen";
+import { fiBillingScreen } from "./fi-billing-screen";
 import { fiSetupScreen } from "./fi-setup-screen";
 import { fiServicesScreen } from "./fi-services-screen";
 import { fiAuditScreen } from "./fi-audit-screen";
@@ -7,6 +9,20 @@ import { fiSharedUi } from "./fi-shared-ui";
 
 /** Finnish authoring; never imported by the runtime catalog. */
 export const FI_STAGED_BATCHES = [
+  {
+    name: "analytics screen",
+    copy: fiAnalyticsScreen,
+    namespaces: ["analyticsScreen"],
+    sourceRevision: "7e386ca",
+    sourceHash: "d86d151031ad82c4dbc559e9816ad14cecaa3e4f1b0de2ff8de3c484de5b02c5",
+  },
+  {
+    name: "billing screen",
+    copy: fiBillingScreen,
+    namespaces: ["billingScreen"],
+    sourceRevision: "7e386ca",
+    sourceHash: "d0e701bae4247d1129cc13dd6df6d9b569e725edbf5136255b68ca3fb2307194",
+  },
   {
     name: "setup screen",
     copy: fiSetupScreen,
