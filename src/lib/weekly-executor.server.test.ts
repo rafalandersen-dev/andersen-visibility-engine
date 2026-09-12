@@ -36,7 +36,10 @@ vi.mock("./weekly-stage.server", () => ({
   readWeeklyStages: h.stages,
   runWeeklyStage: h.runStage,
 }));
-vi.mock("./weekly-sources.server", () => ({ refreshWeeklySources: h.refresh }));
+vi.mock("./weekly-sources.server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./weekly-sources.server")>()),
+  refreshWeeklySources: h.refresh,
+}));
 vi.mock("./project-knowledge.server", () => ({ loadProjectKnowledgeContext: h.knowledge }));
 vi.mock("./ai.functions", () => ({
   generateContentCore: h.generate,
@@ -377,6 +380,39 @@ describe("weekly executor integrated orchestration without live providers", () =
     expect(h.image).toHaveBeenCalledTimes(1);
     expect(workspace.content).toHaveLength(1);
   });
+  it.each(["unavailable", "replaced", "uncertain"])(
+    "reports source review before generation when refresh evidence is %s",
+    async (condition) => {
+      const actual =
+        await vi.importActual<typeof import("./weekly-sources.server")>("./weekly-sources.server");
+      const sourceId = "00000000-0000-4000-8000-000000000099";
+      const refresh = vi.fn(async () => {
+        if (condition === "uncertain") throw new Error("refresh_unconfirmed");
+        return { status: "ok" };
+      });
+      h.refresh.mockImplementationOnce((target, assertActive) =>
+        actual.refreshWeeklySources(target, assertActive, {
+          sources: async () => [{ id: sourceId, revision: 1, kind: "website", status: "active" }],
+          refresh,
+          observations: async () => [
+            {
+              sourceId,
+              sourceRevision: condition === "replaced" ? 2 : 1,
+              status: condition === "unavailable" ? "unknown" : "ok",
+              lastAttempt: now.toISOString(),
+            },
+          ],
+        }),
+      );
+      expect(await runWeeklyProject(scope, now)).toMatchObject({ action: "review-required" });
+      expect(refresh).toHaveBeenCalledTimes(1);
+      expect(h.runStage).not.toHaveBeenCalled();
+      expect(h.generate).not.toHaveBeenCalled();
+      expect(h.discover).not.toHaveBeenCalled();
+      expect(h.image).not.toHaveBeenCalled();
+      expect(h.arm).not.toHaveBeenCalled();
+    },
+  );
   it("holds changed owner brief before any content call", async () => {
     await runWeeklyProject(scope, now);
     workspace.opportunities[0].title = "Owner changed topic";

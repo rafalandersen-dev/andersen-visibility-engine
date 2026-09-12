@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Weekly source evidence holds now report review-required instead of generic recovery-required for the explicit source-review error. Three new integrated regressions verify unknown/replaced/uncertain evidence causes no stage claim, generation or schedule admission; 41 focused tests plus types/scoped lint/whitespace pass. See WEEKLY_SOURCE_REVIEW_OUTCOME_2026_09_12.md. Prepared, unreleased; live source and weekly acceptance remain open.
+
 Weekly archive-read recovery is now covered through the actual bounded storage reader with an injected pending RPC: timeout and late response cause no draft delivery, then a later visit recovers the saved result without another content generation. All 36 focused tests plus types/scoped lint/whitespace pass. See the follow-up in WEEKLY_PUBLICATION_WAIT_BOUNDS_2026_09_12.md. No production change was required; real provider/database acceptance remains open.
 
 Weekly retained-content finalization now bounds approval and schedule-admission waits and exits as recovery-required on timeout, without continuing stages or inferring admission failure. Two new pending/late-completion regressions pass; 29 focused tests, full types/scoped lint/whitespace pass. See WEEKLY_PUBLICATION_WAIT_BOUNDS_2026_09_12.md. Prepared, unreleased; other dependency bounds and real weekly acceptance remain open.

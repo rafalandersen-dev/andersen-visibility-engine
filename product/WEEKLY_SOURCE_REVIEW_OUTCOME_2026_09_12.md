@@ -1,0 +1,11 @@
+# Weekly source-review outcome — 12 September 2026
+
+Reviewed 46e27e1 against P2/P3 source-outage and changed-evidence requirements. refreshWeeklySources already throws WeeklySourceReviewRequiredError when refreshed evidence is unavailable, belongs to a replaced source revision, or its refresh cannot be confirmed. The executor incorrectly folded this explicit review hold into the generic recovery-required summary.
+
+The executor now classifies that typed error as review-required. Generation and scheduling remain held; generic timeouts/storage errors keep their recovery-required behavior. This changes the reported reason, not authority, retries, source acceptance or generation admission.
+
+Three orchestration regressions failed against the previous classification and now pass. They use the real refreshWeeklySources implementation with injected sources/refresh/observations and assert one refresh attempt, no stage claim, no content/research/image call, and no schedule admission for unknown evidence, a changed revision or an uncertain refresh.
+
+All 41 tests across weekly executor, weekly sources and source-refresh storage pass. Full TypeScript (/tmp/milo-weekly-source-hold-types.log), scoped lint and whitespace checks pass. No full-suite/build repeat for this bounded outcome mapping.
+
+Live source capture, approval UI/browser behavior and real weekly publication acceptance remain unverified. No provider/database/deployment/task-handoff operation occurred. Release holds and the full R00–R24/D01–D08 scope remain unchanged.

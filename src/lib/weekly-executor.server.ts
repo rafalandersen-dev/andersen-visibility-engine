@@ -7,7 +7,7 @@ import {
   readSchedulerControl,
 } from "./weekly-preparation.server";
 import { readWeeklyStages, runWeeklyStage } from "./weekly-stage.server";
-import { refreshWeeklySources } from "./weekly-sources.server";
+import { refreshWeeklySources, WeeklySourceReviewRequiredError } from "./weekly-sources.server";
 import {
   acquireSchedulerLease as acquireSchedulerLeaseRaw,
   assertSchedulerLease as assertSchedulerLeaseRaw,
@@ -614,11 +614,14 @@ export async function runWeeklyProject(scope: Scope, now = new Date()) {
     // owner-approved completed version through the finalization path above.
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
-    action = /context_changed|owner_changed|owner_removed/.test(message)
-      ? "context-changed"
-      : /budget|expense|quota|limit|capacity/i.test(message)
-        ? "capacity-required"
-        : "recovery-required";
+    action =
+      error instanceof WeeklySourceReviewRequiredError
+        ? "review-required"
+        : /context_changed|owner_changed|owner_removed/.test(message)
+          ? "context-changed"
+          : /budget|expense|quota|limit|capacity/i.test(message)
+            ? "capacity-required"
+            : "recovery-required";
   } finally {
     if (lease)
       await releaseSchedulerLease(scope.ownerId, scope.projectId, lease).catch(() => undefined);
