@@ -1,3 +1,4 @@
+import { slKnowledge } from "./sl-knowledge";
 import { slCollaboration } from "./sl-collaboration";
 import { slConfiguration } from "./sl-configuration";
 import { slPublicBeta } from "./sl-public-beta";
@@ -19,6 +20,13 @@ import { slAuthScreen } from "./sl-auth-screen";
 import { slSharedUi } from "./sl-shared-ui";
 /** Slovenian authoring; never imported by the runtime catalog. */
 export const SL_STAGED_BATCHES = [
+  {
+    name: "knowledge",
+    copy: slKnowledge,
+    namespaces: ["knowledge", "weekly", "approval", "refresh"],
+    sourceRevision: "99fd1c8",
+    sourceHash: "a3a3297006f23628e422ddedfb5b6f5a51c6dd5f6abbc6d6e589481e49915816",
+  },
   {
     name: "collaboration",
     copy: slCollaboration,
