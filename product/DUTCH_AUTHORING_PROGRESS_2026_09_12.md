@@ -1,6 +1,6 @@
 # Dutch interface authoring — 12 September 2026
 
-R20 requires full EU-language coverage. Dutch authoring has begun with 2,779 of the current 3,768 English interface messages (989 remain). This is a partial staged catalog; Dutch is not registered in UI_CATALOGS or the language picker.
+R20 requires full EU-language coverage. Dutch authoring has begun with 2,971 of the current 3,768 English interface messages (797 remain). This is a partial staged catalog; Dutch is not registered in UI_CATALOGS or the language picker.
 
 ## Completed authoring batches
 
@@ -15,6 +15,7 @@ R20 requires full EU-language coverage. Dutch authoring has begun with 2,779 of 
 | Evidence screens | 89 | src/i18n/staged/nl-evidence-screen.ts |
 | Plan screen | 113 | src/i18n/staged/nl-plan-screen.ts |
 | Editor screen | 148 | src/i18n/staged/nl-editor-screen.ts |
+| Billing, launch checklist and beta notes | 192 | src/i18n/staged/nl-commerce.ts |
 | Authority, proposals and public audit | 201 | src/i18n/staged/nl-growth.ts |
 | Outreach, opening hooks and placement | 158 | src/i18n/staged/nl-outreach.ts |
 | Analytics, Search Console and reports | 204 | src/i18n/staged/nl-measurements.ts |
@@ -162,3 +163,10 @@ All thirty-four Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-
 At 93c3984, authored all 201 authority/actions/publicAudit messages. Copy preserves suggestion status, no-outcome guarantees, readiness versus ranking checks, immediate proposal application, skipped duplicate/over-limit items and missing/expired target failures. Existing authority Live labels, safe-opportunity wording, monthly-plan positioning and generic no-change failure assertions require behavior/evidence review before activation. Unused audit stage labels are translated without reintroducing staged progress behavior.
 
 All thirty-five Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-growth-types.log), scoped lint and whitespace checks. Total staged coverage is 2,779; 989 messages remain. Commerce, links, evidence and workflow groups remain. No generation, public audit, proposal application or runtime activation occurred; fluent/rendered and full real-use acceptance remain open.
+
+
+## Commerce follow-up
+
+At ae9ec48, authored all 192 billing/launch/beta messages. Copy preserves test-versus-live checkout, manual status versus payment readiness, billing-country eligibility and incomplete live payment/connector acceptance. Connection testing remains separate from publishing permissions, and checklist completion does not establish paid-launch readiness. Owner bypass, manual activation, safe-content and live-count source assertions remain subject to behavior review.
+
+All thirty-six Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-commerce-types.log), scoped lint and whitespace checks. Total staged coverage is 2,971; 797 messages remain across links, evidence and workflow. No checkout, subscription, payment, account or runtime activation operation occurred; fluent/rendered and full real-use acceptance remain open.

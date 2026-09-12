@@ -1,3 +1,4 @@
+import { nlCommerce } from "./nl-commerce";
 import { nlGrowth } from "./nl-growth";
 import { nlOutreach } from "./nl-outreach";
 import { nlMeasurements } from "./nl-measurements";
@@ -25,6 +26,13 @@ import { nlSharedUi } from "./nl-shared-ui";
 
 /** Partial Dutch authoring; never imported by the runtime catalog. */
 export const NL_STAGED_BATCHES = [
+  {
+    name: "commerce",
+    copy: nlCommerce,
+    namespaces: ["billing", "launch", "beta"],
+    sourceRevision: "ae9ec48",
+    sourceHash: "6cd0596e8ff09ae38f9decb763ab31a3fe2c311109c9b5f85edc9721d7058ff2",
+  },
   {
     name: "growth",
     copy: nlGrowth,
