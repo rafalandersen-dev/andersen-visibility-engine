@@ -1,0 +1,238 @@
+/** Spanish authoring only; not registered in the runtime or language picker. */
+export const esCommerce: Readonly<Record<string, string>> = {
+  "billing.stripeTest.title": "Prueba de pago con Stripe",
+  "billing.stripeTest.description":
+    "Pago de prueba solo para el propietario. Usa datos de pago de prueba de Stripe. No se realiza ningún cargo real y tu plan de Milo no cambia.",
+  "billing.stripeTest.open": "Abrir pago de prueba",
+  "billing.stripeTest.opening": "Abriendo…",
+  "billing.stripeTest.error":
+    "No se ha podido confirmar el pago de prueba. Vuelve a intentarlo aquí para reutilizar el mismo intento.",
+  "billing.title": "Facturación y plan",
+  "billing.subtitle": "Gestiona tu plan, perfil de facturación y complementos.",
+  "billing.owner.title": "Cuenta del propietario",
+  "billing.owner.desc":
+    "Tienes proyectos ilimitados y no se te factura. Esta cuenta está exenta de los límites de los planes.",
+  "billing.currentPlan": "Plan actual",
+  "billing.status": "Estado",
+  "billing.billingMarket": "Mercado de facturación",
+  "billing.currency": "Moneda",
+  "billing.price": "Precio",
+  "billing.perMonth": "/mes",
+  "billing.limits": "Límites del plan",
+  "billing.profile": "Perfil de facturación",
+  "billing.customerType": "Tipo de cliente",
+  "billing.business": "Empresa",
+  "billing.consumer": "Consumidor",
+  "billing.billingName": "Nombre de facturación",
+  "billing.businessName": "Nombre de la empresa",
+  "billing.billingEmail": "Correo de facturación",
+  "billing.billingCountry": "País de facturación",
+  "billing.vatId": "NIF / identificación fiscal",
+  "billing.derivedMarket": "Mercado de facturación derivado",
+  "billing.saveProfile": "Guardar perfil de facturación",
+  "billing.profileSaved": "Perfil de facturación guardado",
+  "billing.selectCountryFirst": "Selecciona tu país de facturación para ver los precios locales.",
+  "billing.choosePlan": "Elige un plan",
+  "billing.recommended": "Recomendado",
+  "billing.choose": "Elegir",
+  "billing.currentLabel": "Plan actual",
+  "billing.upgrade": "Mejorar plan",
+  "billing.addons": "Complementos",
+  "billing.assistedSetup": "Configuración asistida",
+  "billing.monthlyCare": "Mantenimiento mensual",
+  "billing.oneTime": "pago único",
+  "billing.checkoutNotConfigured":
+    "El proceso de pago todavía no está configurado. Contacta con soporte para activar este plan.",
+  "billing.contactSupport": "Contactar con soporte",
+  "billing.checkoutPendingMsg": "Pago iniciado. Tu plan se activará cuando se confirme el pago.",
+  "billing.rulesNote":
+    "Tu mercado de facturación se basa en el país de tu empresa o de facturación. Cambiar el idioma de la web o la región pública no cambia los precios a los que puedes acceder.",
+  "billing.taxNote":
+    "Milo admite clientes empresariales y particulares. Los datos fiscales y de facturación pueden variar según el país y requerir revisión antes del lanzamiento público.",
+  "billing.paddleNote":
+    "La configuración y verificación de los pagos reales están incompletas. Contacta con soporte antes de elegir un plan de pago.",
+  "billing.noGuarantee": "No se garantizan posiciones, tráfico, ingresos ni citas en IA.",
+  "billing.marketReview":
+    "Cambiar el país de facturación puede afectar a los precios y requiere revisión.",
+  "billing.manual.title": "Activación manual (solo propietario)",
+  "billing.manual.desc":
+    "Activa un plan manualmente para cuentas pagadas mediante factura, beta o de cortesía. No se muestra a los usuarios habituales.",
+  "billing.manual.beta": "Activar como beta manual",
+  "billing.manual.comped": "Activar como cortesía manual",
+  "billing.manual.reset": "Restablecer a vista previa gratuita",
+  "billing.statusLabel.freePreview": "Vista previa gratuita",
+  "billing.statusLabel.checkoutPending": "Pago pendiente",
+  "billing.statusLabel.active": "Activo",
+  "billing.statusLabel.pastDue": "Pago vencido",
+  "billing.statusLabel.cancelled": "Cancelado",
+  "billing.statusLabel.manualBeta": "Beta manual",
+  "billing.statusLabel.manualComped": "Cortesía manual",
+  "launch.title": "Lista de comprobación del lanzamiento beta",
+  "launch.subtitle":
+    "Sigue la preparación de la configuración, el contenido, la publicación, la medición, la autoridad y la facturación de este proyecto.",
+  "launch.noProject": "Crea un proyecto para ver tu lista de comprobación del lanzamiento.",
+  "launch.betaNotesCta": "Notas de la beta",
+  "launch.readiness": "Preparación para el lanzamiento",
+  "launch.essentialsDone": "requisitos esenciales completados",
+  "launch.optionalDone": "También se han completado {n} elementos opcionales",
+  "launch.optional": "Opcional",
+  "launch.statusTitle": "Estado de configuración y conexiones",
+  "launch.section.foundation": "Base del proyecto",
+  "launch.section.content": "Sistema de contenido",
+  "launch.section.publishing": "Publicación",
+  "launch.section.measurement": "Medición",
+  "launch.section.authority": "Autoridad",
+  "launch.section.billing": "Facturación y beta",
+  "launch.item.businessProfile": "Perfil del negocio completado",
+  "launch.item.businessProfile.desc":
+    "El nombre y la descripción del negocio están definidos para dar contexto a Milo.",
+  "launch.item.websiteUrl": "URL de la web añadida",
+  "launch.item.websiteUrl.desc":
+    "Se usa para auditorías, correspondencia de datos analíticos y publicación.",
+  "launch.item.marketLanguage": "Mercado e idioma seleccionados",
+  "launch.item.marketLanguage.desc":
+    "Determina el idioma del contenido y el posicionamiento local.",
+  "launch.item.services": "Servicios o productos añadidos",
+  "launch.item.services.desc": "Indica a Milo qué vende realmente este negocio.",
+  "launch.item.brandIntelligence": "Inteligencia de marca iniciada",
+  "launch.item.brandIntelligence.desc":
+    "La voz, las afirmaciones y las ofertas mantienen el contenido coherente con la marca y seguro.",
+  "launch.item.opportunity": "Al menos una oportunidad generada",
+  "launch.item.opportunity.desc": "Ideas de visibilidad estructuradas y basadas en el negocio.",
+  "launch.item.contentAsset": "Al menos un recurso de contenido generado",
+  "launch.item.contentAsset.desc": "Un brief o borrador creado a partir de una oportunidad.",
+  "launch.item.miloScore": "Al menos una evaluación de Milo Score",
+  "launch.item.miloScore.desc": "Evalúa un borrador antes de publicarlo.",
+  "launch.item.reviewed": "Un borrador revisado o mejorado",
+  "launch.item.reviewed.desc": "Pasa un borrador a revisión, apruébalo o mejóralo.",
+  "launch.item.connectorSelected": "Conector seleccionado",
+  "launch.item.connectorSelected.desc":
+    "Elige Personalizado, WordPress o Shopify en Configuración del proyecto.",
+  "launch.item.connectorConfigured": "Conector configurado",
+  "launch.item.connectorConfigured.desc":
+    "Las credenciales o los endpoints están preparados para publicar.",
+  "launch.item.connectorTested": "Conexión probada (WordPress/Shopify)",
+  "launch.item.connectorTested.desc":
+    "Ejecuta la acción Probar conexión para evitar fallos posteriores al publicar.",
+  "launch.item.draftSent": "Al menos un borrador enviado",
+  "launch.item.draftSent.desc": "Envía contenido aprobado a la web conectada como borrador.",
+  "launch.item.publishedLive": "Al menos una página publicada",
+  "launch.item.publishedLive.desc": "Publica desde Milo un borrador revisado.",
+  "launch.item.analyticsSnippet": "Código de analítica disponible",
+  "launch.item.analyticsSnippet.desc":
+    "Copia el código de Milo desde Analítica y añádelo a tu web.",
+  "launch.item.analyticsEvents": "Eventos de analítica recibidos",
+  "launch.item.analyticsEvents.desc":
+    "Visita tu web después de instalar el código para confirmar el seguimiento.",
+  "launch.item.gscImport": "Importación de GSC Lite añadida",
+  "launch.item.gscImport.desc":
+    "Importa un CSV de Search Console para vincular impresiones y clics.",
+  "launch.item.publishedByMilo": "Datos de publicaciones de Milo disponibles",
+  "launch.item.publishedByMilo.desc":
+    "Páginas de Milo publicadas vinculadas al rendimiento de Search Console.",
+  "launch.item.authorityGenerated": "Oportunidades de autoridad generadas",
+  "launch.item.authorityGenerated.desc":
+    "Tareas de autoridad seguras, como directorios y enlaces de socios.",
+  "launch.item.authorityProgress": "Un elemento de autoridad planificado o activo",
+  "launch.item.authorityProgress.desc":
+    "Cambia una tarea de autoridad a planificada, contacto realizado o activa.",
+  "launch.item.billingProfile": "Perfil de facturación completado",
+  "launch.item.billingProfile.desc": "El país de facturación determina tu mercado de precios.",
+  "launch.item.planSelected": "Plan seleccionado (o vista previa gratuita)",
+  "launch.item.planSelected.desc":
+    "La vista previa gratuita está activa por defecto; no hace falta pagar.",
+  "launch.item.betaStatus": "Estado beta / cortesía / pendiente visible",
+  "launch.item.betaStatus.desc":
+    "El estado de beta manual, cortesía o pago pendiente se muestra en Facturación.",
+  "launch.item.paddlePending": "Verificación de pagos reales pendiente",
+  "launch.item.paddlePending.desc":
+    "Stripe es el sustituto elegido para Paddle. Siguen pendientes la configuración del entorno de pruebas y las comprobaciones del ciclo de pagos reales.",
+  "launch.conn.website": "Web",
+  "launch.conn.website.ok": "La URL de la web está definida.",
+  "launch.conn.website.none": "Añade la URL de tu web en Configuración del proyecto.",
+  "launch.conn.brand": "Inteligencia de marca",
+  "launch.conn.brand.ok": "Contexto de marca iniciado.",
+  "launch.conn.brand.none": "Todavía no se ha iniciado.",
+  "launch.conn.connector": "Conector de publicación",
+  "launch.conn.connector.none": "No se ha seleccionado ningún conector.",
+  "launch.conn.connector.partial": "Seleccionado, pero con la configuración incompleta.",
+  "launch.conn.connector.customOk": "Endpoints personalizados configurados.",
+  "launch.conn.connector.wpOk": "WordPress conectado y probado.",
+  "launch.conn.connector.wpUntested": "WordPress configurado; prueba la conexión.",
+  "launch.conn.connector.shopifyOk": "Shopify conectado y probado.",
+  "launch.conn.connector.shopifyUntested": "Shopify configurado; prueba la conexión.",
+  "launch.conn.analytics": "Analítica",
+  "launch.conn.analytics.ok": "Eventos recibidos.",
+  "launch.conn.analytics.pending": "Instala el código y visita tu web.",
+  "launch.conn.gsc": "GSC Lite",
+  "launch.conn.gsc.ok": "CSV importado.",
+  "launch.conn.gsc.csvOnly":
+    "Se conserva el CSV aportado por el propietario; no acredita el estado de la conexión OAuth.",
+  "launch.conn.gsc.synced":
+    "La importación guardada declara una API como origen; la conexión actual y la procedencia no se han verificado de forma independiente.",
+  "launch.conn.gsc.connectedNotSynced": "Conectado; ejecuta una sincronización.",
+  "launch.conn.gsc.reconnect": "Es necesario volver a conectar.",
+  "launch.conn.gsc.none": "Todavía no hay importaciones.",
+  "launch.conn.authority": "Autoridad",
+  "launch.conn.authority.ok": "Oportunidades generadas.",
+  "launch.conn.authority.none": "Todavía no se ha generado ninguna.",
+  "launch.conn.billing": "Facturación",
+  "launch.conn.billing.ok": "Perfil de facturación definido.",
+  "launch.conn.billing.pending": "Añade el país de facturación para obtener los precios correctos.",
+  "launch.qa.title": "Control de calidad del propietario",
+  "launch.qa.ownerOnly": "Solo propietario",
+  "launch.qa.projectId": "ID del proyecto",
+  "launch.qa.plan": "Plan",
+  "launch.qa.subStatus": "Estado de la suscripción",
+  "launch.qa.connector": "Conector",
+  "launch.qa.sent": "Borradores enviados",
+  "launch.qa.live": "Publicados",
+  "launch.qa.analyticsEvents": "Eventos de analítica (30 días)",
+  "launch.qa.gscImports": "Importaciones de GSC",
+  "launch.qa.gscOAuth": "OAuth de GSC configurado",
+  "launch.qa.gscConnected": "Conexión de GSC",
+  "launch.qa.gscSite": "Sitio seleccionado de GSC",
+  "launch.qa.gscSyncRows": "Filas de la última sincronización de GSC",
+  "launch.qa.gscSyncDate": "Fecha de la última sincronización de GSC",
+  "launch.qa.authorityCount": "Elementos de autoridad",
+  "launch.qa.contentCount": "Recursos de contenido",
+  "launch.qa.aiCandidate": "Candidato de IA configurado",
+  "launch.qa.paddle": "Paddle heredado configurado",
+  "launch.qa.yes": "Sí",
+  "launch.qa.no": "No",
+  "beta.title": "Notas de la beta",
+  "beta.subtitle":
+    "Limitaciones actuales y qué confirmar antes de ampliar el lanzamiento de autoservicio.",
+  "beta.intro":
+    "Estas notas recogen el trabajo de configuración y aceptación pendiente. Una demostración guiada debe usar flujos verificados; completar la lista no acredita por sí solo la preparación para un lanzamiento de autoservicio de pago.",
+  "beta.limitsTitle": "Limitaciones actuales de la beta",
+  "beta.reassure":
+    "Elige los flujos de demostración a partir de pruebas verificadas. Mantén visibles las integraciones no probadas y los requisitos previos del lanzamiento de pago.",
+  "beta.demoSafeTitle": "Notas para una demostración segura",
+  "beta.backToChecklist": "Volver a la lista de comprobación",
+  "beta.openDemoScript": "Abrir guion de demostración",
+  "beta.limit.paddle":
+    "Los pagos reales no están listos para un lanzamiento de pago general. Siguen pendientes la configuración del entorno de pruebas de Stripe y las comprobaciones del ciclo de pagos reales.",
+  "beta.limit.wordpress":
+    "El conector de WordPress está desarrollado, pero aún necesita pruebas en una web real.",
+  "beta.limit.shopify":
+    "El conector de Shopify está desarrollado, pero aún necesita pruebas en una tienda real.",
+  "beta.limit.aiCandidate":
+    "El modelo de IA alternativo (candidato de evaluación) requiere configurar el entorno antes de ejecutarse.",
+  "beta.limit.legal":
+    "Las páginas legales son borradores para preparar la beta y deben revisarse antes de ampliar el lanzamiento de pago.",
+  "beta.limit.analytics":
+    "Analítica necesita que el código de Milo esté instalado en la web del cliente para recibir eventos.",
+  "beta.limit.gsc":
+    "GSC Lite permite la importación manual de CSV y la sincronización opcional mediante OAuth/API cuando Google OAuth está configurado. La importación manual sigue disponible como alternativa.",
+  "beta.limit.images":
+    "La publicación puede incluir referencias de imágenes revisadas. La transferencia de imágenes, las imágenes destacadas y el diseño final aún requieren comprobaciones en sitios reales para cada conector.",
+  "beta.demo.rankings":
+    "No prometas posiciones, tráfico ni citas garantizadas en IA; Milo cuenta con asistencia de IA y revisión humana.",
+  "beta.demo.payments":
+    "Explica que Stripe es el proveedor de pagos elegido y que la configuración y la verificación del ciclo de pagos siguen incompletas. No presentes los pagos como operativos.",
+  "beta.demo.connectors":
+    "Indica que los conectores de WordPress y Shopify requieren pruebas completas en cada sitio real.",
+  "beta.demo.data":
+    "Indica que las pruebas de Analítica y GSC dependen de la disponibilidad de datos en el proyecto de demostración.",
+};
