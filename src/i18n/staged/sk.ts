@@ -1,3 +1,5 @@
+import { skBillingScreen } from "./sk-billing-screen";
+import { skAnalyticsScreen } from "./sk-analytics-screen";
 import { skAuditScreen } from "./sk-audit-screen";
 import { skServicesScreen } from "./sk-services-screen";
 import { skSetupScreen } from "./sk-setup-screen";
@@ -58,6 +60,20 @@ export const SK_STAGED_BATCHES = [
     namespaces: ["auditScreen"],
     sourceRevision: "24ddc69",
     sourceHash: "2c15a7061c169b3f2da7446d4280ff94cb6b5ce2e6cb56d156af72ab154f1aed",
+  },
+  {
+    name: "analytics screen",
+    copy: skAnalyticsScreen,
+    namespaces: ["analyticsScreen"],
+    sourceRevision: "e274ada",
+    sourceHash: "d86d151031ad82c4dbc559e9816ad14cecaa3e4f1b0de2ff8de3c484de5b02c5",
+  },
+  {
+    name: "billing screen",
+    copy: skBillingScreen,
+    namespaces: ["billingScreen"],
+    sourceRevision: "e274ada",
+    sourceHash: "d0e701bae4247d1129cc13dd6df6d9b569e725edbf5136255b68ca3fb2307194",
   },
 ] as const;
 export const SK_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

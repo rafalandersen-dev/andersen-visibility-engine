@@ -106,3 +106,5 @@ Slovak authoring begins with 72 authentication/shared-control messages (English 
 Slovak core adds 202 messages, bringing staged coverage to 274/3,768 across three batches. The remaining UI authoring backlog is 44,942 messages at this composed-English baseline. All 14 focused tests, types, scoped lint and whitespace pass. Activation and language/rendered acceptance remain open.
 
 Slovak setup/services/audit adds 71 messages, bringing staged coverage to 345/3,768 across six batches. The remaining UI authoring backlog is 44,871 messages at this composed-English baseline. All 17 focused tests, types, scoped lint and whitespace pass. Activation and language/rendered acceptance remain open.
+
+Slovak analytics/billing adds 90 messages, bringing staged coverage to 435/3,768 across eight batches. The remaining UI authoring backlog is 44,781 messages at this composed-English baseline. All 19 focused tests, types, scoped lint and whitespace pass. Activation and language/rendered acceptance remain open.
