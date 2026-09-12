@@ -1,6 +1,6 @@
 # Dutch interface authoring — 12 September 2026
 
-R20 requires full EU-language coverage. Dutch authoring has begun with 955 of the current 3,768 English interface messages (2,813 remain). This is a partial staged catalog; Dutch is not registered in UI_CATALOGS or the language picker.
+R20 requires full EU-language coverage. Dutch authoring has begun with 1,043 of the current 3,768 English interface messages (2,725 remain). This is a partial staged catalog; Dutch is not registered in UI_CATALOGS or the language picker.
 
 ## Completed authoring batches
 
@@ -15,6 +15,7 @@ R20 requires full EU-language coverage. Dutch authoring has begun with 955 of th
 | Evidence screens | 89 | src/i18n/staged/nl-evidence-screen.ts |
 | Plan screen | 113 | src/i18n/staged/nl-plan-screen.ts |
 | Editor screen | 148 | src/i18n/staged/nl-editor-screen.ts |
+| Beta validation screen | 88 | src/i18n/staged/nl-beta-screen.ts |
 | Public home | 100 | src/i18n/staged/nl-public-home.ts |
 | Public pricing | 40 | src/i18n/staged/nl-public-pricing.ts |
 | Public case studies | 30 | src/i18n/staged/nl-public-studies.ts |
@@ -82,3 +83,10 @@ All twenty-four Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-
 At 2a88d38, authored all 100 publicHome messages. Copy preserves publication destination/approval requirements, missing-data versus zero-activity semantics, payment/supplier holds, billing portal dependencies and project isolation wording. The split headline is phrased to read coherently in Dutch. Monthly-system positioning, AI-answer tracking, retained work and analytics capability claims remain inherited source copy requiring product/behavior review. The public Insights label versus shell Visibility terminology also needs reconciliation during fluent/rendered review.
 
 All twenty-five Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-public-home-types.log), scoped lint and whitespace checks. Total staged coverage is 955; 2,813 messages remain. Beta guidance groups are next. No runtime activation; fluent, responsive, accessibility and real-use acceptance remain open.
+
+
+## Beta validation screen follow-up
+
+At dc4b718, authored all 88 betaScreen messages. Copy preserves owner-only guidance, separate outreach language selection, review-before-use instructions, original CSV field/value preservation, the 12–13 demo steps and first-20-prospect scorecard. Translated display statuses do not change export values or perform outreach. Owner-only text does not itself establish authorization enforcement, and the sales-validation labels do not establish paid-launch readiness.
+
+All twenty-six Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-beta-screen-types.log), scoped lint and whitespace checks. Total staged coverage is 1,043; 2,725 messages remain. Beta guide and public beta groups are next. Fluent/rendered and real-use acceptance remain open; no runtime activation or external communication occurred.

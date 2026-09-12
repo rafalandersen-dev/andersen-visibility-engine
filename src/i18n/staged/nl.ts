@@ -1,3 +1,4 @@
+import { nlBetaScreen } from "./nl-beta-screen";
 import { nlPublicHome } from "./nl-public-home";
 import { nlPublicStudies } from "./nl-public-studies";
 import { nlPublicPricing } from "./nl-public-pricing";
@@ -15,6 +16,13 @@ import { nlSharedUi } from "./nl-shared-ui";
 
 /** Partial Dutch authoring; never imported by the runtime catalog. */
 export const NL_STAGED_BATCHES = [
+  {
+    name: "beta screen",
+    copy: nlBetaScreen,
+    namespaces: ["betaScreen"],
+    sourceRevision: "dc4b718",
+    sourceHash: "c4dcf4827cb49219199aab22d2969e33f643ade8a8c2c348bb899d61f3a08119",
+  },
   {
     name: "public home",
     copy: nlPublicHome,
