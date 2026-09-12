@@ -8,10 +8,23 @@ import { frEvidence } from "./fr-evidence";
 import { frConfiguration } from "./fr-configuration";
 import { frGrowth } from "./fr-growth";
 import { frCommerce } from "./fr-commerce";
+import { frLinks } from "./fr-links";
 
 /** Authoring batches only. This catalog is incomplete and is not registered by
  * the runtime or offered in the language picker. */
 export const FR_STAGED_BATCHES = [
+  {
+    name: "links",
+    copy: frLinks,
+    namespaces: [
+      "linknet",
+      "backlinks",
+      "marketplace",
+      "backlinkMonitor",
+      "backlinkDetails",
+      "backlinkRecurring",
+    ],
+  },
   {
     name: "commerce",
     copy: frCommerce,
