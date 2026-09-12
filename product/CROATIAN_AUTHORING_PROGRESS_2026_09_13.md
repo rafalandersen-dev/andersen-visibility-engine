@@ -1,6 +1,6 @@
 # Croatian interface authoring — 13 September 2026
 
-Croatian is staged only: 345 of the current 3,768 English interface keys across six complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK/SL retain complete staged authoring and incomplete acceptance status.
+Croatian is staged only: 435 of the current 3,768 English interface keys across eight complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK/SL retain complete staged authoring and incomplete acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -10,8 +10,10 @@ Croatian is staged only: 345 of the current 3,768 English interface keys across 
 | Setup screen | 24 | cae5a6d |
 | Services screen | 18 | cae5a6d |
 | Audit screen | 29 | cae5a6d |
+| Analytics screen | 36 | 84890e0 |
+| Billing screen | 54 | 84890e0 |
 
-The frozen staged registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 17 Croatian/catalog tests, scoped lint, whitespace and type checking pass. Changed code formatted. Type log: /tmp/milo-croatian-setup-services-audit-types.log.
+The frozen staged registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 19 Croatian/catalog tests, scoped lint, whitespace and type checking pass. Changed code formatted. Type log: /tmp/milo-croatian-analytics-billing-types.log.
 
 Terminology: radni prostor (workspace), projekt, lozinka (password), ponovno postavljanje lozinke (password reset), bočna traka (sidebar), unos (network listing), paket (subscription plan), plan (workflow plan), smjernice za sadržaj (content brief), poveznica (link). Use polite plural explanatory instructions and concise action labels. Preserve provider/product names and placeholders.
 
@@ -21,4 +23,6 @@ Core wording distinguishes interface and content language, saved setup and unfin
 
 Setup copy preserves separate approval and publication actions, prior approved-draft uncertainty and configured destination/secret handling. Service actions retain named-item placeholders. Audit copy distinguishes readable homepage evidence from business-context-only fallback; scores remain assessments rather than rankings, measured performance or a whole-site crawl. No settings, provider, audit or publication action occurred.
 
-Remaining: 3,423 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batches: analytics and billing screens using the current composed English source. This staged work does not complete R20 or change release gates.
+Analytics copy preserves recorded-event versus unique-visitor distinctions, click-rate versus completed conversions, the 50,000-event/60-day bound and publication-history limitations. Billing retains linked legacy-portal conditions, manually granted plan eligibility, separate backlink purchase approval and configured-feature limits. Terms include besplatni pregled (free preview), povezivači (connectors) and izvješća pod vašim brendom (white-label reports). No portal, payment, tracking or provider action occurred.
+
+Remaining: 3,333 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: competitor and AI-readiness evidence screen using the current composed English source. This staged work does not complete R20 or change release gates.
