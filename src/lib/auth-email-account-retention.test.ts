@@ -80,6 +80,7 @@ beforeEach(() => {
   h.tokens.mockResolvedValue({ data: { token: "test-only-unsubscribe-placeholder" }, error: null });
 });
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.useRealTimers();
   vi.unstubAllEnvs();
 });
@@ -236,4 +237,37 @@ describe("authentication request email language", () => {
       expect(h.send).not.toHaveBeenCalled();
     },
   );
+});
+
+describe("provider acceptance survives a later diagnostic failure", () => {
+  it.each([
+    ["signup", signupWithBrandedEmailFn],
+    ["recovery", requestPasswordResetWithBrandedEmailFn],
+  ])("keeps %s successful when the sent-log request rejects", async (_kind, fn) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    h.log
+      .mockResolvedValueOnce({ error: null })
+      .mockRejectedValueOnce(new Error("Synthetic private diagnostic detail"));
+    await expect(call(fn)).resolves.toEqual({ ok: true });
+    expect(h.send).toHaveBeenCalledOnce();
+    expect(h.generateLink).toHaveBeenCalledOnce();
+    expect(h.log.mock.calls.map(([entry]) => entry.status)).toEqual(["pending", "sent"]);
+    expect(warn.mock.calls).toEqual([["auth_email_sent_log_failed"]]);
+    expect(h.deleteUser).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["signup", signupWithBrandedEmailFn],
+    ["recovery", requestPasswordResetWithBrandedEmailFn],
+  ])("keeps %s successful when the sent-log response contains an error", async (_kind, fn) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    h.log.mockResolvedValueOnce({ error: null }).mockResolvedValueOnce({
+      error: { message: "Synthetic private diagnostic detail" },
+    });
+    await expect(call(fn)).resolves.toEqual({ ok: true });
+    expect(h.send).toHaveBeenCalledOnce();
+    expect(h.log.mock.calls.map(([entry]) => entry.status)).toEqual(["pending", "sent"]);
+    expect(warn.mock.calls).toEqual([["auth_email_sent_log_failed"]]);
+    expect(h.deleteUser).not.toHaveBeenCalled();
+  });
 });

@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Authentication email outcome correction: a failed sent-log write after provider acceptance now preserves success and emits only a fixed diagnostic, instead of falsely reporting send failure and inviting a retry. Four new mocked regressions; no actual email/account operations. See AUTH_EMAIL_ACCEPTED_LOG_FAILURE_2026_09_12.md. Prepared, unreleased; confirmation resend and real delivery acceptance remain open.
+
 Automatic scheduler guidance corrected across four runtime and four staged languages: preparation and scheduling are conditional, and neither every calendar slot nor successful publication is guaranteed. Approval-first remains unscheduled. See SCHEDULER_GUIDANCE_CLAIM_2026_09_12.md. Prepared, unreleased; real acceptance and release holds remain.
 
 Image Arrange guidance corrected across four runtime and four staged languages: edits can leave placement unresolved, and preview does not verify destination appearance. Existing assembly/checklist behavior is retained. See IMAGE_PLACEMENT_CLAIM_2026_09_12.md. Prepared, unreleased; real acceptance and release holds remain.

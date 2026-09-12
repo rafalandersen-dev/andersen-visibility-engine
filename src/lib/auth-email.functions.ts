@@ -60,7 +60,7 @@ async function logEmail(
   status: "pending" | "sent" | "failed",
   errorMessage?: string,
 ) {
-  await supabase.from("email_send_log").insert({
+  return await supabase.from("email_send_log").insert({
     message_id: messageId,
     template_name: templateName,
     recipient_email: recipientEmail,
@@ -98,7 +98,6 @@ async function sendDirectAuthEmail(args: {
       },
       { apiKey, sendUrl: process.env.LOVABLE_SEND_URL },
     );
-    await logEmail(args.supabase, messageId, args.templateName, args.to, "sent");
   } catch {
     // Provider errors can echo request content, including private action links.
     // Retain a diagnostic category, never the raw error or email payload.
@@ -111,6 +110,15 @@ async function sendDirectAuthEmail(args: {
       "auth_email_delivery_failed",
     );
     throw new Error("We could not send the email right now. Please try again in a moment.");
+  }
+  // The provider has accepted the message. A later diagnostic write failure
+  // must not be reported as a send failure or invite another authentication email.
+  // Do not log the database error: it may include private recipient/link data.
+  try {
+    const logged = await logEmail(args.supabase, messageId, args.templateName, args.to, "sent");
+    if (logged?.error) console.warn("auth_email_sent_log_failed");
+  } catch {
+    console.warn("auth_email_sent_log_failed");
   }
 }
 
