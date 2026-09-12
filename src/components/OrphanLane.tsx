@@ -8,11 +8,13 @@
  * A new sibling file, not inlined into the 1300-line app.plan.tsx, to keep the
  * merge surface small while a second agent edits that route.
  */
-import { format } from "date-fns";
 import { Clock } from "lucide-react";
 import type { ContentAsset } from "@/lib/types";
 import { pipelineStage } from "@/lib/pipeline";
 import { StageChip } from "@/components/StageChip";
+import { useAppLanguage } from "@/i18n";
+import { formatPlanningDate } from "@/lib/planning-date";
+import { formatTimeLocal } from "@/lib/format";
 
 export function OrphanLane({
   orphans,
@@ -44,6 +46,7 @@ export function OrphanLane({
 }
 
 function OrphanCard({ asset, onOpen }: { asset: ContentAsset; onOpen: () => void }) {
+  const locale = useAppLanguage();
   // No opportunity argument — pipelineStage derives writing/…/armed/live from the
   // asset alone, which is exactly what an orphan needs.
   const stage = pipelineStage({ asset });
@@ -56,7 +59,8 @@ function OrphanCard({ asset, onOpen }: { asset: ContentAsset; onOpen: () => void
       {armed && asset.scheduledPublishAt ? (
         <span className="flex items-center gap-1 text-[8px] font-medium text-amber-800">
           <Clock className="h-2.5 w-2.5" /> Goes live{" "}
-          {format(new Date(asset.scheduledPublishAt), "MMM d, HH:mm")}
+          {formatPlanningDate(asset.scheduledPublishAt, locale, false)},{" "}
+          {formatTimeLocal(asset.scheduledPublishAt)}
         </span>
       ) : null}
       <div className="mt-0.5 flex items-center gap-1.5">

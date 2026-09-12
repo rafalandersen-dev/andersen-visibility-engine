@@ -100,6 +100,7 @@ import {
   type PipelineStage,
 } from "@/lib/pipeline";
 import { formatDateTimeLocal, formatTimeLocal } from "@/lib/format";
+import { formatPlanningDate as formatDate } from "@/lib/planning-date";
 import { StageChip } from "@/components/StageChip";
 import { OrphanLane } from "@/components/OrphanLane";
 import { StackedDeck } from "@/components/StackedDeck";
@@ -198,6 +199,7 @@ const FLOW_STAGES: PipelineStage[] = [
 
 function PlanPage() {
   const t = useT();
+  const locale = useAppLanguage();
   const search = Route.useSearch();
   const navigate = useNavigate();
   const activeProjectId = useStore((state) => state.activeProjectId);
@@ -275,7 +277,7 @@ function PlanPage() {
             // about armed schedules, failed publishes and pages already live.
             pipeline: pipelineStage({ opportunity, asset }),
             pipelineDetail: asset?.scheduledPublishAt
-              ? formatDateTimeLocal(asset.scheduledPublishAt)
+              ? formatDateTimeLocal(asset.scheduledPublishAt, locale)
               : undefined,
           };
         })
@@ -289,7 +291,7 @@ function PlanPage() {
                 .includes(query.trim().toLocaleLowerCase())
             : true,
         ),
-    [assetsByOpportunity, query, rawOpportunities, showArchived],
+    [assetsByOpportunity, locale, query, rawOpportunities, showArchived],
   );
 
   // The calendar's solid layer: every ARMED asset, keyed on the asset itself, so
@@ -445,7 +447,7 @@ function PlanPage() {
     if (!dropIntent?.opportunity) return;
     try {
       applyTarget(dropIntent.opportunity, dropIntent.date);
-      toast.success(`Target set for ${format(dropIntent.date, "MMM d")}`);
+      toast.success(`Target set for ${formatDate(dropIntent.date, locale, false)}`);
       setDropIntent(null);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not set the target");
@@ -477,6 +479,7 @@ function PlanPage() {
       toast.success(
         `${dropIntent.reschedule ? "Go-live moved to" : "Scheduled — goes live"} ${formatDateTimeLocal(
           instant.toISOString(),
+          locale,
         )}`,
       );
       setDropIntent(null);
@@ -799,10 +802,11 @@ function ScheduleDropDialog({
   onClose: () => void;
 }) {
   const t = useT();
+  const locale = useAppLanguage();
   if (!intent) return null;
   const { readiness, reschedule } = intent;
   const title = intent.asset?.title ?? intent.opportunity?.title ?? "";
-  const day = format(intent.date, "MMM d, yyyy");
+  const day = formatDate(intent.date, locale);
   const canArm = Boolean(intent.asset) && time !== "" && (readiness.ready || reschedule);
   return (
     <Dialog open onOpenChange={(open) => (!open ? onClose() : undefined)}>
@@ -864,7 +868,7 @@ function ScheduleDropDialog({
             >
               {readiness.ready
                 ? t("calsched.targetOnly")
-                : t("calsched.setTarget", { date: format(intent.date, "MMM d") })}
+                : t("calsched.setTarget", { date: formatDate(intent.date, locale, false) })}
             </Button>
           ) : null}
           {(readiness.ready || reschedule) && intent.asset ? (
@@ -1462,6 +1466,7 @@ function OpportunityCard({
   rewriteEnabled: boolean;
 }) {
   const t = useT();
+  const locale = useAppLanguage();
   const draggable = DRAGGABLE_STAGES.includes(opportunity.pipeline);
   // A live page whose draft is gone: always a safe read-only "Open live page"
   // link, plus the "Rewrite this page" action only where an update-in-place is
@@ -1517,7 +1522,9 @@ function OpportunityCard({
       </span>
       <div className="mt-0.5 flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs text-[#5f6771]">
-          {opportunity.dueAt ? `Due ${formatDate(opportunity.dueAt)}` : opportunity.priority}
+          {opportunity.dueAt
+            ? `Due ${formatDate(opportunity.dueAt, locale)}`
+            : opportunity.priority}
         </span>
         {liveMissing ? (
           <span className="flex items-center gap-1.5">
@@ -1664,6 +1671,7 @@ function ArchivedView({
   selectedId?: string;
   onSelect: (id?: string) => void;
 }) {
+  const locale = useAppLanguage();
   return (
     <div
       className={`relative min-h-[calc(100vh-156px)] p-5 md:p-8 ${selectedId ? "xl:pr-[330px]" : ""}`}
@@ -1688,8 +1696,9 @@ function ArchivedView({
             >
               <div className="truncate text-sm font-medium">{opportunity.title}</div>
               <div className="mt-1 text-[10px] text-[#697282]">
-                Archived {opportunity.archivedAt ? formatDate(opportunity.archivedAt) : "recently"}{" "}
-                · {opportunitySourceLabel(opportunity)}
+                Archived{" "}
+                {opportunity.archivedAt ? formatDate(opportunity.archivedAt, locale) : "recently"} ·{" "}
+                {opportunitySourceLabel(opportunity)}
               </div>
             </button>
             <Button
@@ -2170,7 +2179,7 @@ function OpportunityDrawer({
     try {
       transitionOpportunity(opportunity.id, "scheduled", { dueAt: date });
       setScheduleOpen(false);
-      toast.success(`Scheduled for ${formatDate(date)}`);
+      toast.success(`Scheduled for ${formatDate(date, locale)}`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not schedule");
     }
@@ -2349,7 +2358,7 @@ function OpportunityDrawer({
           />
           <Detail
             label={t("plan.date")}
-            value={opportunity.dueAt ? formatDate(opportunity.dueAt) : "Not scheduled"}
+            value={opportunity.dueAt ? formatDate(opportunity.dueAt, locale) : "Not scheduled"}
             icon={<CalendarBlank size={14} />}
           />
         </dl>
@@ -2381,7 +2390,7 @@ function OpportunityDrawer({
             <strong className="font-display text-sm">Milo Score</strong>
             <p className="mt-0.5 text-[8px] leading-3 text-[#697282]">
               {score
-                ? `Content version scored ${formatDate(score.evaluatedAt)}.`
+                ? `Content version scored ${formatDate(score.evaluatedAt, locale)}.`
                 : t("analytics.v2.notEvaluated")}
             </p>
           </div>
@@ -2402,11 +2411,6 @@ function Detail({ label, value, icon }: { label: string; value: string; icon?: R
       </dd>
     </div>
   );
-}
-
-function formatDate(value: string) {
-  const date = new Date(value.length <= 10 ? `${value}T12:00:00` : value);
-  return Number.isNaN(date.getTime()) ? value : format(date, "MMM d, yyyy");
 }
 
 /** The path portion of a live URL, for seeding a rewrite's publishSlug. */
