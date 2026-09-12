@@ -14,7 +14,7 @@ export async function readBacklinkDetailsHistory(
   const user = z.string().uuid().parse(userId),
     input = backlinkDetailsHistoryInput.parse(raw);
   return projectBacklinkDetailsHistory(
-    await teamCall("list_backlink_details", { p_user: user, p_project: input.projectId }, rpc),
+    await teamCall("list_backlink_pages", { p_user: user, p_project: input.projectId }, rpc),
     user,
     input.projectId,
   );

@@ -3,6 +3,11 @@ import {
   normalizeBacklinkDetails,
   type BacklinkDetailScope,
 } from "./backlink-details";
+import {
+  backlinkPagePayload,
+  normalizeBacklinkPage,
+  type BacklinkContinuation,
+} from "./backlink-pagination";
 const ENDPOINT = "https://api.dataforseo.com/v3/backlinks/backlinks/live";
 /** Internal transport only. The caller must first acquire durable dispatch and
  * supplier expense admission. No routes or automatic analysis call this module. */
@@ -12,7 +17,33 @@ export async function fetchBacklinkDetails(
   signal: AbortSignal,
   request: typeof fetch = fetch,
 ) {
-  const payload = backlinkDetailPayload(scope);
+  return requestDetails(backlinkDetailPayload(scope), credentials, signal, request, (raw) =>
+    normalizeBacklinkDetails(raw, scope, new Date().toISOString()),
+  );
+}
+/** Same bounded single-dispatch transport, with private parent-bound continuation. */
+export async function fetchBacklinkPage(
+  scope: BacklinkDetailScope,
+  credentials: { login: string; password: string },
+  signal: AbortSignal,
+  continuation: BacklinkContinuation | null,
+  request: typeof fetch = fetch,
+) {
+  return requestDetails(
+    backlinkPagePayload(scope, continuation),
+    credentials,
+    signal,
+    request,
+    (raw) => normalizeBacklinkPage(raw, scope, new Date().toISOString(), continuation),
+  );
+}
+async function requestDetails<T>(
+  payload: ReturnType<typeof backlinkDetailPayload>,
+  credentials: { login: string; password: string },
+  signal: AbortSignal,
+  request: typeof fetch,
+  normalize: (raw: unknown) => T,
+): Promise<T> {
   const login = credentials.login.trim();
   const password = credentials.password.trim();
   if (!login || !password) throw new Error("backlink_details_unconfigured");
@@ -64,7 +95,7 @@ export async function fetchBacklinkDetails(
       text += decoder.decode(part.value, { stream: true });
     }
     text += decoder.decode();
-    return normalizeBacklinkDetails(JSON.parse(text), scope, new Date().toISOString());
+    return normalize(JSON.parse(text));
   } catch {
     // Neither HTTP errors nor unusable results prove that the provider did not charge.
     throw new Error("backlink_details_unavailable");

@@ -72,3 +72,19 @@ it("does not expose internal errors or imply a safe retry after an uncertain res
     requestId,
   });
 });
+
+it("authenticates continuation using only the parent identity and current website", async () => {
+  h.run.mockResolvedValueOnce({ state: "existing", requestId });
+  const data = {
+    projectId: "p",
+    requestId,
+    parentRequestId: user,
+    expectedWebsite: "https://example.com",
+  };
+  await invoke(requestBacklinkDetailsFn, data);
+  expect(h.run).toHaveBeenLastCalledWith(user, data);
+  expect(() =>
+    invoke(requestBacklinkDetailsFn, { ...data, search_after_token: "forged" }),
+  ).toThrow();
+  expect(() => invoke(requestBacklinkDetailsFn, { ...data, offset: 100 })).toThrow();
+});

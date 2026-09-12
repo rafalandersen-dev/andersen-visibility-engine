@@ -1,3 +1,8 @@
+import { runBacklinkDetails } from "./backlink-details-lifecycle.server";
+import { readBacklinkDetailsHistory } from "./backlink-details-history.server";
+import { fetchBacklinkPage } from "./backlink-details-transport.server";
+import type { TeamReadRpc } from "./project-team-read.server";
+import { vi } from "vitest";
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
 import { beforeAll, beforeEach, afterAll, it, expect } from "vitest";
@@ -12,7 +17,7 @@ const scope = {
   dateFrom: "2026-09-01",
   dateTo: "2026-09-01",
   includeSubdomains: false,
-  selection: "first_seen",
+  selection: "first_seen" as const,
   limit: 100,
   offset: 20000,
 };
@@ -234,4 +239,112 @@ it("does not expose private cursors through any direct client role", async () =>
     if (role !== "service_role") await expect(history()).rejects.toThrow("permission denied");
     await db.exec("RESET ROLE");
   }
+});
+
+it("runs two authenticated pages through SQL admission, bounded transport and private history", async () => {
+  await fund();
+  const rpc: TeamReadRpc = async (name, args) => {
+    try {
+      const entries = Object.entries(args);
+      const result = await db.query<{ value: unknown }>(
+        `SELECT public.${name}(${entries.map(([key], i) => `${key} => $${i + 1}`).join(",")}) value`,
+        entries.map(([, value]) => value),
+      );
+      return { data: result.rows[0].value, error: null };
+    } catch (error) {
+      return { data: null, error: { message: String(error) } };
+    }
+  };
+  const request = vi.fn<typeof fetch>().mockImplementation(async (_url, init) => {
+    const data = JSON.parse(String(init?.body))[0];
+    const next = !data.search_after_token;
+    return new Response(
+      JSON.stringify({
+        status_code: 20000,
+        tasks_count: 1,
+        tasks_error: 0,
+        tasks: [
+          {
+            id: next ? "fixture-root" : "fixture-child",
+            status_code: 20000,
+            cost: 0.024036,
+            result_count: 1,
+            data,
+            result: [
+              {
+                target: scope.target,
+                mode: "as_is",
+                total_count: 20002,
+                items_count: 1,
+                search_after_token: next ? "private-integration-cursor" : null,
+                items: [
+                  {
+                    type: "backlink",
+                    url_from: `https://source.test/${next ? "a" : "b"}`,
+                    domain_from: "source.test",
+                    url_to: "https://example.com/page",
+                    domain_to: "example.com",
+                    first_seen: "2026-09-01 12:00:00 +00:00",
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+      { headers: { "content-type": "application/json" } },
+    );
+  });
+  const deps = {
+    rpc,
+    credentials: () => ({ login: "fixture", password: "fixture-secret" }),
+    fetch: (
+      s: Parameters<typeof fetchBacklinkPage>[0],
+      c: Parameters<typeof fetchBacklinkPage>[1],
+      signal: AbortSignal,
+      continuation: Parameters<typeof fetchBacklinkPage>[3],
+    ) => fetchBacklinkPage(s, c, signal, continuation, request),
+  };
+  const { target: _target, ...filters } = scope;
+  const first = {
+    ...filters,
+    projectId: "p",
+    requestId: root,
+    expectedWebsite: "https://example.com",
+  };
+  expect((await runBacklinkDetails(owner, first, deps)).state).toBe("stored");
+  let saved = await readBacklinkDetailsHistory(owner, { projectId: "p" }, rpc);
+  expect(saved[0].pageInfo?.canContinue).toBe(true);
+  const second = {
+    projectId: "p",
+    requestId: child,
+    parentRequestId: root,
+    expectedWebsite: "https://example.com",
+  };
+  const result = await runBacklinkDetails(owner, second, deps);
+  expect(result.state).toBe("stored");
+  expect((await runBacklinkDetails(owner, second, deps)).state).toBe("existing");
+  saved = await readBacklinkDetailsHistory(owner, { projectId: "p" }, rpc);
+  const page = saved.find((r) => r.requestId === child)!;
+  expect(page.observation?.moreProviderResults).toBe(false);
+  expect(page.pageInfo).toEqual({
+    parentRequestId: root,
+    pageNumber: 2,
+    priorReturnedCount: 1,
+    childRequestId: null,
+    canContinue: false,
+  });
+  expect(saved.find((r) => r.requestId === root)?.pageInfo?.childRequestId).toBe(child);
+  expect(request).toHaveBeenCalledTimes(2);
+  expect(JSON.parse(String(request.mock.calls[1][1]?.body))[0]).toMatchObject({
+    offset: 20000,
+    search_after_token: "private-integration-cursor",
+  });
+  expect(JSON.stringify({ saved, result })).not.toMatch(
+    /private-integration-cursor|fixture-secret|lease_token/,
+  );
+  const expenses = (
+    await db.query<{ count: number }>("SELECT count(*)::int count FROM ai_expense_requests")
+  ).rows[0].count;
+  expect(expenses).toBe(2);
 });

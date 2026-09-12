@@ -8,6 +8,16 @@ export const backlinkDetailsRequest = backlinkDetailScope
     expectedWebsite: z.string().trim().min(1).max(8192),
   })
   .strict();
+export const backlinkNextPageRequest = z
+  .object({
+    projectId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/),
+    requestId: z.string().uuid(),
+    parentRequestId: z.string().uuid(),
+    expectedWebsite: z.string().trim().min(1).max(8192),
+  })
+  .strict()
+  .refine((v) => v.requestId !== v.parentRequestId);
+export const backlinkPageRequest = z.union([backlinkDetailsRequest, backlinkNextPageRequest]);
 export const backlinkDetailsHistoryInput = z
   .object({ projectId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/) })
   .strict();
@@ -60,7 +70,8 @@ const observation = z
     links: z.array(link).max(100),
   })
   .strict();
-export function savedBacklinkDetails(raw: unknown) {
+export function savedBacklinkDetails(raw: unknown, priorReturnedCount = 0) {
+  count.parse(priorReturnedCount);
   const value = observation.parse(raw);
   const scope = detailScope(value.scope, new Date(value.observedAt));
   const fail = () => {
@@ -75,7 +86,7 @@ export function savedBacklinkDetails(raw: unknown) {
     value.retainedCount > value.providerReturnedCount ||
     value.retainedTruncated !== value.retainedCount < value.providerReturnedCount ||
     (!value.moreProviderResults &&
-      value.providerTotalCount > scope.offset + value.providerReturnedCount)
+      value.providerTotalCount - scope.offset > priorReturnedCount + value.providerReturnedCount)
   )
     fail();
   let bytes = 0;
@@ -106,7 +117,17 @@ export function savedBacklinkDetails(raw: unknown) {
   if (bytes > 256 * 1024) fail();
   return value;
 }
+export const backlinkPageInfo = z
+  .object({
+    parentRequestId: z.string().uuid().nullable(),
+    pageNumber: z.number().int().min(1).max(10000),
+    priorReturnedCount: count,
+    childRequestId: z.string().uuid().nullable(),
+    canContinue: z.boolean(),
+  })
+  .strict();
 const row = z.object({
+  pageInfo: backlinkPageInfo.nullish(),
   user_id: z.string().uuid(),
   project_id: z.string(),
   request_id: z.string().uuid(),
@@ -124,7 +145,32 @@ export function projectBacklinkDetailsHistory(raw: unknown, userId: string, proj
     .map((record) => {
       if (record.user_id !== userId || record.project_id !== projectId)
         throw new Error("backlink_details_history");
-      const saved = record.observation == null ? null : savedBacklinkDetails(record.observation);
+      const page = record.pageInfo ?? null;
+      if (
+        page &&
+        ((page.parentRequestId === null
+          ? page.pageNumber !== 1 || page.priorReturnedCount !== 0
+          : page.pageNumber < 2 ||
+            page.priorReturnedCount < 1 ||
+            page.parentRequestId === record.request_id) ||
+          page.childRequestId === record.request_id ||
+          (page.canContinue &&
+            (record.status !== "succeeded" ||
+              record.accounting_state !== "settled" ||
+              page.childRequestId !== null ||
+              page.pageNumber >= 10000)))
+      )
+        throw new Error("backlink_details_history");
+      const saved =
+        record.observation == null
+          ? null
+          : savedBacklinkDetails(record.observation, page?.priorReturnedCount ?? 0);
+      if (
+        saved &&
+        (!Number.isSafeInteger((page?.priorReturnedCount ?? 0) + saved.providerReturnedCount) ||
+          (page?.canContinue && (saved.providerReturnedCount === 0 || !saved.moreProviderResults)))
+      )
+        throw new Error("backlink_details_history");
       detailScope(record.scope, new Date(record.created_at));
       if (
         (record.status === "succeeded") !== (saved !== null) ||
@@ -136,6 +182,7 @@ export function projectBacklinkDetailsHistory(raw: unknown, userId: string, proj
         throw new Error("backlink_details_history");
       return {
         requestId: record.request_id,
+        pageInfo: page,
         scope: record.scope,
         status: record.status,
         accounting: record.accounting_state,

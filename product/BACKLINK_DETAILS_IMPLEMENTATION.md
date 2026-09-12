@@ -1,5 +1,21 @@
 # Individual backlink evidence — R14 continuation
 
+## Current status — 12 September 2026
+
+PR126 remains the released baseline. Deeper continuation is now implemented locally and awaiting review/release in a new migration, `20260912000000_backlink_detail_pages.sql`; it has not been applied. The implementation uses one private table and four service-only wrappers around the released details lifecycle. No released migration was edited.
+
+Each fresh request creates a root page; a continuation accepts only the current displayed website, project, stable request identity and completed parent identity. The database derives every filter and opaque cursor from that parent's immutable evidence, requires settled accounting and the same owner/project/current website, and permits only one child per parent. Request replay returns saved identity without another supplier dispatch. Existing global/account quotas and durable expense admission apply to each explicit page; no funding or permit is created.
+
+The existing bounded transport now also normalizes continuation responses. Only the server sees cursor values. Saved history includes page number, previous returned-row count, child request identity and continuation availability. Its count checks account for preceding pages while retaining legacy single-page history support. Neither row totals nor the absence of a next cursor establish a complete or unique backlink inventory.
+
+The English, Polish, Swedish and Danish interface exposes an explicit allowance-consuming next-page action, freezes the attempted identity while its outcome is uncertain, and reads history to recover status. A local integration fixture exercises authentication-derived owner identity, actual SQL/expense admission, the bounded transport with a fake supplier, saved history, final-page counts and replay: two pages create two expense records and exactly two fake supplier requests. Browser and real provider acceptance remain open.
+
+Validation: all 320 focused backlink tests across 20 files, TypeScript and changed-file lint pass. Logs: `/tmp/milo-pages-focused-tests.log`, `/tmp/milo-pages-final-types.log`, `/tmp/milo-pages-final-lint.log`. Full current-source tests and production builds run in both CI variants during review. Overall planning estimate remains approximately 60% / implementation 75%, with no credit yet for this unreleased continuation work.
+
+## Historical implementation checkpoints
+
+The dated entries below describe intermediate states and are superseded by the release record and current status above.
+
 Released explicit collection/history foundation via PR126 on11September2026. See [release evidence](../evidence/backlink-details-release-2026-09-11.md); later historical implementation entries below are superseded by that release record. The request contract covers at most100 representative referring-page links for a bounded92-day interval. Selection is either provider first-seen date or lost-status records whose last-seen date is in the interval. Provider dates and flags are retained separately; actual placement/removal timestamps remain unknown. It is not a complete web-link inventory.
 
 The payload uses the documented domain target syntax with an explicit domain_to filter preserving the logical hostname, including www, and optional genuine subdomains. Echoed request parameters and every returned destination are verified. Dates, chronology, counts, duplicate evidence, URL schemes/credentials, metrics and a256KiB retained-evidence budget are checked; omitted rows and truncated anchors are explicit. No pagination token is exposed yet and no follow-up request is automatic.
