@@ -64,7 +64,7 @@ async function liveLinkCount(userId: string, projectId: string): Promise<number 
       .eq("a_project", projectId)
       .eq("status", "live_verified");
     if (error) return null;
-    return count ?? 0;
+    return typeof count === "number" && Number.isSafeInteger(count) && count >= 0 ? count : null;
   } catch {
     return null; // unknown, never fabricated as 0
   }

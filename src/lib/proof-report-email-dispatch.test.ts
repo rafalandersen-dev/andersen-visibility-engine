@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   middleware: vi.fn(),
   entitlement: vi.fn(),
   scope: vi.fn(),
+  links: vi.fn(),
 }));
 vi.mock("@/integrations/supabase/auth-middleware", () => ({
   requireSupabaseAuth: { kind: "authenticated" },
@@ -42,14 +43,14 @@ vi.mock("@/integrations/supabase/client.server", () => ({
           return q;
         },
         maybeSingle: mocks.entitlement,
-        then: (resolve: (v: unknown) => unknown) =>
-          Promise.resolve({ count: 0, error: null }).then(resolve),
+        then: (resolve: (v: unknown) => unknown, reject: (reason: unknown) => unknown) =>
+          mocks.links().then(resolve, reject),
       };
       return q;
     },
   },
 }));
-import { emailProofReportFn } from "./proof-report.functions";
+import { emailProofReportFn, getProofLinksLiveFn } from "./proof-report.functions";
 const context = { userId: "caller-id", claims: { email: "caller@example.test" } };
 const call = (data: unknown, ctx: unknown = context) =>
   (emailProofReportFn as unknown as (args: unknown) => Promise<unknown>)({ data, context: ctx });
@@ -59,6 +60,7 @@ beforeEach(() => {
   vi.stubEnv("OUTREACH_FROM_EMAIL", "sender@example.test");
   mocks.preference.mockReset().mockResolvedValue("de");
   mocks.scope.mockReset();
+  mocks.links.mockReset().mockResolvedValue({ count: 0, error: null });
   mocks.entitlement.mockReset().mockResolvedValue({ data: null, error: null });
   mocks.workspace.mockReset().mockResolvedValue({
     data: {
@@ -202,3 +204,43 @@ it.each(["error", "throw"])(
     }
   },
 );
+
+it.each([
+  ["missing", null, null],
+  ["omitted", undefined, null],
+  ["negative", -1, null],
+  ["fractional", 1.5, null],
+  ["non-finite", Infinity, null],
+  ["unsafe", Number.MAX_SAFE_INTEGER + 1, null],
+  ["string", "3", null],
+  ["known zero", 0, 0],
+  ["known positive", 3, 3],
+])("preserves %s link-count evidence in screen and email", async (_label, count, expected) => {
+  mocks.links.mockResolvedValue({ count, error: null });
+  await expect(
+    (getProofLinksLiveFn as unknown as (args: unknown) => Promise<unknown>)({
+      data: { projectId: "p1" },
+      context,
+    }),
+  ).resolves.toEqual({ linksLive: expected });
+  await call({ projectId: "p1", monthKey: "2026-09" });
+  const html = JSON.parse(provider.mock.calls[0][1].body).html;
+  const label = proofReportEmailCopy.de["report.stat.linksLive"];
+  if (expected === null) expect(html).not.toContain(label);
+  else {
+    expect(html).toContain(label);
+    expect(html).toContain(`>${expected}</td>`);
+  }
+});
+
+it.each(["query error", "rejection"])("keeps %s link counts unknown", async (failure) => {
+  if (failure === "query error")
+    mocks.links.mockResolvedValue({ count: 9, error: { message: "unavailable" } });
+  else mocks.links.mockRejectedValue(new Error("unavailable"));
+  await expect(
+    (getProofLinksLiveFn as unknown as (args: unknown) => Promise<unknown>)({
+      data: { projectId: "p1" },
+      context,
+    }),
+  ).resolves.toEqual({ linksLive: null });
+});
