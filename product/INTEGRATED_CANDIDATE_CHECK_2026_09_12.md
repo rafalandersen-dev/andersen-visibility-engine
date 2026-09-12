@@ -38,3 +38,16 @@ Verified implementation: 69b3409763ee8275bdc8d28e87d2aa171098e81d on codex/milo-
 This candidate includes complete Dutch staged authoring, navigation/source-copy corrections, report-email acceptance wording, immediate repeat-click protection, unknown-count preservation, and bounded optional link lookups. Application environment warnings remain non-failing. Tests use local/mock inputs and cannot establish real delivery or destination outcomes.
 
 Reread ROADMAP.md and AGENT_WEEKLY_PLAN_2026_09_09.md delivery order. Prioritize remaining P0–P5 end-to-end evidence and implementation gaps rather than treating report refinements as completion of R16 or the whole roadmap. R20 now has six complete staged catalogs (FR/DE/ES/IT/PT/NL), plus four active UI languages; the 24-language quality/activation requirement remains open. Provider/CMS acceptance, real solo/team journeys, owner decisions and release/security holds remain as recorded. No new task, live provider call, email, migration, deployment or review-consuming action occurred.
+
+## Knowledge/scheduler follow-up at 67c789d
+
+Verified implementation: 67c789d03729dbdce059853eb2fbdd0014aed4db on codex/milo-report-branding-authority-20260912. The working tree was clean when verification began. Only release/evidence documentation changed during or after these checks.
+
+- Full application suite: 331 files, 4,978 tests passed in 67.75 seconds. Command: npx vitest run. Log: /tmp/milo-integrated-knowledge-scheduler-20260912.log.
+- Production build passed. Command: npm run build. Log: /tmp/milo-integrated-knowledge-scheduler-build-20260912.log.
+- Full TypeScript and scoped scheduler lint passed on this implementation in the preceding heartbeat check. Type log: /tmp/milo-cron-heartbeat-types.log.
+- The separate Worker suite was not repeated: no Worker or shared public-audit code changed since its recorded 49-test pass at 69b3409.
+
+The candidate now includes knowledge review freshness, individual and batch approval-time/withdrawal checks, CMS guard integration evidence, a repeatable rendered review interaction harness, and scheduler queue/heartbeat recording bounds and acknowledgement status. Application environment warnings and build deprecation warnings remain; commands exited successfully.
+
+The migration test applies its declared prerequisite subset locally, not the complete pending migration chain against production. LAUNCH_READINESS.md now identifies the new batch-review migration, preconditions, acceptance and app-rollback compatibility. No migration was applied to a live database. No provider/CMS/notification acceptance or release GO is inferred from these local results; the full R00–R24/D01–D08 objective remains incomplete.

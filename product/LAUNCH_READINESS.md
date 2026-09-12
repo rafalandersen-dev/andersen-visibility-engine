@@ -44,3 +44,11 @@ The [specialist/knowledge/weekly specification](AGENT_WEEKLY_PLAN_2026_09_09.md)
 Historical #46 tests/review remain in [staging evidence](../evidence/public-audit-staging-harness-2026-07-28.md). #63 focused design/workflow evidence remains in [design-qa.md](../design-qa.md). Neither is represented as blanket September public-launch approval.
 
 D07 retains its full [scope-register definition](PLAN_REVIEW_2026_09_07.md): final team role/approval matrix and exceptions requiring review under autopilot, with external MCP publication scope still unissued. An email-language or delivery-setting decision alone cannot close D07. Likewise local language/browser smoke is partial G8/G11 evidence and cannot close G13 or the required recorded solo/team and assisted-tester journeys.
+
+## Pending candidate migration — knowledge review eligibility
+
+`20260912040000_knowledge_review_batch_time.sql` is committed candidate work, **not applied or approved for production**. It replaces only `read_output_knowledge_review_batch`; it does not change tables, response fields or stored review history. It excludes future-dated and withdrawn entries from the active-review result while preserving history visibility and service-role-only execution.
+
+Before an authorized rollout, verify the target migration ledger and function definitions against the candidate. The local database test applies the project-knowledge, source-refresh, output-knowledge-integrity and output-knowledge-review prerequisites before this migration. That isolated dependency-chain test does not establish compatibility with an uninspected production database or verify all pending migrations as one production rollout. Include this migration in the exact release packet after its prerequisites; do not apply it alone to a target missing them.
+
+Acceptance must confirm both individual publication checks and the batch impact view: eligible current review, withdrawn review, future-dated review, preserved history, project isolation and restricted RPC privileges. The response shape remains compatible with the previous app. An app rollback therefore need not remove the stricter database filter; reverting that filter would reopen the eligibility gap and requires a separately reviewed corrective plan. No automatic rollback or new release permission follows from this note.
