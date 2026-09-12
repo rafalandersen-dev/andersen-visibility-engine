@@ -1,6 +1,6 @@
 # R20 language coverage matrix — 12 September 2026
 
-Latest authoring checkpoint — 13 September (latest English source 6eb1efc): four active complete catalogs, ten complete staged catalogs (FR/DE/ES/IT/PT/NL/FI/CS/SK/SL), Croatian partial at 2,216/3,768 and nine unauthored catalogs. Remaining UI authoring backlog: 35,464 messages. Croatian copy across twenty-one batches passes all 32 focused tests, types, scoped lint and whitespace. The original audit and incremental history below retain their dated baselines; none constitutes activation or fluent/rendered acceptance.
+Latest authoring checkpoint — 13 September (latest English source f146e88): four active complete catalogs, ten complete staged catalogs (FR/DE/ES/IT/PT/NL/FI/CS/SK/SL), Croatian partial at 2,420/3,768 and nine unauthored catalogs. Remaining UI authoring backlog: 35,260 messages. Croatian copy across twenty-two batches passes all 33 focused tests, types, scoped lint and whitespace. The original audit and incremental history below retain their dated baselines; none constitutes activation or fluent/rendered acceptance.
 
 Prior Slovak authoring checkpoint (source aef1c2c plus Slovak workflow): Slovak now has all 3,768 current English UI keys across 28 staged batches. Four catalogs are active and nine are fully staged (FR/DE/ES/IT/PT/NL/FI/CS/SK); eleven remain unauthored. Remaining UI authoring backlog: 41,448 messages (11 × 3,768). All 40 Slovak/catalog tests, types, scoped lint and whitespace pass. This is authoring coverage, not activation or language/rendered acceptance. The original audit and incremental history below retain their own evidence baselines.
 
@@ -245,3 +245,6 @@ Slovenian outreach adds 158 messages at source 2705f3f: 2,578/3,768 in twenty-th
 
 
 13 September Croatian technical checkpoint: 238 messages added at English source 6eb1efc; total 2,216/3,768 across twenty-one batches. All 32 Croatian/catalog tests, types, scoped lint, formatting and whitespace pass. Crawl/ownership/robots limits, saved Google evidence, lab versus real-user measurements and uncertain-request semantics retain source meaning. Croatian remains excluded from runtime and picker. Remaining Croatian authoring: 1,552 messages; next measurements.
+
+
+13 September Croatian measurements checkpoint: 204 messages added at English source f146e88; total 2,420/3,768 across twenty-two batches. All 33 Croatian/catalog tests, types, scoped lint, formatting and whitespace pass. Saved publication/delivery evidence, referral versus mention signals, bounded imports and separate source/date/aggregate semantics retain source meaning. Croatian remains excluded from runtime and picker. Remaining Croatian authoring: 1,348 messages; next outreach.

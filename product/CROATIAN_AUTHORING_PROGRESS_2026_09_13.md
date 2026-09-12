@@ -1,6 +1,6 @@
 # Croatian interface authoring — 13 September 2026
 
-Croatian is staged only: 2,216 of the current 3,768 English interface keys across twenty-one complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK/SL retain complete staged authoring and incomplete acceptance status.
+Croatian is staged only: 2,420 of the current 3,768 English interface keys across twenty-two complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK/SL retain complete staged authoring and incomplete acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -25,8 +25,9 @@ Croatian is staged only: 2,216 of the current 3,768 English interface keys acros
 | Collaboration | 248 | cb473e8 |
 | Knowledge | 242 | 9e0e08c |
 | Technical | 238 | 6eb1efc |
+| Measurements | 204 | f146e88 |
 
-The frozen staged registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 32 Croatian/catalog tests, scoped lint, whitespace and type checking pass. Changed code formatted. Type log: /tmp/milo-croatian-technical-types.log.
+The frozen staged registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 33 Croatian/catalog tests, scoped lint, whitespace and type checking pass. Changed code formatted. Type log: /tmp/milo-croatian-measurements-types.log.
 
 Terminology: radni prostor (workspace), projekt, lozinka (password), ponovno postavljanje lozinke (password reset), bočna traka (sidebar), unos (network listing), paket (subscription plan), plan (workflow plan), smjernice za sadržaj (content brief), poveznica (link). Use polite plural explanatory instructions and concise action labels. Preserve provider/product names and placeholders.
 
@@ -62,4 +63,6 @@ Knowledge copy preserves exact record/source versions, review validity and expir
 
 Technical copy preserves ownership expiry, robots holds, crawl/sitemap/storage bounds, saved observation versus repair evidence, Google saved indexing versus live-page checks, lab versus real-user metrics and uncertain-request recovery without automatic repetition. Search Console property: entitet. No DNS, crawl, Google, measurement or provider request occurred.
 
-Remaining: 1,552 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: measurements using the current composed English source. This staged work does not complete R20 or change release gates.
+Measurement copy preserves saved-publication versus live-page evidence, email acceptance versus delivery, AI referrals versus mentions/citations/bot activity, bounded CSV import, separate dates and declared source/property/aggregate semantics. Numeric CSV guidance and technical identifiers retain their source meaning. No email, tracking installation, Google connection, sync or import occurred.
+
+Remaining: 1,348 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: outreach using the current composed English source. This staged work does not complete R20 or change release gates.

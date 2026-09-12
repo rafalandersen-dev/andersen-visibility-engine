@@ -1,3 +1,4 @@
+import { hrMeasurements } from "./hr-measurements";
 import { hrTechnical } from "./hr-technical";
 import { hrKnowledge } from "./hr-knowledge";
 import { hrCollab } from "./hr-collab";
@@ -21,6 +22,13 @@ import { hrAuthScreen } from "./hr-auth-screen";
 import { hrSharedUi } from "./hr-shared-ui";
 /** Croatian authoring; never imported by the runtime catalog. */
 export const HR_STAGED_BATCHES = [
+  {
+    name: "measurements",
+    copy: hrMeasurements,
+    namespaces: ["analytics", "gsc", "report"],
+    sourceRevision: "f146e88",
+    sourceHash: "216126da773525ef913fe7e10a4db7af57539ea07dae497fd349051da3088395",
+  },
   {
     name: "technical",
     copy: hrTechnical,
