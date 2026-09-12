@@ -1,3 +1,4 @@
+import { nlGrowth } from "./nl-growth";
 import { nlOutreach } from "./nl-outreach";
 import { nlMeasurements } from "./nl-measurements";
 import { nlTechnical } from "./nl-technical";
@@ -24,6 +25,13 @@ import { nlSharedUi } from "./nl-shared-ui";
 
 /** Partial Dutch authoring; never imported by the runtime catalog. */
 export const NL_STAGED_BATCHES = [
+  {
+    name: "growth",
+    copy: nlGrowth,
+    namespaces: ["authority", "actions", "publicAudit"],
+    sourceRevision: "93c3984",
+    sourceHash: "79460ac604f31155136687fbf43e146ccd11625f12316625da192cdb8188f136",
+  },
   {
     name: "outreach",
     copy: nlOutreach,
