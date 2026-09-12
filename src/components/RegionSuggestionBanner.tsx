@@ -1,13 +1,21 @@
+import { translate } from "@/i18n/translate";
+import type { OnboardingLanguage } from "@/lib/types";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { REGION_SELECTOR_LABELS, REGION_SENTENCE_LABELS, suggestDisplayRegion, type DisplayRegion } from "@/lib/markets";
+import {
+  REGION_SELECTOR_LABELS,
+  REGION_SENTENCE_LABELS,
+  suggestDisplayRegion,
+  type DisplayRegion,
+} from "@/lib/markets";
 import { X } from "lucide-react";
 
 /**
  * Soft, dismissible region suggestion shown on the public landing. Never
  * redirects — only offers a link. Respects a stored/dismissed preference.
  */
-export function RegionSuggestionBanner() {
+export function RegionSuggestionBanner({ language = "en" }: { language?: OnboardingLanguage }) {
+  const t = (key: string, vars?: Record<string, string | number>) => translate(language, key, vars);
   const [region, setRegion] = useState<DisplayRegion | null>(null);
 
   useEffect(() => {
@@ -34,7 +42,11 @@ export function RegionSuggestionBanner() {
   if (!region) return null;
 
   function dismiss() {
-    try { localStorage.setItem("milo_region_suggest_dismissed", "1"); } catch { /* ignore */ }
+    try {
+      localStorage.setItem("milo_region_suggest_dismissed", "1");
+    } catch {
+      /* ignore */
+    }
     setRegion(null);
   }
 
@@ -42,13 +54,44 @@ export function RegionSuggestionBanner() {
     <div className="border-b border-border bg-card/60">
       <div className="mx-auto max-w-6xl px-6 py-2.5 flex items-center justify-between gap-3 text-sm">
         <span className="text-muted-foreground">
-          Looks like you may be in {REGION_SENTENCE_LABELS[region]}.{" "}
-          <Link to={`/${region}` as never} className="text-foreground underline underline-offset-4" onClick={() => { try { localStorage.setItem("milo_display_region", region!); } catch { /* ignore */ } }}>
-            View the {REGION_SELECTOR_LABELS[region]} version
+          {t("publicHome.regionSuggestion", { region: regionName(region, language, true) })}{" "}
+          <Link
+            to={`/${region}` as never}
+            className="text-foreground underline underline-offset-4"
+            onClick={() => {
+              try {
+                localStorage.setItem("milo_display_region", region!);
+              } catch {
+                /* ignore */
+              }
+            }}
+          >
+            {t("publicHome.regionLink", { region: regionName(region, language) })}
           </Link>
         </span>
-        <button onClick={dismiss} aria-label="Dismiss" className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+        <button
+          onClick={dismiss}
+          aria-label={t("publicHome.dismiss")}
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <X className="h-4 w-4" />
+        </button>
       </div>
     </div>
   );
+}
+
+/** Language changes only the label, never the suggested destination or saved region. */
+function regionName(region: DisplayRegion, language: OnboardingLanguage, sentence = false) {
+  if (language === "en")
+    return (sentence ? REGION_SENTENCE_LABELS : REGION_SELECTOR_LABELS)[region];
+  const code = { pl: "PL", se: "SE", dk: "DK", uk: "GB", eu: "EU" }[region];
+  try {
+    return (
+      new Intl.DisplayNames([language], { type: "region", fallback: "none" }).of(code) ??
+      REGION_SELECTOR_LABELS[region]
+    );
+  } catch {
+    return REGION_SELECTOR_LABELS[region];
+  }
 }

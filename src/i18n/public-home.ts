@@ -1,0 +1,503 @@
+import type { OnboardingLanguage } from "@/lib/types";
+
+export const publicHomeCopy: Record<OnboardingLanguage, Readonly<Record<string, string>>> = {
+  en: {
+    "publicHome.nav": "Public navigation",
+    "publicHome.tagline": "Monthly AI growth planner",
+    "publicHome.product": "Product",
+    "publicHome.how": "How it works",
+    "publicHome.pricing": "Pricing",
+    "publicHome.backlinks": "Backlinks",
+    "publicHome.resources": "Resources",
+    "publicHome.signIn": "Sign in",
+    "publicHome.startFree": "Start free",
+    "publicHome.forSmall": "Milo Growth · for small businesses",
+    "publicHome.heroBefore": "Your monthly",
+    "publicHome.heroEmphasis": "AI growth",
+    "publicHome.heroAfter": "system",
+    "publicHome.heroLead": "Turn visibility signals into a clear growth plan.",
+    "publicHome.heroBody":
+      "Find the right opportunities, schedule the work, create better content and prove what changed — across up to {count} projects on Agency.",
+    "publicHome.seeHow": "See how Milo works",
+    "publicHome.noCard": "No credit card",
+    "publicHome.noAgency": "No agency",
+    "publicHome.selfService": "Self-service",
+    "publicHome.agencyProjects": "Up to {count} projects on Agency",
+    "publicHome.workspaceAlt":
+      "Milo Growth Plan workspace showing traceable SEO opportunities on a lifecycle board",
+    "publicHome.onePlan": "One clear monthly plan",
+    "publicHome.fiveSteps": "Five connected steps",
+    "publicHome.humanReview": "Human review before publish",
+    "publicHome.billingControls": "Billing controls in your account",
+    "publicHome.smallBusinesses": "Designed for small businesses",
+    "publicHome.discover": "Discover",
+    "publicHome.discoverBody":
+      "Find visibility opportunities from search, competitors and your site.",
+    "publicHome.plan": "Plan",
+    "publicHome.planBody": "Turn accepted ideas into a clear plan with priority, owner and date.",
+    "publicHome.create": "Create",
+    "publicHome.createBody": "Brief and draft content that matches intent and your brand voice.",
+    "publicHome.publish": "Publish",
+    "publicHome.publishBody":
+      "Review and approve content, then verify the destination before sending through a supported connection.",
+    "publicHome.measure": "Measure",
+    "publicHome.measureBody":
+      "Review available search, visit and conversion evidence alongside the work. Missing data is not zero activity.",
+    "publicHome.connectedSteps": "One system. Every next step connected.",
+    "publicHome.step": "Step {number}",
+    "publicHome.siteAudit": "Site audit",
+    "publicHome.siteAuditBody":
+      "Turn technical, content and internal-link findings into traceable work — without losing the affected URL or evidence.",
+    "publicHome.competitorGaps": "Competitor gaps",
+    "publicHome.competitorGapsBody":
+      "See where competitors cover topics, offers or links that your project does not, then accept only the gaps worth pursuing.",
+    "publicHome.authority": "Authority",
+    "publicHome.authorityBody":
+      "Plan credible proof, expert contributions, directories, mentions and trust signals alongside content work.",
+    "publicHome.aiVisibility": "AI visibility",
+    "publicHome.aiVisibilityBody":
+      "Track how your brand appears in AI answers and convert missing or weak coverage into focused opportunities.",
+    "publicHome.contentScore": "Content + Milo Score",
+    "publicHome.contentScoreBody":
+      "Create linked briefs and drafts, evaluate a specific version, send it for review and keep its provenance attached.",
+    "publicHome.analytics": "Premium analytics",
+    "publicHome.analyticsBody":
+      "Bring Milo activity, Search Console and site analytics together to show what shipped and what changed afterward.",
+    "publicHome.everythingRetained": "Everything retained",
+    "publicHome.connectedWork": "Connected work. Clear next actions.",
+    "publicHome.settingsBody":
+      "Audit, competitors, authority and AI visibility now feed one Plan. Project setup, services, connections and billing live together in Settings. Content and Insights each have one clear job.",
+    "publicHome.startProject": "Start with one project",
+    "publicHome.linkProfile": "Link profile & gaps",
+    "publicHome.marketplace": "Paid marketplace",
+    "publicHome.outreach": "Reviewable outreach",
+    "publicHome.costControls": "Clear cost controls",
+    "publicHome.optionalAddon": "Optional paid add-on",
+    "publicHome.backlinksHeading": "Backlinks deserve their own workspace.",
+    "publicHome.backlinksBody":
+      "Analyse referring domains, find competitor link gaps, review marketplace offers and prepare outreach without mixing external placement costs into everyday content planning. Paid activation and purchases remain on hold pending payment and supplier acceptance.",
+    "publicHome.addonPricing": "See add-on pricing",
+    "publicHome.exploreFirst": "Explore Milo first",
+    "publicHome.control": "Control stays with you.",
+    "publicHome.acceptFirst": "Nothing enters Plan until you accept it",
+    "publicHome.reviewPublication": "Human review before publication",
+    "publicHome.archiveRestore": "Archive and restore instead of disappearing work",
+    "publicHome.versionScore": "Content score is version-specific and explainable",
+    "publicHome.manageBilling": "Manage or cancel subscription from Billing",
+    "publicHome.simplePlans": "Straightforward plans",
+    "publicHome.pricingHeading": "Start small. Grow to {count} projects on Agency.",
+    "publicHome.pricingBody":
+      "Choose the usage level that fits today. Backlinks remains an explicit add-on, and cancellation stays visible in your account. New paid subscriptions remain on hold while payment setup and testing are completed.",
+    "publicHome.seePricing": "See pricing",
+    "publicHome.plainAnswers": "Plain answers",
+    "publicHome.beforeStart": "Before you start",
+    "publicHome.faqDiscoveryQ": "Where do discovered opportunities go?",
+    "publicHome.faqDiscoveryA":
+      "Discovery results stay as suggestions until you accept them. Accepted ideas enter Plan in Captured, with their source, reason, evidence, owner, status and next action attached.",
+    "publicHome.faqScoreQ": "What does Milo Score evaluate?",
+    "publicHome.faqScoreA":
+      "Milo Score evaluates a specific content version before review. It checks search readiness, brand fit, structure, evidence, conversion and related quality signals. It never ranks Opportunities.",
+    "publicHome.faqPublishQ": "Can Milo publish to my website?",
+    "publicHome.faqPublishA":
+      "Publishing requires a supported connection, a verified destination and approval of the content. Saved connection settings alone do not confirm that a draft or live publication will succeed.",
+    "publicHome.faqBacklinksQ": "Are backlinks included?",
+    "publicHome.faqBacklinksA":
+      "Backlinks is a separate add-on because external data and placements create additional costs. Paid activation and marketplace purchases remain on hold pending payment and supplier acceptance. Outreach requires review before use.",
+    "publicHome.faqCancelQ": "Can I cancel without contacting support?",
+    "publicHome.faqCancelA":
+      "Manage billing and Cancel subscription are available in Settings → Billing for existing linked subscriptions. Portal access depends on that billing connection. New paid subscriptions remain on hold while payment setup and testing are completed; contact support if your existing subscription cannot be managed there.",
+    "publicHome.faqProjectsQ": "How many projects can I manage?",
+    "publicHome.faqProjectsA":
+      "Project limits depend on your plan, up to {count} on Agency. Each project keeps its own site, services, competitors, opportunities, content, integrations and analytics context.",
+    "publicHome.footerBody":
+      "A calmer way for small businesses to discover, plan, create, publish and measure SEO growth.",
+    "publicHome.freeAudit": "Free audit",
+    "publicHome.caseStudies": "Case studies",
+    "publicHome.beta": "Beta",
+    "publicHome.terms": "Terms",
+    "publicHome.privacy": "Privacy",
+    "publicHome.security": "Security",
+    "publicHome.trust": "EU Trust Centre",
+    "publicHome.disclaimer": "AI disclaimer",
+    "publicHome.markets": "Markets",
+    "publicHome.regionSuggestion": "Looks like you may be in {region}.",
+    "publicHome.regionLink": "View the {region} version",
+    "publicHome.dismiss": "Dismiss",
+  },
+  pl: {
+    "publicHome.nav": "Nawigacja publiczna",
+    "publicHome.tagline": "Miesięczny planer rozwoju z AI",
+    "publicHome.product": "Produkt",
+    "publicHome.how": "Jak to działa",
+    "publicHome.pricing": "Cennik",
+    "publicHome.backlinks": "Linki zwrotne",
+    "publicHome.resources": "Materiały",
+    "publicHome.signIn": "Zaloguj się",
+    "publicHome.startFree": "Zacznij za darmo",
+    "publicHome.forSmall": "Milo Growth · dla małych firm",
+    "publicHome.heroBefore": "Twój miesięczny",
+    "publicHome.heroEmphasis": "rozwój z AI",
+    "publicHome.heroAfter": "w jednym systemie",
+    "publicHome.heroLead": "Zamień sygnały widoczności w przejrzysty plan rozwoju.",
+    "publicHome.heroBody":
+      "Znajdź właściwe możliwości, zaplanuj pracę, twórz lepsze treści i pokaż, co się zmieniło — w maksymalnie {count} projektach w planie Agency.",
+    "publicHome.seeHow": "Zobacz, jak działa Milo",
+    "publicHome.noCard": "Bez karty kredytowej",
+    "publicHome.noAgency": "Bez agencji",
+    "publicHome.selfService": "Samodzielna obsługa",
+    "publicHome.agencyProjects": "Do {count} projektów w planie Agency",
+    "publicHome.workspaceAlt":
+      "Obszar Plan w Milo Growth z możliwościami SEO i ich pochodzeniem na tablicy etapów pracy",
+    "publicHome.onePlan": "Jeden przejrzysty plan miesięczny",
+    "publicHome.fiveSteps": "Pięć połączonych kroków",
+    "publicHome.humanReview": "Weryfikacja przez człowieka przed publikacją",
+    "publicHome.billingControls": "Zarządzanie rozliczeniami na koncie",
+    "publicHome.smallBusinesses": "Z myślą o małych firmach",
+    "publicHome.discover": "Odkrywaj",
+    "publicHome.discoverBody":
+      "Znajduj możliwości poprawy widoczności na podstawie wyszukiwania, konkurencji i swojej strony.",
+    "publicHome.plan": "Planuj",
+    "publicHome.planBody":
+      "Zamień zaakceptowane pomysły w przejrzysty plan z priorytetem, osobą odpowiedzialną i terminem.",
+    "publicHome.create": "Twórz",
+    "publicHome.createBody":
+      "Przygotuj wytyczne i szkice treści zgodne z intencją odbiorcy i głosem marki.",
+    "publicHome.publish": "Publikuj",
+    "publicHome.publishBody":
+      "Sprawdź i zatwierdź treść, a następnie zweryfikuj miejsce docelowe przed wysłaniem przez obsługiwane połączenie.",
+    "publicHome.measure": "Mierz",
+    "publicHome.measureBody":
+      "Analizuj dostępne dane o wyszukiwaniu, wizytach i konwersjach wraz z wykonaną pracą. Brak danych nie oznacza zerowej aktywności.",
+    "publicHome.connectedSteps": "Jeden system. Każdy kolejny krok połączony.",
+    "publicHome.step": "Krok {number}",
+    "publicHome.siteAudit": "Audyt strony",
+    "publicHome.siteAuditBody":
+      "Zamień ustalenia techniczne, dotyczące treści i linków wewnętrznych w zadania z zachowanym adresem URL i dowodami.",
+    "publicHome.competitorGaps": "Luki względem konkurencji",
+    "publicHome.competitorGapsBody":
+      "Zobacz, jakie tematy, oferty lub linki mają konkurenci, a których brakuje w Twoim projekcie. Zaakceptuj tylko luki warte uzupełnienia.",
+    "publicHome.authority": "Autorytet",
+    "publicHome.authorityBody":
+      "Planuj wiarygodne dowody, wypowiedzi ekspertów, katalogi, wzmianki i sygnały zaufania wraz z pracą nad treścią.",
+    "publicHome.aiVisibility": "Widoczność w AI",
+    "publicHome.aiVisibilityBody":
+      "Śledź obecność marki w odpowiedziach AI i zamieniaj brakującą lub słabą obecność w konkretne możliwości działania.",
+    "publicHome.contentScore": "Treści + Milo Score",
+    "publicHome.contentScoreBody":
+      "Twórz powiązane wytyczne i szkice, oceniaj konkretną wersję, przekazuj ją do weryfikacji i zachowuj informacje o jej pochodzeniu.",
+    "publicHome.analytics": "Analityka premium",
+    "publicHome.analyticsBody":
+      "Połącz aktywność w Milo, Search Console i analitykę strony, aby pokazać, co wdrożono i co zmieniło się później.",
+    "publicHome.everythingRetained": "Wszystko zachowane",
+    "publicHome.connectedWork": "Spójna praca. Jasne kolejne działania.",
+    "publicHome.settingsBody":
+      "Audyt, konkurencja, autorytet i widoczność w AI zasilają teraz jeden Plan. Konfiguracja projektu, usługi, połączenia i rozliczenia są razem w Ustawieniach. Treści i Statystyki mają jasno określone role.",
+    "publicHome.startProject": "Zacznij od jednego projektu",
+    "publicHome.linkProfile": "Profil linków i luki",
+    "publicHome.marketplace": "Płatny marketplace",
+    "publicHome.outreach": "Kontakt do weryfikacji",
+    "publicHome.costControls": "Przejrzysta kontrola kosztów",
+    "publicHome.optionalAddon": "Opcjonalny płatny dodatek",
+    "publicHome.backlinksHeading": "Linki zwrotne zasługują na własny obszar pracy.",
+    "publicHome.backlinksBody":
+      "Analizuj domeny odsyłające, znajdź luki w linkach względem konkurencji, przeglądaj oferty marketplace i przygotowuj kontakt bez mieszania kosztów zewnętrznych publikacji z codziennym planowaniem treści. Płatna aktywacja i zakupy pozostają wstrzymane do czasu weryfikacji płatności i dostawcy.",
+    "publicHome.addonPricing": "Zobacz cenę dodatku",
+    "publicHome.exploreFirst": "Najpierw poznaj Milo",
+    "publicHome.control": "Zachowujesz kontrolę.",
+    "publicHome.acceptFirst": "Nic nie trafia do Planu bez Twojej akceptacji",
+    "publicHome.reviewPublication": "Weryfikacja przez człowieka przed publikacją",
+    "publicHome.archiveRestore": "Archiwizuj i przywracaj zamiast tracić pracę",
+    "publicHome.versionScore": "Ocena treści dotyczy konkretnej wersji i ma uzasadnienie",
+    "publicHome.manageBilling": "Zarządzaj subskrypcją lub anuluj ją w Rozliczeniach",
+    "publicHome.simplePlans": "Przejrzyste plany",
+    "publicHome.pricingHeading":
+      "Zacznij od małej skali. Rozwiń się do {count} projektów w planie Agency.",
+    "publicHome.pricingBody":
+      "Wybierz poziom wykorzystania dopasowany do obecnych potrzeb. Linki zwrotne pozostają osobnym dodatkiem, a anulowanie jest widoczne na koncie. Nowe płatne subskrypcje są wstrzymane do zakończenia konfiguracji i testów płatności.",
+    "publicHome.seePricing": "Zobacz cennik",
+    "publicHome.plainAnswers": "Proste odpowiedzi",
+    "publicHome.beforeStart": "Zanim zaczniesz",
+    "publicHome.faqDiscoveryQ": "Gdzie trafiają odkryte możliwości?",
+    "publicHome.faqDiscoveryA":
+      "Wyniki odkrywania pozostają sugestiami do czasu Twojej akceptacji. Zaakceptowane pomysły trafiają do Planu na etap Zebrane, z przypisanym źródłem, uzasadnieniem, dowodami, osobą odpowiedzialną, statusem i kolejnym działaniem.",
+    "publicHome.faqScoreQ": "Co ocenia Milo Score?",
+    "publicHome.faqScoreA":
+      "Milo Score ocenia konkretną wersję treści przed weryfikacją. Sprawdza gotowość do wyszukiwania, zgodność z marką, strukturę, dowody, konwersję i powiązane sygnały jakości. Nigdy nie tworzy rankingu możliwości.",
+    "publicHome.faqPublishQ": "Czy Milo może publikować na mojej stronie?",
+    "publicHome.faqPublishA":
+      "Publikacja wymaga obsługiwanego połączenia, zweryfikowanego miejsca docelowego i zatwierdzenia treści. Same zapisane ustawienia połączenia nie potwierdzają, że zapis szkicu lub publikacja na żywo się powiedzie.",
+    "publicHome.faqBacklinksQ": "Czy linki zwrotne są w cenie?",
+    "publicHome.faqBacklinksA":
+      "Linki zwrotne to osobny dodatek, ponieważ dane zewnętrzne i publikacje generują dodatkowe koszty. Płatna aktywacja i zakupy w marketplace pozostają wstrzymane do czasu weryfikacji płatności i dostawcy. Kontakt wymaga weryfikacji przed użyciem.",
+    "publicHome.faqCancelQ": "Czy mogę anulować bez kontaktu z pomocą?",
+    "publicHome.faqCancelA":
+      "Opcje zarządzania rozliczeniami i anulowania subskrypcji są dostępne w Ustawienia → Rozliczenia dla istniejących powiązanych subskrypcji. Dostęp do portalu zależy od tego powiązania. Nowe płatne subskrypcje pozostają wstrzymane do zakończenia konfiguracji i testów płatności. Skontaktuj się z pomocą, jeśli nie możesz tam zarządzać istniejącą subskrypcją.",
+    "publicHome.faqProjectsQ": "Iloma projektami mogę zarządzać?",
+    "publicHome.faqProjectsA":
+      "Limit projektów zależy od planu — do {count} w Agency. Każdy projekt zachowuje własną stronę, usługi, konkurentów, możliwości, treści, integracje i kontekst analityczny.",
+    "publicHome.footerBody":
+      "Spokojniejszy sposób na odkrywanie, planowanie, tworzenie, publikowanie i mierzenie rozwoju SEO w małych firmach.",
+    "publicHome.freeAudit": "Darmowy audyt",
+    "publicHome.caseStudies": "Przykłady wdrożeń",
+    "publicHome.beta": "Beta",
+    "publicHome.terms": "Regulamin",
+    "publicHome.privacy": "Prywatność",
+    "publicHome.security": "Bezpieczeństwo",
+    "publicHome.trust": "Centrum zaufania UE",
+    "publicHome.disclaimer": "Zastrzeżenia dotyczące AI",
+    "publicHome.markets": "Rynki",
+    "publicHome.regionSuggestion": "Wygląda na to, że Twój rynek to: {region}.",
+    "publicHome.regionLink": "Zobacz wersję dla rynku: {region}",
+    "publicHome.dismiss": "Zamknij",
+  },
+  sv: {
+    "publicHome.nav": "Publik navigering",
+    "publicHome.tagline": "Månatlig tillväxtplanering med AI",
+    "publicHome.product": "Produkt",
+    "publicHome.how": "Så fungerar det",
+    "publicHome.pricing": "Priser",
+    "publicHome.backlinks": "Bakåtlänkar",
+    "publicHome.resources": "Resurser",
+    "publicHome.signIn": "Logga in",
+    "publicHome.startFree": "Börja gratis",
+    "publicHome.forSmall": "Milo Growth · för småföretag",
+    "publicHome.heroBefore": "Ditt månatliga",
+    "publicHome.heroEmphasis": "tillväxtsystem",
+    "publicHome.heroAfter": "med AI",
+    "publicHome.heroLead": "Gör synlighetssignaler till en tydlig tillväxtplan.",
+    "publicHome.heroBody":
+      "Hitta rätt möjligheter, planera arbetet, skapa bättre innehåll och visa vad som förändrats — i upp till {count} projekt med Agency.",
+    "publicHome.seeHow": "Se hur Milo fungerar",
+    "publicHome.noCard": "Inget kreditkort",
+    "publicHome.noAgency": "Ingen byrå",
+    "publicHome.selfService": "Självbetjäning",
+    "publicHome.agencyProjects": "Upp till {count} projekt med Agency",
+    "publicHome.workspaceAlt":
+      "Plan i Milo Growth med spårbara SEO-möjligheter på en tavla över arbetsflödets steg",
+    "publicHome.onePlan": "En tydlig månadsplan",
+    "publicHome.fiveSteps": "Fem sammanhängande steg",
+    "publicHome.humanReview": "Mänsklig granskning före publicering",
+    "publicHome.billingControls": "Faktureringskontroller i ditt konto",
+    "publicHome.smallBusinesses": "Utformat för småföretag",
+    "publicHome.discover": "Upptäck",
+    "publicHome.discoverBody":
+      "Hitta möjligheter till bättre synlighet utifrån sökningar, konkurrenter och din webbplats.",
+    "publicHome.plan": "Planera",
+    "publicHome.planBody":
+      "Gör accepterade idéer till en tydlig plan med prioritet, ansvarig och datum.",
+    "publicHome.create": "Skapa",
+    "publicHome.createBody":
+      "Skapa innehållsunderlag och utkast som matchar avsikten och varumärkets ton.",
+    "publicHome.publish": "Publicera",
+    "publicHome.publishBody":
+      "Granska och godkänn innehållet och verifiera sedan destinationen innan det skickas via en anslutning som stöds.",
+    "publicHome.measure": "Mät",
+    "publicHome.measureBody":
+      "Granska tillgängliga underlag för sökningar, besök och konverteringar tillsammans med arbetet. Saknade data betyder inte noll aktivitet.",
+    "publicHome.connectedSteps": "Ett system. Varje nästa steg hänger ihop.",
+    "publicHome.step": "Steg {number}",
+    "publicHome.siteAudit": "Webbplatsgranskning",
+    "publicHome.siteAuditBody":
+      "Gör tekniska fynd, innehållsfynd och internlänksfynd till spårbart arbete — utan att tappa berörd URL eller underlag.",
+    "publicHome.competitorGaps": "Luckor gentemot konkurrenter",
+    "publicHome.competitorGapsBody":
+      "Se vilka ämnen, erbjudanden eller länkar konkurrenterna täcker som ditt projekt saknar och acceptera bara de luckor som är värda att arbeta med.",
+    "publicHome.authority": "Auktoritet",
+    "publicHome.authorityBody":
+      "Planera trovärdiga belägg, expertbidrag, kataloger, omnämnanden och förtroendesignaler tillsammans med innehållsarbetet.",
+    "publicHome.aiVisibility": "AI-synlighet",
+    "publicHome.aiVisibilityBody":
+      "Följ hur ditt varumärke syns i AI-svar och gör saknad eller svag täckning till fokuserade möjligheter.",
+    "publicHome.contentScore": "Innehåll + Milo Score",
+    "publicHome.contentScoreBody":
+      "Skapa sammanlänkade underlag och utkast, utvärdera en viss version, skicka den för granskning och behåll informationen om dess ursprung.",
+    "publicHome.analytics": "Premiumanalys",
+    "publicHome.analyticsBody":
+      "Samla Milo-aktivitet, Search Console och webbplatsanalys för att visa vad som levererats och vad som förändrats därefter.",
+    "publicHome.everythingRetained": "Allt bevaras",
+    "publicHome.connectedWork": "Sammanhängande arbete. Tydliga nästa åtgärder.",
+    "publicHome.settingsBody":
+      "Granskning, konkurrenter, auktoritet och AI-synlighet samlas nu i en Plan. Projektinställningar, tjänster, anslutningar och fakturering finns tillsammans i Inställningar. Innehåll och Insikter har var sin tydliga uppgift.",
+    "publicHome.startProject": "Börja med ett projekt",
+    "publicHome.linkProfile": "Länkprofil och luckor",
+    "publicHome.marketplace": "Betald marknadsplats",
+    "publicHome.outreach": "Kontaktutkast för granskning",
+    "publicHome.costControls": "Tydlig kostnadskontroll",
+    "publicHome.optionalAddon": "Valfritt betalt tillägg",
+    "publicHome.backlinksHeading": "Bakåtlänkar förtjänar en egen arbetsyta.",
+    "publicHome.backlinksBody":
+      "Analysera hänvisande domäner, hitta länkluckor gentemot konkurrenter, granska erbjudanden och förbered kontaktutkast utan att blanda in externa placeringskostnader i den dagliga innehållsplaneringen. Betald aktivering och köp är pausade tills betalningar och leverantör har verifierats.",
+    "publicHome.addonPricing": "Se tilläggspriser",
+    "publicHome.exploreFirst": "Utforska Milo först",
+    "publicHome.control": "Du behåller kontrollen.",
+    "publicHome.acceptFirst": "Inget hamnar i Plan förrän du accepterar det",
+    "publicHome.reviewPublication": "Mänsklig granskning före publicering",
+    "publicHome.archiveRestore": "Arkivera och återställ så att arbetet inte försvinner",
+    "publicHome.versionScore": "Innehållspoängen gäller en viss version och kan förklaras",
+    "publicHome.manageBilling": "Hantera eller avsluta abonnemanget via Fakturering",
+    "publicHome.simplePlans": "Enkla planer",
+    "publicHome.pricingHeading": "Börja smått. Väx till {count} projekt med Agency.",
+    "publicHome.pricingBody":
+      "Välj den användningsnivå som passar idag. Bakåtlänkar är fortsatt ett separat tillägg och uppsägning är synlig i ditt konto. Nya betalda abonnemang är pausade medan betalningskonfiguration och tester slutförs.",
+    "publicHome.seePricing": "Se priser",
+    "publicHome.plainAnswers": "Tydliga svar",
+    "publicHome.beforeStart": "Innan du börjar",
+    "publicHome.faqDiscoveryQ": "Vart hamnar upptäckta möjligheter?",
+    "publicHome.faqDiscoveryA":
+      "Upptäckta resultat är förslag tills du accepterar dem. Accepterade idéer hamnar i Plan under Insamlat, med källa, skäl, underlag, ansvarig, status och nästa åtgärd.",
+    "publicHome.faqScoreQ": "Vad utvärderar Milo Score?",
+    "publicHome.faqScoreA":
+      "Milo Score utvärderar en specifik innehållsversion före granskning. Det kontrollerar sökberedskap, varumärkespassning, struktur, belägg, konvertering och relaterade kvalitetssignaler. Det rangordnar aldrig möjligheter.",
+    "publicHome.faqPublishQ": "Kan Milo publicera på min webbplats?",
+    "publicHome.faqPublishA":
+      "Publicering kräver en anslutning som stöds, en verifierad destination och godkänt innehåll. Sparade anslutningsinställningar bekräftar inte i sig att ett utkast eller en livepublicering lyckas.",
+    "publicHome.faqBacklinksQ": "Ingår bakåtlänkar?",
+    "publicHome.faqBacklinksA":
+      "Bakåtlänkar är ett separat tillägg eftersom externa data och placeringar medför extra kostnader. Betald aktivering och köp på marknadsplatsen är pausade tills betalningar och leverantör har verifierats. Kontaktutkast måste granskas före användning.",
+    "publicHome.faqCancelQ": "Kan jag säga upp utan att kontakta supporten?",
+    "publicHome.faqCancelA":
+      "Hantera fakturering och Avsluta abonnemang finns i Inställningar → Fakturering för befintliga länkade abonnemang. Portalåtkomst beror på den faktureringsanslutningen. Nya betalda abonnemang är pausade medan betalningskonfiguration och tester slutförs. Kontakta supporten om ditt befintliga abonnemang inte kan hanteras där.",
+    "publicHome.faqProjectsQ": "Hur många projekt kan jag hantera?",
+    "publicHome.faqProjectsA":
+      "Projektgränserna beror på din plan, upp till {count} med Agency. Varje projekt behåller sin egen webbplats, sina tjänster, konkurrenter, möjligheter, innehåll, integrationer och analyskontext.",
+    "publicHome.footerBody":
+      "Ett lugnare sätt för småföretag att upptäcka, planera, skapa, publicera och mäta SEO-tillväxt.",
+    "publicHome.freeAudit": "Gratis granskning",
+    "publicHome.caseStudies": "Kundexempel",
+    "publicHome.beta": "Beta",
+    "publicHome.terms": "Villkor",
+    "publicHome.privacy": "Integritet",
+    "publicHome.security": "Säkerhet",
+    "publicHome.trust": "EU:s förtroendecenter",
+    "publicHome.disclaimer": "AI-friskrivning",
+    "publicHome.markets": "Marknader",
+    "publicHome.regionSuggestion": "Din marknad verkar vara {region}.",
+    "publicHome.regionLink": "Visa versionen för {region}",
+    "publicHome.dismiss": "Stäng",
+  },
+  da: {
+    "publicHome.nav": "Offentlig navigation",
+    "publicHome.tagline": "Månedlig vækstplanlægning med AI",
+    "publicHome.product": "Produkt",
+    "publicHome.how": "Sådan fungerer det",
+    "publicHome.pricing": "Priser",
+    "publicHome.backlinks": "Backlinks",
+    "publicHome.resources": "Ressourcer",
+    "publicHome.signIn": "Log ind",
+    "publicHome.startFree": "Start gratis",
+    "publicHome.forSmall": "Milo Growth · til små virksomheder",
+    "publicHome.heroBefore": "Dit månedlige",
+    "publicHome.heroEmphasis": "vækstsystem",
+    "publicHome.heroAfter": "med AI",
+    "publicHome.heroLead": "Omsæt synlighedssignaler til en klar vækstplan.",
+    "publicHome.heroBody":
+      "Find de rette muligheder, planlæg arbejdet, skab bedre indhold og dokumentér ændringerne — på tværs af op til {count} projekter med Agency.",
+    "publicHome.seeHow": "Se, hvordan Milo fungerer",
+    "publicHome.noCard": "Intet kreditkort",
+    "publicHome.noAgency": "Intet bureau",
+    "publicHome.selfService": "Selvbetjening",
+    "publicHome.agencyProjects": "Op til {count} projekter med Agency",
+    "publicHome.workspaceAlt":
+      "Plan i Milo Growth med sporbare SEO-muligheder på en tavle over arbejdsgangens trin",
+    "publicHome.onePlan": "Én klar månedsplan",
+    "publicHome.fiveSteps": "Fem sammenhængende trin",
+    "publicHome.humanReview": "Menneskelig gennemgang før publicering",
+    "publicHome.billingControls": "Faktureringskontroller på din konto",
+    "publicHome.smallBusinesses": "Udviklet til små virksomheder",
+    "publicHome.discover": "Opdag",
+    "publicHome.discoverBody":
+      "Find muligheder for bedre synlighed ud fra søgninger, konkurrenter og din hjemmeside.",
+    "publicHome.plan": "Planlæg",
+    "publicHome.planBody":
+      "Omsæt accepterede idéer til en klar plan med prioritet, ansvarlig og dato.",
+    "publicHome.create": "Skab",
+    "publicHome.createBody":
+      "Lav indholdsoplæg og udkast, der matcher intentionen og dit brands tone.",
+    "publicHome.publish": "Publicér",
+    "publicHome.publishBody":
+      "Gennemgå og godkend indholdet, og bekræft derefter destinationen, før det sendes via en understøttet forbindelse.",
+    "publicHome.measure": "Mål",
+    "publicHome.measureBody":
+      "Gennemgå tilgængelig dokumentation for søgninger, besøg og konverteringer sammen med arbejdet. Manglende data er ikke nul aktivitet.",
+    "publicHome.connectedSteps": "Ét system. Hvert næste trin hænger sammen.",
+    "publicHome.step": "Trin {number}",
+    "publicHome.siteAudit": "Hjemmesideaudit",
+    "publicHome.siteAuditBody":
+      "Omsæt tekniske fund, indholdsfund og interne linkfund til sporbart arbejde — uden at miste den berørte URL eller dokumentationen.",
+    "publicHome.competitorGaps": "Huller i forhold til konkurrenter",
+    "publicHome.competitorGapsBody":
+      "Se, hvilke emner, tilbud eller links konkurrenterne dækker, som dit projekt mangler, og acceptér kun de huller, der er værd at arbejde med.",
+    "publicHome.authority": "Autoritet",
+    "publicHome.authorityBody":
+      "Planlæg troværdige beviser, ekspertbidrag, kataloger, omtaler og tillidssignaler sammen med indholdsarbejdet.",
+    "publicHome.aiVisibility": "AI-synlighed",
+    "publicHome.aiVisibilityBody":
+      "Følg, hvordan dit brand optræder i AI-svar, og omsæt manglende eller svag dækning til målrettede muligheder.",
+    "publicHome.contentScore": "Indhold + Milo Score",
+    "publicHome.contentScoreBody":
+      "Opret sammenknyttede oplæg og udkast, vurder en bestemt version, send den til gennemgang, og bevar oplysningerne om dens oprindelse.",
+    "publicHome.analytics": "Premiumanalyse",
+    "publicHome.analyticsBody":
+      "Saml Milo-aktivitet, Search Console og hjemmesideanalyse for at vise, hvad der blev leveret, og hvad der ændrede sig bagefter.",
+    "publicHome.everythingRetained": "Alt bevares",
+    "publicHome.connectedWork": "Sammenhængende arbejde. Klare næste handlinger.",
+    "publicHome.settingsBody":
+      "Audit, konkurrenter, autoritet og AI-synlighed samles nu i én Plan. Projektopsætning, tjenester, forbindelser og fakturering findes samlet i Indstillinger. Indhold og Indsigt har hver en klar opgave.",
+    "publicHome.startProject": "Start med ét projekt",
+    "publicHome.linkProfile": "Linkprofil og huller",
+    "publicHome.marketplace": "Betalt markedsplads",
+    "publicHome.outreach": "Kontaktudkast til gennemgang",
+    "publicHome.costControls": "Klar omkostningskontrol",
+    "publicHome.optionalAddon": "Valgfrit betalt tilvalg",
+    "publicHome.backlinksHeading": "Backlinks fortjener deres eget arbejdsområde.",
+    "publicHome.backlinksBody":
+      "Analysér henvisende domæner, find linkhuller i forhold til konkurrenter, gennemgå tilbud, og forbered kontaktudkast uden at blande eksterne placeringsomkostninger ind i den daglige indholdsplanlægning. Betalt aktivering og køb er sat på pause, indtil betaling og leverandør er verificeret.",
+    "publicHome.addonPricing": "Se priser på tilvalg",
+    "publicHome.exploreFirst": "Udforsk Milo først",
+    "publicHome.control": "Du bevarer kontrollen.",
+    "publicHome.acceptFirst": "Intet kommer i Plan, før du accepterer det",
+    "publicHome.reviewPublication": "Menneskelig gennemgang før publicering",
+    "publicHome.archiveRestore": "Arkivér og gendan, så arbejdet ikke forsvinder",
+    "publicHome.versionScore": "Indholdsscoren gælder en bestemt version og kan forklares",
+    "publicHome.manageBilling": "Administrer eller opsig abonnementet via Fakturering",
+    "publicHome.simplePlans": "Overskuelige planer",
+    "publicHome.pricingHeading": "Start småt. Voks til {count} projekter med Agency.",
+    "publicHome.pricingBody":
+      "Vælg det forbrugsniveau, der passer i dag. Backlinks er fortsat et særskilt tilvalg, og opsigelse er synlig på din konto. Nye betalte abonnementer er sat på pause, mens betalingsopsætning og test færdiggøres.",
+    "publicHome.seePricing": "Se priser",
+    "publicHome.plainAnswers": "Klare svar",
+    "publicHome.beforeStart": "Før du starter",
+    "publicHome.faqDiscoveryQ": "Hvor havner opdagede muligheder?",
+    "publicHome.faqDiscoveryA":
+      "Opdagede resultater forbliver forslag, indtil du accepterer dem. Accepterede idéer kommer i Plan under Indsamlet med kilde, begrundelse, dokumentation, ansvarlig, status og næste handling.",
+    "publicHome.faqScoreQ": "Hvad vurderer Milo Score?",
+    "publicHome.faqScoreA":
+      "Milo Score vurderer en bestemt indholdsversion før gennemgang. Det kontrollerer søgeparathed, brandtilpasning, struktur, dokumentation, konvertering og relaterede kvalitetssignaler. Det rangerer aldrig muligheder.",
+    "publicHome.faqPublishQ": "Kan Milo publicere på min hjemmeside?",
+    "publicHome.faqPublishA":
+      "Publicering kræver en understøttet forbindelse, en verificeret destination og godkendelse af indholdet. Gemte forbindelsesindstillinger bekræfter ikke i sig selv, at et udkast eller en livepublicering vil lykkes.",
+    "publicHome.faqBacklinksQ": "Er backlinks inkluderet?",
+    "publicHome.faqBacklinksA":
+      "Backlinks er et særskilt tilvalg, fordi eksterne data og placeringer medfører ekstra omkostninger. Betalt aktivering og køb på markedspladsen er sat på pause, indtil betaling og leverandør er verificeret. Kontaktudkast skal gennemgås før brug.",
+    "publicHome.faqCancelQ": "Kan jeg opsige uden at kontakte support?",
+    "publicHome.faqCancelA":
+      "Administrer fakturering og Opsig abonnement findes i Indstillinger → Fakturering for eksisterende tilknyttede abonnementer. Adgang til portalen afhænger af denne faktureringsforbindelse. Nye betalte abonnementer er sat på pause, mens betalingsopsætning og test færdiggøres. Kontakt support, hvis dit eksisterende abonnement ikke kan administreres der.",
+    "publicHome.faqProjectsQ": "Hvor mange projekter kan jeg administrere?",
+    "publicHome.faqProjectsA":
+      "Projektgrænserne afhænger af din plan, op til {count} med Agency. Hvert projekt bevarer sin egen hjemmeside, tjenester, konkurrenter, muligheder, indhold, integrationer og analysekontekst.",
+    "publicHome.footerBody":
+      "En roligere måde for små virksomheder at opdage, planlægge, skabe, publicere og måle SEO-vækst.",
+    "publicHome.freeAudit": "Gratis audit",
+    "publicHome.caseStudies": "Cases",
+    "publicHome.beta": "Beta",
+    "publicHome.terms": "Vilkår",
+    "publicHome.privacy": "Privatliv",
+    "publicHome.security": "Sikkerhed",
+    "publicHome.trust": "EU-tillidscenter",
+    "publicHome.disclaimer": "AI-ansvarsfraskrivelse",
+    "publicHome.markets": "Markeder",
+    "publicHome.regionSuggestion": "Dit marked ser ud til at være {region}.",
+    "publicHome.regionLink": "Se versionen for {region}",
+    "publicHome.dismiss": "Luk",
+  },
+};
