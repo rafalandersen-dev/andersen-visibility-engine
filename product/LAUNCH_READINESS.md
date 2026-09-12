@@ -2,15 +2,17 @@
 
 **Status:** Canonical gate checklist; no new release GO
 
-**Last updated:** 2026-09-09
+**Last updated:** 2026-09-12 (release-baseline clarification; gate requirements unchanged)
 
 **Product Lead:** Rafal Andersen
 
-Unattended paid public launch remains **NO-GO / not verified**. Assisted beta remains supervised with explicit scope and cost limits. July percentages are historical estimates, not current readiness. A merged UI PR or successful Vercel deployment does not close the following gates.
+Unattended paid public launch remains **NO-GO / not verified**. Assisted beta remains supervised with explicit scope and cost limits. July percentages are historical estimates, not current readiness. A merged UI PR or successful deployment does not close the following gates.
 
-| Gate | Required evidence | Current disposition |
+The G1–G13 dispositions below are historical assessments recorded on 9 September, not a fresh inventory of missing implementation. Later work is recorded in [current state](CURRENT_STATE.md) and the [12 September progress review](PROGRESS_REVIEW_2026_09_12.md). Read those records before rebuilding or declaring a feature absent. The required evidence and unchecked acceptance items remain binding; this clarification grants no acceptance credit.
+
+| Gate | Required evidence | Recorded disposition (G1–G13: 9 September) |
 | --- | --- | --- |
-| G0 Baseline/release | Current exact-head audit, build identity, migrations/configuration, review and rollback | Main #105 inspected; last runtime verification recorded by this task is #104; #105 deployment not checked here; wider audit open |
+| G0 Baseline/release | Current exact-head audit, build identity, migrations/configuration, review and rollback | 12 September recorded baseline: PR134 merge `68bed8fba311e75fe39e1ae3b59ed6558669bc39`, deployment `cb151ad5-8d4c-43c7-8fcb-964eb123d8f2`, exact clean runtime verified at05:52:23.452UTC, seven public/auth checks and ten unchanged baselines. [Release evidence](../evidence/ui-evidence-release-2026-09-12.md). No migration; do not repeat deployment. This dated evidence does not replace fresh review/runtime/baselines for another release |
 | G1 Public audit | Verified abuse/privacy/provider/cost boundary or verified disabled/deterministic containment | Worker code exists; #35/#43 open; do not copy obsolete “no routes” state |
 | G2 Commercial authority | Server entitlements and Stripe checkout/portal/webhook lifecycle with replay/failure/cancel/refund tests | Server entitlements and #80 sandbox foundations exist; configured Stripe lifecycle acceptance pending |
 | G3 Economics | Bounded paid calls, concurrent reservations, account/global ceilings; typical/high/max cost and viable packages | Fail-closed metering and native monetary/permit admission deployed; controlled runner and #104 quota receipts delivered; durable result recovery, real benchmark/costs and prices unfinished |
@@ -40,3 +42,5 @@ The [specialist/knowledge/weekly specification](AGENT_WEEKLY_PLAN_2026_09_09.md)
 - [ ] Write back current state, decisions, operations and evidence; ensure a fresh Claude/Codex session can recover the next action.
 
 Historical #46 tests/review remain in [staging evidence](../evidence/public-audit-staging-harness-2026-07-28.md). #63 focused design/workflow evidence remains in [design-qa.md](../design-qa.md). Neither is represented as blanket September public-launch approval.
+
+D07 retains its full [scope-register definition](PLAN_REVIEW_2026_09_07.md): final team role/approval matrix and exceptions requiring review under autopilot, with external MCP publication scope still unissued. An email-language or delivery-setting decision alone cannot close D07. Likewise local language/browser smoke is partial G8/G11 evidence and cannot close G13 or the required recorded solo/team and assisted-tester journeys.
