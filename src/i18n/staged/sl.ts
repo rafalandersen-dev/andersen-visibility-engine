@@ -1,3 +1,4 @@
+import { slConfiguration } from "./sl-configuration";
 import { slPublicBeta } from "./sl-public-beta";
 import { slBetaGuide } from "./sl-beta-guide";
 import { slBetaScreen } from "./sl-beta-screen";
@@ -17,6 +18,13 @@ import { slAuthScreen } from "./sl-auth-screen";
 import { slSharedUi } from "./sl-shared-ui";
 /** Slovenian authoring; never imported by the runtime catalog. */
 export const SL_STAGED_BATCHES = [
+  {
+    name: "configuration",
+    copy: slConfiguration,
+    namespaces: ["brand", "wp", "shopify", "claude", "connect", "connections", "coverage"],
+    sourceRevision: "b8f7f14",
+    sourceHash: "0e11ebfcac212ec85d91c8734430e0cd661dc727057c565c1cfcd33f59a1aa60",
+  },
   {
     name: "authentication",
     copy: slAuthScreen,

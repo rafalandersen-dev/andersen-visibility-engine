@@ -172,3 +172,5 @@ Slovenian beta screen adds 88 messages at source 63e1a10: 1,043/3,768 in fifteen
 Slovenian beta guidance adds 125 messages at source 75198c7: 1,168/3,768 in sixteen staged batches. Remaining UI authoring backlog: 40,280 messages. All 27 focused tests, types, scoped lint and whitespace pass. Runtime activation and language/rendered acceptance remain open.
 
 Slovenian public beta adds 100 messages at source 6a24f17: 1,268/3,768 in seventeen staged batches. Remaining UI authoring backlog: 40,180 messages. All 28 focused tests, types, scoped lint and whitespace pass. Runtime activation and language/rendered acceptance remain open.
+
+Slovenian configuration adds 220 messages at source b8f7f14: 1,488/3,768 in eighteen staged batches. Remaining UI authoring backlog: 39,960 messages. All 29 focused tests, types, scoped lint and whitespace pass. Runtime activation and language/rendered acceptance remain open.
