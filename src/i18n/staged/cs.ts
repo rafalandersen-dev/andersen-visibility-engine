@@ -1,3 +1,4 @@
+import { csMeasurements } from "./cs-measurements";
 import { csTechnical } from "./cs-technical";
 import { csKnowledge } from "./cs-knowledge";
 import { csCollaboration } from "./cs-collaboration";
@@ -21,6 +22,13 @@ import { csAuthScreen } from "./cs-auth-screen";
 import { csSharedUi } from "./cs-shared-ui";
 /** Czech authoring; never imported by the runtime catalog. */
 export const CS_STAGED_BATCHES = [
+  {
+    name: "measurements",
+    copy: csMeasurements,
+    namespaces: ["analytics", "gsc", "report"],
+    sourceRevision: "7448601",
+    sourceHash: "216126da773525ef913fe7e10a4db7af57539ea07dae497fd349051da3088395",
+  },
   {
     name: "technical",
     copy: csTechnical,

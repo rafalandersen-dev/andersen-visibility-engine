@@ -86,3 +86,5 @@ Czech collaboration and notifications adds 248 messages: partial coverage is 1,7
 Czech knowledge, weekly preparation and approval adds 242 messages: partial coverage is 1,978/3,768 and the UI authoring backlog is 47,006 messages at this English baseline. Activation and quality acceptance remain open.
 
 Czech technical diagnostics adds 238 messages: partial coverage is 2,216/3,768 and the UI authoring backlog is 46,768 messages at this English baseline. Activation and quality acceptance remain open.
+
+Czech analytics, Search Console and reports adds 204 messages: partial coverage is 2,420/3,768 and the UI authoring backlog is 46,564 messages at this English baseline. Activation and quality acceptance remain open.
