@@ -1,3 +1,4 @@
+import { skEvidence } from "./sk-evidence";
 import { skLinks } from "./sk-links";
 import { skCommerce } from "./sk-commerce";
 import { skGrowth } from "./sk-growth";
@@ -225,6 +226,13 @@ export const SK_STAGED_BATCHES = [
     ],
     sourceRevision: "58c329a",
     sourceHash: "7b8c4cfd6fb08b518e7e0eb7fd53e767b72972a0048a75521eda0d4b9ebd40d7",
+  },
+  {
+    name: "evidence",
+    copy: skEvidence,
+    namespaces: ["answer", "logs", "proof", "aiEval", "benchmark"],
+    sourceRevision: "482aa28",
+    sourceHash: "2911f87d7691a2bf04548e0b7c0e63b3c93f25cdcd73c9af1ba5d22ffdee211d",
   },
 ] as const;
 export const SK_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

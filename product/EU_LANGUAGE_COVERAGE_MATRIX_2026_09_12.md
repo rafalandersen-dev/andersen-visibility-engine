@@ -142,3 +142,5 @@ Slovak authority/public audit/proposals adds 201 messages, bringing staged cover
 Slovak billing/launch/beta adds 192 messages, bringing staged coverage to 2,971/3,768 across twenty-five batches. The remaining UI authoring backlog is 42,245 messages at this composed-English baseline. All 36 focused tests, types, scoped lint and whitespace pass. Activation and language/rendered acceptance remain open.
 
 Slovak link network/backlinks/marketplace/monitoring adds 256 messages, bringing staged coverage to 3,227/3,768 across twenty-six batches. The remaining UI authoring backlog is 41,989 messages at this composed-English baseline. All 37 focused tests, types, scoped lint and whitespace pass. Activation and language/rendered acceptance remain open.
+
+Slovak publication proof/AI answers/logs/evaluation adds 196 messages, bringing staged coverage to 3,423/3,768 across twenty-seven batches. The remaining UI authoring backlog is 41,793 messages at this composed-English baseline. All 38 focused tests, types, scoped lint and whitespace pass. Activation and language/rendered acceptance remain open.
