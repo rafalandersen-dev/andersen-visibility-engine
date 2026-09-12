@@ -1,3 +1,6 @@
+import { slAuditScreen } from "./sl-audit-screen";
+import { slServicesScreen } from "./sl-services-screen";
+import { slSetupScreen } from "./sl-setup-screen";
 import { slCore } from "./sl-core";
 import { slAuthScreen } from "./sl-auth-screen";
 import { slSharedUi } from "./sl-shared-ui";
@@ -34,6 +37,27 @@ export const SL_STAGED_BATCHES = [
     ],
     sourceRevision: "ddee742",
     sourceHash: "845b2b1ade4a0935ab924dcc4bdc27d72a7a120388740354bd69a697aa1c7ff2",
+  },
+  {
+    name: "setup screen",
+    copy: slSetupScreen,
+    namespaces: ["setupScreen"],
+    sourceRevision: "32a8a48",
+    sourceHash: "565b0bcd89f346fd85f3b87d4e44716826a65bee54fd60eaa3b677c4d732a5ca",
+  },
+  {
+    name: "services screen",
+    copy: slServicesScreen,
+    namespaces: ["servicesScreen"],
+    sourceRevision: "32a8a48",
+    sourceHash: "c769d10ab21c34754c6c4a6c57c3ee5f04881605b1dabc10030bca0e9122313d",
+  },
+  {
+    name: "audit screen",
+    copy: slAuditScreen,
+    namespaces: ["auditScreen"],
+    sourceRevision: "32a8a48",
+    sourceHash: "2c15a7061c169b3f2da7446d4280ff94cb6b5ce2e6cb56d156af72ab154f1aed",
   },
 ] as const;
 export const SL_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
