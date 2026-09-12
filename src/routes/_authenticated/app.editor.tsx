@@ -240,7 +240,7 @@ function EditorPage() {
     setDeleteId(null);
     if (id === selectedId) setSelectedId(next?.id);
     await saveWorkspaceNow();
-    toast.success("Content asset deleted");
+    toast.success(t("editorScreen.deleted"));
   }
 
   // Follow ?id changes (e.g. generating from the Editor entry point, which
@@ -261,10 +261,7 @@ function EditorPage() {
           </div>
           <ul className="mt-1 space-y-0.5">
             {assets.length === 0 ? (
-              <li className="px-2 py-6 text-xs text-muted-foreground">
-                Open Plan and use “Create linked draft” on an opportunity to generate your first
-                asset.
-              </li>
+              <li className="px-2 py-6 text-xs text-muted-foreground">{t("editorScreen.empty")}</li>
             ) : (
               assets.map((a) => (
                 <li key={a.id}>
@@ -297,9 +294,7 @@ function EditorPage() {
           <div className="rounded-lg border border-dashed border-border p-12 text-center">
             <div className="font-display text-lg mb-1">{t("editor.noAssetSelectedTitle")}</div>
             <p className="text-sm text-muted-foreground max-w-md mx-auto">
-              Open <span className="font-medium text-foreground">Plan</span> and click{" "}
-              <span className="font-medium text-foreground">Create linked draft</span> on an
-              opportunity to generate your first asset. It will appear in this editor.
+              {t("editorScreen.empty")}
             </p>
           </div>
         )}
@@ -314,10 +309,7 @@ function EditorPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("editor.action.delete")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              This permanently removes this draft from the editor. The opportunity it came from
-              stays, and any scheduled publish for it is cancelled.
-            </AlertDialogDescription>
+            <AlertDialogDescription>{t("editorScreen.deleteDescription")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
@@ -984,7 +976,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     // Copy the CANONICAL assembled markdown — what actually publishes — matching
     // Export Markdown (review fix; raw f.markdown diverged from both).
     await navigator.clipboard.writeText(assembled?.markdown ?? f.markdown);
-    toast.success("Copied Markdown to clipboard");
+    toast.success(t("editorScreen.copiedMarkdown"));
   };
 
   // Publish status reads from the live store value (publish actions don't bump
@@ -1755,11 +1747,11 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
 
       <Tabs defaultValue="content" className="px-5 pt-3">
         <TabsList>
-          <TabsTrigger value="content">Content</TabsTrigger>
-          <TabsTrigger value="meta">Metadata</TabsTrigger>
-          <TabsTrigger value="structure">Structure</TabsTrigger>
-          <TabsTrigger value="eeat">Sources &amp; Author</TabsTrigger>
-          <TabsTrigger value="preview">Preview</TabsTrigger>
+          <TabsTrigger value="content">{t("editorScreen.tab.content")}</TabsTrigger>
+          <TabsTrigger value="meta">{t("editorScreen.tab.metadata")}</TabsTrigger>
+          <TabsTrigger value="structure">{t("editorScreen.tab.structure")}</TabsTrigger>
+          <TabsTrigger value="eeat">{t("editorScreen.tab.sourcesAuthor")}</TabsTrigger>
+          <TabsTrigger value="preview">{t("editorScreen.tab.preview")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="content" className="space-y-4 py-5">
@@ -1947,15 +1939,15 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
             )}
           </div>
 
-          <Field label="Title">
+          <Field label={t("editorScreen.field.title")}>
             {(id) => (
               <Input id={id} value={f.title} onChange={(e) => upd("title", e.target.value)} />
             )}
           </Field>
-          <Field label="H1">
+          <Field label={t("editorScreen.field.h1")}>
             {(id) => <Input id={id} value={f.h1} onChange={(e) => upd("h1", e.target.value)} />}
           </Field>
-          <Field label="Markdown content">
+          <Field label={t("editorScreen.field.markdown")}>
             {(id) => (
               <Textarea
                 id={id}
@@ -1966,7 +1958,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               />
             )}
           </Field>
-          <Field label="Editor notes">
+          <Field label={t("editorScreen.field.notes")}>
             {(id) => (
               <Textarea
                 id={id}
@@ -1991,7 +1983,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               ) : (
                 <Sparkles className="h-3.5 w-3.5" />
               )}
-              Regenerate metadata
+              {t("editorScreen.regenerateMetadata")}
             </Button>
             <Button
               size="sm"
@@ -2004,13 +1996,13 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               ) : (
                 <Sparkles className="h-3.5 w-3.5" />
               )}
-              Regenerate CTA
+              {t("editorScreen.regenerateCta")}
             </Button>
           </div>
-          <Field label="Slug">
+          <Field label={t("editorScreen.field.slug")}>
             {(id) => <Input id={id} value={f.slug} onChange={(e) => upd("slug", e.target.value)} />}
           </Field>
-          <Field label={`Meta title (${f.metaTitle.length}/60)`}>
+          <Field label={t("editorScreen.field.metaTitle", { count: f.metaTitle.length })}>
             {(id) => (
               <Input
                 id={id}
@@ -2019,7 +2011,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               />
             )}
           </Field>
-          <Field label={`Meta description (${f.metaDescription.length}/160)`}>
+          <Field
+            label={t("editorScreen.field.metaDescription", { count: f.metaDescription.length })}
+          >
             {(id) => (
               <Textarea
                 id={id}
@@ -2029,7 +2023,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
               />
             )}
           </Field>
-          <Field label="Primary CTA">
+          <Field label={t("editorScreen.field.cta")}>
             {(id) => <Input id={id} value={f.cta} onChange={(e) => upd("cta", e.target.value)} />}
           </Field>
         </TabsContent>
@@ -2038,7 +2032,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
           <div>
             <div className="flex items-center justify-between">
               <Label htmlFor={outlineId} className="text-xs">
-                Outline
+                {t("editorScreen.outline")}
               </Label>
             </div>
             <Textarea
@@ -2052,7 +2046,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
 
           <div>
             <div className="flex items-center justify-between">
-              <Label className="text-xs">FAQ</Label>
+              <Label className="text-xs">{t("editorScreen.faq")}</Label>
               <Button
                 size="sm"
                 variant="ghost"
@@ -2064,7 +2058,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 ) : (
                   <Sparkles className="h-3.5 w-3.5" />
                 )}
-                Regenerate
+                {t("editorScreen.regenerate")}
               </Button>
             </div>
             <div className="mt-2 space-y-3">
@@ -2992,28 +2986,28 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
             uploaded images) to the store. save() preserves the current status
             and never approves; repeated clicks are idempotent (no re-upload). */}
         <Button size="sm" variant="default" onClick={() => save()}>
-          <Save className="h-3.5 w-3.5" /> Save
+          <Save className="h-3.5 w-3.5" /> {t("common.save")}
         </Button>
         {isDirty ? (
           <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-600">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden="true" />
-            Unsaved changes
+            {t("editorScreen.unsaved")}
           </span>
         ) : (
-          <span className="text-xs text-muted-foreground">All changes saved</span>
+          <span className="text-xs text-muted-foreground">{t("editorScreen.saved")}</span>
         )}
         <span className="mx-1 hidden h-4 w-px bg-border sm:inline-block" aria-hidden="true" />
         <Button size="sm" variant="outline" onClick={() => exportText("md")}>
-          <Download className="h-3.5 w-3.5" /> Export Markdown
+          <Download className="h-3.5 w-3.5" /> {t("editorScreen.exportMarkdown")}
         </Button>
         <Button size="sm" variant="outline" onClick={() => exportText("html")}>
-          <Download className="h-3.5 w-3.5" /> Export HTML
+          <Download className="h-3.5 w-3.5" /> {t("editorScreen.exportHtml")}
         </Button>
         <Button size="sm" variant="ghost" onClick={copy}>
-          <Copy className="h-3.5 w-3.5" /> Copy Markdown
+          <Copy className="h-3.5 w-3.5" /> {t("editorScreen.copyMarkdown")}
         </Button>
         <div className="ml-auto text-xs text-muted-foreground">
-          Updated {formatDateTime(f.updatedAt)}
+          {t("editorScreen.updated", { date: formatDateTime(f.updatedAt) })}
         </div>
       </div>
     </div>

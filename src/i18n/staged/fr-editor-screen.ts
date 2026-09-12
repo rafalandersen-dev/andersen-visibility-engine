@@ -1,0 +1,33 @@
+/** French counterparts for the extracted editor layout and controls. */
+export const frEditorScreen: Readonly<Record<string, string>> = {
+  "editorScreen.empty":
+    "Ouvrez Plan et créez un brouillon lié à une opportunité. Le brouillon apparaîtra ici.",
+  "editorScreen.deleted": "Contenu supprimé",
+  "editorScreen.deleteDescription":
+    "Cette action supprime définitivement ce brouillon de l’éditeur. L’opportunité associée reste disponible. Consultez Plan pour vérifier les éventuelles publications programmées.",
+  "editorScreen.tab.content": "Contenu",
+  "editorScreen.tab.metadata": "Métadonnées",
+  "editorScreen.tab.structure": "Structure",
+  "editorScreen.tab.sourcesAuthor": "Sources et auteur",
+  "editorScreen.tab.preview": "Aperçu",
+  "editorScreen.field.title": "Titre",
+  "editorScreen.field.h1": "H1",
+  "editorScreen.field.markdown": "Contenu Markdown",
+  "editorScreen.field.notes": "Notes éditoriales",
+  "editorScreen.field.slug": "Slug",
+  "editorScreen.field.metaTitle": "Méta-titre ({count}/60)",
+  "editorScreen.field.metaDescription": "Méta-description ({count}/160)",
+  "editorScreen.field.cta": "Appel à l’action principal",
+  "editorScreen.regenerateMetadata": "Régénérer les métadonnées",
+  "editorScreen.regenerateCta": "Régénérer l’appel à l’action",
+  "editorScreen.outline": "Plan de l’article",
+  "editorScreen.faq": "FAQ",
+  "editorScreen.regenerate": "Régénérer",
+  "editorScreen.unsaved": "Modifications non enregistrées",
+  "editorScreen.saved": "Toutes les modifications sont enregistrées",
+  "editorScreen.updated": "Mis à jour {date}",
+  "editorScreen.exportMarkdown": "Exporter le Markdown",
+  "editorScreen.exportHtml": "Exporter le HTML",
+  "editorScreen.copyMarkdown": "Copier le Markdown",
+  "editorScreen.copiedMarkdown": "Markdown copié dans le presse-papiers",
+};
