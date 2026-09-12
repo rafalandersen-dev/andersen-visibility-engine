@@ -1,3 +1,4 @@
+import { itEvidence } from "./it-evidence";
 import { itLinks } from "./it-links";
 import { itCommerce } from "./it-commerce";
 import { itGrowth } from "./it-growth";
@@ -226,6 +227,13 @@ export const IT_STAGED_BATCHES = [
     ],
     sourceRevision: "afde44e",
     sourceHash: "7b8c4cfd6fb08b518e7e0eb7fd53e767b72972a0048a75521eda0d4b9ebd40d7",
+  },
+  {
+    name: "evidence",
+    copy: itEvidence,
+    namespaces: ["answer", "logs", "proof", "aiEval", "benchmark"],
+    sourceRevision: "a8d2c7e",
+    sourceHash: "2911f87d7691a2bf04548e0b7c0e63b3c93f25cdcd73c9af1ba5d22ffdee211d",
   },
 ] as const;
 export const IT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
