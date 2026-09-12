@@ -1,3 +1,4 @@
+import { slCommerce } from "./sl-commerce";
 import { slGrowth } from "./sl-growth";
 import { slOutreach } from "./sl-outreach";
 import { slMeasurements } from "./sl-measurements";
@@ -24,6 +25,13 @@ import { slAuthScreen } from "./sl-auth-screen";
 import { slSharedUi } from "./sl-shared-ui";
 /** Slovenian authoring; never imported by the runtime catalog. */
 export const SL_STAGED_BATCHES = [
+  {
+    name: "commerce",
+    copy: slCommerce,
+    namespaces: ["billing", "launch", "beta"],
+    sourceRevision: "d3313ba",
+    sourceHash: "6cd0596e8ff09ae38f9decb763ab31a3fe2c311109c9b5f85edc9721d7058ff2",
+  },
   {
     name: "growth",
     copy: slGrowth,
