@@ -164,3 +164,5 @@ Slovenian plan adds 113 messages at source b949563: 637/3,768 in ten staged batc
 Slovenian editor adds 148 messages at source 9d577d4: 785/3,768 in eleven staged batches. Remaining UI authoring backlog: 40,663 messages. All 22 focused tests, types, scoped lint and whitespace pass. Runtime activation and language/rendered acceptance remain open.
 
 Slovenian public pricing/studies adds 70 messages at source 187b94e: 855/3,768 in thirteen staged batches. Remaining UI authoring backlog: 40,593 messages. All 24 focused tests, types, scoped lint and whitespace pass. Runtime activation and language/rendered acceptance remain open.
+
+Slovenian public home adds 100 messages at source f1846ab: 955/3,768 in fourteen staged batches. Remaining UI authoring backlog: 40,493 messages. All 25 focused tests, types, scoped lint and whitespace pass. Runtime activation and language/rendered acceptance remain open.

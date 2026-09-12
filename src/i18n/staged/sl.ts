@@ -1,3 +1,4 @@
+import { slPublicHome } from "./sl-public-home";
 import { slPublicStudies } from "./sl-public-studies";
 import { slPublicPricing } from "./sl-public-pricing";
 import { slEditorScreen } from "./sl-editor-screen";
@@ -114,6 +115,13 @@ export const SL_STAGED_BATCHES = [
     namespaces: ["publicStudies"],
     sourceRevision: "187b94e",
     sourceHash: "ace563fb757a52abcd667e7e691d3e48024045a4e4f265e6949c66a828f5e8de",
+  },
+  {
+    name: "public home",
+    copy: slPublicHome,
+    namespaces: ["publicHome"],
+    sourceRevision: "f1846ab",
+    sourceHash: "2855ce0efcce2fc714afc7f61a15d64ed5975809acefb98df75a3e275ccae141",
   },
 ] as const;
 export const SL_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
