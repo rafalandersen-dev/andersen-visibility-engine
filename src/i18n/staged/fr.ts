@@ -1,3 +1,4 @@
+import { frPublicPricing } from "./fr-public-pricing";
 import { frPublicHome } from "./fr-public-home";
 import { frPublicBeta } from "./fr-public-beta";
 import { frBetaGuidance } from "./fr-beta-guidance";
@@ -28,6 +29,7 @@ import { frPlanScreen } from "./fr-plan-screen";
 /** Authoring batches only. Dictionary coverage does not establish full interface
  * acceptance. This catalog is not registered by the runtime or language picker. */
 export const FR_STAGED_BATCHES = [
+  { name: "public pricing", copy: frPublicPricing, namespaces: ["publicPricing"] },
   { name: "public home", copy: frPublicHome, namespaces: ["publicHome"] },
   { name: "public beta and demo", copy: frPublicBeta, namespaces: ["publicBeta"] },
   { name: "beta playbook guidance", copy: frBetaGuidance, namespaces: ["betaGuide"] },
