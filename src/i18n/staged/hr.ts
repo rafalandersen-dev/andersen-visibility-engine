@@ -1,3 +1,4 @@
+import { hrEvidence } from "./hr-evidence";
 import { hrLinks } from "./hr-links";
 import { hrCommerce } from "./hr-commerce";
 import { hrGrowth } from "./hr-growth";
@@ -26,6 +27,13 @@ import { hrAuthScreen } from "./hr-auth-screen";
 import { hrSharedUi } from "./hr-shared-ui";
 /** Croatian authoring; never imported by the runtime catalog. */
 export const HR_STAGED_BATCHES = [
+  {
+    name: "evidence",
+    copy: hrEvidence,
+    namespaces: ["answer", "logs", "proof", "aiEval", "benchmark"],
+    sourceRevision: "e59a229",
+    sourceHash: "2911f87d7691a2bf04548e0b7c0e63b3c93f25cdcd73c9af1ba5d22ffdee211d",
+  },
   {
     name: "links",
     copy: hrLinks,
