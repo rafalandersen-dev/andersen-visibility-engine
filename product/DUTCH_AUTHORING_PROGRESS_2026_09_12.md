@@ -1,6 +1,6 @@
 # Dutch interface authoring — 12 September 2026
 
-R20 requires full EU-language coverage. Dutch authoring has begun with 1,043 of the current 3,768 English interface messages (2,725 remain). This is a partial staged catalog; Dutch is not registered in UI_CATALOGS or the language picker.
+R20 requires full EU-language coverage. Dutch authoring has begun with 1,168 of the current 3,768 English interface messages (2,600 remain). This is a partial staged catalog; Dutch is not registered in UI_CATALOGS or the language picker.
 
 ## Completed authoring batches
 
@@ -15,6 +15,7 @@ R20 requires full EU-language coverage. Dutch authoring has begun with 1,043 of 
 | Evidence screens | 89 | src/i18n/staged/nl-evidence-screen.ts |
 | Plan screen | 113 | src/i18n/staged/nl-plan-screen.ts |
 | Editor screen | 148 | src/i18n/staged/nl-editor-screen.ts |
+| Beta guidance | 125 | src/i18n/staged/nl-beta-guide.ts |
 | Beta validation screen | 88 | src/i18n/staged/nl-beta-screen.ts |
 | Public home | 100 | src/i18n/staged/nl-public-home.ts |
 | Public pricing | 40 | src/i18n/staged/nl-public-pricing.ts |
@@ -90,3 +91,10 @@ All twenty-five Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-
 At dc4b718, authored all 88 betaScreen messages. Copy preserves owner-only guidance, separate outreach language selection, review-before-use instructions, original CSV field/value preservation, the 12–13 demo steps and first-20-prospect scorecard. Translated display statuses do not change export values or perform outreach. Owner-only text does not itself establish authorization enforcement, and the sales-validation labels do not establish paid-launch readiness.
 
 All twenty-six Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-beta-screen-types.log), scoped lint and whitespace checks. Total staged coverage is 1,043; 2,725 messages remain. Beta guide and public beta groups are next. Fluent/rendered and real-use acceptance remain open; no runtime activation or external communication occurred.
+
+
+## Beta guidance follow-up
+
+At b97d967, authored all 125 betaGuide messages. Copy preserves separate outreach/demo/generation authorization, cost checks, paid-launch holds, pilot scope, numeric targets and template placeholders. Validation targets remain targets, readiness scores remain distinct from rankings, and AI review aids do not establish factual correctness. Measurement guidance explicitly distinguishes missing or unverified data from observed results.
+
+The initial registration attempt used an incorrect batch label and therefore did not include this file in the catalog checks. Corrected the registry to beta guidance and reran verification: all twenty-seven Dutch/catalog tests pass, including the complete 1,168-key staged catalog and current English source fingerprint. Full TypeScript (/tmp/milo-dutch-beta-guide-types.log), scoped lint and whitespace checks pass. Public beta is next; 2,600 messages remain. No runtime activation, outreach, generation, payment or live acceptance operation occurred. Fluent/rendered and full acceptance remain open.
