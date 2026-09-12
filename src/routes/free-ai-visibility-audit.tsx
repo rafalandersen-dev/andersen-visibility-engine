@@ -41,6 +41,7 @@ function PublicAuditPage() {
 
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
+  const requestPending = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [unavailable, setUnavailable] = useState(false);
   const [result, setResult] = useState<PublicAiVisibilityAudit | null>(null);
@@ -48,7 +49,12 @@ function PublicAuditPage() {
   const [turnstileReset, setTurnstileReset] = useState(0);
   const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
 
+  const canRun = !loading && (!import.meta.env.PROD || Boolean(botProof));
+
   async function run() {
+    // A ref closes the gap before React renders the disabled controls.
+    if (requestPending.current) return;
+    setUnavailable(false);
     const trimmed = url.trim();
     if (!trimmed || !/\.\w{2,}/.test(trimmed)) {
       setError(t("publicAudit.invalidUrl"));
@@ -58,9 +64,9 @@ function PublicAuditPage() {
       setError("Please complete the bot check and try again.");
       return;
     }
+    requestPending.current = true;
     setLoading(true);
     setError(null);
-    setUnavailable(false);
     setResult(null);
     try {
       const audit = await runPublicAudit({
@@ -73,6 +79,7 @@ function PublicAuditPage() {
       setUnavailable(e instanceof PublicAuditUnavailableError);
       setError(e instanceof Error ? e.message : t("publicAudit.genericError"));
     } finally {
+      requestPending.current = false;
       setLoading(false);
       setBotProof("");
       setTurnstileReset((value) => value + 1);
@@ -133,13 +140,13 @@ function PublicAuditPage() {
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !loading) run();
+              if (e.key === "Enter" && canRun) run();
             }}
             aria-label={t("launch.conn.website")}
             placeholder="yourbusiness.com"
             disabled={loading}
           />
-          <Button onClick={run} disabled={loading || (import.meta.env.PROD && !botProof)}>
+          <Button onClick={run} disabled={!canRun}>
             {loading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
@@ -190,7 +197,7 @@ function PublicAuditPage() {
                 {t("publicAudit.cta")}
               </Button>
             ) : (
-              <Button className="mt-4" variant="outline" onClick={run}>
+              <Button className="mt-4" variant="outline" onClick={run} disabled={!canRun}>
                 {t("common.retry")}
               </Button>
             )}
