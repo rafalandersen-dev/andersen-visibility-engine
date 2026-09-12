@@ -101,3 +101,11 @@ export function formatDateTimeLocalInput(input: string | Date): string {
   const pad = (value: number) => String(value).padStart(2, "0");
   return `${String(d.getFullYear()).padStart(4, "0")}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${formatTimeLocal(d)}`;
 }
+
+// Reject calendar overflow and daylight-saving gaps instead of silently moving
+// the requested local time. Repeated autumn times keep Date's earlier instant.
+export function parseDateTimeLocalInput(value: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return null;
+  const instant = new Date(value);
+  return formatDateTimeLocalInput(instant) === value ? instant : null;
+}

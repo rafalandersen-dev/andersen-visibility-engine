@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+The editor now rejects nonexistent local scheduling times and calendar overflow instead of silently normalizing them. Invalid selections disable scheduling and expose a linked localized field error. All 24 format tests pass in three time zones; full types/build/scoped lint pass. See SCHEDULE_LOCAL_TIME_VALIDATION_2026_09_12.md. Prepared, unreleased; autumn ambiguity, browser and real-use acceptance remain scoped separately.
+
 The editor scheduling minimum now uses the browser-local calendar and clock instead of a UTC slice, rounded upward to minute precision. Seventeen format tests pass in three time zones; full types/build/scoped lint pass. See SCHEDULE_LOCAL_INPUT_MINIMUM_2026_09_12.md. Prepared, unreleased; server lead checks remain authoritative and real-use/release gates remain.
 
 Scheduling copy now treats an overdue saved pending state as an unconfirmed publication outcome and asks for destination/current-status checks before another attempt. The saved-schedule toast no longer promises delivery at that time. Updated all nine authored languages; 177 catalog tests and full TypeScript pass. See SCHEDULE_OUTCOME_COPY_2026_09_12.md. Prepared, unreleased; live acceptance and release holds remain.
