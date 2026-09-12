@@ -1,3 +1,5 @@
+import { deEditorScreen } from "./de-editor-screen";
+import { deWorkflow } from "./de-workflow";
 import { deCore } from "./de-core";
 import { deAuthScreen } from "./de-auth-screen";
 import { deSharedUi } from "./de-shared-ui";
@@ -37,6 +39,30 @@ export const DE_STAGED_BATCHES = [
   { name: "billing screen", copy: deBillingScreen, namespaces: ["billingScreen"] },
   { name: "evidence screen", copy: deEvidenceScreen, namespaces: ["evidenceScreen"] },
   { name: "plan screen", copy: dePlanScreen, namespaces: ["planScreen"] },
+  { name: "editor screen", copy: deEditorScreen, namespaces: ["editorScreen"] },
+  {
+    name: "workflow",
+    copy: deWorkflow,
+    namespaces: [
+      "editor",
+      "today",
+      "plan",
+      "generationResults",
+      "publishingFidelity",
+      "quality",
+      "imgGen",
+      "arrange",
+      "visual",
+      "autoSched",
+      "prev",
+      "calsched",
+      "pres",
+      "featured",
+      "status",
+      "dashboard",
+      "workflow",
+    ],
+  },
 ] as const;
 export const DE_STAGED_CATALOG: Readonly<Record<string, string>> = Object.assign(
   {},

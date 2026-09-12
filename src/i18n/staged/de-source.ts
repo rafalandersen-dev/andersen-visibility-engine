@@ -11,4 +11,6 @@ export const DE_AUTHORING_SOURCE_HASHES: Readonly<Record<string, string>> = {
   "billing screen": "efc54955c540e8fbc0c9f63b08a05595e82c60fa5335054dacc1607e7ba99b44",
   "evidence screen": "2c7e9ccb48b02cd12911d0df6c31a96ec8ddfc6c558dfda3b3e14790d156c136",
   "plan screen": "288f529ed3a18c00623c05011262d3cce0374158e558959fa8fc9dbc63174bb7",
+  "editor screen": "1e827d2744ea1f2d3364b54983f06b42082f45ab6dfb0eda7b1375fdddd9ec9f",
+  workflow: "51745ca43f59875396b2251d308f4cff913717c3868a9679f6be5c7fa3e0c35f",
 };
