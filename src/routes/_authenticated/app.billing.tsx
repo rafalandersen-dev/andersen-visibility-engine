@@ -13,7 +13,13 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from "@/lib/auth";
 import { useStore, setBillingProfile, refreshEntitlement, saveWorkspaceNow } from "@/lib/store";
-import { useT } from "@/i18n";
+import { useAppLanguage, useT } from "@/i18n";
+import {
+  billingCountryLabel,
+  billingFeatureLabel,
+  billingMarketLabel,
+  formatBillingMoney,
+} from "@/lib/billing-presentation";
 import {
   PLAN_IDS,
   PLAN_META,
@@ -23,7 +29,6 @@ import {
   deriveBillingMarket,
   planPrice,
   addOnPrice,
-  formatMoney,
   getCurrentPlanId,
   isActivePaid,
   type PlanId,
@@ -46,6 +51,8 @@ const visualQa = import.meta.env.DEV && import.meta.env.VITE_MILO_VISUAL_QA === 
 
 function BillingPage() {
   const t = useT();
+  const locale = useAppLanguage();
+  const money = (amount: number) => formatBillingMoney(amount, currency, locale);
   const { isOwner, user } = useAuth();
   const projects = useStore((s) => s.projects);
   const billingProfile = useStore((s) => s.billingProfile);
@@ -104,7 +111,7 @@ function BillingPage() {
       toast.success(t("billing.profileSaved"));
       if (needsReview) toast.message(t("billing.marketReview"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not save");
+      toast.error(e instanceof Error ? e.message : t("billingScreen.saveFailed"));
     } finally {
       setSavingProfile(false);
     }
@@ -136,7 +143,7 @@ function BillingPage() {
       // granted exclusively by the verified Paddle webhook.
       toast.message(res.message || t("billing.checkoutNotConfigured"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Checkout failed");
+      toast.error(e instanceof Error ? e.message : t("billingScreen.checkoutFailed"));
     } finally {
       setCheckingOut(null);
     }
@@ -148,7 +155,7 @@ function BillingPage() {
       await refreshEntitlement();
       toast.success(t("billing.profileSaved"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not update the plan.");
+      toast.error(e instanceof Error ? e.message : t("billingScreen.planFailed"));
     }
   }
 
@@ -157,9 +164,7 @@ function BillingPage() {
     // subscription from the entitlements row (P1-10). The client-side
     // subscription copy is only a UX hint and is not trusted for this.
     if (!subscription?.paddleCustomerId) {
-      toast.message(
-        "Your billing account is not linked to Paddle yet. Email billing@milogrowth.com and we will process the request immediately.",
-      );
+      toast.message(t("billingScreen.portalUnlinked"));
       return;
     }
     setPortalBusy(intent);
@@ -171,11 +176,9 @@ function BillingPage() {
         window.location.href = target;
         return;
       }
-      toast.error(portal.error ?? portal.message ?? "Could not open subscription management.");
+      toast.error(portal.error ?? portal.message ?? t("billingScreen.portalFailed"));
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Could not open subscription management.",
-      );
+      toast.error(error instanceof Error ? error.message : t("billingScreen.portalFailed"));
     } finally {
       setPortalBusy(null);
     }
@@ -213,7 +216,11 @@ function BillingPage() {
         <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
           <div>
             <div className="font-display text-2xl">
-              {isOwner ? "Owner" : PLAN_META[currentPlanId].name}
+              {isOwner
+                ? t("billingScreen.owner")
+                : currentPlanId === "freePreview"
+                  ? t("billingScreen.freePreview")
+                  : PLAN_META[currentPlanId].name}
             </div>
             <p className="mt-1 text-sm text-muted-foreground">{user?.email}</p>
           </div>
@@ -224,32 +231,42 @@ function BillingPage() {
             </div>
             <div>
               <span className="text-muted-foreground">{t("billing.billingMarket")}: </span>
-              {market}
+              {billingMarketLabel(market, t)}
             </div>
             <div>
               <span className="text-muted-foreground">{t("billing.price")}: </span>
               {currentPlanId === "freePreview"
-                ? formatMoney(0, currency)
-                : `${formatMoney(planPrice(market, currentPlanId), currency)} ${t("billing.perMonth")}`}
+                ? money(0)
+                : `${money(planPrice(market, currentPlanId))} ${t("billing.perMonth")}`}
             </div>
           </div>
         </div>
         <div className="mt-4 flex flex-wrap gap-2 text-xs text-muted-foreground">
-          <Tag>{PLAN_LIMITS[currentPlanId].maxProjects} projects</Tag>
-          <Tag>{PLAN_LIMITS[currentPlanId].maxWebsites} websites</Tag>
+          <Tag>{t("billingScreen.projects", { n: PLAN_LIMITS[currentPlanId].maxProjects })}</Tag>
+          <Tag>{t("billingScreen.websites", { n: PLAN_LIMITS[currentPlanId].maxWebsites })}</Tag>
           <Tag>
-            {PLAN_LIMITS[currentPlanId].publishingEnabled ? "Publishing on" : "Publishing off"}
+            {t(
+              PLAN_LIMITS[currentPlanId].publishingEnabled
+                ? "billingScreen.publishingOn"
+                : "billingScreen.publishingOff",
+            )}
           </Tag>
-          <Tag>{PLAN_LIMITS[currentPlanId].monthlyContentGenerations} content/mo</Tag>
+          <Tag>
+            {t("billingScreen.contentMonthly", {
+              n: PLAN_LIMITS[currentPlanId].monthlyContentGenerations,
+            })}
+          </Tag>
         </div>
         {!isOwner && paid ? (
           <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-border pt-5">
             <div>
-              <div className="text-sm font-medium text-foreground">Manage your subscription</div>
+              <div className="text-sm font-medium text-foreground">
+                {t("billingScreen.manageTitle")}
+              </div>
               <p className="mt-1 text-xs text-muted-foreground">
-                Update payment details, download invoices, change plan or cancel at any time.
+                {t("billingScreen.manageHelp")}
                 {subscription?.cancelAtPeriodEnd && subscription.currentPeriodEnd
-                  ? ` Cancellation is scheduled for ${subscription.currentPeriodEnd}.`
+                  ? ` ${t("billingScreen.cancelAt", { date: subscription.currentPeriodEnd })}`
                   : ""}
               </p>
             </div>
@@ -264,7 +281,7 @@ function BillingPage() {
                 ) : (
                   <ExternalLink className="h-4 w-4" />
                 )}
-                Manage billing
+                {t("billingScreen.manage")}
               </Button>
               <Button
                 variant="outline"
@@ -273,15 +290,14 @@ function BillingPage() {
                 disabled={portalBusy !== null}
               >
                 {portalBusy === "cancel" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Cancel subscription
+                {t("billingScreen.cancel")}
               </Button>
             </div>
           </div>
         ) : null}
         {!isOwner && !paid ? (
           <div className="mt-5 border-t border-border pt-4 text-xs text-muted-foreground">
-            When you activate a paid plan, subscription management and cancellation remain visible
-            here.
+            {t("billingScreen.inactiveHelp")}
           </div>
         ) : null}
       </section>
@@ -324,7 +340,7 @@ function BillingPage() {
               <SelectContent>
                 {COUNTRY_OPTIONS.map((c) => (
                   <SelectItem key={c.code} value={c.code}>
-                    {c.name}
+                    {billingCountryLabel(c, locale, t)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -335,13 +351,13 @@ function BillingPage() {
               <Input
                 value={vatId}
                 onChange={(e) => setVatId(e.target.value)}
-                placeholder="optional"
+                placeholder={t("outreach.optional")}
               />
             </Field>
           ) : null}
           <Field label={t("billing.derivedMarket")}>
             <div className="flex h-9 items-center rounded-md border border-border bg-secondary/40 px-3 text-sm text-foreground/80">
-              {billingCountry ? market : t("billing.selectCountryFirst")}
+              {billingCountry ? billingMarketLabel(market, t) : t("billing.selectCountryFirst")}
             </div>
           </Field>
         </div>
@@ -380,11 +396,11 @@ function BillingPage() {
                   {t("billing.recommended")}
                 </div>
               ) : null}
-              <h3 className="font-display text-lg">{meta.name}</h3>
+              <h3 className="font-display text-lg">
+                {pid === "freePreview" ? t("billingScreen.freePreview") : meta.name}
+              </h3>
               <div className="mt-1.5 flex items-baseline gap-1">
-                <span className="font-display text-2xl">
-                  {formatMoney(planPrice(market, pid), currency)}
-                </span>
+                <span className="font-display text-2xl">{money(planPrice(market, pid))}</span>
                 {pid !== "freePreview" ? (
                   <span className="text-xs text-muted-foreground">{t("billing.perMonth")}</span>
                 ) : null}
@@ -393,12 +409,13 @@ function BillingPage() {
                 {meta.features.map((f) => (
                   <li key={f} className="flex gap-1.5">
                     <Check className="h-3.5 w-3.5 mt-0.5 text-gold/80 shrink-0" />
-                    {f}
+                    {billingFeatureLabel(f, t)}
                   </li>
                 ))}
               </ul>
               <div className="mt-3 text-[11px] text-muted-foreground">
-                {lim.maxProjects} projects · {lim.maxWebsites} websites
+                {t("billingScreen.projects", { n: lim.maxProjects })} ·{" "}
+                {t("billingScreen.websites", { n: lim.maxWebsites })}
               </div>
               {isCurrent ? (
                 <Button className="mt-4" variant="outline" disabled>
@@ -426,7 +443,7 @@ function BillingPage() {
           <div>
             <h3 className="font-display text-lg">{t("billing.assistedSetup")}</h3>
             <div className="mt-1 text-sm text-muted-foreground">
-              {formatMoney(addOnPrice(market, "assistedSetup"), currency)} {t("billing.oneTime")}
+              {money(addOnPrice(market, "assistedSetup"))} {t("billing.oneTime")}
             </div>
           </div>
           <a href="mailto:support@milogrowth.com?subject=Assisted%20Setup">
@@ -439,7 +456,7 @@ function BillingPage() {
           <div>
             <h3 className="font-display text-lg">{t("billing.monthlyCare")}</h3>
             <div className="mt-1 text-sm text-muted-foreground">
-              {formatMoney(addOnPrice(market, "monthlyCare"), currency)} {t("billing.perMonth")}
+              {money(addOnPrice(market, "monthlyCare"))} {t("billing.perMonth")}
             </div>
           </div>
           <a href="mailto:support@milogrowth.com?subject=Monthly%20Care">
@@ -455,20 +472,19 @@ function BillingPage() {
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="font-display text-lg">Backlinks</h3>
+                <h3 className="font-display text-lg">{t("nav.backlinks")}</h3>
                 <span className="rounded-full border border-border bg-card px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                  Separate add-on
+                  {t("billingScreen.separateAddon")}
                 </span>
               </div>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Link intelligence, marketplace review and outreach. Publisher placements are billed
-                individually and approved before purchase.
+                {t("billingScreen.backlinksHelp")}
               </p>
             </div>
           </div>
           <a href="mailto:support@milogrowth.com?subject=Backlinks%20add-on">
             <Button className="mt-4 w-full" variant="outline" size="sm">
-              Review add-on
+              {t("billingScreen.reviewAddon")}
             </Button>
           </a>
         </div>
@@ -505,7 +521,7 @@ function BillingPage() {
                   await refreshEntitlement();
                   toast.success(t("billing.profileSaved"));
                 } catch (e) {
-                  toast.error(e instanceof Error ? e.message : "Could not update the plan.");
+                  toast.error(e instanceof Error ? e.message : t("billingScreen.planFailed"));
                 }
               }}
             >
@@ -522,14 +538,10 @@ function BillingPage() {
               <CircleMinus className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="font-display text-xl text-destructive">Cancel subscription</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Cancel from the secure Paddle portal and keep access through the end of your billing
-                period.
-              </p>
+              <h2 className="font-display text-xl text-destructive">{t("billingScreen.cancel")}</h2>
+              <p className="mt-1 text-sm text-muted-foreground">{t("billingScreen.cancelHelp")}</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                You can export your content before access changes. Backlinks, when active, remains
-                separately billed.
+                {t("billingScreen.cancelExport")}
               </p>
             </div>
           </div>
@@ -540,7 +552,7 @@ function BillingPage() {
             disabled={portalBusy !== null}
           >
             {portalBusy === "cancel" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Cancel subscription
+            {t("billingScreen.cancel")}
           </Button>
         </section>
       ) : null}
