@@ -1,6 +1,6 @@
 # Finnish interface authoring — 12 September 2026
 
-Finnish is staged only: 3,423 of the current 3,768 English interface keys, across twenty-seven complete batches. It is not registered in UI_CATALOGS or the language picker. Active UI remains EN/PL/SV/DA; the fully authored FR/DE/ES/IT/PT/NL catalogs retain their separate acceptance status.
+Finnish is staged only: all 3,768 current English interface keys, across twenty-eight complete batches. It is not registered in UI_CATALOGS or the language picker. Active UI remains EN/PL/SV/DA; the fully authored FR/DE/ES/IT/PT/NL catalogs retain their separate acceptance status.
 
 | Batch | Keys | English baseline |
 | --- | ---: | --- |
@@ -31,14 +31,15 @@ Finnish is staged only: 3,423 of the current 3,768 English interface keys, acros
 | Commerce | 192 | 41eef0c |
 | Backlinks | 256 | 8ed85cd |
 | Evidence | 196 | 9784357 |
+| Workflow, scheduling, editing and recovery | 345 | 41d8513 |
 
 Source material was reviewed against the current composed English values for each registered batch; tests compare the composed English catalog and its SHA-256 fingerprint, exact namespace key coverage, nonempty translations, placeholders, numbers, URLs and email tokens. The combined Finnish catalog is frozen with unique key ownership. Tests also confirm runtime exclusion.
 
 Terminology: työtila (workspace), projekti (project), salasana (password), palautuslinkki (reset link), sivupalkki (sidebar), arkistoi (archive). Use direct, concise Finnish UI instructions. Preserve conditional password-recovery wording and source placeholders. Do not translate product/provider names as ordinary words.
 
-Validation: 39 Finnish/catalog tests pass; TypeScript, scoped lint and whitespace pass. These mechanical checks do not constitute fluent-language or rendered accessibility acceptance. Source claims about monthly planning and successful sign-in after password update retain their existing implementation/acceptance boundaries.
+Validation: all 41 Finnish/catalog tests pass; TypeScript, scoped lint and whitespace pass. TypeScript evidence: /tmp/milo-finnish-workflow-types.log. These mechanical checks do not constitute fluent-language or rendered accessibility acceptance. Source claims about monthly planning and successful sign-in after password update retain their existing implementation/acceptance boundaries.
 
-Remaining: 345 English keys, fluent review, consistent terminology across the rest of the product, rendered mobile/desktop and accessibility checks, and approved activation. Final authoring batch covers workflow, using current composed English values rather than historical raw base strings. R20 still requires all 24 EU languages across its registered surfaces; this initial batch does not satisfy it.
+Remaining: fluent review, a catalog-wide terminology sweep, rendered mobile/desktop and accessibility checks, and approved activation. Exact equality with the complete current composed English key set is now checked separately from namespace coverage. R20 still requires all 24 EU languages across its registered surfaces; complete Finnish interface authoring does not satisfy it.
 
 Core review notes: ajastettu (scheduled), lähetetty sivustolle (sent to site), julkaistu (published), tarkista (review), vahvista (confirm). The Visibility navigation entry is Näkyvyys. Partial onboarding completion remains distinct from success. Inherited monthly-positioning, initial generation and setup-quality claims still require implementation/product acceptance; translation does not verify them.
 
@@ -81,3 +82,7 @@ Commerce review: test checkout, manual beta/comped activation and real payment c
 Backlinks review: provider-index samples and first/last-seen dates do not establish complete coverage or actual placement/removal dates. Demo marketplace requests remain separate from exact-total paid orders; uncertain outcomes prohibit retries until reconciled. Monitoring uses UTC windows and explicit supplier caps, while pausing does not cancel already admitted spend. Numeric costs and limits are preserved. Source policy, live-link verification and provider-readiness claims retain their real-use acceptance obligations. No provider collection, network listing, purchase or monitoring activation occurred.
 
 Evidence review: the historical $5 benchmark label does not renew test authorization. Evaluation never automatically switches models. Publication receipts remain distinct from live-page verification and causal outcomes. Owner-supplied AI answer samples retain provenance, comparability and denominator limits. Sanitized log rows do not prove bot identity, actual visit totals or AI citations; original/corrected imports are not pooled. No benchmark, model evaluation, evidence import or provider operation occurred.
+
+Workflow review: work target dates remain distinct from publication schedules. Approval, recovery and local content checks do not publish or confirm delivery. Overdue and uncertain results require checking saved state before retrying. Featured image, alternative text and content brief terminology match the editor screen. The automatic scheduler retains quota and eligibility limits; image placement remains a preview rather than destination evidence. Workflow comparisons remain owner-recorded evidence without model execution or automatic live changes. No generation, scheduling, publication or comparison import occurred.
+
+Completion scan: 27 values are identical to English. Reviewed matches are product/provider names, technical labels (API, H1, CTR, URL, nofollow), EU, Demo and the Finnish word Idea. This scan detects untranslated leftovers but does not establish fluency or a complete semantic review.

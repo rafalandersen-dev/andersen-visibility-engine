@@ -42,7 +42,7 @@ it("keeps staged Finnish outside runtime and assigns each key once", () => {
   const keys = FI_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(new Set(keys).size).toBe(keys.length);
   expect(Object.keys(FI_STAGED_CATALOG).sort()).toEqual(keys.sort());
-  expect(keys).toHaveLength(3423);
+  expect(keys).toHaveLength(3768);
   expect(Object.isFrozen(FI_STAGED_CATALOG)).toBe(true);
 });
 
@@ -52,4 +52,8 @@ it("preserves numeric day periods across localized unit spacing", () => {
   expect(tokens("Käynnit (31 pv)", numericTokens)).not.toEqual(
     tokens("Visits (30d)", numericTokens),
   );
+});
+
+it("covers the complete current English interface catalog", () => {
+  expect(Object.keys(FI_STAGED_CATALOG).sort()).toEqual(Object.keys(UI_CATALOGS.en).sort());
 });
