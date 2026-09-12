@@ -92,3 +92,5 @@ Czech analytics, Search Console and reports adds 204 messages: partial coverage 
 Czech outreach, opening hooks and image placement adds 158 messages: partial coverage is 2,578/3,768 and the UI authoring backlog is 46,406 messages at this English baseline. Activation and quality acceptance remain open.
 
 Czech authority opportunities, public audit and action proposals adds 201 messages: partial coverage is 2,779/3,768 and the UI authoring backlog is 46,205 messages at this English baseline. Activation and quality acceptance remain open.
+
+Czech billing, launch checklist and beta limits adds 192 messages: partial coverage is 2,971/3,768 and the UI authoring backlog is 46,013 messages at this English baseline. Activation and quality acceptance remain open.

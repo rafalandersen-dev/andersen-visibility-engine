@@ -1,3 +1,4 @@
+import { csCommerce } from "./cs-commerce";
 import { csGrowth } from "./cs-growth";
 import { csOutreach } from "./cs-outreach";
 import { csMeasurements } from "./cs-measurements";
@@ -24,6 +25,13 @@ import { csAuthScreen } from "./cs-auth-screen";
 import { csSharedUi } from "./cs-shared-ui";
 /** Czech authoring; never imported by the runtime catalog. */
 export const CS_STAGED_BATCHES = [
+  {
+    name: "commerce",
+    copy: csCommerce,
+    namespaces: ["billing", "launch", "beta"],
+    sourceRevision: "022a117",
+    sourceHash: "6cd0596e8ff09ae38f9decb763ab31a3fe2c311109c9b5f85edc9721d7058ff2",
+  },
   {
     name: "growth",
     copy: csGrowth,
