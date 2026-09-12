@@ -54,10 +54,10 @@ it("routes a language-only save to its own endpoint without an enabled flag", as
   expect(h.language).toHaveBeenCalledExactlyOnceWith({ data: { locale: "mt" } });
   expect(h.settings).not.toHaveBeenCalled();
 });
-it("retains the existing separate opt-in/opt-out endpoint", async () => {
+it("submits delivery toggles without a cached language", async () => {
   render();
-  await h.mutation.mock.calls[0][0].mutationFn({ kind: "enabled", enabled: false, locale: "de" });
-  expect(h.settings).toHaveBeenCalledExactlyOnceWith({ data: { enabled: false, locale: "de" } });
+  await h.mutation.mock.calls[0][0].mutationFn({ kind: "enabled", enabled: false });
+  expect(h.settings).toHaveBeenCalledExactlyOnceWith({ data: { enabled: false } });
   expect(h.language).not.toHaveBeenCalled();
 });
 it("hides stale preferences when their current read fails", () => {

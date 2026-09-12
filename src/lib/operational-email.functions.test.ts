@@ -75,7 +75,7 @@ beforeEach(() => {
   }));
 });
 describe("operational email settings recipient boundary", () => {
-  it("keeps authentication middleware on both settings actions", () => {
+  it("keeps authentication middleware on all settings actions", () => {
     expect(mocks.middleware.mock.calls).toHaveLength(3);
     for (const [middlewares] of mocks.middleware.mock.calls)
       expect(middlewares).toEqual([{ kind: "authenticated" }]);
@@ -108,9 +108,9 @@ describe("operational email settings recipient boundary", () => {
     async (status) => {
       const ctx = context();
       mocks.address.mockResolvedValue({ status });
-      await expect(
-        call(setOperationalEmailSettingsFn, ctx, { enabled: true, locale: "pl" }),
-      ).rejects.toThrow("Confirm your current account email");
+      await expect(call(setOperationalEmailSettingsFn, ctx, { enabled: true })).rejects.toThrow(
+        "Confirm your current account email",
+      );
       expect(ctx.supabase.rpc).not.toHaveBeenCalled();
     },
   );
@@ -118,17 +118,15 @@ describe("operational email settings recipient boundary", () => {
     const ctx = context();
     await call(getOperationalEmailSettingsFn, ctx);
     mocks.address.mockResolvedValue({ status: "unverified" });
-    await expect(
-      call(setOperationalEmailSettingsFn, ctx, { enabled: true, locale: "en" }),
-    ).rejects.toThrow();
+    await expect(call(setOperationalEmailSettingsFn, ctx, { enabled: true })).rejects.toThrow();
     expect(ctx.supabase.rpc).not.toHaveBeenCalled();
   });
   it("preserves the activation flag and skips recipient work when delivery is disabled", async () => {
     const ctx = context();
     mocks.enabled.mockReturnValue(false);
-    await expect(
-      call(setOperationalEmailSettingsFn, ctx, { enabled: true, locale: "en" }),
-    ).rejects.toThrow("not activated");
+    await expect(call(setOperationalEmailSettingsFn, ctx, { enabled: true })).rejects.toThrow(
+      "not activated",
+    );
     expect(ctx.supabase.rpc).not.toHaveBeenCalled();
     expect(mocks.address).not.toHaveBeenCalled();
   });
@@ -136,24 +134,22 @@ describe("operational email settings recipient boundary", () => {
     const ctx = context();
     mocks.enabled.mockReturnValue(false);
     mocks.address.mockResolvedValue({ status: "unavailable" });
-    expect(
-      await call(setOperationalEmailSettingsFn, ctx, { enabled: false, locale: "pl" }),
-    ).toEqual({ saved: true });
+    expect(await call(setOperationalEmailSettingsFn, ctx, { enabled: false })).toEqual({
+      saved: true,
+    });
     expect(mocks.address).not.toHaveBeenCalled();
-    expect(ctx.supabase.rpc).toHaveBeenCalledWith("set_operational_email_preference", {
+    expect(ctx.supabase.rpc).toHaveBeenCalledWith("set_operational_email_enabled", {
       p_enabled: false,
-      p_locale: "pl",
     });
   });
   it("only enables after a fresh verified address and through the caller-scoped RPC", async () => {
     const ctx = context();
-    expect(await call(setOperationalEmailSettingsFn, ctx, { enabled: true, locale: "pl" })).toEqual(
-      { saved: true },
-    );
+    expect(await call(setOperationalEmailSettingsFn, ctx, { enabled: true })).toEqual({
+      saved: true,
+    });
     expect(mocks.address).toHaveBeenCalledWith(userId);
-    expect(ctx.supabase.rpc).toHaveBeenCalledWith("set_operational_email_preference", {
+    expect(ctx.supabase.rpc).toHaveBeenCalledWith("set_operational_email_enabled", {
       p_enabled: true,
-      p_locale: "pl",
     });
   });
   it("rejects a client-supplied recipient or account override", () => {
@@ -218,4 +214,12 @@ it("bounds a lost language-save response without retrying the uncertain mutation
   } finally {
     vi.useRealTimers();
   }
+});
+
+it("rejects a cached language in a delivery toggle", () => {
+  const ctx = context();
+  expect(() =>
+    call(setOperationalEmailSettingsFn, ctx, { enabled: false, locale: "en" }),
+  ).toThrow();
+  expect(ctx.supabase.rpc).not.toHaveBeenCalled();
 });

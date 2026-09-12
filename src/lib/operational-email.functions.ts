@@ -58,7 +58,7 @@ export const getOperationalEmailSettingsFn = createServerFn({ method: "POST" })
   });
 export const setOperationalEmailSettingsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => preference.parse(input))
+  .inputValidator((input: unknown) => z.object({ enabled: z.boolean() }).strict().parse(input))
   .handler(async ({ context, data }) => {
     if (data.enabled && !operationalEmailEnabled())
       throw new Error("Operational email is not activated yet.");
@@ -73,9 +73,8 @@ export const setOperationalEmailSettingsFn = createServerFn({ method: "POST" })
         args: Record<string, unknown>,
       ): PromiseLike<{ data: unknown; error: unknown }>;
     };
-    const saved = await db.rpc("set_operational_email_preference", {
+    const saved = await db.rpc("set_operational_email_enabled", {
       p_enabled: data.enabled,
-      p_locale: data.locale,
     });
     if (saved.error || saved.data !== true) throw new Error("Email settings could not be saved.");
     return { saved: true };

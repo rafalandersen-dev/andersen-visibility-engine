@@ -34,3 +34,21 @@ BEGIN
 END; $$;
 REVOKE ALL ON FUNCTION public.set_operational_email_language(text) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.set_operational_email_language(text) TO authenticated;
+
+-- Delivery toggles likewise preserve the latest saved language, including when
+-- an older tab toggles delivery after another session changed the language.
+CREATE FUNCTION public.set_operational_email_enabled(p_enabled boolean)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE u uuid:=auth.uid();
+BEGIN
+ IF u IS NULL OR p_enabled IS NULL THEN RAISE EXCEPTION 'invalid_email_preference'; END IF;
+ INSERT INTO public.operational_email_preferences(user_id,enabled,locale) VALUES(u,p_enabled,'en')
+ ON CONFLICT(user_id) DO UPDATE SET enabled=excluded.enabled,updated_at=now();
+ IF NOT p_enabled THEN
+  UPDATE public.operational_email_outbox SET status='cancelled',reason='disabled',finished_at=now(),lease_token=NULL,lease_until=NULL
+   WHERE user_id=u AND status IN ('pending','leased');
+ END IF;
+ RETURN true;
+END; $$;
+REVOKE ALL ON FUNCTION public.set_operational_email_enabled(boolean) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.set_operational_email_enabled(boolean) TO authenticated;

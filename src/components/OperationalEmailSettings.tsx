@@ -16,9 +16,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 type Settings = Awaited<ReturnType<typeof getOperationalEmailSettingsFn>>;
-type Change =
-  | { kind: "language"; locale: EmailLanguage }
-  | { kind: "enabled"; enabled: boolean; locale: EmailLanguage };
+type Change = { kind: "language"; locale: EmailLanguage } | { kind: "enabled"; enabled: boolean };
 
 export function OperationalEmailSettings() {
   const { user } = useAuth();
@@ -51,7 +49,7 @@ function OwnerEmailSettings({ userId }: { userId: string }) {
       change.kind === "language"
         ? setOperationalEmailLanguageFn({ data: { locale: change.locale } })
         : setOperationalEmailSettingsFn({
-            data: { enabled: change.enabled, locale: change.locale },
+            data: { enabled: change.enabled },
           }),
     retry: false,
     onSuccess: async () => {
@@ -170,7 +168,6 @@ function EmailForm({
           submit({
             kind: "enabled",
             enabled: !settings.preference.enabled,
-            locale: settings.preference.locale,
           })
         }
       >
