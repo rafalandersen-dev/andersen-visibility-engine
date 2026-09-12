@@ -3,7 +3,7 @@ export const emailSettingsCopy: Record<OnboardingLanguage, Record<string, string
   en: {
     "emailSettings.language": "Email language",
     "emailSettings.note":
-      "Choose the language for your operational summaries and project invitations you request. This does not change your app, article or market settings. Saving the language does not enable or send email.",
+      "Choose the language for your operational summaries, monthly reports and project invitations you request. This does not change your app, article or market settings. Saving the language does not enable or send email.",
     "emailSettings.save": "Save email language",
     "emailSettings.saved": "Email settings saved.",
     "emailSettings.uncertain":
@@ -13,7 +13,7 @@ export const emailSettingsCopy: Record<OnboardingLanguage, Record<string, string
   pl: {
     "emailSettings.language": "Język e-maili",
     "emailSettings.note":
-      "Wybierz język swoich podsumowań operacyjnych i zaproszeń do projektów, których wysłanie zlecasz. Nie zmienia to ustawień aplikacji, artykułów ani rynku. Zapisanie języka nie włącza ani nie wysyła e-maili.",
+      "Wybierz język swoich podsumowań operacyjnych, raportów miesięcznych i zaproszeń do projektów, których wysłanie zlecasz. Nie zmienia to ustawień aplikacji, artykułów ani rynku. Zapisanie języka nie włącza ani nie wysyła e-maili.",
     "emailSettings.save": "Zapisz język e-maili",
     "emailSettings.saved": "Ustawienia e-maili zapisane.",
     "emailSettings.uncertain":
@@ -23,7 +23,7 @@ export const emailSettingsCopy: Record<OnboardingLanguage, Record<string, string
   sv: {
     "emailSettings.language": "Språk för e-post",
     "emailSettings.note":
-      "Välj språk för dina driftssammanfattningar och projektinbjudningar som du begär utskick av. Det ändrar inte appens, artiklarnas eller marknadens inställningar. Att spara språket aktiverar eller skickar ingen e-post.",
+      "Välj språk för dina driftssammanfattningar, månadsrapporter och projektinbjudningar som du begär utskick av. Det ändrar inte appens, artiklarnas eller marknadens inställningar. Att spara språket aktiverar eller skickar ingen e-post.",
     "emailSettings.save": "Spara e-postspråk",
     "emailSettings.saved": "E-postinställningarna har sparats.",
     "emailSettings.uncertain":
@@ -33,7 +33,7 @@ export const emailSettingsCopy: Record<OnboardingLanguage, Record<string, string
   da: {
     "emailSettings.language": "E-mailsprog",
     "emailSettings.note":
-      "Vælg sprog for dine driftsoversigter og projektinvitationer, som du beder om at få sendt. Det ændrer ikke indstillingerne for app, artikler eller marked. At gemme sproget aktiverer eller sender ikke e-mail.",
+      "Vælg sprog for dine driftsoversigter, månedsrapporter og projektinvitationer, som du beder om at få sendt. Det ændrer ikke indstillingerne for app, artikler eller marked. At gemme sproget aktiverer eller sender ikke e-mail.",
     "emailSettings.save": "Gem e-mailsprog",
     "emailSettings.saved": "E-mailindstillingerne er gemt.",
     "emailSettings.uncertain":

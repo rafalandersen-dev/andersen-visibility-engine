@@ -32,7 +32,7 @@ import {
 } from "@phosphor-icons/react";
 import { useStore, setActiveProject } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
-import { useT, getUiLocaleOverride, setUiLocaleOverride } from "@/i18n";
+import { useAppLanguage, useT, getUiLocaleOverride, setUiLocaleOverride } from "@/i18n";
 import { MAX_PROJECTS_PER_USER } from "@/lib/billing";
 import { countPendingForBadge } from "@/lib/pending-actions.ui";
 import {
@@ -191,6 +191,7 @@ export function AppShell({
   const { user, isOwner, signOut } = useAuth();
   const navigate = useNavigate();
   const t = useT();
+  const language = useAppLanguage();
   const [mobileOpen, setMobileOpen] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
 
@@ -225,13 +226,14 @@ export function AppShell({
   );
 
   return (
-    <div className="milo-app flex min-h-screen bg-background text-foreground">
+    <div lang={language} className="milo-app flex min-h-screen bg-background text-foreground">
       <aside className="hidden h-screen w-[238px] shrink-0 lg:block lg:sticky lg:top-0">
         {sidebar}
       </aside>
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent
+          lang={language}
           side="left"
           aria-describedby={undefined}
           onCloseAutoFocus={(event) => {
@@ -344,6 +346,7 @@ function SidebarContent({
   onAddProject: () => void;
   onEditProject: () => void;
 }) {
+  const language = useAppLanguage();
   return (
     <div className="milo-sidebar flex h-full flex-col overflow-y-auto bg-[#17212b] px-4 pb-5 pt-8 text-[#eef0ee]">
       <Link to="/app" onClick={onNavigate} className="mx-3 pb-5">
@@ -371,7 +374,7 @@ function SidebarContent({
             <CaretDown size={15} />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="milo-app w-[232px]">
+        <DropdownMenuContent lang={language} align="start" className="milo-app w-[232px]">
           <DropdownMenuLabel className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
             {t("shell.projects")}
           </DropdownMenuLabel>

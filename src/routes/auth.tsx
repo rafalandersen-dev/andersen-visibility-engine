@@ -158,7 +158,7 @@ function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2 bg-background text-foreground">
+    <div lang={language} className="min-h-screen grid lg:grid-cols-2 bg-background text-foreground">
       {/* Visual side */}
       <aside className="hidden lg:flex flex-col justify-between p-12 bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
         <Link to="/" className="block">

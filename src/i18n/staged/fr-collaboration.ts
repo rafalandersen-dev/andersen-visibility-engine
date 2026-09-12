@@ -128,7 +128,7 @@ export const frCollaboration: Readonly<Record<string, string>> = {
     "Impossible de marquer cette notification comme lue. Veuillez réessayer.",
   "emailSettings.language": "Langue des e-mails",
   "emailSettings.note":
-    "Choisissez la langue de vos récapitulatifs opérationnels et des invitations de projet dont vous demandez l’envoi. Cela ne modifie pas les paramètres de l’application, des articles ou du marché. Enregistrer la langue n’active ni n’envoie aucun e-mail.",
+    "Choisissez la langue de vos récapitulatifs opérationnels, des rapports mensuels et des invitations de projet dont vous demandez l’envoi. Cela ne modifie pas les paramètres de l’application, des articles ou du marché. Enregistrer la langue n’active ni n’envoie aucun e-mail.",
   "emailSettings.save": "Enregistrer la langue des e-mails",
   "emailSettings.saved": "Paramètres d’e-mail enregistrés.",
   "emailSettings.uncertain":
