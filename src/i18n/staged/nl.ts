@@ -1,3 +1,4 @@
+import { nlMeasurements } from "./nl-measurements";
 import { nlTechnical } from "./nl-technical";
 import { nlKnowledge } from "./nl-knowledge";
 import { nlCollaboration } from "./nl-collaboration";
@@ -22,6 +23,13 @@ import { nlSharedUi } from "./nl-shared-ui";
 
 /** Partial Dutch authoring; never imported by the runtime catalog. */
 export const NL_STAGED_BATCHES = [
+  {
+    name: "measurements",
+    copy: nlMeasurements,
+    namespaces: ["analytics", "gsc", "report"],
+    sourceRevision: "d3bc107",
+    sourceHash: "cfe9102341aed0899846a94191ac4a27f5a7b371e09775137f3ce10481df6199",
+  },
   {
     name: "technical",
     copy: nlTechnical,

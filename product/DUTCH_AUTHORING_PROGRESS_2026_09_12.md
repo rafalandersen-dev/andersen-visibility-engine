@@ -1,6 +1,6 @@
 # Dutch interface authoring — 12 September 2026
 
-R20 requires full EU-language coverage. Dutch authoring has begun with 2,216 of the current 3,768 English interface messages (1,552 remain). This is a partial staged catalog; Dutch is not registered in UI_CATALOGS or the language picker.
+R20 requires full EU-language coverage. Dutch authoring has begun with 2,420 of the current 3,768 English interface messages (1,348 remain). This is a partial staged catalog; Dutch is not registered in UI_CATALOGS or the language picker.
 
 ## Completed authoring batches
 
@@ -15,6 +15,7 @@ R20 requires full EU-language coverage. Dutch authoring has begun with 2,216 of 
 | Evidence screens | 89 | src/i18n/staged/nl-evidence-screen.ts |
 | Plan screen | 113 | src/i18n/staged/nl-plan-screen.ts |
 | Editor screen | 148 | src/i18n/staged/nl-editor-screen.ts |
+| Analytics, Search Console and reports | 204 | src/i18n/staged/nl-measurements.ts |
 | Technical crawl, index and performance | 238 | src/i18n/staged/nl-technical.ts |
 | Knowledge, weekly preparation and approvals | 242 | src/i18n/staged/nl-knowledge.ts |
 | Collaboration, team and notifications | 248 | src/i18n/staged/nl-collaboration.ts |
@@ -138,3 +139,10 @@ All thirty-one Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-k
 At 3c79c3b, authored all 238 crawl/gindex/perf messages. Copy preserves ownership expiry, robots restrictions, partial crawl and sitemap limits, source-reported index evidence, uncertain request recovery and distinctions between lab and field measurements. The 2 000-URL limit retains the source value with space grouping. A completed inspection remains distinct from complete coverage, indexing or a verified fix.
 
 All thirty-two Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-technical-types.log), scoped lint and whitespace checks. Total staged coverage is 2,216; 1,552 messages remain. Measurements are next. Technical wording and rendered layout require language review; live ownership/crawl/Google/performance acceptance remains open. No DNS change, crawl, provider measurement or runtime activation occurred.
+
+
+## Measurements follow-up
+
+At d3bc107, authored all 204 analytics/gsc/report messages. Copy preserves AI referral versus mention/citation distinctions, CSV subtotal versus property aggregate limits, Pacific date windows, unavailable versus zero values and historical publication-result limitations. Numeric limits and placeholders are retained. Existing privacy, report-email success, partner-link Live label, branding and legacy Lovable setup claims require behavior/source review before activation; translation does not validate them.
+
+All thirty-three Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-measurements-types.log), scoped lint and whitespace checks. Total staged coverage is 2,420; 1,348 messages remain. Outreach is next. No analytics collection, Google connection, import, report email or runtime activation occurred. Fluent/rendered and full real-use acceptance remain open.
