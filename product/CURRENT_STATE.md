@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Public audit error handling now guards malformed JSON envelopes and avoids unsupported setup-cause/future-audit promises. Existing translated project CTA is reused. All 17 client/boundary tests, full types/scoped lint/whitespace pass. See PUBLIC_AUDIT_ERROR_ENVELOPES_2026_09_12.md. Prepared, unreleased; broader response/localization and live acceptance remain.
+
 Free public audit now follows the shared saved device language preference, exposes the existing language selector, translates header navigation/tagline and names the website input. All 33 focused tests plus types/build/scoped lint pass. See PUBLIC_AUDIT_LANGUAGE_PREFERENCE_2026_09_12.md. Remaining error-copy/browser/live acceptance is explicit; no provider operation or release-gate change.
 
 Clearing a future calendar scheduling time now keeps the input editable instead of replacing it with a past-day warning. Empty values do not show a nonexistent-time error, and scheduling remains disabled. Full types/scoped lint/whitespace pass; browser acceptance remains. See CALENDAR_TIME_FIELD_EDITING_2026_09_12.md. Prepared, unreleased; release gates unchanged.

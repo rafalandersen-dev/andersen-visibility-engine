@@ -62,8 +62,8 @@ describe("public audit HTTP client", () => {
   });
 });
 
-describe("endpoint not wired up", () => {
-  it("flags a bare 404 as permanently unavailable, not a retryable error", async () => {
+describe("endpoint without a usable error response", () => {
+  it("flags a bare 404 as unavailable without an immediate retry", async () => {
     const fetchImpl = vi.fn(async () => new Response("<!doctype html>", { status: 404 }));
     await expect(
       runPublicAudit({ url: "example.com", botProof: "proof" }, fetchImpl),
@@ -81,5 +81,26 @@ describe("endpoint not wired up", () => {
     await expect(
       runPublicAudit({ url: "example.com", botProof: "proof" }, fetchImpl),
     ).rejects.not.toBeInstanceOf(PublicAuditUnavailableError);
+  });
+});
+
+describe("malformed error envelopes", () => {
+  it.each(["proxy failure", 42, true, null, { error: "broken" }, { error: { message: 42 } }])(
+    "handles malformed JSON %j without exposing a runtime error",
+    async (payload) => {
+      const fetchImpl = vi.fn(async () => Response.json(payload, { status: 500 }));
+      await expect(
+        runPublicAudit({ url: "example.com", botProof: "proof" }, fetchImpl),
+      ).rejects.toThrow("The audit is temporarily unavailable. Please try again later.");
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+    },
+  );
+  it("does not infer setup state or promise a future audit from an unavailable response", async () => {
+    const fetchImpl = vi.fn(async () => Response.json("proxy failure", { status: 503 }));
+    await expect(
+      runPublicAudit({ url: "example.com", botProof: "proof" }, fetchImpl),
+    ).rejects.toThrow(
+      "The free audit service is currently unavailable. You can return later or continue to project setup.",
+    );
   });
 });
