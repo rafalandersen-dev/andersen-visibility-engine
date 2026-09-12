@@ -1672,17 +1672,15 @@ function ArchivedView({
   onSelect: (id?: string) => void;
 }) {
   const locale = useAppLanguage();
+  const t = useT();
   return (
     <div
       className={`relative min-h-[calc(100vh-156px)] p-5 md:p-8 ${selectedId ? "xl:pr-[330px]" : ""}`}
     >
       <div className="mx-auto max-w-4xl overflow-hidden rounded-lg border border-[#e2e6eb] bg-[#ffffff]">
         <div className="border-b border-[#e2e6eb] px-5 py-4">
-          <h2 className="font-display text-xl">Archived opportunities</h2>
-          <p className="mt-1 text-xs text-[#697282]">
-            Restore active work here. Permanent deletion becomes available inside an archived record
-            and remains recoverable for 30 days.
-          </p>
+          <h2 className="font-display text-xl">{t("planScreen.archive.title")}</h2>
+          <p className="mt-1 text-xs text-[#697282]">{t("planScreen.archive.help")}</p>
         </div>
         {opportunities.map((opportunity) => (
           <div
@@ -1696,9 +1694,10 @@ function ArchivedView({
             >
               <div className="truncate text-sm font-medium">{opportunity.title}</div>
               <div className="mt-1 text-[10px] text-[#697282]">
-                Archived{" "}
-                {opportunity.archivedAt ? formatDate(opportunity.archivedAt, locale) : "recently"} ·{" "}
-                {opportunitySourceLabel(opportunity)}
+                {opportunity.archivedAt
+                  ? t("planScreen.archive.at", { date: formatDate(opportunity.archivedAt, locale) })
+                  : t("planScreen.archive.undated")}{" "}
+                · {opportunitySourceLabel(opportunity)}
               </div>
             </button>
             <Button
@@ -1706,15 +1705,17 @@ function ArchivedView({
               size="sm"
               onClick={() => {
                 restoreOpportunity(opportunity.id);
-                toast.success("Opportunity restored");
+                toast.success(t("planScreen.archive.restored"));
               }}
             >
-              Restore
+              {t("planScreen.archive.restore")}
             </Button>
           </div>
         ))}
         {opportunities.length === 0 ? (
-          <div className="px-5 py-12 text-center text-xs text-[#697282]">Nothing is archived.</div>
+          <div className="px-5 py-12 text-center text-xs text-[#697282]">
+            {t("planScreen.archive.empty")}
+          </div>
         ) : null}
       </div>
     </div>

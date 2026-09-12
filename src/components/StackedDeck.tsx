@@ -15,7 +15,7 @@ import { Clock } from "lucide-react";
 import type { ContentAsset } from "@/lib/types";
 import { pipelineStage, STAGE_URGENCY } from "@/lib/pipeline";
 import { StageChip } from "@/components/StageChip";
-import { useAppLanguage } from "@/i18n";
+import { useAppLanguage, useT } from "@/i18n";
 import { formatPlanningDate } from "@/lib/planning-date";
 
 export function StackedDeck({
@@ -27,6 +27,7 @@ export function StackedDeck({
 }) {
   const [open, setOpen] = useState(false);
   const locale = useAppLanguage();
+  const t = useT();
   if (assets.length <= 1) return null;
   // Sort by urgency so an armed or needs_fixing draft is always at the top, even
   // when a newer inert Draft exists.
@@ -43,7 +44,7 @@ export function StackedDeck({
         }}
         className="w-max rounded-[3px] border border-[#ded8ce] bg-[#f2ede3] px-1.5 py-0.5 text-[8px] font-medium text-[#6a7280] hover:bg-[#ebe5d9]"
       >
-        {assets.length} drafts
+        {t("planScreen.deck.count", { count: assets.length })}
       </button>
       {open ? (
         <div className="mt-1 grid gap-1 rounded-md border border-[#e7e1d6] bg-[#fbfaf6] p-1.5">

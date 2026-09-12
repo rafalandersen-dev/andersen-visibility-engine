@@ -1,6 +1,6 @@
 # Plan localization — date display foundation
 
-This separate candidate starts from reviewed editor PR132 head `5ffcf17c362260184ac6024059c04acdbe50cca9`. The editor candidate remains unchanged. No Plan PR, migration or release has been issued.
+This separate candidate includes released editor PR132 (`969a55afff275ce097386459b0d3fb9645846bcf`) and canonical main2190dd9 through a normal merge. No Plan PR, migration or release has been issued.
 
 Plan's date labels now use the selected interface language across linked draft summaries, calendar-drop target/arming messages, the scheduling dialog, opportunity cards, archived records and drawer dates. The shared risk banner, orphan draft cards and stacked draft disclosure also receive the selected interface language. Memoized linked-draft details include locale in their dependencies.
 
@@ -9,3 +9,7 @@ The extracted `formatPlanningDate` helper preserves the existing Plan distinctio
 Validation:41 date/calendar checks across3files pass in Europe/Stockholm,23 date checks across2files pass in America/Los_Angeles, full TypeScript and changed-file lint pass with no diagnostics. Logs `/tmp/milo-ui-plan-date-{stockholm,los-angeles,types,lint}.log`. Date-only New Year targets and serialized local instants retain their intended day in both time zones. These checks do not establish real browser/signed-in acceptance.
 
 The Plan screen still contains embedded English labels, conditional messages and shared service descriptions. Those are the next extraction work; no additional interface language is enabled. Keep supplied content, email/content language choices, market/currency settings and owner authority separate. Overall60%/implementation75% estimates remain unchanged while this follow-up is unreleased.
+
+The first13 Plan messages now translate orphan/stacked-draft and archived-work panels in all four current languages, with matching staged French. There are2,863 effective keys per current language and in staged French, across14 French batches. Unlinked drafts are not all promised to publish; active armed schedules retain their explicit warning. The schedule button describes its existing navigation to schedule management. The archive panel describes restoration without promising a deletion/recovery control absent from this screen, and an unknown archive date is not called recent. Stored lifecycle/previous status, deletion markers, filtering, restoration and schedules are unchanged.
+
+Validation for this extraction:150 localization/date/calendar/pipeline/lifecycle checks across12 files, full TypeScript and changed-file lint pass. The staged French archive grammar was then polished and localization checks rerun. Logs `/tmp/milo-ui-plan-archive-{tests,types,lint}.log` and `/tmp/milo-ui-plan-archive-french-tests.log`. No real account, record, schedule or provider action was performed. Discovery/manual entry, remaining Plan actions and conditional/shared labels are still pending.
