@@ -1,7 +1,7 @@
 # Milo Growth — current status
 
 
-Latest prepared delivery: public pricing `72c0417` adds36 messages in EN/PL/SV/DA plus stagedFrench, shared device language and independent market/currency.13 prepared UI batches/682 additions/3734 keys/27French batches.68 focused checks, types/build/zero lint and four-language390px/market-retention/Danish-reload smoke pass. Unreleased; overall60%/implementation75% unchanged. Next case studies, then market/policy gaps. See `HANDOFF_2026_09_12_PRICING_DELIVERY.md`.
+Latest prepared delivery: public case studies227cfbf and integrated server-core isolation2916799.30messages EN/PL/SV/DA+stagedFrench;14prepared UIbatches/712additions/3764keys/28French batches.113combined focused tests, types/build/zero public lint, four-language390px and Danish-reload smoke pass. Pricing menu lang/accessibility name fixed; comparison-table semantics and market pages next. Unreleased; overall60%/implementation75% unchanged. See HANDOFF_2026_09_12_STUDIES_DELIVERY.md.
 
 Updated: 12 September 2026 (Stockholm; latest release 12 September 05:52 UTC). Owner: Rafal Andersen. Phase: private beta / launch foundations. Public paid launch: **NO-GO / acceptance incomplete**.
 
