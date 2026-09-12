@@ -1,0 +1,51 @@
+/** German authoring only; not registered in the runtime or language picker. */
+export const deAuthScreen: Readonly<Record<string, string>> = {
+  "authScreen.tagline": "Monatlicher KI-Wachstumsplaner",
+  "authScreen.hero":
+    "Dein monatlicher KI-Wachstumsplaner — Ideen für mehr Sichtbarkeit, Inhaltsbriefings und ein klarer Aktionsplan.",
+  "authScreen.workspaceHelp":
+    "Melde dich in deinem Arbeitsbereich an oder erstelle ein Konto, um ein Projekt zu starten.",
+  "authScreen.builtBy": "Entwickelt von Andersen Innovations",
+  "authScreen.home": "Zurück zur Startseite",
+  "authScreen.createHeading": "Erstelle dein Konto",
+  "authScreen.resetHeading": "Setze dein Passwort zurück",
+  "authScreen.signIn": "Anmelden",
+  "authScreen.signupHelp": "Starte mit {plan} und richte ein Projekt ein.",
+  "authScreen.resetHelp":
+    "Gib deine E-Mail-Adresse ein, um einen Link zum Zurücksetzen deines Passworts anzufordern.",
+  "authScreen.signInHelp": "Willkommen zurück in deinem Arbeitsbereich.",
+  "authScreen.displayName": "Anzeigename",
+  "authScreen.email": "E-Mail",
+  "authScreen.password": "Passwort",
+  "authScreen.passwordHint": "Mindestens 8 Zeichen",
+  "authScreen.wait": "Bitte warten…",
+  "authScreen.create": "Konto erstellen",
+  "authScreen.sendReset": "Link zum Zurücksetzen senden",
+  "authScreen.or": "oder",
+  "authScreen.continueProvider": "Mit {provider} fortfahren",
+  "authScreen.createInstead": "Ein Konto erstellen",
+  "authScreen.forgot": "Passwort vergessen?",
+  "authScreen.backSignIn": "Zurück zur Anmeldung",
+  "authScreen.signupSent":
+    "Prüfe deinen Posteingang, um deine E-Mail-Adresse vor der Anmeldung zu bestätigen.",
+  "authScreen.welcome": "Willkommen zurück.",
+  "authScreen.resetRequested":
+    "Wenn das Konto für die Passwortwiederherstellung infrage kommt, findest du einen Link zum Zurücksetzen in deinem Posteingang.",
+  "authScreen.error": "Etwas ist schiefgelaufen.",
+  "authScreen.providerUnavailable": "Die Anmeldung mit {provider} ist derzeit nicht verfügbar.",
+  "authScreen.newHeading": "Neues Passwort festlegen",
+  "authScreen.checking": "Dein Link zum Zurücksetzen wird geprüft…",
+  "authScreen.invalid":
+    "Dieser Link zum Zurücksetzen ist ungültig oder abgelaufen. Fordere einen neuen an.",
+  "authScreen.requestNew": "Neuen Link zum Zurücksetzen anfordern",
+  "authScreen.newHelp": "Wähle ein neues Passwort für dein Konto.",
+  "authScreen.newPassword": "Neues Passwort",
+  "authScreen.confirmPassword": "Passwort bestätigen",
+  "authScreen.repeatPassword": "Neues Passwort wiederholen",
+  "authScreen.updating": "Wird aktualisiert…",
+  "authScreen.updatePassword": "Passwort aktualisieren",
+  "authScreen.passwordShort": "Das Passwort muss mindestens 8 Zeichen lang sein.",
+  "authScreen.passwordMismatch": "Die Passwörter stimmen nicht überein.",
+  "authScreen.passwordUpdated": "Passwort aktualisiert. Du bist angemeldet.",
+  "authScreen.passwordFailed": "Das Passwort konnte nicht aktualisiert werden.",
+};
