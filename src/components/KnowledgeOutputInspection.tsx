@@ -33,6 +33,7 @@ export function KnowledgeOutputInspection({
   const [saved, setSaved] = useState(false);
   const reviewId = useRef<string | null>(null);
   const request = useRef(0);
+  const inFlight = useRef(false);
   useEffect(
     () => () => {
       request.current++;
@@ -40,6 +41,8 @@ export function KnowledgeOutputInspection({
     [],
   );
   async function inspect() {
+    if (inFlight.current) return;
+    inFlight.current = true;
     const id = ++request.current;
     setBusy(true);
     setFailed(false);
@@ -62,11 +65,22 @@ export function KnowledgeOutputInspection({
     } catch {
       if (id === request.current) setFailed(true);
     } finally {
+      inFlight.current = false;
       if (id === request.current) setBusy(false);
     }
   }
   async function mutate(withdrawId?: string) {
-    if (!snapshot && !withdrawId) return;
+    if (inFlight.current) return;
+    if (
+      !withdrawId &&
+      (!snapshot?.reviewable ||
+        failed ||
+        saved ||
+        !confirmed ||
+        acknowledged.length !== snapshot.facts.length)
+    )
+      return;
+    inFlight.current = true;
     const id = request.current;
     setBusy(true);
     setFailed(false);
@@ -106,6 +120,7 @@ export function KnowledgeOutputInspection({
     } catch {
       if (id === request.current) setFailed(true);
     } finally {
+      inFlight.current = false;
       if (id === request.current) setBusy(false);
     }
   }
@@ -214,7 +229,11 @@ export function KnowledgeOutputInspection({
                 type="button"
                 size="sm"
                 disabled={
-                  busy || saved || !confirmed || acknowledged.length !== snapshot.facts.length
+                  busy ||
+                  failed ||
+                  saved ||
+                  !confirmed ||
+                  acknowledged.length !== snapshot.facts.length
                 }
                 onClick={() => void mutate()}
               >
