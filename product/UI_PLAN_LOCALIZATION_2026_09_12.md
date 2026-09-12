@@ -1,6 +1,6 @@
 # Plan localization — 12 September 2026
 
-Status: release candidate. Includes released PR132 and canonical main `2190dd9987616d1d2a206b53892fd711e8e10b32` through a normal merge. No Plan migration or deployment has been issued.
+Status: released through PR133, merged `5632a0234fa78fea4d603b3a7668ca0f8a836cbb` and verified at05:38:32UTC. Exact runtime, seven public/authentication checks and ten fresh pre/post baselines pass. No migration was required. See [release evidence](../evidence/ui-plan-release-2026-09-12.md). Candidate-stage validation wording below is historical; exact final-head CI34675725246 passes4,360 tests/304files, types/builds/frozenlocks on both runtimes.
 
 Plan still mixed English controls and date labels with the selected interface language. This change adds 113 messages in English, Polish, Swedish and Danish, plus matching French authoring copy that stays outside the runtime and picker. It covers discovery, manual entry, board/calendar actions, orphan/stacked drafts, archived work and sample labels. All current dictionaries and staged French contain 2,963 keys.
 
