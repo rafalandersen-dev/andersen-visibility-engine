@@ -1,6 +1,6 @@
 # Slovenian interface authoring — 12 September 2026
 
-Slovenian is staged only: 785 of the current 3,768 English interface keys across eleven complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK retain separate complete staged authoring and incomplete acceptance status.
+Slovenian is staged only: 855 of the current 3,768 English interface keys across thirteen complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK retain separate complete staged authoring and incomplete acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -15,14 +15,16 @@ Slovenian is staged only: 785 of the current 3,768 English interface keys across
 | Competitor and AI-readiness evidence screen | 89 | b51ac1f |
 | Plan screen | 113 | b949563 |
 | Editor screen | 148 | 9d577d4 |
+| Public pricing | 40 | 187b94e |
+| Public case studies | 30 | 187b94e |
 
-The frozen staged registry assigns every key once. Namespace tests verify exact keys, nonempty values, current composed-English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 22 Slovenian/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovenian-editor-screen-types.log.
+The frozen staged registry assigns every key once. Namespace tests verify exact keys, nonempty values, current composed-English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 24 Slovenian/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovenian-pricing-studies-types.log.
 
 Terminology: delovni prostor (workspace), projekt, geslo (password), ponastavitev gesla (password reset), stranska vrstica (sidebar), vpis (network listing), paket (subscription plan), načrt (workflow plan), vsebinska izhodišča (content brief). Use polite plural explanatory instructions and concise action labels. Preserve provider/product names and placeholders.
 
 Recovery text retains conditional eligibility without confirming account existence. Marketing and successful sign-in source claims retain their implementation and real-use acceptance obligations. No authentication, email, account, credential or provider action occurred.
 
-Remaining: 2,983 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batches: public pricing and case studies using current composed English. This staged work does not complete R20 or change release gates.
+Remaining: 2,913 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: public home using current composed English. This staged work does not complete R20 or change release gates.
 
 Core copy preserves interface versus content language, saved setup versus incomplete generation, work target dates versus publication times, and sent drafts versus published pages. Navigation uses Načrt, Vsebina, Vidnost, Nastavitve and Analitika. Subscription plans remain paket; workflow plans use načrt. In-review status is V pregledu; scheduled publication is Čas objave nastavljen. No generation, onboarding, schedule or publication operation occurred.
 
@@ -35,3 +37,5 @@ Evidence-screen copy preserves competitor snapshots versus ongoing monitoring, a
 Plan copy preserves work target dates versus publication schedules, discovery acceptance versus content creation/publication, skipped batch items, sample provenance and archive/restore behavior. Unlinked drafts explicitly retain active publication schedules. Plan is Načrt; Board Tabla, List Seznam and Calendar Koledar for later workflow alignment. Discovery is odkrivanje. No generation, sample removal, schedule or archive operation occurred.
 
 Editor copy preserves upload privacy until image approval, controlled-origin eligibility, alt-text requirements and the separate Save step. Source validation, author identity/consent, unresolved-link blocks and sent/published/attempt timestamps retain source meaning. The sources/author tab is Viri in avtor; content brief remains vsebinska izhodišča. Structured-data copy retains CMS and search-engine limits without guarantees. No upload, generation, approval, validation or publication occurred.
+
+Public pricing/studies copy preserves billing-country eligibility versus interface region, separate add-on purchases and payment/supplier acceptance holds. Case examples retain incomplete live connector/publication/measurement acceptance and no verified growth outcome. Paket remains a subscription plan; Agency, Backlinks, Brand Intelligence and Milo Scores remain names. No checkout, activation, purchase, provider request or publication occurred.
