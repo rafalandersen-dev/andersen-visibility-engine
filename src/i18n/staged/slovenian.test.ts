@@ -42,6 +42,10 @@ it("keeps staged Slovenian outside runtime and assigns each key once", () => {
   const keys = SL_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(new Set(keys).size).toBe(keys.length);
   expect(Object.keys(SL_STAGED_CATALOG).sort()).toEqual(keys.sort());
-  expect(keys).toHaveLength(3423);
+  expect(keys).toHaveLength(3768);
   expect(Object.isFrozen(SL_STAGED_CATALOG)).toBe(true);
+});
+
+it("covers the complete current English catalog in staged Slovenian", () => {
+  expect(Object.keys(SL_STAGED_CATALOG).sort()).toEqual(Object.keys(UI_CATALOGS.en).sort());
 });

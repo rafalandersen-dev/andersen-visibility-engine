@@ -1,6 +1,6 @@
 # Slovenian interface authoring — 12 September 2026
 
-Slovenian is staged only: 3,423 of the current 3,768 English interface keys across twenty-seven complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK retain separate complete staged authoring and incomplete acceptance status.
+Slovenian is staged only: 3,768 of the current 3,768 English interface keys across twenty-eight complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK retain separate complete staged authoring and incomplete acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -31,14 +31,15 @@ Slovenian is staged only: 3,423 of the current 3,768 English interface keys acro
 | Commerce (13 September) | 192 | d3313ba |
 | Links (13 September) | 256 | bf2af3a |
 | Evidence (13 September) | 196 | d30a733 |
+| Workflow (13 September) | 345 | 166a4cf |
 
-The frozen staged registry assigns every key once. Namespace tests verify exact keys, nonempty values, current composed-English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 38 Slovenian/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovenian-evidence-types.log.
+The frozen staged registry assigns every key once. Namespace tests verify exact keys, nonempty values, current composed-English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 40 Slovenian/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovenian-workflow-types.log.
 
 Terminology: delovni prostor (workspace), projekt, geslo (password), ponastavitev gesla (password reset), stranska vrstica (sidebar), vpis (network listing), paket (subscription plan), načrt (workflow plan), vsebinska izhodišča (content brief). Use polite plural explanatory instructions and concise action labels. Preserve provider/product names and placeholders.
 
 Recovery text retains conditional eligibility without confirming account existence. Marketing and successful sign-in source claims retain their implementation and real-use acceptance obligations. No authentication, email, account, credential or provider action occurred.
 
-Remaining: 345 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: workflow using current composed English. This staged work does not complete R20 or change release gates.
+All current English interface keys have staged Slovenian copy. A whole-catalog key equality test now checks completeness in addition to per-batch ownership/source checks. Remaining: fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next: focused terminology review and local browser recovery/review checks. This staged work does not complete R20 or change release gates.
 
 Core copy preserves interface versus content language, saved setup versus incomplete generation, work target dates versus publication times, and sent drafts versus published pages. Navigation uses Načrt, Vsebina, Vidnost, Nastavitve and Analitika. Subscription plans remain paket; workflow plans use načrt. In-review status is V pregledu; scheduled publication is Čas objave nastavljen. No generation, onboarding, schedule or publication operation occurred.
 
@@ -81,3 +82,5 @@ Outreach copy preserves exact recipient/message approval, separate follow-up rev
 13 September: links copy preserves index estimates versus live placement checks, incomplete samples, demonstration requests versus paid orders, exact-price confirmation and uncertain-order holds. Monitoring retains UTC windows, supplier allowance/caps, skipped occurrences, accounting recovery and admitted work surviving a pause. V pregledu matches earlier status wording. Numeric input examples remain literal source tokens pending locale-format acceptance. No network listing, provider request, outreach, order, payment or monitoring activation occurred.
 
 13 September: evidence copy preserves the historical benchmark authorization and expiry, evaluation versus production routing, exact publication snapshots and non-causal before/after observations. AI answer records remain unverified owner-supplied samples with separate versions/surfaces; log imports retain privacy, rejection, deduplication and non-aggregation limits. No benchmark, generation, model evaluation, evidence import, log upload or publication operation occurred.
+
+13 September: workflow completes staged authoring with scheduler quota/approval limits, visual preview versus destination fidelity, target dates versus publication schedules and recovery without generation or approval. Seznam/Tabla/Koledar and V pregledu align with the earlier plan/core batches; privlačen uvod and Viri in avtor align with outreach/editor. Fixed comparisons retain cost/provenance limits and reversible-release requirements. All 3,768 keys are present exactly once; this is authoring completeness, not language quality or product acceptance. No generation, scheduling, approval, recovery mutation or publication operation occurred.
