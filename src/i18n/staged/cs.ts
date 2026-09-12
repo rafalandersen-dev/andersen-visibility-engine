@@ -1,3 +1,4 @@
+import { csEditorScreen } from "./cs-editor-screen";
 import { csPlanScreen } from "./cs-plan-screen";
 import { csEvidenceScreen } from "./cs-evidence-screen";
 import { csBillingScreen } from "./cs-billing-screen";
@@ -10,6 +11,13 @@ import { csAuthScreen } from "./cs-auth-screen";
 import { csSharedUi } from "./cs-shared-ui";
 /** Czech authoring; never imported by the runtime catalog. */
 export const CS_STAGED_BATCHES = [
+  {
+    name: "editor screen",
+    copy: csEditorScreen,
+    namespaces: ["editorScreen"],
+    sourceRevision: "7b7c947",
+    sourceHash: "1e827d2744ea1f2d3364b54983f06b42082f45ab6dfb0eda7b1375fdddd9ec9f",
+  },
   {
     name: "plan screen",
     copy: csPlanScreen,

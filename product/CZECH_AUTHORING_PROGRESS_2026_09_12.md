@@ -1,6 +1,6 @@
 # Czech interface authoring — 12 September 2026
 
-Czech is staged only: 637 of the current 3,768 English interface keys, across ten complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI retain their separate staged acceptance status.
+Czech is staged only: 785 of the current 3,768 English interface keys, across eleven complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI retain their separate staged acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -14,14 +14,15 @@ Czech is staged only: 637 of the current 3,768 English interface keys, across te
 | Billing screen | 54 | 0dd4047 |
 | Evidence screen | 89 | 7da1abf |
 | Plan screen | 113 | eca937a |
+| Editor screen | 148 | 7b7c947 |
 
-The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 21 Czech/catalog tests, scoped lint and whitespace pass. Current batch type checking passes (log: /tmp/milo-czech-plan-screen-types.log).
+The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 22 Czech/catalog tests, scoped lint and whitespace pass. Current batch type checking passes (log: /tmp/milo-czech-editor-screen-types.log).
 
 Terminology: pracovní prostor (workspace), projekt, heslo (password), obnovení hesla (password recovery), postranní panel (sidebar), archivovat (archive). Prefer direct formal-plural instructions; use schválit for approval, potvrdit for confirmation, ověřit for verification and zkontrolovat for review. Product/provider names and placeholders remain intact.
 
 Recovery text preserves conditional account eligibility and does not confirm that an account exists. Source claims about monthly planning and successful sign-in after password update retain their implementation/acceptance obligations; translation does not prove them. No email, authentication, password or provider operation occurred.
 
-Remaining: 3,131 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next complete batch: editor screen, using current composed English. This initial Czech batch does not complete R20 or alter release gates.
+Remaining: 2,983 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next complete batches: public pricing and public case studies, using current composed English. This initial Czech batch does not complete R20 or alter release gates.
 
 Core review: Plán, Obsah, Viditelnost and Nastavení label the main navigation areas. Work target dates remain distinct from publication times; Naplánováno denotes planned work, while Čas zveřejnění nastaven denotes a publication schedule. Odesláno na web does not mean Zveřejněno. Partial setup success remains separate from completion, and application language, content language and market stay separate settings. Inherited generation/setup claims are translated without proving live behavior. No onboarding, generation, schedule or billing operation occurred.
 
@@ -32,3 +33,5 @@ Analytics/billing review: recorded views are not unique visitors, and tracked CT
 Evidence-screen review: competitor snapshots are separate from ongoing monitoring, and failed retrieval contributes no competitor evidence. Readiness estimates are separate from current AI mentions, citations and rankings. AI referral traffic measures identifiable visits, not citation evidence. Provider names and variable placeholders are preserved. No competitor fetch, readiness analysis, generation or evidence collection occurred.
 
 Plan-screen review: cílové datum práce is distinct from čas zveřejnění. Accepting discovery suggestions does not generate content or schedule publication. Unlinked drafts can retain active publication schedules. Archive/restore actions, sample-data labels and batch skipped counts preserve source meaning. Discovery is hledání příležitostí, and draft is návrh, with návrhy změn reserved for change proposals where needed. No discovery, scheduling, archival or content operation occurred.
+
+Editor-screen review: sent, published and last-attempt timestamps remain distinct. Image copy preserves the upload limit, alternative-text requirement, controlled-origin boundary and explicit save reminder. Source reachability is separate from support for a claim, and verified status cannot be selected manually. Author consent/non-invention, the non-blocking health/finance/legal recommendation and CMS/search-engine discretion retain source meaning. Product and provider claims still require implementation/live acceptance. No image upload, generation, source request, approval or publication occurred.
