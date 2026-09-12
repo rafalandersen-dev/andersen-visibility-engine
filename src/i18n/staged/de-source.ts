@@ -19,4 +19,6 @@ export const DE_AUTHORING_SOURCE_HASHES: Readonly<Record<string, string>> = {
   measurements: "d5a84c283031ca1ef2c696e427fb9d9327a475370d497840df4293c1c9840cd9",
   configuration: "c5fffe69452f29226bfabcf4cd8633801d03536d5fd9f9681092c425569e6561",
   evidence: "2911f87d7691a2bf04548e0b7c0e63b3c93f25cdcd73c9af1ba5d22ffdee211d",
+  links: "7b8c4cfd6fb08b518e7e0eb7fd53e767b72972a0048a75521eda0d4b9ebd40d7",
+  outreach: "c2bfe98eb710f1587237c92b04696e6f9221e67def7d1080eb7ce08e3d1161b4",
 };

@@ -1,3 +1,5 @@
+import { deLinks } from "./de-links";
+import { deOutreach } from "./de-outreach";
 import { deConfiguration } from "./de-configuration";
 import { deEvidence } from "./de-evidence";
 import { deTechnical } from "./de-technical";
@@ -91,6 +93,19 @@ export const DE_STAGED_BATCHES = [
     copy: deEvidence,
     namespaces: ["answer", "logs", "proof", "aiEval", "benchmark"],
   },
+  {
+    name: "links",
+    copy: deLinks,
+    namespaces: [
+      "linknet",
+      "backlinks",
+      "marketplace",
+      "backlinkMonitor",
+      "backlinkDetails",
+      "backlinkRecurring",
+    ],
+  },
+  { name: "outreach", copy: deOutreach, namespaces: ["outreach", "hook", "anchor"] },
 ] as const;
 export const DE_STAGED_CATALOG: Readonly<Record<string, string>> = Object.assign(
   {},
