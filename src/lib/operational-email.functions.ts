@@ -1,10 +1,9 @@
+import { emailLocaleSchema } from "./email-languages";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { operationalEmailEnabled, readOperationalEmailAddress } from "./operational-email.server";
-const preference = z
-  .object({ enabled: z.boolean(), locale: z.enum(["en", "pl", "sv", "da"]) })
-  .strict();
+const preference = z.object({ enabled: z.boolean(), locale: emailLocaleSchema }).strict();
 const history = z
   .array(
     z.object({
@@ -59,7 +58,7 @@ export const getOperationalEmailSettingsFn = createServerFn({ method: "POST" })
   });
 export const setOperationalEmailSettingsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => preference.parse(input))
+  .inputValidator((input: unknown) => z.object({ enabled: z.boolean() }).strict().parse(input))
   .handler(async ({ context, data }) => {
     if (data.enabled && !operationalEmailEnabled())
       throw new Error("Operational email is not activated yet.");
@@ -74,10 +73,41 @@ export const setOperationalEmailSettingsFn = createServerFn({ method: "POST" })
         args: Record<string, unknown>,
       ): PromiseLike<{ data: unknown; error: unknown }>;
     };
-    const saved = await db.rpc("set_operational_email_preference", {
+    const saved = await db.rpc("set_operational_email_enabled", {
       p_enabled: data.enabled,
-      p_locale: data.locale,
     });
     if (saved.error || saved.data !== true) throw new Error("Email settings could not be saved.");
     return { saved: true };
+  });
+
+/** Language-only persistence does not resolve a recipient, enable delivery,
+ * create tokens, enqueue a message or touch an existing outbox. */
+export const setOperationalEmailLanguageFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ locale: emailLocaleSchema }).strict().parse(input))
+  .handler(async ({ context, data }) => {
+    const db = context.supabase as unknown as {
+      rpc(
+        name: string,
+        args: Record<string, unknown>,
+      ): PromiseLike<{ data: unknown; error: unknown }>;
+    };
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const result = await Promise.race([
+        db.rpc("set_operational_email_language", { p_locale: data.locale }),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error("timeout")), 10000);
+        }),
+      ]);
+      if (!result || result.error || result.data !== true) throw new Error("unconfirmed");
+      return { saved: true };
+    } catch {
+      // A lost response may still have saved the language. Never retry here.
+      throw new Error(
+        "Email language could not be confirmed. Reload the saved settings before another change.",
+      );
+    } finally {
+      clearTimeout(timer);
+    }
   });

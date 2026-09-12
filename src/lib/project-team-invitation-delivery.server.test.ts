@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { EMAIL_LANGUAGE_CODES } from "./email-languages";
 import {
   deliverOneTeamInvitation,
   renderTeamInvitation,
@@ -29,6 +30,23 @@ function deps() {
   };
 }
 afterEach(() => vi.unstubAllEnvs());
+it.each(EMAIL_LANGUAGE_CODES)(
+  "accepts a saved %s invitation preference without changing recipient or retry behavior",
+  async (locale) => {
+    const d = deps();
+    d.rpc.mockImplementation(async (name) => ({
+      data: name === "claim_project_team_invitation_delivery" ? [{ ...claim, locale }] : true,
+      error: null,
+    }));
+    expect(await deliverOneTeamInvitation(d)).toBe("accepted");
+    expect(d.send).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        email: claim.email,
+        html: expect.stringContaining(`lang="${locale}"`),
+      }),
+    );
+  },
+);
 describe("saved invitation delivery", () => {
   it("is disabled without the independent release gate", async () => {
     vi.stubEnv("TEAM_INVITATION_EMAIL_ENABLED", "false");

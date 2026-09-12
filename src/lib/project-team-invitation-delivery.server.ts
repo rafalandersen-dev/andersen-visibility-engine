@@ -1,3 +1,6 @@
+import { emailCopy } from "@/i18n/email-copy";
+import { emailLocaleSchema, type EmailLanguage } from "./email-languages";
+import { escapeEmailText as escape } from "./email-render";
 import { z } from "zod";
 import {
   invitationDeliveryTarget,
@@ -66,65 +69,24 @@ const claimSchema = z
     lease_token: z.string().uuid(),
     email: z.string().email().max(254),
     role: z.enum(["viewer", "editor", "reviewer"]),
-    locale: z.enum(["en", "pl", "sv", "da"]),
+    locale: emailLocaleSchema,
   })
   .strict();
 type Dependencies = Pick<OperationalEmailDependencies, "rpc" | "send"> & {
   recipient(email: string): Promise<{ email: string; unsubscribeToken: string }>;
 };
-const invitationCopy = {
-  en: {
-    subject: "You have a Milo Growth project invitation",
-    intro: "You have been invited to collaborate on a project in Milo Growth.",
-    instruction:
-      "Sign in or create an account using the email address that received this invitation, then review the invitation and role in Collaborators.",
-    open: "Review invitation",
-    footer:
-      "The invitation expires seven days after it was created and may be revoked by its owner. Opening this link does not accept the invitation, approve content or publish anything.",
-    roles: { viewer: "Viewer", editor: "Editor", reviewer: "Reviewer" },
-  },
-  pl: {
-    subject: "Zaproszenie do projektu w Milo Growth",
-    intro: "Zaproszono Cię do współpracy nad projektem w Milo Growth.",
-    instruction:
-      "Zaloguj się lub utwórz konto z adresem e-mail, na który otrzymano zaproszenie, a następnie sprawdź zaproszenie i rolę w sekcji Współpracownicy.",
-    open: "Sprawdź zaproszenie",
-    footer:
-      "Zaproszenie wygasa siedem dni po utworzeniu i może zostać cofnięte przez właściciela. Otwarcie linku nie akceptuje zaproszenia, nie zatwierdza ani nie publikuje treści.",
-    roles: { viewer: "Obserwator", editor: "Redaktor", reviewer: "Recenzent" },
-  },
-  sv: {
-    subject: "Du har en projektinbjudan i Milo Growth",
-    intro: "Du har bjudits in att samarbeta i ett projekt i Milo Growth.",
-    instruction:
-      "Logga in eller skapa ett konto med e-postadressen som fick inbjudan. Granska sedan inbjudan och rollen under Samarbetspartner.",
-    open: "Granska inbjudan",
-    footer:
-      "Inbjudan löper ut sju dagar efter att den skapades och kan återkallas av ägaren. Att öppna länken accepterar inte inbjudan, godkänner inte innehåll och publicerar ingenting.",
-    roles: { viewer: "Läsare", editor: "Redaktör", reviewer: "Granskare" },
-  },
-  da: {
-    subject: "Du har en projektinvitation i Milo Growth",
-    intro: "Du er inviteret til at samarbejde på et projekt i Milo Growth.",
-    instruction:
-      "Log ind eller opret en konto med den e-mailadresse, der modtog invitationen. Gennemgå derefter invitationen og rollen under Samarbejdspartnere.",
-    open: "Gennemgå invitation",
-    footer:
-      "Invitationen udløber syv dage efter oprettelsen og kan tilbagekaldes af ejeren. Åbning af linket accepterer ikke invitationen, godkender ikke indhold og udgiver ingenting.",
-    roles: { viewer: "Læser", editor: "Redaktør", reviewer: "Reviewer" },
-  },
-};
+
 export function renderTeamInvitation(
   role: "viewer" | "editor" | "reviewer",
-  locale: "en" | "pl" | "sv" | "da" = "en",
+  locale: EmailLanguage = "en",
 ) {
-  const c = invitationCopy[locale],
-    label = c.roles[role],
+  const c = emailCopy[emailLocaleSchema.parse(locale)].invitation,
+    label = c.roles[z.enum(["viewer", "editor", "reviewer"]).parse(role)],
     url = "https://milogrowth.com/app/collaborators";
   return {
     subject: c.subject,
     text: [c.intro, label, c.instruction, `${c.open}: ${url}`, c.footer].join("\n\n"),
-    html: `<p>${c.intro}</p><p>${label}</p><p>${c.instruction}</p><p><a href="${url}">${c.open}</a></p><p>${c.footer}</p>`,
+    html: `<div lang="${locale}"><p>${escape(c.intro)}</p><p>${escape(label)}</p><p>${escape(c.instruction)}</p><p><a href="${url}">${escape(c.open)}</a></p><p>${escape(c.footer)}</p></div>`,
   };
 }
 export async function deliverOneTeamInvitation(deps: Dependencies) {

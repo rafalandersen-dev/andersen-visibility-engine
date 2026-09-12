@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { EMAIL_LANGUAGE_CODES } from "./email-languages";
 import {
   deliverOneTeamDigest,
   runTeamNotificationWorker,
@@ -39,6 +40,16 @@ function deps(data: unknown = body) {
   };
 }
 afterEach(() => vi.unstubAllEnvs());
+it.each(EMAIL_LANGUAGE_CODES)(
+  "accepts a saved %s team-digest preference through the existing once-only worker",
+  async (locale) => {
+    const d = deps({ ...body, locale });
+    expect(await deliverOneTeamDigest(d)).toBe("accepted");
+    expect(d.send).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ html: expect.stringContaining(`lang="${locale}"`) }),
+    );
+  },
+);
 describe("team notification delivery", () => {
   it("is disabled by default", async () => {
     vi.stubEnv("TEAM_NOTIFICATION_EMAIL_ENABLED", "false");

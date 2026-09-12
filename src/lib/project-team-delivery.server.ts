@@ -1,3 +1,4 @@
+import { emailLocaleSchema } from "./email-languages";
 import { z } from "zod";
 import {
   renderOperationalDigest,
@@ -60,7 +61,7 @@ export async function deliverOneTeamDigest(deps: OperationalEmailDependencies) {
   try {
     const body = z
       .object({
-        locale: z.enum(["en", "pl", "sv", "da"]),
+        locale: emailLocaleSchema,
         items: z
           .array(
             z

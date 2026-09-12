@@ -1,7 +1,9 @@
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from "vitest";
+import { EMAIL_LANGUAGE_CODES } from "./email-languages";
 let db: PGlite;
+let upgradedPreferences: unknown;
 const user = "00000000-0000-4000-8000-000000000031",
   other = "00000000-0000-4000-8000-000000000032";
 const event = {
@@ -75,6 +77,16 @@ beforeAll(async () => {
     "20260907170000_operational_email_outbox.sql",
   ])
     await db.exec(readFileSync(`supabase/migrations/${file}`, "utf8"));
+  await db.query(
+    "INSERT INTO operational_email_preferences(user_id,enabled,locale) VALUES($1,true,'pl'),($2,false,'en')",
+    [user, other],
+  );
+  await db.exec(readFileSync("supabase/migrations/20260912030000_eu_email_languages.sql", "utf8"));
+  upgradedPreferences = (
+    await db.query(
+      "SELECT user_id,enabled,locale FROM operational_email_preferences ORDER BY user_id",
+    )
+  ).rows;
 }, 30000);
 beforeEach(async () => {
   await db.exec(
@@ -84,6 +96,153 @@ beforeEach(async () => {
 });
 afterAll(async () => {
   await db?.close();
+});
+it("upgrades existing language and opt-in settings without rewriting them", () => {
+  expect(upgradedPreferences).toEqual([
+    { user_id: user, enabled: true, locale: "pl" },
+    { user_id: other, enabled: false, locale: "en" },
+  ]);
+});
+it.each(EMAIL_LANGUAGE_CODES)(
+  "saves %s only for the authenticated account without opting in or creating mail",
+  async (locale) => {
+    await db.query("SELECT set_config('request.jwt.claim.sub',$1,false)", [user]);
+    await db.exec("SET ROLE authenticated");
+    await db.query("SELECT set_operational_email_language($1)", [locale]);
+    await db.exec("RESET ROLE");
+    expect(
+      (await db.query("SELECT user_id,enabled,locale FROM operational_email_preferences")).rows,
+    ).toEqual([{ user_id: user, enabled: false, locale }]);
+    expect(
+      (await db.query("SELECT count(*)::int AS n FROM operational_email_outbox")).rows,
+    ).toEqual([{ n: 0 }]);
+  },
+);
+it("a language-only change preserves the latest opt-out and existing unrelated account preferences", async () => {
+  await enable(user);
+  await enable(other);
+  await db.query("SELECT set_config('request.jwt.claim.sub',$1,false)", [user]);
+  await db.exec(
+    "SET ROLE authenticated; SELECT set_operational_email_preference(false,'pl'); SELECT set_operational_email_language('ga'); RESET ROLE",
+  );
+  expect(
+    (
+      await db.query(
+        "SELECT user_id,enabled,locale FROM operational_email_preferences ORDER BY user_id",
+      )
+    ).rows,
+  ).toEqual([
+    { user_id: user, enabled: false, locale: "ga" },
+    { user_id: other, enabled: true, locale: "pl" },
+  ]);
+});
+it("language-only saves preserve an enabled account and its already queued digest", async () => {
+  await enable();
+  await sync();
+  const queued = await queue();
+  await db.query("SELECT set_config('request.jwt.claim.sub',$1,false)", [user]);
+  await db.exec("SET ROLE authenticated; SELECT set_operational_email_language('mt'); RESET ROLE");
+  expect((await db.query("SELECT enabled,locale FROM operational_email_preferences")).rows).toEqual(
+    [{ enabled: true, locale: "mt" }],
+  );
+  expect((await db.query("SELECT id,status FROM operational_email_outbox")).rows).toEqual([
+    { id: queued, status: "pending" },
+  ]);
+});
+it("refuses anonymous preference writes and invalid language codes", async () => {
+  await db.exec("SET ROLE anon");
+  await expect(db.query("SELECT set_operational_email_language('de')")).rejects.toThrow();
+  await db.exec("RESET ROLE");
+  await db.query("SELECT set_config('request.jwt.claim.sub',$1,false)", [user]);
+  await expect(db.query("SELECT set_operational_email_language('xx')")).rejects.toThrow();
+  await expect(db.query("SELECT set_operational_email_language('en-GB')")).rejects.toThrow();
+  expect(
+    (await db.query("SELECT count(*)::int AS n FROM operational_email_preferences")).rows,
+  ).toEqual([{ n: 0 }]);
+});
+it.each(EMAIL_LANGUAGE_CODES)(
+  "delivery toggles preserve the latest %s preference saved after an older tab loaded",
+  async (locale) => {
+    await enable(other);
+    await db.query("SELECT set_config('request.jwt.claim.sub',$1,false)", [user]);
+    await db.exec("SET ROLE authenticated");
+    await db.query("SELECT set_operational_email_language($1)", [locale]);
+    await db.query("SELECT set_operational_email_enabled(true)");
+    expect(
+      (await db.query("SELECT enabled,locale FROM operational_email_preferences")).rows,
+    ).toEqual([{ enabled: true, locale }]);
+    await db.query("SELECT set_operational_email_enabled(false)");
+    await db.exec("RESET ROLE");
+    expect(
+      (
+        await db.query(
+          "SELECT user_id,enabled,locale FROM operational_email_preferences ORDER BY user_id",
+        )
+      ).rows,
+    ).toEqual([
+      { user_id: user, enabled: false, locale },
+      { user_id: other, enabled: true, locale: "pl" },
+    ]);
+    expect(await state()).toEqual([]);
+  },
+);
+it("delivery-only opt-out cancels only its owner's pending and leased summaries while preserving language", async () => {
+  await enable();
+  await enable(other);
+  await sync();
+  await sync([event], other);
+  await queue();
+  await claim();
+  await queue(other);
+  await db.query("SELECT set_config('request.jwt.claim.sub',$1,false)", [user]);
+  await db.exec(
+    "SET ROLE authenticated; SELECT set_operational_email_language('de'); SELECT set_operational_email_enabled(false); RESET ROLE",
+  );
+  expect(
+    (
+      await db.query(
+        "SELECT user_id,enabled,locale FROM operational_email_preferences ORDER BY user_id",
+      )
+    ).rows,
+  ).toEqual([
+    { user_id: user, enabled: false, locale: "de" },
+    { user_id: other, enabled: true, locale: "pl" },
+  ]);
+  expect(
+    (
+      await db.query(
+        "SELECT user_id,status,lease_token,lease_until FROM operational_email_outbox ORDER BY user_id",
+      )
+    ).rows,
+  ).toEqual([
+    { user_id: user, status: "cancelled", lease_token: null, lease_until: null },
+    { user_id: other, status: "pending", lease_token: null, lease_until: null },
+  ]);
+});
+it("delivery-only preference defaults to English only when no preference exists", async () => {
+  await db.query("SELECT set_config('request.jwt.claim.sub',$1,false)", [user]);
+  await db.exec("SET ROLE authenticated; SELECT set_operational_email_enabled(false); RESET ROLE");
+  expect((await db.query("SELECT enabled,locale FROM operational_email_preferences")).rows).toEqual(
+    [{ enabled: false, locale: "en" }],
+  );
+});
+it("refuses anonymous, unauthenticated and null delivery-only changes", async () => {
+  await db.exec("SET ROLE anon");
+  await expect(db.query("SELECT set_operational_email_enabled(true)")).rejects.toThrow(
+    /permission denied/,
+  );
+  await db.exec("RESET ROLE");
+  await db.query("SELECT set_config('request.jwt.claim.sub','',false)");
+  await expect(db.query("SELECT set_operational_email_enabled(true)")).rejects.toThrow(
+    "invalid_email_preference",
+  );
+  await db.query("SELECT set_config('request.jwt.claim.sub',$1,false)", [user]);
+  await expect(db.query("SELECT set_operational_email_enabled(null)")).rejects.toThrow(
+    "invalid_email_preference",
+  );
+  expect(
+    (await db.query("SELECT count(*)::int AS n FROM operational_email_preferences")).rows,
+  ).toEqual([{ n: 0 }]);
 });
 describe("operational email outbox", () => {
   it("defaults off and requires a fresh matching server scan", async () => {
