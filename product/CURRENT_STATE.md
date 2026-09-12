@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Spanish staged authoring is integrated via normal merge1cea626 from cd09f54 (codex/milo-spanish-authoring-20260912):3,768messages/28groups, exact current English source5a9416d.74integration tests/3files, full types/build and zero staged-file lint pass. Spanish remains unregistered/disabled; fluent and rendered-interface acceptance plus legacy source-claim review remain open. Authoring owner acknowledged and told to stop edits. See SPANISH_STAGED_INTEGRATION_2026_09_12.md. Overall60%/implementation75% unchanged.
+
 Latest prepared delivery:31 nested navigation/button controls now render single native links across10files. All65navigation attribute sets preserved;47focused tests, types/build/zero lint pass. Six built public pages show zero nested link/buttons, with home keyboard hash navigation verified. No real signed-in/full accessibility acceptance; overall60%/implementation75% unchanged. See NATIVE_LINK_ACCESSIBILITY_2026_09_12.md.
 
 
