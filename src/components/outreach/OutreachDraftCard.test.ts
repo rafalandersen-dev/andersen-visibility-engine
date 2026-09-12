@@ -1,10 +1,12 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, it, expect, vi } from "vitest";
-import type { OutreachDraft } from "@/lib/types";
+import type { OutreachDraft, Project } from "@/lib/types";
 import type { OutreachReceipt } from "@/lib/outreach-receipts";
 vi.mock("@/lib/store", () => ({
-  useStore: (select: (state: { userId: string }) => unknown) => select({ userId: "owner" }),
+  useStore: (
+    select: (state: { userId: string; projects: Project[]; activeProjectId: string }) => unknown,
+  ) => select({ userId: "owner", projects: [], activeProjectId: "" }),
   reloadWorkspaceForUser: vi.fn(),
   saveWorkspaceNow: vi.fn(),
   updateOutreachDraft: vi.fn(),
