@@ -160,3 +160,5 @@ Slovenian analytics/billing adds 90 messages at source 1113cc5: 435/3,768 in eig
 Slovenian competitor/AI-readiness evidence adds 89 messages at source b51ac1f: 524/3,768 in nine staged batches. Remaining UI authoring backlog: 40,924 messages. All 20 focused tests, types, scoped lint and whitespace pass. Runtime activation and language/rendered acceptance remain open.
 
 Slovenian plan adds 113 messages at source b949563: 637/3,768 in ten staged batches. Remaining UI authoring backlog: 40,811 messages. All 21 focused tests, types, scoped lint and whitespace pass. Runtime activation and language/rendered acceptance remain open.
+
+Slovenian editor adds 148 messages at source 9d577d4: 785/3,768 in eleven staged batches. Remaining UI authoring backlog: 40,663 messages. All 22 focused tests, types, scoped lint and whitespace pass. Runtime activation and language/rendered acceptance remain open.

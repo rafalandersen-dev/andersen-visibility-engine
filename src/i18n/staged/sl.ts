@@ -1,3 +1,4 @@
+import { slEditorScreen } from "./sl-editor-screen";
 import { slPlanScreen } from "./sl-plan-screen";
 import { slEvidenceScreen } from "./sl-evidence-screen";
 import { slBillingScreen } from "./sl-billing-screen";
@@ -90,6 +91,13 @@ export const SL_STAGED_BATCHES = [
     namespaces: ["planScreen"],
     sourceRevision: "b949563",
     sourceHash: "288f529ed3a18c00623c05011262d3cce0374158e558959fa8fc9dbc63174bb7",
+  },
+  {
+    name: "editor screen",
+    copy: slEditorScreen,
+    namespaces: ["editorScreen"],
+    sourceRevision: "9d577d4",
+    sourceHash: "1e827d2744ea1f2d3364b54983f06b42082f45ab6dfb0eda7b1375fdddd9ec9f",
   },
 ] as const;
 export const SL_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
