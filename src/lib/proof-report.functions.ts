@@ -32,6 +32,20 @@ const MONTH_KEY = /^\d{4}-\d{2}$/;
 const clean = (v: string | undefined) => (v ?? "").trim();
 
 async function liveLinkCount(userId: string, projectId: string): Promise<number | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      readLiveLinkCount(userId, projectId),
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), 10_000);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function readLiveLinkCount(userId: string, projectId: string): Promise<number | null> {
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const db = supabaseAdmin as unknown as {

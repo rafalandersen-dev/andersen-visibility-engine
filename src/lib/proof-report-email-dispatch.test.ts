@@ -244,3 +244,55 @@ it.each(["query error", "rejection"])("keeps %s link counts unknown", async (fai
     }),
   ).resolves.toEqual({ linksLive: null });
 });
+
+it.each(["screen", "email"])("bounds a stalled link lookup for the %s", async (surface) => {
+  vi.useFakeTimers();
+  let settle!: (value: { count: number; error: null }) => void;
+  mocks.links.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        settle = resolve;
+      }),
+  );
+  try {
+    const pending =
+      surface === "screen"
+        ? (getProofLinksLiveFn as unknown as (args: unknown) => Promise<unknown>)({
+            data: { projectId: "p1" },
+            context,
+          })
+        : call({ projectId: "p1", monthKey: "2026-09" });
+    await vi.advanceTimersByTimeAsync(9_999);
+    expect(mocks.links).toHaveBeenCalledOnce();
+    expect(provider).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    await expect(pending).resolves.toEqual(
+      surface === "screen" ? { linksLive: null } : { sent: true },
+    );
+    if (surface === "email") {
+      expect(provider).toHaveBeenCalledOnce();
+      expect(JSON.parse(provider.mock.calls[0][1].body).html).not.toContain(
+        proofReportEmailCopy.de["report.stat.linksLive"],
+      );
+    }
+    settle({ count: 7, error: null });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(provider).toHaveBeenCalledTimes(surface === "email" ? 1 : 0);
+    expect(vi.getTimerCount()).toBe(0);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("clears the link lookup deadline after a prompt response", async () => {
+  vi.useFakeTimers();
+  try {
+    await (getProofLinksLiveFn as unknown as (args: unknown) => Promise<unknown>)({
+      data: { projectId: "p1" },
+      context,
+    });
+    expect(vi.getTimerCount()).toBe(0);
+  } finally {
+    vi.useRealTimers();
+  }
+});
