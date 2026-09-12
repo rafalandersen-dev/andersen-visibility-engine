@@ -150,3 +150,5 @@ Slovak publication proof/AI answers/logs/evaluation adds 196 messages, bringing 
 Slovak workflow adds the final 345 messages, completing 3,768/3,768 across twenty-eight batches. Whole-catalog equality now verifies every current composed English key in addition to individual namespace/source/parameter checks. All 40 focused tests, types, scoped lint and whitespace pass. Language, rendered and activation acceptance remain open.
 
 Slovenian authoring begins at source 5f7faa9 with authentication (42) and shared controls (30): 72/3,768 keys in two staged batches. Four catalogs are active, nine fully staged, one partially staged and ten unauthored. Remaining UI authoring backlog: 41,376 messages. All 13 Slovenian/catalog tests, types, scoped lint and whitespace pass. Slovenian stays outside the runtime/language picker; quality, rendered and activation acceptance remain open.
+
+Slovenian core adds 202 messages at source ddee742: 274/3,768 in three staged batches. Remaining UI authoring backlog: 41,174 messages. All 14 focused tests, types, scoped lint and whitespace pass. Runtime activation and language/rendered acceptance remain open.
