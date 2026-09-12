@@ -1,3 +1,4 @@
+import { fiLinks } from "./fi-links";
 import { fiCommerce } from "./fi-commerce";
 import { fiGrowth } from "./fi-growth";
 import { fiOutreach } from "./fi-outreach";
@@ -26,6 +27,20 @@ import { fiSharedUi } from "./fi-shared-ui";
 
 /** Finnish authoring; never imported by the runtime catalog. */
 export const FI_STAGED_BATCHES = [
+  {
+    name: "links",
+    copy: fiLinks,
+    namespaces: [
+      "linknet",
+      "backlinks",
+      "marketplace",
+      "backlinkMonitor",
+      "backlinkDetails",
+      "backlinkRecurring",
+    ],
+    sourceRevision: "8ed85cd",
+    sourceHash: "7b8c4cfd6fb08b518e7e0eb7fd53e767b72972a0048a75521eda0d4b9ebd40d7",
+  },
   {
     name: "commerce",
     copy: fiCommerce,
