@@ -152,7 +152,7 @@ export function upcomingPublishRisks(args: UpcomingRiskArgs): PublishRisk[] {
   const end = endDay.getTime() - 1;
 
   const byId = new Map(args.assets.map((a) => [a.id, a]));
-  const risks: PublishRisk[] = [];
+  const risks: Array<{ at: number; risk: PublishRisk }> = [];
 
   for (const ghost of args.ghosts) {
     if (!ghost.dueAt) continue;
@@ -166,12 +166,15 @@ export function upcomingPublishRisks(args: UpcomingRiskArgs): PublishRisk[] {
     );
     if (readiness.ready) continue;
     risks.push({
-      kind: "target",
-      title: ghost.title,
-      when: ghost.dueAt,
-      opportunityId: ghost.id,
-      ...(ghost.assetId ? { assetId: ghost.assetId } : {}),
-      reasons: readiness.reasons,
+      at,
+      risk: {
+        kind: "target",
+        title: ghost.title,
+        when: ghost.dueAt,
+        opportunityId: ghost.id,
+        ...(ghost.assetId ? { assetId: ghost.assetId } : {}),
+        reasons: readiness.reasons,
+      },
     });
   }
 
@@ -182,13 +185,16 @@ export function upcomingPublishRisks(args: UpcomingRiskArgs): PublishRisk[] {
     const readiness = publishReadiness(asset, args.project, args.assets);
     if (readiness.ready) continue;
     risks.push({
-      kind: "armed",
-      title: asset.title,
-      when: asset.scheduledPublishAt,
-      assetId: asset.id,
-      reasons: readiness.reasons,
+      at,
+      risk: {
+        kind: "armed",
+        title: asset.title,
+        when: asset.scheduledPublishAt,
+        assetId: asset.id,
+        reasons: readiness.reasons,
+      },
     });
   }
 
-  return risks.sort((a, b) => a.when.localeCompare(b.when));
+  return risks.sort((a, b) => a.at - b.at).map(({ risk }) => risk);
 }

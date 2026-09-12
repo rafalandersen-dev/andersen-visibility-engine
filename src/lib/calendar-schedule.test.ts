@@ -241,3 +241,43 @@ describe("risk horizon follows local calendar days", () => {
     },
   );
 });
+
+describe("risk ordering uses instants rather than timestamp text", () => {
+  it("orders offset timestamps chronologically", () => {
+    const armed = [
+      asset({ id: "later", status: "In Review", scheduledPublishAt: "2026-07-24T08:00:00Z" }),
+      asset({
+        id: "earlier",
+        status: "In Review",
+        scheduledPublishAt: "2026-07-24T09:00:00+02:00",
+      }),
+    ];
+    expect(
+      upcomingPublishRisks({
+        ghosts: [],
+        armed,
+        assets: armed,
+        project: project(),
+        now: new Date(2026, 6, 22).getTime(),
+      }).map((r) => r.assetId),
+    ).toEqual(["earlier", "later"]);
+  });
+  it("uses the same local-noon target anchor for inclusion and ordering", () => {
+    const armed = [
+      asset({
+        id: "morning",
+        status: "In Review",
+        scheduledPublishAt: new Date(2026, 6, 24, 9).toISOString(),
+      }),
+    ];
+    const risks = upcomingPublishRisks({
+      ghosts: [{ id: "target", title: "Target", dueAt: "2026-07-24" }],
+      armed,
+      assets: armed,
+      project: project(),
+      now: new Date(2026, 6, 22).getTime(),
+    });
+    expect(risks.map((r) => r.assetId ?? r.opportunityId)).toEqual(["morning", "target"]);
+    expect(risks[1].when).toBe("2026-07-24");
+  });
+});

@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Calendar risk warnings now sort by the same parsed instants used for inclusion, preserving original date labels and the date-only noon convention. Two regressions failed before the fix; all 24 calendar tests pass in three time zones, plus full types/scoped lint. See CALENDAR_RISK_ORDER_2026_09_12.md. Prepared, unreleased; release and acceptance gates remain.
+
 The calendar upcoming-risk window now ends on the intended local calendar day across spring/autumn clock changes. Two regressions reproduced the old extra/missing-hour behavior; all 22 calendar tests pass in three time zones, plus full types/scoped lint. See CALENDAR_RISK_HORIZON_2026_09_12.md. Prepared, unreleased; dispatch behavior and release gates unchanged.
 
 Calendar scheduling now shares strict local-time validation with the editor, blocking invalid submissions before target saves. Preferred defaults reject clock-gap normalization/day overflow and use the displayed fallback. All 44 calendar/formatter tests pass in three time zones; full types/build/scoped lint pass. See CALENDAR_LOCAL_TIME_VALIDATION_2026_09_12.md. Prepared, unreleased; browser/live acceptance and release gates remain.
