@@ -1,6 +1,6 @@
 # Croatian interface authoring — 13 September 2026
 
-Croatian is staged only: 1,488 of the current 3,768 English interface keys across eighteen complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK/SL retain complete staged authoring and incomplete acceptance status.
+Croatian is staged only: 1,736 of the current 3,768 English interface keys across nineteen complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK/SL retain complete staged authoring and incomplete acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -22,8 +22,9 @@ Croatian is staged only: 1,488 of the current 3,768 English interface keys acros
 | Beta guidance | 125 | f59616e |
 | Public beta | 100 | ca38a2c |
 | Configuration | 220 | aedd7bf |
+| Collaboration | 248 | cb473e8 |
 
-The frozen staged registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 29 Croatian/catalog tests, scoped lint, whitespace and type checking pass. Changed code formatted. Type log: /tmp/milo-croatian-config-types.log.
+The frozen staged registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 30 Croatian/catalog tests, scoped lint, whitespace and type checking pass. Changed code formatted. Type log: /tmp/milo-croatian-collab-types.log.
 
 Terminology: radni prostor (workspace), projekt, lozinka (password), ponovno postavljanje lozinke (password reset), bočna traka (sidebar), unos (network listing), paket (subscription plan), plan (workflow plan), smjernice za sadržaj (content brief), poveznica (link). Use polite plural explanatory instructions and concise action labels. Preserve provider/product names and placeholders.
 
@@ -53,4 +54,6 @@ Public beta retains individually agreed pilot scope, one-time versus monthly pri
 
 Configuration copy preserves brand constraints, minimal connector permissions, server-side credential handling, read/write/propose distinctions, prohibition of self-approval/publication/deletion, and approval/publication separation. Coverage records retain source/version/expiry authority and do not verify live listings, NAP, language or performance. Provider navigation labels and technical identifiers remain recognizable. No connection, credential, authorization or publication operation occurred.
 
-Remaining: 2,280 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: collaboration using the current composed English source. This staged work does not complete R20 or change release gates.
+Collaboration copy preserves invitation creation versus email request versus granted access, owner assignment plus recipient consent, exact-version reviews, approval withdrawal on edits/policy changes, historical evidence limits and uncertain delivery/recovery outcomes. Roles: Čitatelj, Urednik, Pregledavatelj. Editorial lesson: uredničko pravilo. No invitation, email, role, consent, review or publication action occurred.
+
+Remaining: 2,032 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: knowledge using the current composed English source. This staged work does not complete R20 or change release gates.

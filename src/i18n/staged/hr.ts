@@ -1,3 +1,4 @@
+import { hrCollab } from "./hr-collab";
 import { hrConfig } from "./hr-config";
 import { hrPublicBeta } from "./hr-public-beta";
 import { hrBetaGuide } from "./hr-beta-guide";
@@ -18,6 +19,13 @@ import { hrAuthScreen } from "./hr-auth-screen";
 import { hrSharedUi } from "./hr-shared-ui";
 /** Croatian authoring; never imported by the runtime catalog. */
 export const HR_STAGED_BATCHES = [
+  {
+    name: "collaboration",
+    copy: hrCollab,
+    namespaces: ["collaboration", "team", "notifications", "awareness", "emailSettings"],
+    sourceRevision: "cb473e8",
+    sourceHash: "429e59f16a866242f25a373ebd6b52332ae3f04534230101422ebab727f77ed0",
+  },
   {
     name: "configuration",
     copy: hrConfig,
