@@ -1,9 +1,33 @@
+import { fiSetupScreen } from "./fi-setup-screen";
+import { fiServicesScreen } from "./fi-services-screen";
+import { fiAuditScreen } from "./fi-audit-screen";
 import { fiCore } from "./fi-core";
 import { fiAuthScreen } from "./fi-auth-screen";
 import { fiSharedUi } from "./fi-shared-ui";
 
 /** Finnish authoring; never imported by the runtime catalog. */
 export const FI_STAGED_BATCHES = [
+  {
+    name: "setup screen",
+    copy: fiSetupScreen,
+    namespaces: ["setupScreen"],
+    sourceRevision: "5ddcfdb",
+    sourceHash: "565b0bcd89f346fd85f3b87d4e44716826a65bee54fd60eaa3b677c4d732a5ca",
+  },
+  {
+    name: "services screen",
+    copy: fiServicesScreen,
+    namespaces: ["servicesScreen"],
+    sourceRevision: "5ddcfdb",
+    sourceHash: "c769d10ab21c34754c6c4a6c57c3ee5f04881605b1dabc10030bca0e9122313d",
+  },
+  {
+    name: "audit screen",
+    copy: fiAuditScreen,
+    namespaces: ["auditScreen"],
+    sourceRevision: "5ddcfdb",
+    sourceHash: "2c15a7061c169b3f2da7446d4280ff94cb6b5ce2e6cb56d156af72ab154f1aed",
+  },
   {
     name: "core",
     copy: fiCore,
