@@ -10,6 +10,7 @@ const h = vi.hoisted(() => ({
 vi.mock("./project-knowledge.server", () => ({ loadProjectKnowledgeContext: h.knowledge }));
 vi.mock("@/integrations/supabase/auth-middleware", () => ({ requireSupabaseAuth: {} }));
 vi.mock("@tanstack/react-start", () => ({
+  createServerOnlyFn: <T>(fn: T): T => fn,
   createServerFn: () => {
     let validate = (value: unknown) => value;
     const builder = {

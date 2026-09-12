@@ -27,9 +27,9 @@ const FEATURE_KEYS: ReadonlyMap<string, string> = new Map([
   ["AI Evaluation (where configured)", "billingScreen.feature.evaluationConfigured"],
   ["Priority support", "billingScreen.feature.prioritySupport"],
   ["Up to 15 client projects", "billingScreen.feature.clientProjects"],
-  ["White-label monthly proof reports", "billingScreen.feature.reports"],
+  ["White-label monthly reports (on demand)", "billingScreen.feature.reports"],
   ["Highest monthly limits", "billingScreen.feature.highestLimits"],
-  ["All connectors + AI Evaluation", "billingScreen.feature.allConnectors"],
+  ["Connectors + AI Evaluation (where configured)", "billingScreen.feature.allConnectors"],
 ]);
 
 export function billingFeatureLabel(feature: string, t: TranslateLabel): string {

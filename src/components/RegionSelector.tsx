@@ -1,3 +1,5 @@
+import { translate } from "@/i18n/translate";
+import type { OnboardingLanguage } from "@/lib/types";
 import { useNavigate } from "@tanstack/react-router";
 import {
   Select,
@@ -13,7 +15,16 @@ import { DISPLAY_REGIONS, REGION_SELECTOR_LABELS, type DisplayRegion } from "@/l
  * market route and remembers the preference — it never changes billing
  * eligibility, only the page shown.
  */
-export function RegionSelector({ current, note }: { current?: DisplayRegion; note?: string }) {
+export function RegionSelector({
+  current,
+  note,
+  language = "en",
+}: {
+  current?: DisplayRegion;
+  note?: string;
+  language?: OnboardingLanguage;
+}) {
+  const label = translate(language, "publicPricing.chooseRegion");
   const navigate = useNavigate();
 
   function pick(region: string) {
@@ -28,10 +39,14 @@ export function RegionSelector({ current, note }: { current?: DisplayRegion; not
   return (
     <div className="inline-flex flex-col gap-1.5">
       <Select value={current ?? undefined} onValueChange={pick}>
-        <SelectTrigger className="h-9 w-44 text-sm"><SelectValue placeholder="Choose region" /></SelectTrigger>
-        <SelectContent>
+        <SelectTrigger aria-label={label} className="h-9 w-44 text-sm">
+          <SelectValue placeholder={label} />
+        </SelectTrigger>
+        <SelectContent lang={language}>
           {DISPLAY_REGIONS.map((r) => (
-            <SelectItem key={r} value={r}>{REGION_SELECTOR_LABELS[r]}</SelectItem>
+            <SelectItem key={r} value={r}>
+              <span lang="en">{REGION_SELECTOR_LABELS[r]}</span>
+            </SelectItem>
           ))}
         </SelectContent>
       </Select>

@@ -11,7 +11,7 @@ import {
  * Auth is required (requireSupabaseAuth) so generation is scoped to
  * a signed-in user; usage is implicitly tied to that user's session.
  */
-import { createServerFn } from "@tanstack/react-start";
+import { createServerFn, createServerOnlyFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { AiTextBoundaryError } from "./ai-text-bounds.server";
 import { generateBudgetedText, type NativeExpenseContext } from "./ai-provider-expense.server";
@@ -1190,7 +1190,9 @@ interface SiteContext {
  * extracts title/meta/visible text and discovers up to 5 same-domain internal
  * links (path + anchor text). Never throws — returns ok:false on any problem.
  */
-export async function fetchSiteContext(rawUrl: string): Promise<SiteContext> {
+export const fetchSiteContext = createServerOnlyFn(fetchSiteContextImpl);
+
+async function fetchSiteContextImpl(rawUrl: string): Promise<SiteContext> {
   const empty: SiteContext = { ok: false, title: "", metaDescription: "", text: "", links: [] };
   let url = (rawUrl || "").trim();
   if (!url) return empty;
@@ -1885,7 +1887,9 @@ ${auditBlock}${competitorBlock}${authorityBlock}${oppBlock}${sharedRules}`,
 // Onboarding — safe homepage scan + light AI extraction
 // ============================================================
 
-export async function scanWebsiteCore(
+export const scanWebsiteCore = createServerOnlyFn(scanWebsiteCoreImpl);
+
+async function scanWebsiteCoreImpl(
   userId: string,
   url: string,
   execution: { attempt?: NativeExpenseContext["attempt"]; requireAi?: boolean } = {},
@@ -1994,7 +1998,9 @@ export const scanWebsiteFn = createServerFn({ method: "POST" })
  * (no request context — the caller supplies the authenticated userId). The
  * server fn below is a thin JWT-authenticated wrapper over this.
  */
-export async function generateOpportunitiesCore(
+export const generateOpportunitiesCore = createServerOnlyFn(generateOpportunitiesCoreImpl);
+
+async function generateOpportunitiesCoreImpl(
   userId: string,
   data: { project: Project; services: ServiceItem[]; existingTitles: string[] },
   metering: { enforceLimit?: boolean; attempt?: NativeExpenseContext["attempt"]; expectedKnowledgeHash?: string } = {},
@@ -2286,7 +2292,9 @@ const ASSET_INSTRUCTIONS: Record<(typeof CONTENT_ASSET_TYPES)[number], string> =
  * contentGeneration budget exactly like the interactive path. The server fn
  * below is a thin JWT-authenticated wrapper over this.
  */
-export async function generateContentCore(
+export const generateContentCore = createServerOnlyFn(generateContentCoreImpl);
+
+async function generateContentCoreImpl(
   userId: string,
   data: {
     project: Project;

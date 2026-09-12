@@ -59,9 +59,9 @@ export const billingScreenCopy: Record<OnboardingLanguage, Readonly<Record<strin
     "billingScreen.feature.evaluationConfigured": "AI Evaluation (where configured)",
     "billingScreen.feature.prioritySupport": "Priority support",
     "billingScreen.feature.clientProjects": "Up to 15 client projects",
-    "billingScreen.feature.reports": "White-label monthly proof reports",
+    "billingScreen.feature.reports": "White-label monthly reports (on demand)",
     "billingScreen.feature.highestLimits": "Highest monthly limits",
-    "billingScreen.feature.allConnectors": "All connectors + AI Evaluation",
+    "billingScreen.feature.allConnectors": "Connectors + AI Evaluation (where configured)",
   },
   pl: {
     "billingScreen.owner": "Właściciel",
@@ -121,9 +121,9 @@ export const billingScreenCopy: Record<OnboardingLanguage, Readonly<Record<strin
     "billingScreen.feature.evaluationConfigured": "Ocena AI (po skonfigurowaniu)",
     "billingScreen.feature.prioritySupport": "Priorytetowa pomoc",
     "billingScreen.feature.clientProjects": "Do 15 projektów klientów",
-    "billingScreen.feature.reports": "Miesięczne raporty wyników pod własną marką",
+    "billingScreen.feature.reports": "Miesięczne raporty pod własną marką (na żądanie)",
     "billingScreen.feature.highestLimits": "Najwyższe limity miesięczne",
-    "billingScreen.feature.allConnectors": "Wszystkie integracje + ocena AI",
+    "billingScreen.feature.allConnectors": "Integracje + ocena AI (po skonfigurowaniu)",
   },
   sv: {
     "billingScreen.owner": "Ägare",
@@ -183,9 +183,10 @@ export const billingScreenCopy: Record<OnboardingLanguage, Readonly<Record<strin
     "billingScreen.feature.evaluationConfigured": "AI-utvärdering (där den är konfigurerad)",
     "billingScreen.feature.prioritySupport": "Prioriterad support",
     "billingScreen.feature.clientProjects": "Upp till 15 kundprojekt",
-    "billingScreen.feature.reports": "Månatliga resultatrapporter med eget varumärke",
+    "billingScreen.feature.reports": "Månadsrapporter med eget varumärke (på begäran)",
     "billingScreen.feature.highestLimits": "Högsta månadsgränserna",
-    "billingScreen.feature.allConnectors": "Alla integrationer + AI-utvärdering",
+    "billingScreen.feature.allConnectors":
+      "Integrationer + AI-utvärdering (där de är konfigurerade)",
   },
   da: {
     "billingScreen.owner": "Ejer",
@@ -245,8 +246,9 @@ export const billingScreenCopy: Record<OnboardingLanguage, Readonly<Record<strin
     "billingScreen.feature.evaluationConfigured": "AI-evaluering (hvor den er konfigureret)",
     "billingScreen.feature.prioritySupport": "Prioriteret support",
     "billingScreen.feature.clientProjects": "Op til 15 kundeprojekter",
-    "billingScreen.feature.reports": "Månedlige resultatrapporter med eget brand",
+    "billingScreen.feature.reports": "Månedsrapporter med eget brand (efter behov)",
     "billingScreen.feature.highestLimits": "Højeste månedsgrænser",
-    "billingScreen.feature.allConnectors": "Alle integrationer + AI-evaluering",
+    "billingScreen.feature.allConnectors":
+      "Integrationer + AI-evaluering (hvor de er konfigureret)",
   },
 };

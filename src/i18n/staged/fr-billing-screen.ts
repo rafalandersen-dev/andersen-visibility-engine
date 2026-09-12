@@ -58,7 +58,7 @@ export const frBillingScreen: Readonly<Record<string, string>> = {
   "billingScreen.feature.evaluationConfigured": "Évaluation IA (si configurée)",
   "billingScreen.feature.prioritySupport": "Assistance prioritaire",
   "billingScreen.feature.clientProjects": "Jusqu’à 15 projets clients",
-  "billingScreen.feature.reports": "Rapports mensuels de résultats en marque blanche",
+  "billingScreen.feature.reports": "Rapports mensuels en marque blanche (à la demande)",
   "billingScreen.feature.highestLimits": "Quotas mensuels les plus élevés",
-  "billingScreen.feature.allConnectors": "Tous les connecteurs + évaluation IA",
+  "billingScreen.feature.allConnectors": "Connecteurs + évaluation IA (si configurés)",
 };

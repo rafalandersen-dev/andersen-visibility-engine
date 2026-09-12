@@ -13,16 +13,16 @@ import { DISPLAY_REGIONS, REGION_SELECTOR_LABELS } from "@/lib/markets";
 export function MarketingShell({
   children,
   languageControls,
+  language = "en",
 }: {
   children: ReactNode;
+  language?: OnboardingLanguage;
   languageControls?: { language: OnboardingLanguage; chooseLanguage: (value: string) => void };
 }) {
-  const t = (key: string) => translate(languageControls?.language ?? "en", key);
+  const pageLanguage = languageControls?.language ?? language;
+  const t = (key: string) => translate(pageLanguage, key);
   return (
-    <main
-      lang={languageControls?.language ?? "en"}
-      className="min-h-screen bg-background text-foreground"
-    >
+    <main lang={pageLanguage} className="min-h-screen bg-background text-foreground">
       <header className="border-b border-border bg-background/85 backdrop-blur">
         <div className="mx-auto max-w-6xl flex flex-wrap gap-3 items-center justify-between px-6 py-4">
           <Link to="/" className="flex flex-col">
@@ -32,14 +32,12 @@ export function MarketingShell({
             </span>
           </Link>
           <div className="flex items-center gap-2">
-            <Link to="/free-ai-visibility-audit">
-              <Button variant="ghost" size="sm">
-                {t("publicAudit.badge")}
-              </Button>
-            </Link>
-            <Link to="/auth">
-              <Button size="sm">{t("onboarding.getStarted")}</Button>
-            </Link>
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/free-ai-visibility-audit">{t("publicAudit.badge")}</Link>
+            </Button>
+            <Button asChild size="sm">
+              <Link to="/auth">{t("onboarding.getStarted")}</Link>
+            </Button>
           </div>
         </div>
         {languageControls && (
@@ -89,7 +87,7 @@ export function MarketingShell({
             <span className="uppercase tracking-[0.18em]">{t("publicBeta.markets")}</span>
             {DISPLAY_REGIONS.map((r) => (
               <Link key={r} to={`/${r}` as never} className="hover:text-foreground">
-                {REGION_SELECTOR_LABELS[r]}
+                <span lang="en">{REGION_SELECTOR_LABELS[r]}</span>
               </Link>
             ))}
           </div>

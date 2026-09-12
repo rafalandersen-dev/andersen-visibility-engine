@@ -895,7 +895,7 @@ export const da: Record<string, string> = {
   // ---- Shopify connector ----
   "shopify.shopify": "Shopify",
   "shopify.intro":
-    "Forbind en Shopify-butik for at udgive Milo-indhold som blogartikler. Milo sender først artikler til en Shopify-blog som ikke-udgivne kladder og udgiver dem derefter live, når du godkender.",
+    "Forbind en Shopify-butik for at sende Milo-indhold til en blog som upublicerede kladder. Godkendelse og udgivelse er separate trin: en godkendelse udgiver ikke artiklen.",
   "shopify.shopDomain": "Butiksdomæne",
   "shopify.shopDomainHelp": "Dit butiksdomæne, f.eks. minbutik.myshopify.com.",
   "shopify.token": "Admin API-adgangstoken",
@@ -905,7 +905,7 @@ export const da: Record<string, string> = {
   "shopify.security":
     "Dit adgangstoken vises aldrig igen efter lagring og bruges kun på serversiden. Du kan udskifte det når som helst.",
   "shopify.minPerms":
-    "Giv kun indholdstilladelser (læs/skriv blogs og artikler). Milo tilgår aldrig ordrer, kunder, produkter eller betalingsdata.",
+    "Til blogudgivelse skal du give læse- og skriveadgang til blogs og artikler. Valgfri katalogopdatering kræver også læseadgang til produkter. Disse funktioner bruger ikke ordre-, kunde- eller betalingsdata.",
   "shopify.test": "Test forbindelse",
   "shopify.testing": "Tester…",
   "shopify.testOk": "Forbundet til Shopify.",
