@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Report-email success copy now distinguishes provider acceptance from unconfirmed delivery across active EN/PL/SV/DA and all six staged languages. The actual dispatch handler checks the provider HTTP response and does not confirm inbox delivery. Reviewed measurements source fingerprints updated. All 216 tests across nine catalog/report files pass; staged lint, active-catalog lint with the existing formatting rule excluded, and whitespace checks pass. No email was sent; real delivery acceptance and release holds remain open.
+
 Public home copy now names the app’s Visibility section consistently across active EN/PL/SV/DA and all staged translations. Reviewed English fingerprints updated; 193 staged/catalog tests plus scoped lint/whitespace pass. The Dutch navigation source discrepancy is resolved; other acceptance and release holds remain.
 
 Dutch post-authoring review corrected approval-versus-review wording in the editor and aligned five recurring labels. All 39 Dutch/catalog tests plus scoped lint/whitespace pass. Full 3,768-key coverage remains; fluent/rendered and source-claim acceptance are still open. See DUTCH_AUTHORING_PROGRESS_2026_09_12.md. No activation or release-gate change.

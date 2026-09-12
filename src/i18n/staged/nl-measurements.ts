@@ -15,7 +15,8 @@ export const nlMeasurements: Readonly<Record<string, string>> = {
   "report.noProject": "Selecteer een project om het maandrapport te bekijken.",
   "report.downloadPdf": "PDF downloaden",
   "report.emailMe": "Dit rapport naar mij e-mailen",
-  "report.toast.emailed": "Rapport naar je e-mailadres verstuurd",
+  "report.toast.emailed":
+    "Rapport geaccepteerd voor verzending. De bezorging is nog niet bevestigd.",
   "report.toast.emailFailed": "Kan de rapportmail niet versturen",
   "report.toast.notConfigured": "E-mailverzending is nog niet geconfigureerd",
   "report.published.title": "Vastgelegde publicaties ({count})",

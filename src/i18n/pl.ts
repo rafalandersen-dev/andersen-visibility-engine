@@ -260,7 +260,8 @@ export const pl: Record<string, string> = {
   "report.noProject": "Wybierz projekt, aby zobaczyć raport miesięczny.",
   "report.downloadPdf": "Pobierz PDF",
   "report.emailMe": "Wyślij raport na mój e-mail",
-  "report.toast.emailed": "Raport wysłany na Twój e-mail",
+  "report.toast.emailed":
+    "Raport przyjęty do wysyłki. Dostarczenie nie zostało jeszcze potwierdzone.",
   "report.toast.emailFailed": "Nie udało się wysłać raportu",
   "report.toast.notConfigured": "Wysyłka e-maili nie jest jeszcze skonfigurowana",
   "report.published.title": "Zarejestrowane publikacje ({count})",

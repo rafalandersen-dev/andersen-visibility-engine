@@ -15,7 +15,7 @@ export const frMeasurements: Readonly<Record<string, string>> = {
   "report.noProject": "Sélectionnez un projet pour consulter son rapport mensuel.",
   "report.downloadPdf": "Télécharger le PDF",
   "report.emailMe": "M’envoyer ce rapport par e-mail",
-  "report.toast.emailed": "Rapport envoyé à votre adresse e-mail",
+  "report.toast.emailed": "Rapport accepté pour envoi. La livraison n’est pas encore confirmée.",
   "report.toast.emailFailed": "Impossible d’envoyer le rapport par e-mail",
   "report.toast.notConfigured": "L’envoi d’e-mails n’est pas encore configuré",
   "report.published.title": "Publications enregistrées ({count})",

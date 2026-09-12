@@ -167,8 +167,8 @@ export const ES_STAGED_BATCHES = [
     name: "measurements",
     copy: esMeasurements,
     namespaces: ["analytics", "gsc", "report"],
-    sourceRevision: "5a9416d74f532b65f78c0f19b89d221c6b2af6c2",
-    sourceHash: "cfe9102341aed0899846a94191ac4a27f5a7b371e09775137f3ce10481df6199",
+    sourceRevision: "8e2f03c",
+    sourceHash: "216126da773525ef913fe7e10a4db7af57539ea07dae497fd349051da3088395",
   },
   {
     name: "outreach",

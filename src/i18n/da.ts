@@ -260,7 +260,8 @@ export const da: Record<string, string> = {
   "report.noProject": "Vælg et projekt for at se månedsrapporten.",
   "report.downloadPdf": "Download PDF",
   "report.emailMe": "Send rapporten til min e-mail",
-  "report.toast.emailed": "Rapporten er sendt til din e-mail",
+  "report.toast.emailed":
+    "Rapporten er accepteret til afsendelse. Leveringen er endnu ikke bekræftet.",
   "report.toast.emailFailed": "Kunne ikke sende rapporten",
   "report.toast.notConfigured": "E-mail-afsendelse er ikke konfigureret endnu",
   "report.published.title": "Registrerede publiceringer ({count})",

@@ -15,7 +15,7 @@ export const ptMeasurements: Readonly<Record<string, string>> = {
   "report.noProject": "Selecione um projeto para ver o respetivo relatório mensal.",
   "report.downloadPdf": "Descarregar PDF",
   "report.emailMe": "Enviar-me este relatório por e-mail",
-  "report.toast.emailed": "Relatório enviado para o seu e-mail",
+  "report.toast.emailed": "Relatório aceite para envio. A entrega ainda não foi confirmada.",
   "report.toast.emailFailed": "Não foi possível enviar o e-mail do relatório",
   "report.toast.notConfigured": "O envio de e-mails ainda não está configurado",
   "report.published.title": "Publicações registadas ({count})",

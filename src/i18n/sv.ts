@@ -260,7 +260,8 @@ export const sv: Record<string, string> = {
   "report.noProject": "Välj ett projekt för att se månadsrapporten.",
   "report.downloadPdf": "Ladda ner PDF",
   "report.emailMe": "Mejla mig rapporten",
-  "report.toast.emailed": "Rapporten har skickats till din e-post",
+  "report.toast.emailed":
+    "Rapporten har accepterats för utskick. Leveransen är ännu inte bekräftad.",
   "report.toast.emailFailed": "Kunde inte skicka rapporten",
   "report.toast.notConfigured": "E-postutskick är inte konfigurerat ännu",
   "report.published.title": "Registrerade publiceringar ({count})",

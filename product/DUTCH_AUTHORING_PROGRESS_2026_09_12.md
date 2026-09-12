@@ -210,3 +210,7 @@ All 39 Dutch/catalog checks, scoped lint and whitespace checks pass. No new test
 At 4b2e674, confirmed AppShell uses shell.nav.insights and the composed runtime catalog resolves that label to Visibility/Widoczność/Synlighet/Synlighed. Updated publicHome.settingsBody to match in all four active languages and FR/DE/ES/IT/NL staged copy. Portuguese already used Visibilidade. Updated the reviewed public-home English fingerprints for DE/ES/IT/PT/NL. This resolves the previously flagged Insights-versus-Visibility source discrepancy.
 
 All 193 staged-language/catalog tests across seven files pass, plus scoped lint and whitespace checks. String-only navigation wording; no layout or behavior change and no runtime language activation. Other source-claim and rendered acceptance items remain open.
+
+### Report email delivery wording review
+
+The report dispatch handler returns success after the provider HTTP response, without inbox delivery confirmation. Updated Dutch and the other nine authored languages to say accepted for sending, with delivery not yet confirmed. Refreshed measurements source fingerprints after reviewing the same meaning across those translations. Catalog and report checks: 216 tests across nine files pass. This resolves the success-toast wording concern only; real email delivery acceptance remains open.

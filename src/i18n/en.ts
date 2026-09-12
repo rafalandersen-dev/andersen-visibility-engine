@@ -266,7 +266,7 @@ export const en: Record<string, string> = {
   "report.noProject": "Select a project to see its monthly report.",
   "report.downloadPdf": "Download PDF",
   "report.emailMe": "Email me this report",
-  "report.toast.emailed": "Report sent to your email",
+  "report.toast.emailed": "Report accepted for sending. Delivery is not yet confirmed.",
   "report.toast.emailFailed": "Could not send the report email",
   "report.toast.notConfigured": "Email sending is not configured yet",
   "report.published.title": "Recorded publications ({count})",
