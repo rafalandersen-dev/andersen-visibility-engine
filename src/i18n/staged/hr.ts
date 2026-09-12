@@ -1,3 +1,4 @@
+import { hrKnowledge } from "./hr-knowledge";
 import { hrCollab } from "./hr-collab";
 import { hrConfig } from "./hr-config";
 import { hrPublicBeta } from "./hr-public-beta";
@@ -19,6 +20,13 @@ import { hrAuthScreen } from "./hr-auth-screen";
 import { hrSharedUi } from "./hr-shared-ui";
 /** Croatian authoring; never imported by the runtime catalog. */
 export const HR_STAGED_BATCHES = [
+  {
+    name: "knowledge",
+    copy: hrKnowledge,
+    namespaces: ["knowledge", "weekly", "approval", "refresh"],
+    sourceRevision: "9e0e08c",
+    sourceHash: "a3a3297006f23628e422ddedfb5b6f5a51c6dd5f6abbc6d6e589481e49915816",
+  },
   {
     name: "collaboration",
     copy: hrCollab,

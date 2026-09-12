@@ -1,6 +1,6 @@
 # Croatian interface authoring — 13 September 2026
 
-Croatian is staged only: 1,736 of the current 3,768 English interface keys across nineteen complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK/SL retain complete staged authoring and incomplete acceptance status.
+Croatian is staged only: 1,978 of the current 3,768 English interface keys across twenty complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK/SL retain complete staged authoring and incomplete acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -23,8 +23,9 @@ Croatian is staged only: 1,736 of the current 3,768 English interface keys acros
 | Public beta | 100 | ca38a2c |
 | Configuration | 220 | aedd7bf |
 | Collaboration | 248 | cb473e8 |
+| Knowledge | 242 | 9e0e08c |
 
-The frozen staged registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 30 Croatian/catalog tests, scoped lint, whitespace and type checking pass. Changed code formatted. Type log: /tmp/milo-croatian-collab-types.log.
+The frozen staged registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 31 Croatian/catalog tests, scoped lint, whitespace and type checking pass. Changed code formatted. Type log: /tmp/milo-croatian-knowledge-types.log.
 
 Terminology: radni prostor (workspace), projekt, lozinka (password), ponovno postavljanje lozinke (password reset), bočna traka (sidebar), unos (network listing), paket (subscription plan), plan (workflow plan), smjernice za sadržaj (content brief), poveznica (link). Use polite plural explanatory instructions and concise action labels. Preserve provider/product names and placeholders.
 
@@ -56,4 +57,6 @@ Configuration copy preserves brand constraints, minimal connector permissions, s
 
 Collaboration copy preserves invitation creation versus email request versus granted access, owner assignment plus recipient consent, exact-version reviews, approval withdrawal on edits/policy changes, historical evidence limits and uncertain delivery/recovery outcomes. Roles: Čitatelj, Urednik, Pregledavatelj. Editorial lesson: uredničko pravilo. No invitation, email, role, consent, review or publication action occurred.
 
-Remaining: 2,032 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: knowledge using the current composed English source. This staged work does not complete R20 or change release gates.
+Knowledge copy preserves exact record/source versions, review validity and expiry, forgotten-evidence limits, separate knowledge/publication approval, bounded text/catalog capture and uncertain weekly recovery semantics. Source-reported acceptance is not independent verification. Owner fields retain precedence. No source fetch, upload, acceptance, review decision, scheduling or publication operation occurred.
+
+Remaining: 1,790 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: technical using the current composed English source. This staged work does not complete R20 or change release gates.
