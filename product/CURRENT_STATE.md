@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+European Portuguese interface authoring has started: 202/3768 messages in the core batch, staged only and excluded from the runtime/picker. Coverage/source/parameter/isolation checks pass (25 tests); 3566 messages and fluent/rendered acceptance remain. See PORTUGUESE_AUTHORING_PROGRESS_2026_09_12.md. No change to release gates or overall/implementation estimates.
+
 Workspace load-error guidance now gives retry/offline instructions and the verified saving-disabled behavior, removing unsupported data-safety and failure-cause assertions across four runtime and four staged languages. 185 catalog/persistence checks pass; reviewed core fingerprints updated only for this source change. See WORKSPACE_LOAD_ERROR_COPY_2026_09_12.md. Prepared, unreleased; language/user acceptance and release gates remain.
 
 New workspace sessions now start a fresh save queue, so an unfinished old-account write cannot prevent the current account from saving. Old queued/in-flight requests retain lifecycle guards. Two new race regressions; 52 store tests/six files pass. See WORKSPACE_SAVE_QUEUE_LIFECYCLE_2026_09_12.md. Prepared, unreleased; issued writes are not cancelled and real-use/release gates remain.
