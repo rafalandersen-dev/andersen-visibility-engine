@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+European Portuguese authoring now covers 274/3768 messages in three groups, adding authentication (42) and shared controls (30). All 27 focused checks pass; 3494 messages and fluent/rendered acceptance remain. See PORTUGUESE_AUTHORING_PROGRESS_2026_09_12.md. Staged only; runtime languages, email behavior, progress estimates and release holds unchanged.
+
 European Portuguese interface authoring has started: 202/3768 messages in the core batch, staged only and excluded from the runtime/picker. Coverage/source/parameter/isolation checks pass (25 tests); 3566 messages and fluent/rendered acceptance remain. See PORTUGUESE_AUTHORING_PROGRESS_2026_09_12.md. No change to release gates or overall/implementation estimates.
 
 Workspace load-error guidance now gives retry/offline instructions and the verified saving-disabled behavior, removing unsupported data-safety and failure-cause assertions across four runtime and four staged languages. 185 catalog/persistence checks pass; reviewed core fingerprints updated only for this source change. See WORKSPACE_LOAD_ERROR_COPY_2026_09_12.md. Prepared, unreleased; language/user acceptance and release gates remain.
