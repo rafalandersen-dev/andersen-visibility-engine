@@ -1,3 +1,5 @@
+import { deConfiguration } from "./de-configuration";
+import { deEvidence } from "./de-evidence";
 import { deTechnical } from "./de-technical";
 import { deMeasurements } from "./de-measurements";
 import { deCollaboration } from "./de-collaboration";
@@ -79,6 +81,16 @@ export const DE_STAGED_BATCHES = [
   },
   { name: "technical", copy: deTechnical, namespaces: ["crawl", "gindex", "perf"] },
   { name: "measurements", copy: deMeasurements, namespaces: ["analytics", "gsc", "report"] },
+  {
+    name: "configuration",
+    copy: deConfiguration,
+    namespaces: ["brand", "wp", "shopify", "claude", "connect", "connections", "coverage"],
+  },
+  {
+    name: "evidence",
+    copy: deEvidence,
+    namespaces: ["answer", "logs", "proof", "aiEval", "benchmark"],
+  },
 ] as const;
 export const DE_STAGED_CATALOG: Readonly<Record<string, string>> = Object.assign(
   {},
