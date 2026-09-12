@@ -1,3 +1,4 @@
+import { csTechnical } from "./cs-technical";
 import { csKnowledge } from "./cs-knowledge";
 import { csCollaboration } from "./cs-collaboration";
 import { csConfiguration } from "./cs-configuration";
@@ -20,6 +21,13 @@ import { csAuthScreen } from "./cs-auth-screen";
 import { csSharedUi } from "./cs-shared-ui";
 /** Czech authoring; never imported by the runtime catalog. */
 export const CS_STAGED_BATCHES = [
+  {
+    name: "technical",
+    copy: csTechnical,
+    namespaces: ["crawl", "gindex", "perf"],
+    sourceRevision: "defdfea",
+    sourceHash: "106a19b8ceaf725528ddc9d4de7317d823108425584418d93729346f29c135e6",
+  },
   {
     name: "knowledge",
     copy: csKnowledge,

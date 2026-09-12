@@ -1,6 +1,6 @@
 # Czech interface authoring — 12 September 2026
 
-Czech is staged only: 1,978 of the current 3,768 English interface keys, across twenty complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI retain their separate staged acceptance status.
+Czech is staged only: 2,216 of the current 3,768 English interface keys, across twenty-one complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI retain their separate staged acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -24,14 +24,15 @@ Czech is staged only: 1,978 of the current 3,768 English interface keys, across 
 | Configuration | 220 | 56ca0c5 |
 | Collaboration and notifications | 248 | 5cac180 |
 | Knowledge, weekly preparation and approval | 242 | 31252eb |
+| Technical crawl, index and performance diagnostics | 238 | defdfea |
 
-The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 31 Czech/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-czech-knowledge-types.log.
+The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 32 Czech/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-czech-technical-types.log.
 
 Terminology: pracovní prostor (workspace), projekt, heslo (password), obnovení hesla (password recovery), postranní panel (sidebar), archivovat (archive). Prefer direct formal-plural instructions; use schválit for approval, potvrdit for confirmation, ověřit for verification and zkontrolovat for review. Product/provider names and placeholders remain intact.
 
 Recovery text preserves conditional account eligibility and does not confirm that an account exists. Source claims about monthly planning and successful sign-in after password update retain their implementation/acceptance obligations; translation does not prove them. No email, authentication, password or provider operation occurred.
 
-Remaining: 1,790 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next complete batch: technical, using current composed English. This initial Czech batch does not complete R20 or alter release gates.
+Remaining: 1,552 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next complete batch: measurements, using current composed English. This initial Czech batch does not complete R20 or alter release gates.
 
 Core review: Plán, Obsah, Viditelnost and Nastavení label the main navigation areas. Work target dates remain distinct from publication times; Naplánováno denotes planned work, while Čas zveřejnění nastaven denotes a publication schedule. Odesláno na web does not mean Zveřejněno. Partial setup success remains separate from completion, and application language, content language and market stay separate settings. Inherited generation/setup claims are translated without proving live behavior. No onboarding, generation, schedule or billing operation occurred.
 
@@ -60,3 +61,5 @@ Configuration review: reading, proposing and writing are separate permissions; p
 Collaboration review: Čtenář, Editor and Posuzovatel match the Czech invitation-email roles. Exact-version approval, publication and resuming a hold remain separate; edits invalidate earlier publication approval. Owner assignment and recipient consent remain separate requirements. Provider acceptance does not confirm email delivery, and saved records do not prove an active job, destination state or improved results. Uncertain saves/decisions require rereading before retrying. No invitation, email, access change, approval or publication operation occurred.
 
 Knowledge review: accepting a source fact is separate from independent verification, and a knowledge review is separate from publication approval. Exact record/source versions, expiry at publication time, forgotten evidence, owner precedence and conflicting instructions retain their limitations. Weekly preparation preserves saved output and distinguishes saved/approved drafts from actual publication queue entries. Document extraction remains text-only with 5 MiB/40-page limits; source catalogs retain partial/read-permission/market limitations. No source fetch, upload, acceptance, knowledge deletion, generation, scheduling or publication operation occurred.
+
+Technical review: saved crawl observations do not establish full-site coverage, repaired findings, Google indexing or Core Web Vitals. Sitemap declarations are separate from page existence/indexing. DNS ownership expiry, robots holds, partial coverage and request uncertainty retain source limits. Google index evidence is historical, and CrUX real-user data stays separate from PageSpeed laboratory results and page/origin scope. No DNS change, crawl, Google request or performance measurement occurred.
