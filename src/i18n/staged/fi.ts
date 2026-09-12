@@ -1,3 +1,4 @@
+import { fiPlanScreen } from "./fi-plan-screen";
 import { fiEvidenceScreen } from "./fi-evidence-screen";
 import { fiAnalyticsScreen } from "./fi-analytics-screen";
 import { fiBillingScreen } from "./fi-billing-screen";
@@ -10,6 +11,13 @@ import { fiSharedUi } from "./fi-shared-ui";
 
 /** Finnish authoring; never imported by the runtime catalog. */
 export const FI_STAGED_BATCHES = [
+  {
+    name: "plan screen",
+    copy: fiPlanScreen,
+    namespaces: ["planScreen"],
+    sourceRevision: "176dab6",
+    sourceHash: "288f529ed3a18c00623c05011262d3cce0374158e558959fa8fc9dbc63174bb7",
+  },
   {
     name: "evidence screen",
     copy: fiEvidenceScreen,
