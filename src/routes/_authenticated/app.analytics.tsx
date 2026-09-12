@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store";
-import { useT } from "@/i18n";
+import { useAppLanguage, useT } from "@/i18n";
 import { getAnalyticsSummaryFn, type AnalyticsSummary } from "@/lib/analytics.functions";
 import { LogEvidencePanel } from "@/components/LogEvidencePanel";
 import { GscLiteSection } from "@/components/GscLiteSection";
@@ -40,6 +40,7 @@ const visualQa = import.meta.env.DEV && import.meta.env.VITE_MILO_VISUAL_QA === 
 function AnalyticsPage() {
   const navigate = useNavigate();
   const t = useT();
+  const locale = useAppLanguage();
   const project = useStore((s) => s.projects.find((p) => p.id === s.activeProjectId));
   const activeProjectId = useStore((s) => s.activeProjectId);
 
@@ -151,7 +152,7 @@ function AnalyticsPage() {
           <section className="grid gap-4 md:grid-cols-3">
             <PremiumStat
               label="Website visits"
-              value={data.growthSummary.visitsLast30.toLocaleString()}
+              value={data.growthSummary.visitsLast30.toLocaleString(locale)}
               change={data.growthSummary.visitsGrowthPercent}
               detail="vs previous 30 days"
               points={data.dailyTrend.map((item) => item.views)}

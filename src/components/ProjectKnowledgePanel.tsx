@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { useT } from "@/i18n";
+import { useAppLanguage, useT } from "@/i18n";
 import { useStore, saveWorkspaceNow } from "@/lib/store";
 import { SourceRefreshPanel } from "./SourceRefreshPanel";
 import { KnowledgeOutputInspection } from "./KnowledgeOutputInspection";
@@ -72,6 +72,7 @@ export function ProjectKnowledgePanel({
   onBusyChange?: (busy: boolean) => void;
   onKnowledgeChange?: () => void;
 }) {
+  const locale = useAppLanguage();
   const t = useT();
   const profile = useStore((store) => store.projects.find((project) => project.id === projectId));
   const [sourceImpact, setSourceImpact] = useState<Awaited<
@@ -400,9 +401,9 @@ export function ProjectKnowledgePanel({
               </p>
               <p className="text-xs text-muted-foreground">
                 {" "}
-                {t("knowledge.ui.savedDate")} {new Date(version.updatedAt).toLocaleString()}
+                {t("knowledge.ui.savedDate")} {new Date(version.updatedAt).toLocaleString(locale)}
                 {version.reviewedAt
-                  ? ` · ${t("knowledge.ui.reviewedDate", { date: new Date(version.reviewedAt).toLocaleString() })}`
+                  ? ` · ${t("knowledge.ui.reviewedDate", { date: new Date(version.reviewedAt).toLocaleString(locale) })}`
                   : ""}
               </p>
               {version.revision < history.record.revision && (
@@ -736,7 +737,7 @@ export function ProjectKnowledgePanel({
             </p>
             <p className="text-xs text-muted-foreground">
               {" "}
-              {t("knowledge.ui.observed")} {new Date(source.observedAt).toLocaleString()}
+              {t("knowledge.ui.observed")} {new Date(source.observedAt).toLocaleString(locale)}
               {source.url && (
                 <>
                   {" "}
@@ -858,7 +859,7 @@ export function ProjectKnowledgePanel({
               {" "}
               {t("knowledge.ui.version")} {version.revision} · {version.label} ·{" "}
               {t(`knowledge.status.${version.status}`)} ·{" "}
-              {new Date(version.observedAt).toLocaleString()}
+              {new Date(version.observedAt).toLocaleString(locale)}
             </p>
           ))}
           {sourceHistory.versions.length === 20 && (

@@ -6,7 +6,7 @@ import { processTechnicalCrawl } from "@/lib/technical-crawl-client";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
-import { useT } from "@/i18n";
+import { useAppLanguage, useT } from "@/i18n";
 import { Button } from "./ui/button";
 import * as api from "@/lib/technical-crawl.functions";
 
@@ -17,6 +17,7 @@ export function TechnicalCrawlPanel({ projectId }: { projectId: string }) {
   ) : null;
 }
 function ProjectCrawl({ owner, projectId }: { owner: string; projectId: string }) {
+  const locale = useAppLanguage();
   const t = useT();
   const ownership = useCrawlOwnership(owner, projectId);
   const ownsSite =
@@ -119,7 +120,7 @@ function ProjectCrawl({ owner, projectId }: { owner: string; projectId: string }
       {saved?.admissionHold && (
         <p className="text-sm text-muted-foreground">
           {t(`crawl.admission_${saved.admissionHold}`)}
-          {saved.retryAfter ? ` ${new Date(saved.retryAfter).toLocaleString()}` : ""}
+          {saved.retryAfter ? ` ${new Date(saved.retryAfter).toLocaleString(locale)}` : ""}
         </p>
       )}
       <div className="flex flex-wrap gap-2">

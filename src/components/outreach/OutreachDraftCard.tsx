@@ -43,12 +43,14 @@ export function OutreachDraftCard({
   receipts,
   refreshHistory,
   t,
+  locale,
 }: {
   draft: OutreachDraft;
   deliveryReady: boolean;
   receipts: OutreachReceipt[];
   refreshHistory: () => Promise<void>;
   t: Translate;
+  locale: string;
 }) {
   const userId = useStore((state) => state.userId);
   const [editing, setEditing] = useState(false);
@@ -277,7 +279,7 @@ export function OutreachDraftCard({
                     ) : dueAt ? (
                       <span className="flex items-center gap-1 text-xs text-muted-foreground">
                         <Clock3 className="h-3 w-3" />
-                        {t("outreach.dueAt", { time: new Date(dueAt).toLocaleDateString() })}
+                        {t("outreach.dueAt", { time: new Date(dueAt).toLocaleDateString(locale) })}
                       </span>
                     ) : null}
                   </div>

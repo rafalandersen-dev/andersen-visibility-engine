@@ -6,7 +6,7 @@ import {
   withdrawKnowledgeOutputReviewFn,
 } from "@/lib/project-knowledge.functions";
 import { Button } from "./ui/button";
-import { useT } from "@/i18n";
+import { useAppLanguage, useT } from "@/i18n";
 
 /** Ephemeral inspection; authority and history stay on the server. */
 export function KnowledgeOutputInspection({
@@ -18,6 +18,7 @@ export function KnowledgeOutputInspection({
   assetId: string;
   onReviewChange?: () => void;
 }) {
+  const locale = useAppLanguage();
   const t = useT();
   const [snapshot, setSnapshot] = useState<Awaited<
     ReturnType<typeof readKnowledgeOutputReviewFn>
@@ -128,7 +129,7 @@ export function KnowledgeOutputInspection({
         <div className="space-y-3 rounded-md border p-3">
           <p className="text-sm">{t("knowledge.inspect.help")}</p>
           <p className="text-xs text-muted-foreground">
-            {new Date(snapshot.checkedAt).toLocaleString()}
+            {new Date(snapshot.checkedAt).toLocaleString(locale)}
           </p>
           <h6 className="font-medium">{snapshot.title}</h6>
           <p className="text-sm">{snapshot.deliverable.metaTitle}</p>
@@ -172,7 +173,7 @@ export function KnowledgeOutputInspection({
                   {fact.record.validUntil && (
                     <p>
                       {t("knowledge.inspect.until")}:{" "}
-                      {new Date(fact.record.validUntil).toLocaleString()}
+                      {new Date(fact.record.validUntil).toLocaleString(locale)}
                     </p>
                   )}
                 </>
@@ -244,7 +245,7 @@ export function KnowledgeOutputInspection({
           <p className="text-xs">{t("knowledge.review.historyHelp")}</p>
           {history.map((row) => (
             <div key={row.reviewId} className="text-sm">
-              {new Date(row.reviewedAt).toLocaleString()} ·{" "}
+              {new Date(row.reviewedAt).toLocaleString(locale)} ·{" "}
               {t(row.active ? "knowledge.review.recorded" : "knowledge.review.withdrawn")}
               {row.active && (
                 <Button

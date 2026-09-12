@@ -75,6 +75,7 @@ describe("backlink evidence consumers", () => {
           convertTop: vi.fn(),
           convertingTop: false,
           t,
+          locale,
         }),
       );
       expect(html).toContain(backlinkIntegrity[locale]["backlinks.integrity.source"]);
@@ -99,6 +100,7 @@ describe("backlink evidence consumers", () => {
         convertTop: vi.fn(),
         convertingTop: false,
         t: (key) => key,
+        locale: "en",
       }),
     );
     expect(html).toContain("backlinks.integrity.legacy");

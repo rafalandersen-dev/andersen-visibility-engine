@@ -1,86 +1,9 @@
-import { backlinkRecurringCopy } from "./backlink-recurring";
-import { emailSettingsCopy } from "./email-settings";
-import { technicalPerformanceCopy } from "./technical-performance";
-import { googleIndexCopy } from "./google-index";
-import { technicalCrawlCopy } from "./technical-crawl";
-import { backlinkDetailsCopy } from "./backlink-details";
-import { backlinkMonitoringCopy } from "./backlink-monitoring";
-import { projectTeams } from "./project-teams";
-import { locationCoverage } from "./location-coverage";
-/**
- * Milo Growth — lightweight i18n (no dependency).
- *
- * App UI language = active project's `appLanguage` (fallback English). Content
- * generation language is separate (`primaryContentLanguage`) and handled in the
- * AI prompt layer, not here.
- *
- * - English fallback for unknown language and for any missing key.
- * - Never throws: a missing key returns the key string itself.
- */
-import { publishingFidelity } from "./publishing-fidelity";
+/** React bindings for the device UI preference; content, email and market stay separate. */
 import { useStore } from "@/lib/store";
 import type { OnboardingLanguage } from "@/lib/types";
-import { backlinkIntegrity } from "./backlink-integrity";
-import { gscIntegrity } from "./gsc-integrity";
-import { outreachIntegrityCopy } from "./outreach-integrity";
-import { logEvidenceCopy } from "./log-evidence";
-import { answerEvidenceCopy } from "./answer-evidence";
-import { en } from "./en";
-import { pl } from "./pl";
-import { sv } from "./sv";
-import { da } from "./da";
-import { premium } from "./premium";
-import { notifications } from "./notifications";
-import { projectKnowledge } from "./project-knowledge";
-import { proofEvidence } from "./proof-evidence";
-import { specialistTeam } from "./specialist-team";
-import { generationResults } from "./generation-results";
-
-type Dict = Record<string, string>;
-const DICTS: Record<OnboardingLanguage, Dict> = { en, pl, sv, da };
-
-function isSupported(lang: unknown): lang is OnboardingLanguage {
-  return lang === "en" || lang === "pl" || lang === "sv" || lang === "da";
-}
-
-export function translate(
-  lang: OnboardingLanguage | undefined,
-  key: string,
-  vars?: Record<string, string | number>,
-): string {
-  const l = isSupported(lang) ? lang : "en";
-  let s =
-    emailSettingsCopy[l][key] ??
-    technicalPerformanceCopy[l][key] ??
-    googleIndexCopy[l][key] ??
-    technicalCrawlCopy[l][key] ??
-    projectTeams[l][key] ??
-    locationCoverage[l][key] ??
-    publishingFidelity[l][key] ??
-    backlinkRecurringCopy[l][key] ??
-    backlinkDetailsCopy[l][key] ??
-    backlinkMonitoringCopy[l][key] ??
-    backlinkIntegrity[l][key] ??
-    gscIntegrity[l][key] ??
-    outreachIntegrityCopy[l][key] ??
-    logEvidenceCopy[l][key] ??
-    answerEvidenceCopy[l][key] ??
-    proofEvidence[l][key] ??
-    specialistTeam[l][key] ??
-    (projectKnowledge[l] as Dict)[key] ??
-    generationResults[l][key] ??
-    notifications[l][key] ??
-    premium[l][key] ??
-    DICTS[l][key] ??
-    en[key] ??
-    key;
-  if (vars) {
-    for (const [k, v] of Object.entries(vars)) {
-      s = s.replace(new RegExp(`\\{${k}\\}`, "g"), String(v));
-    }
-  }
-  return s;
-}
+import { isUiLanguage } from "./catalogs";
+import { translate } from "./translate";
+export { translate } from "./translate";
 
 const UI_LOCALE_KEY = "milo.uiLocale";
 
@@ -95,7 +18,7 @@ const UI_LOCALE_KEY = "milo.uiLocale";
 export function getUiLocaleOverride(): OnboardingLanguage | null {
   try {
     const v = window.localStorage.getItem(UI_LOCALE_KEY);
-    return isSupported(v) ? v : null;
+    return isUiLanguage(v) ? v : null;
   } catch {
     return null;
   }
@@ -115,7 +38,7 @@ export function setUiLocaleOverride(lang: OnboardingLanguage | null): void {
 export function useAppLanguage(): OnboardingLanguage {
   const projectLang = useStore((s) => {
     const p = s.projects.find((x) => x.id === s.activeProjectId) ?? s.projects[0];
-    return isSupported(p?.appLanguage) ? p!.appLanguage! : "en";
+    return isUiLanguage(p?.appLanguage) ? p!.appLanguage! : "en";
   });
   if (typeof window === "undefined") return projectLang;
   return getUiLocaleOverride() ?? projectLang;

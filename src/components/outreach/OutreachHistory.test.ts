@@ -24,6 +24,7 @@ const render = (rows: OutreachReceipt[], ready = true, locale = "en") =>
       refresh: async () => {},
       cancel: async () => {},
       t: (key) => outreachIntegrityCopy[locale][key] ?? key,
+      locale,
     }),
   );
 describe("actual outreach receipt history UI", () => {

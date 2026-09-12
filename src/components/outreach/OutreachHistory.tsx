@@ -7,6 +7,7 @@ export function OutreachHistory({
   refresh,
   cancel,
   t,
+  locale,
 }: {
   receipts: OutreachReceipt[];
   ready: boolean;
@@ -14,6 +15,7 @@ export function OutreachHistory({
   refresh: () => Promise<void>;
   cancel: (receipt: OutreachReceipt) => Promise<void>;
   t: (key: string) => string;
+  locale: string;
 }) {
   return (
     <section className="mb-5 rounded-lg border border-border bg-card p-4">
@@ -52,8 +54,10 @@ export function OutreachHistory({
                     : `${t("outreach.integrity.followup")} ${r.step === "followup-0" ? 1 : 2}`}
                 </p>
                 <p>
-                  {t("outreach.integrity.reservedAt")}: {new Date(r.reserved_at).toLocaleString()} ·{" "}
-                  {t("outreach.integrity.updatedAt")}: {new Date(r.updated_at).toLocaleString()}
+                  {t("outreach.integrity.reservedAt")}:{" "}
+                  {new Date(r.reserved_at).toLocaleString(locale)} ·{" "}
+                  {t("outreach.integrity.updatedAt")}:{" "}
+                  {new Date(r.updated_at).toLocaleString(locale)}
                 </p>
                 <p className="break-all text-xs text-muted-foreground">
                   {t("outreach.integrity.version")}: {r.version_hash}
