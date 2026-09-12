@@ -1,3 +1,4 @@
+import { itPublicHome } from "./it-public-home";
 import { itPublicStudies } from "./it-public-studies";
 import { itPublicPricing } from "./it-public-pricing";
 import { itConfiguration } from "./it-configuration";
@@ -155,6 +156,13 @@ export const IT_STAGED_BATCHES = [
     namespaces: ["publicStudies"],
     sourceRevision: "554701d",
     sourceHash: "ace563fb757a52abcd667e7e691d3e48024045a4e4f265e6949c66a828f5e8de",
+  },
+  {
+    name: "public home",
+    copy: itPublicHome,
+    namespaces: ["publicHome"],
+    sourceRevision: "da6e67e",
+    sourceHash: "4e132895babfb222b37e92719be5ad2a8be90d9503869e9df9845b00d982adeb",
   },
 ] as const;
 export const IT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
