@@ -1,6 +1,6 @@
 # Dutch interface authoring — 12 September 2026
 
-R20 requires full EU-language coverage. Dutch authoring has begun with 524 of the current 3,768 English interface messages (3,244 remain). This is a partial staged catalog; Dutch is not registered in UI_CATALOGS or the language picker.
+R20 requires full EU-language coverage. Dutch authoring has begun with 637 of the current 3,768 English interface messages (3,131 remain). This is a partial staged catalog; Dutch is not registered in UI_CATALOGS or the language picker.
 
 ## Completed authoring batches
 
@@ -13,6 +13,7 @@ R20 requires full EU-language coverage. Dutch authoring has begun with 524 of th
 | Analytics screen | 36 | src/i18n/staged/nl-analytics-screen.ts |
 | Billing screen | 54 | src/i18n/staged/nl-billing-screen.ts |
 | Evidence screens | 89 | src/i18n/staged/nl-evidence-screen.ts |
+| Plan screen | 113 | src/i18n/staged/nl-plan-screen.ts |
 | Authentication | 42 | src/i18n/staged/nl-auth-screen.ts |
 | Shared controls | 30 | src/i18n/staged/nl-shared-ui.ts |
 
@@ -49,3 +50,10 @@ All nineteen Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-ana
 At fb56499, authored all 89 evidenceScreen messages. Higher competitor scores remain larger estimated gaps, while higher readiness scores indicate better estimated readiness. Retrieved evidence, failed retrieval, one-time analysis, readiness estimates, recorded answers and AI referral visits remain distinct. Brand names, placeholders and numeric limits are preserved.
 
 All twenty Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-evidence-types.log), scoped lint and whitespace checks. Total staged coverage is 524; 3,244 messages remain. Plan and editor screens are next. No language activation or provider operation occurred; fluent/rendered and real-use acceptance remain open.
+
+
+## Plan-screen follow-up
+
+At 9099f42, authored all 113 planScreen messages. Work targets remain distinct from publication schedules; accepted suggestions do not themselves generate or publish content. Sample-data labels, partial batch counts, source provenance and the warning about active schedules on orphaned drafts are preserved. Stored lifecycle values and server authority are untouched.
+
+All twenty-one Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-plan-types.log), scoped lint and whitespace checks. Total staged coverage is 637; 3,131 messages remain. Editor screens are next. No runtime activation or scheduling operation occurred; terminology/fluency/rendered and real-use acceptance remain open.
