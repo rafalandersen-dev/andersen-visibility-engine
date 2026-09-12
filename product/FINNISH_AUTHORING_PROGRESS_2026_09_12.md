@@ -1,6 +1,6 @@
 # Finnish interface authoring — 12 September 2026
 
-Finnish is staged only: 637 of the current 3,768 English interface keys, across ten complete batches. It is not registered in UI_CATALOGS or the language picker. Active UI remains EN/PL/SV/DA; the fully authored FR/DE/ES/IT/PT/NL catalogs retain their separate acceptance status.
+Finnish is staged only: 785 of the current 3,768 English interface keys, across eleven complete batches. It is not registered in UI_CATALOGS or the language picker. Active UI remains EN/PL/SV/DA; the fully authored FR/DE/ES/IT/PT/NL catalogs retain their separate acceptance status.
 
 | Batch | Keys | English baseline |
 | --- | ---: | --- |
@@ -14,14 +14,15 @@ Finnish is staged only: 637 of the current 3,768 English interface keys, across 
 | Billing screen | 54 | 7e386ca |
 | Evidence screen | 89 | 0797a5a |
 | Plan screen | 113 | 176dab6 |
+| Editor screen | 148 | 6ee37f2 |
 
 Source material was reviewed in auth-screen.ts and shared-ui.ts; tests compare the composed English catalog and its SHA-256 fingerprint, exact namespace key coverage, nonempty translations, placeholders, numbers, URLs and email tokens. The combined Finnish catalog is frozen with unique key ownership. Tests also confirm runtime exclusion.
 
 Terminology: työtila (workspace), projekti (project), salasana (password), palautuslinkki (reset link), sivupalkki (sidebar), arkistoi (archive). Use direct, concise Finnish UI instructions. Preserve conditional password-recovery wording and source placeholders. Do not translate product/provider names as ordinary words.
 
-Validation: 21 Finnish/catalog tests pass; TypeScript, scoped lint and whitespace pass. These mechanical checks do not constitute fluent-language or rendered accessibility acceptance. Source claims about monthly planning and successful sign-in after password update retain their existing implementation/acceptance boundaries.
+Validation: 22 Finnish/catalog tests pass; TypeScript, scoped lint and whitespace pass. These mechanical checks do not constitute fluent-language or rendered accessibility acceptance. Source claims about monthly planning and successful sign-in after password update retain their existing implementation/acceptance boundaries.
 
-Remaining: 3,131 English keys, fluent review, consistent terminology across the rest of the product, rendered mobile/desktop and accessibility checks, and approved activation. Next authoring batch is the editor screen, using current composed English values rather than historical raw base strings. R20 still requires all 24 EU languages across its registered surfaces; this initial batch does not satisfy it.
+Remaining: 2,983 English keys, fluent review, consistent terminology across the rest of the product, rendered mobile/desktop and accessibility checks, and approved activation. Next authoring batches are public pricing and case studies, using current composed English values rather than historical raw base strings. R20 still requires all 24 EU languages across its registered surfaces; this initial batch does not satisfy it.
 
 Core review notes: ajastettu (scheduled), lähetetty sivustolle (sent to site), julkaistu (published), tarkista (review), vahvista (confirm). The Visibility navigation entry is Näkyvyys. Partial onboarding completion remains distinct from success. Inherited monthly-positioning, initial generation and setup-quality claims still require implementation/product acceptance; translation does not verify them.
 
@@ -32,3 +33,5 @@ Analytics/billing review: recorded views are not unique visitors, tracked clicks
 Evidence-screen review: competitor snapshots are not ongoing monitoring; failed retrieval supplies no competitor evidence. Readiness scores and source suitability remain estimates, separate from observed answer mentions/citations/rankings. AI referral traffic remains distinct from answer evidence. Provider names and variable placeholders are preserved.
 
 Plan-screen review: työn tavoitepäivä (work target) remains separate from julkaisuaika (publication time). Accepting discovery suggestions does not create content or schedule publication. Unlinked drafts can retain active schedules; archive/restore actions and partial batch counts preserve their source meaning.
+
+Editor-screen review: sending, publication and last-attempt timestamps remain distinct. The image upload limit, private-until-approval wording, controlled-origin restriction and explicit draft-save reminder preserve the English source. Source URL reachability is distinct from factual support, and verified status cannot be selected manually. Real-person consent and non-invention claims, image privacy and connector behavior retain their implementation/acceptance obligations. The health/finance/legal author recommendation remains non-blocking; CMS removal of structured data and search-engine discretion remain explicit.
