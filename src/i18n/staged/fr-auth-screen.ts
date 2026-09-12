@@ -1,0 +1,51 @@
+/** Authoring only; unavailable in the runtime and picker. */
+export const frAuthScreen: Readonly<Record<string, string>> = {
+  "authScreen.tagline": "Planificateur mensuel de croissance avec IA",
+  "authScreen.hero":
+    "Votre planificateur mensuel de croissance avec IA : idées de visibilité, briefs de contenu et plan d’action clair.",
+  "authScreen.workspaceHelp":
+    "Connectez-vous à votre espace de travail ou créez un compte pour démarrer un projet.",
+  "authScreen.builtBy": "Créé par Andersen Innovations",
+  "authScreen.home": "Retour à l’accueil",
+  "authScreen.createHeading": "Créer votre compte",
+  "authScreen.resetHeading": "Réinitialiser votre mot de passe",
+  "authScreen.signIn": "Se connecter",
+  "authScreen.signupHelp": "Commencez avec {plan} et configurez un projet.",
+  "authScreen.resetHelp":
+    "Saisissez votre adresse e-mail pour demander un lien de réinitialisation.",
+  "authScreen.signInHelp": "Bienvenue dans votre espace de travail.",
+  "authScreen.displayName": "Nom affiché",
+  "authScreen.email": "E-mail",
+  "authScreen.password": "Mot de passe",
+  "authScreen.passwordHint": "Au moins 8 caractères",
+  "authScreen.wait": "Veuillez patienter…",
+  "authScreen.create": "Créer un compte",
+  "authScreen.sendReset": "Envoyer le lien de réinitialisation",
+  "authScreen.or": "ou",
+  "authScreen.continueProvider": "Continuer avec {provider}",
+  "authScreen.createInstead": "Créer un compte",
+  "authScreen.forgot": "Mot de passe oublié ?",
+  "authScreen.backSignIn": "Retour à la connexion",
+  "authScreen.signupSent":
+    "Consultez votre boîte de réception pour confirmer votre adresse e-mail avant de vous connecter.",
+  "authScreen.welcome": "Heureux de vous revoir.",
+  "authScreen.resetRequested":
+    "Si le compte permet la récupération du mot de passe, consultez votre boîte de réception pour obtenir un lien.",
+  "authScreen.error": "Une erreur s’est produite.",
+  "authScreen.providerUnavailable": "La connexion avec {provider} est momentanément indisponible.",
+  "authScreen.newHeading": "Définir un nouveau mot de passe",
+  "authScreen.checking": "Vérification du lien de réinitialisation…",
+  "authScreen.invalid":
+    "Ce lien de réinitialisation est invalide ou a expiré. Demandez-en un nouveau.",
+  "authScreen.requestNew": "Demander un nouveau lien",
+  "authScreen.newHelp": "Choisissez un nouveau mot de passe pour votre compte.",
+  "authScreen.newPassword": "Nouveau mot de passe",
+  "authScreen.confirmPassword": "Confirmer le mot de passe",
+  "authScreen.repeatPassword": "Répétez votre nouveau mot de passe",
+  "authScreen.updating": "Mise à jour…",
+  "authScreen.updatePassword": "Mettre à jour le mot de passe",
+  "authScreen.passwordShort": "Le mot de passe doit contenir au moins 8 caractères.",
+  "authScreen.passwordMismatch": "Les mots de passe ne correspondent pas.",
+  "authScreen.passwordUpdated": "Mot de passe mis à jour. Vous êtes connecté.",
+  "authScreen.passwordFailed": "Impossible de mettre à jour le mot de passe.",
+};

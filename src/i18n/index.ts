@@ -12,7 +12,7 @@ const UI_LOCALE_KEY = "milo.uiLocale";
  * ACTIVE PROJECT's appLanguage — switching from a Swedish project to a Polish
  * one flipped the whole interface mid-session. The device override wins when
  * set; the project appLanguage remains the default for devices that never
- * chose. Stable per page load — the picker reloads on change (a language
+ * chose. Stable per page load — the workspace picker reloads on change (a language
  * switch is rare, and a reload keeps every mounted string consistent).
  */
 export function getUiLocaleOverride(): OnboardingLanguage | null {
@@ -24,14 +24,20 @@ export function getUiLocaleOverride(): OnboardingLanguage | null {
   }
 }
 
-export function setUiLocaleOverride(lang: OnboardingLanguage | null): void {
+export function setUiLocaleOverride(
+  lang: OnboardingLanguage | null,
+  options: { reload?: boolean } = {},
+): void {
+  if (lang !== null && !isUiLanguage(lang)) return;
   try {
     if (lang) window.localStorage.setItem(UI_LOCALE_KEY, lang);
     else window.localStorage.removeItem(UI_LOCALE_KEY);
   } catch {
     /* private mode — the project default applies */
   }
-  window.location.reload();
+  // Authentication forms update their own text without interrupting the form
+  // or recovery session. Existing workspace callers keep the reload behavior.
+  if (options.reload !== false) window.location.reload();
 }
 
 /** The UI language: device override first, else the active project's appLanguage. */

@@ -1,0 +1,15 @@
+# Authentication interface languages — 12 September 2026
+
+Status: prepared and locally validated, unreleased. Sign-in, signup, reset requests and password-update forms now expose English, Polish, Swedish and Danish through a labeled native selector. The 42 messages cover controls, instructions, loading states and fallback outcomes. Matching French copy remains authoring only, excluded from the runtime and selector.
+
+The combined eight-batch candidate adds 233 messages. Each current dictionary and the staged French dictionary contains 3,285 keys; French has 22 authoring batches. These counts describe copy coverage, not completed product journeys or fluent-user acceptance.
+
+Authentication reads the device language choice with an English fallback, without choosing a language from a previous workspace. Its first render stays English for server/client hydration consistency, then reads the preference. Choosing a language updates local React state and stores only the locale without reloading the form. Existing workspace callers retain their reload behavior. Unsupported and staged languages are refused. The selector is disabled while a submission is busy.
+
+Signup success asks the user to check their inbox for confirmation without asserting that a new account was created. Reset-request success is conditional on an eligible account, consistent with the server's generic response. Signup help describes setting up a project and removes an unverified demo-project promise. Existing provider/server error messages still take precedence over localized fallbacks. Outgoing authentication email templates and metadata are outside this copy batch.
+
+Validation: 145 focused checks across 12 files, full TypeScript, zero-diagnostic changed-file lint and production build pass. Seven device-preference cases cover all four language values, preserved workspace reload defaults, unsupported values and unavailable storage. A read-only TypeScript AST comparison confirms all 65 captured existing authentication calls, effect bodies/dependencies, form attributes, redirect/schema declarations and validation guards match the pre-change source. The new selector's own callback is explicitly outside that comparison. Logs: `/tmp/milo-ui-auth-{focused,types,lint,build}.log`; static comparison: `/tmp/milo-ui-auth-boundary-comparison.json`.
+
+This establishes local implementation behavior and static boundaries, not actual browser form persistence, password-recovery acceptance, OAuth/provider availability or fluent-user quality. No real account, session, email, password, credential, provider or production operation occurred. The separately prepared signup account-retention fix is not included in this UI branch.
+
+No PR, migration or deployment was issued for this batch. Required final-head code/security reviews and both-runtime CI remain release prerequisites; the latest security-review attempt on PR135 reports an exhausted review quota. Overall progress remains approximately 60%, implementation 75% (weighted 58.25% / 73.5%); paid launch remains NO-GO.
