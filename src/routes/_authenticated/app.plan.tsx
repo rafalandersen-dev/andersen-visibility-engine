@@ -100,11 +100,12 @@ import {
   type PipelineStage,
 } from "@/lib/pipeline";
 import { formatDateTimeLocal, formatTimeLocal } from "@/lib/format";
+import { formatPlanningDate as formatDate } from "@/lib/planning-date";
 import { StageChip } from "@/components/StageChip";
 import { OrphanLane } from "@/components/OrphanLane";
 import { StackedDeck } from "@/components/StackedDeck";
 import { BatchBar } from "@/components/BatchBar";
-import { useT, useAppLanguage } from "@/i18n";
+import { translate, useT, useAppLanguage } from "@/i18n";
 import { contentCover } from "@/lib/growth-work";
 import { toast } from "sonner";
 
@@ -198,6 +199,7 @@ const FLOW_STAGES: PipelineStage[] = [
 
 function PlanPage() {
   const t = useT();
+  const locale = useAppLanguage();
   const search = Route.useSearch();
   const navigate = useNavigate();
   const activeProjectId = useStore((state) => state.activeProjectId);
@@ -275,7 +277,7 @@ function PlanPage() {
             // about armed schedules, failed publishes and pages already live.
             pipeline: pipelineStage({ opportunity, asset }),
             pipelineDetail: asset?.scheduledPublishAt
-              ? formatDateTimeLocal(asset.scheduledPublishAt)
+              ? formatDateTimeLocal(asset.scheduledPublishAt, locale)
               : undefined,
           };
         })
@@ -284,12 +286,12 @@ function PlanPage() {
         )
         .filter((opportunity) =>
           query.trim()
-            ? `${opportunity.title} ${opportunity.targetQuery ?? ""} ${opportunitySourceLabel(opportunity)}`
+            ? `${opportunity.title} ${opportunity.targetQuery ?? ""} ${opportunitySourceLabel(opportunity, (key) => translate(locale, key))}`
                 .toLocaleLowerCase()
                 .includes(query.trim().toLocaleLowerCase())
             : true,
         ),
-    [assetsByOpportunity, query, rawOpportunities, showArchived],
+    [assetsByOpportunity, locale, query, rawOpportunities, showArchived],
   );
 
   // The calendar's solid layer: every ARMED asset, keyed on the asset itself, so
@@ -445,10 +447,12 @@ function PlanPage() {
     if (!dropIntent?.opportunity) return;
     try {
       applyTarget(dropIntent.opportunity, dropIntent.date);
-      toast.success(`Target set for ${format(dropIntent.date, "MMM d")}`);
+      toast.success(
+        t("planScreen.target.set", { date: formatDate(dropIntent.date, locale, false) }),
+      );
       setDropIntent(null);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not set the target");
+      toast.error(error instanceof Error ? error.message : t("planScreen.target.failed"));
     }
   }
 
@@ -475,9 +479,9 @@ function PlanPage() {
       const uid = getState().userId;
       if (uid) await reloadWorkspaceForUser(uid);
       toast.success(
-        `${dropIntent.reschedule ? "Go-live moved to" : "Scheduled — goes live"} ${formatDateTimeLocal(
-          instant.toISOString(),
-        )}`,
+        t(dropIntent.reschedule ? "planScreen.publication.moved" : "planScreen.publication.armed", {
+          date: formatDateTimeLocal(instant.toISOString(), locale),
+        }),
       );
       setDropIntent(null);
     } catch (error) {
@@ -488,7 +492,7 @@ function PlanPage() {
             ? t("approval.unavailable")
             : error instanceof Error
               ? error.message
-              : "Could not schedule the go-live",
+              : t("planScreen.publication.failed"),
       );
     } finally {
       setArming(false);
@@ -542,9 +546,9 @@ function PlanPage() {
       case "idea":
         try {
           transitionOpportunity(opportunity.id, "prioritized", { priority: opportunity.priority });
-          toast.success("Prioritised");
+          toast.success(t("planScreen.prioritized"));
         } catch (error) {
-          toast.error(error instanceof Error ? error.message : "Could not prioritise");
+          toast.error(error instanceof Error ? error.message : t("planScreen.prioritizeFailed"));
         }
         return;
       case "queued":
@@ -603,18 +607,14 @@ function PlanPage() {
       });
       navigate({ to: "/app/editor", search: { id: asset.id } });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not start the rewrite");
+      toast.error(error instanceof Error ? error.message : t("planScreen.rewriteFailed"));
     }
   }
 
   return (
     <AppShell
       title={view === "discover" ? t("today.discover") : "Plan"}
-      description={
-        view === "discover"
-          ? "Find new ideas from your site, search signals and business priorities. Nothing becomes work until you accept it."
-          : t("plan.subtitle")
-      }
+      description={view === "discover" ? t("planScreen.discoverySubtitle") : t("plan.subtitle")}
       actions={
         <>
           <Button variant="outline" onClick={() => setView("discover")}>
@@ -646,18 +646,17 @@ function PlanPage() {
           {showSampleBanner ? (
             <div className="mx-3 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-[#e2e6eb] bg-[#f2f5f8] px-4 py-2.5">
               <p className="text-[11px] text-[#5f6672]">
-                Rows marked <span className="font-semibold">Sample</span> are example data included
-                with your workspace — not your own content.
+                {t("planScreen.sample.note", { label: t("planScreen.sample.label") })}
               </p>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => {
                   clearSampleData();
-                  toast.success("Sample data removed");
+                  toast.success(t("planScreen.sample.removed"));
                 }}
               >
-                Clear sample data
+                {t("planScreen.sample.clear")}
               </Button>
             </div>
           ) : null}
@@ -799,10 +798,11 @@ function ScheduleDropDialog({
   onClose: () => void;
 }) {
   const t = useT();
+  const locale = useAppLanguage();
   if (!intent) return null;
   const { readiness, reschedule } = intent;
   const title = intent.asset?.title ?? intent.opportunity?.title ?? "";
-  const day = format(intent.date, "MMM d, yyyy");
+  const day = formatDate(intent.date, locale);
   const canArm = Boolean(intent.asset) && time !== "" && (readiness.ready || reschedule);
   return (
     <Dialog open onOpenChange={(open) => (!open ? onClose() : undefined)}>
@@ -864,7 +864,7 @@ function ScheduleDropDialog({
             >
               {readiness.ready
                 ? t("calsched.targetOnly")
-                : t("calsched.setTarget", { date: format(intent.date, "MMM d") })}
+                : t("calsched.setTarget", { date: formatDate(intent.date, locale, false) })}
             </Button>
           ) : null}
           {(readiness.ready || reschedule) && intent.asset ? (
@@ -887,6 +887,8 @@ function DiscoverView({
   suggestions: DiscoverySuggestion[];
   onOpenPlan: () => void;
 }) {
+  const t = useT();
+  const ideaStage = t("pipeline.stage.idea");
   const [selected, setSelected] = useState<Set<string>>(
     () =>
       new Set(
@@ -920,9 +922,9 @@ function DiscoverView({
     try {
       const generated = await generateSeoOpportunities(project.id);
       setSelected(new Set(generated.slice(0, 3).map((item) => item.id)));
-      toast.success(`${generated.length} suggestions are ready for review`);
+      toast.success(t("planScreen.discovery.ready", { count: generated.length }));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Discovery failed");
+      toast.error(error instanceof Error ? error.message : t("planScreen.discovery.failed"));
     } finally {
       setGenerating(false);
     }
@@ -933,13 +935,13 @@ function DiscoverView({
     await saveWorkspaceNow();
     setSelected(new Set());
     if (created.length === 0) {
-      toast.message("Those suggestions are already in Plan.");
+      toast.message(t("planScreen.discovery.noneAdded"));
       return;
     }
-    toast.success(`${created.length} opportunities added to Plan → Captured`, {
-      action: { label: "View in Plan", onClick: onOpenPlan },
+    toast.success(t("planScreen.discovery.added", { count: created.length, stage: ideaStage }), {
+      action: { label: t("planScreen.discovery.viewPlan"), onClick: onOpenPlan },
       cancel: {
-        label: "Undo",
+        label: t("planScreen.undo"),
         onClick: () => undoAcceptedDiscoverySuggestions(created.map((item) => item.id)),
       },
     });
@@ -967,8 +969,8 @@ function DiscoverView({
     await saveWorkspaceNow();
     setTitle("");
     setReason("");
-    toast.success(`“${created.title}” added to Plan → Captured`, {
-      action: { label: "View in Plan", onClick: onOpenPlan },
+    toast.success(t("planScreen.manual.added", { title: created.title, stage: ideaStage }), {
+      action: { label: t("planScreen.discovery.viewPlan"), onClick: onOpenPlan },
     });
   }
 
@@ -976,63 +978,77 @@ function DiscoverView({
     <div className="pb-24">
       <div className="grid gap-5 px-5 py-5 md:px-9 xl:grid-cols-[minmax(0,2.2fr)_minmax(310px,1fr)]">
         <section className="rounded-lg border border-[#e2e6eb] bg-[#ffffff]/75 p-5">
-          <h2 className="font-display text-xl">Run Milo discovery</h2>
+          <h2 className="font-display text-xl">{t("planScreen.discovery.title")}</h2>
           <p className="mt-1 max-w-3xl text-xs leading-5 text-[#697282]">
-            Milo scans connected sources and proposes traceable opportunities. Discovery never
-            schedules work or creates content automatically.
+            {t("planScreen.discovery.help")}
           </p>
           <div className="mt-6 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#647183]">
-            Sources
+            {t("planScreen.discovery.sources")}
           </div>
           <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            <SourceCard label="Site audit" status="Ready" to="/app/audit" />
+            <SourceCard
+              label={t("nav.audit")}
+              status={t("planScreen.source.open")}
+              to="/app/audit"
+            />
             <SourceCard
               label="Search Console"
-              status={project?.gscOAuth?.status === "connected" ? "Connected" : "Connect"}
+              status={t(
+                project?.gscOAuth?.status === "connected"
+                  ? "planScreen.source.connected"
+                  : "planScreen.source.connect",
+              )}
               to="/app/setup"
             />
             <SourceCard
-              label="Competitors"
-              status={`${project?.competitorUrls?.length ?? 0} tracked`}
+              label={t("nav.competitors")}
+              status={t("planScreen.source.tracked", {
+                count: project?.competitorUrls?.length ?? 0,
+              })}
               to="/app/competitors"
             />
-            <SourceCard label="AI visibility" status="Ready" to="/app/ai-visibility" />
+            <SourceCard
+              label={t("nav.aiVisibility")}
+              status={t("planScreen.source.open")}
+              to="/app/ai-visibility"
+            />
           </div>
           <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
             <ul className="grid gap-1.5 text-[11px] text-[#4f5b68]">
               <li className="flex items-center gap-2">
-                <Check size={14} className="text-[#398a63]" /> Provenance and evidence stay attached
+                <Check size={14} className="text-[#398a63]" /> {t("planScreen.discovery.inputs")}
               </li>
               <li className="flex items-center gap-2">
-                <Check size={14} className="text-[#398a63]" /> Existing active work is deduplicated
+                <Check size={14} className="text-[#398a63]" /> {t("planScreen.discovery.dedup")}
               </li>
               <li className="flex items-center gap-2">
-                <Check size={14} className="text-[#398a63]" /> You choose what enters Plan
+                <Check size={14} className="text-[#398a63]" /> {t("planScreen.discovery.choice")}
               </li>
             </ul>
             <Button onClick={runDiscovery} disabled={generating || !project}>
-              <Sparkle size={17} weight="fill" /> {generating ? "Discovering…" : "Run discovery"}
+              <Sparkle size={17} weight="fill" />{" "}
+              {t(generating ? "planScreen.discovery.running" : "planScreen.discovery.run")}
             </Button>
           </div>
         </section>
 
         <section className="rounded-lg border border-[#e2e6eb] bg-[#ffffff]/75 p-5">
-          <h2 className="font-display text-xl">Create manually</h2>
+          <h2 className="font-display text-xl">{t("planScreen.manual.title")}</h2>
           <p className="mt-1 text-xs leading-5 text-[#697282]">
-            Add a business idea directly. It will enter Plan → Captured.
+            {t("planScreen.manual.help", { stage: ideaStage })}
           </p>
           <label className="mt-4 grid gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#5f6872]">
-            Opportunity title
+            {t("planScreen.manual.opportunityTitle")}
             <input
               id="manual-opportunity"
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              placeholder="What should Milo help you improve?"
+              placeholder={t("planScreen.manual.placeholder")}
               className="min-h-10 rounded-md border border-[#e2e6eb] bg-white/70 px-3 text-xs font-normal normal-case tracking-normal outline-none focus:border-[#076ee5]"
             />
           </label>
           <label className="mt-3 grid gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#5f6872]">
-            Why this matters
+            {t("planScreen.manual.reason")}
             <textarea
               value={reason}
               onChange={(event) => setReason(event.target.value)}
@@ -1046,19 +1062,19 @@ function DiscoverView({
               onChange={(event) => setIntent(event.target.value as Opportunity["searchIntent"])}
               className="h-9 rounded-md border border-[#e2e6eb] bg-white px-2 text-[11px]"
             >
-              <option>Informational</option>
-              <option>Commercial</option>
-              <option>Transactional</option>
-              <option>Navigational</option>
+              <option value="Informational">{t("planScreen.intent.Informational")}</option>
+              <option value="Commercial">{t("planScreen.intent.Commercial")}</option>
+              <option value="Transactional">{t("planScreen.intent.Transactional")}</option>
+              <option value="Navigational">{t("planScreen.intent.Navigational")}</option>
             </select>
             <select
               value={priority}
               onChange={(event) => setPriority(event.target.value as Opportunity["priority"])}
               className="h-9 rounded-md border border-[#e2e6eb] bg-white px-2 text-[11px]"
             >
-              <option>High</option>
-              <option>Medium</option>
-              <option>Low</option>
+              <option value="High">{t("planScreen.priority.High")}</option>
+              <option value="Medium">{t("planScreen.priority.Medium")}</option>
+              <option value="Low">{t("planScreen.priority.Low")}</option>
             </select>
           </div>
           <Button
@@ -1066,7 +1082,7 @@ function DiscoverView({
             onClick={createManual}
             disabled={!title.trim() || !project}
           >
-            <Plus size={16} /> Add to Plan → Captured
+            <Plus size={16} /> {t("planScreen.manual.add", { stage: ideaStage })}
           </Button>
         </section>
       </div>
@@ -1074,20 +1090,23 @@ function DiscoverView({
       <section className="mx-5 overflow-hidden rounded-lg border border-[#e2e6eb] bg-[#ffffff] md:mx-9">
         <div className="flex min-h-14 flex-wrap items-center justify-between gap-3 border-b border-[#e2e6eb] px-4 py-3">
           <div className="flex items-baseline gap-3">
-            <h2 className="font-display text-xl">Discovery suggestions</h2>
-            <span className="text-[10px] text-[#697282]">{suggested.length} awaiting review</span>
+            <h2 className="font-display text-xl">{t("planScreen.discovery.suggestions")}</h2>
+            <span className="text-[10px] text-[#697282]">
+              {t("planScreen.discovery.awaiting", { count: suggested.length })}
+            </span>
           </div>
           <Button onClick={acceptSelected} disabled={selected.size === 0}>
-            <CheckCircle size={17} /> Add {selected.size || "selected"} to Plan
+            <CheckCircle size={17} />{" "}
+            {t("planScreen.discovery.addSelected", { count: selected.size })}
           </Button>
         </div>
 
         {visible.length === 0 ? (
           <div className="grid place-items-center px-6 py-14 text-center">
             <Binoculars size={28} className="text-[#076ee5]" />
-            <h3 className="mt-3 font-display text-lg">No suggestions waiting</h3>
+            <h3 className="mt-3 font-display text-lg">{t("planScreen.discovery.emptyTitle")}</h3>
             <p className="mt-1 max-w-md text-xs leading-5 text-[#697282]">
-              Run discovery to review new signals. Existing Opportunities stay safely in Plan.
+              {t("planScreen.discovery.emptyHelp")}
             </p>
           </div>
         ) : (
@@ -1095,12 +1114,12 @@ function DiscoverView({
             <div className="min-w-[980px]">
               <div className="grid grid-cols-[32px_2fr_1fr_.8fr_.7fr_1.4fr_.7fr] gap-3 border-b border-[#e2e6eb] px-4 py-2.5 text-[8px] font-semibold uppercase tracking-[0.12em] text-[#66707c]">
                 <span />
-                <span>Opportunity</span>
-                <span>Source</span>
-                <span>Intent</span>
-                <span>Impact</span>
-                <span>Why Milo found it</span>
-                <span>State</span>
+                <span>{t("planScreen.column.opportunity")}</span>
+                <span>{t("planScreen.column.source")}</span>
+                <span>{t("planScreen.column.intent")}</span>
+                <span>{t("planScreen.column.impact")}</span>
+                <span>{t("planScreen.column.reason")}</span>
+                <span>{t("planScreen.column.state")}</span>
               </div>
               {visible.map((item) => {
                 const checked = selected.has(item.id);
@@ -1111,7 +1130,7 @@ function DiscoverView({
                   >
                     <button
                       type="button"
-                      aria-label={`Select ${item.title}`}
+                      aria-label={t("planScreen.discovery.select", { title: item.title })}
                       onClick={() => item.status === "suggested" && toggle(item.id)}
                       disabled={item.status !== "suggested"}
                       className={`grid h-4 w-4 place-items-center rounded-[3px] border ${checked ? "border-[#a86f09] bg-[#b87f12] text-white" : "border-[#8e979d] bg-white"}`}
@@ -1119,14 +1138,20 @@ function DiscoverView({
                       {checked ? <Check size={11} /> : null}
                     </button>
                     <strong className="text-[11px] leading-4 text-[#20272b]">{item.title}</strong>
-                    <span>{opportunitySourceLabel(item as unknown as Opportunity)}</span>
-                    <span>{item.searchIntent}</span>
-                    <span className="capitalize">{item.businessImpact ?? item.priority}</span>
+                    <span>{opportunitySourceLabel(item as unknown as Opportunity, t)}</span>
+                    <span>{t(`planScreen.intent.${item.searchIntent}`)}</span>
+                    <span className="capitalize">
+                      {t(`planScreen.priority.${capitalize(item.businessImpact ?? item.priority)}`)}
+                    </span>
                     <span className="leading-4">{item.reasonDiscovered ?? item.businessValue}</span>
                     <span
                       className={item.status === "accepted" ? "text-[#398a63]" : "text-[#9a6d16]"}
                     >
-                      {item.status === "accepted" ? "In Plan" : "Suggested"}
+                      {t(
+                        item.status === "accepted"
+                          ? "planScreen.discovery.inPlan"
+                          : "planScreen.discovery.suggested",
+                      )}
                     </span>
                   </div>
                 );
@@ -1276,7 +1301,7 @@ function BoardView({
    * lifecycle graph forbids, and report the split. Only inert moves — no bulk
    * arm, publish or delete — so a batch can never reach a customer's live site.
    */
-  function runBatch(to: OpportunityLifecycleStatus, verb: string) {
+  function runBatch(to: OpportunityLifecycleStatus, messageKey: string) {
     const dueAt = to === "scheduled" ? format(addDays(new Date(), 1), "yyyy-MM-dd") : undefined;
     let done = 0;
     let skipped = 0;
@@ -1300,7 +1325,7 @@ function BoardView({
         skipped++;
       }
     }
-    toast.success(`${verb} ${done}${skipped ? ` · ${skipped} skipped` : ""}`);
+    toast.success(t(messageKey, { count: done, skipped }));
     clearSelection();
   }
   function batchArchive() {
@@ -1321,7 +1346,7 @@ function BoardView({
         skipped++;
       }
     }
-    toast.success(`Archived ${done}${skipped ? ` · ${skipped} skipped` : ""}`);
+    toast.success(t("planScreen.batch.archived", { count: done, skipped }));
     clearSelection();
   }
 
@@ -1339,12 +1364,16 @@ function BoardView({
     if (!opportunity) return;
     const to = BOARD_DROP_TARGETS[target];
     if (!to) {
-      toast.message("That stage is reached by working on the draft, not by dragging a card.");
+      toast.message(t("planScreen.move.draftOnly"));
       return;
     }
     if (!canTransitionOpportunity(opportunity.status, to)) {
       toast.error(
-        `Can’t move “${opportunity.title}” to ${t(`pipeline.stage.${target}`)} from ${t(`pipeline.stage.${opportunity.pipeline}`)}.`,
+        t("planScreen.move.disallowed", {
+          title: opportunity.title,
+          to: t(`pipeline.stage.${target}`),
+          from: t(`pipeline.stage.${opportunity.pipeline}`),
+        }),
       );
       return;
     }
@@ -1357,12 +1386,10 @@ function BoardView({
     try {
       transitionOpportunity(id, to, fields);
       toast.success(
-        target === "queued"
-          ? "Prioritised"
-          : "Target set for tomorrow — set a go-live time in the editor once the draft is ready",
+        target === "queued" ? t("planScreen.prioritized") : t("planScreen.move.targetTomorrow"),
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not move opportunity");
+      toast.error(error instanceof Error ? error.message : t("planScreen.move.failed"));
     }
   }
 
@@ -1418,7 +1445,7 @@ function BoardView({
                 ))}
                 {cards.length === 0 ? (
                   <div className="px-2 py-6 text-center text-[9px] text-[#a8a89f]">
-                    Nothing here yet
+                    {t("planScreen.empty")}
                   </div>
                 ) : null}
               </section>
@@ -1429,8 +1456,8 @@ function BoardView({
       <OrphanLane orphans={orphans} onOpenAsset={onOpenAsset} />
       <BatchBar
         count={selection.size}
-        onPrioritise={() => runBatch("prioritized", "Prioritised")}
-        onSetDate={() => runBatch("scheduled", "Target set for")}
+        onPrioritise={() => runBatch("prioritized", "planScreen.batch.prioritized")}
+        onSetDate={() => runBatch("scheduled", "planScreen.batch.targeted")}
         onArchive={batchArchive}
         onClear={clearSelection}
       />
@@ -1462,6 +1489,7 @@ function OpportunityCard({
   rewriteEnabled: boolean;
 }) {
   const t = useT();
+  const locale = useAppLanguage();
   const draggable = DRAGGABLE_STAGES.includes(opportunity.pipeline);
   // A live page whose draft is gone: always a safe read-only "Open live page"
   // link, plus the "Rewrite this page" action only where an update-in-place is
@@ -1491,7 +1519,7 @@ function OpportunityCard({
     >
       <button
         type="button"
-        aria-label={checked ? "Deselect" : "Select"}
+        aria-label={t(checked ? "planScreen.deselect" : "planScreen.select")}
         aria-pressed={checked}
         onClick={(event) => {
           event.stopPropagation();
@@ -1509,15 +1537,17 @@ function OpportunityCard({
         {opportunity.title} <SampleBadge id={opportunity.id} className="ml-1 align-middle" />
       </strong>
       <span className="w-max max-w-full rounded-[3px] border border-[#e2ddd4] bg-[#f2f5f8] px-1.5 py-0.5 text-xs text-[#727a84]">
-        {opportunitySourceLabel(opportunity)}
+        {opportunitySourceLabel(opportunity, t)}
       </span>
       <span className="flex flex-wrap items-center gap-1.5 text-xs uppercase text-[#6a7683]">
         <StageChip stage={opportunity.pipeline} detail={opportunity.pipelineDetail} />
-        {opportunity.searchIntent}
+        {t(`planScreen.intent.${opportunity.searchIntent}`)}
       </span>
       <div className="mt-0.5 flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs text-[#5f6771]">
-          {opportunity.dueAt ? `Due ${formatDate(opportunity.dueAt)}` : opportunity.priority}
+          {opportunity.dueAt
+            ? t("planScreen.target.due", { date: formatDate(opportunity.dueAt, locale) })
+            : t(`planScreen.priority.${opportunity.priority}`)}
         </span>
         {liveMissing ? (
           <span className="flex items-center gap-1.5">
@@ -1529,7 +1559,7 @@ function OpportunityCard({
                 onClick={(event) => event.stopPropagation()}
                 className="rounded-[4px] border border-[#e2c9a0] bg-[#fbf3e4] px-1.5 py-1 text-xs font-medium text-[#8a5a12] hover:bg-[#f6e9d2]"
               >
-                Open live page
+                {t("planScreen.openLive")}
               </a>
             ) : null}
             {rewriteEnabled && opportunity.canonicalUrl ? (
@@ -1615,15 +1645,7 @@ function ListView({
                     {opportunity.title} <SampleBadge id={opportunity.id} />
                   </strong>
                   <span className="mt-1 block text-xs text-muted-foreground">
-                    {t(
-                      `plan.source.${opportunity.primarySource ?? opportunity.source ?? "manual"}`,
-                    ) ===
-                    `plan.source.${opportunity.primarySource ?? opportunity.source ?? "manual"}`
-                      ? opportunitySourceLabel(opportunity)
-                      : t(
-                          `plan.source.${opportunity.primarySource ?? opportunity.source ?? "manual"}`,
-                        )}{" "}
-                    ·{" "}
+                    {opportunitySourceLabel(opportunity, t)} ·{" "}
                     {opportunity.businessImpact
                       ? t(`common.${opportunity.businessImpact}`)
                       : t(`common.${opportunity.priority.toLowerCase()}`)}
@@ -1664,17 +1686,16 @@ function ArchivedView({
   selectedId?: string;
   onSelect: (id?: string) => void;
 }) {
+  const locale = useAppLanguage();
+  const t = useT();
   return (
     <div
       className={`relative min-h-[calc(100vh-156px)] p-5 md:p-8 ${selectedId ? "xl:pr-[330px]" : ""}`}
     >
       <div className="mx-auto max-w-4xl overflow-hidden rounded-lg border border-[#e2e6eb] bg-[#ffffff]">
         <div className="border-b border-[#e2e6eb] px-5 py-4">
-          <h2 className="font-display text-xl">Archived opportunities</h2>
-          <p className="mt-1 text-xs text-[#697282]">
-            Restore active work here. Permanent deletion becomes available inside an archived record
-            and remains recoverable for 30 days.
-          </p>
+          <h2 className="font-display text-xl">{t("planScreen.archive.title")}</h2>
+          <p className="mt-1 text-xs text-[#697282]">{t("planScreen.archive.help")}</p>
         </div>
         {opportunities.map((opportunity) => (
           <div
@@ -1688,8 +1709,10 @@ function ArchivedView({
             >
               <div className="truncate text-sm font-medium">{opportunity.title}</div>
               <div className="mt-1 text-[10px] text-[#697282]">
-                Archived {opportunity.archivedAt ? formatDate(opportunity.archivedAt) : "recently"}{" "}
-                · {opportunitySourceLabel(opportunity)}
+                {opportunity.archivedAt
+                  ? t("planScreen.archive.at", { date: formatDate(opportunity.archivedAt, locale) })
+                  : t("planScreen.archive.undated")}{" "}
+                · {opportunitySourceLabel(opportunity, t)}
               </div>
             </button>
             <Button
@@ -1697,15 +1720,17 @@ function ArchivedView({
               size="sm"
               onClick={() => {
                 restoreOpportunity(opportunity.id);
-                toast.success("Opportunity restored");
+                toast.success(t("planScreen.archive.restored"));
               }}
             >
-              Restore
+              {t("planScreen.archive.restore")}
             </Button>
           </div>
         ))}
         {opportunities.length === 0 ? (
-          <div className="px-5 py-12 text-center text-xs text-[#697282]">Nothing is archived.</div>
+          <div className="px-5 py-12 text-center text-xs text-[#697282]">
+            {t("planScreen.archive.empty")}
+          </div>
         ) : null}
       </div>
     </div>
@@ -1904,8 +1929,7 @@ function CalendarView({
             <span className="text-sm text-[#697282]">{unscheduled.length}</span>
           </div>
           <p className="mt-2 text-sm leading-4 text-[#697282]">
-            Drag one onto a day. A ready article can be scheduled to go live right there; anything
-            else gets a work target.
+            {t("planScreen.calendar.trayHint")}
           </p>
           <div className="mt-4 grid gap-2">
             {unscheduled.map((opportunity) => (
@@ -1924,13 +1948,15 @@ function CalendarView({
                   <SampleBadge id={opportunity.id} />
                 </strong>
                 <span className="mt-2 block text-xs text-[#697282]">
-                  Source: {opportunitySourceLabel(opportunity)}
+                  {t("planScreen.calendar.source", {
+                    source: opportunitySourceLabel(opportunity, t),
+                  })}
                 </span>
               </button>
             ))}
             {unscheduled.length === 0 ? (
               <div className="rounded-md border border-dashed border-[#e2e6eb] px-3 py-6 text-center text-sm text-[#697282]">
-                No prioritized work waiting.
+                {t("planScreen.calendar.empty")}
               </div>
             ) : null}
           </div>
@@ -2160,9 +2186,9 @@ function OpportunityDrawer({
         ownerName: opportunity.ownerName ?? "Project owner",
         priority: opportunity.priority,
       });
-      toast.success("Opportunity moved to Prioritized");
+      toast.success(t("planScreen.prioritized"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not prioritize");
+      toast.error(error instanceof Error ? error.message : t("planScreen.prioritizeFailed"));
     }
   }
 
@@ -2170,30 +2196,30 @@ function OpportunityDrawer({
     try {
       transitionOpportunity(opportunity.id, "scheduled", { dueAt: date });
       setScheduleOpen(false);
-      toast.success(`Scheduled for ${formatDate(date)}`);
+      toast.success(t("planScreen.target.set", { date: formatDate(date, locale) }));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not schedule");
+      toast.error(error instanceof Error ? error.message : t("planScreen.target.failed"));
     }
   }
 
   function unschedule() {
     try {
       transitionOpportunity(opportunity.id, "prioritized", { dueAt: undefined });
-      toast.success("Returned to the unscheduled tray");
+      toast.success(t("planScreen.target.removed"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not unschedule");
+      toast.error(error instanceof Error ? error.message : t("planScreen.target.removeFailed"));
     }
   }
 
   function archive() {
     try {
       archiveOpportunity(opportunity.id);
-      toast.success("Opportunity archived", {
-        action: { label: "Undo", onClick: () => restoreOpportunity(opportunity.id) },
+      toast.success(t("planScreen.archived"), {
+        action: { label: t("planScreen.undo"), onClick: () => restoreOpportunity(opportunity.id) },
       });
       onClose();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not archive");
+      toast.error(error instanceof Error ? error.message : t("planScreen.archiveFailed"));
     }
   }
 
@@ -2241,22 +2267,22 @@ function OpportunityDrawer({
       <div className="mt-5 grid gap-2">
         {stage === "idea" ? (
           <Button onClick={prioritize}>
-            <CheckCircle size={16} /> Prioritize opportunity
+            <CheckCircle size={16} /> {t("planScreen.action.prioritize")}
           </Button>
         ) : null}
         {stage === "queued" ? (
           <Button onClick={() => setScheduleOpen((value) => !value)}>
-            <CalendarBlank size={16} /> Set a target date
+            <CalendarBlank size={16} /> {t("planScreen.action.target")}
           </Button>
         ) : null}
         {stage === "planned" ? (
           <Button onClick={onCreateContent}>
-            <FileText size={16} /> Create linked draft
+            <FileText size={16} /> {t("planScreen.action.create")}
           </Button>
         ) : null}
         {stage === "planned" ? (
           <Button variant="outline" onClick={unschedule}>
-            Unschedule
+            {t("planScreen.action.removeTarget")}
           </Button>
         ) : null}
         {(
@@ -2282,7 +2308,7 @@ function OpportunityDrawer({
         )}
         {stage === "live" ? (
           <Button onClick={onOpenInsights}>
-            <ChartLineUp size={16} /> View impact
+            <ChartLineUp size={16} /> {t("planScreen.action.impact")}
           </Button>
         ) : null}
         {stage === "live_missing" && opportunity.canonicalUrl ? (
@@ -2290,7 +2316,7 @@ function OpportunityDrawer({
             variant="outline"
             onClick={() => window.open(opportunity.canonicalUrl, "_blank", "noopener")}
           >
-            <Globe size={16} /> Open live page
+            <Globe size={16} /> {t("planScreen.openLive")}
           </Button>
         ) : null}
         {stage !== "parked" ? (
@@ -2303,14 +2329,12 @@ function OpportunityDrawer({
       {scheduleOpen ? (
         <div className="mt-3 rounded-md border border-[#d5c19a] bg-[#fffaf0] p-3 shadow-lg">
           <div className="flex items-center justify-between text-[11px]">
-            <strong>Schedule this opportunity</strong>
+            <strong>{t("planScreen.target.dialogTitle")}</strong>
             <button type="button" onClick={() => setScheduleOpen(false)}>
               <X size={14} />
             </button>
           </div>
-          <p className="my-1 text-[8px] text-[#697282]">
-            The same record will appear in Board, List and Calendar.
-          </p>
+          <p className="my-1 text-[8px] text-[#697282]">{t("planScreen.target.dialogHelp")}</p>
           <input
             type="date"
             value={date}
@@ -2318,7 +2342,7 @@ function OpportunityDrawer({
             className="my-2 h-9 w-full rounded-md border border-[#e2e6eb] bg-white px-2 text-[10px]"
           />
           <Button className="w-full" size="sm" onClick={schedule}>
-            Confirm schedule
+            {t("planScreen.target.confirm")}
           </Button>
         </div>
       ) : null}
@@ -2328,15 +2352,20 @@ function OpportunityDrawer({
           {t("plan.detail.stage")} · {t("plan.detail.source")} · Milo Score
         </summary>
         <dl className="my-5 grid gap-2.5">
-          <Detail label={t("plan.detail.source")} value={opportunitySourceLabel(opportunity)} />
+          <Detail label={t("plan.detail.source")} value={opportunitySourceLabel(opportunity, t)} />
           <Detail
             label={t("plan.detail.reason")}
             value={opportunity.reasonDiscovered ?? opportunity.businessValue}
           />
-          <Detail label={t("plan.detail.intent")} value={opportunity.searchIntent} />
+          <Detail
+            label={t("plan.detail.intent")}
+            value={t(`planScreen.intent.${opportunity.searchIntent}`)}
+          />
           <Detail
             label={t("plan.detail.impact")}
-            value={capitalize(opportunity.businessImpact ?? opportunity.priority)}
+            value={t(
+              `planScreen.priority.${capitalize(opportunity.businessImpact ?? opportunity.priority)}`,
+            )}
           />
           <Detail
             label={t("plan.detail.owner")}
@@ -2349,7 +2378,11 @@ function OpportunityDrawer({
           />
           <Detail
             label={t("plan.date")}
-            value={opportunity.dueAt ? formatDate(opportunity.dueAt) : "Not scheduled"}
+            value={
+              opportunity.dueAt
+                ? formatDate(opportunity.dueAt, locale)
+                : t("planScreen.target.none")
+            }
             icon={<CalendarBlank size={14} />}
           />
         </dl>
@@ -2381,7 +2414,7 @@ function OpportunityDrawer({
             <strong className="font-display text-sm">Milo Score</strong>
             <p className="mt-0.5 text-[8px] leading-3 text-[#697282]">
               {score
-                ? `Content version scored ${formatDate(score.evaluatedAt)}.`
+                ? t("planScreen.score.evaluated", { date: formatDate(score.evaluatedAt, locale) })
                 : t("analytics.v2.notEvaluated")}
             </p>
           </div>
@@ -2402,11 +2435,6 @@ function Detail({ label, value, icon }: { label: string; value: string; icon?: R
       </dd>
     </div>
   );
-}
-
-function formatDate(value: string) {
-  const date = new Date(value.length <= 10 ? `${value}T12:00:00` : value);
-  return Number.isNaN(date.getTime()) ? value : format(date, "MMM d, yyyy");
 }
 
 /** The path portion of a live URL, for seeding a rewrite's publishSlug. */

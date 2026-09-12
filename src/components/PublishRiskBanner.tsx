@@ -8,7 +8,7 @@
 import { Warning } from "@phosphor-icons/react";
 import type { PublishRisk } from "@/lib/calendar-schedule";
 import { formatDate, formatDateTimeLocal } from "@/lib/format";
-import { useT } from "@/i18n";
+import { useAppLanguage, useT } from "@/i18n";
 
 const MAX_LISTED = 3;
 
@@ -22,6 +22,7 @@ export function PublishRiskBanner({
   className?: string;
 }) {
   const t = useT();
+  const locale = useAppLanguage();
   if (risks.length === 0) return null;
   return (
     <div
@@ -43,8 +44,8 @@ export function PublishRiskBanner({
               <span className="text-amber-800/80">
                 {" — "}
                 {risk.kind === "armed"
-                  ? t("calsched.banner.armed", { when: formatDateTimeLocal(risk.when) })
-                  : t("calsched.banner.target", { when: formatDate(risk.when) })}
+                  ? t("calsched.banner.armed", { when: formatDateTimeLocal(risk.when, locale) })
+                  : t("calsched.banner.target", { when: formatDate(risk.when, locale) })}
                 {" · "}
                 {risk.reasons[0]}
               </span>

@@ -11,10 +11,12 @@ import { frCommerce } from "./fr-commerce";
 import { frLinks } from "./fr-links";
 import { frOutreach } from "./fr-outreach";
 import { frEditorScreen } from "./fr-editor-screen";
+import { frPlanScreen } from "./fr-plan-screen";
 
 /** Authoring batches only. Dictionary coverage does not establish full interface
  * acceptance. This catalog is not registered by the runtime or language picker. */
 export const FR_STAGED_BATCHES = [
+  { name: "plan screen", copy: frPlanScreen, namespaces: ["planScreen"] },
   {
     name: "editor screen",
     copy: frEditorScreen,

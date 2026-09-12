@@ -11,11 +11,12 @@
  * the armed/writing state that is the whole reason to show them.
  */
 import { useState } from "react";
-import { format } from "date-fns";
 import { Clock } from "lucide-react";
 import type { ContentAsset } from "@/lib/types";
 import { pipelineStage, STAGE_URGENCY } from "@/lib/pipeline";
 import { StageChip } from "@/components/StageChip";
+import { useAppLanguage, useT } from "@/i18n";
+import { formatPlanningDate } from "@/lib/planning-date";
 
 export function StackedDeck({
   assets,
@@ -25,6 +26,8 @@ export function StackedDeck({
   onOpenAsset: (assetId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const locale = useAppLanguage();
+  const t = useT();
   if (assets.length <= 1) return null;
   // Sort by urgency so an armed or needs_fixing draft is always at the top, even
   // when a newer inert Draft exists.
@@ -41,7 +44,7 @@ export function StackedDeck({
         }}
         className="w-max rounded-[3px] border border-[#ded8ce] bg-[#f2ede3] px-1.5 py-0.5 text-[8px] font-medium text-[#6a7280] hover:bg-[#ebe5d9]"
       >
-        {assets.length} drafts
+        {t("planScreen.deck.count", { count: assets.length })}
       </button>
       {open ? (
         <div className="mt-1 grid gap-1 rounded-md border border-[#e7e1d6] bg-[#fbfaf6] p-1.5">
@@ -60,7 +63,7 @@ export function StackedDeck({
                 {stage === "armed" && asset.scheduledPublishAt ? (
                   <span className="flex items-center gap-0.5 text-[7px] font-medium text-amber-800">
                     <Clock className="h-2 w-2" />{" "}
-                    {format(new Date(asset.scheduledPublishAt), "MMM d")}
+                    {formatPlanningDate(asset.scheduledPublishAt, locale, false)}
                   </span>
                 ) : null}
               </span>

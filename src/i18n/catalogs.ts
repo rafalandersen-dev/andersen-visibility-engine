@@ -5,6 +5,7 @@ import { emailSettingsCopy } from "./email-settings";
 import { launchReadinessCopy } from "./launch-readiness";
 import { linkNetworkCopy } from "./link-network-copy";
 import { editorScreenCopy } from "./editor-screen";
+import { planScreenCopy } from "./plan-screen";
 import { technicalPerformanceCopy } from "./technical-performance";
 import { googleIndexCopy } from "./google-index";
 import { technicalCrawlCopy } from "./technical-crawl";
@@ -58,6 +59,7 @@ const OVERRIDES: readonly Record<OnboardingLanguage, Dictionary>[] = [
   launchReadinessCopy,
   linkNetworkCopy,
   editorScreenCopy,
+  planScreenCopy,
 ];
 export const UI_LANGUAGE_CODES = ["en", "pl", "sv", "da"] as const;
 export function isUiLanguage(value: unknown): value is OnboardingLanguage {

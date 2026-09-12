@@ -68,8 +68,16 @@ function sourceToPrimary(source?: OpportunitySource): OpportunityPrimarySource {
   }
 }
 
-export function opportunitySourceLabel(opportunity: Opportunity): string {
+export function opportunitySourceLabel(
+  opportunity: Opportunity,
+  translateLabel?: (key: string) => string,
+): string {
   const source = opportunity.primarySource ?? sourceToPrimary(opportunity.source);
+  if (translateLabel) {
+    const labelSource =
+      source === "manual" && opportunity.creationMode === "milo_discovery" ? "discovery" : source;
+    return translateLabel(`planScreen.sourceLabel.${labelSource}`);
+  }
   const labels: Record<OpportunityPrimarySource, string> = {
     site_audit: "Site audit",
     search_console: "Search Console",
