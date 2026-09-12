@@ -307,6 +307,9 @@ function stateFromRow(userId: string, d: Partial<State>, rev: number): State {
  * hydrate/reload) or as last successfully saved. Never persisted.
  */
 let lastSavedDoc: WorkspaceSnapshot | null = null;
+// Invalidates asynchronous reads across hydration attempts and sign-out,
+// including a sign-out/sign-in cycle for the same account.
+let workspaceEpoch = 0;
 
 // Review M3 (2026-07-25): saves are SERIALIZED. Overlapping saves could diff
 // against the same baseline and double-apply; chaining guarantees each save
@@ -447,8 +450,11 @@ const subscribe = (l: () => void) => {
  */
 export async function hydrateForUser(userId: string): Promise<void> {
   if (state.userId === userId && state.hydrated) return;
+  const epoch = ++workspaceEpoch;
+  const isCurrent = () => workspaceEpoch === epoch && state.userId === userId;
 
   // Reset visible state to a clean loading shell scoped to this user.
+  lastSavedDoc = null;
   state = { ...emptyState, userId };
   notify();
 
@@ -460,6 +466,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
         p_user_id: userId,
       } as never,
     );
+    if (!isCurrent()) return;
     if (error) throw error;
 
     if (bundleRaw) {
@@ -475,6 +482,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
         .select("data,rev")
         .eq("user_id", userId)
         .maybeSingle();
+      if (!isCurrent()) return;
       if (rowError) throw rowError;
 
       const r = row as { data?: unknown } | null;
@@ -488,6 +496,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
           p_meta: meta,
         } as never,
       );
+      if (!isCurrent()) return;
       // A failed backfill for a user WITH data is non-fatal for this session
       // (the blob copy just rendered); the save path retries the backfill.
       // For a FIRST-RUN user it must fail loudly — otherwise saves have no
@@ -500,6 +509,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
       lastSavedDoc = doc as WorkspaceSnapshot;
     }
   } catch (e) {
+    if (!isCurrent()) return;
     // 2026-07-25 outage lesson: NEVER present a load failure as an empty
     // workspace. Fail loudly instead: the authenticated layout renders a
     // retry screen while hydrationFailed is set, saves stay disabled
@@ -514,6 +524,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
 }
 
 export function resetStore(): void {
+  workspaceEpoch += 1;
   lastSavedDoc = null; // diff baseline is per signed-in user
 
   if (saveTimer) {
@@ -535,6 +546,7 @@ export function resetStore(): void {
  */
 export async function reloadWorkspaceForUser(userId: string): Promise<void> {
   if (typeof window === "undefined") return;
+  const epoch = workspaceEpoch;
   try {
     const { data: bundleRaw } = await supabase.rpc(
       "read_workspace_bundle" as never,
@@ -543,7 +555,7 @@ export async function reloadWorkspaceForUser(userId: string): Promise<void> {
       } as never,
     );
     // Guard against a user switch mid-flight: only apply if still the same user.
-    if (bundleRaw && state.userId === userId) {
+    if (bundleRaw && state.userId === userId && workspaceEpoch === epoch) {
       const bundle = bundleRaw as unknown as WorkspaceBundle;
       const doc = assembleWorkspaceDoc(bundle);
       state = stateFromRow(userId, doc as Partial<State>, Number(bundle.meta.rev ?? 0));
@@ -1284,9 +1296,15 @@ export const setBillingProfile = (profile: BillingProfile) =>
  * unreadable resolves to Free Preview.
  */
 export async function refreshEntitlement(): Promise<void> {
+  const epoch = workspaceEpoch;
+  const userId = state.userId;
+  if (!userId) return;
+  const isCurrent = () => workspaceEpoch === epoch && state.userId === userId;
   try {
     const { getMyEntitlementFn } = await import("./entitlements.functions");
+    if (!isCurrent()) return;
     const { entitlement } = await getMyEntitlementFn();
+    if (!isCurrent()) return;
     const paid = entitlement.planId !== "freePreview";
     const market = state.billingProfile?.billingMarket ?? "Other";
     setStateNoSave((s) => ({
@@ -1307,6 +1325,7 @@ export async function refreshEntitlement(): Promise<void> {
         : undefined,
     }));
   } catch {
+    if (!isCurrent()) return;
     // Fail closed: no entitlement data means Free Preview.
     setStateNoSave((s) => ({ ...s, subscription: undefined }));
   }

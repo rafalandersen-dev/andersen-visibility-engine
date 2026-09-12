@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Workspace hydration, reload and entitlement responses now verify account and session lifecycle before replacing client state, preventing delayed responses from restoring a signed-out account or overwriting a newer load. Ten new race regressions; full local suite passes 4,806 tests/327 files, with types/build/scoped lint passing. See WORKSPACE_SESSION_ISOLATION_2026_09_12.md. Prepared, unreleased; real multi-account acceptance and release holds remain.
+
 Integrated local regression at c630087: 325/326 files and 4,794/4,796 tests passed. Both failures came from an outreach test store missing language-hook fields; the fixture is corrected and all seven outreach files (41 tests), types and scoped lint pass. Production behavior is unchanged. Full-run and focused-rerun evidence are distinguished in INTEGRATED_REGRESSION_2026_09_12.md. Unreleased; real-use acceptance and release holds remain.
 
 Monthly report scheduled count now includes pending saved schedules only, including updates to already-live pages, and excludes cancelled/failed/in-progress/unconfirmed statuses. Valid selected-month and own-project checks remain. See REPORT_PENDING_SCHEDULES_2026_09_12.md. Prepared, unreleased; no fresh queue verification or publication guarantee is implied.
