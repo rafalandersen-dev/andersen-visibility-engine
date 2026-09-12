@@ -190,7 +190,7 @@ export const skCore: Readonly<Record<string, string>> = {
   "pipeline.stage.queued": "Vo fronte",
   "pipeline.stage.planned": "Naplánované",
   "pipeline.stage.writing": "Rozpísané",
-  "pipeline.stage.in_review": "Na kontrolu",
+  "pipeline.stage.in_review": "Na kontrole",
   "pipeline.stage.ready": "Pripravené",
   "pipeline.stage.armed": "Čas zverejnenia nastavený",
   "pipeline.stage.sent": "Odoslané na web",
