@@ -1,3 +1,4 @@
+import { csCollaboration } from "./cs-collaboration";
 import { csConfiguration } from "./cs-configuration";
 import { csPublicBeta } from "./cs-public-beta";
 import { csBetaGuidance } from "./cs-beta-guidance";
@@ -18,6 +19,13 @@ import { csAuthScreen } from "./cs-auth-screen";
 import { csSharedUi } from "./cs-shared-ui";
 /** Czech authoring; never imported by the runtime catalog. */
 export const CS_STAGED_BATCHES = [
+  {
+    name: "collaboration",
+    copy: csCollaboration,
+    namespaces: ["collaboration", "team", "notifications", "awareness", "emailSettings"],
+    sourceRevision: "5cac180",
+    sourceHash: "429e59f16a866242f25a373ebd6b52332ae3f04534230101422ebab727f77ed0",
+  },
   {
     name: "configuration",
     copy: csConfiguration,

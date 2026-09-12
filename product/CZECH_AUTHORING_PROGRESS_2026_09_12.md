@@ -1,6 +1,6 @@
 # Czech interface authoring — 12 September 2026
 
-Czech is staged only: 1,488 of the current 3,768 English interface keys, across eighteen complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI retain their separate staged acceptance status.
+Czech is staged only: 1,736 of the current 3,768 English interface keys, across nineteen complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI retain their separate staged acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -22,14 +22,15 @@ Czech is staged only: 1,488 of the current 3,768 English interface keys, across 
 | Beta guidance | 125 | cf9c004 |
 | Public beta | 100 | 33ecd79 |
 | Configuration | 220 | 56ca0c5 |
+| Collaboration and notifications | 248 | 5cac180 |
 
-The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 29 Czech/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-czech-configuration-types.log.
+The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 30 Czech/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-czech-collaboration-types.log.
 
 Terminology: pracovní prostor (workspace), projekt, heslo (password), obnovení hesla (password recovery), postranní panel (sidebar), archivovat (archive). Prefer direct formal-plural instructions; use schválit for approval, potvrdit for confirmation, ověřit for verification and zkontrolovat for review. Product/provider names and placeholders remain intact.
 
 Recovery text preserves conditional account eligibility and does not confirm that an account exists. Source claims about monthly planning and successful sign-in after password update retain their implementation/acceptance obligations; translation does not prove them. No email, authentication, password or provider operation occurred.
 
-Remaining: 2,280 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next complete batch: collaboration, using current composed English. This initial Czech batch does not complete R20 or alter release gates.
+Remaining: 2,032 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next complete batch: knowledge, using current composed English. This initial Czech batch does not complete R20 or alter release gates.
 
 Core review: Plán, Obsah, Viditelnost and Nastavení label the main navigation areas. Work target dates remain distinct from publication times; Naplánováno denotes planned work, while Čas zveřejnění nastaven denotes a publication schedule. Odesláno na web does not mean Zveřejněno. Partial setup success remains separate from completion, and application language, content language and market stay separate settings. Inherited generation/setup claims are translated without proving live behavior. No onboarding, generation, schedule or billing operation occurred.
 
@@ -54,3 +55,5 @@ Beta-guidance review: 20–30-prospect validation and scorecard counts remain ta
 Public-beta review: one-time and optional monthly prices retain amounts/currencies and remain subject to paid-launch holds. Pilot scope is agreed individually; demo data is not growth evidence, and missing GSC data is not zero activity. The source EN/PL/SV/DA page-coverage statement remains intact while Czech is staged and must be reconciled before activation. Inherited limited-availability and human-review claims retain product acceptance obligations. No application, outreach, payment or provider operation occurred.
 
 Configuration review: reading, proposing and writing are separate permissions; proposal approval does not grant publication/deletion/settings/billing authority. Shopify draft/approval/publication states and optional product-read permissions preserve source scope. Owner/source supplied coverage is not verified listings, reviews, hreflang or rankings. Exact URL matching and the 2 000-character limit retain source constraints. Provider instructions, credential-storage and immediate-revocation claims remain implementation/current-provider acceptance obligations. No token, credential, connection test or provider action occurred.
+
+Collaboration review: Čtenář, Editor and Posuzovatel match the Czech invitation-email roles. Exact-version approval, publication and resuming a hold remain separate; edits invalidate earlier publication approval. Owner assignment and recipient consent remain separate requirements. Provider acceptance does not confirm email delivery, and saved records do not prove an active job, destination state or improved results. Uncertain saves/decisions require rereading before retrying. No invitation, email, access change, approval or publication operation occurred.
