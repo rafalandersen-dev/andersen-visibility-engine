@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+The editor scheduling minimum now uses the browser-local calendar and clock instead of a UTC slice, rounded upward to minute precision. Seventeen format tests pass in three time zones; full types/build/scoped lint pass. See SCHEDULE_LOCAL_INPUT_MINIMUM_2026_09_12.md. Prepared, unreleased; server lead checks remain authoritative and real-use/release gates remain.
+
 Scheduling copy now treats an overdue saved pending state as an unconfirmed publication outcome and asks for destination/current-status checks before another attempt. The saved-schedule toast no longer promises delivery at that time. Updated all nine authored languages; 177 catalog tests and full TypeScript pass. See SCHEDULE_OUTCOME_COPY_2026_09_12.md. Prepared, unreleased; live acceptance and release holds remain.
 
 European Portuguese authoring now covers all 3768/3768 messages across 28 groups, completing workflow (345). All 52 focused checks, full TypeScript and scoped lint pass. Exact full-catalog parity, unique ownership, frozen composition and runtime exclusion are verified. Source-claim, linguistic and rendered acceptance remain; see PORTUGUESE_AUTHORING_PROGRESS_2026_09_12.md. Staged only; release holds and progress estimates unchanged.

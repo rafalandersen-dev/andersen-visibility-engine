@@ -130,7 +130,7 @@ import type {
   HookType,
   HookProposal,
 } from "@/lib/types";
-import { formatDateTime, formatDateTimeLocal } from "@/lib/format";
+import { formatDateTime, formatDateTimeLocal, formatDateTimeLocalInput } from "@/lib/format";
 // P0.3 — Preview and Export use the SAME canonical converter as publishing, so
 // what you see is what publishes (tables, links, bold, ordered lists included).
 // P0.4 — resolve internal links against the same inventory the publisher uses,
@@ -1018,7 +1018,9 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   const goLiveLabel = goLiveValid ? formatDateTimeLocal(goLiveInstant!.toISOString(), locale) : "…";
   // The runner ticks every five minutes, so a nearer slot would render a
   // minute-precise promise on a five-minute grid.
-  const minGoLiveLocal = new Date(Date.now() + SCHEDULE_TICK_MS).toISOString().slice(0, 16);
+  const minGoLiveLocal = formatDateTimeLocalInput(
+    new Date(Math.ceil((Date.now() + SCHEDULE_TICK_MS) / 60_000) * 60_000),
+  );
   const scheduleOverdue =
     live.scheduledPublishStatus === "pending" &&
     Boolean(live.scheduledPublishAt) &&

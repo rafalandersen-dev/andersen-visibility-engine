@@ -9,6 +9,7 @@ import {
   formatDateLocal,
   formatDateShort,
   formatDateTimeLocal,
+  formatDateTimeLocalInput,
   formatTimeLocal,
   formatDateTime,
   formatTime,
@@ -86,5 +87,20 @@ describe("selected interface calendar text preserves the clock boundary", () => 
         expect(format("not-a-date", locale)).toBe("—");
       }
     }
+  });
+});
+
+describe("datetime-local input formatting", () => {
+  it.each([
+    [new Date(2026, 0, 1, 0, 5), "2026-01-01T00:05"],
+    [new Date(2026, 6, 25, 23, 55), "2026-07-25T23:55"],
+  ] as const)("keeps local calendar and clock for %s", (instant, expected) => {
+    expect(formatDateTimeLocalInput(instant)).toBe(expected);
+    expect(formatDateTimeLocalInput(instant.toISOString())).toBe(expected);
+    expect(new Date(formatDateTimeLocalInput(instant)).getTime()).toBe(instant.getTime());
+  });
+
+  it("returns an empty input value for an invalid date", () => {
+    expect(formatDateTimeLocalInput("invalid")).toBe("");
   });
 });

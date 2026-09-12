@@ -93,3 +93,11 @@ export function formatDateTimeLocal(input: string | Date, locale = "en"): string
   if (Number.isNaN(d.getTime())) return "—";
   return `${formatDateLocal(d, locale)} · ${formatTimeLocal(d)}`;
 }
+
+// HTML datetime-local values must use local components, not an ISO UTC slice.
+export function formatDateTimeLocalInput(input: string | Date): string {
+  const d = parseISO(input);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${String(d.getFullYear()).padStart(4, "0")}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${formatTimeLocal(d)}`;
+}
