@@ -307,7 +307,7 @@ function stateFromRow(userId: string, d: Partial<State>, rev: number): State {
  * hydrate/reload) or as last successfully saved. Never persisted.
  */
 let lastSavedDoc: WorkspaceSnapshot | null = null;
-// Invalidates asynchronous reads across hydration attempts and sign-out,
+// Invalidates asynchronous operations across hydration attempts and sign-out,
 // including a sign-out/sign-in cycle for the same account.
 let workspaceEpoch = 0;
 
@@ -317,13 +317,24 @@ let workspaceEpoch = 0;
 let saveChain: Promise<void> = Promise.resolve();
 
 export function saveWorkspaceNow(): Promise<void> {
-  const next = saveChain.then(() => saveWorkspaceUnchained());
+  const epoch = workspaceEpoch;
+  const userId = state.userId;
+  const next = saveChain.then(() => saveWorkspaceUnchained(epoch, userId));
   // Keep the chain alive through failures; callers still see the rejection.
   saveChain = next.catch(() => undefined);
   return next;
 }
 
-async function saveWorkspaceUnchained(): Promise<void> {
+async function saveWorkspaceUnchained(
+  epoch: number,
+  requestedUserId: State["userId"],
+): Promise<void> {
+  const assertCurrent = () => {
+    if (workspaceEpoch !== epoch || state.userId !== requestedUserId) {
+      throw new Error("The workspace session changed. Reopen the current workspace before saving.");
+    }
+  };
+  assertCurrent();
   if (typeof window === "undefined") return;
   if (!state.hydrated || !state.userId) return;
   if (saveTimer) {
@@ -361,6 +372,7 @@ async function saveWorkspaceUnchained(): Promise<void> {
     );
 
   let { data: newRev, error } = await applyBatch();
+  assertCurrent();
   if (error && /workspace_not_migrated/i.test(error.message ?? "")) {
     // Extremely rare: hydrate's lazy backfill failed earlier. Backfill from
     // the full local snapshot, then retry the batch once.
@@ -373,6 +385,7 @@ async function saveWorkspaceUnchained(): Promise<void> {
         p_meta: meta,
       } as never,
     );
+    assertCurrent();
     if (backfillError) throw error;
     if (created) {
       // OUR backfill created the meta row — it persisted the full snapshot.
@@ -385,9 +398,11 @@ async function saveWorkspaceUnchained(): Promise<void> {
     // discard every local edit. Retry the batch against the now-existing
     // meta row instead, and fall through to the shared confirm/throw path.
     ({ data: newRev, error } = await applyBatch());
+    assertCurrent();
   }
   if (error && /workspace_content_changed/i.test(error.message ?? "")) {
     const { toast } = await import("sonner");
+    assertCurrent();
     toast.error(
       "This draft changed in another session. Your local edits are still here. Copy them before refreshing to open the saved version.",
     );

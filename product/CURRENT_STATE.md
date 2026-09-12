@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Queued saves and write acknowledgements now retain their requesting account/session identity, reject obsolete requests, and cannot replace a newer saved baseline or start stale backfill/retry work. Five new race tests; full local suite passes 4,811 tests/327 files, with types/build/scoped lint passing. See WORKSPACE_SAVE_SESSION_ISOLATION_2026_09_12.md. Prepared, unreleased; already-issued writes are not cancelled and real-use/release gates remain.
+
 Workspace hydration, reload and entitlement responses now verify account and session lifecycle before replacing client state, preventing delayed responses from restoring a signed-out account or overwriting a newer load. Ten new race regressions; full local suite passes 4,806 tests/327 files, with types/build/scoped lint passing. See WORKSPACE_SESSION_ISOLATION_2026_09_12.md. Prepared, unreleased; real multi-account acceptance and release holds remain.
 
 Integrated local regression at c630087: 325/326 files and 4,794/4,796 tests passed. Both failures came from an outreach test store missing language-hook fields; the fixture is corrected and all seven outreach files (41 tests), types and scoped lint pass. Production behavior is unchanged. Full-run and focused-rerun evidence are distinguished in INTEGRATED_REGRESSION_2026_09_12.md. Unreleased; real-use acceptance and release holds remain.

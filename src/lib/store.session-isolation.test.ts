@@ -16,6 +16,7 @@ import {
   reloadWorkspaceForUser,
   resetStore,
   saveWorkspaceNow,
+  setState,
 } from "./store";
 
 function deferred<T>() {
@@ -44,6 +45,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   resetStore();
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -153,6 +155,93 @@ describe("workspace session isolation", () => {
       await refreshing;
       expect(getState()).toBe(current);
       expect(getState().subscription?.planId).toBe("agency");
+    },
+  );
+});
+
+describe("workspace save session isolation", () => {
+  beforeEach(() => vi.useFakeTimers());
+
+  async function startSave() {
+    h.rpc.mockResolvedValueOnce(await bundle("initial"));
+    await hydrateForUser("owner");
+    setState((s) => ({ ...s, activeProjectId: "edited" }));
+    const response = deferred<Response>();
+    h.rpc.mockReturnValueOnce(response.promise);
+    const result = saveWorkspaceNow().then(
+      () => "saved",
+      (error: Error) => error.message,
+    );
+    await vi.waitFor(() => expect(h.rpc).toHaveBeenCalledTimes(2));
+    return { response, result };
+  }
+
+  it("rejects queued old-session saves without writing the new account's edits", async () => {
+    const { response, result } = await startSave();
+    const queued = saveWorkspaceNow().then(
+      () => "saved",
+      (error: Error) => error.message,
+    );
+    resetStore();
+    h.rpc.mockResolvedValueOnce(await bundle("new"));
+    await hydrateForUser("new-owner");
+    setState((s) => ({ ...s, activeProjectId: "new-edit" }));
+    response.resolve({ data: 2, error: null });
+    expect(await result).toContain("workspace session changed");
+    expect(await queued).toContain("workspace session changed");
+    expect(h.rpc).toHaveBeenCalledTimes(3);
+    h.rpc.mockResolvedValueOnce({ data: 3, error: null });
+    await saveWorkspaceNow();
+    expect(h.rpc).toHaveBeenLastCalledWith(
+      "apply_workspace_entity_batch",
+      expect.objectContaining({
+        p_user_id: "new-owner",
+        p_meta: expect.objectContaining({ activeProjectId: "new-edit" }),
+      }),
+    );
+  });
+
+  it("keeps the new same-account baseline and revision after an old write succeeds", async () => {
+    const { response, result } = await startSave();
+    resetStore();
+    h.rpc.mockResolvedValueOnce(await bundle("new"));
+    await hydrateForUser("owner");
+    const current = getState();
+    response.resolve({ data: 99, error: null });
+    expect(await result).toContain("workspace session changed");
+    expect(getState()).toBe(current);
+    h.rpc.mockClear();
+    await saveWorkspaceNow();
+    expect(h.rpc).not.toHaveBeenCalled();
+  });
+
+  it("does not start legacy backfill from an obsolete save response", async () => {
+    const { response, result } = await startSave();
+    resetStore();
+    response.resolve({ data: null, error: { message: "workspace_not_migrated" } });
+    expect(await result).toContain("workspace session changed");
+    expect(h.rpc).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([true, false])(
+    "does not advance state or retry after obsolete backfill created=%s",
+    async (created) => {
+      const { response, result } = await startSave();
+      const backfill = deferred<Response>();
+      h.rpc.mockReturnValueOnce(backfill.promise);
+      response.resolve({ data: null, error: { message: "workspace_not_migrated" } });
+      await vi.waitFor(() => expect(h.rpc).toHaveBeenCalledTimes(3));
+      resetStore();
+      h.rpc.mockResolvedValueOnce(await bundle("new"));
+      await hydrateForUser("owner");
+      const current = getState();
+      backfill.resolve({ data: created, error: null });
+      expect(await result).toContain("workspace session changed");
+      expect(getState()).toBe(current);
+      expect(h.rpc).toHaveBeenCalledTimes(4);
+      h.rpc.mockClear();
+      await saveWorkspaceNow();
+      expect(h.rpc).not.toHaveBeenCalled();
     },
   );
 });
