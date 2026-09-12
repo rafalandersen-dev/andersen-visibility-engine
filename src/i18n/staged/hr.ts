@@ -1,3 +1,4 @@
+import { hrTechnical } from "./hr-technical";
 import { hrKnowledge } from "./hr-knowledge";
 import { hrCollab } from "./hr-collab";
 import { hrConfig } from "./hr-config";
@@ -20,6 +21,13 @@ import { hrAuthScreen } from "./hr-auth-screen";
 import { hrSharedUi } from "./hr-shared-ui";
 /** Croatian authoring; never imported by the runtime catalog. */
 export const HR_STAGED_BATCHES = [
+  {
+    name: "technical",
+    copy: hrTechnical,
+    namespaces: ["crawl", "gindex", "perf"],
+    sourceRevision: "6eb1efc",
+    sourceHash: "106a19b8ceaf725528ddc9d4de7317d823108425584418d93729346f29c135e6",
+  },
   {
     name: "knowledge",
     copy: hrKnowledge,

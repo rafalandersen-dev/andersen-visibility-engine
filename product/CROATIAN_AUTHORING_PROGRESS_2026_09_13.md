@@ -1,6 +1,6 @@
 # Croatian interface authoring — 13 September 2026
 
-Croatian is staged only: 1,978 of the current 3,768 English interface keys across twenty complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK/SL retain complete staged authoring and incomplete acceptance status.
+Croatian is staged only: 2,216 of the current 3,768 English interface keys across twenty-one complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK/SL retain complete staged authoring and incomplete acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -24,8 +24,9 @@ Croatian is staged only: 1,978 of the current 3,768 English interface keys acros
 | Configuration | 220 | aedd7bf |
 | Collaboration | 248 | cb473e8 |
 | Knowledge | 242 | 9e0e08c |
+| Technical | 238 | 6eb1efc |
 
-The frozen staged registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 31 Croatian/catalog tests, scoped lint, whitespace and type checking pass. Changed code formatted. Type log: /tmp/milo-croatian-knowledge-types.log.
+The frozen staged registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 32 Croatian/catalog tests, scoped lint, whitespace and type checking pass. Changed code formatted. Type log: /tmp/milo-croatian-technical-types.log.
 
 Terminology: radni prostor (workspace), projekt, lozinka (password), ponovno postavljanje lozinke (password reset), bočna traka (sidebar), unos (network listing), paket (subscription plan), plan (workflow plan), smjernice za sadržaj (content brief), poveznica (link). Use polite plural explanatory instructions and concise action labels. Preserve provider/product names and placeholders.
 
@@ -59,4 +60,6 @@ Collaboration copy preserves invitation creation versus email request versus gra
 
 Knowledge copy preserves exact record/source versions, review validity and expiry, forgotten-evidence limits, separate knowledge/publication approval, bounded text/catalog capture and uncertain weekly recovery semantics. Source-reported acceptance is not independent verification. Owner fields retain precedence. No source fetch, upload, acceptance, review decision, scheduling or publication operation occurred.
 
-Remaining: 1,790 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: technical using the current composed English source. This staged work does not complete R20 or change release gates.
+Technical copy preserves ownership expiry, robots holds, crawl/sitemap/storage bounds, saved observation versus repair evidence, Google saved indexing versus live-page checks, lab versus real-user metrics and uncertain-request recovery without automatic repetition. Search Console property: entitet. No DNS, crawl, Google, measurement or provider request occurred.
+
+Remaining: 1,552 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: measurements using the current composed English source. This staged work does not complete R20 or change release gates.
