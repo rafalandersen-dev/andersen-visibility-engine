@@ -1,3 +1,4 @@
+import { fiCommerce } from "./fi-commerce";
 import { fiGrowth } from "./fi-growth";
 import { fiOutreach } from "./fi-outreach";
 import { fiMeasurements } from "./fi-measurements";
@@ -25,6 +26,13 @@ import { fiSharedUi } from "./fi-shared-ui";
 
 /** Finnish authoring; never imported by the runtime catalog. */
 export const FI_STAGED_BATCHES = [
+  {
+    name: "commerce",
+    copy: fiCommerce,
+    namespaces: ["billing", "launch", "beta"],
+    sourceRevision: "41eef0c",
+    sourceHash: "6cd0596e8ff09ae38f9decb763ab31a3fe2c311109c9b5f85edc9721d7058ff2",
+  },
   {
     name: "growth",
     copy: fiGrowth,
