@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+European Portuguese authoring now covers 3227/3768 messages in twenty-six groups, adding link networking, backlink evidence, sponsored publication and monitoring guidance (256). All 50 focused checks, full TypeScript and scoped lint pass; 541 messages and fluent/rendered acceptance remain. See PORTUGUESE_AUTHORING_PROGRESS_2026_09_12.md. Staged only; no supplier/contact/payment operations, release-gate or progress-estimate change.
+
 European Portuguese authoring now covers 2971/3768 messages in twenty-five groups, adding billing, launch checklist and beta limitations (192). All 49 focused checks, full TypeScript and scoped lint pass; 797 messages and fluent/rendered acceptance remain. See PORTUGUESE_AUTHORING_PROGRESS_2026_09_12.md. Staged only; no payment/activation operation, release-gate or progress-estimate change.
 
 European Portuguese authoring now covers 2779/3768 messages in twenty-four groups, adding authority, public audit and proposed-action guidance (201). All 48 focused checks, full TypeScript and scoped lint pass; 989 messages and fluent/rendered acceptance remain. Source claim review notes are recorded in PORTUGUESE_AUTHORING_PROGRESS_2026_09_12.md. Staged only; release holds and progress estimates unchanged.
