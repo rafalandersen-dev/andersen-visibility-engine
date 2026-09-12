@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Operational notification scans now verify exact queue and scheduler-lease counts before syncing alerts, rejecting truncated/unknown/over-limit histories. Two regressions cover eight invalid-count scenarios; all 47 focused tests plus types/scoped lint/whitespace pass. See NOTIFICATION_SOURCE_COMPLETENESS_2026_09_12.md. Prepared, unreleased; histories over 1,000 rows require pagination and real notification/release acceptance remains open.
+
 Publication failure inspection now rejects a workspace revision change/removal during its queue lookup, avoiding an outdated draft-change comparison. Two regressions and all 38 inspection tests plus types/scoped lint/whitespace pass. See PUBLICATION_INSPECTION_REVISION_2026_09_12.md for the extra-read and refresh tradeoff. Prepared, unreleased; browser/real-use and release gates remain.
 
 Recorded source-hold publication failures now expose the existing source-review hint instead of unknown. Exact-message matching preserves rejection of appended provider text; queue/retry authority is unchanged. Two regressions and all 43 focused tests plus types/scoped lint/whitespace pass. See the recorded-failure follow-up in WEEKLY_SOURCE_REVIEW_OUTCOME_2026_09_12.md. Prepared, unreleased; real-use and release gates remain open.

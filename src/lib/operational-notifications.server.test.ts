@@ -34,7 +34,7 @@ beforeEach(() => {
     rev: 7,
     data: { projects: [], content: [], opportunities: [] },
   });
-  mocks.query.mockResolvedValue({ data: [], error: null });
+  mocks.query.mockResolvedValue({ data: [], error: null, count: 0 });
   mocks.rpc.mockImplementation(async (name) => ({
     data: name === "read_workspace_scheduler_controls" ? [] : true,
     error: null,
@@ -45,6 +45,33 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 describe("server notification snapshot boundary", () => {
+  it.each(["scheduled_publishes", "auto_scheduler_leases"])(
+    "preserves alerts when %s completeness is unverified",
+    async (tableName) => {
+      for (const count of [undefined, null, 1, 1001]) {
+        mocks.rpc.mockClear();
+        mocks.query.mockImplementation(async (table) => ({
+          data: [],
+          error: null,
+          count: table === tableName ? count : 0,
+        }));
+        await expect(refreshOperationalNotifications("owner")).rejects.toThrow(
+          tableName === "scheduled_publishes"
+            ? "notification_queue_unavailable"
+            : "notification_scheduler_unavailable",
+        );
+        expect(mocks.rpc).not.toHaveBeenCalledWith(
+          "sync_operational_notifications",
+          expect.anything(),
+        );
+        expect(mocks.rpc).not.toHaveBeenCalledWith(
+          "queue_operational_email_digest",
+          expect.anything(),
+        );
+      }
+    },
+  );
+
   it("does not render absent capacity evidence as zero", () => {
     const row = {
       id: "00000000-0000-4000-8000-000000000001",
@@ -93,7 +120,7 @@ describe("server notification snapshot boundary", () => {
       },
     });
     mocks.query.mockImplementation(async (table) =>
-      table === "ai_usage" ? { data: null, error: {} } : { data: [], error: null },
+      table === "ai_usage" ? { data: null, error: {} } : { data: [], error: null, count: 0 },
     );
     expect(await refreshOperationalNotifications("owner", new Date("2026-09-07T10:00:00Z"))).toBe(
       true,
@@ -170,7 +197,7 @@ describe("server notification snapshot boundary", () => {
     { data: Array(1001).fill({}), error: null },
   ])("preserves the inbox when recovery state is unavailable or malformed", async (response) => {
     mocks.query.mockImplementation(async (table) =>
-      table === "auto_scheduler_leases" ? response : { data: [], error: null },
+      table === "auto_scheduler_leases" ? response : { data: [], error: null, count: 0 },
     );
     await expect(refreshOperationalNotifications("owner")).rejects.toThrow();
     expect(mocks.rpc).not.toHaveBeenCalled();

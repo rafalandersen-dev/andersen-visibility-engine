@@ -40,9 +40,22 @@ const snapshotSchema = z.object({
   content: z.array(assetSchema).default([]),
   opportunities: z.array(opportunitySchema).default([]),
 });
-type Response = { data: unknown; error: unknown };
+type Response = { data: unknown; error: unknown; count?: number | null };
+/** Never clear active alerts based on a silently truncated database response. */
+function completeNotificationSource(
+  response: Response,
+): response is Response & { data: unknown[] } {
+  return (
+    !response.error &&
+    Array.isArray(response.data) &&
+    Number.isInteger(response.count) &&
+    response.count! >= 0 &&
+    response.count! <= 1000 &&
+    response.data.length === response.count
+  );
+}
 interface Query extends PromiseLike<Response> {
-  select(columns: string): Query;
+  select(columns: string, options?: { count: "exact" }): Query;
   eq(column: string, value: unknown): Query;
   order(column: string, options?: { ascending: boolean }): Query;
   limit(n: number): Query;
@@ -66,12 +79,11 @@ export async function refreshOperationalNotifications(
   const db = await admin();
   const response = await db
     .from("scheduled_publishes")
-    .select("id,project_id,asset_id,publish_at,status,attempts,created_at")
+    .select("id,project_id,asset_id,publish_at,status,attempts,created_at", { count: "exact" })
     .eq("user_id", userId)
     .order("id")
     .limit(1001);
-  if (response.error || !Array.isArray(response.data) || response.data.length > 1000)
-    throw new Error("notification_queue_unavailable");
+  if (!completeNotificationSource(response)) throw new Error("notification_queue_unavailable");
   const scheduled = z
     .array(queueSchema)
     .parse(response.data)
@@ -86,11 +98,11 @@ export async function refreshOperationalNotifications(
     }));
   const leaseResponse = await db
     .from("auto_scheduler_leases")
-    .select("project_id,planned_period,status,acquired_at,lease_until")
+    .select("project_id,planned_period,status,acquired_at,lease_until", { count: "exact" })
     .eq("user_id", userId)
     .order("project_id")
     .limit(1001);
-  if (leaseResponse.error || !Array.isArray(leaseResponse.data) || leaseResponse.data.length > 1000)
+  if (!completeNotificationSource(leaseResponse))
     throw new Error("notification_scheduler_unavailable");
   const schedulerLeases = z
     .array(leaseSchema)
