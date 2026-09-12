@@ -1,3 +1,4 @@
+import { ptCollaboration } from "./pt-collaboration";
 import { ptConfiguration } from "./pt-configuration";
 import { ptBetaScreen } from "./pt-beta-screen";
 import { ptBetaGuide } from "./pt-beta-guide";
@@ -155,6 +156,13 @@ export const PT_STAGED_BATCHES = [
     namespaces: ["brand", "wp", "shopify", "claude", "connect", "connections", "coverage"],
     sourceRevision: "8446b55",
     sourceHash: "0e11ebfcac212ec85d91c8734430e0cd661dc727057c565c1cfcd33f59a1aa60",
+  },
+  {
+    name: "collaboration",
+    copy: ptCollaboration,
+    namespaces: ["collaboration", "team", "notifications", "awareness", "emailSettings"],
+    sourceRevision: "94b72ee",
+    sourceHash: "429e59f16a866242f25a373ebd6b52332ae3f04534230101422ebab727f77ed0",
   },
 ] as const;
 export const PT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.assign(
