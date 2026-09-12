@@ -1,8 +1,27 @@
+import { nlCore } from "./nl-core";
 import { nlAuthScreen } from "./nl-auth-screen";
 import { nlSharedUi } from "./nl-shared-ui";
 
 /** Partial Dutch authoring; never imported by the runtime catalog. */
 export const NL_STAGED_BATCHES = [
+  {
+    name: "core",
+    copy: nlCore,
+    namespaces: [
+      "common",
+      "nav",
+      "appShell",
+      "shell",
+      "onboarding",
+      "setup",
+      "lang",
+      "market",
+      "goal",
+      "pipeline",
+    ],
+    sourceRevision: "86460e1",
+    sourceHash: "845b2b1ade4a0935ab924dcc4bdc27d72a7a120388740354bd69a697aa1c7ff2",
+  },
   {
     name: "authentication",
     copy: nlAuthScreen,
