@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Monthly report dates now validate calendar days and group explicit-zone timestamps by UTC, with matching page/email display and chronological publication ordering. Date-only plans retain their day; malformed or zone-less timestamps are excluded. See REPORT_UTC_MONTHS_2026_09_12.md. Prepared, unreleased; real evidence/delivery acceptance and release holds remain.
+
 Local development-browser auth check at c9f8fa9 verified no-session reset routing, keyboard request-new navigation, selected 390px layouts, separate email/interface languages and visual synthetic-email retention across language/mode changes. The subsequent clean Danish reload check verified restoration after the initial English hydration render; that specific uncertainty is resolved. See AUTH_LOCAL_BROWSER_CHECK_2026_09_12.md; no account/provider requests or release performed.
 
 Password-reset session lifecycle corrected: readiness follows sign-out, stale checks cannot override newer auth events or update after cleanup, and lookup rejections are handled. Existing-session eligibility and eight-second recheck are preserved. See PASSWORD_RESET_SESSION_2026_09_12.md. Prepared, unreleased; real password recovery and resend acceptance remain open.

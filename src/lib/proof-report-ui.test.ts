@@ -18,11 +18,20 @@ const state = vi.hoisted(() => ({
       {
         id: "a1",
         projectId: "p1",
-        title: "Recorded publication",
+        title: "August UTC article",
         createdAt: "2026-09-01",
         liveUrl: "https://example.com/article",
         livePublishStatus: "published",
         livePublishedAt: "2026-09-01T00:30:00+14:00",
+      },
+      {
+        id: "a2",
+        projectId: "p1",
+        title: "September UTC article",
+        createdAt: "2026-09-01",
+        liveUrl: "https://example.com/september",
+        livePublishStatus: "published",
+        livePublishedAt: "2026-08-31T23:30:00-02:00",
       },
     ],
     calendar: [
@@ -113,6 +122,8 @@ it.each(UI_LANGUAGE_CODES)(
     const html = renderToStaticMarkup(createElement(Route.options.component as ComponentType));
     expect(html).toContain(formatReportMonth("2026-09", language));
     expect(html).toContain(formatReportDate("2026-09-01", language));
+    expect(html).toContain("September UTC article");
+    expect(html).not.toContain("August UTC article");
     expect(html).toContain(formatReportDate("2026-10-01", language));
     expect(html).toContain('data-value="2026-09"');
     expect(state.selects[0].value).toBe("2026-09");

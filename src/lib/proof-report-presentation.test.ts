@@ -32,9 +32,12 @@ describe("report presentation preserves the reporting period", () => {
         timeZone: "UTC",
       }).format(new Date("2026-09-01T00:00:00Z"));
       expect(formatReportMonth("2026-09", language)).toBe(month);
-      const date = formatReportDate("2026-09-01", language);
-      expect(formatReportDate("2026-09-01T00:30:00+14:00", language)).toBe(date);
-      expect(formatReportDate("2026-09-01T23:30:00-12:00", language)).toBe(date);
+      expect(formatReportDate("2026-09-01T00:30:00+14:00", language)).toBe(
+        formatReportDate("2026-08-31", language),
+      );
+      expect(formatReportDate("2026-09-01T23:30:00-12:00", language)).toBe(
+        formatReportDate("2026-09-02", language),
+      );
       expect(proofReportSubject("Name $& {count}", "2026-09", language)).toBe(
         `${translate(language, "report.title")} — Name $& {count} · ${month}`,
       );

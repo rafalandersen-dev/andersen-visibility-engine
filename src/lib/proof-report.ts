@@ -8,6 +8,7 @@
  * No I/O and no store access: the /app/report page feeds it store state, the
  * email server fn feeds it the workspace row it re-reads itself.
  */
+import { reportDayKey } from "./proof-report-dates";
 import { gscImportSummary, gscSummaryBasis } from "./gsc";
 import type { CalendarItem, ContentAsset, GscImport, GscLite, Project } from "./types";
 
@@ -47,11 +48,9 @@ export interface MonthlyProofReport {
   nextMonthPlan: ProofPlanItem[];
 }
 
-/** "YYYY-MM" for an ISO date/timestamp; "" when unparsable. */
+/** UTC month for timestamp evidence; calendar month for valid date-only values. */
 export function monthKeyOf(iso: string | undefined): string {
-  if (!iso) return "";
-  const m = /^(\d{4})-(\d{2})/.exec(iso);
-  return m ? `${m[1]}-${m[2]}` : "";
+  return reportDayKey(iso).slice(0, 7);
 }
 
 export function addMonths(monthKey: string, delta: number): string {
@@ -106,7 +105,7 @@ export function buildMonthlyProofReport(args: {
         Boolean(x.c.liveUrl) && monthKeyOf(x.at) === monthKey,
     )
     .map(({ c, at }) => ({ id: c.id, title: c.title, liveUrl: c.liveUrl, publishedAt: at }))
-    .sort((a, b) => (a.publishedAt < b.publishedAt ? -1 : 1));
+    .sort((a, b) => Date.parse(a.publishedAt) - Date.parse(b.publishedAt));
 
   const draftedCount = content.filter((c) => monthKeyOf(c.createdAt) === monthKey).length;
 

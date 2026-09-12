@@ -1,3 +1,4 @@
+import { reportDayKey } from "./proof-report-dates";
 import { isUiLanguage } from "@/i18n/catalogs";
 import { translate } from "@/i18n/translate";
 import type { OnboardingLanguage } from "./types";
@@ -16,16 +17,14 @@ export function formatReportMonth(monthKey: string, language: OnboardingLanguage
   }).format(new Date(`${monthKey}-01T00:00:00.000Z`));
 }
 
-/** Preserve the recorded calendar day, as the report's existing date slices did.
- * Date-only plan/window values must not shift with the viewer's timezone. */
+/** Use UTC for timestamp evidence; date-only plan/window values keep their day. */
 export function formatReportDate(
   value: string | undefined,
   language: OnboardingLanguage = "en",
 ): string {
-  if (!value || !/^\d{4}-\d{2}-\d{2}(?:$|T)/.test(value)) return "—";
-  const day = value.slice(0, 10);
+  const day = reportDayKey(value);
+  if (!day) return "—";
   const parsed = new Date(`${day}T00:00:00.000Z`);
-  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== day) return "—";
   return formatDate(parsed, localeOf(language));
 }
 

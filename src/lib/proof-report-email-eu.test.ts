@@ -73,7 +73,7 @@ it.each(EMAIL_LANGUAGE_CODES)(
       ),
     );
     expect(formatReportEmailDate("2026-09-01T00:30:00+14:00", locale)).toBe(
-      formatReportEmailDate("2026-09-01", locale),
+      formatReportEmailDate("2026-08-31", locale),
     );
     expect(formatReportEmailDate("2026-02-29", locale)).toBe("—");
     expect(formatReportEmailNumber(null, locale)).toBe("—");

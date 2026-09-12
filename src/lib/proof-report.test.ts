@@ -235,7 +235,9 @@ describe("white-label email rendering (Agency Inc B)", () => {
       agencyName: 'Acme & <Co> "Agency"',
       logoUrl: "https://acme.example/logo.png",
     });
-    expect(html).toContain("Acme &amp; &lt;Co&gt; &quot;Agency&quot;. Based on saved publication results.");
+    expect(html).toContain(
+      "Acme &amp; &lt;Co&gt; &quot;Agency&quot;. Based on saved publication results.",
+    );
     expect(html).not.toContain("Milo Growth. Based on saved publication results.");
     expect(html).toContain('src="https://acme.example/logo.png"');
     const js = renderProofReportEmailHtml(report, "Client Site", {
@@ -243,5 +245,59 @@ describe("white-label email rendering (Agency Inc B)", () => {
       logoUrl: "javascript:alert(1)",
     });
     expect(js).not.toContain("javascript:alert");
+  });
+});
+
+describe("report dates use validated UTC evidence", () => {
+  it.each([
+    "2026-07",
+    "2026-07-junk",
+    "2026-02-30T12:00:00Z",
+    "2026-07-10T25:00:00Z",
+    "2026-07-10T12:00:00",
+    "2026-13-01",
+  ])("rejects ambiguous or invalid date %s", (value) => {
+    expect(monthKeyOf(value)).toBe("");
+  });
+  it("groups and orders equivalent offset timestamps by instant while retaining plan dates", () => {
+    const records = [
+      asset({
+        id: "outside",
+        liveUrl: "https://example.invalid/a",
+        livePublishStatus: "published",
+        livePublishedAt: "2026-07-01T00:30:00+02:00",
+      }),
+      asset({
+        id: "first",
+        liveUrl: "https://example.invalid/b",
+        livePublishStatus: "published",
+        livePublishedAt: "2026-07-01T04:00:00+03:00",
+      }),
+      asset({
+        id: "second",
+        liveUrl: "https://example.invalid/c",
+        livePublishStatus: "published",
+        livePublishedAt: "2026-06-30T23:00:00-03:00",
+      }),
+      asset({
+        id: "bad",
+        liveUrl: "https://example.invalid/d",
+        livePublishStatus: "published",
+        livePublishedAt: "2026-07-junk",
+      }),
+      asset({ id: "draft", createdAt: "2026-08-01T00:30:00+02:00" }),
+      asset({ id: "scheduled", scheduledPublishAt: "2026-06-30T23:30:00-02:00" }),
+    ];
+    const result = buildMonthlyProofReport({
+      project: { id: "p1" },
+      content: records,
+      calendar: [cal({ plannedDate: "2026-08-01" }), cal({ plannedDate: "2026-08-32" })],
+      monthKey: "2026-07",
+      linksLive: null,
+    });
+    expect(result.published.map((x) => x.id)).toEqual(["first", "second"]);
+    expect(result.draftedCount).toBe(1);
+    expect(result.scheduledCount).toBe(1);
+    expect(result.nextMonthPlan.map((x) => x.plannedDate)).toEqual(["2026-08-01"]);
   });
 });

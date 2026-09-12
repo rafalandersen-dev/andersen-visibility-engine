@@ -1,3 +1,4 @@
+import { reportDayKey } from "./proof-report-dates";
 import { proofReportEmailCopy } from "@/i18n/proof-report-email-copy";
 import { emailLocaleSchema, type EmailLanguage } from "./email-languages";
 
@@ -31,10 +32,9 @@ export function formatReportEmailDate(
   value: string | undefined,
   language: EmailLanguage = "en",
 ): string {
-  if (!value || !/^\d{4}-\d{2}-\d{2}(?:$|T)/.test(value)) return "—";
-  const day = value.slice(0, 10),
-    date = new Date(`${day}T00:00:00.000Z`);
-  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== day) return "—";
+  const day = reportDayKey(value);
+  if (!day) return "—";
+  const date = new Date(`${day}T00:00:00.000Z`);
   if (language === "en") {
     // Keep the existing report's English representation for current recipients.
     return `${day.slice(8)} ${new Intl.DateTimeFormat("en", { month: "short", timeZone: "UTC" }).format(date)} ${day.slice(0, 4)}`;
