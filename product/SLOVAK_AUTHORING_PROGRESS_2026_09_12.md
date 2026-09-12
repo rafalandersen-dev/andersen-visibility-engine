@@ -1,6 +1,6 @@
 # Slovak interface authoring — 12 September 2026
 
-Slovak is staged only: 3,423 of the current 3,768 English interface keys, across twenty-seven complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS retain separate staged acceptance status.
+Slovak is staged only: all 3,768 current English interface keys, across twenty-eight complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS retain separate staged acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -31,14 +31,15 @@ Slovak is staged only: 3,423 of the current 3,768 English interface keys, across
 | Billing, launch checklist and beta limitations | 192 | a5d2a42 |
 | Link network, backlinks, marketplace and monitoring | 256 | 58c329a |
 | Publication proof, AI answers, logs and evaluation | 196 | 482aa28 |
+| Scheduling, editor, plan, recovery and workflow | 345 | aef1c2c |
 
-The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 38 Slovak/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovak-evidence-types.log.
+The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 40 Slovak/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovak-workflow-types.log.
 
 Terminology: pracovný priestor (workspace), projekt, heslo (password), obnovenie hesla (password recovery), bočný panel (sidebar), archivovať (archive). Prefer formal-plural instructions and infinitive actions. Program denotes a subscription plan; workflow plans use plán. Network listing is zápis. Preserve provider/product names and placeholders.
 
 Recovery text preserves conditional eligibility and does not confirm that an account exists. Source claims about monthly planning and successful sign-in after password update retain implementation/acceptance obligations; translation does not prove them. No email, authentication, password, account or provider operation occurred.
 
-Remaining: 345 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next complete batch: workflow using current composed English. This staged work does not complete R20 or alter release gates.
+Authoring coverage is complete against the current composed English key set, enforced by a whole-catalog equality test. Remaining: fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next: terminology consistency and local rendered review. This staged work does not complete R20 or alter release gates.
 
 Core copy preserves interface versus content language, work target dates versus publication times, sent drafts versus published pages, and partial-generation recovery. Navigation uses Plán, Obsah, Viditeľnosť, Nastavenia and Analytika; publication scheduling is Čas zverejnenia nastavený. No generation, scheduling or publication occurred. Current source fingerprints are checked against composed English.
 
@@ -81,3 +82,5 @@ Commerce copy preserves test checkout versus actual charges, manual activation v
 Links copy preserves index observations versus verified placements, missing metrics versus zero, exact-price purchase authorization versus demo requests, quote expiry and uncertain-outcome retry holds. Recurring collection retains UTC windows, supplier funding and cap conditions, skipped runs and the possibility of costs after pausing already admitted requests. No supplier request, purchase, outreach, placement verification or monitoring change occurred.
 
 Evidence copy preserves owner-supplied and unverified provenance, connector reports versus independent live-page confirmation, comparable measurement windows versus causation, correction history and irreversible removal. Log privacy, local user-agent reduction, deduplication and inclusive/exclusive UTC limits remain explicit. The benchmark retains its source $5 authorization/expiry wording; this authoring does not renew or exercise that authorization. No model request, benchmark, evidence import, publication or removal occurred.
+
+Workflow copy preserves approval versus publication, target dates versus publication schedules, overdue/unconfirmed attempts, generation recovery without renewed generation and source-review holds. Image previews and local structured-data checks do not confirm destination fidelity or delivery. Numeric/placeholder checks and whole-catalog equality pass. No generation, approval, scheduling, publication or recovery mutation occurred.

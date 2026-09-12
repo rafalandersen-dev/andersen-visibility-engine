@@ -1,5 +1,7 @@
 # R20 language coverage matrix — 12 September 2026
 
+Latest authoring checkpoint (source aef1c2c plus Slovak workflow): Slovak now has all 3,768 current English UI keys across 28 staged batches. Four catalogs are active and nine are fully staged (FR/DE/ES/IT/PT/NL/FI/CS/SK); eleven remain unauthored. Remaining UI authoring backlog: 41,448 messages (11 × 3,768). All 40 Slovak/catalog tests, types, scoped lint and whitespace pass. This is authoring coverage, not activation or language/rendered acceptance. The original audit and incremental history below retain their own evidence baselines.
+
 Evidence baseline: 166eca8. This audit reads the current content registry, composed UI catalogs, all seven staged catalogs, operational/authentication/report email catalogs and local Intl support. Counts describe authored code, not deployment, fluency or real-use acceptance. No language was activated and no message was sent.
 
 The current English UI contains 3,768 keys. Four languages are active in the candidate runtime, seven have exact full-key staged catalogs, and thirteen have no UI catalog in this worktree. The remaining UI authoring backlog is 48,984 messages at the present English baseline (13 × 3,768), before source changes or quality corrections.
@@ -144,3 +146,5 @@ Slovak billing/launch/beta adds 192 messages, bringing staged coverage to 2,971/
 Slovak link network/backlinks/marketplace/monitoring adds 256 messages, bringing staged coverage to 3,227/3,768 across twenty-six batches. The remaining UI authoring backlog is 41,989 messages at this composed-English baseline. All 37 focused tests, types, scoped lint and whitespace pass. Activation and language/rendered acceptance remain open.
 
 Slovak publication proof/AI answers/logs/evaluation adds 196 messages, bringing staged coverage to 3,423/3,768 across twenty-seven batches. The remaining UI authoring backlog is 41,793 messages at this composed-English baseline. All 38 focused tests, types, scoped lint and whitespace pass. Activation and language/rendered acceptance remain open.
+
+Slovak workflow adds the final 345 messages, completing 3,768/3,768 across twenty-eight batches. Whole-catalog equality now verifies every current composed English key in addition to individual namespace/source/parameter checks. All 40 focused tests, types, scoped lint and whitespace pass. Language, rendered and activation acceptance remain open.

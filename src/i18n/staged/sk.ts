@@ -1,3 +1,4 @@
+import { skWorkflow } from "./sk-workflow";
 import { skEvidence } from "./sk-evidence";
 import { skLinks } from "./sk-links";
 import { skCommerce } from "./sk-commerce";
@@ -233,6 +234,31 @@ export const SK_STAGED_BATCHES = [
     namespaces: ["answer", "logs", "proof", "aiEval", "benchmark"],
     sourceRevision: "482aa28",
     sourceHash: "2911f87d7691a2bf04548e0b7c0e63b3c93f25cdcd73c9af1ba5d22ffdee211d",
+  },
+  {
+    name: "workflow",
+    copy: skWorkflow,
+    namespaces: [
+      "autoSched",
+      "prev",
+      "imgGen",
+      "arrange",
+      "visual",
+      "editor",
+      "dashboard",
+      "status",
+      "quality",
+      "calsched",
+      "pres",
+      "featured",
+      "today",
+      "plan",
+      "generationResults",
+      "workflow",
+      "publishingFidelity",
+    ],
+    sourceRevision: "aef1c2c",
+    sourceHash: "649e9d723e890e3a356652ad7a515080081167e2d06a4dc5d3ad58cc5e2b6615",
   },
 ] as const;
 export const SK_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
