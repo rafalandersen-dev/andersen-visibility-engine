@@ -1,3 +1,5 @@
+import { deGrowth } from "./de-growth";
+import { deCommerce } from "./de-commerce";
 import { deLinks } from "./de-links";
 import { deOutreach } from "./de-outreach";
 import { deConfiguration } from "./de-configuration";
@@ -106,6 +108,8 @@ export const DE_STAGED_BATCHES = [
     ],
   },
   { name: "outreach", copy: deOutreach, namespaces: ["outreach", "hook", "anchor"] },
+  { name: "growth", copy: deGrowth, namespaces: ["authority", "actions", "publicAudit"] },
+  { name: "commerce", copy: deCommerce, namespaces: ["billing", "launch", "beta"] },
 ] as const;
 export const DE_STAGED_CATALOG: Readonly<Record<string, string>> = Object.assign(
   {},

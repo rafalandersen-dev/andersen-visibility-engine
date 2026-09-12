@@ -21,4 +21,6 @@ export const DE_AUTHORING_SOURCE_HASHES: Readonly<Record<string, string>> = {
   evidence: "2911f87d7691a2bf04548e0b7c0e63b3c93f25cdcd73c9af1ba5d22ffdee211d",
   links: "7b8c4cfd6fb08b518e7e0eb7fd53e767b72972a0048a75521eda0d4b9ebd40d7",
   outreach: "c2bfe98eb710f1587237c92b04696e6f9221e67def7d1080eb7ce08e3d1161b4",
+  growth: "79460ac604f31155136687fbf43e146ccd11625f12316625da192cdb8188f136",
+  commerce: "2d58b596b76d994df2999d70c42588c8a48ec57ab846dbe5b88238580e59387c",
 };
