@@ -186,12 +186,13 @@ export const itWorkflow: Readonly<Record<string, string>> = {
   "editor.schedule.arming": "Pianificazione in corso…",
   "editor.schedule.cancel": "Annulla la pubblicazione online",
   "editor.schedule.cancelled": "Pubblicazione online annullata. La bozza è invariata.",
-  "editor.schedule.armed": "Pianificato. Sarà online il {when}.",
+  "editor.schedule.armed":
+    "Programmazione salvata per {when}. La pubblicazione resta soggetta ai controlli e alla disponibilità del sito di destinazione.",
   "editor.schedule.inFlight":
     "L'invio è in corso e non può più essere fermato: puoi rimuovere la pubblicazione dal tuo sito.",
   "editor.schedule.needsApproval": "Segna l'articolo come pronto prima di pianificarlo.",
   "editor.schedule.overdue":
-    "Avrebbe dovuto essere online il {when}, ma non è stato pubblicato. Controlla le impostazioni di connessione, poi pianificalo di nuovo.",
+    "La data salvata del {when} è trascorsa. La pubblicazione non è confermata. Controlla il sito di destinazione e lo stato attuale della programmazione prima di programmare o pubblicare di nuovo.",
   "editor.schedule.hint":
     "Approvare non pubblica mai. Nulla va online finché non lo pianifichi o lo pubblichi subito.",
   "calsched.title.ready": "Pianificare la pubblicazione online?",

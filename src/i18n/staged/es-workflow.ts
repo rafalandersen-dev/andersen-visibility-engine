@@ -185,12 +185,13 @@ export const esWorkflow: Readonly<Record<string, string>> = {
   "editor.schedule.arming": "Programando…",
   "editor.schedule.cancel": "Cancelar publicación",
   "editor.schedule.cancelled": "Publicación cancelada. El borrador no ha cambiado.",
-  "editor.schedule.armed": "Programado. Se publicará el {when}.",
+  "editor.schedule.armed":
+    "Programación guardada para {when}. La publicación sigue sujeta a las comprobaciones y a la disponibilidad del destino.",
   "editor.schedule.inFlight":
     "Se está enviando ahora mismo y ya no se puede detener; puedes retirar la publicación desde tu sitio.",
   "editor.schedule.needsApproval": "Marca el artículo como listo antes de programarlo.",
   "editor.schedule.overdue":
-    "Debería haberse publicado el {when}, pero no se publicó. Comprueba la configuración de conexión y vuelve a programarlo.",
+    "La fecha guardada de {when} ya ha pasado. La publicación no está confirmada. Comprueba el destino y el estado actual de la programación antes de volver a programar o publicar.",
   "editor.schedule.hint":
     "Aprobar nunca publica. Nada se publica hasta que lo programes o lo publiques ahora.",
   "calsched.title.ready": "¿Programar publicación?",

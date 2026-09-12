@@ -1534,9 +1534,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                   "text-xs " + (scheduleOverdue ? "text-amber-700" : "text-muted-foreground")
                 }
               >
-                {/* Overdue is not "still scheduled". A pending row well past its
-                    time means nothing fired, and saying "Scheduled" there is the
-                    exact lie this increment exists to remove. */}
+                {/* A stale pending mirror cannot establish the destination outcome. */}
                 {scheduleOverdue
                   ? t("editor.schedule.overdue", {
                       when: formatDateTimeLocal(live.scheduledPublishAt, locale),

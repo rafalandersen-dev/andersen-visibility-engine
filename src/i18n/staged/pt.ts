@@ -259,7 +259,7 @@ export const PT_STAGED_BATCHES = [
       "publishingFidelity",
     ],
     sourceRevision: "cc3ae1f",
-    sourceHash: "bb07d1e3a9509e42f46b1c800d7f4c418b42f1d0c60872a8ba7b1aa6014009b2",
+    sourceHash: "649e9d723e890e3a356652ad7a515080081167e2d06a4dc5d3ad58cc5e2b6615",
   },
 ] as const;
 export const PT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

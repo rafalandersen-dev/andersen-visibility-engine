@@ -185,12 +185,13 @@ export const deWorkflow: Readonly<Record<string, string>> = {
   "editor.schedule.arming": "Wird terminiert…",
   "editor.schedule.cancel": "Live-Veröffentlichung absagen",
   "editor.schedule.cancelled": "Live-Veröffentlichung abgesagt. Der Entwurf bleibt unverändert.",
-  "editor.schedule.armed": "Terminiert. Wird am {when} live veröffentlicht.",
+  "editor.schedule.armed":
+    "Zeitplan für {when} gespeichert. Die Veröffentlichung hängt weiterhin von Prüfungen und der Verfügbarkeit der Zielwebsite ab.",
   "editor.schedule.inFlight":
     "Dies wird gerade versendet und kann nicht mehr gestoppt werden — du kannst die Veröffentlichung auf deiner Website zurücknehmen.",
   "editor.schedule.needsApproval": "Markiere den Artikel als bereit, bevor du ihn terminierst.",
   "editor.schedule.overdue":
-    "Dies hätte am {when} live veröffentlicht werden sollen, wurde aber nicht veröffentlicht. Prüfe deine Verbindungseinstellungen und terminiere es dann erneut.",
+    "Der gespeicherte Termin {when} ist überschritten. Die Veröffentlichung ist nicht bestätigt. Prüfen Sie die Zielwebsite und den aktuellen Zeitplanstatus, bevor Sie erneut planen oder veröffentlichen.",
   "editor.schedule.hint":
     "Eine Freigabe veröffentlicht nichts. Nichts geht live, bis du es terminierst oder jetzt veröffentlichst.",
   "calsched.title.ready": "Live-Veröffentlichung terminieren?",

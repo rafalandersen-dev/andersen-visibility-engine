@@ -185,12 +185,13 @@ export const ptWorkflow: Readonly<Record<string, string>> = {
   "editor.schedule.arming": "A agendar…",
   "editor.schedule.cancel": "Cancelar publicação online",
   "editor.schedule.cancelled": "Publicação online cancelada. O rascunho mantém-se inalterado.",
-  "editor.schedule.armed": "Agendado. Ficará online em {when}.",
+  "editor.schedule.armed":
+    "Agendamento guardado para {when}. A publicação continua sujeita às verificações e à disponibilidade do destino.",
   "editor.schedule.inFlight":
     "O envio está a decorrer agora e já não pode ser interrompido — pode retirar a publicação no seu site.",
   "editor.schedule.needsApproval": "Marque o artigo como pronto antes de o agendar.",
   "editor.schedule.overdue":
-    "Deveria ter ficado online em {when}, mas não ficou. Verifique as definições de ligação e depois agende novamente.",
+    "O agendamento guardado para {when} está atrasado. A publicação não está confirmada. Verifique o destino e o estado atual do agendamento antes de agendar ou publicar novamente.",
   "editor.schedule.hint": "Aprovar nunca publica. Nada fica online até agendar ou publicar agora.",
   "calsched.title.ready": "Agendar publicação online?",
   "calsched.title.notReady": "Não está pronto para publicar",

@@ -1571,12 +1571,13 @@ export const en: Record<string, string> = {
   "editor.schedule.arming": "Scheduling…",
   "editor.schedule.cancel": "Cancel go-live",
   "editor.schedule.cancelled": "Go-live cancelled. The draft is untouched.",
-  "editor.schedule.armed": "Scheduled. It goes live {when}.",
+  "editor.schedule.armed":
+    "Schedule saved for {when}. Publication remains subject to checks and destination availability.",
   "editor.schedule.inFlight":
     "This is going out right now and can no longer be stopped — you can unpublish it from your site.",
   "editor.schedule.needsApproval": "Mark the article ready before scheduling it.",
   "editor.schedule.overdue":
-    "This should have gone live {when} and did not. Check your connection settings, then schedule it again.",
+    "The saved schedule for {when} is overdue. Publication is unconfirmed. Check the destination and current schedule status before scheduling or publishing again.",
   "editor.schedule.hint":
     "Approving never publishes. Nothing goes live until you schedule it or publish it now.",
 

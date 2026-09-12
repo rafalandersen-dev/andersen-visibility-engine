@@ -188,13 +188,14 @@ export const frWorkflow: Readonly<Record<string, string>> = {
   "editor.schedule.arming": "Programmation…",
   "editor.schedule.cancel": "Annuler la mise en ligne",
   "editor.schedule.cancelled": "Mise en ligne annulée. Le brouillon est inchangé.",
-  "editor.schedule.armed": "Programmé. La mise en ligne aura lieu {when}.",
+  "editor.schedule.armed":
+    "Programmation enregistrée pour {when}. La publication reste soumise aux vérifications et à la disponibilité du site de destination.",
   "editor.schedule.inFlight":
     "L’envoi est en cours et ne peut plus être arrêté — vous pouvez dépublier le contenu depuis votre site.",
   "editor.schedule.needsApproval":
     "Marquez l’article comme prêt avant de programmer sa publication.",
   "editor.schedule.overdue":
-    "La mise en ligne prévue pour {when} n’a pas eu lieu. Vérifiez vos paramètres de connexion, puis reprogrammez-la.",
+    "La date enregistrée du {when} est dépassée. La publication n’est pas confirmée. Vérifiez le site de destination et l’état actuel de la programmation avant de programmer ou publier à nouveau.",
   "editor.schedule.hint":
     "L’approbation ne publie jamais rien. Rien n’est mis en ligne tant que vous ne le programmez pas ou ne choisissez pas de publier immédiatement.",
   "calsched.title.ready": "Programmer la mise en ligne ?",

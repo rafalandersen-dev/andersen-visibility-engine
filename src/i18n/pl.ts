@@ -1578,12 +1578,13 @@ export const pl: Record<string, string> = {
   "editor.schedule.arming": "Planuję…",
   "editor.schedule.cancel": "Anuluj publikację",
   "editor.schedule.cancelled": "Publikacja anulowana. Wersja robocza została nietknięta.",
-  "editor.schedule.armed": "Zaplanowane. Wyjdzie {when}.",
+  "editor.schedule.armed":
+    "Zapisano termin {when}. Publikacja nadal zależy od kontroli i dostępności witryny docelowej.",
   "editor.schedule.inFlight":
     "Ten artykuł właśnie jest publikowany i nie da się go już zatrzymać — możesz go zdjąć ze swojej strony.",
   "editor.schedule.needsApproval": "Oznacz artykuł jako gotowy, zanim zaplanujesz publikację.",
   "editor.schedule.overdue":
-    "To miało wyjść {when} i nie wyszło. Sprawdź ustawienia połączenia i zaplanuj ponownie.",
+    "Zapisany termin {when} minął. Publikacja nie jest potwierdzona. Sprawdź witrynę docelową i aktualny stan harmonogramu przed ponownym zaplanowaniem lub publikacją.",
   "editor.schedule.hint":
     "Zatwierdzenie nigdy nie publikuje. Nic nie wyjdzie na żywo, dopóki tego nie zaplanujesz albo nie opublikujesz teraz.",
 

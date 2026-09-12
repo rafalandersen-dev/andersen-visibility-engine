@@ -1572,12 +1572,13 @@ export const da: Record<string, string> = {
   "editor.schedule.arming": "Planlægger…",
   "editor.schedule.cancel": "Annullér udgivelsen",
   "editor.schedule.cancelled": "Udgivelsen blev annulleret. Udkastet er urørt.",
-  "editor.schedule.armed": "Planlagt. Den udgives {when}.",
+  "editor.schedule.armed":
+    "Tidsplanen er gemt til {when}. Udgivelsen afhænger stadig af kontroller og målwebstedets tilgængelighed.",
   "editor.schedule.inFlight":
     "Den er ved at blive udgivet nu og kan ikke længere stoppes — du kan fjerne den fra dit websted.",
   "editor.schedule.needsApproval": "Markér artiklen som klar, før du planlægger den.",
   "editor.schedule.overdue":
-    "Den skulle være udgivet {when}, men blev det ikke. Tjek dine forbindelsesindstillinger, og planlæg igen.",
+    "Det gemte tidspunkt {when} er overskredet. Udgivelsen er ikke bekræftet. Kontrollér målwebstedet og den aktuelle tidsplan, før du planlægger eller udgiver igen.",
   "editor.schedule.hint":
     "Godkendelse udgiver aldrig. Intet går live, før du planlægger det eller udgiver det nu.",
 
