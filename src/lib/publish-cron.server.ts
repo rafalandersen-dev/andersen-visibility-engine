@@ -76,16 +76,24 @@ async function setRow(
   id: string,
   patch: Record<string, unknown>,
 ): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    const { error } = await admin
-      .from("scheduled_publishes")
-      .update({ ...patch, updated_at: new Date().toISOString() })
-      .eq("id", id);
+    const { error } = await Promise.race([
+      admin
+        .from("scheduled_publishes")
+        .update({ ...patch, updated_at: new Date().toISOString() })
+        .eq("id", id),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("queue_recording_timeout")), 10_000);
+      }),
+    ]);
     if (error) throw new Error(error.message);
     return true;
   } catch {
     console.error("[publish-cron] queue outcome could not be recorded", { id });
     return false;
+  } finally {
+    clearTimeout(timer);
   }
 }
 

@@ -229,3 +229,61 @@ it.each(["source hold", "preflight retry"])(
     expect(mocked.rpc.mock.calls.at(-1)?.[0]).toBe("record_cron_heartbeat");
   },
 );
+
+it.each(["late success", "late rejection"])(
+  "bounds a stalled queue write while preserving healthy rows and %s",
+  async (outcome) => {
+    vi.useFakeTimers();
+    let resolve!: (value: { error: null }) => void;
+    let reject!: (error: Error) => void;
+    mocked.rpc.mockImplementation(async (name) => ({
+      data:
+        name === "claim_scheduled_publishes"
+          ? [
+              { id: "slow", user_id: "owner", project_id: "p", asset_id: "a", attempts: 1 },
+              { id: "ready", user_id: "other", project_id: "p", asset_id: "b", attempts: 1 },
+            ]
+          : [],
+      error: null,
+    }));
+    mocked.publish.mockResolvedValue({
+      publishedAt: "2026-09-12T12:00:00Z",
+      platform: "wordpress",
+    });
+    mocked.eq.mockImplementation((_column, id) =>
+      id === "slow"
+        ? new Promise((yes, no) => {
+            resolve = yes;
+            reject = no;
+          })
+        : Promise.resolve({ error: null }),
+    );
+    try {
+      const run = runScheduledPublishes();
+      await vi.advanceTimersByTimeAsync(9_999);
+      expect(mocked.publish).toHaveBeenCalledTimes(2);
+      expect(mocked.update).toHaveBeenCalledTimes(2);
+      expect(mocked.rpc.mock.calls.some(([name]) => name === "record_cron_heartbeat")).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      const summary = await run;
+      expect(summary).toMatchObject({
+        claimed: 2,
+        published: 1,
+        recordingFailed: 1,
+        retrying: 0,
+        failed: 0,
+      });
+      expect(mocked.rpc.mock.calls.at(-1)?.[0]).toBe("record_cron_heartbeat");
+      if (outcome === "late success") resolve({ error: null });
+      else reject(new Error("late failure"));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(summary).toMatchObject({ published: 1, recordingFailed: 1 });
+      expect(mocked.failure).not.toHaveBeenCalled();
+      expect(mocked.publish).toHaveBeenCalledTimes(2);
+      expect(mocked.update).toHaveBeenCalledTimes(2);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  },
+);
