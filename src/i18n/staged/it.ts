@@ -1,3 +1,4 @@
+import { itOutreach } from "./it-outreach";
 import { itPublicBeta } from "./it-public-beta";
 import { itBetaScreen } from "./it-beta-screen";
 import { itBetaGuide } from "./it-beta-guide";
@@ -187,6 +188,13 @@ export const IT_STAGED_BATCHES = [
     namespaces: ["publicBeta"],
     sourceRevision: "060b003",
     sourceHash: "e670953b131c40fc4433b5ce6e5b256556bf37ea8709bc495b211efc361fb59e",
+  },
+  {
+    name: "outreach",
+    copy: itOutreach,
+    namespaces: ["outreach", "hook", "anchor"],
+    sourceRevision: "0879c73",
+    sourceHash: "c2bfe98eb710f1587237c92b04696e6f9221e67def7d1080eb7ce08e3d1161b4",
   },
 ] as const;
 export const IT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
