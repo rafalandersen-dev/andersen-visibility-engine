@@ -1,3 +1,4 @@
+import { skGrowth } from "./sk-growth";
 import { skOutreach } from "./sk-outreach";
 import { skMeasurements } from "./sk-measurements";
 import { skTechnical } from "./sk-technical";
@@ -194,6 +195,13 @@ export const SK_STAGED_BATCHES = [
     namespaces: ["outreach", "hook", "anchor"],
     sourceRevision: "8b4032a",
     sourceHash: "c2bfe98eb710f1587237c92b04696e6f9221e67def7d1080eb7ce08e3d1161b4",
+  },
+  {
+    name: "growth",
+    copy: skGrowth,
+    namespaces: ["authority", "actions", "publicAudit"],
+    sourceRevision: "7c7795f",
+    sourceHash: "79460ac604f31155136687fbf43e146ccd11625f12316625da192cdb8188f136",
   },
 ] as const;
 export const SK_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
