@@ -36,18 +36,23 @@ describe("knowledge review publication consumption", () => {
       { rpc, read: undefined, now, candidate: asset },
     );
   });
-  it.each(["withdrawn", "version", "context", "absent"])("holds %s review", async (reason) => {
-    const r = row();
-    if (reason === "withdrawn") r.active = false;
-    if (reason === "version") r.versionHash = "c".repeat(64);
-    if (reason === "context") r.contextHash = "c".repeat(64);
-    expect(
-      await hasCurrentOutputKnowledgeReview(owner, asset, now, async () => ({
-        data: reason === "absent" ? [] : [r],
-        error: null,
-      })),
-    ).toBe(false);
-  });
+  it.each(["withdrawn", "withdrawal timestamp", "future", "version", "context", "absent"])(
+    "holds %s review",
+    async (reason) => {
+      const r = row();
+      if (reason === "withdrawn") r.active = false;
+      if (reason === "withdrawal timestamp") Object.assign(r, { withdrawnAt: now });
+      if (reason === "future") r.reviewedAt = "2026-09-12T00:00:00Z";
+      if (reason === "version") r.versionHash = "c".repeat(64);
+      if (reason === "context") r.contextHash = "c".repeat(64);
+      expect(
+        await hasCurrentOutputKnowledgeReview(owner, asset, now, async () => ({
+          data: reason === "absent" ? [] : [r],
+          error: null,
+        })),
+      ).toBe(false);
+    },
+  );
   it.each(["ineligible", "forgotten"])("never waives %s current evidence", async (reason) => {
     vi.mocked(readKnowledgeOutputReview).mockResolvedValue({
       ...snapshot(),
