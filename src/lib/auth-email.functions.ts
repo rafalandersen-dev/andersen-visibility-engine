@@ -124,36 +124,37 @@ async function sendDirectAuthEmail(args: {
 
 async function getOrCreateUnsubscribeToken(supabase: any, email: string): Promise<string> {
   const normalized = email.trim().toLowerCase();
-  const { data: existing, error: selectError } = await supabase
-    .from("email_unsubscribe_tokens")
-    .select("token")
-    .eq("email", normalized)
-    .maybeSingle();
+  let diagnostic = "auth_email_token_lookup_failed";
+  try {
+    const { data: existing, error: selectError } = await supabase
+      .from("email_unsubscribe_tokens")
+      .select("token")
+      .eq("email", normalized)
+      .maybeSingle();
+    if (selectError) throw new Error("token_lookup_failed");
+    if (existing?.token) return existing.token;
 
-  if (selectError) {
-    console.error("[auth-email] unsubscribe token lookup failed", selectError.message);
+    diagnostic = "auth_email_token_create_failed";
+    const token = crypto.randomUUID();
+    const { error: insertError } = await supabase
+      .from("email_unsubscribe_tokens")
+      .insert({ email: normalized, token } as never);
+    if (!insertError) return token;
+
+    // Race-safe fallback if another request inserted the row first.
+    const { data: raced, error: racedError } = await supabase
+      .from("email_unsubscribe_tokens")
+      .select("token")
+      .eq("email", normalized)
+      .maybeSingle();
+    if (raced?.token && !racedError) return raced.token;
+    throw new Error("token_create_failed");
+  } catch {
+    // Database diagnostics can contain row values. Keep token/recipient details
+    // out of logs and RPC errors, including rejected transport requests.
+    console.error(diagnostic);
     throw new Error("Email service is not configured correctly.");
   }
-
-  if (existing?.token) return existing.token;
-
-  const token = crypto.randomUUID();
-  const { error: insertError } = await supabase
-    .from("email_unsubscribe_tokens")
-    .insert({ email: normalized, token } as never);
-
-  if (!insertError) return token;
-
-  // Race-safe fallback if another request inserted the row first.
-  const { data: raced, error: racedError } = await supabase
-    .from("email_unsubscribe_tokens")
-    .select("token")
-    .eq("email", normalized)
-    .maybeSingle();
-
-  if (raced?.token && !racedError) return raced.token;
-  console.error("[auth-email] unsubscribe token create failed", insertError.message);
-  throw new Error("Email service is not configured correctly.");
 }
 
 export const signupWithBrandedEmailFn = createServerFn({ method: "POST" })

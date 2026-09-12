@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Authentication token diagnostics now use fixed categories for database response errors and rejected requests, preserving the generic user error and concurrent-token recovery without logging raw row details. Twelve new mocked regressions; see AUTH_TOKEN_DIAGNOSTICS_2026_09_12.md. Prepared, unreleased; real authentication and confirmation resend acceptance remain open.
+
 Authentication email outcome correction: a failed sent-log write after provider acceptance now preserves success and emits only a fixed diagnostic, instead of falsely reporting send failure and inviting a retry. Four new mocked regressions; no actual email/account operations. See AUTH_EMAIL_ACCEPTED_LOG_FAILURE_2026_09_12.md. Prepared, unreleased; confirmation resend and real delivery acceptance remain open.
 
 Automatic scheduler guidance corrected across four runtime and four staged languages: preparation and scheduling are conditional, and neither every calendar slot nor successful publication is guaranteed. Approval-first remains unscheduled. See SCHEDULER_GUIDANCE_CLAIM_2026_09_12.md. Prepared, unreleased; real acceptance and release holds remain.

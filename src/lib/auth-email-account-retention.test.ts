@@ -9,6 +9,7 @@ const h = vi.hoisted(() => ({
   render: vi.fn(),
   log: vi.fn(),
   tokens: vi.fn(),
+  insertToken: vi.fn(),
 }));
 
 vi.mock("@tanstack/react-start", () => ({
@@ -32,7 +33,10 @@ vi.mock("@supabase/supabase-js", () => ({
     from: (table: string) => {
       if (table === "email_send_log") return { insert: h.log };
       if (table === "email_unsubscribe_tokens")
-        return { select: () => ({ eq: () => ({ maybeSingle: h.tokens }) }) };
+        return {
+          select: () => ({ eq: () => ({ maybeSingle: h.tokens }) }),
+          insert: h.insertToken,
+        };
       throw new Error("Unexpected test table");
     },
   }),
@@ -270,4 +274,60 @@ describe("provider acceptance survives a later diagnostic failure", () => {
     expect(warn.mock.calls).toEqual([["auth_email_sent_log_failed"]]);
     expect(h.deleteUser).not.toHaveBeenCalled();
   });
+});
+
+describe("private token diagnostics remain bounded", () => {
+  const privateDetail = "Synthetic recipient and token diagnostic";
+  for (const [kind, fn] of [
+    ["signup", signupWithBrandedEmailFn],
+    ["recovery", requestPasswordResetWithBrandedEmailFn],
+  ] as const) {
+    it.each([
+      "lookup response",
+      "lookup rejection",
+      "insert response",
+      "insert rejection",
+      "race rejection",
+    ])(`${kind} sanitizes %s failures before sending`, async (failure) => {
+      const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+      const error = { message: privateDetail };
+      if (failure === "lookup response") h.tokens.mockResolvedValueOnce({ data: null, error });
+      else if (failure === "lookup rejection")
+        h.tokens.mockRejectedValueOnce(new Error(privateDetail));
+      else {
+        h.tokens.mockResolvedValueOnce({ data: null, error: null });
+        if (failure === "insert rejection")
+          h.insertToken.mockRejectedValueOnce(new Error(privateDetail));
+        else {
+          h.insertToken.mockResolvedValueOnce({ error });
+          if (failure === "race rejection")
+            h.tokens.mockRejectedValueOnce(new Error(privateDetail));
+          else h.tokens.mockResolvedValueOnce({ data: null, error });
+        }
+      }
+      await expect(call(fn)).rejects.toThrow("Email service is not configured correctly.");
+      expect(errorLog.mock.calls).toEqual([
+        [
+          failure.startsWith("lookup")
+            ? "auth_email_token_lookup_failed"
+            : "auth_email_token_create_failed",
+        ],
+      ]);
+      expect(h.send).not.toHaveBeenCalled();
+      expect(h.log).not.toHaveBeenCalled();
+      expect(h.deleteUser).not.toHaveBeenCalled();
+    });
+    it(`${kind} reuses the winning token after an insert race`, async () => {
+      const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+      h.tokens.mockResolvedValueOnce({ data: null, error: null }).mockResolvedValueOnce({
+        data: { token: "synthetic-winning-token" },
+        error: null,
+      });
+      h.insertToken.mockResolvedValueOnce({ error: { message: privateDetail } });
+      await expect(call(fn)).resolves.toEqual({ ok: true });
+      expect(h.send.mock.calls[0][0].unsubscribe_token).toBe("synthetic-winning-token");
+      expect(h.send).toHaveBeenCalledOnce();
+      expect(errorLog).not.toHaveBeenCalled();
+    });
+  }
 });

@@ -1,0 +1,9 @@
+# Authentication token diagnostic boundaries
+
+Prepared after 656cbe5 on codex/milo-report-branding-authority-20260912. Unreleased; overall 60% / implementation 75%, paid NO-GO and existing release/provider/account boundaries remain unchanged.
+
+The branded-auth email helper previously logged raw database messages for unsubscribe-token lookup and creation failures. Database request rejections could also escape this helper as raw RPC errors. Row diagnostics can contain recipient or token details. The helper now catches both returned database errors and rejected requests, emits only auth_email_token_lookup_failed or auth_email_token_create_failed, and returns the existing generic configuration error. It does not log raw errors or include them in the thrown response.
+
+Existing token reuse, new token insertion and concurrent-insert recovery are preserved. A failed insert response still attempts to read the token another request may have created. No provider send occurs when the helper cannot obtain a token. This happens after administrative action-link generation, so the change does not claim to prevent all earlier account/link operations; account retention remains intact.
+
+Twelve new mocked cases exercise signup and recovery through returned/rejected lookup failures, returned/rejected insert failures, rejected race lookup and successful concurrent-token recovery. All 85 tests across two files pass, including existing email rendering and accepted-send logging cases. Full TypeScript and production build pass. Scoped lint retains three preexisting no-explicit-any errors in the handler; the changed test is lint-clean. Logs: /tmp/milo-auth-token-{tests,types,lint,build}.log. No real account, token, database, email or provider operation occurred. Confirmation resend, native delivery configuration, rate limits and real authentication acceptance remain open.
