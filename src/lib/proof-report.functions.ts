@@ -1,5 +1,9 @@
-import { gscIntegrity } from "@/i18n/gsc-integrity";
-import { formatGscMetric } from "./gsc";
+import { translate } from "@/i18n/translate";
+import {
+  formatReportDate,
+  formatReportNumber,
+  proofReportSubject,
+} from "./proof-report-presentation";
 /**
  * Monthly Proof Report — server functions.
  *
@@ -111,9 +115,10 @@ export function renderProofReportEmailHtml(
   language: OnboardingLanguage = "en",
 ): string {
   const e = escapeHtml;
-  const copy = gscIntegrity[language] ?? gscIntegrity.en;
+  const t = (key: string, vars?: Record<string, string | number>) => translate(language, key, vars);
+  const number = (value: number | null | undefined) => formatReportNumber(value, language);
   const row = (label: string, value: string) =>
-    `<tr><td style="padding:6px 12px 6px 0;color:#666;">${label}</td><td style="padding:6px 0;font-weight:600;">${value}</td></tr>`;
+    `<tr><td style="padding:6px 12px 6px 0;color:#666;">${e(label)}</td><td style="padding:6px 0;font-weight:600;">${e(value)}</td></tr>`;
   const publishedList = report.published.length
     ? `<ul>${report.published
         .map(
@@ -127,20 +132,26 @@ export function renderProofReportEmailHtml(
             }</li>`,
         )
         .join("")}</ul>`
-    : `<p style="color:#666;">No pieces went live this month.</p>`;
+    : `<p style="color:#666;">${e(t("report.published.empty"))}</p>`;
   const planList = report.nextMonthPlan.length
     ? `<ul>${report.nextMonthPlan
-        .map((p) => `<li style="margin:4px 0;">${e(p.plannedDate)} — ${e(p.title)}</li>`)
+        .map(
+          (p) =>
+            `<li style="margin:4px 0;">${e(formatReportDate(p.plannedDate, language))} — ${e(p.title)}</li>`,
+        )
         .join("")}</ul>`
-    : `<p style="color:#666;">Nothing planned yet — open the Plan page to schedule next month.</p>`;
+    : `<p style="color:#666;">${e(t("report.plan.empty"))}</p>`;
   const gsc = report.gsc
-    ? `<table style="border-collapse:collapse;">${row("Clicks", formatGscMetric(report.gsc.totalClicks))}${row(
-        "Impressions",
-        formatGscMetric(report.gsc.totalImpressions),
-      )}${row("Avg. position", formatGscMetric(report.gsc.averagePosition))}</table><p style="color:#999;font-size:12px;">${e(copy[`gsc.integrity.${report.gsc.basis ?? "unknown"}`])} ${e(copy["gsc.integrity.disclaimer"])} ${e(report.gsc.property ?? "—")} · ${e(report.gsc.windowStart ?? "—")} → ${e(report.gsc.windowEnd ?? "—")}.${
+    ? `<p>${e(
+        t("report.gsc.line", {
+          clicks: number(report.gsc.totalClicks),
+          impressions: number(report.gsc.totalImpressions),
+          position: number(report.gsc.averagePosition),
+        }),
+      )}</p><p style="color:#999;font-size:12px;">${e(t(`gsc.integrity.${report.gsc.basis ?? "unknown"}`))} ${e(t("gsc.integrity.disclaimer"))} ${e(report.gsc.property ?? "—")} · ${e(formatReportDate(report.gsc.windowStart, language))} → ${e(formatReportDate(report.gsc.windowEnd, language))}.${
         report.gsc.rangeLabel ? ` · ${e(report.gsc.rangeLabel)}` : ""
       }</p>`
-    : `<p style="color:#666;">Connect Google Search Console in Milo to include search metrics.</p>`;
+    : `<p style="color:#666;">${e(t("report.gsc.empty"))}</p>`;
   // https only: http logos are mixed content on the app page and blocked by
   // most mail clients — better no logo than a broken box in a client report.
   const logoOk = branding?.logoUrl && /^https:\/\//i.test(branding.logoUrl);
@@ -153,22 +164,22 @@ export function renderProofReportEmailHtml(
     : "";
   return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1c1917;">
   ${brandHeader}
-  <h1 style="font-size:22px;">Monthly proof — ${e(projectName)} · ${e(report.monthKey)}</h1>
-  <h2 style="font-size:16px;">Published &amp; live (${report.published.length})</h2>
+  <h1 style="font-size:22px;">${e(proofReportSubject(projectName, report.monthKey, language))}</h1>
+  <h2 style="font-size:16px;">${e(t("report.published.title", { count: number(report.published.length) }))}</h2>
   ${publishedList}
   <table style="border-collapse:collapse;margin:12px 0;">
-    ${row("Drafts written", String(report.draftedCount))}
-    ${row("Scheduled to publish", String(report.scheduledCount))}
-    ${report.linksLive === null ? "" : row("Partner links Live ✓", String(report.linksLive))}
+    ${row(t("report.stat.drafted"), number(report.draftedCount))}
+    ${row(t("report.stat.scheduled"), number(report.scheduledCount))}
+    ${report.linksLive === null ? "" : row(t("report.stat.linksLive"), number(report.linksLive))}
   </table>
-  <h2 style="font-size:16px;">Search snapshot</h2>
+  <h2 style="font-size:16px;">${e(t("report.gsc.title"))}</h2>
   ${gsc}
-  <h2 style="font-size:16px;">Next month's plan (${report.nextMonthPlan.length})</h2>
+  <h2 style="font-size:16px;">${e(t("report.plan.title", { count: number(report.nextMonthPlan.length) }))}</h2>
   ${planList}
   <p style="color:#999;font-size:12px;margin-top:24px;">${
     branding?.agencyName
-      ? `Prepared by ${e(branding.agencyName)}. Sent on your request — this is not a marketing email.`
-      : "Sent by Milo Growth on your request — this is not a marketing email."
+      ? e(t("report.footer.agency", { agency: branding.agencyName }))
+      : e(t("report.footer"))
   }</p>
 </div>`;
 }
@@ -204,7 +215,7 @@ export const emailProofReportFn = createServerFn({ method: "POST" })
         body: JSON.stringify({
           from: `Milo Growth <${fromEmail}>`,
           to: [recipient],
-          subject: `Monthly proof — ${project.name} · ${report.monthKey}`,
+          subject: proofReportSubject(project.name, report.monthKey, project.appLanguage),
           html,
           tags: [{ name: "source", value: "milo-proof-report" }],
         }),

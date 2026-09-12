@@ -1,4 +1,8 @@
-import { formatGscMetric } from "@/lib/gsc";
+import {
+  formatReportDate,
+  formatReportMonth,
+  formatReportNumber,
+} from "@/lib/proof-report-presentation";
 /**
  * Monthly Proof Report (Europe-#1 move 3) — "what did Milo actually do for
  * you this month?" In-app view + browser-print PDF (print stylesheet, no
@@ -16,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useStore } from "@/lib/store";
-import { useT } from "@/i18n";
+import { useT, useAppLanguage } from "@/i18n";
 import {
   buildMonthlyProofReport,
   monthKeyOf,
@@ -42,6 +46,7 @@ function currentMonthKey(): string {
 
 function ReportPage() {
   const t = useT();
+  const language = useAppLanguage();
   const project = useStore((s) => s.projects.find((p) => p.id === s.activeProjectId));
   const content = useStore((s) => s.content);
   const calendar = useStore((s) => s.calendar);
@@ -118,7 +123,7 @@ function ReportPage() {
               <SelectContent>
                 {months.map((m) => (
                   <SelectItem key={m} value={m}>
-                    {m}
+                    {formatReportMonth(m, language)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -147,14 +152,16 @@ function ReportPage() {
               </div>
             ) : null}
             <h1 className="font-display text-2xl">
-              {project.name} — {report.monthKey}
+              {project.name} — {formatReportMonth(report.monthKey, language)}
             </h1>
           </div>
 
           {/* Published & live */}
           <section className="rounded-lg border border-border bg-card p-5">
             <h2 className="font-display text-lg">
-              {t("report.published.title", { count: report.published.length })}
+              {t("report.published.title", {
+                count: formatReportNumber(report.published.length, language),
+              })}
             </h2>
             <p className="text-xs text-muted-foreground mb-3">{t("report.published.note")}</p>
             {report.published.length === 0 ? (
@@ -177,7 +184,10 @@ function ReportPage() {
                       ) : (
                         p.title
                       )}
-                      <span className="text-muted-foreground"> · {p.publishedAt.slice(0, 10)}</span>
+                      <span className="text-muted-foreground">
+                        {" "}
+                        · {formatReportDate(p.publishedAt, language)}
+                      </span>
                     </span>
                   </li>
                 ))}
@@ -187,15 +197,23 @@ function ReportPage() {
 
           {/* Numbers */}
           <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Stat label={t("report.stat.drafted")} value={String(report.draftedCount)} />
-            <Stat label={t("report.stat.scheduled")} value={String(report.scheduledCount)} />
+            <Stat
+              label={t("report.stat.drafted")}
+              value={formatReportNumber(report.draftedCount, language)}
+            />
+            <Stat
+              label={t("report.stat.scheduled")}
+              value={formatReportNumber(report.scheduledCount, language)}
+            />
             <Stat
               label={t("report.stat.linksLive")}
-              value={report.linksLive === null ? "—" : String(report.linksLive)}
+              value={
+                report.linksLive === null ? "—" : formatReportNumber(report.linksLive, language)
+              }
             />
             <Stat
               label={t("report.stat.gscClicks")}
-              value={report.gsc ? formatGscMetric(report.gsc.totalClicks) : "—"}
+              value={report.gsc ? formatReportNumber(report.gsc.totalClicks, language) : "—"}
             />
           </section>
 
@@ -207,19 +225,22 @@ function ReportPage() {
                 <p>{t(`gsc.integrity.${report.gsc.basis ?? "unknown"}`)}</p>
                 <p>{t("gsc.integrity.disclaimer")}</p>
                 <p>
-                  {report.gsc.property ?? "—"} · {report.gsc.windowStart ?? "—"} →{" "}
-                  {report.gsc.windowEnd ?? "—"}
+                  {report.gsc.property ?? "—"} ·{" "}
+                  {formatReportDate(report.gsc.windowStart, language)} →{" "}
+                  {formatReportDate(report.gsc.windowEnd, language)}
                 </p>
                 <p>
                   {t("report.gsc.line", {
-                    clicks: formatGscMetric(report.gsc.totalClicks),
-                    impressions: formatGscMetric(report.gsc.totalImpressions),
-                    position: formatGscMetric(report.gsc.averagePosition),
+                    clicks: formatReportNumber(report.gsc.totalClicks, language),
+                    impressions: formatReportNumber(report.gsc.totalImpressions, language),
+                    position: formatReportNumber(report.gsc.averagePosition, language),
                   })}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {report.gsc.rangeLabel ? `${report.gsc.rangeLabel} · ` : ""}
-                  {t("report.gsc.importedAt", { date: report.gsc.importedAt.slice(0, 10) })}
+                  {t("report.gsc.importedAt", {
+                    date: formatReportDate(report.gsc.importedAt, language),
+                  })}
                 </p>
               </div>
             ) : (
@@ -230,7 +251,9 @@ function ReportPage() {
           {/* Next month */}
           <section className="rounded-lg border border-border bg-card p-5">
             <h2 className="font-display text-lg mb-3">
-              {t("report.plan.title", { count: report.nextMonthPlan.length })}
+              {t("report.plan.title", {
+                count: formatReportNumber(report.nextMonthPlan.length, language),
+              })}
             </h2>
             {report.nextMonthPlan.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t("report.plan.empty")}</p>
@@ -238,7 +261,9 @@ function ReportPage() {
               <ul className="space-y-1.5 text-sm">
                 {report.nextMonthPlan.map((p, i) => (
                   <li key={i} className="flex gap-3">
-                    <span className="text-muted-foreground w-24 shrink-0">{p.plannedDate}</span>
+                    <span className="text-muted-foreground w-36 shrink-0">
+                      {formatReportDate(p.plannedDate, language)}
+                    </span>
                     <span>{p.title}</span>
                   </li>
                 ))}
