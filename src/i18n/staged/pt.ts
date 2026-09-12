@@ -1,3 +1,4 @@
+import { ptMeasurements } from "./pt-measurements";
 import { ptTechnical } from "./pt-technical";
 import { ptKnowledge } from "./pt-knowledge";
 import { ptCollaboration } from "./pt-collaboration";
@@ -179,6 +180,13 @@ export const PT_STAGED_BATCHES = [
     namespaces: ["crawl", "gindex", "perf"],
     sourceRevision: "c008772",
     sourceHash: "106a19b8ceaf725528ddc9d4de7317d823108425584418d93729346f29c135e6",
+  },
+  {
+    name: "measurements",
+    copy: ptMeasurements,
+    namespaces: ["analytics", "gsc", "report"],
+    sourceRevision: "465946b",
+    sourceHash: "cfe9102341aed0899846a94191ac4a27f5a7b371e09775137f3ce10481df6199",
   },
 ] as const;
 export const PT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.assign(
