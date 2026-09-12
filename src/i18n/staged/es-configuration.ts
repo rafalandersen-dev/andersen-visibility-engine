@@ -79,7 +79,7 @@ export const esConfiguration: Readonly<Record<string, string>> = {
     "Revisa todo el contenido antes de publicar. Milo puede enviar borradores a WordPress, pero sigues siendo responsable de comprobar la exactitud, las afirmaciones, el formato, los enlaces y el cumplimiento normativo.",
   "shopify.shopify": "Shopify",
   "shopify.intro":
-    "Conecta una tienda de Shopify para publicar contenido de Milo como artículos de blog. Milo envía primero los artículos a un blog de Shopify como borradores sin publicar y después los publica cuando los apruebas.",
+    "Conecta una tienda de Shopify para enviar contenido de Milo a un blog como borradores sin publicar. La aprobación y la publicación son pasos independientes: aprobar por sí solo no publica un artículo.",
   "shopify.shopDomain": "Dominio de la tienda",
   "shopify.shopDomainHelp": "El dominio de tu tienda, p. ej., mystore.myshopify.com.",
   "shopify.token": "Token de acceso a la API de administración",
@@ -89,7 +89,7 @@ export const esConfiguration: Readonly<Record<string, string>> = {
   "shopify.security":
     "Tu token de acceso no vuelve a mostrarse después de guardarlo y solo se utiliza en el servidor. Puedes sustituirlo en cualquier momento.",
   "shopify.minPerms":
-    "Concede únicamente permisos de contenido (lectura/escritura de blogs y artículos). Milo nunca accede a pedidos, clientes, productos ni datos de pago.",
+    "Para publicar en el blog, concede acceso de lectura y escritura a blogs y artículos. La actualización opcional del catálogo también requiere permiso de lectura de productos. Estas funciones no usan datos de pedidos, clientes ni pagos.",
   "shopify.test": "Probar conexión",
   "shopify.testing": "Probando…",
   "shopify.testOk": "Conectado a Shopify.",

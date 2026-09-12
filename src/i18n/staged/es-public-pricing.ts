@@ -44,4 +44,9 @@ export const esPublicPricing: Readonly<Record<string, string>> = {
   "publicPricing.eligibility":
     "Tu mercado de facturación se basa en el país de tu empresa o de facturación. Cambiar el idioma de la web o la región pública no cambia los precios a los que puedes acceder. No se garantizan posiciones, tráfico, ingresos ni citas en IA.",
   "publicPricing.backHome": "Volver al inicio",
+  "publicPricing.chooseRegion": "Elegir región",
+  "publicPricing.regionNote":
+    "La región cambia la página pública y los precios de la beta mostrados. El país de facturación determinará los precios finales cuando estén disponibles los planes de pago.",
+  "publicPricing.included": "Incluido",
+  "publicPricing.notIncluded": "No incluido",
 };

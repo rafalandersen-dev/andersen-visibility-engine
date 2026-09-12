@@ -57,7 +57,8 @@ export const esBillingScreen: Readonly<Record<string, string>> = {
   "billingScreen.feature.evaluationConfigured": "Evaluación de IA (cuando está configurada)",
   "billingScreen.feature.prioritySupport": "Soporte prioritario",
   "billingScreen.feature.clientProjects": "Hasta 15 proyectos de clientes",
-  "billingScreen.feature.reports": "Informes mensuales de resultados con tu marca",
+  "billingScreen.feature.reports": "Informes mensuales de marca blanca (bajo demanda)",
   "billingScreen.feature.highestLimits": "Los límites mensuales más altos",
-  "billingScreen.feature.allConnectors": "Todos los conectores y evaluación de IA",
+  "billingScreen.feature.allConnectors":
+    "Conectores + Evaluación con IA (cuando estén configurados)",
 };

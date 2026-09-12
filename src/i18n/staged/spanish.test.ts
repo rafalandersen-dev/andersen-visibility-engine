@@ -34,10 +34,11 @@ it.each(ES_STAGED_BATCHES)(
     }
   },
 );
-it("keeps staged Spanish unique and unavailable in the runtime while authoring remains incomplete", () => {
+it("keeps staged Spanish unique and unavailable in the runtime pending fluent-user and full-interface acceptance", () => {
   const keys = ES_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(keys.length).toBe(new Set(keys).size);
   expect(Object.keys(ES_STAGED_CATALOG).sort()).toEqual([...keys].sort());
+  expect(Object.keys(ES_STAGED_CATALOG).sort()).toEqual(Object.keys(UI_CATALOGS.en).sort());
   expect(isUiLanguage("es")).toBe(false);
   expect(Object.hasOwn(UI_CATALOGS, "es")).toBe(false);
 });
