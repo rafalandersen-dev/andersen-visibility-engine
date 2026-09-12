@@ -95,9 +95,17 @@ async function sendDirectAuthEmail(args: {
       { apiKey, sendUrl: process.env.LOVABLE_SEND_URL },
     );
     await logEmail(args.supabase, messageId, args.templateName, args.to, "sent");
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    await logEmail(args.supabase, messageId, args.templateName, args.to, "failed", message.slice(0, 1000));
+  } catch {
+    // Provider errors can echo request content, including private action links.
+    // Retain a diagnostic category, never the raw error or email payload.
+    await logEmail(
+      args.supabase,
+      messageId,
+      args.templateName,
+      args.to,
+      "failed",
+      "auth_email_delivery_failed",
+    );
     throw new Error("We could not send the email right now. Please try again in a moment.");
   }
 }
@@ -182,6 +190,8 @@ export const requestPasswordResetWithBrandedEmailFn = createServerFn({ method: "
   .inputValidator((input: unknown) => resetSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabase, supabaseUrl } = getAdminClient();
+    // Do not issue a new recovery link when delivery is known to be unavailable.
+    getEmailApiKey();
     const email = data.email.trim().toLowerCase();
     const { data: linkData, error } = await supabase.auth.admin.generateLink({
       type: "recovery",

@@ -164,6 +164,32 @@ describe("confirmation-email failure never authorizes account deletion", () => {
     expect(h.deleteUser).not.toHaveBeenCalled();
   });
 
+  it("refuses recovery before generating a link when email configuration is missing", async () => {
+    vi.stubEnv("LOVABLE_API_KEY", "");
+    await expect(
+      call(requestPasswordResetWithBrandedEmailFn, {
+        email: signup.email,
+        redirectTo: "https://app.example.invalid/reset-password",
+      }),
+    ).rejects.toThrow("Email service is not configured");
+    expect(h.generateLink).not.toHaveBeenCalled();
+    expect(h.send).not.toHaveBeenCalled();
+    expect(h.log).not.toHaveBeenCalled();
+  });
+
+  it.each([signupWithBrandedEmailFn, requestPasswordResetWithBrandedEmailFn])(
+    "keeps raw delivery errors out of persisted diagnostics and returned errors",
+    async (fn) => {
+      const marker = "synthetic-private-payload-marker";
+      h.send.mockRejectedValue(new Error(marker));
+      await expect(call(fn)).rejects.toThrow("We could not send the email right now");
+      expect(h.log.mock.calls.map(([entry]) => entry.status)).toEqual(["pending", "failed"]);
+      expect(h.log.mock.calls.at(-1)?.[0].error_message).toBe("auth_email_delivery_failed");
+      expect(JSON.stringify(h.log.mock.calls)).not.toContain(marker);
+      expect(h.deleteUser).not.toHaveBeenCalled();
+    },
+  );
+
   it("rejects invalid signup input before any administrative operation", async () => {
     await expect(call(signupWithBrandedEmailFn, { ...signup, email: "invalid" })).rejects.toThrow();
     expect(h.generateLink).not.toHaveBeenCalled();
