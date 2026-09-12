@@ -227,7 +227,7 @@ function PricingBody({ t, language }: Pick<ReturnType<typeof useAuthLanguage>, "
 
       <section className="mt-14">
         <h2 className="text-center font-display text-3xl">{t("publicPricing.compare")}</h2>
-        <div className="mt-6 overflow-x-auto rounded-xl border border-border bg-card">
+        <div className="relative mt-6 overflow-x-auto rounded-xl border border-border bg-card">
           <table className="w-full min-w-[780px] text-sm">
             <thead className="border-b border-border bg-secondary/30">
               <tr>

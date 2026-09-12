@@ -91,7 +91,7 @@ it.each(DISPLAY_REGIONS)(
     ).toHaveLength(2);
     expect(html).toContain('href="mailto:support@milogrowth.com?subject=Milo%20Assisted%20Beta"');
     expect(html).not.toMatch(/<a\b[^>]*>(?:(?!<\/a>).)*<button\b/s);
-    expect(html).toMatch(/<a[^>]*class="[^"]*h-10[^\"]*"[^>]*href="\/free-ai-visibility-audit"/);
+    expect(html).toMatch(/<a[^>]*class="[^"]*h-10[^"]*"[^>]*href="\/free-ai-visibility-audit"/);
     for (const option of DISPLAY_REGIONS) {
       expect(html).toContain(
         `data-region-option="${option}"><span lang="en">${escaped(REGION_SELECTOR_LABELS[option])}</span>`,
