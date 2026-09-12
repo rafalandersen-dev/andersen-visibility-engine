@@ -120,3 +120,59 @@ it("disables collection while preserving saved-history access when provider unav
   expect(html).toContain(backlinkMonitoringCopy.en["backlinkMonitor.refresh"]);
   expect(h.run).not.toHaveBeenCalled();
 });
+
+const paged = () => ({
+  requestId: "parent-fixture",
+  scope: {
+    target: "example.com",
+    dateFrom: "2026-09-01",
+    dateTo: "2026-09-10",
+    includeSubdomains: false,
+    selection: "first_seen",
+    limit: 100,
+    offset: 20000,
+  },
+  status: "succeeded",
+  accounting: "settled",
+  observation: null,
+  pageInfo: {
+    parentRequestId: null,
+    pageNumber: 1,
+    priorReturnedCount: 0,
+    childRequestId: null,
+    canContinue: true,
+  },
+});
+it.each(["en", "pl", "sv", "da"] as const)(
+  "renders explicit next-page allowance notice without dispatch: %s",
+  (locale) => {
+    h.locale = locale;
+    h.rows = [paged()];
+    const html = render();
+    expect(html).toContain(backlinkDetailsCopy[locale]["backlinkDetails.next"]);
+    expect(html).toContain(backlinkDetailsCopy[locale]["backlinkDetails.nextNote"]);
+    expect(html).not.toContain("backlinkDetails.");
+    expect(h.run).not.toHaveBeenCalled();
+    expect(h.mutations.every((m) => m.retry === false)).toBe(true);
+  },
+);
+it("shows an existing child identity instead of offering another charged page", () => {
+  h.rows = [
+    {
+      ...paged(),
+      pageInfo: { ...paged().pageInfo, childRequestId: "existing-child", canContinue: false },
+    },
+  ];
+  const html = render();
+  expect(html).toContain("existing-child");
+  expect(html).toContain(backlinkDetailsCopy.en["backlinkDetails.child"]);
+  expect(html).not.toContain(backlinkDetailsCopy.en["backlinkDetails.next"]);
+  expect(h.run).not.toHaveBeenCalled();
+});
+it("keeps the next-page button disabled when collection is unavailable", () => {
+  h.rows = [paged()];
+  const html = render(false);
+  const label = backlinkDetailsCopy.en["backlinkDetails.next"];
+  const beforeLabel = html.slice(0, html.indexOf(label));
+  expect(beforeLabel.slice(beforeLabel.lastIndexOf("<button"))).toContain('disabled=""');
+});
