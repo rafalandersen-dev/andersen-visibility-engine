@@ -42,6 +42,6 @@ it("keeps staged Slovak outside runtime and assigns each key once", () => {
   const keys = SK_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(new Set(keys).size).toBe(keys.length);
   expect(Object.keys(SK_STAGED_CATALOG).sort()).toEqual(keys.sort());
-  expect(keys).toHaveLength(1978);
+  expect(keys).toHaveLength(2216);
   expect(Object.isFrozen(SK_STAGED_CATALOG)).toBe(true);
 });

@@ -1,3 +1,4 @@
+import { skTechnical } from "./sk-technical";
 import { skKnowledge } from "./sk-knowledge";
 import { skCollaboration } from "./sk-collaboration";
 import { skConfiguration } from "./sk-configuration";
@@ -170,6 +171,13 @@ export const SK_STAGED_BATCHES = [
     namespaces: ["knowledge", "weekly", "approval", "refresh"],
     sourceRevision: "b65e680",
     sourceHash: "a3a3297006f23628e422ddedfb5b6f5a51c6dd5f6abbc6d6e589481e49915816",
+  },
+  {
+    name: "technical",
+    copy: skTechnical,
+    namespaces: ["crawl", "gindex", "perf"],
+    sourceRevision: "9079fb6",
+    sourceHash: "106a19b8ceaf725528ddc9d4de7317d823108425584418d93729346f29c135e6",
   },
 ] as const;
 export const SK_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
