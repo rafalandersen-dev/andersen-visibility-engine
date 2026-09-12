@@ -895,7 +895,7 @@ export const en: Record<string, string> = {
   // ---- Shopify connector ----
   "shopify.shopify": "Shopify",
   "shopify.intro":
-    "Connect a Shopify store to publish Milo content as blog articles. Milo sends articles to a Shopify blog as unpublished drafts first, then publishes them live when you approve.",
+    "Connect a Shopify store to send Milo content to a blog as unpublished drafts. Approval and publishing are separate steps: approval alone does not publish an article.",
   "shopify.shopDomain": "Shop domain",
   "shopify.shopDomainHelp": "Your store domain, e.g. mystore.myshopify.com.",
   "shopify.token": "Admin API access token",
@@ -905,7 +905,7 @@ export const en: Record<string, string> = {
   "shopify.security":
     "Your access token is never shown again after saving and is only used server-side. You can replace it at any time.",
   "shopify.minPerms":
-    "Grant only content permissions (read/write blogs and articles). Milo never accesses orders, customers, products or payment data.",
+    "For blog publishing, grant read/write access to blogs and articles. Optional catalog refresh also requires product-read permission. These features do not use order, customer or payment data.",
   "shopify.test": "Test connection",
   "shopify.testing": "Testing…",
   "shopify.testOk": "Connected to Shopify.",

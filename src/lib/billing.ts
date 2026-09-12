@@ -170,10 +170,10 @@ export const PLAN_META: Record<
     tagline: "Run your clients' growth on Milo — white-label included.",
     features: [
       "Up to 15 client projects",
-      "White-label monthly proof reports",
+      "White-label monthly reports (on demand)",
       "Highest monthly limits",
       "AI image generation",
-      "All connectors + AI Evaluation",
+      "Connectors + AI Evaluation (where configured)",
       "Priority support",
     ],
   },

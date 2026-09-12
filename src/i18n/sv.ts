@@ -893,7 +893,7 @@ export const sv: Record<string, string> = {
   // ---- Shopify connector ----
   "shopify.shopify": "Shopify",
   "shopify.intro":
-    "Anslut en Shopify-butik för att publicera Milo-innehåll som blogginlägg. Milo skickar först artiklar till en Shopify-blogg som opublicerade utkast och publicerar dem sedan live när du godkänner.",
+    "Anslut en Shopify-butik för att skicka Milo-innehåll till en blogg som opublicerade utkast. Godkännande och publicering är separata steg: ett godkännande publicerar inte artikeln.",
   "shopify.shopDomain": "Butiksdomän",
   "shopify.shopDomainHelp": "Din butiksdomän, t.ex. minbutik.myshopify.com.",
   "shopify.token": "Admin API-åtkomsttoken",
@@ -903,7 +903,7 @@ export const sv: Record<string, string> = {
   "shopify.security":
     "Din åtkomsttoken visas aldrig igen efter att den sparats och används endast på serversidan. Du kan byta ut den när som helst.",
   "shopify.minPerms":
-    "Ge endast innehållsbehörighet (läs/skriv bloggar och artiklar). Milo kommer aldrig åt order, kunder, produkter eller betalningsdata.",
+    "För bloggpublicering behövs läs- och skrivbehörighet för bloggar och artiklar. Valfri kataloguppdatering kräver även läsbehörighet för produkter. Dessa funktioner använder inte order-, kund- eller betalningsuppgifter.",
   "shopify.test": "Testa anslutning",
   "shopify.testing": "Testar…",
   "shopify.testOk": "Ansluten till Shopify.",

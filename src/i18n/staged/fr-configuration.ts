@@ -80,7 +80,7 @@ export const frConfiguration: Readonly<Record<string, string>> = {
     "Examinez tout contenu avant de le publier. Milo peut envoyer des brouillons à WordPress, mais vous restez responsable de la vérification de l’exactitude, des affirmations, de la mise en forme, des liens et de la conformité.",
   "shopify.shopify": "Shopify",
   "shopify.intro":
-    "Connectez une boutique Shopify pour publier les contenus Milo sous forme d’articles de blog. Milo envoie d’abord les articles au blog Shopify comme brouillons non publiés, puis les met en ligne après votre approbation.",
+    "Connectez une boutique Shopify pour envoyer le contenu Milo vers un blog sous forme de brouillons non publiés. La validation et la publication sont deux étapes distinctes : la validation seule ne publie pas un article.",
   "shopify.shopDomain": "Domaine de la boutique",
   "shopify.shopDomainHelp": "Le domaine de votre boutique, par exemple mystore.myshopify.com.",
   "shopify.token": "Jeton d’accès à l’API Admin",
@@ -90,7 +90,7 @@ export const frConfiguration: Readonly<Record<string, string>> = {
   "shopify.security":
     "Votre jeton d’accès n’est plus affiché après l’enregistrement et n’est utilisé que côté serveur. Vous pouvez le remplacer à tout moment.",
   "shopify.minPerms":
-    "Accordez uniquement les autorisations de contenu (lecture / écriture des blogs et articles). Milo n’accède jamais aux commandes, aux clients, aux produits ni aux données de paiement.",
+    "Pour publier sur le blog, accordez un accès en lecture et en écriture aux blogs et aux articles. L’actualisation facultative du catalogue nécessite aussi un accès en lecture aux produits. Ces fonctions n’utilisent pas les données de commande, de client ou de paiement.",
   "shopify.test": "Tester la connexion",
   "shopify.testing": "Test en cours…",
   "shopify.testOk": "Connexion à Shopify établie.",

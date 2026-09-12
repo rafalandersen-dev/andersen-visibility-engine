@@ -37,12 +37,20 @@ vi.mock("@/components/ui/select", () => ({
     createElement("div", { "data-market": value }, children),
   SelectTrigger: ({ children }: { children: ReactNode }) => createElement("div", null, children),
   SelectValue: () => null,
-  SelectContent: ({ children }: { children: ReactNode }) => createElement("div", null, children),
+  SelectContent: ({ children, lang }: { children: ReactNode; lang: string }) =>
+    createElement("div", { "data-menu-language": lang }, children),
   SelectItem: ({ children, value }: { children: ReactNode; value: string }) =>
     createElement("div", { "data-market-option": value }, children),
 }));
 import { Route } from "@/routes/pricing";
-import { PLAN_IDS, PLAN_META, planPrice, addOnPrice, formatMoney } from "@/lib/billing";
+import {
+  PLAN_IDS,
+  PLAN_META,
+  PLAN_LIMITS,
+  planPrice,
+  addOnPrice,
+  formatMoney,
+} from "@/lib/billing";
 import { billingFeatureLabel, billingMarketLabel } from "@/lib/billing-presentation";
 const render = () => renderToStaticMarkup(createElement(Route.options.component as ComponentType));
 const escaped = (text: string) =>
@@ -57,10 +65,12 @@ it.each(UI_LANGUAGE_CODES)(
     const baseline = render();
     state.locale = language;
     const html = render();
+    expect(html).not.toMatch(/<a\b[^>]*>(?:(?!<\/a>).)*<button\b/s);
     expect([...html.matchAll(/href="[^"]*"/g)].map((m) => m[0])).toEqual(
       [...baseline.matchAll(/href="[^"]*"/g)].map((m) => m[0]),
     );
     expect(html).toContain(`<main lang="${language}"`);
+    expect(html).toContain(`data-menu-language="${language}"`);
     expect(html.match(/<select/g)).toHaveLength(1);
     expect(html).toContain(`value="${language}" selected=""`);
     expect(html).not.toContain('value="fr"');
@@ -92,5 +102,47 @@ it.each(UI_LANGUAGE_CODES)(
     for (const key of ["hold", "manageBody", "activationHold", "purchasesHold", "eligibility"])
       expect(html).toContain(escaped(translate(language, `publicPricing.${key}`)));
     expect(state.choose).not.toHaveBeenCalled();
+  },
+);
+
+it.each(UI_LANGUAGE_CODES)(
+  "pricing %s exposes every comparison value with associated headers",
+  (language) => {
+    state.locale = language;
+    const table = render().match(/<table[\s\S]*?<\/table>/)![0];
+    expect(table.match(/<th scope="col"/g)).toHaveLength(PLAN_IDS.length + 1);
+    const rows = [...table.matchAll(/<tr>([\s\S]*?)<\/tr>/g)].slice(1);
+    expect(rows).toHaveLength(7);
+    for (const [rowIndex, row] of rows.entries()) {
+      expect(row[1]).toContain('<th scope="row"');
+      const cells = [...row[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)];
+      expect(cells).toHaveLength(PLAN_IDS.length);
+      for (const [index, cell] of cells.entries()) {
+        const limits = PLAN_LIMITS[PLAN_IDS[index]];
+        const values = [
+          limits.maxProjects,
+          limits.monthlyContentGenerations,
+          limits.monthlyMiloScores,
+          limits.publishingEnabled,
+          limits.analyticsEnabled && limits.gscLiteEnabled,
+          limits.imageGenerationEnabled,
+          limits.aiEvaluationEnabled,
+        ];
+        const value = values[rowIndex];
+        if (typeof value === "boolean") {
+          expect(cell[1]).toContain(
+            `<span class="sr-only">${escaped(
+              translate(language, value ? "publicPricing.included" : "publicPricing.notIncluded"),
+            )}</span>`,
+          );
+          expect(cell[1]).toContain('aria-hidden="true"');
+          if (value) expect(cell[1]).toMatch(/<svg[^>]*aria-hidden="true"/);
+          else expect(cell[1]).toContain('<span aria-hidden="true">—</span>');
+        } else {
+          expect(cell[1]).toContain(String(value));
+          expect(cell[1]).not.toContain("sr-only");
+        }
+      }
+    }
   },
 );

@@ -65,14 +65,12 @@ function PricingPage() {
             </span>
           </Link>
           <div className="flex items-center gap-2">
-            <Link to="/">
-              <Button variant="ghost" size="sm">
-                {t("publicBeta.home")}
-              </Button>
-            </Link>
-            <Link to="/auth">
-              <Button size="sm">{t("onboarding.getStarted")}</Button>
-            </Link>
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/">{t("publicBeta.home")}</Link>
+            </Button>
+            <Button asChild size="sm">
+              <Link to="/auth">{t("onboarding.getStarted")}</Link>
+            </Button>
           </div>
         </div>
         <div className="mx-auto max-w-[1240px] px-6">
@@ -80,7 +78,7 @@ function PricingPage() {
         </div>
       </header>
 
-      <PricingBody t={t} />
+      <PricingBody t={t} language={language} />
 
       <footer className="border-t border-border bg-card/40">
         <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-3 px-6 py-8 text-sm text-muted-foreground">
@@ -119,7 +117,7 @@ const PRICING_MARKETS: BillingMarket[] = [
   "European Union",
 ];
 
-function PricingBody({ t }: { t: ReturnType<typeof useAuthLanguage>["t"] }) {
+function PricingBody({ t, language }: Pick<ReturnType<typeof useAuthLanguage>, "t" | "language">) {
   const [market, setMarket] = useState<BillingMarket>("European Union");
   const currency = MARKET_CURRENCY[market];
   return (
@@ -140,10 +138,10 @@ function PricingBody({ t }: { t: ReturnType<typeof useAuthLanguage>["t"] }) {
             {t("publicPricing.market")}
           </div>
           <Select value={market} onValueChange={(v) => setMarket(v as BillingMarket)}>
-            <SelectTrigger className="w-48">
+            <SelectTrigger className="w-48" aria-label={t("publicPricing.market")}>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent lang={language}>
               {PRICING_MARKETS.map((m) => (
                 <SelectItem key={m} value={m}>
                   {billingMarketLabel(m, t)}
@@ -197,13 +195,13 @@ function PricingBody({ t }: { t: ReturnType<typeof useAuthLanguage>["t"] }) {
                   </li>
                 ))}
               </ul>
-              <Link to="/auth" className="mt-6">
-                <Button className="w-full" variant={meta.recommended ? "default" : "outline"}>
+              <Button asChild className="w-full" variant={meta.recommended ? "default" : "outline"}>
+                <Link to="/auth" className="mt-6">
                   {pid === "freePreview"
                     ? t("publicPricing.startPreview")
                     : t("onboarding.getStarted")}
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             </div>
           );
         })}
@@ -229,13 +227,19 @@ function PricingBody({ t }: { t: ReturnType<typeof useAuthLanguage>["t"] }) {
 
       <section className="mt-14">
         <h2 className="text-center font-display text-3xl">{t("publicPricing.compare")}</h2>
-        <div className="mt-6 overflow-x-auto rounded-xl border border-border bg-card">
+        <div className="relative mt-6 overflow-x-auto rounded-xl border border-border bg-card">
           <table className="w-full min-w-[780px] text-sm">
             <thead className="border-b border-border bg-secondary/30">
               <tr>
-                <th className="px-5 py-4 text-left font-medium">{t("publicPricing.capability")}</th>
+                <th scope="col" className="px-5 py-4 text-left font-medium">
+                  {t("publicPricing.capability")}
+                </th>
                 {PLAN_IDS.map((pid) => (
-                  <th key={pid} className="px-5 py-4 text-center font-display text-base">
+                  <th
+                    scope="col"
+                    key={pid}
+                    className="px-5 py-4 text-center font-display text-base"
+                  >
                     {pid === "freePreview" ? t("billingScreen.freePreview") : PLAN_META[pid].name}
                   </th>
                 ))}
@@ -243,6 +247,7 @@ function PricingBody({ t }: { t: ReturnType<typeof useAuthLanguage>["t"] }) {
             </thead>
             <tbody className="divide-y divide-border">
               <CompareRow
+                t={t}
                 label={t("publicPricing.projectLabel")}
                 values={PLAN_IDS.map((pid) =>
                   PLAN_LIMITS[pid].maxProjects === 1
@@ -251,28 +256,34 @@ function PricingBody({ t }: { t: ReturnType<typeof useAuthLanguage>["t"] }) {
                 )}
               />
               <CompareRow
+                t={t}
                 label={t("publicPricing.content")}
                 values={PLAN_IDS.map((pid) => String(PLAN_LIMITS[pid].monthlyContentGenerations))}
               />
               <CompareRow
+                t={t}
                 label={t("publicPricing.scores")}
                 values={PLAN_IDS.map((pid) => String(PLAN_LIMITS[pid].monthlyMiloScores))}
               />
               <CompareRow
+                t={t}
                 label={t("publicPricing.publishing")}
                 values={PLAN_IDS.map((pid) => PLAN_LIMITS[pid].publishingEnabled)}
               />
               <CompareRow
+                t={t}
                 label={t("billingScreen.feature.analyticsLite")}
                 values={PLAN_IDS.map(
                   (pid) => PLAN_LIMITS[pid].analyticsEnabled && PLAN_LIMITS[pid].gscLiteEnabled,
                 )}
               />
               <CompareRow
+                t={t}
                 label={t("billingScreen.feature.images")}
                 values={PLAN_IDS.map((pid) => PLAN_LIMITS[pid].imageGenerationEnabled)}
               />
               <CompareRow
+                t={t}
                 label={t("publicPricing.evaluation")}
                 values={PLAN_IDS.map((pid) => PLAN_LIMITS[pid].aiEvaluationEnabled)}
               />
@@ -347,21 +358,36 @@ function PricingPromise({
   );
 }
 
-function CompareRow({ label, values }: { label: string; values: Array<string | boolean> }) {
+function CompareRow({
+  label,
+  values,
+  t,
+}: {
+  label: string;
+  values: Array<string | boolean>;
+  t: (key: string) => string;
+}) {
   return (
     <tr>
-      <td className="px-5 py-4 font-medium">{label}</td>
+      <th scope="row" className="px-5 py-4 text-left font-medium">
+        {label}
+      </th>
       {values.map((value, index) => (
         <td
           key={`${label}-${PLAN_IDS[index]}`}
           className="px-5 py-4 text-center text-muted-foreground"
         >
           {typeof value === "boolean" ? (
-            value ? (
-              <Check className="mx-auto h-4 w-4 text-emerald-600" />
-            ) : (
-              "—"
-            )
+            <>
+              <span className="sr-only">
+                {t(value ? "publicPricing.included" : "publicPricing.notIncluded")}
+              </span>
+              {value ? (
+                <Check aria-hidden="true" className="mx-auto h-4 w-4 text-emerald-600" />
+              ) : (
+                <span aria-hidden="true">—</span>
+              )}
+            </>
           ) : (
             value
           )}

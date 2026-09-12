@@ -12,7 +12,7 @@
  * while AI_METERING_ENFORCED is off) and metered via the imageGeneration
  * bucket — both checked BEFORE the model call so a refusal costs nothing.
  */
-import { createServerFn } from "@tanstack/react-start";
+import { createServerFn, createServerOnlyFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import type { Project } from "./types";
@@ -40,7 +40,9 @@ export interface GeneratedArticleImage {
  * Core, callable from the cron/auto-scheduler runner later (no request
  * context — the caller supplies the authenticated userId).
  */
-export async function generateArticleImageCore(
+export const generateArticleImageCore = createServerOnlyFn(generateArticleImageCoreImpl);
+
+async function generateArticleImageCoreImpl(
   userId: string,
   args: {
     projectId: string;
