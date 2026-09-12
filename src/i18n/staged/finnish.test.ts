@@ -40,6 +40,6 @@ it("keeps staged Finnish outside runtime and assigns each key once", () => {
   const keys = FI_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(new Set(keys).size).toBe(keys.length);
   expect(Object.keys(FI_STAGED_CATALOG).sort()).toEqual(keys.sort());
-  expect(keys).toHaveLength(855);
+  expect(keys).toHaveLength(955);
   expect(Object.isFrozen(FI_STAGED_CATALOG)).toBe(true);
 });

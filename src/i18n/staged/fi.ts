@@ -1,3 +1,4 @@
+import { fiPublicHome } from "./fi-public-home";
 import { fiPublicPricing } from "./fi-public-pricing";
 import { fiPublicStudies } from "./fi-public-studies";
 import { fiEditorScreen } from "./fi-editor-screen";
@@ -14,6 +15,13 @@ import { fiSharedUi } from "./fi-shared-ui";
 
 /** Finnish authoring; never imported by the runtime catalog. */
 export const FI_STAGED_BATCHES = [
+  {
+    name: "public home",
+    copy: fiPublicHome,
+    namespaces: ["publicHome"],
+    sourceRevision: "561f60c",
+    sourceHash: "2855ce0efcce2fc714afc7f61a15d64ed5975809acefb98df75a3e275ccae141",
+  },
   {
     name: "public pricing",
     copy: fiPublicPricing,
