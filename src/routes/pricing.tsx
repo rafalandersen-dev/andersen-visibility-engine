@@ -80,7 +80,7 @@ function PricingPage() {
         </div>
       </header>
 
-      <PricingBody t={t} />
+      <PricingBody t={t} language={language} />
 
       <footer className="border-t border-border bg-card/40">
         <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-3 px-6 py-8 text-sm text-muted-foreground">
@@ -119,7 +119,7 @@ const PRICING_MARKETS: BillingMarket[] = [
   "European Union",
 ];
 
-function PricingBody({ t }: { t: ReturnType<typeof useAuthLanguage>["t"] }) {
+function PricingBody({ t, language }: Pick<ReturnType<typeof useAuthLanguage>, "t" | "language">) {
   const [market, setMarket] = useState<BillingMarket>("European Union");
   const currency = MARKET_CURRENCY[market];
   return (
@@ -140,10 +140,10 @@ function PricingBody({ t }: { t: ReturnType<typeof useAuthLanguage>["t"] }) {
             {t("publicPricing.market")}
           </div>
           <Select value={market} onValueChange={(v) => setMarket(v as BillingMarket)}>
-            <SelectTrigger className="w-48">
+            <SelectTrigger className="w-48" aria-label={t("publicPricing.market")}>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent lang={language}>
               {PRICING_MARKETS.map((m) => (
                 <SelectItem key={m} value={m}>
                   {billingMarketLabel(m, t)}

@@ -37,7 +37,8 @@ vi.mock("@/components/ui/select", () => ({
     createElement("div", { "data-market": value }, children),
   SelectTrigger: ({ children }: { children: ReactNode }) => createElement("div", null, children),
   SelectValue: () => null,
-  SelectContent: ({ children }: { children: ReactNode }) => createElement("div", null, children),
+  SelectContent: ({ children, lang }: { children: ReactNode; lang: string }) =>
+    createElement("div", { "data-menu-language": lang }, children),
   SelectItem: ({ children, value }: { children: ReactNode; value: string }) =>
     createElement("div", { "data-market-option": value }, children),
 }));
@@ -61,6 +62,7 @@ it.each(UI_LANGUAGE_CODES)(
       [...baseline.matchAll(/href="[^"]*"/g)].map((m) => m[0]),
     );
     expect(html).toContain(`<main lang="${language}"`);
+    expect(html).toContain(`data-menu-language="${language}"`);
     expect(html.match(/<select/g)).toHaveLength(1);
     expect(html).toContain(`value="${language}" selected=""`);
     expect(html).not.toContain('value="fr"');
