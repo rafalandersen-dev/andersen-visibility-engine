@@ -1,3 +1,7 @@
+import { dePublicHome } from "./de-public-home";
+import { dePublicBeta } from "./de-public-beta";
+import { deBetaGuide } from "./de-beta-guide";
+import { deBetaScreen } from "./de-beta-screen";
 import { deGrowth } from "./de-growth";
 import { deCommerce } from "./de-commerce";
 import { deLinks } from "./de-links";
@@ -110,6 +114,10 @@ export const DE_STAGED_BATCHES = [
   { name: "outreach", copy: deOutreach, namespaces: ["outreach", "hook", "anchor"] },
   { name: "growth", copy: deGrowth, namespaces: ["authority", "actions", "publicAudit"] },
   { name: "commerce", copy: deCommerce, namespaces: ["billing", "launch", "beta"] },
+  { name: "public home", copy: dePublicHome, namespaces: ["publicHome"] },
+  { name: "public beta", copy: dePublicBeta, namespaces: ["publicBeta"] },
+  { name: "beta guide", copy: deBetaGuide, namespaces: ["betaGuide"] },
+  { name: "beta controls", copy: deBetaScreen, namespaces: ["betaScreen"] },
 ] as const;
 export const DE_STAGED_CATALOG: Readonly<Record<string, string>> = Object.assign(
   {},
