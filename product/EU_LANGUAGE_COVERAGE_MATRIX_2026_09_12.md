@@ -154,3 +154,5 @@ Slovenian authoring begins at source 5f7faa9 with authentication (42) and shared
 Slovenian core adds 202 messages at source ddee742: 274/3,768 in three staged batches. Remaining UI authoring backlog: 41,174 messages. All 14 focused tests, types, scoped lint and whitespace pass. Runtime activation and language/rendered acceptance remain open.
 
 Slovenian setup/services/audit adds 71 messages at source 32a8a48: 345/3,768 in six staged batches. Remaining UI authoring backlog: 41,103 messages. All 17 focused tests, types, scoped lint and whitespace pass. Runtime activation and language/rendered acceptance remain open.
+
+Slovenian analytics/billing adds 90 messages at source 1113cc5: 435/3,768 in eight staged batches. Remaining UI authoring backlog: 41,013 messages. All 19 focused tests, types, scoped lint and whitespace pass. Runtime activation and language/rendered acceptance remain open.
