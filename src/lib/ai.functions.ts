@@ -186,7 +186,8 @@ const CompetitorGapOutputSchema = z.object({
 });
 
 const CompetitorSnapshotOutputSchema = z.object({
-  competitorUrl: cleanString(300),
+  // Observed source identity must never be truncated into a different URL.
+  competitorUrl: z.string().max(4096),
   title: cleanString(200),
   detectedPositioning: cleanString(300),
   notableStrengths: z.array(cleanString(160)),
@@ -759,18 +760,49 @@ function normalizeCompetitorGap(value: unknown, index: number) {
   });
 }
 
-function normalizeCompetitorSnapshot(value: unknown, fallbackUrl: string, fetched: boolean) {
-  const item = isRecord(value) ? value : {};
+/** Match source identity only; never request a model-supplied URL. */
+function competitorSourceKey(value: string): string | null {
+  const raw = value.trim();
+  if (!raw || raw.length > 4096) return null;
+  if ([...raw].some((char) => char.charCodeAt(0) <= 32 || char.charCodeAt(0) === 127)) return null;
+  try {
+    const url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+    if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) return null;
+    // Paths, queries and schemes remain distinct; fragments do not reach the page reader.
+    url.hash = "";
+    return url.href;
+  } catch {
+    return null;
+  }
+}
+
+function matchingCompetitorSnapshot(snapshots: unknown[], sourceUrl: string): unknown {
+  const key = competitorSourceKey(sourceUrl);
+  if (!key) return undefined;
+  const matches = snapshots.filter((value) => {
+    if (!isRecord(value)) return false;
+    const urls = ["competitorUrl", "competitor_url", "url", "website"]
+      .map((name) => value[name])
+      .filter((url): url is string => typeof url === "string" && url.trim().length > 0);
+    // Conflicting aliases and duplicate records are ambiguous; do not guess.
+    return urls.length > 0 && urls.every((url) => competitorSourceKey(url) === key);
+  });
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
+function normalizeCompetitorSnapshot(
+  value: unknown,
+  sourceUrl: string,
+  fetched: boolean,
+  observedTitle: string,
+) {
+  const item = fetched && isRecord(value) ? value : {};
   return CompetitorSnapshotOutputSchema.parse({
-    competitorUrl: pickString(
-      item,
-      ["competitorUrl", "competitor_url", "url", "website"],
-      fallbackUrl,
-    ),
+    competitorUrl: sourceUrl,
     title: pickString(
       item,
       ["title", "name", "businessName"],
-      fetched ? "Competitor" : "Competitor (not fetched)",
+      fetched ? observedTitle || "Competitor" : "Competitor (not fetched)",
     ),
     detectedPositioning: pickString(
       item,
@@ -783,6 +815,22 @@ function normalizeCompetitorSnapshot(value: unknown, fallbackUrl: string, fetche
     ),
     fetchStatus: fetched ? "fetched" : "failed",
   });
+}
+
+/** Normalize captured fetch results independently of request timing. Model
+ * output can supply descriptions only for a unique matching retrieved URL. */
+export function bindCompetitorSnapshots(
+  fetches: Array<{ url: string; ctx: { ok: boolean; title: string } }>,
+  snapshots: unknown[],
+) {
+  return fetches.map((f) =>
+    normalizeCompetitorSnapshot(
+      matchingCompetitorSnapshot(snapshots, f.url),
+      f.url,
+      f.ctx.ok,
+      f.ctx.title,
+    ),
+  );
 }
 
 function normalizeAuthorityCategory(value: unknown) {
@@ -1400,7 +1448,7 @@ export const generateCompetitorGapFn = createServerFn({ method: "POST" })
       .object({
         project: z.any(),
         services: z.array(z.any()).default([]),
-        competitorUrls: z.array(z.string()).default([]),
+        competitorUrls: z.array(z.string().max(4096)).default([]),
         auditSummary: z.string().default(""),
       })
       .parse(input),
@@ -1486,13 +1534,7 @@ ${sharedRules}`,
       if (gaps.length === 0) throw new Error("AI returned no competitor gaps.");
 
       const aiSnapshots = extractArray(root, ["competitorSnapshots", "competitors", "snapshots"]);
-      const competitorSnapshots = fetches.map((f, i) =>
-        normalizeCompetitorSnapshot(
-          aiSnapshots[i] ?? { competitorUrl: f.url, title: f.ctx.title },
-          f.url,
-          f.ctx.ok,
-        ),
-      );
+      const competitorSnapshots = bindCompetitorSnapshots(fetches, aiSnapshots);
 
       const serviceGapScore = clampScore(
         pickNumber(root, ["serviceGapScore", "service_gap_score", "service"]),
