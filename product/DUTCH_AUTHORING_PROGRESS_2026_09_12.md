@@ -1,6 +1,6 @@
 # Dutch interface authoring — 12 September 2026
 
-R20 requires full EU-language coverage. Dutch authoring has begun with 2,420 of the current 3,768 English interface messages (1,348 remain). This is a partial staged catalog; Dutch is not registered in UI_CATALOGS or the language picker.
+R20 requires full EU-language coverage. Dutch authoring has begun with 2,578 of the current 3,768 English interface messages (1,190 remain). This is a partial staged catalog; Dutch is not registered in UI_CATALOGS or the language picker.
 
 ## Completed authoring batches
 
@@ -15,6 +15,7 @@ R20 requires full EU-language coverage. Dutch authoring has begun with 2,420 of 
 | Evidence screens | 89 | src/i18n/staged/nl-evidence-screen.ts |
 | Plan screen | 113 | src/i18n/staged/nl-plan-screen.ts |
 | Editor screen | 148 | src/i18n/staged/nl-editor-screen.ts |
+| Outreach, opening hooks and placement | 158 | src/i18n/staged/nl-outreach.ts |
 | Analytics, Search Console and reports | 204 | src/i18n/staged/nl-measurements.ts |
 | Technical crawl, index and performance | 238 | src/i18n/staged/nl-technical.ts |
 | Knowledge, weekly preparation and approvals | 242 | src/i18n/staged/nl-knowledge.ts |
@@ -146,3 +147,10 @@ All thirty-two Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-t
 At d3bc107, authored all 204 analytics/gsc/report messages. Copy preserves AI referral versus mention/citation distinctions, CSV subtotal versus property aggregate limits, Pacific date windows, unavailable versus zero values and historical publication-result limitations. Numeric limits and placeholders are retained. Existing privacy, report-email success, partner-link Live label, branding and legacy Lovable setup claims require behavior/source review before activation; translation does not validate them.
 
 All thirty-three Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-measurements-types.log), scoped lint and whitespace checks. Total staged coverage is 2,420; 1,348 messages remain. Outreach is next. No analytics collection, Google connection, import, report email or runtime activation occurred. Fluent/rendered and full real-use acceptance remain open.
+
+
+## Outreach follow-up
+
+At 39cd8ab, authored all 158 outreach/hook/anchor messages. Copy preserves exact-recipient/content review, separate follow-up authorization, server reservation authority, uncertain-outcome no-retry guidance and provider acceptance versus delivery limits. The 3 000-attempt limit preserves the source value with space grouping. Opening-hook evidence/guarantee checks and broken/ambiguous image placement remain distinct.
+
+All thirty-four Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-outreach-types.log), scoped lint and whitespace checks. Total staged coverage is 2,578; 1,190 messages remain. Growth is next. Existing hook claim-review recommendations versus publication requirements, send-failure retry wording and delivery enforcement claims need behavior review before activation. No outreach, generation, approval or delivery operation occurred; fluent/rendered and full real-use acceptance remain open.
