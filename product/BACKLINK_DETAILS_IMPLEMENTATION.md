@@ -2,7 +2,7 @@
 
 ## Current status — 12 September 2026
 
-PR126 remains the released baseline. Deeper continuation is now implemented locally and awaiting review/release in a new migration, `20260912000000_backlink_detail_pages.sql`; it has not been applied. The implementation uses one private table and four service-only wrappers around the released details lifecycle. No released migration was edited.
+PR127 deeper continuation is released and verified at `5f0f82e2b34be2c1c81b7b8e580c240b354b056b`, building on PR126. Migration `20260912000000_backlink_detail_pages.sql` was applied once. See [current release evidence](../evidence/backlink-continuation-release-2026-09-12.md). The implementation uses one private table and four service-only wrappers around the released details lifecycle. No released migration was edited.
 
 Each fresh request creates a root page; a continuation accepts only the current displayed website, project, stable request identity and completed parent identity. The database derives every filter and opaque cursor from that parent's immutable evidence, requires settled accounting and the same owner/project/current website, and permits only one child per parent. A private root identity and unique cursor index reject any previously followed token in the entire chain, including multi-step cycles; the check is scoped to that chain. Request replay returns saved identity without another supplier dispatch. Existing global/account quotas and durable expense admission apply to each explicit page; no funding or permit is created.
 
@@ -10,7 +10,7 @@ The existing bounded transport now also normalizes continuation responses. Only 
 
 The English, Polish, Swedish and Danish interface exposes an explicit allowance-consuming next-page action, freezes the attempted identity while its outcome is uncertain, and reads history to recover status. A local integration fixture exercises authentication-derived owner identity, actual SQL/expense admission, the bounded transport with a fake supplier, saved history, final-page counts and replay: two pages create two expense records and exactly two fake supplier requests. Browser and real provider acceptance remain open.
 
-Validation: all 320 focused backlink tests across 20 files, TypeScript and changed-file lint pass. Logs: `/tmp/milo-pages-focused-tests.log`, `/tmp/milo-pages-final-types.log`, `/tmp/milo-pages-final-lint.log`. Full current-source tests and production builds run in both CI variants during review. Overall planning estimate remains approximately 60% / implementation 75%, with no credit yet for this unreleased continuation work.
+Validation: all 320 focused backlink tests across 20 files, TypeScript and changed-file lint pass. Logs: `/tmp/milo-pages-focused-tests.log`, `/tmp/milo-pages-final-types.log`, `/tmp/milo-pages-final-lint.log`. Final source35164e6 passes 4,035 tests/292 files, TypeScript and production builds in both CI variants; 58 focused correction tests and the full database rehearsal also pass. Overall planning estimate remains approximately 60% / implementation 75%, with real-use acceptance and ongoing monitoring still open.
 
 ## Historical implementation checkpoints
 

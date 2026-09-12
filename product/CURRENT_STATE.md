@@ -1,10 +1,12 @@
 # Milo Growth — current status
 
-Updated: 12 September 2026 (Stockholm; latest release 11 September23:50UTC). Owner: Rafal Andersen. Phase: private beta / launch foundations. Public paid launch: **NO-GO / acceptance incomplete**.
+Updated: 12 September 2026 (Stockholm; latest release 12 September00:24UTC). Owner: Rafal Andersen. Phase: private beta / launch foundations. Public paid launch: **NO-GO / acceptance incomplete**.
 
-Latest verified release: PR124 technical SEO is live at `674ed192a9ea359ee94dff9fb26028d3b1f6c5ab`. Six technical migrations were applied once; every catalog field, exact runtime source identity and six public/authentication checks pass. Existing content, collaboration, notifications and backlinks baselines are unchanged. Required signed-in, live crawl/Google/provider and multi-session acceptance remain open. [Release evidence](../evidence/technical-seo-release-2026-09-12.md).
+Latest verified release: PR127 deeper backlink continuation is live at `5f0f82e2b34be2c1c81b7b8e580c240b354b056b`. Migration20260912000000 was applied once; all catalog fields, exact runtime identity and six public/authentication checks pass. Prior content, collaboration, notifications, backlinks and technical SEO records remain unchanged. [Release evidence](../evidence/backlink-continuation-release-2026-09-12.md). Real provider and signed-in acceptance remain open.
 
-PR126 backlink details and PR125 daily monitoring remain released and verified. Deeper continuation and ongoing monitoring are still unfinished; the separate continuation foundation is not deployed.
+Previous verified release: PR124 technical SEO is live at `674ed192a9ea359ee94dff9fb26028d3b1f6c5ab`. Six technical migrations were applied once; every catalog field, exact runtime source identity and six public/authentication checks pass. Existing content, collaboration, notifications and backlinks baselines are unchanged. Required signed-in, live crawl/Google/provider and multi-session acceptance remain open. [Release evidence](../evidence/technical-seo-release-2026-09-12.md).
+
+PR126 backlink details and PR125 daily monitoring remain released and verified. Deeper continuation is now released through PR127; ongoing monitoring remains in implementation.
 
 Previous verified release: PR125 daily backlink monitoring is live at `a4d10a6eb9badb0365f65fe0dfaf6e2a93f7c9c1`. Its single migration is applied once; exact runtime and six public/authentication checks pass. Provider/signed-in acceptance and the remainder of R14 remain open. [Release evidence](../evidence/backlink-monitoring-release-2026-09-11.md).
 
@@ -20,7 +22,7 @@ This is the current operational entry point. Read [progress review](PROGRESS_REV
 
 The technical SEO release is complete. The six source migrations110000–160000 and the earlier ten team/two backlink migrations are already applied; do not repeat them. Their earlier unreleased status in dated implementation notes is historical.
 
-Next implementation work is deeper backlink continuation and ongoing monitoring. PR127 now implements private continuation storage, authenticated collection, bounded transport, validated history and an explicit four-language next-page control. It is awaiting final review and release; migration20260912000000 is unapplied. Provider and real-use acceptance remain open for the released backlink workflows.
+Next implementation work is ongoing backlink monitoring. An independent branch has a tested occurrence planner and private revisioned settings storage, with authenticated configuration work in progress. Durable per-monitor accounting, due-work dispatch, localized controls and acceptance remain required. Migration20260912010000 is unapplied. Continuation migration20260912000000 is already applied; do not repeat it. Provider and real-use acceptance remain open for the released backlink workflows.
 
 Project collaboration is released, with real owner/collaborator acceptance still open. Invitation and team notification email gates remain disabled; D07 policy selection remains unanswered. The other material scope/dependency items below remain active.
 
