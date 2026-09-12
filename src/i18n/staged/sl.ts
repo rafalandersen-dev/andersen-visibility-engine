@@ -1,3 +1,4 @@
+import { slEvidence } from "./sl-evidence";
 import { slLinks } from "./sl-links";
 import { slCommerce } from "./sl-commerce";
 import { slGrowth } from "./sl-growth";
@@ -26,6 +27,13 @@ import { slAuthScreen } from "./sl-auth-screen";
 import { slSharedUi } from "./sl-shared-ui";
 /** Slovenian authoring; never imported by the runtime catalog. */
 export const SL_STAGED_BATCHES = [
+  {
+    name: "evidence",
+    copy: slEvidence,
+    namespaces: ["answer", "logs", "proof", "aiEval", "benchmark"],
+    sourceRevision: "d30a733",
+    sourceHash: "2911f87d7691a2bf04548e0b7c0e63b3c93f25cdcd73c9af1ba5d22ffdee211d",
+  },
   {
     name: "links",
     copy: slLinks,
