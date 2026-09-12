@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { expect, it } from "vitest";
 import { isUiLanguage, UI_CATALOGS } from "../catalogs";
 import { ES_STAGED_BATCHES, ES_STAGED_CATALOG } from "./es";
+import { euEmailCopy } from "../email-copy-eu";
 
 const placeholders = (value: string) =>
   [...value.matchAll(/\{[a-zA-Z][\w]*\}/g)].map((m) => m[0]).sort();
@@ -39,4 +40,10 @@ it("keeps staged Spanish unique and unavailable in the runtime while authoring r
   expect(Object.keys(ES_STAGED_CATALOG).sort()).toEqual([...keys].sort());
   expect(isUiLanguage("es")).toBe(false);
   expect(Object.hasOwn(UI_CATALOGS, "es")).toBe(false);
+});
+
+it("keeps Spanish collaborator roles consistent with existing invitation emails", () => {
+  for (const role of ["viewer", "editor", "reviewer"] as const) {
+    expect(ES_STAGED_CATALOG[`collaboration.${role}`]).toBe(euEmailCopy.es.invitation.roles[role]);
+  }
 });
