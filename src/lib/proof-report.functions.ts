@@ -24,7 +24,7 @@ import type { CalendarItem, ContentAsset, Project } from "./types";
 import { readWorkspaceRow } from "./workspace.server";
 import { isEmailAddress } from "./outreach-delivery.server";
 import { buildMonthlyProofReport, type MonthlyProofReport } from "./proof-report";
-import { isAgencyPlan, type AgencyBranding } from "./billing";
+import type { AgencyBranding } from "./billing";
 
 const RESEND_SEND_URL = "https://api.resend.com/emails";
 const MONTH_KEY = /^\d{4}-\d{2}$/;
@@ -83,11 +83,12 @@ async function reportForCaller(
   const content = Array.isArray(row.data.content) ? (row.data.content as ContentAsset[]) : [];
   const calendar = Array.isArray(row.data.calendar) ? (row.data.calendar as CalendarItem[]) : [];
   const linksLive = await liveLinkCount(userId, projectId);
-  // White-label only for a genuinely active agency plan (the same gate the
-  // client UI and the DB cap trigger apply — subscription is client-writable).
-  const sub = row.data.subscription as Parameters<typeof isAgencyPlan>[0];
+  // Workspace subscription snapshots are not entitlement authority. Resolve
+  // the caller's current server-owned plan, including expiry and manual grants.
+  const { resolveEntitledPlan } = await import("./entitlements.server");
+  const plan = await resolveEntitledPlan(userId);
   const rawBranding = row.data.agencyBranding as AgencyBranding | undefined;
-  const branding = isAgencyPlan(sub) && rawBranding ? rawBranding : null;
+  const branding = plan === "agency" && rawBranding ? rawBranding : null;
   return {
     report: buildMonthlyProofReport({ project, content, calendar, monthKey, linksLive }),
     project,

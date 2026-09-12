@@ -373,9 +373,8 @@ export interface AgencyBranding {
   logoUrl?: string;
 }
 
-/** Agency-plan gate: active paid/manual subscription on the agency tier.
- * `subscription` is client-writable state, so every consumer (client UI, the
- * report email fn, the DB project-cap trigger) applies this SAME rule. */
+/** Client presentation gate for the mirrored active paid/manual Agency plan.
+ * Server operations must resolve the authoritative entitlement independently. */
 export function isAgencyPlan(sub?: SubscriptionPlan): boolean {
   return isActivePaid(sub) && sub?.planId === "agency";
 }

@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { proofReportEmailCopy } from "@/i18n/proof-report-email-copy";
-const mocks = vi.hoisted(() => ({ preference: vi.fn(), workspace: vi.fn(), middleware: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  preference: vi.fn(),
+  workspace: vi.fn(),
+  middleware: vi.fn(),
+  entitlement: vi.fn(),
+  scope: vi.fn(),
+}));
 vi.mock("@/integrations/supabase/auth-middleware", () => ({
   requireSupabaseAuth: { kind: "authenticated" },
 }));
@@ -28,10 +34,14 @@ vi.mock("./proof-report-email-preference.server", () => ({
 vi.mock("./workspace.server", () => ({ readWorkspaceRow: mocks.workspace }));
 vi.mock("@/integrations/supabase/client.server", () => ({
   supabaseAdmin: {
-    from: () => {
+    from: (table: string) => {
       const q = {
         select: () => q,
-        eq: () => q,
+        eq: (column: string, value: unknown) => {
+          if (table === "entitlements") mocks.scope(column, value);
+          return q;
+        },
+        maybeSingle: mocks.entitlement,
         then: (resolve: (v: unknown) => unknown) =>
           Promise.resolve({ count: 0, error: null }).then(resolve),
       };
@@ -48,6 +58,8 @@ beforeEach(() => {
   vi.stubEnv("RESEND_API_KEY", "unit-test-placeholder");
   vi.stubEnv("OUTREACH_FROM_EMAIL", "sender@example.test");
   mocks.preference.mockReset().mockResolvedValue("de");
+  mocks.scope.mockReset();
+  mocks.entitlement.mockReset().mockResolvedValue({ data: null, error: null });
   mocks.workspace.mockReset().mockResolvedValue({
     data: {
       projects: [{ id: "p1", name: "Project", appLanguage: "sv" }],
@@ -99,6 +111,7 @@ it("does not read preferences or send for a project outside the caller workspace
   );
   expect(mocks.preference).not.toHaveBeenCalled();
   expect(provider).not.toHaveBeenCalled();
+  expect(mocks.entitlement).not.toHaveBeenCalled();
 });
 it("retains the configuration and caller-address guards before preference reads", async () => {
   vi.stubEnv("RESEND_API_KEY", "");
@@ -110,3 +123,82 @@ it("retains the configuration and caller-address guards before preference reads"
   ).rejects.toThrow("no email address");
   expect(provider).not.toHaveBeenCalled();
 });
+
+const brand = "Caller Agency Branding";
+const setWorkspaceSubscription = (subscription: unknown) => {
+  mocks.workspace.mockResolvedValue({
+    data: {
+      projects: [{ id: "p1", name: "Project" }],
+      content: [],
+      calendar: [],
+      subscription,
+      agencyBranding: { agencyName: brand, logoUrl: "https://example.test/logo.png" },
+    },
+  });
+};
+it.each([
+  ["missing", null],
+  ["free", { plan_id: "freePreview", status: "freePreview" }],
+  ["other paid tier", { plan_id: "pro", status: "active" }],
+  ["cancelled", { plan_id: "agency", status: "cancelled" }],
+  ["past due", { plan_id: "agency", status: "pastDue" }],
+  ["expired", { plan_id: "agency", status: "active", current_period_end: "2000-01-01T00:00:00Z" }],
+  [
+    "expired manual",
+    { plan_id: "agency", status: "manualComped", current_period_end: "2000-01-01T00:00:00Z" },
+  ],
+  ["unknown status", { plan_id: "agency", status: "invented" }],
+])(
+  "ignores an Agency workspace claim when authoritative entitlement is %s",
+  async (_name, data) => {
+    setWorkspaceSubscription({ planId: "agency", status: "active" });
+    mocks.entitlement.mockResolvedValue({ data, error: null });
+    await call({ projectId: "p1", monthKey: "2026-09", userId: "other-user" });
+    expect(mocks.scope).toHaveBeenCalledExactlyOnceWith("user_id", "caller-id");
+    expect(JSON.parse(provider.mock.calls[0][1].body).html).not.toContain(brand);
+  },
+);
+it.each(["active", "manualBeta", "manualComped"])(
+  "honors authoritative %s Agency despite missing or stale workspace subscription",
+  async (status) => {
+    mocks.entitlement.mockResolvedValue({ data: { plan_id: "agency", status }, error: null });
+    for (const subscription of [undefined, { planId: "freePreview", status: "freePreview" }]) {
+      setWorkspaceSubscription(subscription);
+      await call({ projectId: "p1", monthKey: "2026-09" });
+      expect(JSON.parse(provider.mock.calls.at(-1)![1].body).html).toContain(brand);
+    }
+  },
+);
+it("retains Agency until its scheduled cancellation period ends", async () => {
+  setWorkspaceSubscription(undefined);
+  mocks.entitlement.mockResolvedValue({
+    data: {
+      plan_id: "agency",
+      status: "active",
+      cancel_at_period_end: true,
+      current_period_end: "2999-01-01T00:00:00Z",
+    },
+    error: null,
+  });
+  await call({ projectId: "p1", monthKey: "2026-09" });
+  expect(JSON.parse(provider.mock.calls[0][1].body).html).toContain(brand);
+});
+it.each(["error", "throw"])(
+  "fails closed to unbranded email on entitlement read %s",
+  async (failure) => {
+    setWorkspaceSubscription({ planId: "agency", status: "active" });
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      if (failure === "throw") mocks.entitlement.mockRejectedValue(new Error("unavailable"));
+      else
+        mocks.entitlement.mockResolvedValue({
+          data: { plan_id: "agency", status: "active" },
+          error: { message: "unavailable" },
+        });
+      await call({ projectId: "p1", monthKey: "2026-09" });
+      expect(JSON.parse(provider.mock.calls[0][1].body).html).not.toContain(brand);
+    } finally {
+      log.mockRestore();
+    }
+  },
+);
