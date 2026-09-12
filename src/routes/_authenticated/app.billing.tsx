@@ -36,7 +36,7 @@ import {
   type BillingMarket,
   type SubscriptionStatus,
 } from "@/lib/billing";
-import { createPaddleCheckoutFn, createPaddlePortalSessionFn } from "@/lib/billing.functions";
+import { createPaddlePortalSessionFn } from "@/lib/billing.functions";
 import { setManualEntitlementFn } from "@/lib/entitlements.functions";
 import { ShieldCheck, Crown, Check, ExternalLink, Loader2, Link2, CircleMinus } from "lucide-react";
 import { useState } from "react";
@@ -70,7 +70,6 @@ function BillingPage() {
   const [billingCountry, setBillingCountry] = useState(billingProfile?.billingCountry ?? "");
   const [vatId, setVatId] = useState(billingProfile?.vatId ?? "");
   const [savingProfile, setSavingProfile] = useState(false);
-  const [checkingOut, setCheckingOut] = useState<PlanId | null>(null);
   const [portalBusy, setPortalBusy] = useState<"manage" | "cancel" | null>(null);
 
   const market: BillingMarket = billingCountry
@@ -130,23 +129,7 @@ function BillingPage() {
       toast.success(t("billing.profileSaved"));
       return;
     }
-    setCheckingOut(planId);
-    try {
-      const res = await createPaddleCheckoutFn({
-        data: { planId, billingMarket: market, billingEmail: billingEmail.trim() || undefined },
-      });
-      if (res.checkoutUrl) {
-        window.location.href = res.checkoutUrl;
-        return;
-      }
-      // Not configured / no URL → nothing is written anywhere. Paid access is
-      // granted exclusively by the verified Paddle webhook.
-      toast.message(res.message || t("billing.checkoutNotConfigured"));
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : t("billingScreen.checkoutFailed"));
-    } finally {
-      setCheckingOut(null);
-    }
+    toast.message(t("publicPricing.hold"));
   }
 
   async function manualActivate(planId: PlanId, manualStatus: "manualBeta" | "manualComped") {
@@ -373,6 +356,9 @@ function BillingPage() {
 
       {/* Choose plan */}
       <h2 className="mt-10 font-display text-2xl">{t("billing.choosePlan")}</h2>
+      <p className="mt-2 max-w-3xl text-sm text-muted-foreground" id="paid-plan-hold">
+        {t("publicPricing.hold")}
+      </p>
       {!billingCountry ? (
         <p className="mt-1 text-sm text-muted-foreground">{t("billing.selectCountryFirst")}</p>
       ) : null}
@@ -423,12 +409,13 @@ function BillingPage() {
                 </Button>
               ) : (
                 <Button
-                  className="mt-4"
+                  className="mt-4 h-auto min-h-9 whitespace-normal"
                   variant={meta.recommended ? "default" : "outline"}
-                  disabled={checkingOut !== null}
+                  disabled={pid !== "freePreview"}
+                  aria-describedby={pid !== "freePreview" ? "paid-plan-hold" : undefined}
                   onClick={() => choosePlan(pid)}
                 >
-                  {pid === "freePreview" ? t("billing.choose") : t("billing.upgrade")}
+                  {pid === "freePreview" ? t("billing.choose") : t("launch.item.paddlePending")}
                 </Button>
               )}
             </div>
