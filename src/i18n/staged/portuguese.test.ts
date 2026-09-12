@@ -34,11 +34,12 @@ it.each(PT_STAGED_BATCHES)("Portuguese $name matches reviewed source and paramet
       expect(tokens(value, pattern), key).toEqual(tokens(source[key], pattern));
   }
 });
-it("keeps incomplete Portuguese outside runtime and assigns each staged key once", () => {
+it("keeps fully authored Portuguese outside runtime and assigns each key once", () => {
   expect(isUiLanguage("pt")).toBe(false);
   expect(Object.keys(UI_CATALOGS)).not.toContain("pt");
   const keys = PT_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(new Set(keys).size).toBe(keys.length);
   expect(Object.keys(PT_STAGED_CATALOG).sort()).toEqual(keys.sort());
-  expect(keys.length).toBeLessThan(Object.keys(UI_CATALOGS.en).length);
+  expect(keys.sort()).toEqual(Object.keys(UI_CATALOGS.en).sort());
+  expect(Object.isFrozen(PT_STAGED_CATALOG)).toBe(true);
 });

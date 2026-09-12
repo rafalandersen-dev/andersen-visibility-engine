@@ -1,3 +1,4 @@
+import { ptWorkflow } from "./pt-workflow";
 import { ptEvidence } from "./pt-evidence";
 import { ptLinks } from "./pt-links";
 import { ptCommerce } from "./pt-commerce";
@@ -26,7 +27,7 @@ import { ptCore } from "./pt-core";
 import { ptAuthScreen } from "./pt-auth-screen";
 import { ptSharedUi } from "./pt-shared-ui";
 
-/** Incomplete European Portuguese authoring. Never imported by the runtime catalog. */
+/** Fully authored European Portuguese; quality acceptance remains open. Never imported by the runtime catalog. */
 export const PT_STAGED_BATCHES = [
   {
     name: "core",
@@ -235,8 +236,32 @@ export const PT_STAGED_BATCHES = [
     sourceRevision: "5026e73",
     sourceHash: "2911f87d7691a2bf04548e0b7c0e63b3c93f25cdcd73c9af1ba5d22ffdee211d",
   },
+  {
+    name: "workflow",
+    copy: ptWorkflow,
+    namespaces: [
+      "autoSched",
+      "prev",
+      "imgGen",
+      "arrange",
+      "visual",
+      "editor",
+      "dashboard",
+      "status",
+      "quality",
+      "calsched",
+      "pres",
+      "featured",
+      "today",
+      "plan",
+      "generationResults",
+      "workflow",
+      "publishingFidelity",
+    ],
+    sourceRevision: "cc3ae1f",
+    sourceHash: "bb07d1e3a9509e42f46b1c800d7f4c418b42f1d0c60872a8ba7b1aa6014009b2",
+  },
 ] as const;
-export const PT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.assign(
-  {},
-  ...PT_STAGED_BATCHES.map((batch) => batch.copy),
+export const PT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
+  Object.assign(Object.create(null), ...PT_STAGED_BATCHES.map((batch) => batch.copy)),
 );
