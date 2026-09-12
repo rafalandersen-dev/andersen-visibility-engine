@@ -26,15 +26,23 @@ it.each(IT_STAGED_BATCHES)(
     );
     for (const [key, value] of Object.entries(batch.copy)) {
       expect(value.trim(), key).not.toBe("");
-      for (const pattern of [/\{[a-zA-Z][\w]*\}/g, /\b\d+(?:\.\d+)?\b/g, /https?:\/\/[^\s"<>]+/g])
+      for (const pattern of [
+        /\{[a-zA-Z][\w]*\}/g,
+        /\b\d+(?:\.\d+)?(?=\b|(?:st|nd|rd|th)\b)/g,
+        /https?:\/\/[^\s"<>]+/g,
+      ])
         expect(tokens(value, pattern), key).toEqual(tokens(source[key], pattern));
     }
   },
 );
-it("keeps incomplete Italian isolated and keys uniquely owned", () => {
+it("keeps staged Italian isolated and keys uniquely owned", () => {
   const keys = IT_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(keys.length).toBe(new Set(keys).size);
   expect(Object.keys(IT_STAGED_CATALOG).sort()).toEqual(keys.sort());
   expect(isUiLanguage("it")).toBe(false);
   expect(Object.hasOwn(UI_CATALOGS, "it")).toBe(false);
+});
+
+it("covers every current English message in staged Italian", () => {
+  expect(Object.keys(IT_STAGED_CATALOG).sort()).toEqual(Object.keys(UI_CATALOGS.en).sort());
 });

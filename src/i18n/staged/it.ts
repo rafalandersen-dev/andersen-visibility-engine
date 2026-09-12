@@ -1,3 +1,4 @@
+import { itWorkflow } from "./it-workflow";
 import { itEvidence } from "./it-evidence";
 import { itLinks } from "./it-links";
 import { itCommerce } from "./it-commerce";
@@ -26,7 +27,7 @@ import { itAuthScreen } from "./it-auth-screen";
 import { itSharedUi } from "./it-shared-ui";
 import { itCore } from "./it-core";
 
-/** Incomplete Italian authoring. Never register this catalog in runtime. */
+/** Complete Italian key coverage; language and behavior acceptance pending. Keep isolated from runtime. */
 export const IT_STAGED_BATCHES = [
   {
     name: "core",
@@ -234,6 +235,31 @@ export const IT_STAGED_BATCHES = [
     namespaces: ["answer", "logs", "proof", "aiEval", "benchmark"],
     sourceRevision: "a8d2c7e",
     sourceHash: "2911f87d7691a2bf04548e0b7c0e63b3c93f25cdcd73c9af1ba5d22ffdee211d",
+  },
+  {
+    name: "workflow",
+    copy: itWorkflow,
+    namespaces: [
+      "editor",
+      "today",
+      "plan",
+      "generationResults",
+      "publishingFidelity",
+      "quality",
+      "imgGen",
+      "arrange",
+      "visual",
+      "autoSched",
+      "prev",
+      "calsched",
+      "pres",
+      "featured",
+      "status",
+      "dashboard",
+      "workflow",
+    ],
+    sourceRevision: "3aba1ad",
+    sourceHash: "51745ca43f59875396b2251d308f4cff913717c3868a9679f6be5c7fa3e0c35f",
   },
 ] as const;
 export const IT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
