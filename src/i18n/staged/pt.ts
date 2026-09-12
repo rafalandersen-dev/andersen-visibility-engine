@@ -1,3 +1,6 @@
+import { ptSetupScreen } from "./pt-setup-screen";
+import { ptServicesScreen } from "./pt-services-screen";
+import { ptAuditScreen } from "./pt-audit-screen";
 import { ptCore } from "./pt-core";
 import { ptAuthScreen } from "./pt-auth-screen";
 import { ptSharedUi } from "./pt-shared-ui";
@@ -35,6 +38,27 @@ export const PT_STAGED_BATCHES = [
     namespaces: ["sharedUi"],
     sourceRevision: "a95a276",
     sourceHash: "678278d00a51f6b4df582627cce0d38b176e65972d6ac578682f8e2e247d9de5",
+  },
+  {
+    name: "setup screen",
+    copy: ptSetupScreen,
+    namespaces: ["setupScreen"],
+    sourceRevision: "30eef6d",
+    sourceHash: "565b0bcd89f346fd85f3b87d4e44716826a65bee54fd60eaa3b677c4d732a5ca",
+  },
+  {
+    name: "services screen",
+    copy: ptServicesScreen,
+    namespaces: ["servicesScreen"],
+    sourceRevision: "30eef6d",
+    sourceHash: "c769d10ab21c34754c6c4a6c57c3ee5f04881605b1dabc10030bca0e9122313d",
+  },
+  {
+    name: "audit screen",
+    copy: ptAuditScreen,
+    namespaces: ["auditScreen"],
+    sourceRevision: "30eef6d",
+    sourceHash: "2c15a7061c169b3f2da7446d4280ff94cb6b5ce2e6cb56d156af72ab154f1aed",
   },
 ] as const;
 export const PT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.assign(
