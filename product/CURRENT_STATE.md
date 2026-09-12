@@ -1,5 +1,9 @@
 # Milo Growth — current status
 
+Integrated local checkpoint at candidate 16b1636: all 4,896 application tests across 328 files and all 49 separate public-audit Worker tests across three files pass. The application suite excludes Worker tests; both runs are recorded separately in INTEGRATED_CANDIDATE_CHECK_2026_09_12.md. These are local tests, not deployment, provider or real-use acceptance. Existing release holds and progress estimates remain unchanged.
+
+Public audit candidate fixes after 4a85cc9: complete success-response validation (61a9ff3), honest pending status/accessibility roles (ec26739), and shared retry/bot-token readiness with duplicate-submission guarding (16b1636). See PUBLIC_AUDIT_SUCCESS_CONTRACT_2026_09_12.md, PUBLIC_AUDIT_PROGRESS_STATUS_2026_09_12.md and PUBLIC_AUDIT_RETRY_READINESS_2026_09_12.md. All remain unreleased; browser/token lifecycle and live acceptance remain open.
+
 Public audit error handling now guards malformed JSON envelopes and avoids unsupported setup-cause/future-audit promises. Existing translated project CTA is reused. All 17 client/boundary tests, full types/scoped lint/whitespace pass. See PUBLIC_AUDIT_ERROR_ENVELOPES_2026_09_12.md. Prepared, unreleased; broader response/localization and live acceptance remain.
 
 Free public audit now follows the shared saved device language preference, exposes the existing language selector, translates header navigation/tagline and names the website input. All 33 focused tests plus types/build/scoped lint pass. See PUBLIC_AUDIT_LANGUAGE_PREFERENCE_2026_09_12.md. Remaining error-copy/browser/live acceptance is explicit; no provider operation or release-gate change.
