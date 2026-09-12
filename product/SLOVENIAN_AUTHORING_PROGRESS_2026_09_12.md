@@ -1,6 +1,6 @@
 # Slovenian interface authoring — 12 September 2026
 
-Slovenian is staged only: 1,488 of the current 3,768 English interface keys across eighteen complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK retain separate complete staged authoring and incomplete acceptance status.
+Slovenian is staged only: 1,736 of the current 3,768 English interface keys across nineteen complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK retain separate complete staged authoring and incomplete acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -22,14 +22,15 @@ Slovenian is staged only: 1,488 of the current 3,768 English interface keys acro
 | Beta guidance | 125 | 75198c7 |
 | Public beta | 100 | 6a24f17 |
 | Configuration | 220 | b8f7f14 |
+| Collaboration | 248 | 0698092 |
 
-The frozen staged registry assigns every key once. Namespace tests verify exact keys, nonempty values, current composed-English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 29 Slovenian/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovenian-configuration-types.log.
+The frozen staged registry assigns every key once. Namespace tests verify exact keys, nonempty values, current composed-English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 30 Slovenian/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovenian-collaboration-types.log.
 
 Terminology: delovni prostor (workspace), projekt, geslo (password), ponastavitev gesla (password reset), stranska vrstica (sidebar), vpis (network listing), paket (subscription plan), načrt (workflow plan), vsebinska izhodišča (content brief). Use polite plural explanatory instructions and concise action labels. Preserve provider/product names and placeholders.
 
 Recovery text retains conditional eligibility without confirming account existence. Marketing and successful sign-in source claims retain their implementation and real-use acceptance obligations. No authentication, email, account, credential or provider action occurred.
 
-Remaining: 2,280 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: collaboration using current composed English. This staged work does not complete R20 or change release gates.
+Remaining: 2,032 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: knowledge using current composed English. This staged work does not complete R20 or change release gates.
 
 Core copy preserves interface versus content language, saved setup versus incomplete generation, work target dates versus publication times, and sent drafts versus published pages. Navigation uses Načrt, Vsebina, Vidnost, Nastavitve and Analitika. Subscription plans remain paket; workflow plans use načrt. In-review status is V pregledu; scheduled publication is Čas objave nastavljen. No generation, onboarding, schedule or publication operation occurred.
 
@@ -54,3 +55,5 @@ Beta guidance retains prospect/demo counts as validation targets, separates demo
 Public beta preserves pilot availability/scope, one-time versus monthly prices, payment holds and incomplete per-site connector/measurement acceptance. Demo data stays distinct from growth evidence. The current four-language page statement matches the active source baseline but must be reconciled during additional-language activation. No audit, application, email, payment or provider operation occurred.
 
 Configuration copy preserves brand constraints, minimum connector permissions, draft/approval/publication separation and read/write/propose access boundaries. Coverage records retain owner/source provenance, revision and expiry controls, exact-URL matching and unverified live coverage. Provider setup instructions are translated from the composed source; they have not been independently revalidated. No connection, credential, authorization or publication action occurred.
+
+Collaboration preserves invitation creation versus email sending/access acceptance, owner assignment plus recipient consent, exact-version review versus publication and role/policy changes withdrawing approvals. Notifications retain historical/live-state limits, uncertain recovery outcomes and provider acceptance versus delivery. Roles use Bralec, Urednik and Pregledovalec; explicit editorial lessons remain project instructions rather than factual evidence. No invitation, email, role, consent, review or publication action occurred.
