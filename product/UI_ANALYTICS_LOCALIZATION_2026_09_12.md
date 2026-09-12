@@ -1,0 +1,15 @@
+# Analytics presentation localization — 12 September 2026
+
+Status: prepared and locally validated, unreleased. No new review request, migration or deployment was issued while the known security-review quota remains exhausted.
+
+The screen adds 36 messages across English, Polish, Swedish and Danish with matching staged French. The combined On-page Review, Services & Products, Project Setup, Billing and Analytics candidate adds 161 messages: 3,213 keys in each current language and staged French, across 20 French authoring batches. French remains outside the runtime and picker.
+
+Analytics controls, setup guidance, outcomes, cards, chart labels, empty states and summaries now use the selected language. Numeric displays use that language's grouping and decimal separator; chart tooltips use the existing UTC date formatter and explicitly label UTC. Counters, rounding, thresholds, chart geometry, ordering and API payloads remain unchanged.
+
+Source review found that the existing visits fields count page/content-view events, not unique people; the conversion fields divide tracked CTA/booking clicks by those views. The UI now describes recorded views and tracked click rate, without implying completed purchases or bookings. The daily chart displays views only. The top-pages list is sorted by recorded views, while the selected leading page uses weighted views/clicks. The translated summary uses the same returned counts and selected page; the server's original English summary remains unchanged for other consumers.
+
+The report source retrieves at most 50,000 events from the preceding 60 days. Published-content metrics are constrained by that retrieved history and by a publication timestamp where available. The UI makes that limit visible rather than presenting those totals as complete lifetime results. No aggregation, query, retention, source verification, source classification, tracking snippet or event-example payload was changed. No tracking event, Google request, provider call or production record was created.
+
+Validation: 100 focused localization, date-formatting, billing-presentation and billing/analytics-hardening checks across 11 files, full TypeScript, changed-file lint with zero diagnostics and production build pass. Logs: `/tmp/milo-ui-analytics-{focused,types,lint,build}.log`. Static inventory `/tmp/milo-ui-analytics-embedded-inventory.json` retains only the two displayed JavaScript event examples in this route. Conditional labels and selected source calculations were reviewed separately. The shared UTC date behavior is covered by the existing date-format tests; no calculation change is claimed by these presentation checks.
+
+Route metadata, supplied page titles/paths, server error messages, report exports and actual fluent/signed-in acceptance remain outside this evidence. Required final-head review and both-runtime CI still precede release. Overall progress remains about 60%, implementation about 75% (weighted 58.25% / 73.5%); paid launch is still NO-GO.
