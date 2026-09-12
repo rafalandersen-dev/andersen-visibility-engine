@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Finnish staged interface authoring started with complete authentication and shared-control namespaces: 72/3,768 messages. Exact namespace/source-fingerprint/token checks, frozen combined catalog and runtime-exclusion checks pass: 13 Finnish/catalog tests plus types/scoped lint/whitespace. See FINNISH_AUTHORING_PROGRESS_2026_09_12.md. Finnish remains inactive; 3,696 keys and language/rendered acceptance remain. Full R20 and release gates stay open.
+
 Integrated knowledge/scheduler candidate 67c789d passes 4,978 application tests across 331 files and the production build. Exact evidence is in INTEGRATED_CANDIDATE_CHECK_2026_09_12.md. LAUNCH_READINESS.md now records prerequisites, acceptance and rollback compatibility for the unapplied batch-review migration. Local regression totals supersede earlier local totals only; full live acceptance and release gates remain open.
 
 Scheduled runner response now includes heartbeatRecorded, true only after a non-error database acknowledgement. Missing responses, returned errors, rejections and a ten-second deadline produce false while retaining completed batch outcomes; late acknowledgement does not mutate the returned result or retry publication. All 18 runner tests pass, plus types/scoped lint/whitespace. The heartbeat-age helper is currently unused by UI; this change improves the actual run response, not a claimed new health dashboard. No live scheduler/database operation or deployment occurred.
