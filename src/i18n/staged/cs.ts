@@ -1,7 +1,26 @@
+import { csCore } from "./cs-core";
 import { csAuthScreen } from "./cs-auth-screen";
 import { csSharedUi } from "./cs-shared-ui";
 /** Czech authoring; never imported by the runtime catalog. */
 export const CS_STAGED_BATCHES = [
+  {
+    name: "core",
+    copy: csCore,
+    namespaces: [
+      "common",
+      "nav",
+      "appShell",
+      "shell",
+      "onboarding",
+      "setup",
+      "lang",
+      "market",
+      "goal",
+      "pipeline",
+    ],
+    sourceRevision: "f01c604",
+    sourceHash: "845b2b1ade4a0935ab924dcc4bdc27d72a7a120388740354bd69a697aa1c7ff2",
+  },
   {
     name: "authentication",
     copy: csAuthScreen,
