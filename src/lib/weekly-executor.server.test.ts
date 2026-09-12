@@ -416,6 +416,47 @@ describe("weekly executor integrated orchestration without live providers", () =
     expect(await runWeeklyProject(scope, now)).toMatchObject({ action: "context-changed" });
     expect(h.image).not.toHaveBeenCalled();
   });
+  it("recovers after an archive read timeout without late delivery or paid replay", async () => {
+    await runWeeklyProject(scope, now);
+    const actual = await vi.importActual<typeof import("./generation-result.server")>(
+      "./generation-result.server",
+    );
+    let complete!: (value: { data: unknown; error: null }) => void;
+    let receiptId = "";
+    const archiveRpc = vi.fn(
+      () =>
+        new Promise<{ data: unknown; error: null }>((resolve) => {
+          complete = resolve;
+        }),
+    );
+    h.archive.mockImplementationOnce((userId, receipt) => {
+      receiptId = receipt;
+      return actual.readGenerationResult(userId, receipt, archiveRpc);
+    });
+    vi.useFakeTimers();
+    const visit = runWeeklyProject(scope, now);
+    await vi.waitFor(() => expect(archiveRpc).toHaveBeenCalledTimes(1));
+    await vi.advanceTimersByTimeAsync(actual.GENERATION_RESULT_TIMEOUT_MS + 1);
+    expect(await visit).toMatchObject({ action: "recovery-required" });
+    expect(h.generate).toHaveBeenCalledTimes(1);
+    expect(workspace.content).toHaveLength(0);
+    expect(h.image).not.toHaveBeenCalled();
+    expect(archiveRpc).toHaveBeenCalledTimes(1);
+    complete({
+      data: [
+        { receipt_id: receiptId, created_at: now.toISOString(), payload: archives.get(receiptId) },
+      ],
+      error: null,
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(workspace.content).toHaveLength(0);
+    expect(h.image).not.toHaveBeenCalled();
+    vi.useRealTimers();
+    await runWeeklyProject(scope, now);
+    expect(workspace.content).toHaveLength(1);
+    expect(h.generate).toHaveBeenCalledTimes(1);
+    expect(stages.filter((stage) => stage.stage === "content")).toHaveLength(1);
+  });
   it("retains archived output on a workspace race and resumes without paid replay", async () => {
     await runWeeklyProject(scope, now);
     h.update.mockResolvedValueOnce(null);

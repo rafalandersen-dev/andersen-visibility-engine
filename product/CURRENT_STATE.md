@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Weekly archive-read recovery is now covered through the actual bounded storage reader with an injected pending RPC: timeout and late response cause no draft delivery, then a later visit recovers the saved result without another content generation. All 36 focused tests plus types/scoped lint/whitespace pass. See the follow-up in WEEKLY_PUBLICATION_WAIT_BOUNDS_2026_09_12.md. No production change was required; real provider/database acceptance remains open.
+
 Weekly retained-content finalization now bounds approval and schedule-admission waits and exits as recovery-required on timeout, without continuing stages or inferring admission failure. Two new pending/late-completion regressions pass; 29 focused tests, full types/scoped lint/whitespace pass. See WEEKLY_PUBLICATION_WAIT_BOUNDS_2026_09_12.md. Prepared, unreleased; other dependency bounds and real weekly acceptance remain open.
 
 Integrated local checkpoint at candidate 16b1636: all 4,896 application tests across 328 files and all 49 separate public-audit Worker tests across three files pass. The application suite excludes Worker tests; both runs are recorded separately in INTEGRATED_CANDIDATE_CHECK_2026_09_12.md. These are local tests, not deployment, provider or real-use acceptance. Existing release holds and progress estimates remain unchanged.

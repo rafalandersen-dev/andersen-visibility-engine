@@ -9,3 +9,11 @@ Two new orchestration cases failed against the prior implementation and now pass
 All 29 tests across weekly executor, scheduler approval and batch dispatch pass. Full TypeScript passed (/tmp/milo-weekly-publish-timeout-types.log), as did scoped lint and whitespace checks. The full application suite passed at predecessor 16b1636; it was not rerun for this bounded change. No production build repeated.
 
 Other dependency bounds and complete weekly/freshness/publication acceptance remain under review. Real logged-out destination verification, release/security-review gates and full R00–R24/D01–D08 completion remain open. No provider, database, deployment or task handoff action occurred.
+
+## Follow-up: archived-result read recovery
+
+At candidate 2bab021, inspected generation-result.server.ts and confirmed its shared RPC layer already bounds reads at ten seconds. No redundant runner wrapper or production behavior change was needed.
+
+Added an executor integration case using the real readGenerationResult implementation with an injected pending RPC. After the read times out, the visit reports recovery-required with no delivered draft or image work. A late RPC response does not deliver the draft. A later visit recovers it from the retained archive with one content generation and one content stage total. This proves the local read/runner recovery interaction; provider calls and database execution remain mocked.
+
+All 36 tests across the executor, generation-result storage and weekly-stage suites pass, with full TypeScript (/tmp/milo-weekly-archive-recovery-types.log), scoped lint and whitespace checks. The first harness attempt timed out because the fake clock advanced before asynchronous hashing reached the read; the corrected test waits for the observed RPC invocation before advancing its deadline. This was a test synchronization correction, not a production timeout fix.
