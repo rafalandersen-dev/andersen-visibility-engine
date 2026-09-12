@@ -1,3 +1,5 @@
+import { deTechnical } from "./de-technical";
+import { deMeasurements } from "./de-measurements";
 import { deCollaboration } from "./de-collaboration";
 import { deKnowledge } from "./de-knowledge";
 import { deEditorScreen } from "./de-editor-screen";
@@ -75,6 +77,8 @@ export const DE_STAGED_BATCHES = [
     copy: deKnowledge,
     namespaces: ["knowledge", "weekly", "approval", "refresh"],
   },
+  { name: "technical", copy: deTechnical, namespaces: ["crawl", "gindex", "perf"] },
+  { name: "measurements", copy: deMeasurements, namespaces: ["analytics", "gsc", "report"] },
 ] as const;
 export const DE_STAGED_CATALOG: Readonly<Record<string, string>> = Object.assign(
   {},

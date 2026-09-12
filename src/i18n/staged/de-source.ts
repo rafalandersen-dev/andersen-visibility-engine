@@ -15,4 +15,6 @@ export const DE_AUTHORING_SOURCE_HASHES: Readonly<Record<string, string>> = {
   workflow: "51745ca43f59875396b2251d308f4cff913717c3868a9679f6be5c7fa3e0c35f",
   collaboration: "429e59f16a866242f25a373ebd6b52332ae3f04534230101422ebab727f77ed0",
   knowledge: "a3a3297006f23628e422ddedfb5b6f5a51c6dd5f6abbc6d6e589481e49915816",
+  technical: "106a19b8ceaf725528ddc9d4de7317d823108425584418d93729346f29c135e6",
+  measurements: "d5a84c283031ca1ef2c696e427fb9d9327a475370d497840df4293c1c9840cd9",
 };
