@@ -113,7 +113,7 @@ export const itCommerce: Readonly<Record<string, string>> = {
   "launch.item.connectorConfigured.desc": "Credenziali o endpoint sono pronti per pubblicare.",
   "launch.item.connectorTested": "Connessione verificata (WordPress/Shopify)",
   "launch.item.connectorTested.desc":
-    "Esegui Verifica connessione affinché la pubblicazione non fallisca in seguito.",
+    "Esegui il test di connessione per controllare l’accesso. Un test riuscito non verifica i permessi di pubblicazione né garantisce una pubblicazione successiva.",
   "launch.item.draftSent": "Almeno una bozza inviata",
   "launch.item.draftSent.desc": "Invia i contenuti approvati al sito collegato come bozza.",
   "launch.item.publishedLive": "Almeno una pagina pubblicata online",

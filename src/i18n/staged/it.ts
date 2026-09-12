@@ -213,7 +213,7 @@ export const IT_STAGED_BATCHES = [
     copy: itCommerce,
     namespaces: ["billing", "launch", "beta"],
     sourceRevision: "a7fe4e6",
-    sourceHash: "2d58b596b76d994df2999d70c42588c8a48ec57ab846dbe5b88238580e59387c",
+    sourceHash: "6cd0596e8ff09ae38f9decb763ab31a3fe2c311109c9b5f85edc9721d7058ff2",
   },
   {
     name: "links",

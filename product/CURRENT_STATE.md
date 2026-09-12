@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Launch connection-test wording corrected across four runtime and four staged languages: access testing does not verify publishing permissions or guarantee later publication. Confirmed from the read-only account/shop test handlers; checklist behavior unchanged. See LAUNCH_CONNECTION_CLAIM_2026_09_12.md. Prepared, unreleased; acceptance and release holds remain.
+
 Report wording now describes recorded publications and explicitly disclaims a fresh destination check across4runtime UI languages,4staged languages and24email languages, including agency footers.199report/catalog tests, types/build and scoped lint pass. See REPORT_PUBLICATION_CLAIMS_2026_09_12.md. Prepared, unreleased; overall60%/implementation75% unchanged.
 
 Monthly report count correction: successful draft delivery with a retained live URL no longer counts as a live publication. Page/email aggregation requires successful live status and its timestamp. 112 report/presentation/email tests, types/build and zero lint pass. The separate verified-live wording claim remains unproven and open; see REPORT_PUBLICATION_COUNT_2026_09_12.md. Unreleased; overall60%/implementation75% unchanged.

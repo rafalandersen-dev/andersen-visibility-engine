@@ -1125,7 +1125,7 @@ export const sv: Record<string, string> = {
     "Uppgifter eller slutpunkter finns på plats för publicering.",
   "launch.item.connectorTested": "Anslutning testad (WordPress/Shopify)",
   "launch.item.connectorTested.desc":
-    "Kör Testa anslutning så att publicering inte misslyckas senare.",
+    "Kör Testa anslutning för att kontrollera åtkomsten. Ett lyckat test verifierar inte publiceringsbehörigheter och garanterar inte en senare publicering.",
   "launch.item.draftSent": "Minst ett utkast skickat",
   "launch.item.draftSent.desc": "Skicka godkänt innehåll till webbplatsen som ett utkast.",
   "launch.item.publishedLive": "Minst en sida publicerad live",

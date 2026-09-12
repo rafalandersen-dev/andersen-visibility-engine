@@ -113,7 +113,7 @@ export const esCommerce: Readonly<Record<string, string>> = {
     "Las credenciales o los endpoints están preparados para publicar.",
   "launch.item.connectorTested": "Conexión probada (WordPress/Shopify)",
   "launch.item.connectorTested.desc":
-    "Ejecuta la acción Probar conexión para evitar fallos posteriores al publicar.",
+    "Ejecuta la prueba de conexión para comprobar el acceso. Una prueba correcta no verifica los permisos de publicación ni garantiza una publicación posterior.",
   "launch.item.draftSent": "Al menos un borrador enviado",
   "launch.item.draftSent.desc": "Envía contenido aprobado a la web conectada como borrador.",
   "launch.item.publishedLive": "Al menos una página publicada",

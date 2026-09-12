@@ -1125,7 +1125,7 @@ export const da: Record<string, string> = {
   "launch.item.connectorConfigured.desc":
     "Legitimationsoplysninger eller slutpunkter er klar til udgivelse.",
   "launch.item.connectorTested": "Forbindelse testet (WordPress/Shopify)",
-  "launch.item.connectorTested.desc": "Kør Test forbindelse, så udgivelse ikke fejler senere.",
+  "launch.item.connectorTested.desc": "Kør Test forbindelse for at kontrollere adgangen. En vellykket test verificerer ikke publiceringstilladelser og garanterer ikke en senere publicering.",
   "launch.item.draftSent": "Mindst ét udkast sendt",
   "launch.item.draftSent.desc": "Send godkendt indhold til webstedet som et udkast.",
   "launch.item.publishedLive": "Mindst én side udgivet live",

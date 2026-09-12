@@ -115,7 +115,7 @@ export const deCommerce: Readonly<Record<string, string>> = {
     "Zugangsdaten oder Endpunkte für die Veröffentlichung sind eingerichtet.",
   "launch.item.connectorTested": "Verbindung getestet (WordPress/Shopify)",
   "launch.item.connectorTested.desc":
-    "Führe Verbindung testen aus, damit die Veröffentlichung später nicht fehlschlägt.",
+    "Führe den Verbindungstest aus, um den Zugriff zu prüfen. Ein erfolgreicher Test bestätigt weder Veröffentlichungsberechtigungen noch garantiert er eine spätere Veröffentlichung.",
   "launch.item.draftSent": "Mindestens ein Entwurf gesendet",
   "launch.item.draftSent.desc": "Sende freigegebene Inhalte als Entwurf an die verbundene Website.",
   "launch.item.publishedLive": "Mindestens eine Seite live veröffentlicht",

@@ -1125,7 +1125,7 @@ export const pl: Record<string, string> = {
     "Dane logowania lub punkty końcowe są gotowe do publikacji.",
   "launch.item.connectorTested": "Połączenie przetestowane (WordPress/Shopify)",
   "launch.item.connectorTested.desc":
-    "Uruchom test połączenia, aby publikacja nie zawiodła później.",
+    "Uruchom test połączenia, aby sprawdzić dostęp. Udany test nie weryfikuje uprawnień do publikowania ani nie gwarantuje późniejszej publikacji.",
   "launch.item.draftSent": "Co najmniej jeden szkic wysłany",
   "launch.item.draftSent.desc": "Wyślij zatwierdzoną treść na stronę jako szkic.",
   "launch.item.publishedLive": "Co najmniej jedna strona opublikowana na żywo",

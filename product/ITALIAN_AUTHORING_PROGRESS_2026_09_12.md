@@ -6,7 +6,7 @@ The preceding 196 messages cover the owner generation test, AI evaluation, publi
 
 The preceding 256 messages cover the link network, backlink analysis, sponsored-publication requests, saved link history, individual link evidence and recurring monitoring. Index samples versus live verification, uncertain supplier outcomes, exact payment consent, UTC intervals and supplier caps retain their source meaning. No supplier request, order, payment or monitoring configuration was made. Inherited network verification, white-hat assurances and marketplace no-payment error claims require source/behavior review before activation.
 
-The preceding 192 messages cover billing, launch checklist and beta limitations. Test versus real payment, manual status and incomplete acceptance remain explicit. Inherited checklist assurances (including the claim that testing prevents later publishing failure) require source correction/behavior review before activation; translation does not prove them.
+The preceding 192 messages cover billing, launch checklist and beta limitations. Test versus real payment, manual status and incomplete acceptance remain explicit. The connection-test guarantee has now been corrected across all eight authored languages after inspecting the read-only handlers; see LAUNCH_CONNECTION_CLAIM_2026_09_12.md. Other inherited assurances still require source/behavior review before activation.
 
 The preceding 201 messages cover Authority Builder, public readiness audit and pending assistant proposals. Readiness versus rankings, suggestions versus approved changes and workspace limits retain their source meaning. Authority live labels and absolute error/claim assurances remain part of the source-behavior review before activation.
 

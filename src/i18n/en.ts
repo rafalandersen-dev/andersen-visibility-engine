@@ -1123,7 +1123,7 @@ export const en: Record<string, string> = {
   "launch.item.connectorConfigured.desc": "Credentials or endpoints are in place to publish.",
   "launch.item.connectorTested": "Connection tested (WordPress/Shopify)",
   "launch.item.connectorTested.desc":
-    "Run the Test connection action so publishing won't fail later.",
+    "Run Test connection to check access. A successful test does not verify publishing permissions or guarantee a later publication.",
   "launch.item.draftSent": "At least one draft sent",
   "launch.item.draftSent.desc": "Send approved content to the connected website as a draft.",
   "launch.item.publishedLive": "At least one page published live",
