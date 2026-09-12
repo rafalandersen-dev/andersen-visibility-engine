@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { ContentAsset, Opportunity } from "./types";
+import { translate } from "@/i18n/translate";
 import {
   InvalidOpportunityTransitionError,
   canTransitionOpportunity,
   newOpportunityRecord,
   opportunityDeduplicationKey,
   opportunityLifecycleStatus,
+  opportunitySourceLabel,
   opportunityView,
   restoreOpportunityRecord,
   transitionOpportunityRecord,
@@ -45,6 +47,32 @@ const draft: ContentAsset = {
   status: "Draft",
   updatedAt: "2026-07-19T08:00:00.000Z",
 };
+
+describe("source labels retain provenance while using interface text", () => {
+  it("localizes a legacy audit source without changing its original record or default label", () => {
+    const before = structuredClone(legacyOpportunity);
+    expect(opportunitySourceLabel(legacyOpportunity)).toBe("Site audit");
+    expect(opportunitySourceLabel(legacyOpportunity, (key) => translate("pl", key))).toBe(
+      "Audyt witryny",
+    );
+    expect(legacyOpportunity).toEqual(before);
+  });
+
+  it("preserves primary-source precedence and distinguishes manual from discovery provenance", () => {
+    const format = (key: string) => translate("sv", key);
+    const services = { ...legacyOpportunity, primarySource: "services_products" as const };
+    expect(opportunitySourceLabel(services, format)).toBe("Tjänster och produkter");
+    const manual = {
+      ...legacyOpportunity,
+      primarySource: "manual" as const,
+      creationMode: "manual" as const,
+    };
+    expect(opportunitySourceLabel(manual, format)).toBe("Manuellt");
+    const discovery = { ...manual, creationMode: "milo_discovery" as const };
+    expect(opportunitySourceLabel(discovery, format)).toBe("Milos förslag");
+    expect(opportunitySourceLabel(discovery)).toBe("Milo discovery");
+  });
+});
 
 describe("opportunity lifecycle", () => {
   it("maps legacy records without mutating them", () => {

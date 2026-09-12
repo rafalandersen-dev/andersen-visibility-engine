@@ -105,7 +105,7 @@ import { StageChip } from "@/components/StageChip";
 import { OrphanLane } from "@/components/OrphanLane";
 import { StackedDeck } from "@/components/StackedDeck";
 import { BatchBar } from "@/components/BatchBar";
-import { useT, useAppLanguage } from "@/i18n";
+import { translate, useT, useAppLanguage } from "@/i18n";
 import { contentCover } from "@/lib/growth-work";
 import { toast } from "sonner";
 
@@ -286,7 +286,7 @@ function PlanPage() {
         )
         .filter((opportunity) =>
           query.trim()
-            ? `${opportunity.title} ${opportunity.targetQuery ?? ""} ${opportunitySourceLabel(opportunity)}`
+            ? `${opportunity.title} ${opportunity.targetQuery ?? ""} ${opportunitySourceLabel(opportunity, (key) => translate(locale, key))}`
                 .toLocaleLowerCase()
                 .includes(query.trim().toLocaleLowerCase())
             : true,
@@ -447,10 +447,12 @@ function PlanPage() {
     if (!dropIntent?.opportunity) return;
     try {
       applyTarget(dropIntent.opportunity, dropIntent.date);
-      toast.success(`Target set for ${formatDate(dropIntent.date, locale, false)}`);
+      toast.success(
+        t("planScreen.target.set", { date: formatDate(dropIntent.date, locale, false) }),
+      );
       setDropIntent(null);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not set the target");
+      toast.error(error instanceof Error ? error.message : t("planScreen.target.failed"));
     }
   }
 
@@ -477,10 +479,9 @@ function PlanPage() {
       const uid = getState().userId;
       if (uid) await reloadWorkspaceForUser(uid);
       toast.success(
-        `${dropIntent.reschedule ? "Go-live moved to" : "Scheduled — goes live"} ${formatDateTimeLocal(
-          instant.toISOString(),
-          locale,
-        )}`,
+        t(dropIntent.reschedule ? "planScreen.publication.moved" : "planScreen.publication.armed", {
+          date: formatDateTimeLocal(instant.toISOString(), locale),
+        }),
       );
       setDropIntent(null);
     } catch (error) {
@@ -491,7 +492,7 @@ function PlanPage() {
             ? t("approval.unavailable")
             : error instanceof Error
               ? error.message
-              : "Could not schedule the go-live",
+              : t("planScreen.publication.failed"),
       );
     } finally {
       setArming(false);
@@ -545,9 +546,9 @@ function PlanPage() {
       case "idea":
         try {
           transitionOpportunity(opportunity.id, "prioritized", { priority: opportunity.priority });
-          toast.success("Prioritised");
+          toast.success(t("planScreen.prioritized"));
         } catch (error) {
-          toast.error(error instanceof Error ? error.message : "Could not prioritise");
+          toast.error(error instanceof Error ? error.message : t("planScreen.prioritizeFailed"));
         }
         return;
       case "queued":
@@ -606,18 +607,14 @@ function PlanPage() {
       });
       navigate({ to: "/app/editor", search: { id: asset.id } });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not start the rewrite");
+      toast.error(error instanceof Error ? error.message : t("planScreen.rewriteFailed"));
     }
   }
 
   return (
     <AppShell
       title={view === "discover" ? t("today.discover") : "Plan"}
-      description={
-        view === "discover"
-          ? "Find new ideas from your site, search signals and business priorities. Nothing becomes work until you accept it."
-          : t("plan.subtitle")
-      }
+      description={view === "discover" ? t("planScreen.discoverySubtitle") : t("plan.subtitle")}
       actions={
         <>
           <Button variant="outline" onClick={() => setView("discover")}>
@@ -649,18 +646,17 @@ function PlanPage() {
           {showSampleBanner ? (
             <div className="mx-3 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-[#e2e6eb] bg-[#f2f5f8] px-4 py-2.5">
               <p className="text-[11px] text-[#5f6672]">
-                Rows marked <span className="font-semibold">Sample</span> are example data included
-                with your workspace — not your own content.
+                {t("planScreen.sample.note", { label: t("planScreen.sample.label") })}
               </p>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => {
                   clearSampleData();
-                  toast.success("Sample data removed");
+                  toast.success(t("planScreen.sample.removed"));
                 }}
               >
-                Clear sample data
+                {t("planScreen.sample.clear")}
               </Button>
             </div>
           ) : null}
@@ -1142,7 +1138,7 @@ function DiscoverView({
                       {checked ? <Check size={11} /> : null}
                     </button>
                     <strong className="text-[11px] leading-4 text-[#20272b]">{item.title}</strong>
-                    <span>{opportunitySourceLabel(item as unknown as Opportunity)}</span>
+                    <span>{opportunitySourceLabel(item as unknown as Opportunity, t)}</span>
                     <span>{t(`planScreen.intent.${item.searchIntent}`)}</span>
                     <span className="capitalize">
                       {t(`planScreen.priority.${capitalize(item.businessImpact ?? item.priority)}`)}
@@ -1305,7 +1301,7 @@ function BoardView({
    * lifecycle graph forbids, and report the split. Only inert moves — no bulk
    * arm, publish or delete — so a batch can never reach a customer's live site.
    */
-  function runBatch(to: OpportunityLifecycleStatus, verb: string) {
+  function runBatch(to: OpportunityLifecycleStatus, messageKey: string) {
     const dueAt = to === "scheduled" ? format(addDays(new Date(), 1), "yyyy-MM-dd") : undefined;
     let done = 0;
     let skipped = 0;
@@ -1329,7 +1325,7 @@ function BoardView({
         skipped++;
       }
     }
-    toast.success(`${verb} ${done}${skipped ? ` · ${skipped} skipped` : ""}`);
+    toast.success(t(messageKey, { count: done, skipped }));
     clearSelection();
   }
   function batchArchive() {
@@ -1350,7 +1346,7 @@ function BoardView({
         skipped++;
       }
     }
-    toast.success(`Archived ${done}${skipped ? ` · ${skipped} skipped` : ""}`);
+    toast.success(t("planScreen.batch.archived", { count: done, skipped }));
     clearSelection();
   }
 
@@ -1368,12 +1364,16 @@ function BoardView({
     if (!opportunity) return;
     const to = BOARD_DROP_TARGETS[target];
     if (!to) {
-      toast.message("That stage is reached by working on the draft, not by dragging a card.");
+      toast.message(t("planScreen.move.draftOnly"));
       return;
     }
     if (!canTransitionOpportunity(opportunity.status, to)) {
       toast.error(
-        `Can’t move “${opportunity.title}” to ${t(`pipeline.stage.${target}`)} from ${t(`pipeline.stage.${opportunity.pipeline}`)}.`,
+        t("planScreen.move.disallowed", {
+          title: opportunity.title,
+          to: t(`pipeline.stage.${target}`),
+          from: t(`pipeline.stage.${opportunity.pipeline}`),
+        }),
       );
       return;
     }
@@ -1386,12 +1386,10 @@ function BoardView({
     try {
       transitionOpportunity(id, to, fields);
       toast.success(
-        target === "queued"
-          ? "Prioritised"
-          : "Target set for tomorrow — set a go-live time in the editor once the draft is ready",
+        target === "queued" ? t("planScreen.prioritized") : t("planScreen.move.targetTomorrow"),
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not move opportunity");
+      toast.error(error instanceof Error ? error.message : t("planScreen.move.failed"));
     }
   }
 
@@ -1447,7 +1445,7 @@ function BoardView({
                 ))}
                 {cards.length === 0 ? (
                   <div className="px-2 py-6 text-center text-[9px] text-[#a8a89f]">
-                    Nothing here yet
+                    {t("planScreen.empty")}
                   </div>
                 ) : null}
               </section>
@@ -1458,8 +1456,8 @@ function BoardView({
       <OrphanLane orphans={orphans} onOpenAsset={onOpenAsset} />
       <BatchBar
         count={selection.size}
-        onPrioritise={() => runBatch("prioritized", "Prioritised")}
-        onSetDate={() => runBatch("scheduled", "Target set for")}
+        onPrioritise={() => runBatch("prioritized", "planScreen.batch.prioritized")}
+        onSetDate={() => runBatch("scheduled", "planScreen.batch.targeted")}
         onArchive={batchArchive}
         onClear={clearSelection}
       />
@@ -1521,7 +1519,7 @@ function OpportunityCard({
     >
       <button
         type="button"
-        aria-label={checked ? "Deselect" : "Select"}
+        aria-label={t(checked ? "planScreen.deselect" : "planScreen.select")}
         aria-pressed={checked}
         onClick={(event) => {
           event.stopPropagation();
@@ -1539,17 +1537,17 @@ function OpportunityCard({
         {opportunity.title} <SampleBadge id={opportunity.id} className="ml-1 align-middle" />
       </strong>
       <span className="w-max max-w-full rounded-[3px] border border-[#e2ddd4] bg-[#f2f5f8] px-1.5 py-0.5 text-xs text-[#727a84]">
-        {opportunitySourceLabel(opportunity)}
+        {opportunitySourceLabel(opportunity, t)}
       </span>
       <span className="flex flex-wrap items-center gap-1.5 text-xs uppercase text-[#6a7683]">
         <StageChip stage={opportunity.pipeline} detail={opportunity.pipelineDetail} />
-        {opportunity.searchIntent}
+        {t(`planScreen.intent.${opportunity.searchIntent}`)}
       </span>
       <div className="mt-0.5 flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs text-[#5f6771]">
           {opportunity.dueAt
-            ? `Due ${formatDate(opportunity.dueAt, locale)}`
-            : opportunity.priority}
+            ? t("planScreen.target.due", { date: formatDate(opportunity.dueAt, locale) })
+            : t(`planScreen.priority.${opportunity.priority}`)}
         </span>
         {liveMissing ? (
           <span className="flex items-center gap-1.5">
@@ -1561,7 +1559,7 @@ function OpportunityCard({
                 onClick={(event) => event.stopPropagation()}
                 className="rounded-[4px] border border-[#e2c9a0] bg-[#fbf3e4] px-1.5 py-1 text-xs font-medium text-[#8a5a12] hover:bg-[#f6e9d2]"
               >
-                Open live page
+                {t("planScreen.openLive")}
               </a>
             ) : null}
             {rewriteEnabled && opportunity.canonicalUrl ? (
@@ -1647,15 +1645,7 @@ function ListView({
                     {opportunity.title} <SampleBadge id={opportunity.id} />
                   </strong>
                   <span className="mt-1 block text-xs text-muted-foreground">
-                    {t(
-                      `plan.source.${opportunity.primarySource ?? opportunity.source ?? "manual"}`,
-                    ) ===
-                    `plan.source.${opportunity.primarySource ?? opportunity.source ?? "manual"}`
-                      ? opportunitySourceLabel(opportunity)
-                      : t(
-                          `plan.source.${opportunity.primarySource ?? opportunity.source ?? "manual"}`,
-                        )}{" "}
-                    ·{" "}
+                    {opportunitySourceLabel(opportunity, t)} ·{" "}
                     {opportunity.businessImpact
                       ? t(`common.${opportunity.businessImpact}`)
                       : t(`common.${opportunity.priority.toLowerCase()}`)}
@@ -1722,7 +1712,7 @@ function ArchivedView({
                 {opportunity.archivedAt
                   ? t("planScreen.archive.at", { date: formatDate(opportunity.archivedAt, locale) })
                   : t("planScreen.archive.undated")}{" "}
-                · {opportunitySourceLabel(opportunity)}
+                · {opportunitySourceLabel(opportunity, t)}
               </div>
             </button>
             <Button
@@ -1939,8 +1929,7 @@ function CalendarView({
             <span className="text-sm text-[#697282]">{unscheduled.length}</span>
           </div>
           <p className="mt-2 text-sm leading-4 text-[#697282]">
-            Drag one onto a day. A ready article can be scheduled to go live right there; anything
-            else gets a work target.
+            {t("planScreen.calendar.trayHint")}
           </p>
           <div className="mt-4 grid gap-2">
             {unscheduled.map((opportunity) => (
@@ -1959,13 +1948,15 @@ function CalendarView({
                   <SampleBadge id={opportunity.id} />
                 </strong>
                 <span className="mt-2 block text-xs text-[#697282]">
-                  Source: {opportunitySourceLabel(opportunity)}
+                  {t("planScreen.calendar.source", {
+                    source: opportunitySourceLabel(opportunity, t),
+                  })}
                 </span>
               </button>
             ))}
             {unscheduled.length === 0 ? (
               <div className="rounded-md border border-dashed border-[#e2e6eb] px-3 py-6 text-center text-sm text-[#697282]">
-                No prioritized work waiting.
+                {t("planScreen.calendar.empty")}
               </div>
             ) : null}
           </div>
@@ -2195,9 +2186,9 @@ function OpportunityDrawer({
         ownerName: opportunity.ownerName ?? "Project owner",
         priority: opportunity.priority,
       });
-      toast.success("Opportunity moved to Prioritized");
+      toast.success(t("planScreen.prioritized"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not prioritize");
+      toast.error(error instanceof Error ? error.message : t("planScreen.prioritizeFailed"));
     }
   }
 
@@ -2205,30 +2196,30 @@ function OpportunityDrawer({
     try {
       transitionOpportunity(opportunity.id, "scheduled", { dueAt: date });
       setScheduleOpen(false);
-      toast.success(`Scheduled for ${formatDate(date, locale)}`);
+      toast.success(t("planScreen.target.set", { date: formatDate(date, locale) }));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not schedule");
+      toast.error(error instanceof Error ? error.message : t("planScreen.target.failed"));
     }
   }
 
   function unschedule() {
     try {
       transitionOpportunity(opportunity.id, "prioritized", { dueAt: undefined });
-      toast.success("Returned to the unscheduled tray");
+      toast.success(t("planScreen.target.removed"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not unschedule");
+      toast.error(error instanceof Error ? error.message : t("planScreen.target.removeFailed"));
     }
   }
 
   function archive() {
     try {
       archiveOpportunity(opportunity.id);
-      toast.success("Opportunity archived", {
-        action: { label: "Undo", onClick: () => restoreOpportunity(opportunity.id) },
+      toast.success(t("planScreen.archived"), {
+        action: { label: t("planScreen.undo"), onClick: () => restoreOpportunity(opportunity.id) },
       });
       onClose();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not archive");
+      toast.error(error instanceof Error ? error.message : t("planScreen.archiveFailed"));
     }
   }
 
@@ -2276,22 +2267,22 @@ function OpportunityDrawer({
       <div className="mt-5 grid gap-2">
         {stage === "idea" ? (
           <Button onClick={prioritize}>
-            <CheckCircle size={16} /> Prioritize opportunity
+            <CheckCircle size={16} /> {t("planScreen.action.prioritize")}
           </Button>
         ) : null}
         {stage === "queued" ? (
           <Button onClick={() => setScheduleOpen((value) => !value)}>
-            <CalendarBlank size={16} /> Set a target date
+            <CalendarBlank size={16} /> {t("planScreen.action.target")}
           </Button>
         ) : null}
         {stage === "planned" ? (
           <Button onClick={onCreateContent}>
-            <FileText size={16} /> Create linked draft
+            <FileText size={16} /> {t("planScreen.action.create")}
           </Button>
         ) : null}
         {stage === "planned" ? (
           <Button variant="outline" onClick={unschedule}>
-            Unschedule
+            {t("planScreen.action.removeTarget")}
           </Button>
         ) : null}
         {(
@@ -2317,7 +2308,7 @@ function OpportunityDrawer({
         )}
         {stage === "live" ? (
           <Button onClick={onOpenInsights}>
-            <ChartLineUp size={16} /> View impact
+            <ChartLineUp size={16} /> {t("planScreen.action.impact")}
           </Button>
         ) : null}
         {stage === "live_missing" && opportunity.canonicalUrl ? (
@@ -2325,7 +2316,7 @@ function OpportunityDrawer({
             variant="outline"
             onClick={() => window.open(opportunity.canonicalUrl, "_blank", "noopener")}
           >
-            <Globe size={16} /> Open live page
+            <Globe size={16} /> {t("planScreen.openLive")}
           </Button>
         ) : null}
         {stage !== "parked" ? (
@@ -2338,14 +2329,12 @@ function OpportunityDrawer({
       {scheduleOpen ? (
         <div className="mt-3 rounded-md border border-[#d5c19a] bg-[#fffaf0] p-3 shadow-lg">
           <div className="flex items-center justify-between text-[11px]">
-            <strong>Schedule this opportunity</strong>
+            <strong>{t("planScreen.target.dialogTitle")}</strong>
             <button type="button" onClick={() => setScheduleOpen(false)}>
               <X size={14} />
             </button>
           </div>
-          <p className="my-1 text-[8px] text-[#697282]">
-            The same record will appear in Board, List and Calendar.
-          </p>
+          <p className="my-1 text-[8px] text-[#697282]">{t("planScreen.target.dialogHelp")}</p>
           <input
             type="date"
             value={date}
@@ -2353,7 +2342,7 @@ function OpportunityDrawer({
             className="my-2 h-9 w-full rounded-md border border-[#e2e6eb] bg-white px-2 text-[10px]"
           />
           <Button className="w-full" size="sm" onClick={schedule}>
-            Confirm schedule
+            {t("planScreen.target.confirm")}
           </Button>
         </div>
       ) : null}
@@ -2363,15 +2352,20 @@ function OpportunityDrawer({
           {t("plan.detail.stage")} · {t("plan.detail.source")} · Milo Score
         </summary>
         <dl className="my-5 grid gap-2.5">
-          <Detail label={t("plan.detail.source")} value={opportunitySourceLabel(opportunity)} />
+          <Detail label={t("plan.detail.source")} value={opportunitySourceLabel(opportunity, t)} />
           <Detail
             label={t("plan.detail.reason")}
             value={opportunity.reasonDiscovered ?? opportunity.businessValue}
           />
-          <Detail label={t("plan.detail.intent")} value={opportunity.searchIntent} />
+          <Detail
+            label={t("plan.detail.intent")}
+            value={t(`planScreen.intent.${opportunity.searchIntent}`)}
+          />
           <Detail
             label={t("plan.detail.impact")}
-            value={capitalize(opportunity.businessImpact ?? opportunity.priority)}
+            value={t(
+              `planScreen.priority.${capitalize(opportunity.businessImpact ?? opportunity.priority)}`,
+            )}
           />
           <Detail
             label={t("plan.detail.owner")}
@@ -2384,7 +2378,11 @@ function OpportunityDrawer({
           />
           <Detail
             label={t("plan.date")}
-            value={opportunity.dueAt ? formatDate(opportunity.dueAt, locale) : "Not scheduled"}
+            value={
+              opportunity.dueAt
+                ? formatDate(opportunity.dueAt, locale)
+                : t("planScreen.target.none")
+            }
             icon={<CalendarBlank size={14} />}
           />
         </dl>
@@ -2416,7 +2414,7 @@ function OpportunityDrawer({
             <strong className="font-display text-sm">Milo Score</strong>
             <p className="mt-0.5 text-[8px] leading-3 text-[#697282]">
               {score
-                ? `Content version scored ${formatDate(score.evaluatedAt, locale)}.`
+                ? t("planScreen.score.evaluated", { date: formatDate(score.evaluatedAt, locale) })
                 : t("analytics.v2.notEvaluated")}
             </p>
           </div>
