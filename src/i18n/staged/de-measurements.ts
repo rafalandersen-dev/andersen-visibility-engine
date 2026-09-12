@@ -9,7 +9,7 @@ export const deMeasurements: Readonly<Record<string, string>> = {
   "report.branding.saved": "Branding gespeichert",
   "report.branding.saveFailed": "Branding konnte nicht gespeichert werden",
   "report.footer.agency":
-    "Erstellt von {agency}. Veröffentlichungszahlen umfassen nur Inhalte, deren Live-Status auf der Website verifiziert wurde.",
+    "{agency}. Basiert auf gespeicherten Veröffentlichungsergebnissen. Dieser Bericht prüft nicht erneut, ob die Seiten derzeit online sind.",
   "report.title": "Monatlicher Nachweisbericht",
   "report.subtitle":
     "Was Milo diesen Monat für dich geliefert hat — und was als Nächstes passiert.",
@@ -19,10 +19,10 @@ export const deMeasurements: Readonly<Record<string, string>> = {
   "report.toast.emailed": "Bericht an deine E-Mail-Adresse gesendet",
   "report.toast.emailFailed": "Die Berichts-E-Mail konnte nicht gesendet werden",
   "report.toast.notConfigured": "E-Mail-Versand ist noch nicht konfiguriert",
-  "report.published.title": "Veröffentlicht und live ({count})",
+  "report.published.title": "Erfasste Veröffentlichungen ({count})",
   "report.published.note":
-    "Nur Inhalte mit verifiziertem Live-Status auf deiner Website zählen — keine bloßen Erfolgsaussagen.",
-  "report.published.empty": "Diesen Monat wurden keine Inhalte live veröffentlicht.",
+    "Basiert auf gespeicherten Veröffentlichungsergebnissen. Dieser Bericht prüft nicht erneut, ob die Seiten derzeit online sind.",
+  "report.published.empty": "Für diesen Monat sind keine Veröffentlichungen erfasst.",
   "report.stat.drafted": "Geschriebene Entwürfe",
   "report.stat.scheduled": "Terminiert",
   "report.stat.linksLive": "Partnerlinks live ✓",
@@ -36,7 +36,7 @@ export const deMeasurements: Readonly<Record<string, string>> = {
   "report.plan.title": "Plan für nächsten Monat ({count})",
   "report.plan.empty": "Noch nichts geplant — öffne Plan, um den nächsten Monat zu planen.",
   "report.footer":
-    "Erstellt von Milo Growth. Veröffentlichungszahlen umfassen nur Inhalte, deren Live-Status auf deiner Website verifiziert wurde.",
+    "Milo Growth. Basiert auf gespeicherten Veröffentlichungsergebnissen. Dieser Bericht prüft nicht erneut, ob die Seiten derzeit online sind.",
   "analytics.title": "Analytics",
   "analytics.subtitle":
     "Website-Wachstumsmessung aus erster Hand — anonyme Besuche, meistbesuchte Seiten, Leistung veröffentlichter Inhalte und KI-bezogene Signale.",

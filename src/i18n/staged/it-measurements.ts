@@ -9,7 +9,7 @@ export const itMeasurements: Readonly<Record<string, string>> = {
   "report.branding.saved": "Marchio salvato",
   "report.branding.saveFailed": "Impossibile salvare il marchio",
   "report.footer.agency":
-    "Preparato da {agency}. Il conteggio dei contenuti pubblicati include solo quelli verificati online sul sito.",
+    "{agency}. Basato sui risultati di pubblicazione salvati. Questo report non ricontrolla se le pagine sono attualmente online.",
   "report.title": "Report mensile delle evidenze",
   "report.subtitle": "Cosa Milo ha realizzato per te questo mese e cosa succede dopo.",
   "report.noProject": "Seleziona un progetto per visualizzarne il report mensile.",
@@ -18,10 +18,10 @@ export const itMeasurements: Readonly<Record<string, string>> = {
   "report.toast.emailed": "Report inviato alla tua email",
   "report.toast.emailFailed": "Impossibile inviare l’email del report",
   "report.toast.notConfigured": "L’invio delle email non è ancora configurato",
-  "report.published.title": "Pubblicati e online ({count})",
+  "report.published.title": "Pubblicazioni registrate ({count})",
   "report.published.note":
-    "Contano solo i contenuti verificati online sul tuo sito, senza affermazioni di facciata.",
-  "report.published.empty": "Nessun contenuto è andato online questo mese.",
+    "Basato sui risultati di pubblicazione salvati. Questo report non ricontrolla se le pagine sono attualmente online.",
+  "report.published.empty": "Nessuna pubblicazione registrata per questo mese.",
   "report.stat.drafted": "Bozze scritte",
   "report.stat.scheduled": "Programmati",
   "report.stat.linksLive": "Link partner online ✓",
@@ -35,7 +35,7 @@ export const itMeasurements: Readonly<Record<string, string>> = {
   "report.plan.empty":
     "Ancora nessuna attività pianificata: apri la pagina Piano per programmare il prossimo mese.",
   "report.footer":
-    "Generato da Milo Growth. Il conteggio dei contenuti pubblicati include solo quelli verificati online sul tuo sito.",
+    "Milo Growth. Basato sui risultati di pubblicazione salvati. Questo report non ricontrolla se le pagine sono attualmente online.",
   "analytics.title": "Analisi",
   "analytics.subtitle":
     "Monitoraggio diretto della crescita del sito: visite anonime, pagine principali, prestazioni dei contenuti pubblicati e segnali legati all’IA.",

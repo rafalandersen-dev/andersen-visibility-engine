@@ -36,8 +36,8 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
 
   fr: {
     "report.title": "Rapport mensuel de résultats",
-    "report.published.title": "Publications en ligne ({count})",
-    "report.published.empty": "Aucun contenu n’a été mis en ligne ce mois-ci.",
+    "report.published.title": "Publications enregistrées ({count})",
+    "report.published.empty": "Aucune publication enregistrée pour ce mois.",
     "report.stat.drafted": "Brouillons rédigés",
     "report.stat.scheduled": "Planifiés",
     "report.stat.linksLive": "Liens partenaires en ligne ✓",
@@ -49,9 +49,9 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
     "report.plan.empty":
       "Rien n’est encore prévu — ouvrez la page Plan pour préparer le mois prochain.",
     "report.footer":
-      "Généré par Milo Growth. Seuls les contenus vérifiés en ligne sur votre site sont comptés comme publiés.",
+      "Milo Growth. D’après les résultats de publication enregistrés. Ce rapport ne vérifie pas à nouveau si les pages sont actuellement en ligne.",
     "report.footer.agency":
-      "Préparé par {agency}. Seuls les contenus vérifiés en ligne sur le site sont comptés comme publiés.",
+      "{agency}. D’après les résultats de publication enregistrés. Ce rapport ne vérifie pas à nouveau si les pages sont actuellement en ligne.",
     "gsc.integrity.disclaimer":
       "La source et la propriété enregistrées sont des déclarations, sans vérification indépendante. — signifie indisponible, jamais zéro. Les tableaux peuvent omettre du trafic. Ces dates sont distinctes du mois du rapport et de la date de publication. Les observations de recherche ne prouvent ni causalité ni conversions.",
     "gsc.integrity.legacy":
@@ -65,8 +65,8 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
   },
   de: {
     "report.title": "Monatlicher Ergebnisbericht",
-    "report.published.title": "Veröffentlicht und live ({count})",
-    "report.published.empty": "Diesen Monat wurden keine Inhalte live veröffentlicht.",
+    "report.published.title": "Erfasste Veröffentlichungen ({count})",
+    "report.published.empty": "Für diesen Monat sind keine Veröffentlichungen erfasst.",
     "report.stat.drafted": "Erstellte Entwürfe",
     "report.stat.scheduled": "Geplant",
     "report.stat.linksLive": "Partnerlinks live ✓",
@@ -79,9 +79,9 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
     "report.plan.empty":
       "Noch nichts geplant — öffnen Sie die Seite Plan, um den nächsten Monat vorzubereiten.",
     "report.footer":
-      "Erstellt von Milo Growth. Als veröffentlicht zählen nur Inhalte, die auf Ihrer Website nachweislich live sind.",
+      "Milo Growth. Basiert auf gespeicherten Veröffentlichungsergebnissen. Dieser Bericht prüft nicht erneut, ob die Seiten derzeit online sind.",
     "report.footer.agency":
-      "Erstellt von {agency}. Als veröffentlicht zählen nur Inhalte, die auf der Website nachweislich live sind.",
+      "{agency}. Basiert auf gespeicherten Veröffentlichungsergebnissen. Dieser Bericht prüft nicht erneut, ob die Seiten derzeit online sind.",
     "gsc.integrity.disclaimer":
       "Gespeicherte Quelle und Property sind Angaben, keine unabhängige Bestätigung. — bedeutet nicht verfügbar, niemals null. Tabellen können Zugriffe auslassen. Diese Daten sind vom Berichtsmonat und Veröffentlichungsdatum getrennt. Suchbeobachtungen belegen weder Kausalität noch Conversions.",
     "gsc.integrity.legacy":
@@ -95,8 +95,8 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
   },
   es: {
     "report.title": "Informe mensual de resultados",
-    "report.published.title": "Publicado y en línea ({count})",
-    "report.published.empty": "No se publicó ningún contenido en línea este mes.",
+    "report.published.title": "Publicaciones registradas ({count})",
+    "report.published.empty": "No hay publicaciones registradas para este mes.",
     "report.stat.drafted": "Borradores creados",
     "report.stat.scheduled": "Programados",
     "report.stat.linksLive": "Enlaces de socios en línea ✓",
@@ -108,9 +108,9 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
     "report.plan.empty":
       "Todavía no hay nada previsto — abre la página Plan para preparar el próximo mes.",
     "report.footer":
-      "Generado por Milo Growth. Solo se cuentan como publicados los contenidos verificados en línea en tu sitio.",
+      "Milo Growth. Basado en los resultados de publicación guardados. Este informe no vuelve a comprobar si las páginas siguen publicadas.",
     "report.footer.agency":
-      "Preparado por {agency}. Solo se cuentan como publicados los contenidos verificados en línea en el sitio.",
+      "{agency}. Basado en los resultados de publicación guardados. Este informe no vuelve a comprobar si las páginas siguen publicadas.",
     "gsc.integrity.disclaimer":
       "La fuente y la propiedad guardadas son declaraciones, no verificaciones independientes. — significa no disponible, nunca cero. Las tablas pueden omitir tráfico. Estas fechas son distintas del mes del informe y de la fecha de publicación. Las observaciones de búsqueda no demuestran causalidad ni conversiones.",
     "gsc.integrity.legacy":
@@ -124,8 +124,8 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
   },
   it: {
     "report.title": "Rapporto mensile dei risultati",
-    "report.published.title": "Pubblicati e online ({count})",
-    "report.published.empty": "Nessun contenuto è stato pubblicato online questo mese.",
+    "report.published.title": "Pubblicazioni registrate ({count})",
+    "report.published.empty": "Nessuna pubblicazione registrata per questo mese.",
     "report.stat.drafted": "Bozze create",
     "report.stat.scheduled": "Programmati",
     "report.stat.linksLive": "Link dei partner online ✓",
@@ -137,9 +137,9 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
     "report.plan.empty":
       "Non è ancora previsto nulla — apri la pagina Piano per preparare il prossimo mese.",
     "report.footer":
-      "Generato da Milo Growth. Il conteggio delle pubblicazioni include solo contenuti verificati online sul tuo sito.",
+      "Milo Growth. Basato sui risultati di pubblicazione salvati. Questo report non ricontrolla se le pagine sono attualmente online.",
     "report.footer.agency":
-      "Preparato da {agency}. Il conteggio delle pubblicazioni include solo contenuti verificati online sul sito.",
+      "{agency}. Basato sui risultati di pubblicazione salvati. Questo report non ricontrolla se le pagine sono attualmente online.",
     "gsc.integrity.disclaimer":
       "La fonte e la proprietà salvate sono dichiarazioni, non verifiche indipendenti. — significa non disponibile, mai zero. Le tabelle possono omettere traffico. Queste date sono distinte dal mese del rapporto e dalla data di pubblicazione. Le osservazioni di ricerca non dimostrano causalità o conversioni.",
     "gsc.integrity.legacy":
@@ -153,8 +153,8 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
   },
   pt: {
     "report.title": "Relatório mensal de resultados",
-    "report.published.title": "Publicado e online ({count})",
-    "report.published.empty": "Nenhum conteúdo foi publicado online este mês.",
+    "report.published.title": "Publicações registadas ({count})",
+    "report.published.empty": "Nenhuma publicação registada para este mês.",
     "report.stat.drafted": "Rascunhos criados",
     "report.stat.scheduled": "Agendados",
     "report.stat.linksLive": "Ligações de parceiros online ✓",
@@ -166,9 +166,9 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
     "report.plan.empty":
       "Ainda não há nada planeado — abra a página Plano para preparar o próximo mês.",
     "report.footer":
-      "Gerado pelo Milo Growth. A contagem de publicações inclui apenas conteúdos verificados online no seu site.",
+      "Milo Growth. Com base nos resultados de publicação guardados. Este relatório não volta a verificar se as páginas estão atualmente online.",
     "report.footer.agency":
-      "Preparado por {agency}. A contagem de publicações inclui apenas conteúdos verificados online no site.",
+      "{agency}. Com base nos resultados de publicação guardados. Este relatório não volta a verificar se as páginas estão atualmente online.",
     "gsc.integrity.disclaimer":
       "A fonte e a propriedade guardadas são declarações, não verificações independentes. — significa indisponível, nunca zero. As tabelas podem omitir tráfego. Estas datas são distintas do mês do relatório e da data de publicação. As observações de pesquisa não comprovam causalidade nem conversões.",
     "gsc.integrity.legacy":
@@ -182,8 +182,8 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
   },
   nl: {
     "report.title": "Maandelijks resultatenrapport",
-    "report.published.title": "Gepubliceerd en live ({count})",
-    "report.published.empty": "Deze maand is er geen inhoud live gegaan.",
+    "report.published.title": "Geregistreerde publicaties ({count})",
+    "report.published.empty": "Geen publicaties geregistreerd voor deze maand.",
     "report.stat.drafted": "Geschreven concepten",
     "report.stat.scheduled": "Ingepland",
     "report.stat.linksLive": "Partnerlinks live ✓",
@@ -195,9 +195,9 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
     "report.plan.empty":
       "Nog niets gepland — open de pagina Plan om volgende maand voor te bereiden.",
     "report.footer":
-      "Gegenereerd door Milo Growth. Alleen inhoud die aantoonbaar live op uw website staat, telt als gepubliceerd.",
+      "Milo Growth. Gebaseerd op opgeslagen publicatieresultaten. Dit rapport controleert niet opnieuw of de pagina’s momenteel online staan.",
     "report.footer.agency":
-      "Opgesteld door {agency}. Alleen inhoud die aantoonbaar live op de website staat, telt als gepubliceerd.",
+      "{agency}. Gebaseerd op opgeslagen publicatieresultaten. Dit rapport controleert niet opnieuw of de pagina’s momenteel online staan.",
     "gsc.integrity.disclaimer":
       "De opgeslagen bron en property zijn verklaringen, geen onafhankelijke verificatie. — betekent niet beschikbaar, nooit nul. Tabellen kunnen verkeer weglaten. Deze datums staan los van de rapportmaand en publicatiedatum. Zoekwaarnemingen bewijzen geen causaliteit of conversies.",
     "gsc.integrity.legacy":
@@ -211,8 +211,8 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
   },
   fi: {
     "report.title": "Kuukausittainen tulosraportti",
-    "report.published.title": "Julkaistu ja verkossa ({count})",
-    "report.published.empty": "Tässä kuussa ei julkaistu sisältöä verkkoon.",
+    "report.published.title": "Tallennetut julkaisut ({count})",
+    "report.published.empty": "Tälle kuukaudelle ei ole tallennettu julkaisuja.",
     "report.stat.drafted": "Kirjoitetut luonnokset",
     "report.stat.scheduled": "Ajastetut",
     "report.stat.linksLive": "Kumppanilinkit verkossa ✓",
@@ -225,9 +225,9 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
     "report.plan.empty":
       "Mitään ei ole vielä suunniteltu — avaa Suunnitelma-sivu valmistellaksesi ensi kuuta.",
     "report.footer":
-      "Milo Growthin luoma. Julkaistuiksi lasketaan vain sisällöt, joiden on vahvistettu olevan verkossa sivustollasi.",
+      "Milo Growth. Perustuu tallennettuihin julkaisutuloksiin. Raportti ei tarkista uudelleen, ovatko sivut tällä hetkellä verkossa.",
     "report.footer.agency":
-      "Laatija: {agency}. Julkaistuiksi lasketaan vain sisällöt, joiden on vahvistettu olevan verkossa sivustolla.",
+      "{agency}. Perustuu tallennettuihin julkaisutuloksiin. Raportti ei tarkista uudelleen, ovatko sivut tällä hetkellä verkossa.",
     "gsc.integrity.disclaimer":
       "Tallennettu lähde ja sivustokokonaisuus ovat ilmoitettuja tietoja, eivät riippumattomasti varmennettuja. — tarkoittaa, ettei tietoa ole saatavilla, ei nollaa. Taulukoista voi puuttua liikennettä. Nämä päivämäärät ovat erillisiä raporttikuukaudesta ja julkaisupäivästä. Hakuhavainnot eivät osoita syy-yhteyttä tai konversioita.",
     "gsc.integrity.legacy":
@@ -241,8 +241,8 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
   },
   et: {
     "report.title": "Igakuine tulemuste aruanne",
-    "report.published.title": "Avaldatud ja veebis ({count})",
-    "report.published.empty": "Sel kuul ei avaldatud veebis ühtegi sisuüksust.",
+    "report.published.title": "Salvestatud avaldamised ({count})",
+    "report.published.empty": "Selle kuu kohta pole avaldamisi salvestatud.",
     "report.stat.drafted": "Kirjutatud mustandid",
     "report.stat.scheduled": "Ajastatud",
     "report.stat.linksLive": "Partnerilingid veebis ✓",
@@ -253,9 +253,9 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
     "report.plan.empty":
       "Midagi pole veel planeeritud — järgmise kuu ettevalmistamiseks ava leht Plaan.",
     "report.footer":
-      "Loonud Milo Growth. Avaldatuks loetakse ainult sisu, mille veebis olek sinu saidil on kinnitatud.",
+      "Milo Growth. Põhineb salvestatud avaldamistulemustel. See aruanne ei kontrolli uuesti, kas lehed on praegu veebis kättesaadavad.",
     "report.footer.agency":
-      "Koostanud {agency}. Avaldatuks loetakse ainult sisu, mille veebis olek saidil on kinnitatud.",
+      "{agency}. Põhineb salvestatud avaldamistulemustel. See aruanne ei kontrolli uuesti, kas lehed on praegu veebis kättesaadavad.",
     "gsc.integrity.disclaimer":
       "Salvestatud allikas ja atribuut on esitatud väited, mitte sõltumatu kinnitus. — tähendab kättesaamatut teavet, mitte nulli. Tabelid võivad osa liiklusest välja jätta. Need kuupäevad on eraldi aruandekuust ja avaldamiskuupäevast. Otsinguvaatlused ei tõenda põhjuslikkust ega konversioone.",
     "gsc.integrity.legacy":
@@ -269,8 +269,8 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
   },
   lv: {
     "report.title": "Ikmēneša rezultātu pārskats",
-    "report.published.title": "Publicēts un tiešsaistē ({count})",
-    "report.published.empty": "Šomēnes neviens saturs netika publicēts tiešsaistē.",
+    "report.published.title": "Reģistrētās publikācijas ({count})",
+    "report.published.empty": "Šajā mēnesī nav reģistrētu publikāciju.",
     "report.stat.drafted": "Uzrakstītie melnraksti",
     "report.stat.scheduled": "Ieplānotie",
     "report.stat.linksLive": "Partneru saites tiešsaistē ✓",
@@ -282,9 +282,9 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
     "report.plan.empty":
       "Vēl nekas nav ieplānots — atveriet lapu Plāns, lai sagatavotu nākamo mēnesi.",
     "report.footer":
-      "Izveidoja Milo Growth. Par publicētu tiek uzskatīts tikai saturs, kura esamība tiešsaistē jūsu vietnē ir pārbaudīta.",
+      "Milo Growth. Pamatojoties uz saglabātajiem publicēšanas rezultātiem. Šis pārskats atkārtoti nepārbauda, vai lapas pašlaik ir pieejamas tiešsaistē.",
     "report.footer.agency":
-      "Sagatavoja {agency}. Par publicētu tiek uzskatīts tikai saturs, kura esamība tiešsaistē vietnē ir pārbaudīta.",
+      "{agency}. Pamatojoties uz saglabātajiem publicēšanas rezultātiem. Šis pārskats atkārtoti nepārbauda, vai lapas pašlaik ir pieejamas tiešsaistē.",
     "gsc.integrity.disclaimer":
       "Saglabātais avots un īpašums ir norādīta informācija, nevis neatkarīgs apstiprinājums. — nozīmē, ka dati nav pieejami, nevis nulli. Tabulās var nebūt visas datplūsmas. Šie datumi ir atsevišķi no pārskata mēneša un publicēšanas datuma. Meklēšanas novērojumi nepierāda cēloņsakarību vai reklāmguvumus.",
     "gsc.integrity.legacy":
@@ -298,8 +298,8 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
   },
   lt: {
     "report.title": "Mėnesinė rezultatų ataskaita",
-    "report.published.title": "Paskelbta ir pasiekiama internete ({count})",
-    "report.published.empty": "Šį mėnesį internete nebuvo paskelbta jokio turinio.",
+    "report.published.title": "Užregistruotos publikacijos ({count})",
+    "report.published.empty": "Šį mėnesį publikacijų neužregistruota.",
     "report.stat.drafted": "Parašyti juodraščiai",
     "report.stat.scheduled": "Suplanuota",
     "report.stat.linksLive": "Partnerių nuorodos internete ✓",
@@ -312,9 +312,9 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
     "report.plan.empty":
       "Dar nieko nesuplanuota — atidarykite puslapį Planas ir pasiruoškite kitam mėnesiui.",
     "report.footer":
-      "Sukūrė Milo Growth. Paskelbtu laikomas tik turinys, kurio pasiekiamumas jūsų svetainėje patikrintas.",
+      "Milo Growth. Remiantis išsaugotais publikavimo rezultatais. Ši ataskaita iš naujo netikrina, ar puslapiai šiuo metu pasiekiami internete.",
     "report.footer.agency":
-      "Parengė {agency}. Paskelbtu laikomas tik turinys, kurio pasiekiamumas svetainėje patikrintas.",
+      "{agency}. Remiantis išsaugotais publikavimo rezultatais. Ši ataskaita iš naujo netikrina, ar puslapiai šiuo metu pasiekiami internete.",
     "gsc.integrity.disclaimer":
       "Išsaugotas šaltinis ir nuosavybė yra pateikti teiginiai, o ne nepriklausomas patvirtinimas. — reiškia, kad duomenų nėra, o ne nulį. Lentelėse gali trūkti dalies srauto. Šios datos yra atskiros nuo ataskaitos mėnesio ir paskelbimo datos. Paieškos stebėjimai neįrodo priežastinio ryšio ar konversijų.",
     "gsc.integrity.legacy":
@@ -328,8 +328,8 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
   },
   cs: {
     "report.title": "Měsíční přehled výsledků",
-    "report.published.title": "Publikováno a online ({count})",
-    "report.published.empty": "Tento měsíc nebyl žádný obsah zveřejněn online.",
+    "report.published.title": "Zaznamenané publikace ({count})",
+    "report.published.empty": "Pro tento měsíc nejsou zaznamenány žádné publikace.",
     "report.stat.drafted": "Napsané koncepty",
     "report.stat.scheduled": "Naplánováno",
     "report.stat.linksLive": "Partnerské odkazy online ✓",
@@ -341,9 +341,9 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
     "report.plan.empty":
       "Zatím není nic naplánováno — otevřete stránku Plán a připravte příští měsíc.",
     "report.footer":
-      "Vytvořeno pomocí Milo Growth. Za publikovaný se počítá jen obsah ověřený jako dostupný na vašem webu.",
+      "Milo Growth. Na základě uložených výsledků publikování. Tento přehled znovu nekontroluje, zda jsou stránky nyní online.",
     "report.footer.agency":
-      "Připravil {agency}. Za publikovaný se počítá jen obsah ověřený jako dostupný na webu.",
+      "{agency}. Na základě uložených výsledků publikování. Tento přehled znovu nekontroluje, zda jsou stránky nyní online.",
     "gsc.integrity.disclaimer":
       "Uložený zdroj a služba jsou deklarované údaje, nikoli nezávislé ověření. — znamená nedostupné, nikdy nulu. Tabulky mohou vynechat část návštěvnosti. Tato data jsou oddělena od měsíce přehledu a data publikace. Pozorování vyhledávání neprokazují příčinnou souvislost ani konverze.",
     "gsc.integrity.legacy":
@@ -357,8 +357,8 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
   },
   sk: {
     "report.title": "Mesačný prehľad výsledkov",
-    "report.published.title": "Publikované a online ({count})",
-    "report.published.empty": "Tento mesiac nebol žiadny obsah zverejnený online.",
+    "report.published.title": "Zaznamenané publikácie ({count})",
+    "report.published.empty": "Pre tento mesiac nie sú zaznamenané žiadne publikácie.",
     "report.stat.drafted": "Napísané koncepty",
     "report.stat.scheduled": "Naplánované",
     "report.stat.linksLive": "Partnerské odkazy online ✓",
@@ -370,9 +370,9 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
     "report.plan.empty":
       "Zatiaľ nie je nič naplánované — otvorte stránku Plán a pripravte budúci mesiac.",
     "report.footer":
-      "Vytvoril Milo Growth. Za publikovaný sa počíta iba obsah overený ako dostupný na vašom webe.",
+      "Milo Growth. Na základe uložených výsledkov publikovania. Tento prehľad znovu nekontroluje, či sú stránky aktuálne online.",
     "report.footer.agency":
-      "Pripravil {agency}. Za publikovaný sa počíta iba obsah overený ako dostupný na webe.",
+      "{agency}. Na základe uložených výsledkov publikovania. Tento prehľad znovu nekontroluje, či sú stránky aktuálne online.",
     "gsc.integrity.disclaimer":
       "Uložený zdroj a vlastníctvo sú deklarované údaje, nie nezávislé overenie. — znamená nedostupné, nikdy nulu. Tabuľky môžu vynechať časť návštevnosti. Tieto dátumy sú oddelené od mesiaca prehľadu a dátumu publikovania. Pozorovania vyhľadávania nepreukazujú príčinnú súvislosť ani konverzie.",
     "gsc.integrity.legacy":
@@ -386,8 +386,8 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
   },
   sl: {
     "report.title": "Mesečno poročilo o rezultatih",
-    "report.published.title": "Objavljeno in na spletu ({count})",
-    "report.published.empty": "Ta mesec ni bila na spletu objavljena nobena vsebina.",
+    "report.published.title": "Zabeležene objave ({count})",
+    "report.published.empty": "Za ta mesec ni zabeleženih objav.",
     "report.stat.drafted": "Napisani osnutki",
     "report.stat.scheduled": "Načrtovano",
     "report.stat.linksLive": "Partnerske povezave na spletu ✓",
@@ -399,9 +399,9 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
     "report.plan.empty":
       "Nič še ni načrtovano — odprite stran Načrt in pripravite naslednji mesec.",
     "report.footer":
-      "Ustvaril Milo Growth. Kot objavljene se štejejo le vsebine, katerih dostopnost na vašem spletnem mestu je preverjena.",
+      "Milo Growth. Na podlagi shranjenih rezultatov objavljanja. To poročilo ne preverja znova, ali so strani trenutno na spletu.",
     "report.footer.agency":
-      "Pripravil {agency}. Kot objavljene se štejejo le vsebine, katerih dostopnost na spletnem mestu je preverjena.",
+      "{agency}. Na podlagi shranjenih rezultatov objavljanja. To poročilo ne preverja znova, ali so strani trenutno na spletu.",
     "gsc.integrity.disclaimer":
       "Shranjena vir in lastnost sta navedbi, ne neodvisno preverjena podatka. — pomeni, da podatek ni na voljo, nikoli ničle. Tabele lahko izpustijo del prometa. Ti datumi so ločeni od meseca poročila in datuma objave. Opažanja iskanja ne dokazujejo vzročnosti ali konverzij.",
     "gsc.integrity.legacy":
@@ -415,8 +415,8 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
   },
   hr: {
     "report.title": "Mjesečno izvješće o rezultatima",
-    "report.published.title": "Objavljeno i dostupno na mreži ({count})",
-    "report.published.empty": "Ovaj mjesec nijedan sadržaj nije objavljen na mreži.",
+    "report.published.title": "Zabilježene objave ({count})",
+    "report.published.empty": "Nema zabilježenih objava za ovaj mjesec.",
     "report.stat.drafted": "Napisani nacrti",
     "report.stat.scheduled": "Zakazano",
     "report.stat.linksLive": "Partnerske poveznice na mreži ✓",
@@ -429,9 +429,9 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
     "report.plan.empty":
       "Još ništa nije planirano — otvorite stranicu Plan i pripremite sljedeći mjesec.",
     "report.footer":
-      "Izradio Milo Growth. Kao objavljen računa se samo sadržaj čija je dostupnost na vašoj web-stranici potvrđena.",
+      "Milo Growth. Na temelju spremljenih rezultata objavljivanja. Ovo izvješće ne provjerava ponovno jesu li stranice trenutačno dostupne na internetu.",
     "report.footer.agency":
-      "Pripremio {agency}. Kao objavljen računa se samo sadržaj čija je dostupnost na web-stranici potvrđena.",
+      "{agency}. Na temelju spremljenih rezultata objavljivanja. Ovo izvješće ne provjerava ponovno jesu li stranice trenutačno dostupne na internetu.",
     "gsc.integrity.disclaimer":
       "Spremljeni izvor i entitet su navedeni podaci, a ne neovisna provjera. — znači nedostupno, nikada nulu. Tablice mogu izostaviti dio prometa. Ovi datumi odvojeni su od mjeseca izvješća i datuma objave. Opažanja pretraživanja ne dokazuju uzročnost ni konverzije.",
     "gsc.integrity.legacy":
@@ -445,8 +445,8 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
   },
   ro: {
     "report.title": "Raport lunar de rezultate",
-    "report.published.title": "Publicat și disponibil online ({count})",
-    "report.published.empty": "Niciun conținut nu a fost publicat online în această lună.",
+    "report.published.title": "Publicări înregistrate ({count})",
+    "report.published.empty": "Nu există publicări înregistrate pentru această lună.",
     "report.stat.drafted": "Ciorne redactate",
     "report.stat.scheduled": "Programate",
     "report.stat.linksLive": "Linkuri de parteneri online ✓",
@@ -458,9 +458,9 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
     "report.plan.empty":
       "Nu este încă nimic planificat — deschide pagina Plan pentru a pregăti luna viitoare.",
     "report.footer":
-      "Generat de Milo Growth. Sunt numărate ca publicate doar materialele verificate ca disponibile pe site-ul tău.",
+      "Milo Growth. Pe baza rezultatelor de publicare salvate. Acest raport nu verifică din nou dacă paginile sunt disponibile online în prezent.",
     "report.footer.agency":
-      "Pregătit de {agency}. Sunt numărate ca publicate doar materialele verificate ca disponibile pe site.",
+      "{agency}. Pe baza rezultatelor de publicare salvate. Acest raport nu verifică din nou dacă paginile sunt disponibile online în prezent.",
     "gsc.integrity.disclaimer":
       "Sursa și proprietatea salvate sunt declarații, nu verificări independente. — înseamnă indisponibil, niciodată zero. Tabelele pot omite trafic. Aceste date sunt separate de luna raportului și de data publicării. Observațiile căutărilor nu demonstrează cauzalitate sau conversii.",
     "gsc.integrity.legacy":
@@ -474,8 +474,8 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
   },
   bg: {
     "report.title": "Месечен отчет за резултатите",
-    "report.published.title": "Публикувано и достъпно онлайн ({count})",
-    "report.published.empty": "Този месец няма публикувано онлайн съдържание.",
+    "report.published.title": "Записани публикации ({count})",
+    "report.published.empty": "Няма записани публикации за този месец.",
     "report.stat.drafted": "Написани чернови",
     "report.stat.scheduled": "Насрочени",
     "report.stat.linksLive": "Партньорски връзки онлайн ✓",
@@ -487,9 +487,9 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
     "report.plan.empty":
       "Все още нищо не е планирано — отворете страницата План, за да подготвите следващия месец.",
     "report.footer":
-      "Генерирано от Milo Growth. За публикувано се брои само съдържание с проверена достъпност на вашия сайт.",
+      "Milo Growth. Въз основа на запазените резултати от публикуването. Този отчет не проверява повторно дали страниците са достъпни онлайн в момента.",
     "report.footer.agency":
-      "Подготвено от {agency}. За публикувано се брои само съдържание с проверена достъпност на сайта.",
+      "{agency}. Въз основа на запазените резултати от публикуването. Този отчет не проверява повторно дали страниците са достъпни онлайн в момента.",
     "gsc.integrity.disclaimer":
       "Запазените източник и собственост са декларирани данни, а не независима проверка. — означава недостъпно, никога нула. Таблиците може да пропускат трафик. Тези дати са отделни от месеца на отчета и датата на публикуване. Наблюденията върху търсенето не доказват причинност или реализации.",
     "gsc.integrity.legacy":
@@ -503,8 +503,8 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
   },
   el: {
     "report.title": "Μηνιαία αναφορά αποτελεσμάτων",
-    "report.published.title": "Δημοσιευμένα και διαθέσιμα online ({count})",
-    "report.published.empty": "Δεν δημοσιεύτηκε περιεχόμενο online αυτόν τον μήνα.",
+    "report.published.title": "Καταγεγραμμένες δημοσιεύσεις ({count})",
+    "report.published.empty": "Δεν έχουν καταγραφεί δημοσιεύσεις για αυτόν τον μήνα.",
     "report.stat.drafted": "Πρόχειρα που γράφτηκαν",
     "report.stat.scheduled": "Προγραμματισμένα",
     "report.stat.linksLive": "Σύνδεσμοι συνεργατών online ✓",
@@ -516,9 +516,9 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
     "report.plan.empty":
       "Δεν έχει προγραμματιστεί ακόμη τίποτα — ανοίξτε τη σελίδα Πλάνο για να προετοιμάσετε τον επόμενο μήνα.",
     "report.footer":
-      "Δημιουργήθηκε από το Milo Growth. Ως δημοσιευμένο μετρά μόνο το περιεχόμενο που επαληθεύτηκε ως διαθέσιμο στον ιστότοπό σας.",
+      "Milo Growth. Με βάση τα αποθηκευμένα αποτελέσματα δημοσίευσης. Η αναφορά δεν ελέγχει ξανά αν οι σελίδες είναι τώρα διαθέσιμες στο διαδίκτυο.",
     "report.footer.agency":
-      "Προετοιμάστηκε από {agency}. Ως δημοσιευμένο μετρά μόνο το περιεχόμενο που επαληθεύτηκε ως διαθέσιμο στον ιστότοπο.",
+      "{agency}. Με βάση τα αποθηκευμένα αποτελέσματα δημοσίευσης. Η αναφορά δεν ελέγχει ξανά αν οι σελίδες είναι τώρα διαθέσιμες στο διαδίκτυο.",
     "gsc.integrity.disclaimer":
       "Η αποθηκευμένη πηγή και ιδιοκτησία είναι δηλώσεις, όχι ανεξάρτητη επαλήθευση. — σημαίνει μη διαθέσιμο, ποτέ μηδέν. Οι πίνακες μπορεί να παραλείπουν επισκεψιμότητα. Αυτές οι ημερομηνίες είναι χωριστές από τον μήνα αναφοράς και την ημερομηνία δημοσίευσης. Οι παρατηρήσεις αναζήτησης δεν αποδεικνύουν αιτιότητα ή μετατροπές.",
     "gsc.integrity.legacy":
@@ -532,8 +532,8 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
   },
   hu: {
     "report.title": "Havi eredményjelentés",
-    "report.published.title": "Közzétéve és elérhető ({count})",
-    "report.published.empty": "Ebben a hónapban nem került tartalom élesbe.",
+    "report.published.title": "Rögzített közzétételek ({count})",
+    "report.published.empty": "Erre a hónapra nincs rögzített közzététel.",
     "report.stat.drafted": "Elkészült piszkozatok",
     "report.stat.scheduled": "Ütemezett",
     "report.stat.linksLive": "Élő partnerlinkek ✓",
@@ -545,9 +545,9 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
     "report.plan.empty":
       "Még nincs semmi betervezve — nyissa meg a Terv oldalt a következő hónap előkészítéséhez.",
     "report.footer":
-      "Készítette a Milo Growth. Közzétettként csak a webhelyén ellenőrzötten elérhető tartalom számít.",
+      "Milo Growth. A mentett közzétételi eredmények alapján. Ez a jelentés nem ellenőrzi újra, hogy az oldalak jelenleg elérhetők-e.",
     "report.footer.agency":
-      "Készítette: {agency}. Közzétettként csak a webhelyen ellenőrzötten elérhető tartalom számít.",
+      "{agency}. A mentett közzétételi eredmények alapján. Ez a jelentés nem ellenőrzi újra, hogy az oldalak jelenleg elérhetők-e.",
     "gsc.integrity.disclaimer":
       "A mentett forrás és tulajdon megadott adat, nem független ellenőrzés. — jelentése: nem elérhető, soha nem nulla. A táblázatokból forgalom maradhat ki. Ezek a dátumok elkülönülnek a jelentés hónapjától és a közzététel dátumától. A keresési megfigyelések nem bizonyítanak okozati összefüggést vagy konverziókat.",
     "gsc.integrity.legacy":
@@ -561,8 +561,8 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
   },
   ga: {
     "report.title": "Tuairisc mhíosúil ar thorthaí",
-    "report.published.title": "Foilsithe agus beo ({count})",
-    "report.published.empty": "Níor foilsíodh aon ábhar beo an mhí seo.",
+    "report.published.title": "Foilseacháin taifeadta ({count})",
+    "report.published.empty": "Níl aon fhoilseacháin taifeadta don mhí seo.",
     "report.stat.drafted": "Dréachtaí scríofa",
     "report.stat.scheduled": "Sceidealaithe",
     "report.stat.linksLive": "Naisc chomhpháirtithe beo ✓",
@@ -574,9 +574,9 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
     "report.plan.empty":
       "Níl aon rud pleanáilte fós — oscail an leathanach Plean chun an mhí seo chugainn a ullmhú.",
     "report.footer":
-      "Ginte ag Milo Growth. Ní áirítear mar ábhar foilsithe ach ábhar atá fíoraithe mar ábhar beo ar do shuíomh.",
+      "Milo Growth. Bunaithe ar thorthaí foilsitheoireachta sábháilte. Ní sheiceálann an tuarascáil seo arís an bhfuil na leathanaigh ar líne faoi láthair.",
     "report.footer.agency":
-      "Ullmhaithe ag {agency}. Ní áirítear mar ábhar foilsithe ach ábhar atá fíoraithe mar ábhar beo ar an suíomh.",
+      "{agency}. Bunaithe ar thorthaí foilsitheoireachta sábháilte. Ní sheiceálann an tuarascáil seo arís an bhfuil na leathanaigh ar líne faoi láthair.",
     "gsc.integrity.disclaimer":
       "Is dearbhuithe iad an fhoinse agus an t-airí sábháilte, ní fíorú neamhspleách. Ciallaíonn — nach bhfuil an fhaisnéis ar fáil, ní nialas riamh. D’fhéadfadh trácht a bheith ar lár sna táblaí. Tá na dátaí seo ar leithligh ó mhí na tuairisce agus ón dáta foilsithe. Ní chruthaíonn breathnuithe cuardaigh cúisíocht ná tiontuithe.",
     "gsc.integrity.legacy":
@@ -590,8 +590,8 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
   },
   mt: {
     "report.title": "Rapport ta’ kull xahar dwar ir-riżultati",
-    "report.published.title": "Ippubblikat u online ({count})",
-    "report.published.empty": "L-ebda kontenut ma ġie ppubblikat online dan ix-xahar.",
+    "report.published.title": "Pubblikazzjonijiet irreġistrati ({count})",
+    "report.published.empty": "M’hemmx pubblikazzjonijiet irreġistrati għal dan ix-xahar.",
     "report.stat.drafted": "Abbozzi miktuba",
     "report.stat.scheduled": "Skedati",
     "report.stat.linksLive": "Links tal-imsieħba online ✓",
@@ -604,9 +604,9 @@ export const proofReportEmailCopy: Readonly<Record<EmailLanguage, Copy>> = {
     "report.plan.empty":
       "Għadu mhu ppjanat xejn — iftaħ il-paġna Pjan biex tipprepara x-xahar id-dieħel.",
     "report.footer":
-      "Iġġenerat minn Milo Growth. Bħala ppubblikat jingħadd biss kontenut ivverifikat bħala disponibbli fuq is-sit tiegħek.",
+      "Milo Growth. Ibbażat fuq ir-riżultati tal-pubblikazzjoni ssejvjati. Dan ir-rapport ma jerġax jiċċekkja jekk il-paġni humiex attwalment online.",
     "report.footer.agency":
-      "Imħejji minn {agency}. Bħala ppubblikat jingħadd biss kontenut ivverifikat bħala disponibbli fuq is-sit.",
+      "{agency}. Ibbażat fuq ir-riżultati tal-pubblikazzjoni ssejvjati. Dan ir-rapport ma jerġax jiċċekkja jekk il-paġni humiex attwalment online.",
     "gsc.integrity.disclaimer":
       "Is-sors u l-proprjetà ssejvjati huma dikjarazzjonijiet, mhux verifika indipendenti. — tfisser mhux disponibbli, qatt żero. It-tabelli jistgħu jħallu barra traffiku. Dawn id-dati huma separati mix-xahar tar-rapport u mid-data tal-pubblikazzjoni. L-osservazzjonijiet tat-tfittxija ma jippruvawx kawżalità jew konverżjonijiet.",
     "gsc.integrity.legacy":

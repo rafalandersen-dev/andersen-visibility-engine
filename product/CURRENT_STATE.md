@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Report wording now describes recorded publications and explicitly disclaims a fresh destination check across4runtime UI languages,4staged languages and24email languages, including agency footers.199report/catalog tests, types/build and scoped lint pass. See REPORT_PUBLICATION_CLAIMS_2026_09_12.md. Prepared, unreleased; overall60%/implementation75% unchanged.
+
 Monthly report count correction: successful draft delivery with a retained live URL no longer counts as a live publication. Page/email aggregation requires successful live status and its timestamp. 112 report/presentation/email tests, types/build and zero lint pass. The separate verified-live wording claim remains unproven and open; see REPORT_PUBLICATION_COUNT_2026_09_12.md. Unreleased; overall60%/implementation75% unchanged.
 
 Italian UI authoring now includes 1717/3768 messages across 15/28 groups, staged-only and incomplete. Latest addition: 204 messages for analytics, Search Console and monthly reports. 26 focused checks/types/build/zero lint pass. No runtime registration or fluent/interface acceptance; remaining13groups and legacy source-claim review recorded in ITALIAN_AUTHORING_PROGRESS_2026_09_12.md. Overall60%/implementation75% unchanged.

@@ -9,7 +9,7 @@ export const esMeasurements: Readonly<Record<string, string>> = {
   "report.branding.saved": "Marca guardada",
   "report.branding.saveFailed": "No se ha podido guardar la marca",
   "report.footer.agency":
-    "Preparado por {agency}. Los recuentos de publicaciones solo incluyen contenidos verificados como publicados en el sitio.",
+    "{agency}. Basado en los resultados de publicación guardados. Este informe no vuelve a comprobar si las páginas siguen publicadas.",
   "report.title": "Informe mensual de resultados",
   "report.subtitle": "Lo que Milo ha entregado para ti este mes y los próximos pasos.",
   "report.noProject": "Selecciona un proyecto para ver su informe mensual.",
@@ -18,10 +18,10 @@ export const esMeasurements: Readonly<Record<string, string>> = {
   "report.toast.emailed": "Informe enviado a tu correo",
   "report.toast.emailFailed": "No se ha podido enviar el correo del informe",
   "report.toast.notConfigured": "El envío de correo aún no está configurado",
-  "report.published.title": "Publicado y en línea ({count})",
+  "report.published.title": "Publicaciones registradas ({count})",
   "report.published.note":
-    "Solo cuentan los contenidos verificados como publicados en tu sitio, sin afirmaciones vacías.",
-  "report.published.empty": "No se ha publicado ningún contenido este mes.",
+    "Basado en los resultados de publicación guardados. Este informe no vuelve a comprobar si las páginas siguen publicadas.",
+  "report.published.empty": "No hay publicaciones registradas para este mes.",
   "report.stat.drafted": "Borradores redactados",
   "report.stat.scheduled": "Programados",
   "report.stat.linksLive": "Enlaces de colaboradores en línea ✓",
@@ -34,7 +34,7 @@ export const esMeasurements: Readonly<Record<string, string>> = {
   "report.plan.title": "Plan del próximo mes ({count})",
   "report.plan.empty": "Todavía no hay nada planificado: abre Plan para programar el próximo mes.",
   "report.footer":
-    "Generado por Milo Growth. Los recuentos de publicaciones solo incluyen contenidos verificados como publicados en tu sitio.",
+    "Milo Growth. Basado en los resultados de publicación guardados. Este informe no vuelve a comprobar si las páginas siguen publicadas.",
   "analytics.title": "Analítica",
   "analytics.subtitle":
     "Seguimiento propio del crecimiento del sitio: visitas anónimas, páginas principales, rendimiento del contenido publicado y señales relacionadas con IA.",

@@ -9,7 +9,7 @@ export const frMeasurements: Readonly<Record<string, string>> = {
   "report.branding.saved": "Identité enregistrée",
   "report.branding.saveFailed": "Impossible d’enregistrer l’identité",
   "report.footer.agency":
-    "Préparé par {agency}. Le nombre de publications comprend uniquement les contenus vérifiés en ligne sur le site.",
+    "{agency}. D’après les résultats de publication enregistrés. Ce rapport ne vérifie pas à nouveau si les pages sont actuellement en ligne.",
   "report.title": "Rapport mensuel des résultats",
   "report.subtitle": "Ce que Milo a livré pour vous ce mois-ci — et la suite.",
   "report.noProject": "Sélectionnez un projet pour consulter son rapport mensuel.",
@@ -18,10 +18,10 @@ export const frMeasurements: Readonly<Record<string, string>> = {
   "report.toast.emailed": "Rapport envoyé à votre adresse e-mail",
   "report.toast.emailFailed": "Impossible d’envoyer le rapport par e-mail",
   "report.toast.notConfigured": "L’envoi d’e-mails n’est pas encore configuré",
-  "report.published.title": "Publiés et en ligne ({count})",
+  "report.published.title": "Publications enregistrées ({count})",
   "report.published.note":
-    "Seuls les contenus vérifiés en ligne sur votre site sont comptés — sans affirmation flatteuse non étayée.",
-  "report.published.empty": "Aucun contenu n’a été mis en ligne ce mois-ci.",
+    "D’après les résultats de publication enregistrés. Ce rapport ne vérifie pas à nouveau si les pages sont actuellement en ligne.",
+  "report.published.empty": "Aucune publication enregistrée pour ce mois.",
   "report.stat.drafted": "Brouillons rédigés",
   "report.stat.scheduled": "Programmés",
   "report.stat.linksLive": "Liens partenaires en ligne ✓",
@@ -35,7 +35,7 @@ export const frMeasurements: Readonly<Record<string, string>> = {
   "report.plan.empty":
     "Rien de prévu pour le moment — ouvrez la page Plan pour organiser le mois prochain.",
   "report.footer":
-    "Généré par Milo Growth. Le nombre de publications comprend uniquement les contenus vérifiés en ligne sur votre site.",
+    "Milo Growth. D’après les résultats de publication enregistrés. Ce rapport ne vérifie pas à nouveau si les pages sont actuellement en ligne.",
   "analytics.title": "Analyses",
   "analytics.subtitle":
     "Suivi direct de la croissance de votre site — visites anonymes, principales pages, performance du contenu publié et signaux liés à l’IA.",

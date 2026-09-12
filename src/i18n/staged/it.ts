@@ -130,7 +130,7 @@ export const IT_STAGED_BATCHES = [
     copy: itMeasurements,
     namespaces: ["analytics", "gsc", "report"],
     sourceRevision: "4efe62c",
-    sourceHash: "d5a84c283031ca1ef2c696e427fb9d9327a475370d497840df4293c1c9840cd9",
+    sourceHash: "cfe9102341aed0899846a94191ac4a27f5a7b371e09775137f3ce10481df6199",
   },
 ] as const;
 export const IT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(

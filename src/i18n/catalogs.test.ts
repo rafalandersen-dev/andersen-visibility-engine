@@ -41,7 +41,7 @@ describe("literal interpolation of supplied values", () => {
   it("renders dollar replacement sequences literally", () => {
     const agency = "$& / $` / $' / $$";
     expect(translate("en", "report.footer.agency", { agency })).toBe(
-      `Prepared by ${agency}. Published counts include only pieces verified live on the site.`,
+      `${agency}. Based on saved publication results. This report does not recheck whether pages are currently live.`,
     );
   });
   it("does not recursively interpolate braces inside another value", () => {
