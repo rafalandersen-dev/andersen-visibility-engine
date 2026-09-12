@@ -1,7 +1,7 @@
 /** Finnish authoring only; not registered in the runtime or language picker. */
 export const fiBillingScreen: Readonly<Record<string, string>> = {
   "billingScreen.owner": "Omistaja",
-  "billingScreen.freePreview": "Ilmainen esikatselu",
+  "billingScreen.freePreview": "Maksuton esikatselu",
   "billingScreen.saveFailed": "Tallentaminen epäonnistui",
   "billingScreen.checkoutFailed": "Maksaminen epäonnistui",
   "billingScreen.planFailed": "Pakettia ei voitu päivittää.",
@@ -40,7 +40,7 @@ export const fiBillingScreen: Readonly<Record<string, string>> = {
   "billingScreen.feature.audit": "Ilmainen tekoälynäkyvyyden auditointi",
   "billingScreen.feature.limitedContent": "Rajoitettu sisältö ja Milo Score",
   "billingScreen.feature.analyticsLite": "Analytiikka ja GSC Lite",
-  "billingScreen.feature.authorityPreview": "Auktoriteetin esikatselu",
+  "billingScreen.feature.authorityPreview": "Asiantuntija-aseman esikatselu",
   "billingScreen.feature.brandOpportunities": "Bränditiedot ja mahdollisuudet",
   "billingScreen.feature.contentScore": "Sisältö + Milo Score",
   "billingScreen.feature.publishingCustom": "Julkaiseminen (mukautettu rajapinta ja WordPress)",

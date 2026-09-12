@@ -170,7 +170,7 @@ export const fiLinks: Readonly<Record<string, string>> = {
   "marketplace.toast.orderReview":
     "Palveluntarjoajan tulosta ei voitu vahvistaa. Milo tallensi pyynnön tarkistettavaksi; älä yritä uudelleen ennen tilanteen selvittämistä.",
   "marketplace.status.Requested": "Pyydetty",
-  "marketplace.status.In Review": "Tarkistuksessa",
+  "marketplace.status.In Review": "Tarkistettavana",
   "marketplace.status.Submitted": "Lähetetty",
   "marketplace.status.Accepted": "Hyväksytty",
   "marketplace.status.Published": "Julkaistu",

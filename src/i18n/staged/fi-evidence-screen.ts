@@ -69,7 +69,7 @@ export const fiEvidenceScreen: Readonly<Record<string, string>> = {
   "evidenceScreen.score.local": "Paikallinen tekoälyvalmius",
   "evidenceScreen.score.trust": "Luottamus ja lähdeviittaukset",
   "evidenceScreen.score.content": "Sisältöpuutteet",
-  "evidenceScreen.score.authority": "Auktoriteettipuutteet",
+  "evidenceScreen.score.authority": "Asiantuntija-aseman puutteet",
   "evidenceScreen.planning": "Valmiuden suunnittelu",
   "evidenceScreen.promptsTitle": "Tekoälyhaun kysymykset, joihin kannattaa valmistautua",
   "evidenceScreen.promptsHelp":

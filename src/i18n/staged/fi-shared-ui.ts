@@ -7,7 +7,7 @@ export const fiSharedUi: Readonly<Record<string, string>> = {
   "sharedUi.networkSaveFailed": "Listauksen tallentaminen epäonnistui",
   "sharedUi.networkSearchFailed": "Verkostohaku epäonnistui",
   "sharedUi.networkMatchFailed": "Osumaa ei voitu päivittää",
-  "sharedUi.verificationFailed": "Vahvistus epäonnistui",
+  "sharedUi.verificationFailed": "Varmennus epäonnistui",
   "sharedUi.clipboardManual": "Leikepöytä ei ole käytettävissä. Kopioi teksti käsin.",
   "sharedUi.close": "Sulje",
   "sharedUi.pagination": "Sivunavigointi",

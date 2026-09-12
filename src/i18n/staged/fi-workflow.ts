@@ -30,7 +30,7 @@ export const fiWorkflow: Readonly<Record<string, string>> = {
   "arrange.hint":
     "Vedä kuvakortti pudotusalueelle sijoittaaksesi sen suhteessa artikkelin sisältöön. Tarkista sijoittelu uudelleen muokkausten jälkeen: poistetut tai epäselvät osiot voivat jättää kuvien sijainnin ratkaisematta. Julkaistu ulkoasu riippuu kohdesivustosta, eikä tämä esikatselu varmista sitä.",
   "arrange.featured": "Pääkuva",
-  "arrange.featuredNone": "ei kuvaa – valitse kuva Lähteet ja kirjoittaja -osiossa",
+  "arrange.featuredNone": "ei kuvaa – valitse kuva Lähteet ja tekijä -välilehdellä",
   "arrange.hook": "Aloituskoukku",
   "arrange.hookNone": "Aloituskoukkua ei vielä ole. Lisää se Sisältö-välilehdellä.",
   "arrange.hookPlaceholder": "Yhden virkkeen aloituskoukku…",

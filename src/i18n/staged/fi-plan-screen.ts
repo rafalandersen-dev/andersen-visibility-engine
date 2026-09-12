@@ -53,7 +53,7 @@ export const fiPlanScreen: Readonly<Record<string, string>> = {
   "planScreen.sourceLabel.ai_visibility": "Tekoälynäkyvyys",
   "planScreen.sourceLabel.analytics": "Analytiikka",
   "planScreen.sourceLabel.services_products": "Palvelut ja tuotteet",
-  "planScreen.sourceLabel.authority": "Auktoriteetti",
+  "planScreen.sourceLabel.authority": "Asiantuntija-asema",
   "planScreen.sourceLabel.backlinks": "Paluulinkit",
   "planScreen.sourceLabel.claude": "Claude",
   "planScreen.sourceLabel.mcp": "Yhdistetty avustaja",
