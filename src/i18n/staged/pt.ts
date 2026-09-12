@@ -1,3 +1,6 @@
+import { ptBetaScreen } from "./pt-beta-screen";
+import { ptBetaGuide } from "./pt-beta-guide";
+import { ptPublicBeta } from "./pt-public-beta";
 import { ptPublicHome } from "./pt-public-home";
 import { ptPublicPricing } from "./pt-public-pricing";
 import { ptPublicStudies } from "./pt-public-studies";
@@ -123,6 +126,27 @@ export const PT_STAGED_BATCHES = [
     namespaces: ["publicStudies"],
     sourceRevision: "eaaa8d4",
     sourceHash: "ace563fb757a52abcd667e7e691d3e48024045a4e4f265e6949c66a828f5e8de",
+  },
+  {
+    name: "beta screen",
+    copy: ptBetaScreen,
+    namespaces: ["betaScreen"],
+    sourceRevision: "1c5978d",
+    sourceHash: "c4dcf4827cb49219199aab22d2969e33f643ade8a8c2c348bb899d61f3a08119",
+  },
+  {
+    name: "beta guidance",
+    copy: ptBetaGuide,
+    namespaces: ["betaGuide"],
+    sourceRevision: "1c5978d",
+    sourceHash: "8c815e10a73590a6e2911d1b5618d5d545c15a47b3a75462ccaaae6faf33520d",
+  },
+  {
+    name: "public beta",
+    copy: ptPublicBeta,
+    namespaces: ["publicBeta"],
+    sourceRevision: "1c5978d",
+    sourceHash: "e670953b131c40fc4433b5ce6e5b256556bf37ea8709bc495b211efc361fb59e",
   },
 ] as const;
 export const PT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.assign(
