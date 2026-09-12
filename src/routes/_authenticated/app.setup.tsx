@@ -113,15 +113,15 @@ function ProjectSetup() {
 
   const save = () => {
     const missing: string[] = [];
-    if (!form.name.trim()) missing.push("Project name");
-    if (!form.businessName.trim()) missing.push("Business name");
-    if (!form.description.trim()) missing.push("Business description");
+    if (!form.name.trim()) missing.push(t("setup.projectName"));
+    if (!form.businessName.trim()) missing.push(t("onboarding.businessName"));
+    if (!form.description.trim()) missing.push(t("onboarding.description"));
     if (form.websiteUrl.trim() && !/^https?:\/\/\S+\.\S+/.test(form.websiteUrl.trim())) {
-      toast.error("Website URL must start with http:// or https://");
+      toast.error(t("setupScreen.invalidUrl", { field: t("onboarding.websiteUrl") }));
       return;
     }
     if (missing.length) {
-      toast.error(`Missing required field${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}`);
+      toast.error(t("setupScreen.missing", { fields: missing.join(", ") }));
       return;
     }
     if (creating) {
@@ -214,7 +214,7 @@ function ProjectSetup() {
         </Section>
 
         <Section title={t("setup.section.markets")}>
-          <Field label="Primary language">
+          <Field label={t("onboarding.contentLanguage")}>
             {(id) => (
               <Select
                 value={form.primaryLanguage}
@@ -235,7 +235,7 @@ function ProjectSetup() {
               </Select>
             )}
           </Field>
-          <Field label="Additional languages">
+          <Field label={t("setupScreen.additional")}>
             {(id) => (
               <div id={id} role="group" className="flex gap-2 flex-wrap pt-1.5">
                 {LANGS.filter((l) => l !== form.primaryLanguage).map((l) => {
@@ -319,7 +319,7 @@ function ProjectSetup() {
               />
             )}
           </Field>
-          <Field label="Unique selling points" full>
+          <Field label={t("setupScreen.sellingPoints")} full>
             {(id) => (
               <Textarea
                 id={id}
@@ -597,20 +597,20 @@ function ProjectSetup() {
   );
 }
 
-const DEST_LABELS: { value: PublishDestinationType; label: string }[] = [
-  { value: "blogPost", label: "Blog post" },
-  { value: "servicePage", label: "Service page" },
-  { value: "faq", label: "FAQ section" },
-  { value: "landingPage", label: "Landing page" },
+const DEST_LABELS: { value: PublishDestinationType; labelKey: string }[] = [
+  { value: "blogPost", labelKey: "editorScreen.destination.blogPost" },
+  { value: "servicePage", labelKey: "editorScreen.assetType.servicePage" },
+  { value: "faq", labelKey: "setupScreen.faq" },
+  { value: "landingPage", labelKey: "editorScreen.assetType.landingPage" },
 ];
 
 // "autoPublishApproved" is RETIRED and deliberately absent: approving is an
 // editorial verdict and must never distribute. Stored values are coerced at read
 // time by effectivePublishMode, so existing projects keep working — they simply
 // behave as manualLive and see the notice below once.
-const MODE_OPTIONS: { value: PublishMode; label: string }[] = [
-  { value: "draftOnly", label: "Draft only" },
-  { value: "manualLive", label: "Manual publish live" },
+const MODE_OPTIONS: { value: PublishMode; labelKey: string }[] = [
+  { value: "draftOnly", labelKey: "setupScreen.mode.draft" },
+  { value: "manualLive", labelKey: "setupScreen.mode.manual" },
 ];
 
 function PublishingCard({ project }: { project: Project }) {
@@ -815,12 +815,12 @@ function PublishingCard({ project }: { project: Project }) {
         updateProjectPublishingSettings(project.id, { publishMode: mode });
       } else {
         if (!urlOk(endpoint)) {
-          toast.error("Publish endpoint must start with http:// or https://");
+          toast.error(t("setupScreen.invalidUrl", { field: t("setupScreen.endpoint") }));
           setSaving(false);
           return;
         }
         if (!urlOk(liveEndpoint)) {
-          toast.error("Live publish endpoint must start with http:// or https://");
+          toast.error(t("setupScreen.invalidUrl", { field: t("setupScreen.liveEndpoint") }));
           setSaving(false);
           return;
         }
@@ -850,9 +850,9 @@ function PublishingCard({ project }: { project: Project }) {
       setWpAppPassword("");
       setShopToken("");
       setSecret("");
-      toast.success("Publishing settings saved");
+      toast.success(t("setupScreen.saved"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not save publishing settings");
+      toast.error(e instanceof Error ? e.message : t("setupScreen.failed"));
     } finally {
       setSaving(false);
     }
@@ -861,7 +861,7 @@ function PublishingCard({ project }: { project: Project }) {
   return (
     <section className="rounded-lg border border-border bg-card p-6">
       <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-        Publishing
+        {t("setupScreen.publishing")}
       </div>
       <div className="my-4 gold-rule" />
       <p className="text-sm text-muted-foreground max-w-2xl">{t("wp.reviewNote")}</p>
@@ -888,7 +888,9 @@ function PublishingCard({ project }: { project: Project }) {
           </div>
         </div>
         <div>
-          <Label className="text-xs font-medium text-muted-foreground">Publishing mode</Label>
+          <Label className="text-xs font-medium text-muted-foreground">
+            {t("setupScreen.mode")}
+          </Label>
           <div className="mt-1.5">
             <Select value={mode} onValueChange={(v) => setMode(v as PublishMode)}>
               <SelectTrigger>
@@ -897,7 +899,7 @@ function PublishingCard({ project }: { project: Project }) {
               <SelectContent>
                 {MODE_OPTIONS.map((m) => (
                   <SelectItem key={m.value} value={m.value}>
-                    {m.label}
+                    {t(m.labelKey)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -1095,7 +1097,7 @@ function PublishingCard({ project }: { project: Project }) {
                 className="mt-1.5"
                 value={shopTags}
                 onChange={(e) => setShopTags(e.target.value)}
-                placeholder="seo, growth"
+                placeholder={t("setupScreen.tagsExample")}
                 autoComplete="off"
               />
               <p className="mt-1.5 text-xs text-muted-foreground">{t("shopify.tagsHelp")}</p>
@@ -1105,7 +1107,7 @@ function PublishingCard({ project }: { project: Project }) {
           <>
             <div className="md:col-span-2">
               <Label htmlFor={endpointId} className="text-xs font-medium text-muted-foreground">
-                Publish endpoint
+                {t("setupScreen.endpoint")}
               </Label>
               <div className="mt-1.5">
                 <Input
@@ -1118,7 +1120,7 @@ function PublishingCard({ project }: { project: Project }) {
             </div>
             <div className="md:col-span-2">
               <Label htmlFor={liveEndpointId} className="text-xs font-medium text-muted-foreground">
-                Live publish endpoint
+                {t("setupScreen.liveEndpoint")}
               </Label>
               <div className="mt-1.5">
                 <Input
@@ -1128,14 +1130,11 @@ function PublishingCard({ project }: { project: Project }) {
                   placeholder="https://yourwebsite.com/api/milo/publish-live"
                 />
               </div>
-              <p className="mt-1.5 text-xs text-muted-foreground">
-                Separate route Milo calls to publish a reviewed draft live. Uses the same publish
-                secret.
-              </p>
+              <p className="mt-1.5 text-xs text-muted-foreground">{t("setupScreen.liveHelp")}</p>
             </div>
             <div className="md:col-span-2">
               <Label htmlFor={secretId} className="text-xs font-medium text-muted-foreground">
-                Publish secret
+                {t("setupScreen.secret")}
               </Label>
               <div className="mt-1.5">
                 <Input
@@ -1147,14 +1146,11 @@ function PublishingCard({ project }: { project: Project }) {
                   autoComplete="off"
                 />
               </div>
-              <p className="mt-1.5 text-xs text-muted-foreground">
-                Stored privately and sent only as a request header. The same secret must be
-                configured on your target website.
-              </p>
+              <p className="mt-1.5 text-xs text-muted-foreground">{t("setupScreen.secretHelp")}</p>
             </div>
             <div>
               <Label className="text-xs font-medium text-muted-foreground">
-                Default destination
+                {t("setupScreen.destination")}
               </Label>
               <div className="mt-1.5">
                 <Select
@@ -1167,7 +1163,7 @@ function PublishingCard({ project }: { project: Project }) {
                   <SelectContent>
                     {DEST_LABELS.map((d) => (
                       <SelectItem key={d.value} value={d.value}>
-                        {d.label}
+                        {t(d.labelKey)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1179,28 +1175,23 @@ function PublishingCard({ project }: { project: Project }) {
       </div>
 
       <p className="mt-4 text-xs text-muted-foreground max-w-2xl">
-        Approving an article never publishes it. Publishing is always a separate, deliberate step —
-        either “Publish now” or a scheduled go-live time you set yourself. You remain responsible
-        for reviewing content and claims before publishing. See the{" "}
+        {t("setupScreen.approvalHelp")}{" "}
         <a href="/ai-disclaimer" className="underline underline-offset-4 hover:text-foreground">
-          AI Content Disclaimer
+          {t("setupScreen.disclaimer")}
         </a>
         .
       </p>
 
       {hasRetiredAutoPublishMode(project) ? (
         <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-xs text-foreground/80">
-          <span className="font-medium">Auto-publish on approval has been removed.</span> This
-          project used it, so it now behaves as “Manual publish live”: approving marks an article
-          ready, and nothing goes live until you publish or schedule it. Any article you approved
-          earlier and expected to be live may still be a draft — worth checking before you schedule
-          anything new.
+          <span className="font-medium">{t("setupScreen.retiredTitle")}</span>{" "}
+          {t("setupScreen.retiredHelp", { mode: t("setupScreen.mode.manual") })}
         </div>
       ) : null}
 
       <div className="mt-5 flex justify-end">
         <Button onClick={save} disabled={saving}>
-          {saving ? "Saving…" : "Save publishing settings"}
+          {t(saving ? "setupScreen.saving" : "setupScreen.save")}
         </Button>
       </div>
     </section>

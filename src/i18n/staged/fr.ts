@@ -1,3 +1,4 @@
+import { frSetupScreen } from "./fr-setup-screen";
 import { frServicesScreen } from "./fr-services-screen";
 import { frAuditScreen } from "./fr-audit-screen";
 import { frEvidenceScreen } from "./fr-evidence-screen";
@@ -19,6 +20,7 @@ import { frPlanScreen } from "./fr-plan-screen";
 /** Authoring batches only. Dictionary coverage does not establish full interface
  * acceptance. This catalog is not registered by the runtime or language picker. */
 export const FR_STAGED_BATCHES = [
+  { name: "setup screen", copy: frSetupScreen, namespaces: ["setupScreen"] },
   { name: "services screen", copy: frServicesScreen, namespaces: ["servicesScreen"] },
   { name: "audit screen", copy: frAuditScreen, namespaces: ["auditScreen"] },
   { name: "evidence screen", copy: frEvidenceScreen, namespaces: ["evidenceScreen"] },
