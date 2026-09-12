@@ -1,3 +1,4 @@
+import { slEvidenceScreen } from "./sl-evidence-screen";
 import { slBillingScreen } from "./sl-billing-screen";
 import { slAnalyticsScreen } from "./sl-analytics-screen";
 import { slAuditScreen } from "./sl-audit-screen";
@@ -74,6 +75,13 @@ export const SL_STAGED_BATCHES = [
     namespaces: ["billingScreen"],
     sourceRevision: "1113cc5",
     sourceHash: "d0e701bae4247d1129cc13dd6df6d9b569e725edbf5136255b68ca3fb2307194",
+  },
+  {
+    name: "evidence screen",
+    copy: slEvidenceScreen,
+    namespaces: ["evidenceScreen"],
+    sourceRevision: "b51ac1f",
+    sourceHash: "2c7e9ccb48b02cd12911d0df6c31a96ec8ddfc6c558dfda3b3e14790d156c136",
   },
 ] as const;
 export const SL_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
