@@ -26,3 +26,5 @@ Accessibility follow-up: the rendered check also resolves each fact checkbox des
 Build with `node scripts/knowledge-review-browser/build.cjs cs`. The adapter imports the actual completed Czech staged catalog and passes `cs` to the real component for dates and panel language. Against candidate 7b9a1c6, all four interaction groups passed in the Codex in-app browser, including evidence-description, language and busy-state assertions. No production stylesheet is included: this proves focused translated component interaction, not full-page responsiveness, fluent-language, screen-reader, backend or real-use acceptance.
 
 After adding Czech, Finnish and keys modes were rebuilt and each passed all four groups again. The temporary local server was stopped.
+
+History-failure follow-up: the harness now has six result groups. It also confirms that a successful save or withdrawal notifies the parent when its subsequent history read fails; withdrawal clears acknowledgements, stale active history disappears and save remains held. All six passed with Czech text against the history-refresh candidate.

@@ -145,6 +145,58 @@ async function confirm() {
     "Late result leaked to new scope",
   );
   results.push("Unmounted scope ignores late mutation feedback");
+  window.h.history = async () => history;
+  history = [];
+  await mount("d");
+  await inspect();
+  await confirm();
+  const beforeHistoryFailure = changed;
+  window.h.save = async () => {
+    savedCalls++;
+  };
+  window.h.history = async () => {
+    throw Error("history unavailable");
+  };
+  button("knowledge.review.save").click();
+  await tick();
+  assert(
+    changed === beforeHistoryFailure + 1,
+    "Confirmed save did not refresh parent after history failure",
+  );
+  assert(document.querySelector("[role=alert]"), "History failure lacks alert");
+  assert(button("knowledge.review.save").disabled, "History failure permits another save");
+  assert(
+    !document.body.textContent.includes(t("knowledge.review.saved")),
+    "History failure reported complete feedback",
+  );
+  results.push("Confirmed save refreshes parent even when history fails; retry remains held");
+  history = [{ reviewId: "review", reviewedAt: snapshot.checkedAt, active: true }];
+  window.h.history = async () => history;
+  await inspect();
+  await confirm();
+  const beforeWithdrawalFailure = changed;
+  window.h.history = async () => {
+    throw Error("history unavailable");
+  };
+  button("knowledge.review.withdraw").click();
+  await tick();
+  assert(
+    changed === beforeWithdrawalFailure + 1,
+    "Confirmed withdrawal did not refresh parent after history failure",
+  );
+  assert(
+    [...document.querySelectorAll("input[type=checkbox]")].every((box) => !box.checked),
+    "Confirmed withdrawal retained acknowledgements after history failure",
+  );
+  assert(document.querySelector("[role=alert]"), "Withdrawal history failure lacks alert");
+  assert(button("knowledge.review.save").disabled, "Withdrawal history failure permits save");
+  assert(
+    !button("knowledge.review.withdraw"),
+    "Stale active history remains after confirmed withdrawal",
+  );
+  results.push(
+    "Confirmed withdrawal clears acknowledgements and refreshes parent despite history failure",
+  );
   document.getElementById("results").textContent = JSON.stringify(
     { passed: true, locale, results },
     null,

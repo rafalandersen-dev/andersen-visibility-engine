@@ -86,6 +86,7 @@ export function KnowledgeOutputInspection({
     setBusy(true);
     setFailed(false);
     setSaved(false);
+    let mutationConfirmed = false;
     try {
       if (withdrawId)
         await withdrawKnowledgeOutputReviewFn({
@@ -107,22 +108,29 @@ export function KnowledgeOutputInspection({
           },
         });
       }
-      const reviews = await readKnowledgeOutputReviewHistoryFn({ data: { projectId, assetId } });
+      mutationConfirmed = true;
       if (id === request.current) {
-        setHistory(reviews);
-        setSaved(!withdrawId);
+        setHistory([]);
         if (withdrawId) {
           reviewId.current = null;
           setAcknowledged([]);
           setConfirmed(false);
         }
-        onReviewChange?.();
+      }
+      const reviews = await readKnowledgeOutputReviewHistoryFn({ data: { projectId, assetId } });
+      if (id === request.current) {
+        setHistory(reviews);
+        setSaved(!withdrawId);
       }
     } catch {
       if (id === request.current) setFailed(true);
     } finally {
       inFlight.current = false;
-      if (id === request.current) setBusy(false);
+      if (id === request.current) {
+        setBusy(false);
+        // A confirmed mutation still changes eligibility when the history read fails.
+        if (mutationConfirmed) onReviewChange?.();
+      }
     }
   }
   return (
