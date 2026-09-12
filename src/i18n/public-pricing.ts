@@ -1,6 +1,8 @@
 import type { OnboardingLanguage } from "@/lib/types";
 export const publicPricingCopy: Record<OnboardingLanguage, Readonly<Record<string, string>>> = {
   en: {
+    "publicPricing.included": "Included",
+    "publicPricing.notIncluded": "Not included",
     "publicPricing.title": "Simple plans. Clear limits.",
     "publicPricing.intro": "Start with one project. Scale to {count} on Agency.",
     "publicPricing.hold":
@@ -46,6 +48,8 @@ export const publicPricingCopy: Record<OnboardingLanguage, Readonly<Record<strin
     "publicPricing.backHome": "Back to home",
   },
   pl: {
+    "publicPricing.included": "W cenie",
+    "publicPricing.notIncluded": "Nie jest w cenie",
     "publicPricing.title": "Proste plany. Jasne limity.",
     "publicPricing.intro": "Zacznij od jednego projektu. Rozwijaj się do {count} w planie Agency.",
     "publicPricing.hold":
@@ -93,6 +97,8 @@ export const publicPricingCopy: Record<OnboardingLanguage, Readonly<Record<strin
     "publicPricing.backHome": "Powrót do strony głównej",
   },
   sv: {
+    "publicPricing.included": "Ingår",
+    "publicPricing.notIncluded": "Ingår inte",
     "publicPricing.title": "Enkla planer. Tydliga gränser.",
     "publicPricing.intro": "Börja med ett projekt. Utöka till {count} med Agency.",
     "publicPricing.hold":
@@ -139,6 +145,8 @@ export const publicPricingCopy: Record<OnboardingLanguage, Readonly<Record<strin
     "publicPricing.backHome": "Tillbaka till startsidan",
   },
   da: {
+    "publicPricing.included": "Inkluderet",
+    "publicPricing.notIncluded": "Ikke inkluderet",
     "publicPricing.title": "Enkle planer. Klare grænser.",
     "publicPricing.intro": "Start med ét projekt. Udvid til {count} med Agency.",
     "publicPricing.hold":

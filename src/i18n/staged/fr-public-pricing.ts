@@ -1,4 +1,6 @@
 export const frPublicPricing: Readonly<Record<string, string>> = {
+  "publicPricing.included": "Inclus",
+  "publicPricing.notIncluded": "Non inclus",
   "publicPricing.title": "Des offres simples. Des limites claires.",
   "publicPricing.intro": "Commencez avec un projet. Passez à {count} avec Agency.",
   "publicPricing.hold":

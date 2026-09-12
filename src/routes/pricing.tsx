@@ -233,9 +233,15 @@ function PricingBody({ t, language }: Pick<ReturnType<typeof useAuthLanguage>, "
           <table className="w-full min-w-[780px] text-sm">
             <thead className="border-b border-border bg-secondary/30">
               <tr>
-                <th className="px-5 py-4 text-left font-medium">{t("publicPricing.capability")}</th>
+                <th scope="col" className="px-5 py-4 text-left font-medium">
+                  {t("publicPricing.capability")}
+                </th>
                 {PLAN_IDS.map((pid) => (
-                  <th key={pid} className="px-5 py-4 text-center font-display text-base">
+                  <th
+                    scope="col"
+                    key={pid}
+                    className="px-5 py-4 text-center font-display text-base"
+                  >
                     {pid === "freePreview" ? t("billingScreen.freePreview") : PLAN_META[pid].name}
                   </th>
                 ))}
@@ -243,6 +249,7 @@ function PricingBody({ t, language }: Pick<ReturnType<typeof useAuthLanguage>, "
             </thead>
             <tbody className="divide-y divide-border">
               <CompareRow
+                t={t}
                 label={t("publicPricing.projectLabel")}
                 values={PLAN_IDS.map((pid) =>
                   PLAN_LIMITS[pid].maxProjects === 1
@@ -251,28 +258,34 @@ function PricingBody({ t, language }: Pick<ReturnType<typeof useAuthLanguage>, "
                 )}
               />
               <CompareRow
+                t={t}
                 label={t("publicPricing.content")}
                 values={PLAN_IDS.map((pid) => String(PLAN_LIMITS[pid].monthlyContentGenerations))}
               />
               <CompareRow
+                t={t}
                 label={t("publicPricing.scores")}
                 values={PLAN_IDS.map((pid) => String(PLAN_LIMITS[pid].monthlyMiloScores))}
               />
               <CompareRow
+                t={t}
                 label={t("publicPricing.publishing")}
                 values={PLAN_IDS.map((pid) => PLAN_LIMITS[pid].publishingEnabled)}
               />
               <CompareRow
+                t={t}
                 label={t("billingScreen.feature.analyticsLite")}
                 values={PLAN_IDS.map(
                   (pid) => PLAN_LIMITS[pid].analyticsEnabled && PLAN_LIMITS[pid].gscLiteEnabled,
                 )}
               />
               <CompareRow
+                t={t}
                 label={t("billingScreen.feature.images")}
                 values={PLAN_IDS.map((pid) => PLAN_LIMITS[pid].imageGenerationEnabled)}
               />
               <CompareRow
+                t={t}
                 label={t("publicPricing.evaluation")}
                 values={PLAN_IDS.map((pid) => PLAN_LIMITS[pid].aiEvaluationEnabled)}
               />
@@ -347,21 +360,36 @@ function PricingPromise({
   );
 }
 
-function CompareRow({ label, values }: { label: string; values: Array<string | boolean> }) {
+function CompareRow({
+  label,
+  values,
+  t,
+}: {
+  label: string;
+  values: Array<string | boolean>;
+  t: (key: string) => string;
+}) {
   return (
     <tr>
-      <td className="px-5 py-4 font-medium">{label}</td>
+      <th scope="row" className="px-5 py-4 text-left font-medium">
+        {label}
+      </th>
       {values.map((value, index) => (
         <td
           key={`${label}-${PLAN_IDS[index]}`}
           className="px-5 py-4 text-center text-muted-foreground"
         >
           {typeof value === "boolean" ? (
-            value ? (
-              <Check className="mx-auto h-4 w-4 text-emerald-600" />
-            ) : (
-              "—"
-            )
+            <>
+              <span className="sr-only">
+                {t(value ? "publicPricing.included" : "publicPricing.notIncluded")}
+              </span>
+              {value ? (
+                <Check aria-hidden="true" className="mx-auto h-4 w-4 text-emerald-600" />
+              ) : (
+                <span aria-hidden="true">—</span>
+              )}
+            </>
           ) : (
             value
           )}
