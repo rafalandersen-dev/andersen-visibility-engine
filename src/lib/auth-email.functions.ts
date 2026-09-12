@@ -6,6 +6,8 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { SignupEmail } from "./email-templates/signup";
 import { RecoveryEmail } from "./email-templates/recovery";
+import { emailLocaleSchema } from "./email-languages";
+import { authEmailPresentation } from "./auth-email-presentation";
 
 const SITE_NAME = "Milo Growth";
 const SITE_URL = "https://milogrowth.com";
@@ -17,11 +19,13 @@ const signupSchema = z.object({
   password: z.string().min(8),
   displayName: z.string().max(120).optional(),
   redirectTo: z.string().url(),
+  emailLanguage: emailLocaleSchema.default("en"),
 });
 
 const resetSchema = z.object({
   email: z.string().email(),
   redirectTo: z.string().url(),
+  emailLanguage: emailLocaleSchema.default("en"),
 });
 
 function getAdminClient() {
@@ -169,6 +173,7 @@ export const signupWithBrandedEmailFn = createServerFn({ method: "POST" })
       siteUrl: SITE_URL,
       recipient: email,
       confirmationUrl,
+      language: data.emailLanguage,
     });
 
     // generateLink returns account metadata, not proof that this request alone
@@ -178,7 +183,7 @@ export const signupWithBrandedEmailFn = createServerFn({ method: "POST" })
     await sendDirectAuthEmail({
       templateName: "signup",
       to: email,
-      subject: "Confirm your Milo Growth account",
+      subject: authEmailPresentation(data.emailLanguage, "signup", SITE_NAME).subject,
       html: await render(element),
       text: await render(element, { plainText: true }),
       supabase,
@@ -207,11 +212,12 @@ export const requestPasswordResetWithBrandedEmailFn = createServerFn({ method: "
     const element = React.createElement(RecoveryEmail, {
       siteName: SITE_NAME,
       confirmationUrl,
+      language: data.emailLanguage,
     });
     await sendDirectAuthEmail({
       templateName: "recovery",
       to: email,
-      subject: "Reset your Milo Growth password",
+      subject: authEmailPresentation(data.emailLanguage, "reset", SITE_NAME).subject,
       html: await render(element),
       text: await render(element, { plainText: true }),
       supabase,

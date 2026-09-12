@@ -15,6 +15,12 @@ import { useAuthLanguage } from "@/hooks/use-auth-language";
 import { AuthLanguagePicker } from "@/components/AuthLanguagePicker";
 import { z } from "zod";
 
+import {
+  EMAIL_LANGUAGE_OPTIONS,
+  emailLocaleSchema,
+  type EmailLanguage,
+} from "@/lib/email-languages";
+
 const searchSchema = z.object({
   mode: z.enum(["login", "register", "reset"]).optional(),
   message: z.string().optional(),
@@ -70,6 +76,7 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [emailLanguage, setEmailLanguage] = useState<EmailLanguage>("en");
 
   useEffect(() => {
     setMode(modeFromParam(search.mode));
@@ -106,6 +113,7 @@ function AuthPage() {
         await signupWithBrandedEmailFn({
           data: {
             email,
+            emailLanguage,
             password,
             displayName: displayName || email.split("@")[0],
             redirectTo: `${window.location.origin}/app`,
@@ -122,6 +130,7 @@ function AuthPage() {
         await requestPasswordResetWithBrandedEmailFn({
           data: {
             email,
+            emailLanguage,
             redirectTo: `${window.location.origin}/reset-password`,
           },
         });
@@ -243,6 +252,28 @@ function AuthPage() {
                 />
               </div>
             ) : null}
+
+            {mode !== "signin" && (
+              <div className="space-y-1.5">
+                <Label htmlFor="auth-email-language">{t("emailSettings.language")}</Label>
+                <select
+                  id="auth-email-language"
+                  value={emailLanguage}
+                  disabled={busy}
+                  onChange={(event) => {
+                    const parsed = emailLocaleSchema.safeParse(event.target.value);
+                    if (parsed.success) setEmailLanguage(parsed.data);
+                  }}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  {EMAIL_LANGUAGE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.native}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <Button type="submit" className="w-full" disabled={busy}>
               {t(

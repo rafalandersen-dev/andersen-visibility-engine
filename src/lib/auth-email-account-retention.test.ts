@@ -1,3 +1,5 @@
+import { EMAIL_LANGUAGE_CODES } from "./email-languages";
+import { authEmailPresentation } from "./auth-email-presentation";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({
@@ -196,4 +198,42 @@ describe("confirmation-email failure never authorizes account deletion", () => {
     expect(h.send).not.toHaveBeenCalled();
     expect(h.deleteUser).not.toHaveBeenCalled();
   });
+});
+
+describe("authentication request email language", () => {
+  it.each(EMAIL_LANGUAGE_CODES)(
+    "dispatches explicit %s only as message presentation",
+    async (emailLanguage) => {
+      for (const [fn, kind] of [
+        [signupWithBrandedEmailFn, "signup"],
+        [requestPasswordResetWithBrandedEmailFn, "reset"],
+      ] as const) {
+        h.generateLink.mockClear();
+        h.send.mockClear();
+        h.render.mockClear();
+        await expect(call(fn, { ...signup, emailLanguage })).resolves.toEqual({ ok: true });
+        expect(h.render).toHaveBeenCalledTimes(2);
+        for (const [element] of h.render.mock.calls)
+          expect(element.props.language).toBe(emailLanguage);
+        expect(h.send.mock.calls[0][0]).toMatchObject({
+          to: signup.email,
+          from: "Milo Growth <noreply@milogrowth.com>",
+          subject: authEmailPresentation(emailLanguage, kind, "Milo Growth").subject,
+        });
+        const args = h.generateLink.mock.calls[0][0];
+        expect(args.email).toBe(signup.email);
+        expect(args.options.redirectTo).toBe(signup.redirectTo);
+        expect(JSON.stringify(args)).not.toContain("emailLanguage");
+        expect(h.deleteUser).not.toHaveBeenCalled();
+      }
+    },
+  );
+  it.each([signupWithBrandedEmailFn, requestPasswordResetWithBrandedEmailFn])(
+    "rejects unsupported language before account or delivery calls",
+    async (fn) => {
+      await expect(call(fn, { ...signup, emailLanguage: "xx" })).rejects.toThrow();
+      expect(h.generateLink).not.toHaveBeenCalled();
+      expect(h.send).not.toHaveBeenCalled();
+    },
+  );
 });
