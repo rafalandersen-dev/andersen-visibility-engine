@@ -1,3 +1,5 @@
+import { nlBillingScreen } from "./nl-billing-screen";
+import { nlAnalyticsScreen } from "./nl-analytics-screen";
 import { nlAuditScreen } from "./nl-audit-screen";
 import { nlServicesScreen } from "./nl-services-screen";
 import { nlSetupScreen } from "./nl-setup-screen";
@@ -7,6 +9,20 @@ import { nlSharedUi } from "./nl-shared-ui";
 
 /** Partial Dutch authoring; never imported by the runtime catalog. */
 export const NL_STAGED_BATCHES = [
+  {
+    name: "analytics screen",
+    copy: nlAnalyticsScreen,
+    namespaces: ["analyticsScreen"],
+    sourceRevision: "770590a",
+    sourceHash: "d86d151031ad82c4dbc559e9816ad14cecaa3e4f1b0de2ff8de3c484de5b02c5",
+  },
+  {
+    name: "billing screen",
+    copy: nlBillingScreen,
+    namespaces: ["billingScreen"],
+    sourceRevision: "770590a",
+    sourceHash: "d0e701bae4247d1129cc13dd6df6d9b569e725edbf5136255b68ca3fb2307194",
+  },
   {
     name: "setup screen",
     copy: nlSetupScreen,

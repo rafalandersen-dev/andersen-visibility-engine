@@ -1,6 +1,6 @@
 # Dutch interface authoring — 12 September 2026
 
-R20 requires full EU-language coverage. Dutch authoring has begun with 345 of the current 3,768 English interface messages (3,423 remain). This is a partial staged catalog; Dutch is not registered in UI_CATALOGS or the language picker.
+R20 requires full EU-language coverage. Dutch authoring has begun with 435 of the current 3,768 English interface messages (3,333 remain). This is a partial staged catalog; Dutch is not registered in UI_CATALOGS or the language picker.
 
 ## Completed authoring batches
 
@@ -10,6 +10,8 @@ R20 requires full EU-language coverage. Dutch authoring has begun with 345 of th
 | Publishing setup screen | 24 | src/i18n/staged/nl-setup-screen.ts |
 | Services screen | 18 | src/i18n/staged/nl-services-screen.ts |
 | On-page review screen | 29 | src/i18n/staged/nl-audit-screen.ts |
+| Analytics screen | 36 | src/i18n/staged/nl-analytics-screen.ts |
+| Billing screen | 54 | src/i18n/staged/nl-billing-screen.ts |
 | Authentication | 42 | src/i18n/staged/nl-auth-screen.ts |
 | Shared controls | 30 | src/i18n/staged/nl-shared-ui.ts |
 
@@ -32,3 +34,10 @@ All fourteen Dutch/catalog tests pass, including the reviewed core source hash a
 At a712c08, authored 71 messages across three complete screen namespaces. Publishing copy distinguishes approval from publication, preserves retired approval-trigger behavior and explains configured secrets without containing any actual secret. Audit copy distinguishes homepage/context assessments from observed rankings, technical crawling and measured performance. The literal URL schemes, placeholders and five-finding limit are preserved.
 
 All seventeen Dutch/catalog tests pass, including current source fingerprints and total 345-key ownership. Full TypeScript (/tmp/milo-dutch-screens-types.log), scoped lint and whitespace checks pass. Staged only; remaining copy, fluent/rendered review and real-use acceptance remain open. Continue with analytics, billing and evidence screen groups.
+
+
+## Analytics/billing screen follow-up
+
+At 770590a, authored all 90 messages in analyticsScreen (36) and billingScreen (54). Analytics distinguishes recorded views from unique visitors, click rates from completed outcomes, and limited event history from all-time results; 50 000 uses space grouping without changing the source limit. Billing preserves plan counts, version labels, the configured-evaluation qualification and billing@milogrowth.com. Existing feature/package and legacy Paddle copy still requires commercial/lifecycle review before activation; no pricing, account, subscription or transport operation was performed.
+
+All nineteen Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-analytics-billing-types.log), scoped lint and whitespace checks. Total staged coverage is 435; 3,333 messages remain. Evidence screens are next. Runtime activation, fluency/rendered review and full acceptance remain open.
