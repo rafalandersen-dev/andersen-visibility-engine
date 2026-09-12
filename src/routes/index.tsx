@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { PLAN_LIMITS } from "@/lib/billing";
 import { hreflangLinks } from "@/lib/locales";
 import {
   ArrowRight,
@@ -36,19 +37,19 @@ const HOME_FAQ = [
   },
   {
     q: "Can Milo publish to my website?",
-    a: "Yes. Connected WordPress, Shopify or custom publishing workflows can send approved content as a draft or publish it live, depending on the controls you choose.",
+    a: "Publishing requires a supported connection, a verified destination and approval of the content. Saved connection settings alone do not confirm that a draft or live publication will succeed.",
   },
   {
     q: "Are backlinks included?",
-    a: "Backlink intelligence, marketplace purchasing and outreach are a separate paid workspace because external data and placements create additional costs. The add-on is always labeled clearly.",
+    a: "Backlinks is a separate add-on because external data and placements create additional costs. Paid activation and marketplace purchases remain on hold pending payment and supplier acceptance. Outreach requires review before use.",
   },
   {
     q: "Can I cancel without contacting support?",
-    a: "Yes. Manage billing and Cancel subscription are visible inside Settings → Billing. Paid users are sent to an authenticated Paddle portal where they can manage or cancel directly.",
+    a: "Manage billing and Cancel subscription are available in Settings → Billing for existing linked subscriptions. Portal access depends on that billing connection. New paid subscriptions remain on hold while payment setup and testing are completed; contact support if your existing subscription cannot be managed there.",
   },
   {
     q: "How many projects can I manage?",
-    a: "Milo supports up to five projects in one account. Each project keeps its own site, services, competitors, opportunities, content, integrations and analytics context.",
+    a: `Project limits depend on your plan, up to ${PLAN_LIMITS.agency.maxProjects} on Agency. Each project keeps its own site, services, competitors, opportunities, content, integrations and analytics context.`,
   },
 ];
 
@@ -58,8 +59,7 @@ export const Route = createFileRoute("/")({
       { title: "Milo Growth — Your Monthly AI SEO Growth System" },
       {
         name: "description",
-        content:
-          "Turn site, search, competitor and AI visibility signals into a clear SEO plan, better content and measurable growth — across up to five projects.",
+        content: `Turn site, search, competitor and AI visibility signals into a clear SEO plan, better content and measurable growth — across up to ${PLAN_LIMITS.agency.maxProjects} projects on Agency.`,
       },
       { property: "og:title", content: "Milo Growth — Your Monthly AI SEO Growth System" },
       {
@@ -173,7 +173,7 @@ function Hero() {
           </p>
           <p className="mt-3 max-w-[410px] text-[15px] leading-6 text-[#647183]">
             Find the right opportunities, schedule the work, create better content and prove what
-            changed — across up to five projects.
+            changed — across up to {PLAN_LIMITS.agency.maxProjects} projects on Agency.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link to="/auth" search={{ mode: "register" }}>
@@ -191,7 +191,10 @@ function Hero() {
             <TrustItem icon={CheckCircle} label="No credit card" />
             <TrustItem icon={Lock} label="No agency" />
             <TrustItem icon={Leaf} label="Self-service" />
-            <TrustItem icon={UsersThree} label="Up to 5 projects" />
+            <TrustItem
+              icon={UsersThree}
+              label={`Up to ${PLAN_LIMITS.agency.maxProjects} projects on Agency`}
+            />
           </div>
         </div>
 
@@ -224,8 +227,8 @@ function ProofStrip() {
     { icon: CalendarBlank, label: "One clear monthly plan" },
     { icon: LinkSimple, label: "Five connected steps" },
     { icon: UsersThree, label: "Human review before publish" },
-    { icon: UsersThree, label: "Up to five projects" },
-    { icon: XCircle, label: "Cancel anytime" },
+    { icon: UsersThree, label: `Up to ${PLAN_LIMITS.agency.maxProjects} projects on Agency` },
+    { icon: XCircle, label: "Billing controls in your account" },
   ];
   return (
     <section className="border-b border-[#e6dfd2] bg-[#fffdf8]">
@@ -266,12 +269,12 @@ function ConnectedWorkflow() {
     {
       icon: PaperPlaneTilt,
       title: "Publish",
-      body: "Review, approve and send content through connected workflows.",
+      body: "Review and approve content, then verify the destination before sending through a supported connection.",
     },
     {
       icon: ChartLineUp,
       title: "Measure",
-      body: "Connect rankings, traffic and conversion impact back to the idea.",
+      body: "Review available search, visit and conversion evidence alongside the work. Missing data is not zero activity.",
     },
   ];
   return (
@@ -357,7 +360,7 @@ function ProductSystem() {
               Everything retained
             </div>
             <h2 className="mt-3 font-display text-3xl tracking-[-0.03em] sm:text-[42px]">
-              Fewer tabs. No missing functionality.
+              Connected work. Clear next actions.
             </h2>
             <p className="mt-4 max-w-md text-sm leading-6 text-[#647183]">
               Audit, competitors, authority and AI visibility now feed one Plan. Project setup,
@@ -409,6 +412,7 @@ function BacklinksAddOn() {
           <p className="mt-4 max-w-xl text-sm leading-6 text-[#b9c1c4]">
             Analyse referring domains, find competitor link gaps, review marketplace offers and
             prepare outreach without mixing external placement costs into everyday content planning.
+            Paid activation and purchases remain on hold pending payment and supplier acceptance.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <Link to="/pricing">
@@ -465,10 +469,13 @@ function TrustAndPricing() {
           <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#8b6b2e]">
             Straightforward plans
           </div>
-          <h2 className="mt-4 font-display text-3xl">Start small. Grow to five projects.</h2>
+          <h2 className="mt-4 font-display text-3xl">
+            Start small. Grow to {PLAN_LIMITS.agency.maxProjects} projects on Agency.
+          </h2>
           <p className="mt-4 text-sm leading-6 text-[#647183]">
             Choose the usage level that fits today. Backlinks remains an explicit add-on, and
-            cancellation stays visible in your account.
+            cancellation stays visible in your account. New paid subscriptions remain on hold while
+            payment setup and testing are completed.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link to="/pricing">

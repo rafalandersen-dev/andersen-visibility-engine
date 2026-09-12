@@ -12,7 +12,6 @@ import {
   PLAN_META,
   PLAN_LIMITS,
   MARKET_CURRENCY,
-  BILLING_MARKETS,
   planPrice,
   addOnPrice,
   formatMoney,
@@ -122,10 +121,15 @@ function PricingBody() {
           Pricing
         </div>
         <h1 className="mt-4 font-display text-4xl tracking-[-0.035em] md:text-[54px]">
-          Simple plans. Clear limits. No lock-in.
+          Simple plans. Clear limits.
         </h1>
         <p className="mt-4 text-lg text-muted-foreground">
-          Start with one project. Scale to fifteen when your clients do.
+          Start with one project. Scale to {PLAN_LIMITS.agency.maxProjects} on Agency.
+        </p>
+        <p className="mt-3 text-sm text-muted-foreground">
+          New paid subscriptions, add-on activation and marketplace purchases remain on hold while
+          payment setup, testing and supplier acceptance are completed. Listed capabilities describe
+          plan limits; connections and paid services need separate setup and verification.
         </p>
         <div className="mt-7 inline-block text-left lg:absolute lg:right-6 lg:top-1 lg:mt-0">
           <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
@@ -200,18 +204,18 @@ function PricingBody() {
       <div className="mt-8 grid overflow-hidden rounded-xl border border-border bg-card md:grid-cols-3">
         <PricingPromise
           icon={CircleCheck}
-          title="Cancel anytime"
-          body="No lock-in. Manage or cancel in Billing."
+          title="Manage existing subscriptions"
+          body="Use Billing for linked subscriptions. Contact support if the portal is unavailable."
         />
         <PricingPromise
           icon={Link2}
           title="Backlinks is a separate add-on"
-          body="Activate it only when you are ready."
+          body="Paid activation remains on hold pending payment and supplier acceptance."
         />
         <PricingPromise
           icon={ShoppingCart}
           title="Marketplace placements billed individually"
-          body="Review the publisher and price before purchase."
+          body="Purchases remain on hold. Review the publisher, terms and price before any future order."
         />
       </div>
 
@@ -303,7 +307,8 @@ function PricingBody() {
           <h3 className="mt-2 font-display text-lg">Backlinks workspace</h3>
           <p className="mt-2 text-sm text-muted-foreground">
             Link profile and gap analysis, marketplace access and reviewable outreach. Pricing is
-            shown before activation; publisher placements are billed individually.
+            shown before activation; publisher placements are billed individually. Activation and
+            purchases remain on hold pending payment and supplier acceptance.
           </p>
           <a
             href="mailto:support@milogrowth.com?subject=Backlinks%20add-on"
