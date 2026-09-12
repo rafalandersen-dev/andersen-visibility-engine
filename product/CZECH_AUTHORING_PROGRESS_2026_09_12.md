@@ -1,6 +1,6 @@
 # Czech interface authoring — 12 September 2026
 
-Czech is staged only: 855 of the current 3,768 English interface keys, across thirteen complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI retain their separate staged acceptance status.
+Czech is staged only: 955 of the current 3,768 English interface keys, across fourteen complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI retain their separate staged acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -17,14 +17,15 @@ Czech is staged only: 855 of the current 3,768 English interface keys, across th
 | Editor screen | 148 | 7b7c947 |
 | Public pricing | 40 | 77f6ac6 |
 | Public case studies | 30 | 77f6ac6 |
+| Public home | 100 | b9e714e |
 
-The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 24 Czech/catalog tests, scoped lint and whitespace pass. Current batch type checking passes (log: /tmp/milo-czech-public-pricing-studies-types.log).
+The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 25 Czech/catalog tests, scoped lint and whitespace pass. Current batch type checking passes (log: /tmp/milo-czech-public-home-types.log).
 
 Terminology: pracovní prostor (workspace), projekt, heslo (password), obnovení hesla (password recovery), postranní panel (sidebar), archivovat (archive). Prefer direct formal-plural instructions; use schválit for approval, potvrdit for confirmation, ověřit for verification and zkontrolovat for review. Product/provider names and placeholders remain intact.
 
 Recovery text preserves conditional account eligibility and does not confirm that an account exists. Source claims about monthly planning and successful sign-in after password update retain their implementation/acceptance obligations; translation does not prove them. No email, authentication, password or provider operation occurred.
 
-Remaining: 2,913 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next complete batch: public home, using current composed English. This initial Czech batch does not complete R20 or alter release gates.
+Remaining: 2,813 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next complete batch: beta screen, using current composed English. This initial Czech batch does not complete R20 or alter release gates.
 
 Core review: Plán, Obsah, Viditelnost and Nastavení label the main navigation areas. Work target dates remain distinct from publication times; Naplánováno denotes planned work, while Čas zveřejnění nastaven denotes a publication schedule. Odesláno na web does not mean Zveřejněno. Partial setup success remains separate from completion, and application language, content language and market stay separate settings. Inherited generation/setup claims are translated without proving live behavior. No onboarding, generation, schedule or billing operation occurred.
 
@@ -39,3 +40,5 @@ Plan-screen review: cílové datum práce is distinct from čas zveřejnění. A
 Editor-screen review: sent, published and last-attempt timestamps remain distinct. Image copy preserves the upload limit, alternative-text requirement, controlled-origin boundary and explicit save reminder. Source reachability is separate from support for a claim, and verified status cannot be selected manually. Author consent/non-invention, the non-blocking health/finance/legal recommendation and CMS/search-engine discretion retain source meaning. Product and provider claims still require implementation/live acceptance. No image upload, generation, source request, approval or publication occurred.
 
 Public pricing/case-study review: public region and displayed pricing remain distinct from billing-country eligibility. New paid plans, add-on activation and marketplace purchases remain on hold. Backlinks and publisher placements are separate purchases. Synergy, Andersen and SI examples preserve setup/internal/demo status and incomplete live publication/measurement acceptance; no customer growth results are asserted. No checkout, activation, provider or publication action occurred.
+
+Public-home review: Viditelnost matches interface navigation, Bez marketingové agentury distinguishes agencies from the Agency plan, and Příklady použití includes internal/demo examples. Missing data is not zero activity; saved connection settings do not prove publication success. Billing portal availability stays conditional and paid holds remain explicit. Inherited monthly-planning, retention, autonomy, AI-answer tracking and Captured-stage claims need product/implementation acceptance; translation does not verify them. No provider, generation or activation operation occurred.

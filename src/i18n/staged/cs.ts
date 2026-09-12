@@ -1,3 +1,4 @@
+import { csPublicHome } from "./cs-public-home";
 import { csPublicStudies } from "./cs-public-studies";
 import { csPublicPricing } from "./cs-public-pricing";
 import { csEditorScreen } from "./cs-editor-screen";
@@ -13,6 +14,13 @@ import { csAuthScreen } from "./cs-auth-screen";
 import { csSharedUi } from "./cs-shared-ui";
 /** Czech authoring; never imported by the runtime catalog. */
 export const CS_STAGED_BATCHES = [
+  {
+    name: "public home",
+    copy: csPublicHome,
+    namespaces: ["publicHome"],
+    sourceRevision: "b9e714e",
+    sourceHash: "2855ce0efcce2fc714afc7f61a15d64ed5975809acefb98df75a3e275ccae141",
+  },
   {
     name: "public studies",
     copy: csPublicStudies,

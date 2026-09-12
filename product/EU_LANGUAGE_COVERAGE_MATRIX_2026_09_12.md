@@ -70,3 +70,5 @@ Czech plan screen adds 113 messages: partial coverage is 637/3,768, leaving 48,3
 Czech editor screen adds 148 messages: partial coverage is 785/3,768 and the UI authoring backlog is 48,199 messages at this baseline. Activation and quality acceptance remain open.
 
 Czech public pricing/case studies adds 70 messages: partial coverage is 855/3,768, leaving 48,129 UI messages across incomplete/absent catalogs at this source baseline. Activation and quality acceptance remain open.
+
+Czech public home adds 100 messages: partial coverage is 955/3,768 and the remaining UI authoring backlog is 48,029 at this source baseline. Activation and quality acceptance remain open.
