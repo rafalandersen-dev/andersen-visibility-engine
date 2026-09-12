@@ -1,6 +1,6 @@
 # Slovenian interface authoring — 12 September 2026
 
-Slovenian is staged only: 1,978 of the current 3,768 English interface keys across twenty complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK retain separate complete staged authoring and incomplete acceptance status.
+Slovenian is staged only: 2,216 of the current 3,768 English interface keys across twenty-one complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK retain separate complete staged authoring and incomplete acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -24,14 +24,15 @@ Slovenian is staged only: 1,978 of the current 3,768 English interface keys acro
 | Configuration | 220 | b8f7f14 |
 | Collaboration | 248 | 0698092 |
 | Knowledge | 242 | 99fd1c8 |
+| Technical | 238 | 4ae023a |
 
-The frozen staged registry assigns every key once. Namespace tests verify exact keys, nonempty values, current composed-English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 31 Slovenian/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovenian-knowledge-types.log.
+The frozen staged registry assigns every key once. Namespace tests verify exact keys, nonempty values, current composed-English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 32 Slovenian/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovenian-technical-types.log.
 
 Terminology: delovni prostor (workspace), projekt, geslo (password), ponastavitev gesla (password reset), stranska vrstica (sidebar), vpis (network listing), paket (subscription plan), načrt (workflow plan), vsebinska izhodišča (content brief). Use polite plural explanatory instructions and concise action labels. Preserve provider/product names and placeholders.
 
 Recovery text retains conditional eligibility without confirming account existence. Marketing and successful sign-in source claims retain their implementation and real-use acceptance obligations. No authentication, email, account, credential or provider action occurred.
 
-Remaining: 1,790 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: technical using current composed English. This staged work does not complete R20 or change release gates.
+Remaining: 1,552 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: measurements using current composed English. This staged work does not complete R20 or change release gates.
 
 Core copy preserves interface versus content language, saved setup versus incomplete generation, work target dates versus publication times, and sent drafts versus published pages. Navigation uses Načrt, Vsebina, Vidnost, Nastavitve and Analitika. Subscription plans remain paket; workflow plans use načrt. In-review status is V pregledu; scheduled publication is Čas objave nastavljen. No generation, onboarding, schedule or publication operation occurred.
 
@@ -60,3 +61,5 @@ Configuration copy preserves brand constraints, minimum connector permissions, d
 Collaboration preserves invitation creation versus email sending/access acceptance, owner assignment plus recipient consent, exact-version review versus publication and role/policy changes withdrawing approvals. Notifications retain historical/live-state limits, uncertain recovery outcomes and provider acceptance versus delivery. Roles use Bralec, Urednik and Pregledovalec; explicit editorial lessons remain project instructions rather than factual evidence. No invitation, email, role, consent, review or publication action occurred.
 
 Knowledge copy preserves source-reported versus independently verified evidence, current versus original versions, review versus publication approval, expiry and irreversible forgetting. Weekly preparation retains exact saved timing, nonexistent local times, recovery/cancellation limits and actual queue-entry semantics. Source observations preserve bounded page/catalog capture and unconfirmed removals. Owner settings retain precedence; extraction is text-only. Editorial lesson remains uredniško pravilo. No source fetch, upload, acceptance, review decision, schedule or publication operation occurred.
+
+Technical copy preserves ownership verification/expiry, robots permissions, bounded crawl/sitemap coverage and saved observations versus demonstrated fixes. Google index history remains distinct from a live page check or indexing request. Performance copy separates page/origin, lab/real-user evidence, missing metrics and uncertain requests without automatic repetition. Search Console property uses znamka. No DNS, crawl, Google, measurement or provider request occurred.

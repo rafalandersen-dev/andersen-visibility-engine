@@ -178,3 +178,5 @@ Slovenian configuration adds 220 messages at source b8f7f14: 1,488/3,768 in eigh
 Slovenian collaboration adds 248 messages at source 0698092: 1,736/3,768 in nineteen staged batches. Remaining UI authoring backlog: 39,712 messages. All 30 focused tests, types, scoped lint and whitespace pass. Runtime activation and language/rendered acceptance remain open.
 
 Slovenian knowledge adds 242 messages at source 99fd1c8: 1,978/3,768 in twenty staged batches. Remaining UI authoring backlog: 39,470 messages. All 31 focused tests, types, scoped lint, formatting and whitespace pass. Runtime activation and language/rendered acceptance remain open.
+
+Slovenian technical adds 238 messages at source 4ae023a: 2,216/3,768 in twenty-one staged batches. Remaining UI authoring backlog: 39,232 messages. All 32 focused tests, types, scoped lint, formatting and whitespace pass. Runtime activation and language/rendered acceptance remain open.
