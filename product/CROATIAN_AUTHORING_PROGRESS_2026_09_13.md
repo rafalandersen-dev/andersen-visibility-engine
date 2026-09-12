@@ -1,6 +1,6 @@
 # Croatian interface authoring — 13 September 2026
 
-Croatian is staged only: 524 of the current 3,768 English interface keys across nine complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK/SL retain complete staged authoring and incomplete acceptance status.
+Croatian is staged only: 637 of the current 3,768 English interface keys across ten complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK/SL retain complete staged authoring and incomplete acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -13,8 +13,9 @@ Croatian is staged only: 524 of the current 3,768 English interface keys across 
 | Analytics screen | 36 | 84890e0 |
 | Billing screen | 54 | 84890e0 |
 | Competitor and AI-readiness evidence screen | 89 | 5b2f76a |
+| Plan screen | 113 | 26439c1 |
 
-The frozen staged registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 20 Croatian/catalog tests, scoped lint, whitespace and type checking pass. Changed code formatted. Type log: /tmp/milo-croatian-evidence-screen-types.log.
+The frozen staged registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 21 Croatian/catalog tests, scoped lint, whitespace and type checking pass. Changed code formatted. Type log: /tmp/milo-croatian-plan-types.log.
 
 Terminology: radni prostor (workspace), projekt, lozinka (password), ponovno postavljanje lozinke (password reset), bočna traka (sidebar), unos (network listing), paket (subscription plan), plan (workflow plan), smjernice za sadržaj (content brief), poveznica (link). Use polite plural explanatory instructions and concise action labels. Preserve provider/product names and placeholders.
 
@@ -28,4 +29,6 @@ Analytics copy preserves recorded-event versus unique-visitor distinctions, clic
 
 Evidence-screen copy retains snapshot versus continuous-monitoring limits, failed retrieval as no competitor evidence, opposite gap/readiness score directions and the separation of readiness estimates, recorded answers and AI referrals. Terms include upit (prompt), nedostatak (gap), snimka stanja (snapshot) and odredišna stranica (landing page). No competitor retrieval, model request, analysis or opportunity creation occurred.
 
-Remaining: 3,244 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: plan screen using the current composed English source. This staged work does not complete R20 or change release gates.
+Plan copy distinguishes work targets from publication times, suggestion acceptance from content creation/scheduling, sample rows from project evidence, skipped batch items and unlinked drafts with still-active publication schedules. Terms include ciljni datum rada (work target), Ploča/Popis/Kalendar (Board/List/Calendar) and obnovi (restore). No generation, sample removal, scheduling, archive or restoration action occurred.
+
+Remaining: 3,131 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: editor screen using the current composed English source. This staged work does not complete R20 or change release gates.
