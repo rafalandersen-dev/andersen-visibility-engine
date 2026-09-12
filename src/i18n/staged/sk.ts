@@ -1,3 +1,4 @@
+import { skCollaboration } from "./sk-collaboration";
 import { skConfiguration } from "./sk-configuration";
 import { skPublicBeta } from "./sk-public-beta";
 import { skBetaGuide } from "./sk-beta-guide";
@@ -154,6 +155,13 @@ export const SK_STAGED_BATCHES = [
     namespaces: ["brand", "wp", "shopify", "claude", "connect", "connections", "coverage"],
     sourceRevision: "b5e84bf",
     sourceHash: "0e11ebfcac212ec85d91c8734430e0cd661dc727057c565c1cfcd33f59a1aa60",
+  },
+  {
+    name: "collaboration",
+    copy: skCollaboration,
+    namespaces: ["collaboration", "team", "notifications", "awareness", "emailSettings"],
+    sourceRevision: "6ee209c",
+    sourceHash: "429e59f16a866242f25a373ebd6b52332ae3f04534230101422ebab727f77ed0",
   },
 ] as const;
 export const SK_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
