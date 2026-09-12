@@ -1,3 +1,4 @@
+import { hrEditorScreen } from "./hr-editor-screen";
 import { hrPlanScreen } from "./hr-plan-screen";
 import { hrEvidenceScreen } from "./hr-evidence-screen";
 import { hrAnalyticsScreen } from "./hr-analytics-screen";
@@ -10,6 +11,13 @@ import { hrAuthScreen } from "./hr-auth-screen";
 import { hrSharedUi } from "./hr-shared-ui";
 /** Croatian authoring; never imported by the runtime catalog. */
 export const HR_STAGED_BATCHES = [
+  {
+    name: "editor screen",
+    copy: hrEditorScreen,
+    namespaces: ["editorScreen"],
+    sourceRevision: "7b5b342",
+    sourceHash: "1e827d2744ea1f2d3364b54983f06b42082f45ab6dfb0eda7b1375fdddd9ec9f",
+  },
   {
     name: "plan screen",
     copy: hrPlanScreen,

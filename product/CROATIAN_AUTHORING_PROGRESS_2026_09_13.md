@@ -1,6 +1,6 @@
 # Croatian interface authoring — 13 September 2026
 
-Croatian is staged only: 637 of the current 3,768 English interface keys across ten complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK/SL retain complete staged authoring and incomplete acceptance status.
+Croatian is staged only: 785 of the current 3,768 English interface keys across eleven complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK/SL retain complete staged authoring and incomplete acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -14,8 +14,9 @@ Croatian is staged only: 637 of the current 3,768 English interface keys across 
 | Billing screen | 54 | 84890e0 |
 | Competitor and AI-readiness evidence screen | 89 | 5b2f76a |
 | Plan screen | 113 | 26439c1 |
+| Editor screen | 148 | 7b5b342 |
 
-The frozen staged registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 21 Croatian/catalog tests, scoped lint, whitespace and type checking pass. Changed code formatted. Type log: /tmp/milo-croatian-plan-types.log.
+The frozen staged registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 22 Croatian/catalog tests, scoped lint, whitespace and type checking pass. Changed code formatted. Type log: /tmp/milo-croatian-editor-types.log.
 
 Terminology: radni prostor (workspace), projekt, lozinka (password), ponovno postavljanje lozinke (password reset), bočna traka (sidebar), unos (network listing), paket (subscription plan), plan (workflow plan), smjernice za sadržaj (content brief), poveznica (link). Use polite plural explanatory instructions and concise action labels. Preserve provider/product names and placeholders.
 
@@ -31,4 +32,6 @@ Evidence-screen copy retains snapshot versus continuous-monitoring limits, faile
 
 Plan copy distinguishes work targets from publication times, suggestion acceptance from content creation/scheduling, sample rows from project evidence, skipped batch items and unlinked drafts with still-active publication schedules. Terms include ciljni datum rada (work target), Ploča/Popis/Kalendar (Board/List/Calendar) and obnovi (restore). No generation, sample removal, scheduling, archive or restoration action occurred.
 
-Remaining: 3,131 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: editor screen using the current composed English source. This staged work does not complete R20 or change release gates.
+Editor copy preserves image privacy until approval, controlled-origin and alt-text requirements, explicit draft saving, unresolved-link blocks, source validation status, real-author consent, and structured-data delivery/search-engine limits. Terms include alternativni tekst (alt text), istaknuta slika (featured image), Izvori i autor (Sources & Author) and metapodaci (metadata). No upload, image generation, approval, source validation or publication action occurred.
+
+Remaining: 2,983 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batches: public pricing and case studies using the current composed English source. This staged work does not complete R20 or change release gates.
