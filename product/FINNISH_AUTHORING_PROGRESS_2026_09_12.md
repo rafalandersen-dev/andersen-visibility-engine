@@ -1,6 +1,6 @@
 # Finnish interface authoring — 12 September 2026
 
-Finnish is staged only: 1,168 of the current 3,768 English interface keys, across sixteen complete batches. It is not registered in UI_CATALOGS or the language picker. Active UI remains EN/PL/SV/DA; the fully authored FR/DE/ES/IT/PT/NL catalogs retain their separate acceptance status.
+Finnish is staged only: 1,268 of the current 3,768 English interface keys, across seventeen complete batches. It is not registered in UI_CATALOGS or the language picker. Active UI remains EN/PL/SV/DA; the fully authored FR/DE/ES/IT/PT/NL catalogs retain their separate acceptance status.
 
 | Batch | Keys | English baseline |
 | --- | ---: | --- |
@@ -20,14 +20,15 @@ Finnish is staged only: 1,168 of the current 3,768 English interface keys, acros
 | Public home | 100 | 561f60c |
 | Beta screen | 88 | 6e07fe2 |
 | Beta guidance | 125 | c2ac48a |
+| Public beta | 100 | 0f8777e |
 
 Source material was reviewed against the current composed English values for each registered batch; tests compare the composed English catalog and its SHA-256 fingerprint, exact namespace key coverage, nonempty translations, placeholders, numbers, URLs and email tokens. The combined Finnish catalog is frozen with unique key ownership. Tests also confirm runtime exclusion.
 
 Terminology: työtila (workspace), projekti (project), salasana (password), palautuslinkki (reset link), sivupalkki (sidebar), arkistoi (archive). Use direct, concise Finnish UI instructions. Preserve conditional password-recovery wording and source placeholders. Do not translate product/provider names as ordinary words.
 
-Validation: 27 Finnish/catalog tests pass; TypeScript, scoped lint and whitespace pass. These mechanical checks do not constitute fluent-language or rendered accessibility acceptance. Source claims about monthly planning and successful sign-in after password update retain their existing implementation/acceptance boundaries.
+Validation: 28 Finnish/catalog tests pass; TypeScript, scoped lint and whitespace pass. These mechanical checks do not constitute fluent-language or rendered accessibility acceptance. Source claims about monthly planning and successful sign-in after password update retain their existing implementation/acceptance boundaries.
 
-Remaining: 2,600 English keys, fluent review, consistent terminology across the rest of the product, rendered mobile/desktop and accessibility checks, and approved activation. Next authoring batch covers the public beta page, using current composed English values rather than historical raw base strings. R20 still requires all 24 EU languages across its registered surfaces; this initial batch does not satisfy it.
+Remaining: 2,500 English keys, fluent review, consistent terminology across the rest of the product, rendered mobile/desktop and accessibility checks, and approved activation. Next authoring batch covers configuration, using current composed English values rather than historical raw base strings. R20 still requires all 24 EU languages across its registered surfaces; this initial batch does not satisfy it.
 
 Core review notes: ajastettu (scheduled), lähetetty sivustolle (sent to site), julkaistu (published), tarkista (review), vahvista (confirm). The Visibility navigation entry is Näkyvyys. Partial onboarding completion remains distinct from success. Inherited monthly-positioning, initial generation and setup-quality claims still require implementation/product acceptance; translation does not verify them.
 
@@ -48,3 +49,5 @@ Public-home review: Visibility is Näkyvyys, consistent with navigation; missing
 Beta-screen review: this namespace is the owner-only sales/validation playbook, rather than a customer setup checklist. Discovery here means tarvekartoitus (sales discovery), distinct from product ideahaku. Interface language, outreach-template language and unchanged CSV field/value semantics remain separate. Translating outreach labels does not send messages or establish participant recruitment, payment readiness or real-use acceptance.
 
 Beta-guidance review: 20–30-prospect validation and scorecard counts remain targets, not completed results. New audits, generation, outreach and publication retain source authorization boundaries; copying templates does not send messages. Stripe migration/owner setup and payment lifecycle acceptance remain open. Readiness is distinct from rankings and AI citations; demo material is distinct from verified real use. An initial text-encoding failure created no translation file; the complete file was subsequently written and the expanded suite passed.
+
+Public-beta review: one-time versus optional monthly pricing, currency amounts, pilot scope and paid-launch hold retain their English meaning. Demo data is not growth evidence; missing Search Console data is not zero activity. The existing EN/PL/SV/DA page-coverage statement is preserved while Finnish is staged and must be reconciled with approved activation. Human-review and limited-availability marketing claims retain source acceptance obligations. Long-line text-writing attempts failed before creating the file; multiline authoring succeeded and the expanded 28-test suite passed afterward.

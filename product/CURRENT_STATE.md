@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Finnish staged coverage is now 1,268/3,768 messages across seventeen batches, adding public beta (100). All 28 Finnish/catalog tests pass, plus types/scoped lint/whitespace. Pricing periods/currencies, conditional pilot scope and demo-versus-measurement distinctions remain explicit. The source page-language statement needs reconciliation at approved activation. Finnish stays inactive; 2,500 keys and language/rendered acceptance remain. See FINNISH_AUTHORING_PROGRESS_2026_09_12.md. Full roadmap and release gates remain open.
+
 Finnish staged coverage is now 1,168/3,768 messages across sixteen batches, adding beta guidance (125). All 27 Finnish/catalog tests pass, plus types/scoped lint/whitespace. Validation targets remain separate from achieved outcomes; demo, outreach, generation, publishing and payment boundaries remain explicit. Finnish stays inactive; 2,600 keys and language/rendered acceptance remain. See FINNISH_AUTHORING_PROGRESS_2026_09_12.md. Full roadmap and release gates remain open.
 
 Finnish staged coverage is now 1,043/3,768 messages across fifteen batches, adding the owner-only beta playbook screen (88). All 26 Finnish/catalog tests pass, plus types/scoped lint/whitespace. Sales discovery, separate outreach language and unchanged CSV field/value semantics remain explicit. Finnish stays inactive; 2,725 keys and language/rendered acceptance remain. See FINNISH_AUTHORING_PROGRESS_2026_09_12.md. No outreach or live acceptance occurred; full roadmap and release gates remain open.

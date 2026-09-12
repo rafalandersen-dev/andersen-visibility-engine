@@ -1,3 +1,4 @@
+import { fiPublicBeta } from "./fi-public-beta";
 import { fiBetaGuidance } from "./fi-beta-guidance";
 import { fiBetaScreen } from "./fi-beta-screen";
 import { fiPublicHome } from "./fi-public-home";
@@ -17,6 +18,13 @@ import { fiSharedUi } from "./fi-shared-ui";
 
 /** Finnish authoring; never imported by the runtime catalog. */
 export const FI_STAGED_BATCHES = [
+  {
+    name: "public beta",
+    copy: fiPublicBeta,
+    namespaces: ["publicBeta"],
+    sourceRevision: "0f8777e",
+    sourceHash: "e670953b131c40fc4433b5ce6e5b256556bf37ea8709bc495b211efc361fb59e",
+  },
   {
     name: "beta guidance",
     copy: fiBetaGuidance,
