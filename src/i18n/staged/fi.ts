@@ -1,3 +1,4 @@
+import { fiMeasurements } from "./fi-measurements";
 import { fiTechnical } from "./fi-technical";
 import { fiKnowledge } from "./fi-knowledge";
 import { fiCollaboration } from "./fi-collaboration";
@@ -22,6 +23,13 @@ import { fiSharedUi } from "./fi-shared-ui";
 
 /** Finnish authoring; never imported by the runtime catalog. */
 export const FI_STAGED_BATCHES = [
+  {
+    name: "measurements",
+    copy: fiMeasurements,
+    namespaces: ["analytics", "gsc", "report"],
+    sourceRevision: "9dc100e",
+    sourceHash: "216126da773525ef913fe7e10a4db7af57539ea07dae497fd349051da3088395",
+  },
   {
     name: "technical",
     copy: fiTechnical,

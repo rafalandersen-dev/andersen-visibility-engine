@@ -3,6 +3,8 @@ import { expect, it } from "vitest";
 import { UI_CATALOGS, isUiLanguage } from "../catalogs";
 import { FI_STAGED_BATCHES, FI_STAGED_CATALOG } from "./fi";
 
+const numericTokens = /\b\d+(?:\.\d+)?(?=\b|(?:st|nd|rd|th|d)\b)/g;
+
 const tokens = (value: string, pattern: RegExp) =>
   [...value.matchAll(pattern)].map((match) => match[0]).sort();
 it.each(FI_STAGED_BATCHES)("Finnish $name matches reviewed source and parameters", (batch) => {
@@ -27,7 +29,7 @@ it.each(FI_STAGED_BATCHES)("Finnish $name matches reviewed source and parameters
     expect(value.trim(), key).not.toBe("");
     for (const pattern of [
       /\{[a-zA-Z][\w]*\}/g,
-      /\b\d+(?:\.\d+)?(?=\b|(?:st|nd|rd|th)\b)/g,
+      numericTokens,
       /https?:\/\/[^\s"<>]+/g,
       /[\w.+-]+@[\w.-]+\.[a-z]{2,}/gi,
     ])
@@ -40,6 +42,14 @@ it("keeps staged Finnish outside runtime and assigns each key once", () => {
   const keys = FI_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(new Set(keys).size).toBe(keys.length);
   expect(Object.keys(FI_STAGED_CATALOG).sort()).toEqual(keys.sort());
-  expect(keys).toHaveLength(2216);
+  expect(keys).toHaveLength(2420);
   expect(Object.isFrozen(FI_STAGED_CATALOG)).toBe(true);
+});
+
+it("preserves numeric day periods across localized unit spacing", () => {
+  expect(tokens("Visits (30d)", numericTokens)).toEqual(["30"]);
+  expect(tokens("Käynnit (30 pv)", numericTokens)).toEqual(["30"]);
+  expect(tokens("Käynnit (31 pv)", numericTokens)).not.toEqual(
+    tokens("Visits (30d)", numericTokens),
+  );
 });
