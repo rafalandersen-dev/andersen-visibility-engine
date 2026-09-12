@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Dutch interface authoring has started with 72/3,768 messages: authentication (42) and shared controls (30). All thirteen Dutch/catalog tests plus types/scoped lint/whitespace pass; 3,696 messages and fluency/rendered acceptance remain. See DUTCH_AUTHORING_PROGRESS_2026_09_12.md. Staged only, excluded from runtime/picker; no release or progress-estimate change.
+
 Integrated application regression at 851ee14 passes all 4,911 tests across 328 files after the weekly and notification changes. See the follow-up in INTEGRATED_CANDIDATE_CHECK_2026_09_12.md. The separate Worker result remains scoped to its earlier run; full types/build passed at 851ee14. Local acceptance evidence has expanded, but real workflow/transport, full R20 language coverage and release gates remain open.
 
 Operational notification sweeps now run the existing bounded account batch concurrently with ten-second operation waits. A stalled account no longer serially blocks healthy accounts, and late read completion cannot resume its timed-out scan. Thirty focused tests, full types/build/scoped lint/whitespace pass. See NOTIFICATION_SWEEP_WAIT_BOUNDS_2026_09_12.md for concurrency and late-mutation limits. Prepared, unreleased; real load/delivery and release acceptance remain open.
