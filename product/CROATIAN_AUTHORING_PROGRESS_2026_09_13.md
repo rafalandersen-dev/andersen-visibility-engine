@@ -1,6 +1,6 @@
 # Croatian interface authoring — 13 September 2026
 
-Croatian is staged only: 955 of the current 3,768 English interface keys across fourteen complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK/SL retain complete staged authoring and incomplete acceptance status.
+Croatian is staged only: 1,043 of the current 3,768 English interface keys across fifteen complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK/SL retain complete staged authoring and incomplete acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -18,8 +18,9 @@ Croatian is staged only: 955 of the current 3,768 English interface keys across 
 | Public pricing | 40 | 9c59c24 |
 | Public case studies | 30 | 9c59c24 |
 | Public home | 100 | dce3a94 |
+| Beta screen | 88 | 43e885c |
 
-The frozen staged registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 25 Croatian/catalog tests, scoped lint, whitespace and type checking pass. Changed code formatted. Type log: /tmp/milo-croatian-home-types.log.
+The frozen staged registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 26 Croatian/catalog tests, scoped lint, whitespace and type checking pass. Changed code formatted. Type log: /tmp/milo-croatian-beta-screen-types.log.
 
 Terminology: radni prostor (workspace), projekt, lozinka (password), ponovno postavljanje lozinke (password reset), bočna traka (sidebar), unos (network listing), paket (subscription plan), plan (workflow plan), smjernice za sadržaj (content brief), poveznica (link). Use polite plural explanatory instructions and concise action labels. Preserve provider/product names and placeholders.
 
@@ -41,4 +42,6 @@ Public pricing retains region versus billing eligibility, separate placement pur
 
 Public home retains missing-data versus zero-activity distinctions, supported-connection/verified-destination requirements, linked-subscription portal limits and paid activation/purchase holds. The three headline fragments join as “Vaš mjesečni sustav rasta uz umjetnu inteligenciju”; src/routes/index.tsx joins them in this order with spaces. This is a copy/source check, not rendered acceptance. Existing marketing claims still require implementation and real-use evidence. No provider operation occurred.
 
-Remaining: 2,813 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: beta screen using the current composed English source. This staged work does not complete R20 or change release gates.
+Beta-screen copy preserves owner-only sales guidance, separate outreach-language selection and review, original CSV fields/values, validation cohort counts and prospect statuses. Sales discovery is utvrđivanje potreba, distinct from product discovery (otkrivanje). No outreach, recruitment, provider action or CSV data change occurred.
+
+Remaining: 2,725 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: beta guidance using the current composed English source. This staged work does not complete R20 or change release gates.
