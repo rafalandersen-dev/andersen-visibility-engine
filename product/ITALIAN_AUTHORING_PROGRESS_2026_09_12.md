@@ -1,6 +1,8 @@
 # Italian interface authoring — incomplete
 
-Current staged checkpoint after 0879c73: 2,578 messages / 23 groups out of 3,768 current English messages / 28 groups. The latest 158 messages cover outreach delivery, opening hooks and image placement. Exact recipient/content review, provider acceptance versus inbox delivery, uncertain-attempt holds and separate follow-up review are preserved. No messages were sent.
+Current staged checkpoint after 49c401c: 2,779 messages / 24 groups out of 3,768 current English messages / 28 groups. The latest 201 messages cover Authority Builder, public readiness audit and pending assistant proposals. Readiness versus rankings, suggestions versus approved changes and workspace limits retain their source meaning. Authority live labels and absolute error/claim assurances remain part of the source-behavior review before activation.
+
+The preceding 158 messages cover outreach delivery, opening hooks and image placement. Exact recipient/content review, provider acceptance versus inbox delivery, uncertain-attempt holds and separate follow-up review are preserved. No messages were sent.
 
 The preceding 100 messages cover the public beta offer and demo. All public-page and beta-guidance groups are now staged. Source pricing, payment holds and incomplete live acceptance are preserved. The source language-coverage sentence still describes the four active UI languages and must be reconciled at future language activation.
 
@@ -28,8 +30,8 @@ First checkpoint after6002253:274messages/3groups. Core202 (navigation, setup, o
 
 Italian is not registered in UI_CATALOGS or the picker. This is a partial authoring checkpoint, not full language delivery. Source claim review remains necessary: inherited onboarding foundation/sample workflow claims and shell.loadError.body data-safety language must be reconciled against actual behavior before enabling staged languages. Do not mask that work by silently changing only the Italian translation or blindly regenerating source hashes.
 
-Latest validation: 34 tests / two files, full TypeScript, production build and zero staged lint pass. Tests verify namespace-complete keys, source fingerprints, placeholders, fixed numeric values and URL targets, uniqueness and runtime exclusion. Logs /tmp/milo-it-outreach-{tests,types,lint,build}.log. No fluent or rendered Italian UI acceptance, external model/translation/provider calls, account or publication operations.
+Latest validation: 35 tests / two files, full TypeScript, production build and zero staged lint pass. Tests verify namespace-complete keys, source fingerprints, placeholders, fixed numeric values and URL targets, uniqueness and runtime exclusion. Logs /tmp/milo-it-growth-{tests,types,lint,build}.log. No fluent or rendered Italian UI acceptance, external model/translation/provider calls, account or publication operations.
 
-Continue Italian in the current main task: remaining5groups (workflow/evidence/links/growth/commerce). Use English current source per group and preserve exact keys/values/placeholders. Existing German/Spanish complete authoring is included and disabled; no separate active language owner remains. No new task or subagent created.
+Continue Italian in the current main task: remaining4groups (workflow/evidence/links/commerce). Use English current source per group and preserve exact keys/values/placeholders. Existing German/Spanish complete authoring is included and disabled; no separate active language owner remains. No new task or subagent created.
 
 Overall60%/implementation75%, weighted58.25%/73.5%, paid NO-GO unchanged. All existing security-review hold, provider/account/payment, real-use and release limits persist. Broader R20 requires all24languages with acceptance, not merely completed dictionaries.
