@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   readKnowledgeOutputReviewFn,
   readKnowledgeOutputReviewHistoryFn,
@@ -19,6 +19,7 @@ export function KnowledgeOutputInspection({
   onReviewChange?: () => void;
 }) {
   const locale = useAppLanguage();
+  const inspectionId = useId();
   const t = useT();
   const [snapshot, setSnapshot] = useState<Awaited<
     ReturnType<typeof readKnowledgeOutputReviewFn>
@@ -125,7 +126,7 @@ export function KnowledgeOutputInspection({
     }
   }
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" lang={locale} aria-busy={busy}>
       <Button
         type="button"
         size="sm"
@@ -163,43 +164,48 @@ export function KnowledgeOutputInspection({
           {snapshot.forgotten && <p role="status">{t("knowledge.inspect.forgotten")}</p>}
           {snapshot.facts.map((fact, index) => (
             <div key={index} className="border-t pt-2 text-sm">
-              <p>
-                {fact.kind === "image" ? t("knowledge.inspect.image") : t("knowledge.inspect.text")}{" "}
-                · {fact.outputId}
-              </p>
-              <p>
-                {t("knowledge.inspect.original")}: {fact.reference.recordRevision} /{" "}
-                {fact.reference.sourceRevision}
-              </p>
-              {fact.record && fact.source ? (
-                <>
-                  <p className="font-medium">
-                    {fact.record.key} · {fact.source.label}
-                  </p>
-                  <p className="whitespace-pre-wrap break-words">{fact.record.value}</p>
-                  <p>
-                    {t("knowledge.inspect.current")}: {fact.record.revision} /{" "}
-                    {fact.source.revision}
-                  </p>
-                  <p>
-                    {t(`knowledge.status.${fact.record.status}`)} ·{" "}
-                    {t(`knowledge.status.${fact.source.status}`)}
-                  </p>
-                  {fact.record.validUntil && (
-                    <p>
-                      {t("knowledge.inspect.until")}:{" "}
-                      {new Date(fact.record.validUntil).toLocaleString(locale)}
+              <div id={`${inspectionId}-fact-${index}`}>
+                <p>
+                  {fact.kind === "image"
+                    ? t("knowledge.inspect.image")
+                    : t("knowledge.inspect.text")}{" "}
+                  · {fact.outputId}
+                </p>
+                <p>
+                  {t("knowledge.inspect.original")}: {fact.reference.recordRevision} /{" "}
+                  {fact.reference.sourceRevision}
+                </p>
+                {fact.record && fact.source ? (
+                  <>
+                    <p className="font-medium">
+                      {fact.record.key} · {fact.source.label}
                     </p>
-                  )}
-                </>
-              ) : (
-                <p>{t("knowledge.inspect.unavailable")}</p>
-              )}
+                    <p className="whitespace-pre-wrap break-words">{fact.record.value}</p>
+                    <p>
+                      {t("knowledge.inspect.current")}: {fact.record.revision} /{" "}
+                      {fact.source.revision}
+                    </p>
+                    <p>
+                      {t(`knowledge.status.${fact.record.status}`)} ·{" "}
+                      {t(`knowledge.status.${fact.source.status}`)}
+                    </p>
+                    {fact.record.validUntil && (
+                      <p>
+                        {t("knowledge.inspect.until")}:{" "}
+                        {new Date(fact.record.validUntil).toLocaleString(locale)}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p>{t("knowledge.inspect.unavailable")}</p>
+                )}
+              </div>
               {snapshot.reviewable && (
                 <label className="flex gap-2 pt-2">
                   <input
                     type="checkbox"
                     disabled={busy || saved}
+                    aria-describedby={`${inspectionId}-fact-${index}`}
                     checked={acknowledged.includes(fact.reviewKey)}
                     onChange={(e) =>
                       setAcknowledged((current) =>

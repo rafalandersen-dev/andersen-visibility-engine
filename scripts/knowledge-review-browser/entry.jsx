@@ -76,6 +76,20 @@ async function confirm() {
 (async () => {
   await mount("a");
   await inspect();
+  const factBox = document.querySelector("input[aria-describedby]");
+  assert(factBox, "Fact checkbox lacks a description reference");
+  const description = document.getElementById(factBox.getAttribute("aria-describedby"));
+  assert(
+    description?.textContent.includes("knowledge.inspect.original") ||
+      description?.textContent.includes(t("knowledge.inspect.original")),
+    "Fact description does not include evidence context",
+  );
+  const panel = document.querySelector("[aria-busy]");
+  assert(
+    panel?.getAttribute("lang") === (locale === "fi" ? "fi" : "en"),
+    "Panel language mismatch",
+  );
+  assert(panel.getAttribute("aria-busy") === "false", "Inspection remained busy");
   assert(button("knowledge.review.save").disabled, "Save enabled without confirmations");
   await confirm();
   assert(!button("knowledge.review.save").disabled, "Save unavailable after confirmations");
@@ -85,6 +99,7 @@ async function confirm() {
   await tick();
   assert(savedCalls === 1, "Duplicate save");
   assert(save.disabled, "Save not disabled while pending");
+  assert(panel.getAttribute("aria-busy") === "true", "Pending save does not expose busy state");
   history = [{ reviewId: "review", reviewedAt: snapshot.checkedAt, active: true }];
   settle({});
   await tick();
