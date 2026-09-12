@@ -310,6 +310,7 @@ let lastSavedDoc: WorkspaceSnapshot | null = null;
 // Invalidates asynchronous operations across hydration attempts and sign-out,
 // including a sign-out/sign-in cycle for the same account.
 let workspaceEpoch = 0;
+let workspaceReloadSequence = 0;
 
 // Review M3 (2026-07-25): saves are SERIALIZED. Overlapping saves could diff
 // against the same baseline and double-apply; chaining guarantees each save
@@ -558,10 +559,21 @@ export function resetStore(): void {
  * so the UI shows the new server state + rev immediately. A fresh state object
  * (and fresh collection arrays via stateFromRow) drives useStore re-renders.
  * Never throws; a failed reload simply leaves the current state untouched.
+ * Dirty local edits take precedence. A skipped reload requires a later refresh
+ * after saving; it must not silently discard edits or undo a concurrent save.
  */
 export async function reloadWorkspaceForUser(userId: string): Promise<void> {
   if (typeof window === "undefined") return;
   const epoch = workspaceEpoch;
+  const sequence = ++workspaceReloadSequence;
+  const baseline = lastSavedDoc;
+  const isClean = () =>
+    !!baseline &&
+    diffWorkspaceDocs(
+      baseline as Record<string, unknown>,
+      persistedSnapshot(state) as Record<string, unknown>,
+    ).isEmpty;
+  if (state.userId !== userId || !state.hydrated || !isClean()) return;
   try {
     const { data: bundleRaw } = await supabase.rpc(
       "read_workspace_bundle" as never,
@@ -570,7 +582,14 @@ export async function reloadWorkspaceForUser(userId: string): Promise<void> {
       } as never,
     );
     // Guard against a user switch mid-flight: only apply if still the same user.
-    if (bundleRaw && state.userId === userId && workspaceEpoch === epoch) {
+    if (
+      bundleRaw &&
+      state.userId === userId &&
+      workspaceEpoch === epoch &&
+      workspaceReloadSequence === sequence &&
+      lastSavedDoc === baseline &&
+      isClean()
+    ) {
       const bundle = bundleRaw as unknown as WorkspaceBundle;
       const doc = assembleWorkspaceDoc(bundle);
       state = stateFromRow(userId, doc as Partial<State>, Number(bundle.meta.rev ?? 0));

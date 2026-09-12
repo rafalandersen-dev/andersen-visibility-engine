@@ -245,3 +245,86 @@ describe("workspace save session isolation", () => {
     },
   );
 });
+
+describe("workspace reload edit preservation", () => {
+  beforeEach(() => vi.useFakeTimers());
+
+  async function hydrate() {
+    h.rpc.mockResolvedValueOnce(await bundle("initial"));
+    await hydrateForUser("owner");
+    h.rpc.mockClear();
+  }
+
+  it("does not fetch over existing unsaved changes and refreshes after saving", async () => {
+    await hydrate();
+    setState((s) => ({ ...s, activeProjectId: "local-edit" }));
+    await reloadWorkspaceForUser("owner");
+    expect(h.rpc).not.toHaveBeenCalled();
+    expect(getState().activeProjectId).toBe("local-edit");
+    h.rpc.mockResolvedValueOnce({ data: 1, error: null });
+    await saveWorkspaceNow();
+    h.rpc.mockResolvedValueOnce(await bundle("fresh"));
+    await reloadWorkspaceForUser("owner");
+    expect(getState().activeProjectId).toBe("fresh");
+  });
+
+  it("preserves edits made while a reload is in flight", async () => {
+    await hydrate();
+    const response = deferred<Response>();
+    h.rpc.mockReturnValueOnce(response.promise);
+    const reload = reloadWorkspaceForUser("owner");
+    setState((s) => ({ ...s, activeProjectId: "local-edit" }));
+    response.resolve(await bundle("remote"));
+    await reload;
+    expect(getState().activeProjectId).toBe("local-edit");
+    h.rpc.mockResolvedValueOnce({ data: 1, error: null });
+    await saveWorkspaceNow();
+    expect(h.rpc).toHaveBeenLastCalledWith(
+      "apply_workspace_entity_batch",
+      expect.objectContaining({
+        p_meta: expect.objectContaining({ activeProjectId: "local-edit" }),
+      }),
+    );
+  });
+
+  it("does not undo a save that completed while the reload was in flight", async () => {
+    await hydrate();
+    const response = deferred<Response>();
+    h.rpc.mockReturnValueOnce(response.promise);
+    const reload = reloadWorkspaceForUser("owner");
+    setState((s) => ({ ...s, activeProjectId: "saved-edit" }));
+    h.rpc.mockResolvedValueOnce({ data: 12, error: null });
+    await saveWorkspaceNow();
+    response.resolve(await bundle("stale"));
+    await reload;
+    expect(getState().activeProjectId).toBe("saved-edit");
+    expect(getState().rev).toBe(12);
+    h.rpc.mockClear();
+    await saveWorkspaceNow();
+    expect(h.rpc).not.toHaveBeenCalled();
+  });
+
+  it.each(["old-first", "new-first"])(
+    "only applies the newest requested reload (%s)",
+    async (order) => {
+      await hydrate();
+      const old = deferred<Response>();
+      const latest = deferred<Response>();
+      h.rpc.mockReturnValueOnce(old.promise).mockReturnValueOnce(latest.promise);
+      const first = reloadWorkspaceForUser("owner");
+      const second = reloadWorkspaceForUser("owner");
+      if (order === "old-first") {
+        old.resolve(await bundle("old"));
+        await first;
+        expect(getState().activeProjectId).toBe("initial");
+        latest.resolve(await bundle("latest"));
+      } else {
+        latest.resolve(await bundle("latest"));
+        await second;
+        old.resolve(await bundle("old"));
+      }
+      await Promise.all([first, second]);
+      expect(getState().activeProjectId).toBe("latest");
+    },
+  );
+});
