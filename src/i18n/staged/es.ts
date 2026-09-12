@@ -1,6 +1,8 @@
 import { esAnalyticsScreen } from "./es-analytics-screen";
 import { esAuditScreen } from "./es-audit-screen";
 import { esAuthScreen } from "./es-auth-screen";
+import { esBetaGuide } from "./es-beta-guide";
+import { esBetaScreen } from "./es-beta-screen";
 import { esBillingScreen } from "./es-billing-screen";
 import { esCollaboration } from "./es-collaboration";
 import { esCommerce } from "./es-commerce";
@@ -11,8 +13,11 @@ import { esEvidenceScreen } from "./es-evidence-screen";
 import { esEvidence } from "./es-evidence";
 import { esGrowth } from "./es-growth";
 import { esKnowledge } from "./es-knowledge";
+import { esLinks } from "./es-links";
 import { esMeasurements } from "./es-measurements";
+import { esOutreach } from "./es-outreach";
 import { esPlanScreen } from "./es-plan-screen";
+import { esPublicBeta } from "./es-public-beta";
 import { esPublicHome } from "./es-public-home";
 import { esPublicPricing } from "./es-public-pricing";
 import { esServicesScreen } from "./es-services-screen";
@@ -21,7 +26,7 @@ import { esSharedUi } from "./es-shared-ui";
 import { esTechnical } from "./es-technical";
 import { esWorkflow } from "./es-workflow";
 
-/** Incomplete Spanish authoring: 3007 messages / 22 batches.
+/** Incomplete Spanish authoring: 3734 messages / 27 batches.
  * Baseline: 3,734 English keys at 47bb01c; newer source needs reconciliation.
  * Legacy monthly scheduler, publication guarantees and provider/product claims
  * require review before activation. No fluent-user or full-interface acceptance.
@@ -47,6 +52,20 @@ export const ES_STAGED_BATCHES = [
     namespaces: ["authScreen"],
     sourceRevision: "47bb01ca49620ff2005ecebba60dced85e9f68d8",
     sourceHash: "f0d4cd1cdcf0283517e3a90abea9abdbc8528a76d9a15c10c7cad3ef84729dc8",
+  },
+  {
+    name: "beta playbook guidance",
+    copy: esBetaGuide,
+    namespaces: ["betaGuide"],
+    sourceRevision: "47bb01ca49620ff2005ecebba60dced85e9f68d8",
+    sourceHash: "8c815e10a73590a6e2911d1b5618d5d545c15a47b3a75462ccaaae6faf33520d",
+  },
+  {
+    name: "beta screen controls",
+    copy: esBetaScreen,
+    namespaces: ["betaScreen"],
+    sourceRevision: "47bb01ca49620ff2005ecebba60dced85e9f68d8",
+    sourceHash: "c4dcf4827cb49219199aab22d2969e33f643ade8a8c2c348bb899d61f3a08119",
   },
   {
     name: "billing screen",
@@ -130,6 +149,20 @@ export const ES_STAGED_BATCHES = [
     sourceHash: "a3a3297006f23628e422ddedfb5b6f5a51c6dd5f6abbc6d6e589481e49915816",
   },
   {
+    name: "links",
+    copy: esLinks,
+    namespaces: [
+      "linknet",
+      "backlinks",
+      "marketplace",
+      "backlinkMonitor",
+      "backlinkDetails",
+      "backlinkRecurring",
+    ],
+    sourceRevision: "47bb01ca49620ff2005ecebba60dced85e9f68d8",
+    sourceHash: "7b8c4cfd6fb08b518e7e0eb7fd53e767b72972a0048a75521eda0d4b9ebd40d7",
+  },
+  {
     name: "measurements",
     copy: esMeasurements,
     namespaces: ["analytics", "gsc", "report"],
@@ -137,11 +170,25 @@ export const ES_STAGED_BATCHES = [
     sourceHash: "d5a84c283031ca1ef2c696e427fb9d9327a475370d497840df4293c1c9840cd9",
   },
   {
+    name: "outreach",
+    copy: esOutreach,
+    namespaces: ["outreach", "hook", "anchor"],
+    sourceRevision: "47bb01ca49620ff2005ecebba60dced85e9f68d8",
+    sourceHash: "c2bfe98eb710f1587237c92b04696e6f9221e67def7d1080eb7ce08e3d1161b4",
+  },
+  {
     name: "plan screen",
     copy: esPlanScreen,
     namespaces: ["planScreen"],
     sourceRevision: "47bb01ca49620ff2005ecebba60dced85e9f68d8",
     sourceHash: "288f529ed3a18c00623c05011262d3cce0374158e558959fa8fc9dbc63174bb7",
+  },
+  {
+    name: "public beta and demo",
+    copy: esPublicBeta,
+    namespaces: ["publicBeta"],
+    sourceRevision: "47bb01ca49620ff2005ecebba60dced85e9f68d8",
+    sourceHash: "e670953b131c40fc4433b5ce6e5b256556bf37ea8709bc495b211efc361fb59e",
   },
   {
     name: "public home",
