@@ -1,3 +1,4 @@
+import { auditScreenCopy } from "./audit-screen";
 import { evidenceScreenCopy } from "./evidence-screen";
 /** Browser-independent UI catalogs. English is the fallback for every product area.
  * Content and email languages use their separate registries and preferences. */
@@ -62,6 +63,7 @@ const OVERRIDES: readonly Record<OnboardingLanguage, Dictionary>[] = [
   editorScreenCopy,
   planScreenCopy,
   evidenceScreenCopy,
+  auditScreenCopy,
 ];
 export const UI_LANGUAGE_CODES = ["en", "pl", "sv", "da"] as const;
 export function isUiLanguage(value: unknown): value is OnboardingLanguage {

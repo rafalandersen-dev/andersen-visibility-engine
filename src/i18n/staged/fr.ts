@@ -1,3 +1,4 @@
+import { frAuditScreen } from "./fr-audit-screen";
 import { frEvidenceScreen } from "./fr-evidence-screen";
 import { frCore } from "./fr-core";
 import { frWorkflow } from "./fr-workflow";
@@ -17,6 +18,7 @@ import { frPlanScreen } from "./fr-plan-screen";
 /** Authoring batches only. Dictionary coverage does not establish full interface
  * acceptance. This catalog is not registered by the runtime or language picker. */
 export const FR_STAGED_BATCHES = [
+  { name: "audit screen", copy: frAuditScreen, namespaces: ["auditScreen"] },
   { name: "evidence screen", copy: frEvidenceScreen, namespaces: ["evidenceScreen"] },
   { name: "plan screen", copy: frPlanScreen, namespaces: ["planScreen"] },
   {
