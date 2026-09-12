@@ -1,3 +1,4 @@
+import { publicBetaCopy } from "./public-beta";
 import { betaGuidanceCopy } from "./beta-guidance";
 import { betaScreenCopy } from "./beta-screen";
 import { authScreenCopy } from "./auth-screen";
@@ -80,6 +81,7 @@ const OVERRIDES: readonly Record<OnboardingLanguage, Dictionary>[] = [
   authScreenCopy,
   betaScreenCopy,
   betaGuidanceCopy,
+  publicBetaCopy,
 ];
 export const UI_LANGUAGE_CODES = ["en", "pl", "sv", "da"] as const;
 export function isUiLanguage(value: unknown): value is OnboardingLanguage {
