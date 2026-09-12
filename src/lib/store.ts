@@ -592,7 +592,12 @@ export async function reloadWorkspaceForUser(userId: string): Promise<void> {
     ) {
       const bundle = bundleRaw as unknown as WorkspaceBundle;
       const doc = assembleWorkspaceDoc(bundle);
-      state = stateFromRow(userId, doc as Partial<State>, Number(bundle.meta.rev ?? 0));
+      // Workspace rows cannot grant or revoke a plan. Keep the latest display
+      // mirror supplied by the separate authoritative entitlement request.
+      state = {
+        ...stateFromRow(userId, doc as Partial<State>, Number(bundle.meta.rev ?? 0)),
+        subscription: state.subscription,
+      };
       lastSavedDoc = doc as WorkspaceSnapshot; // fresh server truth = fresh baseline
       notify();
     }

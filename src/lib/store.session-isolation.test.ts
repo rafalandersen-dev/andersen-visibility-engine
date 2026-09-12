@@ -328,3 +328,39 @@ describe("workspace reload edit preservation", () => {
     },
   );
 });
+
+describe("workspace reload entitlement separation", () => {
+  it("preserves the verified plan while applying new workspace content", async () => {
+    h.rpc.mockResolvedValueOnce(await bundle("initial"));
+    h.entitlement.mockResolvedValueOnce(paid);
+    await hydrateForUser("owner");
+    const subscription = getState().subscription;
+    h.rpc.mockResolvedValueOnce(await bundle("refreshed"));
+    await reloadWorkspaceForUser("owner");
+    expect(getState().activeProjectId).toBe("refreshed");
+    expect(getState().subscription).toBe(subscription);
+    expect(getState().subscription?.planId).toBe("agency");
+    expect(h.entitlement).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a newer authoritative downgrade received while workspace reload is pending", async () => {
+    h.rpc.mockResolvedValueOnce(await bundle("initial"));
+    h.entitlement.mockResolvedValueOnce(paid);
+    await hydrateForUser("owner");
+    const response = deferred<Response>();
+    h.rpc.mockReturnValueOnce(response.promise);
+    const reload = reloadWorkspaceForUser("owner");
+    h.entitlement.mockResolvedValueOnce(free);
+    await refreshEntitlement();
+    const backend = makeEntityBackend();
+    backend.state.doc = {
+      projects: [{ id: "refreshed" }],
+      activeProjectId: "refreshed",
+      subscription: { planId: "agency", status: "active" },
+    };
+    response.resolve(await backend.rpc("read_workspace_bundle", {}));
+    await reload;
+    expect(getState().activeProjectId).toBe("refreshed");
+    expect(getState().subscription).toBeUndefined();
+  });
+});
