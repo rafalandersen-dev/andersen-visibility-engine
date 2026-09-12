@@ -16,12 +16,16 @@ import type { Priority, ServiceItem } from "@/lib/types";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { useId, useState } from "react";
 import { toast } from "sonner";
+import { useT } from "@/i18n";
 
 export const Route = createFileRoute("/_authenticated/app/services")({
   head: () => ({
     meta: [
       { title: "Services & Products — Milo Growth" },
-      { name: "description", content: "Catalog of services and products the AI uses to ground content." },
+      {
+        name: "description",
+        content: "Catalog of services and products the AI uses to ground content.",
+      },
     ],
   }),
   component: ServicesPage,
@@ -38,6 +42,7 @@ const empty = (projectId: string): Omit<ServiceItem, "id"> => ({
 });
 
 function ServicesPage() {
+  const t = useT();
   const activeProjectId = useStore((s) => s.activeProjectId);
   const items = useStore((s) => s.services.filter((x) => x.projectId === activeProjectId));
   const [editing, setEditing] = useState<ServiceItem | null>(null);
@@ -47,11 +52,11 @@ function ServicesPage() {
 
   return (
     <AppShell
-      title="Services & products"
-      description="Anchor your visibility programme in what you actually sell."
+      title={t("nav.services")}
+      description={t("servicesScreen.subtitle")}
       actions={
         <Button onClick={startCreate}>
-          <Plus className="h-4 w-4" /> Add item
+          <Plus className="h-4 w-4" /> {t("servicesScreen.add")}
         </Button>
       }
     >
@@ -59,43 +64,74 @@ function ServicesPage() {
         <table className="w-full text-sm">
           <thead className="bg-secondary/60 text-xs uppercase tracking-[0.14em] text-muted-foreground">
             <tr>
-              <th className="text-left px-5 py-3 font-medium">Name</th>
-              <th className="text-left px-5 py-3 font-medium">Type</th>
-              <th className="text-left px-5 py-3 font-medium">Audience</th>
-              <th className="text-left px-5 py-3 font-medium">Location</th>
-              <th className="text-left px-5 py-3 font-medium">Priority</th>
+              <th className="text-left px-5 py-3 font-medium">{t("servicesScreen.name")}</th>
+              <th className="text-left px-5 py-3 font-medium">{t("servicesScreen.type")}</th>
+              <th className="text-left px-5 py-3 font-medium">{t("servicesScreen.audience")}</th>
+              <th className="text-left px-5 py-3 font-medium">{t("servicesScreen.location")}</th>
+              <th className="text-left px-5 py-3 font-medium">{t("evidenceScreen.priority")}</th>
               <th className="w-32" />
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {items.length === 0 ? (
-              <tr><td colSpan={6} className="px-5 py-12">
-                <div className="text-center">
-                  <div className="font-display text-lg mb-1">No services or products yet</div>
-                  <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                    Add what this business actually sells. The AI uses this catalog to ground every brief, draft and CTA it generates for this project.
-                  </p>
-                  <Button className="mt-4" onClick={startCreate}><Plus className="h-4 w-4" /> Add first item</Button>
-                </div>
-              </td></tr>
-            ) : items.map((s) => (
-              <tr key={s.id} className="hover:bg-secondary/40">
-                <td className="px-5 py-3">
-                  <div className="font-medium">{s.name}</div>
-                  <div className="text-xs text-muted-foreground truncate max-w-md">{s.description}</div>
-                </td>
-                <td className="px-5 py-3">
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-secondary border border-border">{s.kind}</span>
-                </td>
-                <td className="px-5 py-3 text-muted-foreground">{s.targetAudience}</td>
-                <td className="px-5 py-3 text-muted-foreground">{s.locationRelevance}</td>
-                <td className="px-5 py-3"><PriorityPill p={s.priority} /></td>
-                <td className="px-5 py-3 text-right">
-                  <Button variant="ghost" size="icon" onClick={() => setEditing(s)}><Pencil className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" onClick={() => { deleteService(s.id); toast.success("Removed"); }}><Trash2 className="h-4 w-4" /></Button>
+              <tr>
+                <td colSpan={6} className="px-5 py-12">
+                  <div className="text-center">
+                    <div className="font-display text-lg mb-1">
+                      {t("servicesScreen.emptyTitle")}
+                    </div>
+                    <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                      {t("servicesScreen.emptyHelp")}
+                    </p>
+                    <Button className="mt-4" onClick={startCreate}>
+                      <Plus className="h-4 w-4" /> {t("servicesScreen.first")}
+                    </Button>
+                  </div>
                 </td>
               </tr>
-            ))}
+            ) : (
+              items.map((s) => (
+                <tr key={s.id} className="hover:bg-secondary/40">
+                  <td className="px-5 py-3">
+                    <div className="font-medium">{s.name}</div>
+                    <div className="text-xs text-muted-foreground truncate max-w-md">
+                      {s.description}
+                    </div>
+                  </td>
+                  <td className="px-5 py-3">
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-secondary border border-border">
+                      {t(`common.${s.kind.toLowerCase()}`)}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3 text-muted-foreground">{s.targetAudience}</td>
+                  <td className="px-5 py-3 text-muted-foreground">{s.locationRelevance}</td>
+                  <td className="px-5 py-3">
+                    <PriorityPill p={s.priority} />
+                  </td>
+                  <td className="px-5 py-3 text-right">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={t("servicesScreen.editNamed", { name: s.name })}
+                      onClick={() => setEditing(s)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={t("servicesScreen.removeNamed", { name: s.name })}
+                      onClick={() => {
+                        deleteService(s.id);
+                        toast.success(t("servicesScreen.removed"));
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -103,14 +139,17 @@ function ServicesPage() {
       {(editing || creating) && (
         <Editor
           value={(editing ?? creating) as ServiceItem | Omit<ServiceItem, "id">}
-          onClose={() => { setEditing(null); setCreating(null); }}
+          onClose={() => {
+            setEditing(null);
+            setCreating(null);
+          }}
           onSave={(v) => {
             if (editing) {
               updateService(editing.id, v);
-              toast.success("Saved");
+              toast.success(t("servicesScreen.saved"));
             } else {
               addService(v as Omit<ServiceItem, "id">);
-              toast.success("Added");
+              toast.success(t("servicesScreen.added"));
             }
             setEditing(null);
             setCreating(null);
@@ -122,12 +161,17 @@ function ServicesPage() {
 }
 
 function PriorityPill({ p }: { p: Priority }) {
+  const t = useT();
   const map = {
     High: "bg-accent/30 text-accent-foreground border-accent/40",
     Medium: "bg-secondary text-secondary-foreground border-border",
     Low: "bg-muted text-muted-foreground border-border",
   } as const;
-  return <span className={`text-xs px-2 py-0.5 rounded-full border ${map[p]}`}>{p}</span>;
+  return (
+    <span className={`text-xs px-2 py-0.5 rounded-full border ${map[p]}`}>
+      {t(`common.${p.toLowerCase()}`)}
+    </span>
+  );
 }
 
 function Editor({
@@ -139,6 +183,7 @@ function Editor({
   onClose: () => void;
   onSave: (v: ServiceItem | Omit<ServiceItem, "id">) => void;
 }) {
+  const t = useT();
   const [f, setF] = useState(value);
   const upd = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((p) => ({ ...p, [k]: v }));
   const nameId = useId();
@@ -148,49 +193,92 @@ function Editor({
   const audienceId = useId();
   const locationId = useId();
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-card border border-border rounded-lg w-full max-w-xl p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
-        <div className="font-display text-xl">{"id" in f && f.id ? "Edit item" : "Add item"}</div>
+    <div
+      className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-card border border-border rounded-lg w-full max-w-xl p-6 space-y-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="font-display text-xl">
+          {t("id" in f && f.id ? "servicesScreen.edit" : "servicesScreen.add")}
+        </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
-            <Label htmlFor={nameId} className="text-xs">Name</Label>
+            <Label htmlFor={nameId} className="text-xs">
+              {t("servicesScreen.name")}
+            </Label>
             <Input id={nameId} value={f.name} onChange={(e) => upd("name", e.target.value)} />
           </div>
           <div>
-            <Label htmlFor={typeId} className="text-xs">Type</Label>
+            <Label htmlFor={typeId} className="text-xs">
+              {t("servicesScreen.type")}
+            </Label>
             <Select value={f.kind} onValueChange={(v) => upd("kind", v as "Service" | "Product")}>
-              <SelectTrigger id={typeId}><SelectValue /></SelectTrigger>
+              <SelectTrigger id={typeId}>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Service">Service</SelectItem>
-                <SelectItem value="Product">Product</SelectItem>
+                <SelectItem value="Service">{t("common.service")}</SelectItem>
+                <SelectItem value="Product">{t("common.product")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div>
-            <Label htmlFor={priorityId} className="text-xs">Priority</Label>
+            <Label htmlFor={priorityId} className="text-xs">
+              {t("evidenceScreen.priority")}
+            </Label>
             <Select value={f.priority} onValueChange={(v) => upd("priority", v as Priority)}>
-              <SelectTrigger id={priorityId}><SelectValue /></SelectTrigger>
+              <SelectTrigger id={priorityId}>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
-                {(["High","Medium","Low"] as Priority[]).map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                {(["High", "Medium", "Low"] as Priority[]).map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {t(`common.${p.toLowerCase()}`)}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
           <div className="col-span-2">
-            <Label htmlFor={descId} className="text-xs">Description</Label>
-            <Textarea id={descId} rows={2} value={f.description} onChange={(e) => upd("description", e.target.value)} />
+            <Label htmlFor={descId} className="text-xs">
+              {t("servicesScreen.description")}
+            </Label>
+            <Textarea
+              id={descId}
+              rows={2}
+              value={f.description}
+              onChange={(e) => upd("description", e.target.value)}
+            />
           </div>
           <div className="col-span-2">
-            <Label htmlFor={audienceId} className="text-xs">Target audience</Label>
-            <Input id={audienceId} value={f.targetAudience} onChange={(e) => upd("targetAudience", e.target.value)} />
+            <Label htmlFor={audienceId} className="text-xs">
+              {t("servicesScreen.targetAudience")}
+            </Label>
+            <Input
+              id={audienceId}
+              value={f.targetAudience}
+              onChange={(e) => upd("targetAudience", e.target.value)}
+            />
           </div>
           <div className="col-span-2">
-            <Label htmlFor={locationId} className="text-xs">Location relevance</Label>
-            <Input id={locationId} value={f.locationRelevance} onChange={(e) => upd("locationRelevance", e.target.value)} />
+            <Label htmlFor={locationId} className="text-xs">
+              {t("servicesScreen.locationRelevance")}
+            </Label>
+            <Input
+              id={locationId}
+              value={f.locationRelevance}
+              onChange={(e) => upd("locationRelevance", e.target.value)}
+            />
           </div>
         </div>
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => onSave(f)}>Save</Button>
+          <Button variant="ghost" onClick={onClose}>
+            {t("common.cancel")}
+          </Button>
+          <Button onClick={() => onSave(f)}>{t("common.save")}</Button>
         </div>
       </div>
     </div>
