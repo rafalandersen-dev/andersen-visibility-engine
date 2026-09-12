@@ -104,3 +104,5 @@ Czech final workflow adds 345 messages, completing 3,768/3,768 current composed-
 Slovak authoring begins with 72 authentication/shared-control messages (English baseline e72328d). Current UI authoring is four active full catalogs, eight complete staged catalogs, one partial Slovak catalog and eleven absent catalogs; the unfilled-key backlog is 45,144. Slovak activation and quality acceptance remain open. See SLOVAK_AUTHORING_PROGRESS_2026_09_12.md.
 
 Slovak core adds 202 messages, bringing staged coverage to 274/3,768 across three batches. The remaining UI authoring backlog is 44,942 messages at this composed-English baseline. All 14 focused tests, types, scoped lint and whitespace pass. Activation and language/rendered acceptance remain open.
+
+Slovak setup/services/audit adds 71 messages, bringing staged coverage to 345/3,768 across six batches. The remaining UI authoring backlog is 44,871 messages at this composed-English baseline. All 17 focused tests, types, scoped lint and whitespace pass. Activation and language/rendered acceptance remain open.
