@@ -1,0 +1,51 @@
+/** Italian authoring only; disabled until full language acceptance. */
+export const itAuthScreen: Readonly<Record<string, string>> = {
+  "authScreen.tagline": "Pianificatore mensile di crescita con IA",
+  "authScreen.hero":
+    "Il tuo pianificatore mensile di crescita con IA: idee per la visibilità, brief dei contenuti e un piano d’azione chiaro.",
+  "authScreen.workspaceHelp":
+    "Accedi alla tua area di lavoro o crea un account per avviare un progetto.",
+  "authScreen.builtBy": "Realizzato da Andersen Innovations",
+  "authScreen.home": "Torna alla pagina iniziale",
+  "authScreen.createHeading": "Crea il tuo account",
+  "authScreen.resetHeading": "Reimposta la password",
+  "authScreen.signIn": "Accedi",
+  "authScreen.signupHelp": "Inizia con {plan} e configura un progetto.",
+  "authScreen.resetHelp":
+    "Inserisci il tuo indirizzo email per richiedere un link di reimpostazione della password.",
+  "authScreen.signInHelp": "Bentornato nella tua area di lavoro.",
+  "authScreen.displayName": "Nome visualizzato",
+  "authScreen.email": "Email",
+  "authScreen.password": "Password",
+  "authScreen.passwordHint": "Almeno 8 caratteri",
+  "authScreen.wait": "Attendi…",
+  "authScreen.create": "Crea account",
+  "authScreen.sendReset": "Invia link di reimpostazione",
+  "authScreen.or": "oppure",
+  "authScreen.continueProvider": "Continua con {provider}",
+  "authScreen.createInstead": "Crea un account",
+  "authScreen.forgot": "Hai dimenticato la password?",
+  "authScreen.backSignIn": "Torna all’accesso",
+  "authScreen.signupSent":
+    "Controlla la posta in arrivo e conferma il tuo indirizzo email prima di accedere.",
+  "authScreen.welcome": "Bentornato.",
+  "authScreen.resetRequested":
+    "Se l’account consente il recupero della password, controlla la posta in arrivo per trovare il link di reimpostazione.",
+  "authScreen.error": "Si è verificato un errore.",
+  "authScreen.providerUnavailable": "L’accesso con {provider} non è disponibile al momento.",
+  "authScreen.newHeading": "Imposta una nuova password",
+  "authScreen.checking": "Verifica del link di reimpostazione…",
+  "authScreen.invalid":
+    "Questo link di reimpostazione non è valido o è scaduto. Richiedine uno nuovo.",
+  "authScreen.requestNew": "Richiedi un nuovo link di reimpostazione",
+  "authScreen.newHelp": "Scegli una nuova password per il tuo account.",
+  "authScreen.newPassword": "Nuova password",
+  "authScreen.confirmPassword": "Conferma password",
+  "authScreen.repeatPassword": "Ripeti la nuova password",
+  "authScreen.updating": "Aggiornamento…",
+  "authScreen.updatePassword": "Aggiorna password",
+  "authScreen.passwordShort": "La password deve contenere almeno 8 caratteri.",
+  "authScreen.passwordMismatch": "Le password non coincidono.",
+  "authScreen.passwordUpdated": "Password aggiornata. Hai effettuato l’accesso.",
+  "authScreen.passwordFailed": "Impossibile aggiornare la password.",
+};

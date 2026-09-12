@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Italian UI authoring started in this task:274/3768messages across3/28groups, staged-only and incomplete.14focused checks/types/build/zero lint pass. No runtime registration or fluent/interface acceptance; remaining25groups recorded in ITALIAN_AUTHORING_PROGRESS_2026_09_12.md. Overall60%/implementation75% unchanged.
+
 Latest prepared localization: signup and recovery emails now support24email languages with a separate pre-auth email-language selector and validated English-default request field.69rendering/dispatch tests, full types/build, zero new lint pass; built selector/mode independence verified. No actual email/account or fluent/inbox acceptance. UI/staged catalogs remain3768keys unchanged. See AUTH_EMAIL_LOCALIZATION_2026_09_12.md. Overall60%/implementation75% unchanged.
 
 German staged authoring950fa0b is now normally integrated via9a17cb2:3,768messages/28groups.105combined German/Spanish/French/catalog tests, full types/build and zero German lint pass. Both German and Spanish authoring owners received acceptance/stop-edits instructions; both remain disabled pending language/interface/source-claim acceptance. No active authoring dependency remains on either owner. See GERMAN_STAGED_INTEGRATION_2026_09_12.md. Main work remains here; overall60%/implementation75% unchanged.
