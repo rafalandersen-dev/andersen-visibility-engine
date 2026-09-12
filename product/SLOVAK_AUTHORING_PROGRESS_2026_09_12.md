@@ -1,6 +1,6 @@
 # Slovak interface authoring — 12 September 2026
 
-Slovak is staged only: 2,216 of the current 3,768 English interface keys, across twenty-one complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS retain separate staged acceptance status.
+Slovak is staged only: 2,420 of the current 3,768 English interface keys, across twenty-two complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS retain separate staged acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -25,14 +25,15 @@ Slovak is staged only: 2,216 of the current 3,768 English interface keys, across
 | Collaboration and notifications | 248 | 6ee209c |
 | Knowledge, weekly preparation and approval | 242 | b65e680 |
 | Technical diagnostics | 238 | 9079fb6 |
+| Analytics, Search Console and reports | 204 | 2f06d69 |
 
-The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 32 Slovak/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovak-technical-types.log.
+The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 33 Slovak/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovak-measurements-types.log.
 
 Terminology: pracovný priestor (workspace), projekt, heslo (password), obnovenie hesla (password recovery), bočný panel (sidebar), archivovať (archive). Prefer formal-plural instructions and infinitive actions. Program denotes a subscription plan; workflow plans use plán. Network listing is zápis. Preserve provider/product names and placeholders.
 
 Recovery text preserves conditional eligibility and does not confirm that an account exists. Source claims about monthly planning and successful sign-in after password update retain implementation/acceptance obligations; translation does not prove them. No email, authentication, password, account or provider operation occurred.
 
-Remaining: 1,552 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next complete batch: measurements and reports using current composed English. This staged work does not complete R20 or alter release gates.
+Remaining: 1,348 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next complete batch: outreach, hooks and image placement using current composed English. This staged work does not complete R20 or alter release gates.
 
 Core copy preserves interface versus content language, work target dates versus publication times, sent drafts versus published pages, and partial-generation recovery. Navigation uses Plán, Obsah, Viditeľnosť, Nastavenia and Analytika; publication scheduling is Čas zverejnenia nastavený. No generation, scheduling or publication occurred. Current source fingerprints are checked against composed English.
 
@@ -63,3 +64,5 @@ Collaboration/notifications preserves exact-version review versus publication/re
 Knowledge/weekly/approval copy preserves source acceptance versus independent verification, exact reviewed versions, expiry, owner-setting precedence and irreversible forgetting. Saved, approved and actually queued drafts remain distinct; cancellation preserves retained work and does not retry uncertain research. PDF/text-only limits and partial catalog evidence retain their source meaning. No source fetch, upload, knowledge mutation, generation or publication occurred.
 
 Technical copy preserves bounded crawl/sitemap observations, DNS verification expiry, historical Google index evidence and unknown request outcomes. Page versus origin and lab versus real-user measurements remain distinct. Search Console property is služba; origin is pôvod with its page-scope explanation retained. No DNS change, crawl, Google request or measurement occurred.
+
+Measurements/report copy retains historical publication and email-delivery limits, AI-referral versus mention/citation distinctions, missing-data semantics and CSV/window/aggregate boundaries. Search Console property remains služba; the elapsed-days label uses a count-neutral construction. Existing metric/marketing labels retain their source meaning and still require real-use acceptance. No email, tracking installation, Google operation or CSV import occurred.

@@ -132,3 +132,5 @@ Slovak collaboration/notifications adds 248 messages, bringing staged coverage t
 Slovak knowledge/weekly/approval adds 242 messages, bringing staged coverage to 1,978/3,768 across twenty batches. The remaining UI authoring backlog is 43,238 messages at this composed-English baseline. All 31 focused tests, types, scoped lint and whitespace pass. Activation and language/rendered acceptance remain open.
 
 Slovak technical diagnostics adds 238 messages, bringing staged coverage to 2,216/3,768 across twenty-one batches. The remaining UI authoring backlog is 43,000 messages at this composed-English baseline. All 32 focused tests, types, scoped lint and whitespace pass. Activation and language/rendered acceptance remain open.
+
+Slovak analytics/Search Console/reports adds 204 messages, bringing staged coverage to 2,420/3,768 across twenty-two batches. The remaining UI authoring backlog is 42,796 messages at this composed-English baseline. All 33 focused tests, types, scoped lint and whitespace pass. Activation and language/rendered acceptance remain open.

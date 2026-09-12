@@ -1,3 +1,4 @@
+import { skMeasurements } from "./sk-measurements";
 import { skTechnical } from "./sk-technical";
 import { skKnowledge } from "./sk-knowledge";
 import { skCollaboration } from "./sk-collaboration";
@@ -178,6 +179,13 @@ export const SK_STAGED_BATCHES = [
     namespaces: ["crawl", "gindex", "perf"],
     sourceRevision: "9079fb6",
     sourceHash: "106a19b8ceaf725528ddc9d4de7317d823108425584418d93729346f29c135e6",
+  },
+  {
+    name: "measurements",
+    copy: skMeasurements,
+    namespaces: ["analytics", "gsc", "report"],
+    sourceRevision: "2f06d69",
+    sourceHash: "216126da773525ef913fe7e10a4db7af57539ea07dae497fd349051da3088395",
   },
 ] as const;
 export const SK_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
