@@ -364,3 +364,56 @@ describe("workspace reload entitlement separation", () => {
     expect(getState().subscription).toBeUndefined();
   });
 });
+
+describe("workspace save queue lifecycle", () => {
+  beforeEach(() => vi.useFakeTimers());
+
+  it.each(["reset", "direct-switch"])(
+    "allows new-session saves before an old request finishes (%s)",
+    async (transition) => {
+      h.rpc.mockResolvedValueOnce(await bundle("old"));
+      await hydrateForUser("old-owner");
+      setState((s) => ({ ...s, activeProjectId: "old-edit" }));
+      const oldResponse = deferred<Response>();
+      h.rpc.mockReturnValueOnce(oldResponse.promise);
+      const oldSave = saveWorkspaceNow().then(
+        () => "saved",
+        (error: Error) => error.message,
+      );
+      await vi.waitFor(() => expect(h.rpc).toHaveBeenCalledTimes(2));
+      const queuedOldSave = saveWorkspaceNow().then(
+        () => "saved",
+        (error: Error) => error.message,
+      );
+      if (transition === "reset") resetStore();
+      h.rpc.mockResolvedValueOnce(await bundle("new"));
+      await hydrateForUser("new-owner");
+      setState((s) => ({ ...s, activeProjectId: "new-edit" }));
+      const newResponse = deferred<Response>();
+      h.rpc.mockReturnValueOnce(newResponse.promise);
+      const newSave = saveWorkspaceNow();
+      try {
+        await vi.waitFor(() => expect(h.rpc).toHaveBeenCalledTimes(4));
+        expect(h.rpc).toHaveBeenLastCalledWith(
+          "apply_workspace_entity_batch",
+          expect.objectContaining({
+            p_user_id: "new-owner",
+          }),
+        );
+        newResponse.resolve({ data: 17, error: null });
+        await newSave;
+        expect(getState().rev).toBe(17);
+      } finally {
+        // Always settle requests, including when the regression assertion fails.
+        newResponse.resolve({ data: 17, error: null });
+        oldResponse.resolve({ data: 99, error: null });
+        await newSave;
+        expect(await oldSave).toContain("workspace session changed");
+        expect(await queuedOldSave).toContain("workspace session changed");
+      }
+      expect(getState().activeProjectId).toBe("new-edit");
+      expect(getState().rev).toBe(17);
+      expect(h.rpc).toHaveBeenCalledTimes(4);
+    },
+  );
+});

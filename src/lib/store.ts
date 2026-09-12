@@ -467,6 +467,9 @@ const subscribe = (l: () => void) => {
 export async function hydrateForUser(userId: string): Promise<void> {
   if (state.userId === userId && state.hydrated) return;
   const epoch = ++workspaceEpoch;
+  // Old requests retain their lifecycle guards; the new session must not wait
+  // for an old account's network request before it can save its own work.
+  saveChain = Promise.resolve();
   const isCurrent = () => workspaceEpoch === epoch && state.userId === userId;
 
   // Reset visible state to a clean loading shell scoped to this user.
@@ -541,6 +544,7 @@ export async function hydrateForUser(userId: string): Promise<void> {
 
 export function resetStore(): void {
   workspaceEpoch += 1;
+  saveChain = Promise.resolve();
   lastSavedDoc = null; // diff baseline is per signed-in user
 
   if (saveTimer) {

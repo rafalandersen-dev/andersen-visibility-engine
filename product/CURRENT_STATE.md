@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+New workspace sessions now start a fresh save queue, so an unfinished old-account write cannot prevent the current account from saving. Old queued/in-flight requests retain lifecycle guards. Two new race regressions; 52 store tests/six files pass. See WORKSPACE_SAVE_QUEUE_LIFECYCLE_2026_09_12.md. Prepared, unreleased; issued writes are not cancelled and real-use/release gates remain.
+
 Workspace content refresh now retains the latest separate entitlement display instead of resetting paid accounts to Free Preview. Workspace data still cannot grant a plan, and a newer authoritative downgrade remains effective. Two new regressions; 88 focused tests/12 files, types and scoped lint pass. See WORKSPACE_RELOAD_ENTITLEMENT_2026_09_12.md. Prepared, unreleased; real billing and release gates remain.
 
 Workspace reload now preserves unsaved edits and discards responses superseded by a completed save or newer refresh request. A skipped refresh requires a later refresh after saving; no field-level merge is claimed. Five new regressions; full local suite passes 4,816 tests/327 files plus types/build/scoped lint. See WORKSPACE_RELOAD_EDIT_PRESERVATION_2026_09_12.md. Prepared, unreleased; real-use/release gates remain.
