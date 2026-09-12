@@ -1,3 +1,4 @@
+import { itKnowledge } from "./it-knowledge";
 import { itCollaboration } from "./it-collaboration";
 import { itEditorScreen } from "./it-editor-screen";
 import { itPlanScreen } from "./it-plan-screen";
@@ -107,6 +108,13 @@ export const IT_STAGED_BATCHES = [
     namespaces: ["collaboration", "team", "notifications", "awareness", "emailSettings"],
     sourceRevision: "36bcbae",
     sourceHash: "429e59f16a866242f25a373ebd6b52332ae3f04534230101422ebab727f77ed0",
+  },
+  {
+    name: "knowledge",
+    copy: itKnowledge,
+    namespaces: ["knowledge", "weekly", "approval", "refresh"],
+    sourceRevision: "88078b9",
+    sourceHash: "a3a3297006f23628e422ddedfb5b6f5a51c6dd5f6abbc6d6e589481e49915816",
   },
 ] as const;
 export const IT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
