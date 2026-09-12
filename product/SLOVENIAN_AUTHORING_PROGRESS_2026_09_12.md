@@ -1,6 +1,6 @@
 # Slovenian interface authoring — 12 September 2026
 
-Slovenian is staged only: 524 of the current 3,768 English interface keys across nine complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK retain separate complete staged authoring and incomplete acceptance status.
+Slovenian is staged only: 637 of the current 3,768 English interface keys across ten complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK retain separate complete staged authoring and incomplete acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -13,14 +13,15 @@ Slovenian is staged only: 524 of the current 3,768 English interface keys across
 | Analytics screen | 36 | 1113cc5 |
 | Billing screen | 54 | 1113cc5 |
 | Competitor and AI-readiness evidence screen | 89 | b51ac1f |
+| Plan screen | 113 | b949563 |
 
-The frozen staged registry assigns every key once. Namespace tests verify exact keys, nonempty values, current composed-English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 20 Slovenian/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovenian-evidence-screen-types.log.
+The frozen staged registry assigns every key once. Namespace tests verify exact keys, nonempty values, current composed-English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 21 Slovenian/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovenian-plan-screen-types.log.
 
 Terminology: delovni prostor (workspace), projekt, geslo (password), ponastavitev gesla (password reset), stranska vrstica (sidebar), vpis (network listing), paket (subscription plan), načrt (workflow plan), vsebinska izhodišča (content brief). Use polite plural explanatory instructions and concise action labels. Preserve provider/product names and placeholders.
 
 Recovery text retains conditional eligibility without confirming account existence. Marketing and successful sign-in source claims retain their implementation and real-use acceptance obligations. No authentication, email, account, credential or provider action occurred.
 
-Remaining: 3,244 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: plan screen using current composed English. This staged work does not complete R20 or change release gates.
+Remaining: 3,131 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: editor screen using current composed English. This staged work does not complete R20 or change release gates.
 
 Core copy preserves interface versus content language, saved setup versus incomplete generation, work target dates versus publication times, and sent drafts versus published pages. Navigation uses Načrt, Vsebina, Vidnost, Nastavitve and Analitika. Subscription plans remain paket; workflow plans use načrt. In-review status is V pregledu; scheduled publication is Čas objave nastavljen. No generation, onboarding, schedule or publication operation occurred.
 
@@ -29,3 +30,5 @@ Setup/services/audit copy preserves approval versus publication, separate draft/
 Analytics/billing copy preserves recorded events versus unique visitors, tracked clicks versus completed transactions, the 50 000-event ceiling and bounded publication history. Subscription paket terminology, legacy Paddle eligibility, manual grants and separate backlink purchase approval retain source meaning. Checkout failure describes order completion without asserting a failed charge. No payment, portal, tracking installation or provider operation occurred.
 
 Evidence-screen copy preserves competitor snapshots versus ongoing monitoring, absent competitor evidence after failed retrieval and opposite gap/readiness score directions. Readiness estimates do not establish observed AI answers, rankings, mentions or citations; referral visits remain separate. Prompt is poziv and discovery is odkrivanje in this context. No competitor fetch, analysis, model request or opportunity creation occurred.
+
+Plan copy preserves work target dates versus publication schedules, discovery acceptance versus content creation/publication, skipped batch items, sample provenance and archive/restore behavior. Unlinked drafts explicitly retain active publication schedules. Plan is Načrt; Board Tabla, List Seznam and Calendar Koledar for later workflow alignment. Discovery is odkrivanje. No generation, sample removal, schedule or archive operation occurred.
