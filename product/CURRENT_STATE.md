@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Free public audit now follows the shared saved device language preference, exposes the existing language selector, translates header navigation/tagline and names the website input. All 33 focused tests plus types/build/scoped lint pass. See PUBLIC_AUDIT_LANGUAGE_PREFERENCE_2026_09_12.md. Remaining error-copy/browser/live acceptance is explicit; no provider operation or release-gate change.
+
 Clearing a future calendar scheduling time now keeps the input editable instead of replacing it with a past-day warning. Empty values do not show a nonexistent-time error, and scheduling remains disabled. Full types/scoped lint/whitespace pass; browser acceptance remains. See CALENDAR_TIME_FIELD_EDITING_2026_09_12.md. Prepared, unreleased; release gates unchanged.
 
 Calendar risk warnings now sort by the same parsed instants used for inclusion, preserving original date labels and the date-only noon convention. Two regressions failed before the fix; all 24 calendar tests pass in three time zones, plus full types/scoped lint. See CALENDAR_RISK_ORDER_2026_09_12.md. Prepared, unreleased; release and acceptance gates remain.

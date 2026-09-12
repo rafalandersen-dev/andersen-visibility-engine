@@ -1,7 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { translate } from "@/i18n";
+import { useAuthLanguage } from "@/hooks/use-auth-language";
+import { AuthLanguagePicker } from "@/components/AuthLanguagePicker";
 import { contentLangToProjectLanguage } from "@/lib/onboarding";
 import { PublicAuditUnavailableError, runPublicAudit } from "@/lib/public-audit-client";
 import {
@@ -9,7 +10,6 @@ import {
   type PublicAiVisibilityAudit,
   type PublicAuditStatus,
 } from "@/lib/public-audit";
-import type { OnboardingLanguage } from "@/lib/types";
 import { Gauge, Loader2, Search, AlertTriangle, ArrowRight, CheckCircle2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -26,12 +26,6 @@ export const Route = createFileRoute("/free-ai-visibility-audit")({
   }),
   component: PublicAuditPage,
 });
-
-function detectLang(): OnboardingLanguage {
-  if (typeof navigator === "undefined") return "en";
-  const l = (navigator.language || "en").slice(0, 2).toLowerCase();
-  return l === "pl" || l === "sv" || l === "da" ? (l as OnboardingLanguage) : "en";
-}
 
 const STEP_KEYS = [
   "publicAudit.loading.fetching",
@@ -50,8 +44,7 @@ function statusClasses(s: PublicAuditStatus) {
 
 function PublicAuditPage() {
   const navigate = useNavigate();
-  const lang = detectLang();
-  const t = (k: string, v?: Record<string, string | number>) => translate(lang, k, v);
+  const { language: lang, chooseLanguage, t } = useAuthLanguage();
 
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
@@ -123,21 +116,22 @@ function PublicAuditPage() {
           <Link to="/" className="flex flex-col">
             <span className="font-display text-lg leading-tight">Milo Growth</span>
             <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-              Monthly AI growth planner
+              {t("appShell.tagline")}
             </span>
           </Link>
           <div className="flex items-center gap-2">
             <Button asChild variant="ghost" size="sm">
-              <Link to="/">Home</Link>
+              <Link to="/">{t("shell.nav.home")}</Link>
             </Button>
             <Button asChild size="sm">
-              <Link to="/auth">Get started</Link>
+              <Link to="/auth">{t("onboarding.getStarted")}</Link>
             </Button>
           </div>
         </div>
       </header>
 
       <section className="mx-auto max-w-3xl px-6 py-14">
+        <AuthLanguagePicker language={lang} onChange={chooseLanguage} disabled={loading} />
         <div className="text-[10px] uppercase tracking-[0.22em] text-gold inline-flex items-center gap-1.5">
           <Gauge className="h-3.5 w-3.5" /> {t("publicAudit.badge")}
         </div>
@@ -152,6 +146,7 @@ function PublicAuditPage() {
             onKeyDown={(e) => {
               if (e.key === "Enter" && !loading) run();
             }}
+            aria-label={t("launch.conn.website")}
             placeholder="yourbusiness.com"
             disabled={loading}
           />
