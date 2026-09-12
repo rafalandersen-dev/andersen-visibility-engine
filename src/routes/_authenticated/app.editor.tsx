@@ -1,5 +1,7 @@
 import { draftSelectionChanged } from "@/lib/draft-selection";
 import { ArticleImageThumbnail } from "@/components/ArticleImageThumbnail";
+import { ProductImageReferences } from "@/components/ProductImageReferences";
+import { imageReferenceChoices } from "@/lib/image-references";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -202,6 +204,7 @@ export const Route = createFileRoute("/_authenticated/app/editor")({
 function EditorPage() {
   const t = useT();
   const activeProjectId = useStore((s) => s.activeProjectId);
+  const userId = useStore((s) => s.userId);
   const assets = useStore((s) => s.content.filter((c) => c.projectId === activeProjectId));
   const search = Route.useSearch();
   const initialId = search.id ?? assets[0]?.id;
@@ -291,7 +294,11 @@ function EditorPage() {
 
         {asset ? (
           <div className="min-w-0">
-            <Editor key={asset.id} asset={asset} onRequestDelete={() => setDeleteId(asset.id)} />
+            <Editor
+              key={`${userId}:${asset.projectId}:${asset.id}`}
+              asset={asset}
+              onRequestDelete={() => setDeleteId(asset.id)}
+            />
           </div>
         ) : (
           <div className="rounded-lg border border-dashed border-border p-12 text-center">
@@ -654,7 +661,24 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
     }
   };
   const [generatingImage, setGeneratingImage] = useState(false);
+  const imageReferenceDraft = imageReferenceChoices.safeParse(f.imageReferences ?? []);
+  const referenceGenerationHeld =
+    !imageReferenceDraft.success || imageReferenceDraft.data.length > 0;
+  const photoVersion = (images: ContentAsset["images"]) =>
+    JSON.stringify(
+      (images ?? []).map(({ id, source, status, storagePath, concept }) => ({
+        id,
+        source,
+        status,
+        storagePath,
+        concept,
+      })),
+    );
   const onGenerateImage = async () => {
+    if (referenceGenerationHeld) {
+      toast.error(t("imageRefs.unavailable"));
+      return;
+    }
     const concept = newImageConcept.trim();
     if (concept.length < 3) {
       toast.error(t("imgGen.needConcept"));
@@ -668,6 +692,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
             projectId: f.projectId,
             assetId: f.id,
             concept,
+            imageReferences: imageReferenceDraft.success ? imageReferenceDraft.data : undefined,
             articleTitle: f.title,
             project: {
               businessName: project?.businessName ?? "",
@@ -2813,7 +2838,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 size="sm"
                 variant="default"
                 onClick={onGenerateImage}
-                disabled={generatingImage || uploadingImage}
+                disabled={generatingImage || uploadingImage || referenceGenerationHeld}
               >
                 {generatingImage ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
                 {t("imgGen.generate")}
@@ -2852,6 +2877,16 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                 </select>
               ) : null}
             </div>
+            <ProductImageReferences
+              projectId={f.projectId}
+              assetId={f.id}
+              photosVersion={photoVersion(f.images)}
+              photosSaved={photoVersion(f.images) === photoVersion(asset.images)}
+              choices={f.imageReferences}
+              images={f.images}
+              disabled={generatingImage || uploadingImage}
+              onChange={(imageReferences) => setF((previous) => ({ ...previous, imageReferences }))}
+            />
             <div className="flex flex-wrap items-end gap-2">
               <div className="flex-1 min-w-[220px]">
                 <Label className="text-xs text-muted-foreground">

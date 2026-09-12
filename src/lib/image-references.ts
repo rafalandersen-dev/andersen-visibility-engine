@@ -17,14 +17,19 @@ export const IMAGE_REFERENCE_LIMITS = {
 } as const;
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
+export const imageReferenceChoices = z
+  .array(z.object({ imageId: id, metadataHash: digest }).strict())
+  .max(IMAGE_REFERENCE_LIMITS.count)
+  .refine(
+    (items) => new Set(items.map((item) => item.imageId)).size === items.length,
+    "image_reference_duplicate",
+  );
+export type ImageReferenceChoice = z.infer<typeof imageReferenceChoices>[number];
 export const imageReferenceSelection = z
   .object({
     projectId: id,
     assetId: id,
-    references: z
-      .array(z.object({ imageId: id, metadataHash: digest }).strict())
-      .min(1)
-      .max(IMAGE_REFERENCE_LIMITS.count),
+    references: imageReferenceChoices.refine((items) => items.length > 0, "image_reference_count"),
   })
   .strict()
   .superRefine((value, context) => {
@@ -184,6 +189,20 @@ const referenceManifest = z
     height: z.number().int().min(1).max(IMAGE_REFERENCE_LIMITS.side),
   })
   .strict();
+
+/** Browser-visible file facts only. A successful check is a point-in-time
+ * observation, never a provider permit or publication approval. */
+export const imageReferenceCheck = z
+  .object({
+    version: z.literal(1),
+    selectionHash: digest,
+    images: z
+      .array(referenceManifest.omit({ ownerId: true, projectId: true, assetId: true }))
+      .min(1)
+      .max(IMAGE_REFERENCE_LIMITS.count),
+  })
+  .strict();
+export type ImageReferenceCheck = z.infer<typeof imageReferenceCheck>;
 export async function imageReferenceSetHash(
   prepared: Awaited<ReturnType<typeof prepareImageReference>>[],
 ) {

@@ -746,6 +746,9 @@ export interface ContentAsset {
   sources?: ContentSource[];
   /** Images. No hotlinking; alt text is a hard publish gate (C18/C19). */
   images?: ContentImage[];
+  /** Explicit product-photo choices for a future image request. These are
+   * untrusted draft inputs, never generation or publication authority. */
+  imageReferences?: import("./image-references").ImageReferenceChoice[];
   /** Breadcrumb trail for BreadcrumbList JSON-LD (H). */
   breadcrumbs?: BreadcrumbItem[];
   /**

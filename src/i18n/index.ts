@@ -1,4 +1,5 @@
 import { backlinkRecurringCopy } from "./backlink-recurring";
+import { imageReferencesCopy } from "./image-references";
 import { technicalPerformanceCopy } from "./technical-performance";
 import { googleIndexCopy } from "./google-index";
 import { technicalCrawlCopy } from "./technical-crawl";
@@ -49,6 +50,7 @@ export function translate(
 ): string {
   const l = isSupported(lang) ? lang : "en";
   let s =
+    imageReferencesCopy[l][key] ??
     technicalPerformanceCopy[l][key] ??
     googleIndexCopy[l][key] ??
     technicalCrawlCopy[l][key] ??

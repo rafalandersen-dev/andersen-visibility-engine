@@ -8,6 +8,24 @@
  */
 import { describe, it, expect } from "vitest";
 import { editorFormDirty, mergeEditorFormFields, EDITOR_FORM_FIELDS } from "./editor-form";
+
+it("keeps a reference selection through save without replacing newer publication fields", () => {
+  const stored = {
+    id: "a",
+    projectId: "p",
+    title: "Article",
+    liveUrl: "https://example.test/current",
+  } as ContentAsset;
+  const form = {
+    ...stored,
+    liveUrl: "https://example.test/stale",
+    imageReferences: [{ imageId: "photo", metadataHash: "a".repeat(64) }],
+  };
+  expect(editorFormDirty(form, stored)).toBe(true);
+  const merged = mergeEditorFormFields(form, stored);
+  expect(merged.imageReferences).toEqual(form.imageReferences);
+  expect(merged.liveUrl).toBe(stored.liveUrl);
+});
 import type { ContentAsset } from "./types";
 
 const base = (over: Partial<ContentAsset> = {}): ContentAsset =>
@@ -107,6 +125,7 @@ describe("editorFormDirty", () => {
         "h1",
         "hook",
         "images",
+        "imageReferences",
         "internalLinks",
         "keyTakeaways",
         "markdown",
