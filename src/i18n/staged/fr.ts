@@ -5,10 +5,16 @@ import { frKnowledge } from "./fr-knowledge";
 import { frTechnical } from "./fr-technical";
 import { frMeasurements } from "./fr-measurements";
 import { frEvidence } from "./fr-evidence";
+import { frConfiguration } from "./fr-configuration";
 
 /** Authoring batches only. This catalog is incomplete and is not registered by
  * the runtime or offered in the language picker. */
 export const FR_STAGED_BATCHES = [
+  {
+    name: "configuration",
+    copy: frConfiguration,
+    namespaces: ["brand", "wp", "shopify", "claude", "connect", "connections", "coverage"],
+  },
   {
     name: "evidence",
     copy: frEvidence,

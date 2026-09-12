@@ -1,5 +1,5 @@
 /** French evidence and evaluation copy, staged outside the live interface. */
-export const frEvidence: Record<string, string> = {
+export const frEvidence: Readonly<Record<string, string>> = {
   "benchmark.statusError":
     "L’état du test est indisponible. Vous pouvez l’actualiser sans risque ; cela ne relance pas la génération.",
   "benchmark.title": "Test de génération du propriétaire",
