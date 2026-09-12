@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+German staged authoring950fa0b is now normally integrated via9a17cb2:3,768messages/28groups.105combined German/Spanish/French/catalog tests, full types/build and zero German lint pass. Both German and Spanish authoring owners received acceptance/stop-edits instructions; both remain disabled pending language/interface/source-claim acceptance. No active authoring dependency remains on either owner. See GERMAN_STAGED_INTEGRATION_2026_09_12.md. Main work remains here; overall60%/implementation75% unchanged.
+
 Latest auth safeguards: recovery checks email configuration before administrative link generation; signup/recovery delivery diagnostics no longer persist raw provider text.16mocked tests, types/build pass;3existing source lint findings remain. Confirmation resend is still missing and native delivery configuration is unverified; see AUTH_RECOVERY_GUARDS_2026_09_12.md. Unreleased; overall60%/implementation75% unchanged.
 
 Latest proof correction: competing publication receipts now compare UTC days consistently with observation windows, preventing offset-midnight receipts from escaping the comparison guard.28focused tests, full types/build and zero lint pass; unreleased. P5 linkage/evaluation implementation already exists (PR112); real-use acceptance remains open. See PROOF_COMPARISON_UTC_2026_09_12.md. Overall60%/implementation75% unchanged.
