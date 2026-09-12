@@ -1,3 +1,5 @@
+import { itBetaScreen } from "./it-beta-screen";
+import { itBetaGuide } from "./it-beta-guide";
 import { itPublicHome } from "./it-public-home";
 import { itPublicStudies } from "./it-public-studies";
 import { itPublicPricing } from "./it-public-pricing";
@@ -163,6 +165,20 @@ export const IT_STAGED_BATCHES = [
     namespaces: ["publicHome"],
     sourceRevision: "da6e67e",
     sourceHash: "4e132895babfb222b37e92719be5ad2a8be90d9503869e9df9845b00d982adeb",
+  },
+  {
+    name: "beta guide",
+    copy: itBetaGuide,
+    namespaces: ["betaGuide"],
+    sourceRevision: "bf687f2",
+    sourceHash: "8c815e10a73590a6e2911d1b5618d5d545c15a47b3a75462ccaaae6faf33520d",
+  },
+  {
+    name: "beta controls",
+    copy: itBetaScreen,
+    namespaces: ["betaScreen"],
+    sourceRevision: "bf687f2",
+    sourceHash: "c4dcf4827cb49219199aab22d2969e33f643ade8a8c2c348bb899d61f3a08119",
   },
 ] as const;
 export const IT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
