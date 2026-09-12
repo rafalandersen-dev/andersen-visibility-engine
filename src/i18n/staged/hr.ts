@@ -1,3 +1,5 @@
+import { hrPublicPricing } from "./hr-public-pricing";
+import { hrPublicStudies } from "./hr-public-studies";
 import { hrEditorScreen } from "./hr-editor-screen";
 import { hrPlanScreen } from "./hr-plan-screen";
 import { hrEvidenceScreen } from "./hr-evidence-screen";
@@ -11,6 +13,20 @@ import { hrAuthScreen } from "./hr-auth-screen";
 import { hrSharedUi } from "./hr-shared-ui";
 /** Croatian authoring; never imported by the runtime catalog. */
 export const HR_STAGED_BATCHES = [
+  {
+    name: "public pricing",
+    copy: hrPublicPricing,
+    namespaces: ["publicPricing"],
+    sourceRevision: "9c59c24",
+    sourceHash: "8e7cecc9d6ca14af722fe8b4131d7982241e9e856335586f8d4e724469d0de60",
+  },
+  {
+    name: "public studies",
+    copy: hrPublicStudies,
+    namespaces: ["publicStudies"],
+    sourceRevision: "9c59c24",
+    sourceHash: "ace563fb757a52abcd667e7e691d3e48024045a4e4f265e6949c66a828f5e8de",
+  },
   {
     name: "editor screen",
     copy: hrEditorScreen,

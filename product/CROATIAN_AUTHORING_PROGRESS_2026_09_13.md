@@ -1,6 +1,6 @@
 # Croatian interface authoring — 13 September 2026
 
-Croatian is staged only: 785 of the current 3,768 English interface keys across eleven complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK/SL retain complete staged authoring and incomplete acceptance status.
+Croatian is staged only: 855 of the current 3,768 English interface keys across thirteen complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK/SL retain complete staged authoring and incomplete acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -15,8 +15,10 @@ Croatian is staged only: 785 of the current 3,768 English interface keys across 
 | Competitor and AI-readiness evidence screen | 89 | 5b2f76a |
 | Plan screen | 113 | 26439c1 |
 | Editor screen | 148 | 7b5b342 |
+| Public pricing | 40 | 9c59c24 |
+| Public case studies | 30 | 9c59c24 |
 
-The frozen staged registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 22 Croatian/catalog tests, scoped lint, whitespace and type checking pass. Changed code formatted. Type log: /tmp/milo-croatian-editor-types.log.
+The frozen staged registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 24 Croatian/catalog tests, scoped lint, whitespace and type checking pass. Changed code formatted. Type log: /tmp/milo-croatian-pricing-studies-types.log.
 
 Terminology: radni prostor (workspace), projekt, lozinka (password), ponovno postavljanje lozinke (password reset), bočna traka (sidebar), unos (network listing), paket (subscription plan), plan (workflow plan), smjernice za sadržaj (content brief), poveznica (link). Use polite plural explanatory instructions and concise action labels. Preserve provider/product names and placeholders.
 
@@ -34,4 +36,6 @@ Plan copy distinguishes work targets from publication times, suggestion acceptan
 
 Editor copy preserves image privacy until approval, controlled-origin and alt-text requirements, explicit draft saving, unresolved-link blocks, source validation status, real-author consent, and structured-data delivery/search-engine limits. Terms include alternativni tekst (alt text), istaknuta slika (featured image), Izvori i autor (Sources & Author) and metapodaci (metadata). No upload, image generation, approval, source validation or publication action occurred.
 
-Remaining: 2,983 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batches: public pricing and case studies using the current composed English source. This staged work does not complete R20 or change release gates.
+Public pricing retains region versus billing eligibility, separate placement purchases, paid activation holds and no outcome guarantees. Case studies retain implementation/demo/internal-example scope, incomplete live destination/publication/measurement acceptance and no verified growth claims. Service terms: postavljanje uz pomoć (assisted setup), mjesečna podrška (monthly care), beta verzija uz pomoć (assisted beta). No checkout, activation, purchase, provider request or publication occurred.
+
+Remaining: 2,913 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: public home using the current composed English source. This staged work does not complete R20 or change release gates.
