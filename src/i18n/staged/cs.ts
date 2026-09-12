@@ -1,3 +1,4 @@
+import { csWorkflow } from "./cs-workflow";
 import { csEvidence } from "./cs-evidence";
 import { csLinks } from "./cs-links";
 import { csCommerce } from "./cs-commerce";
@@ -27,6 +28,31 @@ import { csAuthScreen } from "./cs-auth-screen";
 import { csSharedUi } from "./cs-shared-ui";
 /** Czech authoring; never imported by the runtime catalog. */
 export const CS_STAGED_BATCHES = [
+  {
+    name: "workflow",
+    copy: csWorkflow,
+    namespaces: [
+      "autoSched",
+      "prev",
+      "imgGen",
+      "arrange",
+      "visual",
+      "editor",
+      "dashboard",
+      "status",
+      "quality",
+      "calsched",
+      "pres",
+      "featured",
+      "today",
+      "plan",
+      "generationResults",
+      "workflow",
+      "publishingFidelity",
+    ],
+    sourceRevision: "d642fe3",
+    sourceHash: "649e9d723e890e3a356652ad7a515080081167e2d06a4dc5d3ad58cc5e2b6615",
+  },
   {
     name: "evidence",
     copy: csEvidence,

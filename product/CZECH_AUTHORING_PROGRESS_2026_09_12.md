@@ -1,6 +1,6 @@
 # Czech interface authoring — 12 September 2026
 
-Czech is staged only: 3,423 of the current 3,768 English interface keys, across twenty-seven complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI retain their separate staged acceptance status.
+Czech is staged only: 3,768 of the current 3,768 English interface keys, across twenty-eight complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI retain their separate staged acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -31,14 +31,15 @@ Czech is staged only: 3,423 of the current 3,768 English interface keys, across 
 | Billing, launch checklist and beta limits | 192 | 022a117 |
 | Links, marketplace and backlink monitoring | 256 | 10d8429 |
 | Publication, AI-answer and log evidence | 196 | b8b375e |
+| Editor, planning, recovery and workflow | 345 | d642fe3 |
 
-The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 38 Czech/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-czech-evidence-types.log.
+The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. The full combined key set equals current composed English. All 40 Czech/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-czech-workflow-types.log.
 
 Terminology: pracovní prostor (workspace), projekt, heslo (password), obnovení hesla (password recovery), postranní panel (sidebar), archivovat (archive). Prefer direct formal-plural instructions; use schválit for approval, potvrdit for confirmation, ověřit for verification and zkontrolovat for review. Product/provider names and placeholders remain intact.
 
 Recovery text preserves conditional account eligibility and does not confirm that an account exists. Source claims about monthly planning and successful sign-in after password update retain their implementation/acceptance obligations; translation does not prove them. No email, authentication, password or provider operation occurred.
 
-Remaining: 345 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next complete batch: workflow, using current composed English. This initial Czech batch does not complete R20 or alter release gates.
+Interface key authoring is complete for the current composed-English baseline. Remaining: fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next: terminology and component-level rendered review, without runtime activation. This staged catalog does not complete R20 or alter release gates.
 
 Core review: Plán, Obsah, Viditelnost and Nastavení label the main navigation areas. Work target dates remain distinct from publication times; Naplánováno denotes planned work, while Čas zveřejnění nastaven denotes a publication schedule. Odesláno na web does not mean Zveřejněno. Partial setup success remains separate from completion, and application language, content language and market stay separate settings. Inherited generation/setup claims are translated without proving live behavior. No onboarding, generation, schedule or billing operation occurred.
 
@@ -81,3 +82,5 @@ Commerce review: Stripe test checkout has no real charge or plan change; manual 
 Links review: provider-index samples, AI estimates and first/last-seen timestamps are distinct from complete inventories and actual placement dates. Marketplace demo requests create no provider order/payment; live orders require exact-total approval, sponsorship disclosure and reconciliation of uncertain outcomes. Recurring caps do not add funds, missed runs are skipped, and already admitted collection may complete with reserved cost after pause. Decimal USD literals remain exact source values pending formatting acceptance. Inherited network-verification and provider-readiness claims retain implementation/live acceptance obligations. No network listing, provider collection, monitoring activation, outreach or purchase occurred.
 
 Evidence review: connector responses are not independent live-page confirmation; before/after observations do not prove causality. AI samples and bot identities remain owner-supplied/unverified, incomparable contexts stay separate, and zero supplied rows does not mean zero traffic. Sanitized-log fields, limits, deduplication and irreversible deletion warnings preserve source scope. The historical $5 benchmark wording retains expiry and separate authorization; no authorization was renewed. No benchmark, model evaluation, publication, evidence import or log collection occurred.
+
+Workflow review: monthly preparation attempts are quota/check bounded, work target dates remain separate from publication times, and approval alone does not publish. Recovery never regenerates, approves or schedules output, and removing recovery copies does not return quota. Image layout is a preview rather than verified destination rendering; structured-data inclusion does not prove connector retention or rich-result appearance. Fixed-workflow comparison imports do not run models or change production. No generation, scheduling, recovery mutation, publication or model operation occurred.
