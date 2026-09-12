@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Integrated checkpoint at 9a7a438: all 5,072 application tests across 335 files pass with --maxWorkers=2; production build passes. Two default-concurrency runs had timeout-related failures, retained in INTEGRATED_CANDIDATE_CHECK_2026_09_12.md; no assertions or timeouts were relaxed. Full types/scoped lint and nine Slovak browser interaction groups retain their same-implementation evidence. Four active and nine fully staged UI catalogs are authored; language/activation and full roadmap/release acceptance remain open. No deployment or provider action occurred.
+
 Knowledge review close now returns focus to its inspection opener. The new browser assertion reproduced focus loss against d84b853, then all nine Slovak interaction groups passed after the fix. All 42 focused component/catalog tests, types, scoped lint and whitespace pass. Temporary server stopped. This closes one keyboard focus gap; full accessibility and real-use acceptance remain open. See KNOWLEDGE_REVIEW_FOCUS_RETURN_2026_09_12.md.
 
 Slovak focused browser checkpoint after 5cd8e2a: all eight knowledge-review interaction groups passed with actual staged Slovak copy and local fixtures, including history-failure holds, withdrawal resets and ineligible evidence. Pipeline review status now consistently reads Na kontrole. The preview supports sk; the temporary server is stopped. Full-page responsive, language, screen-reader, backend and activation acceptance remain open. See scripts/knowledge-review-browser/README.md and SLOVAK_AUTHORING_PROGRESS_2026_09_12.md.
