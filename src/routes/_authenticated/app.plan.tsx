@@ -891,6 +891,8 @@ function DiscoverView({
   suggestions: DiscoverySuggestion[];
   onOpenPlan: () => void;
 }) {
+  const t = useT();
+  const ideaStage = t("pipeline.stage.idea");
   const [selected, setSelected] = useState<Set<string>>(
     () =>
       new Set(
@@ -924,9 +926,9 @@ function DiscoverView({
     try {
       const generated = await generateSeoOpportunities(project.id);
       setSelected(new Set(generated.slice(0, 3).map((item) => item.id)));
-      toast.success(`${generated.length} suggestions are ready for review`);
+      toast.success(t("planScreen.discovery.ready", { count: generated.length }));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Discovery failed");
+      toast.error(error instanceof Error ? error.message : t("planScreen.discovery.failed"));
     } finally {
       setGenerating(false);
     }
@@ -937,13 +939,13 @@ function DiscoverView({
     await saveWorkspaceNow();
     setSelected(new Set());
     if (created.length === 0) {
-      toast.message("Those suggestions are already in Plan.");
+      toast.message(t("planScreen.discovery.noneAdded"));
       return;
     }
-    toast.success(`${created.length} opportunities added to Plan → Captured`, {
-      action: { label: "View in Plan", onClick: onOpenPlan },
+    toast.success(t("planScreen.discovery.added", { count: created.length, stage: ideaStage }), {
+      action: { label: t("planScreen.discovery.viewPlan"), onClick: onOpenPlan },
       cancel: {
-        label: "Undo",
+        label: t("planScreen.undo"),
         onClick: () => undoAcceptedDiscoverySuggestions(created.map((item) => item.id)),
       },
     });
@@ -971,8 +973,8 @@ function DiscoverView({
     await saveWorkspaceNow();
     setTitle("");
     setReason("");
-    toast.success(`“${created.title}” added to Plan → Captured`, {
-      action: { label: "View in Plan", onClick: onOpenPlan },
+    toast.success(t("planScreen.manual.added", { title: created.title, stage: ideaStage }), {
+      action: { label: t("planScreen.discovery.viewPlan"), onClick: onOpenPlan },
     });
   }
 
@@ -980,63 +982,77 @@ function DiscoverView({
     <div className="pb-24">
       <div className="grid gap-5 px-5 py-5 md:px-9 xl:grid-cols-[minmax(0,2.2fr)_minmax(310px,1fr)]">
         <section className="rounded-lg border border-[#e2e6eb] bg-[#ffffff]/75 p-5">
-          <h2 className="font-display text-xl">Run Milo discovery</h2>
+          <h2 className="font-display text-xl">{t("planScreen.discovery.title")}</h2>
           <p className="mt-1 max-w-3xl text-xs leading-5 text-[#697282]">
-            Milo scans connected sources and proposes traceable opportunities. Discovery never
-            schedules work or creates content automatically.
+            {t("planScreen.discovery.help")}
           </p>
           <div className="mt-6 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#647183]">
-            Sources
+            {t("planScreen.discovery.sources")}
           </div>
           <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            <SourceCard label="Site audit" status="Ready" to="/app/audit" />
+            <SourceCard
+              label={t("nav.audit")}
+              status={t("planScreen.source.open")}
+              to="/app/audit"
+            />
             <SourceCard
               label="Search Console"
-              status={project?.gscOAuth?.status === "connected" ? "Connected" : "Connect"}
+              status={t(
+                project?.gscOAuth?.status === "connected"
+                  ? "planScreen.source.connected"
+                  : "planScreen.source.connect",
+              )}
               to="/app/setup"
             />
             <SourceCard
-              label="Competitors"
-              status={`${project?.competitorUrls?.length ?? 0} tracked`}
+              label={t("nav.competitors")}
+              status={t("planScreen.source.tracked", {
+                count: project?.competitorUrls?.length ?? 0,
+              })}
               to="/app/competitors"
             />
-            <SourceCard label="AI visibility" status="Ready" to="/app/ai-visibility" />
+            <SourceCard
+              label={t("nav.aiVisibility")}
+              status={t("planScreen.source.open")}
+              to="/app/ai-visibility"
+            />
           </div>
           <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
             <ul className="grid gap-1.5 text-[11px] text-[#4f5b68]">
               <li className="flex items-center gap-2">
-                <Check size={14} className="text-[#398a63]" /> Provenance and evidence stay attached
+                <Check size={14} className="text-[#398a63]" /> {t("planScreen.discovery.inputs")}
               </li>
               <li className="flex items-center gap-2">
-                <Check size={14} className="text-[#398a63]" /> Existing active work is deduplicated
+                <Check size={14} className="text-[#398a63]" /> {t("planScreen.discovery.dedup")}
               </li>
               <li className="flex items-center gap-2">
-                <Check size={14} className="text-[#398a63]" /> You choose what enters Plan
+                <Check size={14} className="text-[#398a63]" /> {t("planScreen.discovery.choice")}
               </li>
             </ul>
             <Button onClick={runDiscovery} disabled={generating || !project}>
-              <Sparkle size={17} weight="fill" /> {generating ? "Discovering…" : "Run discovery"}
+              <Sparkle size={17} weight="fill" />{" "}
+              {t(generating ? "planScreen.discovery.running" : "planScreen.discovery.run")}
             </Button>
           </div>
         </section>
 
         <section className="rounded-lg border border-[#e2e6eb] bg-[#ffffff]/75 p-5">
-          <h2 className="font-display text-xl">Create manually</h2>
+          <h2 className="font-display text-xl">{t("planScreen.manual.title")}</h2>
           <p className="mt-1 text-xs leading-5 text-[#697282]">
-            Add a business idea directly. It will enter Plan → Captured.
+            {t("planScreen.manual.help", { stage: ideaStage })}
           </p>
           <label className="mt-4 grid gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#5f6872]">
-            Opportunity title
+            {t("planScreen.manual.opportunityTitle")}
             <input
               id="manual-opportunity"
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              placeholder="What should Milo help you improve?"
+              placeholder={t("planScreen.manual.placeholder")}
               className="min-h-10 rounded-md border border-[#e2e6eb] bg-white/70 px-3 text-xs font-normal normal-case tracking-normal outline-none focus:border-[#076ee5]"
             />
           </label>
           <label className="mt-3 grid gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#5f6872]">
-            Why this matters
+            {t("planScreen.manual.reason")}
             <textarea
               value={reason}
               onChange={(event) => setReason(event.target.value)}
@@ -1050,19 +1066,19 @@ function DiscoverView({
               onChange={(event) => setIntent(event.target.value as Opportunity["searchIntent"])}
               className="h-9 rounded-md border border-[#e2e6eb] bg-white px-2 text-[11px]"
             >
-              <option>Informational</option>
-              <option>Commercial</option>
-              <option>Transactional</option>
-              <option>Navigational</option>
+              <option value="Informational">{t("planScreen.intent.Informational")}</option>
+              <option value="Commercial">{t("planScreen.intent.Commercial")}</option>
+              <option value="Transactional">{t("planScreen.intent.Transactional")}</option>
+              <option value="Navigational">{t("planScreen.intent.Navigational")}</option>
             </select>
             <select
               value={priority}
               onChange={(event) => setPriority(event.target.value as Opportunity["priority"])}
               className="h-9 rounded-md border border-[#e2e6eb] bg-white px-2 text-[11px]"
             >
-              <option>High</option>
-              <option>Medium</option>
-              <option>Low</option>
+              <option value="High">{t("planScreen.priority.High")}</option>
+              <option value="Medium">{t("planScreen.priority.Medium")}</option>
+              <option value="Low">{t("planScreen.priority.Low")}</option>
             </select>
           </div>
           <Button
@@ -1070,7 +1086,7 @@ function DiscoverView({
             onClick={createManual}
             disabled={!title.trim() || !project}
           >
-            <Plus size={16} /> Add to Plan → Captured
+            <Plus size={16} /> {t("planScreen.manual.add", { stage: ideaStage })}
           </Button>
         </section>
       </div>
@@ -1078,20 +1094,23 @@ function DiscoverView({
       <section className="mx-5 overflow-hidden rounded-lg border border-[#e2e6eb] bg-[#ffffff] md:mx-9">
         <div className="flex min-h-14 flex-wrap items-center justify-between gap-3 border-b border-[#e2e6eb] px-4 py-3">
           <div className="flex items-baseline gap-3">
-            <h2 className="font-display text-xl">Discovery suggestions</h2>
-            <span className="text-[10px] text-[#697282]">{suggested.length} awaiting review</span>
+            <h2 className="font-display text-xl">{t("planScreen.discovery.suggestions")}</h2>
+            <span className="text-[10px] text-[#697282]">
+              {t("planScreen.discovery.awaiting", { count: suggested.length })}
+            </span>
           </div>
           <Button onClick={acceptSelected} disabled={selected.size === 0}>
-            <CheckCircle size={17} /> Add {selected.size || "selected"} to Plan
+            <CheckCircle size={17} />{" "}
+            {t("planScreen.discovery.addSelected", { count: selected.size })}
           </Button>
         </div>
 
         {visible.length === 0 ? (
           <div className="grid place-items-center px-6 py-14 text-center">
             <Binoculars size={28} className="text-[#076ee5]" />
-            <h3 className="mt-3 font-display text-lg">No suggestions waiting</h3>
+            <h3 className="mt-3 font-display text-lg">{t("planScreen.discovery.emptyTitle")}</h3>
             <p className="mt-1 max-w-md text-xs leading-5 text-[#697282]">
-              Run discovery to review new signals. Existing Opportunities stay safely in Plan.
+              {t("planScreen.discovery.emptyHelp")}
             </p>
           </div>
         ) : (
@@ -1099,12 +1118,12 @@ function DiscoverView({
             <div className="min-w-[980px]">
               <div className="grid grid-cols-[32px_2fr_1fr_.8fr_.7fr_1.4fr_.7fr] gap-3 border-b border-[#e2e6eb] px-4 py-2.5 text-[8px] font-semibold uppercase tracking-[0.12em] text-[#66707c]">
                 <span />
-                <span>Opportunity</span>
-                <span>Source</span>
-                <span>Intent</span>
-                <span>Impact</span>
-                <span>Why Milo found it</span>
-                <span>State</span>
+                <span>{t("planScreen.column.opportunity")}</span>
+                <span>{t("planScreen.column.source")}</span>
+                <span>{t("planScreen.column.intent")}</span>
+                <span>{t("planScreen.column.impact")}</span>
+                <span>{t("planScreen.column.reason")}</span>
+                <span>{t("planScreen.column.state")}</span>
               </div>
               {visible.map((item) => {
                 const checked = selected.has(item.id);
@@ -1115,7 +1134,7 @@ function DiscoverView({
                   >
                     <button
                       type="button"
-                      aria-label={`Select ${item.title}`}
+                      aria-label={t("planScreen.discovery.select", { title: item.title })}
                       onClick={() => item.status === "suggested" && toggle(item.id)}
                       disabled={item.status !== "suggested"}
                       className={`grid h-4 w-4 place-items-center rounded-[3px] border ${checked ? "border-[#a86f09] bg-[#b87f12] text-white" : "border-[#8e979d] bg-white"}`}
@@ -1124,13 +1143,19 @@ function DiscoverView({
                     </button>
                     <strong className="text-[11px] leading-4 text-[#20272b]">{item.title}</strong>
                     <span>{opportunitySourceLabel(item as unknown as Opportunity)}</span>
-                    <span>{item.searchIntent}</span>
-                    <span className="capitalize">{item.businessImpact ?? item.priority}</span>
+                    <span>{t(`planScreen.intent.${item.searchIntent}`)}</span>
+                    <span className="capitalize">
+                      {t(`planScreen.priority.${capitalize(item.businessImpact ?? item.priority)}`)}
+                    </span>
                     <span className="leading-4">{item.reasonDiscovered ?? item.businessValue}</span>
                     <span
                       className={item.status === "accepted" ? "text-[#398a63]" : "text-[#9a6d16]"}
                     >
-                      {item.status === "accepted" ? "In Plan" : "Suggested"}
+                      {t(
+                        item.status === "accepted"
+                          ? "planScreen.discovery.inPlan"
+                          : "planScreen.discovery.suggested",
+                      )}
                     </span>
                   </div>
                 );
