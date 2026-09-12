@@ -1,6 +1,6 @@
 # Croatian interface authoring — 13 September 2026
 
-Croatian is staged only: 2,420 of the current 3,768 English interface keys across twenty-two complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK/SL retain complete staged authoring and incomplete acceptance status.
+Croatian is staged only: 2,578 of the current 3,768 English interface keys across twenty-three complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK/SL retain complete staged authoring and incomplete acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -26,8 +26,9 @@ Croatian is staged only: 2,420 of the current 3,768 English interface keys acros
 | Knowledge | 242 | 9e0e08c |
 | Technical | 238 | 6eb1efc |
 | Measurements | 204 | f146e88 |
+| Outreach | 158 | 11dab5c |
 
-The frozen staged registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 33 Croatian/catalog tests, scoped lint, whitespace and type checking pass. Changed code formatted. Type log: /tmp/milo-croatian-measurements-types.log.
+The frozen staged registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 34 Croatian/catalog tests, scoped lint, whitespace and type checking pass. Changed code formatted. Type log: /tmp/milo-croatian-outreach-types.log.
 
 Terminology: radni prostor (workspace), projekt, lozinka (password), ponovno postavljanje lozinke (password reset), bočna traka (sidebar), unos (network listing), paket (subscription plan), plan (workflow plan), smjernice za sadržaj (content brief), poveznica (link). Use polite plural explanatory instructions and concise action labels. Preserve provider/product names and placeholders.
 
@@ -65,4 +66,6 @@ Technical copy preserves ownership expiry, robots holds, crawl/sitemap/storage b
 
 Measurement copy preserves saved-publication versus live-page evidence, email acceptance versus delivery, AI referrals versus mentions/citations/bot activity, bounded CSV import, separate dates and declared source/property/aggregate semantics. Numeric CSV guidance and technical identifiers retain their source meaning. No email, tracking installation, Google connection, sync or import occurred.
 
-Remaining: 1,348 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: outreach using the current composed English source. This staged work does not complete R20 or change release gates.
+Outreach copy preserves exact recipient/content confirmation, separate follow-up review, suppression and frequency controls, service-owned reservations, uncertain-delivery holds and receipt recovery limits. Hook and image-anchor review semantics retain source meaning. Opening hook: privlačan uvod. No generation, recipient contact, approval or sending operation occurred.
+
+Remaining: 1,190 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: growth using the current composed English source. This staged work does not complete R20 or change release gates.
