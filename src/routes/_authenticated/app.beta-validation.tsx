@@ -300,12 +300,7 @@ function BetaValidationPage() {
         <div className="text-[10px] uppercase tracking-[0.22em] text-gold">
           {t("betaScreen.validation")}
         </div>
-        <p className="mt-1 text-sm text-foreground/85">
-          This sprint answers: do owners understand Milo quickly · which market reacts best
-          (PL/SE/DK/UK/EU) · which segment (wellness, local services, consultants, clinics,
-          e-commerce) · which promise resonates (audit, publishing, analytics proof, connectors,
-          authority) · are people willing to pay · what to improve next.
-        </p>
+        <p className="mt-1 text-sm text-foreground/85">{t("betaGuide.questions")}</p>
         <div className="mt-3 flex flex-wrap gap-2 text-xs">
           {[
             ["goals", t("betaScreen.goals")],
@@ -335,19 +330,15 @@ function BetaValidationPage() {
 
       <div className="mt-6 grid gap-5">
         <Section id="goals" icon={Target} title={t("betaScreen.goalsTitle")}>
-          <p>
-            Run a structured validation with the first 20–30 prospects to learn what to improve
-            before a wider, paid, self-service launch. This is a sales/demo/readiness process — not
-            a product-feature sprint.
-          </p>
+          <p>{t("betaGuide.goalsIntro")}</p>
           <Bullets
             items={[
-              "Confirm small business owners understand Milo within the first few minutes.",
-              "Identify the strongest market (Poland, Sweden, Denmark, UK/EU).",
-              "Identify the strongest segment (wellness/beauty, local services, consultants, clinics, e-commerce).",
-              "Find the promise that resonates most (audit / publishing / analytics proof / connectors / authority).",
-              "Test real willingness to pay and acceptable price points.",
-              "Capture the top objections, confusing screens and requested improvements.",
+              t("betaGuide.goalUnderstanding"),
+              t("betaGuide.goalMarket"),
+              t("betaGuide.goalSegment"),
+              t("betaGuide.goalValue"),
+              t("betaGuide.goalPrice"),
+              t("betaGuide.goalFeedback"),
             ]}
           />
         </Section>
@@ -355,34 +346,27 @@ function BetaValidationPage() {
         <Section id="segments" icon={Target} title={t("betaScreen.segmentsTitle")}>
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="rounded-md border border-border p-3">
-              <div className="font-medium text-foreground">A — Poland wellness / local service</div>
+              <div className="font-medium text-foreground">{t("betaGuide.segmentPoland")}</div>
               <p className="mt-1 text-xs text-muted-foreground">
-                Beauty salons, massage therapists, physiotherapists, wellness/longevity studios,
-                small clinics, local services. Lower friction, owner's Polish network, accessible
-                pricing, strong pain around weak websites.
+                {t("betaGuide.segmentPolandDetail")}
               </p>
             </div>
             <div className="rounded-md border border-border p-3">
-              <div className="font-medium text-foreground">B — Sweden wellness / local service</div>
+              <div className="font-medium text-foreground">{t("betaGuide.segmentSweden")}</div>
               <p className="mt-1 text-xs text-muted-foreground">
-                Massage/wellness studios, clinics, consultants, premium local service brands. Owner
-                is local, higher pricing potential, Synergy Massage demo relevance, trust/premium
-                positioning.
+                {t("betaGuide.segmentSwedenDetail")}
               </p>
             </div>
             <div className="rounded-md border border-border p-3">
-              <div className="font-medium text-foreground">C — Small e-commerce</div>
+              <div className="font-medium text-foreground">{t("betaGuide.segmentCommerce")}</div>
               <p className="mt-1 text-xs text-muted-foreground">
-                Shopify/Woo/WordPress stores, wellness products, local product brands, niche
-                e-commerce. Shopify connector + content/GSC/authority workflow; can justify
-                Growth/Pro later.
+                {t("betaGuide.segmentCommerceDetail")}
               </p>
             </div>
             <div className="rounded-md border border-border p-3">
-              <div className="font-medium text-foreground">D — Agencies / freelancers</div>
+              <div className="font-medium text-foreground">{t("betaGuide.segmentAgency")}</div>
               <p className="mt-1 text-xs text-muted-foreground">
-                Web designers, small SEO freelancers, marketing consultants. Pro-plan potential and
-                multi-client use, but more critical and harder to convince — test last.
+                {t("betaGuide.segmentAgencyDetail")}
               </p>
             </div>
           </div>
@@ -394,12 +378,12 @@ function BetaValidationPage() {
               <div className="text-xs font-medium text-emerald-600">{t("betaScreen.required")}</div>
               <Bullets
                 items={[
-                  "Existing website",
-                  "Active business",
-                  "Accessible decision-maker",
-                  "Visible service/product offer",
-                  "Need for better content/visibility",
-                  "Willing to try a guided beta",
+                  t("betaGuide.requireWebsite"),
+                  t("betaGuide.requireBusiness"),
+                  t("betaGuide.requireDecisionMaker"),
+                  t("betaGuide.requireOffer"),
+                  t("betaGuide.requireNeed"),
+                  t("betaGuide.requireBeta"),
                 ]}
               />
             </div>
@@ -409,12 +393,12 @@ function BetaValidationPage() {
               </div>
               <Bullets
                 items={[
-                  "WordPress or Shopify site",
-                  "Google Search Console access",
-                  "Google Business Profile",
-                  "Weak/unclear website copy",
-                  "Local market focus",
-                  "Existing traffic or ad spend",
+                  t("betaGuide.niceCms"),
+                  t("betaGuide.niceGsc"),
+                  t("betaGuide.niceGbp"),
+                  t("betaGuide.niceCopy"),
+                  t("betaGuide.niceLocal"),
+                  t("betaGuide.niceTraffic"),
                 ]}
               />
             </div>
@@ -422,12 +406,12 @@ function BetaValidationPage() {
               <div className="text-xs font-medium text-amber-600">{t("betaScreen.avoid")}</div>
               <Bullets
                 items={[
-                  "Enterprise companies",
-                  "Heavily regulated medical/legal/finance claims",
-                  "Demands of guaranteed rankings",
-                  "Wanting cheap mass AI articles",
-                  "Complex custom CMS",
-                  "No website at all",
+                  t("betaGuide.avoidEnterprise"),
+                  t("betaGuide.avoidRegulated"),
+                  t("betaGuide.avoidGuarantees"),
+                  t("betaGuide.avoidMass"),
+                  t("betaGuide.avoidCms"),
+                  t("betaGuide.avoidNoWebsite"),
                 ]}
               />
             </div>
@@ -436,38 +420,31 @@ function BetaValidationPage() {
 
         <Section id="offer" icon={Shield} title={t("betaScreen.offerTitle")}>
           <p className="text-foreground">
-            <span className="font-medium">{t("betaScreen.corePromise")}</span> In 30 days, we help
-            you turn your website into a clearer, more measurable growth system.
+            <span className="font-medium">{t("betaScreen.corePromise")}</span>{" "}
+            {t("betaGuide.promise")}
           </p>
           <Bullets
             items={[
-              "Free AI Visibility Readiness Audit",
-              "Milo project setup + Brand Intelligence setup",
-              "Website/content gap review",
-              "First 30-day growth plan",
-              "3–5 prioritized content opportunities",
-              "1–2 publish-ready drafts with Milo Score",
-              "Publishing support if technically possible",
-              "Analytics setup guidance + GSC Lite import support if available",
-              "Authority Builder starter list",
-              "Review summary and next actions",
+              t("betaGuide.offerAudit"),
+              t("betaGuide.offerSetup"),
+              t("betaGuide.offerReview"),
+              t("betaGuide.offerPlan"),
+              t("betaGuide.offerPriorities"),
+              t("betaGuide.offerDrafts"),
+              t("betaGuide.offerPublishing"),
+              t("betaGuide.offerAnalytics"),
+              t("betaGuide.offerAuthority"),
+              t("betaGuide.offerSummary"),
             ]}
           />
           <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
-            Safe outcome: the client leaves with a clearer growth plan, better content priorities, a
-            publishing workflow and early performance tracking.
-            <span className="font-medium">
-              {" "}
-              Never promise rankings, revenue, traffic or AI citations.
-            </span>
+            {t("betaGuide.outcome")}
+            <span className="font-medium"> {t("betaGuide.noGuarantees")}</span>
           </div>
         </Section>
 
         <Section id="pricing" icon={BarChart3} title={t("betaScreen.pricingTitle")}>
-          <p className="text-xs text-muted-foreground">
-            Assisted Beta = one-time Assisted Setup price; Monthly Care = recurring. Figures mirror
-            the live billing catalogue (Sprint 14). Founding-beta is for the first pilots only.
-          </p>
+          <p className="text-xs text-muted-foreground">{t("betaGuide.pricingReference")}</p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -498,38 +475,31 @@ function BetaValidationPage() {
               </tbody>
             </table>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Label founding pricing clearly: "Founding beta price for first pilot businesses only."
-            Do not make the product look cheap. Live card payments are pending company/Paddle setup
-            — for beta, activation is manual (owner-set status in Billing).
-          </p>
+          <p className="text-xs text-muted-foreground">{t("betaGuide.paymentHold")}</p>
         </Section>
 
         <Section id="demo" icon={GitBranch} title={t("betaScreen.demoTitle")}>
           <ol className="space-y-1.5 list-decimal pl-5">
             {[
-              "Start with their website (or a known demo site).",
-              "Run the Free AI Visibility Audit live.",
-              "Explain the score: readiness, not rankings.",
-              "Show the public beta/market page briefly.",
-              "Open the Milo app.",
-              "Show onboarding / project setup.",
-              "Show Brand Intelligence.",
-              "Show Opportunities.",
-              "Generate or show a content draft.",
-              "Show Milo Score and Improve Draft.",
-              "Show the publishing connector path.",
-              "Show Analytics v2 + GSC Lite + Authority Builder.",
-              "Close with the 30-day beta offer and the next step.",
+              t("betaGuide.demoWebsite"),
+              t("betaGuide.demoAudit"),
+              t("betaGuide.demoScore"),
+              t("betaGuide.demoPublic"),
+              t("betaGuide.demoApp"),
+              t("betaGuide.demoSetup"),
+              t("betaGuide.demoBrand"),
+              t("betaGuide.demoPlan"),
+              t("betaGuide.demoDraft"),
+              t("betaGuide.demoQuality"),
+              t("betaGuide.demoPublishing"),
+              t("betaGuide.demoMeasurement"),
+              t("betaGuide.demoClose"),
             ].map((s, i) => (
               <li key={i}>{s}</li>
             ))}
           </ol>
           <div className="rounded-md border border-border bg-secondary/30 p-3 text-xs">
-            Talk track: "Milo does not just write content. It connects planning, content, publishing
-            and measurement." If a connector or live payment isn't ready in the demo, say: "This
-            part is architecture-ready. For assisted beta, setup is guided and we confirm
-            connector/payment details before going live."
+            {t("betaGuide.demoHonesty")}
           </div>
         </Section>
 
@@ -539,12 +509,12 @@ function BetaValidationPage() {
               <div className="text-xs font-medium text-foreground">{t("betaScreen.business")}</div>
               <Bullets
                 items={[
-                  "What customers do you want more of?",
-                  "Which services/products matter most now?",
-                  "Which market/location matters most?",
-                  "Is your website bringing inquiries/sales?",
-                  "Running Google/social ads?",
-                  "Do you have Search Console?",
+                  t("betaGuide.discoveryCustomers"),
+                  t("betaGuide.discoveryOffer"),
+                  t("betaGuide.discoveryMarket"),
+                  t("betaGuide.discoveryLeads"),
+                  t("betaGuide.discoveryAds"),
+                  t("betaGuide.discoveryGsc"),
                 ]}
               />
             </div>
@@ -554,11 +524,11 @@ function BetaValidationPage() {
               </div>
               <Bullets
                 items={[
-                  "Who updates your website now?",
-                  "How often do you publish?",
-                  "What's hard about writing content?",
-                  "Do you know which pages perform best?",
-                  "Do you know what people search before contacting you?",
+                  t("betaGuide.discoveryEditor"),
+                  t("betaGuide.discoveryFrequency"),
+                  t("betaGuide.discoveryWriting"),
+                  t("betaGuide.discoveryPages"),
+                  t("betaGuide.discoverySearch"),
                 ]}
               />
             </div>
@@ -566,10 +536,10 @@ function BetaValidationPage() {
               <div className="text-xs font-medium text-foreground">{t("betaScreen.decision")}</div>
               <Bullets
                 items={[
-                  "What would make this worth paying for?",
-                  "Self-service, guided setup, or monthly help?",
-                  "What monthly price would feel acceptable?",
-                  "What would stop you from using this?",
+                  t("betaGuide.discoveryValue"),
+                  t("betaGuide.discoverySupport"),
+                  t("betaGuide.discoveryPrice"),
+                  t("betaGuide.discoveryBarrier"),
                 ]}
               />
             </div>
@@ -578,34 +548,13 @@ function BetaValidationPage() {
 
         <Section id="objections" icon={MessageSquare} title={t("betaScreen.objectionsTitle")}>
           {[
-            [
-              "“Is this just ChatGPT writing blogs?”",
-              "No. Milo connects the whole workflow: audit, planning, brand rules, content generation, quality scoring, publishing, analytics, GSC import and authority tasks. The goal is a repeatable growth system, not just text.",
-            ],
-            [
-              "“Can you guarantee rankings?”",
-              "No — and Milo deliberately avoids that promise. It improves readiness, clarity, content quality, publishing consistency and measurement. Rankings and traffic depend on many external factors.",
-            ],
-            [
-              "“I already have a website agency.”",
-              "Great — Milo works alongside them. It identifies content/visibility opportunities, prepares drafts and tracks what happens after publishing. Your agency still handles design, technical work and approvals.",
-            ],
-            [
-              "“I don't want another tool.”",
-              "That's why the beta is assisted. We set up the project, prepare the first plan and guide the first content/publishing cycle — you don't learn it all alone.",
-            ],
-            [
-              "“Why not just use Google Ads?”",
-              "Ads stop when spending stops. Milo improves the underlying website content and visibility system, so the site becomes clearer and more measurable over time.",
-            ],
-            [
-              "“Is this SEO?”",
-              "Partly. Milo includes SEO readiness, AI visibility readiness, content planning, publishing and measurement — more a website growth workflow than a traditional SEO tool.",
-            ],
-            [
-              "“Is AI content safe?”",
-              "Milo treats AI output as a draft. Brand Intelligence, Milo Score and review notes reduce risk, but the business reviews content before publishing.",
-            ],
+            [t("betaGuide.objectionChatgpt"), t("betaGuide.answerChatgpt")],
+            [t("betaGuide.objectionRankings"), t("betaGuide.answerRankings")],
+            [t("betaGuide.objectionAgency"), t("betaGuide.answerAgency")],
+            [t("betaGuide.objectionTool"), t("betaGuide.answerTool")],
+            [t("betaGuide.objectionAds"), t("betaGuide.answerAds")],
+            [t("betaGuide.objectionSeo"), t("betaGuide.answerSeo")],
+            [t("betaGuide.objectionAi"), t("betaGuide.answerAi")],
           ].map(([q, a]) => (
             <div key={q} className="rounded-md border border-border p-3">
               <div className="font-medium text-foreground">{q}</div>
@@ -615,10 +564,7 @@ function BetaValidationPage() {
         </Section>
 
         <Section id="outreach" icon={MessageSquare} title={t("betaScreen.outreachTitle")}>
-          <p className="text-xs text-muted-foreground">
-            Human, not spammy. No fake urgency, no ranking guarantees. Lead with the free audit and
-            3–5 practical improvements. Replace {"{name}"}, {"{referrer}"} and {"{points}"}.
-          </p>
+          <p className="text-xs text-muted-foreground">{t("betaGuide.outreachInstructions")}</p>
           <div className="flex gap-2">
             {(["en", "pl", "sv"] as const).map((l) => (
               <Button
@@ -640,10 +586,7 @@ function BetaValidationPage() {
         </Section>
 
         <Section id="tracker" icon={ClipboardList} title={t("betaScreen.trackerTitle")}>
-          <p className="text-xs text-muted-foreground">
-            A lightweight template, not a CRM. Track in a spreadsheet — download the CSV header
-            below. Do not store prospect data in the app.
-          </p>
+          <p className="text-xs text-muted-foreground">{t("betaGuide.trackerInstructions")}</p>
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" size="sm" onClick={downloadTrackerCsv}>
               <Download className="h-3.5 w-3.5" /> {t("betaScreen.download")}
@@ -682,13 +625,13 @@ function BetaValidationPage() {
             <div className="text-xs font-medium text-foreground">{t("betaScreen.score")}</div>
             <Bullets
               items={[
-                "Understood value",
-                "Relevance to business",
-                "Trust in AI output",
-                "Interest in assisted beta",
-                "Willingness to pay",
-                "Clarity of pricing",
-                "Likelihood to recommend",
+                t("betaGuide.feedbackUnderstanding"),
+                t("betaGuide.feedbackRelevance"),
+                t("betaGuide.feedbackTrust"),
+                t("betaGuide.feedbackInterest"),
+                t("betaGuide.feedbackWillingness"),
+                t("betaGuide.feedbackPricing"),
+                t("betaGuide.feedbackRecommend"),
               ]}
             />
           </div>
@@ -698,13 +641,13 @@ function BetaValidationPage() {
             </div>
             <Bullets
               items={[
-                "What part was most useful?",
-                "What was confusing?",
-                "What felt unnecessary?",
-                "What would you want first?",
-                "What would make you pay?",
-                "What price feels fair?",
-                "Self-service or guided support?",
+                t("betaGuide.feedbackUseful"),
+                t("betaGuide.feedbackConfusing"),
+                t("betaGuide.feedbackUnnecessary"),
+                t("betaGuide.feedbackFirst"),
+                t("betaGuide.feedbackPay"),
+                t("betaGuide.feedbackFair"),
+                t("betaGuide.feedbackSupport"),
               ]}
             />
           </div>
@@ -716,9 +659,9 @@ function BetaValidationPage() {
               <div className="text-xs font-medium text-foreground">{t("betaScreen.awareness")}</div>
               <Bullets
                 items={[
-                  "20 prospects identified",
-                  "10 free audits run",
-                  "10 outreach messages sent",
+                  t("betaGuide.targetProspects"),
+                  t("betaGuide.targetAudits"),
+                  t("betaGuide.targetOutreach"),
                 ]}
               />
             </div>
@@ -726,7 +669,13 @@ function BetaValidationPage() {
               <div className="text-xs font-medium text-foreground">
                 {t("betaScreen.engagement")}
               </div>
-              <Bullets items={["5 replies", "3 demos booked", "2 demos completed"]} />
+              <Bullets
+                items={[
+                  t("betaGuide.targetReplies"),
+                  t("betaGuide.targetBookings"),
+                  t("betaGuide.targetDemos"),
+                ]}
+              />
             </div>
             <div>
               <div className="text-xs font-medium text-foreground">
@@ -734,11 +683,11 @@ function BetaValidationPage() {
               </div>
               <Bullets
                 items={[
-                  "1 paid/committed beta",
-                  "2 warm follow-ups",
-                  "Top 5 objections collected",
-                  "Top 5 confusing screens",
-                  "Top 5 requested improvements",
+                  t("betaGuide.targetCommitment"),
+                  t("betaGuide.targetFollowups"),
+                  t("betaGuide.targetObjections"),
+                  t("betaGuide.targetScreens"),
+                  t("betaGuide.targetImprovements"),
                 ]}
               />
             </div>
@@ -748,12 +697,12 @@ function BetaValidationPage() {
         <Section id="decisions" icon={GitBranch} title={t("betaScreen.decisionsTitle")}>
           <Bullets
             items={[
-              "Understand Milo but don't pay → refine pricing/offer.",
-              "Like the audit but not the app → improve the audit-to-onboarding handoff.",
-              "Want done-for-you → emphasize Assisted Beta / Monthly Care.",
-              "Ask for WordPress/Shopify → prioritize live E2E testing and docs.",
-              "Ask for guarantees → strengthen safe expectation-setting.",
-              "Are confused → simplify public/beta messaging.",
+              t("betaGuide.decisionPrice"),
+              t("betaGuide.decisionOnboarding"),
+              t("betaGuide.decisionSupport"),
+              t("betaGuide.decisionCms"),
+              t("betaGuide.decisionGuarantees"),
+              t("betaGuide.decisionClarity"),
             ]}
           />
         </Section>

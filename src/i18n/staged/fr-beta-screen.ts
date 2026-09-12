@@ -11,7 +11,7 @@ export const frBetaScreen: Readonly<Record<string, string>> = {
   "betaScreen.validation": "Questions de validation",
   "betaScreen.copyFailed": "Impossible de copier",
   "betaScreen.languageNote":
-    "Les instructions du guide sont actuellement en anglais. Les modèles de prise de contact utilisent le choix de langue distinct ci-dessous. Les exports CSV conservent leurs noms de champs et valeurs d’origine.",
+    "Le guide suit la langue de l’interface. Les modèles de messages utilisent le choix de langue distinct ci-dessous et doivent être relus avant utilisation. Les exports CSV conservent les noms de champs et les valeurs d’origine.",
   "betaScreen.goals": "Objectifs",
   "betaScreen.segments": "Segments",
   "betaScreen.qualify": "Qualification",

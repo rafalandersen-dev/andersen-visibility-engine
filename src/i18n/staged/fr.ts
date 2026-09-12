@@ -1,3 +1,4 @@
+import { frBetaGuidance } from "./fr-beta-guidance";
 import { frBetaScreen } from "./fr-beta-screen";
 import { frAuthScreen } from "./fr-auth-screen";
 import { frSharedUi } from "./fr-shared-ui";
@@ -25,6 +26,7 @@ import { frPlanScreen } from "./fr-plan-screen";
 /** Authoring batches only. Dictionary coverage does not establish full interface
  * acceptance. This catalog is not registered by the runtime or language picker. */
 export const FR_STAGED_BATCHES = [
+  { name: "beta playbook guidance", copy: frBetaGuidance, namespaces: ["betaGuide"] },
   { name: "beta screen controls", copy: frBetaScreen, namespaces: ["betaScreen"] },
   { name: "authentication screen", copy: frAuthScreen, namespaces: ["authScreen"] },
   { name: "shared UI", copy: frSharedUi, namespaces: ["sharedUi"] },

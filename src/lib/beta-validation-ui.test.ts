@@ -95,6 +95,7 @@ it.each(UI_LANGUAGE_CODES)(
     expect(html).not.toContain("Cześć {name}");
     expect(html).not.toContain("Hej {name}");
     expect(html).not.toContain("betaScreen.");
+    expect(html).not.toContain("betaGuide.");
     expect(state.buttons.filter((b) => ["EN", "PL", "SV"].includes(b.label))).toHaveLength(3);
   },
 );
