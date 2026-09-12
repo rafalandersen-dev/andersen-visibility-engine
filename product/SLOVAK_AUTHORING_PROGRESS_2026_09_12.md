@@ -1,6 +1,6 @@
 # Slovak interface authoring — 12 September 2026
 
-Slovak is staged only: 855 of the current 3,768 English interface keys, across thirteen complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS retain separate staged acceptance status.
+Slovak is staged only: 955 of the current 3,768 English interface keys, across fourteen complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS retain separate staged acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -17,14 +17,15 @@ Slovak is staged only: 855 of the current 3,768 English interface keys, across t
 | Editor screen | 148 | 120b4dc |
 | Public pricing | 40 | c3a04a7 |
 | Public case studies | 30 | c3a04a7 |
+| Public home | 100 | c5c37bb |
 
-The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 24 Slovak/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovak-public-pricing-studies-types.log.
+The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 25 Slovak/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovak-public-home-types.log.
 
 Terminology: pracovný priestor (workspace), projekt, heslo (password), obnovenie hesla (password recovery), bočný panel (sidebar), archivovať (archive). Prefer formal-plural instructions and infinitive actions. Program denotes a subscription plan; workflow plans use plán. Network listing is zápis. Preserve provider/product names and placeholders.
 
 Recovery text preserves conditional eligibility and does not confirm that an account exists. Source claims about monthly planning and successful sign-in after password update retain implementation/acceptance obligations; translation does not prove them. No email, authentication, password, account or provider operation occurred.
 
-Remaining: 2,913 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next complete batch: public home using current composed English. This staged work does not complete R20 or alter release gates.
+Remaining: 2,813 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next complete batch: beta screen using current composed English. This staged work does not complete R20 or alter release gates.
 
 Core copy preserves interface versus content language, work target dates versus publication times, sent drafts versus published pages, and partial-generation recovery. Navigation uses Plán, Obsah, Viditeľnosť, Nastavenia and Analytika; publication scheduling is Čas zverejnenia nastavený. No generation, scheduling or publication occurred. Current source fingerprints are checked against composed English.
 
@@ -39,3 +40,5 @@ Plan copy preserves work target dates versus publication schedules, discovery ac
 Editor copy preserves upload privacy until image approval, controlled-origin eligibility, alt-text requirements and the separate Save step. Source validation, author identity/consent guidance, link-resolution blocks and sent/published/attempt timestamps retain their source meanings. Zdroje a autor names the Sources & Author tab; zadanie obsahu is content brief. Structured-data copy retains CMS and search-engine limits without adding guarantees. No image upload, generation, approval, validation or publication occurred.
 
 Public pricing/studies preserves billing-country eligibility versus interface region, separate add-on purchases and payment/supplier acceptance holds. Case examples retain incomplete live connector, publication and measurement acceptance, with no observed growth/customer outcome or performance guarantee. Program is subscription plan; Agency, Backlinks, Brand Intelligence and Milo Scores remain names. No checkout, activation, purchase, provider request or publication occurred.
+
+Public home preserves missing-data semantics, separate publication prerequisites, linked-subscription portal conditions and paid-service holds. The composed hero reads Váš mesačný systém rastu s AI; source component concatenation was checked. Visibility remains Viditeľnosť, case studies Príklady použitia, and the Captured stage is Zachytené for later workflow alignment. Inherited marketing claims still require implementation/product acceptance; authoring is not proof. No provider operation occurred.

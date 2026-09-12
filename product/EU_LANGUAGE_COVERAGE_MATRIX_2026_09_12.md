@@ -116,3 +116,5 @@ Slovak plan screen adds 113 messages, bringing staged coverage to 637/3,768 acro
 Slovak editor screen adds 148 messages, bringing staged coverage to 785/3,768 across eleven batches. The remaining UI authoring backlog is 44,431 messages at this composed-English baseline. All 22 focused tests, types, scoped lint and whitespace pass. Activation and language/rendered acceptance remain open.
 
 Slovak public pricing/studies adds 70 messages, bringing staged coverage to 855/3,768 across thirteen batches. The remaining UI authoring backlog is 44,361 messages at this composed-English baseline. All 24 focused tests, types, scoped lint and whitespace pass. Activation and language/rendered acceptance remain open.
+
+Slovak public home adds 100 messages, bringing staged coverage to 955/3,768 across fourteen batches. The remaining UI authoring backlog is 44,261 messages at this composed-English baseline. All 25 focused tests, types, scoped lint and whitespace pass. Activation and language/rendered acceptance remain open.
