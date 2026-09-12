@@ -1,3 +1,5 @@
+import { csPublicStudies } from "./cs-public-studies";
+import { csPublicPricing } from "./cs-public-pricing";
 import { csEditorScreen } from "./cs-editor-screen";
 import { csPlanScreen } from "./cs-plan-screen";
 import { csEvidenceScreen } from "./cs-evidence-screen";
@@ -11,6 +13,20 @@ import { csAuthScreen } from "./cs-auth-screen";
 import { csSharedUi } from "./cs-shared-ui";
 /** Czech authoring; never imported by the runtime catalog. */
 export const CS_STAGED_BATCHES = [
+  {
+    name: "public studies",
+    copy: csPublicStudies,
+    namespaces: ["publicStudies"],
+    sourceRevision: "77f6ac6",
+    sourceHash: "ace563fb757a52abcd667e7e691d3e48024045a4e4f265e6949c66a828f5e8de",
+  },
+  {
+    name: "public pricing",
+    copy: csPublicPricing,
+    namespaces: ["publicPricing"],
+    sourceRevision: "77f6ac6",
+    sourceHash: "8e7cecc9d6ca14af722fe8b4131d7982241e9e856335586f8d4e724469d0de60",
+  },
   {
     name: "editor screen",
     copy: csEditorScreen,
