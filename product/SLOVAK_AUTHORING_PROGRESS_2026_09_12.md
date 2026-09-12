@@ -1,6 +1,6 @@
 # Slovak interface authoring — 12 September 2026
 
-Slovak is staged only: 524 of the current 3,768 English interface keys, across nine complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS retain separate staged acceptance status.
+Slovak is staged only: 637 of the current 3,768 English interface keys, across ten complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS retain separate staged acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -13,14 +13,15 @@ Slovak is staged only: 524 of the current 3,768 English interface keys, across n
 | Analytics screen | 36 | e274ada |
 | Billing screen | 54 | e274ada |
 | Competitor and AI-readiness evidence screen | 89 | 23cb569 |
+| Plan screen | 113 | 6b99354 |
 
-The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 20 Slovak/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovak-evidence-screen-types.log.
+The staged registry has unique key ownership and a frozen combined catalog. Namespace tests verify exact keys, nonempty values, current English source fingerprints and preserved placeholders, numbers, URLs and email tokens. All 21 Slovak/catalog tests, scoped lint, whitespace and type checking pass. Type log: /tmp/milo-slovak-plan-screen-types.log.
 
 Terminology: pracovný priestor (workspace), projekt, heslo (password), obnovenie hesla (password recovery), bočný panel (sidebar), archivovať (archive). Prefer formal-plural instructions and infinitive actions. Program denotes a subscription plan; workflow plans use plán. Network listing is zápis. Preserve provider/product names and placeholders.
 
 Recovery text preserves conditional eligibility and does not confirm that an account exists. Source claims about monthly planning and successful sign-in after password update retain implementation/acceptance obligations; translation does not prove them. No email, authentication, password, account or provider operation occurred.
 
-Remaining: 3,244 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next complete batch: plan screen using current composed English. This staged work does not complete R20 or alter release gates.
+Remaining: 3,131 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next complete batch: editor screen using current composed English. This staged work does not complete R20 or alter release gates.
 
 Core copy preserves interface versus content language, work target dates versus publication times, sent drafts versus published pages, and partial-generation recovery. Navigation uses Plán, Obsah, Viditeľnosť, Nastavenia and Analytika; publication scheduling is Čas zverejnenia nastavený. No generation, scheduling or publication occurred. Current source fingerprints are checked against composed English.
 
@@ -29,3 +30,5 @@ Setup/services/audit copy preserves approval versus publication, removed automat
 Analytics/billing preserves recorded events versus unique visitors, tracked clicks versus completed transactions, bounded history and publication-time limits. The 50,000-event ceiling is written 50 000 in Slovak with unchanged value. Subscription program terminology, legacy Paddle eligibility, manual grants and separate backlink purchase approval retain their source meaning. Checkout failure describes order completion, without asserting a failed charge. No payment, portal, tracking installation or provider operation occurred.
 
 Evidence-screen copy preserves competitor snapshots versus ongoing monitoring, absent evidence on failed retrieval, competitor-gap versus readiness score direction, and readiness estimates versus measured AI answers/rankings. AI referral visits remain separate from mentions and citations. Discovery means finding options in this context. No competitor fetch, analysis, model request or opportunity creation occurred.
+
+Plan copy preserves work target dates versus publication schedules, discovery acceptance versus content creation/publication, skipped batch items, sample data provenance and archive/restore behavior. Drafts without linked opportunities explicitly retain active publication schedules. Discovery is hľadanie príležitostí; Plan is Plán, Board Nástenka, List Zoznam and Calendar Kalendár. No generation, sample removal, scheduling or archive operation occurred.
