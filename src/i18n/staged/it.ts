@@ -1,3 +1,4 @@
+import { itCommerce } from "./it-commerce";
 import { itGrowth } from "./it-growth";
 import { itOutreach } from "./it-outreach";
 import { itPublicBeta } from "./it-public-beta";
@@ -203,6 +204,13 @@ export const IT_STAGED_BATCHES = [
     namespaces: ["authority", "actions", "publicAudit"],
     sourceRevision: "49c401c",
     sourceHash: "79460ac604f31155136687fbf43e146ccd11625f12316625da192cdb8188f136",
+  },
+  {
+    name: "commerce",
+    copy: itCommerce,
+    namespaces: ["billing", "launch", "beta"],
+    sourceRevision: "a7fe4e6",
+    sourceHash: "2d58b596b76d994df2999d70c42588c8a48ec57ab846dbe5b88238580e59387c",
   },
 ] as const;
 export const IT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
