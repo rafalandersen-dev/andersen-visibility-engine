@@ -1,3 +1,4 @@
+import { csConfiguration } from "./cs-configuration";
 import { csPublicBeta } from "./cs-public-beta";
 import { csBetaGuidance } from "./cs-beta-guidance";
 import { csBetaScreen } from "./cs-beta-screen";
@@ -17,6 +18,13 @@ import { csAuthScreen } from "./cs-auth-screen";
 import { csSharedUi } from "./cs-shared-ui";
 /** Czech authoring; never imported by the runtime catalog. */
 export const CS_STAGED_BATCHES = [
+  {
+    name: "configuration",
+    copy: csConfiguration,
+    namespaces: ["brand", "wp", "shopify", "claude", "connect", "connections", "coverage"],
+    sourceRevision: "56ca0c5",
+    sourceHash: "0e11ebfcac212ec85d91c8734430e0cd661dc727057c565c1cfcd33f59a1aa60",
+  },
   {
     name: "public beta",
     copy: csPublicBeta,

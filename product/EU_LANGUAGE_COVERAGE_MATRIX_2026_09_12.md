@@ -78,3 +78,5 @@ Czech beta screen adds 88 messages: partial coverage is 1,043/3,768, leaving 47,
 Czech beta guidance adds 125 messages: partial coverage is 1,168/3,768 and the remaining UI authoring backlog is 47,816 at this source baseline. Activation and quality acceptance remain open.
 
 Czech public beta adds 100 messages: partial coverage is 1,268/3,768 and the remaining UI authoring backlog is 47,716 at this source baseline. Activation and quality acceptance remain open.
+
+Czech configuration adds 220 messages: partial coverage is 1,488/3,768 and the UI authoring backlog is 47,496 messages at this English baseline. Activation and quality acceptance remain open.
