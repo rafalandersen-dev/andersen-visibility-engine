@@ -613,7 +613,7 @@ function PlanPage() {
 
   return (
     <AppShell
-      title={view === "discover" ? t("today.discover") : "Plan"}
+      title={view === "discover" ? t("today.discover") : t("shell.nav.plan")}
       description={view === "discover" ? t("planScreen.discoverySubtitle") : t("plan.subtitle")}
       actions={
         <>

@@ -485,7 +485,7 @@ function ProjectSetup() {
                           : "border-border text-muted-foreground hover:border-accent")
                       }
                     >
-                      {cfg.enabled ? "ON" : "OFF"}
+                      {t(cfg.enabled ? "sharedUi.on" : "sharedUi.off")}
                     </button>
                   )}
                 </Field>

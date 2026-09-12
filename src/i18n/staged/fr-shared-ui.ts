@@ -21,4 +21,13 @@ export const frSharedUi: Readonly<Record<string, string>> = {
   "sharedUi.industryExample": "p. ex. boulangerie, cabinet d’avocats",
   "sharedUi.locationExample": "Ville / zone",
   "sharedUi.toneExample": "p. ex. chaleureux, expert, concis",
+  "sharedUi.on": "Activé",
+  "sharedUi.off": "Désactivé",
+  "sharedUi.generationFailed": "La génération a échoué",
+  "sharedUi.analysisFailed": "L’analyse a échoué",
+  "sharedUi.networkSaveFailed": "Impossible d’enregistrer la fiche",
+  "sharedUi.networkSearchFailed": "Impossible de rechercher dans le réseau",
+  "sharedUi.networkMatchFailed": "Impossible de mettre à jour la correspondance",
+  "sharedUi.verificationFailed": "La vérification a échoué",
+  "sharedUi.clipboardManual": "Le presse-papiers est indisponible. Copiez le texte manuellement.",
 };
