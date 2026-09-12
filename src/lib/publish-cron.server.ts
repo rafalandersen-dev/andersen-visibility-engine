@@ -101,7 +101,9 @@ async function setRow(
  * Claim and process one batch of due publishes.
  * Errors on individual rows never abort the batch.
  */
-export async function runScheduledPublishes(batchSize = 20): Promise<RunSummary> {
+export async function runScheduledPublishes(
+  batchSize = 20,
+): Promise<RunSummary & { heartbeatRecorded: boolean }> {
   const admin = await adminClient();
 
   // Park anything a dead run left claimed, before taking new work — and tell each
@@ -248,16 +250,27 @@ export async function runScheduledPublishes(batchSize = 20): Promise<RunSummary>
   // thenable but not a real Promise, so calling .catch() on it throws a
   // TypeError that took the whole run down and produced a 500 with no
   // heartbeat — the exact blind spot this heartbeat exists to remove.
+  let heartbeatRecorded = false;
+  let heartbeatTimer: ReturnType<typeof setTimeout> | undefined;
   try {
-    await admin.rpc("record_cron_heartbeat", {
-      job: "scheduled-publish-run",
-      summary: summary as unknown as Record<string, unknown>,
-    });
-  } catch (e) {
-    console.error("[publish-cron] heartbeat failed", e instanceof Error ? e.message : "error");
+    const response = await Promise.race([
+      admin.rpc("record_cron_heartbeat", {
+        job: "scheduled-publish-run",
+        summary: summary as unknown as Record<string, unknown>,
+      }),
+      new Promise<never>((_, reject) => {
+        heartbeatTimer = setTimeout(() => reject(new Error("heartbeat_timeout")), 10_000);
+      }),
+    ]);
+    if (!response || response.error) throw new Error("heartbeat_unconfirmed");
+    heartbeatRecorded = true;
+  } catch {
+    console.error("[publish-cron] heartbeat could not be confirmed");
+  } finally {
+    clearTimeout(heartbeatTimer);
   }
 
-  return summary;
+  return { ...summary, heartbeatRecorded };
 }
 
 /** Age of the last successful runner tick, in seconds. null when it never ran. */
