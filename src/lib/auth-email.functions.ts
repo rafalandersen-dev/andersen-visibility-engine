@@ -8,6 +8,7 @@ import { SignupEmail } from "./email-templates/signup";
 import { RecoveryEmail } from "./email-templates/recovery";
 import { emailLocaleSchema } from "./email-languages";
 import { authEmailPresentation } from "./auth-email-presentation";
+import { admitAuthEmail } from "./auth-email-admission.server";
 
 const SITE_NAME = "Milo Growth";
 const SITE_URL = "https://milogrowth.com";
@@ -165,6 +166,7 @@ export const signupWithBrandedEmailFn = createServerFn({ method: "POST" })
     // because that administrative call can create an unconfirmed account.
     getEmailApiKey();
     const email = data.email.trim().toLowerCase();
+    await admitAuthEmail(supabase, email, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     const { data: linkData, error } = await supabase.auth.admin.generateLink({
       type: "signup",
       email,
@@ -207,6 +209,7 @@ export const requestPasswordResetWithBrandedEmailFn = createServerFn({ method: "
     // Do not issue a new recovery link when delivery is known to be unavailable.
     getEmailApiKey();
     const email = data.email.trim().toLowerCase();
+    await admitAuthEmail(supabase, email, process.env.SUPABASE_SERVICE_ROLE_KEY!);
     const { data: linkData, error } = await supabase.auth.admin.generateLink({
       type: "recovery",
       email,

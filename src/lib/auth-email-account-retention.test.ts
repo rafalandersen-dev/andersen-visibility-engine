@@ -10,6 +10,7 @@ const h = vi.hoisted(() => ({
   log: vi.fn(),
   tokens: vi.fn(),
   insertToken: vi.fn(),
+  admit: vi.fn(),
 }));
 
 vi.mock("@tanstack/react-start", () => ({
@@ -41,6 +42,7 @@ vi.mock("@supabase/supabase-js", () => ({
     },
   }),
 }));
+vi.mock("./auth-email-admission.server", () => ({ admitAuthEmail: h.admit }));
 vi.mock("@lovable.dev/email-js", () => ({ sendLovableEmail: h.send }));
 vi.mock("react-email", () => ({ render: h.render }));
 
@@ -331,3 +333,16 @@ describe("private token diagnostics remain bounded", () => {
     });
   }
 });
+
+it.each([signupWithBrandedEmailFn, requestPasswordResetWithBrandedEmailFn])(
+  "refuses admission before administrative link generation and email sending",
+  async (fn) => {
+    h.admit.mockRejectedValueOnce(new Error("Too many email requests."));
+    await expect(call(fn)).rejects.toThrow("Too many email requests.");
+    expect(h.admit).toHaveBeenCalledOnce();
+    expect(h.generateLink).not.toHaveBeenCalled();
+    expect(h.render).not.toHaveBeenCalled();
+    expect(h.send).not.toHaveBeenCalled();
+    expect(h.tokens).not.toHaveBeenCalled();
+  },
+);
