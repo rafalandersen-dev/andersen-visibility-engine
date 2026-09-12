@@ -1,3 +1,4 @@
+import { nlPublicHome } from "./nl-public-home";
 import { nlPublicStudies } from "./nl-public-studies";
 import { nlPublicPricing } from "./nl-public-pricing";
 import { nlEditorScreen } from "./nl-editor-screen";
@@ -14,6 +15,13 @@ import { nlSharedUi } from "./nl-shared-ui";
 
 /** Partial Dutch authoring; never imported by the runtime catalog. */
 export const NL_STAGED_BATCHES = [
+  {
+    name: "public home",
+    copy: nlPublicHome,
+    namespaces: ["publicHome"],
+    sourceRevision: "2a88d38",
+    sourceHash: "4e132895babfb222b37e92719be5ad2a8be90d9503869e9df9845b00d982adeb",
+  },
   {
     name: "public pricing",
     copy: nlPublicPricing,
