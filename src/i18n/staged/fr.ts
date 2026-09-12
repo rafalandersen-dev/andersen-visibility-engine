@@ -4,10 +4,16 @@ import { frCollaboration } from "./fr-collaboration";
 import { frKnowledge } from "./fr-knowledge";
 import { frTechnical } from "./fr-technical";
 import { frMeasurements } from "./fr-measurements";
+import { frEvidence } from "./fr-evidence";
 
 /** Authoring batches only. This catalog is incomplete and is not registered by
  * the runtime or offered in the language picker. */
 export const FR_STAGED_BATCHES = [
+  {
+    name: "evidence",
+    copy: frEvidence,
+    namespaces: ["answer", "logs", "proof", "aiEval", "benchmark"],
+  },
   {
     name: "measurements",
     copy: frMeasurements,
