@@ -1,6 +1,6 @@
 # Finnish interface authoring — 12 September 2026
 
-Finnish is staged only: 1,978 of the current 3,768 English interface keys, across twenty complete batches. It is not registered in UI_CATALOGS or the language picker. Active UI remains EN/PL/SV/DA; the fully authored FR/DE/ES/IT/PT/NL catalogs retain their separate acceptance status.
+Finnish is staged only: 2,216 of the current 3,768 English interface keys, across twenty-one complete batches. It is not registered in UI_CATALOGS or the language picker. Active UI remains EN/PL/SV/DA; the fully authored FR/DE/ES/IT/PT/NL catalogs retain their separate acceptance status.
 
 | Batch | Keys | English baseline |
 | --- | ---: | --- |
@@ -24,14 +24,15 @@ Finnish is staged only: 1,978 of the current 3,768 English interface keys, acros
 | Configuration | 220 | 5cb0696 |
 | Collaboration | 248 | 30760ec |
 | Knowledge | 242 | 3f67ff1 |
+| Technical SEO | 238 | 84f2043 |
 
 Source material was reviewed against the current composed English values for each registered batch; tests compare the composed English catalog and its SHA-256 fingerprint, exact namespace key coverage, nonempty translations, placeholders, numbers, URLs and email tokens. The combined Finnish catalog is frozen with unique key ownership. Tests also confirm runtime exclusion.
 
 Terminology: työtila (workspace), projekti (project), salasana (password), palautuslinkki (reset link), sivupalkki (sidebar), arkistoi (archive). Use direct, concise Finnish UI instructions. Preserve conditional password-recovery wording and source placeholders. Do not translate product/provider names as ordinary words.
 
-Validation: 31 Finnish/catalog tests pass; TypeScript, scoped lint and whitespace pass. These mechanical checks do not constitute fluent-language or rendered accessibility acceptance. Source claims about monthly planning and successful sign-in after password update retain their existing implementation/acceptance boundaries.
+Validation: 32 Finnish/catalog tests pass; TypeScript, scoped lint and whitespace pass. These mechanical checks do not constitute fluent-language or rendered accessibility acceptance. Source claims about monthly planning and successful sign-in after password update retain their existing implementation/acceptance boundaries.
 
-Remaining: 1,790 English keys, fluent review, consistent terminology across the rest of the product, rendered mobile/desktop and accessibility checks, and approved activation. Next authoring batch covers technical SEO, using current composed English values rather than historical raw base strings. R20 still requires all 24 EU languages across its registered surfaces; this initial batch does not satisfy it.
+Remaining: 1,552 English keys, fluent review, consistent terminology across the rest of the product, rendered mobile/desktop and accessibility checks, and approved activation. Next authoring batch covers measurements and reports, using current composed English values rather than historical raw base strings. R20 still requires all 24 EU languages across its registered surfaces; this initial batch does not satisfy it.
 
 Core review notes: ajastettu (scheduled), lähetetty sivustolle (sent to site), julkaistu (published), tarkista (review), vahvista (confirm). The Visibility navigation entry is Näkyvyys. Partial onboarding completion remains distinct from success. Inherited monthly-positioning, initial generation and setup-quality claims still require implementation/product acceptance; translation does not verify them.
 
@@ -60,3 +61,5 @@ Configuration review: read-only, proposal and write permissions remain separate;
 Collaboration review: historical records and saved outputs do not prove active work, live publication or causation. Shared preparation attempts are not guaranteed finished articles; email-provider acceptance is not delivery confirmation. Creating invitations is separate from emailing them or granting access. Approval-policy changes, exact-version review, edit conflicts and uncertain saves preserve source meaning. Notification assignment requires recipient consent, and email-language changes do not enable delivery. These translations do not resolve the pending owner role-policy decision or establish live team/email acceptance.
 
 Knowledge review: knowledge revalidation is separate from exact-content/destination publication approval and resuming a held schedule. Weekly reservations, saved drafts and real queue entries remain distinct, including nonexistent local times and uncertain recovery. Accepted source-reported facts are not independent verification; missing observations are not confirmed catalog removals. Extraction limits, owner-setting precedence, source revocation and irreversible forgetting retain their source semantics. No source refresh, generation, approval or data deletion occurred.
+
+Technical review: ownership expiry, robots permissions, bounded crawl/sitemap coverage and saved evidence retain their source limits. Sitemap declarations are not indexing proof. Google index evidence is distinct from live-page testing or requesting indexing; refreshing history does not repeat provider requests. CrUX real-user evidence stays separate from PageSpeed laboratory measurements, including page/origin scope, unknown metrics and uncertain outcomes. No DNS mutation, crawl, Google inspection or performance-provider request occurred.
