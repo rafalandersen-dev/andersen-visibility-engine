@@ -1,3 +1,4 @@
+import { fiEvidence } from "./fi-evidence";
 import { fiLinks } from "./fi-links";
 import { fiCommerce } from "./fi-commerce";
 import { fiGrowth } from "./fi-growth";
@@ -27,6 +28,13 @@ import { fiSharedUi } from "./fi-shared-ui";
 
 /** Finnish authoring; never imported by the runtime catalog. */
 export const FI_STAGED_BATCHES = [
+  {
+    name: "evidence",
+    copy: fiEvidence,
+    namespaces: ["answer", "logs", "proof", "aiEval", "benchmark"],
+    sourceRevision: "9784357",
+    sourceHash: "2911f87d7691a2bf04548e0b7c0e63b3c93f25cdcd73c9af1ba5d22ffdee211d",
+  },
   {
     name: "links",
     copy: fiLinks,
