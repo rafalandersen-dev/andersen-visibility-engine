@@ -105,12 +105,14 @@ vi.mock("@/components/ui/select", () => {
   };
 });
 import { Route } from "@/routes/_authenticated/app.report";
+import { toast } from "sonner";
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-09-12T09:00:00Z"));
   state.selects = [];
   state.emailClick = undefined;
   vi.clearAllMocks();
+  state.email.mockReset().mockResolvedValue({ sent: true });
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -133,5 +135,43 @@ it.each(UI_LANGUAGE_CODES)(
       data: { projectId: "p1", monthKey: "2026-09" },
     });
     expect(state.workspace.projects[0].appLanguage).toBe("sv");
+  },
+);
+
+it.each(["accepted", "failed"])(
+  "ignores repeat clicks while email is pending and releases after %s",
+  async (outcome) => {
+    state.language = "en";
+    let resolve!: (value: { sent: boolean }) => void;
+    let reject!: (reason: Error) => void;
+    state.email.mockImplementationOnce(
+      () =>
+        new Promise((yes, no) => {
+          resolve = yes;
+          reject = no;
+        }),
+    );
+    renderToStaticMarkup(createElement(Route.options.component as ComponentType));
+    const click = state.emailClick!;
+    const pending = click();
+    await click();
+    expect(state.email).toHaveBeenCalledOnce();
+    expect(toast.success).not.toHaveBeenCalled();
+    if (outcome === "accepted") resolve({ sent: true });
+    else reject(new Error("provider unavailable"));
+    await pending;
+    if (outcome === "accepted") {
+      expect(toast.success).toHaveBeenCalledExactlyOnceWith(
+        translate("en", "report.toast.emailed"),
+      );
+      expect(toast.error).not.toHaveBeenCalled();
+    } else {
+      expect(toast.error).toHaveBeenCalledExactlyOnceWith(
+        translate("en", "report.toast.emailFailed"),
+      );
+      expect(toast.success).not.toHaveBeenCalled();
+    }
+    await click();
+    expect(state.email).toHaveBeenCalledTimes(2);
   },
 );

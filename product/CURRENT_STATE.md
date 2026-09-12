@@ -1,5 +1,7 @@
 # Milo Growth — current status
 
+Report email now has an immediate in-flight guard in the mounted report screen, preventing repeated handler calls from dispatching duplicates before the disabled button renders. Two pending-request regression cases verify one dispatch, truthful success/error feedback, and release after acceptance or failure. All 25 report UI/dispatch tests and TypeScript checks pass; scoped lint has no errors and retains the existing project-effect dependency warning. This is a local interaction guard, not durable cross-tab/server idempotency. No real email was sent; delivery acceptance and release holds remain open.
+
 Report-email success copy now distinguishes provider acceptance from unconfirmed delivery across active EN/PL/SV/DA and all six staged languages. The actual dispatch handler checks the provider HTTP response and does not confirm inbox delivery. Reviewed measurements source fingerprints updated. All 216 tests across nine catalog/report files pass; staged lint, active-catalog lint with the existing formatting rule excluded, and whitespace checks pass. No email was sent; real delivery acceptance and release holds remain open.
 
 Public home copy now names the app’s Visibility section consistently across active EN/PL/SV/DA and all staged translations. Reviewed English fingerprints updated; 193 staged/catalog tests plus scoped lint/whitespace pass. The Dutch navigation source discrepancy is resolved; other acceptance and release holds remain.

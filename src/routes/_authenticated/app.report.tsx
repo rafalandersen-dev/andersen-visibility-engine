@@ -32,7 +32,7 @@ import { isAgencyPlan, type AgencyBranding } from "@/lib/billing";
 import { setAgencyBranding, saveWorkspaceNow } from "@/lib/store";
 import { Input } from "@/components/ui/input";
 import { CheckCircle2, FileDown, Loader2, Mail } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/app/report")({
@@ -56,6 +56,7 @@ function ReportPage() {
   const [monthKey, setMonthKey] = useState<string>(currentMonthKey);
   const [linksLive, setLinksLive] = useState<number | null>(null);
   const [emailing, setEmailing] = useState(false);
+  const emailPending = useRef(false);
 
   const months = useMemo(() => recentMonthKeys(currentMonthKey(), 6), []);
 
@@ -82,7 +83,8 @@ function ReportPage() {
   );
 
   async function emailMe() {
-    if (!project) return;
+    if (!project || emailPending.current) return;
+    emailPending.current = true;
     setEmailing(true);
     try {
       await emailProofReportFn({ data: { projectId: project.id, monthKey } });
@@ -94,6 +96,7 @@ function ReportPage() {
           : t("report.toast.emailFailed"),
       );
     } finally {
+      emailPending.current = false;
       setEmailing(false);
     }
   }
