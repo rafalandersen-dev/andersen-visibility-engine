@@ -1,3 +1,4 @@
+import { nlEditorScreen } from "./nl-editor-screen";
 import { nlPlanScreen } from "./nl-plan-screen";
 import { nlEvidenceScreen } from "./nl-evidence-screen";
 import { nlBillingScreen } from "./nl-billing-screen";
@@ -11,6 +12,13 @@ import { nlSharedUi } from "./nl-shared-ui";
 
 /** Partial Dutch authoring; never imported by the runtime catalog. */
 export const NL_STAGED_BATCHES = [
+  {
+    name: "editor screen",
+    copy: nlEditorScreen,
+    namespaces: ["editorScreen"],
+    sourceRevision: "388747e",
+    sourceHash: "1e827d2744ea1f2d3364b54983f06b42082f45ab6dfb0eda7b1375fdddd9ec9f",
+  },
   {
     name: "plan screen",
     copy: nlPlanScreen,

@@ -1,6 +1,6 @@
 # Dutch interface authoring — 12 September 2026
 
-R20 requires full EU-language coverage. Dutch authoring has begun with 637 of the current 3,768 English interface messages (3,131 remain). This is a partial staged catalog; Dutch is not registered in UI_CATALOGS or the language picker.
+R20 requires full EU-language coverage. Dutch authoring has begun with 785 of the current 3,768 English interface messages (2,983 remain). This is a partial staged catalog; Dutch is not registered in UI_CATALOGS or the language picker.
 
 ## Completed authoring batches
 
@@ -14,6 +14,7 @@ R20 requires full EU-language coverage. Dutch authoring has begun with 637 of th
 | Billing screen | 54 | src/i18n/staged/nl-billing-screen.ts |
 | Evidence screens | 89 | src/i18n/staged/nl-evidence-screen.ts |
 | Plan screen | 113 | src/i18n/staged/nl-plan-screen.ts |
+| Editor screen | 148 | src/i18n/staged/nl-editor-screen.ts |
 | Authentication | 42 | src/i18n/staged/nl-auth-screen.ts |
 | Shared controls | 30 | src/i18n/staged/nl-shared-ui.ts |
 
@@ -57,3 +58,10 @@ All twenty Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-evide
 At 9099f42, authored all 113 planScreen messages. Work targets remain distinct from publication schedules; accepted suggestions do not themselves generate or publish content. Sample-data labels, partial batch counts, source provenance and the warning about active schedules on orphaned drafts are preserved. Stored lifecycle values and server authority are untouched.
 
 All twenty-one Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-plan-types.log), scoped lint and whitespace checks. Total staged coverage is 637; 3,131 messages remain. Editor screens are next. No runtime activation or scheduling operation occurred; terminology/fluency/rendered and real-use acceptance remain open.
+
+
+## Editor-screen follow-up
+
+At 388747e, authored all 148 editorScreen messages. Copy preserves save/unsaved state, image approval/public-URL guidance, reference validation, unresolved-link publication blocks, schema delivery limitations, and the distinction between draft delivery and live publication. Placeholder paths/anchors/claims, metadata limits and the 5 MB limit are retained. Source assertions about author non-invention, recommendation versus hard-block behavior, image privacy and CMS schema handling require behavior review before activation; translation does not certify them.
+
+All twenty-two Dutch/catalog tests pass, plus full TypeScript (/tmp/milo-dutch-editor-types.log), scoped lint and whitespace checks. Total staged coverage is 785; 2,983 messages remain. Public home/pricing/studies groups are next. No runtime activation, upload, provider or publication operation occurred; fluent/rendered and real-use acceptance remain open.
