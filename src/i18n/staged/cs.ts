@@ -1,3 +1,4 @@
+import { csEvidence } from "./cs-evidence";
 import { csLinks } from "./cs-links";
 import { csCommerce } from "./cs-commerce";
 import { csGrowth } from "./cs-growth";
@@ -26,6 +27,13 @@ import { csAuthScreen } from "./cs-auth-screen";
 import { csSharedUi } from "./cs-shared-ui";
 /** Czech authoring; never imported by the runtime catalog. */
 export const CS_STAGED_BATCHES = [
+  {
+    name: "evidence",
+    copy: csEvidence,
+    namespaces: ["answer", "logs", "proof", "aiEval", "benchmark"],
+    sourceRevision: "b8b375e",
+    sourceHash: "2911f87d7691a2bf04548e0b7c0e63b3c93f25cdcd73c9af1ba5d22ffdee211d",
+  },
   {
     name: "links",
     copy: csLinks,

@@ -96,3 +96,5 @@ Czech authority opportunities, public audit and action proposals adds 201 messag
 Czech billing, launch checklist and beta limits adds 192 messages: partial coverage is 2,971/3,768 and the UI authoring backlog is 46,013 messages at this English baseline. Activation and quality acceptance remain open.
 
 Czech links, marketplace and backlink monitoring adds 256 messages: partial coverage is 3,227/3,768 and the UI authoring backlog is 45,757 messages at this English baseline. Activation and quality acceptance remain open.
+
+Czech publication, AI-answer and log evidence adds 196 messages: partial coverage is 3,423/3,768 and the UI authoring backlog is 45,561 messages at this English baseline. Activation and quality acceptance remain open.
