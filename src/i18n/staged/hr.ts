@@ -1,3 +1,4 @@
+import { hrGrowth } from "./hr-growth";
 import { hrOutreach } from "./hr-outreach";
 import { hrMeasurements } from "./hr-measurements";
 import { hrTechnical } from "./hr-technical";
@@ -23,6 +24,13 @@ import { hrAuthScreen } from "./hr-auth-screen";
 import { hrSharedUi } from "./hr-shared-ui";
 /** Croatian authoring; never imported by the runtime catalog. */
 export const HR_STAGED_BATCHES = [
+  {
+    name: "growth",
+    copy: hrGrowth,
+    namespaces: ["authority", "actions", "publicAudit"],
+    sourceRevision: "3a7929e",
+    sourceHash: "79460ac604f31155136687fbf43e146ccd11625f12316625da192cdb8188f136",
+  },
   {
     name: "outreach",
     copy: hrOutreach,
