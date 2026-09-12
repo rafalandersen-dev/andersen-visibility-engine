@@ -109,7 +109,7 @@ import {
   scheduleContentPublishFn,
   SCHEDULE_TICK_MS,
 } from "@/lib/schedule.functions";
-import { CreateContentDialog, ASSET_TYPE_LABELS } from "@/components/CreateContentDialog";
+import { CreateContentDialog } from "@/components/CreateContentDialog";
 import { MiloScorePanel } from "@/components/MiloScorePanel";
 import {
   AlertDialog,
@@ -276,7 +276,7 @@ function EditorPage() {
                       {a.title}
                     </div>
                     <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground mt-0.5">
-                      {a.assetType ? `${ASSET_TYPE_LABELS[a.assetType]} · ` : ""}
+                      {a.assetType ? `${t(`editorScreen.assetType.${a.assetType}`)} · ` : ""}
                       {t(`status.${a.status}`)}
                     </div>
                   </button>
@@ -1191,7 +1191,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
         <div className="flex flex-wrap items-center gap-2">
           {f.assetType ? (
             <span className="text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full border bg-accent/30 border-accent/40 text-accent-foreground">
-              {ASSET_TYPE_LABELS[f.assetType]}
+              {t(`editorScreen.assetType.${f.assetType}`)}
             </span>
           ) : null}
           <h2 className="font-display text-lg text-foreground">{f.title}</h2>

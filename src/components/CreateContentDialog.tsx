@@ -21,23 +21,19 @@ import { FilePlus2, Loader2, Sparkles } from "lucide-react";
 import { getState } from "@/lib/store";
 import { generateContentForOpportunity, createBlankDraftForOpportunity } from "@/lib/mock-ai";
 import type { AssetType, ContentType } from "@/lib/types";
+import { useT } from "@/i18n";
 
-export const ASSET_TYPE_OPTIONS: { value: AssetType; label: string }[] = [
-  { value: "brief", label: "Content brief" },
-  { value: "article", label: "Full article" },
-  { value: "servicePage", label: "Service page" },
-  { value: "landingPage", label: "Landing page" },
-  { value: "faq", label: "FAQ section" },
-  { value: "comparison", label: "Comparison" },
-  { value: "gbpPost", label: "Google Business post" },
-  { value: "meta", label: "Meta title / description" },
-  { value: "socialPack", label: "Social post pack" },
+export const ASSET_TYPE_OPTIONS: readonly AssetType[] = [
+  "brief",
+  "article",
+  "servicePage",
+  "landingPage",
+  "faq",
+  "comparison",
+  "gbpPost",
+  "meta",
+  "socialPack",
 ];
-
-export const ASSET_TYPE_LABELS: Record<AssetType, string> = ASSET_TYPE_OPTIONS.reduce(
-  (acc, o) => ({ ...acc, [o.value]: o.label }),
-  {} as Record<AssetType, string>,
-);
 
 /**
  * P1-6 (2026-07-25): the type used to hard-reset to "brief" on every open —
@@ -72,6 +68,7 @@ export function CreateContentDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const t = useT();
   const navigate = useNavigate();
   // Look up via getState() (not useStore): the selector depends on the
   // opportunityId prop, and this app's useStore only re-runs selectors when the
@@ -108,11 +105,11 @@ export function CreateContentDialog({
       // Toast AFTER navigation so the route-change toast sweep (P2-9) cannot
       // dismiss it unseen.
       await navigate({ to: "/app/editor", search: { id: asset.id } as never });
-      toast.success("Content created");
+      toast.success(t("editorScreen.create.created"));
     } catch (e) {
       // P1-5: the dialog used to reset silently. Keep it open, show the
       // mapped gateway message, offer Retry.
-      setError(e instanceof Error ? e.message : "Content generation failed. Please try again.");
+      setError(e instanceof Error ? e.message : t("editorScreen.create.failed"));
     } finally {
       setBusy(null);
     }
@@ -126,9 +123,9 @@ export function CreateContentDialog({
       const asset = await createBlankDraftForOpportunity(opp.id, assetType);
       onOpenChange(false);
       await navigate({ to: "/app/editor", search: { id: asset.id } as never });
-      toast.success("Blank draft created");
+      toast.success(t("editorScreen.create.blankCreated"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not create the draft.");
+      setError(e instanceof Error ? e.message : t("editorScreen.create.blankFailed"));
     } finally {
       setBusy(null);
     }
@@ -138,7 +135,7 @@ export function CreateContentDialog({
     <Dialog open={open} onOpenChange={(o) => (!busy ? onOpenChange(o) : null)}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="font-display">Create content from this opportunity</DialogTitle>
+          <DialogTitle className="font-display">{t("editorScreen.create.title")}</DialogTitle>
           <DialogDescription>
             {opp ? (
               <>
@@ -146,18 +143,21 @@ export function CreateContentDialog({
                 <br />
                 <span className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
                   {opp.status}
-                  {opp.source ? ` · from ${opp.source}` : ""} · {opp.language}
+                  {opp.source
+                    ? ` · ${t("editorScreen.create.source", { source: opp.source })}`
+                    : ""}{" "}
+                  · {opp.language}
                 </span>
               </>
             ) : (
-              "Select an opportunity first."
+              t("editorScreen.create.selectOpportunity")
             )}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-2">
           <label className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-            Content type
+            {t("editorScreen.create.type")}
           </label>
           <Select
             value={assetType}
@@ -168,17 +168,16 @@ export function CreateContentDialog({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {ASSET_TYPE_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={o.value}>
-                  {o.label}
+              {ASSET_TYPE_OPTIONS.map((type) => (
+                <SelectItem key={type} value={type}>
+                  {t(`editorScreen.assetType.${type}`)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           {opp?.language ? (
             <p className="text-xs text-muted-foreground">
-              Will be written in <span className="text-foreground/80">{opp.language}</span> (the
-              opportunity&apos;s language).
+              {t("editorScreen.create.language", { language: opp.language })}
             </p>
           ) : null}
         </div>
@@ -188,13 +187,13 @@ export function CreateContentDialog({
             role="alert"
             className="rounded-md border border-red-500/40 bg-red-500/5 px-3 py-2 text-xs text-foreground/85"
           >
-            <span className="font-medium">Generation failed:</span> {error}
+            <span className="font-medium">{t("editorScreen.create.errorLabel")}</span> {error}
           </div>
         ) : null}
 
         <DialogFooter className="flex-wrap gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={!!busy}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           {/* P1-8: content work survives an empty AI balance. */}
           <Button variant="outline" onClick={startBlank} disabled={!!busy || !opp}>
@@ -203,7 +202,7 @@ export function CreateContentDialog({
             ) : (
               <FilePlus2 className="h-4 w-4" />
             )}
-            Start blank draft
+            {t("editorScreen.create.startBlank")}
           </Button>
           <Button onClick={generate} disabled={!!busy || !opp}>
             {busy === "generate" ? (
@@ -212,10 +211,12 @@ export function CreateContentDialog({
               <Sparkles className="h-4 w-4" />
             )}
             {busy === "generate"
-              ? "Generating…"
+              ? t("editorScreen.create.generating")
               : error
-                ? `Retry ${ASSET_TYPE_LABELS[assetType]}`
-                : `Generate ${ASSET_TYPE_LABELS[assetType]}`}
+                ? t("editorScreen.create.retry", { type: t(`editorScreen.assetType.${assetType}`) })
+                : t("editorScreen.create.generate", {
+                    type: t(`editorScreen.assetType.${assetType}`),
+                  })}
           </Button>
         </DialogFooter>
       </DialogContent>
