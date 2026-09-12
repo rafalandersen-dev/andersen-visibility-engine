@@ -1,3 +1,6 @@
+import { itEditorScreen } from "./it-editor-screen";
+import { itPlanScreen } from "./it-plan-screen";
+import { itEvidenceScreen } from "./it-evidence-screen";
 import { itBillingScreen } from "./it-billing-screen";
 import { itAnalyticsScreen } from "./it-analytics-screen";
 import { itAuditScreen } from "./it-audit-screen";
@@ -75,6 +78,27 @@ export const IT_STAGED_BATCHES = [
     namespaces: ["billingScreen"],
     sourceRevision: "b7534ac",
     sourceHash: "d0e701bae4247d1129cc13dd6df6d9b569e725edbf5136255b68ca3fb2307194",
+  },
+  {
+    name: "evidence screen",
+    copy: itEvidenceScreen,
+    namespaces: ["evidenceScreen"],
+    sourceRevision: "f729cd2",
+    sourceHash: "2c7e9ccb48b02cd12911d0df6c31a96ec8ddfc6c558dfda3b3e14790d156c136",
+  },
+  {
+    name: "plan screen",
+    copy: itPlanScreen,
+    namespaces: ["planScreen"],
+    sourceRevision: "f729cd2",
+    sourceHash: "288f529ed3a18c00623c05011262d3cce0374158e558959fa8fc9dbc63174bb7",
+  },
+  {
+    name: "editor screen",
+    copy: itEditorScreen,
+    namespaces: ["editorScreen"],
+    sourceRevision: "f729cd2",
+    sourceHash: "1e827d2744ea1f2d3364b54983f06b42082f45ab6dfb0eda7b1375fdddd9ec9f",
   },
 ] as const;
 export const IT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.freeze(
