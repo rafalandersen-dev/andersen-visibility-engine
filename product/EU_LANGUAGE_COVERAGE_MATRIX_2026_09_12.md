@@ -128,3 +128,5 @@ Slovak public beta adds 100 messages, bringing staged coverage to 1,268/3,768 ac
 Slovak configuration adds 220 messages, bringing staged coverage to 1,488/3,768 across eighteen batches. The remaining UI authoring backlog is 43,728 messages at this composed-English baseline. All 29 focused tests, types, scoped lint and whitespace pass. Activation and language/rendered acceptance remain open.
 
 Slovak collaboration/notifications adds 248 messages, bringing staged coverage to 1,736/3,768 across nineteen batches. The remaining UI authoring backlog is 43,480 messages at this composed-English baseline. All 30 focused tests, types, scoped lint and whitespace pass. Activation and language/rendered acceptance remain open.
+
+Slovak knowledge/weekly/approval adds 242 messages, bringing staged coverage to 1,978/3,768 across twenty batches. The remaining UI authoring backlog is 43,238 messages at this composed-English baseline. All 31 focused tests, types, scoped lint and whitespace pass. Activation and language/rendered acceptance remain open.
