@@ -146,7 +146,10 @@ export function upcomingPublishRisks(args: UpcomingRiskArgs): PublishRisk[] {
   const horizonDays = args.horizonDays ?? 7;
   const start = new Date(now);
   start.setHours(0, 0, 0, 0);
-  const end = start.getTime() + (horizonDays + 1) * 24 * 60 * 60_000 - 1;
+  // Local calendar days can contain 23 or 25 hours across clock changes.
+  const endDay = new Date(start);
+  endDay.setDate(endDay.getDate() + horizonDays + 1);
+  const end = endDay.getTime() - 1;
 
   const byId = new Map(args.assets.map((a) => [a.id, a]));
   const risks: PublishRisk[] = [];

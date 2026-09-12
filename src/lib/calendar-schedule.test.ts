@@ -204,3 +204,40 @@ describe("calendar preferred time validity", () => {
     expect(result).toBe(`2026-03-${String(day).padStart(2, "0")}T${hasGap ? "09:00" : "02:30"}`);
   });
 });
+
+describe("risk horizon follows local calendar days", () => {
+  it.each(["spring", "autumn"])(
+    "keeps the full last day and excludes the next day across %s",
+    (season) => {
+      const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const transition =
+        season === "spring"
+          ? new Date(2026, 2, zone === "America/Los_Angeles" ? 8 : 29)
+          : zone === "America/Los_Angeles"
+            ? new Date(2026, 10, 1)
+            : new Date(2026, 9, 25);
+      const now = new Date(transition);
+      now.setDate(now.getDate() - 1);
+      now.setHours(12);
+      const last = new Date(transition);
+      last.setHours(23, 30);
+      const outside = new Date(transition);
+      outside.setDate(outside.getDate() + 1);
+      outside.setHours(0, 30);
+      const armed = [
+        asset({ id: "last-day", status: "In Review", scheduledPublishAt: last.toISOString() }),
+        asset({ id: "next-day", status: "In Review", scheduledPublishAt: outside.toISOString() }),
+      ];
+      expect(
+        upcomingPublishRisks({
+          ghosts: [],
+          armed,
+          assets: armed,
+          project: project(),
+          now: now.getTime(),
+          horizonDays: 1,
+        }).map((r) => r.assetId),
+      ).toEqual(["last-day"]);
+    },
+  );
+});
