@@ -12,7 +12,7 @@ export const backlinkDetailsCopy: Record<OnboardingLanguage, Record<string, stri
     "backlinkDetails.counts":
       "Showing {retained} of {returned} returned links; {total} provider matches.",
     "backlinkDetails.partial":
-      "More provider results or omitted evidence exist. To collect another page, start another request and set the number of results to skip. Each page uses supplier allowance. The live index may change between pages.",
+      "More provider results or omitted evidence exist. Each page is a separate observation, and the live index can change between pages.",
     "backlinkDetails.noLinks": "No retained links for this request.",
     "backlinkDetails.source": "Referring page",
     "backlinkDetails.target": "Destination",
@@ -23,6 +23,15 @@ export const backlinkDetailsCopy: Record<OnboardingLanguage, Record<string, stri
     "backlinkDetails.spam": "Spam score",
     "backlinkDetails.lost": "Reported lost",
     "backlinkDetails.offset": "Skip results (0–20,000)",
+    "backlinkDetails.page":
+      "Page {page} · {count} rows observed in this sequence. Counts can include repeated links and do not establish a complete inventory.",
+    "backlinkDetails.next": "Collect next page (uses allowance)",
+    "backlinkDetails.nextNote":
+      "Continue with the same website and filters. This makes one new supplier request and uses the configured allowance.",
+    "backlinkDetails.child":
+      "Next-page request already created; refresh history to check its result",
+    "backlinkDetails.pageLimit":
+      "The 10,000-page limit for this sequence has been reached. Further matches may remain.",
   },
   pl: {
     "backlinkDetails.title": "Dowody dotyczące linków zwrotnych",
@@ -36,7 +45,7 @@ export const backlinkDetailsCopy: Record<OnboardingLanguage, Record<string, stri
     "backlinkDetails.counts":
       "Wyświetlono {retained} z {returned} zwróconych linków; {total} dopasowań dostawcy.",
     "backlinkDetails.partial":
-      "Istnieją dalsze wyniki lub pominięte dowody. Aby pobrać kolejną stronę, rozpocznij nowe żądanie i ustaw liczbę pomijanych wyników. Każda strona wykorzystuje limit dostawcy. Indeks może się zmieniać między stronami.",
+      "Istnieją dalsze wyniki lub pominięte dowody. Każda strona stanowi osobną obserwację, a indeks może się zmieniać między stronami.",
     "backlinkDetails.noLinks": "Brak zachowanych linków dla tego żądania.",
     "backlinkDetails.source": "Strona odsyłająca",
     "backlinkDetails.target": "Strona docelowa",
@@ -47,6 +56,15 @@ export const backlinkDetailsCopy: Record<OnboardingLanguage, Record<string, stri
     "backlinkDetails.spam": "Wskaźnik spamu",
     "backlinkDetails.lost": "Zgłoszony jako utracony",
     "backlinkDetails.offset": "Pomiń wyniki (0–20 000)",
+    "backlinkDetails.page":
+      "Strona {page} · {count} zaobserwowanych wierszy w tej serii. Liczba może obejmować powtórzone linki i nie oznacza pełnego wykazu.",
+    "backlinkDetails.next": "Pobierz kolejną stronę (zużywa limit)",
+    "backlinkDetails.nextNote":
+      "Kontynuuj z tą samą witryną i filtrami. Spowoduje to jedno nowe żądanie do dostawcy i wykorzystanie skonfigurowanego limitu.",
+    "backlinkDetails.child":
+      "Żądanie kolejnej strony już utworzono; odśwież historię, aby sprawdzić wynik",
+    "backlinkDetails.pageLimit":
+      "Osiągnięto limit 10 000 stron w tej serii. Mogą istnieć dalsze dopasowania.",
   },
   sv: {
     "backlinkDetails.title": "Underlag för enskilda bakåtlänkar",
@@ -60,7 +78,7 @@ export const backlinkDetailsCopy: Record<OnboardingLanguage, Record<string, stri
     "backlinkDetails.counts":
       "Visar {retained} av {returned} returnerade länkar; {total} träffar hos leverantören.",
     "backlinkDetails.partial":
-      "Fler resultat eller utelämnade underlag finns. Starta en ny begäran och ange antalet resultat att hoppa över för nästa sida. Varje sida använder leverantörsbudgeten. Indexet kan ändras mellan sidorna.",
+      "Fler resultat eller utelämnade underlag finns. Varje sida är en separat observation och indexet kan ändras mellan sidorna.",
     "backlinkDetails.noLinks": "Inga sparade länkar för denna begäran.",
     "backlinkDetails.source": "Hänvisande sida",
     "backlinkDetails.target": "Målsida",
@@ -71,6 +89,15 @@ export const backlinkDetailsCopy: Record<OnboardingLanguage, Record<string, stri
     "backlinkDetails.spam": "Spampoäng",
     "backlinkDetails.lost": "Rapporterad förlorad",
     "backlinkDetails.offset": "Hoppa över resultat (0–20 000)",
+    "backlinkDetails.page":
+      "Sida {page} · {count} observerade rader i denna följd. Antalet kan omfatta upprepade länkar och visar inte en fullständig förteckning.",
+    "backlinkDetails.next": "Hämta nästa sida (använder budget)",
+    "backlinkDetails.nextNote":
+      "Fortsätt med samma webbplats och filter. Detta gör en ny begäran till leverantören och använder den konfigurerade budgeten.",
+    "backlinkDetails.child":
+      "Begäran för nästa sida har redan skapats; uppdatera historiken för att kontrollera resultatet",
+    "backlinkDetails.pageLimit":
+      "Gränsen på 10 000 sidor i denna följd har nåtts. Fler träffar kan finnas kvar.",
   },
   da: {
     "backlinkDetails.title": "Dokumentation for enkelte backlinks",
@@ -84,7 +111,7 @@ export const backlinkDetailsCopy: Record<OnboardingLanguage, Record<string, stri
     "backlinkDetails.counts":
       "Viser {retained} af {returned} returnerede links; {total} leverandørresultater.",
     "backlinkDetails.partial":
-      "Der findes flere resultater eller udeladt dokumentation. Start en ny anmodning og angiv antallet af resultater, der skal springes over, for næste side. Hver side bruger leverandørbudgettet. Indekset kan ændres mellem siderne.",
+      "Der findes flere resultater eller udeladt dokumentation. Hver side er en separat observation, og indekset kan ændres mellem siderne.",
     "backlinkDetails.noLinks": "Ingen gemte links for denne anmodning.",
     "backlinkDetails.source": "Henvisende side",
     "backlinkDetails.target": "Destination",
@@ -95,5 +122,14 @@ export const backlinkDetailsCopy: Record<OnboardingLanguage, Record<string, stri
     "backlinkDetails.spam": "Spamscore",
     "backlinkDetails.lost": "Rapporteret mistet",
     "backlinkDetails.offset": "Spring resultater over (0–20.000)",
+    "backlinkDetails.page":
+      "Side {page} · {count} observerede rækker i denne serie. Antallet kan omfatte gentagne links og udgør ikke en komplet oversigt.",
+    "backlinkDetails.next": "Hent næste side (bruger budget)",
+    "backlinkDetails.nextNote":
+      "Fortsæt med samme websted og filtre. Dette sender én ny anmodning til leverandøren og bruger det konfigurerede budget.",
+    "backlinkDetails.child":
+      "Anmodningen om næste side er allerede oprettet; opdater historikken for at kontrollere resultatet",
+    "backlinkDetails.pageLimit":
+      "Grænsen på 10.000 sider i denne serie er nået. Der kan være flere resultater.",
   },
 };

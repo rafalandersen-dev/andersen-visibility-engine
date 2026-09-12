@@ -1,3 +1,4 @@
+import { BacklinkNextPage } from "./BacklinkNextPage";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
@@ -286,6 +287,13 @@ function DetailsHistory({
                   {t("backlinkMonitor.recover")}
                 </Button>
               )}
+              <BacklinkNextPage
+                row={row}
+                projectId={projectId}
+                website={website}
+                available={collectionAvailable && !run.isPending && !recovery.isPending}
+                refresh={refresh}
+              />
               {row.observation && (
                 <>
                   <p>

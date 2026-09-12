@@ -1,5 +1,21 @@
 # Individual backlink evidence — R14 continuation
 
+## Current status — 12 September 2026
+
+PR126 remains the released baseline. Deeper continuation is now implemented locally and awaiting review/release in a new migration, `20260912000000_backlink_detail_pages.sql`; it has not been applied. The implementation uses one private table and four service-only wrappers around the released details lifecycle. No released migration was edited.
+
+Each fresh request creates a root page; a continuation accepts only the current displayed website, project, stable request identity and completed parent identity. The database derives every filter and opaque cursor from that parent's immutable evidence, requires settled accounting and the same owner/project/current website, and permits only one child per parent. A private root identity and unique cursor index reject any previously followed token in the entire chain, including multi-step cycles; the check is scoped to that chain. Request replay returns saved identity without another supplier dispatch. Existing global/account quotas and durable expense admission apply to each explicit page; no funding or permit is created.
+
+The existing bounded transport now also normalizes continuation responses. Only the server sees cursor values. Saved history includes page number, previous returned-row count, child request identity and continuation availability. Its count checks account for preceding pages while retaining legacy single-page history support. Neither row totals nor the absence of a next cursor establish a complete or unique backlink inventory.
+
+The English, Polish, Swedish and Danish interface exposes an explicit allowance-consuming next-page action, freezes the attempted identity while its outcome is uncertain, and reads history to recover status. A local integration fixture exercises authentication-derived owner identity, actual SQL/expense admission, the bounded transport with a fake supplier, saved history, final-page counts and replay: two pages create two expense records and exactly two fake supplier requests. Browser and real provider acceptance remain open.
+
+Validation: all 320 focused backlink tests across 20 files, TypeScript and changed-file lint pass. Logs: `/tmp/milo-pages-focused-tests.log`, `/tmp/milo-pages-final-types.log`, `/tmp/milo-pages-final-lint.log`. Full current-source tests and production builds run in both CI variants during review. Overall planning estimate remains approximately 60% / implementation 75%, with no credit yet for this unreleased continuation work.
+
+## Historical implementation checkpoints
+
+The dated entries below describe intermediate states and are superseded by the release record and current status above.
+
 Released explicit collection/history foundation via PR126 on11September2026. See [release evidence](../evidence/backlink-details-release-2026-09-11.md); later historical implementation entries below are superseded by that release record. The request contract covers at most100 representative referring-page links for a bounded92-day interval. Selection is either provider first-seen date or lost-status records whose last-seen date is in the interval. Provider dates and flags are retained separately; actual placement/removal timestamps remain unknown. It is not a complete web-link inventory.
 
 The payload uses the documented domain target syntax with an explicit domain_to filter preserving the logical hostname, including www, and optional genuine subdomains. Echoed request parameters and every returned destination are verified. Dates, chronology, counts, duplicate evidence, URL schemes/credentials, metrics and a256KiB retained-evidence budget are checked; omitted rows and truncated anchors are explicit. No pagination token is exposed yet and no follow-up request is automatic.
@@ -53,3 +69,15 @@ Validation:116 focused detail normalization/history/lifecycle/actual-SQL/endpoin
 Every request sorts by the selected provider timestamp descending, then referring URL ascending and destination URL ascending. The unique retained URL pair breaks timestamp ties without changing the three-field provider sorting limit. The exact sort tuple is also required in the provider request echo. This addresses review3992604363; live-index changes between requests remain possible and explicitly disclosed.
 
 Validation:43 normalization/transport tests, TypeScript and changed-file lint pass (`/tmp/milo-pagination-order-{tests,types,lint}.log`). Full3581tests/265files and build at636244d predate these sort tie-breakers. Current review/build are required; no provider call or production mutation occurred.
+
+### Deep continuation contract foundation — 12 September 2026 (unreleased)
+
+An isolated pure pagination module now preserves every initial request parameter while adding the provider's opaque search-after token. It verifies exact saved scope and echoed token, refuses repeated/non-progressing cursors, bounds token bytes and chain length, and counts returned observations separately from unique backlink inventory. The original offset stays unchanged; continuation can advance beyond it. Missing continuation is not a claim that the web backlink inventory is complete.
+
+Official contract rechecked at https://docs.dataforseo.com/v3/backlinks-backlinks-live/: all other parameters must match the previous request, and each response supplies the next unique token. Tokens are not decoded or reconstructed. This module performs no request and is not connected to production endpoints. Private owner/project/parent-request persistence, expense admission, transport/controller wiring, history and explicit UI continuation remain required before this feature is usable. Published migration180000 is unchanged.
+
+Validation:43 existing-detail and new-pagination tests, TypeScript and changed-file lint pass (`/tmp/milo-pagination-foundation-{tests,types,lint}.log`). No provider request, SQL mutation or deployment occurred. Overall estimate remains approximately55% and implementation70% pending meaningful release/acceptance milestones.
+
+### Review correction — chain-wide token cycles
+
+Finding3994344478 identified that checking only the immediately preceding token allowed A → B → A cycles. The new private root identity, indexed cursor lookup in result persistence and unique per-chain request-token index refuse those cycles before another child can be requested. The existing uncertain-result path retains the expense reservation and exposes no cursor. A separate chain may still use an independently returned matching token. Published migrations remain unchanged.

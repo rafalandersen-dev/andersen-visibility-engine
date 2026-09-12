@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
-  backlinkDetailsRequest,
+  backlinkPageRequest,
   backlinkDetailsHistoryInput,
   backlinkDetailsRecoveryInput,
 } from "./backlink-details-history";
@@ -14,7 +14,7 @@ export const readBacklinkDetailsHistoryFn = createServerFn({ method: "POST" })
   });
 export const requestBacklinkDetailsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((v: unknown) => backlinkDetailsRequest.parse(v))
+  .inputValidator((v: unknown) => backlinkPageRequest.parse(v))
   .handler(async ({ context, data }) => {
     const { runBacklinkDetails } = await import("./backlink-details-lifecycle.server");
     try {
