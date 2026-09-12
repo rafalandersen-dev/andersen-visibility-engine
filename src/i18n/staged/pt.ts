@@ -1,3 +1,6 @@
+import { ptPublicHome } from "./pt-public-home";
+import { ptPublicPricing } from "./pt-public-pricing";
+import { ptPublicStudies } from "./pt-public-studies";
 import { ptPlanScreen } from "./pt-plan-screen";
 import { ptEditorScreen } from "./pt-editor-screen";
 import { ptAnalyticsScreen } from "./pt-analytics-screen";
@@ -99,6 +102,27 @@ export const PT_STAGED_BATCHES = [
     namespaces: ["editorScreen"],
     sourceRevision: "13cb098",
     sourceHash: "1e827d2744ea1f2d3364b54983f06b42082f45ab6dfb0eda7b1375fdddd9ec9f",
+  },
+  {
+    name: "public home",
+    copy: ptPublicHome,
+    namespaces: ["publicHome"],
+    sourceRevision: "eaaa8d4",
+    sourceHash: "4e132895babfb222b37e92719be5ad2a8be90d9503869e9df9845b00d982adeb",
+  },
+  {
+    name: "public pricing",
+    copy: ptPublicPricing,
+    namespaces: ["publicPricing"],
+    sourceRevision: "eaaa8d4",
+    sourceHash: "8e7cecc9d6ca14af722fe8b4131d7982241e9e856335586f8d4e724469d0de60",
+  },
+  {
+    name: "public studies",
+    copy: ptPublicStudies,
+    namespaces: ["publicStudies"],
+    sourceRevision: "eaaa8d4",
+    sourceHash: "ace563fb757a52abcd667e7e691d3e48024045a4e4f265e6949c66a828f5e8de",
   },
 ] as const;
 export const PT_STAGED_CATALOG: Readonly<Record<string, string>> = Object.assign(
