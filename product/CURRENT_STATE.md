@@ -20,7 +20,7 @@ This is the current operational entry point. Read [progress review](PROGRESS_REV
 
 The technical SEO release is complete. The six source migrations110000–160000 and the earlier ten team/two backlink migrations are already applied; do not repeat them. Their earlier unreleased status in dated implementation notes is historical.
 
-Next implementation work is deeper backlink continuation and ongoing monitoring. An isolated continuation branch has a tested pure token/scope contract and local private storage work; transport, authenticated lifecycle, history and interface integration are still required before it is usable. Provider and real-use acceptance remain open for the released backlink workflows.
+Next implementation work is deeper backlink continuation and ongoing monitoring. PR127 now implements private continuation storage, authenticated collection, bounded transport, validated history and an explicit four-language next-page control. It is awaiting final review and release; migration20260912000000 is unapplied. Provider and real-use acceptance remain open for the released backlink workflows.
 
 Project collaboration is released, with real owner/collaborator acceptance still open. Invitation and team notification email gates remain disabled; D07 policy selection remains unanswered. The other material scope/dependency items below remain active.
 

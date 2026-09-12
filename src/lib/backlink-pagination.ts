@@ -76,6 +76,8 @@ export function normalizeBacklinkPage(
   const requestToken = envelope.tasks[0].data.search_after_token || null;
   if (requestToken !== (previous?.token ?? null)) throw Error("backlink_page_echo_mismatch");
   const nextToken = envelope.tasks[0].result[0].search_after_token || null;
+  // This response check catches immediate repetition. Private persistence rejects
+  // every cursor previously followed in the root chain before enabling another page.
   if (nextToken && (nextToken === previous?.token || observation.providerReturnedCount === 0))
     throw Error("backlink_page_did_not_advance");
   const returnedInChain = (previous?.priorReturnedCount ?? 0) + observation.providerReturnedCount;

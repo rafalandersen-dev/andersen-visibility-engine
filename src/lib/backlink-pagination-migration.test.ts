@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { runBacklinkDetails } from "./backlink-details-lifecycle.server";
 import { readBacklinkDetailsHistory } from "./backlink-details-history.server";
 import { fetchBacklinkPage } from "./backlink-details-transport.server";
@@ -347,4 +348,59 @@ it("runs two authenticated pages through SQL admission, bounded transport and pr
     await db.query<{ count: number }>("SELECT count(*)::int count FROM ai_expense_requests")
   ).rows[0].count;
   expect(expenses).toBe(2);
+});
+
+it("refuses a multi-step cursor cycle and blocks further dispatch from that failed page", async () => {
+  await completeRoot(); // next A = private-next
+  const second = await reserve(child, root);
+  await dispatch(child, second.record.lease_token!);
+  await finish(child, second.record.lease_token!, "private-B");
+  // Simulate waiting out original in-flight leases; preserve quota/expense counters.
+  await db.exec("UPDATE backlink_monitoring_limits SET leases='{}'");
+  const thirdPage = await reserve(third, child);
+  expect(thirdPage.page?.requestCursor).toBe("private-B");
+  await dispatch(third, thirdPage.record.lease_token!);
+  await expect(finish(third, thirdPage.record.lease_token!, "private-next")).rejects.toThrow(
+    "backlink_page_cycle",
+  );
+  // The server's existing failure path preserves the uncertain expense and ends this chain.
+  await finish(third, thirdPage.record.lease_token!, null, null);
+  const before = (await db.query("SELECT count(*)::int count FROM ai_expense_requests")).rows;
+  await expect(reserve("00000000-0000-4000-8000-000000000006", third)).rejects.toThrow(
+    "backlink_page_unavailable",
+  );
+  expect((await db.query("SELECT count(*)::int count FROM ai_expense_requests")).rows).toEqual(
+    before,
+  );
+  const record = (await history()).find((r) => r.request_id === third);
+  expect(record?.pageInfo?.canContinue).toBe(false);
+  expect(JSON.stringify(record)).not.toContain("private-");
+});
+it("keeps token uniqueness scoped to its root chain", async () => {
+  await completeRoot();
+  const second = await reserve(child, root);
+  await dispatch(child, second.record.lease_token!);
+  await finish(child, second.record.lease_token!, "private-B");
+  await db.exec("UPDATE backlink_monitoring_limits SET leases='{}'");
+  const newRoot = await reserve(third);
+  await dispatch(third, newRoot.record.lease_token!);
+  expect((await finish(third, newRoot.record.lease_token!, "private-next")).rows[0].ok).toBe(true);
+});
+
+it("supports full-size opaque cursors with a fixed-size private index and checked digest", async () => {
+  await fund();
+  const token = randomBytes(6144).toString("base64");
+  expect(token.length).toBe(8192);
+  const first = await reserve();
+  await dispatch(root, first.record.lease_token!);
+  await finish(root, first.record.lease_token!, token);
+  const second = await reserve(child, root);
+  expect(second.page?.requestCursor).toBe(token);
+  await expect(
+    db.query(
+      "UPDATE backlink_detail_pages SET request_cursor_hash=decode('00','hex') WHERE request_id=$1",
+      [child],
+    ),
+  ).rejects.toThrow();
+  expect(JSON.stringify(await history())).not.toContain(token);
 });
