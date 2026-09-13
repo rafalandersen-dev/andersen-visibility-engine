@@ -1,3 +1,4 @@
+import { elTechnical } from "./el-technical";
 import { elKnowledge } from "./el-knowledge";
 import { elCollaboration } from "./el-collaboration";
 import { elConfiguration } from "./el-configuration";
@@ -20,6 +21,13 @@ import { elSharedUi } from "./el-shared-ui";
 import { elCore } from "./el-core";
 /** Greek authoring; never imported by the runtime catalog. */
 export const EL_STAGED_BATCHES = [
+  {
+    name: "technical",
+    copy: elTechnical,
+    namespaces: ["crawl", "gindex", "perf"],
+    sourceRevision: "312e0a7",
+    sourceHash: "106a19b8ceaf725528ddc9d4de7317d823108425584418d93729346f29c135e6",
+  },
   {
     name: "knowledge",
     copy: elKnowledge,
