@@ -1,3 +1,4 @@
+import { elPublicHome } from "./el-public-home";
 import { elPublicPricing } from "./el-public-pricing";
 import { elPublicStudies } from "./el-public-studies";
 import { elEditorScreen } from "./el-editor-screen";
@@ -13,6 +14,13 @@ import { elSharedUi } from "./el-shared-ui";
 import { elCore } from "./el-core";
 /** Greek authoring; never imported by the runtime catalog. */
 export const EL_STAGED_BATCHES = [
+  {
+    name: "public home",
+    copy: elPublicHome,
+    namespaces: ["publicHome"],
+    sourceRevision: "4a844ff",
+    sourceHash: "2855ce0efcce2fc714afc7f61a15d64ed5975809acefb98df75a3e275ccae141",
+  },
   {
     name: "public pricing",
     copy: elPublicPricing,
