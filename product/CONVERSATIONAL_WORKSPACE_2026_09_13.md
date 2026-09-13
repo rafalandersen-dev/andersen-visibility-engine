@@ -1,0 +1,63 @@
+# Milo conversational workspace — implementation and full-scope sequence
+
+Baseline: `457d7cd36620c61838df12e9732d83514d823cc5`, fetched from `codex/milo-report-branding-authority-20260912`. Implementation branch: `codex/milo-conversational-workspace-20260913`. This record describes candidate work, not production acceptance.
+
+## Ownership and authority
+
+The successor `01a09a18-d8cc-72d1-a996-b367b940fc4e` prepared the handoff without implementation. On 13 September the owner then instructed “jedziesz, zgoda na wszystko, jak cos warto push to production, do it, we dont have to wait”. This is the instruction to start here and authorization to deploy ready changes. The full R00–R24/D01–D08 goal is now active here, without a token budget. The predecessor was observed idle and notified that the successor is the sole executor; this is not a tool-verified assertion that its goal is paused. Do not resume duplicate implementation there or create routine successor tasks.
+
+The new authorization removes the need to seek another generic deployment approval. It does not establish a passing security review, working credentials, completed customer acceptance, a provider contract, a final commercial/role policy or an unlimited spending ceiling. Do not rewrite published history, retry denied access unchanged, expose secrets or send external messages without explicit scope. Prepare and verify a concrete release packet before deployment. PR135 is still open at `3ce139cceefa90f71e9a42a7d92549ad557122ea`; read-only GitHub inspection on 13 September found the same usage-limit security-review comment and completed code review, with no later security review. No review-consuming retry occurred.
+
+Local credential-presence inspection found no `OPENAI_API_KEY` in this worktree or process; it says nothing about production configuration. Earlier authorization for the existing OpenAI/Synergy account and secure key setup is preserved. Do not create another account or treat the historic one-scan/article/image $5 allowance as chat funding. Native calls must pass the existing account/global monetary admission, usage and provider configuration checks. No live provider request is needed to implement and verify local boundaries.
+
+## Findings from source inspection
+
+* There is no chat/conversation route, conversation persistence or generic conversational executor in the inspected source and migrations. Searches for conversation IDs/history, `useChat` and `streamText` found no implementation. `app.specialists.tsx` is a project team/status page; it reads weekly evidence and knowledge and links to other screens. It is not conversational delegation.
+* `specialist-team.ts` defines nine roles, but durable stage evidence covers research/content/image. Existing weekly execution, retained results and cancellation should be reused for those actions.
+* `ai-provider-expense.server.ts` already provides single-attempt native generation with monetary reserves and supplied attempt/job IDs. `ai-text-bounds.server.ts` bounds bytes, tokens and elapsed time and disables automatic retries. Conversation orchestration must reuse these controls, with additional usage admission; persona instructions are never authority.
+* Authenticated functions derive the actor from verified claims. Team reads authorize current owner/project/member under a database lock and deliberately project safe fields. An owner workspace can contain legacy publishing secrets, integration settings and private knowledge: do not serialize or feed the full workspace into chat, and do not convert a collaborator into the owner when invoking tools.
+* Several useful functions, including weekly preparation and project knowledge, are owner-scoped. A collaborator cannot call them by substituting the owner's ID. Start from existing safe shared-project/draft projections; add each broader capability only with its own authorization and test evidence.
+* Existing team request admission bounds heavy reads. Persisted chat also needs independent write/active-turn limits, exact request identity, late-result checks, cancellation and visible uncertainty. A refreshed browser must read retained work rather than dispatch a model again.
+
+## Implementation order and exit evidence
+
+1. **Durable conversation and tenant boundaries (R01/R04/R07/R08).** Actor-private conversations within an immutable owner/project scope, ordered turns/events, current membership checks on every entry, bounded pagination/input/storage, one active turn, request deduplication, claim identity, cancellation and honest recovery after an interrupted attempt. Verify actual SQL, including two owners with the same project ID, revoked/suspended members, replay and late results. Migration remains unapplied until release verification.
+2. **Real specialist orchestration (R07/R09/R16).** Persist the user's task; Milo selects specialists within a fixed capability registry; the server dispatches actual authorized tools, stores evidence and specialist responses in that same conversation. Charge the authenticated initiating account unless an explicit delegated spending policy exists. Separate recommendations, tool receipts, waiting approvals and actual execution. Preserve durable operation identities across uncertainty; never replay an unknown paid operation.
+3. **Primary conversational UI (R01/R02/R04/R07).** Prominent chat entry, own/shared project selection, persistent history, named roles/portraits, visible handoff and client, running/failure/cancel states, useful editor/result links. Keep detailed screens available. Verify keyboard/mobile/long copy, rapid project switches, reload, revoked access and multiple tabs with real components and local fixtures; then signed-in acceptance.
+4. **Execution breadth and approval continuity (R03/R05/R06/R08/R14/R15/R18/R19).** Connect generation/recovery, safe content edits, weekly preparation, knowledge, technical SEO, evidence/reporting and authority progressively through existing guards. Carry exact content/version approvals; do not let chat auto-publish, contact recipients, purchase placements or change client permissions. Determine D07 policy with concrete choices rather than inventing authority. Add MCP/Slack sharing through the same executor as their supported scope is established.
+5. **Integrated verification and release (R00/R24).** Diagnose the inherited membership timing concern without weakening its assertions/timeouts. Full suite then build sequentially, using two test workers. Obtain current required security review, verify migration prerequisites/target ledger and exact release/runtime identity, preserve rollback, then deploy under the owner's current authorization. Keep failed and isolated-pass evidence distinct.
+
+## Remaining full-plan work — preserve alongside chat
+
+| Scope | Next completion evidence |
+| --- | --- |
+| R00/R24 | Fresh candidate audit, review, target migration ledger, runtime identity, public-audit containment and rollback |
+| R01–R03 | Complete chat and remaining premium/setup/brand journeys across devices; preserve existing delivered knowledge/refresh foundations |
+| R04–R06 | D07 role/approval choices; real solo and team/mixed flows; logged-out weekly work, notifications, failure/uncertain recovery |
+| R07–R09 | Actual specialist tools, MCP regression, secure provider setup, measured chat/generation costs, bounded usage and packages |
+| R10–R12 | At least three trustworthy observed-AI surfaces and methodology; source/citation analytics; verified versus unknown server-log bot evidence |
+| R13/R16/R17 | Actual Google/technical/local/global acceptance and content→publication→later measurement; existing released features must not be rebuilt from old roadmap statuses |
+| R14/R15 | Supplier/private contract, ongoing monitoring and independently verified placements; explicit outreach/order scope and measured expense |
+| R18 | Actual generated text/images, reference fidelity and WordPress/Shopify/custom destination parity and retained output |
+| R19 | Concrete D06 Slack timing/first workflow and exact consumer-client compatibility matrix |
+| R20 | Write GA/LV/LT/MT/RO; reconcile source claims before staged-language activation; fluent/full-page/mobile/accessibility acceptance for all 24 |
+| R21 | D01/D08 package/subscriber evidence, configured Stripe sandbox lifecycle, policy/tax/refund alignment before paid launch |
+| R22/R23 | Real setup/product recordings, 3–5 assisted testers, one solo and one team/mixed journey, support/recovery, quality and spend evidence |
+
+D01–D08 remain visible in the scope register; broad execution authorization does not answer those product decisions. Stripe's earlier deferral is not evidence of configuration. Public paid launch remains unverified until the required acceptance is real.
+
+## Inherited verification
+
+Hungarian: 3,768/3,768 keys, 40 catalog tests, types/lint and nine local browser groups pass; inactive. Four active plus fifteen staged complete catalogs; GA/LV/LT/MT/RO remain unauthored. Full suite: 5,251 pass and one 5-second timeout in the large-history membership case. Entire affected file subsequently passed 91/91 without edits; build passed. The full run is not green. Last recorded production is PR134 `68bed8fba311e75fe39e1ae3b59ed6558669bc39`, deployment `cb151ad5-8d4c-43c7-8fcb-964eb123d8f2`; candidate migration `20260912040000` is unapplied.
+
+## First implementation checkpoint — durable storage
+
+Candidate migration `20260913120000_milo_conversations.sql` and `milo-conversation{,.server}.ts` implement actor-private conversations within an immutable owner/project, ordered turns/events, exact request replay, single active turn, service-owned claim identity, a three-minute execution lease, cancellation, bounded reads and current-account/membership validation. Expired running work reads as unknown and cannot be claimed again. A new user turn can proceed after expiry without repeating that old operation. Current membership revision is required before claiming or retaining an execution result, including after remove/regrant. Cancellation stops further accepted work; it does not prove that a provider request already in progress was cancelled or free.
+
+The browser-facing schemas accept the user task and selected project, not a supplied actor, role, tool evidence or execution token. Claim/advance helpers are private server modules and have no public endpoint. SQL tables have RLS and no direct access even for service_role; only the named service RPCs have execute grants. A lightweight access helper repeats the released team-account and membership checks under the same workspace lock ordering. Ordinary server requests share existing actor/owner request admission. Project deletion cascades into conversation data.
+
+Storage bounds: 8,000 UTF-8 bytes per user task; 10 new turns/minute and 60/hour across an actor's projects; 200 conversations per actor; 500 turns per conversation; 24 events and at most 120,000 stored event bytes per turn; pages of 20 turns and 50 conversations. Limits refuse additions without deleting history. Conversation export/deletion UI, long-history summarization, provider execution, background dispatch and the actual chat UI are still to implement. Do not claim this foundation is the complete chat or enable a nonfunctional entry point.
+
+Final focused check: 54 tests across four files pass, including 23 actual-SQL conversation cases, nine server boundary cases and the existing shared-project/admission regression files. Log: `/tmp/milo-chat-storage-focused-final.log`. Earlier first 20 SQL and combined 51-test checkpoints also passed. Server test refinement now exercises claim-response validation with a valid turn target rather than failing early on unrelated fields. Final TypeScript, changed-file lint, formatting and whitespace checks pass; logs `/tmp/milo-chat-storage-types-complete.log` and `/tmp/milo-chat-storage-lint-final.log`. These local, single-session SQL tests do not establish production migration compatibility or real concurrent/signed-in/provider acceptance. The inherited 5,251-pass/one-timeout full run remains unresolved; no full-suite green claim follows.
+
+Next implementation action: add the real bounded specialist executor and capability registry over these storage helpers, with persisted model/tool attempt evidence, authenticated-actor spending, current safe project projections and honest unavailable/approval states. Then expose the coherent chat UI with own/shared client context and retained history. Both candidate migrations remain unapplied. No provider request, review-consuming retry, external message, payment, production database write or deployment occurred in this checkpoint.
