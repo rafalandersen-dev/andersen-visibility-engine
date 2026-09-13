@@ -4,9 +4,21 @@
 
 **Status:** Canonical decision log
 
-**Last updated:** 2026-09-09
+**Last updated:** 2026-09-13
 
 **Product Lead:** Rafal Andersen
+
+## 2026-09-13 — Primary conversational workspace for solo users and agencies
+
+Owner-confirmed requirement: Milo must provide a chat interface that makes work easier for an individual or agency. The user gives a task to Milo Growth Lead; Milo analyzes it and assigns the appropriate specialist, who can take over the conversation in the same chat. The owner explicitly confirmed this interaction after the SEO-specialist example. This is required product behavior, not merely an optional team-card display or invisible background delegation.
+
+Keep one continuous conversation with visible speaker identity/role and a concise handoff. Preserve relevant task history and authorized project context across specialist replies; Milo coordinates multi-specialist tasks and remains accountable for completion. The existing team view, tools, knowledge, approvals and durable execution are foundations to reuse. Specialist names such as “Mark” remain examples under D05.
+
+Derived acceptance criteria: a solo user can request an SEO task, receive a real specialist response and review its results in the same conversation; an agency can identify the active client/project and work within its access without information leaking between clients; multi-specialist work retains context and presents actionable results; missing tools/data, running work and failures are truthful; handoff cannot expand publication, messaging, purchase or budget authority. Actual tool dispatch and persisted/resumable conversations must be verified, not simulated through persona messages. Existing detailed screens remain available for inspection and editing.
+
+This clarifies R01/R02/R04/R07/R08 and solo/team acceptance. The complete chat interface and specialist conversational handoff are not verified as implemented or released. Add them explicitly to the remaining implementation assessment; do not represent team cards as completion. Reassess the historical 60% delivery / 75% technical estimate in the next full scope review rather than assigning arbitrary credit or silently excluding this requirement.
+
+Sequence remains: finish Hungarian and final checks here, then include this requirement prominently in the user-requested single-successor handoff and overall optimization/prioritization review. No new task or goal transfer is performed by this decision update.
 
 ## 2026-09-09 — Specialist team, project learning and weekly preparation
 
