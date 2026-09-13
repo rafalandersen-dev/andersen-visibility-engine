@@ -1,3 +1,4 @@
+import { etOutreach } from "./et-outreach";
 import { etMeasurements } from "./et-measurements";
 import { etPublicPricing } from "./et-public-pricing";
 import { etPublicHome } from "./et-public-home";
@@ -22,6 +23,13 @@ import { etSharedUi } from "./et-shared-ui";
 import { etCore } from "./et-core";
 /** Estonian authoring; never imported by the runtime catalog. */
 export const ET_STAGED_BATCHES = [
+  {
+    name: "outreach",
+    copy: etOutreach,
+    namespaces: ["outreach", "hook", "anchor"],
+    sourceRevision: "1994df4",
+    sourceHash: "c2bfe98eb710f1587237c92b04696e6f9221e67def7d1080eb7ce08e3d1161b4",
+  },
   {
     name: "measurements",
     copy: etMeasurements,
