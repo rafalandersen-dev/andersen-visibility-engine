@@ -1,3 +1,4 @@
+import { bgMeasurements } from "./bg-measurements";
 import { bgTechnical } from "./bg-technical";
 import { bgKnowledge } from "./bg-knowledge";
 import { bgCollaboration } from "./bg-collaboration";
@@ -21,6 +22,13 @@ import { bgAuthScreen } from "./bg-auth-screen";
 import { bgSharedUi } from "./bg-shared-ui";
 /** Bulgarian authoring; never imported by the runtime catalog. */
 export const BG_STAGED_BATCHES = [
+  {
+    name: "measurements",
+    copy: bgMeasurements,
+    namespaces: ["analytics", "gsc", "report"],
+    sourceRevision: "0846c03",
+    sourceHash: "216126da773525ef913fe7e10a4db7af57539ea07dae497fd349051da3088395",
+  },
   {
     name: "technical",
     copy: bgTechnical,

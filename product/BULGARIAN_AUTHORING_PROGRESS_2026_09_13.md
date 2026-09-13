@@ -1,6 +1,6 @@
 # Bulgarian interface authoring — 13 September 2026
 
-Bulgarian is staged only: 2,216 of the current 3,768 English interface keys across twenty-one complete batches. It is excluded from UI_CATALOGS and the language picker. Four UI catalogs remain active; eleven other catalogs are completely authored in staging with acceptance still incomplete.
+Bulgarian is staged only: 2,420 of the current 3,768 English interface keys across twenty-two complete batches. It is excluded from UI_CATALOGS and the language picker. Four UI catalogs remain active; eleven other catalogs are completely authored in staging with acceptance still incomplete.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -25,8 +25,9 @@ Bulgarian is staged only: 2,216 of the current 3,768 English interface keys acro
 | Collaboration | 248 | 67581a2 |
 | Knowledge | 242 | a672ef5 |
 | Technical | 238 | c6c451f |
+| Measurements | 204 | 0846c03 |
 
-The frozen registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 32 Bulgarian/catalog tests, scoped lint, formatting, whitespace and type checking pass. Type log: /tmp/milo-bulgarian-technical-types.log. Full-catalog equality will be required when all batches are authored.
+The frozen registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 33 Bulgarian/catalog tests, scoped lint, formatting, whitespace and type checking pass. Type log: /tmp/milo-bulgarian-measurements-types.log. Full-catalog equality will be required when all batches are authored.
 
 Terminology: работно пространство (workspace), акаунт (account), проект (project), парола (password), възстановяване на парола (password reset), странична лента (sidebar), запис (network listing), задания за съдържание (content briefs). Use polite plural explanations and concise imperative action labels; preserve provider/product names and placeholders.
 
@@ -62,4 +63,6 @@ Knowledge copy preserves source/version/expiry limits, separate knowledge review
 
 Technical copy preserves crawl/ownership/robots limits, saved Google evidence, lab versus real-user measurements and uncertain-request semantics. Partial or missing evidence is not full-site, index or performance acceptance. No DNS, crawl, Google, measurement or provider request occurred.
 
-Remaining: 1,552 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next: measurements using current composed English source. This staged work does not complete R20 or change release gates.
+Measurements copy preserves saved publication/delivery evidence, referral versus mention signals, bounded imports and separate source/date/aggregate semantics. Inherited analytics labels still require behavioral and real-use acceptance. No email, tracking installation, Google connection, sync or import occurred.
+
+Remaining: 1,348 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next: outreach using current composed English source. This staged work does not complete R20 or change release gates.
