@@ -1,4 +1,5 @@
 import { publicStudiesCopy } from "./public-studies";
+import { conversationCopy } from "./conversation";
 import { publicPricingCopy } from "./public-pricing";
 import { publicHomeCopy } from "./public-home";
 import { publicBetaCopy } from "./public-beta";
@@ -49,6 +50,7 @@ type Dictionary = Readonly<Record<string, string>>;
 const BASE: Record<OnboardingLanguage, Dictionary> = { en, pl, sv, da };
 // Lowest to highest priority; later product-specific copy retains its existing override.
 const OVERRIDES: readonly Record<OnboardingLanguage, Dictionary>[] = [
+  conversationCopy,
   premium,
   notifications,
   generationResults,

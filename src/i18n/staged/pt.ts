@@ -1,3 +1,4 @@
+import { ptConversation } from "./pt-conversation";
 import { ptWorkflow } from "./pt-workflow";
 import { ptEvidence } from "./pt-evidence";
 import { ptLinks } from "./pt-links";
@@ -29,6 +30,13 @@ import { ptSharedUi } from "./pt-shared-ui";
 
 /** Fully authored European Portuguese; quality acceptance remains open. Never imported by the runtime catalog. */
 export const PT_STAGED_BATCHES = [
+  {
+    name: "conversation",
+    copy: ptConversation,
+    namespaces: ["chat"],
+    sourceRevision: "chat UI candidate after ad3c0f4",
+    sourceHash: "dbe71fce2d0c0bb6d2ea8a4f9aed09e5c6a3c10738d4bd846b5df8b807bfa6ed",
+  },
   {
     name: "core",
     copy: ptCore,

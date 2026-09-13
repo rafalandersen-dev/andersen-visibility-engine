@@ -52,6 +52,7 @@ import { Route as ApiOauthAuthorizeRouteImport } from './routes/api.oauth.author
 import { Route as ApiNotificationsSweepRouteImport } from './routes/api.notifications.sweep'
 import { Route as ApiAutoSchedulerRunRouteImport } from './routes/api.auto-scheduler.run'
 import { Route as ApiAnalyticsTrackRouteImport } from './routes/api.analytics.track'
+import { Route as AuthenticatedAppTodayRouteImport } from './routes/_authenticated/app.today'
 import { Route as AuthenticatedAppSpecialistsRouteImport } from './routes/_authenticated/app.specialists'
 import { Route as AuthenticatedAppSetupRouteImport } from './routes/_authenticated/app.setup'
 import { Route as AuthenticatedAppServicesRouteImport } from './routes/_authenticated/app.services'
@@ -305,6 +306,11 @@ const ApiAnalyticsTrackRoute = ApiAnalyticsTrackRouteImport.update({
   id: '/api/analytics/track',
   path: '/api/analytics/track',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedAppTodayRoute = AuthenticatedAppTodayRouteImport.update({
+  id: '/app/today',
+  path: '/app/today',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedAppSpecialistsRoute =
   AuthenticatedAppSpecialistsRouteImport.update({
@@ -579,6 +585,7 @@ export interface FileRoutesByFullPath {
   '/app/services': typeof AuthenticatedAppServicesRoute
   '/app/setup': typeof AuthenticatedAppSetupRoute
   '/app/specialists': typeof AuthenticatedAppSpecialistsRoute
+  '/app/today': typeof AuthenticatedAppTodayRoute
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
   '/api/auto-scheduler/run': typeof ApiAutoSchedulerRunRoute
   '/api/notifications/sweep': typeof ApiNotificationsSweepRoute
@@ -660,6 +667,7 @@ export interface FileRoutesByTo {
   '/app/services': typeof AuthenticatedAppServicesRoute
   '/app/setup': typeof AuthenticatedAppSetupRoute
   '/app/specialists': typeof AuthenticatedAppSpecialistsRoute
+  '/app/today': typeof AuthenticatedAppTodayRoute
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
   '/api/auto-scheduler/run': typeof ApiAutoSchedulerRunRoute
   '/api/notifications/sweep': typeof ApiNotificationsSweepRoute
@@ -743,6 +751,7 @@ export interface FileRoutesById {
   '/_authenticated/app/services': typeof AuthenticatedAppServicesRoute
   '/_authenticated/app/setup': typeof AuthenticatedAppSetupRoute
   '/_authenticated/app/specialists': typeof AuthenticatedAppSpecialistsRoute
+  '/_authenticated/app/today': typeof AuthenticatedAppTodayRoute
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
   '/api/auto-scheduler/run': typeof ApiAutoSchedulerRunRoute
   '/api/notifications/sweep': typeof ApiNotificationsSweepRoute
@@ -826,6 +835,7 @@ export interface FileRouteTypes {
     | '/app/services'
     | '/app/setup'
     | '/app/specialists'
+    | '/app/today'
     | '/api/analytics/track'
     | '/api/auto-scheduler/run'
     | '/api/notifications/sweep'
@@ -907,6 +917,7 @@ export interface FileRouteTypes {
     | '/app/services'
     | '/app/setup'
     | '/app/specialists'
+    | '/app/today'
     | '/api/analytics/track'
     | '/api/auto-scheduler/run'
     | '/api/notifications/sweep'
@@ -989,6 +1000,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/services'
     | '/_authenticated/app/setup'
     | '/_authenticated/app/specialists'
+    | '/_authenticated/app/today'
     | '/api/analytics/track'
     | '/api/auto-scheduler/run'
     | '/api/notifications/sweep'
@@ -1367,6 +1379,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAnalyticsTrackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/app/today': {
+      id: '/_authenticated/app/today'
+      path: '/app/today'
+      fullPath: '/app/today'
+      preLoaderRoute: typeof AuthenticatedAppTodayRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/app/specialists': {
       id: '/_authenticated/app/specialists'
       path: '/app/specialists'
@@ -1658,6 +1677,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppServicesRoute: typeof AuthenticatedAppServicesRoute
   AuthenticatedAppSetupRoute: typeof AuthenticatedAppSetupRoute
   AuthenticatedAppSpecialistsRoute: typeof AuthenticatedAppSpecialistsRoute
+  AuthenticatedAppTodayRoute: typeof AuthenticatedAppTodayRoute
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
 }
 
@@ -1690,6 +1710,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppServicesRoute: AuthenticatedAppServicesRoute,
   AuthenticatedAppSetupRoute: AuthenticatedAppSetupRoute,
   AuthenticatedAppSpecialistsRoute: AuthenticatedAppSpecialistsRoute,
+  AuthenticatedAppTodayRoute: AuthenticatedAppTodayRoute,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
 }
 

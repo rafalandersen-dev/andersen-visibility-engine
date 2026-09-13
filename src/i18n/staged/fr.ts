@@ -1,3 +1,4 @@
+import { frConversation } from "./fr-conversation";
 import { frPublicStudies } from "./fr-public-studies";
 import { frPublicPricing } from "./fr-public-pricing";
 import { frPublicHome } from "./fr-public-home";
@@ -30,6 +31,13 @@ import { frPlanScreen } from "./fr-plan-screen";
 /** Authoring batches only. Dictionary coverage does not establish full interface
  * acceptance. This catalog is not registered by the runtime or language picker. */
 export const FR_STAGED_BATCHES = [
+  {
+    name: "conversation",
+    copy: frConversation,
+    namespaces: ["chat"],
+    sourceRevision: "chat UI candidate after ad3c0f4",
+    sourceHash: "dbe71fce2d0c0bb6d2ea8a4f9aed09e5c6a3c10738d4bd846b5df8b807bfa6ed",
+  },
   { name: "public case studies", copy: frPublicStudies, namespaces: ["publicStudies"] },
   { name: "public pricing", copy: frPublicPricing, namespaces: ["publicPricing"] },
   { name: "public home", copy: frPublicHome, namespaces: ["publicHome"] },

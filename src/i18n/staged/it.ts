@@ -1,3 +1,4 @@
+import { itConversation } from "./it-conversation";
 import { itWorkflow } from "./it-workflow";
 import { itEvidence } from "./it-evidence";
 import { itLinks } from "./it-links";
@@ -29,6 +30,13 @@ import { itCore } from "./it-core";
 
 /** Complete Italian key coverage; language and behavior acceptance pending. Keep isolated from runtime. */
 export const IT_STAGED_BATCHES = [
+  {
+    name: "conversation",
+    copy: itConversation,
+    namespaces: ["chat"],
+    sourceRevision: "chat UI candidate after ad3c0f4",
+    sourceHash: "dbe71fce2d0c0bb6d2ea8a4f9aed09e5c6a3c10738d4bd846b5df8b807bfa6ed",
+  },
   {
     name: "core",
     copy: itCore,

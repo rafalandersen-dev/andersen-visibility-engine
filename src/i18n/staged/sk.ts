@@ -1,3 +1,4 @@
+import { skConversation } from "./sk-conversation";
 import { skWorkflow } from "./sk-workflow";
 import { skEvidence } from "./sk-evidence";
 import { skLinks } from "./sk-links";
@@ -28,6 +29,13 @@ import { skAuthScreen } from "./sk-auth-screen";
 import { skSharedUi } from "./sk-shared-ui";
 /** Slovak authoring; never imported by the runtime catalog. */
 export const SK_STAGED_BATCHES = [
+  {
+    name: "conversation",
+    copy: skConversation,
+    namespaces: ["chat"],
+    sourceRevision: "chat UI candidate after ad3c0f4",
+    sourceHash: "dbe71fce2d0c0bb6d2ea8a4f9aed09e5c6a3c10738d4bd846b5df8b807bfa6ed",
+  },
   {
     name: "authentication",
     copy: skAuthScreen,

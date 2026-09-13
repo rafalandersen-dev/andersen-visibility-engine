@@ -1,3 +1,4 @@
+import { etConversation } from "./et-conversation";
 import { etWorkflow } from "./et-workflow";
 import { etEvidence } from "./et-evidence";
 import { etLinks } from "./et-links";
@@ -28,6 +29,13 @@ import { etSharedUi } from "./et-shared-ui";
 import { etCore } from "./et-core";
 /** Estonian authoring; never imported by the runtime catalog. */
 export const ET_STAGED_BATCHES = [
+  {
+    name: "conversation",
+    copy: etConversation,
+    namespaces: ["chat"],
+    sourceRevision: "chat UI candidate after ad3c0f4",
+    sourceHash: "dbe71fce2d0c0bb6d2ea8a4f9aed09e5c6a3c10738d4bd846b5df8b807bfa6ed",
+  },
   {
     name: "workflow",
     copy: etWorkflow,

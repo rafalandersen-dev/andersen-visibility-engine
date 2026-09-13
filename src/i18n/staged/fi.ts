@@ -1,3 +1,4 @@
+import { fiConversation } from "./fi-conversation";
 import { fiWorkflow } from "./fi-workflow";
 import { fiEvidence } from "./fi-evidence";
 import { fiLinks } from "./fi-links";
@@ -29,6 +30,13 @@ import { fiSharedUi } from "./fi-shared-ui";
 
 /** Finnish authoring; never imported by the runtime catalog. */
 export const FI_STAGED_BATCHES = [
+  {
+    name: "conversation",
+    copy: fiConversation,
+    namespaces: ["chat"],
+    sourceRevision: "chat UI candidate after ad3c0f4",
+    sourceHash: "dbe71fce2d0c0bb6d2ea8a4f9aed09e5c6a3c10738d4bd846b5df8b807bfa6ed",
+  },
   {
     name: "workflow",
     copy: fiWorkflow,

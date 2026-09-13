@@ -8,6 +8,7 @@ import {
   CaretDown,
   Binoculars,
   ChartLineUp,
+  ChatCircleDots,
   CreditCard,
   Crown,
   FileText,
@@ -47,11 +48,19 @@ import {
 const NAV = [
   {
     id: "home",
-    tKey: "shell.nav.home",
+    tKey: "chat.title",
     to: "/app",
-    icon: House,
+    icon: ChatCircleDots,
     exact: true,
     paths: ["/app"],
+    children: [],
+  },
+  {
+    id: "today",
+    tKey: "shell.nav.home",
+    to: "/app/today",
+    icon: House,
+    paths: ["/app/today"],
     children: [],
   },
   {
@@ -174,6 +183,9 @@ export function AppShell({
   actions,
   children,
   flush = false,
+  projectPicker,
+  projectContextName,
+  sharedProject,
 }: {
   title: string;
   eyebrow?: ReactNode;
@@ -181,6 +193,9 @@ export function AppShell({
   actions?: ReactNode;
   children: ReactNode;
   flush?: boolean;
+  projectPicker?: ReactNode;
+  projectContextName?: string;
+  sharedProject?: { ownerId: string; projectId: string };
 }) {
   const location = useRouterState({ select: (state) => state.location });
   const pathname = location.pathname;
@@ -208,7 +223,9 @@ export function AppShell({
       discovery={location.search.view === "discover"}
       projects={projects}
       activeProjectId={activeProjectId}
-      activeProjectName={activeProject?.name}
+      activeProjectName={projectContextName ?? activeProject?.name}
+      projectPicker={projectPicker}
+      sharedProject={sharedProject}
       accountEmail={user?.email}
       isOwner={isOwner}
       pendingCount={pendingCount}
@@ -268,8 +285,8 @@ export function AppShell({
 
         <header className="milo-page-header bg-background">
           <div className="flex flex-wrap items-end justify-between gap-5 px-5 pb-6 pt-9 md:px-10">
-            <div>
-              <div className="text-xs font-medium text-muted-foreground">
+            <div className="min-w-0 max-w-full">
+              <div className="text-xs font-medium text-muted-foreground break-words [overflow-wrap:anywhere]">
                 {eyebrow ?? activeProject?.name ?? t("appShell.workspace")}
               </div>
               <h1
@@ -324,6 +341,8 @@ function SidebarContent({
   projects,
   activeProjectId,
   activeProjectName,
+  projectPicker,
+  sharedProject,
   accountEmail,
   isOwner,
   pendingCount,
@@ -338,6 +357,8 @@ function SidebarContent({
   projects: Array<{ id: string; name: string }>;
   activeProjectId: string;
   activeProjectName?: string;
+  projectPicker?: ReactNode;
+  sharedProject?: { ownerId: string; projectId: string };
   accountEmail?: string;
   isOwner: boolean;
   pendingCount: number;
@@ -349,66 +370,79 @@ function SidebarContent({
   const language = useAppLanguage();
   return (
     <div className="milo-sidebar flex h-full flex-col overflow-y-auto bg-[#17212b] px-4 pb-5 pt-8 text-[#eef0ee]">
-      <Link to="/app" onClick={onNavigate} className="mx-3 pb-5">
+      <Link
+        to="/app"
+        search={
+          sharedProject ? { owner: sharedProject.ownerId, project: sharedProject.projectId } : {}
+        }
+        onClick={onNavigate}
+        className="mx-3 pb-5"
+      >
         <div className="flex items-baseline gap-2 tracking-[-0.04em]">
           <span className="text-[32px] font-bold">milo</span>
           <span className="text-xl font-normal text-[#c6d7e8]">Growth</span>
         </div>
       </Link>
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            className="my-4 grid w-full grid-cols-[auto_1fr_auto] items-center gap-2.5 rounded-[7px] border border-white/[.04] bg-white/[.075] p-3 text-left text-[13px] outline-none transition hover:bg-white/[.11] focus-visible:ring-2 focus-visible:ring-[#62adff]"
-          >
-            <Briefcase size={18} weight="duotone" className="text-[#a7b8ca]" />
-            <span className="min-w-0">
-              <span className="block truncate">
-                {activeProjectName ?? t("shell.chooseProject")}
-              </span>
-              {import.meta.env.DEV && import.meta.env.VITE_MILO_VISUAL_QA === "true" ? (
-                <span className="mt-1 block text-[10px] text-[#b0bfce]">{t("today.preview")}</span>
-              ) : null}
-            </span>
-            <CaretDown size={15} />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent lang={language} align="start" className="milo-app w-[232px]">
-          <DropdownMenuLabel className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-            {t("shell.projects")}
-          </DropdownMenuLabel>
-          {projects.map((project) => (
-            <DropdownMenuItem
-              key={project.id}
-              onSelect={() => {
-                setActiveProject(project.id);
-                onNavigate();
-              }}
-              className="justify-between"
+      {projectPicker ?? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="my-4 grid w-full grid-cols-[auto_1fr_auto] items-center gap-2.5 rounded-[7px] border border-white/[.04] bg-white/[.075] p-3 text-left text-[13px] outline-none transition hover:bg-white/[.11] focus-visible:ring-2 focus-visible:ring-[#62adff]"
             >
-              <span className="truncate">{project.name}</span>
-              {project.id === activeProjectId ? <span className="text-gold">•</span> : null}
+              <Briefcase size={18} weight="duotone" className="text-[#a7b8ca]" />
+              <span className="min-w-0">
+                <span className="block truncate">
+                  {activeProjectName ?? t("shell.chooseProject")}
+                </span>
+                {import.meta.env.DEV && import.meta.env.VITE_MILO_VISUAL_QA === "true" ? (
+                  <span className="mt-1 block text-[10px] text-[#b0bfce]">
+                    {t("today.preview")}
+                  </span>
+                ) : null}
+              </span>
+              <CaretDown size={15} />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent lang={language} align="start" className="milo-app w-[232px]">
+            <DropdownMenuLabel className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+              {t("shell.projects")}
+            </DropdownMenuLabel>
+            {projects.map((project) => (
+              <DropdownMenuItem
+                key={project.id}
+                onSelect={() => {
+                  setActiveProject(project.id);
+                  onNavigate();
+                }}
+                className="justify-between"
+              >
+                <span className="truncate">{project.name}</span>
+                {project.id === activeProjectId ? <span className="text-gold">•</span> : null}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={onEditProject} disabled={!activeProjectName}>
+              <PencilSimple /> {t("shell.editProject")}
             </DropdownMenuItem>
-          ))}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={onEditProject} disabled={!activeProjectName}>
-            <PencilSimple /> {t("shell.editProject")}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onSelect={onAddProject}
-            disabled={!isOwner && projects.length >= MAX_PROJECTS_PER_USER}
-          >
-            <Plus /> {t("shell.addProject")}
-            <span className="ml-auto text-[10px] text-muted-foreground">
-              {projects.length}/{isOwner ? "∞" : MAX_PROJECTS_PER_USER}
-            </span>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+            <DropdownMenuItem
+              onSelect={onAddProject}
+              disabled={!isOwner && projects.length >= MAX_PROJECTS_PER_USER}
+            >
+              <Plus /> {t("shell.addProject")}
+              <span className="ml-auto text-[10px] text-muted-foreground">
+                {projects.length}/{isOwner ? "∞" : MAX_PROJECTS_PER_USER}
+              </span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
 
       <nav className="grid gap-1" aria-label={t("shell.primaryNav")}>
-        {NAV.map((item) => {
+        {NAV.filter(
+          (item) => !sharedProject || item.id === "home" || item.id === "notifications",
+        ).map((item) => {
           const active =
             "exact" in item && item.exact
               ? pathname === item.to
@@ -418,6 +452,11 @@ function SidebarContent({
             <div key={item.id}>
               <Link
                 to={item.to}
+                search={
+                  sharedProject && item.id === "home"
+                    ? { owner: sharedProject.ownerId, project: sharedProject.projectId }
+                    : undefined
+                }
                 onClick={onNavigate}
                 className={
                   "flex w-full items-center gap-3 rounded-[7px] px-3.5 py-2.5 text-left text-[14px] transition " +

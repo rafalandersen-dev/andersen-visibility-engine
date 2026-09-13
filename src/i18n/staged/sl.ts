@@ -1,3 +1,4 @@
+import { slConversation } from "./sl-conversation";
 import { slWorkflow } from "./sl-workflow";
 import { slEvidence } from "./sl-evidence";
 import { slLinks } from "./sl-links";
@@ -28,6 +29,13 @@ import { slAuthScreen } from "./sl-auth-screen";
 import { slSharedUi } from "./sl-shared-ui";
 /** Slovenian authoring; never imported by the runtime catalog. */
 export const SL_STAGED_BATCHES = [
+  {
+    name: "conversation",
+    copy: slConversation,
+    namespaces: ["chat"],
+    sourceRevision: "chat UI candidate after ad3c0f4",
+    sourceHash: "dbe71fce2d0c0bb6d2ea8a4f9aed09e5c6a3c10738d4bd846b5df8b807bfa6ed",
+  },
   {
     name: "workflow",
     copy: slWorkflow,

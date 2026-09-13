@@ -1,3 +1,4 @@
+import { huConversation } from "./hu-conversation";
 import { huWorkflow } from "./hu-workflow";
 import { huEvidence } from "./hu-evidence";
 import { huLinks } from "./hu-links";
@@ -28,6 +29,13 @@ import { huSharedUi } from "./hu-shared-ui";
 import { huCore } from "./hu-core";
 /** Hungarian authoring; never imported by the runtime catalog. */
 export const HU_STAGED_BATCHES = [
+  {
+    name: "conversation",
+    copy: huConversation,
+    namespaces: ["chat"],
+    sourceRevision: "chat UI candidate after ad3c0f4",
+    sourceHash: "dbe71fce2d0c0bb6d2ea8a4f9aed09e5c6a3c10738d4bd846b5df8b807bfa6ed",
+  },
   {
     name: "workflow",
     copy: huWorkflow,

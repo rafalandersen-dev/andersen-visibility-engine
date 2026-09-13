@@ -1,3 +1,4 @@
+import { deConversation } from "./de-conversation";
 import { dePublicPricing } from "./de-public-pricing";
 import { dePublicStudies } from "./de-public-studies";
 import { dePublicHome } from "./de-public-home";
@@ -30,6 +31,13 @@ import { dePlanScreen } from "./de-plan-screen";
 /** Complete German catalog authoring, staged for review. This registry never registers a runtime language.
  * Source fingerprints and full catalog parity must pass before integration. */
 export const DE_STAGED_BATCHES = [
+  {
+    name: "conversation",
+    copy: deConversation,
+    namespaces: ["chat"],
+    sourceRevision: "chat UI candidate after ad3c0f4",
+    sourceHash: "dbe71fce2d0c0bb6d2ea8a4f9aed09e5c6a3c10738d4bd846b5df8b807bfa6ed",
+  },
   {
     name: "core",
     copy: deCore,

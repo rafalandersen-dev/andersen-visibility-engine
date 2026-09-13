@@ -1,3 +1,4 @@
+import { bgConversation } from "./bg-conversation";
 import { bgWorkflow } from "./bg-workflow";
 import { bgEvidence } from "./bg-evidence";
 import { bgLinks } from "./bg-links";
@@ -28,6 +29,13 @@ import { bgAuthScreen } from "./bg-auth-screen";
 import { bgSharedUi } from "./bg-shared-ui";
 /** Bulgarian authoring; never imported by the runtime catalog. */
 export const BG_STAGED_BATCHES = [
+  {
+    name: "conversation",
+    copy: bgConversation,
+    namespaces: ["chat"],
+    sourceRevision: "chat UI candidate after ad3c0f4",
+    sourceHash: "dbe71fce2d0c0bb6d2ea8a4f9aed09e5c6a3c10738d4bd846b5df8b807bfa6ed",
+  },
   {
     name: "workflow",
     copy: bgWorkflow,

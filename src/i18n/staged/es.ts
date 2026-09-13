@@ -1,3 +1,4 @@
+import { esConversation } from "./es-conversation";
 import { esAnalyticsScreen } from "./es-analytics-screen";
 import { esAuditScreen } from "./es-audit-screen";
 import { esAuthScreen } from "./es-auth-screen";
@@ -33,6 +34,13 @@ import { esWorkflow } from "./es-workflow";
  * require review before activation. No fluent-user or full-interface acceptance.
  * Not imported by the runtime or language picker. Hashes detect source drift. */
 export const ES_STAGED_BATCHES = [
+  {
+    name: "conversation",
+    copy: esConversation,
+    namespaces: ["chat"],
+    sourceRevision: "chat UI candidate after ad3c0f4",
+    sourceHash: "dbe71fce2d0c0bb6d2ea8a4f9aed09e5c6a3c10738d4bd846b5df8b807bfa6ed",
+  },
   {
     name: "analytics screen",
     copy: esAnalyticsScreen,
