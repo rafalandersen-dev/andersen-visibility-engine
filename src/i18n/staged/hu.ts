@@ -1,3 +1,4 @@
+import { huPublicBeta } from "./hu-public-beta";
 import { huBetaGuide } from "./hu-beta-guide";
 import { huBetaScreen } from "./hu-beta-screen";
 import { huPublicHome } from "./hu-public-home";
@@ -16,6 +17,13 @@ import { huSharedUi } from "./hu-shared-ui";
 import { huCore } from "./hu-core";
 /** Hungarian authoring; never imported by the runtime catalog. */
 export const HU_STAGED_BATCHES = [
+  {
+    name: "public beta",
+    copy: huPublicBeta,
+    namespaces: ["publicBeta"],
+    sourceRevision: "996d90a",
+    sourceHash: "e670953b131c40fc4433b5ce6e5b256556bf37ea8709bc495b211efc361fb59e",
+  },
   {
     name: "beta guidance",
     copy: huBetaGuide,
