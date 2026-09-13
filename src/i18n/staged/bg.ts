@@ -1,3 +1,4 @@
+import { bgEvidence } from "./bg-evidence";
 import { bgLinks } from "./bg-links";
 import { bgCommerce } from "./bg-commerce";
 import { bgGrowth } from "./bg-growth";
@@ -26,6 +27,13 @@ import { bgAuthScreen } from "./bg-auth-screen";
 import { bgSharedUi } from "./bg-shared-ui";
 /** Bulgarian authoring; never imported by the runtime catalog. */
 export const BG_STAGED_BATCHES = [
+  {
+    name: "evidence",
+    copy: bgEvidence,
+    namespaces: ["answer", "logs", "proof", "aiEval", "benchmark"],
+    sourceRevision: "081c8b3",
+    sourceHash: "2911f87d7691a2bf04548e0b7c0e63b3c93f25cdcd73c9af1ba5d22ffdee211d",
+  },
   {
     name: "links",
     copy: bgLinks,

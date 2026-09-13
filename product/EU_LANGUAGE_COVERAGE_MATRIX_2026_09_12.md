@@ -1,6 +1,6 @@
 # R20 language coverage matrix — 12 September 2026
 
-Latest authoring checkpoint — 13 September (latest English source a999ef7): four active complete catalogs, eleven complete staged catalogs (FR/DE/ES/IT/PT/NL/FI/CS/SK/SL/HR), Bulgarian partial at 3,227/3,768 and eight unauthored catalogs. Remaining UI authoring backlog: 30,685 messages. Bulgarian twenty-six batches pass all 37 focused tests, types, scoped lint and whitespace. The original audit and incremental history below retain their dated baselines; none constitutes activation or fluent/rendered acceptance.
+Latest authoring checkpoint — 13 September (latest English source 081c8b3): four active complete catalogs, eleven complete staged catalogs (FR/DE/ES/IT/PT/NL/FI/CS/SK/SL/HR), Bulgarian partial at 3,423/3,768 and eight unauthored catalogs. Remaining UI authoring backlog: 30,489 messages. Bulgarian twenty-seven batches pass all 38 focused tests, types, scoped lint and whitespace. The original audit and incremental history below retain their dated baselines; none constitutes activation or fluent/rendered acceptance.
 
 Prior Slovak authoring checkpoint (source aef1c2c plus Slovak workflow): Slovak now has all 3,768 current English UI keys across 28 staged batches. Four catalogs are active and nine are fully staged (FR/DE/ES/IT/PT/NL/FI/CS/SK); eleven remain unauthored. Remaining UI authoring backlog: 41,448 messages (11 × 3,768). All 40 Slovak/catalog tests, types, scoped lint and whitespace pass. This is authoring coverage, not activation or language/rendered acceptance. The original audit and incremental history below retain their own evidence baselines.
 
@@ -314,3 +314,6 @@ Slovenian outreach adds 158 messages at source 2705f3f: 2,578/3,768 in twenty-th
 
 
 13 September Bulgarian links checkpoint: 256 messages added at English source a999ef7; total 3,227/3,768 across twenty-six batches. All 37 Bulgarian/catalog tests, types, scoped lint, formatting and whitespace pass. Paid-order approval, uncertain-outcome holds, incomplete index evidence and monitoring-budget limits retain source meaning. Bulgarian remains excluded from runtime and picker. Remaining Bulgarian authoring: 541 messages; next evidence.
+
+
+13 September Bulgarian evidence checkpoint: 196 messages added at English source 081c8b3; total 3,423/3,768 across twenty-seven batches. All 38 Bulgarian/catalog tests, types, scoped lint, formatting and whitespace pass. Owner-supplied provenance limits, publication snapshots, correction history and bounded log privacy rules retain source meaning. Bulgarian remains excluded from runtime and picker. Remaining Bulgarian authoring: 345 messages; next workflow.
