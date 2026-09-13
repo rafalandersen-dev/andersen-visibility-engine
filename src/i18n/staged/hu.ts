@@ -1,3 +1,4 @@
+import { huEditorScreen } from "./hu-editor-screen";
 import { huPlanScreen } from "./hu-plan-screen";
 import { huEvidenceScreen } from "./hu-evidence-screen";
 import { huSetupScreen } from "./hu-setup-screen";
@@ -10,6 +11,13 @@ import { huSharedUi } from "./hu-shared-ui";
 import { huCore } from "./hu-core";
 /** Hungarian authoring; never imported by the runtime catalog. */
 export const HU_STAGED_BATCHES = [
+  {
+    name: "editor screen",
+    copy: huEditorScreen,
+    namespaces: ["editorScreen"],
+    sourceRevision: "25dae67",
+    sourceHash: "1e827d2744ea1f2d3364b54983f06b42082f45ab6dfb0eda7b1375fdddd9ec9f",
+  },
   {
     name: "plan screen",
     copy: huPlanScreen,
