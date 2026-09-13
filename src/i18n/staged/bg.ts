@@ -1,3 +1,4 @@
+import { bgPlanScreen } from "./bg-plan-screen";
 import { bgEvidenceScreen } from "./bg-evidence-screen";
 import { bgBillingScreen } from "./bg-billing-screen";
 import { bgAnalyticsScreen } from "./bg-analytics-screen";
@@ -9,6 +10,13 @@ import { bgAuthScreen } from "./bg-auth-screen";
 import { bgSharedUi } from "./bg-shared-ui";
 /** Bulgarian authoring; never imported by the runtime catalog. */
 export const BG_STAGED_BATCHES = [
+  {
+    name: "plan screen",
+    copy: bgPlanScreen,
+    namespaces: ["planScreen"],
+    sourceRevision: "b330d65",
+    sourceHash: "288f529ed3a18c00623c05011262d3cce0374158e558959fa8fc9dbc63174bb7",
+  },
   {
     name: "evidence screen",
     copy: bgEvidenceScreen,
