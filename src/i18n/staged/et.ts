@@ -1,3 +1,4 @@
+import { etEvidence } from "./et-evidence";
 import { etLinks } from "./et-links";
 import { etCommerce } from "./et-commerce";
 import { etGrowth } from "./et-growth";
@@ -26,6 +27,13 @@ import { etSharedUi } from "./et-shared-ui";
 import { etCore } from "./et-core";
 /** Estonian authoring; never imported by the runtime catalog. */
 export const ET_STAGED_BATCHES = [
+  {
+    name: "evidence",
+    copy: etEvidence,
+    namespaces: ["answer", "logs", "proof", "aiEval", "benchmark"],
+    sourceRevision: "a63c032",
+    sourceHash: "2911f87d7691a2bf04548e0b7c0e63b3c93f25cdcd73c9af1ba5d22ffdee211d",
+  },
   {
     name: "links",
     copy: etLinks,
