@@ -1,5 +1,6 @@
 import { etAnalyticsScreen } from "./et-analytics-screen";
 import { etEvidenceScreen } from "./et-evidence-screen";
+import { etPlanScreen } from "./et-plan-screen";
 import { etBillingScreen } from "./et-billing-screen";
 import { etSetupScreen } from "./et-setup-screen";
 import { etServicesScreen } from "./et-services-screen";
@@ -9,6 +10,13 @@ import { etSharedUi } from "./et-shared-ui";
 import { etCore } from "./et-core";
 /** Estonian authoring; never imported by the runtime catalog. */
 export const ET_STAGED_BATCHES = [
+  {
+    name: "plan screen",
+    copy: etPlanScreen,
+    namespaces: ["planScreen"],
+    sourceRevision: "2cd6e0b",
+    sourceHash: "288f529ed3a18c00623c05011262d3cce0374158e558959fa8fc9dbc63174bb7",
+  },
   {
     name: "evidence screen",
     copy: etEvidenceScreen,
