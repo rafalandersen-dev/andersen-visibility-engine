@@ -1,3 +1,4 @@
+import { elKnowledge } from "./el-knowledge";
 import { elCollaboration } from "./el-collaboration";
 import { elConfiguration } from "./el-configuration";
 import { elPublicBeta } from "./el-public-beta";
@@ -19,6 +20,13 @@ import { elSharedUi } from "./el-shared-ui";
 import { elCore } from "./el-core";
 /** Greek authoring; never imported by the runtime catalog. */
 export const EL_STAGED_BATCHES = [
+  {
+    name: "knowledge",
+    copy: elKnowledge,
+    namespaces: ["knowledge", "weekly", "approval", "refresh"],
+    sourceRevision: "f258853",
+    sourceHash: "a3a3297006f23628e422ddedfb5b6f5a51c6dd5f6abbc6d6e589481e49915816",
+  },
   {
     name: "collaboration",
     copy: elCollaboration,
