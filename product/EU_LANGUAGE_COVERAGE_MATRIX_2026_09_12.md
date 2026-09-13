@@ -1,6 +1,6 @@
 # R20 language coverage matrix — 12 September 2026
 
-Latest authoring checkpoint - 13 September (latest English source affe0d8): four active complete catalogs, twelve complete staged catalogs (FR/DE/ES/IT/PT/NL/FI/CS/SK/SL/HR/BG), Estonian partial at 1,268/3,768 and seven unauthored catalogs (EL/HU/GA/LV/LT/MT/RO). Remaining UI authoring backlog: 28,876 messages. Estonian seventeen batches pass all 28 focused tests, types, scoped lint and whitespace. The original audit and incremental history below retain their dated baselines; none constitutes activation or fluent/rendered acceptance.
+Latest authoring checkpoint - 13 September (latest English source 20b7d4e): four active complete catalogs, twelve complete staged catalogs (FR/DE/ES/IT/PT/NL/FI/CS/SK/SL/HR/BG), Estonian partial at 1,488/3,768 and seven unauthored catalogs (EL/HU/GA/LV/LT/MT/RO). Remaining UI authoring backlog: 28,656 messages. Estonian eighteen batches pass all 29 focused tests, types, scoped lint and whitespace. The original audit and incremental history below retain their dated baselines; none constitutes activation or fluent/rendered acceptance.
 
 Prior Slovak authoring checkpoint (source aef1c2c plus Slovak workflow): Slovak now has all 3,768 current English UI keys across 28 staged batches. Four catalogs are active and nine are fully staged (FR/DE/ES/IT/PT/NL/FI/CS/SK); eleven remain unauthored. Remaining UI authoring backlog: 41,448 messages (11 × 3,768). All 40 Slovak/catalog tests, types, scoped lint and whitespace pass. This is authoring coverage, not activation or language/rendered acceptance. The original audit and incremental history below retain their own evidence baselines.
 
@@ -356,3 +356,6 @@ Slovenian outreach adds 158 messages at source 2705f3f: 2,578/3,768 in twenty-th
 
 
 13 September Estonian public-beta checkpoint: 100 messages added at English source affe0d8; total 1,268/3,768 across seventeen batches. All 28 Estonian/catalog tests, types, scoped lint, formatting and whitespace pass. Pilot scope, price periods, demo-evidence limits and paid/connector holds retain source meaning. The four-active-language statement requires reconciliation before activation. Estonian remains excluded from runtime and picker. Remaining Estonian authoring: 2,500 messages; next configuration.
+
+
+13 September Estonian configuration checkpoint: 220 messages added at English source 20b7d4e; total 1,488/3,768 across eighteen batches. All 29 Estonian/catalog tests, types, scoped lint, formatting and whitespace pass. Brand constraints, connector permissions, approval/publication separation and coverage-evidence limits retain source meaning. Estonian remains excluded from runtime and picker. Remaining Estonian authoring: 2,280 messages; next collaboration.

@@ -3,6 +3,7 @@ import { etPublicHome } from "./et-public-home";
 import { etBetaScreen } from "./et-beta-screen";
 import { etBetaGuide } from "./et-beta-guidance";
 import { etPublicBeta } from "./et-public-beta";
+import { etConfiguration } from "./et-configuration";
 import { etPublicStudies } from "./et-public-studies";
 import { etAnalyticsScreen } from "./et-analytics-screen";
 import { etEvidenceScreen } from "./et-evidence-screen";
@@ -17,6 +18,13 @@ import { etSharedUi } from "./et-shared-ui";
 import { etCore } from "./et-core";
 /** Estonian authoring; never imported by the runtime catalog. */
 export const ET_STAGED_BATCHES = [
+  {
+    name: "configuration",
+    copy: etConfiguration,
+    namespaces: ["brand", "wp", "shopify", "claude", "connect", "connections", "coverage"],
+    sourceRevision: "20b7d4e",
+    sourceHash: "0e11ebfcac212ec85d91c8734430e0cd661dc727057c565c1cfcd33f59a1aa60",
+  },
   {
     name: "public beta",
     copy: etPublicBeta,
