@@ -1,6 +1,6 @@
 # Bulgarian interface authoring — 13 September 2026
 
-Bulgarian is staged only: 1,736 of the current 3,768 English interface keys across nineteen complete batches. It is excluded from UI_CATALOGS and the language picker. Four UI catalogs remain active; eleven other catalogs are completely authored in staging with acceptance still incomplete.
+Bulgarian is staged only: 1,978 of the current 3,768 English interface keys across twenty complete batches. It is excluded from UI_CATALOGS and the language picker. Four UI catalogs remain active; eleven other catalogs are completely authored in staging with acceptance still incomplete.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -23,8 +23,9 @@ Bulgarian is staged only: 1,736 of the current 3,768 English interface keys acro
 | Public beta | 100 | c06deab |
 | Configuration | 220 | abd962a |
 | Collaboration | 248 | 67581a2 |
+| Knowledge | 242 | a672ef5 |
 
-The frozen registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 30 Bulgarian/catalog tests, scoped lint, formatting, whitespace and type checking pass. Type log: /tmp/milo-bulgarian-collaboration-types.log. Full-catalog equality will be required when all batches are authored.
+The frozen registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 31 Bulgarian/catalog tests, scoped lint, formatting, whitespace and type checking pass. Type log: /tmp/milo-bulgarian-knowledge-types.log. Full-catalog equality will be required when all batches are authored.
 
 Terminology: работно пространство (workspace), акаунт (account), проект (project), парола (password), възстановяване на парола (password reset), странична лента (sidebar), запис (network listing), задания за съдържание (content briefs). Use polite plural explanations and concise imperative action labels; preserve provider/product names and placeholders.
 
@@ -56,4 +57,6 @@ Configuration copy preserves brand constraints, connector permissions, approval/
 
 Collaboration copy preserves invitation/email/access distinctions, consent, exact-version approvals, historical evidence and uncertain delivery/recovery outcomes. Viewer, Editor and Reviewer role labels are distinct. No invitation, email, role, consent, review or publication action occurred.
 
-Remaining: 2,032 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next: knowledge using current composed English source. This staged work does not complete R20 or change release gates.
+Knowledge copy preserves source/version/expiry limits, separate knowledge review and publication approval, bounded capture and weekly recovery semantics. Acceptance remains source-reported evidence; forgotten originals cannot be reconstructed by review. No source fetch, upload, acceptance, review decision, schedule or publication operation occurred.
+
+Remaining: 1,790 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next: technical using current composed English source. This staged work does not complete R20 or change release gates.
