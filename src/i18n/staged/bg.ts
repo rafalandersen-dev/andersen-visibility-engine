@@ -1,3 +1,4 @@
+import { bgOutreach } from "./bg-outreach";
 import { bgMeasurements } from "./bg-measurements";
 import { bgTechnical } from "./bg-technical";
 import { bgKnowledge } from "./bg-knowledge";
@@ -22,6 +23,13 @@ import { bgAuthScreen } from "./bg-auth-screen";
 import { bgSharedUi } from "./bg-shared-ui";
 /** Bulgarian authoring; never imported by the runtime catalog. */
 export const BG_STAGED_BATCHES = [
+  {
+    name: "outreach",
+    copy: bgOutreach,
+    namespaces: ["outreach", "hook", "anchor"],
+    sourceRevision: "42f102e",
+    sourceHash: "c2bfe98eb710f1587237c92b04696e6f9221e67def7d1080eb7ce08e3d1161b4",
+  },
   {
     name: "measurements",
     copy: bgMeasurements,
