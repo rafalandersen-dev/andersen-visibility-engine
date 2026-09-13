@@ -1,6 +1,6 @@
 # Croatian interface authoring — 13 September 2026
 
-Croatian is staged only: 3,423 of the current 3,768 English interface keys across twenty-seven complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK/SL retain complete staged authoring and incomplete acceptance status.
+Croatian is staged only: all 3,768 current English interface keys across twenty-eight complete batches. It is excluded from UI_CATALOGS and the language picker. Active UI remains EN/PL/SV/DA; FR/DE/ES/IT/PT/NL/FI/CS/SK/SL retain complete staged authoring and incomplete acceptance status.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -31,8 +31,9 @@ Croatian is staged only: 3,423 of the current 3,768 English interface keys acros
 | Commerce | 192 | c2a33a6 |
 | Links | 256 | 7194081 |
 | Evidence | 196 | e59a229 |
+| Workflow | 345 | d0218e9 |
 
-The frozen staged registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 38 Croatian/catalog tests, scoped lint, whitespace and type checking pass. Changed code formatted. Type log: /tmp/milo-croatian-evidence-types.log.
+The frozen staged registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 40 Croatian/catalog tests, scoped lint, whitespace and type checking pass. Changed code formatted. Type log: /tmp/milo-croatian-workflow-types.log.
 
 Terminology: radni prostor (workspace), projekt, lozinka (password), ponovno postavljanje lozinke (password reset), bočna traka (sidebar), unos (network listing), paket (subscription plan), plan (workflow plan), smjernice za sadržaj (content brief), poveznica (link). Use polite plural explanatory instructions and concise action labels. Preserve provider/product names and placeholders.
 
@@ -80,4 +81,8 @@ Links copy preserves network relevance limits, review requests versus explicitly
 
 Evidence copy preserves expired benchmark authorization, manual model evaluation without automatic routing changes, connector-reported publication versus independent evidence, incomparable measurement windows, owner-supplied answer provenance and separate sample contexts. Log imports retain privacy, whole-import rejection, deduplication, correction and irreversible-removal limits. No generation, evaluation, publication, provider call, evidence import/export or record removal occurred.
 
-Remaining: 345 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next batch: workflow using the current composed English source. This staged work does not complete R20 or change release gates.
+Workflow copy preserves approval/publication separation, work targets versus publication times, scheduling prerequisites and overdue uncertainty, image placement limits, score estimates and recovery without automatic approval or publication. Fixed workflow comparisons retain unverified cost/quality evidence and development-review requirements. No generation, approval, scheduling, recovery, import or publication operation occurred.
+
+The complete-catalog test now verifies exact equality with every current composed English key, in addition to batch ownership and source/parameter checks.
+
+Remaining: fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next: terminology consistency and the local knowledge-review browser harness with the actual staged Croatian catalog, then an integrated candidate check. This staged work does not complete R20 or change release gates.

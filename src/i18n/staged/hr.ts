@@ -1,3 +1,4 @@
+import { hrWorkflow } from "./hr-workflow";
 import { hrEvidence } from "./hr-evidence";
 import { hrLinks } from "./hr-links";
 import { hrCommerce } from "./hr-commerce";
@@ -27,6 +28,31 @@ import { hrAuthScreen } from "./hr-auth-screen";
 import { hrSharedUi } from "./hr-shared-ui";
 /** Croatian authoring; never imported by the runtime catalog. */
 export const HR_STAGED_BATCHES = [
+  {
+    name: "workflow",
+    copy: hrWorkflow,
+    namespaces: [
+      "autoSched",
+      "prev",
+      "imgGen",
+      "arrange",
+      "visual",
+      "editor",
+      "dashboard",
+      "status",
+      "quality",
+      "calsched",
+      "pres",
+      "featured",
+      "today",
+      "plan",
+      "generationResults",
+      "workflow",
+      "publishingFidelity",
+    ],
+    sourceRevision: "d0218e9",
+    sourceHash: "649e9d723e890e3a356652ad7a515080081167e2d06a4dc5d3ad58cc5e2b6615",
+  },
   {
     name: "evidence",
     copy: hrEvidence,
