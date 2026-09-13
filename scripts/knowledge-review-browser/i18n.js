@@ -1,3 +1,4 @@
+import { HU_STAGED_CATALOG } from "../../src/i18n/staged/hu";
 import { EL_STAGED_CATALOG } from "../../src/i18n/staged/el";
 import { ET_STAGED_CATALOG } from "../../src/i18n/staged/et";
 import { BG_STAGED_CATALOG } from "../../src/i18n/staged/bg";
@@ -10,6 +11,7 @@ export const locale = __REVIEW_LOCALE__;
 export const t = (key, variables) => {
   if (locale === "keys") return key;
   const value = {
+    hu: HU_STAGED_CATALOG,
     el: EL_STAGED_CATALOG,
     et: ET_STAGED_CATALOG,
     bg: BG_STAGED_CATALOG,

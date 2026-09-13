@@ -1,3 +1,4 @@
+import { huWorkflow } from "./hu-workflow";
 import { huEvidence } from "./hu-evidence";
 import { huLinks } from "./hu-links";
 import { huCommerce } from "./hu-commerce";
@@ -27,6 +28,31 @@ import { huSharedUi } from "./hu-shared-ui";
 import { huCore } from "./hu-core";
 /** Hungarian authoring; never imported by the runtime catalog. */
 export const HU_STAGED_BATCHES = [
+  {
+    name: "workflow",
+    copy: huWorkflow,
+    namespaces: [
+      "autoSched",
+      "prev",
+      "imgGen",
+      "arrange",
+      "visual",
+      "editor",
+      "dashboard",
+      "status",
+      "quality",
+      "calsched",
+      "pres",
+      "featured",
+      "today",
+      "plan",
+      "generationResults",
+      "workflow",
+      "publishingFidelity",
+    ],
+    sourceRevision: "c0d4a3b",
+    sourceHash: "649e9d723e890e3a356652ad7a515080081167e2d06a4dc5d3ad58cc5e2b6615",
+  },
   {
     name: "evidence",
     copy: huEvidence,

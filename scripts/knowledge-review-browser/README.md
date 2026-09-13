@@ -59,3 +59,8 @@ Build with `node scripts/knowledge-review-browser/build.cjs et`. On 13 September
 ## Staged Greek interaction mode
 
 Build with `node scripts/knowledge-review-browser/build.cjs el`. On 13 September 2026, all nine interaction groups passed in the Codex in-app browser against component/catalog baseline dc6a042, using the complete Greek staged catalog. Evidence descriptions, language, busy states and focus return were included. The temporary server was stopped. See product/GREEK_COMPONENT_ACCEPTANCE_2026_09_13.md for evidence and limits; production styling, full-page, screen-reader, backend and real-use acceptance remain open.
+
+
+## Staged Hungarian interaction mode
+
+Build with `node scripts/knowledge-review-browser/build.cjs hu`. On 13 September 2026, all nine interaction groups passed in the Codex in-app browser against c0d4a3b plus the complete Hungarian workflow batch and hu harness mode. Evidence descriptions, language, busy state and focus return were included. The temporary server was stopped. See product/HUNGARIAN_COMPONENT_ACCEPTANCE_2026_09_13.md for local-fixture evidence and limits; full-page/fluent-language/backend and real-use acceptance remain open.

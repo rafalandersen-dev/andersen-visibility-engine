@@ -2,8 +2,8 @@ const fs = require("fs");
 const root = process.cwd();
 const esbuild = require(root + "/node_modules/esbuild");
 const locale = process.argv[2] ?? "keys";
-if (!["keys", "fi", "cs", "sk", "sl", "hr", "bg", "et", "el"].includes(locale))
-  throw Error("Use keys, fi, cs, sk, sl, hr, bg, et or el");
+if (!["keys", "fi", "cs", "sk", "sl", "hr", "bg", "et", "el", "hu"].includes(locale))
+  throw Error("Use keys, fi, cs, sk, sl, hr, bg, et, el or hu");
 const dir = "/tmp/milo-knowledge-review-browser";
 fs.mkdirSync(dir, { recursive: true });
 const sourceDir = __dirname;
