@@ -1,8 +1,32 @@
+import { etSetupScreen } from "./et-setup-screen";
+import { etServicesScreen } from "./et-services-screen";
+import { etAuditScreen } from "./et-audit-screen";
 import { etAuthScreen } from "./et-auth-screen";
 import { etSharedUi } from "./et-shared-ui";
 import { etCore } from "./et-core";
 /** Estonian authoring; never imported by the runtime catalog. */
 export const ET_STAGED_BATCHES = [
+  {
+    name: "setup screen",
+    copy: etSetupScreen,
+    namespaces: ["setupScreen"],
+    sourceRevision: "27e9a21",
+    sourceHash: "565b0bcd89f346fd85f3b87d4e44716826a65bee54fd60eaa3b677c4d732a5ca",
+  },
+  {
+    name: "services screen",
+    copy: etServicesScreen,
+    namespaces: ["servicesScreen"],
+    sourceRevision: "27e9a21",
+    sourceHash: "c769d10ab21c34754c6c4a6c57c3ee5f04881605b1dabc10030bca0e9122313d",
+  },
+  {
+    name: "audit screen",
+    copy: etAuditScreen,
+    namespaces: ["auditScreen"],
+    sourceRevision: "27e9a21",
+    sourceHash: "2c15a7061c169b3f2da7446d4280ff94cb6b5ce2e6cb56d156af72ab154f1aed",
+  },
   {
     name: "core",
     copy: etCore,
