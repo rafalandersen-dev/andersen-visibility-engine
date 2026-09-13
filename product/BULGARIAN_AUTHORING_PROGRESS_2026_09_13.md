@@ -83,4 +83,4 @@ Evidence copy preserves owner-supplied provenance limits, publication snapshots,
 
 Workflow copy preserves work targets versus publication times, approval versus publication, recovery without new generation and preview versus destination fidelity. No schedule, generation, approval, recovery or publication operation occurred.
 
-Authoring is complete. Remaining: fluent-language/terminology review, rendered mobile/desktop and accessibility checks, integrated candidate validation and activation acceptance. Next: Bulgarian knowledge-review component acceptance using the complete staged catalog. This staged work does not complete R20 or change release gates.
+Authoring is complete. Remaining: fluent-language/terminology review, rendered mobile/desktop and accessibility checks and activation acceptance. Nine focused knowledge-review browser groups passed, followed by all 5,162 application tests and the production build at candidate 6b1307a. See BULGARIAN_COMPONENT_ACCEPTANCE_2026_09_13.md and INTEGRATED_CANDIDATE_CHECK_2026_09_13.md for scope and limits. This staged work does not complete R20 or change release gates.
