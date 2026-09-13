@@ -1,3 +1,4 @@
+import { bgGrowth } from "./bg-growth";
 import { bgOutreach } from "./bg-outreach";
 import { bgMeasurements } from "./bg-measurements";
 import { bgTechnical } from "./bg-technical";
@@ -23,6 +24,13 @@ import { bgAuthScreen } from "./bg-auth-screen";
 import { bgSharedUi } from "./bg-shared-ui";
 /** Bulgarian authoring; never imported by the runtime catalog. */
 export const BG_STAGED_BATCHES = [
+  {
+    name: "growth",
+    copy: bgGrowth,
+    namespaces: ["authority", "actions", "publicAudit"],
+    sourceRevision: "e2f656c",
+    sourceHash: "79460ac604f31155136687fbf43e146ccd11625f12316625da192cdb8188f136",
+  },
   {
     name: "outreach",
     copy: bgOutreach,
