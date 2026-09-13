@@ -1,3 +1,4 @@
+import { etMeasurements } from "./et-measurements";
 import { etPublicPricing } from "./et-public-pricing";
 import { etPublicHome } from "./et-public-home";
 import { etBetaScreen } from "./et-beta-screen";
@@ -21,6 +22,13 @@ import { etSharedUi } from "./et-shared-ui";
 import { etCore } from "./et-core";
 /** Estonian authoring; never imported by the runtime catalog. */
 export const ET_STAGED_BATCHES = [
+  {
+    name: "measurements",
+    copy: etMeasurements,
+    namespaces: ["report", "analytics", "gsc"],
+    sourceRevision: "c2a4f19",
+    sourceHash: "216126da773525ef913fe7e10a4db7af57539ea07dae497fd349051da3088395",
+  },
   {
     name: "technical",
     copy: etTechnical,

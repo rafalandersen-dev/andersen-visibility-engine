@@ -1,6 +1,6 @@
 # R20 language coverage matrix — 12 September 2026
 
-Latest authoring checkpoint - 13 September (latest English source 9cb8be0): four active complete catalogs, twelve complete staged catalogs (FR/DE/ES/IT/PT/NL/FI/CS/SK/SL/HR/BG), Estonian partial at 2,216/3,768 and seven unauthored catalogs (EL/HU/GA/LV/LT/MT/RO). Remaining UI authoring backlog: 27,928 messages. Estonian twenty-one batches pass all 32 focused tests, types, scoped lint and whitespace. The original audit and incremental history below retain their dated baselines; none constitutes activation or fluent/rendered acceptance.
+Latest authoring checkpoint - 13 September (latest English source c2a4f19): four active complete catalogs, twelve complete staged catalogs (FR/DE/ES/IT/PT/NL/FI/CS/SK/SL/HR/BG), Estonian partial at 2,420/3,768 and seven unauthored catalogs (EL/HU/GA/LV/LT/MT/RO). Remaining UI authoring backlog: 27,724 messages. Estonian twenty-two batches pass all 33 focused tests, types, scoped lint and whitespace. The original audit and incremental history below retain their dated baselines; none constitutes activation or fluent/rendered acceptance.
 
 Prior Slovak authoring checkpoint (source aef1c2c plus Slovak workflow): Slovak now has all 3,768 current English UI keys across 28 staged batches. Four catalogs are active and nine are fully staged (FR/DE/ES/IT/PT/NL/FI/CS/SK); eleven remain unauthored. Remaining UI authoring backlog: 41,448 messages (11 × 3,768). All 40 Slovak/catalog tests, types, scoped lint and whitespace pass. This is authoring coverage, not activation or language/rendered acceptance. The original audit and incremental history below retain their own evidence baselines.
 
@@ -368,3 +368,5 @@ Slovenian outreach adds 158 messages at source 2705f3f: 2,578/3,768 in twenty-th
 
 
 13 September Estonian technical checkpoint: 238 messages added at English source 9cb8be0; total 2,216/3,768 across twenty-one batches. All 32 Estonian/catalog tests, types, scoped lint, formatting and whitespace pass. Crawl/ownership/robots limits, saved Google evidence, lab versus real-user measurements and uncertain-request semantics retain source meaning. Estonian remains excluded from runtime and picker. Remaining Estonian authoring: 1,552 messages; next measurements.
+
+13 September Estonian measurements checkpoint: 204 messages added at English source c2a4f19; total 2,420/3,768 across twenty-two batches. All 33 Estonian/catalog tests, types, scoped lint, formatting and whitespace pass. Saved publication/delivery evidence, referral versus mention signals, bounded imports and separate source/date/aggregate semantics retain source meaning. Estonian remains excluded from runtime and picker. Remaining Estonian authoring: 1,348 messages; next outreach.
