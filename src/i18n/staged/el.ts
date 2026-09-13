@@ -1,8 +1,48 @@
+import { elSetupScreen } from "./el-setup-screen";
+import { elServicesScreen } from "./el-services-screen";
+import { elAuditScreen } from "./el-audit-screen";
+import { elAnalyticsScreen } from "./el-analytics-screen";
+import { elBillingScreen } from "./el-billing-screen";
 import { elAuthScreen } from "./el-auth-screen";
 import { elSharedUi } from "./el-shared-ui";
 import { elCore } from "./el-core";
 /** Greek authoring; never imported by the runtime catalog. */
 export const EL_STAGED_BATCHES = [
+  {
+    name: "setup screen",
+    copy: elSetupScreen,
+    namespaces: ["setupScreen"],
+    sourceRevision: "57b6fe5",
+    sourceHash: "565b0bcd89f346fd85f3b87d4e44716826a65bee54fd60eaa3b677c4d732a5ca",
+  },
+  {
+    name: "services screen",
+    copy: elServicesScreen,
+    namespaces: ["servicesScreen"],
+    sourceRevision: "57b6fe5",
+    sourceHash: "c769d10ab21c34754c6c4a6c57c3ee5f04881605b1dabc10030bca0e9122313d",
+  },
+  {
+    name: "audit screen",
+    copy: elAuditScreen,
+    namespaces: ["auditScreen"],
+    sourceRevision: "57b6fe5",
+    sourceHash: "2c15a7061c169b3f2da7446d4280ff94cb6b5ce2e6cb56d156af72ab154f1aed",
+  },
+  {
+    name: "analytics screen",
+    copy: elAnalyticsScreen,
+    namespaces: ["analyticsScreen"],
+    sourceRevision: "57b6fe5",
+    sourceHash: "d86d151031ad82c4dbc559e9816ad14cecaa3e4f1b0de2ff8de3c484de5b02c5",
+  },
+  {
+    name: "billing screen",
+    copy: elBillingScreen,
+    namespaces: ["billingScreen"],
+    sourceRevision: "57b6fe5",
+    sourceHash: "d0e701bae4247d1129cc13dd6df6d9b569e725edbf5136255b68ca3fb2307194",
+  },
   {
     name: "authentication",
     copy: elAuthScreen,
