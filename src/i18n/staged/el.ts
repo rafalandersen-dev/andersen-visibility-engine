@@ -1,3 +1,4 @@
+import { elConfiguration } from "./el-configuration";
 import { elPublicBeta } from "./el-public-beta";
 import { elBetaGuide } from "./el-beta-guide";
 import { elBetaScreen } from "./el-beta-screen";
@@ -17,6 +18,13 @@ import { elSharedUi } from "./el-shared-ui";
 import { elCore } from "./el-core";
 /** Greek authoring; never imported by the runtime catalog. */
 export const EL_STAGED_BATCHES = [
+  {
+    name: "configuration",
+    copy: elConfiguration,
+    namespaces: ["brand", "wp", "shopify", "claude", "connect", "connections", "coverage"],
+    sourceRevision: "341b208",
+    sourceHash: "0e11ebfcac212ec85d91c8734430e0cd661dc727057c565c1cfcd33f59a1aa60",
+  },
   {
     name: "public beta",
     copy: elPublicBeta,
