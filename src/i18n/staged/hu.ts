@@ -1,3 +1,4 @@
+import { huBetaScreen } from "./hu-beta-screen";
 import { huPublicHome } from "./hu-public-home";
 import { huPublicPricing } from "./hu-public-pricing";
 import { huPublicStudies } from "./hu-public-studies";
@@ -14,6 +15,13 @@ import { huSharedUi } from "./hu-shared-ui";
 import { huCore } from "./hu-core";
 /** Hungarian authoring; never imported by the runtime catalog. */
 export const HU_STAGED_BATCHES = [
+  {
+    name: "beta screen",
+    copy: huBetaScreen,
+    namespaces: ["betaScreen"],
+    sourceRevision: "b3cd32f",
+    sourceHash: "c4dcf4827cb49219199aab22d2969e33f643ade8a8c2c348bb899d61f3a08119",
+  },
   {
     name: "public home",
     copy: huPublicHome,
