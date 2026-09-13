@@ -1,3 +1,4 @@
+import { bgCollaboration } from "./bg-collaboration";
 import { bgConfiguration } from "./bg-configuration";
 import { bgPublicBeta } from "./bg-public-beta";
 import { bgBetaGuide } from "./bg-beta-guide";
@@ -18,6 +19,13 @@ import { bgAuthScreen } from "./bg-auth-screen";
 import { bgSharedUi } from "./bg-shared-ui";
 /** Bulgarian authoring; never imported by the runtime catalog. */
 export const BG_STAGED_BATCHES = [
+  {
+    name: "collaboration",
+    copy: bgCollaboration,
+    namespaces: ["collaboration", "team", "notifications", "awareness", "emailSettings"],
+    sourceRevision: "67581a2",
+    sourceHash: "429e59f16a866242f25a373ebd6b52332ae3f04534230101422ebab727f77ed0",
+  },
   {
     name: "configuration",
     copy: bgConfiguration,

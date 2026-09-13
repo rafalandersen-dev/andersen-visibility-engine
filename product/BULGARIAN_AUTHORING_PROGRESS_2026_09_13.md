@@ -1,6 +1,6 @@
 # Bulgarian interface authoring — 13 September 2026
 
-Bulgarian is staged only: 1,488 of the current 3,768 English interface keys across eighteen complete batches. It is excluded from UI_CATALOGS and the language picker. Four UI catalogs remain active; eleven other catalogs are completely authored in staging with acceptance still incomplete.
+Bulgarian is staged only: 1,736 of the current 3,768 English interface keys across nineteen complete batches. It is excluded from UI_CATALOGS and the language picker. Four UI catalogs remain active; eleven other catalogs are completely authored in staging with acceptance still incomplete.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -22,8 +22,9 @@ Bulgarian is staged only: 1,488 of the current 3,768 English interface keys acro
 | Beta guidance | 125 | 11a57eb |
 | Public beta | 100 | c06deab |
 | Configuration | 220 | abd962a |
+| Collaboration | 248 | 67581a2 |
 
-The frozen registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 29 Bulgarian/catalog tests, scoped lint, formatting, whitespace and type checking pass. Type log: /tmp/milo-bulgarian-configuration-types.log. Full-catalog equality will be required when all batches are authored.
+The frozen registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 30 Bulgarian/catalog tests, scoped lint, formatting, whitespace and type checking pass. Type log: /tmp/milo-bulgarian-collaboration-types.log. Full-catalog equality will be required when all batches are authored.
 
 Terminology: работно пространство (workspace), акаунт (account), проект (project), парола (password), възстановяване на парола (password reset), странична лента (sidebar), запис (network listing), задания за съдържание (content briefs). Use polite plural explanations and concise imperative action labels; preserve provider/product names and placeholders.
 
@@ -53,4 +54,6 @@ Public-beta copy preserves pilot scope, price periods, demo-evidence limits and 
 
 Configuration copy preserves brand constraints, connector permissions, approval/publication separation and coverage-evidence limits. Read-only, proposal and write scopes stay distinct; saved statements do not verify listings, languages, rankings or live coverage. No connection, credential, authorization or publication operation occurred.
 
-Remaining: 2,280 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next: collaboration using current composed English source. This staged work does not complete R20 or change release gates.
+Collaboration copy preserves invitation/email/access distinctions, consent, exact-version approvals, historical evidence and uncertain delivery/recovery outcomes. Viewer, Editor and Reviewer role labels are distinct. No invitation, email, role, consent, review or publication action occurred.
+
+Remaining: 2,032 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next: knowledge using current composed English source. This staged work does not complete R20 or change release gates.
