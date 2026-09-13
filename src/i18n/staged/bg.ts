@@ -1,3 +1,5 @@
+import { bgPublicStudies } from "./bg-public-studies";
+import { bgPublicPricing } from "./bg-public-pricing";
 import { bgEditorScreen } from "./bg-editor-screen";
 import { bgPlanScreen } from "./bg-plan-screen";
 import { bgEvidenceScreen } from "./bg-evidence-screen";
@@ -11,6 +13,20 @@ import { bgAuthScreen } from "./bg-auth-screen";
 import { bgSharedUi } from "./bg-shared-ui";
 /** Bulgarian authoring; never imported by the runtime catalog. */
 export const BG_STAGED_BATCHES = [
+  {
+    name: "public pricing",
+    copy: bgPublicPricing,
+    namespaces: ["publicPricing"],
+    sourceRevision: "7e16ed1",
+    sourceHash: "8e7cecc9d6ca14af722fe8b4131d7982241e9e856335586f8d4e724469d0de60",
+  },
+  {
+    name: "public studies",
+    copy: bgPublicStudies,
+    namespaces: ["publicStudies"],
+    sourceRevision: "7e16ed1",
+    sourceHash: "ace563fb757a52abcd667e7e691d3e48024045a4e4f265e6949c66a828f5e8de",
+  },
   {
     name: "editor screen",
     copy: bgEditorScreen,
