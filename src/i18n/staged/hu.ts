@@ -1,3 +1,4 @@
+import { huOutreach } from "./hu-outreach";
 import { huMeasurements } from "./hu-measurements";
 import { huTechnical } from "./hu-technical";
 import { huKnowledge } from "./hu-knowledge";
@@ -22,6 +23,13 @@ import { huSharedUi } from "./hu-shared-ui";
 import { huCore } from "./hu-core";
 /** Hungarian authoring; never imported by the runtime catalog. */
 export const HU_STAGED_BATCHES = [
+  {
+    name: "outreach",
+    copy: huOutreach,
+    namespaces: ["outreach", "hook", "anchor"],
+    sourceRevision: "78af579",
+    sourceHash: "c2bfe98eb710f1587237c92b04696e6f9221e67def7d1080eb7ce08e3d1161b4",
+  },
   {
     name: "measurements",
     copy: huMeasurements,
