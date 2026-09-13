@@ -1,3 +1,4 @@
+import { huTechnical } from "./hu-technical";
 import { huKnowledge } from "./hu-knowledge";
 import { huCollaboration } from "./hu-collaboration";
 import { huConfiguration } from "./hu-configuration";
@@ -20,6 +21,13 @@ import { huSharedUi } from "./hu-shared-ui";
 import { huCore } from "./hu-core";
 /** Hungarian authoring; never imported by the runtime catalog. */
 export const HU_STAGED_BATCHES = [
+  {
+    name: "technical",
+    copy: huTechnical,
+    namespaces: ["crawl", "gindex", "perf"],
+    sourceRevision: "ccb1162",
+    sourceHash: "106a19b8ceaf725528ddc9d4de7317d823108425584418d93729346f29c135e6",
+  },
   {
     name: "knowledge",
     copy: huKnowledge,
