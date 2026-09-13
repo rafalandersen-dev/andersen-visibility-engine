@@ -1,6 +1,6 @@
 # Bulgarian interface authoring — 13 September 2026
 
-Bulgarian is staged only: 1,043 of the current 3,768 English interface keys across fifteen complete batches. It is excluded from UI_CATALOGS and the language picker. Four UI catalogs remain active; eleven other catalogs are completely authored in staging with acceptance still incomplete.
+Bulgarian is staged only: 1,168 of the current 3,768 English interface keys across sixteen complete batches. It is excluded from UI_CATALOGS and the language picker. Four UI catalogs remain active; eleven other catalogs are completely authored in staging with acceptance still incomplete.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -19,8 +19,9 @@ Bulgarian is staged only: 1,043 of the current 3,768 English interface keys acro
 | Public case studies | 30 | 7e16ed1 |
 | Public home | 100 | 788b5ae |
 | Beta screen | 88 | 4e56d69 |
+| Beta guidance | 125 | 11a57eb |
 
-The frozen registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 26 Bulgarian/catalog tests, scoped lint, formatting, whitespace and type checking pass. Type log: /tmp/milo-bulgarian-beta-screen-types.log. Full-catalog equality will be required when all batches are authored.
+The frozen registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 27 Bulgarian/catalog tests, scoped lint, formatting, whitespace and type checking pass. Type log: /tmp/milo-bulgarian-beta-guide-types.log. Full-catalog equality will be required when all batches are authored.
 
 Terminology: работно пространство (workspace), акаунт (account), проект (project), парола (password), възстановяване на парола (password reset), странична лента (sidebar), запис (network listing), задания за съдържание (content briefs). Use polite plural explanations and concise imperative action labels; preserve provider/product names and placeholders.
 
@@ -44,4 +45,6 @@ Public home retains missing-data versus zero-activity distinctions, supported-co
 
 Beta-screen copy preserves owner-only sales guidance, separate outreach-language selection and review, original CSV fields/values, validation cohort counts and prospect statuses. Sales discovery is needs discovery, distinct from product opportunity discovery. No outreach, recruitment, provider action or CSV data change occurred.
 
-Remaining: 2,725 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next: beta guidance using current composed English source. This staged work does not complete R20 or change release gates.
+Beta guidance preserves target rather than observed validation counts, demos versus real-use evidence, pilot scope, no outcome guarantees and separate authorization for outreach, audits, generation, publication and payments. Copying a template does not send it; manual billing status does not establish payment readiness. No prospect contact, audit, demo, generation, payment or provider operation occurred.
+
+Remaining: 2,600 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next: public beta using current composed English source. This staged work does not complete R20 or change release gates.
