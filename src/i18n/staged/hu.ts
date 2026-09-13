@@ -1,3 +1,4 @@
+import { huConfiguration } from "./hu-configuration";
 import { huPublicBeta } from "./hu-public-beta";
 import { huBetaGuide } from "./hu-beta-guide";
 import { huBetaScreen } from "./hu-beta-screen";
@@ -17,6 +18,13 @@ import { huSharedUi } from "./hu-shared-ui";
 import { huCore } from "./hu-core";
 /** Hungarian authoring; never imported by the runtime catalog. */
 export const HU_STAGED_BATCHES = [
+  {
+    name: "configuration",
+    copy: huConfiguration,
+    namespaces: ["brand", "wp", "shopify", "claude", "connect", "connections", "coverage"],
+    sourceRevision: "2e1ca3c",
+    sourceHash: "0e11ebfcac212ec85d91c8734430e0cd661dc727057c565c1cfcd33f59a1aa60",
+  },
   {
     name: "public beta",
     copy: huPublicBeta,
