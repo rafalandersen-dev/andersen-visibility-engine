@@ -1,6 +1,7 @@
 import { etPublicPricing } from "./et-public-pricing";
 import { etPublicHome } from "./et-public-home";
 import { etBetaScreen } from "./et-beta-screen";
+import { etBetaGuide } from "./et-beta-guidance";
 import { etPublicStudies } from "./et-public-studies";
 import { etAnalyticsScreen } from "./et-analytics-screen";
 import { etEvidenceScreen } from "./et-evidence-screen";
@@ -15,6 +16,13 @@ import { etSharedUi } from "./et-shared-ui";
 import { etCore } from "./et-core";
 /** Estonian authoring; never imported by the runtime catalog. */
 export const ET_STAGED_BATCHES = [
+  {
+    name: "beta guidance",
+    copy: etBetaGuide,
+    namespaces: ["betaGuide"],
+    sourceRevision: "29dd558",
+    sourceHash: "8c815e10a73590a6e2911d1b5618d5d545c15a47b3a75462ccaaae6faf33520d",
+  },
   {
     name: "beta screen",
     copy: etBetaScreen,
