@@ -1,8 +1,32 @@
+import { bgAuditScreen } from "./bg-audit-screen";
+import { bgServicesScreen } from "./bg-services-screen";
+import { bgSetupScreen } from "./bg-setup-screen";
 import { bgCore } from "./bg-core";
 import { bgAuthScreen } from "./bg-auth-screen";
 import { bgSharedUi } from "./bg-shared-ui";
 /** Bulgarian authoring; never imported by the runtime catalog. */
 export const BG_STAGED_BATCHES = [
+  {
+    name: "setup screen",
+    copy: bgSetupScreen,
+    namespaces: ["setupScreen"],
+    sourceRevision: "07d0f22",
+    sourceHash: "565b0bcd89f346fd85f3b87d4e44716826a65bee54fd60eaa3b677c4d732a5ca",
+  },
+  {
+    name: "services screen",
+    copy: bgServicesScreen,
+    namespaces: ["servicesScreen"],
+    sourceRevision: "07d0f22",
+    sourceHash: "c769d10ab21c34754c6c4a6c57c3ee5f04881605b1dabc10030bca0e9122313d",
+  },
+  {
+    name: "audit screen",
+    copy: bgAuditScreen,
+    namespaces: ["auditScreen"],
+    sourceRevision: "07d0f22",
+    sourceHash: "2c15a7061c169b3f2da7446d4280ff94cb6b5ce2e6cb56d156af72ab154f1aed",
+  },
   {
     name: "core",
     copy: bgCore,
