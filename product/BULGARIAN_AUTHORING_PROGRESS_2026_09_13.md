@@ -1,6 +1,6 @@
 # Bulgarian interface authoring — 13 September 2026
 
-Bulgarian is staged only: 435 of the current 3,768 English interface keys across eight complete batches. It is excluded from UI_CATALOGS and the language picker. Four UI catalogs remain active; eleven other catalogs are completely authored in staging with acceptance still incomplete.
+Bulgarian is staged only: 524 of the current 3,768 English interface keys across nine complete batches. It is excluded from UI_CATALOGS and the language picker. Four UI catalogs remain active; eleven other catalogs are completely authored in staging with acceptance still incomplete.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -12,8 +12,9 @@ Bulgarian is staged only: 435 of the current 3,768 English interface keys across
 | Audit screen | 29 | 07d0f22 |
 | Analytics screen | 36 | 9ff877a |
 | Billing screen | 54 | 9ff877a |
+| Competitor and AI-readiness evidence screen | 89 | 7d62eb3 |
 
-The frozen registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 19 Bulgarian/catalog tests, scoped lint, formatting, whitespace and type checking pass. Type log: /tmp/milo-bulgarian-analytics-billing-types.log. Full-catalog equality will be required when all batches are authored.
+The frozen registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 20 Bulgarian/catalog tests, scoped lint, formatting, whitespace and type checking pass. Type log: /tmp/milo-bulgarian-evidence-screen-types.log. Full-catalog equality will be required when all batches are authored.
 
 Terminology: работно пространство (workspace), акаунт (account), проект (project), парола (password), възстановяване на парола (password reset), странична лента (sidebar), запис (network listing), задания за съдържание (content briefs). Use polite plural explanations and concise imperative action labels; preserve provider/product names and placeholders.
 
@@ -25,4 +26,6 @@ Setup copy preserves approval/publication separation, previously approved draft 
 
 Analytics copy preserves recorded events versus unique visitors, click rate versus completed conversions, the 50,000-event/60-day bound and publication-history limits. Billing retains linked legacy-portal conditions, manually granted plan eligibility, separate backlink purchase approval and configured-feature limits. No portal, payment, tracking or provider operation occurred.
 
-Remaining: 3,333 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next: competitor and AI-readiness evidence screen using current composed English source. This staged work does not complete R20 or change release gates.
+Evidence-screen copy preserves snapshot versus ongoing-monitoring limits, failed retrieval as no competitor evidence, opposite gap/readiness score directions, and the separation of readiness estimates, recorded answers and AI referrals. Prompt terminology is distinguished from questions; possible gaps remain suggestions. No competitor retrieval, model request, analysis or opportunity creation occurred.
+
+Remaining: 3,244 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next: plan screen using current composed English source. This staged work does not complete R20 or change release gates.
