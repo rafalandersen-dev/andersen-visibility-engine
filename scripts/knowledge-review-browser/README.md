@@ -15,7 +15,7 @@ Verified 12 September 2026 against component implementation 73a9475 in the Codex
 
 ## Staged Finnish interaction mode
 
-Build with `node scripts/knowledge-review-browser/build.cjs fi`, then start the same local server. The adapter imports the actual staged Finnish catalog, substitutes variables literally and throws for missing keys. The component receives `fi` for date formatting; the harness document declares Finnish and UTF-8. This does not register Finnish in the production catalog or language picker. Omit the argument (or use `keys`) to retain the original key-based checks. Czech is also supported with `cs` and Slovak with `sk` and Slovenian with `sl` and Croatian with `hr` and Bulgarian with `bg`; other arguments are rejected.
+Build with `node scripts/knowledge-review-browser/build.cjs fi`, then start the same local server. The adapter imports the actual staged Finnish catalog, substitutes variables literally and throws for missing keys. The component receives `fi` for date formatting; the harness document declares Finnish and UTF-8. This does not register Finnish in the production catalog or language picker. Omit the argument (or use `keys`) to retain the original key-based checks. Czech is also supported with `cs` and Slovak with `sk` and Slovenian with `sl` and Croatian with `hr` and Bulgarian with `bg` and Estonian with `et`; other arguments are rejected.
 
 On 12 September 2026, against candidate a44c5d4, all four interaction groups passed in the Codex in-app browser with Finnish copy. The original keys mode also passed after rebuilding. The temporary local server was stopped. The harness has no production stylesheet, so these results establish translated component interaction only, not responsive layout, visual clipping, keyboard/screen-reader acceptance, full-page locale semantics, fluent review, backend authorization or real-use acceptance.
 
@@ -49,3 +49,8 @@ Build with `node scripts/knowledge-review-browser/build.cjs hr`. On 13 September
 ## Staged Bulgarian interaction mode
 
 Build with `node scripts/knowledge-review-browser/build.cjs bg`. On 13 September 2026, all nine interaction groups passed in the Codex in-app browser against component/catalog baseline f62988c, using the complete Bulgarian staged catalog. Evidence descriptions, language, busy states and focus return were included. The temporary server was stopped. See product/BULGARIAN_COMPONENT_ACCEPTANCE_2026_09_13.md for evidence and limits; production styling, full-page, screen-reader, backend and real-use acceptance remain open.
+
+
+## Staged Estonian interaction mode
+
+Build with `node scripts/knowledge-review-browser/build.cjs et`. On 13 September 2026, all nine interaction groups passed in the Codex in-app browser against component/catalog baseline d9da6b7, using the complete Estonian staged catalog. Evidence descriptions, language, busy states and focus return were included. The temporary server was stopped. See product/ESTONIAN_COMPONENT_ACCEPTANCE_2026_09_13.md for evidence and limits; production styling, full-page, screen-reader, backend and real-use acceptance remain open.
