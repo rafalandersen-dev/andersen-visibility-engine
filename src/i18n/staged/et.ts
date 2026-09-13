@@ -4,6 +4,7 @@ import { etBetaScreen } from "./et-beta-screen";
 import { etBetaGuide } from "./et-beta-guidance";
 import { etPublicBeta } from "./et-public-beta";
 import { etConfiguration } from "./et-configuration";
+import { etCollaboration } from "./et-collaboration";
 import { etPublicStudies } from "./et-public-studies";
 import { etAnalyticsScreen } from "./et-analytics-screen";
 import { etEvidenceScreen } from "./et-evidence-screen";
@@ -18,6 +19,13 @@ import { etSharedUi } from "./et-shared-ui";
 import { etCore } from "./et-core";
 /** Estonian authoring; never imported by the runtime catalog. */
 export const ET_STAGED_BATCHES = [
+  {
+    name: "collaboration",
+    copy: etCollaboration,
+    namespaces: ["collaboration", "team", "notifications", "awareness", "emailSettings"],
+    sourceRevision: "01e0e4a",
+    sourceHash: "429e59f16a866242f25a373ebd6b52332ae3f04534230101422ebab727f77ed0",
+  },
   {
     name: "configuration",
     copy: etConfiguration,
