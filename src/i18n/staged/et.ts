@@ -1,7 +1,26 @@
 import { etAuthScreen } from "./et-auth-screen";
 import { etSharedUi } from "./et-shared-ui";
+import { etCore } from "./et-core";
 /** Estonian authoring; never imported by the runtime catalog. */
 export const ET_STAGED_BATCHES = [
+  {
+    name: "core",
+    copy: etCore,
+    namespaces: [
+      "common",
+      "nav",
+      "appShell",
+      "shell",
+      "onboarding",
+      "setup",
+      "lang",
+      "market",
+      "goal",
+      "pipeline",
+    ],
+    sourceRevision: "c969097",
+    sourceHash: "845b2b1ade4a0935ab924dcc4bdc27d72a7a120388740354bd69a697aa1c7ff2",
+  },
   {
     name: "authentication",
     copy: etAuthScreen,
