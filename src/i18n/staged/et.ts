@@ -1,6 +1,7 @@
 import { etAnalyticsScreen } from "./et-analytics-screen";
 import { etEvidenceScreen } from "./et-evidence-screen";
 import { etPlanScreen } from "./et-plan-screen";
+import { etEditorScreen } from "./et-editor-screen";
 import { etBillingScreen } from "./et-billing-screen";
 import { etSetupScreen } from "./et-setup-screen";
 import { etServicesScreen } from "./et-services-screen";
@@ -10,6 +11,13 @@ import { etSharedUi } from "./et-shared-ui";
 import { etCore } from "./et-core";
 /** Estonian authoring; never imported by the runtime catalog. */
 export const ET_STAGED_BATCHES = [
+  {
+    name: "editor screen",
+    copy: etEditorScreen,
+    namespaces: ["editorScreen"],
+    sourceRevision: "a6a6b23",
+    sourceHash: "1e827d2744ea1f2d3364b54983f06b42082f45ab6dfb0eda7b1375fdddd9ec9f",
+  },
   {
     name: "plan screen",
     copy: etPlanScreen,
