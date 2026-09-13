@@ -1,3 +1,4 @@
+import { huKnowledge } from "./hu-knowledge";
 import { huCollaboration } from "./hu-collaboration";
 import { huConfiguration } from "./hu-configuration";
 import { huPublicBeta } from "./hu-public-beta";
@@ -19,6 +20,13 @@ import { huSharedUi } from "./hu-shared-ui";
 import { huCore } from "./hu-core";
 /** Hungarian authoring; never imported by the runtime catalog. */
 export const HU_STAGED_BATCHES = [
+  {
+    name: "knowledge",
+    copy: huKnowledge,
+    namespaces: ["knowledge", "weekly", "approval", "refresh"],
+    sourceRevision: "d6ccd9b",
+    sourceHash: "a3a3297006f23628e422ddedfb5b6f5a51c6dd5f6abbc6d6e589481e49915816",
+  },
   {
     name: "collaboration",
     copy: huCollaboration,
