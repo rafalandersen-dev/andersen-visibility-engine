@@ -12,11 +12,13 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { INITIAL_AUTH_SESSION, observeAuthSession } from "./auth-session";
 
 type AuthState = {
   loading: boolean;
@@ -38,80 +40,43 @@ type AuthState = {
 const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [loading, setLoading] = useState(true);
-  const [session, setSession] = useState<Session | null>(null);
-  const [isOwner, setIsOwner] = useState(false);
-  // The user id whose owner-role result `isOwner` currently reflects. Compared
-  // against the live session user to derive `roleLoaded` — so a stale `isOwner`
-  // from a previous (or not-yet-run) lookup never reads as authoritative.
-  const [roleUserId, setRoleUserId] = useState<string | null>(null);
-
-  async function loadRole(userId: string | undefined) {
-    if (!userId) {
-      setIsOwner(false);
-      setRoleUserId(null);
-      return;
-    }
-    const { data, error } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .eq("role", "owner")
-      .maybeSingle();
-    if (error) {
-      // A failed lookup (2026-07-25 outage: every REST call 503'd) is NOT
-      // "confirmed not owner" — leaving roleLoaded false keeps owner-bypass
-      // guards waiting instead of misclassifying an owner mid-blip.
-      setIsOwner(false);
-      return;
-    }
-    setIsOwner(!!data);
-    setRoleUserId(userId);
-  }
+  const [snapshot, setSnapshot] = useState(INITIAL_AUTH_SESSION);
+  const observer = useRef<ReturnType<typeof observeAuthSession> | null>(null);
 
   useEffect(() => {
-    let mounted = true;
-
-    // Subscribe FIRST so we don't miss the initial event.
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      if (!mounted) return;
-      setSession(newSession);
-      // Defer Supabase calls outside the callback to avoid deadlocks.
-      setTimeout(() => loadRole(newSession?.user?.id), 0);
-    });
-
-    supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return;
-      setSession(data.session);
-      loadRole(data.session?.user?.id).finally(() => {
-        if (mounted) setLoading(false);
-      });
-    });
-
+    const current = observeAuthSession(
+      supabase.auth,
+      async (userId) => {
+        const { data, error } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userId)
+          .eq("role", "owner")
+          .maybeSingle();
+        if (error) throw error;
+        return !!data;
+      },
+      setSnapshot,
+    );
+    observer.current = current;
     return () => {
-      mounted = false;
-      sub.subscription.unsubscribe();
+      current.dispose();
+      if (observer.current === current) observer.current = null;
     };
   }, []);
 
-  const currentUserId = session?.user?.id ?? null;
   const value = useMemo<AuthState>(
     () => ({
-      loading,
-      session,
-      user: session?.user ?? null,
-      isOwner,
-      // The role result is authoritative only when it belongs to the current
-      // session user (both null when signed out → trivially resolved).
-      roleLoaded: roleUserId === currentUserId,
+      ...snapshot,
+      user: snapshot.session?.user ?? null,
       signOut: async () => {
         await supabase.auth.signOut();
       },
       refreshRole: async () => {
-        await loadRole(session?.user?.id);
+        await observer.current?.refreshRole();
       },
     }),
-    [loading, session, isOwner, roleUserId, currentUserId],
+    [snapshot],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -218,6 +218,37 @@ async function run() {
     assert(sendCalls.length === calls, "reload never dispatches");
     assert(!text().includes(t("chat.running")), "terminal work has no stale running label");
   });
+  await group(
+    "history-only failure also hides cached conversation titles until recovery",
+    async () => {
+      const read = window.h.read;
+      window.h.read = async () => {
+        throw Error("history read unavailable");
+      };
+      await client.invalidateQueries({ predicate: (query) => query.queryKey.includes("history") });
+      await until(
+        () => !document.querySelector("aside ul"),
+        "cached conversation directory hidden after failed history read",
+      );
+      assert(
+        !text().includes(saved[0].body) &&
+          !text().includes("The saved draft has two section headings"),
+        "private title and response both hidden",
+      );
+      assert(
+        button("chat.new").disabled && button("chat.send").disabled,
+        "new work waits for status recovery",
+      );
+      window.h.read = read;
+      await refresh();
+      await until(
+        () =>
+          !!document.querySelector("aside ul") &&
+          text().includes("The saved draft has two section headings"),
+        "confirmed history restores conversation directory",
+      );
+    },
+  );
   await group("failed refresh hides history and disables new work", async () => {
     denied = true;
     await refresh();

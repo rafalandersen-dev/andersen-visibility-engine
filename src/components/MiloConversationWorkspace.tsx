@@ -41,6 +41,7 @@ export function MiloConversationWorkspace(props: Props) {
   const [offset, setOffset] = useState(0);
   const [selected, setSelected] = useState<Selection>();
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyUnavailable, setHistoryUnavailable] = useState(false);
   const historyToggle = useRef<HTMLButtonElement>(null);
   const historyId = useId();
   const prefix = conversationKey(actorId, project);
@@ -102,7 +103,7 @@ export function MiloConversationWorkspace(props: Props) {
           <Button
             className="mt-3 w-full"
             variant="outline"
-            disabled={directory.isPending || directory.isError}
+            disabled={directory.isPending || directory.isError || historyUnavailable}
             onClick={() => {
               setSelected({ id: crypto.randomUUID(), fresh: true, count: 0 });
               setHistoryOpen(false);
@@ -116,12 +117,12 @@ export function MiloConversationWorkspace(props: Props) {
               {t("common.loading")}
             </p>
           )}
-          {directory.isError && (
+          {(directory.isError || historyUnavailable) && (
             <p role="alert" className="py-3 text-sm">
               {t("chat.unavailable")}
             </p>
           )}
-          {directory.data && !directory.isError && (
+          {directory.data && !directory.isError && !historyUnavailable && (
             <>
               <ul
                 className="mt-3 max-h-60 space-y-1 overflow-y-auto xl:max-h-[55vh]"
@@ -181,6 +182,7 @@ export function MiloConversationWorkspace(props: Props) {
           selection={selected}
           onStarted={() => setSelected((value) => (value ? { ...value, fresh: false } : value))}
           onDirectoryRefresh={refresh}
+          onUnavailableChange={setHistoryUnavailable}
         />
       ) : (
         <div role="status">{t(directory.isError ? "chat.unavailable" : "common.loading")}</div>
@@ -196,7 +198,13 @@ function ConversationSession({
   selection,
   onStarted,
   onDirectoryRefresh,
-}: Props & { selection: Selection; onStarted: () => void; onDirectoryRefresh: () => void }) {
+  onUnavailableChange,
+}: Props & {
+  selection: Selection;
+  onStarted: () => void;
+  onDirectoryRefresh: () => void;
+  onUnavailableChange: (unavailable: boolean) => void;
+}) {
   const t = useT(),
     locale = useAppLanguage(),
     client = useQueryClient();
@@ -241,6 +249,9 @@ function ConversationSession({
       sending || query.state.data?.turns.some(isActiveTurn) ? 3000 : 15000,
   });
   const page = history.isError ? undefined : history.data;
+  useEffect(() => {
+    onUnavailableChange(history.isError);
+  }, [history.isError, onUnavailableChange]);
   const latest = page?.turns.at(-1);
   const active = page?.turns.find(isActiveTurn);
   const requestSaved = page?.turns.some((turn) => turn.turnId === request?.turnId) ?? false;
