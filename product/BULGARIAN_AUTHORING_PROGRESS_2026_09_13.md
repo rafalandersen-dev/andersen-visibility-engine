@@ -1,6 +1,6 @@
 # Bulgarian interface authoring — 13 September 2026
 
-Bulgarian is staged only: 855 of the current 3,768 English interface keys across thirteen complete batches. It is excluded from UI_CATALOGS and the language picker. Four UI catalogs remain active; eleven other catalogs are completely authored in staging with acceptance still incomplete.
+Bulgarian is staged only: 955 of the current 3,768 English interface keys across fourteen complete batches. It is excluded from UI_CATALOGS and the language picker. Four UI catalogs remain active; eleven other catalogs are completely authored in staging with acceptance still incomplete.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -17,8 +17,9 @@ Bulgarian is staged only: 855 of the current 3,768 English interface keys across
 | Editor screen | 148 | eda0235 |
 | Public pricing | 40 | 7e16ed1 |
 | Public case studies | 30 | 7e16ed1 |
+| Public home | 100 | 788b5ae |
 
-The frozen registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 24 Bulgarian/catalog tests, scoped lint, formatting, whitespace and type checking pass. Type log: /tmp/milo-bulgarian-pricing-studies-types.log. Full-catalog equality will be required when all batches are authored.
+The frozen registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 25 Bulgarian/catalog tests, scoped lint, formatting, whitespace and type checking pass. Type log: /tmp/milo-bulgarian-home-types.log. Full-catalog equality will be required when all batches are authored.
 
 Terminology: работно пространство (workspace), акаунт (account), проект (project), парола (password), възстановяване на парола (password reset), странична лента (sidebar), запис (network listing), задания за съдържание (content briefs). Use polite plural explanations and concise imperative action labels; preserve provider/product names and placeholders.
 
@@ -38,4 +39,6 @@ Editor copy preserves image privacy until approval, controlled-origin and alt-te
 
 Public pricing retains region versus billing eligibility, separate placement purchases, paid activation holds and no outcome guarantees. Case studies retain implementation/demo/internal-example scope, incomplete live destination/publication/measurement acceptance and no verified growth claims. No checkout, activation, purchase, provider request or publication occurred.
 
-Remaining: 2,913 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next: public home using current composed English source. This staged work does not complete R20 or change release gates.
+Public home retains missing-data versus zero-activity distinctions, supported-connection/verified-destination requirements, linked-subscription portal limits and paid activation/purchase holds. The three headline fragments were reviewed in the concatenation order used by src/routes/index.tsx; this is a copy/source check, not rendered acceptance. Existing marketing claims still require implementation and real-use evidence. No provider operation occurred.
+
+Remaining: 2,813 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next: beta screen using current composed English source. This staged work does not complete R20 or change release gates.

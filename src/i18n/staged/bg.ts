@@ -1,3 +1,4 @@
+import { bgPublicHome } from "./bg-public-home";
 import { bgPublicStudies } from "./bg-public-studies";
 import { bgPublicPricing } from "./bg-public-pricing";
 import { bgEditorScreen } from "./bg-editor-screen";
@@ -13,6 +14,13 @@ import { bgAuthScreen } from "./bg-auth-screen";
 import { bgSharedUi } from "./bg-shared-ui";
 /** Bulgarian authoring; never imported by the runtime catalog. */
 export const BG_STAGED_BATCHES = [
+  {
+    name: "public home",
+    copy: bgPublicHome,
+    namespaces: ["publicHome"],
+    sourceRevision: "788b5ae",
+    sourceHash: "2855ce0efcce2fc714afc7f61a15d64ed5975809acefb98df75a3e275ccae141",
+  },
   {
     name: "public pricing",
     copy: bgPublicPricing,
