@@ -1,4 +1,19 @@
 const en = {
+  "chat.export": "Export conversation",
+  "chat.exportHelp":
+    "Downloads saved messages, receipts and historical proposals as a JSON file. Linked files are separate.",
+  "chat.exporting": "Preparing the complete conversation…",
+  "chat.exportFailed":
+    "Export could not be completed. Wait for ongoing work to finish, then try again.",
+  "chat.erase": "Delete conversation",
+  "chat.eraseTitle": "Permanently delete this conversation?",
+  "chat.eraseHelp":
+    "Deletes messages and proposals permanently. Saved drafts, results and billing records remain. Work already sent may finish and use your allowance. Records preventing duplicate work remain.",
+  "chat.erasing": "Deleting conversation…",
+  "chat.eraseUnconfirmed":
+    "Deletion could not be confirmed. Messages stay hidden here. Retry deletion to confirm the outcome.",
+  "chat.eraseRetry": "Retry deletion",
+  "chat.erased": "Conversation deleted.",
   "chat.tool.draft_metadata_proposal": "Draft metadata proposal",
   "chat.proposal.review": "Review proposed changes",
   "chat.proposal.before": "Before",
@@ -79,6 +94,21 @@ const en = {
 type Copy = Record<keyof typeof en, string>;
 export type ConversationCopy = Copy;
 const pl: Copy = {
+  "chat.export": "Eksportuj rozmowę",
+  "chat.exportHelp":
+    "Pobiera zapisane wiadomości, potwierdzenia i historyczne propozycje w pliku JSON. Powiązane pliki są osobno.",
+  "chat.exporting": "Przygotowywanie całej rozmowy…",
+  "chat.exportFailed":
+    "Nie udało się ukończyć eksportu. Poczekaj na zakończenie trwającej pracy i spróbuj ponownie.",
+  "chat.erase": "Usuń rozmowę",
+  "chat.eraseTitle": "Trwale usunąć tę rozmowę?",
+  "chat.eraseHelp":
+    "Trwale usuwa wiadomości i propozycje. Zapisane szkice, wyniki i rozliczenia pozostają. Wysłane już operacje mogą się zakończyć i zużyć Twój limit. Zapisy zapobiegające powtórzeniu pracy pozostają.",
+  "chat.erasing": "Usuwanie rozmowy…",
+  "chat.eraseUnconfirmed":
+    "Nie udało się potwierdzić usunięcia. Wiadomości pozostają tutaj ukryte. Ponów usuwanie, aby potwierdzić wynik.",
+  "chat.eraseRetry": "Ponów usuwanie",
+  "chat.erased": "Rozmowa usunięta.",
   "chat.tool.draft_metadata_proposal": "Propozycja zmian metadanych szkicu",
   "chat.proposal.review": "Przejrzyj proponowane zmiany",
   "chat.proposal.before": "Przed zmianą",
@@ -159,6 +189,21 @@ const pl: Copy = {
   "chat.tool.draft_generation": "Generowanie szkicu",
 };
 const sv: Copy = {
+  "chat.export": "Exportera samtal",
+  "chat.exportHelp":
+    "Hämtar sparade meddelanden, kvittenser och historiska förslag som en JSON-fil. Länkade filer är separata.",
+  "chat.exporting": "Förbereder hela samtalet…",
+  "chat.exportFailed":
+    "Exporten kunde inte slutföras. Vänta tills pågående arbete är klart och försök igen.",
+  "chat.erase": "Ta bort samtal",
+  "chat.eraseTitle": "Ta bort det här samtalet permanent?",
+  "chat.eraseHelp":
+    "Tar bort meddelanden och förslag permanent. Sparade utkast, resultat och faktureringsuppgifter finns kvar. Redan skickat arbete kan slutföras och använda din kvot. Poster som förhindrar dubbelarbete finns kvar.",
+  "chat.erasing": "Tar bort samtalet…",
+  "chat.eraseUnconfirmed":
+    "Borttagningen kunde inte bekräftas. Meddelandena förblir dolda här. Försök ta bort igen för att bekräfta resultatet.",
+  "chat.eraseRetry": "Försök ta bort igen",
+  "chat.erased": "Samtalet har tagits bort.",
   "chat.tool.draft_metadata_proposal": "Förslag på ändrade metadata för utkastet",
   "chat.proposal.review": "Granska föreslagna ändringar",
   "chat.proposal.before": "Före",
@@ -239,6 +284,21 @@ const sv: Copy = {
   "chat.tool.draft_generation": "Utkastgenerering",
 };
 const da: Copy = {
+  "chat.export": "Eksportér samtale",
+  "chat.exportHelp":
+    "Henter gemte beskeder, kvitteringer og historiske forslag som en JSON-fil. Tilknyttede filer er separate.",
+  "chat.exporting": "Forbereder hele samtalen…",
+  "chat.exportFailed":
+    "Eksporten kunne ikke fuldføres. Vent på, at igangværende arbejde afsluttes, og prøv igen.",
+  "chat.erase": "Slet samtale",
+  "chat.eraseTitle": "Slet denne samtale permanent?",
+  "chat.eraseHelp":
+    "Sletter beskeder og forslag permanent. Gemte kladder, resultater og faktureringsoplysninger bevares. Allerede sendt arbejde kan afsluttes og bruge din kvote. Registreringer, der forhindrer dobbeltarbejde, bevares.",
+  "chat.erasing": "Sletter samtalen…",
+  "chat.eraseUnconfirmed":
+    "Sletningen kunne ikke bekræftes. Beskederne forbliver skjult her. Prøv at slette igen for at bekræfte resultatet.",
+  "chat.eraseRetry": "Prøv at slette igen",
+  "chat.erased": "Samtalen er slettet.",
   "chat.tool.draft_metadata_proposal": "Forslag til ændrede metadata for kladden",
   "chat.proposal.review": "Gennemgå foreslåede ændringer",
   "chat.proposal.before": "Før",

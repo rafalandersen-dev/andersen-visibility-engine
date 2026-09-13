@@ -1,5 +1,20 @@
 import type { ConversationCopy } from "../conversation";
 export const huConversation: ConversationCopy = {
+  "chat.export": "Beszélgetés exportálása",
+  "chat.exportHelp":
+    "A mentett üzeneteket, visszaigazolásokat és korábbi javaslatokat JSON-fájlként tölti le. A hivatkozott fájlok külön vannak.",
+  "chat.exporting": "A teljes beszélgetés előkészítése…",
+  "chat.exportFailed":
+    "Az exportálás nem sikerült. Várd meg a folyamatban lévő munka végét, majd próbáld újra.",
+  "chat.erase": "Beszélgetés törlése",
+  "chat.eraseTitle": "Végleg törlöd ezt a beszélgetést?",
+  "chat.eraseHelp":
+    "Végleg törli az üzeneteket és javaslatokat. A mentett piszkozatok, eredmények és számlázási adatok megmaradnak. A már elküldött munka befejeződhet és fogyaszthatja a keretedet. A munka megismétlését megelőző bejegyzések megmaradnak.",
+  "chat.erasing": "Beszélgetés törlése…",
+  "chat.eraseUnconfirmed":
+    "A törlés nem erősíthető meg. Az üzenetek itt rejtve maradnak. Az eredmény megerősítéséhez ismételd meg a törlést.",
+  "chat.eraseRetry": "Törlés megismétlése",
+  "chat.erased": "Beszélgetés törölve.",
   "chat.tool.draft_metadata_proposal": "Javaslat a vázlat metaadataira",
   "chat.proposal.review": "Javasolt módosítások áttekintése",
   "chat.proposal.before": "Előtte",

@@ -42,7 +42,7 @@ it("keeps staged Croatian outside runtime and assigns each key once", () => {
   const keys = HR_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(new Set(keys).size).toBe(keys.length);
   expect(Object.keys(HR_STAGED_CATALOG).sort()).toEqual(keys.sort());
-  expect(keys).toHaveLength(3829);
+  expect(keys).toHaveLength(3840);
   expect(Object.isFrozen(HR_STAGED_CATALOG)).toBe(true);
 });
 

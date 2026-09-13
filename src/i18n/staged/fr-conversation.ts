@@ -1,5 +1,19 @@
 import type { ConversationCopy } from "../conversation";
 export const frConversation: ConversationCopy = {
+  "chat.export": "Exporter la conversation",
+  "chat.exportHelp":
+    "Télécharge les messages, reçus et propositions historiques dans un fichier JSON. Les fichiers liés sont séparés.",
+  "chat.exporting": "Préparation de la conversation complète…",
+  "chat.exportFailed": "L’export a échoué. Attendez la fin du travail en cours, puis réessayez.",
+  "chat.erase": "Supprimer la conversation",
+  "chat.eraseTitle": "Supprimer définitivement cette conversation ?",
+  "chat.eraseHelp":
+    "Supprime définitivement les messages et propositions. Les brouillons, résultats et données de facturation sont conservés. Le travail déjà envoyé peut se terminer et consommer votre quota. Les enregistrements évitant les doublons sont conservés.",
+  "chat.erasing": "Suppression de la conversation…",
+  "chat.eraseUnconfirmed":
+    "La suppression n’a pas pu être confirmée. Les messages restent masqués ici. Réessayez la suppression pour confirmer le résultat.",
+  "chat.eraseRetry": "Réessayer la suppression",
+  "chat.erased": "Conversation supprimée.",
   "chat.tool.draft_metadata_proposal": "Proposition de métadonnées du brouillon",
   "chat.proposal.review": "Examiner les modifications proposées",
   "chat.proposal.before": "Avant",

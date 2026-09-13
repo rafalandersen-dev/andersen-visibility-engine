@@ -1,5 +1,20 @@
 import type { ConversationCopy } from "../conversation";
 export const fiConversation: ConversationCopy = {
+  "chat.export": "Vie keskustelu",
+  "chat.exportHelp":
+    "Lataa tallennetut viestit, vahvistukset ja aiemmat ehdotukset JSON-tiedostona. Linkitetyt tiedostot ovat erillisiä.",
+  "chat.exporting": "Valmistellaan koko keskustelua…",
+  "chat.exportFailed":
+    "Vientiä ei voitu suorittaa. Odota keskeneräisen työn valmistumista ja yritä uudelleen.",
+  "chat.erase": "Poista keskustelu",
+  "chat.eraseTitle": "Poistetaanko tämä keskustelu pysyvästi?",
+  "chat.eraseHelp":
+    "Poistaa viestit ja ehdotukset pysyvästi. Tallennetut luonnokset, tulokset ja laskutustiedot säilyvät. Jo lähetetty työ voi valmistua ja kuluttaa kiintiötäsi. Päällekkäisen työn estävät tiedot säilyvät.",
+  "chat.erasing": "Poistetaan keskustelua…",
+  "chat.eraseUnconfirmed":
+    "Poistoa ei voitu vahvistaa. Viestit pysyvät täällä piilossa. Vahvista tulos yrittämällä poistoa uudelleen.",
+  "chat.eraseRetry": "Yritä poistoa uudelleen",
+  "chat.erased": "Keskustelu poistettu.",
   "chat.tool.draft_metadata_proposal": "Luonnoksen metatietoehdotus",
   "chat.proposal.review": "Tarkista ehdotetut muutokset",
   "chat.proposal.before": "Ennen",

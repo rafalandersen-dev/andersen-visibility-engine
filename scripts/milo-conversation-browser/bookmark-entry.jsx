@@ -598,6 +598,54 @@ async function run() {
     document.querySelector("main").scrollWidth <= window.innerWidth,
     "conversation links and latest page fit viewport",
   );
+  const eraseCalls = [];
+  window.h.erase = async (input) => {
+    authorize(input);
+    eraseCalls.push(structuredClone(input));
+    records.delete(recordKey(actor(), input.ownerId, input.projectId, input.conversationId));
+    return { ...input, actorId: actor(), erased: true };
+  };
+  await until(
+    () => rememberedMiloConversation(A, { ownerId: A, projectId: "p" }) === oldest,
+    "confirmed bookmark remembered before erasure",
+  );
+  button("chat.erase").click();
+  await until(
+    () => document.querySelector('[role="alertdialog"]'),
+    "exact conversation erasure dialog",
+  );
+  [...document.querySelectorAll('[role="alertdialog"] button')]
+    .find((node) => node.textContent === t("chat.erase"))
+    .click();
+  await until(
+    () => router.state.location.search.conversation === "new" && text().includes(t("chat.welcome")),
+    "erasure replaces the actual router destination",
+  );
+  assert(
+    !rememberedMiloConversation(A, { ownerId: A, projectId: "p" }),
+    "erasure clears only this client preference",
+  );
+  assert(
+    eraseCalls.length === 1 && eraseCalls[0].conversationId === oldest,
+    "erasure uses the exact selected conversation",
+  );
+  const sendsBeforeDeletedBookmark = h.sends.length;
+  await router.navigate({ to: "/app", search: { owner: A, project: "p", conversation: oldest } });
+  await until(() => text().includes(t("chat.unavailable")), "a deleted bookmark is unavailable");
+  assert(
+    !text().includes("BOOKMARK_OUTSIDE_FIRST_DIRECTORY") &&
+      h.sends.length === sendsBeforeDeletedBookmark,
+    "no restored private history or new dispatch",
+  );
+  button("chat.new").click();
+  await until(
+    () => router.state.location.search.conversation === "new" && text().includes(t("chat.welcome")),
+    "explicit fresh authorization recovers from a deleted bookmark",
+  );
+  results.push({
+    name: "erasure replaces the real URL, forgets the preference and keeps old bookmarks unavailable",
+    passed: true,
+  });
   document.getElementById("results").textContent = JSON.stringify(
     {
       locale,

@@ -1,5 +1,20 @@
 import type { ConversationCopy } from "../conversation";
 export const nlConversation: ConversationCopy = {
+  "chat.export": "Gesprek exporteren",
+  "chat.exportHelp":
+    "Downloadt opgeslagen berichten, bevestigingen en eerdere voorstellen als JSON-bestand. Gekoppelde bestanden staan apart.",
+  "chat.exporting": "Het volledige gesprek wordt voorbereid…",
+  "chat.exportFailed":
+    "De export kon niet worden voltooid. Wacht tot het lopende werk klaar is en probeer het opnieuw.",
+  "chat.erase": "Gesprek verwijderen",
+  "chat.eraseTitle": "Dit gesprek definitief verwijderen?",
+  "chat.eraseHelp":
+    "Verwijdert berichten en voorstellen definitief. Opgeslagen concepten, resultaten en factuurgegevens blijven bewaard. Al verzonden werk kan worden voltooid en je tegoed gebruiken. Gegevens die dubbel werk voorkomen blijven bewaard.",
+  "chat.erasing": "Gesprek wordt verwijderd…",
+  "chat.eraseUnconfirmed":
+    "De verwijdering kon niet worden bevestigd. Berichten blijven hier verborgen. Probeer opnieuw te verwijderen om het resultaat te bevestigen.",
+  "chat.eraseRetry": "Opnieuw verwijderen",
+  "chat.erased": "Gesprek verwijderd.",
   "chat.tool.draft_metadata_proposal": "Voorstel voor conceptmetadata",
   "chat.proposal.review": "Voorgestelde wijzigingen bekijken",
   "chat.proposal.before": "Voorheen",

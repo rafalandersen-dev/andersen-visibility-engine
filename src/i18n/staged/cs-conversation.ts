@@ -1,5 +1,20 @@
 import type { ConversationCopy } from "../conversation";
 export const csConversation: ConversationCopy = {
+  "chat.export": "Exportovat konverzaci",
+  "chat.exportHelp":
+    "Stáhne uložené zprávy, potvrzení a dřívější návrhy jako soubor JSON. Propojené soubory jsou samostatné.",
+  "chat.exporting": "Příprava celé konverzace…",
+  "chat.exportFailed":
+    "Export se nepodařilo dokončit. Počkejte na dokončení probíhající práce a zkuste to znovu.",
+  "chat.erase": "Smazat konverzaci",
+  "chat.eraseTitle": "Trvale smazat tuto konverzaci?",
+  "chat.eraseHelp":
+    "Trvale smaže zprávy a návrhy. Uložené koncepty, výsledky a fakturační záznamy zůstávají. Již odeslaná práce může doběhnout a čerpat váš limit. Záznamy bránící duplicitní práci zůstávají.",
+  "chat.erasing": "Mazání konverzace…",
+  "chat.eraseUnconfirmed":
+    "Smazání se nepodařilo potvrdit. Zprávy zde zůstávají skryté. Opakujte smazání pro potvrzení výsledku.",
+  "chat.eraseRetry": "Opakovat smazání",
+  "chat.erased": "Konverzace smazána.",
   "chat.tool.draft_metadata_proposal": "Návrh metadat konceptu",
   "chat.proposal.review": "Zkontrolovat navržené změny",
   "chat.proposal.before": "Před změnou",

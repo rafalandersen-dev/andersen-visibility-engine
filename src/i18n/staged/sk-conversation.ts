@@ -1,5 +1,20 @@
 import type { ConversationCopy } from "../conversation";
 export const skConversation: ConversationCopy = {
+  "chat.export": "Exportovať konverzáciu",
+  "chat.exportHelp":
+    "Stiahne uložené správy, potvrdenia a staršie návrhy ako súbor JSON. Prepojené súbory sú samostatné.",
+  "chat.exporting": "Príprava celej konverzácie…",
+  "chat.exportFailed":
+    "Export sa nepodarilo dokončiť. Počkajte na dokončenie prebiehajúcej práce a skúste to znova.",
+  "chat.erase": "Odstrániť konverzáciu",
+  "chat.eraseTitle": "Natrvalo odstrániť túto konverzáciu?",
+  "chat.eraseHelp":
+    "Natrvalo odstráni správy a návrhy. Uložené koncepty, výsledky a fakturačné záznamy zostávajú. Už odoslaná práca sa môže dokončiť a čerpať váš limit. Záznamy brániace duplicitnej práci zostávajú.",
+  "chat.erasing": "Odstraňovanie konverzácie…",
+  "chat.eraseUnconfirmed":
+    "Odstránenie sa nepodarilo potvrdiť. Správy tu zostávajú skryté. Zopakujte odstránenie na potvrdenie výsledku.",
+  "chat.eraseRetry": "Zopakovať odstránenie",
+  "chat.erased": "Konverzácia odstránená.",
   "chat.tool.draft_metadata_proposal": "Návrh metadát konceptu",
   "chat.proposal.review": "Skontrolovať navrhnuté zmeny",
   "chat.proposal.before": "Pred zmenou",

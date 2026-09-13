@@ -1,5 +1,20 @@
 import type { ConversationCopy } from "../conversation";
 export const deConversation: ConversationCopy = {
+  "chat.export": "Unterhaltung exportieren",
+  "chat.exportHelp":
+    "Lädt gespeicherte Nachrichten, Belege und frühere Vorschläge als JSON-Datei herunter. Verknüpfte Dateien sind separat.",
+  "chat.exporting": "Die vollständige Unterhaltung wird vorbereitet…",
+  "chat.exportFailed":
+    "Der Export konnte nicht abgeschlossen werden. Warte, bis laufende Arbeiten beendet sind, und versuche es erneut.",
+  "chat.erase": "Unterhaltung löschen",
+  "chat.eraseTitle": "Diese Unterhaltung dauerhaft löschen?",
+  "chat.eraseHelp":
+    "Löscht Nachrichten und Vorschläge dauerhaft. Gespeicherte Entwürfe, Ergebnisse und Abrechnungsdaten bleiben erhalten. Bereits gesendete Arbeiten können abgeschlossen werden und dein Kontingent nutzen. Einträge zur Vermeidung doppelter Arbeit bleiben erhalten.",
+  "chat.erasing": "Unterhaltung wird gelöscht…",
+  "chat.eraseUnconfirmed":
+    "Die Löschung konnte nicht bestätigt werden. Nachrichten bleiben hier ausgeblendet. Wiederhole die Löschung, um das Ergebnis zu bestätigen.",
+  "chat.eraseRetry": "Löschung wiederholen",
+  "chat.erased": "Unterhaltung gelöscht.",
   "chat.tool.draft_metadata_proposal": "Vorschlag für Entwurfsmetadaten",
   "chat.proposal.review": "Vorgeschlagene Änderungen prüfen",
   "chat.proposal.before": "Vorher",

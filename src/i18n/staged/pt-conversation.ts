@@ -1,5 +1,20 @@
 import type { ConversationCopy } from "../conversation";
 export const ptConversation: ConversationCopy = {
+  "chat.export": "Exportar conversa",
+  "chat.exportHelp":
+    "Transfere mensagens, comprovativos e propostas históricas num ficheiro JSON. Os ficheiros associados são separados.",
+  "chat.exporting": "A preparar a conversa completa…",
+  "chat.exportFailed":
+    "Não foi possível concluir a exportação. Aguarde que o trabalho em curso termine e tente novamente.",
+  "chat.erase": "Eliminar conversa",
+  "chat.eraseTitle": "Eliminar esta conversa permanentemente?",
+  "chat.eraseHelp":
+    "Elimina mensagens e propostas permanentemente. Os rascunhos, resultados e registos de faturação mantêm-se. O trabalho já enviado pode terminar e consumir a sua quota. Mantêm-se os registos que impedem trabalho duplicado.",
+  "chat.erasing": "A eliminar a conversa…",
+  "chat.eraseUnconfirmed":
+    "Não foi possível confirmar a eliminação. As mensagens continuam ocultas aqui. Repita a eliminação para confirmar o resultado.",
+  "chat.eraseRetry": "Repetir eliminação",
+  "chat.erased": "Conversa eliminada.",
   "chat.tool.draft_metadata_proposal": "Proposta de metadados do rascunho",
   "chat.proposal.review": "Rever as alterações propostas",
   "chat.proposal.before": "Antes",

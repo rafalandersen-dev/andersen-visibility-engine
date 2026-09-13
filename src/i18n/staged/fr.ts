@@ -36,7 +36,7 @@ export const FR_STAGED_BATCHES = [
     copy: frConversation,
     namespaces: ["chat"],
     sourceRevision: "metadata proposal candidate after eb971e8",
-    sourceHash: "0450c9bb7fd9b51290cc6d053d708938bf7112a802709524479b72a6a9b20864",
+    sourceHash: "c42d653146c1c442a1b234347237a4ba1432531ee8ef5a1e3ba59837d6836f96",
   },
   { name: "public case studies", copy: frPublicStudies, namespaces: ["publicStudies"] },
   { name: "public pricing", copy: frPublicPricing, namespaces: ["publicPricing"] },

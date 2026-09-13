@@ -1,5 +1,19 @@
 import type { ConversationCopy } from "../conversation";
 export const etConversation: ConversationCopy = {
+  "chat.export": "Ekspordi vestlus",
+  "chat.exportHelp":
+    "Laadib salvestatud sõnumid, kinnitused ja varasemad ettepanekud alla JSON-failina. Lingitud failid on eraldi.",
+  "chat.exporting": "Kogu vestluse ettevalmistamine…",
+  "chat.exportFailed": "Eksporti ei saanud lõpetada. Oota poolelioleva töö lõppu ja proovi uuesti.",
+  "chat.erase": "Kustuta vestlus",
+  "chat.eraseTitle": "Kas kustutada see vestlus jäädavalt?",
+  "chat.eraseHelp":
+    "Kustutab sõnumid ja ettepanekud jäädavalt. Salvestatud mustandid, tulemused ja arvelduskirjed säilivad. Juba saadetud töö võib lõppeda ja kasutada sinu kvooti. Topelttööd vältivad kirjed säilivad.",
+  "chat.erasing": "Vestluse kustutamine…",
+  "chat.eraseUnconfirmed":
+    "Kustutamist ei saanud kinnitada. Sõnumid jäävad siin peidetuks. Tulemuse kinnitamiseks proovi uuesti kustutada.",
+  "chat.eraseRetry": "Proovi uuesti kustutada",
+  "chat.erased": "Vestlus kustutatud.",
   "chat.tool.draft_metadata_proposal": "Mustandi metaandmete ettepanek",
   "chat.proposal.review": "Vaata pakutud muudatused üle",
   "chat.proposal.before": "Enne",

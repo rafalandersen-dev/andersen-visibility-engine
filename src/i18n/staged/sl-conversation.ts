@@ -1,5 +1,20 @@
 import type { ConversationCopy } from "../conversation";
 export const slConversation: ConversationCopy = {
+  "chat.export": "Izvozi pogovor",
+  "chat.exportHelp":
+    "Prenese shranjena sporočila, potrdila in pretekle predloge kot datoteko JSON. Povezane datoteke so ločene.",
+  "chat.exporting": "Priprava celotnega pogovora…",
+  "chat.exportFailed":
+    "Izvoza ni bilo mogoče dokončati. Počakajte na konec trenutnega dela in poskusite znova.",
+  "chat.erase": "Izbriši pogovor",
+  "chat.eraseTitle": "Trajno izbrisati ta pogovor?",
+  "chat.eraseHelp":
+    "Trajno izbriše sporočila in predloge. Shranjeni osnutki, rezultati in obračunski podatki ostanejo. Že poslano delo se lahko konča in porabi vašo kvoto. Zapisi, ki preprečujejo podvajanje dela, ostanejo.",
+  "chat.erasing": "Brisanje pogovora…",
+  "chat.eraseUnconfirmed":
+    "Izbrisa ni bilo mogoče potrditi. Sporočila tukaj ostanejo skrita. Ponovite brisanje, da potrdite rezultat.",
+  "chat.eraseRetry": "Ponovi brisanje",
+  "chat.erased": "Pogovor je izbrisan.",
   "chat.tool.draft_metadata_proposal": "Predlog metapodatkov osnutka",
   "chat.proposal.review": "Preglej predlagane spremembe",
   "chat.proposal.before": "Prej",

@@ -72,14 +72,14 @@ export function MiloDraftProposal({ actorId, ...target }: Props) {
     busy.current = true;
     setSaving(true);
     try {
+      const signal = lifecycle.current.signal;
       const result = checked(
-        await runTeamRequest(
-          () => applyMiloDraftProposalFn({ data: target }),
-          lifecycle.current.signal,
-        ),
+        await runTeamRequest(() => applyMiloDraftProposalFn({ data: target }), signal),
       );
       if (result.state !== "applied") throw new Error("Draft save unconfirmed.");
-      client.setQueryData(queryKey, result);
+      // A dispatched save may finish after navigation or conversation erasure.
+      // Never recreate a deleted private proposal cache from its late response.
+      if (!signal.aborted) client.setQueryData(queryKey, result);
       void client.invalidateQueries({ queryKey: ["project-teams", actorId] });
     } catch {
       setUnconfirmed(true);

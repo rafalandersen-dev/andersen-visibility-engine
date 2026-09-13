@@ -1,5 +1,20 @@
 import type { ConversationCopy } from "../conversation";
 export const hrConversation: ConversationCopy = {
+  "chat.export": "Izvezi razgovor",
+  "chat.exportHelp":
+    "Preuzima spremljene poruke, potvrde i ranije prijedloge kao JSON datoteku. Povezane datoteke su zasebne.",
+  "chat.exporting": "Priprema cijelog razgovora…",
+  "chat.exportFailed":
+    "Izvoz nije dovršen. Pričekajte završetak trenutačnog rada pa pokušajte ponovno.",
+  "chat.erase": "Izbriši razgovor",
+  "chat.eraseTitle": "Trajno izbrisati ovaj razgovor?",
+  "chat.eraseHelp":
+    "Trajno briše poruke i prijedloge. Spremljeni nacrti, rezultati i podaci za obračun ostaju. Već poslani rad može završiti i potrošiti vašu kvotu. Zapisi koji sprječavaju dvostruki rad ostaju.",
+  "chat.erasing": "Brisanje razgovora…",
+  "chat.eraseUnconfirmed":
+    "Brisanje nije potvrđeno. Poruke ovdje ostaju skrivene. Ponovite brisanje kako biste potvrdili rezultat.",
+  "chat.eraseRetry": "Ponovi brisanje",
+  "chat.erased": "Razgovor je izbrisan.",
   "chat.tool.draft_metadata_proposal": "Prijedlog metapodataka nacrta",
   "chat.proposal.review": "Pregledaj predložene promjene",
   "chat.proposal.before": "Prije",

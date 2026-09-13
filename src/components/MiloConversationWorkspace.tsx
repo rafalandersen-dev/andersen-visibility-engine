@@ -5,6 +5,7 @@ import { useAppLanguage, useT } from "@/i18n";
 import { Button } from "./ui/button";
 import { SpecialistPortrait } from "./SpecialistPortrait";
 import { MiloDraftProposal } from "./MiloDraftProposal";
+import { MiloConversationActions } from "./MiloConversationActions";
 import {
   conversationSend,
   type ConversationEvent,
@@ -68,6 +69,8 @@ export function MiloConversationWorkspace(props: Props) {
   }
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyUnavailable, setHistoryUnavailable] = useState(false);
+  const [erasingId, setErasingId] = useState<string>();
+  const [erasedNotice, setErasedNotice] = useState(false);
   const historyToggle = useRef<HTMLButtonElement>(null);
   const historyId = useId();
   const alive = useRef(true);
@@ -126,6 +129,7 @@ export function MiloConversationWorkspace(props: Props) {
         return;
     }
     setSelected({ id: crypto.randomUUID(), fresh: true, count: 0 });
+    setErasedNotice(false);
     onLocationChange?.("new", false);
     setHistoryOpen(false);
     historyToggle.current?.focus();
@@ -194,6 +198,7 @@ export function MiloConversationWorkspace(props: Props) {
                           if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
                             return;
                           event.preventDefault();
+                          setErasedNotice(false);
                           setSelected({
                             id: item.conversationId,
                             fresh: false,
@@ -236,21 +241,49 @@ export function MiloConversationWorkspace(props: Props) {
           )}
         </aside>
       </div>
-      {selected && !directory.isError ? (
-        <ConversationSession
-          key={`${actorId}:${project.ownerId}:${project.projectId}:${selected.id}`}
-          {...props}
-          selection={selected}
-          onStarted={() => {
-            setSelected((value) => (value ? { ...value, fresh: false } : value));
-            onLocationChange?.(selected.id, true);
-          }}
-          onDirectoryRefresh={refresh}
-          onUnavailableChange={setHistoryUnavailable}
-        />
-      ) : (
-        <div role="status">{t(directory.isError ? "chat.unavailable" : "common.loading")}</div>
-      )}
+      <div className="min-w-0 space-y-4">
+        {erasedNotice && <p role="status">{t("chat.erased")}</p>}
+        {selected && !selected.fresh && (
+          <MiloConversationActions
+            key={`actions:${actorId}:${project.ownerId}:${project.projectId}:${selected.id}`}
+            actorId={actorId}
+            project={project}
+            conversationId={selected.id}
+            canExport={!directory.isError && !historyUnavailable && erasingId !== selected.id}
+            onErasing={() => {
+              setErasingId(selected.id);
+              setHistoryUnavailable(true);
+              setErasedNotice(false);
+            }}
+            onErased={() => {
+              if (!alive.current || currentSelection.current.id !== selected.id) return;
+              setSelected({ id: crypto.randomUUID(), fresh: true, count: 0 });
+              setErasingId(undefined);
+              setHistoryUnavailable(false);
+              setErasedNotice(true);
+              setOffset(0);
+              onLocationChange?.("new", true);
+              historyToggle.current?.focus();
+            }}
+          />
+        )}
+        {selected && !directory.isError && erasingId !== selected.id ? (
+          <ConversationSession
+            key={`${actorId}:${project.ownerId}:${project.projectId}:${selected.id}`}
+            {...props}
+            selection={selected}
+            onStarted={() => {
+              setErasedNotice(false);
+              setSelected((value) => (value ? { ...value, fresh: false } : value));
+              onLocationChange?.(selected.id, true);
+            }}
+            onDirectoryRefresh={refresh}
+            onUnavailableChange={setHistoryUnavailable}
+          />
+        ) : selected && erasingId === selected.id ? null : (
+          <div role="status">{t(directory.isError ? "chat.unavailable" : "common.loading")}</div>
+        )}
+      </div>
     </div>
   );
 }
