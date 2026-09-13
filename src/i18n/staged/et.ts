@@ -1,3 +1,4 @@
+import { etGrowth } from "./et-growth";
 import { etOutreach } from "./et-outreach";
 import { etMeasurements } from "./et-measurements";
 import { etPublicPricing } from "./et-public-pricing";
@@ -23,6 +24,13 @@ import { etSharedUi } from "./et-shared-ui";
 import { etCore } from "./et-core";
 /** Estonian authoring; never imported by the runtime catalog. */
 export const ET_STAGED_BATCHES = [
+  {
+    name: "growth",
+    copy: etGrowth,
+    namespaces: ["authority", "actions", "publicAudit"],
+    sourceRevision: "95f4855",
+    sourceHash: "79460ac604f31155136687fbf43e146ccd11625f12316625da192cdb8188f136",
+  },
   {
     name: "outreach",
     copy: etOutreach,
