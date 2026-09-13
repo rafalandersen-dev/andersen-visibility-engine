@@ -1,3 +1,4 @@
+import { huCollaboration } from "./hu-collaboration";
 import { huConfiguration } from "./hu-configuration";
 import { huPublicBeta } from "./hu-public-beta";
 import { huBetaGuide } from "./hu-beta-guide";
@@ -18,6 +19,13 @@ import { huSharedUi } from "./hu-shared-ui";
 import { huCore } from "./hu-core";
 /** Hungarian authoring; never imported by the runtime catalog. */
 export const HU_STAGED_BATCHES = [
+  {
+    name: "collaboration",
+    copy: huCollaboration,
+    namespaces: ["collaboration", "team", "notifications", "awareness", "emailSettings"],
+    sourceRevision: "b1c987f",
+    sourceHash: "429e59f16a866242f25a373ebd6b52332ae3f04534230101422ebab727f77ed0",
+  },
   {
     name: "configuration",
     copy: huConfiguration,
