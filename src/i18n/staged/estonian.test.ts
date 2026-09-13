@@ -42,6 +42,6 @@ it("keeps staged Estonian outside runtime and assigns each key once", () => {
   const keys = ET_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(new Set(keys).size).toBe(keys.length);
   expect(Object.keys(ET_STAGED_CATALOG).sort()).toEqual(keys.sort());
-  expect(keys).toHaveLength(785);
+  expect(keys).toHaveLength(855);
   expect(Object.isFrozen(ET_STAGED_CATALOG)).toBe(true);
 });
