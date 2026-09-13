@@ -1,5 +1,21 @@
 # Integrated candidate check — 13 September 2026
 
+Latest verified candidate: 040aac9290b875597c1ba3fb3b7f7aa8b6ec2343 on codex/milo-report-branding-authority-20260912. Working tree clean before and after checks; only evidence documentation changed afterward.
+
+- Full application recheck: all 340 files and 5,222 tests passed in 291.94 seconds with npx vitest run --maxWorkers=2. Log: /tmp/milo-integrated-greek-tests-recheck.log. Assertions, test timeouts and global configuration unchanged.
+- Initial full run: 339 files passed and one failed; 5,221 tests passed and one timed out at its existing 5,000 ms limit, in project-team-membership-migration.test.ts:199 (640 acquire/release cycles). Duration 292.58 seconds. Log: /tmp/milo-integrated-greek-tests.log. This run overlapped the production build. Resource contention is a possible explanation, not proven causation.
+- After the initial run ended, the affected file passed all 91 tests in isolation in 31.35 seconds, with no edits or timeout changes. Log: /tmp/milo-integrated-greek-membership-recheck.log. The complete two-worker recheck then ran without a concurrent build and passed as above. The first failure remains recorded; this is not a claim of timing stability under all workloads.
+- Production build passed with npm run build. Log: /tmp/milo-integrated-greek-build.log. No deployment occurred.
+- Application TypeScript passed at complete Greek baseline dc6a042; subsequent changes are browser harness and documentation only. Log: /tmp/milo-greek-workflow-types.log.
+- All nine Greek knowledge-review browser groups passed, including evidence descriptions, language, busy state and focus return. See GREEK_COMPONENT_ACCEPTANCE_2026_09_13.md for local-fixture scope. Temporary server stopped.
+- Changes since 431c686 comprise Greek staged catalogs/tests, the local browser harness and documentation. No component, src/lib, Worker or Supabase function implementation changed. Prior separate Worker test evidence remains dated and was not repeated.
+
+R20 now has four active UI catalogs and fourteen complete staged catalogs, including Greek. Six catalogs remain unauthored (22,608 current messages). Source coverage and component interaction do not establish fluency, full responsive/accessibility behavior or activation acceptance. Home FAQ Captured versus Plan Idea terminology and the public beta four-language claim require reconciliation before activation. Non-failing environment/build warnings remain.
+
+LAUNCH_READINESS.md was rechecked. Real solo/team and assisted-tester journeys, provider/CMS and full transport acceptance, observed AI evidence, payments, client compatibility, D07, migration rollout and release/security gates remain open. No provider request, message, payment, migration, deployment, review-consuming action or task handoff occurred. The full goal remains incomplete.
+
+## Earlier Estonian candidate checkpoint
+
 Latest verified candidate: 431c686f4ac3640ec352636642752762fe737517 on codex/milo-report-branding-authority-20260912. Working tree clean before and after checks; only evidence documentation changed afterward.
 
 - Full application suite: all 339 files and 5,192 tests passed in 352.42 seconds with npx vitest run --maxWorkers=2. Log: /tmp/milo-integrated-estonian-tests.log. Assertions, test timeouts and global configuration unchanged.
