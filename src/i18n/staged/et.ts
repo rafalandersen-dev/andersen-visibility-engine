@@ -1,3 +1,4 @@
+import { etCommerce } from "./et-commerce";
 import { etGrowth } from "./et-growth";
 import { etOutreach } from "./et-outreach";
 import { etMeasurements } from "./et-measurements";
@@ -24,6 +25,13 @@ import { etSharedUi } from "./et-shared-ui";
 import { etCore } from "./et-core";
 /** Estonian authoring; never imported by the runtime catalog. */
 export const ET_STAGED_BATCHES = [
+  {
+    name: "commerce",
+    copy: etCommerce,
+    namespaces: ["billing", "launch", "beta"],
+    sourceRevision: "80f99f6",
+    sourceHash: "6cd0596e8ff09ae38f9decb763ab31a3fe2c311109c9b5f85edc9721d7058ff2",
+  },
   {
     name: "growth",
     copy: etGrowth,
