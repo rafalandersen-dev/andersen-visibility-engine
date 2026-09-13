@@ -1,3 +1,4 @@
+import { huPublicHome } from "./hu-public-home";
 import { huPublicPricing } from "./hu-public-pricing";
 import { huPublicStudies } from "./hu-public-studies";
 import { huEditorScreen } from "./hu-editor-screen";
@@ -13,6 +14,13 @@ import { huSharedUi } from "./hu-shared-ui";
 import { huCore } from "./hu-core";
 /** Hungarian authoring; never imported by the runtime catalog. */
 export const HU_STAGED_BATCHES = [
+  {
+    name: "public home",
+    copy: huPublicHome,
+    namespaces: ["publicHome"],
+    sourceRevision: "a4ecbb9",
+    sourceHash: "2855ce0efcce2fc714afc7f61a15d64ed5975809acefb98df75a3e275ccae141",
+  },
   {
     name: "public pricing",
     copy: huPublicPricing,
