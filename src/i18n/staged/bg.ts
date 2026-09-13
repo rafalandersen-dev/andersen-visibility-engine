@@ -1,3 +1,4 @@
+import { bgLinks } from "./bg-links";
 import { bgCommerce } from "./bg-commerce";
 import { bgGrowth } from "./bg-growth";
 import { bgOutreach } from "./bg-outreach";
@@ -25,6 +26,20 @@ import { bgAuthScreen } from "./bg-auth-screen";
 import { bgSharedUi } from "./bg-shared-ui";
 /** Bulgarian authoring; never imported by the runtime catalog. */
 export const BG_STAGED_BATCHES = [
+  {
+    name: "links",
+    copy: bgLinks,
+    namespaces: [
+      "linknet",
+      "backlinks",
+      "marketplace",
+      "backlinkMonitor",
+      "backlinkDetails",
+      "backlinkRecurring",
+    ],
+    sourceRevision: "a999ef7",
+    sourceHash: "7b8c4cfd6fb08b518e7e0eb7fd53e767b72972a0048a75521eda0d4b9ebd40d7",
+  },
   {
     name: "commerce",
     copy: bgCommerce,
