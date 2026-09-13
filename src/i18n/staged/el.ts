@@ -1,3 +1,4 @@
+import { elMeasurements } from "./el-measurements";
 import { elTechnical } from "./el-technical";
 import { elKnowledge } from "./el-knowledge";
 import { elCollaboration } from "./el-collaboration";
@@ -21,6 +22,13 @@ import { elSharedUi } from "./el-shared-ui";
 import { elCore } from "./el-core";
 /** Greek authoring; never imported by the runtime catalog. */
 export const EL_STAGED_BATCHES = [
+  {
+    name: "measurements",
+    copy: elMeasurements,
+    namespaces: ["analytics", "gsc", "report"],
+    sourceRevision: "a6b4745",
+    sourceHash: "216126da773525ef913fe7e10a4db7af57539ea07dae497fd349051da3088395",
+  },
   {
     name: "technical",
     copy: elTechnical,
