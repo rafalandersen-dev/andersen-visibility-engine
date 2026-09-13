@@ -1,3 +1,4 @@
+import { elEvidence } from "./el-evidence";
 import { elLinks } from "./el-links";
 import { elCommerce } from "./el-commerce";
 import { elGrowth } from "./el-growth";
@@ -26,6 +27,13 @@ import { elSharedUi } from "./el-shared-ui";
 import { elCore } from "./el-core";
 /** Greek authoring; never imported by the runtime catalog. */
 export const EL_STAGED_BATCHES = [
+  {
+    name: "evidence",
+    copy: elEvidence,
+    namespaces: ["answer", "logs", "proof", "aiEval", "benchmark"],
+    sourceRevision: "21f2898",
+    sourceHash: "2911f87d7691a2bf04548e0b7c0e63b3c93f25cdcd73c9af1ba5d22ffdee211d",
+  },
   {
     name: "links",
     copy: elLinks,
