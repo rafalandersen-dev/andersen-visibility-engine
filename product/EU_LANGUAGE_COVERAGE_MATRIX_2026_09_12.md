@@ -1,6 +1,6 @@
 # R20 language coverage matrix — 12 September 2026
 
-Latest authoring checkpoint - 13 September (latest English source 9b1389c): four active complete catalogs, fourteen complete staged catalogs (FR/DE/ES/IT/PT/NL/FI/CS/SK/SL/HR/BG/ET/EL), Hungarian partial at 2,971/3,768 and five unauthored catalogs (GA/LV/LT/MT/RO). Remaining UI authoring backlog: 19,637 messages. Hungarian twenty-five batches pass all 36 focused tests, types, scoped lint, formatting and whitespace. The original audit and incremental history below retain their dated baselines; none constitutes activation or fluent/rendered acceptance.
+Latest authoring checkpoint - 13 September (latest English source fe75d11): four active complete catalogs, fourteen complete staged catalogs (FR/DE/ES/IT/PT/NL/FI/CS/SK/SL/HR/BG/ET/EL), Hungarian partial at 3,227/3,768 and five unauthored catalogs (GA/LV/LT/MT/RO). Remaining UI authoring backlog: 19,381 messages. Hungarian twenty-six batches pass all 37 focused tests, types, scoped lint, formatting and whitespace. The original audit and incremental history below retain their dated baselines; none constitutes activation or fluent/rendered acceptance.
 
 Prior Slovak authoring checkpoint (source aef1c2c plus Slovak workflow): Slovak now has all 3,768 current English UI keys across 28 staged batches. Four catalogs are active and nine are fully staged (FR/DE/ES/IT/PT/NL/FI/CS/SK); eleven remain unauthored. Remaining UI authoring backlog: 41,448 messages (11 × 3,768). All 40 Slovak/catalog tests, types, scoped lint and whitespace pass. This is authoring coverage, not activation or language/rendered acceptance. The original audit and incremental history below retain their own evidence baselines.
 
@@ -486,3 +486,6 @@ Hungarian growth checkpoint - 13 September (English source ecb37f2): growth adds
 
 
 Hungarian commerce checkpoint - 13 September (English source 9b1389c): commerce adds 192 messages, reaching 2,971/3,768 across twenty-five staged batches. All 36 focused tests, types, scoped lint, formatting and whitespace pass. Test versus real payments, payment-confirmed activation, billing eligibility, manual status distinctions, connection-test limits and incomplete paid-launch acceptance are preserved. Checklist completed-item count composition inspected. Hungarian remains inactive. Remaining UI authoring: 19,637 messages, followed by language/rendered and activation acceptance. Next: links.
+
+
+13 September Hungarian links checkpoint: 256 additional messages; 3,227/3,768 across 26 batches. All 37 focused checks, types, scoped lint, formatting and whitespace pass. Live/demo payment, sponsored-link, placement/monitoring and recovery distinctions remain explicit. Hungarian is inactive; 19,381 UI messages remain across the full EU authoring scope.

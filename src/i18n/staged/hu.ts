@@ -1,3 +1,4 @@
+import { huLinks } from "./hu-links";
 import { huCommerce } from "./hu-commerce";
 import { huGrowth } from "./hu-growth";
 import { huOutreach } from "./hu-outreach";
@@ -25,6 +26,20 @@ import { huSharedUi } from "./hu-shared-ui";
 import { huCore } from "./hu-core";
 /** Hungarian authoring; never imported by the runtime catalog. */
 export const HU_STAGED_BATCHES = [
+  {
+    name: "links",
+    copy: huLinks,
+    namespaces: [
+      "linknet",
+      "backlinks",
+      "marketplace",
+      "backlinkMonitor",
+      "backlinkDetails",
+      "backlinkRecurring",
+    ],
+    sourceRevision: "fe75d11",
+    sourceHash: "7b8c4cfd6fb08b518e7e0eb7fd53e767b72972a0048a75521eda0d4b9ebd40d7",
+  },
   {
     name: "commerce",
     copy: huCommerce,
