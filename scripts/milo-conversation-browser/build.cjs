@@ -4,8 +4,8 @@ const root = process.cwd(),
   source = __dirname;
 const locale = process.argv[2] ?? "en";
 const mode = process.argv[3] ?? "component";
-if (!["component", "full", "generation", "auth", "multitab"].includes(mode))
-  throw Error("Choose component, full, generation, auth or multitab.");
+if (!["component", "full", "generation", "auth", "multitab", "bookmark"].includes(mode))
+  throw Error("Choose component, full, generation, auth, multitab or bookmark.");
 if (!["en", "pl", "sv", "da"].includes(locale)) throw Error("Choose en, pl, sv or da.");
 const out = "/tmp/milo-conversation-browser";
 fs.mkdirSync(out, { recursive: true });
@@ -40,7 +40,7 @@ require(root + "/node_modules/esbuild")
             "@/lib/project-team.functions": path.join(source, "full-mock.js"),
           }
         : {}),
-      ...(mode === "auth"
+      ...(["auth", "bookmark"].includes(mode)
         ? {
             "@/integrations/supabase/client": path.join(source, "auth-network.js"),
             "@/lib/project-team.functions": path.join(source, "auth-network.js"),
@@ -53,20 +53,19 @@ require(root + "/node_modules/esbuild")
           }
         : {}),
     },
-    plugins:
-      mode === "auth"
-        ? [
-            {
-              name: "fixture-entitlement",
-              setup(build) {
-                build.onResolve({ filter: /^\.\/entitlements\.functions$/ }, (args) => {
-                  if (args.importer === path.join(root, "src/lib/store.ts"))
-                    return { path: path.join(source, "auth-network.js") };
-                });
-              },
+    plugins: ["auth", "bookmark"].includes(mode)
+      ? [
+          {
+            name: "fixture-entitlement",
+            setup(build) {
+              build.onResolve({ filter: /^\.\/entitlements\.functions$/ }, (args) => {
+                if (args.importer === path.join(root, "src/lib/store.ts"))
+                  return { path: path.join(source, "auth-network.js") };
+              });
             },
-          ]
-        : [],
+          },
+        ]
+      : [],
     define: {
       "process.env.NODE_ENV": '"development"',
       "import.meta.env.DEV": "false",

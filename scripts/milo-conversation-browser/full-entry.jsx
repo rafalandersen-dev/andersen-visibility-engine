@@ -18,6 +18,8 @@ const ownedName = "Acme — owner workspace",
   sharedName = "Agency client — shared workspace";
 const project = { id: "p", name: ownedName, appLanguage: locale };
 const secondProject = { id: "q", name: "Second owned client", appLanguage: locale };
+// Isolate this fixture from synthetic conversation preferences of other modes.
+sessionStorage.removeItem(`milo-conversation-location:${actor}`);
 window.full = {
   actor,
   other,

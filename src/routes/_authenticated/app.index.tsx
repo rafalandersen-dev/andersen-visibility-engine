@@ -1,7 +1,6 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { z } from "zod";
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { MiloConversationWorkspace } from "@/components/MiloConversationWorkspace";
@@ -9,17 +8,18 @@ import { useAuth } from "@/lib/auth";
 import { setActiveProject, useStore } from "@/lib/store";
 import { useT } from "@/i18n";
 import { listMyProjectTeamsFn } from "@/lib/project-team.functions";
-import { teamProjectTarget } from "@/lib/project-team-view";
 import { runTeamRequest } from "@/lib/team-request-queue";
 import { referenceDestination, type MiloProject } from "@/lib/milo-conversation.ui";
+import {
+  miloHomeSearch,
+  miloConversationHref,
+  rememberedMiloConversation,
+  rememberMiloConversation,
+  forgetMiloConversation,
+} from "@/lib/milo-conversation-location";
 
 export const Route = createFileRoute("/_authenticated/app/")({
-  validateSearch: z
-    .object({
-      owner: z.string().uuid().optional(),
-      project: teamProjectTarget.shape.projectId.optional(),
-    })
-    .refine((value) => !!value.owner === !!value.project),
+  validateSearch: miloHomeSearch,
   head: () => ({
     meta: [
       { title: "Milo — Milo Growth" },
@@ -30,11 +30,26 @@ export const Route = createFileRoute("/_authenticated/app/")({
     ],
   }),
   component: MiloHome,
+  errorComponent: MiloConversationError,
 });
+function MiloConversationError() {
+  const t = useT();
+  return (
+    <div className="mx-auto max-w-xl space-y-4 p-6" role="alert">
+      <p>{t("chat.unavailable")}</p>
+      <Button variant="outline" asChild>
+        <Link to="/app" search={{}}>
+          {t("chat.history")}
+        </Link>
+      </Button>
+    </div>
+  );
+}
 function MiloHome() {
   const { user } = useAuth(),
     t = useT(),
-    navigate = useNavigate();
+    navigate = useNavigate(),
+    router = useRouter();
   const projects = useStore((s) => s.projects),
     active = useStore((s) => s.activeProjectId);
   const search = Route.useSearch();
@@ -62,6 +77,48 @@ function MiloHome() {
     ? choices.find((item) => item.ownerId === search.owner && item.projectId === search.project)
     : (owned.find((item) => item.projectId === active) ?? owned[0] ?? assigned[0]);
   const value = (item: MiloProject) => JSON.stringify([item.ownerId, item.projectId]);
+  const ownerId = chosen?.ownerId,
+    projectId = chosen?.projectId,
+    actorId = user?.id;
+  const onConversationLocation = useCallback(
+    (conversation: string, replace: boolean) => {
+      if (!ownerId || !projectId) return;
+      const current = router.state.location;
+      const currentSearch = current.search as {
+        owner?: string;
+        project?: string;
+        conversation?: string;
+      };
+      // A delayed observation from a departing client/conversation cannot undo
+      // a newer navigation. Ordinary explicit clicks still create history entries.
+      if (
+        !["/app", "/app/"].includes(current.pathname) ||
+        (currentSearch.owner &&
+          (currentSearch.owner !== ownerId || currentSearch.project !== projectId)) ||
+        currentSearch.conversation !== search.conversation ||
+        (currentSearch.owner === ownerId &&
+          currentSearch.project === projectId &&
+          currentSearch.conversation === conversation)
+      )
+        return;
+      if (conversation === "new" && actorId)
+        forgetMiloConversation(actorId, { ownerId, projectId });
+      void navigate({
+        to: "/app",
+        search: { owner: ownerId, project: projectId, conversation },
+        replace,
+        resetScroll: false,
+      });
+    },
+    [actorId, ownerId, projectId, navigate, router, search.conversation],
+  );
+  const onConfirmedConversation = useCallback(
+    (conversationId: string) => {
+      if (actorId && ownerId && projectId)
+        rememberMiloConversation(actorId, { ownerId, projectId }, conversationId);
+    },
+    [actorId, ownerId, projectId],
+  );
   useEffect(() => {
     if (chosen?.ownerId === user?.id && chosen && active !== chosen.projectId)
       setActiveProject(chosen.projectId);
@@ -143,6 +200,16 @@ function MiloHome() {
             key={`${user.id}:${chosen.ownerId}:${chosen.projectId}`}
             actorId={user.id}
             project={chosen}
+            location={
+              search.conversation ??
+              rememberedMiloConversation(user.id, {
+                ownerId: chosen.ownerId,
+                projectId: chosen.projectId,
+              })
+            }
+            onLocationChange={onConversationLocation}
+            onConfirmedConversation={onConfirmedConversation}
+            conversationHref={(id) => miloConversationHref(chosen, id)}
             onOpenResult={(event) => {
               const destination = referenceDestination(chosen, user.id, event);
               if (!destination) return;

@@ -33,17 +33,51 @@ type Props = {
   actorId: string;
   project: MiloProject;
   onOpenResult: (event: ConversationEvent) => void;
+  location?: string;
+  onLocationChange?: (location: string, replace: boolean) => void;
+  onConfirmedConversation?: (id: string) => void;
+  conversationHref?: (id: string) => string;
 };
+function selectionAt(location?: string): Selection | undefined {
+  return location
+    ? {
+        id: location === "new" ? crypto.randomUUID() : location,
+        fresh: location === "new",
+        count: 0,
+      }
+    : undefined;
+}
 export function MiloConversationWorkspace(props: Props) {
-  const { actorId, project } = props;
+  const { actorId, project, location, onLocationChange, conversationHref } = props;
   const t = useT(),
     client = useQueryClient();
   const [offset, setOffset] = useState(0);
-  const [selected, setSelected] = useState<Selection>();
+  const [selected, setSelected] = useState<Selection | undefined>(() => selectionAt(location));
+  const [observedLocation, setObservedLocation] = useState(location);
+  // Reconcile navigation before committing children, so a different URL never
+  // briefly renders the old private conversation. Promoting our own fresh ID
+  // into its saved URL preserves the session, request identity and composer.
+  if (observedLocation !== location) {
+    setObservedLocation(location);
+    setSelected(
+      selected?.id === location || (location === "new" && selected?.fresh)
+        ? selected
+        : selectionAt(location),
+    );
+  }
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyUnavailable, setHistoryUnavailable] = useState(false);
   const historyToggle = useRef<HTMLButtonElement>(null);
   const historyId = useId();
+  const alive = useRef(true);
+  const currentSelection = useRef({ id: selected?.id, location });
+  currentSelection.current = { id: selected?.id, location };
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
   const prefix = conversationKey(actorId, project);
   const directory = useQuery({
     queryKey: [...prefix, "directory", offset],
@@ -72,8 +106,29 @@ export function MiloConversationWorkspace(props: Props) {
         ? { id: first.conversationId, fresh: false, count: first.turnCount }
         : { id: crypto.randomUUID(), fresh: true, count: 0 },
     );
-  }, [selected, directory.data, directory.isError]);
+    onLocationChange?.(first?.conversationId ?? "new", true);
+  }, [selected, directory.data, directory.isError, onLocationChange]);
   const refresh = () => void client.invalidateQueries({ queryKey: prefix });
+  async function startNew() {
+    // A broken/deleted bookmark can recover, but only after a new successful
+    // directory authorization. Cached titles stay hidden during that read.
+    if (historyUnavailable) {
+      const expected = currentSelection.current;
+      const confirmed = await directory.refetch();
+      if (
+        !alive.current ||
+        confirmed.isError ||
+        !confirmed.data ||
+        currentSelection.current.id !== expected.id ||
+        currentSelection.current.location !== expected.location
+      )
+        return;
+    }
+    setSelected({ id: crypto.randomUUID(), fresh: true, count: 0 });
+    onLocationChange?.("new", false);
+    setHistoryOpen(false);
+    historyToggle.current?.focus();
+  }
   return (
     <div
       className="grid min-w-0 gap-6 xl:grid-cols-[240px_minmax(0,1fr)]"
@@ -103,12 +158,8 @@ export function MiloConversationWorkspace(props: Props) {
           <Button
             className="mt-3 w-full"
             variant="outline"
-            disabled={directory.isPending || directory.isError || historyUnavailable}
-            onClick={() => {
-              setSelected({ id: crypto.randomUUID(), fresh: true, count: 0 });
-              setHistoryOpen(false);
-              historyToggle.current?.focus();
-            }}
+            disabled={directory.isPending || directory.isFetching || directory.isError}
+            onClick={() => void startNew()}
           >
             {t("chat.new")}
           </Button>
@@ -128,26 +179,35 @@ export function MiloConversationWorkspace(props: Props) {
                 className="mt-3 max-h-60 space-y-1 overflow-y-auto xl:max-h-[55vh]"
                 aria-label={t("chat.history")}
               >
-                {directory.data.conversations.map((item) => (
-                  <li key={item.conversationId}>
-                    <button
-                      type="button"
-                      aria-current={selected?.id === item.conversationId ? "true" : undefined}
-                      className={`w-full rounded-lg px-3 py-2 text-left text-sm break-words [overflow-wrap:anywhere] focus-visible:outline focus-visible:outline-2 ${selected?.id === item.conversationId ? "bg-secondary font-medium" : "hover:bg-secondary/60"}`}
-                      onClick={() => {
-                        setSelected({
-                          id: item.conversationId,
-                          fresh: false,
-                          count: item.turnCount,
-                        });
-                        setHistoryOpen(false);
-                        historyToggle.current?.focus();
-                      }}
-                    >
-                      {item.title}
-                    </button>
-                  </li>
-                ))}
+                {directory.data.conversations.map((item) => {
+                  const Item = conversationHref ? "a" : "button";
+                  return (
+                    <li key={item.conversationId}>
+                      <Item
+                        {...(conversationHref
+                          ? { href: conversationHref(item.conversationId) }
+                          : { type: "button" as const })}
+                        aria-current={selected?.id === item.conversationId ? "true" : undefined}
+                        className={`block w-full rounded-lg px-3 py-2 text-left text-sm break-words [overflow-wrap:anywhere] focus-visible:outline focus-visible:outline-2 ${selected?.id === item.conversationId ? "bg-secondary font-medium" : "hover:bg-secondary/60"}`}
+                        onClick={(event) => {
+                          if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+                            return;
+                          event.preventDefault();
+                          setSelected({
+                            id: item.conversationId,
+                            fresh: false,
+                            count: item.turnCount,
+                          });
+                          onLocationChange?.(item.conversationId, false);
+                          setHistoryOpen(false);
+                          historyToggle.current?.focus();
+                        }}
+                      >
+                        {item.title}
+                      </Item>
+                    </li>
+                  );
+                })}
               </ul>
               <div className="mt-3 flex gap-2">
                 <Button
@@ -180,7 +240,10 @@ export function MiloConversationWorkspace(props: Props) {
           key={`${actorId}:${project.ownerId}:${project.projectId}:${selected.id}`}
           {...props}
           selection={selected}
-          onStarted={() => setSelected((value) => (value ? { ...value, fresh: false } : value))}
+          onStarted={() => {
+            setSelected((value) => (value ? { ...value, fresh: false } : value));
+            onLocationChange?.(selected.id, true);
+          }}
           onDirectoryRefresh={refresh}
           onUnavailableChange={setHistoryUnavailable}
         />
@@ -199,6 +262,8 @@ function ConversationSession({
   onStarted,
   onDirectoryRefresh,
   onUnavailableChange,
+  onLocationChange,
+  onConfirmedConversation,
 }: Props & {
   selection: Selection;
   onStarted: () => void;
@@ -249,6 +314,11 @@ function ConversationSession({
       sending || query.state.data?.turns.some(isActiveTurn) ? 3000 : 15000,
   });
   const page = history.isError ? undefined : history.data;
+  useEffect(() => {
+    if (!page) return;
+    onConfirmedConversation?.(selection.id);
+    onLocationChange?.(selection.id, true);
+  }, [page, selection.id, onConfirmedConversation, onLocationChange]);
   useEffect(() => {
     onUnavailableChange(history.isError);
   }, [history.isError, onUnavailableChange]);

@@ -235,10 +235,20 @@ async function run() {
           !text().includes("The saved draft has two section headings"),
         "private title and response both hidden",
       );
-      assert(
-        button("chat.new").disabled && button("chat.send").disabled,
-        "new work waits for status recovery",
+      assert(button("chat.send").disabled, "unconfirmed history cannot accept another task");
+      const list = window.h.list;
+      let recoveryReads = 0;
+      window.h.list = async () => {
+        recoveryReads++;
+        throw Error("Fresh directory authorization unavailable");
+      };
+      button("chat.new").click();
+      await until(
+        () => recoveryReads === 1 && !document.querySelector("textarea"),
+        "new-conversation recovery requires fresh directory authorization",
       );
+      assert(!document.querySelector("aside ul"), "failed recovery cannot reveal cached titles");
+      window.h.list = list;
       window.h.read = read;
       await refresh();
       await until(

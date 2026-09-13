@@ -44,6 +44,8 @@ const bundle = (id, name) => ({
   },
   error: null,
 });
+// Each fixture run owns only these synthetic actor preferences.
+for (const who of [A, B, C, D]) sessionStorage.removeItem(`milo-conversation-location:${who}`);
 window.authFixture = {
   initial: deferred(),
   client: clientId,

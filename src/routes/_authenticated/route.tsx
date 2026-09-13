@@ -163,7 +163,9 @@ function AuthenticatedLayout() {
     );
   }
 
-  // Keep page/search transitions isolated without rehydrating or unmounting a
-  // live conversation on a token refresh for the same account.
-  return <Outlet key={`${userId}:${pathname}:${searchStr}`} />;
+  // Chat owns its actor/client/conversation keys. Updating a saved conversation
+  // bookmark must preserve the live request and composer; other pages retain
+  // their existing search-driven reset (editor/result deep links depend on it).
+  const pageKey = pathname === "/app" || pathname === "/app/" ? "milo" : `${pathname}:${searchStr}`;
+  return <Outlet key={`${userId}:${pageKey}`} />;
 }
