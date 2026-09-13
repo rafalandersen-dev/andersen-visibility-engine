@@ -5,6 +5,7 @@ import { etBetaGuide } from "./et-beta-guidance";
 import { etPublicBeta } from "./et-public-beta";
 import { etConfiguration } from "./et-configuration";
 import { etCollaboration } from "./et-collaboration";
+import { etKnowledge } from "./et-knowledge";
 import { etPublicStudies } from "./et-public-studies";
 import { etAnalyticsScreen } from "./et-analytics-screen";
 import { etEvidenceScreen } from "./et-evidence-screen";
@@ -19,6 +20,13 @@ import { etSharedUi } from "./et-shared-ui";
 import { etCore } from "./et-core";
 /** Estonian authoring; never imported by the runtime catalog. */
 export const ET_STAGED_BATCHES = [
+  {
+    name: "knowledge",
+    copy: etKnowledge,
+    namespaces: ["knowledge", "weekly", "approval", "refresh"],
+    sourceRevision: "b63e761",
+    sourceHash: "a3a3297006f23628e422ddedfb5b6f5a51c6dd5f6abbc6d6e589481e49915816",
+  },
   {
     name: "collaboration",
     copy: etCollaboration,
