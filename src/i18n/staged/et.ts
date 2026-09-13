@@ -1,3 +1,4 @@
+import { etLinks } from "./et-links";
 import { etCommerce } from "./et-commerce";
 import { etGrowth } from "./et-growth";
 import { etOutreach } from "./et-outreach";
@@ -25,6 +26,20 @@ import { etSharedUi } from "./et-shared-ui";
 import { etCore } from "./et-core";
 /** Estonian authoring; never imported by the runtime catalog. */
 export const ET_STAGED_BATCHES = [
+  {
+    name: "links",
+    copy: etLinks,
+    namespaces: [
+      "linknet",
+      "backlinks",
+      "marketplace",
+      "backlinkMonitor",
+      "backlinkDetails",
+      "backlinkRecurring",
+    ],
+    sourceRevision: "d727b80",
+    sourceHash: "7b8c4cfd6fb08b518e7e0eb7fd53e767b72972a0048a75521eda0d4b9ebd40d7",
+  },
   {
     name: "commerce",
     copy: etCommerce,
