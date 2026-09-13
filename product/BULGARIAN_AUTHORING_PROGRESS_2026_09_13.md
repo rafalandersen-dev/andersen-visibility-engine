@@ -1,6 +1,6 @@
 # Bulgarian interface authoring — 13 September 2026
 
-Bulgarian is staged only: 2,779 of the current 3,768 English interface keys across twenty-four complete batches. It is excluded from UI_CATALOGS and the language picker. Four UI catalogs remain active; eleven other catalogs are completely authored in staging with acceptance still incomplete.
+Bulgarian is staged only: 2,971 of the current 3,768 English interface keys across twenty-five complete batches. It is excluded from UI_CATALOGS and the language picker. Four UI catalogs remain active; eleven other catalogs are completely authored in staging with acceptance still incomplete.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -28,8 +28,9 @@ Bulgarian is staged only: 2,779 of the current 3,768 English interface keys acro
 | Measurements | 204 | 0846c03 |
 | Outreach | 158 | 42f102e |
 | Growth | 201 | e2f656c |
+| Commerce | 192 | f995f32 |
 
-The frozen registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 35 Bulgarian/catalog tests, scoped lint, formatting, whitespace and type checking pass. Type log: /tmp/milo-bulgarian-growth-types.log. Full-catalog equality will be required when all batches are authored.
+The frozen registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 36 Bulgarian/catalog tests, scoped lint, formatting, whitespace and type checking pass. Type log: /tmp/milo-bulgarian-commerce-types.log. Full-catalog equality will be required when all batches are authored.
 
 Terminology: работно пространство (workspace), акаунт (account), проект (project), парола (password), възстановяване на парола (password reset), странична лента (sidebar), запис (network listing), задания за съдържание (content briefs). Use polite plural explanations and concise imperative action labels; preserve provider/product names and placeholders.
 
@@ -71,4 +72,6 @@ Outreach copy preserves exact-message approvals, separate follow-ups, suppressio
 
 Growth copy preserves suggested authority outcomes, readiness limits and immediate application of owner-approved proposals. Duplicates and workspace limits can reduce created item counts; inherited outcome labels require real-use acceptance. No generation, audit, outreach, proposal approval or project mutation occurred.
 
-Remaining: 989 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next: commerce using current composed English source. This staged work does not complete R20 or change release gates.
+Commerce copy preserves test-payment and manual-activation limits, pricing eligibility, connection-test limits and saved-import provenance. Checklist labels and configuration do not establish paid launch or real-use acceptance. No payment, billing-profile, activation, connection, import or publication operation occurred.
+
+Remaining: 797 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next: links using current composed English source. This staged work does not complete R20 or change release gates.

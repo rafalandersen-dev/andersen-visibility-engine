@@ -1,3 +1,4 @@
+import { bgCommerce } from "./bg-commerce";
 import { bgGrowth } from "./bg-growth";
 import { bgOutreach } from "./bg-outreach";
 import { bgMeasurements } from "./bg-measurements";
@@ -24,6 +25,13 @@ import { bgAuthScreen } from "./bg-auth-screen";
 import { bgSharedUi } from "./bg-shared-ui";
 /** Bulgarian authoring; never imported by the runtime catalog. */
 export const BG_STAGED_BATCHES = [
+  {
+    name: "commerce",
+    copy: bgCommerce,
+    namespaces: ["billing", "launch", "beta"],
+    sourceRevision: "f995f32",
+    sourceHash: "6cd0596e8ff09ae38f9decb763ab31a3fe2c311109c9b5f85edc9721d7058ff2",
+  },
   {
     name: "growth",
     copy: bgGrowth,
