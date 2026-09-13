@@ -1,3 +1,4 @@
+import { elCollaboration } from "./el-collaboration";
 import { elConfiguration } from "./el-configuration";
 import { elPublicBeta } from "./el-public-beta";
 import { elBetaGuide } from "./el-beta-guide";
@@ -18,6 +19,13 @@ import { elSharedUi } from "./el-shared-ui";
 import { elCore } from "./el-core";
 /** Greek authoring; never imported by the runtime catalog. */
 export const EL_STAGED_BATCHES = [
+  {
+    name: "collaboration",
+    copy: elCollaboration,
+    namespaces: ["collaboration", "team", "notifications", "awareness", "emailSettings"],
+    sourceRevision: "fe63887",
+    sourceHash: "429e59f16a866242f25a373ebd6b52332ae3f04534230101422ebab727f77ed0",
+  },
   {
     name: "configuration",
     copy: elConfiguration,
