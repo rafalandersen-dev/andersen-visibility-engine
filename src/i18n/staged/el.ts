@@ -1,3 +1,4 @@
+import { elCommerce } from "./el-commerce";
 import { elGrowth } from "./el-growth";
 import { elOutreach } from "./el-outreach";
 import { elMeasurements } from "./el-measurements";
@@ -24,6 +25,13 @@ import { elSharedUi } from "./el-shared-ui";
 import { elCore } from "./el-core";
 /** Greek authoring; never imported by the runtime catalog. */
 export const EL_STAGED_BATCHES = [
+  {
+    name: "commerce",
+    copy: elCommerce,
+    namespaces: ["billing", "launch", "beta"],
+    sourceRevision: "fbd1e97",
+    sourceHash: "6cd0596e8ff09ae38f9decb763ab31a3fe2c311109c9b5f85edc9721d7058ff2",
+  },
   {
     name: "growth",
     copy: elGrowth,
