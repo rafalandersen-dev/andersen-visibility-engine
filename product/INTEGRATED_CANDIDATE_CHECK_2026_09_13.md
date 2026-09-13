@@ -1,5 +1,21 @@
 # Integrated candidate check — 13 September 2026
 
+## Hungarian candidate checkpoint — full-run timeout retained
+
+Candidate 9f25be88cc932553be4bb726fcd3a0114f9612b1 on codex/milo-report-branding-authority-20260912 completes Hungarian and its local browser adapter. Later changes are documentation only. No application component/server/Worker/migration implementation changed in this checkpoint.
+
+- Full suite: 340 files passed, one failed; 5,251 tests passed and one failed, out of 5,252 tests in 341 files. Duration 388.96 seconds, two workers. Log: /tmp/milo-integrated-hungarian-tests.log. The failure is project-team-membership-migration.test.ts:435, “permits editing and reviewing after retained history exceeds the former limits”, exceeding its existing 5,000 ms limit (reported 9,146 ms). The case inserts 10,000 edit records and 10,000 approval records before checking retained-history behavior. No simultaneous application build or type check was running. Resource/timing sensitivity is possible, not established as the cause. This full run is NOT green.
+- After that run ended, the entire affected file passed all 91 tests in isolation with one worker, in 27.61 seconds. Log: /tmp/milo-integrated-hungarian-membership-recheck.log. No code, assertions, timeouts or configuration were changed. This does not retroactively turn the full run into a pass or prove timing stability; retain it as an unresolved integrated timing concern for the successor.
+- Production build passed afterward: /tmp/milo-integrated-hungarian-build.log. No deployment.
+- All 40 Hungarian/catalog checks pass, including current-English full-key equality, fingerprints and preserved tokens. Full types pass: /tmp/milo-hungarian-workflow-types.log. Scoped lint, formatting and whitespace pass.
+- All nine Hungarian local component-browser groups pass, including descriptions, language, busy state and focus return. Server stopped. See HUNGARIAN_COMPONENT_ACCEPTANCE_2026_09_13.md.
+
+Four active and fifteen complete staged UI catalogs now have 3,768 keys each. Five EU UI languages remain unauthored (18,840 keys). No staged language was activated; fluent/full-page/real-use acceptance remains open. The newly clarified primary chat and conversational specialist handoff also remain unverified and must be included in the successor's full scope review.
+
+The user requested a single successor after Hungarian. Its handoff must explicitly carry the full-run timeout and isolated pass above, all release holds and unchanged full R00–R24/D01–D08 objective. No goal completion, pause, release, provider activity or production acceptance follows from these checks.
+
+## Prior Greek candidate checkpoint
+
 Latest verified candidate: 040aac9290b875597c1ba3fb3b7f7aa8b6ec2343 on codex/milo-report-branding-authority-20260912. Working tree clean before and after checks; only evidence documentation changed afterward.
 
 - Full application recheck: all 340 files and 5,222 tests passed in 291.94 seconds with npx vitest run --maxWorkers=2. Log: /tmp/milo-integrated-greek-tests-recheck.log. Assertions, test timeouts and global configuration unchanged.
