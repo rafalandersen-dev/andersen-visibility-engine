@@ -1,3 +1,4 @@
+import { elEditorScreen } from "./el-editor-screen";
 import { elPlanScreen } from "./el-plan-screen";
 import { elEvidenceScreen } from "./el-evidence-screen";
 import { elSetupScreen } from "./el-setup-screen";
@@ -10,6 +11,13 @@ import { elSharedUi } from "./el-shared-ui";
 import { elCore } from "./el-core";
 /** Greek authoring; never imported by the runtime catalog. */
 export const EL_STAGED_BATCHES = [
+  {
+    name: "editor screen",
+    copy: elEditorScreen,
+    namespaces: ["editorScreen"],
+    sourceRevision: "47bc368",
+    sourceHash: "1e827d2744ea1f2d3364b54983f06b42082f45ab6dfb0eda7b1375fdddd9ec9f",
+  },
   {
     name: "plan screen",
     copy: elPlanScreen,
