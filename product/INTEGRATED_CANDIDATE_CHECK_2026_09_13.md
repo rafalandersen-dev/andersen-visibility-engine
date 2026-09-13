@@ -1,5 +1,19 @@
 # Integrated candidate check — 13 September 2026
 
+Latest verified candidate: 431c686f4ac3640ec352636642752762fe737517 on codex/milo-report-branding-authority-20260912. Working tree clean before and after checks; only evidence documentation changed afterward.
+
+- Full application suite: all 339 files and 5,192 tests passed in 352.42 seconds with npx vitest run --maxWorkers=2. Log: /tmp/milo-integrated-estonian-tests.log. Assertions, test timeouts and global configuration unchanged.
+- Production build passed afterward with npm run build. Log: /tmp/milo-integrated-estonian-build.log. No deployment occurred.
+- Application TypeScript passed at complete Estonian baseline d9da6b7; subsequent changes are browser harness and documentation only. Log: /tmp/milo-estonian-workflow-types.log.
+- All nine Estonian knowledge-review browser groups passed, including evidence descriptions, language, busy state and focus return. See ESTONIAN_COMPONENT_ACCEPTANCE_2026_09_13.md for local-fixture scope. Temporary server stopped.
+- Changes since 6b1307a comprise Estonian staged catalogs/tests, the local browser harness and documentation. No component, src/lib, Worker or Supabase function implementation changed. Prior separate Worker test evidence remains dated and was not repeated.
+
+R20 now has four active UI catalogs and thirteen complete staged catalogs, including Estonian. Seven catalogs remain unauthored (26,376 current messages). Source coverage and component interaction do not establish fluency, full responsive/accessibility behavior or activation acceptance. The recorded passing concurrency is two workers; earlier default-concurrency failures remain in the 12 September record. Non-failing environment/build warnings remain.
+
+LAUNCH_READINESS.md was rechecked. Real solo/team and assisted-tester journeys, provider/CMS and full transport acceptance, observed AI evidence, payments, client compatibility, D07, migration rollout and release/security gates remain open. No provider request, message, payment, migration, deployment, review-consuming action or task handoff occurred. The full goal remains incomplete.
+
+## Earlier Bulgarian candidate checkpoint
+
 Latest verified candidate: 6b1307ab7e0876e55e412b4fdcbd4a3f8adf0714 on codex/milo-report-branding-authority-20260912. Working tree clean before and after checks; only evidence documentation changed afterward.
 
 - Full application suite: all 338 files and 5,162 tests passed in 175.97 seconds with npx vitest run --maxWorkers=2. Log: /tmp/milo-integrated-bulgarian-tests.log. Assertions, test timeouts and global configuration unchanged.
