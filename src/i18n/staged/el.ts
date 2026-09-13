@@ -1,3 +1,4 @@
+import { elEvidenceScreen } from "./el-evidence-screen";
 import { elSetupScreen } from "./el-setup-screen";
 import { elServicesScreen } from "./el-services-screen";
 import { elAuditScreen } from "./el-audit-screen";
@@ -8,6 +9,13 @@ import { elSharedUi } from "./el-shared-ui";
 import { elCore } from "./el-core";
 /** Greek authoring; never imported by the runtime catalog. */
 export const EL_STAGED_BATCHES = [
+  {
+    name: "evidence screen",
+    copy: elEvidenceScreen,
+    namespaces: ["evidenceScreen"],
+    sourceRevision: "51a2a9f",
+    sourceHash: "2c7e9ccb48b02cd12911d0df6c31a96ec8ddfc6c558dfda3b3e14790d156c136",
+  },
   {
     name: "setup screen",
     copy: elSetupScreen,
