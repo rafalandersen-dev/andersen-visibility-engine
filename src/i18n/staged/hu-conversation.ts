@@ -1,5 +1,20 @@
 import type { ConversationCopy } from "../conversation";
 export const huConversation: ConversationCopy = {
+  "chat.tool.draft_metadata_proposal": "Javaslat a vázlat metaadataira",
+  "chat.proposal.review": "Javasolt módosítások áttekintése",
+  "chat.proposal.before": "Előtte",
+  "chat.proposal.after": "Javaslat",
+  "chat.proposal.ready":
+    "A mentés visszaküldi a vázlatot ellenőrzésre, és visszavonja a korábbi közzétételi jóváhagyását.",
+  "chat.proposal.waiting":
+    "A javasolt módosítások mentése előtt várd meg, amíg ez a feladat befejeződik.",
+  "chat.proposal.unavailable":
+    "Ez a javaslat már nem menthető. Kérj újat a jelenlegi vázlat alapján.",
+  "chat.proposal.applied":
+    "Ezeket a módosításokat mentettük. Későbbi szerkesztések megváltoztathatták a tartalmat.",
+  "chat.proposal.unconfirmed":
+    "A mentést nem sikerült megerősíteni. Újabb próbálkozás előtt ellenőrizd a mentett állapotot.",
+  "chat.proposal.empty": "(üres)",
   "chat.title": "Beszélgess Milóval",
   "chat.openContext": "Projektnézet megnyitása",
   "chat.description":

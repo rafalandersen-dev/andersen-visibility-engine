@@ -112,6 +112,32 @@ describe("conversation browser boundaries", () => {
       referenceDestination(project, other, { ...event, reference: { kind: "knowledge", id: "p" } }),
     ).toBeNull();
   });
+  it("keeps an unconfirmed proposal operation available for an exact read after execution stops", () => {
+    const started: ConversationEvent = {
+      kind: "tool",
+      role: "seo",
+      tool: "draft_metadata_proposal",
+      operationId: conversationId,
+      state: "running",
+      text: "",
+    };
+    const result: ConversationEvent = {
+      ...started,
+      state: "approval_required",
+      reference: { kind: "draft_proposal", id: conversationId },
+    };
+    const applied: ConversationEvent = { ...result, state: "completed" };
+    for (const state of ["cancelled", "unknown", "failed", "completed"] as const) {
+      expect(displayedConversationEvents({ ...turn, state, events: [started] })).toEqual([started]);
+      expect(displayedConversationEvents({ ...turn, state, events: [started, result] })).toEqual([
+        result,
+      ]);
+      expect(
+        displayedConversationEvents({ ...turn, state, events: [started, result, applied] }),
+      ).toEqual([applied]);
+    }
+    expect(referenceDestination(project, actor, result)).toBeNull();
+  });
   it("keeps the latest turn visible at page boundaries and at the final storage limit", () => {
     expect([0, 1, 20, 21, 40, 41, 500].map(lastConversationPage)).toEqual([
       0, 0, 0, 20, 20, 40, 480,

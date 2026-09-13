@@ -1,5 +1,20 @@
 import type { ConversationCopy } from "../conversation";
 export const esConversation: ConversationCopy = {
+  "chat.tool.draft_metadata_proposal": "Propuesta de metadatos del borrador",
+  "chat.proposal.review": "Revisar los cambios propuestos",
+  "chat.proposal.before": "Antes",
+  "chat.proposal.after": "Propuesta",
+  "chat.proposal.ready":
+    "Al guardar, el borrador vuelve a revisión y se retira su aprobación de publicación anterior.",
+  "chat.proposal.waiting":
+    "Espera a que termine esta tarea antes de guardar los cambios propuestos.",
+  "chat.proposal.unavailable":
+    "Esta propuesta ya no se puede guardar. Pide una nueva basada en el borrador actual.",
+  "chat.proposal.applied":
+    "Estos cambios se guardaron. Las ediciones posteriores pueden haber modificado el contenido.",
+  "chat.proposal.unconfirmed":
+    "No se pudo confirmar el guardado. Comprueba el estado guardado antes de volver a intentarlo.",
+  "chat.proposal.empty": "(vacío)",
   "chat.title": "Habla con Milo",
   "chat.openContext": "Abrir la vista del proyecto",
   "chat.description":

@@ -4,6 +4,7 @@ import type { z } from "zod";
 import { useAppLanguage, useT } from "@/i18n";
 import { Button } from "./ui/button";
 import { SpecialistPortrait } from "./SpecialistPortrait";
+import { MiloDraftProposal } from "./MiloDraftProposal";
 import {
   conversationSend,
   type ConversationEvent,
@@ -511,6 +512,9 @@ function ConversationSession({
                     event={event}
                     project={project}
                     actorId={actorId}
+                    conversationId={target.conversationId}
+                    turnId={turn.turnId}
+                    turnState={turn.state}
                     onOpen={onOpenResult}
                   />
                 ))}
@@ -641,14 +645,38 @@ function ConversationEventView({
   event,
   project,
   actorId,
+  conversationId,
+  turnId,
+  turnState,
   onOpen,
 }: {
   event: ConversationEvent;
   project: MiloProject;
   actorId: string;
+  conversationId: string;
+  turnId: string;
+  turnState: ConversationTurn["state"];
   onOpen: (event: ConversationEvent) => void;
 }) {
   const t = useT();
+  if (
+    event.kind === "tool" &&
+    event.tool === "draft_metadata_proposal" &&
+    event.operationId &&
+    event.state !== "unavailable" &&
+    (event.state !== "running" || !["running", "pending"].includes(turnState))
+  )
+    return (
+      <MiloDraftProposal
+        key={`${actorId}:${project.ownerId}:${project.projectId}:${conversationId}:${turnId}:${event.operationId}`}
+        actorId={actorId}
+        ownerId={project.ownerId}
+        projectId={project.projectId}
+        conversationId={conversationId}
+        turnId={turnId}
+        proposalId={event.operationId}
+      />
+    );
   const canOpen =
     event.state === "completed" &&
     event.reference &&

@@ -33,8 +33,8 @@ export const SK_STAGED_BATCHES = [
     name: "conversation",
     copy: skConversation,
     namespaces: ["chat"],
-    sourceRevision: "chat UI candidate after ad3c0f4",
-    sourceHash: "dbe71fce2d0c0bb6d2ea8a4f9aed09e5c6a3c10738d4bd846b5df8b807bfa6ed",
+    sourceRevision: "metadata proposal candidate after eb971e8",
+    sourceHash: "0450c9bb7fd9b51290cc6d053d708938bf7112a802709524479b72a6a9b20864",
   },
   {
     name: "authentication",

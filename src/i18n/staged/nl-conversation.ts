@@ -1,5 +1,20 @@
 import type { ConversationCopy } from "../conversation";
 export const nlConversation: ConversationCopy = {
+  "chat.tool.draft_metadata_proposal": "Voorstel voor conceptmetadata",
+  "chat.proposal.review": "Voorgestelde wijzigingen bekijken",
+  "chat.proposal.before": "Voorheen",
+  "chat.proposal.after": "Voorstel",
+  "chat.proposal.ready":
+    "Bij het opslaan gaat het concept terug naar beoordeling en wordt de eerdere publicatiegoedkeuring ingetrokken.",
+  "chat.proposal.waiting":
+    "Wacht tot deze taak klaar is voordat je de voorgestelde wijzigingen opslaat.",
+  "chat.proposal.unavailable":
+    "Dit voorstel kan niet meer worden opgeslagen. Vraag om een nieuw voorstel op basis van het huidige concept.",
+  "chat.proposal.applied":
+    "Deze wijzigingen zijn opgeslagen. Latere bewerkingen kunnen de inhoud hebben veranderd.",
+  "chat.proposal.unconfirmed":
+    "Het opslaan kon niet worden bevestigd. Controleer de opgeslagen status voordat je het opnieuw probeert.",
+  "chat.proposal.empty": "(leeg)",
   "chat.title": "Praat met Milo",
   "chat.openContext": "Projectweergave openen",
   "chat.description":

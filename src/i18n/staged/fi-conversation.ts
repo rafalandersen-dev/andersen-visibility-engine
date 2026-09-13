@@ -1,5 +1,20 @@
 import type { ConversationCopy } from "../conversation";
 export const fiConversation: ConversationCopy = {
+  "chat.tool.draft_metadata_proposal": "Luonnoksen metatietoehdotus",
+  "chat.proposal.review": "Tarkista ehdotetut muutokset",
+  "chat.proposal.before": "Ennen",
+  "chat.proposal.after": "Ehdotus",
+  "chat.proposal.ready":
+    "Tallennus palauttaa luonnoksen tarkistettavaksi ja peruu sen aiemman julkaisuhyväksynnän.",
+  "chat.proposal.waiting":
+    "Odota tämän tehtävän valmistumista ennen ehdotettujen muutosten tallentamista.",
+  "chat.proposal.unavailable":
+    "Tätä ehdotusta ei voi enää tallentaa. Pyydä uusi ehdotus nykyisen luonnoksen pohjalta.",
+  "chat.proposal.applied":
+    "Nämä muutokset tallennettiin. Myöhemmät muokkaukset ovat voineet muuttaa sisältöä.",
+  "chat.proposal.unconfirmed":
+    "Tallennusta ei voitu vahvistaa. Tarkista tallennettu tila ennen uutta yritystä.",
+  "chat.proposal.empty": "(tyhjä)",
   "chat.title": "Keskustele Milon kanssa",
   "chat.openContext": "Avaa projektinäkymä",
   "chat.description":

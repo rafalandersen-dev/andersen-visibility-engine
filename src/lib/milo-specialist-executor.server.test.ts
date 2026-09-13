@@ -161,6 +161,36 @@ describe("real bounded specialist conversation execution", () => {
         { name: "draft_generation", opportunityId: "a", assetType: "article" },
         { name: "draft_generation", opportunityId: "b", assetType: "article" },
       ],
+      [
+        {
+          name: "draft_metadata_proposal",
+          assetId: "a",
+          fields: ["metaTitle"],
+          instructions: "Improve title",
+        },
+        {
+          name: "draft_metadata_proposal",
+          assetId: "b",
+          fields: ["metaTitle"],
+          instructions: "Improve title",
+        },
+      ],
+      [
+        {
+          name: "draft_metadata_proposal",
+          assetId: "a",
+          fields: ["markdown"],
+          instructions: "Write body",
+        },
+      ],
+      [
+        {
+          name: "draft_metadata_proposal",
+          assetId: "a",
+          fields: ["metaTitle", "metaTitle"],
+          instructions: "Duplicate fields",
+        },
+      ],
     ]) {
       const h = harness();
       h.responses[0] = JSON.stringify({

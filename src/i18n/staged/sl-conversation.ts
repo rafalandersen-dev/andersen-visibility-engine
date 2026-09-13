@@ -1,5 +1,20 @@
 import type { ConversationCopy } from "../conversation";
 export const slConversation: ConversationCopy = {
+  "chat.tool.draft_metadata_proposal": "Predlog metapodatkov osnutka",
+  "chat.proposal.review": "Preglej predlagane spremembe",
+  "chat.proposal.before": "Prej",
+  "chat.proposal.after": "Predlog",
+  "chat.proposal.ready":
+    "Shranjevanje vrne osnutek v pregled in prekliče njegovo prejšnjo odobritev objave.",
+  "chat.proposal.waiting":
+    "Pred shranjevanjem predlaganih sprememb počakajte, da se to opravilo zaključi.",
+  "chat.proposal.unavailable":
+    "Tega predloga ni več mogoče shraniti. Zahtevajte nov predlog na podlagi trenutnega osnutka.",
+  "chat.proposal.applied":
+    "Te spremembe so bile shranjene. Poznejša urejanja so lahko spremenila vsebino.",
+  "chat.proposal.unconfirmed":
+    "Shranjevanja ni bilo mogoče potrditi. Pred ponovnim poskusom preverite shranjeno stanje.",
+  "chat.proposal.empty": "(prazno)",
   "chat.title": "Pogovorite se z Milom",
   "chat.openContext": "Odpri pogled projekta",
   "chat.description":

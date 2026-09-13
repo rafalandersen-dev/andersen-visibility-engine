@@ -1,5 +1,20 @@
 import type { ConversationCopy } from "../conversation";
 export const frConversation: ConversationCopy = {
+  "chat.tool.draft_metadata_proposal": "Proposition de métadonnées du brouillon",
+  "chat.proposal.review": "Examiner les modifications proposées",
+  "chat.proposal.before": "Avant",
+  "chat.proposal.after": "Proposition",
+  "chat.proposal.ready":
+    "L’enregistrement remet le brouillon en révision et retire son autorisation de publication précédente.",
+  "chat.proposal.waiting":
+    "Attendez la fin de cette tâche avant d’enregistrer les modifications proposées.",
+  "chat.proposal.unavailable":
+    "Cette proposition ne peut plus être enregistrée. Demandez une nouvelle proposition basée sur le brouillon actuel.",
+  "chat.proposal.applied":
+    "Ces modifications ont été enregistrées. Des modifications ultérieures peuvent avoir changé le contenu.",
+  "chat.proposal.unconfirmed":
+    "L’enregistrement n’a pas pu être confirmé. Vérifiez l’état enregistré avant de réessayer.",
+  "chat.proposal.empty": "(vide)",
   "chat.title": "Parler à Milo",
   "chat.openContext": "Ouvrir la vue du projet",
   "chat.description":

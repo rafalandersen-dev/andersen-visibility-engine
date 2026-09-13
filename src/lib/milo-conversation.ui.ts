@@ -50,12 +50,26 @@ export function conversationStatus(turn: ConversationTurn) {
 /** Starting evidence stays in storage, but a finished/unknown turn must never
  * look as if an old operation is still running. Render its matching result once. */
 export function displayedConversationEvents(turn: ConversationTurn) {
-  return turn.events.filter((event) => {
+  // A later user-save receipt updates the proposal in its original position.
+  // Keep one stable review card and preserve its open state across polling.
+  const events = turn.events.flatMap((event, index) => {
+    if (event.kind !== "tool" || event.tool !== "draft_metadata_proposal" || !event.operationId)
+      return [event];
+    const same = (other: ConversationEvent) =>
+      other.kind === "tool" && other.tool === event.tool && other.operationId === event.operationId;
+    if (turn.events.slice(0, index).some(same)) return [];
+    const latest = turn.events
+      .slice(index)
+      .reverse()
+      .find((other) => same(other) && other.state !== "running");
+    return [latest ?? event];
+  });
+  return events.filter((event) => {
     if (event.kind === "assistant" || event.kind === "handoff") return true;
     if (event.kind !== "tool") return false;
     if (event.state !== "running") return true;
     return (
-      turn.state === "running" &&
+      (turn.state === "running" || event.tool === "draft_metadata_proposal") &&
       !turn.events.some(
         (next) =>
           next !== event && next.operationId === event.operationId && next.state !== "running",

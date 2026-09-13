@@ -4,8 +4,8 @@ const root = process.cwd(),
   source = __dirname;
 const locale = process.argv[2] ?? "en";
 const mode = process.argv[3] ?? "component";
-if (!["component", "full", "generation", "auth", "multitab", "bookmark"].includes(mode))
-  throw Error("Choose component, full, generation, auth, multitab or bookmark.");
+if (!["component", "full", "generation", "auth", "multitab", "bookmark", "proposal"].includes(mode))
+  throw Error("Choose component, full, generation, auth, multitab, bookmark or proposal.");
 if (!["en", "pl", "sv", "da"].includes(locale)) throw Error("Choose en, pl, sv or da.");
 const out = "/tmp/milo-conversation-browser";
 fs.mkdirSync(out, { recursive: true });
@@ -28,6 +28,7 @@ require(root + "/node_modules/esbuild")
     jsx: "automatic",
     outfile: path.join(out, "bundle.js"),
     alias: {
+      "@/lib/milo-draft-proposal.functions": path.join(source, "proposal-mock.js"),
       "@/lib/milo-conversation.functions": path.join(
         source,
         mode === "multitab" ? "multitab-network.js" : "mock.js",

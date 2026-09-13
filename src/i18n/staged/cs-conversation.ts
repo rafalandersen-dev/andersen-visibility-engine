@@ -1,5 +1,18 @@
 import type { ConversationCopy } from "../conversation";
 export const csConversation: ConversationCopy = {
+  "chat.tool.draft_metadata_proposal": "Návrh metadat konceptu",
+  "chat.proposal.review": "Zkontrolovat navržené změny",
+  "chat.proposal.before": "Před změnou",
+  "chat.proposal.after": "Návrh",
+  "chat.proposal.ready":
+    "Uložení vrátí koncept ke kontrole a zruší jeho předchozí schválení k publikování.",
+  "chat.proposal.waiting": "Před uložením navržených změn počkejte na dokončení tohoto úkolu.",
+  "chat.proposal.unavailable":
+    "Tento návrh již nelze uložit. Požádejte o nový na základě aktuálního konceptu.",
+  "chat.proposal.applied": "Tyto změny byly uloženy. Pozdější úpravy mohly obsah změnit.",
+  "chat.proposal.unconfirmed":
+    "Uložení se nepodařilo potvrdit. Před dalším pokusem zkontrolujte uložený stav.",
+  "chat.proposal.empty": "(prázdné)",
   "chat.title": "Promluvte si s Milem",
   "chat.openContext": "Otevřít zobrazení projektu",
   "chat.description":

@@ -1,12 +1,25 @@
 import { z } from "zod";
 import { specialistRoles, type SpecialistRole } from "./specialist-team";
 import type { ConversationTurn } from "./milo-conversation";
+import { metadataField } from "./milo-draft-proposal";
 
 const identity = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 export const specialistTool = z.discriminatedUnion("name", [
   z.object({ name: z.literal("project_brief") }).strict(),
   z.object({ name: z.literal("draft_read"), assetId: identity }).strict(),
   z.object({ name: z.literal("draft_seo_review"), assetId: identity }).strict(),
+  z
+    .object({
+      name: z.literal("draft_metadata_proposal"),
+      assetId: identity,
+      fields: z
+        .array(metadataField)
+        .min(1)
+        .max(4)
+        .refine((fields) => new Set(fields).size === fields.length),
+      instructions: z.string().trim().min(1).max(1500),
+    })
+    .strict(),
   z.object({ name: z.literal("project_knowledge") }).strict(),
   z.object({ name: z.literal("saved_audit") }).strict(),
   z
@@ -59,6 +72,7 @@ export const specialistPlan = z
     const tools = plan.assignments.flatMap((assignment) => assignment.tools);
     if (
       tools.filter((tool) => tool.name === "draft_generation").length > 1 ||
+      tools.filter((tool) => tool.name === "draft_metadata_proposal").length > 1 ||
       new Set(tools.map((tool) => JSON.stringify(tool))).size !== tools.length
     )
       context.addIssue({ code: z.ZodIssueCode.custom, message: "Duplicate tool work" });
@@ -73,6 +87,7 @@ export function toolAllowed(role: SpecialistRole, tool: SpecialistTool, owner: b
   )
     return false;
   if (tool.name === "draft_generation") return role === "content";
+  if (tool.name === "draft_metadata_proposal") return role === "seo" || role === "content";
   if (tool.name === "draft_seo_review") return role === "seo" || role === "content";
   if (tool.name === "weekly_preparation") return ["lead", "research", "content"].includes(role);
   if (tool.name === "saved_audit") return ["seo", "research", "performance"].includes(role);
@@ -97,6 +112,16 @@ export function toolCatalog(owner: boolean) {
       arguments: { assetId: "saved draft ID" },
       purpose:
         "SEO/content specialist: compute structural checks on saved draft text, not live crawl or ranking measurements.",
+    },
+    {
+      name: "draft_metadata_proposal",
+      arguments: {
+        assetId: "saved draft ID",
+        fields: ["title", "h1", "metaTitle", "metaDescription"],
+        instructions: "Requested specific changes",
+      },
+      purpose:
+        "SEO/content specialist: propose selected metadata changes to an existing draft only when requested. One proposal per request. Requires current edit access. Retains exact before/after for a separate user review and Save changes action; never saves content automatically. No article/body generation.",
     },
     ...(owner
       ? [

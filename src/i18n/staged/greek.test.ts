@@ -42,7 +42,7 @@ it("keeps staged Greek outside runtime and assigns each key once", () => {
   const keys = EL_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(new Set(keys).size).toBe(keys.length);
   expect(Object.keys(EL_STAGED_CATALOG).sort()).toEqual(keys.sort());
-  expect(keys).toHaveLength(3819);
+  expect(keys).toHaveLength(3829);
   expect(Object.isFrozen(EL_STAGED_CATALOG)).toBe(true);
 });
 

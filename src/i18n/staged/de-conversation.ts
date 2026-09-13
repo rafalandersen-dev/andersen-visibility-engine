@@ -1,5 +1,20 @@
 import type { ConversationCopy } from "../conversation";
 export const deConversation: ConversationCopy = {
+  "chat.tool.draft_metadata_proposal": "Vorschlag für Entwurfsmetadaten",
+  "chat.proposal.review": "Vorgeschlagene Änderungen prüfen",
+  "chat.proposal.before": "Vorher",
+  "chat.proposal.after": "Vorschlag",
+  "chat.proposal.ready":
+    "Beim Speichern wird der Entwurf erneut zur Prüfung vorgelegt und die bisherige Veröffentlichungsfreigabe zurückgezogen.",
+  "chat.proposal.waiting":
+    "Warte, bis diese Aufgabe abgeschlossen ist, bevor du die vorgeschlagenen Änderungen speicherst.",
+  "chat.proposal.unavailable":
+    "Dieser Vorschlag kann nicht mehr gespeichert werden. Bitte um einen neuen Vorschlag auf Grundlage des aktuellen Entwurfs.",
+  "chat.proposal.applied":
+    "Diese Änderungen wurden gespeichert. Spätere Bearbeitungen können den Inhalt verändert haben.",
+  "chat.proposal.unconfirmed":
+    "Das Speichern konnte nicht bestätigt werden. Prüfe den gespeicherten Status, bevor du es erneut versuchst.",
+  "chat.proposal.empty": "(leer)",
   "chat.title": "Mit Milo sprechen",
   "chat.openContext": "Projektansicht öffnen",
   "chat.description":

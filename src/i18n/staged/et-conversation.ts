@@ -1,5 +1,20 @@
 import type { ConversationCopy } from "../conversation";
 export const etConversation: ConversationCopy = {
+  "chat.tool.draft_metadata_proposal": "Mustandi metaandmete ettepanek",
+  "chat.proposal.review": "Vaata pakutud muudatused üle",
+  "chat.proposal.before": "Enne",
+  "chat.proposal.after": "Ettepanek",
+  "chat.proposal.ready":
+    "Salvestamine suunab mustandi uuesti ülevaatusele ja tühistab selle varasema avaldamise heakskiidu.",
+  "chat.proposal.waiting":
+    "Oota, kuni see ülesanne on lõpetatud, enne kui pakutud muudatused salvestad.",
+  "chat.proposal.unavailable":
+    "Seda ettepanekut ei saa enam salvestada. Palu uus ettepanek praeguse mustandi põhjal.",
+  "chat.proposal.applied":
+    "Need muudatused on salvestatud. Hilisemad muudatused võisid sisu muuta.",
+  "chat.proposal.unconfirmed":
+    "Salvestamist ei saanud kinnitada. Enne uuesti proovimist kontrolli salvestatud olekut.",
+  "chat.proposal.empty": "(tühi)",
   "chat.title": "Vestle Miloga",
   "chat.openContext": "Ava projekti vaade",
   "chat.description":

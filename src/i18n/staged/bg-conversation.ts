@@ -1,5 +1,20 @@
 import type { ConversationCopy } from "../conversation";
 export const bgConversation: ConversationCopy = {
+  "chat.tool.draft_metadata_proposal": "Предложение за метаданни на черновата",
+  "chat.proposal.review": "Преглед на предложените промени",
+  "chat.proposal.before": "Преди",
+  "chat.proposal.after": "Предложение",
+  "chat.proposal.ready":
+    "Запазването връща черновата за преглед и оттегля предишното ѝ одобрение за публикуване.",
+  "chat.proposal.waiting":
+    "Изчакайте задачата да приключи, преди да запазите предложените промени.",
+  "chat.proposal.unavailable":
+    "Това предложение вече не може да бъде запазено. Поискайте ново въз основа на текущата чернова.",
+  "chat.proposal.applied":
+    "Тези промени бяха запазени. Последващи редакции може да са променили съдържанието.",
+  "chat.proposal.unconfirmed":
+    "Запазването не можа да бъде потвърдено. Проверете запазеното състояние, преди да опитате отново.",
+  "chat.proposal.empty": "(празно)",
   "chat.title": "Говорете с Мило",
   "chat.openContext": "Отвори изгледа на проекта",
   "chat.description":

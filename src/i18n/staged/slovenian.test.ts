@@ -42,7 +42,7 @@ it("keeps staged Slovenian outside runtime and assigns each key once", () => {
   const keys = SL_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(new Set(keys).size).toBe(keys.length);
   expect(Object.keys(SL_STAGED_CATALOG).sort()).toEqual(keys.sort());
-  expect(keys).toHaveLength(3819);
+  expect(keys).toHaveLength(3829);
   expect(Object.isFrozen(SL_STAGED_CATALOG)).toBe(true);
 });
 

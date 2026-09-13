@@ -47,6 +47,7 @@ export const conversationEvent = z
         "project_brief",
         "draft_read",
         "draft_seo_review",
+        "draft_metadata_proposal",
         "project_knowledge",
         "weekly_preparation",
         "saved_audit",
@@ -58,7 +59,15 @@ export const conversationEvent = z
       .optional(),
     reference: z
       .object({
-        kind: z.enum(["project", "draft", "knowledge", "weekly", "audit", "generation"]),
+        kind: z.enum([
+          "project",
+          "draft",
+          "knowledge",
+          "weekly",
+          "audit",
+          "generation",
+          "draft_proposal",
+        ]),
         id: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/),
       })
       .strict()

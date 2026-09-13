@@ -1,5 +1,18 @@
 import type { ConversationCopy } from "../conversation";
 export const skConversation: ConversationCopy = {
+  "chat.tool.draft_metadata_proposal": "Návrh metadát konceptu",
+  "chat.proposal.review": "Skontrolovať navrhnuté zmeny",
+  "chat.proposal.before": "Pred zmenou",
+  "chat.proposal.after": "Návrh",
+  "chat.proposal.ready":
+    "Uloženie vráti koncept na kontrolu a zruší jeho predchádzajúce schválenie na publikovanie.",
+  "chat.proposal.waiting": "Pred uložením navrhnutých zmien počkajte na dokončenie tejto úlohy.",
+  "chat.proposal.unavailable":
+    "Tento návrh už nemožno uložiť. Požiadajte o nový na základe aktuálneho konceptu.",
+  "chat.proposal.applied": "Tieto zmeny boli uložené. Neskoršie úpravy mohli obsah zmeniť.",
+  "chat.proposal.unconfirmed":
+    "Uloženie sa nepodarilo potvrdiť. Pred ďalším pokusom skontrolujte uložený stav.",
+  "chat.proposal.empty": "(prázdne)",
   "chat.title": "Porozprávajte sa s Milom",
   "chat.openContext": "Otvoriť zobrazenie projektu",
   "chat.description":

@@ -1,4 +1,17 @@
 const en = {
+  "chat.tool.draft_metadata_proposal": "Draft metadata proposal",
+  "chat.proposal.review": "Review proposed changes",
+  "chat.proposal.before": "Before",
+  "chat.proposal.after": "Proposed",
+  "chat.proposal.ready":
+    "Saving returns the draft to review and withdraws its previous publication approval.",
+  "chat.proposal.waiting": "Wait for this task to finish before saving the proposed changes.",
+  "chat.proposal.unavailable":
+    "This proposal can no longer be saved. Ask for a new proposal based on the current draft.",
+  "chat.proposal.applied": "These changes were saved. Later edits may differ.",
+  "chat.proposal.unconfirmed":
+    "Saving could not be confirmed. Check saved status before trying again.",
+  "chat.proposal.empty": "(empty)",
   "chat.title": "Talk to Milo",
   "chat.openContext": "Open project view",
   "chat.description":
@@ -66,6 +79,20 @@ const en = {
 type Copy = Record<keyof typeof en, string>;
 export type ConversationCopy = Copy;
 const pl: Copy = {
+  "chat.tool.draft_metadata_proposal": "Propozycja zmian metadanych szkicu",
+  "chat.proposal.review": "Przejrzyj proponowane zmiany",
+  "chat.proposal.before": "Przed zmianą",
+  "chat.proposal.after": "Propozycja",
+  "chat.proposal.ready":
+    "Zapis przywróci szkic do przeglądu i wycofa jego wcześniejsze zatwierdzenie publikacji.",
+  "chat.proposal.waiting":
+    "Poczekaj na zakończenie tego zadania, zanim zapiszesz proponowane zmiany.",
+  "chat.proposal.unavailable":
+    "Tej propozycji nie można już zapisać. Poproś o nową na podstawie aktualnego szkicu.",
+  "chat.proposal.applied": "Te zmiany zostały zapisane. Późniejsze edycje mogły zmienić treść.",
+  "chat.proposal.unconfirmed":
+    "Nie udało się potwierdzić zapisu. Sprawdź zapisany stan przed ponowną próbą.",
+  "chat.proposal.empty": "(puste)",
   "chat.title": "Porozmawiaj z Milo",
   "chat.openContext": "Otwórz widok projektu",
   "chat.description":
@@ -132,6 +159,20 @@ const pl: Copy = {
   "chat.tool.draft_generation": "Generowanie szkicu",
 };
 const sv: Copy = {
+  "chat.tool.draft_metadata_proposal": "Förslag på ändrade metadata för utkastet",
+  "chat.proposal.review": "Granska föreslagna ändringar",
+  "chat.proposal.before": "Före",
+  "chat.proposal.after": "Förslag",
+  "chat.proposal.ready":
+    "När du sparar återgår utkastet till granskning och dess tidigare publiceringsgodkännande återkallas.",
+  "chat.proposal.waiting":
+    "Vänta tills uppgiften är klar innan du sparar de föreslagna ändringarna.",
+  "chat.proposal.unavailable":
+    "Det här förslaget kan inte längre sparas. Be om ett nytt förslag utifrån det aktuella utkastet.",
+  "chat.proposal.applied": "Ändringarna har sparats. Senare redigeringar kan ha ändrat innehållet.",
+  "chat.proposal.unconfirmed":
+    "Det gick inte att bekräfta att ändringarna sparades. Kontrollera den sparade statusen innan du försöker igen.",
+  "chat.proposal.empty": "(tomt)",
   "chat.title": "Prata med Milo",
   "chat.openContext": "Öppna projektvyn",
   "chat.description":
@@ -198,6 +239,19 @@ const sv: Copy = {
   "chat.tool.draft_generation": "Utkastgenerering",
 };
 const da: Copy = {
+  "chat.tool.draft_metadata_proposal": "Forslag til ændrede metadata for kladden",
+  "chat.proposal.review": "Gennemgå foreslåede ændringer",
+  "chat.proposal.before": "Før",
+  "chat.proposal.after": "Forslag",
+  "chat.proposal.ready":
+    "Når du gemmer, går kladden tilbage til gennemgang, og dens tidligere godkendelse til publicering trækkes tilbage.",
+  "chat.proposal.waiting": "Vent, til opgaven er færdig, før du gemmer de foreslåede ændringer.",
+  "chat.proposal.unavailable":
+    "Dette forslag kan ikke længere gemmes. Bed om et nyt forslag baseret på den aktuelle kladde.",
+  "chat.proposal.applied": "Ændringerne er gemt. Senere redigeringer kan have ændret indholdet.",
+  "chat.proposal.unconfirmed":
+    "Det kunne ikke bekræftes, at ændringerne blev gemt. Kontrollér den gemte status, før du prøver igen.",
+  "chat.proposal.empty": "(tom)",
   "chat.title": "Tal med Milo",
   "chat.openContext": "Åbn projektvisning",
   "chat.description":

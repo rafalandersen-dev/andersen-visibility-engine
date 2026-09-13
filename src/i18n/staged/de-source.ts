@@ -2,7 +2,7 @@
 export const DE_AUTHORING_SOURCE_REVISION = "5a9416d74f532b65f78c0f19b89d221c6b2af6c2";
 export const DE_AUTHORING_SOURCE_HASHES: Readonly<Record<string, string>> = {
   // Conversation source is the chat UI candidate after ad3c0f4, recorded on its batch.
-  conversation: "dbe71fce2d0c0bb6d2ea8a4f9aed09e5c6a3c10738d4bd846b5df8b807bfa6ed",
+  conversation: "0450c9bb7fd9b51290cc6d053d708938bf7112a802709524479b72a6a9b20864",
   core: "845b2b1ade4a0935ab924dcc4bdc27d72a7a120388740354bd69a697aa1c7ff2",
   authentication: "f0d4cd1cdcf0283517e3a90abea9abdbc8528a76d9a15c10c7cad3ef84729dc8",
   "shared controls": "678278d00a51f6b4df582627cce0d38b176e65972d6ac578682f8e2e247d9de5",

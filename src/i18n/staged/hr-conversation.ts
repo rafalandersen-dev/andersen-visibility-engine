@@ -1,5 +1,20 @@
 import type { ConversationCopy } from "../conversation";
 export const hrConversation: ConversationCopy = {
+  "chat.tool.draft_metadata_proposal": "Prijedlog metapodataka nacrta",
+  "chat.proposal.review": "Pregledaj predložene promjene",
+  "chat.proposal.before": "Prije",
+  "chat.proposal.after": "Prijedlog",
+  "chat.proposal.ready":
+    "Spremanje vraća nacrt na pregled i povlači prethodno odobrenje za objavu.",
+  "chat.proposal.waiting":
+    "Pričekajte dovršetak ovog zadatka prije spremanja predloženih promjena.",
+  "chat.proposal.unavailable":
+    "Ovaj prijedlog više nije moguće spremiti. Zatražite novi na temelju trenutačnog nacrta.",
+  "chat.proposal.applied":
+    "Ove su promjene spremljene. Kasnija uređivanja možda su promijenila sadržaj.",
+  "chat.proposal.unconfirmed":
+    "Spremanje nije bilo moguće potvrditi. Provjerite spremljeni status prije ponovnog pokušaja.",
+  "chat.proposal.empty": "(prazno)",
   "chat.title": "Razgovarajte s Milom",
   "chat.openContext": "Otvori prikaz projekta",
   "chat.description":

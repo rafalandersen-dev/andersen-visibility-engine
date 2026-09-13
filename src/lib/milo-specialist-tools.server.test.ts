@@ -125,6 +125,101 @@ function setup(who = actor) {
   return { context, deps, rpc, workspace, knowledge, weekly, generate, row, controller };
 }
 describe("specialist tools reuse authoritative project operations", () => {
+  function proposalHarness() {
+    const h = setup();
+    const model = vi.fn(async (_prompt: string) =>
+      JSON.stringify({ explanation: "Clearer", fields: { metaTitle: "Proposed" } }),
+    );
+    const retain = vi.fn(async () => operationId);
+    h.context.proposal = { conversationId: receiptId, attemptId: operationId, locale: "pl", model };
+    h.deps.retainProposal = retain;
+    const tool = {
+      name: "draft_metadata_proposal" as const,
+      assetId: "a",
+      fields: ["metaTitle" as const],
+      instructions: "Improve clarity",
+    };
+    return { ...h, model, retain, tool };
+  }
+  it("bounds proposal model input, strips private data and retains the exact read version", async () => {
+    const h = proposalHarness();
+    const result = await runSpecialistTool(h.tool, h.context, h.deps);
+    expect(result).toMatchObject({
+      state: "approval_required",
+      reference: { kind: "draft_proposal", id: operationId },
+    });
+    expect(h.model.mock.calls[0][0]).not.toContain("fixture-private");
+    expect(h.retain).toHaveBeenCalledWith(
+      actor,
+      expect.objectContaining({
+        expectedHash: "a".repeat(64),
+        expectedMembershipRevision: 1,
+        proposalId: operationId,
+        conversationId: receiptId,
+        turnId: jobId,
+        proposal: { explanation: "Clearer", fields: { metaTitle: "Proposed" } },
+      }),
+      h.rpc,
+    );
+    expect(h.generate).not.toHaveBeenCalled();
+    expect(h.workspace).not.toHaveBeenCalled();
+    expect(h.context.beforeDispatch).toHaveBeenCalledTimes(2);
+  });
+  it("denies wrong specialist, missing execution and current read-only access before a model request", async () => {
+    for (const reason of ["role", "execution", "readonly"]) {
+      const h = proposalHarness();
+      if (reason === "role") h.context.role = "image";
+      if (reason === "execution") h.context.proposal = undefined;
+      if (reason === "readonly") {
+        const original = h.rpc.getMockImplementation()!;
+        h.rpc.mockImplementation(async (name, params) => {
+          const response = await original(name, params);
+          return name === "read_project_team_snapshot" &&
+            response.data &&
+            typeof response.data === "object"
+            ? { ...response, data: { ...response.data, canEdit: false } }
+            : response;
+        });
+      }
+      expect((await runSpecialistTool(h.tool, h.context, h.deps)).state).toBe("unavailable");
+      expect(h.model).not.toHaveBeenCalled();
+      expect(h.retain).not.toHaveBeenCalled();
+    }
+  });
+  it("treats no proposed change as unavailable without persisting an empty edit", async () => {
+    for (const fields of [{}, { metaTitle: "Title" }]) {
+      const h = proposalHarness();
+      h.model.mockResolvedValue(JSON.stringify({ explanation: "Already suitable", fields }));
+      expect((await runSpecialistTool(h.tool, h.context, h.deps)).state).toBe("unavailable");
+      expect(h.retain).not.toHaveBeenCalled();
+    }
+  });
+  it.each([
+    { h1: "Unrequested" },
+    { markdown: "Article" },
+    { metaTitle: "x".repeat(1001) },
+    { metaTitle: null },
+  ])("rejects unrequested, unsupported or invalid model fields", async (fields) => {
+    const h = proposalHarness();
+    h.model.mockResolvedValue(JSON.stringify({ explanation: "Change", fields }));
+    await expect(runSpecialistTool(h.tool, h.context, h.deps)).rejects.toThrow();
+    expect(h.retain).not.toHaveBeenCalled();
+  });
+  it("does not retain a model result after cancellation or a failed final authority check", async () => {
+    for (const cancel of [true, false]) {
+      const h = proposalHarness();
+      h.model.mockImplementation(async () => {
+        if (cancel) h.controller.abort();
+        else
+          h.context.beforeDispatch = async () => {
+            throw Error("Revoked");
+          };
+        return JSON.stringify({ explanation: "Change", fields: { metaTitle: "Proposed" } });
+      });
+      await expect(runSpecialistTool(h.tool, h.context, h.deps)).rejects.toThrow();
+      expect(h.retain).not.toHaveBeenCalled();
+    }
+  });
   it("gives a collaborator only the safe project projection with no owner workspace fallback", async () => {
     const h = setup();
     const result = await runSpecialistTool({ name: "project_brief" }, h.context, h.deps);

@@ -40,7 +40,7 @@ it("keeps fully authored Dutch outside runtime and assigns each key once", () =>
   const keys = NL_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(new Set(keys).size).toBe(keys.length);
   expect(Object.keys(NL_STAGED_CATALOG).sort()).toEqual(keys.sort());
-  expect(keys).toHaveLength(3819);
+  expect(keys).toHaveLength(3829);
   expect(keys.sort()).toEqual(Object.keys(UI_CATALOGS.en).sort());
   expect(Object.isFrozen(NL_STAGED_CATALOG)).toBe(true);
 });

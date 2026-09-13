@@ -1,5 +1,20 @@
 import type { ConversationCopy } from "../conversation";
 export const elConversation: ConversationCopy = {
+  "chat.tool.draft_metadata_proposal": "Πρόταση μεταδεδομένων προσχεδίου",
+  "chat.proposal.review": "Έλεγχος προτεινόμενων αλλαγών",
+  "chat.proposal.before": "Πριν",
+  "chat.proposal.after": "Πρόταση",
+  "chat.proposal.ready":
+    "Η αποθήκευση επιστρέφει το προσχέδιο για έλεγχο και ανακαλεί την προηγούμενη έγκριση δημοσίευσής του.",
+  "chat.proposal.waiting":
+    "Περιμένετε να ολοκληρωθεί αυτή η εργασία πριν αποθηκεύσετε τις προτεινόμενες αλλαγές.",
+  "chat.proposal.unavailable":
+    "Αυτή η πρόταση δεν μπορεί πλέον να αποθηκευτεί. Ζητήστε νέα πρόταση με βάση το τρέχον προσχέδιο.",
+  "chat.proposal.applied":
+    "Αυτές οι αλλαγές αποθηκεύτηκαν. Μεταγενέστερες επεξεργασίες μπορεί να έχουν αλλάξει το περιεχόμενο.",
+  "chat.proposal.unconfirmed":
+    "Δεν ήταν δυνατή η επιβεβαίωση της αποθήκευσης. Ελέγξτε την αποθηκευμένη κατάσταση πριν δοκιμάσετε ξανά.",
+  "chat.proposal.empty": "(κενό)",
   "chat.title": "Μιλήστε με τον Milo",
   "chat.openContext": "Άνοιγμα προβολής έργου",
   "chat.description":

@@ -1,5 +1,20 @@
 import type { ConversationCopy } from "../conversation";
 export const itConversation: ConversationCopy = {
+  "chat.tool.draft_metadata_proposal": "Proposta di metadati della bozza",
+  "chat.proposal.review": "Esamina le modifiche proposte",
+  "chat.proposal.before": "Prima",
+  "chat.proposal.after": "Proposta",
+  "chat.proposal.ready":
+    "Il salvataggio riporta la bozza in revisione e revoca la precedente approvazione alla pubblicazione.",
+  "chat.proposal.waiting":
+    "Attendi che questa attività sia completata prima di salvare le modifiche proposte.",
+  "chat.proposal.unavailable":
+    "Questa proposta non può più essere salvata. Richiedine una nuova basata sulla bozza attuale.",
+  "chat.proposal.applied":
+    "Queste modifiche sono state salvate. Modifiche successive potrebbero aver cambiato il contenuto.",
+  "chat.proposal.unconfirmed":
+    "Non è stato possibile confermare il salvataggio. Controlla lo stato salvato prima di riprovare.",
+  "chat.proposal.empty": "(vuoto)",
   "chat.title": "Parla con Milo",
   "chat.openContext": "Apri la vista del progetto",
   "chat.description":
