@@ -37,6 +37,8 @@ const stats = {
   rejectedBegin: 0,
   resumeCalls: 0,
   simulatedExecutions: 0,
+  queuedDeliveries: 0,
+  rejectedDelivery: 0,
   cancelled: 0,
   completed: 0,
   lateRejected: 0,
@@ -51,10 +53,17 @@ const seed = async (pending) => {
     conversationId: randomUUID(),
     turnId: randomUUID(),
   };
+  if (pending) await db.exec("UPDATE milo_conversation_dispatch_control SET enabled=false");
   await query("begin_milo_conversation_turn($1,$2,$3,$4,$5,$6,'en')", [
     ...targetArgs(target),
     pending ? "Resume this saved pending task" : "Saved baseline conversation",
   ]);
+  if (pending) {
+    await db.query("UPDATE milo_conversation_turns SET dispatch_until=NULL WHERE turn_id=$1", [
+      target.turnId,
+    ]);
+    await db.exec("UPDATE milo_conversation_dispatch_control SET enabled=true");
+  }
   if (!pending) {
     const claim = await query("claim_milo_conversation_turn($1,$2,$3,$4,$5)", targetArgs(target));
     await query("advance_milo_conversation_turn($1,$2,$3,$4,$5,$6,0,$7,'completed')", [
@@ -71,15 +80,28 @@ const seed = async (pending) => {
   }
 };
 await seed(false);
-const retained = async (target) => {
-  const page = await query("read_milo_conversation($1,$2,$3,$4,0)", targetArgs(target).slice(0, 4));
-  return page.turns.find((turn) => turn.turnId === target.turnId);
-};
+// Real dispatch migration; pg_net/cron transport is synthetic and loopback only.
+// No supplied URL or fixture control can dispatch a real network request.
+await db.exec(`CREATE SCHEMA vault; CREATE TABLE vault.decrypted_secrets(name text,decrypted_secret text);
+  INSERT INTO vault.decrypted_secrets VALUES('auto_scheduler_secret','fixture-only');
+  CREATE SCHEMA net; CREATE TABLE net.requests(id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,body jsonb,delivered boolean DEFAULT false);
+  CREATE FUNCTION net.http_post(url text,body jsonb DEFAULT '{}',params jsonb DEFAULT '{}',headers jsonb DEFAULT '{}',timeout_milliseconds integer DEFAULT 2000)
+  RETURNS bigint LANGUAGE plpgsql AS $$ DECLARE id bigint; BEGIN
+    IF url<>'https://milogrowth.com/api/milo/run' OR headers->>'Authorization'<>'Bearer fixture-only' THEN RAISE EXCEPTION 'fixture_invalid'; END IF;
+    INSERT INTO net.requests(body) VALUES(body) RETURNING requests.id INTO id; RETURN id;
+  END; $$;
+  CREATE SCHEMA cron; CREATE TABLE cron.job(jobid bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,jobname text,schedule text,command text,active boolean DEFAULT true);
+  CREATE FUNCTION cron.schedule(jobname text,schedule text,command text) RETURNS bigint LANGUAGE sql AS $$ INSERT INTO cron.job(jobname,schedule,command) VALUES($1,$2,$3) RETURNING jobid $$;
+  CREATE FUNCTION cron.alter_job(job_id bigint,active boolean) RETURNS void LANGUAGE sql AS $$ UPDATE cron.job SET active=$2 WHERE jobid=$1 $$;`);
+await db.exec(
+  await readFile("supabase/migrations/20260913160000_milo_conversation_dispatch.sql", "utf8"),
+);
+await db.exec("UPDATE milo_conversation_dispatch_control SET enabled=true");
 const execute = async (target) => {
   const claim = await query("claim_milo_conversation_turn($1,$2,$3,$4,$5)", targetArgs(target));
-  if (!claim.acquired) return { turn: claim.turn };
+  if (!claim.acquired) return;
   stats.simulatedExecutions++;
-  return new Promise((resolve) => held.set(target.turnId, { target, claim, resolve }));
+  held.set(target.turnId, { target, claim });
 };
 async function release() {
   for (const [id, work] of held) {
@@ -89,21 +111,14 @@ async function release() {
         ...targetArgs(work.target),
         work.claim.attemptId,
       ]);
-      const turn = await query(
-        "advance_milo_conversation_turn($1,$2,$3,$4,$5,$6,0,$7,'completed')",
-        [
-          ...targetArgs(work.target),
-          work.claim.attemptId,
-          JSON.stringify([
-            { kind: "assistant", role: "seo", text: "SIMULATED RESPONSE SAVED ONCE" },
-          ]),
-        ],
-      );
+      await query("advance_milo_conversation_turn($1,$2,$3,$4,$5,$6,0,$7,'completed')", [
+        ...targetArgs(work.target),
+        work.claim.attemptId,
+        JSON.stringify([{ kind: "assistant", role: "seo", text: "SIMULATED RESPONSE SAVED ONCE" }]),
+      ]);
       stats.completed++;
-      work.resolve({ turn });
     } catch {
       stats.lateRejected++;
-      work.resolve({ turn: await retained(work.target).catch(() => null) });
     }
   }
 }
@@ -123,11 +138,16 @@ async function api(name, raw) {
       stats.rejectedBegin++;
       throw error;
     }
-    return saved.turn.state === "pending" ? execute(input) : { turn: saved.turn };
+    return { turn: saved.turn };
   }
   if (name === "resume") {
     stats.resumeCalls++;
-    return execute(conversationTurnTarget.parse(raw));
+    return {
+      turn: await query(
+        "resume_milo_conversation_turn($1,$2,$3,$4,$5)",
+        targetArgs(conversationTurnTarget.parse(raw)),
+      ),
+    };
   }
   if (name === "cancel") {
     const turn = await query(
@@ -158,6 +178,32 @@ async function api(name, raw) {
   }
   throw Error("Unsupported fixture endpoint");
 }
+// The local delivery loop owns execution, never the submitting HTTP request.
+let draining = false;
+const deliveryTimer = setInterval(async () => {
+  if (draining) return;
+  draining = true;
+  try {
+    const deliveries = (
+      await db.query("UPDATE net.requests SET delivered=true WHERE NOT delivered RETURNING body")
+    ).rows;
+    for (const { body } of deliveries) {
+      stats.queuedDeliveries++;
+      try {
+        const { actorId, ...target } = body;
+        if (actorId !== actor) throw Error("Wrong fixture actor");
+        await execute(conversationTurnTarget.parse(target));
+      } catch {
+        stats.rejectedDelivery++;
+      }
+    }
+  } finally {
+    draining = false;
+  }
+}, 100);
+const retryTimer = setInterval(() => {
+  void query("dispatch_pending_milo_turns()", []).catch(() => {});
+}, 60000);
 const server = createServer(async (request, response) => {
   response.setHeader("cache-control", "no-store");
   const json = (status, value) => {
@@ -233,6 +279,8 @@ server.listen(8775, "127.0.0.1", () =>
   console.log("Milo multi-tab SQL fixture ready at http://127.0.0.1:8775/"),
 );
 process.on("SIGINT", () => {
+  clearInterval(deliveryTimer);
+  clearInterval(retryTimer);
   server.closeAllConnections();
   server.close();
   void db.close().finally(() => process.exit(0));

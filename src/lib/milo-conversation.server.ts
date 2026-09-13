@@ -153,6 +153,27 @@ export async function cancelConversationTurn(
   );
 }
 
+/** Renews only the start window of an unclaimed task. The database queues it;
+ * authenticated requests never execute native work on the browser connection. */
+export async function resumeConversationTurn(
+  actorId: string,
+  raw: Target,
+  rpc: TeamReadRpc = projectTeamRpc,
+) {
+  const actor = actorSchema.parse(actorId),
+    input = conversationTurnTarget.parse(raw);
+  return sameTurn(
+    input.turnId,
+    conversationTurn.parse(
+      await teamCall(
+        "resume_milo_conversation_turn",
+        args(actor, input),
+        admittedReadRpc(actor, rpc),
+      ),
+    ),
+  );
+}
+
 /** Private executor-only entry. Do not expose the returned attempt token in
  * server functions or UI; a lost claim response never authorizes a new claim. */
 export async function claimConversationTurn(

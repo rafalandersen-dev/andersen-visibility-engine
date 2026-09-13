@@ -4,6 +4,7 @@ const h = vi.hoisted(() => ({
   middleware: [] as unknown[][],
   begin: vi.fn(),
   run: vi.fn(),
+  resume: vi.fn(),
   read: vi.fn(),
   list: vi.fn(),
   cancel: vi.fn(),
@@ -32,6 +33,7 @@ vi.mock("./milo-conversation.server", () => ({
   readConversation: h.read,
   listConversations: h.list,
   cancelConversationTurn: h.cancel,
+  resumeConversationTurn: h.resume,
 }));
 vi.mock("./milo-specialist-executor.server", () => ({ runConversationSpecialists: h.run }));
 import * as endpoints from "./milo-conversation.functions";
@@ -45,6 +47,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   h.begin.mockResolvedValue({ created: true, turn: { state: "pending" } });
   h.run.mockResolvedValue({ state: "completed" });
+  h.resume.mockResolvedValue({ state: "pending" });
 });
 function invoke(fn: unknown, data: unknown) {
   return (fn as (args: unknown) => Promise<unknown>)({ data, context: { userId: actor } });
@@ -61,14 +64,13 @@ describe("authenticated conversation endpoints", () => {
       "sendMiloMessageFn",
     ]);
   });
-  it("derives the actor from the session and executes only the persisted pending task", async () => {
+  it("derives the actor from the session and returns the queued task without executing on the browser connection", async () => {
     h.begin.mockResolvedValue({ created: true, turn: { state: "pending" } });
-    h.run.mockResolvedValue({ state: "completed" });
     expect(await invoke(endpoints.sendMiloMessageFn, input)).toEqual({
-      turn: { state: "completed" },
+      turn: { state: "pending" },
     });
     expect(h.begin).toHaveBeenCalledWith(actor, input);
-    expect(h.run).toHaveBeenCalledWith(actor, target);
+    expect(h.run).not.toHaveBeenCalled();
   });
   it("preserves a received generation choice but cannot accept supplied tool/actor/claim evidence", async () => {
     await invoke(endpoints.sendMiloMessageFn, { ...input, allowDraftGeneration: true });
@@ -92,7 +94,8 @@ describe("authenticated conversation endpoints", () => {
   });
   it("can resume a pending recorded task without replacing its body or expanding generation permission", async () => {
     await invoke(endpoints.resumeMiloTurnFn, target);
-    expect(h.run).toHaveBeenLastCalledWith(actor, target);
+    expect(h.resume).toHaveBeenLastCalledWith(actor, target);
+    expect(h.run).not.toHaveBeenCalled();
     expect(() =>
       invoke(endpoints.resumeMiloTurnFn, { ...target, allowDraftGeneration: true }),
     ).toThrow();

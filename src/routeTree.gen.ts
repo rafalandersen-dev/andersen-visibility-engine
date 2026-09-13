@@ -50,6 +50,7 @@ import { Route as ApiOauthRevokeRouteImport } from './routes/api.oauth.revoke'
 import { Route as ApiOauthRegisterRouteImport } from './routes/api.oauth.register'
 import { Route as ApiOauthAuthorizeRouteImport } from './routes/api.oauth.authorize'
 import { Route as ApiNotificationsSweepRouteImport } from './routes/api.notifications.sweep'
+import { Route as ApiMiloRunRouteImport } from './routes/api.milo.run'
 import { Route as ApiAutoSchedulerRunRouteImport } from './routes/api.auto-scheduler.run'
 import { Route as ApiAnalyticsTrackRouteImport } from './routes/api.analytics.track'
 import { Route as AuthenticatedAppTodayRouteImport } from './routes/_authenticated/app.today'
@@ -295,6 +296,11 @@ const ApiOauthAuthorizeRoute = ApiOauthAuthorizeRouteImport.update({
 const ApiNotificationsSweepRoute = ApiNotificationsSweepRouteImport.update({
   id: '/api/notifications/sweep',
   path: '/api/notifications/sweep',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMiloRunRoute = ApiMiloRunRouteImport.update({
+  id: '/api/milo/run',
+  path: '/api/milo/run',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAutoSchedulerRunRoute = ApiAutoSchedulerRunRouteImport.update({
@@ -588,6 +594,7 @@ export interface FileRoutesByFullPath {
   '/app/today': typeof AuthenticatedAppTodayRoute
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
   '/api/auto-scheduler/run': typeof ApiAutoSchedulerRunRoute
+  '/api/milo/run': typeof ApiMiloRunRoute
   '/api/notifications/sweep': typeof ApiNotificationsSweepRoute
   '/api/oauth/authorize': typeof ApiOauthAuthorizeRoute
   '/api/oauth/register': typeof ApiOauthRegisterRoute
@@ -670,6 +677,7 @@ export interface FileRoutesByTo {
   '/app/today': typeof AuthenticatedAppTodayRoute
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
   '/api/auto-scheduler/run': typeof ApiAutoSchedulerRunRoute
+  '/api/milo/run': typeof ApiMiloRunRoute
   '/api/notifications/sweep': typeof ApiNotificationsSweepRoute
   '/api/oauth/authorize': typeof ApiOauthAuthorizeRoute
   '/api/oauth/register': typeof ApiOauthRegisterRoute
@@ -754,6 +762,7 @@ export interface FileRoutesById {
   '/_authenticated/app/today': typeof AuthenticatedAppTodayRoute
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
   '/api/auto-scheduler/run': typeof ApiAutoSchedulerRunRoute
+  '/api/milo/run': typeof ApiMiloRunRoute
   '/api/notifications/sweep': typeof ApiNotificationsSweepRoute
   '/api/oauth/authorize': typeof ApiOauthAuthorizeRoute
   '/api/oauth/register': typeof ApiOauthRegisterRoute
@@ -838,6 +847,7 @@ export interface FileRouteTypes {
     | '/app/today'
     | '/api/analytics/track'
     | '/api/auto-scheduler/run'
+    | '/api/milo/run'
     | '/api/notifications/sweep'
     | '/api/oauth/authorize'
     | '/api/oauth/register'
@@ -920,6 +930,7 @@ export interface FileRouteTypes {
     | '/app/today'
     | '/api/analytics/track'
     | '/api/auto-scheduler/run'
+    | '/api/milo/run'
     | '/api/notifications/sweep'
     | '/api/oauth/authorize'
     | '/api/oauth/register'
@@ -1003,6 +1014,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/today'
     | '/api/analytics/track'
     | '/api/auto-scheduler/run'
+    | '/api/milo/run'
     | '/api/notifications/sweep'
     | '/api/oauth/authorize'
     | '/api/oauth/register'
@@ -1058,6 +1070,7 @@ export interface RootRouteChildren {
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
   ApiAnalyticsTrackRoute: typeof ApiAnalyticsTrackRoute
   ApiAutoSchedulerRunRoute: typeof ApiAutoSchedulerRunRoute
+  ApiMiloRunRoute: typeof ApiMiloRunRoute
   ApiNotificationsSweepRoute: typeof ApiNotificationsSweepRoute
   ApiOauthAuthorizeRoute: typeof ApiOauthAuthorizeRoute
   ApiOauthRegisterRoute: typeof ApiOauthRegisterRoute
@@ -1363,6 +1376,13 @@ declare module '@tanstack/react-router' {
       path: '/api/notifications/sweep'
       fullPath: '/api/notifications/sweep'
       preLoaderRoute: typeof ApiNotificationsSweepRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/milo/run': {
+      id: '/api/milo/run'
+      path: '/api/milo/run'
+      fullPath: '/api/milo/run'
+      preLoaderRoute: typeof ApiMiloRunRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auto-scheduler/run': {
@@ -1755,6 +1775,7 @@ const rootRouteChildren: RootRouteChildren = {
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
   ApiAnalyticsTrackRoute: ApiAnalyticsTrackRoute,
   ApiAutoSchedulerRunRoute: ApiAutoSchedulerRunRoute,
+  ApiMiloRunRoute: ApiMiloRunRoute,
   ApiNotificationsSweepRoute: ApiNotificationsSweepRoute,
   ApiOauthAuthorizeRoute: ApiOauthAuthorizeRoute,
   ApiOauthRegisterRoute: ApiOauthRegisterRoute,

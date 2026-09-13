@@ -13,16 +13,9 @@ export const sendMiloMessageFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { beginConversationTurn } = await import("./milo-conversation.server");
     const saved = await beginConversationTurn(context.userId, data);
-    if (saved.turn.state !== "pending") return { turn: saved.turn };
-    const { runConversationSpecialists } = await import("./milo-specialist-executor.server");
-    return {
-      turn: await runConversationSpecialists(context.userId, {
-        ownerId: data.ownerId,
-        projectId: data.projectId,
-        conversationId: data.conversationId,
-        turnId: data.turnId,
-      }),
-    };
+    // The database queues independent execution in the same transaction. Losing
+    // this browser response never owns, cancels or replays the provider request.
+    return { turn: saved.turn };
   });
 /** Only a still-pending saved turn can acquire work. Resume never changes its
  * original text, generation choice, client, actor or durable attempt. */
@@ -30,8 +23,8 @@ export const resumeMiloTurnFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => conversationTurnTarget.parse(input))
   .handler(async ({ data, context }) => {
-    const { runConversationSpecialists } = await import("./milo-specialist-executor.server");
-    return { turn: await runConversationSpecialists(context.userId, data) };
+    const { resumeConversationTurn } = await import("./milo-conversation.server");
+    return { turn: await resumeConversationTurn(context.userId, data) };
   });
 export const readMiloConversationFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
