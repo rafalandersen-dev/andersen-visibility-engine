@@ -1,3 +1,4 @@
+import { elGrowth } from "./el-growth";
 import { elOutreach } from "./el-outreach";
 import { elMeasurements } from "./el-measurements";
 import { elTechnical } from "./el-technical";
@@ -23,6 +24,13 @@ import { elSharedUi } from "./el-shared-ui";
 import { elCore } from "./el-core";
 /** Greek authoring; never imported by the runtime catalog. */
 export const EL_STAGED_BATCHES = [
+  {
+    name: "growth",
+    copy: elGrowth,
+    namespaces: ["authority", "actions", "publicAudit"],
+    sourceRevision: "92ce7b4",
+    sourceHash: "79460ac604f31155136687fbf43e146ccd11625f12316625da192cdb8188f136",
+  },
   {
     name: "outreach",
     copy: elOutreach,
