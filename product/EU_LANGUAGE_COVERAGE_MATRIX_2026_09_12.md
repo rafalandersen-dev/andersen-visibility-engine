@@ -1,6 +1,6 @@
 # R20 language coverage matrix — 12 September 2026
 
-Latest authoring checkpoint - 13 September (latest English source 9f42e68): four active complete catalogs, fourteen complete staged catalogs (FR/DE/ES/IT/PT/NL/FI/CS/SK/SL/HR/BG/ET/EL), Hungarian partial at 435/3,768 and five unauthored catalogs (GA/LV/LT/MT/RO). Remaining UI authoring backlog: 22,173 messages. Hungarian eight batches pass all 19 focused tests, types, scoped lint, formatting and whitespace. The original audit and incremental history below retain their dated baselines; none constitutes activation or fluent/rendered acceptance.
+Latest authoring checkpoint - 13 September (latest English source 31bab65): four active complete catalogs, fourteen complete staged catalogs (FR/DE/ES/IT/PT/NL/FI/CS/SK/SL/HR/BG/ET/EL), Hungarian partial at 524/3,768 and five unauthored catalogs (GA/LV/LT/MT/RO). Remaining UI authoring backlog: 22,084 messages. Hungarian nine batches pass all 20 focused tests, types, scoped lint, formatting and whitespace. The original audit and incremental history below retain their dated baselines; none constitutes activation or fluent/rendered acceptance.
 
 Prior Slovak authoring checkpoint (source aef1c2c plus Slovak workflow): Slovak now has all 3,768 current English UI keys across 28 staged batches. Four catalogs are active and nine are fully staged (FR/DE/ES/IT/PT/NL/FI/CS/SK); eleven remain unauthored. Remaining UI authoring backlog: 41,448 messages (11 × 3,768). All 40 Slovak/catalog tests, types, scoped lint and whitespace pass. This is authoring coverage, not activation or language/rendered acceptance. The original audit and incremental history below retain their own evidence baselines.
 
@@ -438,3 +438,6 @@ Hungarian initial authoring checkpoint - 13 September (English source 78911a7): 
 
 
 Hungarian screen checkpoint - 13 September (English source 9f42e68): setup (24), services (18), audit (29), analytics (36) and billing (54) add 161 messages, reaching 435/3,768 across eight staged batches. All 19 focused tests, types, scoped lint, formatting and whitespace pass. Separate approval/publication, audit fallback, recorded-event/UTC limits, legacy billing and separate-purchase semantics are preserved. Hungarian remains inactive. Remaining UI authoring: 22,173 messages, followed by language/rendered and activation acceptance. Next: competitor and AI-readiness evidence screen.
+
+
+Hungarian evidence-screen checkpoint - 13 September (English source 31bab65): competitor and AI-readiness copy adds 89 messages, reaching 524/3,768 across nine staged batches. All 20 focused tests, types, scoped lint, formatting and whitespace pass. Snapshot/fetch limits, opposite gap/readiness score directions and separate estimates/answer/referral/mention/citation semantics are preserved. Hungarian remains inactive. Remaining UI authoring: 22,084 messages, followed by language/rendered and activation acceptance. Next: Plan screen.

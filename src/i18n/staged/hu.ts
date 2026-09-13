@@ -1,3 +1,4 @@
+import { huEvidenceScreen } from "./hu-evidence-screen";
 import { huSetupScreen } from "./hu-setup-screen";
 import { huServicesScreen } from "./hu-services-screen";
 import { huAuditScreen } from "./hu-audit-screen";
@@ -8,6 +9,13 @@ import { huSharedUi } from "./hu-shared-ui";
 import { huCore } from "./hu-core";
 /** Hungarian authoring; never imported by the runtime catalog. */
 export const HU_STAGED_BATCHES = [
+  {
+    name: "evidence screen",
+    copy: huEvidenceScreen,
+    namespaces: ["evidenceScreen"],
+    sourceRevision: "31bab65",
+    sourceHash: "2c7e9ccb48b02cd12911d0df6c31a96ec8ddfc6c558dfda3b3e14790d156c136",
+  },
   {
     name: "setup screen",
     copy: huSetupScreen,
