@@ -1,3 +1,5 @@
+import { elPublicPricing } from "./el-public-pricing";
+import { elPublicStudies } from "./el-public-studies";
 import { elEditorScreen } from "./el-editor-screen";
 import { elPlanScreen } from "./el-plan-screen";
 import { elEvidenceScreen } from "./el-evidence-screen";
@@ -11,6 +13,20 @@ import { elSharedUi } from "./el-shared-ui";
 import { elCore } from "./el-core";
 /** Greek authoring; never imported by the runtime catalog. */
 export const EL_STAGED_BATCHES = [
+  {
+    name: "public pricing",
+    copy: elPublicPricing,
+    namespaces: ["publicPricing"],
+    sourceRevision: "1435f84",
+    sourceHash: "8e7cecc9d6ca14af722fe8b4131d7982241e9e856335586f8d4e724469d0de60",
+  },
+  {
+    name: "public studies",
+    copy: elPublicStudies,
+    namespaces: ["publicStudies"],
+    sourceRevision: "1435f84",
+    sourceHash: "ace563fb757a52abcd667e7e691d3e48024045a4e4f265e6949c66a828f5e8de",
+  },
   {
     name: "editor screen",
     copy: elEditorScreen,
