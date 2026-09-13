@@ -21,6 +21,7 @@ CREATE TABLE public.milo_conversation_turns (
   ordinal integer NOT NULL CHECK(ordinal BETWEEN 1 AND 500),
   body text NOT NULL CHECK(length(btrim(body))>0 AND octet_length(body)<=8000),
   locale text NOT NULL CHECK(locale ~ '^[a-z]{2}$'),
+  allow_draft_generation boolean NOT NULL DEFAULT false,
   membership_revision bigint NOT NULL CHECK(membership_revision BETWEEN 1 AND 9007199254740991),
   state text NOT NULL DEFAULT 'pending' CHECK(state IN ('pending','running','completed','failed','cancelled','unknown')),
   attempt_id uuid,
@@ -66,17 +67,18 @@ END; $$;
 -- Private projection: claim tokens never enter browser reads.
 CREATE FUNCTION public.milo_conversation_turn_view(t public.milo_conversation_turns)
 RETURNS jsonb LANGUAGE sql SECURITY DEFINER SET search_path='' AS $$
-  SELECT jsonb_build_object('turnId',t.turn_id,'ordinal',t.ordinal,'body',t.body,'locale',t.locale,
+  SELECT jsonb_build_object('turnId',t.turn_id,'ordinal',t.ordinal,'body',t.body,'locale',t.locale,'allowDraftGeneration',t.allow_draft_generation,
     'state',CASE WHEN t.state='running' AND t.lease_until<=clock_timestamp() THEN 'unknown' ELSE t.state END,
     'events',t.events,'createdAt',t.created_at,'updatedAt',t.updated_at)
 $$;
 
-CREATE FUNCTION public.begin_milo_conversation_turn(p_actor uuid,p_owner uuid,p_project text,p_conversation uuid,p_turn uuid,p_body text,p_locale text)
+CREATE FUNCTION public.begin_milo_conversation_turn(p_actor uuid,p_owner uuid,p_project text,p_conversation uuid,p_turn uuid,p_body text,p_locale text,p_allow_generation boolean DEFAULT false)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE conversation public.milo_conversations%ROWTYPE; previous public.milo_conversation_turns%ROWTYPE; membership_revision bigint;
 BEGIN
   IF p_conversation IS NULL OR p_turn IS NULL OR p_body IS NULL OR length(btrim(p_body))=0 OR octet_length(p_body)>8000
-    OR p_locale IS NULL OR p_locale !~ '^[a-z]{2}$' THEN RAISE EXCEPTION 'milo_conversation_invalid'; END IF;
+    OR p_locale IS NULL OR p_locale !~ '^[a-z]{2}$' OR p_allow_generation IS NULL
+    OR (p_allow_generation AND p_actor IS DISTINCT FROM p_owner) THEN RAISE EXCEPTION 'milo_conversation_invalid'; END IF;
   -- Serialize actor-wide creation/rate checks across all clients and projects.
   IF NOT pg_try_advisory_xact_lock(hashtext('milo-conversation-actor'),hashtext(p_actor::text)) THEN RAISE EXCEPTION 'milo_conversation_busy' USING ERRCODE='55P03'; END IF;
   membership_revision:=public.assert_milo_conversation_access(p_actor,p_owner,p_project);
@@ -85,7 +87,7 @@ BEGIN
     THEN RAISE EXCEPTION 'milo_conversation_unavailable'; END IF;
   SELECT * INTO previous FROM public.milo_conversation_turns WHERE turn_id=p_turn;
   IF FOUND THEN
-    IF previous.conversation_id<>p_conversation OR previous.actor_id<>p_actor OR previous.body<>p_body OR previous.locale<>p_locale
+    IF previous.conversation_id<>p_conversation OR previous.actor_id<>p_actor OR previous.body<>p_body OR previous.locale<>p_locale OR previous.allow_draft_generation<>p_allow_generation
       THEN RAISE EXCEPTION 'milo_conversation_conflict'; END IF;
     RETURN jsonb_build_object('created',false,'turn',public.milo_conversation_turn_view(previous));
   END IF;
@@ -105,8 +107,8 @@ BEGIN
     THEN RAISE EXCEPTION 'milo_conversation_busy'; END IF;
   UPDATE public.milo_conversations SET turn_count=turn_count+1,updated_at=clock_timestamp()
     WHERE conversation_id=p_conversation RETURNING * INTO conversation;
-  INSERT INTO public.milo_conversation_turns(turn_id,conversation_id,actor_id,ordinal,body,locale,membership_revision)
-    VALUES(p_turn,p_conversation,p_actor,conversation.turn_count,p_body,p_locale,membership_revision) RETURNING * INTO previous;
+  INSERT INTO public.milo_conversation_turns(turn_id,conversation_id,actor_id,ordinal,body,locale,membership_revision,allow_draft_generation)
+    VALUES(p_turn,p_conversation,p_actor,conversation.turn_count,p_body,p_locale,membership_revision,p_allow_generation) RETURNING * INTO previous;
   RETURN jsonb_build_object('created',true,'turn',public.milo_conversation_turn_view(previous));
 END; $$;
 
@@ -150,7 +152,7 @@ BEGIN
   SELECT * INTO current_turn FROM public.milo_conversation_turns WHERE conversation_id=p_conversation AND turn_id=p_turn AND actor_id=p_actor FOR UPDATE NOWAIT;
   IF NOT FOUND OR current_turn.membership_revision<>membership_revision THEN RAISE EXCEPTION 'milo_conversation_unavailable'; END IF;
   IF current_turn.state<>'pending' THEN RETURN jsonb_build_object('acquired',false,'attemptId',NULL,'turn',public.milo_conversation_turn_view(current_turn)); END IF;
-  UPDATE public.milo_conversation_turns SET state='running',attempt_id=gen_random_uuid(),lease_until=clock_timestamp()+interval '3 minutes',updated_at=clock_timestamp()
+  UPDATE public.milo_conversation_turns SET state='running',attempt_id=gen_random_uuid(),lease_until=clock_timestamp()+interval '5 minutes',updated_at=clock_timestamp()
     WHERE turn_id=p_turn RETURNING * INTO current_turn;
   RETURN jsonb_build_object('acquired',true,'attemptId',current_turn.attempt_id,'turn',public.milo_conversation_turn_view(current_turn));
 END; $$;
@@ -192,5 +194,24 @@ BEGIN
 END; $$;
 
 REVOKE ALL ON FUNCTION public.assert_milo_conversation_access(uuid,uuid,text),public.milo_conversation_turn_view(public.milo_conversation_turns) FROM PUBLIC,anon,authenticated,service_role;
-REVOKE ALL ON FUNCTION public.begin_milo_conversation_turn(uuid,uuid,text,uuid,uuid,text,text),public.read_milo_conversation(uuid,uuid,text,uuid,integer),public.list_milo_conversations(uuid,uuid,text,integer),public.claim_milo_conversation_turn(uuid,uuid,text,uuid,uuid),public.advance_milo_conversation_turn(uuid,uuid,text,uuid,uuid,uuid,integer,jsonb,text),public.cancel_milo_conversation_turn(uuid,uuid,text,uuid,uuid) FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.begin_milo_conversation_turn(uuid,uuid,text,uuid,uuid,text,text),public.read_milo_conversation(uuid,uuid,text,uuid,integer),public.list_milo_conversations(uuid,uuid,text,integer),public.claim_milo_conversation_turn(uuid,uuid,text,uuid,uuid),public.advance_milo_conversation_turn(uuid,uuid,text,uuid,uuid,uuid,integer,jsonb,text),public.cancel_milo_conversation_turn(uuid,uuid,text,uuid,uuid) TO service_role;
+REVOKE ALL ON FUNCTION public.begin_milo_conversation_turn(uuid,uuid,text,uuid,uuid,text,text,boolean),public.read_milo_conversation(uuid,uuid,text,uuid,integer),public.list_milo_conversations(uuid,uuid,text,integer),public.claim_milo_conversation_turn(uuid,uuid,text,uuid,uuid),public.advance_milo_conversation_turn(uuid,uuid,text,uuid,uuid,uuid,integer,jsonb,text),public.cancel_milo_conversation_turn(uuid,uuid,text,uuid,uuid) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.begin_milo_conversation_turn(uuid,uuid,text,uuid,uuid,text,text,boolean),public.read_milo_conversation(uuid,uuid,text,uuid,integer),public.list_milo_conversations(uuid,uuid,text,integer),public.claim_milo_conversation_turn(uuid,uuid,text,uuid,uuid),public.advance_milo_conversation_turn(uuid,uuid,text,uuid,uuid,uuid,integer,jsonb,text),public.cancel_milo_conversation_turn(uuid,uuid,text,uuid,uuid) TO service_role;
+
+-- Revalidate the durable claim after slow quota/admission reads and before each
+-- actual tool/provider dispatch. No event or capability supplied by the model
+-- can replace this current-account, membership-revision and cancellation gate.
+CREATE FUNCTION public.check_milo_conversation_execution(p_actor uuid,p_owner uuid,p_project text,p_conversation uuid,p_turn uuid,p_attempt uuid)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE current_membership_revision bigint;
+BEGIN
+  current_membership_revision:=public.assert_milo_conversation_access(p_actor,p_owner,p_project);
+  PERFORM 1 FROM public.milo_conversations WHERE conversation_id=p_conversation AND actor_id=p_actor AND owner_id=p_owner AND project_id=p_project FOR SHARE NOWAIT;
+  IF NOT FOUND THEN RAISE EXCEPTION 'milo_conversation_unavailable'; END IF;
+  PERFORM 1 FROM public.milo_conversation_turns WHERE turn_id=p_turn AND conversation_id=p_conversation AND actor_id=p_actor
+    AND attempt_id=p_attempt AND state='running' AND lease_until>clock_timestamp()
+    AND milo_conversation_turns.membership_revision=current_membership_revision FOR SHARE NOWAIT;
+  IF NOT FOUND THEN RAISE EXCEPTION 'milo_conversation_unavailable'; END IF;
+  RETURN true;
+END; $$;
+REVOKE ALL ON FUNCTION public.check_milo_conversation_execution(uuid,uuid,text,uuid,uuid,uuid) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.check_milo_conversation_execution(uuid,uuid,text,uuid,uuid,uuid) TO service_role;

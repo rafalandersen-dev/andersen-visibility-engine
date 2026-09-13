@@ -63,12 +63,19 @@ export async function beginConversationTurn(
           ...args(actor, input),
           p_body: input.body,
           p_locale: input.locale,
+          ...(input.allowDraftGeneration !== undefined
+            ? { p_allow_generation: input.allowDraftGeneration }
+            : {}),
         },
         admittedReadRpc(actor, rpc),
       ),
     );
   sameTurn(input.turnId, result.turn);
-  if (result.turn.body !== input.body || result.turn.locale !== input.locale)
+  if (
+    result.turn.body !== input.body ||
+    result.turn.locale !== input.locale ||
+    (result.turn.allowDraftGeneration ?? false) !== (input.allowDraftGeneration ?? false)
+  )
     throw new Error("Conversation response could not be confirmed.");
   return result;
 }
@@ -185,6 +192,22 @@ const progress = z
     state: z.enum(["running", "completed", "failed", "unknown"]),
   })
   .strict();
+export async function assertConversationExecution(
+  actorId: string,
+  raw: Target,
+  attemptId: string,
+  rpc: TeamReadRpc = projectTeamRpc,
+) {
+  const actor = actorSchema.parse(actorId),
+    input = conversationTurnTarget.parse(raw);
+  z.literal(true).parse(
+    await teamCall(
+      "check_milo_conversation_execution",
+      { ...args(actor, input), p_attempt: z.string().uuid().parse(attemptId) },
+      admittedReadRpc(actor, rpc),
+    ),
+  );
+}
 export async function advanceConversationTurn(
   actorId: string,
   raw: Target,

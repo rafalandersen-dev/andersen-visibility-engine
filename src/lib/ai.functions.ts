@@ -2303,7 +2303,14 @@ async function generateContentCoreImpl(
     assetType: (typeof CONTENT_ASSET_TYPES)[number];
     modelOverride?: string;
   },
-  metering: { enforceLimit?: boolean; attempt?: NativeExpenseContext["attempt"]; assetId?: string; expectedKnowledgeHash?: string } = {},
+  metering: {
+    enforceLimit?: boolean;
+    attempt?: NativeExpenseContext["attempt"];
+    assetId?: string;
+    expectedKnowledgeHash?: string;
+    signal?: AbortSignal;
+    beforeDispatch?: () => Promise<void>;
+  } = {},
 ) {
   let target: ReturnType<typeof contentRecoveryTarget>;
   return withGenerationUsage(
@@ -2335,7 +2342,13 @@ async function generateContentCoreImpl(
 
       try {
         const payload = await generateJsonText(
-          { userId, operation: "generateContentCore", attempt },
+          {
+            userId,
+            operation: "generateContentCore",
+            attempt,
+            ...(metering.signal ? { signal: metering.signal } : {}),
+            ...(metering.beforeDispatch ? { beforeDispatch: metering.beforeDispatch } : {}),
+          },
           `${instruction}
 
 Return exactly this JSON shape. "markdown" is REQUIRED and must contain the full, formatted content for this asset type; fill the other fields that are relevant.

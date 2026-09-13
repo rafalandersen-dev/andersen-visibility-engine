@@ -7,9 +7,12 @@ import {
   beginConversationTurn,
   claimConversationTurn,
   advanceConversationTurn,
+  assertConversationExecution,
   readConversation,
 } from "./milo-conversation.server";
 import type { TeamReadRpc } from "./project-team-read.server";
+import { runConversationSpecialists } from "./milo-specialist-executor.server";
+import { runSpecialistTool } from "./milo-specialist-tools.server";
 
 const owner = "00000000-0000-4000-8000-000000000001";
 const actor = "00000000-0000-4000-8000-000000000002";
@@ -111,6 +114,119 @@ const rpc: TeamReadRpc = async (name, params) => {
 };
 
 describe("durable actor-private project conversations", () => {
+  it("stores the owner's explicit generation choice and rejects replay upgrades or delegated approval", async () => {
+    const approved = await query<{ created: boolean; turn: { allowDraftGeneration: boolean } }>(
+      "begin_milo_conversation_turn($1,$1,'p',$2,$3,'Generate a draft','pl',true)",
+      [owner, conversationId, turnId],
+    );
+    expect(approved.turn.allowDraftGeneration).toBe(true);
+    await expect(
+      query("begin_milo_conversation_turn($1,$1,'p',$2,$3,'Generate a draft','pl',false)", [
+        owner,
+        conversationId,
+        turnId,
+      ]),
+    ).rejects.toThrow("conflict");
+    await expect(
+      query("begin_milo_conversation_turn($1,$2,'p',$3,$4,'Generate a draft','pl',true)", [
+        actor,
+        owner,
+        randomUUID(),
+        randomUUID(),
+      ]),
+    ).rejects.toThrow("invalid");
+  });
+  it("checks cancellation, claim identity and current membership at the final dispatch boundary", async () => {
+    await start();
+    const taken = await claim();
+    const check = (attempt = taken.attemptId) =>
+      query("check_milo_conversation_execution($1,$2,'p',$3,$4,$5)", [
+        actor,
+        owner,
+        conversationId,
+        turnId,
+        attempt,
+      ]);
+    expect(await check()).toBe(true);
+    await expect(check(randomUUID())).rejects.toThrow("unavailable");
+    await db.exec("UPDATE project_team_members SET revision=2");
+    await expect(check()).rejects.toThrow("unavailable");
+    await db.exec("UPDATE project_team_members SET revision=1");
+    await cancel();
+    await expect(check()).rejects.toThrow("unavailable");
+  });
+  it("executes a saved task through real SQL claims, actual shared-draft tools and retained specialist events", async () => {
+    await db.query(
+      "INSERT INTO workspace_entities(user_id,collection,entity_id,data) VALUES($1,'content','a',$2)",
+      [
+        owner,
+        {
+          projectId: "p",
+          title: "Stored article",
+          status: "Draft",
+          updatedAt: "2026-09-13",
+          markdown: "## Actual section\nSaved project content.",
+          metaTitle: "Stored title",
+          metaDescription: "Stored description",
+          publishSecret: "fixture-private",
+        },
+      ],
+    );
+    await start();
+    const replies = [
+      JSON.stringify({
+        handoff: "SEO przejmuje sprawdzenie artykułu.",
+        assignments: [
+          {
+            role: "seo",
+            task: "Check current draft structure",
+            tools: [{ name: "draft_seo_review", assetId: "a" }],
+          },
+        ],
+      }),
+      "Sprawdziłem zapisany artykuł: zawiera jedną sekcję H2. Nie uruchomiłem crawla.",
+    ];
+    const unavailable = async (): Promise<never> => {
+      throw new Error("Private owner tool must not run for this collaborator");
+    };
+    const target = { ownerId: owner, projectId: "p", conversationId, turnId };
+    const result = await runConversationSpecialists(actor, target, {
+      claim: (who, input) => claimConversationTurn(who, input, rpc),
+      read: (who, input) => readConversation(who, input, rpc),
+      assert: (who, input, attempt) => assertConversationExecution(who, input, attempt, rpc),
+      advance: (who, input, change) => advanceConversationTurn(who, input, change, rpc),
+      tool: (input, context) =>
+        runSpecialistTool(input, context, {
+          rpc,
+          workspace: unavailable,
+          knowledge: unavailable,
+          weekly: unavailable,
+          generate: unavailable,
+        }),
+      model: async ({ context, prompt }) => {
+        await context.beforeDispatch!();
+        expect(prompt).not.toContain("fixture-private");
+        return replies.shift()!;
+      },
+    });
+    expect(result.state).toBe("completed");
+    const saved = await readConversation(
+      actor,
+      { ownerId: owner, projectId: "p", conversationId },
+      rpc,
+    );
+    expect(
+      saved.turns[0].events.find(
+        (event) => event.tool === "draft_seo_review" && event.state === "completed",
+      )?.text,
+    ).toContain("h2Count");
+    expect(saved.turns[0].events.at(-1)).toMatchObject({
+      kind: "assistant",
+      role: "seo",
+      text: "Sprawdziłem zapisany artykuł: zawiera jedną sekcję H2. Nie uruchomiłem crawla.",
+    });
+    expect((await claim()).acquired).toBe(false);
+  });
   it("retains the exact task and deduplicates a submission before and after execution", async () => {
     expect((await start()).created).toBe(true);
     expect((await start()).created).toBe(false);
@@ -381,6 +497,14 @@ describe("durable actor-private project conversations", () => {
           () => claim(),
           () => cancel(),
           () => advance(randomUUID()),
+          () =>
+            query("check_milo_conversation_execution($1,$2,'p',$3,$4,$5)", [
+              actor,
+              owner,
+              conversationId,
+              turnId,
+              randomUUID(),
+            ]),
           () => query("list_milo_conversations($1,$2,'p')", [actor, owner]),
         ])
           await expect(operation()).rejects.toThrow(/permission denied/);

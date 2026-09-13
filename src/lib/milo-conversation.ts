@@ -12,6 +12,7 @@ export const conversationTurnTarget = conversationTarget.extend({ turnId: z.stri
 export const conversationSend = conversationTurnTarget.extend({
   body: textBytes(8000).refine((text) => text.trim().length > 0),
   locale: z.string().regex(/^[a-z]{2}$/),
+  allowDraftGeneration: z.boolean().optional(),
 });
 export const conversationRead = conversationTarget.extend({
   after: z.number().int().min(0).max(500).default(0),
@@ -27,10 +28,25 @@ export const conversationEvent = z
     kind: z.enum(["handoff", "assistant", "tool", "status"]),
     role: z.enum(specialistRoles),
     text: textBytes(12000),
+    operationId: z.string().uuid().optional(),
+    code: z
+      .enum([
+        "analysing",
+        "responding",
+        "tool_started",
+        "tool_result",
+        "provider_unavailable",
+        "usage_limit",
+        "budget_unavailable",
+        "execution_unknown",
+        "history_partial",
+      ])
+      .optional(),
     tool: z
       .enum([
         "project_brief",
         "draft_read",
+        "draft_seo_review",
         "project_knowledge",
         "weekly_preparation",
         "saved_audit",
@@ -60,6 +76,7 @@ export const conversationTurn = z
     ordinal: z.number().int().min(1).max(500),
     body: textBytes(8000),
     locale: z.string().regex(/^[a-z]{2}$/),
+    allowDraftGeneration: z.boolean().optional(),
     state: z.enum(["pending", "running", "completed", "failed", "cancelled", "unknown"]),
     events: conversationEvents,
     createdAt: z.string().datetime({ offset: true }),
