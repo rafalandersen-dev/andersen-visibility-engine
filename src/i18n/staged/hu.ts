@@ -1,3 +1,4 @@
+import { huGrowth } from "./hu-growth";
 import { huOutreach } from "./hu-outreach";
 import { huMeasurements } from "./hu-measurements";
 import { huTechnical } from "./hu-technical";
@@ -23,6 +24,13 @@ import { huSharedUi } from "./hu-shared-ui";
 import { huCore } from "./hu-core";
 /** Hungarian authoring; never imported by the runtime catalog. */
 export const HU_STAGED_BATCHES = [
+  {
+    name: "growth",
+    copy: huGrowth,
+    namespaces: ["authority", "actions", "publicAudit"],
+    sourceRevision: "ecb37f2",
+    sourceHash: "79460ac604f31155136687fbf43e146ccd11625f12316625da192cdb8188f136",
+  },
   {
     name: "outreach",
     copy: huOutreach,
