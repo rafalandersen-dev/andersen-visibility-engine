@@ -42,6 +42,10 @@ it("keeps staged Bulgarian outside runtime and assigns each key once", () => {
   const keys = BG_STAGED_BATCHES.flatMap((batch) => Object.keys(batch.copy));
   expect(new Set(keys).size).toBe(keys.length);
   expect(Object.keys(BG_STAGED_CATALOG).sort()).toEqual(keys.sort());
-  expect(keys).toHaveLength(3423);
+  expect(keys).toHaveLength(3768);
   expect(Object.isFrozen(BG_STAGED_CATALOG)).toBe(true);
+});
+
+it("covers the complete current English catalog in staged Bulgarian", () => {
+  expect(Object.keys(BG_STAGED_CATALOG).sort()).toEqual(Object.keys(UI_CATALOGS.en).sort());
 });

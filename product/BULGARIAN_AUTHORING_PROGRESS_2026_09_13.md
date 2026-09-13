@@ -1,6 +1,6 @@
 # Bulgarian interface authoring — 13 September 2026
 
-Bulgarian is staged only: 3,423 of the current 3,768 English interface keys across twenty-seven complete batches. It is excluded from UI_CATALOGS and the language picker. Four UI catalogs remain active; eleven other catalogs are completely authored in staging with acceptance still incomplete.
+Bulgarian is staged only: all 3,768 current English interface keys across twenty-eight complete batches. It is excluded from UI_CATALOGS and the language picker. Four UI catalogs remain active; eleven other catalogs are completely authored in staging with acceptance still incomplete.
 
 | Batch | Keys | Composed English baseline |
 | --- | ---: | --- |
@@ -31,8 +31,9 @@ Bulgarian is staged only: 3,423 of the current 3,768 English interface keys acro
 | Commerce | 192 | f995f32 |
 | Links | 256 | a999ef7 |
 | Evidence | 196 | 081c8b3 |
+| Workflow | 345 | 5ee65d5 |
 
-The frozen registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 38 Bulgarian/catalog tests, scoped lint, formatting, whitespace and type checking pass. Type log: /tmp/milo-bulgarian-evidence-types.log. Full-catalog equality will be required when all batches are authored.
+The frozen registry assigns each key once. Namespace checks verify exact keys, current composed-English source fingerprints, nonempty values and preserved placeholders, numbers, URLs and email tokens. All 40 Bulgarian/catalog tests, scoped lint, formatting, whitespace and type checking pass. Type log: /tmp/milo-bulgarian-workflow-types.log. Full-catalog equality now verifies all current composed-English keys.
 
 Terminology: работно пространство (workspace), акаунт (account), проект (project), парола (password), възстановяване на парола (password reset), странична лента (sidebar), запис (network listing), задания за съдържание (content briefs). Use polite plural explanations and concise imperative action labels; preserve provider/product names and placeholders.
 
@@ -80,4 +81,6 @@ Links copy preserves paid-order approval, uncertain-outcome holds, incomplete in
 
 Evidence copy preserves owner-supplied provenance limits, publication snapshots, correction history, bounded log imports and privacy rules. Benchmark budget copy does not renew expired test authorization. No model evaluation, generation test, evidence import, log upload or publication operation occurred.
 
-Remaining: 345 interface messages, fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next: workflow using current composed English source. This staged work does not complete R20 or change release gates.
+Workflow copy preserves work targets versus publication times, approval versus publication, recovery without new generation and preview versus destination fidelity. No schedule, generation, approval, recovery or publication operation occurred.
+
+Authoring is complete. Remaining: fluent-language/terminology review, rendered mobile/desktop and accessibility checks, integrated candidate validation and activation acceptance. Next: Bulgarian knowledge-review component acceptance using the complete staged catalog. This staged work does not complete R20 or change release gates.

@@ -1,3 +1,4 @@
+import { bgWorkflow } from "./bg-workflow";
 import { bgEvidence } from "./bg-evidence";
 import { bgLinks } from "./bg-links";
 import { bgCommerce } from "./bg-commerce";
@@ -27,6 +28,31 @@ import { bgAuthScreen } from "./bg-auth-screen";
 import { bgSharedUi } from "./bg-shared-ui";
 /** Bulgarian authoring; never imported by the runtime catalog. */
 export const BG_STAGED_BATCHES = [
+  {
+    name: "workflow",
+    copy: bgWorkflow,
+    namespaces: [
+      "autoSched",
+      "prev",
+      "imgGen",
+      "arrange",
+      "visual",
+      "editor",
+      "dashboard",
+      "status",
+      "quality",
+      "calsched",
+      "pres",
+      "featured",
+      "today",
+      "plan",
+      "generationResults",
+      "workflow",
+      "publishingFidelity",
+    ],
+    sourceRevision: "5ee65d5",
+    sourceHash: "649e9d723e890e3a356652ad7a515080081167e2d06a4dc5d3ad58cc5e2b6615",
+  },
   {
     name: "evidence",
     copy: bgEvidence,
