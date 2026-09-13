@@ -1,4 +1,5 @@
 import { etPublicPricing } from "./et-public-pricing";
+import { etPublicHome } from "./et-public-home";
 import { etPublicStudies } from "./et-public-studies";
 import { etAnalyticsScreen } from "./et-analytics-screen";
 import { etEvidenceScreen } from "./et-evidence-screen";
@@ -13,6 +14,13 @@ import { etSharedUi } from "./et-shared-ui";
 import { etCore } from "./et-core";
 /** Estonian authoring; never imported by the runtime catalog. */
 export const ET_STAGED_BATCHES = [
+  {
+    name: "public home",
+    copy: etPublicHome,
+    namespaces: ["publicHome"],
+    sourceRevision: "7555b58",
+    sourceHash: "2855ce0efcce2fc714afc7f61a15d64ed5975809acefb98df75a3e275ccae141",
+  },
   {
     name: "public pricing",
     copy: etPublicPricing,
