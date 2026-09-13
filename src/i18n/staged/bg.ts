@@ -1,3 +1,4 @@
+import { bgConfiguration } from "./bg-configuration";
 import { bgPublicBeta } from "./bg-public-beta";
 import { bgBetaGuide } from "./bg-beta-guide";
 import { bgBetaScreen } from "./bg-beta-screen";
@@ -17,6 +18,13 @@ import { bgAuthScreen } from "./bg-auth-screen";
 import { bgSharedUi } from "./bg-shared-ui";
 /** Bulgarian authoring; never imported by the runtime catalog. */
 export const BG_STAGED_BATCHES = [
+  {
+    name: "configuration",
+    copy: bgConfiguration,
+    namespaces: ["brand", "wp", "shopify", "claude", "connect", "connections", "coverage"],
+    sourceRevision: "abd962a",
+    sourceHash: "0e11ebfcac212ec85d91c8734430e0cd661dc727057c565c1cfcd33f59a1aa60",
+  },
   {
     name: "public beta",
     copy: bgPublicBeta,
