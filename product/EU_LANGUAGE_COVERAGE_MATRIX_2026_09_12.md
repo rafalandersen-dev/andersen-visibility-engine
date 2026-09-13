@@ -1,6 +1,6 @@
 # R20 language coverage matrix — 12 September 2026
 
-Latest authoring checkpoint - 13 September (latest English source fbd1e97): four active complete catalogs, thirteen complete staged catalogs (FR/DE/ES/IT/PT/NL/FI/CS/SK/SL/HR/BG/ET), Greek partial at 2,971/3,768 and six unauthored catalogs (HU/GA/LV/LT/MT/RO). Remaining UI authoring backlog: 23,405 messages. Greek twenty-five batches pass all 36 focused tests, types, scoped lint, formatting and whitespace. The original audit and incremental history below retain their dated baselines; none constitutes activation or fluent/rendered acceptance.
+Latest authoring checkpoint - 13 September (latest English source 85a85fa): four active complete catalogs, thirteen complete staged catalogs (FR/DE/ES/IT/PT/NL/FI/CS/SK/SL/HR/BG/ET), Greek partial at 3,227/3,768 and six unauthored catalogs (HU/GA/LV/LT/MT/RO). Remaining UI authoring backlog: 23,149 messages. Greek twenty-six batches pass all 37 focused tests, types, scoped lint, formatting and whitespace. The original audit and incremental history below retain their dated baselines; none constitutes activation or fluent/rendered acceptance.
 
 Prior Slovak authoring checkpoint (source aef1c2c plus Slovak workflow): Slovak now has all 3,768 current English UI keys across 28 staged batches. Four catalogs are active and nine are fully staged (FR/DE/ES/IT/PT/NL/FI/CS/SK); eleven remain unauthored. Remaining UI authoring backlog: 41,448 messages (11 × 3,768). All 40 Slovak/catalog tests, types, scoped lint and whitespace pass. This is authoring coverage, not activation or language/rendered acceptance. The original audit and incremental history below retain their own evidence baselines.
 
@@ -423,3 +423,6 @@ Slovenian outreach adds 158 messages at source 2705f3f: 2,578/3,768 in twenty-th
 
 
 Greek commerce checkpoint - 13 September (English source fbd1e97): billing, launch and beta add 192 messages, reaching 2,971/3,768 across 25 staged batches. All 36 focused tests, types, scoped lint, formatting and whitespace pass. Payment/activation, country eligibility, connection-test and paid-launch evidence limits are preserved. Greek remains inactive; 797 Greek messages and 23,405 EU UI messages remain to author, followed by language/rendered and activation acceptance. Next: links.
+
+
+Greek links checkpoint - 13 September (English source 85a85fa): link network, backlinks, marketplace, monitoring, details and recurring collection add 256 messages, reaching 3,227/3,768 across 26 staged batches. All 37 focused tests, types, scoped lint, formatting and whitespace pass. Index/sample limitations, missing data, exact-price authorization, demo/order distinctions, uncertain outcomes, accounting recovery and UTC/spending limits are preserved. Greek remains inactive; 541 Greek messages and 23,149 EU UI messages remain to author, followed by language/rendered and activation acceptance. Next: evidence.

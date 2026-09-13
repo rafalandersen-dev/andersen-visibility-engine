@@ -1,3 +1,4 @@
+import { elLinks } from "./el-links";
 import { elCommerce } from "./el-commerce";
 import { elGrowth } from "./el-growth";
 import { elOutreach } from "./el-outreach";
@@ -25,6 +26,20 @@ import { elSharedUi } from "./el-shared-ui";
 import { elCore } from "./el-core";
 /** Greek authoring; never imported by the runtime catalog. */
 export const EL_STAGED_BATCHES = [
+  {
+    name: "links",
+    copy: elLinks,
+    namespaces: [
+      "linknet",
+      "backlinks",
+      "marketplace",
+      "backlinkMonitor",
+      "backlinkDetails",
+      "backlinkRecurring",
+    ],
+    sourceRevision: "85a85fa",
+    sourceHash: "7b8c4cfd6fb08b518e7e0eb7fd53e767b72972a0048a75521eda0d4b9ebd40d7",
+  },
   {
     name: "commerce",
     copy: elCommerce,
