@@ -1,3 +1,4 @@
+import { huMeasurements } from "./hu-measurements";
 import { huTechnical } from "./hu-technical";
 import { huKnowledge } from "./hu-knowledge";
 import { huCollaboration } from "./hu-collaboration";
@@ -21,6 +22,13 @@ import { huSharedUi } from "./hu-shared-ui";
 import { huCore } from "./hu-core";
 /** Hungarian authoring; never imported by the runtime catalog. */
 export const HU_STAGED_BATCHES = [
+  {
+    name: "measurements",
+    copy: huMeasurements,
+    namespaces: ["analytics", "gsc", "report"],
+    sourceRevision: "b48828d",
+    sourceHash: "216126da773525ef913fe7e10a4db7af57539ea07dae497fd349051da3088395",
+  },
   {
     name: "technical",
     copy: huTechnical,
