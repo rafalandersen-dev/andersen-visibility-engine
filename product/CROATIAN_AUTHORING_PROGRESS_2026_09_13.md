@@ -86,3 +86,5 @@ Workflow copy preserves approval/publication separation, work targets versus pub
 The complete-catalog test now verifies exact equality with every current composed English key, in addition to batch ownership and source/parameter checks.
 
 Remaining: fluent-language/terminology review, rendered mobile/desktop and accessibility checks, and activation acceptance. Next: terminology consistency and the local knowledge-review browser harness with the actual staged Croatian catalog, then an integrated candidate check. This staged work does not complete R20 or change release gates.
+
+Focused component follow-up: all nine knowledge-review browser groups pass with the actual staged Croatian catalog at baseline 1c1eeac, including evidence descriptions, language, busy states and focus return. Matching-label terminology comparison passed without copy changes. See CROATIAN_COMPONENT_ACCEPTANCE_2026_09_13.md for scope; full-page, fluent-language, screen-reader and activation acceptance remain open. Next: integrated candidate validation.
