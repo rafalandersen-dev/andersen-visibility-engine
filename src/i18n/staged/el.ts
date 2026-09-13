@@ -1,3 +1,4 @@
+import { elOutreach } from "./el-outreach";
 import { elMeasurements } from "./el-measurements";
 import { elTechnical } from "./el-technical";
 import { elKnowledge } from "./el-knowledge";
@@ -22,6 +23,13 @@ import { elSharedUi } from "./el-shared-ui";
 import { elCore } from "./el-core";
 /** Greek authoring; never imported by the runtime catalog. */
 export const EL_STAGED_BATCHES = [
+  {
+    name: "outreach",
+    copy: elOutreach,
+    namespaces: ["outreach", "hook", "anchor"],
+    sourceRevision: "b68c89e",
+    sourceHash: "c2bfe98eb710f1587237c92b04696e6f9221e67def7d1080eb7ce08e3d1161b4",
+  },
   {
     name: "measurements",
     copy: elMeasurements,
