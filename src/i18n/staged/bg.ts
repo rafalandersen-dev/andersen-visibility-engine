@@ -1,3 +1,4 @@
+import { bgPublicBeta } from "./bg-public-beta";
 import { bgBetaGuide } from "./bg-beta-guide";
 import { bgBetaScreen } from "./bg-beta-screen";
 import { bgPublicHome } from "./bg-public-home";
@@ -16,6 +17,13 @@ import { bgAuthScreen } from "./bg-auth-screen";
 import { bgSharedUi } from "./bg-shared-ui";
 /** Bulgarian authoring; never imported by the runtime catalog. */
 export const BG_STAGED_BATCHES = [
+  {
+    name: "public beta",
+    copy: bgPublicBeta,
+    namespaces: ["publicBeta"],
+    sourceRevision: "c06deab",
+    sourceHash: "e670953b131c40fc4433b5ce6e5b256556bf37ea8709bc495b211efc361fb59e",
+  },
   {
     name: "beta guidance",
     copy: bgBetaGuide,
