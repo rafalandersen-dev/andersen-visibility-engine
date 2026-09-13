@@ -1,3 +1,4 @@
+import { huEvidence } from "./hu-evidence";
 import { huLinks } from "./hu-links";
 import { huCommerce } from "./hu-commerce";
 import { huGrowth } from "./hu-growth";
@@ -26,6 +27,13 @@ import { huSharedUi } from "./hu-shared-ui";
 import { huCore } from "./hu-core";
 /** Hungarian authoring; never imported by the runtime catalog. */
 export const HU_STAGED_BATCHES = [
+  {
+    name: "evidence",
+    copy: huEvidence,
+    namespaces: ["answer", "logs", "proof", "aiEval", "benchmark"],
+    sourceRevision: "4f58bc4",
+    sourceHash: "2911f87d7691a2bf04548e0b7c0e63b3c93f25cdcd73c9af1ba5d22ffdee211d",
+  },
   {
     name: "links",
     copy: huLinks,
