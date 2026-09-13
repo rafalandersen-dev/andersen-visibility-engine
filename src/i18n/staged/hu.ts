@@ -1,3 +1,4 @@
+import { huPlanScreen } from "./hu-plan-screen";
 import { huEvidenceScreen } from "./hu-evidence-screen";
 import { huSetupScreen } from "./hu-setup-screen";
 import { huServicesScreen } from "./hu-services-screen";
@@ -9,6 +10,13 @@ import { huSharedUi } from "./hu-shared-ui";
 import { huCore } from "./hu-core";
 /** Hungarian authoring; never imported by the runtime catalog. */
 export const HU_STAGED_BATCHES = [
+  {
+    name: "plan screen",
+    copy: huPlanScreen,
+    namespaces: ["planScreen"],
+    sourceRevision: "22410f8",
+    sourceHash: "288f529ed3a18c00623c05011262d3cce0374158e558959fa8fc9dbc63174bb7",
+  },
   {
     name: "evidence screen",
     copy: huEvidenceScreen,
