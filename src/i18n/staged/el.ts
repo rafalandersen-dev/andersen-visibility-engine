@@ -1,3 +1,4 @@
+import { elBetaGuide } from "./el-beta-guide";
 import { elBetaScreen } from "./el-beta-screen";
 import { elPublicHome } from "./el-public-home";
 import { elPublicPricing } from "./el-public-pricing";
@@ -15,6 +16,13 @@ import { elSharedUi } from "./el-shared-ui";
 import { elCore } from "./el-core";
 /** Greek authoring; never imported by the runtime catalog. */
 export const EL_STAGED_BATCHES = [
+  {
+    name: "beta guidance",
+    copy: elBetaGuide,
+    namespaces: ["betaGuide"],
+    sourceRevision: "e2b8358",
+    sourceHash: "8c815e10a73590a6e2911d1b5618d5d545c15a47b3a75462ccaaae6faf33520d",
+  },
   {
     name: "beta screen",
     copy: elBetaScreen,
