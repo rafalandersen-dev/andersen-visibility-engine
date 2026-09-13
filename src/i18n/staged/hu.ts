@@ -1,3 +1,4 @@
+import { huCommerce } from "./hu-commerce";
 import { huGrowth } from "./hu-growth";
 import { huOutreach } from "./hu-outreach";
 import { huMeasurements } from "./hu-measurements";
@@ -24,6 +25,13 @@ import { huSharedUi } from "./hu-shared-ui";
 import { huCore } from "./hu-core";
 /** Hungarian authoring; never imported by the runtime catalog. */
 export const HU_STAGED_BATCHES = [
+  {
+    name: "commerce",
+    copy: huCommerce,
+    namespaces: ["billing", "launch", "beta"],
+    sourceRevision: "9b1389c",
+    sourceHash: "6cd0596e8ff09ae38f9decb763ab31a3fe2c311109c9b5f85edc9721d7058ff2",
+  },
   {
     name: "growth",
     copy: huGrowth,
