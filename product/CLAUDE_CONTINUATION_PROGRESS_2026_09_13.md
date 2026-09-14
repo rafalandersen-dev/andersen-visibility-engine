@@ -2421,3 +2421,5 @@ Not changed: PR #135's `competitorUrl` finding (other branch) and the `equalSecr
 **Validation:** proposal, lifecycle, account, tools and chain suites 101/101 after the fixes (one test expectation corrected); `tsc --noEmit -p .` and `eslint` on changed files pass. Full suite result appended below.
 
 **Full suite after Milestone 107:** 5,716 tests / 367 files pass (51 s). Rerun `bun run build` outside the sandbox before merge, since source changed after the owner-run build.
+
+**Production build at `f549e9a` (owner-run, 14 September):** the owner reran `bun run build` outside the sandbox after Milestone 107 and reported that it passed. Local validation on this head is complete: full suite, types, lint, browser fixtures and build. Merge still waits on the Codex security review, CI on both Bun runtimes for this head, and the release protocol.
