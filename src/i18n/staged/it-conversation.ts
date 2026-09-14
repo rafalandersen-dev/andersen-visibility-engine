@@ -1,5 +1,19 @@
 import type { ConversationCopy } from "../conversation";
 export const itConversation: ConversationCopy = {
+  "chat.account.title": "Le tue conversazioni",
+  "chat.account.description":
+    "Tutte le conversazioni private con Milo che hai avviato, in tutti i progetti. Solo tu puoi vedere questo elenco.",
+  "chat.account.manage": "Gestisci tutte le conversazioni",
+  "chat.account.error":
+    "Impossibile confermare le tue conversazioni. I titoli restano nascosti finché non vengono verificati di nuovo.",
+  "chat.account.retry": "Verifica di nuovo",
+  "chat.account.empty": "Non hai conversazioni salvate.",
+  "chat.account.more": "Mostra altre conversazioni",
+  "chat.account.started": "Avviata: {date}",
+  "chat.account.unavailable":
+    "L’accesso al progetto è terminato, quindi titolo e messaggi restano nascosti. Puoi comunque eliminare questa conversazione.",
+  "chat.account.eraseAccess":
+    "L’eliminazione non ripristina né modifica il tuo accesso al progetto.",
   "chat.export": "Esporta conversazione",
   "chat.exportHelp":
     "Scarica messaggi, ricevute e proposte storiche in un file JSON. I file collegati sono separati.",
@@ -96,4 +110,13 @@ export const itConversation: ConversationCopy = {
   "chat.tool.weekly_preparation": "Stato della preparazione settimanale",
   "chat.tool.saved_audit": "Revisione dell’audit salvato",
   "chat.tool.draft_generation": "Generazione della bozza",
+  "chat.tool.technical_evidence": "Controlli tecnici salvati",
+  "chat.tool.visibility_evidence": "Evidenze salvate da risposte IA e log",
+  "chat.tool.authority_evidence": "Monitoraggio salvato dei link in entrata",
+  "chat.tool.google_index_inspection": "Controllo dell’indice Google",
+  "chat.tool.performance_test": "Test della velocità della pagina",
+  "chat.tool.site_crawl": "Scansione del sito",
+  "chat.allowProviderChecks":
+    "Consenti fino a due controlli del sito in questa richiesta (controllo dell’indice Google, velocità della pagina o una scansione del sito) per il sito web di questo progetto. Usa i servizi collegati del proprietario del progetto e i limiti di controllo esistenti, e salva i risultati insieme ai controlli tecnici del progetto.",
+  "chat.providerChecksEnabled": "Controlli del sito consentiti per questa richiesta.",
 };

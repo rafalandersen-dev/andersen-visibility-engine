@@ -1,5 +1,18 @@
 import type { ConversationCopy } from "../conversation";
 export const bgConversation: ConversationCopy = {
+  "chat.account.title": "Вашите разговори",
+  "chat.account.description":
+    "Всички ваши лични разговори във всички проекти. Само вие виждате този списък.",
+  "chat.account.manage": "Управление на всички разговори",
+  "chat.account.error":
+    "Вашите разговори не бяха потвърдени. Заглавията остават скрити, докато не бъдат проверени отново.",
+  "chat.account.retry": "Проверете отново",
+  "chat.account.empty": "Нямате запазени разговори.",
+  "chat.account.more": "Показване на още разговори",
+  "chat.account.started": "Започнат: {date}",
+  "chat.account.unavailable":
+    "Достъпът ви до проекта е прекратен, затова заглавието и съобщенията остават скрити. Все още можете да изтриете този разговор.",
+  "chat.account.eraseAccess": "Изтриването не възстановява и не променя достъпа ви до проекта.",
   "chat.export": "Експортиране на разговора",
   "chat.exportHelp":
     "Изтегля запазени съобщения, потвърждения и предишни предложения като JSON файл. Свързаните файлове са отделни.",
@@ -95,4 +108,13 @@ export const bgConversation: ConversationCopy = {
   "chat.tool.weekly_preparation": "Състояние на седмичната подготовка",
   "chat.tool.saved_audit": "Преглед на запазения одит",
   "chat.tool.draft_generation": "Генериране на чернова",
+  "chat.tool.technical_evidence": "Запазени технически проверки",
+  "chat.tool.visibility_evidence": "Запазени доказателства от отговори на ИИ и логове",
+  "chat.tool.authority_evidence": "Запазено наблюдение на обратните връзки",
+  "chat.tool.google_index_inspection": "Проверка на индекса в Google",
+  "chat.tool.performance_test": "Тест за скорост на страницата",
+  "chat.tool.site_crawl": "Обхождане на сайта",
+  "chat.allowProviderChecks":
+    "Разреши до две проверки на сайта в тази заявка (проверка на индекса в Google, скорост на страницата или едно обхождане на сайта) за уебсайта на този проект. Използва свързаните услуги на собственика на проекта и съществуващите ограничения за проверки и запазва резултатите заедно с техническите проверки на проекта.",
+  "chat.providerChecksEnabled": "Проверките на сайта са разрешени за тази заявка.",
 };

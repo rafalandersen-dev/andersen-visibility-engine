@@ -1,5 +1,18 @@
 import type { ConversationCopy } from "../conversation";
 export const nlConversation: ConversationCopy = {
+  "chat.account.title": "Je gesprekken",
+  "chat.account.description":
+    "Alle privégesprekken met Milo die je bent begonnen, in alle projecten. Alleen jij ziet deze lijst.",
+  "chat.account.manage": "Alle gesprekken beheren",
+  "chat.account.error":
+    "Je gesprekken konden niet worden bevestigd. Titels blijven verborgen totdat ze opnieuw zijn gecontroleerd.",
+  "chat.account.retry": "Opnieuw controleren",
+  "chat.account.empty": "Je hebt geen opgeslagen gesprekken.",
+  "chat.account.more": "Meer gesprekken tonen",
+  "chat.account.started": "Gestart: {date}",
+  "chat.account.unavailable":
+    "Je toegang tot het project is beëindigd, dus de titel en berichten blijven verborgen. Je kunt dit gesprek nog steeds verwijderen.",
+  "chat.account.eraseAccess": "Verwijderen herstelt of wijzigt je toegang tot het project niet.",
   "chat.export": "Gesprek exporteren",
   "chat.exportHelp":
     "Downloadt opgeslagen berichten, bevestigingen en eerdere voorstellen als JSON-bestand. Gekoppelde bestanden staan apart.",
@@ -97,4 +110,13 @@ export const nlConversation: ConversationCopy = {
   "chat.tool.weekly_preparation": "Status van weekvoorbereiding",
   "chat.tool.saved_audit": "Beoordeling van opgeslagen audit",
   "chat.tool.draft_generation": "Conceptgeneratie",
+  "chat.tool.technical_evidence": "Opgeslagen technische controles",
+  "chat.tool.visibility_evidence": "Opgeslagen bewijs uit AI-antwoorden en logbestanden",
+  "chat.tool.authority_evidence": "Opgeslagen monitoring van inkomende links",
+  "chat.tool.google_index_inspection": "Google-indexinspectie",
+  "chat.tool.performance_test": "Paginasnelheidstest",
+  "chat.tool.site_crawl": "Websitecrawl",
+  "chat.allowProviderChecks":
+    "Sta in dit verzoek maximaal twee websitecontroles toe (Google-indexinspectie, paginasnelheid of één websitecrawl) voor de website van dit project. Gebruikt de gekoppelde diensten van de projecteigenaar en de bestaande controlelimieten, en slaat de resultaten op bij de technische controles van het project.",
+  "chat.providerChecksEnabled": "Websitecontroles toegestaan voor dit verzoek.",
 };

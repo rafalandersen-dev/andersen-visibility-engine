@@ -16,6 +16,11 @@ import { BG_STAGED_BATCHES } from "./staged/bg";
 import { ET_STAGED_BATCHES } from "./staged/et";
 import { EL_STAGED_BATCHES } from "./staged/el";
 import { HU_STAGED_BATCHES } from "./staged/hu";
+import { RO_STAGED_BATCHES } from "./staged/ro";
+import { LV_STAGED_BATCHES } from "./staged/lv";
+import { LT_STAGED_BATCHES } from "./staged/lt";
+import { MT_STAGED_BATCHES } from "./staged/mt";
+import { GA_STAGED_BATCHES } from "./staged/ga";
 const keys = Object.keys(conversationCopy.en).sort();
 const fingerprint = createHash("sha256")
   .update(
@@ -40,6 +45,11 @@ const staged = {
   et: ET_STAGED_BATCHES,
   el: EL_STAGED_BATCHES,
   hu: HU_STAGED_BATCHES,
+  ro: RO_STAGED_BATCHES,
+  lv: LV_STAGED_BATCHES,
+  lt: LT_STAGED_BATCHES,
+  mt: MT_STAGED_BATCHES,
+  ga: GA_STAGED_BATCHES,
 };
 it.each(Object.entries(staged))(
   "%s conversation copy retains exact reviewed English source",

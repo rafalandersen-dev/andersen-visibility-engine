@@ -316,4 +316,8 @@ export const slCollaboration: Readonly<Record<string, string>> = {
   "emailSettings.uncertain":
     "Shranjenih nastavitev ni bilo mogoče potrditi. Pred naslednjo spremembo jih znova naložite; vaša zadnja sprememba je morda že shranjena.",
   "emailSettings.reload": "Znova naloži shranjene nastavitve (zavrzi spremembe)",
+  "collaboration.seats":
+    "Vaš paket {plan} vključuje {workingSeats} delovnih mest (uredniki in pregledovalci, vključno z vami) in {viewerSeats} mest za ogled. V uporabi: {usedWorkingSeats} delovnih, {usedViewerSeats} za ogled. Čakajoča povabila rezervirajo mesta, dokler ne potečejo.",
+  "collaboration.seatLimit":
+    "Za to vlogo ni prostega mesta. Vaš paket vključuje {workingSeats} delovnih mest in {viewerSeats} mest za ogled. Nekoga odstranite ali prekličite povabilo ali nadgradite paket.",
 };

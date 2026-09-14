@@ -1,5 +1,18 @@
 import type { ConversationCopy } from "../conversation";
 export const esConversation: ConversationCopy = {
+  "chat.account.title": "Tus conversaciones",
+  "chat.account.description":
+    "Todas las conversaciones privadas con Milo que has iniciado, en todos los proyectos. Solo tú puedes ver esta lista.",
+  "chat.account.manage": "Gestionar todas las conversaciones",
+  "chat.account.error":
+    "No se pudieron confirmar tus conversaciones. Los títulos siguen ocultos hasta que se vuelvan a comprobar.",
+  "chat.account.retry": "Volver a comprobar",
+  "chat.account.empty": "No tienes conversaciones guardadas.",
+  "chat.account.more": "Mostrar más conversaciones",
+  "chat.account.started": "Iniciada: {date}",
+  "chat.account.unavailable":
+    "El acceso al proyecto ha terminado, por lo que el título y los mensajes siguen ocultos. Aún puedes eliminar esta conversación.",
+  "chat.account.eraseAccess": "Eliminarla no restablece ni cambia tu acceso al proyecto.",
   "chat.export": "Exportar conversación",
   "chat.exportHelp":
     "Descarga mensajes, comprobantes y propuestas históricas en un archivo JSON. Los archivos vinculados son independientes.",
@@ -95,4 +108,13 @@ export const esConversation: ConversationCopy = {
   "chat.tool.weekly_preparation": "Estado de la preparación semanal",
   "chat.tool.saved_audit": "Revisión de la auditoría guardada",
   "chat.tool.draft_generation": "Generación del borrador",
+  "chat.tool.technical_evidence": "Comprobaciones técnicas guardadas",
+  "chat.tool.visibility_evidence": "Evidencias guardadas de respuestas de IA y registros",
+  "chat.tool.authority_evidence": "Seguimiento guardado de enlaces entrantes",
+  "chat.tool.google_index_inspection": "Inspección del índice de Google",
+  "chat.tool.performance_test": "Prueba de velocidad de la página",
+  "chat.tool.site_crawl": "Rastreo del sitio",
+  "chat.allowProviderChecks":
+    "Permite hasta dos comprobaciones del sitio en esta solicitud (inspección del índice de Google, velocidad de la página o un rastreo del sitio) para el sitio web de este proyecto. Usa los servicios conectados del propietario del proyecto y los límites de comprobación existentes, y guarda los resultados con las comprobaciones técnicas del proyecto.",
+  "chat.providerChecksEnabled": "Comprobaciones del sitio permitidas para esta solicitud.",
 };

@@ -1,5 +1,18 @@
 import type { ConversationCopy } from "../conversation";
 export const skConversation: ConversationCopy = {
+  "chat.account.title": "Vaše konverzácie",
+  "chat.account.description":
+    "Všetky vaše súkromné konverzácie vo všetkých projektoch. Tento zoznam vidíte iba vy.",
+  "chat.account.manage": "Spravovať všetky konverzácie",
+  "chat.account.error":
+    "Vaše konverzácie sa nepodarilo potvrdiť. Názvy zostávajú skryté, kým nebudú znova overené.",
+  "chat.account.retry": "Skontrolovať znova",
+  "chat.account.empty": "Nemáte žiadne uložené konverzácie.",
+  "chat.account.more": "Zobraziť ďalšie konverzácie",
+  "chat.account.started": "Začaté: {date}",
+  "chat.account.unavailable":
+    "Váš prístup k projektu sa skončil, preto názov a správy zostávajú skryté. Túto konverzáciu môžete stále odstrániť.",
+  "chat.account.eraseAccess": "Odstránenie neobnoví ani nezmení váš prístup k projektu.",
   "chat.export": "Exportovať konverzáciu",
   "chat.exportHelp":
     "Stiahne uložené správy, potvrdenia a staršie návrhy ako súbor JSON. Prepojené súbory sú samostatné.",
@@ -92,4 +105,13 @@ export const skConversation: ConversationCopy = {
   "chat.tool.weekly_preparation": "Stav týždennej prípravy",
   "chat.tool.saved_audit": "Kontrola uloženého auditu",
   "chat.tool.draft_generation": "Vytváranie konceptu",
+  "chat.tool.technical_evidence": "Uložené technické kontroly",
+  "chat.tool.visibility_evidence": "Uložené dôkazy z odpovedí AI a záznamov",
+  "chat.tool.authority_evidence": "Uložené sledovanie spätných odkazov",
+  "chat.tool.google_index_inspection": "Kontrola indexu Google",
+  "chat.tool.performance_test": "Test rýchlosti stránky",
+  "chat.tool.site_crawl": "Prehľadanie webu",
+  "chat.allowProviderChecks":
+    "Povoliť v tejto požiadavke najviac dve kontroly webu (kontrola indexu Google, rýchlosť stránky alebo jedno prehľadanie webu) pre web tohto projektu. Používa pripojené služby vlastníka projektu a existujúce limity kontrol a výsledky ukladá spolu s technickými kontrolami projektu.",
+  "chat.providerChecksEnabled": "Kontroly webu sú pre túto požiadavku povolené.",
 };

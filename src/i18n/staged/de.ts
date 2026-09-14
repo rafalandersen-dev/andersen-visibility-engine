@@ -36,7 +36,7 @@ export const DE_STAGED_BATCHES = [
     copy: deConversation,
     namespaces: ["chat"],
     sourceRevision: "metadata proposal candidate after eb971e8",
-    sourceHash: "c42d653146c1c442a1b234347237a4ba1432531ee8ef5a1e3ba59837d6836f96",
+    sourceHash: "d37f66e7435e11e49b2e69c75ace0f494c1d288b7c4e4b1d3f3c110a1274649b",
   },
   {
     name: "core",

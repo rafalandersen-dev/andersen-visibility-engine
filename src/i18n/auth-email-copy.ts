@@ -205,14 +205,14 @@ export const authEmailCopy: Record<EmailLanguage, AuthEmailCopy> = {
       "Če ponastavitve niste zahtevali, prezrite to sporočilo. Geslo se ne bo spremenilo, dokler ne dokončate ponastavitve.",
   },
   ro: {
-    signupTitle: "Confirmă adresa de e-mail",
-    signupBody: "Confirmă adresa de e-mail pentru {siteName} folosind butonul de mai jos.",
-    signupIgnore: "Dacă nu ai creat acest cont, poți ignora acest e-mail.",
-    resetTitle: "Resetează parola",
+    signupTitle: "Confirmați adresa de e-mail",
+    signupBody: "Confirmați adresa de e-mail pentru {siteName} folosind butonul de mai jos.",
+    signupIgnore: "Dacă nu ați creat acest cont, puteți ignora acest e-mail.",
+    resetTitle: "Resetați parola",
     resetBody:
-      "Am primit o solicitare de resetare a parolei pentru {siteName}. Folosește butonul de mai jos pentru a alege o parolă nouă.",
+      "Am primit o solicitare de resetare a parolei pentru {siteName}. Folosiți butonul de mai jos pentru a alege o parolă nouă.",
     resetIgnore:
-      "Dacă nu ai solicitat resetarea, ignoră acest e-mail. Parola nu se va schimba până când nu finalizezi resetarea.",
+      "Dacă nu ați solicitat resetarea, ignorați acest e-mail. Parola nu se va schimba până când nu finalizați resetarea.",
   },
   hu: {
     signupTitle: "Erősítse meg e-mail-címét",

@@ -93,7 +93,7 @@ export const nlPublicHome: Readonly<Record<string, string>> = {
   "publicHome.beforeStart": "Voordat je begint",
   "publicHome.faqDiscoveryQ": "Waar komen ontdekte kansen terecht?",
   "publicHome.faqDiscoveryA":
-    "Ontdekte resultaten blijven suggesties totdat je ze accepteert. Geaccepteerde ideeën komen in Plan bij Vastgelegd, met hun bron, reden, onderbouwing, verantwoordelijke, status en volgende actie.",
+    "Ontdekte resultaten blijven suggesties totdat je ze accepteert. Geaccepteerde ideeën komen in Plan bij Idee, met hun bron, reden, onderbouwing, verantwoordelijke, status en volgende actie.",
   "publicHome.faqScoreQ": "Wat beoordeelt Milo Score?",
   "publicHome.faqScoreA":
     "Milo Score evalueert een specifieke contentversie voordat deze ter beoordeling gaat. De score controleert zoekgereedheid, aansluiting bij het merk, structuur, onderbouwing, conversie en gerelateerde kwaliteitssignalen. Kansen worden nooit gerangschikt.",

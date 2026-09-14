@@ -70,6 +70,19 @@ describe("conversation server authority and response validation", () => {
       p_lease: lease,
     });
   });
+  it("sends the separate provider-check consent and refuses a stored response without it", async () => {
+    const consented = { ...input, allowProviderChecks: true };
+    const rpc = responding({ created: true, turn: { ...turn, allowProviderChecks: true } });
+    await beginConversationTurn(actor, consented, rpc);
+    expect(rpc).toHaveBeenCalledWith(
+      "begin_milo_conversation_turn",
+      expect.objectContaining({ p_allow_checks: true }),
+    );
+    for (const stored of [{ ...turn, allowProviderChecks: false }, turn])
+      await expect(
+        beginConversationTurn(actor, consented, responding({ created: true, turn: stored })),
+      ).rejects.toThrow();
+  });
   it("refuses substituted task content or identity in stored responses", async () => {
     for (const change of [{ body: "Other message" }, { turnId: lease }, { locale: "en" }])
       await expect(

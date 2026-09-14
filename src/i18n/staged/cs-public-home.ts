@@ -94,7 +94,7 @@ export const csPublicHome: Readonly<Record<string, string>> = {
   "publicHome.beforeStart": "Než začnete",
   "publicHome.faqDiscoveryQ": "Kam směřují nalezené příležitosti?",
   "publicHome.faqDiscoveryA":
-    "Výsledky hledání zůstávají návrhy, dokud je nepřijmete. Přijaté nápady vstoupí do Plánu ve fázi Zachyceno, spolu se zdrojem, důvodem, podklady, odpovědnou osobou, stavem a dalším krokem.",
+    "Výsledky hledání zůstávají návrhy, dokud je nepřijmete. Přijaté nápady vstoupí do Plánu ve fázi Nápad, spolu se zdrojem, důvodem, podklady, odpovědnou osobou, stavem a dalším krokem.",
   "publicHome.faqScoreQ": "Co hodnotí Milo Score?",
   "publicHome.faqScoreA":
     "Milo Score hodnotí konkrétní verzi obsahu před kontrolou. Posuzuje připravenost pro vyhledávání, soulad se značkou, strukturu, podklady, konverze a související signály kvality. Nikdy neurčuje pořadí příležitostí.",

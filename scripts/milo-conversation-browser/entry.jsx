@@ -110,6 +110,7 @@ function fixtures(turns = []) {
         turnId: input.turnId,
         state: "running",
         allowDraftGeneration: input.allowDraftGeneration,
+        allowProviderChecks: input.allowProviderChecks,
         events: [],
       };
       saved = [...saved, turn];
@@ -145,6 +146,7 @@ async function mount(p = project) {
         key={++mountId}
         actorId={actor}
         project={p}
+        canConsentChecks={true}
         onOpenResult={(event) => results.push({ opened: event.reference })}
       />
     </QueryClientProvider>,
@@ -173,8 +175,9 @@ async function run() {
     fixtures();
     await mount();
     await input("Review this draft <img src=x onerror=alert(1)> safely.");
-    const box = document.querySelector('input[type="checkbox"]');
-    box.click();
+    const [generationBox, checksBox] = document.querySelectorAll('input[type="checkbox"]');
+    generationBox.click();
+    checksBox.click();
     await tick();
     document
       .querySelector("form")
@@ -186,9 +189,10 @@ async function run() {
     await refresh();
     assert(
       sendCalls[0].allowDraftGeneration === true &&
+        sendCalls[0].allowProviderChecks === true &&
         sendCalls[0].ownerId === actor &&
         !Object.hasOwn(sendCalls[0], "actorId"),
-      "immutable scope and generation choice",
+      "immutable scope, generation and site-check consent",
     );
     assert(document.querySelector("form").getAttribute("aria-busy") === "true", "composer busy");
     assert(!document.querySelector("img"), "message is text, never executable HTML");
@@ -196,6 +200,15 @@ async function run() {
     await until(
       () => text().includes("The saved draft has two section headings"),
       "saved response visible",
+    );
+    assert(
+      text().includes(t("chat.generationEnabled")) &&
+        text().includes(t("chat.providerChecksEnabled")),
+      "message records both consents",
+    );
+    assert(
+      [...document.querySelectorAll('input[type="checkbox"]')].every((box) => !box.checked),
+      "consent is per request and clears after sending",
     );
     assert(
       text().includes(t("team.role.seo")) && text().includes(t("team.role.lead")),
@@ -288,8 +301,10 @@ async function run() {
       "late request scoped to unmounted client",
     );
     assert(
-      !document.querySelector('input[type="checkbox"]'),
-      "collaborator cannot grant generation",
+      [...document.querySelectorAll('input[type="checkbox"]')]
+        .map((box) => box.closest("label").textContent)
+        .join("|") === t("chat.allowProviderChecks"),
+      "collaborator may consent to site checks but has no generation control",
     );
   });
   await group("pending recovery and explicit cancellation", async () => {

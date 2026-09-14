@@ -1,8 +1,8 @@
 /** Reviewed English source fingerprints. Source changes require translation review before updating. */
 export const DE_AUTHORING_SOURCE_REVISION = "5a9416d74f532b65f78c0f19b89d221c6b2af6c2";
 export const DE_AUTHORING_SOURCE_HASHES: Readonly<Record<string, string>> = {
-  // Conversation source is the chat UI candidate after ad3c0f4, recorded on its batch.
-  conversation: "c42d653146c1c442a1b234347237a4ba1432531ee8ef5a1e3ba59837d6836f96",
+  // Conversation source is the specialist-evidence chat candidate after ff9b085, recorded on its batch.
+  conversation: "d37f66e7435e11e49b2e69c75ace0f494c1d288b7c4e4b1d3f3c110a1274649b",
   core: "845b2b1ade4a0935ab924dcc4bdc27d72a7a120388740354bd69a697aa1c7ff2",
   authentication: "f0d4cd1cdcf0283517e3a90abea9abdbc8528a76d9a15c10c7cad3ef84729dc8",
   "shared controls": "678278d00a51f6b4df582627cce0d38b176e65972d6ac578682f8e2e247d9de5",
@@ -15,7 +15,7 @@ export const DE_AUTHORING_SOURCE_HASHES: Readonly<Record<string, string>> = {
   "plan screen": "288f529ed3a18c00623c05011262d3cce0374158e558959fa8fc9dbc63174bb7",
   "editor screen": "1e827d2744ea1f2d3364b54983f06b42082f45ab6dfb0eda7b1375fdddd9ec9f",
   workflow: "649e9d723e890e3a356652ad7a515080081167e2d06a4dc5d3ad58cc5e2b6615",
-  collaboration: "429e59f16a866242f25a373ebd6b52332ae3f04534230101422ebab727f77ed0",
+  collaboration: "66e659da6d8b879af77aef68c0bba3717cb793240da5ae2364a93212f16bd83f",
   knowledge: "a3a3297006f23628e422ddedfb5b6f5a51c6dd5f6abbc6d6e589481e49915816",
   technical: "106a19b8ceaf725528ddc9d4de7317d823108425584418d93729346f29c135e6",
   measurements: "216126da773525ef913fe7e10a4db7af57539ea07dae497fd349051da3088395",
@@ -25,7 +25,7 @@ export const DE_AUTHORING_SOURCE_HASHES: Readonly<Record<string, string>> = {
   outreach: "c2bfe98eb710f1587237c92b04696e6f9221e67def7d1080eb7ce08e3d1161b4",
   growth: "79460ac604f31155136687fbf43e146ccd11625f12316625da192cdb8188f136",
   commerce: "6cd0596e8ff09ae38f9decb763ab31a3fe2c311109c9b5f85edc9721d7058ff2",
-  "public home": "2855ce0efcce2fc714afc7f61a15d64ed5975809acefb98df75a3e275ccae141",
+  "public home": "09e34a037936057698a84cecda0fb297d2fe94c43288d416ab04efcef466f384",
   "public beta": "e670953b131c40fc4433b5ce6e5b256556bf37ea8709bc495b211efc361fb59e",
   "beta guide": "8c815e10a73590a6e2911d1b5618d5d545c15a47b3a75462ccaaae6faf33520d",
   "beta controls": "c4dcf4827cb49219199aab22d2969e33f643ade8a8c2c348bb899d61f3a08119",

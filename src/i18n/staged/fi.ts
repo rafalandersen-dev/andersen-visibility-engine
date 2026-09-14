@@ -35,7 +35,7 @@ export const FI_STAGED_BATCHES = [
     copy: fiConversation,
     namespaces: ["chat"],
     sourceRevision: "metadata proposal candidate after eb971e8",
-    sourceHash: "c42d653146c1c442a1b234347237a4ba1432531ee8ef5a1e3ba59837d6836f96",
+    sourceHash: "d37f66e7435e11e49b2e69c75ace0f494c1d288b7c4e4b1d3f3c110a1274649b",
   },
   {
     name: "workflow",
@@ -130,7 +130,7 @@ export const FI_STAGED_BATCHES = [
     copy: fiCollaboration,
     namespaces: ["collaboration", "team", "notifications", "awareness", "emailSettings"],
     sourceRevision: "30760ec",
-    sourceHash: "429e59f16a866242f25a373ebd6b52332ae3f04534230101422ebab727f77ed0",
+    sourceHash: "66e659da6d8b879af77aef68c0bba3717cb793240da5ae2364a93212f16bd83f",
   },
   {
     name: "configuration",
@@ -165,7 +165,7 @@ export const FI_STAGED_BATCHES = [
     copy: fiPublicHome,
     namespaces: ["publicHome"],
     sourceRevision: "561f60c",
-    sourceHash: "2855ce0efcce2fc714afc7f61a15d64ed5975809acefb98df75a3e275ccae141",
+    sourceHash: "09e34a037936057698a84cecda0fb297d2fe94c43288d416ab04efcef466f384",
   },
   {
     name: "public pricing",

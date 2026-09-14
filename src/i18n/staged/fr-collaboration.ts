@@ -322,4 +322,8 @@ export const frCollaboration: Readonly<Record<string, string>> = {
   "collaboration.expired": "Expirée",
   "collaboration.accepted": "Acceptée",
   "collaboration.revoked": "Révoquée",
+  "collaboration.seats":
+    "Votre forfait {plan} inclut {workingSeats} sièges de travail (éditeurs et relecteurs, vous compris) et {viewerSeats} sièges de lecture. Utilisés : {usedWorkingSeats} de travail, {usedViewerSeats} de lecture. Les invitations en attente réservent des sièges jusqu’à leur expiration.",
+  "collaboration.seatLimit":
+    "Aucun siège n’est libre pour ce rôle. Votre forfait inclut {workingSeats} sièges de travail et {viewerSeats} sièges de lecture. Retirez ou révoquez quelqu’un, ou passez à un forfait supérieur.",
 };

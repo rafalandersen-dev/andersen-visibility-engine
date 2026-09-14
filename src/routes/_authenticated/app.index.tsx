@@ -72,6 +72,12 @@ function MiloHome() {
         projectId: project.projectId,
         name: project.name,
       }));
+  // Working collaborators (editor/reviewer) may consent to owner-quota site checks; viewers may not.
+  const workingAccess = new Set(
+    (shared.isError ? [] : (shared.data?.projects ?? []))
+      .filter((project) => project.role === "editor" || project.role === "reviewer")
+      .map((project) => `${project.ownerId}:${project.projectId}`),
+  );
   const choices = [...owned, ...assigned];
   const chosen = search.owner
     ? choices.find((item) => item.ownerId === search.owner && item.projectId === search.project)
@@ -181,6 +187,9 @@ function MiloHome() {
               {t("collaboration.title")}
             </Link>
           </Button>
+          <Button variant="outline" asChild>
+            <Link to="/app/conversations">{t("chat.account.manage")}</Link>
+          </Button>
         </div>
         {shared.isPending && <p role="status">{t("collaboration.loading")}</p>}
         {shared.isError && (
@@ -200,6 +209,10 @@ function MiloHome() {
             key={`${user.id}:${chosen.ownerId}:${chosen.projectId}`}
             actorId={user.id}
             project={chosen}
+            canConsentChecks={
+              chosen.ownerId === user.id ||
+              workingAccess.has(`${chosen.ownerId}:${chosen.projectId}`)
+            }
             location={
               search.conversation ??
               rememberedMiloConversation(user.id, {

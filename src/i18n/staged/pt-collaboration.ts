@@ -317,4 +317,8 @@ export const ptCollaboration: Readonly<Record<string, string>> = {
   "emailSettings.uncertain":
     "Não foi possível confirmar as definições guardadas. Volte a carregá-las antes de outra alteração; a última alteração pode já ter sido guardada.",
   "emailSettings.reload": "Recarregar definições guardadas (descartar alterações)",
+  "collaboration.seats":
+    "O seu plano {plan} inclui {workingSeats} lugares de trabalho (editores e revisores, incluindo você) e {viewerSeats} lugares de leitura. Em uso: {usedWorkingSeats} de trabalho, {usedViewerSeats} de leitura. Os convites pendentes reservam lugares até expirarem.",
+  "collaboration.seatLimit":
+    "Não há nenhum lugar livre para esta função. O seu plano inclui {workingSeats} lugares de trabalho e {viewerSeats} lugares de leitura. Remova ou revogue alguém, ou atualize o plano.",
 };

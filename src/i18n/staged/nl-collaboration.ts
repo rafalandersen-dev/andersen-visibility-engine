@@ -318,4 +318,8 @@ export const nlCollaboration: Readonly<Record<string, string>> = {
   "emailSettings.uncertain":
     "De opgeslagen instellingen konden niet worden bevestigd. Laad ze opnieuw voordat je nog een wijziging maakt; je laatste wijziging kan al zijn opgeslagen.",
   "emailSettings.reload": "Opgeslagen instellingen opnieuw laden (bewerkingen verwerpen)",
+  "collaboration.seats":
+    "Je {plan}-plan bevat {workingSeats} werkplekken (redacteuren en reviewers, jijzelf meegeteld) en {viewerSeats} leesplekken. In gebruik: {usedWorkingSeats} werkplekken, {usedViewerSeats} leesplekken. Openstaande uitnodigingen reserveren plekken totdat ze verlopen.",
+  "collaboration.seatLimit":
+    "Er is geen plek vrij voor deze rol. Je plan bevat {workingSeats} werkplekken en {viewerSeats} leesplekken. Verwijder iemand, trek een uitnodiging in of upgrade je plan.",
 };

@@ -1,5 +1,19 @@
 import type { ConversationCopy } from "../conversation";
 export const deConversation: ConversationCopy = {
+  "chat.account.title": "Deine Gespräche",
+  "chat.account.description":
+    "Alle privaten Gespräche mit Milo, die du begonnen hast, über alle Projekte hinweg. Nur du siehst diese Liste.",
+  "chat.account.manage": "Alle Gespräche verwalten",
+  "chat.account.error":
+    "Deine Gespräche konnten nicht bestätigt werden. Titel bleiben ausgeblendet, bis sie erneut geprüft wurden.",
+  "chat.account.retry": "Erneut prüfen",
+  "chat.account.empty": "Du hast keine gespeicherten Gespräche.",
+  "chat.account.more": "Weitere Gespräche anzeigen",
+  "chat.account.started": "Begonnen: {date}",
+  "chat.account.unavailable":
+    "Dein Projektzugriff ist beendet, daher bleiben Titel und Nachrichten ausgeblendet. Du kannst dieses Gespräch weiterhin löschen.",
+  "chat.account.eraseAccess":
+    "Das Löschen stellt deinen Zugriff auf das Projekt weder wieder her noch ändert es ihn.",
   "chat.export": "Unterhaltung exportieren",
   "chat.exportHelp":
     "Lädt gespeicherte Nachrichten, Belege und frühere Vorschläge als JSON-Datei herunter. Verknüpfte Dateien sind separat.",
@@ -97,4 +111,13 @@ export const deConversation: ConversationCopy = {
   "chat.tool.weekly_preparation": "Status der Wochenvorbereitung",
   "chat.tool.saved_audit": "Prüfung des gespeicherten Audits",
   "chat.tool.draft_generation": "Entwurfserstellung",
+  "chat.tool.technical_evidence": "Gespeicherte technische Prüfungen",
+  "chat.tool.visibility_evidence": "Gespeicherte Nachweise aus KI-Antworten und Logs",
+  "chat.tool.authority_evidence": "Gespeicherte Überwachung eingehender Links",
+  "chat.tool.google_index_inspection": "Google-Indexprüfung",
+  "chat.tool.performance_test": "Seitengeschwindigkeitstest",
+  "chat.tool.site_crawl": "Website-Crawl",
+  "chat.allowProviderChecks":
+    "Bis zu zwei Website-Prüfungen in dieser Anfrage erlauben (Google-Indexprüfung, Seitengeschwindigkeit oder ein Website-Crawl) für die Website dieses Projekts. Nutzt die verbundenen Dienste des Projektinhabers und die bestehenden Prüflimits und speichert die Ergebnisse bei den technischen Prüfungen des Projekts.",
+  "chat.providerChecksEnabled": "Website-Prüfungen für diese Anfrage erlaubt.",
 };

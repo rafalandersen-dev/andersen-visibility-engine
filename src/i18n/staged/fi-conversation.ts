@@ -1,5 +1,18 @@
 import type { ConversationCopy } from "../conversation";
 export const fiConversation: ConversationCopy = {
+  "chat.account.title": "Omat keskustelusi",
+  "chat.account.description":
+    "Kaikki aloittamasi yksityiset Milo-keskustelut kaikissa projekteissa. Vain sinä näet tämän luettelon.",
+  "chat.account.manage": "Hallitse kaikkia keskusteluja",
+  "chat.account.error":
+    "Keskustelujasi ei voitu vahvistaa. Otsikot pysyvät piilossa, kunnes ne on tarkistettu uudelleen.",
+  "chat.account.retry": "Tarkista uudelleen",
+  "chat.account.empty": "Sinulla ei ole tallennettuja keskusteluja.",
+  "chat.account.more": "Näytä lisää keskusteluja",
+  "chat.account.started": "Aloitettu {date}",
+  "chat.account.unavailable":
+    "Pääsysi projektiin on päättynyt, joten otsikko ja viestit pysyvät piilossa. Voit silti poistaa tämän keskustelun.",
+  "chat.account.eraseAccess": "Poistaminen ei palauta eikä muuta pääsyäsi projektiin.",
   "chat.export": "Vie keskustelu",
   "chat.exportHelp":
     "Lataa tallennetut viestit, vahvistukset ja aiemmat ehdotukset JSON-tiedostona. Linkitetyt tiedostot ovat erillisiä.",
@@ -94,4 +107,13 @@ export const fiConversation: ConversationCopy = {
   "chat.tool.weekly_preparation": "Viikkovalmistelun tila",
   "chat.tool.saved_audit": "Tallennetun auditoinnin tarkistus",
   "chat.tool.draft_generation": "Luonnoksen luonti",
+  "chat.tool.technical_evidence": "Tallennetut tekniset tarkistukset",
+  "chat.tool.visibility_evidence": "Tallennettu näyttö tekoälyvastauksista ja lokeista",
+  "chat.tool.authority_evidence": "Tallennettu saapuvien linkkien seuranta",
+  "chat.tool.google_index_inspection": "Googlen indeksitarkastus",
+  "chat.tool.performance_test": "Sivun nopeustesti",
+  "chat.tool.site_crawl": "Sivuston läpikäynti",
+  "chat.allowProviderChecks":
+    "Salli tässä pyynnössä enintään kaksi sivustotarkistusta (Googlen indeksitarkastus, sivun nopeus tai yksi sivuston läpikäynti) tämän projektin verkkosivustolle. Käyttää projektin omistajan yhdistämiä palveluja ja nykyisiä tarkistusrajoja, ja tulokset tallennetaan projektin teknisten tarkistusten yhteyteen.",
+  "chat.providerChecksEnabled": "Sivustotarkistukset on sallittu tälle pyynnölle.",
 };

@@ -14,10 +14,11 @@ if (
     "bookmark",
     "proposal",
     "lifecycle",
+    "account",
   ].includes(mode)
 )
   throw Error(
-    "Choose component, full, generation, auth, multitab, bookmark, proposal or lifecycle.",
+    "Choose component, full, generation, auth, multitab, bookmark, proposal, lifecycle or account.",
   );
 if (!["en", "pl", "sv", "da"].includes(locale)) throw Error("Choose en, pl, sv or da.");
 const out = "/tmp/milo-conversation-browser";
@@ -42,6 +43,7 @@ require(root + "/node_modules/esbuild")
     outfile: path.join(out, "bundle.js"),
     alias: {
       "@/lib/milo-conversation-lifecycle.functions": path.join(source, "lifecycle-mock.js"),
+      "@/lib/milo-conversation-account.functions": path.join(source, "account-mock.js"),
       "@/lib/milo-draft-proposal.functions": path.join(source, "proposal-mock.js"),
       "@/lib/milo-conversation.functions": path.join(
         source,

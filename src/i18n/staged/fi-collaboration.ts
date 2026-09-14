@@ -312,4 +312,8 @@ export const fiCollaboration: Readonly<Record<string, string>> = {
   "emailSettings.uncertain":
     "Tallennettuja asetuksia ei voitu vahvistaa. Lataa ne uudelleen ennen seuraavaa muutosta; viimeisin muutoksesi on ehkä jo tallennettu.",
   "emailSettings.reload": "Lataa tallennetut asetukset uudelleen (hylkää muokkaukset)",
+  "collaboration.seats":
+    "{plan}-tilauksesi sisältää {workingSeats} työpaikkaa (toimittajat ja tarkastajat, sinä mukaan lukien) ja {viewerSeats} katselupaikkaa. Käytössä: {usedWorkingSeats} työpaikkaa, {usedViewerSeats} katselupaikkaa. Odottavat kutsut varaavat paikkoja, kunnes ne vanhenevat.",
+  "collaboration.seatLimit":
+    "Tälle roolille ei ole vapaata paikkaa. Tilauksesi sisältää {workingSeats} työpaikkaa ja {viewerSeats} katselupaikkaa. Poista joku tai peru kutsu, tai päivitä tilaus.",
 };

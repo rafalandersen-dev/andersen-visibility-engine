@@ -1,5 +1,19 @@
 import type { ConversationCopy } from "../conversation";
 export const huConversation: ConversationCopy = {
+  "chat.account.title": "Beszélgetéseid",
+  "chat.account.description":
+    "Minden általad indított privát beszélgetés az összes projektben. Ezt a listát csak te látod.",
+  "chat.account.manage": "Összes beszélgetés kezelése",
+  "chat.account.error":
+    "A beszélgetéseidet nem sikerült megerősíteni. A címek rejtve maradnak, amíg újra ellenőrzésre nem kerülnek.",
+  "chat.account.retry": "Újraellenőrzés",
+  "chat.account.empty": "Nincsenek mentett beszélgetéseid.",
+  "chat.account.more": "További beszélgetések megjelenítése",
+  "chat.account.started": "Indítva: {date}",
+  "chat.account.unavailable":
+    "A projekthez való hozzáférésed megszűnt, ezért a cím és az üzenetek rejtve maradnak. Ezt a beszélgetést továbbra is törölheted.",
+  "chat.account.eraseAccess":
+    "A törlés nem állítja vissza és nem módosítja a projekthez való hozzáférésedet.",
   "chat.export": "Beszélgetés exportálása",
   "chat.exportHelp":
     "A mentett üzeneteket, visszaigazolásokat és korábbi javaslatokat JSON-fájlként tölti le. A hivatkozott fájlok külön vannak.",
@@ -94,4 +108,13 @@ export const huConversation: ConversationCopy = {
   "chat.tool.weekly_preparation": "Heti előkészítés állapota",
   "chat.tool.saved_audit": "Mentett audit áttekintése",
   "chat.tool.draft_generation": "Vázlatkészítés",
+  "chat.tool.technical_evidence": "Mentett technikai ellenőrzések",
+  "chat.tool.visibility_evidence": "Mentett bizonyítékok MI-válaszokból és naplókból",
+  "chat.tool.authority_evidence": "Mentett visszahivatkozás-figyelés",
+  "chat.tool.google_index_inspection": "Google-indexellenőrzés",
+  "chat.tool.performance_test": "Oldalsebesség-teszt",
+  "chat.tool.site_crawl": "Webhely bejárása",
+  "chat.allowProviderChecks":
+    "Legfeljebb két webhely-ellenőrzés engedélyezése ebben a kérésben (Google-indexellenőrzés, oldalsebesség vagy egy webhelybejárás) a projekt webhelyéhez. A projekt tulajdonosának csatlakoztatott szolgáltatásait és a meglévő ellenőrzési korlátokat használja, az eredményeket pedig a projekt technikai ellenőrzéseivel együtt menti.",
+  "chat.providerChecksEnabled": "Webhely-ellenőrzések engedélyezve ehhez a kéréshez.",
 };

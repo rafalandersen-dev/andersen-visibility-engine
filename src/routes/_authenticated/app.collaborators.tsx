@@ -21,8 +21,11 @@ import {
   readProjectTeamRosterFn,
   readTeamProjectFn,
   updateProjectTeamFn,
+  readTeamSeatsFn,
 } from "@/lib/project-team.functions";
 import { teamAcceptInput, teamOwnerAction, teamRole, teamRoster } from "@/lib/project-team";
+import { isTeamSeatLimit } from "@/lib/project-team-seats";
+import { PLAN_META, type PlanId } from "@/lib/billing";
 import { toast } from "sonner";
 export const Route = createFileRoute("/_authenticated/app/collaborators")({
   validateSearch: z
@@ -241,6 +244,14 @@ function OwnerTeam({ projectId }: { projectId: string }) {
     staleTime: 0,
     gcTime: 0,
   });
+  // Seats are account-wide; the same "project-teams" prefix invalidates them after changes.
+  const seats = useQuery({
+    queryKey: ["project-teams", user?.id, "seats"],
+    queryFn: () => readTeamSeatsFn({ data: {} }),
+    enabled: !!user,
+    staleTime: 0,
+    gcTime: 0,
+  });
   const [clock, setClock] = useState(() => Date.now());
   useEffect(() => {
     const next = Math.min(
@@ -262,8 +273,15 @@ function OwnerTeam({ projectId }: { projectId: string }) {
       toast.success(t("collaboration.saved"));
       void client.invalidateQueries({ queryKey: ["project-teams", user?.id] });
     },
-    onError: () => {
-      toast.error(t("collaboration.error"));
+    onError: (error) => {
+      toast.error(
+        isTeamSeatLimit(error) && seats.data
+          ? t("collaboration.seatLimit", {
+              workingSeats: seats.data.workingSeats,
+              viewerSeats: seats.data.viewerSeats,
+            })
+          : t("collaboration.error"),
+      );
       void client.invalidateQueries({ queryKey: ["project-teams", user?.id] });
     },
   });
@@ -301,6 +319,17 @@ function OwnerTeam({ projectId }: { projectId: string }) {
           <RolePicker value={role} onChange={setRole} disabled={mutation.isPending} />
         </div>
         <p className="text-sm text-muted-foreground">{t("collaboration.inviteHelp")}</p>
+        {seats.data && (
+          <p className="text-sm text-muted-foreground">
+            {t("collaboration.seats", {
+              plan: PLAN_META[seats.data.planId as PlanId]?.name ?? seats.data.planId,
+              workingSeats: seats.data.workingSeats,
+              viewerSeats: seats.data.viewerSeats,
+              usedWorkingSeats: seats.data.usedWorkingSeats,
+              usedViewerSeats: seats.data.usedViewerSeats,
+            })}
+          </p>
+        )}
         <Button disabled={mutation.isPending} type="submit">
           {t("collaboration.invite")}
         </Button>

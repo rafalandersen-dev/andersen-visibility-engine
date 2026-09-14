@@ -13,6 +13,7 @@ export const conversationSend = conversationTurnTarget.extend({
   body: textBytes(8000).refine((text) => text.trim().length > 0),
   locale: z.string().regex(/^[a-z]{2}$/),
   allowDraftGeneration: z.boolean().optional(),
+  allowProviderChecks: z.boolean().optional(),
 });
 export const conversationRead = conversationTarget.extend({
   after: z.number().int().min(0).max(500).default(0),
@@ -52,6 +53,12 @@ export const conversationEvent = z
         "weekly_preparation",
         "saved_audit",
         "draft_generation",
+        "technical_evidence",
+        "visibility_evidence",
+        "authority_evidence",
+        "google_index_inspection",
+        "performance_test",
+        "site_crawl",
       ])
       .optional(),
     state: z
@@ -67,6 +74,9 @@ export const conversationEvent = z
           "audit",
           "generation",
           "draft_proposal",
+          "technical",
+          "visibility",
+          "authority",
         ]),
         id: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/),
       })
@@ -86,6 +96,7 @@ export const conversationTurn = z
     body: textBytes(8000),
     locale: z.string().regex(/^[a-z]{2}$/),
     allowDraftGeneration: z.boolean().optional(),
+    allowProviderChecks: z.boolean().optional(),
     state: z.enum(["pending", "running", "completed", "failed", "cancelled", "unknown"]),
     events: conversationEvents,
     createdAt: z.string().datetime({ offset: true }),

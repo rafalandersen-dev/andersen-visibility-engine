@@ -318,4 +318,8 @@ export const esCollaboration: Readonly<Record<string, string>> = {
   "collaboration.expired": "Caducada",
   "collaboration.accepted": "Aceptada",
   "collaboration.revoked": "Revocada",
+  "collaboration.seats":
+    "Tu plan {plan} incluye {workingSeats} puestos de trabajo (editores y revisores, tú incluido) y {viewerSeats} puestos de lectura. En uso: {usedWorkingSeats} de trabajo, {usedViewerSeats} de lectura. Las invitaciones pendientes reservan puestos hasta que caducan.",
+  "collaboration.seatLimit":
+    "No hay ningún puesto libre para este rol. Tu plan incluye {workingSeats} puestos de trabajo y {viewerSeats} puestos de lectura. Elimina o revoca a alguien, o mejora el plan.",
 };

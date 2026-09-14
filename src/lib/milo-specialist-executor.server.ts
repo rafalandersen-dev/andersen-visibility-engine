@@ -17,6 +17,7 @@ import {
   serializeSpecialistContext,
   specialistPlan,
   toolCatalog,
+  providerCheckTools,
   type SpecialistAssignment,
 } from "./milo-specialist";
 import { runSpecialistTool, type SpecialistToolResult } from "./milo-specialist-tools.server";
@@ -220,7 +221,10 @@ export async function runConversationSpecialists(
       ]),
     );
     const catalog = toolCatalog(owner).filter(
-      (tool) => tool.name !== "draft_generation" || turn.allowDraftGeneration === true,
+      (tool) =>
+        (tool.name !== "draft_generation" || turn.allowDraftGeneration === true) &&
+        (!(providerCheckTools as readonly string[]).includes(tool.name) ||
+          turn.allowProviderChecks === true),
     );
     const planText = await ask(
       "lead",
@@ -276,6 +280,7 @@ CONTEXT: ${serializeSpecialistContext({ ...baseContext, projectEvidence: brief }
             signal: controller.signal,
             beforeDispatch: assertLive,
             allowDraftGeneration: turn.allowDraftGeneration === true,
+            allowProviderChecks: turn.allowProviderChecks === true,
             proposal: {
               conversationId: target.conversationId,
               attemptId: claimId,

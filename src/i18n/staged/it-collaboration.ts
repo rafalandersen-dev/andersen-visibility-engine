@@ -317,4 +317,8 @@ export const itCollaboration: Readonly<Record<string, string>> = {
   "emailSettings.uncertain":
     "Impossibile confermare le impostazioni salvate. Ricaricale prima di un’altra modifica; l’ultima modifica potrebbe essere già stata salvata.",
   "emailSettings.reload": "Ricarica impostazioni salvate (scarta modifiche)",
+  "collaboration.seats":
+    "Il tuo piano {plan} include {workingSeats} postazioni di lavoro (editor e revisori, te compreso) e {viewerSeats} postazioni di sola lettura. In uso: {usedWorkingSeats} di lavoro, {usedViewerSeats} di sola lettura. Gli inviti in sospeso riservano postazioni finché non scadono.",
+  "collaboration.seatLimit":
+    "Nessuna postazione libera per questo ruolo. Il tuo piano include {workingSeats} postazioni di lavoro e {viewerSeats} postazioni di sola lettura. Rimuovi o revoca qualcuno, oppure passa a un piano superiore.",
 };

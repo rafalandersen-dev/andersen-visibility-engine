@@ -31,6 +31,7 @@ beforeAll(async () => {
   for (const name of [
     "20260911020000_project_team_reads.sql",
     "20260913120000_milo_conversations.sql",
+    "20260914120000_milo_provider_check_consent.sql",
   ])
     await db.exec(readFileSync(`supabase/migrations/${name}`, "utf8"));
 }, 30000);
@@ -114,6 +115,66 @@ const rpc: TeamReadRpc = async (name, params) => {
 };
 
 describe("durable actor-private project conversations", () => {
+  it("refuses provider-check consent from a viewer while owner, editor and reviewer may consent", async () => {
+    // Checks spend the owner's quota; viewer seats are free (local security review, 14 September).
+    await db.exec("UPDATE project_team_members SET role='viewer'");
+    await expect(
+      query("begin_milo_conversation_turn($1,$2,'p',$3,$4,'Check indexing','pl',false,true)", [
+        actor,
+        owner,
+        conversationId,
+        turnId,
+      ]),
+    ).rejects.toThrow("invalid");
+    const plain = await start(actor, owner, "p", conversationId, turnId, "No checks");
+    expect((plain.turn as { allowProviderChecks: boolean }).allowProviderChecks).toBe(false);
+    for (const role of ["reviewer", "editor"]) {
+      await db.exec(`UPDATE project_team_members SET role='${role}'`);
+      const consented = await query<{ turn: { allowProviderChecks: boolean } }>(
+        "begin_milo_conversation_turn($1,$2,'p',$3,$4,'Check indexing','pl',false,true)",
+        [actor, owner, randomUUID(), randomUUID()],
+      );
+      expect(consented.turn.allowProviderChecks).toBe(true);
+    }
+    const own = await query<{ turn: { allowProviderChecks: boolean } }>(
+      "begin_milo_conversation_turn($1,$1,'p',$2,$3,'Check indexing','pl',false,true)",
+      [owner, randomUUID(), randomUUID()],
+    );
+    expect(own.turn.allowProviderChecks).toBe(true);
+  });
+  it("stores a separate provider-check consent for a current member and rejects replay changes", async () => {
+    const consented = await query<{
+      turn: { allowProviderChecks: boolean; allowDraftGeneration: boolean };
+    }>("begin_milo_conversation_turn($1,$2,'p',$3,$4,'Check indexing','pl',false,true)", [
+      actor,
+      owner,
+      conversationId,
+      turnId,
+    ]);
+    expect(consented.turn).toMatchObject({
+      allowProviderChecks: true,
+      allowDraftGeneration: false,
+    });
+    expect(conversationTurn.parse(consented.turn).allowProviderChecks).toBe(true);
+    await expect(
+      query("begin_milo_conversation_turn($1,$2,'p',$3,$4,'Check indexing','pl',false,false)", [
+        actor,
+        owner,
+        conversationId,
+        turnId,
+      ]),
+    ).rejects.toThrow("conflict");
+    const plain = await start(actor, owner, "p", randomUUID(), randomUUID(), "No checks");
+    expect((plain.turn as { allowProviderChecks: boolean }).allowProviderChecks).toBe(false);
+    await expect(
+      query("begin_milo_conversation_turn($1,$2,'p',$3,$4,'Check','pl',false,true)", [
+        other,
+        owner,
+        randomUUID(),
+        randomUUID(),
+      ]),
+    ).rejects.toThrow("unavailable");
+  });
   it("stores the owner's explicit generation choice and rejects replay upgrades or delegated approval", async () => {
     const approved = await query<{ created: boolean; turn: { allowDraftGeneration: boolean } }>(
       "begin_milo_conversation_turn($1,$1,'p',$2,$3,'Generate a draft','pl',true)",
@@ -201,6 +262,16 @@ describe("durable actor-private project conversations", () => {
           workspace: unavailable,
           knowledge: unavailable,
           weekly: unavailable,
+          technicalRuns: unavailable,
+          googleIndex: unavailable,
+          performance: unavailable,
+          answers: unavailable,
+          logs: unavailable,
+          backlinks: unavailable,
+          inspectIndex: unavailable,
+          performanceTest: unavailable,
+          startCrawl: unavailable,
+          stepCrawl: unavailable,
           generate: unavailable,
         }),
       model: async ({ context, prompt }) => {

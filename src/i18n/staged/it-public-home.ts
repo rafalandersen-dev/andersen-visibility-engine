@@ -93,7 +93,7 @@ export const itPublicHome: Readonly<Record<string, string>> = {
   "publicHome.beforeStart": "Prima di iniziare",
   "publicHome.faqDiscoveryQ": "Dove vanno le opportunità scoperte?",
   "publicHome.faqDiscoveryA":
-    "I risultati della scoperta rimangono suggerimenti finché non li accetti. Le idee accettate entrano nel Piano nella fase Acquisite, con fonte, motivo, evidenze, responsabile, stato e prossima azione associati.",
+    "I risultati della scoperta rimangono suggerimenti finché non li accetti. Le idee accettate entrano nel Piano nella fase Idea, con fonte, motivo, evidenze, responsabile, stato e prossima azione associati.",
   "publicHome.faqScoreQ": "Cosa valuta Milo Score?",
   "publicHome.faqScoreA":
     "Milo Score valuta una specifica versione del contenuto prima della revisione. Controlla preparazione per la ricerca, coerenza con il marchio, struttura, evidenze, conversione e segnali di qualità correlati. Non assegna mai punteggi alle Opportunità.",

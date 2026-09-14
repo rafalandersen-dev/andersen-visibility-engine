@@ -1,5 +1,18 @@
 import type { ConversationCopy } from "../conversation";
 export const etConversation: ConversationCopy = {
+  "chat.account.title": "Sinu vestlused",
+  "chat.account.description":
+    "Kõik sinu privaatsed vestlused kõigis projektides. Seda loendit näed ainult sina.",
+  "chat.account.manage": "Halda kõiki vestlusi",
+  "chat.account.error":
+    "Sinu vestlusi ei saanud kinnitada. Pealkirjad jäävad peidetuks, kuni neid uuesti kontrollitakse.",
+  "chat.account.retry": "Kontrolli uuesti",
+  "chat.account.empty": "Sul pole salvestatud vestlusi.",
+  "chat.account.more": "Näita rohkem vestlusi",
+  "chat.account.started": "Alustatud: {date}",
+  "chat.account.unavailable":
+    "Sinu juurdepääs projektile on lõppenud, seega pealkiri ja sõnumid jäävad peidetuks. Saad selle vestluse siiski kustutada.",
+  "chat.account.eraseAccess": "Kustutamine ei taasta ega muuda sinu juurdepääsu projektile.",
   "chat.export": "Ekspordi vestlus",
   "chat.exportHelp":
     "Laadib salvestatud sõnumid, kinnitused ja varasemad ettepanekud alla JSON-failina. Lingitud failid on eraldi.",
@@ -92,4 +105,13 @@ export const etConversation: ConversationCopy = {
   "chat.tool.weekly_preparation": "Nädala ettevalmistuse olek",
   "chat.tool.saved_audit": "Salvestatud auditi ülevaatus",
   "chat.tool.draft_generation": "Mustandi loomine",
+  "chat.tool.technical_evidence": "Salvestatud tehnilised kontrollid",
+  "chat.tool.visibility_evidence": "Salvestatud tõendid tehisintellekti vastustest ja logidest",
+  "chat.tool.authority_evidence": "Salvestatud tagasilinkide jälgimine",
+  "chat.tool.google_index_inspection": "Google'i indekseerimise kontroll",
+  "chat.tool.performance_test": "Lehe kiiruse test",
+  "chat.tool.site_crawl": "Veebisaidi läbiskaneerimine",
+  "chat.allowProviderChecks":
+    "Luba selles päringus kuni kaks veebisaidi kontrolli (Google'i indekseerimise kontroll, lehe kiirus või üks veebisaidi läbiskaneerimine) selle projekti veebisaidile. Kasutatakse projekti omaniku ühendatud teenuseid ja olemasolevaid kontrollipiiranguid ning tulemused salvestatakse projekti tehniliste kontrollide juurde.",
+  "chat.providerChecksEnabled": "Veebisaidi kontrollid on selle päringu jaoks lubatud.",
 };

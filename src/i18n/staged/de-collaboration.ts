@@ -322,4 +322,8 @@ export const deCollaboration: Readonly<Record<string, string>> = {
   "collaboration.expired": "Abgelaufen",
   "collaboration.accepted": "Angenommen",
   "collaboration.revoked": "Widerrufen",
+  "collaboration.seats":
+    "Dein Plan {plan} enthält {workingSeats} Arbeitsplätze (Redakteure und Prüfer, dich eingeschlossen) und {viewerSeats} Leseplätze. Belegt: {usedWorkingSeats} Arbeitsplätze, {usedViewerSeats} Leseplätze. Ausstehende Einladungen reservieren Plätze, bis sie ablaufen.",
+  "collaboration.seatLimit":
+    "Für diese Rolle ist kein Platz frei. Dein Plan enthält {workingSeats} Arbeitsplätze und {viewerSeats} Leseplätze. Entferne jemanden, widerrufe eine Einladung oder wechsle zu einem höheren Plan.",
 };

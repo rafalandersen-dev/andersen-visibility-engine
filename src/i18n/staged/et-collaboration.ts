@@ -313,4 +313,8 @@ export const etCollaboration: Readonly<Record<string, string>> = {
   "emailSettings.uncertain":
     "Salvestatud seadeid ei õnnestunud kinnitada. Laadi need enne uut muudatust uuesti; viimane muudatus võib juba salvestatud olla.",
   "emailSettings.reload": "Laadi salvestatud seaded uuesti (loobu muudatustest)",
+  "collaboration.seats":
+    "Sinu pakett {plan} sisaldab {workingSeats} töökohta (toimetajad ja ülevaatajad, sina kaasa arvatud) ja {viewerSeats} vaatajakohta. Kasutusel: {usedWorkingSeats} töökohta, {usedViewerSeats} vaatajakohta. Ootel kutsed hoiavad kohti kuni aegumiseni.",
+  "collaboration.seatLimit":
+    "Selle rolli jaoks pole vaba kohta. Sinu pakett sisaldab {workingSeats} töökohta ja {viewerSeats} vaatajakohta. Eemalda keegi, tühista kutse või uuenda paketti.",
 };

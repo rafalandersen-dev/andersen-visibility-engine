@@ -176,8 +176,10 @@ async function run() {
     "composer agrees with client",
   );
   assert(
-    !document.querySelector('form input[type="checkbox"]'),
-    "collaborator has no generation permission control",
+    [...document.querySelectorAll('form input[type="checkbox"]')]
+      .map((box) => box.closest("label").textContent)
+      .join("|") === t("chat.allowProviderChecks"),
+    "collaborator may consent to site checks but has no generation permission control",
   );
   assert(
     !document.querySelector('.milo-sidebar a[href="/app/editor"]'),

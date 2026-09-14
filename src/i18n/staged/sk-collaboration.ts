@@ -316,4 +316,8 @@ export const skCollaboration: Readonly<Record<string, string>> = {
   "emailSettings.uncertain":
     "Uložené nastavenia sa nepodarilo potvrdiť. Pred ďalšou zmenou ich znova načítajte; posledná zmena už mohla byť uložená.",
   "emailSettings.reload": "Znova načítať uložené nastavenia (zahodiť úpravy)",
+  "collaboration.seats":
+    "Váš plán {plan} zahŕňa {workingSeats} pracovných miest (editori a recenzenti vrátane vás) a {viewerSeats} miest na prezeranie. Využité: {usedWorkingSeats} pracovných, {usedViewerSeats} na prezeranie. Čakajúce pozvánky rezervujú miesta, kým nevypršia.",
+  "collaboration.seatLimit":
+    "Pre túto rolu nie je voľné žiadne miesto. Váš plán zahŕňa {workingSeats} pracovných miest a {viewerSeats} miest na prezeranie. Niekoho odstráňte alebo odvolajte pozvánku, prípadne prejdite na vyšší plán.",
 };

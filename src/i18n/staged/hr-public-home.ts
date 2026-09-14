@@ -93,7 +93,7 @@ export const hrPublicHome: Readonly<Record<string, string>> = {
   "publicHome.beforeStart": "Prije početka",
   "publicHome.faqDiscoveryQ": "Kamo odlaze otkrivene prilike?",
   "publicHome.faqDiscoveryA":
-    "Rezultati otkrivanja ostaju prijedlozi dok ih ne prihvatite. Prihvaćene ideje ulaze u Plan u fazi Zabilježeno, uz pripadajući izvor, razlog, dokaze, odgovornu osobu, status i sljedeću radnju.",
+    "Rezultati otkrivanja ostaju prijedlozi dok ih ne prihvatite. Prihvaćene ideje ulaze u Plan u fazi Ideja, uz pripadajući izvor, razlog, dokaze, odgovornu osobu, status i sljedeću radnju.",
   "publicHome.faqScoreQ": "Što Milo Score procjenjuje?",
   "publicHome.faqScoreA":
     "Milo Score procjenjuje određenu verziju sadržaja prije pregleda. Provjerava spremnost za pretraživanje, usklađenost s brendom, strukturu, dokaze, konverziju i povezane signale kvalitete. Nikada ne rangira prilike.",

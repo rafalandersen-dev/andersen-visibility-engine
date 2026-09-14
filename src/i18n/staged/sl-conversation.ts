@@ -1,5 +1,18 @@
 import type { ConversationCopy } from "../conversation";
 export const slConversation: ConversationCopy = {
+  "chat.account.title": "Vaši pogovori",
+  "chat.account.description":
+    "Vsi vaši zasebni pogovori v vseh projektih. Ta seznam vidite samo vi.",
+  "chat.account.manage": "Upravljaj vse pogovore",
+  "chat.account.error":
+    "Vaših pogovorov ni bilo mogoče potrditi. Naslovi ostanejo skriti, dokler ne bodo znova preverjeni.",
+  "chat.account.retry": "Preveri znova",
+  "chat.account.empty": "Nimate shranjenih pogovorov.",
+  "chat.account.more": "Prikaži več pogovorov",
+  "chat.account.started": "Začet: {date}",
+  "chat.account.unavailable":
+    "Vaš dostop do projekta je potekel, zato naslov in sporočila ostanejo skriti. Ta pogovor lahko še vedno izbrišete.",
+  "chat.account.eraseAccess": "Izbris ne obnovi in ne spremeni vašega dostopa do projekta.",
   "chat.export": "Izvozi pogovor",
   "chat.exportHelp":
     "Prenese shranjena sporočila, potrdila in pretekle predloge kot datoteko JSON. Povezane datoteke so ločene.",
@@ -92,4 +105,13 @@ export const slConversation: ConversationCopy = {
   "chat.tool.weekly_preparation": "Stanje tedenske priprave",
   "chat.tool.saved_audit": "Pregled shranjene revizije",
   "chat.tool.draft_generation": "Ustvarjanje osnutka",
+  "chat.tool.technical_evidence": "Shranjena tehnična preverjanja",
+  "chat.tool.visibility_evidence": "Shranjeni dokazi iz odgovorov UI in dnevnikov",
+  "chat.tool.authority_evidence": "Shranjeno spremljanje povratnih povezav",
+  "chat.tool.google_index_inspection": "Pregled indeksa Google",
+  "chat.tool.performance_test": "Preizkus hitrosti strani",
+  "chat.tool.site_crawl": "Pregledovanje spletnega mesta",
+  "chat.allowProviderChecks":
+    "V tej zahtevi dovoli največ dve preverjanji spletnega mesta (Googlov pregled indeksa, hitrost strani ali eno pregledovanje spletnega mesta) za spletno mesto tega projekta. Uporablja povezane storitve lastnika projekta in obstoječe omejitve preverjanj, rezultate pa shrani skupaj s tehničnimi preverjanji projekta.",
+  "chat.providerChecksEnabled": "Preverjanja spletnega mesta so za to zahtevo dovoljena.",
 };

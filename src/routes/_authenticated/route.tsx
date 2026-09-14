@@ -30,6 +30,7 @@ const ONBOARDING_EXEMPT_PATHS = [
   CONNECT_PATH,
   SETUP_PATH,
   "/app/collaborators",
+  "/app/conversations",
   "/app",
   "/app/",
 ];

@@ -1,5 +1,6 @@
 import { publicStudiesCopy } from "./public-studies";
 import { conversationCopy } from "./conversation";
+import { UI_LANGUAGE_CODES } from "./ui-languages";
 import { publicPricingCopy } from "./public-pricing";
 import { publicHomeCopy } from "./public-home";
 import { publicBetaCopy } from "./public-beta";
@@ -91,7 +92,7 @@ const OVERRIDES: readonly Record<OnboardingLanguage, Dictionary>[] = [
   publicPricingCopy,
   publicStudiesCopy,
 ];
-export const UI_LANGUAGE_CODES = ["en", "pl", "sv", "da"] as const;
+export { UI_LANGUAGE_CODES };
 export function isUiLanguage(value: unknown): value is OnboardingLanguage {
   return typeof value === "string" && (UI_LANGUAGE_CODES as readonly string[]).includes(value);
 }

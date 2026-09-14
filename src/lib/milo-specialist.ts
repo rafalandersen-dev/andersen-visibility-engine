@@ -22,6 +22,20 @@ export const specialistTool = z.discriminatedUnion("name", [
     .strict(),
   z.object({ name: z.literal("project_knowledge") }).strict(),
   z.object({ name: z.literal("saved_audit") }).strict(),
+  z.object({ name: z.literal("technical_evidence") }).strict(),
+  z.object({ name: z.literal("visibility_evidence") }).strict(),
+  z.object({ name: z.literal("authority_evidence") }).strict(),
+  z
+    .object({ name: z.literal("google_index_inspection"), url: z.string().url().max(2048) })
+    .strict(),
+  z.object({ name: z.literal("site_crawl") }).strict(),
+  z
+    .object({
+      name: z.literal("performance_test"),
+      url: z.string().url().max(2048),
+      device: z.enum(["mobile", "desktop"]),
+    })
+    .strict(),
   z
     .object({
       name: z.literal("weekly_preparation"),
@@ -52,6 +66,13 @@ export const specialistTool = z.discriminatedUnion("name", [
     .strict(),
 ]);
 export type SpecialistTool = z.infer<typeof specialistTool>;
+/** Provider-backed checks need the turn's separate saved consent. They run against the
+ * owning account's connection and quotas (owner decision 14 September). */
+export const providerCheckTools: ReadonlyArray<SpecialistTool["name"]> = [
+  "google_index_inspection",
+  "performance_test",
+  "site_crawl",
+];
 export const specialistAssignment = z
   .object({
     role: z.enum(specialistRoles),
@@ -73,19 +94,30 @@ export const specialistPlan = z
     if (
       tools.filter((tool) => tool.name === "draft_generation").length > 1 ||
       tools.filter((tool) => tool.name === "draft_metadata_proposal").length > 1 ||
+      tools.filter((tool) => providerCheckTools.includes(tool.name)).length > 2 ||
+      tools.filter((tool) => tool.name === "site_crawl").length > 1 ||
       new Set(tools.map((tool) => JSON.stringify(tool))).size !== tools.length
     )
       context.addIssue({ code: z.ZodIssueCode.custom, message: "Duplicate tool work" });
   });
 
+// Owner decision 14 September (D07): current project members may read saved technical,
+// AI-answer/log and backlink evidence; the owning business account pays for access.
+export const ownerOnlyTools: ReadonlyArray<SpecialistTool["name"]> = [
+  "project_knowledge",
+  "weekly_preparation",
+  "saved_audit",
+  "draft_generation",
+];
 export function toolAllowed(role: SpecialistRole, tool: SpecialistTool, owner: boolean) {
-  if (
-    ["project_knowledge", "weekly_preparation", "saved_audit", "draft_generation"].includes(
-      tool.name,
-    ) &&
-    !owner
-  )
-    return false;
+  if (ownerOnlyTools.includes(tool.name) && !owner) return false;
+  if (tool.name === "technical_evidence") return ["seo", "research", "performance"].includes(role);
+  if (tool.name === "visibility_evidence") return ["ai", "research", "performance"].includes(role);
+  if (tool.name === "authority_evidence") return role === "authority" || role === "research";
+  if (tool.name === "google_index_inspection")
+    return ["seo", "research", "performance"].includes(role);
+  if (tool.name === "performance_test") return role === "performance" || role === "seo";
+  if (tool.name === "site_crawl") return ["seo", "research", "performance"].includes(role);
   if (tool.name === "draft_generation") return role === "content";
   if (tool.name === "draft_metadata_proposal") return role === "seo" || role === "content";
   if (tool.name === "draft_seo_review") return role === "seo" || role === "content";
@@ -122,6 +154,42 @@ export function toolCatalog(owner: boolean) {
       },
       purpose:
         "SEO/content specialist: propose selected metadata changes to an existing draft only when requested. One proposal per request. Requires current edit access. Retains exact before/after for a separate user review and Save changes action; never saves content automatically. No article/body generation.",
+    },
+    {
+      name: "technical_evidence",
+      arguments: {},
+      purpose:
+        "SEO/research/performance specialist: read saved crawl runs, Google index inspections and page-performance requests. Starts no crawl, inspection or measurement; missing entries are unknown, not passing.",
+    },
+    {
+      name: "visibility_evidence",
+      arguments: {},
+      purpose:
+        "AI visibility/research/performance specialist: read owner-reported AI answer samples and server/edge log imports as counts and metadata. Unverified samples; no raw answers or log rows; no new collection.",
+    },
+    {
+      name: "authority_evidence",
+      arguments: {},
+      purpose:
+        "Authority/research specialist: read saved backlink monitoring observations from the provider index. No new provider request, outreach, order or placement; index counts do not verify individual links.",
+    },
+    {
+      name: "google_index_inspection",
+      arguments: { url: "https://page on this project's verified Search Console property" },
+      purpose:
+        "SEO/research/performance specialist: run ONE Google URL Inspection only when the user explicitly asks and provider checks are allowed for this request. Uses the owner's connected Search Console quota; saved as a technical check. It does not request indexing or change the site.",
+    },
+    {
+      name: "site_crawl",
+      arguments: {},
+      purpose:
+        "SEO/research/performance specialist: start ONE bounded crawl of this project's saved website only when the user explicitly asks and site checks are allowed for this request. Respects robots rules and existing ownership/capacity holds; may continue on the project's technical checks page. Does not change the site.",
+    },
+    {
+      name: "performance_test",
+      arguments: { url: "https://page on this project's website", device: "mobile|desktop" },
+      purpose:
+        "Performance/SEO specialist: run ONE PageSpeed lab test only when the user explicitly asks and provider checks are allowed for this request. Lab results are not real-user field data; saved as a technical check.",
     },
     ...(owner
       ? [

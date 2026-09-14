@@ -93,7 +93,7 @@ export const huPublicHome: Readonly<Record<string, string>> = {
   "publicHome.beforeStart": "Mielőtt elkezded",
   "publicHome.faqDiscoveryQ": "Hová kerülnek a felfedezett lehetőségek?",
   "publicHome.faqDiscoveryA":
-    "A felfedezés eredményei javaslatok maradnak, amíg el nem fogadod őket. Az elfogadott ötletek a Terv Rögzítve szakaszába kerülnek, a forrással, indoklással, bizonyítékkal, felelőssel, állapottal és következő művelettel együtt.",
+    "A felfedezés eredményei javaslatok maradnak, amíg el nem fogadod őket. Az elfogadott ötletek a Terv Ötlet szakaszába kerülnek, a forrással, indoklással, bizonyítékkal, felelőssel, állapottal és következő művelettel együtt.",
   "publicHome.faqScoreQ": "Mit értékel a Milo-pontszám?",
   "publicHome.faqScoreA":
     "A Milo-pontszám egy adott tartalomverziót értékel az ellenőrzés előtt. Vizsgálja a keresési felkészültséget, a márkához illeszkedést, a szerkezetet, a bizonyítékokat, a konverziót és a kapcsolódó minőségi jelzéseket. Soha nem rangsorolja a Lehetőségeket.",

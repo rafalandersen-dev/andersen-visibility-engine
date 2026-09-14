@@ -105,6 +105,12 @@ export function referenceDestination(
       return { to: "/app/audit" as const, search: {} };
     case "weekly":
       return { to: "/app/specialists" as const, search: {} };
+    case "technical":
+      return { to: "/app/audit" as const, search: {} };
+    case "visibility":
+      return { to: "/app/ai-visibility" as const, search: {} };
+    case "authority":
+      return { to: "/app/backlinks" as const, search: {} };
     default:
       return null;
   }

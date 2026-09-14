@@ -1,5 +1,18 @@
 import type { ConversationCopy } from "../conversation";
 export const hrConversation: ConversationCopy = {
+  "chat.account.title": "Vaši razgovori",
+  "chat.account.description":
+    "Svi vaši privatni razgovori u svim projektima. Ovaj popis vidite samo vi.",
+  "chat.account.manage": "Upravljaj svim razgovorima",
+  "chat.account.error":
+    "Vaše razgovore nije bilo moguće potvrditi. Naslovi ostaju skriveni dok se ponovno ne provjere.",
+  "chat.account.retry": "Provjeri ponovno",
+  "chat.account.empty": "Nemate spremljenih razgovora.",
+  "chat.account.more": "Prikaži više razgovora",
+  "chat.account.started": "Započet: {date}",
+  "chat.account.unavailable":
+    "Vaš pristup projektu je prestao, pa naslov i poruke ostaju skriveni. Ovaj razgovor i dalje možete izbrisati.",
+  "chat.account.eraseAccess": "Brisanje ne vraća niti mijenja vaš pristup projektu.",
   "chat.export": "Izvezi razgovor",
   "chat.exportHelp":
     "Preuzima spremljene poruke, potvrde i ranije prijedloge kao JSON datoteku. Povezane datoteke su zasebne.",
@@ -94,4 +107,13 @@ export const hrConversation: ConversationCopy = {
   "chat.tool.weekly_preparation": "Stanje tjedne pripreme",
   "chat.tool.saved_audit": "Pregled spremljene revizije",
   "chat.tool.draft_generation": "Generiranje nacrta",
+  "chat.tool.technical_evidence": "Spremljene tehničke provjere",
+  "chat.tool.visibility_evidence": "Spremljeni dokazi iz AI odgovora i zapisnika",
+  "chat.tool.authority_evidence": "Spremljeno praćenje povratnih poveznica",
+  "chat.tool.google_index_inspection": "Google provjera indeksiranja",
+  "chat.tool.performance_test": "Test brzine stranice",
+  "chat.tool.site_crawl": "Pretraživanje web-mjesta",
+  "chat.allowProviderChecks":
+    "Dopusti u ovom zahtjevu najviše dvije provjere web-mjesta (Google provjera indeksiranja, brzina stranice ili jedno pretraživanje web-mjesta) za web-mjesto ovog projekta. Koriste se povezane usluge vlasnika projekta i postojeća ograničenja provjera, a rezultati se spremaju uz tehničke provjere projekta.",
+  "chat.providerChecksEnabled": "Provjere web-mjesta dopuštene su za ovaj zahtjev.",
 };

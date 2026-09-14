@@ -320,4 +320,8 @@ export const huCollaboration = {
   "emailSettings.uncertain":
     "A mentett beállításokat nem sikerült megerősíteni. Újabb módosítás előtt töltsd be őket újra; a legutóbbi módosításod már mentve lehet.",
   "emailSettings.reload": "Mentett beállítások újratöltése (módosítások elvetése)",
+  "collaboration.seats":
+    "A(z) {plan} csomagod {workingSeats} munkahelyet (szerkesztők és lektorok, téged is beleértve) és {viewerSeats} megtekintői helyet tartalmaz. Használatban: {usedWorkingSeats} munkahely, {usedViewerSeats} megtekintői hely. A függő meghívók a lejáratukig foglalják a helyeket.",
+  "collaboration.seatLimit":
+    "Ehhez a szerepkörhöz nincs szabad hely. A csomagod {workingSeats} munkahelyet és {viewerSeats} megtekintői helyet tartalmaz. Távolíts el valakit, vonj vissza egy meghívót, vagy válts magasabb csomagra.",
 } as const;

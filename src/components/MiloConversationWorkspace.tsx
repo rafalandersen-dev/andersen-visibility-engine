@@ -34,6 +34,10 @@ type Selection = { id: string; fresh: boolean; count: number };
 type Props = {
   actorId: string;
   project: MiloProject;
+  /** Provider checks spend the owner's quota. Owners always may consent; a collaborator
+   * only with a working role (editor or reviewer), which the caller derives from the
+   * membership directory. The database refuses consent from viewers regardless. */
+  canConsentChecks?: boolean;
   onOpenResult: (event: ConversationEvent) => void;
   location?: string;
   onLocationChange?: (location: string, replace: boolean) => void;
@@ -293,6 +297,7 @@ function ConversationSession({
   project,
   onOpenResult,
   selection,
+  canConsentChecks = false,
   onStarted,
   onDirectoryRefresh,
   onUnavailableChange,
@@ -311,6 +316,7 @@ function ConversationSession({
   const [followLatest, setFollowLatest] = useState(true);
   const [body, setBody] = useState("");
   const [allowGeneration, setAllowGeneration] = useState(false);
+  const [allowChecks, setAllowChecks] = useState(false);
   const [request, setRequest] = useState<z.infer<typeof conversationSend>>();
   const [sending, setSending] = useState(false),
     [working, setWorking] = useState(false);
@@ -391,6 +397,7 @@ function ConversationSession({
         body,
         locale,
         ...(actorId === project.ownerId ? { allowDraftGeneration: allowGeneration } : {}),
+        allowProviderChecks: allowChecks && (actorId === project.ownerId || canConsentChecks),
       });
     dispatching.current = true;
     setRequest(input);
@@ -404,6 +411,7 @@ function ConversationSession({
       if (!alive.current) return;
       setBody("");
       setAllowGeneration(false);
+      setAllowChecks(false);
     } catch {
       if (alive.current) setSendUnconfirmed(true);
     } finally {
@@ -538,6 +546,11 @@ function ConversationSession({
                       {t("chat.generationEnabled")}
                     </p>
                   )}
+                  {turn.allowProviderChecks && (
+                    <p className="mt-3 text-xs text-muted-foreground">
+                      {t("chat.providerChecksEnabled")}
+                    </p>
+                  )}
                 </article>
                 {displayedConversationEvents(turn).map((event, index) => (
                   <ConversationEventView
@@ -662,6 +675,18 @@ function ConversationSession({
               onChange={(event) => setAllowGeneration(event.target.checked)}
             />
             <span>{t("chat.allowGeneration")}</span>
+          </label>
+        )}
+        {(actorId === project.ownerId || canConsentChecks) && (
+          <label className="mt-3 flex items-start gap-2 text-xs leading-5">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={allowChecks}
+              disabled={sending || working || awaiting}
+              onChange={(event) => setAllowChecks(event.target.checked)}
+            />
+            <span>{t("chat.allowProviderChecks")}</span>
           </label>
         )}
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">

@@ -93,7 +93,7 @@ export const etPublicHome: Readonly<Record<string, string>> = {
   "publicHome.beforeStart": "Enne alustamist",
   "publicHome.faqDiscoveryQ": "Kuhu avastatud võimalused lähevad?",
   "publicHome.faqDiscoveryA":
-    "Avastamise tulemused jäävad soovitusteks, kuni oled need vastu võtnud. Vastuvõetud ideed lisatakse plaani etappi Kogutud koos allika, põhjuse, tõendusandmete, vastutaja, oleku ja järgmise toiminguga.",
+    "Avastamise tulemused jäävad soovitusteks, kuni oled need vastu võtnud. Vastuvõetud ideed lisatakse plaani etappi Idee koos allika, põhjuse, tõendusandmete, vastutaja, oleku ja järgmise toiminguga.",
   "publicHome.faqScoreQ": "Mida Milo Score hindab?",
   "publicHome.faqScoreA":
     "Milo Score hindab enne ülevaatust kindlat sisuversiooni. See kontrollib otsinguvalmidust, brändiga sobivust, struktuuri, tõendusandmeid, konversiooni ja seotud kvaliteedisignaale. See ei järjesta kunagi võimalusi.",

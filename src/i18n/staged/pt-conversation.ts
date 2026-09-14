@@ -1,5 +1,18 @@
 import type { ConversationCopy } from "../conversation";
 export const ptConversation: ConversationCopy = {
+  "chat.account.title": "As tuas conversas",
+  "chat.account.description":
+    "Todas as conversas privadas com o Milo que iniciaste, em todos os projetos. Só tu vês esta lista.",
+  "chat.account.manage": "Gerir todas as conversas",
+  "chat.account.error":
+    "Não foi possível confirmar as tuas conversas. Os títulos continuam ocultos até serem verificados novamente.",
+  "chat.account.retry": "Verificar novamente",
+  "chat.account.empty": "Não tens conversas guardadas.",
+  "chat.account.more": "Mostrar mais conversas",
+  "chat.account.started": "Iniciada: {date}",
+  "chat.account.unavailable":
+    "O acesso ao projeto terminou, pelo que o título e as mensagens continuam ocultos. Ainda podes eliminar esta conversa.",
+  "chat.account.eraseAccess": "A eliminação não restaura nem altera o teu acesso ao projeto.",
   "chat.export": "Exportar conversa",
   "chat.exportHelp":
     "Transfere mensagens, comprovativos e propostas históricas num ficheiro JSON. Os ficheiros associados são separados.",
@@ -95,4 +108,13 @@ export const ptConversation: ConversationCopy = {
   "chat.tool.weekly_preparation": "Estado da preparação semanal",
   "chat.tool.saved_audit": "Revisão da auditoria guardada",
   "chat.tool.draft_generation": "Geração do rascunho",
+  "chat.tool.technical_evidence": "Verificações técnicas guardadas",
+  "chat.tool.visibility_evidence": "Evidências guardadas de respostas de IA e registos",
+  "chat.tool.authority_evidence": "Monitorização guardada de ligações externas",
+  "chat.tool.google_index_inspection": "Inspeção do índice Google",
+  "chat.tool.performance_test": "Teste de velocidade da página",
+  "chat.tool.site_crawl": "Rastreio do site",
+  "chat.allowProviderChecks":
+    "Permitir até duas verificações do site neste pedido (inspeção do índice Google, velocidade da página ou um rastreio do site) para o website deste projeto. Utiliza os serviços ligados do proprietário do projeto e os limites de verificação existentes, e guarda os resultados com as verificações técnicas do projeto.",
+  "chat.providerChecksEnabled": "Verificações do site permitidas para este pedido.",
 };

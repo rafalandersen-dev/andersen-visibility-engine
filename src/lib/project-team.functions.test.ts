@@ -15,6 +15,8 @@ const h = vi.hoisted(() => ({
   preview: vi.fn(),
   decision: vi.fn(),
   history: vi.fn(),
+  seats: vi.fn(async () => ({ workingSeats: 3, viewerSeats: 5 })),
+  seatsRead: vi.fn(),
 }));
 vi.mock("@/integrations/supabase/auth-middleware", () => ({ requireSupabaseAuth: h.auth }));
 vi.mock("@tanstack/react-start", () => ({
@@ -47,6 +49,10 @@ vi.mock("./project-team-read-admission.server", () => ({
   admittedReadRpc: () => h.rpc,
 }));
 vi.mock("./project-team-edit.server", () => ({ saveProjectTeamDraft: h.edit }));
+vi.mock("./project-team-seats.server", () => ({
+  readTeamSeatAllowance: h.seats,
+  readTeamSeats: h.seatsRead,
+}));
 vi.mock("./project-team-policy.server", () => ({
   readOwnerTeamPolicy: h.policyRead,
   changeOwnerTeamPolicy: h.policyChange,
@@ -65,7 +71,7 @@ const invoke = (fn: unknown, data: unknown) =>
   (fn as (args: unknown) => Promise<unknown>)({ data, context: { userId: actor } });
 describe("team authentication entry points", () => {
   it("requires authentication on every entry point", () => {
-    expect(h.registered).toHaveLength(14);
+    expect(h.registered).toHaveLength(15);
     expect(h.registered.every((items) => items.length === 1 && items[0] === h.auth)).toBe(true);
   });
   it("derives owner administration from authentication and rejects supplied actor/owner overrides", async () => {
@@ -77,7 +83,12 @@ describe("team authentication entry points", () => {
       role: "viewer",
     };
     await invoke(endpoints.updateProjectTeamFn, data);
-    expect(h.update).toHaveBeenCalledWith(actor, data);
+    // The seat allowance comes from the authenticated owner's own entitlement, never from input.
+    expect(h.seats).toHaveBeenCalledWith(actor);
+    expect(h.update).toHaveBeenCalledWith(actor, data, h.rpc, { workingSeats: 3, viewerSeats: 5 });
+    await invoke(endpoints.readTeamSeatsFn, {});
+    expect(h.seatsRead).toHaveBeenCalledWith(actor);
+    expect(() => invoke(endpoints.readTeamSeatsFn, { ownerId: owner })).toThrow();
     expect(() => invoke(endpoints.updateProjectTeamFn, { ...data, ownerId: owner })).toThrow();
     expect(() => invoke(endpoints.updateProjectTeamFn, { ...data, actorId: owner })).toThrow();
   });

@@ -315,4 +315,8 @@ export const csCollaboration: Readonly<Record<string, string>> = {
   "emailSettings.uncertain":
     "Uložené nastavení se nepodařilo potvrdit. Před další změnou je znovu načtěte; poslední změna již mohla být uložena.",
   "emailSettings.reload": "Znovu načíst uložené nastavení (zahodit úpravy)",
+  "collaboration.seats":
+    "Váš plán {plan} zahrnuje {workingSeats} pracovních míst (editoři a recenzenti, včetně vás) a {viewerSeats} míst pro prohlížení. Využito: {usedWorkingSeats} pracovních, {usedViewerSeats} pro prohlížení. Čekající pozvánky rezervují místa, dokud nevyprší.",
+  "collaboration.seatLimit":
+    "Pro tuto roli není volné žádné místo. Váš plán zahrnuje {workingSeats} pracovních míst a {viewerSeats} míst pro prohlížení. Někoho odeberte nebo odvolejte pozvánku, případně přejděte na vyšší plán.",
 };

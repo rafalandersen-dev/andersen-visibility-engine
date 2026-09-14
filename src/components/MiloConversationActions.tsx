@@ -9,7 +9,8 @@ import {
   eraseMiloConversationFn,
   exportMiloConversationPageFn,
 } from "@/lib/milo-conversation-lifecycle.functions";
-import { conversationKey, type MiloProject } from "@/lib/milo-conversation.ui";
+import type { MiloProject } from "@/lib/milo-conversation.ui";
+import { purgeErasedConversation } from "@/lib/milo-conversation-erasure.ui";
 import { runTeamRequest } from "@/lib/team-request-queue";
 import { Button } from "./ui/button";
 import {
@@ -102,27 +103,7 @@ export function MiloConversationActions({
       const signal = lifecycle.current.signal;
       const result = await runTeamRequest(() => eraseMiloConversationFn({ data: target }), signal);
       checkedConversationErasure(actorId, target, result);
-      const prefix = conversationKey(actorId, project);
-      // Purge this exact private history and its proposals, even if the caller
-      // navigated away after the erasure was already dispatched.
-      const predicate = (query: { queryKey: readonly unknown[] }) =>
-        (query.queryKey[0] === "milo-conversation" &&
-          query.queryKey[1] === actorId &&
-          query.queryKey[2] === project.ownerId &&
-          query.queryKey[3] === project.projectId &&
-          query.queryKey[4] === "history" &&
-          query.queryKey[5] === conversationId) ||
-        (query.queryKey[0] === "milo-draft-proposal" &&
-          query.queryKey[1] === actorId &&
-          query.queryKey[2] === project.ownerId &&
-          query.queryKey[3] === project.projectId &&
-          query.queryKey[4] === conversationId);
-      await client.cancelQueries({ predicate });
-      client.removeQueries({ predicate });
-      // Directory entries include titles. Remove the old title immediately,
-      // and require a new authorized read before rendering another directory.
-      await client.cancelQueries({ queryKey: [...prefix, "directory"] });
-      client.resetQueries({ queryKey: [...prefix, "directory"] });
+      await purgeErasedConversation(client, actorId, target);
       if (alive.current && !signal.aborted) onErased();
     } catch {
       if (alive.current) setUnconfirmed(true);

@@ -111,6 +111,15 @@ describe("conversation browser boundaries", () => {
     expect(
       referenceDestination(project, other, { ...event, reference: { kind: "knowledge", id: "p" } }),
     ).toBeNull();
+    for (const [kind, to] of [
+      ["technical", "/app/audit"],
+      ["visibility", "/app/ai-visibility"],
+      ["authority", "/app/backlinks"],
+    ] as const) {
+      const evidence: ConversationEvent = { ...event, reference: { kind, id: "p" } };
+      expect(referenceDestination(project, actor, evidence)).toEqual({ to, search: {} });
+      expect(referenceDestination(project, other, evidence)).toBeNull();
+    }
   });
   it("keeps an unconfirmed proposal operation available for an exact read after execution stops", () => {
     const started: ConversationEvent = {

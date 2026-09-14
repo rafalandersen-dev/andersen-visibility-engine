@@ -1,5 +1,18 @@
 import type { ConversationCopy } from "../conversation";
 export const csConversation: ConversationCopy = {
+  "chat.account.title": "Vaše konverzace",
+  "chat.account.description":
+    "Všechny vaše soukromé konverzace ve všech projektech. Tento seznam vidíte jen vy.",
+  "chat.account.manage": "Spravovat všechny konverzace",
+  "chat.account.error":
+    "Vaše konverzace se nepodařilo potvrdit. Názvy zůstávají skryté, dokud nebudou znovu ověřeny.",
+  "chat.account.retry": "Zkontrolovat znovu",
+  "chat.account.empty": "Nemáte žádné uložené konverzace.",
+  "chat.account.more": "Zobrazit další konverzace",
+  "chat.account.started": "Zahájeno: {date}",
+  "chat.account.unavailable":
+    "Váš přístup k projektu skončil, proto název a zprávy zůstávají skryté. Tuto konverzaci můžete stále smazat.",
+  "chat.account.eraseAccess": "Smazání neobnoví ani nezmění váš přístup k projektu.",
   "chat.export": "Exportovat konverzaci",
   "chat.exportHelp":
     "Stáhne uložené zprávy, potvrzení a dřívější návrhy jako soubor JSON. Propojené soubory jsou samostatné.",
@@ -92,4 +105,13 @@ export const csConversation: ConversationCopy = {
   "chat.tool.weekly_preparation": "Stav týdenní přípravy",
   "chat.tool.saved_audit": "Kontrola uloženého auditu",
   "chat.tool.draft_generation": "Vytváření konceptu",
+  "chat.tool.technical_evidence": "Uložené technické kontroly",
+  "chat.tool.visibility_evidence": "Uložené důkazy z odpovědí AI a záznamů",
+  "chat.tool.authority_evidence": "Uložené sledování zpětných odkazů",
+  "chat.tool.google_index_inspection": "Kontrola indexu Google",
+  "chat.tool.performance_test": "Test rychlosti stránky",
+  "chat.tool.site_crawl": "Procházení webu",
+  "chat.allowProviderChecks":
+    "Povolit v tomto požadavku nejvýše dvě kontroly webu (kontrola indexu Google, rychlost stránky nebo jedno procházení webu) pro web tohoto projektu. Používá připojené služby vlastníka projektu a stávající limity kontrol a výsledky ukládá spolu s technickými kontrolami projektu.",
+  "chat.providerChecksEnabled": "Kontroly webu jsou pro tento požadavek povoleny.",
 };

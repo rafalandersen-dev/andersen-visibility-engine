@@ -1,5 +1,18 @@
 import type { ConversationCopy } from "../conversation";
 export const frConversation: ConversationCopy = {
+  "chat.account.title": "Vos conversations",
+  "chat.account.description":
+    "Toutes les conversations privées avec Milo que vous avez commencées, dans tous les projets. Cette liste n’est visible que par vous.",
+  "chat.account.manage": "Gérer toutes les conversations",
+  "chat.account.error":
+    "Vos conversations n’ont pas pu être confirmées. Les titres restent masqués jusqu’à une nouvelle vérification.",
+  "chat.account.retry": "Vérifier à nouveau",
+  "chat.account.empty": "Vous n’avez aucune conversation enregistrée.",
+  "chat.account.more": "Afficher plus de conversations",
+  "chat.account.started": "Début : {date}",
+  "chat.account.unavailable":
+    "L’accès au projet a pris fin : le titre et les messages restent masqués. Vous pouvez toujours supprimer cette conversation.",
+  "chat.account.eraseAccess": "La suppression ne rétablit ni ne modifie votre accès au projet.",
   "chat.export": "Exporter la conversation",
   "chat.exportHelp":
     "Télécharge les messages, reçus et propositions historiques dans un fichier JSON. Les fichiers liés sont séparés.",
@@ -95,4 +108,13 @@ export const frConversation: ConversationCopy = {
   "chat.tool.weekly_preparation": "Statut de la préparation hebdomadaire",
   "chat.tool.saved_audit": "Examen de l’audit enregistré",
   "chat.tool.draft_generation": "Génération du brouillon",
+  "chat.tool.technical_evidence": "Contrôles techniques enregistrés",
+  "chat.tool.visibility_evidence": "Éléments enregistrés des réponses d’IA et des journaux",
+  "chat.tool.authority_evidence": "Suivi enregistré des liens entrants",
+  "chat.tool.google_index_inspection": "Inspection de l’index Google",
+  "chat.tool.performance_test": "Test de vitesse de la page",
+  "chat.tool.site_crawl": "Exploration du site",
+  "chat.allowProviderChecks":
+    "Autoriser jusqu’à deux vérifications du site dans cette demande (inspection de l’index Google, vitesse de la page ou une exploration du site) pour le site web de ce projet. Utilise les services connectés du propriétaire du projet et les limites de vérification existantes, et enregistre les résultats avec les contrôles techniques du projet.",
+  "chat.providerChecksEnabled": "Vérifications du site autorisées pour cette demande.",
 };

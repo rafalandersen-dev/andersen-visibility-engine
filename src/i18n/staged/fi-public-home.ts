@@ -93,7 +93,7 @@ export const fiPublicHome: Readonly<Record<string, string>> = {
   "publicHome.beforeStart": "Ennen aloittamista",
   "publicHome.faqDiscoveryQ": "Mihin löydetyt mahdollisuudet menevät?",
   "publicHome.faqDiscoveryA":
-    "Ideahaun tulokset pysyvät ehdotuksina, kunnes hyväksyt ne. Hyväksytyt ideat tulevat Suunnitelmaan talteen otettuina. Niiden mukana säilyvät lähde, peruste, näyttö, vastuuhenkilö, tila ja seuraava toimi.",
+    "Ideahaun tulokset pysyvät ehdotuksina, kunnes hyväksyt ne. Hyväksytyt ideat tulevat Suunnitelman Idea-vaiheeseen. Niiden mukana säilyvät lähde, peruste, näyttö, vastuuhenkilö, tila ja seuraava toimi.",
   "publicHome.faqScoreQ": "Mitä Milo Score arvioi?",
   "publicHome.faqScoreA":
     "Milo Score arvioi tietyn sisältöversion ennen tarkistusta. Se tarkastelee hakuvalmiutta, brändiin sopivuutta, rakennetta, näyttöä, konversiota ja niihin liittyviä laatusignaaleja. Se ei koskaan aseta mahdollisuuksia paremmuusjärjestykseen.",

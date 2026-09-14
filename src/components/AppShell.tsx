@@ -152,6 +152,7 @@ const NAV = [
     icon: GearSix,
     paths: [
       "/app/collaborators",
+      "/app/conversations",
       "/app/setup",
       "/app/services",
       "/app/connect",
@@ -161,6 +162,7 @@ const NAV = [
     ],
     children: [
       { tKey: "collaboration.title", to: "/app/collaborators", icon: UsersThree },
+      { tKey: "chat.account.title", to: "/app/conversations", icon: ChatCircleDots },
       { tKey: "shell.nav.projectSetup", to: "/app/setup", icon: PencilSimple },
       { tKey: "shell.nav.services", to: "/app/services", icon: Package },
       { tKey: "shell.nav.connectedApps", to: "/app/connect", icon: PlugsConnected },

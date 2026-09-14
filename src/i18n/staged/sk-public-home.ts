@@ -94,7 +94,7 @@ export const skPublicHome: Readonly<Record<string, string>> = {
   "publicHome.beforeStart": "Skôr než začnete",
   "publicHome.faqDiscoveryQ": "Kam sa pridajú nájdené príležitosti?",
   "publicHome.faqDiscoveryA":
-    "Výsledky hľadania príležitostí zostávajú návrhmi, kým ich neprijmete. Prijaté nápady sa pridajú do Plánu do fázy Zachytené spolu so zdrojom, dôvodom, dôkazmi, zodpovednou osobou, stavom a ďalšou akciou.",
+    "Výsledky hľadania príležitostí zostávajú návrhmi, kým ich neprijmete. Prijaté nápady sa pridajú do Plánu do fázy Nápad spolu so zdrojom, dôvodom, dôkazmi, zodpovednou osobou, stavom a ďalšou akciou.",
   "publicHome.faqScoreQ": "Čo hodnotí Milo Score?",
   "publicHome.faqScoreA":
     "Milo Score pred kontrolou hodnotí konkrétnu verziu obsahu. Kontroluje pripravenosť na vyhľadávanie, súlad so značkou, štruktúru, dôkazy, konverzie a súvisiace signály kvality. Nikdy nezoraďuje príležitosti.",

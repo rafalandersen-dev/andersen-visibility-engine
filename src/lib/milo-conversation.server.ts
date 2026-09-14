@@ -66,6 +66,9 @@ export async function beginConversationTurn(
           ...(input.allowDraftGeneration !== undefined
             ? { p_allow_generation: input.allowDraftGeneration }
             : {}),
+          ...(input.allowProviderChecks !== undefined
+            ? { p_allow_checks: input.allowProviderChecks }
+            : {}),
         },
         admittedReadRpc(actor, rpc),
       ),
@@ -74,7 +77,8 @@ export async function beginConversationTurn(
   if (
     result.turn.body !== input.body ||
     result.turn.locale !== input.locale ||
-    (result.turn.allowDraftGeneration ?? false) !== (input.allowDraftGeneration ?? false)
+    (result.turn.allowDraftGeneration ?? false) !== (input.allowDraftGeneration ?? false) ||
+    (result.turn.allowProviderChecks ?? false) !== (input.allowProviderChecks ?? false)
   )
     throw new Error("Conversation response could not be confirmed.");
   return result;

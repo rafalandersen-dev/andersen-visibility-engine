@@ -94,7 +94,7 @@ export const ptPublicHome: Readonly<Record<string, string>> = {
   "publicHome.beforeStart": "Antes de começar",
   "publicHome.faqDiscoveryQ": "Para onde vão as oportunidades descobertas?",
   "publicHome.faqDiscoveryA":
-    "Os resultados da descoberta permanecem como sugestões até serem aceites. As ideias aceites entram no Plano na fase Capturada, com a origem, o motivo, as evidências, o responsável, o estado e a próxima ação associados.",
+    "Os resultados da descoberta permanecem como sugestões até serem aceites. As ideias aceites entram no Plano na fase Ideia, com a origem, o motivo, as evidências, o responsável, o estado e a próxima ação associados.",
   "publicHome.faqScoreQ": "O que avalia o Milo Score?",
   "publicHome.faqScoreA":
     "O Milo Score avalia uma versão específica do conteúdo antes da revisão. Verifica a preparação para pesquisa, o alinhamento com a marca, a estrutura, as evidências, a conversão e outros sinais de qualidade relacionados. Nunca classifica as Oportunidades.",

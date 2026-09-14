@@ -68,6 +68,7 @@ import { Route as AuthenticatedAppLinkMarketplaceRouteImport } from './routes/_a
 import { Route as AuthenticatedAppLaunchChecklistRouteImport } from './routes/_authenticated/app.launch-checklist'
 import { Route as AuthenticatedAppGenerationsRouteImport } from './routes/_authenticated/app.generations'
 import { Route as AuthenticatedAppEditorRouteImport } from './routes/_authenticated/app.editor'
+import { Route as AuthenticatedAppConversationsRouteImport } from './routes/_authenticated/app.conversations'
 import { Route as AuthenticatedAppConnectRouteImport } from './routes/_authenticated/app.connect'
 import { Route as AuthenticatedAppCompetitorsRouteImport } from './routes/_authenticated/app.competitors'
 import { Route as AuthenticatedAppCollaboratorsRouteImport } from './routes/_authenticated/app.collaborators'
@@ -398,6 +399,12 @@ const AuthenticatedAppEditorRoute = AuthenticatedAppEditorRouteImport.update({
   path: '/app/editor',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAppConversationsRoute =
+  AuthenticatedAppConversationsRouteImport.update({
+    id: '/app/conversations',
+    path: '/app/conversations',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAppConnectRoute = AuthenticatedAppConnectRouteImport.update({
   id: '/app/connect',
   path: '/app/connect',
@@ -577,6 +584,7 @@ export interface FileRoutesByFullPath {
   '/app/collaborators': typeof AuthenticatedAppCollaboratorsRoute
   '/app/competitors': typeof AuthenticatedAppCompetitorsRoute
   '/app/connect': typeof AuthenticatedAppConnectRoute
+  '/app/conversations': typeof AuthenticatedAppConversationsRoute
   '/app/editor': typeof AuthenticatedAppEditorRoute
   '/app/generations': typeof AuthenticatedAppGenerationsRoute
   '/app/launch-checklist': typeof AuthenticatedAppLaunchChecklistRoute
@@ -660,6 +668,7 @@ export interface FileRoutesByTo {
   '/app/collaborators': typeof AuthenticatedAppCollaboratorsRoute
   '/app/competitors': typeof AuthenticatedAppCompetitorsRoute
   '/app/connect': typeof AuthenticatedAppConnectRoute
+  '/app/conversations': typeof AuthenticatedAppConversationsRoute
   '/app/editor': typeof AuthenticatedAppEditorRoute
   '/app/generations': typeof AuthenticatedAppGenerationsRoute
   '/app/launch-checklist': typeof AuthenticatedAppLaunchChecklistRoute
@@ -745,6 +754,7 @@ export interface FileRoutesById {
   '/_authenticated/app/collaborators': typeof AuthenticatedAppCollaboratorsRoute
   '/_authenticated/app/competitors': typeof AuthenticatedAppCompetitorsRoute
   '/_authenticated/app/connect': typeof AuthenticatedAppConnectRoute
+  '/_authenticated/app/conversations': typeof AuthenticatedAppConversationsRoute
   '/_authenticated/app/editor': typeof AuthenticatedAppEditorRoute
   '/_authenticated/app/generations': typeof AuthenticatedAppGenerationsRoute
   '/_authenticated/app/launch-checklist': typeof AuthenticatedAppLaunchChecklistRoute
@@ -830,6 +840,7 @@ export interface FileRouteTypes {
     | '/app/collaborators'
     | '/app/competitors'
     | '/app/connect'
+    | '/app/conversations'
     | '/app/editor'
     | '/app/generations'
     | '/app/launch-checklist'
@@ -913,6 +924,7 @@ export interface FileRouteTypes {
     | '/app/collaborators'
     | '/app/competitors'
     | '/app/connect'
+    | '/app/conversations'
     | '/app/editor'
     | '/app/generations'
     | '/app/launch-checklist'
@@ -997,6 +1009,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/collaborators'
     | '/_authenticated/app/competitors'
     | '/_authenticated/app/connect'
+    | '/_authenticated/app/conversations'
     | '/_authenticated/app/editor'
     | '/_authenticated/app/generations'
     | '/_authenticated/app/launch-checklist'
@@ -1504,6 +1517,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppEditorRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/app/conversations': {
+      id: '/_authenticated/app/conversations'
+      path: '/app/conversations'
+      fullPath: '/app/conversations'
+      preLoaderRoute: typeof AuthenticatedAppConversationsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/app/connect': {
       id: '/_authenticated/app/connect'
       path: '/app/connect'
@@ -1683,6 +1703,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppCollaboratorsRoute: typeof AuthenticatedAppCollaboratorsRoute
   AuthenticatedAppCompetitorsRoute: typeof AuthenticatedAppCompetitorsRoute
   AuthenticatedAppConnectRoute: typeof AuthenticatedAppConnectRoute
+  AuthenticatedAppConversationsRoute: typeof AuthenticatedAppConversationsRoute
   AuthenticatedAppEditorRoute: typeof AuthenticatedAppEditorRoute
   AuthenticatedAppGenerationsRoute: typeof AuthenticatedAppGenerationsRoute
   AuthenticatedAppLaunchChecklistRoute: typeof AuthenticatedAppLaunchChecklistRoute
@@ -1716,6 +1737,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppCollaboratorsRoute: AuthenticatedAppCollaboratorsRoute,
   AuthenticatedAppCompetitorsRoute: AuthenticatedAppCompetitorsRoute,
   AuthenticatedAppConnectRoute: AuthenticatedAppConnectRoute,
+  AuthenticatedAppConversationsRoute: AuthenticatedAppConversationsRoute,
   AuthenticatedAppEditorRoute: AuthenticatedAppEditorRoute,
   AuthenticatedAppGenerationsRoute: AuthenticatedAppGenerationsRoute,
   AuthenticatedAppLaunchChecklistRoute: AuthenticatedAppLaunchChecklistRoute,

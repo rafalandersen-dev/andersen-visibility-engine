@@ -1,4 +1,17 @@
 const en = {
+  "chat.account.title": "Your conversations",
+  "chat.account.description":
+    "Every private Milo conversation you started, across all projects. Only you can see this list.",
+  "chat.account.manage": "Manage all conversations",
+  "chat.account.error":
+    "Your conversations could not be confirmed. Titles stay hidden until they are checked again.",
+  "chat.account.retry": "Check again",
+  "chat.account.empty": "You have no saved conversations.",
+  "chat.account.more": "Show more conversations",
+  "chat.account.started": "Started {date}",
+  "chat.account.unavailable":
+    "Project access has ended, so the title and messages stay hidden. You can still delete this conversation.",
+  "chat.account.eraseAccess": "Deleting does not restore or change your access to the project.",
   "chat.export": "Export conversation",
   "chat.exportHelp":
     "Downloads saved messages, receipts and historical proposals as a JSON file. Linked files are separate.",
@@ -90,10 +103,33 @@ const en = {
   "chat.tool.weekly_preparation": "Weekly preparation status",
   "chat.tool.saved_audit": "Saved audit review",
   "chat.tool.draft_generation": "Draft generation",
+  "chat.tool.technical_evidence": "Saved technical checks",
+  "chat.tool.visibility_evidence": "Saved AI answer and log evidence",
+  "chat.tool.authority_evidence": "Saved backlink monitoring",
+  "chat.tool.google_index_inspection": "Google index inspection",
+  "chat.tool.performance_test": "Page speed test",
+  "chat.tool.site_crawl": "Site crawl",
+  "chat.allowProviderChecks":
+    "Allow up to two site checks in this request (Google index inspection, page speed or one site crawl) for this project's website. Uses the project owner's connected services and existing check limits, and saves the results with the project's technical checks.",
+  "chat.providerChecksEnabled": "Site checks allowed for this request.",
 } as const;
 type Copy = Record<keyof typeof en, string>;
 export type ConversationCopy = Copy;
 const pl: Copy = {
+  "chat.account.title": "Twoje rozmowy",
+  "chat.account.description":
+    "Wszystkie Twoje prywatne rozmowy z Milo we wszystkich projektach. Tylko Ty widzisz tę listę.",
+  "chat.account.manage": "Zarządzaj wszystkimi rozmowami",
+  "chat.account.error":
+    "Nie udało się potwierdzić Twoich rozmów. Tytuły pozostają ukryte do czasu ponownego sprawdzenia.",
+  "chat.account.retry": "Sprawdź ponownie",
+  "chat.account.empty": "Nie masz zapisanych rozmów.",
+  "chat.account.more": "Pokaż więcej rozmów",
+  "chat.account.started": "Rozpoczęta: {date}",
+  "chat.account.unavailable":
+    "Dostęp do projektu się zakończył, więc tytuł i wiadomości pozostają ukryte. Nadal możesz usunąć tę rozmowę.",
+  "chat.account.eraseAccess":
+    "Usunięcie nie przywraca ani nie zmienia Twojego dostępu do projektu.",
   "chat.export": "Eksportuj rozmowę",
   "chat.exportHelp":
     "Pobiera zapisane wiadomości, potwierdzenia i historyczne propozycje w pliku JSON. Powiązane pliki są osobno.",
@@ -187,8 +223,31 @@ const pl: Copy = {
   "chat.tool.weekly_preparation": "Stan przygotowania tygodnia",
   "chat.tool.saved_audit": "Przegląd zapisanego audytu",
   "chat.tool.draft_generation": "Generowanie szkicu",
+  "chat.tool.technical_evidence": "Zapisane kontrole techniczne",
+  "chat.tool.visibility_evidence": "Zapisane dowody z odpowiedzi AI i logów",
+  "chat.tool.authority_evidence": "Zapisane monitorowanie linków zwrotnych",
+  "chat.tool.google_index_inspection": "Inspekcja indeksu Google",
+  "chat.tool.performance_test": "Test szybkości strony",
+  "chat.tool.site_crawl": "Skanowanie witryny",
+  "chat.allowProviderChecks":
+    "Zezwól w tym zadaniu na maksymalnie dwa sprawdzenia witryny (inspekcja indeksu Google, szybkość strony lub jedno skanowanie witryny) dla witryny tego projektu. Korzysta z połączonych usług i obecnych limitów sprawdzeń właściciela projektu, a wyniki zapisuje razem z kontrolami technicznymi projektu.",
+  "chat.providerChecksEnabled": "Sprawdzenia witryny dozwolone dla tego zadania.",
 };
 const sv: Copy = {
+  "chat.account.title": "Dina samtal",
+  "chat.account.description":
+    "Alla privata samtal med Milo som du har startat, i alla projekt. Bara du kan se den här listan.",
+  "chat.account.manage": "Hantera alla samtal",
+  "chat.account.error":
+    "Dina samtal kunde inte bekräftas. Titlarna förblir dolda tills de har kontrollerats igen.",
+  "chat.account.retry": "Kontrollera igen",
+  "chat.account.empty": "Du har inga sparade samtal.",
+  "chat.account.more": "Visa fler samtal",
+  "chat.account.started": "Startat {date}",
+  "chat.account.unavailable":
+    "Åtkomsten till projektet har upphört, så titeln och meddelandena förblir dolda. Du kan fortfarande ta bort samtalet.",
+  "chat.account.eraseAccess":
+    "Borttagningen återställer eller ändrar inte din åtkomst till projektet.",
   "chat.export": "Exportera samtal",
   "chat.exportHelp":
     "Hämtar sparade meddelanden, kvittenser och historiska förslag som en JSON-fil. Länkade filer är separata.",
@@ -282,8 +341,30 @@ const sv: Copy = {
   "chat.tool.weekly_preparation": "Veckoförberedelsens status",
   "chat.tool.saved_audit": "Granskning av sparad analys",
   "chat.tool.draft_generation": "Utkastgenerering",
+  "chat.tool.technical_evidence": "Sparade tekniska kontroller",
+  "chat.tool.visibility_evidence": "Sparat underlag från AI-svar och loggar",
+  "chat.tool.authority_evidence": "Sparad bevakning av inkommande länkar",
+  "chat.tool.google_index_inspection": "Google-indexinspektion",
+  "chat.tool.performance_test": "Test av sidhastighet",
+  "chat.tool.site_crawl": "Genomsökning av webbplatsen",
+  "chat.allowProviderChecks":
+    "Tillåt upp till två webbplatskontroller i den här uppgiften (Google-indexinspektion, sidhastighet eller en genomsökning av webbplatsen) för projektets webbplats. Använder projektägarens anslutna tjänster och befintliga kontrollgränser, och sparar resultaten bland projektets tekniska kontroller.",
+  "chat.providerChecksEnabled": "Webbplatskontroller är tillåtna för den här uppgiften.",
 };
 const da: Copy = {
+  "chat.account.title": "Dine samtaler",
+  "chat.account.description":
+    "Alle private samtaler med Milo, som du har startet, på tværs af projekter. Kun du kan se denne liste.",
+  "chat.account.manage": "Administrer alle samtaler",
+  "chat.account.error":
+    "Dine samtaler kunne ikke bekræftes. Titlerne forbliver skjulte, indtil de er kontrolleret igen.",
+  "chat.account.retry": "Kontrollér igen",
+  "chat.account.empty": "Du har ingen gemte samtaler.",
+  "chat.account.more": "Vis flere samtaler",
+  "chat.account.started": "Startet {date}",
+  "chat.account.unavailable":
+    "Adgangen til projektet er ophørt, så titlen og beskederne forbliver skjulte. Du kan stadig slette denne samtale.",
+  "chat.account.eraseAccess": "Sletning genopretter eller ændrer ikke din adgang til projektet.",
   "chat.export": "Eksportér samtale",
   "chat.exportHelp":
     "Henter gemte beskeder, kvitteringer og historiske forslag som en JSON-fil. Tilknyttede filer er separate.",
@@ -377,5 +458,14 @@ const da: Copy = {
   "chat.tool.weekly_preparation": "Status for ugeforberedelse",
   "chat.tool.saved_audit": "Gennemgang af gemt analyse",
   "chat.tool.draft_generation": "Generering af kladde",
+  "chat.tool.technical_evidence": "Gemte tekniske kontroller",
+  "chat.tool.visibility_evidence": "Gemt dokumentation fra AI-svar og logfiler",
+  "chat.tool.authority_evidence": "Gemt overvågning af indgående links",
+  "chat.tool.google_index_inspection": "Google-indeksinspektion",
+  "chat.tool.performance_test": "Test af sidehastighed",
+  "chat.tool.site_crawl": "Gennemsøgning af webstedet",
+  "chat.allowProviderChecks":
+    "Tillad op til to webstedskontroller i denne opgave (Google-indeksinspektion, sidehastighed eller én gennemsøgning af webstedet) for projektets websted. Bruger projektejerens forbundne tjenester og eksisterende kontrolgrænser og gemmer resultaterne sammen med projektets tekniske kontroller.",
+  "chat.providerChecksEnabled": "Webstedskontroller er tilladt for denne opgave.",
 };
 export const conversationCopy = { en, pl, sv, da } as const;

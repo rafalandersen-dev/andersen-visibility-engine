@@ -93,7 +93,7 @@ export const publicHomeCopy: Record<OnboardingLanguage, Readonly<Record<string, 
     "publicHome.beforeStart": "Before you start",
     "publicHome.faqDiscoveryQ": "Where do discovered opportunities go?",
     "publicHome.faqDiscoveryA":
-      "Discovery results stay as suggestions until you accept them. Accepted ideas enter Plan in Captured, with their source, reason, evidence, owner, status and next action attached.",
+      "Discovery results stay as suggestions until you accept them. Accepted ideas enter Plan at the Idea stage, with their source, reason, evidence, owner, status and next action attached.",
     "publicHome.faqScoreQ": "What does Milo Score evaluate?",
     "publicHome.faqScoreA":
       "Milo Score evaluates a specific content version before review. It checks search readiness, brand fit, structure, evidence, conversion and related quality signals. It never ranks Opportunities.",
@@ -219,7 +219,7 @@ export const publicHomeCopy: Record<OnboardingLanguage, Readonly<Record<string, 
     "publicHome.beforeStart": "Zanim zaczniesz",
     "publicHome.faqDiscoveryQ": "Gdzie trafiają odkryte możliwości?",
     "publicHome.faqDiscoveryA":
-      "Wyniki odkrywania pozostają sugestiami do czasu Twojej akceptacji. Zaakceptowane pomysły trafiają do Planu na etap Zebrane, z przypisanym źródłem, uzasadnieniem, dowodami, osobą odpowiedzialną, statusem i kolejnym działaniem.",
+      "Wyniki odkrywania pozostają sugestiami do czasu Twojej akceptacji. Zaakceptowane pomysły trafiają do Planu na etap Pomysł, z przypisanym źródłem, uzasadnieniem, dowodami, osobą odpowiedzialną, statusem i kolejnym działaniem.",
     "publicHome.faqScoreQ": "Co ocenia Milo Score?",
     "publicHome.faqScoreA":
       "Milo Score ocenia konkretną wersję treści przed weryfikacją. Sprawdza gotowość do wyszukiwania, zgodność z marką, strukturę, dowody, konwersję i powiązane sygnały jakości. Nigdy nie tworzy rankingu możliwości.",
@@ -344,7 +344,7 @@ export const publicHomeCopy: Record<OnboardingLanguage, Readonly<Record<string, 
     "publicHome.beforeStart": "Innan du börjar",
     "publicHome.faqDiscoveryQ": "Vart hamnar upptäckta möjligheter?",
     "publicHome.faqDiscoveryA":
-      "Upptäckta resultat är förslag tills du accepterar dem. Accepterade idéer hamnar i Plan under Insamlat, med källa, skäl, underlag, ansvarig, status och nästa åtgärd.",
+      "Upptäckta resultat är förslag tills du accepterar dem. Accepterade idéer hamnar i Plan under Idé, med källa, skäl, underlag, ansvarig, status och nästa åtgärd.",
     "publicHome.faqScoreQ": "Vad utvärderar Milo Score?",
     "publicHome.faqScoreA":
       "Milo Score utvärderar en specifik innehållsversion före granskning. Det kontrollerar sökberedskap, varumärkespassning, struktur, belägg, konvertering och relaterade kvalitetssignaler. Det rangordnar aldrig möjligheter.",
@@ -469,7 +469,7 @@ export const publicHomeCopy: Record<OnboardingLanguage, Readonly<Record<string, 
     "publicHome.beforeStart": "Før du starter",
     "publicHome.faqDiscoveryQ": "Hvor havner opdagede muligheder?",
     "publicHome.faqDiscoveryA":
-      "Opdagede resultater forbliver forslag, indtil du accepterer dem. Accepterede idéer kommer i Plan under Indsamlet med kilde, begrundelse, dokumentation, ansvarlig, status og næste handling.",
+      "Opdagede resultater forbliver forslag, indtil du accepterer dem. Accepterede idéer kommer i Plan under Idé med kilde, begrundelse, dokumentation, ansvarlig, status og næste handling.",
     "publicHome.faqScoreQ": "Hvad vurderer Milo Score?",
     "publicHome.faqScoreA":
       "Milo Score vurderer en bestemt indholdsversion før gennemgang. Det kontrollerer søgeparathed, brandtilpasning, struktur, dokumentation, konvertering og relaterede kvalitetssignaler. Det rangerer aldrig muligheder.",

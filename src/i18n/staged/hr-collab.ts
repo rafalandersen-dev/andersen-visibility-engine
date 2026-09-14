@@ -318,4 +318,8 @@ export const hrCollab: Readonly<Record<string, string>> = {
   "emailSettings.uncertain":
     "Spremljene postavke nije bilo moguće potvrditi. Ponovno ih učitajte prije sljedeće promjene; posljednja promjena možda je već spremljena.",
   "emailSettings.reload": "Ponovno učitaj spremljene postavke (odbaci izmjene)",
+  "collaboration.seats":
+    "Vaš plan {plan} uključuje {workingSeats} radnih mjesta (urednici i recenzenti, uključujući vas) i {viewerSeats} mjesta za pregled. U upotrebi: {usedWorkingSeats} radnih, {usedViewerSeats} za pregled. Pozivnice na čekanju rezerviraju mjesta dok ne isteknu.",
+  "collaboration.seatLimit":
+    "Za ovu ulogu nema slobodnog mjesta. Vaš plan uključuje {workingSeats} radnih mjesta i {viewerSeats} mjesta za pregled. Uklonite ili opozovite nekoga ili nadogradite plan.",
 };
