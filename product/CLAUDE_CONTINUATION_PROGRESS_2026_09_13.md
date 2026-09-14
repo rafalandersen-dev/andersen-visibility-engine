@@ -2423,3 +2423,45 @@ Not changed: PR #135's `competitorUrl` finding (other branch) and the `equalSecr
 **Full suite after Milestone 107:** 5,716 tests / 367 files pass (51 s). Rerun `bun run build` outside the sandbox before merge, since source changed after the owner-run build.
 
 **Production build at `f549e9a` (owner-run, 14 September):** the owner reran `bun run build` outside the sandbox after Milestone 107 and reported that it passed. Local validation on this head is complete: full suite, types, lint, browser fixtures and build. Merge still waits on the Codex security review, CI on both Bun runtimes for this head, and the release protocol.
+
+## Milestone 108 — CI-0: Citation Intelligence v1.1 reconciled and written back (14 September)
+
+**Handoff accepted:** `Milo_Citation_Intelligence_Spec_v1.1.md` (owner-accepted scope reduction). Integrated verbatim at `product/CITATION_INTELLIGENCE_SPEC.md`. The previous bounded task (PR #136) was checkpointed first: committed, pushed, CI green, security review on the recorded quota hold. This packet runs on local branch `claude/milo-citation-intelligence-20260914`, branched from `3d4a033` (the PR #136 head) so that PR's review scope stays unchanged. Reference main HEAD `27417bc` is an ancestor; nothing was reset.
+
+**Active milestone:** CI-0 complete; CI-1 (native evidence import) is next and is blocked on genuine export samples (below).
+
+### File-level reconciliation
+
+| Spec requirement | State | Evidence | Reused / delta |
+| --- | --- | --- | --- |
+| Manual answer intake: immutable prompt versions, capture provenance, failed/truncated attempts, correction chains, unknown-vs-zero denominators, caps 200 prompts / 100 answers, network-free, safe rendering, export/removal | **Implemented, tested, released (PR113)** | `src/lib/answer-evidence.ts`, `answer-evidence.server.ts`, `answer-evidence.functions.ts`, `supabase/migrations/20260910210000_answer_evidence.sql`, tests `answer-evidence*.test.ts` (4 files), route `app.ai-visibility.tsx`, `docs/AI-ANSWER-EVIDENCE.md` | Reuse as the manual stream. `answerEvidenceSchema` already carries surface, mode, method, model version, capture time, status, citations and completeness. |
+| Literal brand matcher and own/competitor/third-party citation classification, unknown-model cohorts (`evidenceCohorts`) | Implemented, tested | `answer-evidence.ts` (`analyzeAnswer`, `evidenceCohorts`), `answer-evidence.test.ts` | Reuse for locating text only; human review is the v1 classifier. Cohort protections untouched. |
+| Session/personalisation, location, language split, surface mode, planned slot, panel/protocol version per capture (§5.2) | **Missing** | none | Delta for CI-2: extend the answer document (JSON) with a bounded `session` block plus panel/slot references; keep existing fields and caps. |
+| Discovery vs brand panel, immutable panel version, ten approved prompt versions, planned slots (§5.1, §8) | **Missing** | prompt library exists (`ai_visibility_prompts`) but has no panel grouping or slot plan | Delta for CI-2: a typed panel record referencing existing prompt IDs/revisions; separate counts. |
+| Human finding/review records: gap family, recommendation states, five-state support with passage/date/reviewer, accuracy-at-capture, linked task (§4) | **Missing** | none | Delta for CI-2. |
+| Native GSC generative-AI report import with raw/interpreted cells and `value_status`; Bing AI Performance import (§3) | **Missing** | existing GSC OAuth/API integration (`gsc.ts`, `gsc-oauth.server.ts`, `gsc-cron.server.ts`) reads the ordinary Search performance API and must stay intact; no file parser exists | Delta for CI-1: deterministic CSV parsers and a typed native-report snapshot store. **Blocked on genuine exports** (the spec forbids speculative schemas). |
+| Existing upload contract to extend | Implemented | `brand-document*.ts` (bounded ZIP/document upload, byte limits, worker parsing) | Reuse its limits and preview pattern for native file import. |
+| Plan task conversion, owner decisions, dismissals | Implemented | `app.plan.tsx`, opportunities/actions stores, `plan-screen` copy | Reuse for CI-3; add evidence references to tasks. |
+| Destination verification of a change | Partially implemented | `publication-evidence.*` (published-version receipts), `google-index.*` (URL inspection, quota-consuming, owner-consented), technical crawl | CI-3 uses existing receipts or a recorded owner inspection; no new crawler. |
+| Proof report | Implemented (monthly proof report) | `proof-report*.ts`, `app.report.tsx` | CI-4 adds a qualified Citation Intelligence section; no uplift claim. |
+| AI Readiness advice kept separate | Implemented | `app.ai-visibility.tsx` readiness section, `docs/AI-VISIBILITY-MONITOR.md` §1 | Unchanged. |
+| Automated collection, adapters, Google Grounding, schedulers, sentiment models | Correctly absent | none | Must stay absent (CI11-T40). |
+
+### Canonical files updated in CI-0
+
+`product/CITATION_INTELLIGENCE_SPEC.md` (new), `product/DECISIONS.md` (D03 decided), `product/PLAN_REVIEW_2026_09_07.md` (R10/R11/R16 rows and D03 checkbox), `product/ROADMAP.md` (v1 item), `product/CURRENT_STATE.md` (unresolved-scope line), `product/STRATEGY_2026_2027.md` and `product/CONVERSATIONAL_WORKSPACE_2026_09_13.md` (inline "superseded" notes), `docs/AI-ANSWER-EVIDENCE.md`, `docs/AI-VISIBILITY-MONITOR.md` (top supersession note), `docs/TRACEABILITY-MATRIX.md` (rows 11, 12, 14), `docs/DECISION-LOG.md` (D26), and this record. Guard test `src/lib/citation-intelligence-scope.test.ts` implements CI11-T01: the old gate may appear in active plans only on lines marked superseded/historical.
+
+**Revised wording.** D03: "the v1 milestone is native Google and Bing evidence for the client's market, one manually observed consumer surface, human-reviewed findings, two verified improvements and one comparable re-test; no minimum-three-provider or three-surface gate." R10: same milestone with raw answer/citation evidence, history, method/market/language/mode and missing-vs-zero semantics; the ≥3-surface floor is historical. R11 v1 slice: two equal gap families, five-state support separate from truth, descriptive presence counts, no blended score or automatic grading. R16 v1 slice: reviewed finding → existing Plan task → authorized change → destination verification → comparable manual re-test, qualified descriptive proof, no causality claim.
+
+### Documented native shapes (read-only preparation for CI-1)
+
+Google Search Console help (14 September 2026): the report's metric is impressions; dimensions are pages (canonical URLs after redirects), countries, dates (Pacific Time, daily/weekly/monthly) and devices; no queries and no clicks; Search Labs experiments excluded; chart data aggregates by property while page-grouped tables aggregate by page; "Values shown as either ~ or - in the report (not available/not a number) will be zeros in the downloaded data." Column names are not listed in the documentation, so the parser must be written from a genuine export. The Bing help page renders client-side and returned no text to this session; its documented fields must come from the genuine export as well.
+
+**Tests:** run — scope guard 5/5 and `language-claims` pass. Not run — full suite on this branch (documentation and one test only; run before PR). No implementation code changed in CI-0.
+
+**Real-evidence and permission blockers for the next packets**
+1. CI-1 needs one genuine GSC Generative AI performance report export (Search) for the Synergy property (Sweden filter where available; both the chart export and a page-grouped table export) and one genuine Bing AI Performance export for the same site. Supply them as files; no OAuth or API flow will be added.
+2. CI-2 needs owner review of Appendix A (ten Swedish discovery questions), the surface lock (proposed: ChatGPT Search, consumer web app, non-personalised fresh session) and the session-control settings before the first capture. Appendix B stays unscheduled unless separately approved.
+3. Owner-confirmed dated business facts for Synergy (services, durations, prices, premises, hours, booking and cancellation terms) are required before any accuracy finding is accepted; none are seeded from this session.
+
+**Next safe packet:** CI-1 preparation that does not depend on the samples: the typed native-report snapshot record and `value_status` rules (`known_value`, `known_zero`, `unknown_source`, `unknown_export_zero`, `unavailable`, `preliminary`, `invalid`) with deterministic tests for the export-zero rule, snapshot identity and bounded storage, written so the concrete column mapping is added when the genuine exports arrive. Parsing against a guessed schema is deliberately not started.
