@@ -2465,3 +2465,17 @@ Google Search Console help (14 September 2026): the report's metric is impressio
 3. Owner-confirmed dated business facts for Synergy (services, durations, prices, premises, hours, booking and cancellation terms) are required before any accuracy finding is accepted; none are seeded from this session.
 
 **Next safe packet:** CI-1 preparation that does not depend on the samples: the typed native-report snapshot record and `value_status` rules (`known_value`, `known_zero`, `unknown_source`, `unknown_export_zero`, `unavailable`, `preliminary`, `invalid`) with deterministic tests for the export-zero rule, snapshot identity and bounded storage, written so the concrete column mapping is added when the genuine exports arrive. Parsing against a guessed schema is deliberately not started.
+
+## Milestone 109 — CI-1 preparation: native report record and export-zero rules (14 September)
+
+Owner instruction: start the CI-1 preparation packet. Delivered without any speculative export schema:
+
+- `src/lib/native-ai-report.ts`: typed native report snapshot (`nativeReportSnapshotSchema`), the seven cell statuses, `interpretExportCell` (export-zero rule: `~`/`-`/empty → `unknown_source`; bare `0` → `unknown_export_zero`; numbers → `known_value`/`preliminary`; formulas, markup, separators and out-of-range shares → `invalid`), `resolveExportZero` (human receipt turns an exported zero into `known_zero` or `unknown_source` without rewriting raw text), market-scope schema and label (no city/language invention; unsegmented stays unsegmented), `nativeSnapshotScopeKey` (same-scope reimports are versions, not events), `nativePresence` (positive from a known value, absent only from reviewed zeros in a complete report, otherwise unknown; no averaging, summing or cross-source combination), `nativeReportImportInputSchema` (server-attributed fields and review receipts refused from input), `escapeForSpreadsheet`, and bounds of 2 MiB / 5,000 rows / 2,048 characters per cell.
+- `src/lib/native-ai-report.test.ts`: 11 deterministic cases mapped to CI11-T04, T05, T06, T07, T08, T09, T10, T11, T12 and T35. Fixtures are synthetic and never client data.
+- `docs/CITATION-INTELLIGENCE-NATIVE-IMPORT.md`: what exists, what the genuine exports must supply, and what stays unbuilt until they arrive.
+
+**Validation:** native report tests 11/11; `tsc --noEmit -p .` and `eslint` on the new files pass; full suite result below. Not done, by design: CSV parsers, storage, endpoint, UI (blocked on genuine GSC and Bing exports); no network, provider or collection code.
+
+**Continuation point:** when the two export files arrive, write the column mapping for each, the bounded storage path (a new candidate migration), the owner import endpoint reusing the brand-document upload limits, and the three-tab evidence view. Until then the next non-blocked work is CI-2 record design (panel/session protocol and human review records), which also needs no external artifact but does need the owner's Appendix A review before any panel is locked.
+
+**Full suite after Milestone 109:** 5,739 tests / 369 files pass (51 s).
