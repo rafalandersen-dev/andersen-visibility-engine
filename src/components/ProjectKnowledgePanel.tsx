@@ -669,7 +669,7 @@ export function ProjectKnowledgePanel({
             </Button>
           </div>
         )}
-        {sourceImpact && sourceImpact.checked > 0 && (
+        {!loading && !failed && sourceImpact && sourceImpact.checked > 0 && (
           <div className="rounded-md border p-3 space-y-2">
             <h5 className="font-medium">{t("refresh.affected")}</h5>
             <p className="text-xs text-muted-foreground">

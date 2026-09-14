@@ -1,0 +1,55 @@
+/** Maltese authoring only; not registered in the runtime or language picker. */
+export const mtCoverage: Readonly<Record<string, string>> = {
+  "coverage.hasRecord": "Jeżisti rekord rivedut",
+  "coverage.noRecord": "Żid ir-rekord nieqes",
+  "coverage.title": "Kopertura lokali u internazzjonali",
+  "coverage.help":
+    "Irrevedi l-identità tan-negozju, il-postijiet tas-servizzi u l-paġni internazzjonali billi tuża l-evidenza ssejvjata tal-proġett. Dan ma jagħmilx skennjar u ma jqabbadx profil tan-negozju fuq Google.",
+  "coverage.setup": "Editja l-miri tal-proġett",
+  "coverage.plan": "Iftaħ il-pjan tal-kontenut",
+  "coverage.history": "Sorsi, kunflitti u storja tal-verżjonijiet",
+  "coverage.proof": "Evidenza tal-pubblikazzjoni u stampi tal-mument",
+  "coverage.targets": "Postijiet issejvjati tal-proġett",
+  "coverage.missing": "Evidenza nieqsa",
+  "coverage.failed":
+    "It-tagħbija jew l-issejvjar falla. Qabel tkompli, aġġorna r-rekords; iċċekkja jekk dak li ġie ssejvjat inżammx.",
+  "coverage.empty": "Għad m’hemmx rekords strutturati tal-kopertura. Żid post jew suq hawn taħt.",
+  "coverage.reviewed": "Rivedut mis-sid · indikat mis-sors",
+  "coverage.unavailable":
+    "Ma jistax jintuża: jeħtieġ attenzjoni għar-reviżjoni, għall-validità jew għall-istat tas-sors",
+  "coverage.conflict": "Rekords f’kunflitt · solvi fl-għarfien tal-proġett",
+  "coverage.invalid": "Rekord mhux appoġġat · irrevedi fl-għarfien tal-proġett",
+  "coverage.unverified":
+    "L-URLs u d-dettalji tan-negozju huma stqarrijiet indikati. L-elenkar fid-direttorji, l-awtentiċità tar-reviżjonijiet, il-konsistenza tan-NAP, il-preżenza tal-paġni, hreflang u l-pożizzjonijiet mhumiex ivverifikati.",
+  "coverage.edit": "Irrevedi din il-verżjoni ssejvjata",
+  "coverage.add": "Żid evidenza tal-kopertura",
+  "coverage.kind": "Tip ta’ kopertura",
+  "coverage.local": "Post / servizz lokali",
+  "coverage.global": "Suq / lingwa internazzjonali",
+  "coverage.urlHelp":
+    "URLs mhux obbligatorji: HTTPS pubbliku biss, mingħajr strings ta’ mistoqsijiet jew frammenti. Ħalli vojta l-oqsma mhux magħrufa. Ir-rekord kollu jrid ikun iqsar minn 2 000 karattru.",
+  "coverage.source": "Sors tal-evidenza",
+  "coverage.owner": "Stqarrija pprovduta mis-sid",
+  "coverage.locator": "Post tas-sors / data tal-osservazzjoni (obbligatorji)",
+  "coverage.reviewHelp":
+    "L-issejvjar ta’ stqarrija tas-sid jikkonferma r-reviżjoni tiegħek. Ir-rekords minn sorsi eżistenti jibdew bħala proposti: biex taċċettahom, irrevedi l-verżjoni ssejvjata. Il-verżjonijiet tas-sorsi, l-iskadenza u l-irtirar jibqgħu deċiżivi.",
+  "coverage.propose": "Issejvja l-proposta tas-sors",
+  "coverage.save": "Issejvja l-evidenza riveduta",
+  "coverage.publications": "Rabta ssejvjata mal-pubblikazzjonijiet",
+  "coverage.publicationHelp":
+    "Biss qbil eżatt tal-URL tal-paġna mill-paġna tal-evidenza murija. Il-konferma tal-konnettur ma tivverifikax il-kopertura ppubblikata, il-lingwa tal-kontenut jew il-prestazzjoni lokali. Għall-istampa tal-mument immutabbli u l-osservazzjonijiet, ara r-rapporti.",
+  "coverage.matches": "Miri riveduti b’dan l-URL eżatt",
+  "coverage.noMatch": "L-ebda qbil eżatt",
+  "coverage.field.target": "Post / suq (obbligatorju)",
+  "coverage.field.name": "Isem in-negozju",
+  "coverage.field.address": "Indirizz pubbliku tan-negozju / żona tas-servizz",
+  "coverage.field.phone": "Telefon pubbliku tan-negozju",
+  "coverage.field.service": "Servizz",
+  "coverage.field.language": "Lingwa tal-kontenut fil-mira",
+  "coverage.field.pageUrl": "URL tal-paġna tal-post / tas-servizz / tas-suq",
+  "coverage.field.alternateUrl": "URL korrispondenti fil-lingwa alternattiva",
+  "coverage.field.citationUrl": "URL tal-evidenza tad-direttorju / taċ-ċitazzjoni",
+  "coverage.field.reviewUrl": "URL tal-evidenza tar-reviżjoni",
+  "coverage.field.gbpUrl": "URL tal-evidenza tal-profil tan-negozju fuq Google",
+  "coverage.field.notes": "Noti dwar l-evidenza / nuqqasijiet / l-azzjoni li jmiss",
+};

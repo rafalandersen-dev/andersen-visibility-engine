@@ -1,0 +1,87 @@
+# European Portuguese interface authoring — 12 September 2026
+
+Started on candidate source `8f057b2`. Portuguese remains excluded from the runtime catalog and language picker. Authoring now covers the full current catalog; Portuguese UI support is not yet delivered.
+
+## Coverage
+
+3,768 of 3,768 current English messages are authored across all 28 catalog groupings: core (202), authentication (42), shared controls (30), setup screen (24), services screen (18), audit screen (29), analytics screen (36), billing screen (54), evidence screen (89), Plan screen (113), editor screen (148), public home (100), public pricing (40), public studies (30), beta controls (88), beta guidance (125), public beta (100), configuration (220), collaboration (248), knowledge (242), technical guidance (238), measurements (204), outreach (158), growth (201), commerce (192), links (256), evidence (196) and workflow (345). Coverage includes app shell/navigation, onboarding, project setup labels, language/market labels, goals, pipeline statuses, sign-in/signup/password recovery, dialogs and navigation controls. No current English keys remain unauthored. The four active interface languages remain English, Polish, Swedish and Danish; French, German, Spanish and Italian remain separately staged.
+
+European Portuguese terminology includes guardar, ficheiro where applicable, faturação, subscrição, definições and terminar sessão. Interface and content-language labels remain distinct. The latest load-error correction is included. Placeholders and fixed numbers are preserved. Existing English source claims such as onboarding foundation completion and pipeline live-state meanings still require their recorded behavioral review; translation does not independently verify them.
+
+## Checks and acceptance
+
+The registry records source `8f057b2` and the reviewed core source fingerprint. Tests require exact key coverage for the declared namespaces, nonempty text, matching placeholders/numbers/URLs, source-change detection, unique key ownership and exclusion from runtime registration. The registry now requires exact full-catalog key parity with English, unique ownership and a frozen composed catalog. Runtime exclusion remains required.
+
+52 focused tests across three files pass after the workflow addition. New files pass scoped ESLint and whitespace checks. No fluent-speaker, rendered-screen, accessibility or actual locale acceptance is claimed. Authoring is complete; source-claim review, linguistic review and rendered-screen acceptance remain before activation. Do not enable Portuguese before full coverage, reviewed source claims and required quality acceptance.
+
+No external translation/model provider, account, email, production database or deployment operation occurred. Release review holds, full R00–R24/D01–D08 scope and reported overall/implementation estimates remain unchanged.
+
+Full TypeScript and production build passed. Logs: `/tmp/milo-portuguese-core-types.log`, `/tmp/milo-portuguese-core-build.log`.
+
+Authentication/shared-controls follow-up uses source `a95a276` and separate reviewed fingerprints. It preserves conditional account-recovery wording, password-length values and provider/plan/count placeholders. Existing 24-language email delivery and the independent email selector are unchanged. Scoped lint and whitespace checks pass; these staged-only additions are not imported by the application.
+
+The follow-up also passes full TypeScript (`/tmp/milo-portuguese-auth-types.log`). The production build was not repeated for these isolated staged catalogs; the build result above belongs to the initial core batch.
+
+Setup/services/audit follow-up uses source `30eef6d` with individual reviewed fingerprints. It preserves approval versus publication, secrets configured at the destination, one-page/context scope, unread-page fallback, and indicative scores versus technical measurements. All 71 added messages pass source/key/parameter checks, scoped lint and whitespace validation. They remain excluded from runtime.
+
+Full TypeScript passes for this follow-up (`/tmp/milo-portuguese-setup-types.log`). Production build was not repeated for these isolated staging files; prior build evidence remains tied to the initial core batch.
+
+Analytics/billing/evidence follow-up adds 179 messages using source `2d9acd2` with individual reviewed fingerprints. Copy preserves recorded events versus visitors, clicks versus completed sales/bookings, limited event windows, estimates versus measured rankings, failed-fetch uncertainty, legacy billing portal conditions, separate publisher purchase approval and configured/on-demand feature conditions. Portuguese uses “50 000” for the source 50,000-event limit. Email-address preservation is now checked alongside URLs and placeholders. Full TypeScript and scoped lint pass; no production build rerun for isolated staging files (`/tmp/milo-portuguese-evidence-types.log`).
+
+Plan/editor follow-up adds 261 messages using source `13cb098` and separate reviewed fingerprints. It retains work-target/publication distinctions, sample labels, draft/opportunity linkage, orphan-schedule warnings, required link resolution, controlled image origins and approval-to-public-URL semantics, schema limitations, source validation states, and separate content language. All 35 focused checks, scoped lint and whitespace checks pass. Translation is not independent verification of all underlying source claims, including author guarantees; the staged activation review remains required.
+
+Full TypeScript passes (`/tmp/milo-portuguese-plan-editor-types.log`). The production build was not repeated for these isolated staging files; prior build evidence remains tied to the core batch. No live provider, account, publication or deployment action occurred.
+
+Public-page follow-up adds 170 messages using source `eaaa8d4` and individual reviewed fingerprints. It preserves payment/supplier holds, plan-count placeholders, independent billing-market eligibility, no guaranteed rankings/traffic/revenue/citations, and unverified case-study outcomes. The English home-page AI tracking, broad retention and related product claims remain flagged for source review before activation; this translation does not verify them. All 38 focused checks, scoped lint and whitespace checks pass.
+
+Full TypeScript passes (`/tmp/milo-portuguese-public-types.log`). No production build rerun for isolated staging files. No publishing, billing, account or provider operation occurred.
+
+Beta follow-up adds 313 messages using source `1c5978d` and individual reviewed fingerprints. Owner-only scope, independently selected outreach languages, original CSV fields, proposed targets/pricing, authorization requirements and paid-launch holds remain explicit. The public beta language-coverage sentence still lists the four active languages accurately; it must be reviewed if activation changes that coverage. No outreach template, CSV data, price configuration or runtime route was changed. All 41 focused checks, scoped lint and whitespace checks pass.
+
+Full TypeScript passes (`/tmp/milo-portuguese-beta-types.log`). No production build rerun for these isolated staging files; no actual account, contact, payment, provider or deployment operation occurred.
+
+Configuration follow-up adds 220 messages using source `8446b55` and a reviewed fingerprint. It preserves WordPress/Shopify credential handling guidance, approval versus publishing, optional catalog permissions, separate MCP read/write/propose scopes, token revocation, supplied-claim uncertainty and exact-URL coverage linkage. The 2,000-character source limit is formatted “2 000” in Portuguese. Existing absolute brand/credential/connector source claims still require activation review; translation does not independently verify those contracts or current vendor setup instructions. All 42 focused checks, scoped lint and whitespace checks pass.
+
+Full TypeScript passes (`/tmp/milo-portuguese-configuration-types.log`). No production build rerun for isolated staging files. No account, credential, provider, publication or deployment operation occurred.
+
+Collaboration follow-up adds 248 messages using source `94b72ee` and a reviewed fingerprint. It preserves project roles, invitation expiry and separate email sending, approval policies and exact-version review, historical recovery records versus verified destinations, shared preparation attempts versus completed articles, and independent email language/consent settings. All 43 focused checks, scoped lint and whitespace checks pass.
+
+Full TypeScript passes (`/tmp/milo-portuguese-collaboration-types.log`). No production build rerun for isolated staging files. Portuguese remains excluded from runtime; no live invitation, email, publication, provider or deployment operation occurred.
+
+Knowledge follow-up adds 242 messages using source `bf3dd15` and a reviewed fingerprint. It preserves source-reported facts versus independent verification, exact-version knowledge review versus publication approval, forgotten evidence limits, source expiry and conflict holds, owner-field precedence, document extraction limits, weekly recovery semantics and actual queue entries versus saved drafts. Fixed limits remain unchanged, with 2,000 characters formatted as “2 000”. All 44 focused checks, full TypeScript (`/tmp/milo-portuguese-knowledge-types.log`), scoped lint and whitespace checks pass.
+
+No production build rerun for isolated staging files. No live source retrieval, document upload, generation, approval, publication or deployment occurred. This translation does not independently validate the underlying source contracts; fluent-speaker, rendered-screen and real-use acceptance remain open.
+
+Technical follow-up adds 238 messages using source `c008772` and a reviewed fingerprint. Copy preserves DNS ownership expiry, crawl/sitemap boundaries and partial evidence, unchanged observations after opportunity edits, saved Google index evidence versus live inspection, unknown outcomes without automatic retries, and field measurements versus laboratory performance. Numeric limits and units are retained; 2,000 URLs is formatted “2 000”. All 45 focused checks, full TypeScript (`/tmp/milo-portuguese-technical-types.log`), scoped lint and whitespace checks pass.
+
+No production build rerun for isolated staging files. No DNS change, crawl, Google request, performance-provider call or deployment occurred. The translation does not independently verify implementation or current vendor behavior; fluent/rendered acceptance and release gates remain.
+
+Measurements follow-up adds 204 messages using source `465946b` and a reviewed fingerprint. It preserves saved publication evidence versus current live pages, AI referral traffic versus mentions/citations, CSV declarations versus independent verification, unavailable values versus zero, separate date windows, query/page sample limits and absence of causal or conversion proof from search observations. All 46 focused checks, full TypeScript (`/tmp/milo-portuguese-measurements-types.log`), scoped lint and whitespace checks pass.
+
+Existing source labels and claims about visits, conversions, privacy, live partner links, email delivery and absolute Google access behavior require behavioral review before activation. The translation does not verify these claims or current vendor setup instructions. No production build rerun for isolated staging files; no analytics collection, CSV import, Google connection, report email or deployment occurred.
+
+Outreach follow-up adds 158 messages using source `b89c90d` and a reviewed fingerprint. It preserves exact recipient/content confirmations, separate follow-up review, service-owned delivery reservations versus editable labels, accepted versus inbox-delivered outcomes, held unknown attempts and cancellation limits. Article hook and image-anchor guidance is also included. All 47 focused checks, full TypeScript (`/tmp/milo-portuguese-outreach-types.log`), scoped lint and whitespace checks pass.
+
+Source statements about publishing guarantees, optional human/source confirmation for sensitive hook claims, and generic send-failure retry guidance still require behavioral/consistency review before activation. Translation does not independently validate these contracts. No production build rerun for isolated staging files; no message generation, recipient contact, sending, provider call or deployment occurred.
+
+Growth follow-up adds 201 messages using source `7d5eaa8` and a reviewed fingerprint. It preserves suggested authority opportunities and no guaranteed results, public audit readiness versus ranking checks, explicit proposal approval/application, duplicate and capacity limits, and missing/expired proposal handling. All 48 focused checks, full TypeScript (`/tmp/milo-portuguese-growth-types.log`), scoped lint and whitespace checks pass.
+
+Source claims about safe opportunities, live authority labels, audit access/privacy, never-shared notes and generic “nothing changed” error wording still require behavioral review before activation. Translation does not independently verify them. No production build rerun for isolated staging files; no opportunity generation, public audit, connector proposal, external contact or deployment occurred.
+
+Commerce follow-up adds 192 messages using source `672692c` and a reviewed fingerprint. It preserves billing-market independence from interface language, owner-only/manual activation labels, test payments versus real charges, unresolved Stripe lifecycle checks, connection tests versus publishing permission, declared imports versus verified connections, and real-site image/publishing acceptance requirements. All 49 focused checks, full TypeScript (`/tmp/milo-portuguese-commerce-types.log`), scoped lint and whitespace checks pass.
+
+Existing owner-limit, activation, safe-content and launch-status source claims still require behavioral review before activation. No production build rerun for isolated staging files. No checkout, payment, plan activation, connector test, publication or deployment occurred; translation does not establish launch readiness.
+
+Links follow-up adds 256 messages using source `4e67219` and a reviewed fingerprint. It preserves link-index estimates and incomplete samples, unavailable versus zero values, exact-price purchase confirmation versus demo requests, uncertain order/request holds, UTC collection windows, supplier allowances, and reserved costs after pausing. All 50 focused checks, scoped lint and whitespace checks pass.
+
+Source claims about live link verification, safe/ethical recommendations, marketplace readiness and definitive no-payment errors still require behavioral review before activation. No production build rerun for isolated staging files; no supplier request, monitoring activation, partner contact, order, payment or deployment occurred.
+
+Full TypeScript passes for this batch (`/tmp/milo-portuguese-links-types.log`). Runtime activation and fluent/rendered acceptance remain open.
+
+Evidence follow-up adds 196 messages using source `5026e73` and a reviewed fingerprint. It preserves owner-supplied/unverified answer and log provenance, exact publication snapshots versus connector responses, separate measurement windows and causal limits, correction/history semantics, privacy and import limits, and evaluation versus production model routing. The historical $5 test label is translated without starting or renewing that authorization. All 51 focused checks, full TypeScript (`/tmp/milo-portuguese-evidence-group-types.log`), scoped lint and whitespace checks pass.
+
+No production build rerun for isolated staging files. No benchmark, model evaluation, evidence import, log upload, publication or provider request occurred. Translation does not establish factual correctness of supplied evidence, actual privacy acceptance or full product completion.
+
+Workflow completion adds 345 messages using source `cc3ae1f` and a reviewed fingerprint. It preserves preparation attempts versus guaranteed publication, source/approval checks, recovery without regeneration or automatic approval, destination-dependent image layout, estimated scores, and development review for workflow comparisons. Exact full English key parity replaces the partial assertion; the composed catalog is frozen and remains excluded from runtime. All 52 focused checks, full TypeScript (`/tmp/milo-portuguese-workflow-types.log`), scoped lint and whitespace checks pass.
+
+Existing definitive scheduling/publishing labels and retry guidance still require source consistency review; translating them does not verify later delivery. No production build rerun for isolated staging files. No generation, scheduling, publication, provider or deployment operation occurred. Full catalog authoring is not fluent-speaker, rendered-screen, accessibility, real-use or release acceptance.

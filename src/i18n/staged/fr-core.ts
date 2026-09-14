@@ -125,7 +125,7 @@ export const frCore: Readonly<Record<string, string>> = {
   "setup.section.marketsGoals": "Marchés et objectifs",
   "shell.loadError.title": "Impossible de charger votre espace de travail",
   "shell.loadError.body":
-    "Vos données sont conservées — la connexion aux serveurs de Milo a échoué. Vérifiez votre connexion réseau et réessayez.",
+    "Réessayez. Si vous êtes hors ligne, reconnectez-vous d’abord. L’enregistrement est désactivé tant que votre espace de travail n’est pas chargé.",
   "shell.loadError.retry": "Réessayer",
   "shell.nav.monthlyReport": "Rapport mensuel",
   "shell.trust": "Centre de confiance de l’UE",

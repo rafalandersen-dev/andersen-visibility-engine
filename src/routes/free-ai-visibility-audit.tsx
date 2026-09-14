@@ -1,7 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { translate } from "@/i18n";
+import { useAuthLanguage } from "@/hooks/use-auth-language";
+import { AuthLanguagePicker } from "@/components/AuthLanguagePicker";
 import { contentLangToProjectLanguage } from "@/lib/onboarding";
 import { PublicAuditUnavailableError, runPublicAudit } from "@/lib/public-audit-client";
 import {
@@ -9,8 +10,7 @@ import {
   type PublicAiVisibilityAudit,
   type PublicAuditStatus,
 } from "@/lib/public-audit";
-import type { OnboardingLanguage } from "@/lib/types";
-import { Gauge, Loader2, Search, AlertTriangle, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Gauge, Loader2, Search, AlertTriangle, ArrowRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 export const Route = createFileRoute("/free-ai-visibility-audit")({
@@ -27,19 +27,6 @@ export const Route = createFileRoute("/free-ai-visibility-audit")({
   component: PublicAuditPage,
 });
 
-function detectLang(): OnboardingLanguage {
-  if (typeof navigator === "undefined") return "en";
-  const l = (navigator.language || "en").slice(0, 2).toLowerCase();
-  return l === "pl" || l === "sv" || l === "da" ? (l as OnboardingLanguage) : "en";
-}
-
-const STEP_KEYS = [
-  "publicAudit.loading.fetching",
-  "publicAudit.loading.reading",
-  "publicAudit.loading.checking",
-  "publicAudit.loading.preparing",
-];
-
 function statusClasses(s: PublicAuditStatus) {
   return s === "strong"
     ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-600"
@@ -50,12 +37,11 @@ function statusClasses(s: PublicAuditStatus) {
 
 function PublicAuditPage() {
   const navigate = useNavigate();
-  const lang = detectLang();
-  const t = (k: string, v?: Record<string, string | number>) => translate(lang, k, v);
+  const { language: lang, chooseLanguage, t } = useAuthLanguage();
 
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState(0);
+  const requestPending = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [unavailable, setUnavailable] = useState(false);
   const [result, setResult] = useState<PublicAiVisibilityAudit | null>(null);
@@ -63,7 +49,12 @@ function PublicAuditPage() {
   const [turnstileReset, setTurnstileReset] = useState(0);
   const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined;
 
+  const canRun = !loading && (!import.meta.env.PROD || Boolean(botProof));
+
   async function run() {
+    // A ref closes the gap before React renders the disabled controls.
+    if (requestPending.current) return;
+    setUnavailable(false);
     const trimmed = url.trim();
     if (!trimmed || !/\.\w{2,}/.test(trimmed)) {
       setError(t("publicAudit.invalidUrl"));
@@ -73,12 +64,10 @@ function PublicAuditPage() {
       setError("Please complete the bot check and try again.");
       return;
     }
+    requestPending.current = true;
     setLoading(true);
     setError(null);
-    setUnavailable(false);
     setResult(null);
-    setStep(0);
-    const timer = setInterval(() => setStep((s) => Math.min(STEP_KEYS.length - 1, s + 1)), 1500);
     try {
       const audit = await runPublicAudit({
         url: trimmed,
@@ -90,7 +79,7 @@ function PublicAuditPage() {
       setUnavailable(e instanceof PublicAuditUnavailableError);
       setError(e instanceof Error ? e.message : t("publicAudit.genericError"));
     } finally {
-      clearInterval(timer);
+      requestPending.current = false;
       setLoading(false);
       setBotProof("");
       setTurnstileReset((value) => value + 1);
@@ -123,23 +112,22 @@ function PublicAuditPage() {
           <Link to="/" className="flex flex-col">
             <span className="font-display text-lg leading-tight">Milo Growth</span>
             <span className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-              Monthly AI growth planner
+              {t("appShell.tagline")}
             </span>
           </Link>
           <div className="flex items-center gap-2">
-            <Link to="/">
-              <Button variant="ghost" size="sm">
-                Home
-              </Button>
-            </Link>
-            <Link to="/auth">
-              <Button size="sm">Get started</Button>
-            </Link>
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/">{t("shell.nav.home")}</Link>
+            </Button>
+            <Button asChild size="sm">
+              <Link to="/auth">{t("onboarding.getStarted")}</Link>
+            </Button>
           </div>
         </div>
       </header>
 
       <section className="mx-auto max-w-3xl px-6 py-14">
+        <AuthLanguagePicker language={lang} onChange={chooseLanguage} disabled={loading} />
         <div className="text-[10px] uppercase tracking-[0.22em] text-gold inline-flex items-center gap-1.5">
           <Gauge className="h-3.5 w-3.5" /> {t("publicAudit.badge")}
         </div>
@@ -152,12 +140,13 @@ function PublicAuditPage() {
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !loading) run();
+              if (e.key === "Enter" && canRun) run();
             }}
+            aria-label={t("launch.conn.website")}
             placeholder="yourbusiness.com"
             disabled={loading}
           />
-          <Button onClick={run} disabled={loading || (import.meta.env.PROD && !botProof)}>
+          <Button onClick={run} disabled={!canRun}>
             {loading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
@@ -183,41 +172,32 @@ function PublicAuditPage() {
           </p>
         ) : null}
 
-        {/* Loading */}
+        {/* The endpoint returns a final result, not stage progress. */}
         {loading ? (
-          <div className="mt-8 rounded-lg border border-border bg-card p-5 space-y-2">
-            {STEP_KEYS.map((k, i) => (
-              <div
-                key={k}
-                className={`flex items-center gap-2 text-sm ${i <= step ? "text-foreground" : "text-muted-foreground/50"}`}
-              >
-                {i < step ? (
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                ) : i === step ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-gold" />
-                ) : (
-                  <span className="h-4 w-4 rounded-full border border-border inline-block" />
-                )}
-                {t(k)}
-              </div>
-            ))}
+          <div
+            role="status"
+            className="mt-8 rounded-lg border border-border bg-card p-5 flex items-center gap-2 text-sm"
+          >
+            <Loader2 className="h-4 w-4 animate-spin text-gold" aria-hidden="true" />
+            {t("publicAudit.running")}
           </div>
         ) : null}
 
         {/* Error */}
         {error && !loading ? (
-          <div className="mt-8 rounded-lg border border-border bg-card p-6 text-center">
+          <div
+            role="alert"
+            className="mt-8 rounded-lg border border-border bg-card p-6 text-center"
+          >
             <AlertTriangle className="mx-auto h-7 w-7 text-amber-500" strokeWidth={1.5} />
             <p className="mt-2 text-sm text-muted-foreground max-w-md mx-auto">{error}</p>
-            {/* Retry only helps for transient failures. When the endpoint is not
-                wired up, offer the sign-up path instead of a button that cannot
-                ever succeed. */}
+            {/* Offer project setup when no usable service response was received. */}
             {unavailable ? (
               <Button className="mt-4" onClick={startProject}>
-                Start a project
+                {t("publicAudit.cta")}
               </Button>
             ) : (
-              <Button className="mt-4" variant="outline" onClick={run}>
+              <Button className="mt-4" variant="outline" onClick={run} disabled={!canRun}>
                 {t("common.retry")}
               </Button>
             )}

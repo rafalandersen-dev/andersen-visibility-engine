@@ -4,9 +4,40 @@
 
 **Status:** Canonical decision log
 
-**Last updated:** 2026-09-09
+**Last updated:** 2026-09-14
 
 **Product Lead:** Rafal Andersen
+
+## 2026-09-14 (later) — Seat pricing approved; paid chat monitoring undecided; review items started
+
+Owner answers in the second Claude continuation session, to the three questions in `CLAUDE_CONTINUATION_PROGRESS_2026_09_13.md` Milestone 104:
+
+1. **Seat pricing model approved (D01 input, "yes").** The proposal in `SEAT_PRICING_RESEARCH_2026_09_14.md` section 3 is accepted as the target model: seats bundled per plan (Starter 2, Growth 3, Pro 5, Agency 10 working seats, owner included), free bounded viewer seats (2 / 5 / 10 / 50), extra working seats at €15 / €15 / €12 / €10 per month with the recorded market scaling, pooled per-account AI usage, reviewers counting as working seats, and blocking new invitations at the limit with an upgrade or add-seat path rather than automatic billing. Competitor figures were verified on official pricing pages on 14 September (Peec AI from secondary sources). Still required before any customer-facing change: measured cost per active seat, seat metering and enforcement in invitations, Stripe quantity-based seat items (Stripe setup remains owner-deferred), and pricing/terms copy in every active language.
+2. **Backlink monitoring from chat ("no idea").** No decision. It stays unbuilt; chat may not start paid supplier monitoring. Quota-only checks (Google inspection, PageSpeed, crawl) with per-request consent remain as built. Re-ask when Stripe and spending caps exist.
+3. **Review items ("let's do this").** Route-tree regeneration, a local security review of the candidate migrations, endpoints and PR135, and the staged-catalog review begin in the Claude worktree. The local security review does not replace the repository's required Codex security review, and fluent human review of the staged catalogs remains outstanding.
+4. **Who may consent to site checks in chat (owner confirmed, "viewers cant consent ok").** The local security review found that the 14 September "current project members may consent" wording let a free viewer seat commit the owner's Search Console, PageSpeed and crawl quota. Decision: only the owner, editors and reviewers (the paid working seats) may consent; viewers may not. The candidate consent migration and the chat home enforce this.
+5. **Free Preview seats (owner confirmed, "free preview default ok").** Free Preview keeps the owner as the only working seat plus one free viewer seat. Paid plans keep the approved bundles.
+
+## 2026-09-14 — Team evidence access, seat-based team pricing, trust wording and Romanian register
+
+Owner answers in the Claude continuation session:
+
+1. **Team access (D07, partial).** Project collaborators may use Milo's saved-evidence tools in chat: technical checks, AI answer/log evidence and backlink monitoring. The owning business account pays for this access. Knowledge, weekly preparation, saved audit and draft generation were not changed and stay owner-only until decided. Paid or quota-using chat actions remain unbuilt; when built, they charge the owning account and need explicit per-request consent.
+2. **Pricing direction (D01 input).** Team pricing should scale with the number of people who have access. No price, seat limit or metering is set by this decision; entitlement, seat metering and Stripe work remain required.
+3. **Trust page.** The reconciled `/trust` language statement (active interface languages derived from the registry; content in all 24 EU languages; quality review continuing during the beta) is approved, subject to normal release review.
+4. **Romanian register.** Romanian sign-in and password-reset emails use the same formal register as the Romanian interface and operational emails, matching each other language's internal consistency.
+
+## 2026-09-13 — Primary conversational workspace for solo users and agencies
+
+Owner-confirmed requirement: Milo must provide a chat interface that makes work easier for an individual or agency. The user gives a task to Milo Growth Lead; Milo analyzes it and assigns the appropriate specialist, who can take over the conversation in the same chat. The owner explicitly confirmed this interaction after the SEO-specialist example. This is required product behavior, not merely an optional team-card display or invisible background delegation.
+
+Keep one continuous conversation with visible speaker identity/role and a concise handoff. Preserve relevant task history and authorized project context across specialist replies; Milo coordinates multi-specialist tasks and remains accountable for completion. The existing team view, tools, knowledge, approvals and durable execution are foundations to reuse. Specialist names such as “Mark” remain examples under D05.
+
+Derived acceptance criteria: a solo user can request an SEO task, receive a real specialist response and review its results in the same conversation; an agency can identify the active client/project and work within its access without information leaking between clients; multi-specialist work retains context and presents actionable results; missing tools/data, running work and failures are truthful; handoff cannot expand publication, messaging, purchase or budget authority. Actual tool dispatch and persisted/resumable conversations must be verified, not simulated through persona messages. Existing detailed screens remain available for inspection and editing.
+
+This clarifies R01/R02/R04/R07/R08 and solo/team acceptance. The complete chat interface and specialist conversational handoff are not verified as implemented or released. Add them explicitly to the remaining implementation assessment; do not represent team cards as completion. Reassess the historical 60% delivery / 75% technical estimate in the next full scope review rather than assigning arbitrary credit or silently excluding this requirement.
+
+Sequence remains: finish Hungarian and final checks here, then include this requirement prominently in the user-requested single-successor handoff and overall optimization/prioritization review. No new task or goal transfer is performed by this decision update.
 
 ## 2026-09-09 — Specialist team, project learning and weekly preparation
 

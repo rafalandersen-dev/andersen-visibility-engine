@@ -1,0 +1,51 @@
+/** European Portuguese authoring only; not registered in the runtime. */
+export const ptAuthScreen: Readonly<Record<string, string>> = {
+  "authScreen.tagline": "Planeador mensal de crescimento com IA",
+  "authScreen.hero":
+    "O seu planeador mensal de crescimento com IA — ideias para melhorar a visibilidade, orientações para conteúdos e um plano de ação claro.",
+  "authScreen.workspaceHelp":
+    "Inicie sessão na sua área de trabalho ou crie uma conta para começar um projeto.",
+  "authScreen.builtBy": "Desenvolvido por Andersen Innovations",
+  "authScreen.home": "Voltar à página inicial",
+  "authScreen.createHeading": "Crie a sua conta",
+  "authScreen.resetHeading": "Reponha a sua palavra-passe",
+  "authScreen.signIn": "Iniciar sessão",
+  "authScreen.signupHelp": "Comece com o plano {plan} e configure um projeto.",
+  "authScreen.resetHelp":
+    "Introduza o seu endereço de e-mail para pedir uma ligação de reposição da palavra-passe.",
+  "authScreen.signInHelp": "Bem-vindo de volta à sua área de trabalho.",
+  "authScreen.displayName": "Nome a apresentar",
+  "authScreen.email": "E-mail",
+  "authScreen.password": "Palavra-passe",
+  "authScreen.passwordHint": "Pelo menos 8 caracteres",
+  "authScreen.wait": "Aguarde…",
+  "authScreen.create": "Criar conta",
+  "authScreen.sendReset": "Enviar ligação de reposição",
+  "authScreen.or": "ou",
+  "authScreen.continueProvider": "Continuar com {provider}",
+  "authScreen.createInstead": "Criar uma conta",
+  "authScreen.forgot": "Esqueceu-se da palavra-passe?",
+  "authScreen.backSignIn": "Voltar ao início de sessão",
+  "authScreen.signupSent":
+    "Verifique a sua caixa de entrada e confirme o endereço de e-mail antes de iniciar sessão.",
+  "authScreen.welcome": "Bem-vindo de volta.",
+  "authScreen.resetRequested":
+    "Se a conta permitir a recuperação da palavra-passe, procure uma ligação de reposição na sua caixa de entrada.",
+  "authScreen.error": "Ocorreu um erro.",
+  "authScreen.providerUnavailable":
+    "O início de sessão com {provider} não está disponível neste momento.",
+  "authScreen.newHeading": "Defina uma nova palavra-passe",
+  "authScreen.checking": "A verificar a ligação de reposição…",
+  "authScreen.invalid": "Esta ligação de reposição é inválida ou expirou. Peça uma nova.",
+  "authScreen.requestNew": "Pedir uma nova ligação de reposição",
+  "authScreen.newHelp": "Escolha uma nova palavra-passe para a sua conta.",
+  "authScreen.newPassword": "Nova palavra-passe",
+  "authScreen.confirmPassword": "Confirmar palavra-passe",
+  "authScreen.repeatPassword": "Repita a nova palavra-passe",
+  "authScreen.updating": "A atualizar…",
+  "authScreen.updatePassword": "Atualizar palavra-passe",
+  "authScreen.passwordShort": "A palavra-passe tem de ter pelo menos 8 caracteres.",
+  "authScreen.passwordMismatch": "As palavras-passe não coincidem.",
+  "authScreen.passwordUpdated": "Palavra-passe atualizada. A sessão está iniciada.",
+  "authScreen.passwordFailed": "Não foi possível atualizar a palavra-passe.",
+};

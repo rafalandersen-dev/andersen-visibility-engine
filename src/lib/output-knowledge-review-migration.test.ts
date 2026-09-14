@@ -25,6 +25,7 @@ beforeAll(async () => {
     "20260910100000_source_refresh.sql",
     "20260911000000_output_knowledge_integrity.sql",
     "20260911010000_output_knowledge_reviews.sql",
+    "20260912040000_knowledge_review_batch_time.sql",
   ])
     await db.exec(readFileSync(`supabase/migrations/${file}`, "utf8"));
 }, 30000);
@@ -240,10 +241,10 @@ describe("durable knowledge review storage", () => {
   it("blocks direct roles and exposes only service RPCs", async () => {
     const rows = (
       await db.query<{ name: string; anon: boolean; authenticated: boolean; service: boolean }>(
-        `SELECT proname name,has_function_privilege('anon',oid,'EXECUTE') anon,has_function_privilege('authenticated',oid,'EXECUTE') authenticated,has_function_privilege('service_role',oid,'EXECUTE') service FROM pg_proc WHERE proname IN ('read_output_knowledge_review_context','save_output_knowledge_review','withdraw_output_knowledge_review','read_output_knowledge_reviews')`,
+        `SELECT proname name,has_function_privilege('anon',oid,'EXECUTE') anon,has_function_privilege('authenticated',oid,'EXECUTE') authenticated,has_function_privilege('service_role',oid,'EXECUTE') service FROM pg_proc WHERE proname IN ('read_output_knowledge_review_context','save_output_knowledge_review','withdraw_output_knowledge_review','read_output_knowledge_reviews','read_output_knowledge_review_batch')`,
       )
     ).rows;
-    expect(rows).toHaveLength(4);
+    expect(rows).toHaveLength(5);
     expect(rows.every((r) => !r.anon && !r.authenticated && r.service)).toBe(true);
     for (const role of ["anon", "authenticated", "service_role"]) {
       await db.exec(`SET ROLE ${role}`);
@@ -254,3 +255,39 @@ describe("durable knowledge review storage", () => {
     }
   });
 });
+
+it.each(["future", "withdrawn"])(
+  "excludes %s active review from the batch but preserves history",
+  async (reason) => {
+    const expected = await context();
+    await save(expected.contextHash);
+    if (reason === "future") {
+      await db.query(
+        "UPDATE public.output_knowledge_reviews SET reviewed_at=clock_timestamp()+interval '1 day' WHERE user_id=$1 AND review_id=$2",
+        [user, review],
+      );
+    } else {
+      await db.query(
+        "UPDATE public.output_knowledge_reviews SET withdrawn_at=clock_timestamp() WHERE user_id=$1 AND review_id=$2",
+        [user, review],
+      );
+    }
+    const batch = await db.query<{
+      result: { outputs: { activeReview: unknown; hasHistory: boolean }[] };
+    }>("SELECT public.read_output_knowledge_review_batch($1,'p',ARRAY['a']) result", [user]);
+    expect(batch.rows[0].result.outputs[0]).toMatchObject({ activeReview: null, hasHistory: true });
+    expect(await history()).toHaveLength(1);
+    await db.query(
+      "UPDATE public.output_knowledge_reviews SET reviewed_at=clock_timestamp(), withdrawn_at=NULL WHERE user_id=$1 AND review_id=$2",
+      [user, review],
+    );
+    const eligible = await db.query<{ result: { outputs: { activeReview: unknown }[] } }>(
+      "SELECT public.read_output_knowledge_review_batch($1,'p',ARRAY['a']) result",
+      [user],
+    );
+    expect(eligible.rows[0].result.outputs[0].activeReview).toEqual({
+      versionHash: version,
+      contextHash: expected.contextHash,
+    });
+  },
+);

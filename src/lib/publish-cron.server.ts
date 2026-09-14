@@ -44,6 +44,7 @@ export interface RunSummary {
   retrying: number;
   failed: number;
   reaped: number;
+  recordingFailed: number;
 }
 
 /**
@@ -74,19 +75,35 @@ async function setRow(
   admin: AdminClient,
   id: string,
   patch: Record<string, unknown>,
-): Promise<void> {
-  const { error } = await admin
-    .from("scheduled_publishes")
-    .update({ ...patch, updated_at: new Date().toISOString() })
-    .eq("id", id);
-  if (error) console.error("[publish-cron] row update failed", { id, message: error.message });
+): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const { error } = await Promise.race([
+      admin
+        .from("scheduled_publishes")
+        .update({ ...patch, updated_at: new Date().toISOString() })
+        .eq("id", id),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("queue_recording_timeout")), 10_000);
+      }),
+    ]);
+    if (error) throw new Error(error.message);
+    return true;
+  } catch {
+    console.error("[publish-cron] queue outcome could not be recorded", { id });
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**
  * Claim and process one batch of due publishes.
  * Errors on individual rows never abort the batch.
  */
-export async function runScheduledPublishes(batchSize = 20): Promise<RunSummary> {
+export async function runScheduledPublishes(
+  batchSize = 20,
+): Promise<RunSummary & { heartbeatRecorded: boolean }> {
   const admin = await adminClient();
 
   // Park anything a dead run left claimed, before taking new work — and tell each
@@ -127,17 +144,22 @@ export async function runScheduledPublishes(batchSize = 20): Promise<RunSummary>
     retrying: 0,
     failed: 0,
     reaped,
+    recordingFailed: 0,
   };
 
   await Promise.all(
     rows.map(async (row) => {
       try {
         const result = await publishAssetServerSide(row.user_id, row.asset_id);
-        await setRow(admin, row.id, {
+        const recorded = await setRow(admin, row.id, {
           status: "published",
           published_at: result.publishedAt,
           last_error: null,
         });
+        if (!recorded) {
+          summary.recordingFailed += 1;
+          return; // A completed send must never enter the failure/retry handler.
+        }
         summary.published += 1;
         console.info("[publish-cron] published", {
           rowId: row.id,
@@ -188,17 +210,18 @@ export async function runScheduledPublishes(batchSize = 20): Promise<RunSummary>
         );
 
         if (terminal) {
-          await setRow(admin, row.id, {
+          const recorded = await setRow(admin, row.id, {
             status: "failed",
             last_error: message,
             ...preflightPatch,
             retry_after: null,
           });
-          summary.failed += 1;
+          if (recorded) summary.failed += 1;
+          else summary.recordingFailed += 1;
         } else {
           // Retryable means the connector PROVED nothing was created on the site,
           // so another attempt cannot produce a duplicate.
-          await setRow(admin, row.id, {
+          const recorded = await setRow(admin, row.id, {
             status: "pending",
             last_error: message,
             // Preflight consumes its own bounded retry budget, without spending a
@@ -206,7 +229,8 @@ export async function runScheduledPublishes(batchSize = 20): Promise<RunSummary>
             ...preflightPatch,
             ...(capacity ? { attempts: Math.max(0, row.attempts - 1) } : {}),
           });
-          summary.retrying += 1;
+          if (recorded) summary.retrying += 1;
+          else summary.recordingFailed += 1;
         }
         console.error("[publish-cron] publish failed", {
           rowId: row.id,
@@ -226,16 +250,27 @@ export async function runScheduledPublishes(batchSize = 20): Promise<RunSummary>
   // thenable but not a real Promise, so calling .catch() on it throws a
   // TypeError that took the whole run down and produced a 500 with no
   // heartbeat — the exact blind spot this heartbeat exists to remove.
+  let heartbeatRecorded = false;
+  let heartbeatTimer: ReturnType<typeof setTimeout> | undefined;
   try {
-    await admin.rpc("record_cron_heartbeat", {
-      job: "scheduled-publish-run",
-      summary: summary as unknown as Record<string, unknown>,
-    });
-  } catch (e) {
-    console.error("[publish-cron] heartbeat failed", e instanceof Error ? e.message : "error");
+    const response = await Promise.race([
+      admin.rpc("record_cron_heartbeat", {
+        job: "scheduled-publish-run",
+        summary: summary as unknown as Record<string, unknown>,
+      }),
+      new Promise<never>((_, reject) => {
+        heartbeatTimer = setTimeout(() => reject(new Error("heartbeat_timeout")), 10_000);
+      }),
+    ]);
+    if (!response || response.error) throw new Error("heartbeat_unconfirmed");
+    heartbeatRecorded = true;
+  } catch {
+    console.error("[publish-cron] heartbeat could not be confirmed");
+  } finally {
+    clearTimeout(heartbeatTimer);
   }
 
-  return summary;
+  return { ...summary, heartbeatRecorded };
 }
 
 /** Age of the last successful runner tick, in seconds. null when it never ran. */

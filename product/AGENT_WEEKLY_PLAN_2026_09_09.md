@@ -15,6 +15,10 @@
 
 The owner's 17 screenshots describe seven SEO workflows. They are reference checklists, not runtime instructions or evidence that their suggested outputs are already available. Search demand, competitor gaps, topic structure, content creation, AI-answer readiness, local/entity consistency and growth measurement all remain in scope. Neither a prompt nor an agent face establishes live data access, expertise or ranking performance.
 
+## 13 September clarification — required conversational interface
+
+The owner confirmed a primary chat workspace for individuals and agencies: a user gives Milo a task, Milo routes it, and the relevant specialist can take over replies in the same conversation. This extends the earlier “one main conversation plus optional team view” specification with explicit conversational handoff. See the 13 September decision in [DECISIONS.md](DECISIONS.md) for scope and acceptance criteria. Existing technical specialist/weekly releases do not prove this interface is delivered. Preserve visible active client/project scope, speaker identity, conversation continuity, actual tool/job evidence and existing authority boundaries. Carry this requirement into the post-Hungarian handoff and full progress reassessment.
+
 ## Team and visible product behavior
 
 | Specialist | Responsibility | Reviewable result |

@@ -9,6 +9,8 @@ import {
   formatDateLocal,
   formatDateShort,
   formatDateTimeLocal,
+  formatDateTimeLocalInput,
+  parseDateTimeLocalInput,
   formatTimeLocal,
   formatDateTime,
   formatTime,
@@ -86,5 +88,45 @@ describe("selected interface calendar text preserves the clock boundary", () => 
         expect(format("not-a-date", locale)).toBe("—");
       }
     }
+  });
+});
+
+describe("datetime-local input formatting", () => {
+  it.each([
+    [new Date(2026, 0, 1, 0, 5), "2026-01-01T00:05"],
+    [new Date(2026, 6, 25, 23, 55), "2026-07-25T23:55"],
+  ] as const)("keeps local calendar and clock for %s", (instant, expected) => {
+    expect(formatDateTimeLocalInput(instant)).toBe(expected);
+    expect(formatDateTimeLocalInput(instant.toISOString())).toBe(expected);
+    expect(new Date(formatDateTimeLocalInput(instant)).getTime()).toBe(instant.getTime());
+  });
+
+  it("returns an empty input value for an invalid date", () => {
+    expect(formatDateTimeLocalInput("invalid")).toBe("");
+  });
+});
+
+describe("strict local scheduling input", () => {
+  it.each(["", "2026-02-30T10:00", "2026-13-01T10:00", "2026-01-01T24:00", "2026-01-01T10:00Z"])(
+    "rejects invalid or nonlocal input %s",
+    (input) => {
+      expect(parseDateTimeLocalInput(input)).toBeNull();
+    },
+  );
+  it("retains an ordinary local minute exactly", () => {
+    expect(parseDateTimeLocalInput("2026-07-25T09:00")?.getTime()).toBe(
+      new Date(2026, 6, 25, 9, 0).getTime(),
+    );
+  });
+  it("rejects a spring gap in zones that observe it", () => {
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const gap =
+      zone === "Europe/Stockholm"
+        ? "2026-03-29T02:30"
+        : zone === "America/Los_Angeles"
+          ? "2026-03-08T02:30"
+          : null;
+    if (gap) expect(parseDateTimeLocalInput(gap)).toBeNull();
+    else expect(parseDateTimeLocalInput("2026-03-29T02:30")).not.toBeNull();
   });
 });

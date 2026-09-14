@@ -1,0 +1,13 @@
+# Conditional UI outcomes — 12 September 2026
+
+Status: prepared and locally validated, unreleased. A second static pass examines conditional displays and outcome fallbacks, supplementing the direct-text inventory. It found remaining Authority, Backlinks and connector failure messages, AI Evaluation title fallbacks, Plan's title and Project Setup's on/off labels.
+
+Nine messages extend `sharedUi` across the four current languages and staged French; other controls reuse existing translated labels. The combined branch now adds 191 messages and contains 3,243 keys in every current dictionary and staged French, with 21 French authoring batches. French remains outside the runtime and picker. The numeric dictionary totals measure authoring coverage, not completed product journeys.
+
+Only displayed labels and failure fallbacks change. Existing server error messages still take precedence. AI model choices, evaluation records, connector tokens, copied text, link-network states, publication/scheduling controls and provider calls retain their existing behavior. The standalone connector clipboard helper receives translated success and failure strings from its React caller; it does not call hooks or change copied content.
+
+Validation: 126 focused localization, link-network, MCP transport and opportunity checks across 11 files, full TypeScript and production build pass. Lint introduces no additional diagnostics after wrapping two extended JSX lines: the three legacy files retain 138 pre-existing formatting errors in total and one existing warning. Other changed files have zero diagnostics. The comparison maps shifted AI Evaluation lines to their original positions; it does not mistake changed formatter suggestions on existing problem lines for new findings. Logs: `/tmp/milo-ui-outcomes-{focused,types,build}.log`, `/tmp/milo-ui-outcomes-lint-{baseline,final,comparison}.json`.
+
+The final conditional inventory `/tmp/milo-ui-outcomes-conditional-inventory.json` leaves technical identifiers, units, example URLs, credential placeholders and event-code examples in the active screens examined, after separately excluding route metadata, the owner validation playbook and unused redirecting legacy pages. The scan is heuristic and does not establish complete UI or fluent-user acceptance. Backend messages, public pages, reports/policies and wider languages remain open.
+
+No actual generation, verification, network listing, credential creation, clipboard action, email, provider call, production write, review retry or deployment occurred. Required final-head review and both-runtime CI still precede release. Overall progress remains approximately 60%, implementation 75% (weighted 58.25% / 73.5%); paid launch remains NO-GO.

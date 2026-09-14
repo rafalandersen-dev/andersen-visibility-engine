@@ -47,6 +47,11 @@ export function publicationFailureReason(error: string | null): PublicationFailu
       checks.push("author");
     return { kind: "contentReview", checks };
   }
+  if (
+    error ===
+    "Source facts need review before this draft can be sent or published. Check source observations and project knowledge in Project Setup."
+  )
+    return { kind: "contentReview", checks: ["sourcesReview"] };
   const http = /^Website returned an error \(status ([45]\d\d)\)\.$/.exec(error);
   if (http) return { kind: "destination", checks: [], httpStatus: Number(http[1]) };
   if (
@@ -116,6 +121,10 @@ export async function inspectPublicationFailure(
     .limit(2);
   if (response.error) throw new Error("publication_inspection_unavailable");
   const queue = queueSchema.parse(response.data)[0];
+  // Queue lookup may outlast an owner edit or workspace removal. Do not label
+  // that newer draft using the snapshot taken before the lookup.
+  const latest = await deps.workspace(userId);
+  if (!latest || latest.rev !== row.rev) throw new Error("publication_inspection_unavailable");
   const base = { checkedAt: now.toISOString() };
   if (!queue) return { ...base, state: "absent" as const };
   if (queue.status !== "failed") return { ...base, state: "changed" as const };

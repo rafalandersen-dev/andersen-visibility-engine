@@ -116,7 +116,7 @@ export const frCommerce: Readonly<Record<string, string>> = {
     "Les identifiants ou les points de terminaison nécessaires à la publication sont en place.",
   "launch.item.connectorTested": "Connexion testée (WordPress / Shopify)",
   "launch.item.connectorTested.desc":
-    "Lancez l’action Tester la connexion pour éviter un échec de publication ultérieur.",
+    "Lancez le test de connexion pour vérifier l’accès. Un test réussi ne vérifie pas les autorisations de publication et ne garantit pas une publication ultérieure.",
   "launch.item.draftSent": "Au moins un brouillon envoyé",
   "launch.item.draftSent.desc":
     "Envoyez un contenu approuvé au site connecté sous forme de brouillon.",

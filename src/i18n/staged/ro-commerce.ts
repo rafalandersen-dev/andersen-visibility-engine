@@ -1,0 +1,238 @@
+/** Romanian authoring only; not registered in the runtime or language picker.
+ * Nine billing/launch/beta keys follow `launch-readiness.ts`, and the two
+ * `launch.conn.gsc` import states follow `gsc-integrity.ts`; both override `en.ts`. */
+export const roCommerce: Readonly<Record<string, string>> = {
+  "billing.stripeTest.title": "Test de plată Stripe",
+  "billing.stripeTest.description":
+    "Plată de test doar pentru proprietar. Folosiți datele de plată de test Stripe. Nu se face nicio plată reală, iar planul Milo nu se schimbă.",
+  "billing.stripeTest.open": "Deschideți plata de test",
+  "billing.stripeTest.opening": "Se deschide…",
+  "billing.stripeTest.error":
+    "Plata de test nu a putut fi confirmată. Reîncercați aici pentru a refolosi aceeași încercare.",
+  "billing.title": "Facturare și plan",
+  "billing.subtitle": "Gestionați planul, profilul de facturare și suplimentele.",
+  "billing.owner.title": "Cont de proprietar",
+  "billing.owner.desc":
+    "Aveți proiecte nelimitate și nicio facturare. Acest cont nu este supus limitelor planului.",
+  "billing.currentPlan": "Planul actual",
+  "billing.status": "Stare",
+  "billing.billingMarket": "Piața de facturare",
+  "billing.currency": "Monedă",
+  "billing.price": "Preț",
+  "billing.perMonth": "/lună",
+  "billing.limits": "Limitele planului",
+  "billing.profile": "Profil de facturare",
+  "billing.customerType": "Tip de client",
+  "billing.business": "Persoană juridică",
+  "billing.consumer": "Persoană fizică",
+  "billing.billingName": "Nume pentru facturare",
+  "billing.businessName": "Numele firmei",
+  "billing.billingEmail": "E-mail pentru facturare",
+  "billing.billingCountry": "Țara de facturare",
+  "billing.vatId": "Cod de TVA / fiscal",
+  "billing.derivedMarket": "Piața de facturare dedusă",
+  "billing.saveProfile": "Salvați profilul de facturare",
+  "billing.profileSaved": "Profilul de facturare a fost salvat",
+  "billing.selectCountryFirst": "Selectați țara de facturare pentru a vedea prețurile locale.",
+  "billing.choosePlan": "Alegeți un plan",
+  "billing.recommended": "Recomandat",
+  "billing.choose": "Alegeți",
+  "billing.currentLabel": "Planul actual",
+  "billing.upgrade": "Treceți la un plan superior",
+  "billing.addons": "Suplimente",
+  "billing.assistedSetup": "Configurare asistată",
+  "billing.monthlyCare": "Asistență lunară",
+  "billing.oneTime": "o singură dată",
+  "billing.checkoutNotConfigured":
+    "Plata nu este încă configurată. Contactați asistența pentru a activa acest plan.",
+  "billing.contactSupport": "Contactați asistența",
+  "billing.checkoutPendingMsg": "Plata a început. Planul se va activa după confirmarea plății.",
+  "billing.rulesNote":
+    "Piața de facturare se bazează pe țara firmei sau de facturare. Schimbarea limbii site-ului sau a regiunii publice nu modifică eligibilitatea pentru prețuri.",
+  "billing.taxNote":
+    "Milo acceptă atât clienți persoane juridice, cât și persoane fizice. Detaliile fiscale și de facturare pot varia în funcție de țară și pot necesita verificare înainte de lansarea publică.",
+  "billing.paddleNote":
+    "Configurarea și verificarea plăților reale nu sunt finalizate. Contactați asistența înainte de a alege un plan plătit.",
+  "billing.noGuarantee": "Nu se garantează clasamente, trafic, venituri sau citări în AI.",
+  "billing.marketReview":
+    "Schimbarea țării de facturare poate afecta prețurile și necesită verificare.",
+  "billing.manual.title": "Activare manuală (doar proprietarul)",
+  "billing.manual.desc":
+    "Activați manual un plan pentru conturi plătite prin factură, beta sau gratuite. Nu este afișat utilizatorilor obișnuiți.",
+  "billing.manual.beta": "Activați ca beta manual",
+  "billing.manual.comped": "Activați ca gratuit manual",
+  "billing.manual.reset": "Resetați la Previzualizare gratuită",
+  "billing.statusLabel.freePreview": "Previzualizare gratuită",
+  "billing.statusLabel.checkoutPending": "Plată în așteptare",
+  "billing.statusLabel.active": "Activ",
+  "billing.statusLabel.pastDue": "Restant",
+  "billing.statusLabel.cancelled": "Anulat",
+  "billing.statusLabel.manualBeta": "Beta manual",
+  "billing.statusLabel.manualComped": "Gratuit manual",
+  "launch.title": "Listă de verificare pentru lansarea beta",
+  "launch.subtitle":
+    "Urmăriți pregătirea configurării, conținutului, publicării, măsurării, autorității și facturării pentru acest proiect.",
+  "launch.noProject": "Creați un proiect pentru a vedea lista de verificare pentru lansare.",
+  "launch.betaNotesCta": "Note beta",
+  "launch.readiness": "Pregătirea lansării",
+  "launch.essentialsDone": "elemente esențiale finalizate",
+  "launch.optionalDone": "Sunt finalizate și {n} elemente opționale",
+  "launch.optional": "Opțional",
+  "launch.statusTitle": "Starea configurării și a conexiunilor",
+  "launch.section.foundation": "Baza proiectului",
+  "launch.section.content": "Sistemul de conținut",
+  "launch.section.publishing": "Publicare",
+  "launch.section.measurement": "Măsurare",
+  "launch.section.authority": "Autoritate",
+  "launch.section.billing": "Facturare și beta",
+  "launch.item.businessProfile": "Profilul afacerii completat",
+  "launch.item.businessProfile.desc":
+    "Numele și descrierea afacerii sunt setate, astfel încât Milo are context.",
+  "launch.item.websiteUrl": "URL-ul site-ului adăugat",
+  "launch.item.websiteUrl.desc":
+    "Folosit pentru audituri, asocierea datelor de analiză și publicare.",
+  "launch.item.marketLanguage": "Piața și limba selectate",
+  "launch.item.marketLanguage.desc": "Determină limba conținutului și poziționarea locală.",
+  "launch.item.services": "Servicii sau produse adăugate",
+  "launch.item.services.desc": "Spuneți-i lui Milo ce vinde de fapt această afacere.",
+  "launch.item.brandIntelligence": "Brand Intelligence început",
+  "launch.item.brandIntelligence.desc":
+    "Vocea, afirmațiile și ofertele mențin conținutul conform brandului și sigur.",
+  "launch.item.opportunity": "Cel puțin o oportunitate generată",
+  "launch.item.opportunity.desc": "Idei de vizibilitate structurate, bazate pe afacere.",
+  "launch.item.contentAsset": "Cel puțin un element de conținut generat",
+  "launch.item.contentAsset.desc": "Un brief sau o ciornă creată dintr-o oportunitate.",
+  "launch.item.miloScore": "Cel puțin o evaluare Milo Score",
+  "launch.item.miloScore.desc": "Evaluați o ciornă înainte de publicare.",
+  "launch.item.reviewed": "O ciornă verificată sau îmbunătățită",
+  "launch.item.reviewed.desc": "Treceți o ciornă la verificare, aprobați-o sau îmbunătățiți-o.",
+  "launch.item.connectorSelected": "Conector selectat",
+  "launch.item.connectorSelected.desc":
+    "Alegeți Personalizat, WordPress sau Shopify în Configurarea proiectului.",
+  "launch.item.connectorConfigured": "Conector configurat",
+  "launch.item.connectorConfigured.desc":
+    "Credențialele sau endpointurile necesare publicării sunt setate.",
+  "launch.item.connectorTested": "Conexiune testată (WordPress/Shopify)",
+  "launch.item.connectorTested.desc":
+    "Rulați Testați conexiunea pentru a verifica accesul. Un test reușit nu verifică permisiunile de publicare și nu garantează o publicare ulterioară.",
+  "launch.item.draftSent": "Cel puțin o ciornă trimisă",
+  "launch.item.draftSent.desc": "Trimiteți conținutul aprobat ca ciornă pe site-ul conectat.",
+  "launch.item.publishedLive": "Cel puțin o pagină publicată",
+  "launch.item.publishedLive.desc": "Publicați din Milo o ciornă verificată.",
+  "launch.item.analyticsSnippet": "Fragment de cod de analiză disponibil",
+  "launch.item.analyticsSnippet.desc": "Copiați fragmentul Milo din Analiză și adăugați-l pe site.",
+  "launch.item.analyticsEvents": "Evenimente de analiză primite",
+  "launch.item.analyticsEvents.desc":
+    "Vizitați site-ul după instalarea fragmentului pentru a confirma urmărirea.",
+  "launch.item.gscImport": "Import GSC Lite adăugat",
+  "launch.item.gscImport.desc":
+    "Importați un CSV Search Console pentru a asocia afișările și clicurile.",
+  "launch.item.publishedByMilo": "Date despre paginile publicate de Milo disponibile",
+  "launch.item.publishedByMilo.desc":
+    "Pagini Milo publicate asociate cu performanța din Search Console.",
+  "launch.item.authorityGenerated": "Oportunități de autoritate generate",
+  "launch.item.authorityGenerated.desc":
+    "Sarcini de autoritate sigure, cum ar fi directoare și linkuri de la parteneri.",
+  "launch.item.authorityProgress": "Un element de autoritate planificat sau publicat",
+  "launch.item.authorityProgress.desc":
+    "Treceți o sarcină de autoritate la planificat, contactat sau publicat.",
+  "launch.item.billingProfile": "Profil de facturare completat",
+  "launch.item.billingProfile.desc": "Țara de facturare stabilește piața pentru prețuri.",
+  "launch.item.planSelected": "Plan selectat (sau Previzualizare gratuită)",
+  "launch.item.planSelected.desc":
+    "Previzualizarea gratuită este activă implicit — nu este necesară nicio plată.",
+  "launch.item.betaStatus": "Stare beta / gratuit / în așteptare vizibilă",
+  "launch.item.betaStatus.desc":
+    "Starea beta manual, gratuit sau plată în așteptare este afișată în Facturare.",
+  "launch.item.paddlePending": "Verificarea plăților reale este în așteptare",
+  "launch.item.paddlePending.desc":
+    "Stripe este înlocuitorul ales pentru Paddle. Configurarea mediului sandbox și verificările ciclului real de plată rămân de efectuat.",
+  "launch.conn.website": "Site web",
+  "launch.conn.website.ok": "URL-ul site-ului este setat.",
+  "launch.conn.website.none": "Adăugați URL-ul site-ului în Configurarea proiectului.",
+  "launch.conn.brand": "Brand Intelligence",
+  "launch.conn.brand.ok": "Contextul brandului a fost început.",
+  "launch.conn.brand.none": "Nu a fost început încă.",
+  "launch.conn.connector": "Conector de publicare",
+  "launch.conn.connector.none": "Niciun conector selectat.",
+  "launch.conn.connector.partial": "Selectat, dar configurarea este incompletă.",
+  "launch.conn.connector.customOk": "Endpointuri personalizate configurate.",
+  "launch.conn.connector.wpOk": "WordPress conectat și testat.",
+  "launch.conn.connector.wpUntested": "WordPress configurat — testați conexiunea.",
+  "launch.conn.connector.shopifyOk": "Shopify conectat și testat.",
+  "launch.conn.connector.shopifyUntested": "Shopify configurat — testați conexiunea.",
+  "launch.conn.analytics": "Analiză",
+  "launch.conn.analytics.ok": "Evenimente primite.",
+  "launch.conn.analytics.pending": "Instalați fragmentul și vizitați site-ul.",
+  "launch.conn.gsc": "GSC Lite",
+  "launch.conn.gsc.ok": "CSV importat.",
+  "launch.conn.gsc.csvOnly":
+    "CSV furnizat de proprietar păstrat; nu stabilește starea conexiunii OAuth.",
+  "launch.conn.gsc.synced":
+    "Importul salvat declară o sursă API; conexiunea curentă și proveniența nu sunt verificate independent.",
+  "launch.conn.gsc.connectedNotSynced": "Conectat — rulați o sincronizare.",
+  "launch.conn.gsc.reconnect": "Conexiunea trebuie refăcută.",
+  "launch.conn.gsc.none": "Niciun import încă.",
+  "launch.conn.authority": "Autoritate",
+  "launch.conn.authority.ok": "Oportunități generate.",
+  "launch.conn.authority.none": "Niciuna generată încă.",
+  "launch.conn.billing": "Facturare",
+  "launch.conn.billing.ok": "Profil de facturare setat.",
+  "launch.conn.billing.pending": "Adăugați țara de facturare pentru prețuri corecte.",
+  "launch.qa.title": "QA proprietar",
+  "launch.qa.ownerOnly": "Doar proprietarul",
+  "launch.qa.projectId": "ID proiect",
+  "launch.qa.plan": "Plan tarifar",
+  "launch.qa.subStatus": "Starea abonamentului",
+  "launch.qa.connector": "Conector",
+  "launch.qa.sent": "Ciorne trimise",
+  "launch.qa.live": "Publicate",
+  "launch.qa.analyticsEvents": "Evenimente de analiză (30 z)",
+  "launch.qa.gscImports": "Importuri GSC",
+  "launch.qa.gscOAuth": "OAuth GSC configurat",
+  "launch.qa.gscConnected": "Conexiune GSC",
+  "launch.qa.gscSite": "Site GSC selectat",
+  "launch.qa.gscSyncRows": "Rânduri la ultima sincronizare GSC",
+  "launch.qa.gscSyncDate": "Data ultimei sincronizări GSC",
+  "launch.qa.authorityCount": "Elemente de autoritate",
+  "launch.qa.contentCount": "Elemente de conținut",
+  "launch.qa.aiCandidate": "Candidat AI configurat",
+  "launch.qa.paddle": "Integrarea Paddle veche configurată",
+  "launch.qa.yes": "Da",
+  "launch.qa.no": "Nu",
+  "beta.title": "Note beta",
+  "beta.subtitle":
+    "Limitările actuale și ce trebuie confirmat înainte de o lansare mai largă în regim de autoservire.",
+  "beta.intro":
+    "Aceste note urmăresc lucrările rămase de configurare și acceptare. O demonstrație ghidată trebuie să folosească fluxuri verificate; finalizarea listei de verificare nu stabilește singură pregătirea pentru o lansare plătită în regim de autoservire.",
+  "beta.limitsTitle": "Limitările actuale ale versiunii beta",
+  "beta.reassure":
+    "Alegeți fluxurile demo pe baza dovezilor verificate. Păstrați vizibile integrările netestate și condițiile preliminare ale lansării plătite.",
+  "beta.demoSafeTitle": "Note pentru demonstrații sigure",
+  "beta.backToChecklist": "Înapoi la lista de verificare",
+  "beta.openDemoScript": "Deschideți scenariul demo",
+  "beta.limit.paddle":
+    "Plățile reale nu sunt pregătite pentru o lansare plătită generală. Configurarea Stripe sandbox și verificările ciclului real de plată rămân de efectuat.",
+  "beta.limit.wordpress":
+    "Conectorul WordPress este construit, dar are încă nevoie de testare în producție pe un site real.",
+  "beta.limit.shopify":
+    "Conectorul Shopify este construit, dar are încă nevoie de testare în producție pe un magazin real.",
+  "beta.limit.aiCandidate":
+    "Modelul AI alternativ (candidatul de evaluare) necesită configurarea mediului înainte de a rula.",
+  "beta.limit.legal":
+    "Paginile juridice sunt ciorne pentru pregătirea beta și trebuie verificate înainte de o lansare plătită mai largă.",
+  "beta.limit.analytics":
+    "Analiza necesită instalarea fragmentului Milo pe site-ul clientului pentru a primi evenimente.",
+  "beta.limit.gsc":
+    "GSC Lite acceptă importul CSV manual și sincronizarea opțională OAuth/API acolo unde Google OAuth este configurat. Importul manual rămâne disponibil ca alternativă.",
+  "beta.limit.images":
+    "Publicarea poate include referințe la imagini verificate. Transferul imaginilor, imaginile principale și aspectul final necesită în continuare verificări pe site-uri reale pentru fiecare conector.",
+  "beta.demo.rankings":
+    "Nu promiteți clasamente, trafic sau citări garantate în AI — Milo este asistat de AI și verificat de oameni.",
+  "beta.demo.payments":
+    "Explicați că Stripe este furnizorul de plăți ales, iar verificarea configurării și a ciclului de plată rămâne incompletă. Nu prezentați plățile ca fiind active.",
+  "beta.demo.connectors":
+    "Spuneți că conectorii WordPress și Shopify necesită testare completă în producție pentru fiecare site.",
+  "beta.demo.data":
+    "Spuneți că dovezile din Analiză și GSC depind de datele disponibile pentru proiectul demo.",
+};

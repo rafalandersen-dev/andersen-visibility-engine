@@ -1,0 +1,52 @@
+/** Irish authoring only; not registered in the runtime or language picker. */
+export const gaBacklinkMonitoring: Readonly<Record<string, string>> = {
+  "backlinkMonitor.website_changed":
+    "Ní mheaitseálann an suíomh a thaispeántar leis an tionscadal sábháilte. Sábháil nó athlódáil an tionscadal sula mbailíonn tú sonraí. Níor tosaíodh bailiú sonraí.",
+  "backlinkMonitor.unavailable":
+    "Níl bailiú sonraí ar fáil go dtí go ndeimhníonn stádas an tsoláthraí cuntas gníomhach le hiarmhéid ar fáil. Tá an stair shábháilte ar fáil fós.",
+  "backlinkMonitor.yes": "Tá",
+  "backlinkMonitor.no": "Níl",
+  "backlinkMonitor.title": "Stair na nasc isteach",
+  "backlinkMonitor.note":
+    "Comhaireamh laethúil ó innéacs DataForSEO don suíomh sábháilte. Taispeántar sonraí atá ar iarraidh mar —, ní mar náid riamh. Ní fhíoraíonn na breathnóireachtaí seo socrúchán nasc aonair. Úsáideann gach iarratas teorainn chumraithe an tsoláthraí. Bainistítear bailiú rialta sonraí ar leith thuas.",
+  "backlinkMonitor.from": "Ó (UTC)",
+  "backlinkMonitor.to": "Go (UTC)",
+  "backlinkMonitor.subdomains": "Cuir fofhearainn san áireamh",
+  "backlinkMonitor.run": "Iarr comhaireamh laethúil",
+  "backlinkMonitor.running": "Sonraí á mbailiú…",
+  "backlinkMonitor.new": "Tosaigh iarratas eile",
+  "backlinkMonitor.refresh": "Athnuaigh an stair",
+  "backlinkMonitor.loading": "An stair shábháilte á lódáil…",
+  "backlinkMonitor.empty": "Níl iarratais shábháilte ann fós.",
+  "backlinkMonitor.error": "Níl an stair ar fáil. Bain triail as athnuachan.",
+  "backlinkMonitor.uncertain":
+    "Níl an toradh deimhnithe. Athnuaigh an stair shábháilte sula dtosaíonn tú iarratas eile; ní chiallaíonn sé seo nár ghearr an soláthraí aon rud.",
+  "backlinkMonitor.stored": "Sábháladh an bhreathnóireacht.",
+  "backlinkMonitor.existing": "Tá iarratas mar seo ann cheana. Seiceáil a stádas sábháilte thíos.",
+  "backlinkMonitor.held":
+    "Tá an t-iarratas coinnithe siar. Seiceáil an stair shábháilte sula dtosaíonn tú iarratas eile.",
+  "backlinkMonitor.reserved": "In áirithe",
+  "backlinkMonitor.dispatched": "Sonraí á mbailiú",
+  "backlinkMonitor.succeeded": "Sábháilte",
+  "backlinkMonitor.unknown": "Gan deimhniú",
+  "backlinkMonitor.pending": "Ar feitheamh",
+  "backlinkMonitor.settled": "Socraithe",
+  "backlinkMonitor.recover": "Athchóirigh an cuntasaíocht",
+  "backlinkMonitor.recovered": "Athchóiríodh an cuntasaíocht ó thaifead sábháilte an tsoláthraí.",
+  "backlinkMonitor.recoveryFailed":
+    "Níorbh fhéidir an cuntasaíocht a athchóiriú. Tá an bhreathnóireacht shábháilte ar fáil fós.",
+  "backlinkMonitor.date": "Dáta (UTC)",
+  "backlinkMonitor.newLinks": "Naisc isteach nua",
+  "backlinkMonitor.lostLinks": "Naisc isteach caillte",
+  "backlinkMonitor.newDomains": "Fearainn atreoraithe nua",
+  "backlinkMonitor.lostDomains": "Fearainn atreoraithe caillte",
+  "backlinkMonitor.newMainDomains": "Príomhfhearainn atreoraithe nua",
+  "backlinkMonitor.lostMainDomains": "Príomhfhearainn atreoraithe caillte",
+  "backlinkMonitor.reported": "Tuairiscithe",
+  "backlinkMonitor.partial": "Páirteach",
+  "backlinkMonitor.missing": "Ar iarraidh",
+  "backlinkMonitor.accounting": "Cuntasaíocht",
+  "backlinkMonitor.observed": "Breathnaithe",
+  "backlinkMonitor.request": "Iarratas",
+  "backlinkMonitor.invalid": "Roghnaigh raon bailí 1–92 lá a chríochnaíonn inniu ar a dhéanaí.",
+};

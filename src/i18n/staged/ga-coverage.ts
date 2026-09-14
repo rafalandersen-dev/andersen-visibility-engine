@@ -1,0 +1,55 @@
+/** Irish authoring only; not registered in the runtime or language picker. */
+export const gaCoverage: Readonly<Record<string, string>> = {
+  "coverage.hasRecord": "Tá taifead athbhreithnithe ann",
+  "coverage.noRecord": "Cuir an taifead atá ar iarraidh leis",
+  "coverage.title": "Clúdach áitiúil agus idirnáisiúnta",
+  "coverage.help":
+    "Athbhreithnigh aitheantas an ghnó, láithreacha seirbhíse agus leathanaigh idirnáisiúnta ag úsáid fhianaise shábháilte an tionscadail. Ní dhéanann sé seo scanadh agus ní nascann sé próifíl ghnó ar Google.",
+  "coverage.setup": "Cuir spriocanna an tionscadail in eagar",
+  "coverage.plan": "Oscail plean an ábhair",
+  "coverage.history": "Foinsí, coinbhleachtaí agus stair leaganacha",
+  "coverage.proof": "Fianaise foilsithe agus grianghraif ama",
+  "coverage.targets": "Láithreacha sábháilte an tionscadail",
+  "coverage.missing": "Fianaise ar iarraidh",
+  "coverage.failed":
+    "Theip ar lódáil nó ar shábháil. Sula leanann tú ar aghaidh, athnuaigh na taifid; seiceáil ar coinníodh an méid a sábháladh.",
+  "coverage.empty": "Níl taifid struchtúrtha clúdaigh ann fós. Cuir láthair nó margadh leis thíos.",
+  "coverage.reviewed": "Athbhreithnithe ag an úinéir · luaite ag an bhfoinse",
+  "coverage.unavailable":
+    "Ní féidir é a úsáid: teastaíonn aird ar athbhreithniú, bailíocht nó staid na foinse",
+  "coverage.conflict": "Taifid i gcoinbhleacht · réitigh in eolas an tionscadail",
+  "coverage.invalid": "Taifead gan tacaíocht · athbhreithnigh in eolas an tionscadail",
+  "coverage.unverified":
+    "Is ráitis luaite iad URLanna agus sonraí gnó. Níl liostú in eolairí, barántúlacht léirmheasanna, comhsheasmhacht NAP, láithreacht leathanach, hreflang ná seasaimh fíoraithe.",
+  "coverage.edit": "Athbhreithnigh an leagan sábháilte seo",
+  "coverage.add": "Cuir fianaise chlúdaigh leis",
+  "coverage.kind": "Cineál clúdaigh",
+  "coverage.local": "Láthair / seirbhís áitiúil",
+  "coverage.global": "Margadh / teanga idirnáisiúnta",
+  "coverage.urlHelp":
+    "URLanna roghnacha: HTTPS poiblí amháin, gan teaghráin iarratais ná míreanna. Fág réimsí anaithnide folamh. Caithfidh an taifead iomlán a bheith níos giorra ná 2 000 carachtar.",
+  "coverage.source": "Foinse na fianaise",
+  "coverage.owner": "Ráiteas a sholáthair an t-úinéir",
+  "coverage.locator": "Suíomh na foinse / dáta breathnóireachta (riachtanach)",
+  "coverage.reviewHelp":
+    "Deimhníonn sábháil ráitis úinéara d’athbhreithniú. Tosaíonn taifid ó fhoinsí reatha mar thograí: chun glacadh leo, athbhreithnigh an leagan sábháilte. Fanann leaganacha foinse, éag agus tarraingt siar cinntitheach.",
+  "coverage.propose": "Sábháil togra na foinse",
+  "coverage.save": "Sábháil an fhianaise athbhreithnithe",
+  "coverage.publications": "Nasc sábháilte le foilseacháin",
+  "coverage.publicationHelp":
+    "Meaitseáil bheacht ar URL an leathanaigh ó leathanach na fianaise a thaispeántar amháin. Ní fhíoraíonn deimhniú an nascóra clúdach foilsithe, teanga an ábhair ná feidhmíocht áitiúil. Don ghrianghraf ama do-athraithe agus do bhreathnóireachtaí, féach na tuarascálacha.",
+  "coverage.matches": "Spriocanna athbhreithnithe leis an URL beacht seo",
+  "coverage.noMatch": "Níl meaitseáil bheacht ann",
+  "coverage.field.target": "Láthair / margadh (riachtanach)",
+  "coverage.field.name": "Ainm an ghnó",
+  "coverage.field.address": "Seoladh poiblí an ghnó / limistéar seirbhíse",
+  "coverage.field.phone": "Fón poiblí an ghnó",
+  "coverage.field.service": "Seirbhís",
+  "coverage.field.language": "Teanga an ábhair sprice",
+  "coverage.field.pageUrl": "URL leathanach na láithreach / na seirbhíse / an mhargaidh",
+  "coverage.field.alternateUrl": "URL comhfhreagrach sa teanga mhalartach",
+  "coverage.field.citationUrl": "URL fhianaise an eolaire / an lua",
+  "coverage.field.reviewUrl": "URL fhianaise an léirmheasa",
+  "coverage.field.gbpUrl": "URL fhianaise phróifíl an ghnó ar Google",
+  "coverage.field.notes": "Nótaí fianaise / bearnaí / an chéad ghníomh eile",
+};

@@ -3,6 +3,7 @@ import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store";
 import { useAppLanguage, useT } from "@/i18n";
+import { formatDate } from "@/lib/format";
 import { getAnalyticsSummaryFn, type AnalyticsSummary } from "@/lib/analytics.functions";
 import { LogEvidencePanel } from "@/components/LogEvidencePanel";
 import { GscLiteSection } from "@/components/GscLiteSection";
@@ -62,7 +63,7 @@ function AnalyticsPage() {
       const res = await getAnalyticsSummaryFn({ data: { projectId: activeProjectId } });
       setData(res);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load analytics.");
+      setError(e instanceof Error ? e.message : t("analyticsScreen.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -76,9 +77,9 @@ function AnalyticsPage() {
   const copySnippet = async () => {
     try {
       await navigator.clipboard.writeText(snippet);
-      toast.success("Snippet copied");
+      toast.success(t("analyticsScreen.copied"));
     } catch {
-      toast.error("Could not copy");
+      toast.error(t("analyticsScreen.copyFailed"));
     }
   };
 
@@ -89,8 +90,7 @@ function AnalyticsPage() {
           <BarChart3 className="mx-auto h-8 w-8 text-gold/70" strokeWidth={1.4} />
           <div className="mt-3 font-display text-lg">{t("analytics.setupFirst")}</div>
           <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">
-            Analytics tracks one website per project. Create a project, then add the tracking
-            snippet.
+            {t("analyticsScreen.setupHelp")}
           </p>
           <Button className="mt-4" onClick={() => navigate({ to: "/app/setup" })}>
             {t("nav.setup")}
@@ -103,11 +103,11 @@ function AnalyticsPage() {
   return (
     <AppShell
       title={t("analytics.title")}
-      description="Connect Milo Analytics, Google Search Console and published content to see what is driving growth."
+      description={t("analyticsScreen.description")}
       actions={
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" disabled>
-            <CalendarDays className="h-4 w-4" /> Last 30 days
+            <CalendarDays className="h-4 w-4" /> {t("analyticsScreen.last30")}
           </Button>
           <Button variant="outline" onClick={load} disabled={loading}>
             {loading ? (
@@ -143,56 +143,67 @@ function AnalyticsPage() {
       ) : data ? (
         <div className="space-y-8">
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3 text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-2">Milo Analytics · recorded events</span>
-            <span className="inline-flex items-center gap-2">
-              Read-only reporting · last 30 days
-            </span>
+            <span className="inline-flex items-center gap-2">{t("analyticsScreen.recorded")}</span>
+            <span className="inline-flex items-center gap-2">{t("analyticsScreen.readOnly")}</span>
           </div>
 
           <section className="grid gap-4 md:grid-cols-3">
             <PremiumStat
-              label="Website visits"
+              label={t("analyticsScreen.views")}
               value={data.growthSummary.visitsLast30.toLocaleString(locale)}
               change={data.growthSummary.visitsGrowthPercent}
-              detail="vs previous 30 days"
+              detail={t("analyticsScreen.previous30")}
               points={data.dailyTrend.map((item) => item.views)}
             />
             <PremiumStat
-              label="Conversion rate"
-              value={`${data.growthSummary.conversionRateLast30}%`}
-              detail={`${data.growthSummary.ctaClicksLast30 + data.growthSummary.bookingClicksLast30} tracked actions`}
+              label={t("analyticsScreen.clickRate")}
+              value={`${data.growthSummary.conversionRateLast30.toLocaleString(locale)}%`}
+              detail={t("analyticsScreen.actions", {
+                n: (
+                  data.growthSummary.ctaClicksLast30 + data.growthSummary.bookingClicksLast30
+                ).toLocaleString(locale),
+              })}
             />
             <PremiumStat
-              label="Published pages"
+              label={t("analyticsScreen.published")}
               value={data.growthSummary.publishedPagesCount}
-              detail={`${data.growthSummary.activePublishedPagesCount} receiving visits`}
+              detail={t("analyticsScreen.active", {
+                n: data.growthSummary.activePublishedPagesCount.toLocaleString(locale),
+              })}
             />
           </section>
+          <div className="space-y-2 text-xs text-muted-foreground">
+            <p>{t("analyticsScreen.countNote")}</p>
+            <p>{t("analyticsScreen.windowNote")}</p>
+          </div>
 
           <section className="grid gap-4 xl:grid-cols-[minmax(0,1.8fr)_minmax(300px,.75fr)]">
             <div className="rounded-xl border border-border bg-card p-6">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                    Growth proof
+                    {t("analyticsScreen.activity")}
                   </div>
-                  <h2 className="mt-1 font-display text-2xl">Visits and tracked actions</h2>
+                  <h2 className="mt-1 font-display text-2xl">{t("analyticsScreen.chart")}</h2>
                 </div>
                 <span className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground">
-                  Daily
+                  {t("analyticsScreen.daily")}
                 </span>
               </div>
               <TrendBars data={data.dailyTrend} />
               <div className="mt-5 grid gap-3 border-t border-border pt-5 sm:grid-cols-3">
-                <MiniMetric label="Milo page views" value={data.growthSummary.miloPageViews} />
                 <MiniMetric
-                  label="AI referral visits"
+                  label={t("analyticsScreen.miloViews")}
+                  value={data.growthSummary.miloPageViews}
+                />
+                <MiniMetric
+                  label={t("analyticsScreen.aiReferrals")}
                   value={data.aiSignals
                     .filter((s) => s.type === "ai_referrer")
                     .reduce((n, s) => n + s.count, 0)}
                 />
                 <MiniMetric
-                  label="Best page views"
+                  label={t("analyticsScreen.leadingViews")}
                   value={data.growthSummary.bestPerformingPage?.views ?? "—"}
                 />
               </div>
@@ -201,10 +212,19 @@ function AnalyticsPage() {
             <aside className="rounded-xl border border-border bg-card p-6">
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-[#b77f1f]" />
-                <h2 className="font-display text-xl">What changed</h2>
+                <h2 className="font-display text-xl">{t("analyticsScreen.summaryTitle")}</h2>
               </div>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                {data.growthSummary.summaryText}
+                {t("analyticsScreen.summary", {
+                  views: data.growthSummary.visitsLast30.toLocaleString(locale),
+                  clicks: (
+                    data.growthSummary.ctaClicksLast30 + data.growthSummary.bookingClicksLast30
+                  ).toLocaleString(locale),
+                })}
+                {data.growthSummary.bestPerformingPage &&
+                data.growthSummary.bestPerformingPage.views > 0
+                  ? ` ${t("analyticsScreen.leadingPage", { title: data.growthSummary.bestPerformingPage.title })}`
+                  : ""}
               </p>
               <div className="mt-5 divide-y divide-border border-y border-border">
                 {data.topGrowingPages.slice(0, 3).map((page) => (
@@ -212,16 +232,19 @@ function AnalyticsPage() {
                     <div className="line-clamp-2 text-sm font-medium">{page.title}</div>
                     <div className="mt-1 text-xs text-emerald-700">
                       {page.growthPercent === null
-                        ? "New traffic"
-                        : `${page.growthPercent > 0 ? "+" : ""}${page.growthPercent}%`}{" "}
-                      · {page.viewsLast30} visits
+                        ? t("analyticsScreen.newViews")
+                        : `${page.growthPercent > 0 ? "+" : ""}${page.growthPercent.toLocaleString(locale)}%`}{" "}
+                      ·{" "}
+                      {t("analyticsScreen.viewCount", {
+                        n: page.viewsLast30.toLocaleString(locale),
+                      })}
                     </div>
                   </div>
                 ))}
               </div>
               <div className="mt-5 rounded-lg bg-[#faf6ec] p-4">
                 <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#9b6b19]">
-                  Milo recommends
+                  {t("analyticsScreen.recommends")}
                 </div>
                 <p className="mt-2 text-sm leading-5">
                   {t(`analytics.next.${data.nextActionKey}`)}
@@ -234,7 +257,7 @@ function AnalyticsPage() {
           <section className="rounded-lg border-2 border-gold/30 bg-card p-5">
             <h2 className="font-display text-xl">{t("analytics.v2.publishedByMilo")}</h2>
             <p className="mt-1 text-sm text-muted-foreground max-w-3xl">
-              {t("analytics.v2.publishedByMiloDesc")}
+              {t("analyticsScreen.publishedHelp")}
             </p>
             {data.publishedContentPerformance.length === 0 ? (
               <p className="mt-4 text-sm text-muted-foreground">
@@ -249,7 +272,7 @@ function AnalyticsPage() {
                         {t("analytics.published.content")}
                       </th>
                       <th className="text-left px-4 py-3 font-medium w-24">
-                        {t("analytics.v2.col.viewsSince")}
+                        {t("analyticsScreen.viewsAfter")}
                       </th>
                       <th className="text-left px-4 py-3 font-medium w-20">
                         {t("analytics.published.cta")}
@@ -258,7 +281,7 @@ function AnalyticsPage() {
                         {t("analytics.published.booking")}
                       </th>
                       <th className="text-left px-4 py-3 font-medium w-24">
-                        {t("analytics.v2.col.conversion")}
+                        {t("analyticsScreen.clickRate")}
                       </th>
                       <th className="text-left px-4 py-3 font-medium w-20">
                         {t("analytics.topPages.aiSignals")}
@@ -286,16 +309,26 @@ function AnalyticsPage() {
                               : ""}
                           </div>
                         </td>
-                        <td className="px-4 py-3 font-mono">{c.viewsSincePublish}</td>
-                        <td className="px-4 py-3 font-mono">{c.ctaClicksSincePublish}</td>
-                        <td className="px-4 py-3 font-mono">{c.bookingClicksSincePublish}</td>
-                        <td className="px-4 py-3 font-mono">{c.conversionRateSincePublish}%</td>
+                        <td className="px-4 py-3 font-mono">
+                          {c.viewsSincePublish.toLocaleString(locale)}
+                        </td>
+                        <td className="px-4 py-3 font-mono">
+                          {c.ctaClicksSincePublish.toLocaleString(locale)}
+                        </td>
+                        <td className="px-4 py-3 font-mono">
+                          {c.bookingClicksSincePublish.toLocaleString(locale)}
+                        </td>
+                        <td className="px-4 py-3 font-mono">
+                          {c.conversionRateSincePublish.toLocaleString(locale)}%
+                        </td>
                         <td className="px-4 py-3 text-muted-foreground">
-                          {c.aiSignalsSincePublish || "—"}
+                          {c.aiSignalsSincePublish
+                            ? c.aiSignalsSincePublish.toLocaleString(locale)
+                            : "—"}
                         </td>
                         <td className="px-4 py-3">
                           {c.qualityScore !== undefined ? (
-                            c.qualityScore
+                            c.qualityScore.toLocaleString(locale)
                           ) : (
                             <span className="text-xs text-muted-foreground">
                               {t("analytics.v2.notEvaluated")}
@@ -312,7 +345,7 @@ function AnalyticsPage() {
                             rel="noopener noreferrer"
                             className="text-xs text-foreground/80 underline underline-offset-4 inline-flex items-center gap-1"
                           >
-                            <ExternalLink className="h-3 w-3" /> View
+                            <ExternalLink className="h-3 w-3" /> {t("analyticsScreen.view")}
                           </a>
                         </td>
                       </tr>
@@ -329,10 +362,10 @@ function AnalyticsPage() {
           {/* Section 4 — Top growing pages */}
           <section>
             <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-3">
-              {t("analytics.v2.topGrowing")}
+              {t("analyticsScreen.topPages")}
             </div>
             {data.topGrowingPages.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No page views recorded yet.</p>
+              <p className="text-sm text-muted-foreground">{t("analyticsScreen.none")}</p>
             ) : (
               <div className="rounded-lg border border-border bg-card overflow-x-auto">
                 <table className="w-full text-sm min-w-[700px]">
@@ -367,19 +400,27 @@ function AnalyticsPage() {
                             {p.title}
                           </div>
                         </td>
-                        <td className="px-5 py-3 font-mono">{p.viewsLast30}</td>
+                        <td className="px-5 py-3 font-mono">
+                          {p.viewsLast30.toLocaleString(locale)}
+                        </td>
                         <td
                           className={`px-5 py-3 font-mono ${p.growthPercent && p.growthPercent > 0 ? "text-emerald-600" : p.growthPercent && p.growthPercent < 0 ? "text-destructive" : "text-muted-foreground"}`}
                         >
                           {p.growthPercent === null
                             ? "—"
-                            : `${p.growthPercent > 0 ? "+" : ""}${p.growthPercent}%`}
+                            : `${p.growthPercent > 0 ? "+" : ""}${p.growthPercent.toLocaleString(locale)}%`}
                         </td>
-                        <td className="px-5 py-3 font-mono">{p.ctaClicks + p.bookingClicks}</td>
+                        <td className="px-5 py-3 font-mono">
+                          {(p.ctaClicks + p.bookingClicks).toLocaleString(locale)}
+                        </td>
                         <td className="px-5 py-3 text-muted-foreground truncate">
-                          {p.topReferrer}
+                          {p.topReferrer === "Direct / none"
+                            ? t("analyticsScreen.noReferrer")
+                            : p.topReferrer}
                         </td>
-                        <td className="px-5 py-3 text-muted-foreground">{p.aiSignals || "—"}</td>
+                        <td className="px-5 py-3 text-muted-foreground">
+                          {p.aiSignals ? p.aiSignals.toLocaleString(locale) : "—"}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -440,7 +481,7 @@ function AnalyticsPage() {
                       <span className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
                         {t(labelAiKey(s.type))}
                       </span>
-                      <span className="font-display text-lg">{s.count}</span>
+                      <span className="font-display text-lg">{s.count.toLocaleString(locale)}</span>
                     </div>
                     <div className="mt-1 text-sm text-foreground/85">{s.source}</div>
                     <div className="mt-0.5 text-xs text-muted-foreground truncate">
@@ -623,12 +664,15 @@ function PremiumStat({
   change?: number | null;
   points?: number[];
 }) {
+  const locale = useAppLanguage();
   const max = Math.max(1, ...(points ?? []));
   return (
     <div className="rounded-xl border border-border bg-card p-5">
       <div className="text-sm font-medium text-foreground/85">{label}</div>
       <div className="mt-3 flex items-baseline gap-3">
-        <div className="font-display text-4xl tracking-[-0.04em]">{value}</div>
+        <div className="font-display text-4xl tracking-[-0.04em]">
+          {typeof value === "number" ? value.toLocaleString(locale) : value}
+        </div>
         {change !== undefined && change !== null ? (
           <span
             className={
@@ -638,7 +682,7 @@ function PremiumStat({
             }
           >
             {change > 0 ? "+" : ""}
-            {change}%
+            {change.toLocaleString(locale)}%
           </span>
         ) : null}
       </div>
@@ -657,15 +701,20 @@ function PremiumStat({
 }
 
 function MiniMetric({ label, value }: { label: string; value: string | number }) {
+  const locale = useAppLanguage();
   return (
     <div>
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-1 font-display text-xl">{value}</div>
+      <div className="mt-1 font-display text-xl">
+        {typeof value === "number" ? value.toLocaleString(locale) : value}
+      </div>
     </div>
   );
 }
 
 function TrendBars({ data }: { data: { date: string; views: number }[] }) {
+  const locale = useAppLanguage();
+  const t = useT();
   const max = Math.max(1, ...data.map((d) => d.views));
   return (
     <div className="mt-8 flex h-52 items-end gap-1 border-b border-border bg-[repeating-linear-gradient(to_bottom,transparent_0,transparent_50px,rgba(110,105,95,.1)_51px)] px-1">
@@ -673,7 +722,10 @@ function TrendBars({ data }: { data: { date: string; views: number }[] }) {
         <div
           key={d.date}
           className="group relative flex h-full flex-1 flex-col justify-end"
-          title={`${d.date}: ${d.views}`}
+          title={t("analyticsScreen.chartTitle", {
+            date: formatDate(d.date, locale),
+            views: d.views.toLocaleString(locale),
+          })}
         >
           <div
             className="min-h-[2px] w-full rounded-t-sm bg-emerald-700/70 transition-all group-hover:bg-emerald-700"
@@ -703,7 +755,7 @@ function SetupSnippet({ snippet, onCopy }: { snippet: string; onCopy: () => void
         </Button>
       </div>
       <p className="mt-3 text-xs text-muted-foreground">
-        Optional event tracking on your site:
+        {t("analyticsScreen.optionalEvents")}
         <br />
         <code className="font-mono">window.miloTrack('cta_click', {"{ label: 'Book now' }"})</code>
         {"  ·  "}

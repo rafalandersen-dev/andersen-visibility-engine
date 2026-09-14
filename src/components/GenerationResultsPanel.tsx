@@ -27,9 +27,11 @@ type Detail = Awaited<ReturnType<typeof readGenerationResultFn>>;
 export function GenerationResultsPanel({
   userId,
   projectId,
+  initialReceiptId,
 }: {
   userId: string;
   projectId?: string;
+  initialReceiptId?: string;
 }) {
   const locale = useAppLanguage();
   const t = useT(),
@@ -80,23 +82,31 @@ export function GenerationResultsPanel({
       detailCounter.current++;
     };
   }, [load]);
-  async function select(id: string) {
-    const request = ++detailRequest.current;
-    setReading(true);
-    setDetail(null);
-    setDetailFailed(false);
-    try {
-      const next = await readGenerationResultFn({ data: { receiptId: id } });
-      if (alive.current && request === detailRequest.current) {
-        setDetail(next);
-        setDetailFailed(!next);
+  const select = useCallback(
+    async (id: string) => {
+      const request = ++detailRequest.current;
+      setReading(true);
+      setDetail(null);
+      setDetailFailed(false);
+      try {
+        const next = await readGenerationResultFn({ data: { receiptId: id } });
+        if (next && projectId && next.result.projectId !== projectId)
+          throw new Error("Result is outside this project.");
+        if (alive.current && request === detailRequest.current) {
+          setDetail(next);
+          setDetailFailed(!next);
+        }
+      } catch {
+        if (alive.current && request === detailRequest.current) setDetailFailed(true);
+      } finally {
+        if (alive.current && request === detailRequest.current) setReading(false);
       }
-    } catch {
-      if (alive.current && request === detailRequest.current) setDetailFailed(true);
-    } finally {
-      if (alive.current && request === detailRequest.current) setReading(false);
-    }
-  }
+    },
+    [projectId],
+  );
+  useEffect(() => {
+    if (initialReceiptId) void select(initialReceiptId);
+  }, [initialReceiptId, select]);
   async function restore() {
     if (working.current || !detail) return;
     working.current = true;
