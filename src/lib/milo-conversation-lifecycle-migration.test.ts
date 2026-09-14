@@ -412,6 +412,34 @@ describe("private conversation export and erasure", () => {
       eraseConversation(actor, { ...target, projectId: "q", conversationId: randomUUID() }, rpc),
     ).rejects.toThrow();
   });
+  it("bounds retired never-confirmed IDs per actor while real erasures and replays stay available", async () => {
+    for (let i = 0; i < 200; i++)
+      await query("erase_milo_conversation($1,$2,'p',$3)", [actor, owner, randomUUID()]);
+    const extra = randomUUID();
+    await expect(
+      query("erase_milo_conversation($1,$2,'p',$3)", [actor, owner, extra]),
+    ).rejects.toThrow("milo_conversation_capacity");
+    expect(await count("milo_erased_conversations")).toBe(200);
+    // Erasing a real conversation retains its turns and is not counted against the bound.
+    await begin();
+    await erase();
+    expect(await count("milo_erased_conversations")).toBe(201);
+    expect(await count("milo_erased_turns")).toBe(1);
+    // Replaying an existing retirement stays idempotent at the bound.
+    const { rows } = await db.query<{ conversation_id: string }>(
+      "SELECT conversation_id FROM milo_erased_conversations WHERE actor_id=$1 LIMIT 1",
+      [actor],
+    );
+    expect(
+      (
+        await query<{ erased: boolean }>("erase_milo_conversation($1,$2,'p',$3)", [
+          actor,
+          owner,
+          rows[0].conversation_id,
+        ])
+      ).erased,
+    ).toBe(true);
+  });
   it("preserves creation limits across deletion without charging exact replay", async () => {
     await begin(); // same live request returns its original receipt
     await erase();

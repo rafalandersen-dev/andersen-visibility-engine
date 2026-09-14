@@ -653,6 +653,30 @@ describe("specialist tools reuse authoritative project operations", () => {
     expect(sharedStep).toHaveBeenCalledOnce();
     expect(JSON.parse(JSON.parse(leased.evidence).content)).toMatchObject({ continues: true });
 
+    // Cancellation is checked every step; the authority RPC only every fifth step, so a long
+    // crawl cannot exhaust the actor's own admission budget.
+    const long = setup(owner);
+    long.context.role = "seo";
+    long.context.allowProviderChecks = true;
+    let revision = 1;
+    const longStep = vi.fn(async () =>
+      view(revision < 12 ? "running" : "completed", ++revision, 1),
+    );
+    Object.assign(long.deps, {
+      startCrawl: vi.fn(async () => view("preparing", 1)),
+      stepCrawl: longStep,
+    });
+    const before = (long.context.beforeDispatch as ReturnType<typeof vi.fn>).mock.calls.length;
+    const lengthy = await runSpecialistTool({ name: "site_crawl" }, long.context, long.deps);
+    expect(longStep).toHaveBeenCalledTimes(12);
+    // Two checks before the start (admission and pre-dispatch) plus steps 5 and 10.
+    expect(
+      (long.context.beforeDispatch as ReturnType<typeof vi.fn>).mock.calls.length - before,
+    ).toBe(4);
+    expect(JSON.parse(JSON.parse(lengthy.evidence).content)).toMatchObject({
+      stepsThisRequest: 12,
+    });
+
     const blocked = setup(owner);
     blocked.context.role = "performance";
     blocked.context.allowProviderChecks = true;

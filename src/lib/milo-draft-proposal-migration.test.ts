@@ -407,7 +407,8 @@ describe("exact-version conversation draft proposals", () => {
     ]);
     await expect(apply()).rejects.toThrow();
     expect((await data()).draftHash).toBe(hash);
-    expect((await read()).state).toBe("ready");
+    // A turn at its event cap can never take the apply receipt, so the proposal is not offered.
+    expect((await read()).state).toBe("unavailable");
     expect((await db.query("SELECT * FROM project_team_edits")).rows).toHaveLength(0);
   });
   it("withholds all proposal APIs and table access from browser database roles", async () => {

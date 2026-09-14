@@ -205,6 +205,50 @@ describe("account-level private conversation directory", () => {
       title: "SUSPENDED_CLIENT_TITLE",
     });
   });
+  it("hides the title for each access precondition independently and restores it when that condition clears", async () => {
+    // The directory inlines the checks of assert_milo_conversation_access; this matrix
+    // fails if either side drifts (local security review, 14 September).
+    const mine = await start(actor, owner, "p", "MATRIX_TITLE");
+    const titled = async () =>
+      (await list()).conversations.find((entry) => entry.conversationId === mine.conversationId)!;
+    expect(await titled()).toMatchObject({ access: "available", title: "MATRIX_TITLE" });
+    const cases: Array<[string, string, string]> = [
+      [
+        "deleted owner",
+        `UPDATE auth.users SET deleted_at=now() WHERE id='${owner}'`,
+        `UPDATE auth.users SET deleted_at=NULL WHERE id='${owner}'`,
+      ],
+      [
+        "banned owner",
+        `UPDATE auth.users SET banned_until=now()+interval '1 day' WHERE id='${owner}'`,
+        `UPDATE auth.users SET banned_until=NULL WHERE id='${owner}'`,
+      ],
+      [
+        "missing owner workspace",
+        `DELETE FROM workspace_meta WHERE user_id='${owner}'`,
+        `INSERT INTO workspace_meta(user_id) VALUES('${owner}')`,
+      ],
+      [
+        "inactive membership",
+        `UPDATE project_team_members SET active=false WHERE actor_id='${actor}' AND owner_id='${owner}' AND project_id='p'`,
+        `UPDATE project_team_members SET active=true WHERE actor_id='${actor}' AND owner_id='${owner}' AND project_id='p'`,
+      ],
+      [
+        "expired membership",
+        `UPDATE project_team_members SET expires_at=now()-interval '1 second' WHERE actor_id='${actor}' AND owner_id='${owner}' AND project_id='p'`,
+        `UPDATE project_team_members SET expires_at=NULL WHERE actor_id='${actor}' AND owner_id='${owner}' AND project_id='p'`,
+      ],
+    ];
+    for (const [label, breakIt, restore] of cases) {
+      await db.exec(breakIt);
+      const hidden = await titled();
+      expect(hidden.access, label).toBe("unavailable");
+      expect(hidden.title, label).toBeNull();
+      expect(hidden.ownerId, label).toBe(owner);
+      await db.exec(restore);
+      expect((await titled()).title, `${label} restored`).toBe("MATRIX_TITLE");
+    }
+  });
   it("does not list or recreate conversations retired by project deletion", async () => {
     const deleted = await start(actor, owner, "q", "DELETED_PROJECT_TITLE");
     const kept = await start(actor, owner, "p", "KEPT_TITLE");

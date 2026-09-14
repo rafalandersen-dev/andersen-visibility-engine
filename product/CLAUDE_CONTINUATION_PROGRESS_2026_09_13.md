@@ -2406,3 +2406,18 @@ A read-only local review (Claude security reviewer agent, PGlite reconstruction 
 **PR #136 marked ready for review (owner instruction, 14 September).** This supersedes the draft note above: the review bots run on the PR head. Merge still requires the Codex security review, full CI on both Bun runtimes and the release protocol; nothing is applied or deployed.
 
 **PR #136 CI at head `4d05f78` (14 September):** `frozen-locks (1.3.3)` and `frozen-locks (1.4.0)` pass (locked install, full suite, build on both supported Bun runtimes); `claude-review` pass; Vercel preview deployed. The Codex connector replied on both the code review and the security review with its usage-limit message, so the REQUIRED SECURITY REVIEW HOLD from the earlier handoffs applies to this PR as well. Do not retry the unchanged quota failure; the Codex allowance resets Saturday 19 September 10:09 CEST. No merge until a real Codex security review exists for this exact head.
+
+## Milestone 107 — the four deferred review findings fixed locally (14 September)
+
+Owner instruction: continue with the next queue item. The remaining locally fixable items were the security findings recorded in Milestone 106 for Codex. All four candidate-migration edits are to unapplied candidates; no released migration changed.
+
+1. **Access-precondition matrix (finding 2).** `milo-account-conversations-migration.test.ts` now breaks each precondition on its own — deleted owner, banned owner, missing owner workspace, inactive membership, expired membership — and asserts the entry turns `unavailable` with a null title while keeping its identifiers, then returns to the title once the condition clears. The inline predicate in `list_my_milo_conversations` is unchanged; drift from `assert_milo_conversation_access` now fails a test.
+2. **Tombstone bound (finding 4).** `20260913200000_milo_conversation_lifecycle.sql`: retiring a never-confirmed conversation ID is capped at 200 per actor (`milo_conversation_capacity`). Real erasures keep their turn rows and are not counted, and replaying an existing retirement stays idempotent at the bound. Lifecycle test added.
+3. **Honest proposal state (finding 6).** `20260913180000_milo_draft_proposals.sql`: `read_milo_draft_proposal` reports `unavailable` when the turn already holds 24 events, because the apply receipt could never be appended. The existing rollback test now expects `unavailable` instead of `ready`.
+4. **Crawl loop budget (finding 7).** `milo-specialist-tools.server.ts`: cancellation is checked on every crawl step, but the authority/liveness RPC (one team-preview admission each) now repeats every fifth step or ten seconds instead of on all forty steps. Tool test: a twelve-step crawl makes four authority checks (two before the start, then steps five and ten).
+
+Not changed: PR #135's `competitorUrl` finding (other branch) and the `equalSecret` length early-return (info only).
+
+**Validation:** proposal, lifecycle, account, tools and chain suites 101/101 after the fixes (one test expectation corrected); `tsc --noEmit -p .` and `eslint` on changed files pass. Full suite result appended below.
+
+**Full suite after Milestone 107:** 5,716 tests / 367 files pass (51 s). Rerun `bun run build` outside the sandbox before merge, since source changed after the owner-run build.

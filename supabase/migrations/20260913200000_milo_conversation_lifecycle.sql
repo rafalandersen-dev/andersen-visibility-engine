@@ -151,6 +151,11 @@ BEGIN
   IF conversation.conversation_id IS NOT NULL THEN
     DELETE FROM public.milo_conversations WHERE conversation_id=p_conversation;
   ELSIF retired.conversation_id IS NULL THEN
+    -- Retiring never-confirmed IDs is bounded per actor (real erasures keep their turns
+    -- and are not counted), so a client cannot grow the registry without limit.
+    IF (SELECT count(*) FROM public.milo_erased_conversations e WHERE e.actor_id=p_actor
+        AND NOT EXISTS(SELECT 1 FROM public.milo_erased_turns t WHERE t.conversation_id=e.conversation_id))>=200
+      THEN RAISE EXCEPTION 'milo_conversation_capacity'; END IF;
     INSERT INTO public.milo_erased_conversations(conversation_id,actor_id,owner_id,project_id,created_at)
       VALUES(p_conversation,p_actor,p_owner,p_project,clock_timestamp());
   END IF;

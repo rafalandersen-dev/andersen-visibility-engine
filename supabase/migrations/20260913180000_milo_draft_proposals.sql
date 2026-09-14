@@ -67,7 +67,7 @@ END; $$;
 
 CREATE FUNCTION public.read_milo_draft_proposal(p_actor uuid,p_owner uuid,p_project text,p_conversation uuid,p_turn uuid,p_proposal uuid)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
-DECLARE proposal public.milo_draft_proposals%ROWTYPE; snapshot jsonb; turn_state text; turn_lease timestamptz; proposal_state text;
+DECLARE proposal public.milo_draft_proposals%ROWTYPE; snapshot jsonb; turn_state text; turn_lease timestamptz; turn_events integer; proposal_state text;
 BEGIN
   PERFORM public.assert_milo_conversation_access(p_actor,p_owner,p_project);
   SELECT * INTO proposal FROM public.milo_draft_proposals
@@ -75,13 +75,14 @@ BEGIN
       AND actor_id=p_actor AND owner_id=p_owner AND project_id=p_project;
   IF NOT FOUND THEN RAISE EXCEPTION 'milo_proposal_unavailable'; END IF;
   snapshot:=public.read_project_team_snapshot(p_actor,p_owner,p_project,proposal.asset_id,0);
-  SELECT state,lease_until INTO turn_state,turn_lease FROM public.milo_conversation_turns WHERE turn_id=p_turn AND conversation_id=p_conversation AND actor_id=p_actor;
+  SELECT state,lease_until,jsonb_array_length(events) INTO turn_state,turn_lease,turn_events FROM public.milo_conversation_turns WHERE turn_id=p_turn AND conversation_id=p_conversation AND actor_id=p_actor;
+  -- Applying appends a receipt event; a turn already at its event cap can never apply.
   proposal_state:=CASE
     WHEN proposal.applied_at IS NOT NULL THEN 'applied'
     WHEN NOT(snapshot->>'canEdit')::boolean OR (snapshot->>'membershipRevision')::bigint<>proposal.membership_revision
       OR snapshot->>'draftHash' IS DISTINCT FROM proposal.draft_hash
       OR proposal.created_at<=clock_timestamp()-interval '7 days' OR turn_state NOT IN ('running','completed')
-      OR (turn_state='running' AND turn_lease<=clock_timestamp()) THEN 'unavailable'
+      OR (turn_state='running' AND turn_lease<=clock_timestamp()) OR turn_events>=24 THEN 'unavailable'
     WHEN turn_state='completed' THEN 'ready' ELSE 'waiting' END;
   RETURN jsonb_build_object('proposalId',proposal.proposal_id,'conversationId',proposal.conversation_id,'turnId',proposal.turn_id,
     'actorId',proposal.actor_id,'ownerId',proposal.owner_id,'projectId',proposal.project_id,'assetId',proposal.asset_id,

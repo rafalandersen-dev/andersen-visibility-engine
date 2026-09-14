@@ -375,7 +375,8 @@ DATA: ${serializeSpecialistContext({ locale: context.proposal.locale, userTask: 
     }
     const active = (status?: string) => status === "preparing" || status === "running";
     let steps = 0,
-      previousRevision = -1;
+      previousRevision = -1,
+      lastAuthorityCheck = Date.now();
     const deadline = Date.now() + 90_000;
     while (
       run &&
@@ -385,8 +386,15 @@ DATA: ${serializeSpecialistContext({ locale: context.proposal.locale, userTask: 
       Date.now() < deadline
     ) {
       previousRevision = run.revision;
-      await context.beforeDispatch();
+      // Cancellation is free and checked every step. The authority/liveness RPC costs one
+      // team-preview admission each time, so it repeats every fifth step or ten seconds
+      // rather than on all forty steps, which could exhaust the actor's own budget.
       context.signal.throwIfAborted();
+      if (steps > 0 && (steps % 5 === 0 || Date.now() - lastAuthorityCheck >= 10_000)) {
+        await context.beforeDispatch();
+        context.signal.throwIfAborted();
+        lastAuthorityCheck = Date.now();
+      }
       run = await deps.stepCrawl(target.ownerId, runTarget);
       steps += 1;
     }
