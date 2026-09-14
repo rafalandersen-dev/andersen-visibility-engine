@@ -2398,3 +2398,5 @@ A read-only local review (Claude security reviewer agent, PGlite reconstruction 
 **Production build (owner-run, 14 September):** the owner ran `bun run build` outside the sandbox on the current uncommitted tree and reported that it passed. This closes the "build not run" item that every earlier milestone carried. The build log was not captured in this session; rerun it after any further source change.
 
 **Remaining review items:** the required Codex security review of the eight candidate migrations and PR135 (with the recorded findings), fluent human review of the staged catalogs, the Stripe seat items and pricing-page copy, and the deferred backlink-monitoring-from-chat decision.
+
+**Committed (owner instruction, 14 September):** all of the above is commit `04c63b2` on local branch `claude/milo-continuation-20260914` (343 files on top of `ff9b085`). The `.env` file was left untouched. Not pushed; no PR; nothing applied or deployed.
