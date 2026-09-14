@@ -2402,3 +2402,5 @@ A read-only local review (Claude security reviewer agent, PGlite reconstruction 
 **Committed (owner instruction, 14 September):** all of the above is commit `04c63b2` on local branch `claude/milo-continuation-20260914` (343 files on top of `ff9b085`). The `.env` file was left untouched. Not pushed; no PR; nothing applied or deployed.
 
 **Pushed and draft PR opened (owner instruction, 14 September):** branch `claude/milo-continuation-20260914` is on origin; draft PR #136 (https://github.com/rafalandersen-dev/andersen-visibility-engine/pull/136) carries the review checklist. It stays a draft until the Codex security review of the eight candidate migrations is complete. No merge, migration application or deployment.
+
+**PR #136 marked ready for review (owner instruction, 14 September).** This supersedes the draft note above: the review bots run on the PR head. Merge still requires the Codex security review, full CI on both Bun runtimes and the release protocol; nothing is applied or deployed.
