@@ -1,0 +1,248 @@
+import { z } from "zod";
+/**
+ * Citation Intelligence v1, CI-1 preparation (product/CITATION_INTELLIGENCE_SPEC.md §3, §8).
+ *
+ * Typed record for an owner-supplied native AI report snapshot (Google Search Console
+ * "Generative AI performance report (Search)" or Bing Webmaster Tools "AI Performance")
+ * and the deterministic value-status rules that every parser must apply. This module is
+ * client-safe and network-free: it never fetches, never evaluates a cell and never sums
+ * independent totals. The concrete column mapping of each export is deliberately absent
+ * until a genuine export exists; the rules below are what that mapping must feed.
+ */
+export const NATIVE_REPORT_SOURCES = ["gsc_generative_ai_search", "bing_ai_performance"] as const;
+export type NativeReportSource = (typeof NATIVE_REPORT_SOURCES)[number];
+/** Cell statuses from the spec. Completeness of the whole report is kept separately. */
+export const VALUE_STATUSES = [
+  "known_value",
+  "known_zero",
+  "unknown_source",
+  "unknown_export_zero",
+  "unavailable",
+  "preliminary",
+  "invalid",
+] as const;
+export type ValueStatus = (typeof VALUE_STATUSES)[number];
+/** Bounds derived from the existing safe-upload contract; a genuine export may lower them. */
+export const MAX_NATIVE_REPORT_BYTES = 2 * 1024 * 1024;
+export const MAX_NATIVE_REPORT_ROWS = 5000;
+export const MAX_NATIVE_CELL_CHARS = 2048;
+export const NATIVE_REPORT_PARSER_VERSION = "native-ai-report-rules-v1";
+/** GSC reports its dates in Pacific Time; Bing's export timezone is unknown until observed. */
+export const GSC_REPORT_TIMEZONE = "America/Los_Angeles";
+const UNAVAILABLE_MARKERS = new Set(["~", "-", "–", "—", ""]);
+const reviewer = z
+  .object({
+    reviewer: z.string().uuid(),
+    at: z.string().datetime({ offset: true }),
+    note: z.string().trim().max(500).optional(),
+  })
+  .strict();
+export const nativeCellSchema = z
+  .object({
+    raw: z.string().max(MAX_NATIVE_CELL_CHARS).nullable(),
+    value: z.number().finite().nullable(),
+    status: z.enum(VALUE_STATUSES),
+    unit: z.enum(["count", "percent"]),
+    /** Present only when a human resolved an exported zero against the original report cell. */
+    review: reviewer.optional(),
+  })
+  .strict()
+  .superRefine((cell, ctx) => {
+    if (cell.status === "known_zero" && (cell.value !== 0 || !cell.review))
+      ctx.addIssue({
+        code: "custom",
+        path: ["status"],
+        message: "A known zero needs value 0 and the reviewer's original-cell receipt",
+      });
+    if (
+      ["unknown_source", "unknown_export_zero", "unavailable", "invalid"].includes(cell.status) &&
+      cell.value !== null
+    )
+      ctx.addIssue({
+        code: "custom",
+        path: ["value"],
+        message: "Unknown, unavailable and invalid cells carry no numeric value",
+      });
+    if (["known_value", "preliminary"].includes(cell.status) && cell.value === null)
+      ctx.addIssue({ code: "custom", path: ["value"], message: "Known cells carry a value" });
+  });
+export type NativeCell = z.infer<typeof nativeCellSchema>;
+function parseNumber(text: string, unit: "count" | "percent"): number | null {
+  const stripped = unit === "percent" ? text.replace(/%\s*$/, "") : text;
+  // Thousands separators are ambiguous across locales; a genuine export decides them. Accept
+  // plain integers and decimals only; anything else is invalid, never coerced.
+  if (!/^\d+(?:\.\d+)?$/.test(stripped)) return null;
+  const n = Number(stripped);
+  if (!Number.isFinite(n)) return null;
+  if (unit === "percent" && n > 100) return null;
+  return n;
+}
+/**
+ * Export-zero rule (spec §3.1): `~` and `-` mean unknown even when an export says 0; a bare
+ * exported 0 that the file alone cannot distinguish from those substitutions is
+ * `unknown_export_zero`. Preliminary periods keep their number under `preliminary`.
+ */
+export function interpretExportCell(
+  raw: string | null | undefined,
+  unit: "count" | "percent",
+  options: { preliminary?: boolean } = {},
+): NativeCell {
+  if (raw === null || raw === undefined)
+    return { raw: null, value: null, status: "unavailable", unit };
+  const text = raw.length > MAX_NATIVE_CELL_CHARS ? raw.slice(0, MAX_NATIVE_CELL_CHARS) : raw;
+  const trimmed = text.trim();
+  if (UNAVAILABLE_MARKERS.has(trimmed))
+    return { raw: text, value: null, status: "unknown_source", unit };
+  const value = parseNumber(trimmed, unit);
+  if (value === null) return { raw: text, value: null, status: "invalid", unit };
+  if (value === 0) return { raw: text, value: null, status: "unknown_export_zero", unit };
+  return { raw: text, value, status: options.preliminary ? "preliminary" : "known_value", unit };
+}
+/** A human confirms the original report showed numeric zero for this exact cell. The raw
+ * export text is never rewritten; only the interpretation and its receipt change. */
+export function resolveExportZero(
+  cell: NativeCell,
+  receipt: z.infer<typeof reviewer> & { original: "numeric_zero" | "unavailable_marker" },
+): NativeCell {
+  if (cell.status !== "unknown_export_zero")
+    throw new Error("Only an unknown exported zero can be resolved against the original cell");
+  const { original, ...review } = receipt;
+  reviewer.parse(review);
+  return original === "numeric_zero"
+    ? { ...cell, value: 0, status: "known_zero", review }
+    : { ...cell, value: null, status: "unknown_source", review };
+}
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+export const nativeMarketScopeSchema = z
+  .object({
+    /** ISO 3166-1 alpha-3 as GSC exposes it, or null when the report exposes no country. */
+    country: z
+      .string()
+      .regex(/^[A-Za-z]{3}$/)
+      .nullable(),
+    /** Whether the source itself exposed a geographic filter for this snapshot. */
+    exposed: z.boolean(),
+  })
+  .strict()
+  .refine((scope) => scope.exposed || scope.country === null, {
+    message: "A country cannot be claimed when the source exposes no geographic scope",
+  });
+/** Owner-readable market label that never invents city or language detail (§3.1, §3.2). */
+export function marketScopeLabel(scope: z.infer<typeof nativeMarketScopeSchema>): string {
+  if (!scope.exposed || scope.country === null) return "market scope not exposed / unsegmented";
+  return `country filter ${scope.country.toUpperCase()} (source-level country only; no city or language detail)`;
+}
+const rowSchema = z
+  .object({
+    /** Dimension value exactly as exported (a page URL, country code, device, date or grounding query). */
+    key: z.string().min(1).max(MAX_NATIVE_CELL_CHARS),
+    cells: z.record(z.string().min(1).max(64), nativeCellSchema),
+  })
+  .strict();
+export const nativeReportSnapshotSchema = z
+  .object({
+    source: z.enum(NATIVE_REPORT_SOURCES),
+    /** Declared by the owner at import; never verified against the publisher. */
+    declaredProperty: z.string().trim().min(1).max(500),
+    reportKind: z.enum(["chart", "table"]),
+    dimension: z.enum([
+      "property",
+      "page",
+      "country",
+      "device",
+      "date",
+      "grounding_query",
+      "unknown",
+    ]),
+    /** Native aggregation of the exported numbers; chart and page tables aggregate differently. */
+    aggregation: z.enum(["property", "page", "query", "unknown"]),
+    period: z
+      .object({ start: isoDate, end: isoDate, timezone: z.string().min(1).max(64).nullable() })
+      .strict(),
+    marketScope: nativeMarketScopeSchema,
+    filters: z.record(z.string().max(64), z.string().max(200)).default({}),
+    completeness: z.enum(["complete", "preliminary", "partial", "unknown"]),
+    /** When the owner downloaded the report and when Milo stored it. */
+    capturedAt: z.string().datetime({ offset: true }),
+    importedAt: z.string().datetime({ offset: true }),
+    artifact: z
+      .object({
+        sha256: z.string().regex(/^[a-f0-9]{64}$/),
+        bytes: z.number().int().min(1).max(MAX_NATIVE_REPORT_BYTES),
+        filename: z.string().max(255).nullable(),
+      })
+      .strict(),
+    parserVersion: z.literal(NATIVE_REPORT_PARSER_VERSION),
+    provenance: z.literal("owner_supplied_native_export"),
+    rows: z.array(rowSchema).max(MAX_NATIVE_REPORT_ROWS),
+    /** A same-scope reimport supersedes the earlier snapshot instead of adding events. */
+    supersedesSnapshotId: z.string().uuid().nullable(),
+  })
+  .strict();
+export type NativeReportSnapshot = z.infer<typeof nativeReportSnapshotSchema>;
+/** What an import request may carry. Reviewer identity, verification flags and snapshot
+ * identity come from the authenticated server, never from the file or the browser (CI11-T35). */
+export const nativeReportImportInputSchema = nativeReportSnapshotSchema
+  .omit({ importedAt: true, parserVersion: true, provenance: true, supersedesSnapshotId: true })
+  .strict()
+  .superRefine((input, ctx) => {
+    for (const [index, row] of input.rows.entries())
+      for (const [metric, cell] of Object.entries(row.cells))
+        if (cell.review)
+          ctx.addIssue({
+            code: "custom",
+            path: ["rows", index, "cells", metric, "review"],
+            message: "Review receipts are recorded by the server after import, not imported",
+          });
+  });
+/** Scope identity used to version same-scope reimports (§3.3). Two exports of the same
+ * source, property, report kind, dimension, period and filters describe one snapshot
+ * lineage; the artifact hash separates versions within it. */
+export function nativeSnapshotScopeKey(
+  snapshot: Pick<
+    NativeReportSnapshot,
+    | "source"
+    | "declaredProperty"
+    | "reportKind"
+    | "dimension"
+    | "period"
+    | "marketScope"
+    | "filters"
+  >,
+): string {
+  return JSON.stringify([
+    snapshot.source,
+    snapshot.declaredProperty.trim().toLowerCase(),
+    snapshot.reportKind,
+    snapshot.dimension,
+    snapshot.period.start,
+    snapshot.period.end,
+    snapshot.period.timezone,
+    snapshot.marketScope.country?.toUpperCase() ?? null,
+    snapshot.marketScope.exposed,
+    Object.entries(snapshot.filters).sort(([a], [b]) => a.localeCompare(b)),
+  ]);
+}
+/**
+ * Observed presence for one native stream (§6.1). Positive only from a known value above
+ * zero; absent only when every cell is a reviewed known zero in a complete report; otherwise
+ * unknown. Never averages, never sums rows, never combines sources.
+ */
+export function nativePresence(snapshot: NativeReportSnapshot, metric: string) {
+  const cells = snapshot.rows.map((row) => row.cells[metric]).filter((cell) => cell !== undefined);
+  if (!cells.length) return { observed: null as boolean | null, reason: "metric_not_in_report" };
+  if (
+    cells.some(
+      (cell) => (cell.status === "known_value" || cell.status === "preliminary") && cell.value! > 0,
+    )
+  )
+    return { observed: true, reason: "known_positive_value" };
+  if (snapshot.completeness === "complete" && cells.every((cell) => cell.status === "known_zero"))
+    return { observed: false, reason: "all_cells_reviewed_zero" };
+  return { observed: null, reason: "unknown_or_incomplete_cells" };
+}
+/** Spreadsheet-safe export of a raw cell: formula-looking text is prefixed, never evaluated. */
+export function escapeForSpreadsheet(raw: string | null): string {
+  if (raw === null) return "";
+  return /^[=+\-@\t\r]/.test(raw) && !UNAVAILABLE_MARKERS.has(raw.trim()) ? `'${raw}` : raw;
+}

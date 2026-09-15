@@ -35,7 +35,7 @@ Local credential-presence inspection found no `OPENAI_API_KEY` in this worktree 
 | R01–R03 | Complete chat and remaining premium/setup/brand journeys across devices; preserve existing delivered knowledge/refresh foundations |
 | R04–R06 | D07 role/approval choices; real solo and team/mixed flows; logged-out weekly work, notifications, failure/uncertain recovery |
 | R07–R09 | Actual specialist tools, MCP regression, secure provider setup, measured chat/generation costs, bounded usage and packages |
-| R10–R12 | At least three trustworthy observed-AI surfaces and methodology; source/citation analytics; verified versus unknown server-log bot evidence |
+| R10–R12 | Citation Intelligence v1 per D03 (14 September 2026): native Google/Bing evidence, one manual consumer surface, human-reviewed findings, two verified improvements, one comparable re-test; source/citation analytics; verified versus unknown server-log bot evidence. *Superseded here:* the three-surface wording |
 | R13/R16/R17 | Actual Google/technical/local/global acceptance and content→publication→later measurement; existing released features must not be rebuilt from old roadmap statuses |
 | R14/R15 | Supplier/private contract, ongoing monitoring and independently verified placements; explicit outreach/order scope and measured expense |
 | R18 | Actual generated text/images, reference fidelity and WordPress/Shopify/custom destination parity and retained output |

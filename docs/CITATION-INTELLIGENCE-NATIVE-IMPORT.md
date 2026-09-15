@@ -1,0 +1,23 @@
+# Citation Intelligence v1 — native report import (CI-1)
+
+**Status:** preparation only (14 September 2026). The typed snapshot record and the value-status rules exist in `src/lib/native-ai-report.ts` with deterministic tests. **No parser, storage, endpoint or UI exists yet**, because the specification (`product/CITATION_INTELLIGENCE_SPEC.md` §3.3) forbids speculative column schemas: the concrete column mapping is written from genuine owner-supplied exports. Nothing here is real acceptance.
+
+## What exists
+
+- `nativeReportSnapshotSchema`: one owner-supplied native report snapshot for `gsc_generative_ai_search` or `bing_ai_performance`, with declared property, chart/table kind, dimension, native aggregation, period with source timezone (GSC: Pacific Time), market scope (`country` + `exposed`), filters, completeness, capture/import times, artifact hash and size, parser version, provenance `owner_supplied_native_export`, bounded rows of raw and interpreted cells, and an optional superseded snapshot.
+- `interpretExportCell(raw, unit, { preliminary })`: the export-zero rule. `~`, `-` and empty cells are `unknown_source`; a bare exported `0` is `unknown_export_zero`; numbers are `known_value` (or `preliminary`); anything else (formulas, markup, thousands separators, exponents, shares over 100 %) is `invalid` with no value. Raw text is retained and capped.
+- `resolveExportZero(cell, receipt)`: a human with the original report cell turns an exported zero into `known_zero` (value 0 with reviewer receipt) or `unknown_source`. It never rewrites the raw file text and refuses any other status.
+- `nativeMarketScopeSchema` and `marketScopeLabel`: a country can only be claimed when the source exposed it; an unsegmented report is labelled "not exposed / unsegmented", never Swedish or Malmö.
+- `nativeSnapshotScopeKey`: same-scope reimports (same source, property, kind, dimension, period, timezone, scope and filters) are versions of one lineage, distinguished by artifact hash and linked by `supersedesSnapshotId`; they are never additional events.
+- `nativePresence(snapshot, metric)`: observed presence per stream. `true` only from a known positive value, `false` only when every cell is a reviewed known zero in a complete report, otherwise `null` (unknown). It never averages shares, sums rows or combines sources.
+- `nativeReportImportInputSchema`: what an import request may carry. Provenance, parser version, import time, supersession and review receipts are server-attributed and refused from input (CI11-T35).
+- `escapeForSpreadsheet`: formula-looking raw cells are prefixed on export; nothing is ever evaluated.
+- Bounds: 2 MiB per artifact, 5,000 rows, 2,048 characters per cell (`MAX_NATIVE_*`), to be lowered if genuine exports are smaller.
+
+## What the genuine exports must supply before the parser is written
+
+1. **GSC Generative AI performance report (Search)**, Synergy property: the chart export and a page-grouped table export, with the Sweden country filter where the report supports it, for one complete period and, if possible, one preliminary period. Google's help page confirms impressions only, page/country/device/date dimensions, Pacific dates and that `~`/`-` export as `0`; it does not list column names.
+2. **Bing Webmaster Tools AI Performance** export for the same site, including any Citation Share and grounding-query columns present. The help page renders client-side and could not be read from this session.
+3. For each file: which publisher screen and filters produced it, and the download time. The parser records these as declared, not verified.
+
+Until then, no column mapping, storage table, endpoint or UI is added. Fixtures in `src/lib/native-ai-report.test.ts` are synthetic and must never be imported as client results.
