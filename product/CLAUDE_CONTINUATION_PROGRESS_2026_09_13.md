@@ -2479,3 +2479,18 @@ Owner instruction: start the CI-1 preparation packet. Delivered without any spec
 **Continuation point:** when the two export files arrive, write the column mapping for each, the bounded storage path (a new candidate migration), the owner import endpoint reusing the brand-document upload limits, and the three-tab evidence view. Until then the next non-blocked work is CI-2 record design (panel/session protocol and human review records), which also needs no external artifact but does need the owner's Appendix A review before any panel is locked.
 
 **Full suite after Milestone 109:** 5,739 tests / 369 files pass (51 s).
+
+## Milestone 110 — CI-2 record design: panel protocol, capture context, human review (15 September)
+
+Owner instruction: start the CI-2 record design packet. Delivered as typed records and rules with tests; no panel locked, no storage, endpoint, UI or collection.
+
+- `src/lib/citation-panel.ts`: immutable panel protocol (discovery/brand, one surface, fixed session protocol with no extra instruction, up to ten question versions bound to existing prompt ids, rounds, owner approval), `plannedSlots` (forty for the Synergy discovery panel, none for brand), `brandRunSchema` (separately approved diagnostic budget), `captureContextSchema` (the §5.2 context as an extension of the existing answer record), `protocolDeviations` and `slotOutcome` (complete / failed / truncated / missed / protocol_deviant), `panelCounts` (explicit numerators and eligible denominators, unreviewed never zero, partial positives separate) and `comparablePairs` (pairs only after two verified improvements; missing pairs listed with reasons).
+- `src/lib/citation-finding.ts`: two equal gap families with priority from harm/relevance/fixability, five-state source support (assessed states need passage, date and reviewer; `not_checked` has no passage), dated business facts with `factAt`, capture-time accuracy states, recommendation states with passage and suitability, the finding record (confirmed entity required for acceptance; negatives need complete data), `isCompetitorOnlyCitationGap`, and the improvement receipt with `isVerifiedImprovement` (drafts and acknowledgements never count).
+- `src/lib/citation-panel.test.ts`: 14 cases mapped to CI11-T13, T14, T15, T16, T19, T20, T21, T22, T23, T24, T25, T26, T27, T28, T29, T31, T36 and T38. Fixture question text is placeholder text, not Appendix A.
+- `docs/CITATION-INTELLIGENCE-PANEL-AND-REVIEW.md` describes the records and what remains.
+
+**Validation:** CI-2 tests 14/14; `tsc --noEmit -p .` and `eslint` on the new files pass; full suite below.
+
+**Blockers unchanged:** owner review of Appendix A and the surface lock (CI-2), dated Synergy facts, genuine GSC and Bing exports (CI-1). **Next non-blocked work:** none of substance within CI-1/CI-2 without those inputs; storage and UI wait for the locked panel and the real exports so that bounded tables are shaped by real data. Independent Milo work outside Citation Intelligence remains available on request.
+
+**Full suite after Milestone 110:** 5,753 tests / 370 files; 5,752 pass. The single failure, `release-identity.test.ts` "reports a real commit", is environmental: it spawns `git`, and on 15 September the machine's `/usr/bin/git` shim refuses to run until the newly selected Xcode license is accepted (`sudo xcodebuild -license`). With the Command Line Tools git first in `PATH` the test passes. No code change is involved.

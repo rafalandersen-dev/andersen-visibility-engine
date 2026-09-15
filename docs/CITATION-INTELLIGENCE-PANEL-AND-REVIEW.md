@@ -1,0 +1,27 @@
+# Citation Intelligence v1 — panel protocol, capture context and human review (CI-2)
+
+**Status:** record design only (15 September 2026). Typed records and deterministic rules exist in `src/lib/citation-panel.ts` and `src/lib/citation-finding.ts` with tests. **No panel is locked, no storage, endpoint or UI exists, and nothing has been collected.** The Appendix A questions of `product/CITATION_INTELLIGENCE_SPEC.md` stay DRAFT until the owner reviews them; test fixtures use placeholder question text on purpose.
+
+## Panel and session protocol (`citation-panel.ts`)
+
+- `panelProtocolSchema`: an immutable panel version of kind `discovery` or `brand` with client market, question language, one surface (service, interface, mode, search mode), the fixed session protocol (fresh session, personalisation, signed-in, memory, custom instructions, connected tools, no extra instruction, zero prior messages), up to ten question versions referencing existing `ai_visibility_prompts` ids and revisions, rounds, status and owner approval. A locked panel needs approval; questions must be in the panel language (translations are reading aids); D-series ids belong to discovery and B-series to brand; a brand panel has zero rounds.
+- `plannedSlots`: questions × one surface × rounds, so the Synergy discovery panel plans exactly forty slots and the fourth round is the re-test. Brand panels plan nothing; `brandRunSchema` records a separately approved diagnostic run with its own budget.
+- `captureContextSchema`: the extension to an existing manual answer record: panel and slot, brand run (null for discovery), actual session state, location (in the question, collection country and city, device permission, VPN), prompt/interface/answer language, actual surface and mode with model label and whether web search was evidenced, capture instant versus intended slot, exact question text, extra instruction and prior messages, screenshot reference and missing-data reason, and free deviation notes. No passwords, cookies, account email or tokens have a field.
+- `protocolDeviations` and `slotOutcome`: a personalised, continued or re-instructed session, a changed surface, mode, language or question text, or a brand run on a discovery panel is a `protocol_deviant` slot. Failed and truncated attempts keep their status; an absent capture is `missed`.
+- `panelCounts`: descriptive counts with explicit denominators per outcome: own-site citation present x of n eligible captures (complete answer, complete citation list, reviewed), mention and recommendation counts, partial positive citations kept separately, unreviewed captures counted as unreviewed, never as zero. Planned versus recorded slots are shown.
+- `comparablePairs`: baseline/follow-up pairs need the same question complete, reviewed and citation-complete in both rounds and a follow-up captured after both verified improvements; every missing pair is listed with its reason. No eligible pair means no completed comparable re-test.
+
+## Human findings and review (`citation-finding.ts`)
+
+- Two equal gap families: `citation_source` and `recommendation_accuracy`. Priority derives from harm, relevance and fixability on one scale; the family never sets it.
+- `sourceSupportSchema`: attribution is not support. `supports`, `partly_supports`, `contradicts` and `unclear` require the inspected passage, its capture date and the reviewer; `not_checked` carries a reason and no passage. `passageAfterAnswer` flags a passage captured after the answer.
+- `businessFactSchema` and `factAt`: dated owner-confirmed facts with validity windows; `accuracySchema` records `accurate_at_capture`, `incorrect_at_capture`, `outdated_now`, `unclear` or `not_checked` against a specific fact, so a later price change never rewrites an old answer's truth.
+- `recommendationSchema`: `recommended`, `mentioned_only`, `explicitly_not_recommended`, `not_present`, `unclear`, with the exact passage and target for observed states and a suitability judgement (fits / does not fit / unknown).
+- `findingSchema`: evidence references (answer, native or source), human entity confirmation (only a confirmed entity can be accepted; ambiguity stays visible), completeness copied from the capture (own-citation absence and `not_present` need complete data), observation separate from a labelled hypothesis, support and accuracy assessments, reviewer and optional second reviewer, decision and linked task. `isCompetitorOnlyCitationGap` is the confident negative comparison and needs complete data.
+- `improvementSchema` and `isVerifiedImprovement`: an improvement links accepted findings, the existing task, the version-bound approval, the destination and a live verification (publication receipt, owner inspection or index inspection) dated after the approval. Drafts and request acknowledgements do not count; `verifiedImprovementCount` is the CI-3 gate.
+
+## What is still needed before implementation continues
+
+1. Owner review of Appendix A (ten Swedish discovery questions), the surface lock (proposed: ChatGPT Search, consumer web app, non-personalised fresh session) and the session controls. The first locked panel version is created only after that review.
+2. Owner-confirmed dated business facts for Synergy before any accuracy finding is accepted.
+3. Storage for panels, capture context, facts, findings and improvements as bounded extensions of the existing evidence tables (a later candidate migration), then the review UI. None of this is started.
