@@ -2494,3 +2494,5 @@ Owner instruction: start the CI-2 record design packet. Delivered as typed recor
 **Blockers unchanged:** owner review of Appendix A and the surface lock (CI-2), dated Synergy facts, genuine GSC and Bing exports (CI-1). **Next non-blocked work:** none of substance within CI-1/CI-2 without those inputs; storage and UI wait for the locked panel and the real exports so that bounded tables are shaped by real data. Independent Milo work outside Citation Intelligence remains available on request.
 
 **Full suite after Milestone 110:** 5,753 tests / 370 files; 5,752 pass. The single failure, `release-identity.test.ts` "reports a real commit", is environmental: it spawns `git`, and on 15 September the machine's `/usr/bin/git` shim refuses to run until the newly selected Xcode license is accepted (`sudo xcodebuild -license`). With the Command Line Tools git first in `PATH` the test passes. No code change is involved.
+
+**Xcode license accepted by the owner (15 September):** `release-identity.test.ts` passes again with the default `git`; the full suite on this branch is therefore green (5,753 / 370). No code changed.
