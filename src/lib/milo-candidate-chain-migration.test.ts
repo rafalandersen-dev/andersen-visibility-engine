@@ -7,8 +7,10 @@ import { beforeAll, afterAll, describe, expect, it } from "vitest";
  * REVOKE/GRANT that must follow every DROP/CREATE (local security review, 14 September). */
 let db: PGlite;
 const released = [
+  "20260907140000_ai_expense_reservations.sql",
   "20260907150000_operational_notifications.sql",
   "20260907170000_operational_email_outbox.sql",
+  "20260908210000_restricted_ai_expense_permits.sql",
   "20260909200000_project_knowledge.sql",
   "20260910100000_source_refresh.sql",
   "20260911000000_output_knowledge_integrity.sql",
@@ -33,6 +35,7 @@ const candidates = [
   "20260914090000_milo_account_conversations.sql",
   "20260914120000_milo_provider_check_consent.sql",
   "20260914150000_project_team_seats.sql",
+  "20260917100000_ai_expense_default_budgets.sql",
 ];
 const allowed = async (role: string, fn: string) =>
   (
@@ -83,6 +86,7 @@ describe("candidate migration chain", () => {
     "count_project_team_seats(uuid,text)",
     "create_project_team_invitation(uuid,uuid,text,uuid,text,text,integer,integer)",
     "change_project_team_member(uuid,uuid,text,uuid,bigint,text,boolean,integer,integer)",
+    "reserve_ai_expense(uuid,uuid,uuid,text,text,text,bigint,bigint,bigint)",
   ])("%s is executable by service_role only", async (fn) => {
     expect(await allowed("service_role", fn)).toBe(true);
     for (const role of ["anon", "authenticated", "public"])
@@ -101,6 +105,7 @@ describe("candidate migration chain", () => {
       "begin_milo_conversation_turn",
       "create_project_team_invitation",
       "change_project_team_member",
+      "reserve_ai_expense",
     ]) {
       const { rows } = await db.query<{ n: string }>(
         "SELECT count(*)::text n FROM pg_proc p JOIN pg_namespace s ON s.oid=p.pronamespace WHERE s.nspname='public' AND p.proname=$1",

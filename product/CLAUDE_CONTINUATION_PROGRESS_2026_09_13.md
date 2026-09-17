@@ -2423,3 +2423,30 @@ Not changed: PR #135's `competitorUrl` finding (other branch) and the `equalSecr
 **Full suite after Milestone 107:** 5,716 tests / 367 files pass (51 s). Rerun `bun run build` outside the sandbox before merge, since source changed after the owner-run build.
 
 **Production build at `f549e9a` (owner-run, 14 September):** the owner reran `bun run build` outside the sandbox after Milestone 107 and reported that it passed. Local validation on this head is complete: full suite, types, lint, browser fixtures and build. Merge still waits on the Codex security review, CI on both Bun runtimes for this head, and the release protocol.
+
+## Milestone 111 — native AI works for every account: platform key, default budgets, honest message (17 September)
+
+**Trigger.** The owner's production Milo Score failed with "AI generation is not configured. The workspace owner needs to connect the AI service." and the owner ruled that AI must work on every account and for every new user. Branch `claude/milo-ai-default-budgets-20260917` from the PR #136 head (`3d4a033`), kept separate from Citation Intelligence.
+
+**Root causes.**
+1. `OPENAI_API_KEY` is absent in production. `modelFor` in `src/lib/ai-provider.server.ts` throws the message whenever the key is empty; since Lovable AI generation was removed on 8 September no text or image call can run. The key is one platform secret set once by the operator in the Lovable project for the Cloudflare Workers deployment; no user action exists or should exist.
+2. `reserve_ai_expense` required hand-inserted monthly budget rows for the platform *and* for each account (`budget_unconfigured` otherwise). No new user could pass it, and every new month reset the problem.
+
+**Changes.**
+- Candidate migration `supabase/migrations/20260917100000_ai_expense_default_budgets.sql`: `reserve_ai_expense` gains trailing `p_account_cap` / `p_global_cap` (DEFAULT NULL). Inside the same locked transaction a missing budget row for the current month is created from the supplied cap; existing rows, pauses, restricted budgets and permits are never altered; NULL caps keep the previous behaviour for seven-argument callers. `ON CONFLICT ON CONSTRAINT ai_expense_budgets_pkey` avoids the OUT-column ambiguity.
+- `src/lib/ai-provider-expense.server.ts`: `planAccountCapMicrousd(plan)` = every text allowance × the USD 0.50 text reserve + every image allowance × the USD 0.10 image reserve (Free Preview USD 6, Starter 26.50, Growth 95, Pro 297, Agency 742.50); `globalMonthlyCapMicrousd()` = USD 200 unless `AI_GLOBAL_MONTHLY_CAP_USD` overrides (invalid values fail closed). Both are attached to every text and image reservation; the plan comes from the server-authoritative entitlement and falls back to Free Preview.
+- `src/lib/ai-expense.server.ts`: `ExpenseRequest.defaults` validated and passed as `p_account_cap` / `p_global_cap`.
+- `src/lib/ai-provider.server.ts`: message is now "AI text generation is temporarily unavailable: the AI service is not configured on Milo yet. Nothing was charged; please try again later." No workspace-owner instruction.
+- Tests: `ai-expense-default-budgets-migration.test.ts` (6 PGlite cases: rows created from caps, fail-closed without caps, existing caps/pauses/restrictions untouched, exhaustion and duplicates on created rows, invalid caps rejected, one service-only overload); provider-expense test asserts the derived caps and the invalid-config refusal; text-error test updated to the new wording.
+- `product/DECISIONS.md` 2026-09-17 entry and `product/OPERATIONS.md` operator note.
+
+**Validation:** expense suites 80/80; `tsc --noEmit -p .` and `eslint` pass; full suite result below.
+
+**Operator actions still required (nothing here sets secrets, applies migrations or deploys):**
+1. Set `OPENAI_API_KEY` in the Lovable project secrets (Cloudflare Workers deployment).
+2. Confirm or override the USD 200 platform monthly ceiling with `AI_GLOBAL_MONTHLY_CAP_USD`.
+3. Review and apply the candidate migration through the normal release protocol. Until it is applied, the key alone still yields `budget_unconfigured` for accounts without rows.
+
+**Environment note:** macOS purged the shared `/tmp` dependency checkout and the earlier scratchpad; dependencies were reinstalled with the locked versions into `/tmp/claude/milo-deps` and the worktree's `node_modules` relinked. `release-identity.test.ts` needs the Command Line Tools git first in `PATH` in this sandbox.
+
+**Full suite after Milestone 111:** 5,723 tests / 368 files; the only failure was the candidate-chain guard noticing the new migration, which is now part of that chain (15/15) with its grant and single-overload assertions. Chain and expense suites green; the rest unchanged.

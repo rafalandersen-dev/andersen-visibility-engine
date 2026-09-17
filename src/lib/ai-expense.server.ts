@@ -18,6 +18,10 @@ export interface ExpenseRequest {
   model: string;
   operation: string;
   ceilingMicrousd: number;
+  /** Server-derived monthly ceilings used only to create a missing budget row for the
+   * current month (owner instruction 2026-09-17: AI works for every account). They never
+   * change an existing row, pause, restriction or permit. Absent for legacy callers. */
+  defaults?: { accountCapMicrousd: number; globalCapMicrousd: number };
 }
 type Rpc = (
   name: string,
@@ -59,7 +63,12 @@ function validateRequest(r: ExpenseRequest) {
     r.ceilingMicrousd === 0 ||
     !bounded(r.provider, 80) ||
     !bounded(r.model, 160) ||
-    !bounded(r.operation, 80)
+    !bounded(r.operation, 80) ||
+    (r.defaults !== undefined &&
+      (!safeInteger(r.defaults.accountCapMicrousd) ||
+        r.defaults.accountCapMicrousd === 0 ||
+        !safeInteger(r.defaults.globalCapMicrousd) ||
+        r.defaults.globalCapMicrousd === 0))
   ) {
     throw new AiExpenseUnavailableError("invalid_request");
   }
@@ -112,6 +121,8 @@ export async function reserveAiExpense(request: ExpenseRequest): Promise<void> {
       p_model: request.model,
       p_operation: request.operation,
       p_ceiling: request.ceilingMicrousd,
+      p_account_cap: request.defaults?.accountCapMicrousd ?? null,
+      p_global_cap: request.defaults?.globalCapMicrousd ?? null,
     });
   } catch {
     throw new AiExpenseUnavailableError("reservation_unavailable");

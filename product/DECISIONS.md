@@ -8,6 +8,19 @@
 
 **Product Lead:** Rafal Andersen
 
+## 2026-09-17 — Native AI must work for every account and every new user by default
+
+**Authority:** Rafal Andersen ("to ma działać zawsze na każdym koncie i dla każdego nowego usera"), after the production Milo Score returned "AI generation is not configured. The workspace owner needs to connect the AI service."
+
+**Findings.** (1) Production has no `OPENAI_API_KEY`: since Lovable AI generation was removed on 8 September, every native text and image call fails at the provider check. The key is a single platform secret, never a per-workspace setting. (2) Even with the key, the internal expense ledger refused every account whose monthly budget rows had not been hand-inserted (`budget_unconfigured`), which no new user could ever pass.
+
+**Decisions.**
+1. AI generation is a platform capability configured once by the operator: `OPENAI_API_KEY` in the Lovable project secrets for the Cloudflare Workers deployment. Users and workspace owners are never asked to "connect" AI; the user-facing message now says the service is temporarily unavailable and nothing was charged.
+2. Budget rows are created automatically for the current month from explicit ceilings: an account's monthly ceiling is exactly what its plan already allows (every text allowance at the USD 0.50 text reserve plus every image allowance at the USD 0.10 image reserve: Free Preview USD 6, Starter USD 26.50, Growth USD 95, Pro USD 297, Agency USD 742.50), and the platform ceiling defaults to USD 200 per month unless `AI_GLOBAL_MONTHLY_CAP_USD` overrides it. Existing rows, pauses, restricted budgets and permits are never changed by a default. This introduces no new price or allowance; the fail-closed rule "unknown supplier cost never becomes free" stands, and reservations remain retained until reconciled. The owner should confirm or change the USD 200 platform default; it bounds attempts across the whole deployment.
+3. Candidate migration `20260917100000_ai_expense_default_budgets.sql` implements item 2. Legacy seven-argument callers (benchmark runs, backlink requests) keep the previous behaviour.
+
+**Not changed:** plan allowances, prices, the USD 5 benchmark reserve, provider choice, metering enforcement flags. Not authorized by this record: setting the secret (operator action), applying the migration or deploying.
+
 ## 2026-09-14 (later) — Seat pricing approved; paid chat monitoring undecided; review items started
 
 Owner answers in the second Claude continuation session, to the three questions in `CLAUDE_CONTINUATION_PROGRESS_2026_09_13.md` Milestone 104:
