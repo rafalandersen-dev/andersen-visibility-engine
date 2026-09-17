@@ -63,7 +63,7 @@ describe("text error privacy in existing article generation", () => {
     vi.stubEnv("LOVABLE_API_KEY", "synthetic-legacy-key");
     vi.spyOn(console, "error").mockImplementation(() => {});
     await expect(generateContentCore("00000000-0000-4000-8000-000000000011", args)).rejects.toThrow(
-      "AI generation is not configured",
+      "not configured on Milo yet",
     );
     expect(mocks.model).not.toHaveBeenCalled();
   });

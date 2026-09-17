@@ -70,3 +70,12 @@ Every release records exact SHA/tree, test/review scope, environment/build ident
 4. Restore the prior verified deployment/configuration under the release packet; retain additive data and evidence.
 5. Rotate actual affected credentials/salts if exposure is suspected; the rejected edge secret is not part of this architecture.
 6. Record incident, customer impact, cost, remediation and next action without secrets or unnecessary personal data.
+
+## Native AI configuration (17 September 2026)
+
+Native text and image generation is a platform capability, configured once by the operator; users and workspace owners never connect AI themselves.
+
+- `OPENAI_API_KEY` (required): set as a server secret in the Lovable project for the Cloudflare Workers deployment. Without it every AI action returns "AI text generation is temporarily unavailable" and nothing is charged.
+- `AI_GLOBAL_MONTHLY_CAP_USD` (optional): platform-wide monthly ceiling on native provider reservations; default USD 200. Reservations are retained until reconciled, so this bounds attempts across the deployment (about 400 text attempts at the USD 0.50 reserve).
+- Account budgets are created automatically for the month from the plan's own allowances (candidate migration `20260917100000`). Existing rows, pauses, restricted budgets and permits are never changed by a default; pause or restrict a budget row to stop spending.
+- `AI_CANDIDATE_MODEL` + `OPENROUTER_API_KEY` (optional): only for the internal AI Evaluation comparison; `AI_EVALUATION_ENABLED` stays unset in production.

@@ -1,4 +1,5 @@
 import { DEFAULT_MODEL_ID } from "./ai-router";
+import { PLAN_LIMITS, type PlanId } from "./billing";
 import { modelFor, AiProviderConfigurationError } from "./ai-provider.server";
 import { generateBoundedTextResult, validateTextRequest } from "./ai-text-bounds.server";
 import { generateImageResult, validateImageRequest, OPENAI_IMAGE_MODEL } from "./image-gen.server";
@@ -23,6 +24,47 @@ import {
 export const NATIVE_TEXT_RESERVE_MICROUSD = 500_000;
 export const NATIVE_IMAGE_RESERVE_MICROUSD = 100_000;
 
+/** Platform-wide monthly ceiling on native provider reservations, USD 200 unless
+ * `AI_GLOBAL_MONTHLY_CAP_USD` overrides it. It is a kill switch for the whole
+ * deployment, not a customer allowance; reservations are retained until reconciled,
+ * so it bounds attempts, not measured spend. Owner instruction 2026-09-17. */
+export const DEFAULT_GLOBAL_MONTHLY_CAP_MICROUSD = 200_000_000;
+export function globalMonthlyCapMicrousd(): number {
+  const raw = (process.env.AI_GLOBAL_MONTHLY_CAP_USD ?? "").trim();
+  if (!raw) return DEFAULT_GLOBAL_MONTHLY_CAP_MICROUSD;
+  const usd = Number(raw);
+  if (!/^\d+(?:\.\d{1,2})?$/.test(raw) || !Number.isFinite(usd) || usd <= 0 || usd > 1_000_000)
+    throw new AiExpenseUnavailableError("global_cap_invalid");
+  return Math.round(usd * 1_000_000);
+}
+/** An account's monthly ceiling is exactly what its plan already allows: every text
+ * allowance at the text reserve plus every image allowance at the image reserve. No
+ * new price or allowance is introduced; a plan change changes the cap. */
+export function planAccountCapMicrousd(plan: PlanId): number {
+  const limits = PLAN_LIMITS[plan] ?? PLAN_LIMITS.freePreview;
+  return (
+    (limits.monthlyContentGenerations +
+      limits.monthlyImproveDrafts +
+      limits.monthlyMiloScores +
+      limits.monthlyAuthorityGenerations) *
+      NATIVE_TEXT_RESERVE_MICROUSD +
+    limits.monthlyImageGenerations * NATIVE_IMAGE_RESERVE_MICROUSD
+  );
+}
+async function defaultCaps(userId: string) {
+  let plan: PlanId = "freePreview";
+  try {
+    // Server-authoritative entitlement; an unknown plan never means unlimited.
+    plan = await (await import("./entitlements.server")).resolveEntitledPlan(userId);
+  } catch {
+    plan = "freePreview";
+  }
+  return {
+    accountCapMicrousd: planAccountCapMicrousd(plan),
+    globalCapMicrousd: globalMonthlyCapMicrousd(),
+  };
+}
+
 export interface NativeExpenseContext {
   userId: string;
   operation: string;
@@ -41,6 +83,7 @@ function request(
   context: NativeExpenseContext,
   model: string,
   ceilingMicrousd: number,
+  defaults: ExpenseRequest["defaults"],
 ): ExpenseRequest {
   // Created once per server invocation, reused throughout reservation and
   // reconciliation. No provider retry occurs inside an attempt. A user retry
@@ -54,6 +97,7 @@ function request(
     provider: "openai",
     model,
     ceilingMicrousd,
+    defaults,
   };
 }
 
@@ -95,7 +139,7 @@ export async function generateBudgetedText(
   if (modelId !== DEFAULT_MODEL_ID) throw new AiExpenseUnavailableError("unpriced_provider");
   const model = modelFor(modelId);
   const result = await withReservedAiExpense(
-    request(context, modelId, NATIVE_TEXT_RESERVE_MICROUSD),
+    request(context, modelId, NATIVE_TEXT_RESERVE_MICROUSD, await defaultCaps(context.userId)),
     async (signal) => {
       const combined = context.signal ? AbortSignal.any([signal, context.signal]) : signal;
       combined.throwIfAborted();
@@ -121,7 +165,12 @@ export async function generateBudgetedImage(context: NativeExpenseContext, promp
   validateImageRequest(prompt);
   if (!(process.env.OPENAI_API_KEY ?? "").trim()) throw new AiProviderConfigurationError();
   const result = await withReservedAiExpense(
-    request(context, OPENAI_IMAGE_MODEL, NATIVE_IMAGE_RESERVE_MICROUSD),
+    request(
+      context,
+      OPENAI_IMAGE_MODEL,
+      NATIVE_IMAGE_RESERVE_MICROUSD,
+      await defaultCaps(context.userId),
+    ),
     async (signal) => {
       const result = await generateImageResult(prompt, signal);
       return {

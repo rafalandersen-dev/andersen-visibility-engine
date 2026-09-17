@@ -3,7 +3,9 @@ import { DEFAULT_MODEL_ID, getCandidateModelId, isCandidateConfigured } from "./
 
 export class AiProviderConfigurationError extends Error {
   constructor() {
-    super("AI generation is not configured. The workspace owner needs to connect the AI service.");
+    super(
+      "AI text generation is temporarily unavailable: the AI service is not configured on Milo yet. Nothing was charged; please try again later.",
+    );
     this.name = "AiProviderConfigurationError";
   }
 }

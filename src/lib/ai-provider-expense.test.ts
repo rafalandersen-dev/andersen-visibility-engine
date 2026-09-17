@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { generateBudgetedImage, generateBudgetedText } from "./ai-provider-expense.server";
+import {
+  DEFAULT_GLOBAL_MONTHLY_CAP_MICROUSD,
+  generateBudgetedImage,
+  generateBudgetedText,
+  planAccountCapMicrousd,
+} from "./ai-provider-expense.server";
 import { DEFAULT_MODEL_ID } from "./ai-router";
 import { AI_TEXT_TIMEOUT_MS } from "./ai-text-bounds.server";
 import { withGenerationUsage } from "./generation-usage.server";
@@ -187,6 +192,27 @@ describe("native provider money admission", () => {
     });
   }
 
+  it("supplies plan-derived account and configured global default caps with every reservation", async () => {
+    await generateBudgetedText(context, "private source", 3000);
+    expect(mocks.rpc.mock.calls[0][1]).toMatchObject({
+      p_account_cap: planAccountCapMicrousd("pro"),
+      p_global_cap: DEFAULT_GLOBAL_MONTHLY_CAP_MICROUSD,
+    });
+    expect(planAccountCapMicrousd("freePreview")).toBe(6_000_000);
+    expect(planAccountCapMicrousd("pro")).toBe(297_000_000);
+    vi.stubEnv("AI_GLOBAL_MONTHLY_CAP_USD", "50");
+    mocks.rpc.mockClear();
+    await generateBudgetedText(context, "private source", 3000);
+    expect(mocks.rpc.mock.calls[0][1]).toMatchObject({ p_global_cap: 50_000_000 });
+    vi.stubEnv("AI_GLOBAL_MONTHLY_CAP_USD", "lots");
+    mocks.rpc.mockClear();
+    mocks.fetch.mockClear();
+    await expect(generateBudgetedText(context, "private source", 3000)).rejects.toMatchObject({
+      reason: "global_cap_invalid",
+    });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
   it("reserves once under the server user and preserves actual raw text counters", async () => {
     expect(await generateBudgetedText(context, "private source", 3000)).toBe('{"ok":true}');
     expect(mocks.rpc.mock.calls[0]).toEqual([
