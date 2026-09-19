@@ -127,17 +127,29 @@ all conversation files.
   general answer-evidence stack (which still records API answers as non-panel evidence) are unchanged.
   Tests: API refusal at schema/input/SQL and the valid consumer path. No released migration changed.
 
+## Review round 5 (read-ordering: evidence before its append-only dependencies)
+
+- `readResolvedCaptures` used `Promise.all([readCitationProtocol, readAnswerEvidence])`, so it could
+  read a stale protocol snapshot against newer evidence: a capture imported concurrently with (just
+  after) its panel lock / run approval could resolve against a protocol snapshot taken before those
+  commits, yielding a spurious `panel_unresolved` / `brand_run_not_approved`. Fix: read evidence
+  FIRST, then the protocol, sequentially (not `Promise.all`). Because a capture's panel version and
+  approved run are committed before the capture, reading the protocol strictly after the evidence
+  makes the protocol snapshot at least as new as the evidence, so every dependency that existed when a
+  capture was written is present. Genuine deletion invalidation is preserved (a panel/run deleted
+  between the two reads is still seen as unresolved); no new framework, no auth/tenant change. Test: a
+  deterministic, sleep-free ordering regression holds the evidence RPC pending and asserts the
+  protocol RPC does not start until the evidence result is in, then a valid new capture resolves
+  `complete` against the later-read protocol.
+
 ## Checks (status: UNRUN — prepared for Codex)
 
-Prior stages: 143 (tsc failing) → 146 → 148/147-PASS-1-FAIL (corrected) → 150 → 170/6081. The slot +
-consumer-only delta then ran 98 focused at 97 PASS / 1 FAIL with types PASS: the sole failure was a
-fixture defect — the missing-`workspace_meta` regression's final "second observation" reused `first`'s
-occupied brand slot (round 1), which the new one-per-slot guard correctly refuses. Fixed here (fixture
-only): that intended second observation is now a distinct authorized slot (round 2, run rounds 2), for
-the direct-SQL-while-missing attempt, the public-wrapper attempt, and the restored-success path — so
-the missing-meta guard is proven to reject a would-be-valid observation before any insert, with no
-weaker slot/budget/auth guard. All prior PASS counts are a PRIOR STAGE and do not carry over — every
-check below is UNRUN and re-run by Codex.
+Prior stages: 143 (tsc failing) → 146 → 148/147-PASS-1-FAIL → 150 → 170/6081; the slot + consumer-only
+delta hit a fixture defect (98 focused, 97 PASS / 1 FAIL) that was then corrected so its suite passed.
+This round changes only `readResolvedCaptures` (evidence is now read before its append-only protocol
+dependencies, sequentially) and adds a deterministic ordering regression. All prior PASS counts are a
+PRIOR STAGE and do not carry over — every check below, including the new read-ordering regression, is
+UNRUN and re-run by Codex.
 
 | Check | Purpose | Status |
 | --- | --- | --- |
@@ -184,3 +196,7 @@ Legacy-correction delta:153 focused tests/8 files PASS(1.70s), types PASS. Norma
 ## Codex slot/consumer-boundary verification — 20 September 2026
 
 Reviewed atomic occupied-slot rejection after dedup under the required account lock, correction-chain preservation, historical duplicate deviation and consumer-only validation. Confirmed fixture repair uses an authorized distinct round2 with unchanged no-insert assertion.98 focused tests/5 files PASS(1.74s), full6133 tests/382 files PASS(43.93s), types/scoped lint/whitespace/build PASS. Logs `/tmp/milo-p2-slot-final-{focused,types,lint,full,build}-20260920.log`. Codex integration exception: Prettier on three changed TypeScript files. No applied SQL, production observation, owner approval or consumer automation. Candidate170000 remains unapplied.
+
+## Codex read-order correction verification — 20 September 2026
+
+Reviewed sequential evidence-first/protocol-second reads and deterministic deferred-RPC ordering regression, preserving deletion invalidation.52 focused tests/3 files PASS(1.41s), full6134 tests/382 files PASS(42.15s), types/scoped lint/whitespace/build PASS. Logs `/tmp/milo-p2-read-order-{focused,types,lint,full,build}-20260920.log`. No SQL changes, deployment, owner approval or production acceptance.

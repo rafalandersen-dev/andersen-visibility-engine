@@ -573,4 +573,49 @@ describe("citation protocol server, no provider or URL calls", () => {
     ]);
     expect(result).toEqual({ panels: [discoveryPanel()], brandRuns: [], captures: [] });
   });
+  it("reads evidence before the dependency protocol, so a concurrent lock/import cannot cause a false unresolved", async () => {
+    // Deterministic, sleep-free ordering proof: the evidence RPC is held pending; the protocol RPC
+    // (the capture's append-only dependency) must not start until the evidence result is in.
+    let releaseEvidence!: (v: { data: unknown; error: null }) => void;
+    const evidencePending = new Promise<{ data: unknown; error: null }>((res) => {
+      releaseEvidence = res;
+    });
+    const order: string[] = [];
+    const rpc = vi.fn((name: string) => {
+      order.push(name);
+      return name === "read_ai_answer_evidence"
+        ? evidencePending
+        : Promise.resolve({ data: { panels: [discoveryPanel()], brandRuns: [] }, error: null });
+    });
+    const pending = readResolvedCaptures(scope, rpc);
+    // Flush microtasks while evidence stays pending: the protocol dependency must not be read yet.
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(order).toEqual(["read_ai_answer_evidence"]);
+    // Now the evidence resolves with a NEW capture. Only after this may the protocol be read, and the
+    // capture must resolve against that (at-least-as-new) protocol — never a stale one.
+    const answerRow = {
+      id: uuid(500),
+      createdAt: "2026-09-08T10:00:00Z",
+      hash: "hash-500",
+      input: answer(),
+      prompt: promptRow,
+      analysis: {
+        algorithm: "literal-mention-supplied-citations-v1" as const,
+        verified: false as const,
+        mention: null,
+        ownCitation: null,
+        citations: [] as { url: string; kind: "own" | "competitor" | "third-party" }[],
+        cohort: "[]",
+      },
+    };
+    releaseEvidence({ data: { prompts: [], answers: [answerRow] }, error: null });
+    const result = await pending;
+    expect(order).toEqual(["read_ai_answer_evidence", "read_citation_protocol"]);
+    expect(result.captures[0]).toMatchObject({
+      answerId: uuid(500),
+      panelResolved: true,
+      outcome: "complete",
+    });
+  });
 });

@@ -176,10 +176,16 @@ export async function importManualCapture(
  * human-reviewed facts and counts themselves are the separate findings packet. */
 export async function readResolvedCaptures(raw: z.infer<typeof scope>, rpc?: KnowledgeRpc) {
   const s = scope.parse(raw);
-  const [protocol, evidence] = await Promise.all([
-    readCitationProtocol(s, rpc),
-    readAnswerEvidence(s, rpc),
-  ]);
+  // Read the dependent captures (evidence) BEFORE their append-only panel/run dependencies
+  // (protocol), sequentially — never Promise.all, which could read a stale protocol snapshot against
+  // newer evidence. A capture's referenced panel version and approved run are committed before the
+  // capture, so reading the protocol strictly after the evidence guarantees the protocol snapshot is
+  // at least as new as the evidence: any dependency that existed when a capture was written is present
+  // in the later read, and a concurrent panel lock / run approval / capture import can no longer
+  // produce a spurious panel_unresolved or brand_run_not_approved. A panel/run genuinely deleted
+  // between the two reads is still (correctly) seen as unresolved — deletion invalidation is preserved.
+  const evidence = await readAnswerEvidence(s, rpc);
+  const protocol = await readCitationProtocol(s, rpc);
   const captures = resolveStoredCaptures(
     evidence.answers.map((a) => ({
       id: a.id,
