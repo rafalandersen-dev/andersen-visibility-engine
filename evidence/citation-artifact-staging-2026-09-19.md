@@ -353,3 +353,46 @@ and every scope/security boundary are unchanged.
 ### Codex staging-input and current-main integration verification — 20 September 2026
 
 Staging-input delta56 focused/2 PASS(1.36s), types PASS. Normal merge includes released diagnostic main b441a9e7. Candidate-chain resolution retained artifact and diagnostic grant checks, marked160000 released and left150000 as the only candidate. Integrated76 focused/3 PASS(1.58s), full6137 tests/381 files PASS(43.64s), types/scoped lint/whitespace/build PASS. Logs `/tmp/milo-artifact-integrated-{focused,types,lint,full,build}-20260920.log`. Codex integration exceptions: one test line-wrap formatting fix and migration-inventory merge resolution; application behavior remains Claude-authored. No artifact SQL applied or live acceptance claimed.
+
+## PR144 review correction — normalize thrown/rejected rpc errors in call() (finding 4055003613), 20 September
+
+Codex verified this finding against exact head `c746ebb2`: `native-ai-artifact.server.ts`'s `call()`
+had a `finally` (timer cleanup) but **no `catch`**, so only a RETURNED `r.error` passed through the
+`surfacedArtifactError` allowlist — a rejected or synchronously-thrown rpc promise (a transport/client
+failure, the dynamic `import`, or the 10 s timeout) escaped to the caller with its **raw message intact**,
+potentially leaking internal text through the client-visible error surface. The regression tests use synthetic error messages; no actual secret exposure was observed.
+
+Fix (`src/lib/native-ai-artifact.server.ts` only; no SQL/UI/schema change):
+
+- Added a private `NativeArtifactError extends Error` marker and a `catch` to `call()`. The returned-error
+  path now throws a **branded** `NativeArtifactError(surfacedArtifactError(r.error))`, so the two exact
+  capacity codes (`native_artifact_capacity`, `native_artifact_byte_capacity`) still surface verbatim and
+  any other returned error collapses to `native_artifact_unavailable`. The `catch` **rethrows a branded
+  error verbatim** but normalizes **every other** thrown/rejected value — a rejected/synchronously-thrown
+  rpc promise, the dynamic import, and the timeout — to the generic `native_artifact_unavailable`, so no
+  raw or secret-like text escapes. A capacity code is preserved only when it arrives as the DB's RETURNED
+  response; the same token arriving as a REJECTION is treated as an ambiguous transport failure (generic),
+  and no ambiguous write is retried on its basis. The `finally` timer cleanup is unchanged. The stage-only
+  `capturedAt` timestamp refinement from the prior packet is untouched and was not reimplemented.
+
+New regressions in `native-ai-artifact-migration.test.ts` (existing artifact test file), injected-rpc
+stubs (no DB needed for the mapping cases):
+
+- a rejected rpc promise carrying a secret-like internal message (a `password=`, a DNS `ENOTFOUND`, a
+  leaked service key) collapses to exactly `native_artifact_unavailable`;
+- a synchronously-thrown rpc collapses to the generic code;
+- a RETURNED `native_artifact_capacity` is surfaced verbatim, while the same token arriving as a REJECTION
+  collapses to the generic code (rejection is transport, not the DB's cap signal);
+- a successful response returns its data and, under fake timers, leaves `vi.getTimerCount()` at 0 —
+  verifying the timeout timer is cleared.
+
+These new checks and a re-run of the full suite / types / build are **NOT RUN in this worktree** (Codex
+executes the prepared checks). The prior stage recorded **50 focused / 2 files** and **6088 / 379 files**
+for the staging-input correction, since integrated by Codex to **6137 tests / 381 files** (above); those
+figures are the **prior stage only** and are **not re-asserted** for this change — results for these new
+regressions are pending Codex's run. No SQL applied, no upload UI enabled, no live artifact acceptance
+claimed; the USD50-global / manual-free budget and every scope/security boundary are unchanged.
+
+### Codex RPC-error correction verification — 20 September 2026
+
+Reviewed the completed wrapper delta: no ambiguous-write retry; only mapped returned capacity errors survive, other thrown/rejected values become generic.60 focused tests/2 files PASS(1.38s), full6141 tests/381 files PASS(42.51s), types/scoped lint/whitespace/production build PASS. Logs `/tmp/milo-artifact-rpc-{focused,types,lint,full,build}-20260920.log`. No SQL, provider call, deployment or live artifact acceptance. Claude authored source/tests; Codex corrected an unsupported evidence assurance and recorded executed checks.

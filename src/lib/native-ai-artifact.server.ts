@@ -27,6 +27,11 @@ function surfacedArtifactError(error: unknown): string {
     ? message
     : "native_artifact_unavailable";
 }
+// A RETURNED rpc error already mapped through the capacity allowlist. The catch in `call` rethrows these
+// verbatim (so a genuine returned capacity code survives) but collapses every OTHER thrown/rejected error
+// — a rejected or synchronously-thrown rpc promise, the dynamic import, or the timeout — to the generic
+// code, never treating a client/transport failure as the DB's deterministic capacity signal.
+class NativeArtifactError extends Error {}
 // Same timeout/RPC shape as answer-evidence.server; the browser never reaches these SECURITY DEFINER
 // functions (REVOKE ALL), so scope key and metadata arrive only from this trusted server path.
 async function call(name: string, args: Record<string, unknown>, injected?: KnowledgeRpc) {
@@ -44,8 +49,16 @@ async function call(name: string, args: Record<string, unknown>, injected?: Know
         timer = setTimeout(() => reject(Error("native_artifact_unavailable")), 10000);
       }),
     ]);
-    if (r.error) throw Error(surfacedArtifactError(r.error));
+    // A RETURNED rpc error is the database's own response: preserve the two allowlisted capacity codes,
+    // collapse anything else to the generic code, and brand it so the catch rethrows it verbatim.
+    if (r.error) throw new NativeArtifactError(surfacedArtifactError(r.error));
     return r.data;
+  } catch (error) {
+    // The `finally` alone cleaned up the timer but let a rejected/synchronously-thrown rpc promise, the
+    // dynamic import, or the timeout escape with its raw message. Rethrow an already-mapped returned
+    // error verbatim; normalize every other thrown/rejected error to the generic code so no raw or
+    // secret-like internal text leaks and a rejection is never mistaken for the DB's capacity signal.
+    throw error instanceof NativeArtifactError ? error : Error("native_artifact_unavailable");
   } finally {
     clearTimeout(timer);
   }

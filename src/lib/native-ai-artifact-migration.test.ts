@@ -1,7 +1,7 @@
 import { PGlite } from "@electric-sql/pglite";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { beforeAll, beforeEach, afterAll, describe, it, expect } from "vitest";
+import { beforeAll, beforeEach, afterAll, describe, it, expect, vi } from "vitest";
 import {
   getNativeArtifact,
   readNativeArtifacts,
@@ -870,4 +870,60 @@ describe("staging input applies the DB-compatible capturedAt grammar before the 
       expect((await getNativeArtifact(scope, staged.id, rpc)).metadata.capturedAt).toBe(capturedAt);
     },
   );
+});
+describe("server wrapper normalizes thrown/rejected rpc failures without leaking raw errors", () => {
+  // Finding 4055003613: call() had a finally but no catch, so a rejected or synchronously-thrown rpc
+  // promise (transport/client failure) escaped past the returned-error allowlist with its raw message.
+  // The catch now routes every thrown/rejected error through the same allowlist: only the two exact
+  // capacity codes survive (via the returned-error path) and everything else — including secret-like
+  // internal text — collapses to the generic code.
+  const okInput = { metadata, base64 };
+  const rejecting =
+    (message: string): KnowledgeRpc =>
+    () =>
+      Promise.reject(Error(message));
+  const throwingSync: KnowledgeRpc = () => {
+    throw Error("internal detail: dsn=postgres://user:s3cr3t@host/db");
+  };
+  it("collapses a rejected rpc promise, including a secret-like internal message, to the generic code", async () => {
+    for (const message of [
+      "connection terminated: password=hunter2",
+      "getaddrinfo ENOTFOUND db.internal",
+      "service key sb_secret_abc123 leaked in error text",
+    ])
+      await expect(stageNativeArtifact(scope, okInput, rejecting(message))).rejects.toThrow(
+        /^native_artifact_unavailable$/,
+      );
+  });
+  it("collapses a synchronous throw from the rpc to the generic code", async () => {
+    await expect(stageNativeArtifact(scope, okInput, throwingSync)).rejects.toThrow(
+      /^native_artifact_unavailable$/,
+    );
+  });
+  it("preserves a returned capacity code but never a rejected one (rejection is transport, not the DB's cap signal)", async () => {
+    // A capacity code arrives from the DB as a RETURNED error and is surfaced verbatim...
+    await expect(
+      stageNativeArtifact(scope, okInput, async () => ({
+        data: null,
+        error: { message: "native_artifact_capacity" },
+      })),
+    ).rejects.toThrow(/^native_artifact_capacity$/);
+    // ...whereas the same token arriving as a REJECTION is a client/transport failure and is not
+    // treated as a deterministic capacity signal — no ambiguous write is retried on its basis.
+    await expect(
+      stageNativeArtifact(scope, okInput, rejecting("native_artifact_capacity")),
+    ).rejects.toThrow(/^native_artifact_unavailable$/);
+  });
+  it("returns data on a successful response and clears the timeout timer", async () => {
+    vi.useFakeTimers();
+    try {
+      const okRpc: KnowledgeRpc = async () => ({ data: { artifacts: [] }, error: null });
+      const state = await readNativeArtifacts(scope, okRpc);
+      expect(state.artifacts).toEqual([]);
+      // The 10s timeout timer was cleared in the finally, leaving no dangling timer.
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
