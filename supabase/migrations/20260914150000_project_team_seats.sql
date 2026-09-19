@@ -4,6 +4,13 @@
 -- are distinct people who only view. The server supplies the allowance from the owner's
 -- entitlement; NULL limits keep the previous behaviour, so existing callers are unchanged.
 -- Reaching the limit refuses the invitation or role change; nothing is billed here.
+-- A role change is refused only when it GROWS a full seat category for a distinct
+-- person: promoting a viewer to a working role, or demoting a person's last working
+-- role to viewer when no viewer seat is free. A neutral editor<->reviewer change, a
+-- demotion of a person who still works elsewhere in the account, and any removal are
+-- always allowed -- even over an already-exceeded allowance -- because they add no
+-- seat. The classification is prospective and account-wide, so capacity never silently
+-- keeps the stronger role while reporting the change as done.
 
 CREATE FUNCTION public.count_project_team_seats(p_owner uuid,p_exclude_email text DEFAULT NULL)
 RETURNS TABLE(working integer,viewer integer) LANGUAGE sql SECURITY DEFINER SET search_path='' STABLE AS $$
@@ -20,31 +27,57 @@ RETURNS TABLE(working integer,viewer integer) LANGUAGE sql SECURITY DEFINER SET 
   SELECT (1+count(*) FILTER (WHERE works))::integer,(count(*) FILTER (WHERE NOT works))::integer FROM classified;
 $$;
 
--- Raises team_seat_limit when giving p_email the role p_role would need a seat the
--- account does not have. A person already counted as a working seat elsewhere in the
--- account, or already a viewer being invited to view, needs no additional seat.
-CREATE FUNCTION public.assert_project_team_seat(p_owner uuid,p_email text,p_role text,p_working_seats integer,p_viewer_seats integer)
+-- Raises team_seat_limit only when giving this one distinct person the prospective role
+-- p_role on p_project would move them INTO a seat category that is already full, or add a
+-- brand-new person to a full category. Their holdings on OTHER projects and any pending
+-- invitation are counted, so a person who still works elsewhere keeps their working seat
+-- (no viewer seat) and a neutral working<->working change needs none. p_project names the
+-- membership row being changed, so its pre-change role can never mask a demotion; an
+-- invitation has no such row (the caller has already refused an existing membership).
+-- count_project_team_seats excludes this person, so their prospective category grows by
+-- exactly one and is checked against that category's allowance.
+CREATE FUNCTION public.assert_project_team_seat(p_owner uuid,p_project text,p_email text,p_role text,p_working_seats integer,p_viewer_seats integer)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
-DECLARE works boolean; already_working boolean; already_viewing boolean; used record;
+DECLARE works boolean; has_current boolean; current_works boolean;
+  retains_working boolean; retains_viewing boolean; prior_present boolean; prior_working boolean;
+  will_work boolean; used record;
 BEGIN
   IF p_working_seats IS NULL AND p_viewer_seats IS NULL THEN RETURN; END IF;
   IF p_email IS NULL OR p_role IS NULL OR p_role NOT IN ('viewer','editor','reviewer')
     OR (p_working_seats IS NOT NULL AND p_working_seats<1) OR (p_viewer_seats IS NOT NULL AND p_viewer_seats<0)
     THEN RAISE EXCEPTION 'team_seat_unavailable'; END IF;
   works:=p_role IN ('editor','reviewer');
+  -- The row being changed on THIS project, and whether it currently works. Absent (false)
+  -- for a fresh invitation, whose recipient has no membership on the project.
+  SELECT coalesce(bool_or(true),false),coalesce(bool_or(m.role IN ('editor','reviewer')),false)
+    INTO has_current,current_works FROM public.project_team_members m JOIN auth.users u ON u.id=m.actor_id
+      WHERE m.owner_id=p_owner AND m.project_id=p_project AND m.active
+        AND (m.expires_at IS NULL OR m.expires_at>clock_timestamp()) AND lower(btrim(u.email))=p_email;
+  -- What the person still holds regardless of this change: memberships on OTHER projects
+  -- and any pending invitation. A demotion on this project cannot take these away.
   SELECT coalesce(bool_or(role IN ('editor','reviewer')),false),coalesce(bool_or(role='viewer'),false)
-    INTO already_working,already_viewing FROM (
+    INTO retains_working,retains_viewing FROM (
       SELECT m.role FROM public.project_team_members m JOIN auth.users u ON u.id=m.actor_id
-        WHERE m.owner_id=p_owner AND m.active AND (m.expires_at IS NULL OR m.expires_at>clock_timestamp()) AND lower(btrim(u.email))=p_email
+        WHERE m.owner_id=p_owner AND m.active AND (m.expires_at IS NULL OR m.expires_at>clock_timestamp())
+          AND m.project_id<>p_project AND lower(btrim(u.email))=p_email
       UNION ALL
       SELECT role FROM public.project_team_invitations
         WHERE owner_id=p_owner AND state='pending' AND expires_at>clock_timestamp() AND recipient_email=p_email) held;
-  IF already_working OR (already_viewing AND NOT works) THEN RETURN; END IF;
-  SELECT * INTO used FROM public.count_project_team_seats(p_owner,p_email);
-  IF works THEN
-    IF p_working_seats IS NOT NULL AND used.working>=p_working_seats THEN RAISE EXCEPTION 'team_seat_limit'; END IF;
-  ELSIF p_viewer_seats IS NOT NULL AND used.viewer>=p_viewer_seats THEN
-    RAISE EXCEPTION 'team_seat_limit';
+  will_work:=works OR retains_working;
+  prior_working:=(has_current AND current_works) OR retains_working;
+  prior_present:=has_current OR retains_working OR retains_viewing;
+  -- A seat is needed only when the person moves INTO a category they were not already in
+  -- (or is brand new to the account). Staying in the same category -- editor<->reviewer, a
+  -- demotion while still working elsewhere, or re-viewing an existing viewer -- grows
+  -- nothing and is allowed even past an exceeded allowance.
+  IF will_work THEN
+    IF NOT prior_working AND p_working_seats IS NOT NULL THEN
+      SELECT * INTO used FROM public.count_project_team_seats(p_owner,p_email);
+      IF used.working>=p_working_seats THEN RAISE EXCEPTION 'team_seat_limit'; END IF;
+    END IF;
+  ELSIF NOT (prior_present AND NOT prior_working) AND p_viewer_seats IS NOT NULL THEN
+    SELECT * INTO used FROM public.count_project_team_seats(p_owner,p_email);
+    IF used.viewer>=p_viewer_seats THEN RAISE EXCEPTION 'team_seat_limit'; END IF;
   END IF;
 END; $$;
 
@@ -84,7 +117,7 @@ BEGIN
     WHERE owner_id=p_owner AND project_id=p_project AND recipient_email=recipient AND state='pending' AND expires_at<=clock_timestamp();
   IF EXISTS(SELECT 1 FROM public.project_team_invitations WHERE owner_id=p_owner AND project_id=p_project AND recipient_email=recipient AND state='pending')
     THEN RAISE EXCEPTION 'team_invitation_exists'; END IF;
-  PERFORM public.assert_project_team_seat(p_owner,recipient,p_role,p_working_seats,p_viewer_seats);
+  PERFORM public.assert_project_team_seat(p_owner,p_project,recipient,p_role,p_working_seats,p_viewer_seats);
   INSERT INTO public.project_team_invitations(owner_id,project_id,invite_id,recipient_email,role,expires_at)
     VALUES(p_owner,p_project,p_invite,recipient,p_role,clock_timestamp()+interval '7 days');
   INSERT INTO public.project_team_audit(owner_id,project_id,actor_id,subject_id,action) VALUES(p_owner,p_project,p_actor,p_invite,'invited');
@@ -103,12 +136,15 @@ BEGIN
   PERFORM public.assert_knowledge_project(p_owner,p_project,true);
   PERFORM public.assert_project_team_account(p_owner);
   IF NOT p_remove THEN
-    -- The member's own current row counts in the "already held" check, so a change
-    -- between working roles needs no seat while viewer → working needs a free one.
+    -- The seat check is prospective and is told which project row is changing (p_project),
+    -- so the pre-change role never masks a demotion: dropping the last working role to
+    -- viewer needs a free viewer seat, viewer -> working needs a working seat, and a
+    -- working<->working change or a demotion while the person still works elsewhere in the
+    -- account needs none.
     SELECT lower(btrim(email)) INTO member_email FROM auth.users WHERE id=p_member;
     IF member_email IS NOT NULL AND EXISTS(SELECT 1 FROM public.project_team_members
         WHERE owner_id=p_owner AND project_id=p_project AND actor_id=p_member AND revision=p_expected AND active)
-      THEN PERFORM public.assert_project_team_seat(p_owner,member_email,p_role,p_working_seats,p_viewer_seats); END IF;
+      THEN PERFORM public.assert_project_team_seat(p_owner,p_project,member_email,p_role,p_working_seats,p_viewer_seats); END IF;
   END IF;
   UPDATE public.project_team_members SET role=CASE WHEN p_remove THEN role ELSE p_role END,
     active=NOT p_remove,revision=revision+1
@@ -126,7 +162,7 @@ BEGIN
   RETURN next_revision;
 END; $$;
 
-REVOKE ALL ON FUNCTION public.count_project_team_seats(uuid,text),public.assert_project_team_seat(uuid,text,text,integer,integer),
+REVOKE ALL ON FUNCTION public.count_project_team_seats(uuid,text),public.assert_project_team_seat(uuid,text,text,text,integer,integer),
   public.create_project_team_invitation(uuid,uuid,text,uuid,text,text,integer,integer),
   public.change_project_team_member(uuid,uuid,text,uuid,bigint,text,boolean,integer,integer) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.count_project_team_seats(uuid,text),

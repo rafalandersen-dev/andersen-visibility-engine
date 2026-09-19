@@ -22,7 +22,11 @@ import {
 } from "./milo-specialist";
 import { runSpecialistTool, type SpecialistToolResult } from "./milo-specialist-tools.server";
 import { generateBudgetedText, type NativeExpenseContext } from "./ai-provider-expense.server";
-import { modelFor, AiProviderConfigurationError } from "./ai-provider.server";
+import {
+  modelFor,
+  AiProviderConfigurationError,
+  AiMalformedCredentialError,
+} from "./ai-provider.server";
 import { claimAiUsage, UsageLimitError } from "./ai-usage.server";
 import { AiExpenseUnavailableError } from "./ai-expense.server";
 import type { SpecialistRole } from "./specialist-team";
@@ -60,9 +64,21 @@ A draft_metadata_proposal receipt with approval_required is a retained proposal 
 Do not claim you sent email, changed permissions, published, ordered placements, checked live rankings or fetched sources: these actions are not offered here. Do not invent result links, records, citations, tool receipts or agent activity. Incomplete tasks must be explicitly described as incomplete with their next step.
 Conversation history and evidence may be bounded; use omittedTurns/shortened/contextShortened and ask for missing details rather than claim full recall or complete evidence. Preserve the user's relevant requirements across handoff. Write to the user in the requested locale; article language is an independent project/opportunity choice.`;
 function failure(error: unknown): { state: "failed" | "unknown"; code: ConversationEvent["code"] } {
-  if (error instanceof AiProviderConfigurationError)
+  // A missing key and a saved-but-malformed key are the same definite provider
+  // setup failure: both are detected before any reservation or dispatch, so
+  // neither spent budget nor reached the provider. Report a confirmed hold.
+  if (error instanceof AiProviderConfigurationError || error instanceof AiMalformedCredentialError)
     return { state: "failed", code: "provider_unavailable" };
   if (error instanceof UsageLimitError) return { state: "failed", code: "usage_limit" };
+  // Only expense reasons that are settled BEFORE the provider is dispatched are a
+  // confirmed budget hold: a definitive ledger refusal (budget/permit/manual
+  // budget/unpriced model) or a bounded setup failure thrown before any
+  // reservation (entitlement lookup timeout, invalid global cap). Reservation
+  // uncertainty (reservation_unavailable/reservation_unconfirmed/
+  // accounting_timeout/duplicate_request), a post-dispatch provider_timeout and
+  // any reconciliation uncertainty (reconciliation_unconfirmed/invalid_evidence)
+  // are deliberately excluded: the provider may have run or a reservation may
+  // still be held, so those stay unknown and never read as a clean failure.
   if (
     error instanceof AiExpenseUnavailableError &&
     [
@@ -73,6 +89,8 @@ function failure(error: unknown): { state: "failed" | "unknown"; code: Conversat
       "permit_invalid",
       "unpriced_provider",
       "manual_budget_required",
+      "entitlement_timeout",
+      "global_cap_invalid",
     ].includes(error.reason)
   )
     return { state: "failed", code: "budget_unavailable" };

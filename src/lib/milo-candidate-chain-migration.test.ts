@@ -116,7 +116,7 @@ describe("candidate migration chain", () => {
   it.each([
     "milo_conversation_turn_view(public.milo_conversation_turns)",
     "assert_milo_conversation_access(uuid,uuid,text)",
-    "assert_project_team_seat(uuid,text,text,integer,integer)",
+    "assert_project_team_seat(uuid,text,text,text,integer,integer)",
   ])("%s is reachable only from definer functions", async (fn) => {
     for (const role of ["anon", "authenticated", "service_role", "public"])
       expect(await allowed(role, fn)).toBe(false);

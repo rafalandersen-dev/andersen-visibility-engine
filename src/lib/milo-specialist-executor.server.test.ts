@@ -6,7 +6,7 @@ import {
 } from "./milo-specialist-executor.server";
 import { conversationTurn, type ConversationTurn } from "./milo-conversation";
 import { specialistMemory, specialistPlan, serializeSpecialistContext } from "./milo-specialist";
-import { AiProviderConfigurationError } from "./ai-provider.server";
+import { AiProviderConfigurationError, AiMalformedCredentialError } from "./ai-provider.server";
 import { AiExpenseUnavailableError } from "./ai-expense.server";
 const actor = "00000000-0000-4000-8000-000000000001",
   ownerId = "00000000-0000-4000-8000-000000000002",
@@ -288,6 +288,52 @@ describe("real bounded specialist conversation execution", () => {
     expect(h.model).toHaveBeenCalledOnce();
     expect(h.tool.mock.calls.map(([input]) => input.name)).toEqual(["project_brief"]);
   });
+  it("treats a malformed saved key as a provider hold, exactly like a missing configuration", async () => {
+    const h = harness();
+    h.model.mockRejectedValue(new AiMalformedCredentialError());
+    const result = await runConversationSpecialists(actor, target, h.deps);
+    expect(result.state).toBe("failed");
+    const last = result.events.at(-1);
+    expect(last?.code).toBe("provider_unavailable");
+    expect(last?.state).toBe("unavailable");
+    expect(result.events.filter((event) => event.kind === "assistant")).toHaveLength(0);
+    // Detected before any reservation or dispatch, so it stops the turn with no
+    // fabricated reply and no work beyond the single planning brief.
+    expect(h.model).toHaveBeenCalledOnce();
+    expect(h.tool.mock.calls.map(([input]) => input.name)).toEqual(["project_brief"]);
+  });
+  it.each(["entitlement_timeout", "global_cap_invalid"])(
+    "treats the pre-dispatch expense setup failure %s as a budget hold that stops later steps",
+    async (reason) => {
+      const h = harness();
+      h.model.mockRejectedValue(new AiExpenseUnavailableError(reason));
+      const result = await runConversationSpecialists(actor, target, h.deps);
+      expect(result.state).toBe("failed");
+      const last = result.events.at(-1);
+      expect(last?.code).toBe("budget_unavailable");
+      expect(last?.state).toBe("unavailable");
+      expect(result.events.filter((event) => event.kind === "assistant")).toHaveLength(0);
+      // A setup failure raised before reservation is a confirmed hold: the planning
+      // model call fails and no specialist reply or later tool is ever dispatched.
+      expect(h.model).toHaveBeenCalledOnce();
+      expect(h.tool.mock.calls.map(([input]) => input.name)).toEqual(["project_brief"]);
+    },
+  );
+  it.each(["provider_timeout", "reconciliation_unconfirmed", "reservation_unavailable"])(
+    "keeps the uncertain provider or reconciliation failure %s unknown rather than a confirmed hold",
+    async (reason) => {
+      const h = harness();
+      h.model.mockRejectedValue(new AiExpenseUnavailableError(reason));
+      const result = await runConversationSpecialists(actor, target, h.deps);
+      // The provider may have run or a reservation may still be held: the outcome
+      // is unknown, never a clean failure, and no reply is invented.
+      expect(result.state).toBe("unknown");
+      const last = result.events.at(-1);
+      expect(last?.code).toBe("execution_unknown");
+      expect(last?.state).toBe("unknown");
+      expect(result.events.filter((event) => event.kind === "assistant")).toHaveLength(0);
+    },
+  );
   it("stops any later paid dispatch on the owner's budget when the actor's membership is revoked mid-turn", async () => {
     const h = harness();
     // Routing and its project brief run, then the collaborator is removed. The
