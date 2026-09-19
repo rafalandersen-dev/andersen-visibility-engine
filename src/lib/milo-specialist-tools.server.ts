@@ -1,7 +1,6 @@
 import { z } from "zod";
-import { readAdmittedTeamProject } from "./project-team-read-admission.server";
 import { projectTeamRpc } from "./project-team-membership.server";
-import type { TeamReadRpc } from "./project-team-read.server";
+import { readTeamProject, type TeamReadRpc } from "./project-team-read.server";
 import { teamProjectTarget } from "./project-team-view";
 import { readWorkspaceRow } from "./workspace.server";
 import {
@@ -161,7 +160,14 @@ export async function runSpecialistTool(
     };
   // Fresh safe projection also checks current account/project access before
   // any owner-only reader; do not turn a member into the client's owner.
-  const snapshot = await readAdmittedTeamProject(
+  // `runSpecialistTool` is invoked only by the trusted conversation executor
+  // (the sole non-test caller is milo-specialist-executor.server's production
+  // deps), so this snapshot uses the preview-lease-free `readTeamProject` rather
+  // than the browser-admitted reader: the RPC still reauthorizes membership,
+  // account and scope in one transaction, but a signed-in owner's live viewing
+  // cannot starve the running turn's own project read. Browser project reads keep
+  // `readAdmittedTeamProject` (project-team.functions).
+  const snapshot = await readTeamProject(
     actor,
     {
       ...target,
@@ -386,9 +392,10 @@ DATA: ${serializeSpecialistContext({ locale: context.proposal.locale, userTask: 
       Date.now() < deadline
     ) {
       previousRevision = run.revision;
-      // Cancellation is free and checked every step. The authority/liveness RPC costs one
-      // team-preview admission each time, so it repeats every fifth step or ten seconds
-      // rather than on all forty steps, which could exhaust the actor's own budget.
+      // Cancellation is free and checked every step. The authority/liveness recheck
+      // (beforeDispatch) is a storage round-trip that reauthorizes membership and the
+      // durable claim, so it repeats every fifth step or ten seconds rather than on all
+      // forty steps, bounding load without weakening the between-dispatch claim gate.
       context.signal.throwIfAborted();
       if (steps > 0 && (steps % 5 === 0 || Date.now() - lastAuthorityCheck >= 10_000)) {
         await context.beforeDispatch();
