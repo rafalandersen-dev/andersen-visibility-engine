@@ -8,6 +8,8 @@ import { conversationTurn, type ConversationTurn } from "./milo-conversation";
 import { specialistMemory, specialistPlan, serializeSpecialistContext } from "./milo-specialist";
 import { AiProviderConfigurationError, AiMalformedCredentialError } from "./ai-provider.server";
 import { AiExpenseUnavailableError } from "./ai-expense.server";
+import { TeamAdmissionBusyError } from "./project-team-admission";
+import type { ConversationDiagnosticInput } from "./milo-conversation-diagnostics.server";
 const actor = "00000000-0000-4000-8000-000000000001",
   ownerId = "00000000-0000-4000-8000-000000000002",
   conversationId = "00000000-0000-4000-8000-000000000003",
@@ -86,7 +88,16 @@ function harness() {
     await input.context.beforeDispatch();
     return responses.shift()!;
   });
-  const deps = { claim, read, assert, advance, tool, model } as unknown as SpecialistExecutorDeps;
+  const diagnostic = vi.fn(async (_input: ConversationDiagnosticInput) => {});
+  const deps = {
+    claim,
+    read,
+    assert,
+    advance,
+    tool,
+    model,
+    diagnostic,
+  } as unknown as SpecialistExecutorDeps;
   return {
     deps,
     claim,
@@ -95,6 +106,7 @@ function harness() {
     advance,
     tool,
     model,
+    diagnostic,
     responses,
     history,
     get stored() {
@@ -480,5 +492,434 @@ describe("real bounded specialist conversation execution", () => {
         ],
       }),
     ).toThrow();
+  });
+  it("records the pre-brief stage and SQLSTATE 55P03 for a first-checkpoint NOWAIT refusal, matching the incident trail", async () => {
+    // Reproduce the exact 19 Sep stored-trail SHAPE: a NOWAIT lock refusal at the
+    // very first checkpoint write (the project-brief tool_started advance) ends the
+    // turn with ONE execution_unknown event, no project_brief start and no model
+    // checkpoint. The cause of a real live refusal (cross-connection row-lock
+    // contention) is a hypothesis; this proves only that such a refusal produces
+    // this trail and is now captured with its stage and safe class.
+    const h = harness();
+    const original = h.advance.getMockImplementation()!;
+    let refused = false;
+    h.advance.mockImplementation(async (a, b, update) => {
+      if (!refused) {
+        refused = true;
+        throw new TeamAdmissionBusyError();
+      }
+      return original(a, b, update);
+    });
+    const result = await runConversationSpecialists(actor, target, h.deps);
+    expect(result.state).toBe("unknown");
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0]).toMatchObject({ code: "execution_unknown", state: "unknown" });
+    expect(result.events.some((event) => event.tool === "project_brief")).toBe(false);
+    expect(h.tool).not.toHaveBeenCalled();
+    expect(h.model).not.toHaveBeenCalled();
+    expect(h.diagnostic).toHaveBeenCalledTimes(1);
+    const input = h.diagnostic.mock.calls[0][0] as ConversationDiagnosticInput;
+    expect(input.turnId).toBe(turnId);
+    expect(typeof input.operationId).toBe("string");
+    expect(input.diagnosis).toMatchObject({
+      stage: "brief_start",
+      errorClass: "unknown",
+      nameCategory: "other",
+      httpStatus: null,
+      sqlState: "55P03",
+    });
+    expect(input.outcome).toEqual({ state: "unknown", code: "execution_unknown" });
+    // In-run (acquired-execution) failures are TERMINAL: they own the turn's receipt
+    // and upgrade any earlier preliminary claim receipt for the same turn.
+    expect(input.provenance).toBe("terminal");
+  });
+  it("pinpoints an initial liveness refusal at assert_live with no operation id", async () => {
+    const h = harness();
+    h.assert.mockImplementationOnce(async () => {
+      throw new TeamAdmissionBusyError();
+    });
+    const result = await runConversationSpecialists(actor, target, h.deps);
+    expect(result.state).toBe("unknown");
+    expect(result.events.some((event) => event.tool === "project_brief")).toBe(false);
+    expect(h.read).not.toHaveBeenCalled();
+    expect(h.model).not.toHaveBeenCalled();
+    const input = h.diagnostic.mock.calls[0][0] as ConversationDiagnosticInput;
+    expect(input.diagnosis).toMatchObject({ stage: "assert_live", sqlState: "55P03" });
+    expect(input.operationId).toBeUndefined();
+  });
+  it("pinpoints a continuity read refusal at continuity_read", async () => {
+    const h = harness();
+    h.read.mockImplementationOnce(async () => {
+      throw new TeamAdmissionBusyError();
+    });
+    const result = await runConversationSpecialists(actor, target, h.deps);
+    expect(result.state).toBe("unknown");
+    expect(h.model).not.toHaveBeenCalled();
+    const input = h.diagnostic.mock.calls[0][0] as ConversationDiagnosticInput;
+    expect(input.diagnosis).toMatchObject({ stage: "continuity_read", sqlState: "55P03" });
+    expect(input.operationId).toBeUndefined();
+  });
+  it("classifies a malformed plan JSON at plan_parse without a SQLSTATE", async () => {
+    const h = harness();
+    h.responses[0] = "not json at all";
+    const result = await runConversationSpecialists(actor, target, h.deps);
+    expect(result.state).toBe("unknown");
+    const input = h.diagnostic.mock.calls[0][0] as ConversationDiagnosticInput;
+    // The routing model returned unparseable output: recorded at plan_parse, safe
+    // class from the allowlist, no SQLSTATE. Only the brief tool ran.
+    expect(input.diagnosis).toMatchObject({ stage: "plan_parse", sqlState: null });
+    expect(h.tool.mock.calls.map(([tool]) => tool.name)).toEqual(["project_brief"]);
+  });
+  it("never lets a diagnostic recording failure change the honest turn outcome", async () => {
+    const h = harness();
+    h.diagnostic.mockRejectedValue(new Error("diagnostic sink down"));
+    h.model.mockRejectedValueOnce(new AiExpenseUnavailableError("reservation_unavailable"));
+    const result = await runConversationSpecialists(actor, target, h.deps);
+    // The uncertain provider outcome stays unknown; a throwing diagnostic is
+    // swallowed and never surfaces or is retried.
+    expect(result.state).toBe("unknown");
+    expect(result.events.at(-1)).toMatchObject({ code: "execution_unknown", state: "unknown" });
+    expect(h.diagnostic).toHaveBeenCalledTimes(1);
+  });
+  it("still records the stage when even the outcome write is refused, without suppressing the unconfirmed error", async () => {
+    const h = harness();
+    h.advance.mockImplementation(async () => {
+      throw new TeamAdmissionBusyError();
+    });
+    await expect(runConversationSpecialists(actor, target, h.deps)).rejects.toThrow(
+      "outcome could not be confirmed",
+    );
+    expect(h.diagnostic).toHaveBeenCalledTimes(1);
+    const input = h.diagnostic.mock.calls[0][0] as ConversationDiagnosticInput;
+    expect(input.diagnosis).toMatchObject({ stage: "brief_start", sqlState: "55P03" });
+  });
+  it("fails closed on a hostile thrown value, still writing the unknown outcome and a safe receipt", async () => {
+    // A thrown value whose getPrototypeOf trap and getters throw would break a bare
+    // `instanceof` in both classifyConversationFailure and failure(). The catch must
+    // not itself throw: the honest execution_unknown outcome is still written and a
+    // safe diagnosis (unknown class, no SQLSTATE) is recorded at the failure stage.
+    const hostile = new Proxy(
+      {},
+      {
+        getPrototypeOf() {
+          throw new Error("synthetic proto");
+        },
+        get() {
+          throw new Error("hostile getter");
+        },
+      },
+    );
+    const h = harness();
+    const original = h.advance.getMockImplementation()!;
+    let refused = false;
+    h.advance.mockImplementation(async (a, b, update) => {
+      if (!refused) {
+        refused = true;
+        throw hostile;
+      }
+      return original(a, b, update);
+    });
+    const result = await runConversationSpecialists(actor, target, h.deps);
+    expect(result.state).toBe("unknown");
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0]).toMatchObject({ code: "execution_unknown", state: "unknown" });
+    expect(result.events.some((event) => event.tool === "project_brief")).toBe(false);
+    expect(h.tool).not.toHaveBeenCalled();
+    expect(h.model).not.toHaveBeenCalled();
+    expect(h.diagnostic).toHaveBeenCalledTimes(1);
+    const input = h.diagnostic.mock.calls[0][0] as ConversationDiagnosticInput;
+    expect(input.turnId).toBe(turnId);
+    expect(input.diagnosis).toMatchObject({
+      stage: "brief_start",
+      errorClass: "unknown",
+      sqlState: null,
+    });
+    expect(input.outcome).toEqual({ state: "unknown", code: "execution_unknown" });
+  });
+
+  describe("a claim-time fault records a pre-entry unknown-stage receipt, advances nothing and re-throws", () => {
+    // The durable claim runs BEFORE any execution stage, so a thrown claim was the one
+    // failure with no diagnostic. It now records a best-effort receipt at the pre-entry
+    // `unknown` stage and RE-THROWS the original error unchanged: claim ownership and
+    // the turn's authoritative state are UNCONFIRMED, so no outcome is advanced, no
+    // model/tool runs, and the claim is never retried.
+    const assertInert = (h: ReturnType<typeof harness>) => {
+      expect(h.claim).toHaveBeenCalledTimes(1); // never re-claimed
+      expect(h.read).not.toHaveBeenCalled();
+      expect(h.advance).not.toHaveBeenCalled();
+      expect(h.tool).not.toHaveBeenCalled();
+      expect(h.model).not.toHaveBeenCalled();
+    };
+    it("records stage unknown + SQLSTATE 55P03 for a real typed NOWAIT claim refusal, then re-throws", async () => {
+      const h = harness();
+      h.claim.mockRejectedValue(new TeamAdmissionBusyError());
+      await expect(runConversationSpecialists(actor, target, h.deps)).rejects.toBeInstanceOf(
+        TeamAdmissionBusyError,
+      );
+      assertInert(h);
+      expect(h.diagnostic).toHaveBeenCalledTimes(1);
+      const input = h.diagnostic.mock.calls[0][0] as ConversationDiagnosticInput;
+      expect(input.turnId).toBe(turnId);
+      expect(input.operationId).toBeUndefined(); // no stage/operation was ever entered
+      expect(input.diagnosis).toMatchObject({
+        stage: "unknown",
+        errorClass: "unknown",
+        nameCategory: "other",
+        httpStatus: null,
+        sqlState: "55P03",
+      });
+      // The claim's DB outcome is unconfirmed: an unknown correlation-only receipt,
+      // never a "failed"/confirmed turn state that was actually written.
+      expect(input.outcome).toEqual({ state: "unknown", code: "execution_unknown" });
+      // Claim-time faults are PRELIMINARY: the pending turn may be re-dispatched, so a
+      // later terminal acquired-execution receipt can replace this provisional one.
+      expect(input.provenance).toBe("preliminary");
+    });
+    it("records stage unknown with no SQLSTATE for a lost-response/transport claim failure", async () => {
+      const h = harness();
+      h.claim.mockRejectedValue(new Error("socket hang up"));
+      await expect(runConversationSpecialists(actor, target, h.deps)).rejects.toThrow(
+        "socket hang up",
+      );
+      assertInert(h);
+      const input = h.diagnostic.mock.calls[0][0] as ConversationDiagnosticInput;
+      expect(input.diagnosis).toMatchObject({
+        stage: "unknown",
+        errorClass: "unknown",
+        sqlState: null,
+      });
+      expect(input.operationId).toBeUndefined();
+      expect(input.outcome).toEqual({ state: "unknown", code: "execution_unknown" });
+    });
+    it("fails closed on a hostile thrown claim value, recording a safe receipt and re-throwing that exact value", async () => {
+      // A value whose getPrototypeOf trap and getters throw would break a bare
+      // `instanceof`. classifyConversationFailure is guarded, so the receipt is still
+      // a safe unknown / no-SQLSTATE diagnosis and the diagnostic write never throws;
+      // the ORIGINAL hostile value is re-thrown unchanged.
+      const hostile = new Proxy(
+        {},
+        {
+          getPrototypeOf() {
+            throw new Error("synthetic proto");
+          },
+          get() {
+            throw new Error("hostile getter");
+          },
+        },
+      );
+      const h = harness();
+      h.claim.mockImplementation(async () => {
+        throw hostile;
+      });
+      let thrown: unknown;
+      try {
+        await runConversationSpecialists(actor, target, h.deps);
+      } catch (error) {
+        thrown = error;
+      }
+      expect(thrown).toBe(hostile);
+      assertInert(h);
+      expect(h.diagnostic).toHaveBeenCalledTimes(1);
+      const input = h.diagnostic.mock.calls[0][0] as ConversationDiagnosticInput;
+      expect(input.turnId).toBe(turnId);
+      expect(input.diagnosis).toMatchObject({
+        stage: "unknown",
+        errorClass: "unknown",
+        sqlState: null,
+      });
+      expect(input.outcome).toEqual({ state: "unknown", code: "execution_unknown" });
+    });
+    it("never lets a failing claim-time diagnostic mask the original claim error", async () => {
+      const h = harness();
+      h.claim.mockRejectedValue(new TeamAdmissionBusyError());
+      h.diagnostic.mockRejectedValue(new Error("diagnostic sink down"));
+      // The re-thrown error is the ORIGINAL claim failure, not the diagnostic's; a
+      // failing receipt is swallowed and never retried.
+      await expect(runConversationSpecialists(actor, target, h.deps)).rejects.toBeInstanceOf(
+        TeamAdmissionBusyError,
+      );
+      assertInert(h);
+      expect(h.diagnostic).toHaveBeenCalledTimes(1);
+    });
+    it("returns an unacquired existing turn unchanged with no receipt and no re-claim", async () => {
+      for (const state of ["running", "completed", "unknown"] as const) {
+        const h = harness();
+        h.claim.mockResolvedValue({
+          acquired: false,
+          attemptId: null as unknown as string,
+          turn: { ...initial, state },
+        });
+        const result = await runConversationSpecialists(actor, target, h.deps);
+        expect(result.state).toBe(state);
+        // A normal unacquired claim is NOT a failure: no diagnostic receipt, no
+        // outcome advance, no dispatch, and the claim is not retried.
+        expect(h.diagnostic).not.toHaveBeenCalled();
+        assertInert(h);
+      }
+    });
+  });
+
+  describe("a nested proposal-model failure correlates to its own reply_model operation, not the outer tool", () => {
+    // The gated proposal tools run a nested "responding" model call INSIDE their
+    // tool_dispatch via `context.proposal.model`. `ask` mints one id shared by that
+    // call's status checkpoint and its model request; the executor tracks it as
+    // reply_model with the SAME id, then restores the outer tool_dispatch + tool id
+    // only after the nested call succeeds. A single content assignment with a real
+    // proposal tool exercises this path.
+    const proposalPlan = JSON.stringify({
+      handoff: "Redaktor proponuje poprawki metadanych.",
+      assignments: [
+        {
+          role: "content",
+          task: "Zaproponuj poprawki metadanych",
+          tools: [
+            {
+              name: "draft_metadata_proposal",
+              assetId: "a",
+              fields: ["metaTitle"],
+              instructions: "Popraw tytuł",
+            },
+          ],
+        },
+      ],
+    });
+    // The outer tool runs the nested proposal model inside its dispatch; the project
+    // brief never receives a proposal, so it is answered directly.
+    const withProposalTool = (h: ReturnType<typeof harness>) =>
+      h.tool.mockImplementation(async (input, context) => {
+        await context.beforeDispatch();
+        if (input.name === "project_brief")
+          return {
+            state: "completed" as const,
+            evidence: "brief",
+            reference: { kind: "draft" as const, id: "a" },
+          };
+        const reply = await context.proposal.model("PROPOSAL_PROMPT");
+        return {
+          state: "completed" as const,
+          evidence: reply,
+          reference: { kind: "draft" as const, id: "a" },
+        };
+      });
+    const outerToolOp = (h: ReturnType<typeof harness>) =>
+      h.tool.mock.calls.find(([input]) => input.name === "draft_metadata_proposal")![1].operationId;
+    const nestedModelOp = (h: ReturnType<typeof harness>) =>
+      h.model.mock.calls.find(([input]) => input.prompt === "PROPOSAL_PROMPT")?.[0].context.attempt
+        .requestId as string | undefined;
+
+    it("attributes a nested proposal model throw to reply_model with the nested request id", async () => {
+      const h = harness();
+      h.responses[0] = proposalPlan;
+      withProposalTool(h);
+      const respond = h.model.getMockImplementation()!;
+      h.model.mockImplementation(async (input) => {
+        if (input.prompt === "PROPOSAL_PROMPT") {
+          await input.context.beforeDispatch();
+          throw new Error("nested provider body");
+        }
+        return respond(input);
+      });
+      const result = await runConversationSpecialists(actor, target, h.deps);
+      expect(result.state).toBe("unknown");
+      expect(result.events.some((event) => event.kind === "assistant")).toBe(false);
+      // Only the plan and the nested proposal model ran; the specialist reply did not.
+      expect(h.model.mock.calls.map(([input]) => input.prompt === "PROPOSAL_PROMPT")).toEqual([
+        false,
+        true,
+      ]);
+      const nestedOp = nestedModelOp(h);
+      expect(typeof nestedOp).toBe("string");
+      // The nested status checkpoint, the nested model request and the diagnostic all
+      // carry the SAME nested id — and it is NOT the outer tool operation.
+      const status = result.events.find(
+        (event) => event.kind === "status" && event.code === "responding",
+      );
+      expect(status?.operationId).toBe(nestedOp);
+      const input = h.diagnostic.mock.calls[0][0] as ConversationDiagnosticInput;
+      expect(input.diagnosis.stage).toBe("reply_model");
+      expect(input.operationId).toBe(nestedOp);
+      expect(input.operationId).not.toBe(outerToolOp(h));
+      // The nested proposal ran inside an acquired execution, so the receipt is TERMINAL.
+      expect(input.provenance).toBe("terminal");
+      // The raw nested provider error is never logged into the receipt or the turn.
+      expect(JSON.stringify(result)).not.toContain("nested provider body");
+    });
+    it("attributes a nested proposal status-checkpoint throw to reply_model with the nested id and SQLSTATE 55P03", async () => {
+      const h = harness();
+      h.responses[0] = proposalPlan;
+      withProposalTool(h);
+      let firstResponding = true;
+      let nestedOp: string | undefined;
+      const original = h.advance.getMockImplementation()!;
+      h.advance.mockImplementation(async (a, b, update) => {
+        const responding = (
+          update.events as unknown as Array<{ code?: string; operationId?: string }>
+        ).find((event) => event.code === "responding");
+        if (responding && firstResponding) {
+          firstResponding = false;
+          nestedOp = responding.operationId;
+          throw new TeamAdmissionBusyError();
+        }
+        return original(a, b, update);
+      });
+      const result = await runConversationSpecialists(actor, target, h.deps);
+      expect(result.state).toBe("unknown");
+      // The status checkpoint failed first, so the nested model request never ran.
+      expect(h.model.mock.calls.some(([input]) => input.prompt === "PROPOSAL_PROMPT")).toBe(false);
+      expect(typeof nestedOp).toBe("string");
+      const input = h.diagnostic.mock.calls[0][0] as ConversationDiagnosticInput;
+      expect(input.diagnosis).toMatchObject({ stage: "reply_model", sqlState: "55P03" });
+      expect(input.operationId).toBe(nestedOp);
+      expect(input.operationId).not.toBe(outerToolOp(h));
+    });
+    it("restores the outer tool operation after a successful nested proposal model, so a later tool failure attributes the outer id", async () => {
+      const h = harness();
+      h.responses[0] = proposalPlan;
+      h.tool.mockImplementation(async (input, context) => {
+        await context.beforeDispatch();
+        if (input.name === "project_brief")
+          return {
+            state: "completed" as const,
+            evidence: "brief",
+            reference: { kind: "draft" as const, id: "a" },
+          };
+        await context.proposal.model("PROPOSAL_PROMPT"); // succeeds and restores the outer stage/id
+        throw new Error("tool failed after the proposal model");
+      });
+      const result = await runConversationSpecialists(actor, target, h.deps);
+      expect(result.state).toBe("unknown");
+      // The nested proposal model DID run (so the restore path executed)…
+      const nestedOp = nestedModelOp(h);
+      expect(typeof nestedOp).toBe("string");
+      // …but the post-restore tool failure correlates to the OUTER tool dispatch/id,
+      // never the nested reply operation.
+      const input = h.diagnostic.mock.calls[0][0] as ConversationDiagnosticInput;
+      expect(input.diagnosis.stage).toBe("tool_dispatch");
+      expect(input.operationId).toBe(outerToolOp(h));
+      expect(input.operationId).not.toBe(nestedOp);
+    });
+    it("keeps the final successful path unchanged when a tool uses the nested proposal model", async () => {
+      const h = harness();
+      h.responses[0] = proposalPlan;
+      withProposalTool(h);
+      const result = await runConversationSpecialists(actor, target, h.deps);
+      expect(result.state).toBe("completed");
+      // The nested reply became the tool evidence, the specialist reply was saved, and
+      // no failure diagnostic was recorded.
+      expect(
+        result.events.some(
+          (event) => event.tool === "draft_metadata_proposal" && event.state === "completed",
+        ),
+      ).toBe(true);
+      expect(
+        result.events.some((event) => event.kind === "assistant" && event.role === "content"),
+      ).toBe(true);
+      expect(h.diagnostic).not.toHaveBeenCalled();
+      // Plan, nested proposal and the specialist reply each dispatched exactly once.
+      expect(
+        h.model.mock.calls.filter(([input]) => input.prompt === "PROPOSAL_PROMPT"),
+      ).toHaveLength(1);
+      expect(h.model).toHaveBeenCalledTimes(3);
+    });
   });
 });
