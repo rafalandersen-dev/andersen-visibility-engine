@@ -93,7 +93,13 @@ BEGIN
   -- v1 consumer-only boundary (spec §§2, 5.2): never lock an API-surface panel, even if a pre-guard
   -- draft carried one.
   IF draft->'surface'->>'mode'='api' THEN RAISE EXCEPTION 'citation_panel_not_consumer'; END IF;
-  IF draft->>'kind'='discovery' AND (draft->>'rounds')::integer<1 THEN RAISE EXCEPTION 'citation_panel_rounds_required'; END IF;
+  -- v1 discovery is the fixed grid: exactly 10 questions × 4 rounds = 40 planned slots (spec §5.3,
+  -- CI11-T13). An incomplete draft may be saved and edited, but a discovery panel can only lock at the
+  -- full grid, so an under- or over-sized pilot never locks/approves and never reads as a complete v1
+  -- measurement. Brand panels are unscheduled (rounds 0) and exempt. Checked before question binding.
+  IF draft->>'kind'='discovery' AND (
+    jsonb_array_length(draft->'questions')<>10 OR (draft->>'rounds')::integer<>4
+  ) THEN RAISE EXCEPTION 'citation_panel_grid_invalid'; END IF;
   IF EXISTS (
     SELECT 1 FROM jsonb_array_elements(draft->'questions') AS t(q)
     WHERE NOT EXISTS (

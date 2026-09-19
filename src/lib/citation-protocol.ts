@@ -35,6 +35,14 @@ import {
 export const MAX_PANEL_VERSIONS = 200;
 export const MAX_BRAND_RUNS = 20;
 
+// v1 discovery methodology is a fixed grid: exactly 10 questions × 4 weekly rounds = 40 planned slots
+// (spec §5.3, CI11-T13). The released panelProtocolSchema deliberately allows a broader shape (1..10
+// questions, 0..12 rounds) for general use and for editable drafts; a LOCKED/approved v1 discovery
+// panel must be exactly this grid, so an under- or over-sized pilot can never lock and read as a
+// complete v1 measurement. Brand panels are unscheduled (rounds 0) and are not constrained here.
+export const V1_DISCOVERY_QUESTIONS = 10;
+export const V1_DISCOVERY_ROUNDS = 4;
+
 /** A draft panel is unapproved: status `draft`, no approval receipt. Owner review happens on the
  * draft; the server, not the client, mints the approval when the draft is locked. */
 // v1 Citation Intelligence measures CONSUMER surfaces only; an API surface is not a consumer
@@ -47,6 +55,25 @@ function assertConsumerV1Panel(panel: PanelProtocol, ctx: z.RefinementCtx) {
       code: "custom",
       path: ["surface", "mode"],
       message: "v1 citation panels are consumer-only; an API surface is not a consumer substitute",
+    });
+}
+
+// A LOCKED v1 discovery panel is the fixed 10×4 grid (spec §5.3, CI11-T13). Enforced only at lock, so
+// an incomplete draft can stay editable but an under- or over-sized discovery panel can never lock.
+// Brand panels are unscheduled and exempt (their scope is a separately approved run).
+function assertV1DiscoveryGrid(panel: PanelProtocol, ctx: z.RefinementCtx) {
+  if (panel.kind !== "discovery") return;
+  if (panel.questions.length !== V1_DISCOVERY_QUESTIONS)
+    ctx.addIssue({
+      code: "custom",
+      path: ["questions"],
+      message: `A locked v1 discovery panel has exactly ${V1_DISCOVERY_QUESTIONS} questions`,
+    });
+  if (panel.rounds !== V1_DISCOVERY_ROUNDS)
+    ctx.addIssue({
+      code: "custom",
+      path: ["rounds"],
+      message: `A locked v1 discovery panel runs exactly ${V1_DISCOVERY_ROUNDS} rounds`,
     });
 }
 
@@ -75,6 +102,7 @@ export const lockedPanelSchema = panelProtocolSchema.superRefine((panel, ctx) =>
       message: "A locked panel version carries the owner approval receipt",
     });
   assertConsumerV1Panel(panel, ctx);
+  assertV1DiscoveryGrid(panel, ctx);
 });
 
 export const citationProtocolStateSchema = z
@@ -245,7 +273,13 @@ export function resolveStoredCaptures(
     // one so historical invalid data cannot read as a complete consumer slot — it is a deviation and
     // a would-be `complete` is demoted, exactly like the pre-approval case; failures stay themselves.
     const consumerSurface = context.surface.mode !== "api";
-    const eligible = approvedBeforeCapture && consumerSurface;
+    // v1 discovery is the fixed 10×4 grid (spec §5.3, CI11-T13). The lock path refuses an under-/over-
+    // sized discovery panel; this flags any already-stored capture that resolves against a historical
+    // invalid grid so it can never read as a complete v1 measurement. Brand panels are exempt.
+    const gridValid =
+      panel.kind !== "discovery" ||
+      (panel.questions.length === V1_DISCOVERY_QUESTIONS && panel.rounds === V1_DISCOVERY_ROUNDS);
+    const eligible = approvedBeforeCapture && consumerSurface && gridValid;
     out.push({
       answerId: answer.id,
       panelId: panel.panelId,
@@ -256,6 +290,7 @@ export function resolveStoredCaptures(
         ...deviations,
         ...(approvedBeforeCapture ? [] : ["panel_approved_after_capture"]),
         ...(consumerSurface ? [] : ["non_consumer_surface"]),
+        ...(gridValid ? [] : ["panel_grid_invalid"]),
       ],
       panelResolved: true,
       brandRunResolved:

@@ -49,13 +49,15 @@ const collection = {
   devicePermission: "granted" as const,
   vpn: false,
 };
-const discoveryQuestion = {
-  id: "SY-D01",
-  promptId: uuid(101),
+// The v1 discovery grid: exactly 10 distinct, prompt-bound questions (SY-D01 keeps the fixture prompt
+// the captures reference). Distinct texts/prompt ids across SY-D01..SY-D10.
+const discoveryQuestions = Array.from({ length: 10 }, (_, i) => ({
+  id: `SY-D${String(i + 1).padStart(2, "0")}`,
+  promptId: uuid(101 + i),
   promptRevision: 1,
-  text: discoveryText,
+  text: i === 0 ? discoveryText : `${discoveryText} (#${i + 1})`,
   language: "sv",
-};
+}));
 const brandQuestion = {
   id: "SY-B01",
   promptId: uuid(201),
@@ -73,7 +75,7 @@ const discoveryPanel = (over: Partial<PanelProtocol> = {}): PanelProtocol => ({
   surface,
   session: panelSession,
   collection,
-  questions: [discoveryQuestion],
+  questions: discoveryQuestions,
   rounds: 4,
   status: "locked",
   approval: { approvedBy: owner, approvedAt: "2026-09-01T00:00:00Z" },
@@ -438,6 +440,63 @@ describe("citation protocol pure contract", () => {
     );
     expect(r).toMatchObject({ panelResolved: true, outcome: "protocol_deviant" });
     expect(r.deviations).toContain("non_consumer_surface");
+  });
+  it("locks only the exact v1 discovery grid (10 questions × 4 rounds); drafts stay editable", () => {
+    // Under-sized (9 questions), too-few (3) and too-many (5) rounds never validate as a locked panel.
+    expect(
+      lockedPanelSchema.safeParse(discoveryPanel({ questions: discoveryQuestions.slice(0, 9) }))
+        .success,
+    ).toBe(false);
+    expect(lockedPanelSchema.safeParse(discoveryPanel({ rounds: 3 })).success).toBe(false);
+    expect(lockedPanelSchema.safeParse(discoveryPanel({ rounds: 5 })).success).toBe(false);
+    // Exactly 10 × 4 is valid.
+    expect(lockedPanelSchema.safeParse(discoveryPanel()).success).toBe(true);
+    // A draft may still be incomplete/editable — the grid is enforced only at lock.
+    expect(
+      panelDraftSchema.safeParse(
+        discoveryPanel({
+          status: "draft",
+          approval: null,
+          questions: discoveryQuestions.slice(0, 3),
+        }),
+      ).success,
+    ).toBe(true);
+  });
+  it("plans exactly 40 discovery slots so one observed leaves 39 unobserved", () => {
+    const counts = panelCounts(discoveryPanel(), [
+      {
+        questionId: "SY-D01",
+        round: 1,
+        outcome: "complete",
+        citationsComplete: true,
+        ownCitation: true,
+        mention: true,
+        recommended: null,
+        brandRunId: null,
+      },
+    ]);
+    expect(counts.planned).toBe(40); // 10 questions × 4 rounds
+    expect(counts.recorded).toBe(1);
+    expect(counts.planned - counts.recorded).toBe(39); // 39 slots unobserved, never fabricated
+  });
+  it("flags a capture against a historical under-sized discovery grid as invalid, never complete", () => {
+    const undersized = discoveryPanel({ questions: discoveryQuestions.slice(0, 3) }); // 3, not 10
+    const [r] = resolveStoredCaptures(
+      [
+        {
+          id: "a1",
+          status: "complete",
+          promptId: uuid(101),
+          promptRevision: 1,
+          captureContext: context(),
+          supersedesId: null,
+        },
+      ],
+      [undersized],
+      [],
+    );
+    expect(r).toMatchObject({ panelResolved: true, outcome: "protocol_deviant" });
+    expect(r.deviations).toContain("panel_grid_invalid");
   });
 });
 

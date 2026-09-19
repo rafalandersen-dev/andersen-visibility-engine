@@ -205,6 +205,39 @@ context-less and a malformed successor.
   unchanged, and the general answer-evidence stack still records API answers as ordinary non-panel
   evidence. Tests cover API refusal (schema, input, SQL) and the valid consumer path.
 
+### Review round 5 — read evidence before its append-only dependencies
+
+`readResolvedCaptures` used `Promise.all([readCitationProtocol, readAnswerEvidence])`, so it could
+read a stale protocol snapshot against newer evidence: a capture imported concurrently with — just
+after — its panel lock/run approval could resolve against a protocol snapshot taken before those
+commits, yielding a spurious `panel_unresolved` / `brand_run_not_approved`. Fixed by reading evidence
+FIRST, then the protocol, sequentially (never `Promise.all`). A capture's panel version and approved
+run are committed before the capture, so reading the append-only protocol strictly after the evidence
+makes the protocol snapshot at least as new as the evidence. Genuine deletion invalidation is
+preserved; no new framework; auth/tenant limits unchanged. Test: a deterministic, sleep-free ordering
+regression that holds the evidence RPC pending and asserts the protocol RPC does not start until the
+evidence result is in, then a valid new capture resolves `complete`.
+
+### Review round 6 — v1 discovery is the fixed 10×4 grid
+
+The released `panelProtocolSchema` allows 1..10 questions / 0..12 rounds and the SQL lock only required
+discovery `rounds ≥ 1`, so an under-sized pilot could lock/approve and read as a complete v1
+measurement (violating spec §5.3, CI11-T13: exactly 10 questions × 4 rounds = 40 planned slots). Now:
+- **Lock (`lockedPanelSchema` + SQL `lock_citation_panel`).** A discovery panel locks only at exactly
+  10 questions and 4 rounds (`citation_panel_grid_invalid`); an incomplete/over-sized draft may still
+  be saved and edited but never locked/approved. Brand panels (unscheduled, rounds 0) are exempt. The
+  released helper keeps its broad contract for general/legitimate use.
+- **Read (`resolveStoredCaptures`).** A capture resolving against a historical off-grid locked
+  discovery panel is flagged `panel_grid_invalid` and a would-be `complete` is demoted to
+  `protocol_deviant`, so invalid historical data never reads as a complete v1 measurement. Missing
+  question identities are never fabricated; the raw record is preserved and explicit.
+- Fixtures updated to a valid grid of 10 distinct, prompt-bound questions × 4 rounds (with 10 saved
+  prompts); all prior approval/auth/correction/slot/budget fail-closed regressions retained (not
+  weakened to pass). Tests: table-driven under/over rounds & questions refusal (schema + SQL), a valid
+  10×4 lock, `panelCounts` planning exactly 40 slots with 1 observed → 39 unobserved, and a resolver
+  case flagging an off-grid historical panel. Brand behavior unchanged; only the unapplied
+  `…170000` migration changed.
+
 ## Files
 
 | File | Change |
@@ -245,11 +278,13 @@ and idempotency are covered by the new migration tests.
 
 ## Checks to run (UNRUN here — Codex executes)
 
-Status honesty: successive stages ran 143 (tsc failing) → 146 → 148/147-PASS-1-FAIL (corrected) →
-150 → a reported 170 focused / 6081 full PASS. This round adds the one-observation-per-slot guard
-(write + resolver collapse) and the consumer-only v1 boundary, with their tests. **That 170/6081 PASS
-is a prior stage and does not carry over** — every check below, including the new slot-uniqueness,
-resolver-collapse and API-refusal cases, is UNRUN in this worktree and must be re-executed by Codex.
+Status honesty: successive stages ran 143 (tsc failing) → 146 → 148/147-PASS-1-FAIL → 150 → 170/6081
+→ (round 5) the read-ordering fix + regression, with prior focused suites passing. This round (6)
+enforces the fixed v1 discovery 10×4 grid across the locked schema, the SQL lock and the read
+resolver, and rebuilds the discovery fixtures to a valid 10-question × 4-round grid. **All prior PASS
+counts are a prior stage and do not carry over** — every check below, including the new grid
+refusal/planning/resolver cases and the regenerated fixtures, is UNRUN in this worktree and must be
+re-executed by Codex.
 
 - `npx vitest run src/lib/citation-protocol.test.ts`
 - `npx vitest run src/lib/citation-protocol.functions.test.ts`

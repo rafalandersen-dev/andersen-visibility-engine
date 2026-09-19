@@ -61,6 +61,17 @@ const promptData = (text: string) => ({
   competitorUrls: [],
   active: true,
 });
+// The v1 discovery grid: exactly 10 distinct, prompt-bound questions (SY-D01 keeps discoveryPromptId
+// so the capture fixtures still bind to it). Each question binds to its own saved prompt/text.
+const discoveryQuestionText = (i: number) =>
+  i === 0 ? discoveryText : `${discoveryText} (#${i + 1})`;
+const discoveryQuestions = Array.from({ length: 10 }, (_, i) => ({
+  id: `SY-D${String(i + 1).padStart(2, "0")}`,
+  promptId: uuid(101 + i),
+  promptRevision: 1,
+  text: discoveryQuestionText(i),
+  language: "sv",
+}));
 const draftDiscovery = (over: Record<string, unknown> = {}) => ({
   panelId: discoveryPanelId,
   version: 1,
@@ -71,15 +82,7 @@ const draftDiscovery = (over: Record<string, unknown> = {}) => ({
   surface,
   session: panelSession,
   collection,
-  questions: [
-    {
-      id: "SY-D01",
-      promptId: discoveryPromptId,
-      promptRevision: 1,
-      text: discoveryText,
-      language: "sv",
-    },
-  ],
+  questions: discoveryQuestions,
   rounds: 4,
   status: "draft",
   approval: null,
@@ -254,7 +257,9 @@ beforeEach(async () => {
     "INSERT INTO workspace_entities(user_id,collection,entity_id) VALUES($1,'projects','p'),($1,'projects','q'),($2,'projects','p')",
     [user, other],
   );
-  await saveEvidencePrompt(scope, discoveryPromptId, 0, promptData(discoveryText), rpc);
+  // Save the 10 distinct discovery prompts the v1 grid binds to (uuid(101..110)), plus the brand prompt.
+  for (let i = 0; i < 10; i++)
+    await saveEvidencePrompt(scope, uuid(101 + i), 0, promptData(discoveryQuestionText(i)), rpc);
   await saveEvidencePrompt(scope, brandPromptId, 0, promptData(brandText), rpc);
 });
 afterAll(async () => {
@@ -271,6 +276,9 @@ describe("CI-2 panel storage, versioning and owner lock", () => {
     // Frozen reviewed content carried verbatim from the draft.
     expect(locked.collection).toEqual(collection);
     expect(locked.interfaceLanguage).toBe("en");
+    // The valid v1 grid locked: exactly 10 questions × 4 rounds = 40 planned slots.
+    expect(locked.questions).toHaveLength(10);
+    expect(locked.rounds).toBe(4);
     const state = await readCitationProtocol(scope, rpc);
     expect(state.panels).toHaveLength(2); // draft v1 and locked v2, both immutable
     expect(state.panels.map((p) => p.version).sort()).toEqual([1, 2]);
@@ -323,15 +331,61 @@ describe("CI-2 panel storage, versioning and owner lock", () => {
       ),
     ).rejects.toThrow();
   });
-  it("refuses to lock a discovery draft that plans no rounds", async () => {
-    await saveCitationPanelDraft(
-      scope,
-      uuid(3),
-      0,
-      draftDiscovery({ panelId: uuid(3), rounds: 0 }),
-      rpc,
+  it("saves incomplete/oversized discovery drafts but never locks off the exact 10×4 grid", async () => {
+    // Each incomplete/oversized draft still SAVES (drafts are editable) but can never LOCK.
+    const cases = [
+      { panelId: uuid(30), over: { questions: discoveryQuestions.slice(0, 9) } }, // 9 questions (under)
+      { panelId: uuid(31), over: { rounds: 3 } }, // too few rounds
+      { panelId: uuid(32), over: { rounds: 5 } }, // too many rounds
+      { panelId: uuid(33), over: { rounds: 0 } }, // unscheduled discovery
+    ];
+    const versions = async (panelId: string) =>
+      (
+        await db.query(
+          "SELECT count(*)::int n FROM citation_panels WHERE user_id=$1 AND project_id='p' AND panel_id=$2",
+          [user, panelId],
+        )
+      ).rows[0];
+    for (const c of cases) {
+      await saveCitationPanelDraft(
+        scope,
+        c.panelId,
+        0,
+        draftDiscovery({ panelId: c.panelId, ...c.over }),
+        rpc,
+      );
+      // Direct lock RPC surfaces the specific grid guard.
+      await expect(
+        db.query("SELECT lock_citation_panel($1,'p',$2,$3)", [user, c.panelId, 1]),
+      ).rejects.toThrow(/citation_panel_grid_invalid/);
+      // The public wrapper refuses too, but normalizes DB errors to the generic unavailable error.
+      await expect(lockCitationPanel(scope, c.panelId, 1, rpc)).rejects.toThrow();
+      // No locked version was inserted; only the editable draft (version 1) remains.
+      expect(await versions(c.panelId)).toEqual({ n: 1 });
+    }
+    // Over-sized questions (11) cannot pass the schema-validated save path; assert the SQL grid guard
+    // directly by locking a directly-inserted 11-question draft (grid is checked before binding).
+    const eleven = draftDiscovery({
+      panelId: uuid(34),
+      questions: [
+        ...discoveryQuestions,
+        {
+          id: "SY-D11",
+          promptId: uuid(111),
+          promptRevision: 1,
+          text: `${discoveryText} (#11)`,
+          language: "sv",
+        },
+      ],
+    });
+    await db.query(
+      "INSERT INTO citation_panels(user_id,project_id,panel_id,version,document) VALUES($1,'p',$2,1,$3)",
+      [user, uuid(34), eleven],
     );
-    await expect(lockCitationPanel(scope, uuid(3), 1, rpc)).rejects.toThrow();
+    await expect(
+      db.query("SELECT lock_citation_panel($1,'p',$2,$3)", [user, uuid(34), 1]),
+    ).rejects.toThrow(/citation_panel_grid_invalid/);
+    expect(await versions(uuid(34))).toEqual({ n: 1 }); // still only the draft; nothing locked
   });
 });
 

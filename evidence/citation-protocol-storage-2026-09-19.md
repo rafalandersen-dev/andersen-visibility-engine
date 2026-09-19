@@ -142,14 +142,34 @@ all conversation files.
   protocol RPC does not start until the evidence result is in, then a valid new capture resolves
   `complete` against the later-read protocol.
 
+## Review round 6 (v1 discovery is the fixed 10×4 grid)
+
+- The released `panelProtocolSchema` allows 1..10 questions / 0..12 rounds and the SQL lock required
+  only discovery `rounds ≥ 1`, so an under-sized pilot could lock/approve and read as complete
+  (violating spec §5.3, CI11-T13: exactly 10 questions × 4 rounds = 40 slots). Fixed: `lockedPanelSchema`
+  and SQL `lock_citation_panel` lock a discovery panel only at exactly 10 questions and 4 rounds
+  (`citation_panel_grid_invalid`); incomplete/over-sized drafts still save and edit but never lock.
+  `resolveStoredCaptures` flags a capture against a historical off-grid locked discovery panel with
+  `panel_grid_invalid` and demotes a would-be `complete` to `protocol_deviant`, so invalid historical
+  data never reads as a complete v1 measurement; missing question identities are never fabricated and
+  raw records are preserved. Brand panels (unscheduled) are exempt; the released helper keeps its broad
+  contract. Fixtures rebuilt to 10 distinct prompt-bound questions × 4 rounds (10 saved prompts); all
+  prior approval/auth/correction/slot/budget fail-closed regressions retained, not weakened. Tests:
+  table-driven under/over rounds & questions refusal (schema + SQL), valid 10×4 lock, `panelCounts`
+  planning exactly 40 with 1 observed → 39 unobserved, and a resolver off-grid case. Only the unapplied
+  `…170000` migration changed.
+
 ## Checks (status: UNRUN — prepared for Codex)
 
-Prior stages: 143 (tsc failing) → 146 → 148/147-PASS-1-FAIL → 150 → 170/6081; the slot + consumer-only
-delta hit a fixture defect (98 focused, 97 PASS / 1 FAIL) that was then corrected so its suite passed.
-This round changes only `readResolvedCaptures` (evidence is now read before its append-only protocol
-dependencies, sequentially) and adds a deterministic ordering regression. All prior PASS counts are a
-PRIOR STAGE and do not carry over — every check below, including the new read-ordering regression, is
-UNRUN and re-run by Codex.
+Prior stages: 143 (tsc failing) → 146 → 148/147-PASS-1-FAIL → 150 → 170/6081 → (round 5) read-ordering
+fix + regression. The round-6 grid delta then ran 94 focused at 93 PASS / 1 FAIL with types PASS: the
+sole failure was a test-only assertion — the grid table-driven test expected the specific
+`citation_panel_grid_invalid` through the public `lockCitationPanel` wrapper, which intentionally
+normalizes DB errors to `citation_protocol_unavailable`. Fixed here (test only): each invalid-grid case
+now asserts the specific error via a direct `lock_citation_panel` RPC, the generic refusal via the
+public wrapper, and that no locked version was inserted (the draft stays editable); the 11-question
+direct-SQL case is kept. No guard weakened, no raw error exposed, no application/SQL change. All prior
+PASS counts are a PRIOR STAGE and do not carry over — every check below is UNRUN and re-run by Codex.
 
 | Check | Purpose | Status |
 | --- | --- | --- |
