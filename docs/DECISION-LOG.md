@@ -72,3 +72,7 @@ Each entry: **D#** decision · **status** (ADOPTED / REJECTED / POSTPONED) · ra
 
 ## Contradictions found (existing docs vs audit) — see the turn summary; reconciled in `AUTOPILOT-DESIGN.md` and this log
 - `AUTOPILOT-DESIGN.md` assumes branding "already inherited" via classless HTML — **true and retained**, but it did not account for the preview/publish converter split (P0.3) or the score's blindness (P0.2). Reconciled: Article Studio 2.0 owns assembly; AUTOPILOT owns the generation trigger.
+
+## September 2026 addendum
+
+- **D26 · DECIDED 2026‑09‑14 — D03 resolved as Citation Intelligence v1.** The v1 AI-visibility milestone is native Google (GSC generative‑AI report) and Bing (AI Performance) evidence, one manually observed consumer surface, human-reviewed findings, two verified improvements and one comparable re-test (`product/CITATION_INTELLIGENCE_SPEC.md`). The earlier "≥2 engines" / "at least three trustworthy surfaces" probing gates (M6, P3.1, rows 11–14 of the traceability matrix) are *superseded* for v1 and remain later, separately gated scope. No automated collection, provider adapters or supplier spend are part of v1.

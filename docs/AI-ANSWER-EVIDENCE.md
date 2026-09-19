@@ -1,6 +1,6 @@
 # Owner-supplied AI answer evidence
 
-This independent R10/R11/R16 delivery adds a usable prompt library and evidence intake to **AI Visibility**, above the existing readiness advice. It does not select monitoring providers (D03), collect answers, call models, schedule probes, or establish three-surface acceptance. Existing readiness actions are preserved. Public paid launch remains NO-GO.
+This independent R10/R11/R16 delivery adds a usable prompt library and evidence intake to **AI Visibility**, above the existing readiness advice. It does not collect answers, call models or schedule probes. Since 14 September 2026 it is the manual-observation stream of Citation Intelligence v1 (`product/CITATION_INTELLIGENCE_SPEC.md`, D03): native Google/Bing evidence, one manual consumer surface, human-reviewed findings, two verified improvements and one comparable re-test. The former three-surface acceptance is superseded. Existing readiness actions are preserved. Public paid launch remains NO-GO.
 
 ## Use
 
@@ -50,4 +50,4 @@ For failed/truncated attempts, set the appropriate status and supply `failure` d
 
 ## Still open
 
-Automated/scheduled collection, accepted providers and methods, real observations on at least three trustworthy surfaces, representative longitudinal coverage, richer competitor/sentiment/accuracy analysis, alerts, and authenticated browser acceptance remain open. This release does not close full R10/R11/R16 or R00–R24/D01–D08. Existing provider, browser administrator-policy, spending, email/publication and deferred Stripe boundaries remain in force.
+Native GSC generative-AI and Bing AI Performance imports (CI-1), the fixed panel/session protocol and human review records (CI-2), two verified improvements (CI-3), the comparable re-test and proof report (CI-4), and authenticated browser acceptance remain open. Automated/scheduled collection, additional surfaces, alerts and sentiment analysis are later separately gated packets, not v1 conditions; the former "at least three trustworthy surfaces" requirement is superseded by D03 (14 September 2026). This release does not close full R10/R11/R16 or R00–R24/D01–D08. Existing provider, browser administrator-policy, spending, email/publication and deferred Stripe boundaries remain in force.

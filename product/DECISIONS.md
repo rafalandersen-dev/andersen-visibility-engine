@@ -14,6 +14,18 @@ Owner confirmed **USD50 per month for all Milo at launch**, then selected: **“
 
 The owner replaced the OpenAI key through the service settings. The key itself is never stored in this decision log. PR140 released the manual-grant and USD50 controls; PR141 released complete article retention. The continuation candidate must retain both releases. Team conversational AI uses the validated owning business account as payer, consistent with the 14 September pooled-account decision; the initiating member remains the authority for private history and membership checks.
 
+## 2026-09-14 — D03 decided: Citation Intelligence v1 (native evidence, one manual surface, verified improvements)
+
+**Authority:** Rafal Andersen, owner-accepted scope reduction delivered as `Milo_Citation_Intelligence_Spec_v1.1.md`, integrated at `product/CITATION_INTELLIGENCE_SPEC.md`.
+
+**D03 is decided.** The v1 milestone is: native Google (GSC Generative AI performance report) and Bing (AI Performance) evidence for the client's market, one manually observed consumer surface, human-reviewed findings, two verified improvements and one comparable re-test. There is no minimum-three-provider or minimum-three-surface gate for v1, no data supplier, no collection API adapter or scaffold, no Google Search Grounding and no automated consumer-UI collection. Additional surfaces, suppliers and automated methods are later, separately rights- and cost-gated packets, not hidden dependencies. Every earlier "at least three trustworthy surfaces" statement in active plans is superseded for v1 and retained only as dated history.
+
+- Pilot: Synergy Massage, Malmö/Limhamn; Swedish discovery panel of ten owner-reviewed questions (Appendix A, still DRAFT), once weekly for four weeks on one consumer surface = 40 planned observations, the fourth round being the comparable re-test. The five brand-accuracy questions (Appendix B) are separate, optional and unscheduled.
+- Findings: citation/source visibility and recommendation/business-fact accuracy are equal-priority gap families; attribution is not support (five human support states); human review is the v1 classifier.
+- Delivery order: CI-0 reconcile and write back → CI-1 native evidence import → CI-2 manual protocol and human-reviewed findings → CI-3 two verified improvements → CI-4 comparable re-test and proof.
+- This decision authorizes no supplier spend, credential or production changes, migrations, merges, deployments, external messages, purchased placements, collection automation or publication. Existing Manual/Review/Autopilot, cost-control and release gates stay in force. Competitor prices in the spec's Appendix D are vendor-listed and unverified as of September 2026 and are not pricing decisions.
+- Related R10/R11/R16 wording in `PLAN_REVIEW_2026_09_07.md`, `ROADMAP.md`, `CURRENT_STATE.md`, `STRATEGY_2026_2027.md`, `CONVERSATIONAL_WORKSPACE_2026_09_13.md`, `docs/AI-ANSWER-EVIDENCE.md`, `docs/AI-VISIBILITY-MONITOR.md`, `docs/TRACEABILITY-MATRIX.md` and `docs/DECISION-LOG.md` was updated the same day; historical statements are marked superseded, not rewritten.
+
 ## 2026-09-14 (later) — Seat pricing approved; paid chat monitoring undecided; review items started
 
 Owner answers in the second Claude continuation session, to the three questions in `CLAUDE_CONTINUATION_PROGRESS_2026_09_13.md` Milestone 104:

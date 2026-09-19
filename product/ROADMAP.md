@@ -89,7 +89,7 @@ Follow P0–P5 in the [specialist/knowledge/weekly specification](AGENT_WEEKLY_P
 
 ### 3. AI Growth Operator with observable results
 
-- [ ] Ship observed AI Visibility v1 on at least three trustworthy initial surfaces. This is a delivery floor, not the final platform-coverage ambition.
+- [ ] Ship Citation Intelligence v1 (D03, 14 September 2026; `CITATION_INTELLIGENCE_SPEC.md`): native Google and Bing evidence for the client's market, one manually observed consumer surface, human-reviewed findings, two verified improvements and one comparable re-test, in packets CI-0 to CI-4. *Superseded for v1:* the earlier "at least three trustworthy initial surfaces" delivery floor; additional surfaces and automated collection are later, separately gated packets, not v1 dependencies.
 - [ ] Store prompt, service/surface/mode, available model version, collection method, market/language, time, raw answer, citations, mentions, competitors and failures. API output is not a measurement of the consumer web app.
 - [ ] Cover editable/discovered prompts, intent, cited domains/exact pages, own/competitor/third-party sources, content types, share of voice, trends and evidenced sentiment. Distinguish missing observation from measured zero; show sample counts and comparable denominators.
 - [ ] Keep mentions, citations, crawler access, human AI referrals and conversions separate. Profound-style crawler analytics requires server/edge logs and bot verification; a JavaScript referral beacon is insufficient. Log ingestion/attribution are explicit work, not an inferred benefit of an agent.
