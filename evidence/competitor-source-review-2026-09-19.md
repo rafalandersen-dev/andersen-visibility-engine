@@ -1,0 +1,9 @@
+# Competitor source binding integration review — 19 September 2026
+
+PR135 original head `3ce139cceefa90f71e9a42a7d92549ad557122ea` was integrated locally with PR136 candidate `5e9baf532fe89de223f51c9dd9c258eb9bb3f633`. The merge had no conflicts. The existing source-binding test needed the `createServerOnlyFn` identity mock introduced by the later server boundary; production binding logic did not change.
+
+The five focused source-binding, homepage-fetch, safe-fetch, AI-metering-coverage and generation-usage suites passed: 162 tests. The integrated full suite passed 5944 tests across 373 files. TypeScript and the production build passed. Logs: `/tmp/milo-pr135-focused-20260919.log`, `/tmp/milo-pr135-integrated-tests.log`, `/tmp/milo-pr135-integrated-types.log`, `/tmp/milo-pr135-integrated-build.log`.
+
+Inspected the real competitor snapshot rendering: source URLs and titles are React text children, not active links or HTML. A speculative concern about an unvalidated failed-source URL was not demonstrated as script execution. This does not certify model descriptions, validate an unobserved provider response or repair historical analyses. All provider boundaries in these tests are synthetic; no real generation, publication, database mutation or delivery occurred.
+
+This is intermediate candidate evidence, not release approval. PR136 subsequently received an auth-email admission security finding and must be corrected before this dependent candidate is finalized. Absorb the corrected base, validate the resulting change, complete external exact-head reviews and preserve the USD50/manual-free controls before release. No production SQL, dispatch activation or deployment was performed for PR135.

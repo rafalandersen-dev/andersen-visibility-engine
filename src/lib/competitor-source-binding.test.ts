@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const h = vi.hoisted(() => ({ text: vi.fn(), page: vi.fn(), usage: vi.fn() }));
 vi.mock("@/integrations/supabase/auth-middleware", () => ({ requireSupabaseAuth: {} }));
 vi.mock("@tanstack/react-start", () => ({
+  createServerOnlyFn: <T>(fn: T) => fn,
   createServerFn: () => {
     let parse = (value: unknown) => value;
     const builder = {
