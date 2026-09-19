@@ -362,7 +362,12 @@ function panelClientKey(scope: {
   panelVersion: number;
   client: { name: string; market: string };
 }): string {
-  return JSON.stringify([scope.panelId, scope.panelVersion, scope.client.name, scope.client.market]);
+  return JSON.stringify([
+    scope.panelId,
+    scope.panelVersion,
+    scope.client.name,
+    scope.client.market,
+  ]);
 }
 /**
  * Comparable baseline/follow-up pairs for the fourth-round re-test (§5.3, CI11-T38). A pair
@@ -444,7 +449,9 @@ export function comparablePairs(
       );
     for (const fid of imp.findingIds)
       if (!findingById.has(fid))
-        throw new Error(`comparablePairs: finding ${fid} is not recorded for this panel and client`);
+        throw new Error(
+          `comparablePairs: finding ${fid} is not recorded for this panel and client`,
+        );
     const baselineAts = imp.baselineCaptureIds.map((cid) => {
       const capture = captureById.get(cid);
       if (!capture)

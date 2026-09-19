@@ -389,7 +389,10 @@ const verifiedImprovement = (
       approvedBy: owner,
       approvedAt: "2026-09-20T10:00:00Z",
     },
-    destination: over.destination ?? { kind: "public_url", reference: "https://example.test/priser" },
+    destination: over.destination ?? {
+      kind: "public_url",
+      reference: "https://example.test/priser",
+    },
     baselineCaptureIds: over.baselineCaptureIds ?? [captureUuid("SY-D01", 1)],
     verification: {
       method: "owner_inspection",
@@ -399,7 +402,11 @@ const verifiedImprovement = (
     },
   });
 /** A second, substantively distinct verified change (different task, destination and version). */
-const secondChange = (id: number, verifiedAt: string, over: ImprovementOverrides = {}): Improvement =>
+const secondChange = (
+  id: number,
+  verifiedAt: string,
+  over: ImprovementOverrides = {},
+): Improvement =>
   verifiedImprovement(id, verifiedAt, {
     taskId: uuid(82),
     approvedVersion: "v2",
@@ -450,7 +457,11 @@ describe("descriptive counts and comparable pairs (CI11-T19, T20, T21, T38)", ()
     ];
     const none = comparablePairs(
       p,
-      { captures: caps, findings: scopedFindings, improvements: [verifiedImprovement(90, "2026-09-28T10:00:00Z")] },
+      {
+        captures: caps,
+        findings: scopedFindings,
+        improvements: [verifiedImprovement(90, "2026-09-28T10:00:00Z")],
+      },
       rounds,
     );
     expect(none.comparable).toBe(false);
@@ -617,7 +628,11 @@ describe("descriptive counts and comparable pairs (CI11-T19, T20, T21, T38)", ()
     expect(result.missing.every((item) => item.reason === "panel_not_approved")).toBe(true);
     const brand = { ...panel(), kind: "brand" as const, rounds: 0, questions: [question(1, "B")] };
     expect(
-      comparablePairs(brand, { captures: [], findings: [], improvements: [] }, { baseline: 1, followUp: 2 }),
+      comparablePairs(
+        brand,
+        { captures: [], findings: [], improvements: [] },
+        { baseline: 1, followUp: 2 },
+      ),
     ).toMatchObject({
       comparable: false,
       missing: [{ questionId: "SY-B01", reason: "discovery_panel_required" }],
@@ -1031,7 +1046,16 @@ describe("verified improvements (CI11-T36)", () => {
     expect(verifiedImprovementCount([verified, clone])).toBe(1);
     // Sharing only the destination and approved version (different task) is also one change.
     expect(
-      verifiedImprovementCount([verified, improvementSchema.parse(improvement({ improvementId: uuid(85), taskId: uuid(88), verification: verified.verification }))]),
+      verifiedImprovementCount([
+        verified,
+        improvementSchema.parse(
+          improvement({
+            improvementId: uuid(85),
+            taskId: uuid(88),
+            verification: verified.verification,
+          }),
+        ),
+      ]),
     ).toBe(1);
     // Two genuinely distinct verified changes (different task, destination and version) count two.
     const second = improvementSchema.parse(
@@ -1068,11 +1092,15 @@ describe("verified improvements (CI11-T36)", () => {
     // A verified record with no baseline captures has no before/after evidence: the schema
     // refuses it.
     expect(() =>
-      improvementSchema.parse(improvement({ baselineCaptureIds: [], verification: liveVerification })),
+      improvementSchema.parse(
+        improvement({ baselineCaptureIds: [], verification: liveVerification }),
+      ),
     ).toThrow(/baseline captures/);
     // And even bypassing the schema, the predicate does not treat it as a verified improvement.
     expect(
-      isVerifiedImprovement(improvement({ baselineCaptureIds: [], verification: liveVerification })),
+      isVerifiedImprovement(
+        improvement({ baselineCaptureIds: [], verification: liveVerification }),
+      ),
     ).toBe(false);
   });
 });
