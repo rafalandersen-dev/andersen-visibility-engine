@@ -92,7 +92,7 @@ function AuthorityPage() {
       const fresh = await generateAuthorityOpportunities(activeProjectId);
       toast.success(t("authority.toast.generated", { count: fresh.length }));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Generation failed");
+      toast.error(e instanceof Error ? e.message : t("sharedUi.generationFailed"));
     } finally {
       setGenerating(false);
     }
@@ -211,7 +211,7 @@ function AuthorityCard({ item, projectId, t }: { item: AuthorityOpportunity; pro
   async function copyTemplate() {
     const text = item.outreachTemplate || item.outreachNote || "";
     if (!text) return;
-    try { await navigator.clipboard.writeText(text); toast.success(t("authority.copied")); } catch { toast.error("Could not copy"); }
+    try { await navigator.clipboard.writeText(text); toast.success(t("authority.copied")); } catch { toast.error(t("analyticsScreen.copyFailed")); }
   }
 
   async function convert() {
@@ -220,7 +220,7 @@ function AuthorityCard({ item, projectId, t }: { item: AuthorityOpportunity; pro
       await convertAuthorityOpportunityToOpportunity(projectId, item.id);
       toast.success(t("authority.toast.converted"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not create opportunity");
+      toast.error(e instanceof Error ? e.message : t("evidenceScreen.createFailed"));
     } finally {
       setConverting(false);
     }

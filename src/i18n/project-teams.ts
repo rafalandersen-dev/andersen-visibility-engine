@@ -98,6 +98,10 @@ const en = {
   "collaboration.open": "Open project",
   "collaboration.loading": "Loading project access…",
   "collaboration.error": "Access could not be confirmed. Refresh before trying again.",
+  "collaboration.seats":
+    "Your {plan} plan includes {workingSeats} working seats (editors and reviewers, you included) and {viewerSeats} viewer seats. In use: {usedWorkingSeats} working, {usedViewerSeats} viewer. Pending invitations reserve seats until they expire.",
+  "collaboration.seatLimit":
+    "No seat is free for this role. Your plan includes {workingSeats} working seats and {viewerSeats} viewer seats. Remove or revoke someone, or upgrade the plan.",
   "collaboration.saved": "Project access updated.",
   "collaboration.empty": "Nothing to show yet.",
   "collaboration.noOwned": "You can open shared projects below without creating your own project.",
@@ -215,6 +219,10 @@ const pl: Copy = {
   "collaboration.open": "Otwórz projekt",
   "collaboration.loading": "Wczytywanie dostępu…",
   "collaboration.error": "Nie można potwierdzić dostępu. Odśwież przed ponowną próbą.",
+  "collaboration.seats":
+    "Plan {plan} obejmuje {workingSeats} miejsc roboczych (redaktorzy i recenzenci, łącznie z Tobą) oraz {viewerSeats} miejsc dla przeglądających. W użyciu: {usedWorkingSeats} roboczych, {usedViewerSeats} dla przeglądających. Oczekujące zaproszenia rezerwują miejsca do czasu wygaśnięcia.",
+  "collaboration.seatLimit":
+    "Brak wolnego miejsca dla tej roli. Plan obejmuje {workingSeats} miejsc roboczych i {viewerSeats} miejsc dla przeglądających. Usuń lub odwołaj kogoś albo zmień plan na wyższy.",
   "collaboration.saved": "Zaktualizowano dostęp.",
   "collaboration.empty": "Brak pozycji.",
   "collaboration.noOwned": "Możesz otworzyć udostępnione projekty poniżej bez tworzenia własnego.",
@@ -331,6 +339,10 @@ const sv: Copy = {
   "collaboration.open": "Öppna projekt",
   "collaboration.loading": "Läser in projektåtkomst…",
   "collaboration.error": "Åtkomsten kunde inte bekräftas. Uppdatera innan du försöker igen.",
+  "collaboration.seats":
+    "Planen {plan} innehåller {workingSeats} arbetsplatser (redaktörer och granskare, du inräknad) och {viewerSeats} läsplatser. Används: {usedWorkingSeats} arbetsplatser, {usedViewerSeats} läsplatser. Väntande inbjudningar reserverar platser tills de går ut.",
+  "collaboration.seatLimit":
+    "Ingen plats är ledig för den här rollen. Planen innehåller {workingSeats} arbetsplatser och {viewerSeats} läsplatser. Ta bort eller återkalla någon, eller uppgradera planen.",
   "collaboration.saved": "Projektåtkomsten har uppdaterats.",
   "collaboration.empty": "Inget att visa ännu.",
   "collaboration.noOwned": "Du kan öppna delade projekt nedan utan att skapa ett eget projekt.",
@@ -447,6 +459,10 @@ const da: Copy = {
   "collaboration.open": "Åbn projekt",
   "collaboration.loading": "Indlæser projektadgang…",
   "collaboration.error": "Adgangen kunne ikke bekræftes. Opdater, før du prøver igen.",
+  "collaboration.seats":
+    "Planen {plan} omfatter {workingSeats} arbejdspladser (redaktører og korrekturlæsere, dig selv medregnet) og {viewerSeats} læsepladser. I brug: {usedWorkingSeats} arbejdspladser, {usedViewerSeats} læsepladser. Ventende invitationer reserverer pladser, indtil de udløber.",
+  "collaboration.seatLimit":
+    "Der er ingen ledig plads til denne rolle. Planen omfatter {workingSeats} arbejdspladser og {viewerSeats} læsepladser. Fjern eller tilbagekald nogen, eller opgrader planen.",
   "collaboration.saved": "Projektadgangen er opdateret.",
   "collaboration.empty": "Intet at vise endnu.",
   "collaboration.noOwned": "Du kan åbne delte projekter nedenfor uden at oprette dit eget projekt.",

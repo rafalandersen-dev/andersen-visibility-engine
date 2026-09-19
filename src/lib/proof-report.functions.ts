@@ -1,5 +1,14 @@
-import { gscIntegrity } from "@/i18n/gsc-integrity";
-import { formatGscMetric } from "./gsc";
+import {
+  translateProofReportEmail as translate,
+  reportEmailLanguage,
+} from "./proof-report-email-presentation";
+import { readProofReportEmailLocale } from "./proof-report-email-preference.server";
+import type { EmailLanguage } from "./email-languages";
+import {
+  formatReportEmailDate as formatReportDate,
+  formatReportEmailNumber as formatReportNumber,
+  proofReportEmailSubject as proofReportSubject,
+} from "./proof-report-email-presentation";
 /**
  * Monthly Proof Report — server functions.
  *
@@ -11,11 +20,11 @@ import { formatGscMetric } from "./gsc";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import type { CalendarItem, ContentAsset, Project, OnboardingLanguage } from "./types";
+import type { CalendarItem, ContentAsset, Project } from "./types";
 import { readWorkspaceRow } from "./workspace.server";
 import { isEmailAddress } from "./outreach-delivery.server";
 import { buildMonthlyProofReport, type MonthlyProofReport } from "./proof-report";
-import { isAgencyPlan, type AgencyBranding } from "./billing";
+import type { AgencyBranding } from "./billing";
 
 const RESEND_SEND_URL = "https://api.resend.com/emails";
 const MONTH_KEY = /^\d{4}-\d{2}$/;
@@ -23,6 +32,20 @@ const MONTH_KEY = /^\d{4}-\d{2}$/;
 const clean = (v: string | undefined) => (v ?? "").trim();
 
 async function liveLinkCount(userId: string, projectId: string): Promise<number | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      readLiveLinkCount(userId, projectId),
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), 10_000);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function readLiveLinkCount(userId: string, projectId: string): Promise<number | null> {
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const db = supabaseAdmin as unknown as {
@@ -55,7 +78,7 @@ async function liveLinkCount(userId: string, projectId: string): Promise<number 
       .eq("a_project", projectId)
       .eq("status", "live_verified");
     if (error) return null;
-    return count ?? 0;
+    return typeof count === "number" && Number.isSafeInteger(count) && count >= 0 ? count : null;
   } catch {
     return null; // unknown, never fabricated as 0
   }
@@ -74,11 +97,12 @@ async function reportForCaller(
   const content = Array.isArray(row.data.content) ? (row.data.content as ContentAsset[]) : [];
   const calendar = Array.isArray(row.data.calendar) ? (row.data.calendar as CalendarItem[]) : [];
   const linksLive = await liveLinkCount(userId, projectId);
-  // White-label only for a genuinely active agency plan (the same gate the
-  // client UI and the DB cap trigger apply — subscription is client-writable).
-  const sub = row.data.subscription as Parameters<typeof isAgencyPlan>[0];
+  // Workspace subscription snapshots are not entitlement authority. Resolve
+  // the caller's current server-owned plan, including expiry and manual grants.
+  const { resolveEntitledPlan } = await import("./entitlements.server");
+  const plan = await resolveEntitledPlan(userId);
   const rawBranding = row.data.agencyBranding as AgencyBranding | undefined;
-  const branding = isAgencyPlan(sub) && rawBranding ? rawBranding : null;
+  const branding = plan === "agency" && rawBranding ? rawBranding : null;
   return {
     report: buildMonthlyProofReport({ project, content, calendar, monthKey, linksLive }),
     project,
@@ -108,12 +132,13 @@ export function renderProofReportEmailHtml(
   report: MonthlyProofReport,
   projectName: string,
   branding: AgencyBranding | null = null,
-  language: OnboardingLanguage = "en",
+  language: EmailLanguage = "en",
 ): string {
   const e = escapeHtml;
-  const copy = gscIntegrity[language] ?? gscIntegrity.en;
+  const t = (key: string, vars?: Record<string, string | number>) => translate(language, key, vars);
+  const number = (value: number | null | undefined) => formatReportNumber(value, language);
   const row = (label: string, value: string) =>
-    `<tr><td style="padding:6px 12px 6px 0;color:#666;">${label}</td><td style="padding:6px 0;font-weight:600;">${value}</td></tr>`;
+    `<tr><td style="padding:6px 12px 6px 0;color:#666;">${e(label)}</td><td style="padding:6px 0;font-weight:600;">${e(value)}</td></tr>`;
   const publishedList = report.published.length
     ? `<ul>${report.published
         .map(
@@ -127,20 +152,26 @@ export function renderProofReportEmailHtml(
             }</li>`,
         )
         .join("")}</ul>`
-    : `<p style="color:#666;">No pieces went live this month.</p>`;
+    : `<p style="color:#666;">${e(t("report.published.empty"))}</p>`;
   const planList = report.nextMonthPlan.length
     ? `<ul>${report.nextMonthPlan
-        .map((p) => `<li style="margin:4px 0;">${e(p.plannedDate)} — ${e(p.title)}</li>`)
+        .map(
+          (p) =>
+            `<li style="margin:4px 0;">${e(formatReportDate(p.plannedDate, language))} — ${e(p.title)}</li>`,
+        )
         .join("")}</ul>`
-    : `<p style="color:#666;">Nothing planned yet — open the Plan page to schedule next month.</p>`;
+    : `<p style="color:#666;">${e(t("report.plan.empty"))}</p>`;
   const gsc = report.gsc
-    ? `<table style="border-collapse:collapse;">${row("Clicks", formatGscMetric(report.gsc.totalClicks))}${row(
-        "Impressions",
-        formatGscMetric(report.gsc.totalImpressions),
-      )}${row("Avg. position", formatGscMetric(report.gsc.averagePosition))}</table><p style="color:#999;font-size:12px;">${e(copy[`gsc.integrity.${report.gsc.basis ?? "unknown"}`])} ${e(copy["gsc.integrity.disclaimer"])} ${e(report.gsc.property ?? "—")} · ${e(report.gsc.windowStart ?? "—")} → ${e(report.gsc.windowEnd ?? "—")}.${
+    ? `<p>${e(
+        t("report.gsc.line", {
+          clicks: number(report.gsc.totalClicks),
+          impressions: number(report.gsc.totalImpressions),
+          position: number(report.gsc.averagePosition),
+        }),
+      )}</p><p style="color:#999;font-size:12px;">${e(t(`gsc.integrity.${report.gsc.basis ?? "unknown"}`))} ${e(t("gsc.integrity.disclaimer"))} ${e(report.gsc.property ?? "—")} · ${e(formatReportDate(report.gsc.windowStart, language))} → ${e(formatReportDate(report.gsc.windowEnd, language))}.${
         report.gsc.rangeLabel ? ` · ${e(report.gsc.rangeLabel)}` : ""
       }</p>`
-    : `<p style="color:#666;">Connect Google Search Console in Milo to include search metrics.</p>`;
+    : `<p style="color:#666;">${e(t("report.gsc.empty"))}</p>`;
   // https only: http logos are mixed content on the app page and blocked by
   // most mail clients — better no logo than a broken box in a client report.
   const logoOk = branding?.logoUrl && /^https:\/\//i.test(branding.logoUrl);
@@ -151,24 +182,24 @@ export function renderProofReportEmailHtml(
           : ""
       }`
     : "";
-  return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1c1917;">
+  return `<div lang="${reportEmailLanguage(language)}" style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1c1917;">
   ${brandHeader}
-  <h1 style="font-size:22px;">Monthly proof — ${e(projectName)} · ${e(report.monthKey)}</h1>
-  <h2 style="font-size:16px;">Published &amp; live (${report.published.length})</h2>
+  <h1 style="font-size:22px;">${e(proofReportSubject(projectName, report.monthKey, language))}</h1>
+  <h2 style="font-size:16px;">${e(t("report.published.title", { count: number(report.published.length) }))}</h2>
   ${publishedList}
   <table style="border-collapse:collapse;margin:12px 0;">
-    ${row("Drafts written", String(report.draftedCount))}
-    ${row("Scheduled to publish", String(report.scheduledCount))}
-    ${report.linksLive === null ? "" : row("Partner links Live ✓", String(report.linksLive))}
+    ${row(t("report.stat.drafted"), number(report.draftedCount))}
+    ${row(t("report.stat.scheduled"), number(report.scheduledCount))}
+    ${report.linksLive === null ? "" : row(t("report.stat.linksLive"), number(report.linksLive))}
   </table>
-  <h2 style="font-size:16px;">Search snapshot</h2>
+  <h2 style="font-size:16px;">${e(t("report.gsc.title"))}</h2>
   ${gsc}
-  <h2 style="font-size:16px;">Next month's plan (${report.nextMonthPlan.length})</h2>
+  <h2 style="font-size:16px;">${e(t("report.plan.title", { count: number(report.nextMonthPlan.length) }))}</h2>
   ${planList}
   <p style="color:#999;font-size:12px;margin-top:24px;">${
     branding?.agencyName
-      ? `Prepared by ${e(branding.agencyName)}. Sent on your request — this is not a marketing email.`
-      : "Sent by Milo Growth on your request — this is not a marketing email."
+      ? e(t("report.footer.agency", { agency: branding.agencyName }))
+      : e(t("report.footer"))
   }</p>
 </div>`;
 }
@@ -194,7 +225,8 @@ export const emailProofReportFn = createServerFn({ method: "POST" })
       data.projectId,
       data.monthKey,
     );
-    const html = renderProofReportEmailHtml(report, project.name, branding, project.appLanguage);
+    const language = await readProofReportEmailLocale(context.userId);
+    const html = renderProofReportEmailHtml(report, project.name, branding, language);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 20_000);
     try {
@@ -204,7 +236,7 @@ export const emailProofReportFn = createServerFn({ method: "POST" })
         body: JSON.stringify({
           from: `Milo Growth <${fromEmail}>`,
           to: [recipient],
-          subject: `Monthly proof — ${project.name} · ${report.monthKey}`,
+          subject: proofReportSubject(project.name, report.monthKey, language),
           html,
           tags: [{ name: "source", value: "milo-proof-report" }],
         }),

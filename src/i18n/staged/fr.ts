@@ -1,3 +1,17 @@
+import { frConversation } from "./fr-conversation";
+import { frPublicStudies } from "./fr-public-studies";
+import { frPublicPricing } from "./fr-public-pricing";
+import { frPublicHome } from "./fr-public-home";
+import { frPublicBeta } from "./fr-public-beta";
+import { frBetaGuidance } from "./fr-beta-guidance";
+import { frBetaScreen } from "./fr-beta-screen";
+import { frAuthScreen } from "./fr-auth-screen";
+import { frSharedUi } from "./fr-shared-ui";
+import { frAnalyticsScreen } from "./fr-analytics-screen";
+import { frBillingScreen } from "./fr-billing-screen";
+import { frSetupScreen } from "./fr-setup-screen";
+import { frServicesScreen } from "./fr-services-screen";
+import { frAuditScreen } from "./fr-audit-screen";
 import { frEvidenceScreen } from "./fr-evidence-screen";
 import { frCore } from "./fr-core";
 import { frWorkflow } from "./fr-workflow";
@@ -17,6 +31,26 @@ import { frPlanScreen } from "./fr-plan-screen";
 /** Authoring batches only. Dictionary coverage does not establish full interface
  * acceptance. This catalog is not registered by the runtime or language picker. */
 export const FR_STAGED_BATCHES = [
+  {
+    name: "conversation",
+    copy: frConversation,
+    namespaces: ["chat"],
+    sourceRevision: "metadata proposal candidate after eb971e8",
+    sourceHash: "d37f66e7435e11e49b2e69c75ace0f494c1d288b7c4e4b1d3f3c110a1274649b",
+  },
+  { name: "public case studies", copy: frPublicStudies, namespaces: ["publicStudies"] },
+  { name: "public pricing", copy: frPublicPricing, namespaces: ["publicPricing"] },
+  { name: "public home", copy: frPublicHome, namespaces: ["publicHome"] },
+  { name: "public beta and demo", copy: frPublicBeta, namespaces: ["publicBeta"] },
+  { name: "beta playbook guidance", copy: frBetaGuidance, namespaces: ["betaGuide"] },
+  { name: "beta screen controls", copy: frBetaScreen, namespaces: ["betaScreen"] },
+  { name: "authentication screen", copy: frAuthScreen, namespaces: ["authScreen"] },
+  { name: "shared UI", copy: frSharedUi, namespaces: ["sharedUi"] },
+  { name: "analytics screen", copy: frAnalyticsScreen, namespaces: ["analyticsScreen"] },
+  { name: "billing screen", copy: frBillingScreen, namespaces: ["billingScreen"] },
+  { name: "setup screen", copy: frSetupScreen, namespaces: ["setupScreen"] },
+  { name: "services screen", copy: frServicesScreen, namespaces: ["servicesScreen"] },
+  { name: "audit screen", copy: frAuditScreen, namespaces: ["auditScreen"] },
   { name: "evidence screen", copy: frEvidenceScreen, namespaces: ["evidenceScreen"] },
   { name: "plan screen", copy: frPlanScreen, namespaces: ["planScreen"] },
   {

@@ -133,7 +133,7 @@ function BacklinksPage() {
       toast.success(t("backlinks.toast.done"));
       void refreshProviderStatus();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Analysis failed");
+      toast.error(e instanceof Error ? e.message : t("sharedUi.analysisFailed"));
     } finally {
       setRunning(false);
     }
@@ -146,7 +146,7 @@ function BacklinksPage() {
       const opps = await createOpportunitiesFromTopBacklinkActions(activeProjectId);
       toast.success(t("backlinks.toast.convertedTop", { count: opps.length }));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not create opportunities");
+      toast.error(e instanceof Error ? e.message : t("evidenceScreen.bulkFailed"));
     } finally {
       setConvertingTop(false);
     }
@@ -654,7 +654,7 @@ function RecommendationCard({
       await createOpportunityFromBacklinkRecommendation(projectId, rec.id);
       toast.success(t("backlinks.toast.converted"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not create opportunity");
+      toast.error(e instanceof Error ? e.message : t("evidenceScreen.createFailed"));
     } finally {
       setConverting(false);
     }
@@ -795,7 +795,7 @@ function LinkNetworkSection({ project, t }: { project: Project; t: (k: string) =
       setTopicsText(r.topics.join(", "));
       toast.success(t(status === "active" ? "linknet.joined" : "linknet.paused"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not save the listing");
+      toast.error(e instanceof Error ? e.message : t("sharedUi.networkSaveFailed"));
     } finally {
       setBusy(false);
     }
@@ -808,7 +808,7 @@ function LinkNetworkSection({ project, t }: { project: Project; t: (k: string) =
       setMatches(r.matches);
       if (!r.matches.length) toast.info(t("linknet.noMatches"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not search the network");
+      toast.error(e instanceof Error ? e.message : t("sharedUi.networkSearchFailed"));
     } finally {
       setBusy(false);
     }
@@ -824,7 +824,7 @@ function LinkNetworkSection({ project, t }: { project: Project; t: (k: string) =
         ),
       );
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not update the match");
+      toast.error(e instanceof Error ? e.message : t("sharedUi.networkMatchFailed"));
     }
   };
 
@@ -842,7 +842,7 @@ function LinkNetworkSection({ project, t }: { project: Project; t: (k: string) =
       );
       toast[r.found ? "success" : "info"](t(r.found ? "linknet.verified" : "linknet.notFound"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Verification failed");
+      toast.error(e instanceof Error ? e.message : t("sharedUi.verificationFailed"));
     } finally {
       setBusy(false);
     }
@@ -853,7 +853,7 @@ function LinkNetworkSection({ project, t }: { project: Project; t: (k: string) =
       await navigator.clipboard.writeText(`${m.intro.subject}\n\n${m.intro.body}`);
       toast.success(t("linknet.introCopied"));
     } catch {
-      toast.error("Clipboard is unavailable — copy the text manually.");
+      toast.error(t("sharedUi.clipboardManual"));
     }
   };
 

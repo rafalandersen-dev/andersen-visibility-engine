@@ -1,4 +1,5 @@
 import { TeamAdmissionBusyError, assertTeamAdmission } from "./project-team-admission";
+import { TeamSeatLimitError } from "./project-team-seats";
 import { z } from "zod";
 import {
   myProjectTeams,
@@ -30,27 +31,52 @@ export async function teamCall(method: string, params: Record<string, unknown>, 
       }),
     ]);
     assertTeamAdmission(result?.error);
+    assertTeamSeat(result?.error);
     if (!result || result.error) throw new Error("unavailable");
     return result.data;
   } catch (error) {
-    if (error instanceof TeamAdmissionBusyError) throw error;
+    if (error instanceof TeamAdmissionBusyError || error instanceof TeamSeatLimitError) throw error;
     throw new Error("Team access could not be updated or confirmed. Refresh before trying again.");
   } finally {
     clearTimeout(timer);
   }
 }
+/** The database refuses a seat the plan does not include with this exact message. */
+function assertTeamSeat(error: unknown) {
+  if (
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof error.message === "string" &&
+    error.message.includes("team_seat_limit")
+  )
+    throw new TeamSeatLimitError();
+}
+const seatLimits = z
+  .object({ workingSeats: z.number().int().min(1), viewerSeats: z.number().int().min(0) })
+  .strict();
 export async function updateProjectTeam(
   actorId: string,
   raw: z.infer<typeof teamOwnerAction>,
   rpc: TeamReadRpc = projectTeamRpc,
+  seats?: z.infer<typeof seatLimits>,
 ) {
   const actor = z.string().uuid().parse(actorId);
   const input = teamOwnerAction.parse(raw);
+  // Seat limits are enforced inside the database under the owner lock. Omitting them
+  // (older callers and tests) keeps the pre-seat behaviour; the server function always
+  // supplies the owner's current allowance.
+  const allowance = seats === undefined ? undefined : seatLimits.parse(seats);
   const params: Record<string, unknown> = {
     p_actor: actor,
     p_owner: actor,
     p_project: input.projectId,
   };
+  if (allowance && (input.action === "invite" || input.action === "role"))
+    Object.assign(params, {
+      p_working_seats: allowance.workingSeats,
+      p_viewer_seats: allowance.viewerSeats,
+    });
   let method: string;
   switch (input.action) {
     case "invite":

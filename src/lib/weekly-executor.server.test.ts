@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { weeklyReadiness } from "./weekly-readiness";
 import { normalizeAutoSchedulerConfig } from "./auto-scheduler";
 import type { ContentAsset, Opportunity, Project } from "./types";
@@ -36,7 +36,10 @@ vi.mock("./weekly-stage.server", () => ({
   readWeeklyStages: h.stages,
   runWeeklyStage: h.runStage,
 }));
-vi.mock("./weekly-sources.server", () => ({ refreshWeeklySources: h.refresh }));
+vi.mock("./weekly-sources.server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./weekly-sources.server")>()),
+  refreshWeeklySources: h.refresh,
+}));
 vi.mock("./project-knowledge.server", () => ({ loadProjectKnowledgeContext: h.knowledge }));
 vi.mock("./ai.functions", () => ({
   generateContentCore: h.generate,
@@ -84,6 +87,7 @@ let stages: Stage[];
 let archives: Map<string, GenerationResult>;
 let rev: number;
 let queue: Array<{ assetId: string; publishAt: string; status: "pending" }>;
+afterEach(() => vi.useRealTimers());
 beforeEach(() => {
   vi.resetAllMocks();
   stages = [];
@@ -285,6 +289,53 @@ describe("weekly executor integrated orchestration without live providers", () =
       expect(h.generate).toHaveBeenCalledTimes(1);
     },
   );
+  it.each(["approved", "arm"] as const)(
+    "bounds a pending %s operation and stops the visit without further work",
+    async (operation) => {
+      for (let i = 0; i < 3; i++) await runWeeklyProject(scope, now);
+      workspace.projects[0].autoScheduler!.mode = "auto_publish";
+      workspace.content[0].status = "Approved";
+      const stageCalls = h.runStage.mock.calls.length;
+      let complete!: () => void;
+      h[operation].mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            complete = resolve;
+          }),
+      );
+      vi.useFakeTimers();
+      let settled = false;
+      const pending = runWeeklyProject(scope, now).then((result) => {
+        settled = true;
+        return result;
+      });
+      await vi.advanceTimersByTimeAsync(10001);
+      expect(settled).toBe(true);
+      expect(await pending).toMatchObject({ action: "recovery-required" });
+      expect(h.runStage).toHaveBeenCalledTimes(stageCalls);
+      expect(h.mirror).not.toHaveBeenCalled();
+      expect(h.release).toHaveBeenCalled();
+      expect(h.arm).toHaveBeenCalledTimes(operation === "arm" ? 1 : 0);
+      if (operation === "arm") {
+        const asset = workspace.content[0];
+        queue.push({
+          assetId: asset.id,
+          publishAt: asset.autoSchedulerPlannedAt!,
+          status: "pending",
+        });
+      }
+      complete();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(h.mirror).not.toHaveBeenCalled();
+      expect(h.arm).toHaveBeenCalledTimes(operation === "arm" ? 1 : 0);
+      if (operation === "arm") {
+        vi.useRealTimers();
+        await runWeeklyProject(scope, now);
+        expect(h.arm).toHaveBeenCalledTimes(1);
+        expect(queue).toHaveLength(1);
+      }
+    },
+  );
   it("uses real queued current-week rows to move to next week even without display mirrors", async () => {
     for (let i = 0; i < 6; i++) await runWeeklyProject(scope, now);
     workspace.projects[0].autoScheduler!.mode = "auto_publish";
@@ -329,6 +380,39 @@ describe("weekly executor integrated orchestration without live providers", () =
     expect(h.image).toHaveBeenCalledTimes(1);
     expect(workspace.content).toHaveLength(1);
   });
+  it.each(["unavailable", "replaced", "uncertain"])(
+    "reports source review before generation when refresh evidence is %s",
+    async (condition) => {
+      const actual =
+        await vi.importActual<typeof import("./weekly-sources.server")>("./weekly-sources.server");
+      const sourceId = "00000000-0000-4000-8000-000000000099";
+      const refresh = vi.fn(async () => {
+        if (condition === "uncertain") throw new Error("refresh_unconfirmed");
+        return { status: "ok" };
+      });
+      h.refresh.mockImplementationOnce((target, assertActive) =>
+        actual.refreshWeeklySources(target, assertActive, {
+          sources: async () => [{ id: sourceId, revision: 1, kind: "website", status: "active" }],
+          refresh,
+          observations: async () => [
+            {
+              sourceId,
+              sourceRevision: condition === "replaced" ? 2 : 1,
+              status: condition === "unavailable" ? "unknown" : "ok",
+              lastAttempt: now.toISOString(),
+            },
+          ],
+        }),
+      );
+      expect(await runWeeklyProject(scope, now)).toMatchObject({ action: "review-required" });
+      expect(refresh).toHaveBeenCalledTimes(1);
+      expect(h.runStage).not.toHaveBeenCalled();
+      expect(h.generate).not.toHaveBeenCalled();
+      expect(h.discover).not.toHaveBeenCalled();
+      expect(h.image).not.toHaveBeenCalled();
+      expect(h.arm).not.toHaveBeenCalled();
+    },
+  );
   it("holds changed owner brief before any content call", async () => {
     await runWeeklyProject(scope, now);
     workspace.opportunities[0].title = "Owner changed topic";
@@ -367,6 +451,47 @@ describe("weekly executor integrated orchestration without live providers", () =
     stages.find((s) => s.stage === "content")!.outputChanged = true;
     expect(await runWeeklyProject(scope, now)).toMatchObject({ action: "context-changed" });
     expect(h.image).not.toHaveBeenCalled();
+  });
+  it("recovers after an archive read timeout without late delivery or paid replay", async () => {
+    await runWeeklyProject(scope, now);
+    const actual = await vi.importActual<typeof import("./generation-result.server")>(
+      "./generation-result.server",
+    );
+    let complete!: (value: { data: unknown; error: null }) => void;
+    let receiptId = "";
+    const archiveRpc = vi.fn(
+      () =>
+        new Promise<{ data: unknown; error: null }>((resolve) => {
+          complete = resolve;
+        }),
+    );
+    h.archive.mockImplementationOnce((userId, receipt) => {
+      receiptId = receipt;
+      return actual.readGenerationResult(userId, receipt, archiveRpc);
+    });
+    vi.useFakeTimers();
+    const visit = runWeeklyProject(scope, now);
+    await vi.waitFor(() => expect(archiveRpc).toHaveBeenCalledTimes(1));
+    await vi.advanceTimersByTimeAsync(actual.GENERATION_RESULT_TIMEOUT_MS + 1);
+    expect(await visit).toMatchObject({ action: "recovery-required" });
+    expect(h.generate).toHaveBeenCalledTimes(1);
+    expect(workspace.content).toHaveLength(0);
+    expect(h.image).not.toHaveBeenCalled();
+    expect(archiveRpc).toHaveBeenCalledTimes(1);
+    complete({
+      data: [
+        { receipt_id: receiptId, created_at: now.toISOString(), payload: archives.get(receiptId) },
+      ],
+      error: null,
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(workspace.content).toHaveLength(0);
+    expect(h.image).not.toHaveBeenCalled();
+    vi.useRealTimers();
+    await runWeeklyProject(scope, now);
+    expect(workspace.content).toHaveLength(1);
+    expect(h.generate).toHaveBeenCalledTimes(1);
+    expect(stages.filter((stage) => stage.stage === "content")).toHaveLength(1);
   });
   it("retains archived output on a workspace race and resumes without paid replay", async () => {
     await runWeeklyProject(scope, now);

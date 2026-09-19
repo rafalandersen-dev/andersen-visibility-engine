@@ -186,3 +186,98 @@ describe("upcomingPublishRisks — dated soon but will not publish", () => {
     expect(risks.map((r) => r.opportunityId)).toEqual(["o2", "o1"]);
   });
 });
+
+describe("calendar preferred time validity", () => {
+  it("falls back to 09:00 rather than overflowing the selected day", () => {
+    expect(
+      defaultGoLiveLocal(new Date(2026, 6, 25), new Date(2026, 6, 22), { hours: 24, minutes: 0 }),
+    ).toBe("2026-07-25T09:00");
+  });
+  it("does not silently normalize a preferred spring gap", () => {
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const day = zone === "America/Los_Angeles" ? 8 : 29;
+    const result = defaultGoLiveLocal(new Date(2026, 2, day), new Date(2026, 2, 1), {
+      hours: 2,
+      minutes: 30,
+    });
+    const hasGap = zone === "Europe/Stockholm" || zone === "America/Los_Angeles";
+    expect(result).toBe(`2026-03-${String(day).padStart(2, "0")}T${hasGap ? "09:00" : "02:30"}`);
+  });
+});
+
+describe("risk horizon follows local calendar days", () => {
+  it.each(["spring", "autumn"])(
+    "keeps the full last day and excludes the next day across %s",
+    (season) => {
+      const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const transition =
+        season === "spring"
+          ? new Date(2026, 2, zone === "America/Los_Angeles" ? 8 : 29)
+          : zone === "America/Los_Angeles"
+            ? new Date(2026, 10, 1)
+            : new Date(2026, 9, 25);
+      const now = new Date(transition);
+      now.setDate(now.getDate() - 1);
+      now.setHours(12);
+      const last = new Date(transition);
+      last.setHours(23, 30);
+      const outside = new Date(transition);
+      outside.setDate(outside.getDate() + 1);
+      outside.setHours(0, 30);
+      const armed = [
+        asset({ id: "last-day", status: "In Review", scheduledPublishAt: last.toISOString() }),
+        asset({ id: "next-day", status: "In Review", scheduledPublishAt: outside.toISOString() }),
+      ];
+      expect(
+        upcomingPublishRisks({
+          ghosts: [],
+          armed,
+          assets: armed,
+          project: project(),
+          now: now.getTime(),
+          horizonDays: 1,
+        }).map((r) => r.assetId),
+      ).toEqual(["last-day"]);
+    },
+  );
+});
+
+describe("risk ordering uses instants rather than timestamp text", () => {
+  it("orders offset timestamps chronologically", () => {
+    const armed = [
+      asset({ id: "later", status: "In Review", scheduledPublishAt: "2026-07-24T08:00:00Z" }),
+      asset({
+        id: "earlier",
+        status: "In Review",
+        scheduledPublishAt: "2026-07-24T09:00:00+02:00",
+      }),
+    ];
+    expect(
+      upcomingPublishRisks({
+        ghosts: [],
+        armed,
+        assets: armed,
+        project: project(),
+        now: new Date(2026, 6, 22).getTime(),
+      }).map((r) => r.assetId),
+    ).toEqual(["earlier", "later"]);
+  });
+  it("uses the same local-noon target anchor for inclusion and ordering", () => {
+    const armed = [
+      asset({
+        id: "morning",
+        status: "In Review",
+        scheduledPublishAt: new Date(2026, 6, 24, 9).toISOString(),
+      }),
+    ];
+    const risks = upcomingPublishRisks({
+      ghosts: [{ id: "target", title: "Target", dueAt: "2026-07-24" }],
+      armed,
+      assets: armed,
+      project: project(),
+      now: new Date(2026, 6, 22).getTime(),
+    });
+    expect(risks.map((r) => r.assetId ?? r.opportunityId)).toEqual(["morning", "target"]);
+    expect(risks[1].when).toBe("2026-07-24");
+  });
+});

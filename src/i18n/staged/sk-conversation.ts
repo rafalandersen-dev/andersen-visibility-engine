@@ -1,0 +1,117 @@
+import type { ConversationCopy } from "../conversation";
+export const skConversation: ConversationCopy = {
+  "chat.account.title": "Vaše konverzácie",
+  "chat.account.description":
+    "Všetky vaše súkromné konverzácie vo všetkých projektoch. Tento zoznam vidíte iba vy.",
+  "chat.account.manage": "Spravovať všetky konverzácie",
+  "chat.account.error":
+    "Vaše konverzácie sa nepodarilo potvrdiť. Názvy zostávajú skryté, kým nebudú znova overené.",
+  "chat.account.retry": "Skontrolovať znova",
+  "chat.account.empty": "Nemáte žiadne uložené konverzácie.",
+  "chat.account.more": "Zobraziť ďalšie konverzácie",
+  "chat.account.started": "Začaté: {date}",
+  "chat.account.unavailable":
+    "Váš prístup k projektu sa skončil, preto názov a správy zostávajú skryté. Túto konverzáciu môžete stále odstrániť.",
+  "chat.account.eraseAccess": "Odstránenie neobnoví ani nezmení váš prístup k projektu.",
+  "chat.export": "Exportovať konverzáciu",
+  "chat.exportHelp":
+    "Stiahne uložené správy, potvrdenia a staršie návrhy ako súbor JSON. Prepojené súbory sú samostatné.",
+  "chat.exporting": "Príprava celej konverzácie…",
+  "chat.exportFailed":
+    "Export sa nepodarilo dokončiť. Počkajte na dokončenie prebiehajúcej práce a skúste to znova.",
+  "chat.erase": "Odstrániť konverzáciu",
+  "chat.eraseTitle": "Natrvalo odstrániť túto konverzáciu?",
+  "chat.eraseHelp":
+    "Natrvalo odstráni správy a návrhy. Uložené koncepty, výsledky a fakturačné záznamy zostávajú. Už odoslaná práca sa môže dokončiť a čerpať váš limit. Záznamy brániace duplicitnej práci zostávajú.",
+  "chat.erasing": "Odstraňovanie konverzácie…",
+  "chat.eraseUnconfirmed":
+    "Odstránenie sa nepodarilo potvrdiť. Správy tu zostávajú skryté. Zopakujte odstránenie na potvrdenie výsledku.",
+  "chat.eraseRetry": "Zopakovať odstránenie",
+  "chat.erased": "Konverzácia odstránená.",
+  "chat.tool.draft_metadata_proposal": "Návrh metadát konceptu",
+  "chat.proposal.review": "Skontrolovať navrhnuté zmeny",
+  "chat.proposal.before": "Pred zmenou",
+  "chat.proposal.after": "Návrh",
+  "chat.proposal.ready":
+    "Uloženie vráti koncept na kontrolu a zruší jeho predchádzajúce schválenie na publikovanie.",
+  "chat.proposal.waiting": "Pred uložením navrhnutých zmien počkajte na dokončenie tejto úlohy.",
+  "chat.proposal.unavailable":
+    "Tento návrh už nemožno uložiť. Požiadajte o nový na základe aktuálneho konceptu.",
+  "chat.proposal.applied": "Tieto zmeny boli uložené. Neskoršie úpravy mohli obsah zmeniť.",
+  "chat.proposal.unconfirmed":
+    "Uloženie sa nepodarilo potvrdiť. Pred ďalším pokusom skontrolujte uložený stav.",
+  "chat.proposal.empty": "(prázdne)",
+  "chat.title": "Porozprávajte sa s Milom",
+  "chat.openContext": "Otvoriť zobrazenie projektu",
+  "chat.description":
+    "Povedzte Milovi, čo chcete zlepšiť. Vhodný AI špecialista tu nadviaže s uloženým kontextom vášho projektu.",
+  "chat.chooseProject": "Klient alebo projekt",
+  "chat.ownProjects": "Vaše projekty",
+  "chat.history": "Konverzácie",
+  "chat.new": "Nová konverzácia",
+  "chat.welcome": "Na čom budeme pracovať?",
+  "chat.private": "Vaša súkromná konverzácia v tomto projekte.",
+  "chat.sharedPrivate":
+    "Vaša súkromná konverzácia v zdieľanom projekte. Platia vaše aktuálne tímové oprávnenia.",
+  "chat.reviewPrompt": "Skontrolujte štruktúru SEO mojich uložených konceptov.",
+  "chat.knowledgePrompt": "Čo mi môžete povedať na základe uloženého kontextu tohto projektu?",
+  "chat.messageFor": "Správa pre {project}",
+  "chat.placeholder": "Opíšte úlohu a požadovaný výsledok…",
+  "chat.keyboard": "Ctrl / ⌘ + Enter odošle správu. Enter začne nový riadok.",
+  "chat.tooLong": "Táto správa je príliš dlhá. Pred odoslaním ju skráťte.",
+  "chat.full": "Táto konverzácia dosiahla limit. Ak chcete pokračovať, začnite novú.",
+  "chat.allowGeneration":
+    "Povoliť jeden koncept pre existujúcu tému v tejto požiadavke. Čerpá limit obsahu a uloží výsledok na kontrolu.",
+  "chat.generationEnabled": "Vytvorenie konceptu je pre túto požiadavku povolené.",
+  "chat.usage":
+    "Odpovede čerpajú limit AI vášho účtu. Vytváranie konceptov čerpá aj limit obsahu. Publikovanie je samostatný krok.",
+  "chat.send": "Odoslať správu",
+  "chat.you": "Vy",
+  "chat.messages": "Správy konverzácie",
+  "chat.page": "Úlohy {from}–{to} z {total}",
+  "chat.latest": "Najnovšie správy",
+  "chat.sending": "Odosielanie a kontrola uloženého stavu…",
+  "chat.pending": "Požiadavka uložená; čaká na spustenie.",
+  "chat.running": "Pracujeme na vašej požiadavke…",
+  "chat.completed": "Odpoveď uložená.",
+  "chat.failed":
+    "Tento pokus sa zastavil. Pred odoslaním ďalšej požiadavky skontrolujte uloženú prácu.",
+  "chat.unknown":
+    "Konečný výsledok sa nepodarilo potvrdiť. Pred novým spustením skontrolujte uložené výsledky.",
+  "chat.cancelled": "Ďalšia práca zrušená. Už odoslaná operácia sa môže ešte dokončiť.",
+  "chat.provider_unavailable":
+    "Poskytovateľ AI nie je pre tento účet nakonfigurovaný. Obráťte sa na správcu.",
+  "chat.usage_limit":
+    "Limit AI vášho účtu neumožňuje ďalší krok. Pred pokračovaním skontrolujte využitie.",
+  "chat.budget_unavailable":
+    "Výdavky na AI nie sú pri aktuálnych nastaveniach rozpočtu dostupné. Požiadajte správcu o kontrolu nastavení.",
+  "chat.unavailable":
+    "Nepodarilo sa potvrdiť prístup alebo uložený stav konverzácie. Pred pokračovaním obnovte zobrazenie.",
+  "chat.sendUnconfirmed":
+    "Túto požiadavku sa nepodarilo potvrdiť. Obnovte pôvodnú požiadavku alebo skontrolujte históriu, kým ju odošlete ako novú úlohu.",
+  "chat.recover": "Obnoviť pôvodnú požiadavku",
+  "chat.resume": "Spustiť uloženú požiadavku",
+  "chat.stop": "Zastaviť ďalšiu prácu",
+  "chat.stopHelp":
+    "Zastavenie zabráni ďalším krokom. Už odoslaná požiadavka sa môže ešte dokončiť a čerpať váš limit.",
+  "chat.evidenceSaved": "Výsledok uložený v tejto konverzácii.",
+  "chat.toolUnavailable": "Táto operácia nie je s aktuálnou rolou alebo oprávneniami dostupná.",
+  "chat.partialHistory":
+    "Špecialista dostal skrátenú časť uloženej histórie. Zopakujte prípadné chýbajúce požiadavky.",
+  "chat.tool.project_brief": "Kontext projektu",
+  "chat.tool.draft_read": "Kontrola uloženého konceptu",
+  "chat.tool.draft_seo_review": "Kontrola štruktúry uloženého konceptu",
+  "chat.tool.project_knowledge": "Znalosti projektu",
+  "chat.tool.weekly_preparation": "Stav týždennej prípravy",
+  "chat.tool.saved_audit": "Kontrola uloženého auditu",
+  "chat.tool.draft_generation": "Vytváranie konceptu",
+  "chat.tool.technical_evidence": "Uložené technické kontroly",
+  "chat.tool.visibility_evidence": "Uložené dôkazy z odpovedí AI a záznamov",
+  "chat.tool.authority_evidence": "Uložené sledovanie spätných odkazov",
+  "chat.tool.google_index_inspection": "Kontrola indexu Google",
+  "chat.tool.performance_test": "Test rýchlosti stránky",
+  "chat.tool.site_crawl": "Prehľadanie webu",
+  "chat.allowProviderChecks":
+    "Povoliť v tejto požiadavke najviac dve kontroly webu (kontrola indexu Google, rýchlosť stránky alebo jedno prehľadanie webu) pre web tohto projektu. Používa pripojené služby vlastníka projektu a existujúce limity kontrol a výsledky ukladá spolu s technickými kontrolami projektu.",
+  "chat.providerChecksEnabled": "Kontroly webu sú pre túto požiadavku povolené.",
+};

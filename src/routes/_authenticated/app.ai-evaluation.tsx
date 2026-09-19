@@ -226,8 +226,16 @@ function AiEvaluationPage() {
       {/* Results */}
       {existing || candidate ? (
         <div className="mt-6 grid lg:grid-cols-2 gap-4">
-          <ResultCard title={status?.defaultModel.label ?? "Existing"} result={existing} t={t} />
-          <ResultCard title={status?.candidateLabel ?? "Candidate"} result={candidate} t={t} />
+          <ResultCard
+            title={status?.defaultModel.label ?? t("aiEval.existingModel")}
+            result={existing}
+            t={t}
+          />
+          <ResultCard
+            title={status?.candidateLabel ?? t("aiEval.candidateModel")}
+            result={candidate}
+            t={t}
+          />
         </div>
       ) : null}
 
@@ -236,8 +244,8 @@ function AiEvaluationPage() {
         <section className="mt-6 rounded-lg border border-border bg-card p-5">
           <h2 className="font-display text-lg">{t("aiEval.ratings")}</h2>
           <div className="mt-3 grid md:grid-cols-2 gap-6">
-            <RatingBlock title={status?.defaultModel.label ?? "Existing"} run={currentRun} side="existing" t={t} />
-            <RatingBlock title={status?.candidateLabel ?? "Candidate"} run={currentRun} side="candidate" t={t} disabled={currentRun.candidateStatus !== "success"} />
+            <RatingBlock title={status?.defaultModel.label ?? t("aiEval.existingModel")} run={currentRun} side="existing" t={t} />
+            <RatingBlock title={status?.candidateLabel ?? t("aiEval.candidateModel")} run={currentRun} side="candidate" t={t} disabled={currentRun.candidateStatus !== "success"} />
           </div>
           <div className="mt-4">
             <label className="text-xs font-medium text-muted-foreground">{t("aiEval.notes")}</label>

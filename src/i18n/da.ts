@@ -142,7 +142,7 @@ export const da: Record<string, string> = {
   "setup.section.marketsGoals": "Markeder og mål",
   "autoSched.title": "Månedlig autoplanlægger",
   "autoSched.hint":
-    "Omkring den 25. planlægger Milo næste måned: artikler udarbejdes til dine valgte ugedage inden for planens månedlige kvote, interne links matches mod dine rigtige sider, og hver artikel forberedes med en godkendt indledende hook.",
+    "Når funktionen er aktiveret, forsøger Milo at forberede næste måneds artikler til dine valgte ugedage inden for den tilgængelige kvote. Interne links kontrolleres mod tilgængelige sidedata. Manglende gyldige indledninger eller andre publiceringskrav kan efterlade kladder til gennemgang.",
   "autoSched.enable": "Udfyld næste måneds kalender automatisk",
   "autoSched.weekdays": "Udgivelsesdage",
   "autoSched.publishTime": "Udgivelsestidspunkt",
@@ -151,7 +151,7 @@ export const da: Record<string, string> = {
   "autoSched.modeAuto": "Udgiv automatisk",
   "autoSched.modeApprove": "Vent på min godkendelse",
   "autoSched.modeHint":
-    "”Vent på min godkendelse” udgiver aldrig noget: udkast venter som færdige artikler, og du aktiverer dem fra kalenderen. ”Udgiv automatisk” planlægger rigtige udgivelser i hvert slot.",
+    "”Vent på min godkendelse” forbereder kladder uden at planlægge publicering. ”Udgiv automatisk” forsøger at planlægge egnede kladder, når kontrollerne er bestået; det garanterer ikke, at alle tidspunkter udfyldes, eller at publiceringen lykkes.",
   "autoSched.summaryEmail": "Opsummeringsmail (valgfrit)",
   "autoSched.day.1": "Man",
   "autoSched.day.2": "Tir",
@@ -168,7 +168,7 @@ export const da: Record<string, string> = {
   "arrange.modePreview": "Forhåndsvisning",
   "arrange.modeArrange": "Arrangér",
   "arrange.hint":
-    "Træk et billedkort til en slipzone for at placere det. Slip gemmer et semantisk anker (aldrig en position), så placeringen overlever redigeringer og udgives præcis som vist.",
+    "Træk et billedkort til en slipzone for at placere billedet i forhold til artikelindholdet. Kontrollér placeringen igen efter ændringer: fjernede eller tvetydige afsnit kan efterlade billeder uden en afklaret placering. Udseendet efter publicering afhænger af destinationswebstedet og verificeres ikke af denne forhåndsvisning.",
   "arrange.featured": "Fremhævet billede",
   "arrange.featuredNone": "intet — angiv i Kilder & forfatter",
   "arrange.hook": "Indledende hook",
@@ -244,7 +244,7 @@ export const da: Record<string, string> = {
   "editor.schedule.blockedCta": "Åbn udgivelsestjeklisten",
   "shell.loadError.title": "Vi kunne ikke indlæse dit workspace",
   "shell.loadError.body":
-    "Dine data er sikre — forbindelsen til Milos backend fejlede. Tjek dit netværk og prøv igen.",
+    "Prøv igen. Hvis du er offline, skal du først oprette forbindelse til internettet. Du kan ikke gemme, før dit workspace er indlæst.",
   "shell.loadError.retry": "Prøv igen",
   "shell.nav.monthlyReport": "Månedsrapport",
   "report.branding.title": "Rapportbranding (Agency)",
@@ -254,18 +254,19 @@ export const da: Record<string, string> = {
   "report.branding.save": "Gem branding",
   "report.branding.saved": "Branding gemt",
   "report.branding.saveFailed": "Kunne ikke gemme branding",
-  "report.footer.agency": "Udarbejdet af {agency}. Udgivet omfatter kun indhold verificeret live på websitet.",
+  "report.footer.agency": "{agency}. Baseret på gemte publiceringsresultater. Rapporten kontrollerer ikke igen, om siderne er live nu.",
   "report.title": "Månedens bevisrapport",
   "report.subtitle": "Hvad Milo leverede denne måned — og hvad der sker nu.",
   "report.noProject": "Vælg et projekt for at se månedsrapporten.",
   "report.downloadPdf": "Download PDF",
   "report.emailMe": "Send rapporten til min e-mail",
-  "report.toast.emailed": "Rapporten er sendt til din e-mail",
+  "report.toast.emailed":
+    "Rapporten er accepteret til afsendelse. Leveringen er endnu ikke bekræftet.",
   "report.toast.emailFailed": "Kunne ikke sende rapporten",
   "report.toast.notConfigured": "E-mail-afsendelse er ikke konfigureret endnu",
-  "report.published.title": "Udgivet & live ({count})",
-  "report.published.note": "Kun indhold verificeret live på dit website tæller — ingen tomme påstande.",
-  "report.published.empty": "Intet gik live denne måned.",
+  "report.published.title": "Registrerede publiceringer ({count})",
+  "report.published.note": "Baseret på gemte publiceringsresultater. Rapporten kontrollerer ikke igen, om siderne er live nu.",
+  "report.published.empty": "Ingen publiceringer registreret for denne måned.",
   "report.stat.drafted": "Skrevne udkast",
   "report.stat.scheduled": "Planlagt",
   "report.stat.linksLive": "Partnerlinks Live ✓",
@@ -276,7 +277,7 @@ export const da: Record<string, string> = {
   "report.gsc.empty": "Forbind Google Search Console under Indstillinger for at inkludere søgedata.",
   "report.plan.title": "Næste måneds plan ({count})",
   "report.plan.empty": "Intet planlagt endnu — åbn Plan for at lægge næste måned.",
-  "report.footer": "Genereret af Milo Growth. Udgivet omfatter kun indhold verificeret live på dit website.",
+  "report.footer": "Milo Growth. Baseret på gemte publiceringsresultater. Rapporten kontrollerer ikke igen, om siderne er live nu.",
   "shell.trust": "EU-tillidscenter",
   "shell.nav.home": "Hjem",
   "shell.nav.plan": "Plan",
@@ -895,7 +896,7 @@ export const da: Record<string, string> = {
   // ---- Shopify connector ----
   "shopify.shopify": "Shopify",
   "shopify.intro":
-    "Forbind en Shopify-butik for at udgive Milo-indhold som blogartikler. Milo sender først artikler til en Shopify-blog som ikke-udgivne kladder og udgiver dem derefter live, når du godkender.",
+    "Forbind en Shopify-butik for at sende Milo-indhold til en blog som upublicerede kladder. Godkendelse og udgivelse er separate trin: en godkendelse udgiver ikke artiklen.",
   "shopify.shopDomain": "Butiksdomæne",
   "shopify.shopDomainHelp": "Dit butiksdomæne, f.eks. minbutik.myshopify.com.",
   "shopify.token": "Admin API-adgangstoken",
@@ -905,7 +906,7 @@ export const da: Record<string, string> = {
   "shopify.security":
     "Dit adgangstoken vises aldrig igen efter lagring og bruges kun på serversiden. Du kan udskifte det når som helst.",
   "shopify.minPerms":
-    "Giv kun indholdstilladelser (læs/skriv blogs og artikler). Milo tilgår aldrig ordrer, kunder, produkter eller betalingsdata.",
+    "Til blogudgivelse skal du give læse- og skriveadgang til blogs og artikler. Valgfri katalogopdatering kræver også læseadgang til produkter. Disse funktioner bruger ikke ordre-, kunde- eller betalingsdata.",
   "shopify.test": "Test forbindelse",
   "shopify.testing": "Tester…",
   "shopify.testOk": "Forbundet til Shopify.",
@@ -1125,7 +1126,7 @@ export const da: Record<string, string> = {
   "launch.item.connectorConfigured.desc":
     "Legitimationsoplysninger eller slutpunkter er klar til udgivelse.",
   "launch.item.connectorTested": "Forbindelse testet (WordPress/Shopify)",
-  "launch.item.connectorTested.desc": "Kør Test forbindelse, så udgivelse ikke fejler senere.",
+  "launch.item.connectorTested.desc": "Kør Test forbindelse for at kontrollere adgangen. En vellykket test verificerer ikke publiceringstilladelser og garanterer ikke en senere publicering.",
   "launch.item.draftSent": "Mindst ét udkast sendt",
   "launch.item.draftSent.desc": "Send godkendt indhold til webstedet som et udkast.",
   "launch.item.publishedLive": "Mindst én side udgivet live",
@@ -1572,12 +1573,13 @@ export const da: Record<string, string> = {
   "editor.schedule.arming": "Planlægger…",
   "editor.schedule.cancel": "Annullér udgivelsen",
   "editor.schedule.cancelled": "Udgivelsen blev annulleret. Udkastet er urørt.",
-  "editor.schedule.armed": "Planlagt. Den udgives {when}.",
+  "editor.schedule.armed":
+    "Tidsplanen er gemt til {when}. Udgivelsen afhænger stadig af kontroller og målwebstedets tilgængelighed.",
   "editor.schedule.inFlight":
     "Den er ved at blive udgivet nu og kan ikke længere stoppes — du kan fjerne den fra dit websted.",
   "editor.schedule.needsApproval": "Markér artiklen som klar, før du planlægger den.",
   "editor.schedule.overdue":
-    "Den skulle være udgivet {when}, men blev det ikke. Tjek dine forbindelsesindstillinger, og planlæg igen.",
+    "Det gemte tidspunkt {when} er overskredet. Udgivelsen er ikke bekræftet. Kontrollér målwebstedet og den aktuelle tidsplan, før du planlægger eller udgiver igen.",
   "editor.schedule.hint":
     "Godkendelse udgiver aldrig. Intet går live, før du planlægger det eller udgiver det nu.",
 

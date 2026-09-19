@@ -143,7 +143,7 @@ export const pl: Record<string, string> = {
   "setup.section.marketsGoals": "Rynki i cele",
   "autoSched.title": "Miesięczny auto-planer",
   "autoSched.hint":
-    "Około 25. dnia miesiąca Milo planuje kolejny miesiąc: tworzy artykuły na wybrane dni tygodnia w ramach miesięcznego limitu planu, rozwiązuje linki wewnętrzne względem prawdziwych stron i przygotowuje każdy z zatwierdzonym hookiem otwierającym.",
+    "Po włączeniu Milo próbuje przygotować artykuły na kolejny miesiąc na wybrane dni tygodnia, w ramach dostępnej puli. Linki wewnętrzne są sprawdzane względem dostępnych danych stron. Brak prawidłowego wstępu lub spełnienia innych wymagań publikacji może pozostawić szkice do przeglądu.",
   "autoSched.enable": "Automatycznie wypełniaj kalendarz na kolejny miesiąc",
   "autoSched.weekdays": "Dni publikacji",
   "autoSched.publishTime": "Godzina publikacji",
@@ -152,7 +152,7 @@ export const pl: Record<string, string> = {
   "autoSched.modeAuto": "Publikuj automatycznie",
   "autoSched.modeApprove": "Czekaj na moją akceptację",
   "autoSched.modeHint":
-    "„Czekaj na moją akceptację” nigdy niczego nie publikuje: szkice czekają jako gotowe artykuły, a Ty uzbrajasz je z kalendarza. „Publikuj automatycznie” planuje prawdziwe publikacje w każdym slocie.",
+    "„Czekaj na moją akceptację” przygotowuje szkice bez planowania publikacji. „Publikuj automatycznie” próbuje zaplanować kwalifikujące się szkice po przejściu kontroli; nie gwarantuje obsadzenia każdego terminu ani udanej publikacji.",
   "autoSched.summaryEmail": "E-mail z podsumowaniem (opcjonalnie)",
   "autoSched.day.1": "Pon",
   "autoSched.day.2": "Wt",
@@ -169,7 +169,7 @@ export const pl: Record<string, string> = {
   "arrange.modePreview": "Podgląd",
   "arrange.modeArrange": "Układ",
   "arrange.hint":
-    "Przeciągnij kartę obrazu na strefę upuszczania, aby go umieścić. Upuszczenie zapisuje semantyczną kotwicę (nigdy pozycję), więc rozmieszczenie przetrwa edycje i publikuje się dokładnie tak, jak widać.",
+    "Przeciągnij kartę obrazu na obszar upuszczania, aby umieścić go względem treści artykułu. Po zmianach ponownie sprawdź położenie: usunięte lub niejednoznaczne sekcje mogą uniemożliwić ustalenie miejsca obrazu. Wygląd po publikacji zależy od witryny docelowej i nie jest weryfikowany przez ten podgląd.",
   "arrange.featured": "Obraz wyróżniający",
   "arrange.featuredNone": "brak — ustaw w Źródła i autor",
   "arrange.hook": "Hook otwierający",
@@ -244,7 +244,7 @@ export const pl: Record<string, string> = {
   "editor.schedule.blockedCta": "Otwórz checklistę publikacji",
   "shell.loadError.title": "Nie udało się wczytać Twojego workspace'u",
   "shell.loadError.body":
-    "Twoje dane są bezpieczne — połączenie z backendem Milo nie powiodło się. Sprawdź sieć i spróbuj ponownie.",
+    "Spróbuj ponownie. Jeśli nie masz połączenia z internetem, najpierw je przywróć. Zapisywanie jest wyłączone do czasu wczytania workspace’u.",
   "shell.loadError.retry": "Spróbuj ponownie",
   "shell.nav.monthlyReport": "Raport miesięczny",
   "report.branding.title": "Branding raportu (Agency)",
@@ -254,18 +254,19 @@ export const pl: Record<string, string> = {
   "report.branding.save": "Zapisz branding",
   "report.branding.saved": "Branding zapisany",
   "report.branding.saveFailed": "Nie udało się zapisać brandingu",
-  "report.footer.agency": "Przygotowane przez {agency}. Publikacje obejmują wyłącznie treści zweryfikowane jako live na stronie.",
+  "report.footer.agency": "{agency}. Na podstawie zapisanych wyników publikacji. Raport nie sprawdza ponownie, czy strony są obecnie dostępne online.",
   "report.title": "Miesięczny raport dowodów",
   "report.subtitle": "Co Milo dostarczyło w tym miesiącu — i co dalej.",
   "report.noProject": "Wybierz projekt, aby zobaczyć raport miesięczny.",
   "report.downloadPdf": "Pobierz PDF",
   "report.emailMe": "Wyślij raport na mój e-mail",
-  "report.toast.emailed": "Raport wysłany na Twój e-mail",
+  "report.toast.emailed":
+    "Raport przyjęty do wysyłki. Dostarczenie nie zostało jeszcze potwierdzone.",
   "report.toast.emailFailed": "Nie udało się wysłać raportu",
   "report.toast.notConfigured": "Wysyłka e-maili nie jest jeszcze skonfigurowana",
-  "report.published.title": "Opublikowane i live ({count})",
-  "report.published.note": "Liczą się tylko treści zweryfikowane jako live na Twojej stronie — bez pustych deklaracji.",
-  "report.published.empty": "W tym miesiącu nic nie poszło live.",
+  "report.published.title": "Zarejestrowane publikacje ({count})",
+  "report.published.note": "Na podstawie zapisanych wyników publikacji. Raport nie sprawdza ponownie, czy strony są obecnie dostępne online.",
+  "report.published.empty": "Brak zarejestrowanych publikacji w tym miesiącu.",
   "report.stat.drafted": "Napisane szkice",
   "report.stat.scheduled": "Zaplanowane",
   "report.stat.linksLive": "Linki partnerskie Live ✓",
@@ -276,7 +277,7 @@ export const pl: Record<string, string> = {
   "report.gsc.empty": "Połącz Google Search Console w Ustawieniach, aby dodać dane z wyszukiwarki.",
   "report.plan.title": "Plan na kolejny miesiąc ({count})",
   "report.plan.empty": "Nic jeszcze nie zaplanowano — otwórz Plan, aby ułożyć kolejny miesiąc.",
-  "report.footer": "Wygenerowane przez Milo Growth. Publikacje obejmują wyłącznie treści zweryfikowane jako live na Twojej stronie.",
+  "report.footer": "Milo Growth. Na podstawie zapisanych wyników publikacji. Raport nie sprawdza ponownie, czy strony są obecnie dostępne online.",
   "shell.trust": "Centrum zaufania UE",
   "shell.nav.home": "Start",
   "shell.nav.plan": "Plan",
@@ -893,7 +894,7 @@ export const pl: Record<string, string> = {
   // ---- Shopify connector ----
   "shopify.shopify": "Shopify",
   "shopify.intro":
-    "Połącz sklep Shopify, aby publikować treści Milo jako artykuły na blogu. Milo najpierw wysyła artykuły na blog Shopify jako nieopublikowane wersje robocze, a po Twojej akceptacji publikuje je na żywo.",
+    "Połącz sklep Shopify, aby wysyłać treści Milo na blog jako nieopublikowane wersje robocze. Zatwierdzenie i publikacja to osobne kroki: samo zatwierdzenie nie publikuje artykułu.",
   "shopify.shopDomain": "Domena sklepu",
   "shopify.shopDomainHelp": "Domena Twojego sklepu, np. mojsklep.myshopify.com.",
   "shopify.token": "Token dostępu Admin API",
@@ -903,7 +904,7 @@ export const pl: Record<string, string> = {
   "shopify.security":
     "Twój token dostępu nigdy nie jest ponownie pokazywany po zapisaniu i jest używany wyłącznie po stronie serwera. Możesz go wymienić w dowolnym momencie.",
   "shopify.minPerms":
-    "Nadaj tylko uprawnienia do treści (odczyt/zapis blogów i artykułów). Milo nigdy nie ma dostępu do zamówień, klientów, produktów ani danych płatności.",
+    "Do publikacji na blogu nadaj uprawnienia odczytu i zapisu blogów oraz artykułów. Opcjonalne odświeżanie katalogu wymaga też uprawnień do odczytu produktów. Te funkcje nie korzystają z danych zamówień, klientów ani płatności.",
   "shopify.test": "Testuj połączenie",
   "shopify.testing": "Testowanie…",
   "shopify.testOk": "Połączono z Shopify.",
@@ -1125,7 +1126,7 @@ export const pl: Record<string, string> = {
     "Dane logowania lub punkty końcowe są gotowe do publikacji.",
   "launch.item.connectorTested": "Połączenie przetestowane (WordPress/Shopify)",
   "launch.item.connectorTested.desc":
-    "Uruchom test połączenia, aby publikacja nie zawiodła później.",
+    "Uruchom test połączenia, aby sprawdzić dostęp. Udany test nie weryfikuje uprawnień do publikowania ani nie gwarantuje późniejszej publikacji.",
   "launch.item.draftSent": "Co najmniej jeden szkic wysłany",
   "launch.item.draftSent.desc": "Wyślij zatwierdzoną treść na stronę jako szkic.",
   "launch.item.publishedLive": "Co najmniej jedna strona opublikowana na żywo",
@@ -1578,12 +1579,13 @@ export const pl: Record<string, string> = {
   "editor.schedule.arming": "Planuję…",
   "editor.schedule.cancel": "Anuluj publikację",
   "editor.schedule.cancelled": "Publikacja anulowana. Wersja robocza została nietknięta.",
-  "editor.schedule.armed": "Zaplanowane. Wyjdzie {when}.",
+  "editor.schedule.armed":
+    "Zapisano termin {when}. Publikacja nadal zależy od kontroli i dostępności witryny docelowej.",
   "editor.schedule.inFlight":
     "Ten artykuł właśnie jest publikowany i nie da się go już zatrzymać — możesz go zdjąć ze swojej strony.",
   "editor.schedule.needsApproval": "Oznacz artykuł jako gotowy, zanim zaplanujesz publikację.",
   "editor.schedule.overdue":
-    "To miało wyjść {when} i nie wyszło. Sprawdź ustawienia połączenia i zaplanuj ponownie.",
+    "Zapisany termin {when} minął. Publikacja nie jest potwierdzona. Sprawdź witrynę docelową i aktualny stan harmonogramu przed ponownym zaplanowaniem lub publikacją.",
   "editor.schedule.hint":
     "Zatwierdzenie nigdy nie publikuje. Nic nie wyjdzie na żywo, dopóki tego nie zaplanujesz albo nie opublikujesz teraz.",
 

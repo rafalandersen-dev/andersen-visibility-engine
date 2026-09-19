@@ -20,6 +20,8 @@ export async function hasCurrentOutputKnowledgeReview(
   return history.some(
     (row) =>
       row.active &&
+      row.withdrawnAt === null &&
+      Date.parse(row.reviewedAt) <= Date.parse(now) &&
       row.versionHash === snapshot.version.hash &&
       row.contextHash === snapshot.contextHash,
   );

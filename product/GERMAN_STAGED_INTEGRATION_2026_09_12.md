@@ -1,0 +1,11 @@
+# German staged authoring integration — 12 September 2026
+
+Accepted950fa0b from codex/milo-german-authoring-20260912 after verifying that its delta from5a3f1a7 is German staged files plus its delivery record only. Normally merged as9a17cb2, preserving published history and both complete language deliveries.3,768messages/28groups, current-source fingerprints and full coverage asserted. Source notes in GERMAN_AUTHORING_PROGRESS_2026_09_12.md preserve author validation and limits.
+
+Combined integration:105tests in German/Spanish/French/catalog suites; full TypeScript and production build; zero German staged lint. Logs /tmp/milo-german-integration-{tests,types,lint,build}.log. Both German and Spanish remain unregistered/disabled; independent linguistic and rendered-interface acceptance, plus source-claim review, remain outstanding. No real language-user or full R20 acceptance claimed.
+
+German owner01a09499-9473-7752-b455-c05a92a602b7 received explicit acceptance and stop-edits/polling instruction. Spanish owner already accepted. Neither owns further source work unless explicitly reassigned. Main task01a094e4-edcb-7ca0-9341-64d08bcadbfc remains the only full-goal implementation owner. No new successor.
+
+Next in-progress inspection: authentication signup/recovery email templates remain English. Existing email language registry has24languages and is explicitly separate from app/content language and market. Current unauthenticated signup/recovery schemas have no email-language parameter; auth page has an interface-language selector. Implement explicit email-language choice with safe default and backward-compatible schema, localized rendered subject/body/plaintext, preserving sender/recipient/redirect/security and no account-preference lookup or mutation. Do not silently repurpose an interface selector or enable staged UI languages to localize emails. No source edits for this email feature have been made yet. Confirmation resend remains a distinct unfinished delivery-path/acceptance dependency recorded in AUTH_RECOVERY_GUARDS_2026_09_12.md.
+
+Overall60%/implementation75%, weighted58.25%/73.5%, paid NO-GO unchanged. PR135security quota HOLD and all prior review/provider/account/payment boundaries persist. No held merge to main, PR, migration, deploy, provider call, real account/email or reset.

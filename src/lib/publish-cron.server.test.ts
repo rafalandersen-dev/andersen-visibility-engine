@@ -179,3 +179,166 @@ it("backs off repeated preflight failures without changing the requested publica
   expect(Date.parse(patch.retry_after) - before).toBeGreaterThanOrEqual(32 * 60000);
   expect(patch).not.toHaveProperty("publish_at");
 });
+
+it.each(["returned error", "rejection"])(
+  "does not reinterpret a published result after queue %s",
+  async (failure) => {
+    mocked.publish.mockResolvedValue({
+      publishedAt: "2026-09-12T12:00:00Z",
+      platform: "wordpress",
+    });
+    if (failure === "returned error")
+      mocked.eq.mockResolvedValue({ error: { message: "unavailable" } });
+    else mocked.eq.mockRejectedValue(new Error("unavailable"));
+    expect(await runScheduledPublishes()).toMatchObject({
+      claimed: 1,
+      published: 0,
+      failed: 0,
+      retrying: 0,
+      recordingFailed: 1,
+    });
+    expect(mocked.publish).toHaveBeenCalledOnce();
+    expect(mocked.failure).not.toHaveBeenCalled();
+    expect(mocked.update).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ status: "published" }),
+    );
+    expect(mocked.rpc).toHaveBeenLastCalledWith(
+      "record_cron_heartbeat",
+      expect.objectContaining({ summary: expect.objectContaining({ recordingFailed: 1 }) }),
+    );
+  },
+);
+
+it.each(["source hold", "preflight retry"])(
+  "reports an unrecorded %s without claiming a saved queue outcome",
+  async (outcome) => {
+    mocked.publish.mockRejectedValue(
+      outcome === "source hold"
+        ? Object.assign(new Error("Source facts need review"), { sourceHold: true })
+        : new PublishPreflightCapacityError(),
+    );
+    mocked.eq.mockRejectedValue(new Error("unavailable"));
+    expect(await runScheduledPublishes()).toMatchObject({
+      published: 0,
+      failed: 0,
+      retrying: 0,
+      recordingFailed: 1,
+    });
+    expect(mocked.failure).toHaveBeenCalledOnce();
+    expect(mocked.update).toHaveBeenCalledOnce();
+    expect(mocked.rpc.mock.calls.at(-1)?.[0]).toBe("record_cron_heartbeat");
+  },
+);
+
+it.each(["late success", "late rejection"])(
+  "bounds a stalled queue write while preserving healthy rows and %s",
+  async (outcome) => {
+    vi.useFakeTimers();
+    let resolve!: (value: { error: null }) => void;
+    let reject!: (error: Error) => void;
+    mocked.rpc.mockImplementation(async (name) => ({
+      data:
+        name === "claim_scheduled_publishes"
+          ? [
+              { id: "slow", user_id: "owner", project_id: "p", asset_id: "a", attempts: 1 },
+              { id: "ready", user_id: "other", project_id: "p", asset_id: "b", attempts: 1 },
+            ]
+          : [],
+      error: null,
+    }));
+    mocked.publish.mockResolvedValue({
+      publishedAt: "2026-09-12T12:00:00Z",
+      platform: "wordpress",
+    });
+    mocked.eq.mockImplementation((_column, id) =>
+      id === "slow"
+        ? new Promise((yes, no) => {
+            resolve = yes;
+            reject = no;
+          })
+        : Promise.resolve({ error: null }),
+    );
+    try {
+      const run = runScheduledPublishes();
+      await vi.advanceTimersByTimeAsync(9_999);
+      expect(mocked.publish).toHaveBeenCalledTimes(2);
+      expect(mocked.update).toHaveBeenCalledTimes(2);
+      expect(mocked.rpc.mock.calls.some(([name]) => name === "record_cron_heartbeat")).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      const summary = await run;
+      expect(summary).toMatchObject({
+        claimed: 2,
+        published: 1,
+        recordingFailed: 1,
+        retrying: 0,
+        failed: 0,
+      });
+      expect(mocked.rpc.mock.calls.at(-1)?.[0]).toBe("record_cron_heartbeat");
+      if (outcome === "late success") resolve({ error: null });
+      else reject(new Error("late failure"));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(summary).toMatchObject({ published: 1, recordingFailed: 1 });
+      expect(mocked.failure).not.toHaveBeenCalled();
+      expect(mocked.publish).toHaveBeenCalledTimes(2);
+      expect(mocked.update).toHaveBeenCalledTimes(2);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  },
+);
+
+it.each(["acknowledged", "returned error", "rejected", "missing response"])(
+  "reports %s heartbeat without changing publication outcome",
+  async (outcome) => {
+    mocked.publish.mockResolvedValue({
+      publishedAt: "2026-09-12T12:00:00Z",
+      platform: "wordpress",
+    });
+    const original = mocked.rpc.getMockImplementation()!;
+    mocked.rpc.mockImplementation(async (name, ...args) => {
+      if (name !== "record_cron_heartbeat") return original(name, ...args);
+      if (outcome === "rejected") throw new Error("unavailable");
+      if (outcome === "missing response") return undefined;
+      return {
+        data: null,
+        error: outcome === "returned error" ? { message: "unavailable" } : null,
+      };
+    });
+    expect(await runScheduledPublishes()).toMatchObject({
+      published: 1,
+      recordingFailed: 0,
+      heartbeatRecorded: outcome === "acknowledged",
+    });
+    expect(mocked.publish).toHaveBeenCalledOnce();
+    expect(mocked.update).toHaveBeenCalledOnce();
+    expect(mocked.failure).not.toHaveBeenCalled();
+  },
+);
+
+it("returns completed batch results when heartbeat acknowledgement stalls", async () => {
+  vi.useFakeTimers();
+  let finish!: (value: { data: null; error: null }) => void;
+  const original = mocked.rpc.getMockImplementation()!;
+  mocked.rpc.mockImplementation((name, ...args) =>
+    name === "record_cron_heartbeat"
+      ? new Promise((resolve) => {
+          finish = resolve;
+        })
+      : original(name, ...args),
+  );
+  mocked.publish.mockResolvedValue({ publishedAt: "2026-09-12T12:00:00Z", platform: "wordpress" });
+  try {
+    const pending = runScheduledPublishes();
+    await vi.advanceTimersByTimeAsync(10_000);
+    const result = await pending;
+    expect(result).toMatchObject({ published: 1, heartbeatRecorded: false });
+    finish({ data: null, error: null });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(result.heartbeatRecorded).toBe(false);
+    expect(mocked.publish).toHaveBeenCalledOnce();
+    expect(vi.getTimerCount()).toBe(0);
+  } finally {
+    vi.useRealTimers();
+  }
+});

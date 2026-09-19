@@ -1,0 +1,51 @@
+/** Maltese authoring only; not registered in the runtime or language picker.
+ * Register follows the existing Maltese operational emails (singular imperative, "tiegħek"). */
+export const mtAuthScreen: Readonly<Record<string, string>> = {
+  "authScreen.tagline": "Pjanifikatur ta’ tkabbir mensili bl-IA",
+  "authScreen.hero":
+    "Il-pjanifikatur ta’ tkabbir mensili tiegħek bl-IA — ideat għall-viżibbiltà, kompiti tal-kontenut u pjan ta’ azzjoni ċar.",
+  "authScreen.workspaceHelp":
+    "Idħol fl-ispazju tax-xogħol tiegħek jew oħloq kont biex tibda proġett.",
+  "authScreen.builtBy": "Żviluppat minn Andersen Innovations",
+  "authScreen.home": "Lura għall-paġna ewlenija",
+  "authScreen.createHeading": "Oħloq il-kont tiegħek",
+  "authScreen.resetHeading": "Irrisettja l-password tiegħek",
+  "authScreen.signIn": "Idħol",
+  "authScreen.signupHelp": "Ibda b’{plan} u oħloq proġett.",
+  "authScreen.resetHelp":
+    "Daħħal l-indirizz tal-email tiegħek biex titlob link għar-risettjar tal-password.",
+  "authScreen.signInHelp": "Merħba lura fl-ispazju tax-xogħol tiegħek.",
+  "authScreen.displayName": "Isem li jintwera",
+  "authScreen.email": "Indirizz tal-email",
+  "authScreen.password": "Password",
+  "authScreen.passwordHint": "Mill-inqas 8 karattri",
+  "authScreen.wait": "Stenna ftit…",
+  "authScreen.create": "Oħloq kont",
+  "authScreen.sendReset": "Ibgħat il-link għar-risettjar",
+  "authScreen.or": "jew",
+  "authScreen.continueProvider": "Kompli b’{provider}",
+  "authScreen.createInstead": "Oħloq kont",
+  "authScreen.forgot": "Insejt il-password?",
+  "authScreen.backSignIn": "Lura għad-dħul",
+  "authScreen.signupSent":
+    "Iċċekkja l-inbox tiegħek u kkonferma l-indirizz tal-email tiegħek qabel ma tidħol.",
+  "authScreen.welcome": "Merħba lura.",
+  "authScreen.resetRequested":
+    "Jekk il-kont ikollu l-irkupru tal-password disponibbli, iċċekkja l-inbox tiegħek għal link għar-risettjar.",
+  "authScreen.error": "Seħħ żball.",
+  "authScreen.providerUnavailable": "Id-dħul b’{provider} bħalissa mhuwiex disponibbli.",
+  "authScreen.newHeading": "Issettja password ġdida",
+  "authScreen.checking": "Qed tiġi vverifikata l-link għar-risettjar…",
+  "authScreen.invalid": "Din il-link għar-risettjar mhijiex valida jew skadiet. Itlob waħda ġdida.",
+  "authScreen.requestNew": "Itlob link ġdida għar-risettjar",
+  "authScreen.newHelp": "Agħżel password ġdida għall-kont tiegħek.",
+  "authScreen.newPassword": "Password ġdida",
+  "authScreen.confirmPassword": "Ikkonferma l-password",
+  "authScreen.repeatPassword": "Irrepeti l-password il-ġdida",
+  "authScreen.updating": "Qed jiġi aġġornat…",
+  "authScreen.updatePassword": "Aġġorna l-password",
+  "authScreen.passwordShort": "Il-password trid ikollha mill-inqas 8 karattri.",
+  "authScreen.passwordMismatch": "Il-passwords ma jaqblux.",
+  "authScreen.passwordUpdated": "Il-password ġiet aġġornata. Dħalt fil-kont.",
+  "authScreen.passwordFailed": "Il-password ma setgħetx tiġi aġġornata.",
+};

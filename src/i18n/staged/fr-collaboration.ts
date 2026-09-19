@@ -128,7 +128,7 @@ export const frCollaboration: Readonly<Record<string, string>> = {
     "Impossible de marquer cette notification comme lue. Veuillez réessayer.",
   "emailSettings.language": "Langue des e-mails",
   "emailSettings.note":
-    "Choisissez la langue de vos récapitulatifs opérationnels et des invitations de projet dont vous demandez l’envoi. Cela ne modifie pas les paramètres de l’application, des articles ou du marché. Enregistrer la langue n’active ni n’envoie aucun e-mail.",
+    "Choisissez la langue de vos récapitulatifs opérationnels, des rapports mensuels et des invitations de projet dont vous demandez l’envoi. Cela ne modifie pas les paramètres de l’application, des articles ou du marché. Enregistrer la langue n’active ni n’envoie aucun e-mail.",
   "emailSettings.save": "Enregistrer la langue des e-mails",
   "emailSettings.saved": "Paramètres d’e-mail enregistrés.",
   "emailSettings.uncertain":
@@ -322,4 +322,8 @@ export const frCollaboration: Readonly<Record<string, string>> = {
   "collaboration.expired": "Expirée",
   "collaboration.accepted": "Acceptée",
   "collaboration.revoked": "Révoquée",
+  "collaboration.seats":
+    "Votre forfait {plan} inclut {workingSeats} sièges de travail (éditeurs et relecteurs, vous compris) et {viewerSeats} sièges de lecture. Utilisés : {usedWorkingSeats} de travail, {usedViewerSeats} de lecture. Les invitations en attente réservent des sièges jusqu’à leur expiration.",
+  "collaboration.seatLimit":
+    "Aucun siège n’est libre pour ce rôle. Votre forfait inclut {workingSeats} sièges de travail et {viewerSeats} sièges de lecture. Retirez ou révoquez quelqu’un, ou passez à un forfait supérieur.",
 };

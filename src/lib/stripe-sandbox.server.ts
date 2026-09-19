@@ -1,6 +1,7 @@
 /** Isolated Stripe test-mode acceptance. Never grants production entitlements. */
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
+import { manualRedirectFetch } from "./provider-fetch.server";
 
 export const STRIPE_SANDBOX_API_VERSION = "2024-06-20";
 export const STRIPE_SANDBOX_BODY_LIMIT = 262_144;
@@ -82,18 +83,20 @@ export async function createStripeSandboxCheckout(
     cancel_url: "https://milogrowth.com/app/billing?stripe_test=cancelled",
   });
   try {
-    const response = await (deps.fetch ?? fetch)("https://api.stripe.com/v1/checkout/sessions", {
-      method: "POST",
-      redirect: "error",
-      signal: AbortSignal.timeout(15_000),
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Stripe-Version": STRIPE_SANDBOX_API_VERSION,
-        "Idempotency-Key": `milo-sandbox:${userId}:${requestId}`,
+    const response = await manualRedirectFetch(deps.fetch ?? fetch)(
+      "https://api.stripe.com/v1/checkout/sessions",
+      {
+        method: "POST",
+        signal: AbortSignal.timeout(15_000),
+        headers: {
+          Authorization: `Bearer ${config.apiKey}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Stripe-Version": STRIPE_SANDBOX_API_VERSION,
+          "Idempotency-Key": `milo-sandbox:${userId}:${requestId}`,
+        },
+        body: form,
       },
-      body: form,
-    });
+    );
     if (!response.ok) throw new StripeSandboxError("provider_unavailable");
     const data = JSON.parse(await boundedText(response));
     if (

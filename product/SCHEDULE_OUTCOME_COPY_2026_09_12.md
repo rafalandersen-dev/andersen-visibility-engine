@@ -1,0 +1,9 @@
+# Scheduling outcome wording — 12 September 2026
+
+Reviewed candidate source f132eb7. The editor derives scheduleOverdue from its saved workspace mirror: status pending, a saved publication timestamp and more than fifteen minutes elapsed. It does not independently inspect the destination. The previous warning asserted publication did not happen and advised rescheduling; that was stronger than this evidence supports and could encourage duplicate publication. An adjacent code comment incorrectly described pending state as proof that nothing fired.
+
+The overdue warning now reports the saved schedule as overdue, says publication is unconfirmed and directs the user to check the destination and current schedule status before scheduling or publishing again. The successful scheduling toast reports a saved schedule with checks and destination availability still required, rather than promising that publication will happen at that time. Updated English, Polish, Swedish, Danish and staged French, German, Spanish, Italian and Portuguese. The inaccurate comment is corrected. No scheduler behavior or permissions changed.
+
+Reviewed source fingerprints were updated for these two keys in the staged catalogs that track them. An initial check found the separately stored German fingerprint still old; after its reviewed update, all 177 catalog tests across seven files pass. Full TypeScript passes (/tmp/milo-schedule-copy-types.log). Scoped lint passed; unrelated whole-file formatting was removed before final diff review, and whitespace checks pass. No production build repeated for this copy/comment change.
+
+This is a targeted wording correction, not live scheduler or destination acceptance. Other scheduling/calendar labels and broader source claims still require review. Release holds remain; no generation, rescheduling, publication or deployment occurred.

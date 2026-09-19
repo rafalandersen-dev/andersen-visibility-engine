@@ -50,8 +50,10 @@ import { Route as ApiOauthRevokeRouteImport } from './routes/api.oauth.revoke'
 import { Route as ApiOauthRegisterRouteImport } from './routes/api.oauth.register'
 import { Route as ApiOauthAuthorizeRouteImport } from './routes/api.oauth.authorize'
 import { Route as ApiNotificationsSweepRouteImport } from './routes/api.notifications.sweep'
+import { Route as ApiMiloRunRouteImport } from './routes/api.milo.run'
 import { Route as ApiAutoSchedulerRunRouteImport } from './routes/api.auto-scheduler.run'
 import { Route as ApiAnalyticsTrackRouteImport } from './routes/api.analytics.track'
+import { Route as AuthenticatedAppTodayRouteImport } from './routes/_authenticated/app.today'
 import { Route as AuthenticatedAppSpecialistsRouteImport } from './routes/_authenticated/app.specialists'
 import { Route as AuthenticatedAppSetupRouteImport } from './routes/_authenticated/app.setup'
 import { Route as AuthenticatedAppServicesRouteImport } from './routes/_authenticated/app.services'
@@ -66,6 +68,7 @@ import { Route as AuthenticatedAppLinkMarketplaceRouteImport } from './routes/_a
 import { Route as AuthenticatedAppLaunchChecklistRouteImport } from './routes/_authenticated/app.launch-checklist'
 import { Route as AuthenticatedAppGenerationsRouteImport } from './routes/_authenticated/app.generations'
 import { Route as AuthenticatedAppEditorRouteImport } from './routes/_authenticated/app.editor'
+import { Route as AuthenticatedAppConversationsRouteImport } from './routes/_authenticated/app.conversations'
 import { Route as AuthenticatedAppConnectRouteImport } from './routes/_authenticated/app.connect'
 import { Route as AuthenticatedAppCompetitorsRouteImport } from './routes/_authenticated/app.competitors'
 import { Route as AuthenticatedAppCollaboratorsRouteImport } from './routes/_authenticated/app.collaborators'
@@ -296,6 +299,11 @@ const ApiNotificationsSweepRoute = ApiNotificationsSweepRouteImport.update({
   path: '/api/notifications/sweep',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMiloRunRoute = ApiMiloRunRouteImport.update({
+  id: '/api/milo/run',
+  path: '/api/milo/run',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAutoSchedulerRunRoute = ApiAutoSchedulerRunRouteImport.update({
   id: '/api/auto-scheduler/run',
   path: '/api/auto-scheduler/run',
@@ -305,6 +313,11 @@ const ApiAnalyticsTrackRoute = ApiAnalyticsTrackRouteImport.update({
   id: '/api/analytics/track',
   path: '/api/analytics/track',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedAppTodayRoute = AuthenticatedAppTodayRouteImport.update({
+  id: '/app/today',
+  path: '/app/today',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedAppSpecialistsRoute =
   AuthenticatedAppSpecialistsRouteImport.update({
@@ -386,6 +399,12 @@ const AuthenticatedAppEditorRoute = AuthenticatedAppEditorRouteImport.update({
   path: '/app/editor',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAppConversationsRoute =
+  AuthenticatedAppConversationsRouteImport.update({
+    id: '/app/conversations',
+    path: '/app/conversations',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAppConnectRoute = AuthenticatedAppConnectRouteImport.update({
   id: '/app/connect',
   path: '/app/connect',
@@ -565,6 +584,7 @@ export interface FileRoutesByFullPath {
   '/app/collaborators': typeof AuthenticatedAppCollaboratorsRoute
   '/app/competitors': typeof AuthenticatedAppCompetitorsRoute
   '/app/connect': typeof AuthenticatedAppConnectRoute
+  '/app/conversations': typeof AuthenticatedAppConversationsRoute
   '/app/editor': typeof AuthenticatedAppEditorRoute
   '/app/generations': typeof AuthenticatedAppGenerationsRoute
   '/app/launch-checklist': typeof AuthenticatedAppLaunchChecklistRoute
@@ -579,8 +599,10 @@ export interface FileRoutesByFullPath {
   '/app/services': typeof AuthenticatedAppServicesRoute
   '/app/setup': typeof AuthenticatedAppSetupRoute
   '/app/specialists': typeof AuthenticatedAppSpecialistsRoute
+  '/app/today': typeof AuthenticatedAppTodayRoute
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
   '/api/auto-scheduler/run': typeof ApiAutoSchedulerRunRoute
+  '/api/milo/run': typeof ApiMiloRunRoute
   '/api/notifications/sweep': typeof ApiNotificationsSweepRoute
   '/api/oauth/authorize': typeof ApiOauthAuthorizeRoute
   '/api/oauth/register': typeof ApiOauthRegisterRoute
@@ -646,6 +668,7 @@ export interface FileRoutesByTo {
   '/app/collaborators': typeof AuthenticatedAppCollaboratorsRoute
   '/app/competitors': typeof AuthenticatedAppCompetitorsRoute
   '/app/connect': typeof AuthenticatedAppConnectRoute
+  '/app/conversations': typeof AuthenticatedAppConversationsRoute
   '/app/editor': typeof AuthenticatedAppEditorRoute
   '/app/generations': typeof AuthenticatedAppGenerationsRoute
   '/app/launch-checklist': typeof AuthenticatedAppLaunchChecklistRoute
@@ -660,8 +683,10 @@ export interface FileRoutesByTo {
   '/app/services': typeof AuthenticatedAppServicesRoute
   '/app/setup': typeof AuthenticatedAppSetupRoute
   '/app/specialists': typeof AuthenticatedAppSpecialistsRoute
+  '/app/today': typeof AuthenticatedAppTodayRoute
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
   '/api/auto-scheduler/run': typeof ApiAutoSchedulerRunRoute
+  '/api/milo/run': typeof ApiMiloRunRoute
   '/api/notifications/sweep': typeof ApiNotificationsSweepRoute
   '/api/oauth/authorize': typeof ApiOauthAuthorizeRoute
   '/api/oauth/register': typeof ApiOauthRegisterRoute
@@ -729,6 +754,7 @@ export interface FileRoutesById {
   '/_authenticated/app/collaborators': typeof AuthenticatedAppCollaboratorsRoute
   '/_authenticated/app/competitors': typeof AuthenticatedAppCompetitorsRoute
   '/_authenticated/app/connect': typeof AuthenticatedAppConnectRoute
+  '/_authenticated/app/conversations': typeof AuthenticatedAppConversationsRoute
   '/_authenticated/app/editor': typeof AuthenticatedAppEditorRoute
   '/_authenticated/app/generations': typeof AuthenticatedAppGenerationsRoute
   '/_authenticated/app/launch-checklist': typeof AuthenticatedAppLaunchChecklistRoute
@@ -743,8 +769,10 @@ export interface FileRoutesById {
   '/_authenticated/app/services': typeof AuthenticatedAppServicesRoute
   '/_authenticated/app/setup': typeof AuthenticatedAppSetupRoute
   '/_authenticated/app/specialists': typeof AuthenticatedAppSpecialistsRoute
+  '/_authenticated/app/today': typeof AuthenticatedAppTodayRoute
   '/api/analytics/track': typeof ApiAnalyticsTrackRoute
   '/api/auto-scheduler/run': typeof ApiAutoSchedulerRunRoute
+  '/api/milo/run': typeof ApiMiloRunRoute
   '/api/notifications/sweep': typeof ApiNotificationsSweepRoute
   '/api/oauth/authorize': typeof ApiOauthAuthorizeRoute
   '/api/oauth/register': typeof ApiOauthRegisterRoute
@@ -812,6 +840,7 @@ export interface FileRouteTypes {
     | '/app/collaborators'
     | '/app/competitors'
     | '/app/connect'
+    | '/app/conversations'
     | '/app/editor'
     | '/app/generations'
     | '/app/launch-checklist'
@@ -826,8 +855,10 @@ export interface FileRouteTypes {
     | '/app/services'
     | '/app/setup'
     | '/app/specialists'
+    | '/app/today'
     | '/api/analytics/track'
     | '/api/auto-scheduler/run'
+    | '/api/milo/run'
     | '/api/notifications/sweep'
     | '/api/oauth/authorize'
     | '/api/oauth/register'
@@ -893,6 +924,7 @@ export interface FileRouteTypes {
     | '/app/collaborators'
     | '/app/competitors'
     | '/app/connect'
+    | '/app/conversations'
     | '/app/editor'
     | '/app/generations'
     | '/app/launch-checklist'
@@ -907,8 +939,10 @@ export interface FileRouteTypes {
     | '/app/services'
     | '/app/setup'
     | '/app/specialists'
+    | '/app/today'
     | '/api/analytics/track'
     | '/api/auto-scheduler/run'
+    | '/api/milo/run'
     | '/api/notifications/sweep'
     | '/api/oauth/authorize'
     | '/api/oauth/register'
@@ -975,6 +1009,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/collaborators'
     | '/_authenticated/app/competitors'
     | '/_authenticated/app/connect'
+    | '/_authenticated/app/conversations'
     | '/_authenticated/app/editor'
     | '/_authenticated/app/generations'
     | '/_authenticated/app/launch-checklist'
@@ -989,8 +1024,10 @@ export interface FileRouteTypes {
     | '/_authenticated/app/services'
     | '/_authenticated/app/setup'
     | '/_authenticated/app/specialists'
+    | '/_authenticated/app/today'
     | '/api/analytics/track'
     | '/api/auto-scheduler/run'
+    | '/api/milo/run'
     | '/api/notifications/sweep'
     | '/api/oauth/authorize'
     | '/api/oauth/register'
@@ -1046,6 +1083,7 @@ export interface RootRouteChildren {
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
   ApiAnalyticsTrackRoute: typeof ApiAnalyticsTrackRoute
   ApiAutoSchedulerRunRoute: typeof ApiAutoSchedulerRunRoute
+  ApiMiloRunRoute: typeof ApiMiloRunRoute
   ApiNotificationsSweepRoute: typeof ApiNotificationsSweepRoute
   ApiOauthAuthorizeRoute: typeof ApiOauthAuthorizeRoute
   ApiOauthRegisterRoute: typeof ApiOauthRegisterRoute
@@ -1353,6 +1391,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiNotificationsSweepRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/milo/run': {
+      id: '/api/milo/run'
+      path: '/api/milo/run'
+      fullPath: '/api/milo/run'
+      preLoaderRoute: typeof ApiMiloRunRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auto-scheduler/run': {
       id: '/api/auto-scheduler/run'
       path: '/api/auto-scheduler/run'
@@ -1366,6 +1411,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/analytics/track'
       preLoaderRoute: typeof ApiAnalyticsTrackRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/app/today': {
+      id: '/_authenticated/app/today'
+      path: '/app/today'
+      fullPath: '/app/today'
+      preLoaderRoute: typeof AuthenticatedAppTodayRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/app/specialists': {
       id: '/_authenticated/app/specialists'
@@ -1463,6 +1515,13 @@ declare module '@tanstack/react-router' {
       path: '/app/editor'
       fullPath: '/app/editor'
       preLoaderRoute: typeof AuthenticatedAppEditorRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/app/conversations': {
+      id: '/_authenticated/app/conversations'
+      path: '/app/conversations'
+      fullPath: '/app/conversations'
+      preLoaderRoute: typeof AuthenticatedAppConversationsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/app/connect': {
@@ -1644,6 +1703,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppCollaboratorsRoute: typeof AuthenticatedAppCollaboratorsRoute
   AuthenticatedAppCompetitorsRoute: typeof AuthenticatedAppCompetitorsRoute
   AuthenticatedAppConnectRoute: typeof AuthenticatedAppConnectRoute
+  AuthenticatedAppConversationsRoute: typeof AuthenticatedAppConversationsRoute
   AuthenticatedAppEditorRoute: typeof AuthenticatedAppEditorRoute
   AuthenticatedAppGenerationsRoute: typeof AuthenticatedAppGenerationsRoute
   AuthenticatedAppLaunchChecklistRoute: typeof AuthenticatedAppLaunchChecklistRoute
@@ -1658,6 +1718,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppServicesRoute: typeof AuthenticatedAppServicesRoute
   AuthenticatedAppSetupRoute: typeof AuthenticatedAppSetupRoute
   AuthenticatedAppSpecialistsRoute: typeof AuthenticatedAppSpecialistsRoute
+  AuthenticatedAppTodayRoute: typeof AuthenticatedAppTodayRoute
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
 }
 
@@ -1676,6 +1737,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppCollaboratorsRoute: AuthenticatedAppCollaboratorsRoute,
   AuthenticatedAppCompetitorsRoute: AuthenticatedAppCompetitorsRoute,
   AuthenticatedAppConnectRoute: AuthenticatedAppConnectRoute,
+  AuthenticatedAppConversationsRoute: AuthenticatedAppConversationsRoute,
   AuthenticatedAppEditorRoute: AuthenticatedAppEditorRoute,
   AuthenticatedAppGenerationsRoute: AuthenticatedAppGenerationsRoute,
   AuthenticatedAppLaunchChecklistRoute: AuthenticatedAppLaunchChecklistRoute,
@@ -1690,6 +1752,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppServicesRoute: AuthenticatedAppServicesRoute,
   AuthenticatedAppSetupRoute: AuthenticatedAppSetupRoute,
   AuthenticatedAppSpecialistsRoute: AuthenticatedAppSpecialistsRoute,
+  AuthenticatedAppTodayRoute: AuthenticatedAppTodayRoute,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
 }
 
@@ -1734,6 +1797,7 @@ const rootRouteChildren: RootRouteChildren = {
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
   ApiAnalyticsTrackRoute: ApiAnalyticsTrackRoute,
   ApiAutoSchedulerRunRoute: ApiAutoSchedulerRunRoute,
+  ApiMiloRunRoute: ApiMiloRunRoute,
   ApiNotificationsSweepRoute: ApiNotificationsSweepRoute,
   ApiOauthAuthorizeRoute: ApiOauthAuthorizeRoute,
   ApiOauthRegisterRoute: ApiOauthRegisterRoute,

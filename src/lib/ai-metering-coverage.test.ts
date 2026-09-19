@@ -27,7 +27,7 @@ const IMAGE_SOURCE = readFileSync(join(process.cwd(), "src/lib/image-gen.functio
  */
 function serverFunctions(): Array<{ name: string; body: string }> {
   const parts = SOURCE.split(
-    /^export (?:const (\w+Fn) = createServerFn|async function (\w+Core)\()/m,
+    /^export (?:const (\w+Fn) = createServerFn|const (\w+Core) = createServerOnlyFn\()/m,
   );
   const out: Array<{ name: string; body: string }> = [];
   // parts = [preamble, fnName?, coreName?, body, fnName?, coreName?, body, ...]
@@ -42,6 +42,13 @@ describe("every AI server function accounts for its spend", () => {
 
   it("finds the AI functions at all (guards against the parser silently matching nothing)", () => {
     expect(fns.length).toBeGreaterThanOrEqual(15);
+    expect(fns.map((fn) => fn.name)).toEqual(
+      expect.arrayContaining([
+        "scanWebsiteCore",
+        "generateOpportunitiesCore",
+        "generateContentCore",
+      ]),
+    );
   });
 
   it.each(fns.map((f) => f.name))("%s either claims usage or says why it does not", (name) => {

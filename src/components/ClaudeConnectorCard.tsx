@@ -12,12 +12,12 @@ import { Bot, Copy, KeyRound, Loader2, Trash2, ShieldCheck } from "lucide-react"
 import { toast } from "sonner";
 import { ConnectedAppsSection } from "@/components/ConnectedAppsSection";
 
-async function copy(text: string, msg: string) {
+async function copy(text: string, msg: string, failureMsg: string) {
   try {
     await navigator.clipboard.writeText(text);
     toast.success(msg);
   } catch {
-    toast.error("Could not copy");
+    toast.error(failureMsg);
   }
 }
 
@@ -98,7 +98,7 @@ export function ClaudeConnectorCard() {
         <div className="text-xs font-medium text-muted-foreground">{t("claude.endpoint")}</div>
         <div className="mt-1.5 flex items-center gap-2">
           <code className="flex-1 rounded-md border border-border bg-secondary/40 px-3 py-2 text-xs font-mono break-all">{endpoint}</code>
-          <Button type="button" size="sm" variant="outline" onClick={() => copy(endpoint, t("claude.copied"))}>
+          <Button type="button" size="sm" variant="outline" onClick={() => copy(endpoint, t("claude.copied"), t("analyticsScreen.copyFailed"))}>
             <Copy className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -122,21 +122,21 @@ export function ClaudeConnectorCard() {
           <div className="text-xs font-medium text-foreground">{t("claude.tokenOnce")}</div>
           <div className="mt-2 flex items-center gap-2">
             <code className="flex-1 rounded-md border border-border bg-background/60 px-3 py-2 text-xs font-mono break-all">{freshToken}</code>
-            <Button type="button" size="sm" variant="outline" onClick={() => copy(freshToken, t("claude.copied"))}>
+            <Button type="button" size="sm" variant="outline" onClick={() => copy(freshToken, t("claude.copied"), t("analyticsScreen.copyFailed"))}>
               <Copy className="h-3.5 w-3.5" /> {t("claude.copy")}
             </Button>
           </div>
           <div className="mt-4 text-xs font-medium text-muted-foreground">{t("claude.cliHeading")}</div>
           <div className="mt-1.5 flex items-start gap-2">
             <code className="flex-1 rounded-md border border-border bg-background/60 px-3 py-2 text-xs font-mono break-all">{cliSnippet}</code>
-            <Button type="button" size="sm" variant="outline" onClick={() => copy(cliSnippet, t("claude.copied"))}>
+            <Button type="button" size="sm" variant="outline" onClick={() => copy(cliSnippet, t("claude.copied"), t("analyticsScreen.copyFailed"))}>
               <Copy className="h-3.5 w-3.5" />
             </Button>
           </div>
           <div className="mt-3 text-xs font-medium text-muted-foreground">{t("claude.desktopHeading")}</div>
           <div className="mt-1.5 flex items-start gap-2">
             <pre className="flex-1 overflow-x-auto rounded-md border border-border bg-background/60 px-3 py-2 text-xs font-mono">{desktopSnippet}</pre>
-            <Button type="button" size="sm" variant="outline" onClick={() => copy(desktopSnippet, t("claude.copied"))}>
+            <Button type="button" size="sm" variant="outline" onClick={() => copy(desktopSnippet, t("claude.copied"), t("analyticsScreen.copyFailed"))}>
               <Copy className="h-3.5 w-3.5" />
             </Button>
           </div>

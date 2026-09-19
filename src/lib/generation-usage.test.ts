@@ -10,6 +10,7 @@ const h = vi.hoisted(() => ({
 vi.mock("./project-knowledge.server", () => ({ loadProjectKnowledgeContext: h.knowledge }));
 vi.mock("@/integrations/supabase/auth-middleware", () => ({ requireSupabaseAuth: {} }));
 vi.mock("@tanstack/react-start", () => ({
+  createServerOnlyFn: <T>(fn: T): T => fn,
   createServerFn: () => {
     let validate = (value: unknown) => value;
     const builder = {
@@ -47,6 +48,7 @@ import { generateContentCore, generateContentAssetFn, generateContentFn } from "
 import { generateArticleImageCore, generateArticleImageFn } from "./image-gen.functions";
 import { withGenerationUsage } from "./generation-usage.server";
 import { AI_USAGE_LOOKUP_TIMEOUT_MS, UsageUnavailableError } from "./ai-usage.server";
+import { CONTENT_BODY_MAX_CHARS, parseGenerationResult } from "./generation-result";
 
 const user = "00000000-0000-4000-8000-000000000001";
 const attempt = {
@@ -119,6 +121,43 @@ afterEach(() => {
 });
 
 describe("confirmed generation quota and technical failures", () => {
+  it.each(["text", "legacy"])(
+    "preserves a complete long article through %s generation and recovery",
+    async (kind) => {
+      const markdown =
+        "## Guide\n\n" +
+        "Practical paragraph. ".repeat(600) +
+        "\n\n## Conclusion\n\nThe complete ending.";
+      h.text.mockResolvedValue(JSON.stringify({ markdown }));
+      const result =
+        kind === "text"
+          ? await generateContentCore(user, content)
+          : await fn(generateContentAssetFn, { ...content, kind: "article" });
+      expect(markdown.length).toBeGreaterThan(8000);
+      expect(result).toMatchObject({ markdown });
+      expect(retained()).toHaveLength(1);
+      const recovered = parseGenerationResult(retained()[0][1].p_result, user);
+      expect(recovered.output).toMatchObject({ markdown });
+      expect(settlements()).toEqual([]);
+    },
+  );
+  it.each(["text", "legacy"])(
+    "rejects oversized %s output without retaining a truncated success",
+    async (kind) => {
+      h.text.mockResolvedValue(
+        JSON.stringify({ markdown: "x".repeat(CONTENT_BODY_MAX_CHARS + 1) }),
+      );
+      await expect(
+        kind === "text"
+          ? generateContentCore(user, content)
+          : fn(generateContentAssetFn, { ...content, kind: "article" }),
+      ).rejects.toThrow();
+      expect(h.text).toHaveBeenCalledOnce();
+      expect(retained()).toEqual([]);
+      expect(settlements()).toHaveLength(1);
+      expect(settlements()[0][1].p_outcome).toBe("released");
+    },
+  );
   it.each(["text", "image", "legacy"])(
     "uses fresh authenticated knowledge and retains exact references for %s",
     async (kind) => {

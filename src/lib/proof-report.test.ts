@@ -51,7 +51,7 @@ describe("buildMonthlyProofReport", () => {
       livePublishStatus: "published",
       livePublishedAt: "2026-06-10T09:00:00Z",
     }),
-    // Custom-endpoint draft-send path: publishStatus sent + lastPublishedAt.
+    // A sent draft with a retained live URL is not a live-publication receipt.
     asset({
       id: "sent-jul",
       liveUrl: "https://x.se/c",
@@ -78,7 +78,11 @@ describe("buildMonthlyProofReport", () => {
       livePublishedAt: "2026-07-06T09:00:00Z",
     }),
     asset({ id: "draft-jul", createdAt: "2026-07-20T09:00:00Z" }),
-    asset({ id: "sched-jul", scheduledPublishAt: "2026-07-29T09:00:00Z" }),
+    asset({
+      id: "sched-jul",
+      scheduledPublishStatus: "pending",
+      scheduledPublishAt: "2026-07-29T09:00:00Z",
+    }),
     asset({
       id: "other-project",
       projectId: "p2",
@@ -103,10 +107,31 @@ describe("buildMonthlyProofReport", () => {
   });
 
   it("published = liveUrl + STATUS-GATED go-live stamp in month, own project only", () => {
-    // live-jul (WP-style livePublishedAt) + sent-jul (draft-send path);
+    // Only live-jul has a successful live-publication stamp;
     // failed-resend stays in June, failed-live and stamp-less never count.
-    expect(report.published.map((p) => p.id)).toEqual(["live-jul", "sent-jul"]);
+    expect(report.published.map((p) => p.id)).toEqual(["live-jul"]);
     expect(report.published[0].liveUrl).toBe("https://x.se/a");
+  });
+
+  it("does not count draft sends with retained URLs, even after a failed live attempt", () => {
+    const drafts = ([undefined, "failed", "notPublished"] as const).map((status, i) =>
+      asset({
+        id: `draft-send-${i}`,
+        publishStatus: "sent",
+        lastPublishedAt: "2026-07-15T09:00:00Z",
+        liveUrl: "https://x.se/older-version",
+        livePublishStatus: status,
+        livePublishedAt: "2026-07-15T09:00:00Z",
+      }),
+    );
+    const result = buildMonthlyProofReport({
+      project: { id: "p1" },
+      content: drafts,
+      calendar: [],
+      monthKey: "2026-07",
+      linksLive: null,
+    });
+    expect(result.published).toEqual([]);
   });
 
   it("a failed July re-send cannot drag a June publish into July (review HIGH)", () => {
@@ -203,9 +228,9 @@ describe("white-label email rendering (Agency Inc B)", () => {
     linksLive: 0,
   });
 
-  it("no branding → Milo sender line, no brand header", () => {
+  it("no branding → Milo attribution line, no brand header", () => {
     const html = renderProofReportEmailHtml(report, "Client Site");
-    expect(html).toContain("Sent by Milo Growth");
+    expect(html).toContain("Milo Growth. Based on saved publication results.");
     expect(html).not.toContain("Prepared by");
   });
 
@@ -214,8 +239,10 @@ describe("white-label email rendering (Agency Inc B)", () => {
       agencyName: 'Acme & <Co> "Agency"',
       logoUrl: "https://acme.example/logo.png",
     });
-    expect(html).toContain("Prepared by Acme &amp; &lt;Co&gt; &quot;Agency&quot;");
-    expect(html).not.toContain("Sent by Milo Growth");
+    expect(html).toContain(
+      "Acme &amp; &lt;Co&gt; &quot;Agency&quot;. Based on saved publication results.",
+    );
+    expect(html).not.toContain("Milo Growth. Based on saved publication results.");
     expect(html).toContain('src="https://acme.example/logo.png"');
     const js = renderProofReportEmailHtml(report, "Client Site", {
       agencyName: "Acme",
@@ -223,4 +250,101 @@ describe("white-label email rendering (Agency Inc B)", () => {
     });
     expect(js).not.toContain("javascript:alert");
   });
+});
+
+describe("report dates use validated UTC evidence", () => {
+  it.each([
+    "2026-07",
+    "2026-07-junk",
+    "2026-02-30T12:00:00Z",
+    "2026-07-10T25:00:00Z",
+    "2026-07-10T12:00:00",
+    "2026-13-01",
+  ])("rejects ambiguous or invalid date %s", (value) => {
+    expect(monthKeyOf(value)).toBe("");
+  });
+  it("groups and orders equivalent offset timestamps by instant while retaining plan dates", () => {
+    const records = [
+      asset({
+        id: "outside",
+        liveUrl: "https://example.invalid/a",
+        livePublishStatus: "published",
+        livePublishedAt: "2026-07-01T00:30:00+02:00",
+      }),
+      asset({
+        id: "first",
+        liveUrl: "https://example.invalid/b",
+        livePublishStatus: "published",
+        livePublishedAt: "2026-07-01T04:00:00+03:00",
+      }),
+      asset({
+        id: "second",
+        liveUrl: "https://example.invalid/c",
+        livePublishStatus: "published",
+        livePublishedAt: "2026-06-30T23:00:00-03:00",
+      }),
+      asset({
+        id: "bad",
+        liveUrl: "https://example.invalid/d",
+        livePublishStatus: "published",
+        livePublishedAt: "2026-07-junk",
+      }),
+      asset({ id: "draft", createdAt: "2026-08-01T00:30:00+02:00" }),
+      asset({
+        id: "scheduled",
+        scheduledPublishStatus: "pending",
+        scheduledPublishAt: "2026-06-30T23:30:00-02:00",
+      }),
+    ];
+    const result = buildMonthlyProofReport({
+      project: { id: "p1" },
+      content: records,
+      calendar: [cal({ plannedDate: "2026-08-01" }), cal({ plannedDate: "2026-08-32" })],
+      monthKey: "2026-07",
+      linksLive: null,
+    });
+    expect(result.published.map((x) => x.id)).toEqual(["first", "second"]);
+    expect(result.draftedCount).toBe(1);
+    expect(result.scheduledCount).toBe(1);
+    expect(result.nextMonthPlan.map((x) => x.plannedDate)).toEqual(["2026-08-01"]);
+  });
+});
+
+it("counts pending schedules including live-page updates, excluding terminal and unconfirmed mirrors", () => {
+  const stamp = "2026-07-10T12:00:00Z";
+  const records = [
+    ...(
+      [undefined, "publishing", "published", "failed", "cancelled", "review_required"] as const
+    ).map((status, i) =>
+      asset({ id: `excluded-${i}`, scheduledPublishStatus: status, scheduledPublishAt: stamp }),
+    ),
+    asset({ id: "new", scheduledPublishStatus: "pending", scheduledPublishAt: stamp }),
+    asset({
+      id: "update",
+      scheduledPublishStatus: "pending",
+      scheduledPublishAt: stamp,
+      liveUrl: "https://example.invalid/already-live",
+    }),
+    asset({
+      id: "other",
+      projectId: "p2",
+      scheduledPublishStatus: "pending",
+      scheduledPublishAt: stamp,
+    }),
+    asset({
+      id: "next",
+      scheduledPublishStatus: "pending",
+      scheduledPublishAt: "2026-08-10T12:00:00Z",
+    }),
+    asset({ id: "bad", scheduledPublishStatus: "pending", scheduledPublishAt: "2026-07-junk" }),
+    asset({ id: "no-date", scheduledPublishStatus: "pending" }),
+  ];
+  const result = buildMonthlyProofReport({
+    project: { id: "p1" },
+    content: records,
+    calendar: [],
+    monthKey: "2026-07",
+    linksLive: null,
+  });
+  expect(result.scheduledCount).toBe(2);
 });

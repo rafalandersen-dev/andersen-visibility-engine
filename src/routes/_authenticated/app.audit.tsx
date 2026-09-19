@@ -16,6 +16,7 @@ import {
 import { Gauge, Loader2, Sparkles, AlertTriangle, Check, Plus, RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { useT } from "@/i18n";
 
 export const Route = createFileRoute("/_authenticated/app/audit")({
   head: () => ({
@@ -40,6 +41,7 @@ const CATEGORY_ORDER: AuditCategory[] = [
 ];
 
 function AuditPage() {
+  const t = useT();
   const navigate = useNavigate();
   const activeProjectId = useStore((s) => s.activeProjectId);
   const project = useStore((s) => s.projects.find((p) => p.id === s.activeProjectId));
@@ -77,9 +79,9 @@ function AuditPage() {
     setError(null);
     try {
       await runSiteAudit(activeProjectId, websiteUrl);
-      toast.success("Site audit complete");
+      toast.success(t("auditScreen.complete"));
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Audit failed. Please try again.";
+      const msg = e instanceof Error ? e.message : t("auditScreen.failed");
       setError(msg);
       toast.error(msg);
     } finally {
@@ -91,9 +93,9 @@ function AuditPage() {
     setBusyFindingId(findingId);
     try {
       await createOpportunityFromFinding(activeProjectId, findingId);
-      toast.success("Opportunity created");
+      toast.success(t("evidenceScreen.created"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not create opportunity");
+      toast.error(e instanceof Error ? e.message : t("evidenceScreen.createFailed"));
     } finally {
       setBusyFindingId(null);
     }
@@ -103,11 +105,9 @@ function AuditPage() {
     setBulkBusy(true);
     try {
       const opps = await createOpportunitiesFromTopFixes(activeProjectId);
-      toast.success(
-        `Created ${opps.length} ${opps.length === 1 ? "opportunity" : "opportunities"} from top fixes`,
-      );
+      toast.success(t("auditScreen.bulkCreated", { count: opps.length }));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not create opportunities");
+      toast.error(e instanceof Error ? e.message : t("evidenceScreen.bulkFailed"));
     } finally {
       setBulkBusy(false);
     }
@@ -116,19 +116,15 @@ function AuditPage() {
   // No project yet → guide to setup.
   if (!project) {
     return (
-      <AppShell
-        title="Site Audit"
-        description="Find what your website is missing and turn fixes into growth opportunities."
-      >
+      <AppShell title={t("auditScreen.title")} description={t("auditScreen.subtitle")}>
         <div className="rounded-lg border border-dashed border-border p-12 text-center">
           <Gauge className="mx-auto h-8 w-8 text-gold/70" strokeWidth={1.4} />
-          <div className="mt-3 font-display text-lg">Set up a project first</div>
+          <div className="mt-3 font-display text-lg">{t("evidenceScreen.setupTitle")}</div>
           <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">
-            The Site Audit analyzes one business at a time. Create a project with your business
-            details and website to run your first audit.
+            {t("auditScreen.setupHelp")}
           </p>
           <Button className="mt-4" onClick={() => navigate({ to: "/app/setup" })}>
-            Go to Project Setup
+            {t("evidenceScreen.setup")}
           </Button>
         </div>
       </AppShell>
@@ -136,10 +132,7 @@ function AuditPage() {
   }
 
   return (
-    <AppShell
-      title="On-page Review"
-      description="A review of your homepage and business details — not a full technical crawl. Turns on-page gaps into growth opportunities."
-    >
+    <AppShell title={t("auditScreen.title")} description={t("auditScreen.subtitle")}>
       <LocationCoveragePanel project={project} />
       <TechnicalCrawlPanel projectId={project.id} />
       <GoogleIndexPanel project={project} />
@@ -152,7 +145,7 @@ function AuditPage() {
               htmlFor="audit-url"
               className="text-xs uppercase tracking-[0.16em] text-muted-foreground"
             >
-              Website URL
+              {t("auditScreen.website")}
             </label>
             <Input
               id="audit-url"
@@ -163,11 +156,10 @@ function AuditPage() {
               disabled={running}
             />
             <p className="mt-1.5 text-xs text-muted-foreground">
-              Reviewing{" "}
-              <span className="text-foreground/80">{project.businessName || project.name}</span>
-              {project.mainLocation ? ` · ${project.mainLocation}` : ""}. We read your homepage when
-              it returns readable content; otherwise this review reflects your business details, not
-              a read of your live site. It is not a full technical crawl.
+              {t("auditScreen.inputHelp", {
+                business: project.businessName || project.name,
+                location: project.mainLocation ? ` · ${project.mainLocation}` : "",
+              })}
             </p>
           </div>
           <Button onClick={runAudit} disabled={running}>
@@ -178,7 +170,7 @@ function AuditPage() {
             ) : (
               <Gauge className="h-4 w-4" />
             )}
-            {running ? "Running review…" : audit ? "Re-run review" : "Run review"}
+            {t(running ? "auditScreen.running" : audit ? "auditScreen.rerun" : "auditScreen.run")}
           </Button>
         </div>
       </div>
@@ -187,10 +179,10 @@ function AuditPage() {
       {error && !running ? (
         <div className="rounded-lg border border-border bg-card p-8 text-center">
           <AlertTriangle className="mx-auto h-7 w-7 text-amber-500" strokeWidth={1.5} />
-          <div className="mt-2 font-display text-lg">Audit didn’t complete</div>
+          <div className="mt-2 font-display text-lg">{t("auditScreen.incomplete")}</div>
           <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">{error}</p>
           <Button className="mt-4" variant="outline" onClick={runAudit}>
-            <RefreshCw className="h-4 w-4" /> Try again
+            <RefreshCw className="h-4 w-4" /> {t("evidenceScreen.retry")}
           </Button>
         </div>
       ) : null}
@@ -199,12 +191,9 @@ function AuditPage() {
       {!audit && !error ? (
         <div className="rounded-lg border border-dashed border-border p-12 text-center">
           <Sparkles className="mx-auto h-8 w-8 text-gold/70" strokeWidth={1.4} />
-          <div className="mt-3 font-display text-lg">Run your first on-page review</div>
+          <div className="mt-3 font-display text-lg">{t("auditScreen.first")}</div>
           <p className="mt-1 text-sm text-muted-foreground max-w-lg mx-auto">
-            Milo reviews your homepage and business details across business clarity, SEO basics,
-            local visibility, AI-search readiness and conversion & trust — then hands you
-            prioritized fixes you can turn into content opportunities. This is a homepage + inputs
-            review, not a full technical crawl of every page.
+            {t("auditScreen.emptyHelp")}
           </p>
         </div>
       ) : null}
@@ -212,35 +201,28 @@ function AuditPage() {
       {/* Results */}
       {audit && !error ? (
         <div className="space-y-8">
-          {/* Provenance: distinguish MEASURED (read from your homepage) from
-              INFERRED advice (site not read). A failed/partial fetch must never
-              present its scores as a confident measurement. */}
+          {/* Captured homepage text and business-input-only advice retain distinct provenance. */}
           {audit.fetchedWebsite ? (
             <div className="flex items-start gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-4 py-2.5 text-xs text-foreground/75">
               <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
-              <span>
-                Read the content at your homepage URL — this review is based on the text we could
-                read there plus your business details. The scores are an assessment, not measured
-                technical metrics, and this is a homepage read, not a full-site crawl.
-              </span>
+              <span>{t("auditScreen.readProof")}</span>
             </div>
           ) : (
             <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-foreground/80">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
               <span>
-                {audit.note ||
-                  "We couldn't read your live site, so this review reflects your business details."}{" "}
-                <strong className="font-medium">The scores below are indicative</strong> — based on
-                your inputs, not a measurement of your live site.
+                {audit.note || t("auditScreen.unreadFallback")}{" "}
+                <strong className="font-medium">{t("auditScreen.unreadHelp")}</strong>
               </span>
             </div>
           )}
 
+          <p className="text-sm text-muted-foreground">{t("auditScreen.scoreHelp")}</p>
           {/* Score cards — clearly badged indicative when the site was not read. */}
           <div>
             {!audit.fetchedWebsite ? (
               <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-600/90">
-                Indicative · site not read
+                {t("auditScreen.indicative")}
               </div>
             ) : null}
             <div
@@ -250,24 +232,24 @@ function AuditPage() {
               }
             >
               <ScoreCard
-                label="Overall"
+                label={t("auditScreen.overall")}
                 score={audit.overallScore}
                 primary
                 indicative={!audit.fetchedWebsite}
               />
               <ScoreCard label="SEO" score={audit.seoScore} indicative={!audit.fetchedWebsite} />
               <ScoreCard
-                label="Local"
+                label={t("evidenceScreen.competitor.score.local")}
                 score={audit.localScore}
                 indicative={!audit.fetchedWebsite}
               />
               <ScoreCard
-                label="AI Readiness"
+                label={t("evidenceScreen.title")}
                 score={audit.aiReadinessScore}
                 indicative={!audit.fetchedWebsite}
               />
               <ScoreCard
-                label="Conversion"
+                label={t("evidenceScreen.competitor.score.conversion")}
                 score={audit.conversionScore}
                 indicative={!audit.fetchedWebsite}
               />
@@ -284,9 +266,9 @@ function AuditPage() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-                    Priority
+                    {t("evidenceScreen.priority")}
                   </div>
-                  <h2 className="font-display text-lg">Top fixes</h2>
+                  <h2 className="font-display text-lg">{t("auditScreen.topFixes")}</h2>
                 </div>
                 <Button
                   size="sm"
@@ -298,7 +280,7 @@ function AuditPage() {
                   ) : (
                     <Plus className="h-3.5 w-3.5" />
                   )}
-                  Create opportunities from top fixes
+                  {t("auditScreen.createTop")}
                 </Button>
               </div>
               <ul className="mt-4 space-y-2">
@@ -313,7 +295,7 @@ function AuditPage() {
               </ul>
               {remainingTopFixes === 0 ? (
                 <p className="mt-3 text-xs text-muted-foreground">
-                  All high/medium fixes have been turned into opportunities.
+                  {t("auditScreen.noneRemaining")}
                 </p>
               ) : null}
             </section>
@@ -324,7 +306,7 @@ function AuditPage() {
             {grouped.map(([category, list]) => (
               <section key={category}>
                 <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-3">
-                  {category}
+                  {t(`auditScreen.category.${category}`)}
                 </div>
                 <div className="grid md:grid-cols-2 gap-4">
                   {list.map((f) => {
@@ -343,19 +325,23 @@ function AuditPage() {
                         <p className="mt-2 text-sm text-muted-foreground">{f.explanation}</p>
                         <div className="mt-3 rounded-md bg-secondary/50 border border-border p-3 text-sm">
                           <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                            Recommendation
+                            {t("evidenceScreen.recommendation")}
                           </div>
                           <div className="mt-1 text-foreground/85">{f.recommendation}</div>
                         </div>
                         <div className="mt-3 text-xs text-muted-foreground space-y-1">
                           <div>
-                            <span className="text-foreground/70">Suggested:</span>{" "}
+                            <span className="text-foreground/70">
+                              {t("evidenceScreen.suggested")}
+                            </span>{" "}
                             {f.suggestedOpportunityTitle}
                           </div>
                           <div className="flex flex-wrap gap-1.5">
-                            <Tag>{f.suggestedContentType}</Tag>
-                            <Tag>{f.suggestedSearchIntent}</Tag>
-                            <Tag tone={f.priority === "High" ? "gold" : "muted"}>{f.priority}</Tag>
+                            <Tag>{t(`evidenceScreen.contentType.${f.suggestedContentType}`)}</Tag>
+                            <Tag>{t(`planScreen.intent.${f.suggestedSearchIntent}`)}</Tag>
+                            <Tag tone={f.priority === "High" ? "gold" : "muted"}>
+                              {t(`planScreen.priority.${f.priority}`)}
+                            </Tag>
                           </div>
                         </div>
                         <div className="mt-4 pt-4 border-t border-border">
@@ -366,7 +352,7 @@ function AuditPage() {
                               disabled
                               className="text-muted-foreground"
                             >
-                              <Check className="h-3.5 w-3.5" /> Opportunity created
+                              <Check className="h-3.5 w-3.5" /> {t("evidenceScreen.created")}
                             </Button>
                           ) : (
                             <Button
@@ -380,7 +366,7 @@ function AuditPage() {
                               ) : (
                                 <Plus className="h-3.5 w-3.5" />
                               )}
-                              Create opportunity
+                              {t("evidenceScreen.create")}
                             </Button>
                           )}
                         </div>
@@ -397,7 +383,7 @@ function AuditPage() {
               to="/app/plan"
               className="text-sm text-foreground/70 underline underline-offset-4 hover:text-foreground"
             >
-              View opportunities →
+              {t("evidenceScreen.view")}
             </Link>
           </div>
         </div>
@@ -417,6 +403,7 @@ function ScoreCard({
   primary?: boolean;
   indicative?: boolean;
 }) {
+  const t = useT();
   return (
     <div
       className={
@@ -425,7 +412,9 @@ function ScoreCard({
     >
       <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
         {label}
-        {indicative ? <span className="ml-1 text-amber-600/80">est.</span> : null}
+        {indicative ? (
+          <span className="ml-1 text-amber-600/80">{t("auditScreen.estimate")}</span>
+        ) : null}
       </div>
       <div className="mt-1.5 font-display text-3xl text-foreground">
         {score}
@@ -442,6 +431,7 @@ function ScoreCard({
 }
 
 function SeverityBadge({ severity }: { severity: "High" | "Medium" | "Low" }) {
+  const t = useT();
   const cls =
     severity === "High"
       ? "bg-accent/30 border-accent/40 text-accent-foreground"
@@ -452,7 +442,7 @@ function SeverityBadge({ severity }: { severity: "High" | "Medium" | "Low" }) {
     <span
       className={`shrink-0 text-[10px] uppercase tracking-[0.14em] px-2 py-0.5 rounded-full border ${cls}`}
     >
-      {severity}
+      {t(`planScreen.priority.${severity}`)}
     </span>
   );
 }

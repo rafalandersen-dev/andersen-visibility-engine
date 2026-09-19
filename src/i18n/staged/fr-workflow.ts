@@ -3,7 +3,7 @@
 export const frWorkflow: Readonly<Record<string, string>> = {
   "autoSched.title": "Planification mensuelle automatique",
   "autoSched.hint":
-    "Vers le 25 du mois, Milo prépare le mois suivant : il rédige des articles pour les jours de la semaine que vous avez choisis, dans la limite du quota mensuel de votre offre, associe les liens internes à vos pages réelles et prépare chaque article avec une accroche approuvée.",
+    "Lorsque cette fonction est activée, Milo tente de préparer les articles du mois suivant pour les jours choisis, dans la limite du quota disponible. Les liens internes sont vérifiés à partir des données de pages disponibles. L’absence d’accroches valides ou d’autres conditions de publication peut laisser des brouillons en attente de révision.",
   "autoSched.enable": "Remplir automatiquement le calendrier du mois prochain",
   "autoSched.weekdays": "Jours de publication",
   "autoSched.publishTime": "Heure de publication",
@@ -12,7 +12,7 @@ export const frWorkflow: Readonly<Record<string, string>> = {
   "autoSched.modeAuto": "Publier automatiquement",
   "autoSched.modeApprove": "Attendre mon approbation",
   "autoSched.modeHint":
-    "« Attendre mon approbation » ne publie jamais rien : les brouillons restent prêts et vous programmez leur publication depuis le calendrier. « Publier automatiquement » programme des mises en ligne réelles à chaque créneau.",
+    "« Attendre mon approbation » prépare des brouillons sans programmer leur publication. « Publier automatiquement » tente de programmer les brouillons admissibles après validation des contrôles ; cela ne garantit ni que chaque créneau sera rempli ni que la publication réussira.",
   "autoSched.summaryEmail": "E-mail récapitulatif (facultatif)",
   "autoSched.day.1": "Lun",
   "autoSched.day.2": "Mar",
@@ -29,7 +29,7 @@ export const frWorkflow: Readonly<Record<string, string>> = {
   "arrange.modePreview": "Aperçu",
   "arrange.modeArrange": "Mise en page",
   "arrange.hint":
-    "Faites glisser une carte d’image vers une zone de dépôt pour la placer. Le dépôt enregistre une ancre sémantique, jamais une position fixe : le placement résiste ainsi aux modifications et se publie tel qu’il apparaît.",
+    "Faites glisser une carte d’image sur une zone de dépôt pour la placer par rapport au contenu de l’article. Vérifiez à nouveau le placement après les modifications : des sections supprimées ou ambiguës peuvent empêcher de déterminer la position des images. L’apparence publiée dépend du site de destination et n’est pas vérifiée par cet aperçu.",
   "arrange.featured": "Image à la une",
   "arrange.featuredNone": "aucune — choisissez-en une dans Sources et auteur",
   "arrange.hook": "Accroche d’ouverture",
@@ -188,13 +188,14 @@ export const frWorkflow: Readonly<Record<string, string>> = {
   "editor.schedule.arming": "Programmation…",
   "editor.schedule.cancel": "Annuler la mise en ligne",
   "editor.schedule.cancelled": "Mise en ligne annulée. Le brouillon est inchangé.",
-  "editor.schedule.armed": "Programmé. La mise en ligne aura lieu {when}.",
+  "editor.schedule.armed":
+    "Programmation enregistrée pour {when}. La publication reste soumise aux vérifications et à la disponibilité du site de destination.",
   "editor.schedule.inFlight":
     "L’envoi est en cours et ne peut plus être arrêté — vous pouvez dépublier le contenu depuis votre site.",
   "editor.schedule.needsApproval":
     "Marquez l’article comme prêt avant de programmer sa publication.",
   "editor.schedule.overdue":
-    "La mise en ligne prévue pour {when} n’a pas eu lieu. Vérifiez vos paramètres de connexion, puis reprogrammez-la.",
+    "La date enregistrée du {when} est dépassée. La publication n’est pas confirmée. Vérifiez le site de destination et l’état actuel de la programmation avant de programmer ou publier à nouveau.",
   "editor.schedule.hint":
     "L’approbation ne publie jamais rien. Rien n’est mis en ligne tant que vous ne le programmez pas ou ne choisissez pas de publier immédiatement.",
   "calsched.title.ready": "Programmer la mise en ligne ?",

@@ -44,20 +44,23 @@ const args = {
   assetType: "article" as const,
 };
 describe("text error privacy in existing article generation", () => {
-  it.each(["budget_unconfigured", "budget_exhausted", "budget_paused", "duplicate_request"])(
-    "preserves the internal %s pause for scheduler callers",
-    async (reason) => {
-      vi.spyOn(console, "error").mockImplementation(() => {});
-      mocks.rpc.mockResolvedValue({
-        data: [{ allowed: false, reason, period: "2026-09" }],
-        error: null,
-      });
-      await expect(
-        generateContentCore("00000000-0000-4000-8000-000000000011", args),
-      ).rejects.toBeInstanceOf(AiExpenseUnavailableError);
-      expect(mocks.model).not.toHaveBeenCalled();
-    },
-  );
+  it.each([
+    "budget_unconfigured",
+    "budget_exhausted",
+    "budget_paused",
+    "duplicate_request",
+    "manual_budget_required",
+  ])("preserves the internal %s pause for scheduler callers", async (reason) => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.rpc.mockResolvedValue({
+      data: [{ allowed: false, reason, period: "2026-09" }],
+      error: null,
+    });
+    await expect(
+      generateContentCore("00000000-0000-4000-8000-000000000011", args),
+    ).rejects.toBeInstanceOf(AiExpenseUnavailableError);
+    expect(mocks.model).not.toHaveBeenCalled();
+  });
   it("explains missing OpenAI configuration without trying the legacy gateway", async () => {
     vi.stubEnv("OPENAI_API_KEY", "");
     vi.stubEnv("LOVABLE_API_KEY", "synthetic-legacy-key");
@@ -83,8 +86,15 @@ describe("text error privacy in existing article generation", () => {
         generateContentCore("00000000-0000-4000-8000-000000000011", args),
       ).rejects.not.toThrow(privateText);
       expect(JSON.stringify(log.mock.calls)).not.toContain(privateText);
-      expect(log).toHaveBeenCalledWith("[ai.functions] gateway/validation error", {
+      expect(log).toHaveBeenCalledWith("[ai.functions] AI transport error", {
+        errorClass:
+          statusCode === 402
+            ? "quota_billing"
+            : statusCode === 429
+              ? "rate_limit"
+              : "provider_server_error",
         httpStatus: statusCode,
+        nameCategory: "other",
         boundary: null,
       });
       expect(mocks.model).toHaveBeenCalledTimes(1);
@@ -101,7 +111,8 @@ describe("text error privacy in existing article generation", () => {
     ).rejects.toThrow("too much source text");
     expect(mocks.model).not.toHaveBeenCalled();
     expect(JSON.stringify(log.mock.calls)).not.toContain("private-source");
-    expect(log).toHaveBeenCalledWith("[ai.functions] gateway/validation error", {
+    expect(log).toHaveBeenCalledWith("[ai.functions] AI transport error", {
+      errorClass: "boundary",
       httpStatus: null,
       boundary: "input_too_large",
     });

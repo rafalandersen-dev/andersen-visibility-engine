@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { inspectionUrl } from "./google-index";
+import { manualRedirectFetch } from "./provider-fetch.server";
 import { normalizeCrux, normalizeLighthouse } from "./technical-performance";
 export const performanceQuery = z.discriminatedUnion("source", [
   z
@@ -70,9 +71,8 @@ export async function fetchTechnicalPerformance(
       endpoint.searchParams.set("strategy", query.device);
       endpoint.searchParams.set("category", "performance");
     }
-    const pending = request(endpoint.toString(), {
+    const pending = manualRedirectFetch(request)(endpoint.toString(), {
       method: query.source === "crux" ? "POST" : "GET",
-      redirect: "error",
       signal: controller.signal,
       headers: {
         Accept: "application/json",

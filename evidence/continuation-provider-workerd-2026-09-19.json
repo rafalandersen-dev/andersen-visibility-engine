@@ -1,0 +1,177 @@
+{
+  "runtime": "Miniflare workerd, compatibilityDate 2026-09-19, nodejs_compat",
+  "network": "All outbound requests answered by local fixtures; synthetic credentials; no external provider requests",
+  "scope": "Actual six server transport modules, database imports stubbed to prevent unrelated initialization",
+  "before": [
+    {
+      "mode": "success",
+      "path": "/google",
+      "ok": false,
+      "error": "google_inspection_unavailable",
+      "dispatches": 0
+    },
+    {
+      "mode": "success",
+      "path": "/performance",
+      "ok": false,
+      "error": "performance_unavailable",
+      "dispatches": 0
+    },
+    {
+      "mode": "success",
+      "path": "/monitoring",
+      "ok": false,
+      "error": "backlink_monitoring_unavailable",
+      "dispatches": 0
+    },
+    {
+      "mode": "success",
+      "path": "/details",
+      "ok": false,
+      "error": "backlink_details_unavailable",
+      "dispatches": 0
+    },
+    {
+      "mode": "success",
+      "path": "/shopify",
+      "ok": false,
+      "error": "catalog_unavailable",
+      "dispatches": 0
+    },
+    {
+      "mode": "success",
+      "path": "/stripe",
+      "ok": false,
+      "error": "provider_unavailable",
+      "dispatches": 0
+    },
+    {
+      "mode": "redirect",
+      "path": "/google",
+      "ok": false,
+      "error": "google_inspection_unavailable",
+      "dispatches": 0
+    },
+    {
+      "mode": "redirect",
+      "path": "/performance",
+      "ok": false,
+      "error": "performance_unavailable",
+      "dispatches": 0
+    },
+    {
+      "mode": "redirect",
+      "path": "/monitoring",
+      "ok": false,
+      "error": "backlink_monitoring_unavailable",
+      "dispatches": 0
+    },
+    {
+      "mode": "redirect",
+      "path": "/details",
+      "ok": false,
+      "error": "backlink_details_unavailable",
+      "dispatches": 0
+    },
+    {
+      "mode": "redirect",
+      "path": "/shopify",
+      "ok": false,
+      "error": "catalog_unavailable",
+      "dispatches": 0
+    },
+    {
+      "mode": "redirect",
+      "path": "/stripe",
+      "ok": false,
+      "error": "provider_unavailable",
+      "dispatches": 0
+    },
+    {
+      "noRedirectReplay": true
+    }
+  ],
+  "after": [
+    {
+      "mode": "success",
+      "path": "/google",
+      "ok": true,
+      "dispatches": 1
+    },
+    {
+      "mode": "success",
+      "path": "/performance",
+      "ok": true,
+      "dispatches": 1
+    },
+    {
+      "mode": "success",
+      "path": "/monitoring",
+      "ok": true,
+      "dispatches": 1
+    },
+    {
+      "mode": "success",
+      "path": "/details",
+      "ok": true,
+      "dispatches": 1
+    },
+    {
+      "mode": "success",
+      "path": "/shopify",
+      "ok": true,
+      "dispatches": 1
+    },
+    {
+      "mode": "success",
+      "path": "/stripe",
+      "ok": true,
+      "dispatches": 1
+    },
+    {
+      "mode": "redirect",
+      "path": "/google",
+      "ok": false,
+      "error": "google_inspection_unavailable",
+      "dispatches": 1
+    },
+    {
+      "mode": "redirect",
+      "path": "/performance",
+      "ok": false,
+      "error": "performance_unavailable",
+      "dispatches": 1
+    },
+    {
+      "mode": "redirect",
+      "path": "/monitoring",
+      "ok": false,
+      "error": "backlink_monitoring_unavailable",
+      "dispatches": 1
+    },
+    {
+      "mode": "redirect",
+      "path": "/details",
+      "ok": false,
+      "error": "backlink_details_unavailable",
+      "dispatches": 1
+    },
+    {
+      "mode": "redirect",
+      "path": "/shopify",
+      "ok": false,
+      "error": "catalog_unavailable",
+      "dispatches": 1
+    },
+    {
+      "mode": "redirect",
+      "path": "/stripe",
+      "ok": false,
+      "error": "provider_unavailable",
+      "dispatches": 1
+    },
+    {
+      "noRedirectReplay": true
+    }
+  ]
+}

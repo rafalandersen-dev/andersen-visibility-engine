@@ -11,13 +11,14 @@ import {
  * Auth is required (requireSupabaseAuth) so generation is scoped to
  * a signed-in user; usage is implicitly tied to that user's session.
  */
-import { createServerFn } from "@tanstack/react-start";
+import { createServerFn, createServerOnlyFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { AiTextBoundaryError } from "./ai-text-bounds.server";
 import { generateBudgetedText, type NativeExpenseContext } from "./ai-provider-expense.server";
 import { AiExpenseUnavailableError } from "./ai-expense.server";
 import { z } from "zod";
 import { AiProviderConfigurationError } from "./ai-provider.server";
+import { classifyAiError, aiErrorUserMessage } from "./ai-error-diagnostics.server";
 import { normalizeQualityScore } from "./quality";
 import { normalizeHookProposals } from "./hook";
 import { internalLinkRule } from "./internal-link-prompt";
@@ -36,6 +37,7 @@ import type { Project, ServiceItem, Opportunity } from "./types";
 import { claimAiUsage, type UsageBucket } from "./ai-usage.server";
 import { withGenerationUsage } from "./generation-usage.server";
 import { contentRecoveryTarget, retainContentGeneration } from "./generation-result.server";
+import { CONTENT_BODY_MAX_CHARS } from "./generation-result";
 
 const MODEL = DEFAULT_MODEL_ID;
 
@@ -332,6 +334,17 @@ function normalizePriority(value: unknown) {
   return normalizeValue(value, PRIORITIES, "Medium");
 }
 
+/** The model replied, but the payload could not be read as the expected JSON
+ * shape (unparseable, truncated, empty or missing required items). Named so the
+ * safe error classifier maps it to the "response_format" class without ever
+ * inspecting the message. Messages here are authored and contain no secrets. */
+class AiResponseFormatError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AiResponseFormatError";
+  }
+}
+
 function parseJsonFromText(text: string): unknown {
   const cleaned = text
     .replace(/```json\s*/gi, "")
@@ -341,7 +354,7 @@ function parseJsonFromText(text: string): unknown {
   const firstObject = cleaned.indexOf("{");
   const firstArray = cleaned.indexOf("[");
   const starts = [firstObject, firstArray].filter((index) => index >= 0);
-  if (!starts.length) throw new Error("AI returned no JSON payload.");
+  if (!starts.length) throw new AiResponseFormatError("AI returned no JSON payload.");
 
   const tryParse = (candidate: string) => {
     try {
@@ -391,7 +404,7 @@ function parseJsonFromText(text: string): unknown {
     }
   }
 
-  throw new Error("AI response appears truncated before valid JSON ended.");
+  throw new AiResponseFormatError("AI response appears truncated before valid JSON ended.");
 }
 
 function extractArray(payload: unknown, keys: string[]): unknown[] {
@@ -559,7 +572,8 @@ function normalizeContentAsset(payload: unknown, project: Project, opp: Opportun
     ],
     "",
   );
-  if (!markdown.trim()) throw new Error("AI returned no usable content. Please try again.");
+  if (!markdown.trim())
+    throw new AiResponseFormatError("AI returned no usable content. Please try again.");
   const parsed = ContentAssetSchema.parse({
     metaTitle: pickString(
       item,
@@ -1089,62 +1103,40 @@ function mapGatewayError(e: unknown): Error {
   // Trusted internal pause type must survive for the background scheduler.
   // Flattening it to Error would make it attempt every remaining slot.
   if (e instanceof AiExpenseUnavailableError) return e;
-  const raw = e instanceof Error ? e.message : String(e);
-  // Classify locally, but never log provider messages, causes or output text:
-  // SDK/schema errors can contain prompts, private URLs and response content.
-  const anyErr = e as { cause?: unknown; statusCode?: unknown; status?: unknown };
-  const causeMsg = anyErr?.cause instanceof Error ? anyErr.cause.message : anyErr?.cause;
-  const status = anyErr?.statusCode ?? anyErr?.status;
-  const msg = [
-    raw,
-    typeof causeMsg === "string" ? causeMsg : "",
-    status ? `status ${status}` : "",
-  ].join(" ");
-  console.error("[ai.functions] gateway/validation error", {
-    httpStatus:
-      typeof status === "number" && Number.isInteger(status) && status >= 400 && status <= 599
-        ? status
-        : null,
-    boundary: e instanceof AiTextBoundaryError ? e.reason : null,
-  });
-  if (e instanceof AiTextBoundaryError || e instanceof AiProviderConfigurationError)
+
+  // Boundary + explicit provider-configuration errors already carry a safe,
+  // authored message; log the finite boundary reason for observability only.
+  if (e instanceof AiTextBoundaryError) {
+    console.error("[ai.functions] AI transport error", {
+      errorClass: "boundary",
+      httpStatus: null,
+      boundary: e.reason,
+    });
     return new Error(e.message);
+  }
+  if (e instanceof AiProviderConfigurationError) {
+    console.error("[ai.functions] AI transport error", {
+      errorClass: "provider_unconfigured",
+      httpStatus: null,
+      boundary: null,
+    });
+    return new Error(e.message);
+  }
 
-  // 1. Rate limit — transient, retry shortly.
-  if (/\b429\b|rate.?limit|too many requests|overloaded/i.test(msg))
-    return new Error("AI is busy right now (rate limit). Please retry in a moment.");
-
-  // 2. Credits / billing / quota — needs account action, not a retry.
-  if (
-    /\b402\b|credit|insufficient|quota|billing|payment required|out of funds|exceeded your/i.test(
-      msg,
-    )
-  )
-    return new Error("AI credits/quota exhausted. Please check your AI billing balance.");
-
-  // 3. Truncation / incomplete — check BEFORE schema/JSON, since a cut-off
-  //    response usually also fails those checks but the real cause is length.
-  if (
-    /max_?tokens|max output|length limit|truncat|incomplete|finish.?reason\W*length|unexpected end of (json|input|data)/i.test(
-      msg,
-    )
-  )
-    return new Error("AI response was cut short (incomplete). Please try again.");
-
-  // 4. Schema / structured-output validation — model returned the wrong shape.
-  if (
-    /schema|validation|zod|invalid_type|too_small|too_big|unrecognized|did not match|no object generated/i.test(
-      msg,
-    )
-  )
-    return new Error("AI returned data in an unexpected structure. Please try again.");
-
-  // 4b. JSON parse / empty payload — couldn't read the model output at all.
-  if (/not valid json|unexpected token|no json|no opportunities|no calendar|empty/i.test(msg))
-    return new Error("AI returned an unexpected format. Please try again.");
-
-  // 5. Generic / unknown provider failure.
-  return new Error("AI generation failed. Please try again.");
+  // Everything else is classified from a finite allowlist of structured error
+  // names/codes + a validated HTTP status. We NEVER read or log the error
+  // message, stack, cause text, response body/headers, prompt or any
+  // credential material — only the fixed class label, status and name category
+  // below (all drawn from closed enums). The category preserves diagnostic
+  // evidence for no-HTTP-status failures without asserting a root cause.
+  const { errorClass, httpStatus, nameCategory } = classifyAiError(e);
+  console.error("[ai.functions] AI transport error", {
+    errorClass,
+    httpStatus,
+    nameCategory,
+    boundary: null,
+  });
+  return new Error(aiErrorUserMessage(errorClass));
 }
 
 /**
@@ -1238,7 +1230,9 @@ interface SiteContext {
  * extracts title/meta/visible text and discovers up to 5 same-domain internal
  * links (path + anchor text). Never throws — returns ok:false on any problem.
  */
-export async function fetchSiteContext(rawUrl: string): Promise<SiteContext> {
+export const fetchSiteContext = createServerOnlyFn(fetchSiteContextImpl);
+
+async function fetchSiteContextImpl(rawUrl: string): Promise<SiteContext> {
   const empty: SiteContext = { ok: false, title: "", metaDescription: "", text: "", links: [] };
   let url = (rawUrl || "").trim();
   if (!url) return empty;
@@ -1381,7 +1375,7 @@ ${sharedRules}`,
       const findings = extractArray(root, ["findings", "issues", "items", "audit", "results"]).map(
         (f, i) => normalizeAuditFinding(f, i),
       );
-      if (findings.length === 0) throw new Error("AI returned no audit findings.");
+      if (findings.length === 0) throw new AiResponseFormatError("AI returned no audit findings.");
 
       const seoScore = clampScore(pickNumber(root, ["seoScore", "seo_score", "seo"]));
       const localScore = clampScore(pickNumber(root, ["localScore", "local_score", "local"]));
@@ -1531,7 +1525,7 @@ ${sharedRules}`,
         "items",
         "results",
       ]).map((g, i) => normalizeCompetitorGap(g, i));
-      if (gaps.length === 0) throw new Error("AI returned no competitor gaps.");
+      if (gaps.length === 0) throw new AiResponseFormatError("AI returned no competitor gaps.");
 
       const aiSnapshots = extractArray(root, ["competitorSnapshots", "competitors", "snapshots"]);
       const competitorSnapshots = bindCompetitorSnapshots(fetches, aiSnapshots);
@@ -1671,7 +1665,8 @@ ${auditBlock}${competitorBlock}${competitorStrengthsBlock}${oppBlock}${sharedRul
         "actions",
         "results",
       ]).map((it, i) => normalizeAuthorityItem(it, i));
-      if (authorityItems.length === 0) throw new Error("AI returned no authority items.");
+      if (authorityItems.length === 0)
+        throw new AiResponseFormatError("AI returned no authority items.");
 
       const localCitationScore = clampScore(
         pickNumber(root, ["localCitationScore", "local_citation_score", "localCitation", "local"]),
@@ -1827,7 +1822,7 @@ ${auditBlock}${competitorBlock}${authorityBlock}${oppBlock}${sharedRules}`,
         "results",
       ]).map((g, i) => normalizeVisibilityGap(g, i));
       if (promptSets.length === 0 && visibilityGaps.length === 0) {
-        throw new Error("AI returned no AI-visibility results.");
+        throw new AiResponseFormatError("AI returned no AI-visibility results.");
       }
 
       const promptCoverageScore = clampScore(
@@ -1927,7 +1922,9 @@ ${auditBlock}${competitorBlock}${authorityBlock}${oppBlock}${sharedRules}`,
 // Onboarding — safe homepage scan + light AI extraction
 // ============================================================
 
-export async function scanWebsiteCore(
+export const scanWebsiteCore = createServerOnlyFn(scanWebsiteCoreImpl);
+
+async function scanWebsiteCoreImpl(
   userId: string,
   url: string,
   execution: { attempt?: NativeExpenseContext["attempt"]; requireAi?: boolean } = {},
@@ -2036,21 +2033,45 @@ export const scanWebsiteFn = createServerFn({ method: "POST" })
  * (no request context — the caller supplies the authenticated userId). The
  * server fn below is a thin JWT-authenticated wrapper over this.
  */
-export async function generateOpportunitiesCore(
+export const generateOpportunitiesCore = createServerOnlyFn(generateOpportunitiesCoreImpl);
+
+async function generateOpportunitiesCoreImpl(
   userId: string,
   data: { project: Project; services: ServiceItem[]; existingTitles: string[] },
-  metering: { enforceLimit?: boolean; attempt?: NativeExpenseContext["attempt"]; expectedKnowledgeHash?: string } = {},
+  metering: {
+    enforceLimit?: boolean;
+    attempt?: NativeExpenseContext["attempt"];
+    expectedKnowledgeHash?: string;
+  } = {},
 ) {
   {
     const project = data.project as Project;
     const services = data.services as ServiceItem[];
     const { loadProjectKnowledgeContext } = await import("./project-knowledge.server");
-    const knowledge = await loadProjectKnowledgeContext({ownerId:userId,projectId:project.id},"text");
-    if (metering.expectedKnowledgeHash && await (await import("./weekly-executor")).weeklyInputHash(knowledge) !== metering.expectedKnowledgeHash) throw new Error("weekly_context_changed");
+    const knowledge = await loadProjectKnowledgeContext(
+      { ownerId: userId, projectId: project.id },
+      "text",
+    );
+    if (
+      metering.expectedKnowledgeHash &&
+      (await (await import("./weekly-executor")).weeklyInputHash(knowledge)) !==
+        metering.expectedKnowledgeHash
+    )
+      throw new Error("weekly_context_changed");
     // Validate retrieval and the pinned context before consuming a result unit.
     // The claim still precedes every model request.
     await claimAiUsage({ userId, bucket: "aiCredits", enforceLimit: metering.enforceLimit });
-    const brief = [projectBrief(knowledge.brandIntelligence ? {...project,brandIntelligence:knowledge.brandIntelligence} : project, services),knowledge.context].filter(Boolean).join("\n\n");
+    const brief = [
+      projectBrief(
+        knowledge.brandIntelligence
+          ? { ...project, brandIntelligence: knowledge.brandIntelligence }
+          : project,
+        services,
+      ),
+      knowledge.context,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
     const existing = data.existingTitles.length
       ? `\nAvoid duplicating these existing titles:\n- ${data.existingTitles.join("\n- ")}`
       : "";
@@ -2085,7 +2106,8 @@ ${sharedRules}`,
         "items",
         "results",
       ]).map((item, index) => normalizeOpportunityItem(item, project, index));
-      if (opportunities.length === 0) throw new Error("AI returned no opportunities.");
+      if (opportunities.length === 0)
+        throw new AiResponseFormatError("AI returned no opportunities.");
       console.info("[ai.functions] opportunities parsed", { count: opportunities.length });
       return { opportunities };
     } catch (e) {
@@ -2171,7 +2193,8 @@ ${sharedRules}`,
         "schedule",
         "contentCalendar",
       ]).map((item, index) => normalizeCalendarItem(item, project, index));
-      if (calendarItems.length === 0) throw new Error("AI returned no calendar items.");
+      if (calendarItems.length === 0)
+        throw new AiResponseFormatError("AI returned no calendar items.");
       console.info("[ai.functions] calendar parsed", { count: calendarItems.length });
       return { calendarItems };
     } catch (e) {
@@ -2183,6 +2206,12 @@ ${sharedRules}`,
 // generateContentAsset (landing brief / article draft)
 // ============================================================
 
+const contentBody = z.preprocess((value) => {
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return "";
+}, z.string().min(1).max(CONTENT_BODY_MAX_CHARS));
+
 const ContentAssetSchema = z.object({
   metaTitle: cleanString(70),
   metaDescription: cleanString(170),
@@ -2190,7 +2219,7 @@ const ContentAssetSchema = z.object({
   outline: z.array(cleanString(140)),
   faq: z.array(z.object({ q: cleanString(140), a: cleanString(400) })),
   cta: cleanString(60),
-  markdown: cleanString(8000),
+  markdown: contentBody,
   internalLinks: z.array(cleanString(80)).default([]),
   schemaSuggestions: z.array(cleanString(40)).default([]),
   editorNotes: z
@@ -2224,9 +2253,20 @@ export const generateContentAssetFn = createServerFn({ method: "POST" })
         const opp = data.opportunity as Opportunity;
         const { loadProjectKnowledgeContext } = await import("./project-knowledge.server");
         const knowledge = await loadProjectKnowledgeContext(
-          { ownerId: context.userId as string, projectId: project.id }, "text",
+          { ownerId: context.userId as string, projectId: project.id },
+          "text",
         );
-        const brief = [projectBrief(knowledge.brandIntelligence ? { ...project, brandIntelligence: knowledge.brandIntelligence } : project, services), knowledge.context].filter(Boolean).join("\n\n");
+        const brief = [
+          projectBrief(
+            knowledge.brandIntelligence
+              ? { ...project, brandIntelligence: knowledge.brandIntelligence }
+              : project,
+            services,
+          ),
+          knowledge.context,
+        ]
+          .filter(Boolean)
+          .join("\n\n");
         // Generate in the project's primary content language (covers Danish too),
         // falling back to the opportunity's language if none is set.
         // P1-7 fix (2026-07-25): the OPPORTUNITY's language wins. A Polish-language
@@ -2234,7 +2274,13 @@ export const generateContentAssetFn = createServerFn({ method: "POST" })
         // the project's content language is only the fallback when the opportunity
         // carries none.
         const contentLang = opp.language || contentLanguageLabel(project);
-        target = contentRecoveryTarget({projectId:project.id,opportunityId:opp.id,title:opp.title,language:contentLang,assetType:data.kind === "landing" ? "landingPage" : "article"});
+        target = contentRecoveryTarget({
+          projectId: project.id,
+          opportunityId: opp.id,
+          title: opp.title,
+          language: contentLang,
+          assetType: data.kind === "landing" ? "landingPage" : "article",
+        });
 
         const kindInstruction =
           data.kind === "landing"
@@ -2271,7 +2317,13 @@ ${sharedRules}`,
             8000,
           );
 
-          return {...normalizeContentAsset(payload, project, opp),knowledgeReferences: knowledge.references,sourceDependencies: knowledge.sourceDependencies, generationReceiptId:receiptId,resultId:receiptId};
+          return {
+            ...normalizeContentAsset(payload, project, opp),
+            knowledgeReferences: knowledge.references,
+            sourceDependencies: knowledge.sourceDependencies,
+            generationReceiptId: receiptId,
+            resultId: receiptId,
+          };
         } catch (e) {
           // P1-5: generation failures must be visible in server logs, not only
           // as a transient client toast.
@@ -2283,7 +2335,7 @@ ${sharedRules}`,
           throw mapGatewayError(e);
         }
       },
-      result => retainContentGeneration(context.userId as string,target,result),
+      (result) => retainContentGeneration(context.userId as string, target, result),
     );
   });
 
@@ -2328,7 +2380,9 @@ const ASSET_INSTRUCTIONS: Record<(typeof CONTENT_ASSET_TYPES)[number], string> =
  * contentGeneration budget exactly like the interactive path. The server fn
  * below is a thin JWT-authenticated wrapper over this.
  */
-export async function generateContentCore(
+export const generateContentCore = createServerOnlyFn(generateContentCoreImpl);
+
+async function generateContentCoreImpl(
   userId: string,
   data: {
     project: Project;
@@ -2337,7 +2391,14 @@ export async function generateContentCore(
     assetType: (typeof CONTENT_ASSET_TYPES)[number];
     modelOverride?: string;
   },
-  metering: { enforceLimit?: boolean; attempt?: NativeExpenseContext["attempt"]; assetId?: string; expectedKnowledgeHash?: string } = {},
+  metering: {
+    enforceLimit?: boolean;
+    attempt?: NativeExpenseContext["attempt"];
+    assetId?: string;
+    expectedKnowledgeHash?: string;
+    signal?: AbortSignal;
+    beforeDispatch?: () => Promise<void>;
+  } = {},
 ) {
   let target: ReturnType<typeof contentRecoveryTarget>;
   return withGenerationUsage(
@@ -2353,15 +2414,39 @@ export async function generateContentCore(
       const services = data.services as ServiceItem[];
       const opp = data.opportunity as Opportunity;
       const { loadProjectKnowledgeContext } = await import("./project-knowledge.server");
-      const knowledge = await loadProjectKnowledgeContext({ownerId: userId, projectId: project.id}, "text");
-      if (metering.expectedKnowledgeHash && await (await import("./weekly-executor")).weeklyInputHash(knowledge) !== metering.expectedKnowledgeHash) throw new Error("weekly_context_changed");
-      const brief = [projectBrief(knowledge.brandIntelligence ? { ...project, brandIntelligence: knowledge.brandIntelligence } : project, services), knowledge.context].filter(Boolean).join("\n\n");
+      const knowledge = await loadProjectKnowledgeContext(
+        { ownerId: userId, projectId: project.id },
+        "text",
+      );
+      if (
+        metering.expectedKnowledgeHash &&
+        (await (await import("./weekly-executor")).weeklyInputHash(knowledge)) !==
+          metering.expectedKnowledgeHash
+      )
+        throw new Error("weekly_context_changed");
+      const brief = [
+        projectBrief(
+          knowledge.brandIntelligence
+            ? { ...project, brandIntelligence: knowledge.brandIntelligence }
+            : project,
+          services,
+        ),
+        knowledge.context,
+      ]
+        .filter(Boolean)
+        .join("\n\n");
       // P1-7 fix (2026-07-25): the OPPORTUNITY's language wins. A Polish-language
       // opportunity on a Swedish-market project must generate a Polish article —
       // the project's content language is only the fallback when the opportunity
       // carries none.
       const contentLang = opp.language || contentLanguageLabel(project);
-      target = contentRecoveryTarget({projectId:project.id,opportunityId:opp.id,title:opp.title,language:contentLang,assetType:data.assetType});
+      target = contentRecoveryTarget({
+        projectId: project.id,
+        opportunityId: opp.id,
+        title: opp.title,
+        language: contentLang,
+        assetType: data.assetType,
+      });
       const instruction = ASSET_INSTRUCTIONS[data.assetType] ?? ASSET_INSTRUCTIONS.article;
       const sourceLine = opp.source
         ? `Source: this opportunity came from ${opp.source === "audit" ? "a Site Audit finding" : opp.source === "competitor" ? "a Competitor Gap" : opp.source === "authority" ? "an Authority-building action" : opp.source === "aiVisibility" ? "an AI Visibility gap" : "manual planning"} — keep that intent in mind.`
@@ -2369,7 +2454,13 @@ export async function generateContentCore(
 
       try {
         const payload = await generateJsonText(
-          { userId, operation: "generateContentCore", attempt },
+          {
+            userId,
+            operation: "generateContentCore",
+            attempt,
+            ...(metering.signal ? { signal: metering.signal } : {}),
+            ...(metering.beforeDispatch ? { beforeDispatch: metering.beforeDispatch } : {}),
+          },
           `${instruction}
 
 Return exactly this JSON shape. "markdown" is REQUIRED and must contain the full, formatted content for this asset type; fill the other fields that are relevant.
@@ -2394,7 +2485,13 @@ ${sharedRules}`,
           data.modelOverride,
         );
 
-        return {...normalizeContentAsset(payload, project, opp),knowledgeReferences: knowledge.references,sourceDependencies: knowledge.sourceDependencies,generationReceiptId:receiptId,resultId:metering.assetId ?? receiptId};
+        return {
+          ...normalizeContentAsset(payload, project, opp),
+          knowledgeReferences: knowledge.references,
+          sourceDependencies: knowledge.sourceDependencies,
+          generationReceiptId: receiptId,
+          resultId: metering.assetId ?? receiptId,
+        };
       } catch (e) {
         // P1-5: generation failures must be visible in server logs, not only
         // as a transient client toast.
@@ -2406,7 +2503,7 @@ ${sharedRules}`,
         throw mapGatewayError(e);
       }
     },
-    result => retainContentGeneration(userId,target,result),
+    (result) => retainContentGeneration(userId, target, result),
   );
 }
 
@@ -3093,7 +3190,8 @@ ${sharedRules}`,
         "opportunities",
         "results",
       ]).map((r, i) => normalizeBacklinkRecommendation(r, i));
-      if (recommendations.length === 0) throw new Error("AI returned no backlink recommendations.");
+      if (recommendations.length === 0)
+        throw new AiResponseFormatError("AI returned no backlink recommendations.");
 
       const linkProfileScore = clampScore(
         pickNumber(root, ["linkProfileScore", "link_profile_score", "profile"]),

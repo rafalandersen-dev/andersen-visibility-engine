@@ -1,4 +1,8 @@
+import { AuthLanguagePicker } from "@/components/AuthLanguagePicker";
+import { useAuthLanguage } from "@/hooks/use-auth-language";
+import { translate } from "@/i18n/translate";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { PLAN_LIMITS } from "@/lib/billing";
 import { hreflangLinks } from "@/lib/locales";
 import {
   ArrowRight,
@@ -25,32 +29,42 @@ import { Button } from "@/components/ui/button";
 import { RegionSuggestionBanner } from "@/components/RegionSuggestionBanner";
 import { DISPLAY_REGIONS, REGION_SELECTOR_LABELS } from "@/lib/markets";
 
-const HOME_FAQ = [
-  {
-    q: "Where do discovered opportunities go?",
-    a: "Discovery results stay as suggestions until you accept them. Accepted ideas enter Plan in Captured, with their source, reason, evidence, owner, status and next action attached.",
-  },
-  {
-    q: "What does Milo Score evaluate?",
-    a: "Milo Score evaluates a specific content version before review. It checks search readiness, brand fit, structure, evidence, conversion and related quality signals. It never ranks Opportunities.",
-  },
-  {
-    q: "Can Milo publish to my website?",
-    a: "Yes. Connected WordPress, Shopify or custom publishing workflows can send approved content as a draft or publish it live, depending on the controls you choose.",
-  },
-  {
-    q: "Are backlinks included?",
-    a: "Backlink intelligence, marketplace purchasing and outreach are a separate paid workspace because external data and placements create additional costs. The add-on is always labeled clearly.",
-  },
-  {
-    q: "Can I cancel without contacting support?",
-    a: "Yes. Manage billing and Cancel subscription are visible inside Settings → Billing. Paid users are sent to an authenticated Paddle portal where they can manage or cancel directly.",
-  },
-  {
-    q: "How many projects can I manage?",
-    a: "Milo supports up to five projects in one account. Each project keeps its own site, services, competitors, opportunities, content, integrations and analytics context.",
-  },
-];
+type HomeTranslate = ReturnType<typeof useAuthLanguage>["t"];
+
+function homeFaq(t: HomeTranslate) {
+  return [
+    {
+      id: "discovery",
+      q: t("publicHome.faqDiscoveryQ"),
+      a: t("publicHome.faqDiscoveryA"),
+    },
+    {
+      id: "score",
+      q: t("publicHome.faqScoreQ"),
+      a: t("publicHome.faqScoreA"),
+    },
+    {
+      id: "publish",
+      q: t("publicHome.faqPublishQ"),
+      a: t("publicHome.faqPublishA"),
+    },
+    {
+      id: "backlinks",
+      q: t("publicHome.faqBacklinksQ"),
+      a: t("publicHome.faqBacklinksA"),
+    },
+    {
+      id: "cancel",
+      q: t("publicHome.faqCancelQ"),
+      a: t("publicHome.faqCancelA"),
+    },
+    {
+      id: "projects",
+      q: t("publicHome.faqProjectsQ"),
+      a: t("publicHome.faqProjectsA", { count: PLAN_LIMITS.agency.maxProjects }),
+    },
+  ];
+}
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -58,8 +72,7 @@ export const Route = createFileRoute("/")({
       { title: "Milo Growth — Your Monthly AI SEO Growth System" },
       {
         name: "description",
-        content:
-          "Turn site, search, competitor and AI visibility signals into a clear SEO plan, better content and measurable growth — across up to five projects.",
+        content: `Turn site, search, competitor and AI visibility signals into a clear SEO plan, better content and measurable growth — across up to ${PLAN_LIMITS.agency.maxProjects} projects on Agency.`,
       },
       { property: "og:title", content: "Milo Growth — Your Monthly AI SEO Growth System" },
       {
@@ -80,7 +93,7 @@ export const Route = createFileRoute("/")({
         children: JSON.stringify({
           "@context": "https://schema.org",
           "@type": "FAQPage",
-          mainEntity: HOME_FAQ.map((item) => ({
+          mainEntity: homeFaq((key, vars) => translate("en", key, vars)).map((item) => ({
             "@type": "Question",
             name: item.q,
             acceptedAnswer: { "@type": "Answer", text: item.a },
@@ -93,23 +106,26 @@ export const Route = createFileRoute("/")({
 });
 
 function LandingPage() {
+  const controls = useAuthLanguage();
+  const { t } = controls;
   return (
-    <main className="min-h-screen bg-[#fbfaf6] text-[#202221]">
-      <RegionSuggestionBanner />
-      <PublicHeader />
-      <Hero />
-      <ProofStrip />
-      <ConnectedWorkflow />
-      <ProductSystem />
-      <BacklinksAddOn />
-      <TrustAndPricing />
-      <Faq />
-      <PublicFooter />
+    <main lang={controls.language} className="min-h-screen bg-[#fbfaf6] text-[#202221]">
+      <RegionSuggestionBanner language={controls.language} />
+      <PublicHeader controls={controls} />
+      <Hero t={t} />
+      <ProofStrip t={t} />
+      <ConnectedWorkflow t={t} />
+      <ProductSystem t={t} />
+      <BacklinksAddOn t={t} />
+      <TrustAndPricing t={t} />
+      <Faq t={t} />
+      <PublicFooter t={t} />
     </main>
   );
 }
 
-function PublicHeader() {
+function PublicHeader({ controls }: { controls: ReturnType<typeof useAuthLanguage> }) {
+  const { t } = controls;
   return (
     <header className="sticky top-0 z-40 border-b border-[#e6dfd2] bg-[#fbfaf6]/95 backdrop-blur">
       <div className="mx-auto flex max-w-[1340px] items-center justify-between px-5 py-4 md:px-8">
@@ -118,87 +134,93 @@ function PublicHeader() {
             Milo Growth
           </span>
           <span className="text-[9px] uppercase tracking-[0.22em] text-[#697282]">
-            Monthly AI growth planner
+            {t("publicHome.tagline")}
           </span>
         </Link>
         <nav
           className="hidden items-center gap-8 text-[13px] text-[#333b42] lg:flex"
-          aria-label="Public navigation"
+          aria-label={t("publicHome.nav")}
         >
           <a href="#product" className="border-b border-[#b5862a] py-2">
-            Product
+            {t("publicHome.product")}
           </a>
           <a href="#how" className="py-2 hover:text-black">
-            How it works
+            {t("publicHome.how")}
           </a>
           <Link to="/pricing" className="py-2 hover:text-black">
-            Pricing
+            {t("publicHome.pricing")}
           </Link>
           <a href="#backlinks" className="py-2 hover:text-black">
-            Backlinks
+            {t("publicHome.backlinks")}
           </a>
           <a href="#resources" className="py-2 hover:text-black">
-            Resources
+            {t("publicHome.resources")}
           </a>
         </nav>
         <div className="flex items-center gap-2">
-          <Link to="/auth" search={{ mode: "login" }}>
-            <Button variant="ghost" size="sm">
-              Sign in
-            </Button>
-          </Link>
-          <Link to="/auth" search={{ mode: "register" }}>
-            <Button size="sm">Start free</Button>
-          </Link>
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/auth" search={{ mode: "login" }}>
+              {t("publicHome.signIn")}
+            </Link>
+          </Button>
+          <Button asChild size="sm">
+            <Link to="/auth" search={{ mode: "register" }}>
+              {t("publicHome.startFree")}
+            </Link>
+          </Button>
         </div>
+      </div>
+      <div className="mx-auto max-w-[1340px] px-5 md:px-8">
+        <AuthLanguagePicker language={controls.language} onChange={controls.chooseLanguage} />
       </div>
     </header>
   );
 }
 
-function Hero() {
+function Hero({ t }: { t: HomeTranslate }) {
   return (
     <section id="product" className="border-b border-[#e6dfd2]">
       <div className="mx-auto grid max-w-[1340px] items-center gap-10 px-5 py-12 md:px-8 lg:grid-cols-[430px_minmax(0,1fr)] lg:py-14">
         <div>
           <div className="inline-flex items-center gap-2 rounded-full border border-[#ddd8cd] bg-[#fffdf8] px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#697282]">
-            <Sparkle size={13} weight="fill" className="text-[#b5862a]" /> Milo Growth · for small
-            businesses
+            <Sparkle size={13} weight="fill" className="text-[#b5862a]" />{" "}
+            {t("publicHome.forSmall")}
           </div>
           <h1 className="mt-7 font-display text-[46px] leading-[1.08] tracking-[-0.045em] sm:text-[58px]">
-            Your monthly <span className="text-[#bd9250]">AI growth</span> system
+            {t("publicHome.heroBefore")}{" "}
+            <span className="text-[#bd9250]">{t("publicHome.heroEmphasis")}</span>{" "}
+            {t("publicHome.heroAfter")}
           </h1>
-          <p className="mt-6 text-[19px] leading-8 text-[#647183]">
-            Turn visibility signals into a clear growth plan.
-          </p>
+          <p className="mt-6 text-[19px] leading-8 text-[#647183]">{t("publicHome.heroLead")}</p>
           <p className="mt-3 max-w-[410px] text-[15px] leading-6 text-[#647183]">
-            Find the right opportunities, schedule the work, create better content and prove what
-            changed — across up to five projects.
+            {t("publicHome.heroBody", { count: PLAN_LIMITS.agency.maxProjects })}
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link to="/auth" search={{ mode: "register" }}>
-              <Button size="lg" className="min-w-[142px] gap-2">
-                Start free <ArrowRight size={17} />
-              </Button>
-            </Link>
-            <a href="#how">
-              <Button size="lg" variant="outline">
-                See how Milo works
-              </Button>
-            </a>
+            <Button asChild size="lg" className="min-w-[142px] gap-2">
+              <Link to="/auth" search={{ mode: "register" }}>
+                {t("publicHome.startFree")}
+                <ArrowRight size={17} />
+              </Link>
+            </Button>
+            <Button asChild size="lg" variant="outline">
+              <a href="#how">{t("publicHome.seeHow")}</a>
+            </Button>
           </div>
           <div className="mt-8 flex flex-wrap items-center gap-x-4 gap-y-3 text-[10px] text-[#647183]">
-            <TrustItem icon={CheckCircle} label="No credit card" />
-            <TrustItem icon={Lock} label="No agency" />
-            <TrustItem icon={Leaf} label="Self-service" />
-            <TrustItem icon={UsersThree} label="Up to 5 projects" />
+            <TrustItem icon={CheckCircle} label={t("publicHome.noCard")} />
+            <TrustItem icon={Lock} label={t("publicHome.noAgency")} />
+            <TrustItem icon={Leaf} label={t("publicHome.selfService")} />
+            <TrustItem
+              icon={UsersThree}
+              label={t("publicHome.agencyProjects", { count: PLAN_LIMITS.agency.maxProjects })}
+            />
           </div>
         </div>
 
         <div className="relative overflow-hidden rounded-lg border border-[#d8d2c7] bg-[#fffdf8] shadow-[0_20px_60px_rgba(26,31,34,.12)]">
           <img
             src="/images/milo-plan-workspace.png"
-            alt="Milo Growth Plan workspace showing traceable SEO opportunities on a lifecycle board"
+            alt={t("publicHome.workspaceAlt")}
             width={1536}
             height={1024}
             loading="eager"
@@ -219,19 +241,22 @@ function TrustItem({ icon: Icon, label }: { icon: typeof CheckCircle; label: str
   );
 }
 
-function ProofStrip() {
+function ProofStrip({ t }: { t: HomeTranslate }) {
   const points = [
-    { icon: CalendarBlank, label: "One clear monthly plan" },
-    { icon: LinkSimple, label: "Five connected steps" },
-    { icon: UsersThree, label: "Human review before publish" },
-    { icon: UsersThree, label: "Up to five projects" },
-    { icon: XCircle, label: "Cancel anytime" },
+    { icon: CalendarBlank, label: t("publicHome.onePlan") },
+    { icon: LinkSimple, label: t("publicHome.fiveSteps") },
+    { icon: UsersThree, label: t("publicHome.humanReview") },
+    {
+      icon: UsersThree,
+      label: t("publicHome.agencyProjects", { count: PLAN_LIMITS.agency.maxProjects }),
+    },
+    { icon: XCircle, label: t("publicHome.billingControls") },
   ];
   return (
     <section className="border-b border-[#e6dfd2] bg-[#fffdf8]">
       <div className="mx-auto grid max-w-[1340px] gap-0 px-5 py-6 md:grid-cols-[1.1fr_repeat(5,1fr)] md:px-8">
         <div className="flex items-center text-[9px] font-semibold uppercase tracking-[0.18em] text-[#647183]">
-          Designed for small businesses
+          {t("publicHome.smallBusinesses")}
         </div>
         {points.map((point) => (
           <div
@@ -246,42 +271,42 @@ function ProofStrip() {
   );
 }
 
-function ConnectedWorkflow() {
+function ConnectedWorkflow({ t }: { t: HomeTranslate }) {
   const steps = [
     {
       icon: Compass,
-      title: "Discover",
-      body: "Find visibility opportunities from search, competitors and your site.",
+      title: t("publicHome.discover"),
+      body: t("publicHome.discoverBody"),
     },
     {
       icon: CalendarBlank,
-      title: "Plan",
-      body: "Turn accepted ideas into a clear plan with priority, owner and date.",
+      title: t("publicHome.plan"),
+      body: t("publicHome.planBody"),
     },
     {
       icon: PencilLine,
-      title: "Create",
-      body: "Brief and draft content that matches intent and your brand voice.",
+      title: t("publicHome.create"),
+      body: t("publicHome.createBody"),
     },
     {
       icon: PaperPlaneTilt,
-      title: "Publish",
-      body: "Review, approve and send content through connected workflows.",
+      title: t("publicHome.publish"),
+      body: t("publicHome.publishBody"),
     },
     {
       icon: ChartLineUp,
-      title: "Measure",
-      body: "Connect rankings, traffic and conversion impact back to the idea.",
+      title: t("publicHome.measure"),
+      body: t("publicHome.measureBody"),
     },
   ];
   return (
     <section id="how" className="border-b border-[#e6dfd2]">
       <div className="mx-auto max-w-[1340px] px-5 py-16 md:px-8 lg:py-20">
         <div className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#647183]">
-          How it works
+          {t("publicHome.how")}
         </div>
         <h2 className="mt-3 max-w-3xl font-display text-3xl tracking-[-0.03em] sm:text-[42px]">
-          One system. Every next step connected.
+          {t("publicHome.connectedSteps")}
         </h2>
         <div className="mt-10 grid gap-5 md:grid-cols-5">
           {steps.map((step, index) => (
@@ -295,7 +320,7 @@ function ConnectedWorkflow() {
                 </div>
                 <div>
                   <div className="text-[9px] text-[#7a8390]">
-                    Step {String(index + 1).padStart(2, "0")}
+                    {t("publicHome.step", { number: String(index + 1).padStart(2, "0") })}
                   </div>
                   <h3 className="mt-1 text-sm font-medium">{step.title}</h3>
                 </div>
@@ -315,37 +340,37 @@ function ConnectedWorkflow() {
   );
 }
 
-function ProductSystem() {
+function ProductSystem({ t }: { t: HomeTranslate }) {
   const capabilities = [
     {
       icon: Gauge,
-      title: "Site audit",
-      body: "Turn technical, content and internal-link findings into traceable work — without losing the affected URL or evidence.",
+      title: t("publicHome.siteAudit"),
+      body: t("publicHome.siteAuditBody"),
     },
     {
       icon: UsersThree,
-      title: "Competitor gaps",
-      body: "See where competitors cover topics, offers or links that your project does not, then accept only the gaps worth pursuing.",
+      title: t("publicHome.competitorGaps"),
+      body: t("publicHome.competitorGapsBody"),
     },
     {
       icon: Medal,
-      title: "Authority",
-      body: "Plan credible proof, expert contributions, directories, mentions and trust signals alongside content work.",
+      title: t("publicHome.authority"),
+      body: t("publicHome.authorityBody"),
     },
     {
       icon: Globe,
-      title: "AI visibility",
-      body: "Track how your brand appears in AI answers and convert missing or weak coverage into focused opportunities.",
+      title: t("publicHome.aiVisibility"),
+      body: t("publicHome.aiVisibilityBody"),
     },
     {
       icon: FileText,
-      title: "Content + Milo Score",
-      body: "Create linked briefs and drafts, evaluate a specific version, send it for review and keep its provenance attached.",
+      title: t("publicHome.contentScore"),
+      body: t("publicHome.contentScoreBody"),
     },
     {
       icon: ChartLineUp,
-      title: "Premium analytics",
-      body: "Bring Milo activity, Search Console and site analytics together to show what shipped and what changed afterward.",
+      title: t("publicHome.analytics"),
+      body: t("publicHome.analyticsBody"),
     },
   ];
   return (
@@ -354,21 +379,20 @@ function ProductSystem() {
         <div className="grid gap-8 lg:grid-cols-[.8fr_1.2fr]">
           <div>
             <div className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#647183]">
-              Everything retained
+              {t("publicHome.everythingRetained")}
             </div>
             <h2 className="mt-3 font-display text-3xl tracking-[-0.03em] sm:text-[42px]">
-              Fewer tabs. No missing functionality.
+              {t("publicHome.connectedWork")}
             </h2>
             <p className="mt-4 max-w-md text-sm leading-6 text-[#647183]">
-              Audit, competitors, authority and AI visibility now feed one Plan. Project setup,
-              services, connections and billing live together in Settings. Content and Insights each
-              have one clear job.
+              {t("publicHome.settingsBody")}
             </p>
-            <Link to="/auth" search={{ mode: "register" }} className="mt-6 inline-block">
-              <Button>
-                Start with one project <ArrowRight size={16} />
-              </Button>
-            </Link>
+            <Button asChild>
+              <Link to="/auth" search={{ mode: "register" }} className="mt-6">
+                {t("publicHome.startProject")}
+                <ArrowRight size={16} />
+              </Link>
+            </Button>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             {capabilities.map((item) => (
@@ -388,12 +412,12 @@ function ProductSystem() {
   );
 }
 
-function BacklinksAddOn() {
+function BacklinksAddOn({ t }: { t: HomeTranslate }) {
   const capabilities = [
-    { label: "Link profile & gaps", icon: LinkSimple },
-    { label: "Paid marketplace", icon: ShieldCheck },
-    { label: "Reviewable outreach", icon: PaperPlaneTilt },
-    { label: "Clear cost controls", icon: Lock },
+    { label: t("publicHome.linkProfile"), icon: LinkSimple },
+    { label: t("publicHome.marketplace"), icon: ShieldCheck },
+    { label: t("publicHome.outreach"), icon: PaperPlaneTilt },
+    { label: t("publicHome.costControls"), icon: Lock },
   ];
 
   return (
@@ -401,29 +425,27 @@ function BacklinksAddOn() {
       <div className="mx-auto grid max-w-[1340px] items-center gap-10 px-5 py-16 md:px-8 lg:grid-cols-[1fr_.9fr] lg:py-20">
         <div>
           <div className="inline-flex rounded-full border border-[#e0b34e]/35 bg-[#e0b34e]/10 px-3 py-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#e0b34e]">
-            Optional paid add-on
+            {t("publicHome.optionalAddon")}
           </div>
           <h2 className="mt-5 font-display text-3xl tracking-[-0.03em] sm:text-[42px]">
-            Backlinks deserve their own workspace.
+            {t("publicHome.backlinksHeading")}
           </h2>
           <p className="mt-4 max-w-xl text-sm leading-6 text-[#b9c1c4]">
-            Analyse referring domains, find competitor link gaps, review marketplace offers and
-            prepare outreach without mixing external placement costs into everyday content planning.
+            {t("publicHome.backlinksBody")}
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
-            <Link to="/pricing">
-              <Button className="bg-[#eef0ee] text-[#18232c] hover:bg-white">
-                See add-on pricing
-              </Button>
-            </Link>
-            <Link to="/auth" search={{ mode: "register" }}>
-              <Button
-                variant="outline"
-                className="border-white/25 bg-transparent text-white hover:bg-white/10 hover:text-white"
-              >
-                Explore Milo first
-              </Button>
-            </Link>
+            <Button asChild className="bg-[#eef0ee] text-[#18232c] hover:bg-white">
+              <Link to="/pricing">{t("publicHome.addonPricing")}</Link>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              className="border-white/25 bg-transparent text-white hover:bg-white/10 hover:text-white"
+            >
+              <Link to="/auth" search={{ mode: "register" }}>
+                {t("publicHome.exploreFirst")}
+              </Link>
+            </Button>
           </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -439,20 +461,20 @@ function BacklinksAddOn() {
   );
 }
 
-function TrustAndPricing() {
+function TrustAndPricing({ t }: { t: HomeTranslate }) {
   return (
     <section className="border-b border-[#e6dfd2]">
       <div className="mx-auto grid max-w-[1340px] gap-8 px-5 py-16 md:px-8 lg:grid-cols-2 lg:py-20">
         <article className="rounded-lg border border-[#ddd8cd] bg-[#fffdf8] p-7">
           <ShieldCheck size={24} className="text-[#398a63]" />
-          <h2 className="mt-5 font-display text-3xl">Control stays with you.</h2>
+          <h2 className="mt-5 font-display text-3xl">{t("publicHome.control")}</h2>
           <ul className="mt-5 grid gap-3 text-sm text-[#52606c]">
             {[
-              "Nothing enters Plan until you accept it",
-              "Human review before publication",
-              "Archive and restore instead of disappearing work",
-              "Content score is version-specific and explainable",
-              "Manage or cancel subscription from Billing",
+              t("publicHome.acceptFirst"),
+              t("publicHome.reviewPublication"),
+              t("publicHome.archiveRestore"),
+              t("publicHome.versionScore"),
+              t("publicHome.manageBilling"),
             ].map((item) => (
               <li key={item} className="flex gap-2">
                 <Check size={16} className="mt-0.5 shrink-0 text-[#398a63]" />
@@ -463,22 +485,24 @@ function TrustAndPricing() {
         </article>
         <article className="rounded-lg border border-[#d7c39c] bg-[#faf6ee] p-7">
           <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#8b6b2e]">
-            Straightforward plans
+            {t("publicHome.simplePlans")}
           </div>
-          <h2 className="mt-4 font-display text-3xl">Start small. Grow to five projects.</h2>
-          <p className="mt-4 text-sm leading-6 text-[#647183]">
-            Choose the usage level that fits today. Backlinks remains an explicit add-on, and
-            cancellation stays visible in your account.
-          </p>
+          <h2 className="mt-4 font-display text-3xl">
+            {t("publicHome.pricingHeading", { count: PLAN_LIMITS.agency.maxProjects })}
+          </h2>
+          <p className="mt-4 text-sm leading-6 text-[#647183]">{t("publicHome.pricingBody")}</p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Link to="/pricing">
-              <Button>
-                See pricing <ArrowRight size={16} />
-              </Button>
-            </Link>
-            <Link to="/auth" search={{ mode: "register" }}>
-              <Button variant="outline">Start free</Button>
-            </Link>
+            <Button asChild>
+              <Link to="/pricing">
+                {t("publicHome.seePricing")}
+                <ArrowRight size={16} />
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/auth" search={{ mode: "register" }}>
+                {t("publicHome.startFree")}
+              </Link>
+            </Button>
           </div>
         </article>
       </div>
@@ -486,17 +510,19 @@ function TrustAndPricing() {
   );
 }
 
-function Faq() {
+function Faq({ t }: { t: HomeTranslate }) {
   return (
     <section id="resources" className="border-b border-[#e6dfd2] bg-[#f7f4ed]">
       <div className="mx-auto max-w-4xl px-5 py-16 md:px-8 lg:py-20">
         <div className="text-center text-[9px] font-semibold uppercase tracking-[0.2em] text-[#647183]">
-          Plain answers
+          {t("publicHome.plainAnswers")}
         </div>
-        <h2 className="mt-3 text-center font-display text-3xl sm:text-[42px]">Before you start</h2>
+        <h2 className="mt-3 text-center font-display text-3xl sm:text-[42px]">
+          {t("publicHome.beforeStart")}
+        </h2>
         <div className="mt-9 divide-y divide-[#ddd8cd] rounded-lg border border-[#ddd8cd] bg-[#fffdf8]">
-          {HOME_FAQ.map((item) => (
-            <details key={item.q} className="group px-5 py-4">
+          {homeFaq(t).map((item) => (
+            <details key={item.id} className="group px-5 py-4">
               <summary className="cursor-pointer list-none pr-6 text-sm font-medium marker:hidden">
                 {item.q}
               </summary>
@@ -509,7 +535,7 @@ function Faq() {
   );
 }
 
-function PublicFooter() {
+function PublicFooter({ t }: { t: HomeTranslate }) {
   return (
     <footer className="bg-[#fffdf8]">
       <div className="mx-auto max-w-[1340px] px-5 py-10 md:px-8">
@@ -517,26 +543,25 @@ function PublicFooter() {
           <div>
             <div className="font-display text-xl">Milo Growth</div>
             <p className="mt-2 max-w-xs text-xs leading-5 text-[#647183]">
-              A calmer way for small businesses to discover, plan, create, publish and measure SEO
-              growth.
+              {t("publicHome.footerBody")}
             </p>
           </div>
           <div className="grid grid-cols-2 gap-x-10 gap-y-2 text-xs text-[#52606c] sm:grid-cols-4">
-            <Link to="/pricing">Pricing</Link>
-            <Link to="/free-ai-visibility-audit">Free audit</Link>
-            <Link to="/case-studies">Case studies</Link>
-            <Link to="/beta">Beta</Link>
-            <Link to="/terms">Terms</Link>
-            <Link to="/privacy">Privacy</Link>
-            <Link to="/security">Security</Link>
-            <Link to="/trust">EU Trust Centre</Link>
-            <Link to="/ai-disclaimer">AI disclaimer</Link>
+            <Link to="/pricing">{t("publicHome.pricing")}</Link>
+            <Link to="/free-ai-visibility-audit">{t("publicHome.freeAudit")}</Link>
+            <Link to="/case-studies">{t("publicHome.caseStudies")}</Link>
+            <Link to="/beta">{t("publicHome.beta")}</Link>
+            <Link to="/terms">{t("publicHome.terms")}</Link>
+            <Link to="/privacy">{t("publicHome.privacy")}</Link>
+            <Link to="/security">{t("publicHome.security")}</Link>
+            <Link to="/trust">{t("publicHome.trust")}</Link>
+            <Link to="/ai-disclaimer">{t("publicHome.disclaimer")}</Link>
           </div>
         </div>
         <div className="mt-9 flex flex-wrap items-center justify-between gap-4 border-t border-[#e6dfd2] pt-6 text-[10px] text-[#697282]">
           <span>© {new Date().getUTCFullYear()} Andersen Innovations</span>
           <div className="flex flex-wrap gap-3">
-            <span className="uppercase tracking-[0.16em]">Markets</span>
+            <span className="uppercase tracking-[0.16em]">{t("publicHome.markets")}</span>
             {DISPLAY_REGIONS.map((region) => (
               <Link key={region} to={`/${region}` as never}>
                 {REGION_SELECTOR_LABELS[region]}
