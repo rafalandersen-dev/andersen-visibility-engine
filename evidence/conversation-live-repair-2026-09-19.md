@@ -10,6 +10,17 @@ was performed in this stage. USD50-global and manual-free AI controls untouched.
 This is not a production claim, and no full-repair acceptance is asserted: a new
 live check is still owed after Codex runs the prepared checks below.
 
+> **UPDATE — the live re-check FAILED again (a DIFFERENT, pre-brief incident).**
+> The preview-lease split below was reviewed, integrated and deployed (PR143,
+> released `main` `26b938c3`), and it still did not end-to-end repair the feature.
+> Everything from here to "Codex integration verification" is now PRIOR-STAGE
+> history: the reproduced preview-contention MECHANISM is validated, but it is
+> **not** the confirmed cause of either incident and is not an end-to-end repair.
+> The current stage adds bounded, service-only failure diagnostics so the next
+> failure is inspectable, and makes **no** new root-cause claim. See
+> "## Live re-check FAILED — new pre-brief incident and diagnostics packet
+> (19 September, later)" at the end.
+
 ## Reported failure (observed stored trail, not a captured error log)
 
 Owner, Safari Butelki project, one ordinary Polish question (difference between a
@@ -239,3 +250,310 @@ No new application logic was authored by Codex in this packet.
 
 Production acceptance is still pending: no deployment, dispatcher activation,
 new model call or replay of the old unknown turn was performed in this stage.
+
+---
+
+# Live re-check FAILED — new pre-brief incident and diagnostics packet (19 September, later)
+
+Same 19 September working agreement (Claude implements/tests/documents; Codex
+reviews, integrates `main`, runs the prepared checks, releases). This clean
+worktree starts at released `main` `26b938c3`. No provider / DB / network /
+browser / email / deploy / git-mutation / credential / dependency / auto-memory
+operation was performed. USD50-global and manual-free AI controls, preview
+separation, scope/access/claim/cancellation checks and the no-replay safeguards
+are all untouched. The dispatcher/control loop and cron remain disabled. This is
+not a production claim, and **no new root cause is asserted.**
+
+## New failed production receipt (observed stored trail, no captured exception)
+
+- Deployed build is exactly PR143 merge `26b938c3` (`modified=false`, source
+  fingerprint `c6f366f2…f819d093a`), deployment `74ed7917-d05f-4071-846b-585024e03aee`,
+  build `1789836365928`. Both external reviews were clean; 6034 tests / 377 files
+  and the build passed before release.
+- One owner UI question in Polish, no generation / site-check / publication
+  permission. New conversation `dfba3bbe-022c-4ece-8449-3c83f7ae6068`, turn
+  `47705f02-f9d1-402c-90c4-4e002873fb77`. Created `16:48:09.906099Z` →
+  `unknown` `16:48:11.517729Z` (~1.6 s). Exactly **one** stored event,
+  `execution_unknown`; **no `project_brief` start and no model checkpoint.** The
+  old unknown turn `642d004c…` was **not** replayed.
+- A browser refresh recovered an initial transient loading/access message and then
+  allowed an ordinary send.
+- **No production error log exists for this turn.** The analysis below is from the
+  stored-event trail and the code paths, never a captured provider/database
+  exception. This differs from the earlier `642d004c…` incident, which had a
+  `project_brief` start and result BEFORE its failure; this one fails BEFORE the
+  brief.
+
+## Reproducible findings (verified by reading code + deterministic tests)
+
+Stated separately from the hypotheses that follow. These are proven by the
+regressions in this packet, not by live concurrency.
+
+1. **The failure boundary is pre-brief.** The executor writes its first event only
+   at `brief_start` (the `project_brief` `tool_started` advance). A throw in any of
+   `assert_live` (`check_milo_conversation_execution`), `continuity_read`
+   (`read_milo_conversation`), the local `continuity_check` invariant, or the
+   `brief_start` advance itself ends the turn with exactly ONE `execution_unknown`
+   event and no `project_brief` event — the exact shape of the new receipt. A
+   deterministic regression injects a refusal at each of these points and
+   reproduces that trail shape.
+2. **Everything non-AI collapses to `execution_unknown` with zero diagnosis.**
+   `failure()` classifies only the AI provider/usage/expense error types; every
+   other throw — a DB/RPC error, the continuity invariant, a `TeamAdmissionBusyError`
+   — becomes `execution_unknown` with no stage, class or code recorded anywhere.
+   This is the concrete diagnosability defect this packet fixes.
+3. **A NOWAIT row-lock refusal on a conversation RPC surfaces as
+   `TeamAdmissionBusyError`.** `teamCall` → `assertTeamAdmission` raises it for
+   SQLSTATE `55P03`. The executor is preview-lease-free (prior stage), so in the
+   executor path a `TeamAdmissionBusyError` can only be a `milo_conversation*` row
+   `FOR SHARE`/`FOR UPDATE NOWAIT` refusal, never a preview-budget refusal.
+4. **The released SQL shares one row lock across live viewing and executor writes.**
+   The owner's live-view `read_milo_conversation` takes `FOR SHARE NOWAIT` on the
+   conversation row; the executor's `advance` (the `brief_start` write) takes
+   `FOR UPDATE NOWAIT` on the SAME row; `assert`'s `check_…` takes `FOR SHARE
+   NOWAIT` on the conversation row (and on `workspace_meta` / `project_team_members`).
+   These lock modes conflict, so a concurrent overlap raises `55P03`. This is a
+   property of the released schema; it is NOT evidence that it happened for this
+   turn.
+
+## Hypotheses (NOT claimed as the cause; no captured exception exists)
+
+- **H1 — cross-connection NOWAIT contention on the conversation row.** A signed-in
+  owner watching the turn polls `read_milo_conversation` (FOR SHARE NOWAIT) while
+  the executor's `brief_start` advance takes FOR UPDATE NOWAIT on the same row; the
+  collision raises `55P03` → `TeamAdmissionBusyError` → pre-brief `execution_unknown`
+  (finding 1/3/4). It would also explain the browser's transient access message
+  clearing on refresh (the browser read losing the same NOWAIT race, then
+  succeeding). This is coherent and code-grounded but **unproven**: PGlite is
+  single-connection and cannot reproduce a genuine two-connection lock race, and
+  no production exception was captured. The prior preview-lease fix does not
+  address this DB-level row-lock path, which is why "the mechanism is validated but
+  the repair is not end-to-end."
+- **H2 — a non-lock transient DB error (serialization/deadlock/cancel) or another
+  pre-brief fault.** Also consistent with the trail; also unproven.
+
+The honest position is that the exact runtime fault for `47705f02…` cannot be
+established from here. Rather than deploy a guessed fix that would mask the next
+failure, this packet makes the next failure inspectable.
+
+## Fix — bounded, service-only failure diagnostics (no guessed behavioural change)
+
+No dispatch, retry, admission, lock or user-facing behaviour is changed. The
+executor now tracks its current execution STAGE (a fixed enum) and, on any
+failure, records ONE service-only receipt with a SAFE error class correlated to
+the turn and, where one exists, the operation id. There is deliberately no
+speculative retry: the point is to confirm the boundary/mechanism on the next real
+failure first (a safe read-only/pre-dispatch retry, if later justified, would be a
+separate, evidence-backed step).
+
+- `src/lib/milo-conversation-diagnostics.server.ts` (new) —
+  `classifyConversationFailure(error, stage)` reuses the allowlist-only
+  `classifyAiError` for the class / name category / validated HTTP status, and
+  derives the SQLSTATE structurally: a `TeamAdmissionBusyError` in the executor
+  path is recorded as `55P03`, everything else as `null`. It is **fail-closed**:
+  the busy-error check goes through a guarded `isAdmissionBusy` (a bare
+  `instanceof` invokes a hostile `Proxy`'s `getPrototypeOf` trap, which would
+  throw), and the whole body is wrapped so any unexpected fault still returns the
+  safest diagnosis at the recorded stage. Because it runs FIRST in the executor's
+  catch, this guarantees a thrown value can never suppress the outcome write or the
+  diagnostic; the genuine `55P03` positive case is unchanged.
+  `recordConversationDiagnostic(...)` is a best-effort, service-only writer that
+  uuid-validates the correlation ids, calls the service-role RPC through the raw
+  team RPC (never `teamCall`), and swallows every failure. It NEVER throws out of
+  the executor, is NEVER retried, and NEVER changes or suppresses the honest
+  user-facing unknown/failed state.
+- `src/lib/milo-specialist-executor.server.ts` — a `stage`/`stageOperation` tracker
+  is set at each step; on failure the catch classifies at the ORIGINAL stage,
+  writes the authoritative outcome first, then records the diagnostic best-effort,
+  then (only if the outcome write itself was refused) re-throws the unchanged
+  "outcome could not be confirmed" error. `failure()` (which also runs before the
+  outcome write and also uses `instanceof`) is likewise fail-closed, so a hostile
+  thrown value cannot turn the catch into a throw and skip the honest
+  `execution_unknown` write. A new optional `diagnostic` dep wires
+  `recordConversationDiagnostic` in production and is omitted by partial test deps.
+- What is captured: stage ∈ {assert_live, continuity_read, continuity_check,
+  brief_start, brief_dispatch, brief_result, plan_model, plan_parse, handoff_save,
+  tool_start, tool_dispatch, tool_result, reply_model, reply_save, unknown};
+  a fixed error class and name category; a validated HTTP status (400–599 or null);
+  an allowlisted SQLSTATE (only `55P03` is emitted today); the outcome state/code;
+  and the turn / operation ids. **Never** a message body, prompt, token, credential,
+  raw exception text/stack/URL or provider payload.
+
+### Safety, isolation, retention (candidate migration — NOT applied)
+
+`supabase/migrations/20260919160000_milo_conversation_diagnostics.sql` is a
+**candidate only**. It is not part of the applied release set and none of the eight
+already-applied migrations are modified or reapplied. Codex applies this one during
+integration; **until it is applied the guarded write simply no-ops**, so the
+executor is safe either way — and the diagnostics only become inspectable once it
+is applied (that is the step that makes the next failure inspectable).
+
+- Table `public.milo_conversation_diagnostics`: opaque `turn_id` (FK →
+  `milo_conversation_turns` `ON DELETE CASCADE`, and **UNIQUE** — at most one
+  receipt per turn), optional `operation_id`, and CHECK-constrained `stage` /
+  `outcome` / `outcome_code` / `error_class` / `name_category` enums, a
+  `400–599`-or-null `http_status`, and an allowlisted
+  (`55P03`/`40001`/`40P01`/`57014`)-or-null `sql_state`. No owner/actor/project
+  identity and no content — every column is safe to read.
+- Isolation/grants: RLS enabled with no policy; `REVOKE ALL` from
+  PUBLIC/anon/authenticated/service_role; `GRANT SELECT` to `service_role` for
+  inspection via the admin DB connector; writes go only through the SECURITY
+  DEFINER `record_milo_conversation_diagnostic` (service-role EXECUTE), which is a
+  silent no-op for a missing turn so diagnostics never raise a new error path back
+  to the executor. The writer is first-receipt-wins (`ON CONFLICT (turn_id) DO
+  NOTHING`), so a duplicate or racing write can never overwrite the original
+  failure's stage/time.
+- Retention/deletion: erasing a conversation/turn cascades to its diagnostics
+  immediately; `prune_milo_conversation_diagnostics(before, limit)` (service-role)
+  removes at most `limit` (default 5000) of the oldest expired receipts, so a
+  single sweep is a bounded batch, never an unbounded delete. It is now actually
+  wired: an ACTIVE daily pg_cron job `milo-conversation-diagnostics-prune` (using
+  the same convention as the released dispatch migration, but ACTIVE on apply)
+  calls it once a day and keeps running even while the conversation dispatcher is
+  disabled. Precise cadence: a receipt older than 30 days is removed by the daily
+  sweep, subject to the 5000-row batch limit. A backlog can extend retention across
+  further sweeps; there is no hard 31-day maximum. This is a daily 30-day
+  sweep, not a strict wall-clock cut-off. No existing job/control is altered and no
+  owner permission is needed for this internal, in-scope retention.
+
+Tradeoff (smallest reliable inspectable option): the prime, evidence-indicated
+suspect (`55P03`) is captured via `TeamAdmissionBusyError` with **no** change to
+the shared `teamCall`. Other transient SQLSTATEs (`40001`/`40P01`/`57014`) are
+collapsed by `teamCall` into a generic error and are recorded as `sql_state=null`
+(the STAGE and name category are still captured). If the next inspected failure is
+pre-brief with `sql_state=null`, the follow-up is a small, well-scoped `teamCall`
+enhancement to preserve those codes — no schema change needed (the allowlist and
+column already permit them). A service-only receipt was chosen over server logs
+because logs are not inspectable through the current tools; the receipt is a
+minimal, constrained table, not a general observability platform.
+
+## Regressions (this stage)
+
+- `src/lib/milo-conversation-diagnostics.server.test.ts` — classification maps a
+  NOWAIT refusal to `55P03` at the recorded stage; never derives a class from a raw
+  message; **fails closed on a hostile Proxy (throwing `getPrototypeOf`) and a
+  throwing getter without weakening the `55P03` positive case**; the recorder sends
+  only correlation ids + fixed enums, passes a null operation when unknown, swallows
+  both an RPC error object and a thrown transport failure without retrying, and
+  never contacts the RPC for a non-uuid id. The recorder mocks are typed with the
+  real `TeamReadRpc` (no as-any) so the asserted call shape is genuine.
+- `src/lib/milo-conversation-diagnostics-migration.test.ts` — the candidate SQL
+  stores a bounded receipt; is a no-op for a missing turn; rejects any value
+  outside the enums / http range / SQLSTATE allowlist; **keeps at most one receipt
+  per turn, preserving the first stage/SQLSTATE/time on a duplicate write**;
+  cascades on turn erase and prunes only receipts past the 30-day window across
+  DISTINCT turns; **prunes in a bounded batch, leaving a backlog for the next run**;
+  **schedules an ACTIVE daily retention sweep independent of conversation dispatch**;
+  and keeps writes function-only and reads service-only (anon/authenticated denied;
+  service_role reads but cannot direct-write). PGlite stubs the pg_cron surface.
+- `src/lib/milo-specialist-executor.server.test.ts` — a first-checkpoint NOWAIT
+  refusal reproduces the incident trail (one `execution_unknown`, no brief, no
+  model) AND records `stage=brief_start`, `sqlState=55P03`, correlated to the turn
+  and brief operation; an initial liveness refusal records `assert_live` (no
+  operation id); a continuity read refusal records `continuity_read`; a malformed
+  routing plan records `plan_parse` with no SQLSTATE; a throwing diagnostic never
+  changes the honest unknown outcome; **a hostile thrown value still writes the
+  unknown outcome and a safe receipt (stage set, `sqlState=null`) rather than
+  escaping the catch**; and the stage is still recorded when even the outcome write
+  is refused, without suppressing the unconfirmed-outcome error.
+- `src/lib/milo-specialist-executor-live.server.test.ts` — end-to-end against the
+  real conversation RPCs plus the applied candidate migration: a pre-brief NOWAIT
+  refusal writes a real service-only receipt (`stage=brief_start`, `sql_state=55P03`,
+  `outcome=unknown`, `outcome_code=execution_unknown`) inspectable via a plain
+  service-role read and correlated to the turn.
+
+Limitation (unchanged): PGlite is single-connection, so these prove function and
+DB-boundary behaviour and the exact trail SHAPE of a NOWAIT refusal, not a genuine
+concurrent two-connection lock race or a deployed turn.
+
+## Correction round (19 September, later — same worktree, base `main` `26b938c3`)
+
+An independent Codex review of the first diagnostics packet raised four bounded
+defects; this round corrects them in place without broadening the diagnostic
+framework and without any app change outside these issues:
+
+1. **One receipt per failed turn is now enforced in the DB.** `turn_id` is UNIQUE
+   and the writer is `ON CONFLICT (turn_id) DO NOTHING` (first-receipt-wins), so a
+   concurrent/duplicate write can never overwrite the original failure's stage/time.
+   The migration test now uses DISTINCT turns for the retention/cascade proof and
+   adds an idempotent-first-receipt proof (a different-payload duplicate is ignored,
+   original stage/SQLSTATE/time retained).
+2. **Ordinary 30-day retention is now actually enforced.** The `prune` RPC was
+   never called; it is now wired to an ACTIVE daily pg_cron job
+   `milo-conversation-diagnostics-prune` (included in THIS candidate migration), and
+   the prune takes a bounded `limit` so one sweep is a bounded batch, not an
+   unbounded delete. The job stays active while conversation dispatch is disabled
+   and alters no existing job/control. PGlite fixtures stub the cron surface. Cadence
+   is documented precisely as a daily 30-day sweep (not a strict wall-clock cut-off).
+3. **`classifyConversationFailure` (and `failure()`) are now fail-closed.** The bare
+   `error instanceof TeamAdmissionBusyError` invoked a hostile `Proxy`'s
+   `getPrototypeOf` trap and could throw, and — running first in the executor's
+   catch — would have prevented the outcome write and the diagnostic. Both now guard
+   `instanceof` and swallow any fault, retaining `55P03` only for a genuine typed
+   busy error, never from raw messages/stack/stringification. New regressions cover
+   a hostile Proxy / throwing getter at both the classifier and executor levels.
+4. **The `tsc` mock-type error at `milo-conversation-diagnostics.server.test.ts:127`
+   is fixed** by typing the recorder mocks with the real `TeamReadRpc` (so
+   `mock.calls` carries the true `[name, args]` tuple) instead of an as-any cast that
+   hid the call shape.
+
+Check status (accurate): **every check below is UNRUN in this correction round** —
+no shell/test/build/type command was executed here (Read/Edit/Write/Glob/Grep only;
+Codex runs the checks). The reviewer's earlier "262 focused / 11 files PASS" was a
+pre-correction review probe of the previous packet, **not** a new-stage result, and
+the earlier `tsc` run FAILED at line 127; that failure is addressed above but `tsc`
+itself has not been re-run here. The base remains `main` `26b938c3`; no SQL was
+applied, no PR opened, and no full suite/build run. The candidate-chain inventory
+test is intentionally **not** edited or listed here — Codex owns integrating the
+pending candidate migrations (explicit released/candidates) once finished packets
+merge.
+
+## Prepared checks for this stage (UNRUN; Codex to run after staging)
+
+No shell or test command was run in this stage. Approved executables only
+(`node_modules/.bin/...`), individually:
+
+- New/changed behaviour:
+  `node_modules/.bin/vitest run src/lib/milo-conversation-diagnostics.server.test.ts src/lib/milo-conversation-diagnostics-migration.test.ts src/lib/milo-specialist-executor.server.test.ts src/lib/milo-specialist-executor-live.server.test.ts`
+- Unchanged behaviour must hold:
+  `node_modules/.bin/vitest run src/lib/milo-conversation.server.test.ts src/lib/milo-conversation-migration.test.ts src/lib/milo-conversation.functions.test.ts src/lib/milo-specialist-tools.server.test.ts src/lib/project-team-read-admission.server.test.ts src/lib/milo-conversation-lifecycle-migration.test.ts src/lib/ai-error-diagnostics.test.ts`
+- `node_modules/.bin/tsc --noEmit`
+- `node_modules/.bin/eslint src/lib/milo-conversation-diagnostics.server.ts src/lib/milo-conversation-diagnostics.server.test.ts src/lib/milo-conversation-diagnostics-migration.test.ts src/lib/milo-specialist-executor.server.ts src/lib/milo-specialist-executor.server.test.ts src/lib/milo-specialist-executor-live.server.test.ts`
+- `node_modules/.bin/prettier --check` on the six changed/added TypeScript files above
+- Full suite `node_modules/.bin/vitest run` and production `node_modules/.bin/vite build`
+
+## Files (this stage)
+
+- `src/lib/milo-conversation-diagnostics.server.ts` (new) — stage enum, safe
+  classifier, best-effort service-only recorder.
+- `src/lib/milo-specialist-executor.server.ts` — stage/operation tracking and the
+  best-effort diagnostic write in the failure path; `failure()` return typed as the
+  shared outcome; production `diagnostic` dep wired.
+- `src/lib/milo-conversation-diagnostics.server.test.ts` (new) — classifier +
+  recorder unit tests.
+- `src/lib/milo-conversation-diagnostics-migration.test.ts` (new) — candidate SQL
+  grants/CHECKs/cascade/prune/no-op tests.
+- `src/lib/milo-specialist-executor.server.test.ts` — stage-capture and
+  inert-diagnostics regressions (diagnostic spy added to the harness).
+- `src/lib/milo-specialist-executor-live.server.test.ts` — applies the candidate
+  migration and proves the real receipt write for a pre-brief NOWAIT refusal.
+- `supabase/migrations/20260919160000_milo_conversation_diagnostics.sql` (new,
+  candidate — NOT applied) — service-only receipt table + writer + prune.
+- `evidence/conversation-live-repair-2026-09-19.md` — this stage.
+
+## Not done / still owed
+
+- No confirmed root cause and no behavioural repair: this stage instruments the
+  failure so the NEXT real failure is inspectable, then a targeted fix follows with
+  evidence. No dispatcher activation, deployment, provider/model call, DB/network
+  operation, or replay of any old unknown turn was performed. The eight applied
+  migrations are unchanged; the diagnostics migration is a candidate for Codex to
+  apply (which is what makes the next failure inspectable).
+
+## Codex validation of corrected diagnostic packet — 2026-09-19
+
+Changed-path tests **52/52 in 4 files** pass. Integrated full suite **6063/6063 in 379 files**, 46.04 s, passes; TypeScript, scoped ESLint, whitespace check and production build pass. Logs: `/tmp/milo-diagnostics-corrected-{focused,types}-20260919.log`, `/tmp/milo-diagnostics-final-full-20260919.log`, `/tmp/milo-diagnostics-build-20260919.log`. These supersede UNRUN for this stage only.
+
+Codex integration exceptions: formatted three diagnostic TypeScript files; reconciled the migration-chain inventory to distinguish eight already-applied conversation migrations from the new diagnostic candidate and added both new service-only RPC grant checks. Preserved the unknown-migration guard. Corrected retention commentary/evidence to acknowledge bounded-batch backlog: the daily sweep is not a hard 31-day maximum. No application or SQL behavior changed by these exceptions.
+
+No migration applied or production deployment performed for this packet. Production remains at `26b938c3`, with the last conversation acceptance failed and dispatch disabled. The packet adds safe failure-stage receipts; it does not establish a root cause or successful production conversation. Old unknown turns must not be replayed.

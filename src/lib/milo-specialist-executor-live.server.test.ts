@@ -16,6 +16,10 @@ import type { TeamReadRpc } from "./project-team-read.server";
 import type { SpecialistToolDeps } from "./milo-specialist-tools.server";
 import { runConversationSpecialists } from "./milo-specialist-executor.server";
 import { runSpecialistTool } from "./milo-specialist-tools.server";
+import {
+  recordConversationDiagnostic,
+  type ConversationDiagnosticInput,
+} from "./milo-conversation-diagnostics.server";
 
 // Live regression for the 19 September conversation failure. The trusted
 // conversation executor must never draw on the browser preview-lease budget:
@@ -121,11 +125,19 @@ beforeAll(async () => {
     INSERT INTO auth.users(id) VALUES('${owner}'),('${collaborator}');
     CREATE TABLE public.workspace_meta(user_id uuid PRIMARY KEY,rev bigint DEFAULT 1);
     CREATE TABLE public.workspace_entities(user_id uuid,collection text,entity_id text,data jsonb DEFAULT '{}'::jsonb,PRIMARY KEY(user_id,collection,entity_id));
-    INSERT INTO public.workspace_meta(user_id) VALUES('${owner}');`);
+    INSERT INTO public.workspace_meta(user_id) VALUES('${owner}');
+    CREATE SCHEMA cron; CREATE TABLE cron.job(jobid bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,jobname text,schedule text,command text,active boolean DEFAULT true);
+    CREATE FUNCTION cron.schedule(jobname text,schedule text,command text) RETURNS bigint LANGUAGE sql AS $$
+      INSERT INTO cron.job(jobname,schedule,command) VALUES($1,$2,$3) RETURNING jobid $$;
+    CREATE FUNCTION cron.alter_job(job_id bigint,active boolean) RETURNS void LANGUAGE sql AS $$ UPDATE cron.job SET active=$2 WHERE jobid=$1 $$;`);
   for (const name of [
     "20260911020000_project_team_reads.sql",
     "20260913120000_milo_conversations.sql",
     "20260914120000_milo_provider_check_consent.sql",
+    // Candidate-only diagnostics migration, applied here in PGlite (never the
+    // production applied set) to prove the end-to-end receipt write. It also
+    // schedules a daily pg_cron retention sweep, hence the cron stub above.
+    "20260919160000_milo_conversation_diagnostics.sql",
   ])
     await db.exec(readFileSync(`supabase/migrations/${name}`, "utf8"));
   await db.query(
@@ -168,7 +180,7 @@ beforeEach(async () => {
   acquireCount = 0;
   failNextAcquire = false;
   responses = [];
-  await db.exec(`RESET ROLE; TRUNCATE public.project_team_preview_limits;
+  await db.exec(`RESET ROLE; TRUNCATE public.project_team_preview_limits,public.milo_conversation_diagnostics;
     UPDATE public.project_team_members SET active=true,expires_at=NULL,revision=1;`);
 });
 
@@ -327,5 +339,72 @@ describe("the live conversation executor is never bounded by the browser preview
       [turnId],
     );
     expect(stored.rows[0].state).toBe("pending");
+  }, 20000);
+
+  it("writes a service-only diagnostic receipt for a pre-brief NOWAIT refusal, correlated to the turn", async () => {
+    const { conversationId, turnId } = await seedTurn(
+      owner,
+      "Jaka jest różnica między wersją roboczą a opublikowanym artykułem?",
+    );
+    const target = { ownerId: owner, projectId: "p", conversationId, turnId };
+    // A NOWAIT lock refusal at the FIRST checkpoint write (the project-brief
+    // tool_started advance) is the exact pre-brief boundary of the 19 Sep incident.
+    // Only the first advance is refused; the catch's execution_unknown write then
+    // succeeds, and the diagnostic is written through the real service-only RPC.
+    let firstAdvance = true;
+    const turn = await runConversationSpecialists(owner, target, {
+      claim: (who: string, input: never) => claimConversationTurn(who, input, rpc),
+      read: (who: string, input: never) => readConversationForExecution(who, input, rpc),
+      assert: (who: string, input: never, attempt: string) =>
+        assertConversationExecution(who, input, attempt, rpc),
+      advance: async (who: string, input: never, change: never) => {
+        if (firstAdvance) {
+          firstAdvance = false;
+          throw new TeamAdmissionBusyError();
+        }
+        return advanceConversationTurn(who, input, change, rpc);
+      },
+      tool: (input: never, context: never) => runSpecialistTool(input, context, toolDeps),
+      model: async () => {
+        throw new Error("model must not run before the brief");
+      },
+      diagnostic: (input: ConversationDiagnosticInput) => recordConversationDiagnostic(input, rpc),
+    } as never);
+    // The stored trail is the incident shape: one execution_unknown, no brief.
+    expect(turn.state).toBe("unknown");
+    const saved = await readConversationForExecution(
+      owner,
+      { ownerId: owner, projectId: "p", conversationId },
+      rpc,
+    );
+    const events = saved.turns[0].events;
+    expect(events).toHaveLength(1);
+    expect(events[0].code).toBe("execution_unknown");
+    expect(events.some((event) => event.tool === "project_brief")).toBe(false);
+    // The receipt pinpoints WHERE (brief_start) and WHY (55P03), inspectable via a
+    // plain service-role read, correlated to the turn and the brief operation id.
+    const diag = await db.query<{
+      turn_id: string;
+      operation_id: string | null;
+      stage: string;
+      outcome: string;
+      outcome_code: string;
+      error_class: string;
+      name_category: string;
+      http_status: number | null;
+      sql_state: string | null;
+    }>("SELECT * FROM public.milo_conversation_diagnostics WHERE turn_id=$1", [turnId]);
+    expect(diag.rows).toHaveLength(1);
+    expect(diag.rows[0]).toMatchObject({
+      turn_id: turnId,
+      stage: "brief_start",
+      outcome: "unknown",
+      outcome_code: "execution_unknown",
+      error_class: "unknown",
+      name_category: "other",
+      http_status: null,
+      sql_state: "55P03",
+    });
+    expect(diag.rows[0].operation_id).toEqual(expect.any(String));
   }, 20000);
 });

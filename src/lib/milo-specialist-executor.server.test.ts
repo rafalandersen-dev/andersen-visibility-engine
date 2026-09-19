@@ -8,6 +8,8 @@ import { conversationTurn, type ConversationTurn } from "./milo-conversation";
 import { specialistMemory, specialistPlan, serializeSpecialistContext } from "./milo-specialist";
 import { AiProviderConfigurationError, AiMalformedCredentialError } from "./ai-provider.server";
 import { AiExpenseUnavailableError } from "./ai-expense.server";
+import { TeamAdmissionBusyError } from "./project-team-admission";
+import type { ConversationDiagnosticInput } from "./milo-conversation-diagnostics.server";
 const actor = "00000000-0000-4000-8000-000000000001",
   ownerId = "00000000-0000-4000-8000-000000000002",
   conversationId = "00000000-0000-4000-8000-000000000003",
@@ -86,7 +88,16 @@ function harness() {
     await input.context.beforeDispatch();
     return responses.shift()!;
   });
-  const deps = { claim, read, assert, advance, tool, model } as unknown as SpecialistExecutorDeps;
+  const diagnostic = vi.fn(async (_input: ConversationDiagnosticInput) => {});
+  const deps = {
+    claim,
+    read,
+    assert,
+    advance,
+    tool,
+    model,
+    diagnostic,
+  } as unknown as SpecialistExecutorDeps;
   return {
     deps,
     claim,
@@ -95,6 +106,7 @@ function harness() {
     advance,
     tool,
     model,
+    diagnostic,
     responses,
     history,
     get stored() {
@@ -480,5 +492,145 @@ describe("real bounded specialist conversation execution", () => {
         ],
       }),
     ).toThrow();
+  });
+  it("records the pre-brief stage and SQLSTATE 55P03 for a first-checkpoint NOWAIT refusal, matching the incident trail", async () => {
+    // Reproduce the exact 19 Sep stored-trail SHAPE: a NOWAIT lock refusal at the
+    // very first checkpoint write (the project-brief tool_started advance) ends the
+    // turn with ONE execution_unknown event, no project_brief start and no model
+    // checkpoint. The cause of a real live refusal (cross-connection row-lock
+    // contention) is a hypothesis; this proves only that such a refusal produces
+    // this trail and is now captured with its stage and safe class.
+    const h = harness();
+    const original = h.advance.getMockImplementation()!;
+    let refused = false;
+    h.advance.mockImplementation(async (a, b, update) => {
+      if (!refused) {
+        refused = true;
+        throw new TeamAdmissionBusyError();
+      }
+      return original(a, b, update);
+    });
+    const result = await runConversationSpecialists(actor, target, h.deps);
+    expect(result.state).toBe("unknown");
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0]).toMatchObject({ code: "execution_unknown", state: "unknown" });
+    expect(result.events.some((event) => event.tool === "project_brief")).toBe(false);
+    expect(h.tool).not.toHaveBeenCalled();
+    expect(h.model).not.toHaveBeenCalled();
+    expect(h.diagnostic).toHaveBeenCalledTimes(1);
+    const input = h.diagnostic.mock.calls[0][0] as ConversationDiagnosticInput;
+    expect(input.turnId).toBe(turnId);
+    expect(typeof input.operationId).toBe("string");
+    expect(input.diagnosis).toMatchObject({
+      stage: "brief_start",
+      errorClass: "unknown",
+      nameCategory: "other",
+      httpStatus: null,
+      sqlState: "55P03",
+    });
+    expect(input.outcome).toEqual({ state: "unknown", code: "execution_unknown" });
+  });
+  it("pinpoints an initial liveness refusal at assert_live with no operation id", async () => {
+    const h = harness();
+    h.assert.mockImplementationOnce(async () => {
+      throw new TeamAdmissionBusyError();
+    });
+    const result = await runConversationSpecialists(actor, target, h.deps);
+    expect(result.state).toBe("unknown");
+    expect(result.events.some((event) => event.tool === "project_brief")).toBe(false);
+    expect(h.read).not.toHaveBeenCalled();
+    expect(h.model).not.toHaveBeenCalled();
+    const input = h.diagnostic.mock.calls[0][0] as ConversationDiagnosticInput;
+    expect(input.diagnosis).toMatchObject({ stage: "assert_live", sqlState: "55P03" });
+    expect(input.operationId).toBeUndefined();
+  });
+  it("pinpoints a continuity read refusal at continuity_read", async () => {
+    const h = harness();
+    h.read.mockImplementationOnce(async () => {
+      throw new TeamAdmissionBusyError();
+    });
+    const result = await runConversationSpecialists(actor, target, h.deps);
+    expect(result.state).toBe("unknown");
+    expect(h.model).not.toHaveBeenCalled();
+    const input = h.diagnostic.mock.calls[0][0] as ConversationDiagnosticInput;
+    expect(input.diagnosis).toMatchObject({ stage: "continuity_read", sqlState: "55P03" });
+    expect(input.operationId).toBeUndefined();
+  });
+  it("classifies a malformed plan JSON at plan_parse without a SQLSTATE", async () => {
+    const h = harness();
+    h.responses[0] = "not json at all";
+    const result = await runConversationSpecialists(actor, target, h.deps);
+    expect(result.state).toBe("unknown");
+    const input = h.diagnostic.mock.calls[0][0] as ConversationDiagnosticInput;
+    // The routing model returned unparseable output: recorded at plan_parse, safe
+    // class from the allowlist, no SQLSTATE. Only the brief tool ran.
+    expect(input.diagnosis).toMatchObject({ stage: "plan_parse", sqlState: null });
+    expect(h.tool.mock.calls.map(([tool]) => tool.name)).toEqual(["project_brief"]);
+  });
+  it("never lets a diagnostic recording failure change the honest turn outcome", async () => {
+    const h = harness();
+    h.diagnostic.mockRejectedValue(new Error("diagnostic sink down"));
+    h.model.mockRejectedValueOnce(new AiExpenseUnavailableError("reservation_unavailable"));
+    const result = await runConversationSpecialists(actor, target, h.deps);
+    // The uncertain provider outcome stays unknown; a throwing diagnostic is
+    // swallowed and never surfaces or is retried.
+    expect(result.state).toBe("unknown");
+    expect(result.events.at(-1)).toMatchObject({ code: "execution_unknown", state: "unknown" });
+    expect(h.diagnostic).toHaveBeenCalledTimes(1);
+  });
+  it("still records the stage when even the outcome write is refused, without suppressing the unconfirmed error", async () => {
+    const h = harness();
+    h.advance.mockImplementation(async () => {
+      throw new TeamAdmissionBusyError();
+    });
+    await expect(runConversationSpecialists(actor, target, h.deps)).rejects.toThrow(
+      "outcome could not be confirmed",
+    );
+    expect(h.diagnostic).toHaveBeenCalledTimes(1);
+    const input = h.diagnostic.mock.calls[0][0] as ConversationDiagnosticInput;
+    expect(input.diagnosis).toMatchObject({ stage: "brief_start", sqlState: "55P03" });
+  });
+  it("fails closed on a hostile thrown value, still writing the unknown outcome and a safe receipt", async () => {
+    // A thrown value whose getPrototypeOf trap and getters throw would break a bare
+    // `instanceof` in both classifyConversationFailure and failure(). The catch must
+    // not itself throw: the honest execution_unknown outcome is still written and a
+    // safe diagnosis (unknown class, no SQLSTATE) is recorded at the failure stage.
+    const hostile = new Proxy(
+      {},
+      {
+        getPrototypeOf() {
+          throw new Error("synthetic proto");
+        },
+        get() {
+          throw new Error("hostile getter");
+        },
+      },
+    );
+    const h = harness();
+    const original = h.advance.getMockImplementation()!;
+    let refused = false;
+    h.advance.mockImplementation(async (a, b, update) => {
+      if (!refused) {
+        refused = true;
+        throw hostile;
+      }
+      return original(a, b, update);
+    });
+    const result = await runConversationSpecialists(actor, target, h.deps);
+    expect(result.state).toBe("unknown");
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0]).toMatchObject({ code: "execution_unknown", state: "unknown" });
+    expect(result.events.some((event) => event.tool === "project_brief")).toBe(false);
+    expect(h.tool).not.toHaveBeenCalled();
+    expect(h.model).not.toHaveBeenCalled();
+    expect(h.diagnostic).toHaveBeenCalledTimes(1);
+    const input = h.diagnostic.mock.calls[0][0] as ConversationDiagnosticInput;
+    expect(input.turnId).toBe(turnId);
+    expect(input.diagnosis).toMatchObject({
+      stage: "brief_start",
+      errorClass: "unknown",
+      sqlState: null,
+    });
+    expect(input.outcome).toEqual({ state: "unknown", code: "execution_unknown" });
   });
 });
