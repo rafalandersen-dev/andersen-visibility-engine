@@ -18,6 +18,24 @@ export interface ExpenseRequest {
   model: string;
   operation: string;
   ceilingMicrousd: number;
+  /** Server-derived monthly ceilings used ONLY to create a missing budget row
+   * for the current month, or to let an existing AUTO row follow a plan change
+   * (owner instruction 2026-09-17). They never alter a manual row, pause,
+   * restriction, permit or any reserved/spent balance. Absent for legacy
+   * callers (fail-closed). `accountCapMicrousd` is null when the account's plan
+   * is currently UNKNOWN (transient entitlement lookup failure): the account row
+   * is then neither created nor lowered, so a paid account is never frozen to
+   * Free by a lookup blip. */
+  defaults?: { accountCapMicrousd: number | null; globalCapMicrousd: number };
+  /** Server-derived classification: whether this attempt requires an operator to
+   * have manually granted the account a budget row before native AI may run
+   * (owner decision 2026-09-19 — free accounts get AI only after a manual
+   * budget). Derived only server-side from the verified plan/owner role, never
+   * from a caller field. Absent for legacy callers, which the RPC treats as
+   * `true` (conservative: an unclassified attempt requires a manual budget).
+   * Only a verified owner or a KNOWN non-free plan sets this false to keep the
+   * automatic provisioning path. */
+  requiresManualBudget?: boolean;
 }
 type Rpc = (
   name: string,
@@ -33,6 +51,7 @@ const REASONS = new Set([
   "duplicate_request",
   "permit_required",
   "permit_invalid",
+  "manual_budget_required",
 ]);
 export class AiExpenseUnavailableError extends Error {
   constructor(readonly reason: string) {
@@ -41,7 +60,9 @@ export class AiExpenseUnavailableError extends Error {
         ? "AI generation timed out. The provider may still have charged for this attempt; Milo did not retry it."
         : reason === "unpriced_provider"
           ? "This AI model has no verified cost limit yet. Generation is paused; your existing content remains available."
-          : "AI work is paused because its cost budget could not be confirmed. Your existing content remains available.",
+          : reason === "manual_budget_required"
+            ? "AI is available on this account once the owner grants it a budget. Your existing content remains available."
+            : "AI work is paused because its cost budget could not be confirmed. Your existing content remains available.",
     );
     this.name = "AiExpenseUnavailableError";
   }
@@ -59,7 +80,13 @@ function validateRequest(r: ExpenseRequest) {
     r.ceilingMicrousd === 0 ||
     !bounded(r.provider, 80) ||
     !bounded(r.model, 160) ||
-    !bounded(r.operation, 80)
+    !bounded(r.operation, 80) ||
+    (r.defaults !== undefined &&
+      (!safeInteger(r.defaults.globalCapMicrousd) ||
+        r.defaults.globalCapMicrousd === 0 ||
+        (r.defaults.accountCapMicrousd !== null &&
+          (!safeInteger(r.defaults.accountCapMicrousd) || r.defaults.accountCapMicrousd === 0)))) ||
+    (r.requiresManualBudget !== undefined && typeof r.requiresManualBudget !== "boolean")
   ) {
     throw new AiExpenseUnavailableError("invalid_request");
   }
@@ -112,6 +139,11 @@ export async function reserveAiExpense(request: ExpenseRequest): Promise<void> {
       p_model: request.model,
       p_operation: request.operation,
       p_ceiling: request.ceilingMicrousd,
+      p_account_cap: request.defaults?.accountCapMicrousd ?? null,
+      p_global_cap: request.defaults?.globalCapMicrousd ?? null,
+      // Absent (legacy) callers conservatively require a manual budget; only a
+      // server-verified owner/paid plan sets this false upstream.
+      p_require_manual_budget: request.requiresManualBudget ?? true,
     });
   } catch {
     throw new AiExpenseUnavailableError("reservation_unavailable");

@@ -18,7 +18,10 @@ type Row = Record<string, unknown>;
 type Admin = {
   from: (t: string) => {
     select: (c: string) => {
-      eq: (c: string, v: string) => {
+      eq: (
+        c: string,
+        v: string,
+      ) => {
         maybeSingle: () => Promise<{ data: Row | null; error: { message?: string } | null }>;
       };
     };
@@ -38,9 +41,18 @@ async function admin(): Promise<Admin> {
   return supabaseAdmin as unknown as Admin;
 }
 
-/** Read a user's entitlement. Any failure resolves to the free tier. */
-export async function readEntitlement(userId: string): Promise<Entitlement> {
-  if (!userId) return FREE_ENTITLEMENT;
+/** Read result that PRESERVES the difference between a confidently-known
+ * entitlement and an UNCERTAIN lookup (missing table row is known = free; a
+ * query/throw is uncertain). Callers that must not act on a transient failure
+ * — e.g. default budget provisioning, which must never freeze a paid account to
+ * Free — branch on `ok`. */
+export type EntitlementResult = { ok: true; entitlement: Entitlement } | { ok: false };
+
+/** Read a user's entitlement, keeping lookup uncertainty explicit. An empty
+ * user id or a successfully-read absent row are both a KNOWN free tier; only a
+ * query error or thrown exception is `{ ok: false }`. */
+export async function readEntitlementResult(userId: string): Promise<EntitlementResult> {
+  if (!userId) return { ok: true, entitlement: FREE_ENTITLEMENT };
   try {
     const db = await admin();
     const { data, error } = await db
@@ -51,16 +63,31 @@ export async function readEntitlement(userId: string): Promise<Entitlement> {
       .eq("user_id", userId)
       .maybeSingle();
     if (error) {
-      console.error("[entitlements] read failed, falling back to free", { message: error.message });
-      return FREE_ENTITLEMENT;
+      console.error("[entitlements] read failed", { message: error.message });
+      return { ok: false };
     }
-    return entitlementFromRow(data);
+    return { ok: true, entitlement: entitlementFromRow(data) };
   } catch (e) {
-    console.error("[entitlements] read threw, falling back to free", {
+    console.error("[entitlements] read threw", {
       message: e instanceof Error ? e.message : "unknown",
     });
-    return FREE_ENTITLEMENT;
+    return { ok: false };
   }
+}
+
+/** Read a user's entitlement. Any failure resolves to the free tier. */
+export async function readEntitlement(userId: string): Promise<Entitlement> {
+  const result = await readEntitlementResult(userId);
+  return result.ok ? result.entitlement : FREE_ENTITLEMENT;
+}
+
+/** Effective plan resolution that PRESERVES lookup uncertainty. `{ ok: false }`
+ * means the plan is currently unknown (transient failure), not that the account
+ * is free — provisioning must then neither create nor lower an account's cap. */
+export type EntitledPlanResult = { ok: true; planId: PlanId } | { ok: false };
+export async function resolveEntitledPlanResult(userId: string): Promise<EntitledPlanResult> {
+  const result = await readEntitlementResult(userId);
+  return result.ok ? { ok: true, planId: effectivePlanId(result.entitlement) } : { ok: false };
 }
 
 /** The effective plan for a user, fail-closed to freePreview. */

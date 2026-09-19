@@ -1,6 +1,7 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { DEFAULT_MODEL_ID, getCandidateModelId, isCandidateConfigured } from "./ai-router";
 import { isHeaderSafeCredential } from "./ai-error-diagnostics.server";
+import { directProviderFetch } from "./provider-fetch.server";
 
 export class AiProviderConfigurationError extends Error {
   constructor() {
@@ -20,12 +21,12 @@ export class AiMalformedCredentialError extends Error {
   }
 }
 
-/** Direct provider credentials never follow a redirect. Time, output and retry
+/** Direct provider credentials never follow a redirect: the shared
+ * directProviderFetch enforces redirect:"manual" and refuses any redirect
+ * response (workerd rejects redirect:"error" outright). Time, output and retry
  * limits are supplied by generateBoundedText for every text action.
- */
-const directFetch: typeof fetch = (input, init) => fetch(input, { ...init, redirect: "error" });
-
-/** The only optional alternate route is the explicitly configured OpenRouter
+ *
+ * The only optional alternate route is the explicitly configured OpenRouter
  * candidate. Missing configuration never falls back to Lovable AI.
  */
 export function modelFor(modelId?: string) {
@@ -37,7 +38,7 @@ export function modelFor(modelId?: string) {
       name: "openai",
       baseURL: "https://api.openai.com/v1",
       apiKey: key,
-      fetch: directFetch,
+      fetch: directProviderFetch,
       transformRequestBody: (args) => {
         const { max_tokens, ...body } = args;
         // GPT-5.6 uses max_completion_tokens, including reasoning tokens.
@@ -60,6 +61,6 @@ export function modelFor(modelId?: string) {
     name: "openrouter",
     baseURL: "https://openrouter.ai/api/v1",
     apiKey: candidateKey,
-    fetch: directFetch,
+    fetch: directProviderFetch,
   })(modelId);
 }
