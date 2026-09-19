@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { answerEvidenceSchema } from "./answer-evidence";
-import { isVerifiedImprovement, type Improvement } from "./citation-finding";
+import {
+  countDistinctSubstantiveChanges,
+  isVerifiedImprovement,
+  type Improvement,
+} from "./citation-finding";
 /**
  * Citation Intelligence v1, CI-2 record design (product/CITATION_INTELLIGENCE_SPEC.md §5, §8).
  *
@@ -45,6 +49,14 @@ export const surfaceSchema = z
     interface: text(100),
     mode: z.enum(["consumer-web", "api", "search"]),
     searchMode: text(100).nullable(),
+    /** The model label the methodology pins, or null when it pins none (and, on a capture, when
+     * the surface exposed no model). A known model-label change — including to or from null —
+     * breaks comparability; the label is never inferred. */
+    modelLabel: text(120).nullable(),
+    /** Whether web-search grounding was evidenced. On the locked panel this is the expected
+     * methodology; on a capture it is the observed state. `unknown` never matches a definite
+     * locked expectation, so an unknown observation is never promoted to an invented success. */
+    webSearchEvidenced: z.enum(["evidenced", "not_evidenced", "unknown"]),
   })
   .strict();
 export const panelProtocolSchema = z
@@ -148,10 +160,7 @@ export const captureContextSchema = z
     language: z
       .object({ prompt: text(40), interface: text(40), answer: text(40).nullable() })
       .strict(),
-    surface: surfaceSchema.extend({
-      modelLabel: text(120).nullable(),
-      webSearchEvidenced: z.enum(["evidenced", "not_evidenced", "unknown"]),
-    }),
+    surface: surfaceSchema,
     time: z
       .object({
         capturedAt: instant,
@@ -219,6 +228,13 @@ export function protocolDeviations(panel: PanelProtocol, context: CaptureContext
     context.surface.searchMode !== panel.surface.searchMode
   )
     out.push("surface_or_mode_differs");
+  // The locked methodology also fixes the model label and whether web search must be evidenced.
+  // A known model change (including to/from the unpinned null) or a different — or
+  // unknown-where-locked — web-search-evidence state is a different methodology, not this
+  // baseline. Unknown is never treated as the locked success.
+  if (context.surface.modelLabel !== panel.surface.modelLabel) out.push("model_label_differs");
+  if (context.surface.webSearchEvidenced !== panel.surface.webSearchEvidenced)
+    out.push("web_search_evidence_differs");
   if (context.language.prompt !== panel.questionLanguage) out.push("prompt_language_differs");
   if (context.brandRunId !== null && panel.kind !== "brand") out.push("brand_run_on_discovery");
   if (context.brandRunId === null && panel.kind === "brand") out.push("brand_capture_without_run");
@@ -226,11 +242,25 @@ export function protocolDeviations(panel: PanelProtocol, context: CaptureContext
 }
 export function slotOutcome(
   panel: PanelProtocol,
-  answer: Pick<z.infer<typeof answerEvidenceSchema>, "status"> | null,
+  answer: Pick<
+    z.infer<typeof answerEvidenceSchema>,
+    "status" | "promptId" | "promptRevision"
+  > | null,
   context: CaptureContext | null,
 ): SlotOutcome {
   if (!answer || !context) return "missed";
   if (protocolDeviations(panel, context).length) return "protocol_deviant";
+  // The answer record must be the panel slot's exact versioned question. Status alone is not
+  // enough: an answer that references a different prompt id or revision than the slot's approved
+  // question is a different question or version, not this slot's baseline. (The slot's presence
+  // in the panel and its question text are already checked by protocolDeviations.)
+  const question = panel.questions.find((q) => q.id === context.slot.questionId);
+  if (
+    !question ||
+    answer.promptId !== question.promptId ||
+    answer.promptRevision !== question.promptRevision
+  )
+    return "protocol_deviant";
   return answer.status;
 }
 export interface ReviewedCapture {
@@ -303,23 +333,83 @@ export function panelCounts(panel: PanelProtocol, captures: ReviewedCapture[]) {
     unreviewed: complete.filter((c) => c.ownCitation === null && c.mention === null).length,
   };
 }
+/** A reviewed capture carrying its own identity and the panel/client it was captured under, so
+ * an improvement's baseline evidence can be resolved against actual records, not caller claims. */
+export interface ScopedCapture extends ReviewedCapture {
+  captureId: string;
+  panelId: string;
+  panelVersion: number;
+  client: { name: string; market: string };
+  capturedAt: string;
+}
+/** A finding referenced by an improvement, carrying the panel/client it belongs to. */
+export interface ScopedFinding {
+  findingId: string;
+  panelId: string;
+  panelVersion: number;
+  client: { name: string; market: string };
+}
+/** The explicit evidence a retest is proved against: this panel's scoped captures and findings
+ * and the improvement records. Nothing is trusted by a bare asserted panel id on the improvement. */
+export interface ComparableEvidence {
+  captures: ScopedCapture[];
+  findings: ScopedFinding[];
+  improvements: Improvement[];
+}
+/** Exact panel-and-client scope key. Same panel id, same version and same client. */
+function panelClientKey(scope: {
+  panelId: string;
+  panelVersion: number;
+  client: { name: string; market: string };
+}): string {
+  return JSON.stringify([scope.panelId, scope.panelVersion, scope.client.name, scope.client.market]);
+}
 /**
  * Comparable baseline/follow-up pairs for the fourth-round re-test (§5.3, CI11-T38). A pair
  * needs the same question complete, reviewed and citation-complete in two distinct rounds, a
  * valid baseline-before-follow-up chronology, and the follow-up captured after two *distinct*
  * destination-verified improvements. Missing pairs are listed with a reason, never filled.
  *
- * The gate takes the verified improvement records (not bare timestamps) so duplicate copies of
- * one improvement and unverified drafts cannot fake the two-change threshold: distinctness and
- * genuine verification are decided by citation-finding's `isVerifiedImprovement` and identity.
+ * Evidence is bound to this exact panel and client, not asserted: each improvement's
+ * `findingIds` and `baselineCaptureIds` must resolve to actual finding and capture records that
+ * belong to this panel/client (a foreign, missing or duplicate reference is rejected). The two
+ * changes must be *substantively* distinct (task, or destination + approved version), so a clone
+ * with a fresh UUID cannot pose as a second change, and each must be verified strictly after the
+ * baseline it improves on and before the follow-up. Because every eligible capture is a
+ * `complete` slot, it already matched the locked panel surface (service, mode, model label and
+ * web-search evidence) through `slotOutcome`/`protocolDeviations`, so baseline and follow-up
+ * share one methodology; distinctness and genuine verification come from citation-finding.
  */
 export function comparablePairs(
   panel: PanelProtocol,
-  captures: Array<ReviewedCapture & { capturedAt: string }>,
+  evidence: ComparableEvidence,
   rounds: { baseline: number; followUp: number },
-  improvements: Improvement[],
 ) {
+  const { captures, findings, improvements } = evidence;
   assertCaptureSlots(panel, captures);
+  const panelScope = panelClientKey({
+    panelId: panel.panelId,
+    panelVersion: panel.version,
+    client: panel.client,
+  });
+  // Index the scoped evidence, rejecting any record that belongs to another panel/client or
+  // reuses an identity. These are the only records an improvement may resolve against.
+  const captureById = new Map<string, ScopedCapture>();
+  for (const c of captures) {
+    if (panelClientKey(c) !== panelScope)
+      throw new Error(`comparablePairs: capture ${c.captureId} belongs to another panel or client`);
+    if (captureById.has(c.captureId))
+      throw new Error(`comparablePairs: duplicate capture id ${c.captureId}`);
+    captureById.set(c.captureId, c);
+  }
+  const findingById = new Map<string, ScopedFinding>();
+  for (const f of findings) {
+    if (panelClientKey(f) !== panelScope)
+      throw new Error(`comparablePairs: finding ${f.findingId} belongs to another panel or client`);
+    if (findingById.has(f.findingId))
+      throw new Error(`comparablePairs: duplicate finding id ${f.findingId}`);
+    findingById.set(f.findingId, f);
+  }
   const refusal = (reason: string) => ({
     pairs: [] as Array<{
       questionId: string;
@@ -340,13 +430,43 @@ export function comparablePairs(
     rounds.followUp < rounds.baseline
   )
     return refusal("comparison_rounds_invalid");
-  const verifiedAtById = new Map<string, number>();
+  // Bind each verified improvement to this panel/client through its findings and baseline
+  // captures, then keep only those verified strictly after every baseline capture they improve
+  // on. Foreign, missing or duplicated references are rejected outright.
+  const bound: Improvement[] = [];
   for (const imp of improvements) {
     if (!isVerifiedImprovement(imp)) continue;
-    const at = Date.parse(imp.verification!.verifiedAt);
-    if (Number.isFinite(at)) verifiedAtById.set(imp.improvementId, at);
+    if (new Set(imp.findingIds).size !== imp.findingIds.length)
+      throw new Error(`comparablePairs: improvement ${imp.improvementId} duplicates a finding id`);
+    if (new Set(imp.baselineCaptureIds).size !== imp.baselineCaptureIds.length)
+      throw new Error(
+        `comparablePairs: improvement ${imp.improvementId} duplicates a baseline capture id`,
+      );
+    for (const fid of imp.findingIds)
+      if (!findingById.has(fid))
+        throw new Error(`comparablePairs: finding ${fid} is not recorded for this panel and client`);
+    const baselineAts = imp.baselineCaptureIds.map((cid) => {
+      const capture = captureById.get(cid);
+      if (!capture)
+        throw new Error(
+          `comparablePairs: baseline capture ${cid} is not recorded for this panel and client`,
+        );
+      return Date.parse(capture.capturedAt);
+    });
+    const verifiedAt = Date.parse(imp.verification!.verifiedAt);
+    // A verified improvement must be verified after every baseline capture it claims to improve
+    // on; an unorderable or pre-baseline verification is not a proven change against that baseline.
+    if (
+      !Number.isFinite(verifiedAt) ||
+      baselineAts.some((at) => !Number.isFinite(at) || verifiedAt <= at)
+    )
+      continue;
+    bound.push(imp);
   }
-  const gate = verifiedAtById.size >= 2 ? Math.max(...verifiedAtById.values()) : null;
+  const gate =
+    countDistinctSubstantiveChanges(bound) >= 2
+      ? Math.max(...bound.map((imp) => Date.parse(imp.verification!.verifiedAt)))
+      : null;
   const sameRound = rounds.baseline === rounds.followUp;
   const pairs: Array<{ questionId: string; baseline: ReviewedCapture; followUp: ReviewedCapture }> =
     [];

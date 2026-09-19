@@ -254,18 +254,75 @@ export const improvementSchema = z
       .strict()
       .nullable(),
   })
-  .strict();
+  .strict()
+  .superRefine((imp, ctx) => {
+    // A verified improvement is a before/after claim: it can only be verified against the
+    // baseline captures it improves on. An unverified draft may still be recorded without
+    // baseline captures while its evidence is being assembled.
+    if (imp.verification && imp.baselineCaptureIds.length === 0)
+      ctx.addIssue({
+        code: "custom",
+        path: ["baselineCaptureIds"],
+        message: "A verified improvement needs the baseline captures it improves on",
+      });
+  });
 export type Improvement = z.infer<typeof improvementSchema>;
 export function isVerifiedImprovement(i: Improvement) {
   return (
     i.verification !== null &&
+    // No baseline captures means no before/after evidence, so the change is not yet a verified
+    // improvement even if a receipt exists (defence in depth alongside the schema refinement).
+    i.baselineCaptureIds.length > 0 &&
     Date.parse(i.verification.verifiedAt) >= Date.parse(i.change.approvedAt)
   );
 }
-/** CI-3 gate: two substantive, verified improvements; drafts and acknowledgements do not count.
- * Distinct improvement identities only, so duplicate copies of one record cannot meet the gate. */
+/**
+ * Domain keys that identify the *substantive* change an improvement records, independent of its
+ * surrogate `improvementId`. Two records are the same change when they share the task, or share
+ * the destination together with the approved version. Counting by these keys stops a clone with
+ * a fresh UUID (same task, or same destination/version) from posing as a second change.
+ */
+export function substantiveChangeKeys(i: Improvement): { taskKey: string; destinationKey: string } {
+  return {
+    taskKey: `task:${i.taskId}`,
+    destinationKey: `dest:${JSON.stringify([
+      i.destination.kind,
+      i.destination.reference,
+      i.change.approvedVersion,
+    ])}`,
+  };
+}
+/** Count distinct substantive changes: union the task and destination/version keys so any shared
+ * key merges records into one change, then count the connected components. */
+export function countDistinctSubstantiveChanges(improvements: Improvement[]): number {
+  const parent = new Map<string, string>();
+  const find = (key: string): string => {
+    let node = key;
+    if (!parent.has(node)) parent.set(node, node);
+    while (parent.get(node) !== node) {
+      const grandparent = parent.get(parent.get(node)!)!;
+      parent.set(node, grandparent);
+      node = grandparent;
+    }
+    return node;
+  };
+  const union = (a: string, b: string) => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent.set(ra, rb);
+  };
+  for (const i of improvements) {
+    const { taskKey, destinationKey } = substantiveChangeKeys(i);
+    union(taskKey, destinationKey);
+  }
+  const components = new Set<string>();
+  for (const i of improvements) components.add(find(substantiveChangeKeys(i).taskKey));
+  return components.size;
+}
+/** CI-3 numeric threshold: distinct substantive, verified changes; drafts, acknowledgements and
+ * clones with fresh UUIDs do not count. Panel/client binding of the evidence is enforced by the
+ * retest gate in `comparablePairs`, which resolves each improvement's findings and baseline
+ * captures against actual records for the exact panel and client before calling this. */
 export function verifiedImprovementCount(improvements: Improvement[]) {
-  const distinct = new Set<string>();
-  for (const i of improvements) if (isVerifiedImprovement(i)) distinct.add(i.improvementId);
-  return distinct.size;
+  return countDistinctSubstantiveChanges(improvements.filter(isVerifiedImprovement));
 }

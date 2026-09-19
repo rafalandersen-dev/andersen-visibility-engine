@@ -11,6 +11,8 @@ import {
   type CaptureContext,
   type PanelProtocol,
   type ReviewedCapture,
+  type ScopedCapture,
+  type ScopedFinding,
 } from "./citation-panel";
 import {
   accuracySchema,
@@ -50,6 +52,8 @@ const panel = (): PanelProtocol => ({
     interface: "consumer web app",
     mode: "search",
     searchMode: "Search",
+    modelLabel: null,
+    webSearchEvidenced: "evidenced",
   },
   session: {
     freshSession: true,
@@ -65,6 +69,12 @@ const panel = (): PanelProtocol => ({
   rounds: 4,
   status: "locked",
   approval: { approvedBy: owner, approvedAt: "2026-09-15T08:00:00Z" },
+});
+/** A minimal answer record bound to panel question n (its prompt id is uuid(100 + n)). */
+const answerFor = (n: number, status: "complete" | "failed" | "truncated" = "complete") => ({
+  status,
+  promptId: uuid(100 + n),
+  promptRevision: 1,
 });
 const context = (round: number, n: number, over: Partial<CaptureContext> = {}): CaptureContext => ({
   panelId: uuid(1),
@@ -175,7 +185,22 @@ describe("session protocol deviations and slot outcomes (CI11-T15, T16, T31)", (
     const draft = { ...panel(), status: "draft" as const, approval: null };
     expect(plannedSlots(draft)).toHaveLength(40);
     expect(protocolDeviations(draft, context(1, 1))).toContain("panel_not_approved");
-    expect(slotOutcome(draft, { status: "complete" }, context(1, 1))).toBe("protocol_deviant");
+    expect(slotOutcome(draft, answerFor(1), context(1, 1))).toBe("protocol_deviant");
+  });
+  it("binds the answer's prompt id and revision to the panel slot's versioned question", () => {
+    const p = panel();
+    // A clean, matching answer resolves to its own status.
+    expect(slotOutcome(p, answerFor(1), context(1, 1))).toBe("complete");
+    // A different prompt id for the same slot is a different question, never this baseline.
+    expect(slotOutcome(p, { ...answerFor(1), promptId: uuid(999) }, context(1, 1))).toBe(
+      "protocol_deviant",
+    );
+    // A different revision of the same prompt is a different approved version, not the slot's.
+    expect(slotOutcome(p, { ...answerFor(1), promptRevision: 2 }, context(1, 1))).toBe(
+      "protocol_deviant",
+    );
+    // An answer bound to another question cannot stand in for this slot even with status complete.
+    expect(slotOutcome(p, answerFor(2), context(1, 1))).toBe("protocol_deviant");
   });
   it("marks a personalised or continued conversation as a deviation, not a baseline", () => {
     const p = panel();
@@ -213,10 +238,44 @@ describe("session protocol deviations and slot outcomes (CI11-T15, T16, T31)", (
     expect(
       slotOutcome(
         p,
-        { status: "complete" },
+        answerFor(1),
         context(1, 1, { session: { ...context(1, 1).session, freshSession: false } }),
       ),
     ).toBe("protocol_deviant");
+  });
+  it("breaks methodology on a known model-label change or a web-search-evidence change", () => {
+    const p = panel();
+    const withSurface = (over: Partial<CaptureContext["surface"]>) =>
+      context(1, 1, { surface: { ...context(1, 1).surface, ...over } });
+    // The clean capture matches the locked model (unpinned null) and evidence expectation.
+    expect(protocolDeviations(p, context(1, 1))).toEqual([]);
+    // A model label recorded where the methodology pins none is a change.
+    expect(protocolDeviations(p, withSurface({ modelLabel: "gpt-x-2026-09" }))).toContain(
+      "model_label_differs",
+    );
+    // A pinned model matches only its exact label; a different known model breaks.
+    const pinned = { ...p, surface: { ...p.surface, modelLabel: "gpt-x-2026-09" } };
+    expect(protocolDeviations(pinned, withSurface({ modelLabel: "gpt-x-2026-09" }))).not.toContain(
+      "model_label_differs",
+    );
+    expect(protocolDeviations(pinned, withSurface({ modelLabel: "gpt-y-2026-10" }))).toContain(
+      "model_label_differs",
+    );
+    // Losing a pinned model (capture records none) is also a break.
+    expect(protocolDeviations(pinned, withSurface({ modelLabel: null }))).toContain(
+      "model_label_differs",
+    );
+    // An unknown or negative web-search state never satisfies a locked "evidenced" expectation.
+    expect(protocolDeviations(p, withSurface({ webSearchEvidenced: "unknown" }))).toContain(
+      "web_search_evidence_differs",
+    );
+    expect(protocolDeviations(p, withSurface({ webSearchEvidenced: "not_evidenced" }))).toContain(
+      "web_search_evidence_differs",
+    );
+    // slotOutcome downgrades any such methodology change to a protocol-deviant slot.
+    expect(slotOutcome(p, answerFor(1), withSurface({ webSearchEvidenced: "unknown" }))).toBe(
+      "protocol_deviant",
+    );
   });
   it("flags surface, mode, language and question-text changes as breaks", () => {
     const p = panel();
@@ -250,8 +309,8 @@ describe("session protocol deviations and slot outcomes (CI11-T15, T16, T31)", (
   });
   it("keeps failed and truncated attempts and reports missing slots as missed", () => {
     const p = panel();
-    expect(slotOutcome(p, { status: "failed" }, context(1, 2))).toBe("failed");
-    expect(slotOutcome(p, { status: "truncated" }, context(1, 3))).toBe("truncated");
+    expect(slotOutcome(p, answerFor(2, "failed"), context(1, 2))).toBe("failed");
+    expect(slotOutcome(p, answerFor(3, "truncated"), context(1, 3))).toBe("truncated");
     expect(slotOutcome(p, null, null)).toBe("missed");
     expect(captureContextSchema.parse(context(2, 4)).slot.round).toBe(2);
   });
@@ -275,11 +334,19 @@ describe("session protocol deviations and slot outcomes (CI11-T15, T16, T31)", (
     expect(protocolDeviations(p, context(1, 1))).toEqual([]);
   });
 });
+const fixtureClient = { name: "FIXTURE client", market: "Sweden — Malmö/Limhamn" };
+/** Deterministic capture identity per slot, so baseline captures can be referenced by id. */
+const captureUuid = (questionId: string, round: number) =>
+  uuid(300 + round * 20 + Number(questionId.slice(-2)));
 const captured = (
   questionId: string,
   round: number,
-  over: Partial<ReviewedCapture> = {},
-): ReviewedCapture & { capturedAt: string } => ({
+  over: Partial<ScopedCapture> = {},
+): ScopedCapture => ({
+  captureId: captureUuid(questionId, round),
+  panelId: uuid(1),
+  panelVersion: 1,
+  client: fixtureClient,
   questionId,
   round,
   outcome: "complete",
@@ -290,20 +357,40 @@ const captured = (
   capturedAt: `2026-${round === 4 ? "10-05" : "09-14"}T09:00:00Z`,
   ...over,
 });
-/** A distinct, destination-verified improvement receipt for the comparable-pair gate. */
-const verifiedImprovement = (id: number, verifiedAt: string): Improvement =>
+/** A finding recorded for this panel and client (the scope an improvement resolves against). */
+const scopedFinding = (id: number, over: Partial<ScopedFinding> = {}): ScopedFinding => ({
+  findingId: uuid(id),
+  panelId: uuid(1),
+  panelVersion: 1,
+  client: fixtureClient,
+  ...over,
+});
+type ImprovementOverrides = {
+  findingIds?: string[];
+  taskId?: string;
+  approvedVersion?: string;
+  destination?: Improvement["destination"];
+  baselineCaptureIds?: string[];
+};
+/** A destination-verified improvement for the comparable-pair gate. Defaults to one substantive
+ * change (task uuid(81), pricing URL, v1) grounded in the round-1 SY-D01 baseline capture. */
+const verifiedImprovement = (
+  id: number,
+  verifiedAt: string,
+  over: ImprovementOverrides = {},
+): Improvement =>
   improvementSchema.parse({
     improvementId: uuid(id),
-    findingIds: [uuid(60)],
-    taskId: uuid(81),
+    findingIds: over.findingIds ?? [uuid(60)],
+    taskId: over.taskId ?? uuid(81),
     change: {
       description: "FIXTURE change",
-      approvedVersion: "v1",
+      approvedVersion: over.approvedVersion ?? "v1",
       approvedBy: owner,
       approvedAt: "2026-09-20T10:00:00Z",
     },
-    destination: { kind: "public_url", reference: "https://example.test/priser" },
-    baselineCaptureIds: [],
+    destination: over.destination ?? { kind: "public_url", reference: "https://example.test/priser" },
+    baselineCaptureIds: over.baselineCaptureIds ?? [captureUuid("SY-D01", 1)],
     verification: {
       method: "owner_inspection",
       receipt: "FIXTURE receipt",
@@ -311,6 +398,17 @@ const verifiedImprovement = (id: number, verifiedAt: string): Improvement =>
       reviewer: owner,
     },
   });
+/** A second, substantively distinct verified change (different task, destination and version). */
+const secondChange = (id: number, verifiedAt: string, over: ImprovementOverrides = {}): Improvement =>
+  verifiedImprovement(id, verifiedAt, {
+    taskId: uuid(82),
+    approvedVersion: "v2",
+    destination: { kind: "listing", reference: "listing://example/synergy" },
+    findingIds: [uuid(61)],
+    ...over,
+  });
+/** Findings both default changes resolve against. */
+const scopedFindings = [scopedFinding(60), scopedFinding(61)];
 describe("descriptive counts and comparable pairs (CI11-T19, T20, T21, T38)", () => {
   it("counts eligible captures with explicit denominators and keeps unknowns out", () => {
     const p = panel();
@@ -350,17 +448,27 @@ describe("descriptive counts and comparable pairs (CI11-T19, T20, T21, T38)", ()
       captured("SY-D02", 4, { citationsComplete: false, ownCitation: null }),
       captured("SY-D03", 4),
     ];
-    const none = comparablePairs(p, caps, rounds, [
-      verifiedImprovement(90, "2026-09-28T10:00:00Z"),
-    ]);
+    const none = comparablePairs(
+      p,
+      { captures: caps, findings: scopedFindings, improvements: [verifiedImprovement(90, "2026-09-28T10:00:00Z")] },
+      rounds,
+    );
     expect(none.comparable).toBe(false);
     expect(none.missing.find((m) => m.questionId === "SY-D01")?.reason).toBe(
       "two_verified_improvements_required",
     );
-    const ready = comparablePairs(p, caps, rounds, [
-      verifiedImprovement(90, "2026-09-28T10:00:00Z"),
-      verifiedImprovement(91, "2026-10-01T10:00:00Z"),
-    ]);
+    const ready = comparablePairs(
+      p,
+      {
+        captures: caps,
+        findings: scopedFindings,
+        improvements: [
+          verifiedImprovement(90, "2026-09-28T10:00:00Z"),
+          secondChange(91, "2026-10-01T10:00:00Z"),
+        ],
+      },
+      rounds,
+    );
     expect(ready.pairs.map((pair) => pair.questionId)).toEqual(["SY-D01"]);
     expect(ready.missing).toEqual(
       expect.arrayContaining([
@@ -369,10 +477,18 @@ describe("descriptive counts and comparable pairs (CI11-T19, T20, T21, T38)", ()
       ]),
     );
     expect(ready.missing).toHaveLength(9);
-    const early = comparablePairs(p, caps, rounds, [
-      verifiedImprovement(90, "2026-10-06T10:00:00Z"),
-      verifiedImprovement(91, "2026-10-07T10:00:00Z"),
-    ]);
+    const early = comparablePairs(
+      p,
+      {
+        captures: caps,
+        findings: scopedFindings,
+        improvements: [
+          verifiedImprovement(90, "2026-10-06T10:00:00Z"),
+          secondChange(91, "2026-10-07T10:00:00Z"),
+        ],
+      },
+      rounds,
+    );
     expect(early.missing.find((m) => m.questionId === "SY-D01")?.reason).toBe(
       "follow_up_before_both_improvements",
     );
@@ -382,28 +498,52 @@ describe("descriptive counts and comparable pairs (CI11-T19, T20, T21, T38)", ()
     const rounds = { baseline: 1, followUp: 4 };
     const caps = [captured("SY-D01", 1), captured("SY-D01", 4, { ownCitation: true })];
     // Two copies of one improvement are not two distinct verified changes.
-    const dup = comparablePairs(p, caps, rounds, [
-      verifiedImprovement(90, "2026-09-28T10:00:00Z"),
-      verifiedImprovement(90, "2026-10-01T10:00:00Z"),
-    ]);
+    const dup = comparablePairs(
+      p,
+      {
+        captures: caps,
+        findings: scopedFindings,
+        improvements: [
+          verifiedImprovement(90, "2026-09-28T10:00:00Z"),
+          verifiedImprovement(90, "2026-10-01T10:00:00Z"),
+        ],
+      },
+      rounds,
+    );
     expect(dup.comparable).toBe(false);
     expect(dup.missing.find((m) => m.questionId === "SY-D01")?.reason).toBe(
       "two_verified_improvements_required",
     );
     // A round is never compared with itself.
-    const self = comparablePairs(p, caps, { baseline: 4, followUp: 4 }, [
-      verifiedImprovement(90, "2026-09-28T10:00:00Z"),
-      verifiedImprovement(91, "2026-10-01T10:00:00Z"),
-    ]);
+    const self = comparablePairs(
+      p,
+      {
+        captures: caps,
+        findings: scopedFindings,
+        improvements: [
+          verifiedImprovement(90, "2026-09-28T10:00:00Z"),
+          secondChange(91, "2026-10-01T10:00:00Z"),
+        ],
+      },
+      { baseline: 4, followUp: 4 },
+    );
     expect(self.comparable).toBe(false);
     expect(self.missing.every((m) => m.reason === "baseline_and_follow_up_same_round")).toBe(true);
     // A malformed follow-up timestamp cannot be ordered against the gate, so no pair is claimed.
     const badCaps = [captured("SY-D01", 1), captured("SY-D01", 4, { ownCitation: true })];
     badCaps[1] = { ...badCaps[1], capturedAt: "not-a-real-date" };
-    const bad = comparablePairs(p, badCaps, rounds, [
-      verifiedImprovement(90, "2026-09-28T10:00:00Z"),
-      verifiedImprovement(91, "2026-10-01T10:00:00Z"),
-    ]);
+    const bad = comparablePairs(
+      p,
+      {
+        captures: badCaps,
+        findings: scopedFindings,
+        improvements: [
+          verifiedImprovement(90, "2026-09-28T10:00:00Z"),
+          secondChange(91, "2026-10-01T10:00:00Z"),
+        ],
+      },
+      rounds,
+    );
     expect(bad.comparable).toBe(false);
     expect(bad.missing.find((m) => m.questionId === "SY-D01")?.reason).toBe(
       "capture_timestamp_invalid",
@@ -420,53 +560,238 @@ describe("descriptive counts and comparable pairs (CI11-T19, T20, T21, T38)", ()
   it("rejects ambiguous follow-up evidence without relying on a prior counts call", () => {
     const improvements = [
       verifiedImprovement(90, "2026-09-28T10:00:00Z"),
-      verifiedImprovement(91, "2026-10-01T10:00:00Z"),
+      secondChange(91, "2026-10-01T10:00:00Z"),
     ];
     expect(() =>
       comparablePairs(
         panel(),
-        [
-          captured("SY-D01", 1),
-          captured("SY-D01", 4, { ownCitation: true }),
-          captured("SY-D01", 4, { ownCitation: false }),
-        ],
+        {
+          captures: [
+            captured("SY-D01", 1),
+            captured("SY-D01", 4, { ownCitation: true }),
+            captured("SY-D01", 4, { ownCitation: false }),
+          ],
+          findings: scopedFindings,
+          improvements,
+        },
         { baseline: 1, followUp: 4 },
-        improvements,
       ),
     ).toThrow(/duplicate/);
     expect(() =>
       comparablePairs(
         panel(),
-        [captured("SY-D01", 1), { ...captured("SY-D01", 4), round: 9 }],
+        {
+          captures: [captured("SY-D01", 1), { ...captured("SY-D01", 4), round: 9 }],
+          findings: scopedFindings,
+          improvements,
+        },
         { baseline: 1, followUp: 9 },
-        improvements,
       ),
     ).toThrow(/outside the panel/);
   });
   it.each([0, 1.5, 9, NaN, Infinity])("refuses an invalid comparison round %s", (round) => {
-    const result = comparablePairs(panel(), [], { baseline: 1, followUp: round }, []);
+    const result = comparablePairs(
+      panel(),
+      { captures: [], findings: [], improvements: [] },
+      { baseline: 1, followUp: round },
+    );
     expect(result.comparable).toBe(false);
     expect(result.missing.every((item) => item.reason === "comparison_rounds_invalid")).toBe(true);
   });
   it("does not claim a discovery retest for an unapproved panel or a brand diagnostic", () => {
     const improvements = [
       verifiedImprovement(90, "2026-09-28T10:00:00Z"),
-      verifiedImprovement(91, "2026-10-01T10:00:00Z"),
+      secondChange(91, "2026-10-01T10:00:00Z"),
     ];
     const draft = { ...panel(), status: "draft" as const, approval: null };
     const result = comparablePairs(
       draft,
-      [captured("SY-D01", 1), captured("SY-D01", 4)],
+      {
+        captures: [captured("SY-D01", 1), captured("SY-D01", 4)],
+        findings: scopedFindings,
+        improvements,
+      },
       { baseline: 1, followUp: 4 },
-      improvements,
     );
     expect(result.comparable).toBe(false);
     expect(result.missing.every((item) => item.reason === "panel_not_approved")).toBe(true);
     const brand = { ...panel(), kind: "brand" as const, rounds: 0, questions: [question(1, "B")] };
-    expect(comparablePairs(brand, [], { baseline: 1, followUp: 2 }, improvements)).toMatchObject({
+    expect(
+      comparablePairs(brand, { captures: [], findings: [], improvements: [] }, { baseline: 1, followUp: 2 }),
+    ).toMatchObject({
       comparable: false,
       missing: [{ questionId: "SY-B01", reason: "discovery_panel_required" }],
     });
+  });
+  it("accepts two substantively distinct panel-bound changes and rejects a cloned change", () => {
+    const p = panel();
+    const rounds = { baseline: 1, followUp: 4 };
+    const caps = [captured("SY-D01", 1), captured("SY-D01", 4, { ownCitation: true })];
+    // Two genuinely distinct changes (different task, destination and version) prove the retest.
+    const two = comparablePairs(
+      p,
+      {
+        captures: caps,
+        findings: scopedFindings,
+        improvements: [
+          verifiedImprovement(90, "2026-09-28T10:00:00Z"),
+          secondChange(91, "2026-10-01T10:00:00Z"),
+        ],
+      },
+      rounds,
+    );
+    expect(two.comparable).toBe(true);
+    expect(two.pairs.map((x) => x.questionId)).toEqual(["SY-D01"]);
+    // The same substantive change re-keyed with a fresh improvement id is still one change.
+    const cloned = comparablePairs(
+      p,
+      {
+        captures: caps,
+        findings: scopedFindings,
+        improvements: [
+          verifiedImprovement(90, "2026-09-28T10:00:00Z"),
+          verifiedImprovement(91, "2026-10-01T10:00:00Z"),
+        ],
+      },
+      rounds,
+    );
+    expect(cloned.comparable).toBe(false);
+    expect(cloned.missing.find((m) => m.questionId === "SY-D01")?.reason).toBe(
+      "two_verified_improvements_required",
+    );
+    // Sharing only the destination and version (different task, fresh id) is also one change.
+    const sameDestination = comparablePairs(
+      p,
+      {
+        captures: caps,
+        findings: scopedFindings,
+        improvements: [
+          verifiedImprovement(90, "2026-09-28T10:00:00Z"),
+          verifiedImprovement(91, "2026-10-01T10:00:00Z", { taskId: uuid(83) }),
+        ],
+      },
+      rounds,
+    );
+    expect(sameDestination.comparable).toBe(false);
+  });
+  it("counts a verified change only after the actual baseline it improves on", () => {
+    const p = panel();
+    const rounds = { baseline: 1, followUp: 4 };
+    const caps = [captured("SY-D01", 1), captured("SY-D01", 4, { ownCitation: true })];
+    const evidence = (baselineOfNinety: string) => ({
+      captures: caps,
+      findings: scopedFindings,
+      improvements: [
+        verifiedImprovement(90, "2026-09-28T10:00:00Z", { baselineCaptureIds: [baselineOfNinety] }),
+        secondChange(91, "2026-10-01T10:00:00Z"),
+      ],
+    });
+    // 90 is verified 2026-09-28 but its baseline is the round-4 capture (2026-10-05): dropped,
+    // leaving one distinct change, so the retest is not proven.
+    const dropped = comparablePairs(p, evidence(captureUuid("SY-D01", 4)), rounds);
+    expect(dropped.comparable).toBe(false);
+    expect(dropped.missing.find((m) => m.questionId === "SY-D01")?.reason).toBe(
+      "two_verified_improvements_required",
+    );
+    // With 90's baseline the round-1 capture (2026-09-14), it is verified after its baseline.
+    const kept = comparablePairs(p, evidence(captureUuid("SY-D01", 1)), rounds);
+    expect(kept.comparable).toBe(true);
+  });
+  it("rejects evidence bound to another panel or client, missing records and duplicate aliases", () => {
+    const p = panel();
+    const rounds = { baseline: 1, followUp: 4 };
+    const caps = [captured("SY-D01", 1), captured("SY-D01", 4, { ownCitation: true })];
+    const distinct = [
+      verifiedImprovement(90, "2026-09-28T10:00:00Z"),
+      secondChange(91, "2026-10-01T10:00:00Z"),
+    ];
+    // A capture asserting another panel id is not this panel's evidence.
+    expect(() =>
+      comparablePairs(
+        p,
+        {
+          captures: [...caps, captured("SY-D02", 1, { panelId: uuid(2) })],
+          findings: scopedFindings,
+          improvements: distinct,
+        },
+        rounds,
+      ),
+    ).toThrow(/another panel or client/);
+    // A capture asserting another client is likewise out of scope.
+    expect(() =>
+      comparablePairs(
+        p,
+        {
+          captures: [
+            ...caps,
+            captured("SY-D02", 1, { client: { name: "OTHER", market: "elsewhere" } }),
+          ],
+          findings: scopedFindings,
+          improvements: distinct,
+        },
+        rounds,
+      ),
+    ).toThrow(/another panel or client/);
+    // A finding recorded for another panel cannot ground this panel's improvement.
+    expect(() =>
+      comparablePairs(
+        p,
+        {
+          captures: caps,
+          findings: [scopedFinding(60, { panelId: uuid(2) }), scopedFinding(61)],
+          improvements: distinct,
+        },
+        rounds,
+      ),
+    ).toThrow(/another panel or client/);
+    // A baseline capture id with no matching record is rejected.
+    expect(() =>
+      comparablePairs(
+        p,
+        {
+          captures: caps,
+          findings: scopedFindings,
+          improvements: [
+            verifiedImprovement(90, "2026-09-28T10:00:00Z", {
+              baselineCaptureIds: [captureUuid("SY-D07", 1)],
+            }),
+            secondChange(91, "2026-10-01T10:00:00Z"),
+          ],
+        },
+        rounds,
+      ),
+    ).toThrow(/baseline capture .* not recorded/);
+    // A finding id with no matching record is rejected.
+    expect(() =>
+      comparablePairs(
+        p,
+        {
+          captures: caps,
+          findings: scopedFindings,
+          improvements: [
+            verifiedImprovement(90, "2026-09-28T10:00:00Z", { findingIds: [uuid(62)] }),
+            secondChange(91, "2026-10-01T10:00:00Z"),
+          ],
+        },
+        rounds,
+      ),
+    ).toThrow(/finding .* not recorded/);
+    // A duplicated baseline alias inside one improvement is rejected.
+    expect(() =>
+      comparablePairs(
+        p,
+        {
+          captures: caps,
+          findings: scopedFindings,
+          improvements: [
+            verifiedImprovement(90, "2026-09-28T10:00:00Z", {
+              baselineCaptureIds: [captureUuid("SY-D01", 1), captureUuid("SY-D01", 1)],
+            }),
+          ],
+        },
+        rounds,
+      ),
+    ).toThrow(/duplicates a baseline capture id/);
   });
 });
 const support = (over: Partial<Parameters<typeof sourceSupportSchema.parse>[0] & object> = {}) => ({
@@ -690,8 +1015,9 @@ describe("verified improvements (CI11-T36)", () => {
     expect(verifiedImprovementCount([draft, verified, stale])).toBe(1);
     // Two copies of one verified improvement are a single distinct change, never two.
     expect(verifiedImprovementCount([verified, structuredClone(verified)])).toBe(1);
-    // Two genuinely distinct verified improvements meet the CI-3 gate.
-    const second = improvementSchema.parse(
+    // A clone with a fresh improvement id but the same task, destination and version is still one
+    // substantive change; a fresh UUID cannot manufacture a second.
+    const clone = improvementSchema.parse(
       improvement({
         improvementId: uuid(84),
         verification: {
@@ -702,6 +1028,51 @@ describe("verified improvements (CI11-T36)", () => {
         },
       }),
     );
+    expect(verifiedImprovementCount([verified, clone])).toBe(1);
+    // Sharing only the destination and approved version (different task) is also one change.
+    expect(
+      verifiedImprovementCount([verified, improvementSchema.parse(improvement({ improvementId: uuid(85), taskId: uuid(88), verification: verified.verification }))]),
+    ).toBe(1);
+    // Two genuinely distinct verified changes (different task, destination and version) count two.
+    const second = improvementSchema.parse(
+      improvement({
+        improvementId: uuid(86),
+        taskId: uuid(89),
+        change: {
+          description: "Add the booking listing",
+          approvedVersion: "v8",
+          approvedBy: owner,
+          approvedAt: "2026-09-25T10:00:00Z",
+        },
+        destination: { kind: "listing", reference: "listing://example/synergy" },
+        verification: {
+          method: "index_inspection",
+          receipt: "Indexed copy inspected",
+          verifiedAt: "2026-09-27T10:00:00Z",
+          reviewer: owner,
+        },
+      }),
+    );
     expect(verifiedImprovementCount([verified, second])).toBe(2);
+  });
+  it("requires baseline captures for a verified improvement but allows a draft without them", () => {
+    // An unverified draft may be recorded before its baseline evidence is assembled.
+    const draftWithoutBaseline = improvementSchema.parse(improvement({ baselineCaptureIds: [] }));
+    expect(isVerifiedImprovement(draftWithoutBaseline)).toBe(false);
+    const liveVerification = {
+      method: "owner_inspection" as const,
+      receipt: "Owner inspected the live page",
+      verifiedAt: "2026-09-26T10:00:00Z",
+      reviewer: owner,
+    };
+    // A verified record with no baseline captures has no before/after evidence: the schema
+    // refuses it.
+    expect(() =>
+      improvementSchema.parse(improvement({ baselineCaptureIds: [], verification: liveVerification })),
+    ).toThrow(/baseline captures/);
+    // And even bypassing the schema, the predicate does not treat it as a verified improvement.
+    expect(
+      isVerifiedImprovement(improvement({ baselineCaptureIds: [], verification: liveVerification })),
+    ).toBe(false);
   });
 });

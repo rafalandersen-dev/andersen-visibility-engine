@@ -65,6 +65,35 @@ export const nativeCellSchema = z
       });
     if (["known_value", "preliminary"].includes(cell.status) && cell.value === null)
       ctx.addIssue({ code: "custom", path: ["value"], message: "Known cells carry a value" });
+    // The status and value must be exactly what deterministic interpretation of `raw` yields;
+    // a caller cannot claim `known_value`/`preliminary` for a number unrelated to the export
+    // text, nor pin a reviewed zero onto a cell the export never showed as zero. This applies
+    // the numeric-bounds, formula-rejection and export-zero rules to the trust boundary so a
+    // forged positive value cannot be smuggled past the schema. Unknown/unavailable/invalid
+    // cells create no positive evidence and are left to the null-value checks above.
+    const interpreted = interpretExportCell(cell.raw, cell.unit);
+    if (
+      (cell.status === "known_value" || cell.status === "preliminary") &&
+      (interpreted.status !== "known_value" || interpreted.value !== cell.value)
+    )
+      ctx.addIssue({
+        code: "custom",
+        path: ["value"],
+        message: "A known value must equal the deterministic interpretation of its raw export cell",
+      });
+    // A reviewed known zero can only sit on a cell whose raw export reads as a numeric zero
+    // (`unknown_export_zero` before review); the receipt cannot rehabilitate an arbitrary raw.
+    if (
+      cell.status === "known_zero" &&
+      cell.value === 0 &&
+      cell.review &&
+      interpreted.status !== "unknown_export_zero"
+    )
+      ctx.addIssue({
+        code: "custom",
+        path: ["raw"],
+        message: "A known zero must resolve an exported cell that reads as a numeric zero",
+      });
   });
 export type NativeCell = z.infer<typeof nativeCellSchema>;
 function parseNumber(text: string, unit: "count" | "percent"): number | null {

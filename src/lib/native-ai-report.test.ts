@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   GSC_REPORT_TIMEZONE,
+  MAX_NATIVE_CELL_CHARS,
   MAX_NATIVE_REPORT_BYTES,
   MAX_NATIVE_REPORT_ROWS,
   NATIVE_REPORT_PARSER_VERSION,
   escapeForSpreadsheet,
   interpretExportCell,
   marketScopeLabel,
+  nativeCellSchema,
   nativePresence,
   nativeReportImportInputSchema,
   nativeReportSnapshotSchema,
@@ -273,6 +275,64 @@ describe("availability, versioning and safety (CI11-T10, T11, T12, T35)", () => 
       cells: { impressions: interpretExportCell("1", "count") },
     }));
     expect(() => nativeReportSnapshotSchema.parse(tooMany)).toThrow();
+  });
+  it("refuses a claimed value or status that raw interpretation does not produce", () => {
+    // A genuine cell always matches its deterministic interpretation.
+    expect(() =>
+      nativeCellSchema.parse({ raw: "12", value: 12, status: "known_value", unit: "count" }),
+    ).not.toThrow();
+    expect(() =>
+      nativeCellSchema.parse({ raw: "12.5%", value: 12.5, status: "known_value", unit: "percent" }),
+    ).not.toThrow();
+    expect(() =>
+      nativeCellSchema.parse(interpretExportCell("7", "count", { preliminary: true })),
+    ).not.toThrow();
+    // A number unrelated to the raw export text cannot be smuggled in as a known value.
+    for (const forged of [
+      { raw: "abc", value: 100, status: "known_value", unit: "count" },
+      { raw: "12", value: 999, status: "known_value", unit: "count" },
+      { raw: "=SUM(A1)", value: 5, status: "known_value", unit: "count" },
+      { raw: "1,234", value: 1234, status: "known_value", unit: "count" },
+      { raw: "0", value: 0, status: "known_value", unit: "count" },
+      { raw: "5", value: 6, status: "preliminary", unit: "count" },
+      { raw: "120%", value: 120, status: "known_value", unit: "percent" },
+      { raw: null, value: 3, status: "known_value", unit: "count" },
+    ] as const)
+      expect(() => nativeCellSchema.parse(forged), forged.raw ?? "null").toThrow(
+        /deterministic interpretation/,
+      );
+    // A reviewed known zero cannot be pinned onto a raw the export never showed as zero.
+    expect(() =>
+      nativeCellSchema.parse({
+        raw: "5",
+        value: 0,
+        status: "known_zero",
+        unit: "count",
+        review: receipt,
+      }),
+    ).toThrow(/numeric zero/);
+    // The genuine resolveExportZero outputs validate cleanly through the cell schema.
+    const zeroCell = interpretExportCell("0", "count");
+    const knownZero = resolveExportZero(zeroCell, { ...receipt, original: "numeric_zero" });
+    expect(() => nativeCellSchema.parse(knownZero)).not.toThrow();
+    const resolvedMarker = resolveExportZero(zeroCell, {
+      ...receipt,
+      original: "unavailable_marker",
+    });
+    expect(() => nativeCellSchema.parse(resolvedMarker)).not.toThrow();
+  });
+  it("keeps an oversized invalid diagnostic cell invalid and refuses to rehabilitate it", () => {
+    // A numeric prefix followed by oversized invalid material is invalid; the truncated
+    // diagnostic raw must never be re-read as a clean value, at the boundary or after storage.
+    const oversized = interpretExportCell(`123${"x".repeat(MAX_NATIVE_CELL_CHARS)}`, "count");
+    expect(oversized).toMatchObject({ status: "invalid", value: null });
+    expect(oversized.raw).toHaveLength(MAX_NATIVE_CELL_CHARS);
+    expect(() => nativeCellSchema.parse(oversized)).not.toThrow();
+    expect(nativeCellSchema.parse(oversized).status).toBe("invalid");
+    // Forging that truncated raw into a known value is rejected: it still interprets as invalid.
+    expect(() =>
+      nativeCellSchema.parse({ ...oversized, value: 123, status: "known_value" }),
+    ).toThrow(/deterministic interpretation/);
   });
   it("refuses imported review receipts, provenance and parser identity (server-attributed only)", () => {
     const { importedAt, parserVersion, provenance, supersedesSnapshotId, ...input } = base();
