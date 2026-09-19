@@ -144,7 +144,38 @@ export function resolveExportZero(
     ? { ...cell, value: 0, status: "known_zero", review }
     : { ...cell, value: null, status: "unknown_source", review };
 }
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+/**
+ * A real Gregorian calendar date in `YYYY-MM-DD` form. The regex fixes the shape; this rejects
+ * impossible months and days — `2026-99-99`, `2026-13-01`, `2026-00-10`, `2026-02-30` — and, by a
+ * correct leap-year rule, `2027-02-29` while allowing `2028-02-29`. It is pure arithmetic on the
+ * numeric parts: no `Date` object is constructed, so no timezone is ever consulted or guessed (the
+ * period's own timezone is a separate source contract, enforced by `enforceReportTimezone`). */
+function isRealCalendarDate(text: string): boolean {
+  const [year, month, day] = text.split("-").map(Number);
+  if (month < 1 || month > 12 || day < 1) return false;
+  const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  const daysInMonth = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return day <= daysInMonth[month - 1];
+}
+const isoDate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine(isRealCalendarDate, { message: "Not a real calendar date (YYYY-MM-DD)" });
+/**
+ * The report's inclusive reporting period. Each boundary is a real calendar date and the period is
+ * ordered `start` on or before `end` (a single-day period, `start === end`, is allowed). Fixed-width
+ * ISO dates compare lexically in calendar order, so the ordering check needs no `Date` object and no
+ * timezone either. The boundary timezone is the source contract enforced separately, never guessed
+ * here. Shared by the stored-record and import schemas, so both boundaries reject an impossible or
+ * reversed period.
+ */
+const nativePeriodSchema = z
+  .object({ start: isoDate, end: isoDate, timezone: z.string().min(1).max(64).nullable() })
+  .strict()
+  .refine((period) => period.start <= period.end, {
+    path: ["end"],
+    message: "The reporting period must be ordered: start on or before end",
+  });
 export const nativeMarketScopeSchema = z
   .object({
     /** ISO 3166-1 alpha-3 as GSC exposes it, or null when the report exposes no country. */
@@ -209,9 +240,7 @@ const nativeReportSnapshotObject = z
     ]),
     /** Native aggregation of the exported numbers; chart and page tables aggregate differently. */
     aggregation: z.enum(["property", "page", "query", "unknown"]),
-    period: z
-      .object({ start: isoDate, end: isoDate, timezone: z.string().min(1).max(64).nullable() })
-      .strict(),
+    period: nativePeriodSchema,
     marketScope: nativeMarketScopeSchema,
     filters: z.record(z.string().max(64), z.string().max(200)).default({}),
     completeness: z.enum(["complete", "preliminary", "partial", "unknown"]),
@@ -267,8 +296,12 @@ function normalizeDeclaredProperty(property: string): string {
   return `${scheme.toLowerCase()}${authority.toLowerCase()}${rest}`;
 }
 /** Scope identity used to version same-scope reimports (§3.3). Two exports of the same
- * source, property, report kind, dimension, period and filters describe one snapshot
- * lineage; the artifact hash separates versions within it. */
+ * source, property, report kind, dimension, aggregation, period and filters describe one snapshot
+ * lineage; the artifact hash separates versions within it. The native aggregation is part of the
+ * identity because the schema lets it vary independently of the dimension/report kind (a page table
+ * can be property-, page- or query-aggregated), and a property-aggregated total and a
+ * page-aggregated total are not the same measurement: excluding it would let a snapshot with an
+ * incompatible aggregated meaning silently supersede another under one scope. */
 export function nativeSnapshotScopeKey(
   snapshot: Pick<
     NativeReportSnapshot,
@@ -276,6 +309,7 @@ export function nativeSnapshotScopeKey(
     | "declaredProperty"
     | "reportKind"
     | "dimension"
+    | "aggregation"
     | "period"
     | "marketScope"
     | "filters"
@@ -286,6 +320,7 @@ export function nativeSnapshotScopeKey(
     normalizeDeclaredProperty(snapshot.declaredProperty),
     snapshot.reportKind,
     snapshot.dimension,
+    snapshot.aggregation,
     snapshot.period.start,
     snapshot.period.end,
     snapshot.period.timezone,

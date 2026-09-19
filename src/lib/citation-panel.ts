@@ -66,6 +66,11 @@ export const panelProtocolSchema = z
     kind: z.enum(PANEL_KINDS),
     client: z.object({ name: text(200), market: text(120) }).strict(),
     questionLanguage: text(40),
+    /** The interface (UI chrome) language the methodology fixes for collection, alongside the
+     * question (prompt) language. A capture is compared against this by strict equality, exactly as
+     * the prompt language is; a differing — or unknown-recorded — interface language is a
+     * methodology deviation and is never invented into a match. */
+    interfaceLanguage: text(40),
     surface: surfaceSchema,
     session: sessionProtocolSchema,
     /** The approved collection location the methodology fixes (§5.2). `country`/`city` are the
@@ -131,9 +136,12 @@ export function plannedSlots(panel: PanelProtocol) {
     panel.questions.map((q) => ({ round: r + 1, questionId: q.id })),
   ).flat();
 }
-/** A separately approved brand diagnostic run: its own scope, budget and dates. */
+/** A separately approved brand diagnostic run: its own identity, scope, budget and dates. The
+ * `id` is what a brand capture's `brandRunId` must resolve to; a run without an id could not be
+ * distinguished from a fabricated one. */
 export const brandRunSchema = z
   .object({
+    id: z.string().uuid(),
     panelId: z.string().uuid(),
     panelVersion: z.number().int().min(1),
     approvedBy: z.string().uuid(),
@@ -142,6 +150,7 @@ export const brandRunSchema = z
     rounds: z.number().int().min(1).max(2),
   })
   .strict();
+export type BrandRun = z.infer<typeof brandRunSchema>;
 export const captureContextSchema = z
   .object({
     panelId: z.string().uuid(),
@@ -205,8 +214,20 @@ export const SLOT_OUTCOMES = [
   "protocol_deviant",
 ] as const;
 export type SlotOutcome = (typeof SLOT_OUTCOMES)[number];
-/** Protocol deviations that make a capture ineligible for comparison (§5.2, CI11-T15/T16). */
-export function protocolDeviations(panel: PanelProtocol, context: CaptureContext): string[] {
+/**
+ * Protocol deviations that make a capture ineligible for comparison (§5.2, CI11-T15/T16).
+ *
+ * `approvedBrandRuns` is the set of brand diagnostic runs storage has approved; it is trusted
+ * evidence resolved server-side, never asserted by the capture. A brand capture's `brandRunId` is
+ * only comparable when it resolves against this set (see the brand block below); the default empty
+ * set means "no approved run is available", under which every brand capture fails closed. Discovery
+ * captures ignore it.
+ */
+export function protocolDeviations(
+  panel: PanelProtocol,
+  context: CaptureContext,
+  approvedBrandRuns: BrandRun[] = [],
+): string[] {
   const out: string[] = [];
   if (panel.status !== "locked" || !panel.approval) out.push("panel_not_approved");
   // A capture is only comparable against the exact locked panel version it claims. A different
@@ -264,8 +285,44 @@ export function protocolDeviations(panel: PanelProtocol, context: CaptureContext
     out.push("device_location_differs");
   if (context.location.vpn !== panel.collection.vpn) out.push("vpn_differs");
   if (context.language.prompt !== panel.questionLanguage) out.push("prompt_language_differs");
+  // The methodology fixes the interface language too (§5.2). A capture on a different interface
+  // language — or one recorded as unknown where the panel pins a definite language — is a
+  // methodology deviation, compared by strict equality exactly as the prompt language is, so an
+  // unknown interface language is never promoted into the locked expectation.
+  if (context.language.interface !== panel.interfaceLanguage)
+    out.push("interface_language_differs");
+  // Discovery captures carry no brand run. On a discovery panel a brand run id is a deviation.
   if (context.brandRunId !== null && panel.kind !== "brand") out.push("brand_run_on_discovery");
-  if (context.brandRunId === null && panel.kind === "brand") out.push("brand_capture_without_run");
+  // A brand capture must resolve to an owner-approved run bound to THIS exact panel and version.
+  // The asserted `brandRunId` is never trusted on its own: it is looked up in the trusted approved
+  // set from storage, and a missing, unknown, fabricated, unapproved or foreign run fails closed.
+  // A capture cannot authenticate its own run by asserting an id, so an arbitrary well-formed UUID
+  // is not accepted. The run's own approved `rounds` bound the capture's round (the discovery
+  // round-in-panel check above never applies to a brand panel). Owner approval is also prospective:
+  // a run approved after this capture cannot retroactively authorize the earlier observation, so a
+  // capture collected before its run's `approvedAt` fails closed too. Brand opt-in stays separate
+  // from discovery; nothing here schedules or expands scope.
+  if (panel.kind === "brand") {
+    if (context.brandRunId === null) out.push("brand_capture_without_run");
+    else {
+      const run = approvedBrandRuns.find((r) => r.id === context.brandRunId);
+      if (!run) out.push("brand_run_not_approved");
+      else if (run.panelId !== panel.panelId || run.panelVersion !== panel.version)
+        out.push("brand_run_panel_mismatch");
+      else {
+        if (context.slot.round < 1 || context.slot.round > run.rounds)
+          out.push("brand_round_out_of_run");
+        // The run must have been approved no later than the capture it authorizes. A run approved
+        // after `capturedAt` — or a pair of timestamps that cannot be ordered — cannot sanction
+        // this observation, so it fails closed. This is independent of the round check, so both may
+        // surface on one capture.
+        const approvedAt = Date.parse(run.approvedAt);
+        const capturedAt = Date.parse(context.time.capturedAt);
+        if (!Number.isFinite(approvedAt) || !Number.isFinite(capturedAt) || capturedAt < approvedAt)
+          out.push("brand_run_approved_after_capture");
+      }
+    }
+  }
   return out.concat(context.deviationNotes.map((note) => `noted:${note}`));
 }
 export function slotOutcome(
@@ -275,6 +332,7 @@ export function slotOutcome(
     "status" | "promptId" | "promptRevision"
   > | null,
   context: CaptureContext | null,
+  approvedBrandRuns: BrandRun[] = [],
 ): SlotOutcome {
   if (!answer || !context) return "missed";
   // A genuine failure or truncation is a quality outcome in its own right and must never be masked
@@ -295,7 +353,8 @@ export function slotOutcome(
     !!question &&
     answer.promptId === question.promptId &&
     answer.promptRevision === question.promptRevision;
-  if (protocolDeviations(panel, context).length > 0 || !boundToSlot) return "protocol_deviant";
+  if (protocolDeviations(panel, context, approvedBrandRuns).length > 0 || !boundToSlot)
+    return "protocol_deviant";
   return answer.status;
 }
 export interface ReviewedCapture {
@@ -310,6 +369,12 @@ export interface ReviewedCapture {
   recommended: boolean | null;
   /** A positive own citation seen in a partial capture (kept out of complete-pair counts). */
   partialPositiveCitation?: boolean;
+  /** The owner-approved brand run this capture was collected under. Null/absent on a discovery
+   * capture (discovery carries no brand run). On a brand count this is the capture's run identity:
+   * every capture in one count must carry the same approved run so the count binds to exactly that
+   * run's budget and rounds. A brand capture that has lost its run id cannot be bound to any budget
+   * and is refused, so a foreign or run-less observation is never counted against an unrelated run. */
+  brandRunId?: string | null;
 }
 /** Both counting and pairing must reject ambiguous or unplanned evidence independently. */
 function assertCaptureSlots(panel: PanelProtocol, captures: ReviewedCapture[]) {
@@ -322,6 +387,12 @@ function assertCaptureSlots(panel: PanelProtocol, captures: ReviewedCapture[]) {
   for (const c of captures) {
     if (!questionIds.has(c.questionId))
       throw new Error(`panelCounts: capture ${c.questionId} is not in this ${panel.kind} panel`);
+    // Discovery and brand never share a record. A discovery capture that carries a brand run id is
+    // contradictory evidence, refused here so neither counting nor pairing can pool the two kinds.
+    if (panel.kind === "discovery" && c.brandRunId != null)
+      throw new Error(
+        `panelCounts: discovery capture ${c.questionId} carries a brand run id; discovery has no brand run`,
+      );
     if (
       !Number.isInteger(c.round) ||
       c.round < 1 ||
@@ -336,9 +407,74 @@ function assertCaptureSlots(panel: PanelProtocol, captures: ReviewedCapture[]) {
     seenSlots.add(slot);
   }
 }
-/** Descriptive counts with explicit denominators (§6.2). Never a rate estimate. */
-export function panelCounts(panel: PanelProtocol, captures: ReviewedCapture[]) {
+/**
+ * A brand count is bound to the one approved run its captures were collected under, derived from the
+ * captures' own `brandRunId` rather than from whichever approved run happens to be handed in. Every
+ * capture must name a run, they must all name the *same* run, and that run must resolve to an
+ * owner-approved run for this exact panel and version in the trusted approved set. A run-less,
+ * mixed, unknown, fabricated, unapproved or foreign run fails closed. The resolved run's observation
+ * budget and rounds then bound the whole batch, so no number of individually valid-looking captures
+ * can overrun the owner-approved ceiling, sit on a round the run never authorized, or borrow a
+ * second, larger-budget approved run to legitimize captures that belong to a smaller one. The runs
+ * are trusted evidence from storage (like `protocolDeviations`' `approvedBrandRuns`), never asserted
+ * by the captures; distinct approved runs are counted separately, one count each.
+ */
+function assertBrandRunBudget(
+  panel: PanelProtocol,
+  captures: ReviewedCapture[],
+  approvedBrandRuns: BrandRun[],
+) {
+  // Bind the batch to the run the captures actually name. A capture that has lost its run id cannot
+  // be attributed to any budget and is refused (fail closed), so a run-less observation is never
+  // silently counted against an unrelated approved run.
+  const runIds = new Set<string>();
+  for (const c of captures) {
+    if (c.brandRunId == null)
+      throw new Error(
+        `panelCounts: brand capture ${c.questionId}:${c.round} has no approved run id to count against`,
+      );
+    runIds.add(c.brandRunId);
+  }
+  // One count measures one run: captures naming different runs cannot be pooled into a single
+  // budget (no run's ceiling could bind the mixed batch), and an empty, run-less batch has no run
+  // to bind. Either way the batch is refused; legitimately distinct approved runs are counted
+  // separately, one count each, and none can ambiguously pick a run for another's captures.
+  if (runIds.size !== 1)
+    throw new Error(
+      "panelCounts: brand captures must all belong to one approved run; count each approved run separately",
+    );
+  const [runId] = runIds;
+  // The named run must be an owner-approved run bound to THIS exact panel and version, resolved in
+  // the trusted approved set. An unknown, fabricated, unapproved or foreign-panel/version run is not
+  // found and fails closed. Because the run is picked by the captures' own id, a second, larger
+  // approved run in the set cannot be borrowed to legitimize captures that belong to a smaller run.
+  const run = approvedBrandRuns.find(
+    (r) => r.id === runId && r.panelId === panel.panelId && r.panelVersion === panel.version,
+  );
+  if (!run)
+    throw new Error(
+      "panelCounts: brand captures name a run that is not an approved run for this panel and version",
+    );
+  if (captures.length > run.observationBudget)
+    throw new Error(
+      `panelCounts: ${captures.length} brand captures exceed the approved observation budget of ${run.observationBudget}`,
+    );
+  for (const c of captures)
+    if (c.round > run.rounds)
+      throw new Error(
+        `panelCounts: round ${c.round} is outside the approved run's ${run.rounds} rounds`,
+      );
+}
+/** Descriptive counts with explicit denominators (§6.2). Never a rate estimate. A brand count binds
+ * every capture to the single approved run they were collected under, whose budget/rounds bound the
+ * batch (`assertBrandRunBudget`); discovery counts carry no brand run and ignore `approvedBrandRuns`. */
+export function panelCounts(
+  panel: PanelProtocol,
+  captures: ReviewedCapture[],
+  approvedBrandRuns: BrandRun[] = [],
+) {
   assertCaptureSlots(panel, captures);
+  if (panel.kind === "brand") assertBrandRunBudget(panel, captures, approvedBrandRuns);
   const planned = plannedSlots(panel).length;
   const complete = captures.filter((c) => c.outcome === "complete");
   const citationEligible = complete.filter((c) => c.citationsComplete && c.ownCitation !== null);

@@ -266,14 +266,62 @@ describe("availability, versioning and safety (CI11-T10, T11, T12, T35)", () => 
     const reimport = { ...base(), artifact: { ...base().artifact, sha256: "b".repeat(64) } };
     expect(nativeSnapshotScopeKey(first)).toBe(nativeSnapshotScopeKey(reimport));
     expect(first.artifact.sha256).not.toBe(reimport.artifact.sha256);
-    const otherPeriod = { ...base(), period: { ...base().period, start: "2026-09-01" } };
+    const otherPeriod = { ...base(), period: { ...base().period, start: "2026-08-02" } };
     expect(nativeSnapshotScopeKey(otherPeriod)).not.toBe(nativeSnapshotScopeKey(first));
+    // Aggregation is part of scope identity (4053687909): the same page table re-aggregated at the
+    // property level is a different measurement, so it must not share the page-aggregated snapshot's
+    // scope and silently supersede it — while the same-scope reimport above (identical aggregation)
+    // still matches.
+    const otherAggregation = { ...base(), aggregation: "property" as const };
+    expect(nativeSnapshotScopeKey(otherAggregation)).not.toBe(nativeSnapshotScopeKey(first));
     expect(
       nativeReportSnapshotSchema.parse({
         ...reimport,
         supersedesSnapshotId: "00000000-0000-4000-8000-000000000001",
       }).supersedesSnapshotId,
     ).toBe("00000000-0000-4000-8000-000000000001");
+  });
+  it("requires real, ordered calendar dates on the snapshot and import period boundaries (4053687911)", () => {
+    const withPeriod = (start: string, end: string) => ({
+      ...base(),
+      period: { start, end, timezone: GSC_REPORT_TIMEZONE },
+    });
+    // A well-formed but impossible date is rejected: 99 is neither a month nor a day, month 13 and
+    // 00 never occur, and 30 February never occurs.
+    for (const bad of ["2026-99-99", "2026-13-01", "2026-00-10", "2026-02-30"])
+      expect(() => nativeReportSnapshotSchema.parse(withPeriod(bad, "2026-08-31")), bad).toThrow();
+    // Leap years use the real Gregorian rule: 2027 is not a leap year, 2028 is.
+    expect(() =>
+      nativeReportSnapshotSchema.parse(withPeriod("2027-02-29", "2027-03-01")),
+    ).toThrow();
+    expect(() =>
+      nativeReportSnapshotSchema.parse(withPeriod("2028-02-01", "2028-02-29")),
+    ).not.toThrow();
+    // A reversed period (start after end) is refused; an inclusive single-day period is accepted.
+    expect(() => nativeReportSnapshotSchema.parse(withPeriod("2026-08-31", "2026-08-01"))).toThrow(
+      /ordered/,
+    );
+    expect(() =>
+      nativeReportSnapshotSchema.parse(withPeriod("2026-08-01", "2026-08-01")),
+    ).not.toThrow();
+    // The same real-date and ordering contract holds at the import boundary.
+    const { importedAt, parserVersion, provenance, supersedesSnapshotId, ...input } = base();
+    void importedAt;
+    void parserVersion;
+    void provenance;
+    void supersedesSnapshotId;
+    expect(() =>
+      nativeReportImportInputSchema.parse({
+        ...input,
+        period: { ...input.period, start: "2026-02-30" },
+      }),
+    ).toThrow();
+    expect(() =>
+      nativeReportImportInputSchema.parse({
+        ...input,
+        period: { start: "2026-08-31", end: "2026-08-01", timezone: GSC_REPORT_TIMEZONE },
+      }),
+    ).toThrow(/ordered/);
   });
   it("marks formula, markup and oversized cells invalid, escapes them for spreadsheets and bounds the record", () => {
     for (const raw of [
