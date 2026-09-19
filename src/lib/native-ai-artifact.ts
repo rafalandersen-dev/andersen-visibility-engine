@@ -192,8 +192,35 @@ export const nativeArtifactBase64Schema = z
     (v) => nativeArtifactBase64ByteLength(v) <= MAX_NATIVE_REPORT_BYTES,
     `Decoded artifact exceeds the ${MAX_NATIVE_REPORT_BYTES}-byte cap`,
   );
+/**
+ * DB-compatible `capturedAt` grammar, mirroring the save RPC's regex in
+ * 20260919150000_native_report_artifacts.sql: a required `HH:MM:SS` (hour 00-23, minute/second 00-59),
+ * an optional `.fraction`, and a terminating uppercase `Z` or a colon offset `[+-]HH:MM`. The shared
+ * reader schema's `.datetime({ offset: true })` is deliberately looser — it accepts an omitted seconds
+ * field (`12:00Z`) and a colon-less offset (`+0200`) — so a valid-looking value could clear the public
+ * schema and then fail the RPC with a generic `native_artifact_unavailable`. Staging input applies this
+ * stricter grammar up front so the boundary matches the database; the database rule is unchanged and is
+ * never loosened, and the string is never coerced.
+ */
+export const NATIVE_ARTIFACT_CAPTURED_AT_RE =
+  /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d:[0-5]\d(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
+/**
+ * Staging metadata: the shared owner-declared schema plus the DB-compatible `capturedAt` grammar applied
+ * only at the write boundary. The shared `nativeArtifactMetadataSchema` is reused verbatim for read-back
+ * (summary/detail/state), so already-stored values — always DB-grammar by construction — keep parsing;
+ * this extra refine only rejects a looser-but-reader-valid `capturedAt` before it reaches the RPC.
+ */
+const nativeArtifactStageMetadataSchema = nativeArtifactMetadataSchema.superRefine((m, ctx) => {
+  if (!NATIVE_ARTIFACT_CAPTURED_AT_RE.test(m.capturedAt))
+    ctx.addIssue({
+      code: "custom",
+      path: ["capturedAt"],
+      message:
+        "Use YYYY-MM-DDTHH:MM:SS with an optional fraction and a Z or ±HH:MM offset (the database's timestamp grammar)",
+    });
+});
 export const nativeArtifactStageInputSchema = z
-  .object({ metadata: nativeArtifactMetadataSchema, base64: nativeArtifactBase64Schema })
+  .object({ metadata: nativeArtifactStageMetadataSchema, base64: nativeArtifactBase64Schema })
   .strict();
 /** Server-attributed staging record (metadata view). `status`, `sha256`, `id`, times, actor,
  * `scopeKey`, `supersedesId` and `predecessorDeleted` are set by the server and validated back here,

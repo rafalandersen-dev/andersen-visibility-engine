@@ -307,3 +307,45 @@ are unchanged.
 ### Codex timestamp correction verification — 20 September 2026
 
 Corrected test categorization passes: 50 focused tests/2 files (1.34 s), 6088 full-suite tests/379 files (46.51 s), types, scoped lint and build. Logs `/tmp/milo-artifact-time-final-{focused,types,lint}-20260919.log` and `/tmp/milo-artifact-time-{full,build}-20260919.log`. Codex integration exception: test-only Prettier formatting and evidence wording correction to avoid claiming universal timestamp equivalence. Candidate remains unapplied; no live artifact acceptance.
+
+## PR144 review correction — staging input applies the DB timestamp grammar (finding 4054952996), 20 September
+
+New-code review raised one P2 finding (4054952996) against HEAD `3bdb58a`; the security review
+(comment 5745686496) was clean. Codex confirmed the input/DB grammar mismatch: the public stage-input
+metadata reuses the shared reader schema, whose `.datetime({offset:true})` accepts an omitted seconds
+field (`12:00Z`) and a colon-less offset (`+0200`), but the save RPC requires `HH:MM:SS` plus a colon
+offset. The prior packet kept the stricter DB rule (to prevent a read-poisoning row), which is correct,
+but a valid-looking submission still cleared the public schema and then failed the RPC with a generic
+`native_artifact_unavailable` — a UX gap at the write boundary, not a data-safety hole.
+
+Fix (input-only; **no SQL/migration change** — the candidate stays UNAPPLIED and its DB grammar is
+unchanged and never loosened, and no timestamp is coerced):
+
+- `src/lib/native-ai-artifact.ts` adds `NATIVE_ARTIFACT_CAPTURED_AT_RE`, a TS regex mirroring the save
+  RPC's `capturedAt` grammar exactly — required `HH:MM:SS` (hour 00-23, minute/second 00-59), optional
+  `.fraction`, terminating uppercase `Z` or colon offset `[+-]HH:MM` — and a staging-only
+  `nativeArtifactStageMetadataSchema` (the shared metadata schema plus one field-specific `capturedAt`
+  `superRefine`). `nativeArtifactStageInputSchema` now uses that stricter metadata, so **both** consumers
+  of the stage boundary — the `stageNativeArtifactFn` server function (via `.shape`) and the
+  `stageNativeArtifact` server wrapper (via `.parse`) — reject a DB-incompatible `capturedAt` up front
+  with a `metadata.capturedAt` field error. The shared `nativeArtifactMetadataSchema` used for read-back
+  (summary/detail/state) is **unchanged**, so already-stored values (always DB-grammar by construction)
+  keep parsing and historical reader compatibility is retained. The stage input object keeps its `.shape`
+  (the refinement lives on the metadata field, not the top-level object), so the server function's
+  `scope.extend(nativeArtifactStageInputSchema.shape)` merge still works.
+
+New regressions in `native-ai-artifact-migration.test.ts` (existing artifact test file), table-driven:
+
+- two reader-valid-but-DB-incompatible `capturedAt` forms — omitted seconds `2026-08-29T12:00Z` and
+  colon-less offset `2026-08-29T12:00:00+0200` — each asserted still accepted by the shared reader schema
+  (`safeParse` true, read-back compatibility) yet refused by `nativeArtifactStageInputSchema` with a
+  `metadata.capturedAt` issue path AND refused end-to-end by `stage(...)` before any RPC (no row created);
+- four canonical forms — `Z`, a fractional second, and `+02:00` / `-05:30` colon offsets — accepted at
+  the stage input boundary and staged through real SQL, with `capturedAt` stored and read back verbatim.
+
+These new checks and a re-run of the full suite / types / build are **NOT RUN in this worktree** (Codex
+executes the prepared checks). The prior stage recorded **50 focused / 2 files** and **6088 / 379 files**
+(the capturedAt DB-grammar correction, run by Codex above); that figure is the **prior stage only** and is
+**not re-asserted** for this change — results for these new regressions are pending Codex's run. No SQL
+applied, no upload UI enabled, no live artifact acceptance claimed; the USD50-global / manual-free budget
+and every scope/security boundary are unchanged.

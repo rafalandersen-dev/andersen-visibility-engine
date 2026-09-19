@@ -16,6 +16,7 @@ import {
   nativeArtifactMetadataJsonbBytes,
   nativeArtifactMetadataSchema,
   nativeArtifactScopeKey,
+  nativeArtifactStageInputSchema,
 } from "./native-ai-artifact";
 import { MAX_NATIVE_REPORT_BYTES } from "./native-ai-report";
 import type { KnowledgeRpc } from "./project-knowledge.server";
@@ -818,4 +819,55 @@ describe("capturedAt DB validation matches the Zod datetime({offset:true}) reade
     const ok = await stage(metadata, base64);
     expect((await readNativeArtifacts(scope, rpc)).artifacts.map((r) => r.id)).toEqual([ok.id]);
   });
+});
+describe("staging input applies the DB-compatible capturedAt grammar before the RPC", () => {
+  // Finding 4054952996: the shared reader schema's `.datetime({offset:true})` accepts forms the DB's
+  // capturedAt grammar refuses (an omitted seconds field, a colon-less offset), so a valid-looking value
+  // cleared the public schema and then failed the RPC with a generic error. The stage input now enforces
+  // the DB grammar up front (field-specific, before any RPC) while the shared read-back schema stays
+  // looser so already-stored values keep parsing.
+  const readerValidDbIncompatible = [
+    "2026-08-29T12:00Z", // omitted seconds — reader accepts, DB grammar requires HH:MM:SS
+    "2026-08-29T12:00:00+0200", // colon-less offset — reader accepts, DB grammar requires [+-]HH:MM
+  ];
+  const canonical = [
+    "2026-08-29T12:00:00Z",
+    "2026-08-29T12:00:00.5Z", // fractional seconds
+    "2026-08-29T12:00:00+02:00", // colon offset
+    "2026-08-29T12:00:00-05:30",
+  ];
+  it.each(readerValidDbIncompatible)(
+    "refuses %s at the stage input boundary before any RPC, while the shared reader schema still accepts it",
+    async (capturedAt) => {
+      // Historical read-back compatibility retained: the shared metadata schema still accepts the form.
+      expect(nativeArtifactMetadataSchema.safeParse({ ...metadata, capturedAt }).success).toBe(
+        true,
+      );
+      // The stage input schema (used by the serverfn and the server) rejects it with a capturedAt path.
+      const parsed = nativeArtifactStageInputSchema.safeParse({
+        metadata: { ...metadata, capturedAt },
+        base64,
+      });
+      expect(parsed.success).toBe(false);
+      if (!parsed.success)
+        expect(parsed.error.issues.some((i) => i.path.join(".") === "metadata.capturedAt")).toBe(
+          true,
+        );
+      // End to end through the server path: staging rejects before the RPC, so no row is created.
+      await expect(stage({ ...metadata, capturedAt }, base64)).rejects.toThrow();
+      expect(await count()).toBe(0);
+    },
+  );
+  it.each(canonical)(
+    "accepts canonical %s at the stage input boundary and stages it through real SQL, stored verbatim",
+    async (capturedAt) => {
+      expect(
+        nativeArtifactStageInputSchema.safeParse({ metadata: { ...metadata, capturedAt }, base64 })
+          .success,
+      ).toBe(true);
+      const staged = await stage({ ...metadata, capturedAt }, base64);
+      expect(staged.status).toBe("pending_parser");
+      expect((await getNativeArtifact(scope, staged.id, rpc)).metadata.capturedAt).toBe(capturedAt);
+    },
+  );
 });
