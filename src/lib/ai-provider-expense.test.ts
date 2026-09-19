@@ -1,10 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_GLOBAL_MONTHLY_CAP_MICROUSD,
+  NATIVE_IMAGE_RESERVE_MICROUSD,
+  NATIVE_TEXT_RESERVE_MICROUSD,
   generateBudgetedImage,
   generateBudgetedText,
   planAccountCapMicrousd,
 } from "./ai-provider-expense.server";
+import { PLAN_IDS, PLAN_LIMITS } from "./billing";
 import { DEFAULT_MODEL_ID } from "./ai-router";
 import { AI_TEXT_TIMEOUT_MS } from "./ai-text-bounds.server";
 import { withGenerationUsage } from "./generation-usage.server";
@@ -161,9 +164,10 @@ describe("native provider money admission", () => {
       p_account_cap: planAccountCapMicrousd("pro"),
       p_global_cap: 50_000_000,
     });
-    // The account cap is exactly the plan's own allowances at the fixed reserves.
-    expect(planAccountCapMicrousd("freePreview")).toBe(6_000_000);
-    expect(planAccountCapMicrousd("pro")).toBe(297_000_000);
+    // The account cap is exactly the plan's own allowances at the fixed reserves,
+    // counting every text bucket (incl. AI credits and audits) + image bucket.
+    expect(planAccountCapMicrousd("freePreview")).toBe(32_000_000);
+    expect(planAccountCapMicrousd("pro")).toBe(2_317_000_000);
 
     // The env override is preserved (a value distinct from the default proves it).
     vi.stubEnv("AI_GLOBAL_MONTHLY_CAP_USD", "200");
@@ -338,5 +342,52 @@ describe("native provider money admission", () => {
     await expect(generateBudgetedImage(context, "x".repeat(8193))).rejects.toThrow("too long");
     expect(mocks.rpc).not.toHaveBeenCalled();
     expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe("planAccountCapMicrousd — counts every generateBudgetedText bucket", () => {
+  // Buckets whose handlers spend a native text reserve. AI credits and audits
+  // were previously omitted (PR140 P1), understating every plan's cap.
+  const TEXT_BUCKETS = [
+    "monthlyContentGenerations",
+    "monthlyImproveDrafts",
+    "monthlyMiloScores",
+    "monthlyAuthorityGenerations",
+    "monthlyAiCredits",
+    "monthlyAudits",
+  ] as const;
+
+  it.each(PLAN_IDS)("equals every text allowance + image allowance for %s", (plan) => {
+    const l = PLAN_LIMITS[plan];
+    const textUnits = TEXT_BUCKETS.reduce((sum, bucket) => sum + l[bucket], 0);
+    const expected =
+      textUnits * NATIVE_TEXT_RESERVE_MICROUSD +
+      l.monthlyImageGenerations * NATIVE_IMAGE_RESERVE_MICROUSD;
+    expect(planAccountCapMicrousd(plan)).toBe(expected);
+  });
+
+  it("includes the AI-credits and audits buckets (regression: they were dropped)", () => {
+    for (const plan of PLAN_IDS) {
+      const l = PLAN_LIMITS[plan];
+      // The pre-fix formula omitted AI credits and audits.
+      const buggy =
+        (l.monthlyContentGenerations +
+          l.monthlyImproveDrafts +
+          l.monthlyMiloScores +
+          l.monthlyAuthorityGenerations) *
+          NATIVE_TEXT_RESERVE_MICROUSD +
+        l.monthlyImageGenerations * NATIVE_IMAGE_RESERVE_MICROUSD;
+      const missingUnits = l.monthlyAiCredits + l.monthlyAudits;
+      expect(missingUnits).toBeGreaterThan(0);
+      // The real cap must exceed the buggy one by exactly the two buckets' cost.
+      expect(planAccountCapMicrousd(plan) - buggy).toBe(
+        missingUnits * NATIVE_TEXT_RESERVE_MICROUSD,
+      );
+    }
+  });
+
+  it("is non-decreasing across the plan tiers", () => {
+    const caps = PLAN_IDS.map(planAccountCapMicrousd);
+    for (let i = 1; i < caps.length; i++) expect(caps[i]).toBeGreaterThanOrEqual(caps[i - 1]);
   });
 });

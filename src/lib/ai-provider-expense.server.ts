@@ -41,15 +41,20 @@ export function globalMonthlyCapMicrousd(): number {
 
 /** An account's monthly ceiling is exactly what its plan already allows: every
  * text allowance at the text reserve plus every image allowance at the image
- * reserve. No new price or allowance is introduced — a plan change changes the
- * cap, which an AUTO budget row then follows within the month. */
+ * reserve. All buckets whose handlers call generateBudgetedText are counted —
+ * content, improve, Milo score, authority, AI credits and audits — so the cap
+ * cannot refuse work the plan has already granted. No new price or allowance is
+ * introduced; a plan change changes the cap, which an AUTO budget row then
+ * follows within the month. */
 export function planAccountCapMicrousd(plan: PlanId): number {
   const limits = PLAN_LIMITS[plan] ?? PLAN_LIMITS.freePreview;
   return (
     (limits.monthlyContentGenerations +
       limits.monthlyImproveDrafts +
       limits.monthlyMiloScores +
-      limits.monthlyAuthorityGenerations) *
+      limits.monthlyAuthorityGenerations +
+      limits.monthlyAiCredits +
+      limits.monthlyAudits) *
       NATIVE_TEXT_RESERVE_MICROUSD +
     limits.monthlyImageGenerations * NATIVE_IMAGE_RESERVE_MICROUSD
   );
