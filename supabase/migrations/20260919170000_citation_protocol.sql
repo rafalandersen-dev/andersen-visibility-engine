@@ -147,6 +147,16 @@ DECLARE
   panel_doc jsonb; panel_kind text; run_doc jsonb; v_run uuid; question jsonb; rnd integer; pred_ctx jsonb;
 BEGIN
   PERFORM public.assert_knowledge_project(p_user,p_project,true);
+  -- Serialization safety for the observation budget: the count+insert below must run under the
+  -- account's workspace_meta row lock. assert_knowledge_project(...,true) takes it FOR UPDATE, but a
+  -- project references auth.users only, so it can exist without a workspace_meta row and that lock is
+  -- then a silent no-op. Re-take the lock here in ONE statement so presence and lock acquisition are
+  -- inseparable: FOR UPDATE locks the row and FOUND reports whether one was actually locked. A missing
+  -- row fails closed; re-locking a row this transaction already holds is harmless. (A bare EXISTS
+  -- check would not prove the lock — a row inserted and committed by another transaction between the
+  -- helper and the check would read as present yet never have been locked in this transaction.)
+  PERFORM 1 FROM public.workspace_meta WHERE user_id=p_user FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'citation_workspace_unavailable'; END IF;
   IF p_document IS NULL OR jsonb_typeof(p_document)<>'object' OR octet_length(p_document::text)>100000
     OR p_document->'analysis'->'verified' IS DISTINCT FROM 'false'::jsonb THEN
     RAISE EXCEPTION 'invalid_answer_evidence';
@@ -240,6 +250,10 @@ BEGIN
   -- A genuinely NEW brand observation (no supersedes) consumes the run's observation budget, checked
   -- here (after dedup) so a re-imported identical capture is never re-charged. Live observations are
   -- the originals (supersedes null) carrying this run id; a same-observation correction is exempt.
+  -- Concurrency: this count+insert is serialized per account by the workspace_meta row lock, taken
+  -- FOR UPDATE and required-present in one statement at the top of this function, so two concurrent
+  -- captures for one run serialize on that row and cannot both pass the budget. No per-run lock is
+  -- needed.
   IF panel_kind<>'discovery' AND replaced IS NULL AND (
     SELECT count(*) FROM public.ai_answer_evidence
     WHERE user_id=p_user AND project_id=p_project AND supersedes_id IS NULL

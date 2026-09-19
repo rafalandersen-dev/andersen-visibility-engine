@@ -187,6 +187,8 @@ export async function readResolvedCaptures(raw: z.infer<typeof scope>, rpc?: Kno
       promptId: a.input.promptId,
       promptRevision: a.input.promptRevision,
       captureContext: a.input.captureContext,
+      // Carry the correction link so the resolver keeps only active chain leaves (raw history stays).
+      supersedesId: a.input.supersedesId,
     })),
     protocol.panels,
     protocol.brandRuns,

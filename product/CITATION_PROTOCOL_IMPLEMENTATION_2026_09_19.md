@@ -118,6 +118,40 @@ acceptance with correct timestamps, an older stored pre-approval record resolvin
 and the still-required separate brand-run approval. No real owner pilot approval is assumed, no live
 capture is collected, and the one migration (`…170000`) remains unapplied.
 
+### Review round 2 — active correction leaves, and budget serialization (assessed)
+
+- **Duplicate observation slots on correction (fixed).** `readResolvedCaptures` mapped the whole
+  answer history and dropped `supersedesId`, so a valid correction (a new record superseding the
+  original) resolved as a *second* observation for the same slot — double-counting and tripping
+  `panelCounts`' duplicate-slot guard. `StoredCaptureAnswer` now carries `supersedesId`, and
+  `resolveStoredCaptures` resolves only the **active leaf** of each correction chain (records another
+  supplied record supersedes are skipped), mirroring `evidenceCohorts`' supersession convention and
+  handling correction-of-correction transitively. Raw superseded rows are **not** deleted — they stay
+  readable via `readAnswerEvidence`; they are simply not re-counted. Tests: a `resolveStoredCaptures`
+  chain (a←b←c) plus an unrelated capture roundtripped into `panelCounts` (recorded = distinct slots,
+  no duplicate-slot throw), and a real `readResolvedCaptures` roundtrip after an RPC-stored correction
+  (leaf-only resolved, both raw records preserved, `panelCounts` clean).
+- **Brand-run budget serialization (normal path already serialized; missing-meta path now
+  fail-closed).** The normal path is serialized: `save_citation_capture` calls
+  `assert_knowledge_project(p_user,p_project,true)`, which takes the account's `workspace_meta` row
+  `FOR UPDATE` before the count and insert — the same per-account serialization the released answer
+  100-record capacity uses — so two concurrent captures for one run cannot both pass the budget. That
+  `FOR UPDATE` only serializes when the row EXISTS, and a project references `auth.users` only, so a
+  project (with a valid locked panel and approved run) can exist without a `workspace_meta` row, in
+  which case the lock is a silent no-op. `save_citation_capture` now re-takes that row `FOR UPDATE` in
+  a single statement immediately after auth and fails closed (`citation_workspace_unavailable`) when
+  no row was locked (`IF NOT FOUND`), so presence and lock acquisition are inseparable — a bare
+  `EXISTS` would not prove the lock, as a row another transaction commits between the helper and the
+  check reads as present yet was never locked here. Re-locking a row this transaction already holds is
+  harmless; lock ordering/auth is preserved and no new lock is introduced. The change is confined to
+  `save_citation_capture`; the
+  shared `assert_knowledge_project` helper and the other quotas are untouched. Test: a real SQL
+  regression deletes the account's `workspace_meta` row (keeping a valid project + approved run),
+  shows the capture fails before any insert with no data mutation, then restores the row and confirms
+  a normal capture still succeeds. This is normal-path-serialized + missing-meta-fail-closed by code
+  inspection and single-transaction SQL; PGlite is single-connection and does **not** prove
+  multi-connection concurrency, so no such proof is fabricated.
+
 ## Files
 
 | File | Change |
@@ -158,13 +192,11 @@ and idempotency are covered by the new migration tests.
 
 ## Checks to run (UNRUN here — Codex executes)
 
-Status honesty: round one left 143 tests passing with `tsc` FAILING (the `z.unknown()` break); the
-four fixes then passed 146 tests and `tsc`. Adding the prospective panel-approval guard, the latest
-run was 148 focused tests at 147 PASS / 1 FAIL with `tsc` PASSING; the lone failure was a test-only
-assertion (it expected the raw SQL guard message from `importManualCapture`, which by design maps DB
-errors to `citation_protocol_unavailable`), now corrected to assert the wrapper refusal generically
-plus the exact guard message through a direct SQL call. **All prior PASS counts are a prior stage and
-do not carry over** — every check below is UNRUN in this worktree and must be re-executed by Codex.
+Status honesty: earlier stages progressed 143 (tsc failing) → 146 → 148/147-PASS-1-FAIL (corrected);
+after the active correction-leaf delta Codex verified 150 focused tests PASS with types PASS. This
+round adds the missing-`workspace_meta` fail-closed guard in `save_citation_capture` and its SQL
+regression. **That 150/PASS is a prior stage and does not carry over** — every check below, including
+the new fail-closed regression, is UNRUN in this worktree and must be re-executed by Codex.
 
 - `npx vitest run src/lib/citation-protocol.test.ts`
 - `npx vitest run src/lib/citation-protocol.functions.test.ts`

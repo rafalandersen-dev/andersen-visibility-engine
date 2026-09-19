@@ -113,13 +113,16 @@ export function parseManualCaptureInput(value: unknown): {
 }
 
 /** The subset of a stored answer record the resolver reads. `captureContext` is opaque as stored
- * in the answer document; the resolver parses it strictly before use. */
+ * in the answer document; the resolver parses it strictly before use. `supersedesId` is the record
+ * this one corrects (null/absent for an original), used to resolve only active correction-chain
+ * leaves — the raw superseded records stay in storage but are not re-counted. */
 export interface StoredCaptureAnswer {
   id: string;
   status: AnswerEvidence["status"];
   promptId: string;
   promptRevision: number;
   captureContext: unknown;
+  supersedesId?: string | null;
 }
 
 export interface ResolvedCapture {
@@ -144,15 +147,25 @@ export interface ResolvedCapture {
  * resolved capture's outcome and deviations are re-derived through the released PR137 helpers so
  * the read never trusts a value baked into the capture. Brand runs are the trusted approved set
  * from storage, exactly as `protocolDeviations`/`slotOutcome` expect.
+ *
+ * Only the active leaf of each correction chain is resolved: a record that another supplied record
+ * supersedes (an original or an intermediate correction) is raw history and is skipped here, so a
+ * valid correction re-describing the same observation never yields two records for one slot (which
+ * would double-count or trip `panelCounts`' duplicate-slot guard). This mirrors `evidenceCohorts`'
+ * supersession convention and handles correction-of-correction chains transitively. Nothing is
+ * deleted; the superseded rows remain readable through `readAnswerEvidence`.
  */
 export function resolveStoredCaptures(
   answers: StoredCaptureAnswer[],
   panels: PanelProtocol[],
   brandRuns: BrandRun[],
 ): ResolvedCapture[] {
+  const superseded = new Set(answers.map((a) => a.supersedesId).filter((id): id is string => !!id));
   const out: ResolvedCapture[] = [];
   for (const answer of answers) {
     if (answer.captureContext === undefined || answer.captureContext === null) continue;
+    // Skip superseded records: resolve only the active leaf of each correction chain.
+    if (superseded.has(answer.id)) continue;
     const parsed = captureContextSchema.safeParse(answer.captureContext);
     if (!parsed.success) continue;
     const context = parsed.data;

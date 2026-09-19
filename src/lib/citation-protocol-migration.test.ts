@@ -7,9 +7,11 @@ import {
   importManualCapture,
   lockCitationPanel,
   readCitationProtocol,
+  readResolvedCaptures,
   saveCitationPanelDraft,
 } from "./citation-protocol.server";
 import { resolveStoredCaptures } from "./citation-protocol";
+import { panelCounts } from "./citation-panel";
 import type { KnowledgeRpc } from "./project-knowledge.server";
 /** Real Postgres (PGlite) round trips over the CI-2 storage. Fixtures only; no live client data,
  * no provider or URL calls. Covers isolation, auth, revoked/missing project, reference forgery,
@@ -407,11 +409,46 @@ describe("CI-2 manual capture resolution and binding", () => {
         promptId: a.input.promptId,
         promptRevision: a.input.promptRevision,
         captureContext: a.input.captureContext,
+        supersedesId: a.input.supersedesId,
       })),
       state.panels,
       state.brandRuns,
     );
     expect(resolved[0]).toMatchObject({ outcome: "complete", panelResolved: true, deviations: [] });
+  });
+  it("resolves only the active correction leaf so a correction never double-counts a slot", async () => {
+    const original = await importManualCapture(scope, discoveryCapture(), rpc);
+    const correction = await importManualCapture(
+      scope,
+      discoveryCapture(
+        {},
+        { supersedesId: original, rawAnswer: "corrected same-observation reading" },
+      ),
+      rpc,
+    );
+    // Raw history is preserved: both the original and its correction remain stored.
+    expect((await readAnswerEvidence(scope, rpc)).answers).toHaveLength(2);
+    // But the resolver returns only the active leaf (the correction) for that one slot.
+    const { panels, captures } = await readResolvedCaptures(scope, rpc);
+    expect(captures).toHaveLength(1);
+    expect(captures[0]).toMatchObject({ answerId: correction, outcome: "complete" });
+    // Roundtrip into panelCounts: the single leaf is one recorded observation, and the duplicate-slot
+    // guard is never tripped (pre-fix, both records resolved to round 1 and this would throw).
+    const locked = panels.find((p) => p.status === "locked")!;
+    const counts = panelCounts(
+      locked,
+      captures.map((c) => ({
+        questionId: c.captureContext.slot.questionId,
+        round: c.captureContext.slot.round,
+        outcome: c.outcome,
+        citationsComplete: true,
+        ownCitation: null,
+        mention: null,
+        recommended: null,
+        brandRunId: c.captureContext.brandRunId,
+      })),
+    );
+    expect(counts).toMatchObject({ recorded: 1, outcomes: { complete: 1 } });
   });
   it("refuses a capture collected before the panel version's approval and accepts one at or after it", async () => {
     const preApprovalTime = {
@@ -565,6 +602,46 @@ describe("CI-2 brand capture budget and prospective approval", () => {
     await expect(
       importManualCapture(scope, brandCapture({ slot: { round: 2, questionId: "SY-B01" } }), rpc),
     ).rejects.toThrow(); // round beyond the run
+  });
+  it("fails closed when the account workspace_meta row is missing, before any budget insert", async () => {
+    await insertBrandRun(uuid(50)); // valid approved run retained (budget 2)
+    // Capture one valid observation while meta is present, to obtain a real stored document.
+    const first = await importManualCapture(scope, brandCapture(), rpc);
+    const stored = (await readAnswerEvidence(scope, rpc)).answers[0];
+    const another = {
+      input: { ...stored.input, rawAnswer: "a second, distinct observation" },
+      prompt: stored.prompt,
+      analysis: stored.analysis,
+    };
+    // Remove the per-account serialization row while the project, locked panel and approved run all
+    // remain valid. assert_knowledge_project's FOR UPDATE then locks nothing, so a new capture must
+    // fail closed before the budget count/insert rather than race it.
+    await db.query("DELETE FROM workspace_meta WHERE user_id=$1", [user]);
+    try {
+      // Direct SQL: the specific fail-closed guard fires before the budget count/insert.
+      await expect(
+        db.query("SELECT save_citation_capture($1,$2,$3)", [user, "p", another]),
+      ).rejects.toThrow(/citation_workspace_unavailable/);
+      // The public wrapper likewise refuses (mapped to the generic unavailable error).
+      await expect(
+        importManualCapture(scope, brandCapture({}, { rawAnswer: "third distinct" }), rpc),
+      ).rejects.toThrow();
+      // No data mutation: only the first observation exists.
+      expect((await readAnswerEvidence(scope, rpc)).answers).toHaveLength(1);
+    } finally {
+      // Restore the fixture so no later test is contaminated.
+      await db.query("INSERT INTO workspace_meta(user_id) VALUES($1) ON CONFLICT DO NOTHING", [
+        user,
+      ]);
+    }
+    // Meta restored: a genuinely new observation under the same run succeeds again (budget 2).
+    const second = await importManualCapture(
+      scope,
+      brandCapture({}, { rawAnswer: "a second, distinct observation" }),
+      rpc,
+    );
+    expect(second).toBeTypeOf("string");
+    expect(second).not.toBe(first);
   });
 });
 

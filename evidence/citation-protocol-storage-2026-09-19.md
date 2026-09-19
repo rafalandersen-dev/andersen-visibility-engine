@@ -64,15 +64,39 @@ all conversation files.
   no change to `citation-panel.ts` and no rewrite of raw history. Capture fixtures now stamp an
   explicit historical panel approval so their captures are honestly post-approval.
 
+## Review round 2 (active correction leaves; budget serialization assessed)
+
+- Duplicate-slot on correction (fixed): `readResolvedCaptures` mapped all answer history and dropped
+  `supersedesId`, so a valid correction resolved as a second observation for one slot. `resolveStored
+  Captures` now resolves only the active leaf of each correction chain (skips records another supplied
+  record supersedes), mirroring `evidenceCohorts` and handling correction-of-correction transitively;
+  superseded raw rows are kept in storage (readable via `readAnswerEvidence`), just not re-counted.
+  Tests: a `resolveStoredCaptures` chain (a←b←c) + unrelated capture → `panelCounts` (recorded = 2,
+  no duplicate-slot throw); a real `readResolvedCaptures` roundtrip after an RPC-stored correction →
+  one leaf resolved, both raw records preserved, `panelCounts` clean.
+- Brand-run budget serialization (normal path serialized; missing-meta path now fail-closed):
+  `save_citation_capture` calls `assert_knowledge_project(...,true)`, which locks the account's
+  `workspace_meta` row `FOR UPDATE` before the count and insert (same mechanism as the released answer
+  100-record capacity), so two concurrent captures for one run cannot both pass the budget. Because a
+  project references `auth.users` only, that row can be absent — then the `FOR UPDATE` is a no-op — so
+  `save_citation_capture` now re-takes the row `FOR UPDATE` in a single statement immediately after
+  auth and fails closed (`citation_workspace_unavailable`) when no row was locked (`IF NOT FOUND`), so
+  presence and lock acquisition are inseparable (a bare `EXISTS` could read a row another transaction
+  committed after the helper without ever locking it here). Re-locking a row this transaction already
+  holds is harmless; lock ordering/auth is preserved and no new lock is added. The change is confined
+  to `save_citation_capture`; the shared `assert_knowledge_project` helper and other quotas are
+  untouched. Real SQL regression: delete the account meta row (valid project + approved run retained) →
+  capture fails before insert with no data mutation; restore → a normal capture succeeds; the fixture
+  is restored so no test is contaminated. PGlite is single-connection and does not prove
+  multi-connection concurrency; none is claimed.
+
 ## Checks (status: UNRUN — prepared for Codex)
 
-Prior stages: round one had 143 tests passing with `tsc` FAILING; the four fixes then passed 146
-tests and `tsc`. Adding the prospective panel-approval guard, the latest run was 148 focused tests at
-147 PASS / 1 FAIL with `tsc` PASSING — the single failure was a test-only assertion mistake (it
-expected the raw SQL guard message from the public `importManualCapture`, which intentionally maps DB
-errors to `citation_protocol_unavailable`). That test is corrected here to assert the wrapper refusal
-generically (with a no-insert check) and the exact guard message via a direct SQL call. All prior PASS
-counts are a PRIOR STAGE and do not carry over — every check below is UNRUN and re-run by Codex.
+Prior stages: 143 (tsc failing) → 146 → 148/147-PASS-1-FAIL (corrected); after the active
+correction-leaf delta Codex verified 150 focused tests PASS with types PASS. This round adds the
+missing-`workspace_meta` fail-closed guard in `save_citation_capture` and its SQL regression. That
+150/PASS is a PRIOR STAGE and does not carry over — every check below, including the new fail-closed
+regression, is UNRUN and re-run by Codex.
 
 | Check | Purpose | Status |
 | --- | --- | --- |
@@ -105,3 +129,9 @@ After the owner authorized scoped Claude file tools, all correction packets were
 Codex minimal integration exceptions: formatted six newly authored TypeScript files for Prettier-only findings; reconciled the migration-chain inventory so eight already-applied conversation migrations are distinct from candidate `20260919170000_citation_protocol.sql`; added the released answer-evidence prerequisite, five service-only RPC grant assertions and two table closed-access checks. The focused chain test passes 19/19, and the unknown-migration guard remains. No application or SQL behavior authored by Codex.
 
 No migration applied, no deployment, no owner pilot approval and no genuine capture acceptance claimed. Main remains `26b938c3`; this packet is independently based on it. Pending artifact/diagnostic packages require chain reconciliation when integrated. UI, findings/support review storage and genuine native parsers remain later accepted packets.
+
+### Codex verification of correction chains and required quota lock — 20 September 2026
+
+Independent review confirmed that only active correction leaves reach counts while raw history stays readable. The capture writer now actually locks the account row and tests FOUND before proceeding; a separate later EXISTS check would not establish lock acquisition under concurrent row insertion. The existing account-first lock order is preserved. The missing-meta regression refuses insertion, restores the fixture, and verifies ordinary capture succeeds. This is SQL-path evidence and lock-semantics review, not a multi-connection concurrency experiment.
+
+**170 focused tests/9 files PASS** (2.39 s); **6081 full-suite tests/380 files PASS** (56.73 s); types, scoped lint, whitespace and build PASS. Logs `/tmp/milo-p2-lock-{focused,types,lint,full,build}-20260919.log`. Codex integration exception: Prettier formatting of two authored TypeScript files; no application/SQL behavior authored by Codex. Candidate migration remains unapplied; no consumer collection or owner pilot approval is inferred.

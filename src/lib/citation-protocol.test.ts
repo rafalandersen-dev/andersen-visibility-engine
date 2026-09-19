@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AnswerEvidence } from "./answer-evidence";
 import type { BrandRun, CaptureContext, PanelProtocol } from "./citation-panel";
+import { panelCounts } from "./citation-panel";
 import {
   citationProtocolStateSchema,
   parseManualCaptureInput,
@@ -290,6 +291,45 @@ describe("citation protocol pure contract", () => {
     expect(foreign.brandRunResolved).toBe(false);
     expect(foreign.outcome).toBe("protocol_deviant");
     expect(foreign.deviations).toContain("brand_run_not_approved");
+  });
+  it("resolves only active correction-chain leaves and roundtrips into panelCounts without duplicate slots", () => {
+    // A correction-of-correction chain a←b←c at round 1, plus an unrelated capture d at round 2.
+    const at = (id: string, supersedesId: string | null, over = {}) => ({
+      id,
+      status: "complete" as const,
+      promptId: uuid(101),
+      promptRevision: 1,
+      captureContext: context(over),
+      supersedesId,
+    });
+    const resolved = resolveStoredCaptures(
+      [
+        at("a", null),
+        at("b", "a"),
+        at("c", "b"),
+        at("d", null, { slot: { round: 2, questionId: "SY-D01" } }),
+      ],
+      [discoveryPanel()],
+      [],
+    );
+    // Only the active leaf of the chain (c) and the unrelated capture (d) resolve; the superseded raw
+    // records a and b remain in storage but are never re-counted.
+    expect(resolved.map((r) => r.answerId).sort()).toEqual(["c", "d"]);
+    const counts = panelCounts(
+      discoveryPanel(),
+      resolved.map((r) => ({
+        questionId: r.captureContext.slot.questionId,
+        round: r.captureContext.slot.round,
+        outcome: r.outcome,
+        citationsComplete: true,
+        ownCitation: null,
+        mention: null,
+        recommended: null,
+        brandRunId: r.captureContext.brandRunId,
+      })),
+    );
+    // Two distinct slots, no duplicate-slot throw (pre-fix, a/b/c would all resolve to round 1).
+    expect(counts).toMatchObject({ recorded: 2, outcomes: { complete: 2 } });
   });
 });
 
