@@ -18,6 +18,15 @@ export interface ExpenseRequest {
   model: string;
   operation: string;
   ceilingMicrousd: number;
+  /** Server-derived monthly ceilings used ONLY to create a missing budget row
+   * for the current month, or to let an existing AUTO row follow a plan change
+   * (owner instruction 2026-09-17). They never alter a manual row, pause,
+   * restriction, permit or any reserved/spent balance. Absent for legacy
+   * callers (fail-closed). `accountCapMicrousd` is null when the account's plan
+   * is currently UNKNOWN (transient entitlement lookup failure): the account row
+   * is then neither created nor lowered, so a paid account is never frozen to
+   * Free by a lookup blip. */
+  defaults?: { accountCapMicrousd: number | null; globalCapMicrousd: number };
 }
 type Rpc = (
   name: string,
@@ -59,7 +68,12 @@ function validateRequest(r: ExpenseRequest) {
     r.ceilingMicrousd === 0 ||
     !bounded(r.provider, 80) ||
     !bounded(r.model, 160) ||
-    !bounded(r.operation, 80)
+    !bounded(r.operation, 80) ||
+    (r.defaults !== undefined &&
+      (!safeInteger(r.defaults.globalCapMicrousd) ||
+        r.defaults.globalCapMicrousd === 0 ||
+        (r.defaults.accountCapMicrousd !== null &&
+          (!safeInteger(r.defaults.accountCapMicrousd) || r.defaults.accountCapMicrousd === 0))))
   ) {
     throw new AiExpenseUnavailableError("invalid_request");
   }
@@ -112,6 +126,8 @@ export async function reserveAiExpense(request: ExpenseRequest): Promise<void> {
       p_model: request.model,
       p_operation: request.operation,
       p_ceiling: request.ceilingMicrousd,
+      p_account_cap: request.defaults?.accountCapMicrousd ?? null,
+      p_global_cap: request.defaults?.globalCapMicrousd ?? null,
     });
   } catch {
     throw new AiExpenseUnavailableError("reservation_unavailable");

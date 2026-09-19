@@ -49,7 +49,9 @@ describe("direct text transport using the real AI SDK", () => {
       expect(request).toHaveBeenCalledOnce();
       const [url, init] = (request.mock.calls as unknown as [string, RequestInit][])[0];
       expect(url).toBe("https://api.openai.com/v1/chat/completions");
-      expect(init.redirect).toBe("error");
+      // workerd rejects redirect:"error"; directProviderFetch uses "manual" and
+      // refuses any redirect response without following Location.
+      expect(init.redirect).toBe("manual");
       expect(init.signal).toBeInstanceOf(AbortSignal);
       const headers = new Headers(init.headers);
       expect(headers.get("authorization")).toBe("Bearer synthetic-openai-key");
@@ -115,6 +117,6 @@ describe("candidate routing", () => {
     const [url, init] = (request.mock.calls as unknown as [string, RequestInit][])[0];
     expect(url).toBe("https://openrouter.ai/api/v1/chat/completions");
     expect(new Headers(init.headers).get("authorization")).toBe("Bearer synthetic-candidate-key");
-    expect(init.redirect).toBe("error");
+    expect(init.redirect).toBe("manual");
   });
 });

@@ -1,11 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { generateBudgetedImage, generateBudgetedText } from "./ai-provider-expense.server";
+import {
+  DEFAULT_GLOBAL_MONTHLY_CAP_MICROUSD,
+  generateBudgetedImage,
+  generateBudgetedText,
+  planAccountCapMicrousd,
+} from "./ai-provider-expense.server";
 import { DEFAULT_MODEL_ID } from "./ai-router";
 import { AI_TEXT_TIMEOUT_MS } from "./ai-text-bounds.server";
 import { withGenerationUsage } from "./generation-usage.server";
 
-const mocks = vi.hoisted(() => ({ rpc: vi.fn(), fetch: vi.fn() }));
-vi.mock("./entitlements.server", () => ({ resolveEntitledPlan: async () => "pro" }));
+const mocks = vi.hoisted(() => ({ rpc: vi.fn(), fetch: vi.fn(), entitledPlan: vi.fn() }));
+vi.mock("./entitlements.server", () => ({
+  resolveEntitledPlan: async () => "pro",
+  resolveEntitledPlanResult: mocks.entitledPlan,
+}));
 vi.mock("@/integrations/supabase/client.server", () => ({
   supabaseAdmin: {
     rpc: mocks.rpc,
@@ -48,6 +56,7 @@ beforeEach(() => {
     name === "reserve_ai_expense" ? reserved : unknown,
   );
   mocks.fetch.mockImplementation(async () => completion());
+  mocks.entitledPlan.mockResolvedValue({ ok: true, planId: "pro" });
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 afterEach(() => {
@@ -143,6 +152,45 @@ describe("native provider money admission", () => {
       expect(mocks.fetch).not.toHaveBeenCalled();
     });
   }
+
+  it("supplies plan-derived account and the USD50 platform cap by default with every reservation", async () => {
+    // The owner-approved platform cap is USD50 (50,000,000 microUSD) with no env.
+    expect(DEFAULT_GLOBAL_MONTHLY_CAP_MICROUSD).toBe(50_000_000);
+    await generateBudgetedText(context, "private source", 3000);
+    expect(mocks.rpc.mock.calls[0][1]).toMatchObject({
+      p_account_cap: planAccountCapMicrousd("pro"),
+      p_global_cap: 50_000_000,
+    });
+    // The account cap is exactly the plan's own allowances at the fixed reserves.
+    expect(planAccountCapMicrousd("freePreview")).toBe(6_000_000);
+    expect(planAccountCapMicrousd("pro")).toBe(297_000_000);
+
+    // The env override is preserved (a value distinct from the default proves it).
+    vi.stubEnv("AI_GLOBAL_MONTHLY_CAP_USD", "200");
+    mocks.rpc.mockClear();
+    await generateBudgetedText(context, "private source", 3000);
+    expect(mocks.rpc.mock.calls[0][1]).toMatchObject({ p_global_cap: 200_000_000 });
+
+    vi.stubEnv("AI_GLOBAL_MONTHLY_CAP_USD", "lots");
+    mocks.rpc.mockClear();
+    mocks.fetch.mockClear();
+    await expect(generateBudgetedText(context, "private source", 3000)).rejects.toMatchObject({
+      reason: "global_cap_invalid",
+    });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it("never lowers an account to Free on a transient entitlement lookup failure", async () => {
+    // An uncertain plan supplies NO account cap: reserve neither creates nor
+    // lowers the account row, so a paid account is never frozen to Free.
+    mocks.entitledPlan.mockResolvedValue({ ok: false });
+    await generateBudgetedText(context, "private source", 3000);
+    expect(mocks.rpc.mock.calls[0][1]).toMatchObject({
+      p_account_cap: null,
+      p_global_cap: DEFAULT_GLOBAL_MONTHLY_CAP_MICROUSD,
+    });
+  });
 
   it("reserves once under the server user and preserves actual raw text counters", async () => {
     expect(await generateBudgetedText(context, "private source", 3000)).toBe('{"ok":true}');

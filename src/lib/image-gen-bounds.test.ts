@@ -38,7 +38,8 @@ describe.each(providers)("%s image request bounds", (provider) => {
     expect(request).toHaveBeenCalledOnce();
     const [url, init] = (request.mock.calls as unknown as [string, RequestInit][])[0];
     expect(url).toBe("https://api.openai.com/v1/images/generations");
-    expect(init.redirect).toBe("error");
+    // workerd rejects redirect:"error"; directProviderFetch uses "manual".
+    expect(init.redirect).toBe("manual");
     expect(init.signal).toBeInstanceOf(AbortSignal);
     expect(JSON.parse(init.body as string)).toEqual({
       model: OPENAI_IMAGE_MODEL,
