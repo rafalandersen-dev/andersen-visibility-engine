@@ -44,6 +44,57 @@ function sameTurn(turnId: string, result: z.infer<typeof conversationTurn>) {
   return result;
 }
 
+/** Total attempts for the browser continuity read when it hits a transient NOWAIT
+ * (55P03) row-lock refusal. Small and bounded. */
+export const MILO_READ_CONTENTION_ATTEMPTS = 4;
+/** Absolute wall-clock budget (ms) shared across the WHOLE browser read sequence — the
+ * preview-admission acquire delay AND every read attempt/backoff — measured from when
+ * `readConversation` starts. Its guarantee is bounded and honest: NO NEW read attempt
+ * is started once the budget is spent (before the first attempt, after the admission
+ * acquire, and before each retry). It does NOT cancel an already in-flight transport
+ * call — a read launched just under the budget can still settle later under its own
+ * transport timeout and may OUTLIVE the caller; that one in-flight call keeps its single
+ * preview lease until it settles. So this caps the NUMBER of fresh attempts, not the
+ * duration of a call already running. */
+export const MILO_READ_DEADLINE_MS = 5000;
+/** Bounded, clean-rollback retry of the continuity READ on a transient 55P03 row-lock
+ * refusal — the owner read hit `workspace_meta FOR SHARE NOWAIT` on 20 Sep.
+ * A later sample showed a short-lived writer; its identity was not established. It
+ * wraps the RAW rpc and is applied INSIDE the preview admission (see readConversation),
+ * so it re-issues only the storage read and acquires NO extra preview lease; each
+ * attempt re-runs `read_milo_conversation` → `assert_milo_conversation_access`,
+ * rechecking membership/scope.
+ *
+ * The shared absolute `deadline` (which already includes the admission-acquire delay) is
+ * checked BEFORE EVERY read attempt, the first included: if the budget is already spent
+ * — e.g. a slow admission consumed it — NO storage read is launched and a busy 55P03 is
+ * surfaced (teamCall → TeamAdmissionBusyError) while the admission wrapper still releases
+ * the lease. A retry then happens only on a read 55P03, under the attempt cap, and while
+ * the deadline still allows one. This bounds the NUMBER of fresh attempts; it never
+ * cancels an in-flight call — one already launched settles on its own and keeps its
+ * lease until it does (which may outlive the caller). Acquire/release and any non-read
+ * RPC pass straight through, never deadline-gated, so admission cleanup always runs; a
+ * non-55P03 result, a success, or a THROWN transport failure is returned/propagated on
+ * the first occurrence. */
+function retryReadContention(rpc: TeamReadRpc, deadline: number): TeamReadRpc {
+  return async (name, args) => {
+    if (name !== "read_milo_conversation") return rpc(name, args);
+    for (let attempt = 1; ; attempt++) {
+      // Before EVERY read attempt (first included), so the admission-acquire delay counts
+      // against the budget: never launch a storage read past the deadline.
+      if (Date.now() >= deadline)
+        return { data: null, error: { code: "55P03", message: "milo_read_deadline" } };
+      const result = await rpc(name, args);
+      const code = (result?.error as { code?: string } | null | undefined)?.code;
+      // Retry only a transient read 55P03, only under the attempt cap AND while the
+      // deadline still allows a fresh attempt. Never cancels the call already awaited.
+      if (code !== "55P03" || attempt >= MILO_READ_CONTENTION_ATTEMPTS || Date.now() >= deadline)
+        return result;
+      await new Promise((resolve) => setTimeout(resolve, 20 * attempt));
+    }
+  };
+}
+
 /** Authenticated actor is always distinct from the owner/project input. All
  * RPCs reauthorize in storage; no browser cache or owner-workspace fallback. */
 export async function beginConversationTurn(
@@ -117,8 +168,19 @@ export async function readConversation(
   const actor = actorSchema.parse(actorId),
     input = conversationRead.parse(raw);
   // Browser-facing continuity read: still bounded by the per-actor/owner preview
-  // budget so a rendered live view cannot exceed its lease allocation.
-  return readConversationPage(actor, input, admittedReadRpc(actor, rpc));
+  // budget so a rendered live view cannot exceed its lease allocation. The
+  // clean-rollback 55P03 retry sits INSIDE the admission, so a transient row-lock
+  // refusal is retried on the SAME lease rather than surfacing as an unread live view.
+  // One absolute deadline is set HERE (before admission) and shared with the retry, so
+  // the acquire delay plus the attempts stay within a single bounded request budget and
+  // no retry can launch a fresh transport call after the request has effectively timed
+  // out.
+  const deadline = Date.now() + MILO_READ_DEADLINE_MS;
+  return readConversationPage(
+    actor,
+    input,
+    admittedReadRpc(actor, retryReadContention(rpc, deadline)),
+  );
 }
 /** Private executor-only continuity read. Identical parsing and response
  * validation to the browser `readConversation`, but it does NOT draw on the
