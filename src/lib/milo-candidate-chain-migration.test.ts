@@ -50,6 +50,8 @@ const releasedConversationPacket = [
   "20260914090000_milo_account_conversations.sql",
   "20260914120000_milo_provider_check_consent.sql",
   "20260914150000_project_team_seats.sql",
+  // PR145 applied and verified on 20 September local time.
+  "20260919160000_milo_conversation_diagnostics.sql",
 ];
 const candidates = ["20260919170000_citation_protocol.sql"];
 const allowed = async (role: string, fn: string) =>
@@ -116,6 +118,8 @@ describe("candidate migration chain", () => {
     "lock_citation_panel(uuid,text,uuid,integer)",
     "approve_citation_brand_run(uuid,text,uuid,uuid,integer,integer,integer)",
     "save_citation_capture(uuid,text,jsonb)",
+    "record_milo_conversation_diagnostic(uuid,uuid,text,text,text,text,text,integer,text,text)",
+    "prune_milo_conversation_diagnostics(timestamptz,integer)",
     "list_my_milo_conversations(uuid,timestamptz,uuid)",
     "begin_milo_conversation_turn(uuid,uuid,text,uuid,uuid,text,text,boolean,boolean)",
     "export_milo_conversation_page(uuid,uuid,text,uuid,integer,text)",
