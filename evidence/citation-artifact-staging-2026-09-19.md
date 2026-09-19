@@ -45,3 +45,33 @@ P1 (this packet) raw-artifact staging → P2 panel/session protocol + embedded c
 ## Outstanding real-acceptance gates (unchanged, cannot be self-certified)
 
 Genuine authorized native exports (availability stays unknown until parsed), the owner-locked panel, the four-week manual ChatGPT-Search captures, two distinct destination-verified improvements and one comparable re-test. This packet, its mocks and this document are preparation, not that acceptance.
+
+## Codex independent verification and integration — 19 September, 17:17 UTC
+
+The integrated source base is main `26b938c3`; initial P1 source commit `052d9532`
+was integrated as `eadd6beb`. The independent actual-PGlite null probe now refuses
+all four required enum nulls (previous evidence accepted all four). The final
+focused artifact and full-chain set passed **37 tests / 3 files**, and the final
+full suite passed **6057 tests / 379 files** in 51.20 seconds. Type checking,
+scoped ESLint, whitespace checks and production build passed. Logs:
+`/tmp/milo-artifact-p1-final-focused-20260919.log`,
+`/tmp/milo-artifact-p1-chain-focused-20260919.log`,
+`/tmp/milo-artifact-p1-final-full-20260919.log`,
+`/tmp/milo-artifact-p1-integrated-types-20260919.log`,
+`/tmp/milo-artifact-p1-build-20260919.log`.
+
+The first integrated suite had one inventory failure: its explicit migration
+list omitted the new candidate and still called the eight released conversation
+migrations unapplied. Codex reconciled this integration test with the verified
+release receipt, retained execution of all real prerequisites, and added all four
+new RPC grant checks plus the new table's closed-access check. The unknown-future-
+migration failure remains in place. This minimal integration-test change,
+Prettier formatting and one ESLint prefer-const fix are recorded exceptions to
+Claude's source/test authorship; application and SQL implementation remain Claude's.
+The repeated full run above followed that integration correction; no assertion
+was skipped or weakened.
+
+Read-only production preflight: artifact table absent, candidate journal count 0,
+`assert_knowledge_project(uuid,text,boolean)` present, conversation dispatch OFF.
+No P1 SQL applied, no live upload/parse/pilot claim. P1 has server functions but
+no user-facing intake yet; P4 supplies that UI, and P5 requires genuine exports.
