@@ -112,6 +112,7 @@ afterAll(async () => {
 describe("manual-budget requirement for free/uncertain accounts", () => {
   it("preserves legacy non-AI DataForSEO admission without weakening AI or missing-budget gates", async () => {
     await seedManualGlobal();
+    const paid = randomUUID();
     await reserve(paid, 500_000, false, [PAID_ACCOUNT, GLOBAL]);
     const legacy = (who: string, provider: string) =>
       db.query<Row>(
