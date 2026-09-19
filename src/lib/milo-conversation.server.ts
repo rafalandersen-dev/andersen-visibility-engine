@@ -44,6 +44,35 @@ function sameTurn(turnId: string, result: z.infer<typeof conversationTurn>) {
   return result;
 }
 
+/** Total attempts for the browser continuity read when it hits a transient NOWAIT
+ * (55P03) row-lock refusal. Small and bounded. */
+export const MILO_READ_CONTENTION_ATTEMPTS = 4;
+/** Bounded, clean-rollback retry of the continuity READ on a transient 55P03 row-lock
+ * refusal — the owner read hit `workspace_meta FOR SHARE NOWAIT` on 20 Sep.
+ * A later sample showed a short-lived writer; its identity was not established. It
+ * wraps the RAW rpc and is applied INSIDE the preview admission (see readConversation),
+ * so it re-issues only the storage read and acquires NO extra preview lease; each
+ * attempt re-runs `read_milo_conversation` → `assert_milo_conversation_access`,
+ * rechecking membership/scope. It retries ONLY a returned 55P03 error result for the
+ * read; a non-55P03 error result, a success, or a THROWN transport failure is
+ * returned/propagated on the first occurrence, and it never retries a mutating RPC or
+ * the preview-admission acquire. */
+function retryReadContention(rpc: TeamReadRpc): TeamReadRpc {
+  return async (name, args) => {
+    for (let attempt = 1; ; attempt++) {
+      const result = await rpc(name, args);
+      const code = (result?.error as { code?: string } | null | undefined)?.code;
+      if (
+        name !== "read_milo_conversation" ||
+        code !== "55P03" ||
+        attempt >= MILO_READ_CONTENTION_ATTEMPTS
+      )
+        return result;
+      await new Promise((resolve) => setTimeout(resolve, 20 * attempt));
+    }
+  };
+}
+
 /** Authenticated actor is always distinct from the owner/project input. All
  * RPCs reauthorize in storage; no browser cache or owner-workspace fallback. */
 export async function beginConversationTurn(
@@ -117,8 +146,10 @@ export async function readConversation(
   const actor = actorSchema.parse(actorId),
     input = conversationRead.parse(raw);
   // Browser-facing continuity read: still bounded by the per-actor/owner preview
-  // budget so a rendered live view cannot exceed its lease allocation.
-  return readConversationPage(actor, input, admittedReadRpc(actor, rpc));
+  // budget so a rendered live view cannot exceed its lease allocation. The
+  // clean-rollback 55P03 retry sits INSIDE the admission, so a transient row-lock
+  // refusal is retried on the SAME lease rather than surfacing as an unread live view.
+  return readConversationPage(actor, input, admittedReadRpc(actor, retryReadContention(rpc)));
 }
 /** Private executor-only continuity read. Identical parsing and response
  * validation to the browser `readConversation`, but it does NOT draw on the
