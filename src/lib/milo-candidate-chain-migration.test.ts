@@ -52,7 +52,7 @@ const releasedConversationPacket = [
   // PR145 applied and verified on 20 September local time.
   "20260919160000_milo_conversation_diagnostics.sql",
 ];
-const candidates = ["20260919150000_native_report_artifacts.sql"];
+const candidates = ["20260919165000_native_report_artifacts.sql"];
 const allowed = async (role: string, fn: string) =>
   (
     await db.query<{ allowed: boolean }>("SELECT has_function_privilege($1,$2,'EXECUTE') allowed", [

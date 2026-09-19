@@ -4,7 +4,7 @@ First implementation packet of the accepted v1 workflow (product/CITATION_WORKFL
 
 ## Owned files (disjoint from the PR137 `.ts` helpers and the conversation-repair worktree)
 
-- `supabase/migrations/20260919150000_native_report_artifacts.sql` — `ai_native_report_artifacts` (RLS, `REVOKE ALL … FROM PUBLIC,anon,authenticated,service_role`, `workspace_entities` FK via `project_collection`, self-FK `supersedes_id` **`NO ACTION`** with `remove_*` unlinking the successor before delete, bounded `octet_length`); `SECURITY DEFINER SET search_path=''` RPCs `save_/read_(list)/read_(one)/remove_ai_native_report_artifact` gated by `assert_knowledge_project`, function EXECUTE granted to `service_role` only.
+- `supabase/migrations/20260919165000_native_report_artifacts.sql` — `ai_native_report_artifacts` (RLS, `REVOKE ALL … FROM PUBLIC,anon,authenticated,service_role`, `workspace_entities` FK via `project_collection`, self-FK `supersedes_id` **`NO ACTION`** with `remove_*` unlinking the successor before delete, bounded `octet_length`); `SECURITY DEFINER SET search_path=''` RPCs `save_/read_(list)/read_(one)/remove_ai_native_report_artifact` gated by `assert_knowledge_project`, function EXECUTE granted to `service_role` only.
 - `src/lib/native-ai-artifact.ts` — client-safe, network-free schemas/bounds/logical-scope predictor; imports the PR137 `native-ai-report.ts`, reusing the now-**exported** `nativePeriodSchema` (the packet's only change to that file) plus `NATIVE_REPORT_SOURCES`, `nativeMarketScopeSchema`, `MAX_NATIVE_REPORT_BYTES`, `GSC_REPORT_TIMEZONE`, `nativeSnapshotScopeKey` (all otherwise unchanged).
 - `src/lib/native-ai-artifact.server.ts` — `call()`-style 10 s RPC wrapper (`native_artifact_unavailable`); sends no scope key (the DB derives the canonical identity), encoded-body bound before any decode.
 - `src/lib/native-ai-artifact.functions.ts` — `createServerFn` + `requireSupabaseAuth`, `expectedOwnerId` guard (`evidence_owner_changed`), stage/list/get/remove.
@@ -438,3 +438,9 @@ manual-free budget and every scope/security boundary are unchanged.
 ### Codex offset-boundary verification — 20 September 2026
 
 71 focused tests/2 files PASS(1.40s), full6152 tests/381 files PASS(43.29s), types/scoped lint/whitespace/production build PASS. Logs `/tmp/milo-artifact-offset-{focused,types,lint,full,build}-20260920.log`. Codex exception: one test formatting wrap and comment clarification; source behavior Claude-authored. No SQL change, migration application, deployment or live acceptance.
+
+### Migration ordering integration — 20 September 2026
+
+Codex renamed the unapplied artifact candidate from20260919150000 to20260919165000 and updated current source/test/product references. Its SQL body is unchanged. The new version follows already-released160000 diagnostics and precedes still-unapplied170000 citation protocol, preserving chronological rollout. Earlier evidence references to150000 describe the historical candidate name. No applied migration was renamed or edited, no SQL executed. Review finding4055107307 is addressed by this minimal integration exception. New chain checks pending.
+
+Migration-order verification:91 focused tests/3 files PASS(1.87s), whitespace PASS; SQL byte-for-byte equality against prior head verified, SHA25623c820eda8f957b86bfa3c9ae19a0e169241837a933be6ce175abe8b767633e7. Only filename/current references changed after prior6152 full tests/build; those are prior implementation checks, not a rerun on the renamed tree. No behavioral code change. Log `/tmp/milo-artifact-order-focused-20260920.log`.

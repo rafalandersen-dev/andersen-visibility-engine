@@ -25,7 +25,7 @@ export const MAX_NATIVE_ARTIFACT_BASE64 = Math.ceil(MAX_NATIVE_REPORT_BYTES / 3)
 /**
  * The database stores `metadata` as jsonb and rejects any row whose canonical `metadata::text`
  * exceeds this many UTF-8 bytes (`octet_length(metadata::text)<=8000` in both the table CHECK and
- * the save RPC, 20260919150000_native_report_artifacts.sql). Every declared field is bounded on its
+ * the save RPC, 20260919165000_native_report_artifacts.sql). Every declared field is bounded on its
  * own (declaredProperty 500, up to 20 filters of key<=64 / value<=200, filename 255, …) but those
  * maxima *sum*: 20 filter values of 200 CJK characters are ~12 KB of UTF-8, far past this cap. The
  * shared metadata schema mirrors the SAME aggregate byte budget so a per-field-valid payload is

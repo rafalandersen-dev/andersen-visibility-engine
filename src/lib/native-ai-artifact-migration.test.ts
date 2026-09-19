@@ -101,7 +101,7 @@ beforeAll(async () => {
   await db.query("INSERT INTO workspace_meta(user_id) VALUES($1),($2)", [user, other]);
   for (const name of [
     "20260909200000_project_knowledge.sql",
-    "20260919150000_native_report_artifacts.sql",
+    "20260919165000_native_report_artifacts.sql",
   ])
     await db.exec(readFileSync("supabase/migrations/" + name, "utf8"));
 }, 30000);
