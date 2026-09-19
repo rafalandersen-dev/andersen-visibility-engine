@@ -220,3 +220,7 @@ Reviewed atomic occupied-slot rejection after dedup under the required account l
 ## Codex read-order correction verification — 20 September 2026
 
 Reviewed sequential evidence-first/protocol-second reads and deterministic deferred-RPC ordering regression, preserving deletion invalidation.52 focused tests/3 files PASS(1.41s), full6134 tests/382 files PASS(42.15s), types/scoped lint/whitespace/build PASS. Logs `/tmp/milo-p2-read-order-{focused,types,lint,full,build}-20260920.log`. No SQL changes, deployment, owner approval or production acceptance.
+
+## Codex fixed-grid verification and main integration — 20 September 2026
+
+Reviewed SQL-specific refusal plus public normalized refusal and no inserted locked version.94 focused tests/4 files PASS(1.38s), types/scoped lint PASS. Normal merge includes released PR147main2e4d7268 without conflicts. Integrated full6151 tests/382 files PASS(43.13s), TypeScript/build PASS. Logs `/tmp/milo-p2-grid-final-{focused,types,lint}-20260920.log` and `/tmp/milo-p2-grid-integrated-{full,types,build}-20260920.log`. Codex exception: Prettier on two changed test files and normal integration merge. Candidate170000 unapplied; no owner approval/pilot measurement/live acceptance.
