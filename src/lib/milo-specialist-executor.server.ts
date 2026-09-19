@@ -36,8 +36,74 @@ import {
   type ConversationStage,
   type ConversationFailureOutcome,
 } from "./milo-conversation-diagnostics.server";
+import { TeamAdmissionBusyError } from "./project-team-admission";
 
 export const MILO_EXECUTION_TIMEOUT_MS = 250000;
+/** Total attempts (initial try + retries) for a persistence/verification RPC that
+ * fails on transient NOWAIT lock contention. Small and bounded — well under the
+ * execution deadline. */
+export const MILO_CONTENTION_ATTEMPTS = 4;
+/** Guarded `instanceof`: a hostile thrown value whose getPrototypeOf trap throws must
+ * never decide whether we retry. In the executor path a TeamAdmissionBusyError is ONLY
+ * a FOR SHARE/UPDATE NOWAIT (SQLSTATE 55P03) refusal — teamCall maps exactly 55P03 to
+ * it, while a lease/expected/authorization refusal (milo_conversation_conflict/
+ * _unavailable) becomes a generic error. */
+function isContention(error: unknown): boolean {
+  try {
+    return error instanceof TeamAdmissionBusyError;
+  } catch {
+    return false;
+  }
+}
+/** Bounded backoff that resolves after `ms`, or rejects PROMPTLY if `signal` aborts
+ * (the execution deadline). This is what makes an in-run retry abort-aware: an
+ * abandoned retry cannot wake after the deadline and launch another RPC. */
+function contentionBackoff(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason ?? new Error("aborted"));
+      return;
+    }
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        reject(signal.reason ?? new Error("aborted"));
+      },
+      { once: true },
+    );
+  });
+}
+/** Bounded retry for the executor's CLEAN-ROLLBACK persistence/verification RPCs
+ * (advance / liveness assert / continuity read). A 55P03 is raised by a NOWAIT lock
+ * BEFORE any row is written, so the failed RPC rolled back with nothing committed:
+ * re-issuing the SAME frozen call (same expected count, attempt lease and events)
+ * cannot duplicate a model/tool step or leave an unknown commit, and each attempt is a
+ * fresh transaction that re-checks membership/lease/scope. EVERY other error — a
+ * membership/lease/cancellation refusal, an optimistic expected-count conflict, a
+ * timeout, a hostile value — is rethrown on its FIRST occurrence.
+ *
+ * When `signal` is supplied (in-run checkpoints) the retry is ABORT-AWARE: once the
+ * deadline aborts, no new attempt starts and a pending backoff is cancelled, so an
+ * abandoned retry can never resume the loop or checkpoint after the deadline — the same
+ * late-stage invariant the per-stage `wait()` race enforces. A first attempt already in
+ * flight is left to settle but is NEVER retried once aborted. The terminal outcome
+ * write in the catch deliberately passes NO signal so its bounded cleanup can still
+ * persist the honest failure after the deadline — a signal guard must never prevent
+ * recording it. NEVER wraps a model or tool dispatch (those must not repeat). */
+async function persistWithRetry<T>(work: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    signal?.throwIfAborted();
+    try {
+      return await work();
+    } catch (error) {
+      if (attempt >= MILO_CONTENTION_ATTEMPTS || !isContention(error)) throw error;
+      signal?.throwIfAborted();
+      await contentionBackoff(20 * attempt, signal);
+    }
+  }
+}
 type Target = z.infer<typeof conversationTurnTarget>;
 type ModelInput = { context: NativeExpenseContext; prompt: string; maxOutputTokens: number };
 export interface SpecialistExecutorDeps {
@@ -198,19 +264,31 @@ export async function runConversationSpecialists(
   };
   const assertLive = async () => {
     controller.signal.throwIfAborted();
-    await deps.assert(actor, target, claimId);
+    // Liveness recheck is a read-only NOWAIT gate: a 55P03 is a clean rollback, so a
+    // transient contention is retried (abort-aware against the deadline); a real
+    // membership/lease/cancellation refusal is not a contention error and propagates.
+    await persistWithRetry(() => deps.assert(actor, target, claimId), controller.signal);
     controller.signal.throwIfAborted();
   };
   const save = async (
     events: ConversationEvent[],
     state: "running" | "completed" | "failed" | "unknown" = "running",
+    opts: { afterDeadline?: boolean } = {},
   ) => {
-    const next = await deps.advance(actor, target, {
-      attemptId: claimId,
-      expected: turn.events.length,
-      events,
-      state,
-    });
+    // Checkpoint write. The advance RPC takes its NOWAIT row locks BEFORE the event
+    // append, so a 55P03 refusal committed nothing: retrying the SAME batch with the
+    // unchanged expected count and attempt lease is idempotent and never repeats a
+    // model/tool step. Freeze `expected` once so every retry re-issues the IDENTICAL
+    // logical batch. In-run checkpoints retry abort-aware against the deadline; the
+    // catch's terminal outcome write passes afterDeadline so its bounded cleanup can
+    // still persist after the deadline (a signal guard must not prevent recording the
+    // failure). A stale expected count or lost lease is a conflict, not contention, and
+    // is not retried.
+    const expected = turn.events.length;
+    const next = await persistWithRetry(
+      () => deps.advance(actor, target, { attemptId: claimId, expected, events, state }),
+      opts.afterDeadline ? undefined : controller.signal,
+    );
     turn = next;
     return next;
   };
@@ -256,13 +334,19 @@ export async function runConversationSpecialists(
     enter("assert_live");
     await wait(assertLive);
     enter("continuity_read");
+    // Continuity read is a read-only NOWAIT page load; a transient 55P03 is retried
+    // (clean rollback), still bounded by the stage's deadline race above.
     const page = await wait(() =>
-      deps.read(actor, {
-        ownerId: target.ownerId,
-        projectId: target.projectId,
-        conversationId: target.conversationId,
-        after: Math.max(0, turn.ordinal - 20),
-      }),
+      persistWithRetry(
+        () =>
+          deps.read(actor, {
+            ownerId: target.ownerId,
+            projectId: target.projectId,
+            conversationId: target.conversationId,
+            after: Math.max(0, turn.ordinal - 20),
+          }),
+        controller.signal,
+      ),
     );
     enter("continuity_check");
     const stored = page.turns.find((entry) => entry.turnId === turn.turnId);
@@ -470,6 +554,9 @@ ${serializeSpecialistContext({ ...baseContext, task: assignment.task, projectEvi
     // overridden. The caller refreshes storage if this final write is refused.
     let outcomeSaved = false;
     try {
+      // Terminal cleanup: this may run AFTER the deadline aborted, so it is NOT
+      // signal-guarded (afterDeadline) — a guard here would prevent recording the
+      // honest failure. It is still bounded by the same contention-retry budget.
       await save(
         [
           {
@@ -481,6 +568,7 @@ ${serializeSpecialistContext({ ...baseContext, task: assignment.task, projectEvi
           },
         ],
         status.state,
+        { afterDeadline: true },
       );
       outcomeSaved = true;
     } catch {
