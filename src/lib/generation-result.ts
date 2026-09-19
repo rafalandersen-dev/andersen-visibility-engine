@@ -28,6 +28,8 @@ const hookTypes = [
   "promise",
 ] as const;
 
+export const CONTENT_BODY_MAX_CHARS = 40_000;
+
 /** Retain only normalized output and the minimum recovery target. Never store
  * preview credentials, full business snapshots, approval or publication fields.
  */
@@ -49,7 +51,7 @@ export const generatedContentResultSchema = z
         outline: strings(1000, 128),
         faq: z.array(z.object({ q: text(1000), a: text(4000) }).strict()).max(128),
         cta: text(1000),
-        markdown: nonempty(8000),
+        markdown: nonempty(CONTENT_BODY_MAX_CHARS),
         internalLinks: strings(2000, 200),
         schemaSuggestions: strings(200, 64),
         editorNotes: text(400),
