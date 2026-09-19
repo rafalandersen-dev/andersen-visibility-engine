@@ -1,0 +1,474 @@
+import { PGlite } from "@electric-sql/pglite";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { beforeAll, beforeEach, afterAll, describe, it, expect } from "vitest";
+import {
+  getNativeArtifact,
+  readNativeArtifacts,
+  removeNativeArtifact,
+  stageNativeArtifact,
+} from "./native-ai-artifact.server";
+import { nativeArtifactScopeKey } from "./native-ai-artifact";
+import type { KnowledgeRpc } from "./project-knowledge.server";
+let db: PGlite;
+const user = "00000000-0000-4000-8000-000000000001",
+  other = "00000000-0000-4000-8000-000000000002";
+const scope = { ownerId: user, projectId: "p" };
+const metadata = {
+  source: "bing_ai_performance" as const,
+  declaredProperty: "https://example.com/",
+  reportKind: "table" as const,
+  dimension: "page" as const,
+  aggregation: "page" as const,
+  period: { start: "2026-08-01", end: "2026-08-28", timezone: null },
+  marketScope: { country: null, exposed: false },
+  filters: {},
+  capturedAt: "2026-08-29T00:00:00Z",
+  filename: "ai-performance-export",
+};
+// Opaque bytes: the artifact is never parsed at P1, so the content deliberately is not a CSV.
+const bytes = new TextEncoder().encode("synthetic-opaque-native-export-artifact-bytes");
+const base64 = Buffer.from(bytes).toString("base64");
+const sha = createHash("sha256").update(bytes).digest("hex");
+const b64 = (text: string) => Buffer.from(new TextEncoder().encode(text)).toString("base64");
+const rpc: KnowledgeRpc = async (name, args) => {
+  try {
+    const keys = Object.keys(args);
+    const result = await db.query<{ data: unknown }>(
+      `SELECT public.${name}(${keys.map((_, i) => "$" + (i + 1)).join(",")}) data`,
+      Object.values(args),
+    );
+    return { data: result.rows[0].data, error: null };
+  } catch (error) {
+    return { data: null, error };
+  }
+};
+const stage = (m: unknown, body: string, s = scope) =>
+  stageNativeArtifact(s, { metadata: m, base64: body }, rpc);
+// Direct SQL save that bypasses the client validators, to probe the database boundary itself.
+const rawSave = (m: unknown, body = base64) =>
+  db.query("SELECT save_ai_native_report_artifact($1,'p',$2::jsonb,$3)", [
+    user,
+    JSON.stringify(m),
+    body,
+  ]);
+const count = async () =>
+  Number(
+    (await db.query<{ n: number }>("SELECT count(*)::int n FROM ai_native_report_artifacts"))
+      .rows[0].n,
+  );
+const totalBytes = async () =>
+  Number(
+    (
+      await db.query<{ n: string }>(
+        "SELECT coalesce(sum(byte_length),0)::bigint n FROM ai_native_report_artifacts",
+      )
+    ).rows[0].n,
+  );
+const findArtifact = async (id: string) =>
+  (await readNativeArtifacts(scope, rpc)).artifacts.find((r) => r.id === id);
+beforeAll(async () => {
+  db = new PGlite();
+  await db.exec(
+    "CREATE ROLE anon;CREATE ROLE authenticated;CREATE ROLE service_role;CREATE SCHEMA auth;CREATE TABLE auth.users(id uuid PRIMARY KEY);CREATE TABLE workspace_meta(user_id uuid PRIMARY KEY,rev bigint DEFAULT 1);CREATE TABLE workspace_entities(user_id uuid,collection text,entity_id text,data jsonb DEFAULT '{}'::jsonb,PRIMARY KEY(user_id,collection,entity_id));",
+  );
+  await db.query("INSERT INTO auth.users VALUES($1),($2)", [user, other]);
+  await db.query("INSERT INTO workspace_meta(user_id) VALUES($1),($2)", [user, other]);
+  for (const name of [
+    "20260909200000_project_knowledge.sql",
+    "20260919150000_native_report_artifacts.sql",
+  ])
+    await db.exec(readFileSync("supabase/migrations/" + name, "utf8"));
+}, 30000);
+beforeEach(async () => {
+  await db.exec("RESET ROLE;TRUNCATE workspace_entities CASCADE;");
+  await db.query(
+    "INSERT INTO workspace_entities(user_id,collection,entity_id) VALUES($1,'projects','p'),($1,'projects','q'),($2,'projects','p')",
+    [user, other],
+  );
+});
+afterAll(async () => {
+  await db?.close();
+});
+describe("raw native-report artifact staging SQL with real server round trips", () => {
+  it("stores opaque bytes with a server-derived hash and scope, pending status, and no bytes in the list", async () => {
+    const a = await stage(metadata, base64);
+    // Every trustworthy field is attributed by the server, not the caller.
+    expect(a).toMatchObject({
+      sha256: sha,
+      byteLength: bytes.length,
+      status: "pending_parser",
+      supersedesId: null,
+      actorId: user,
+    });
+    // The scope key is DB-derived (a sha256 hex of the canonical declared identity), never imported.
+    expect(a.scopeKey).toMatch(/^[a-f0-9]{64}$/);
+    // A byte-identical re-stage under the same scope is idempotent, never a second row.
+    expect((await stage(metadata, base64)).id).toBe(a.id);
+    expect(await count()).toBe(1);
+    const state = await readNativeArtifacts(scope, rpc);
+    expect(state.artifacts).toHaveLength(1);
+    expect((state.artifacts[0] as Record<string, unknown>).base64).toBeUndefined();
+    // Single retrieval returns the exact raw bytes verbatim.
+    const detail = await getNativeArtifact(scope, a.id, rpc);
+    expect(Buffer.from(detail.base64, "base64").equals(Buffer.from(bytes))).toBe(true);
+    expect(detail.sha256).toBe(sha);
+  });
+  it("derives scope in the database, collapsing canonical equivalents and separating different meanings", async () => {
+    const base = {
+      ...metadata,
+      declaredProperty: "https://example.com/report",
+      marketScope: { country: "usa", exposed: true },
+      filters: { device: "mobile", country: "us" },
+    };
+    // Canonical equivalents: scheme/host case folds, country case folds, filter order is irrelevant.
+    const equivalents = [
+      { ...base, declaredProperty: "HTTPS://Example.COM/report" },
+      { ...base, marketScope: { country: "USA", exposed: true } },
+      { ...base, filters: { country: "us", device: "mobile" } },
+    ];
+    // Different meanings: the path stays case-significant, and a different filter value is distinct.
+    const distinct = [
+      { ...base, declaredProperty: "https://example.com/Report" },
+      { ...base, filters: { device: "desktop", country: "us" } },
+    ];
+    const first = await stage(base, base64);
+    for (const m of equivalents) {
+      // The client predictor agrees these are one logical scope, and the DB collapses them (same
+      // derived scope + identical bytes is idempotent, not a forged second lineage).
+      expect(nativeArtifactScopeKey(m)).toBe(nativeArtifactScopeKey(base));
+      expect((await stage(m, base64)).id).toBe(first.id);
+    }
+    for (const m of distinct) {
+      expect(nativeArtifactScopeKey(m)).not.toBe(nativeArtifactScopeKey(base));
+      const r = await stage(m, base64);
+      expect(r.id).not.toBe(first.id);
+      // A different meaning is its own lineage, never a supersession of an unrelated scope.
+      expect(r.supersedesId).toBe(null);
+    }
+    expect(await count()).toBe(3);
+  });
+  it("keeps byte-identical exports under different declared scope as independent lineages", async () => {
+    const base = await stage(metadata, base64);
+    const differ = [
+      { ...metadata, aggregation: "property" as const },
+      { ...metadata, period: { ...metadata.period, end: "2026-08-29" } },
+      { ...metadata, filters: { device: "mobile" } },
+    ];
+    const rows = [base];
+    for (const m of differ) rows.push(await stage(m, base64));
+    // Same bytes, different scope: four distinct staged rows, none superseding another.
+    expect(new Set(rows.map((r) => r.id)).size).toBe(4);
+    expect(new Set(rows.map((r) => r.scopeKey)).size).toBe(4);
+    expect(rows.every((r) => r.supersedesId === null)).toBe(true);
+    expect(await count()).toBe(4);
+  });
+  it("versions a same-scope reimport by superseding the head and refuses a competing successor", async () => {
+    const v1 = await stage(metadata, base64);
+    const v2 = await stage(metadata, b64("corrected-native-export"));
+    expect(v2.supersedesId).toBe(v1.id);
+    // A byte-identical re-stage of the original bytes stays idempotent even after supersession.
+    expect((await stage(metadata, base64)).id).toBe(v1.id);
+    // A second successor pinned to the same predecessor is rejected by the unique guard.
+    await expect(
+      db.query(
+        "INSERT INTO ai_native_report_artifacts(user_id,project_id,scope_key,artifact_sha256,byte_length,bytes,metadata,supersedes_id,actor_id) VALUES($1,'p',$2,repeat('a',64),3,convert_to('xyz','UTF8'),$3::jsonb,$4,$1)",
+        [user, v1.scopeKey, JSON.stringify(metadata), v1.id],
+      ),
+    ).rejects.toThrow();
+    expect(await count()).toBe(2);
+  });
+  it("never cascades a kept later version away when its predecessor is deleted", async () => {
+    // Build a three-version lineage v1<-v2<-v3 plus an unrelated-scope artifact.
+    const v1 = await stage(metadata, b64("chain-v1"));
+    const v2 = await stage(metadata, b64("chain-v2"));
+    const v3 = await stage(metadata, b64("chain-v3"));
+    expect([v2.supersedesId, v3.supersedesId]).toEqual([v1.id, v2.id]);
+    const unrelated = await stage(
+      { ...metadata, aggregation: "unknown" as const },
+      b64("unrelated"),
+    );
+    const before = await totalBytes();
+    // Deleting the MIDDLE version must not erase the distinct later version the owner kept.
+    await removeNativeArtifact(scope, v2.id, rpc);
+    const ids = new Set((await readNativeArtifacts(scope, rpc)).artifacts.map((r) => r.id));
+    expect(ids.has(v1.id) && ids.has(v3.id) && ids.has(unrelated.id)).toBe(true);
+    expect(ids.has(v2.id)).toBe(false);
+    expect(await count()).toBe(3);
+    // v3's raw bytes survive verbatim; it is orphaned to a lineage root (history gap, by design).
+    expect(
+      Buffer.from((await getNativeArtifact(scope, v3.id, rpc)).base64, "base64").toString(),
+    ).toBe("chain-v3");
+    expect(
+      (await readNativeArtifacts(scope, rpc)).artifacts.find((r) => r.id === v3.id)?.supersedesId,
+    ).toBe(null);
+    // Only the deleted artifact's quota is freed; the unrelated lineage is untouched.
+    expect(await totalBytes()).toBe(before - v2.byteLength);
+    // A same-scope reimport supersedes the latest surviving head of that lineage (the two orphaned
+    // roots v1 and v3 are ordered exactly as the DB head-selection does: createdAt then id, desc).
+    const roots = (await readNativeArtifacts(scope, rpc)).artifacts.filter(
+      (r) => r.scopeKey === v3.scopeKey,
+    );
+    const expectedHead = roots.reduce((a, b) =>
+      b.createdAt > a.createdAt || (b.createdAt === a.createdAt && b.id > a.id) ? b : a,
+    );
+    expect((await stage(metadata, b64("chain-v4"))).supersedesId).toBe(expectedHead.id);
+    // A byte-identical replay of a surviving version stays idempotent.
+    expect((await stage(metadata, b64("chain-v3"))).id).toBe(v3.id);
+  });
+  it("re-heads a lineage correctly when the oldest or the latest version is deleted", async () => {
+    const oldest = await stage(metadata, b64("oldest"));
+    const middle = await stage(metadata, b64("middle"));
+    const latest = await stage(metadata, b64("latest"));
+    // Delete the OLDEST: its successor is orphaned, the rest of the chain and its bytes survive.
+    await removeNativeArtifact(scope, oldest.id, rpc);
+    expect(await count()).toBe(2);
+    expect(
+      (await readNativeArtifacts(scope, rpc)).artifacts.find((r) => r.id === middle.id)
+        ?.supersedesId,
+    ).toBe(null);
+    expect(
+      Buffer.from((await getNativeArtifact(scope, latest.id, rpc)).base64, "base64").toString(),
+    ).toBe("latest");
+    // Delete the LATEST (current head): the earlier chain below it stays linked and re-heads.
+    await removeNativeArtifact(scope, latest.id, rpc);
+    expect(await count()).toBe(1);
+    const survivor = (await readNativeArtifacts(scope, rpc)).artifacts;
+    expect(survivor.map((r) => r.id)).toEqual([middle.id]);
+    expect((await stage(metadata, b64("reimport"))).supersedesId).toBe(middle.id);
+  });
+  it("records a server-derived predecessor_deleted marker only on the direct successor of a removed predecessor", async () => {
+    // A genuinely new root carries no deleted-predecessor marker.
+    const solo = await stage({ ...metadata, aggregation: "unknown" as const }, b64("solo"));
+    expect(solo.supersedesId).toBe(null);
+    expect(solo.predecessorDeleted).toBe(false);
+
+    // Lineage A (page-aggregated): v1<-v2<-v3, delete the MIDDLE version.
+    const a1 = await stage(metadata, b64("A-v1"));
+    const a2 = await stage(metadata, b64("A-v2"));
+    const a3 = await stage(metadata, b64("A-v3"));
+    expect([a1, a2, a3].map((r) => r.predecessorDeleted)).toEqual([false, false, false]);
+    await removeNativeArtifact(scope, a2.id, rpc);
+    // Only the direct successor of the removed predecessor is orphaned AND marked.
+    const a3after = await findArtifact(a3.id);
+    expect(a3after?.supersedesId).toBe(null);
+    expect(a3after?.predecessorDeleted).toBe(true);
+    // The untouched earlier root stays a genuine root with no marker.
+    expect((await findArtifact(a1.id))?.predecessorDeleted).toBe(false);
+    // The marker is server-derived state, not a caller-writable field; an idempotent byte-identical
+    // restage returns the same row and preserves it (the marker is validated back through save too).
+    const a3replay = await stage(metadata, b64("A-v3"));
+    expect(a3replay.id).toBe(a3.id);
+    expect(a3replay.predecessorDeleted).toBe(true);
+    expect(a3replay.supersedesId).toBe(null);
+
+    // Lineage B (property-aggregated): delete the OLDEST; only its direct successor is marked.
+    const bMeta = { ...metadata, aggregation: "property" as const };
+    const b1 = await stage(bMeta, b64("B-v1"));
+    const b2 = await stage(bMeta, b64("B-v2"));
+    const b3 = await stage(bMeta, b64("B-v3"));
+    await removeNativeArtifact(scope, b1.id, rpc);
+    expect((await findArtifact(b2.id))?.predecessorDeleted).toBe(true);
+    expect((await findArtifact(b2.id))?.supersedesId).toBe(null);
+    // The version further down the chain keeps its intact link and no marker (not a transitive flag).
+    expect((await findArtifact(b3.id))?.predecessorDeleted).toBe(false);
+    expect((await findArtifact(b3.id))?.supersedesId).toBe(b2.id);
+
+    // Lineage C (query-aggregated): delete the LATEST head; nothing gains a marker and only its quota frees.
+    const cMeta = { ...metadata, aggregation: "query" as const };
+    const c1 = await stage(cMeta, b64("C-v1"));
+    const c2 = await stage(cMeta, b64("C-v2"));
+    const beforeQuota = await totalBytes();
+    const beforeCount = await count();
+    await removeNativeArtifact(scope, c2.id, rpc);
+    const c1after = await findArtifact(c1.id);
+    expect(c1after?.predecessorDeleted).toBe(false);
+    expect(c1after?.supersedesId).toBe(null);
+    // Deleting a head with no successor marks nothing and cascades no extra rows; only c2's quota frees.
+    expect(await totalBytes()).toBe(beforeQuota - c2.byteLength);
+    expect(await count()).toBe(beforeCount - 1);
+    // The solo unrelated root is still an unmarked genuine root throughout.
+    expect((await findArtifact(solo.id))?.predecessorDeleted).toBe(false);
+  });
+  it("rejects impossible or reversed periods and a wrong GSC timezone at the database", async () => {
+    for (const badPeriod of [
+      { start: "2026-02-30", end: "2026-02-30", timezone: null }, // impossible day
+      { start: "2027-02-29", end: "2027-02-29", timezone: null }, // Feb 29 in a non-leap year
+      { start: "2026-13-01", end: "2026-13-01", timezone: null }, // impossible month
+      { start: "2026-08-28", end: "2026-08-01", timezone: null }, // reversed
+    ])
+      await expect(rawSave({ ...metadata, period: badPeriod })).rejects.toThrow(
+        /invalid_native_artifact/,
+      );
+    // GSC is dated in Pacific Time; a missing or foreign timezone is never assumed at the DB.
+    for (const tz of [null, "UTC"])
+      await expect(
+        rawSave({
+          ...metadata,
+          source: "gsc_generative_ai_search",
+          period: { start: "2026-08-01", end: "2026-08-28", timezone: tz },
+        }),
+      ).rejects.toThrow(/invalid_native_artifact/);
+    // A real leap day and the correct GSC timezone are accepted (same-day period allowed).
+    expect(
+      (
+        await stage(
+          { ...metadata, period: { start: "2028-02-29", end: "2028-02-29", timezone: null } },
+          base64,
+        )
+      ).status,
+    ).toBe("pending_parser");
+    expect(
+      (
+        await stage(
+          {
+            ...metadata,
+            source: "gsc_generative_ai_search" as const,
+            period: { start: "2026-08-01", end: "2026-08-28", timezone: "America/Los_Angeles" },
+          },
+          base64,
+        )
+      ).status,
+    ).toBe("pending_parser");
+    expect(await count()).toBe(2);
+  });
+  it("refuses forged server or parsed fields and any unexpected metadata key at the database", async () => {
+    for (const forged of [
+      "rows",
+      "cells",
+      "value",
+      "status",
+      "sha256",
+      "id",
+      "actorId",
+      "scopeKey",
+      "supersedesId",
+      "byteLength",
+      "bytes",
+      "provenance",
+      "parserVersion",
+      "verified",
+      "review",
+    ])
+      await expect(
+        rawSave({ ...metadata, [forged]: forged === "rows" || forged === "cells" ? [] : "x" }),
+      ).rejects.toThrow(/invalid_native_artifact/);
+    // An arbitrary off-contract key is refused by the strict allowlist, not only the known fields.
+    await expect(rawSave({ ...metadata, unexpectedExtra: "x" })).rejects.toThrow(
+      /invalid_native_artifact/,
+    );
+    // Strict sub-object shapes: an extra key inside period is refused too.
+    await expect(
+      rawSave({ ...metadata, period: { ...metadata.period, extra: "x" } }),
+    ).rejects.toThrow(/invalid_native_artifact/);
+    expect(await count()).toBe(0);
+  });
+  it("refuses a null, missing or wrong-typed required enum directly at the database", async () => {
+    // A JSON null makes `x ->> k` SQL NULL, so a bare `NOT IN` is UNKNOWN and would not reject; the
+    // DB must still refuse null / missing / wrong-typed values for every required string enum, or an
+    // off-contract row would persist and later break the strict read/list parse for the whole project.
+    for (const key of ["source", "reportKind", "dimension", "aggregation"]) {
+      const missing = { ...metadata } as Record<string, unknown>;
+      delete missing[key];
+      for (const bad of [
+        { ...metadata, [key]: null }, // JSON null value (the three-valued-logic gap)
+        missing, // key absent entirely
+        { ...metadata, [key]: 5 }, // wrong JSON type: number
+        { ...metadata, [key]: {} }, // wrong JSON type: object
+      ])
+        await expect(rawSave(bad)).rejects.toThrow(/invalid_native_artifact/);
+    }
+    // No poisoned row persisted, and a valid stage + list still work afterwards.
+    expect(await count()).toBe(0);
+    const ok = await stage(metadata, base64);
+    const listed = await readNativeArtifacts(scope, rpc);
+    expect(listed.artifacts.map((r) => r.id)).toEqual([ok.id]);
+    expect(listed.artifacts[0].status).toBe("pending_parser");
+  });
+  it("enforces strict base64 at the database boundary", async () => {
+    // A positive opaque body is stored and round-trips to the exact bytes.
+    const ok = await stage(metadata, base64);
+    expect(
+      Buffer.from((await getNativeArtifact(scope, ok.id, rpc)).base64, "base64").equals(
+        Buffer.from(bytes),
+      ),
+    ).toBe(true);
+    for (const bad of [
+      "A".repeat(2796208), // one group past the base64 length of the 2 MiB cap
+      base64.slice(0, 4) + " " + base64.slice(4), // embedded whitespace
+      base64 + "=", // misplaced padding on an unpadded body (length not a multiple of four)
+      base64.slice(0, -1), // length not a multiple of four
+      "@@@@", // non-alphabet characters
+      "Qh==", // non-canonical trailing-bit encoding (aliases the canonical Qg==)
+    ])
+      await expect(rawSave(metadata, bad)).rejects.toThrow();
+    // Only the single valid body persisted; nothing was coerced or partially stored.
+    expect(await count()).toBe(1);
+  });
+  it("isolates owners and projects for list, retrieval and deletion", async () => {
+    const a = await stage(metadata, base64);
+    for (const foreign of [
+      { ownerId: other, projectId: "p" },
+      { ownerId: user, projectId: "q" },
+    ]) {
+      expect((await readNativeArtifacts(foreign, rpc)).artifacts).toEqual([]);
+      await expect(getNativeArtifact(foreign, a.id, rpc)).rejects.toThrow();
+      // A foreign removal targets nothing in that scope and cannot erase the owner's artifact.
+      await removeNativeArtifact(foreign, a.id, rpc);
+    }
+    expect((await readNativeArtifacts(scope, rpc)).artifacts).toHaveLength(1);
+    await expect(
+      readNativeArtifacts({ ownerId: user, projectId: "missing" }, rpc),
+    ).rejects.toThrow();
+  });
+  it("enforces the per-project artifact cap and frees quota on deletion", async () => {
+    const a = await stage(metadata, base64);
+    // Fill to the 20-artifact bound with distinct-scope synthetic rows.
+    await db.query(
+      "INSERT INTO ai_native_report_artifacts(user_id,project_id,scope_key,artifact_sha256,byte_length,bytes,metadata,actor_id) SELECT $1,'p','synthetic-scope-'||g,md5(g::text)||md5(g::text),octet_length(convert_to('x'||g,'UTF8')),convert_to('x'||g,'UTF8'),$2::jsonb,$1 FROM generate_series(1,19) g",
+      [user, JSON.stringify(metadata)],
+    );
+    expect(await count()).toBe(20);
+    await expect(stage({ ...metadata, aggregation: "unknown" }, base64)).rejects.toThrow();
+    // Explicit deletion frees quota so a new scope can be staged again.
+    await removeNativeArtifact(scope, a.id, rpc);
+    expect(await count()).toBe(19);
+    expect((await stage({ ...metadata, aggregation: "unknown" }, base64)).status).toBe(
+      "pending_parser",
+    );
+    expect(await count()).toBe(20);
+  });
+  it("cascades raw bytes when the owning project is deleted", async () => {
+    await stage(metadata, base64);
+    await db.query(
+      "DELETE FROM workspace_entities WHERE user_id=$1 AND collection='projects' AND entity_id='p'",
+      [user],
+    );
+    expect(await count()).toBe(0);
+  });
+  it("has RLS and exposes only the service RPCs, not the table", async () => {
+    for (const role of ["anon", "authenticated", "service_role"]) {
+      await db.exec(`SET ROLE ${role}`);
+      await expect(db.query("SELECT * FROM ai_native_report_artifacts")).rejects.toThrow(
+        /permission denied/,
+      );
+      if (role !== "service_role")
+        await expect(
+          db.query("SELECT read_ai_native_report_artifacts($1,$2)", [user, "p"]),
+        ).rejects.toThrow(/permission denied/);
+      else
+        expect(
+          (await db.query("SELECT read_ai_native_report_artifacts($1,$2) data", [user, "p"]))
+            .rows[0],
+        ).toEqual({ data: { artifacts: [] } });
+      await db.exec("RESET ROLE");
+    }
+    expect(
+      (
+        await db.query(
+          "SELECT count(*)::int n FROM pg_class WHERE relname='ai_native_report_artifacts' AND relrowsecurity",
+        )
+      ).rows[0],
+    ).toEqual({ n: 1 });
+  });
+});

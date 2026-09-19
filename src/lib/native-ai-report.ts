@@ -169,7 +169,7 @@ const isoDate = z
  * here. Shared by the stored-record and import schemas, so both boundaries reject an impossible or
  * reversed period.
  */
-const nativePeriodSchema = z
+export const nativePeriodSchema = z
   .object({ start: isoDate, end: isoDate, timezone: z.string().min(1).max(64).nullable() })
   .strict()
   .refine((period) => period.start <= period.end, {
