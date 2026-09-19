@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   runConversationSpecialists,
   MILO_EXECUTION_TIMEOUT_MS,
+  MILO_CONTENTION_ATTEMPTS,
   type SpecialistExecutorDeps,
 } from "./milo-specialist-executor.server";
 import { conversationTurn, type ConversationTurn } from "./milo-conversation";
@@ -502,12 +503,16 @@ describe("real bounded specialist conversation execution", () => {
     // this trail and is now captured with its stage and safe class.
     const h = harness();
     const original = h.advance.getMockImplementation()!;
-    let refused = false;
+    // A SUSTAINED NOWAIT refusal on the first checkpoint (the brief tool_started
+    // advance). The bounded contention retry now recovers a single transient refusal,
+    // so a persistent one is what still ends the turn unknown at brief_start.
     h.advance.mockImplementation(async (a, b, update) => {
-      if (!refused) {
-        refused = true;
+      if (
+        update.events.some(
+          (event: import("./milo-conversation").ConversationEvent) => event.code === "tool_started",
+        )
+      )
         throw new TeamAdmissionBusyError();
-      }
       return original(a, b, update);
     });
     const result = await runConversationSpecialists(actor, target, h.deps);
@@ -535,7 +540,9 @@ describe("real bounded specialist conversation execution", () => {
   });
   it("pinpoints an initial liveness refusal at assert_live with no operation id", async () => {
     const h = harness();
-    h.assert.mockImplementationOnce(async () => {
+    // Sustained NOWAIT refusal: a single transient one is retried away, so the whole
+    // liveness gate must fail to end the turn unknown at assert_live.
+    h.assert.mockImplementation(async () => {
       throw new TeamAdmissionBusyError();
     });
     const result = await runConversationSpecialists(actor, target, h.deps);
@@ -549,7 +556,9 @@ describe("real bounded specialist conversation execution", () => {
   });
   it("pinpoints a continuity read refusal at continuity_read", async () => {
     const h = harness();
-    h.read.mockImplementationOnce(async () => {
+    // Sustained NOWAIT refusal on the continuity read (a single transient one is
+    // retried away), so the read gives up and the turn ends unknown at continuity_read.
+    h.read.mockImplementation(async () => {
       throw new TeamAdmissionBusyError();
     });
     const result = await runConversationSpecialists(actor, target, h.deps);
@@ -848,16 +857,16 @@ describe("real bounded specialist conversation execution", () => {
       const h = harness();
       h.responses[0] = proposalPlan;
       withProposalTool(h);
-      let firstResponding = true;
       let nestedOp: string | undefined;
       const original = h.advance.getMockImplementation()!;
       h.advance.mockImplementation(async (a, b, update) => {
         const responding = (
           update.events as unknown as Array<{ code?: string; operationId?: string }>
         ).find((event) => event.code === "responding");
-        if (responding && firstResponding) {
-          firstResponding = false;
-          nestedOp = responding.operationId;
+        if (responding) {
+          // Sustained NOWAIT refusal on the nested proposal status checkpoint (a single
+          // transient one is retried away); it gives up at reply_model with the nested id.
+          nestedOp ??= responding.operationId;
           throw new TeamAdmissionBusyError();
         }
         return original(a, b, update);
@@ -920,6 +929,163 @@ describe("real bounded specialist conversation execution", () => {
         h.model.mock.calls.filter(([input]) => input.prompt === "PROPOSAL_PROMPT"),
       ).toHaveLength(1);
       expect(h.model).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  describe("a bounded retry recovers transient NOWAIT lock contention on the executor's own checkpoints", () => {
+    // The 20 Sep release incident: an acquired turn reached handoff_save, the advance
+    // hit SQLSTATE 55P03 (a FOR SHARE/UPDATE NOWAIT refusal). The outcome did not persist;
+    // contention in its write is a tested hypothesis, not established live evidence. A 55P03 is raised before
+    // any row is written (clean rollback), so re-issuing the SAME advance is idempotent
+    // and repeats no model/tool work.
+    it("retries a transiently contended handoff checkpoint and persists it without repeating model or tool work", async () => {
+      const h = harness();
+      const original = h.advance.getMockImplementation()!;
+      let refusals = 0;
+      h.advance.mockImplementation(async (a, b, update) => {
+        if (
+          update.events.some(
+            (event: import("./milo-conversation").ConversationEvent) => event.kind === "handoff",
+          ) &&
+          refusals < 2
+        ) {
+          refusals++;
+          throw new TeamAdmissionBusyError();
+        }
+        return original(a, b, update);
+      });
+      const result = await runConversationSpecialists(actor, target, h.deps);
+      expect(result.state).toBe("completed");
+      expect(refusals).toBe(2); // refused twice, then retried to a real commit
+      expect(result.events.some((event) => event.kind === "handoff")).toBe(true);
+      // No terminal failure recorded, and the retry re-dispatched no model/tool work.
+      expect(h.diagnostic).not.toHaveBeenCalled();
+      expect(h.tool.mock.calls.map(([tool]) => tool.name)).toEqual([
+        "project_brief",
+        "draft_seo_review",
+        "draft_read",
+      ]);
+      expect(h.model).toHaveBeenCalledTimes(3);
+    });
+    it("gives up after the bounded contention attempts and ends unknown at the failed stage, without repeating work", async () => {
+      const h = harness();
+      const original = h.advance.getMockImplementation()!;
+      let handoffAttempts = 0;
+      h.advance.mockImplementation(async (a, b, update) => {
+        if (
+          update.events.some(
+            (event: import("./milo-conversation").ConversationEvent) => event.kind === "handoff",
+          )
+        ) {
+          handoffAttempts++;
+          throw new TeamAdmissionBusyError();
+        }
+        return original(a, b, update);
+      });
+      const result = await runConversationSpecialists(actor, target, h.deps);
+      expect(result.state).toBe("unknown");
+      // Bounded: the handoff advance was attempted exactly MILO_CONTENTION_ATTEMPTS times.
+      expect(handoffAttempts).toBe(MILO_CONTENTION_ATTEMPTS);
+      // The honest outcome persisted (the outcome write is a separate, uncontended
+      // advance) and the receipt records WHERE it stopped.
+      expect(result.events.at(-1)).toMatchObject({ code: "execution_unknown", state: "unknown" });
+      const input = h.diagnostic.mock.calls[0][0] as ConversationDiagnosticInput;
+      expect(input.diagnosis).toMatchObject({ stage: "handoff_save", sqlState: "55P03" });
+      expect(input.provenance).toBe("terminal");
+      // Only the planning brief + model ran; the assignment tools never dispatched.
+      expect(h.tool.mock.calls.map(([tool]) => tool.name)).toEqual(["project_brief"]);
+      expect(h.model).toHaveBeenCalledTimes(1);
+    });
+    it("never retries a non-contention advance failure, so lease and authorization refusals are not masked", async () => {
+      const h = harness();
+      const original = h.advance.getMockImplementation()!;
+      let handoffAttempts = 0;
+      h.advance.mockImplementation(async (a, b, update) => {
+        if (
+          update.events.some(
+            (event: import("./milo-conversation").ConversationEvent) => event.kind === "handoff",
+          )
+        ) {
+          handoffAttempts++;
+          // A conflict (lost lease / stale expected count / revocation) is NOT a 55P03
+          // contention error and must propagate on the first occurrence, never retried.
+          throw new Error("milo_conversation_conflict");
+        }
+        return original(a, b, update);
+      });
+      const result = await runConversationSpecialists(actor, target, h.deps);
+      expect(result.state).toBe("unknown");
+      expect(handoffAttempts).toBe(1);
+    });
+    it("retries a transiently contended outcome write so a failed turn is not left running (the release incident)", async () => {
+      const h = harness();
+      const original = h.advance.getMockImplementation()!;
+      let outcomeRefused = false;
+      h.advance.mockImplementation(async (a, b, update) => {
+        const events = update.events as import("./milo-conversation").ConversationEvent[];
+        // handoff_save fails persistently (the turn will end unknown)…
+        if (events.some((event) => event.kind === "handoff")) throw new TeamAdmissionBusyError();
+        // …and we inject one contention refusal into the outcome write. This is a
+        // recovery scenario; the live diagnostic did not identify that write's error.
+        if (events.some((event) => event.code === "execution_unknown") && !outcomeRefused) {
+          outcomeRefused = true;
+          throw new TeamAdmissionBusyError();
+        }
+        return original(a, b, update);
+      });
+      const result = await runConversationSpecialists(actor, target, h.deps);
+      // The bounded retry lets the outcome write commit: the turn is NOT stuck running.
+      expect(outcomeRefused).toBe(true);
+      expect(result.state).toBe("unknown");
+      expect(result.events.at(-1)).toMatchObject({ code: "execution_unknown", state: "unknown" });
+      // The receipt still records the ORIGINAL handoff_save failure stage.
+      const input = h.diagnostic.mock.calls[0][0] as ConversationDiagnosticInput;
+      expect(input.diagnosis.stage).toBe("handoff_save");
+    });
+    it("does not launch another checkpoint RPC when the deadline fires during a contention backoff", async () => {
+      // The in-run retry must be abort-aware: if the per-stage deadline fires WHILE a
+      // 55P03 backoff is pending, the abandoned ordinary retry must NOT wake and launch
+      // another advance (or model/tool). Only the bounded terminal cleanup runs.
+      vi.useFakeTimers();
+      const h = harness();
+      const original = h.advance.getMockImplementation()!;
+      let handoffAttempts = 0;
+      let unknownWrites = 0;
+      h.advance.mockImplementation(async (a, b, update) => {
+        const events = update.events as import("./milo-conversation").ConversationEvent[];
+        if (events.some((event) => event.kind === "handoff")) {
+          handoffAttempts++;
+          throw new TeamAdmissionBusyError();
+        }
+        if (events.some((event) => event.code === "execution_unknown")) unknownWrites++;
+        return original(a, b, update);
+      });
+      // Pause at the plan model so we can advance the clock to just before the deadline
+      // BEFORE the handoff advance's 55P03 backoff starts.
+      let releaseModel!: (text: string) => void;
+      h.model.mockImplementationOnce(
+        () =>
+          new Promise<string>((resolve) => {
+            releaseModel = resolve;
+          }),
+      );
+      const work = runConversationSpecialists(actor, target, h.deps);
+      // Progress to the paused plan model, 10 ms before the 250 s deadline.
+      await vi.advanceTimersByTimeAsync(MILO_EXECUTION_TIMEOUT_MS - 10);
+      expect(h.model).toHaveBeenCalledTimes(1);
+      // Release the model → the run reaches handoff_save, whose advance throws 55P03 and
+      // schedules a 20 ms backoff (at deadline+10). Advancing 20 ms fires the deadline
+      // (at +10) FIRST, which must cancel the abandoned retry.
+      releaseModel(JSON.stringify(plan));
+      await vi.advanceTimersByTimeAsync(20);
+      const result = await work;
+      expect(result.state).toBe("unknown");
+      expect(handoffAttempts).toBe(1); // the retry never woke to launch a second advance
+      expect(unknownWrites).toBe(1); // exactly the bounded terminal cleanup persisted
+      expect(h.model).toHaveBeenCalledTimes(1); // no repeated model
+      expect(h.tool.mock.calls.map(([tool]) => tool.name)).toEqual(["project_brief"]); // no repeated tool
+      expect(h.stored.events.some((event) => event.kind === "assistant")).toBe(false);
+      vi.useRealTimers();
     });
   });
 });

@@ -8,6 +8,7 @@ import {
   claimConversationTurn,
   readConversation,
   readConversationForExecution,
+  MILO_READ_CONTENTION_ATTEMPTS,
 } from "./milo-conversation.server";
 import { exportConversationPage } from "./milo-conversation-lifecycle.server";
 import { acquireTeamPreview } from "./project-team-preview-limit.server";
@@ -347,21 +348,22 @@ describe("the live conversation executor is never bounded by the browser preview
       "Jaka jest różnica między wersją roboczą a opublikowanym artykułem?",
     );
     const target = { ownerId: owner, projectId: "p", conversationId, turnId };
-    // A NOWAIT lock refusal at the FIRST checkpoint write (the project-brief
-    // tool_started advance) is the exact pre-brief boundary of the 19 Sep incident.
-    // Only the first advance is refused; the catch's execution_unknown write then
-    // succeeds, and the diagnostic is written through the real service-only RPC.
-    let firstAdvance = true;
+    // A SUSTAINED NOWAIT lock refusal on the FIRST checkpoint write (the project-brief
+    // tool_started advance) is the pre-brief boundary of the 19 Sep incident. The
+    // bounded contention retry recovers a single transient refusal, so this refuses
+    // that checkpoint on every attempt; the catch's execution_unknown write (a separate
+    // advance) then succeeds, and the diagnostic is written through the real RPC.
+    const refuseBriefStart = (change: never) =>
+      (change as { events: Array<{ code?: string }> }).events.some(
+        (event) => event.code === "tool_started",
+      );
     const turn = await runConversationSpecialists(owner, target, {
       claim: (who: string, input: never) => claimConversationTurn(who, input, rpc),
       read: (who: string, input: never) => readConversationForExecution(who, input, rpc),
       assert: (who: string, input: never, attempt: string) =>
         assertConversationExecution(who, input, attempt, rpc),
       advance: async (who: string, input: never, change: never) => {
-        if (firstAdvance) {
-          firstAdvance = false;
-          throw new TeamAdmissionBusyError();
-        }
+        if (refuseBriefStart(change)) throw new TeamAdmissionBusyError();
         return advanceConversationTurn(who, input, change, rpc);
       },
       tool: (input: never, context: never) => runSpecialistTool(input, context, toolDeps),
@@ -524,20 +526,22 @@ describe("the live conversation executor is never bounded by the browser preview
     ]);
 
     // Re-dispatch: the real claim now ACQUIRES the still-pending turn, but the first
-    // checkpoint advance (brief_start) is refused, so an acquired-execution TERMINAL
-    // receipt is written and UPGRADES the preliminary one in place — the exact evidence
-    // the old first-receipt-wins (DO NOTHING) writer would have lost to the claim receipt.
-    let firstBriefAdvance = true;
+    // checkpoint advance (brief_start) is refused on every attempt (sustained
+    // contention, since a single transient refusal is now retried away), so an
+    // acquired-execution TERMINAL receipt is written and UPGRADES the preliminary one in
+    // place — the exact evidence the old first-receipt-wins (DO NOTHING) writer lost.
     const turn = await runConversationSpecialists(owner, target, {
       claim: (who: string, input: never) => claimConversationTurn(who, input, rpc),
       read: (who: string, input: never) => readConversationForExecution(who, input, rpc),
       assert: (who: string, input: never, attempt: string) =>
         assertConversationExecution(who, input, attempt, rpc),
       advance: async (who: string, input: never, change: never) => {
-        if (firstBriefAdvance) {
-          firstBriefAdvance = false;
+        if (
+          (change as { events: Array<{ code?: string }> }).events.some(
+            (event) => event.code === "tool_started",
+          )
+        )
           throw new TeamAdmissionBusyError();
-        }
         return advanceConversationTurn(who, input, change, rpc);
       },
       tool: (input: never, context: never) => runSpecialistTool(input, context, toolDeps),
@@ -567,5 +571,131 @@ describe("the live conversation executor is never bounded by the browser preview
       outcome_code: "execution_unknown",
       sql_state: "55P03",
     });
+  }, 20000);
+
+  it("drives the real advance RPC to a committed handoff checkpoint after transient injected contention, without repeating the model", async () => {
+    const { conversationId, turnId } = await seedTurn(
+      owner,
+      "Jaka jest różnica między wersją roboczą a opublikowanym artykułem?",
+    );
+    responses = [
+      JSON.stringify({
+        handoff: "Lead odpowiada na pytanie.",
+        assignments: [{ role: "lead", task: "Wyjaśnij różnicę", tools: [] }],
+      }),
+      "Wersja robocza to nieopublikowany szkic; publikacja wymaga osobnego zapisu i zgody.",
+    ];
+    const target = { ownerId: owner, projectId: "p", conversationId, turnId };
+    // Refuse the REAL handoff_save advance twice with a clean-rollback 55P03, then let
+    // the real advance_milo_conversation_turn RPC commit. This drives the executor's
+    // bounded retry against the real RPC: PGlite is single-connection so the contention
+    // is injected (a genuine two-connection lock race cannot be reproduced here), but
+    // the recovered checkpoint is a real committed row.
+    let handoffRefusals = 0;
+    let modelCalls = 0;
+    const turn = await runConversationSpecialists(owner, target, {
+      claim: (who: string, input: never) => claimConversationTurn(who, input, rpc),
+      read: (who: string, input: never) => readConversationForExecution(who, input, rpc),
+      assert: (who: string, input: never, attempt: string) =>
+        assertConversationExecution(who, input, attempt, rpc),
+      advance: async (who: string, input: never, change: never) => {
+        if (
+          (change as { events: Array<{ kind?: string }> }).events.some(
+            (event) => event.kind === "handoff",
+          ) &&
+          handoffRefusals < 2
+        ) {
+          handoffRefusals++;
+          throw new TeamAdmissionBusyError();
+        }
+        return advanceConversationTurn(who, input, change, rpc);
+      },
+      tool: (input: never, context: never) => runSpecialistTool(input, context, toolDeps),
+      model: async ({ context }: { context: { beforeDispatch?: () => Promise<void> } }) => {
+        await context.beforeDispatch?.();
+        modelCalls++;
+        return responses.shift()!;
+      },
+      diagnostic: (input: ConversationDiagnosticInput) => recordConversationDiagnostic(input, rpc),
+    } as never);
+    expect(turn.state).toBe("completed");
+    expect(handoffRefusals).toBe(2); // the real handoff advance was refused twice, then retried
+    expect(modelCalls).toBe(2); // plan + reply only — the retry repeated no model work
+    // The handoff and the specialist reply are REAL committed rows, read back through
+    // the preview-free executor read.
+    const saved = await readConversationForExecution(
+      owner,
+      { ownerId: owner, projectId: "p", conversationId },
+      rpc,
+    );
+    const events = saved.turns[0].events;
+    expect(events.some((event) => event.kind === "handoff")).toBe(true);
+    expect(events.some((event) => event.kind === "assistant")).toBe(true);
+    expect(events.some((event) => event.code === "execution_unknown")).toBe(false);
+    // Transient contention was recovered, not a failure: no terminal diagnostic exists.
+    const diag = await db.query<{ n: number }>(
+      "SELECT count(*)::int n FROM public.milo_conversation_diagnostics WHERE turn_id=$1",
+      [turnId],
+    );
+    expect(diag.rows[0].n).toBe(0);
+  }, 20000);
+
+  it("retries the owner's live-view read on a transient NOWAIT refusal without acquiring an extra preview lease", async () => {
+    const { conversationId } = await seedTurn(owner, "Pytanie o różnicę wersji.");
+    // Inject a single 55P03 on the storage read (the sub-millisecond workspace_meta /
+    // conversation FOR SHARE NOWAIT contention observed in production), then succeed.
+    let readAttempts = 0;
+    const flaky: TeamReadRpc = async (name, args) => {
+      if (name === "read_milo_conversation") {
+        readAttempts += 1;
+        if (readAttempts === 1)
+          return { data: null, error: { code: "55P03", message: "lock_not_available" } };
+      }
+      return rpc(name, args);
+    };
+    const before = acquireCount;
+    const page = await readConversation(
+      owner,
+      { ownerId: owner, projectId: "p", conversationId },
+      flaky,
+    );
+    expect(page.conversationId).toBe(conversationId);
+    expect(readAttempts).toBe(2); // first refusal retried to success
+    // Exactly ONE preview lease despite the retry: the retry sits inside the admission.
+    expect(acquireCount - before).toBe(1);
+  }, 20000);
+
+  it("bounds the live-view read retry and surfaces a sustained refusal without leaking preview budget", async () => {
+    const { conversationId } = await seedTurn(owner, "Pytanie o różnicę wersji.");
+    let readAttempts = 0;
+    const flaky: TeamReadRpc = async (name, args) => {
+      if (name === "read_milo_conversation") {
+        readAttempts += 1;
+        return { data: null, error: { code: "55P03", message: "lock_not_available" } };
+      }
+      return rpc(name, args);
+    };
+    const before = acquireCount;
+    await expect(
+      readConversation(owner, { ownerId: owner, projectId: "p", conversationId }, flaky),
+    ).rejects.toBeInstanceOf(TeamAdmissionBusyError);
+    expect(readAttempts).toBe(MILO_READ_CONTENTION_ATTEMPTS); // bounded, never unlimited
+    expect(acquireCount - before).toBe(1); // still one lease — no admission budget leak
+  }, 20000);
+
+  it("does not retry the live-view read on a non-55P03 failure", async () => {
+    const { conversationId } = await seedTurn(owner, "Pytanie o różnicę wersji.");
+    let readAttempts = 0;
+    const flaky: TeamReadRpc = async (name, args) => {
+      if (name === "read_milo_conversation") {
+        readAttempts += 1;
+        return { data: null, error: { code: "40001", message: "serialization_failure" } };
+      }
+      return rpc(name, args);
+    };
+    await expect(
+      readConversation(owner, { ownerId: owner, projectId: "p", conversationId }, flaky),
+    ).rejects.toThrow();
+    expect(readAttempts).toBe(1); // a non-55P03 error is returned on the first attempt
   }, 20000);
 });
