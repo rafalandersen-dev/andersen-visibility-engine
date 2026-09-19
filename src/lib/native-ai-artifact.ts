@@ -207,10 +207,32 @@ export const nativeArtifactBase64Schema = z
 export const NATIVE_ARTIFACT_CAPTURED_AT_RE =
   /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d:[0-5]\d(\.\d+)?(Z|[+-](0\d|1[0-5]):[0-5]\d)$/;
 /**
- * Staging metadata: the shared owner-declared schema plus the DB-compatible `capturedAt` grammar applied
- * only at the write boundary. The shared `nativeArtifactMetadataSchema` is reused verbatim for read-back
- * (summary/detail/state), so already-stored values — always DB-grammar by construction — keep parsing;
- * this extra refine only rejects a looser-but-reader-valid `capturedAt` before it reaches the RPC.
+ * PostgreSQL jsonb cannot store a NUL (U+0000, rejected 22P05) or a lone UTF-16 surrogate — a high
+ * surrogate not followed by a low, or a low not preceded by a high (rejected 22P02) — so a `$1::jsonb`
+ * cast fails before the save function even runs. This scans UTF-16 code units directly (charCodeAt, so
+ * there are no NUL/surrogate literals in this source) and flags EXACTLY those two incompatibilities;
+ * every other character — ordinary/escaped control characters and valid surrogate pairs (emoji) — is
+ * storable, so nothing valid is ever stripped or normalized.
+ */
+const isJsonbUnstorable = (s: string): boolean => {
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c === 0) return true; // NUL — PostgreSQL 22P05
+    if (c >= 0xd800 && c <= 0xdbff) {
+      // A high surrogate must be immediately followed by a low surrogate; otherwise it is lone (22P02).
+      const next = s.charCodeAt(i + 1);
+      if (!(next >= 0xdc00 && next <= 0xdfff)) return true;
+      i++; // valid surrogate pair — consume both code units
+    } else if (c >= 0xdc00 && c <= 0xdfff) return true; // lone low surrogate — 22P02
+  }
+  return false;
+};
+/**
+ * Staging metadata: the shared owner-declared schema plus two write-boundary-only checks — the
+ * DB-compatible `capturedAt` grammar and a jsonb-storability check over every free-text string and filter
+ * key. The shared `nativeArtifactMetadataSchema` is reused verbatim for read-back (summary/detail/state),
+ * so already-stored values — DB-grammar and jsonb-storable by construction — keep parsing; these refines
+ * only reject a reader-valid-but-DB-incompatible value before it reaches the RPC, and never coerce it.
  */
 const nativeArtifactStageMetadataSchema = nativeArtifactMetadataSchema.superRefine((m, ctx) => {
   if (!NATIVE_ARTIFACT_CAPTURED_AT_RE.test(m.capturedAt))
@@ -220,6 +242,24 @@ const nativeArtifactStageMetadataSchema = nativeArtifactMetadataSchema.superRefi
       message:
         "Use YYYY-MM-DDTHH:MM:SS with an optional fraction and a Z or ±HH:MM offset (the database's timestamp grammar)",
     });
+  // Every free-text metadata string and every filter key must be storable in PostgreSQL jsonb: a NUL or a
+  // lone UTF-16 surrogate makes the `$1::jsonb` cast fail before the function runs (22P05 / 22P02). Walk
+  // the whole declared object so present and future string fields (including nested marketScope/period
+  // strings) are covered uniformly, rejecting with the offending field/key path instead of a generic RPC
+  // failure. Fixed keys and enum/constrained fields are ASCII, so this only ever bites free-text values.
+  const message = "This field contains unsupported characters. Remove them and try again.";
+  const rejectUnstorable = (value: unknown, path: (string | number)[]): void => {
+    if (typeof value === "string") {
+      if (isJsonbUnstorable(value)) ctx.addIssue({ code: "custom", path, message });
+      return;
+    }
+    if (value && typeof value === "object")
+      for (const [key, nested] of Object.entries(value)) {
+        if (isJsonbUnstorable(key)) ctx.addIssue({ code: "custom", path: [...path, key], message });
+        rejectUnstorable(nested, [...path, key]);
+      }
+  };
+  rejectUnstorable(m, []);
 });
 export const nativeArtifactStageInputSchema = z
   .object({ metadata: nativeArtifactStageMetadataSchema, base64: nativeArtifactBase64Schema })

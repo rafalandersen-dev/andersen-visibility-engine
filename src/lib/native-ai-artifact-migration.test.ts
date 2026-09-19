@@ -985,3 +985,71 @@ describe("staging input bounds the capturedAt offset to PostgreSQL's ±15:59 dis
     },
   );
 });
+describe("staging metadata rejects PostgreSQL-jsonb-incompatible characters before the RPC", () => {
+  // Finding 4055124440: a metadata string or filter key carrying NUL (U+0000, PG 22P05) or a lone UTF-16
+  // surrogate (22P02) cleared the public schema and then failed the `$1::jsonb` cast before the save
+  // function ran (generic error). The staging boundary now rejects them with a precise path; valid
+  // Unicode, escaped control characters and valid surrogate pairs are unaffected (no normalization).
+  const NUL = String.fromCharCode(0);
+  const HIGH = String.fromCharCode(0xd800); // lone high surrogate
+  const LOW = String.fromCharCode(0xdc00); // lone low surrogate
+  const badChars: Array<[string, string]> = [
+    ["NUL", NUL],
+    ["lone high surrogate", HIGH],
+    ["lone low surrogate", LOW],
+  ];
+  const fields: Array<[string, (bad: string) => unknown, string]> = [
+    [
+      "declaredProperty",
+      (bad) => ({ ...metadata, declaredProperty: "prop" + bad }),
+      "metadata.declaredProperty",
+    ],
+    ["filter value", (bad) => ({ ...metadata, filters: { k: "v" + bad } }), "metadata.filters.k"],
+    ["filter key", (bad) => ({ ...metadata, filters: { ["k" + bad]: "v" } }), "metadata.filters"],
+    ["filename", (bad) => ({ ...metadata, filename: "file" + bad }), "metadata.filename"],
+    [
+      "timezone",
+      (bad) => ({ ...metadata, period: { ...metadata.period, timezone: "Zone" + bad } }),
+      "metadata.period.timezone",
+    ],
+  ];
+  const cases = fields.flatMap(([field, build, prefix]) =>
+    badChars.map(([cls, bad]) => ({ label: `${cls} in ${field}`, meta: build(bad), prefix })),
+  );
+  it.each(cases)(
+    "rejects $label before the RPC with a field path and never calls the rpc",
+    async ({ meta, prefix }) => {
+      const rpcSpy = vi.fn(async () => ({ data: null, error: null }));
+      await expect(
+        stageNativeArtifact(scope, { metadata: meta, base64 }, rpcSpy as unknown as KnowledgeRpc),
+      ).rejects.toThrow();
+      // Proven NOT CALLED — rejected at the input schema, not merely leaving no row behind.
+      expect(rpcSpy).not.toHaveBeenCalled();
+      const parsed = nativeArtifactStageInputSchema.safeParse({ metadata: meta, base64 });
+      expect(parsed.success).toBe(false);
+      if (!parsed.success)
+        expect(parsed.error.issues.some((i) => i.path.join(".").startsWith(prefix))).toBe(true);
+    },
+  );
+  it("accepts valid Unicode, escaped control characters and surrogate pairs and round-trips them through real SQL", async () => {
+    // Tab (0x09), newline (0x0A) and 0x01 are ordinary control characters PostgreSQL stores fine — only
+    // NUL is rejected — and 😀 is a valid surrogate pair, so none of this is stripped or normalized.
+    const control =
+      "ctrl" + String.fromCharCode(9) + String.fromCharCode(10) + String.fromCharCode(1);
+    const valid = {
+      ...metadata,
+      declaredProperty: "https://例え.example/😀/path",
+      filters: { ["kéy😀"]: "value—😀 " + control },
+      filename: "reporț-😀.csv",
+      period: { ...metadata.period, timezone: null },
+    };
+    expect(nativeArtifactStageInputSchema.safeParse({ metadata: valid, base64 }).success).toBe(
+      true,
+    );
+    const staged = await stage(valid, base64);
+    const detail = await getNativeArtifact(scope, staged.id, rpc);
+    expect(detail.metadata.declaredProperty).toBe(valid.declaredProperty);
+    expect(detail.metadata.filters["kéy😀"]).toBe("value—😀 " + control);
+    expect(detail.metadata.filename).toBe("reporț-😀.csv");
+  });
+});

@@ -444,3 +444,48 @@ manual-free budget and every scope/security boundary are unchanged.
 Codex renamed the unapplied artifact candidate from20260919150000 to20260919165000 and updated current source/test/product references. Its SQL body is unchanged. The new version follows already-released160000 diagnostics and precedes still-unapplied170000 citation protocol, preserving chronological rollout. Earlier evidence references to150000 describe the historical candidate name. No applied migration was renamed or edited, no SQL executed. Review finding4055107307 is addressed by this minimal integration exception. New chain checks pending.
 
 Migration-order verification:91 focused tests/3 files PASS(1.87s), whitespace PASS; SQL byte-for-byte equality against prior head verified, SHA25623c820eda8f957b86bfa3c9ae19a0e169241837a933be6ce175abe8b767633e7. Only filename/current references changed after prior6152 full tests/build; those are prior implementation checks, not a rerun on the renamed tree. No behavioral code change. Log `/tmp/milo-artifact-order-focused-20260920.log`.
+
+## PR144 review correction — reject jsonb-incompatible characters at the staging boundary (finding 4055124440), 20 September
+
+New-code review raised finding 4055124440 against exact head `07e8f4d9`: public metadata strings accepted
+characters PostgreSQL jsonb cannot store, so the `$1::jsonb` cast failed before the save function ran,
+surfacing a generic RPC error. Codex independently PGlite-tested `select $1::jsonb` over
+`JSON.stringify({ filter: s })`: **U+0000 rejected 22P05**, an **unpaired high/low UTF-16 surrogate
+rejected 22P02**, a **valid surrogate pair (emoji) accepted**. Client-boundary UX only; the DB already
+rejects the value.
+
+Fix (`src/lib/native-ai-artifact.ts` only; **no SQL** — the DB already rejects these; the candidate
+`20260919165000_native_report_artifacts.sql` is unchanged; no coercion or stripping):
+
+- Added `isJsonbUnstorable(s)`, a `charCodeAt` scan (numeric literals only — no NUL/surrogate/regex
+  literals in the source) flagging EXACTLY a NUL (U+0000) or a lone UTF-16 surrogate (a high not followed
+  by a low, or a low not preceded by a high), while every other character — ordinary/escaped control
+  characters and valid surrogate pairs — is storable.
+- The staging-only `nativeArtifactStageMetadataSchema` superRefine now walks the whole declared metadata
+  object once and rejects any free-text string value OR object key (declaredProperty, filter keys and
+  values, filename, nested `period`/`marketScope` strings — present and future fields covered uniformly)
+  that is unstorable, with the offending field/key issue path. The shared `nativeArtifactMetadataSchema`
+  used for read-back (summary/detail/state) is **unchanged**, so already-stored values — jsonb-storable by
+  construction — keep parsing, and existing UTF-16 byte caps and the timestamp grammar/offset checks are
+  untouched.
+
+New regressions in `native-ai-artifact-migration.test.ts` (existing artifact test file), parameterized:
+
+- NUL, lone high surrogate and lone low surrogate injected into each free-text location —
+  `declaredProperty`, a filter value, a filter key, `filename`, and `period.timezone` — every combination
+  rejected by `nativeArtifactStageInputSchema` with the offending field/key path AND, via an **injected
+  rpc spy, proven the rpc was NOT CALLED** (rejected at the input schema, not merely leaving no row);
+- one valid payload mixing CJK, an emoji surrogate pair, accented Latin, an em dash, and tab/newline/0x01
+  control characters accepted at the boundary and round-tripped through real SQL, stored and read back
+  verbatim (no stripping/normalization).
+
+These new checks and a re-run of the full suite / types / build are **NOT RUN in this worktree** (Codex
+executes the prepared checks). The prior stage recorded **71 focused / 2 files** and **6152 tests / 381
+files** (the offset-range correction, run by Codex above); that figure is the **prior stage only** and is
+**not re-asserted** for this change — results for these new regressions are pending Codex's run. No SQL
+applied, no upload UI enabled, no live artifact acceptance claimed; the USD50-global / manual-free budget
+and every scope/security boundary are unchanged.
+
+### Codex jsonb-text compatibility verification — 20 September 2026
+
+Reviewed stage-only UTF-16 scan and recursive declared-string/key checks, including valid surrogate pairs and RPC-not-called regression spies.87 focused tests/2 files PASS(1.31s), full6168 tests/381 files PASS(44.94s), types/scoped lint/whitespace/build PASS. Logs `/tmp/milo-artifact-jsonb-{focused,types,lint,full,build}-20260920.log`. Codex exceptions: Prettier on two changed files and product-copy edit to a plain unsupported-characters message; validation logic remains Claude-authored. Candidate165000 SQL unchanged/unapplied; no deployment/live artifact acceptance.
