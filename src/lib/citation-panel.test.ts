@@ -8,6 +8,7 @@ import {
   plannedSlots,
   protocolDeviations,
   slotOutcome,
+  type BrandRun,
   type CaptureContext,
   type PanelProtocol,
   type ReviewedCapture,
@@ -47,6 +48,9 @@ const panel = (): PanelProtocol => ({
   kind: "discovery",
   client: { name: "FIXTURE client", market: "Sweden — Malmö/Limhamn" },
   questionLanguage: "sv",
+  // The locked interface language matches the clean capture context() below ("en"); a capture on a
+  // different interface language deviates.
+  interfaceLanguage: "en",
   surface: {
     service: "ChatGPT",
     interface: "consumer web app",
@@ -149,6 +153,7 @@ describe("panel protocol and planned observations (CI11-T13, T14)", () => {
       }),
     ).toThrow();
     const run = brandRunSchema.parse({
+      id: uuid(500),
       panelId: uuid(2),
       panelVersion: 1,
       approvedBy: owner,
@@ -366,6 +371,29 @@ describe("session protocol deviations and slot outcomes (CI11-T15, T16, T31)", (
         p,
         answerFor(1),
         context(1, 1, { location: { ...context(1, 1).location, vpn: true } }),
+      ),
+    ).toBe("protocol_deviant");
+  });
+  it("locks the interface language and breaks on a differing or unknown-recorded interface (4053687914)", () => {
+    const p = panel();
+    const langOf = (over: Partial<CaptureContext["language"]>) =>
+      protocolDeviations(p, context(1, 1, { language: { ...context(1, 1).language, ...over } }));
+    // The clean capture is collected on the locked interface language ("en") and does not deviate.
+    expect(protocolDeviations(p, context(1, 1))).toEqual([]);
+    // A capture on a different interface language is a methodology deviation.
+    expect(langOf({ interface: "sv" })).toContain("interface_language_differs");
+    // An interface language recorded as unknown is never invented into the locked expectation.
+    expect(langOf({ interface: "unknown" })).toContain("interface_language_differs");
+    // The prompt- and interface-language locks are independent: changing one does not raise the
+    // other's deviation.
+    expect(langOf({ prompt: "en" })).not.toContain("interface_language_differs");
+    expect(langOf({ interface: "sv" })).not.toContain("prompt_language_differs");
+    // A complete answer collected on a different interface language is a protocol-deviant slot.
+    expect(
+      slotOutcome(
+        p,
+        answerFor(1),
+        context(1, 1, { language: { prompt: "sv", interface: "sv", answer: "sv" } }),
       ),
     ).toBe("protocol_deviant");
   });
@@ -934,6 +962,189 @@ describe("descriptive counts and comparable pairs (CI11-T19, T20, T21, T38)", ()
         rounds,
       ),
     ).toThrow(/duplicates a baseline capture id/);
+  });
+});
+describe("brand runs resolve to an approved run and cannot exceed its budget (4053687916)", () => {
+  const brandPanel = (): PanelProtocol =>
+    panelProtocolSchema.parse({
+      ...panel(),
+      panelId: uuid(2),
+      kind: "brand",
+      rounds: 0,
+      questions: Array.from({ length: 5 }, (_, i) => question(i + 1, "B")),
+    });
+  const brandRun = (over: Record<string, unknown> = {}): BrandRun =>
+    brandRunSchema.parse({
+      id: uuid(500),
+      panelId: uuid(2),
+      panelVersion: 1,
+      approvedBy: owner,
+      approvedAt: "2026-09-15T08:00:00Z",
+      observationBudget: 3,
+      rounds: 2,
+      ...over,
+    });
+  /** A brand capture bound to SY-B0n in a run round, matching the locked methodology otherwise. */
+  const brandContext = (
+    round: number,
+    n: number,
+    over: Partial<CaptureContext> = {},
+  ): CaptureContext =>
+    context(round, n, {
+      panelId: uuid(2),
+      brandRunId: uuid(500),
+      slot: { round, questionId: `SY-B${String(n).padStart(2, "0")}` },
+      instructions: {
+        questionText: `FIXTURE fråga B${n}`,
+        extraInstruction: null,
+        priorMessages: 0,
+      },
+      ...over,
+    });
+  const brandReviewed = (
+    n: number,
+    round: number,
+    over: Partial<ReviewedCapture> = {},
+  ): ReviewedCapture => ({
+    questionId: `SY-B${String(n).padStart(2, "0")}`,
+    round,
+    outcome: "complete",
+    citationsComplete: true,
+    ownCitation: false,
+    mention: false,
+    recommended: false,
+    // Every brand capture carries the run it was collected under; the default is the approved run.
+    brandRunId: uuid(500),
+    ...over,
+  });
+  it("accepts a capture bound to the approved run and fails closed on any other run", () => {
+    const bp = brandPanel();
+    // A capture that resolves to the approved run for this panel and version, in an approved round,
+    // is clean. The run is trusted evidence supplied to the helper, not asserted by the capture.
+    expect(protocolDeviations(bp, brandContext(1, 1), [brandRun()])).toEqual([]);
+    // With no approved run available, the asserted run cannot be authenticated: fail closed.
+    expect(protocolDeviations(bp, brandContext(1, 1), [])).toContain("brand_run_not_approved");
+    // A run id the capture asserts that is absent from the approved set (unknown / fabricated).
+    expect(
+      protocolDeviations(bp, brandContext(1, 1, { brandRunId: uuid(501) }), [brandRun()]),
+    ).toContain("brand_run_not_approved");
+    // A resolved run bound to another panel or version is foreign, not this baseline.
+    expect(protocolDeviations(bp, brandContext(1, 1), [brandRun({ panelId: uuid(9) })])).toContain(
+      "brand_run_panel_mismatch",
+    );
+    expect(protocolDeviations(bp, brandContext(1, 1), [brandRun({ panelVersion: 2 })])).toContain(
+      "brand_run_panel_mismatch",
+    );
+    // A round outside the run's approved rounds (run.rounds = 2) is refused.
+    expect(protocolDeviations(bp, brandContext(3, 1), [brandRun()])).toContain(
+      "brand_round_out_of_run",
+    );
+    // A brand capture with no run id at all is still a deviation.
+    expect(
+      protocolDeviations(bp, brandContext(1, 1, { brandRunId: null }), [brandRun()]),
+    ).toContain("brand_capture_without_run");
+    // A brand run id on a discovery panel remains a deviation: discovery and brand stay separate.
+    expect(protocolDeviations(panel(), context(1, 1, { brandRunId: uuid(500) }))).toContain(
+      "brand_run_on_discovery",
+    );
+    // A run approved AFTER the capture (2026-09-25 > the round-1 capture's 2026-09-21) cannot
+    // retroactively authorize the earlier observation, so it fails closed.
+    const late = brandRun({ approvedAt: "2026-09-25T08:00:00Z" });
+    expect(protocolDeviations(bp, brandContext(1, 1), [late])).toContain(
+      "brand_run_approved_after_capture",
+    );
+    // A run approved before the capture (the default 2026-09-15) raises no approval-time deviation.
+    expect(protocolDeviations(bp, brandContext(1, 1), [brandRun()])).not.toContain(
+      "brand_run_approved_after_capture",
+    );
+    // slotOutcome downgrades an unresolved brand run to protocol_deviant even for a complete
+    // answer, and promotes it only against the approved run.
+    const answer = { status: "complete" as const, promptId: uuid(101), promptRevision: 1 };
+    expect(slotOutcome(bp, answer, brandContext(1, 1), [])).toBe("protocol_deviant");
+    expect(slotOutcome(bp, answer, brandContext(1, 1), [brandRun()])).toBe("complete");
+    // A complete answer captured before its run was approved is protocol_deviant, but a failed
+    // attempt keeps its own quality status — never masked and never promoted to complete.
+    expect(slotOutcome(bp, answer, brandContext(1, 1), [late])).toBe("protocol_deviant");
+    const failed = { status: "failed" as const, promptId: uuid(101), promptRevision: 1 };
+    expect(slotOutcome(bp, failed, brandContext(1, 1), [late])).toBe("failed");
+  });
+  it("caps a brand count at the approved observation budget and rounds", () => {
+    const bp = brandPanel();
+    // Three captures within a budget of three and the run's two rounds count cleanly.
+    const counts = panelCounts(
+      bp,
+      [brandReviewed(1, 1), brandReviewed(2, 1), brandReviewed(3, 2)],
+      [brandRun()],
+    );
+    expect(counts.kind).toBe("brand");
+    expect(counts.planned).toBe(0);
+    expect(counts.recorded).toBe(3);
+    // A fourth valid-looking capture would exceed the approved budget of three: refused, so the
+    // owner-approved observation ceiling cannot be overrun by handing in more captures.
+    expect(() =>
+      panelCounts(
+        bp,
+        [brandReviewed(1, 1), brandReviewed(2, 1), brandReviewed(3, 1), brandReviewed(4, 1)],
+        [brandRun()],
+      ),
+    ).toThrow(/observation budget/);
+    // A capture on a round the run never approved (round 3 > run.rounds 2) is refused.
+    expect(() => panelCounts(bp, [brandReviewed(1, 3)], [brandRun()])).toThrow(
+      /outside the approved run/,
+    );
+    // A brand count with no approved run for this panel and version fails closed.
+    expect(() => panelCounts(bp, [brandReviewed(1, 1)], [])).toThrow(/not an approved run/);
+    // A discovery count is unaffected and needs no run.
+    expect(panelCounts(panel(), [captured("SY-D01", 1)]).kind).toBe("discovery");
+  });
+  it("binds every counted capture to its own run and cannot borrow another run's budget", () => {
+    const bp = brandPanel();
+    // Positive control: a batch whose captures all name the approved run counts cleanly.
+    expect(panelCounts(bp, [brandReviewed(1, 1), brandReviewed(2, 2)], [brandRun()]).recorded).toBe(
+      2,
+    );
+    // A capture that lost its run id cannot be attributed to any budget: refused (missing identity).
+    expect(() =>
+      panelCounts(bp, [brandReviewed(1, 1, { brandRunId: null })], [brandRun()]),
+    ).toThrow(/no approved run id/);
+    // A capture naming a run absent from the approved set (foreign / fabricated) fails closed —
+    // calling the input trusted does not repair a run identity that resolves to nothing.
+    expect(() =>
+      panelCounts(bp, [brandReviewed(1, 1, { brandRunId: uuid(99) })], [brandRun()]),
+    ).toThrow(/not an approved run/);
+    // Captures naming two different runs cannot be pooled into one budget (mixed / ambiguous): no
+    // run's ceiling could bind the batch, so it is refused rather than picking a run arbitrarily.
+    expect(() =>
+      panelCounts(
+        bp,
+        [brandReviewed(1, 1), brandReviewed(2, 1, { brandRunId: uuid(501) })],
+        [brandRun(), brandRun({ id: uuid(501) })],
+      ),
+    ).toThrow(/one approved run/);
+    // A second, larger-budget approved run in the set cannot legitimize captures that belong to the
+    // smaller run they name: the batch binds to its own run (budget 1), so a second capture overruns
+    // it even though a budget-10 run is present — a batch cannot borrow a larger budget.
+    const small = brandRun({ id: uuid(500), observationBudget: 1, rounds: 1 });
+    const large = brandRun({ id: uuid(501), observationBudget: 10, rounds: 2 });
+    expect(() =>
+      panelCounts(bp, [brandReviewed(1, 1), brandReviewed(2, 1)], [small, large]),
+    ).toThrow(/observation budget of 1/);
+    // The presence of the larger run changes nothing: the same two captures overrun their own run.
+    expect(() => panelCounts(bp, [brandReviewed(1, 1), brandReviewed(2, 1)], [small])).toThrow(
+      /observation budget of 1/,
+    );
+    // A single capture bound to the small run is within its budget of one and counts.
+    expect(panelCounts(bp, [brandReviewed(1, 1)], [small, large]).recorded).toBe(1);
+    // Two legitimately distinct approved runs are counted separately, one count each.
+    expect(panelCounts(bp, [brandReviewed(1, 1)], [small, large]).kind).toBe("brand");
+    expect(
+      panelCounts(bp, [brandReviewed(2, 1, { brandRunId: uuid(501) })], [small, large]).recorded,
+    ).toBe(1);
+    // A discovery capture carrying a brand run id is contradictory and refused before counting, so
+    // discovery and brand diagnostics stay separate.
+    expect(() => panelCounts(panel(), [captured("SY-D01", 1, { brandRunId: uuid(500) })])).toThrow(
+      /discovery has no brand run/,
+    );
   });
 });
 const support = (over: Partial<Parameters<typeof sourceSupportSchema.parse>[0] & object> = {}) => ({
