@@ -349,3 +349,7 @@ executes the prepared checks). The prior stage recorded **50 focused / 2 files**
 **not re-asserted** for this change — results for these new regressions are pending Codex's run. No SQL
 applied, no upload UI enabled, no live artifact acceptance claimed; the USD50-global / manual-free budget
 and every scope/security boundary are unchanged.
+
+### Codex staging-input and current-main integration verification — 20 September 2026
+
+Staging-input delta56 focused/2 PASS(1.36s), types PASS. Normal merge includes released diagnostic main b441a9e7. Candidate-chain resolution retained artifact and diagnostic grant checks, marked160000 released and left150000 as the only candidate. Integrated76 focused/3 PASS(1.58s), full6137 tests/381 files PASS(43.64s), types/scoped lint/whitespace/build PASS. Logs `/tmp/milo-artifact-integrated-{focused,types,lint,full,build}-20260920.log`. Codex integration exceptions: one test line-wrap formatting fix and migration-inventory merge resolution; application behavior remains Claude-authored. No artifact SQL applied or live acceptance claimed.
