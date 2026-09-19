@@ -1,0 +1,259 @@
+-- Citation Intelligence v1, CI-2 immutable panel/protocol storage, brand-run binding and manual
+-- capture context (product/CITATION_INTELLIGENCE_SPEC.md §5, §8;
+-- product/CITATION_PROTOCOL_IMPLEMENTATION_2026_09_19.md). Owner-supplied and unverified, with
+-- server-derived approvals. No collectors, cron, provider calls, classification or formula
+-- execution. Reuses public.ai_visibility_prompts / public.ai_answer_evidence for captures; there
+-- is no second capture table. Panels and brand runs are append-only; project deletion removes
+-- them through the workspace_entities foreign key, and a removed panel leaves its raw captures in
+-- place but no longer resolves them (dependent claims are invalidated, not cascaded away).
+
+CREATE TABLE public.citation_panels (
+  user_id uuid NOT NULL, project_id text NOT NULL,
+  project_collection text NOT NULL DEFAULT 'projects' CHECK(project_collection='projects'),
+  panel_id uuid NOT NULL, version integer NOT NULL CHECK(version BETWEEN 1 AND 1000),
+  document jsonb NOT NULL CHECK(jsonb_typeof(document)='object' AND octet_length(document::text)<=60000),
+  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  PRIMARY KEY(user_id,project_id,panel_id,version),
+  FOREIGN KEY(user_id,project_collection,project_id) REFERENCES public.workspace_entities(user_id,collection,entity_id) ON DELETE CASCADE
+);
+CREATE TABLE public.citation_brand_runs (
+  user_id uuid NOT NULL, project_id text NOT NULL,
+  project_collection text NOT NULL DEFAULT 'projects' CHECK(project_collection='projects'),
+  run_id uuid NOT NULL, panel_id uuid NOT NULL, panel_version integer NOT NULL,
+  document jsonb NOT NULL CHECK(jsonb_typeof(document)='object' AND octet_length(document::text)<=4000),
+  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  PRIMARY KEY(user_id,project_id,run_id),
+  FOREIGN KEY(user_id,project_collection,project_id) REFERENCES public.workspace_entities(user_id,collection,entity_id) ON DELETE CASCADE,
+  -- A run can only bind to an actual stored panel version; the RPC additionally requires it locked.
+  FOREIGN KEY(user_id,project_id,panel_id,panel_version) REFERENCES public.citation_panels(user_id,project_id,panel_id,version) ON DELETE CASCADE
+);
+ALTER TABLE public.citation_panels ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.citation_brand_runs ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.citation_panels,public.citation_brand_runs FROM PUBLIC,anon,authenticated,service_role;
+
+CREATE FUNCTION public.read_citation_protocol(p_user uuid,p_project text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+  PERFORM public.assert_knowledge_project(p_user,p_project);
+  RETURN jsonb_build_object(
+    'panels',coalesce((SELECT jsonb_agg(document ORDER BY created_at DESC,panel_id,version DESC) FROM public.citation_panels WHERE user_id=p_user AND project_id=p_project),'[]'::jsonb),
+    'brandRuns',coalesce((SELECT jsonb_agg(document ORDER BY created_at DESC,run_id) FROM public.citation_brand_runs WHERE user_id=p_user AND project_id=p_project),'[]'::jsonb));
+END; $$;
+
+-- Append one immutable draft panel version. Every question must bind to an actual saved prompt
+-- revision AND repeat that revision's exact text, so a question cannot reference a missing prompt
+-- or drift from the reviewed prompt text (reference forgery fails closed).
+CREATE FUNCTION public.save_citation_panel_draft(p_user uuid,p_project text,p_panel uuid,p_expected integer,p_document jsonb)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE current_version integer;
+BEGIN
+  PERFORM public.assert_knowledge_project(p_user,p_project,true);
+  IF p_panel IS NULL OR p_expected IS NULL OR p_expected<0 OR p_expected>=1000 OR p_document IS NULL
+    OR jsonb_typeof(p_document)<>'object' OR octet_length(p_document::text)>60000
+    OR (p_document->>'panelId') IS DISTINCT FROM p_panel::text
+    OR (p_document->>'version')::integer IS DISTINCT FROM p_expected+1
+    OR (p_document->>'status') IS DISTINCT FROM 'draft'
+    OR p_document->'approval' IS DISTINCT FROM 'null'::jsonb
+    OR jsonb_typeof(p_document->'questions')<>'array' THEN
+    RAISE EXCEPTION 'invalid_citation_panel';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM jsonb_array_elements(p_document->'questions') AS t(q)
+    WHERE NOT EXISTS (
+      SELECT 1 FROM public.ai_visibility_prompts pr
+      WHERE pr.user_id=p_user AND pr.project_id=p_project
+        AND pr.id=(q->>'promptId')::uuid AND pr.revision=(q->>'promptRevision')::integer
+        AND pr.data->>'prompt'=q->>'text')
+  ) THEN RAISE EXCEPTION 'citation_question_unbound'; END IF;
+  SELECT coalesce(max(version),0) INTO current_version FROM public.citation_panels WHERE user_id=p_user AND project_id=p_project AND panel_id=p_panel;
+  IF current_version<>p_expected THEN RAISE EXCEPTION 'citation_panel_changed'; END IF;
+  IF (SELECT count(*) FROM public.citation_panels WHERE user_id=p_user AND project_id=p_project)>=200 THEN RAISE EXCEPTION 'citation_panel_capacity'; END IF;
+  INSERT INTO public.citation_panels(user_id,project_id,panel_id,version,document) VALUES(p_user,p_project,p_panel,p_expected+1,p_document);
+  RETURN p_document;
+END; $$;
+
+-- Lock a reviewed draft. The reviewed content is copied verbatim (freezing client market,
+-- languages, surface, session controls and collection location); only the server sets status,
+-- the new version and the owner approval receipt (owner id from the authenticated caller, time
+-- from the database clock). A non-draft, stale or unbound draft fails closed.
+CREATE FUNCTION public.lock_citation_panel(p_user uuid,p_project text,p_panel uuid,p_expected integer)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE draft jsonb; current_version integer; locked jsonb;
+BEGIN
+  PERFORM public.assert_knowledge_project(p_user,p_project,true);
+  IF p_panel IS NULL OR p_expected IS NULL OR p_expected<1 THEN RAISE EXCEPTION 'invalid_citation_panel'; END IF;
+  SELECT coalesce(max(version),0) INTO current_version FROM public.citation_panels WHERE user_id=p_user AND project_id=p_project AND panel_id=p_panel;
+  IF current_version<>p_expected THEN RAISE EXCEPTION 'citation_panel_changed'; END IF;
+  SELECT document INTO draft FROM public.citation_panels WHERE user_id=p_user AND project_id=p_project AND panel_id=p_panel AND version=p_expected;
+  IF draft IS NULL OR draft->>'status'<>'draft' THEN RAISE EXCEPTION 'citation_panel_not_draft'; END IF;
+  IF draft->>'kind'='discovery' AND (draft->>'rounds')::integer<1 THEN RAISE EXCEPTION 'citation_panel_rounds_required'; END IF;
+  IF EXISTS (
+    SELECT 1 FROM jsonb_array_elements(draft->'questions') AS t(q)
+    WHERE NOT EXISTS (
+      SELECT 1 FROM public.ai_visibility_prompts pr
+      WHERE pr.user_id=p_user AND pr.project_id=p_project
+        AND pr.id=(q->>'promptId')::uuid AND pr.revision=(q->>'promptRevision')::integer
+        AND pr.data->>'prompt'=q->>'text')
+  ) THEN RAISE EXCEPTION 'citation_question_unbound'; END IF;
+  IF (SELECT count(*) FROM public.citation_panels WHERE user_id=p_user AND project_id=p_project)>=200 THEN RAISE EXCEPTION 'citation_panel_capacity'; END IF;
+  locked := draft || jsonb_build_object(
+    'version',p_expected+1,'status','locked',
+    'approval',jsonb_build_object('approvedBy',p_user::text,'approvedAt',to_char(clock_timestamp() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')));
+  INSERT INTO public.citation_panels(user_id,project_id,panel_id,version,document) VALUES(p_user,p_project,p_panel,p_expected+1,locked);
+  RETURN locked;
+END; $$;
+
+-- Approve one brand diagnostic run bound to a locked BRAND panel version. Owner and time receipts
+-- are server-minted; the budget and round caps come from the owner but are bounded here. A run
+-- bound to a missing, unlocked or non-brand panel fails closed. Idempotent by run id: an identical
+-- re-approval returns the existing run; changed caps for an existing run id are refused.
+CREATE FUNCTION public.approve_citation_brand_run(p_user uuid,p_project text,p_run uuid,p_panel uuid,p_version integer,p_budget integer,p_rounds integer)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE panel_doc jsonb; existing jsonb; doc jsonb;
+BEGIN
+  PERFORM public.assert_knowledge_project(p_user,p_project,true);
+  IF p_run IS NULL OR p_panel IS NULL OR p_version IS NULL OR p_budget IS NULL OR p_rounds IS NULL
+    OR p_budget<1 OR p_budget>50 OR p_rounds<1 OR p_rounds>2 THEN
+    RAISE EXCEPTION 'invalid_citation_brand_run';
+  END IF;
+  SELECT document INTO panel_doc FROM public.citation_panels WHERE user_id=p_user AND project_id=p_project AND panel_id=p_panel AND version=p_version;
+  IF panel_doc IS NULL OR panel_doc->>'status'<>'locked' OR panel_doc->>'kind'<>'brand' THEN RAISE EXCEPTION 'citation_brand_panel_unresolved'; END IF;
+  SELECT document INTO existing FROM public.citation_brand_runs WHERE user_id=p_user AND project_id=p_project AND run_id=p_run;
+  IF existing IS NOT NULL THEN
+    IF existing->>'panelId'=p_panel::text AND (existing->>'panelVersion')::integer=p_version
+      AND (existing->>'observationBudget')::integer=p_budget AND (existing->>'rounds')::integer=p_rounds THEN
+      RETURN existing;
+    END IF;
+    RAISE EXCEPTION 'citation_brand_run_conflict';
+  END IF;
+  IF (SELECT count(*) FROM public.citation_brand_runs WHERE user_id=p_user AND project_id=p_project)>=20 THEN RAISE EXCEPTION 'citation_brand_run_capacity'; END IF;
+  doc := jsonb_build_object(
+    'id',p_run::text,'panelId',p_panel::text,'panelVersion',p_version,
+    'approvedBy',p_user::text,'approvedAt',to_char(clock_timestamp() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+    'observationBudget',p_budget,'rounds',p_rounds);
+  INSERT INTO public.citation_brand_runs(user_id,project_id,run_id,panel_id,panel_version,document)
+    VALUES(p_user,p_project,p_run,p_panel,p_version,doc);
+  RETURN doc;
+END; $$;
+
+-- Store one manual capture into public.ai_answer_evidence, resolving its panel version, question
+-- binding and any brand run against actual stored records before insert. The prompt-snapshot,
+-- hash-dedup, correction-chain and 100-record capacity semantics match the legacy answer path;
+-- what is added is the panel/brand authorization: pure capture validity is never authority.
+CREATE FUNCTION public.save_citation_capture(p_user uuid,p_project text,p_document jsonb)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE
+  ctx jsonb; digest text; result uuid; prompt uuid; rev integer; replaced uuid; saved jsonb;
+  panel_doc jsonb; panel_kind text; run_doc jsonb; v_run uuid; question jsonb; rnd integer; pred_ctx jsonb;
+BEGIN
+  PERFORM public.assert_knowledge_project(p_user,p_project,true);
+  IF p_document IS NULL OR jsonb_typeof(p_document)<>'object' OR octet_length(p_document::text)>100000
+    OR p_document->'analysis'->'verified' IS DISTINCT FROM 'false'::jsonb THEN
+    RAISE EXCEPTION 'invalid_answer_evidence';
+  END IF;
+  ctx := p_document->'input'->'captureContext';
+  IF ctx IS NULL OR jsonb_typeof(ctx)<>'object' THEN RAISE EXCEPTION 'citation_capture_context_missing'; END IF;
+  IF p_document->'input'->>'capturedAt' IS DISTINCT FROM ctx->'time'->>'capturedAt' THEN RAISE EXCEPTION 'citation_capture_time_mismatch'; END IF;
+  -- Critical-identity defence: the one record must not assert two contradictory surfaces about
+  -- itself. The answer's own delivery mode and model version are the same identity the capture
+  -- context surface records (the legacy analysis keys on the former, the citation resolver reads the
+  -- latter), so a disagreement — an API answer wearing a consumer/search context, or a different
+  -- model label — would let the same record be read two ways and is refused. Deviations FROM THE
+  -- PANEL are untouched (they remain storable, flagged by the read resolver); only self-contradiction
+  -- within the record is rejected. The free-text surface label is not equated to the service here.
+  IF p_document->'input'->>'mode' IS DISTINCT FROM ctx->'surface'->>'mode' THEN RAISE EXCEPTION 'citation_capture_mode_conflict'; END IF;
+  IF p_document->'input'->>'modelVersion' IS DISTINCT FROM ctx->'surface'->>'modelLabel' THEN RAISE EXCEPTION 'citation_capture_model_conflict'; END IF;
+  prompt := (p_document->'input'->>'promptId')::uuid; rev := (p_document->'input'->>'promptRevision')::integer;
+  replaced := (p_document->'input'->>'supersedesId')::uuid;
+  SELECT jsonb_build_object('id',id,'revision',revision,'createdAt',created_at,'data',data) INTO saved
+    FROM public.ai_visibility_prompts WHERE user_id=p_user AND project_id=p_project AND id=prompt AND revision=rev;
+  IF saved IS NULL OR saved IS DISTINCT FROM p_document->'prompt' THEN RAISE EXCEPTION 'evidence_prompt_changed'; END IF;
+  -- Resolve the owner-locked panel version the capture claims. Missing, unlocked or wrong-version
+  -- fails closed (deletion, a draft, or a cross-version reference).
+  SELECT document INTO panel_doc FROM public.citation_panels
+    WHERE user_id=p_user AND project_id=p_project AND panel_id=(ctx->>'panelId')::uuid AND version=(ctx->>'panelVersion')::integer;
+  IF panel_doc IS NULL OR panel_doc->>'status'<>'locked' THEN RAISE EXCEPTION 'citation_panel_unresolved'; END IF;
+  panel_kind := panel_doc->>'kind';
+  -- Prospective panel approval (spec Appendix A: owner review BEFORE USE, then save the immutable
+  -- panel). This locked version is a usable baseline only from its DB-minted approval instant
+  -- onward, so a new capture collected before that instant was not under an approved protocol and is
+  -- refused. A missing approval instant fails closed. This is independent of, and additional to, the
+  -- brand run's own prospective guard below; both must hold for a brand capture.
+  IF panel_doc->'approval'->>'approvedAt' IS NULL
+    OR (p_document->'input'->>'capturedAt')::timestamptz < (panel_doc->'approval'->>'approvedAt')::timestamptz THEN
+    RAISE EXCEPTION 'citation_panel_approved_after_capture';
+  END IF;
+  -- Question binding: the slot's question exists on the panel and binds to this exact prompt
+  -- id+revision and this exact text (which equals the recorded questionText).
+  SELECT elem INTO question FROM jsonb_array_elements(panel_doc->'questions') AS t(elem) WHERE elem->>'id'=ctx->'slot'->>'questionId';
+  IF question IS NULL THEN RAISE EXCEPTION 'citation_question_not_in_panel'; END IF;
+  IF question->>'promptId' IS DISTINCT FROM prompt::text OR (question->>'promptRevision')::integer IS DISTINCT FROM rev
+    OR question->>'text' IS DISTINCT FROM ctx->'instructions'->>'questionText' THEN
+    RAISE EXCEPTION 'citation_question_unbound';
+  END IF;
+  rnd := (ctx->'slot'->>'round')::integer; v_run := (ctx->>'brandRunId')::uuid;
+  IF panel_kind='discovery' THEN
+    IF v_run IS NOT NULL THEN RAISE EXCEPTION 'brand_run_on_discovery'; END IF;
+    IF rnd<1 OR rnd>(panel_doc->>'rounds')::integer THEN RAISE EXCEPTION 'round_out_of_panel'; END IF;
+  ELSE
+    IF v_run IS NULL THEN RAISE EXCEPTION 'brand_capture_without_run'; END IF;
+    -- The run must be an owner-approved run for THIS exact panel and version. Missing, foreign or
+    -- cross-version runs fail closed.
+    SELECT document INTO run_doc FROM public.citation_brand_runs
+      WHERE user_id=p_user AND project_id=p_project AND run_id=v_run
+        AND panel_id=(ctx->>'panelId')::uuid AND panel_version=(ctx->>'panelVersion')::integer;
+    IF run_doc IS NULL THEN RAISE EXCEPTION 'brand_run_unresolved'; END IF;
+    -- Owner approval is prospective: a run approved after the capture cannot sanction it.
+    IF (p_document->'input'->>'capturedAt')::timestamptz < (run_doc->>'approvedAt')::timestamptz THEN RAISE EXCEPTION 'brand_run_approved_after_capture'; END IF;
+    IF rnd<1 OR rnd>(run_doc->>'rounds')::integer THEN RAISE EXCEPTION 'brand_round_out_of_run'; END IF;
+  END IF;
+  -- Prompt-bound insert with hash dedup, correction validation and the 100-record capacity, exactly
+  -- as the legacy answer path (the capture context inside `input` is part of the dedup hash). Dedup
+  -- runs BEFORE any new-observation charge, so an identical, already-persisted capture returns its
+  -- existing id without being re-checked against — or blocked by — the run budget or the capacity.
+  digest := encode(sha256(convert_to((p_document->'input')::text,'UTF8')),'hex');
+  SELECT id INTO result FROM public.ai_answer_evidence WHERE user_id=p_user AND project_id=p_project AND document_hash=digest;
+  IF FOUND THEN RETURN result; END IF;
+  -- A correction (supersedesId set) re-describes the SAME observation and is therefore budget-exempt,
+  -- so its predecessor must be a real record with the SAME observation identity: same panel version,
+  -- brand run, question, round, capture instant and surface. A predecessor from another run, panel,
+  -- slot or capture time — or a legacy context-less answer — is a DIFFERENT observation and must be a
+  -- new (charged) capture; it can never be laundered into an exhausted run as a "correction".
+  -- Branching is already impossible (UNIQUE(user_id,project_id,supersedes_id)), so a chain stays
+  -- linear and, by transitivity of this identity, remains one observation. Raw originals and the
+  -- deletion cascade are unchanged.
+  IF replaced IS NOT NULL THEN
+    SELECT document->'input'->'captureContext' INTO pred_ctx FROM public.ai_answer_evidence
+      WHERE user_id=p_user AND project_id=p_project AND id=replaced AND prompt_id=prompt AND prompt_revision=rev;
+    IF pred_ctx IS NULL THEN RAISE EXCEPTION 'evidence_correction_missing'; END IF;
+    IF jsonb_typeof(pred_ctx)<>'object'
+      OR pred_ctx->>'panelId' IS DISTINCT FROM ctx->>'panelId'
+      OR pred_ctx->>'panelVersion' IS DISTINCT FROM ctx->>'panelVersion'
+      OR pred_ctx->>'brandRunId' IS DISTINCT FROM ctx->>'brandRunId'
+      OR pred_ctx->'slot'->>'questionId' IS DISTINCT FROM ctx->'slot'->>'questionId'
+      OR pred_ctx->'slot'->>'round' IS DISTINCT FROM ctx->'slot'->>'round'
+      OR pred_ctx->'time'->>'capturedAt' IS DISTINCT FROM ctx->'time'->>'capturedAt'
+      OR pred_ctx->'surface' IS DISTINCT FROM ctx->'surface' THEN
+      RAISE EXCEPTION 'citation_correction_identity_mismatch';
+    END IF;
+  END IF;
+  -- A genuinely NEW brand observation (no supersedes) consumes the run's observation budget, checked
+  -- here (after dedup) so a re-imported identical capture is never re-charged. Live observations are
+  -- the originals (supersedes null) carrying this run id; a same-observation correction is exempt.
+  IF panel_kind<>'discovery' AND replaced IS NULL AND (
+    SELECT count(*) FROM public.ai_answer_evidence
+    WHERE user_id=p_user AND project_id=p_project AND supersedes_id IS NULL
+      AND document->'input'->'captureContext'->>'brandRunId'=v_run::text
+  )>=(run_doc->>'observationBudget')::integer THEN
+    RAISE EXCEPTION 'brand_run_budget_exceeded';
+  END IF;
+  IF (SELECT count(*) FROM public.ai_answer_evidence WHERE user_id=p_user AND project_id=p_project)>=100 THEN RAISE EXCEPTION 'answer_evidence_capacity'; END IF;
+  INSERT INTO public.ai_answer_evidence(user_id,project_id,prompt_id,prompt_revision,document_hash,document,supersedes_id)
+    VALUES(p_user,p_project,prompt,rev,digest,p_document,replaced)
+    ON CONFLICT(user_id,project_id,document_hash) DO NOTHING RETURNING id INTO result;
+  IF result IS NULL THEN SELECT id INTO result FROM public.ai_answer_evidence WHERE user_id=p_user AND project_id=p_project AND document_hash=digest; END IF;
+  RETURN result;
+END; $$;
+
+REVOKE ALL ON FUNCTION public.read_citation_protocol(uuid,text),public.save_citation_panel_draft(uuid,text,uuid,integer,jsonb),public.lock_citation_panel(uuid,text,uuid,integer),public.approve_citation_brand_run(uuid,text,uuid,uuid,integer,integer,integer),public.save_citation_capture(uuid,text,jsonb) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.read_citation_protocol(uuid,text),public.save_citation_panel_draft(uuid,text,uuid,integer,jsonb),public.lock_citation_panel(uuid,text,uuid,integer),public.approve_citation_brand_run(uuid,text,uuid,uuid,integer,integer,integer),public.save_citation_capture(uuid,text,jsonb) TO service_role;

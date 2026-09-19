@@ -10,6 +10,7 @@ const released = [
   "20260907150000_operational_notifications.sql",
   "20260907170000_operational_email_outbox.sql",
   "20260909200000_project_knowledge.sql",
+  "20260910210000_answer_evidence.sql",
   "20260910100000_source_refresh.sql",
   "20260911000000_output_knowledge_integrity.sql",
   "20260911010000_output_knowledge_reviews.sql",
@@ -32,15 +33,15 @@ const expensePrerequisites = [
   "20260907140000_ai_expense_reservations.sql",
   "20260908210000_restricted_ai_expense_permits.sql",
 ];
-// Reviewed and applied to production on 19 September (independent of the eight
-// unapplied chat/team candidates below). They sort after the cutoff, so they are
+// Reviewed and applied to production on 19 September (alongside the eight
+// released conversation migrations below). They sort after the cutoff, so they are
 // enumerated explicitly and subtracted from the unapplied set — an unexpected
 // future migration is never silently folded into either group.
 const releasedAfterCutoff = [
   "20260919120000_ai_expense_default_budgets.sql",
   "20260919130000_manual_free_ai_budgets.sql",
 ];
-const candidates = [
+const releasedConversationPacket = [
   "20260912040000_knowledge_review_batch_time.sql",
   "20260913120000_milo_conversations.sql",
   "20260913160000_milo_conversation_dispatch.sql",
@@ -50,6 +51,7 @@ const candidates = [
   "20260914120000_milo_provider_check_consent.sql",
   "20260914150000_project_team_seats.sql",
 ];
+const candidates = ["20260919170000_citation_protocol.sql"];
 const allowed = async (role: string, fn: string) =>
   (
     await db.query<{ allowed: boolean }>("SELECT has_function_privilege($1,$2,'EXECUTE') allowed", [
@@ -81,7 +83,13 @@ beforeAll(async () => {
   // Real production apply order: expense base + permits, the released chain, the
   // two released expense overloads (19 September), then the unapplied candidates
   // on top. Released expense SQL is executed verbatim, not restated here.
-  for (const file of [...expensePrerequisites, ...released, ...releasedAfterCutoff, ...candidates])
+  for (const file of [
+    ...expensePrerequisites,
+    ...released,
+    ...releasedAfterCutoff,
+    ...releasedConversationPacket,
+    ...candidates,
+  ])
     await db.exec(readFileSync(`supabase/migrations/${file}`, "utf8"));
 }, 60000);
 afterAll(async () => {
@@ -97,10 +105,17 @@ describe("candidate migration chain", () => {
     // after the cutoff stays in `unapplied` and fails below, so a future
     // migration is surfaced rather than silently treated as released.
     expect(files.filter((file) => releasedAfterCutoff.includes(file))).toEqual(releasedAfterCutoff);
-    const unapplied = files.filter((file) => !releasedAfterCutoff.includes(file));
+    const unapplied = files.filter(
+      (file) => ![...releasedAfterCutoff, ...releasedConversationPacket].includes(file),
+    );
     expect(unapplied).toEqual(candidates);
   });
   it.each([
+    "read_citation_protocol(uuid,text)",
+    "save_citation_panel_draft(uuid,text,uuid,integer,jsonb)",
+    "lock_citation_panel(uuid,text,uuid,integer)",
+    "approve_citation_brand_run(uuid,text,uuid,uuid,integer,integer,integer)",
+    "save_citation_capture(uuid,text,jsonb)",
     "list_my_milo_conversations(uuid,timestamptz,uuid)",
     "begin_milo_conversation_turn(uuid,uuid,text,uuid,uuid,text,text,boolean,boolean)",
     "export_milo_conversation_page(uuid,uuid,text,uuid,integer,text)",
@@ -148,6 +163,8 @@ describe("candidate migration chain", () => {
       "milo_erased_conversations",
       "milo_erased_turns",
       "milo_conversation_dispatch_control",
+      "citation_panels",
+      "citation_brand_runs",
       "milo_conversation_dispatch_attempts",
       "project_team_members",
       "project_team_invitations",

@@ -76,6 +76,11 @@ export async function importAnswerEvidence(
 ) {
   const s = scope.parse(raw),
     input = answerEvidenceSchema.parse(value);
+  // Legacy manual intake never carries CI-2 capture context. A capture bound to an owner-locked
+  // panel/brand run must go through the panel-aware citation-protocol save path so the server can
+  // resolve the referenced panel version and approved run; accepting it here would store an
+  // unauthorized, unresolved binding. Preserve legacy intake (documents without it) unchanged.
+  if (input.captureContext !== undefined) throw Error("evidence_capture_context_unsupported");
   const state = await readAnswerEvidence(s, rpc);
   const prompt = state.prompts.find(
     (p) => p.id === input.promptId && p.revision === input.promptRevision,
