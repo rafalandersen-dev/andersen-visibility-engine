@@ -1,0 +1,119 @@
+import type { ConversationCopy } from "../conversation";
+export const hrConversation: ConversationCopy = {
+  "chat.account.title": "Vaši razgovori",
+  "chat.account.description":
+    "Svi vaši privatni razgovori u svim projektima. Ovaj popis vidite samo vi.",
+  "chat.account.manage": "Upravljaj svim razgovorima",
+  "chat.account.error":
+    "Vaše razgovore nije bilo moguće potvrditi. Naslovi ostaju skriveni dok se ponovno ne provjere.",
+  "chat.account.retry": "Provjeri ponovno",
+  "chat.account.empty": "Nemate spremljenih razgovora.",
+  "chat.account.more": "Prikaži više razgovora",
+  "chat.account.started": "Započet: {date}",
+  "chat.account.unavailable":
+    "Vaš pristup projektu je prestao, pa naslov i poruke ostaju skriveni. Ovaj razgovor i dalje možete izbrisati.",
+  "chat.account.eraseAccess": "Brisanje ne vraća niti mijenja vaš pristup projektu.",
+  "chat.export": "Izvezi razgovor",
+  "chat.exportHelp":
+    "Preuzima spremljene poruke, potvrde i ranije prijedloge kao JSON datoteku. Povezane datoteke su zasebne.",
+  "chat.exporting": "Priprema cijelog razgovora…",
+  "chat.exportFailed":
+    "Izvoz nije dovršen. Pričekajte završetak trenutačnog rada pa pokušajte ponovno.",
+  "chat.erase": "Izbriši razgovor",
+  "chat.eraseTitle": "Trajno izbrisati ovaj razgovor?",
+  "chat.eraseHelp":
+    "Trajno briše poruke i prijedloge. Spremljeni nacrti, rezultati i podaci za obračun ostaju. Već poslani rad može završiti i potrošiti vašu kvotu. Zapisi koji sprječavaju dvostruki rad ostaju.",
+  "chat.erasing": "Brisanje razgovora…",
+  "chat.eraseUnconfirmed":
+    "Brisanje nije potvrđeno. Poruke ovdje ostaju skrivene. Ponovite brisanje kako biste potvrdili rezultat.",
+  "chat.eraseRetry": "Ponovi brisanje",
+  "chat.erased": "Razgovor je izbrisan.",
+  "chat.tool.draft_metadata_proposal": "Prijedlog metapodataka nacrta",
+  "chat.proposal.review": "Pregledaj predložene promjene",
+  "chat.proposal.before": "Prije",
+  "chat.proposal.after": "Prijedlog",
+  "chat.proposal.ready":
+    "Spremanje vraća nacrt na pregled i povlači prethodno odobrenje za objavu.",
+  "chat.proposal.waiting":
+    "Pričekajte dovršetak ovog zadatka prije spremanja predloženih promjena.",
+  "chat.proposal.unavailable":
+    "Ovaj prijedlog više nije moguće spremiti. Zatražite novi na temelju trenutačnog nacrta.",
+  "chat.proposal.applied":
+    "Ove su promjene spremljene. Kasnija uređivanja možda su promijenila sadržaj.",
+  "chat.proposal.unconfirmed":
+    "Spremanje nije bilo moguće potvrditi. Provjerite spremljeni status prije ponovnog pokušaja.",
+  "chat.proposal.empty": "(prazno)",
+  "chat.title": "Razgovarajte s Milom",
+  "chat.openContext": "Otvori prikaz projekta",
+  "chat.description":
+    "Recite Milu što želite poboljšati. Odgovarajući AI stručnjak nastavlja ovdje uz spremljeni kontekst vašeg projekta.",
+  "chat.chooseProject": "Klijent ili projekt",
+  "chat.ownProjects": "Vaši projekti",
+  "chat.history": "Razgovori",
+  "chat.new": "Novi razgovor",
+  "chat.welcome": "Na čemu ćemo raditi?",
+  "chat.private": "Vaš privatni razgovor u ovom projektu.",
+  "chat.sharedPrivate":
+    "Vaš privatni razgovor u dijeljenom projektu. Primjenjuju se vaše trenutačne timske ovlasti.",
+  "chat.reviewPrompt": "Pregledajte SEO strukturu mojih spremljenih nacrta.",
+  "chat.knowledgePrompt": "Što mi možete reći na temelju spremljenog konteksta ovog projekta?",
+  "chat.messageFor": "Poruka za {project}",
+  "chat.placeholder": "Opišite zadatak i željeni rezultat…",
+  "chat.keyboard": "Ctrl / ⌘ + Enter šalje poruku. Enter započinje novi redak.",
+  "chat.tooLong": "Ova je poruka preduga. Skratite je prije slanja.",
+  "chat.full": "Ovaj je razgovor dosegnuo ograničenje. Započnite novi razgovor za nastavak.",
+  "chat.allowGeneration":
+    "Dopusti jedan nacrt za postojeću temu u ovom zahtjevu. Troši kvotu sadržaja i sprema rezultat za pregled.",
+  "chat.generationEnabled": "Generiranje nacrta dopušteno je za ovaj zahtjev.",
+  "chat.usage":
+    "Odgovori troše AI kvotu vašeg računa. Generiranje nacrta troši i kvotu sadržaja. Objavljivanje je zaseban korak.",
+  "chat.send": "Pošalji poruku",
+  "chat.you": "Vi",
+  "chat.messages": "Poruke razgovora",
+  "chat.page": "Zadaci {from}–{to} od {total}",
+  "chat.latest": "Najnovije poruke",
+  "chat.sending": "Slanje i provjera spremljenog stanja…",
+  "chat.pending": "Zahtjev je spremljen; čeka početak.",
+  "chat.running": "Radimo na vašem zahtjevu…",
+  "chat.completed": "Odgovor je spremljen.",
+  "chat.failed":
+    "Ovaj je pokušaj zaustavljen. Pregledajte spremljeni rad prije slanja drugog zahtjeva.",
+  "chat.unknown":
+    "Konačni ishod nije moguće potvrditi. Provjerite spremljene rezultate prije ponovnog početka.",
+  "chat.cancelled": "Daljnji rad je otkazan. Već poslana operacija još se može dovršiti.",
+  "chat.provider_unavailable":
+    "AI pružatelj nije konfiguriran za ovaj račun. Obratite se administratoru.",
+  "chat.usage_limit":
+    "AI kvota vašeg računa ne dopušta sljedeći korak. Prije nastavka provjerite potrošnju.",
+  "chat.budget_unavailable":
+    "Potrošnja za AI nije dostupna uz trenutačne postavke proračuna. Zamolite administratora da ih provjeri.",
+  "chat.unavailable":
+    "Nije moguće potvrditi pristup ili spremljeno stanje razgovora. Osvježite prije nastavka.",
+  "chat.sendUnconfirmed":
+    "Ovaj zahtjev nije moguće potvrditi. Oporavite izvorni zahtjev ili provjerite povijest prije nego što ga pošaljete kao novi zadatak.",
+  "chat.recover": "Oporavi izvorni zahtjev",
+  "chat.resume": "Pokreni spremljeni zahtjev",
+  "chat.stop": "Zaustavi daljnji rad",
+  "chat.stopHelp":
+    "Zaustavljanje sprječava sljedeće korake. Već poslani zahtjev još se može dovršiti i potrošiti vašu kvotu.",
+  "chat.evidenceSaved": "Rezultat je spremljen u ovom razgovoru.",
+  "chat.toolUnavailable": "Ova operacija nije dostupna uz trenutačnu ulogu ili ovlasti.",
+  "chat.partialHistory":
+    "Stručnjak je primio skraćeni dio spremljene povijesti. Ponovite sve zahtjeve koji nedostaju.",
+  "chat.tool.project_brief": "Kontekst projekta",
+  "chat.tool.draft_read": "Pregled spremljenog nacrta",
+  "chat.tool.draft_seo_review": "Provjera strukture spremljenog nacrta",
+  "chat.tool.project_knowledge": "Znanje o projektu",
+  "chat.tool.weekly_preparation": "Stanje tjedne pripreme",
+  "chat.tool.saved_audit": "Pregled spremljene revizije",
+  "chat.tool.draft_generation": "Generiranje nacrta",
+  "chat.tool.technical_evidence": "Spremljene tehničke provjere",
+  "chat.tool.visibility_evidence": "Spremljeni dokazi iz AI odgovora i zapisnika",
+  "chat.tool.authority_evidence": "Spremljeno praćenje povratnih poveznica",
+  "chat.tool.google_index_inspection": "Google provjera indeksiranja",
+  "chat.tool.performance_test": "Test brzine stranice",
+  "chat.tool.site_crawl": "Pretraživanje web-mjesta",
+  "chat.allowProviderChecks":
+    "Dopusti u ovom zahtjevu najviše dvije provjere web-mjesta (Google provjera indeksiranja, brzina stranice ili jedno pretraživanje web-mjesta) za web-mjesto ovog projekta. Koriste se povezane usluge vlasnika projekta i postojeća ograničenja provjera, a rezultati se spremaju uz tehničke provjere projekta.",
+  "chat.providerChecksEnabled": "Provjere web-mjesta dopuštene su za ovaj zahtjev.",
+};

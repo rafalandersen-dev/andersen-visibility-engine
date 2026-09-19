@@ -87,7 +87,7 @@ describe("bounded authenticated Shopify catalog", () => {
     ).toHaveLength(5);
     expect(request.mock.calls[0]).toMatchObject([
       `https://${domain}/admin/api/2026-07/graphql.json`,
-      { method: "POST", redirect: "error", credentials: "omit" },
+      { method: "POST", redirect: "manual", credentials: "omit" },
     ]);
     const denied = vi.fn(async () => new Response("private error", { status: 403 }));
     await expect(
@@ -101,6 +101,23 @@ describe("bounded authenticated Shopify catalog", () => {
     await expect(
       fetchShopifyCatalog(domain, "synthetic-token", huge as typeof fetch),
     ).rejects.toThrow("catalog_unavailable");
+  });
+  it("refuses a provider redirect without following its Location", async () => {
+    const cancel = vi.fn();
+    const request = vi.fn<typeof fetch>(
+      async () =>
+        new Response(new ReadableStream({ cancel }), {
+          status: 302,
+          headers: { location: "https://evil.test/steal", "content-type": "application/json" },
+        }),
+    );
+    await expect(
+      fetchShopifyCatalog(domain, "synthetic-token", request as typeof fetch),
+    ).rejects.toThrow("catalog_unavailable");
+    // Exactly one dispatch — the redirect target is never fetched.
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request.mock.calls[0][1]).toMatchObject({ redirect: "manual", credentials: "omit" });
+    expect(cancel).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -11,10 +11,12 @@ import { LEGAL_PAGES, LEGAL_LAST_UPDATED, LEGAL_LOCALIZATION_NOTE } from "@/lib/
 export function LegalPage({
   title,
   intro,
+  lastUpdated = LEGAL_LAST_UPDATED,
   children,
 }: {
   title: string;
   intro?: string;
+  lastUpdated?: string;
   children: ReactNode;
 }) {
   return (
@@ -28,14 +30,12 @@ export function LegalPage({
             </span>
           </Link>
           <div className="flex items-center gap-2">
-            <Link to="/">
-              <Button variant="ghost" size="sm">
-                Home
-              </Button>
-            </Link>
-            <Link to="/auth">
-              <Button size="sm">Get started</Button>
-            </Link>
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/">Home</Link>
+            </Button>
+            <Button asChild size="sm">
+              <Link to="/auth">Get started</Link>
+            </Button>
           </div>
         </div>
       </header>
@@ -63,9 +63,7 @@ export function LegalPage({
         {/* Content */}
         <article className="min-w-0">
           <h1 className="font-display text-3xl md:text-4xl">{title}</h1>
-          <div className="mt-2 text-xs text-muted-foreground">
-            Last updated: {LEGAL_LAST_UPDATED}
-          </div>
+          <div className="mt-2 text-xs text-muted-foreground">Last updated: {lastUpdated}</div>
 
           {intro ? <p className="mt-6 text-sm text-muted-foreground max-w-2xl">{intro}</p> : null}
 

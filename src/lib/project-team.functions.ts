@@ -15,8 +15,21 @@ export const updateProjectTeamFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v: unknown) => teamOwnerAction.parse(v))
   .handler(async ({ data, context }) => {
-    const { updateProjectTeam } = await import("./project-team-membership.server");
-    return updateProjectTeam(context.userId, data);
+    const { updateProjectTeam, projectTeamRpc } = await import("./project-team-membership.server");
+    const { readTeamSeatAllowance } = await import("./project-team-seats.server");
+    return updateProjectTeam(
+      context.userId,
+      data,
+      projectTeamRpc,
+      await readTeamSeatAllowance(context.userId),
+    );
+  });
+export const readTeamSeatsFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => z.object({}).strict().parse(v))
+  .handler(async ({ context }) => {
+    const { readTeamSeats } = await import("./project-team-seats.server");
+    return readTeamSeats(context.userId);
   });
 export const acceptProjectTeamFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

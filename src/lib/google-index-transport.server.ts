@@ -1,4 +1,5 @@
 import { inspectionInProperty, inspectionUrl, normalizeGoogleIndex } from "./google-index";
+import { manualRedirectFetch } from "./provider-fetch.server";
 const ENDPOINT = "https://searchconsole.googleapis.com/v1/urlInspection/index:inspect";
 /** Fixed Google destination; token is never used to fetch the inspected URL. */
 export async function fetchGoogleIndex(
@@ -13,9 +14,8 @@ export async function fetchGoogleIndex(
   const timeout = setTimeout(() => controller.abort(), 15000);
   let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
   try {
-    const response = await request(ENDPOINT, {
+    const response = await manualRedirectFetch(request)(ENDPOINT, {
       method: "POST",
-      redirect: "error",
       signal: controller.signal,
       headers: {
         Authorization: `Bearer ${accessToken}`,

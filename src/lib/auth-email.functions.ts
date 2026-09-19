@@ -2,10 +2,14 @@ import * as React from "react";
 import { render } from "react-email";
 import { sendLovableEmail } from "@lovable.dev/email-js";
 import { createServerFn } from "@tanstack/react-start";
+import { getRequestIP } from "@tanstack/react-start/server";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { SignupEmail } from "./email-templates/signup";
 import { RecoveryEmail } from "./email-templates/recovery";
+import { emailLocaleSchema } from "./email-languages";
+import { authEmailPresentation } from "./auth-email-presentation";
+import { admitAuthEmail } from "./auth-email-admission.server";
 
 const SITE_NAME = "Milo Growth";
 const SITE_URL = "https://milogrowth.com";
@@ -17,11 +21,13 @@ const signupSchema = z.object({
   password: z.string().min(8),
   displayName: z.string().max(120).optional(),
   redirectTo: z.string().url(),
+  emailLanguage: emailLocaleSchema.default("en"),
 });
 
 const resetSchema = z.object({
   email: z.string().email(),
   redirectTo: z.string().url(),
+  emailLanguage: emailLocaleSchema.default("en"),
 });
 
 function getAdminClient() {
@@ -56,7 +62,7 @@ async function logEmail(
   status: "pending" | "sent" | "failed",
   errorMessage?: string,
 ) {
-  await supabase.from("email_send_log").insert({
+  return await supabase.from("email_send_log").insert({
     message_id: messageId,
     template_name: templateName,
     recipient_email: recipientEmail,
@@ -94,53 +100,81 @@ async function sendDirectAuthEmail(args: {
       },
       { apiKey, sendUrl: process.env.LOVABLE_SEND_URL },
     );
-    await logEmail(args.supabase, messageId, args.templateName, args.to, "sent");
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    await logEmail(args.supabase, messageId, args.templateName, args.to, "failed", message.slice(0, 1000));
+  } catch {
+    // Provider errors can echo request content, including private action links.
+    // Retain a diagnostic category, never the raw error or email payload.
+    await logEmail(
+      args.supabase,
+      messageId,
+      args.templateName,
+      args.to,
+      "failed",
+      "auth_email_delivery_failed",
+    );
     throw new Error("We could not send the email right now. Please try again in a moment.");
+  }
+  // The provider has accepted the message. A later diagnostic write failure
+  // must not be reported as a send failure or invite another authentication email.
+  // Do not log the database error: it may include private recipient/link data.
+  try {
+    const logged = await logEmail(args.supabase, messageId, args.templateName, args.to, "sent");
+    if (logged?.error) console.warn("auth_email_sent_log_failed");
+  } catch {
+    console.warn("auth_email_sent_log_failed");
   }
 }
 
 async function getOrCreateUnsubscribeToken(supabase: any, email: string): Promise<string> {
   const normalized = email.trim().toLowerCase();
-  const { data: existing, error: selectError } = await supabase
-    .from("email_unsubscribe_tokens")
-    .select("token")
-    .eq("email", normalized)
-    .maybeSingle();
+  let diagnostic = "auth_email_token_lookup_failed";
+  try {
+    const { data: existing, error: selectError } = await supabase
+      .from("email_unsubscribe_tokens")
+      .select("token")
+      .eq("email", normalized)
+      .maybeSingle();
+    if (selectError) throw new Error("token_lookup_failed");
+    if (existing?.token) return existing.token;
 
-  if (selectError) {
-    console.error("[auth-email] unsubscribe token lookup failed", selectError.message);
+    diagnostic = "auth_email_token_create_failed";
+    const token = crypto.randomUUID();
+    const { error: insertError } = await supabase
+      .from("email_unsubscribe_tokens")
+      .insert({ email: normalized, token } as never);
+    if (!insertError) return token;
+
+    // Race-safe fallback if another request inserted the row first.
+    const { data: raced, error: racedError } = await supabase
+      .from("email_unsubscribe_tokens")
+      .select("token")
+      .eq("email", normalized)
+      .maybeSingle();
+    if (raced?.token && !racedError) return raced.token;
+    throw new Error("token_create_failed");
+  } catch {
+    // Database diagnostics can contain row values. Keep token/recipient details
+    // out of logs and RPC errors, including rejected transport requests.
+    console.error(diagnostic);
     throw new Error("Email service is not configured correctly.");
   }
-
-  if (existing?.token) return existing.token;
-
-  const token = crypto.randomUUID();
-  const { error: insertError } = await supabase
-    .from("email_unsubscribe_tokens")
-    .insert({ email: normalized, token } as never);
-
-  if (!insertError) return token;
-
-  // Race-safe fallback if another request inserted the row first.
-  const { data: raced, error: racedError } = await supabase
-    .from("email_unsubscribe_tokens")
-    .select("token")
-    .eq("email", normalized)
-    .maybeSingle();
-
-  if (raced?.token && !racedError) return raced.token;
-  console.error("[auth-email] unsubscribe token create failed", insertError.message);
-  throw new Error("Email service is not configured correctly.");
 }
 
 export const signupWithBrandedEmailFn = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => signupSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabase, supabaseUrl } = getAdminClient();
+    // Refuse known missing email configuration before generating a signup link,
+    // because that administrative call can create an unconfirmed account.
+    getEmailApiKey();
     const email = data.email.trim().toLowerCase();
+    // Bind admission to the trusted-edge client IP resolved by the runtime, never
+    // a client-supplied x-forwarded-for header.
+    await admitAuthEmail(supabase, {
+      email,
+      source: getRequestIP({ xForwardedFor: false }),
+      action: "signup",
+      secret: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    });
     const { data: linkData, error } = await supabase.auth.admin.generateLink({
       type: "signup",
       email,
@@ -158,35 +192,21 @@ export const signupWithBrandedEmailFn = createServerFn({ method: "POST" })
       siteUrl: SITE_URL,
       recipient: email,
       confirmationUrl,
+      language: data.emailLanguage,
     });
 
-    // generateLink already CREATED the auth user. If the branded send fails we
-    // would leave an unreachable, unconfirmable account behind that also blocks
-    // a clean retry ("user already registered"). Roll the user back instead.
-    try {
-      await sendDirectAuthEmail({
-        templateName: "signup",
-        to: email,
-        subject: "Confirm your Milo Growth account",
-        html: await render(element),
-        text: await render(element, { plainText: true }),
-        supabase,
-      });
-    } catch (sendError) {
-      // Only roll back an account this call actually created — generateLink on
-      // an existing (unconfirmed) user returns that user, and deleting it would
-      // destroy someone else's account.
-      const createdUser = linkData.user;
-      const createdAt = createdUser?.created_at ? Date.parse(createdUser.created_at) : NaN;
-      const justCreated = Number.isFinite(createdAt) && Date.now() - createdAt < 60_000;
-      if (createdUser?.id && justCreated) {
-        const { error: deleteError } = await supabase.auth.admin.deleteUser(createdUser.id);
-        if (deleteError) {
-          console.error("[auth-email] orphan cleanup failed", deleteError.message);
-        }
-      }
-      throw sendError;
-    }
+    // generateLink returns account metadata, not proof that this request alone
+    // created the account. A recent created_at can belong to another request;
+    // an email failure must never authorize deleting that account. Preserve it
+    // and propagate the failure so confirmation/recovery can be handled later.
+    await sendDirectAuthEmail({
+      templateName: "signup",
+      to: email,
+      subject: authEmailPresentation(data.emailLanguage, "signup", SITE_NAME).subject,
+      html: await render(element),
+      text: await render(element, { plainText: true }),
+      supabase,
+    });
     return { ok: true };
   });
 
@@ -194,7 +214,17 @@ export const requestPasswordResetWithBrandedEmailFn = createServerFn({ method: "
   .inputValidator((input: unknown) => resetSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabase, supabaseUrl } = getAdminClient();
+    // Do not issue a new recovery link when delivery is known to be unavailable.
+    getEmailApiKey();
     const email = data.email.trim().toLowerCase();
+    // Recovery admission uses the same runtime source with a separate per-action
+    // quota so signup abuse from a source cannot exhaust its recovery capacity.
+    await admitAuthEmail(supabase, {
+      email,
+      source: getRequestIP({ xForwardedFor: false }),
+      action: "recovery",
+      secret: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    });
     const { data: linkData, error } = await supabase.auth.admin.generateLink({
       type: "recovery",
       email,
@@ -209,11 +239,12 @@ export const requestPasswordResetWithBrandedEmailFn = createServerFn({ method: "
     const element = React.createElement(RecoveryEmail, {
       siteName: SITE_NAME,
       confirmationUrl,
+      language: data.emailLanguage,
     });
     await sendDirectAuthEmail({
       templateName: "recovery",
       to: email,
-      subject: "Reset your Milo Growth password",
+      subject: authEmailPresentation(data.emailLanguage, "reset", SITE_NAME).subject,
       html: await render(element),
       text: await render(element, { plainText: true }),
       supabase,

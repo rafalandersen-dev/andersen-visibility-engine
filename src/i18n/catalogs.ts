@@ -1,3 +1,18 @@
+import { publicStudiesCopy } from "./public-studies";
+import { conversationCopy } from "./conversation";
+import { UI_LANGUAGE_CODES } from "./ui-languages";
+import { publicPricingCopy } from "./public-pricing";
+import { publicHomeCopy } from "./public-home";
+import { publicBetaCopy } from "./public-beta";
+import { betaGuidanceCopy } from "./beta-guidance";
+import { betaScreenCopy } from "./beta-screen";
+import { authScreenCopy } from "./auth-screen";
+import { sharedUiCopy } from "./shared-ui";
+import { analyticsScreenCopy } from "./analytics-screen";
+import { billingScreenCopy } from "./billing-screen";
+import { setupScreenCopy } from "./setup-screen";
+import { servicesScreenCopy } from "./services-screen";
+import { auditScreenCopy } from "./audit-screen";
 import { evidenceScreenCopy } from "./evidence-screen";
 /** Browser-independent UI catalogs. English is the fallback for every product area.
  * Content and email languages use their separate registries and preferences. */
@@ -36,6 +51,7 @@ type Dictionary = Readonly<Record<string, string>>;
 const BASE: Record<OnboardingLanguage, Dictionary> = { en, pl, sv, da };
 // Lowest to highest priority; later product-specific copy retains its existing override.
 const OVERRIDES: readonly Record<OnboardingLanguage, Dictionary>[] = [
+  conversationCopy,
   premium,
   notifications,
   generationResults,
@@ -62,8 +78,21 @@ const OVERRIDES: readonly Record<OnboardingLanguage, Dictionary>[] = [
   editorScreenCopy,
   planScreenCopy,
   evidenceScreenCopy,
+  auditScreenCopy,
+  servicesScreenCopy,
+  setupScreenCopy,
+  billingScreenCopy,
+  analyticsScreenCopy,
+  sharedUiCopy,
+  authScreenCopy,
+  betaScreenCopy,
+  betaGuidanceCopy,
+  publicBetaCopy,
+  publicHomeCopy,
+  publicPricingCopy,
+  publicStudiesCopy,
 ];
-export const UI_LANGUAGE_CODES = ["en", "pl", "sv", "da"] as const;
+export { UI_LANGUAGE_CODES };
 export function isUiLanguage(value: unknown): value is OnboardingLanguage {
   return typeof value === "string" && (UI_LANGUAGE_CODES as readonly string[]).includes(value);
 }

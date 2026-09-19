@@ -21,10 +21,26 @@ import {
   readProjectTeamRosterFn,
   readTeamProjectFn,
   updateProjectTeamFn,
+  readTeamSeatsFn,
 } from "@/lib/project-team.functions";
 import { teamAcceptInput, teamOwnerAction, teamRole, teamRoster } from "@/lib/project-team";
+import { isTeamSeatLimit } from "@/lib/project-team-seats";
+import { PLAN_META, type PlanId } from "@/lib/billing";
 import { toast } from "sonner";
 export const Route = createFileRoute("/_authenticated/app/collaborators")({
+  validateSearch: z
+    .object({
+      owner: z.string().uuid().optional(),
+      project: z
+        .string()
+        .regex(/^[A-Za-z0-9_-]{1,64}$/)
+        .optional(),
+      asset: z
+        .string()
+        .regex(/^[A-Za-z0-9_-]{1,64}$/)
+        .optional(),
+    })
+    .refine((v) => !!v.owner === !!v.project && (!v.asset || !!v.owner)),
   component: CollaboratorsPage,
 });
 type Role = z.infer<typeof teamRole>;
@@ -62,9 +78,18 @@ function CollaboratorsPage() {
   const { user } = useAuth();
   const projects = useStore((s) => s.projects);
   const active = useStore((s) => s.activeProjectId);
-  const [chosen, setChosen] = useState<string | null>(null);
+  const initial = Route.useSearch();
+  const [chosen, setChosen] = useState<string | null>(() =>
+    initial.owner === user?.id && projects.some((p) => p.id === initial.project)
+      ? (initial.project ?? null)
+      : null,
+  );
   const projectId = chosen ?? active ?? projects[0]?.id;
-  const [shared, setShared] = useState<{ ownerId: string; projectId: string } | null>(null);
+  const [shared, setShared] = useState<{ ownerId: string; projectId: string } | null>(() =>
+    initial.owner && initial.project
+      ? { ownerId: initial.owner, projectId: initial.project }
+      : null,
+  );
   const client = useQueryClient();
   const query = useQuery({
     queryKey: ["project-teams", user?.id, "mine"],
@@ -79,10 +104,26 @@ function CollaboratorsPage() {
     onSuccess: () => client.invalidateQueries({ queryKey: ["project-teams", user?.id] }),
     onError: () => toast.error(t("collaboration.error")),
   });
+  const sharedClient = shared && shared.ownerId !== user?.id ? shared : undefined;
+  const sharedName = sharedClient
+    ? query.isError
+      ? t("chat.unavailable")
+      : (query.data?.projects.find(
+          (p) => p.ownerId === sharedClient.ownerId && p.projectId === sharedClient.projectId,
+        )?.name ?? t("chat.chooseProject"))
+    : undefined;
   return (
     <AppShell
       title={t("collaboration.title")}
       description={t("collaboration.subtitle")}
+      eyebrow={sharedName}
+      projectContextName={sharedName}
+      sharedProject={sharedClient}
+      projectPicker={
+        sharedName ? (
+          <p className="my-4 break-words rounded-lg bg-white/10 p-3 text-sm">{sharedName}</p>
+        ) : undefined
+      }
       actions={
         <Button
           variant="outline"
@@ -178,6 +219,11 @@ function CollaboratorsPage() {
           <SharedProject
             key={`${user?.id}:${shared.ownerId}:${shared.projectId}`}
             target={shared}
+            initialAssetId={
+              shared.ownerId === initial.owner && shared.projectId === initial.project
+                ? initial.asset
+                : undefined
+            }
           />
         )}
       </div>
@@ -194,6 +240,14 @@ function OwnerTeam({ projectId }: { projectId: string }) {
   const query = useQuery({
     queryKey: ["project-teams", user?.id, "roster", projectId],
     queryFn: () => readProjectTeamRosterFn({ data: { projectId } }),
+    enabled: !!user,
+    staleTime: 0,
+    gcTime: 0,
+  });
+  // Seats are account-wide; the same "project-teams" prefix invalidates them after changes.
+  const seats = useQuery({
+    queryKey: ["project-teams", user?.id, "seats"],
+    queryFn: () => readTeamSeatsFn({ data: {} }),
     enabled: !!user,
     staleTime: 0,
     gcTime: 0,
@@ -219,8 +273,15 @@ function OwnerTeam({ projectId }: { projectId: string }) {
       toast.success(t("collaboration.saved"));
       void client.invalidateQueries({ queryKey: ["project-teams", user?.id] });
     },
-    onError: () => {
-      toast.error(t("collaboration.error"));
+    onError: (error) => {
+      toast.error(
+        isTeamSeatLimit(error) && seats.data
+          ? t("collaboration.seatLimit", {
+              workingSeats: seats.data.workingSeats,
+              viewerSeats: seats.data.viewerSeats,
+            })
+          : t("collaboration.error"),
+      );
       void client.invalidateQueries({ queryKey: ["project-teams", user?.id] });
     },
   });
@@ -258,6 +319,17 @@ function OwnerTeam({ projectId }: { projectId: string }) {
           <RolePicker value={role} onChange={setRole} disabled={mutation.isPending} />
         </div>
         <p className="text-sm text-muted-foreground">{t("collaboration.inviteHelp")}</p>
+        {seats.data && (
+          <p className="text-sm text-muted-foreground">
+            {t("collaboration.seats", {
+              plan: PLAN_META[seats.data.planId as PlanId]?.name ?? seats.data.planId,
+              workingSeats: seats.data.workingSeats,
+              viewerSeats: seats.data.viewerSeats,
+              usedWorkingSeats: seats.data.usedWorkingSeats,
+              usedViewerSeats: seats.data.usedViewerSeats,
+            })}
+          </p>
+        )}
         <Button disabled={mutation.isPending} type="submit">
           {t("collaboration.invite")}
         </Button>
@@ -379,10 +451,16 @@ function MemberRow({
     </article>
   );
 }
-function SharedProject({ target }: { target: { ownerId: string; projectId: string } }) {
+function SharedProject({
+  target,
+  initialAssetId,
+}: {
+  target: { ownerId: string; projectId: string };
+  initialAssetId?: string;
+}) {
   const t = useT();
   const { user } = useAuth();
-  const [assetId, setAssetId] = useState<string | undefined>();
+  const [assetId, setAssetId] = useState<string | undefined>(initialAssetId);
   const [offset, setOffset] = useState(0);
   const query = useQuery({
     queryKey: [

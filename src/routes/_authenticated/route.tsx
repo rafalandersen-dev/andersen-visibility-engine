@@ -25,7 +25,15 @@ const CONNECT_PATH = "/app/connect";
 const SETUP_PATH = "/app/setup";
 // Routes that must render for any authenticated user regardless of how far
 // through onboarding they are (consent page, project setup itself).
-const ONBOARDING_EXEMPT_PATHS = [ONBOARDING_PATH, CONNECT_PATH, SETUP_PATH, "/app/collaborators"];
+const ONBOARDING_EXEMPT_PATHS = [
+  ONBOARDING_PATH,
+  CONNECT_PATH,
+  SETUP_PATH,
+  "/app/collaborators",
+  "/app/conversations",
+  "/app",
+  "/app/",
+];
 
 function AuthenticatedLayout() {
   const { loading, session, isOwner, roleLoaded } = useAuth();
@@ -34,12 +42,17 @@ function AuthenticatedLayout() {
   const visualQa = import.meta.env.DEV && import.meta.env.VITE_MILO_VISUAL_QA === "true";
   const navigate = useNavigate();
   const [hydrating, setHydrating] = useState(true);
+  const [retry, setRetry] = useState(0);
   const location = useRouterState({ select: (s) => s.location });
   const pathname = location.pathname;
+  const isWorkspacePath = pathname === "/app" || pathname.startsWith("/app/");
   const searchStr = location.searchStr;
   const projects = useStore((s) => s.projects);
   const activeProjectId = useStore((s) => s.activeProjectId);
   const hydrationFailed = useStore((s) => s.hydrationFailed);
+  const workspaceUserId = useStore((s) => s.userId);
+  const hydrated = useStore((s) => s.hydrated);
+  const userId = session?.user.id;
   const t = useT();
 
   useEffect(() => {
@@ -51,33 +64,49 @@ function AuthenticatedLayout() {
       return;
     }
     if (loading) return;
-    if (!session) {
+    if (!userId) {
       resetStore();
-      // Preserve where the user was headed so login can return them there
-      // (e.g. the /app/connect consent page for the Claude OAuth flow).
-      const redirect = `${pathname}${searchStr}`;
-      navigate({ to: "/auth", search: { redirect } as never, replace: true });
       return;
     }
     let cancelled = false;
     setHydrating(true);
-    hydrateForUser(session.user.id).finally(() => {
+    hydrateForUser(userId).finally(() => {
       if (!cancelled) setHydrating(false);
     });
     return () => {
       cancelled = true;
     };
-  }, [loading, session, navigate, pathname, searchStr, visualQa]);
+  }, [loading, userId, visualQa, retry]);
+
+  useEffect(() => {
+    if (visualQa || loading || userId || !isWorkspacePath) return;
+    // Preserve the exact client/result destination through sign-in.
+    void navigate({
+      to: "/auth",
+      search: { redirect: `${pathname}${searchStr}` } as never,
+      replace: true,
+    });
+  }, [loading, userId, navigate, pathname, searchStr, visualQa, isWorkspacePath]);
 
   // Onboarding redirect — only after hydration AND once the owner-role lookup
   // has resolved (otherwise a stale isOwner === false races the async role
   // load and yanks owners into onboarding), for non-owner users, off the
   // onboarding route itself.
   useEffect(() => {
-    if (visualQa) return;
+    if (visualQa || !isWorkspacePath) return;
     // A FAILED hydrate must never read as "no projects" (2026-07-25 outage:
     // the empty fallback sent a 5-project owner into the onboarding wizard).
-    if (loading || !session || hydrating || hydrationFailed || !roleLoaded || isOwner) return;
+    if (
+      loading ||
+      !userId ||
+      workspaceUserId !== userId ||
+      !hydrated ||
+      hydrating ||
+      hydrationFailed ||
+      !roleLoaded ||
+      isOwner
+    )
+      return;
     // The consent page must render for any authenticated user regardless of
     // onboarding state, so it is exempt from the onboarding guard.
     if (ONBOARDING_EXEMPT_PATHS.includes(pathname)) return;
@@ -88,7 +117,9 @@ function AuthenticatedLayout() {
     }
   }, [
     loading,
-    session,
+    userId,
+    workspaceUserId,
+    hydrated,
     hydrating,
     hydrationFailed,
     roleLoaded,
@@ -98,12 +129,23 @@ function AuthenticatedLayout() {
     activeProjectId,
     navigate,
     visualQa,
+    isWorkspacePath,
   ]);
 
-  if (visualQa ? hydrating : loading || !session || hydrating) {
+  if (
+    visualQa
+      ? hydrating
+      : loading ||
+        !userId ||
+        workspaceUserId !== userId ||
+        hydrating ||
+        (!hydrated && !hydrationFailed)
+  ) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="text-sm text-muted-foreground">Loading workspace…</div>
+        <div role="status" className="text-sm text-muted-foreground">
+          {t("common.loading")}
+        </div>
       </div>
     );
   }
@@ -114,13 +156,7 @@ function AuthenticatedLayout() {
         <div className="max-w-sm space-y-4 text-center" role="alert">
           <div className="font-display text-lg text-foreground">{t("shell.loadError.title")}</div>
           <p className="text-sm text-muted-foreground">{t("shell.loadError.body")}</p>
-          <Button
-            onClick={() => {
-              if (!session) return;
-              setHydrating(true);
-              hydrateForUser(session.user.id).finally(() => setHydrating(false));
-            }}
-          >
+          <Button onClick={() => setRetry((value) => value + 1)}>
             {t("shell.loadError.retry")}
           </Button>
         </div>
@@ -128,5 +164,9 @@ function AuthenticatedLayout() {
     );
   }
 
-  return <Outlet />;
+  // Chat owns its actor/client/conversation keys. Updating a saved conversation
+  // bookmark must preserve the live request and composer; other pages retain
+  // their existing search-driven reset (editor/result deep links depend on it).
+  const pageKey = pathname === "/app" || pathname === "/app/" ? "milo" : `${pathname}:${searchStr}`;
+  return <Outlet key={`${userId}:${pageKey}`} />;
 }

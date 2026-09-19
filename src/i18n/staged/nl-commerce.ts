@@ -1,0 +1,238 @@
+/** Dutch authoring only; excluded from runtime. */
+export const nlCommerce: Readonly<Record<string, string>> = {
+  "billing.stripeTest.title": "Stripe-betalingstest",
+  "billing.stripeTest.description":
+    "Testcheckout alleen voor de eigenaar. Gebruik Stripe-testbetaalgegevens. Er wordt geen echt bedrag afgeschreven en je Milo-abonnement verandert niet.",
+  "billing.stripeTest.open": "Testcheckout openen",
+  "billing.stripeTest.opening": "Openen…",
+  "billing.stripeTest.error":
+    "De testcheckout kon niet worden bevestigd. Probeer het hier opnieuw om dezelfde poging te hergebruiken.",
+  "billing.title": "Facturering en abonnement",
+  "billing.subtitle": "Beheer je abonnement, factureringsprofiel en uitbreidingen.",
+  "billing.owner.title": "Eigenaarsaccount",
+  "billing.owner.desc":
+    "Je hebt onbeperkte projecten en geen facturering. Voor dit account gelden geen abonnementsgrenzen.",
+  "billing.currentPlan": "Huidig abonnement",
+  "billing.status": "Status",
+  "billing.billingMarket": "Factureringsmarkt",
+  "billing.currency": "Valuta",
+  "billing.price": "Prijs",
+  "billing.perMonth": "/maand",
+  "billing.limits": "Abonnementsgrenzen",
+  "billing.profile": "Factureringsprofiel",
+  "billing.customerType": "Klanttype",
+  "billing.business": "Bedrijf",
+  "billing.consumer": "Consument",
+  "billing.billingName": "Naam voor facturering",
+  "billing.businessName": "Bedrijfsnaam",
+  "billing.billingEmail": "E-mailadres voor facturering",
+  "billing.billingCountry": "Factureringsland",
+  "billing.vatId": "Btw- / belastingnummer",
+  "billing.derivedMarket": "Afgeleide factureringsmarkt",
+  "billing.saveProfile": "Factureringsprofiel opslaan",
+  "billing.profileSaved": "Factureringsprofiel opgeslagen",
+  "billing.selectCountryFirst": "Selecteer je factureringsland om lokale prijzen te zien.",
+  "billing.choosePlan": "Kies een abonnement",
+  "billing.recommended": "Aanbevolen",
+  "billing.choose": "Kiezen",
+  "billing.currentLabel": "Huidig abonnement",
+  "billing.upgrade": "Upgraden",
+  "billing.addons": "Uitbreidingen",
+  "billing.assistedSetup": "Begeleide installatie",
+  "billing.monthlyCare": "Maandelijkse begeleiding",
+  "billing.oneTime": "eenmalig",
+  "billing.checkoutNotConfigured":
+    "Checkout is nog niet geconfigureerd. Neem contact op met de ondersteuning om dit abonnement te activeren.",
+  "billing.contactSupport": "Contact opnemen met ondersteuning",
+  "billing.checkoutPendingMsg":
+    "Checkout gestart. Je abonnement wordt actief zodra de betaling is bevestigd.",
+  "billing.rulesNote":
+    "Je factureringsmarkt is gebaseerd op je bedrijfs- of factureringsland. De taal van de website of de openbare regio wijzigen heeft geen invloed op welke prijzen voor jou gelden.",
+  "billing.taxNote":
+    "Milo ondersteunt zowel zakelijke klanten als consumenten. Belasting- en factuurgegevens kunnen per land verschillen en vereisen mogelijk beoordeling vóór de openbare lancering.",
+  "billing.paddleNote":
+    "Configuratie en verificatie van live betalingen zijn onvolledig. Neem contact op met de ondersteuning voordat je een betaald abonnement kiest.",
+  "billing.noGuarantee":
+    "Posities in zoekresultaten, verkeer, omzet en bronverwijzingen in AI-antwoorden worden niet gegarandeerd.",
+  "billing.marketReview":
+    "Het factureringsland wijzigen kan de prijzen beïnvloeden en vereist beoordeling.",
+  "billing.manual.title": "Handmatige activering (alleen eigenaar)",
+  "billing.manual.desc":
+    "Activeer handmatig een abonnement voor per factuur betaalde, bèta- of gratis verstrekte accounts. Niet zichtbaar voor gewone gebruikers.",
+  "billing.manual.beta": "Activeren als Handmatige bèta",
+  "billing.manual.comped": "Activeren als Handmatig gratis verstrekt",
+  "billing.manual.reset": "Terugzetten naar Gratis voorbeeld",
+  "billing.statusLabel.freePreview": "Gratis voorbeeld",
+  "billing.statusLabel.checkoutPending": "Checkout in afwachting",
+  "billing.statusLabel.active": "Actief",
+  "billing.statusLabel.pastDue": "Betaling achterstallig",
+  "billing.statusLabel.cancelled": "Opgezegd",
+  "billing.statusLabel.manualBeta": "Handmatige bèta",
+  "billing.statusLabel.manualComped": "Handmatig gratis verstrekt",
+  "launch.title": "Bètalanceringschecklist",
+  "launch.subtitle":
+    "Volg de gereedheid van configuratie, content, publicatie, meting, autoriteit en facturering voor dit project.",
+  "launch.noProject": "Maak een project aan om je lanceringschecklist te zien.",
+  "launch.betaNotesCta": "Bètanotities",
+  "launch.readiness": "Lanceringsgereedheid",
+  "launch.essentialsDone": "essentiële onderdelen voltooid",
+  "launch.optionalDone": "Ook {n} optionele onderdelen voltooid",
+  "launch.optional": "Optioneel",
+  "launch.statusTitle": "Configuratie- en verbindingsstatus",
+  "launch.section.foundation": "Projectbasis",
+  "launch.section.content": "Contentsysteem",
+  "launch.section.publishing": "Publicatie",
+  "launch.section.measurement": "Meting",
+  "launch.section.authority": "Autoriteit",
+  "launch.section.billing": "Facturering en bèta",
+  "launch.item.businessProfile": "Bedrijfsprofiel voltooid",
+  "launch.item.businessProfile.desc":
+    "Bedrijfsnaam en beschrijving zijn ingesteld zodat Milo context heeft.",
+  "launch.item.websiteUrl": "Website-URL toegevoegd",
+  "launch.item.websiteUrl.desc": "Gebruikt voor audits, analysekoppeling en publicatie.",
+  "launch.item.marketLanguage": "Markt en taal geselecteerd",
+  "launch.item.marketLanguage.desc": "Bepaalt contenttaal en lokale positionering.",
+  "launch.item.services": "Diensten of producten toegevoegd",
+  "launch.item.services.desc": "Vertel Milo wat dit bedrijf daadwerkelijk verkoopt.",
+  "launch.item.brandIntelligence": "Brand Intelligence gestart",
+  "launch.item.brandIntelligence.desc":
+    "Merkstem, claims en aanbod houden content passend bij het merk en veilig.",
+  "launch.item.opportunity": "Minstens één kans gegenereerd",
+  "launch.item.opportunity.desc":
+    "Gestructureerde ideeën voor zichtbaarheid, gebaseerd op het bedrijf.",
+  "launch.item.contentAsset": "Minstens één contentitem gegenereerd",
+  "launch.item.contentAsset.desc": "Een briefing of concept gemaakt vanuit een kans.",
+  "launch.item.miloScore": "Minstens één Milo Score uitgevoerd",
+  "launch.item.miloScore.desc": "Evalueer een concept vóór publicatie.",
+  "launch.item.reviewed": "Een concept beoordeeld of verbeterd",
+  "launch.item.reviewed.desc": "Zet een concept ter beoordeling, keur het goed of verbeter het.",
+  "launch.item.connectorSelected": "Koppeling geselecteerd",
+  "launch.item.connectorSelected.desc":
+    "Kies Aangepast, WordPress of Shopify in Projectinstellingen.",
+  "launch.item.connectorConfigured": "Koppeling geconfigureerd",
+  "launch.item.connectorConfigured.desc":
+    "Inloggegevens of eindpunten zijn aanwezig om te publiceren.",
+  "launch.item.connectorTested": "Verbinding getest (WordPress/Shopify)",
+  "launch.item.connectorTested.desc":
+    "Voer Verbinding testen uit om toegang te controleren. Een geslaagde test verifieert geen publicatierechten en garandeert geen latere publicatie.",
+  "launch.item.draftSent": "Minstens één concept verstuurd",
+  "launch.item.draftSent.desc":
+    "Stuur goedgekeurde content als concept naar de gekoppelde website.",
+  "launch.item.publishedLive": "Minstens één pagina live gepubliceerd",
+  "launch.item.publishedLive.desc": "Publiceer een beoordeeld concept live vanuit Milo.",
+  "launch.item.analyticsSnippet": "Analysefragment beschikbaar",
+  "launch.item.analyticsSnippet.desc":
+    "Kopieer het Milo-fragment uit Analyses en voeg het toe aan je website.",
+  "launch.item.analyticsEvents": "Analysegebeurtenissen ontvangen",
+  "launch.item.analyticsEvents.desc":
+    "Bezoek je website nadat je het fragment hebt geïnstalleerd om de tracking te bevestigen.",
+  "launch.item.gscImport": "GSC Lite-import toegevoegd",
+  "launch.item.gscImport.desc":
+    "Importeer een Search Console-CSV om vertoningen en klikken te koppelen.",
+  "launch.item.publishedByMilo": "Gegevens over publicaties door Milo beschikbaar",
+  "launch.item.publishedByMilo.desc": "Live Milo-pagina's gekoppeld aan Search Console-prestaties.",
+  "launch.item.authorityGenerated": "Autoriteitskansen gegenereerd",
+  "launch.item.authorityGenerated.desc":
+    "Veilige autoriteitstaken zoals bedrijvengidsen en partnerlinks.",
+  "launch.item.authorityProgress": "Een autoriteitsitem gepland of live",
+  "launch.item.authorityProgress.desc":
+    "Zet een autoriteitstaak op gepland, contact opgenomen of live.",
+  "launch.item.billingProfile": "Factureringsprofiel voltooid",
+  "launch.item.billingProfile.desc": "Het factureringsland bepaalt je prijsmarkt.",
+  "launch.item.planSelected": "Abonnement geselecteerd (of Gratis voorbeeld)",
+  "launch.item.planSelected.desc": "Gratis voorbeeld is standaard actief — geen betaling nodig.",
+  "launch.item.betaStatus": "Bèta- / gratis verstrekt- / wachtstatus zichtbaar",
+  "launch.item.betaStatus.desc":
+    "Handmatige bèta, gratis verstrekt of checkout in afwachting wordt getoond in Facturering.",
+  "launch.item.paddlePending": "Verificatie van live betalingen in afwachting",
+  "launch.item.paddlePending.desc":
+    "Stripe is de gekozen vervanger voor Paddle. Sandboxconfiguratie en controles van de echte betalingscyclus staan nog open.",
+  "launch.conn.website": "Website",
+  "launch.conn.website.ok": "Website-URL is ingesteld.",
+  "launch.conn.website.none": "Voeg je website-URL toe in Projectinstellingen.",
+  "launch.conn.brand": "Brand Intelligence",
+  "launch.conn.brand.ok": "Merkcontext gestart.",
+  "launch.conn.brand.none": "Nog niet gestart.",
+  "launch.conn.connector": "Publicatiekoppeling",
+  "launch.conn.connector.none": "Geen koppeling geselecteerd.",
+  "launch.conn.connector.partial": "Geselecteerd, maar configuratie onvolledig.",
+  "launch.conn.connector.customOk": "Aangepaste eindpunten geconfigureerd.",
+  "launch.conn.connector.wpOk": "WordPress verbonden en getest.",
+  "launch.conn.connector.wpUntested": "WordPress geconfigureerd — test de verbinding.",
+  "launch.conn.connector.shopifyOk": "Shopify verbonden en getest.",
+  "launch.conn.connector.shopifyUntested": "Shopify geconfigureerd — test de verbinding.",
+  "launch.conn.analytics": "Analyses",
+  "launch.conn.analytics.ok": "Gebeurtenissen ontvangen.",
+  "launch.conn.analytics.pending": "Installeer het fragment en bezoek je website.",
+  "launch.conn.gsc": "GSC Lite",
+  "launch.conn.gsc.ok": "CSV geïmporteerd.",
+  "launch.conn.gsc.csvOnly":
+    "Door eigenaar aangeleverde CSV bewaard; dit stelt geen OAuth-verbindingsstatus vast.",
+  "launch.conn.gsc.synced":
+    "Opgeslagen import geeft een API-bron op; de huidige verbinding en herkomst zijn niet onafhankelijk geverifieerd.",
+  "launch.conn.gsc.connectedNotSynced": "Verbonden — voer een synchronisatie uit.",
+  "launch.conn.gsc.reconnect": "Verbinding moet opnieuw worden gemaakt.",
+  "launch.conn.gsc.none": "Nog geen import.",
+  "launch.conn.authority": "Autoriteit",
+  "launch.conn.authority.ok": "Kansen gegenereerd.",
+  "launch.conn.authority.none": "Nog geen kansen gegenereerd.",
+  "launch.conn.billing": "Facturering",
+  "launch.conn.billing.ok": "Factureringsprofiel ingesteld.",
+  "launch.conn.billing.pending": "Voeg een factureringsland toe voor correcte prijzen.",
+  "launch.qa.title": "Kwaliteitscontrole door eigenaar",
+  "launch.qa.ownerOnly": "Alleen eigenaar",
+  "launch.qa.projectId": "Project-ID",
+  "launch.qa.plan": "Abonnement",
+  "launch.qa.subStatus": "Abonnementsstatus",
+  "launch.qa.connector": "Koppeling",
+  "launch.qa.sent": "Verstuurde concepten",
+  "launch.qa.live": "Live gepubliceerd",
+  "launch.qa.analyticsEvents": "Analysegebeurtenissen (30d)",
+  "launch.qa.gscImports": "GSC-imports",
+  "launch.qa.gscOAuth": "GSC OAuth geconfigureerd",
+  "launch.qa.gscConnected": "GSC-verbinding",
+  "launch.qa.gscSite": "Geselecteerde GSC-website",
+  "launch.qa.gscSyncRows": "Rijen van laatste GSC-synchronisatie",
+  "launch.qa.gscSyncDate": "Datum van laatste GSC-synchronisatie",
+  "launch.qa.authorityCount": "Autoriteitsitems",
+  "launch.qa.contentCount": "Contentitems",
+  "launch.qa.aiCandidate": "AI-kandidaat geconfigureerd",
+  "launch.qa.paddle": "Oude Paddle-integratie geconfigureerd",
+  "launch.qa.yes": "Ja",
+  "launch.qa.no": "Nee",
+  "beta.title": "Bètanotities",
+  "beta.subtitle":
+    "Huidige beperkingen en wat moet worden bevestigd vóór een bredere zelfbedieningslancering.",
+  "beta.intro":
+    "Deze notities volgen resterende configuratie- en acceptatiewerkzaamheden. Een begeleide demo moet geverifieerde processen gebruiken; alleen een voltooide checklist bewijst geen gereedheid voor een betaalde zelfbedieningslancering.",
+  "beta.limitsTitle": "Huidige bètabeperkingen",
+  "beta.reassure":
+    "Kies demoprocessen op basis van geverifieerde onderbouwing. Houd ongeteste integraties en voorwaarden voor de betaalde lancering zichtbaar.",
+  "beta.demoSafeTitle": "Notities voor verantwoorde demo's",
+  "beta.backToChecklist": "Terug naar checklist",
+  "beta.openDemoScript": "Demoscript openen",
+  "beta.limit.paddle":
+    "Live betalingen zijn niet gereed voor een algemene betaalde lancering. Stripe-sandboxconfiguratie en controles van de echte betalingscyclus staan nog open.",
+  "beta.limit.wordpress":
+    "De WordPress-koppeling is gebouwd, maar vereist nog live tests met een echte website.",
+  "beta.limit.shopify":
+    "De Shopify-koppeling is gebouwd, maar vereist nog live tests met een echte winkel.",
+  "beta.limit.aiCandidate":
+    "Het alternatieve AI-model (evaluatiekandidaat) vereist omgevingsconfiguratie voordat het kan draaien.",
+  "beta.limit.legal":
+    "Juridische pagina's zijn concepten voor bètavoorbereiding en moeten vóór een bredere betaalde lancering worden beoordeeld.",
+  "beta.limit.analytics":
+    "Analyses vereist dat het Milo-fragment op de klantwebsite is geïnstalleerd om gebeurtenissen te ontvangen.",
+  "beta.limit.gsc":
+    "GSC Lite ondersteunt handmatige CSV-import en optionele OAuth/API-synchronisatie waar Google OAuth is geconfigureerd. Handmatige import blijft beschikbaar als alternatief.",
+  "beta.limit.images":
+    "Publicatie kan beoordeelde afbeeldingsreferenties bevatten. Afbeeldingsoverdracht, uitgelichte afbeeldingen en de uiteindelijke opmaak vereisen nog controles op een echte website voor elke koppeling.",
+  "beta.demo.rankings":
+    "Beloof geen posities, verkeer of gegarandeerde bronverwijzingen in AI-antwoorden — Milo werkt met AI-ondersteuning en menselijke beoordeling.",
+  "beta.demo.payments":
+    "Leg uit dat Stripe de gekozen betaalprovider is en dat configuratie en verificatie van de betalingscyclus nog onvolledig zijn. Presenteer betalingen niet als live.",
+  "beta.demo.connectors":
+    "Zeg dat WordPress- en Shopify-koppelingen per website live tests van het volledige proces vereisen.",
+  "beta.demo.data":
+    "Zeg dat onderbouwing uit Analyses en GSC afhangt van de beschikbaarheid van gegevens voor het demoproject.",
+};

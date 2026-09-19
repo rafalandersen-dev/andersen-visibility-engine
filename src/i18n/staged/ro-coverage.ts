@@ -1,0 +1,55 @@
+/** Romanian authoring only; not registered in the runtime or language picker. */
+export const roCoverage: Readonly<Record<string, string>> = {
+  "coverage.hasRecord": "Există o înregistrare verificată",
+  "coverage.noRecord": "Adăugați înregistrarea lipsă",
+  "coverage.title": "Acoperire locală și internațională",
+  "coverage.help":
+    "Verificați identitatea afacerii, locațiile serviciilor și paginile internaționale folosind dovezile salvate ale proiectului. Aceasta nu rulează o scanare și nu conectează Profilul de companie Google.",
+  "coverage.setup": "Editați țintele proiectului",
+  "coverage.plan": "Deschideți planul de conținut",
+  "coverage.history": "Surse, conflicte și istoricul versiunilor",
+  "coverage.proof": "Dovezi de publicare și instantanee",
+  "coverage.targets": "Locațiile salvate ale proiectului",
+  "coverage.missing": "Dovezi lipsă",
+  "coverage.failed":
+    "Încărcarea sau salvarea nu a reușit. Reîmprospătați înregistrările înainte de a continua; verificați dacă salvarea a fost păstrată.",
+  "coverage.empty":
+    "Nu există încă înregistrări structurate de acoperire. Adăugați mai jos o locație sau o piață.",
+  "coverage.reviewed": "Verificat de proprietar · raportat de sursă",
+  "coverage.unavailable": "Neutilizabil: verificarea, expirarea sau starea sursei necesită atenție",
+  "coverage.conflict": "Înregistrări în conflict · rezolvați în cunoștințele proiectului",
+  "coverage.invalid": "Înregistrare neacceptată · verificați în cunoștințele proiectului",
+  "coverage.unverified":
+    "URL-urile și detaliile afacerii sunt afirmații furnizate. Listările, autenticitatea recenziilor, consecvența NAP, prezența paginilor, hreflang și clasamentele nu sunt verificate.",
+  "coverage.edit": "Verificați această versiune salvată",
+  "coverage.add": "Adăugați dovezi de acoperire",
+  "coverage.kind": "Tip de acoperire",
+  "coverage.local": "Locație / serviciu local",
+  "coverage.global": "Piață / limbă internațională",
+  "coverage.urlHelp":
+    "URL-uri opționale: doar HTTPS public, fără șiruri de interogare sau fragmente. Lăsați goale câmpurile necunoscute. Păstrați întreaga intrare sub 2 000 de caractere.",
+  "coverage.source": "Sursa dovezilor",
+  "coverage.owner": "Declarație furnizată de proprietar",
+  "coverage.locator": "Locația sursei / data observației (obligatoriu)",
+  "coverage.reviewHelp":
+    "Salvarea unei declarații a proprietarului confirmă verificarea dvs. Intrările din surse existente pornesc ca propuneri: verificați versiunea salvată pentru a o accepta. Reviziile sursei, expirarea și revocarea rămân decisive.",
+  "coverage.propose": "Salvați propunerea din sursă",
+  "coverage.save": "Salvați dovezile verificate",
+  "coverage.publications": "Asocierea publicărilor salvate",
+  "coverage.publicationHelp":
+    "Doar potriviri exacte ale URL-ului paginii, din pagina de confirmare afișată. O confirmare a conectorului nu verifică acoperirea în producție, limba conținutului sau performanța locală. Deschideți rapoartele pentru instantaneul imuabil și observații.",
+  "coverage.matches": "Ținte verificate cu acest URL exact",
+  "coverage.noMatch": "Nicio potrivire exactă",
+  "coverage.field.target": "Locație / piață (obligatoriu)",
+  "coverage.field.name": "Numele afacerii",
+  "coverage.field.address": "Adresa publică a afacerii / zona deservită",
+  "coverage.field.phone": "Telefonul public al afacerii",
+  "coverage.field.service": "Serviciu",
+  "coverage.field.language": "Limba țintă a conținutului",
+  "coverage.field.pageUrl": "URL-ul paginii de locație / serviciu / piață",
+  "coverage.field.alternateUrl": "URL-ul corespunzător în limba alternativă",
+  "coverage.field.citationUrl": "URL-ul dovezii din director / citare",
+  "coverage.field.reviewUrl": "URL-ul dovezii de recenzie",
+  "coverage.field.gbpUrl": "URL-ul dovezii din Profilul de companie Google",
+  "coverage.field.notes": "Note despre dovezi / lacune / pasul următor",
+};

@@ -91,6 +91,7 @@ describe("exact output knowledge publication", () => {
     "other-owner",
     "other-project",
     "wrong-medium",
+    "edited-after-review",
   ])("holds %s", (reason) => {
     const s = state();
     if (reason === "revoked") s.sources[0].status = "revoked";
@@ -105,7 +106,10 @@ describe("exact output knowledge publication", () => {
     if (reason === "other-owner") s.records[0].ownerId = "00000000-0000-4000-8000-000000000009";
     if (reason === "other-project") s.records[0].projectId = "other";
     if (reason === "wrong-medium") s.records[0].appliesTo = "visual";
+    if (reason === "edited-after-review") s.records[0].updatedAt = now;
     expect(evaluateAssetKnowledge(owner, asset, s, [], now)).toHaveLength(1);
+    if (reason === "edited-after-review")
+      expect(evaluateAssetKnowledge(owner, asset, s, [], now, undefined, true)).toHaveLength(1);
   });
   it("checks immutable article references despite omitted browser fields", () => {
     const registry = [

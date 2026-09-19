@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { manualRedirectFetch } from "./provider-fetch.server";
 import { normalizeShopDomain } from "./shopify-domain";
 import { observedFactSchema, type ObservedFact } from "./source-refresh";
 import type { KnowledgeScope, KnowledgeSource } from "./project-knowledge";
@@ -119,18 +120,20 @@ export async function fetchShopifyCatalog(
   const timer = setTimeout(() => controller.abort(), 8000);
   let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
   try {
-    const response = await request(`https://${host}/admin/api/2026-07/graphql.json`, {
-      method: "POST",
-      redirect: "error",
-      credentials: "omit",
-      signal: controller.signal,
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        "X-Shopify-Access-Token": token,
+    const response = await manualRedirectFetch(request)(
+      `https://${host}/admin/api/2026-07/graphql.json`,
+      {
+        method: "POST",
+        credentials: "omit",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "X-Shopify-Access-Token": token,
+        },
+        body: JSON.stringify({ query: SHOPIFY_CATALOG_QUERY }),
       },
-      body: JSON.stringify({ query: SHOPIFY_CATALOG_QUERY }),
-    });
+    );
     if (
       !response.ok ||
       !response.headers.get("content-type")?.includes("application/json") ||

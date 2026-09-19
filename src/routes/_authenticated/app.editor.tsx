@@ -130,7 +130,12 @@ import type {
   HookType,
   HookProposal,
 } from "@/lib/types";
-import { formatDateTime, formatDateTimeLocal } from "@/lib/format";
+import {
+  formatDateTime,
+  formatDateTimeLocal,
+  formatDateTimeLocalInput,
+  parseDateTimeLocalInput,
+} from "@/lib/format";
 // P0.3 — Preview and Export use the SAME canonical converter as publishing, so
 // what you see is what publishes (tables, links, bold, ordered lists included).
 // P0.4 — resolve internal links against the same inventory the publisher uses,
@@ -1011,14 +1016,16 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
   // bump updatedAt, so `f` can lag behind the real publish state.
   const editorStage = pipelineStage({ asset: live });
 
-  const goLiveInstant = goLiveLocal ? new Date(goLiveLocal) : null;
+  const goLiveInstant = parseDateTimeLocalInput(goLiveLocal);
   const goLiveValid = Boolean(goLiveInstant && !Number.isNaN(goLiveInstant.getTime()));
   // Local rendering: the label must echo the wall-clock time the user just
   // typed into the datetime-local input, not its UTC translation.
   const goLiveLabel = goLiveValid ? formatDateTimeLocal(goLiveInstant!.toISOString(), locale) : "…";
   // The runner ticks every five minutes, so a nearer slot would render a
   // minute-precise promise on a five-minute grid.
-  const minGoLiveLocal = new Date(Date.now() + SCHEDULE_TICK_MS).toISOString().slice(0, 16);
+  const minGoLiveLocal = formatDateTimeLocalInput(
+    new Date(Math.ceil((Date.now() + SCHEDULE_TICK_MS) / 60_000) * 60_000),
+  );
   const scheduleOverdue =
     live.scheduledPublishStatus === "pending" &&
     Boolean(live.scheduledPublishAt) &&
@@ -1534,9 +1541,7 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                   "text-xs " + (scheduleOverdue ? "text-amber-700" : "text-muted-foreground")
                 }
               >
-                {/* Overdue is not "still scheduled". A pending row well past its
-                    time means nothing fired, and saying "Scheduled" there is the
-                    exact lie this increment exists to remove. */}
+                {/* A stale pending mirror cannot establish the destination outcome. */}
                 {scheduleOverdue
                   ? t("editor.schedule.overdue", {
                       when: formatDateTimeLocal(live.scheduledPublishAt, locale),
@@ -1568,15 +1573,26 @@ function Editor({ asset, onRequestDelete }: { asset: ContentAsset; onRequestDele
                   className="h-8 w-56 text-xs"
                   value={goLiveLocal}
                   min={minGoLiveLocal}
+                  aria-invalid={Boolean(goLiveLocal && !goLiveValid)}
+                  aria-describedby={goLiveLocal && !goLiveValid ? `${goLiveId}-error` : undefined}
                   onChange={(e) => setGoLiveLocal(e.target.value)}
                 />
+                {goLiveLocal && !goLiveValid ? (
+                  <p
+                    id={`${goLiveId}-error`}
+                    className="mt-1 text-xs text-destructive"
+                    role="alert"
+                  >
+                    {t("weekly.invalidTime")}
+                  </p>
+                ) : null}
               </div>
               {/* Picking a date is inert. Only this press arms anything, and its
                   label states the consequence in the user's own timezone. */}
               <Button
                 size="sm"
                 onClick={armSchedule}
-                disabled={!goLiveLocal || scheduling || publishBlocked || isDirty}
+                disabled={!goLiveValid || scheduling || publishBlocked || isDirty}
               >
                 {scheduling ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />

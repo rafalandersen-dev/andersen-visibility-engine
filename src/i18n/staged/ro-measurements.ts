@@ -1,0 +1,253 @@
+/** Romanian authoring only; not registered in the runtime or language picker.
+ * `gsc.sourceApi`, `gsc.sourceCsv`, `gsc.rec.waitOrPromote` and `gsc.helper` follow
+ * the `gsc-integrity` override, which takes precedence in the English catalog. */
+export const roMeasurements: Readonly<Record<string, string>> = {
+  "report.branding.title": "Branding pentru raport (Agency)",
+  "report.branding.note":
+    "Numele și logoul agenției apar în PDF-ul tipărit și în e-mailul raportului — brandingul Milo trece în plan secund.",
+  "report.branding.name": "Numele agenției",
+  "report.branding.logoUrl": "URL-ul logoului",
+  "report.branding.save": "Salvați brandingul",
+  "report.branding.saved": "Brandingul a fost salvat",
+  "report.branding.saveFailed": "Brandingul nu a putut fi salvat",
+  "report.footer.agency":
+    "{agency}. Pe baza rezultatelor de publicare salvate. Acest raport nu reverifică dacă paginile sunt publicate în prezent.",
+  "report.title": "Raport lunar de dovezi",
+  "report.subtitle": "Ce a livrat Milo pentru dvs. luna aceasta — și ce urmează.",
+  "report.noProject": "Selectați un proiect pentru a-i vedea raportul lunar.",
+  "report.downloadPdf": "Descărcați PDF",
+  "report.emailMe": "Trimiteți-mi acest raport pe e-mail",
+  "report.toast.emailed":
+    "Raportul a fost acceptat pentru trimitere. Livrarea nu este încă confirmată.",
+  "report.toast.emailFailed": "E-mailul cu raportul nu a putut fi trimis",
+  "report.toast.notConfigured": "Trimiterea e-mailurilor nu este încă configurată",
+  "report.published.title": "Publicări înregistrate ({count})",
+  "report.published.note":
+    "Pe baza rezultatelor de publicare salvate. Acest raport nu reverifică dacă paginile sunt publicate în prezent.",
+  "report.published.empty": "Nu există publicări înregistrate pentru această lună.",
+  "report.stat.drafted": "Ciorne scrise",
+  "report.stat.scheduled": "Programate",
+  "report.stat.linksLive": "Linkuri de parteneri publicate ✓",
+  "report.stat.gscClicks": "Clicuri GSC",
+  "report.gsc.title": "Instantaneu din căutare",
+  "report.gsc.line": "{clicks} clicuri · {impressions} afișări · poziție medie {position}",
+  "report.gsc.importedAt": "Date importate {date}",
+  "report.gsc.empty":
+    "Conectați Google Search Console în Setări pentru a include metrici de căutare.",
+  "report.plan.title": "Planul lunii viitoare ({count})",
+  "report.plan.empty":
+    "Nimic planificat încă — deschideți pagina Planificare pentru a programa luna viitoare.",
+  "report.footer":
+    "Milo Growth. Pe baza rezultatelor de publicare salvate. Acest raport nu reverifică dacă paginile sunt publicate în prezent.",
+  "analytics.title": "Analiză",
+  "analytics.subtitle":
+    "Urmărirea proprie a creșterii site-ului — vizite anonime, pagini de top, performanța conținutului publicat și semnale legate de AI.",
+  "analytics.refresh": "Reîmprospătați",
+  "analytics.loading": "Se încarcă analiza…",
+  "analytics.errorTitle": "Analiza nu a putut fi încărcată",
+  "analytics.emptyTitle": "Nu există încă date de analiză",
+  "analytics.emptyDesc":
+    "Adăugați fragmentul de cod de urmărire pe site, iar Milo va începe să afișeze vizitele, paginile de top, performanța conținutului publicat și semnalele legate de AI.",
+  "analytics.stat.visits30": "Vizite (30 z)",
+  "analytics.stat.prev30": "Cele 30 z anterioare",
+  "analytics.stat.growth": "Creștere",
+  "analytics.stat.topPage": "Pagina de top",
+  "analytics.stat.aiSignals": "Semnale legate de AI",
+  "analytics.stat.ctaBooking": "CTA / rezervare",
+  "analytics.trend.label": "Ultimele 30 de zile",
+  "analytics.trend.heading": "Vizite zilnice",
+  "analytics.topPages.heading": "Pagini de top (30 z)",
+  "analytics.topPages.path": "Cale",
+  "analytics.topPages.views": "Afișări",
+  "analytics.topPages.source": "Sursa principală",
+  "analytics.topPages.aiSignals": "Semnale AI",
+  "analytics.published.heading": "Performanța conținutului publicat",
+  "analytics.published.content": "Conținut",
+  "analytics.published.cta": "CTA",
+  "analytics.published.booking": "Rezervare",
+  "analytics.published.livePage": "Pagina publicată",
+  "analytics.published.none":
+    "Niciun conținut publicat nu a fost asociat încă. Publicați conținut din editor, iar vizitele la URL-ul publicat vor apărea aici.",
+  "analytics.ai.heading": "Trafic trimis din AI",
+  "analytics.ai.copy":
+    "Vizite în care sursa de trimitere arată că vizitatorul a venit dintr-un instrument AI (de ex. ChatGPT, Perplexity) — acesta este trafic trimis din AI, nu mențiuni sau citări în AI. Este subestimat, deoarece multe instrumente AI ascund sursa de trimitere, și nu înseamnă că afacerea dvs. este menționată, citată sau clasată în acele instrumente. Rândurile de crawler/bot de mai jos sunt semnale de activitate separate, nu vizite.",
+  "analytics.ai.none": "Nu au fost detectate vizite trimise din AI în ultimele 30 de zile.",
+  "analytics.ai.referral": "Vizită trimisă din AI",
+  "analytics.ai.crawler": "Activitate de crawler AI",
+  "analytics.ai.searchBot": "Semnal de bot AI/de căutare",
+  "analytics.setup.label": "Configurare",
+  "analytics.setup.heading": "Fragment de cod de urmărire",
+  "analytics.setup.addOnce":
+    "Adăugați-l o singură dată în head/body pe site pentru a începe urmărirea vizitelor.",
+  "analytics.privacy":
+    "Milo Analytics folosește urmărirea anonimă a vizitelor și evenimentelor. Nu stochează nume, e-mailuri sau adrese IP complete.",
+  "analytics.setupFirst": "Configurați mai întâi un proiect",
+  "analytics.v2.growthProof": "Dovezi de creștere",
+  "analytics.v2.whatChanged": "Ce s-a schimbat",
+  "analytics.v2.nextAction": "Următoarea acțiune",
+  "analytics.v2.publishedByMilo": "Publicat de Milo",
+  "analytics.v2.publishedByMiloDesc":
+    "Cum performează conținutul publicat cu Milo de când a devenit public.",
+  "analytics.v2.publishedByMiloEmpty":
+    "Nu există încă pagini publicate de Milo. Publicați un element de conținut pentru a începe măsurarea performanței.",
+  "analytics.v2.topGrowing": "Paginile cu cea mai mare creștere",
+  "analytics.v2.needsAttention": "Necesită atenție",
+  "analytics.v2.needsAttentionEmpty": "Nimic nu necesită atenție acum.",
+  "analytics.v2.stat.conversion": "Rata de conversie",
+  "analytics.v2.stat.miloViews": "Afișări ale paginilor Milo",
+  "analytics.v2.stat.bestPage": "Cea mai bună pagină",
+  "analytics.v2.stat.published": "Pagini publicate",
+  "analytics.v2.col.published": "Publicat",
+  "analytics.v2.col.viewsSince": "Afișări de la publicare",
+  "analytics.v2.col.conversion": "Conversie",
+  "analytics.v2.col.score": "Milo Score",
+  "analytics.v2.col.recommendation": "Recomandare",
+  "analytics.v2.col.page": "Pagină",
+  "analytics.v2.col.growth": "Creștere",
+  "analytics.v2.col.clicks": "Clicuri",
+  "analytics.v2.notEvaluated": "Neevaluat",
+  "analytics.v2.daysAgo": "acum {days} z",
+  "analytics.rec.keepMonitoring": "Continuați monitorizarea",
+  "analytics.rec.improveCta": "Îmbunătățiți CTA",
+  "analytics.rec.addInternalLinks": "Adăugați linkuri interne",
+  "analytics.rec.createSupportingContent": "Creați conținut de suport",
+  "analytics.rec.sharePromote": "Distribuiți / promovați",
+  "analytics.rec.reviewQuality": "Verificați Milo Score",
+  "analytics.issue.noViews": "Încă nu există afișări",
+  "analytics.issue.noClicks": "Afișări, dar fără clicuri",
+  "analytics.issue.lowConversion": "Conversie scăzută",
+  "analytics.issue.lowQuality": "Milo Score scăzut",
+  "analytics.next.installSnippet":
+    "Instalați fragmentul Milo Analytics și vizitați site-ul pentru a testa urmărirea.",
+  "analytics.next.addInternalLinks":
+    "Adăugați linkuri interne către conținutul nou și distribuiți pagina din paginile principale de servicii.",
+  "analytics.next.improveCta": "Îmbunătățiți CTA și faceți pasul următor mai vizibil.",
+  "analytics.next.keepMonitoring":
+    "Conținutul dvs. atrage implicare. Continuați monitorizarea și luați în considerare crearea unui articol de suport.",
+  "analytics.next.aiClarity":
+    "Aveți semnale legate de AI. Continuați să îmbunătățiți răspunsurile clare, acoperirea întrebărilor frecvente și claritatea brandului/entității.",
+  "gsc.title": "Search Console Lite",
+  "gsc.subtitle":
+    "Importați un export CSV din Google Search Console pentru a asocia afișările și clicurile din căutare cu conținutul publicat prin Milo.",
+  "gsc.file": "Fișier CSV",
+  "gsc.label": "Etichetă / interval de date",
+  "gsc.labelPlaceholder": "de ex. mai 2026",
+  "gsc.import": "Importați",
+  "gsc.importing": "Se importă…",
+  "gsc.helper":
+    "Un tabel per CSV, cel mult 1 000 de rânduri și 2 MB. Folosiți zecimale fără separatori de mii; CTR folosește fracții 0–1 sau un sufix % explicit. Verificați proprietatea, datele și previzualizarea înainte de a salva.",
+  "gsc.privacy":
+    "Datele importate sunt stocate în spațiul de lucru Milo și folosite doar pentru a afișa performanța SEO în acest proiect.",
+  "gsc.empty":
+    "Nu există încă date Search Console. Conectați Google Search Console mai sus sau exportați un CSV și încărcați-l aici pentru a adăuga dovezi SEO.",
+  "gsc.sourceApi": "Sursă API declarată",
+  "gsc.sourceCsv": "CSV furnizat de proprietar",
+  "gsc.csvHeading": "Import CSV manual",
+  "gsc.csvFallbackNote":
+    "Importul CSV manual este mereu disponibil. Sincronizarea OAuth îi permite lui Milo să preia datele de performanță Search Console direct după ce conectați o proprietate verificată.",
+  "gsc.oauth.title": "Sincronizare Google Search Console",
+  "gsc.oauth.notConfigured":
+    "Sincronizarea Google Search Console nu este încă configurată. Puteți folosi în continuare importul CSV manual.",
+  "gsc.oauth.ownerSetup.title": "Configurare unică de către proprietar",
+  "gsc.oauth.ownerSetup.intro":
+    "Butonul de conectare apare pentru toți utilizatorii după ce aceste secrete de producție sunt setate în Lovable Cloud (Settings → Secrets):",
+  "gsc.oauth.ownerSetup.docs": "Ghid complet: docs/GSC-OAUTH-SETUP.md în repository.",
+  "gsc.oauth.consent":
+    "Milo solicită acces doar în citire la Search Console. Îl puteți deconecta oricând. Folosim aceste date pentru a afișa performanța în căutare și oportunitățile de conținut în spațiul de lucru Milo.",
+  "gsc.oauth.connect": "Conectați Google Search Console",
+  "gsc.oauth.disconnect": "Deconectați Google Search Console",
+  "gsc.oauth.reconnect": "Reconectați",
+  "gsc.oauth.account": "Cont",
+  "gsc.oauth.chooseProperty":
+    "Alegeți proprietatea Search Console care corespunde acestui proiect.",
+  "gsc.oauth.loadSites": "Încărcați site-urile",
+  "gsc.oauth.selectProperty": "Selectați proprietatea",
+  "gsc.oauth.selectedProperty": "Proprietate selectată",
+  "gsc.oauth.changeProperty": "Schimbați proprietatea",
+  "gsc.oauth.selected": "Proprietatea a fost selectată.",
+  "gsc.oauth.selectError": "Proprietatea nu a putut fi selectată. Încercați din nou.",
+  "gsc.oauth.sync28": "Sincronizați ultimele 28 de zile",
+  "gsc.oauth.sync90": "Sincronizați ultimele 90 de zile",
+  "gsc.oauth.lastSync": "Ultima sincronizare",
+  "gsc.oauth.rows": "rânduri",
+  "gsc.oauth.readOnlyNote":
+    "Acces doar în citire. Milo nu modifică niciodată setările Search Console și nu accesează alte servicii Google.",
+  "gsc.oauth.expired":
+    "Conexiunea Google a expirat. Reconectați-vă pentru a continua. Importul CSV manual rămâne disponibil.",
+  "gsc.oauth.errorState":
+    "A apărut o problemă cu conexiunea Google. Reconectați-vă pentru a continua. Importul CSV manual rămâne disponibil.",
+  "gsc.oauth.connectedToast": "Google Search Console a fost conectat.",
+  "gsc.oauth.deniedToast": "Conectarea Google a fost anulată.",
+  "gsc.oauth.errorToast": "Google Search Console nu a putut fi conectat.",
+  "gsc.oauth.syncToast": "Au fost sincronizate {rows} rânduri din Search Console.",
+  "gsc.oauth.syncError": "Datele Search Console nu au putut fi sincronizate. Încercați din nou.",
+  "gsc.oauth.sitesError":
+    "Proprietățile Search Console nu au putut fi încărcate. Încercați din nou.",
+  "gsc.oauth.noSites": "Nu au fost găsite proprietăți Search Console verificate în acest cont.",
+  "gsc.oauth.disconnected": "Google Search Console a fost deconectat.",
+  "gsc.oauth.status.connected": "Conectat",
+  "gsc.oauth.status.disconnected": "Deconectat",
+  "gsc.oauth.status.expired": "Expirat",
+  "gsc.oauth.status.error": "Eroare",
+  "gsc.oauth.status.notConfigured": "Neconfigurat",
+  "gsc.caution":
+    "Datele Search Console reflectă performanța în Google Search pentru intervalul de date importat. Nu garantează clasamente sau trafic în viitor.",
+  "gsc.stat.clicks": "Clicuri Google",
+  "gsc.stat.impressions": "Afișări Google",
+  "gsc.stat.ctr": "CTR mediu",
+  "gsc.stat.position": "Poziție medie",
+  "gsc.stat.topQuery": "Interogarea principală",
+  "gsc.stat.topPage": "Pagina de top",
+  "gsc.matched.heading": "Pagini publicate de Milo în Search Console",
+  "gsc.matched.queryOnly":
+    "Acest import conține doar date la nivel de interogare, astfel că Milo nu îl poate asocia cu anumite pagini publicate.",
+  "gsc.col.page": "Pagină",
+  "gsc.col.query": "Interogare",
+  "gsc.col.ctr": "CTR",
+  "gsc.col.position": "Poziție medie",
+  "gsc.col.onsite": "Pe site",
+  "gsc.col.recommendation": "Recomandare",
+  "gsc.topQueries": "Interogări de top",
+  "gsc.noQueries": "Nu există rânduri de interogări în acest import.",
+  "gsc.topPages": "Pagini de top",
+  "gsc.noPages": "Nu există rânduri de pagini în acest import.",
+  "gsc.history": "Istoricul importurilor",
+  "gsc.delete": "Ștergeți importul",
+  "gsc.toast.imported": "Au fost importate {rows} rânduri",
+  "gsc.toast.deleted": "Importul a fost șters",
+  "gsc.warn.truncated":
+    "Au fost importate 1000 de rânduri. Unele rânduri au fost omise pentru ca spațiul de lucru să rămână rapid.",
+  "gsc.warn.queryOnly":
+    "Acest import conține doar date la nivel de interogare, deci asocierea cu pagini nu este disponibilă.",
+  "gsc.error.noFile": "Selectați mai întâi un fișier CSV.",
+  "gsc.error.notCsv": "Alegeți un fișier .csv.",
+  "gsc.error.generic": "Acest CSV nu a putut fi importat. Încercați din nou.",
+  "gsc.rec.improveTitleMeta": "Îmbunătățiți titlul/meta",
+  "gsc.rec.improveCtr": "Îmbunătățiți CTR",
+  "gsc.rec.addSupportingContent": "Adăugați conținut de suport",
+  "gsc.rec.improveContentDepth": "Îmbunătățiți profunzimea conținutului",
+  "gsc.rec.keepMonitoring": "Continuați monitorizarea",
+  "gsc.rec.waitOrPromote": "Măsurare indisponibilă",
+  "gsc.integrity.property": "Proprietate Search Console declarată",
+  "gsc.integrity.start": "Data de început (inclusiv)",
+  "gsc.integrity.end": "Data de sfârșit (inclusiv)",
+  "gsc.integrity.preview": "Previzualizați CSV",
+  "gsc.integrity.save": "Salvați importul verificat",
+  "gsc.integrity.previewInfo":
+    "{rows} rânduri validate local. Primele cinci sunt afișate mai jos; nimic nu este salvat până nu confirmați.",
+  "gsc.integrity.capacity":
+    "Sunt deja păstrate cinci importuri. Eliminați explicit un import vechi înainte de a adăuga altul.",
+  "gsc.integrity.disclaimer":
+    "Sursa și proprietatea salvate sunt declarații, nu verificări independente. — înseamnă indisponibil, niciodată zero. Tabelele pot omite trafic. Aceste date sunt separate de luna raportului și de data publicării. Observațiile din căutare nu stabilesc cauzalitatea sau conversiile.",
+  "gsc.integrity.legacy":
+    "Import vechi: datele originale sunt păstrate. Baza numerică nu poate fi recuperată în mod fiabil; previzualizați un export nou pentru a folosi aceste metrici.",
+  "gsc.integrity.aggregate":
+    "Total agregat declarat pentru proprietatea API. Tabelele de interogări și de pagini sunt eșantioane separate ale rândurilor de top și nu se adună. Căutare web, date finalizate, zile calendaristice după ora Pacificului.",
+  "gsc.integrity.rows":
+    "Subtotal doar pentru acest tabel CSV. Nu este un total complet al proprietății; anonimizarea interogărilor, filtrele și rândurile omise pot afecta acoperirea.",
+  "gsc.integrity.unknown":
+    "Totalul agregat nu este disponibil. Rândurile suprapuse sau ambigue nu pot stabili un total.",
+  "gsc.integrity.separate": "Vedeți separat analiza de pe site",
+  "gsc.integrity.invalid":
+    "CSV-ul nu a putut fi validat. Folosiți un singur tabel Query, Page sau Date, cel mult 1 000 de rânduri / 2 MB, rânduri și coloane unice, valori numerice simple fără separatori de mii și celule goale pentru metricile indisponibile. Furnizați o proprietate și un interval de date valide. URL-urile paginilor trebuie să aparțină acelei proprietăți și să nu conțină credențiale, șiruri de interogare sau fragmente.",
+};

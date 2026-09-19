@@ -142,7 +142,7 @@ export const sv: Record<string, string> = {
   "setup.section.marketsGoals": "Marknader och mål",
   "autoSched.title": "Månatlig autoplanerare",
   "autoSched.hint":
-    "Runt den 25:e planerar Milo nästa månad: artiklar skrivs för dina valda veckodagar inom planens månadskvot, interna länkar löses mot dina riktiga sidor och varje artikel förbereds med en godkänd inledande hook.",
+    "När funktionen är aktiverad försöker Milo förbereda nästa månads artiklar för dina valda veckodagar inom den tillgängliga kvoten. Interna länkar kontrolleras mot tillgängliga siddata. Om giltiga inledningar eller andra publiceringskrav saknas kan utkast bli kvar för granskning.",
   "autoSched.enable": "Fyll nästa månads kalender automatiskt",
   "autoSched.weekdays": "Publiceringsdagar",
   "autoSched.publishTime": "Publiceringstid",
@@ -151,7 +151,7 @@ export const sv: Record<string, string> = {
   "autoSched.modeAuto": "Publicera automatiskt",
   "autoSched.modeApprove": "Vänta på mitt godkännande",
   "autoSched.modeHint":
-    "”Vänta på mitt godkännande” publicerar aldrig något: utkasten väntar som färdiga artiklar och du aktiverar dem från kalendern. ”Publicera automatiskt” schemalägger riktiga publiceringar i varje lucka.",
+    "”Vänta på mitt godkännande” förbereder utkast utan att schemalägga publicering. ”Publicera automatiskt” försöker schemalägga behöriga utkast när kontrollerna har godkänts; det garanterar inte att varje tid fylls eller att publiceringen lyckas.",
   "autoSched.summaryEmail": "Sammanfattningsmejl (valfritt)",
   "autoSched.day.1": "Mån",
   "autoSched.day.2": "Tis",
@@ -168,7 +168,7 @@ export const sv: Record<string, string> = {
   "arrange.modePreview": "Förhandsgranska",
   "arrange.modeArrange": "Arrangera",
   "arrange.hint":
-    "Dra ett bildkort till en släppzon för att placera det. Släpp lagrar ett semantiskt ankare (aldrig en position), så placeringen överlever redigeringar och publiceras exakt som den visas.",
+    "Dra ett bildkort till en släppzon för att placera bilden i förhållande till artikelinnehållet. Kontrollera placeringen igen efter ändringar: borttagna eller tvetydiga avsnitt kan göra bildens placering olöst. Utseendet efter publicering beror på målwebbplatsen och verifieras inte av denna förhandsvisning.",
   "arrange.featured": "Utvald bild",
   "arrange.featuredNone": "ingen — ange i Källor & författare",
   "arrange.hook": "Inledande hook",
@@ -244,7 +244,7 @@ export const sv: Record<string, string> = {
   "editor.schedule.blockedCta": "Öppna publiceringschecklistan",
   "shell.loadError.title": "Vi kunde inte ladda din arbetsyta",
   "shell.loadError.body":
-    "Din data är säker — anslutningen till Milos backend misslyckades. Kontrollera nätverket och försök igen.",
+    "Försök igen. Om du är offline, anslut till internet först. Det går inte att spara förrän arbetsytan har laddats.",
   "shell.loadError.retry": "Försök igen",
   "shell.nav.monthlyReport": "Månadsrapport",
   "report.branding.title": "Rapportens varumärke (Agency)",
@@ -254,18 +254,19 @@ export const sv: Record<string, string> = {
   "report.branding.save": "Spara varumärke",
   "report.branding.saved": "Varumärket sparat",
   "report.branding.saveFailed": "Kunde inte spara varumärket",
-  "report.footer.agency": "Framtagen av {agency}. Publicerat omfattar endast innehåll som verifierats live på webbplatsen.",
+  "report.footer.agency": "{agency}. Baserat på sparade publiceringsresultat. Rapporten kontrollerar inte på nytt om sidorna är live nu.",
   "report.title": "Månadens bevisrapport",
   "report.subtitle": "Vad Milo levererade den här månaden — och vad som händer härnäst.",
   "report.noProject": "Välj ett projekt för att se månadsrapporten.",
   "report.downloadPdf": "Ladda ner PDF",
   "report.emailMe": "Mejla mig rapporten",
-  "report.toast.emailed": "Rapporten har skickats till din e-post",
+  "report.toast.emailed":
+    "Rapporten har accepterats för utskick. Leveransen är ännu inte bekräftad.",
   "report.toast.emailFailed": "Kunde inte skicka rapporten",
   "report.toast.notConfigured": "E-postutskick är inte konfigurerat ännu",
-  "report.published.title": "Publicerat & live ({count})",
-  "report.published.note": "Endast innehåll som verifierats live på din webbplats räknas — inga tomma påståenden.",
-  "report.published.empty": "Inget gick live den här månaden.",
+  "report.published.title": "Registrerade publiceringar ({count})",
+  "report.published.note": "Baserat på sparade publiceringsresultat. Rapporten kontrollerar inte på nytt om sidorna är live nu.",
+  "report.published.empty": "Inga publiceringar registrerade för denna månad.",
   "report.stat.drafted": "Skrivna utkast",
   "report.stat.scheduled": "Schemalagda",
   "report.stat.linksLive": "Partnerlänkar Live ✓",
@@ -276,7 +277,7 @@ export const sv: Record<string, string> = {
   "report.gsc.empty": "Anslut Google Search Console i Inställningar för att inkludera sökdata.",
   "report.plan.title": "Nästa månads plan ({count})",
   "report.plan.empty": "Inget planerat ännu — öppna Plan för att schemalägga nästa månad.",
-  "report.footer": "Genererad av Milo Growth. Publicerat omfattar endast innehåll som verifierats live på din webbplats.",
+  "report.footer": "Milo Growth. Baserat på sparade publiceringsresultat. Rapporten kontrollerar inte på nytt om sidorna är live nu.",
   "shell.trust": "EU-förtroendecenter",
   "shell.nav.home": "Hem",
   "shell.nav.plan": "Plan",
@@ -893,7 +894,7 @@ export const sv: Record<string, string> = {
   // ---- Shopify connector ----
   "shopify.shopify": "Shopify",
   "shopify.intro":
-    "Anslut en Shopify-butik för att publicera Milo-innehåll som blogginlägg. Milo skickar först artiklar till en Shopify-blogg som opublicerade utkast och publicerar dem sedan live när du godkänner.",
+    "Anslut en Shopify-butik för att skicka Milo-innehåll till en blogg som opublicerade utkast. Godkännande och publicering är separata steg: ett godkännande publicerar inte artikeln.",
   "shopify.shopDomain": "Butiksdomän",
   "shopify.shopDomainHelp": "Din butiksdomän, t.ex. minbutik.myshopify.com.",
   "shopify.token": "Admin API-åtkomsttoken",
@@ -903,7 +904,7 @@ export const sv: Record<string, string> = {
   "shopify.security":
     "Din åtkomsttoken visas aldrig igen efter att den sparats och används endast på serversidan. Du kan byta ut den när som helst.",
   "shopify.minPerms":
-    "Ge endast innehållsbehörighet (läs/skriv bloggar och artiklar). Milo kommer aldrig åt order, kunder, produkter eller betalningsdata.",
+    "För bloggpublicering behövs läs- och skrivbehörighet för bloggar och artiklar. Valfri kataloguppdatering kräver även läsbehörighet för produkter. Dessa funktioner använder inte order-, kund- eller betalningsuppgifter.",
   "shopify.test": "Testa anslutning",
   "shopify.testing": "Testar…",
   "shopify.testOk": "Ansluten till Shopify.",
@@ -1125,7 +1126,7 @@ export const sv: Record<string, string> = {
     "Uppgifter eller slutpunkter finns på plats för publicering.",
   "launch.item.connectorTested": "Anslutning testad (WordPress/Shopify)",
   "launch.item.connectorTested.desc":
-    "Kör Testa anslutning så att publicering inte misslyckas senare.",
+    "Kör Testa anslutning för att kontrollera åtkomsten. Ett lyckat test verifierar inte publiceringsbehörigheter och garanterar inte en senare publicering.",
   "launch.item.draftSent": "Minst ett utkast skickat",
   "launch.item.draftSent.desc": "Skicka godkänt innehåll till webbplatsen som ett utkast.",
   "launch.item.publishedLive": "Minst en sida publicerad live",
@@ -1572,12 +1573,13 @@ export const sv: Record<string, string> = {
   "editor.schedule.arming": "Schemalägger…",
   "editor.schedule.cancel": "Avbryt publiceringen",
   "editor.schedule.cancelled": "Publiceringen avbröts. Utkastet är orört.",
-  "editor.schedule.armed": "Schemalagd. Den publiceras {when}.",
+  "editor.schedule.armed":
+    "Schemat sparades för {when}. Publiceringen beror fortfarande på kontroller och målwebbplatsens tillgänglighet.",
   "editor.schedule.inFlight":
     "Den publiceras just nu och kan inte längre stoppas — du kan avpublicera den från din sajt.",
   "editor.schedule.needsApproval": "Markera artikeln som klar innan du schemalägger den.",
   "editor.schedule.overdue":
-    "Den skulle ha publicerats {when} men gjorde det inte. Kontrollera dina anslutningsinställningar och schemalägg igen.",
+    "Den sparade tiden {when} har passerat. Publiceringen är inte bekräftad. Kontrollera målwebbplatsen och aktuell schemastatus innan du schemalägger eller publicerar igen.",
   "editor.schedule.hint":
     "Att godkänna publicerar aldrig. Ingenting går live förrän du schemalägger eller publicerar det.",
 

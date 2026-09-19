@@ -1,0 +1,238 @@
+/** Bulgarian authoring only; not registered in the runtime or language picker. */
+export const bgCommerce: Readonly<Record<string, string>> = {
+  "billing.stripeTest.title": "Тест на плащане със Stripe",
+  "billing.stripeTest.description":
+    "Тестово плащане само за собственика. Използвайте тестови платежни данни на Stripe. Не се начислява реална сума и планът ви в Milo не се променя.",
+  "billing.stripeTest.open": "Отвори тестовото плащане",
+  "billing.stripeTest.opening": "Отваряне…",
+  "billing.stripeTest.error":
+    "Тестовото плащане не бе потвърдено. Опитайте отново тук, за да използвате същия опит.",
+  "billing.title": "Таксуване и план",
+  "billing.subtitle": "Управлявайте плана, профила за таксуване и добавките си.",
+  "billing.owner.title": "Акаунт на собственика",
+  "billing.owner.desc":
+    "Имате неограничен брой проекти и не се таксувате. Ограниченията на плановете не се прилагат към този акаунт.",
+  "billing.currentPlan": "Текущ план",
+  "billing.status": "Състояние",
+  "billing.billingMarket": "Пазар за таксуване",
+  "billing.currency": "Валута",
+  "billing.price": "Цена",
+  "billing.perMonth": "/месец",
+  "billing.limits": "Ограничения на плана",
+  "billing.profile": "Профил за таксуване",
+  "billing.customerType": "Тип клиент",
+  "billing.business": "Бизнес",
+  "billing.consumer": "Потребител",
+  "billing.billingName": "Име за фактуриране",
+  "billing.businessName": "Име на бизнеса",
+  "billing.billingEmail": "Имейл за таксуване",
+  "billing.billingCountry": "Държава за таксуване",
+  "billing.vatId": "ДДС / данъчен номер",
+  "billing.derivedMarket": "Определен пазар за таксуване",
+  "billing.saveProfile": "Запази профила за таксуване",
+  "billing.profileSaved": "Профилът за таксуване е запазен",
+  "billing.selectCountryFirst": "Изберете държавата си за таксуване, за да видите местните цени.",
+  "billing.choosePlan": "Избери план",
+  "billing.recommended": "Препоръчан",
+  "billing.choose": "Избери",
+  "billing.currentLabel": "Текущ план",
+  "billing.upgrade": "Премини към по-висок план",
+  "billing.addons": "Добавки",
+  "billing.assistedSetup": "Настройване с помощ",
+  "billing.monthlyCare": "Месечна поддръжка",
+  "billing.oneTime": "еднократно",
+  "billing.checkoutNotConfigured":
+    "Плащането все още не е конфигурирано. Свържете се с поддръжката, за да активирате този план.",
+  "billing.contactSupport": "Свържи се с поддръжката",
+  "billing.checkoutPendingMsg":
+    "Плащането е започнато. Планът ви ще се активира, когато плащането бъде потвърдено.",
+  "billing.rulesNote":
+    "Пазарът ви за таксуване се определя от държавата на бизнеса или държавата за таксуване. Промяната на езика на сайта или публичния регион не променя приложимостта на цените.",
+  "billing.taxNote":
+    "Milo поддържа както бизнес, така и потребителски клиенти. Данъчните и фактурните данни може да се различават според държавата и да изискват преглед преди публичното стартиране.",
+  "billing.paddleNote":
+    "Настройването и проверката на реалните плащания са незавършени. Свържете се с поддръжката, преди да изберете платен план.",
+  "billing.noGuarantee":
+    "Не се гарантират класиране, трафик, приходи или цитирания от изкуствен интелект.",
+  "billing.marketReview":
+    "Промяната на държавата за таксуване може да повлияе на цените и изисква преглед.",
+  "billing.manual.title": "Ръчно активиране (само за собственика)",
+  "billing.manual.desc":
+    "Активирайте план ръчно за акаунти, платили по фактура, бета акаунти или акаунти с безплатно предоставен достъп. Не се показва на обикновените потребители.",
+  "billing.manual.beta": "Активирай като ръчна бета версия",
+  "billing.manual.comped": "Активирай като ръчно предоставен безплатен достъп",
+  "billing.manual.reset": "Върни към Безплатен преглед",
+  "billing.statusLabel.freePreview": "Безплатен преглед",
+  "billing.statusLabel.checkoutPending": "Изчакващо плащане",
+  "billing.statusLabel.active": "Активен",
+  "billing.statusLabel.pastDue": "Просрочен",
+  "billing.statusLabel.cancelled": "Отменен",
+  "billing.statusLabel.manualBeta": "Ръчна бета версия",
+  "billing.statusLabel.manualComped": "Ръчно предоставен безплатен достъп",
+  "launch.title": "Контролен списък за стартиране на бета версията",
+  "launch.subtitle":
+    "Проследявайте готовността за настройване, съдържание, публикуване, измерване, авторитет и таксуване за този проект.",
+  "launch.noProject": "Създайте проект, за да видите контролния списък за стартиране.",
+  "launch.betaNotesCta": "Бележки за бета версията",
+  "launch.readiness": "Готовност за стартиране",
+  "launch.essentialsDone": "основни елемента са завършени",
+  "launch.optionalDone": "Още {n} незадължителни елемента са завършени",
+  "launch.optional": "Незадължително",
+  "launch.statusTitle": "Състояние на настройките и връзките",
+  "launch.section.foundation": "Основа на проекта",
+  "launch.section.content": "Система за съдържание",
+  "launch.section.publishing": "Публикуване",
+  "launch.section.measurement": "Измерване",
+  "launch.section.authority": "Авторитет",
+  "launch.section.billing": "Таксуване и бета версия",
+  "launch.item.businessProfile": "Профилът на бизнеса е попълнен",
+  "launch.item.businessProfile.desc":
+    "Името и описанието на бизнеса са зададени, за да има Milo контекст.",
+  "launch.item.websiteUrl": "URL на сайта е добавен",
+  "launch.item.websiteUrl.desc": "Използва се за одити, аналитично съпоставяне и публикуване.",
+  "launch.item.marketLanguage": "Пазарът и езикът са избрани",
+  "launch.item.marketLanguage.desc": "Определят езика на съдържанието и местното позициониране.",
+  "launch.item.services": "Услуги или продукти са добавени",
+  "launch.item.services.desc": "Укажете на Milo какво действително продава този бизнес.",
+  "launch.item.brandIntelligence": "Анализът на марката е започнат",
+  "launch.item.brandIntelligence.desc":
+    "Гласът, твърденията и предложенията поддържат съдържанието съобразено с марката и безопасно.",
+  "launch.item.opportunity": "Генерирана е поне една възможност",
+  "launch.item.opportunity.desc": "Структурирани идеи за видимост, основани на бизнеса.",
+  "launch.item.contentAsset": "Генериран е поне един материал",
+  "launch.item.contentAsset.desc": "Задание или чернова, създадено от възможност.",
+  "launch.item.miloScore": "Извършено е поне едно оценяване с Milo Score",
+  "launch.item.miloScore.desc": "Оценете чернова преди публикуване.",
+  "launch.item.reviewed": "Чернова е прегледана или подобрена",
+  "launch.item.reviewed.desc": "Преместете чернова в преглед, одобрете я или я подобрете.",
+  "launch.item.connectorSelected": "Конекторът е избран",
+  "launch.item.connectorSelected.desc":
+    "Изберете Персонализиран, WordPress или Shopify в Настройване на проекта.",
+  "launch.item.connectorConfigured": "Конекторът е конфигуриран",
+  "launch.item.connectorConfigured.desc":
+    "Данните за достъп или крайните точки за публикуване са налични.",
+  "launch.item.connectorTested": "Връзката е тествана (WordPress/Shopify)",
+  "launch.item.connectorTested.desc":
+    "Изпълнете Тествай връзката, за да проверите достъпа. Успешният тест не потвърждава правата за публикуване и не гарантира последващо публикуване.",
+  "launch.item.draftSent": "Изпратена е поне една чернова",
+  "launch.item.draftSent.desc": "Изпратете одобрено съдържание към свързания сайт като чернова.",
+  "launch.item.publishedLive": "Поне една страница е публикувана на сайта",
+  "launch.item.publishedLive.desc": "Публикувайте прегледана чернова на сайта от Milo.",
+  "launch.item.analyticsSnippet": "Кодът за анализи е наличен",
+  "launch.item.analyticsSnippet.desc":
+    "Копирайте кода на Milo от Анализи и го добавете на сайта си.",
+  "launch.item.analyticsEvents": "Получени са аналитични събития",
+  "launch.item.analyticsEvents.desc":
+    "Посетете сайта си след инсталирането на кода, за да потвърдите проследяването.",
+  "launch.item.gscImport": "Добавено е импортиране в GSC Lite",
+  "launch.item.gscImport.desc":
+    "Импортирайте CSV от Search Console, за да свържете импресиите и кликванията.",
+  "launch.item.publishedByMilo": "Налични са данни за публикуваното чрез Milo",
+  "launch.item.publishedByMilo.desc":
+    "Публикувани страници от Milo, съпоставени с резултатите в Search Console.",
+  "launch.item.authorityGenerated": "Генерирани са възможности за авторитет",
+  "launch.item.authorityGenerated.desc":
+    "Безопасни задачи за авторитет, като указатели и партньорски връзки.",
+  "launch.item.authorityProgress": "Елемент за авторитет е планиран или публикуван",
+  "launch.item.authorityProgress.desc":
+    "Преместете задача за авторитет в планирана, с осъществен контакт или публикувана.",
+  "launch.item.billingProfile": "Профилът за таксуване е попълнен",
+  "launch.item.billingProfile.desc": "Държавата за таксуване определя ценовия ви пазар.",
+  "launch.item.planSelected": "Планът е избран (или Безплатен преглед)",
+  "launch.item.planSelected.desc":
+    "Безплатен преглед е активен по подразбиране — не е нужно плащане.",
+  "launch.item.betaStatus": "Състоянието за бета версия / безплатен достъп / изчакване е видимо",
+  "launch.item.betaStatus.desc":
+    "Състоянието за ръчна бета версия, безплатно предоставен достъп или изчакващо плащане се показва в Таксуване.",
+  "launch.item.paddlePending": "Проверката на реалните плащания предстои",
+  "launch.item.paddlePending.desc":
+    "Stripe е избраният заместител на Paddle. Настройването на тестовата среда и проверките на реалния жизнен цикъл на плащанията все още предстоят.",
+  "launch.conn.website": "Сайт",
+  "launch.conn.website.ok": "URL на сайта е зададен.",
+  "launch.conn.website.none": "Добавете URL на сайта си в Настройване на проекта.",
+  "launch.conn.brand": "Анализ на марката",
+  "launch.conn.brand.ok": "Контекстът на марката е започнат.",
+  "launch.conn.brand.none": "Все още не е започнато.",
+  "launch.conn.connector": "Конектор за публикуване",
+  "launch.conn.connector.none": "Няма избран конектор.",
+  "launch.conn.connector.partial": "Избран е, но конфигурацията е непълна.",
+  "launch.conn.connector.customOk": "Персонализираните крайни точки са конфигурирани.",
+  "launch.conn.connector.wpOk": "WordPress е свързан и тестван.",
+  "launch.conn.connector.wpUntested": "WordPress е конфигуриран — тествайте връзката.",
+  "launch.conn.connector.shopifyOk": "Shopify е свързан и тестван.",
+  "launch.conn.connector.shopifyUntested": "Shopify е конфигуриран — тествайте връзката.",
+  "launch.conn.analytics": "Анализи",
+  "launch.conn.analytics.ok": "Получени са събития.",
+  "launch.conn.analytics.pending": "Инсталирайте кода и посетете сайта си.",
+  "launch.conn.gsc": "GSC Lite",
+  "launch.conn.gsc.ok": "CSV е импортиран.",
+  "launch.conn.gsc.csvOnly":
+    "CSV, предоставен от собственика, е съхранен; той не установява състоянието на OAuth връзката.",
+  "launch.conn.gsc.synced":
+    "Запазеното импортиране декларира API източник; текущата връзка и произходът не са независимо проверени.",
+  "launch.conn.gsc.connectedNotSynced": "Свързано — стартирайте синхронизация.",
+  "launch.conn.gsc.reconnect": "Връзката трябва да бъде установена отново.",
+  "launch.conn.gsc.none": "Все още няма импортиране.",
+  "launch.conn.authority": "Авторитет",
+  "launch.conn.authority.ok": "Генерирани са възможности.",
+  "launch.conn.authority.none": "Все още няма генерирани възможности.",
+  "launch.conn.billing": "Таксуване",
+  "launch.conn.billing.ok": "Профилът за таксуване е зададен.",
+  "launch.conn.billing.pending": "Добавете държава за таксуване за правилни цени.",
+  "launch.qa.title": "Проверка на качеството от собственика",
+  "launch.qa.ownerOnly": "Само за собственика",
+  "launch.qa.projectId": "ID на проекта",
+  "launch.qa.plan": "План",
+  "launch.qa.subStatus": "Състояние на абонамента",
+  "launch.qa.connector": "Конектор",
+  "launch.qa.sent": "Изпратени чернови",
+  "launch.qa.live": "Публикувано на сайта",
+  "launch.qa.analyticsEvents": "Аналитични събития (30 дни)",
+  "launch.qa.gscImports": "Импортирания от GSC",
+  "launch.qa.gscOAuth": "GSC OAuth е конфигуриран",
+  "launch.qa.gscConnected": "Връзка с GSC",
+  "launch.qa.gscSite": "Избран сайт в GSC",
+  "launch.qa.gscSyncRows": "Редове от последната синхронизация с GSC",
+  "launch.qa.gscSyncDate": "Дата на последната синхронизация с GSC",
+  "launch.qa.authorityCount": "Елементи за авторитет",
+  "launch.qa.contentCount": "Материали със съдържание",
+  "launch.qa.aiCandidate": "Кандидатът за изкуствен интелект е конфигуриран",
+  "launch.qa.paddle": "Предишният Paddle е конфигуриран",
+  "launch.qa.yes": "Да",
+  "launch.qa.no": "Не",
+  "beta.title": "Бележки за бета версията",
+  "beta.subtitle":
+    "Текущи ограничения и какво да се потвърди преди по-широко стартиране на самообслужване.",
+  "beta.intro":
+    "Тези бележки проследяват оставащата работа по настройването и приемането. Демонстрацията с насоки трябва да използва проверени процеси; само завършването на контролния списък не установява готовност за платено стартиране на самообслужване.",
+  "beta.limitsTitle": "Текущи ограничения на бета версията",
+  "beta.reassure":
+    "Избирайте демонстрационни процеси въз основа на проверени доказателства. Поддържайте видими нетестваните интеграции и предпоставките за платено стартиране.",
+  "beta.demoSafeTitle": "Бележки за безопасна демонстрация",
+  "beta.backToChecklist": "Назад към контролния списък",
+  "beta.openDemoScript": "Отвори сценария за демонстрация",
+  "beta.limit.paddle":
+    "Реалните плащания не са готови за общо платено стартиране. Конфигурацията на тестовата среда на Stripe и проверките на реалния жизнен цикъл на плащанията все още предстоят.",
+  "beta.limit.wordpress":
+    "Конекторът за WordPress е изграден, но все още изисква реално тестване със съществуващ сайт.",
+  "beta.limit.shopify":
+    "Конекторът за Shopify е изграден, но все още изисква реално тестване със съществуващ магазин.",
+  "beta.limit.aiCandidate":
+    "Алтернативният модел с изкуствен интелект (кандидат за оценяване) изисква конфигурация на средата, преди да се изпълни.",
+  "beta.limit.legal":
+    "Правните страници са чернови за готовност на бета версията и трябва да се прегледат преди по-широко платено стартиране.",
+  "beta.limit.analytics":
+    "Анализите изискват кодът на Milo да е инсталиран на сайта на клиента, за да получават събития.",
+  "beta.limit.gsc":
+    "GSC Lite поддържа ръчно импортиране на CSV и незадължителна OAuth/API синхронизация, когато Google OAuth е конфигуриран. Ръчното импортиране остава достъпно като резервен вариант.",
+  "beta.limit.images":
+    "Публикуването може да включва прегледани препратки към изображения. Прехвърлянето на изображения, основните изображения и крайното оформление все още изискват проверки на реален сайт за всеки конектор.",
+  "beta.demo.rankings":
+    "Не обещавайте класиране, трафик или гарантирани цитирания от изкуствен интелект — Milo използва помощ от изкуствен интелект и човешки преглед.",
+  "beta.demo.payments":
+    "Обяснете, че Stripe е избраният доставчик на плащания и настройването и проверката на жизнения цикъл на плащанията са незавършени. Не представяйте плащанията като действащи.",
+  "beta.demo.connectors":
+    "Посочете, че конекторите за WordPress и Shopify изискват реално тестване на целия процес за всеки сайт.",
+  "beta.demo.data":
+    "Посочете, че доказателствата от анализите и GSC зависят от наличието на данни за демонстрационния проект.",
+};

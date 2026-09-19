@@ -80,6 +80,49 @@ afterEach(() => {
 });
 
 describe("native provider money admission", () => {
+  it("does not reserve or dispatch when a durable runner is already cancelled", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      generateBudgetedText({ ...context, signal: controller.signal }, "Task", 1000),
+    ).rejects.toThrow();
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+  it("rechecks durable authority after reservation and refuses revoked work before provider dispatch", async () => {
+    const beforeDispatch = vi.fn(async () => {
+      expect(mocks.rpc).toHaveBeenCalledWith("reserve_ai_expense", expect.any(Object));
+      expect(mocks.fetch).not.toHaveBeenCalled();
+      throw new Error("revoked");
+    });
+    await expect(
+      generateBudgetedText({ ...context, beforeDispatch }, "Task", 1000),
+    ).rejects.toThrow("revoked");
+    expect(beforeDispatch).toHaveBeenCalledOnce();
+    expect(mocks.fetch).not.toHaveBeenCalled();
+    expect(mocks.rpc.mock.calls.map(([name]) => name)).toEqual([
+      "reserve_ai_expense",
+      "reconcile_ai_expense",
+    ]);
+    expect(mocks.rpc.mock.calls[1][1]).toMatchObject({ p_actual: null, p_outcome: "uncertain" });
+  });
+  it("does not dispatch if cancellation arrives while the final authority check is awaiting", async () => {
+    const controller = new AbortController();
+    await expect(
+      generateBudgetedText(
+        {
+          ...context,
+          signal: controller.signal,
+          beforeDispatch: async () => {
+            controller.abort();
+          },
+        },
+        "Task",
+        1000,
+      ),
+    ).rejects.toThrow();
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
   it.each(["provider_failure", "invalid_result"])(
     "returning quota after %s retains the provider's unknown expense",
     async (kind) => {

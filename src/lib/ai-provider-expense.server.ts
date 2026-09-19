@@ -153,6 +153,10 @@ async function defaultCaps(userId: string): Promise<{
 export interface NativeExpenseContext {
   userId: string;
   operation: string;
+  /** Trusted durable runners may cancel or revalidate authority after monetary
+   * admission, immediately before dispatch. Neither field comes from clients. */
+  signal?: AbortSignal;
+  beforeDispatch?: () => Promise<void>;
   /** Only a trusted server runner may provide a preallocated attempt. Never
    * forward this from browser/MCP inputs. Reuse the identity after uncertainty
    * so the ledger refuses another provider call instead of granting a retry.
@@ -223,6 +227,7 @@ export async function generateBudgetedText(
   modelId = DEFAULT_MODEL_ID,
 ) {
   validateTextRequest(prompt, maxOutputTokens);
+  context.signal?.throwIfAborted();
   // An evaluation candidate needs its own verified price contract before it
   // can spend. Never apply OpenAI's reserve to an arbitrary OpenRouter model.
   if (modelId !== DEFAULT_MODEL_ID) throw new AiExpenseUnavailableError("unpriced_provider");
@@ -230,7 +235,16 @@ export async function generateBudgetedText(
   const result = await withReservedAiExpense(
     request(context, modelId, NATIVE_TEXT_RESERVE_MICROUSD, await defaultCaps(context.userId)),
     async (signal) => {
-      const result = await generateBoundedTextResult(prompt, maxOutputTokens, () => model, signal);
+      const combined = context.signal ? AbortSignal.any([signal, context.signal]) : signal;
+      combined.throwIfAborted();
+      await context.beforeDispatch?.();
+      combined.throwIfAborted();
+      const result = await generateBoundedTextResult(
+        prompt,
+        maxOutputTokens,
+        () => model,
+        combined,
+      );
       return {
         value: result.text,
         evidence: evidence(result.usage, result.providerRequestId, "text"),

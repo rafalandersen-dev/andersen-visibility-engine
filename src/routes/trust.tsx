@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { LegalPage, LegalSection } from "@/components/LegalPage";
 import { LEGAL_IDENTITY } from "@/lib/legal";
+import { CONTENT_LANGUAGE_OPTIONS } from "@/lib/content-languages";
+import { uiLanguageListEnglish } from "@/i18n/ui-languages";
 
 export const Route = createFileRoute("/trust")({
   head: () => ({
@@ -80,8 +82,10 @@ function TrustPage() {
 
       <LegalSection heading="Multilingual by design">
         <p>
-          Milo works natively in English, Polish, Swedish and Danish — interface and generated
-          content — because European small businesses do not operate in one language.
+          Milo&apos;s interface is currently available in {uiLanguageListEnglish()}. Content can be
+          generated in all {CONTENT_LANGUAGE_OPTIONS.length} official EU languages, because European
+          small businesses do not operate in one language. Quality review for each language
+          continues during the beta, so review generated text before publishing.
         </p>
       </LegalSection>
 

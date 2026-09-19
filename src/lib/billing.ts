@@ -170,10 +170,10 @@ export const PLAN_META: Record<
     tagline: "Run your clients' growth on Milo — white-label included.",
     features: [
       "Up to 15 client projects",
-      "White-label monthly proof reports",
+      "White-label monthly reports (on demand)",
       "Highest monthly limits",
       "AI image generation",
-      "All connectors + AI Evaluation",
+      "Connectors + AI Evaluation (where configured)",
       "Priority support",
     ],
   },
@@ -346,6 +346,38 @@ export function deriveBillingMarket(country: string | undefined): BillingMarket 
   return "Other";
 }
 
+/** Team seats per business account (owner decision 2026-09-14, D01 input). Working seats
+ * are the owner plus every distinct person holding an editor or reviewer role or a pending
+ * working invitation anywhere in the account; viewer seats are distinct people who only
+ * view. Extra working seats are list prices for a future Stripe quantity item and are not
+ * sold yet, so `purchasedWorkingSeats` stays 0 until billing records them. Free Preview
+ * keeps the owner alone with one viewer for evaluation (owner confirmed 2026-09-14). */
+export interface TeamSeatAllowance {
+  workingSeats: number;
+  viewerSeats: number;
+  /** EUR list price per extra working seat per month; null when not offered. */
+  extraWorkingSeatEur: number | null;
+}
+export const PLAN_SEATS: Record<PlanId, TeamSeatAllowance> = {
+  freePreview: { workingSeats: 1, viewerSeats: 1, extraWorkingSeatEur: null },
+  starter: { workingSeats: 2, viewerSeats: 2, extraWorkingSeatEur: 15 },
+  growth: { workingSeats: 3, viewerSeats: 5, extraWorkingSeatEur: 15 },
+  pro: { workingSeats: 5, viewerSeats: 10, extraWorkingSeatEur: 12 },
+  agency: { workingSeats: 10, viewerSeats: 50, extraWorkingSeatEur: 10 },
+};
+export const WORKING_TEAM_ROLES = ["editor", "reviewer"] as const;
+export function teamSeatAllowance(
+  planId: PlanId,
+  purchasedWorkingSeats = 0,
+): { workingSeats: number; viewerSeats: number } {
+  const plan = PLAN_SEATS[planId] ?? PLAN_SEATS.freePreview;
+  const extra =
+    Number.isInteger(purchasedWorkingSeats) && purchasedWorkingSeats > 0
+      ? purchasedWorkingSeats
+      : 0;
+  return { workingSeats: plan.workingSeats + extra, viewerSeats: plan.viewerSeats };
+}
+
 export function planPrice(market: BillingMarket, planId: PlanId): number {
   return (PLAN_PRICING[market] ?? PLAN_PRICING.Other)[planId];
 }
@@ -373,9 +405,8 @@ export interface AgencyBranding {
   logoUrl?: string;
 }
 
-/** Agency-plan gate: active paid/manual subscription on the agency tier.
- * `subscription` is client-writable state, so every consumer (client UI, the
- * report email fn, the DB project-cap trigger) applies this SAME rule. */
+/** Client presentation gate for the mirrored active paid/manual Agency plan.
+ * Server operations must resolve the authoritative entitlement independently. */
 export function isAgencyPlan(sub?: SubscriptionPlan): boolean {
   return isActivePaid(sub) && sub?.planId === "agency";
 }

@@ -1,0 +1,55 @@
+/** Lithuanian authoring only; not registered in the runtime or language picker. */
+export const ltCoverage: Readonly<Record<string, string>> = {
+  "coverage.hasRecord": "Peržiūrėtas įrašas yra",
+  "coverage.noRecord": "Pridėti trūkstamą įrašą",
+  "coverage.title": "Vietinė ir tarptautinė aprėptis",
+  "coverage.help":
+    "Peržiūrėkite įmonės tapatybę, paslaugų vietas ir tarptautinius puslapius pagal išsaugotus projekto įrodymus. Tai neatlieka nuskaitymo ir neprijungia Google verslo profilio.",
+  "coverage.setup": "Redaguoti projekto tikslus",
+  "coverage.plan": "Atidaryti turinio planą",
+  "coverage.history": "Šaltiniai, konfliktai ir versijų istorija",
+  "coverage.proof": "Publikavimo įrodymai ir momentinės kopijos",
+  "coverage.targets": "Išsaugotos projekto vietos",
+  "coverage.missing": "Trūkstami įrodymai",
+  "coverage.failed":
+    "Nepavyko įkelti ar išsaugoti. Prieš tęsdami atnaujinkite įrašus; patikrinkite, ar išsaugoti duomenys buvo išlaikyti.",
+  "coverage.empty": "Struktūruotų aprėpties įrašų dar nėra. Žemiau pridėkite vietą arba rinką.",
+  "coverage.reviewed": "Savininkas peržiūrėjo · šaltinis nurodė",
+  "coverage.unavailable":
+    "Nenaudojama: reikia atkreipti dėmesį į peržiūrą, galiojimą ar šaltinio būseną",
+  "coverage.conflict": "Prieštaraujantys įrašai · išspręskite projekto žiniose",
+  "coverage.invalid": "Nepalaikomas įrašas · peržiūrėkite projekto žiniose",
+  "coverage.unverified":
+    "URL ir įmonės informacija yra nurodyti teiginiai. Įrašai kataloguose, atsiliepimų autentiškumas, NAP nuoseklumas, puslapių buvimas, hreflang ir pozicijos nepatikrinti.",
+  "coverage.edit": "Peržiūrėti šią išsaugotą versiją",
+  "coverage.add": "Pridėti aprėpties įrodymų",
+  "coverage.kind": "Aprėpties tipas",
+  "coverage.local": "Vietinė vieta / paslauga",
+  "coverage.global": "Tarptautinė rinka / kalba",
+  "coverage.urlHelp":
+    "Neprivalomi URL: tik viešas HTTPS, be užklausos eilučių ar fragmentų. Nežinomus laukus palikite tuščius. Visas įrašas turi būti trumpesnis nei 2 000 simbolių.",
+  "coverage.source": "Įrodymų šaltinis",
+  "coverage.owner": "Savininko pateiktas teiginys",
+  "coverage.locator": "Šaltinio vieta / stebėjimo data (privaloma)",
+  "coverage.reviewHelp":
+    "Išsaugant savininko teiginį patvirtinama jūsų peržiūra. Įrašai iš esamų šaltinių pradedami kaip pasiūlymai: kad juos priimtumėte, peržiūrėkite išsaugotą versiją. Šaltinių versijos, galiojimo pabaiga ir atšaukimas lieka lemiami.",
+  "coverage.propose": "Išsaugoti šaltinio pasiūlymą",
+  "coverage.save": "Išsaugoti peržiūrėtus įrodymus",
+  "coverage.publications": "Išsaugotas publikacijų susiejimas",
+  "coverage.publicationHelp":
+    "Tik tikslūs puslapio URL atitikmenys iš rodomo įrodymų puslapio. Jungties patvirtinimas nepatikrina paskelbtos aprėpties, turinio kalbos ar vietinio našumo. Nekintamą momentinę kopiją ir stebėjimus žr. ataskaitose.",
+  "coverage.matches": "Peržiūrėti tikslai su šiuo tiksliu URL",
+  "coverage.noMatch": "Tikslaus atitikmens nėra",
+  "coverage.field.target": "Vieta / rinka (privaloma)",
+  "coverage.field.name": "Įmonės pavadinimas",
+  "coverage.field.address": "Viešas įmonės adresas / aptarnavimo teritorija",
+  "coverage.field.phone": "Viešas įmonės telefonas",
+  "coverage.field.service": "Paslauga",
+  "coverage.field.language": "Tikslinė turinio kalba",
+  "coverage.field.pageUrl": "Vietos / paslaugos / rinkos puslapio URL",
+  "coverage.field.alternateUrl": "Atitinkamas alternatyvios kalbos URL",
+  "coverage.field.citationUrl": "Katalogo / citatos įrodymo URL",
+  "coverage.field.reviewUrl": "Atsiliepimo įrodymo URL",
+  "coverage.field.gbpUrl": "Google verslo profilio įrodymo URL",
+  "coverage.field.notes": "Įrodymų pastabos / spragos / kitas veiksmas",
+};
